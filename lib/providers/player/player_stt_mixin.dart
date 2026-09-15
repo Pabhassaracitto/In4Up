@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
+import 'package:in4up_stt/utils/whisper_language.dart';
 
 import 'package:in4up_stt/diarization/diarization_service.dart';
 import 'package:in4up_stt/diarization/speaker_sidecar.dart';
@@ -47,6 +48,7 @@ mixin PlayerSttMixin on ChangeNotifier {
     _lrcJustGenerated = false;
     _shouldOpenAiPanel = false;
     _lastSttError = null;
+    _lastSttScriptWarning = null;
     _isGeneratingLrc = false;
     _lastTranscribeOutput = null;
     _lastSttOutput = null;
@@ -147,6 +149,7 @@ mixin PlayerSttMixin on ChangeNotifier {
 
     _isGeneratingLrc = true;
     _lastSttError = null;
+    _lastSttScriptWarning = null;
 
     try {
       await pause();
@@ -159,11 +162,19 @@ mixin PlayerSttMixin on ChangeNotifier {
     notifyListeners();
 
     try {
-      final modelLevel = level ?? WhisperModelLevel.tiny;
+      // ★ FIX (STT-LATIN-001): AUTO trước đây CỨNG về tiny. tiny không đủ
+      // sức viết Devanagari/Hán/Hangul → Hindi ra chữ Latin. Với AUTO giờ
+      // chọn model tốt nhất ĐANG CÓ theo script của ngôn ngữ (xem
+      // SttModelManager.getBestModelLevelForLanguage). Chọn chip tay thì giữ
+      // nguyên model đó (honorModelLevel) — engine không tự hạ về tiny nữa.
+      final modelLevel = level ??
+          _sttService.bestWhisperLevel(language: language) ??
+          WhisperModelLevel.tiny;
 
       final output = await _vadIntegration.transcribeWithVad(
         audioPath: path,
         modelLevel: modelLevel,
+        honorModelLevel: level != null,
         language: language,
         skipSilence: skipSilence,
         onProgress: (prog) {
@@ -200,6 +211,11 @@ mixin PlayerSttMixin on ChangeNotifier {
       _lastSttOutput = output;
       _lastSttAudioPath = path;
       _lastSttError = output.success ? null : output.errorMessage;
+      if (output.success) {
+        _trackScriptWarning(language: language, result: output.result);
+      } else {
+        _lastSttScriptWarning = null;
+      }
 
       if (output.success && understandProvider != null) {
         final lrcLines = output.result.segments
@@ -290,6 +306,7 @@ mixin PlayerSttMixin on ChangeNotifier {
 
     _isGeneratingLrc = true;
     _lastSttError = null;
+    _lastSttScriptWarning = null;
 
     // FIX OOM v3: dung player truoc khi transcribe de giai phong ExoPlayer (BufferPoolAccessor) + FFmpeg native RAM
     // v7: them delay 1s sau pause de ExoPlayer giai phong buffer pool truoc khi Whisper chiem RAM
@@ -344,6 +361,8 @@ mixin PlayerSttMixin on ChangeNotifier {
             config: SttConfig.deepLearning.copyWith(
               preferredEngine: SttEngineType.whisper,
               whisperModel: level,
+              // chip model trong UI = lựa chọn TAY → engine phải giữ model đó.
+              honorWhisperModel: true,
               language: language,
               generateLrc: true,
               grouping: grouping,
@@ -360,6 +379,11 @@ mixin PlayerSttMixin on ChangeNotifier {
         _lastSttOutput = output;
         _lastSttAudioPath = path;
         _lastSttError = output.success ? null : output.errorMessage;
+        if (output.success) {
+          _trackScriptWarning(language: language, result: output.result);
+        } else {
+          _lastSttScriptWarning = null;
+        }
 
         if (output.lrcFilePath != null) {
           _lastGeneratedLrcPath = output.lrcFilePath;
@@ -534,6 +558,36 @@ mixin PlayerSttMixin on ChangeNotifier {
   String? _lastSttError;
   String? get lastSttError => _lastSttError;
 
+  /// Mã ngôn ngữ Whisper mà kết quả tạo lời KHÔNG ra đúng bảng chữ cái
+  /// (vd chọn Hindi nhưng toàn bộ lời là chữ Latin). null = bình thường.
+  /// UI dùng để gợi ý "chọn model BASE/SMALL rồi tạo lại" — dữ liệu thô,
+  /// không chứa chuỗi hiển thị (rule #5: chrome locale-hóa ở tầng UI).
+  String? _lastSttScriptWarning;
+  String? get lastSttScriptWarning => _lastSttScriptWarning;
+
+  /// Phát hiện "Latin-hóa": ngôn ngữ yêu cầu script ngoài Latin nhưng văn bản
+  /// trả về chỉ có chữ Latin → model quá nhỏ / audio không đúng ngôn ngữ.
+  void _trackScriptWarning({
+    required String language,
+    required SttResult result,
+  }) {
+    _lastSttScriptWarning = null;
+    if (result.segments.isEmpty) return;
+    if (!WhisperLanguage.latinizedFor(
+      language: language,
+      text: result.fullText,
+    )) {
+      return;
+    }
+    final code = WhisperLanguage.code(language);
+    _lastSttScriptWarning = code;
+    debugPrint(
+      '⚠️ [STT] Lời ra chữ Latin trong khi ngôn ngữ = "$code" '
+      '(script mong đợi: ${WhisperLanguage.scriptFor(code)}). '
+      'Gợi ý: chọn model base/small rồi tạo lại.',
+    );
+  }
+
   bool _isGeneratingLrc = false;
   bool get isGeneratingLrc => _isGeneratingLrc;
 
@@ -543,8 +597,9 @@ mixin PlayerSttMixin on ChangeNotifier {
   String? get lastGeneratedLrcPath => _lastGeneratedLrcPath;
 
   void clearSttError() {
-    if (_lastSttError != null) {
+    if (_lastSttError != null || _lastSttScriptWarning != null) {
       _lastSttError = null;
+      _lastSttScriptWarning = null;
       notifyListeners();
     }
   }

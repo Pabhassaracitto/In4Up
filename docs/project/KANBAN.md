@@ -70,6 +70,8 @@
 | VID-001 | Video Player local: xem video + phụ đề + học từ (PLAN-025) | 🔄 doing | bàn giao + PLAN + code WP0-WP3 (models + library + player + sub-tab) |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 17 test (T6/T7); _viBase ĐẦY ĐỦ 150 entries (khôi phục đ U+0111); căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột + mảnh meaning 1 từ gộp đúng |
 | STT-LRC-LANG-01 | Tạo lời (LRC) bằng Whisper đa ngữ: chip chọn ngôn ngữ + 'auto' tự nhận diện (hết hardcode 'en') | ✅ done + CI xanh (chờ nghiệm thu máy) | run 33977299465; chip 14 ngôn ngữ (mặc định auto) + 3 call sites hết hardcode 'en' + VAD/CLI/FFI/plugin đều hỗ trợ 'auto' | _LrcModelSelector + 14 ngôn ngữ (mặc định auto); 3 call sites hardcode 'en' → language param; VAD pipeline + transcribeAuto + transcribeFile đều nhận language |
+| STT-LATIN-001 | Tạo lời Whisper: Hindi (và script ngoài Latin) ra CHỮ LATIN thay vì Devanagari — chuẩn hóa mã ngôn ngữ + model theo script + cảnh báo | 🔄 doing (chờ CI + nghiệm thu máy) | WhisperLanguage (99 mã whisper.cpp v1.5.4, verify bằng source) + bỏ map 'auto'→'en' ở auto-TOC + AUTO không còn cứng tiny + chip model tay được tôn trọng (honorWhisperModel) + 20 test |
+| IMG-WEB-001 | Wordlist: thêm hình cho từ — ƯU TIÊN tìm ảnh TRÊN MẠNG qua API key (Pexels+Unsplash cùng bật, fallback Openverse/Commons), gallery xuống thứ hai; camera+ML Kit để sau | 🔄 doing (chờ CI + owner dán key) | Sheet web-first + saveFromUrl/saveFromBytes + 4 parser có test + dialog API key (prefs) + --dart-define trong build.yml + nối vào luồng thêm từ nhanh (PDF tap sheet, Wordlist snackbar) |
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
@@ -2110,3 +2112,158 @@
 - **Lịch sử:**
   - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | AnimatedSize
     gập đáy về 0 trong Focus mode; chờ CI + nghiệm thu
+
+### STT-LATIN-001 — Tạo lời từ file mp3 tiếng Hindi: ra chữ Latin dù đã chọn đúng ngôn ngữ
+- **Trạng thái:** 🔄 doing (chờ CI + nghiệm thu máy)
+- **Nguồn:** owner (2026-09-14): "Sao sound to text tạo lời từ file mp3 tiếng
+  Hindi và đã chọn đúng ngôn ngữ này thì nó ra chữ latin thay vì chữ hindi?"
+- **Bốn nguyên nhân trong code (không phải model "dịch" sang Latin):**
+  1. **`SoundAutoTocService.transcribe` map `'auto' → 'en'`** với chú thích
+     "in4up_stt chưa hỗ trợ auto-detect". SAI: `whisper.h` ghi rõ
+     `language` = nullptr/""/"auto" là auto-detect, và plugin
+     whisper_flutter_new cho phép `"auto"` (main.cpp chỉ báo lỗi khi
+     `whisper_lang_id(x) == -1` VÀ x != "auto"). Kết quả: mọi bài không tiếng
+     Anh bị ép decode theo English → **chữ Latin**. Dialog auto-TOC còn không
+     có chip Hindi (chỉ auto/vi/en) nên "Tự động" = English thật, không phải
+     auto-detect.
+  2. **Mã ngôn ngữ truyền thẳng, không chuẩn hóa.** `SttConfig.language` là
+     BCP-47 ('en-US', 'hi-IN') — đường mobile plugin + isolate KHÔNG cắt
+     region (chỉ desktop FFI/CLI có `split('-')`). `whisper_lang_id('en-US')`
+     = -1 → plugin trả `"error: unknown language = en-US"` và 'auto'/'hi' thì
+     OK → hành vi lệch giữa các nền tảng. Tương tự chip **'pi' (Pali)** trong
+     `_LrcModelSelector` — Whisper KHÔNG có Pali (99 mã, xem
+     `whisper.cpp` `g_lang`) → bấm Pali là job chết.
+  3. **AUTO cứng về tiny**: `generateLrcWithVadPipeline` dùng
+     `level ?? WhisperModelLevel.tiny`, `transcribeAuto` ưu tiên
+     tiny→base→… → bài hát Hindi chạy bằng tiny, là model hay "Latin-hóa"
+     (không đủ sức decode Devanagari) — chọn ngôn ngữ đúng vẫn ra Latin.
+  4. **User chọn model tay vẫn bị hạ về tiny**: `transcribeMobileChunked`
+     ép tiny cho MỌI file >60s bất kể chip BASE/SMALL người dùng bấm →
+     vòng lặp "chọn SMALL mà vẫn tiny" không lối thoát.
+- **Fix:**
+  - MỚI `packages/in4up_stt/lib/utils/whisper_language.dart`:
+    `WhisperLanguage.code/resolve` — whitelist ĐÚNG 99+1 mã `g_lang`
+    (verify bằng nguồn whisper.cpp v1.5.4, có test khóa số lượng), bỏ region
+    ('hi-IN'→'hi', 'zh_TW'→'zh'), alias ('fil'→'tl','iw'→'he','in'→'id',
+    ISO-639-2/T 3 ký tự), mã không hỗ trợ (Pali 'pi', 'xx', 'ky') → **'auto'**
+    + cờ `unsupported` (không còn giết job); `scriptFor(code)`;
+    `latinizedFor(...)` phát hiện "kết quả toàn chữ Latin trong khi ngôn ngữ
+    cần script khác"; `prefersStrongModel(code)`.
+  - Chuẩn hóa ở MỌI biên gọi Whisper: `transcribeMobile`,
+    `transcribeMobileChunked`, `_buildAndRunWhisper` (FFI), CLI `-l`,
+    `WhisperSttEngine.transcribeFile` (default 'en' → 'auto'),
+    cache key (`_buildCacheKey` dùng code đã chuẩn hóa + phân biệt
+    honor/explicit model).
+  - `sound_auto_toc_service.dart`: **bỏ** `'auto' → 'en'` (để auto-detect
+    thật), language đi qua `WhisperLanguage.code`, `honorWhisperModel: true`
+    khi caller truyền level.
+  - `SttModelManager.getBestModelLevelForLanguage(language)`: script ngoài
+    Latin → ưu tiên **base→small→medium→large**→tiny; ngôn ngữ Latin giữ
+    tiny-first (đúng intent fix OOM Android). Facade thêm
+    `bestWhisperLevel(language:)`; `transcribeAuto`/`transcribeDeep` default
+    'auto'; `SttConfig.language` default 'en-US' → 'auto'.
+  - `honorWhisperModel` (SttConfig) + `allowModelDowngrade` (mobile chunked)
+    + `honorModelLevel` (VAD pipeline/integration): **chip model người dùng
+    bấm là lệnh**, engine không tự hạ tiny nữa. AUTO vẫn được hạ tiny ở file
+    >60s — chủ đích, để không tái hiện OOM Scudo (mô hình tốn ~388MB RAM);
+    UI nói rõ cách lên model.
+  - `player_stt_mixin`: `_trackScriptWarning()` + `lastSttScriptWarning`
+    (chỉ dữ liệu, không chuỗi UI); `listen_mode_screen` hiện cảnh báo hổ phách
+    cạnh khu vực tạo lời: "Whisper trả về chữ Latin… hãy chọn BASE/SMALL rồi
+    Tạo lại" (đã dịch en/hi/zh/zh_TW/si qua `priorityUiOverrides`).
+  - VAD pipeline/integration: default `'vi'` → `'auto'` (bẫy cho caller quên
+    truyền language).
+- **i18n (rule #5):** chuỗi cảnh báo + các nhãn mới dùng `context.uiText` +
+  `priorityUiOverrides` (đủ en/hi/zh/zh_TW/si) — không ARB mới nên không đụng
+  parity 21 locale; `tool/legacy_ui_english_overrides.json` được cập nhật song
+  song. KHÔNG chạy `generate_legacy_ui_fallbacks.py` (đang đỏ sẵn — card I18N-001).
+- **Test:** `test/whisper_language_test.dart` — 20 test: 99 mã + số lượng,
+  region/alias/'auto', Pali→auto, script map, latinizedFor (Devanagari vs
+  roman hóa, văn bản ngắn không đoán, trích dẫn Latin lẫn Devanagari không báo
+  oan), prefersStrongModel, SttConfig default + copyWith honor flag.
+- **AT nghiệm thu máy (owner):** (1) mp3 Hindi + chip "Tiếng Hindi" + model
+  TINY → vẫn có thể Latin NHƯNG hiện cảnh báo hướng dẫn; (2) cùng file + chip
+  SMALL → lời ra **Devanagari**; (3) chip 'Pali' → không còn lỗi
+  "unknown language", tự nhận diện; (4) Windows/desktop: 'en-US'/'hi-IN' không
+  còn fail; (5) "Tự tạo mục lục" với 'Tự động' trên audio Hindi → ra chữ
+  Devanagari chứ không phải English.
+- **Lịch sử:**
+  - 2026-09-14 | created→doing | agent arena/01a0a205-in4up | 4 root cause
+    trên + WhisperLanguage + script guard + model theo script; chờ CI +
+    nghiệm thu máy (quan trọng nhất: chip SMALL trên file dài có còn bị hạ
+    tiny không)
+
+### IMG-WEB-001 — Wordlist: ưu tiên tìm hình TRÊN MẠNG (qua API key) khi thêm hình cho từ
+- **Trạng thái:** 🔄 doing + 🚫 **chờ owner**: chọn provider + dán API key
+  (app đã có chỗ nhập; repo không chứa key)
+- **Nguồn:** owner (2026-09-14): "Worklist đã có thể thêm hình, tuy nhiên
+  thường nên ưu tiên chọn hình trên mạng vì hình ở máy ít khi có… Ưu tiên lấy
+  từ mạng, sau này mới kết hợp thêm chụp hình/xóa phông để thêm hình từ vựng
+  (ML Kit)" + "lưu ý là tìm kiếm ảnh phải có key api nhé".
+- **Hiện trạng trước (IMG-001):** chạm ô hình = mở thẳng gallery → người dùng
+  bỏ qua bước hình; `saveFromUrl` chỉ được ghi trong bàn giao, **code chưa có**;
+  tài liệu nói "có thể thêm Unsplash/Pixabay" nhưng chưa có provider nào.
+- **Fix:**
+  - `vocab_image_picker_sheet.dart` (MỚI): sheet 2 nguồn — **web (mặc định, tự
+    tìm ngay khi mở, query = từ + nghĩa)** và "Trong máy"; lưới kết quả có
+    thumbnail + title + credit; chạm ảnh = tải về + lưu storage + gán;
+    "Bỏ ảnh hiện tại"; enum `VocabImageSourceKind {web, device}` chừa chỗ
+    `camera` cho ML Kit.
+  - `vocab_image_web_service.dart` (MỚI): Pexels/Unsplash/Openverse/Wikimedia
+    Commons; provider đã chọn gọi trước, các nguồn dùng được còn lại là
+    fallback (mạng lỗi/429/0 kết quả); 4 parser tĩnh thuần (test không cần
+    mạng); `download()` chặn HTML-giả-làm-ảnh (magic bytes) + trần 8MB;
+    User-Agent cho MediaWiki/Openverse.
+  - `vocab_image_api_config.dart` (MỚI): **API key là điều kiện** —
+    `VocabImageProvider.needsKey` (Pexels/Unsplash) → chưa key là BỎ QUA
+    nguồn đó + `missingKeyProvider` để UI nhắc "Thêm API key" (dialog chọn
+    provider + dán key, lưu SharedPreferences theo từng provider).
+    Build-time: `--dart-define=VOCAB_IMAGE_PROVIDER=pexels
+    --dart-define=VOCAB_IMAGE_API_KEY=…`; key build-time chỉ dùng cho đúng
+    provider đã khai (không lọt sang provider khác). **Không commit key.**
+  - `VocabImageService`: thêm `saveFromBytes`, `saveFromUrl(url, {client})`
+    (dùng lại dedup MD5 + relative path cũ) → ảnh web vẫn sống offline.
+  - `VocabImagePicker`: tap → sheet (thay vì gallery thẳng), nhận
+    `word`/`meaning` mồi từ khóa, hỗ trợ `imageUrl` là URL http (Image.network)
+    cho dữ liệu cũ; 3 call site (word_list 2 chỗ + word_actions_sheet) truyền từ.
+- **Test:** `test/vocab_image_search_test.dart` — shape thật của Openverse
+  (`results`/`result`, thumbnail tương đối), MediaWiki (`pages` là MAP, gỡ HTML
+  `extmetadata`), Pexels (`src.large2x/medium`, bỏ photo thiếu src), Unsplash
+  (`urls.regular/small`, `links.html`), `buildQuery`, `looksLikeImage`,
+  `searchOrder`/`keyFor`/`selectedProviderUsable`/`resolveDefaultProvider`.
+- **Việc còn lại của owner:** chọn provider (Pexels cần key, Unsplash cần
+  Access Key, Openverse token miễn phí khuyến nghị, Commons không cần key) rồi
+  dán key trong sheet (hoặc set dart-define trong `build.yml`) → khi đó tab
+  web tìm đúng nguồn ưu tiên thay vì fallback.
+- **Bước kế tiếp (đề xuất, chưa làm):** `camera` +
+  `google_mlkit_subject_segmentation` (xóa phông) + `google_mlkit_object_detection`
+  (gán nhãn đồ vật thật → từ vựng).
+- **Quyết định của owner (trả lời 3 câu hỏi, 2026-09-15):**
+  1. Nguồn ưu tiên = **Pexels + Unsplash cùng bật** → `searchOrder()` gọi
+     provider đã chọn trước rồi tới provider CÓ KEY còn lại, cuối cùng mới
+     Openverse → Wikimedia Commons (2 nguồn không cần key, để app không chết
+     khi chưa dán key). Mặc định provider = Pexels.
+  2. Chỗ đặt key = **CẢ HAI**: (a) dán trong app (sheet → nút "API key",
+     lưu SharedPreferences theo từng provider), (b) build-time
+     `--dart-define=VOCAB_IMAGE_PROVIDER=${{ vars.VOCAB_IMAGE_PROVIDER }}`
+     `--dart-define=VOCAB_IMAGE_API_KEY=${{ secrets.VOCAB_IMAGE_API_KEY }}`
+     — ĐÃ nối vào `build.yml` cho cả 3 job (APK/Windows/iOS). Chuỗi rỗng →
+     app tự rơi về nguồn mở, build không hỏng. Key build-time chỉ dùng cho
+     đúng provider đã khai. KHÔNG commit key vào repo.
+  3. **"Thêm từ" nhanh cũng phải gán được hình** → `vocab_image_quick_add.dart`:
+     `VocabImageQuickAddButton` (nút "Thêm hình/Đổi hình" ở trạng thái ĐÃ LƯU
+     của sheet tap từ trong PDF) + action "Thêm hình" trong snackbar của
+     Wordlist khi thêm từ. `attachVocabImage(...)` lấy provider TRƯỚC khi mở
+     sheet để phần ghi không đụng context nữa.
+     → CÓ Ý KHÔNG gắn action ở `selection_save_sheet` / `word_actions_sheet` /
+     `floating_text_actions`: 3 chỗ đó pop sheet / gỡ overlay trước khi hiện
+     snackbar ⇒ context đã chết, mở bottom sheet từ đó sẽ crash. Người dùng
+     vẫn gán được hình ngay trong sheet tap PDF (state "đã lưu").
+- **Chờ:** owner dán key (Pexels/Unsplash) hoặc set secret
+  `VOCAB_IMAGE_API_KEY` + var `VOCAB_IMAGE_PROVIDER` trong repo Settings →
+  Secrets and variables → Actions; CI analyze/test; nghiệm thu máy.
+- **Lịch sử:**
+  - 2026-09-14 | created→doing | agent arena/01a0a205-in4up | sheet web-first +
+    4 provider có key + saveFromUrl + tests; 🚫 chờ owner chọn provider + key
+  - 2026-09-15 | doing | agent arena/01a0a205-in4up | owner chốt Pexels+Unsplash,
+    key ở app + dart-define build.yml, nối thêm hình vào luồng thêm từ nhanh

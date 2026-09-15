@@ -500,6 +500,9 @@ class _WordActionsContentState extends State<_WordActionsContent> {
             Center(
               child: VocabImagePicker(
                 wordId: existingWord.id,
+                // Từ khóa mặc định cho tab "Trên mạng" (IMG-WEB-001).
+                word: existingWord.word,
+                meaning: existingWord.meaning,
                 currentImageUrl: existingWord.imageUrl,
                 onImageChanged: (path) {},
                 size: 140,

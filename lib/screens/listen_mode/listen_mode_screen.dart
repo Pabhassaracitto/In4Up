@@ -2876,6 +2876,48 @@ class GenerateLrcButton extends StatelessWidget {
                   duration: const Duration(milliseconds: 300),
                 ),
                 const SizedBox(height: 8),
+                // ★ STT-LATIN-001: Whisper tạo lời thành công nhưng ra CHỮ
+                // LATIN trong khi người dùng chọn ngôn ngữ có bảng chữ khác
+                // (Hindi/Trung/Hàn/Thái…). Model tiny/base thường không viết
+                // nổi Devanagari → nói rõ để user chọn model lớn hơn, thay vì
+                // để họ tưởng app "dịch" sang chữ Latin.
+                Builder(builder: (context) {
+                  final warnLang = provider.lastSttScriptWarning;
+                  if (warnLang == null) return const SizedBox.shrink();
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: Colors.orange.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.warning_amber_rounded,
+                            size: 16, color: Colors.orange),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            context.uiText(
+                                'Whisper trả về chữ Latin thay vì chữ của ngôn ngữ đã chọn ($warnLang) — model quá nhỏ thường không viết nổi bảng chữ này. Hãy chọn model BASE hoặc SMALL rồi bấm Tạo lại.'),
+                            style: const TextStyle(
+                                color: Colors.orangeAccent, fontSize: 11.5),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => provider.clearSttError(),
+                          child: const Icon(Icons.close,
+                              size: 14, color: Colors.orange),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
                 _LrcModelSelector(
                   isProcessing: isActive || provider.isGeneratingLrc,
                   // REOPEN FIX: đã có LRC lưu sẵn → hỏi Dùng bản đã lưu /

@@ -121,9 +121,15 @@ class VadWhisperPipeline {
   Stream<VadPipelineProgress> run({
     required String audioPath,
     WhisperModelLevel modelLevel = WhisperModelLevel.tiny,
-    String language = 'vi',
+    // 'auto' = Whisper tự nhận diện (đa ngữ). Default cũ 'vi' là cái bẫy:
+    // caller nào quên truyền language sẽ ép audio Hindi/Trung decode theo
+    // tiếng Việt → ra chữ Latin.
+    String language = 'auto',
     bool skipSilence = true,
     bool deleteChunkImmediately = true, // Rule: mỗi chunk xong phải delete ngay
+    // true khi modelLevel do người dùng chọn tay (chip BASE/SMALL…): engine
+    // phải GIỮ model đó — tiny là nguyên nhân chính "Latin-hóa" Devanagari.
+    bool honorModelLevel = false,
   }) async* {
     _cancelRequested = false;
     final totalSw = Stopwatch()..start();
@@ -317,6 +323,7 @@ class VadWhisperPipeline {
           config: SttConfig(
             preferredEngine: SttEngineType.whisper,
             whisperModel: modelLevel,
+            honorWhisperModel: honorModelLevel,
             language: language,
             generateLrc: false,
             cacheResults: false,
@@ -419,7 +426,7 @@ class VadWhisperPipeline {
   Future<VadPipelineResult> runOnce({
     required String audioPath,
     WhisperModelLevel modelLevel = WhisperModelLevel.tiny,
-    String language = 'vi',
+    String language = 'auto',
   }) async {
     VadPipelineResult? last;
     await for (final progress in run(

@@ -226,9 +226,14 @@ class SoundAutoTocService {
 
   /// Transcribe offline (Whisper qua isolate). Trả về [SttResult] nếu thành công.
   ///
-  /// [language]: 'vi' | 'en' | 'auto' (D16). Lưu ý: in4up_stt chưa hỗ trợ
-  /// auto-detect qua SttConfig.language='auto' (whisper.cpp nhận mã ngôn ngữ
-  /// cụ thể) — nên 'auto' được map về 'en' (giữ hành vi cũ), không đổi package.
+  /// [language]: mã Whisper ('vi' | 'en' | 'hi' | 'auto'…). 'auto' = Whisper
+  /// TỰ NHẬN DIỆN (whisper.cpp hỗ trợ trực tiếp: language null/""/"auto").
+  ///
+  /// ★ FIX (STT-LATIN-001): trước đây 'auto' bị map cứng về 'en' vì tưởng
+  ///   whisper.cpp không nhận 'auto'. Hệ quả: audio Hindi/Trung/Hàn… bị ép
+  ///   decode theo tiếng Anh → mục lục + transcript ra CHỮ LATIN thay vì
+  ///   Devanagari/Chữ Hán. Mọi mã ngôn ngữ giờ đi qua [WhisperLanguage.code]
+  ///   (bỏ vùng 'hi-IN'→'hi', mã không hỗ trợ → 'auto').
   ///
   /// [level] null → dùng `transcribeAuto` (tự chọn model TỐT NHẤT có sẵn:
   /// base→tiny→small→medium→large, giống luồng Tạo lời thoại LRC). Trước đây
@@ -245,7 +250,7 @@ class SoundAutoTocService {
     final effectivePath = localPath ?? audioPath;
     try {
       final facade = SttServiceFacade();
-      final effectiveLanguage = language == 'auto' ? 'en' : language;
+      final effectiveLanguage = WhisperLanguage.code(language);
       final SttTranscribeOutput output;
       if (level == null) {
         output = await facade.transcribeAuto(
@@ -257,6 +262,8 @@ class SoundAutoTocService {
       } else {
         final cfg = SttConfig.deepLearning.copyWith(
           whisperModel: level,
+          // Chọn model tay → engine không được tự hạ về tiny.
+          honorWhisperModel: true,
           language: effectiveLanguage,
           generateLrc: false,
           grouping: grouping,

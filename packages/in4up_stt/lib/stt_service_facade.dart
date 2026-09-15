@@ -51,6 +51,7 @@ import 'stt_engine_whisper.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
 import 'utils/audio_converter.dart';
+import 'utils/whisper_language.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHẦN 1: PROGRESS & OUTPUT TYPES
@@ -374,11 +375,13 @@ class SttServiceFacade extends ChangeNotifier {
 
   /// Deep transcribe — Whisper Small, có LRC.
   /// API không đổi — PlayerSttMixin không cần chỉnh sửa.
+  /// [language] mặc định 'auto' (Whisper tự nhận diện) — trước là 'en' nên
+  /// audio không tiếng Anh bị ép ra chữ Latin.
   Future<SttTranscribeOutput> transcribeDeep(
     String audioPath, {
     String? lrcSavePath,
     WhisperModelLevel level = WhisperModelLevel.small,
-    String language = 'en',
+    String language = WhisperLanguage.auto,
     String audioFingerprint = '',
   }) =>
       transcribeFile(
@@ -394,21 +397,37 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
   /// Quick transcribe — Native engine, không cần LRC.
-  /// API không đổi.
+  /// API không đổi. [language] được chuyển xuống config (trước đây tham số
+  /// này bị bỏ qua im lặng → native/whisper fallback luôn dùng default).
   Future<SttTranscribeOutput> transcribeQuick(
     String audioPath, {
     String language = 'en-US',
   }) =>
       transcribeFile(
         audioPath,
-        config: SttConfig.quickNote,
+        config: SttConfig.quickNote.copyWith(language: language),
         generateLrc: false,
       );
+
+  /// Model Whisper tốt nhất đang có trên máy cho [language].
+  ///
+  /// Trả null khi chưa có model nào. Gọi từ UI (màn Tạo lời) để AUTO không
+  /// còn cứng về tiny — tiny là lý do chính khiến Hindi/Trung/Hàn ra chữ
+  /// Latin thay vì đúng bảng chữ cái.
+  WhisperModelLevel? bestWhisperLevel({String language = WhisperLanguage.auto}) {
+    try {
+      _ensureInitialized();
+      return _modelManager.getBestModelLevelForLanguage(language);
+    } catch (e) {
+      debugPrint('⚠️ bestWhisperLevel error: $e');
+      return null;
+    }
+  }
 
   /// Auto transcribe — chọn model tốt nhất đang có offline.
   Future<SttTranscribeOutput> transcribeAuto(
     String audioPath, {
-    String language = 'en',
+    String language = WhisperLanguage.auto,
     String? lrcOutputPath,
     bool generateLrc = true,
     String audioFingerprint = '',
@@ -416,15 +435,9 @@ class SttServiceFacade extends ChangeNotifier {
   }) async {
     _ensureInitialized();
 
-    final localLevel = _modelManager.getBestAvailableLocalModel(
-      preferredOrder: const [
-        WhisperModelLevel.tiny,
-        WhisperModelLevel.base,
-        WhisperModelLevel.small,
-        WhisperModelLevel.medium,
-        WhisperModelLevel.large,
-      ],
-    );
+    // Script-aware: ngôn ngữ ngoài Latin cần ≥ base mới ra đúng bảng chữ.
+    final localLevel =
+        _modelManager.getBestModelLevelForLanguage(language);
 
     if (localLevel == null) {
       _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
@@ -577,6 +590,8 @@ class SttServiceFacade extends ChangeNotifier {
           chunkDurationSeconds: config.chunkDurationSeconds,
           maxChunks: config.maxChunks,
           grouping: config.grouping,
+          // User chọn model tay (chip BASE/SMALL) → không tự hạ về tiny.
+          allowModelDowngrade: !config.honorWhisperModel,
           onChunkDone: (chunk, count, partial) {
             _emitProgress(
               SttFacadeStatus.processingWhisper,
@@ -844,7 +859,8 @@ class SttServiceFacade extends ChangeNotifier {
 
   String _buildCacheKey(String audioPath, SttConfig config) =>
       '${audioPath}_${config.preferredEngine.name}_'
-      '${config.whisperModel.name}_${config.language}';
+      '${config.whisperModel.name}${config.honorWhisperModel ? '!' : ''}_'
+      '${WhisperLanguage.code(config.language)}';
 
   void _emitProgress(
     SttFacadeStatus status,

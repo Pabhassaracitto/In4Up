@@ -24,10 +24,14 @@ class VadPipelineIntegration {
   Future<SttTranscribeOutput> transcribeWithVad({
     required String audioPath,
     WhisperModelLevel modelLevel = WhisperModelLevel.tiny,
-    String language = 'vi',
+    // 'auto' = Whisper tự nhận diện. Default cũ 'vi' làm caller quên truyền
+    // language bị decode sai ngôn ngữ (ra chữ Latin cho audio Hindi).
+    String language = 'auto',
     bool skipSilence = true,
     void Function(VadPipelineProgress progress)? onProgress,
     Future<void> Function(SttResult partial)? onPartialResult,
+    // true = modelLevel do người dùng chọn → giữ nguyên, không tự hạ tiny.
+    bool honorModelLevel = false,
   }) async {
     SttResult? finalResult;
     VadResult? vadResult;
@@ -38,6 +42,7 @@ class VadPipelineIntegration {
       language: language,
       skipSilence: skipSilence,
       deleteChunkImmediately: true,
+      honorModelLevel: honorModelLevel,
     )) {
       onProgress?.call(prog);
 

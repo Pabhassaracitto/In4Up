@@ -35,6 +35,7 @@ import 'models/stt_config.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 import 'utils/audio_converter.dart';
+import 'utils/whisper_language.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHẦN 1: FFI TYPE DEFINITIONS — ĐÃ RÀ SOÁT VỚI WHISPER.H
@@ -677,6 +678,9 @@ class SttEngineWhisper {
     required String audioFingerprint,
   }) async {
     final sw = Stopwatch()..start();
+    // Mã ngôn ngữ đã chuẩn hóa riêng cho Whisper ('hi-IN' → 'hi',
+    // 'pi'/mã lạ → 'auto'). whisper.cpp từ chối mã ngoài danh sách.
+    final whisperLang = WhisperLanguage.code(language);
 
     // Plugin yêu cầu WAV 16kHz mono.
     final wavPath =
@@ -698,7 +702,9 @@ class SttEngineWhisper {
           isNoTimestamps: false,
           splitOnWord: wordTimestamps,
           diarize: false,
-          language: language,
+          // ★ whisper.cpp chỉ nhận 99 mã của nó hoặc "auto" — 'hi-IN'/'pi'
+          //   sẽ báo "unknown language" và giết cả job.
+          language: whisperLang,
         ),
       ),
     );
@@ -729,9 +735,18 @@ class SttEngineWhisper {
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     void Function(int chunkIndex, int chunkCount, SttResult partial)? onChunkDone,
     bool Function()? shouldCancel,
+    // allowModelDowngrade = false khi người dùng đã chọn model cụ thể (chip
+    // BASE/SMALL… trong UI) → KHÔNG tự hạ về tiny nữa. Trước đây mọi file
+    // >60s đều bị ép tiny bất kể lựa chọn → Hindi ra chữ Latin.
+    bool allowModelDowngrade = true,
   }) async {
     final sw = Stopwatch()..start();
     final chunkSw = Stopwatch();
+    // whisper.cpp chỉ nhận 99 mã của nó hoặc "auto" (xem WhisperLanguage).
+    final whisperLang = WhisperLanguage.code(language);
+    if (whisperLang != language) {
+      debugPrint('[Whisper] Ngôn ngữ "$language" → whisper code "$whisperLang"');
+    }
 
     String wavPath;
     String baseName;
@@ -764,8 +779,12 @@ class SttEngineWhisper {
     } catch (_) {}
 
     // Chi fallback tiny khi file dai >60s, khong ep cho moi file Android nua (user xoa app cu da chay duoc 38s)
+    // ★ allowModelDowngrade=false (user chon model tay) → GIU model do:
+    //   script ngoài Latin (Devanagari/Hán/Hangul/Thái…) cần ≥ base mới ra
+    //   đúng chữ, tiny thường "Latin-hóa" kết quả.
     var effectiveLevel = level;
     final shouldForceTiny = () {
+      if (!allowModelDowngrade) return false;
       if (level == WhisperModelLevel.tiny) return false;
       return originalDurationMs != null && originalDurationMs > 60 * 1000;
     }();
@@ -889,7 +908,7 @@ class SttEngineWhisper {
                 isNoTimestamps: false,
                 splitOnWord: wordTimestamps,
                 diarize: false,
-                language: language,
+                language: whisperLang,
               ),
             ),
           );
@@ -1329,7 +1348,7 @@ class SttEngineWhisper {
     );
     final srtPath = '$outBase.srt';
 
-    final langCode = language.split('-').first.toLowerCase();
+    final langCode = WhisperLanguage.code(language);
     final args = <String>[
       '-m',
       modelPath,
@@ -1611,7 +1630,7 @@ class SttEngineWhisper {
         ..single_segment = false
         ..token_timestamps = wordTimestamps;
 
-      final langCode = language.split('-').first.toLowerCase();
+      final langCode = WhisperLanguage.code(language);
       paramsPtr.ref.language = langPinner.pin(langCode);
 
       final nSamples = pcmSamples.length;

@@ -898,3 +898,41 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - **Lý thuyết**: Dual-coding theory (Paivio 1971) - hình ảnh giúp tăng cường mã hóa ký ức
 
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
+
+### PLAN-027: Whisper đúng bảng chữ + Ảnh từ vựng lấy từ mạng (IMG-WEB-001 · STT-LATIN-001)
+- **Nguồn (owner 2026-09-14):**
+  1. "Sao sound to text tạo lời từ file mp3 tiếng Hindi và đã chọn đúng ngôn ngữ
+     này thì nó ra chữ latin thay vì chữ hindi?"
+  2. "Worklist đã có thể thêm hình, tuy nhiên thường nên ưu tiên chọn hình trên
+     mạng vì hình ở máy ít khi có… sau này mới kết hợp thêm chụp hình/xóa phông
+     để thêm vào hình từ vựng (ML Kit)" + "lưu ý là tìm kiếm ảnh phải có key api nhé".
+- **STT-LATIN-001 — mục tiêu:** đã chọn ngôn ngữ thì lời ra ĐÚNG bảng chữ.
+  - `WhisperLanguage` (in4up_stt/utils): whitelist đúng `g_lang` của
+    whisper.cpp (100 mục), bỏ region ('hi-IN'→'hi'), alias (fil→tl, iw→he,
+    ISO-639-2/T), mã Whisper không có (Pali 'pi') → 'auto' thay vì giết job.
+  - Chuẩn hóa ở MỌI biên: mobile plugin (chunked + 1-shot), FFI, CLI, strategy.
+  - Bỏ ep 'auto'→'en' ở auto-TOC (auto-detect thật, qua `whisper.h` contract).
+  - Model theo script: AUTO chọn base/small… cho ngôn ngữ ngoài Latin
+    (`getBestModelLevelForLanguage`); chip model người dùng bấm được tôn trọng
+    (`honorWhisperModel`/`allowModelDowngrade`) — hết cảnh "chọn SMALL vẫn chạy tiny".
+  - Script guard: `latinizedFor` → `PlayerProvider.lastSttScriptWarning` →
+    cảnh báo + hướng dẫn ở tab Nghe (đã dịch en/hi/zh/zh_TW/si).
+- **IMG-WEB-001 — mục tiêu:** chạm ô hình = tìm ảnh TRÊN MẠNG trước, qua API key.
+  - `VocabImagePickerSheet` (web mặc định, tự tìm khi mở; "Trong máy" thứ hai;
+    bỏ ảnh; chừa enum cho `camera`).
+  - `VocabImageWebService`: Pexels/Unsplash (cần key) → Openverse (token
+    khuyến nghị) → Wikimedia Commons; parser thuần + test; chặn HTML giả ảnh.
+  - `VocabImageApiConfig`: key theo provider trong SharedPreferences HOẶC
+    `--dart-define=VOCAB_IMAGE_PROVIDER/API_KEY`; **không commit key vào repo**.
+  - `VocabImageService.saveFromUrl/saveFromBytes` → ảnh nằm trong app storage
+    (ôn offline được), dedup MD5 như ảnh gallery.
+- **Owner chốt (2026-09-15):** Pexels + Unsplash CÙNG bật (fallback
+  Openverse → Wikimedia Commons khi chưa có key); key đặt ở CẢ HAI nơi: dán
+  trong app (SharedPreferences) và `--dart-define` trong `build.yml`
+  (secret `VOCAB_IMAGE_API_KEY` + var `VOCAB_IMAGE_PROVIDER`, đã nối vào 3 job
+  build); "thêm từ" nhanh cũng có nút/action gán hình
+  (`VocabImageQuickAddButton` + `attachVocabImage`).
+- **Chờ owner:** dán key thật (app hoặc GitHub secrets); nghiệm thu máy:
+  Hindi + chip SMALL phải ra Devanagari.
+- **Bước sau (đề xuất):** camera + ML Kit Subject Segmentation (xóa phông) +
+  Object Label → chụp đồ vật thật gán vào từ vựng.

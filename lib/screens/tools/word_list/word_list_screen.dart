@@ -18,6 +18,7 @@ import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
+import '../../../features/vocab_image/vocab_image_quick_add.dart';
 import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
@@ -1005,11 +1006,26 @@ class _WordListScreenState extends State<WordListScreen> {
         ),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: ui.uiText('SỬA'),
-          textColor: Colors.white,
-          onPressed: () => _showEditSheet(entry, p),
-        ),
+        // IMG-WEB-001: "thêm từ" nhanh cũng gán được hình ngay — tab web của
+        // sheet tìm ảnh trên mạng (API key) là mặc định, không phải gallery.
+        actions: [
+          SnackBarAction(
+            label: ui.uiText('SỬA'),
+            textColor: Colors.white,
+            onPressed: () => _showEditSheet(entry, p),
+          ),
+          SnackBarAction(
+            label: ui.uiText('Thêm hình'),
+            textColor: Colors.white,
+            onPressed: () => attachVocabImage(
+              ui,
+              wordId: entry.id,
+              word: entry.word,
+              meaning: entry.meaning,
+              currentImageUrl: entry.imageUrl,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1611,6 +1627,8 @@ class _WordListScreenState extends State<WordListScreen> {
                     Center(
                       child: VocabImagePicker(
                         wordId: entry.id,
+                        word: entry.word,
+                        meaning: entry.meaning,
                         currentImageUrl: entry.imageUrl,
                         onImageChanged: (path) {
                           // Image already saved by VocabImagePicker via provider
@@ -2222,6 +2240,8 @@ class _CompactListItem extends StatelessWidget {
           Center(
             child: VocabImagePicker(
               wordId: entry.id,
+              word: entry.word,
+              meaning: entry.meaning,
               currentImageUrl: entry.imageUrl,
               onImageChanged: (path) {
                 // Image already saved by VocabImagePicker via provider

@@ -116,6 +116,9 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
             : VocabularyType.phrase);
 
     final isNew = !VocabularyBridge.hasWord(text.toLowerCase());
+    // IMG-WEB-001: KHÔNG gắn action "Thêm hình" ở đây — sheet bị pop ngay
+    // sau khi lưu nên BuildContext đã chết; người dùng gán hình từ chính
+    // trạng thái "đã lưu" của sheet tap PDF / Wordlist (context còn sống).
     VocabularyBridge.addContextual(
       text: text,
       meaning: '',

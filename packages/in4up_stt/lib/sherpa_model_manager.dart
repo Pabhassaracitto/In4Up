@@ -371,8 +371,21 @@ class SherpaModelManager {
 
   // ── ZIPFORMER ASR ──────────────────────────────────────────────────────
 
-  /// Kiểm tra xem file ONNX encoder có metadata `encoder_dims` cho streaming hay không.
+  /// Kiểm tra model có phải bản STREAMING hay không.
+  ///
+  /// 2 lớp (tránh false-negative gây SIGABRT — xem SHERPA-STREAM-001):
+  /// 1. **Tên file/thư mục** — k2-fsa đặt tên model streaming luôn chứa
+  ///    chữ "streaming" (`sherpa-onnx-streaming-zipformer-en-20M-...`,
+  ///    folder `asr-en-20M-streaming-int8`...). Rẻ, chắc chắn.
+  /// 2. **Metadata ONNX** — scan 256KB đầu encoder tìm `encoder_dims` /
+  ///    `query_head_dims` (chỉ chạy khi tên không nói rõ).
   static bool isStreamingEncoderOnnx(String encoderPath) {
+    final lower = encoderPath.toLowerCase();
+    if (lower.contains('non-streaming')) return false;
+    final dirLower = p.dirname(encoderPath).toLowerCase();
+    if (lower.contains('streaming') || dirLower.contains('streaming')) {
+      return true;
+    }
     try {
       final file = File(encoderPath);
       if (!file.existsSync()) return false;

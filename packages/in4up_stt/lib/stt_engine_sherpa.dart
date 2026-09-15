@@ -124,8 +124,29 @@ class SherpaSttEngine implements SttEngine {
   }
 
   /// Khởi tạo offline recognizer từ model paths.
+  ///
+  /// ★ HARD GUARD (SHERPA-STREAM-001): model ZIPFORMER STREAMING không thể
+  /// nạp qua OfflineRecognizer — ONNX Runtime (native C++) sẽ ABORT
+  /// (SIGABRT: "Got invalid dimensions for input: x. Got: 51 Expected: 39")
+  /// vì encoder streaming chỉ nhận chunk cố định (39 frames). Dart try/catch
+  /// KHÔNG BẮT ĐƯỢC crash native → phải chặn Ở ĐÂY, trước khi tạo recognizer,
+  /// và trả lỗi rõ để UI hiển thị thay vì app chết.
   Future<void> _initOffline(SherpaModelPaths paths) async {
     if (_offline != null) return;
+    // Re-check kép: trust flag `isStreaming` + dò lại từ tên/metadata
+    // (options truyền tay có thể thiếu flag — default false = nguy hiểm).
+    final isStreaming =
+        paths.isStreaming || SherpaModelManager.isStreamingEncoderOnnx(paths.encoder);
+    if (isStreaming) {
+      _lastError =
+          'Model Zipformer này là bản STREAMING (live) — không dùng được với '
+          'OfflineRecognizer (app sẽ crash). Model streaming dùng cho LIVE STT; '
+          'để nhận diện file/đoạn audio hãy dùng model OFFLINE '
+          '(tên không có chữ "streaming", vd asr-vi-30M-int8).';
+      debugPrint('⛔ SherpaSttEngine: CHẶN OfflineRecognizer cho model streaming: '
+          '${paths.encoder}');
+      return;
+    }
     ensureSherpaBindings();
     final config = sherpa.OfflineRecognizerConfig(
       model: sherpa.OfflineModelConfig(
@@ -198,6 +219,18 @@ class SherpaSttEngine implements SttEngine {
       return SttFileResult.failure(
         'Sherpa cần model Zipformer ONNX (encoder/decoder/joiner/tokens). '
         'Hãy mở Quản lý Model AI để tải/import model.',
+      ).result;
+    }
+
+    // ★ Model streaming (live) KHÔNG dùng cho transcribe file —
+    // OfflineRecognizer + model streaming = SIGABRT (SHERPA-STREAM-001).
+    // Báo lỗi RÕ, không crash.
+    if (models.isStreaming ||
+        SherpaModelManager.isStreamingEncoderOnnx(models.encoder)) {
+      return SttFileResult.failure(
+        'Model Zipformer đang chọn là bản STREAMING (live) — không dùng '
+        'được cho nhận diện file/đoạn audio (app sẽ crash). Hãy tải model '
+        'OFFLINE trong Quản lý Model AI (vd: Tiếng Việt asr-vi-30M-int8).',
       ).result;
     }
 
@@ -280,6 +313,18 @@ class SherpaSttEngine implements SttEngine {
         return false;
       }
     } else {
+      // ★ Guard sớm (SHERPA-STREAM-001): model streaming lọt vào nhánh
+      // offline (flag sai / options thiếu flag) → chặn trước khi tạo
+      // OfflineRecognizer (nguyên nhân SIGABRT "Expected: 39").
+      if (SherpaModelManager.isStreamingEncoderOnnx(paths.encoder)) {
+        _lastError =
+            'Model Zipformer cho $language là bản STREAMING — không dùng '
+            'được cho offline STT (app sẽ crash). Hãy dùng model OFFLINE '
+            '(vd asr-vi-30M-int8) hoặc chạy live bằng model streaming.';
+        debugPrint('⛔ SherpaSttEngine startLive: chặn offline path cho model streaming: '
+            '${paths.encoder}');
+        return false;
+      }
       // Non-streaming / Simulated streaming via OfflineRecognizer + Silero VAD
       final vadPath = vadModelPath ??
           SherpaModelManager().vadInfo.localPath ??

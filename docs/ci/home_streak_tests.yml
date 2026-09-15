@@ -1,0 +1,72 @@
+# BẢN MẪU — chưa bật được bằng token của agent (GitHub từ chối push vào
+# `.github/workflows/**` khi GitHub App thiếu quyền `workflows`). Owner bật bằng:
+#
+#   cp docs/ci/home_streak_tests.yml .github/workflows/            (macOS/Linux)
+#   copy docs\ci\home_streak_tests.yml .github\workflows\          (Windows)
+#   git add .github/workflows/home_streak_tests.yml && git commit -m "ci: bật job test HOME-STREAK-001" && git push
+#
+# Vì sao cần job riêng: HOME-STREAK-001 (B6 — "Nhịp điệu học tập") thêm
+# `lib/services/learning_activity_service.dart` + `lib/models/learning_activity.dart`
+# và viết lại `focus_streak_card.dart`/`focus_provider.dart`. Bộ test nằm ở
+# `test/home_streak/` — không job nào chạy thư mục đó (`app_analyze.yml` chỉ
+# analyze + test rule #5; `knowledge_tests.yml`/`soundlist_tests.yml` chỉ chạy
+# module hẹp). Trong lúc chờ bật, `test/knowledge/home_streak_ci_oracle_test.dart`
+# gọi đúng bộ test này qua job knowledge (cầu nối tạm — xoá được sau khi bật job).
+#
+# Log upload thành artifact (GitHub App token có thể không đọc được workflow log
+# trực tiếp) — tải artifact `home-streak-test-log` để đọc lỗi.
+# Skill: docs/skills/ci-red-debugging/SKILL.md
+
+name: Home Streak Tests (HOME-STREAK-001)
+
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'lib/models/learning_activity.dart'
+      - 'lib/services/learning_activity_service.dart'
+      - 'lib/providers/focus_provider.dart'
+      - 'lib/screens/home/widgets/focus_streak_card.dart'
+      - 'test/home_streak/**'
+      - '.github/workflows/home_streak_tests.yml'
+  pull_request:
+    paths:
+      - 'lib/models/learning_activity.dart'
+      - 'lib/services/learning_activity_service.dart'
+      - 'lib/providers/focus_provider.dart'
+      - 'lib/screens/home/widgets/focus_streak_card.dart'
+      - 'test/home_streak/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml — tránh lệch dependency
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Run home streak tests
+        id: test
+        run: |
+          set +e
+          flutter test test/home_streak > test.log 2>&1
+          code=$?
+          cat test.log
+          exit $code
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-streak-test-log
+          path: test.log
+          if-no-files-found: ignore

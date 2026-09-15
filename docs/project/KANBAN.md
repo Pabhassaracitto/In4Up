@@ -80,6 +80,7 @@
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
+| SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
@@ -2573,6 +2574,10 @@
      chọn là lỗi) để không dẫn user vào ngõ cụt.
   4. Rà diff STT session (#25) quanh cabin/ASR để hiểu chính xác cái gì
      đã đổi so với build trước (nếu owner build trước chạy được với vi).
+- **Liên quan:** crash SIGABRT khi dùng model streaming EN qua
+  OfflineRecognizer đã fix riêng ở `SHERPA-STREAM-001` — nghiệm thu
+  card này phải kèm AT của SHERPA-STREAM-001 (model EN streaming +
+  cabin live chạy được online path).
 - **AT:** máy có model VI đã import: mở Cabin → chọn engine Sherpa
   offline → START được + nhận diện tiếng Việt; chọn EN (chưa cài) →
   thông báo rõ + fallback/hướng dẫn tải, không chết im.
@@ -2752,3 +2757,54 @@
   clear` nhẹ hoặc xóa thư mục cache) → mở lại app → phát file VẪN được
   (đã copy persistent); shadowing không AB → luyện được toàn track; file
   có LRC → gợi ý AB theo câu.
+
+### SHERPA-STREAM-001 — Crash SIGABRT: model STREAMING nạp qua OfflineRecognizer (FIXed code, chờ nghiệm thu)
+- **Triệu chứng (logcat owner):** `Fatal signal 6 (SIGABRT)` —
+  `Ort::Exception: Got invalid dimensions for input: x. Got: 51 Expected: 39`
+  khi app load `sherpa-onnx-streaming-zipformer-en-20M-2023-02-17` qua
+  `GetOfflineRecognizerConfig` / `SherpaOnnxDecodeOfflineStream`.
+- **Root cause (đã verify code):**
+  1. Model **streaming** Zipformer (EN profile) bắt buộc input đúng chunk
+     cố định (39 frames). Nạp nó bằng **OfflineRecognizer** (API cho model
+     offline — nhận độ dài tự do) → ONNX Runtime C++ abort, Dart không
+     catch được.
+  2. Engine `stt_engine_sherpa.dart` vốn ĐÃ CÓ 2 đường: `OnlineRecognizer`
+     (streaming, WP4) và `OfflineRecognizer` (offline + VAD) — nhưng flag
+     `isStreaming` bị **false-negative**: `isStreamingEncoderOnnx` chỉ dò
+     magic string `encoder_dims`/`query_head_dims` trong 256KB đầu encoder
+     — file int8/version khác không có chuỗi đó → model streaming bị coi
+     là offline → đi nhầm đường → SIGABRT.
+  3. Lỗ hổng thứ 2: `transcribeFile` LUÔN `_initOffline` bất kể
+     `isStreaming` → LRC/VAD pipeline/auto-TOC/shadowing dùng model
+     streaming cũng crash như nhau.
+- **Fix ĐÃ LÀM (turn này):**
+  - `sherpa_model_manager.dart::isStreamingEncoderOnnx`: 2 lớp — (1) tên
+    file/thư mục chứa "streaming" → streaming (k2-fsa đặt tên chuẩn;
+    "non-streaming" → offline), (2) metadata onnx (giữ nguyên).
+  - `stt_engine_sherpa.dart::_initOffline`: **HARD GUARD** — model
+    streaming (flag + re-detect) → KHÔNG tạo OfflineRecognizer, set
+    `lastError` rõ → UI báo thay vì app chết.
+  - `transcribeFile`: model streaming → trả failure RÕ ("dùng model
+    OFFLINE cho file, vd asr-vi-30M-int8") trước khi init.
+  - `startLive` nhánh offline: guard sớm trước khi setup VAD.
+- **Hành vi sau fix:**
+  - Cabin LIVE + model streaming (EN) → đường `OnlineRecognizer` (đúng,
+    token-by-token) — hoạt động.
+  - Cabin LIVE + model offline (VI) → simulated streaming VAD — hoạt động.
+  - Transcribe file/LRC + model streaming → lỗi văn bản rõ, KHÔNG crash.
+  - Transcribe file/LRC + model offline → như cũ.
+- **Việc còn lại (nâng cấp, KHÔNG blocking):** transcribe file bằng model
+  streaming qua OnlineRecognizer chạy chunk (feed 32-frame chunks +
+  accumulate) — làm sau khi nghiệm thu fix này; cần test độ dài câu dài.
+- **AT nghiệm thu (máy owner):**
+  1. Cabin nguồn EN (model streaming đã import) + engine Offline (sherpa)
+     → start được, nói tiếng Anh → ra chữ (online path), KHÔNG SIGABRT.
+  2. Cabin nguồn VI (model asr-vi-30M-int8) → vẫn nhận diện như trước.
+  3. Tab Nghe → tạo lời (LRC) bằng sherpa khi model đang chọn là streaming
+     → hiện lỗi "model streaming không dùng cho file" (không crash).
+  4. LRC bằng model VI offline → vẫn tạo lời bình thường.
+- **Lịch sử:**
+  - 2026-09-16 | created→fix-done | agent arena/01a0251e-in4up | phân tích
+    log Gemini + verify code: false-negative `isStreamingEncoderOnnx` +
+    `transcribeFile` luôn offline; fix 4 điểm (detection 2 lớp + 3 guard);
+    chờ CI + nghiệm thu máy

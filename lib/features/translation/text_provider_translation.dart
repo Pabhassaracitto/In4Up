@@ -185,7 +185,14 @@ mixin TranslationMixin on ChangeNotifier {
     required String targetCode,
     required bool skipCache,
   }) async {
-    throw UnimplementedError();
+    var result = await service.translateText(
+      content,
+      sourceLang: lineSource.translationCode,
+      targetLang: targetCode,
+      skipCache: skipCache,
+    );
+    var appliedSource = lineSource;
+    return (result, appliedSource);
   }
 
   Future<void> translateLine(int index) async {

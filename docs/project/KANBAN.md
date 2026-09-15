@@ -2614,6 +2614,8 @@
     `test` được) và **chưa nghiệm thu máy** — AT 2 mục ở trên vẫn nguyên.
 - **Lịch sử:**
   - 2026-09-16 | doing | agent `arena/01a0a6fa-in4up` | WP B2: code + test + i18n xong; CHỜ CI (`app_analyze.yml` chưa cover `packages/**` — xem SHERPA-STREAM-001) + AT máy
+  - 2026-09-16 | CI xanh (một phần) | agent `arena/01a0a6fa-in4up` | commit `cb9c49d` — run **35027575467** `App Analyze + Locale Test` XANH: `flutter analyze` (ERROR-fatal) + test rule #5 `locale_chrome_no_vietnamese_test.dart` đều pass ⇒ code/i18n/test KHÔNG lỗi biên dịch. Lưu ý: workflow này KHÔNG chạy `test/asr_model_routing_test.dart` (cần owner chạy `flutter test test/asr_model_routing_test.dart` hoặc xác nhận qua AT máy)
+  - 2026-09-16 | cảnh báo còn hiệu lực | agent `arena/01a0a6fa-in4up` | `app_analyze.yml` vẫn chưa có `packages/**` trong `paths:` → lần này workflow chạy được là nhờ push có `lib/**`; đổi CHỈ trong `packages/**` vẫn sẽ KHÔNG trigger (owner áp `scripts/ci/analyze_paths_packages.patch`)
 
 ### HOME-QUICK-001 — Home: "Nạp tri thức nhanh" + icon ghi âm CHƯA hoạt động (stub)
 - **Triệu chứng (owner):** "Tab home: Nạp tri thức nhanh → đang chưa hoạt

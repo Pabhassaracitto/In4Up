@@ -2659,6 +2659,11 @@
   `IndexedStack` của shell (`main_shell.dart` — `MainShell` là route gốc,
   `main.dart:364`) ⇒ sub-mode Xem có nguy cơ pop route gốc; lỗi có sẵn,
   không thuộc ownership lane B5, cần owner xác nhận trên máy.
+  - 2026-09-15 | merge base `df77ab0` (A1 PDF + A2 WLIST-LANG) vào lane B5,
+    resolve `tool/legacy_ui_english_overrides.json` theo union (giữ 5 key mới
+    của A2 + 5 key của B5, gỡ 2 key mồ côi 'Nghe · Nói'/'Đọc · Viết') → merge
+    `4214445`; CI `App Analyze + Locale Test` run 35029286725 (pull_request)
+    và 35029282086 (push) 🟢 — analyze 0 error + test rule #5 xanh.
 
 ### HOME-KG-001 — "Xem Knowledge Graph" bấm vào không có phản ứng
 - **Triệu chứng (owner):** "Xem Knowledge Graph nhấn vào chưa có phản ứng gì."
@@ -2681,6 +2686,11 @@
   `context.uiText('Xem Knowledge Graph →')` và có trong catalog
   (en `View Knowledge Graph →`, đủ hi/zh/zh_TW/si). Commit `214d57d`; CI
   run 35028370711 🟢. **CÒN:** nghiệm thu thiết bị (chờ nghiệm thu máy).
+  - 2026-09-15 | merge base `df77ab0` (A1 PDF + A2 WLIST-LANG) vào lane B5,
+    resolve `tool/legacy_ui_english_overrides.json` theo union (giữ 5 key mới
+    của A2 + 5 key của B5, gỡ 2 key mồ côi 'Nghe · Nói'/'Đọc · Viết') → merge
+    `4214445`; CI `App Analyze + Locale Test` run 35029286725 (pull_request)
+    và 35029282086 (push) 🟢 — analyze 0 error + test rule #5 xanh.
 
 ### HOME-STREAK-001 — "Nhịp điệu học tập" chưa có thống kê thật
 - **Triệu chứng (owner):** "Nhịp điệu học tập chưa có thống kê thực sự."

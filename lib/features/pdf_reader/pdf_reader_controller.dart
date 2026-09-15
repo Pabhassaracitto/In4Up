@@ -353,6 +353,11 @@ class PdfReaderController extends ChangeNotifier {
   void onPageChanged(int pageIndex) {
     if (pageIndex == _currentPage) return;
     _currentPage = pageIndex;
+    // Cùng một phiên vẫn có thể khiến viewer rebuild (rotation, host layout,
+    // hot restart trên debug). Giữ `_restoredPageIndex` bám trang hiện tại để
+    // mọi lần mount lại trong session đều trở đúng chỗ mới nhất, không quay về
+    // snapshot lúc mở màn hình.
+    _restoredPageIndex = pageIndex;
     final identity = _identity;
     if (identity != null) {
       unawaited(_storage.persistLastPage(identity, pageIndex));

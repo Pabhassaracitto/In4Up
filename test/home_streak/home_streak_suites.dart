@@ -253,9 +253,14 @@ void defineLearningActivityServiceTests() {
       expect(snapshot.activeDaysInWindow, 2);
       expect(snapshot.activeToday, isTrue);
       expect(snapshot.streak, 1);
+      // recentDays: [0] = 09-09 … [4] = 09-13 (ngày đã ghi) … [6] = 09-15.
       expect(
-        snapshot.recentDays[2].countOf(LearningActivityKind.vocabulary),
+        snapshot.recentDays[4].countOf(LearningActivityKind.vocabulary),
         1,
+      );
+      expect(
+        snapshot.recentDays[3].countOf(LearningActivityKind.vocabulary),
+        0,
       );
     });
   });

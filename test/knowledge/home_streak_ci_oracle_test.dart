@@ -19,7 +19,7 @@
 // ⚠️ `knowledge_tests.yml` chỉ chạy khi push chạm `test/knowledge/**` — nên mỗi
 // lần sửa bộ test trong `test/home_streak/`, bump dòng oracle-revision dưới đây
 // để job knowledge chạy lại (bộ test nằm ngoài paths filter của job này).
-// oracle-revision: 2
+// oracle-revision: 3
 
 import '../home_streak/home_streak_suites.dart';
 

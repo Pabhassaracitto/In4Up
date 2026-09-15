@@ -2381,6 +2381,7 @@
     trên toolbar và chưa persist nguồn explicit (seam đã sẵn).
 - **Lịch sử:**
   - 2026-09-16 | 21:51 UTC | doing→doing (fix code + test, CI xanh, chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | CI run 35027743218 (App Analyze + Locale Test xanh); branch arena/01a0a6d2-in4up, PR vào arena/01a0251e-in4up
+  - 2026-09-16 | 22:00 UTC | doing (giữ nguyên — chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | PR #31 đã mở: https://github.com/Pabhassaracitto/In4Up/pull/31 ; CI pull_request run 35027994440 xanh
 
 ### READ-TOOLBAR-001 — Thanh đáy tab Đọc (size chữ/dịch/đọc/mark/lưu) "đen thui" khi kéo văn bản
 - **Triệu chứng (owner):** "Thanh chức năng tăng giảm size chữ, dịch, đọc,

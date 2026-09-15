@@ -78,6 +78,7 @@
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
+| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
@@ -2236,3 +2237,272 @@
 - **Nội dung:** sheet Tải giọng ưu tiên VI/EN/ZH/HI + Show more; k2-fsa tar trước, HF onnx+json fallback.
 - **Lịch sử:**
   - 2026-09-15 | created→doing | agent arena/01a08043-in4up
+
+## 🔥 BATCH OWNER 2026-09-15 — 9 lỗi sau build `1d58b78` (handoff cho agent Arena)
+
+> Owner build từ tip `1d58b78` (DEBUG build — nên mới thấy assertion).
+> Mỗi card: TRIỆU CHỨNG (lời owner) → REPRO → ROOT CAUSE (đã verify code /
+> nghi) → FILES → FIX ĐỀ XUẤT → AT. Sửa xong → owner create PR vào
+> `arena/01a0251e-in4up`. **Chạy `flutter clean && flutter pub get` trước
+> khi build nghiệm thu** (có dep native mới: video_player 2.8.0).
+
+### PDF-JUMP-001 — Nhập/chọn số trang rồi thoát → assertion `_dependents.isEmpty`
+- **Triệu chứng (owner):** "Khi nhấn vào chọn / điền số trang sau đó thoát ra
+  thì báo lỗi: 'flutter/src/widgets/framework.dart': Failed assertion: line
+  6268 pos 12: '_dependents.isEmpty': is not true."
+- **Repro:** tab Đọc → mở PDF (pdf_reader mới) → toolbar → "Tới trang" →
+  điền số / kéo slider → "Đi tới" (hoặc đóng) → assertion.
+- **Assertion:** `InheritedElement.deactivate()` — 1 InheritedWidget (hình
+  như `MediaQuery`) bị deactivate trong khi con vẫn depend. Debug build.
+- **Nghi chính (đã đọc code):** `pdf_reader_screen.dart` —
+  `_showJumpToPageDialog()` (showDialog + TextField autofocus + Slider) →
+  pop → `_goToPageIndex(...)`. Điểm chết người tiềm tàng:
+  1. `Focus(autofocus: true, onKeyEvent: _handleShortcutKey)` bọc TOÀN viewer
+     (body) — focus transfer dialog↔viewer khi đóng.
+  2. `_goToPageIndex` (pdfrx `jumpToPage`) chạy TRÙNG thời điểm route dialog
+     đang dispose → rebuild viewer giữa chừng dispose.
+  3. Dialog dùng `context` của State (không phải dialogContext) ở một số chỗ.
+- **Files:** `lib/features/pdf_reader/pdf_reader_screen.dart`
+  (`_showJumpToPageDialog` ~line 507; body `Focus(...)` ~line 583),
+  `lib/features/pdf_reader/pdf_reader_controller.dart` (`goToPage`/`jumpToPage`).
+- **Fix đề xuất:** (a) delay `_goToPageIndex` qua
+  `WidgetsBinding.instance.addPostFrameCallback` SAU khi dialog pop hẳn;
+  (b) trong dialog chỉ dùng `dialogContext`; (c) nếu còn lỗi: bọc
+  `_goToPageIndex` try/catch + `debugPrint` stack, chạy lại repro để lấy
+  stack thật trước khi sửa sâu.
+- **AT:** mở PDF → "Tới trang" → điền + Đi tới → KHÔNG có assertion red;
+  đóng bằng "Huỷ" → không lỗi; lặp 5 lần.
+
+### WLIST-LANG-001 — Lưu WordList: có tạo chủ đề mới nhưng KHÔNG có tạo ngôn ngữ mới
+- **Triệu chứng (owner):** "Lưu vào WordList: Hiện có thể tạo chủ đề mới
+  nhưng chưa có chỗ tạo ngôn ngữ mới."
+- **Repro:** Đọc/PDF → chọn từ → "Lưu vào WordList" → sheet `SelectionSaveSheet`:
+  hàng Chủ đề có ô "Tạo chủ đề mới…" nhưng hàng Ngôn ngữ chỉ hiện chips
+  `provider.allLanguages` (các ngôn ngữ ĐÃ TỒN TẠI trong WordList) — muốn
+  tag ngôn ngữ mới (vd `pi` Pali, `lo`, `my`…) thì không có cách nào.
+- **Root cause (đã verify):** `lib/widgets/selection_save_sheet.dart`
+  line ~186: `languageOptions = provider.allLanguages...` — chỉ từ dữ liệu
+  có sẵn, không có chip "Thêm…".
+- **Files:** `lib/widgets/selection_save_sheet.dart` (sheet chính),
+  `lib/screens/read_mode/widgets/floating_text_actions.dart` (nếu cũng có
+  picker ngôn ngữ tương tự — rà khi sửa), `lib/providers/vocabulary_provider.dart`
+  (xem `allLanguages` + nơi lưu language code).
+- **Fix đề xuất:** thêm chip "＋ Thêm ngôn ngữ…" → mở ô nhập (hoặc dialog nhỏ)
+  chấp nhận code 2-4 chữ cái (vd `pi`, `lo`, `my`), validate + normalize
+  lowercase, thêm vào `_selectedLanguage` + hiện chip mới đã chọn. Giữ đúng
+  pattern của ô tạo chủ đề (`_newTopicCtrl`).
+- **AT:** lưu từ với ngôn ngữ mới `pi` → thành công, chip `pi` hiện trong
+  sheet ở lần mở sau; WordList lọc được theo `pi`.
+
+### PDF-PAGE-001 — Bấm icon "từ đã lưu" (góc phải dưới) → nhảy về trang 1
+- **Triệu chứng (owner):** "Khi chọn biểu tượng của 'Chưa có từ nào được lưu
+  — Tap từ trên PDF hoặc bôi đen' thì nó mở lên khung từ vựng nhưng đồng thời
+  cũng nhảy trang về trang PDF đầu tiên → hãy vẫn giữ nguyên trang."
+- **Repro:** PDF reader → cuộn tới trang 50+ → bấm FAB `view_sidebar`
+  (góc phải dưới, `heroTag: 'wordlist_panel'`) → panel từ vựng mở + **PDF
+  nhảy về trang 1**.
+- **Root cause (đã verify):** `pdf_reader_screen.dart` —
+  `_buildSplitOrPdf()`: `_showWordlistPanel == false` → `_buildPdfMode()`
+  đơn lẻ; `== true` → `Row(Expanded(65, _buildPdfMode()), Expanded(35,
+  PdfWordlistPanel))`. Cấu trúc tree ĐỔI → element `PdfViewer.file`
+  (pdfrx) bị unmount + tạo mới → viewer reload → **mất current page**.
+- **Files:** `lib/features/pdf_reader/pdf_reader_screen.dart`
+  (`_buildSplitOrPdf` ~line 733; `_buildPdfMode` ~line 752;
+  `_pdfViewerController` + restore page logic trong
+  `pdf_reader_controller.dart` `_restoredPageIndex`).
+- **Fix đề xuất (chọn 1, ưu tiên A):**
+  - A. Giữ viewer sống: đừng đổi cấu trúc — panel overlay bằng
+    `Positioned(right: 0, top: 0, bottom: 0, width: ~35%)` TRÊN cùng 1
+    `PdfViewer` (không chia Row) → element viewer không bao giờ đổi cha.
+  - B. Hoặc: bắt `currentPage` trước khi toggle + sau rebuild gọi
+    `jumpToPage` (yếu hơn — nháy trang 1 rồi mới nhảy về, dễ race).
+  - C. Hoặc: `Key` stable cho `PdfViewer.file` (reparent) — pdfrx có thể
+    vẫn recreate native surface, cần test.
+- **AT:** trang 50 → mở panel → vẫn trang 50 (không nháy trang 1); đóng
+  panel → vẫn trang 50; mở/đóng 5 lần không nhảy.
+
+### XLAT-MLKIT-001 — Offline ML Kit EN→VI báo nhầm "Chưa tải gói dịch german"
+- **Triệu chứng (owner):** "Khi dịch tiếng Việt bằng 'Chỉ dùng dịch offline'
+  chọn ML Kit thì khi dịch xong nó báo 'Lỗi ML Kit On-Device: Chưa tải gói
+  dịch german — vào cài đặt engine dịch để tải về'. Trong khi tôi đang dùng
+  English -> Việt mà?"
+- **Repro:** Cài đặt dịch → "Chỉ dùng dịch offline" + engine ML Kit; cặp
+  EN→VI đã tải model en + vi; dịch văn bản Anh (dùng trong tab Đọc/PDF) →
+  hầu hết dòng dịch OK nhưng có dòng báo lỗi "german".
+- **Root cause (đã verify code):** `text_provider_translation.dart` —
+  `translateLine` (line ~143) + `translateAll` (line ~238): MỖI dòng đều
+  `LanguageDetector.detectLanguage(line.content, fallback: source)` — TỰ
+  NHẬN DIỆN LẠI NGỒN dù user đã GẮN nguồn 'EN' → detector nhầm 1 dòng Anh
+  ngắn thành 'de' (German — Anh/Đức gần nhau) → `translateText(sourceLang:
+  'DE', targetLang: 'VI')` → `mlkit_engine.dart` line ~148: model DE chưa tải
+  → `'Chưa tải gói dịch german'` (`_nativeNames` default = `language.name`).
+- **Files:** `lib/features/translation/text_provider_translation.dart`
+  (2 call sites), `lib/features/translation/engines/mlkit_engine.dart`
+  (`translate` + `_nativeNames`), `lib/features/tts/language_detector.dart`
+  (detector — chỉ để tham khảo).
+- **Fix đề xuất (2 lớp):**
+  1. `text_provider_translation.dart`: user GẮN nguồn (≠ AUTO) → dùng đúng
+     nguồn gắn cho TẤT CẢ dòng, không re-detect. Re-detect chỉ khi chế độ
+     AUTO (document hỗn hợp ngôn ngữ).
+  2. `mlkit_engine.dart`: khi source model CHA CÓ nhưng target có, và source
+     chỉ là kết quả auto-detect → service retry với nguồn gắn/mặc định 'EN'
+     trước khi báo lỗi; đồng thời message lỗi nêu CẶP thật + gợi ý: "Cặp DE→VI
+     thiếu gói German (nguồn tự nhận diện — kiểm tra lại ngôn ngữ nguồn)".
+- **AT:** offline ML Kit, nguồn gắn EN, tài liệu Anh (trộn vài câu ngắn) →
+  dịch hết không có lỗi "german"; chế độ AUTO với file thật Đức → vẫn nhận
+  ra và báo thiếu gói German đúng ngữ cảnh.
+
+### READ-TOOLBAR-001 — Thanh đáy tab Đọc (size chữ/dịch/đọc/mark/lưu) "đen thui" khi kéo văn bản
+- **Triệu chứng (owner):** "Thanh chức năng tăng giảm size chữ, dịch, đọc,
+  mark, lưu. Khi kéo văn bản lên thì nó đen thui nhưng vẫn che chữ…"
+  (câu bị cắt). = thanh `ReadBottomBar` (nút text_decrease/increase,
+  translate, record_voice_over, bookmark, sidebar) hiện thành **khối đen
+  không thấy nút** nhưng vẫn che văn bản.
+- **Repro:** tab Đọc → cuộn văn bản (kéo lên/xuống) → thanh đáy thành khối
+  đen che chữ.
+- **Nghi chính (bằng chứng thời điểm):** build owner (`1d58b78`) ĐÃ CHỨA
+  fix `READ-FOCUS-001` (commit `6ba029a`) bọc đúng thanh này bằng
+  `AnimatedSize` + `ClipRect` + `AnimatedSlide` + `AnimatedOpacity`.
+  Kết hợp `ClipRect` + offset phân số (1.2) + opacity trên một số GPU
+  Android (Mali/Adreno) có thể render khối đen — HỢP TRÙNG với các artifact
+  khác trên đúng máy này (SHELL-GEAR-001, LISTEN-LRC-001: sọc vàng đen).
+- **Files:** `lib/screens/read_mode/read_mode_screen.dart` (AnimatedSize/
+  ClipRect wrapper ~line 176), `lib/screens/read_mode/widgets/read_bottom_bar.dart`.
+- **Fix đề xuất (A/B theo thứ tự):**
+  1. Bỏ `ClipRect` (giữ AnimatedSize) — nếu hết khối đen → done.
+  2. Nếu vẫn đen: thay AnimatedSize bằng build điều kiện đơn giản
+     (`isFocusMode ? SizedBox(height:0) : AnimatedSlide(...)` cũ) — hy sinh
+     animation gập, giữ đúng chức năng.
+  3. Rà thêm: `AnimatedSlide` offset (0,1.2) → (0,1.0) (offset >1 trên GPU
+     yếu dễ sinh artifact).
+- **AT:** cuộn lên/xuống 10 lần: thanh đáy ẩn/hiện sạch, KHÔNG có khối đen;
+  Focus/Thoát Focus mượt (giữ nguyên AT của READ-FOCUS-001).
+
+### TTS-PIPER-002 — Settings vẫn báo × đỏ Piper dù "đã có model và hoạt động"
+- **Triệu chứng (owner):** "Trong setting sao đã có model TTS sherpa và hoạt
+  động được rồi nhưng nó vẫn báo x Piper (offline neural) (chữ/màu đỏ)."
+- **Root cause (REGRESSION do chính DEV — commit `d28a1e9`):** pre-flight
+  mới làm `PiperTtsEngine.isAvailable()` đòi: giọng + **espeak-ng-data
+  (phontab)** + file model nguyên vẹn (onnx ≥1MB, **tokens ≥1KB**). Trên máy
+  owner: (a) thiếu phonemizer (cũng là root cause crash TTS-PIPER-001) VÀ/
+  HOẶC (b) ngưỡng tokens 1KB quá gắt (file tokens Piper single-speaker hợp
+  lệ có thể <1KB) → `checkEngineStatus()` (widget chip
+  `tts_settings_section.dart`) hiện × đỏ KHÔNG GIẢI THÍCH → owner hiểu
+  nhầm model hỏng.
+- **Fix ĐÃ LÀM (turn này, chờ nghiệm thu):**
+  - Ngưỡng tokens hạ về **≥128B** (`sherpa_piper_tts_core.dart`
+    `isVoiceFilesPlausible`).
+  - Chip engine status: khi Piper × → hiện chip cam giải thích "Piper × :
+    chưa có giọng HOẶC thiếu phonemizer (espeak-ng-data) — cài tại TTS →
+    Quản lý model" (`tts_settings_section.dart`).
+- **AT:** (1) máy có giọng + phonemizer → chip Piper xanh; (2) thiếu
+  phonemizer → chip × + dòng giải thích; bấm "Quản lý model" → tải
+  phonemizer → chip xanh; TTS phát tiếng Việt bằng giọng neural không crash.
+
+### SHELL-GEAR-001 — Nhấn GIỮ nút setting (răng cưa) → sọc vàng đen + lỗi overlay.dart
+- **Triệu chứng (owner):** "Nút setting (răng cưa icon) khi nhấn và giữ nó bị
+  lỗi màn hình sọc vàng đen dọc bên phải và ngang ở dưới
+  ('package:flutter/src/widgets/overlay.dart')."
+- **Repro:** long-press nút settings (2 ứng viên: drawer "Giao diện shell"
+  `Icons.tune_rounded` `main_shell.dart` ~line 419, hoặc gear
+  `Icons.settings_outlined` của toolbar dịch `translation_toolbar.dart`
+  line 87) → màn hình hiện **sọc vàng-đen** (vertical phải + horizontal
+  dưới) + assertion overlay.dart.
+- **Nghi chính (hypothesis mạnh):** **orphaned Ink** — long-press sinh ink
+  splash (Material ripple); nếu `Material` chứa ink BỊ RỜI khỏi tree trong
+  khi splash còn animation (rebuild/rút drawer/đổi chrome) → ink feature
+  mồ côi bị paint thành rác (sọc vàng-đen là "chữ ký" của artifact này —
+  flutter/flutter#114524, #89403). Cùng gia đình với READ-TOOLBAR-001 /
+  LISTEN-LRC-001 trên đúng máy này.
+- **Files:** `lib/screens/main_shell.dart` (mode switch + drawer +
+  longPressModeSwitch line ~1052/1230/1252 — long-press ĐỔI MODE shell:
+  `_setListenMode` cycle — rất có thể long-press gear TRÙNG với long-press
+  đổi mode → đổi screen giữa ink splash), `lib/features/translation/
+  translation_toolbar.dart` (gear 2).
+- **Fix đề xuất:**
+  1. Xác định đúng gear (hỏi owner 1 ảnh chụp màn hình / vị trí nút).
+  2. Nếu là long-press đổi mode shell: tách hành vi (long-press chỉ đổi mode
+     khi mode switch BẬT — `_enableLongPressModeSwitch`) và đảm bảo surface
+     không đổi trong 400ms đầu của long-press; hoặc dùng
+     `GestureDetector` + highlight tự vẽ (không Ink) cho nút đó.
+  3. Chạy repro trong debug, bắt stack overlay.dart chính xác (chụp logcat).
+- **AT:** long-press nút settings 3s (lặp 10 lần) → không sọc vàng-đen,
+  không assertion; hành vi long-press (đổi mode) vẫn đúng.
+
+### LISTEN-LRC-001 — Chọn file âm thanh CÓ LỜI SẴN → sọc đen vàng + assertion framework + tab Hiểu đỏ
+- **Triệu chứng (owner):** "Tab music khi chọn file âm thanh và có lời sẵn do
+  đã tạo từ trước khi nó bị lỗi màn hình sọc đen vàng 99304 pixels hàng
+  ngang bên dưới và 'framework.dart': Failed assertion: line 2168 pos 12:
+  '_elements.contains(element)': is not true. Đồng thời tab Hiểu lỗi màn
+  hình đỏ hoàn toàn với báo lỗi: 'framework.dart': line 6417 pos 14 …
+  'check that it really is our descendant … return ancestor == this'
+  is not true."
+- **Repro:** tab Nghe (music) → chọn file audio **đã có file .lrc tương
+  ứng** (tạo từ trước) → sọc + assertion; tab Hiểu bị red screen.
+- **Đọc assertion:**
+  - line 6417 = assertion `InheritedElement.dependOn`: context dùng để đọc
+    InheritedWidget **không còn là descendant** → **STALE CONTEXT** (context
+    của subtree đã dispose được dùng trong build/listener).
+  - line 2168 `_elements.contains(element)` = element tree bất nhất (thường
+    đi kèm setState-during-build hoặc element bị mount lại sai vị trí).
+- **Nghi chính:** `listen_mode_screen.dart` (3336 dòng) — flow mở file +
+  phát hiện LRC có sẵn: stream của `just_audio`/`PlayerProvider` +
+  `setState`/notify của provider firing **trong build** (đổi UI giữa khi
+  file open đang rebuild), hoặc `context` captured từ build cũ trong
+  `ValueListenableBuilder`/`StreamBuilder`. Tab Hiểu đỏ = stale context
+  tương tự trong `UnderstandWorkspaceScreen` khi tab Nghe đổi state.
+- **Files:** `lib/screens/listen_mode/listen_mode_screen.dart` (file picker +
+  LRC detection — grep `lrc`/`lyrics`), `lib/providers/player_provider.dart`,
+  `lib/screens/understand/...` (tab Hiểu — tìm `dependOn`/`context.watch`
+  trong listener).
+- **Fix đề xuất:**
+  1. Chạy debug: BẮT log "setState() or markNeedsBuild() called during build"
+    (Flutter in log TRƯỚC assertion — nó chỉ stack chính xác).
+  2. Mọi listener player/stream: guard `if (!mounted) return;` + KHÔNG
+    setState trong build (chuyển qua `addPostFrameCallback`).
+  3. Rà `context` dùng trong callback async — luôn dùng context của
+    `StatefulElement` hiện tại, không dùng context build cũ.
+  4. Rà artifact sọc: cùng hypothesis orphaned Ink như SHELL-GEAR-001 (nếu
+     có InkWell trong toolbar bị remove giữa splash).
+- **AT:** chọn file CÓ lrc sẵn → phát bình thường, không sọc/assertion;
+  tab Hiểu mở/đóng sau đó không red; lặp 5 file.
+
+### LISTEN-VIEW-001 — Nghe → tab phụ Xem (video) → quay lại Nghe = màn hình đen không thoát
+- **Triệu chứng (owner):** "Khi từ tab nghe -> tab phụ xem quay trở lại thì
+  bị lỗi màn hình đen không thoát được."
+- **Repro:** tab Nghe (sub-tab "Nghe") → sub-tab **"Xem"**
+  (`VideoLibraryScreen` — xem video local + phụ đề) → quay lại sub-tab
+  "Nghe" → **đen toàn màn hình, không thoát được**.
+- **Context:** `main_shell.dart` ~line 840: Listen section =
+  `IndexedStack(index: _listenModeIndex, children: [ListenModeScreen,
+  SpeakModeScreen, VideoLibraryScreen])` — cả 3 screen SỐNG LUÔN (offstage).
+  `video_player: 2.8.0` (dep native mới — commit `5b3a663`).
+- **Nghi chính:** (a) `VideoPlayerController`/texture Android: surface video
+  không release khi screen offstage → texture đen phủ lên; hoặc
+  (b) `ListenModeScreen` rebuild từ offstage gặp lỗi state (player stream
+  error) → red/black + navigation freeze; (c) release build: exception
+  không render → đen.
+- **Files:** `lib/screens/main_shell.dart` (IndexedStack),
+  `lib/features/video/widgets/video_library_screen.dart` (dispose controller
+  khi hide?), `lib/screens/listen_mode/listen_mode_screen.dart` (state sau
+  khi offstage→onstage).
+- **Fix đề xuất:**
+  1. `VideoLibraryScreen`: `dispose()`/`didChangeDependencies` — đảm bảo
+     `VideoPlayerController.dispose()` (hoặc `pause() + setVolume(0)`) khi
+     screen offstage, và controller tạo lại sạch khi onstage.
+  2. Bọc body của `VideoLibraryScreen` `try` — nếu lỗi init video → hiện
+     lỗi văn bản thay vì đen.
+  3. Test cả debug + release; nếu release đen → bắt logcat
+     (`adb logcat | grep -i flutter`) khi repro.
+- **AT:** Nghe → Xem (mở 1 video, để chạy 5s) → quay lại Nghe → nghe bình
+  thường, không đen; đổi 10 lần không kẹt.
+
+### GHI CHÚ CHUNG CHO AGENT SỬA BATCH NÀY
+- Build owner = DEBUG (thấy assertion) — repro nhanh nhất bằng `flutter run`
+  debug trên Android.
+- 3 lỗi visual (READ-TOOLBAR-001, SHELL-GEAR-001, LISTEN-LRC-001) cùng
+  "chữ ký" artifact (sọc vàng-đen / khối đen) trên 1 máy → ưu tiên hypothesis
+  **orphaned Ink** + **GPU clip/transform** (test A/B: bỏ ClipRect, đổi
+  InkWell→GestureDetector+custom highlight cho các bar bị remove giữa animation).
+- Sau mỗi fix: `flutter analyze` + `flutter test` trước khi commit; CI oracle
+  = "App Analyze + Locale Test (wide oracle)" phải xanh.

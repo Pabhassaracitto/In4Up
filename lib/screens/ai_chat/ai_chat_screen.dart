@@ -23,8 +23,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Future<void> _send(AiServiceFacade facade) async {
     final text = _controller.text;
-    if (text.trim().isEmpty || facade.isChatLoading) return;
+    if (text.trim().isEmpty) return;
     _controller.clear();
+    // KHÔNG bỏ tin khi AI đang trả lời (AI-CHAT-01 DoD #3): facade xếp hàng và
+    // isolate native xử lý tuần tự — bản cũ `return` sớm nên tin thứ hai bị
+    // nuốt mất, còn nút gửi bị khoá nên người dùng tưởng chat "đơ".
     await facade.sendMessage(text);
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -90,7 +93,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Icon(
-                      facade.hasModel
+                      // Có FILE model (dù engine đang nạp/lỗi) ⇒ không hiện
+                      // icon "tải về" như thể chưa có gì.
+                      facade.hasModel || facade.hasModelFile
                           ? Icons.memory
                           : Icons.download_for_offline_outlined,
                     ),
@@ -161,8 +166,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
                     const SizedBox(width: 8),
                     IconButton.filled(
                       tooltip: context.uiText('Gửi'),
-                      onPressed:
-                          facade.isChatLoading ? null : () => _send(facade),
+                      // Vẫn bấm được khi AI đang trả lời: tin sẽ vào hàng đợi
+                      // của facade (chỉ spinner đổi để biết đang xử lý).
+                      onPressed: () => _send(facade),
                       icon: facade.isChatLoading
                           ? const SizedBox(
                               width: 20,
@@ -182,13 +188,18 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 }
 
-/// Banner trạng thái model — 5 trạng thái rõ ràng:
+/// Banner trạng thái model — các trạng thái rõ ràng:
 ///   - chưa có model: vàng, bấm được để import
 ///   - đang copy file: progress 0–100%
 ///   - đang tải (URL): progress 0–100%
+///   - engine lỗi / bị OOM thu hồi: đỏ + "Thử lại" (khởi động lại engine)
 ///   - đang nạp native: spinner (1–2 phút với file lớn)
-///   - lỗi: đỏ + nút "Thử lại"
 ///   - sẵn sàng: xanh + tên file + dung lượng
+///
+/// AI-CHAT-01 (audit B3): "Chưa nạp model AI — import file .gguf" chỉ được
+/// hiện khi THẬT SỰ không có file model. Đang generate (state=processing),
+/// đang nạp lại sau timeout hay engine vừa bị thu hồi đều KHÔNG được rơi vào
+/// nhánh vàng đó — đó chính là cảnh "banner xanh nhảy vàng ngay sau khi gửi".
 class _ModelStatusBanner extends StatelessWidget {
   final AiServiceFacade facade;
   const _ModelStatusBanner({required this.facade});
@@ -241,7 +252,39 @@ class _ModelStatusBanner extends StatelessWidget {
       );
     }
 
-    // 3) Native đang nạp model
+    // 3) Engine lỗi / bị OOM thu hồi / khởi động lại thất bại — đỏ + "Thử lại".
+    // Đứng TRƯỚC nhánh "đang nạp" vì có file model nhưng engine không dùng
+    // được thì "đang nạp" sẽ che mất lỗi thật. Trong lúc đang khởi động lại
+    // thì KHÔNG hiện lỗi (đang nạp lại — xem nhánh 5).
+    if (facade.engineError != null && !facade.isEngineRestarting) {
+      return _banner(
+        color: const Color(0xFF3A1A22),
+        onTap: () => _retryEngine(context),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 18, color: Color(0xFFFF8A9E)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${ui('Lỗi')}: ${facade.engineError ?? ''}',
+                  style: const TextStyle(
+                      fontSize: 12, color: Color(0xFFFFC2CE)),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _retryEngine(context),
+                child: Text(ui('Thử lại')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 4) Native đang nạp model
     if (facade.importStage == AiImportStage.loading || facade.isModelLoading) {
       return _banner(
         color: const Color(0xFF1A2440),
@@ -268,7 +311,7 @@ class _ModelStatusBanner extends StatelessWidget {
       );
     }
 
-    // 4) Lỗi
+    // 5) Lỗi import / tải model
     if (facade.importStage == AiImportStage.failed) {
       return _banner(
         color: const Color(0xFF3A1A22),
@@ -297,7 +340,7 @@ class _ModelStatusBanner extends StatelessWidget {
       );
     }
 
-    // 5) Model sẵn sàng
+    // 6) Model sẵn sàng
     if (facade.hasModel) {
       final name = facade.modelFileName ?? '';
       final sizeMb = facade.modelSizeBytes != null
@@ -327,7 +370,41 @@ class _ModelStatusBanner extends StatelessWidget {
       );
     }
 
-    // 6) Chưa có model — bấm để import
+    // 7) Có file model nhưng engine chưa sẵn sàng (đang nạp lại / vừa bị thu
+    // hồi nhưng chưa phát hiện lỗi). Tuyệt đối KHÔNG rơi xuống nhánh vàng
+    // "Chưa nạp model AI" — model đã import rồi.
+    if (facade.hasModelFile) {
+      return _banner(
+        color: const Color(0xFF1A2440),
+        onTap: () => _retryEngine(context),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  ui(
+                      'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút cho file lớn'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _retryEngine(context),
+                child: Text(ui('Thử lại')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 8) Chưa có model — bấm để import
     return _banner(
       color: const Color(0xFF33270F),
       onTap: () => _retryImport(context),
@@ -355,9 +432,17 @@ class _ModelStatusBanner extends StatelessWidget {
     );
   }
 
-  Future<void> _retryImport(BuildContext context) async {
+  /// "Thử lại" cho lỗi ENGINE (AI process bị OOM thu hồi / native treo):
+  /// khởi động lại engine với model đã có — KHÔNG mở file picker bắt người
+  /// dùng chọn lại file 1.5GB (AI-CHAT-01 DoD: "báo lỗi retry được").
+  Future<void> _retryEngine(BuildContext context) async {
     final facade = context.read<AiServiceFacade>();
-    await facade.importModelFromUser();
+    await facade.restartEngine(reason: facade.engineError);
+  }
+
+  /// "Thử lại" cho lỗi IMPORT/TẢI model — giữ nguyên luồng cũ (MODELS-002).
+  Future<void> _retryImport(BuildContext context) async {
+    await context.read<AiServiceFacade>().importModelFromUser();
   }
 
   Widget _banner({

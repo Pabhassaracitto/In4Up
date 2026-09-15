@@ -2259,6 +2259,12 @@
      `floating_text_actions`: 3 chỗ đó pop sheet / gỡ overlay trước khi hiện
      snackbar ⇒ context đã chết, mở bottom sheet từ đó sẽ crash. Người dùng
      vẫn gán được hình ngay trong sheet tap PDF (state "đã lưu").
+- **Bug bắt được nhờ test (đã sửa, commit 818f884):** helper `_str()` ban đầu đòi
+  tiền tố `http(s)://` cho MỌI field → `title`/`creator`/`license` của cả 4
+  provider sẽ luôn null (lưới ảnh không caption, mất ghi nguồn). Tách thành
+  `_str()` (text) + `_url()` (chỉ nhận URL tuyệt đối; URL tương đối → fallback
+  ảnh gốc). Fixture shape thật của 4 API được parse lại ngoài Dart để khóa
+  hành vi đó trước khi commit.
 - **Chờ:** owner dán key (Pexels/Unsplash) hoặc set secret
   `VOCAB_IMAGE_API_KEY` + var `VOCAB_IMAGE_PROVIDER` trong repo Settings →
   Secrets and variables → Actions; CI analyze/test; nghiệm thu máy.

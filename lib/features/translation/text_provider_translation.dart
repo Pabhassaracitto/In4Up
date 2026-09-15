@@ -22,17 +22,8 @@ mixin TranslationMixin on ChangeNotifier {
   int _translationRunId = 0;
   String? _appliedPipelineTag;
 
-  /// Nguồn dịch EXPLICIT user đã gắn (translation code, vd 'EN');
-  /// null = chế độ AUTO (nhận diện tự động).
-  ///
-  /// XLAT-MLKIT-001: khi đã gắn nguồn, mọi dòng dùng đúng nguồn đó — không
-  /// re-detect từng dòng (câu ngắn dễ bị detector nhầm, vd EN → 'DE', rồi
-  /// báo "Chưa tải gói dịch german" dù user chọn EN→VI). Chỉ AUTO mới
-  /// re-detect từng dòng cho tài liệu hỗn hợp ngôn ngữ.
   String? _pinnedTranslationSourceCode;
 
-  /// Seam test cho lane translation: thay singleton bằng instance
-  /// `TranslationService.forTest` có engine giả. Production để null.
   @visibleForTesting
   TranslationService? translationServiceForTest;
 
@@ -67,26 +58,13 @@ mixin TranslationMixin on ChangeNotifier {
     return LanguageDetector.detectLanguage(sample);
   }
 
-  /// Nguồn dịch hiệu dụng của tài liệu: nguồn user GẮN (explicit) nếu có,
-  /// ngược lại kết quả nhận diện tự động theo mẫu nội dung.
   AppLanguage get translationSourceLanguage =>
       _pinnedTranslationSourceCode == null
           ? detectedSourceLanguage
           : AppLanguageCatalog.fromCode(_pinnedTranslationSourceCode);
 
-  /// True khi user đã gắn nguồn explicit (≠ AUTO).
   bool get translationSourceIsPinned => _pinnedTranslationSourceCode != null;
 
-  /// Gắn nguồn dịch explicit cho tài liệu hiện tại.
-  ///
-  /// - 'AUTO' (hoặc rỗng) → bỏ gắn, quay lại nhận diện tự động.
-  /// - Code hợp lệ trong catalog → gắn nguồn cho TẤT CẢ dòng (không
-  ///   re-detect từng dòng, không retry bằng ngôn ngữ khác).
-  /// - Code không có trong catalog → return false, không đổi gì.
-  ///
-  /// Đổi nguồn sẽ xoá bản dịch cũ và dịch lại như [setTranslationTargetLanguage].
-  /// Nguồn gắn là state phiên/tài liệu (reset bởi [resetTranslationForNewDocument]);
-  /// chưa lưu bền vững — việc lưu + UI chọn nguồn thuộc lane khác.
   Future<bool> setTranslationSourceLanguage(
     String code, {
     bool retranslateExisting = true,
@@ -199,19 +177,11 @@ mixin TranslationMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  /// Nguồn của MỘT dòng. Chế độ AUTO (không gắn nguồn) re-detect từng dòng
-  /// với fallback = nguồn tài liệu (hỗ trợ tài liệu hỗn hợp ngôn ngữ).
-  /// Nguồn explicit dùng đúng nguồn đã gắn cho mọi dòng — KHÔNG re-detect
-  /// (XLAT-MLKIT-001: không để câu ngắn đổi tài liệu EN thành DE).
   AppLanguage _lineSourceFor(String content, AppLanguage documentSource) {
     if (translationSourceIsPinned) return documentSource;
     return LanguageDetector.detectLanguage(content, fallback: documentSource);
   }
 
-  /// Dịch 1 dòng qua service. Chế độ AUTO: nếu dòng bị nhận diện nhầm sang
-  /// ngôn ngữ khác nguồn tài liệu và model của ngôn ngữ vừa nhận diện chưa
-  /// tải (missingModelCodes) → retry ĐÚNG 1 LẦN với nguồn tài liệu trước khi
-  /// chấp nhận lỗi. Nguồn explicit KHÔNG BAO GIỜ retry bằng ngôn ngữ khác.
   Future<(TranslationResult, AppLanguage)> _translateLineContent(
     TranslationService service, {
     required String content,
@@ -246,9 +216,6 @@ mixin TranslationMixin on ChangeNotifier {
     return (result, appliedSource);
   }
 
-  /// Lỗi dịch có cấu trúc: khi model của NGUỒN thiếu, phân biệt "nguồn tự
-  /// nhận diện" (chế độ AUTO — user nên kiểm tra lại ngôn ngữ nguồn) với
-  /// "cặp nguồn đã chọn" (explicit — không đổi ngôn ngữ âm thầm).
   String _translationErrorFor(
     TranslationResult result, {
     required AppLanguage lineSource,
@@ -270,8 +237,7 @@ mixin TranslationMixin on ChangeNotifier {
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    final service = _translationService;
-    final source = translationSourceLanguage;
+    final source = detectedSourceLanguage;
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
@@ -280,32 +246,32 @@ mixin TranslationMixin on ChangeNotifier {
       return;
     }
 
-    final lineSource = _lineSourceFor(line.content, source);
+    final lineSource = LanguageDetector.detectLanguage(
+      line.content,
+      fallback: source,
+    );
     final runId = _translationRunId;
-    final (result, appliedSource) = await _translateLineContent(
-      service,
-      content: line.content,
-      documentSource: source,
-      lineSource: lineSource,
-      targetCode: target.translationCode,
+    final result = await TranslationService().translateText(
+      line.content,
+      sourceLang: lineSource.translationCode,
+      targetLang: target.translationCode,
       skipCache: true,
     );
 
     if (runId != _translationRunId || index >= lines.length) return;
-    if (service.targetLang != target.translationCode) return;
+    if (TranslationService().targetLang != target.translationCode) return;
 
     if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
       lines[index] = line.copyWith(
         translation: result.translatedText,
-        sourceLanguageCode:
-            result.detectedLang ?? appliedSource.translationCode,
+        sourceLanguageCode: result.detectedLang ?? lineSource.translationCode,
         translationLanguageCode: target.translationCode,
       );
-      _currentEngine = service.lastUsedEngine;
-      _appliedPipelineTag = service.pipelineTag;
+      _currentEngine = TranslationService().lastUsedEngine;
+      _appliedPipelineTag = _translationService.pipelineTag;
       _translationError = null;
     } else {
-      _translationError = _translationErrorFor(result, lineSource: lineSource);
+      _translationError = '${result.engineName}: ${result.error}';
     }
     notifyListeners();
   }
@@ -313,8 +279,8 @@ mixin TranslationMixin on ChangeNotifier {
   Future<void> translateAll({bool forceRetranslate = false}) async {
     if (_isTranslating) return;
 
-    final service = _translationService;
-    final source = translationSourceLanguage;
+    final service = TranslationService();
+    final source = detectedSourceLanguage;
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
@@ -372,13 +338,14 @@ mixin TranslationMixin on ChangeNotifier {
         final lineIndex = toTranslate[position];
         if (lineIndex >= lines.length) continue;
         final line = lines[lineIndex];
-        final lineSource = _lineSourceFor(line.content, source);
-        final (result, appliedSource) = await _translateLineContent(
-          service,
-          content: line.content,
-          documentSource: source,
-          lineSource: lineSource,
-          targetCode: targetCode,
+        final lineSource = LanguageDetector.detectLanguage(
+          line.content,
+          fallback: source,
+        );
+        final result = await service.translateText(
+          line.content,
+          sourceLang: lineSource.translationCode,
+          targetLang: targetCode,
           skipCache: force,
         );
 
@@ -390,16 +357,13 @@ mixin TranslationMixin on ChangeNotifier {
             lines[lineIndex] = line.copyWith(
               translation: result.translatedText,
               sourceLanguageCode:
-                  result.detectedLang ?? appliedSource.translationCode,
+                  result.detectedLang ?? lineSource.translationCode,
               translationLanguageCode: targetCode,
             );
             _currentEngine = service.lastUsedEngine;
             consecutiveErrors = 0;
           } else {
-            _translationError = _translationErrorFor(
-              result,
-              lineSource: lineSource,
-            );
+            _translationError = '${result.engineName}: ${result.error}';
             consecutiveErrors++;
             if (consecutiveErrors >= 5) {
               _translationError =
@@ -477,7 +441,6 @@ mixin TranslationMixin on ChangeNotifier {
     _currentEngine = '';
     _appliedPipelineTag = null;
     _translationDisplayMode = TranslationDisplayMode.hidden;
-    // Nguồn explicit gắn cho tài liệu CŨ không kéo sang tài liệu mới.
     _pinnedTranslationSourceCode = null;
     // Không notify ở đây — caller sẽ notify sau khi parse lines
   }
@@ -507,7 +470,7 @@ mixin TranslationMixin on ChangeNotifier {
       if (line.translation != null && line.translation!.trim().isNotEmpty) {
         continue;
       }
-      final source = _lineSourceFor(line.content, translationSourceLanguage);
+      final source = LanguageDetector.detectLanguage(line.content);
       final cached = await cache.get(
         text: line.content,
         sourceLang: source.translationCode,
@@ -523,7 +486,7 @@ mixin TranslationMixin on ChangeNotifier {
       hits++;
     }
     if (hits > 0) {
-      _appliedPipelineTag = _translationService.pipelineTag;
+      _appliedPipelineTag = TranslationService().pipelineTag;
       if (_translationDisplayMode == TranslationDisplayMode.hidden) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }

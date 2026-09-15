@@ -1,0 +1,42 @@
+name: Debug analyze annotations (temporary - XLAT-MLKIT-001 bisect)
+
+# Workflow TẠM của lane A3 để đọc được lỗi `flutter analyze` khi log CI và
+# artifact đều không tải được từ sandbox (skill ci-red-debugging mục 1).
+# Phát mỗi dòng lỗi của analyze thành GitHub annotation (::error) — annotation
+# đọc được qua api.github.com. SẼ XOÁ trong commit dọn dẹp sau khi xong.
+# Không thay đổi app_analyze.yml và không dùng để né lỗi — chỉ để ĐỌC lỗi.
+
+on:
+  push:
+    branches: ['arena/01a0a6d2-in4up']
+  workflow_dispatch:
+
+jobs:
+  analyze-annotations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze and emit error annotations
+        run: |
+          set +e
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
+          echo "---- analyze error/warning lines (first 60) ----"
+          grep -E "^\s*(error|warning) •" analyze.log | head -60 || echo "(không có dòng error/warning)"
+          echo "---- tail analyze.log ----"
+          tail -n 20 analyze.log
+          grep -E "^\s*(error|warning) •" analyze.log | head -30 | while IFS= read -r line; do
+            msg=$(printf '%s' "$line" | sed 's/"/%22/g' | cut -c1-900)
+            echo "::error title=analyze::$msg"
+          done
+          exit 0

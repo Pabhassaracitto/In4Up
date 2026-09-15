@@ -14,6 +14,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/l10n/app_localizations.dart';

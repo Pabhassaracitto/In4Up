@@ -177,6 +177,17 @@ mixin TranslationMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  Future<(TranslationResult, AppLanguage)> _translateLineContent(
+    TranslationService service, {
+    required String content,
+    required AppLanguage documentSource,
+    required AppLanguage lineSource,
+    required String targetCode,
+    required bool skipCache,
+  }) async {
+    throw UnimplementedError();
+  }
+
   Future<void> translateLine(int index) async {
     if (index < 0 || index >= lines.length) return;
     final line = lines[index];

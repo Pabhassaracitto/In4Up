@@ -64,7 +64,11 @@ void main() {
       final chunks = HyMtChunking.chunk(text, maxChars: 200);
       expect(chunks.length, greaterThan(1));
       for (var i = 0; i < chunks.length - 1; i++) {
-        expect(chunks[i].text.trimRight(), isNotEmpty);
+        expect(
+          chunks[i].text.trimRight(),
+          isNotEmpty,
+          reason: 'chunk $i should end at a sentence boundary',
+        );
       }
     });
   });

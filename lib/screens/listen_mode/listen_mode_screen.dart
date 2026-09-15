@@ -31,6 +31,7 @@ import '../../providers/player_provider.dart';
 import '../../providers/soundlist_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
+import '../../utils/safe_set_state.dart';
 import '../../widgets/ab_loop_controls.dart';
 import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
@@ -65,7 +66,10 @@ class ListenModeScreen extends StatefulWidget {
 }
 
 class _ListenModeScreenState extends State<ListenModeScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with
+        SingleTickerProviderStateMixin,
+        WidgetsBindingObserver,
+        SafeSetStateMixin {
   late RollingWaveformController _waveformController;
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
@@ -77,6 +81,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   PlayerProvider? _playerProvider;
   WaveformProvider? _waveformProvider;
   SoundlistProvider? _soundlistProvider;
+  // LISTEN-LRC-001: stored ref — listeners/dispose must NOT use
+  // context.read (stale context after rebuild/dispose).
+  UnderstandProvider? _understandProvider;
   bool _prevAutoTocRunning = false;
 
   bool _isUserSeeking = false;
@@ -142,9 +149,13 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   /// Theo dõi job "Tự tạo mục lục" chạy nền → snackbar khi hoàn tất.
   void _onSoundlistChange() {
     final soundlist = _soundlistProvider;
-    if (soundlist == null) return;
+    if (soundlist == null || !mounted) return;
     final running = soundlist.autoTocRunning;
-    if (_prevAutoTocRunning && !running) {
+    final wasRunning = _prevAutoTocRunning;
+    _prevAutoTocRunning = running;
+    if (!wasRunning || running) return;
+    // LISTEN-LRC-001: snackbar must not run while the messenger is building.
+    runPostFrame(() {
       final err = soundlist.autoTocError;
       final result = soundlist.lastAutoTocResult;
       final messenger = ScaffoldMessenger.of(context);
@@ -171,8 +182,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           backgroundColor: Color(0xFFEF5350),
         ));
       }
-    }
-    _prevAutoTocRunning = running;
+    });
   }
 
   void _setupListeners() {
@@ -187,6 +197,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     _waveformProvider = waveform;
     _visibleAudioPath = player.currentSongPath;
     _soundlistProvider = soundlist;
+    _understandProvider = understand;
 
     player.addListener(_onPlayerChange);
     waveform.addListener(_onWaveformChange);
@@ -276,9 +287,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     _playerProvider?.removeListener(_onPlayerChange);
     _waveformProvider?.removeListener(_onWaveformChange);
     _soundlistProvider?.removeListener(_onSoundlistChange);
-    try {
-      context.read<UnderstandProvider>().removeListener(_onUnderstandChange);
-    } catch (_) {}
+    // LISTEN-LRC-001: stored ref — never context.read() during dispose
+    // (stale context → framework assertion).
+    _understandProvider?.removeListener(_onUnderstandChange);
     // FIX (Nghe→Viết màn đỏ): dispose TRƯỚC — setWaveformData sau dispose
     // là no-op nhờ guard _disposed của controller. Gọi setWaveformData
     // TRƯỚC dispose (như cũ) = notifyListeners() giữa pha unmount →
@@ -352,7 +363,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       _visibleAudioPath = currentPath;
       // Dispose the old editor/panel state together with its transcript. This
       // prevents an old AI editor from applying audio A's text to audio B.
-      setState(() {
+      // LISTEN-LRC-001: deferred when this tick lands mid-build.
+      safeSetState(() {
         _showLrcOnMain = false;
         _lrcHeight = _lrcDefaultHeight;
         _inlinePanelOpen = false;
@@ -389,10 +401,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     // ★ Update UnderstandProvider position cho synced lyrics
     if (_showLrcOnMain) {
-      try {
-        final understandProvider = context.read<UnderstandProvider>();
-        understandProvider.updatePosition(player.state.position);
-      } catch (_) {}
+      // LISTEN-LRC-001: stored ref — no context.read inside a listener.
+      _understandProvider?.updatePosition(player.state.position);
     }
   }
 
@@ -433,26 +443,40 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   void _onUnderstandChange() {
     if (!mounted) return;
 
-    final understand = context.read<UnderstandProvider>();
-    final hasLrcLines = understand.lrcLines.isNotEmpty;
+    // LISTEN-LRC-001: stored ref (no context.read); the whole effect is
+    // deferred when this notify lands mid-build (cached-LRC auto-load
+    // completing while loadSong's rebuild is still in flight).
+    final understand = _understandProvider;
+    if (understand == null) return;
 
-    // Tự động hiển thị LRC panel khi có lyrics mới
-    if (hasLrcLines && !_showLrcOnMain) {
-      setState(() {
-        _showLrcOnMain = true;
-      });
-    } else if (!hasLrcLines && _showLrcOnMain) {
-      // Đã đổi bài / clear → ẩn panel lyrics cũ đi, tránh giữ chữ bài cũ.
-      setState(() {
-        _showLrcOnMain = false;
-      });
+    void apply() {
+      if (!mounted) return;
+      final hasLrcLines = understand.lrcLines.isNotEmpty;
+
+      // Tự động hiển thị LRC panel khi có lyrics mới
+      if (hasLrcLines && !_showLrcOnMain) {
+        safeSetState(() {
+          _showLrcOnMain = true;
+        });
+      } else if (!hasLrcLines && _showLrcOnMain) {
+        // Đã đổi bài / clear → ẩn panel lyrics cũ đi, tránh giữ chữ bài cũ.
+        safeSetState(() {
+          _showLrcOnMain = false;
+        });
+      }
+
+      // Auto-scroll to current line (from UnderstandModeScreen logic)
+      final idx = understand.currentLineIndex;
+      // Chỉ auto-scroll khi user KHÔNG đang tự kéo danh sách.
+      if (idx >= 0 && _autoScroll && !_userScrollingLrc && hasLrcLines) {
+        _scrollToLine(idx);
+      }
     }
 
-    // Auto-scroll to current line (from UnderstandModeScreen logic)
-    final idx = understand.currentLineIndex;
-    // Chỉ auto-scroll khi user KHÔNG đang tự kéo danh sách.
-    if (idx >= 0 && _autoScroll && !_userScrollingLrc && hasLrcLines) {
-      _scrollToLine(idx);
+    if (listenShouldDeferSetState()) {
+      runPostFrame(apply);
+    } else {
+      apply();
     }
   }
 
@@ -861,16 +885,32 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                 bottomPad -
                                 waveformMin)
                             .clamp(_lrcMinHeight, 650.0);
+                        // LISTEN-LRC-001: never mutate _lrcHeight during build —
+                        // render from a clamped local and normalize post-frame.
+                        var displayHeight = _lrcHeight;
+                        if (displayHeight.isInfinite ||
+                            displayHeight > maxH) {
+                          displayHeight = maxH;
+                        }
+                        if (displayHeight < _lrcMinHeight) {
+                          displayHeight = _lrcMinHeight;
+                        }
+                        if (displayHeight != _lrcHeight) {
+                          final normalized = displayHeight;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted && _lrcHeight != normalized) {
+                              setState(() => _lrcHeight = normalized);
+                            }
+                          });
+                        }
                         final dragAction = context.uiText(
-                          _lrcHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
+                          displayHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
                         );
                         final tapAction = context.uiText(
-                          _lrcHeight < maxH * 0.9 ? 'mở toàn màn hình' : 'thu gọn',
+                          displayHeight < maxH * 0.9
+                              ? 'mở toàn màn hình'
+                              : 'thu gọn',
                         );
-
-                        // Clamp current height
-                        if (_lrcHeight > maxH) _lrcHeight = maxH;
-                        if (_lrcHeight < _lrcMinHeight) _lrcHeight = _lrcMinHeight;
 
                         if (!hasLines) {
                           return Container(
@@ -892,7 +932,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         }
 
                         return Container(
-                          height: _lrcHeight,
+                          height: displayHeight,
                           margin: const EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
                             color: const Color(0xFF121212),
@@ -2314,7 +2354,8 @@ class _SmartActionBar extends StatefulWidget {
   State<_SmartActionBar> createState() => _SmartActionBarState();
 }
 
-class _SmartActionBarState extends State<_SmartActionBar> {
+class _SmartActionBarState extends State<_SmartActionBar>
+    with SafeSetStateMixin {
   _InlinePanel? _openPanel;
 
   @override
@@ -2332,6 +2373,9 @@ class _SmartActionBarState extends State<_SmartActionBar> {
   void _onPlayerStateChange() {
     if (!mounted) return;
 
+    // Flags are consumed synchronously (no notify involved); every UI effect
+    // below touches parent State, so it runs post-frame — never inside the
+    // notify/build window (LISTEN-LRC-001).
     var openAi = false;
     if (widget.player.shouldOpenAiPanel) {
       widget.player.consumeShouldOpenAiPanel();
@@ -2340,17 +2384,19 @@ class _SmartActionBarState extends State<_SmartActionBar> {
 
     if (widget.player.lrcJustGenerated) {
       widget.player.consumeLrcJustGenerated();
-      widget.onLrcGenerated();
+      runPostFrame(() => widget.onLrcGenerated());
       openAi = true;
     }
 
     if (openAi) {
-      if (_openPanel != null) {
-        _openPanel = null;
-        widget.onPanelChanged?.call(false);
-        setState(() {});
-      }
-      widget.onAiPanelChanged(true);
+      runPostFrame(() {
+        if (_openPanel != null) {
+          _openPanel = null;
+          widget.onPanelChanged?.call(false);
+          safeSetState(() {});
+        }
+        widget.onAiPanelChanged(true);
+      });
     }
   }
 

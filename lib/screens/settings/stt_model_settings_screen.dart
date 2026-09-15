@@ -1247,6 +1247,13 @@ class _GemmaChatModelCard extends StatelessWidget {
             ? (facade.modelSizeBytes! / (1024 * 1024)).toStringAsFixed(0)
             : null;
         final busy = facade.isImportActive;
+        // AI-CHAT-01 (audit B3): engine thật có thể chết vì OOM/thu hồi — hiện
+        // lỗi engine (nếu có) thay vì nói "chưa có model" khi file vẫn còn.
+        final engineError = facade.engineError;
+        final errorText = engineError ??
+            (facade.importStage == AiImportStage.failed
+                ? facade.importError
+                : null);
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1261,14 +1268,18 @@ class _GemmaChatModelCard extends StatelessWidget {
                     Icon(
                       hasModel
                           ? Icons.check_circle
-                          : busy
-                              ? Icons.sync
-                              : Icons.cloud_off,
+                          : engineError != null
+                              ? Icons.error_outline
+                              : busy
+                                  ? Icons.sync
+                                  : Icons.cloud_off,
                       color: hasModel
                           ? Colors.green
-                          : busy
-                              ? Colors.blue
-                              : Colors.orange,
+                          : engineError != null
+                              ? Colors.red
+                              : busy
+                                  ? Colors.blue
+                                  : Colors.orange,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1287,9 +1298,15 @@ class _GemmaChatModelCard extends StatelessWidget {
                                 ? context.uiText(
                                     'Model: $name${sizeMb != null ? ' · ${sizeMb}MB' : ''} · ${facade.modelSourceLabel}',
                                   )
-                                : context.uiText(
-                                    'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
-                                  ),
+                                : facade.hasModelFile
+                                    // Có file model nhưng engine chưa sẵn sàng
+                                    // (đang nạp / vừa hồi phục sau OOM).
+                                    ? context.uiText(
+                                        'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút cho file lớn',
+                                      )
+                                    : context.uiText(
+                                        'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
+                                      ),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -1325,8 +1342,7 @@ class _GemmaChatModelCard extends StatelessWidget {
                 ],
 
                 // ── Error message ────────────────────────────────────
-                if (facade.importStage == AiImportStage.failed &&
-                    facade.importError != null) ...[
+                if (errorText != null) ...[
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -1334,7 +1350,7 @@ class _GemmaChatModelCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      facade.importError!,
+                      errorText,
                       style: const TextStyle(
                         color: Colors.red,
                         fontSize: 12,

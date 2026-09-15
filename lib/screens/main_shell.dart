@@ -845,7 +845,9 @@ class _MainShellState extends State<MainShell> {
               onOpenQuickActions: _openQuickActions,
               onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
             ),
-            const VideoLibraryScreen(),
+            // LISTEN-VIEW-001: embedded → no back button (nothing to pop;
+            // popping here would pop the root route = black screen).
+            const VideoLibraryScreen(showBackButton: false),
           ],
         );
       case _PrimaryTab.read:

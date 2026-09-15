@@ -2642,6 +2642,28 @@
   ... từ main_shell. Grid responsive (7 thẻ → hàng 3+2+2 hoặc 4+3).
 - **AT:** mỗi thẻ bấm vào đúng màn hình tương ứng (7/7); XEM mở thư
   viện video.
+- **Kết quả (agent `arena/01a0a6fe-in4up`, 2026-09-15):** `_buildBentoModesGrid`
+  tách thành 7 thẻ riêng NGHE · NÓI · XEM · ĐỌC · VIẾT · HIỂU · NHỚ; route
+  đúng sub-mode qua 3 callback mới `onNavigateToSpeak/Watch/Write`
+  (`main_shell` → `_setListenMode(1/2)`, `_setReadMode(1)`), giữ
+  `onNavigateToListen/Read/Understand/Memory` cũ. Grid đổi
+  `childAspectRatio` → `SliverGridDelegateWithFixedCrossAxisCount(mainAxisExtent: 108)`
+  (2 cột phone, 3/4/5 cột khi rộng ⇒ 7 thẻ = 2+2+2+1 … 4+3), tiêu đề 1
+  dòng + phụ đề 2 dòng ellipsis ⇒ không overflow. Nhãn mới
+  (`NÓI`/`XEM`/`VIẾT`/`Thư viện video`) qua `uiText` + catalog
+  en/hi/zh/zh_TW/si, không fallback `vi`. Commit `214d57d`; CI
+  `App Analyze + Locale Test` run 35028370711 🟢 (analyze 0 error + test
+  rule #5 xanh). **CÒN:** nghiệm thu thiết bị 7/7 thẻ (chờ nghiệm thu máy).
+  Ghi chú ngoài lane: `video_library_screen.dart` có nút back
+  `Navigator.pop(context)` trong khi màn này được nhúng trong
+  `IndexedStack` của shell (`main_shell.dart` — `MainShell` là route gốc,
+  `main.dart:364`) ⇒ sub-mode Xem có nguy cơ pop route gốc; lỗi có sẵn,
+  không thuộc ownership lane B5, cần owner xác nhận trên máy.
+  - 2026-09-15 | merge base `df77ab0` (A1 PDF + A2 WLIST-LANG) vào lane B5,
+    resolve `tool/legacy_ui_english_overrides.json` theo union (giữ 5 key mới
+    của A2 + 5 key của B5, gỡ 2 key mồ côi 'Nghe · Nói'/'Đọc · Viết') → merge
+    `4214445`; CI `App Analyze + Locale Test` run 35029286725 (pull_request)
+    và 35029282086 (push) 🟢 — analyze 0 error + test rule #5 xanh.
 
 ### HOME-KG-001 — "Xem Knowledge Graph" bấm vào không có phản ứng
 - **Triệu chứng (owner):** "Xem Knowledge Graph nhấn vào chưa có phản ứng gì."
@@ -2655,6 +2677,20 @@
   (_) => KnowledgeGraphScreen()))` (match cách word_list_screen mở).
 - **AT:** Home → card Knowledge Graph preview → bấm "Xem Knowledge Graph
   →" → mở đúng màn hình graph.
+- **Kết quả (agent `arena/01a0a6fe-in4up`, 2026-09-15):** card preview được
+  bọc `Material(transparent)` + `InkWell` ⇒ cả card (gồm nút "Xem Knowledge
+  Graph →") mở `KnowledgeGraphScreen` bằng đúng cách
+  `word_list_screen.dart` mở từ toolbar WordList
+  (`Navigator.of(context).push(MaterialPageRoute(builder: (_) => const
+  KnowledgeGraphScreen()))`) + haptic. Nhãn nút chuyển sang
+  `context.uiText('Xem Knowledge Graph →')` và có trong catalog
+  (en `View Knowledge Graph →`, đủ hi/zh/zh_TW/si). Commit `214d57d`; CI
+  run 35028370711 🟢. **CÒN:** nghiệm thu thiết bị (chờ nghiệm thu máy).
+  - 2026-09-15 | merge base `df77ab0` (A1 PDF + A2 WLIST-LANG) vào lane B5,
+    resolve `tool/legacy_ui_english_overrides.json` theo union (giữ 5 key mới
+    của A2 + 5 key của B5, gỡ 2 key mồ côi 'Nghe · Nói'/'Đọc · Viết') → merge
+    `4214445`; CI `App Analyze + Locale Test` run 35029286725 (pull_request)
+    và 35029282086 (push) 🟢 — analyze 0 error + test rule #5 xanh.
 
 ### HOME-STREAK-001 — "Nhịp điệu học tập" chưa có thống kê thật
 - **Triệu chứng (owner):** "Nhịp điệu học tập chưa có thống kê thực sự."

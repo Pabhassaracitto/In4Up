@@ -826,7 +826,10 @@ class _MainShellState extends State<MainShell> {
       case _PrimaryTab.home:
         return HomeScreen(
           onNavigateToListen: () => _setListenMode(0),
+          onNavigateToSpeak: () => _setListenMode(1),
+          onNavigateToWatch: () => _setListenMode(2),
           onNavigateToRead: () => _setReadMode(0),
+          onNavigateToWrite: () => _setReadMode(1),
           onNavigateToUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
           onNavigateToMemory: () => _setPrimaryTab(_PrimaryTab.remember),
           onOpenAiChat: () {

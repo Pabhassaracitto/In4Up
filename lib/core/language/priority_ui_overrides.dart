@@ -525,6 +525,44 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '寫',
     'si': 'ලියන්න',
   },
+  // Phòng Studio (HOME-STUDIO-001): 7 thẻ NGHE · NÓI · XEM · ĐỌC · VIẾT ·
+  // HIỂU · NHỚ. Tiêu đề viết hoa khớp `l10n.listen/read/understand/remember`.
+  'NÓI': {
+    'en': 'SPEAK',
+    'hi': 'बोलें',
+    'zh': '说',
+    'zh_TW': '說',
+    'si': 'කියන්න',
+  },
+  'XEM': {
+    'en': 'WATCH',
+    'hi': 'देखें',
+    'zh': '观看',
+    'zh_TW': '觀看',
+    'si': 'නරඹන්න',
+  },
+  'VIẾT': {
+    'en': 'WRITE',
+    'hi': 'लिखें',
+    'zh': '写',
+    'zh_TW': '寫',
+    'si': 'ලියන්න',
+  },
+  'Thư viện video': {
+    'en': 'Video library',
+    'hi': 'वीडियो लाइब्रेरी',
+    'zh': '视频库',
+    'zh_TW': '影片庫',
+    'si': 'වීඩියෝ පුස්තකාලය',
+  },
+  // HOME-KG-001: nút mở Knowledge Graph từ card preview ở Home.
+  'Xem Knowledge Graph →': {
+    'en': 'View Knowledge Graph →',
+    'hi': 'नॉलेज ग्राफ़ देखें →',
+    'zh': '查看知识图谱 →',
+    'zh_TW': '檢視知識圖譜 →',
+    'si': 'දැනුම් ප්‍රස්තාරය බලන්න →',
+  },
   'Gần đây': {
     'en': 'Recent',
     'hi': 'हालिया',

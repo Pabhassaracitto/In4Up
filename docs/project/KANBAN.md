@@ -2253,6 +2253,7 @@
 > khi build nghiệm thu** (có dep native mới: video_player 2.8.0).
 
 ### PDF-JUMP-001 — Nhập/chọn số trang rồi thoát → assertion `_dependents.isEmpty`
+- **Trạng thái:** doing — đã có fix + test seam + CI App Analyze xanh, chờ nghiệm thu máy
 - **Triệu chứng (owner):** "Khi nhấn vào chọn / điền số trang sau đó thoát ra
   thì báo lỗi: 'flutter/src/widgets/framework.dart': Failed assertion: line
   6268 pos 12: '_dependents.isEmpty': is not true."
@@ -2278,6 +2279,8 @@
   stack thật trước khi sửa sâu.
 - **AT:** mở PDF → "Tới trang" → điền + Đi tới → KHÔNG có assertion red;
   đóng bằng "Huỷ" → không lỗi; lặp 5 lần.
+- **Lịch sử:**
+  - 2026-09-15 | 20:51 UTC | doing→doing | agent arena/01a0a6cf-in4up | commit 3450d79 + 54e1171; App Analyze + Locale Test run 35021922026 xanh; thêm seam `PdfJumpToPageDialog` chờ nghiệm thu máy
 
 ### WLIST-LANG-001 — Lưu WordList: có tạo chủ đề mới nhưng KHÔNG có tạo ngôn ngữ mới
 - **Triệu chứng (owner):** "Lưu vào WordList: Hiện có thể tạo chủ đề mới
@@ -2299,8 +2302,15 @@
   pattern của ô tạo chủ đề (`_newTopicCtrl`).
 - **AT:** lưu từ với ngôn ngữ mới `pi` → thành công, chip `pi` hiện trong
   sheet ở lần mở sau; WordList lọc được theo `pi`.
+- **History (2026-09-16 Lane A2):**
+  - Đã thêm chip "＋ Thêm ngôn ngữ…" và ô nhập inline theo đúng pattern của Chủ đề trong `SelectionSaveSheet` (`lib/widgets/selection_save_sheet.dart`).
+  - Đã đưa validation/normalization `validateCustomLanguageCode` & `normalizeCustomLanguageCode` vào `lib/widgets/vocab_entry_meta.dart`: nhận code 2-4 ký tự Latin (a-z), normalize lowercase, trim; báo lỗi chi tiết khi rỗng, sai độ dài, hoặc chứa ký tự đặc biệt/số.
+  - Đồng bộ logic thêm ngôn ngữ mới vào `_FullSaveSheet` (`lib/screens/read_mode/widgets/floating_text_actions.dart`) và `VocabEntryEditSheet` (`lib/widgets/vocab_entry_meta.dart`).
+  - Đăng ký đầy đủ i18n cho các chuỗi nhãn và thông báo lỗi mới theo Rule #5 trong `lib/core/language/priority_ui_overrides.dart` (en, hi, zh, zh_TW, si) và `tool/legacy_ui_english_overrides.json`.
+  - Tạo bộ test unit toàn diện `test/custom_language_validation_test.dart` kiểm tra validation, normalization, lưu trữ WordEntry với ngôn ngữ mới, lọc WordList và Rule 5 i18n.
 
 ### PDF-PAGE-001 — Bấm icon "từ đã lưu" (góc phải dưới) → nhảy về trang 1
+- **Trạng thái:** doing — đã có fix + test seam + CI App Analyze xanh, chờ nghiệm thu máy
 - **Triệu chứng (owner):** "Khi chọn biểu tượng của 'Chưa có từ nào được lưu
   — Tap từ trên PDF hoặc bôi đen' thì nó mở lên khung từ vựng nhưng đồng thời
   cũng nhảy trang về trang PDF đầu tiên → hãy vẫn giữ nguyên trang."
@@ -2326,6 +2336,8 @@
     vẫn recreate native surface, cần test.
 - **AT:** trang 50 → mở panel → vẫn trang 50 (không nháy trang 1); đóng
   panel → vẫn trang 50; mở/đóng 5 lần không nhảy.
+- **Lịch sử:**
+  - 2026-09-15 | 20:51 UTC | doing→doing | agent arena/01a0a6cf-in4up | commit 3450d79 + 54e1171; App Analyze + Locale Test run 35021922026 xanh; `PdfReaderViewportShell` giữ `PdfViewer` mounted, chờ nghiệm thu máy
 
 ### XLAT-MLKIT-001 — Offline ML Kit EN→VI báo nhầm "Chưa tải gói dịch german"
 - **Triệu chứng (owner):** "Khi dịch tiếng Việt bằng 'Chỉ dùng dịch offline'

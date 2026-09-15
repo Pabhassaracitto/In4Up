@@ -2365,6 +2365,35 @@
 - **AT:** offline ML Kit, nguồn gắn EN, tài liệu Anh (trộn vài câu ngắn) →
   dịch hết không có lỗi "german"; chế độ AUTO với file thật Đức → vẫn nhận
   ra và báo thiếu gói German đúng ngữ cảnh.
+- **Trạng thái:** doing — fix code xong + CI xanh, chờ nghiệm thu máy
+- **Fix đã làm (2026-09-16, lane A3 — agent arena/01a0a6d2-in4up):**
+  - `text_provider_translation.dart`: thêm nguồn explicit
+    `setTranslationSourceLanguage(code)` ('AUTO' bỏ gắn) + getter
+    `translationSourceLanguage`/`translationSourceIsPinned`. Nguồn đã gắn
+    được dùng cho TẤT CẢ dòng (translateAll/translateLine/rehydrate) —
+    không gọi LanguageDetector từng dòng; chỉ AUTO mới re-detect.
+    Ở AUTO, khi model của nguồn VỪA NHẬN DIỆN chưa tải (khác nguồn tài
+    liệu) → retry đúng 1 lần với nguồn tài liệu trước khi báo lỗi — đóng
+    lỗi "german" trên tài liệu Anh câu ngắn; văn Đức thật không bị retry.
+    Lỗi thiếu model nguồn được chú thích "(nguồn tự nhận diện — kiểm tra
+    lại ngôn ngữ nguồn)" ở AUTO và "(cặp nguồn đã chọn)" ở explicit.
+    `resetTranslationForNewDocument` bỏ gắn nguồn của tài liệu cũ.
+  - `engines/mlkit_engine.dart`: lỗi thiếu model nêu đúng cặp
+    "Cặp DE → VI thiếu gói dịch Deutsch — vào Cài đặt engine dịch để tải
+    về" (tên native từ catalog 26 ngôn ngữ, không còn enum lowercase
+    'german'); thêm static `missingModelError`/`missingModelCodesOf`.
+  - `engines/translation_engine.dart` (seam tối thiểu):
+    `TranslationResult.missingModelCodes` — tín hiệu cấu trúc thay vì
+    regex chuỗi lỗi.
+  - Test: `test/translation_source_language_test.dart` (11 test qua seam
+    `translationServiceForTest` + `TranslationService.forTest`, không cần
+    thiết bị): AUTO retry EN/DE, AUTO văn Đức báo đúng cặp, AUTO mixed
+    doc, explicit không detect/retry, API validate/reset, message engine.
+  - Còn hở (ngoài ownership A3, để lane UI sau): chưa có UI chọn nguồn
+    trên toolbar và chưa persist nguồn explicit (seam đã sẵn).
+- **Lịch sử:**
+  - 2026-09-16 | 21:51 UTC | doing→doing (fix code + test, CI xanh, chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | CI run 35027743218 (App Analyze + Locale Test xanh); branch arena/01a0a6d2-in4up, PR vào arena/01a0251e-in4up
+  - 2026-09-16 | 22:00 UTC | doing (giữ nguyên — chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | PR #31 đã mở: https://github.com/Pabhassaracitto/In4Up/pull/31 ; CI pull_request run 35027994440 xanh
 
 ### READ-TOOLBAR-001 — Thanh đáy tab Đọc (size chữ/dịch/đọc/mark/lưu) "đen thui" khi kéo văn bản
 - **Triệu chứng (owner):** "Thanh chức năng tăng giảm size chữ, dịch, đọc,

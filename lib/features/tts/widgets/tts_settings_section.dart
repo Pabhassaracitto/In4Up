@@ -497,34 +497,67 @@ class _EngineStatusSection extends StatelessWidget {
         return Wrap(
           spacing: 6,
           runSpacing: 4,
-          children: snap.data!.entries.map((e) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: (e.value ? Colors.green : Colors.red)
-                    .withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    e.value ? Icons.check_circle : Icons.cancel,
-                    size: 12,
-                    color: e.value ? Colors.green : Colors.red,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    e.key,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: e.value ? Colors.green[200] : Colors.red[200],
+          children: [
+            ...snap.data!.entries.map((e) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (e.value ? Colors.green : Colors.red)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      e.value ? Icons.check_circle : Icons.cancel,
+                      size: 12,
+                      color: e.value ? Colors.green : Colors.red,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      e.key,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: e.value ? Colors.green[200] : Colors.red[200],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            // Piper × = có thể đã có giọng neural nhưng THIẾU phonemizer
+            // (espeak-ng-data) — giải thích ngay tại đây để không hiểu
+            // nhầm là model hỏng (regression TTS-PIPER-001).
+            if (snap.data!.entries
+                .any((e) => e.key.contains('Piper') && !e.value))
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 11, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Piper × : chưa có giọng HOẶC thiếu phonemizer '
+                      '(espeak-ng-data) — cài tại TTS → Quản lý model',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.orange[200],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          }).toList(),
+          ],
         );
       },
     );

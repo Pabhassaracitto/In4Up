@@ -233,12 +233,15 @@ class SherpaPiperTtsCore {
 
   /// File model còn "nguyên vẹn" đủ để native load (bắt tải về CẮT GIỮA:
   /// onnx quá nhỏ = file hỏng — load ORT trên file hỏng cũng có thể crash).
+  /// Ngưỡng tokens THẤP (≥128B): file tokens Piper hợp lệ có thể rất nhỏ
+  /// (vài trăm byte với giọng single-speaker) — ngưỡng cao hơn sẽ loại
+  /// nhầm giọng tốt → Piper báo "chưa cài" dù model nguyên vẹn.
   static bool isVoiceFilesPlausible(PiperTtsVoice v) {
     try {
       final onnx = File(v.modelPath);
       if (!onnx.existsSync() || onnx.lengthSync() < 1024 * 1024) return false;
       final tokens = File(v.tokensPath);
-      if (!tokens.existsSync() || tokens.lengthSync() < 1024) return false;
+      if (!tokens.existsSync() || tokens.lengthSync() < 128) return false;
       return true;
     } catch (_) {
       return false;

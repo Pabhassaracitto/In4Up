@@ -2536,6 +2536,15 @@
      có InkWell trong toolbar bị remove giữa splash).
 - **AT:** chọn file CÓ lrc sẵn → phát bình thường, không sọc/assertion;
   tab Hiểu mở/đóng sau đó không red; lặp 5 file.
+- **Trạng thái:** code xong + CI xanh, chờ nghiệm thu máy (2026-09-15)
+- **Lịch sử:**
+  - 2026-09-15 | doing→done-code (chờ nghiệm thu máy) | agent
+    arena/01a0a6d4-in4up (lane A5) | SafeSetStateMixin + stored provider ref
+    (không setState/notify trong build, không context.read trong
+    listener/dispose); rèm LRC render từ local clamped; tab Hiểu defer
+    waveform/shadowing sync ra post-frame; test
+    test/listen_lifecycle_guards_test.dart; CI run 35022505773 xanh
+    (analyze + locale)
 
 ### LISTEN-VIEW-001 — Nghe → tab phụ Xem (video) → quay lại Nghe = màn hình đen không thoát
 - **Triệu chứng (owner):** "Khi từ tab nghe -> tab phụ xem quay trở lại thì
@@ -2566,6 +2575,15 @@
      (`adb logcat | grep -i flutter`) khi repro.
 - **AT:** Nghe → Xem (mở 1 video, để chạy 5s) → quay lại Nghe → nghe bình
   thường, không đen; đổi 10 lần không kẹt.
+- **Trạng thái:** code xong + CI xanh, chờ nghiệm thu máy (2026-09-15)
+- **Lịch sử:**
+  - 2026-09-15 | doing→done-code (chờ nghiệm thu máy) | agent
+    arena/01a0a6d4-in4up (lane A5) | root cause = nút back của
+    VideoLibraryScreen pop nhầm route gốc khi nhúng trong IndexedStack
+    (không phải texture — chưa có VideoPlayerController thật);
+    thêm showBackButton=false khi nhúng + mounted guard + error UI retry;
+    test test/listen_view_video_library_test.dart; CI run 35022505773 xanh
+    (analyze + locale)
 
 ### GHI CHÚ CHUNG CHO AGENT SỬA BATCH NÀY
 - Build owner = DEBUG (thấy assertion) — repro nhanh nhất bằng `flutter run`

@@ -146,6 +146,28 @@ class TranslationToolbar extends StatelessWidget {
                       valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                       minHeight: 2),
                 ),
+                // HYMT-002: báo rõ đang dùng Hy-MT OFFLINE (có thể chậm) —
+                // kết thúc luôn ở success/error hữu hạn (isTranslating=false
+                // khi xong; mọi timeout của engine đều hữu hạn).
+                ValueListenableBuilder<String?>(
+                  valueListenable: textProvider.translationEngineNotifier,
+                  builder: (context, engineName, _) {
+                    if (engineName == null || !engineName.contains('Hy-MT')) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        context.uiText(
+                            'Đang dịch bằng Hy-MT offline, có thể chậm'),
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.white70),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
+                ),
               ],
               if (textProvider.translationError != null) ...[
                 const SizedBox(height: 4),

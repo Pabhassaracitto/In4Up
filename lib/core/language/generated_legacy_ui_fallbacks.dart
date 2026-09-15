@@ -1312,6 +1312,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Đang củng cố': 'Consolidating',
   'Đang dùng preset: Tùy chỉnh': 'Using preset: Custom',
   'Đang dùng preset: {value0}': 'Using preset: {value0}',
+  'Đang dịch bằng Hy-MT offline, có thể chậm': 'Translating with offline Hy-MT — this may be slow',
   'Đang dịch, vui lòng chờ hoàn tất…': 'Translating, please wait for completion…',
   'Đang ghi âm': 'Recording',
   'Đang khởi động...': 'Starting...',

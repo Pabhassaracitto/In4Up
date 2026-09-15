@@ -2295,6 +2295,12 @@
   pattern của ô tạo chủ đề (`_newTopicCtrl`).
 - **AT:** lưu từ với ngôn ngữ mới `pi` → thành công, chip `pi` hiện trong
   sheet ở lần mở sau; WordList lọc được theo `pi`.
+- **History (2026-09-16 Lane A2):**
+  - Đã thêm chip "＋ Thêm ngôn ngữ…" và ô nhập inline theo đúng pattern của Chủ đề trong `SelectionSaveSheet` (`lib/widgets/selection_save_sheet.dart`).
+  - Đã đưa validation/normalization `validateCustomLanguageCode` & `normalizeCustomLanguageCode` vào `lib/widgets/vocab_entry_meta.dart`: nhận code 2-4 ký tự Latin (a-z), normalize lowercase, trim; báo lỗi chi tiết khi rỗng, sai độ dài, hoặc chứa ký tự đặc biệt/số.
+  - Đồng bộ logic thêm ngôn ngữ mới vào `_FullSaveSheet` (`lib/screens/read_mode/widgets/floating_text_actions.dart`) và `VocabEntryEditSheet` (`lib/widgets/vocab_entry_meta.dart`).
+  - Đăng ký đầy đủ i18n cho các chuỗi nhãn và thông báo lỗi mới theo Rule #5 trong `lib/core/language/priority_ui_overrides.dart` (en, hi, zh, zh_TW, si) và `tool/legacy_ui_english_overrides.json`.
+  - Tạo bộ test unit toàn diện `test/custom_language_validation_test.dart` kiểm tra validation, normalization, lưu trữ WordEntry với ngôn ngữ mới, lọc WordList và Rule 5 i18n.
 
 ### PDF-PAGE-001 — Bấm icon "từ đã lưu" (góc phải dưới) → nhảy về trang 1
 - **Triệu chứng (owner):** "Khi chọn biểu tượng của 'Chưa có từ nào được lưu

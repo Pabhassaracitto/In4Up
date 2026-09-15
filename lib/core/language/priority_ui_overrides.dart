@@ -2207,4 +2207,305 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Không thể mở nội dung sách.': {
     'en': 'Could not open the book content.',
   },
+  // ── HOME-QUICK-001: Nạp tri thức nhanh (STT thật) + Gợi ý WordList ──
+  'NẠP TRI THỨC NHANH': {
+    'en': 'QUICK KNOWLEDGE INPUT',
+    'hi': 'त्वरित ज्ञान इनपुट',
+    'zh': '快速输入知识',
+    'zh_TW': '快速輸入知識',
+    'si': 'ඉක්මන් දැනුම් ආදානය',
+  },
+  'Nạp tri thức nhanh': {
+    'en': 'Quick knowledge input',
+    'hi': 'त्वरित ज्ञान इनपुट',
+    'zh': '快速输入知识',
+    'zh_TW': '快速輸入知識',
+    'si': 'ඉක්මන් දැනුම් ආදානය',
+  },
+  'Ghi chú nói': {
+    'en': 'Voice note',
+    'hi': 'वॉइस नोट',
+    'zh': '语音笔记',
+    'zh_TW': '語音筆記',
+    'si': 'හඬ සටහන',
+  },
+  'Gợi ý': {
+    'en': 'Suggest',
+    'hi': 'सुझाव',
+    'zh': '推荐',
+    'zh_TW': '推薦',
+    'si': 'යෝජනාව',
+  },
+  'Engine nhận diện sẽ chọn khi bật mic': {
+    'en': 'Recognition engine is chosen when the mic starts',
+    'hi': 'माइक चालू होने पर पहचान इंजन चुना जाता है',
+    'zh': '打开麦克风时选择识别引擎',
+    'zh_TW': '開啟麥克風時選擇辨識引擎',
+    'si': 'මයික්‍රෝෆෝනය ආරම්භ වූ විට හඳුනාගැනීමේ එන්ජිම තෝරයි',
+  },
+  'Đang bật micro…': {
+    'en': 'Starting microphone…',
+    'hi': 'माइक्रोफ़ोन चालू हो रहा है…',
+    'zh': '正在启动麦克风…',
+    'zh_TW': '正在啟動麥克風…',
+    'si': 'මයික්‍රෝෆෝනය ආරම්භ වෙමින්…',
+  },
+  'Đang nghe — nói ngay…': {
+    'en': 'Listening — speak now…',
+    'hi': 'सुन रहा है — अब बोलें…',
+    'zh': '正在聆听 — 请说话…',
+    'zh_TW': '正在聆聽 — 請說話…',
+    'si': 'අසමින් — දැන් කතා කරන්න…',
+  },
+  'Đang dừng…': {
+    'en': 'Stopping…',
+    'hi': 'रोका जा रहा है…',
+    'zh': '正在停止…',
+    'zh_TW': '正在停止…',
+    'si': 'නවත්වමින්…',
+  },
+  'Đã dừng — cần xử lý lỗi ở trên': {
+    'en': 'Stopped — see the error above',
+    'hi': 'रुक गया — ऊपर दी गई त्रुटि देखें',
+    'zh': '已停止 — 请查看上方错误',
+    'zh_TW': '已停止 — 請查看上方錯誤',
+    'si': 'නැවතුණා — ඉහළ දෝෂය බලන්න',
+  },
+  'Đã dừng — sẵn sàng lưu': {
+    'en': 'Stopped — ready to save',
+    'hi': 'रुक गया — सहेजने के लिए तैयार',
+    'zh': '已停止 — 可以保存',
+    'zh_TW': '已停止 — 可以儲存',
+    'si': 'නැවතුණා — සුරැකීමට සූදානම්',
+  },
+  'Sẵn sàng ghi âm': {
+    'en': 'Ready to record',
+    'hi': 'रिकॉर्ड करने के लिए तैयार',
+    'zh': '准备录音',
+    'zh_TW': '準備錄音',
+    'si': 'පටිගත කිරීමට සූදානම්',
+  },
+  'Nhấn để dừng': {
+    'en': 'Tap to stop',
+    'hi': 'रोकने के लिए टैप करें',
+    'zh': '点击停止',
+    'zh_TW': '點擊停止',
+    'si': 'නවත්වන්න තට්ටු කරන්න',
+  },
+  'Nhấn để ghi âm': {
+    'en': 'Tap to record',
+    'hi': 'रिकॉर्ड करने के लिए टैप करें',
+    'zh': '点击录音',
+    'zh_TW': '點擊錄音',
+    'si': 'පටිගත කරන්න තට්ටු කරන්න',
+  },
+  'Lưu vào WordList': {
+    'en': 'Save to WordList',
+    'hi': 'WordList में सहेजें',
+    'zh': '保存到 WordList',
+    'zh_TW': '儲存到 WordList',
+    'si': 'WordList හි සුරකින්න',
+  },
+  'Xoá transcript': {
+    'en': 'Clear transcript',
+    'hi': 'ट्रांसक्रिप्ट मिटाएँ',
+    'zh': '清除转录文本',
+    'zh_TW': '清除轉錄文字',
+    'si': 'පෙළ පිරිසිදු කරන්න',
+  },
+  'Ghi chú gần đây': {
+    'en': 'Recent voice notes',
+    'hi': 'हाल के वॉइस नोट',
+    'zh': '最近的语音笔记',
+    'zh_TW': '最近的語音筆記',
+    'si': 'මෑත හඬ සටහන්',
+  },
+  'Chưa có ghi chú nói nào.': {
+    'en': 'No voice notes yet.',
+    'hi': 'अभी कोई वॉइस नोट नहीं।',
+    'zh': '还没有语音笔记。',
+    'zh_TW': '還沒有語音筆記。',
+    'si': 'තවම හඬ සටහන් නැත.',
+  },
+  'Dùng lại transcript này': {
+    'en': 'Reuse this transcript',
+    'hi': 'इस ट्रांसक्रिप्ट को फिर से उपयोग करें',
+    'zh': '重复使用这段文本',
+    'zh_TW': '重複使用這段文字',
+    'si': 'මෙම පෙළ නැවත භාවිත කරන්න',
+  },
+  'Xoá ghi chú': {
+    'en': 'Delete note',
+    'hi': 'नोट मिटाएँ',
+    'zh': '删除笔记',
+    'zh_TW': '刪除筆記',
+    'si': 'සටහන මකන්න',
+  },
+  'Đã lưu vào WordList': {
+    'en': 'Saved to WordList',
+    'hi': 'WordList में सहेजा गया',
+    'zh': '已保存到 WordList',
+    'zh_TW': '已儲存到 WordList',
+    'si': 'WordList හි සුරැකිණි',
+  },
+  'Từ đã có — đã bổ sung ngữ cảnh': {
+    'en': 'Word already saved — context added',
+    'hi': 'शब्द पहले से है — संदर्भ जोड़ा गया',
+    'zh': '该词已存在 — 已补充语境',
+    'zh_TW': '該詞已存在 — 已補充語境',
+    'si': 'වචනය දැනටමත් ඇත — සන්දර්භය එකතු කළා',
+  },
+  'Chưa lưu được vào WordList': {
+    'en': 'Could not save to WordList',
+    'hi': 'WordList में सहेजा नहीं जा सका',
+    'zh': '无法保存到 WordList',
+    'zh_TW': '無法儲存到 WordList',
+    'si': 'WordList හි සුරැකීමට නොහැකි විය',
+  },
+  'Đã lưu ghi chú': {
+    'en': 'Note saved',
+    'hi': 'नोट सहेजा गया',
+    'zh': '笔记已保存',
+    'zh_TW': '筆記已儲存',
+    'si': 'සටහන සුරැකිණි',
+  },
+  'Chưa lưu được ghi chú': {
+    'en': 'Could not save the note',
+    'hi': 'नोट सहेजा नहीं जा सका',
+    'zh': '无法保存笔记',
+    'zh_TW': '無法儲存筆記',
+    'si': 'සටහන සුරැකීමට නොහැකි විය',
+  },
+  'Nhấn nút mic và nói một câu — transcript sẽ hiện ở đây.': {
+    'en': 'Tap the mic and say a sentence — the transcript appears here.',
+    'hi': 'माइक दबाएँ और एक वाक्य बोलें — ट्रांसक्रिप्ट यहाँ दिखेगा।',
+    'zh': '点击麦克风并说一句话 — 转录文本会显示在这里。',
+    'zh_TW': '點擊麥克風並說一句話 — 轉錄文字會顯示在這裡。',
+    'si': 'මයික් එක තට්ටු කර වාක්‍යයක් කියන්න — පෙළ මෙතන පෙනේ.',
+  },
+  'Chưa cấp quyền microphone. Vào Cài đặt → Ứng dụng → In4Up → Quyền → cho phép "Microphone" rồi thử lại.':
+      {
+    'en':
+        'Microphone permission is not granted. Open Settings → Apps → In4Up → Permissions → allow "Microphone", then try again.',
+    'hi':
+        'माइक्रोफ़ोन की अनुमति नहीं है। सेटिंग्स → ऐप्स → In4Up → अनुमतियाँ → "Microphone" अनुमति दें, फिर कोशिश करें।',
+    'zh': '未授予麦克风权限。请打开 设置 → 应用 → In4Up → 权限 → 允许“Microphone”，然后重试。',
+    'zh_TW': '未授予麥克風權限。請開啟 設定 → 應用程式 → In4Up → 權限 → 允許「Microphone」，然後重試。',
+    'si':
+        'මයික්‍රෝෆෝන අවසරය නැත. සැකසුම් → යෙදුම් → In4Up → අවසර → "Microphone" ලබා දී නැවත උත්සාහ කරන්න.',
+  },
+  'Chưa có engine nhận diện giọng nói sẵn sàng. Import model Sherpa trong Quản lý Model AI, hoặc kiểm tra dịch vụ nhận diện giọng nói của hệ thống.':
+      {
+    'en':
+        'No speech recognition engine is ready. Import a Sherpa model in Manage AI Models, or check the system speech recognition service.',
+    'hi':
+        'कोई वाक् पहचान इंजन तैयार नहीं है। Manage AI Models में Sherpa मॉडल आयात करें, या सिस्टम वाक् पहचान सेवा जाँचें।',
+    'zh': '没有可用的语音识别引擎。请在“管理 AI 模型”中导入 Sherpa 模型，或检查系统语音识别服务。',
+    'zh_TW': '沒有可用的語音辨識引擎。請在「管理 AI 模型」匯入 Sherpa 模型，或檢查系統語音辨識服務。',
+    'si':
+        'සූදානම් කථන හඳුනාගැනීමේ එන්ජිමක් නැත. Manage AI Models හි Sherpa මාදිලියක් ආයාත කරන්න, නැතහොත් පද්ධති සේවාව පරීක්ෂා කරන්න.',
+  },
+  'Không khởi động được nhận diện giọng nói. Thử lại, hoặc import model Sherpa offline trong Quản lý Model AI.':
+      {
+    'en':
+        'Speech recognition could not start. Try again, or import an offline Sherpa model in Manage AI Models.',
+    'hi':
+        'वाक् पहचान शुरू नहीं हो सकी। फिर कोशिश करें, या Manage AI Models में ऑफ़लाइन Sherpa मॉडल आयात करें।',
+    'zh': '语音识别无法启动。请重试，或在“管理 AI 模型”中导入离线 Sherpa 模型。',
+    'zh_TW': '語音辨識無法啟動。請重試，或在「管理 AI 模型」匯入離線 Sherpa 模型。',
+    'si':
+        'කථන හඳුනාගැනීම ආරම්භ කළ නොහැක. නැවත උත්සාහ කරන්න, නැතහොත් Manage AI Models හි ඕෆ්ලයින් Sherpa මාදිලියක් ආයාත කරන්න.',
+  },
+  'Phiên nghe bị gián đoạn. Phần đã nhận vẫn được giữ — bấm mic để ghi tiếp.':
+      {
+    'en':
+        'The listening session was interrupted. What was captured is kept — tap the mic to continue.',
+    'hi':
+        'सत्र बीच में टूट गया। जो पकड़ा गया वह सुरक्षित है — जारी रखने के लिए माइक दबाएँ।',
+    'zh': '听写会话被中断。已识别的内容仍然保留 — 点击麦克风继续。',
+    'zh_TW': '聽寫工作階段被中斷。已辨識的內容仍然保留 — 點擊麥克風繼續。',
+    'si':
+        'සැසිය බිඳ වැටුණා. හඳුනාගත් කොටස සුරැකී ඇත — ඉදිරියට යාමට මයික් තට්ටු කරන්න.',
+  },
+  'GỢI Ý TỪ WORDLIST': {
+    'en': 'WORDLIST SUGGESTION',
+    'hi': 'WORDLIST सुझाव',
+    'zh': 'WORDLIST 推荐',
+    'zh_TW': 'WORDLIST 推薦',
+    'si': 'WORDLIST යෝජනාව',
+  },
+  'Ưu tiên thẻ đến kỳ ôn': {
+    'en': 'Cards due for review come first',
+    'hi': 'समीक्षा के लिए देय कार्ड पहले',
+    'zh': '优先显示到期待复习的卡片',
+    'zh_TW': '優先顯示到期待複習的卡片',
+    'si': 'සමාලෝචනයට නියමිත කාඩ්පත් පළමුව',
+  },
+  'Đến kỳ ôn': {
+    'en': 'Due for review',
+    'hi': 'समीक्षा देय',
+    'zh': '待复习',
+    'zh_TW': '待複習',
+    'si': 'සමාලෝචනයට නියමිත',
+  },
+  'Từ WordList': {
+    'en': 'From WordList',
+    'hi': 'WordList से',
+    'zh': '来自 WordList',
+    'zh_TW': '來自 WordList',
+    'si': 'WordList වෙතින්',
+  },
+  'Chưa có nghĩa — bấm "Xem chi tiết" để bổ sung.': {
+    'en': 'No meaning yet — tap "Details" to add one.',
+    'hi': 'अभी अर्थ नहीं — जोड़ने के लिए "विवरण" टैप करें।',
+    'zh': '还没有释义 — 点击“查看详情”补充。',
+    'zh_TW': '還沒有釋義 — 點擊「檢視詳情」補充。',
+    'si': 'තවම අර්ථයක් නැත — එක් කිරීමට "විස්තර" තට්ටු කරන්න.',
+  },
+  'Dừng nghe': {
+    'en': 'Stop audio',
+    'hi': 'ऑडियो रोकें',
+    'zh': '停止播放',
+    'zh_TW': '停止播放',
+    'si': 'ශ්‍රවණය නවත්වන්න',
+  },
+  'Xem chi tiết': {
+    'en': 'Details',
+    'hi': 'विवरण',
+    'zh': '查看详情',
+    'zh_TW': '檢視詳情',
+    'si': 'විස්තර',
+  },
+  'WordList đang trống': {
+    'en': 'WordList is empty',
+    'hi': 'WordList खाली है',
+    'zh': 'WordList 为空',
+    'zh_TW': 'WordList 為空',
+    'si': 'WordList හිස්ය',
+  },
+  'Lưu từ đầu tiên bằng nút "Ghi chú nói", hoặc bôi chọn từ khi Đọc để Gợi ý có dữ liệu thật.':
+      {
+    'en':
+        'Save your first word with "Voice note", or select a word while Reading, so Suggestions has real data.',
+    'hi':
+        '"वॉइस नोट" से पहला शब्द सहेजें, या पढ़ते समय शब्द चुनें, ताकि सुझावों में वास्तविक डेटा हो।',
+    'zh': '用“语音笔记”保存第一个词，或在阅读时选词，推荐才会有真实数据。',
+    'zh_TW': '用「語音筆記」儲存第一個詞，或在閱讀時選詞，推薦才會有真實資料。',
+    'si':
+        '"හඬ සටහන" මගින් පළමු වචනය සුරකින්න, නැතහොත් කියවීමේදී වචනයක් තෝරන්න.',
+  },
+  'Gợi ý khác': {
+    'en': 'Another suggestion',
+    'hi': 'दूसरा सुझाव',
+    'zh': '换一个推荐',
+    'zh_TW': '換一個推薦',
+    'si': 'වෙනත් යෝජනාවක්',
+  },
+  'Mở WordList': {
+    'en': 'Open WordList',
+    'hi': 'WordList खोलें',
+    'zh': '打开 WordList',
+    'zh_TW': '開啟 WordList',
+    'si': 'WordList විවෘත කරන්න',
+  },
 };

@@ -84,6 +84,7 @@
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
+| XP-MODE-001 | Tab "Trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) | 🔒 **design gate — chờ owner chốt D1–D5** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` + `assets/xp-mode-001-wireframe.png`/`.svg` + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md`; branch `arena/01a0a703-in4up` |
 
 
 ## Card chi tiết
@@ -2717,6 +2718,43 @@
 - **AT:** mở tab Trải nghiệm → chọn ĐỌC → làm theo 3 bước → tới đúng
   chỗ; carousel hiện ≥5 tool ẩn + bấm "Mở ngay" mở đúng tool (kiểm tra
   Tipiṭaka).
+- **Trạng thái:** 🔒 **design gate (phase 1) — chờ owner chốt wireframe**
+  (lane B8 trong `AGENT_ASSIGNMENTS_2026-09-16.md`: "chỉ wireframe/route
+  inventory trước; chưa code feature lớn khi chưa chốt UX"). Phase 1 đã giao
+  **tài liệu + ảnh wireframe**, KHÔNG có mã nguồn tính năng.
+- **Phase 1 — deliverable (branch `arena/01a0a703-in4up`, base `d40f604`):**
+  - `docs/project/XP-MODE-001-wireframe.md` — hiện trạng verify bằng code (12
+    điểm, file:line), wireframe 6 khối, đặc tả 7 mode (mục tiêu 1 dòng + 4–5
+    bước/bước nào cũng trỏ route thật), mục "Khám phá công cụ ⚡" (7 thẻ tiêu
+    biểu + quy tắc trạng thái unavailable), i18n plan, WP0–WP3, bất biến, rủi ro.
+  - `docs/project/assets/xp-mode-001-wireframe.png` + nguồn `.svg` (ảnh wireframe).
+  - `docs/project/XP-MODE-001-route-inventory.csv` — 28 entry (7 MODE + 21 TOOL):
+    route đích thật (file), cách mở hiện tại (`_handleTool` / `_setListenMode` /
+    `_setReadMode` / `_setPrimaryTab`), điều kiện unavailable (phát hiện bằng
+    code), đường khắc phục, ghi chú id trùng (`dictionary`≡`dict_manager`,
+    `video_player`≡`video_library`).
+  - `docs/project/XP-MODE-001-i18n-keys.csv` — 20 key mới × vi/en/hi/zh/zh_TW/si
+    (gồm 3 nhãn mode còn thiếu ARB: `speak`/`watch`/`write`).
+  - `docs/project/XP-MODE-001-review-checklist.md` — checklist owner chốt
+    D1–D5 + AT dùng lại cho PR implementation.
+- **Đã verify khi làm phase 1 (điểm đáng chú ý cho PR implementation):**
+  - Icon ⚡ chỉ ở tab Home mới có Tipiṭaka ⇒ 4 tab còn lại user không thấy tool này.
+  - Tipiṭaka **không thể mở chết**: thiếu DB → `_MissingDatabaseView`
+    (`library_screen.dart:385`) → `TipitakaDownloadScreen`; asset DB là optional.
+  - Video/Từ điển/Map/Triangle/Venn đều có empty state riêng (không crash) ⇒
+    chọn hướng D4-A (nút "Mở ngay" luôn hoạt động + badge nói thiếu gì).
+  - Máy bắt i18n ở tầng **source** (`tool/generate_legacy_ui_fallbacks.py:301`
+    quét `lib/**/*.dart`) ⇒ PR implementation phải dùng ARB ngay, không
+    hard-code tiếng Việt.
+- **Chờ owner:** tick `XP-MODE-001-review-checklist.md` (D1 điểm vào · D2 cách
+  hiển thị 7 mode · D3 nguồn danh sách tool · D4 nút khi thiếu dữ liệu · D5 mức
+  dẫn đường). Sau khi chốt ⇒ mở **PR implementation riêng** (WP0–WP3 + test
+  navigation + card con `XP-MODE-002` tab/carousel, `XP-MODE-003` tour).
+- **Lịch sử:**
+  - 2026-09-16 | 21:47 UTC | doing (design gate) | agent arena/01a0a703-in4up |
+    phase 1: wireframe md + png/svg + CSV route (28 entry) + CSV i18n (20 key) +
+    checklist chốt; KHÔNG code tính năng; giữ `grammarExperienceMode` cũ |
+    commit `d3ee12b` · PR #29 (draft, base `arena/01a0251e-in4up`)
 
 ### SHADOW-FILE-001 — Tab Nói: file âm thanh bị mất (ENOENT, file_picker cache) + AB bắt buộc gây bất tiện
 - **Triệu chứng (owner, logcat):** ExoPlayer

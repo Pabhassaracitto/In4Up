@@ -2207,4 +2207,56 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Không thể mở nội dung sách.': {
     'en': 'Could not open the book content.',
   },
+  // CABIN-ASR-002 — model Zipformer cho Cabin (thiếu model / fallback / mở
+  // Quản lý Model AI). T2 phải có bản dịch thật, không để English trơ.
+  'Chưa cài model Zipformer cho {value0}': {
+    'en': 'Zipformer model for {value0} is not installed',
+    'hi': '{value0} के लिए Zipformer मॉडल इंस्टॉल नहीं है',
+    'zh': '尚未安装 {value0} 的 Zipformer 模型',
+    'zh_TW': '尚未安裝 {value0} 的 Zipformer 模型',
+    'si': '{value0} සඳහා Zipformer ආකෘතිය ස්ථාපනය කර නැත',
+  },
+  'Chưa hỗ trợ nhận diện offline cho {value0}': {
+    'en': 'Offline recognition is not supported for {value0}',
+    'hi': '{value0} के लिए ऑफ़लाइन पहचान समर्थित नहीं है',
+    'zh': '不支持 {value0} 的离线识别',
+    'zh_TW': '不支援 {value0} 的離線辨識',
+    'si': '{value0} සඳහා නොබැඳි හඳුනාගැනීම සහාය නොදක්වයි',
+  },
+  'Mở Quản lý Model AI': {
+    'en': 'Open Manage AI Models',
+    'hi': 'AI मॉडल प्रबंधन खोलें',
+    'zh': '打开管理 AI 模型',
+    'zh_TW': '開啟管理 AI 模型',
+    'si': 'AI ආකෘති කළමනාකරණය විවෘත කරන්න',
+  },
+  'Dùng {value0} (đã cài)': {
+    'en': 'Use {value0} (installed)',
+    'hi': '{value0} (इंस्टॉल) का उपयोग करें',
+    'zh': '使用 {value0}（已安装）',
+    'zh_TW': '使用 {value0}（已安裝）',
+    'si': '{value0} (ස්ථාපිත) භාවිත කරන්න',
+  },
+  'Import thất bại. Hãy kiểm tra file model rồi thử lại.': {
+    'en': 'Import failed. Check the model files and try again.',
+    'hi': 'आयात विफल। मॉडल फ़ाइलें जाँचें और फिर प्रयास करें।',
+    'zh': '导入失败。请检查模型文件后重试。',
+    'zh_TW': '匯入失敗。請檢查模型檔案後重試。',
+    'si': 'ආනයනය අසාර්ථකයි. ආකෘති ගොනු පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
+  },
+  // Ghi chú trong dropdown ngôn ngữ nguồn của Cabin (engine Offline).
+  'Chưa hỗ trợ offline — chỉ Engine Hệ thống': {
+    'en': 'Offline not supported — use System engine',
+    'hi': 'ऑफ़लाइन समर्थित नहीं — सिस्टम इंजन चुनें',
+    'zh': '不支持离线 — 请使用系统引擎',
+    'zh_TW': '不支援離線 — 請使用系統引擎',
+    'si': 'නොබැඳි සහාය නැත — පද්ධති එන්ජිම භාවිත කරන්න',
+  },
+  'Chưa cài model Zipformer — mở Quản lý Model AI': {
+    'en': 'Zipformer model not installed — open Manage AI Models',
+    'hi': 'Zipformer मॉडल इंस्टॉल नहीं है — AI मॉडल प्रबंधन खोलें',
+    'zh': '未安装 Zipformer 模型 — 打开管理 AI 模型',
+    'zh_TW': '未安裝 Zipformer 模型 — 開啟管理 AI 模型',
+    'si': 'Zipformer ආකෘතිය ස්ථාපනය කර නැත — AI ආකෘති කළමනාකරණය විවෘත කරන්න',
+  },
 };

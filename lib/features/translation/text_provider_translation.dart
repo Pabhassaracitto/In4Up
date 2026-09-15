@@ -21,6 +21,14 @@ mixin TranslationMixin on ChangeNotifier {
   int _translationRunId = 0;
   String? _appliedPipelineTag;
 
+  String? _pinnedTranslationSourceCode;
+
+  @visibleForTesting
+  TranslationService? translationServiceForTest;
+
+  TranslationService get _translationService =>
+      translationServiceForTest ?? TranslationService();
+
   List<TextItem> get lines;
 
   TranslationDisplayMode get translationDisplayMode => _translationDisplayMode;
@@ -30,7 +38,7 @@ mixin TranslationMixin on ChangeNotifier {
   String get currentEngine => _currentEngine;
 
   bool get translationPipelineStale {
-    final current = TranslationService().pipelineTag;
+    final current = _translationService.pipelineTag;
     return _appliedPipelineTag != null && _appliedPipelineTag != current;
   }
 
@@ -38,7 +46,7 @@ mixin TranslationMixin on ChangeNotifier {
   void refreshTranslationChrome() => notifyListeners();
 
   AppLanguage get translationTargetLanguage =>
-      TranslationService().targetLanguage;
+      _translationService.targetLanguage;
 
   AppLanguage get detectedSourceLanguage {
     final sample = lines
@@ -49,8 +57,49 @@ mixin TranslationMixin on ChangeNotifier {
     return LanguageDetector.detectLanguage(sample);
   }
 
+  AppLanguage get translationSourceLanguage =>
+      _pinnedTranslationSourceCode == null
+          ? detectedSourceLanguage
+          : AppLanguageCatalog.fromCode(_pinnedTranslationSourceCode);
+
+  bool get translationSourceIsPinned => _pinnedTranslationSourceCode != null;
+
+  Future<bool> setTranslationSourceLanguage(
+    String code, {
+    bool retranslateExisting = true,
+  }) async {
+    final normalized = code.trim().replaceAll('_', '-').toUpperCase();
+    final isAuto = normalized.isEmpty || normalized == 'AUTO';
+    final language =
+        isAuto ? null : AppLanguageCatalog.maybeFromCode(normalized);
+    if (!isAuto && language == null) return false;
+    final newCode = language?.translationCode;
+    if (newCode == _pinnedTranslationSourceCode) return false;
+
+    final hadTranslations = lines.any(
+      (line) => line.translation != null && line.translation!.trim().isNotEmpty,
+    );
+
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    _pinnedTranslationSourceCode = newCode;
+    for (var index = 0; index < lines.length; index++) {
+      lines[index] = lines[index].copyWith(clearTranslation: true);
+    }
+    notifyListeners();
+
+    if (retranslateExisting &&
+        hadTranslations &&
+        !translationPairUsesSameLanguage) {
+      unawaited(translateAll(forceRetranslate: true));
+    }
+    return true;
+  }
+
   bool get translationPairUsesSameLanguage =>
-      detectedSourceLanguage.translationCode ==
+      translationSourceLanguage.translationCode ==
       translationTargetLanguage.translationCode;
 
   int get translatedLineCount {
@@ -66,7 +115,7 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   void restoreTranslationTargetLanguage(String code) {
-    TranslationService().configure(targetLang: code);
+    _translationService.configure(targetLang: code);
   }
 
   Future<bool> setTranslationTargetLanguage(
@@ -76,7 +125,7 @@ mixin TranslationMixin on ChangeNotifier {
     final language = AppLanguageCatalog.maybeFromCode(code);
     if (language == null) return false;
 
-    final service = TranslationService();
+    final service = _translationService;
     if (service.targetLang == language.translationCode) return false;
 
     final hadTranslations = lines.any(
@@ -163,7 +212,7 @@ mixin TranslationMixin on ChangeNotifier {
         translationLanguageCode: target.translationCode,
       );
       _currentEngine = TranslationService().lastUsedEngine;
-      _appliedPipelineTag = TranslationService().pipelineTag;
+      _appliedPipelineTag = _translationService.pipelineTag;
       _translationError = null;
     } else {
       _translationError = '${result.engineName}: ${result.error}';
@@ -336,6 +385,7 @@ mixin TranslationMixin on ChangeNotifier {
     _currentEngine = '';
     _appliedPipelineTag = null;
     _translationDisplayMode = TranslationDisplayMode.hidden;
+    _pinnedTranslationSourceCode = null;
     // Không notify ở đây — caller sẽ notify sau khi parse lines
   }
 
@@ -369,7 +419,7 @@ mixin TranslationMixin on ChangeNotifier {
         text: line.content,
         sourceLang: source.translationCode,
         targetLang: target,
-        engine: TranslationService().pipelineTag,
+        engine: _translationService.pipelineTag,
       );
       if (cached == null || cached.trim().isEmpty) continue;
       lines[i] = line.copyWith(

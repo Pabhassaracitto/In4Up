@@ -210,8 +210,25 @@ class AiAnalysis {
     AiAnalysisType? analysisType,
     String? inputText,
   }) {
+    final cleaned = stripChatDecorations(rawJson);
+    if (analysisType == AiAnalysisType.conversation) {
+      final plain = cleaned.trim();
+      if (plain.isNotEmpty && !_looksLikeJsonObject(plain)) {
+        return AiAnalysis(
+          inputText: inputText ?? '',
+          analysisType: analysisType,
+          summary: plain,
+          topics: const ['Conversation'],
+          terms: const [],
+          success: true,
+          source: AiAnalysisSource.gemma,
+          generatedAt: DateTime.now(),
+          language: 'vi',
+        );
+      }
+    }
     try {
-      final map = jsonDecode(rawJson) as Map<String, dynamic>;
+      final map = jsonDecode(cleaned) as Map<String, dynamic>;
       if (analysisType != null && map['analysisType'] == null) {
         map['analysisType'] = analysisType.name;
       }
@@ -225,7 +242,23 @@ class AiAnalysis {
       // hay CẮT JSON giữa chừng (hết maxTokens) hoặc viết lệch schema ⇒
       // jsonDecode fail. Cứu vớt trường "summary" (phần trả lời hữu ích
       // nhất, model thường viết trước) thay vì trả lời chung chung.
-      final rescued = _rescueSummary(rawJson);
+      final rescued = _rescueSummary(cleaned);
+      if ((rescued == null || rescued.trim().isEmpty) &&
+          analysisType == AiAnalysisType.conversation &&
+          cleaned.trim().isNotEmpty) {
+        return AiAnalysis(
+          inputText: inputText ?? '',
+          analysisType: analysisType,
+          summary: cleaned.trim(),
+          topics: const ['Conversation'],
+          terms: const [],
+          success: true,
+          isPartial: true,
+          source: AiAnalysisSource.gemma,
+          generatedAt: DateTime.now(),
+          language: 'vi',
+        );
+      }
       if (rescued != null && rescued.trim().isNotEmpty) {
         return AiAnalysis(
           inputText: inputText ?? '',
@@ -246,6 +279,29 @@ class AiAnalysis {
         analysisType: analysisType,
       );
     }
+  }
+
+  static bool _looksLikeJsonObject(String raw) {
+    final t = raw.trimLeft();
+    return t.startsWith('{') || t.startsWith('```');
+  }
+
+  /// Strip Gemma/Llama chat control tokens so the UI never shows them.
+  static String stripChatDecorations(String raw) {
+    var out = raw.trim();
+    const stops = <String>[
+      '<end_of_turn>',
+      '<start_of_turn>',
+      '<|eot_id|>',
+      '<|im_end|>',
+      '</s>',
+      '<eos>',
+    ];
+    for (final stop in stops) {
+      final i = out.indexOf(stop);
+      if (i >= 0) out = out.substring(0, i).trim();
+    }
+    return out;
   }
 
   /// Trích giá trị `"summary": "..."` từ JSON hỏng/bị cắt (dùng khi

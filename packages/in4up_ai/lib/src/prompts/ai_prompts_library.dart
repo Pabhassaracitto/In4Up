@@ -113,16 +113,19 @@ Return ONLY valid JSON:
   "language": "vi"
 }''';
 
-  static String _conversationPrompt(String text, String? context) => '''
-Analyze conversation: "$text"${context != null ? '\nContext: $context' : ''}.
-Return ONLY valid JSON:
-{
-  "summary": "<Vietnamese 60-word summary>",
-  "topics": ["Conversation"],
-  "technical_terms": [
-    {"text":"<phrase>","definition":"<Vietnamese>","importance":0.8,"sourceJoinKey":"","speakerId":0}
-  ],
-  "action_items": [],
-  "language": "en"
-}''';
+  /// Gemma-IT chat template. Asking for a JSON "conversation analysis"
+  /// (old prompt) made 1B-QAT models write until maxTokens without EOS —
+  /// 512 tokens on a weak tablet > 3 minutes → chat always timed out.
+  static String _conversationPrompt(String text, String? context) {
+    final history = (context ?? '').trim();
+    final histBlock = history.isEmpty ? '' : 'Recent messages:\n$history\n\n';
+    return '<start_of_turn>user\n'
+        'You are I4U, an offline language-learning tutor. '
+        'Reply in Vietnamese, 1-3 short sentences. '
+        'No JSON. No markdown. No lists unless asked.\n'
+        '$histBlock'
+        'Student: $text'
+        '<end_of_turn>\n'
+        '<start_of_turn>model\n';
+  }
 }

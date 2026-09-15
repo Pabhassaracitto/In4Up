@@ -13,6 +13,7 @@ class AiNativeBindings {
     required String generateSymbol,
     required String freeStringSymbol,
     required String destroySymbol,
+    required String abortSymbol,
   })  : _create =
             _library.lookupFunction<_CreateNative, _Create>(createSymbol),
         _generate =
@@ -20,13 +21,15 @@ class AiNativeBindings {
         _freeString = _library
             .lookupFunction<_FreeStringNative, _FreeString>(freeStringSymbol),
         _destroy =
-            _library.lookupFunction<_DestroyNative, _Destroy>(destroySymbol);
+            _library.lookupFunction<_DestroyNative, _Destroy>(destroySymbol),
+        _abort = _tryLookupAbort(_library, abortSymbol);
 
   final ffi.DynamicLibrary _library;
   final _Create _create;
   final _Generate _generate;
   final _FreeString _freeString;
   final _Destroy _destroy;
+  final _Abort? _abort;
 
   static const _symbolSets = [
     (
@@ -34,12 +37,14 @@ class AiNativeBindings {
       generate: 'in4up_ai_generate',
       freeString: 'in4up_ai_free_string',
       destroy: 'in4up_ai_destroy',
+      abort: 'in4up_ai_abort',
     ),
     (
       create: 'in2up_ai_create',
       generate: 'in2up_ai_generate',
       freeString: 'in2up_ai_free_string',
       destroy: 'in2up_ai_destroy',
+      abort: 'in2up_ai_abort',
     ),
   ];
 
@@ -64,6 +69,7 @@ class AiNativeBindings {
             generateSymbol: symbols.generate,
             freeStringSymbol: symbols.freeString,
             destroySymbol: symbols.destroy,
+            abortSymbol: symbols.abort,
           );
         } catch (_) {
           continue;
@@ -73,6 +79,22 @@ class AiNativeBindings {
     } catch (_) {
       return null;
     }
+  }
+
+  static _Abort? _tryLookupAbort(ffi.DynamicLibrary library, String symbol) {
+    try {
+      return library.lookupFunction<_AbortNative, _Abort>(symbol);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Stop a generate() that is blocking in another isolate.
+  /// Safe no-op when the native lib is missing or this build has no abort symbol.
+  static void abortCurrent() {
+    try {
+      tryLoad()?._abort?.call();
+    } catch (_) {}
   }
 
   static ffi.DynamicLibrary? _openFirst(List<String> names) {
@@ -87,7 +109,7 @@ class AiNativeBindings {
   }
 
   ffi.Pointer<ffi.Void> create(String modelPath,
-      {int contextSize = 2048, int threads = 4}) {
+      {int contextSize = 1024, int threads = 4}) {
     final path = modelPath.toNativeUtf8();
     try {
       return _create(path.cast<ffi.Char>(), contextSize, threads);
@@ -136,3 +158,5 @@ typedef _FreeStringNative = ffi.Void Function(ffi.Pointer<ffi.Char>);
 typedef _FreeString = void Function(ffi.Pointer<ffi.Char>);
 typedef _DestroyNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _Destroy = void Function(ffi.Pointer<ffi.Void>);
+typedef _AbortNative = ffi.Void Function();
+typedef _Abort = void Function();

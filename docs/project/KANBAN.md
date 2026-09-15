@@ -73,6 +73,7 @@
 
 ---
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
+| CABIN-REC-001 | Cabin: tùy chọn lưu bản ghi âm microphone + caption sidecar | 📋 proposed | PLAN-029; local-only, mặc định tắt; ưu tiên tee PCM Sherpa, không mở mic thứ hai cho System STT khi chưa có device proof |
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
 
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
@@ -2813,3 +2814,15 @@
   (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
   (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
+
+### CABIN-REC-001 — Cabin tùy chọn lưu bản ghi âm microphone + caption sidecar
+- **Trạng thái:** proposed — chưa code
+- **Nguồn:** người sở hữu (2026-09-16) — muốn ngoài text/dịch cabin có thể lưu bản ghi âm vào máy khi cần.
+- **Mục tiêu:** toggle mặc định tắt; khi bật, lưu audio gốc microphone của một phiên cabin vào storage bền vững, sau đó cho phát lại/chia sẻ/xóa; giữ metadata source/target/engine/duration và caption theo `offsetMs`.
+- **Hiện trạng cần kế thừa:** `SttsCabinService` dùng `AudioRecorder.startStream()` + PCM cho Sherpa, nên có thể tee cùng stream vào recording sink; System STT do `SttServiceFacade` sở hữu microphone và chưa trả raw PCM, không được mở recorder thứ hai khi chưa có device proof. `RecordingService` hiện thuộc Shadowing, không dùng nguyên singleton cho Cabin.
+- **Phạm vi đề xuất:** `CabinRecordingEntry`, `CabinRecordingService`, persistent directory `cabin_recordings`, sink/segment recovery, tích hợp start/stop/pause trong cabin, caption sidecar/replay, UI REC/timer/list/play/share/delete, i18n + tests.
+- **Riêng tư:** local-only, không auto-record, không upload/cloud, bản ghi mặc định không trộn TTS/dubbing; export chỉ sau thao tác rõ của user.
+- **Tài liệu bàn giao:** `docs/Bangiao/PROMPT_AGENT_CABIN_RECORDING.md`.
+- **Acceptance sơ bộ:** Sherpa VI offline bật lưu → text vẫn chạy + stop tạo file persistent phát được sau restart; toggle OFF không tạo file; caption giữ đúng offset; lỗi permission/storage hiển thị rõ; System STT limitation được báo thật nếu chưa hỗ trợ.
+- **Lịch sử:**
+  - 2026-09-16 | created | owner via session arena/01a0a6b6-in4up | ý tưởng lưu bản ghi cabin khi muốn

@@ -922,3 +922,16 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Sinhala: piper-voices chưa có giọng si — ghi rõ, không bịa model.
 - Lịch sử:
   - 2026-09-15 | created→doing | agent arena/01a08043-in4up
+
+### PLAN-029 — Cabin tùy chọn lưu bản ghi âm + caption sidecar
+- **Nguồn:** người sở hữu (2026-09-16)
+- **Trạng thái:** proposed — chưa code
+- **Milestone đề xuất:** sau khi `CABIN-ASR-002`/`SHERPA-STREAM-001` ổn; ưu tiên MVP Sherpa offline trước
+- **Mục tiêu:** ngoài text/dịch real-time, người dùng bật/tắt lưu audio microphone của một phiên cabin vào máy; có thể mở lại, phát, chia sẻ/xóa và giữ metadata/caption để học lại.
+- **Định hướng:** mặc định tắt; local-only; lưu persistent trong `<application documents>/cabin_recordings/`, không cache, không upload; bản ghi mặc định chỉ là mic source, không trộn TTS/dubbing.
+- **Kiến trúc đề xuất:** `CabinRecordingEntry` + `CabinRecordingService` + recording sink tee cùng PCM stream Sherpa; caption có `offsetMs`; system STT phải capability-probe vì hiện `SttServiceFacade` sở hữu mic và không trả raw PCM, không tự mở recorder thứ hai khi chưa có device proof.
+- **Work packages:** WP0 capture proof; WP1 persistent service; WP2 nối Sherpa; WP3 caption/replay; WP4 UI/list/share/export/i18n.
+- **Cấm:** tự động ghi khi mở app, cloud sync, trộn TTS vào file gốc, đụng UltraTimeStretch/`lib/ffi/`, làm hỏng CABIN-001 hoặc SHERPA-WP4.
+- **Tài liệu giao agent:** `docs/Bangiao/PROMPT_AGENT_CABIN_RECORDING.md`
+- **Lịch sử:**
+  - 2026-09-16 | created | owner via session arena/01a0a6b6-in4up | ý tưởng lưu bản ghi cabin khi muốn

@@ -177,40 +177,6 @@ mixin TranslationMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  Future<(TranslationResult, AppLanguage)> _translateLineContent(
-    TranslationService service, {
-    required String content,
-    required AppLanguage documentSource,
-    required AppLanguage lineSource,
-    required String targetCode,
-    required bool skipCache,
-  }) async {
-    var result = await service.translateText(
-      content,
-      sourceLang: lineSource.translationCode,
-      targetLang: targetCode,
-      skipCache: skipCache,
-    );
-    var appliedSource = lineSource;
-    if (!result.isSuccess &&
-        !translationSourceIsPinned &&
-        lineSource.translationCode != documentSource.translationCode &&
-        (result.missingModelCodes ?? const <String>[])
-            .contains(lineSource.translationCode)) {
-      final retry = await service.translateText(
-        content,
-        sourceLang: documentSource.translationCode,
-        targetCode: targetCode,
-        skipCache: skipCache,
-      );
-      if (retry.isSuccess && retry.translatedText.trim().isNotEmpty) {
-        result = retry;
-        appliedSource = documentSource;
-      }
-    }
-    return (result, appliedSource);
-  }
-
   Future<void> translateLine(int index) async {
     if (index < 0 || index >= lines.length) return;
     final line = lines[index];

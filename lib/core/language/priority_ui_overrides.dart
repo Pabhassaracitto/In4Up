@@ -2245,4 +2245,41 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Không thể mở nội dung sách.': {
     'en': 'Could not open the book content.',
   },
+
+  // ── WordList custom language (WLIST-LANG-001) ─────────────────────────
+  '＋ Thêm ngôn ngữ…': {
+    'en': '+ Add language…',
+    'hi': '+ भाषा जोड़ें…',
+    'zh': '+ 添加语言…',
+    'zh_TW': '+ 新增語言…',
+    'si': '+ භාෂාව එක් කරන්න…',
+  },
+  'Tạo ngôn ngữ mới… (Enter để chọn)': {
+    'en': 'Add new language… (Enter to select)',
+    'hi': 'नई भाषा जोड़ें… (चुनने के लिए Enter दबाएँ)',
+    'zh': '创建新语言…（按 Enter 选择）',
+    'zh_TW': '建立新語言…（按 Enter 選取）',
+    'si': 'නව භාෂාවක් සාදන්න… (තේරීමට Enter ඔබන්න)',
+  },
+  'Mã ngôn ngữ phải từ 2 đến 4 ký tự (vd: pi, lo, my)': {
+    'en': 'Language code must be 2 to 4 characters (e.g. pi, lo, my)',
+    'hi': 'भाषा कोड 2 से 4 अक्षरों का होना चाहिए (जैसे: pi, lo, my)',
+    'zh': '语言代码必须为 2 至 4 个字符（例如：pi, lo, my）',
+    'zh_TW': '語言代碼必須為 2 至 4 個字元（例如：pi, lo, my）',
+    'si': 'භාෂා කේතය අක්ෂර 2 සිට 4 දක්වා විය යුතුය (උදා: pi, lo, my)',
+  },
+  'Mã ngôn ngữ chỉ được chứa chữ cái Latin (a-z)': {
+    'en': 'Language code may only contain Latin letters (a-z)',
+    'hi': 'भाषा कोड में केवल लैटिन अक्षर (a-z) होने चाहिए',
+    'zh': '语言代码只能包含拉丁字母（a-z）',
+    'zh_TW': '語言代碼只能包含拉丁字母（a-z）',
+    'si': 'භාෂා කේතයේ ලතින් අකුරු (a-z) පමණක් තිබිය යුතුය',
+  },
+  'Mã ngôn ngữ không được để trống': {
+    'en': 'Language code cannot be empty',
+    'hi': 'भाषा कोड खाली नहीं हो सकता',
+    'zh': '语言代码不能为空',
+    'zh_TW': '語言代碼不能為空',
+    'si': 'භාෂා කේතය හිස් විය නොහැක',
+  },
 };

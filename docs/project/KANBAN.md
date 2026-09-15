@@ -2667,6 +2667,21 @@
      (tái dùng `stats`/`wordlist_stats` tools nếu có).
 - **AT:** học thật (đọc + lưu từ) hôm nay → card hiện số >0; hôm sau mở
   app không học → streak giữ; học tiếp ngày hôm sau → streak +1.
+- **Trạng thái:** doing (code + test xong trên `arena/01a0a702-in4up`, CI 🟢;
+  còn: owner bật job riêng + nghiệm thu thiết bị theo AT)
+- **Triển khai (2026-09-15):** kho `LearningActivityService` +
+  `LearningActivityKind` (ghi tại nơi hành động thật: mở tài liệu, phút đọc,
+  lưu/import từ, ôn LHB, shadowing, dịch); `FocusProvider` thành facade (bỏ
+  đường streak qua `saveEffort` — slider đã bỏ ở HOME-001); thẻ hiện số liệu
+  hôm nay + streak + biểu đồ 7 ngày. Idempotent theo (ngày, kind, sourceKey);
+  ngày = giờ địa phương chốt lúc ghi; persist gộp theo ngày (1 chuỗi JSON).
+  Nhãn chrome mới qua `uiText` + 7 key catalog (rule #5). Quyết định: ADR-0005.
+- **Bằng chứng:** commits `9a67d1a` → `d9d7243`; App Analyze + rule #5 test
+  xanh (run 35028341250); 32 test mới xanh (run 35028341223 — job knowledge
+  chạy qua cầu nối `test/knowledge/home_streak_ci_oracle_test.dart` vì GitHub
+  App thiếu quyền `workflows`, chưa tạo được job riêng).
+- **Lịch sử:**
+  - 2026-09-15 | 21:57 UTC | proposed→doing | agent arena/01a0a702-in4up | commits 9a67d1a..d9d7243; CI run 35028341250 (analyze + rule #5) & 35028341223 (32 test HOME-STREAK-001); ADR-0005; job riêng còn ở `docs/ci/home_streak_tests.yml` (chờ owner bật)
 
 ### LISTEN-LRC-LAYOUT-001 — Tab Nghe: kết quả lời AI nên nằm CHẠM CẠNH sóng âm (mặc định)
 - **Triệu chứng (owner):** "Tab nghe: Mặc định nên để phần kết quả lời tạo

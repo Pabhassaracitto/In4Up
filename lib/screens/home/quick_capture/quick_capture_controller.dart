@@ -51,8 +51,9 @@ abstract class QuickCaptureSttSource {
   /// lỗi thật sẽ lộ ra ở [start].
   bool get isReady;
 
-  /// Lý do [isReady] == `false` — gộp vào thông báo fallback cho user.
-  String? get unavailableReason => null;
+  /// Lý do [isReady] == `false` — gộp vào thông báo fallback cho user
+  /// (`null` nếu nguồn không có lý do cụ thể).
+  String? get unavailableReason;
 
   /// Bật phiên nghe. `false` = không khởi động được (xem [lastError]).
   Future<bool> start();
@@ -67,8 +68,12 @@ abstract class QuickCaptureSttSource {
   Future<void> stop();
 
   /// Giải phóng tài nguyên NẶNG của engine (recognizer native) khi phiên
-  /// kết thúc hẳn. Mặc định không làm gì — chỉ engine tự nạp model cần.
-  Future<void> release() async {}
+  /// kết thúc hẳn. Nguồn không tự nạp model thì để thân rỗng.
+  ///
+  /// (Khai báo abstract, không có thân mặc định: Dart bắt class `implements`
+  /// phải tự triển khai mọi member — thân mặc định ở interface sẽ thành bẫy
+  /// "Missing concrete implementation" cho người thêm nguồn mới.)
+  Future<void> release();
 }
 
 /// Controller một phiên "Nạp tri thức nhanh".

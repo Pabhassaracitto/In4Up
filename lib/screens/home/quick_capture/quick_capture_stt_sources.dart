@@ -230,6 +230,10 @@ class SystemQuickCaptureSource implements QuickCaptureSttSource {
   @override
   bool get isReady => true;
 
+  /// System STT không có model để báo thiếu — lỗi lộ ra ở [start].
+  @override
+  String? get unavailableReason => null;
+
   @override
   Stream<SttResult> get results => _facade.liveResultStream;
 
@@ -281,6 +285,11 @@ class SystemQuickCaptureSource implements QuickCaptureSttSource {
       debugPrint('⚠️ SystemQuickCaptureSource stop error: $e');
     }
   }
+
+  /// `SttServiceFacade` là singleton dùng chung của app — KHÔNG dispose ở
+  /// đây (flow khác còn dùng). Phiên này chỉ dừng nghe.
+  @override
+  Future<void> release() async {}
 }
 
 /// Dựng danh sách nguồn STT theo thứ tự ưu tiên cho một phiên.

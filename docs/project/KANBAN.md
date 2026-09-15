@@ -26,6 +26,8 @@
 | READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | ✅ done | VocabEntryEditSheet (chờ nghiệm thu build) |
 | READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
+| PDF-W0 | Wave 0 PDF Reader: nối selection + TTS câu + định danh file + hệ toạ độ + i18n + test sàn | 🔨 doing | code + CI 🟢 05-09-2026 (`370ff91`, run 33984585516: analyze 0 error + test rule #5 xanh) trên `arena/01a07250-in4up`; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` ở máy dev |
+| PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
 | LISTEN-823-01 | Tab Nghe: rèm LRC + AI sheet + dịch Hiểu + transcript đúng audio | ✅ done | 1d05ce9; CI run 32660616256 xanh (chờ QA đổi file nhanh) |
@@ -57,7 +59,6 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
-| AI-CHAT-03 | Chat timeout 3 phút — không chat được thật (prompt JSON + 512 token + KV không xóa) | 🔄 doing (chờ build máy) | prompt Gemma-IT ngắn + maxTokens 96 + clear KV + n_batch 128 + abort native |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
@@ -65,7 +66,6 @@
 | HOME-001 | Bỏ phần "xác nhận nỗ lực" (slider + nút) ở tab Home — owner thấy dư thừa | ✅ done + CI xanh (chờ nghiệm thu) | thẻ còn lại: streak "X ngày liên tiếp"; streak không tự tăng nữa (đăng ký khi cần) |
 | READ-DEV-001 | Thư viện đọc: quét + hiển thị file trên máy (SAF folder, như thư viện nhạc) | ✅ done + CI xanh + fix hậu nghiệm thu b08567a (chờ nghiệm thu lại máy) | native in4up/textlib (DocumentsContract đệ quy) + TextDeviceProvider + tab Thiết bị thành danh sách quét; persist folder qua restart; hardening: percent-encoding an toàn (hết "Illegal percent encoding" + tile màu theo ext |
 | LHB-004 | Học thuộc lòng: lặp TTS RIÊNG từng câu (tùy số lần/câu) + persist theo bài — re-apply commit bị revert | ✅ done + CI xanh (chờ nghiệm thu máy) | re-apply b631395 + 3 bug fix (compile: Map.map→Iterable; analyze: chuỗi ?.map().where() → helper; runtime: jsonEncode Iterable) — CI xanh 33944392085 |
-| WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 15 test; căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột |
 | DICT-001 | Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý (PLAN-024) | 🔄 doing | bàn giao + PLAN + code WP0 (models + DB service) |
 | VID-001 | Video Player local: xem video + phụ đề + học từ (PLAN-025) | 🔄 doing | bàn giao + PLAN + code WP0-WP3 (models + library + player + sub-tab) |
 | WORDLIST-002 | Import WordList 8 cột chuẩn: nạp CHÍNH XÁC khi dán (fix example_simple/complex bị rơi + phẩy không nháy lệch cột + header VN) | ✅ done (chờ CI) | WordTableParser (pure, test được) + 17 test (T6/T7); _viBase ĐẦY ĐỦ 150 entries (khôi phục đ U+0111); căn neo word/ipa/language + cột hấp thụ thông minh + hàng thiếu cột + mảnh meaning 1 từ gộp đúng |
@@ -703,6 +703,135 @@
   WordEntry.contexts để so context mới/trùng. Chi tiết: PLAN-015.
 - **Lịch sử:**
   - 2026-08-23 | created | owner via chat (đề xuất tính năng sắp tới)
+
+### PDF-W1 — PDF Reader: đợt A (điều hướng & tìm kiếm, đứng trên API pdfrx) · B (chủ đề đọc) · C (xuất/nhập chú thích B1+B2)
+- **Trạng thái:** doing — code + CI 🟢 cả 3 đợt, chờ nghiệm thu thiết bị + `flutter test` của owner (chưa phải done)
+- **Nguồn:** owner (2026-09-05): "Tiếp tục theo lộ trình bạn cho là hợp lý nhất"
+  sau khi Wave 0 xanh CI. Lộ trình ở `docs/pdf_reader_readera_upgrade.md` mục
+  WAVE 1; đợt A = 1.1 + 1.2 + 1.3 + nhảy trang nhanh (1.4/1.5/1.7/1.8/1.9 để
+  lại vì đổi cảm giác đọc toàn màn hình, cần owner chốt).
+- **Nội dung:**
+  - **1.1 TOC**: `services/pdf_outline_index.dart` (cây `PdfOutlineNode` → danh
+    sách phẳng, `findActiveOutlineIndex`, chốt rõ dest 1-based ↔ controller
+    0-based) + `widgets/pdf_toc_panel.dart`; nhảy bằng `goToDest` để giữ cả vị trí
+    trong trang; file không outline → thông báo thật, không crash; panel tự cuộn
+    tới chương đang đọc MỘT lần khi mở (không đuổi theo từng lượt lật trang).
+  - **1.2 Search**: dùng `PdfTextSearcher` của pdfrx (quét dần từng trang, cache
+    structured text, `searchProgress`, `pageTextMatchPaintCallback` vẽ qua
+    `pagePaintCallbacks`) — KHÔNG tự viết index/isolate ⇒ P0-11 không còn chặn
+    tính năng này (Text Mode vẫn nợ). `services/pdf_search_query.dart`: escape
+    ký tự đặc biệt, space khớp cả `\n`, tuỳ chọn "Không phân biệt dấu" gộp theo
+    họ **1:1** (cố ý không co giãn `aa`↔`â` để offset tô sáng không lệch).
+    `widgets/pdf_search_panel.dart` bám searcher như `Listenable`; cú nhảy bọc
+    try/catch vì layout trang đích có thể chưa sẵn. Searcher tạo ở `onViewerReady`
+    (không phải `onDocumentChanged`) vì ctor nó đọc `controller.document`.
+  - **1.3 Thumbnails**: `widgets/pdf_thumbnail_grid.dart` — `PdfPageView`
+    `maximumDpi: 96` trong `GridView.builder` (tab "Trang" cùng sheet).
+  - **Nhảy trang**: nhãn "37 / 512" trên toolbar thành nút → dialog số + Slider.
+  - Đang mở ô tìm ⇒ chrome không được ẩn (ô nhập liệu).
+  - 13 nhãn mới vào `priority_ui_overrides.dart` (rule #5, không chạy generator).
+  - Test mới: `test/pdf_reader/pdf_outline_index_test.dart`,
+    `test/pdf_reader/pdf_search_query_test.dart`.
+- **Kiến trúc:** ADR-0004 (đứng trên API pdfrx, không nâng `pdfrx ^2.2.24`, không
+  tự xây search index, chính sách gộp dấu 1:1).
+- **Rủi ro còn lại:** `test/pdf_reader/**` (7 file) **chưa chạy lần nào** — CI của
+  workflow này chỉ chạy `test/locale_chrome_no_vietnamese_test.dart`; cần
+  `flutter test test/pdf_reader test/locale_chrome_no_vietnamese_test.dart` ở máy
+  dev. Hành vi touch/paint của `PdfTextSearcher` trên máy yếu + sách 800 trang chưa
+  đo. P0-19 (hai nguồn offset) còn mở: "tìm rồi đọc từ chỗ tìm" phải đợi hợp nhất.
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07250-in4up | 3 commit
+    `99540d9` (service+test) → `a4b91dc` (widget) → `c4f62c5` (nối màn đọc + i18n);
+    merge `7219ee4` kéo `arena/01a0251e-in4up` (Sherpa live STT + LRC đa ngữ) vào
+    trước để tránh giẫm nhau — resolve 1 conflict ở `priority_ui_overrides.dart`
+    (hai bên cùng append cuối map; giữ cả hai, 294 key, 0 trùng).
+  - 2026-09-05 | bổ sung 1.9 | agent | `251c935` phím tắt desktop (`Focus.onKeyEvent`
+    + bảng ưu tiên thuần + hộp "Phím tắt" trong menu More) + 6 nhãn i18n;
+    `dc487d1`/`eb56035` sửa comment lẫn ký tự Hán.
+  - 2026-09-06 | đỏ → xanh | agent | `251c935` đỏ vì `LogicalKeyboardKey.plus` không
+    tồn tại (2 error, thấy được nhờ probe tắt lint — xem docs/skills/ci-red-debugging
+    §6.2); `bca3bd3` sửa + revert `analysis_options.yaml` về baseline → run
+    34011982375 🟢 cả hai step.
+  - 2026-09-06 | merge 251e lần 2 | agent | `78f8513`+`71291c3` (tipitaka reading +
+    pubspec.lock): auto-merge sạch, `priority_ui_overrides.dart` lên 318 key, **0 trùng**
+    (kiểm tra bằng script đếm key — auto-merge không đảm bảo hết trùng key trong cùng
+    một const map).
+  - 2026-09-06 | đợt B (1.5) | agent | `services/pdf_reader_theme.dart` (thuần: veil
+    màu + clamp + prefs khoan dung) + `widgets/pdf_page_veils.dart` (dịch veil sang
+    `pagePaintCallbacks`) + `widgets/pdf_reader_theme_sheet.dart` (4 theme + slider độ
+    sáng) + 9 key i18n (catalog 327 key, 0 trùng) + `test/pdf_reader/pdf_reader_theme_test.dart`
+    (223 dòng). CI 🟢 run 34042635098 **ngay lần đầu** — vì mọi tên API pdfrx đối
+    chiếu tag `pdfrx-v2.2.24` trước khi gõ (bài học §4.1.1).
+  - 2026-09-06 | cứu worktree | agent | sandbox bị clone lại lần 2: HEAD rơi về
+    `a55dfa8`, ref `origin/arena/*` mất, 53 file công việc thành uncommitted. Không mất
+    gì: đóng băng bằng `git add -A && git commit` → `git ls-remote` xác nhận GitHub còn
+    `032f321` → fetch refspec tường minh → `git diff` rỗng → `git reset --hard`. Củng cố
+    rule của repo: **push liên tục là backup duy nhất**.
+- **2026-09-06 (đợt C, wave 2 mục 2.6 — bậc B1+B2 do owner chốt):**
+  - B1: sidecar `.in4up.json` có version + header định danh file (size+mtime, KHÔNG dùng
+    đường dẫn), `decodePdfAnnotationSidecar` không ném / bỏ dòng hỏng, `compareSidecarToFile`
+    → `sameFile|contentChanged|pageChanged|unknown`, `mergeSidecarAnnotations` (mới hơn thắng,
+    hoà → note dài hơn), `PdfReaderController.importAnnotations()` cấp uuid mới cho dòng nhập.
+    XFDF cho highlight+ghi chú (`annotReplace`, rect/quadpoints/opacity 0.40, `<text
+    icon="Comment">`) — **chỉ xuất**, không nhập XFDF.
+  - B2: "in bản chụp" = `PdfPage.render()` → BGRA thô → `pdf_snapshot_burn.dart` phủ
+    highlight (alpha 0.35) + marker ghi chú → `pdf_snapshot_pdf_writer.dart` tự dựng PDF
+    (image XObject/trang, Predictor 15, xref) → `share_plus` 12 (`ShareParams(files:[XFile])`,
+    không còn `shareXFiles`). **Không thêm dependency nào**; tệp PDF gốc không bị sửa nên đây
+    là ảnh chụp, không phải stamp thật.
+  - Nối UI: `widgets/pdf_export_row.dart` trong `⋮ → Quản lý ghi chú` (JSON / XFDF / PDF ảnh /
+    Nhập JSON), kết quả in inline vì sheet 0.88 che SnackBar; import hiện dialog xác nhận đếm
+    số annotation + mức trùng tệp trước khi merge. 23 key vào `priority_ui_overrides.dart`
+    (không chạy generator), 5 file test mới = 51 test, `test/pdf_reader` lên 14 file / 134 test.
+  - Ghi lại 5 lỗi biên dịch CI bắt được (§4.3) — không có Flutter SDK trong sandbox nên CI là
+    compiler duy nhất: `math.min/max` suy luận `num` làm vỡ index `Uint8List`,
+    `const ZLibEncoder().encode()` (sai cả tên API lẫn const), `ZLibCodec` ctor là `factory`
+    nên không const, `latin1.decode(..., allowMalformed:)` không tồn tại, test thiếu `Color`
+    trong `import 'dart:ui' show …`.
+  - **Chưa done:** chạy `flutter test test/pdf_reader` + round-trip share sheet trên máy owner;
+    nghiệm thu thiết bị §4.1/§4.2 còn treo; phần 2.6 còn lại (Markdown/CSV, in, stamp thật).
+
+### PDF-W0 — Wave 0 PDF Reader: sửa cho đúng cái đã có (không thêm tính năng)
+- **Trạng thái:** doing — code xong, CI 🟢 (analyze 0 error + rule #5 test xanh); còn nghiệm thu thiết bị
+- **Nguồn:** owner (2026-09-05): "Hãy phân tích thảo luận với tôi" → "Hãy tiến
+  hành!" sau khi đọc `docs/pdf_reader_readera_upgrade.md`. Đối chiếu ReadEra.
+- **Nội dung:** 5 wave được đề xuất; wave 0 = nối lại phần máy đang bị đứt, không
+  thêm tính năng. 12 mục 0.1→0.10 + 0.16/0.17/0.18 đã code:
+  - selection pdfrx → controller (`textSelectionParams.onTextSelectionChange`,
+    giữ mảnh chọn theo từng trang + offset → reopen đúng chỗ, rule vàng #3);
+  - xoá overlay `_WordTapDetector` (thủ phạm chặn pan/zoom), chuyển sang
+    `onGeneralTap`: chạm = sheet từ, long-press = chọn từ, handle = mở rộng;
+  - hit-test theo px + dung sai theo cao độ chữ (`pdf_word_hit_test.dart`);
+  - TTS theo CÂU (`extractSentences` + `PdfSentenceCue`), karaoke highlight,
+    prev/next trang + câu, pause/resume, auto-advance, speed; ẩn tuỳ chọn
+    "Song ngữ" thay vì hứa suông (`isBilingualTtsAvailable=false`);
+  - `PdfFileIdentity` (md5(size|mtime) + pathKey dự phòng + migrate 3 thế hệ key)
+    → đổi tên/chuyển file không mất highlight, không mất trang đọc;
+  - `Uuid` cho annotation id, `lineRects`, `canReopenToPosition`;
+  - bỏ auto-hide chrome 3 s; bookmark thật (dùng `AnnotationType.bookmark`);
+    basename 2 nền tảng (`pdfBaseName`/`pdfSourceMatches`) cho panel từ đã lưu;
+  - `services/pdf_geometry.dart` = nguồn sự thật duy nhất cho quy đổi toạ độ
+    (P0-18: rect PDF space có `top > bottom` → `height` âm, `contains` luôn false);
+  - 51 key i18n vào `priority_ui_overrides.dart` (không chạy generator — rule #5);
+  - 5 file test sàn trong `test/pdf_reader/` (geometry, hit-test bất biến zoom,
+    annotation round-trip/dữ liệu cũ, file identity với temp file thật, cleaning,
+    quét phủ i18n của feature).
+- **Kiến trúc:** ADR-0003 (giữ quy ước toạ độ đã lưu — chỉ đổi chỗ quy đổi;
+  khoá dữ liệu đọc là identity chứ không phải đường dẫn).
+- **Rủi ro còn lại:** CI analyze đã xanh nên phần biên dịch/signature pdfrx ổn; nhưng
+  `test/pdf_reader` (5 file) **chưa chạy lần nào** (CI workflow này chỉ chạy
+  `test/locale_chrome_no_vietnamese_test.dart`) ⇒ cần `flutter test test/pdf_reader`
+  ở máy dev trước khi tin Wave 0 xong. P0-11 (extract đa cột/isolate) và P0-12
+  (reading order) còn mở — ghi ở doc mục 4.0.3.
+- **Lịch sử:**
+  - 2026-09-05 | created→doing | agent arena/01a07250-in4up | theo doc phân tích
+    `docs/pdf_reader_readera_upgrade.md`; chưa commit CI
+  - 2026-09-05 | CI đỏ → xanh | agent | 3 commit sửa lỗi CI (`f02854c`, `c62e8bf`,
+    `370ff91`): regex raw-string `\'` (khai sinh ~20 error), `pdfSourceMatches` nhận
+    `String?`, bỏ `const` trong test, 2 key trùng ở `priority_ui_overrides`, `leading:`
+    kép trong `pdf_reader_screen`. Probe `analysis_options.yaml` (tắt lint để thấy lỗi)
+    đã revert cùng đợt. Run `33984585516` 🟢 cả hai step. Cách đọc log CI:
+    `docs/skills/ci-red-debugging` §6.1.
 
 ### REOPEN-001 — Mở lại file cũ dùng LRC + bản dịch đã lưu (không tạo/dịch lại)
 - **Trạng thái:** done (chờ CI + nghiệm thu trên thiết bị)
@@ -1386,28 +1515,6 @@
     trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
     tin kế tiếp vẫn hoạt động bình thường
 
-### AI-CHAT-03 — Chat timeout 3 phút: không chat được thật
-- **Trạng thái:** doing (chờ owner rebuild APK + nghiệm thu máy)
-- **Nguồn:** owner 2026-09-07 — chat nhận "AI xử lý quá lâu (model lớn trên
-  máy yếu). Vui lòng thử lại sau vài giây." Dù đã sửa AI-CHAT-01/02 nhiều
-  lần. Rebuild không flutter clean, không xóa app cũ. Log IME không liên quan.
-- **Root cause (thật, không phải timeout UI):**
-  1. Prompt chat = "Analyze conversation + Return ONLY valid JSON" (schema
-     technical_terms). Gemma-3-1B-it-QAT không EOS → native loop hết maxTokens.
-  2. maxTokens 512 trên tablet CPU ~1–3 tok/s → 3–8 phút > Dart timeout 3 phút.
-  3. C++ không `llama_memory_clear` giữa 2 lần generate; `n_batch = n_ctx`
-     (2048) prefill một phát trên máy yếu.
-  4. `.take(10)` lấy 10 tin ĐẦU (lỗi timeout cũ), không phải 10 tin gần.
-  5. Timeout Dart không abort FFI → "thử lại sau vài giây" là nói dối.
-- **Fix:** prompt Gemma-IT ngắn (1–3 câu, cấm JSON); maxTokens 96; timeout
-  90s + `in4up_ai_abort`; n_batch/n_ubatch 128 + chunked prefill + clear KV;
-  n_ctx chat 1024; history last 6 non-error; plain text → summary.
-- **Nghiệm thu:** banner xanh → gửi "xin chào" → trả lời tiếng Việt trong
-  ~15–60s (không đợi 3 phút). Gửi lại ngay được. Không cần flutter clean /
-  xóa app — CẦN full rebuild (không hot reload) để ra libin4up_ai_native.so mới.
-- **Lịch sử:**
-  - 2026-09-07 | created→doing | agent arena/01a07d83-in4up | RCA + fix native/Dart
-
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)
 - **Nguồn:** người sở hữu (2026-08-30) — yt-dlp / Language Reactor; tư vấn
@@ -1783,6 +1890,11 @@
     (3) +2 regression test T6/T7 (tổng 17 test); Python simulation
     replicate đúng logic Dart cuối: 19/19 pass (17 test file + T6b +
     T8-guard)
+ - **2026-09-14 (governance, agent branch PDF):** dedupe bảng Tổng quan — từng có HAI dòng
+   cùng ID `WORDLIST-002` (bản cũ ghi 15 test, bản mới ghi 17 test T6/T7). Nguyên nhân:
+   `af08487` append thêm dòng thay vì sửa dòng cũ. Đã xoá dòng cũ, giữ bản siêu tuyến,
+   sau khi kiểm mọi mảnh thông tin của dòng bị xoá đều có trong dòng được giữ.
+   Không đổi trạng thái card.
 
 ### CABIN-001 — Cabin dịch: không khởi động được mic / nhận diện giọng nói
 - **Trạng thái:** done + CI xanh 33961600553 @ a1a36e5 (chờ nghiệm thu máy)

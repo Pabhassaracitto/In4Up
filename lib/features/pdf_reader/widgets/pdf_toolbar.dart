@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
 import '../pdf_reader_controller.dart';
+import '../services/pdf_reader_theme.dart';
 
 class PdfToolbar extends StatelessWidget {
   final PdfReaderController controller;
@@ -17,6 +18,16 @@ class PdfToolbar extends StatelessWidget {
   /// từ/cụm/câu → 1 chủ đề + ngôn ngữ).
   final VoidCallback? onBatchSavePage;
 
+  /// Mở tìm kiếm trong file / mục lục / nhảy nhanh tới trang (Wave 1).
+  final VoidCallback? onSearch;
+  final VoidCallback? onShowToc;
+  final VoidCallback? onJumpToPage;
+  final VoidCallback? onShowShortcuts;
+  /// Mở bảng chọn chủ đề đọc + độ sáng trang (Wave 1.5).
+  final VoidCallback? onShowReaderTheme;
+  /// Trạng thái theme hiện tại — chỉ để dòng menu hiển thị nhãn đang chọn.
+  final PdfReaderThemeState? readerThemeState;
+
   const PdfToolbar({
     super.key,
     required this.controller,
@@ -27,6 +38,12 @@ class PdfToolbar extends StatelessWidget {
     this.writingMode = false,
     this.onSendToWriting,
     this.onBatchSavePage,
+    this.onSearch,
+    this.onShowToc,
+    this.onJumpToPage,
+    this.onShowShortcuts,
+    this.onShowReaderTheme,
+    this.readerThemeState,
   });
 
   @override
@@ -72,19 +89,50 @@ class PdfToolbar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+              IconButton(
+                tooltip: context.uiText('Tìm trong file'),
+                onPressed: () {
+                  onUserInteraction?.call();
+                  onSearch?.call();
+                },
+                icon: const Icon(Icons.search, size: 20, color: Colors.white70),
+              ),
+              IconButton(
+                tooltip: context.uiText('Mục lục'),
+                onPressed: () {
+                  onUserInteraction?.call();
+                  onShowToc?.call();
+                },
+                icon: const Icon(
+                  Icons.list_alt,
+                  size: 20,
+                  color: Colors.white70,
                 ),
-                child: Text(
-                  '${controller.currentPage + 1} / ${controller.totalPages}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.white60,
-                    fontFamily: 'monospace',
+              ),
+              // Nhãn trang là NÚT: đọc sách dài thì "tới trang 187" nhanh hơn
+              // vuốt 187 lần, và đây là lối vào duy nhất khi không có mục lục.
+              InkWell(
+                onTap: onJumpToPage == null
+                    ? null
+                    : () {
+                        onUserInteraction?.call();
+                        onJumpToPage!();
+                      },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${controller.currentPage + 1} / ${controller.totalPages}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white60,
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
               ),
@@ -109,6 +157,9 @@ class PdfToolbar extends StatelessWidget {
                 onUserInteraction: onUserInteraction,
                 onShowAnnotations: onShowAnnotations,
                 onOpenGrammarSettings: onOpenGrammarSettings,
+                onShowShortcuts: onShowShortcuts,
+                onShowReaderTheme: onShowReaderTheme,
+                readerThemeState: readerThemeState,
                 onBatchSavePage: onBatchSavePage,
               ),
             ],
@@ -259,42 +310,37 @@ class _RecallMarkersButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = controller.showRecallMarkers;
-    return GestureDetector(
-      onTap: () {
-        onUserInteraction?.call();
-        HapticFeedback.selectionClick();
-        controller.toggleRecallMarkers();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(14),
-          border: isActive
-              ? Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.45))
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? Icons.visibility : Icons.visibility_outlined,
-              size: 13,
-              color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              context.uiText(isActive ? 'Đánh dấu: BẬT' : 'Đánh dấu: TẮT'),
-              style: TextStyle(
-                fontSize: 10,
-                color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+    return Tooltip(
+      message: context.uiText(
+        isActive
+            ? 'Đang hiện vòng tròn quanh từ đã lưu / có ghi chú / đến kỳ ôn'
+            : 'Hiện vòng tròn quanh từ đã lưu / có ghi chú / đến kỳ ôn',
+      ),
+      child: GestureDetector(
+        onTap: () {
+          onUserInteraction?.call();
+          HapticFeedback.selectionClick();
+          controller.toggleRecallMarkers();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color(0xFF4CAF50).withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(9),
+            border: isActive
+                ? Border.all(
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.45))
+                : null,
+          ),
+          child: Icon(
+            isActive ? Icons.bookmark_added : Icons.bookmark_add_outlined,
+            size: 15,
+            color: isActive ? const Color(0xFF66BB6A) : Colors.grey,
+          ),
         ),
       ),
     );
@@ -349,6 +395,9 @@ class _MoreButton extends StatelessWidget {
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
   final VoidCallback? onBatchSavePage;
+  final VoidCallback? onShowShortcuts;
+  final VoidCallback? onShowReaderTheme;
+  final PdfReaderThemeState? readerThemeState;
 
   const _MoreButton({
     required this.controller,
@@ -356,6 +405,9 @@ class _MoreButton extends StatelessWidget {
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
     this.onBatchSavePage,
+    this.onShowShortcuts,
+    this.onShowReaderTheme,
+    this.readerThemeState,
   });
 
   @override
@@ -388,6 +440,9 @@ class _MoreButton extends StatelessWidget {
         onShowAnnotations: onShowAnnotations,
         onOpenGrammarSettings: onOpenGrammarSettings,
         onBatchSavePage: onBatchSavePage,
+        onShowShortcuts: onShowShortcuts,
+        onShowReaderTheme: onShowReaderTheme,
+        readerThemeState: readerThemeState,
       ),
     );
   }
@@ -398,12 +453,18 @@ class _PdfOptionsSheet extends StatelessWidget {
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
   final VoidCallback? onBatchSavePage;
+  final VoidCallback? onShowReaderTheme;
+  final PdfReaderThemeState? readerThemeState;
+  final VoidCallback? onShowShortcuts;
 
   const _PdfOptionsSheet({
     required this.controller,
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
     this.onBatchSavePage,
+    this.onShowShortcuts,
+    this.onShowReaderTheme,
+    this.readerThemeState,
   });
 
   @override
@@ -492,6 +553,98 @@ class _PdfOptionsSheet extends StatelessWidget {
               },
             ),
 
+          // Wave 1.5: đổi chủ đề đọc là lý do số 1 người ta rời app đọc PDF vệ
+          // sinh mắt (ReadEra có menu riêng cho việc này). Ở đây chỉ phủ màu
+          // trang + đổi nền quanh trang, KHÔNG đổi chrome ⇒ không lây sang nơi khác.
+          if (onShowReaderTheme != null)
+            ListTile(
+              leading: const Icon(
+                Icons.palette_outlined,
+                color: Color(0xFFFFB74D),
+              ),
+              title: Text(
+                context.uiText('Chủ đề đọc'),
+                style: const TextStyle(color: Colors.white),
+              ),
+              subtitle: readerThemeState == null
+                  ? null
+                  : Text(
+                      _readerThemeSubtitle(context, readerThemeState!),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+              onTap: () {
+                Navigator.pop(context);
+                onShowReaderTheme?.call();
+              },
+            ),
+
+          // Wave 1.9: phím tắt desktop là tính năng "reader thật" mà người dùng
+          // Windows không tự đoán được — phải tra tại chỗ.
+          if (onShowShortcuts != null)
+            ListTile(
+              leading: const Icon(
+                Icons.keyboard,
+                color: Color(0xFF9CCC65),
+              ),
+              title: Text(
+                context.uiText('Phím tắt'),
+                style: const TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                '→ ← Space F T B + − Esc',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              trailing: const Icon(Icons.chevron_right,
+                  color: Colors.white54),
+              onTap: () {
+                Navigator.pop(context);
+                onShowShortcuts?.call();
+              },
+            ),
+
+          ListTile(
+            leading: Icon(
+              controller.hasBookmarkOnPage(controller.currentPage)
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+              color: const Color(0xFF64B5F6),
+            ),
+            title: Text(
+              context.uiText(controller.hasBookmarkOnPage(controller.currentPage)
+                  ? 'Bỏ đánh dấu trang này'
+                  : 'Đánh dấu trang này'),
+              style: const TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              context.uiText('Tìm lại nhanh trong danh sách Ghi chú & đánh dấu'),
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            onTap: () async {
+              final added = !controller.hasBookmarkOnPage(controller.currentPage);
+              await controller.toggleBookmark();
+              Navigator.pop(context);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(added
+                        ? context.uiText('Đã đánh dấu trang này')
+                        : context.uiText('Đã bỏ đánh dấu')),
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+          ),
+
           // Annotations count
           ListTile(
             leading: const Icon(Icons.note_alt_outlined, color: Colors.amber),
@@ -533,10 +686,10 @@ class _TtsLanguageSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final options = [
-      ('en-US', '🇺🇸 Tiếng Anh'),
+    final options = <(String, String)>[
+      ('en-US', '🇺🇸 English'),
       ('vi-VN', '🇻🇳 Tiếng Việt'),
-      ('bilingual', '🔀 Song ngữ'),
+      if (controller.isBilingualTtsAvailable) ('bilingual', '🔀 Song ngữ'),
     ];
 
     return Wrap(
@@ -595,4 +748,14 @@ class _TtsSpeedSlider extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Nhãn chủ đề đọc cho dòng menu: tên theme đã dịch + `%` độ sáng (số, không
+/// cần dịch). Ghép ở đây thay vì `uiText('...$x...')` vì chỉ key CHÍNH XÁC mới
+/// được duyệt trong catalog (rule #5).
+String _readerThemeSubtitle(BuildContext context, PdfReaderThemeState state) {
+  final summary = pdfReaderThemeSummary(state);
+  final label = context.uiText(summary.labelKey);
+  final suffix = summary.suffix;
+  return suffix == null ? label : '$label$suffix';
 }

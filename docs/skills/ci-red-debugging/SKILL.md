@@ -171,3 +171,45 @@ squash-merge để lịch sử sạch.
 - `docs/playbooks/` (nếu có) — bản mở rộng của skill này.
 - `tool/ci/README.md` — cách bật workflow khi token thiếu quyền `workflows`.
 - `docs/adr/0001-sm2-canonical-formula.md` — ví dụ postmortem chuẩn.
+
+## 6.1. Đọc được `analyze.log` của CI dù step chỉ in `tail -n 300`
+
+`App analyze (rule #5)` ghi `flutter analyze ... > analyze.log` rồi in `tail -n 300`, và
+upload artifact dạng **zip** (sandbox không giải nén được). Lỗi trong `lib/**` vì thế
+bị chôn dưới ~300 dòng `info • Unused import` của `packages/**`. Cách lấy đủ lỗi:
+
+1. Tạm thời **comment `include: package:flutter_lints/flutter.yaml`** trong
+   `analysis_options.yaml` (lint im lặng, `error`/`warning` vẫn còn) → `flutter analyze`
+   chỉ còn vài dòng → mọi error của `lib/**` lọt vào `tail -n 300`. **Bắt buộc** sửa kèm
+   một file `lib/**` hoặc `test/**` vì workflow lọc `on.push.paths`.
+2. `gh api "repos/<owner>/<repo>/actions/runs/<run-id>/jobs" --jq '.jobs[0].id'` → job id.
+3. `gh run view --log-failed` **rỗng** với lỗi analyze (không có `##[error]` ở dòng源码);
+   dùng REST: `curl -sI "https://api.github.com/repos/<owner>/<repo>/actions/jobs/<job-id>/logs"`
+   (kèm `Authorization: Bearer $(gh auth token)`) → 302 + `Location:` = URL blob SAS
+   (~10 phút). **Phải dùng nguyên văn**: `+`/`%2B` bị shell/mỏ neo làm hỏng →
+   `AuthenticationFailed` hoặc "Signature fields not well formed".
+4. Mở URL bằng fetch_page (nội dung trả theo chunk); tìm `error •`.
+5. **Revert `analysis_options.yaml` ngay trong commit sửa lỗi** — đừng để probe sống
+   qua một lần xanh: tắt lint = mất luôn lá chắn rule #5/dùng `Text` sai.
+
+Bài học từ Wave 0 (PDF reader): `RegExp(r'... \' ...')` — trong raw string một nháy,
+`\'` KHÔNG thoát nháy nên chuỗi cụt giữa regex → analyzer nổ 20+ error dây chuyền
+(`expected_token`, `illegal_character`, `non_bool_operand`) nhưng **grep thường không ra**
+vì chúng không phải "import thiếu". Muốn có nháy đơn trong regex: dùng raw string 3 nháy
+`r'''...'''`.
+
+## 6.2. Vòng lặp "probe → đọc log → sửa → revert probe" là **hai** commit, không phải một
+
+Lần đỏ ở Wave 1.9 (`LogicalKeyboardKey.plus` — keyboard API **không có** getter `plus`,
+phím numpad tên là `add`) cho thấy chi tiết đáng nhớ:
+
+- Commit probe phải kèm một thay đổi trong `lib/**` hoặc `test/**` (workflow lọc
+  `on.push.paths`), nếu không nó im lặng không chạy gì.
+- Với lint TẮT, `flutter analyze` chỉ còn 123 dòng ⇒ `tail -n 300` of the step **thấy
+  hết**, kể cả lỗi trong `test/**`. Đây là lúc duy nhất danh sách lỗi là đầy đủ.
+- Sửa xong, commit **revert `analysis_options.yaml`** rồi push tiếp; trạng thái head
+  cuối cùng phải là: lint BẬT + xanh. Nếu xanh, coi như `lib/**` và `test/**` không còn
+  error nào (chỉ ERROR mới fatal trong workflow này).
+- Đừng tin `git checkout <branch> -- analysis_options.yaml` khi branch đó CHÍNH LÀ đầu
+  có probe: nó khôi phục nguyên cái probe. Phải checkout từ commit **gốc trước probe**
+  (`git log --oneline -- analysis_options.yaml` để tìm).

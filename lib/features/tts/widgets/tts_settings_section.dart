@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 // lib/features/tts/widgets/tts_settings_section.dart
 
 import 'package:in4up/core/language/localized_material.dart';

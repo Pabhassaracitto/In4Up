@@ -1,5 +1,3 @@
-library tipitaka;
-
 export 'models/collection.dart';
 export 'models/book.dart';
 export 'models/segment.dart';

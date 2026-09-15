@@ -487,7 +487,7 @@ class StorageService {
     for (final entry in _soundTranscripts.toMap().entries) {
       try {
         result[entry.key] = SoundTranscript.fromJson(
-          jsonDecode(entry.value as String) as Map<String, dynamic>,
+          jsonDecode(entry.value) as Map<String, dynamic>,
         );
       } catch (e) {
         debugPrint('Error parsing sound transcript: $e');

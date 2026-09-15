@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 // lib/features/translation/translation_toolbar.dart
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:in4up/core/language/localized_material.dart';

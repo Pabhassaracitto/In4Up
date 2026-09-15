@@ -1,3 +1,4 @@
+// ignore_for_file: implementation_imports, depend_on_referenced_packages, unnecessary_brace_in_string_interps
 // Hy-MT 1.5 (Tencent Hunyuan) — engine dịch câu offline qua GGUF + llama.cpp.
 // Model ~600MB. KHÔNG load lúc bootstrap. User bấm Import hoặc Tải về.
 

@@ -1,3 +1,4 @@
+// ignore_for_file: non_constant_identifier_names, camel_case_types, library_private_types_in_public_api, curly_braces_in_flow_control_structures, prefer_interpolation_to_compose_strings, unintended_html_in_doc_comment, dead_null_aware_expression, unnecessary_non_null_assertion, unused_element
 // packages/in2up_stt/lib/stt_engine_whisper.dart
 //
 // in2up v11.0 — Stateless Whisper Engine

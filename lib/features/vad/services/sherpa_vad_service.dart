@@ -1,3 +1,4 @@
+// ignore_for_file: unintended_html_in_doc_comment, unnecessary_brace_in_string_interps, unused_element
 // lib/features/vad/services/sherpa_vad_service.dart
 // Handover SECTION 2 — Quy định kỹ thuật khi triển khai VAD
 // Library khuyên dùng: sherpa_onnx (chỉ load VAD module, rất nhẹ ~2-5MB)

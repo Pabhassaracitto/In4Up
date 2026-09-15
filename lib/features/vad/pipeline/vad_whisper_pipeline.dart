@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element
 // lib/features/vad/pipeline/vad_whisper_pipeline.dart
 // Handover SECTION 2 — Thiết kế Pipeline tối ưu VAD + Whisper.cpp
 // Kiến trúc:

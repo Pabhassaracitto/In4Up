@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 // lib/features/translation/glossary/glossary_sheet.dart
 //
 // Màn "Thuật ngữ dịch" — quản lý glossary (list / thêm / sửa / khóa / xóa).

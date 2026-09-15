@@ -1,3 +1,4 @@
+// ignore_for_file: unused_import, unused_local_variable
 // lib/features/vad/pipeline/vad_pipeline_integration.dart
 // Tích hợp VAD pipeline vào PlayerSttMixin / SttServiceFacade
 // Cho phép file 1h giảm từ 20p xuống 8-10p nhờ loại bỏ silence

@@ -177,11 +177,6 @@ mixin TranslationMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  AppLanguage _lineSourceFor(String content, AppLanguage documentSource) {
-    if (translationSourceIsPinned) return documentSource;
-    return LanguageDetector.detectLanguage(content, fallback: documentSource);
-  }
-
   Future<(TranslationResult, AppLanguage)> _translateLineContent(
     TranslationService service, {
     required String content,
@@ -214,22 +209,6 @@ mixin TranslationMixin on ChangeNotifier {
       }
     }
     return (result, appliedSource);
-  }
-
-  String _translationErrorFor(
-    TranslationResult result, {
-    required AppLanguage lineSource,
-  }) {
-    final base = '${result.engineName}: ${result.error}';
-    final missing = result.missingModelCodes;
-    if (missing == null ||
-        missing.isEmpty ||
-        !missing.contains(lineSource.translationCode)) {
-      return base;
-    }
-    return translationSourceIsPinned
-        ? '$base (cặp nguồn đã chọn)'
-        : '$base (nguồn tự nhận diện — kiểm tra lại ngôn ngữ nguồn)';
   }
 
   Future<void> translateLine(int index) async {

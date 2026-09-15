@@ -447,3 +447,13 @@ Rủi ro / rollback:
 
 Nếu không tái hiện được hoặc CI không chạy, agent phải trả về **BLOCKED + bằng
 chứng**, không tự chuyển `done`, không tạo PR chứa thay đổi đoán mò.
+
+## 8. Addendum sau audit Gemini / Video
+
+- Audit Hy-MT chi tiết + prompt bổ sung: `docs/project/AUDIT-HYMT-GEMINI-2026-09-16.md`.
+  Kết luận: Hy-MT inference đã ở isolate; timeout 15–18 giây không đúng source;
+  `HYMT-002` vẫn cần queue/health/restart/chunk và bằng chứng CI/thiết bị.
+- Prompt hoàn thiện tab phụ Video: `docs/Bangiao/PROMPT_AGENT_VIDEO.md`.
+  Card chính `VID-001`; phải xử lý đồng thời lifecycle của `LISTEN-VIEW-001`,
+  vì `IndexedStack` giữ child offstage và player controller không được phép
+  để texture đen hoặc phát ngầm.

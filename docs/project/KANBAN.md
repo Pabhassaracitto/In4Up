@@ -79,6 +79,7 @@
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" |
+| BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
@@ -2506,3 +2507,248 @@
   InkWell→GestureDetector+custom highlight cho các bar bị remove giữa animation).
 - Sau mỗi fix: `flutter analyze` + `flutter test` trước khi commit; CI oracle
   = "App Analyze + Locale Test (wide oracle)" phải xanh.
+## 🔥 BATCH OWNER 2026-09-16 — 9 việc mới (handoff cho agent Arena)
+
+> Owner báo sau build `1d58b78`. Format giống batch 09-15: TRIỆU CHỨNG →
+> REPRO → ROOT CAUSE (verify code / nghi) → FILES → FIX ĐỀ XUẤT → AT.
+> Sửa xong → owner create PR vào `arena/01a0251e-in4up`.
+
+### HYMT-002 — Dịch bằng Hy-MT 1.5 vẫn không chạy: "Timeout Hy-MT"
+- **Triệu chứng (owner):** "Dịch bằng Hy-MT 1.5 vẫn không hoạt động được:
+  Lỗi Hy-MT1.5 (GGLIF) Timeout HyMT-" ("GGLIF" = đọc trại "GGUF").
+- **Context:** `hymt_engine.dart` = engine offline GGUF + llama.cpp
+  (model `Hy-MT1.5-1.8B-2bit.gguf` ~601MB, chạy trong Isolate).
+- **Root cause (đã đọc code — cơ chế):** request gửi qua SendPort cho
+  isolate, chờ `reply.first.timeout(2 phút)` (line ~398) → hết 2 phút =
+  "Hy-MT timeout". Isolate KHÔNG có guard request đang chạy: 1 request
+  trước kẹt (llama generate lâu / isolate chết OOM) → request sau CŨNG
+  timeout theo. Trên máy yếu, model 1.8B-2bit + câu dài có thể thật sự
+  >2 phút. UI hiện lỗi ngay — user nghĩ engine chết.
+- **Files:** `lib/features/translation/engines/hymt_engine.dart`
+  (isolate entry `_isolateEntry` line ~245+, request flow line ~360-430),
+  `lib/features/translation/translation_service.dart` (nơi gọi engine),
+  UI hiện error (translation toolbar / read tab).
+- **Fix đề xuất:**
+  1. Guard `_busy` trong isolate: request tới khi đang chạy → trả reply
+     "ĐANG BẬN" ngay (không treo 2 phút); service queue hoặc báo UX rõ.
+  2. Heartbeat isolate: trước khi gửi request, ping (loadDone/alive);
+     isolate chết → kill + spawn lại + retry 1 lần.
+  3. Timeout: tăng 2→4 phút HOẶC chia text dài thành cụm ≤ ~500 ký tự
+     (maxCharsPerRequest của engine khác = 5000 — Hy-MT nên chunk
+     nhỏ hơn cho device).
+  4. UI: hiện trạng thái "Đang dịch bằng Hy-MT… (offline, có thể chậm)"
+     thay vì im lặng rồi lỗi.
+- **AT:** máy owner: dịch 1 câu ngắn EN→VI bằng Hy-MT → có kết quả
+  (thời gian bao nhiêu cũng được nhưng phải về); dịch text dài 2000+ ký
+  tự → chunk không timeout; 2 request liên tiếp không kẹt.
+
+### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
+- **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ
+  AI để tải về. Trong khi đã import rồi. Và không hiểu sao hồi trước khi
+  cập nhật ở các lần build trước hoạt động được cabin offline (sherpa) mà
+  lần này lại không được." ("EL" = nhìn nhầm "EN" — code in
+  `sourceLanguage.toUpperCase()` = **EN**).
+- **Root cause (đã verify code):** cabin `SttsCabinService._sourceLanguage`
+  MẶC ĐỊNH `'en'` (`stts_cabin_service.dart:51`). Owner đã import model
+  **VI**ETNAMESE (`asr-vi-30M-int8`) nhưng app kiểm tra
+  `hasAsrModel('en')` → quét folder `asr-en-20M-streaming-int8` → TRỐNG →
+  snackbar "Chưa có model Zipformer cho EN" + service từ chối start
+  (line 144-148). Build trước chạy được = build trước dùng ngôn ngữ nguồn
+  khác (vi) hoặc check khác — STT session (`1d58b78` merge #25) đã đổi.
+- **Files:** `lib/features/cabin/services/stts_cabin_service.dart`
+  (default + check), `lib/features/cabin/screens/live_cabin_screen.dart`
+  (chip engine + snackbar line ~372-385),
+  `packages/in4up_stt/lib/sherpa_model_manager.dart`
+  (`predefinedAsrProfiles` — chỉ có VI + EN), `stt_model_settings_screen.dart`
+  (UI import/download).
+- **Fix đề xuất:**
+  1. Default source language cabin = **'vi'** (app chính là cho người
+     Việt) — hoặc: default = ngôn ngữ có model đã cài (scan
+     `SherpaModelManager().asrInfo`), fallback 'vi'.
+  2. Khi ngôn ngữ chọn CHƯA có model nhưng CÓ model khác đã cài →
+     snackbar rõ: "Chưa có model cho EN — app sẽ dùng Tiếng Việt
+     (đã cài)" + tự dùng model đã cài (hoặc hỏi user), thay vì chặn.
+  3. Dropdown ngôn ngữ cabin: đánh dấu (màu/xám) các ngôn ngữ CHƯA có
+     model Zipformer (zh/fr/de/ja/ko/th/hi/si đều chưa có profile —
+     chọn là lỗi) để không dẫn user vào ngõ cụt.
+  4. Rà diff STT session (#25) quanh cabin/ASR để hiểu chính xác cái gì
+     đã đổi so với build trước (nếu owner build trước chạy được với vi).
+- **AT:** máy có model VI đã import: mở Cabin → chọn engine Sherpa
+  offline → START được + nhận diện tiếng Việt; chọn EN (chưa cài) →
+  thông báo rõ + fallback/hướng dẫn tải, không chết im.
+
+### HOME-QUICK-001 — Home: "Nạp tri thức nhanh" + icon ghi âm CHƯA hoạt động (stub)
+- **Triệu chứng (owner):** "Tab home: Nạp tri thức nhanh → đang chưa hoạt
+  động. Icon ghi âm cũng chưa hoạt động."
+- **Root cause (đã verify code — cả 2 là STUB):**
+  - `hebbian_input_card.dart` (card "NẠP TRI THỨC NHANH"): 2 nút
+    "Ghi chú nói" (mic) + "Gợi ý" (auto_awesome) — `onTap` là
+    `() { // Start STT flow }` / `() { // Show random word with image }`
+    — **rỗng**.
+  - `home_screen.dart` `_buildOmniMicrophone()` (FAB mic lớn): mở
+    `_SttDialog` — dialog GIẢ: chỉ hiện icon mic + chữ "listening…" +
+    nút Done, **không gọi STT thật**.
+- **Files:** `lib/screens/home/widgets/hebbian_input_card.dart`,
+  `lib/screens/home/home_screen.dart` (`_SttDialog` line ~557), STT thật
+  sẵn có: `lib/features/cabin/services/stts_cabin_service.dart` /
+  `lib/providers/stt_service_facade.dart` (hỗ trợ sherpa offline — xem
+  CABIN-001/SHERPA-WP4-01), WordList: `lib/providers/vocabulary_provider.dart`.
+- **Fix đề xuất:**
+  1. "Ghi chú nói" + FAB mic → 1 flow dùng chung: mở sheet STT thật
+     (engine hiện tại của app, ưu tiên offline sherpa khi offline) →
+     hiện transcript realtime → nút "Lưu vào WordList" (word/cụm) +
+     "Lưu ghi chú".
+  2. "Gợi ý" → rút NGẪU NHIÊN 1 từ từ WordList (ưu tiên thẻ đến kỳ ôn
+     FSRS) → hiện word + IPA + nghĩa (+ ảnh nếu entry có) + nút "Nghe"
+     (TTS) — bản tối giản trước, ảnh sau.
+  3. Bỏ dialog `_SttDialog` giả.
+- **AT:** bấm mic (cả FAB lẫn card) → nói 1 câu tiếng Việt → thấy
+  transcript; lưu → có trong WordList/Ghi chú; bấm "Gợi ý" → hiện 1 từ
+  thật từ danh sách.
+
+### HOME-STUDIO-001 — Phòng Studio thiếu thẻ XEM (chưa đủ 7: NGHE, NÓI, XEM, ĐỌC, VIẾT, HIỂU, NHỚ)
+- **Triệu chứng (owner):** "Phòng Studio nên bổ sung đầy đủ: NGHE, NÓI,
+  XEM, ĐỌC, VIẾT, HIỂU, NHỚ."
+- **Hiện trạng (đã verify):** `home_screen.dart` `_buildBentoModesGrid`
+  chỉ có 4 thẻ: "Nghe · Nói", "Đọc · Viết", "Hiểu", "Nhớ" — **thiếu
+  XEM** (video). Thẻ gộp 2 mode (Nghe·Nói) trong khi shell có sub-tab
+  riêng từng mode.
+- **Files:** `lib/screens/home/home_screen.dart` (`_buildBentoModesGrid`
+  line ~303; callbacks `onNavigateToListen/Read/Understand/Memory`),
+  `lib/screens/main_shell.dart` (`_setListenMode(0/1/2)` = Nghe/Nói/Xem,
+  `_setReadMode(0/1)` = Đọc/Viết — cần thêm callback tới XEM =
+  listen mode index 2).
+- **Fix đề xuất:** 7 thẻ riêng (hoặc 4 thẻ + 1 thẻ XEM rõ ràng — theo
+  owner muốn 7): NGHE → listen mode 0, NÓI → listen mode 1, XEM → listen
+  mode 2 (VideoLibrary), ĐỌC → read mode 0, VIẾT → read mode 1, HIỂU →
+  understand, NHỚ → remember. Thêm `onNavigateToVideo`/`onNavigateToSpeak`
+  ... từ main_shell. Grid responsive (7 thẻ → hàng 3+2+2 hoặc 4+3).
+- **AT:** mỗi thẻ bấm vào đúng màn hình tương ứng (7/7); XEM mở thư
+  viện video.
+
+### HOME-KG-001 — "Xem Knowledge Graph" bấm vào không có phản ứng
+- **Triệu chứng (owner):** "Xem Knowledge Graph nhấn vào chưa có phản ứng gì."
+- **Root cause (đã verify):** `knowledge_graph_preview.dart` line 69 —
+  nút "Xem Knowledge Graph →" **KHÔNG có onTap/Navigator** (chưa nối
+  navigation). Màn hình đích ĐÃ TỒN TẠI: `lib/screens/tools/word_list/
+  knowledge_graph_screen.dart` (cũng được mở từ WordList toolbar).
+- **Files:** `lib/screens/home/widgets/knowledge_graph_preview.dart`,
+  `lib/screens/tools/word_list/knowledge_graph_screen.dart`.
+- **Fix đề xuất:** nút bấm → `Navigator.push(MaterialPageRoute(builder:
+  (_) => KnowledgeGraphScreen()))` (match cách word_list_screen mở).
+- **AT:** Home → card Knowledge Graph preview → bấm "Xem Knowledge Graph
+  →" → mở đúng màn hình graph.
+
+### HOME-STREAK-001 — "Nhịp điệu học tập" chưa có thống kê thật
+- **Triệu chứng (owner):** "Nhịp điệu học tập chưa có thống kê thực sự."
+- **Hiện trạng (đã verify):** `focus_streak_card.dart` chỉ hiện "X ngày
+  liên tiếp" từ `FocusProvider.streak` — streak chỉ được cập nhật qua
+  `saveEffort(score)` mà hàm đó **hiện không có caller nào** (slider nỗ
+  lực đã bỏ ở HOME-001) → streak gần như luôn 0, không phản ánh hoạt
+  động thật.
+- **Files:** `lib/screens/home/widgets/focus_streak_card.dart`,
+  `lib/providers/focus_provider.dart` (streak + saveEffort), nguồn dữ
+  liệu thật có sẵn: `RecentFilesService` (tiến độ đọc),
+  `VocabularyProvider` (số từ import/lưu), LHB (`LearnByHeartProvider` —
+  số bài ôn), shadowing stats (`ShadowingProvider.totalPracticeCount`),
+  translation history.
+- **Fix đề xuất:**
+  1. Định nghĩa "1 ngày học" = có ÍT NHẤT 1 sự kiện thật trong ngày:
+     mở/đọc tài liệu ≥N phút, import ≥1 từ, ôn ≥1 bài LHB, shadowing
+     ≥1 lượt, dịch ≥M câu. Ghi event vào prefs (append, theo ngày).
+  2. Streak tính từ event thật (không cần effort slider).
+  3. Card hiện thống kê thật: "Hôm nay: X phút · Y từ · Z ôn" + mini
+     bar chart 7 ngày + streak. Bấm vào card → màn thống kê chi tiết
+     (tái dùng `stats`/`wordlist_stats` tools nếu có).
+- **AT:** học thật (đọc + lưu từ) hôm nay → card hiện số >0; hôm sau mở
+  app không học → streak giữ; học tiếp ngày hôm sau → streak +1.
+
+### LISTEN-LRC-LAYOUT-001 — Tab Nghe: kết quả lời AI nên nằm CHẠM CẠNH sóng âm (mặc định)
+- **Triệu chứng (owner):** "Tab nghe: Mặc định nên để phần kết quả lời tạo
+  từ AI chạm cạnh của sóng âm."
+- **Hiện trạng:** `listen_mode_screen.dart` — LRC panel "nằm ngay dưới
+  waveform" (comment line 6) nhưng có khoảng cách/padding giữa waveform
+  (`RollingWaveformView`) và khối lời (kết quả AI/LRC) → chủ đề muốn
+  khoảng cách = 0 (chạm cạnh) làm MẶC ĐỊNH.
+- **Files:** `lib/screens/listen_mode/listen_mode_screen.dart` (khối
+  layout waveform + LRC panel — grep `RollingWaveform` + `_lrcScroll`),
+  `lib/screens/listen_mode/widgets/rolling_waveform_view.dart`.
+- **Fix đề xuất:** đặt panel lời AI/LRC sát đáy waveform (spacing 0) làm
+  default; nếu cần khoảng cách thẩm mỹ → ≤4px; kiểm tra không overflow
+  khi có/nhiều dòng lời (bài học "v11 LRC Fix" ở đầu file).
+- **AT:** tab Nghe → phát file + tạo lời AI → khối lời chạm cạnh sóng âm,
+  không khoảng trống trắng, không overflow.
+
+### XP-MODE-001 — "Chế độ trải nghiệm": nâng lên tab riêng, đủ 7 mode + hiện các chức năng ẩn trong icon sấm sét
+- **Triệu chứng (owner):** "Trong setting đang có 'Chế độ trải nghiệm'.
+  Hãy cân nhắc để cho nó ra màn hình tab và cho các chế độ tương ứng để
+  người dùng có trải nghiệm hướng đối tượng và trình chiếu được các chức
+  năng bị ẩn trong icon sấm sét như dịch bin, đọc tam tạng kinh điển."
+- **Hiện trạng (đã verify):**
+  - "Chế độ trải nghiệm" (`grammarExperienceMode`) hiện là 1 tùy chọn
+    TRONG sheet `read_settings_sheet.dart` (line 90, icon auto_awesome) —
+    chưa phải tab.
+  - Icon sấm sét (`Icons.bolt_rounded`, `main_shell.dart` ~line 1032) =
+    "Công cụ nhanh" (`_openQuickActions` → `showToolsOverlayV2`) — ẩn
+    các tool mạnh: **Tipiṭaka ("Đọc Tam Tạng, tra cứu kinh điển")**,
+    Video, Thư viện video, Timeline, Word map, Triangle, Venn, Cabin,
+    Dictionary… user khó biết chúng tồn tại.
+- **Files:** `lib/screens/main_shell.dart` (nav + quick actions),
+  `lib/screens/read_mode/sheets/read_settings_sheet.dart`,
+  `lib/screens/tools/tools_overlay*.dart` (showToolsOverlayV2),
+  `lib/features/tipitaka/` (Tam Tạng), i18n (app_localizations).
+- **Fix đề xuất (feature — agent thiết kế trước khi code, chốt với owner
+  1 bản wireframe ngắn trong KANBAN):**
+  1. Tab "Trải nghiệm" (hoặc mở rộng card Phòng Studio — chọn theo
+      wireframe): 7 mục NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ — mỗi mục =
+      "hướng dẫn có dẫn đường" (guided tour): mục tiêu 1 dòng + 3-5 bước
+      thao tác thật (bấm theo chỉ dẫn) + demo nhanh chức năng chính.
+  2. Mục "Khám phá công cụ" trong tab: trình chiếu (carousel) các tool
+      đang ẩn sau icon sấm sét (Tipiṭaka/Tam Tạng, Video, Word map,
+      Triangle, Venn, Cabin…) — mỗi card: icon + tên + 1 dòng mô tả +
+      nút "Mở ngay" → mở đúng tool.
+  3. Giữ "Chế độ trải nghiệm" cũ trong read settings (không phá), tab
+      mới là lớp UX bao trùm.
+- **AT:** mở tab Trải nghiệm → chọn ĐỌC → làm theo 3 bước → tới đúng
+  chỗ; carousel hiện ≥5 tool ẩn + bấm "Mở ngay" mở đúng tool (kiểm tra
+  Tipiṭaka).
+
+### SHADOW-FILE-001 — Tab Nói: file âm thanh bị mất (ENOENT, file_picker cache) + AB bắt buộc gây bất tiện
+- **Triệu chứng (owner, logcat):** ExoPlayer
+  `FileNotFoundException: /data/user/0/com.in4up.beta/cache/file_picker/
+  1788698176215/Out & about - poem.m4a: open failed: ENOENT` khi
+  "PLAY ORIGINAL" (shadowing, loop 11s→15s, 5 lần, speed 0.75). Plus:
+  "nó chỉ mới áp dụng cho AB nghĩa là bắt người dùng phải chọn AB xong
+  mới qua luyện nói → Bất tiện, nên có cơ chế thông minh hơn, không
+  bị giới hạn bởi AB."
+- **Root cause (đã verify — log + code):**
+  1. `audio_library_drawer.dart` (`_pickSingleFile`/`_pickMultipleFiles`
+     line ~190-235) + `listen_library_screen.dart` line ~170: dùng
+     `FilePicker.pickFiles(type: audio)` → `file.path` = file nằm trong
+     **`/cache/file_picker/<timestamp>/`** — thư mục CACHE của app —
+     Android XÓA cache bất kỳ lúc nào (thiếu bộ nhớ, user clear cache,
+     restart…) → path chết → ExoPlayer ENOENT. LƯU Ý: lỗi này ảnh hưởng
+     TOÀN BỘ thư viện âm thanh (không chỉ shadowing).
+  2. Shadowing flow: user phải chọn AB loop (trong tab Nghe) TRƯỚC khi
+     luyện nói được — cứng.
+- **Files:** `lib/screens/listen_mode/widgets/audio_library_drawer.dart`,
+  `lib/screens/listen_mode/widgets/listen_library_screen.dart`,
+  `lib/providers/player_provider.dart` (loadSong giữ path),
+  `lib/features/shadowing/providers/shadowing_provider.dart` +
+  `widgets/shadowing_widget.dart` (AB requirement + play original),
+  `lib/screens/listen_mode/speak_mode_screen.dart`.
+- **Fix đề xuất:**
+  1. **COPY file vào persistent** ngay sau pick:
+     `getApplicationDocumentsDirectory()/audio_imports/<name>.m4a`
+     (bảo toàn tên gốc, dedup nếu trùng) → tất cả chỗ (player, shadowing,
+     LRC, VAD) dùng persistent path. File cũ trong cache: khi phát gặp
+     ENOENT → báo rõ "File đã bị hệ thống dọn cache — vui lòng chọn lại
+     file" (không để crash im lặng).
+  2. AB thông minh: cho phép shadowing KHÔNG cần AB (chạy toàn track);
+     TỰ GỢI AB từ timestamp LRC (nếu có lời: mỗi câu = 1 AB tự động,
+     user luyện theo câu); user vẫn chỉnh tay AB được trong widget
+     shadowing (không phải quay về tab Nghe).
+- **AT:** chọn file audio → chờ/simulate clear cache (`adb shell pm
+  clear` nhẹ hoặc xóa thư mục cache) → mở lại app → phát file VẪN được
+  (đã copy persistent); shadowing không AB → luyện được toàn track; file
+  có LRC → gợi ý AB theo câu.

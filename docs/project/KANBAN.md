@@ -2588,6 +2588,41 @@
   offline → START được + nhận diện tiếng Việt; chọn EN (chưa cài) →
   thông báo rõ + fallback/hướng dẫn tải, không chết im.
 
+- **WP B2 (agent `arena/01a0a6fa-in4up`, 2026-09-16) — code xong, CHỜ CI + CHỜ NGHIỆM THU MÁY (chưa đánh dấu done):**
+  - Mapping một nguồn: `packages/in4up_stt/lib/asr_model_routing.dart`
+    (profile + router + `AsrModelIssue`/`AsrLiveRoute`) và
+    `lib/features/cabin/services/cabin_asr_plan.dart` (kế hoạch STT thuần —
+    test được không cần thiết bị).
+  - Bỏ hardcode `'en'`: ngôn ngữ nguồn mặc định = ngôn ngữ ĐÃ CÀI model
+    (ưu tiên VI theo `kAsrLanguagePriority`), máy chưa cài model nào →
+    `vi` + giải thích ở UI (`defaultCabinSourceLanguage`).
+  - Chọn EN khi máy chỉ có model VI → **không** tự nhận tiếng Anh bằng model
+    VI: chặn + dialog nêu rõ thiếu model + nút "Mở Quản lý Model AI", hoặc
+    user TỰ XÁC NHẬN dùng VI (`confirmFallbackToInstalledLanguage`) — không
+    đổi ngôn ngữ sau lưng user.
+  - `getAsrModelPaths`: bỏ fallback `orElse: predefinedAsrProfiles.first`
+    (trước đây hỏi `zh`/`fr` bị trả model VI) → ngôn ngữ không có profile =
+    `null` + báo "chưa hỗ trợ nhận diện offline".
+  - Import model: chỉ nhận model có BẰNG CHỨNG khớp profile (metadata ONNX →
+    tên archive/thư mục → tokens tiếng Việt); model lạ → `unknownProfile` /
+    "không khớp profile", KHÔNG nhét model streaming vào folder offline
+    (chống SIGABRT "Expected 39").
+  - UI: dropdown ngôn ngữ nguồn đánh dấu ngôn ngữ chưa có model (engine
+    Offline) + banner lỗi có nút mở Quản lý Model AI; màn Quản lý Model AI
+    ghi rõ model dùng cho Cabin live vs file/LRC.
+  - i18n (rule #5): 15 chuỗi mới đăng ký English ở
+    `tool/legacy_ui_english_overrides.json` + `generated_legacy_ui_fallbacks.dart`;
+    7 chuỗi thiếu-model/fallback/import + ghi chú dropdown có đủ
+    en/hi/zh/zh_TW/si trong `priority_ui_overrides.dart`.
+  - Test mới: `test/asr_model_routing_test.dart` (mapping ngôn ngữ ↔ profile,
+    kế hoạch cabin, nhận diện encoder streaming/offline).
+  - **Chưa chạy CI** (sandbox không có Flutter/Dart SDK → không `analyze`/
+    `test` được) và **chưa nghiệm thu máy** — AT 2 mục ở trên vẫn nguyên.
+- **Lịch sử:**
+  - 2026-09-16 | doing | agent `arena/01a0a6fa-in4up` | WP B2: code + test + i18n xong; CHỜ CI (`app_analyze.yml` chưa cover `packages/**` — xem SHERPA-STREAM-001) + AT máy
+  - 2026-09-16 | CI xanh (một phần) | agent `arena/01a0a6fa-in4up` | commit `cb9c49d` — run **35027575467** `App Analyze + Locale Test` XANH: `flutter analyze` (ERROR-fatal) + test rule #5 `locale_chrome_no_vietnamese_test.dart` đều pass ⇒ code/i18n/test KHÔNG lỗi biên dịch. Lưu ý: workflow này KHÔNG chạy `test/asr_model_routing_test.dart` (cần owner chạy `flutter test test/asr_model_routing_test.dart` hoặc xác nhận qua AT máy)
+  - 2026-09-16 | cảnh báo còn hiệu lực | agent `arena/01a0a6fa-in4up` | `app_analyze.yml` vẫn chưa có `packages/**` trong `paths:` → lần này workflow chạy được là nhờ push có `lib/**`; đổi CHỈ trong `packages/**` vẫn sẽ KHÔNG trigger (owner áp `scripts/ci/analyze_paths_packages.patch`)
+
 ### HOME-QUICK-001 — Home: "Nạp tri thức nhanh" + icon ghi âm CHƯA hoạt động (stub)
 - **Triệu chứng (owner):** "Tab home: Nạp tri thức nhanh → đang chưa hoạt
   động. Icon ghi âm cũng chưa hoạt động."
@@ -2819,3 +2854,10 @@
   (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
   (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
+  - 2026-09-16 | fix code siết hơn | agent `arena/01a0a6fa-in4up` |
+    `detectEncoderKind` chỉ nhận bằng chứng MẠNH: metadata ONNX
+    ("non-streaming" ưu tiên trước "streaming") → nếu im lặng mới tới tên
+    file/thư mục; BỎ heuristic `encoder_dims`/`query_head_dims` (trả
+    `unknown` thay vì đoán). Route live theo profile (VI = offline+VAD,
+    EN = streaming) khi metadata im lặng; import chặn model không có bằng
+    chứng ngôn ngữ/loại model. 3 hard-guard cũ giữ nguyên.

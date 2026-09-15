@@ -310,15 +310,17 @@ class VocabImageWebService {
         if (item is! Map) continue;
         final src = item['src'];
         final full = src is Map
-            ? (_str(src['large2x']) ?? _str(src['original']) ?? _str(src['medium']))
+            ? (_url(src['large2x']) ??
+                _url(src['original']) ??
+                _url(src['medium']))
             : null;
         if (full == null) continue;
-        final thumb = src is Map ? (_str(src['medium']) ?? full) : full;
-        final alt = _str(item['alt']) ?? _str(item['url']);
+        final thumb = src is Map ? (_url(src['medium']) ?? full) : full;
+        final alt = _str(item['alt']) ?? _str(item['id']);
         out.add(VocabWebImage(
           imageUrl: full,
           thumbUrl: thumb,
-          pageUrl: _str(item['url']) ?? full,
+          pageUrl: _url(item['url']) ?? full,
           title: alt ?? '',
           creator: _nestedName(item['user']),
           license: 'Pexels License',
@@ -345,13 +347,13 @@ class VocabImageWebService {
         if (item is! Map) continue;
         final urls = item['urls'];
         if (urls is! Map) continue;
-        final full = _str(urls['regular']) ?? _str(urls['full']);
+        final full = _url(urls['regular']) ?? _url(urls['full']);
         if (full == null) continue;
         final links = item['links'];
         out.add(VocabWebImage(
-          imageUrl: _str(urls['full']) ?? full,
-          thumbUrl: _str(urls['small']) ?? full,
-          pageUrl: (links is Map ? _str(links['html']) : null) ?? full,
+          imageUrl: _url(urls['full']) ?? full,
+          thumbUrl: _url(urls['small']) ?? full,
+          pageUrl: (links is Map ? _url(links['html']) : null) ?? full,
           title: _str(item['alt_description']) ?? _str(item['description']) ?? '',
           creator: item['user'] is Map ? _str((item['user'] as Map)['name']) : null,
           license: 'Unsplash License',
@@ -377,13 +379,13 @@ class VocabImageWebService {
       for (final item in raw) {
         if (out.length >= limit) break;
         if (item is! Map) continue;
-        final url = _str(item['url']);
+        final url = _url(item['url']);
         if (url == null) continue;
         out.add(VocabWebImage(
           imageUrl: url,
-          thumbUrl: _str(item['thumbnail']) ?? url,
-          pageUrl: _str(item['foreign_landing_url']) ??
-              _str(item['detail_url']) ??
+          thumbUrl: _url(item['thumbnail']) ?? url,
+          pageUrl: _url(item['foreign_landing_url']) ??
+              _url(item['detail_url']) ??
               url,
           title: _str(item['title']) ?? '',
           creator: _str(item['creator']),
@@ -417,7 +419,7 @@ class VocabImageWebService {
         if (info is! List || info.isEmpty) continue;
         final first = info.first;
         if (first is! Map) continue;
-        final url = _str(first['url']);
+        final url = _url(first['url']);
         if (url == null) continue;
         final meta = first['extmetadata'];
         final license = meta is Map
@@ -428,8 +430,8 @@ class VocabImageWebService {
         final title = _str(page['title']) ?? '';
         out.add(VocabWebImage(
           imageUrl: url,
-          thumbUrl: _str(first['thumburl']) ?? url,
-          pageUrl: _str(first['descriptionurl']) ?? url,
+          thumbUrl: _url(first['thumburl']) ?? url,
+          pageUrl: _url(first['descriptionurl']) ?? url,
           title: title.startsWith('File:')
               ? title.substring(5)
               : title,
@@ -463,14 +465,20 @@ class VocabImageWebService {
   static String? _nestedName(dynamic node) =>
       node is Map ? _str(node['name']) : null;
 
+  /// Chuỗi text thường (title, creator, license…) — KHÔNG đòi hỏi tiền tố
+  /// http: phần lớn field của 4 API là chữ thuần.
   static String? _str(dynamic v) {
     if (v is! String) return null;
     final t = v.trim();
-    if (t.isEmpty) return null;
-    if (!t.startsWith('http://') && !t.startsWith('https://')) {
-      // URL tương đối → không dùng được (thumb sẽ fallback về ảnh gốc).
-      return null;
-    }
+    return t.isEmpty ? null : t;
+  }
+
+  /// Chỉ nhận URL tuyệt đối. URL tương đối (thấy ở thumbnail Openverse) →
+  /// null để caller fallback về ảnh gốc, không ghép chuỗi thủ công.
+  static String? _url(dynamic v) {
+    final t = _str(v);
+    if (t == null) return null;
+    if (!t.startsWith('http://') && !t.startsWith('https://')) return null;
     return t;
   }
 

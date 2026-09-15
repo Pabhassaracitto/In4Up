@@ -6,6 +6,9 @@ class TranslationResult {
   final String translatedText;
   final bool isSuccess;
   final String? error;
+  /// Mã lỗi cấu trúc (vd Hy-MT: `busy`, `isolate_dead`, `request_timeout`…
+  /// — xem `HyMtErrorCode`). `null` khi success.
+  final String? errorCode;
   final String? detectedLang;
   final String? targetLang;
   final String engineName;
@@ -17,6 +20,7 @@ class TranslationResult {
     required this.isSuccess,
     required this.engineName,
     this.error,
+    this.errorCode,
     this.detectedLang,
     this.targetLang,
     this.responseTime = Duration.zero,
@@ -45,6 +49,7 @@ class TranslationResult {
     required String original,
     required String error,
     required String engine,
+    String? errorCode,
     String? detectedLang,
     String? targetLang,
   }) {
@@ -53,6 +58,7 @@ class TranslationResult {
       translatedText: '',
       isSuccess: false,
       error: error,
+      errorCode: errorCode,
       engineName: engine,
       detectedLang: detectedLang,
       targetLang: targetLang,
@@ -69,6 +75,7 @@ class TranslationResult {
         isSuccess: isSuccess,
         engineName: engineName,
         error: error,
+        errorCode: errorCode,
         detectedLang: detectedLang ?? source,
         targetLang: target,
         responseTime: responseTime,

@@ -39,8 +39,8 @@
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
-| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
-| AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ CI + nghiệm thu) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn |
+| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
+| AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ nghiệm thu máy) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn. Lane B3 (aae4ec6 + 29f1e2b): queue FIFO, context GẦN NHẤT + ngân sách token + clip câu hỏi, engineError/`restartEngine()` tự hồi, banner 8 nhánh; CI 35027200801 XANH (app_analyze) + build.yml 35027568392 (Windows/iOS ✅) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
@@ -1047,7 +1047,7 @@
     từ 01a03564; CI xanh 32777390692
 
 ### MODELS-002 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
-- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu của owner)
+- **Trạng thái:** doing (chờ nghiệm thu máy — CI app_analyze đã XANH run 35027200801)
 - **Nội dung:** (1) Chat screen: banner trạng thái model luôn hiện — chưa nạp
   (vàng, bấm để import) / copy file X% / tải từ URL X% / đang nạp native
   (1–2 phút) / lỗi + "Thử lại" / sẵn sàng (xanh + tên file + MB). (2) Engine
@@ -1091,10 +1091,10 @@
     XANH run 32855255220 (tip 3797dcc — full harvest) + run 32789473478
     (core fix, d43cc3d). Chờ nghiệm thu UX thiết bị (banner chat, import
     .gguf progress, tải URL chỉ WiFi, xóa model)
-
+  - 2026-09-15 | doing (chờ CI app_analyze + nghiệm thu của owner)→doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Audit không hồi quy khi làm AI-CHAT-01: luồng import/status GIỮ NGUYÊN (loader Tier A/B/C, `.gguf` magic + copy theo chunk, tải URL chỉ WiFi, `_GemmaChatModelCard` với Import/Tải về/Xóa) — B3 chỉ THÊM `engineError` vào `errorText` khi engine tự hồi phục, không đổi hành vi import/status. Test hồi quy: không có file model → `importModelFromUser` fail ĐÚNG (stage `failed`, `error != null`, model không active, `hasModel` false). Điều kiện "chờ CI app_analyze" của card này nay ĐÃ ĐẠT: run 35027200801 XANH (tip 29f1e2b, tree có cả màn Settings Model). Còn lại: nghiệm thu máy (banner chat, import .gguf progress, tải URL chỉ WiFi, xóa model).
 
 ### AI-CHAT-01 — Chat báo "Chưa nạp model AI" ngay sau khi gửi + nút gửi xoay vòng mãi
-- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu chủ trên thiết bị)
+- **Trạng thái:** doing (chờ nghiệm thu máy — AT chat Gemma trên thiết bị; CI app_analyze XANH run 35027200801)
 - **Nguồn:** chủ báo 2026-08-29 (build trên DEV `5f98b94c`): tab Home
   "Gemma — AI Chat" báo XANH "gemma-3-1B đã import", màn chat cũng xanh
   "Model AI đã nạp — gemma-3-1B-it-QAT-Q4_.gguf (687 MB)", nhưng vừa nhấn
@@ -1169,6 +1169,8 @@
     build.yml trên 251e + nghiệm thu chat Gemma (không báo 'Chưa nạp
     model' khi đang generate, nút gửi không loop, summary JSON hỏng có
     rescue).
+  - 2026-09-15 | doing→doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Audit lại code 08-29 TRƯỚC khi sửa: cả 4 nhóm fix cũ vẫn còn nguyên trong tip (`isReady` nhận `processing`, `.timeout(3 phút)`, watchdog 5 phút, isolate-exit listener, context `take(10)`, `maxTokens: 512`) ⇒ KHÔNG làm lại. Chỉ fix các lỗ còn lộ: (1) engine bận → facade báo "chưa sẵn sàng" giả ⇒ thêm queue FIFO thật cho chat (`chatQueueLength`, tin không bị bỏ, lỗi trả per-request); (2) `take(10)` là 10 tin CŨ NHẤT ⇒ `ChatContextPolicy` chọn tin GẦN NHẤT + ngân sách token (2048−96 reserved, 3 char/token, min 96) và clip câu hỏi >1500 ký tự trước khi dựng prompt (chống decode rỗng / JSON cụt do tràn `n_ctx`); (3) isolate chết/OOM không có đường hồi ⇒ `engineError` + `restartEngine()` (dedup `_restartInFlight`) + seam test `debugKillIsolate()` / `debugSetIsolateHang(bool)`; (4) banner còn nhánh rơi về "Chưa nạp model AI" ⇒ 8 nhánh trạng thái + Settings hiện `engineError`. Suite mới `test/ai_chat/chat_runtime_stability_test.dart` (12 test): banner XANH khi đang processing; 2 tin liên tiếp → vào queue đúng thứ tự, không lỗi "chưa sẵn sàng"; timeout 150ms → lỗi retryable + tự restart + tin sau vẫn trả lời; context ≤ ngân sách & KHÔNG chứa tin cũ nhất; `maxTokens` ∈ [96,512]; engine chết → tự recover; MODELS-002 không có file → import fail đúng; gemma: hang → kill → "thu hồi" → recover OK. (2 commit: aae4ec6 code+test, 29f1e2b banner/settings.)
+  - 2026-09-15 | doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | CI: run **35027200801** (app_analyze.yml, tip 29f1e2b) XANH — job analyze-and-locale-test 2m28s (`flutter analyze` + locale test) ⇒ code mới + `test/ai_chat` compile sạch với kiểu API thật. Compile-verify rộng hơn (app_analyze không cover `packages/**`): tag oracle `v1.4.1-b3-ci-compile` → build.yml run **35027568392**: Windows ✅ 15m16s, iOS ✅ 13m55s (build release ⇒ compile toàn bộ graph Dart gồm `packages/in4up_ai`); Android ❌ 19s ở step "Setup Android SDK & Accept Licenses" — lỗi hạ tầng/action, trùng run 33268012381 (08-29), KHÔNG do code B3. ⚠️ Chưa workflow nào chạy `test/ai_chat` ⇒ assert runtime của suite mới CHƯA được CI chạy (muốn chạy: thêm step `flutter test test/ai_chat`; agent KHÔNG sửa được `.github/workflows/` — GitHub App thiếu quyền `workflows`, push bị từ chối). AT máy chờ chủ: import model nhỏ → gửi tin trong lúc đang xử lý (banner giữ XANH) → gửi 2 tin → ép timeout/isolate restart rồi gửi tiếp; ghi kèm dung lượng model + RAM máy.
 ### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
 - **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)
 - **Nguồn:** owner yêu cầu nghiệm thu `arena/01a0018e-in4up` (2026-08-25) —
@@ -1517,6 +1519,7 @@
     Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
     trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
     tin kế tiếp vẫn hoạt động bình thường
+  - 2026-09-15 | done (chờ nghiệm thu máy)→done (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Audit không hồi quy: giữ NGUYÊN cơ chế 5134f06 (`_inFlight` + chờ request cũ ≤90s, một nguồn sự thật ở engine, bỏ busy-wait 60s ở facade); lane B3 chỉ thêm queue FIFO PHÍA TRÊN facade (tin vào hàng đợi thay vì báo "chưa sẵn sàng" giả). Test hồi quy trong `test/ai_chat/chat_runtime_stability_test.dart`: 2 tin liên tiếp → prompt tới engine ĐÚNG THỨ TỰ, không lỗi "chưa sẵn sàng"; timeout → tin sau vẫn trả lời. CI app_analyze run 35027200801 XANH (compile). Nghiệm thu máy vẫn chờ chủ.
 
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)

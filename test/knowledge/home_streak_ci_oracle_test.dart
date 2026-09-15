@@ -15,6 +15,11 @@
 // `test/home_streak/**` theo workflow mới.
 //
 // Bộ test thật: test/home_streak/home_streak_suites.dart
+//
+// ⚠️ `knowledge_tests.yml` chỉ chạy khi push chạm `test/knowledge/**` — nên mỗi
+// lần sửa bộ test trong `test/home_streak/`, bump dòng oracle-revision dưới đây
+// để job knowledge chạy lại (bộ test nằm ngoài paths filter của job này).
+// oracle-revision: 2
 
 import '../home_streak/home_streak_suites.dart';
 

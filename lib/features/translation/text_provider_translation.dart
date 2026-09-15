@@ -192,6 +192,13 @@ mixin TranslationMixin on ChangeNotifier {
       skipCache: skipCache,
     );
     var appliedSource = lineSource;
+    if (!result.isSuccess &&
+        !translationSourceIsPinned &&
+        lineSource.translationCode != documentSource.translationCode &&
+        (result.missingModelCodes ?? const <String>[])
+            .contains(lineSource.translationCode)) {
+      appliedSource = documentSource;
+    }
     return (result, appliedSource);
   }
 

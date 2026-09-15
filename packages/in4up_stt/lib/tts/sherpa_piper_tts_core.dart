@@ -1,3 +1,4 @@
+// ignore_for_file: unintended_html_in_doc_comment
 // packages/in4up_stt/lib/tts/sherpa_piper_tts_core.dart
 //
 // SherpaPiperTtsCore — Piper TTS (FastSpeech2 + HiFiGAN, CPU-friendly)

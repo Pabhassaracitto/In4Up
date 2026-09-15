@@ -111,8 +111,6 @@ class TipitakaLanguagePackService {
       final content = entry.content;
       if (content is List<int>) {
         await out.writeAsBytes(content, flush: true);
-      } else if (content is Uint8List) {
-        await out.writeAsBytes(content, flush: true);
       }
       return outputPath;
     }

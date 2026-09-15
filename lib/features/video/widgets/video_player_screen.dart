@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_brace_in_string_interps
 import 'package:flutter/material.dart';
 
 import '../models/video_info.dart';

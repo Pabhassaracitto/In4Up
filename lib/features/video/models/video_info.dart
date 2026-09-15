@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_brace_in_string_interps
 /// Model cho video trong thư viện
 class VideoInfo {
   final String id;

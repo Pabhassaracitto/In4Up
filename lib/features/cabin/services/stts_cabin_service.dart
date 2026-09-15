@@ -56,6 +56,7 @@ class SttsCabinService extends ChangeNotifier {
 
   CabinCaption? _activeCaption;
   final List<CabinCaption> _history = [];
+  String _lastFinalizedText = '';
 
   final _captionStreamController = StreamController<CabinCaption>.broadcast();
 
@@ -102,6 +103,7 @@ class SttsCabinService extends ChangeNotifier {
     if (dubbing != null) _isDubbingEnabled = dubbing;
 
     _lastError = null;
+    _lastFinalizedText = '';
 
     // 1. Check microphone permission
     try {
@@ -357,6 +359,7 @@ class SttsCabinService extends ChangeNotifier {
     _silenceTimer = null;
     _stopKeepAlive();
     _consecutiveStartFails = 0;
+    _lastFinalizedText = '';
     await _sttSubscription?.cancel();
     _sttSubscription = null;
 
@@ -452,6 +455,7 @@ class SttsCabinService extends ChangeNotifier {
   void clearHistory() {
     _history.clear();
     _activeCaption = null;
+    _lastFinalizedText = '';
     notifyListeners();
   }
 
@@ -476,6 +480,11 @@ class SttsCabinService extends ChangeNotifier {
   // ── Pipeline Logic ────────────────────────────────────────────────────────
 
   void _onLiveSttResult(SttResult sttResult) {
+    if (_state == CabinState.speaking) {
+      // Ignored during TTS playback to avoid audio feedback loop / mic pickup of TTS
+      return;
+    }
+
     final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
@@ -506,7 +515,11 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   Future<void> _finalizeCurrentChunk(String text) async {
-    if (text.trim().isEmpty) return;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    if (_state == CabinState.speaking) return;
+    if (trimmed == _lastFinalizedText) return;
+    _lastFinalizedText = trimmed;
 
     _state = CabinState.translating;
     notifyListeners();
@@ -517,7 +530,7 @@ class SttsCabinService extends ChangeNotifier {
 
     try {
       final result = await _translator.translateText(
-        text,
+        trimmed,
         sourceLang: _sourceLanguage,
         targetLang: _targetLanguage,
       );
@@ -525,13 +538,13 @@ class SttsCabinService extends ChangeNotifier {
       engine = result.engineName;
     } catch (e) {
       debugPrint('⚠️ SttsCabinService translation error: $e');
-      translated = text; // Fallback to source
+      translated = trimmed; // Fallback to source
     }
 
     final finalizedCaption = CabinCaption(
       id: captionId,
       timestamp: DateTime.now(),
-      sourceText: text,
+      sourceText: trimmed,
       translatedText: translated,
       sourceLang: _sourceLanguage,
       targetLang: _targetLanguage,
@@ -550,14 +563,23 @@ class SttsCabinService extends ChangeNotifier {
       try {
         _tts.configure(language: _targetLanguage);
         await _tts.speak(translated);
+        await _tts.waitForCompletion();
       } catch (e) {
         debugPrint('⚠️ SttsCabinService Dubbing TTS error: $e');
       }
+      // Brief pause to prevent microphone pickup after audio output ceases
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     if (isListening) {
       _state = CabinState.listening;
+      // Audio focus during TTS playback on Android can terminate SpeechRecognizer session.
+      // Re-arm the system recognizer if it went inactive.
+      if (_sttEngineType == CabinSttEngineType.system && !_stt.isLiveListening) {
+        await _tryStartSystemEngine();
+      }
     }
+    _lastFinalizedText = '';
     notifyListeners();
   }
 

@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_const, unused_field, unnecessary_getters_setters
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';

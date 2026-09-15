@@ -29,12 +29,6 @@ mixin TranslationMixin on ChangeNotifier {
   String? get translationError => _translationError;
   String get currentEngine => _currentEngine;
 
-  /// Engine đang chạy (qua TranslationService) — UI hiện đúng nhãn
-  /// "Đang dịch bằng Hy-MT offline, có thể chậm" khi Hy-MT đang xử lý
-  /// (HYMT-002). `null` = không có engine chạy.
-  ValueNotifier<String?> get translationEngineNotifier =>
-      TranslationService().activeEngineNotifier;
-
   bool get translationPipelineStale {
     final current = TranslationService().pipelineTag;
     return _appliedPipelineTag != null && _appliedPipelineTag != current;
@@ -152,7 +146,6 @@ mixin TranslationMixin on ChangeNotifier {
       fallback: source,
     );
     final runId = _translationRunId;
-    TranslationService().activeEngineNotifier.value = null;
     final result = await TranslationService().translateText(
       line.content,
       sourceLang: lineSource.translationCode,
@@ -226,8 +219,6 @@ mixin TranslationMixin on ChangeNotifier {
     _isTranslating = true;
     _translationProgress = 0;
     _translationError = null;
-    // HYMT-002: hint engine sạch cho run mới (engine sẽ tự set khi chạy).
-    service.activeEngineNotifier.value = null;
     notifyListeners();
 
     var consecutiveErrors = 0;
@@ -317,14 +308,12 @@ mixin TranslationMixin on ChangeNotifier {
   void cancelTranslation() {
     _translationRunId++;
     _isTranslating = false;
-    TranslationService().activeEngineNotifier.value = null;
     notifyListeners();
   }
 
   void clearAllTranslations() {
     _translationRunId++;
     _isTranslating = false;
-    TranslationService().activeEngineNotifier.value = null;
     for (var index = 0; index < lines.length; index++) {
       lines[index] = lines[index].copyWith(clearTranslation: true);
     }

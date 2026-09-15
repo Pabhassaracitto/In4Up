@@ -511,15 +511,32 @@ jobs:
       - name: Zip Windows build
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $TAG = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          # Dùng wildcard để tương thích với cấu trúc output của cả Ninja và MSBuild
-          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
-          if ($RELEASE_DIR) {
-            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
-          } else {
-            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          # ⚠ FIX zip vài KB: KHÔNG dùng Get-ChildItem -Recurse -Filter Release | Select -First 1
+          # (nhặt nhầm thư mục Release trung gian của CMakeFiles/flutter/plugins).
+          # Thư mục Release ĐÚNG của `flutter build windows` luôn là: build/windows/x64/runner/Release
+          $RELEASE_DIR = "build/windows/x64/runner/Release"
+          if (-not (Test-Path (Join-Path $RELEASE_DIR "in4up.exe"))) {
+            $exe = Get-ChildItem -Path "build/windows" -Recurse -Filter "in4up.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($exe) { $RELEASE_DIR = $exe.DirectoryName }
           }
-          Get-ChildItem "in4up-Windows-*.zip"
+          if (-not (Test-Path (Join-Path $RELEASE_DIR "in4up.exe"))) {
+            Write-Host "##[error]Khong tim thay in4up.exe — output build Windows thieu hoac build chua thanh cong."
+            exit 1
+          }
+          Write-Host "Dang nen thu muc: $RELEASE_DIR"
+          Compress-Archive -Path "$RELEASE_DIR\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+
+          # Kiểm soát chất lượng: zip quá nhỏ => bundle thiếu file => fail ngay
+          $zip = Get-Item "in4up-Windows-$TAG.zip"
+          $sizeMB = [math]::Round($zip.Length / 1MB, 2)
+          Write-Host "Kich thuoc zip: $sizeMB MB"
+          if ($zip.Length -lt 10MB) {
+            Write-Host "##[error]Zip chi $sizeMB MB (< 10 MB) — bundle Release khong day du!"
+            exit 1
+          }
+          Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

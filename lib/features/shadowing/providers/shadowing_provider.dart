@@ -10,6 +10,8 @@ import 'package:just_waveform/just_waveform.dart' as jw;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../models/learning_activity.dart';
+import '../../../services/learning_activity_service.dart';
 import '../models/shadowing_preset.dart';
 import '../models/shadowing_result.dart';
 import '../services/offline_stt_service.dart';
@@ -599,6 +601,13 @@ class ShadowingProvider extends ChangeNotifier {
       final savedEntry = ShadowingHistoryEntry.fromJson(_currentResult!.toJson());
       _savedHistory.removeWhere((e) => e.id == savedEntry.id);
       _savedHistory.insert(0, savedEntry);
+
+      // HOME-STREAK-001: một lượt shadowing đã phân tích xong = hoạt động thật.
+      // Khoá theo id kết quả ⇒ phân tích lại cùng bản ghi không đếm lặp.
+      unawaited(LearningActivityService.instance.record(
+        LearningActivityKind.shadowing,
+        sourceKey: savedEntry.id,
+      ));
 
       debugPrint('📊 === RESULTS ===');
       debugPrint(

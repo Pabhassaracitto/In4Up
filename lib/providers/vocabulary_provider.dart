@@ -7,9 +7,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../features/translation/glossary/glossary_store.dart';
+import '../models/learning_activity.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
+import '../services/learning_activity_service.dart';
 import '../services/vocab_classifier.dart';
 import '../services/vocab_sync_service.dart';
 
@@ -516,6 +518,7 @@ class VocabularyProvider extends ChangeNotifier {
     }
     _words.add(w);
     _saveWord(w);
+    _recordLearningEvent(w.word);
     notifyListeners();
   }
 
@@ -527,9 +530,23 @@ class VocabularyProvider extends ChangeNotifier {
       }
       _words.add(w);
       _saveWord(w);
+      _recordLearningEvent(w.word);
       changed = true;
     }
     if (changed) notifyListeners();
+  }
+
+  /// HOME-STREAK-001 — "lưu/import từ" là một hoạt động học thật.
+  ///
+  /// Khoá theo chính từ (đã normalize) nên nhập lại cùng một từ trong ngày
+  /// không làm số liệu tăng thêm; gọi ở đây, KHÔNG gọi trong build().
+  void _recordLearningEvent(String word) {
+    final key = word.trim().toLowerCase();
+    if (key.isEmpty) return;
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.vocabulary,
+      sourceKey: key,
+    ));
   }
 
   WordEntry addWithAutoClassify({

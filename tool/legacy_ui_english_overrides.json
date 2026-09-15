@@ -1643,5 +1643,12 @@
  "Bản dịch khóa": "Locked translation",
  "Khóa — engine không được đè": "Locked — engine cannot override",
  "Xóa thuật ngữ này?": "Delete this term?",
- "Đã lưu thuật ngữ": "Term saved"
+ "Đã lưu thuật ngữ": "Term saved",
+ "7 ngày qua": "Last 7 days",
+ "Hôm nay chưa có hoạt động học": "No learning activity today yet",
+ "{value0} câu đã dịch": "{value0} sentences translated",
+ "{value0} lượt shadowing": "{value0} shadowing rounds",
+ "{value0} phút đọc": "{value0} min read",
+ "{value0}/7 ngày có học": "{value0}/7 days with activity",
+ "Đọc tài liệu hoặc lưu một từ để bắt đầu": "Read a document or save a word to get started"
 }

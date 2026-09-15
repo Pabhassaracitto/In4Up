@@ -1,5 +1,7 @@
 // lib/screens/read_mode/read_mode_screen.dart
 // Thêm tracking tiến độ đọc vào code hiện tại
+import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,9 +10,11 @@ import 'package:in4up/models/word_entry.dart';
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
+import '../../models/learning_activity.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../services/learning_activity_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/recent_files_service.dart';
@@ -43,6 +47,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   final _recentService = RecentFilesService();
   int _lastSavedLine = 0;
 
+  // HOME-STREAK-001 — nhịp đếm phút đọc thật (1 phút/lần, có khoá chống trùng).
+  Timer? _readingHeartbeat;
+  String? _readingSessionFileId;
+
   // Smart-hide bottom controls
   bool _bottomControlsVisible = true;
   double _lastScrollOffset = 0;
@@ -70,6 +78,38 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       pp.addListener(_playerListener!);
       _controllerInitialized = true;
     }
+
+    _startReadingSession();
+  }
+
+  /// Bắt đầu đếm phút đọc cho tài liệu đang mở (HOME-STREAK-001).
+  ///
+  /// Gọi trong `didChangeDependencies` — an toàn khi rebuild vì có chốt theo
+  /// id tài liệu; event được ghi ngoài build().
+  void _startReadingSession() {
+    final file = widget.currentFile;
+    if (file == null || _readingSessionFileId == file.id) return;
+    _readingSessionFileId = file.id;
+    _readingHeartbeat?.cancel();
+    _readingHeartbeat = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _recordReadingMinute(),
+    );
+  }
+
+  void _recordReadingMinute() {
+    final file = widget.currentFile;
+    if (file == null) return;
+
+    // Khoá theo phút đồng hồ: dựng lại widget / mở lại app trong cùng một phút
+    // không đếm trùng, nhưng đọc tiếp phút sau vẫn cộng thêm.
+    final now = DateTime.now();
+    final minuteBucket = '${now.year}-${now.month}-${now.day}'
+        'T${now.hour}:${now.minute}';
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.readingMinutes,
+      sourceKey: '${file.id}|$minuteBucket',
+    ));
   }
 
   void _onScrollEnd(TextProvider tp) {
@@ -102,6 +142,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     if (_playerListener != null && _playerProviderRef != null) {
       _playerProviderRef!.removeListener(_playerListener!);
     }
+    _readingHeartbeat?.cancel();
+    _readingHeartbeat = null;
     _scrollController.dispose();
     _controller.dispose();
     super.dispose();

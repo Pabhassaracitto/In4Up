@@ -78,7 +78,7 @@
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
-| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 2026-09-16: READ-TOOLBAR-001 fix + test invariant (`278a1d9`), SHELL-GEAR-001 seam log debug (`877c6a7`) — cả hai chờ nghiệm thu máy/logcat owner |
+| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 2026-09-16: READ-TOOLBAR-001 fix + test invariant (`278a1d9`), SHELL-GEAR-001 seam log debug (`877c6a7`) — cả hai chờ nghiệm thu máy/logcat owner — PR #27 (CI analyze+locale xanh run 35022838520) |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
@@ -2388,7 +2388,7 @@
   `test/read_bottom_controls_visibility_test.dart` khoá: offset ẩn ≤ 1.0
   chiều cao, opacity 0, giữ chiều cao, Focus 0↔full, stress lặp (test + fix
   cùng một commit xanh — test import widget mới). Trạng thái: **fix code xong
-  — chờ nghiệm thu máy owner** (AT cuộn 10 lần + Focus/Thoát Focus trên máy
+  — chờ nghiệm thu máy owner** (PR #27, CI run 35022838520 xanh) (AT cuộn 10 lần + Focus/Thoát Focus trên máy
   bị artifact; nếu VẪN đen → bước kế tiếp theo card: thay AnimatedSize bằng
   build điều kiện).
 
@@ -2456,7 +2456,7 @@
     mọi swap surface (`_setPrimaryTab`/`_setListenMode`/`_setReadMode`) +
     `_openQuickActions` (rule-out OverlayEntry).
   Cần owner: chạy lại repro debug → gửi logcat → chốt đúng gear + cơ chế.
-  Trạng thái: **chờ logcat owner** trước khi fix (không đoán sửa sâu).
+  Trạng thái: **chờ logcat owner** trước khi fix (không đoán sửa sâu; PR #27).
 
 ### LISTEN-LRC-001 — Chọn file âm thanh CÓ LỜI SẴN → sọc đen vàng + assertion framework + tab Hiểu đỏ
 - **Triệu chứng (owner):** "Tab music khi chọn file âm thanh và có lời sẵn do

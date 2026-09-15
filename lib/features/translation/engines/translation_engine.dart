@@ -11,6 +11,14 @@ class TranslationResult {
   final String engineName;
   final Duration responseTime;
 
+  /// Translation code (vd 'DE') của ngôn ngữ cần model offline mà CHƯA TẢI.
+  ///
+  /// XLAT-MLKIT-001: hiện chỉ ML Kit set khi thiếu model. Caller có context
+  /// (explicit source hay auto-detect) dựa vào đây để phân biệt lỗi "thiếu
+  /// model của nguồn tự nhận diện" với lỗi engine thường — thay vì regex
+  /// chuỗi error.
+  final List<String>? missingModelCodes;
+
   const TranslationResult({
     required this.originalText,
     required this.translatedText,
@@ -20,6 +28,7 @@ class TranslationResult {
     this.detectedLang,
     this.targetLang,
     this.responseTime = Duration.zero,
+    this.missingModelCodes,
   });
 
   factory TranslationResult.success({
@@ -47,6 +56,7 @@ class TranslationResult {
     required String engine,
     String? detectedLang,
     String? targetLang,
+    List<String>? missingModelCodes,
   }) {
     return TranslationResult(
       originalText: original,
@@ -56,6 +66,7 @@ class TranslationResult {
       engineName: engine,
       detectedLang: detectedLang,
       targetLang: targetLang,
+      missingModelCodes: missingModelCodes,
     );
   }
 
@@ -72,6 +83,7 @@ class TranslationResult {
         detectedLang: detectedLang ?? source,
         targetLang: target,
         responseTime: responseTime,
+        missingModelCodes: missingModelCodes,
       );
 }
 

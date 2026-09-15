@@ -66,7 +66,7 @@ void main() {
       for (var i = 0; i < chunks.length - 1; i++) {
         expect(
           chunks[i].text.trimRight(),
-          isNotEmpty,
+          endsWith(RegExp(r'[.!?]')),
           reason: 'chunk $i should end at a sentence boundary',
         );
       }

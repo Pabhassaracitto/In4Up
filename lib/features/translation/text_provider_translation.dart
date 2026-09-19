@@ -32,7 +32,7 @@ mixin TranslationMixin on ChangeNotifier {
   /// Engine đang chạy (qua TranslationService) — UI hiện đúng nhãn
   /// "Đang dịch bằng Hy-MT offline, có thể chậm" khi Hy-MT đang xử lý
   /// (HYMT-002). `null` = không có engine chạy.
-  Object get translationEngineNotifier => TranslationService();
+  Object get zzBisectProbe => TranslationService();
 
   bool get translationPipelineStale {
     final current = TranslationService().pipelineTag;

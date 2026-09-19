@@ -258,10 +258,6 @@ class HyMtEngine extends TranslationEngine {
   HyMtIsolateBackend? _runtime;
   HyMtRuntimeFailure? _lastChunkError;
 
-  double downloadProgress = 0;
-  bool downloading = false;
-  CancelToken? _dlToken;
-
   /// Slot single-flight (lazy) — 1 request tại một thời điểm (HYMT-002).
   HyMtSlot get slot => _slot ??= HyMtSlot(maxWait: _maxQueueWait);
 

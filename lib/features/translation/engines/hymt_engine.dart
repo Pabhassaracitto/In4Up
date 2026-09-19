@@ -190,22 +190,7 @@ class HyMtEngine extends TranslationEngine {
         _chunkTimeout = chunkTimeout ?? const Duration(seconds: 90),
         _maxChunks = maxChunks ?? 64;
 
-  /// Constructor DUY NHẤT cho test — inject backend giả (không isolate,
-  /// không native lib, không model 600MB) để kiểm tra logic
-  /// single-flight/retry/chunk/timeout của HYMT-002.
-  factory HyMtEngine.forTest({
-    required HyMtBackend backend,
-    Duration queueWait = const Duration(seconds: 90),
-    Duration chunkTimeout = const Duration(seconds: 90),
-    int maxChunks = 64,
-  }) {
-    return HyMtEngine._(
-      backend: backend,
-      queueWait: queueWait,
-      chunkTimeout: chunkTimeout,
-      maxChunks: maxChunks,
-    );
-  }
+
 
   static const fileName = 'Hy-MT1.5-1.8B-2bit.gguf';
   static const folderName = 'in4up_hymt';

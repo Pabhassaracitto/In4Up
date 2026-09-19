@@ -170,6 +170,15 @@ class _Ping {
 const Object _pong = 'HYMT_PONG';
 
 class HyMtEngine extends TranslationEngine {
+  HyMtEngine._legacy()
+      : _injectedBackend = null,
+        _testMode = false,
+        _maxQueueWait = const Duration(seconds: 90),
+        _chunkTimeout = const Duration(seconds: 90),
+        _maxChunks = 64;
+  static final HyMtEngine instance = HyMtEngine._legacy();
+  factory HyMtEngine() => instance;
+
   HyMtEngine._({
     HyMtBackend? backend,
     Duration? queueWait,
@@ -180,9 +189,6 @@ class HyMtEngine extends TranslationEngine {
         _maxQueueWait = queueWait ?? const Duration(seconds: 90),
         _chunkTimeout = chunkTimeout ?? const Duration(seconds: 90),
         _maxChunks = maxChunks ?? 64;
-
-  static final HyMtEngine instance = HyMtEngine._();
-  factory HyMtEngine() => instance;
 
   /// Constructor DUY NHẤT cho test — inject backend giả (không isolate,
   /// không native lib, không model 600MB) để kiểm tra logic
@@ -226,12 +232,21 @@ class HyMtEngine extends TranslationEngine {
   @override
   String get id => 'hymt';
 
-  /// Mỗi request gửi cho isolate là MỘT chunk (≤ ~500 ký tự).
   @override
-  int get maxCharsPerRequest => HyMtChunking.defaultMaxChars;
+  int get maxCharsPerRequest => 2000;
 
   @override
   Duration get requestDelay => const Duration(milliseconds: 80);
+
+  Isolate? _isolate;
+  SendPort? _sendPort;
+  ReceivePort? _receivePort;
+  String? _loadedPath;
+  bool _loading = false;
+
+  double downloadProgress = 0;
+  bool downloading = false;
+  CancelToken? _dlToken;
 
   final HyMtBackend? _injectedBackend;
   final bool _testMode;
@@ -284,8 +299,6 @@ class HyMtEngine extends TranslationEngine {
     try {
       // openRead(0, 4).first — pattern đã proof trong file này
       // (importFromUser dùng openRead(0, 8)); chỉ đọc 4 byte đầu.
-      // KHÔNG dùng RandomAccessFile sync API (analyzer CI từ chối compile —
-      // bài học HYMT-001, 8 vòng bisect).
       final head = await File(path).openRead(0, 4).first;
       return _isGgufMagic(head);
     } catch (_) {
@@ -312,6 +325,7 @@ class HyMtEngine extends TranslationEngine {
   }
 
   Future<bool> get hasModel async => (await resolvedModelPath()) != null;
+
 
   /// null = model OK; text = lý do cụ thể (cho message lỗi + UI).
   /// Phân biệt "chưa có" với "có file nhưng bị cắt/hỏng" — trường hợp
@@ -340,7 +354,7 @@ class HyMtEngine extends TranslationEngine {
   @override
   Future<bool> isAvailable() async {
     if (!await hasModel) return false;
-    return AiNativeBindings.tryLoad() != null || _runtime?.isAlive ?? false;
+    return AiNativeBindings.tryLoad() != null || _sendPort != null;
   }
 
   static Future<HyMtOfflinePreference> loadPreference() async {
@@ -459,45 +473,66 @@ class HyMtEngine extends TranslationEngine {
     await prefs.remove(_prefPath);
   }
 
-  /// Lý do load/create() fail gần nhất (null = chưa load/chưa fail).
-  String? get lastLoadError =>
-      _runtime?.lastLoadError ?? _injectedBackend?.lastLoadError;
+  /// Lý do create() fail ở lần load gần nhất (null = chưa load/chưa fail).
+  String? _lastLoadError;
 
-  /// Backend runtime cho [path] (lazy). Nếu model file đổi (tải lại),
-  /// dispose runtime cũ TRƯỚC khi spawn mới — luôn ≤1 model trong RAM.
-  Future<HyMtIsolateBackend> _runtimeFor(String path) async {
-    final current = _runtime;
-    if (current != null && current.modelPath == path) return current;
-    if (current != null) {
-      unawaited(current.dispose());
-      // Chờ nhẹ cho isolate cũ thoát — model ~600MB, 2 model song song
-      // = nguy cơ OOM (yêu cầu HYMT-002).
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    }
-    final next = HyMtIsolateBackend(path);
-    _runtime = next;
-    return next;
-  }
+  String? get lastLoadError => _lastLoadError;
 
   Future<bool> ensureLoaded() async {
-    if (_testMode) {
-      final backend = _injectedBackend!;
-      if (backend.isAlive && backend.lastLoadError == null) return true;
-      return backend.restart();
-    }
     final path = await resolvedModelPath();
     if (path == null) return false;
-    final runtime = await _runtimeFor(path);
-    if (runtime.isAlive && runtime.lastLoadError == null) return true;
-    return runtime.restart();
+    if (_sendPort != null && _loadedPath == path) return true;
+    if (_loading) return false;
+    _loading = true;
+    try {
+      await disposeRuntime();
+      _receivePort = ReceivePort();
+      _isolate = await Isolate.spawn(
+        _isolateEntry,
+        _Init(path, _receivePort!.sendPort),
+        debugName: 'HyMtIsolate',
+      );
+      final ready = Completer<SendPort>();
+      final loadDone = Completer<bool>();
+      _lastLoadError = null;
+      _receivePort!.listen((msg) {
+        if (msg is SendPort && !ready.isCompleted) ready.complete(msg);
+        if (msg is _LoadResult && !loadDone.isCompleted) {
+          if (!msg.ready) _lastLoadError = msg.error;
+          loadDone.complete(msg.ready);
+        }
+      });
+      _sendPort = await ready.future.timeout(const Duration(seconds: 45));
+      // FIX 2026-09-03: phải ĐỢI kết quả create() THẬT từ isolate (load
+      // model ~600MB mất vài giây) — bản cũ chỉ đợi handshake rồi trả
+      // true, nên create() fail vẫn được coi là "đã sẵn sàng"; lỗi chỉ lộ
+      // ở request đầu tiên ("Hy-MT native không load được") và isolate
+      // chết im, không bao giờ retry.
+      final ok = await loadDone.future.timeout(const Duration(minutes: 2));
+      if (!ok) {
+        debugPrint('Hy-MT create failed: ${_lastLoadError}');
+        await disposeRuntime();
+        return false;
+      }
+      _loadedPath = path;
+      debugPrint('✅ Hy-MT GGUF loaded: $path');
+      return true;
+    } catch (e) {
+      debugPrint('Hy-MT load failed: $e');
+      await disposeRuntime();
+      return false;
+    } finally {
+      _loading = false;
+    }
   }
 
   Future<void> disposeRuntime() async {
-    final runtime = _runtime;
-    _runtime = null;
-    if (runtime != null) await runtime.dispose();
-    final injected = _injectedBackend;
-    if (injected != null) await injected.dispose();
+    _isolate?.kill(priority: Isolate.immediate);
+    _receivePort?.close();
+    _isolate = null;
+    _sendPort = null;
+    _receivePort = null;
+    _loadedPath = null;
   }
 
   @override
@@ -506,7 +541,6 @@ class HyMtEngine extends TranslationEngine {
     required String targetLang,
     String sourceLang = 'auto',
   }) async {
-    // BISPECT E3: stub translate — tách lỗi trong flow translate/_generateChunk.
     return TranslationResult.success(
       original: text,
       translated: text,

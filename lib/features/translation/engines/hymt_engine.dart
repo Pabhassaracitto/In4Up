@@ -243,8 +243,6 @@ class HyMtEngine extends TranslationEngine {
   HyMtIsolateBackend? _runtime;
   HyMtRuntimeFailure? _lastChunkError;
 
-  /// Slot single-flight (lazy) — 1 request tại một thời điểm (HYMT-002).
-  HyMtSlot get slot => _slot ??= HyMtSlot(maxWait: _maxQueueWait);
 
   Future<String> _docs() async {
     try {

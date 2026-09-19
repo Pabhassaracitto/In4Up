@@ -29,9 +29,6 @@ mixin TranslationMixin on ChangeNotifier {
   String? get translationError => _translationError;
   String get currentEngine => _currentEngine;
 
-  /// Engine đang chạy (qua TranslationService) — UI hiện đúng nhãn
-  /// "Đang dịch bằng Hy-MT offline, có thể chậm" khi Hy-MT đang xử lý
-  /// (HYMT-002). `null` = không có engine chạy.
   ValueNotifier<String?> get translationEngineNotifier =>
       TranslationService().activeEngineNotifier;
 

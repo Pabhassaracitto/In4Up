@@ -48,6 +48,7 @@
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang; CI xanh 32663677470 (chờ nghiệm thu thiết bị) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
 | LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
+| AUTH-LINUX-01 | Linux: đăng nhập Google + sync từ vựng qua Firebase REST (fallback FlutterFire không có plugin native) | 🔄 doing (chờ CI + nghiệm thu Linux) | ADR-0005; code trên `arena/01a0ca82-in4up`; 0 dependency mới |
 | LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
 | LHB-003 | Voice Recall (ghi mic + fuzzy align + gợi ý FSRS) + Nối xích câu kệ + Anki Cloze {{c1::}} | ✅ done | cherry-pick 10fecd3 → 19efa2d + fix transcribeAuto (0177c35 → 4f123e6); chờ CI + nghiệm thu mic |
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
@@ -2899,3 +2900,24 @@
   (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
   (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
+
+### AUTH-LINUX-01 — Linux: đăng nhập + sync qua Firebase REST (ADR-0005)
+
+- **Triệu chứng:** bản Linux không có nút đăng nhập ở tab Home (guard
+  `Firebase.apps.isEmpty` trong `_FirebaseAuthButton` hiển thị icon ⚡ xám)
+  vì FlutterFire không phát hành plugin native cho Linux; sync từ vựng cũng
+  tắt (`VocabSyncService` early-return khi `!hasDb`).
+- **Giải pháp (ADR-0005):** facade `AuthService` thống nhất plugin/REST;
+  mới `firebase_rest_auth.dart` (signInWithIdp + securetoken refresh, session
+  lưu Hive) + `firestore_rest_client.dart` (commit/runQuery/list + codec
+  tương thích kiểu dữ liệu plugin). OAuth browser flow desktop dùng chung.
+  Cùng uid Android/Windows → data về đúng tài khoản.
+- **Không đổi:** hành vi Android/iOS/macOS/Windows/Web (đường plugin giữ
+  nguyên); 0 dependency mới; schema Firestore giữ nguyên.
+- **Còn mở:** CI build Linux xanh (Lưu ý CI-LINUX-01: webview_win_floating
+  cần webkit2gtk-4.1 — độc lập với thay đổi này); nghiệm thu máy Linux thật:
+  đăng nhập lần đầu, khởi động lại app giữ phiên, thêm từ trên Linux → thấy
+  trên Android, thêm từ trên Android → thấy trên Linux (quy tắc updatedAt),
+  đăng xuất; chạy `flutter analyze` (sandbox agent không có Flutter SDK).
+- **Lịch sử:**
+  - 2026-09-23: triển khai xong trên `arena/01a0ca82-in4up`.

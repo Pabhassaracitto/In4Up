@@ -2244,4 +2244,20 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '語言代碼不能為空',
     'si': 'භාෂා කේතය හිස් විය නොහැක',
   },
+
+  // ── Read Mode · IPA stacked line (READ-IPA-001) ─────────────────
+  'Dòng hiện tại': {
+    'en': 'Current line',
+    'hi': 'वर्तमान पंक्ति',
+    'zh': '当前行',
+    'zh_TW': '目前行',
+    'si': 'වත්මන් පේළිය',
+  },
+  'Toàn văn bản': {
+    'en': 'Whole text',
+    'hi': 'संपूर्ण पाठ',
+    'zh': '全文',
+    'zh_TW': '全文',
+    'si': 'සම්පූර්ණ පෙළ',
+  },
 };

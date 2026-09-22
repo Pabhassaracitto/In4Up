@@ -9,6 +9,7 @@ import '../../../features/translation/translation_language_picker.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../services/playback_controller.dart';
@@ -135,6 +136,14 @@ class _SettingsContent extends StatelessWidget {
                     const SizedBox(height: 16),
                     _GrammarHighlightSection(tp: tp),
                   ],
+
+                  const SizedBox(height: 24),
+
+                  // ===== IPA (READ-IPA-001) =====
+                  const _SectionTitle(
+                      title: 'Phiên âm / IPA', icon: Icons.abc),
+                  const SizedBox(height: 12),
+                  _IpaModeSelector(tp: tp),
 
                   const SizedBox(height: 24),
 
@@ -558,6 +567,62 @@ class _ColorModeSelector extends StatelessWidget {
               border: Border.all(
                 color: isSelected
                     ? const Color(0xFF2196F3)
+                    : Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  mode.icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  context.uiText(mode.label),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isSelected ? Colors.white : Colors.grey,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// Chip chọn chế độ IPA — READ-IPA-001.
+/// Cyan (0xFF4DD0E1) — cùng tông với dòng IPA xếp chồng trong text.
+class _IpaModeSelector extends StatelessWidget {
+  final TextProvider tp;
+  const _IpaModeSelector({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: IpaDisplayMode.values.map((mode) {
+        final isSelected = tp.ipaDisplayMode == mode;
+        return GestureDetector(
+          onTap: () => tp.setIpaDisplayMode(mode),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF4DD0E1)
+                  : Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF4DD0E1)
                     : Colors.white.withValues(alpha: 0.1),
               ),
             ),

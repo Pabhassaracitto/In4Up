@@ -15,16 +15,19 @@ import '../features/grammar/models/grammar_palette.dart';
 import '../features/grammar/services/grammar_preset_library_service.dart';
 import '../features/grammar/services/grammar_settings_service.dart';
 import '../features/writing/models/writing_source_request.dart';
+import '../features/shadowing/services/phoneme_analyzer.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
 import '../models/color_mode.dart';
+import '../models/ipa_display_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
+import '../services/line_ipa_service.dart';
 import '../services/reader_display_settings.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
@@ -149,6 +152,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
+  IpaDisplayMode _ipaDisplayMode = IpaDisplayMode.hidden;
+  bool _phonemeEngineLoading = false;
   GrammarHighlightSettings _grammarSettings =
       GrammarHighlightSettings.defaults();
   List<GrammarHighlightPreset> _availableGrammarPresets =
@@ -292,6 +297,16 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         (m) => m.name == savedColorMode,
         orElse: () => ColorMode.none,
       );
+
+      // Restore IPA display mode (READ-IPA-001)
+      final savedIpaMode = _storage.getIpaDisplayMode();
+      _ipaDisplayMode = IpaDisplayMode.values.firstWhere(
+        (m) => m.name == savedIpaMode,
+        orElse: () => IpaDisplayMode.hidden,
+      );
+      if (_ipaDisplayMode != IpaDisplayMode.hidden) {
+        _ensurePhonemeEngine();
+      }
 
       // Restore alignment
       // final savedAlign = _storage.getTextAlign(); // Tạm thời bỏ qua nếu StorageService chưa có
@@ -950,6 +965,56 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _storage.saveColorMode(_colorMode.name);
 
     notifyListeners();
+  }
+
+  // ==================== IPA DISPLAY (READ-IPA-001) ====================
+
+  IpaDisplayMode get ipaDisplayMode => _ipaDisplayMode;
+
+  /// Chuyển IPA mode + persist. Khi bật (không phải hidden) ensure
+  /// CMU Dict đã load — lần compute đầu có thể ra G2P (thấp chất lượng
+  /// hơn), khi load xong cache được clear và các dòng compute lại.
+  void setIpaDisplayMode(IpaDisplayMode mode) {
+    if (_ipaDisplayMode == mode) return;
+    _ipaDisplayMode = mode;
+
+    _storage.saveIpaDisplayMode(mode.name);
+
+    if (mode != IpaDisplayMode.hidden) {
+      _ensurePhonemeEngine();
+    }
+
+    notifyListeners();
+  }
+
+  /// Cycle: Tắt → Dòng hiện tại → Toàn văn bản → Tắt …
+  void cycleIpaDisplayMode() {
+    setIpaDisplayMode(_ipaDisplayMode.next);
+  }
+
+  /// Dòng IPA cho [index] — null nếu index ngoài phạm vi.
+  /// Việc ẩn/hiện theo mode (hidden / activeLine) do widget quyết định
+  /// trước khi gọi (selector trong TextLineWidget).
+  String? lineIpaFor(int index) {
+    if (index < 0 || index >= _lines.length) return null;
+    return LineIpaService.buildLineIpa(_lines[index].content);
+  }
+
+  void _ensurePhonemeEngine() {
+    if (PhonemeAnalyzer.isInitialized || _phonemeEngineLoading) return;
+    _phonemeEngineLoading = true;
+    // Fire-and-forget: không block UI; khi xong → clear cache + rebuild
+    // để các dòng đã cache kết quả G2P được thay bằng CMU (chính xác).
+    unawaited(
+      PhonemeAnalyzer.initialize().then((_) {
+        _phonemeEngineLoading = false;
+        LineIpaService.clearCache();
+        notifyListeners();
+      }).catchError((Object e) {
+        _phonemeEngineLoading = false;
+        debugPrint('⚠️ Phoneme engine init failed: $e');
+      }),
+    );
   }
 
   // ==================== TEXT SELECTION ====================

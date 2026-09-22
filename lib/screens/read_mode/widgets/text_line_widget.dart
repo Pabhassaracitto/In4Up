@@ -12,6 +12,7 @@ import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../features/translation/translation_display_mode.dart';
 import '../../../features/translation/translation_toolbar.dart';
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
@@ -58,13 +59,22 @@ class TextLineWidget extends StatelessWidget {
                   return const _LineData.empty();
                 }
                 final line = tp.lines[index];
+                // IPA stacked line (READ-IPA-001): hidden → không tính;
+                // activeLine → chỉ dòng phát / dòng hiện tại; all → mọi dòng.
+                final isCurrent =
+                    index == tp.currentLineIndex || isPlaybackActive;
+                String? lineIpa;
+                if (tp.ipaDisplayMode == IpaDisplayMode.all ||
+                    (tp.ipaDisplayMode == IpaDisplayMode.activeLine &&
+                        isCurrent)) {
+                  lineIpa = tp.lineIpaFor(index);
+                }
                 return _LineData(
                   content: line.content,
                   translation: line.translation,
                   startTime: line.startTime,
                   endTime: line.endTime,
-                  isCurrentLine:
-                      index == tp.currentLineIndex || isPlaybackActive,
+                  isCurrentLine: isCurrent,
                   isPlaying: _checkIsPlaying(tp, pp, index),
                   isFocusCue: index == tp.focusCueLineIndex,
                   colorMode: tp.colorMode,
@@ -78,6 +88,7 @@ class TextLineWidget extends StatelessWidget {
                       ? tp.analyzedLines[index]
                       : const <AnalyzedWord>[],
                   ghostTranslation: ghostTranslation, // ★ Đảm bảo có dòng này
+                  lineIpa: lineIpa,
                 );
               },
               shouldRebuild: (prev, next) => prev != next,
@@ -213,7 +224,7 @@ class TextLineWidget extends StatelessWidget {
               originalText: data.content,
               translatedText: data.translation,
               displayMode: data.displayMode,
-              originalWidget: _buildTextContent(context, data, index),
+              originalWidget: _buildOriginalWithIpa(context, data, index),
               textAlign: data.textAlign,
               // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được
               // Trước đây alpha 0.15 quá mờ khiến user tưởng bản dịch biến mất
@@ -254,6 +265,38 @@ class TextLineWidget extends StatelessWidget {
       context,
       data.content.substring(start, end),
       index,
+    );
+  }
+
+  /// Bọc text content + dòng IPA xếp chồng (READ-IPA-001).
+  /// Nằm TRONG originalWidget nên hoạt động cả stacked lẫn side-by-side
+  /// (side-by-side: IPA nằm trong cột original, không đụng cột dịch).
+  Widget _buildOriginalWithIpa(
+    BuildContext context,
+    _LineData data,
+    int index,
+  ) {
+    final text = _buildTextContent(context, data, index);
+    final ipa = data.lineIpa;
+    if (ipa == null || ipa.isEmpty) return text;
+    return Column(
+      crossAxisAlignment: data.textAlign == TextAlign.center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        text,
+        const SizedBox(height: 4),
+        Text(
+          ipa,
+          textAlign: data.textAlign,
+          style: TextStyle(
+            fontSize: data.fontSize * 0.75,
+            color: const Color(0xFF4DD0E1).withValues(alpha: 0.9),
+            height: 1.4,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
     );
   }
 
@@ -508,6 +551,7 @@ class _LineData {
   final List<AnalyzedWord> analyzedWords;
   final bool isEmpty;
   final bool ghostTranslation; // ★ ĐÃ THÊM
+  final String? lineIpa; // READ-IPA-001: dòng IPA xếp chồng (null = ẩn)
 
   const _LineData({
     required this.content,
@@ -527,6 +571,7 @@ class _LineData {
     required this.analyzedWords,
     this.isEmpty = false,
     this.ghostTranslation = false, // ★ ĐÃ THÊM
+    this.lineIpa,
   });
 
   const _LineData.empty()
@@ -546,7 +591,8 @@ class _LineData {
         isSpeaking = false,
         analyzedWords = const [],
         isEmpty = true,
-        ghostTranslation = false; // ★ ĐÃ THÊM
+        ghostTranslation = false, // ★ ĐÃ THÊM
+        lineIpa = null;
 
   @override
   bool operator ==(Object other) {
@@ -569,6 +615,7 @@ class _LineData {
         fontSize == other.fontSize &&
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking &&
+        lineIpa == other.lineIpa &&
         ghostTranslation == other.ghostTranslation; // ★ ĐÃ THÊM
   }
 
@@ -587,6 +634,7 @@ class _LineData {
           fontSize,
           displayMode,
           isSpeaking,
+          lineIpa,
           ghostTranslation, // ★ ĐÃ THÊM
         );
 }

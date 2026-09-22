@@ -120,6 +120,23 @@ class StorageService {
     return getSetting<String>('color_mode', defaultValue: 'none') ?? 'none';
   }
 
+  Future<void> saveIpaDisplayMode(String mode) async {
+    await saveSetting('ipa_display_mode', mode);
+  }
+
+  String getIpaDisplayMode() {
+    return getSetting<String>('ipa_display_mode', defaultValue: 'hidden') ??
+        'hidden';
+  }
+
+  Future<void> saveIpaSaveSource(String source) async {
+    await saveSetting('ipa_save_source', source);
+  }
+
+  String getIpaSaveSource() {
+    return getSetting<String>('ipa_save_source', defaultValue: 'auto') ?? 'auto';
+  }
+
   Future<void> saveShowTranslation(bool show) async {
     await saveSetting('show_translation', show);
   }

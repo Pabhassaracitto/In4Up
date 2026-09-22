@@ -50,15 +50,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-     - name: Set up JDK 17
-  uses: actions/setup-java@v4
-  with:
-    distribution: 'temurin'
-    java-version: '17'
-    cache: 'gradle'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4 # Cập nhật lên v4 (đã fix lỗi package 'tools')
+
       - name: Install NDKs and CMake (keep 28.2 for local bandwidth, add 27 for plugins)
         shell: bash
         run: |
@@ -435,19 +436,37 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
-
+      # ⚠ FIX zip chỉ vài KB: KHÔNG quét "Get-ChildItem -Recurse -Filter Release | Select -First 1"
+      # vì cây build có nhiều thư mục "Release" trung gian (CMakeFiles/flutter/plugins),
+      # duyệt theo bảng chữ cái sẽ nhặt nhầm thư mục chỉ chứa .obj/.lib/1 DLL.
+      # Thư mục Release ĐÚNG của `flutter build windows` luôn là: build/windows/x64/runner/Release
       - name: Zip Windows build
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $TAG = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          # Dùng wildcard để tương thích với cấu trúc output của cả Ninja và MSBuild
-          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
-          if ($RELEASE_DIR) {
-            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
-          } else {
-            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+          $RELEASE_DIR = "build/windows/x64/runner/Release"
+          if (-not (Test-Path (Join-Path $RELEASE_DIR "in4up.exe"))) {
+            # Phòng hờ nếu Flutter đổi cấu trúc output: tìm thư mục thực sự chứa in4up.exe
+            $exe = Get-ChildItem -Path "build/windows" -Recurse -Filter "in4up.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($exe) { $RELEASE_DIR = $exe.DirectoryName }
           }
-          Get-ChildItem "in4up-Windows-*.zip"
+          if (-not (Test-Path (Join-Path $RELEASE_DIR "in4up.exe"))) {
+            Write-Host "##[error]Khong tim thay in4up.exe — output build Windows thieu hoac build chua thanh cong."
+            exit 1
+          }
+          Write-Host "Dang nen thu muc: $RELEASE_DIR"
+          Compress-Archive -Path "$RELEASE_DIR\*" -DestinationPath "in4up-Windows-$TAG.zip" -Force
+
+          # Kiểm soát chất lượng: zip quá nhỏ => bundle thiếu file => fail ngay, không phát hành rác
+          $zip = Get-Item "in4up-Windows-$TAG.zip"
+          $sizeMB = [math]::Round($zip.Length / 1MB, 2)
+          Write-Host "Kich thuoc zip: $sizeMB MB"
+          if ($zip.Length -lt 10MB) {
+            Write-Host "##[error]Zip chi $sizeMB MB (< 10 MB) — bundle Release khong day du!"
+            exit 1
+          }
+           Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

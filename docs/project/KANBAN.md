@@ -86,6 +86,7 @@
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
+| CI-BUILD-01 | Workflow `build.yml` không parse được (YAML) ⇒ mọi push trên mọi nhánh đều có run đỏ ~0s, không build release được | ✅ fix YAML (chờ run build thật khi push tag/dispatch) | thụt lề 9 space trong block PowerShell `run: \|` cắt block scalar (lỗi có sẵn từ `origin/main`); sửa 1 space + kiểm chứng bằng parser YAML thật — commit `dfac0e2` |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
@@ -3325,6 +3326,8 @@
   - Run **35923191460** 🟢 — thêm bước **"LHB tests"** trong `app_analyze.yml`
     (bỏ qua an toàn nếu nhánh chưa có file test): 4 file `test/learn_by_heart*`,
     **47 test xanh**, gồm **19 test LHB-006**; artifact `app-lhb-test-log`.
+  - **PR #42** (base `arena/01a0251e-in4up`): run **35923638972** 🟢 và
+    **35923797855** 🟢 (head `dfac0e2`, đủ 3 bước: analyze + rule #5 + LHB tests).
   - Sửa 6 lỗi analyze chặn CI (thiếu khai báo field `updatedAt`; getter
     `syncJustNow` thiếu từ khoá `get`) — bắt bằng probe tắt lint + đọc job log
     (skill ci-red-debugging §5.20/§6.1).
@@ -3339,3 +3342,27 @@
     commit `6c96d0e`→`8e89954`→`51b2eff`→`fc1e0d3`; App Analyze run 35922641394 🟢
     và 35923191460 🟢 (47 test LHB, 19 test sync); còn nghiệm thu 2 thiết bị +
     Linux REST theo ADR-0006 §AT
+  - 2026-09-23 | 21:50 UTC | giữ nguyên done + mở PR | agent arena/01a0d016-in4up |
+    PR #42 (base `arena/01a0251e-in4up`) + run PR 35923638972 🟢 / 35923797855 🟢;
+    kèm card CI-BUILD-01 (fix YAML `build.yml` — commit `dfac0e2`)
+
+### CI-BUILD-01 — `build.yml` không parse được: mọi push đều có run đỏ 0s
+- **Nguồn:** phát hiện khi rà CI của PR #42 (LHB-006), 2026-09-23 — mọi push trên
+  mọi nhánh (`01a0251e`, `01a0cff6`, `01a0cfc8`, `01a0d016`) đều sinh run
+  `build.yml` **failure ~0s**, không bao giờ build release được.
+- **Trạng thái:** ✅ fix YAML (chờ run build thật khi push tag `v*` / dispatch)
+- **Nguyên nhân:** trong block `run: |` (PowerShell, job `build-windows`), dòng
+  `Get-ChildItem $RELEASE_DIR | Select-Object Name, Length` bị thụt **9 space**
+  thay vì 10 ⇒ YAML kết thúc block scalar sớm ⇒ cả file workflow không parse
+  được; GitHub tạo "workflow file issue" run cho mọi push. Lỗi **có sẵn trên
+  `origin/main`** (cùng dòng 265), không phải do đợt LHB-006.
+- **Fix:** 1 space (`dfac0e2`). Kiểm chứng bằng parser YAML thật (npm `yaml`):
+  `build.yml` OK (jobs build-android/build-windows/build-ios),
+  `app_analyze.yml` + `build_final_complete.yml` OK (không đổi).
+- **Hệ quả:** từ commit `dfac0e2` không còn run đỏ 0s nào của `build.yml` trên
+  push nhánh; workflow về đúng trigger của nó (tag `v*` hoặc dispatch).
+- **Còn mở:** chưa chạy được build Android/Windows/iOS thật (token Agent không có
+  quyền `workflows` để dispatch; cần owner push tag hoặc bấm chạy workflow).
+- **Lịch sử:**
+  - 2026-09-23 | created→done (fix YAML) | agent arena/01a0d016-in4up | commit
+    `dfac0e2`; PR #42; xác nhận không còn run `build.yml` đỏ 0s sau commit

@@ -77,6 +77,7 @@
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
 
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
+| LHB-006 | Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList): bài + tiến độ SRS + streak qua tài khoản | 🔄 doing (chờ CI + nghiệm thu 2 thiết bị) | ADR-0006; `learn_by_heart_merge.dart` (thuần logic) + `learn_by_heart_sync_service.dart` (plugin/REST) + hàng đợi pending/bia mộ + badge & sheet ở hub; test `learn_by_heart_sync_test.dart` |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 v2: READ-TOOLBAR-001 loại bỏ toàn bộ widget animation (bước 2 của card) do AT v1 icon ẩn nhưng vẫn còn khối đen; chờ nghiệm thu máy lần 2 |
@@ -3278,3 +3279,48 @@
   chờ foundation).
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | ADR-0005 §6 — blocked on packaged VI/Pali dicts
+
+### LHB-006 — Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList)
+- **Nguồn:** yêu cầu owner (2026-09-23): "xem trong doc hay plan đã có kế hoạch
+  đồng bộ hoá lưu trữ cho các bài lưu trong tool học thuộc lòng chưa? Để người
+  dùng đồng bộ lưu trữ trên các thiết bị (như worklist đã có). Nếu có rồi hãy
+  hoàn thiện và triển khai, nếu chưa có hãy lên kế hoạch và triển khai."
+- **Trạng thái:** 🔄 doing (chờ CI + nghiệm thu 2 thiết bị)
+- **Kết quả rà soát trước khi code:** CHƯA có card/kế hoạch nào cho sync LHB.
+  - `INTEGRATE-1` (proposed) chỉ bàn knowledge module (evidence/ReviewEvent).
+  - `AUDIT-2026-08-21` §4: phạm vi sync hiện tại chỉ `vocabulary_v2` + meta;
+    `LearnByHeartStorage` chỉ là SharedPreferences cục bộ.
+  ⇒ vừa ghi kế hoạch (PLAN-029 + ADR-0006) vừa triển khai trong cùng đợt.
+- **Kiến trúc (dùng lại hạ tầng của WordList, 0 dependency mới):**
+  - Local vẫn là nguồn sự thật (SharedPreferences); thêm trạng thái sync:
+    `learn_by_heart_pending_v1` (hàng đợi id) + `learn_by_heart_tombstones_v1`
+    (bia mộ id→ISO). `readItems()` RAW (không seed) cho lớp đồng bộ; seed mặc
+    định KHÔNG hồi sinh bài đã có bia mộ.
+  - Cloud: `users/{uid}/learn_by_heart/{itemId}` (JSON bài + `updatedAt` +
+    `deleted`/`deletedAt` + `_syncedAt`), `lhb_meta/checkpoint`,
+    `lhb_meta/stats` (streak/lastActiveDate).
+  - Hòa giải LWW "cloud thắng" TRỪ khi bản cục bộ pending và có `syncStamp`
+    (updatedAt → lastReviewedAt → createdAt) mới hơn; xoá bằng bia mộ
+    (chống hồi sinh, dọn sau 365 ngày).
+  - Mọi mutation (`submitReview`, `submitAssessment`, `saveItem`,
+    `deleteItem`, `toggleFavorite`, `startLearning`) đóng dấu `updatedAt` +
+    `markPending` — kể cả khi chưa đăng nhập, để đăng nhập sau không mất tiến độ.
+  - Luồng pull-trước/push-sau, debounce 5s, connectivity listener; lần đầu bật
+    sync mà cloud trống + máy có bài → đẩy toàn bộ lên.
+  - Linux không plugin → đi REST đúng ADR-0005 (`FirestoreRestClient`).
+  - UI: icon trạng thái trên app bar hub + sheet "Đồng bộ đa thiết bị"
+    (Đồng bộ ngay / Kéo toàn bộ / Đẩy tất cả / gợi ý đăng nhập), chuỗi 6 ngữ
+    qua `LearnByHeartL10n` (rule #5).
+- **File:** `models/learn_by_heart_{item,stats}.dart`,
+  `services/learn_by_heart_{storage,merge,sync_service}.dart`,
+  `controllers/learn_by_heart_provider.dart`,
+  `screens/learn_by_heart_hub_screen.dart`, `i18n/learn_by_heart_l10n.dart`,
+  `lib/main.dart` (listener `AuthService().authStateChanges`),
+  `test/learn_by_heart_sync_test.dart`, ADR-0006, PLAN-029.
+- **AT nghiệm thu (2 thiết bị):** thêm/sửa ở A → B thấy; FSRS ở B → A cập nhật;
+  xoá ở A → B mất và không hồi sinh; cùng sửa offline → bản mới hơn thắng;
+  máy mới đăng nhập → kéo đủ bài + streak; Linux chạy qua REST.
+- **Lịch sử:**
+  - 2026-09-23 | created→doing | agent arena/01a0d016-in4up | rà doc: chưa có
+    kế hoạch → viết ADR-0006 + PLAN-029 và triển khai (merge thuần + sync
+    service + pending/bia mộ + badge/sheet + test); chờ CI + nghiệm thu máy

@@ -2880,6 +2880,24 @@
      (tái dùng `stats`/`wordlist_stats` tools nếu có).
 - **AT:** học thật (đọc + lưu từ) hôm nay → card hiện số >0; hôm sau mở
   app không học → streak giữ; học tiếp ngày hôm sau → streak +1.
+- **Trạng thái:** doing (code + test xong trên `arena/01a0a702-in4up`, CI 🟢;
+  còn: owner bật job riêng + nghiệm thu thiết bị theo AT)
+- **Triển khai (2026-09-15):** kho `LearningActivityService` +
+  `LearningActivityKind` (ghi tại nơi hành động thật: mở tài liệu, phút đọc,
+  lưu/import từ, ôn LHB, shadowing, dịch); `FocusProvider` thành facade (bỏ
+  đường streak qua `saveEffort` — slider đã bỏ ở HOME-001); thẻ hiện số liệu
+  hôm nay + streak + biểu đồ 7 ngày. Idempotent theo (ngày, kind, sourceKey);
+  ngày = giờ địa phương chốt lúc ghi; persist gộp theo ngày (1 chuỗi JSON).
+  Nhãn chrome mới qua `uiText` + 7 key catalog (rule #5). Quyết định: ADR-0005.
+- **Bằng chứng:** commits `9a67d1a` → `0b59b1a` (nhánh đã merge base tip
+  `df77ab0` — commit `34845d8`, chỉ giải conflict `tool/legacy_ui_english_overrides.json`);
+  App Analyze + rule #5 test xanh (run 35028682236); 32 test mới xanh (run
+  35028682280 — job knowledge chạy qua cầu nối
+  `test/knowledge/home_streak_ci_oracle_test.dart` vì GitHub App thiếu quyền
+  `workflows`, chưa tạo được job riêng). PR: #33.
+- **Lịch sử:**
+  - 2026-09-15 | 21:57 UTC | proposed→doing | agent arena/01a0a702-in4up | commits 9a67d1a..d9d7243; CI run 35028341250 (analyze + rule #5) & 35028341223 (32 test HOME-STREAK-001); ADR-0005; job riêng còn ở `docs/ci/home_streak_tests.yml` (chờ owner bật)
+  - 2026-09-15 | 22:02 UTC | doing (không đổi trạng thái) | agent arena/01a0a702-in4up | cập nhật base tip df77ab0 + giải conflict catalog i18n (merge 34845d8), bỏ smoke test placeholder (0b59b1a); CI 35028682236 (analyze + rule #5) & 35028682280 (32 test) 🟢; PR #33 mở vào `arena/01a0251e-in4up`
 
 ### LISTEN-LRC-LAYOUT-001 — Tab Nghe: kết quả lời AI nên nằm CHẠM CẠNH sóng âm (mặc định)
 - **Triệu chứng (owner):** "Tab nghe: Mặc định nên để phần kết quả lời tạo

@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
+import '../../models/learning_activity.dart';
+import '../../services/learning_activity_service.dart';
 import '../tts/language_detector.dart';
 import 'cache/translation_cache.dart';
 import 'engines/deeplx_engine.dart';
@@ -241,7 +243,46 @@ class TranslationService {
 
   // ==================== Core pipeline ====================
 
+  /// Dịch một đoạn văn bản.
+  ///
+  /// HOME-STREAK-001: một lượt dịch THÀNH CÔNG là hoạt động học thật → ghi vào
+  /// kho "Nhịp điệu học tập". Khoá theo (ngôn ngữ nguồn/đích + nội dung) nên
+  /// dịch lại đúng câu đó trong ngày không đếm lặp; `translateBatch` gọi hàm
+  /// này cho từng câu nên cũng được tính đúng một lần/câu.
   Future<TranslationResult> translateText(
+    String text, {
+    String? sourceLang,
+    String? targetLang,
+    bool skipCache = false,
+  }) async {
+    final result = await _translateTextInternal(
+      text,
+      sourceLang: sourceLang,
+      targetLang: targetLang,
+      skipCache: skipCache,
+    );
+    _recordLearningActivity(text, result, sourceLang, targetLang);
+    return result;
+  }
+
+  void _recordLearningActivity(
+    String text,
+    TranslationResult result,
+    String? sourceLang,
+    String? targetLang,
+  ) {
+    final trimmed = text.trim();
+    if (!result.isSuccess || trimmed.isEmpty) return;
+    final key = LearningActivityService.stableSourceKey(
+      '${sourceLang ?? _sourceLang}|${targetLang ?? _targetLang}|$trimmed',
+    );
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.translation,
+      sourceKey: key,
+    ));
+  }
+
+  Future<TranslationResult> _translateTextInternal(
     String text, {
     String? sourceLang,
     String? targetLang,

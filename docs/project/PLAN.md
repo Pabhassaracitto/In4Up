@@ -926,7 +926,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
 ### PLAN-029 — Đồng bộ lưu trữ Learn by Heart đa thiết bị (LHB-006)
 - Nguồn: người sở hữu (2026-09-23, qua agent arena/01a0d016-in4up) —
   "đồng bộ lưu trữ cho các bài lưu trong tool học thuộc lòng, như WordList đã có".
-- Trạng thái: doing (code xong trên `arena/01a0d016-in4up`; chờ CI + nghiệm thu 2 thiết bị)
+- Trạng thái: done (code + CI xanh trên `arena/01a0d016-in4up`; còn nghiệm thu 2 thiết bị)
 - Milestone đề xuất: cùng đợt với hạ tầng sync hiện có (ADR-0005/WordList) —
   không cần milestone mới.
 - Vì sao có plan này: rà `docs/project/**` + `docs/adr/**` ngày 2026-09-23 →
@@ -947,7 +947,12 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Quyết định kiến trúc: **ADR-0006** (đọc trước khi sửa vùng này).
 - Nghiệm thu (AT 6 bước trong ADR-0006 §AT): 2 thiết bị thật + 1 máy Linux
   (REST). Ghi kết quả vào card KANBAN LHB-006.
+- Bằng chứng CI (2026-09-23): run 35922641394 🟢 (analyze + rule #5) và
+  35923191460 🟢 (thêm bước "LHB tests": 47 test, gồm 19 test LHB-006).
 - Lịch sử:
   - 2026-09-23 | created→doing | agent arena/01a0d016-in4up | chưa có kế hoạch
     cũ → viết PLAN-029 + ADR-0006 và triển khai code (merge thuần + sync
     service + pending/bia mộ + badge/sheet hub + test); chờ CI + nghiệm thu
+  - 2026-09-23 | 21:35 UTC | doing→done (code + CI xanh) |
+    agent arena/01a0d016-in4up | commits `6c96d0e`→`fc1e0d3`; App Analyze
+    run 35922641394 🟢 + 35923191460 🟢 (47 test LHB); còn nghiệm thu 2 thiết bị

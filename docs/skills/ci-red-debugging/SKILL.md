@@ -144,6 +144,9 @@ squash-merge để lịch sử sạch.
 | 5.20 | **`tail -n 300` + 416 issues ⇒ không thấy error** (thực chiến 2026-09-09) | Log `flutter analyze` chỉ hiện info/warning từ `lib/models/…` trở đi; ERROR nằm ở ĐẦU log (file `lib/features/…` đứng trước alphabetically) ⇒ tưởng "không có error" | Khi chỉ thấy info/warning mà CI vẫn đỏ: thủ phạm nằm ở file có path đứng TRƯỚC file đầu tiên xuất hiện trong log. Khoanh vùng bằng `git diff <commit-xanh> <commit-đỏ> -- lib packages test pubspec.yaml` (so cây, bỏ qua history) rồi ưu tiên file mới thêm/sửa |
 | 5.18 | **iOS deployment target thấp hơn pod yêu cầu** | `pod install` đỏ: `[!] CocoaPods could not find compatible versions for pod "google_mlkit_commons" ... required a higher minimum deployment target` + `Error: The plugin ... requires a higher minimum iOS deployment version` | Đọc `s.platform = :ios, 'X'` trong podspec của plugin (google_mlkit_* = **15.5** do MLKitVision) rồi nâng ĐỦ 3 nơi: `ios/Podfile`, `ios/Runner.xcodeproj/project.pbxproj`, `ios/Flutter/AppFrameworkInfo.plist`. Dùng 1 lệnh `scripts/ci/ios_set_deployment_target.sh <target>` thay vì rải `sed` trong workflow. `post_install` chỉ được NÂNG, không được HẠ target của pod (ép tất cả về 14.0 = tự bắn chân) |
 
+| 5.21 | **Tên step workflow chứa `": "` ⇒ run đỏ 0 giây (startup_failure)** (thực chiến 2026-09-23, LHB-006) | Run mới nhất `failure` với thời lượng **0s**; UI ghi \"This run likely failed because of a workflow file issue\"; `gh run view <id>` không có step nào | Trong YAML, plain scalar KHÔNG được chứa `": "` (bị hiểu là mapping) — tên step kiểu `LHB tests — Thuộc Lòng: SRS/cloze…` phải **quote**: `- name: \"LHB tests — …: …\"`. Đây cũng là oracle YAML RẺ NHẤT: push xong ~20s là biết file workflow có hợp lệ không |
+| 5.22 | **`on.push.paths` lọc ⇒ commit \"im lặng\" không sinh run** (thực chiến 2026-09-23) | Push thành công nhưng `gh run list` không có run mới cho sha đó ⇒ tưởng \"chưa push\" hoặc \"CI treo\" | `app_analyze.yml` chỉ chạy khi chạm `lib/**`, `test/**`, `pubspec*`, chính file workflow. Commit chỉ sửa `analysis_options.yaml`/`docs/**` **không** sinh run: muốn CI chạy lại phải kèm 1 chạm `lib/**` hoặc `test/**` (bẫy này gặp đúng lúc revert probe tắt lint) |
+
 ## 6. Khi nào PHẢI lên tiếng với người dùng
 
 - **≥ 5–6 vòng bisect không hội tụ** (điều kiện: mỗi vòng phải thu được THÔNG TIN MỚI;
@@ -213,3 +216,29 @@ phím numpad tên là `add`) cho thấy chi tiết đáng nhớ:
 - Đừng tin `git checkout <branch> -- analysis_options.yaml` khi branch đó CHÍNH LÀ đầu
   có probe: nó khôi phục nguyên cái probe. Phải checkout từ commit **gốc trước probe**
   (`git log --oneline -- analysis_options.yaml` để tìm).
+
+## 6.3. Tự hỏi trước: **test của mình có được CI chạy không?**
+
+Thực chiến 2026-09-23 (LHB-006): file `test/learn_by_heart_sync_test.dart` viết xong,
+`flutter analyze` xanh — nhưng **không step nào chạy nó**. Oracle rộng
+(`app_analyze.yml`) chỉ chạy `analyze` + rule #5, các workflow module chỉ chạy khi chạm
+`lib/knowledge/**` / soundlist. Hệ quả: 2 lỗi logic thật (đảo thứ tự bài mới từ cloud;
+phép "đã sync rồi" so mốc thay vì so nội dung ⇒ bỏ qua bản cloud mới hơn) nằm im trong
+code đã push, chỉ lộ ra khi bộ test được đưa vào CI.
+
+Checklist 30 giây (làm NGAY sau khi viết test mới):
+
+```bash
+grep -rn "flutter test" .github/workflows/*.yml     # step nào thật sự chạy test?
+gh api repos/<o>/<r>/actions/runs/<run-id>/jobs \
+  --jq '.jobs[0].steps[] | "\(.conclusion)\t\(.name)"'   # step có XANH hay bị bỏ qua?
+```
+
+- Bước test tự chế nên **tự bỏ qua an toàn** khi file chưa có trên nhánh
+  (`[ -f "$f" ] || continue` rồi `exit 0`) ⇒ không làm đỏ CI của nhánh khác dùng chung
+  workflow. Với file có thật thì `tail -n 400 <log>` để lỗi hiện trong job log.
+- Đọc kết quả test trong **job log** (không phải artifact): cuối log có dòng
+  `🎉 N tests passed.` hoặc danh sách `❌`. Artifact chỉ chứa text log, giải nén trong
+  sandbox được thì thêm một đường (không bắt buộc).
+- `flutter test <file>` chạy ngay sau `flutter pub get` trong cùng job — không cần
+  cài gì thêm, và chậm hơn analyze chỉ ~30–60 giây.

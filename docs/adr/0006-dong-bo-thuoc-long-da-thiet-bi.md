@@ -1,8 +1,9 @@
 # ADR-0006: Đồng bộ lưu trữ Learn by Heart đa thiết bị (LHB-006)
 
 - **Ngày:** 2026-09-23
-- **Trạng thái:** ĐÃ TRIỂN KHAI trên `arena/01a0d016-in4up` — chờ CI (App
-  Analyze + Locale Test) và nghiệm thu 2 thiết bị.
+- **Trạng thái:** ĐÃ TRIỂN KHAI + **CI XANH** trên `arena/01a0d016-in4up`
+  (analyze + rule #5 + 47 test LHB, trong đó 19 test sync) — còn nghiệm thu
+  2 thiết bị theo bảng AT bên dưới.
 - **Phạm vi:** `lib/features/learn_by_heart/**` (model item + stats, storage,
   `learn_by_heart_merge.dart` mới, `learn_by_heart_sync_service.dart` mới,
   provider, hub screen, i18n), `lib/main.dart`, `test/learn_by_heart_sync_test.dart`.
@@ -47,6 +48,12 @@
    nếu so mốc thuần thì seed sẽ đè dữ liệu thật của người dùng. "Pending" là
    dấu hiệu duy nhất phân biệt *thay đổi thật của người dùng* với *rác sinh tự
    động*, nên mọi mutation đều `markPending` (kể cả khi chưa đăng nhập).
+   - **Bổ sung 2026-09-23 (test bắt lỗi, đã sửa):** phép "đã đồng bộ rồi, bỏ qua"
+     phải dựa trên **nội dung y hệt** (`hasSameContent` — JSON chuẩn hoá thứ tự
+     key, vì Firestore REST có thể trả key khác thứ tự `toJson()`), **không**
+     dựa trên so sánh mốc thời gian: so mốc làm máy đang giữ bản CŨ HƠN cloud
+     không bao giờ nhận bản cloud (trái luật LWW ở trên). Bài mới từ cloud giữ
+     đúng **thứ tự doc cloud trả về** khi đưa lên đầu danh sách.
 
 4. **Xoá = bia mộ (soft delete), không xoá cứng doc.** Doc
    `{deleted: true, deletedAt}` lan sang mọi thiết bị và chặn hồi sinh; bài
@@ -110,10 +117,19 @@
 6. Linux: đăng nhập → nút đồng bộ chạy qua REST (log `LHB sync (REST)`), không
    có plugin vẫn hoạt động.
 
+## Bằng chứng máy (CI) — 2026-09-23
+
+- `App Analyze + Locale Test (wide oracle)` run **35922641394** 🟢 — analyze
+  toàn app (chỉ ERROR fatal) + rule #5 (chrome không tiếng Việt), commit `8e89954`.
+- Cùng workflow run **35923191460** 🟢 — thêm bước mới **"LHB tests"** chạy 4 file
+  `test/learn_by_heart*_test.dart`: **47 test xanh**, trong đó **19 test LHB-006**
+  (mốc LWW, bia mộ, pending, streak, kho cục bộ). Artifact `app-lhb-test-log`.
+- Chuỗi commit: `6c96d0e` (triển khai) → `8e89954` (sửa 6 lỗi analyze) →
+  `51b2eff` (đưa test vào oracle + 2 sửa lỗi hòa giải) → `fc1e0d3` (YAML step name).
+
 ## Việc còn mở
 
-- CI: `flutter analyze` + `flutter test test/learn_by_heart_sync_test.dart`
-  (sandbox agent không có Flutter SDK — CI là oracle).
-- Nghiệm thu thiết bị theo bảng AT ở trên.
+- **Nghiệm thu thiết bị** theo bảng AT ở trên (2 thiết bị thật + Linux REST) —
+  bước duy nhất còn lại; agent trong sandbox không có thiết bị/Firebase thật.
 - Cân nhắc đưa quyết định LWW sang `serverTimestamp` khi có ADR chung cho
   vocab (hiện chỉ checkpoint/stats dùng server timestamp).

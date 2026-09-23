@@ -1000,6 +1000,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     return LineIpaService.buildLineIpa(_lines[index].content);
   }
 
+  /// Segments (surface + ipa + phonemes) cho [index] — READ-IPA-003.
+  /// Dòng active dựng interlinear từ đây; view phẳng join bằng
+  /// [LineIpaService.flatIpa]. Ẩn/hiện theo mode do widget quyết định.
+  List<IpaSegment>? lineIpaSegmentsFor(int index) {
+    if (index < 0 || index >= _lines.length) return null;
+    return LineIpaService.buildLineIpaSegments(_lines[index].content);
+  }
+
   void _ensurePhonemeEngine() {
     if (PhonemeAnalyzer.isInitialized || _phonemeEngineLoading) return;
     _phonemeEngineLoading = true;

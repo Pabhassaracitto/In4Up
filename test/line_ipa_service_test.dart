@@ -162,4 +162,67 @@ void main() {
       expect(LineIpaService.cacheSize, lessThanOrEqualTo(2));
     });
   });
+
+  group('buildLineIpaSegments — READ-IPA-003', () {
+    test('giữ surface thô + wordCore; punct-only → render-only', () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'hello': 'həˈloʊ',
+        'world': 'wɝld',
+      });
+      final segs = LineIpaService.buildLineIpaSegments('Hello, — world');
+      expect(segs, isNotNull);
+      expect(segs!.length, 3);
+      expect(segs[0].surface, 'Hello,');
+      expect(segs[0].wordCore, 'Hello');
+      expect(segs[0].ipa, 'həˈloʊ');
+      expect(segs[0].isWord, isTrue);
+      expect(segs[1].surface, '—');
+      expect(segs[1].isWord, isFalse);
+      expect(segs[1].ipa, isNull);
+      expect(segs[2].surface, 'world');
+      expect(segs[2].wordCore, 'world');
+      expect(segs[2].ipa, 'wɝld');
+      // View phẳng từ segments = hợp đồng P1.
+      expect(LineIpaService.flatIpa(segs), 'həˈloʊ wɝld');
+      expect(LineIpaService.buildLineIpa('Hello, — world'), 'həˈloʊ wɝld');
+    });
+
+    test('dòng không đủ điều kiện → segments null (kể cả toàn punct)', () {
+      LineIpaService.wordIpaOverride = (_) => 'x';
+      expect(LineIpaService.buildLineIpaSegments('chào'), isNull);
+      expect(LineIpaService.buildLineIpaSegments('đây là tiếng Việt'), isNull);
+      expect(LineIpaService.buildLineIpaSegments('!!! ... —'), isNull);
+      expect(LineIpaService.buildLineIpaSegments(''), isNull);
+    });
+
+    test('resolver rỗng → segment vẫn có (interlinear) nhưng flat null', () {
+      LineIpaService.wordIpaOverride = (_) => '';
+      final segs = LineIpaService.buildLineIpaSegments('Hello world');
+      expect(segs, isNotNull);
+      expect(segs!, hasLength(2));
+      expect(segs[0].hasIpa, isFalse);
+      expect(LineIpaService.flatIpa(segs), isNull);
+      expect(LineIpaService.buildLineIpa('Hello world'), isNull);
+    });
+
+    test('override → phonemes là 1 blob (P4 tô màu dùng segment.phonemes)',
+        () {
+      LineIpaService.wordIpaOverride = fakeTable({'world': 'wɝld'});
+      final segs = LineIpaService.buildLineIpaSegments('world');
+      expect(segs!.single.phonemes, ['wɝld']);
+    });
+
+    test('IpaSegment == theo value — selector không rebuild vô hạn', () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'hello': 'həˈloʊ',
+        'world': 'wɝld',
+      });
+      final a = LineIpaService.buildLineIpaSegments('Hello world');
+      LineIpaService.clearCache();
+      final b = LineIpaService.buildLineIpaSegments('Hello world');
+      expect(a, b);
+      expect(a!.first.hashCode, b!.first.hashCode);
+      expect(a.first, b.first);
+    });
+  });
 }

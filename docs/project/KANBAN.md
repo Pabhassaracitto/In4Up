@@ -85,8 +85,8 @@
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
-| READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | 🔄 doing | `lib/services/ipa_resolver.dart` (IpaValidator + trích definition lazy), `phoneticSource` additive, selector Settings→IPA; CI = run của commit này |
-| READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | 📋 proposed | nền: `activeLineNotifier` + IpaSegment (P2); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
+| READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
+| READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | 🔄 doing | IpaSegment trong LineIpaService + interlinear render; karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng); CI = run của commit này |
 | READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | 📋 proposed | 2 toggle opt-in mặc định OFF trong Settings→IPA; SRS fade qua `VocabularyBridge.findByWord` |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
 
@@ -2926,9 +2926,8 @@
 
 ### READ-IPA-002 — Nguồn IPA khi lưu từ (waterfall + provenance)
 
-- **Trạng thái:** 🔄 doing — **Bằng chứng:** code P2 trong commit này
-  (CI theo run kế tiếp của branch); test `test/ipa_resolver_test.dart`
-  (chưa chạy local — không có SDK, oracle = App Analyze).
+- **Trạng thái:** ✅ done — **Bằng chứng:** commit `259c322`; App Analyze
+  + Locale Test run `35886676119` 🟢 (2026-09-23, 2m00s).
 - **Nội dung (P2 — ADR-0005 §2):**
   - `IpaResolver`: auto = MDX → CMU → G2P → bỏ trống; dict = chỉ MDX;
     g2p = bỏ MDX; off = không điền. Không prompt từng lần lưu.
@@ -2948,10 +2947,12 @@
     JSON — runtime vẫn qua priority).
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→doing | ai | code P2 + ADR-0005 + card này
+  - 2026-09-23 | 16:14 | doing→done | ai | commit 259c322; run 35886676119 🟢
 
 ### READ-IPA-003 — Ruby/interlinear IPA cho dòng active + nhấn nháy nhịp
 
-- **Trạng thái:** 📋 proposed.
+- **Trạng thái:** 🔄 doing — **Bằng chứng:** IpaSegment + interlinear
+  render trong commit này (CI theo run kế tiếp).
 - **Nội dung dự kiến (P3):**
   - `_LineData`携带 `IpaSegment[]` (surface + ipa + phonemes);
     dòng current/đang phát render word-chip 2 tầng (chữ × fontSize,
@@ -2963,6 +2964,7 @@
     ColoredTextWidget đang chiếm dòng).
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P3/ADR-0005 §5
+  - 2026-09-23 | 16:20 | proposed→doing | ai | code P3 (IpaSegment + interlinear + test segments)
 
 ### READ-IPA-004 — Tô màu phoneme + legend + mờ IPA từ đã thuộc
 

@@ -18,6 +18,7 @@ import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../../../screens/read_mode/models/playback_recipe.dart';
 import '../../../screens/read_mode/services/playback_controller.dart';
+import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
@@ -63,11 +64,11 @@ class TextLineWidget extends StatelessWidget {
                 // activeLine → chỉ dòng phát / dòng hiện tại; all → mọi dòng.
                 final isCurrent =
                     index == tp.currentLineIndex || isPlaybackActive;
-                String? lineIpa;
+                List<IpaSegment>? lineIpaSegments;
                 if (tp.ipaDisplayMode == IpaDisplayMode.all ||
                     (tp.ipaDisplayMode == IpaDisplayMode.activeLine &&
                         isCurrent)) {
-                  lineIpa = tp.lineIpaFor(index);
+                  lineIpaSegments = tp.lineIpaSegmentsFor(index);
                 }
                 return _LineData(
                   content: line.content,
@@ -88,7 +89,7 @@ class TextLineWidget extends StatelessWidget {
                       ? tp.analyzedLines[index]
                       : const <AnalyzedWord>[],
                   ghostTranslation: ghostTranslation, // ★ Đảm bảo có dòng này
-                  lineIpa: lineIpa,
+                  lineIpaSegments: lineIpaSegments,
                 );
               },
               shouldRebuild: (prev, next) => prev != next,
@@ -268,16 +269,31 @@ class TextLineWidget extends StatelessWidget {
     );
   }
 
-  /// Bọc text content + dòng IPA xếp chồng (READ-IPA-001).
+  /// Bọc text content + IPA (READ-IPA-001 stacked / READ-IPA-003 interlinear).
   /// Nằm TRONG originalWidget nên hoạt động cả stacked lẫn side-by-side
   /// (side-by-side: IPA nằm trong cột original, không đụng cột dịch).
+  ///
+  /// - Dòng active + có segments + KHÔNG trùng ColoredTextWidget
+  ///   → interlinear: chính dòng là word-chips (chữ trên, IPA dưới),
+  ///     tap chip = nghe phát âm từ; nhấn nháy IPA khi đang phát.
+  /// - Còn lại → text (SelectableText/colored) + dòng IPA phẳng bên dưới
+  ///   (giữ nguyên style P1).
   Widget _buildOriginalWithIpa(
     BuildContext context,
     _LineData data,
     int index,
   ) {
     final text = _buildTextContent(context, data, index);
-    final ipa = data.lineIpa;
+    final segments = data.lineIpaSegments;
+    final coloredChipsActive = data.wordTapBoxes &&
+        data.colorMode != ColorMode.none &&
+        data.analyzedWords.isNotEmpty;
+
+    if (segments != null && data.isCurrentLine && !coloredChipsActive) {
+      return _buildInterlinear(context, data, segments);
+    }
+
+    final ipa = LineIpaService.flatIpa(segments);
     if (ipa == null || ipa.isEmpty) return text;
     return Column(
       crossAxisAlignment: data.textAlign == TextAlign.center
@@ -296,6 +312,67 @@ class TextLineWidget extends StatelessWidget {
             letterSpacing: 0.3,
           ),
         ),
+      ],
+    );
+  }
+
+  /// Interlinear (READ-IPA-003): dựng lại dòng từ segments — mỗi từ 1 chip
+  /// 2 tầng (chữ thô + IPA), token punct/số là text trần. Dòng đang
+  /// TTS/playback → IPA đậm hơn + weight cao hơn (nhấn nháy cấp dòng —
+  /// không karaoke từng từ, ADR-0005 §3).
+  Widget _buildInterlinear(
+    BuildContext context,
+    _LineData data,
+    List<IpaSegment> segments,
+  ) {
+    final tp = context.read<TextProvider>();
+    final emphasized = data.isSpeaking || data.isPlaying;
+    final wordStyle = TextStyle(
+      fontSize: data.fontSize,
+      color: Colors.white,
+      height: 1.15,
+      fontWeight: FontWeight.w500,
+    );
+
+    return Wrap(
+      alignment: data.textAlign == TextAlign.center
+          ? WrapAlignment.center
+          : WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        for (final seg in segments)
+          if (!seg.isWord)
+            Text(seg.surface, style: wordStyle)
+          else
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                tp.speak(seg.wordCore);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(seg.surface, style: wordStyle),
+                  if (seg.hasIpa)
+                    Text(
+                      seg.ipa!,
+                      style: TextStyle(
+                        fontSize: data.fontSize * 0.72,
+                        color: const Color(0xFF4DD0E1).withValues(
+                          alpha: emphasized ? 1.0 : 0.8,
+                        ),
+                        fontWeight:
+                            emphasized ? FontWeight.w600 : FontWeight.w400,
+                        height: 1.25,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                ],
+              ),
+            ),
       ],
     );
   }
@@ -551,7 +628,9 @@ class _LineData {
   final List<AnalyzedWord> analyzedWords;
   final bool isEmpty;
   final bool ghostTranslation; // ★ ĐÃ THÊM
-  final String? lineIpa; // READ-IPA-001: dòng IPA xếp chồng (null = ẩn)
+  /// READ-IPA-001/003: segments IPA xếp chồng (null = ẩn/đủ điều kiện).
+  /// Dòng active render interlinear từ segments; các dòng khác join phẳng.
+  final List<IpaSegment>? lineIpaSegments;
 
   const _LineData({
     required this.content,
@@ -571,7 +650,7 @@ class _LineData {
     required this.analyzedWords,
     this.isEmpty = false,
     this.ghostTranslation = false, // ★ ĐÃ THÊM
-    this.lineIpa,
+    this.lineIpaSegments,
   });
 
   const _LineData.empty()
@@ -592,7 +671,7 @@ class _LineData {
         analyzedWords = const [],
         isEmpty = true,
         ghostTranslation = false, // ★ ĐÃ THÊM
-        lineIpa = null;
+        lineIpaSegments = null;
 
   @override
   bool operator ==(Object other) {
@@ -615,7 +694,7 @@ class _LineData {
         fontSize == other.fontSize &&
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking &&
-        lineIpa == other.lineIpa &&
+        lineIpaSegments == other.lineIpaSegments &&
         ghostTranslation == other.ghostTranslation; // ★ ĐÃ THÊM
   }
 
@@ -634,7 +713,9 @@ class _LineData {
           fontSize,
           displayMode,
           isSpeaking,
-          lineIpa,
+          lineIpaSegments == null
+              ? null
+              : Object.hashAll(lineIpaSegments!),
           ghostTranslation, // ★ ĐÃ THÊM
         );
 }

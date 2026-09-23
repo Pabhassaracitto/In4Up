@@ -1,6 +1,10 @@
 // lib/features/learn_by_heart/controllers/learn_by_heart_provider.dart
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import '../../../models/learning_activity.dart';
+import '../../../services/learning_activity_service.dart';
 import '../models/fsrs_models.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/recitation_category.dart';
@@ -109,6 +113,7 @@ class LearnByHeartProvider extends ChangeNotifier {
 
     _streak = await _storage.recordStudySession();
     await _storage.saveItems(_items);
+    _recordLearningSession(item.id);
     notifyListeners();
   }
 
@@ -128,7 +133,20 @@ class LearnByHeartProvider extends ChangeNotifier {
 
     _streak = await _storage.recordStudySession();
     await _storage.saveItems(_items);
+    _recordLearningSession(item.id);
     notifyListeners();
+  }
+
+  // ==================== HOME-STREAK-001 ====================
+
+  /// Ôn/đánh giá một bài LHB là hoạt động học thật cho "Nhịp điệu học tập".
+  /// Khoá theo id bài ⇒ đánh giá lại cùng bài trong ngày không đếm lặp.
+  void _recordLearningSession(String itemId) {
+    if (itemId.trim().isEmpty) return;
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.learnByHeart,
+      sourceKey: itemId.trim(),
+    ));
   }
 
   /// Bắt đầu học mới 1 bài (chuyển sang trạng thái learning)

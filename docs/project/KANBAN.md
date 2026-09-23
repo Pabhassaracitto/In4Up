@@ -80,6 +80,7 @@
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 2026-09-16: READ-TOOLBAR-001 fix + test invariant (`278a1d9`), SHELL-GEAR-001 seam log debug (`877c6a7`) — cả hai chờ nghiệm thu máy/logcat owner — PR #27 (CI analyze+locale xanh run 35022838520) |
+| HOME-QUICK-001 | Home: "Nạp tri thức nhanh" + icon ghi âm chưa hoạt động (stub) | ✅ done + CI xanh (chờ nghiệm thu máy) | flow STT thật dùng chung card + FAB (Sherpa offline trước, fallback STT hệ thống), transcript realtime → lưu WordList/ghi chú; "Gợi ý" rút entry THẬT ưu tiên thẻ đến kỳ; bỏ `_SttDialog` giả — run 35863346239 |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
@@ -2743,6 +2744,49 @@
 - **AT:** bấm mic (cả FAB lẫn card) → nói 1 câu tiếng Việt → thấy
   transcript; lưu → có trong WordList/Ghi chú; bấm "Gợi ý" → hiện 1 từ
   thật từ danh sách.
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Đã làm (2026-09-23, agent arena/01a0a6fc-in4up):**
+  - 3 điểm vào (nút "Ghi chú nói" của card, FAB mic của Home) đi chung
+    MỘT flow `QuickCaptureSheet`: transcript realtime → "Lưu vào WordList"
+    / "Lưu ghi chú". Đã xoá `_SttDialog` giả.
+  - KHÔNG tạo STT singleton thứ 2: seam `QuickCaptureSttSource` + 2 nguồn
+    thật — `SherpaQuickCaptureSource` (SherpaSttEngine offline +
+    AudioRecorder, ưu tiên khi có model đúng ngôn ngữ) và
+    `SystemQuickCaptureSource` (qua `SttServiceFacade` sẵn có, không
+    dispose singleton dùng chung). Ngôn ngữ theo
+    `QuickCaptureLanguagePolicy` — không hardcode EN khi máy chỉ có model
+    VI; engine không dùng được thì ghi rõ lý do ra UI.
+  - "Gợi ý": `QuickSuggestionPicker.pick` lấy entry THẬT từ WordList (ưu
+    tiên thẻ đến kỳ FSRS, rổ 5 thẻ đến kỳ sớm nhất), hiện word/IPA/nghĩa
+    + nút Nghe (TTS). WordList rỗng → empty state có hướng dẫn. Bỏ hẳn
+    text/ảnh random.
+  - Lưu WordList đi qua `VocabularyBridge.addContextual` (đúng đường
+    SelectionSaveSheet đang dùng) nên entry có ngữ cảnh nguồn + topic +
+    SRS như từ lưu tay; ghi chú nói lưu trong box `settings`
+    (`QuickCaptureNoteStore`), xem/xoá ngay trong sheet.
+  - i18n đủ 5 ngôn ngữ (en/hi/zh/zh_TW/si) trong
+    `priority_ui_overrides.dart`; rule #5 giữ nguyên (test locale chrome
+    vẫn xanh).
+- **Bằng chứng:** CI run 35863346239 (`app_analyze.yml`: `flutter analyze`
+  full app + rule 5 locale test) — conclusion `success`; commit 73246d2.
+  Test mới `test/home_quick_capture_test.dart`: 27 unit test (policy ngôn
+  ngữ, controller ưu tiên engine/fallback/lỗi có cấu trúc/gom transcript/
+  dừng sạch + release, picker, note store, saver trên Hive temp) + 1
+  widget test `HebbianInputCard`.
+  **Trung thực về phạm vi kiểm chứng:** sandbox không có Dart/Flutter SDK
+  và không workflow nào chạy `test/home_quick_capture_test.dart`
+  (`app_analyze.yml` chỉ `flutter analyze` + chạy riêng
+  `test/locale_chrome_no_vietnamese_test.dart`) ⇒ file test này mới được
+  **compile** xanh, CHƯA được thực thi. Luồng mic thật cần nghiệm thu trên
+  thiết bị. Đã soạn sẵn patch cho owner (app thiếu quyền `workflows`,
+  theo convention `docs/project/B3-APP-ANALYZE-TEST-STEP.patch`):
+  **`docs/project/B4-HOME-QUICK-TEST-STEP.patch`** — thêm step
+  `flutter test test/home_quick_capture_test.dart` + upload log vào
+  `app_analyze.yml`.
+- **Lịch sử:**
+  - 2026-09-16 | todo→doing | agent arena/01a0a6fc-in4up | card trong BATCH-0916
+  - 2026-09-23 | doing→done | agent arena/01a0a6fc-in4up | CI run 35863346239 xanh; nguyên nhân analyze đỏ trước đó: test `await` trên `dispose()` có kiểu `void` (8 chỗ) — đã sửa
+  - 2026-09-23 | mở PR #38 (`arena/01a0a6fc-in4up` → `arena/01a0251e-in4up`) | agent arena/01a0a6fc-in4up | merge base `7ccf568` để hết conflict: `home_screen.dart` giữ cả 2 phía ở khối import rồi bỏ `package:animations` (chỉ `OpenContainer` của FAB stub `_SttDialog` dùng — đúng stub lane này xoá); KANBAN lấy dòng BATCH-0915 mới của base + giữ dòng HOME-QUICK-001; `priority_ui_overrides.dart` auto-merge sạch (brace depth 0, 417 key, 0 trùng, đủ `'en'`)
 
 ### HOME-STUDIO-001 — Phòng Studio thiếu thẻ XEM (chưa đủ 7: NGHE, NÓI, XEM, ĐỌC, VIẾT, HIỂU, NHỚ)
 - **Triệu chứng (owner):** "Phòng Studio nên bổ sung đầy đủ: NGHE, NÓI,

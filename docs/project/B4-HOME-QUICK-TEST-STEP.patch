@@ -1,0 +1,25 @@
+diff --git a/.github/workflows/app_analyze.yml b/.github/workflows/app_analyze.yml
+index 8f44c4d..2c33738 100644
+--- a/.github/workflows/app_analyze.yml
++++ b/.github/workflows/app_analyze.yml
+@@ -76,3 +76,20 @@ jobs:
+           name: app-locale-test-log
+           path: locale_test.log
+           if-no-files-found: ignore
++
++      - name: Home quick capture test (HOME-QUICK-001)
++        id: home-quick-test
++        run: |
++          set +e
++          flutter test test/home_quick_capture_test.dart > home_quick_test.log 2>&1
++          code=$?
++          cat home_quick_test.log
++          exit $code
++
++      - name: Upload home quick capture test log
++        if: always()
++        uses: actions/upload-artifact@v4
++        with:
++          name: app-home-quick-test-log
++          path: home_quick_test.log
++          if-no-files-found: ignore

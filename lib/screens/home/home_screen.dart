@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
-import 'package:animations/animations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,8 @@ import '../../core/responsive/app_responsive.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
 import '../settings/stt_model_settings_screen.dart';
+import 'quick_capture/quick_capture_sheet.dart';
+import 'quick_capture/quick_suggestion_sheet.dart';
 import 'widgets/focus_streak_card.dart';
 import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
@@ -92,8 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             horizontal: horizontalPadding,
                             vertical: 12,
                           ),
-                          sliver: const SliverToBoxAdapter(
-                            child: HebbianInputCard(),
+                          sliver: SliverToBoxAdapter(
+                            child: HebbianInputCard(
+                              onStartVoiceCapture: _openQuickCapture,
+                              onShowSuggestion: _openSuggestion,
+                            ),
                           ),
                         ),
                         SliverPadding(
@@ -375,20 +381,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// HOME-QUICK-001 — MỘT flow STT thật dùng chung cho FAB microphone và
+  /// nút "Ghi chú nói" của card: ưu tiên Sherpa offline khi đã có model,
+  /// fallback speech service hệ thống; transcript realtime; dừng sạch khi
+  /// đóng sheet; lưu vào WordList hoặc ghi chú nói.
+  void _openQuickCapture() {
+    HapticFeedback.mediumImpact();
+    QuickCaptureSheet.show(context);
+  }
+
+  /// Nút "Gợi ý": hiện MỘT entry thật từ WordList (ưu tiên thẻ đến kỳ ôn).
+  void _openSuggestion() {
+    HapticFeedback.lightImpact();
+    QuickSuggestionSheet.show(context);
+  }
+
   Widget _buildOmniMicrophone() {
-    return OpenContainer(
-      transitionType: ContainerTransitionType.fade,
-      openBuilder: (context, _) => const _SttDialog(),
-      closedElevation: 6,
-      closedShape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(28)),
-      ),
-      closedColor: const Color(0xFF6C63FF),
-      closedBuilder: (context, openContainer) => FloatingActionButton(
-        onPressed: openContainer,
-        backgroundColor: const Color(0xFF6C63FF),
-        child: const Icon(Icons.mic, color: Colors.white, size: 30),
-      ),
+    return FloatingActionButton(
+      heroTag: 'home_omni_microphone',
+      onPressed: _openQuickCapture,
+      backgroundColor: const Color(0xFF6C63FF),
+      tooltip: context.uiText('Nạp tri thức nhanh'),
+      child: const Icon(Icons.mic, color: Colors.white, size: 30),
     );
   }
 }
@@ -548,41 +562,6 @@ class _GlobalMiniPlayer extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _SttDialog extends StatelessWidget {
-  const _SttDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF080B1A),
-      appBar: AppBar(
-        title: Text(l10n.quickNote),
-        backgroundColor: Colors.transparent,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.mic, size: 80, color: Color(0xFF6C63FF)),
-            const SizedBox(height: 24),
-            Text(
-              l10n.listening,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-            ),
-            const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.done),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

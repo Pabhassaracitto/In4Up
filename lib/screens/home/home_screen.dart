@@ -18,9 +18,21 @@ import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
 import 'widgets/memory_garden_card.dart';
 
+/// Chiều cao card Phòng Studio.
+///
+/// Cố định theo `mainAxisExtent` (thay vì `childAspectRatio`) để card không
+/// tràn khi 7 thẻ bị ép xuống 2 cột: icon 26 + tiêu đề 1 dòng + phụ đề 2 dòng
+/// ở cỡ chữ tối đa app cho phép (text scale bị kẹp ≤ 1.15 trong `main.dart`).
+const double _studioCardExtent = 108;
+
 class HomeScreen extends StatefulWidget {
+  /// Phòng Studio: 7 mode riêng — mỗi card mở đúng một sub-mode của shell.
+  /// NGHE/NÓI/XEM = listen sub-mode 0/1/2; ĐỌC/VIẾT = read sub-mode 0/1.
   final VoidCallback onNavigateToListen;
+  final VoidCallback onNavigateToSpeak;
+  final VoidCallback onNavigateToWatch;
   final VoidCallback onNavigateToRead;
+  final VoidCallback onNavigateToWrite;
   final VoidCallback onNavigateToUnderstand;
   final VoidCallback onNavigateToMemory;
   final VoidCallback onOpenAiChat;
@@ -28,7 +40,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.onNavigateToListen,
+    required this.onNavigateToSpeak,
+    required this.onNavigateToWatch,
     required this.onNavigateToRead,
+    required this.onNavigateToWrite,
     required this.onNavigateToUnderstand,
     required this.onNavigateToMemory,
     required this.onOpenAiChat,
@@ -309,20 +324,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        // 7 card (NGHE · NÓI · XEM · ĐỌC · VIẾT · HIỂU · NHỚ): 2 cột trên phone
+        // (2+2+2+1), 3–5 cột khi rộng (4+3 …). Chiều cao card cố định theo
+        // `mainAxisExtent` để không phụ thuộc tỉ lệ chữ → không overflow.
         final crossAxisCount = AppResponsive.adaptiveGridColumns(
           width,
           compact: width < 380 ? 1 : 2,
-          medium: 2,
+          medium: 3,
           expanded: 4,
-          large: 4,
+          large: 5,
         );
-        final childAspectRatio = width < 380
-            ? 2.2
-            : width < 600
-                ? 1.35
-                : width < 1024
-                    ? 1.55
-                    : 1.85;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,27 +348,51 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            GridView.count(
+            GridView(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: crossAxisCount,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: childAspectRatio,
+              padding: EdgeInsets.zero,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                mainAxisExtent: _studioCardExtent,
+              ),
               children: [
                 _BentoCard(
                   icon: Icons.headphones,
                   title: l10n.listen,
-                  subtitle: context.uiText('Nghe · Nói'),
+                  subtitle: l10n.listenLibrary,
                   color: const Color(0xFF6C63FF),
                   onTap: widget.onNavigateToListen,
                 ),
                 _BentoCard(
+                  icon: Icons.mic,
+                  title: context.uiText('NÓI'),
+                  subtitle: l10n.shadowingSubtitle,
+                  color: const Color(0xFFB388FF),
+                  onTap: widget.onNavigateToSpeak,
+                ),
+                _BentoCard(
+                  icon: Icons.smart_display,
+                  title: context.uiText('XEM'),
+                  subtitle: context.uiText('Thư viện video'),
+                  color: const Color(0xFFFFB300),
+                  onTap: widget.onNavigateToWatch,
+                ),
+                _BentoCard(
                   icon: Icons.menu_book,
                   title: l10n.read,
-                  subtitle: context.uiText('Đọc · Viết'),
+                  subtitle: l10n.readLibrary,
                   color: const Color(0xFF2196F3),
                   onTap: widget.onNavigateToRead,
+                ),
+                _BentoCard(
+                  icon: Icons.edit_note,
+                  title: context.uiText('VIẾT'),
+                  subtitle: l10n.readTextStudio,
+                  color: const Color(0xFF26C6DA),
+                  onTap: widget.onNavigateToWrite,
                 ),
                 _BentoCard(
                   icon: Icons.lightbulb,
@@ -447,20 +482,23 @@ class _BentoCard extends StatelessWidget {
                 color: color.withValues(alpha: 0.05),
               ),
             ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Center(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, color: color, size: 28),
+                    Icon(icon, color: color, size: 26),
                     const SizedBox(height: 8),
                     Text(
                       title,
                       textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: color,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.2,
                       ),
@@ -473,8 +511,9 @@ class _BentoCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: color.withValues(alpha: 0.82),
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w500,
+                        height: 1.25,
                       ),
                     ),
                   ],

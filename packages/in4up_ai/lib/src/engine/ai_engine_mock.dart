@@ -10,6 +10,13 @@ class AiEngineMock implements AiEngine {
   @override
   AiEngineState get state => AiEngineState.ready;
 
+  /// Mock trả lời tức thời (chỉ trễ 300ms mô phỏng) — không có request treo.
+  @override
+  bool get isBusy => false;
+
+  @override
+  Future<bool> recover({String? reason}) async => true;
+
   @override
   Future<bool> initialize({required String modelPath}) async {
     debugPrint('[AiEngineMock] initialized (mock)');

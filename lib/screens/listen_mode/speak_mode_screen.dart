@@ -77,10 +77,10 @@ class SpeakModeScreen extends StatelessWidget {
                   const _TipCard(
                     title: 'Luồng luyện nói đề xuất',
                     bullets: [
-                      '1. Chọn audio ở tab Nghe hoặc mở nhanh từ Công cụ nhanh.',
-                      '2. Tạo A-B loop cho câu muốn luyện.',
-                      '3. Chuyển sang tab Nói để shadowing và nghe lại bản ghi.',
-                      '4. Dùng YouGlish để đối chiếu phát âm tự nhiên.',
+                      '1. Chọn audio ở tab Nghe hoặc Công cụ nhanh — file được lưu vào thư viện app, không sợ bị dọn cache.',
+                      '2. Không bắt buộc A-B: luyện cả bài; nếu có lời (LRC) app tự gợi ý từng câu.',
+                      '3. Chỉnh tay A-B ngay trong tab Nói (±0.5s hoặc đặt tại vị trí phát).',
+                      '4. Nghe mẫu → Ghi âm → xem chấm điểm; YouGlish để đối chiếu phát âm.',
                     ],
                   ),
                   const SizedBox(height: 16),

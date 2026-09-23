@@ -2585,6 +2585,228 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'භාෂා කේතය හිස් විය නොහැක',
   },
 
+  // ── SHADOW-FILE-001 — persistent audio import + shadowing không bắt buộc AB
+  'Đang lưu audio vào thư viện của app…': {
+    'en': 'Saving audio into the app library…',
+    'hi': 'ऑडियो ऐप लाइब्रेरी में सहेजा जा रहा है…',
+    'zh': '正在将音频保存到应用曲库…',
+    'zh_TW': '正在將音訊儲存到應用程式曲庫…',
+    'si': 'ශ්‍රව්‍යය යෙදුම් පුස්තකාලයට සුරකිනවා…',
+  },
+  'Không lưu được file audio vào thư viện — vui lòng thử lại.': {
+    'en': 'Could not save the audio into the library — please try again.',
+    'hi': 'ऑडियो लाइब्रेरी में सहेजा नहीं जा सका — कृपया पुनः प्रयास करें।',
+    'zh': '无法将音频保存到曲库，请重试。',
+    'zh_TW': '無法將音訊儲存到曲庫，請重試。',
+    'si': 'ශ්‍රව්‍යය පුස්තකාලයට සුරැකීමට නොහැක — නැවත උත්සාහ කරන්න.',
+  },
+  'File đã bị hệ thống dọn cache — hãy chọn lại file để lưu vào thư viện.': {
+    'en':
+        'The system cleared this file from cache — pick it again to store it in the library.',
+    'hi':
+        'सिस्टम ने यह फ़ाइल कैश से हटा दी है — लाइब्रेरी में सहेजने के लिए फिर से चुनें।',
+    'zh': '系统已从缓存清除该文件——请重新选择以保存到曲库。',
+    'zh_TW': '系統已從快取清除此檔案——請重新選擇以儲存到曲庫。',
+    'si':
+        'මෙම ගොනුව පද්ධතිය විසින් කෑෂ් එකෙන් ඉවත් කළේය — පුස්තකාලයට සුරැකීමට නැවත තෝරන්න.',
+  },
+  'Một số file không lưu được — danh sách phát chỉ gồm các file đã lưu.': {
+    'en': 'Some files could not be saved — the playlist only keeps saved ones.',
+    'hi':
+        'कुछ फ़ाइलें सहेजी नहीं जा सकीं — प्लेलिस्ट में केवल सहेजी गई फ़ाइलें हैं।',
+    'zh': '部分文件无法保存——播放列表仅包含已保存的文件。',
+    'zh_TW': '部分檔案無法儲存——播放清單僅包含已儲存的檔案。',
+    'si':
+        'සමහර ගොනු සුරැකීමට නොහැකි විය — සුරැකුණු ගොනු පමණක් ලැයිස්තුවේ තබා ඇත.',
+  },
+  'Không phát được file này — vui lòng chọn lại audio.': {
+    'en': 'Could not play this file — please pick the audio again.',
+    'hi': 'यह फ़ाइल चलाई नहीं जा सकी — कृपया ऑडियो फिर से चुनें।',
+    'zh': '无法播放此文件——请重新选择音频。',
+    'zh_TW': '無法播放此檔案——請重新選擇音訊。',
+    'si': 'මෙම ගොනුව ධාවනය කළ නොහැක — ශ්‍රව්‍යය නැවත තෝරන්න.',
+  },
+  'Đã khôi phục audio từ bản lưu trong thư viện.': {
+    'en': 'Restored the audio from the copy stored in the library.',
+    'hi': 'लाइब्रेरी में सहेजी कॉपी से ऑडियो बहाल किया गया।',
+    'zh': '已从曲库保存的副本恢复音频。',
+    'zh_TW': '已從曲庫儲存的副本還原音訊。',
+    'si': 'පුස්තකාලයේ සුරැකි පිටපතෙන් ශ්‍රව්‍යය ප්‍රතිස්ථාපනය කළේය.',
+  },
+  'Không phát được file vừa chọn — vui lòng thử file khác.': {
+    'en': 'Could not play the file you just picked — please try another one.',
+    'hi': 'अभी चुनी गई फ़ाइल नहीं चल सकी — कृपया दूसरी फ़ाइल आज़माएँ।',
+    'zh': '无法播放刚选择的文件——请尝试其他文件。',
+    'zh_TW': '無法播放剛選擇的檔案——請嘗試其他檔案。',
+    'si': 'තෝරාගත් ගොනුව ධාවනය කළ නොහැක — වෙනත් ගොනුවක් උත්සාහ කරන්න.',
+  },
+  'File không còn tồn tại': {
+    'en': 'File no longer exists',
+    'hi': 'फ़ाइल अब मौजूद नहीं है',
+    'zh': '文件已不存在',
+    'zh_TW': '檔案已不存在',
+    'si': 'ගොනුව තවතුරු නොපවතී',
+  },
+  'File này đã bị hệ thống dọn cache hoặc đã bị xóa. Hãy chọn lại file — app sẽ lưu vào thư viện riêng để không bị mất nữa.':
+      {
+    'en':
+        'This file was cleared from cache by the system or deleted. Pick it again — the app will keep it in its own library so it cannot be lost.',
+    'hi':
+        'यह फ़ाइल सिस्टम द्वारा कैश से साफ़ या हटा दी गई है। फिर से चुनें — ऐप इसे अपनी लाइब्रेरी में सुरक्षित रखेगा।',
+    'zh':
+        '此文件已被系统从缓存清除或删除。请重新选择——应用会将其保存到自己的曲库，之后不会再丢失。',
+    'zh_TW':
+        '此檔案已被系統從快取清除或刪除。請重新選擇——應用程式會將其儲存到自己的曲庫，之後不會再遺失。',
+    'si':
+        'මෙම ගොනුව පද්ධතිය විසින් කෑෂ් එකෙන් ඉවත් කළේය හෝ මකා දමා ඇත. නැවත තෝරන්න — යෙදුම එය සිය පුස්තකාලයේ සුරක්ෂිතව තබයි.',
+  },
+  'Chọn lại file': {
+    'en': 'Pick file again',
+    'hi': 'फ़ाइल फिर से चुनें',
+    'zh': '重新选择文件',
+    'zh_TW': '重新選擇檔案',
+    'si': 'ගොනුව නැවත තෝරන්න',
+  },
+  'Xóa khỏi danh sách': {
+    'en': 'Remove from list',
+    'hi': 'सूची से हटाएँ',
+    'zh': '从列表移除',
+    'zh_TW': '從清單移除',
+    'si': 'ලැයිස්තුවෙන් ඉවත් කරන්න',
+  },
+  'Luyện cả bài hoặc chọn câu từ gợi ý — không cần đặt A-B trước.': {
+    'en':
+        'Practice the full track or pick a suggested sentence — no A-B loop needed first.',
+    'hi': 'पूरा ट्रैक अभ्यास करें या सुझाया वाक्य चुनें — पहले A-B लूप ज़रूरी नहीं।',
+    'zh': '可练习整首音频，或从建议的句子开始——无需先设置 A-B 循环。',
+    'zh_TW': '可練習整首音訊，或從建議的句子開始——無需先設定 A-B 循環。',
+    'si':
+        'සම්පූර්ණ ධ්වනිය පුහුණු වන්න හෝ යෝජිත වාක්‍යයක් තෝරන්න — A-B සැකසීම අවශ්‍ය නැත.',
+  },
+  'File âm thanh không còn tồn tại — hệ thống có thể đã dọn cache. Hãy chọn lại file ở tab Nghe (file sẽ được lưu vào thư viện của app để không bị mất nữa).':
+      {
+    'en':
+        'The audio file no longer exists — the system may have cleared its cache. Pick it again in the Listen tab (the app will store it in its own library).',
+    'hi':
+        'ऑडियो फ़ाइल अब मौजूद नहीं — सिस्टम ने कैश साफ़ किया हो सकता है। सुनें टैब में फिर से चुनें (ऐप अपनी लाइब्रेरी में सहेज लेगा)।',
+    'zh':
+        '音频文件已不存在——系统可能已清理其缓存。请在「听」页重新选择（应用会保存到自己的曲库）。',
+    'zh_TW':
+        '音訊檔案已不存在——系統可能已清理其快取。請在「聽」頁重新選擇（應用程式會儲存到自己的曲庫）。',
+    'si':
+        'ශ්‍රව්‍ය ගොනුව තවතුරු නොපවතී — පද්ධතිය කෑෂ් එක මැකුවා විය හැක. අහන්න ටැබයේ නැවත තෝරන්න (යෙදුම සිය පුස්තකාලයේ සුරකියි).',
+  },
+  'Cả bài': {
+    'en': 'Full track',
+    'hi': 'पूरा ट्रैक',
+    'zh': '整首',
+    'zh_TW': '整首',
+    'si': 'සම්පූර්ණ ධ්වනිය',
+  },
+  'Gợi ý theo câu (lời bài)': {
+    'en': 'Sentence suggestions (lyrics)',
+    'hi': 'वाक्य सुझाव (गीत के बोल)',
+    'zh': '按句建议（歌词）',
+    'zh_TW': '按句建議（歌詞）',
+    'si': 'වාක්‍ය යෝජනා (ගීත පද)',
+  },
+  'Dùng câu đang phát': {
+    'en': 'Use current sentence',
+    'hi': 'वर्तमान वाक्य उपयोग करें',
+    'zh': '使用当前句子',
+    'zh_TW': '使用目前句子',
+    'si': 'වත්මන් වාක්‍යය භාවිත කරන්න',
+  },
+  'Chỉnh tay đoạn A-B': {
+    'en': 'Fine-tune the A-B section',
+    'hi': 'A-B खंड को मैन्युअल समायोजित करें',
+    'zh': '手动微调 A-B 区间',
+    'zh_TW': '手動微調 A-B 區間',
+    'si': 'A-B කොටස අතින් සරිලෙන කරන්න',
+  },
+  'Đặt A tại vị trí phát': {
+    'en': 'Set A at playhead',
+    'hi': 'चल रही स्थिति पर A सेट करें',
+    'zh': '在播放位置设 A',
+    'zh_TW': '在播放位置設 A',
+    'si': 'වත්මන් ස්ථානයේ A සකසන්න',
+  },
+  'Đặt B tại vị trí phát': {
+    'en': 'Set B at playhead',
+    'hi': 'चल रही स्थिति पर B सेट करें',
+    'zh': '在播放位置设 B',
+    'zh_TW': '在播放位置設 B',
+    'si': 'වත්මන් ස්ථානයේ B සකසන්න',
+  },
+  'Xóa A-B': {
+    'en': 'Clear A-B',
+    'hi': 'A-B हटाएँ',
+    'zh': '清除 A-B',
+    'zh_TW': '清除 A-B',
+    'si': 'A-B ඉවත් කරන්න',
+  },
+  'Ghi âm': {
+    'en': 'Record',
+    'hi': 'रिकॉर्ड करें',
+    'zh': '录音',
+    'zh_TW': '錄音',
+    'si': 'පටිගත කරන්න',
+  },
+  'Chọn audio ở tab Nghe hoặc Thư viện để bắt đầu.': {
+    'en': 'Pick an audio in the Listen tab or Library to begin.',
+    'hi': 'शुरू करने के लिए सुनें टैब या लाइब्रेरी में ऑडियो चुनें।',
+    'zh': '请在「听」页或曲库中选择音频开始练习。',
+    'zh_TW': '請在「聽」頁或曲庫中選擇音訊開始練習。',
+    'si': 'ආරම්භ කිරීමට අහන්න ටැබයේ හෝ පුස්තකාලයේ ශ්‍රව්‍යයක් තෝරන්න.',
+  },
+  'Luyện cả bài hoặc theo đoạn A-B': {
+    'en': 'Practice the full track or an A-B section',
+    'hi': 'पूरा ट्रैक या A-B खंड अभ्यास करें',
+    'zh': '练习整首或 A-B 区间',
+    'zh_TW': '練習整首或 A-B 區間',
+    'si': 'සම්පූර්ණ ධ්වනිය හෝ A-B කොටස පුහුණු වන්න',
+  },
+  '1. Chọn audio ở tab Nghe hoặc Công cụ nhanh — file được lưu vào thư viện app, không sợ bị dọn cache.':
+      {
+    'en':
+        '1. Pick audio in the Listen tab or Quick actions — files are stored in the app library, safe from cache cleaning.',
+    'hi':
+        '1. सुनें टैब या क्विक एक्शन से ऑडियो चुनें — फ़ाइलें ऐप लाइब्रेरी में सुरक्षित रहती हैं।',
+    'zh': '1. 在「听」页或快捷工具选择音频——文件保存在应用曲库中，不怕被清缓存。',
+    'zh_TW': '1. 在「聽」頁或快捷工具選擇音訊——檔案儲存在應用程式曲庫中，不怕被清快取。',
+    'si':
+        '1. අහන්න ටැබයේ හෝ ඉක්මන් මෙවලම් වලින් ශ්‍රව්‍යය තෝරන්න — ගොනු යෙදුම් පුස්තකාලයේ සුරකිනි, කෑෂ් මැකීමට බිය නැත.',
+  },
+  '2. Không bắt buộc A-B: luyện cả bài; nếu có lời (LRC) app tự gợi ý từng câu.':
+      {
+    'en':
+        '2. A-B is optional: practice the full track; if lyrics (LRC) exist the app suggests each sentence.',
+    'hi':
+        '2. A-B वैकल्पिक: पूरा ट्रैक अभ्यास करें; बोल (LRC) होने पर ऐप हर वाक्य सुझाता है।',
+    'zh': '2. A-B 非必需：可练整首；如有歌词（LRC），应用会逐句给出建议。',
+    'zh_TW': '2. A-B 非必需：可練習整首；如有歌詞（LRC），應用程式會逐句給出建議。',
+    'si':
+        '2. A-B අත්‍යවශ්‍ය නැත: සම්පූර්ණ ධ්වනිය පුහුණු වන්න; ගීත පද (LRC) ඇත්නම් යෙදුම වාක්‍යයෙන් යෝජනා කරයි.',
+  },
+  '3. Chỉnh tay A-B ngay trong tab Nói (±0.5s hoặc đặt tại vị trí phát).': {
+    'en':
+        '3. Fine-tune A-B right inside the Speak tab (±0.5s or set at playhead).',
+    'hi':
+        '3. बोलें टैब के अंदर ही A-B समायोजित करें (±0.5s या चल रही स्थिति पर)।',
+    'zh': '3. 在「说」页直接微调 A-B（±0.5 秒或在播放位置设置）。',
+    'zh_TW': '3. 在「說」頁直接微調 A-B（±0.5 秒或在播放位置設定）。',
+    'si': '3. කතා කරන්න ටැබයේම A-B සරිලෙන කරන්න (±0.5s හෝ වත්මන් ස්ථානයේ).',
+  },
+  '4. Nghe mẫu → Ghi âm → xem chấm điểm; YouGlish để đối chiếu phát âm.': {
+    'en':
+        '4. Listen → Record → see the score; use YouGlish to compare pronunciation.',
+    'hi':
+        '4. सुनें → रिकॉर्ड करें → स्कोर देखें; उच्चारण तुलना हेतु YouGlish।',
+    'zh': '4. 听示范 → 录音 → 看评分；用 YouGlish 对比发音。',
+    'zh_TW': '4. 聽示範 → 錄音 → 看評分；用 YouGlish 對比發音。',
+    'si': '4. අහන්න → පටිගත කරන්න → ලකුණු බලන්න; උච්චාරණය සංසන්දනයට YouGlish.',
+  },
+
   // CABIN-ASR-002 — model Zipformer cho Cabin (thiếu model / fallback / mở
   // Quản lý Model AI). T2 phải có bản dịch thật, không để English trơ.
   'Chưa cài model Zipformer cho {value0}': {

@@ -8,6 +8,10 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import 'firebase_rest_auth.dart';
+
+export 'firebase_rest_auth.dart' show AppUser, FirebaseRestAuthException;
+
 class AuthService {
   static final AuthService _instance = AuthService._();
   factory AuthService() => _instance;
@@ -28,6 +32,17 @@ class AuthService {
   GoogleSignIn? _googleSignIn;
 
   // ─── Getters ──────────────────────────────────────────────
+  /// True khi FlutterFire plugin khả dụng (Android/iOS/macOS/Windows/Web).
+  /// False trên Linux (firebase_auth không có implementation native)
+  /// → mọi API auth đi qua REST fallback (FirebaseRestAuth).
+  bool get isPluginAuthAvailable {
+    try {
+      return FirebaseAuth.instance.app.name.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   User? get currentUser {
     try {
       return _auth.currentUser;
@@ -36,20 +51,63 @@ class AuthService {
     }
   }
 
-  bool get isSignedIn => currentUser != null;
-  bool get isAnonymous => currentUser?.isAnonymous ?? true;
-  String? get userId => currentUser?.uid;
-  String? get displayName => currentUser?.displayName;
-  String? get email => currentUser?.email;
-  String? get photoUrl => currentUser?.photoURL;
+  /// User hiện tại thống nhất (plugin hoặc REST) — dùng cho UI và sync.
+  AppUser? get currentUserInfo {
+    if (isPluginAuthAvailable) {
+      final u = currentUser;
+      if (u == null) return null;
+      return _appUserFromFirebase(u);
+    }
+    return FirebaseRestAuth().currentUser;
+  }
 
-  Stream<User?> get authStateChanges {
+  bool get isSignedIn => currentUserInfo != null;
+  bool get isAnonymous => currentUser?.isAnonymous ?? true;
+  String? get userId => currentUserInfo?.uid;
+  String? get displayName => currentUserInfo?.displayName;
+  String? get email => currentUserInfo?.email;
+  String? get photoUrl => currentUserInfo?.photoUrl;
+
+  Stream<AppUser?>? _unifiedAuthState;
+
+  /// Stream đăng nhập thống nhất: plugin nếu có, REST nếu không (Linux).
+  /// Mỗi subscriber nhận trạng thái hiện tại ngay khi đăng ký.
+  Stream<AppUser?> get authStateChanges {
+    if (_unifiedAuthState != null) return _unifiedAuthState!;
+    if (isPluginAuthAvailable) {
+      _unifiedAuthState = _auth
+          .authStateChanges()
+          .map<AppUser?>((u) => u == null ? null : _appUserFromFirebase(u));
+    } else {
+      _unifiedAuthState = FirebaseRestAuth().authStateChanges;
+    }
+    return _unifiedAuthState!;
+  }
+
+  /// ID token hiện hành (plugin hoặc REST backend) — dùng cho REST calls.
+  Future<String?> getIdToken() async {
+    if (isPluginAuthAvailable) {
+      try {
+        return await _auth.currentUser?.getIdToken();
+      } catch (e) {
+        debugPrint('⚠️ Auth: getIdToken error: $e');
+        return null;
+      }
+    }
     try {
-      return _auth.authStateChanges();
-    } catch (_) {
-      return const Stream.empty();
+      return await FirebaseRestAuth().getIdToken();
+    } catch (e) {
+      debugPrint('⚠️ Auth: REST getIdToken error: $e');
+      return null;
     }
   }
+
+  AppUser _appUserFromFirebase(User u) => AppUser(
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        photoUrl: u.photoURL,
+      );
 
   // ─── Flavor & Platform detection ──────────────────────────
   bool get _isDesktop =>
@@ -107,7 +165,7 @@ class AuthService {
   }
 
   // ─── Google Sign In (cross-platform) ─────────────────────
-  Future<User?> signInWithGoogle() async {
+  Future<AppUser?> signInWithGoogle() async {
     if (_isDesktop) {
       return _signInWithGoogleDesktop();
     }
@@ -115,7 +173,7 @@ class AuthService {
   }
 
   // ─── Mobile: dùng google_sign_in package ─────────────────
-  Future<User?> _signInWithGoogleMobile() async {
+  Future<AppUser?> _signInWithGoogleMobile() async {
     try {
       final serverId = _webClientId;
       debugPrint('🔥 Auth Mobile: flavor=$_flavor, serverClientId=$serverId');
@@ -155,7 +213,8 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      return _signInToFirebase(credential);
+      final user = await _signInToFirebase(credential);
+      return user == null ? null : _appUserFromFirebase(user);
     } on FirebaseAuthException catch (e, st) {
       debugPrint('❌ Auth Mobile: FirebaseAuthException ${e.code} ${e.message}\n$st');
       if (e.code == 'account-exists-with-different-credential') {
@@ -179,7 +238,7 @@ class AuthService {
   }
 
   // ─── Desktop: OAuth2 qua localhost + browser ─────────────
-  Future<User?> _signInWithGoogleDesktop() async {
+  Future<AppUser?> _signInWithGoogleDesktop() async {
     final clientId = _desktopClientIdEnv;
     final clientSecret = _desktopClientSecretEnv;
 
@@ -266,12 +325,28 @@ class AuthService {
         throw AuthException('Không nhận được ID token từ Google. Response: ${tokenResponse.body}');
       }
 
-      final credential = GoogleAuthProvider.credential(
-        idToken: idToken,
-        accessToken: accessToken,
-      );
+      if (isPluginAuthAvailable) {
+        final credential = GoogleAuthProvider.credential(
+          idToken: idToken,
+          accessToken: accessToken,
+        );
 
-      return _signInToFirebase(credential);
+        final user = await _signInToFirebase(credential);
+        return user == null ? null : _appUserFromFirebase(user);
+      }
+
+      // Linux (firebase_auth không có plugin native): đăng nhập Firebase qua
+      // REST. OAuth browser flow phía trên dùng chung với Windows — chỉ khác
+      // bước trao đổi credential cuối cùng.
+      debugPrint('🔥 Auth Desktop: Firebase plugin không khả dụng → REST signInWithIdp');
+      try {
+        return await FirebaseRestAuth().signInWithGoogleIdToken(
+          googleIdToken: idToken,
+          requestUri: redirectUri,
+        );
+      } on FirebaseRestAuthException catch (e) {
+        throw AuthException('Đăng nhập Firebase (REST) thất bại: ${e.message}');
+      }
     } on AuthException {
       rethrow;
     } catch (e, st) {
@@ -387,7 +462,16 @@ class AuthService {
     } catch (e) {
       debugPrint('❌ Auth: Google sign out error: $e');
     }
-    await _auth.signOut();
+    if (isPluginAuthAvailable) {
+      try {
+        await _auth.signOut();
+      } catch (e) {
+        debugPrint('❌ Auth: Firebase sign out error: $e');
+      }
+    } else {
+      // Linux: kết thúc phiên REST
+      await FirebaseRestAuth().signOut();
+    }
     debugPrint('✅ Auth: signed out flavor=$_flavor');
   }
 }

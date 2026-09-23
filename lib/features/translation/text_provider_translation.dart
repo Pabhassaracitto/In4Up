@@ -289,10 +289,6 @@ mixin TranslationMixin on ChangeNotifier {
     final lineSource = _lineSourceFor(line.content, source);
     final runId = _translationRunId;
     TranslationService().activeEngineNotifier.value = null;
-    final result = await TranslationService().translateText(
-      line.content,
-      sourceLang: lineSource.translationCode,
-      targetLang: target.translationCode,
     final (result, appliedSource) = await _translateLineContent(
       service,
       content: line.content,

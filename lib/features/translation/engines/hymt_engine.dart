@@ -122,6 +122,7 @@ class HyMtIsolateBackend implements HyMtBackend {
   Isolate? _isolate;
   SendPort? _sendPort;
   ReceivePort? _receivePort;
+  RawReceivePort? _exitPort;
   bool _loading = false;
   bool _dead = false;
   Object? _deathError;
@@ -198,7 +199,7 @@ class HyMtIsolateBackend implements HyMtBackend {
       final msg = await done.future;
       if (msg is HyMtReply) {
         if (msg.error != null) {
-          throw HyMtRuntimeFailure(HyMtErrorCode.requestFailed, msg.error);
+          throw HyMtRuntimeFailure(HyMtErrorCode.requestFailed, msg.error!);
         }
         return msg.output;
       }
@@ -232,9 +233,10 @@ class HyMtIsolateBackend implements HyMtBackend {
       // Listener gắn vào đúng isolate instance — exit cũ của isolate
       // đã bị kill (do dispose) không làm "chết nhầm" runtime mới.
       final thisIsolate = _isolate!;
-      thisIsolate.addOnExitListener((Object? error) {
+      _exitPort = RawReceivePort((Object? error) {
         if (identical(_isolate, thisIsolate)) _markDead(error);
       });
+      thisIsolate.addOnExitListener(_exitPort!.sendPort);
 
       final ready = Completer<SendPort>();
       final loadDone = Completer<bool>();
@@ -273,6 +275,9 @@ class HyMtIsolateBackend implements HyMtBackend {
     _sendPort = null;
     final port = _receivePort;
     _receivePort = null;
+    final exitPort = _exitPort;
+    _exitPort = null;
+    exitPort?.close();
     if (isolate != null) isolate.kill(priority: Isolate.immediate);
     port?.close();
   }
@@ -539,7 +544,7 @@ class HyMtEngine extends TranslationEngine {
   @override
   Future<bool> isAvailable() async {
     if (!await hasModel) return false;
-    return AiNativeBindings.tryLoad() != null || _runtime?.isAlive ?? false;
+    return AiNativeBindings.tryLoad() != null || (_runtime?.isAlive ?? false);
   }
 
   static Future<HyMtOfflinePreference> loadPreference() async {

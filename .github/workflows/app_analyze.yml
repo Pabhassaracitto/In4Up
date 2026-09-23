@@ -60,6 +60,9 @@ jobs:
           path: analyze.log
           if-no-files-found: ignore
 
+      - name: Linux REST auth stream regression tests
+        run: flutter test test/firebase_rest_auth_stream_test.dart
+
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
         id: locale-test
         run: |

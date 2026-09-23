@@ -65,7 +65,7 @@ class FirebaseRestAuth {
   static const String _sessionKey = 'session';
   static const Duration _requestTimeout = Duration(seconds: 30);
 
-  final List<StreamController<AppUser?>> _subscribers = [];
+  final Set<MultiStreamController<AppUser?>> _subscribers = {};
 
   AppUser? _user;
   String? _idToken;
@@ -89,19 +89,22 @@ class FirebaseRestAuth {
 
   /// Stream giống FirebaseAuth.authStateChanges: mỗi subscriber nhận trạng
   /// thái hiện tại ngay khi đăng ký, sau đó nhận mọi thay đổi.
-  Stream<AppUser?> get authStateChanges {
-    late final StreamController<AppUser?> controller;
-    controller = StreamController<AppUser?>(
-      onListen: () {
-        controller.add(_user);
-        _subscribers.add(controller);
-      },
-      onCancel: () {
+  ///
+  /// AuthService cache stream này, dùng chung cho sync và StreamBuilder ở Home.
+  /// StreamController thường chỉ cho listen một lần, kể cả sau khi cancel.
+  /// Stream.multi tạo controller riêng cho MỖI listener, nên hỗ trợ cả nhiều
+  /// listener đồng thời và mở lại Home. Không dùng asBroadcastStream(): nó
+  /// không phát lại trạng thái hiện tại cho listener đăng ký muộn.
+  late final Stream<AppUser?> authStateChanges = Stream<AppUser?>.multi(
+    (controller) {
+      _subscribers.add(controller);
+      controller.onCancel = () {
         _subscribers.remove(controller);
-      },
-    );
-    return controller.stream;
-  }
+      };
+      controller.add(_user);
+    },
+    isBroadcast: true,
+  );
 
   void _emit(AppUser? user) {
     for (final c in List.of(_subscribers)) {

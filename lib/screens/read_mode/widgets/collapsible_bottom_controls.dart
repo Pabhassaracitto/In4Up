@@ -4,22 +4,36 @@
 // Tách khỏi `read_mode_screen.dart` để có seam test được (lane A4 —
 // BATCH-0915).
 //
-// READ-TOOLBAR-001: thanh đáy "đen thui nhưng vẫn che chữ" khi cuộn trên một
-// số GPU Android (Mali/Adreno). Nghi phạm theo card: cụm layer `ClipRect` +
-// `AnimatedSlide` offset phân số (0, 1.2) + `AnimatedOpacity` chồng nhau bị
-// render thành khối đen. Fix theo đúng thứ tự ít rủi ro của card:
-//   1. BỎ `ClipRect` tường minh — trạng thái ẩn giờ không còn lớp nào vẽ ra
-//      ngoài slot (offset đúng 1.0 chiều cao + opacity 0 → con bị dời hết ra
-//      ngoài và không vẽ); khi Focus gập chiều cao, `RenderAnimatedSize` tự
-//      clip hardEdge trong lúc animate size (verify source Flutter stable:
-//      paint() pushClipRect khi `_hasVisualOverflow` — đã đọc
-//      rendering/animated_size.dart).
-//   2. Offset ẩn bị CHẶN ở (0, 1.0) — không overshoot > 1 chiều cao con
-//      (offset phân số 1.2 tạo pixel vẽ ngoài vùng clip trên GPU yếu).
-// Không đổi hành vi: smart-hide giữ nguyên chỗ layout (không nhảy chữ),
-// Focus mode vẫn gập về 0 (hợp đồng READ-FOCUS-001).
-// Nếu máy owner VẪN đen: bước kế tiếp theo card là thay AnimatedSize bằng
-// build điều kiện (hy sinh animation gập) — xem KANBAN READ-TOOLBAR-001.
+// READ-TOOLBAR-001 (v2): thanh đáy "đen thui nhưng vẫn che chữ" khi cuộn trên
+// một số GPU Android (Mali/Adreno).
+//
+// Owner AT sau v1 (commit 278a1d9 bỏ ClipRect + chặn offset ẩn 1.0):
+//   "Khi kéo cuộn lên thì ẩn các icon chức năng… nhưng vẫn còn bị khối đen che chữ"
+//
+// Phân tích & nguyên nhân v1 chưa đủ:
+//   - Icon ẩn đúng -> logic state/cuộn hoạt động đúng.
+//   - Khối đen vẫn còn -> nghi phạm duy nhất còn lại là các widget ANIMATION
+//     (`AnimatedSize`, `AnimatedSlide`, `AnimatedOpacity`). Trong đó, `AnimatedOpacity`
+//     và `AnimatedSize` tạo `RenderOpacity` / layer clipping trung gian
+//     (saveLayer với alpha biến thiên qua nhiều frame) khiến GPU Mali/Adreno render
+//     thành khối đen (black rectangle).
+//
+// Fix v2 (theo đúng Bước 2 của card READ-TOOLBAR-001):
+//   "Thay AnimatedSize bằng build điều kiện — hy sinh animation gập, giữ đúng chức năng"
+//   Mở rộng nhất quán: LOẠI BỎ HẲN TOÀN BỘ widget animation (AnimatedSize,
+//   AnimatedSlide, AnimatedOpacity, ClipRect) trên đường ẩn/hiện/gập:
+//   1. Focus mode (`collapsed == true`): build điều kiện trả về
+//      `SizedBox(width: double.infinity, height: 0)` — tức thì, gập về 0
+//      (hợp đồng READ-FOCUS-001).
+//   2. Smart-hide (`visible == false`): bọc trong `Opacity(opacity: 0)` kèm
+//      `IgnorePointer(ignoring: true)` — theo cơ chế `RenderOpacity`, khi opacity = 0
+//      nó skip paint hoàn toàn (không gọi child.paint, không tạo saveLayer rác);
+//      đồng thời giữ nguyên chiều cao layout (không nhảy chữ khi đọc) và
+//      không bắt tap của nút bên dưới.
+//   3. Trạng thái hiện (`visible == true`): vẽ trực tiếp (opacity 1.0) không qua
+//      bất kỳ layer animation hay clipping nào.
+//
+// Chấp nhận: ẩn/hiện/gập diễn ra tức thời (không còn hiệu ứng trượt/mờ).
 import 'package:flutter/material.dart';
 
 class CollapsibleBottomControls extends StatelessWidget {
@@ -30,7 +44,7 @@ class CollapsibleBottomControls extends StatelessWidget {
     required this.child,
   });
 
-  /// Smart-hide khi cuộn: `false` = ẩn (slide xuống + mờ đi, VẪN chiếm chỗ
+  /// Smart-hide khi cuộn: `false` = ẩn (opacity 0 + IgnorePointer, VẪN chiếm chỗ
   /// layout — tránh văn bản nhảy khi đọc).
   final bool visible;
 
@@ -39,31 +53,18 @@ class CollapsibleBottomControls extends StatelessWidget {
 
   final Widget child;
 
-  /// Offset trạng thái ẩn. PHẢI ≤ 1.0 chiều cao con — overshoot phân số
-  /// (1.2 cũ) là nghi phạm khối đen READ-TOOLBAR-001. Invariant được khoá
-  /// bởi `test/read_bottom_controls_visibility_test.dart`.
-  static const Offset hiddenOffset = Offset(0, 1.0);
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: collapsed
-          ? const SizedBox(width: double.infinity, height: 0)
-          // KHÔNG bọc ClipRect ở đây nữa (fix #1 READ-TOOLBAR-001): một lớp
-          // clip/saveLayer ít chồng lên opacity layer trên GPU yếu.
-          : AnimatedSlide(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              offset: visible ? Offset.zero : hiddenOffset,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: visible ? 1.0 : 0.0,
-                child: child,
-              ),
-            ),
+    if (collapsed) {
+      return const SizedBox(width: double.infinity, height: 0);
+    }
+
+    return IgnorePointer(
+      ignoring: !visible,
+      child: Opacity(
+        opacity: visible ? 1.0 : 0.0,
+        child: child,
+      ),
     );
   }
 }

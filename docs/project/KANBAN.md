@@ -84,6 +84,11 @@
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
+| READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
+| READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | 🔄 doing | `lib/services/ipa_resolver.dart` (IpaValidator + trích definition lazy), `phoneticSource` additive, selector Settings→IPA; CI = run của commit này |
+| READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | 📋 proposed | nền: `activeLineNotifier` + IpaSegment (P2); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
+| READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | 📋 proposed | 2 toggle opt-in mặc định OFF trong Settings→IPA; SRS fade qua `VocabularyBridge.findByWord` |
+| READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
 
 
 ## Card chi tiết
@@ -2899,3 +2904,89 @@
   (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
   (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
+- **Lịch sử:**
+
+### READ-IPA-001 — IPA xếp chồng Read Mode (toggle 3 trạng thái)
+
+- **Trạng thái:** ✅ done — **Bằng chứng:** commit `e1a4382`; App Analyze
+  + Locale Test run `35687736425` 🟢 (2026-09-22/23).
+- **Nội dung đã ship (P1):**
+  - `IpaDisplayMode` hidden → activeLine → all; toggle bottom-bar
+    cạnh nút dịch (`Icons.abc`, cyan `0xFF4DD0E1`) — KHÔNG nằm ColorMode.
+  - Dòng IPA xếp chồng dưới dòng chữ: fontSize × 0.75, height 1.4,
+    nằm trong `originalWidget` nên chạy cả stacked lẫn side-by-side.
+  - `LineIpaService`: eligibility ASCII từng dòng (chữ lạ → bỏ cả dòng),
+    pipeline CMU → G2P tái dùng `PhonemeAnalyzer`, cache + `clearCache()`
+    khi engine CMU nạp xong (G2P cũ bị thay bằng CMU).
+  - Settings → "Phiên âm / IPA": selector 3 chip + persist
+    `ipa_display_mode`; i18n 'Dòng hiện tại'/'Toàn văn bản'
+    (priority 5 locale + legacy JSON).
+- **Lịch sử:**
+  - 2026-09-22 | 04:39 | created→done | ai | commit e1a4382 + run 35687736425 xanh
+
+### READ-IPA-002 — Nguồn IPA khi lưu từ (waterfall + provenance)
+
+- **Trạng thái:** 🔄 doing — **Bằng chứng:** code P2 trong commit này
+  (CI theo run kế tiếp của branch); test `test/ipa_resolver_test.dart`
+  (chưa chạy local — không có SDK, oracle = App Analyze).
+- **Nội dung (P2 — ADR-0005 §2):**
+  - `IpaResolver`: auto = MDX → CMU → G2P → bỏ trống; dict = chỉ MDX;
+    g2p = bỏ MDX; off = không điền. Không prompt từng lần lưu.
+  - `IpaValidator` chặn respelling/rác; normalize bọc `/.../`.
+  - Trích IPA lazy từ `DictEntry.definition` lúc lookup — KHÔNG sửa
+    `mdx_parser` (DICT-001 sở hữu; ghi chú read-time extract =
+    candidate cho import-time extract của họ).
+  - `WordEntry.phoneticSource` additive (`mdx|cmu|g2p|user`),
+    EditSheet sửa tay → `user`; smart-fill không bao giờ đè.
+  - Hook `_scheduleIpaResolve` trong `addWord` / `addWithAutoClassify`
+    (async, re-check sau await — không đè IPA user gõ trong lúc tra).
+  - UI: selector "Nguồn IPA khi lưu" (auto/dict/g2p/off) trong
+    Settings → IPA; chip nguồn ở `VocabEntryMetaInfo` + preview IPA
+    từ MDX (kèm chip MDX) trong `WordActionsSheet` trước khi lưu.
+  - i18n: 'Nguồn IPA khi lưu', hint, 'Tự động', 'Từ điển', 'Bạn'
+    → priority 5 locale + legacy JSON (bỏ 2 entry chết của P1 khỏi
+    JSON — runtime vẫn qua priority).
+- **Lịch sử:**
+  - 2026-09-23 | 16:05 | created→doing | ai | code P2 + ADR-0005 + card này
+
+### READ-IPA-003 — Ruby/interlinear IPA cho dòng active + nhấn nháy nhịp
+
+- **Trạng thái:** 📋 proposed.
+- **Nội dung dự kiến (P3):**
+  - `_LineData`携带 `IpaSegment[]` (surface + ipa + phonemes);
+    dòng current/đang phát render word-chip 2 tầng (chữ × fontSize,
+    IPA × 0.75 cyan) thay vì SelectableText — tap chip = `tp.speak(word)`.
+  - Nhấn nháy: đổi độ đậm/weight IPA + tint chip theo
+    `isSpeaking || isPlaybackActive` (cấp DÒNG — không karaoke từng
+    từ: word-timestamp đã bị strip, ADR-0005 §3).
+  - Không đụng colorMode word-chip đang hiển thị (fallback flat khi
+    ColoredTextWidget đang chiếm dòng).
+- **Lịch sử:**
+  - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P3/ADR-0005 §5
+
+### READ-IPA-004 — Tô màu phoneme + legend + mờ IPA từ đã thuộc
+
+- **Trạng thái:** 📋 proposed.
+- **Nội dung dự kiến (P4):**
+  - Toggle `ipaColorByType` (default OFF): phoneme span theo loại —
+    nguyên âm vàng / phụ âm sky-blue / đôi nguyên âm tím (derived
+    Okabe-Ito, test trên nền `#1A1A2E`, không đụng bảng POS/CEFR),
+    stress `ˈˌ` amber đậm; `CMUDictionaryService.getPhonemeType`
+    phân loại từng phoneme (stress + diphthong set trước).
+  - Legend 3 chấm trong Settings→IPA (widget riêng, không nhập
+    `_LegendPanel` vì keying khác — ColorMode vs ipaColorByType).
+  - Toggle `ipaFadeKnown` (default OFF): word đã `MasteryZone.mastered`
+    (qua `VocabularyBridge.findByWord`) → IPA render alpha ~0.3.
+- **Lịch sử:**
+  - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P4/ADR-0005 §4
+
+### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
+
+- **Trạng thái:** 📋 proposed — **KHÔNG code trong đợt này.**
+- **Nội dung:** G2P rules VI (orthography→IPA + thanh) + Pali theo
+  dữ liệu đóng gói; đi cùng gói từ điển VI/Pali đã có trong roadmap
+  hiển thị. Theo ADR-0005 §6: cần ADR riêng cho chất lượng phiên âm
+  từng vùng + asset content — tách đợt sau (tương tự READ-630-05
+  chờ foundation).
+- **Lịch sử:**
+  - 2026-09-23 | 16:05 | created→proposed | ai | ADR-0005 §6 — blocked on packaged VI/Pali dicts

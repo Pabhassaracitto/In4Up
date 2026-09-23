@@ -1650,6 +1650,9 @@
   "Mã ngôn ngữ phải từ 2 đến 4 ký tự (vd: pi, lo, my)": "Language code must be 2 to 4 characters (e.g. pi, lo, my)",
   "Mã ngôn ngữ chỉ được chứa chữ cái Latin (a-z)": "Language code may only contain Latin letters (a-z)",
   "Mã ngôn ngữ không được để trống": "Language code cannot be empty",
-  "Dòng hiện tại": "Current line",
-  "Toàn văn bản": "Whole text"
+  "Nguồn IPA khi lưu": "IPA source when saving",
+  "Tự điền IPA cho từ lưu mới — không hỏi lại từng lần.": "Auto-fills IPA for newly saved words — never asks again.",
+  "Tự động": "Automatic",
+  "Từ điển": "Dictionary",
+  "Bạn": "You"
 }

@@ -10,6 +10,8 @@ import '../features/translation/glossary/glossary_store.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
+import '../services/ipa_resolver.dart';
+import '../services/storage_service.dart';
 import '../services/vocab_classifier.dart';
 import '../services/vocab_sync_service.dart';
 
@@ -34,6 +36,7 @@ class VocabularyProvider extends ChangeNotifier {
   final Set<String> _customTopics = {};
 
   final VocabSyncService _sync = VocabSyncService();
+  final StorageService _storage = StorageService();
   bool _isSyncEnabled = false;
   StreamSubscription<User?>? _authSub;
   bool _isEnablingSync = false;
@@ -517,6 +520,55 @@ class VocabularyProvider extends ChangeNotifier {
     _words.add(w);
     _saveWord(w);
     notifyListeners();
+    // READ-IPA-002: điền IPA còn trống theo waterfall (không đè dữ liệu có).
+    _scheduleIpaResolve(w.id);
+  }
+
+  /// Điền IPA cho entry [id] nếu vẫn đang trống — theo mode
+  /// `ipa_save_source` (auto/dict/g2p/off). Async (tra từ điển SQLite +
+  /// CMU), không block luồng lưu; nếu user gõ tay trước khi resolve xong
+  /// thì resolve thấy đã có giá trị → bỏ (invariant không ghi đè).
+  void _scheduleIpaResolve(String id) {
+    final mode = IpaSaveMode.fromName(_storage.getIpaSaveSource());
+    if (mode == IpaSaveMode.off) return;
+    WordEntry? w;
+    for (final e in _words) {
+      if (e.id == id) {
+        w = e;
+        break;
+      }
+    }
+    if (w == null || (w.phonetic ?? '').trim().isNotEmpty) return;
+    unawaited(_resolveIpaFor(id, mode));
+  }
+
+  Future<void> _resolveIpaFor(String id, IpaSaveMode mode) async {
+    WordEntry? w;
+    for (final e in _words) {
+      if (e.id == id) {
+        w = e;
+        break;
+      }
+    }
+    if (w == null || (w.phonetic ?? '').trim().isNotEmpty) return;
+
+    final res = await IpaResolver.resolve(w.word, mode: mode);
+    if (res == null) return;
+
+    // Re-check sau await: user có thể đã gõ tay / xóa từ trong lúc tra.
+    WordEntry? cur;
+    for (final e in _words) {
+      if (e.id == id) {
+        cur = e;
+        break;
+      }
+    }
+    if (cur == null || (cur.phonetic ?? '').trim().isNotEmpty) return;
+    cur.phonetic = res.ipa;
+    cur.phoneticSource = res.source;
+    cur.updatedAt = DateTime.now();
+    _saveWord(cur);
+    notifyListeners();
   }
 
   void addWords(List<WordEntry> words) {
@@ -536,6 +588,7 @@ class VocabularyProvider extends ChangeNotifier {
     required String text,
     String meaning = '',
     String? phonetic,
+    String? phoneticSource,
     VocabContext? context,
     VocabularyType? forceType,
     String language = 'en',
@@ -554,6 +607,7 @@ class VocabularyProvider extends ChangeNotifier {
       if ((phonetic ?? '').trim().isNotEmpty &&
           (existing.phonetic ?? '').trim().isEmpty) {
         existing.phonetic = phonetic!.trim();
+        existing.phoneticSource = phoneticSource;
         changed = true;
       }
       if (meaning.trim().isNotEmpty && existing.meaning.trim().isEmpty) {
@@ -572,6 +626,9 @@ class VocabularyProvider extends ChangeNotifier {
       if (changed) {
         _saveWord(existing);
         notifyListeners();
+        if ((existing.phonetic ?? '').trim().isEmpty) {
+          _scheduleIpaResolve(existing.id);
+        }
       }
       return existing;
     }
@@ -583,6 +640,7 @@ class VocabularyProvider extends ChangeNotifier {
       word: normalized,
       meaning: meaning,
       phonetic: phonetic,
+      phoneticSource: phoneticSource,
       vocabType: type,
       contexts: context != null ? [context] : [],
       isUnborn: meaning.trim().isEmpty,
@@ -593,6 +651,7 @@ class VocabularyProvider extends ChangeNotifier {
     _words.add(entry);
     _saveWord(entry);
     notifyListeners();
+    _scheduleIpaResolve(entry.id);
     return entry;
   }
 
@@ -701,6 +760,10 @@ class VocabularyProvider extends ChangeNotifier {
       }
       if (phonetic != null) {
         w.phonetic = phonetic;
+        // Sửa tay trong EditSheet/bulk-edit → nguồn là 'user';
+        // xóa trắng → bỏ cả nguồn (lần lưu sau resolver điền lại theo mode).
+        w.phoneticSource =
+            phonetic.trim().isEmpty ? null : 'user';
         if (phonetic.trim().isNotEmpty) w.isUnborn = false;
       }
       if (example != null) {

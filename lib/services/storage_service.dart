@@ -137,6 +137,22 @@ class StorageService {
     return getSetting<String>('ipa_save_source', defaultValue: 'auto') ?? 'auto';
   }
 
+  Future<void> saveIpaColorByType(bool value) async {
+    await saveSetting('ipa_color_by_type', value);
+  }
+
+  bool getIpaColorByType() {
+    return getSetting<bool>('ipa_color_by_type', defaultValue: false) ?? false;
+  }
+
+  Future<void> saveIpaFadeKnown(bool value) async {
+    await saveSetting('ipa_fade_known', value);
+  }
+
+  bool getIpaFadeKnown() {
+    return getSetting<bool>('ipa_fade_known', defaultValue: false) ?? false;
+  }
+
   Future<void> saveShowTranslation(bool show) async {
     await saveSetting('show_translation', show);
   }

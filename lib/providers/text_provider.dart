@@ -153,6 +153,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
   IpaDisplayMode _ipaDisplayMode = IpaDisplayMode.hidden;
+  bool _ipaColorByType = false; // READ-IPA-004: tô màu phoneme (default OFF)
+  bool _ipaFadeKnown = false; // READ-IPA-004: mờ IPA từ đã thuộc (OFF)
   bool _phonemeEngineLoading = false;
   GrammarHighlightSettings _grammarSettings =
       GrammarHighlightSettings.defaults();
@@ -298,13 +300,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         orElse: () => ColorMode.none,
       );
 
-      // Restore IPA display mode (READ-IPA-001)
+      // Restore IPA display mode (READ-IPA-001) + options (READ-IPA-004)
       final savedIpaMode = _storage.getIpaDisplayMode();
       _ipaDisplayMode = IpaDisplayMode.values.firstWhere(
         (m) => m.name == savedIpaMode,
         orElse: () => IpaDisplayMode.hidden,
       );
-      if (_ipaDisplayMode != IpaDisplayMode.hidden) {
+      _ipaColorByType = _storage.getIpaColorByType();
+      _ipaFadeKnown = _storage.getIpaFadeKnown();
+      if (_ipaDisplayMode != IpaDisplayMode.hidden || _ipaColorByType) {
         _ensurePhonemeEngine();
       }
 
@@ -970,6 +974,29 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== IPA DISPLAY (READ-IPA-001) ====================
 
   IpaDisplayMode get ipaDisplayMode => _ipaDisplayMode;
+  bool get ipaColorByType => _ipaColorByType;
+  bool get ipaFadeKnown => _ipaFadeKnown;
+
+  /// READ-IPA-004: tô màu phoneme theo loại (vowel/consonant/diphthong).
+  /// Bật khi IPA mode đang mở → ensure engine CMU (phoneme types).
+  void setIpaColorByType(bool value) {
+    if (_ipaColorByType == value) return;
+    _ipaColorByType = value;
+    _storage.saveIpaColorByType(value);
+    if (value && _ipaDisplayMode != IpaDisplayMode.hidden) {
+      _ensurePhonemeEngine();
+    }
+    notifyListeners();
+  }
+
+  /// READ-IPA-004: mờ IPA của từ đã MasteryZone.mastered.
+  /// Không cần engine — chỉ đổi alpha lúc render (qua VocabularyBridge).
+  void setIpaFadeKnown(bool value) {
+    if (_ipaFadeKnown == value) return;
+    _ipaFadeKnown = value;
+    _storage.saveIpaFadeKnown(value);
+    notifyListeners();
+  }
 
   /// Chuyển IPA mode + persist. Khi bật (không phải hidden) ensure
   /// CMU Dict đã load — lần compute đầu có thể ra G2P (thấp chất lượng

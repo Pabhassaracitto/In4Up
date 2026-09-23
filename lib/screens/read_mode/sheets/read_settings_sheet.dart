@@ -12,6 +12,7 @@ import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+import '../../../services/ipa_styling.dart';
 import '../../../services/storage_service.dart';
 import '../services/playback_controller.dart';
 
@@ -147,6 +148,8 @@ class _SettingsContent extends StatelessWidget {
                   _IpaModeSelector(tp: tp),
                   const SizedBox(height: 16),
                   const _IpaSaveSourceSection(),
+                  const SizedBox(height: 12),
+                  _IpaColorOptions(tp: tp),
 
                   const SizedBox(height: 24),
 
@@ -749,6 +752,64 @@ class _IpaSaveSourceSectionState extends State<_IpaSaveSourceSection> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Toggle tô màu phoneme + mờ IPA từ đã thuộc — READ-IPA-004 (ADR-0005 §4).
+/// Cả hai default OFF; legend hiện ra khi bật tô màu (không nhập
+/// [_LegendPanel] — keying khác: ipaColorByType ≠ colorMode).
+class _IpaColorOptions extends StatelessWidget {
+  final TextProvider tp;
+  const _IpaColorOptions({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            title: const Text('Tô màu phoneme',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            value: tp.ipaColorByType,
+            activeThumbColor: const Color(0xFFF0E442),
+            onChanged: tp.setIpaColorByType,
+          ),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+          SwitchListTile(
+            title: const Text('Mờ IPA từ đã thuộc',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            value: tp.ipaFadeKnown,
+            activeThumbColor: const Color(0xFF4DD0E1),
+            onChanged: tp.setIpaFadeKnown,
+          ),
+          if (tp.ipaColorByType) ...[
+            Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _Chip(
+                      color: IpaStyling.stressColor, label: 'Trọng âm'),
+                  _Chip(color: IpaStyling.vowelColor, label: 'Nguyên âm'),
+                  _Chip(
+                      color: IpaStyling.consonantColor, label: 'Phụ âm'),
+                  _Chip(
+                      color: IpaStyling.diphthongColor,
+                      label: 'Đôi nguyên âm'),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

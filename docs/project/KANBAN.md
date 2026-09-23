@@ -87,7 +87,7 @@
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | 🔄 doing | IpaSegment trong LineIpaService + interlinear render; karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng); CI = run của commit này |
-| READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | 📋 proposed | 2 toggle opt-in mặc định OFF trong Settings→IPA; SRS fade qua `VocabularyBridge.findByWord` |
+| READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | 🔄 doing | IpaStyling spans + 2 toggle opt-in OFF trong Settings→IPA; fade qua `VocabularyBridge.findByWord`; CI = run của commit này |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
 
 
@@ -2968,7 +2968,8 @@
 
 ### READ-IPA-004 — Tô màu phoneme + legend + mờ IPA từ đã thuộc
 
-- **Trạng thái:** 📋 proposed.
+- **Trạng thái:** 🔄 doing — **Bằng chứng:** IpaStyling + toggle/legend
+  trong commit này (CI theo run kế tiếp).
 - **Nội dung dự kiến (P4):**
   - Toggle `ipaColorByType` (default OFF): phoneme span theo loại —
     nguyên âm vàng / phụ âm sky-blue / đôi nguyên âm tím (derived
@@ -2981,6 +2982,7 @@
     (qua `VocabularyBridge.findByWord`) → IPA render alpha ~0.3.
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P4/ADR-0005 §4
+  - 2026-09-23 | 16:35 | proposed→doing | ai | code P4 (IpaStyling + toggles + legend)
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 

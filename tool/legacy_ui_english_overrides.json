@@ -1654,5 +1654,11 @@
   "Tự điền IPA cho từ lưu mới — không hỏi lại từng lần.": "Auto-fills IPA for newly saved words — never asks again.",
   "Tự động": "Automatic",
   "Từ điển": "Dictionary",
-  "Bạn": "You"
+  "Bạn": "You",
+  "Tô màu phoneme": "Color phonemes",
+  "Mờ IPA từ đã thuộc": "Fade IPA of known words",
+  "Trọng âm": "Stress",
+  "Nguyên âm": "Vowels",
+  "Phụ âm": "Consonants",
+  "Đôi nguyên âm": "Diphthongs"
 }

@@ -14,10 +14,13 @@ import '../../../features/translation/translation_toolbar.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_entry.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
+import '../../../providers/vocabulary_bridge.dart';
 import '../../../screens/read_mode/models/playback_recipe.dart';
 import '../../../screens/read_mode/services/playback_controller.dart';
+import '../../../services/ipa_styling.dart';
 import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
@@ -90,6 +93,8 @@ class TextLineWidget extends StatelessWidget {
                       : const <AnalyzedWord>[],
                   ghostTranslation: ghostTranslation, // ★ Đảm bảo có dòng này
                   lineIpaSegments: lineIpaSegments,
+                  ipaColorByType: tp.ipaColorByType,
+                  ipaFadeKnown: tp.ipaFadeKnown,
                 );
               },
               shouldRebuild: (prev, next) => prev != next,
@@ -292,9 +297,47 @@ class TextLineWidget extends StatelessWidget {
     if (segments != null && data.isCurrentLine && !coloredChipsActive) {
       return _buildInterlinear(context, data, segments);
     }
+    if (segments == null) return text;
+
+    bool isFaded(String word) {
+      if (!data.ipaFadeKnown) return false;
+      final entry = VocabularyBridge.findByWord(word);
+      return entry != null && entry.zone == MasteryZone.mastered;
+    }
 
     final ipa = LineIpaService.flatIpa(segments);
     if (ipa == null || ipa.isEmpty) return text;
+    final useRichIpa = data.ipaColorByType || data.ipaFadeKnown;
+    // Dùng RichText (KHÔNG phải Text.rich — Text là shim i18n không có .rich).
+    final ipaLine = useRichIpa
+        ? RichText(
+            textAlign: data.textAlign,
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: data.fontSize * 0.75,
+                color: IpaStyling.baseIpaColor.withValues(alpha: 0.9),
+                height: 1.4,
+                letterSpacing: 0.3,
+              ),
+              children: [
+                IpaStyling.buildFlatSpan(
+                  segments,
+                  colorByType: data.ipaColorByType,
+                  isFaded: isFaded,
+                ),
+              ],
+            ),
+          )
+        : Text(
+            ipa,
+            textAlign: data.textAlign,
+            style: TextStyle(
+              fontSize: data.fontSize * 0.75,
+              color: const Color(0xFF4DD0E1).withValues(alpha: 0.9),
+              height: 1.4,
+              letterSpacing: 0.3,
+            ),
+          );
     return Column(
       crossAxisAlignment: data.textAlign == TextAlign.center
           ? CrossAxisAlignment.center
@@ -302,16 +345,7 @@ class TextLineWidget extends StatelessWidget {
       children: [
         text,
         const SizedBox(height: 4),
-        Text(
-          ipa,
-          textAlign: data.textAlign,
-          style: TextStyle(
-            fontSize: data.fontSize * 0.75,
-            color: const Color(0xFF4DD0E1).withValues(alpha: 0.9),
-            height: 1.4,
-            letterSpacing: 0.3,
-          ),
-        ),
+        ipaLine,
       ],
     );
   }
@@ -333,6 +367,12 @@ class TextLineWidget extends StatelessWidget {
       height: 1.15,
       fontWeight: FontWeight.w500,
     );
+
+    bool isFaded(String word) {
+      if (!data.ipaFadeKnown) return false;
+      final entry = VocabularyBridge.findByWord(word);
+      return entry != null && entry.zone == MasteryZone.mastered;
+    }
 
     return Wrap(
       alignment: data.textAlign == TextAlign.center
@@ -357,17 +397,25 @@ class TextLineWidget extends StatelessWidget {
                 children: [
                   Text(seg.surface, style: wordStyle),
                   if (seg.hasIpa)
-                    Text(
-                      seg.ipa!,
-                      style: TextStyle(
-                        fontSize: data.fontSize * 0.72,
-                        color: const Color(0xFF4DD0E1).withValues(
-                          alpha: emphasized ? 1.0 : 0.8,
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: data.fontSize * 0.72,
+                          fontWeight: emphasized
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          height: 1.25,
+                          letterSpacing: 0.3,
                         ),
-                        fontWeight:
-                            emphasized ? FontWeight.w600 : FontWeight.w400,
-                        height: 1.25,
-                        letterSpacing: 0.3,
+                        children: [
+                          IpaStyling.segmentSpan(
+                            seg,
+                            colorByType: data.ipaColorByType,
+                            alpha: isFaded(seg.wordCore)
+                                ? IpaStyling.fadedAlpha
+                                : (emphasized ? 1.0 : 0.8),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -632,6 +680,10 @@ class _LineData {
   /// Dòng active render interlinear từ segments; các dòng khác join phẳng.
   final List<IpaSegment>? lineIpaSegments;
 
+  /// READ-IPA-004: tô màu phoneme + mờ IPA từ đã thuộc (default OFF).
+  final bool ipaColorByType;
+  final bool ipaFadeKnown;
+
   const _LineData({
     required this.content,
     this.translation,
@@ -651,6 +703,8 @@ class _LineData {
     this.isEmpty = false,
     this.ghostTranslation = false, // ★ ĐÃ THÊM
     this.lineIpaSegments,
+    this.ipaColorByType = false,
+    this.ipaFadeKnown = false,
   });
 
   const _LineData.empty()
@@ -671,7 +725,9 @@ class _LineData {
         analyzedWords = const [],
         isEmpty = true,
         ghostTranslation = false, // ★ ĐÃ THÊM
-        lineIpaSegments = null;
+        lineIpaSegments = null,
+        ipaColorByType = false,
+        ipaFadeKnown = false;
 
   @override
   bool operator ==(Object other) {
@@ -695,6 +751,8 @@ class _LineData {
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking &&
         lineIpaSegments == other.lineIpaSegments &&
+        ipaColorByType == other.ipaColorByType &&
+        ipaFadeKnown == other.ipaFadeKnown &&
         ghostTranslation == other.ghostTranslation; // ★ ĐÃ THÊM
   }
 
@@ -716,6 +774,8 @@ class _LineData {
           lineIpaSegments == null
               ? null
               : Object.hashAll(lineIpaSegments!),
+          ipaColorByType,
+          ipaFadeKnown,
           ghostTranslation, // ★ ĐÃ THÊM
         );
 }

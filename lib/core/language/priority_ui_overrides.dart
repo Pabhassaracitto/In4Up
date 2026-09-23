@@ -2297,4 +2297,48 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '你',
     'si': 'ඔබ',
   },
+
+  // ── Phoneme coloring + SRS fade (READ-IPA-004) ────────────────
+  'Tô màu phoneme': {
+    'en': 'Color phonemes',
+    'hi': 'फोनीम रंग',
+    'zh': '音素着色',
+    'zh_TW': '音素著色',
+    'si': 'ෆෝනීම් වර්ණ කිරීම',
+  },
+  'Mờ IPA từ đã thuộc': {
+    'en': 'Fade IPA of known words',
+    'hi': 'ज्ञात शब्दों का IPA धुंधला करें',
+    'zh': '淡化已掌握单词的 IPA',
+    'zh_TW': '淡化已掌握單字的 IPA',
+    'si': 'දන්නා වචනවල IPA අඩපණ කරන්න',
+  },
+  'Trọng âm': {
+    'en': 'Stress',
+    'hi': 'बल',
+    'zh': '重音',
+    'zh_TW': '重音',
+    'si': 'තෙරණුව',
+  },
+  'Nguyên âm': {
+    'en': 'Vowels',
+    'hi': 'स्वर',
+    'zh': '元音',
+    'zh_TW': '元音',
+    'si': 'ස්වර',
+  },
+  'Phụ âm': {
+    'en': 'Consonants',
+    'hi': 'व्यंजन',
+    'zh': '辅音',
+    'zh_TW': '子音',
+    'si': 'ව්‍යංජන',
+  },
+  'Đôi nguyên âm': {
+    'en': 'Diphthongs',
+    'hi': 'द्विस्वर',
+    'zh': '双元音',
+    'zh_TW': '雙元音',
+    'si': 'ද්විස්වර',
+  },
 };

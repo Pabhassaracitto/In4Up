@@ -174,15 +174,14 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                             child: _buildTextList(textProvider, isFocusMode),
                           ),
                   ),
-                  // Bottom controls with smart hide animation.
+                  // Bottom controls with smart hide (v2: bỏ toàn bộ animation widget).
                   // FOCUS MODE: gập CHIỀU CAO về 0 (trả không gian cho
-                  // vùng đọc) — trước đây chỉ slide/opacity nên đáy vẫn
-                  // chiếm khoảng trống dù không hiện icon.
-                  // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi cũ: chỉ
-                  // slide, không gập — tránh văn bản nhảy khi đọc.)
-                  // READ-TOOLBAR-001: wrapper tách thành widget riêng để
-                  // test được seam ẩn/hiện/gập; fix bỏ ClipRect + chặn
-                  // offset ẩn ≤ 1.0 nằm trong CollapsibleBottomControls.
+                  // vùng đọc) — build điều kiện SizedBox(height: 0).
+                  // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi: Opacity 0 +
+                  // IgnorePointer, không gập — tránh văn bản nhảy khi đọc.)
+                  // READ-TOOLBAR-001 (v2): wrapper không còn AnimatedSize,
+                  // AnimatedSlide, AnimatedOpacity, hay ClipRect để triệt tiêu
+                  // khối đen GPU Mali/Adreno.
                   CollapsibleBottomControls(
                     visible: _bottomControlsVisible,
                     collapsed: isFocusMode,

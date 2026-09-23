@@ -22,7 +22,8 @@ void main() {
 
       expect(find.byIcon(Icons.arrow_back), findsNothing);
       // Library still resolves to a real state (empty library, not blank).
-      expect(find.text('Chưa có video nào'), findsOneWidget);
+      // Default locale is 'en' — Vietnamese label goes through uiText().
+      expect(find.text('No videos yet'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

@@ -15,6 +15,7 @@ import 'engines/google_free_engine.dart';
 import 'engines/libre_engine.dart';
 import 'engines/mymemory_engine.dart';
 import 'engines/offline_engine.dart';
+import 'engines/hymt_chunking.dart';
 import 'engines/hymt_engine.dart';
 import 'engines/hymt_prompts.dart';
 import 'engines/mlkit_engine.dart';
@@ -95,6 +96,12 @@ class TranslationService {
   final GlossaryStore? _glossaryStore;
   final bool? _injectedNetwork;
   StreamSubscription<void>? _glossarySub;
+
+  /// Engine đang chạy (null = không có) — UI dùng để hiện đúng trạng thái
+  /// "Đang dịch…" (HYMT-002: "Đang dịch bằng Hy-MT offline, có thể chậm").
+  final ValueNotifier<String?> _activeEngine = ValueNotifier<String?>(null);
+  ValueNotifier<String?> get activeEngineNotifier => _activeEngine;
+  String? get activeEngineName => _activeEngine.value;
 
   String _sourceLang = 'AUTO';
   String _targetLang = 'VI';
@@ -485,6 +492,7 @@ class TranslationService {
     // 1) ONLINE first (smart default).
     if (hasNetwork && !_offlineOnly) {
       for (final engine in _engines) {
+        _activeEngine.value = engine.name;
         try {
           final result = await engine
               .translate(
@@ -520,7 +528,12 @@ class TranslationService {
     final hymt = _hymt;
     final pref = _offlineEnginePref;
     if (hymt != null && pref != HyMtOfflinePreference.mlkit) {
+      _activeEngine.value = hymt.name;
       try {
+        // HYMT-002: KHÔNG còn "timeout 2 phút phẳng". Engine tự giới hạn
+        // theo lớp (chunk ≤500 ký tự + timeout riêng mỗi chunk + slot
+        // single-flight + restart/retry 1 lần). Budget bên ngoài này là
+        // safety-net tỷ lệ theo độ dài (hữu hạn, không vô hạn).
         final result = await hymt
             .translate(
               text: text,
@@ -528,11 +541,14 @@ class TranslationService {
               sourceLang: sourceCode,
             )
             .timeout(
-              const Duration(minutes: 2),
+              _hyMtBudget(text),
               onTimeout: () => TranslationResult.failure(
                 original: text,
-                error: 'Timeout Hy-MT',
+                error: 'Hy-MT offline quá thời gian dự trù '
+                    '(${text.length} ký tự). Máy có thể yếu hoặc văn bản '
+                    'quá dài — thử lại hoặc dùng engine online.',
                 engine: hymt.name,
+                errorCode: 'request_timeout',
               ),
             );
         if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
@@ -549,6 +565,7 @@ class TranslationService {
               original: text,
               error: 'Hy-MT chưa sẵn sàng',
               engine: hymt.name,
+              errorCode: 'load_failed',
             );
       }
     }
@@ -556,6 +573,7 @@ class TranslationService {
     // 3) OFFLINE fallback — ML Kit (câu, Android/iOS).
     TranslationResult? mlkitFailure = sentenceFailure;
     if (pref != HyMtOfflinePreference.hymt && await _mlkit.isAvailable()) {
+      _activeEngine.value = _mlkit.name;
       try {
         final result = await _mlkit
             .translate(
@@ -675,6 +693,21 @@ class TranslationService {
     debugPrint(
       '📚 Glossary đổi: ${store.entries.length} entries — translation cache cleared',
     );
+  }
+
+  /// Safety-net timeout cho Hy-MT offline (HYMT-002): hữu hạn và TỶ LỆ
+  /// theo độ dài text — nền 2 phút + 45s cho mỗi ~500 ký tự (1 segment),
+  /// trần 8 phút. Engine bên trong tự giới hạn chặt hơn nhiều (timeout
+  /// riêng cho mỗi chunk ≤500 ký tự + slot + 1 retry) — budget này chỉ là
+  /// lớp cuối để UI không bao giờ xoay vô hạn.
+  Duration _hyMtBudget(String text) {
+    final segmentCap = HyMtChunking.defaultMaxChars;
+    final segments = (text.length / segmentCap).ceil().clamp(1, 9999);
+    final base = const Duration(minutes: 2);
+    final per = Duration(seconds: 45) * segments;
+    final budget = base + per;
+    const cap = Duration(minutes: 8);
+    return budget > cap ? cap : budget;
   }
 
   Future<bool> _checkNetwork() async {

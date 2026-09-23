@@ -504,6 +504,18 @@ class AiModelLoader {
     }
   }
 
+  /// Test-seam: đánh dấu "đã có model" mà không cần file .gguf thật — dùng để
+  /// kiểm tra banner trạng thái / hàng đợi chat trong môi trường test.
+  @visibleForTesting
+  void debugSetCachedModelPath(String? path) {
+    _cachedModelPath = path;
+    _currentSource =
+        path == null ? ModelSource.none : ModelSource.userImported;
+    _currentModelName =
+        path == null ? null : path.split(RegExp(r'[/\\]')).last;
+    _currentModelSizeBytes = null;
+  }
+
   /// Xóa model đã lưu (để user chọn lại)
   Future<void> clearCachedModel() async {
     _cachedModelPath = null;

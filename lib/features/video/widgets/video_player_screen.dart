@@ -28,6 +28,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _initPlayer() async {
     // TODO: Initialize video_player controller
     // For now, just show placeholder
+    // LISTEN-VIEW-001: guard — the screen can leave the tree before init
+    // completes when switching Listen sub-tabs quickly.
+    if (!mounted) return;
     setState(() {
       _duration = widget.video.duration;
     });

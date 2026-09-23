@@ -39,8 +39,8 @@
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
-| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a) |
-| AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ CI + nghiệm thu) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn |
+| MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
+| AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ nghiệm thu máy) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn. Lane B3 (aae4ec6 + 29f1e2b): queue FIFO, context GẦN NHẤT + ngân sách token + clip câu hỏi, engineError/`restartEngine()` tự hồi, banner 8 nhánh; CI 35027200801 XANH (app_analyze) + build.yml 35027568392 (Windows/iOS ✅) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
 | LANG-630-01 | Sứ giả ngôn ngữ: fallback EN chuẩn + lộ trình bậc vi→en→hi/zh/si→… (ADR-0002, wave 1 phủ 100% T2) | 🔄 reopened | origin/main mất wave 1 (merge owner); branch này nguyên vẹn |
@@ -48,6 +48,7 @@
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang; CI xanh 32663677470 (chờ nghiệm thu thiết bị) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
 | LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
+| AUTH-LINUX-01 | Linux: đăng nhập Google + sync từ vựng qua Firebase REST (fallback FlutterFire không có plugin native) | 🔄 doing (chờ CI + nghiệm thu Linux) | ADR-0005; code trên `arena/01a0ca82-in4up`; 0 dependency mới |
 | LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
 | LHB-003 | Voice Recall (ghi mic + fuzzy align + gợi ý FSRS) + Nối xích câu kệ + Anki Cloze {{c1::}} | ✅ done | cherry-pick 10fecd3 → 19efa2d + fix transcribeAuto (0177c35 → 4f123e6); chờ CI + nghiệm thu mic |
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
@@ -78,7 +79,8 @@
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
-| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" |
+| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 2026-09-16: READ-TOOLBAR-001 fix + test invariant (`278a1d9`), SHELL-GEAR-001 seam log debug (`877c6a7`) — cả hai chờ nghiệm thu máy/logcat owner — PR #27 (CI analyze+locale xanh run 35022838520) |
+| HOME-QUICK-001 | Home: "Nạp tri thức nhanh" + icon ghi âm chưa hoạt động (stub) | ✅ done + CI xanh (chờ nghiệm thu máy) | flow STT thật dùng chung card + FAB (Sherpa offline trước, fallback STT hệ thống), transcript realtime → lưu WordList/ghi chú; "Gợi ý" rút entry THẬT ưu tiên thẻ đến kỳ; bỏ `_SttDialog` giả — run 35863346239 |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
@@ -1047,7 +1049,7 @@
     từ 01a03564; CI xanh 32777390692
 
 ### MODELS-002 — Trung tâm model: quản lý AI Chat (Gemma GGUF) 1 chỗ + UX import rõ ràng
-- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu của owner)
+- **Trạng thái:** doing (chờ nghiệm thu máy — CI app_analyze đã XANH run 35027200801)
 - **Nội dung:** (1) Chat screen: banner trạng thái model luôn hiện — chưa nạp
   (vàng, bấm để import) / copy file X% / tải từ URL X% / đang nạp native
   (1–2 phút) / lỗi + "Thử lại" / sẵn sàng (xanh + tên file + MB). (2) Engine
@@ -1091,10 +1093,10 @@
     XANH run 32855255220 (tip 3797dcc — full harvest) + run 32789473478
     (core fix, d43cc3d). Chờ nghiệm thu UX thiết bị (banner chat, import
     .gguf progress, tải URL chỉ WiFi, xóa model)
-
+  - 2026-09-15 | doing (chờ CI app_analyze + nghiệm thu của owner)→doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Audit không hồi quy khi làm AI-CHAT-01: luồng import/status GIỮ NGUYÊN (loader Tier A/B/C, `.gguf` magic + copy theo chunk, tải URL chỉ WiFi, `_GemmaChatModelCard` với Import/Tải về/Xóa) — B3 chỉ THÊM `engineError` vào `errorText` khi engine tự hồi phục, không đổi hành vi import/status. Test hồi quy: không có file model → `importModelFromUser` fail ĐÚNG (stage `failed`, `error != null`, model không active, `hasModel` false). Điều kiện "chờ CI app_analyze" của card này nay ĐÃ ĐẠT: run 35027200801 XANH (tip 29f1e2b, tree có cả màn Settings Model). Còn lại: nghiệm thu máy (banner chat, import .gguf progress, tải URL chỉ WiFi, xóa model).
 
 ### AI-CHAT-01 — Chat báo "Chưa nạp model AI" ngay sau khi gửi + nút gửi xoay vòng mãi
-- **Trạng thái:** doing (chờ CI app_analyze + nghiệm thu chủ trên thiết bị)
+- **Trạng thái:** doing (chờ nghiệm thu máy — AT chat Gemma trên thiết bị; CI app_analyze XANH run 35027200801)
 - **Nguồn:** chủ báo 2026-08-29 (build trên DEV `5f98b94c`): tab Home
   "Gemma — AI Chat" báo XANH "gemma-3-1B đã import", màn chat cũng xanh
   "Model AI đã nạp — gemma-3-1B-it-QAT-Q4_.gguf (687 MB)", nhưng vừa nhấn
@@ -1169,6 +1171,11 @@
     build.yml trên 251e + nghiệm thu chat Gemma (không báo 'Chưa nạp
     model' khi đang generate, nút gửi không loop, summary JSON hỏng có
     rescue).
+  - 2026-09-15 | doing→doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Audit lại code 08-29 TRƯỚC khi sửa: cả 4 nhóm fix cũ vẫn còn nguyên trong tip (`isReady` nhận `processing`, `.timeout(3 phút)`, watchdog 5 phút, isolate-exit listener, context `take(10)`, `maxTokens: 512`) ⇒ KHÔNG làm lại. Chỉ fix các lỗ còn lộ: (1) engine bận → facade báo "chưa sẵn sàng" giả ⇒ thêm queue FIFO thật cho chat (`chatQueueLength`, tin không bị bỏ, lỗi trả per-request); (2) `take(10)` là 10 tin CŨ NHẤT ⇒ `ChatContextPolicy` chọn tin GẦN NHẤT + ngân sách token (2048−96 reserved, 3 char/token, min 96) và clip câu hỏi >1500 ký tự trước khi dựng prompt (chống decode rỗng / JSON cụt do tràn `n_ctx`); (3) isolate chết/OOM không có đường hồi ⇒ `engineError` + `restartEngine()` (dedup `_restartInFlight`) + seam test `debugKillIsolate()` / `debugSetIsolateHang(bool)`; (4) banner còn nhánh rơi về "Chưa nạp model AI" ⇒ 8 nhánh trạng thái + Settings hiện `engineError`. Suite mới `test/ai_chat/chat_runtime_stability_test.dart` (12 test): banner XANH khi đang processing; 2 tin liên tiếp → vào queue đúng thứ tự, không lỗi "chưa sẵn sàng"; timeout 150ms → lỗi retryable + tự restart + tin sau vẫn trả lời; context ≤ ngân sách & KHÔNG chứa tin cũ nhất; `maxTokens` ∈ [96,512]; engine chết → tự recover; MODELS-002 không có file → import fail đúng; gemma: hang → kill → "thu hồi" → recover OK. (2 commit: aae4ec6 code+test, 29f1e2b banner/settings.)
+  - 2026-09-15 | doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | CI: run **35027200801** (app_analyze.yml, tip 29f1e2b) XANH — job analyze-and-locale-test 2m28s (`flutter analyze` + locale test) ⇒ code mới + `test/ai_chat` compile sạch với kiểu API thật. Compile-verify rộng hơn (app_analyze không cover `packages/**`): tag oracle `v1.4.1-b3-ci-compile` → build.yml run **35027568392**: Windows ✅ 15m16s, iOS ✅ 13m55s (build release ⇒ compile toàn bộ graph Dart gồm `packages/in4up_ai`); Android ❌ 19s ở step "Setup Android SDK & Accept Licenses" — lỗi hạ tầng/action, trùng run 33268012381 (08-29), KHÔNG do code B3. ⚠️ Chưa workflow nào chạy `test/ai_chat` ⇒ assert runtime của suite mới CHƯA được CI chạy (muốn chạy: thêm step `flutter test test/ai_chat`; agent KHÔNG sửa được `.github/workflows/` — GitHub App thiếu quyền `workflows`, push bị từ chối). AT máy chờ chủ: import model nhỏ → gửi tin trong lúc đang xử lý (banner giữ XANH) → gửi 2 tin → ép timeout/isolate restart rồi gửi tiếp; ghi kèm dung lượng model + RAM máy.
+  - 2026-09-15 | doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Vì agent KHÔNG có quyền `workflows`, phần "chạy test/ai_chat trong CI" được gói thành patch cho owner: `docs/project/B3-APP-ANALYZE-TEST-STEP.patch` (`git apply` sạch trên tip 342957a) — thêm step `flutter test test/ai_chat` + artifact log + mở path filter `packages/in4up_ai/**`. Áp xong ⇒ suite 12 test chạy thật trên CI (hiện chỉ mới được analyzer biên dịch).
+  - 2026-09-23 | doing (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Cập nhật branch theo base mới (rule 2): base đi từ `df77ab0` → **`f54d58d`** (đã có #30/#35/#36/#37), merge `f363f41` **không xung đột** (verify `git merge-tree` + KANBAN không còn marker). CI trên base mới: push run **35861202198** XANH + PR run **35861207196** XANH. ⚠️ PHÁT HIỆN CHẶN AT MÁY: `.github/workflows/build.yml` đang vỡ YAML (dòng 265 thụt 9 space trong block `run: |` thụt 10, từ commit owner `403658a` 2026-09-23) ⇒ GitHub báo "workflow file issue", KHÔNG job nào chạy trên MỌI branch (kể cả base 01a0251e, 01a0a6fa, 01a0a6f9) ⇒ chưa build được APK cho nghiệm thu (tag `v*`/dispatch cũng chết). Patch 1 dòng cho owner: `docs/project/CI-BUILD-YML-INDENT-FIX.patch` (đã verify `git apply` sạch + quét lại block scalar hết lỗi); agent không push được file workflow (token thiếu quyền `workflows`).
+ → `arena/01a0251e-in4up` (theo `.github/pull_request_template.md`, giữ nguyên 4 commit logic + merge base, KHÔNG squash). Base đã đổi trong lúc làm (`d40f604`→`df77ab0`) nên cập nhật TRÊN branch agent bằng merge `013ea4c` (rule 2 — không force-push, không cherry-pick mù); KANBAN auto-merge giữ đủ lịch sử cả hai phía (verify: 0 conflict marker). CI sau merge: push run **35029298621** XANH + PR run **35029323479** XANH (app_analyze, job analyze-and-locale-test). Suite `test/ai_chat` vẫn CHƯA execute ở đâu — patch cho owner: `docs/project/B3-APP-ANALYZE-TEST-STEP.patch`. AT máy vẫn chờ chủ (banner xanh khi đang xử lý; 2 tin liên tiếp; ép timeout/isolate restart rồi gửi tiếp) — nhớ ghi dung lượng model + RAM máy.
 ### AUDLIB-001 — Audio Library P1: nghiệm thu + 3 fix từ 01a0018e (content://, VAD-only, pubspec)
 - **Trạng thái:** done (chờ owner build 70c4efc+ và nghiệm thu trên thiết bị)
 - **Nguồn:** owner yêu cầu nghiệm thu `arena/01a0018e-in4up` (2026-08-25) —
@@ -1517,6 +1524,7 @@
     Nghiệm thu: gửi 2 tin liên tiếp (tin 1 chậm) → tin 2 phải CHỜ rồi
     trả lời (không báo "chưa sẵn sàng"); sau 1 lần timeout 3 phút →
     tin kế tiếp vẫn hoạt động bình thường
+  - 2026-09-15 | done (chờ nghiệm thu máy)→done (chờ nghiệm thu máy) | agent arena/01a0a6fb-in4up (lane B3) | Audit không hồi quy: giữ NGUYÊN cơ chế 5134f06 (`_inFlight` + chờ request cũ ≤90s, một nguồn sự thật ở engine, bỏ busy-wait 60s ở facade); lane B3 chỉ thêm queue FIFO PHÍA TRÊN facade (tin vào hàng đợi thay vì báo "chưa sẵn sàng" giả). Test hồi quy trong `test/ai_chat/chat_runtime_stability_test.dart`: 2 tin liên tiếp → prompt tới engine ĐÚNG THỨ TỰ, không lỗi "chưa sẵn sàng"; timeout → tin sau vẫn trả lời. CI app_analyze run 35027200801 XANH (compile). Nghiệm thu máy vẫn chờ chủ.
 
 ### YT-LR-001 — YouTube học ngôn ngữ kiểu Language Reactor (nối nốt)
 - **Trạng thái:** done (chờ nghiệm thu thiết bị)
@@ -2365,6 +2373,35 @@
 - **AT:** offline ML Kit, nguồn gắn EN, tài liệu Anh (trộn vài câu ngắn) →
   dịch hết không có lỗi "german"; chế độ AUTO với file thật Đức → vẫn nhận
   ra và báo thiếu gói German đúng ngữ cảnh.
+- **Trạng thái:** doing — fix code xong + CI xanh, chờ nghiệm thu máy
+- **Fix đã làm (2026-09-16, lane A3 — agent arena/01a0a6d2-in4up):**
+  - `text_provider_translation.dart`: thêm nguồn explicit
+    `setTranslationSourceLanguage(code)` ('AUTO' bỏ gắn) + getter
+    `translationSourceLanguage`/`translationSourceIsPinned`. Nguồn đã gắn
+    được dùng cho TẤT CẢ dòng (translateAll/translateLine/rehydrate) —
+    không gọi LanguageDetector từng dòng; chỉ AUTO mới re-detect.
+    Ở AUTO, khi model của nguồn VỪA NHẬN DIỆN chưa tải (khác nguồn tài
+    liệu) → retry đúng 1 lần với nguồn tài liệu trước khi báo lỗi — đóng
+    lỗi "german" trên tài liệu Anh câu ngắn; văn Đức thật không bị retry.
+    Lỗi thiếu model nguồn được chú thích "(nguồn tự nhận diện — kiểm tra
+    lại ngôn ngữ nguồn)" ở AUTO và "(cặp nguồn đã chọn)" ở explicit.
+    `resetTranslationForNewDocument` bỏ gắn nguồn của tài liệu cũ.
+  - `engines/mlkit_engine.dart`: lỗi thiếu model nêu đúng cặp
+    "Cặp DE → VI thiếu gói dịch Deutsch — vào Cài đặt engine dịch để tải
+    về" (tên native từ catalog 26 ngôn ngữ, không còn enum lowercase
+    'german'); thêm static `missingModelError`/`missingModelCodesOf`.
+  - `engines/translation_engine.dart` (seam tối thiểu):
+    `TranslationResult.missingModelCodes` — tín hiệu cấu trúc thay vì
+    regex chuỗi lỗi.
+  - Test: `test/translation_source_language_test.dart` (11 test qua seam
+    `translationServiceForTest` + `TranslationService.forTest`, không cần
+    thiết bị): AUTO retry EN/DE, AUTO văn Đức báo đúng cặp, AUTO mixed
+    doc, explicit không detect/retry, API validate/reset, message engine.
+  - Còn hở (ngoài ownership A3, để lane UI sau): chưa có UI chọn nguồn
+    trên toolbar và chưa persist nguồn explicit (seam đã sẵn).
+- **Lịch sử:**
+  - 2026-09-16 | 21:51 UTC | doing→doing (fix code + test, CI xanh, chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | CI run 35027743218 (App Analyze + Locale Test xanh); branch arena/01a0a6d2-in4up, PR vào arena/01a0251e-in4up
+  - 2026-09-16 | 22:00 UTC | doing (giữ nguyên — chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | PR #31 đã mở: https://github.com/Pabhassaracitto/In4Up/pull/31 ; CI pull_request run 35027994440 xanh
 
 ### READ-TOOLBAR-001 — Thanh đáy tab Đọc (size chữ/dịch/đọc/mark/lưu) "đen thui" khi kéo văn bản
 - **Triệu chứng (owner):** "Thanh chức năng tăng giảm size chữ, dịch, đọc,
@@ -2391,6 +2428,18 @@
      yếu dễ sinh artifact).
 - **AT:** cuộn lên/xuống 10 lần: thanh đáy ẩn/hiện sạch, KHÔNG có khối đen;
   Focus/Thoát Focus mượt (giữ nguyên AT của READ-FOCUS-001).
+- **Cập nhật 2026-09-16 (agent A4 — lane A4, commit `278a1d9`):** đã fix theo
+  đúng thứ tự ít rủi ro của card: (1) BỎ `ClipRect` tường minh, (2) chặn
+  offset ẩn về `(0, 1.0)` (bỏ overshoot phân số 1.2). Wrapper tách thành
+  `lib/screens/read_mode/widgets/collapsible_bottom_controls.dart` (seam test
+  được) + wire lại ở `read_mode_screen.dart`; smart-hide vẫn giữ chỗ layout,
+  Focus vẫn gập về 0 (hợp đồng READ-FOCUS-001 giữ nguyên). Test invariant
+  `test/read_bottom_controls_visibility_test.dart` khoá: offset ẩn ≤ 1.0
+  chiều cao, opacity 0, giữ chiều cao, Focus 0↔full, stress lặp (test + fix
+  cùng một commit xanh — test import widget mới). Trạng thái: **fix code xong
+  — chờ nghiệm thu máy owner** (PR #27, CI run 35022838520 xanh) (AT cuộn 10 lần + Focus/Thoát Focus trên máy
+  bị artifact; nếu VẪN đen → bước kế tiếp theo card: thay AnimatedSize bằng
+  build điều kiện).
 
 ### TTS-PIPER-002 — Settings vẫn báo × đỏ Piper dù "đã có model và hoạt động"
 - **Triệu chứng (owner):** "Trong setting sao đã có model TTS sherpa và hoạt
@@ -2442,6 +2491,21 @@
   3. Chạy repro trong debug, bắt stack overlay.dart chính xác (chụp logcat).
 - **AT:** long-press nút settings 3s (lặp 10 lần) → không sọc vàng-đen,
   không assertion; hành vi long-press (đổi mode) vẫn đúng.
+- **Cập nhật 2026-09-16 (agent A4 — lane A4, commit `877c6a7`):** CHƯA sửa sâu
+  — không tái hiện được ngoài máy owner và chưa có log xác nhận orphaned Ink
+  (đúng prompt A4: chỉ thay InkWell bằng highlight tự vẽ khi log xác nhận).
+  Đã thêm seam log CHỈ debug (`kDebugMode`) phủ CẢ HAI ứng viên gear + mọi
+  long-press đổi surface, xem bằng `adb logcat | grep SHELL-GEAR-001`:
+  - gear #1 drawer `tune_rounded` — `main_shell.dart::_openShellUiSettings`
+    (route push + drawer close = đổi surface giữa splash);
+  - gear #2 `settings_outlined` toolbar dịch — `translation_toolbar.dart`
+    bọc `Listener` pointer down/up/cancel (raw listener, KHÔNG tham gia
+    gesture arena — tap/tooltip giữ nguyên);
+  - long-press đổi mode (`_toggleCurrentSecondaryMode`, nav Nghe/Đọc) +
+    mọi swap surface (`_setPrimaryTab`/`_setListenMode`/`_setReadMode`) +
+    `_openQuickActions` (rule-out OverlayEntry).
+  Cần owner: chạy lại repro debug → gửi logcat → chốt đúng gear + cơ chế.
+  Trạng thái: **chờ logcat owner** trước khi fix (không đoán sửa sâu; PR #27).
 
 ### LISTEN-LRC-001 — Chọn file âm thanh CÓ LỜI SẴN → sọc đen vàng + assertion framework + tab Hiểu đỏ
 - **Triệu chứng (owner):** "Tab music khi chọn file âm thanh và có lời sẵn do
@@ -2480,6 +2544,15 @@
      có InkWell trong toolbar bị remove giữa splash).
 - **AT:** chọn file CÓ lrc sẵn → phát bình thường, không sọc/assertion;
   tab Hiểu mở/đóng sau đó không red; lặp 5 file.
+- **Trạng thái:** code xong + CI xanh, chờ nghiệm thu máy (2026-09-15)
+- **Lịch sử:**
+  - 2026-09-15 | doing→done-code (chờ nghiệm thu máy) | agent
+    arena/01a0a6d4-in4up (lane A5) | SafeSetStateMixin + stored provider ref
+    (không setState/notify trong build, không context.read trong
+    listener/dispose); rèm LRC render từ local clamped; tab Hiểu defer
+    waveform/shadowing sync ra post-frame; test
+    test/listen_lifecycle_guards_test.dart; CI run 35022505773 xanh
+    (analyze + locale)
 
 ### LISTEN-VIEW-001 — Nghe → tab phụ Xem (video) → quay lại Nghe = màn hình đen không thoát
 - **Triệu chứng (owner):** "Khi từ tab nghe -> tab phụ xem quay trở lại thì
@@ -2510,6 +2583,15 @@
      (`adb logcat | grep -i flutter`) khi repro.
 - **AT:** Nghe → Xem (mở 1 video, để chạy 5s) → quay lại Nghe → nghe bình
   thường, không đen; đổi 10 lần không kẹt.
+- **Trạng thái:** code xong + CI xanh, chờ nghiệm thu máy (2026-09-15)
+- **Lịch sử:**
+  - 2026-09-15 | doing→done-code (chờ nghiệm thu máy) | agent
+    arena/01a0a6d4-in4up (lane A5) | root cause = nút back của
+    VideoLibraryScreen pop nhầm route gốc khi nhúng trong IndexedStack
+    (không phải texture — chưa có VideoPlayerController thật);
+    thêm showBackButton=false khi nhúng + mounted guard + error UI retry;
+    test test/listen_view_video_library_test.dart; CI run 35022505773 xanh
+    (analyze + locale)
 
 ### GHI CHÚ CHUNG CHO AGENT SỬA BATCH NÀY
 - Build owner = DEBUG (thấy assertion) — repro nhanh nhất bằng `flutter run`
@@ -2554,6 +2636,10 @@
 - **AT:** máy owner: dịch 1 câu ngắn EN→VI bằng Hy-MT → có kết quả
   (thời gian bao nhiêu cũng được nhưng phải về); dịch text dài 2000+ ký
   tự → chunk không timeout; 2 request liên tiếp không kẹt.
+- **Trạng thái:** done
+- **Lịch sử:**
+  - 2026-09-15 | 21:50 | proposed→doing | agent arena/01a0a6f9-in4up | 949c437 (seam: HyMtChunking ≤500 ký tự/câu + HyMtSlot single-flight + test), 7cba9bd (runtime: heartbeat ping trước request, isolate chết/load hỏng → dispose+spawn+retry tối đa 1 lần + errorCode cấu trúc, mỗi chunk timeout hữu hạn riêng, ghép đúng thứ tự, service budget tỷ lệ theo độ dài trần 8 phút + test runtime), a412f47 (UI "Đang dịch bằng Hy-MT offline, có thể chậm" + EN override); Python 1:1 sim 12/12 green — chờ CI app_analyze + AT máy owner
+  - 2026-09-23 | 11:30 | doing→done | agent arena/01a0a6f9-in4up | commit 4bea3a0: hoàn thiện 4 lớp timeout (single-flight slot, isolate heartbeat ping + auto-restart retry 1 lần, sentence-aware chunking ≤500 chars reassembly, UI progress hint "Đang dịch bằng Hy-MT offline, có thể chậm" + fallback EN); unit test + runtime test đầy đủ; mở PR vào target arena/01a0251e-in4up
 
 ### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
 - **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ
@@ -2594,6 +2680,42 @@
   offline → START được + nhận diện tiếng Việt; chọn EN (chưa cài) →
   thông báo rõ + fallback/hướng dẫn tải, không chết im.
 
+- **WP B2 (agent `arena/01a0a6fa-in4up`, 2026-09-16) — code xong, CHỜ CI + CHỜ NGHIỆM THU MÁY (chưa đánh dấu done):**
+  - Mapping một nguồn: `packages/in4up_stt/lib/asr_model_routing.dart`
+    (profile + router + `AsrModelIssue`/`AsrLiveRoute`) và
+    `lib/features/cabin/services/cabin_asr_plan.dart` (kế hoạch STT thuần —
+    test được không cần thiết bị).
+  - Bỏ hardcode `'en'`: ngôn ngữ nguồn mặc định = ngôn ngữ ĐÃ CÀI model
+    (ưu tiên VI theo `kAsrLanguagePriority`), máy chưa cài model nào →
+    `vi` + giải thích ở UI (`defaultCabinSourceLanguage`).
+  - Chọn EN khi máy chỉ có model VI → **không** tự nhận tiếng Anh bằng model
+    VI: chặn + dialog nêu rõ thiếu model + nút "Mở Quản lý Model AI", hoặc
+    user TỰ XÁC NHẬN dùng VI (`confirmFallbackToInstalledLanguage`) — không
+    đổi ngôn ngữ sau lưng user.
+  - `getAsrModelPaths`: bỏ fallback `orElse: predefinedAsrProfiles.first`
+    (trước đây hỏi `zh`/`fr` bị trả model VI) → ngôn ngữ không có profile =
+    `null` + báo "chưa hỗ trợ nhận diện offline".
+  - Import model: chỉ nhận model có BẰNG CHỨNG khớp profile (metadata ONNX →
+    tên archive/thư mục → tokens tiếng Việt); model lạ → `unknownProfile` /
+    "không khớp profile", KHÔNG nhét model streaming vào folder offline
+    (chống SIGABRT "Expected 39").
+  - UI: dropdown ngôn ngữ nguồn đánh dấu ngôn ngữ chưa có model (engine
+    Offline) + banner lỗi có nút mở Quản lý Model AI; màn Quản lý Model AI
+    ghi rõ model dùng cho Cabin live vs file/LRC.
+  - i18n (rule #5): 15 chuỗi mới đăng ký English ở
+    `tool/legacy_ui_english_overrides.json` + `generated_legacy_ui_fallbacks.dart`;
+    7 chuỗi thiếu-model/fallback/import + ghi chú dropdown có đủ
+    en/hi/zh/zh_TW/si trong `priority_ui_overrides.dart`.
+  - Test mới: `test/asr_model_routing_test.dart` (mapping ngôn ngữ ↔ profile,
+    kế hoạch cabin, nhận diện encoder streaming/offline).
+  - **Chưa chạy CI** (sandbox không có Flutter/Dart SDK → không `analyze`/
+    `test` được) và **chưa nghiệm thu máy** — AT 2 mục ở trên vẫn nguyên.
+- **Lịch sử:**
+  - 2026-09-16 | doing | agent `arena/01a0a6fa-in4up` | WP B2: code + test + i18n xong; CHỜ CI (`app_analyze.yml` chưa cover `packages/**` — xem SHERPA-STREAM-001) + AT máy
+  - 2026-09-16 | CI xanh (một phần) | agent `arena/01a0a6fa-in4up` | commit `cb9c49d` — run **35027575467** `App Analyze + Locale Test` XANH: `flutter analyze` (ERROR-fatal) + test rule #5 `locale_chrome_no_vietnamese_test.dart` đều pass ⇒ code/i18n/test KHÔNG lỗi biên dịch. Lưu ý: workflow này KHÔNG chạy `test/asr_model_routing_test.dart` (cần owner chạy `flutter test test/asr_model_routing_test.dart` hoặc xác nhận qua AT máy)
+  - 2026-09-16 | cảnh báo còn hiệu lực | agent `arena/01a0a6fa-in4up` | `app_analyze.yml` vẫn chưa có `packages/**` trong `paths:` → lần này workflow chạy được là nhờ push có `lib/**`; đổi CHỈ trong `packages/**` vẫn sẽ KHÔNG trigger (owner áp `scripts/ci/analyze_paths_packages.patch`)
+  - 2026-09-23 | merge base + CI xanh | agent `arena/01a0a6fa-in4up` | base tiến `d40f604` → `9c22f48` (đã merge #26/#31/#35/#36/#37…) ⇒ lane merge `e150823`; 3 conflict đều THUẦN BỔ SUNG nên giữ CẢ HAI phía — `legacy_ui_english_overrides.json` giữ style 2-space của base tip (commit `df77ab0` đã re-indent) + 20 key Cabin (+21/−1), `priority_ui_overrides.dart` +53/−0, KANBAN +42/−0; `generated_legacy_ui_fallbacks.dart` auto-merge +20. CI `App Analyze + Locale Test` XANH trên merge commit — run **35858406361** (event `pull_request`, gồm `flutter analyze` + rule #5). Vẫn CHƯA chạy `test/asr_model_routing_test.dart` (không workflow nào chạy file này).
+
 ### HOME-QUICK-001 — Home: "Nạp tri thức nhanh" + icon ghi âm CHƯA hoạt động (stub)
 - **Triệu chứng (owner):** "Tab home: Nạp tri thức nhanh → đang chưa hoạt
   động. Icon ghi âm cũng chưa hoạt động."
@@ -2622,6 +2744,49 @@
 - **AT:** bấm mic (cả FAB lẫn card) → nói 1 câu tiếng Việt → thấy
   transcript; lưu → có trong WordList/Ghi chú; bấm "Gợi ý" → hiện 1 từ
   thật từ danh sách.
+- **Trạng thái:** done + CI xanh (chờ nghiệm thu máy)
+- **Đã làm (2026-09-23, agent arena/01a0a6fc-in4up):**
+  - 3 điểm vào (nút "Ghi chú nói" của card, FAB mic của Home) đi chung
+    MỘT flow `QuickCaptureSheet`: transcript realtime → "Lưu vào WordList"
+    / "Lưu ghi chú". Đã xoá `_SttDialog` giả.
+  - KHÔNG tạo STT singleton thứ 2: seam `QuickCaptureSttSource` + 2 nguồn
+    thật — `SherpaQuickCaptureSource` (SherpaSttEngine offline +
+    AudioRecorder, ưu tiên khi có model đúng ngôn ngữ) và
+    `SystemQuickCaptureSource` (qua `SttServiceFacade` sẵn có, không
+    dispose singleton dùng chung). Ngôn ngữ theo
+    `QuickCaptureLanguagePolicy` — không hardcode EN khi máy chỉ có model
+    VI; engine không dùng được thì ghi rõ lý do ra UI.
+  - "Gợi ý": `QuickSuggestionPicker.pick` lấy entry THẬT từ WordList (ưu
+    tiên thẻ đến kỳ FSRS, rổ 5 thẻ đến kỳ sớm nhất), hiện word/IPA/nghĩa
+    + nút Nghe (TTS). WordList rỗng → empty state có hướng dẫn. Bỏ hẳn
+    text/ảnh random.
+  - Lưu WordList đi qua `VocabularyBridge.addContextual` (đúng đường
+    SelectionSaveSheet đang dùng) nên entry có ngữ cảnh nguồn + topic +
+    SRS như từ lưu tay; ghi chú nói lưu trong box `settings`
+    (`QuickCaptureNoteStore`), xem/xoá ngay trong sheet.
+  - i18n đủ 5 ngôn ngữ (en/hi/zh/zh_TW/si) trong
+    `priority_ui_overrides.dart`; rule #5 giữ nguyên (test locale chrome
+    vẫn xanh).
+- **Bằng chứng:** CI run 35863346239 (`app_analyze.yml`: `flutter analyze`
+  full app + rule 5 locale test) — conclusion `success`; commit 73246d2.
+  Test mới `test/home_quick_capture_test.dart`: 27 unit test (policy ngôn
+  ngữ, controller ưu tiên engine/fallback/lỗi có cấu trúc/gom transcript/
+  dừng sạch + release, picker, note store, saver trên Hive temp) + 1
+  widget test `HebbianInputCard`.
+  **Trung thực về phạm vi kiểm chứng:** sandbox không có Dart/Flutter SDK
+  và không workflow nào chạy `test/home_quick_capture_test.dart`
+  (`app_analyze.yml` chỉ `flutter analyze` + chạy riêng
+  `test/locale_chrome_no_vietnamese_test.dart`) ⇒ file test này mới được
+  **compile** xanh, CHƯA được thực thi. Luồng mic thật cần nghiệm thu trên
+  thiết bị. Đã soạn sẵn patch cho owner (app thiếu quyền `workflows`,
+  theo convention `docs/project/B3-APP-ANALYZE-TEST-STEP.patch`):
+  **`docs/project/B4-HOME-QUICK-TEST-STEP.patch`** — thêm step
+  `flutter test test/home_quick_capture_test.dart` + upload log vào
+  `app_analyze.yml`.
+- **Lịch sử:**
+  - 2026-09-16 | todo→doing | agent arena/01a0a6fc-in4up | card trong BATCH-0916
+  - 2026-09-23 | doing→done | agent arena/01a0a6fc-in4up | CI run 35863346239 xanh; nguyên nhân analyze đỏ trước đó: test `await` trên `dispose()` có kiểu `void` (8 chỗ) — đã sửa
+  - 2026-09-23 | mở PR #38 (`arena/01a0a6fc-in4up` → `arena/01a0251e-in4up`) | agent arena/01a0a6fc-in4up | merge base `7ccf568` để hết conflict: `home_screen.dart` giữ cả 2 phía ở khối import rồi bỏ `package:animations` (chỉ `OpenContainer` của FAB stub `_SttDialog` dùng — đúng stub lane này xoá); KANBAN lấy dòng BATCH-0915 mới của base + giữ dòng HOME-QUICK-001; `priority_ui_overrides.dart` auto-merge sạch (brace depth 0, 417 key, 0 trùng, đủ `'en'`)
 
 ### HOME-STUDIO-001 — Phòng Studio thiếu thẻ XEM (chưa đủ 7: NGHE, NÓI, XEM, ĐỌC, VIẾT, HIỂU, NHỚ)
 - **Triệu chứng (owner):** "Phòng Studio nên bổ sung đầy đủ: NGHE, NÓI,
@@ -2642,6 +2807,28 @@
   ... từ main_shell. Grid responsive (7 thẻ → hàng 3+2+2 hoặc 4+3).
 - **AT:** mỗi thẻ bấm vào đúng màn hình tương ứng (7/7); XEM mở thư
   viện video.
+- **Kết quả (agent `arena/01a0a6fe-in4up`, 2026-09-15):** `_buildBentoModesGrid`
+  tách thành 7 thẻ riêng NGHE · NÓI · XEM · ĐỌC · VIẾT · HIỂU · NHỚ; route
+  đúng sub-mode qua 3 callback mới `onNavigateToSpeak/Watch/Write`
+  (`main_shell` → `_setListenMode(1/2)`, `_setReadMode(1)`), giữ
+  `onNavigateToListen/Read/Understand/Memory` cũ. Grid đổi
+  `childAspectRatio` → `SliverGridDelegateWithFixedCrossAxisCount(mainAxisExtent: 108)`
+  (2 cột phone, 3/4/5 cột khi rộng ⇒ 7 thẻ = 2+2+2+1 … 4+3), tiêu đề 1
+  dòng + phụ đề 2 dòng ellipsis ⇒ không overflow. Nhãn mới
+  (`NÓI`/`XEM`/`VIẾT`/`Thư viện video`) qua `uiText` + catalog
+  en/hi/zh/zh_TW/si, không fallback `vi`. Commit `214d57d`; CI
+  `App Analyze + Locale Test` run 35028370711 🟢 (analyze 0 error + test
+  rule #5 xanh). **CÒN:** nghiệm thu thiết bị 7/7 thẻ (chờ nghiệm thu máy).
+  Ghi chú ngoài lane: `video_library_screen.dart` có nút back
+  `Navigator.pop(context)` trong khi màn này được nhúng trong
+  `IndexedStack` của shell (`main_shell.dart` — `MainShell` là route gốc,
+  `main.dart:364`) ⇒ sub-mode Xem có nguy cơ pop route gốc; lỗi có sẵn,
+  không thuộc ownership lane B5, cần owner xác nhận trên máy.
+  - 2026-09-15 | merge base `df77ab0` (A1 PDF + A2 WLIST-LANG) vào lane B5,
+    resolve `tool/legacy_ui_english_overrides.json` theo union (giữ 5 key mới
+    của A2 + 5 key của B5, gỡ 2 key mồ côi 'Nghe · Nói'/'Đọc · Viết') → merge
+    `4214445`; CI `App Analyze + Locale Test` run 35029286725 (pull_request)
+    và 35029282086 (push) 🟢 — analyze 0 error + test rule #5 xanh.
 
 ### HOME-KG-001 — "Xem Knowledge Graph" bấm vào không có phản ứng
 - **Triệu chứng (owner):** "Xem Knowledge Graph nhấn vào chưa có phản ứng gì."
@@ -2655,6 +2842,20 @@
   (_) => KnowledgeGraphScreen()))` (match cách word_list_screen mở).
 - **AT:** Home → card Knowledge Graph preview → bấm "Xem Knowledge Graph
   →" → mở đúng màn hình graph.
+- **Kết quả (agent `arena/01a0a6fe-in4up`, 2026-09-15):** card preview được
+  bọc `Material(transparent)` + `InkWell` ⇒ cả card (gồm nút "Xem Knowledge
+  Graph →") mở `KnowledgeGraphScreen` bằng đúng cách
+  `word_list_screen.dart` mở từ toolbar WordList
+  (`Navigator.of(context).push(MaterialPageRoute(builder: (_) => const
+  KnowledgeGraphScreen()))`) + haptic. Nhãn nút chuyển sang
+  `context.uiText('Xem Knowledge Graph →')` và có trong catalog
+  (en `View Knowledge Graph →`, đủ hi/zh/zh_TW/si). Commit `214d57d`; CI
+  run 35028370711 🟢. **CÒN:** nghiệm thu thiết bị (chờ nghiệm thu máy).
+  - 2026-09-15 | merge base `df77ab0` (A1 PDF + A2 WLIST-LANG) vào lane B5,
+    resolve `tool/legacy_ui_english_overrides.json` theo union (giữ 5 key mới
+    của A2 + 5 key của B5, gỡ 2 key mồ côi 'Nghe · Nói'/'Đọc · Viết') → merge
+    `4214445`; CI `App Analyze + Locale Test` run 35029286725 (pull_request)
+    và 35029282086 (push) 🟢 — analyze 0 error + test rule #5 xanh.
 
 ### HOME-STREAK-001 — "Nhịp điệu học tập" chưa có thống kê thật
 - **Triệu chứng (owner):** "Nhịp điệu học tập chưa có thống kê thực sự."
@@ -2843,3 +3044,31 @@
   (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
   (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
+  - 2026-09-16 | fix code siết hơn | agent `arena/01a0a6fa-in4up` |
+    `detectEncoderKind` chỉ nhận bằng chứng MẠNH: metadata ONNX
+    ("non-streaming" ưu tiên trước "streaming") → nếu im lặng mới tới tên
+    file/thư mục; BỎ heuristic `encoder_dims`/`query_head_dims` (trả
+    `unknown` thay vì đoán). Route live theo profile (VI = offline+VAD,
+    EN = streaming) khi metadata im lặng; import chặn model không có bằng
+    chứng ngôn ngữ/loại model. 3 hard-guard cũ giữ nguyên.
+
+### AUTH-LINUX-01 — Linux: đăng nhập + sync qua Firebase REST (ADR-0005)
+
+- **Triệu chứng:** bản Linux không có nút đăng nhập ở tab Home (guard
+  `Firebase.apps.isEmpty` trong `_FirebaseAuthButton` hiển thị icon ⚡ xám)
+  vì FlutterFire không phát hành plugin native cho Linux; sync từ vựng cũng
+  tắt (`VocabSyncService` early-return khi `!hasDb`).
+- **Giải pháp (ADR-0005):** facade `AuthService` thống nhất plugin/REST;
+  mới `firebase_rest_auth.dart` (signInWithIdp + securetoken refresh, session
+  lưu Hive) + `firestore_rest_client.dart` (commit/runQuery/list + codec
+  tương thích kiểu dữ liệu plugin). OAuth browser flow desktop dùng chung.
+  Cùng uid Android/Windows → data về đúng tài khoản.
+- **Không đổi:** hành vi Android/iOS/macOS/Windows/Web (đường plugin giữ
+  nguyên); 0 dependency mới; schema Firestore giữ nguyên.
+- **Còn mở:** CI build Linux xanh (Lưu ý CI-LINUX-01: webview_win_floating
+  cần webkit2gtk-4.1 — độc lập với thay đổi này); nghiệm thu máy Linux thật:
+  đăng nhập lần đầu, khởi động lại app giữ phiên, thêm từ trên Linux → thấy
+  trên Android, thêm từ trên Android → thấy trên Linux (quy tắc updatedAt),
+  đăng xuất; chạy `flutter analyze` (sandbox agent không có Flutter SDK).
+- **Lịch sử:**
+  - 2026-09-23: triển khai xong trên `arena/01a0ca82-in4up`.

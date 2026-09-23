@@ -79,12 +79,12 @@
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" |
-| BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
+| BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (7 mode Phòng Studio ở Home + tool ẩn — owner đã chốt D1-B, không thêm tab), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
-| XP-MODE-001 | Tab "Trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) | 🔒 **design gate — chờ owner chốt D1–D5** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` + `assets/xp-mode-001-wireframe.png`/`.svg` + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md`; branch `arena/01a0a703-in4up` |
+| XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 
 
 ## Card chi tiết
@@ -2685,7 +2685,7 @@
 - **AT:** tab Nghe → phát file + tạo lời AI → khối lời chạm cạnh sóng âm,
   không khoảng trống trắng, không overflow.
 
-### XP-MODE-001 — "Chế độ trải nghiệm": nâng lên tab riêng, đủ 7 mode + hiện các chức năng ẩn trong icon sấm sét
+### XP-MODE-001 — "Chế độ trải nghiệm": đủ 7 mode (KHÔNG thêm tab — mở rộng Phòng Studio ở Home) + hiện các chức năng ẩn trong icon sấm sét
 - **Triệu chứng (owner):** "Trong setting đang có 'Chế độ trải nghiệm'.
   Hãy cân nhắc để cho nó ra màn hình tab và cho các chế độ tương ứng để
   người dùng có trải nghiệm hướng đối tượng và trình chiếu được các chức
@@ -2705,23 +2705,32 @@
   `lib/features/tipitaka/` (Tam Tạng), i18n (app_localizations).
 - **Fix đề xuất (feature — agent thiết kế trước khi code, chốt với owner
   1 bản wireframe ngắn trong KANBAN):**
-  1. Tab "Trải nghiệm" (hoặc mở rộng card Phòng Studio — chọn theo
-      wireframe): 7 mục NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ — mỗi mục =
-      "hướng dẫn có dẫn đường" (guided tour): mục tiêu 1 dòng + 3-5 bước
-      thao tác thật (bấm theo chỉ dẫn) + demo nhanh chức năng chính.
-  2. Mục "Khám phá công cụ" trong tab: trình chiếu (carousel) các tool
-      đang ẩn sau icon sấm sét (Tipiṭaka/Tam Tạng, Video, Word map,
-      Triangle, Venn, Cabin…) — mỗi card: icon + tên + 1 dòng mô tả +
-      nút "Mở ngay" → mở đúng tool.
-  3. Giữ "Chế độ trải nghiệm" cũ trong read settings (không phá), tab
-      mới là lớp UX bao trùm.
-- **AT:** mở tab Trải nghiệm → chọn ĐỌC → làm theo 3 bước → tới đúng
-  chỗ; carousel hiện ≥5 tool ẩn + bấm "Mở ngay" mở đúng tool (kiểm tra
-  Tipiṭaka).
-- **Trạng thái:** 🔒 **design gate (phase 1) — chờ owner chốt wireframe**
-  (lane B8 trong `AGENT_ASSIGNMENTS_2026-09-16.md`: "chỉ wireframe/route
-  inventory trước; chưa code feature lớn khi chưa chốt UX"). Phase 1 đã giao
-  **tài liệu + ảnh wireframe**, KHÔNG có mã nguồn tính năng.
+  0. ✅ **OWNER ĐÃ CHỐT 2026-09-16** — bản thiết kế chốt là **D1-B**: KHÔNG
+     thêm tab; 7 mode nằm trong **"Phòng Studio" ở Home** (7 thẻ phẳng D2-A)
+     + mục **"Khám phá công cụ ⚡"** trên Home. (Phương án thêm tab thứ 6 do
+     agent đề xuất đã bị owner bác → bỏ khỏi phạm vi.)
+  1. ~~Tab "Trải nghiệm"~~ → **Phòng Studio 7 mode** NGHE/NÓI/XEM/ĐỌC/VIẾT/
+     HIỂU/NHỚ — mỗi mode = "hướng dẫn có dẫn đường": mục tiêu 1 dòng +
+     4–5 bước thao tác thật (bấm theo chỉ dẫn) + badge "N bước ▸".
+  2. Mục "Khám phá công cụ ⚡" **trên Home** (dưới lưới Studio): trình chiếu
+     (carousel) các tool đang ẩn sau icon sấm sét (Tipiṭaka/Tam Tạng, Video,
+     Word map, Triangle, Venn, Cabin…) — mỗi card: icon + tên + 1 dòng mô tả +
+     nút "Mở ngay" → mở đúng tool; nguồn dữ liệu dùng lại
+     `_buildQuickActions` + nút "Xem tất cả ⚡" (overlay v2 giữ nguyên).
+  3. Giữ "Chế độ trải nghiệm" cũ trong read settings (không phá); lớp UX mới
+     trên Home chỉ là vỏ dẫn đường, không dựng lại UI mode.
+- **AT (đã cập nhật theo D1-B):** Home → Phòng Studio **7 thẻ** → chạm ĐỌC →
+  làm theo các bước → tới đúng chỗ; mục "Khám phá công cụ ⚡" hiện ≥5 tool ẩn
+  + bấm "Mở ngay" mở đúng tool (kiểm tra Tipiṭaka → thiếu DB vẫn mở được và
+  dẫn tới màn hình tải dữ liệu).
+- **Trạng thái:** ✅ **owner đã chốt thiết kế 2026-09-16** (D1-B · D2-A · D3-A
+  mặc định · D4-A · D5-A) — hết design gate, **chưa code**; chờ owner bật đèn
+  xanh cho **PR implementation riêng** (WP0–WP3). Lane B8 trong
+  `AGENT_ASSIGNMENTS_2026-09-16.md` vẫn đúng tinh thần "chốt UX trước, code
+  sau": bản thiết kế đã được owner duyệt, không còn agent tự quyết UX lớn.
+  ⚠ **Vướng phối hợp:** D1-B dùng chung `home_screen.dart` +
+  callback `main_shell.dart` với card `HOME-STUDIO-001` ⇒ chốt PA1 (làm chung
+  một PR) hay PA2 (tuần tự) TRƯỚC khi sửa 2 file này.
 - **Phase 1 — deliverable (branch `arena/01a0a703-in4up`, base `d40f604`):**
   - `docs/project/XP-MODE-001-wireframe.md` — hiện trạng verify bằng code (12
     điểm, file:line), wireframe 6 khối, đặc tả 7 mode (mục tiêu 1 dòng + 4–5
@@ -2746,11 +2755,18 @@
   - Máy bắt i18n ở tầng **source** (`tool/generate_legacy_ui_fallbacks.py:301`
     quét `lib/**/*.dart`) ⇒ PR implementation phải dùng ARB ngay, không
     hard-code tiếng Việt.
-- **Chờ owner:** tick `XP-MODE-001-review-checklist.md` (D1 điểm vào · D2 cách
-  hiển thị 7 mode · D3 nguồn danh sách tool · D4 nút khi thiếu dữ liệu · D5 mức
-  dẫn đường). Sau khi chốt ⇒ mở **PR implementation riêng** (WP0–WP3 + test
-  navigation + card con `XP-MODE-002` tab/carousel, `XP-MODE-003` tour).
+- **Chờ owner (2 việc):** (a) bật đèn xanh cho **PR implementation** WP0–WP3
+  + test navigation (card con `XP-MODE-002` Home 7 thẻ/carousel,
+  `XP-MODE-003` tour); (b) chọn cách phối hợp `HOME-STUDIO-001` (PA1 làm chung
+  một PR / PA2 tuần tự) — xem mục 8 `XP-MODE-001-wireframe.md`.
+  Checklist chốt: `XP-MODE-001-review-checklist.md` (mục A/B đã tick theo
+  quyết định owner; mục C–G dùng lại cho PR implementation).
 - **Lịch sử:**
+  - 2026-09-16 | owner Q&A | **chốt thiết kế D1-B/D2-A/D4-A/D5-A** (D3 giữ
+    mặc định A, owner có thể phủ quyết ở PR code): KHÔNG thêm tab, 7 thẻ phẳng
+    ở Phòng Studio, "Mở ngay" luôn mở + badge thiếu gì, tour = checklist bước
+    thật; agent cập nhật wireframe md + ảnh png/svg (bỏ thiết kế tab), tick
+    checklist A/B, cập nhật CSV i18n, chuyển card khỏi design gate |
   - 2026-09-16 | 21:47 UTC | doing (design gate) | agent arena/01a0a703-in4up |
     phase 1: wireframe md + png/svg + CSV route (28 entry) + CSV i18n (20 key) +
     checklist chốt; KHÔNG code tính năng; giữ `grammarExperienceMode` cũ |

@@ -1,206 +1,227 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1640" viewBox="0 0 1280 1640" font-family="DejaVu Sans">
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1640" viewBox="0 0 1760 1640" font-family="DejaVu Sans">
   <style>
     .t   { fill: #E8EDF7; }
     .mut { fill: #93A1BF; }
     .dim { fill: #6B7A99; }
-    .h1  { font-size: 23px; font-weight: bold; }
+    .ok  { fill: #7CD992; }
+    .h1  { font-size: 22px; font-weight: bold; }
     .h2  { font-size: 15px; font-weight: bold; }
     .h3  { font-size: 13px; font-weight: bold; }
     .sm  { font-size: 11.5px; }
     .xs  { font-size: 10.5px; }
-    .mono{ font-size: 11px; font-family: DejaVu Sans Mono; }
     .panel { fill: #0F1526; stroke: #24304C; stroke-width: 1.2; }
     .card  { fill: #141C30; stroke: #263250; stroke-width: 1; }
     .screen{ fill: #0B1120; stroke: #263250; stroke-width: 1; }
     .pill  { fill: #1B2440; stroke: #2E3B5C; stroke-width: 1; }
   </style>
 
-  <rect width="1280" height="1640" fill="#070B16"/>
+  <rect width="1760" height="1640" fill="#070B16"/>
 
   <!-- ===================== HEADER ===================== -->
-  <text class="t h1" x="40" y="48">XP-MODE-001 · WIREFRAME TAB “TRẢI NGHIỆM” — DESIGN GATE (chưa code)</text>
-  <text class="mut sm" x="40" y="74">7 mode có dẫn đường: NGHE · NÓI · XEM · ĐỌC · VIẾT · HIỂU · NHỚ  —  mỗi mode: mục tiêu 1 dòng + 4 bước thao tác thật  —  kèm mục “Khám phá công cụ ⚡” (≥5 tool đang ẩn sau icon sấm sét).</text>
-  <text class="dim xs" x="40" y="92">Mọi mũi tên/nút trong hình trỏ tới route THẬT đã tồn tại trong repo (xem docs/project/XP-MODE-001-route-inventory.csv). Kích thước thể hiện tỉ lệ phone 360dp, không phải pixel cuối cùng.</text>
-  <line x1="40" y1="104" x2="1240" y2="104" stroke="#24304C" stroke-width="1"/>
+  <text class="t h1" x="40" y="46">XP-MODE-001 · WIREFRAME — ✅ ĐÃ CHỐT D1-B / D2-A / D4-A / D5-A</text>
+  <text class="ok sm" x="40" y="70">CHỐT: KHÔNG thêm tab — điểm vào = PHÒNG STUDIO ở Home, 7 thẻ phẳng (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ), mỗi thẻ mục tiêu 1 dòng + 4–5 bước “Mở ngay”,</text>
+  <text class="ok sm" x="40" y="85">nút “Mở ngay” luôn mở được + badge nói thiếu gì (D4-A), tour = checklist bước thật (D5-A). Tiếp theo: PR implementation riêng (WP0–WP3).</text>
+  <text class="dim xs" x="1020" y="46">Mọi nút trong hình trỏ tới</text>
+  <text class="dim xs" x="1020" y="61">route THẬT đã có trong repo —</text>
+  <text class="dim xs" x="1020" y="76">XP-MODE-001-route-inventory.csv.</text>
+  <line x1="40" y1="100" x2="1720" y2="100" stroke="#24304C" stroke-width="1"/>
 
-  <!-- ===================== PANEL 1 · ENTRY ===================== -->
-  <rect class="panel" x="40" y="118" width="300" height="566" rx="14"/>
-  <text class="t h2" x="58" y="146">1 · ĐIỂM VÀO  <tspan class="dim xs">(chờ chốt D1)</tspan></text>
-  <text class="mut xs" x="58" y="166">Bottom nav hiện tại: 5 tab (Home · NGHE ·</text>
-  <text class="mut xs" x="58" y="181">ĐỌC · HIỂU · NHỚ) — xem main_shell.dart.</text>
+  <!-- ===================== PANEL 1 · ENTRY (HOME) ===================== -->
+  <rect class="panel" x="40" y="114" width="340" height="566" rx="14"/>
+  <text class="t h2" x="58" y="142">1 · ĐIỂM VÀO = HOME</text>
+  <text class="ok xs" x="58" y="160">✅ D1-B: KHÔNG thêm tab thứ 6</text>
+  <text class="mut xs" x="58" y="178">Chỉ 2 mục thay đổi trên Home: Phòng Studio</text>
+  <text class="mut xs" x="58" y="192">(đủ 7 thẻ) + mục mới “Khám phá công cụ ⚡”.</text>
 
-  <!-- nav mock -->
-  <rect class="screen" x="58" y="196" width="264" height="404" rx="18"/>
-  <text class="dim xs" x="74" y="220">mock: thanh điều hướng dưới</text>
+  <!-- mock Home -->
+  <rect class="screen" x="58" y="192" width="264" height="392" rx="18"/>
+  <text class="dim xs" x="74" y="212">mock: Home hiện tại (không phải màn hình đầy đủ)</text>
+  <text class="mut h3" x="74" y="238">COMMAND CENTER</text>
 
-  <!-- rows of nav -->
+  <text class="mut xs" x="74" y="262">PHÒNG STUDIO · 7 THẺ ◻</text>
   <g>
-    <rect class="card" x="74" y="234" width="232" height="52" rx="10"/>
-    <text class="mut h3" x="92" y="258">⌂  Home</text>
-    <text class="dim xs" x="92" y="274">Command center / Phòng Studio</text>
+    <rect class="card" x="74" y="270" width="116" height="30" rx="8"/>
+    <text fill="#6C63FF" font-size="8.5" x="82" y="289">Nghe</text>
+    <text class="dim" font-size="8.5" x="120" y="289">listen 0</text>
+    <rect class="card" x="194" y="270" width="116" height="30" rx="8"/>
+    <text fill="#B388FF" font-size="8.5" x="202" y="289">Nói</text>
+    <text class="dim" font-size="8.5" x="240" y="289">listen 1</text>
   </g>
   <g>
-    <rect class="card" x="74" y="294" width="232" height="52" rx="10"/>
-    <text class="mut h3" x="92" y="318">♫  NGHE</text>
-    <text class="dim xs" x="92" y="334">player + LRC + AB loop</text>
+    <rect class="card" x="74" y="304" width="116" height="30" rx="8"/>
+    <text fill="#FFB300" font-size="8.5" x="82" y="323">Xem</text>
+    <text class="dim" font-size="8.5" x="120" y="323">listen 2</text>
+    <rect class="card" x="194" y="304" width="116" height="30" rx="8"/>
+    <text fill="#2196F3" font-size="8.5" x="202" y="323">Đọc</text>
+    <text class="dim" font-size="8.5" x="240" y="323">read 0</text>
   </g>
   <g>
-    <rect class="card" x="74" y="354" width="232" height="52" rx="10"/>
-    <text class="mut h3" x="92" y="378">▤  ĐỌC</text>
-    <text class="dim xs" x="92" y="394">text / PDF / Web reader</text>
+    <rect class="card" x="74" y="338" width="116" height="30" rx="8"/>
+    <text fill="#26C6DA" font-size="8.5" x="82" y="357">Viết</text>
+    <text class="dim" font-size="8.5" x="120" y="357">read 1</text>
+    <rect class="card" x="194" y="338" width="116" height="30" rx="8"/>
+    <text fill="#FF8F00" font-size="8.5" x="202" y="357">Hiểu</text>
+    <text class="dim" font-size="8.5" x="240" y="357">tab Hiểu</text>
   </g>
   <g>
-    <rect class="card" x="74" y="414" width="232" height="52" rx="10"/>
-    <text class="mut h3" x="92" y="438">☀  HIỂU</text>
-    <text class="dim xs" x="92" y="454">đồng bộ audio ↔ text</text>
-  </g>
-  <g>
-    <rect class="card" x="74" y="474" width="232" height="52" rx="10"/>
-    <text class="mut h3" x="92" y="498">◍  NHỚ</text>
-    <text class="dim xs" x="92" y="514">SRS / thuộc lòng</text>
-  </g>
-  <g>
-    <rect x="74" y="534" width="232" height="52" rx="10" fill="#1E2A4C" stroke="#8B7BFF" stroke-width="1.6"/>
-    <text fill="#C9C2FF" font-size="13" font-weight="bold" x="92" y="558">✦  TRẢI NGHIỆM  ◻</text>
-    <text fill="#9C93D6" font-size="10.5" x="92" y="574">tab MỚI — 7 mode dẫn đường + tool ⚡</text>
+    <rect class="card" x="74" y="372" width="116" height="30" rx="8"/>
+    <text fill="#4CAF50" font-size="8.5" x="82" y="391">Nhớ</text>
+    <text class="dim" font-size="8.5" x="120" y="391">tab Nhớ</text>
+    <rect x="194" y="372" width="116" height="30" rx="8" fill="#101A2E" stroke="#2C3A5E" stroke-dasharray="4 3"/>
+    <text class="dim" font-size="8.5" x="202" y="391">thẻ: icon + mục tiêu</text>
   </g>
 
-  <text class="mut xs" x="58" y="622">D1-A (đề xuất): thêm tab thứ 6 “Trải nghiệm”.</text>
-  <text class="dim xs" x="58" y="638">5 tab cũ KHÔNG đổi → zero rủi ro hồi quy nav.</text>
-  <text class="dim xs" x="58" y="654">D1-B: không thêm tab, mở rộng thẻ “Phòng Studio”</text>
-  <text class="dim xs" x="58" y="669">ở Home thành 7 thẻ (trùng việc HOME-STUDIO-001).</text>
+  <text class="mut xs" x="74" y="426">KHÁM PHÁ CÔNG CỤ ⚡ ◻</text>
+  <g>
+    <rect class="card" x="74" y="434" width="116" height="46" rx="8"/>
+    <rect x="80" y="440" width="12" height="14" rx="2" fill="none" stroke="#FF9800" stroke-width="1.2"/>
+    <text fill="#FF9800" font-size="8.5" x="98" y="452">Tipiṭaka</text>
+    <text fill="#FFC46B" font-size="7.5" x="80" y="470">⚠ chưa có dữ liệu</text>
+    <rect class="card" x="194" y="434" width="116" height="46" rx="8"/>
+    <text fill="#FFB300" font-size="9" x="202" y="452">▶ Video</text>
+    <text fill="#8FB6E0" font-size="7.5" x="202" y="470">⚠ chưa import</text>
+  </g>
+  <text class="dim xs" x="74" y="496">… vuốt ngang: Word Map · Triangle · Venn · Cabin</text>
+  <text class="dim xs" x="74" y="512">+ nút “Xem tất cả ⚡” mở overlay cũ (giữ nguyên)</text>
 
-  <!-- ===================== PANEL 2 · TAB ===================== -->
-  <rect class="panel" x="360" y="118" width="880" height="566" rx="14"/>
-  <text class="t h2" x="380" y="146">2 · TAB TRẢI NGHIỆM — màn hình mặc định  <tspan class="dim xs">(◻ mới, WP1)</tspan></text>
+  <!-- bottom nav mock -->
+  <rect x="66" y="528" width="248" height="46" rx="10" fill="#111827" stroke="#263250"/>
+  <text class="dim" font-size="8" x="74" y="546">⌂ Home</text>
+  <text class="dim" font-size="8" x="112" y="546">♫ NGHE</text>
+  <text class="dim" font-size="8" x="150" y="546">▤ ĐỌC</text>
+  <text class="dim" font-size="8" x="186" y="546">☀ HIỂU</text>
+  <text class="dim" font-size="8" x="224" y="546">◍ NHỚ</text>
+  <text class="ok" font-size="8" x="74" y="566">5 tab GIỮ NGUYÊN — không thêm _PrimaryTab mới</text>
 
-  <rect class="screen" x="378" y="158" width="844" height="58" rx="12"/>
-  <text class="t h3" x="394" y="182">✦  TRẢI NGHIỆM</text>
-  <text class="mut xs" x="394" y="200">Guided Studio · chọn 1 mode để được dẫn từng bước tới đúng chỗ</text>
-  <rect class="pill" x="1074" y="170" width="132" height="30" rx="15"/>
-  <text class="mut xs" x="1088" y="190">◻ Tour: bật / tắt</text>
+  <text class="dim xs" x="58" y="608">⚠ Phối hợp card HOME-STUDIO-001: cùng sửa</text>
+  <text class="dim xs" x="58" y="623">home_screen.dart + callback main_shell.dart →</text>
+  <text class="dim xs" x="58" y="638">làm CHUNG một PR hoặc tuần tự, không song song</text>
+  <text class="dim xs" x="58" y="653">(chi tiết §8 tài liệu wireframe).</text>
 
-  <!-- 7 mode cards -->
+  <!-- ===================== PANEL 2 · 7 CARDS + TOOL STRIP ===================== -->
+  <rect class="panel" x="400" y="114" width="1320" height="566" rx="14"/>
+  <text class="t h2" x="420" y="142">2 · PHÒNG STUDIO — 7 THẺ (✅ D2-A) + MỤC “KHÁM PHÁ CÔNG CỤ ⚡”  <tspan class="dim xs">(◻ mới, WP1)</tspan></text>
+
   <g>
-    <rect class="card" x="384" y="228" width="200" height="106" rx="12"/>
-    <rect x="384" y="228" width="6" height="106" rx="3" fill="#6C63FF"/>
-    <text fill="#6C63FF" font-size="20" x="404" y="260">♫</text>
-    <text class="t h3" x="430" y="258">NGHE</text>
-    <text class="mut xs" x="404" y="284">Nghe hiểu audio thật, có lời khớp</text>
-    <text class="mut xs" x="404" y="299">audio, lặp theo câu/cụm.</text>
-    <text class="dim xs" x="404" y="322">▣ tab Nghe · 4 bước ▸</text>
+    <rect class="card" x="384" y="158" width="200" height="106" rx="12"/>
+    <rect x="384" y="158" width="6" height="106" rx="3" fill="#6C63FF"/>
+    <text fill="#6C63FF" font-size="20" x="404" y="190">♫</text>
+    <text class="t h3" x="430" y="188">NGHE</text>
+    <text class="mut xs" x="404" y="214">Nghe hiểu audio thật, có lời khớp</text>
+    <text class="mut xs" x="404" y="229">audio, lặp theo câu/cụm.</text>
+    <text class="dim xs" x="404" y="252">▣ tab Nghe · 4 bước ▸</text>
   </g>
   <g>
-    <rect class="card" x="596" y="228" width="200" height="106" rx="12"/>
-    <rect x="596" y="228" width="6" height="106" rx="3" fill="#B388FF"/>
-    <text fill="#B388FF" font-size="20" x="616" y="260">◉</text>
-    <text class="t h3" x="642" y="258">NÓI</text>
-    <text class="mut xs" x="616" y="284">Nói lại đúng câu gốc (shadowing),</text>
-    <text class="mut xs" x="616" y="299">luyện phản xạ và phát âm.</text>
-    <text class="dim xs" x="616" y="322">▣ tab Nói · 4 bước ▸</text>
+    <rect class="card" x="596" y="158" width="200" height="106" rx="12"/>
+    <rect x="596" y="158" width="6" height="106" rx="3" fill="#B388FF"/>
+    <text fill="#B388FF" font-size="20" x="616" y="190">◉</text>
+    <text class="t h3" x="642" y="188">NÓI</text>
+    <text class="mut xs" x="616" y="214">Nói lại đúng câu gốc (shadowing),</text>
+    <text class="mut xs" x="616" y="229">luyện phản xạ và phát âm.</text>
+    <text class="dim xs" x="616" y="252">▣ tab Nói · 4 bước ▸</text>
   </g>
   <g>
-    <rect class="card" x="808" y="228" width="200" height="106" rx="12"/>
-    <rect x="808" y="228" width="6" height="106" rx="3" fill="#FFB300"/>
-    <text fill="#FFB300" font-size="20" x="828" y="260">▶</text>
-    <text class="t h3" x="854" y="258">XEM</text>
-    <text class="mut xs" x="828" y="284">Xem video có phụ đề để học</text>
-    <text class="mut xs" x="828" y="299">theo ngữ cảnh hình ảnh.</text>
-    <text class="dim xs" x="828" y="322">▣ tab Nghe › Xem · 4 bước ▸</text>
+    <rect class="card" x="808" y="158" width="200" height="106" rx="12"/>
+    <rect x="808" y="158" width="6" height="106" rx="3" fill="#FFB300"/>
+    <text fill="#FFB300" font-size="20" x="828" y="190">▶</text>
+    <text class="t h3" x="854" y="188">XEM</text>
+    <text class="mut xs" x="828" y="214">Xem video có phụ đề để học</text>
+    <text class="mut xs" x="828" y="229">theo ngữ cảnh hình ảnh.</text>
+    <text class="dim xs" x="828" y="252">▣ tab Nghe › Xem · 4 bước ▸</text>
   </g>
   <g>
-    <rect class="card" x="1020" y="228" width="200" height="106" rx="12"/>
-    <rect x="1020" y="228" width="6" height="106" rx="3" fill="#2196F3"/>
-    <text fill="#2196F3" font-size="20" x="1040" y="260">▤</text>
-    <text class="t h3" x="1066" y="258">ĐỌC</text>
-    <text class="mut xs" x="1040" y="284">Đọc hiểu văn bản dài, bôi từ</text>
-    <text class="mut xs" x="1040" y="299">theo ngữ cảnh, nghe câu.</text>
-    <text class="dim xs" x="1040" y="322">▣ tab Đọc · 4 bước ▸</text>
+    <rect class="card" x="1020" y="158" width="200" height="106" rx="12"/>
+    <rect x="1020" y="158" width="6" height="106" rx="3" fill="#2196F3"/>
+    <text fill="#2196F3" font-size="20" x="1040" y="190">▤</text>
+    <text class="t h3" x="1066" y="188">ĐỌC</text>
+    <text class="mut xs" x="1040" y="214">Đọc hiểu văn bản dài, bôi từ</text>
+    <text class="mut xs" x="1040" y="229">theo ngữ cảnh, nghe câu.</text>
+    <text class="dim xs" x="1040" y="252">▣ tab Đọc · 4 bước ▸</text>
   </g>
   <g>
-    <rect class="card" x="384" y="346" width="200" height="106" rx="12"/>
-    <rect x="384" y="346" width="6" height="106" rx="3" fill="#26C6DA"/>
-    <text fill="#26C6DA" font-size="20" x="404" y="378">✎</text>
-    <text class="t h3" x="430" y="376">VIẾT</text>
-    <text class="mut xs" x="404" y="402">Viết lại / chép / điền khuyết để</text>
-    <text class="mut xs" x="404" y="417">nhớ chủ động nội dung đã gặp.</text>
-    <text class="dim xs" x="404" y="440">▣ tab Đọc › Viết · 4 bước ▸</text>
+    <rect class="card" x="384" y="276" width="200" height="106" rx="12"/>
+    <rect x="384" y="276" width="6" height="106" rx="3" fill="#26C6DA"/>
+    <text fill="#26C6DA" font-size="20" x="404" y="308">✎</text>
+    <text class="t h3" x="430" y="306">VIẾT</text>
+    <text class="mut xs" x="404" y="332">Viết lại / chép / điền khuyết để</text>
+    <text class="mut xs" x="404" y="347">nhớ chủ động nội dung đã gặp.</text>
+    <text class="dim xs" x="404" y="370">▣ tab Đọc › Viết · 4 bước ▸</text>
   </g>
   <g>
-    <rect class="card" x="596" y="346" width="200" height="106" rx="12"/>
-    <rect x="596" y="346" width="6" height="106" rx="3" fill="#FF8F00"/>
-    <text fill="#FF8F00" font-size="20" x="616" y="378">☀</text>
-    <text class="t h3" x="642" y="376">HIỂU</text>
-    <text class="mut xs" x="616" y="402">Ghép audio ↔ text, đồng bộ dòng,</text>
-    <text class="mut xs" x="616" y="417">hiểu ngữ cảnh rồi nối sang ôn.</text>
-    <text class="dim xs" x="616" y="440">▣ tab Hiểu · 5 bước ▸</text>
+    <rect class="card" x="596" y="276" width="200" height="106" rx="12"/>
+    <rect x="596" y="276" width="6" height="106" rx="3" fill="#FF8F00"/>
+    <text fill="#FF8F00" font-size="20" x="616" y="308">☀</text>
+    <text class="t h3" x="642" y="306">HIỂU</text>
+    <text class="mut xs" x="616" y="332">Ghép audio ↔ text, đồng bộ dòng,</text>
+    <text class="mut xs" x="616" y="347">hiểu ngữ cảnh rồi nối sang ôn.</text>
+    <text class="dim xs" x="616" y="370">▣ tab Hiểu · 5 bước ▸</text>
   </g>
   <g>
-    <rect class="card" x="808" y="346" width="200" height="106" rx="12"/>
-    <rect x="808" y="346" width="6" height="106" rx="3" fill="#4CAF50"/>
-    <text fill="#4CAF50" font-size="20" x="828" y="378">◍</text>
-    <text class="t h3" x="854" y="376">NHỚ</text>
-    <text class="mut xs" x="828" y="402">Biến thứ đã gặp thành nhớ dài hạn</text>
-    <text class="mut xs" x="828" y="417">(SRS/FSRS) + thuộc lòng.</text>
-    <text class="dim xs" x="828" y="440">▣ tab Nhớ · 4 bước ▸</text>
+    <rect class="card" x="808" y="276" width="200" height="106" rx="12"/>
+    <rect x="808" y="276" width="6" height="106" rx="3" fill="#4CAF50"/>
+    <text fill="#4CAF50" font-size="20" x="828" y="308">◍</text>
+    <text class="t h3" x="854" y="306">NHỚ</text>
+    <text class="mut xs" x="828" y="332">Biến thứ đã gặp thành nhớ dài hạn</text>
+    <text class="mut xs" x="828" y="347">(SRS/FSRS) + thuộc lòng.</text>
+    <text class="dim xs" x="828" y="370">▣ tab Nhớ · 4 bước ▸</text>
   </g>
   <g>
-    <rect x="1020" y="346" width="200" height="106" rx="12" fill="#101A2E" stroke="#2C3A5E" stroke-dasharray="5 4"/>
-    <text class="dim xs" x="1040" y="376">7 mode = lưới 4+3 (responsive:</text>
-    <text class="dim xs" x="1040" y="392">phone nhỏ 2 cột, tablet 4 cột).</text>
-    <text class="dim xs" x="1040" y="414">▸ chạm thẻ = mở màn hình mode</text>
-    <text class="dim xs" x="1040" y="430">(▣) + bật tour dẫn đường.</text>
-    <text class="dim xs" x="1040" y="446">Chưa dùng bao giờ → gắn nhãn “Mới”.</text>
+    <rect x="1020" y="276" width="200" height="106" rx="12" fill="#101A2E" stroke="#2C3A5E" stroke-dasharray="5 4"/>
+    <text class="dim xs" x="1040" y="304">7 thẻ = lưới 4+3 (responsive:</text>
+    <text class="dim xs" x="1040" y="320">phone nhỏ 2 cột, tablet 4 cột).</text>
+    <text class="ok xs" x="1040" y="342">✅ chạm thẻ = mở mode (▣) +</text>
+    <text class="ok xs" x="1040" y="358">mở tour dẫn đường (D5-A).</text>
+    <text class="dim xs" x="1040" y="376">Chưa dùng bao giờ → nhãn “Mới”.</text>
   </g>
 
   <!-- tools strip -->
-  <text class="t h3" x="384" y="486">KHÁM PHÁ CÔNG CỤ ⚡  <tspan class="dim xs">(carousel — 3 thẻ thấy cùng lúc, vuốt ngang)</tspan></text>
+  <text class="t h3" x="384" y="416">KHÁM PHÁ CÔNG CỤ ⚡  <tspan class="dim xs">(carousel — 3 thẻ thấy cùng lúc, vuốt ngang; nguồn = _buildQuickActions, D3-A)</tspan></text>
   <g>
-    <rect class="card" x="384" y="500" width="270" height="168" rx="12"/>
-    <rect x="401" y="510" width="24" height="24" rx="3" fill="none" stroke="#FF9800" stroke-width="1.6"/>
-    <line x1="413" y1="512" x2="413" y2="532" stroke="#FF9800" stroke-width="1.2"/>
-    <text class="t h3" x="434" y="528">Tipiṭaka</text>
-    <text class="mut xs" x="400" y="554">Đọc Tam Tạng, tra cứu kinh điển</text>
-    <text class="mut xs" x="400" y="569">song ngữ Pāli ↔ Việt, tìm trong kho.</text>
-    <rect x="400" y="584" width="118" height="22" rx="11" fill="#3A2A12" stroke="#7A5A20"/>
-    <text fill="#FFC46B" font-size="10" x="410" y="599">⚠ Chưa có dữ liệu</text>
-    <rect x="530" y="584" width="106" height="22" rx="11" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="546" y="599">Mở ngay ▸</text>
-    <text class="dim xs" x="400" y="628">▣ TipitakaLibraryScreen — luôn mở được;</text>
-    <text class="dim xs" x="400" y="643">thiếu DB → màn hình “Import/tải dữ liệu”.</text>
-    <text class="dim xs" x="400" y="658">(Không disable nút — đây là điểm D4.)</text>
+    <rect class="card" x="384" y="430" width="270" height="168" rx="12"/>
+    <rect x="401" y="440" width="24" height="24" rx="3" fill="none" stroke="#FF9800" stroke-width="1.6"/>
+    <line x1="413" y1="442" x2="413" y2="462" stroke="#FF9800" stroke-width="1.2"/>
+    <text class="t h3" x="434" y="458">Tipiṭaka</text>
+    <text class="mut xs" x="400" y="484">Đọc Tam Tạng, tra cứu kinh điển</text>
+    <text class="mut xs" x="400" y="499">song ngữ Pāli ↔ Việt, tìm trong kho.</text>
+    <rect x="400" y="514" width="118" height="22" rx="11" fill="#3A2A12" stroke="#7A5A20"/>
+    <text fill="#FFC46B" font-size="10" x="410" y="529">⚠ Chưa có dữ liệu</text>
+    <rect x="530" y="514" width="106" height="22" rx="11" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="546" y="529">Mở ngay ▸</text>
+    <text class="dim xs" x="400" y="558">▣ TipitakaLibraryScreen — luôn mở được;</text>
+    <text class="dim xs" x="400" y="573">thiếu DB → màn hình “Import/tải dữ liệu”.</text>
+    <text class="ok xs" x="400" y="590">✅ D4-A: không disable nút, badge nói thiếu gì.</text>
   </g>
   <g>
-    <rect class="card" x="666" y="500" width="270" height="168" rx="12"/>
-    <text fill="#FFB300" font-size="20" x="682" y="530">▶</text>
-    <text class="t h3" x="710" y="528">Video (local)</text>
-    <text class="mut xs" x="682" y="554">Xem video + phụ đề + học từ</text>
-    <text class="mut xs" x="682" y="569">ngay trong lúc phát.</text>
-    <rect x="682" y="584" width="118" height="22" rx="11" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="10" x="692" y="599">Trống: chưa import</text>
-    <rect x="812" y="584" width="106" height="22" rx="11" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="828" y="599">Mở ngay ▸</text>
-    <text class="dim xs" x="682" y="628">▣ VideoLibraryScreen — rỗng thì có empty</text>
-    <text class="dim xs" x="682" y="643">state “Chưa có video nào” + nút thêm.</text>
+    <rect class="card" x="666" y="430" width="270" height="168" rx="12"/>
+    <text fill="#FFB300" font-size="20" x="682" y="460">▶</text>
+    <text class="t h3" x="710" y="458">Video (local)</text>
+    <text class="mut xs" x="682" y="484">Xem video + phụ đề + học từ</text>
+    <text class="mut xs" x="682" y="499">ngay trong lúc phát.</text>
+    <rect x="682" y="514" width="118" height="22" rx="11" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="10" x="692" y="529">Trống: chưa import</text>
+    <rect x="812" y="514" width="106" height="22" rx="11" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="828" y="529">Mở ngay ▸</text>
+    <text class="dim xs" x="682" y="558">▣ VideoLibraryScreen — rỗng thì có empty</text>
+    <text class="dim xs" x="682" y="573">state “Chưa có video nào” + nút thêm.</text>
   </g>
   <g>
-    <rect class="card" x="948" y="500" width="270" height="168" rx="12"/>
-    <text fill="#26C6DA" font-size="20" x="964" y="530">◎</text>
-    <text class="t h3" x="992" y="528">Word Map</text>
-    <text class="mut xs" x="964" y="554">Bản đồ từ theo trục ngữ nghĩa,</text>
-    <text class="mut xs" x="964" y="569">nhìn “chỗ hổng” của vốn từ.</text>
-    <rect x="964" y="584" width="130" height="22" rx="11" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="10" x="974" y="599">Trống: cần WordList</text>
-    <rect x="1104" y="584" width="106" height="22" rx="11" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1120" y="599">Mở ngay ▸</text>
-    <text class="dim xs" x="964" y="628">▣ MapTab — dữ liệu rỗng → “Chưa có từ vựng”.</text>
-    <text class="dim xs" x="964" y="643">Còn 4+ thẻ nữa: Triangle, Venn, Cabin,</text>
-    <text class="dim xs" x="964" y="658">YouTube, Từ điển MDX (bảng đầy đủ ở CSV).</text>
+    <rect class="card" x="948" y="430" width="270" height="168" rx="12"/>
+    <text fill="#26C6DA" font-size="20" x="964" y="460">◎</text>
+    <text class="t h3" x="992" y="458">Word Map</text>
+    <text class="mut xs" x="964" y="484">Bản đồ từ theo trục ngữ nghĩa,</text>
+    <text class="mut xs" x="964" y="499">nhìn “chỗ hổng” của vốn từ.</text>
+    <rect x="964" y="514" width="130" height="22" rx="11" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="10" x="974" y="529">Trống: cần WordList</text>
+    <rect x="1104" y="514" width="106" height="22" rx="11" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1120" y="529">Mở ngay ▸</text>
+    <text class="dim xs" x="964" y="558">▣ MapTab — dữ liệu rỗng → “Chưa có từ vựng”.</text>
+    <text class="dim xs" x="964" y="573">Còn 4+ thẻ nữa: Triangle, Venn, Cabin,</text>
+    <text class="dim xs" x="964" y="588">YouTube, Từ điển MDX (bảng đầy đủ ở CSV).</text>
   </g>
 
   <!-- ===================== PANEL 3 · MODE DETAIL ===================== -->
   <rect class="panel" x="40" y="700" width="620" height="600" rx="14"/>
-  <text class="t h2" x="58" y="728">3 · CHI TIẾT MODE (ví dụ ĐỌC) — tour dẫn từng bước  <tspan class="dim xs">◻ mới</tspan></text>
+  <text class="t h2" x="58" y="728">3 · TOUR DẪN ĐƯỜNG (ví dụ ĐỌC) — ✅ D5-A  <tspan class="dim xs">◻ mới</tspan></text>
 
   <rect class="screen" x="58" y="744" width="584" height="540" rx="14"/>
   <rect x="58" y="744" width="584" height="52" rx="14" fill="#121C33"/>
@@ -262,113 +283,114 @@
   <text class="dim xs" x="76" y="1270">Tiến trình tour lưu theo từng mode (đã xem / đang ở bước nào) → lần sau mở lại đúng chỗ; có nút “chạy lại tour”.</text>
 
   <!-- ===================== PANEL 4 · TOOL DISCOVERY ===================== -->
-  <rect class="panel" x="680" y="700" width="560" height="600" rx="14"/>
-  <text class="t h2" x="700" y="728">4 · MỤC “KHÁM PHÁ CÔNG CỤ ⚡” — mở ngay + trạng thái</text>
+  <rect class="panel" x="680" y="700" width="1040" height="600" rx="14"/>
+  <text class="t h2" x="700" y="728">4 · MỤC “KHÁM PHÁ CÔNG CỤ ⚡” TRÊN HOME — mở ngay + trạng thái</text>
 
   <g>
-    <rect class="card" x="700" y="744" width="520" height="62" rx="10"/>
+    <rect class="card" x="700" y="744" width="1000" height="62" rx="10"/>
     <rect x="712" y="756" width="38" height="38" rx="9" fill="#2A2110"/>
     <rect x="721" y="763" width="20" height="22" rx="3" fill="none" stroke="#FF9800" stroke-width="1.6"/>
     <line x1="731" y1="765" x2="731" y2="783" stroke="#FF9800" stroke-width="1.2"/>
     <text class="t h3" x="762" y="768">Tipiṭaka</text>
     <text class="mut xs" x="762" y="786">Đọc Tam Tạng · tra cứu kinh điển (Pāli ↔ Việt)</text>
-    <rect x="1000" y="754" width="118" height="20" rx="10" fill="#3A2A12" stroke="#7A5A20"/>
-    <text fill="#FFC46B" font-size="9.5" x="1008" y="768">⚠ Chưa có dữ liệu</text>
-    <rect x="1128" y="752" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1140" y="768">Mở ngay ▸</text>
-    <text class="dim xs" x="762" y="800">id: tipitaka → TipitakaLibraryScreen (chỉ có trong danh sách ⚡ khi ở tab Home!)</text>
+    <rect x="1480" y="754" width="118" height="20" rx="10" fill="#3A2A12" stroke="#7A5A20"/>
+    <text fill="#FFC46B" font-size="9.5" x="1486" y="768">⚠ Chưa có dữ liệu</text>
+    <rect x="1608" y="752" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1620" y="768">Mở ngay ▸</text>
+    <text class="dim xs" x="762" y="800">id: tipitaka → TipitakaLibraryScreen (trước đây CHỈ hiện trong ⚡ khi ở tab Home)</text>
   </g>
   <g>
-    <rect class="card" x="700" y="814" width="520" height="58" rx="10"/>
+    <rect class="card" x="700" y="814" width="1000" height="58" rx="10"/>
     <rect x="712" y="826" width="38" height="38" rx="9" fill="#2A2410"/>
     <text fill="#FFB300" font-size="17" x="723" y="852">▶</text>
     <text class="t h3" x="762" y="838">Video (local)</text>
     <text class="mut xs" x="762" y="856">Xem video + phụ đề + học từ khi đang phát</text>
-    <rect x="1000" y="826" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="9.5" x="1008" y="840">Trống: chưa import</text>
-    <rect x="1128" y="824" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1140" y="840">Mở ngay ▸</text>
+    <rect x="1480" y="826" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="9.5" x="1486" y="840">Trống: chưa import</text>
+    <rect x="1608" y="824" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1620" y="840">Mở ngay ▸</text>
   </g>
   <g>
-    <rect class="card" x="700" y="880" width="520" height="58" rx="10"/>
+    <rect class="card" x="700" y="880" width="1000" height="58" rx="10"/>
     <rect x="712" y="892" width="38" height="38" rx="9" fill="#10262C"/>
     <text fill="#26C6DA" font-size="17" x="723" y="918">◎</text>
     <text class="t h3" x="762" y="904">Word Map</text>
     <text class="mut xs" x="762" y="922">Bản đồ từ theo trục ngữ nghĩa</text>
-    <rect x="1000" y="892" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="9.5" x="1008" y="906">Trống: cần WordList</text>
-    <rect x="1128" y="890" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1140" y="906">Mở ngay ▸</text>
+    <rect x="1480" y="892" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="9.5" x="1486" y="906">Trống: cần WordList</text>
+    <rect x="1608" y="890" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1620" y="906">Mở ngay ▸</text>
   </g>
   <g>
-    <rect class="card" x="700" y="946" width="520" height="58" rx="10"/>
+    <rect class="card" x="700" y="946" width="1000" height="58" rx="10"/>
     <rect x="712" y="958" width="38" height="38" rx="9" fill="#2A2210"/>
     <text fill="#FFA726" font-size="17" x="723" y="984">△</text>
     <text class="t h3" x="762" y="970">Triangle</text>
     <text class="mut xs" x="762" y="988">Tam giác Hiểu – Nghe – Đọc (tách biệt có chủ đích)</text>
-    <rect x="1000" y="958" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="9.5" x="1008" y="972">Trống: cần WordList</text>
-    <rect x="1128" y="956" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1140" y="972">Mở ngay ▸</text>
+    <rect x="1480" y="958" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="9.5" x="1486" y="972">Trống: cần WordList</text>
+    <rect x="1608" y="956" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1620" y="972">Mở ngay ▸</text>
   </g>
   <g>
-    <rect class="card" x="700" y="1012" width="520" height="58" rx="10"/>
+    <rect class="card" x="700" y="1012" width="1000" height="58" rx="10"/>
     <rect x="712" y="1024" width="38" height="38" rx="9" fill="#221832"/>
     <text fill="#AB47BC" font-size="17" x="723" y="1050">◍</text>
     <text class="t h3" x="762" y="1036">Venn</text>
     <text class="mut xs" x="762" y="1054">Giao nhau giữa các tập từ (ngữ nghĩa / chủ đề)</text>
-    <rect x="1000" y="1024" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="9.5" x="1008" y="1038">Trống: cần WordList</text>
-    <rect x="1128" y="1022" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1140" y="1038">Mở ngay ▸</text>
+    <rect x="1480" y="1024" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="9.5" x="1486" y="1038">Trống: cần WordList</text>
+    <rect x="1608" y="1022" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1620" y="1038">Mở ngay ▸</text>
   </g>
   <g>
-    <rect class="card" x="700" y="1078" width="520" height="58" rx="10"/>
+    <rect class="card" x="700" y="1078" width="1000" height="58" rx="10"/>
     <rect x="712" y="1090" width="38" height="38" rx="9" fill="#0F2A1C"/>
     <text fill="#00E676" font-size="17" x="723" y="1116">◈</text>
     <text class="t h3" x="762" y="1102">Cabin dịch live</text>
     <text class="mut xs" x="762" y="1120">Dịch song song trực tiếp từ giọng nói</text>
-    <rect x="1000" y="1090" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
-    <text fill="#8FB6E0" font-size="9.5" x="1008" y="1104">Cần mic + model STT</text>
-    <rect x="1128" y="1088" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
-    <text fill="#BFD2FF" font-size="10" x="1140" y="1104">Mở ngay ▸</text>
+    <rect x="1480" y="1090" width="118" height="20" rx="10" fill="#16243C" stroke="#2E4160"/>
+    <text fill="#8FB6E0" font-size="9.5" x="1486" y="1104">Cần mic + model STT</text>
+    <rect x="1608" y="1088" width="80" height="24" rx="12" fill="#22335A" stroke="#4E6BB5"/>
+    <text fill="#BFD2FF" font-size="10" x="1620" y="1104">Mở ngay ▸</text>
   </g>
 
-  <rect x="700" y="1148" width="520" height="66" rx="10" fill="#101A2E" stroke="#2C3A5E" stroke-dasharray="5 4"/>
+  <rect x="700" y="1148" width="1000" height="66" rx="10" fill="#101A2E" stroke="#2C3A5E" stroke-dasharray="5 4"/>
   <text class="mut xs" x="716" y="1170">+ còn nữa: YouTube (cần mạng), Từ điển MDX (cần import .mdx),</text>
   <text class="mut xs" x="716" y="1186">Âm mục, Timeline, Thống kê, Thuộc lòng, Giao diện shell…</text>
-  <text class="dim xs" x="716" y="1204">Bảng đầy đủ 24 id: XP-MODE-001-route-inventory.csv (route + trạng thái + file).</text>
+  <text class="dim xs" x="716" y="1204">Bảng đầy đủ 28 entry: XP-MODE-001-route-inventory.csv (route + trạng thái + file).</text>
 
-  <text class="dim xs" x="700" y="1240">Nguyên tắc “unavailable”: badge nói THIẾU GÌ (dữ liệu / model / mạng / quyền), nút “Mở ngay”</text>
-  <text class="dim xs" x="700" y="1256">vẫn hoạt động và dẫn tới đúng màn hình khắc phục — không có nút chết, không toast câm.</text>
+  <text class="dim xs" x="700" y="1240">Nguyên tắc “unavailable” (✅ D4-A): badge nói THIẾU GÌ (dữ liệu / model / mạng / quyền),</text>
+  <text class="dim xs" x="700" y="1256">nút “Mở ngay” VẪN hoạt động và dẫn tới đúng màn hình khắc phục — không nút chết, không toast câm.</text>
   <text class="dim xs" x="700" y="1280">Ghi chú phạm vi: danh sách tool giữ NGUYÊN nguồn sự thật `_buildQuickActions`</text>
-  <text class="dim xs" x="700" y="1296">(main_shell.dart) → tránh hai danh sách lệch nhau khi thêm tool mới.</text>
+  <text class="dim xs" x="700" y="1296">(main_shell.dart, D3-A) → tránh hai danh sách lệch nhau khi thêm tool mới.</text>
 
-  <!-- ===================== PANEL 5 · LEGEND / INVARIANTS ===================== -->
-  <rect class="panel" x="40" y="1316" width="620" height="278" rx="14"/>
+  <!-- ===================== PANEL 5 · LEGEND ===================== -->
+  <rect class="panel" x="40" y="1316" width="820" height="278" rx="14"/>
   <text class="t h2" x="58" y="1344">5 · CHÚ GIẢI</text>
   <text class="mut sm" x="58" y="1372">▣  màn hình đã có trong repo (không tạo mới)</text>
-  <text class="mut sm" x="58" y="1396">◻  widget/màn hình MỚI sẽ tạo ở WP1</text>
+  <text class="mut sm" x="58" y="1396">◻  widget/mục MỚI sẽ tạo ở WP1/WP2</text>
   <text class="mut sm" x="58" y="1420">▸  điều hướng THẬT (chạm là mở route thật, không phải ảnh chụp)</text>
   <text class="mut sm" x="58" y="1444">⚡  tool đang ẩn sau icon sấm sét (Công cụ nhanh)</text>
   <text class="mut sm" x="58" y="1468">⚠  trạng thái unavailable (thiếu dữ liệu / model / mạng / quyền)</text>
-  <text class="mut sm" x="58" y="1492">!  điểm chờ owner chốt (D1–D5) — xem §3 của tài liệu</text>
-  <rect x="58" y="1512" width="584" height="66" rx="10" fill="#1A1408" stroke="#6B5416"/>
-  <text fill="#FFD98A" font-size="11.5" font-weight="bold" x="74" y="1534">Đây là bản thiết kế ĐỂ CHỐT, không phải bản triển khai.</text>
-  <text fill="#E0BE7A" font-size="11" x="74" y="1553">Agent không tự quyết UX lớn: chờ owner chốt D1–D5 rồi mới mở PR implementation</text>
-  <text fill="#E0BE7A" font-size="11" x="74" y="1569">(card con + test navigation) — theo đúng B8 trong AGENT_ASSIGNMENTS_2026-09-16.</text>
+  <text class="ok sm" x="58" y="1492">✅  quyết định owner ĐÃ CHỐT (D1-B · D2-A · D3-A · D4-A · D5-A)</text>
+  <rect x="58" y="1512" width="784" height="66" rx="10" fill="#1A1408" stroke="#6B5416"/>
+  <text fill="#FFD98A" font-size="11.5" font-weight="bold" x="74" y="1534">Đây là bản thiết kế ĐÃ CHỐT, không phải bản triển khai.</text>
+  <text fill="#E0BE7A" font-size="11" x="74" y="1553">Bước tiếp theo: PR implementation riêng (WP0–WP3) + test navigation; chốt cách</text>
+  <text fill="#E0BE7A" font-size="11" x="74" y="1569">phối hợp HOME-STUDIO-001 trước khi chạm home_screen.dart.</text>
 
-  <rect class="panel" x="680" y="1316" width="560" height="278" rx="14"/>
-  <text class="t h2" x="700" y="1344">6 · BẤT BIẾN — KHÔNG ĐƯỢC PHÁ</text>
-  <text class="mut sm" x="700" y="1372">1. grammarExperienceMode (read_settings_sheet.dart) GIỮ NGUYÊN:</text>
-  <text class="dim xs" x="716" y="1390">tab mới chỉ là lớp UX bao trùm; không xoá/đổi key, không đổi vị trí sheet.</text>
-  <text class="mut sm" x="700" y="1414">2. Rule vàng #5: locale ≠ vi → chrome không còn tiếng Việt; key mới phải</text>
-  <text class="dim xs" x="716" y="1432">có “en” + (T2) hi/zh/zh_TW/si trong cùng PR; không fallback về vi.</text>
-  <text class="mut sm" x="700" y="1456">3. Không thêm dependency; không đụng lib/ffi/, UltraTimeStretch,</text>
-  <text class="dim xs" x="716" y="1474">native C++ hay workflow CI của repo.</text>
-  <text class="mut sm" x="700" y="1498">4. Không đổi hành vi sẵn có: 5 tab cũ, icon ⚡ và overlay v2 vẫn nguyên;</text>
-  <text class="dim xs" x="716" y="1516">mục “Khám phá công cụ” chỉ ĐỌC LẠI danh sách tool + gọi _handleTool.</text>
-  <text class="mut sm" x="700" y="1540">5. Mọi màn hình mode vẫn là màn hình thật — tour không dựng bản sao UI.</text>
-  <text class="dim xs" x="700" y="1558">Trượt/không dùng được tour thì người dùng vẫn thao tác bình thường như cũ.</text>
-  <text class="dim xs" x="700" y="1580">Tài liệu: docs/project/XP-MODE-001-wireframe.md · CSV route + i18n cùng thư mục.</text>
+  <!-- ===================== PANEL 6 · INVARIANTS ===================== -->
+  <rect class="panel" x="880" y="1316" width="840" height="278" rx="14"/>
+  <text class="t h2" x="900" y="1344">6 · BẤT BIẾN — KHÔNG ĐƯỢC PHÁ</text>
+  <text class="ok sm" x="900" y="1372">1. KHÔNG thêm tab: bottom nav vẫn 5 tab; không thêm _PrimaryTab (D1-B).</text>
+  <text class="mut sm" x="900" y="1396">2. grammarExperienceMode (read_settings_sheet.dart) GIỮ NGUYÊN:</text>
+  <text class="dim xs" x="916" y="1414">tính năng mới chỉ là lớp UX bao trùm trên Home; không xoá/đổi key.</text>
+  <text class="mut sm" x="900" y="1438">3. Rule vàng #5: locale ≠ vi → chrome không còn tiếng Việt; key mới phải</text>
+  <text class="dim xs" x="916" y="1456">có “en” + (T2) hi/zh/zh_TW/si trong cùng PR; không fallback về vi.</text>
+  <text class="mut sm" x="900" y="1480">4. Không thêm dependency; không đụng lib/ffi/, UltraTimeStretch,</text>
+  <text class="dim xs" x="916" y="1498">native C++ hay workflow CI của repo.</text>
+  <text class="mut sm" x="900" y="1522">5. Icon ⚡ + overlay v2 giữ nguyên; mục “Khám phá” chỉ ĐỌC LẠI danh sách</text>
+  <text class="dim xs" x="916" y="1540">tool + gọi _handleTool; tour không dựng bản sao UI mode.</text>
+  <text class="dim xs" x="900" y="1564">Tài liệu: docs/project/XP-MODE-001-wireframe.md · CSV route + i18n cùng thư mục.</text>
+  <text class="dim xs" x="900" y="1582">PR thiết kế: #29 (draft) — branch arena/01a0a703-in4up.</text>
 </svg>

@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../chat/chat_context_policy.dart';
 import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
 import '../engine/ai_engine_mock.dart';
@@ -55,6 +56,13 @@ class AiServiceFacade extends ChangeNotifier {
   /// nạp xong (ready-first), nên "isReady" đơn thuần chưa đủ.)
   bool get hasModel =>
       !_useMock && _loader.hasModel && isReady && _modelLoaded;
+
+  /// Có FILE model trên thiết bị (bất kể engine đang nạp / vừa bị OOM thu hồi
+  /// / đang khởi động lại). Banner chat dùng cờ này để KHÔNG bao giờ nói
+  /// "Chưa nạp model AI — import file .gguf" khi thật ra model đã import
+  /// (DoD AI-CHAT-01 #1: gửi tin không làm banner xanh nhảy thành "chưa nạp").
+  bool get hasModelFile =>
+      _loader.hasModel || (_modelStatus?.modelPath != null);
   String? _lastError;
   String? get lastError => _lastError;
   /// "Ready" = engine đã khởi động và không hỏng — cả `ready` lẫn
@@ -134,6 +142,48 @@ class AiServiceFacade extends ChangeNotifier {
   List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
   bool _chatHistoryLoaded = false;
 
+  // ── Hàng đợi chat (AI-CHAT-01 audit B3) ──
+  //
+  // Vì sao cần: isolate native xử lý TUẦN TỰ và `sendMessage` bản cũ `return`
+  // ngay khi `isChatLoading` ⇒ tin thứ hai bị NUỐT (chat screen cũng chặn nút
+  // gửi), còn nếu có request khác đang chạy thì engine trả "not ready" giả.
+  // Hàng đợi này giữ mọi tin theo thứ tự, mỗi tin được await đúng lượt.
+  final List<_PendingChat> _chatQueue = <_PendingChat>[];
+  bool _chatDraining = false;
+
+  /// Tăng mỗi lần `clearChat()`: item của "phiên chat cũ" tự bỏ (không trả lời
+  /// vào lịch sử vừa bị xoá).
+  int _chatEpoch = 0;
+
+  /// Số tin đang chờ (chưa tới lượt xử lý) — UI có thể hiện "đang xếp hàng".
+  int get chatQueueLength => _chatQueue.length;
+
+  /// Timeout của MỘT lượt chat. 3 phút là trần an toàn cho máy yếu (Gemma-2B
+  /// Q4 trên tablet mất 30s–2 phút cho một câu trả lời); hết hạn ⇒ báo lỗi rõ
+  /// + thử lại được, KHÔNG xoay vòng vô hạn.
+  Duration chatRequestTimeout = const Duration(minutes: 3);
+
+  /// Chính sách context chat (tin mới nhất + ngân sách ký tự + maxTokens).
+  static const ChatContextPolicy _chatContext = ChatContextPolicy.defaults;
+
+  /// Trần token cho chat (schema JSON chat cần > 256; context native 2048).
+  static const int _chatMaxTokens = 512;
+
+  /// Xấp xỉ phần prompt cố định (SYSTEM/TYPE/OUTPUT SCHEMA) — dùng để tính
+  /// chỗ trống còn lại cho phần sinh, không cần chính xác tuyệt đối.
+  static const int _chatPromptOverheadChars = 260;
+
+  // ── "Sức khoẻ" engine thật (AI-CHAT-01 audit B3) ──
+  // Lý do engine không dùng được (native treo / isolate bị OOM thu hồi /
+  // khởi động lại thất bại). UI hiện banner ĐỎ + "Thử lại" (khởi động lại
+  // engine, KHÔNG mở file picker) — khác với `importError` (lỗi import/tải).
+  String? _engineError;
+  String? get engineError => _engineError;
+
+  /// Lần khởi động lại engine đang chạy (chống gọi trùng từ nhiều nơi:
+  /// chat timeout + banner "Thử lại" + switch tab).
+  Future<bool>? _restartInFlight;
+
   Future<void> _restoreChatHistory() async {
     if (_chatHistoryLoaded) return;
     _chatHistoryLoaded = true;
@@ -161,92 +211,328 @@ class AiServiceFacade extends ChangeNotifier {
   }
 
   Future<void> clearChat() async {
+    _chatEpoch++;
+    for (final item in _chatQueue) {
+      if (!item.done.isCompleted) item.done.complete();
+    }
+    _chatQueue.clear();
     _chatMessages.clear();
     await _persistChatHistory();
     notifyListeners();
   }
 
+  void _addAssistantMessage(String text, {bool isError = false}) {
+    _chatMessages.add(ChatMessage(
+      id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+      role: ChatRole.assistant,
+      text: text,
+      isError: isError,
+    ));
+  }
+
+  /// Gửi một tin nhắn chat.
+  ///
+  /// Tin thứ hai gửi trong lúc tin thứ nhất đang generate KHÔNG bị bỏ: nó vào
+  /// hàng đợi (`chatQueueLength`) và tự chạy sau khi tin trước xong — isolate
+  /// native vốn xử lý tuần tự nên đây chính là hành vi đúng (DoD AI-CHAT-01 #3:
+  /// "hai tin liên tiếp được queue đúng, không trả 'engine not ready' giả").
   Future<void> sendMessage(String message) async {
     final text = message.trim();
-    if (text.isEmpty || isChatLoading) return;
+    if (text.isEmpty) return;
 
-    _chatMessages.add(ChatMessage(id: 'user-${DateTime.now().microsecondsSinceEpoch}', role: ChatRole.user, text: text));
+    final item = _PendingChat(
+      message: ChatMessage(
+        id: 'user-${DateTime.now().microsecondsSinceEpoch}',
+        role: ChatRole.user,
+        text: text,
+      ),
+      epoch: _chatEpoch,
+    );
+    _chatMessages.add(item.message);
     await _persistChatHistory();
-    _setFacadeState(AiFacadeState.chatting);
-    _lastError = null;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
 
-    // FIX AI-CHAT-01: chỉ gửi 10 tin gần nhất làm context — context native
-    // cố định 2048 tokens (in4up_ai_create), prompt dài hơn khiến
-    // llama_decode fail và model trả về RỖNG (hội thoại càng dài càng dễ
-    // dính, kể cả khi model chạy hoàn hảo).
-    final history = _chatMessages
-        .take(10)
-        .map((m) => '${m.role.name.toUpperCase()}: ${m.text}')
-        .join('\n');
+    _chatQueue.add(item);
+    if (!_chatDraining) unawaited(_drainChatQueue());
+    return item.done.future;
+  }
+
+  Future<void> _drainChatQueue() async {
+    if (_chatDraining) return;
+    _chatDraining = true;
+    try {
+      while (_chatQueue.isNotEmpty) {
+        final item = _chatQueue.removeAt(0);
+        if (item.epoch != _chatEpoch) {
+          // Chat đã bị xoá trong lúc tin này chờ tới lượt.
+          if (!item.done.isCompleted) item.done.complete();
+          continue;
+        }
+        _setFacadeState(AiFacadeState.chatting);
+        _lastError = null;
+        if (!_disposed) notifyListeners();
+        try {
+          await _processChat(item);
+        } catch (e) {
+          debugPrint('[AiServiceFacade] chat worker error: $e');
+          _addAssistantMessage('Có lỗi khi xử lý. Vui lòng thử lại.', isError: true);
+        } finally {
+          await _persistChatHistory();
+          _setFacadeState(AiFacadeState.idle);
+          if (!_disposed) notifyListeners();
+          if (!item.done.isCompleted) item.done.complete();
+        }
+      }
+    } finally {
+      _chatDraining = false;
+      _setFacadeState(AiFacadeState.idle);
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  /// Xử lý MỘT tin trong hàng đợi (bubble user đã có trong lịch sử).
+  Future<void> _processChat(_PendingChat item) async {
+    final text = item.message.text.trim();
+    final engine = _engine;
+
+    if (engine == null) {
+      _addAssistantMessage(
+        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
+        isError: true,
+      );
+      return;
+    }
+
+    // Engine THẬT: đảm bảo backend còn sống + model đã nạp xong trước khi gửi.
+    // (Model native nạp 1–2 phút; hoặc engine vừa bị OOM thu hồi ⇒ recover.)
+    if (!_useMock) {
+      final ready = await _ensureEngineReady();
+      if (!ready) {
+        _addAssistantMessage(
+          'Không kết nối được AI local (model chưa nạp xong). Bạn thử lại sau vài giây.',
+          isError: true,
+        );
+        return;
+      }
+      if (item.epoch != _chatEpoch || _disposed) return;
+    }
+
+    final engineState = _engine?.state;
+    if (_engine == null ||
+        (engineState != AiEngineState.ready &&
+            engineState != AiEngineState.processing)) {
+      // processing = request khác (tab Viết/Nghe) còn chạy — engine tự xếp
+      // hàng, đây KHÔNG phải "engine not ready" theo nghĩa lỗi.
+      _addAssistantMessage(
+        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
+        isError: true,
+      );
+      return;
+    }
+
+    // FIX AI-CHAT-01 #3: chỉ gửi các tin MỚI NHẤT và trong ngân sách ký tự —
+    // context native cố định 2048 token, prompt dài hơn ⇒ llama_decode fail ⇒
+    // model trả về RỖNG. (Bản cũ `take(10)` lấy 10 tin ĐẦU hội thoại.)
+    final index = _chatMessages.indexOf(item.message);
+    final prior =
+        index > 0 ? _chatMessages.sublist(0, index) : const <ChatMessage>[];
+    final context = _chatContext.build(prior);
+    // Câu hỏi dán dài (cả đoạn văn) cũng phải nằm trong ngân sách context —
+    // prompt dài hơn n_ctx 2048 ⇒ llama_decode fail ⇒ trả lời rỗng.
+    final promptText = _chatContext.clipQuestion(text);
+    final maxTokens = _chatContext.resolveMaxTokens(
+      promptChars:
+          context.length + promptText.length + _chatPromptOverheadChars,
+      requested: _chatMaxTokens,
+    );
 
     try {
-      final engineState = _engine?.state;
-      if (_engine == null ||
-          (engineState != AiEngineState.ready &&
-              engineState != AiEngineState.processing)) {
-        _chatMessages.add(ChatMessage(
-          id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
-          role: ChatRole.assistant,
-          text: 'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
-          isError: true,
-        ));
-      } else {
-        // FIX AI-CHAT-02: KHÔNG cần chờ ở đây nữa — engine tự queue:
-        // analyze() sẽ đợi request cũ (tab Viết/Nghe) xong tối đa 90s thay
-        // vì yield "Engine not ready" ngay (bản cũ: 1 chat timeout 3 phút
-        // ⇒ mọi message sau đó chết yểu ⇒ chat "xoay vòng").
-        // Model native còn đang nạp (app tự nạp lúc khởi động) thì chờ xong
-        // trước — message của user không bị trả lời bằng mock "chui".
-        if (!_useMock && !_modelLoaded) {
-          try {
-            await _awaitModelReady();
-          } catch (_) {
-            // native load fail → mock fallback bên dưới (kèm disclaimer).
-          }
-        }
-        // FIX AI-CHAT-01: chat KHÔNG có timeout (các API khác có 30–60s) —
-        // native generate treo ⇒ nút gửi xoay vòng VÔ HẠN. 3 phút = trần
-        // an toàn cho máy yếu; schema JSON chat cần > 256 tokens nên
-        // maxTokens 512 (256 cũ hay cắt JSON giữa chừng ⇒ "Invalid Gemma JSON").
-        final result = await _engine!.analyze(text: text, type: AiAnalysisType.conversation, context: history, temperature: 0.2, maxTokens: 512).first.timeout(const Duration(minutes: 3));
-        final answer = result.success && result.summary.isNotEmpty
-            ? result.summary
-            : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
-        final isRealModel = _modelLoaded && !_useMock;
-        _chatMessages.add(ChatMessage(
-          id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
-          role: ChatRole.assistant,
-          text: isRealModel
-              ? answer
-              : '⚠️ Chưa nạp model AI — đây là trả lời MẪU (mock), không phải câu trả lời thật.\n\nImport file .gguf (nút model trên cùng, hoặc Cài đặt → Quản lý Model AI) để dùng AI thật.\n\n$answer',
-          isError: !result.success,
+      final result = await _engine!
+          .analyze(
+            text: promptText,
+            type: AiAnalysisType.conversation,
+            // Lịch sử rỗng ⇒ không nhét "Context:" trống vào prompt.
+            context: context.isEmpty ? null : context,
+            temperature: 0.2,
+            maxTokens: maxTokens,
+          )
+          .first
+          .timeout(chatRequestTimeout);
+      if (item.epoch != _chatEpoch) return;
+      final answer = result.success && result.summary.isNotEmpty
+          ? result.summary
+          : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
+      final isRealModel = _modelLoaded && !_useMock;
+      _addAssistantMessage(
+        isRealModel
+            ? answer
+            : '⚠️ Chưa nạp model AI — đây là trả lời MẪU (mock), không phải câu trả lời thật.\n\nImport file .gguf (nút model trên cùng, hoặc Cài đặt → Quản lý Model AI) để dùng AI thật.\n\n$answer',
+        isError: !result.success,
+      );
+      // Backend vừa mất giữa request (OOM) ⇒ engine đã ở state error: dựng lại
+      // ở nền để tin kế tiếp chạy được, banner hiện lỗi + "Thử lại".
+      if (!result.success &&
+          _engine?.state == AiEngineState.error &&
+          !_useMock) {
+        unawaited(restartEngine(
+          reason: result.errorReason ??
+              'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.',
         ));
       }
     } on TimeoutException {
-      // FIX AI-CHAT-01: generate quá 3 phút (máy yếu / native treo) — trả lời
+      // FIX AI-CHAT-01 #2: generate quá lâu (máy yếu / native treo) — trả lời
       // rõ + về trạng thái bình thường; nút gửi không xoay vòng vô hạn.
-      // (Isolate vẫn tự thoát sau watchdog 5 phút trong AiEngineGemma.)
-      _lastError = 'Chat timeout sau 3 phút';
-      _chatMessages.add(ChatMessage(
-        id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
-        role: ChatRole.assistant,
-        text: 'AI xử lý quá lâu (model lớn trên máy yếu). Vui lòng thử lại sau vài giây.',
-        isError: true,
-      ));
+      _lastError = 'Chat timeout (${chatRequestTimeout.inSeconds}s)';
+      if (item.epoch == _chatEpoch) {
+        _addAssistantMessage(
+          'AI xử lý quá lâu (model lớn trên máy yếu). Vui lòng thử lại sau vài giây.',
+          isError: true,
+        );
+      }
+      // Native generate là FFI blocking — không cancel được request trong
+      // isolate con. Còn request treo ⇒ dựng lại isolate Ở NỀN để tin sau
+      // chạy được thay vì chờ hết watchdog 5 phút (DoD: "request sau vẫn
+      // hoạt động hoặc báo lỗi retry được").
+      if (!_useMock && (_engine?.isBusy ?? false)) {
+        unawaited(restartEngine(
+          reason:
+              'AI xử lý quá lâu (>${chatRequestTimeout.inSeconds}s) — đang khởi động lại AI',
+        ));
+      }
     } catch (e) {
       _lastError = e.toString();
-      _chatMessages.add(ChatMessage(id: 'assistant-${DateTime.now().microsecondsSinceEpoch}', role: ChatRole.assistant, text: 'Có lỗi khi xử lý. Vui lòng thử lại.', isError: true));
-    } finally {
-      await _persistChatHistory();
-      _setFacadeState(AiFacadeState.idle);
-      notifyListeners();
+      if (item.epoch == _chatEpoch) {
+        _addAssistantMessage('Có lỗi khi xử lý. Vui lòng thử lại.', isError: true);
+      }
+      if (!_useMock && _engine?.state == AiEngineState.error) {
+        unawaited(restartEngine(
+          reason: 'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.',
+        ));
+      }
     }
+  }
+
+  /// Đảm bảo engine THẬT dùng được: chờ restart đang chạy (nếu có), khởi động
+  /// lại nếu backend đã chết, chờ native nạp model xong. Trả về false ⇒ caller
+  /// báo lỗi retry được (không gửi request vào hư không).
+  Future<bool> _ensureEngineReady({
+    Duration timeout = const Duration(minutes: 5),
+  }) async {
+    if (_engine == null) return false;
+    if (_useMock) return true;
+
+    final restarting = _restartInFlight;
+    if (restarting != null) {
+      try {
+        await restarting;
+      } catch (_) {
+        // Lỗi đã được ghi vào _engineError bên trong restartEngine.
+      }
+    }
+
+    final engineState = _engine?.state;
+    if (engineState == AiEngineState.error ||
+        engineState == AiEngineState.disposed) {
+      final ok = await restartEngine(
+        reason: _engineError ??
+            'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — đang khởi động lại',
+      );
+      if (!ok) return false;
+    }
+
+    if (!_modelLoaded) {
+      try {
+        await _awaitModelReady(timeout: timeout);
+      } on TimeoutException {
+        _engineError =
+            'Model AI nạp quá lâu (>${timeout.inMinutes} phút) — thử lại.';
+        if (!_disposed) notifyListeners();
+        return false;
+      } catch (e) {
+        // Native không nạp được (build thiếu backend / file hỏng): ghi lỗi để
+        // banner hiện + "Thử lại", nhưng KHÔNG chặn chat — engine vẫn trả lời
+        // bằng mock kèm disclaimer như trước (MODELS-002 không bị regress).
+        _engineError =
+            e is StateError ? e.message : 'Model AI không nạp được: $e';
+        if (!_disposed) notifyListeners();
+        return _engineStateUsable;
+      }
+    }
+    return !_useMock;
+  }
+
+  bool get _engineStateUsable {
+    final state = _engine?.state;
+    return state == AiEngineState.ready || state == AiEngineState.processing;
+  }
+
+  /// Engine có đang được khởi động lại không (UI: hiện "đang nạp" thay vì lỗi
+  /// trong lúc recover).
+  bool get isEngineRestarting => _restartInFlight != null;
+
+  /// Khởi động lại AI engine THẬT với model đã có trên máy — KHÔNG mở file
+  /// picker. Dùng khi native treo / isolate bị OOM thu hồi; nút "Thử lại" của
+  /// banner chat gọi hàm này khi đã có file model.
+  Future<bool> restartEngine({String? reason}) {
+    final existing = _restartInFlight;
+    if (existing != null) return existing;
+    final future = _restartEngine(reason: reason);
+    _restartInFlight = future;
+    return future;
+  }
+
+  Future<bool> _restartEngine({String? reason}) async {
+    final note = reason ?? 'AI engine cần khởi động lại';
+    final path = _loader.currentModelPath ?? _modelStatus?.modelPath;
+    _engineError = note;
+    _modelLoaded = false;
+    _setImportStage(AiImportStage.loading, notify: false);
+    if (!_disposed) notifyListeners();
+
+    var ok = false;
+    try {
+      if (_useMock || path == null) {
+        _engineError = 'Chưa có model .gguf trên máy để khởi động lại AI.';
+      } else {
+        final engine = _engine;
+        if (engine != null) {
+          // Kill isolate treo + spawn lại + chờ handshake (native nạp lại
+          // model 1–2 phút) — dùng CÙNG engine nên không mất state model path.
+          ok = await engine.recover(reason: note);
+        }
+        if (!ok) {
+          // Engine chưa từng init / không tự dựng lại được ⇒ tạo mới từ path.
+          ok = await initialize(
+            modelPath: path,
+            useMock: false,
+            forceReload: true,
+          );
+        }
+        if (ok) {
+          await _awaitModelReady();
+          _engineError = null;
+          _setImportStage(AiImportStage.ready, notify: false);
+          debugPrint('[AiServiceFacade] ♻️ AI engine đã hồi phục');
+        }
+      }
+    } catch (e) {
+      ok = false;
+      _engineError =
+          e is StateError ? e.message : 'Không khởi động lại được AI: $e';
+      debugPrint('[AiServiceFacade] restartEngine error: $e');
+    } finally {
+      if (!ok) {
+        _modelLoaded = false;
+        _setImportStage(
+          AiImportStage.failed,
+          error: _engineError,
+          notify: false,
+        );
+      }
+      _restartInFlight = null;
+      if (!_disposed) notifyListeners();
+    }
+    return ok;
   }
 
   // ── Init ──
@@ -264,10 +550,15 @@ class AiServiceFacade extends ChangeNotifier {
         if (!_useMock && _engine != null) {
           _engine!.modelReady.then((_) {
             _modelLoaded = true;
+            _engineError = null;
             if (!_disposed) notifyListeners();
-          }).catchError((Object _) {
-            // Native không nạp được (thiếu lib/file hỏng) — vẫn mock,
-            // UI hiện "chưa nạp" qua hasModel=false.
+          }).catchError((Object e) {
+            // Native không nạp được (thiếu lib trong build / file hỏng) —
+            // hasModel=false (mock không được báo "đã nạp"), nhưng ghi lý do
+            // để banner chat hiện lỗi + "Thử lại" (khởi động lại engine)
+            // thay vì nói "chưa nạp model" khi file model vẫn còn trên máy.
+            _modelLoaded = false;
+            _engineError = e is StateError ? e.message : e.toString();
             if (!_disposed) notifyListeners();
           });
         }
@@ -321,7 +612,12 @@ class AiServiceFacade extends ChangeNotifier {
       _engine = AiEngineMock();
       await _engine!.initialize(modelPath: '');
       _initialized = true;
+      _engineError = 'Không khởi tạo được AI engine (spawn isolate lỗi).';
       debugPrint('[AiServiceFacade] Gemma init failed → mock fallback');
+    } else {
+      // Engine thật đã spawn: lỗi cũ (nếu có) không còn đúng nữa — model
+      // native sẽ báo qua modelReady (isModelLoading).
+      _engineError = null;
     }
     if (!_disposed) notifyListeners();
     return ok;
@@ -603,6 +899,7 @@ class AiServiceFacade extends ChangeNotifier {
     await _loader.removeModel();
     _modelStatus = null;
     _modelLoaded = false;
+    _engineError = null;
     await initialize(modelPath: '', useMock: true);
     _setImportStage(AiImportStage.idle);
   }
@@ -610,6 +907,7 @@ class AiServiceFacade extends ChangeNotifier {
   /// Sau khi có file model hợp lệ (import/download): khởi động engine thật,
   /// chờ native llama.cpp nạp model xong, báo UI "sẵn sàng" hoặc lỗi rõ ràng.
   Future<bool> _adoptModel(String modelPath) async {
+    _engineError = null;
     _setImportStage(AiImportStage.loading);
     final ok = await initialize(
       modelPath: modelPath,
@@ -637,6 +935,7 @@ class AiServiceFacade extends ChangeNotifier {
           error: e is StateError ? e.message : 'Model không load được: $e');
       return false;
     }
+    _engineError = null;
     _setImportStage(AiImportStage.ready);
     return true;
   }
@@ -673,9 +972,26 @@ class AiServiceFacade extends ChangeNotifier {
     _facadeState = AiFacadeState.error;
   }
 
+  /// Test-seam: gắn engine giả (fake) + đánh dấu model đã nạp để kiểm tra
+  /// hàng đợi/timeout/banner mà không cần native lib hay file .gguf thật.
+  @visibleForTesting
+  void debugAttachEngine(AiEngine engine, {bool modelLoaded = true}) {
+    _engine = engine;
+    _initialized = true;
+    _useMock = false;
+    _modelLoaded = modelLoaded;
+    _engineError = null;
+  }
+
   @override
   void dispose() {
     _disposed = true;
+    // Đừng để UI/await nào treo vì hàng đợi chat còn item chưa xử lý.
+    _chatEpoch++;
+    for (final item in _chatQueue) {
+      if (!item.done.isCompleted) item.done.complete();
+    }
+    _chatQueue.clear();
     _engine?.dispose();
     _cache.clear();
     _instance = null;
@@ -687,6 +1003,19 @@ class AiServiceFacade extends ChangeNotifier {
     if (_disposed) return;
     super.notifyListeners();
   }
+}
+
+/// Một tin nhắn đang trong hàng đợi chat. Giữ Completer để `sendMessage` await
+/// đúng lượt của tin đó (thay vì `return` sớm và nuốt tin khi engine đang bận).
+class _PendingChat {
+  _PendingChat({required this.message, required this.epoch});
+
+  final ChatMessage message;
+
+  /// Phiên chat lúc tin được gửi — `clearChat()` tăng epoch ⇒ item cũ tự bỏ.
+  final int epoch;
+
+  final Completer<void> done = Completer<void>();
 }
 
 enum AiFacadeState { idle, loading, error, noModel, chatting }

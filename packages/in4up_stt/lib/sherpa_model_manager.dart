@@ -14,6 +14,7 @@
 //     asr-en-20M-streaming-int8/ (tokens.txt, encoder*.onnx, decoder*.onnx, joiner*.onnx)
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -24,12 +25,99 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'asr_model_routing.dart';
 import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
 import 'tts/piper_voice_catalog.dart';
 import 'tts/sherpa_piper_tts_core.dart';
 
+// Profile ASR + logic mapping ngôn ngữ ↔ profile nằm ở `asr_model_routing.dart`
+// (thuần, test được không cần thiết bị). Re-export để code cũ giữ nguyên.
+export 'asr_model_routing.dart'
+    show
+        AsrLiveRoute,
+        AsrModelIssue,
+        AsrModelRouter,
+        AsrModelSelection,
+        SherpaAsrProfile,
+        kAsrLanguagePriority,
+        kDefaultAsrLanguage,
+        kSherpaAsrProfiles;
+
 enum SherpaModelStatus { notInstalled, downloading, ready, error }
+
+/// Loại encoder Zipformer ONNX (quyết định Online vs Offline recognizer).
+enum SherpaAsrEncoderKind {
+  /// Encoder streaming — chỉ dùng được với `OnlineRecognizer`.
+  streaming,
+
+  /// Encoder offline — chỉ dùng được với `OfflineRecognizer` (+ VAD).
+  nonStreaming,
+
+  /// Không đọc được metadata/tên không nói rõ (vd file test, file lạ).
+  unknown,
+}
+
+class _EncoderKindCacheEntry {
+  final SherpaAsrEncoderKind kind;
+  final String? signature;
+
+  const _EncoderKindCacheEntry(this.kind, this.signature);
+}
+
+/// Trạng thái import model Zipformer ASR.
+enum SherpaAsrImportStatus {
+  /// Đã copy + nhận diện model vào đúng profile.
+  imported,
+
+  /// Không nhận diện được profile nào (UI phải hỏi user chọn đúng thẻ model).
+  unknownProfile,
+
+  /// Nội dung model không khớp profile user chọn (vd model offline nhưng chọn
+  /// thẻ EN streaming) — chặn để không tạo trạng thái SIGABRT.
+  profileMismatch,
+
+  /// Thiếu file (encoder/decoder/joiner/tokens).
+  incompleteFiles,
+
+  /// Nguồn không tồn tại/rỗng.
+  sourceMissing,
+  sourceEmpty,
+
+  /// Lỗi khác (giải nén, copy…).
+  failed,
+}
+
+/// Kết quả import model ASR — cho UI map sang chuỗi đã bản địa hoá.
+class SherpaAsrImportResult {
+  final SherpaAsrImportStatus status;
+
+  /// Profile đích (đã cài khi [status] == imported).
+  final SherpaAsrProfile? profile;
+
+  /// Profile nhận diện từ nội dung file (nếu có).
+  final SherpaAsrProfile? detectedProfile;
+
+  /// Loại encoder đọc được từ file.
+  final SherpaAsrEncoderKind encoderKind;
+
+  /// Có nhận diện được nội dung model không.
+  final bool contentRecognized;
+
+  /// Chi tiết kỹ thuật (log/đường dẫn) — không phải chuỗi chrome.
+  final String? detail;
+
+  const SherpaAsrImportResult({
+    required this.status,
+    this.profile,
+    this.detectedProfile,
+    this.encoderKind = SherpaAsrEncoderKind.unknown,
+    this.contentRecognized = false,
+    this.detail,
+  });
+
+  bool get isSuccess => status == SherpaAsrImportStatus.imported;
+}
 
 /// Trạng thái 1 model đơn lẻ (Silero VAD, hoặc 1 profile Zipformer ASR).
 class SherpaModelInfo {
@@ -102,25 +190,10 @@ class SherpaPiperInfo {
 }
 
 /// Định nghĩa profile của model Zipformer ASR.
-class SherpaAsrProfile {
-  final String id;
-  final String name;
-  final String language;
-  final bool isStreaming;
-  final int approxSizeMB;
-  final String downloadUrl;
-  final String archiveName;
-
-  const SherpaAsrProfile({
-    required this.id,
-    required this.name,
-    required this.language,
-    required this.isStreaming,
-    required this.approxSizeMB,
-    required this.downloadUrl,
-    required this.archiveName,
-  });
-}
+///
+/// Chuyển sang `asr_model_routing.dart` (logic thuần, test được) và re-export
+/// ở đây để mọi chỗ dùng cũ (`SherpaAsrProfile` qua `sherpa_model_manager.dart`)
+/// không phải sửa import.
 
 /// Trạng thái tổng thể của các profile Zipformer ASR.
 class SherpaAsrInfo {
@@ -134,6 +207,26 @@ class SherpaAsrInfo {
       profileStates[profileId] ?? const SherpaModelInfo();
 
   bool isReady(String profileId) => stateFor(profileId).isReady;
+
+  /// Id các profile đã cài (model nằm sẵn trên máy).
+  List<String> get installedProfileIds => [
+        for (final entry in profileStates.entries)
+          if (entry.value.isReady) entry.key,
+      ];
+
+  /// Ngôn ngữ đã có model ASR (theo thứ tự profile khai báo).
+  List<String> get installedLanguages => [
+        for (final profile in kSherpaAsrProfiles)
+          if (isReady(profile.id)) profile.language,
+      ];
+
+  /// Ngôn ngữ đã cài, ưu tiên VI rồi tới thứ tự ưu tiên (vi → en).
+  String? get preferredInstalledLanguage {
+    for (final profile in kSherpaAsrProfiles) {
+      if (isReady(profile.id)) return profile.language;
+    }
+    return null;
+  }
 
   SherpaAsrInfo copyWith({
     Map<String, SherpaModelInfo>? profileStates,
@@ -187,30 +280,10 @@ class SherpaModelManager {
   ];
 
   /// Danh sách các profile Zipformer ASR được hỗ trợ sẵn.
-  static const List<SherpaAsrProfile> predefinedAsrProfiles = [
-    SherpaAsrProfile(
-      id: 'asr-vi-30M-int8',
-      name: 'Tiếng Việt (Zipformer 30M int8)',
-      language: 'vi',
-      isStreaming: false,
-      approxSizeMB: 32,
-      downloadUrl:
-          'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
-          'sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2',
-      archiveName: 'sherpa-onnx-zipformer-vi-30M-int8-2026-02-09.tar.bz2',
-    ),
-    SherpaAsrProfile(
-      id: 'asr-en-20M-streaming-int8',
-      name: 'English (Zipformer 20M int8 streaming)',
-      language: 'en',
-      isStreaming: true,
-      approxSizeMB: 20,
-      downloadUrl:
-          'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
-          'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2',
-      archiveName: 'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2',
-    ),
-  ];
+  ///
+  /// Nguồn sự thật nằm ở `asr_model_routing.dart` (`kSherpaAsrProfiles`) —
+  /// KHÔNG bịa thêm profile ngôn ngữ ngoài 2 profile đã verify.
+  static const List<SherpaAsrProfile> predefinedAsrProfiles = kSherpaAsrProfiles;
 
   static const String safEmptyPrefix = 'SAF_EMPTY:';
 
@@ -239,6 +312,9 @@ class SherpaModelManager {
   final Map<String, CancelToken> _asrTokens = {};
   bool _initialized = false;
   String? _documentsDir;
+  Future<void>? _initializing;
+  DateTime? _lastRescanAt;
+  static final Map<String, _EncoderKindCacheEntry> _encoderKindCache = {};
 
   Future<String> _documents() async {
     if (_documentsDir != null) return _documentsDir!;
@@ -264,13 +340,75 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  Future<void> initialize() async {
+  /// Nạp thư mục documents + quét lại model (idempotent, an toàn khi gọi
+  /// song song nhiều nơi — Cabin/Engine/Settings cùng gọi lúc mở app).
+  ///
+  /// Trước CABIN-ASR-002 chỉ `tts_settings_section` gọi `initialize()`; vào
+  /// Cabin trực tiếp thì `_documentsDir == null` ⇒ `hasAsrModel()` trả false
+  /// dù model ĐÃ import → báo “chưa có model” sai.
+  Future<void> initialize() {
+    final inFlight = _initializing;
+    if (inFlight != null) return inFlight;
+    final future = _initializeInternal();
+    _initializing = future;
+    return future.whenComplete(() {
+      _initializing = null;
+    });
+  }
+
+  Future<void> _initializeInternal() async {
     if (!_initialized) {
       await _documents();
       _initialized = true;
     }
     await rescan();
   }
+
+  /// Bảo đảm state model còn “tươi” trước khi quyết định start live STT
+  /// (user vừa import/tải model rồi mở Cabin ngay).
+  Future<void> ensureFresh({
+    Duration maxAge = const Duration(seconds: 5),
+  }) async {
+    if (_initializing != null) {
+      await _initializing;
+      return;
+    }
+    if (!_initialized || _lastRescanAt == null) {
+      await initialize();
+      return;
+    }
+    final age = DateTime.now().difference(_lastRescanAt!);
+    if (age > maxAge) await initialize();
+  }
+
+  /// Trạng thái cài đặt của 1 profile ASR (theo state đã quét).
+  bool isAsrProfileInstalled(String profileId) => asrInfo.isReady(profileId);
+
+  /// Phân giải ngôn ngữ đang chọn → profile + trạng thái (có quét lại trước).
+  ///
+  /// Dùng cho cả Cabin và UI để chỉ có MỘT nguồn quyết định mapping.
+  Future<AsrModelSelection> resolveAsrSelection(
+    String language, {
+    bool ensureFreshState = true,
+  }) async {
+    if (ensureFreshState) await ensureFresh();
+    return AsrModelRouter.resolve(
+      language,
+      isInstalled: isAsrProfileInstalled,
+    );
+  }
+
+  /// Ngôn ngữ mặc định khi user chưa chọn: model đã cài (ưu tiên VI),
+  /// chưa có gì thì `vi` (fallback mặc định của app — có giải thích ở UI).
+  Future<String> defaultCabinSourceLanguage({bool ensureFreshState = true}) async {
+    if (ensureFreshState) await ensureFresh();
+    return defaultCabinSourceLanguageSync();
+  }
+
+  /// Bản đồng bộ (đọc state đã quét) — dùng khi watch stream bắn sự kiện.
+  String defaultCabinSourceLanguageSync() => AsrModelRouter.resolveDefaultLanguage(
+        isInstalled: isAsrProfileInstalled,
+      );
 
   Stream<SherpaModelInfo> watchVad() => _vadState.stream;
   SherpaModelInfo get vadInfo => _vadState.value;
@@ -343,13 +481,13 @@ class SherpaModelManager {
       // 3. Rescan Zipformer ASR
       final asrStates = <String, SherpaModelInfo>{};
       final docs = await _documents();
+      final detected = detectAsrModels(docs);
       for (final profile in predefinedAsrProfiles) {
-        final profileDir = p.join(docs, asrFolderName, profile.id);
-        final paths = _findAsrModelInDirSync(profileDir, isStreaming: profile.isStreaming);
+        final paths = detected[profile.id];
         if (paths != null) {
           asrStates[profile.id] = SherpaModelInfo(
             status: SherpaModelStatus.ready,
-            localPath: profileDir,
+            localPath: p.dirname(paths.encoder),
           );
         } else {
           // Giữ trạng thái đang tải nếu đang download
@@ -366,54 +504,96 @@ class SherpaModelManager {
       _asrState.add(SherpaAsrInfo(profileStates: asrStates));
     } catch (e) {
       debugPrint('⚠️ SherpaModelManager.rescan error: $e');
+    } finally {
+      _lastRescanAt = DateTime.now();
     }
   }
 
   // ── ZIPFORMER ASR ──────────────────────────────────────────────────────
 
-  /// Kiểm tra model có phải bản STREAMING hay không.
-  ///
-  /// 2 lớp (tránh false-negative gây SIGABRT — xem SHERPA-STREAM-001):
-  /// 1. **Tên file/thư mục** — k2-fsa đặt tên model streaming luôn chứa
-  ///    chữ "streaming" (`sherpa-onnx-streaming-zipformer-en-20M-...`,
-  ///    folder `asr-en-20M-streaming-int8`...). Rẻ, chắc chắn.
-  /// 2. **Metadata ONNX** — scan 256KB đầu encoder tìm `encoder_dims` /
-  ///    `query_head_dims` (chỉ chạy khi tên không nói rõ).
-  static bool isStreamingEncoderOnnx(String encoderPath) {
-    final lower = encoderPath.toLowerCase();
-    if (lower.contains('non-streaming')) return false;
-    final dirLower = p.dirname(encoderPath).toLowerCase();
-    if (lower.contains('streaming') || dirLower.contains('streaming')) {
-      return true;
-    }
+  /// Loại encoder ONNX (dùng để route Online/Offline — tránh SIGABRT).
+  static SherpaAsrEncoderKind detectEncoderKind(String encoderPath) {
+    final file = File(encoderPath);
+    if (!file.existsSync()) return SherpaAsrEncoderKind.unknown;
+
+    FileStat? stat;
     try {
-      final file = File(encoderPath);
-      if (!file.existsSync()) return false;
-      final raf = file.openSync();
-      try {
-        final length = file.lengthSync();
-        final readLen = length < 256 * 1024 ? length : 256 * 1024;
-        final bytes = raf.readSync(readLen);
-        final text = String.fromCharCodes(
-          bytes.where((b) => b >= 32 && b < 127),
-        );
-        if (text.contains('comment=non-streaming') ||
-            text.contains('non-streaming zipformer')) {
-          return false;
+      stat = file.statSync();
+    } catch (_) {}
+    final signature = stat == null
+        ? null
+        : '${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    final cached = _encoderKindCache[encoderPath];
+    if (cached != null && cached.signature != null && cached.signature == signature) {
+      return cached.kind;
+    }
+
+    // 1. Metadata ONNX (nội dung file là bằng chứng mạnh nhất — kể cả khi
+    //    file bị đặt trong thư mục/profile có tên "streaming").
+    var kind = SherpaAsrEncoderKind.unknown;
+    try {
+      final length = stat?.size ?? file.lengthSync();
+      final readLen = length < 256 * 1024 ? length : 256 * 1024;
+      if (readLen > 0) {
+        final raf = file.openSync();
+        try {
+          final bytes = raf.readSync(readLen);
+          final text = String.fromCharCodes(
+            bytes.where((b) => b >= 32 && b < 127),
+          ).toLowerCase();
+          // CHỈ nhận bằng chứng MẠNH. `encoder_dims`/`query_head_dims`
+          // KHÔNG đủ tin (có thể xuất hiện ở cả model offline — bản int8 của
+          // model streaming còn không có chuỗi này, xem SHERPA-STREAM-001),
+          // nên khi chỉ có dims thì trả `unknown` để route theo profile
+          // (VI = offline+VAD, EN = streaming) thay vì đoán sai.
+          if (text.contains('non-streaming')) {
+            kind = SherpaAsrEncoderKind.nonStreaming;
+          } else if (text.contains('streaming')) {
+            kind = SherpaAsrEncoderKind.streaming;
+          }
+        } finally {
+          raf.closeSync();
         }
-        if (text.contains('encoder_dims') || text.contains('query_head_dims')) {
-          return true;
-        }
-        return false;
-      } finally {
-        raf.closeSync();
       }
     } catch (_) {
-      return false;
+      kind = SherpaAsrEncoderKind.unknown;
     }
+
+    // 2. Tên file/thư mục (k2-fsa đặt tên model streaming luôn có "streaming",
+    //    bản offline luôn có "non-streaming") — chỉ dùng khi ONNX im lặng.
+    if (kind == SherpaAsrEncoderKind.unknown) {
+      final lower = encoderPath.toLowerCase();
+      if (lower.contains('non-streaming')) {
+        kind = SherpaAsrEncoderKind.nonStreaming;
+      } else if (lower.contains('streaming')) {
+        kind = SherpaAsrEncoderKind.streaming;
+      }
+    }
+
+    _encoderKindCache[encoderPath] = _EncoderKindCacheEntry(kind, signature);
+    return kind;
   }
 
-  SherpaModelPaths? _findAsrModelInDirSync(String dirPath, {bool? isStreaming}) {
+  /// Kiểm tra model có phải bản STREAMING hay không (2 lớp: metadata ONNX
+  /// trước — nội dung file quyết định — rồi mới tới tên file/thư mục).
+  ///
+  /// Model streaming KHÔNG nạp được bằng `OfflineRecognizer` (SIGABRT
+  /// “Got N Expected 39” — SHERPA-STREAM-001). Chỉ khi không đọc được thông
+  /// tin nào mới trả `false` (đường cũ) — nhưng mọi đường gọi đều còn guard
+  /// thứ 2 (`SherpaSttEngine`) nên không thể lọt streaming vào offline.
+  static bool isStreamingEncoderOnnx(String encoderPath) =>
+      detectEncoderKind(encoderPath) == SherpaAsrEncoderKind.streaming;
+
+  /// Tên file/thư mục có dấu hiệu model STREAMING (k2-fsa luôn đặt tên như
+  /// vậy). Dùng ở bước import để chặn import model streaming vào profile
+  /// offline (và ngược lại) khi metadata ONNX không đọc được.
+  static bool nameLooksStreamingModel(String text) {
+    final lower = text.toLowerCase();
+    if (lower.contains('non-streaming')) return false;
+    return lower.contains('streaming');
+  }
+
+  SherpaModelPaths? _findAsrModelInDirSync(String dirPath) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) return null;
 
@@ -454,34 +634,181 @@ class SherpaModelManager {
     }
 
     if (encoder != null && decoder != null && joiner != null && tokens != null) {
-      final actualStreaming = isStreamingEncoderOnnx(encoder);
       return SherpaModelPaths(
         encoder: encoder,
         decoder: decoder,
         joiner: joiner,
         tokens: tokens,
-        isStreaming: actualStreaming,
+        isStreaming: isStreamingEncoderOnnx(encoder),
       );
     }
     return null;
   }
 
+  /// Dò TẤT CẢ model ASR có trên máy theo profile.
+  ///
+  /// Nguồn (theo thứ tự ưu tiên):
+  /// 1. thư mục chuẩn `<documents>/sherpa_asr_models/<profileId>/`;
+  /// 2. thư mục con khác trong `sherpa_asr_models/` (user giải nén/import
+  ///    nguyên tên archive, vd `sherpa-onnx-zipformer-vi-30M-int8-...`)
+  ///    — chỉ nhận khi NHẬN DIỆN ĐƯỢC đúng profile (streaming ↔ EN, token
+  ///    tiếng Việt ↔ VI), KHÔNG đoán bừa sang profile khác.
+  Map<String, SherpaModelPaths> detectAsrModels(String documentsDir) {
+    final result = <String, SherpaModelPaths>{};
+
+    // 1. Folder chuẩn theo profile.
+    for (final profile in predefinedAsrProfiles) {
+      final paths = _findAsrModelInDirSync(
+        p.join(documentsDir, asrFolderName, profile.id),
+      );
+      if (paths != null) {
+        result[profile.id] = paths;
+      }
+    }
+
+    // 2. Folder “lạ” trong sherpa_asr_models/ (import theo tên archive).
+    final root = Directory(p.join(documentsDir, asrFolderName));
+    if (root.existsSync()) {
+      List<Directory> subDirs = const [];
+      try {
+        subDirs = root
+            .listSync(followLinks: true)
+            .whereType<Directory>()
+            .toList();
+      } catch (_) {}
+
+      // Cả trường hợp user copy file model trực tiếp vào sherpa_asr_models/
+      // (chỉ khi không có thư mục con — tránh trộn file của nhiều profile).
+      if (subDirs.isEmpty) {
+        final rootPaths = _findAsrModelInDirSync(root.path);
+        if (rootPaths != null) {
+          final profile = _matchProfileForPaths(
+            rootPaths,
+            folderName: p.basename(root.path),
+          );
+          if (profile != null && !result.containsKey(profile.id)) {
+            result[profile.id] = rootPaths;
+          }
+        }
+      }
+
+      for (final dir in subDirs) {
+        final name = p.basename(dir.path);
+        if (predefinedAsrProfiles.any((profile) => profile.id == name)) {
+          continue; // đã xử lý ở bước 1
+        }
+        final paths = _findAsrModelInDirSync(dir.path);
+        if (paths == null) continue;
+        final profile = _matchProfileForPaths(paths, folderName: name);
+        if (profile != null && !result.containsKey(profile.id)) {
+          result[profile.id] = paths;
+          debugPrint('ℹ️ ASR model ngoài folder chuẩn → profile '
+              '${profile.id}: ${dir.path}');
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /// Nhận diện profile từ nội dung file + tên thư mục (KHÔNG đoán sang
+  /// profile ngôn ngữ khác — không khớp thì trả `null`).
+  SherpaAsrProfile? _matchProfileForPaths(
+    SherpaModelPaths paths, {
+    required String folderName,
+  }) {
+    return matchAsrProfile(
+      isStreaming: paths.isStreaming,
+      encoderPath: paths.encoder,
+      tokensPath: paths.tokens,
+      folderName: folderName,
+    );
+  }
+
+  /// Nhận diện profile Zipformer cho một bộ file model.
+  ///
+  /// Trả `null` khi không đủ căn cứ — KHÔNG map bừa sang profile ngôn ngữ
+  /// khác (CABIN-ASR-002: model lạ từng bị nhét vào folder EN streaming, rồi
+  /// chính tên folder “streaming” làm sai guard Online/Offline).
+  static SherpaAsrProfile? matchAsrProfile({
+    required bool isStreaming,
+    String? encoderPath,
+    String? tokensPath,
+    String? folderName,
+  }) {
+    final nameHaystack = [
+      if (encoderPath != null) encoderPath,
+      if (folderName != null) folderName,
+    ].join(' ');
+    final looksVi = asrTokensLookVietnamese(tokensPath) ||
+        _nameLooksLanguage(nameHaystack, 'vi');
+    final looksEn = _nameLooksLanguage(nameHaystack, 'en');
+
+    if (isStreaming) {
+      // App chỉ có 1 profile streaming (EN) và KHÔNG có VI streaming — nếu
+      // tên nói tiếng Việt thì đây không phải profile nào của app.
+      if (looksVi && !looksEn) return null;
+      return AsrModelRouter.profileForLanguage('en');
+    }
+
+    // Nhánh offline: chỉ nhận VI (profile offline duy nhất của app).
+    if (!looksVi) return null;
+    return AsrModelRouter.profileForLanguage('vi');
+  }
+
+  /// tokens.txt có ký tự đặc trưng tiếng Việt (BPE VI chứa âm tiết có dấu).
+  static bool asrTokensLookVietnamese(String? tokensPath) {
+    if (tokensPath == null) return false;
+    try {
+      final file = File(tokensPath);
+      if (!file.existsSync()) return false;
+      final length = file.lengthSync();
+      final readLen = length > 512 * 1024 ? 512 * 1024 : length;
+      if (readLen <= 0) return false;
+      final raf = file.openSync();
+      try {
+        final bytes = raf.readSync(readLen);
+        final text = utf8.decode(bytes, allowMalformed: true);
+        return RegExp(
+          r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ'
+          r'ùúủũụưừứửữựỳýỷỹỵđ]',
+        ).hasMatch(text);
+      } finally {
+        raf.closeSync();
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Tên file/thư mục có nhắc tới mã ngôn ngữ (vi/en) như một token riêng.
+  static bool _nameLooksLanguage(String text, String language) {
+    final lower = text.toLowerCase();
+    if (language == 'vi' && lower.contains('vietnam')) return true;
+    return RegExp('(^|[^a-z])${RegExp.escape(language)}([^a-z]|\$)')
+        .hasMatch(lower);
+  }
+
   /// Lấy model paths cho một ngôn ngữ hoặc profile ID.
+  ///
+  /// KHÔNG còn fallback `orElse: predefinedAsrProfiles.first` (CABIN-ASR-002:
+  /// hỏi `zh`/`fr` trước đây bị trả về profile VI) — ngôn ngữ không có profile
+  /// ⇒ `null` để UI báo “chưa hỗ trợ offline”.
   SherpaModelPaths? getAsrModelPaths(String languageOrProfileId) {
     final docs = _documentsDir;
     if (docs == null) return null;
 
-    final langNorm = languageOrProfileId.toLowerCase().trim();
-    final profile = predefinedAsrProfiles.firstWhere(
-      (p) =>
-          p.id.toLowerCase() == langNorm ||
-          p.language.toLowerCase() == langNorm ||
-          langNorm.startsWith(p.language.toLowerCase()),
-      orElse: () => predefinedAsrProfiles.first,
-    );
+    final profile = AsrModelRouter.profileForIdOrLanguage(languageOrProfileId);
+    if (profile == null) return null;
 
-    final profileDir = p.join(docs, asrFolderName, profile.id);
-    return _findAsrModelInDirSync(profileDir, isStreaming: profile.isStreaming);
+    // Thư mục chuẩn trước…
+    final canonical = _findAsrModelInDirSync(
+      p.join(docs, asrFolderName, profile.id),
+    );
+    if (canonical != null) return canonical;
+
+    // …rồi tới model đã import với tên thư mục khác nhưng nhận diện được.
+    return detectAsrModels(docs)[profile.id];
   }
 
   /// Kiểm tra xem đã có model Zipformer ASR cho ngôn ngữ/profile này chưa.
@@ -602,100 +929,104 @@ class SherpaModelManager {
     }
   }
 
-  Future<String> importAsrFolder(String folderPath, {String? targetProfileId}) async {
+  /// Kết quả import model Zipformer ASR (dùng cho UI hiển thị message
+  /// đã bản địa hoá — không nhét chuỗi tiếng Việt vào package).
+  Future<SherpaAsrImportResult> importAsrFolderResult(
+    String folderPath, {
+    String? targetProfileId,
+  }) async {
     final dir = Directory(folderPath);
-    if (!await dir.exists()) return 'Thư mục không tồn tại';
-
+    if (!await dir.exists()) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceMissing,
+        detail: 'Thư mục không tồn tại',
+      );
+    }
     final listing = await _walkPaths(dir.path);
-    if (listing.isEmpty) return 'Thư mục rỗng';
-
-    // 1. Phân tích nội dung để xác định profile chính xác
-    String? tokensPath;
-    String? encoderPath;
-    for (final path in listing) {
-      final name = p.basename(path).toLowerCase();
-      if (name.contains('tokens') && name.endsWith('.txt')) {
-        tokensPath = path;
-      } else if (name.contains('encoder') && name.endsWith('.onnx')) {
-        encoderPath = path;
-      }
+    if (listing.isEmpty) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceEmpty,
+        detail: 'Thư mục rỗng',
+      );
     }
+    return _importAsrListing(
+      listing,
+      sourceLabel: dir.path,
+      targetProfileId: targetProfileId,
+    );
+  }
 
-    bool isVietnamese = false;
-    if (tokensPath != null) {
-      try {
-        final content = File(tokensPath).readAsStringSync();
-        isVietnamese = content.contains(RegExp(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false));
-      } catch (_) {}
+  Future<SherpaAsrImportResult> importAsrFilesResult(
+    List<String> filePaths, {
+    String? targetProfileId,
+  }) async {
+    if (filePaths.isEmpty) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceEmpty,
+        detail: 'Chưa chọn file nào',
+      );
     }
+    return _importAsrListing(
+      filePaths,
+      sourceLabel: filePaths.first,
+      targetProfileId: targetProfileId,
+    );
+  }
 
-    bool isStreaming = false;
-    if (encoderPath != null) {
-      isStreaming = isStreamingEncoderOnnx(encoderPath);
-    }
-
-    String targetId;
-    if (isVietnamese) {
-      targetId = 'asr-vi-30M-int8';
-    } else if (isStreaming) {
-      targetId = 'asr-en-20M-streaming-int8';
-    } else {
-      targetId = targetProfileId ??
-          (folderPath.toLowerCase().contains('vi')
-              ? 'asr-vi-30M-int8'
-              : 'asr-en-20M-streaming-int8');
-    }
-
-    final docs = await _documents();
-    final destDir = p.join(docs, asrFolderName, targetId);
-    await Directory(destDir).create(recursive: true);
-
-    var copied = 0;
-    var archivePath = '';
-
-    for (final path in listing) {
-      final name = p.basename(path).toLowerCase();
-      if (name.endsWith('.tar.bz2') || name.endsWith('.zip')) {
-        archivePath = path;
-        continue;
-      }
-      if (name == 'tokens.txt' ||
-          name.endsWith('_tokens.txt') ||
-          (name.contains('tokens') && name.endsWith('.txt')) ||
-          name.endsWith('.onnx')) {
-        final dest = p.join(destDir, p.basename(path));
-        if (await _tryCopyFile(path, dest)) copied++;
-      }
-    }
-
-    if (copied == 0 && archivePath.isNotEmpty) {
-      try {
-        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
-          await _extractTarBz2(archivePath, destDir);
-        }
-      } catch (e) {
-        return 'Giải nén archive thất bại: $e';
-      }
-    }
-
-    await rescan();
-    final paths = _findAsrModelInDirSync(destDir);
-    if (paths != null) {
-      final profileName = targetId == 'asr-vi-30M-int8'
-          ? 'Tiếng Việt (Zipformer 30M int8)'
-          : 'English (Zipformer 20M int8 streaming)';
-      return '✅ Đã import model Zipformer ASR: $profileName';
-    }
-    return 'Import thất bại: thiếu file encoder/decoder/joiner/tokens trong $folderPath';
+  /// Bản cũ trả chuỗi tiếng Việt (giữ để không phá call-site cũ).
+  Future<String> importAsrFolder(String folderPath, {String? targetProfileId}) async {
+    final result =
+        await importAsrFolderResult(folderPath, targetProfileId: targetProfileId);
+    return describeAsrImportResult(result);
   }
 
   Future<String> importAsrFiles(List<String> filePaths, {String? targetProfileId}) async {
-    if (filePaths.isEmpty) return 'Chưa chọn file nào';
+    final result =
+        await importAsrFilesResult(filePaths, targetProfileId: targetProfileId);
+    return describeAsrImportResult(result);
+  }
 
-    // 1. Phân tích nội dung các file để xác định profile chính xác
+  /// Mô tả kết quả import bằng tiếng Việt (legacy call-sites).
+  static String describeAsrImportResult(SherpaAsrImportResult result) {
+    final name = result.profile?.name ?? '';
+    switch (result.status) {
+      case SherpaAsrImportStatus.imported:
+        return '✅ Đã import model Zipformer ASR: $name';
+      case SherpaAsrImportStatus.sourceMissing:
+        return 'Thư mục không tồn tại';
+      case SherpaAsrImportStatus.sourceEmpty:
+        return 'Chưa chọn file/thư mục nào';
+      case SherpaAsrImportStatus.incompleteFiles:
+        return 'Import thất bại: cần đủ 4 file (encoder, decoder, joiner .onnx + tokens.txt)';
+      case SherpaAsrImportStatus.unknownProfile:
+        return 'Import thất bại: không nhận diện được model này là '
+            'Tiếng Việt (offline) hay English (streaming) — '
+            'hãy bấm Import ở đúng thẻ model.';
+      case SherpaAsrImportStatus.profileMismatch:
+        return 'Import thất bại: model không khớp profile đã chọn'
+            '${result.detectedProfile == null ? '' : ' (nhận diện: ${result.detectedProfile!.name})'}.';
+      case SherpaAsrImportStatus.failed:
+        return 'Import thất bại: ${result.detail ?? 'lỗi không xác định'}';
+    }
+  }
+
+  /// Import chung cho folder/file — có NHẬN DIỆN + KIỂM TRA khớp profile.
+  ///
+  /// Quy tắc (CABIN-ASR-002 / SHERPA-STREAM-001):
+  /// - Model streaming chỉ vào profile EN streaming; model offline chỉ vào
+  ///   profile VI offline. Không bao giờ nhét model lạ vào folder
+  ///   `asr-en-20M-streaming-int8` (chính tên folder đó làm sai guard
+  ///   Online/Offline → SIGABRT “Expected 39”).
+  /// - Không nhận diện được thì trả `unknownProfile` để UI báo user chọn
+  ///   đúng profile, KHÔNG đoán bừa.
+  Future<SherpaAsrImportResult> _importAsrListing(
+    List<String> listing, {
+    required String sourceLabel,
+    String? targetProfileId,
+  }) async {
     String? tokensPath;
     String? encoderPath;
-    for (final path in filePaths) {
+    for (final path in listing) {
       final name = p.basename(path).toLowerCase();
       if (name.contains('tokens') && name.endsWith('.txt')) {
         tokensPath = path;
@@ -704,39 +1035,91 @@ class SherpaModelManager {
       }
     }
 
-    bool isVietnamese = false;
-    if (tokensPath != null) {
-      try {
-        final content = File(tokensPath).readAsStringSync();
-        isVietnamese = content.contains(RegExp(r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', caseSensitive: false));
-      } catch (_) {}
+    final encoderKind = encoderPath == null
+        ? SherpaAsrEncoderKind.unknown
+        : detectEncoderKind(encoderPath);
+    // Bằng chứng streaming = metadata ONNX HOẶC tên file/thư mục nguồn.
+    final streamingEvidence = encoderKind == SherpaAsrEncoderKind.streaming ||
+        nameLooksStreamingModel('$sourceLabel ${encoderPath ?? ''}');
+    final detected = matchAsrProfile(
+      isStreaming: streamingEvidence,
+      encoderPath: encoderPath,
+      tokensPath: tokensPath,
+      folderName: sourceLabel,
+    );
+
+    final explicit = targetProfileId == null
+        ? null
+        : AsrModelRouter.profileForIdOrLanguage(targetProfileId);
+
+    // Sai lệch chặn cứng: kind ONNX nói ngược lại profile đích.
+    SherpaAsrProfile? target = explicit ?? detected;
+    if (target == null) {
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.unknownProfile,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: false,
+      );
+    }
+    if (streamingEvidence && !target.isStreaming) {
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.profileMismatch,
+        profile: target,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: detected != null,
+      );
+    }
+    if (encoderKind == SherpaAsrEncoderKind.nonStreaming && target.isStreaming) {
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.profileMismatch,
+        profile: target,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: detected != null,
+      );
+    }
+    if (detected != null && detected.id != target.id) {
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.profileMismatch,
+        profile: target,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: true,
+      );
     }
 
-    bool isStreaming = false;
-    if (encoderPath != null) {
-      isStreaming = isStreamingEncoderOnnx(encoderPath);
-    }
-
-    String targetId;
-    if (isVietnamese) {
-      targetId = 'asr-vi-30M-int8';
-    } else if (isStreaming) {
-      targetId = 'asr-en-20M-streaming-int8';
-    } else {
-      targetId = targetProfileId ??
-          (filePaths.any((f) => f.toLowerCase().contains('vi'))
-              ? 'asr-vi-30M-int8'
-              : 'asr-en-20M-streaming-int8');
+    // Metadata ONNX im lặng (bản int8 thật thường vậy — SHERPA-STREAM-001):
+    // chỉ nhận model có BẰNG CHỨNG khớp profile đích (tên archive/thư mục
+    // hoặc tokens đúng ngôn ngữ). Model lạ lọt vào profile sai ⇒ model
+    // streaming vào OfflineRecognizer = SIGABRT “Expected 39”.
+    if (encoderKind == SherpaAsrEncoderKind.unknown) {
+      final nameHaystack = '$sourceLabel ${encoderPath ?? ''}';
+      final evidenceForTarget = target.isStreaming
+          ? nameLooksStreamingModel(nameHaystack)
+          : (asrTokensLookVietnamese(tokensPath) ||
+              _nameLooksLanguage(nameHaystack, 'vi'));
+      if (!evidenceForTarget) {
+        return SherpaAsrImportResult(
+          status: SherpaAsrImportStatus.unknownProfile,
+          detectedProfile: detected,
+          encoderKind: encoderKind,
+          contentRecognized: false,
+          detail: 'Không đọc được metadata ONNX và không có bằng chứng '
+              'ngôn ngữ/loại model cho profile ${target.id}',
+        );
+      }
     }
 
     final docs = await _documents();
-    final destDir = p.join(docs, asrFolderName, targetId);
+    final destDir = p.join(docs, asrFolderName, target.id);
     await Directory(destDir).create(recursive: true);
 
     var copied = 0;
     var archivePath = '';
 
-    for (final path in filePaths) {
+    for (final path in listing) {
       final name = p.basename(path).toLowerCase();
       if (name.endsWith('.tar.bz2') || name.endsWith('.zip')) {
         archivePath = path;
@@ -757,20 +1140,43 @@ class SherpaModelManager {
           await _extractTarBz2(archivePath, destDir);
         }
       } catch (e) {
-        return 'Giải nén archive thất bại: $e';
+        return SherpaAsrImportResult(
+          status: SherpaAsrImportStatus.failed,
+          profile: target,
+          detectedProfile: detected,
+          encoderKind: encoderKind,
+          contentRecognized: detected != null,
+          detail: 'Giải nén archive thất bại: $e',
+        );
       }
     }
 
     await rescan();
-    final paths = _findAsrModelInDirSync(destDir);
-    if (paths != null) {
-      final profileName = targetId == 'asr-vi-30M-int8'
-          ? 'Tiếng Việt (Zipformer 30M int8)'
-          : 'English (Zipformer 20M int8 streaming)';
-      return '✅ Đã import model Zipformer ASR: $profileName';
+    final installed = _findAsrModelInDirSync(destDir);
+    if (installed == null) {
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.incompleteFiles,
+        profile: target,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: detected != null,
+      );
     }
-    return 'Import thất bại: Cần đủ 4 file (.onnx: encoder, decoder, joiner và tokens.txt)';
+    // Model vừa cài: loại encoder thực tế lấy từ file đã copy (nguồn sự thật
+    // cho route Online/Offline).
+    return SherpaAsrImportResult(
+      status: SherpaAsrImportStatus.imported,
+      profile: target,
+      detectedProfile: detected,
+      encoderKind: detectedKindFor(installed),
+      contentRecognized: detected != null || explicit != null,
+      detail: destDir,
+    );
   }
+
+  /// Loại encoder của model đã nằm trên máy.
+  static SherpaAsrEncoderKind detectedKindFor(SherpaModelPaths paths) =>
+      detectEncoderKind(paths.encoder);
 
   // ── SILERO VAD ─────────────────────────────────────────────────────────
 

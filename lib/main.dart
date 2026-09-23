@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:in4up/core/language/localized_material.dart';
@@ -38,6 +37,8 @@ import 'screens/read_mode/services/playback_controller.dart';
 import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
+import 'services/auth_service.dart';
+import 'services/firebase_rest_auth.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
@@ -92,6 +93,13 @@ Future<void> main() async {
   // Mở box chứa hàng đợi các tác vụ đồng bộ dở dang khi mất mạng
   if (!Hive.isBoxOpen('vocab_sync_pending')) {
     await Hive.openBox<String>('vocab_sync_pending');
+  }
+
+  // Linux: FlutterFire không có plugin native → khôi phục phiên đăng nhập qua
+  // REST fallback (chạy nền, không block startup; authStateChanges sẽ phát
+  // user khi khôi phục xong, sync tự bật theo).
+  if (!isFirebaseAvailable) {
+    unawaited(FirebaseRestAuth().restoreSession());
   }
 
   // ★ runApp ngay - không block
@@ -266,23 +274,17 @@ class _MyAppState extends State<MyApp> {
             prov.loadData(); // Nạp danh sách từ cục bộ từ Hive
             unawaited(ReaderDisplaySettings().init()); // READ-630-03
 
-            // Tự động kích hoạt sync khi có User đăng nhập - chỉ khi Firebase sẵn sàng (fix Linux no-app)
-            if (isFirebaseAvailable) {
-              try {
-                FirebaseAuth.instance.authStateChanges().listen((user) {
-                  if (user != null) {
-                    debugPrint('☁️ Sync Enabled for user: ${user.uid}');
-                    unawaited(prov.enableSync(user.uid));
-                  } else {
-                    prov.disableSync();
-                  }
-                });
-              } catch (e) {
-                debugPrint('⚠️ FirebaseAuth listener failed (Linux no-app expected): $e');
+            // Tự động kích hoạt sync khi có User đăng nhập — dùng stream thống
+            // nhất của AuthService: Firebase plugin (Android/Win/macOS) hoặc
+            // REST fallback (Linux — fix "không có nút đăng nhập trên Linux")
+            AuthService().authStateChanges.listen((user) {
+              if (user != null) {
+                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                unawaited(prov.enableSync(user.uid));
+              } else {
+                prov.disableSync();
               }
-            } else {
-              debugPrint('ℹ️ Firebase not available (Linux), skip auth sync listener');
-            }
+            });
 
             return prov;
           },

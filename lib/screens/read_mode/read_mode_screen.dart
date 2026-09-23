@@ -14,6 +14,7 @@ import '../../providers/vocabulary_provider.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/recent_files_service.dart';
+import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
@@ -179,40 +180,26 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                   // chiếm khoảng trống dù không hiện icon.
                   // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi cũ: chỉ
                   // slide, không gập — tránh văn bản nhảy khi đọc.)
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
-                    child: isFocusMode
-                        ? const SizedBox(width: double.infinity, height: 0)
-                        : ClipRect(
-                            child: AnimatedSlide(
-                              duration: const Duration(milliseconds: 260),
-                              curve: Curves.easeOutCubic,
-                              offset: _bottomControlsVisible
-                                  ? Offset.zero
-                                  : const Offset(0, 1.2),
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: _bottomControlsVisible ? 1 : 0,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SmartPlaybackBar(),
-                                    ReadBottomBar(
-                                      showWordlistPanel: _showWordlistPanel,
-                                      onToggleWordlist: () {
-                                        setState(() =>
-                                            _showWordlistPanel =
-                                                !_showWordlistPanel);
-                                        HapticFeedback.lightImpact();
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
+                  // READ-TOOLBAR-001: wrapper tách thành widget riêng để
+                  // test được seam ẩn/hiện/gập; fix bỏ ClipRect + chặn
+                  // offset ẩn ≤ 1.0 nằm trong CollapsibleBottomControls.
+                  CollapsibleBottomControls(
+                    visible: _bottomControlsVisible,
+                    collapsed: isFocusMode,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SmartPlaybackBar(),
+                        ReadBottomBar(
+                          showWordlistPanel: _showWordlistPanel,
+                          onToggleWordlist: () {
+                            setState(() =>
+                                _showWordlistPanel = !_showWordlistPanel);
+                            HapticFeedback.lightImpact();
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                   if (isSmallScreen && !isFocusMode && !_bottomControlsVisible)
                     const SizedBox(height: 8),

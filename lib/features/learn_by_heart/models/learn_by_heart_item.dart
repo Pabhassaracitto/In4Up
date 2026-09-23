@@ -49,6 +49,10 @@ class LearnByHeartItem {
   final DateTime? lastAssessmentDate;
   final DateTime createdAt;
   final DateTime? lastReviewedAt;
+
+  /// Mốc cập nhật gần nhất (LWW khi đồng bộ — LHB-006).
+  /// Item cũ/seed không có → null, `syncStamp` sẽ suy từ các mốc khác.
+  final DateTime? updatedAt;
   final bool isFavorite;
   final String? notes;
   final List<ReviewLog> reviewHistory;

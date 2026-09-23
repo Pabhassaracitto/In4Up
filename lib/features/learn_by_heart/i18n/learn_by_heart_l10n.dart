@@ -629,7 +629,7 @@ class LearnByHeartL10n {
         'si': 'අවසන් සමමුහුර්ත: $time',
       });
 
-  String syncJustNow => _get({
+  String get syncJustNow => _get({
         'vi': 'vừa xong',
         'en': 'just now',
         'hi': 'अभी-अभी',

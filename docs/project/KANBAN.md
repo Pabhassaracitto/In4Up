@@ -78,7 +78,7 @@
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
-| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 2026-09-16: READ-TOOLBAR-001 fix + test invariant (`278a1d9`), SHELL-GEAR-001 seam log debug (`877c6a7`) — cả hai chờ nghiệm thu máy/logcat owner — PR #27 (CI analyze+locale xanh run 35022838520) |
+| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 v2: READ-TOOLBAR-001 loại bỏ toàn bộ widget animation (bước 2 của card) do AT v1 icon ẩn nhưng vẫn còn khối đen; chờ nghiệm thu máy lần 2 |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
@@ -2388,9 +2388,25 @@
   `test/read_bottom_controls_visibility_test.dart` khoá: offset ẩn ≤ 1.0
   chiều cao, opacity 0, giữ chiều cao, Focus 0↔full, stress lặp (test + fix
   cùng một commit xanh — test import widget mới). Trạng thái: **fix code xong
-  — chờ nghiệm thu máy owner** (PR #27, CI run 35022838520 xanh) (AT cuộn 10 lần + Focus/Thoát Focus trên máy
-  bị artifact; nếu VẪN đen → bước kế tiếp theo card: thay AnimatedSize bằng
-  build điều kiện).
+  — chờ nghiệm thu máy owner** (PR #27, CI run 35022838520 xanh).
+- **Cập nhật v2 (agent A4 — lane A4):** Kết quả AT v1 của owner: "Khi kéo
+  cuộn lên thì ẩn các icon chức năng… nhưng vẫn còn bị khối đen che chữ".
+  Icon ẩn đúng chứng minh state cuộn/smart-hide hoạt động đúng; khối đen vẫn
+  còn chứng minh RenderOpacity/saveLayer trung gian của các animation widget
+  trên GPU Mali/Adreno là thủ phạm. Triển khai đúng **bước 2 của card**:
+  "thay AnimatedSize bằng build điều kiện — hy sinh animation gập, giữ đúng
+  chức năng", đồng thời mở rộng nhất quán loại bỏ TOÀN BỘ widget animation
+  (`AnimatedSize`, `AnimatedSlide`, `AnimatedOpacity`, `ClipRect`).
+  Wrapper `CollapsibleBottomControls` chuyển sang:
+  1. Focus mode (`collapsed`): `SizedBox(width: double.infinity, height: 0)`
+     ngay lập tức.
+  2. Smart-hide: `Opacity(opacity: visible ? 1.0 : 0.0)` kèm
+     `IgnorePointer(ignoring: !visible)` — RenderOpacity với opacity 0 skip
+     paint hoàn toàn không gọi saveLayer; giữ nguyên kích thước layout
+     không nhảy chữ; tránh cướp pointer tap khi ẩn.
+  3. Cập nhật test invariant: cấm 4 widget animation quay lại wrapper, kiểm
+     tra đầy đủ opacity, layout height, focus 0, IgnorePointer và stress test.
+  Trạng thái: **chờ nghiệm thu máy lần 2**.
 
 ### TTS-PIPER-002 — Settings vẫn báo × đỏ Piper dù "đã có model và hoạt động"
 - **Triệu chứng (owner):** "Trong setting sao đã có model TTS sherpa và hoạt

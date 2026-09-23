@@ -2585,6 +2585,103 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'භාෂා කේතය හිස් විය නොහැක',
   },
 
+  // ── Read Mode · IPA stacked line (READ-IPA-001) ─────────────────
+  'Dòng hiện tại': {
+    'en': 'Current line',
+    'hi': 'वर्तमान पंक्ति',
+    'zh': '当前行',
+    'zh_TW': '目前行',
+    'si': 'වත්මන් පේළිය',
+  },
+  'Toàn văn bản': {
+    'en': 'Whole text',
+    'hi': 'संपूर्ण पाठ',
+    'zh': '全文',
+    'zh_TW': '全文',
+    'si': 'සම්පූර්ණ පෙළ',
+  },
+
+  // ── IPA source when saving (READ-IPA-002) ─────────────────────
+  'Nguồn IPA khi lưu': {
+    'en': 'IPA source when saving',
+    'hi': 'सहेजते समय IPA स्रोत',
+    'zh': '保存时的 IPA 来源',
+    'zh_TW': '儲存時的 IPA 來源',
+    'si': 'සුරැකීමේදී IPA මූලාශ්‍රය',
+  },
+  'Tự điền IPA cho từ lưu mới — không hỏi lại từng lần.': {
+    'en': 'Auto-fills IPA for newly saved words — never asks again.',
+    'hi': 'नए शब्दों के लिए IPA स्वतः भरता है — फिर कभी नहीं पूछता।',
+    'zh': '为新保存的单词自动填写 IPA — 不再逐次询问。',
+    'zh_TW': '為新儲存的單字自動填寫 IPA — 不再逐次詢問。',
+    'si': 'නව සුරැකුම් වචන වල IPA ස්වයංක්‍රීයව පුරවයි — නැවත අසන්නේ නැත.',
+  },
+  'Tự động': {
+    'en': 'Automatic',
+    'hi': 'स्वचालित',
+    'zh': '自动',
+    'zh_TW': '自動',
+    'si': 'ස්වයංක්‍රීය',
+  },
+  'Từ điển': {
+    'en': 'Dictionary',
+    'hi': 'शब्दकोश',
+    'zh': '词典',
+    'zh_TW': '詞典',
+    'si': 'පදකෝෂය',
+  },
+  'Bạn': {
+    'en': 'You',
+    'hi': 'आप',
+    'zh': '你',
+    'zh_TW': '你',
+    'si': 'ඔබ',
+  },
+
+  // ── Phoneme coloring + SRS fade (READ-IPA-004) ────────────────
+  'Tô màu phoneme': {
+    'en': 'Color phonemes',
+    'hi': 'फोनीम रंग',
+    'zh': '音素着色',
+    'zh_TW': '音素著色',
+    'si': 'ෆෝනීම් වර්ණ කිරීම',
+  },
+  'Mờ IPA từ đã thuộc': {
+    'en': 'Fade IPA of known words',
+    'hi': 'ज्ञात शब्दों का IPA धुंधला करें',
+    'zh': '淡化已掌握单词的 IPA',
+    'zh_TW': '淡化已掌握單字的 IPA',
+    'si': 'දන්නා වචනවල IPA අඩපණ කරන්න',
+  },
+  'Trọng âm': {
+    'en': 'Stress',
+    'hi': 'बल',
+    'zh': '重音',
+    'zh_TW': '重音',
+    'si': 'තෙරණුව',
+  },
+  'Nguyên âm': {
+    'en': 'Vowels',
+    'hi': 'स्वर',
+    'zh': '元音',
+    'zh_TW': '元音',
+    'si': 'ස්වර',
+  },
+  'Phụ âm': {
+    'en': 'Consonants',
+    'hi': 'व्यंजन',
+    'zh': '辅音',
+    'zh_TW': '子音',
+    'si': 'ව්‍යංජන',
+  },
+  'Đôi nguyên âm': {
+    'en': 'Diphthongs',
+    'hi': 'द्विस्वर',
+    'zh': '双元音',
+    'zh_TW': '雙元音',
+    'si': 'ද්විස්වර',
+  },
+
   // ── SHADOW-FILE-001 — persistent audio import + shadowing không bắt buộc AB
   'Đang lưu audio vào thư viện của app…': {
     'en': 'Saving audio into the app library…',

@@ -120,7 +120,13 @@ class WordEntry {
   final String id;
   String word;
   String meaning;
+
+  /// IPA của từ — invariant: resolver KHÔNG ghi đè khi đã có giá trị.
   String? phonetic;
+
+  /// Chứng minh nguồn IPA (READ-IPA-002): 'mdx' | 'cmu' | 'g2p' | 'user'
+  /// | null (không rõ / dữ liệu cũ). Additive — từ cũ không có key này.
+  String? phoneticSource;
   String? example;
   String? imageUrl;
   List<String> tags;
@@ -218,6 +224,7 @@ class WordEntry {
     required this.word,
     required this.meaning,
     this.phonetic,
+    this.phoneticSource,
     this.example,
     this.imageUrl,
     List<String>? tags,
@@ -555,6 +562,7 @@ class WordEntry {
         'word': word,
         'meaning': meaning,
         'phonetic': phonetic,
+        'phoneticSource': phoneticSource,
         'example': example,
         'imageUrl': imageUrl,
         'tags': tags,
@@ -619,6 +627,7 @@ class WordEntry {
         word: json['word'] as String,
         meaning: json['meaning'] as String,
         phonetic: json['phonetic'] as String?,
+        phoneticSource: json['phoneticSource'] as String?,
         example: json['example'] as String?,
         imageUrl: json['imageUrl'] as String?,
         tags: (json['tags'] as List?)?.cast<String>() ?? [],
@@ -657,6 +666,7 @@ class WordEntry {
       word: json['word'] as String,
       meaning: json['meaning'] as String,
       phonetic: json['phonetic'] as String?,
+      phoneticSource: json['phoneticSource'] as String?,
       example: json['example'] as String?,
       imageUrl: json['imageUrl'] as String?,
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
@@ -697,6 +707,7 @@ class WordEntry {
     String? word,
     String? meaning,
     String? phonetic,
+    String? phoneticSource,
     String? example,
     VocabularyType? vocabType,
     String? personalNotes,
@@ -712,6 +723,7 @@ class WordEntry {
         word: word ?? this.word,
         meaning: meaning ?? this.meaning,
         phonetic: phonetic ?? this.phonetic,
+        phoneticSource: phoneticSource ?? this.phoneticSource,
         example: example ?? this.example,
         imageUrl: imageUrl,
         tags: tags,

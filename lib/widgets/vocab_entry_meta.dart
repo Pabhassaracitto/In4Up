@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
 import '../providers/vocabulary_provider.dart';
+import 'ipa_source_chip.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// VOCAB ENTRY META — hiện + sửa thông tin từ đã lưu
@@ -140,6 +141,12 @@ class VocabEntryMetaInfo extends StatelessWidget {
                   ),
                 ),
               ),
+              // Chip nguồn IPA (READ-IPA-002) — mdx/cmu/g2p/user.
+              if (phonetic.isNotEmpty &&
+                  (entry.phoneticSource ?? '').isNotEmpty) ...[
+                const SizedBox(width: 6),
+                IpaSourceChip(source: entry.phoneticSource!),
+              ],
             ],
           ),
         ),

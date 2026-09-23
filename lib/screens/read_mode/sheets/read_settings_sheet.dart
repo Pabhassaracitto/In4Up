@@ -9,8 +9,11 @@ import '../../../features/translation/translation_language_picker.dart';
 import '../../../features/tts/widgets/auto_split_section.dart';
 import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
+import '../../../services/ipa_styling.dart';
+import '../../../services/storage_service.dart';
 import '../services/playback_controller.dart';
 
 class ReadSettingsSheet {
@@ -135,6 +138,18 @@ class _SettingsContent extends StatelessWidget {
                     const SizedBox(height: 16),
                     _GrammarHighlightSection(tp: tp),
                   ],
+
+                  const SizedBox(height: 24),
+
+                  // ===== IPA (READ-IPA-001) =====
+                  const _SectionTitle(
+                      title: 'Phiên âm / IPA', icon: Icons.abc),
+                  const SizedBox(height: 12),
+                  _IpaModeSelector(tp: tp),
+                  const SizedBox(height: 16),
+                  const _IpaSaveSourceSection(),
+                  const SizedBox(height: 12),
+                  _IpaColorOptions(tp: tp),
 
                   const SizedBox(height: 24),
 
@@ -584,6 +599,218 @@ class _ColorModeSelector extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// Chip chọn chế độ IPA — READ-IPA-001.
+/// Cyan (0xFF4DD0E1) — cùng tông với dòng IPA xếp chồng trong text.
+class _IpaModeSelector extends StatelessWidget {
+  final TextProvider tp;
+  const _IpaModeSelector({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: IpaDisplayMode.values.map((mode) {
+        final isSelected = tp.ipaDisplayMode == mode;
+        return GestureDetector(
+          onTap: () => tp.setIpaDisplayMode(mode),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF4DD0E1)
+                  : Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF4DD0E1)
+                    : Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  mode.icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  context.uiText(mode.label),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isSelected ? Colors.white : Colors.grey,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+/// Selector "Nguồn IPA khi lưu" — READ-IPA-002 (ADR-0005).
+/// Setting toàn cục `ipa_save_source`: auto / dict / g2p / off —
+/// quyết định waterfall khi resolver điền IPA còn trống lúc lưu từ.
+class _IpaSaveSourceSection extends StatefulWidget {
+  const _IpaSaveSourceSection();
+
+  @override
+  State<_IpaSaveSourceSection> createState() => _IpaSaveSourceSectionState();
+}
+
+class _IpaSaveSourceSectionState extends State<_IpaSaveSourceSection> {
+  static const Color _accent = Color(0xFF6C63FF);
+
+  late String _source;
+
+  @override
+  void initState() {
+    super.initState();
+    _source = StorageService().getIpaSaveSource();
+  }
+
+  void _select(String value) {
+    setState(() => _source = value);
+    StorageService().saveIpaSaveSource(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Nguồn IPA khi lưu',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Colors.white70,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tự điền IPA cho từ lưu mới — không hỏi lại từng lần.',
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.grey[600],
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _sourceChip('auto', 'Tự động', Icons.auto_awesome, _accent),
+            _sourceChip('dict', 'Từ điển', Icons.menu_book, _accent),
+            _sourceChip('g2p', 'G2P', Icons.biotech, _accent),
+            _sourceChip('off', 'Tắt', Icons.block, _accent),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _sourceChip(String value, String label, IconData icon, Color accent) {
+    final isSelected = _source == value;
+    return GestureDetector(
+      onTap: () => _select(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? accent : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color:
+                isSelected ? accent : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? Colors.white : Colors.grey),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: isSelected ? Colors.white : Colors.grey,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Toggle tô màu phoneme + mờ IPA từ đã thuộc — READ-IPA-004 (ADR-0005 §4).
+/// Cả hai default OFF; legend hiện ra khi bật tô màu (không nhập
+/// [_LegendPanel] — keying khác: ipaColorByType ≠ colorMode).
+class _IpaColorOptions extends StatelessWidget {
+  final TextProvider tp;
+  const _IpaColorOptions({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            title: const Text('Tô màu phoneme',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            value: tp.ipaColorByType,
+            activeThumbColor: const Color(0xFFF0E442),
+            onChanged: tp.setIpaColorByType,
+          ),
+          Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+          SwitchListTile(
+            title: const Text('Mờ IPA từ đã thuộc',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            value: tp.ipaFadeKnown,
+            activeThumbColor: const Color(0xFF4DD0E1),
+            onChanged: tp.setIpaFadeKnown,
+          ),
+          if (tp.ipaColorByType) ...[
+            Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _Chip(
+                      color: IpaStyling.stressColor, label: 'Trọng âm'),
+                  _Chip(color: IpaStyling.vowelColor, label: 'Nguyên âm'),
+                  _Chip(
+                      color: IpaStyling.consonantColor, label: 'Phụ âm'),
+                  _Chip(
+                      color: IpaStyling.diphthongColor,
+                      label: 'Đôi nguyên âm'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/translation/translation_display_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
@@ -80,6 +81,17 @@ class ReadBottomBar extends StatelessWidget {
                             TranslationDisplayMode.stackedBelow);
                       }
                     },
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+
+                  // IPA stacked line — cycle: Tắt → Dòng hiện tại → Toàn văn
+                  // Icons.abc đã dùng trong repo (phoneme_display) — an toàn.
+                  _BarAction(
+                    icon: Icons.abc,
+                    isActive: tp.ipaDisplayMode != IpaDisplayMode.hidden,
+                    activeThumbColor: const Color(0xFF4DD0E1),
+                    compact: isSmall,
+                    onTap: () => tp.cycleIpaDisplayMode(),
                   ),
                   SizedBox(width: isSmall ? 6 : 12),
 

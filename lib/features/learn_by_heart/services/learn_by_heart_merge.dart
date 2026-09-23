@@ -10,6 +10,10 @@
 //      bài ở mọi thiết bị; bia mộ cũ không hồi sinh bài local.
 //   3. Bài seed mặc định KHÔNG bao giờ pending ⇒ cloud luôn thắng, tránh
 //      việc máy mới "hồi sinh" bài người dùng đã xoá/sửa ở máy khác.
+//   4. Nội dung y hệt cloud (đúng bản đã đẩy/kéo) ⇒ KHÔNG tính là thay đổi:
+//      không ghi lại prefs, không báo "đã cập nhật N bài" mỗi lần kéo.
+
+import 'dart:convert';
 
 import '../models/learn_by_heart_item.dart';
 
@@ -170,19 +174,17 @@ class LearnByHeartMerge {
         continue;
       }
 
-      // Đã từng đồng bộ đúng mốc này rồi → không ghi lại (tránh nhiễu/báo sai).
-      final alreadyInSync = local != null &&
-          !localPending &&
-          local.updatedAt != null &&
-          !local.updatedAt!.isBefore(record.updatedAt);
+      // Nội dung đã Y HỆT cloud (đúng bản đã đẩy/kéo trước đó) → không ghi lại:
+      // tránh ghi prefs vô ích và tránh báo "đã cập nhật N bài" mỗi lần kéo.
+      final identical = local != null && hasSameContent(local, item);
       nextTombstones.remove(item.id);
-      if (alreadyInSync) continue;
+      if (identical && !localPending) continue;
 
       final isNew = local == null;
       byId[item.id] = item;
       if (isNew) {
-        // Bài mới từ cloud lên đầu danh sách (giống saveItem chèn index 0).
-        freshIds.insert(0, item.id);
+        // Bài mới từ cloud lên đầu danh sách, GIỮ thứ tự doc cloud trả về.
+        freshIds.add(item.id);
       }
       nextPending.remove(item.id);
       applied++;
@@ -209,6 +211,23 @@ class LearnByHeartMerge {
       pendingIds: nextPending,
       appliedCount: applied,
     );
+  }
+
+  /// Hai bài có NỘI DUNG giống nhau? (bỏ qua thứ tự key JSON — Firestore REST
+  /// có thể trả key theo thứ tự khác với `toJson()` cục bộ).
+  static bool hasSameContent(LearnByHeartItem a, LearnByHeartItem b) =>
+      _canonicalJson(a.toJson()) == _canonicalJson(b.toJson());
+
+  static String _canonicalJson(Object? value) {
+    if (value is Map) {
+      final keys = value.keys.map((k) => '$k').toList()..sort();
+      final parts = keys.map((k) => '"$k":${_canonicalJson(value[k])}');
+      return '{${parts.join(',')}}';
+    }
+    if (value is List) {
+      return '[${value.map(_canonicalJson).join(',')}]';
+    }
+    return jsonEncode(value);
   }
 
   /// Dọn bia mộ cũ hơn [maxAge] (mặc định 1 năm).

@@ -4,12 +4,15 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
+import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../../services/ipa_resolver.dart';
+import '../../../widgets/ipa_source_chip.dart';
 import '../../../widgets/selection_save_sheet.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 
@@ -95,8 +98,30 @@ class _WordActionsContent extends StatefulWidget {
 }
 
 class _WordActionsContentState extends State<_WordActionsContent> {
-  List<dynamic> _dictEntries = [];
+  List<DictEntry> _dictEntries = [];
   bool _dictLoading = true;
+
+  /// IPA từ phân tích / dữ liệu đã có của AnalyzedWord (nguồn không rõ).
+  String? get _ownIpa {
+    final v = widget.word.phonetic?.trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  /// IPA pre-resolve từ kết quả MDX đang hiển thị (READ-IPA-002):
+  /// DictEntry.phonetic hợp lệ → không có thì trích từ definition.
+  String? get _dictIpa {
+    for (final e in _dictEntries.take(5)) {
+      final p = e.phonetic;
+      if (p != null && IpaValidator.looksLikeIpa(p)) {
+        final n = IpaValidator.normalize(p);
+        if (n != null) return n;
+      }
+      final x = IpaDefinitionExtractor.extract(e.plainDefinition);
+      if (x != null) return x;
+    }
+    return null;
+  }
+
 
   @override
   void initState() {
@@ -129,6 +154,9 @@ class _WordActionsContentState extends State<_WordActionsContent> {
     if (_dictEntries.isNotEmpty) {
       bestMeaning = _dictEntries.first.plainDefinition;
     }
+    final ownIpa = _ownIpa;
+    final dictIpa = ownIpa == null ? _dictIpa : null;
+    final shownIpa = ownIpa ?? dictIpa;
 
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -309,7 +337,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
             ),
 
           // ===== PHONETIC / EXAMPLE =====
-          if (widget.word.phonetic != null || widget.word.example != null)
+          if (shownIpa != null || widget.word.example != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -324,24 +352,28 @@ class _WordActionsContentState extends State<_WordActionsContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.word.phonetic != null) ...[
+                  if (shownIpa != null) ...[
                     Row(
                       children: [
                         Icon(Icons.record_voice_over,
                             size: 14, color: Colors.grey[500]),
                         const SizedBox(width: 6),
                         Text(
-                          widget.word.phonetic!,
+                          shownIpa,
                           style: TextStyle(
                             color: Colors.grey[400],
                             fontSize: 14,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
+                        if (dictIpa != null) ...[
+                          const SizedBox(width: 6),
+                          const IpaSourceChip(source: 'mdx'),
+                        ],
                       ],
                     ),
                   ],
-                  if (widget.word.phonetic != null &&
+                  if (shownIpa != null &&
                       widget.word.example != null)
                     const SizedBox(height: 8),
                   if (widget.word.example != null) ...[
@@ -554,6 +586,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                 child: _SaveToWordlistButton(
                   word: widget.word,
                   lineIndex: widget.lineIndex,
+                  dictIpa: _dictIpa,
                   onSaved: () => Navigator.pop(context),
                 ),
               ),
@@ -740,11 +773,16 @@ class _StatItem extends StatelessWidget {
 class _SaveToWordlistButton extends StatefulWidget {
   final AnalyzedWord word;
   final int lineIndex;
+
+  /// IPA pre-resolve từ MDX (READ-IPA-002) — cha (_WordActionsContent)
+  /// đã tra từ điển; button chỉ ưu tiên [AnalyzedWord.phonetic] trước.
+  final String? dictIpa;
   final VoidCallback onSaved;
 
   const _SaveToWordlistButton({
     required this.word,
     required this.lineIndex,
+    this.dictIpa,
     required this.onSaved,
   });
 
@@ -960,14 +998,23 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     );
   }
 
+  /// IPA đã có từ AnalyzedWord (nguồn không rõ) — trim, rỗng → null.
+  String? get _ownIpa {
+    final v = widget.word.phonetic?.trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
   void _saveQuick(VocabularyProvider vocabProvider) {
     final tp = context.read<TextProvider>();
     final ctx = _buildContext(tp);
+    final ownIpa = _ownIpa;
+    final ipa = ownIpa ?? widget.dictIpa;
 
     vocabProvider.addWithAutoClassify(
       text: widget.word.word,
       meaning: widget.word.meaning ?? '',
-      phonetic: widget.word.phonetic,
+      phonetic: ipa,
+      phoneticSource: ownIpa == null && ipa != null ? 'mdx' : null,
       context: ctx,
     );
 
@@ -980,13 +1027,16 @@ class _SaveToWordlistButtonState extends State<_SaveToWordlistButton> {
     final tp = context.read<TextProvider>();
     final ctx = _buildContext(tp);
     final meaning = _meaningCtrl.text.trim();
+    final ownIpa = _ownIpa;
+    final ipa = ownIpa ?? widget.dictIpa;
 
     vocabProvider.addWithAutoClassify(
       text: widget.word.word,
       meaning: meaning.isNotEmpty
           ? meaning
           : (widget.word.meaning ?? ''),
-      phonetic: widget.word.phonetic,
+      phonetic: ipa,
+      phoneticSource: ownIpa == null && ipa != null ? 'mdx' : null,
       context: ctx,
     );
 

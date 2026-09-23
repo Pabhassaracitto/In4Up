@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 //
 // ★ FIX WINDOWS: dùng webview_win_floating (như YouGlishWidget)
 //   thay vì placeholder text "đang được phát triển"

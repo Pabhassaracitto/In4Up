@@ -5,10 +5,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
-import 'package:in4up_stt/stt_service_facade.dart';
-
-import 'package:in4up_stt/diarization/diarization_service.dart';
-import 'package:in4up_stt/diarization/speaker_sidecar.dart';
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../../services/source_artifact_store.dart';

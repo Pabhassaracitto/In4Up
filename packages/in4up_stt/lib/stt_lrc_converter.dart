@@ -1,3 +1,4 @@
+// ignore_for_file: unintended_html_in_doc_comment
 // in4up v11.0 — LrcLine với Content-Anchored UID + joinKey
 
 import 'dart:io';

@@ -1,4 +1,6 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 // lib/features/translation/translation_toolbar.dart
+import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +14,19 @@ import 'glossary/glossary_sheet.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
+
+/// SHELL-GEAR-001: seam log điểm nhấn gear "Cài đặt engine dịch" (ứng viên
+/// gear #2 trong card — gear #1 là drawer "Giao diện shell" ở main_shell).
+/// `Listener` là raw pointer listener — KHÔNG tham gia gesture arena, KHÔNG
+/// đổi hành vi nút (tap mở sheet, giữ hiện tooltip như cũ). Logcat
+/// `grep SHELL-GEAR-001` cho biết owner đang giữ đúng gear nào và bao lâu
+/// (down→up ≥ 500ms = long-press) để đối chứng hypothesis orphaned Ink
+/// trước khi cân nhắc thay InkWell bằng highlight tự vẽ.
+void _shellGearPointerLog(String phase) {
+  if (kDebugMode) {
+    debugPrint('[SHELL-GEAR-001] translation-toolbar-gear: pointer-$phase');
+  }
+}
 
 class TranslationToolbar extends StatelessWidget {
   final Color primaryColor;
@@ -80,15 +95,21 @@ class TranslationToolbar extends StatelessWidget {
                     onSelected: (language) =>
                         _applyTargetLanguage(context, textProvider, language),
                   );
-                  final settingsButton = IconButton(
-                    onPressed: () =>
-                        _showServerSettings(context, textProvider),
-                    icon: const Icon(Icons.settings_outlined, size: 16),
-                    color: Colors.grey[500],
-                    tooltip: context.uiText('Cài đặt engine dịch'),
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    padding: EdgeInsets.zero,
+                  final settingsButton = Listener(
+                    // SHELL-GEAR-001: raw pointer log — không đổi gesture.
+                    onPointerDown: (_) => _shellGearPointerLog('down'),
+                    onPointerUp: (_) => _shellGearPointerLog('up'),
+                    onPointerCancel: (_) => _shellGearPointerLog('cancel'),
+                    child: IconButton(
+                      onPressed: () =>
+                          _showServerSettings(context, textProvider),
+                      icon: const Icon(Icons.settings_outlined, size: 16),
+                      color: Colors.grey[500],
+                      tooltip: context.uiText('Cài đặt engine dịch'),
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
+                      padding: EdgeInsets.zero,
+                    ),
                   );
                   final layoutSelector = _LayoutSelector(
                     displayMode: displayMode,
@@ -144,6 +165,28 @@ class TranslationToolbar extends StatelessWidget {
                       backgroundColor: Colors.white12,
                       valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                       minHeight: 2),
+                ),
+                // HYMT-002: báo rõ đang dùng Hy-MT OFFLINE (có thể chậm) —
+                // kết thúc luôn ở success/error hữu hạn (isTranslating=false
+                // khi xong; mọi timeout của engine đều hữu hạn).
+                ValueListenableBuilder<String?>(
+                  valueListenable: textProvider.translationEngineNotifier,
+                  builder: (context, engineName, _) {
+                    if (engineName == null || !engineName.contains('Hy-MT')) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        context.uiText(
+                            'Đang dịch bằng Hy-MT offline, có thể chậm'),
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.white70),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
                 ),
               ],
               if (textProvider.translationError != null) ...[

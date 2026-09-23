@@ -32,6 +32,11 @@
 2. KHÔNG gộp 3 skill SM-2 (Hiểu–Nghe–Đọc) thành 1 điểm số — đang tách biệt có chủ đích.
 3. KHÔNG làm mất khả năng reopen đúng vị trí nguồn (PDF page/rect, Web url/scroll,
    Audio timestamp) — xem schema Evidence mục 2.2.
+   - PDF: rect được **lưu** theo quy ước PDF y-up (`top > bottom`, tức `Rect.height`
+     âm và `contains()` luôn false). Mọi quy đổi phải đi qua
+     `lib/features/pdf_reader/services/pdf_geometry.dart`; KHÔNG "sửa" chiều rect ở
+     chỗ lưu (dữ liệu đã về máy người dùng — ADR-0003). Khoá dữ liệu đọc của một
+     file là `PdfFileIdentity` (md5(size|mtime)), không phải chuỗi đường dẫn.
 4. Mọi thay đổi kiến trúc: ADR + code review, không "hội đồng AI".
 5. **Locale ≠ tiếng Việt → chrome UI không được còn tiếng Việt. Thiếu bản dịch
    ngôn ngữ đó thì hiện English. Không bao giờ fallback về `vi`.**
@@ -43,7 +48,8 @@
      T2 ưu tiên hi/zh/zh_TW/si (đã 100% wave 1 — key ARB mới phải dịch đủ
      4 locale ngay trong cùng PR) → T3 (sàn ratchet, chỉ tăng). Xem
      `lib/core/language/language_roadmap.dart` + `tool/lang_rollout_report.py`
-     + group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`.
+     + group ADR-0002 trong `test/locale_chrome_no_vietnamese_test.dart`;
+     nhãn mới của Tab Đọc bị quét thêm bởi `test/pdf_reader/pdf_reader_i18n_coverage_test.dart`.
      KHÔNG chạy `generate_arbs.py` (đã vô hiệu — ghi đè mất catalog).
    - Thứ tự: `locale có sẵn` → `en` → không đoán, không để `vi`.
    - Chuỗi UI mới: ARB **hoặc** `uiText('…')` + English trong

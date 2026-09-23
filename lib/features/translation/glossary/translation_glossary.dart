@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_brace_in_string_interps, unnecessary_const
 // lib/features/translation/glossary/translation_glossary.dart
 //
 // Glossary thuật ngữ cho pipeline dịch — tầng chuyên ngữ (Phật học / Pali).

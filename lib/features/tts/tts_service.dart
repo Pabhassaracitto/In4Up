@@ -812,6 +812,8 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  Future<void> waitForCompletion() => _waitForCompletion();
+
   Future<void> _waitForCompletion() async {
     if (_usingOfflineEngine) return; // ★ Offline đã await trực tiếp rồi
     try {

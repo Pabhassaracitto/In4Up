@@ -59,10 +59,15 @@ Windows: `documents = %LOCALAPPDATA%\<org>\<app>_documents/`
 ```
 
 **Tải giọng (nguồn chính thức, đã verify):**
-- Trang release: `https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models`
-  (536 giọng, bundle `.tar.bz2` gồm onnx + tokens + espeak-ng-data)
-- Gợi ý: `vits-piper-en_US-libritts_r-medium.tar.bz2` (Anh) ·
-  `vits-piper-vi_VN-vais1000-medium.tar.bz2` (Việt)
+- Trong app: Home → Quản lý Model AI → Piper → **Tải giọng**
+  (ưu tiên VI / EN / ZH / HI, nút xem thêm).
+- HuggingFace catalog (onnx + json):
+  `https://huggingface.co/rhasspy/piper-voices/tree/main`
+- Bundle k2-fsa (onnx + tokens + espeak, app thử trước HF):
+  `https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models`
+- Gợi ý: `vi_VN-vais1000-medium` · `en_US-lessac-medium` ·
+  `zh_CN-huayan-medium` · `hi_IN-pratham-medium`
+- Sinhala: **chưa có** trong piper-voices (không bịa giọng).
 - VAD: `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx`
 
 **Luồng trong app (khuyến nghị cho user):**

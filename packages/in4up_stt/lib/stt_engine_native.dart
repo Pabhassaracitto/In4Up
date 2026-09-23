@@ -24,7 +24,7 @@ class SttEngineNative {
   Stream<SttResult> get resultStream => _resultController.stream;
 
   bool get isInitialized => _isInitialized;
-  bool get isListening => _isListening;
+  bool get isListening => _isListening && _stt.isListening;
 
   /// Lý do gần nhất init/listen thất bại (để UI — vd cabin — chẩn đoán).
   String? get lastError => _lastError;
@@ -43,9 +43,17 @@ class SttEngineNative {
               ? 'STT session: ${e.errorMsg}'
               : 'STT session error '
                   '(${e.permanent ? 'permanent' : 'transient'})';
+          _isListening = false;
           debugPrint('❌ Native STT error: ${e.errorMsg}');
         },
-        onStatus: (s) => debugPrint('📢 Native STT status: $s'),
+        onStatus: (s) {
+          debugPrint('📢 Native STT status: $s');
+          if (s == 'done' || s == 'notListening') {
+            _isListening = false;
+          } else if (s == 'listening') {
+            _isListening = true;
+          }
+        },
         debugLogging: kDebugMode,
       );
 
@@ -88,7 +96,7 @@ class SttEngineNative {
     // SELF-HEAL: phiên nghe cũ còn treo (flow khác start mà không stop,
     // hoặc lần trước chưa dừng sạch) → plugin native sẽ trả FALSE cho
     // listen mới ("isListening" bên native). Hủy sạch phiên cũ trước.
-    if (_isListening) {
+    if (_isListening || _stt.isListening) {
       debugPrint('🧹 Native STT: session cũ còn mở — cancel trước khi start');
       await cancelListening();
     }
@@ -118,7 +126,7 @@ class SttEngineNative {
         debugPrint('⚠️ Native STT locale discovery note: $e');
       }
 
-      var started = await _stt.listen(
+      await _stt.listen(
         localeId: targetLocaleId,
         // listenFor = null → KHÔNG có timer auto-stop 2 phút (live cabin
         // cần nghe liên tục; session do hệ thống + pauseFor quản lý).
@@ -130,9 +138,9 @@ class SttEngineNative {
         listenMode: listenMode,
       );
 
-      if (!started && targetLocaleId != null) {
+      if (!_stt.isListening && targetLocaleId != null) {
         debugPrint('⚠️ Native STT retry with default system locale');
-        started = await _stt.listen(
+        await _stt.listen(
           listenFor: listenTimeout,
           pauseFor: pauseTimeout,
           partialResults: true,
@@ -142,6 +150,7 @@ class SttEngineNative {
         );
       }
 
+      final started = _stt.isListening || _stt.isAvailable;
       _isListening = started;
       if (started) {
         _lastError = null;
@@ -254,6 +263,7 @@ class SttEngineNative {
       processingTime: Duration.zero,
       audioFingerprint: fp, // ★ v11
       hasWordTimestamps: false,
+      isFinal: result.finalResult,
     );
 
     _resultController.add(sttResult);

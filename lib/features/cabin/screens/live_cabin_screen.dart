@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+// sherpa_model_manager re-export cả asr_model_routing (profile + router).
 import 'package:in4up_stt/sherpa_model_manager.dart';
 
+import 'package:in4up/screens/settings/stt_model_settings_screen.dart';
+
 import '../models/cabin_caption.dart';
+import '../services/cabin_asr_plan.dart';
 import '../services/stts_cabin_service.dart';
 
 class LiveCabinScreen extends StatefulWidget {
@@ -17,6 +21,11 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     with SingleTickerProviderStateMixin {
   final SttsCabinService _service = SttsCabinService();
   final ScrollController _scrollController = ScrollController();
+  final SherpaModelManager _modelManager = SherpaModelManager();
+
+  /// State cài đặt model (để đánh dấu ngôn ngữ nào chưa có model offline).
+  SherpaAsrInfo _asrInfo = const SherpaAsrInfo();
+  StreamSubscription<SherpaAsrInfo>? _asrSub;
 
   late AnimationController _pulseController;
   bool _showHeadphoneBanner = false;
@@ -45,11 +54,19 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+    _asrInfo = _modelManager.asrInfo;
+    _modelManager.ensureFresh().then((_) {
+      if (mounted) setState(() => _asrInfo = _modelManager.asrInfo);
+    }).catchError((_) {});
+    _asrSub = _modelManager.watchAsr().listen((info) {
+      if (mounted) setState(() => _asrInfo = info);
+    });
   }
 
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _asrSub?.cancel();
     _service.removeListener(_onServiceUpdate);
     _pulseController.dispose();
     _scrollController.dispose();
@@ -128,6 +145,15 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                     final selected = isSource
                         ? _service.sourceLanguage == entry.key
                         : _service.targetLanguage == entry.key;
+                    // Đánh dấu ngôn ngữ CHƯA có model offline khi engine
+                    // đang là Sherpa (CABIN-ASR-002: không dẫn user vào ngõ cụt).
+                    final offlineNote = isSource &&
+                            _service.sttEngineType ==
+                                CabinSttEngineType.sherpaOffline
+                        ? _offlineModelNoteFor(entry.key)
+                        : null;
+                    final unavailableOffline = offlineNote != null;
+
                     return ListTile(
                       leading: Icon(
                         selected ? Icons.check_circle : Icons.circle_outlined,
@@ -140,14 +166,41 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
                           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
+                      subtitle: offlineNote == null
+                          ? null
+                          : Text(
+                              context.uiText(offlineNote),
+                              style: const TextStyle(
+                                color: Colors.orangeAccent,
+                                fontSize: 11,
+                              ),
+                            ),
                       trailing: Text(
                         entry.key.toUpperCase(),
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: TextStyle(
+                          color: unavailableOffline
+                              ? Colors.orangeAccent
+                              : Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
-                      onTap: () {
+                      onTap: () async {
                         Navigator.pop(ctx);
                         if (isSource) {
                           _service.setSourceLanguage(entry.key);
+                          if (_service.sttEngineType ==
+                              CabinSttEngineType.sherpaOffline) {
+                            try {
+                              await _modelManager.ensureFresh();
+                            } catch (_) {}
+                            final selection = AsrModelRouter.resolve(
+                              entry.key,
+                              isInstalled: _modelManager.isAsrProfileInstalled,
+                            );
+                            if (!selection.isReady && mounted) {
+                              await _showMissingModelDialog(selection);
+                            }
+                          }
                         } else {
                           _service.setTargetLanguage(entry.key);
                         }
@@ -161,6 +214,19 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
         );
       },
     );
+  }
+
+  /// Ghi chú cho dropdown ngôn ngữ nguồn khi engine Offline:
+  /// `null` = đã có model, ngược lại là message hiển thị.
+  String? _offlineModelNoteFor(String language) {
+    final profile = AsrModelRouter.profileForLanguage(language);
+    if (profile == null) {
+      return 'Chưa hỗ trợ offline — chỉ Engine Hệ thống';
+    }
+    if (!_asrInfo.isReady(profile.id)) {
+      return 'Chưa cài model Zipformer — mở Quản lý Model AI';
+    }
+    return null;
   }
 
   void _copyAllTranscript() {
@@ -362,29 +428,109 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     );
   }
 
+  /// Chọn engine mic. Engine Offline cần model cho ngôn ngữ nguồn — thiếu thì
+  /// báo RÕ + dẫn đường (Quản lý Model AI) hoặc hỏi xác nhận fallback.
+  Future<void> _handleEngineTap(CabinSttEngineType type) async {
+    HapticFeedback.selectionClick();
+    if (type == CabinSttEngineType.sherpaOffline) {
+      try {
+        await _modelManager.ensureFresh();
+      } catch (_) {}
+      final language = _service.sourceLanguage;
+      final selection = AsrModelRouter.resolve(
+        language,
+        isInstalled: _modelManager.isAsrProfileInstalled,
+      );
+      if (!selection.isReady && mounted) {
+        await _showMissingModelDialog(selection);
+      }
+    }
+    await _service.setSttEngineType(type);
+  }
+
+  /// Dialog thiếu model Zipformer: mở Quản lý Model AI, hoặc xác nhận dùng
+  /// ngôn ngữ đã cài (KHÔNG tự đổi sau lưng user).
+  Future<void> _showMissingModelDialog(AsrModelSelection selection) async {
+    final fallback = selection.fallbackLanguage;
+    final language = selection.requestedLanguage.toUpperCase();
+    final languageNote = fallback?.toUpperCase() ?? '';
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          dialogContext.uiText(
+            selection.issue == AsrModelIssue.noProfileForLanguage
+                ? 'Chưa hỗ trợ nhận diện offline cho $language'
+                : 'Chưa cài model Zipformer cho $language',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              dialogContext.uiText(
+                selection.issue == AsrModelIssue.noProfileForLanguage
+                    ? 'App chỉ có model offline cho Tiếng Việt và English (streaming). Hãy chọn Tiếng Việt/English hoặc dùng Engine "Hệ thống".'
+                    : 'Cabin chỉ nhận diện $language khi model đã có trên máy. Thiếu model, app KHÔNG tự nhận $language bằng model ngôn ngữ khác.',
+              ),
+            ),
+            if (fallback != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                dialogContext.uiText(
+                  'Máy đang có $languageNote — cần bạn xác nhận mới dùng thay.',
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'manage'),
+            child: Text(dialogContext.uiText('Quản lý Model AI')),
+          ),
+          if (fallback != null)
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'fallback'),
+              child: Text(
+                dialogContext.uiText('Dùng ${fallback.toUpperCase()} (đã cài)'),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, null),
+            child: Text(dialogContext.uiText('Để sau')),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (choice == 'manage') {
+      await _openModelManager();
+    } else if (choice == 'fallback') {
+      await _service.confirmFallbackToInstalledLanguage();
+    }
+  }
+
+  Future<void> _openModelManager() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+    );
+    // Về từ màn quản lý model → state có thể vừa đổi (import/tải xong).
+    try {
+      await _modelManager.ensureFresh();
+    } catch (_) {}
+    _service.clearModelBlocker();
+    if (mounted) setState(() => _asrInfo = _modelManager.asrInfo);
+  }
+
   Widget _buildEngineChip(String label, CabinSttEngineType type, IconData icon) {
     final isSelected = _service.sttEngineType == type;
     return Expanded(
       child: InkWell(
-        onTap: () async {
-          HapticFeedback.selectionClick();
-          if (type == CabinSttEngineType.sherpaOffline) {
-            final hasModel = SherpaModelManager().hasAsrModel(_service.sourceLanguage);
-            if (!hasModel) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    context.uiText(
-                      'Chưa có model Zipformer cho ${_service.sourceLanguage.toUpperCase()}. Vào Quản lý Model AI để tải về.',
-                    ),
-                  ),
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-          }
-          await _service.setSttEngineType(type);
-        },
+        onTap: () => _handleEngineTap(type),
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -501,13 +647,45 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _service.lastError!,
+              _errorBannerText(),
               style: const TextStyle(color: Colors.redAccent, fontSize: 12),
             ),
           ),
+          if (_service.hasModelBlocker)
+            TextButton(
+              onPressed: _openModelManager,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 28),
+              ),
+              child: Text(
+                context.uiText('Mở Quản lý Model AI'),
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  /// Message lỗi đã bản địa hoá: ưu tiên mô tả trạng thái THIẾU MODEL
+  /// (có dẫn đường), còn lại hiện lỗi kỹ thuật từ service.
+  String _errorBannerText() {
+    if (_service.hasModelBlocker) {
+      final language = (_service.missingModelLanguage ?? '').toUpperCase();
+      final fallback = _service.suggestedFallbackLanguage?.toUpperCase();
+      if (!_service.missingModelHasOfflineProfile) {
+        return context.uiText(
+          'App chưa hỗ trợ nhận diện offline cho $language — chọn Tiếng Việt/English hoặc dùng Engine "Hệ thống".',
+        );
+      }
+      final base = context.uiText(
+        'Chưa cài model Zipformer cho $language. Mở Quản lý Model AI để tải/import.',
+      );
+      if (fallback == null) return base;
+      return '$base ${context.uiText('Hoặc dùng $fallback (đã cài) sau khi xác nhận.')}';
+    }
+    return _service.lastError ?? '';
   }
 
   Widget _buildMainContent() {

@@ -373,8 +373,10 @@ class SoundlistProvider extends ChangeNotifier {
     if (chapters.isEmpty) {
       final reasons = <String>[];
       if (slices.isEmpty) {
-        reasons.add('không tách được đoạn theo khoảng lặng (audio liền mạch '
-            'hoặc quá ngắn)');
+        reasons.add('không tách được đoạn theo khoảng lặng — file quá ngắn '
+            '(< 2× độ dài đoạn tối thiểu) hoặc máy không đọc được waveform/'
+            'thời lượng của file này. Thử: mở bài audio trong trình phát rồi '
+            'chạy lại, hoặc giảm "đoạn tối thiểu" trong preset Tách nhiều.');
       }
       if (useWhisper && stt == null) {
         reasons.add('Whisper không nhận diện được — kiểm tra model trong '

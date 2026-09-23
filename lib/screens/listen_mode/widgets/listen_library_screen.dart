@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../../../services/audio_import_service.dart';
 import '../../../services/audio_library_service.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
@@ -86,12 +87,38 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
         );
         if (!mounted) return;
 
-        await player.loadSong(
+        final loaded = await player.loadSong(
           path: playable,
           title: audio.title,
           autoPlay: false, // ★ THAY: false để seek trước khi play
         );
         if (!mounted) return;
+
+        // SHADOW-FILE-001: path cache cũ đã chết (ENOENT) → hiện hướng dẫn
+        // chọn lại file (copy persistent), KHÔNG crash/im lặng.
+        if (!loaded) {
+          if (player.lastLoadError == AudioLoadErrorKind.missingFile) {
+            _showMissingFileDialog(audio);
+          } else {
+            _showSnack(
+              icon: Icons.error_outline,
+              message: 'Không phát được file này — vui lòng chọn lại audio.',
+              color: Colors.orange,
+            );
+          }
+          return;
+        }
+
+        // Path cũ chết nhưng trong audio_imports/ còn bản → đã tự khôi phục.
+        final nowPlaying = player.currentSongPath;
+        if (nowPlaying != null &&
+            nowPlaying != playable.replaceAll(r'\', '/')) {
+          _showSnack(
+            icon: Icons.restore,
+            message: 'Đã khôi phục audio từ bản lưu trong thư viện.',
+            color: const Color(0xFF4CAF50),
+          );
+        }
 
         // Resume vị trí đã nghe
         if (audio.lastPosition > Duration.zero &&
@@ -184,23 +211,106 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
     final file = result.files.single;
     final path = file.path!;
 
-    // Load và phát
-    await player.loadSong(
-      path: path,
+    // SHADOW-FILE-001: copy vào audio_imports/ TRƯỚC khi phát & lưu recent —
+    // path file_picker trỏ vào cache, hệ thống dọn bất kỳ lúc nào → ENOENT.
+    AudioImportResult? imported;
+    try {
+      imported = await AudioImportService.instance.ensurePersistent(
+        sourcePath: path,
+        displayName: file.name,
+      );
+    } catch (e) {
+      debugPrint('[ListenLibrary] Import audio thất bại: $e');
+    }
+    if (!mounted) return;
+    if (imported == null) {
+      _showSnack(
+        icon: Icons.error_outline,
+        message:
+            'Không lưu được file audio vào thư viện — vui lòng thử lại.',
+        color: Colors.orange,
+      );
+      return;
+    }
+    final persistentPath = imported.path;
+
+    // Load và phát bằng path persistent
+    final loaded = await player.loadSong(
+      path: persistentPath,
       title: file.name,
       autoPlay: true,
     );
     if (!mounted) return;
+    if (!loaded) {
+      _showSnack(
+        icon: Icons.error_outline,
+        message: 'Không phát được file vừa chọn — vui lòng thử file khác.',
+        color: Colors.orange,
+      );
+      return;
+    }
 
-    // Lưu vào recent
+    // Lưu vào recent — path persistent (phát lại được sau khi xóa cache).
     final audio = RecentAudio.fromLocalFile(
-      path: path,
+      path: persistentPath,
       title: file.name,
       totalDuration: player.state.duration,
     );
     await _service.addOrUpdate(audio);
     if (!mounted) return;
     await _load();
+  }
+
+  // ── SHADOW-FILE-001: path cũ (cache) gặp ENOENT → hướng dẫn chọn lại ────
+  void _showMissingFileDialog(RecentAudio audio) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2235),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          context.uiText('File không còn tồn tại'),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          context.uiText(
+            'File này đã bị hệ thống dọn cache hoặc đã bị xóa. Hãy chọn lại file — app sẽ lưu vào thư viện riêng để không bị mất nữa.',
+          ),
+          style: const TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.uiText('Đóng')),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await _service.remove(audio.id);
+              if (mounted) await _load();
+            },
+            child: Text(
+              context.uiText('Xóa khỏi danh sách'),
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _pickAudioFile();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+            ),
+            child: Text(
+              context.uiText('Chọn lại file'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── File options ─────────────────────────────────────────────

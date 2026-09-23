@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_brace_in_string_interps
 import 'package:flutter/material.dart';
 
 import '../models/video_info.dart';
@@ -27,6 +28,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _initPlayer() async {
     // TODO: Initialize video_player controller
     // For now, just show placeholder
+    // LISTEN-VIEW-001: guard — the screen can leave the tree before init
+    // completes when switching Listen sub-tabs quickly.
+    if (!mounted) return;
     setState(() {
       _duration = widget.video.duration;
     });

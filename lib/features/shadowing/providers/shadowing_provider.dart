@@ -109,6 +109,15 @@ class ShadowingProvider extends ChangeNotifier {
   Duration? get loopStart => _loopStart;
   Duration? get loopEnd => _loopEnd;
 
+  /// SHADOW-FILE-001: luyện "toàn track" = không có đoạn A-B.
+  bool get hasLoopRegion => _loopStart != null && _loopEnd != null;
+  bool get isWholeTrack => !hasLoopRegion;
+
+  /// Lỗi nguồn audio (path mất / ENOENT) để UI hiện hướng dẫn chọn lại file
+  /// thay vì im lặng. Được set trong playOriginal, clear khi đổi nguồn.
+  String? _sourceError;
+  String? get sourceError => _sourceError;
+
   // Segment (for compatibility)
   Duration? get segmentStart => _loopStart;
   Duration? get segmentEnd => _loopEnd;
@@ -165,14 +174,12 @@ class ShadowingProvider extends ChangeNotifier {
 
 // ⬇️ THÊM CÁC GETTERS NÀY
   double get gapProgress {
-    if (_loopStart == null ||
-        _loopEnd == null ||
-        _state != ShadowingState.playingOriginal) {
+    // SHADOW-FILE-001: hoạt động cả khi luyện toàn track (không có A-B) —
+    // tiến độ tính theo số vòng nghe mẫu, không phụ thuộc loop region.
+    if (_state != ShadowingState.playingOriginal || _repeatCount <= 0) {
       return 0.0;
     }
-    final duration = _loopEnd! - _loopStart!;
-    if (duration.inMilliseconds == 0) return 0.0;
-    return _completedRepetitions / _repeatCount;
+    return (_completedRepetitions / _repeatCount).clamp(0.0, 1.0);
   }
 
   int get countdownValue => _countdown;
@@ -304,7 +311,17 @@ class ShadowingProvider extends ChangeNotifier {
     if (_loopStart == start && _loopEnd == end) return; // ← THÊM
     _loopStart = start;
     _loopEnd = end;
+    _sourceError = null;
     debugPrint('🔁 Loop region set: $start → $end');
+    notifyListeners();
+  }
+
+  /// SHADOW-FILE-001: bỏ đoạn A-B → luyện TOÀN TRACK (không bắt buộc AB).
+  void clearLoopRegion() {
+    if (_loopStart == null && _loopEnd == null) return;
+    _loopStart = null;
+    _loopEnd = null;
+    debugPrint('🔁 Loop region cleared → whole-track shadowing');
     notifyListeners();
   }
 
@@ -318,6 +335,7 @@ class ShadowingProvider extends ChangeNotifier {
   void setOriginalAudioPath(String path) {
     if (_originalAudioPath == path) return; // ← THÊM
     _originalAudioPath = path;
+    _sourceError = null;
     debugPrint('🎵 Audio path: $path');
     notifyListeners();
   }
@@ -336,6 +354,7 @@ class ShadowingProvider extends ChangeNotifier {
     _loopStart = start;
     _loopEnd = end;
     _originalAudioPath = audioPath;
+    _sourceError = null;
     notifyListeners();
   }
 
@@ -344,8 +363,21 @@ class ShadowingProvider extends ChangeNotifier {
   Future<void> playOriginal() async {
     if (_originalAudioPath == null || _originalAudioPath!.isEmpty) {
       debugPrint('❌ ERROR: _originalAudioPath is null or empty');
+      _sourceError = 'no_source';
+      notifyListeners();
       return;
     }
+
+    // SHADOW-FILE-001: file cache có thể đã bị hệ thống dọn — báo lỗi rõ để
+    // UI hướng dẫn chọn lại, KHÔNG để ExoPlayer ném ENOENT ngầm.
+    if (!_originalAudioPath!.startsWith('content://') &&
+        !File(_originalAudioPath!).existsSync()) {
+      debugPrint('❌ Original audio missing: $_originalAudioPath');
+      _sourceError = 'file_missing';
+      notifyListeners();
+      return;
+    }
+    _sourceError = null;
 
     debugPrint('🎵 === PLAY ORIGINAL ===');
     debugPrint('🎵 Path: $_originalAudioPath');
@@ -357,11 +389,16 @@ class ShadowingProvider extends ChangeNotifier {
     _completedRepetitions = 0;
 
     try {
-      await _player.setFilePath(_originalAudioPath!);
+      // setFilePath trả duration — dùng ngay để whole-track (không AB) chạy
+      // hết bài thay vì fallback 10s khi duration chưa sẵn sàng.
+      final loadedDuration = await _player.setFilePath(_originalAudioPath!);
       await _player.setSpeed(_playbackSpeed);
 
       final startPos = _loopStart ?? Duration.zero;
-      final endPos = _loopEnd ?? _player.duration ?? const Duration(seconds: 10);
+      final endPos = _loopEnd ??
+          loadedDuration ??
+          _player.duration ??
+          const Duration(seconds: 10);
       if (endPos <= startPos) {
         debugPrint('⚠️ Invalid loop range: $startPos → $endPos');
         await _player.pause();
@@ -411,6 +448,8 @@ class ShadowingProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ Error playing audio: $e');
+      // File có thể vừa bị dọn cache giữa chừng — báo lỗi rõ, không crash.
+      _sourceError = e is FileSystemException ? 'file_missing' : 'play_failed';
       await _player.pause();
       _setState(ShadowingState.idle);
     }

@@ -2988,6 +2988,46 @@
   clear` nhẹ hoặc xóa thư mục cache) → mở lại app → phát file VẪN được
   (đã copy persistent); shadowing không AB → luyện được toàn track; file
   có LRC → gợi ý AB theo câu.
+- **FIX ĐÃ LÀM (agent Arena B7, 2026-09-16, chờ nghiệm thu):**
+  - `lib/services/audio_import_service.dart` (MỚI): sau file_picker copy
+    vào `getApplicationDocumentsDirectory()/audio_imports/`; dedup an
+    toàn (size + fingerprint 64KB đầu/cuối → reuse; khác nội dung trùng
+    tên → đổi tên `name (2).ext`, KHÔNG ghi đè/xóa); chỉ copy khi nguồn
+    volatile (cache/temp) — path ổn định (Music/desktop) giữ nguyên để
+    không nhân đôi bộ nhớ; hỗ trợ cả nguồn content://. Basename giữ
+    nguyên → LRC cache (SourceArtifactStore fingerprint size|duration|
+    basename) vẫn khớp sau khi đổi thư mục.
+  - `audio_library_drawer.dart`, `listen_library_screen.dart`: pick →
+    import (progress UI + snackbar khi lỗi) → player/recent/playlist/LRC/
+    VAD/shadowing đều dùng path persistent.
+  - `player_provider.dart`: `loadSong` trả bool; pre-check File tồn tại
+    TRƯỚC khi qua ExoPlayer; tự khôi phục từ audio_imports/ khi đúng 1
+    file trùng basename (recents/segment cũ hồi sinh); `AudioLoadErrorKind`
+    (missingFile/loadFailed) + `lastLoadErrorPath` cho UI; recents chỉ ghi
+    sau khi load OK; `playSegment` bail khi load fail.
+  - ENOENT UX: thư viện Gần đây → dialog "File không còn tồn tại"
+    (Đóng / Xóa khỏi danh sách / Chọn lại file — chọn lại sẽ copy
+    persistent); snackbar "Đã khôi phục audio từ bản lưu trong thư viện"
+    khi tự khôi phục; không crash, không im lặng.
+  - Shadowing không bắt buộc AB: `ShadowingWidget` idle mới — "Nghe mẫu"
+    + "Ghi âm" chạy TOÀN TRACK khi chưa có AB (playOriginal lấy duration
+    từ setFilePath, gapProgress theo số vòng nghe); `player_provider`
+    `clearLoopPoints` + `shadowing.clearLoopRegion()`.
+  - Gợi ý AB theo câu LRC: `lrc_ab_suggestions.dart` (PURE) — mỗi câu = 1
+    AB (B = đầu câu kế, câu cuối = duration), nút "Dùng câu đang phát",
+    list gợi ý trong tab Nói (lấy từ UnderstandProvider hoặc lazy-load
+    cache LRC 1 lần/bài); đặt AB qua `player.setLoop` + practice text.
+  - Chỉnh tay AB ngay trong tab Nói: nudge ±0.5s cho A/B (clamp
+    0≤A<B≤duration), "Đặt A/B tại vị trí phát" (A>B tự swap), "Xóa A-B".
+    A chạm B → `player.setLoopRegion` đồng bộ cả player và shadowing.
+  - `speak_mode_screen.dart`: tip card cập nhật luồng mới.
+  - i18n rule #5: 27 chuỗi chrome mới vào `priority_ui_overrides.dart`
+    (đủ en/hi/zh/zh_TW/si).
+  - Tests MỚI: `test/audio_import_service_test.dart` (14 test: copy/dedup/
+    rename không ghi đè/volatile/stable/restore/sanitize) +
+    `test/lrc_ab_suggestions_test.dart` (gợi ý theo câu, câu đang phát,
+    nudge clamp). KHÔNG xóa dữ liệu import cũ ở bất cứ chỗ nào;
+    cleanup/migration (nếu cần) sẽ là luồng riêng có xác nhận + test.
 
 ### SHERPA-STREAM-001 — Crash SIGABRT: model STREAMING nạp qua OfflineRecognizer (FIXed code, chờ nghiệm thu)
 - **Triệu chứng (logcat owner):** `Fatal signal 6 (SIGABRT)` —

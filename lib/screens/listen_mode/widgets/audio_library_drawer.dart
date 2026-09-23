@@ -9,7 +9,22 @@ import 'package:provider/provider.dart';
 
 import '../../../features/youtube/youtube_sheet.dart';
 import '../../../providers/player_provider.dart';
+import '../../../services/audio_import_service.dart';
 import 'google_drive_browser.dart';
+
+/// Một file đã chọn & đã đảm bảo path persistent (SHADOW-FILE-001):
+/// file_picker trả path trong cache — đã copy sang audio_imports/ trước khi
+/// đưa vào playlist, nên item này không chết khi hệ thống dọn cache.
+class _ImportedAudioItem {
+  final String path;
+  final String name;
+  final int size;
+  const _ImportedAudioItem({
+    required this.path,
+    required this.name,
+    required this.size,
+  });
+}
 
 class AudioLibraryDrawer extends StatefulWidget {
   const AudioLibraryDrawer({super.key});
@@ -184,7 +199,44 @@ class _LocalAudioTab extends StatefulWidget {
 
 class _LocalAudioTabState extends State<_LocalAudioTab> {
   // FIX: Lưu playlist thay vì chỉ phát 1 file
-  List<PlatformFile> _playlist = [];
+  // SHADOW-FILE-001: playlist giữ path PERSISTENT (audio_imports/), không
+  // giữ path cache của file_picker (cache bị hệ thống dọn → ENOENT).
+  List<_ImportedAudioItem> _playlist = [];
+  bool _importing = false;
+
+  /// Copy file vừa chọn vào audio_imports/ (persistent, dedup an toàn).
+  /// Trả null khi không đọc được nguồn — caller hiện thông báo, không crash.
+  Future<_ImportedAudioItem?> _importOne(PlatformFile file) async {
+    final path = file.path;
+    if (path == null) return null;
+    try {
+      final res = await AudioImportService.instance.ensurePersistent(
+        sourcePath: path,
+        displayName: file.name,
+      );
+      return _ImportedAudioItem(
+        path: res.path,
+        name: file.name,
+        size: res.sizeBytes,
+      );
+    } catch (e) {
+      debugPrint('[Drawer] Import audio thất bại (${file.name}): $e');
+      return null;
+    }
+  }
+
+  void _showSnack(String message, {Color color = Colors.orange}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(message)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
   Future<void> _pickSingleFile() async {
     final result = await FilePicker.pickFiles(
@@ -194,14 +246,31 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
     if (result == null || result.files.single.path == null) return;
 
     final file = result.files.single;
-    if (context.mounted) {
-      await context.read<PlayerProvider>().loadSong(
-            path: file.path!,
-            title: file.name,
-            autoPlay: true,
-          );
-      widget.onClose();
+    setState(() => _importing = true);
+    final item = await _importOne(file);
+    if (!mounted) return;
+    setState(() => _importing = false);
+    if (item == null) {
+      _showSnack(
+          'Không lưu được file audio vào thư viện — vui lòng thử lại.');
+      return;
     }
+
+    await context.read<PlayerProvider>().loadSong(
+          path: item.path,
+          title: item.name,
+          autoPlay: true,
+        );
+    if (!mounted) return;
+    final player = context.read<PlayerProvider>();
+    // Path cache cũ (nếu file đã bị dọn trước khi import kịp) → hướng dẫn,
+    // không crash.
+    if (player.lastLoadError == AudioLoadErrorKind.missingFile) {
+      _showSnack(
+          'File đã bị hệ thống dọn cache — hãy chọn lại file để lưu vào thư viện.');
+      return;
+    }
+    widget.onClose();
   }
 
   Future<void> _pickMultipleFiles() async {
@@ -215,24 +284,49 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
     final valid = result.files.where((f) => f.path != null).toList();
     if (valid.isEmpty) return;
 
-    // Lưu playlist để hiện danh sách
-    setState(() => _playlist = valid);
+    // Import từng file vào thư mục persistent (dedup nếu đã import trước).
+    setState(() => _importing = true);
+    final items = <_ImportedAudioItem>[];
+    var failed = 0;
+    for (final f in valid) {
+      final item = await _importOne(f);
+      if (item != null) {
+        items.add(item);
+      } else {
+        failed++;
+      }
+    }
+    if (!mounted) return;
+    if (items.isEmpty) {
+      setState(() => _importing = false);
+      _showSnack(
+          'Không lưu được file audio vào thư viện — vui lòng thử lại.');
+      return;
+    }
+
+    // Lưu playlist (path persistent) để hiện danh sách
+    setState(() {
+      _importing = false;
+      _playlist = items;
+    });
+
+    if (failed > 0) {
+      _showSnack('Một số file không lưu được — danh sách phát chỉ gồm các file đã lưu.');
+    }
 
     // Phát file đầu tiên
-    if (context.mounted) {
-      await context.read<PlayerProvider>().loadSong(
-            path: valid.first.path!,
-            title: valid.first.name,
-            autoPlay: true,
-          );
-      // Không đóng drawer - user muốn xem playlist và chọn bài khác
-    }
+    await context.read<PlayerProvider>().loadSong(
+          path: items.first.path,
+          title: items.first.name,
+          autoPlay: true,
+        );
+    // Không đóng drawer - user muốn xem playlist và chọn bài khác
   }
 
-  Future<void> _playFile(PlatformFile file) async {
-    if (file.path == null || !context.mounted) return;
+  Future<void> _playFile(_ImportedAudioItem file) async {
+    if (!context.mounted) return;
     await context.read<PlayerProvider>().loadSong(
-          path: file.path!,
+          path: file.path,
           title: file.name,
           autoPlay: true,
         );
@@ -252,7 +346,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                 label: 'Chọn file âm thanh',
                 subtitle: 'MP3, M4A, WAV, FLAC...',
                 color: const Color(0xFF6C63FF),
-                onTap: _pickSingleFile,
+                onTap: _importing ? () {} : _pickSingleFile,
               ),
               const SizedBox(height: 8),
               _ActionTile(
@@ -260,11 +354,31 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                 label: 'Chọn nhiều file',
                 subtitle: 'Tạo playlist từ nhiều file',
                 color: const Color(0xFF4CAF50),
-                onTap: _pickMultipleFiles,
+                onTap: _importing ? () {} : _pickMultipleFiles,
               ),
             ],
           ),
         ),
+
+        // Đang copy vào audio_imports/ (persistent) — bug ENOENT cache.
+        if (_importing)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Column(
+              children: [
+                const LinearProgressIndicator(
+                  color: Color(0xFF6C63FF),
+                  backgroundColor: Colors.white12,
+                  minHeight: 2,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.uiText('Đang lưu audio vào thư viện của app…'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
 
         Divider(color: Colors.white.withValues(alpha: 0.07), height: 1),
 

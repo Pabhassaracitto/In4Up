@@ -70,11 +70,10 @@ void main() {
       // này chỉ kết thúc câu bằng '.' nên `endsWith('.')` đủ ý: non-final
       // chunk phải dừng đúng ranh giới câu.
       for (var i = 0; i < chunks.length - 1; i++) {
-        final re = RegExp(r'[.!?]');
         expect(
           chunks[i].text.trimRight(),
-          isNotEmpty,
-          reason: 'chunk $i boundary: $re',
+          endsWith('.'),
+          reason: 'chunk $i should end at a sentence boundary',
         );
         expect(chunks[i].separator, ' ');
       }

@@ -1977,5 +1977,3 @@ packages:
 sdks:
   dart: ">=3.11.0 <4.0.0"
   flutter: ">=3.38.4"
-
-# cache-bust 2026-09-19: force fresh flutter-action cache (poisoned-cache incident, same tree green->red)

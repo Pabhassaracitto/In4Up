@@ -108,29 +108,228 @@ abstract class HyMtBackend {
   Future<void> dispose();
 }
 
+/// Runtime Hy-MT thật: llama.cpp trong [Isolate] (FFI blocking → phải
+/// khỏi main isolate). 1 isolate = 1 model — KHÔNG load song song 2 model
+/// (gây OOM).
 class HyMtIsolateBackend implements HyMtBackend {
-  // BISPECT E1: stub thay backend thật để tách lỗi analyzer.
-  HyMtIsolateBackend(this.modelPath);
+  HyMtIsolateBackend(this.modelPath,
+      {Duration pingTimeout = const Duration(seconds: 5)})
+      : _pingTimeout = pingTimeout;
 
   final String modelPath;
+  final Duration _pingTimeout;
+
+  Isolate? _isolate;
+  SendPort? _sendPort;
+  ReceivePort? _receivePort;
+  bool _loading = false;
+  bool _dead = false;
+  Object? _deathError;
+  String? _lastLoadError;
+
+  /// Request đang chạy — isolate chết phải fail chúng NGAY (không đợi
+  /// timeout của caller).
+  final Set<Completer<Object?>> _inFlight = <Completer<Object?>>{};
 
   @override
-  bool get isAlive => false;
+  bool get isAlive => !_dead && _sendPort != null;
 
   @override
-  String? get lastLoadError => null;
+  String? get lastLoadError => _lastLoadError;
+
+  void _markDead(Object? error) {
+    if (_dead) return;
+    _dead = true;
+    _deathError = error;
+    final pending = List<Completer<Object?>>.of(_inFlight);
+    _inFlight.clear();
+    for (final c in pending) {
+      if (!c.isCompleted) {
+        c.completeError(HyMtRuntimeFailure(
+          HyMtErrorCode.isolateDead,
+          'Isolate Hy-MT đã chết: ${error == null ? 'không rõ lý do (có thể OOM)' : error}',
+        ));
+      }
+    }
+  }
 
   @override
-  Future<bool> ping() async => false;
+  Future<bool> ping() async {
+    final sendPort = _sendPort;
+    if (_dead || sendPort == null) return false;
+    final reply = ReceivePort();
+    sendPort.send(_Ping(reply.sendPort));
+    try {
+      final msg = await reply.first.timeout(_pingTimeout);
+      if (msg == _pong) return true;
+      _markDead('Heartbeat trả về sai');
+      return false;
+    } on TimeoutException {
+      _markDead('Không có heartbeat trong ${_pingTimeout.inSeconds}s');
+      return false;
+    } finally {
+      reply.close();
+    }
+  }
 
   @override
-  Future<String> generate(String prompt) async => '';
+  Future<String> generate(String prompt) async {
+    final sendPort = _sendPort;
+    if (_dead) {
+      throw HyMtRuntimeFailure(
+        HyMtErrorCode.isolateDead,
+        'Isolate Hy-MT không còn sống: ${_deathError ?? 'không rõ lý do'}',
+      );
+    }
+    if (sendPort == null) {
+      throw const HyMtRuntimeFailure(
+        HyMtErrorCode.loadFailed,
+        'Runtime Hy-MT chưa được load',
+      );
+    }
+    final reply = ReceivePort();
+    final done = Completer<Object?>();
+    reply.listen((Object? msg) {
+      if (!done.isCompleted) done.complete(msg);
+    });
+    _inFlight.add(done);
+    sendPort.send(_Req(prompt, reply.sendPort));
+    try {
+      final msg = await done.future;
+      if (msg is HyMtReply) {
+        if (msg.error != null) {
+          throw HyMtRuntimeFailure(HyMtErrorCode.requestFailed, msg.error);
+        }
+        return msg.output;
+      }
+      throw HyMtRuntimeFailure(
+        HyMtErrorCode.isolateDead,
+        'Isolate Hy-MT trả về kết quả không hợp lệ',
+      );
+    } finally {
+      _inFlight.remove(done);
+      reply.close();
+    }
+  }
 
   @override
-  Future<bool> restart() async => false;
+  Future<bool> restart() async {
+    if (_loading) return false; // không 2 load song song (RAM/OOM)
+    _loading = true;
+    try {
+      await _teardown();
+      _dead = false;
+      _deathError = null;
+      _lastLoadError = null;
+
+      _receivePort = ReceivePort();
+      _isolate = await Isolate.spawn(
+        HyMtIsolateBackend._isolateEntry,
+        _Init(modelPath, _receivePort!.sendPort),
+        debugName: 'HyMtIsolate',
+      );
+      // Isolate chết (OOM/kill) → đánh dấu + fail request đang chạy NGAY.
+      // Listener gắn vào đúng isolate instance — exit cũ của isolate
+      // đã bị kill (do dispose) không làm "chết nhầm" runtime mới.
+      final thisIsolate = _isolate!;
+      thisIsolate.addOnExitListener((Object? error) {
+        if (identical(_isolate, thisIsolate)) _markDead(error);
+      });
+
+      final ready = Completer<SendPort>();
+      final loadDone = Completer<bool>();
+      _receivePort!.listen((Object? msg) {
+        if (msg is SendPort && !ready.isCompleted) ready.complete(msg);
+        if (msg is _LoadResult && !loadDone.isCompleted) {
+          if (!msg.ready) _lastLoadError = msg.error;
+          loadDone.complete(msg.ready);
+        }
+      });
+      _sendPort = await ready.future.timeout(const Duration(seconds: 45));
+      // FIX 2026-09-03 (HYMT-001): phải ĐỢI kết quả create() THẬT từ
+      // isolate — bản cũ chỉ đợi handshake rồi trả true, nên create()
+      // fail vẫn được coi là "đã sẵn sàng".
+      final ok = await loadDone.future.timeout(const Duration(minutes: 2));
+      if (!ok) {
+        debugPrint('Hy-MT create failed: $_lastLoadError');
+        await _teardown();
+        return false;
+      }
+      debugPrint('✅ Hy-MT GGUF loaded: $modelPath');
+      return true;
+    } catch (e) {
+      debugPrint('Hy-MT load failed: $e');
+      _lastLoadError = e.toString();
+      await _teardown();
+      return false;
+    } finally {
+      _loading = false;
+    }
+  }
+
+  Future<void> _teardown() async {
+    final isolate = _isolate;
+    _isolate = null;
+    _sendPort = null;
+    final port = _receivePort;
+    _receivePort = null;
+    if (isolate != null) isolate.kill(priority: Isolate.immediate);
+    port?.close();
+  }
 
   @override
-  Future<void> dispose() async {}
+  Future<void> dispose() async {
+    await _teardown();
+    _lastLoadError = null;
+  }
+
+  static void _isolateEntry(_Init init) async {
+    final port = ReceivePort();
+    init.main.send(port.sendPort);
+    final native = AiNativeBindings.tryLoad();
+    ffi.Pointer<ffi.Void>? handle;
+    String? loadError;
+    if (native == null) {
+      loadError = 'Build chưa có llama.cpp (in4up_ai_native) — cần bản app '
+          'có AI native.';
+    } else {
+      handle = native.create(init.modelPath, contextSize: 2048, threads: 4);
+      if (handle == ffi.nullptr) {
+        handle = null;
+        loadError = 'llama_model_load_from_file thất bại: file GGUF '
+            'hỏng/cắt, quant không được llama.cpp hỗ trợ, hoặc thiếu RAM.';
+      }
+    }
+    // FIX 2026-09-03 (HYMT-001): báo kết quả create() THẬT cho main side
+    // (gửi SAU khi create hoàn tất).
+    init.main.send(_LoadResult(ready: handle != null, error: loadError));
+    await for (final Object? msg in port) {
+      if (msg is _Ping) {
+        // Heartbeat (HYMT-002): chứng minh isolate còn sống và xử lý
+        // được message TRƯỚC khi request dài.
+        msg.reply.send(_pong);
+        continue;
+      }
+      if (msg is _Req) {
+        try {
+          if (native == null || handle == null) {
+            msg.reply.send(HyMtReply.fail(loadError ?? 'Hy-MT native không load được'));
+            continue;
+          }
+          final out = native.generate(
+            handle,
+            msg.prompt,
+            maxTokens: 512,
+            temperature: 0.3,
+          );
+          msg.reply.send(HyMtReply.ok(out ?? ''));
+        } catch (e) {
+          msg.reply.send(HyMtReply.fail('Hy-MT: $e'));
+        }
+      }
+    }
+    if (native != null && handle != null) native.destroy(handle);
+  }
 }
 
 /// Reply có cấu trúc từ isolate — phân biệt "output model" với "lỗi"
@@ -170,15 +369,6 @@ class _Ping {
 const Object _pong = 'HYMT_PONG';
 
 class HyMtEngine extends TranslationEngine {
-  HyMtEngine._legacy()
-      : _injectedBackend = null,
-        _testMode = false,
-        _maxQueueWait = const Duration(seconds: 90),
-        _chunkTimeout = const Duration(seconds: 90),
-        _maxChunks = 64;
-  static final HyMtEngine instance = HyMtEngine._legacy();
-  factory HyMtEngine() => instance;
-
   HyMtEngine._({
     HyMtBackend? backend,
     Duration? queueWait,
@@ -190,7 +380,25 @@ class HyMtEngine extends TranslationEngine {
         _chunkTimeout = chunkTimeout ?? const Duration(seconds: 90),
         _maxChunks = maxChunks ?? 64;
 
+  static final HyMtEngine instance = HyMtEngine._();
+  factory HyMtEngine() => instance;
 
+  /// Constructor DUY NHẤT cho test — inject backend giả (không isolate,
+  /// không native lib, không model 600MB) để kiểm tra logic
+  /// single-flight/retry/chunk/timeout của HYMT-002.
+  factory HyMtEngine.forTest({
+    required HyMtBackend backend,
+    Duration queueWait = const Duration(seconds: 90),
+    Duration chunkTimeout = const Duration(seconds: 90),
+    int maxChunks = 64,
+  }) {
+    return HyMtEngine._(
+      backend: backend,
+      queueWait: queueWait,
+      chunkTimeout: chunkTimeout,
+      maxChunks: maxChunks,
+    );
+  }
 
   static const fileName = 'Hy-MT1.5-1.8B-2bit.gguf';
   static const folderName = 'in4up_hymt';
@@ -217,21 +425,12 @@ class HyMtEngine extends TranslationEngine {
   @override
   String get id => 'hymt';
 
+  /// Mỗi request gửi cho isolate là MỘT chunk (≤ ~500 ký tự).
   @override
-  int get maxCharsPerRequest => 2000;
+  int get maxCharsPerRequest => HyMtChunking.defaultMaxChars;
 
   @override
   Duration get requestDelay => const Duration(milliseconds: 80);
-
-  Isolate? _isolate;
-  SendPort? _sendPort;
-  ReceivePort? _receivePort;
-  String? _loadedPath;
-  bool _loading = false;
-
-  double downloadProgress = 0;
-  bool downloading = false;
-  CancelToken? _dlToken;
 
   final HyMtBackend? _injectedBackend;
   final bool _testMode;
@@ -243,6 +442,12 @@ class HyMtEngine extends TranslationEngine {
   HyMtIsolateBackend? _runtime;
   HyMtRuntimeFailure? _lastChunkError;
 
+  double downloadProgress = 0;
+  bool downloading = false;
+  CancelToken? _dlToken;
+
+  /// Slot single-flight (lazy) — 1 request tại một thời điểm (HYMT-002).
+  HyMtSlot get slot => _slot ??= HyMtSlot(maxWait: _maxQueueWait);
 
   Future<String> _docs() async {
     try {
@@ -278,6 +483,8 @@ class HyMtEngine extends TranslationEngine {
     try {
       // openRead(0, 4).first — pattern đã proof trong file này
       // (importFromUser dùng openRead(0, 8)); chỉ đọc 4 byte đầu.
+      // KHÔNG dùng RandomAccessFile sync API (analyzer CI từ chối compile —
+      // bài học HYMT-001, 8 vòng bisect).
       final head = await File(path).openRead(0, 4).first;
       return _isGgufMagic(head);
     } catch (_) {
@@ -304,7 +511,6 @@ class HyMtEngine extends TranslationEngine {
   }
 
   Future<bool> get hasModel async => (await resolvedModelPath()) != null;
-
 
   /// null = model OK; text = lý do cụ thể (cho message lỗi + UI).
   /// Phân biệt "chưa có" với "có file nhưng bị cắt/hỏng" — trường hợp
@@ -333,7 +539,7 @@ class HyMtEngine extends TranslationEngine {
   @override
   Future<bool> isAvailable() async {
     if (!await hasModel) return false;
-    return AiNativeBindings.tryLoad() != null || _sendPort != null;
+    return AiNativeBindings.tryLoad() != null || _runtime?.isAlive ?? false;
   }
 
   static Future<HyMtOfflinePreference> loadPreference() async {
@@ -452,66 +658,45 @@ class HyMtEngine extends TranslationEngine {
     await prefs.remove(_prefPath);
   }
 
-  /// Lý do create() fail ở lần load gần nhất (null = chưa load/chưa fail).
-  String? _lastLoadError;
+  /// Lý do load/create() fail gần nhất (null = chưa load/chưa fail).
+  String? get lastLoadError =>
+      _runtime?.lastLoadError ?? _injectedBackend?.lastLoadError;
 
-  String? get lastLoadError => _lastLoadError;
+  /// Backend runtime cho [path] (lazy). Nếu model file đổi (tải lại),
+  /// dispose runtime cũ TRƯỚC khi spawn mới — luôn ≤1 model trong RAM.
+  Future<HyMtIsolateBackend> _runtimeFor(String path) async {
+    final current = _runtime;
+    if (current != null && current.modelPath == path) return current;
+    if (current != null) {
+      unawaited(current.dispose());
+      // Chờ nhẹ cho isolate cũ thoát — model ~600MB, 2 model song song
+      // = nguy cơ OOM (yêu cầu HYMT-002).
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    final next = HyMtIsolateBackend(path);
+    _runtime = next;
+    return next;
+  }
 
   Future<bool> ensureLoaded() async {
+    if (_testMode) {
+      final backend = _injectedBackend!;
+      if (backend.isAlive && backend.lastLoadError == null) return true;
+      return backend.restart();
+    }
     final path = await resolvedModelPath();
     if (path == null) return false;
-    if (_sendPort != null && _loadedPath == path) return true;
-    if (_loading) return false;
-    _loading = true;
-    try {
-      await disposeRuntime();
-      _receivePort = ReceivePort();
-      _isolate = await Isolate.spawn(
-        _isolateEntry,
-        _Init(path, _receivePort!.sendPort),
-        debugName: 'HyMtIsolate',
-      );
-      final ready = Completer<SendPort>();
-      final loadDone = Completer<bool>();
-      _lastLoadError = null;
-      _receivePort!.listen((msg) {
-        if (msg is SendPort && !ready.isCompleted) ready.complete(msg);
-        if (msg is _LoadResult && !loadDone.isCompleted) {
-          if (!msg.ready) _lastLoadError = msg.error;
-          loadDone.complete(msg.ready);
-        }
-      });
-      _sendPort = await ready.future.timeout(const Duration(seconds: 45));
-      // FIX 2026-09-03: phải ĐỢI kết quả create() THẬT từ isolate (load
-      // model ~600MB mất vài giây) — bản cũ chỉ đợi handshake rồi trả
-      // true, nên create() fail vẫn được coi là "đã sẵn sàng"; lỗi chỉ lộ
-      // ở request đầu tiên ("Hy-MT native không load được") và isolate
-      // chết im, không bao giờ retry.
-      final ok = await loadDone.future.timeout(const Duration(minutes: 2));
-      if (!ok) {
-        debugPrint('Hy-MT create failed: ${_lastLoadError}');
-        await disposeRuntime();
-        return false;
-      }
-      _loadedPath = path;
-      debugPrint('✅ Hy-MT GGUF loaded: $path');
-      return true;
-    } catch (e) {
-      debugPrint('Hy-MT load failed: $e');
-      await disposeRuntime();
-      return false;
-    } finally {
-      _loading = false;
-    }
+    final runtime = await _runtimeFor(path);
+    if (runtime.isAlive && runtime.lastLoadError == null) return true;
+    return runtime.restart();
   }
 
   Future<void> disposeRuntime() async {
-    _isolate?.kill(priority: Isolate.immediate);
-    _receivePort?.close();
-    _isolate = null;
-    _sendPort = null;
-    _receivePort = null;
-    _loadedPath = null;
+    final runtime = _runtime;
+    _runtime = null;
+    if (runtime != null) await runtime.dispose();
+    final injected = _injectedBackend;
+    if (injected != null) await injected.dispose();
   }
 
   @override
@@ -520,10 +705,234 @@ class HyMtEngine extends TranslationEngine {
     required String targetLang,
     String sourceLang = 'auto',
   }) async {
-    return TranslationResult.success(
+    final src =
+        HyMtPrompts.normalizeCode(sourceLang == 'auto' ? 'EN' : sourceLang);
+    final tgt = HyMtPrompts.normalizeCode(targetLang);
+    if (!HyMtPrompts.supports(src) || !HyMtPrompts.supports(tgt)) {
+      return _fail(
+        text,
+        'Hy-MT không hỗ trợ cặp $sourceLang → $targetLang',
+        HyMtErrorCode.unsupported,
+        src,
+        tgt,
+      );
+    }
+
+    final started = Stopwatch()..start();
+    HyMtBackend backend;
+    if (_testMode) {
+      backend = _injectedBackend!;
+    } else {
+      final path = await resolvedModelPath();
+      if (path == null) {
+        return _fail(
+          text,
+          (await modelIssue()) ?? 'Chưa có model Hy-MT.',
+          HyMtErrorCode.noModel,
+          src,
+          tgt,
+        );
+      }
+      final runtime = await _runtimeFor(path);
+      if (AiNativeBindings.tryLoad() == null && !runtime.isAlive) {
+        return _fail(
+          text,
+          'Build chưa có llama.cpp (in4up_ai_native). Hy-MT cần bản app có AI native.',
+          HyMtErrorCode.noNative,
+          src,
+          tgt,
+        );
+      }
+      backend = runtime;
+    }
+
+    // (1) Single-flight — 1 request tại một thời điểm. Request kế tiếp
+    // queue trong _maxQueueWait rồi mới chạy; quá hạn → "busy" cấu trúc,
+    // KHÔNG treo thêm 2 phút (HYMT-002 mục 1).
+    final slotGuard = slot;
+    final acquired = await slotGuard.acquire();
+    if (!acquired) {
+      return _fail(
+        text,
+        'Hy-MT đang bận: request trước vẫn đang chạy '
+            '(đã chờ ${_fmtDuration(_maxQueueWait)}). Thử lại sau ít phút.',
+        HyMtErrorCode.busy,
+        src,
+        tgt,
+      );
+    }
+    try {
+      // (2) Health TRƯỚC request: alive + heartbeat; chết/treo/load hỏng
+      // → dispose + spawn lại (restart) rồi mới gửi (HYMT-002 mục 2).
+      var ready = backend.isAlive && backend.lastLoadError == null;
+      if (!ready || !await backend.ping()) {
+        ready = await backend.restart();
+        if (!ready) {
+          return _fail(
+            text,
+            'Không nạp được Hy-MT GGUF: '
+                '${backend.lastLoadError ?? 'không rõ lý do'}. '
+                'Thử "Tải về" lại model rồi dịch lại.',
+            HyMtErrorCode.loadFailed,
+            src,
+            tgt,
+          );
+        }
+      }
+
+      // (3) Text dài tách theo ranh giới câu/cụm — mỗi chunk timeout hữu
+      // hạn RIÊNG; ghép đúng thứ tự; lỗi chunk không bị nuốt
+      // (HYMT-002 mục 3).
+      final chunks =
+          HyMtChunking.chunk(text, maxChars: HyMtChunking.defaultMaxChars);
+      if (chunks.isEmpty) {
+        return TranslationResult.success(
+          original: text,
+          translated: '',
+          engine: name,
+          detectedLang: src,
+          targetLang: tgt,
+        );
+      }
+      if (chunks.length > _maxChunks) {
+        return _fail(
+          text,
+          'Văn bản quá dài cho Hy-MT offline (${text.length} ký tự, tối đa '
+              '${_maxChunks * HyMtChunking.defaultMaxChars}). '
+              'Dùng engine online hoặc tách văn bản ra.',
+          HyMtErrorCode.tooLong,
+          src,
+          tgt,
+        );
+      }
+
+      final outputs = <String>[];
+      for (var i = 0; i < chunks.length; i++) {
+        final piece = chunks[i].text;
+        final prompt =
+            HyMtPrompts.build(text: piece, sourceLang: src, targetLang: tgt);
+        final out = await _generateChunk(
+          backend,
+          prompt,
+          sourcePiece: piece,
+          chunkIndex: i,
+          chunkCount: chunks.length,
+        );
+        if (out == null) {
+          final last = _lastChunkError;
+          return _fail(
+            text,
+            'Hy-MT lỗi ở segment ${i + 1}/${chunks.length}: '
+                '${last?.message ?? 'lỗi không xác định'}',
+            last?.code ?? HyMtErrorCode.requestFailed,
+            src,
+            tgt,
+          );
+        }
+        outputs.add(out);
+      }
+
+      final translated = HyMtChunking.assemble(outputs, chunks);
+      if (translated.trim().isEmpty) {
+        return _fail(
+          text,
+          'Hy-MT trả về rỗng',
+          HyMtErrorCode.emptyOutput,
+          src,
+          tgt,
+        );
+      }
+      final elapsed = started.elapsed;
+      debugPrint(
+        '⏱️ Hy-MT: ${text.length} ký tự → ${chunks.length} segment, '
+        '${elapsed.inMilliseconds}ms',
+      );
+      return TranslationResult.success(
+        original: text,
+        translated: translated,
+        engine: name,
+        detectedLang: src,
+        targetLang: tgt,
+        responseTime: elapsed,
+      );
+    } finally {
+      slotGuard.release();
+    }
+  }
+
+  static String _fmtDuration(Duration d) => d.inSeconds >= 60
+      ? '${d.inMinutes} phút'
+      : d.inMilliseconds >= 1000
+          ? '${d.inSeconds}s'
+          : '${d.inMilliseconds}ms';
+
+  /// Dịch 1 chunk: thử lần đầu + TỐI ĐA 1 retry. Lỗi runtime (isolate
+  /// chết/treo/native hỏng) → restart runtime (dispose + spawn + load)
+  /// rồi mới retry. Trả output đã clean; `null` = fail hẳn
+  /// ([_lastChunkError] giữ lỗi cuối RÕ RÀNG cho message).
+  Future<String?> _generateChunk(
+    HyMtBackend backend,
+    String prompt, {
+    required String sourcePiece,
+    required int chunkIndex,
+    required int chunkCount,
+  }) async {
+    var needsRestart = false;
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      if (needsRestart) {
+        final ok = await backend.restart();
+        if (!ok) {
+          _lastChunkError = HyMtRuntimeFailure(
+            HyMtErrorCode.loadFailed,
+            'Không khởi động lại runtime Hy-MT: '
+                '${backend.lastLoadError ?? 'không rõ lý do'}',
+          );
+          return null;
+        }
+      }
+      try {
+        final raw = await backend.generate(prompt).timeout(_chunkTimeout);
+        final cleaned = HyMtPrompts.cleanOutput(raw, sourcePiece);
+        if (cleaned.isEmpty) {
+          _lastChunkError = HyMtRuntimeFailure(
+            HyMtErrorCode.emptyOutput,
+            'Hy-MT trả về rỗng cho segment ${chunkIndex + 1}/$chunkCount',
+          );
+          needsRestart = false; // output rỗng không phải runtime chết
+          continue;
+        }
+        return cleaned;
+      } on HyMtRuntimeFailure catch (e) {
+        _lastChunkError = e;
+        // isolateDead / requestTimeout / requestFailed → restart runtime
+        // rồi retry 1 lần (HYMT-002 mục 2).
+        needsRestart = e.code != HyMtErrorCode.emptyOutput;
+      } on TimeoutException {
+        _lastChunkError = HyMtRuntimeFailure(
+          HyMtErrorCode.requestTimeout,
+          'Segment ${chunkIndex + 1}/$chunkCount quá '
+              '${_fmtDuration(_chunkTimeout)} (native có thể đang treo)',
+        );
+        needsRestart = true; // isolate có thể hung — phải dispose
+      }
+    }
+    return null;
+  }
+
+  TranslationResult _fail(
+    String text,
+    String error,
+    HyMtErrorCode code,
+    String src,
+    String tgt,
+  ) {
+    return TranslationResult.failure(
       original: text,
-      translated: text,
+      error: error,
       engine: name,
+      detectedLang: src,
+      targetLang: tgt,
+      errorCode: code.name,
     );
   }
 }

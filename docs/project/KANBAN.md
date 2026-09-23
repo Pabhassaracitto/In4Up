@@ -86,8 +86,8 @@
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
-| READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | 🔄 doing | IpaSegment trong LineIpaService + interlinear render; karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng); CI = run của commit này |
-| READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | 🔄 doing | IpaStyling spans + 2 toggle opt-in OFF trong Settings→IPA; fade qua `VocabularyBridge.findByWord`; CI = run của commit này |
+| READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
+| READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | ✅ done | commit `f149237` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); 2 toggle opt-in OFF + legend |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
 
 
@@ -2951,8 +2951,8 @@
 
 ### READ-IPA-003 — Ruby/interlinear IPA cho dòng active + nhấn nháy nhịp
 
-- **Trạng thái:** 🔄 doing — **Bằng chứng:** IpaSegment + interlinear
-  render trong commit này (CI theo run kế tiếp).
+- **Trạng thái:** ✅ done — **Bằng chứng:** commit `9b27586` (+ cleanup
+  `fcdc037`); App Analyze + Locale Test run `35890021728` 🟢 (2026-09-23).
 - **Nội dung dự kiến (P3):**
   - `_LineData`携带 `IpaSegment[]` (surface + ipa + phonemes);
     dòng current/đang phát render word-chip 2 tầng (chữ × fontSize,
@@ -2965,11 +2965,12 @@
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P3/ADR-0005 §5
   - 2026-09-23 | 16:20 | proposed→doing | ai | code P3 (IpaSegment + interlinear + test segments)
+  - 2026-09-23 | 16:39 | doing→done | ai | commit 9b27586 (+ fcdc037); run 35890021728 🟢
 
 ### READ-IPA-004 — Tô màu phoneme + legend + mờ IPA từ đã thuộc
 
-- **Trạng thái:** 🔄 doing — **Bằng chứng:** IpaStyling + toggle/legend
-  trong commit này (CI theo run kế tiếp).
+- **Trạng thái:** ✅ done — **Bằng chứng:** commit `f149237` (+ cleanup
+  `fcdc037`); App Analyze + Locale Test run `35890021728` 🟢 (2026-09-23).
 - **Nội dung dự kiến (P4):**
   - Toggle `ipaColorByType` (default OFF): phoneme span theo loại —
     nguyên âm vàng / phụ âm sky-blue / đôi nguyên âm tím (derived
@@ -2983,6 +2984,7 @@
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P4/ADR-0005 §4
   - 2026-09-23 | 16:35 | proposed→doing | ai | code P4 (IpaStyling + toggles + legend)
+  - 2026-09-23 | 16:39 | doing→done | ai | commit f149237 (+ fcdc037); run 35890021728 🟢
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 

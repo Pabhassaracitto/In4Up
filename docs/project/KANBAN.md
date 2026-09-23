@@ -86,6 +86,7 @@
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
+| XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 
 
 ## Card chi tiết
@@ -2915,7 +2916,7 @@
 - **AT:** tab Nghe → phát file + tạo lời AI → khối lời chạm cạnh sóng âm,
   không khoảng trống trắng, không overflow.
 
-### XP-MODE-001 — "Chế độ trải nghiệm": nâng lên tab riêng, đủ 7 mode + hiện các chức năng ẩn trong icon sấm sét
+### XP-MODE-001 — "Chế độ trải nghiệm": đủ 7 mode (KHÔNG thêm tab — mở rộng Phòng Studio ở Home) + hiện các chức năng ẩn trong icon sấm sét
 - **Triệu chứng (owner):** "Trong setting đang có 'Chế độ trải nghiệm'.
   Hãy cân nhắc để cho nó ra màn hình tab và cho các chế độ tương ứng để
   người dùng có trải nghiệm hướng đối tượng và trình chiếu được các chức
@@ -2935,19 +2936,72 @@
   `lib/features/tipitaka/` (Tam Tạng), i18n (app_localizations).
 - **Fix đề xuất (feature — agent thiết kế trước khi code, chốt với owner
   1 bản wireframe ngắn trong KANBAN):**
-  1. Tab "Trải nghiệm" (hoặc mở rộng card Phòng Studio — chọn theo
-      wireframe): 7 mục NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ — mỗi mục =
-      "hướng dẫn có dẫn đường" (guided tour): mục tiêu 1 dòng + 3-5 bước
-      thao tác thật (bấm theo chỉ dẫn) + demo nhanh chức năng chính.
-  2. Mục "Khám phá công cụ" trong tab: trình chiếu (carousel) các tool
-      đang ẩn sau icon sấm sét (Tipiṭaka/Tam Tạng, Video, Word map,
-      Triangle, Venn, Cabin…) — mỗi card: icon + tên + 1 dòng mô tả +
-      nút "Mở ngay" → mở đúng tool.
-  3. Giữ "Chế độ trải nghiệm" cũ trong read settings (không phá), tab
-      mới là lớp UX bao trùm.
-- **AT:** mở tab Trải nghiệm → chọn ĐỌC → làm theo 3 bước → tới đúng
-  chỗ; carousel hiện ≥5 tool ẩn + bấm "Mở ngay" mở đúng tool (kiểm tra
-  Tipiṭaka).
+  0. ✅ **OWNER ĐÃ CHỐT 2026-09-16** — bản thiết kế chốt là **D1-B**: KHÔNG
+     thêm tab; 7 mode nằm trong **"Phòng Studio" ở Home** (7 thẻ phẳng D2-A)
+     + mục **"Khám phá công cụ ⚡"** trên Home. (Phương án thêm tab thứ 6 do
+     agent đề xuất đã bị owner bác → bỏ khỏi phạm vi.)
+  1. ~~Tab "Trải nghiệm"~~ → **Phòng Studio 7 mode** NGHE/NÓI/XEM/ĐỌC/VIẾT/
+     HIỂU/NHỚ — mỗi mode = "hướng dẫn có dẫn đường": mục tiêu 1 dòng +
+     4–5 bước thao tác thật (bấm theo chỉ dẫn) + badge "N bước ▸".
+  2. Mục "Khám phá công cụ ⚡" **trên Home** (dưới lưới Studio): trình chiếu
+     (carousel) các tool đang ẩn sau icon sấm sét (Tipiṭaka/Tam Tạng, Video,
+     Word map, Triangle, Venn, Cabin…) — mỗi card: icon + tên + 1 dòng mô tả +
+     nút "Mở ngay" → mở đúng tool; nguồn dữ liệu dùng lại
+     `_buildQuickActions` + nút "Xem tất cả ⚡" (overlay v2 giữ nguyên).
+  3. Giữ "Chế độ trải nghiệm" cũ trong read settings (không phá); lớp UX mới
+     trên Home chỉ là vỏ dẫn đường, không dựng lại UI mode.
+- **AT (đã cập nhật theo D1-B):** Home → Phòng Studio **7 thẻ** → chạm ĐỌC →
+  làm theo các bước → tới đúng chỗ; mục "Khám phá công cụ ⚡" hiện ≥5 tool ẩn
+  + bấm "Mở ngay" mở đúng tool (kiểm tra Tipiṭaka → thiếu DB vẫn mở được và
+  dẫn tới màn hình tải dữ liệu).
+- **Trạng thái:** ✅ **owner đã chốt thiết kế 2026-09-16** (D1-B · D2-A · D3-A
+  mặc định · D4-A · D5-A) — hết design gate, **chưa code**; chờ owner bật đèn
+  xanh cho **PR implementation riêng** (WP0–WP3). Lane B8 trong
+  `AGENT_ASSIGNMENTS_2026-09-16.md` vẫn đúng tinh thần "chốt UX trước, code
+  sau": bản thiết kế đã được owner duyệt, không còn agent tự quyết UX lớn.
+  ⚠ **Vướng phối hợp:** D1-B dùng chung `home_screen.dart` +
+  callback `main_shell.dart` với card `HOME-STUDIO-001` ⇒ chốt PA1 (làm chung
+  một PR) hay PA2 (tuần tự) TRƯỚC khi sửa 2 file này.
+- **Phase 1 — deliverable (branch `arena/01a0a703-in4up`, base `d40f604`):**
+  - `docs/project/XP-MODE-001-wireframe.md` — hiện trạng verify bằng code (12
+    điểm, file:line), wireframe 6 khối, đặc tả 7 mode (mục tiêu 1 dòng + 4–5
+    bước/bước nào cũng trỏ route thật), mục "Khám phá công cụ ⚡" (7 thẻ tiêu
+    biểu + quy tắc trạng thái unavailable), i18n plan, WP0–WP3, bất biến, rủi ro.
+  - `docs/project/assets/xp-mode-001-wireframe.png` + nguồn `.svg` (ảnh wireframe).
+  - `docs/project/XP-MODE-001-route-inventory.csv` — 28 entry (7 MODE + 21 TOOL):
+    route đích thật (file), cách mở hiện tại (`_handleTool` / `_setListenMode` /
+    `_setReadMode` / `_setPrimaryTab`), điều kiện unavailable (phát hiện bằng
+    code), đường khắc phục, ghi chú id trùng (`dictionary`≡`dict_manager`,
+    `video_player`≡`video_library`).
+  - `docs/project/XP-MODE-001-i18n-keys.csv` — 20 key mới × vi/en/hi/zh/zh_TW/si
+    (gồm 3 nhãn mode còn thiếu ARB: `speak`/`watch`/`write`).
+  - `docs/project/XP-MODE-001-review-checklist.md` — checklist owner chốt
+    D1–D5 + AT dùng lại cho PR implementation.
+- **Đã verify khi làm phase 1 (điểm đáng chú ý cho PR implementation):**
+  - Icon ⚡ chỉ ở tab Home mới có Tipiṭaka ⇒ 4 tab còn lại user không thấy tool này.
+  - Tipiṭaka **không thể mở chết**: thiếu DB → `_MissingDatabaseView`
+    (`library_screen.dart:385`) → `TipitakaDownloadScreen`; asset DB là optional.
+  - Video/Từ điển/Map/Triangle/Venn đều có empty state riêng (không crash) ⇒
+    chọn hướng D4-A (nút "Mở ngay" luôn hoạt động + badge nói thiếu gì).
+  - Máy bắt i18n ở tầng **source** (`tool/generate_legacy_ui_fallbacks.py:301`
+    quét `lib/**/*.dart`) ⇒ PR implementation phải dùng ARB ngay, không
+    hard-code tiếng Việt.
+- **Chờ owner (2 việc):** (a) bật đèn xanh cho **PR implementation** WP0–WP3
+  + test navigation (card con `XP-MODE-002` Home 7 thẻ/carousel,
+  `XP-MODE-003` tour); (b) chọn cách phối hợp `HOME-STUDIO-001` (PA1 làm chung
+  một PR / PA2 tuần tự) — xem mục 8 `XP-MODE-001-wireframe.md`.
+  Checklist chốt: `XP-MODE-001-review-checklist.md` (mục A/B đã tick theo
+  quyết định owner; mục C–G dùng lại cho PR implementation).
+- **Lịch sử:**
+  - 2026-09-16 | owner Q&A | **chốt thiết kế D1-B/D2-A/D4-A/D5-A** (D3 giữ
+    mặc định A, owner có thể phủ quyết ở PR code): KHÔNG thêm tab, 7 thẻ phẳng
+    ở Phòng Studio, "Mở ngay" luôn mở + badge thiếu gì, tour = checklist bước
+    thật; agent cập nhật wireframe md + ảnh png/svg (bỏ thiết kế tab), tick
+    checklist A/B, cập nhật CSV i18n, chuyển card khỏi design gate |
+  - 2026-09-16 | 21:47 UTC | doing (design gate) | agent arena/01a0a703-in4up |
+    phase 1: wireframe md + png/svg + CSV route (28 entry) + CSV i18n (20 key) +
+    checklist chốt; KHÔNG code tính năng; giữ `grammarExperienceMode` cũ |
+    commit `d3ee12b` · PR #29 (draft, base `arena/01a0251e-in4up`)
 
 ### SHADOW-FILE-001 — Tab Nói: file âm thanh bị mất (ENOENT, file_picker cache) + AB bắt buộc gây bất tiện
 - **Triệu chứng (owner, logcat):** ExoPlayer

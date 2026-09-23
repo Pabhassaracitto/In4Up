@@ -1,82 +1,101 @@
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/services.dart';
+
+import '../../tools/word_list/knowledge_graph_screen.dart';
 
 class KnowledgeGraphPreview extends StatelessWidget {
   const KnowledgeGraphPreview({super.key});
 
+  /// Mở Knowledge Graph thật — cùng cách `word_list_screen.dart` mở màn hình
+  /// này từ toolbar WordList (HOME-KG-001).
+  void _openKnowledgeGraph(BuildContext context) {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const KnowledgeGraphScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 180,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.02),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openKnowledgeGraph(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Stack(
-        children: [
-          // Background "Graph" pattern
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.3,
-              child: CustomPaint(
-                painter: _MiniGraphPainter(),
-              ),
-            ),
+        child: Container(
+          width: double.infinity,
+          height: 180,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
           ),
+          child: Stack(
+            children: [
+              // Background "Graph" pattern
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.3,
+                  child: CustomPaint(
+                    painter: _MiniGraphPainter(),
+                  ),
+                ),
+              ),
 
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'MẠNG LƯỚI LIÊN KẾT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.grey,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        Icon(Icons.hub, color: Colors.blue[200], size: 16),
+                      ],
+                    ),
+                    const Spacer(),
                     const Text(
-                      'MẠNG LƯỚI LIÊN KẾT',
+                      '124 liên kết nơ-ron',
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.grey,
-                        letterSpacing: 1.2,
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const Text(
+                      'Khám phá thế giới từ vựng của bạn',
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        context.uiText('Xem Knowledge Graph →'),
+                        style: const TextStyle(
+                            color: Colors.blue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
-                    Icon(Icons.hub, color: Colors.blue[200], size: 16),
                   ],
                 ),
-                const Spacer(),
-                const Text(
-                  '124 liên kết nơ-ron',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold),
-                ),
-                const Text(
-                  'Khám phá thế giới từ vựng của bạn',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Xem Knowledge Graph →',
-                    style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

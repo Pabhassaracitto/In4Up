@@ -108,14 +108,14 @@ jobs:
       - name: Rename All APKs
         run: |
           # Đổi tên 3 bản tách
-          mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk \
+          mv build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk \
              build/app/outputs/flutter-apk/in4up-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+          mv build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk \
              build/app/outputs/flutter-apk/in4up-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          mv build/app/outputs/flutter-apk/app-x86_64-release.apk \
+          mv build/app/outputs/flutter-apk/app-stable-x86_64-release.apk \
              build/app/outputs/flutter-apk/in4up-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
           # Đổi tên bản gộp (Universal)
-          mv build/app/outputs/flutter-apk/app-release.apk \
+          mv build/app/outputs/flutter-apk/app-stable-release.apk \
              build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
 
       - name: Upload APK artifact
@@ -226,20 +226,43 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      # Nén linh hoạt thư mục Release
+      # Nén thư mục Release CHUẨN của Flutter: build/windows/x64/runner/Release
+      # ⚠ FIX zip chỉ vài KB: trước đây dùng
+      #   Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
+      # Trong cây build của Flutter có NHIỀU thư mục tên "Release" (intermediate của
+      # CMakeFiles/flutter/plugins, mỗi thư mục chỉ chứa vài file .obj/.lib/1 DLL).
+      # Get-ChildItem duyệt cây theo thứ tự bảng chữ cái (CMakeFiles → flutter → plugins → runner)
+      # nên "First 1" luôn nhặt phải thư mục rác đầu tiên, KHÔNG BAO GIỜ là runner/Release
+      # nơi chứa app đầy đủ => zip chỉ vài KB.
       - name: Zip Windows build
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $VERSION_NAME = "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           
-          # Tự động quét thư mục Release thực tế của dự án
-          $RELEASE_DIR = Get-ChildItem -Path "build/windows/x64" -Recurse -Directory -Filter "Release" | Select-Object -First 1
-          if ($RELEASE_DIR) {
-            Compress-Archive -Path "$($RELEASE_DIR.FullName)\*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
-          } else {
-            Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
+          # Đích chuẩn của `flutter build windows --release` (BINARY_NAME = "in4up")
+          $RELEASE_DIR = "build/windows/x64/runner/Release"
+          if (-not (Test-Path (Join-Path $RELEASE_DIR "in4up.exe"))) {
+            # Phòng hờ nếu Flutter đổi cấu trúc output: tìm thư mục thực sự chứa in4up.exe
+            $exe = Get-ChildItem -Path "build/windows" -Recurse -Filter "in4up.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($exe) { $RELEASE_DIR = $exe.DirectoryName }
           }
-          Get-ChildItem "in4up-Windows-*.zip"
+          if (-not (Test-Path (Join-Path $RELEASE_DIR "in4up.exe"))) {
+            Write-Host "##[error]Khong tim thay in4up.exe — output build Windows thieu hoac build chua thanh cong."
+            exit 1
+          }
+          Write-Host "Dang nen thu muc: $RELEASE_DIR"
+          Compress-Archive -Path "$RELEASE_DIR\*" -DestinationPath "in4up-Windows-$VERSION_NAME.zip" -Force
+
+          # Kiểm soát chất lượng: zip quá nhỏ => bundle thiếu file => fail ngay, không phát hành rác
+          $zip = Get-Item "in4up-Windows-$VERSION_NAME.zip"
+          $sizeMB = [math]::Round($zip.Length / 1MB, 2)
+          Write-Host "Kich thuoc zip: $sizeMB MB"
+          if ($zip.Length -lt 10MB) {
+            Write-Host "##[error]Zip chi $sizeMB MB (< 10 MB) — bundle Release khong day du!"
+            exit 1
+          }
+         Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

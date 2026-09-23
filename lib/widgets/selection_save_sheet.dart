@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
@@ -76,11 +77,33 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
   String? _selectedTopic;
   String _selectedLanguage = 'en';
   final TextEditingController _newTopicCtrl = TextEditingController();
+  final TextEditingController _newLangCtrl = TextEditingController();
+  bool _showNewLangInput = false;
+  String? _langError;
 
   @override
   void dispose() {
     _newTopicCtrl.dispose();
+    _newLangCtrl.dispose();
     super.dispose();
+  }
+
+  void _submitCustomLanguage() {
+    final raw = _newLangCtrl.text;
+    final err = validateCustomLanguageCode(raw);
+    if (err != null) {
+      setState(() => _langError = context.uiText(err));
+      return;
+    }
+    final normalized = normalizeCustomLanguageCode(raw)!;
+    final provider = context.read<VocabularyProvider>();
+    unawaited(provider.addCustomLanguage(normalized, select: false));
+    setState(() {
+      _selectedLanguage = normalized;
+      _langError = null;
+      _showNewLangInput = false;
+      _newLangCtrl.clear();
+    });
   }
 
   void _enterBatchMode() {
@@ -382,11 +405,84 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
                           : Colors.white.withValues(alpha: 0.1),
                     ),
                     onSelected: (value) {
-                      if (value) setState(() => _selectedLanguage = lang);
+                      if (value) {
+                        setState(() {
+                          _selectedLanguage = lang;
+                          _showNewLangInput = false;
+                          _langError = null;
+                        });
+                      }
                     },
                   ),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 14, color: Color(0xFF42A5F5)),
+                  label: Text(
+                    context.uiText('＋ Thêm ngôn ngữ…'),
+                    style: const TextStyle(
+                      color: Color(0xFF42A5F5),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  backgroundColor: const Color(0xFF42A5F5).withValues(alpha: 0.08),
+                  side: BorderSide(
+                    color: const Color(0xFF42A5F5).withValues(alpha: 0.3),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _showNewLangInput = !_showNewLangInput;
+                      _langError = null;
+                    });
+                  },
+                ),
               ],
             ),
+            if (_showNewLangInput) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _newLangCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: context.uiText('Tạo ngôn ngữ mới… (Enter để chọn)'),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          fontSize: 12,
+                        ),
+                        errorText: _langError,
+                        errorMaxLines: 2,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 9,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.04),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(9),
+                          borderSide:
+                              BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(9),
+                          borderSide: const BorderSide(color: Color(0xFF42A5F5)),
+                        ),
+                      ),
+                      onSubmitted: (_) => _submitCustomLanguage(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.check, color: Color(0xFF42A5F5), size: 20),
+                    onPressed: _submitCustomLanguage,
+                    tooltip: context.uiText('Dùng'),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
 
             // ── Nội dung theo chế độ ────────────────────────

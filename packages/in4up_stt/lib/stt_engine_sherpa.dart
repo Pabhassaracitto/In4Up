@@ -210,15 +210,23 @@ class SherpaSttEngine implements SttEngine {
   }) async {
     var models = SherpaModelPaths.fromOptions(options);
     final lang = (options?['language'] as String?) ?? 'en';
+    final manager = SherpaModelManager();
 
     if (models == null) {
-      models = SherpaModelManager().getAsrModelPaths(lang);
+      // Model có thể vừa được import ⇒ quét lại state trước khi kết luận thiếu.
+      await manager.ensureFresh();
+      models = manager.getAsrModelPaths(lang);
     }
 
     if (models == null) {
+      final profile = AsrModelRouter.profileForIdOrLanguage(lang);
       return SttFileResult.failure(
-        'Sherpa cần model Zipformer ONNX (encoder/decoder/joiner/tokens). '
-        'Hãy mở Quản lý Model AI để tải/import model.',
+        profile == null
+            ? 'App chưa có model Zipformer cho ngôn ngữ này (chỉ có '
+                'Tiếng Việt offline + English streaming) — hãy chọn ngôn ngữ '
+                'khác trong Quản lý Model AI.'
+            : 'Chưa cài model Zipformer ${profile.name}. Mở Quản lý Model AI '
+                'để tải/import model (encoder/decoder/joiner + tokens.txt).',
       ).result;
     }
 
@@ -226,10 +234,11 @@ class SherpaSttEngine implements SttEngine {
     // OfflineRecognizer + model streaming = SIGABRT (SHERPA-STREAM-001).
     // Báo lỗi RÕ, không crash.
     if (models.isStreaming ||
-        SherpaModelManager.isStreamingEncoderOnnx(models.encoder)) {
+        SherpaModelManager.detectEncoderKind(models.encoder) ==
+            SherpaAsrEncoderKind.streaming) {
       return SttFileResult.failure(
         'Model Zipformer đang chọn là bản STREAMING (live) — không dùng '
-        'được cho nhận diện file/đoạn audio (app sẽ crash). Hãy tải model '
+        'được cho nhận diện file/đoạn audio/LRC (app sẽ crash). Hãy tải model '
         'OFFLINE trong Quản lý Model AI (vd: Tiếng Việt asr-vi-30M-int8).',
       ).result;
     }
@@ -289,15 +298,29 @@ class SherpaSttEngine implements SttEngine {
     _currentLanguage = language;
     _lastError = null;
 
-    var paths = modelPaths ?? SherpaModelManager().getAsrModelPaths(language);
+    final manager = SherpaModelManager();
+    // Model có thể vừa được import/tải ⇒ bảo đảm state không cũ (CABIN-ASR-002:
+    // vào Cabin trực tiếp trước đây chưa từng `initialize()` → báo thiếu model sai).
+    if (modelPaths == null) await manager.ensureFresh();
+    var paths = modelPaths ?? manager.getAsrModelPaths(language);
     if (paths == null) {
-      _lastError =
-          'Chưa có model Zipformer cho $language. Hãy mở Quản lý Model AI để tải/import model.';
+      final profile = AsrModelRouter.profileForIdOrLanguage(language);
+      _lastError = profile == null
+          ? 'App chưa có model Zipformer offline cho ngôn ngữ này '
+              '($language). Hãy chọn Tiếng Việt/English hoặc dùng engine Hệ thống.'
+          : 'Chưa có model Zipformer cho ${profile.language.toUpperCase()} '
+              '(${profile.id}). Hãy mở Quản lý Model AI để tải/import model.';
       debugPrint('⚠️ SherpaSttEngine: $_lastError');
       return false;
     }
 
-    if (paths.isStreaming) {
+    // Nội dung encoder là nguồn sự thật cho route Online/Offline (tên folder
+    // có thể sai nếu user import nhầm — xem SHERPA-STREAM-001).
+    final encoderKind = SherpaModelManager.detectEncoderKind(paths.encoder);
+    final useOnlineStreaming = encoderKind == SherpaAsrEncoderKind.streaming ||
+        (encoderKind == SherpaAsrEncoderKind.unknown && paths.isStreaming);
+
+    if (useOnlineStreaming) {
       // True live streaming token-by-token via OnlineRecognizer
       try {
         await _initOnline(paths);
@@ -316,7 +339,7 @@ class SherpaSttEngine implements SttEngine {
       // ★ Guard sớm (SHERPA-STREAM-001): model streaming lọt vào nhánh
       // offline (flag sai / options thiếu flag) → chặn trước khi tạo
       // OfflineRecognizer (nguyên nhân SIGABRT "Expected: 39").
-      if (SherpaModelManager.isStreamingEncoderOnnx(paths.encoder)) {
+      if (encoderKind == SherpaAsrEncoderKind.streaming) {
         _lastError =
             'Model Zipformer cho $language là bản STREAMING — không dùng '
             'được cho offline STT (app sẽ crash). Hãy dùng model OFFLINE '
@@ -326,9 +349,8 @@ class SherpaSttEngine implements SttEngine {
         return false;
       }
       // Non-streaming / Simulated streaming via OfflineRecognizer + Silero VAD
-      final vadPath = vadModelPath ??
-          SherpaModelManager().vadInfo.localPath ??
-          (await _resolveDefaultVadPath());
+      final vadPath =
+          vadModelPath ?? manager.vadInfo.localPath ?? await _resolveDefaultVadPath();
 
       if (vadPath == null || !File(vadPath).existsSync()) {
         _lastError =

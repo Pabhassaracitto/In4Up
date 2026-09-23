@@ -7,6 +7,9 @@ export 'src/facade/ai_service_facade.dart';
 export 'src/models/ai_analysis.dart';
 export 'src/models/chat_message.dart';
 
+// Chat context policy (giới hạn lịch sử gửi xuống native — AI-CHAT-01)
+export 'src/chat/chat_context_policy.dart';
+
 // Defensive model-output parsing
 export 'src/mapper/ai_model_mapper.dart';
 
@@ -14,8 +17,8 @@ export 'src/mapper/ai_model_mapper.dart';
 export 'src/loader/ai_model_loader.dart'
     show AiModelLoader, ModelLoadResult, ModelSource, AiModelConfig;
 
-// Engine state - cho UI
-export 'src/engine/ai_engine.dart' show AiEngineState;
+// Engine state + interface (interface để test/AT gắn engine giả)
+export 'src/engine/ai_engine.dart' show AiEngine, AiEngineState;
 
 // Error log - để app layer lưu vào storage
 export 'src/error/ai_error_handler.dart' show ErrorLogEntry;

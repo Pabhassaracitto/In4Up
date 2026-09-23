@@ -226,3 +226,5 @@ class LearnByHeartMerge {
     return kept;
   }
 }
+
+// (probe trigger: chạm lib/** để CI analyze chạy với lint tắt)

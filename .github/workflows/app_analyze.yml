@@ -84,7 +84,7 @@ jobs:
           path: locale_test.log
           if-no-files-found: ignore
 
-      - name: LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)
+      - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |
           set +e

@@ -472,6 +472,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Không tìm thấy video': 'Video not found',
   'Không tìm thấy video — kiểm tra URL và mạng': 'Video not found — check the URL and your connection',
   'Không tải được phụ đề {value0}': 'Unable to download {value0} subtitles',
+  'Không tải được thư viện video': 'Could not load the video library',
   'Khả năng giữ ý chính tốt, nền hiểu bài tương đối chắc.': 'You retain the main ideas well, showing a relatively solid understanding.',
   'Khẩn cấp nhất': 'Most urgent',
   'Kinh tạng và bản dịch đa ngôn ngữ.': 'Canonical texts and multilingual translations.',

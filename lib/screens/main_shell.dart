@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
@@ -61,6 +62,17 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final StorageService _storage = StorageService();
+
+  // ===== SHELL-GEAR-001: logging seam (CHỈ debug — không đổi hành vi) =====
+  // Owner long-press nút gear → sọc vàng-đen (phải + đáy) + assertion
+  // overlay.dart. Chưa tái hiện được ngoài máy owner → seam này để logcat
+  // (`adb logcat | grep SHELL-GEAR-001`) chứng minh TRÌNH TỰ: cầm giữ nút
+  // nào → mode/tab/route đổi giữa chừng như thế nào → đối chứng hypothesis
+  // orphaned Ink TRƯỚC khi thay InkWell bằng highlight tự vẽ (theo lane A4:
+  // chưa có log xác nhận thì không thay InkWell).
+  void _shellGearLog(String event) {
+    if (kDebugMode) debugPrint('[SHELL-GEAR-001] $event');
+  }
 
   _PrimaryTab _currentTab = _PrimaryTab.home;
   int _listenModeIndex = 0;
@@ -220,6 +232,10 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _toggleCurrentSecondaryMode() {
+    // SHELL-GEAR-001: log trình tự long-press đổi mode (ứng viên trùng với
+    // long-press gear → swap screen giữa ink splash).
+    _shellGearLog('title-long-press: toggle secondary mode '
+        '(${_showListenModes ? 'listen $_listenModeIndex→${(_listenModeIndex + 1) % 3}' : 'read $_readModeIndex→${_readModeIndex == 0 ? 1 : 0}'})');
     HapticFeedback.selectionClick();
     if (_showListenModes) {
       _setListenMode((_listenModeIndex + 1) % 3); // Cycle: 0→1→2→0
@@ -242,6 +258,10 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _openShellUiSettings() async {
+    // SHELL-GEAR-001: ứng viên gear #1 (drawer "Giao diện shell",
+    // Icons.tune_rounded) — log cầm giữ/tap gear + route push + drawer close
+    // (surface đổi giữa splash là kịch bản orphaned Ink chính).
+    _shellGearLog('drawer-gear: open ShellUiSettings (route push + drawer close)');
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ShellUiSettingsScreen()),
     );
@@ -324,6 +344,8 @@ class _MainShellState extends State<MainShell> {
       return;
     }
 
+    // SHELL-GEAR-001: log swap surface (đối chứng orphaned Ink).
+    _shellGearLog('set-tab: ${_currentTab.name}→${tab.name}');
     setState(() {
       _currentTab = tab;
       if (!_rememberLastSubMode) {
@@ -342,6 +364,8 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _setListenMode(int index) {
+    // SHELL-GEAR-001: log swap screen Nghe/Nói/Xem (IndexedStack index đổi).
+    _shellGearLog('set-listen-mode: $_listenModeIndex→$index (surface swap)');
     setState(() {
       _currentTab = _PrimaryTab.listen;
       _listenModeIndex = index;
@@ -353,6 +377,8 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _setReadMode(int index) {
+    // SHELL-GEAR-001: log swap screen Đọc/Viết.
+    _shellGearLog('set-read-mode: $_readModeIndex→$index (surface swap)');
     setState(() {
       _currentTab = _PrimaryTab.read;
       _readModeIndex = index;
@@ -364,6 +390,8 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _openQuickActions() async {
+    // SHELL-GEAR-001: rule-out — nút bolt mở tools overlay (OverlayEntry).
+    _shellGearLog('quick-actions: open tools overlay');
     final toolId = await tools.showToolsOverlayV2(
       context,
       tools: _buildQuickActions(context),
@@ -845,7 +873,9 @@ class _MainShellState extends State<MainShell> {
               onOpenQuickActions: _openQuickActions,
               onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
             ),
-            const VideoLibraryScreen(),
+            // LISTEN-VIEW-001: embedded → no back button (nothing to pop;
+            // popping here would pop the root route = black screen).
+            const VideoLibraryScreen(showBackButton: false),
           ],
         );
       case _PrimaryTab.read:
@@ -1229,6 +1259,7 @@ class _MainShellState extends State<MainShell> {
                   },
                   onLongPress: _enableLongPressModeSwitch
                       ? () {
+                          _shellGearLog('nav-long-press: listen → speak-mode');
                           HapticFeedback.mediumImpact();
                           _setListenMode(1);
                         }
@@ -1251,6 +1282,7 @@ class _MainShellState extends State<MainShell> {
                   },
                   onLongPress: _enableLongPressModeSwitch
                       ? () {
+                          _shellGearLog('nav-long-press: read → write-mode');
                           HapticFeedback.mediumImpact();
                           _setReadMode(1);
                         }

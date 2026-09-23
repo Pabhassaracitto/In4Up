@@ -8,6 +8,7 @@ import '../../models/text_item.dart';
 import '../../services/storage_service.dart';
 import '../tts/language_detector.dart';
 import 'cache/translation_cache.dart';
+import 'engines/translation_engine.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -20,6 +21,23 @@ mixin TranslationMixin on ChangeNotifier {
   String _currentEngine = '';
   int _translationRunId = 0;
   String? _appliedPipelineTag;
+
+  /// Nguồn dịch EXPLICIT user đã gắn (translation code, vd 'EN');
+  /// null = chế độ AUTO (nhận diện tự động).
+  ///
+  /// XLAT-MLKIT-001: khi đã gắn nguồn, mọi dòng dùng đúng nguồn đó — không
+  /// re-detect từng dòng (câu ngắn dễ bị detector nhầm, vd EN → 'DE', rồi
+  /// báo "Chưa tải gói dịch german" dù user chọn EN→VI). Chỉ AUTO mới
+  /// re-detect từng dòng cho tài liệu hỗn hợp ngôn ngữ.
+  String? _pinnedTranslationSourceCode;
+
+  /// Seam test cho lane translation: thay singleton bằng instance
+  /// `TranslationService.forTest` có engine giả. Production để null.
+  @visibleForTesting
+  TranslationService? translationServiceForTest;
+
+  TranslationService get _translationService =>
+      translationServiceForTest ?? TranslationService();
 
   List<TextItem> get lines;
 
@@ -36,7 +54,7 @@ mixin TranslationMixin on ChangeNotifier {
       TranslationService().activeEngineNotifier;
 
   bool get translationPipelineStale {
-    final current = TranslationService().pipelineTag;
+    final current = _translationService.pipelineTag;
     return _appliedPipelineTag != null && _appliedPipelineTag != current;
   }
 
@@ -44,7 +62,7 @@ mixin TranslationMixin on ChangeNotifier {
   void refreshTranslationChrome() => notifyListeners();
 
   AppLanguage get translationTargetLanguage =>
-      TranslationService().targetLanguage;
+      _translationService.targetLanguage;
 
   AppLanguage get detectedSourceLanguage {
     final sample = lines
@@ -55,8 +73,62 @@ mixin TranslationMixin on ChangeNotifier {
     return LanguageDetector.detectLanguage(sample);
   }
 
+  /// Nguồn dịch hiệu dụng của tài liệu: nguồn user GẮN (explicit) nếu có,
+  /// ngược lại kết quả nhận diện tự động theo mẫu nội dung.
+  AppLanguage get translationSourceLanguage =>
+      _pinnedTranslationSourceCode == null
+          ? detectedSourceLanguage
+          : AppLanguageCatalog.fromCode(_pinnedTranslationSourceCode);
+
+  /// True khi user đã gắn nguồn explicit (≠ AUTO).
+  bool get translationSourceIsPinned => _pinnedTranslationSourceCode != null;
+
+  /// Gắn nguồn dịch explicit cho tài liệu hiện tại.
+  ///
+  /// - 'AUTO' (hoặc rỗng) → bỏ gắn, quay lại nhận diện tự động.
+  /// - Code hợp lệ trong catalog → gắn nguồn cho TẤT CẢ dòng (không
+  ///   re-detect từng dòng, không retry bằng ngôn ngữ khác).
+  /// - Code không có trong catalog → return false, không đổi gì.
+  ///
+  /// Đổi nguồn sẽ xoá bản dịch cũ và dịch lại như [setTranslationTargetLanguage].
+  /// Nguồn gắn là state phiên/tài liệu (reset bởi [resetTranslationForNewDocument]);
+  /// chưa lưu bền vững — việc lưu + UI chọn nguồn thuộc lane khác.
+  Future<bool> setTranslationSourceLanguage(
+    String code, {
+    bool retranslateExisting = true,
+  }) async {
+    final normalized = code.trim().replaceAll('_', '-').toUpperCase();
+    final isAuto = normalized.isEmpty || normalized == 'AUTO';
+    final language =
+        isAuto ? null : AppLanguageCatalog.maybeFromCode(normalized);
+    if (!isAuto && language == null) return false;
+    final newCode = language?.translationCode;
+    if (newCode == _pinnedTranslationSourceCode) return false;
+
+    final hadTranslations = lines.any(
+      (line) => line.translation != null && line.translation!.trim().isNotEmpty,
+    );
+
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    _pinnedTranslationSourceCode = newCode;
+    for (var index = 0; index < lines.length; index++) {
+      lines[index] = lines[index].copyWith(clearTranslation: true);
+    }
+    notifyListeners();
+
+    if (retranslateExisting &&
+        hadTranslations &&
+        !translationPairUsesSameLanguage) {
+      unawaited(translateAll(forceRetranslate: true));
+    }
+    return true;
+  }
+
   bool get translationPairUsesSameLanguage =>
-      detectedSourceLanguage.translationCode ==
+      translationSourceLanguage.translationCode ==
       translationTargetLanguage.translationCode;
 
   int get translatedLineCount {
@@ -72,7 +144,7 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   void restoreTranslationTargetLanguage(String code) {
-    TranslationService().configure(targetLang: code);
+    _translationService.configure(targetLang: code);
   }
 
   Future<bool> setTranslationTargetLanguage(
@@ -82,7 +154,7 @@ mixin TranslationMixin on ChangeNotifier {
     final language = AppLanguageCatalog.maybeFromCode(code);
     if (language == null) return false;
 
-    final service = TranslationService();
+    final service = _translationService;
     if (service.targetLang == language.translationCode) return false;
 
     final hadTranslations = lines.any(
@@ -133,12 +205,79 @@ mixin TranslationMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  /// Nguồn của MỘT dòng. Chế độ AUTO (không gắn nguồn) re-detect từng dòng
+  /// với fallback = nguồn tài liệu (hỗ trợ tài liệu hỗn hợp ngôn ngữ).
+  /// Nguồn explicit dùng đúng nguồn đã gắn cho mọi dòng — KHÔNG re-detect
+  /// (XLAT-MLKIT-001: không để câu ngắn đổi tài liệu EN thành DE).
+  AppLanguage _lineSourceFor(String content, AppLanguage documentSource) {
+    if (translationSourceIsPinned) return documentSource;
+    return LanguageDetector.detectLanguage(content, fallback: documentSource);
+  }
+
+  /// Dịch 1 dòng qua service. Chế độ AUTO: nếu dòng bị nhận diện nhầm sang
+  /// ngôn ngữ khác nguồn tài liệu và model của ngôn ngữ vừa nhận diện chưa
+  /// tải (missingModelCodes) → retry ĐÚNG 1 LẦN với nguồn tài liệu trước khi
+  /// chấp nhận lỗi. Nguồn explicit KHÔNG BAO GIỜ retry bằng ngôn ngữ khác.
+  Future<(TranslationResult, AppLanguage)> _translateLineContent(
+    TranslationService service, {
+    required String content,
+    required AppLanguage documentSource,
+    required AppLanguage lineSource,
+    required String targetCode,
+    required bool skipCache,
+  }) async {
+    var result = await service.translateText(
+      content,
+      sourceLang: lineSource.translationCode,
+      targetLang: targetCode,
+      skipCache: skipCache,
+    );
+    var appliedSource = lineSource;
+    if (!result.isSuccess &&
+        !translationSourceIsPinned &&
+        lineSource.translationCode != documentSource.translationCode &&
+        (result.missingModelCodes ?? const <String>[])
+            .contains(lineSource.translationCode)) {
+      final retry = await service.translateText(
+        content,
+        sourceLang: documentSource.translationCode,
+        targetLang: targetCode,
+        skipCache: skipCache,
+      );
+      if (retry.isSuccess && retry.translatedText.trim().isNotEmpty) {
+        result = retry;
+        appliedSource = documentSource;
+      }
+    }
+    return (result, appliedSource);
+  }
+
+  /// Lỗi dịch có cấu trúc: khi model của NGUỒN thiếu, phân biệt "nguồn tự
+  /// nhận diện" (chế độ AUTO — user nên kiểm tra lại ngôn ngữ nguồn) với
+  /// "cặp nguồn đã chọn" (explicit — không đổi ngôn ngữ âm thầm).
+  String _translationErrorFor(
+    TranslationResult result, {
+    required AppLanguage lineSource,
+  }) {
+    final base = '${result.engineName}: ${result.error}';
+    final missing = result.missingModelCodes;
+    if (missing == null ||
+        missing.isEmpty ||
+        !missing.contains(lineSource.translationCode)) {
+      return base;
+    }
+    return translationSourceIsPinned
+        ? '$base (cặp nguồn đã chọn)'
+        : '$base (nguồn tự nhận diện — kiểm tra lại ngôn ngữ nguồn)';
+  }
+
   Future<void> translateLine(int index) async {
     if (index < 0 || index >= lines.length) return;
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    final source = detectedSourceLanguage;
+    final service = _translationService;
+    final source = translationSourceLanguage;
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
@@ -147,33 +286,37 @@ mixin TranslationMixin on ChangeNotifier {
       return;
     }
 
-    final lineSource = LanguageDetector.detectLanguage(
-      line.content,
-      fallback: source,
-    );
+    final lineSource = _lineSourceFor(line.content, source);
     final runId = _translationRunId;
     TranslationService().activeEngineNotifier.value = null;
     final result = await TranslationService().translateText(
       line.content,
       sourceLang: lineSource.translationCode,
       targetLang: target.translationCode,
+    final (result, appliedSource) = await _translateLineContent(
+      service,
+      content: line.content,
+      documentSource: source,
+      lineSource: lineSource,
+      targetCode: target.translationCode,
       skipCache: true,
     );
 
     if (runId != _translationRunId || index >= lines.length) return;
-    if (TranslationService().targetLang != target.translationCode) return;
+    if (service.targetLang != target.translationCode) return;
 
     if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
       lines[index] = line.copyWith(
         translation: result.translatedText,
-        sourceLanguageCode: result.detectedLang ?? lineSource.translationCode,
+        sourceLanguageCode:
+            result.detectedLang ?? appliedSource.translationCode,
         translationLanguageCode: target.translationCode,
       );
-      _currentEngine = TranslationService().lastUsedEngine;
-      _appliedPipelineTag = TranslationService().pipelineTag;
+      _currentEngine = service.lastUsedEngine;
+      _appliedPipelineTag = service.pipelineTag;
       _translationError = null;
     } else {
-      _translationError = '${result.engineName}: ${result.error}';
+      _translationError = _translationErrorFor(result, lineSource: lineSource);
     }
     notifyListeners();
   }
@@ -181,8 +324,8 @@ mixin TranslationMixin on ChangeNotifier {
   Future<void> translateAll({bool forceRetranslate = false}) async {
     if (_isTranslating) return;
 
-    final service = TranslationService();
-    final source = detectedSourceLanguage;
+    final service = _translationService;
+    final source = translationSourceLanguage;
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
@@ -242,14 +385,13 @@ mixin TranslationMixin on ChangeNotifier {
         final lineIndex = toTranslate[position];
         if (lineIndex >= lines.length) continue;
         final line = lines[lineIndex];
-        final lineSource = LanguageDetector.detectLanguage(
-          line.content,
-          fallback: source,
-        );
-        final result = await service.translateText(
-          line.content,
-          sourceLang: lineSource.translationCode,
-          targetLang: targetCode,
+        final lineSource = _lineSourceFor(line.content, source);
+        final (result, appliedSource) = await _translateLineContent(
+          service,
+          content: line.content,
+          documentSource: source,
+          lineSource: lineSource,
+          targetCode: targetCode,
           skipCache: force,
         );
 
@@ -261,13 +403,16 @@ mixin TranslationMixin on ChangeNotifier {
             lines[lineIndex] = line.copyWith(
               translation: result.translatedText,
               sourceLanguageCode:
-                  result.detectedLang ?? lineSource.translationCode,
+                  result.detectedLang ?? appliedSource.translationCode,
               translationLanguageCode: targetCode,
             );
             _currentEngine = service.lastUsedEngine;
             consecutiveErrors = 0;
           } else {
-            _translationError = '${result.engineName}: ${result.error}';
+            _translationError = _translationErrorFor(
+              result,
+              lineSource: lineSource,
+            );
             consecutiveErrors++;
             if (consecutiveErrors >= 5) {
               _translationError =
@@ -347,6 +492,8 @@ mixin TranslationMixin on ChangeNotifier {
     _currentEngine = '';
     _appliedPipelineTag = null;
     _translationDisplayMode = TranslationDisplayMode.hidden;
+    // Nguồn explicit gắn cho tài liệu CŨ không kéo sang tài liệu mới.
+    _pinnedTranslationSourceCode = null;
     // Không notify ở đây — caller sẽ notify sau khi parse lines
   }
 
@@ -375,12 +522,12 @@ mixin TranslationMixin on ChangeNotifier {
       if (line.translation != null && line.translation!.trim().isNotEmpty) {
         continue;
       }
-      final source = LanguageDetector.detectLanguage(line.content);
+      final source = _lineSourceFor(line.content, translationSourceLanguage);
       final cached = await cache.get(
         text: line.content,
         sourceLang: source.translationCode,
         targetLang: target,
-        engine: TranslationService().pipelineTag,
+        engine: _translationService.pipelineTag,
       );
       if (cached == null || cached.trim().isEmpty) continue;
       lines[i] = line.copyWith(
@@ -391,7 +538,7 @@ mixin TranslationMixin on ChangeNotifier {
       hits++;
     }
     if (hits > 0) {
-      _appliedPipelineTag = TranslationService().pipelineTag;
+      _appliedPipelineTag = _translationService.pipelineTag;
       if (_translationDisplayMode == TranslationDisplayMode.hidden) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }

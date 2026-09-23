@@ -35,8 +35,10 @@ import 'services/pdf_word_hit_test.dart';
 import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_annotation_sheet.dart';
 import 'widgets/pdf_export_row.dart';
+import 'widgets/pdf_jump_to_page_dialog.dart';
 import 'widgets/pdf_page_veils.dart';
 import 'widgets/pdf_reader_theme_sheet.dart';
+import 'widgets/pdf_reader_viewport_shell.dart';
 import 'widgets/pdf_search_panel.dart';
 import 'widgets/pdf_toc_panel.dart';
 import 'widgets/pdf_toolbar.dart';
@@ -507,65 +509,19 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   Future<void> _showJumpToPageDialog() async {
     final total = _controller.totalPages;
     if (total <= 0) return;
-    final field = TextEditingController(text: '${_controller.currentPage + 1}');
-    final target = await showDialog<int>(
+    final page = await showPdfJumpToPageDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF161B22),
-          title: Text(
-            dialogContext.uiText('Tới trang'),
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          content: SizedBox(
-            width: 300,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: field,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                  onSubmitted: (value) => Navigator.of(dialogContext)
-                      .pop(int.tryParse(value.trim())),
-                ),
-                Slider(
-                  value: (_controller.currentPage + 1)
-                      .clamp(1, total)
-                      .toDouble(),
-                  min: 1,
-                  max: total.toDouble(),
-                  onChanged: (value) =>
-                      field.text = value.round().toString(),
-                ),
-                Text(
-                  '1 – $total',
-                  style: const TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(dialogContext.uiText('Huỷ')),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext)
-                  .pop(int.tryParse(field.text.trim())),
-              child: Text(dialogContext.uiText('Đi tới')),
-            ),
-          ],
-        );
-      },
+      currentPage: _controller.currentPage,
+      totalPages: total,
     );
-    field.dispose();
-    final page = target;
-    if (page == null) return;
-    _goToPageIndex(page.clamp(1, total) - 1);
+    if (!mounted || page == null) return;
+    // Chỉ nhảy sau khi dialog đã pop XONG và sang khung hình kế tiếp; tránh
+    // race giữa dispose của route/dialog focus với relayout của PdfViewer.
+    final pageIndex = page.clamp(1, total).toInt() - 1;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _goToPageIndex(pageIndex);
+    });
   }
 
   String get _title => pdfDisplayName(widget.pdfPath);
@@ -731,21 +687,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   // ── PDF View Mode ──────────────────────────────────────
 
   Widget _buildSplitOrPdf() {
-    if (!_showWordlistPanel) return _buildPdfMode();
-
-    final pdfName = pdfBaseName(widget.pdfPath);
-
-    return Row(
-      children: [
-        Expanded(
-          flex: 65,
-          child: _buildPdfMode(),
-        ),
-        Expanded(
-          flex: 35,
-          child: PdfWordlistPanel(pdfFileName: pdfName),
-        ),
-      ],
+    return PdfReaderViewportShell(
+      showSidePanel: _showWordlistPanel,
+      viewer: _buildPdfMode(),
+      sidePanel: PdfWordlistPanel(pdfFileName: pdfBaseName(widget.pdfPath)),
     );
   }
 

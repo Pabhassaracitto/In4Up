@@ -5,8 +5,8 @@
 // Luật phiên (bắt buộc):
 // - CẤM tải model lúc bootstrap / ensureModel / main(). Model chỉ tải khi
 //   user bấm "Tải về" trong màn Cài đặt engine dịch (cùng quy tắc Whisper).
-// - Thiếu model → TranslationResult.failure RÕ ràng ("Chưa tải gói dịch
-//   Hindi") — KHÔNG im lặng rơi về ráp từ điển.
+// - Thiếu model → TranslationResult.failure RÕ ràng ("Cặp EN → HI thiếu gói
+//   dịch Hindi" + missingModelCodes) — KHÔNG im lặng rơi về ráp từ điển.
 // - Desktop (Windows/Linux) + web: isAvailable() == false; import không
 //   crash (plugin chỉ là MethodChannel wrapper).
 //
@@ -24,6 +24,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 
+import '../../../core/language/app_language.dart';
 import 'translation_engine.dart';
 
 class MlKitEngine extends TranslationEngine {
@@ -138,17 +139,24 @@ class MlKitEngine extends TranslationEngine {
     final sourceReady = await isModelDownloaded(sourceLangEnum.bcpCode);
     final targetReady = await isModelDownloaded(targetLangEnum.bcpCode);
     if (!sourceReady || !targetReady) {
-      final missing = _nativeNames(<TranslateLanguage>[
+      final missing = <TranslateLanguage>[
         if (!sourceReady) sourceLangEnum,
         if (!targetReady) targetLangEnum,
-      ]);
+      ];
       return TranslationResult.failure(
         original: text,
-        error:
-            'Chưa tải gói dịch $missing — vào Cài đặt engine dịch để tải về',
+        // XLAT-MLKIT-001: lỗi PHẢI nêu đúng cặp thật (vd "Cặp DE → VI")
+        // kèm missingModelCodes có cấu trúc — caller phía trên (biết nguồn
+        // là explicit hay auto-detect) sẽ chú thích đúng ngữ cảnh.
+        error: missingModelError(
+          sourceCode: source,
+          targetCode: target,
+          missing: missing,
+        ),
         engine: name,
         detectedLang: source,
         targetLang: target,
+        missingModelCodes: missingModelCodesOf(missing),
       );
     }
 
@@ -191,22 +199,40 @@ class MlKitEngine extends TranslationEngine {
     }
   }
 
-  String _nativeNames(List<TranslateLanguage> languages) {
+  /// XLAT-MLKIT-001: thông báo thiếu model nêu ĐÚNG cặp source→target.
+  ///
+  /// Lỗi cũ "Chưa tải gói dịch german" không nói cặp nào — owner đang dịch
+  /// EN→VI vẫn tưởng app tự đổi sang tiếng Đức. Message mới nêu cặp thật để
+  /// caller (và user) đối chiếu được với nguồn đã chọn / đã nhận diện.
+  static String missingModelError({
+    required String sourceCode,
+    required String targetCode,
+    required List<TranslateLanguage> missing,
+  }) {
+    return 'Cặp $sourceCode → $targetCode thiếu gói dịch '
+        '${_nativeNames(missing)} — vào Cài đặt engine dịch để tải về';
+  }
+
+  /// Translation code (uppercase, khớp [AppLanguage.translationCode]) của
+  /// các ngôn ngữ thiếu model — dùng làm tín hiệu cấu trúc cho caller.
+  static List<String> missingModelCodesOf(List<TranslateLanguage> languages) {
+    return <String>[
+      for (final language in languages)
+        AppLanguageCatalog.maybeFromCode(language.bcpCode)
+                ?.translationCode ??
+            language.bcpCode.toUpperCase(),
+    ];
+  }
+
+  /// Tên hiển thị của ngôn ngữ thiếu model: native name trong catalog 26
+  /// ngôn ngữ (vd 'Deutsch') thay vì enum name lowercase ('german').
+  static String _nativeNames(List<TranslateLanguage> languages) {
     final names = <String>[];
     for (final language in languages) {
-      switch (language) {
-        case TranslateLanguage.english:
-          names.add('English');
-          break;
-        case TranslateLanguage.vietnamese:
-          names.add('Vietnamese');
-          break;
-        case TranslateLanguage.hindi:
-          names.add('Hindi');
-          break;
-        default:
-          names.add(language.name);
-      }
+      names.add(
+        AppLanguageCatalog.maybeFromCode(language.bcpCode)?.nativeName ??
+            language.name,
+      );
     }
     return names.join(', ');
   }

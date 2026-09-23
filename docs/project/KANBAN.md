@@ -48,6 +48,7 @@
 | MODELS-001 | Trung tâm model: import/tải trong app (VAD+Piper) + docs/project/MODELS.md | ✅ done | SherpaModelManager + 2 card UI + txt source topic/lang; CI xanh 32663677470 (chờ nghiệm thu thiết bị) |
 | REOPEN-001 | Mở lại MP3/document dùng LRC + bản dịch ĐÃ LƯU (không tạo/dịch lại) + hỏi trước khi tạo lại | ✅ done | f5cd164 + a2f... CI xanh run 32650359097 (chờ nghiệm thu thiết bị) |
 | LHB-001 | Learn by Heart (Dhammapada SRS): FSRS cold-start + cloze + assessment x2 + audio đa ngữ | ✅ done | nhánh 019ff2de (35d1d48) nghiệm thu + merge 15deaf0; CI xanh 32662979309 |
+| AUTH-LINUX-01 | Linux: đăng nhập Google + sync từ vựng qua Firebase REST (fallback FlutterFire không có plugin native) | 🔄 doing (chờ CI + nghiệm thu Linux) | ADR-0005; code trên `arena/01a0ca82-in4up`; 0 dependency mới |
 | LHB-002 | Vanishing cloze scaffolding 4 tầng + first-letter mnemonics + i18n vi/en/hi/zh/zh_TW/si | ✅ done | cherry-pick 0ed55c8 → fb483df (chờ CI + nghiệm thu UX) |
 | LHB-003 | Voice Recall (ghi mic + fuzzy align + gợi ý FSRS) + Nối xích câu kệ + Anki Cloze {{c1::}} | ✅ done | cherry-pick 10fecd3 → 19efa2d + fix transcribeAuto (0177c35 → 4f123e6); chờ CI + nghiệm thu mic |
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
@@ -78,7 +79,7 @@
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
-| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" |
+| BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 2026-09-16: READ-TOOLBAR-001 fix + test invariant (`278a1d9`), SHELL-GEAR-001 seam log debug (`877c6a7`) — cả hai chờ nghiệm thu máy/logcat owner — PR #27 (CI analyze+locale xanh run 35022838520) |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
@@ -2249,6 +2250,7 @@
 > khi build nghiệm thu** (có dep native mới: video_player 2.8.0).
 
 ### PDF-JUMP-001 — Nhập/chọn số trang rồi thoát → assertion `_dependents.isEmpty`
+- **Trạng thái:** doing — đã có fix + test seam + CI App Analyze xanh, chờ nghiệm thu máy
 - **Triệu chứng (owner):** "Khi nhấn vào chọn / điền số trang sau đó thoát ra
   thì báo lỗi: 'flutter/src/widgets/framework.dart': Failed assertion: line
   6268 pos 12: '_dependents.isEmpty': is not true."
@@ -2274,6 +2276,8 @@
   stack thật trước khi sửa sâu.
 - **AT:** mở PDF → "Tới trang" → điền + Đi tới → KHÔNG có assertion red;
   đóng bằng "Huỷ" → không lỗi; lặp 5 lần.
+- **Lịch sử:**
+  - 2026-09-15 | 20:51 UTC | doing→doing | agent arena/01a0a6cf-in4up | commit 3450d79 + 54e1171; App Analyze + Locale Test run 35021922026 xanh; thêm seam `PdfJumpToPageDialog` chờ nghiệm thu máy
 
 ### WLIST-LANG-001 — Lưu WordList: có tạo chủ đề mới nhưng KHÔNG có tạo ngôn ngữ mới
 - **Triệu chứng (owner):** "Lưu vào WordList: Hiện có thể tạo chủ đề mới
@@ -2295,8 +2299,15 @@
   pattern của ô tạo chủ đề (`_newTopicCtrl`).
 - **AT:** lưu từ với ngôn ngữ mới `pi` → thành công, chip `pi` hiện trong
   sheet ở lần mở sau; WordList lọc được theo `pi`.
+- **History (2026-09-16 Lane A2):**
+  - Đã thêm chip "＋ Thêm ngôn ngữ…" và ô nhập inline theo đúng pattern của Chủ đề trong `SelectionSaveSheet` (`lib/widgets/selection_save_sheet.dart`).
+  - Đã đưa validation/normalization `validateCustomLanguageCode` & `normalizeCustomLanguageCode` vào `lib/widgets/vocab_entry_meta.dart`: nhận code 2-4 ký tự Latin (a-z), normalize lowercase, trim; báo lỗi chi tiết khi rỗng, sai độ dài, hoặc chứa ký tự đặc biệt/số.
+  - Đồng bộ logic thêm ngôn ngữ mới vào `_FullSaveSheet` (`lib/screens/read_mode/widgets/floating_text_actions.dart`) và `VocabEntryEditSheet` (`lib/widgets/vocab_entry_meta.dart`).
+  - Đăng ký đầy đủ i18n cho các chuỗi nhãn và thông báo lỗi mới theo Rule #5 trong `lib/core/language/priority_ui_overrides.dart` (en, hi, zh, zh_TW, si) và `tool/legacy_ui_english_overrides.json`.
+  - Tạo bộ test unit toàn diện `test/custom_language_validation_test.dart` kiểm tra validation, normalization, lưu trữ WordEntry với ngôn ngữ mới, lọc WordList và Rule 5 i18n.
 
 ### PDF-PAGE-001 — Bấm icon "từ đã lưu" (góc phải dưới) → nhảy về trang 1
+- **Trạng thái:** doing — đã có fix + test seam + CI App Analyze xanh, chờ nghiệm thu máy
 - **Triệu chứng (owner):** "Khi chọn biểu tượng của 'Chưa có từ nào được lưu
   — Tap từ trên PDF hoặc bôi đen' thì nó mở lên khung từ vựng nhưng đồng thời
   cũng nhảy trang về trang PDF đầu tiên → hãy vẫn giữ nguyên trang."
@@ -2322,6 +2333,8 @@
     vẫn recreate native surface, cần test.
 - **AT:** trang 50 → mở panel → vẫn trang 50 (không nháy trang 1); đóng
   panel → vẫn trang 50; mở/đóng 5 lần không nhảy.
+- **Lịch sử:**
+  - 2026-09-15 | 20:51 UTC | doing→doing | agent arena/01a0a6cf-in4up | commit 3450d79 + 54e1171; App Analyze + Locale Test run 35021922026 xanh; `PdfReaderViewportShell` giữ `PdfViewer` mounted, chờ nghiệm thu máy
 
 ### XLAT-MLKIT-001 — Offline ML Kit EN→VI báo nhầm "Chưa tải gói dịch german"
 - **Triệu chứng (owner):** "Khi dịch tiếng Việt bằng 'Chỉ dùng dịch offline'
@@ -2353,6 +2366,35 @@
 - **AT:** offline ML Kit, nguồn gắn EN, tài liệu Anh (trộn vài câu ngắn) →
   dịch hết không có lỗi "german"; chế độ AUTO với file thật Đức → vẫn nhận
   ra và báo thiếu gói German đúng ngữ cảnh.
+- **Trạng thái:** doing — fix code xong + CI xanh, chờ nghiệm thu máy
+- **Fix đã làm (2026-09-16, lane A3 — agent arena/01a0a6d2-in4up):**
+  - `text_provider_translation.dart`: thêm nguồn explicit
+    `setTranslationSourceLanguage(code)` ('AUTO' bỏ gắn) + getter
+    `translationSourceLanguage`/`translationSourceIsPinned`. Nguồn đã gắn
+    được dùng cho TẤT CẢ dòng (translateAll/translateLine/rehydrate) —
+    không gọi LanguageDetector từng dòng; chỉ AUTO mới re-detect.
+    Ở AUTO, khi model của nguồn VỪA NHẬN DIỆN chưa tải (khác nguồn tài
+    liệu) → retry đúng 1 lần với nguồn tài liệu trước khi báo lỗi — đóng
+    lỗi "german" trên tài liệu Anh câu ngắn; văn Đức thật không bị retry.
+    Lỗi thiếu model nguồn được chú thích "(nguồn tự nhận diện — kiểm tra
+    lại ngôn ngữ nguồn)" ở AUTO và "(cặp nguồn đã chọn)" ở explicit.
+    `resetTranslationForNewDocument` bỏ gắn nguồn của tài liệu cũ.
+  - `engines/mlkit_engine.dart`: lỗi thiếu model nêu đúng cặp
+    "Cặp DE → VI thiếu gói dịch Deutsch — vào Cài đặt engine dịch để tải
+    về" (tên native từ catalog 26 ngôn ngữ, không còn enum lowercase
+    'german'); thêm static `missingModelError`/`missingModelCodesOf`.
+  - `engines/translation_engine.dart` (seam tối thiểu):
+    `TranslationResult.missingModelCodes` — tín hiệu cấu trúc thay vì
+    regex chuỗi lỗi.
+  - Test: `test/translation_source_language_test.dart` (11 test qua seam
+    `translationServiceForTest` + `TranslationService.forTest`, không cần
+    thiết bị): AUTO retry EN/DE, AUTO văn Đức báo đúng cặp, AUTO mixed
+    doc, explicit không detect/retry, API validate/reset, message engine.
+  - Còn hở (ngoài ownership A3, để lane UI sau): chưa có UI chọn nguồn
+    trên toolbar và chưa persist nguồn explicit (seam đã sẵn).
+- **Lịch sử:**
+  - 2026-09-16 | 21:51 UTC | doing→doing (fix code + test, CI xanh, chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | CI run 35027743218 (App Analyze + Locale Test xanh); branch arena/01a0a6d2-in4up, PR vào arena/01a0251e-in4up
+  - 2026-09-16 | 22:00 UTC | doing (giữ nguyên — chờ nghiệm thu máy) | agent arena/01a0a6d2-in4up (lane A3) | PR #31 đã mở: https://github.com/Pabhassaracitto/In4Up/pull/31 ; CI pull_request run 35027994440 xanh
 
 ### READ-TOOLBAR-001 — Thanh đáy tab Đọc (size chữ/dịch/đọc/mark/lưu) "đen thui" khi kéo văn bản
 - **Triệu chứng (owner):** "Thanh chức năng tăng giảm size chữ, dịch, đọc,
@@ -2379,6 +2421,18 @@
      yếu dễ sinh artifact).
 - **AT:** cuộn lên/xuống 10 lần: thanh đáy ẩn/hiện sạch, KHÔNG có khối đen;
   Focus/Thoát Focus mượt (giữ nguyên AT của READ-FOCUS-001).
+- **Cập nhật 2026-09-16 (agent A4 — lane A4, commit `278a1d9`):** đã fix theo
+  đúng thứ tự ít rủi ro của card: (1) BỎ `ClipRect` tường minh, (2) chặn
+  offset ẩn về `(0, 1.0)` (bỏ overshoot phân số 1.2). Wrapper tách thành
+  `lib/screens/read_mode/widgets/collapsible_bottom_controls.dart` (seam test
+  được) + wire lại ở `read_mode_screen.dart`; smart-hide vẫn giữ chỗ layout,
+  Focus vẫn gập về 0 (hợp đồng READ-FOCUS-001 giữ nguyên). Test invariant
+  `test/read_bottom_controls_visibility_test.dart` khoá: offset ẩn ≤ 1.0
+  chiều cao, opacity 0, giữ chiều cao, Focus 0↔full, stress lặp (test + fix
+  cùng một commit xanh — test import widget mới). Trạng thái: **fix code xong
+  — chờ nghiệm thu máy owner** (PR #27, CI run 35022838520 xanh) (AT cuộn 10 lần + Focus/Thoát Focus trên máy
+  bị artifact; nếu VẪN đen → bước kế tiếp theo card: thay AnimatedSize bằng
+  build điều kiện).
 
 ### TTS-PIPER-002 — Settings vẫn báo × đỏ Piper dù "đã có model và hoạt động"
 - **Triệu chứng (owner):** "Trong setting sao đã có model TTS sherpa và hoạt
@@ -2430,6 +2484,21 @@
   3. Chạy repro trong debug, bắt stack overlay.dart chính xác (chụp logcat).
 - **AT:** long-press nút settings 3s (lặp 10 lần) → không sọc vàng-đen,
   không assertion; hành vi long-press (đổi mode) vẫn đúng.
+- **Cập nhật 2026-09-16 (agent A4 — lane A4, commit `877c6a7`):** CHƯA sửa sâu
+  — không tái hiện được ngoài máy owner và chưa có log xác nhận orphaned Ink
+  (đúng prompt A4: chỉ thay InkWell bằng highlight tự vẽ khi log xác nhận).
+  Đã thêm seam log CHỈ debug (`kDebugMode`) phủ CẢ HAI ứng viên gear + mọi
+  long-press đổi surface, xem bằng `adb logcat | grep SHELL-GEAR-001`:
+  - gear #1 drawer `tune_rounded` — `main_shell.dart::_openShellUiSettings`
+    (route push + drawer close = đổi surface giữa splash);
+  - gear #2 `settings_outlined` toolbar dịch — `translation_toolbar.dart`
+    bọc `Listener` pointer down/up/cancel (raw listener, KHÔNG tham gia
+    gesture arena — tap/tooltip giữ nguyên);
+  - long-press đổi mode (`_toggleCurrentSecondaryMode`, nav Nghe/Đọc) +
+    mọi swap surface (`_setPrimaryTab`/`_setListenMode`/`_setReadMode`) +
+    `_openQuickActions` (rule-out OverlayEntry).
+  Cần owner: chạy lại repro debug → gửi logcat → chốt đúng gear + cơ chế.
+  Trạng thái: **chờ logcat owner** trước khi fix (không đoán sửa sâu; PR #27).
 
 ### LISTEN-LRC-001 — Chọn file âm thanh CÓ LỜI SẴN → sọc đen vàng + assertion framework + tab Hiểu đỏ
 - **Triệu chứng (owner):** "Tab music khi chọn file âm thanh và có lời sẵn do
@@ -2468,6 +2537,15 @@
      có InkWell trong toolbar bị remove giữa splash).
 - **AT:** chọn file CÓ lrc sẵn → phát bình thường, không sọc/assertion;
   tab Hiểu mở/đóng sau đó không red; lặp 5 file.
+- **Trạng thái:** code xong + CI xanh, chờ nghiệm thu máy (2026-09-15)
+- **Lịch sử:**
+  - 2026-09-15 | doing→done-code (chờ nghiệm thu máy) | agent
+    arena/01a0a6d4-in4up (lane A5) | SafeSetStateMixin + stored provider ref
+    (không setState/notify trong build, không context.read trong
+    listener/dispose); rèm LRC render từ local clamped; tab Hiểu defer
+    waveform/shadowing sync ra post-frame; test
+    test/listen_lifecycle_guards_test.dart; CI run 35022505773 xanh
+    (analyze + locale)
 
 ### LISTEN-VIEW-001 — Nghe → tab phụ Xem (video) → quay lại Nghe = màn hình đen không thoát
 - **Triệu chứng (owner):** "Khi từ tab nghe -> tab phụ xem quay trở lại thì
@@ -2498,6 +2576,15 @@
      (`adb logcat | grep -i flutter`) khi repro.
 - **AT:** Nghe → Xem (mở 1 video, để chạy 5s) → quay lại Nghe → nghe bình
   thường, không đen; đổi 10 lần không kẹt.
+- **Trạng thái:** code xong + CI xanh, chờ nghiệm thu máy (2026-09-15)
+- **Lịch sử:**
+  - 2026-09-15 | doing→done-code (chờ nghiệm thu máy) | agent
+    arena/01a0a6d4-in4up (lane A5) | root cause = nút back của
+    VideoLibraryScreen pop nhầm route gốc khi nhúng trong IndexedStack
+    (không phải texture — chưa có VideoPlayerController thật);
+    thêm showBackButton=false khi nhúng + mounted guard + error UI retry;
+    test test/listen_view_video_library_test.dart; CI run 35022505773 xanh
+    (analyze + locale)
 
 ### GHI CHÚ CHUNG CHO AGENT SỬA BATCH NÀY
 - Build owner = DEBUG (thấy assertion) — repro nhanh nhất bằng `flutter run`
@@ -2817,3 +2904,24 @@
   (b) `git apply scripts/ci/analyze_paths_packages.patch` rồi commit/push
   (vĩnh viễn: mọi đổi `packages/**` sẽ tự chạy oracle).
 - **Lịch sử:**
+
+### AUTH-LINUX-01 — Linux: đăng nhập + sync qua Firebase REST (ADR-0005)
+
+- **Triệu chứng:** bản Linux không có nút đăng nhập ở tab Home (guard
+  `Firebase.apps.isEmpty` trong `_FirebaseAuthButton` hiển thị icon ⚡ xám)
+  vì FlutterFire không phát hành plugin native cho Linux; sync từ vựng cũng
+  tắt (`VocabSyncService` early-return khi `!hasDb`).
+- **Giải pháp (ADR-0005):** facade `AuthService` thống nhất plugin/REST;
+  mới `firebase_rest_auth.dart` (signInWithIdp + securetoken refresh, session
+  lưu Hive) + `firestore_rest_client.dart` (commit/runQuery/list + codec
+  tương thích kiểu dữ liệu plugin). OAuth browser flow desktop dùng chung.
+  Cùng uid Android/Windows → data về đúng tài khoản.
+- **Không đổi:** hành vi Android/iOS/macOS/Windows/Web (đường plugin giữ
+  nguyên); 0 dependency mới; schema Firestore giữ nguyên.
+- **Còn mở:** CI build Linux xanh (Lưu ý CI-LINUX-01: webview_win_floating
+  cần webkit2gtk-4.1 — độc lập với thay đổi này); nghiệm thu máy Linux thật:
+  đăng nhập lần đầu, khởi động lại app giữ phiên, thêm từ trên Linux → thấy
+  trên Android, thêm từ trên Android → thấy trên Linux (quy tắc updatedAt),
+  đăng xuất; chạy `flutter analyze` (sandbox agent không có Flutter SDK).
+- **Lịch sử:**
+  - 2026-09-23: triển khai xong trên `arena/01a0ca82-in4up`.

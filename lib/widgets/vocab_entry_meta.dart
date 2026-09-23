@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,6 +23,30 @@ import '../providers/vocabulary_provider.dart';
 
 /// Ngôn ngữ nền luôn gợi ý (beyond những ngôn ngữ đã có trong list).
 const List<String> kBaseLanguages = ['en', 'vi', 'pali', 'my'];
+
+/// WLIST-LANG-001: Validate mã ngôn ngữ tùy chỉnh (2-4 ký tự Latin a-z).
+/// Trả về chuỗi thông báo lỗi hiển thị được cho người dùng, hoặc null nếu hợp lệ.
+String? validateCustomLanguageCode(String? raw) {
+  final trimmed = (raw ?? '').trim();
+  if (trimmed.isEmpty) {
+    return 'Mã ngôn ngữ không được để trống';
+  }
+  final normalized = trimmed.toLowerCase();
+  if (!RegExp(r'^[a-z]+$').hasMatch(normalized)) {
+    return 'Mã ngôn ngữ chỉ được chứa chữ cái Latin (a-z)';
+  }
+  if (normalized.length < 2 || normalized.length > 4) {
+    return 'Mã ngôn ngữ phải từ 2 đến 4 ký tự (vd: pi, lo, my)';
+  }
+  return null;
+}
+
+/// WLIST-LANG-001: Chuẩn hóa mã ngôn ngữ tùy chỉnh sang lowercase trimmed,
+/// hoặc null nếu không hợp lệ.
+String? normalizeCustomLanguageCode(String? raw) {
+  if (validateCustomLanguageCode(raw) != null) return null;
+  return raw!.trim().toLowerCase();
+}
 
 String labelForLanguage(String code) {
   switch (code) {
@@ -436,13 +461,25 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
               inputCtrl: _newLangCtrl,
               newHint: 'Ngôn ngữ mới…',
               onToggle: (value, add) {
-                setState(() {
-                  if (add) {
-                    _languages.add(value);
-                  } else {
-                    _languages.remove(value);
+                if (add) {
+                  final err = validateCustomLanguageCode(value);
+                  if (err != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(context.uiText(err)),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                    return;
                   }
-                });
+                  final normalized = normalizeCustomLanguageCode(value)!;
+                  final provider = context.read<VocabularyProvider>();
+                  unawaited(provider.addCustomLanguage(normalized, select: false));
+                  setState(() => _languages.add(normalized));
+                } else {
+                  setState(() => _languages.remove(value));
+                }
               },
             ),
             const SizedBox(height: 18),

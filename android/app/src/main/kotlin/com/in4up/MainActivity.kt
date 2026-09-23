@@ -3,6 +3,7 @@ package com.in4up
 import android.app.Activity
 import android.content.ContentResolver
 import android.content.Intent
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -73,6 +74,10 @@ class MainActivity : FlutterActivity() {
                     "copyContentToCache" -> {
                         val uri = call.argument<String>("uri")
                         result.success(uri?.let { copyContentToCache(it) })
+                    }
+                    "readAudioDurationMs" -> {
+                        val uri = call.argument<String>("uri")
+                        result.success(uri?.let { readAudioDurationMs(it) })
                     }
                     else -> result.notImplemented()
                 }
@@ -402,6 +407,39 @@ class MainActivity : FlutterActivity() {
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * Thời lượng file audio (ms) — MediaMetadataRetriever, đọc được cả
+     * content:// lẫn đường dẫn cục bộ.
+     *
+     * Dùng cho auto-TOC (Âm mục): khi waveform/ffmpeg không dùng được, app
+     * vẫn chia đều mục lục theo thời lượng → không còn báo "không tạo được
+     * mục lục". Lỗi / metadata trống → null (Dart tự xử lý tiếp).
+     */
+    private fun readAudioDurationMs(pathOrUri: String): Long? {
+        var retriever: MediaMetadataRetriever? = null
+        return try {
+            retriever = MediaMetadataRetriever()
+            if (pathOrUri.startsWith("content://") || pathOrUri.startsWith("file://")) {
+                retriever.setDataSource(this, Uri.parse(pathOrUri))
+            } else {
+                val f = File(pathOrUri)
+                if (!f.exists()) return null
+                retriever.setDataSource(f.absolutePath)
+            }
+            val raw = retriever
+                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            raw?.toLongOrNull()?.takeIf { it > 0 }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } finally {
+            try {
+                retriever?.release()
+            } catch (_: Exception) {
+            }
         }
     }
 

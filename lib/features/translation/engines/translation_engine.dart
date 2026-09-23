@@ -6,10 +6,21 @@ class TranslationResult {
   final String translatedText;
   final bool isSuccess;
   final String? error;
+  /// Mã lỗi cấu trúc (vd Hy-MT: `busy`, `isolate_dead`, `request_timeout`…
+  /// — xem `HyMtErrorCode`). `null` khi success.
+  final String? errorCode;
   final String? detectedLang;
   final String? targetLang;
   final String engineName;
   final Duration responseTime;
+
+  /// Translation code (vd 'DE') của ngôn ngữ cần model offline mà CHƯA TẢI.
+  ///
+  /// XLAT-MLKIT-001: hiện chỉ ML Kit set khi thiếu model. Caller có context
+  /// (explicit source hay auto-detect) dựa vào đây để phân biệt lỗi "thiếu
+  /// model của nguồn tự nhận diện" với lỗi engine thường — thay vì regex
+  /// chuỗi error.
+  final List<String>? missingModelCodes;
 
   const TranslationResult({
     required this.originalText,
@@ -17,9 +28,11 @@ class TranslationResult {
     required this.isSuccess,
     required this.engineName,
     this.error,
+    this.errorCode,
     this.detectedLang,
     this.targetLang,
     this.responseTime = Duration.zero,
+    this.missingModelCodes,
   });
 
   factory TranslationResult.success({
@@ -45,17 +58,21 @@ class TranslationResult {
     required String original,
     required String error,
     required String engine,
+    String? errorCode,
     String? detectedLang,
     String? targetLang,
+    List<String>? missingModelCodes,
   }) {
     return TranslationResult(
       originalText: original,
       translatedText: '',
       isSuccess: false,
       error: error,
+      errorCode: errorCode,
       engineName: engine,
       detectedLang: detectedLang,
       targetLang: targetLang,
+      missingModelCodes: missingModelCodes,
     );
   }
 
@@ -69,9 +86,11 @@ class TranslationResult {
         isSuccess: isSuccess,
         engineName: engineName,
         error: error,
+        errorCode: errorCode,
         detectedLang: detectedLang ?? source,
         targetLang: target,
         responseTime: responseTime,
+        missingModelCodes: missingModelCodes,
       );
 }
 

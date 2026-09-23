@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
 // nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
 // localized_material đã export material (hide Text) + Text localized.
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
@@ -1247,6 +1248,13 @@ class _GemmaChatModelCard extends StatelessWidget {
             ? (facade.modelSizeBytes! / (1024 * 1024)).toStringAsFixed(0)
             : null;
         final busy = facade.isImportActive;
+        // AI-CHAT-01 (audit B3): engine thật có thể chết vì OOM/thu hồi — hiện
+        // lỗi engine (nếu có) thay vì nói "chưa có model" khi file vẫn còn.
+        final engineError = facade.engineError;
+        final errorText = engineError ??
+            (facade.importStage == AiImportStage.failed
+                ? facade.importError
+                : null);
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1261,14 +1269,18 @@ class _GemmaChatModelCard extends StatelessWidget {
                     Icon(
                       hasModel
                           ? Icons.check_circle
-                          : busy
-                              ? Icons.sync
-                              : Icons.cloud_off,
+                          : engineError != null
+                              ? Icons.error_outline
+                              : busy
+                                  ? Icons.sync
+                                  : Icons.cloud_off,
                       color: hasModel
                           ? Colors.green
-                          : busy
-                              ? Colors.blue
-                              : Colors.orange,
+                          : engineError != null
+                              ? Colors.red
+                              : busy
+                                  ? Colors.blue
+                                  : Colors.orange,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1287,9 +1299,15 @@ class _GemmaChatModelCard extends StatelessWidget {
                                 ? context.uiText(
                                     'Model: $name${sizeMb != null ? ' · ${sizeMb}MB' : ''} · ${facade.modelSourceLabel}',
                                   )
-                                : context.uiText(
-                                    'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
-                                  ),
+                                : facade.hasModelFile
+                                    // Có file model nhưng engine chưa sẵn sàng
+                                    // (đang nạp / vừa hồi phục sau OOM).
+                                    ? context.uiText(
+                                        'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút cho file lớn',
+                                      )
+                                    : context.uiText(
+                                        'Chưa có model — import file .gguf hoặc tải về (~1.5GB, Gemma-2B Q4)',
+                                      ),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
@@ -1325,8 +1343,7 @@ class _GemmaChatModelCard extends StatelessWidget {
                 ],
 
                 // ── Error message ────────────────────────────────────
-                if (facade.importStage == AiImportStage.failed &&
-                    facade.importError != null) ...[
+                if (errorText != null) ...[
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -1334,7 +1351,7 @@ class _GemmaChatModelCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      facade.importError!,
+                      errorText,
                       style: const TextStyle(
                         color: Colors.red,
                         fontSize: 12,
@@ -1534,7 +1551,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                profile.name,
+                                '${profile.name}  ·  ${profile.language.toUpperCase()}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -1554,6 +1571,30 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                         _AsrBadge(info: info),
                       ],
                     ),
+
+                    const SizedBox(height: 12),
+
+                    // ── Model này dùng ở đâu (mapping rõ cho Cabin) ─────
+                    Text(
+                      context.uiText(
+                        profile.isStreaming
+                            ? 'Cabin (live, token-by-token). KHÔNG dùng cho file/LRC — model streaming chỉ chạy OnlineRecognizer.'
+                            : 'Cabin (offline + VAD) và bóc băng file/LRC.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (!info.isReady) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        context.uiText(
+                          'Chưa cài model — Cabin chọn ngôn ngữ này sẽ báo thiếu model (không tự nhận bằng model ngôn ngữ khác).',
+                        ),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orangeAccent.shade200,
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 12),
 
@@ -1708,10 +1749,43 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
   ) async {
     final path = await fp.FilePicker.getDirectoryPath();
     if (path == null || path.isEmpty) return;
-    final msg = await _manager.importAsrFolder(path, targetProfileId: profile.id);
+    final result =
+        await _manager.importAsrFolderResult(path, targetProfileId: profile.id);
     if (!mounted) return;
+    _showAsrImportResult(context, profile, result);
+  }
+
+  /// Hiện kết quả import bằng chuỗi đã bản địa hoá (không hiện chuỗi tiếng
+  /// Việt thô từ package).
+  void _showAsrImportResult(
+    BuildContext context,
+    SherpaAsrProfile profile,
+    SherpaAsrImportResult result,
+  ) {
+    final message = switch (result.status) {
+      SherpaAsrImportStatus.imported =>
+        context.uiText('✅ Đã import model Zipformer ASR: ${profile.name}'),
+      SherpaAsrImportStatus.unknownProfile => context.uiText(
+          'Không nhận diện được model này — hãy bấm Import ở đúng thẻ model '
+          '(VI offline hoặc EN streaming).'),
+      SherpaAsrImportStatus.profileMismatch => context.uiText(
+          'Model không khớp profile đã chọn: model streaming chỉ dùng cho EN, '
+          'model offline chỉ dùng cho VI.'),
+      SherpaAsrImportStatus.incompleteFiles => context.uiText(
+          'Thiếu file model: cần encoder, decoder, joiner (.onnx) và tokens.txt.'),
+      SherpaAsrImportStatus.sourceMissing =>
+        context.uiText('Không đọc được thư mục đã chọn.'),
+      SherpaAsrImportStatus.sourceEmpty =>
+        context.uiText('Chưa chọn file/thư mục nào.'),
+      SherpaAsrImportStatus.failed => context.uiText(
+          'Import thất bại. Hãy kiểm tra file model rồi thử lại.'),
+    };
+    if (result.detail != null) {
+      debugPrint('⚠️ ASR import detail: ${result.detail}');
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.uiText(msg))),
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -1719,20 +1793,19 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     BuildContext context,
     SherpaAsrProfile profile,
   ) async {
-    final result = await fp.FilePicker.pickFiles(
+    final picked = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
       allowedExtensions: ['onnx', 'txt', 'bz2', 'zip'],
       allowMultiple: true,
     );
-    if (result == null || result.files.isEmpty) return;
-    final paths = result.files.map((f) => f.path).whereType<String>().toList();
+    if (picked == null || picked.files.isEmpty) return;
+    final paths = picked.files.map((f) => f.path).whereType<String>().toList();
     if (paths.isEmpty) return;
 
-    final msg = await _manager.importAsrFiles(paths, targetProfileId: profile.id);
+    final result =
+        await _manager.importAsrFilesResult(paths, targetProfileId: profile.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.uiText(msg))),
-    );
+    _showAsrImportResult(context, profile, result);
   }
 
   Future<void> _confirmDelete(

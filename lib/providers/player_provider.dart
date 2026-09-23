@@ -1,6 +1,7 @@
 // lib/providers/player_provider.dart
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up/audio/audio_player_service.dart';
@@ -9,6 +10,7 @@ import 'package:in4up/models/segment.dart';
 import 'package:in4up/screens/listen_mode/models/recent_audio.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../screens/understand_mode/understand_mode.dart' hide LrcLine;
+import '../services/audio_import_service.dart';
 import '../services/storage_service.dart';
 import '../utils/audio_source_identity.dart';
 import 'text_provider.dart'; // Import TextProvider
@@ -22,6 +24,16 @@ enum VipMode {
   music,
   buddhism,
   english,
+}
+
+/// SHADOW-FILE-001 — Kết quả nạp audio gần nhất, để UI quyết định hiện
+/// hướng dẫn chọn lại file (thay vì crash im lặng khi ENOENT cache).
+enum AudioLoadErrorKind {
+  none,
+  /// File không còn trên đĩa (cache file_picker bị dọn, file bị xóa...).
+  missingFile,
+  /// File tồn tại nhưng decode/load thất bại.
+  loadFailed,
 }
 
 class ModeSettings {
@@ -90,6 +102,10 @@ class PlayerProvider extends ChangeNotifier
   String? _currentSongArtist;
   String? _currentSongPath;
 
+  // === LOAD ERROR (SHADOW-FILE-001) ===
+  AudioLoadErrorKind _lastLoadError = AudioLoadErrorKind.none;
+  String? _lastLoadErrorPath;
+
   // === VIP MODE ===
   VipMode _currentMode = VipMode.music;
   ModeSettings _modeSettings = ModeSettings.music;
@@ -128,6 +144,21 @@ class PlayerProvider extends ChangeNotifier
 
   String? get currentSongTitle => _currentSongTitle;
   String? get currentSongArtist => _currentSongArtist;
+
+  /// Lỗi nạp audio gần nhất (SHADOW-FILE-001). UI đọc getter này sau khi
+  /// `loadSong` trả false để hiện hướng dẫn chọn lại file thay vì crash.
+  AudioLoadErrorKind get lastLoadError => _lastLoadError;
+  String? get lastLoadErrorPath => _lastLoadErrorPath;
+  bool get currentAudioFileMissing =>
+      _lastLoadError == AudioLoadErrorKind.missingFile;
+
+  void clearLoadError() {
+    if (_lastLoadError == AudioLoadErrorKind.none) return;
+    _lastLoadError = AudioLoadErrorKind.none;
+    _lastLoadErrorPath = null;
+    notifyListeners();
+  }
+
   bool get isPlaying => _state.status == PlaybackStatus.playing;
   bool get isPaused => _state.status == PlaybackStatus.paused;
   bool get isStopped => _state.status == PlaybackStatus.stopped;
@@ -302,13 +333,18 @@ class PlayerProvider extends ChangeNotifier
 
   // ==================== BASIC PLAYBACK ====================
 
-  Future<void> loadSong({
+  /// Nạp audio mới. Trả `true` khi file nạp được; `false` khi thất bại —
+  /// đọc [lastLoadError] để biết nguyên nhân (SHADOW-FILE-001: cache bị dọn
+  /// → missingFile → UI hiện hướng dẫn chọn lại file, KHÔNG crash).
+  Future<bool> loadSong({
     required String path,
     String? title,
     String? artist,
     bool autoPlay = false,
   }) async {
-    final normalizedPath = path.replaceAll("\\", "/");
+    var normalizedPath = path.replaceAll("\\", "/");
+    _lastLoadError = AudioLoadErrorKind.none;
+    _lastLoadErrorPath = null;
 
     final previousPath = _currentSongPath;
     final isAudioChange = previousPath == null ||
@@ -335,17 +371,47 @@ class PlayerProvider extends ChangeNotifier
     _storage.saveLastAudioPath(normalizedPath);
     notifyListeners();
 
-    // ★ THÊM: Lưu vào recent ngay khi load
+    // SHADOW-FILE-001 — chặn ENOENT TRƯỚC khi đưa path xuống ExoPlayer:
+    // path trỏ vào cache (file_picker) mà hệ thống đã dọn → thử khôi phục từ
+    // audio_imports/ (cùng basename và CHỈ khi đúng 1 file trùng). Không khôi
+    // phục được thì báo missingFile cho UI hiện hướng dẫn thay vì crash.
+    final isLocalFilePath = !normalizedPath.startsWith('content://') &&
+        !normalizedPath.startsWith('http');
+    if (isLocalFilePath && !await File(normalizedPath).exists()) {
+      final recovered =
+          await AudioImportService.instance.findImportedMatch(normalizedPath);
+      if (recovered != null && await File(recovered).exists()) {
+        debugPrint(
+          '♻️ Recovered missing audio from imports: '
+          '$normalizedPath → $recovered',
+        );
+        normalizedPath = recovered;
+        _currentSongPath = recovered;
+        _currentSongTitle = title ?? recovered.split('/').last;
+        _storage.saveLastAudioPath(recovered);
+        notifyListeners();
+      } else {
+        debugPrint('⚠️ Audio file missing (cache cleaned?): $normalizedPath');
+        _lastLoadError = AudioLoadErrorKind.missingFile;
+        _lastLoadErrorPath = normalizedPath;
+        notifyListeners();
+        return false;
+      }
+    }
+
+    // ★ THÊM: Lưu vào recent — CHỈ sau khi load thành công (tránh nhét entry
+    // chết vào danh sách khi file đã mất).
     final recentEntry = RecentAudio.fromLocalFile(
       path: normalizedPath,
       title: _currentSongTitle!,
     );
-    pendingRecentUpdate = recentEntry;
-    // Fire-and-forget — không await để không block playback
-    recentAudio.addOrUpdate(recentEntry);
 
     final success = await _audioService.loadFile(normalizedPath);
     if (success) {
+      pendingRecentUpdate = recentEntry;
+      // Fire-and-forget — không await để không block playback
+      recentAudio.addOrUpdate(recentEntry);
+
       // Lấy duration thực tế từ service
       final durationMs = _audioService.currentState.duration.inMilliseconds;
       final savedMs = _storage.getSavedPosition(normalizedPath);
@@ -375,7 +441,13 @@ class PlayerProvider extends ChangeNotifier
       // ★ TASK 2: Sau khi load file xong, scan cache LRC theo hash
       // Fire-and-forget để không block playback
       autoLoadCachedLrc(normalizedPath);
+      return true;
     }
+
+    _lastLoadError = AudioLoadErrorKind.loadFailed;
+    _lastLoadErrorPath = normalizedPath;
+    notifyListeners();
+    return false;
   }
 
   /// Helper normalize path (dùng nội bộ trong provider)
@@ -387,6 +459,8 @@ class PlayerProvider extends ChangeNotifier
     // late STT/cache callbacks cannot restore the old transcript.
     saveCurrentPosition();
     _currentSongPath = null;
+    _lastLoadError = AudioLoadErrorKind.none;
+    _lastLoadErrorPath = null;
     resetLrcStateForAudioChange();
     _understandProvider?.clear();
 
@@ -582,7 +656,10 @@ class PlayerProvider extends ChangeNotifier
 
   Future<void> playSegment(Segment segment, {int? index}) async {
     if (_currentSongPath != segment.audioPath) {
-      await loadSong(path: segment.audioPath);
+      // SHADOW-FILE-001: file nguồn có thể đã bị dọn cache — loadSong trả
+      // false thì dừng, UI đọc lastLoadError để hướng dẫn chọn lại file.
+      final ok = await loadSong(path: segment.audioPath);
+      if (!ok) return;
     }
     _currentSegmentIndex = index ?? _segments.indexOf(segment);
     setLoop(

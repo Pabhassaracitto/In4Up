@@ -525,6 +525,44 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '寫',
     'si': 'ලියන්න',
   },
+  // Phòng Studio (HOME-STUDIO-001): 7 thẻ NGHE · NÓI · XEM · ĐỌC · VIẾT ·
+  // HIỂU · NHỚ. Tiêu đề viết hoa khớp `l10n.listen/read/understand/remember`.
+  'NÓI': {
+    'en': 'SPEAK',
+    'hi': 'बोलें',
+    'zh': '说',
+    'zh_TW': '說',
+    'si': 'කියන්න',
+  },
+  'XEM': {
+    'en': 'WATCH',
+    'hi': 'देखें',
+    'zh': '观看',
+    'zh_TW': '觀看',
+    'si': 'නරඹන්න',
+  },
+  'VIẾT': {
+    'en': 'WRITE',
+    'hi': 'लिखें',
+    'zh': '写',
+    'zh_TW': '寫',
+    'si': 'ලියන්න',
+  },
+  'Thư viện video': {
+    'en': 'Video library',
+    'hi': 'वीडियो लाइब्रेरी',
+    'zh': '视频库',
+    'zh_TW': '影片庫',
+    'si': 'වීඩියෝ පුස්තකාලය',
+  },
+  // HOME-KG-001: nút mở Knowledge Graph từ card preview ở Home.
+  'Xem Knowledge Graph →': {
+    'en': 'View Knowledge Graph →',
+    'hi': 'नॉलेज ग्राफ़ देखें →',
+    'zh': '查看知识图谱 →',
+    'zh_TW': '檢視知識圖譜 →',
+    'si': 'දැනුම් ප්‍රස්තාරය බලන්න →',
+  },
   'Gần đây': {
     'en': 'Recent',
     'hi': 'हालिया',
@@ -2206,5 +2244,619 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   },
   'Không thể mở nội dung sách.': {
     'en': 'Could not open the book content.',
+  },
+  // ── HOME-QUICK-001: Nạp tri thức nhanh (STT thật) + Gợi ý WordList ──
+  'NẠP TRI THỨC NHANH': {
+    'en': 'QUICK KNOWLEDGE INPUT',
+    'hi': 'त्वरित ज्ञान इनपुट',
+    'zh': '快速输入知识',
+    'zh_TW': '快速輸入知識',
+    'si': 'ඉක්මන් දැනුම් ආදානය',
+  },
+  'Nạp tri thức nhanh': {
+    'en': 'Quick knowledge input',
+    'hi': 'त्वरित ज्ञान इनपुट',
+    'zh': '快速输入知识',
+    'zh_TW': '快速輸入知識',
+    'si': 'ඉක්මන් දැනුම් ආදානය',
+  },
+  'Ghi chú nói': {
+    'en': 'Voice note',
+    'hi': 'वॉइस नोट',
+    'zh': '语音笔记',
+    'zh_TW': '語音筆記',
+    'si': 'හඬ සටහන',
+  },
+  'Gợi ý': {
+    'en': 'Suggest',
+    'hi': 'सुझाव',
+    'zh': '推荐',
+    'zh_TW': '推薦',
+    'si': 'යෝජනාව',
+  },
+  'Engine nhận diện sẽ chọn khi bật mic': {
+    'en': 'Recognition engine is chosen when the mic starts',
+    'hi': 'माइक चालू होने पर पहचान इंजन चुना जाता है',
+    'zh': '打开麦克风时选择识别引擎',
+    'zh_TW': '開啟麥克風時選擇辨識引擎',
+    'si': 'මයික්‍රෝෆෝනය ආරම්භ වූ විට හඳුනාගැනීමේ එන්ජිම තෝරයි',
+  },
+  'Đang bật micro…': {
+    'en': 'Starting microphone…',
+    'hi': 'माइक्रोफ़ोन चालू हो रहा है…',
+    'zh': '正在启动麦克风…',
+    'zh_TW': '正在啟動麥克風…',
+    'si': 'මයික්‍රෝෆෝනය ආරම්භ වෙමින්…',
+  },
+  'Đang nghe — nói ngay…': {
+    'en': 'Listening — speak now…',
+    'hi': 'सुन रहा है — अब बोलें…',
+    'zh': '正在聆听 — 请说话…',
+    'zh_TW': '正在聆聽 — 請說話…',
+    'si': 'අසමින් — දැන් කතා කරන්න…',
+  },
+  'Đang dừng…': {
+    'en': 'Stopping…',
+    'hi': 'रोका जा रहा है…',
+    'zh': '正在停止…',
+    'zh_TW': '正在停止…',
+    'si': 'නවත්වමින්…',
+  },
+  'Đã dừng — cần xử lý lỗi ở trên': {
+    'en': 'Stopped — see the error above',
+    'hi': 'रुक गया — ऊपर दी गई त्रुटि देखें',
+    'zh': '已停止 — 请查看上方错误',
+    'zh_TW': '已停止 — 請查看上方錯誤',
+    'si': 'නැවතුණා — ඉහළ දෝෂය බලන්න',
+  },
+  'Đã dừng — sẵn sàng lưu': {
+    'en': 'Stopped — ready to save',
+    'hi': 'रुक गया — सहेजने के लिए तैयार',
+    'zh': '已停止 — 可以保存',
+    'zh_TW': '已停止 — 可以儲存',
+    'si': 'නැවතුණා — සුරැකීමට සූදානම්',
+  },
+  'Sẵn sàng ghi âm': {
+    'en': 'Ready to record',
+    'hi': 'रिकॉर्ड करने के लिए तैयार',
+    'zh': '准备录音',
+    'zh_TW': '準備錄音',
+    'si': 'පටිගත කිරීමට සූදානම්',
+  },
+  'Nhấn để dừng': {
+    'en': 'Tap to stop',
+    'hi': 'रोकने के लिए टैप करें',
+    'zh': '点击停止',
+    'zh_TW': '點擊停止',
+    'si': 'නවත්වන්න තට්ටු කරන්න',
+  },
+  'Nhấn để ghi âm': {
+    'en': 'Tap to record',
+    'hi': 'रिकॉर्ड करने के लिए टैप करें',
+    'zh': '点击录音',
+    'zh_TW': '點擊錄音',
+    'si': 'පටිගත කරන්න තට්ටු කරන්න',
+  },
+  'Lưu vào WordList': {
+    'en': 'Save to WordList',
+    'hi': 'WordList में सहेजें',
+    'zh': '保存到 WordList',
+    'zh_TW': '儲存到 WordList',
+    'si': 'WordList හි සුරකින්න',
+  },
+  'Xoá transcript': {
+    'en': 'Clear transcript',
+    'hi': 'ट्रांसक्रिप्ट मिटाएँ',
+    'zh': '清除转录文本',
+    'zh_TW': '清除轉錄文字',
+    'si': 'පෙළ පිරිසිදු කරන්න',
+  },
+  'Ghi chú gần đây': {
+    'en': 'Recent voice notes',
+    'hi': 'हाल के वॉइस नोट',
+    'zh': '最近的语音笔记',
+    'zh_TW': '最近的語音筆記',
+    'si': 'මෑත හඬ සටහන්',
+  },
+  'Chưa có ghi chú nói nào.': {
+    'en': 'No voice notes yet.',
+    'hi': 'अभी कोई वॉइस नोट नहीं।',
+    'zh': '还没有语音笔记。',
+    'zh_TW': '還沒有語音筆記。',
+    'si': 'තවම හඬ සටහන් නැත.',
+  },
+  'Dùng lại transcript này': {
+    'en': 'Reuse this transcript',
+    'hi': 'इस ट्रांसक्रिप्ट को फिर से उपयोग करें',
+    'zh': '重复使用这段文本',
+    'zh_TW': '重複使用這段文字',
+    'si': 'මෙම පෙළ නැවත භාවිත කරන්න',
+  },
+  'Xoá ghi chú': {
+    'en': 'Delete note',
+    'hi': 'नोट मिटाएँ',
+    'zh': '删除笔记',
+    'zh_TW': '刪除筆記',
+    'si': 'සටහන මකන්න',
+  },
+  'Đã lưu vào WordList': {
+    'en': 'Saved to WordList',
+    'hi': 'WordList में सहेजा गया',
+    'zh': '已保存到 WordList',
+    'zh_TW': '已儲存到 WordList',
+    'si': 'WordList හි සුරැකිණි',
+  },
+  'Từ đã có — đã bổ sung ngữ cảnh': {
+    'en': 'Word already saved — context added',
+    'hi': 'शब्द पहले से है — संदर्भ जोड़ा गया',
+    'zh': '该词已存在 — 已补充语境',
+    'zh_TW': '該詞已存在 — 已補充語境',
+    'si': 'වචනය දැනටමත් ඇත — සන්දර්භය එකතු කළා',
+  },
+  'Chưa lưu được vào WordList': {
+    'en': 'Could not save to WordList',
+    'hi': 'WordList में सहेजा नहीं जा सका',
+    'zh': '无法保存到 WordList',
+    'zh_TW': '無法儲存到 WordList',
+    'si': 'WordList හි සුරැකීමට නොහැකි විය',
+  },
+  'Đã lưu ghi chú': {
+    'en': 'Note saved',
+    'hi': 'नोट सहेजा गया',
+    'zh': '笔记已保存',
+    'zh_TW': '筆記已儲存',
+    'si': 'සටහන සුරැකිණි',
+  },
+  'Chưa lưu được ghi chú': {
+    'en': 'Could not save the note',
+    'hi': 'नोट सहेजा नहीं जा सका',
+    'zh': '无法保存笔记',
+    'zh_TW': '無法儲存筆記',
+    'si': 'සටහන සුරැකීමට නොහැකි විය',
+  },
+  'Nhấn nút mic và nói một câu — transcript sẽ hiện ở đây.': {
+    'en': 'Tap the mic and say a sentence — the transcript appears here.',
+    'hi': 'माइक दबाएँ और एक वाक्य बोलें — ट्रांसक्रिप्ट यहाँ दिखेगा।',
+    'zh': '点击麦克风并说一句话 — 转录文本会显示在这里。',
+    'zh_TW': '點擊麥克風並說一句話 — 轉錄文字會顯示在這裡。',
+    'si': 'මයික් එක තට්ටු කර වාක්‍යයක් කියන්න — පෙළ මෙතන පෙනේ.',
+  },
+  'Chưa cấp quyền microphone. Vào Cài đặt → Ứng dụng → In4Up → Quyền → cho phép "Microphone" rồi thử lại.':
+      {
+    'en':
+        'Microphone permission is not granted. Open Settings → Apps → In4Up → Permissions → allow "Microphone", then try again.',
+    'hi':
+        'माइक्रोफ़ोन की अनुमति नहीं है। सेटिंग्स → ऐप्स → In4Up → अनुमतियाँ → "Microphone" अनुमति दें, फिर कोशिश करें।',
+    'zh': '未授予麦克风权限。请打开 设置 → 应用 → In4Up → 权限 → 允许“Microphone”，然后重试。',
+    'zh_TW': '未授予麥克風權限。請開啟 設定 → 應用程式 → In4Up → 權限 → 允許「Microphone」，然後重試。',
+    'si':
+        'මයික්‍රෝෆෝන අවසරය නැත. සැකසුම් → යෙදුම් → In4Up → අවසර → "Microphone" ලබා දී නැවත උත්සාහ කරන්න.',
+  },
+  'Chưa có engine nhận diện giọng nói sẵn sàng. Import model Sherpa trong Quản lý Model AI, hoặc kiểm tra dịch vụ nhận diện giọng nói của hệ thống.':
+      {
+    'en':
+        'No speech recognition engine is ready. Import a Sherpa model in Manage AI Models, or check the system speech recognition service.',
+    'hi':
+        'कोई वाक् पहचान इंजन तैयार नहीं है। Manage AI Models में Sherpa मॉडल आयात करें, या सिस्टम वाक् पहचान सेवा जाँचें।',
+    'zh': '没有可用的语音识别引擎。请在“管理 AI 模型”中导入 Sherpa 模型，或检查系统语音识别服务。',
+    'zh_TW': '沒有可用的語音辨識引擎。請在「管理 AI 模型」匯入 Sherpa 模型，或檢查系統語音辨識服務。',
+    'si':
+        'සූදානම් කථන හඳුනාගැනීමේ එන්ජිමක් නැත. Manage AI Models හි Sherpa මාදිලියක් ආයාත කරන්න, නැතහොත් පද්ධති සේවාව පරීක්ෂා කරන්න.',
+  },
+  'Không khởi động được nhận diện giọng nói. Thử lại, hoặc import model Sherpa offline trong Quản lý Model AI.':
+      {
+    'en':
+        'Speech recognition could not start. Try again, or import an offline Sherpa model in Manage AI Models.',
+    'hi':
+        'वाक् पहचान शुरू नहीं हो सकी। फिर कोशिश करें, या Manage AI Models में ऑफ़लाइन Sherpa मॉडल आयात करें।',
+    'zh': '语音识别无法启动。请重试，或在“管理 AI 模型”中导入离线 Sherpa 模型。',
+    'zh_TW': '語音辨識無法啟動。請重試，或在「管理 AI 模型」匯入離線 Sherpa 模型。',
+    'si':
+        'කථන හඳුනාගැනීම ආරම්භ කළ නොහැක. නැවත උත්සාහ කරන්න, නැතහොත් Manage AI Models හි ඕෆ්ලයින් Sherpa මාදිලියක් ආයාත කරන්න.',
+  },
+  'Phiên nghe bị gián đoạn. Phần đã nhận vẫn được giữ — bấm mic để ghi tiếp.':
+      {
+    'en':
+        'The listening session was interrupted. What was captured is kept — tap the mic to continue.',
+    'hi':
+        'सत्र बीच में टूट गया। जो पकड़ा गया वह सुरक्षित है — जारी रखने के लिए माइक दबाएँ।',
+    'zh': '听写会话被中断。已识别的内容仍然保留 — 点击麦克风继续。',
+    'zh_TW': '聽寫工作階段被中斷。已辨識的內容仍然保留 — 點擊麥克風繼續。',
+    'si':
+        'සැසිය බිඳ වැටුණා. හඳුනාගත් කොටස සුරැකී ඇත — ඉදිරියට යාමට මයික් තට්ටු කරන්න.',
+  },
+  'GỢI Ý TỪ WORDLIST': {
+    'en': 'WORDLIST SUGGESTION',
+    'hi': 'WORDLIST सुझाव',
+    'zh': 'WORDLIST 推荐',
+    'zh_TW': 'WORDLIST 推薦',
+    'si': 'WORDLIST යෝජනාව',
+  },
+  'Ưu tiên thẻ đến kỳ ôn': {
+    'en': 'Cards due for review come first',
+    'hi': 'समीक्षा के लिए देय कार्ड पहले',
+    'zh': '优先显示到期待复习的卡片',
+    'zh_TW': '優先顯示到期待複習的卡片',
+    'si': 'සමාලෝචනයට නියමිත කාඩ්පත් පළමුව',
+  },
+  'Đến kỳ ôn': {
+    'en': 'Due for review',
+    'hi': 'समीक्षा देय',
+    'zh': '待复习',
+    'zh_TW': '待複習',
+    'si': 'සමාලෝචනයට නියමිත',
+  },
+  'Từ WordList': {
+    'en': 'From WordList',
+    'hi': 'WordList से',
+    'zh': '来自 WordList',
+    'zh_TW': '來自 WordList',
+    'si': 'WordList වෙතින්',
+  },
+  'Chưa có nghĩa — bấm "Xem chi tiết" để bổ sung.': {
+    'en': 'No meaning yet — tap "Details" to add one.',
+    'hi': 'अभी अर्थ नहीं — जोड़ने के लिए "विवरण" टैप करें।',
+    'zh': '还没有释义 — 点击“查看详情”补充。',
+    'zh_TW': '還沒有釋義 — 點擊「檢視詳情」補充。',
+    'si': 'තවම අර්ථයක් නැත — එක් කිරීමට "විස්තර" තට්ටු කරන්න.',
+  },
+  'Dừng nghe': {
+    'en': 'Stop audio',
+    'hi': 'ऑडियो रोकें',
+    'zh': '停止播放',
+    'zh_TW': '停止播放',
+    'si': 'ශ්‍රවණය නවත්වන්න',
+  },
+  'Xem chi tiết': {
+    'en': 'Details',
+    'hi': 'विवरण',
+    'zh': '查看详情',
+    'zh_TW': '檢視詳情',
+    'si': 'විස්තර',
+  },
+  'WordList đang trống': {
+    'en': 'WordList is empty',
+    'hi': 'WordList खाली है',
+    'zh': 'WordList 为空',
+    'zh_TW': 'WordList 為空',
+    'si': 'WordList හිස්ය',
+  },
+  'Lưu từ đầu tiên bằng nút "Ghi chú nói", hoặc bôi chọn từ khi Đọc để Gợi ý có dữ liệu thật.':
+      {
+    'en':
+        'Save your first word with "Voice note", or select a word while Reading, so Suggestions has real data.',
+    'hi':
+        '"वॉइस नोट" से पहला शब्द सहेजें, या पढ़ते समय शब्द चुनें, ताकि सुझावों में वास्तविक डेटा हो।',
+    'zh': '用“语音笔记”保存第一个词，或在阅读时选词，推荐才会有真实数据。',
+    'zh_TW': '用「語音筆記」儲存第一個詞，或在閱讀時選詞，推薦才會有真實資料。',
+    'si':
+        '"හඬ සටහන" මගින් පළමු වචනය සුරකින්න, නැතහොත් කියවීමේදී වචනයක් තෝරන්න.',
+  },
+  'Gợi ý khác': {
+    'en': 'Another suggestion',
+    'hi': 'दूसरा सुझाव',
+    'zh': '换一个推荐',
+    'zh_TW': '換一個推薦',
+    'si': 'වෙනත් යෝජනාවක්',
+  },
+  'Mở WordList': {
+    'en': 'Open WordList',
+    'hi': 'WordList खोलें',
+    'zh': '打开 WordList',
+    'zh_TW': '開啟 WordList',
+    'si': 'WordList විවෘත කරන්න',
+  },
+  // ── WLIST-LANG-001 (base df77ab0): custom language ──
+
+  // ── WordList custom language (WLIST-LANG-001) ─────────────────────────
+  '＋ Thêm ngôn ngữ…': {
+    'en': '+ Add language…',
+    'hi': '+ भाषा जोड़ें…',
+    'zh': '+ 添加语言…',
+    'zh_TW': '+ 新增語言…',
+    'si': '+ භාෂාව එක් කරන්න…',
+  },
+  'Tạo ngôn ngữ mới… (Enter để chọn)': {
+    'en': 'Add new language… (Enter to select)',
+    'hi': 'नई भाषा जोड़ें… (चुनने के लिए Enter दबाएँ)',
+    'zh': '创建新语言…（按 Enter 选择）',
+    'zh_TW': '建立新語言…（按 Enter 選取）',
+    'si': 'නව භාෂාවක් සාදන්න… (තේරීමට Enter ඔබන්න)',
+  },
+  'Mã ngôn ngữ phải từ 2 đến 4 ký tự (vd: pi, lo, my)': {
+    'en': 'Language code must be 2 to 4 characters (e.g. pi, lo, my)',
+    'hi': 'भाषा कोड 2 से 4 अक्षरों का होना चाहिए (जैसे: pi, lo, my)',
+    'zh': '语言代码必须为 2 至 4 个字符（例如：pi, lo, my）',
+    'zh_TW': '語言代碼必須為 2 至 4 個字元（例如：pi, lo, my）',
+    'si': 'භාෂා කේතය අක්ෂර 2 සිට 4 දක්වා විය යුතුය (උදා: pi, lo, my)',
+  },
+  'Mã ngôn ngữ chỉ được chứa chữ cái Latin (a-z)': {
+    'en': 'Language code may only contain Latin letters (a-z)',
+    'hi': 'भाषा कोड में केवल लैटिन अक्षर (a-z) होने चाहिए',
+    'zh': '语言代码只能包含拉丁字母（a-z）',
+    'zh_TW': '語言代碼只能包含拉丁字母（a-z）',
+    'si': 'භාෂා කේතයේ ලතින් අකුරු (a-z) පමණක් තිබිය යුතුය',
+  },
+  'Mã ngôn ngữ không được để trống': {
+    'en': 'Language code cannot be empty',
+    'hi': 'भाषा कोड खाली नहीं हो सकता',
+    'zh': '语言代码不能为空',
+    'zh_TW': '語言代碼不能為空',
+    'si': 'භාෂා කේතය හිස් විය නොහැක',
+  },
+
+  // ── SHADOW-FILE-001 — persistent audio import + shadowing không bắt buộc AB
+  'Đang lưu audio vào thư viện của app…': {
+    'en': 'Saving audio into the app library…',
+    'hi': 'ऑडियो ऐप लाइब्रेरी में सहेजा जा रहा है…',
+    'zh': '正在将音频保存到应用曲库…',
+    'zh_TW': '正在將音訊儲存到應用程式曲庫…',
+    'si': 'ශ්‍රව්‍යය යෙදුම් පුස්තකාලයට සුරකිනවා…',
+  },
+  'Không lưu được file audio vào thư viện — vui lòng thử lại.': {
+    'en': 'Could not save the audio into the library — please try again.',
+    'hi': 'ऑडियो लाइब्रेरी में सहेजा नहीं जा सका — कृपया पुनः प्रयास करें।',
+    'zh': '无法将音频保存到曲库，请重试。',
+    'zh_TW': '無法將音訊儲存到曲庫，請重試。',
+    'si': 'ශ්‍රව්‍යය පුස්තකාලයට සුරැකීමට නොහැක — නැවත උත්සාහ කරන්න.',
+  },
+  'File đã bị hệ thống dọn cache — hãy chọn lại file để lưu vào thư viện.': {
+    'en':
+        'The system cleared this file from cache — pick it again to store it in the library.',
+    'hi':
+        'सिस्टम ने यह फ़ाइल कैश से हटा दी है — लाइब्रेरी में सहेजने के लिए फिर से चुनें।',
+    'zh': '系统已从缓存清除该文件——请重新选择以保存到曲库。',
+    'zh_TW': '系統已從快取清除此檔案——請重新選擇以儲存到曲庫。',
+    'si':
+        'මෙම ගොනුව පද්ධතිය විසින් කෑෂ් එකෙන් ඉවත් කළේය — පුස්තකාලයට සුරැකීමට නැවත තෝරන්න.',
+  },
+  'Một số file không lưu được — danh sách phát chỉ gồm các file đã lưu.': {
+    'en': 'Some files could not be saved — the playlist only keeps saved ones.',
+    'hi':
+        'कुछ फ़ाइलें सहेजी नहीं जा सकीं — प्लेलिस्ट में केवल सहेजी गई फ़ाइलें हैं।',
+    'zh': '部分文件无法保存——播放列表仅包含已保存的文件。',
+    'zh_TW': '部分檔案無法儲存——播放清單僅包含已儲存的檔案。',
+    'si':
+        'සමහර ගොනු සුරැකීමට නොහැකි විය — සුරැකුණු ගොනු පමණක් ලැයිස්තුවේ තබා ඇත.',
+  },
+  'Không phát được file này — vui lòng chọn lại audio.': {
+    'en': 'Could not play this file — please pick the audio again.',
+    'hi': 'यह फ़ाइल चलाई नहीं जा सकी — कृपया ऑडियो फिर से चुनें।',
+    'zh': '无法播放此文件——请重新选择音频。',
+    'zh_TW': '無法播放此檔案——請重新選擇音訊。',
+    'si': 'මෙම ගොනුව ධාවනය කළ නොහැක — ශ්‍රව්‍යය නැවත තෝරන්න.',
+  },
+  'Đã khôi phục audio từ bản lưu trong thư viện.': {
+    'en': 'Restored the audio from the copy stored in the library.',
+    'hi': 'लाइब्रेरी में सहेजी कॉपी से ऑडियो बहाल किया गया।',
+    'zh': '已从曲库保存的副本恢复音频。',
+    'zh_TW': '已從曲庫儲存的副本還原音訊。',
+    'si': 'පුස්තකාලයේ සුරැකි පිටපතෙන් ශ්‍රව්‍යය ප්‍රතිස්ථාපනය කළේය.',
+  },
+  'Không phát được file vừa chọn — vui lòng thử file khác.': {
+    'en': 'Could not play the file you just picked — please try another one.',
+    'hi': 'अभी चुनी गई फ़ाइल नहीं चल सकी — कृपया दूसरी फ़ाइल आज़माएँ।',
+    'zh': '无法播放刚选择的文件——请尝试其他文件。',
+    'zh_TW': '無法播放剛選擇的檔案——請嘗試其他檔案。',
+    'si': 'තෝරාගත් ගොනුව ධාවනය කළ නොහැක — වෙනත් ගොනුවක් උත්සාහ කරන්න.',
+  },
+  'File không còn tồn tại': {
+    'en': 'File no longer exists',
+    'hi': 'फ़ाइल अब मौजूद नहीं है',
+    'zh': '文件已不存在',
+    'zh_TW': '檔案已不存在',
+    'si': 'ගොනුව තවතුරු නොපවතී',
+  },
+  'File này đã bị hệ thống dọn cache hoặc đã bị xóa. Hãy chọn lại file — app sẽ lưu vào thư viện riêng để không bị mất nữa.':
+      {
+    'en':
+        'This file was cleared from cache by the system or deleted. Pick it again — the app will keep it in its own library so it cannot be lost.',
+    'hi':
+        'यह फ़ाइल सिस्टम द्वारा कैश से साफ़ या हटा दी गई है। फिर से चुनें — ऐप इसे अपनी लाइब्रेरी में सुरक्षित रखेगा।',
+    'zh':
+        '此文件已被系统从缓存清除或删除。请重新选择——应用会将其保存到自己的曲库，之后不会再丢失。',
+    'zh_TW':
+        '此檔案已被系統從快取清除或刪除。請重新選擇——應用程式會將其儲存到自己的曲庫，之後不會再遺失。',
+    'si':
+        'මෙම ගොනුව පද්ධතිය විසින් කෑෂ් එකෙන් ඉවත් කළේය හෝ මකා දමා ඇත. නැවත තෝරන්න — යෙදුම එය සිය පුස්තකාලයේ සුරක්ෂිතව තබයි.',
+  },
+  'Chọn lại file': {
+    'en': 'Pick file again',
+    'hi': 'फ़ाइल फिर से चुनें',
+    'zh': '重新选择文件',
+    'zh_TW': '重新選擇檔案',
+    'si': 'ගොනුව නැවත තෝරන්න',
+  },
+  'Xóa khỏi danh sách': {
+    'en': 'Remove from list',
+    'hi': 'सूची से हटाएँ',
+    'zh': '从列表移除',
+    'zh_TW': '從清單移除',
+    'si': 'ලැයිස්තුවෙන් ඉවත් කරන්න',
+  },
+  'Luyện cả bài hoặc chọn câu từ gợi ý — không cần đặt A-B trước.': {
+    'en':
+        'Practice the full track or pick a suggested sentence — no A-B loop needed first.',
+    'hi': 'पूरा ट्रैक अभ्यास करें या सुझाया वाक्य चुनें — पहले A-B लूप ज़रूरी नहीं।',
+    'zh': '可练习整首音频，或从建议的句子开始——无需先设置 A-B 循环。',
+    'zh_TW': '可練習整首音訊，或從建議的句子開始——無需先設定 A-B 循環。',
+    'si':
+        'සම්පූර්ණ ධ්වනිය පුහුණු වන්න හෝ යෝජිත වාක්‍යයක් තෝරන්න — A-B සැකසීම අවශ්‍ය නැත.',
+  },
+  'File âm thanh không còn tồn tại — hệ thống có thể đã dọn cache. Hãy chọn lại file ở tab Nghe (file sẽ được lưu vào thư viện của app để không bị mất nữa).':
+      {
+    'en':
+        'The audio file no longer exists — the system may have cleared its cache. Pick it again in the Listen tab (the app will store it in its own library).',
+    'hi':
+        'ऑडियो फ़ाइल अब मौजूद नहीं — सिस्टम ने कैश साफ़ किया हो सकता है। सुनें टैब में फिर से चुनें (ऐप अपनी लाइब्रेरी में सहेज लेगा)।',
+    'zh':
+        '音频文件已不存在——系统可能已清理其缓存。请在「听」页重新选择（应用会保存到自己的曲库）。',
+    'zh_TW':
+        '音訊檔案已不存在——系統可能已清理其快取。請在「聽」頁重新選擇（應用程式會儲存到自己的曲庫）。',
+    'si':
+        'ශ්‍රව්‍ය ගොනුව තවතුරු නොපවතී — පද්ධතිය කෑෂ් එක මැකුවා විය හැක. අහන්න ටැබයේ නැවත තෝරන්න (යෙදුම සිය පුස්තකාලයේ සුරකියි).',
+  },
+  'Cả bài': {
+    'en': 'Full track',
+    'hi': 'पूरा ट्रैक',
+    'zh': '整首',
+    'zh_TW': '整首',
+    'si': 'සම්පූර්ණ ධ්වනිය',
+  },
+  'Gợi ý theo câu (lời bài)': {
+    'en': 'Sentence suggestions (lyrics)',
+    'hi': 'वाक्य सुझाव (गीत के बोल)',
+    'zh': '按句建议（歌词）',
+    'zh_TW': '按句建議（歌詞）',
+    'si': 'වාක්‍ය යෝජනා (ගීත පද)',
+  },
+  'Dùng câu đang phát': {
+    'en': 'Use current sentence',
+    'hi': 'वर्तमान वाक्य उपयोग करें',
+    'zh': '使用当前句子',
+    'zh_TW': '使用目前句子',
+    'si': 'වත්මන් වාක්‍යය භාවිත කරන්න',
+  },
+  'Chỉnh tay đoạn A-B': {
+    'en': 'Fine-tune the A-B section',
+    'hi': 'A-B खंड को मैन्युअल समायोजित करें',
+    'zh': '手动微调 A-B 区间',
+    'zh_TW': '手動微調 A-B 區間',
+    'si': 'A-B කොටස අතින් සරිලෙන කරන්න',
+  },
+  'Đặt A tại vị trí phát': {
+    'en': 'Set A at playhead',
+    'hi': 'चल रही स्थिति पर A सेट करें',
+    'zh': '在播放位置设 A',
+    'zh_TW': '在播放位置設 A',
+    'si': 'වත්මන් ස්ථානයේ A සකසන්න',
+  },
+  'Đặt B tại vị trí phát': {
+    'en': 'Set B at playhead',
+    'hi': 'चल रही स्थिति पर B सेट करें',
+    'zh': '在播放位置设 B',
+    'zh_TW': '在播放位置設 B',
+    'si': 'වත්මන් ස්ථානයේ B සකසන්න',
+  },
+  'Xóa A-B': {
+    'en': 'Clear A-B',
+    'hi': 'A-B हटाएँ',
+    'zh': '清除 A-B',
+    'zh_TW': '清除 A-B',
+    'si': 'A-B ඉවත් කරන්න',
+  },
+  'Ghi âm': {
+    'en': 'Record',
+    'hi': 'रिकॉर्ड करें',
+    'zh': '录音',
+    'zh_TW': '錄音',
+    'si': 'පටිගත කරන්න',
+  },
+  'Chọn audio ở tab Nghe hoặc Thư viện để bắt đầu.': {
+    'en': 'Pick an audio in the Listen tab or Library to begin.',
+    'hi': 'शुरू करने के लिए सुनें टैब या लाइब्रेरी में ऑडियो चुनें।',
+    'zh': '请在「听」页或曲库中选择音频开始练习。',
+    'zh_TW': '請在「聽」頁或曲庫中選擇音訊開始練習。',
+    'si': 'ආරම්භ කිරීමට අහන්න ටැබයේ හෝ පුස්තකාලයේ ශ්‍රව්‍යයක් තෝරන්න.',
+  },
+  'Luyện cả bài hoặc theo đoạn A-B': {
+    'en': 'Practice the full track or an A-B section',
+    'hi': 'पूरा ट्रैक या A-B खंड अभ्यास करें',
+    'zh': '练习整首或 A-B 区间',
+    'zh_TW': '練習整首或 A-B 區間',
+    'si': 'සම්පූර්ණ ධ්වනිය හෝ A-B කොටස පුහුණු වන්න',
+  },
+  '1. Chọn audio ở tab Nghe hoặc Công cụ nhanh — file được lưu vào thư viện app, không sợ bị dọn cache.':
+      {
+    'en':
+        '1. Pick audio in the Listen tab or Quick actions — files are stored in the app library, safe from cache cleaning.',
+    'hi':
+        '1. सुनें टैब या क्विक एक्शन से ऑडियो चुनें — फ़ाइलें ऐप लाइब्रेरी में सुरक्षित रहती हैं।',
+    'zh': '1. 在「听」页或快捷工具选择音频——文件保存在应用曲库中，不怕被清缓存。',
+    'zh_TW': '1. 在「聽」頁或快捷工具選擇音訊——檔案儲存在應用程式曲庫中，不怕被清快取。',
+    'si':
+        '1. අහන්න ටැබයේ හෝ ඉක්මන් මෙවලම් වලින් ශ්‍රව්‍යය තෝරන්න — ගොනු යෙදුම් පුස්තකාලයේ සුරකිනි, කෑෂ් මැකීමට බිය නැත.',
+  },
+  '2. Không bắt buộc A-B: luyện cả bài; nếu có lời (LRC) app tự gợi ý từng câu.':
+      {
+    'en':
+        '2. A-B is optional: practice the full track; if lyrics (LRC) exist the app suggests each sentence.',
+    'hi':
+        '2. A-B वैकल्पिक: पूरा ट्रैक अभ्यास करें; बोल (LRC) होने पर ऐप हर वाक्य सुझाता है।',
+    'zh': '2. A-B 非必需：可练整首；如有歌词（LRC），应用会逐句给出建议。',
+    'zh_TW': '2. A-B 非必需：可練習整首；如有歌詞（LRC），應用程式會逐句給出建議。',
+    'si':
+        '2. A-B අත්‍යවශ්‍ය නැත: සම්පූර්ණ ධ්වනිය පුහුණු වන්න; ගීත පද (LRC) ඇත්නම් යෙදුම වාක්‍යයෙන් යෝජනා කරයි.',
+  },
+  '3. Chỉnh tay A-B ngay trong tab Nói (±0.5s hoặc đặt tại vị trí phát).': {
+    'en':
+        '3. Fine-tune A-B right inside the Speak tab (±0.5s or set at playhead).',
+    'hi':
+        '3. बोलें टैब के अंदर ही A-B समायोजित करें (±0.5s या चल रही स्थिति पर)।',
+    'zh': '3. 在「说」页直接微调 A-B（±0.5 秒或在播放位置设置）。',
+    'zh_TW': '3. 在「說」頁直接微調 A-B（±0.5 秒或在播放位置設定）。',
+    'si': '3. කතා කරන්න ටැබයේම A-B සරිලෙන කරන්න (±0.5s හෝ වත්මන් ස්ථානයේ).',
+  },
+  '4. Nghe mẫu → Ghi âm → xem chấm điểm; YouGlish để đối chiếu phát âm.': {
+    'en':
+        '4. Listen → Record → see the score; use YouGlish to compare pronunciation.',
+    'hi':
+        '4. सुनें → रिकॉर्ड करें → स्कोर देखें; उच्चारण तुलना हेतु YouGlish।',
+    'zh': '4. 听示范 → 录音 → 看评分；用 YouGlish 对比发音。',
+    'zh_TW': '4. 聽示範 → 錄音 → 看評分；用 YouGlish 對比發音。',
+    'si': '4. අහන්න → පටිගත කරන්න → ලකුණු බලන්න; උච්චාරණය සංසන්දනයට YouGlish.',
+  },
+
+  // CABIN-ASR-002 — model Zipformer cho Cabin (thiếu model / fallback / mở
+  // Quản lý Model AI). T2 phải có bản dịch thật, không để English trơ.
+  'Chưa cài model Zipformer cho {value0}': {
+    'en': 'Zipformer model for {value0} is not installed',
+    'hi': '{value0} के लिए Zipformer मॉडल इंस्टॉल नहीं है',
+    'zh': '尚未安装 {value0} 的 Zipformer 模型',
+    'zh_TW': '尚未安裝 {value0} 的 Zipformer 模型',
+    'si': '{value0} සඳහා Zipformer ආකෘතිය ස්ථාපනය කර නැත',
+  },
+  'Chưa hỗ trợ nhận diện offline cho {value0}': {
+    'en': 'Offline recognition is not supported for {value0}',
+    'hi': '{value0} के लिए ऑफ़लाइन पहचान समर्थित नहीं है',
+    'zh': '不支持 {value0} 的离线识别',
+    'zh_TW': '不支援 {value0} 的離線辨識',
+    'si': '{value0} සඳහා නොබැඳි හඳුනාගැනීම සහාය නොදක්වයි',
+  },
+  'Mở Quản lý Model AI': {
+    'en': 'Open Manage AI Models',
+    'hi': 'AI मॉडल प्रबंधन खोलें',
+    'zh': '打开管理 AI 模型',
+    'zh_TW': '開啟管理 AI 模型',
+    'si': 'AI ආකෘති කළමනාකරණය විවෘත කරන්න',
+  },
+  'Dùng {value0} (đã cài)': {
+    'en': 'Use {value0} (installed)',
+    'hi': '{value0} (इंस्टॉल) का उपयोग करें',
+    'zh': '使用 {value0}（已安装）',
+    'zh_TW': '使用 {value0}（已安裝）',
+    'si': '{value0} (ස්ථාපිත) භාවිත කරන්න',
+  },
+  'Import thất bại. Hãy kiểm tra file model rồi thử lại.': {
+    'en': 'Import failed. Check the model files and try again.',
+    'hi': 'आयात विफल। मॉडल फ़ाइलें जाँचें और फिर प्रयास करें।',
+    'zh': '导入失败。请检查模型文件后重试。',
+    'zh_TW': '匯入失敗。請檢查模型檔案後重試。',
+    'si': 'ආනයනය අසාර්ථකයි. ආකෘති ගොනු පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
+  },
+  // Ghi chú trong dropdown ngôn ngữ nguồn của Cabin (engine Offline).
+  'Chưa hỗ trợ offline — chỉ Engine Hệ thống': {
+    'en': 'Offline not supported — use System engine',
+    'hi': 'ऑफ़लाइन समर्थित नहीं — सिस्टम इंजन चुनें',
+    'zh': '不支持离线 — 请使用系统引擎',
+    'zh_TW': '不支援離線 — 請使用系統引擎',
+    'si': 'නොබැඳි සහාය නැත — පද්ධති එන්ජිම භාවිත කරන්න',
+  },
+  'Chưa cài model Zipformer — mở Quản lý Model AI': {
+    'en': 'Zipformer model not installed — open Manage AI Models',
+    'hi': 'Zipformer मॉडल इंस्टॉल नहीं है — AI मॉडल प्रबंधन खोलें',
+    'zh': '未安装 Zipformer 模型 — 打开管理 AI 模型',
+    'zh_TW': '未安裝 Zipformer 模型 — 開啟管理 AI 模型',
+    'si': 'Zipformer ආකෘතිය ස්ථාපනය කර නැත — AI ආකෘති කළමනාකරණය විවෘත කරන්න',
   },
 };

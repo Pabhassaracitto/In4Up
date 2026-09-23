@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/video_info.dart';
 import '../services/video_library_service.dart';
@@ -6,7 +6,12 @@ import 'video_player_screen.dart';
 
 /// Màn hình thư viện video
 class VideoLibraryScreen extends StatefulWidget {
-  const VideoLibraryScreen({super.key});
+  /// False khi nhúng trong IndexedStack của shell (tab phụ "Xem"): khi đó
+  /// không có route để pop — nút back sẽ pop nhầm route gốc gây đen màn hình
+  /// (LISTEN-VIEW-001). True khi push như một route độc lập (quick actions).
+  final bool showBackButton;
+
+  const VideoLibraryScreen({super.key, this.showBackButton = true});
 
   @override
   State<VideoLibraryScreen> createState() => _VideoLibraryScreenState();
@@ -14,6 +19,7 @@ class VideoLibraryScreen extends StatefulWidget {
 
 class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   bool _isLoading = true;
+  bool _loadError = false;
   List<VideoInfo> _videos = [];
 
   @override
@@ -23,11 +29,31 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   }
 
   Future<void> _loadVideos() async {
-    await VideoLibraryService.instance.ensureInitialized();
+    try {
+      await VideoLibraryService.instance.ensureInitialized();
+    } catch (_) {
+      // LISTEN-VIEW-001: lỗi init hiện thành UI lỗi + thử lại, không đen.
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = true;
+      });
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _videos = VideoLibraryService.instance.videos;
       _isLoading = false;
+      _loadError = false;
     });
+  }
+
+  Future<void> _retryLoad() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = false;
+    });
+    await _loadVideos();
   }
 
   @override
@@ -38,16 +64,47 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text('Video',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF9C27B0)),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.showBackButton
+            ? IconButton(
+                icon:
+                    const Icon(Icons.arrow_back, color: Color(0xFF9C27B0)),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _videos.isEmpty
-              ? _buildEmptyState()
-              : _buildVideoList(),
+          : _loadError
+              ? _buildErrorState()
+              : _videos.isEmpty
+                  ? _buildEmptyState()
+                  : _buildVideoList(),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.video_library_outlined,
+              size: 64, color: Colors.grey[800]),
+          const SizedBox(height: 16),
+          Text(
+            context.uiText('Không tải được thư viện video'),
+            style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 16,
+                fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _retryLoad,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: Text(context.uiText('Thử lại')),
+          ),
+        ],
+      ),
     );
   }
 

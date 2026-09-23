@@ -14,21 +14,20 @@ class IpaSourceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     Color color;
     String label;
-    switch (source) {
-      case 'mdx':
-        color = const Color(0xFF42A5F5);
-        label = 'MDX';
-      case 'cmu':
-        color = const Color(0xFF9E9E9E);
-        label = 'CMU';
-      case 'g2p':
-        color = const Color(0xFFFFB74D);
-        label = 'G2P';
-      case 'user':
-        color = const Color(0xFFCE93D8);
-        label = 'Bạn';
-      default:
-        return const SizedBox.shrink();
+    if (source == 'mdx') {
+      color = const Color(0xFF42A5F5);
+      label = 'MDX';
+    } else if (source == 'cmu') {
+      color = const Color(0xFF9E9E9E);
+      label = 'CMU';
+    } else if (source == 'g2p') {
+      color = const Color(0xFFFFB74D);
+      label = 'G2P';
+    } else if (source == 'user') {
+      color = const Color(0xFFCE93D8);
+      label = 'Bạn';
+    } else {
+      return const SizedBox.shrink();
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

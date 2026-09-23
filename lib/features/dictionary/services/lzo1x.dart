@@ -13,6 +13,8 @@
 // đối chiếu tiếp adler32 ⇒ lỗi giải nén sai sẽ bị bắt chứ không sinh
 // dữ liệu rác.
 
+import 'dart:typed_data';
+
 /// Lỗi giải nén LZO (dữ liệu hỏng / sai định dạng).
 class LzoException implements Exception {
   final String message;

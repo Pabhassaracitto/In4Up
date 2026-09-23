@@ -46,11 +46,21 @@ import java.io.FileOutputStream
  *    raw path → grant thật của tree URI tương ứng mới persist được).
  *  - copyContentToCache(contentUri): giống audiolib (đọc file text/PDF).
  *
- * Runtime permission (READ_MEDIA_AUDIO / READ_EXTERNAL_STORAGE) do phía Dart
- * xử lý qua permission_handler (đã có sẵn) — native chỉ query/copy.
+ * "in4up/videolib" (Thư viện video — quét video trên máy, giống audiolib):
+ *  - scanMediaStore(): quét MediaStore.Video (Android) → trả List<Map>:
+ *      { id, uri (content://media/external/video/media/<id>), title,
+ *        displayName, durationMs, sizeBytes, dateAddedSec, width, height }
+ *    Dùng content URI (DATA bị chặn trên scoped storage API 29+).
+ *    width/height có thể = 0 trên một số thiết bị (cột deprecated).
+ *  - copyContentToCache(contentUri): copy content:// sang cache dir → path
+ *    (video_player/ExoPlayer cần File path ổn định).
+ *
+ * Runtime permission (READ_MEDIA_AUDIO / READ_MEDIA_VIDEO / READ_EXTERNAL_STORAGE)
+ * do phía Dart xử lý qua permission_handler (đã có sẵn) — native chỉ query/copy.
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
+    private val videoChannelName = "in4up/videolib"
     private val textChannelName = "in4up/textlib"
 
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
@@ -78,6 +88,17 @@ class MainActivity : FlutterActivity() {
                     "readAudioDurationMs" -> {
                         val uri = call.argument<String>("uri")
                         result.success(uri?.let { readAudioDurationMs(it) })
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, videoChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "scanMediaStore" -> result.success(scanVideoMediaStore())
+                    "copyContentToCache" -> {
+                        val uri = call.argument<String>("uri")
+                        result.success(uri?.let { copyContentToCache(it) })
                     }
                     else -> result.notImplemented()
                 }
@@ -441,6 +462,72 @@ class MainActivity : FlutterActivity() {
             } catch (_: Exception) {
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // in4up/videolib — quét MediaStore.Video cho Thư viện video
+    // ═══════════════════════════════════════════════════════════
+
+    private fun scanVideoMediaStore(): List<Map<String, Any?>> {
+        val out = mutableListOf<Map<String, Any?>>()
+        try {
+            val projection = arrayOf(
+                MediaStore.Video.Media._ID,
+                MediaStore.Video.Media.DISPLAY_NAME,
+                MediaStore.Video.Media.TITLE,
+                MediaStore.Video.Media.DURATION,
+                MediaStore.Video.Media.SIZE,
+                MediaStore.Video.Media.DATE_ADDED,
+                @Suppress("DEPRECATION") MediaStore.Video.Media.WIDTH,
+                @Suppress("DEPRECATION") MediaStore.Video.Media.HEIGHT,
+            )
+            contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                null,
+                null,
+                MediaStore.Video.Media.DATE_ADDED + " DESC",
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                val nameCol =
+                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.TITLE)
+                val durCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+                val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+                val dateCol =
+                    cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+                // Cột WIDTH/HEIGHT deprecated: trên một số thiết bị không có
+                // ⇒ lấy index âm thì trả 0 thay vì crash.
+                val widthCol =
+                    cursor.getColumnIndex(@Suppress("DEPRECATION") MediaStore.Video.Media.WIDTH)
+                val heightCol =
+                    cursor.getColumnIndex(@Suppress("DEPRECATION") MediaStore.Video.Media.HEIGHT)
+
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idCol)
+                    val duration = cursor.getLong(durCol)
+                    // Bỏ file 0 byte / không có thời lượng (file rác trong DCIM).
+                    if (duration <= 0L && cursor.getLong(sizeCol) <= 0L) continue
+                    out.add(
+                        mapOf(
+                            "id" to id.toString(),
+                            "uri" to "content://media/external/video/media/$id",
+                            "displayName" to (cursor.getString(nameCol) ?: ""),
+                            "title" to (cursor.getString(titleCol) ?: ""),
+                            "durationMs" to duration,
+                            "sizeBytes" to cursor.getLong(sizeCol),
+                            "dateAddedSec" to cursor.getLong(dateCol),
+                            "width" to if (widthCol >= 0) cursor.getInt(widthCol) else 0,
+                            "height" to if (heightCol >= 0) cursor.getInt(heightCol) else 0,
+                        ),
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Trả danh sách đã có (có thể rỗng) — không crash app.
+            e.printStackTrace()
+        }
+        return out
     }
 
     private fun scanMediaStore(): List<Map<String, Any?>> {

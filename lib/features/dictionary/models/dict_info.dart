@@ -10,6 +10,10 @@ class DictInfo {
   final bool enabled;
   final DateTime importedAt;
 
+  /// Phiên bản engine MDX (vd "2.0") — để hiện trên thẻ từ điển + chẩn đoán
+  /// khi file dùng định dạng chưa hỗ trợ. Rỗng với dữ liệu import từ bản cũ.
+  final String engineVersion;
+
   const DictInfo({
     required this.id,
     required this.name,
@@ -20,6 +24,7 @@ class DictInfo {
     this.resourcePath,
     this.enabled = true,
     required this.importedAt,
+    this.engineVersion = '',
   });
 
   String get langPairLabel {
@@ -36,6 +41,7 @@ class DictInfo {
     String? dbPath,
     String? resourcePath,
     bool? enabled,
+    String? engineVersion,
   }) =>
       DictInfo(
         id: id,
@@ -47,6 +53,7 @@ class DictInfo {
         resourcePath: resourcePath ?? this.resourcePath,
         enabled: enabled ?? this.enabled,
         importedAt: importedAt,
+        engineVersion: engineVersion ?? this.engineVersion,
       );
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +66,7 @@ class DictInfo {
         'resource_path': resourcePath,
         'enabled': enabled,
         'imported_at': importedAt.toIso8601String(),
+        'engine_version': engineVersion,
       };
 
   factory DictInfo.fromJson(Map<String, dynamic> json) => DictInfo(
@@ -71,5 +79,6 @@ class DictInfo {
         resourcePath: json['resource_path'] as String?,
         enabled: json['enabled'] as bool? ?? true,
         importedAt: DateTime.parse(json['imported_at'] as String),
+        engineVersion: json['engine_version'] as String? ?? '',
       );
 }

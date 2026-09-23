@@ -2956,4 +2956,462 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '未安裝 Zipformer 模型 — 開啟管理 AI 模型',
     'si': 'Zipformer ආකෘතිය ස්ථාපනය කර නැත — AI ආකෘති කළමනාකරණය විවෘත කරන්න',
   },
+  // ── Từ điển MDX (DICT-FIX-001): chrome màn Từ điển ────────────────
+  'Quản lý từ điển': {
+    'en':
+      'Manage dictionaries',
+    'hi':
+      'शब्दकोश प्रबंधित करें',
+    'zh':
+      '管理词典',
+    'zh_TW':
+      '管理詞典',
+    'si':
+      'ශබ්දකෝෂ කළමනාකරණය',
+  },
+  'Chưa có từ điển nào': {
+    'en':
+      'No dictionaries yet',
+    'hi':
+      'अभी कोई शब्दकोश नहीं',
+    'zh':
+      '还没有词典',
+    'zh_TW':
+      '還沒有詞典',
+    'si':
+      'තවම ශබ්දකෝෂ නැත',
+  },
+  'Thêm từ điển': {
+    'en':
+      'Add dictionary',
+    'hi':
+      'शब्दकोश जोड़ें',
+    'zh':
+      '添加词典',
+    'zh_TW':
+      '新增詞典',
+    'si':
+      'ශබ්දකෝෂය එක් කරන්න',
+  },
+  'Chọn file từ điển .mdx': {
+    'en':
+      'Choose .mdx dictionary file',
+    'hi':
+      '.mdx शब्दकोश फ़ाइल चुनें',
+    'zh':
+      '选择 .mdx 词典文件',
+    'zh_TW':
+      '選擇 .mdx 詞典檔案',
+    'si':
+      '.mdx ශබ්දකෝෂ ගොනුව තෝරන්න',
+  },
+  'Chọn file .mdx (MDict) trong máy để tra từ offline. Hỗ trợ engine 1.x–2.x, nén zlib/LZO/không nén; chưa hỗ trợ file mã hóa và engine 3.0.': {
+    'en':
+      'Pick an .mdx (MDict) file on your device for offline lookups. Supports engine 1.x–2.x with zlib/LZO/no compression; encrypted files and engine 3.0 are not supported.',
+    'hi':
+      'ऑफ़लाइन खोज के लिए अपने डिवाइस से .mdx (MDict) फ़ाइल चुनें। engine 1.x–2.x (zlib/LZO/बिना संपीड़न) समर्थित है; एन्क्रिप्टेड फ़ाइल और engine 3.0 समर्थित नहीं हैं।',
+    'zh':
+      '选择设备上的 .mdx (MDict) 文件即可离线查词。支持 engine 1.x–2.x（zlib/LZO/未压缩）；暂不支持加密文件和 engine 3.0。',
+    'zh_TW':
+      '選擇裝置上的 .mdx (MDict) 檔案即可離線查詞。支援 engine 1.x–2.x（zlib/LZO/未壓縮）；暫不支援加密檔案與 engine 3.0。',
+    'si':
+      'නොබැඳි සෙවීම් සඳහා ඔබේ උපාංගයෙන් .mdx (MDict) ගොනුවක් තෝරන්න. engine 1.x–2.x (zlib/LZO/සම්පීඩනය නැති) සහාය දෙයි; සංකේතනය කළ ගොනු සහ engine 3.0 සහාය නොදෙයි.',
+  },
+  'Đang import từ điển…': {
+    'en':
+      'Importing dictionary…',
+    'hi':
+      'शब्दकोश आयात हो रहा है…',
+    'zh':
+      '正在导入词典…',
+    'zh_TW':
+      '正在匯入詞典…',
+    'si':
+      'ශබ්දකෝෂය ආයාත වෙමින්…',
+  },
+  'Đang chuẩn bị…': {
+    'en':
+      'Preparing…',
+    'hi':
+      'तैयार हो रहा है…',
+    'zh':
+      '正在准备…',
+    'zh_TW':
+      '正在準備…',
+    'si':
+      'සූදානම් වෙමින්…',
+  },
+  'Đang import…': {
+    'en':
+      'Importing…',
+    'hi':
+      'आयात हो रहा है…',
+    'zh':
+      '正在导入…',
+    'zh_TW':
+      '正在匯入…',
+    'si':
+      'ආයාත වෙමින්…',
+  },
+  'Đã import': {
+    'en':
+      'Imported',
+    'hi':
+      'आयात हो गया',
+    'zh':
+      '已导入',
+    'zh_TW':
+      '已匯入',
+    'si':
+      'ආයාත විය',
+  },
+  'Import thất bại': {
+    'en':
+      'Import failed',
+    'hi':
+      'आयात विफल',
+    'zh':
+      '导入失败',
+    'zh_TW':
+      '匯入失敗',
+    'si':
+      'ආයාතය අසාර්ථකයි',
+  },
+  'mục từ': {
+    'en':
+      'entries',
+    'hi':
+      'प्रविष्टियाँ',
+    'zh':
+      '词条',
+    'zh_TW':
+      '詞條',
+    'si':
+      'ඇතුළත් කිරීම්',
+  },
+  'Xóa từ điển?': {
+    'en':
+      'Delete dictionary?',
+    'hi':
+      'शब्दकोश हटाएँ?',
+    'zh':
+      '删除词典？',
+    'zh_TW':
+      '刪除詞典？',
+    'si':
+      'ශබ්දකෝෂය මකන්නද?',
+  },
+  'Tải lại': {
+    'en':
+      'Reload',
+    'hi':
+      'पुनः लोड करें',
+    'zh':
+      '重新加载',
+    'zh_TW':
+      '重新載入',
+    'si':
+      'නැවත පූරණය',
+  },
+  // ── Video (VIDEO-ADD-001): chrome Thư viện video ──────────────
+  'Video': {
+    'en':
+      'Video',
+    'hi':
+      'वीडियो',
+    'zh':
+      '视频',
+    'zh_TW':
+      '影片',
+    'si':
+      'වීඩියෝ',
+  },
+  'Chưa có video nào': {
+    'en':
+      'No videos yet',
+    'hi':
+      'अभी कोई वीडियो नहीं',
+    'zh':
+      '还没有视频',
+    'zh_TW':
+      '還沒有影片',
+    'si':
+      'තවම වීඩියෝ නැත',
+  },
+  'Thêm video để bắt đầu học': {
+    'en':
+      'Add videos to start learning',
+    'hi':
+      'सीखना शुरू करने के लिए वीडियो जोड़ें',
+    'zh':
+      '添加视频以开始学习',
+    'zh_TW':
+      '新增影片以開始學習',
+    'si':
+      'ඉගෙනීම ආරම්භ කිරීමට වීඩියෝ එක් කරන්න',
+  },
+  'Thêm video': {
+    'en':
+      'Add video',
+    'hi':
+      'वीडियो जोड़ें',
+    'zh':
+      '添加视频',
+    'zh_TW':
+      '新增影片',
+    'si':
+      'වීඩියෝ එක් කරන්න',
+  },
+  'Chọn file video': {
+    'en':
+      'Choose video file',
+    'hi':
+      'वीडियो फ़ाइल चुनें',
+    'zh':
+      '选择视频文件',
+    'zh_TW':
+      '選擇影片檔案',
+    'si':
+      'වීඩියෝ ගොනුව තෝරන්න',
+  },
+  'Quét video trên máy': {
+    'en':
+      'Scan device videos',
+    'hi':
+      'डिवाइस वीडियो स्कैन करें',
+    'zh':
+      '扫描设备视频',
+    'zh_TW':
+      '掃描裝置影片',
+    'si':
+      'උපාංග වීඩියෝ පරිලෝකනය',
+  },
+  'Quét toàn bộ video trên máy': {
+    'en':
+      'Scan all device videos',
+    'hi':
+      'सभी डिवाइस वीडियो स्कैन करें',
+    'zh':
+      '扫描所有设备视频',
+    'zh_TW':
+      '掃描所有裝置影片',
+    'si':
+      'උපාංගයේ සියලුම වීඩියෝ පරිලෝකනය',
+  },
+  'Chọn thư mục video': {
+    'en':
+      'Choose video folder',
+    'hi':
+      'वीडियो फ़ोल्डर चुनें',
+    'zh':
+      '选择视频文件夹',
+    'zh_TW':
+      '選擇影片資料夾',
+    'si':
+      'වීඩියෝ ෆෝල්ඩරය තෝරන්න',
+  },
+  'Chọn thư mục khác': {
+    'en':
+      'Choose another folder',
+    'hi':
+      'दूसरा फ़ोल्डर चुनें',
+    'zh':
+      '选择其他文件夹',
+    'zh_TW':
+      '選擇其他資料夾',
+    'si':
+      'වෙනත් ෆෝල්ඩරයක් තෝරන්න',
+  },
+  'Bỏ chọn thư mục': {
+    'en':
+      'Deselect folder',
+    'hi':
+      'फ़ोल्डर अचयनित करें',
+    'zh':
+      '取消选择文件夹',
+    'zh_TW':
+      '取消選擇資料夾',
+    'si':
+      'ෆෝල්ඩරය තේරීම අවලංගු කරන්න',
+  },
+  'Quét lại thư mục': {
+    'en':
+      'Rescan folder',
+    'hi':
+      'फ़ोल्डर पुनः स्कैन करें',
+    'zh':
+      '重新扫描文件夹',
+    'zh_TW':
+      '重新掃描資料夾',
+    'si':
+      'ෆෝල්ඩරය නැවත පරිලෝකනය',
+  },
+  'Tùy chọn quét': {
+    'en':
+      'Scan options',
+    'hi':
+      'स्कैन विकल्प',
+    'zh':
+      '扫描选项',
+    'zh_TW':
+      '掃描選項',
+    'si':
+      'පරිලෝකන විකල්ප',
+  },
+  'Đang quét…': {
+    'en':
+      'Scanning…',
+    'hi':
+      'स्कैन हो रहा है…',
+    'zh':
+      '正在扫描…',
+    'zh_TW':
+      '正在掃描…',
+    'si':
+      'පරිලෝකනය වෙමින්…',
+  },
+  'Không tải được thư viện video': {
+    'en':
+      'Could not load video library',
+    'hi':
+      'वीडियो लाइब्रेरी लोड नहीं हो सकी',
+    'zh':
+      '无法加载视频库',
+    'zh_TW':
+      '無法載入影片庫',
+    'si':
+      'වීඩියෝ පුස්තකාලය පූරණය කළ නොහැක',
+  },
+  'Cần cấp quyền để quét video': {
+    'en':
+      'Permission needed to scan videos',
+    'hi':
+      'वीडियो स्कैन करने के लिए अनुमति चाहिए',
+    'zh':
+      '需要权限才能扫描视频',
+    'zh_TW':
+      '需要權限才能掃描影片',
+    'si':
+      'වීඩියෝ පරිලෝකනයට අවසරය අවශ්‍යයි',
+  },
+  'Chức năng này chỉ hỗ trợ trên Android': {
+    'en':
+      'This feature is Android-only',
+    'hi':
+      'यह सुविधा केवल Android पर है',
+    'zh':
+      '此功能仅支持 Android',
+    'zh_TW':
+      '此功能僅支援 Android',
+    'si':
+      'මෙම විශේෂාංගය Android පමණි',
+  },
+  'Video đã có trong thư viện': {
+    'en':
+      'Video already in library',
+    'hi':
+      'वीडियो पहले से लाइब्रेरी में है',
+    'zh':
+      '视频已在库中',
+    'zh_TW':
+      '影片已在庫中',
+    'si':
+      'වීඩියෝ දැනටමත් පුස්තකාලයේ ඇත',
+  },
+  'Xóa video?': {
+    'en':
+      'Delete video?',
+    'hi':
+      'वीडियो हटाएँ?',
+    'zh':
+      '删除视频？',
+    'zh_TW':
+      '刪除影片？',
+    'si':
+      'වීඩියෝ මකන්නද?',
+  },
+  'Đã tìm thấy': {
+    'en':
+      'Found',
+    'hi':
+      'मिले',
+    'zh':
+      '找到',
+    'zh_TW':
+      '找到',
+    'si':
+      'සොයා ගත්තා',
+  },
+  'Đã quét thư mục': {
+    'en':
+      'Folder scanned',
+    'hi':
+      'फ़ोल्डर स्कैन हो गया',
+    'zh':
+      '已扫描文件夹',
+    'zh_TW':
+      '已掃描資料夾',
+    'si':
+      'ෆෝල්ඩරය පරිලෝකනය විය',
+  },
+  'Đã thêm': {
+    'en':
+      'Added',
+    'hi':
+      'जोड़ दिया',
+    'zh':
+      '已添加',
+    'zh_TW':
+      '已新增',
+    'si':
+      'එක් කළා',
+  },
+  'đã lưu vào bộ nhớ ứng dụng': {
+    'en':
+      'saved to app storage',
+    'hi':
+      'ऐप स्टोरेज में सहेजा गया',
+    'zh':
+      '已保存到应用存储',
+    'zh_TW':
+      '已儲存到應用儲存',
+    'si':
+      'යෙදුම් ගබඩාවට සුරකින ලදී',
+  },
+  'Đang import…': {
+    'en':
+      'Importing…',
+    'hi':
+      'आयात हो रहा है…',
+    'zh':
+      '正在导入…',
+    'zh_TW':
+      '正在匯入…',
+    'si':
+      'ආයාත වෙමින්…',
+  },
+  'Tìm kiếm…': {
+    'en':
+      'Search…',
+    'hi':
+      'खोजें…',
+    'zh':
+      '搜索…',
+    'zh_TW':
+      '搜尋…',
+    'si':
+      'සොයන්න…',
+  },
+  'video': {
+    'en':
+      'videos',
+    'hi':
+      'वीडियो',
+    'zh':
+      '视频',
+    'zh_TW':
+      '影片',
+    'si':
+      'වීඩියෝ',
+  },
 };

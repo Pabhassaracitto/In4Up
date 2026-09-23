@@ -2778,12 +2778,15 @@
   (`app_analyze.yml` chỉ `flutter analyze` + chạy riêng
   `test/locale_chrome_no_vietnamese_test.dart`) ⇒ file test này mới được
   **compile** xanh, CHƯA được thực thi. Luồng mic thật cần nghiệm thu trên
-  thiết bị. Đề xuất owner: thêm step `flutter test
-  test/home_quick_capture_test.dart` vào `app_analyze.yml` (app thiếu
-  quyền `workflows`, giống trường hợp CI-IOS-01).
+  thiết bị. Đã soạn sẵn patch cho owner (app thiếu quyền `workflows`,
+  theo convention `docs/project/B3-APP-ANALYZE-TEST-STEP.patch`):
+  **`docs/project/B4-HOME-QUICK-TEST-STEP.patch`** — thêm step
+  `flutter test test/home_quick_capture_test.dart` + upload log vào
+  `app_analyze.yml`.
 - **Lịch sử:**
   - 2026-09-16 | todo→doing | agent arena/01a0a6fc-in4up | card trong BATCH-0916
   - 2026-09-23 | doing→done | agent arena/01a0a6fc-in4up | CI run 35863346239 xanh; nguyên nhân analyze đỏ trước đó: test `await` trên `dispose()` có kiểu `void` (8 chỗ) — đã sửa
+  - 2026-09-23 | mở PR #38 (`arena/01a0a6fc-in4up` → `arena/01a0251e-in4up`) | agent arena/01a0a6fc-in4up | merge base `7ccf568` để hết conflict: `home_screen.dart` giữ cả 2 phía ở khối import rồi bỏ `package:animations` (chỉ `OpenContainer` của FAB stub `_SttDialog` dùng — đúng stub lane này xoá); KANBAN lấy dòng BATCH-0915 mới của base + giữ dòng HOME-QUICK-001; `priority_ui_overrides.dart` auto-merge sạch (brace depth 0, 417 key, 0 trùng, đủ `'en'`)
 
 ### HOME-STUDIO-001 — Phòng Studio thiếu thẻ XEM (chưa đủ 7: NGHE, NÓI, XEM, ĐỌC, VIẾT, HIỂU, NHỚ)
 - **Triệu chứng (owner):** "Phòng Studio nên bổ sung đầy đủ: NGHE, NÓI,

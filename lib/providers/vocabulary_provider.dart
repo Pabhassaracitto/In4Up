@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -10,6 +9,7 @@ import '../features/translation/glossary/glossary_store.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
+import '../services/auth_service.dart';
 import '../services/vocab_classifier.dart';
 import '../services/vocab_sync_service.dart';
 
@@ -35,7 +35,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   final VocabSyncService _sync = VocabSyncService();
   bool _isSyncEnabled = false;
-  StreamSubscription<User?>? _authSub;
+  StreamSubscription<AppUser?>? _authSub;
   bool _isEnablingSync = false;
   String? _syncUid;
 
@@ -92,15 +92,10 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void bindAuthState() {
-    try {
-      if (FirebaseAuth.instance.app.name.isEmpty) return;
-    } catch (_) {
-      debugPrint('⚠️ bindAuthState: Firebase not available, skip');
-      return;
-    }
+    // Stream thống nhất: Firebase plugin (Android/Win) hoặc REST fallback (Linux)
     _authSub?.cancel();
     try {
-      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      _authSub = AuthService().authStateChanges.listen((user) async {
         if (user == null) {
           disableSync();
           return;

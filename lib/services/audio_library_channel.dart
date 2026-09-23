@@ -40,4 +40,20 @@ class AudioLibraryChannel {
       return null;
     }
   }
+
+  /// Thời lượng file audio (ms) qua MediaMetadataRetriever — đọc được cả
+  /// content:// lẫn đường dẫn cục bộ. Dùng làm "phao cứu sinh" cho auto-TOC:
+  /// khi waveform/ffmpeg không dùng được, vẫn chia đều mục lục theo duration.
+  /// Không hỗ trợ / lỗi → null (Android-only; iOS/Windows → null).
+  static Future<int?> readAudioDurationMs(String uri) async {
+    try {
+      return await _channel.invokeMethod<int>(
+        'readAudioDurationMs',
+        {'uri': uri},
+      );
+    } catch (e) {
+      debugPrint('[AudioLibrary] readAudioDurationMs error: $e');
+      return null;
+    }
+  }
 }

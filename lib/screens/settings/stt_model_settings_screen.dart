@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
 // nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
 // localized_material đã export material (hide Text) + Text localized.
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
@@ -1550,7 +1551,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                profile.name,
+                                '${profile.name}  ·  ${profile.language.toUpperCase()}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -1570,6 +1571,30 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                         _AsrBadge(info: info),
                       ],
                     ),
+
+                    const SizedBox(height: 12),
+
+                    // ── Model này dùng ở đâu (mapping rõ cho Cabin) ─────
+                    Text(
+                      context.uiText(
+                        profile.isStreaming
+                            ? 'Cabin (live, token-by-token). KHÔNG dùng cho file/LRC — model streaming chỉ chạy OnlineRecognizer.'
+                            : 'Cabin (offline + VAD) và bóc băng file/LRC.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (!info.isReady) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        context.uiText(
+                          'Chưa cài model — Cabin chọn ngôn ngữ này sẽ báo thiếu model (không tự nhận bằng model ngôn ngữ khác).',
+                        ),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orangeAccent.shade200,
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 12),
 
@@ -1724,10 +1749,43 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
   ) async {
     final path = await fp.FilePicker.getDirectoryPath();
     if (path == null || path.isEmpty) return;
-    final msg = await _manager.importAsrFolder(path, targetProfileId: profile.id);
+    final result =
+        await _manager.importAsrFolderResult(path, targetProfileId: profile.id);
     if (!mounted) return;
+    _showAsrImportResult(context, profile, result);
+  }
+
+  /// Hiện kết quả import bằng chuỗi đã bản địa hoá (không hiện chuỗi tiếng
+  /// Việt thô từ package).
+  void _showAsrImportResult(
+    BuildContext context,
+    SherpaAsrProfile profile,
+    SherpaAsrImportResult result,
+  ) {
+    final message = switch (result.status) {
+      SherpaAsrImportStatus.imported =>
+        context.uiText('✅ Đã import model Zipformer ASR: ${profile.name}'),
+      SherpaAsrImportStatus.unknownProfile => context.uiText(
+          'Không nhận diện được model này — hãy bấm Import ở đúng thẻ model '
+          '(VI offline hoặc EN streaming).'),
+      SherpaAsrImportStatus.profileMismatch => context.uiText(
+          'Model không khớp profile đã chọn: model streaming chỉ dùng cho EN, '
+          'model offline chỉ dùng cho VI.'),
+      SherpaAsrImportStatus.incompleteFiles => context.uiText(
+          'Thiếu file model: cần encoder, decoder, joiner (.onnx) và tokens.txt.'),
+      SherpaAsrImportStatus.sourceMissing =>
+        context.uiText('Không đọc được thư mục đã chọn.'),
+      SherpaAsrImportStatus.sourceEmpty =>
+        context.uiText('Chưa chọn file/thư mục nào.'),
+      SherpaAsrImportStatus.failed => context.uiText(
+          'Import thất bại. Hãy kiểm tra file model rồi thử lại.'),
+    };
+    if (result.detail != null) {
+      debugPrint('⚠️ ASR import detail: ${result.detail}');
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.uiText(msg))),
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -1735,20 +1793,19 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     BuildContext context,
     SherpaAsrProfile profile,
   ) async {
-    final result = await fp.FilePicker.pickFiles(
+    final picked = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
       allowedExtensions: ['onnx', 'txt', 'bz2', 'zip'],
       allowMultiple: true,
     );
-    if (result == null || result.files.isEmpty) return;
-    final paths = result.files.map((f) => f.path).whereType<String>().toList();
+    if (picked == null || picked.files.isEmpty) return;
+    final paths = picked.files.map((f) => f.path).whereType<String>().toList();
     if (paths.isEmpty) return;
 
-    final msg = await _manager.importAsrFiles(paths, targetProfileId: profile.id);
+    final result =
+        await _manager.importAsrFilesResult(paths, targetProfileId: profile.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.uiText(msg))),
-    );
+    _showAsrImportResult(context, profile, result);
   }
 
   Future<void> _confirmDelete(

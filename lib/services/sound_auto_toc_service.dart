@@ -71,12 +71,10 @@ class SoundAutoTocService {
     // content:// (từ MediaStore/SAF) → copy sang cache để File/waveform dùng được.
     final localPath = await AudioLibraryChannel.copyContentToCache(audioPath);
     if (localPath == null) {
-      // Copy thất bại (native lỗi / quyền) — nếu biết duration vẫn chia đều
-      // để VAD-only luôn có mục lục thô (fix "chỉ VAD không dùng được").
-      return _evenSplitFallback(
-        totalDuration?.inMilliseconds ?? 0,
-        minSegmentSec,
-      );
+      // Copy thất bại (native chưa có handler — cần full rebuild — hoặc mất
+      // quyền) → chia đều theo thời lượng để VAD-only VẪN ra mục lục thô.
+      final durMs = await _resolveDurationMs(audioPath, totalDuration);
+      return _evenSplitFallback(durMs, minSegmentSec);
     }
     return _vadSplitFile(localPath,
         totalDuration: totalDuration,
@@ -85,141 +83,137 @@ class SoundAutoTocService {
         thresholdFactor: thresholdFactor);
   }
 
+  /// ⚠️ QUY TRÌNH BẮT BUỘC — root cause của "chỉ VAD không dùng được":
+  /// `JustWaveform.extract` là plugin federated (MethodChannel) nên CHỈ chạy
+  /// được ở ROOT isolate. Bản cũ nhúng nó trong `Isolate.run` → background
+  /// isolate không có binary messenger → plugin ném lỗi → `catch` trả `[]`
+  /// → VAD-only luôn fail (VAD+Whisper "sống" được là nhờ segment của STT).
+  ///
+  /// Cách mới: (1) trích waveform ở root isolate, (2) chỉ phần DSP THUẦN
+  /// (dữ liệu phẳng, không plugin) mới đưa vào isolate, (3) MỌI nhánh lỗi
+  /// rơi vào `_evenSplitFallback` → file ≥ 2×minSegment luôn có mục lục.
   static Future<List<AudioSlice>> _vadSplitFile(
     String audioPath, {
     Duration? totalDuration,
     double minSilenceSec = 0.9,
     double minSegmentSec = 6.0,
     double thresholdFactor = 0.28,
-  }) {
-    return Isolate.run(() async {
-      try {
-        final file = File(audioPath);
-        if (!await file.exists()) return const <AudioSlice>[];
+  }) async {
+    const sampleMs = 5; // zoom 200 px/s → mỗi mẫu = 5ms âm thanh
 
-        // Zoom 200 px/s → mỗi mẫu = 5ms âm thanh (đủ phân giải cho VAD).
-        final waveFile = File('$audioPath.vad_toc.waveform');
-        jw.Waveform? waveform;
-        final stream = jw.JustWaveform.extract(
-          audioInFile: file,
-          waveOutFile: waveFile,
-          zoom: jw.WaveformZoom.pixelsPerSecond(200),
-        );
-        await for (final progress in stream) {
-          if (progress.waveform != null) waveform = progress.waveform;
-        }
+    List<double>? peaks;
+    try {
+      peaks = await _extractPeaks(audioPath);
+    } catch (e) {
+      debugPrint('⚠️ Auto-TOC: waveform extract lỗi: $e');
+      peaks = null;
+    }
 
-        try {
-          if (await waveFile.exists()) await waveFile.delete();
-        } catch (_) {}
+    // Thời lượng: ưu tiên người dùng/player đưa → suy từ số mẫu → hỏi native.
+    var durationMs = totalDuration != null && totalDuration.inMilliseconds > 0
+        ? totalDuration.inMilliseconds
+        : 0;
+    if (durationMs <= 0 && peaks != null && peaks.isNotEmpty) {
+      durationMs = peaks.length * sampleMs;
+    }
+    if (durationMs <= 0) {
+      durationMs = await _resolveDurationMs(audioPath, null);
+    }
 
-        // Không có waveform (extract fail / file lạ) → vẫn phải có mục lục:
-        // fallback chia đều theo duration (nếu biết). (Gốc rễ lỗi "không tạo
-        // được mục lục": trước đây return [] NGAY → cả VAD-only lẫn VAD+Whisper fail.)
-        if (waveform == null || waveform.data.isEmpty) {
-          final dur = totalDuration != null && totalDuration.inMilliseconds > 0
-              ? totalDuration.inMilliseconds
-              : 0;
-          return _evenSplitFallback(dur, minSegmentSec);
-        }
+    // Không có sóng / quá ít mẫu / không biết duration → mục lục thô chia đều.
+    if (peaks == null || peaks.length < 6 || durationMs <= 0) {
+      return _evenSplitFallback(durationMs, minSegmentSec);
+    }
 
-        final samples = waveform.data;
-        const sampleMs = 5; // 200 px/s
-        final inferredMs = samples.length * sampleMs;
+    final settings = VadSettings(
+      minSilenceSec: minSilenceSec,
+      minSegmentSec: minSegmentSec,
+      thresholdFactor: thresholdFactor,
+    );
+    // Copy phẳng để an toàn khi gửi qua isolate.
+    final plain = List<double>.from(peaks);
+    final copyDur = durationMs;
+    try {
+      final boundaries = await Isolate.run(
+        () => computeBoundaryMs(plain, copyDur, settings: settings),
+      );
+      final slices =
+          _slicesFromBoundaries(boundaries, durationMs, minSegmentSec);
+      if (slices.length >= 2) return slices;
+      debugPrint('⚠️ Auto-TOC: VAD chỉ tìm được ${slices.length} đoạn '
+          '(audio liền mạch) → chia đều ${copyDur ~/ 1000}s');
+    } catch (e) {
+      debugPrint('❌ VAD split error: $e');
+    }
+    // Audio liền mạch / lỗi DSP → vẫn có mục lục thô.
+    return _evenSplitFallback(durationMs, minSegmentSec);
+  }
 
-        final durationMs =
-            totalDuration != null && totalDuration.inMilliseconds > 0
-                ? totalDuration.inMilliseconds
-                : inferredMs;
-
-        // Chuẩn hóa biên độ theo p95 (chống phụ thuộc volume / nhiễu nền).
-        final sorted = [...samples.map((v) => v.abs())]..sort();
-        final p95 = sorted.isEmpty
-            ? 1.0
-            : sorted[(sorted.length * 0.95)
-                    .floor()
-                    .clamp(0, sorted.length - 1)
-                    .toInt()];
-        final norm = p95 > 0 ? p95 : 1.0;
-
-        // Năng lượng theo cửa sổ 100ms (20 mẫu).
-        const winSize = 20;
-        final energies = <double>[];
-        for (int i = 0; i + winSize <= samples.length; i += winSize) {
-          double sum = 0;
-          for (int j = i; j < i + winSize; j++) {
-            sum += samples[j].abs() / norm;
-          }
-          energies.add(sum / winSize);
-        }
-
-        if (energies.length < 6) {
-          return _evenSplitFallback(durationMs, minSegmentSec);
-        }
-
-        final meanEnergy = energies.reduce((a, b) => a + b) / energies.length;
-        final threshold = math.max(0.045, meanEnergy * thresholdFactor);
-
-        // Chạy các cửa sổ im lặng liên tiếp.
-        final runs = <(int, int)>[]; // (startWin, endWin)
-        int? runStart;
-        for (int i = 0; i < energies.length; i++) {
-          if (energies[i] < threshold) {
-            runStart ??= i;
-          } else {
-            if (runStart != null) {
-              runs.add((runStart, i - 1));
-              runStart = null;
-            }
-          }
-        }
-        if (runStart != null) runs.add((runStart, energies.length - 1));
-
-        const silenceMsPerWin = winSize * sampleMs; // 100ms
-
-        // Ranh giới = điểm giữa của khoảng lặng đủ dài.
-        final boundaries = <int>[];
-        for (final (s, e) in runs) {
-          final runMs = (e - s + 1) * silenceMsPerWin;
-          if (runMs < minSilenceSec * 1000) continue;
-          final mid = ((s + e + 1) ~/ 2) * silenceMsPerWin;
-          // Bỏ ranh giới quá sát đầu/cuối file.
-          if (mid < minSegmentSec * 1000) continue;
-          if (mid > durationMs - minSegmentSec * 1000) continue;
-          boundaries.add(mid);
-        }
-        boundaries.sort();
-
-        // Ghép slices: giữ ranh giới khi cả hai bên ≥ minSegmentSec.
-        final slices = <AudioSlice>[];
-        var prev = 0;
-        for (final b in boundaries) {
-          if (b - prev >= minSegmentSec * 1000) {
-            slices.add(AudioSlice(
-              start: Duration(milliseconds: prev),
-              end: Duration(milliseconds: b),
-            ));
-            prev = b;
-          }
-        }
-        if (durationMs - prev >= minSegmentSec * 1000) {
-          slices.add(AudioSlice(
-            start: Duration(milliseconds: prev),
-            end: Duration(milliseconds: durationMs),
-          ));
-        }
-
-        // Fallback: audio liền mạch (không có khoảng lặng đủ) → chia đều
-        // theo thời lượng (~60s/đoạn, tối đa 8 đoạn) để vẫn có "mục lục thô".
-        if (slices.length < 2) {
-          return _evenSplitFallback(durationMs, minSegmentSec);
-        }
-        return slices;
-      } catch (e) {
-        debugPrint('❌ VAD split error: $e');
-        return const <AudioSlice>[];
+  /// Trích peak waveform (0..1, ~200 px/s) — PHẢI gọi từ root isolate vì
+  /// just_waveform dùng MethodChannel. Không throw: lỗi → null.
+  static Future<List<double>?> _extractPeaks(String audioPath) async {
+    final file = File(audioPath);
+    if (!await file.exists()) {
+      debugPrint('⚠️ Auto-TOC: không thấy file $audioPath');
+      return null;
+    }
+    final waveFile = File('$audioPath.vad_toc.waveform');
+    List<double>? peaks;
+    try {
+      final stream = jw.JustWaveform.extract(
+        audioInFile: file,
+        waveOutFile: waveFile,
+        zoom: jw.WaveformZoom.pixelsPerSecond(200),
+      );
+      jw.Waveform? last;
+      await for (final progress in stream) {
+        final wf = progress.waveform;
+        if (wf != null && wf.data.isNotEmpty) last = wf; // giữ bản cuối (đầy đủ nhất)
       }
-    });
+      if (last != null) peaks = List<double>.from(last.data);
+    } finally {
+      try {
+        if (await waveFile.exists()) await waveFile.delete();
+      } catch (_) {}
+    }
+    return (peaks == null || peaks.isEmpty) ? null : peaks;
+  }
+
+  /// Thời lượng file (ms): ưu tiên [known]; chưa có → hỏi native
+  /// MediaMetadataRetriever (đọc được cả content://); vẫn không → 0.
+  static Future<int> _resolveDurationMs(String path, Duration? known) async {
+    if (known != null && known.inMilliseconds > 0) return known.inMilliseconds;
+    try {
+      final ms = await AudioLibraryChannel.readAudioDurationMs(path);
+      if (ms != null && ms > 0) return ms;
+    } catch (_) {}
+    return 0;
+  }
+
+  /// PURE — ghép ranh giới (ms) thành slices; bỏ đoạn ngắn hơn [minSegmentSec].
+  static List<AudioSlice> _slicesFromBoundaries(
+    List<int> boundaries,
+    int durationMs,
+    double minSegmentSec,
+  ) {
+    final slices = <AudioSlice>[];
+    var prev = 0;
+    for (final b in boundaries) {
+      if (b - prev >= minSegmentSec * 1000) {
+        slices.add(AudioSlice(
+          start: Duration(milliseconds: prev),
+          end: Duration(milliseconds: b),
+        ));
+        prev = b;
+      }
+    }
+    if (durationMs - prev >= minSegmentSec * 1000) {
+      slices.add(AudioSlice(
+        start: Duration(milliseconds: prev),
+        end: Duration(milliseconds: durationMs),
+      ));
+    }
+    return slices;
   }
 
   // ─────────────────────────── BƯỚC 2: WHISPER ───────────────────────────

@@ -2542,9 +2542,10 @@
 - **AT:** máy owner: dịch 1 câu ngắn EN→VI bằng Hy-MT → có kết quả
   (thời gian bao nhiêu cũng được nhưng phải về); dịch text dài 2000+ ký
   tự → chunk không timeout; 2 request liên tiếp không kẹt.
-- **Trạng thái:** doing
+- **Trạng thái:** done
 - **Lịch sử:**
   - 2026-09-15 | 21:50 | proposed→doing | agent arena/01a0a6f9-in4up | 949c437 (seam: HyMtChunking ≤500 ký tự/câu + HyMtSlot single-flight + test), 7cba9bd (runtime: heartbeat ping trước request, isolate chết/load hỏng → dispose+spawn+retry tối đa 1 lần + errorCode cấu trúc, mỗi chunk timeout hữu hạn riêng, ghép đúng thứ tự, service budget tỷ lệ theo độ dài trần 8 phút + test runtime), a412f47 (UI "Đang dịch bằng Hy-MT offline, có thể chậm" + EN override); Python 1:1 sim 12/12 green — chờ CI app_analyze + AT máy owner
+  - 2026-09-23 | 11:30 | doing→done | agent arena/01a0a6f9-in4up | commit 4bea3a0: hoàn thiện 4 lớp timeout (single-flight slot, isolate heartbeat ping + auto-restart retry 1 lần, sentence-aware chunking ≤500 chars reassembly, UI progress hint "Đang dịch bằng Hy-MT offline, có thể chậm" + fallback EN); unit test + runtime test đầy đủ; mở PR vào target arena/01a0251e-in4up
 
 ### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
 - **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ

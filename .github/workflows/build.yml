@@ -47,8 +47,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # v3 chết ở bước này (run 34977536488, 2026-09-15: package 'tools' không còn) — dùng v4.
       - name: Setup Android SDK & Accept Licenses
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -60,11 +61,16 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # TẠO FILE CHO ANDROID TRƯỚC BIÊN DỊCH
+      # TẠO FILE CHO ANDROID TRƯỚC BIÊN DỊCH.
+      # KHÔNG ghi đè lib/services/auth_service.dart nữa: file thật đã nằm trong git
+      # (không chứa secret — client secret đi qua --dart-define) và app dùng
+      # `AuthService().authStateChanges` + `AppUser` (AUTH-LINUX-01); stub cũ thiếu 2
+      # thành viên đó ⇒ compile đỏ ngay ở "Build Split APKs". Chỉ tạo khi file vắng.
       - name: Create Real Firebase & Auth Files for Android Build
         shell: bash
         run: |
           mkdir -p lib/services
+          if [ ! -f lib/services/auth_service.dart ]; then
           cat << 'EOF' > lib/services/auth_service.dart
           import 'package:flutter/foundation.dart';
           class AuthService {
@@ -73,6 +79,7 @@ jobs:
             Future<dynamic> signInWithGoogle() async { return null; }
           }
           EOF
+          fi
           cat << 'EOF' > lib/firebase_options.dart
           import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
           class DefaultFirebaseOptions {
@@ -89,34 +96,54 @@ jobs:
           fileName: 'google-services.json'
           fileDir: './android/app/'
 
-      # BƯỚC 1: Build 3 bản phân tách như cũ
+      # KÝ APK (CI-ANDROID-03): decode keystore từ secrets → android/key.properties
+      # để Gradle ký release bằng KEY THẬT (user update đè được giữa các release).
+      # Thiếu secret ⇒ chỉ warning, Gradle fallback ký DEBUG keystore (vẫn cài được).
+      - name: Prepare Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash scripts/ci/android_prepare_signing.sh
+
+      # BƯỚC 1: Build 3 bản phân tách — CHỈ flavor stable (com.in4up).
+      # Không --flavor ⇒ Gradle build cả dev/beta: chậm gấp 3 (llama.cpp × 3 flavor × 3 ABI)
+      # và chết ở processBetaReleaseGoogleServices khi secret thiếu client com.in4up.beta.
       - name: Build Split APKs
         run: |
-          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation \
+          flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
+            "--dart-define=FLAVOR=stable" \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
 
       # BƯỚC 2: Build thêm 1 bản GỘP TẤT CẢ (Universal APK)
       - name: Build Universal APK
         run: |
-          flutter build apk --release --android-skip-build-dependency-validation \
+          flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
+            "--dart-define=FLAVOR=stable" \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
 
-      # BƯỚC 3: Đổi tên cho cả bản tách và bản gộp
+      # BƯỚC 3: Đổi tên cho cả bản tách và bản gộp.
+      # Tên do Flutter 3.44.1 sinh (FlutterPlugin.kt): app<-abi>?<-flavor>?-<mode>.apk
+      # ⇒ split: app-<abi>-stable-release.apk (ABI TRƯỚC, flavor SAU); universal: app-stable-release.apk
       - name: Rename All APKs
         run: |
-          # Đổi tên 3 bản tách
-          mv build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk \
-             build/app/outputs/flutter-apk/in4up-Android-armv7-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          mv build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk \
-             build/app/outputs/flutter-apk/in4up-Android-arm64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          mv build/app/outputs/flutter-apk/app-stable-x86_64-release.apk \
-             build/app/outputs/flutter-apk/in4up-Android-x64-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
-          # Đổi tên bản gộp (Universal)
-          mv build/app/outputs/flutter-apk/app-stable-release.apk \
-             build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}.apk
+          set -e
+          TAG="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+          OUT=build/app/outputs/flutter-apk
+          ls -la "$OUT"
+          mv "$OUT/app-armeabi-v7a-stable-release.apk" "$OUT/in4up-Android-armv7-$TAG.apk"
+          mv "$OUT/app-arm64-v8a-stable-release.apk"   "$OUT/in4up-Android-arm64-$TAG.apk"
+          mv "$OUT/app-x86_64-stable-release.apk"      "$OUT/in4up-Android-x64-$TAG.apk"
+          mv "$OUT/app-stable-release.apk"             "$OUT/in4up-Android-Universal-All-CPU-$TAG.apk"
+          ls -la "$OUT"/in4up-Android-*.apk
+
+      # LƯỚI AN TOÀN (CI-ANDROID-03): APK chưa ký ⇒ fail tại đây, KHÔNG đẩy lên Release.
+      - name: Verify APKs are signed
+        run: bash scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/in4up-Android-*.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -194,7 +221,7 @@ jobs:
             Future<dynamic> signInWithGoogle() async { debugPrint('Sign in triggered on CI'); return null; }
           }
           '@
-          $authService | Out-File -FilePath "lib/services/auth_service.dart" -Encoding utf8
+          if (-not (Test-Path "lib/services/auth_service.dart")) { $authService | Out-File -FilePath "lib/services/auth_service.dart" -Encoding utf8 }
 
           # Sinh file firebase_options.dart
           $firebaseOptions = @'
@@ -262,7 +289,7 @@ jobs:
             Write-Host "##[error]Zip chi $sizeMB MB (< 10 MB) — bundle Release khong day du!"
             exit 1
           }
-         Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
+          Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -325,6 +352,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p lib/services
+          if [ ! -f lib/services/auth_service.dart ]; then
           cat << 'EOF' > lib/services/auth_service.dart
           import 'package:flutter/foundation.dart';
           class AuthService {
@@ -333,6 +361,7 @@ jobs:
             Future<dynamic> signInWithGoogle() async { return null; }
           }
           EOF
+          fi
           cat << 'EOF' > lib/firebase_options.dart
           import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
           class DefaultFirebaseOptions {

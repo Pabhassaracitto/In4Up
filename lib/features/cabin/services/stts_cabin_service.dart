@@ -636,6 +636,10 @@ class SttsCabinService extends ChangeNotifier {
     final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
+    if (rawText == _lastFinalizedText) {
+      return;
+    }
+
     final captionId = 'cap_${DateTime.now().millisecondsSinceEpoch}';
 
     // Update active partial caption
@@ -643,19 +647,18 @@ class SttsCabinService extends ChangeNotifier {
       id: captionId,
       timestamp: DateTime.now(),
       sourceText: rawText,
-      translatedText: _activeCaption?.translatedText ?? '',
+      translatedText: '',
       sourceLang: sourceLanguage,
       targetLang: _targetLanguage,
       isFinal: sttResult.isFinal,
     );
     notifyListeners();
 
+    _silenceTimer?.cancel();
     if (sttResult.isFinal) {
-      _silenceTimer?.cancel();
       _finalizeCurrentChunk(rawText);
     } else {
       // Reset silence timer for chunk finalization
-      _silenceTimer?.cancel();
       _silenceTimer = Timer(const Duration(milliseconds: 1400), () {
         _finalizeCurrentChunk(rawText);
       });
@@ -663,6 +666,7 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   Future<void> _finalizeCurrentChunk(String text) async {
+    _silenceTimer?.cancel();
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     if (_state == CabinState.speaking) return;
@@ -684,9 +688,13 @@ class SttsCabinService extends ChangeNotifier {
       );
       translated = result.translatedText.trim();
       engine = result.engineName;
+      // Do not duplicate source text if engine returned failure/empty
+      if (!result.isSuccess || translated == trimmed) {
+        translated = '';
+      }
     } catch (e) {
       debugPrint('⚠️ SttsCabinService translation error: $e');
-      translated = trimmed; // Fallback to source
+      translated = '';
     }
 
     final finalizedCaption = CabinCaption(
@@ -727,7 +735,12 @@ class SttsCabinService extends ChangeNotifier {
         await _tryStartSystemEngine();
       }
     }
-    _lastFinalizedText = '';
+    // Keep _lastFinalizedText populated for deduplication against immediate duplicate callbacks
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_lastFinalizedText == trimmed) {
+        _lastFinalizedText = '';
+      }
+    });
     notifyListeners();
   }
 

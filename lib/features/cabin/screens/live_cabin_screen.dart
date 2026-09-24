@@ -9,6 +9,8 @@ import 'package:in4up/screens/settings/stt_model_settings_screen.dart';
 import '../models/cabin_caption.dart';
 import '../services/cabin_asr_plan.dart';
 import '../services/stts_cabin_service.dart';
+import '../../translation/translation_toolbar.dart';
+import '../../translation/translation_service.dart';
 
 class LiveCabinScreen extends StatefulWidget {
   const LiveCabinScreen({super.key});
@@ -415,12 +417,14 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           ),
           const SizedBox(height: 8),
 
-          // STT Engine Switcher (System vs Offline Sherpa Zipformer)
+          // STT Engine Switcher (System vs Offline Sherpa Zipformer) + Dịch Engine
           Row(
             children: [
               _buildEngineChip('Hệ thống', CabinSttEngineType.system, Icons.phone_android_rounded),
               const SizedBox(width: 8),
               _buildEngineChip('Offline (sherpa)', CabinSttEngineType.sherpaOffline, Icons.offline_bolt_rounded),
+              const SizedBox(width: 8),
+              _buildTranslationEngineButton(),
             ],
           ),
         ],
@@ -524,6 +528,66 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     } catch (_) {}
     _service.clearModelBlocker();
     if (mounted) setState(() => _asrInfo = _modelManager.asrInfo);
+  }
+
+  Widget _buildTranslationEngineButton() {
+    final transService = TranslationService();
+    final pref = transService.offlineEnginePref;
+    final isOfflineOnly = transService.offlineOnly;
+    final label = isOfflineOnly
+        ? 'Dịch: ${pref == HyMtOfflinePreference.hymt ? "Hy-MT" : pref == HyMtOfflinePreference.mlkit ? "ML Kit" : "Offline"}'
+        : 'Dịch: Online';
+
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: const Color(0xFF1A1A2E),
+          isScrollControlled: true,
+          useSafeArea: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => TranslationEngineSettingsSheet(
+            service: transService,
+            accentColor: const Color(0xFF00E676),
+          ),
+        ).then((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00E676).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: const Color(0xFF00E676).withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tune_rounded,
+              size: 14,
+              color: Color(0xFF00E676),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              context.uiText(label),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF00E676),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildEngineChip(String label, CabinSttEngineType type, IconData icon) {

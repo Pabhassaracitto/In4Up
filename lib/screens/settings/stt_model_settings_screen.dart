@@ -22,6 +22,8 @@ import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
 import '../../features/tts/piper_voice_prefs.dart';
 import '../../features/tts/tts_service.dart';
+import '../../features/translation/translation_toolbar.dart';
+import '../../features/translation/translation_service.dart';
 
 import '../../core/language/app_language.dart';
 
@@ -80,6 +82,10 @@ class SttModelSettingsScreen extends StatelessWidget {
           const _SectionLabel(
               '5. STT Offline — Zipformer (nhận diện trực tiếp không cần mạng)'),
           const _SherpaAsrCard(),
+          const SizedBox(height: 16),
+          const _SectionLabel(
+              '6. Dịch Offline & Online — Hy-MT & ML Kit'),
+          const _TranslationModelSettingsCard(),
         ],
       ),
     );
@@ -890,19 +896,18 @@ class _PiperModelCardState extends State<_PiperModelCard> {
     if (path == null || path.isEmpty) return;
     final msg = await _manager.importPiperFolder(path);
     if (!mounted) return;
-    if (msg.startsWith(SherpaModelManager.safEmptyPrefix) ||
-        msg.contains('trống với app')) {
+    if (msg.startsWith(SherpaModelManager.safEmptyPrefix)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Android/SAF không đọc được thẻ SD. Chọn file .onnx + tokens.txt.',
+            context.uiText('Thư mục không thể mở trực tiếp (SAF). Vui lòng chọn file trong thư mục.'),
           ),
         ),
       );
       await _importFiles(context);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.uiText(msg))));
   }
 
   Future<void> _importFiles(BuildContext context) async {
@@ -1863,6 +1868,72 @@ class _AsrBadge extends StatelessWidget {
       child: Text(
         context.uiText(label),
         style: TextStyle(color: color, fontSize: 11),
+      ),
+    );
+  }
+}
+
+
+class _TranslationModelSettingsCard extends StatelessWidget {
+  const _TranslationModelSettingsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.translate_rounded, color: Colors.teal),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.uiText('Model Dịch Thuật (Hy-MT & ML Kit)'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(
+                'Quản lý gói dịch offline Google ML Kit và mô hình dịch câu Hy-MT (GGUF ~600MB). Cấu hình đồng bộ với tab Đọc sách và Dịch Cabin.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.settings_suggest_rounded),
+                label: Text(context.uiText('Cấu hình Engine Dịch & Tải gói Offline')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade700,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: const Color(0xFF1A1A2E),
+                    isScrollControlled: true,
+                    useSafeArea: true,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (ctx) => TranslationEngineSettingsSheet(
+                      service: TranslationService(),
+                      accentColor: Colors.teal,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

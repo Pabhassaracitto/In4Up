@@ -308,7 +308,7 @@ class TranslationToolbar extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _TranslationEngineSettings(
+      builder: (ctx) => TranslationEngineSettingsSheet(
         service: service,
         accentColor: primaryColor,
       ),
@@ -318,21 +318,22 @@ class TranslationToolbar extends StatelessWidget {
 
 /// Sheet "Cài đặt engine dịch": DeepLX URL + gói ML Kit offline (tải khi
 /// user bấm — không auto-download) + chế độ chỉ-offline + màn Thuật ngữ.
-class _TranslationEngineSettings extends StatefulWidget {
+class TranslationEngineSettingsSheet extends StatefulWidget {
   final TranslationService service;
   final Color accentColor;
 
-  const _TranslationEngineSettings({
+  const TranslationEngineSettingsSheet({
+    super.key,
     required this.service,
     required this.accentColor,
   });
 
   @override
-  State<_TranslationEngineSettings> createState() =>
-      _TranslationEngineSettingsState();
+  State<TranslationEngineSettingsSheet> createState() =>
+      _TranslationEngineSettingsSheetState();
 }
 
-class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> {
+class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettingsSheet> {
   late final TextEditingController _urlController =
       TextEditingController(text: widget.service.deeplxUrl ?? '');
 

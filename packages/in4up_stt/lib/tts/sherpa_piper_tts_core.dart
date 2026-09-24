@@ -286,11 +286,10 @@ class SherpaPiperTtsCore {
           if (f.existsSync()) onnxFiles.add(f);
         }
       }
-      // tokens.txt dùng chung chỉ hợp lệ khi có ĐÚNG MỘT onnx
-      // (tránh gán nhầm tokens của giọng khác).
+      // tokens.txt dùng chung có thể áp dụng cho mọi file onnx chưa có tokens riêng
+      // (hoặc tự nhân bản ra <name>_tokens.txt)
       final sharedTokens = File(p.join(dir.path, 'tokens.txt'));
-      final sharedTokensUsable =
-          sharedTokens.existsSync() && onnxFiles.length == 1;
+      final sharedTokensUsable = sharedTokens.existsSync();
 
       final voices = <PiperTtsVoice>[];
       for (final file in onnxFiles) {
@@ -304,6 +303,11 @@ class SherpaPiperTtsCore {
           tokensPath = perNameTokens;
         } else if (sharedTokensUsable) {
           tokensPath = sharedTokens.path;
+          // Tự nhân bản ra file riêng để các lần sau nhận diện nhanh và ổn định
+          try {
+            sharedTokens.copySync(perNameTokens);
+            tokensPath = perNameTokens;
+          } catch (_) {}
         }
         if (tokensPath == null) continue;
 

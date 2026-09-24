@@ -1090,17 +1090,16 @@ class SherpaModelManager {
       );
     }
 
-    // Metadata ONNX im lặng (bản int8 thật thường vậy — SHERPA-STREAM-001):
-    // chỉ nhận model có BẰNG CHỨNG khớp profile đích (tên archive/thư mục
-    // hoặc tokens đúng ngôn ngữ). Model lạ lọt vào profile sai ⇒ model
-    // streaming vào OfflineRecognizer = SIGABRT “Expected 39”.
+    // Nếu user chủ động chọn target profile từ trước (bấm Import đúng thẻ profile)
+    // và không có mâu thuẫn cứng (ví dụ: profile non-streaming nhưng encoder rõ ràng streaming),
+    // thì tôn trọng profile mà user đã chỉ định, không từ chối vì thiếu keyword tên/tokens.
     if (encoderKind == SherpaAsrEncoderKind.unknown) {
       final nameHaystack = '$sourceLabel ${encoderPath ?? ''}';
       final evidenceForTarget = target.isStreaming
           ? nameLooksStreamingModel(nameHaystack)
           : (asrTokensLookVietnamese(tokensPath) ||
               _nameLooksLanguage(nameHaystack, 'vi'));
-      if (!evidenceForTarget) {
+      if (!evidenceForTarget && explicit == null) {
         return SherpaAsrImportResult(
           status: SherpaAsrImportStatus.unknownProfile,
           detectedProfile: detected,

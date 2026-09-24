@@ -20,6 +20,7 @@ import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
 import '../models/color_mode.dart';
+import '../models/ipa_color_visibility.dart';
 import '../models/ipa_display_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
@@ -27,6 +28,8 @@ import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
+import '../services/ipa_stress_annotator.dart';
+import '../services/ipa_styling.dart';
 import '../services/line_ipa_service.dart';
 import '../services/reader_display_settings.dart';
 import '../services/storage_service.dart'; // ★ THÊM
@@ -156,6 +159,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool _ipaColorByType = false; // READ-IPA-004: tô màu phoneme (default OFF)
   bool _ipaFadeKnown = false; // READ-IPA-004: mờ IPA từ đã thuộc (OFF)
   bool _phonemeEngineLoading = false;
+
+  // READ-IPA-006: panel màu IPA tương tác.
+  bool _ipaLegendVisible = false; // panel đang mở (default ẩn)
+  IpaColorVisibility _ipaColorVisibility = IpaColorVisibility.all;
+
+  // Cache vết nối âm + âm tiết nhấn theo content dòng (P2/P3).
+  final Map<String, List<IpaLinkMark>> _linkMarkCache = {};
+  final Map<String, IpaLineStress> _stressCache = {};
   GrammarHighlightSettings _grammarSettings =
       GrammarHighlightSettings.defaults();
   List<GrammarHighlightPreset> _availableGrammarPresets =
@@ -308,6 +319,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       );
       _ipaColorByType = _storage.getIpaColorByType();
       _ipaFadeKnown = _storage.getIpaFadeKnown();
+      // READ-IPA-006: khôi phục bảng màu + độ mở panel.
+      _ipaColorVisibility =
+          IpaColorVisibility.fromJsonString(_storage.getIpaColorVisibilityJson());
+      _ipaLegendVisible = _storage.getIpaLegendVisible();
       if (_ipaDisplayMode != IpaDisplayMode.hidden || _ipaColorByType) {
         _ensurePhonemeEngine();
       }
@@ -977,6 +992,54 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool get ipaColorByType => _ipaColorByType;
   bool get ipaFadeKnown => _ipaFadeKnown;
 
+  /// READ-IPA-006: panel màu IPA đang mở hay không.
+  bool get ipaLegendVisible => _ipaLegendVisible;
+
+  /// READ-IPA-006: trạng thái bật/tắt từng loại màu (default bật hết).
+  IpaColorVisibility get ipaColorVisibility => _ipaColorVisibility;
+
+  void setIpaLegendVisible(bool value) {
+    if (_ipaLegendVisible == value) return;
+    _ipaLegendVisible = value;
+    // Persist để user "ẩn bảng thông tin" giữ nguyên qua các phiên.
+    _storage.saveIpaLegendVisible(value);
+    notifyListeners();
+  }
+
+  void setIpaColorVisible({
+    bool? vowels,
+    bool? consonants,
+    bool? diphthongs,
+    bool? stress,
+    bool? linking,
+    bool? stressWords,
+  }) {
+    final next = _ipaColorVisibility.copyWith(
+      vowels: vowels,
+      consonants: consonants,
+      diphthongs: diphthongs,
+      stress: stress,
+      linking: linking,
+      stressWords: stressWords,
+    );
+    if (next == _ipaColorVisibility) return;
+    _ipaColorVisibility = next;
+    _storage.saveIpaColorVisibility(next.toJson());
+    notifyListeners();
+  }
+
+  void resetIpaColorVisibility() {
+    if (_ipaColorVisibility == IpaColorVisibility.all) return;
+    setIpaColorVisible(
+      vowels: true,
+      consonants: true,
+      diphthongs: true,
+      stress: true,
+      linking: true,
+      stressWords: true,
+    );
+  }
+
   /// READ-IPA-004: tô màu phoneme theo loại (vowel/consonant/diphthong).
   /// Bật khi IPA mode đang mở → ensure engine CMU (phoneme types).
   void setIpaColorByType(bool value) {
@@ -1035,6 +1098,52 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     return LineIpaService.buildLineIpaSegments(_lines[index].content);
   }
 
+  /// READ-IPA-006 P2: vết nối âm C→V của dòng (length = segments.length).
+  List<IpaLinkMark>? linkMarksFor(List<IpaSegment>? segments) {
+    if (segments == null) return null;
+    final key = _ipaSegmentsKey(segments);
+    final cached = _linkMarkCache[key];
+    if (cached != null) return cached;
+    if (_linkMarkCache.length >= _ipaMarkCacheCap) _linkMarkCache.clear();
+    return _linkMarkCache[key] = IpaStyling.detectLinkMarks(segments);
+  }
+
+  /// READ-IPA-006 P3: âm tiết nhấn chính của dòng.
+  IpaLineStress? lineStressFor(List<IpaSegment>? segments) {
+    if (segments == null) return null;
+    final key = _ipaSegmentsKey(segments);
+    final cached = _stressCache[key];
+    if (cached != null) return cached;
+    if (_stressCache.length >= _ipaMarkCacheCap) _stressCache.clear();
+    return _stressCache[key] = IpaStressAnnotator.annotate(segments);
+  }
+
+  static const int _ipaMarkCacheCap = 600;
+
+  /// Key cache theo surface + ipa + phonemes — khi CMU load (G2P→CMU) phoneme
+  /// đổi ⇒ key đổi ⇒ cache cũ tự bị bỏ, không trả vết nhấn/nối âm lỗi thời.
+  static String _ipaSegmentsKey(List<IpaSegment> segments) {
+    final b = StringBuffer();
+    for (final s in segments) {
+      b
+        ..write(s.surface)
+        ..write('|')
+        ..write(s.wordCore)
+        ..write('|')
+        ..write(s.ipa ?? '')
+        ..write('|')
+        ..write(s.phonemes.join(','))
+        ..write('\u0001');
+    }
+    return b.toString();
+  }
+
+  /// Xóa cache P2/P3 khi nội dung thay đổi (gọi cùng clearCache của IPA).
+  void clearIpaMarkCaches() {
+    _linkMarkCache.clear();
+    _stressCache.clear();
+  }
+
   void _ensurePhonemeEngine() {
     if (PhonemeAnalyzer.isInitialized || _phonemeEngineLoading) return;
     _phonemeEngineLoading = true;
@@ -1044,6 +1153,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       PhonemeAnalyzer.initialize().then((_) {
         _phonemeEngineLoading = false;
         LineIpaService.clearCache();
+        clearIpaMarkCaches();
         notifyListeners();
       }).catchError((Object e) {
         _phonemeEngineLoading = false;

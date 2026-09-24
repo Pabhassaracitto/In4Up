@@ -138,7 +138,7 @@ In4Up-1.5.0+12-beta-fcaf125.apk
 `tên-a.b.c+build-kênh-hash7`. Kênh: `dev` / `beta` / số tag.  
 Trong app (Về ứng dụng): `1.5.0+12 · beta · fcaf125 · 2026-08-21`.
 
-Một nguồn số: `pubspec.yaml` `version: A.B.C+N`. Android đang cứng `versionName 1.0.0` — lần release thật nhớ bỏ cứng, đọc pubspec.  
+Một nguồn số: `pubspec.yaml` `version: A.B.C+N`. Android **đã bỏ cứng** (2026-09-24, CI-ANDROID-03): `build.gradle.kts` đọc `flutter.versionCode/versionName` từ pubspec.  
 Tag annotated: `git tag -a v1.5.0 -m "…"`. Cấm tag bisect/test bằng `v1.4.0-*`.
 
 Đồng hồ hiện lệch (`pubspec 1.4.1+3`, gradle `1.0.0`, tag `1.6.5` / `v1.4.0`). Lần phát thật tiếp theo: chọn **một** số (gợi ý `1.5.0` nếu đây là gói 251e sau VAD/Soundlist/chấm viết), ghi «đồng hồ mới từ đây». Tag cũ giữ, không xóa.
@@ -336,33 +336,44 @@ git push origin arena/01a02a12-in4up
 
 App Analyze 251e đã xanh. Full APK Android trên GitHub (tag `v*`) lần cuối vẫn đỏ google-services/`com.in4up.beta` — sửa `build.yml` `--flavor stable` (quyền workflows), không tắt flavor trong Gradle.
 
-### Tên APK Flutter 3.44.1 (đừng đảo)
+### Tên APK Flutter 3.44.1 (đừng đảo) — ĐÍNH CHÍNH 2026-09-24
 
-Source `packages/flutter_tools/lib/src/android/gradle.dart` hàm `_apkFilesFor`:
+> Mục cũ ở đây trích hàm `_apkFilesFor` (`app$flavorString-$abi-$buildType.apk`) và kết luận
+> "flavor trước ABI sau". **Sai nguồn**: `_apkFilesFor` chỉ được gọi từ `findApkFilesModule`
+> (dự án add-to-app **module**). Dự án app thường đi qua `listApkPaths()` (gradle.dart
+> ~dòng 1145) và file thật do `FlutterPlugin.kt` (~dòng 378-389) copy vào `flutter-apk/`:
+> `filename = "app" + "-$abi"? + "-$flavor"? + "-$mode"` ⇒ **ABI TRƯỚC, flavor SAU**.
+> Nhánh `02a4a` (KANBAN CI-ANDROID-01) nói đúng.
 
 ```
-app$flavorString-$abi-$buildType.apk
-→ app-stable-arm64-v8a-release.apk
+split:     app-arm64-v8a-stable-release.apk   (app-<abi>-<flavor>-<mode>.apk)
+universal: app-stable-release.apk             (app-<flavor>-<mode>.apk)
 ```
 
-**Đúng:** `app-<flavor>-<abi>-release.apk` và universal `app-stable-release.apk`.  
-**Sai** (nhánh `02a4a` đảo): `app-arm64-v8a-stable-release.apk`.
+Cả 2 workflow trong repo đã dùng đúng tên này + `--flavor stable` ở cả 2 bước build,
+bỏ `||` im lặng (card CI-ANDROID-01/03).
 
-`build_final_complete.yml` bước Rename **đã đúng** flavor-trước. Chỉ ra 1 APK universal vì bước Split có `||` — split đỏ thì im lặng build fat, không phải vì tên ABI-trước.
+### Ký APK (CI-ANDROID-03) — vì sao "cài không được"
 
-Patch `build.yml` (chủ dán, quyền `workflows`) — GitHub web editor:
+Từ commit `c5d7adbf` (05/2026) `release {}` trong `android/app/build.gradle.kts` **không có
+`signingConfig`** ⇒ AGP xuất `*-release-unsigned.apk`; Flutter đổi tên thành
+`app-stable-release.apk` che mất hậu tố ⇒ Android từ chối cài (cả local lẫn Actions).
 
-```yaml
-# Build Split + Build Universal: thêm --flavor stable
-flutter build apk --release --flavor stable --split-per-abi ...
-flutter build apk --release --flavor stable ...
+Đã sửa: Gradle đọc `android/key.properties` (gitignore) — có thì ký key thật, không có thì
+ký debug keystore (cài được, nhưng KHÔNG update đè được bản ký key khác). Muốn phát hành
+thật, chủ làm MỘT LẦN:
 
-# Rename All APKs — 4 dòng mv nguồn:
-app-armeabi-v7a-release.apk  → app-stable-armeabi-v7a-release.apk
-app-arm64-v8a-release.apk    → app-stable-arm64-v8a-release.apk
-app-x86_64-release.apk       → app-stable-x86_64-release.apk
-app-release.apk              → app-stable-release.apk
+```bash
+keytool -genkey -v -keystore in4up-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias in4up
+cp android/key.properties.example android/key.properties   # điền 4 dòng
+# GitHub Secrets: ANDROID_KEYSTORE_BASE64 (= base64 -w0 in4up-release.jks),
+#                 ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
 ```
+
+Mất file .jks = mất kênh update (user phải gỡ cài lại). Backup ≥ 2 nơi. SHA-1/SHA-256 của
+key (script CI in ra) phải thêm vào Firebase Console nếu dùng Google Sign-In.
+`versionCode/versionName` giờ đọc từ `pubspec.yaml` (`version: A.B.C+N`) — mỗi APK phát
+ra ngoài nhớ tăng `+N`.
 
 `02a4a` (PR #9 → **main**, 214 file): đã bỏ lách Gradle (đúng). Pin CMake 3.31.5 khi `CI=true` (`5995183`) hợp lý nhưng oracle `32586625020` Android vẫn đỏ Split APKs — cần log, đừng đoán. **Đừng merge PR #9 vào main.** Base đúng = 251e (như PR #8). CMake pin path-checkout 1 file `android/app/build.gradle.kts` sau Lần 1.
 

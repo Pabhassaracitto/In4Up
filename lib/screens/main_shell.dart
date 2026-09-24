@@ -12,6 +12,7 @@ import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
+import '../core/navigation/shell_navigation_request.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -90,6 +91,7 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _loadShellUiSettings();
+    ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
@@ -99,6 +101,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
     _modeSwitchHideTimer?.cancel();
     _shellHintTimer?.cancel();
     super.dispose();
@@ -374,6 +377,17 @@ class _MainShellState extends State<MainShell> {
     });
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
+  }
+
+  /// CABIN-SAVE-001: màn phía trên (Cabin) yêu cầu mở Tab Đọc.
+  void _onShellNavigationRequest() {
+    final target = ShellNavigationRequest.pending.value;
+    if (target == null || !mounted) return;
+    ShellNavigationRequest.pending.value = null;
+    switch (target) {
+      case ShellNavigationTarget.read:
+        _setReadMode(0);
+    }
   }
 
   void _setReadMode(int index) {

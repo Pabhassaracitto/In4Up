@@ -112,3 +112,20 @@ jobs:
           name: app-lhb-test-log
           path: lhb_test.log
           if-no-files-found: ignore
+
+      - name: Cabin Save test (CABIN-SAVE-001)
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          flutter test test/cabin/ > cabin_test.log 2>&1
+          code=$?
+          cat cabin_test.log
+          exit $code
+
+      - name: Upload cabin test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-cabin-test-log
+          path: cabin_test.log
+          if-no-files-found: ignore

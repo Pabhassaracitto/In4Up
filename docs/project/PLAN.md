@@ -956,3 +956,29 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-23 | 21:35 UTC | doing→done (code + CI xanh) |
     agent arena/01a0d016-in4up | commits `6c96d0e`→`fc1e0d3`; App Analyze
     run 35922641394 🟢 + 35923191460 🟢 (47 test LHB); còn nghiệm thu 2 thiết bị
+### PLAN-030 — Cabin Save: lưu ghi âm + text phiên dịch, gửi sang Tab Đọc (CABIN-SAVE-001)
+- Nguồn: người sở hữu (2026-09-24, qua agent arena/01a0d363-in4up)
+- Trạng thái: accepted (chốt phạm vi: cả 3 bước)
+- Milestone đề xuất: M3
+- Quyết định đã chốt với người sở hữu:
+  - Text mặc định: **song ngữ** (nguồn + dịch); sheet cho đổi Nguồn / Dịch / Song ngữ.
+  - Ghi âm mặc định **WAV** (PCM16 16 kHz mono); Settings có tùy chọn **nén** (xem rủi ro R2).
+  - Khi Dừng: **hiện sheet hỏi lưu**; Settings có công tắc **tự lưu không hỏi**.
+- Kiến trúc:
+  - Engine Offline (sherpa): **tee** luồng PCM `AudioRecorder.startStream` hiện có → (a) Zipformer, (b) `CabinSessionRecorder` ghi WAV streaming xuống đĩa (không mở mic lần 2).
+  - Engine hệ thống: không ghi âm song song (Android giữ mic độc quyền) → chỉ lưu text; nút ghi âm mờ + tooltip gợi ý chuyển Offline.
+  - Mỗi phiên: `AppDocuments/cabin_sessions/<yyyyMMdd_HHmmss>/` gồm `audio.wav`, `transcript.lrc` (mốc = caption final − lúc bắt đầu ghi), `session.json` (lang, engine, thời lượng, số câu).
+  - Chống mất dữ liệu: WAV ghi dần + caption final append ngay; mở lại app → vá header WAV phiên dở, liệt kê là "phiên chưa hoàn tất".
+  - Tab Đọc: dùng luồng `.lrc` sẵn có (`TextProvider.loadTextFile` + `RecentFilesService.addOrUpdate`); bước 3 gắn WAV làm audio kèm LRC.
+- Bước:
+  1. Lưu text LRC/TXT + "Lưu & mở trong Tab Đọc" (cả 2 engine) + Settings (định dạng, tự lưu).
+  2. Ghi WAV (engine Offline) + phục hồi phiên dở.
+  3. Ghép audio+LRC trong Tab Đọc + màn "Phiên đã lưu" (nghe lại / mở Đọc / chia sẻ / xoá).
+- File: mới `features/cabin/models/cabin_session.dart`, `services/cabin_session_recorder.dart`, `services/cabin_transcript_exporter.dart`, `widgets/cabin_save_sheet.dart`, `screens/cabin_sessions_screen.dart`; sửa `stts_cabin_service.dart`, `live_cabin_screen.dart`; ARB vi/en + hi/zh/zh_TW/si; test exporter (LRC timestamp), WAV header, recovery.
+- Rủi ro:
+  - R1: không có Flutter SDK trong sandbox agent → dựa CI `app_analyze.yml`.
+  - R2: repo chưa có thư viện nén audio; `record` không transcode được PCM đã ghi. Tuỳ chọn nén cần hoặc thêm dependency mới, hoặc MediaCodec native (Android) — cần người sở hữu duyệt trước khi thêm (có thể để tuỳ chọn nén ở trạng thái "sắp có" trong bước 1–3).
+  - Không đụng `lib/ffi/` / UltraTimeStretch.
+- Lịch sử:
+  - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
+  - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"

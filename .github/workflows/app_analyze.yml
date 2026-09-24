@@ -9,6 +9,13 @@ name: App Analyze + Locale Test (wide oracle)
 # Log analyze upload thành artifact (GitHub App token không đọc được
 # workflow log trực tiếp — tải artifact để đọc lỗi).
 #
+# Kèm 2 "máy bắt" chạy bằng flutter test:
+#   - Rule 5 (AGENTS.md): chrome UI không tiếng Việt khi locale ≠ vi.
+#   - Module Thuộc Lòng (LHB): SRS/cloze/ngôn ngữ + đồng bộ đa thiết bị
+#     (LHB-006 — mốc LWW, bia mộ, hàng đợi pending, streak; thuần logic,
+#     không cần mạng). Bước này tự bỏ qua nếu file test không có trên nhánh
+#     (nhánh khác chưa merge) để không làm đỏ oracle dùng chung.
+#
 # Skill: docs/skills/ci-red-debugging/SKILL.md
 
 on:
@@ -75,4 +82,33 @@ jobs:
         with:
           name: app-locale-test-log
           path: locale_test.log
+          if-no-files-found: ignore
+
+      - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
+        id: lhb-tests
+        run: |
+          set +e
+          files=""
+          for f in test/learn_by_heart_test.dart \
+                   test/learn_by_heart_cloze_test.dart \
+                   test/learn_by_heart_language_test.dart \
+                   test/learn_by_heart_sync_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test LHB trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > lhb_test.log 2>&1
+          code=$?
+          tail -n 400 lhb_test.log
+          exit $code
+
+      - name: Upload LHB test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-lhb-test-log
+          path: lhb_test.log
           if-no-files-found: ignore

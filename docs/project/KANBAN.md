@@ -77,6 +77,7 @@
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
 
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
+| LHB-006 | Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList): bài + tiến độ SRS + streak qua tài khoản | ✅ done + CI xanh (chờ nghiệm thu 2 thiết bị) | ADR-0006; `learn_by_heart_merge.dart` (thuần logic) + `learn_by_heart_sync_service.dart` (plugin/REST) + hàng đợi pending/bia mộ + badge & sheet ở hub; test `learn_by_heart_sync_test.dart`; oracle CI nay chạy thêm bước "LHB tests" (47 test) — run 35923191460 🟢 |
 | TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
 | READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 v2: READ-TOOLBAR-001 loại bỏ toàn bộ widget animation (bước 2 của card) do AT v1 icon ẩn nhưng vẫn còn khối đen; chờ nghiệm thu máy lần 2 |
@@ -85,6 +86,7 @@
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
+| CI-BUILD-01 | Workflow `build.yml` không parse được (YAML) ⇒ mọi push trên mọi nhánh đều có run đỏ ~0s, không build release được | ✅ fix YAML (chờ run build thật khi push tag/dispatch) | thụt lề 9 space trong block PowerShell `run: \|` cắt block scalar (lỗi có sẵn từ `origin/main`); sửa 1 space + kiểm chứng bằng parser YAML thật — commit `dfac0e2` |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
@@ -3299,3 +3301,88 @@
 - **Lịch sử:**
   - 2026-09-24 | 12:21 UTC | created→proposed | agent arena/01a0d34b-in4up | owner yêu cầu qua hội thoại
   - 2026-09-24 | 12:21 UTC | proposed→doing | agent arena/01a0d34b-in4up | triển khai batch difficulty + metadata; cần chạy kiểm chứng
+### LHB-006 — Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList)
+- **Nguồn:** yêu cầu owner (2026-09-23): "xem trong doc hay plan đã có kế hoạch
+  đồng bộ hoá lưu trữ cho các bài lưu trong tool học thuộc lòng chưa? Để người
+  dùng đồng bộ lưu trữ trên các thiết bị (như worklist đã có). Nếu có rồi hãy
+  hoàn thiện và triển khai, nếu chưa có hãy lên kế hoạch và triển khai."
+- **Trạng thái:** ✅ done + CI xanh (chờ nghiệm thu 2 thiết bị)
+- **Kết quả rà soát trước khi code:** CHƯA có card/kế hoạch nào cho sync LHB.
+  - `INTEGRATE-1` (proposed) chỉ bàn knowledge module (evidence/ReviewEvent).
+  - `AUDIT-2026-08-21` §4: phạm vi sync hiện tại chỉ `vocabulary_v2` + meta;
+    `LearnByHeartStorage` chỉ là SharedPreferences cục bộ.
+  ⇒ vừa ghi kế hoạch (PLAN-029 + ADR-0006) vừa triển khai trong cùng đợt.
+- **Kiến trúc (dùng lại hạ tầng của WordList, 0 dependency mới):**
+  - Local vẫn là nguồn sự thật (SharedPreferences); thêm trạng thái sync:
+    `learn_by_heart_pending_v1` (hàng đợi id) + `learn_by_heart_tombstones_v1`
+    (bia mộ id→ISO). `readItems()` RAW (không seed) cho lớp đồng bộ; seed mặc
+    định KHÔNG hồi sinh bài đã có bia mộ.
+  - Cloud: `users/{uid}/learn_by_heart/{itemId}` (JSON bài + `updatedAt` +
+    `deleted`/`deletedAt` + `_syncedAt`), `lhb_meta/checkpoint`,
+    `lhb_meta/stats` (streak/lastActiveDate).
+  - Hòa giải LWW "cloud thắng" TRỪ khi bản cục bộ pending và có `syncStamp`
+    (updatedAt → lastReviewedAt → createdAt) mới hơn; xoá bằng bia mộ
+    (chống hồi sinh, dọn sau 365 ngày).
+  - Mọi mutation (`submitReview`, `submitAssessment`, `saveItem`,
+    `deleteItem`, `toggleFavorite`, `startLearning`) đóng dấu `updatedAt` +
+    `markPending` — kể cả khi chưa đăng nhập, để đăng nhập sau không mất tiến độ.
+  - Luồng pull-trước/push-sau, debounce 5s, connectivity listener; lần đầu bật
+    sync mà cloud trống + máy có bài → đẩy toàn bộ lên.
+  - Linux không plugin → đi REST đúng ADR-0005 (`FirestoreRestClient`).
+  - UI: icon trạng thái trên app bar hub + sheet "Đồng bộ đa thiết bị"
+    (Đồng bộ ngay / Kéo toàn bộ / Đẩy tất cả / gợi ý đăng nhập), chuỗi 6 ngữ
+    qua `LearnByHeartL10n` (rule #5).
+- **File:** `models/learn_by_heart_{item,stats}.dart`,
+  `services/learn_by_heart_{storage,merge,sync_service}.dart`,
+  `controllers/learn_by_heart_provider.dart`,
+  `screens/learn_by_heart_hub_screen.dart`, `i18n/learn_by_heart_l10n.dart`,
+  `lib/main.dart` (listener `AuthService().authStateChanges`),
+  `test/learn_by_heart_sync_test.dart`, ADR-0006, PLAN-029.
+- **AT nghiệm thu (2 thiết bị):** thêm/sửa ở A → B thấy; FSRS ở B → A cập nhật;
+  xoá ở A → B mất và không hồi sinh; cùng sửa offline → bản mới hơn thắng;
+  máy mới đăng nhập → kéo đủ bài + streak; Linux chạy qua REST.
+- **Bằng chứng máy (2026-09-23):**
+  - Run **35922641394** 🟢 — analyze toàn app + rule #5 (commit `8e89954`).
+  - Run **35923191460** 🟢 — thêm bước **"LHB tests"** trong `app_analyze.yml`
+    (bỏ qua an toàn nếu nhánh chưa có file test): 4 file `test/learn_by_heart*`,
+    **47 test xanh**, gồm **19 test LHB-006**; artifact `app-lhb-test-log`.
+  - **PR #42** (base `arena/01a0251e-in4up`): run **35923638972** 🟢 và
+    **35923797855** 🟢 (head `dfac0e2`, đủ 3 bước: analyze + rule #5 + LHB tests).
+  - Sửa 6 lỗi analyze chặn CI (thiếu khai báo field `updatedAt`; getter
+    `syncJustNow` thiếu từ khoá `get`) — bắt bằng probe tắt lint + đọc job log
+    (skill ci-red-debugging §5.20/§6.1).
+  - 2 lỗi hòa giải do bộ test bắt được (đảo thứ tự bài mới từ cloud; phép
+    "đã sync rồi" dùng mốc thay vì nội dung ⇒ bỏ qua bản cloud mới hơn) — xem
+    ADR-0006 mục 3 bổ sung.
+- **Lịch sử:**
+  - 2026-09-23 | created→doing | agent arena/01a0d016-in4up | rà doc: chưa có
+    kế hoạch → viết ADR-0006 + PLAN-029 và triển khai (merge thuần + sync
+    service + pending/bia mộ + badge/sheet + test); chờ CI + nghiệm thu máy
+  - 2026-09-23 | 21:35 UTC | doing→done (code + CI xanh) | agent arena/01a0d016-in4up |
+    commit `6c96d0e`→`8e89954`→`51b2eff`→`fc1e0d3`; App Analyze run 35922641394 🟢
+    và 35923191460 🟢 (47 test LHB, 19 test sync); còn nghiệm thu 2 thiết bị +
+    Linux REST theo ADR-0006 §AT
+  - 2026-09-23 | 21:50 UTC | giữ nguyên done + mở PR | agent arena/01a0d016-in4up |
+    PR #42 (base `arena/01a0251e-in4up`) + run PR 35923638972 🟢 / 35923797855 🟢;
+    kèm card CI-BUILD-01 (fix YAML `build.yml` — commit `dfac0e2`)
+
+### CI-BUILD-01 — `build.yml` không parse được: mọi push đều có run đỏ 0s
+- **Nguồn:** phát hiện khi rà CI của PR #42 (LHB-006), 2026-09-23 — mọi push trên
+  mọi nhánh (`01a0251e`, `01a0cff6`, `01a0cfc8`, `01a0d016`) đều sinh run
+  `build.yml` **failure ~0s**, không bao giờ build release được.
+- **Trạng thái:** ✅ fix YAML (chờ run build thật khi push tag `v*` / dispatch)
+- **Nguyên nhân:** trong block `run: |` (PowerShell, job `build-windows`), dòng
+  `Get-ChildItem $RELEASE_DIR | Select-Object Name, Length` bị thụt **9 space**
+  thay vì 10 ⇒ YAML kết thúc block scalar sớm ⇒ cả file workflow không parse
+  được; GitHub tạo "workflow file issue" run cho mọi push. Lỗi **có sẵn trên
+  `origin/main`** (cùng dòng 265), không phải do đợt LHB-006.
+- **Fix:** 1 space (`dfac0e2`). Kiểm chứng bằng parser YAML thật (npm `yaml`):
+  `build.yml` OK (jobs build-android/build-windows/build-ios),
+  `app_analyze.yml` + `build_final_complete.yml` OK (không đổi).
+- **Hệ quả:** từ commit `dfac0e2` không còn run đỏ 0s nào của `build.yml` trên
+  push nhánh; workflow về đúng trigger của nó (tag `v*` hoặc dispatch).
+- **Còn mở:** chưa chạy được build Android/Windows/iOS thật (token Agent không có
+  quyền `workflows` để dispatch; cần owner push tag hoặc bấm chạy workflow).
+- **Lịch sử:**
+  - 2026-09-23 | created→done (fix YAML) | agent arena/01a0d016-in4up | commit
+    `dfac0e2`; PR #42; xác nhận không còn run `build.yml` đỏ 0s sau commit

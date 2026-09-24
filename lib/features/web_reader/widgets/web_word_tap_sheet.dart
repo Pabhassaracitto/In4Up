@@ -8,6 +8,7 @@ import '../../../models/word_analysis.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../../../widgets/vocab_entry_meta.dart';
+import '../../../widgets/vocab_quick_save_sheet.dart';
 import '../web_reader_controller.dart';
 
 /// Bottom sheet hiện khi tap vào từ trong Web Reader
@@ -22,6 +23,63 @@ class WebWordTapSheet extends StatelessWidget {
     this.analyzed,
     required this.controller,
   });
+
+  Future<void> _saveWithDetails(
+    BuildContext context,
+    String cleanWord,
+    String? existingMeaning,
+    String? existingPhonetic,
+    String? existingExample,
+    VocabularyProvider provider,
+    String? existingId,
+  ) async {
+    final sourceContext = controller.suggestedExampleForWord();
+    final details = await VocabQuickSaveSheet.show(
+      context,
+      word: cleanWord,
+      meaning: (existingMeaning ?? '').trim().isNotEmpty
+          ? existingMeaning!.trim()
+          : analyzed?.meaning ?? '',
+      phonetic: (existingPhonetic ?? '').trim().isNotEmpty
+          ? existingPhonetic!.trim()
+          : analyzed?.phonetic ?? '',
+      example: (existingExample ?? '').trim().isNotEmpty
+          ? existingExample!.trim()
+          : analyzed?.example ?? sourceContext,
+      sourceContext: sourceContext,
+    );
+    if (details == null || !context.mounted) return;
+
+    final added = controller.saveWordToWordList(
+      cleanWord,
+      analyzed: analyzed,
+      surroundingText: sourceContext,
+      meaningOverride: details.meaning,
+      phoneticOverride: details.phonetic,
+      exampleOverride: details.example,
+    );
+    if (existingId != null) {
+      provider.updateWord(
+        existingId,
+        meaning: details.meaning,
+        phonetic: details.phonetic.trim(),
+        example: details.example,
+      );
+    }
+    final message = context.uiText(added
+        ? '📚 Đã thêm "$cleanWord" vào WordList'
+        : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList');
+    final messenger = ScaffoldMessenger.of(context);
+    HapticFeedback.mediumImpact();
+    Navigator.pop(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF2E7D32),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   static void show(
     BuildContext context,
@@ -301,12 +359,14 @@ class WebWordTapSheet extends StatelessWidget {
                         analyzed: analyzed,
                       );
                       HapticFeedback.selectionClick();
+                      final message = context.uiText(
+                        '"$cleanWord" → ${context.uiText(level.label)}',
+                      );
+                      final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(
-                          content: Text(
-                            '"$cleanWord" → ${context.uiText(level.label)}',
-                          ),
+                          content: Text(message),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
                         ),
@@ -350,10 +410,14 @@ class WebWordTapSheet extends StatelessWidget {
                   onTap: () {
                     controller.saveWordToMemory(cleanWord, analyzed: analyzed);
                     HapticFeedback.mediumImpact();
+                    final message = context.uiText(
+                      '✅ Đã lưu "$cleanWord" vào Vườn Nhớ',
+                    );
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
-                        content: Text(context.uiText('✅ Đã lưu "$cleanWord" vào Vườn Nhớ')),
+                        content: Text(message),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -402,14 +466,14 @@ class WebWordTapSheet extends StatelessWidget {
                       analyzed: analyzed,
                     );
                     HapticFeedback.mediumImpact();
+                    final message = context.uiText(added
+                        ? '📚 Đã thêm "$cleanWord" vào WordList'
+                        : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList');
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
-                        content: Text(
-                          context.uiText(added
-                              ? '📚 Đã thêm "$cleanWord" vào WordList'
-                              : '📚 Đã bổ sung ngữ cảnh cho "$cleanWord" trong WordList'),
-                        ),
+                        content: Text(message),
                         backgroundColor: const Color(0xFF2E7D32),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -452,7 +516,30 @@ class WebWordTapSheet extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () => _saveWithDetails(
+                context,
+                cleanWord,
+                existing?.meaning,
+                existing?.phonetic,
+                existing?.example,
+                provider,
+                existing?.id,
+              ),
+              icon: const Icon(Icons.edit_note, size: 17),
+              label: Text(context.uiText(existing == null
+                  ? 'Lưu kèm IPA và ví dụ…'
+                  : 'Bổ sung IPA / ví dụ…')),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF81C784),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [

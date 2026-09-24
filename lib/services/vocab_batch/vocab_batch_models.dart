@@ -1,3 +1,5 @@
+import 'package:in4up_core/vocab_level_difficulty.dart';
+
 enum WebExtractionSort {
   priority,
   frequency,
@@ -104,6 +106,7 @@ class WebExtractionCandidate {
   bool enriched;
   String enrichSource;
   bool selected;
+  DifficultyLevel? difficulty;
 
   WebExtractionCandidate({
     required this.text,
@@ -124,6 +127,7 @@ class WebExtractionCandidate {
     this.enriched = false,
     this.enrichSource = '',
     this.selected = false,
+    this.difficulty,
   });
 
   Map<String, dynamic> toJson() => {
@@ -145,6 +149,7 @@ class WebExtractionCandidate {
         'enriched': enriched,
         'enrichSource': enrichSource,
         'selected': selected,
+        'difficulty': difficulty?.name,
       };
 
   factory WebExtractionCandidate.fromJson(Map<String, dynamic> json) {
@@ -175,6 +180,7 @@ class WebExtractionCandidate {
       enriched: json['enriched'] == true,
       enrichSource: (json['enrichSource'] ?? '').toString(),
       selected: json['selected'] == true,
+      difficulty: _difficultyFromJson(json['difficulty']),
     );
   }
 
@@ -183,6 +189,15 @@ class WebExtractionCandidate {
   bool get hasExample =>
       ((example ?? '').trim().isNotEmpty) || sampleContext.trim().isNotEmpty;
   bool get isImportReady => hasMeaning && hasTopic && hasExample;
+}
+
+DifficultyLevel? _difficultyFromJson(Object? raw) {
+  final name = raw?.toString();
+  if (name == null || name.isEmpty) return null;
+  for (final level in DifficultyLevel.values) {
+    if (level.name == name) return level;
+  }
+  return null;
 }
 
 class WebBatchImportResult {

@@ -5,12 +5,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../models/vocab_context.dart';
-import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
-import '../../../services/vocab_classifier.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../../../widgets/vocab_entry_meta.dart';
+import '../../../widgets/vocab_quick_save_sheet.dart';
 import '../models/pdf_word_info.dart';
 import '../pdf_reader_controller.dart';
 
@@ -218,10 +217,14 @@ class _WordSheet extends StatelessWidget {
                   onTap: () {
                     controller.saveWordToMemory(wordInfo);
                     HapticFeedback.mediumImpact();
+                    final message = context.uiText(
+                      '✅ Đã lưu "$displayWord" vào Vườn Nhớ',
+                    );
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       SnackBar(
-                        content: Text(context.uiText('✅ Đã lưu "$displayWord" vào Vườn Nhớ')),
+                        content: Text(message),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
                         duration: const Duration(seconds: 2),
@@ -279,12 +282,14 @@ class _WordSheet extends StatelessWidget {
                     onTap: () {
                       controller.markWordDifficulty(wordInfo, d);
                       HapticFeedback.selectionClick();
+                      final message = context.uiText(
+                        '"$displayWord" → ${context.uiText(d.label)}',
+                      );
+                      final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(
-                          content: Text(
-                            '"$displayWord" → ${context.uiText(d.label)}',
-                          ),
+                          content: Text(message),
                           behavior: SnackBarBehavior.floating,
                           duration: const Duration(seconds: 2),
                         ),
@@ -609,21 +614,6 @@ class PdfWordSaveSection extends StatefulWidget {
 
 class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
   bool _saved = false;
-  bool _showForm = false;
-  final _meaningCtrl = TextEditingController();
-  late VocabularyType _detectedType;
-
-  @override
-  void initState() {
-    super.initState();
-    _detectedType = VocabClassifier.classify(widget.word);
-  }
-
-  @override
-  void dispose() {
-    _meaningCtrl.dispose();
-    super.dispose();
-  }
 
   VocabContext get _context {
     final precise = widget.wordInfo;
@@ -648,160 +638,90 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
   @override
   Widget build(BuildContext context) {
     final provider = context.read<VocabularyProvider>();
-    final alreadyExists = provider.hasWord(widget.word);
+    final existing = provider.findByWord(widget.word);
 
-    if (alreadyExists && !_saved) {
-      // Từ đã tồn tại → thêm context mới (Context-Accumulation)
+    if (existing != null && !_saved) {
+      // Từ đã tồn tại → thêm context mới (Context-Accumulation).
       return _buildExistsState(provider);
     }
 
-    if (_saved) {
-      return _buildSavedState();
-    }
+    if (_saved) return _buildSavedState();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(color: Color(0xFF1E2A3A), height: 20),
-
-        // ── Cấp 1: Lưu nhanh (1 click) ──
         Row(
           children: [
             Expanded(
               child: _QuickSaveButton(
-                label: 'Lưu nhanh',
+                label: context.uiText('Lưu nhanh'),
                 icon: Icons.bolt,
                 color: const Color(0xFF4CAF50),
                 onTap: () => _saveQuick(provider),
               ),
             ),
             const SizedBox(width: 8),
-            // ── Cấp 2: Lưu có xác nhận ──
             Expanded(
               child: _QuickSaveButton(
-                label: 'Lưu + nghĩa',
+                label: context.uiText('Lưu chi tiết'),
                 icon: Icons.edit_note,
                 color: const Color(0xFF2196F3),
-                onTap: () => setState(() => _showForm = !_showForm),
+                onTap: () => _saveWithDetails(provider),
               ),
             ),
           ],
         ),
-
-        // ── Cấp 2: Inline form ──
-        if (_showForm) ...[
-          const SizedBox(height: 10),
-          _buildInlineForm(provider),
-        ],
       ],
     );
   }
 
-  // ── Cấp 1: Save nhanh nhất ──
   void _saveQuick(VocabularyProvider provider) {
-    provider.addWithAutoClassify(
+    final analysis = widget.wordInfo?.analyzed;
+    final entry = provider.addWithAutoClassify(
       text: widget.word,
-      meaning: '', // Sẽ bổ sung sau (Progressive Effort)
+      meaning: analysis?.meaning ?? '',
+      phonetic: analysis?.phonetic,
       context: _context,
     );
+    final example = widget.surroundingText.trim().isNotEmpty
+        ? widget.surroundingText.trim()
+        : analysis?.example?.trim() ?? '';
+    if (example.isNotEmpty && (entry.example ?? '').trim().isEmpty) {
+      provider.updateWord(entry.id, example: example);
+    }
     widget.controller.refreshVocabularySignals();
     setState(() => _saved = true);
     HapticFeedback.lightImpact();
   }
 
-  // ── Cấp 2: Form xác nhận ──
-  Widget _buildInlineForm(VocabularyProvider provider) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Color(0xFF2196F3).withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Từ + loại
-          Row(
-            children: [
-              Text(widget.word,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _detectedType.bgColor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(_detectedType.label(context),
-                    style: TextStyle(
-                        color: _detectedType.color,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Nghĩa input
-          TextField(
-            controller: _meaningCtrl,
-            autofocus: true,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: context.uiText('Nhập nghĩa...'),
-              hintStyle: TextStyle(color: Colors.grey[600], fontSize: 13),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.05),
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      const BorderSide(color: Color(0xFF2196F3), width: 1.5)),
-            ),
-            onSubmitted: (_) => _saveWithMeaning(provider),
-          ),
-          const SizedBox(height: 8),
-
-          // Save button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _saveWithMeaning(provider),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2196F3),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('✓ Lưu',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _saveWithDetails(VocabularyProvider provider) async {
+    final analysis = widget.wordInfo?.analyzed;
+    final sourceContext = widget.surroundingText.trim().isNotEmpty
+        ? widget.surroundingText.trim()
+        : analysis?.example?.trim() ?? '';
+    final details = await VocabQuickSaveSheet.show(
+      context,
+      word: widget.word,
+      meaning: analysis?.meaning ?? '',
+      phonetic: analysis?.phonetic ?? '',
+      example: sourceContext,
+      sourceContext: sourceContext,
     );
-  }
+    if (details == null || !mounted) return;
 
-  void _saveWithMeaning(VocabularyProvider provider) {
-    provider.addWithAutoClassify(
+    final entry = provider.addWithAutoClassify(
       text: widget.word,
-      meaning: _meaningCtrl.text.trim(),
+      meaning: details.meaning,
+      phonetic: details.phonetic.trim().isEmpty ? null : details.phonetic.trim(),
       context: _context,
     );
+    if (details.example.trim().isNotEmpty &&
+        (entry.example ?? '').trim().isEmpty) {
+      provider.updateWord(entry.id, example: details.example.trim());
+    }
     widget.controller.refreshVocabularySignals();
-    setState(() {
-      _saved = true;
-      _showForm = false;
-    });
+    setState(() => _saved = true);
     HapticFeedback.mediumImpact();
   }
 
@@ -824,7 +744,6 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
           ),
           GestureDetector(
             onTap: () {
-              // Thêm context mới (Context-Accumulation)
               final existing = provider.findByWord(widget.word);
               if (existing != null) {
                 provider.addContextToWord(existing.id, _context);

@@ -1,8 +1,13 @@
 // test/line_ipa_service_test.dart
 //
 // Unit test P1 (READ-IPA-001): LineIpaService.buildLineIpa —
-// eligibility (chặn chữ Việt/Pali), join phoneme `''`, cache theo content.
+// eligibility, join phoneme `''`, cache theo content.
 // Dùng wordIpaOverride seam → không cần asset CMU Dict trong test.
+//
+// Contract (README-IPA-006 mục 1 — KHÔNG còn bỏ cả dòng vì 1 token lạ):
+//  - dòng không có từ ASCII nào (thuần Việt/Pali) → null;
+//  - token dính dấu câu / từ ngoại có dấu → tách run chữ, skip phần lạ,
+//    giữ từ Anh (thay cho `null` cả dòng của v1).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/services/line_ipa_service.dart';
 
@@ -51,16 +56,61 @@ void main() {
       expect(LineIpaService.buildLineIpa('Hello — world'), 'həˈloʊ wɝld');
     });
 
-    test('chứa chữ không-ASCII (Việt) → null cả dòng', () {
+    test('dòng thuần Việt (không từ ASCII nào) → null, không resolve', () {
       var called = false;
       LineIpaService.wordIpaOverride = (_) {
         called = true;
         return 'x';
       };
-      expect(LineIpaService.buildLineIpa('Xin chào'), isNull);
+      // 'chào' và cả dòng đều không có từ ASCII → null.
+      expect(LineIpaService.buildLineIpa('chào'), isNull);
       expect(LineIpaService.buildLineIpa('đây là tiếng Việt'), isNull);
-      // Eligibility fail TRƯỚC khi resolve → resolver không được gọi.
+      // Không từ ASCII → fail TRƯỚC khi resolve → resolver không gọi.
       expect(called, isFalse);
+    });
+
+    test('dòng lẫn từ Anh + chữ Việt → giữ từ Anh, bỏ chữ Việt (v2)', () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'hello': 'həˈloʊ',
+        'world': 'wɝld',
+      });
+      expect(LineIpaService.buildLineIpa('Hello chào world'), 'həˈloʊ wɝld');
+    });
+
+    test('từ ngoại có dấu (Pali cetanā / Pāḷi) đứng riêng → skip, giữ từ Anh',
+        () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'mind': 'maɪnd',
+        'is': 'ɪz',
+      });
+      // (cetanā) là cụm ngoại bọc ngoặc → skip; 2 từ Anh vẫn có IPA.
+      expect(
+        LineIpaService.buildLineIpa('mind (cetanā) is'),
+        'maɪnd ɪz',
+      );
+    });
+
+    test('dính dấu câu consciousness.If → tách, lookup đúng từ (cause B)', () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'consciousness': 'ˈkɑːnʃəsnəs',
+        'if': 'ɪf',
+      });
+      expect(
+        LineIpaService.buildLineIpa('consciousness.If'),
+        'ˈkɑːnʃəsnəs ɪf',
+      );
+    });
+
+    test('dính từ ngoại wholesome(kusa la), → tách, lookup đúng từ (cause B)',
+        () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'wholesome': 'ˈhoʊlsəm',
+      });
+      // (kusa la) là cụm ngoại bọc ngoặc → skip; phần Anh vẫn có IPA.
+      expect(
+        LineIpaService.buildLineIpa('wholesome(kusa la),'),
+        'ˈhoʊlsəm',
+      );
     });
 
     test('digit bám ngoài từ bị strip → từ vẫn hợp lệ', () {
@@ -73,9 +123,14 @@ void main() {
       expect(LineIpaService.buildLineIpa('covid, rules'), 'koʊvɪd ruːlz');
     });
 
-    test('hyphen nội tại không đủ eligibility → null (v1 chặt)', () {
-      LineIpaService.wordIpaOverride = (_) => 'x';
-      expect(LineIpaService.buildLineIpa('a well-known fact'), isNull);
+    test('hyphen nội tại → tách run, mỗi phần thành từ (v2 khoan dung)', () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'a': 'ə',
+        'well': 'wɛl',
+        'known': 'noʊn',
+        'fact': 'fækt',
+      });
+      expect(LineIpaService.buildLineIpa('a well-known fact'), 'ə wɛl noʊn fækt');
     });
 
     test('từ có apostrophe hợp lệ', () {
@@ -115,8 +170,8 @@ void main() {
         calls++;
         return 'x';
       };
-      final a = LineIpaService.buildLineIpa('Hello world');
-      final b = LineIpaService.buildLineIpa('Hello world');
+      final a = LineIpaService.buildLineIpa('Hello');
+      final b = LineIpaService.buildLineIpa('Hello');
       expect(calls, 1);
       expect(a, b);
       expect(LineIpaService.cacheSize, 1);
@@ -210,6 +265,48 @@ void main() {
       LineIpaService.wordIpaOverride = fakeTable({'world': 'wɝld'});
       final segs = LineIpaService.buildLineIpaSegments('world');
       expect(segs!.single.phonemes, ['wɝld']);
+    });
+
+    test('token dính dấu câu → tách từ, punct giữ làm segment skip', () {
+      LineIpaService.wordIpaOverride = fakeTable({
+        'consciousness': 'ˈkɑːnʃəsnəs',
+        'if': 'ɪf',
+      });
+      final segs = LineIpaService.buildLineIpaSegments('consciousness.If');
+      expect(segs, isNotNull);
+      expect(segs, hasLength(3));
+      expect(segs![0].surface, 'consciousness');
+      expect(segs[0].wordCore, 'consciousness');
+      expect(segs[0].ipa, 'ˈkɑːnʃəsnəs');
+      // Dấu chấm dính giữa 2 từ → segment surface-only (interlinear giữ dấu).
+      expect(segs[1].surface, '.');
+      expect(segs[1].isWord, isFalse);
+      expect(segs[1].ipa, isNull);
+      expect(segs[2].surface, 'If');
+      expect(segs[2].wordCore, 'If');
+      expect(segs[2].ipa, 'ɪf');
+      // View phẳng chỉ join phần có IPA (punct không lọt vào).
+      expect(LineIpaService.flatIpa(segs), 'ˈkɑːnʃəsnəs ɪf');
+    });
+
+    test('token từ ngoại không-ASCII → segment surface-only, không tra IPA',
+        () {
+      var calls = 0;
+      LineIpaService.wordIpaOverride = (w) {
+        calls++;
+        return w.toLowerCase() == 'mind' ? 'maɪnd' : 'x';
+      };
+      final segs = LineIpaService.buildLineIpaSegments('mind (cetanā)');
+      expect(segs, isNotNull);
+      expect(segs, hasLength(2));
+      expect(segs![0].wordCore, 'mind');
+      expect(segs[0].ipa, 'maɪnd');
+      // (cetanā) là cụm ngoại → render nguyên văn, KHÔNG gọi resolver.
+      expect(segs[1].isWord, isFalse);
+      expect(segs[1].ipa, isNull);
+      expect(segs[1].surface, '(cetanā)');
+      // Đúng 1 lần resolve cho 'mind'.
+      expect(calls, 1);
     });
 
     test('IpaSegment == theo value — selector không rebuild vô hạn', () {

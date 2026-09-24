@@ -3286,11 +3286,19 @@
 
   Yêu cầu người dùng (INA 2 Lưu Từ — 4 mục, branch `arena/01a0d33c-in4up`):
 
-  1. **Khi dịch IPA toàn văn bị thiếu dòng:** chưa tái lập được trên máy
-     (sandbox không có Flutter SDK). Khả năng cao: dòng có hyphen nội tại
-     (`well-known`, `re-open`…), ký tự lạ, hoặc từ bị G2P bỏ trống → cả dòng
-     bị loại theo eligibility (P1, chặt). ĐÃ GIỮ NGUYÊN hợp đồng eligibility
-     — cần người dùng gửi RÕ câu/đoạn cụ thể để bisect chính xác.
+  1. **Khi dịch IPA toàn văn bị thiếu dòng:** ✅ đã sửa — root cause đã được
+     xác nhận bằng chẩn đoán Gemini (screenshot dòng 33–36 không có IPA):
+     `_computeSegments` hợp đồng P1 CŨ trả `null` CẢ DÒNG khi có token không
+     khớp `^[A-Za-z][A-Za-z']*$` (từ Pali/Sanskrit có dấu `cetanā`,
+     `(kusa la)`; hoặc dính dấu câu `consciousness.If`, `wholesome(kusa`).
+     SỬA: bỏ short-circuit toàn dòng → tách token theo run chữ, từ Anh vẫn có
+     IPA, phần ngoại/dấu câu thành segment surface-only (skip, render nguyên
+     văn ở interlinear); CHỈ dòng không có từ ASCII nào (thuần Việt/Pali) mới
+     null. Chú giải Pali thường bọc ngoặc trải dài nhiều token
+     (`wholesome(kusa la),`) → theo dõi độ sâu `(` để không tra IPA sai cho
+     `kusa`/`la`. Test mở rộng `line_ipa_service_test.dart` (Pali/diacritic +
+     glue punctuation + dòng lẫn Anh/Việt; sửa 1 test cache tiềm ẩn sai
+     counts vì chưa từng chạy do thiếu SDK).
 
   2. **Bảng thông tin màu IPA:** ✅
      - `IpaLegendStrip` — dải chip màu ngay dưới TopBar Read Mode, mỗi loại
@@ -3327,3 +3335,4 @@
 
 - **Lịch sử:**
   - 2026-09-24 | created→doing | ai | theo yêu cầu IPA 2 (4 mục) trên arena/01a0d33c-in4up
+  - 2026-09-25 | doing | ai | item 1 — xác nhận root cause (LineIpaService bỏ CẢ DÒNG khi token lạ) theo chẩn đoán Gemini; sửa `_computeSegments` thành token-level fallback (tách run chữ, skip từ ngoại/dấu câu, giữ nguyên dòng); mở rộng test Pali/diacritic + glue punctuation; sửa 1 test cache thiếu count

@@ -922,3 +922,17 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Sinhala: piper-voices chưa có giọng si — ghi rõ, không bịa model.
 - Lịch sử:
   - 2026-09-15 | created→doing | agent arena/01a08043-in4up
+
+### PLAN-029 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
+- **Nguồn:** người sở hữu (2026-09-24, qua agent `arena/01a0d344-in4up`).
+- **Yêu cầu:** nhận diện **cụm** (NP/VP/AdvP/"cụm …") + **cấu trúc câu** (hỏi/khẳng định/phủ định;
+  thì quá–hiện–vị; hoàn thành; tiếp diễn) + **công thức** `S + V + …`, gắn đúng chỗ badge
+  "Loại từ · CEFR" trong tab Đọc.
+- **Trạng thái:** 📋 proposed — kế hoạch đầy đủ ở `docs/project/PLAN-029-cau-truc-cau-read-tab.md`;
+  ADR: `docs/adr/0006-cau-truc-cau-lop-rieng-line-first.md`; KANBAN: `READ-GRAM-001`.
+- **Đặc tả đã kiểm chứng:** `tool/grammar_probe/` (engine + 3 corpus JSON + runner). Số **trung thực**
+  trên bộ đóng băng: **17/25 case (68%)**, 8 lỗi ⇒ 4 nguyên nhân gốc đã phân loại.
+- **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng (1,5–2 ngày)
+  → P3 panel + block AI (1–2 ngày).
+- **Lịch sử:**
+  - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | spike + kế hoạch; chờ chốt 3 điểm §10

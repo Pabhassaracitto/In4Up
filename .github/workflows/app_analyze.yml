@@ -52,6 +52,40 @@ jobs:
           tail -n 300 analyze.log
           exit $code
 
+      # Temporary CI diagnosis: analyzer failures are emitted as GitHub
+      # annotations so they remain readable when runner log downloads are blocked.
+      - name: Emit analyzer errors as annotations (temporary diagnosis)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          log_path = Path('analyze.log')
+          if not log_path.exists():
+              print('analyze.log was not produced')
+              raise SystemExit(0)
+
+          pattern = re.compile(
+              r'^\s*(error|warning|info)\s+•\s+(.*?)\s+•\s+(.+?):(\d+):(\d+)\s+•\s*(.*)$'
+          )
+          errors = 0
+          for line in log_path.read_text(errors='replace').splitlines():
+              match = pattern.match(line)
+              if not match or match.group(1) != 'error':
+                  continue
+              _, message, file_path, line_number, column, code = match.groups()
+              def escape(value):
+                  return value.replace('%', '%25').replace(chr(13), '%0D').replace(chr(10), '%0A')
+              print(
+                  f'::error file={file_path},line={line_number},col={column},'
+                  f'title={escape(code or "flutter analyze")}::{escape(message)}'
+              )
+              errors += 1
+          print(f'Emitted {errors} analyzer error annotation(s).')
+          PY
+
       - name: Upload analyze log
         if: always()
         uses: actions/upload-artifact@v4

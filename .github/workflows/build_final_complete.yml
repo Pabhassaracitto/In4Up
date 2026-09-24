@@ -241,19 +241,10 @@ jobs:
 
       # Tên do Flutter 3.44.1 sinh (FlutterPlugin.kt): app<-abi>?<-flavor>?-<mode>.apk
       # ⇒ split: app-<abi>-stable-release.apk (ABI TRƯỚC, flavor SAU); universal: app-stable-release.apk.
-      # `set -e` + mv không `|| true`: thiếu file nào job đỏ ngay tại đây, không ship thiếu.
+      # Script thử cả thứ tự khác để không gãy khi đổi Flutter; THIẾU APK nào ⇒ job đỏ (hết `|| true`).
       - name: Rename All APKs
         shell: bash
-        run: |
-          set -e
-          TAG="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          OUT=build/app/outputs/flutter-apk
-          ls -la "$OUT"
-          mv "$OUT/app-armeabi-v7a-stable-release.apk" "$OUT/in4up-Android-armv7-$TAG.apk"
-          mv "$OUT/app-arm64-v8a-stable-release.apk"   "$OUT/in4up-Android-arm64-$TAG.apk"
-          mv "$OUT/app-x86_64-stable-release.apk"      "$OUT/in4up-Android-x64-$TAG.apk"
-          mv "$OUT/app-stable-release.apk"             "$OUT/in4up-Android-Universal-All-CPU-$TAG.apk"
-          ls -lh "$OUT"/in4up-Android-*.apk
+        run: bash scripts/ci/android_rename_apks.sh "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
 
       # LƯỚI AN TOÀN (CI-ANDROID-03): APK chưa ký ⇒ fail tại đây, KHÔNG đẩy lên Release.
       - name: Verify APKs are signed

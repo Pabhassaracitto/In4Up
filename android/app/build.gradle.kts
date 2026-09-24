@@ -1,3 +1,4 @@
+import java.io.File
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -46,12 +47,12 @@ if (in4upKeystorePropertiesFile.exists()) {
     FileInputStream(in4upKeystorePropertiesFile).use { in4upKeystoreProperties.load(it) }
 }
 
-/** storeFile trong key.properties: đường dẫn tuyệt đối HOẶC tương đối so với android/app (như docs Flutter). */
-fun in4upResolveStoreFile(raw: String?): File? {
-    if (raw.isNullOrBlank()) return null
-    val f = File(raw)
-    return if (f.isAbsolute) f else project.file(raw)
-}
+/**
+ * storeFile trong key.properties: đường dẫn tuyệt đối HOẶC tương đối so với android/app —
+ * Project.file() xử lý cả hai (giống snippet ký APK trong docs Flutter: `file(it)`).
+ */
+fun in4upResolveStoreFile(raw: String?): File? =
+    if (raw.isNullOrBlank()) null else project.file(raw.trim())
 
 val in4upReleaseStoreFile: File? =
     in4upResolveStoreFile(in4upKeystoreProperties.getProperty("storeFile"))

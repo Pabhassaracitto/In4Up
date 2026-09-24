@@ -10,6 +10,7 @@ import 'package:in4up/models/word_entry.dart';
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
+import '../../models/ipa_display_mode.dart';
 import '../../models/learning_activity.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
@@ -20,6 +21,7 @@ import 'models/recent_file.dart';
 import 'services/recent_files_service.dart';
 import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
+import 'widgets/ipa_legend_strip.dart';
 import 'widgets/read_bottom_bar.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/smart_playback_bar.dart';
@@ -182,11 +184,19 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           final isSmallScreen = MediaQuery.of(context).size.height < 700 ||
               MediaQuery.of(context).size.width < 380;
 
+          // READ-IPA-006: panel màu IPA — dải thông tin tương tác ngay dưới
+          // TopBar, ẩn được (yêu cầu mục 2). Chỉ có nghĩa khi có IPA + tô màu.
+          final showIpaLegend = textProvider.ipaLegendVisible &&
+              textProvider.ipaColorByType &&
+              textProvider.ipaDisplayMode != IpaDisplayMode.hidden;
+
           return Stack(
             children: [
               Column(
                 children: [
                   if (!isFocusMode) const ReadTopBar(),
+                  if (!isFocusMode && showIpaLegend)
+                    IpaLegendStrip(tp: textProvider),
                   if (!isFocusMode && showGrammarLegend)
                     _GrammarLegendStrip(textProvider: textProvider),
                   if (!isFocusMode &&

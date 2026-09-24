@@ -760,6 +760,9 @@ class _IpaSaveSourceSectionState extends State<_IpaSaveSourceSection> {
 /// Toggle tô màu phoneme + mờ IPA từ đã thuộc — READ-IPA-004 (ADR-0005 §4).
 /// Cả hai default OFF; legend hiện ra khi bật tô màu (không nhập
 /// [_LegendPanel] — keying khác: ipaColorByType ≠ colorMode).
+///
+/// READ-IPA-006: chip màu THÀNH toggle (ẩn/bật riêng từng loại) + nút mở
+/// bảng màu ngay trên văn bản.
 class _IpaColorOptions extends StatelessWidget {
   final TextProvider tp;
   const _IpaColorOptions({required this.tp});
@@ -789,27 +792,152 @@ class _IpaColorOptions extends StatelessWidget {
             activeThumbColor: const Color(0xFF4DD0E1),
             onChanged: tp.setIpaFadeKnown,
           ),
+          SwitchListTile(
+            title: const Text('Bảng màu IPA trên văn bản',
+                style: TextStyle(color: Colors.white, fontSize: 14)),
+            subtitle: const Text(
+              'Dải thông tin màu ngay đầu màn hình đọc — ẩn/mở bằng nút “Màu IPA”.',
+              style: TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+            value: tp.ipaLegendVisible,
+            activeThumbColor: const Color(0xFF4DD0E1),
+            onChanged: tp.setIpaLegendVisible,
+          ),
           if (tp.ipaColorByType) ...[
             Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Loại màu (chạm để ẩn/bật):',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey[400]),
+                    ),
+                  ),
+                  if (tp.ipaColorVisibility.hasHidden)
+                    TextButton(
+                      onPressed: tp.resetIpaColorVisibility,
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFF9FA8DA),
+                        textStyle: const TextStyle(fontSize: 11),
+                      ),
+                      child: const Text('Bật lại tất cả'),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _Chip(
-                      color: IpaStyling.stressColor, label: 'Trọng âm'),
-                  _Chip(color: IpaStyling.vowelColor, label: 'Nguyên âm'),
-                  _Chip(
-                      color: IpaStyling.consonantColor, label: 'Phụ âm'),
-                  _Chip(
+                  _IpaToggleChip(
+                    color: IpaStyling.stressColor,
+                    label: 'Trọng âm',
+                    on: tp.ipaColorVisibility.stress,
+                    onTap: () => tp.setIpaColorVisible(stress: !tp.ipaColorVisibility.stress),
+                  ),
+                  _IpaToggleChip(
+                      color: IpaStyling.vowelColor,
+                      label: 'Nguyên âm',
+                      on: tp.ipaColorVisibility.vowels,
+                      onTap: () => tp.setIpaColorVisible(vowels: !tp.ipaColorVisibility.vowels)),
+                  _IpaToggleChip(
+                      color: IpaStyling.consonantColor,
+                      label: 'Phụ âm',
+                      on: tp.ipaColorVisibility.consonants,
+                      onTap: () => tp.setIpaColorVisible(consonants: !tp.ipaColorVisibility.consonants)),
+                  _IpaToggleChip(
                       color: IpaStyling.diphthongColor,
-                      label: 'Đôi nguyên âm'),
+                      label: 'Đôi nguyên âm',
+                      on: tp.ipaColorVisibility.diphthongs,
+                      onTap: () => tp.setIpaColorVisible(diphthongs: !tp.ipaColorVisibility.diphthongs)),
+                  _IpaToggleChip(
+                      color: IpaStyling.linkingColor,
+                      label: 'Nối âm',
+                      on: tp.ipaColorVisibility.linking,
+                      onTap: () => tp.setIpaColorVisible(linking: !tp.ipaColorVisibility.linking)),
+                  _IpaToggleChip(
+                      color: IpaStyling.stressColor,
+                      label: 'Từ nhấn',
+                      on: tp.ipaColorVisibility.stressWords,
+                      onTap: () => tp.setIpaColorVisible(stressWords: !tp.ipaColorVisibility.stressWords),
+                      markHint: true),
                 ],
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _IpaToggleChip extends StatelessWidget {
+  final Color color;
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+  final bool markHint;
+
+  const _IpaToggleChip({
+    required this.color,
+    required this.label,
+    required this.on,
+    required this.onTap,
+    this.markHint = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Opacity(
+        opacity: on ? 1.0 : 0.45,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: color.withValues(alpha: on ? 0.55 : 0.22),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: on ? color : Colors.grey[500],
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (markHint) ...[
+                const SizedBox(width: 3),
+                Text(
+                  '¯',
+                  style: TextStyle(
+                    color: IpaStyling.stressColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

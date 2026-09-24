@@ -93,6 +93,7 @@
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
 | READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | ✅ done | commit `f149237` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); 2 toggle opt-in OFF + legend |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
+| READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 
 
@@ -3281,6 +3282,25 @@
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | ADR-0005 §6 — blocked on packaged VI/Pali dicts
 
+### READ-IMPORT-001 — I4U | Read Import Many
+
+- **Trạng thái:** 🔄 doing — chờ Flutter format/analyze/test và QA giao diện.
+- **Nội dung:**
+  - Batch UI dùng chung cho PDF/Web selection và Web article: lọc mục chưa
+    đánh giá, nhìn tiến độ phân loại, gán độ khó từng mục hoặc áp nhóm có undo.
+  - Trước khi nhập, cho sửa meaning, IPA, topic, language, example; lấy gợi ý
+    local/dictionary/AI chỉ vào field trống, giữ nội dung người dùng đã có.
+  - Form lưu chi tiết ở tap sheet hỗ trợ nhập hoặc smart-fill meaning/IPA/example;
+    WordList hiển thị và cho sửa meaning/IPA/example.
+  - `WebExtractionCandidate` lưu difficulty tương thích draft cũ; importer ghi
+    difficulty vào entry WordList.
+- **Bằng chứng gần nhất:** test round-trip/đọc draft cũ đã thêm ở
+  `test/vocab_batch_models_test.dart` (chưa chạy); legacy English fallbacks cho
+  nhãn mới đã cập nhật. Generator fallback hiện vướng 48 override cũ không còn
+  khớp source; Flutter/Dart SDK không có trong PATH nên chưa format/analyze/test.
+- **Lịch sử:**
+  - 2026-09-24 | 12:21 UTC | created→proposed | agent arena/01a0d34b-in4up | owner yêu cầu qua hội thoại
+  - 2026-09-24 | 12:21 UTC | proposed→doing | agent arena/01a0d34b-in4up | triển khai batch difficulty + metadata; cần chạy kiểm chứng
 ### LHB-006 — Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList)
 - **Nguồn:** yêu cầu owner (2026-09-23): "xem trong doc hay plan đã có kế hoạch
   đồng bộ hoá lưu trữ cho các bài lưu trong tool học thuộc lòng chưa? Để người

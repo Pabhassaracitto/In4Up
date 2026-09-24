@@ -931,8 +931,10 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - **Trạng thái:** 📋 proposed — kế hoạch đầy đủ ở `docs/project/PLAN-029-cau-truc-cau-read-tab.md`;
   ADR: `docs/adr/0006-cau-truc-cau-lop-rieng-line-first.md`; KANBAN: `READ-GRAM-001`.
 - **Đặc tả đã kiểm chứng:** `tool/grammar_probe/` (engine + 3 corpus JSON + runner). Số **trung thực**
-  trên bộ đóng băng: **17/25 case (68%)**, 8 lỗi ⇒ 4 nguyên nhân gốc đã phân loại.
+  trên bộ đóng băng: **17/25 case (68%)** lúc đóng băng; **18/25 (72%)** sau khi người sở hữu chốt
+  quy ước câu hỏi đuôi (đổi do quy ước, không do engine). 7 lỗi còn lại ⇒ 3 nguyên nhân gốc.
 - **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng (1,5–2 ngày)
   → P3 panel + block AI (1–2 ngày).
 - **Lịch sử:**
   - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | spike + kế hoạch; chờ chốt 3 điểm §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm

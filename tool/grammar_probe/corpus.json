@@ -9,7 +9,8 @@
     "clause_fields": "type/question/polarity/tense/aspect/voice/pattern LUÔN tính trên MỆNH ĐỀ CHÍNH; vai trò mệnh đề chứa anchor ghi ở clause_role.",
     "tense": "present | past | future | modal | none",
     "aspect": "simple | continuous | perfect | perfect_continuous | none",
-    "pattern": "SV | SVO | SVC | SVOO | SVOC | SVOA | SVA | There+V+S | IT-CLEFT | VO | V"
+    "pattern": "SV | SVO | SVC | SVOO | SVOC | SVOA | SVA | There+V+S | IT-CLEFT | VO | V",
+    "tag_question": "Quyết định người sở hữu 2026-09-24: câu hỏi đuôi ⇒ type=declarative + question=tag (hiển thị 'Khẳng định + hỏi đuôi'), polarity theo MỆNH ĐỀ CHÍNH."
   },
   "cases": [
     {
@@ -119,7 +120,7 @@
           "span": "a student"
         },
         "sentence": {
-          "type": "interrogative",
+          "type": "declarative",
           "question": "tag",
           "polarity": "affirmative",
           "tense": "present",

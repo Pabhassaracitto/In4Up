@@ -91,7 +91,7 @@
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
 | READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | ✅ done | commit `f149237` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); 2 toggle opt-in OFF + legend |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
-| READ-GRAM-001 | Cấu trúc câu + cụm từ trong tab Đọc (chỗ "Loại từ, CEFR"): cụm NP/VP/AdvP/… + hỏi/khẳng định/phủ định + thì–thể–thái + công thức S+V+… | 📋 proposed (KẾ HOẠCH, chưa code) | đặc tả + spike chạy được: `tool/grammar_probe/` (engine.py + 3 corpus JSON); đo TRUNG THỰC trên bộ đóng băng = 17/25 case (68%), 8 lỗi phân loại thành 4 nguyên nhân gốc; PLAN-029 + ADR-0006 |
+| READ-GRAM-001 | Cấu trúc câu + cụm từ trong tab Đọc (chỗ "Loại từ, CEFR"): cụm NP/VP/AdvP/… + hỏi/khẳng định/phủ định + thì–thể–thái + công thức S+V+… | 📋 proposed (KẾ HOẠCH, chưa code) | đặc tả + spike chạy được: `tool/grammar_probe/` (engine.py + 3 corpus JSON); đo TRUNG THỰC trên bộ đóng băng = 17/25 case (68%; 18/25 sau khi chốt quy ước hỏi đuôi), 8 lỗi phân loại thành 4 nguyên nhân gốc; PLAN-029 + ADR-0006 |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 
 
@@ -3277,7 +3277,9 @@
   - `tool/grammar_probe/run_probe.py` — đo từng trường + runtime, `exit 1` khi lệch (dùng như golden test).
   - 3 bộ corpus: `corpus.json` (65 case, tinh chỉnh ⇒ 0 sai — KHÔNG phải ước lượng tổng quát hoá),
     `holdout.json` (30 case), `holdout2.json` (**đóng băng**, chạy 1 lần, không sửa engine sau đó).
-  - **Số trung thực:** bộ đóng băng `holdout2` = **17/25 case đúng trọn (68%)**;
+  - **Số trung thực:** bộ đóng băng `holdout2` = **17/25 case đúng trọn (68%)** lúc đóng băng;
+    sau khi người sở hữu chốt quy ước *câu hỏi đuôi = khẳng định + hỏi đuôi* (2026-09-24) ⇒ **18/25 (72%)**
+    (1 case đổi vì QUY ƯỚC, không phải vì engine giỏi hơn);
     tense 11/11, pattern 5/5, polarity 3/3, voice 3/3, question 3/3, phrase.kind 23/25,
     phrase.span 21/25; runtime ~286 µs/câu (Python, max 730 µs).
   - 8 lỗi ⇒ 4 nguyên nhân gốc (PLAN-029 §7.1): (A) PP vị trí ngoài cụm; (B) trạng từ chen trong
@@ -3298,6 +3300,9 @@
 - **Lịch sử:**
   - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | yêu cầu người sở hữu; spike + 3 corpus
     + số đo trung thực; chờ chốt 3 điểm ở PLAN-029 §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.1: câu hỏi
+    đuôi = "khẳng định + hỏi đuôi" (`type=declarative` + `question=tag`) ⇒ áp vào engine + corpus;
+    bộ đóng băng 17/25 → 18/25 (đổi do quy ước). Còn 2 điểm §10.2 đang giải thích lại
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 

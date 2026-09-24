@@ -1142,7 +1142,8 @@ def sentence_type(text, toks, span, main_ch):
     if m:
         aux = m.group(1).lower().replace("'", "").replace("’", "")
         if aux in AUX_FORMS or aux in MODALS or aux.endswith("nt"):
-            return "interrogative", "tag"
+            # Quyết định người sở hữu (2026-09-24): hiển thị "câu khẳng định + hỏi đuôi"
+            return "declarative", "tag"
     if seg.endswith("?"):
         first = next((t for t in toks if tok_in_span(t, span) and t["tag"] != "PUNCT"), None)
         if first is not None and first["tag"] == "WH":

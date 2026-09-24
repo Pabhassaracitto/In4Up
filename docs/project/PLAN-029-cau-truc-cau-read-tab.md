@@ -342,7 +342,7 @@ Spike `tool/grammar_probe/` chạy: `python3 tool/grammar_probe/run_probe.py [co
 |---|---|---|---|---|
 `corpus.json` (dev) | 65 | tinh chỉnh 8 vòng | **0** | Đã tinh chỉnh trên chính nó ⇒ **KHÔNG phải** ước lượng tổng quát hoá |
 `holdout.json` | 30 | viết sau đợt tinh chỉnh 1 | **0** (đã sửa 2 nhãn vàng sai: H24, H27 — ghi trong file) | Cũng đã tinh chỉnh lại trên nó ⇒ vẫn không phải ước lượng |
-`holdout2.json` (**ĐÓNG BĂNG**) | 25 | viết sau cùng, **chạy 1 lần, không sửa engine sau đó** | **8** ⇒ **17/25 = 68%** case đúng trọn | ✅ **Đây là con số khách quan duy nhất** |
+`holdout2.json` (**ĐÓNG BĂNG**) | 25 | viết sau cùng, **chạy 1 lần, không sửa engine sau đó** | **8** ⇒ **17/25 = 68%** case đúng trọn; **7** ⇒ **18/25 = 72%** sau khi chốt quy ước hỏi đuôi (§10.1) | ✅ **Đây là con số khách quan duy nhất.** Trích "khả năng tổng quát hoá" ⇒ **17/25**; trích "theo quy ước đã chốt" ⇒ **18/25** |
 
 Độ chính xác từng trường trên bộ đóng băng `holdout2`:
 
@@ -351,21 +351,23 @@ Spike `tool/grammar_probe/` chạy: `python3 tool/grammar_probe/run_probe.py [co
 tense | 11/11 | | phrase.kind | 23/25 (92%) |
 pattern | 5/5 | | phrase.span | 21/25 (84%) |
 polarity | 3/3 | | aspect | 10/11 |
-voice | 3/3 | | type | 4/5 |
+voice | 3/3 | | type | 5/5 (sau §10.1) |
 question | 3/3 | | clause_role | 1/2 |
 conditional | 1/1 | | outer.span | 0/1 |
+
+7 case sai còn lại (sau khi áp quy ước hỏi đuôi): F01, F05, F09, F14, F15, F17, F21.
 
 Runtime: trung bình **286 µs/câu**, max **730 µs** (Python, một lõi; Dart cùng bậc hoặc nhanh hơn)
 ⇒ 1 câu theo cú chạm là tức thời; lớp phủ toàn dòng 100 dòng ≈ 30 ms ⇒ vẫn nên chạy isolate khi P2 bật.
 
-### 7.1 8 case sai ⇒ 4 nguyên nhân gốc (đây là backlog của bản Dart)
+### 7.1 Các case sai ⇒ 4 nguyên nhân gốc (đây là backlog của bản Dart)
 
 | # | Case | Lỗi | Nguyên nhân gốc | Cách sửa ở bản Dart |
 |---|---|---|---|---|
 A | F01, F15 | `outer=None`; GerP không hút PP vị trí | PP **vị trí** (`under/in/on`) không được coi là bổ nghĩa | Cho phép PP vị trí khi **bao ngoài** cụm (outside-in) — luật "PP bổ ngữ" chỉ áp khi **bên trong** NP |
 B | F05 | `had already left` → aspect `simple` | trạng từ chen giữa aux và phân từ cắt chuỗi | Cho phép ADV chen trong chuỗi động từ (cửa sổ nhìn tới phân từ) |
 B | F09 | `was born` → nhãn `NP` | thiếu dữ liệu bất quy tắc (`bear/born`) trong bảng từ nhỏ của spike | **Tự khỏi ở bản Dart**: `GrammarLexiconService` đã có lemma + biến thể |
-C | F13 | câu hỏi đuôi → `interrogative` | **chưa chốt quy ước** (không phải lỗi engine) | Chốt ở §10 — đề xuất `type=declarative` + `question=tag` |
+C | F13 | câu hỏi đuôi → `interrogative` | **chưa chốt quy ước** (không phải lỗi engine) | ✅ **ĐÃ CHỐT** (§10.1): `type=declarative` + `question=tag` ⇒ case này **đã đúng** |
 C | F14 | `The book I borrowed…` → `clause_role=None` | quan hệ **zero** (không có đại từ quan hệ) | Luật mới: mệnh đề chứa anchor kết thúc trước một mệnh đề chính phía sau ⇒ `relative` |
 D | F17 | `will cancel` → nhãn `NP` | `cancel` không có trong bảng từ 60 dòng ⇒ bị tag NOUN | **Tự khỏi phần lớn ở bản Dart** (lexicon đầy đủ hơn); vẫn giữ heuristic hậu tố + ngữ cảnh sau modal |
 D | F21 | `would rather stay` → thiếu trong chuỗi | chưa có semi-modal `would rather` (đã có `had better`) | Thêm `would rather / had better / would sooner` vào họ semi-modal + `+ V` |
@@ -378,7 +380,8 @@ D | F21 | `would rather stay` → thiếu trong chuỗi | chưa có semi-modal `
 
 1. `test/sentence_structure_golden_test.dart` — nạp **cả 3** corpus JSON, so từng trường.
    - `corpus.json` + `holdout.json` (95 case): **phải 100%**.
-   - `holdout2.json`: **không được thấp hơn 17/25**; 8 case đang lỗi đánh dấu `known-gap` kèm lý do A–D
+   - `holdout2.json`: **không được thấp hơn 17/25** (mốc đóng băng gốc); 7–8 case đang lỗi đánh dấu
+     `known-gap` kèm lý do A–D (F13 đã hết lỗi nhờ quy ước §10.1)
      trong test, và test **đếm chính xác số lượng known-gap** — tăng lên ⇒ đỏ (chống hồi quy ngầm).
    - Sau P2 (sửa A–D): mục tiêu ≥ 22/25, known-gap ≤ 3, và hạ trần known-gap trong test.
 2. `test/sentence_structure_perf_test.dart` — 200 câu < 50 ms (JIT) / không chặn UI (isolate).
@@ -415,14 +418,18 @@ Nhãn tiếng Việt lọt vào locale khác | `test/locale_chrome_no_vietnamese
 
 ---
 
-## 10. Cần người sở hữu chốt (3 điểm)
+## 10. Quyết định của người sở hữu
 
-1. **Câu hỏi đuôi** (`You should see a doctor, shouldn't you?`): hiện "Câu khẳng định + hỏi đuôi"
-   (đề xuất: `type=declarative`, `question=tag`) hay hiện "Câu hỏi (đuôi)" (`type=interrogative`)?
-   — Spike đang theo quy ước cũ (`interrogative`); đổi là 1 dòng, nhưng phải chốt để corpus ghi đúng.
-2. **Câu vắt dòng:** P1 chấp nhận phân tích theo dòng (có dòng nhắc "câu có thể tiếp tục ở dòng dưới")
-   rồi P2 ghép câu bằng side-table — được chứ? (Đổi sang sentence-first sẽ đụng `TextItem`/luồng TTS.)
-3. **Mặc định hiển thị:** section trong sheet **ON** (đề xuất) và chip cấp dòng **OFF** — đúng ý chứ?
+### 10.1 ✅ ĐÃ CHỐT (2026-09-24) — câu hỏi đuôi
+`You are a student, aren't you?` ⇒ hiển thị **"Câu khẳng định + hỏi đuôi"**: `type=declarative`,
+`question=tag`, polarity tính trên mệnh đề chính. Đã áp vào `engine.py`, `corpus.json` (case E07) và
+ghi quy ước ở `corpus.json/conventions.tag_question`. Ảnh hưởng số đo: §7.
+
+### 10.2 ⏳ Đang chờ chốt (sau khi giải thích lại)
+2. **Câu vắt dòng** — xem §2.3 và §3.3. Ngắn gọn: phần lớn dòng ĐÃ là một câu; chỉ câu > 20 từ mới bị
+   cắt thành nhiều dòng. Chọn (a) phân tích từng dòng rồi P2 ghép câu, hay (b) ghép câu ngay từ P1?
+3. **Mặc định hiển thị** — (a) khối trong sheet khi chạm từ: ON/OFF? (b) nhãn nhỏ dưới mỗi câu khi
+   đang đọc: ON/OFF? Đề xuất: (a) ON, (b) OFF.
 
 ---
 

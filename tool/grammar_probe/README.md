@@ -27,9 +27,14 @@ Runner in độ chính xác từng trường + runtime, `exit 1` nếu có case 
 |---|---|---|---|
 | `corpus.json` | 65 | tinh chỉnh 8 vòng trên chính nó | **0 sai** nhưng **KHÔNG** phải ước lượng tổng quát hoá |
 | `holdout.json` | 30 | viết sau đợt tinh chỉnh 1 | 0 sai (đã sửa 2 **nhãn vàng sai**: H24, H27 — ghi trong file) ⇒ vẫn không phải ước lượng |
-| `holdout2.json` | 25 | **ĐÓNG BĂNG** — viết sau cùng, chạy **một lần**, không sửa engine sau đó | ✅ **Con số khách quan duy nhất: 17/25 case (68%)** |
+| `holdout2.json` | 25 | **ĐÓNG BĂNG** — viết sau cùng, chạy **một lần**, không sửa engine sau đó | ✅ **Con số khách quan: 17/25 case (68%)** lúc đóng băng |
 
-`holdout2` có 8 case sai ⇒ 4 nguyên nhân gốc, đã phân loại trong PLAN-029 §7.1:
+**Ngoại lệ có kiểm soát (2026-09-24):** người sở hữu chốt quy ước *câu hỏi đuôi* = "khẳng định + hỏi đuôi"
+⇒ `type=declarative`, `question=tag`. Đây là **đổi nhãn quy ước, không phải sửa lỗi engine**; case F13
+chuyển từ sai → đúng, nên bộ đóng băng còn **7/25 sai (18/25 đúng = 72%)**. Khi trích dẫn "khả năng
+tổng quát hoá của engine" phải dùng **17/25**; khi trích dẫn "kết quả theo quy ước đã chốt" dùng **18/25**.
+
+`holdout2` có 8 case sai (7 sau khi áp quy ước hỏi đuôi) ⇒ 4 nguyên nhân gốc, đã phân loại trong PLAN-029 §7.1:
 **A** PP vị trí ngoài cụm · **B** trạng từ chen trong nhóm động từ + thiếu `would rather` ·
 **C** quy ước câu hỏi đuôi chưa chốt · **D** quan hệ zero + thiếu từ vựng (bản Dart tự khỏi).
 

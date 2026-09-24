@@ -7,6 +7,7 @@ import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
 import '../../../services/text_library_service.dart';
+import '../../../services/vocab_batch/vocab_batch_extractor.dart';
 import '../../../services/vocab_batch/vocab_batch_models.dart';
 import '../../../widgets/difficulty_level_chips.dart';
 import '../../../widgets/vocab_batch_candidate_editor.dart';

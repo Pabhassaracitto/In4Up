@@ -922,3 +922,37 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Sinhala: piper-voices chưa có giọng si — ghi rõ, không bịa model.
 - Lịch sử:
   - 2026-09-15 | created→doing | agent arena/01a08043-in4up
+
+### PLAN-029 — Đồng bộ lưu trữ Learn by Heart đa thiết bị (LHB-006)
+- Nguồn: người sở hữu (2026-09-23, qua agent arena/01a0d016-in4up) —
+  "đồng bộ lưu trữ cho các bài lưu trong tool học thuộc lòng, như WordList đã có".
+- Trạng thái: done (code + CI xanh trên `arena/01a0d016-in4up`; còn nghiệm thu 2 thiết bị)
+- Milestone đề xuất: cùng đợt với hạ tầng sync hiện có (ADR-0005/WordList) —
+  không cần milestone mới.
+- Vì sao có plan này: rà `docs/project/**` + `docs/adr/**` ngày 2026-09-23 →
+  **chưa từng có kế hoạch/card cho sync LHB**:
+  - `INTEGRATE-1` chỉ nói knowledge module (evidence/ReviewEvent).
+  - `AUDIT-2026-08-21` §4: sync hiện tại phạm vi `vocabulary_v2` + meta.
+  - LHB chỉ lưu SharedPreferences cục bộ ⇒ đổi máy là mất tiến độ SRS.
+- Chi tiết kế hoạch (đã triển khai):
+  - Nguyên tắc: offline-first như WordList — local ghi trước, cloud là lớp phủ;
+    pull-trước/push-sau; pending queue + bia mộ; LWW "cloud thắng" trừ khi bản
+    cục bộ đang chờ đẩy và mới hơn; mọi mutation `markPending` (kể cả khi chưa
+    đăng nhập); lần đầu bật sync + cloud trống → đẩy toàn bộ lên.
+  - Phạm vi dữ liệu: bài thuộc lòng (nội dung + tiến độ FSRS + yêu thích) +
+    nhịp học (streak/lastActiveDate). KHÔNG sync audio/cue image URL file local.
+  - Kênh: Firestore plugin (Android/iOS/Windows/Web) hoặc Firestore REST
+    (Linux — ADR-0005), cùng uid, cùng schema.
+  - UI: icon trạng thái + sheet đồng bộ ở hub LHB; chuỗi 6 ngữ (rule #5).
+  - Quyết định kiến trúc: **ADR-0006** (đọc trước khi sửa vùng này).
+- Nghiệm thu (AT 6 bước trong ADR-0006 §AT): 2 thiết bị thật + 1 máy Linux
+  (REST). Ghi kết quả vào card KANBAN LHB-006.
+- Bằng chứng CI (2026-09-23): run 35922641394 🟢 (analyze + rule #5) và
+  35923191460 🟢 (thêm bước "LHB tests": 47 test, gồm 19 test LHB-006).
+- Lịch sử:
+  - 2026-09-23 | created→doing | agent arena/01a0d016-in4up | chưa có kế hoạch
+    cũ → viết PLAN-029 + ADR-0006 và triển khai code (merge thuần + sync
+    service + pending/bia mộ + badge/sheet hub + test); chờ CI + nghiệm thu
+  - 2026-09-23 | 21:35 UTC | doing→done (code + CI xanh) |
+    agent arena/01a0d016-in4up | commits `6c96d0e`→`fc1e0d3`; App Analyze
+    run 35922641394 🟢 + 35923191460 🟢 (47 test LHB); còn nghiệm thu 2 thiết bị

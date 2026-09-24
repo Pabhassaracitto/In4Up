@@ -294,7 +294,24 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
             create: (_) => KaraokeSettingsProvider()..load()),
         ChangeNotifierProvider(
-            create: (_) => LearnByHeartProvider()..loadData()),
+          create: (_) {
+            final lhb = LearnByHeartProvider();
+            unawaited(lhb.loadData()); // Nạp bài cục bộ (SharedPreferences)
+
+            // LHB-006 — tự bật đồng bộ Thuộc Lòng khi có user đăng nhập, dùng
+            // chung stream thống nhất của AuthService (plugin hoặc REST/Linux)
+            // giống VocabularyProvider ⇒ cloud về đúng tài khoản.
+            AuthService().authStateChanges.listen((user) {
+              if (user != null) {
+                unawaited(lhb.enableSync(user.uid));
+              } else {
+                lhb.disableSync();
+              }
+            });
+
+            return lhb;
+          },
+        ),
 
         // Nếu đây là singleton/global controller thì dùng .value an toàn hơn
         ChangeNotifierProvider<MemoryController>.value(

@@ -8,6 +8,7 @@ import '../i18n/learn_by_heart_l10n.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/recitation_category.dart';
 import '../models/review_state.dart';
+import '../services/learn_by_heart_sync_service.dart';
 import 'active_recall_screen.dart';
 import 'assessment_screen.dart';
 import 'chunking_flow_screen.dart';
@@ -68,6 +69,251 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
     );
   }
 
+  // ==================== ĐỒNG BỘ ĐA THIẾT BỊ (LHB-006) ====================
+
+  Widget _buildSyncButton(LearnByHeartL10n l10n) {
+    return Consumer<LearnByHeartProvider>(
+      builder: (context, provider, _) {
+        if (!provider.isSyncEnabled) {
+          return IconButton(
+            icon: const Icon(Icons.cloud_off_rounded,
+                color: Colors.white38, size: 20),
+            tooltip: l10n.syncBadgeTooltip,
+            onPressed: () => _openSyncSheet(provider, l10n),
+          );
+        }
+        return ValueListenableBuilder<LhbSyncStatus>(
+          valueListenable: provider.syncStatusNotifier,
+          builder: (context, status, _) {
+            return IconButton(
+              icon: Icon(_syncIcon(status), color: _syncColor(status), size: 20),
+              tooltip: l10n.syncBadgeTooltip,
+              onPressed: () => _openSyncSheet(provider, l10n),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  IconData _syncIcon(LhbSyncStatus status) {
+    switch (status) {
+      case LhbSyncStatus.syncing:
+        return Icons.cloud_sync_rounded;
+      case LhbSyncStatus.success:
+        return Icons.cloud_done_rounded;
+      case LhbSyncStatus.error:
+        return Icons.cloud_off_rounded;
+      case LhbSyncStatus.idle:
+        return Icons.cloud_queue_rounded;
+    }
+  }
+
+  Color _syncColor(LhbSyncStatus status) {
+    switch (status) {
+      case LhbSyncStatus.syncing:
+        return const Color(0xFF42A5F5);
+      case LhbSyncStatus.success:
+        return const Color(0xFF4CAF50);
+      case LhbSyncStatus.error:
+        return const Color(0xFFEF5350);
+      case LhbSyncStatus.idle:
+        return Colors.white70;
+    }
+  }
+
+  String _syncStatusLabel(LearnByHeartL10n l10n, LhbSyncStatus status) {
+    switch (status) {
+      case LhbSyncStatus.syncing:
+        return l10n.syncSyncing;
+      case LhbSyncStatus.success:
+        return l10n.syncSuccess;
+      case LhbSyncStatus.error:
+        return l10n.syncError;
+      case LhbSyncStatus.idle:
+        return l10n.syncIdle;
+    }
+  }
+
+  String _formatLastSync(LearnByHeartL10n l10n, DateTime? at) {
+    if (at == null) return l10n.syncNever;
+    final diff = DateTime.now().difference(at);
+    if (diff.inMinutes < 1) return l10n.syncLastSynced(l10n.syncJustNow);
+    if (diff.inMinutes < 60) {
+      return l10n.syncLastSynced(l10n.syncMinutesAgo(diff.inMinutes));
+    }
+    if (diff.inHours < 24) {
+      return l10n.syncLastSynced(l10n.syncHoursAgo(diff.inHours));
+    }
+    return l10n.syncLastSynced(l10n.syncDaysAgo(diff.inDays));
+  }
+
+  void _openSyncSheet(LearnByHeartProvider provider, LearnByHeartL10n l10n) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Consumer<LearnByHeartProvider>(
+            builder: (context, prov, _) => Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.cloud_sync_rounded,
+                          color: Color(0xFF4CAF50), size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.syncTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      ValueListenableBuilder<LhbSyncStatus>(
+                        valueListenable: prov.syncStatusNotifier,
+                        builder: (context, status, _) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _syncColor(status).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _syncColor(status).withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            _syncStatusLabel(l10n, status),
+                            style: TextStyle(
+                              color: _syncColor(status),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    l10n.syncDescription,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 12, height: 1.35),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule_rounded,
+                          color: Colors.white38, size: 14),
+                      const SizedBox(width: 6),
+                      ValueListenableBuilder<DateTime?>(
+                        valueListenable: prov.lastSyncedNotifier,
+                        builder: (context, at, _) => Text(
+                          _formatLastSync(l10n, at),
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 11.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!prov.isSyncEnabled) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orangeAccent.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: Colors.orangeAccent.withValues(alpha: 0.35)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.login_rounded,
+                              color: Colors.orangeAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.syncSignedOut,
+                              style: const TextStyle(
+                                  color: Colors.orangeAccent,
+                                  fontSize: 11.5,
+                                  height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  if (prov.isSyncEnabled) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF4CAF50),
+                        ),
+                        onPressed: () => prov.syncNow(),
+                        icon: const Icon(Icons.sync_rounded, size: 18),
+                        label: Text(l10n.syncNow),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => prov.syncNow(forceAll: true),
+                            icon: const Icon(Icons.cloud_download_rounded,
+                                size: 16),
+                            label: Text(
+                              l10n.syncPullAll,
+                              style: const TextStyle(fontSize: 11.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => prov.pushAllToCloud(),
+                            icon: const Icon(Icons.cloud_upload_rounded,
+                                size: 16),
+                            label: Text(
+                              l10n.syncPushAll,
+                              style: const TextStyle(fontSize: 11.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(sheetCtx),
+                      child: Text(l10n.syncClose,
+                          style: const TextStyle(color: Colors.white60)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = LearnByHeartL10n.of(context);
@@ -89,6 +335,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
           ],
         ),
         actions: [
+          _buildSyncButton(l10n),
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF4CAF50)),
             tooltip: 'Thêm bài kinh mới',

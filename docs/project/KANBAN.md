@@ -3291,7 +3291,9 @@
     + cụm bao ngoài + loại câu + thì–thể–thái–modal + công thức; **section gập trong
     `word_actions_sheet.dart` ngay dưới badge "Loại từ · CEFR"** (không đổi thứ tự section cũ).
   - **P2:** sửa 4 nguyên nhân gốc + `SentenceJoiner` (side-table cho câu vắt dòng, KHÔNG đổi
-    `TextItem`) + chip cấp dòng (mặc định OFF) + key `sentence_structure_settings_v1`.
+    `TextItem`) + nhãn cấp dòng (mặc định OFF) + **nút bật/tắt nhanh trên `read_bottom_bar.dart`
+    cạnh nút IPA** (xoay `Tắt → Dòng hiện tại → Toàn văn bản`, theo khuôn `IpaDisplayMode`) +
+    nhóm cài đặt "Cấu trúc câu"; key `sentence_structure_settings_v1`.
   - **P3:** panel "Cấu trúc câu" + block "Giải thích chi tiết (AI)" (dùng façade `sentenceParse`
     đã có; luật là nhãn chính, AI là block riêng, không trộn).
   - Precision-first: `confidence` + ẩn nhãn khi yếu; ngôn ngữ ≠ EN ⇒ `supported=false` + câu nhắc.
@@ -3302,7 +3304,11 @@
     + số đo trung thực; chờ chốt 3 điểm ở PLAN-029 §10
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.1: câu hỏi
     đuôi = "khẳng định + hỏi đuôi" (`type=declarative` + `question=tag`) ⇒ áp vào engine + corpus;
-    bộ đóng băng 17/25 → 18/25 (đổi do quy ước). Còn 2 điểm §10.2 đang giải thích lại
+    bộ đóng băng 17/25 → 18/25 (đổi do quy ước).
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.2 + §10.3:
+    câu vắt dòng chọn (a) phân tích theo dòng rồi ghép ở P2; khối trong sheet ON; nhãn cấp dòng OFF
+    **kèm nút bật/tắt nhanh trên thanh công cụ đáy** (không phải vào Cài đặt). Kế hoạch đã đủ điều
+    kiện để code P1 — **chờ lệnh bắt đầu code của người sở hữu**.
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 

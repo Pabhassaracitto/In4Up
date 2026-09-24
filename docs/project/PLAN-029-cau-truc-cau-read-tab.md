@@ -75,14 +75,45 @@ Vì sao không chọn "(b) panel riêng ngay từ đầu": (i) không thêm mộ
 đang làm (đang tra từ); (ii) anchor từ là câu hỏi tự nhiên "cụm nào chứa từ này"; (iii) P1 nhỏ,
 rollback 1 chỗ. Panel riêng là **P3** (khi cần chế độ *luyện tập* xem cả câu + công thức dạng khối).
 
-### 2.2 Chip cấp dòng (P2, mặc định OFF)
+### 2.2 Nhãn cấp dòng + NÚT BẬT/TẮT NHANH trên thanh công cụ (P2) — ✅ người sở hữu đã chốt
 
-Thêm 1 dòng nhãn gọn dưới câu khi bật: `SVO · QKĐ · chủ động`. Toggle trong
-`read_settings_sheet.dart` (nhóm mới "Cấu trúc câu", cùng chỗ nhóm grammar hiện có ~§1335–1500),
-lưu ở key **`sentence_structure_settings_v1`** (đặt cạnh `grammar_highlight_settings_v1`, không sửa key cũ).
+**Mặc định OFF, nhưng KHÔNG phải vào Cài đặt mới bật được** (yêu cầu trực tiếp của người sở hữu
+2026-09-24): có **nút bật/tắt nhanh ngay trên thanh công cụ đáy tab Đọc**, cùng chỗ nút IPA.
 
-Mặc định **OFF** vì: tránh quá tải nhận thức (đang đọc → thêm nhãn là thêm nhiễu); người đang học
-ngữ pháp sẽ tự bật.
+- **Vị trí:** `lib/screens/read_mode/widgets/read_bottom_bar.dart` — chèn **ngay sau nút IPA**
+  (`Icons.abc`, cyan `0xFF4DD0E1`) và trước nút TTS; dùng đúng `_BarAction(icon, isActive,
+  activeThumbColor, compact: isSmall, onTap)` đang có, không tạo widget mới.
+- **Hành vi:** chạm = **xoay vòng 3 trạng thái, y hệt nút IPA** (giữ một idiom duy nhất cho các lớp
+  hiển thị trong tab Đọc):
+
+  | Trạng thái | Hiện gì | Nhãn (vi) |
+  |---|---|---|
+  `hidden` (mặc định) | không hiện gì | Tắt |
+  `activeLine` | chỉ câu đang đọc/hiện tại có nhãn | Dòng hiện tại |
+  `all` | mọi câu đều có nhãn | Toàn văn bản |
+
+  *(Nếu người sở hữu muốn bật/tắt thuần 2 trạng thái: bỏ `all` khỏi vòng xoay — sửa 1 dòng trong
+  `next`; phần còn lại không đổi.)*
+- **Mô hình:** file mới `lib/models/sentence_structure_display_mode.dart`, **sao chép đúng khuôn**
+  `lib/models/ipa_display_mode.dart` (`enum` + `label` + `icon` + `next`) — cùng ADR-0005.
+  Icon đề xuất `Icons.account_tree_outlined` (chưa dùng trong thanh); màu active phải **chưa dùng**
+  (đang dùng: xanh lá `0xFF4CAF50` dịch, cyan `0xFF4DD0E1` IPA, orange TTS, amber bookmark,
+  `0xFF6C63FF` panel) — đề xuất `0xFF7E57C2`, và thêm test nhỏ duyệt **màu accent không trùng**
+  trong `read_bottom_bar.dart` (repo đã có văn hoá test quét nguồn, xem rule-5).
+- **Lưu trạng thái:** `TextProvider` (thêm getter/setter + `cycleStructureBadgeMode()` cạnh
+  `cycleIpaDisplayMode()`), ghi vào **`sentence_structure_settings_v1`** (KHÔNG sửa
+  `grammar_highlight_settings_v1`).
+- **Đường sâu vẫn có:** nhóm mới "Cấu trúc câu" trong `read_settings_sheet.dart`
+  (cạnh nhóm grammar ~§1335–1500) cho ai muốn đặt cố định + đọc mô tả. Nút trên thanh công cụ là
+  đường nhanh, không thay thế Cài đặt.
+- **Chống tràn thanh công cụ:** thêm 1 nút là thêm chỗ trên màn nhỏ — bắt buộc kiểm nhánh
+  `compact: isSmall` và màn hẹp (tiền lệ lỗi tràn: LISTEN-630-01 "AB loop bottom overflow 24px");
+  nếu tràn thì gom vào `collapsible_bottom_controls`/menu phụ, KHÔNG để tràn.
+- **Phản hồi khi chạm:** đổi icon + nhãn tooltip ngay (`uiText` của `label`), có `HapticFeedback`
+  (đã có sẵn trong `_BarAction`); không cần snackbar.
+
+Nhãn nội dung khi bật: `SVO · Hiện tại đơn · chủ động` (1 dòng, chữ nhỏ, màu mờ — không tô đè lên
+lớp POS/CEFR/legend hiện có).
 
 ### 2.3 Trạng thái hiển thị
 
@@ -93,6 +124,10 @@ ngữ pháp sẽ tự bật.
 | Ngôn ngữ ≠ EN | "Chưa hỗ trợ phân tích cấu trúc cho ngôn ngữ này" (giữ fail-safe như spike) |
 | Không tìm thấy từ trong dòng | Ẩn hẳn section (giữ sheet như hiện nay) |
 | AI có model | Thêm nút "Giải thích chi tiết (AI)" → block riêng, có nhãn **AI** |
+| Nhãn cấp dòng — `hidden` | Không hiện gì (mặc định) |
+| Nhãn cấp dòng — `activeLine` | Chỉ câu đang đọc có nhãn `SVO · Hiện tại đơn · chủ động` |
+| Nhãn cấp dòng — `all` | Mọi câu có nhãn |
+| Dòng là MẢNH câu (không kết bằng `.?!`) | Chỉ hiện cụm từ + dòng nhắc "Câu có thể tiếp tục ở dòng dưới"; **ẩn** thì/thể/công thức (§10.2) |
 
 ---
 
@@ -131,7 +166,16 @@ lib/features/grammar/
     sentence_typer.dart               # loại câu + công thức + vai trò mệnh đề
   widgets/
     structure_section.dart            # section trong WordActionsSheet (P1)
-    structure_line_badge.dart         # chip cấp dòng (P2)
+    structure_line_badge.dart         # nhãn cấp dòng (P2)
+```
+
+Thêm ở tầng model + thanh công cụ (P2):
+
+```
+lib/models/sentence_structure_display_mode.dart   # enum + label + icon + next (khuôn IpaDisplayMode)
+lib/screens/read_mode/widgets/read_bottom_bar.dart  # +1 _BarAction (nút bật/tắt nhanh) sau nút IPA
+lib/screens/read_mode/sheets/read_settings_sheet.dart # nhóm "Cấu trúc câu" (đường sâu)
+lib/providers/text_provider.dart                  # + getter/setter + cycleStructureBadgeMode()
 ```
 
 API công khai (1 hàm duy nhất cho UI, không lộ chi tiết):
@@ -326,6 +370,7 @@ Câu có thể tiếp tục ở dòng dưới | Sentence may continue on the nex
 Chưa đủ tin cậy để phân tích | Not confident enough to analyse |
 Chưa hỗ trợ phân tích cấu trúc cho ngôn ngữ này | Structure analysis is not supported for this language yet |
 Giải thích chi tiết (AI) | Detailed explanation (AI) |
+Cấu trúc câu *(dùng cho cả nhóm cài đặt + tooltip nút thanh công cụ)* | Sentence structure |
 
 Cổng kiểm tự động (mirror `test/pdf_reader/pdf_reader_i18n_coverage_test.dart`):
 `test/read_sentence_structure_i18n_test.dart` quét literal trong các file mới và đối chiếu
@@ -397,10 +442,10 @@ D | F21 | `would rather stay` → thiếu trong chuỗi | chưa có semi-modal `
 |---|---|---|---|
 **P0** (đã xong) | Spike đặc tả + 3 corpus + số đo | `tool/grammar_probe/*` | 65/65 dev; bộ đóng băng công bố 68% + phân loại lỗi |
 **P1** (2,5–4 ngày) | Models + `SentenceStructureService` (NP/VP/PHRASAL_V/PP/AdjP/AdvP/GerP/InfP) + `SentenceTyper` + `VerbGroupReader`; section trong `WordActionsSheet`; i18n + 4 test | `lib/features/grammar/**`, `word_actions_sheet.dart`, arb | Sheet hiện cụm + công thức + thì/thể; 95 case phải 100%; CI xanh |
-**P2** (1,5–2 ngày) | Sửa A–D + `SentenceJoiner` (side-table) + chip cấp dòng + toggle settings | `sentence_structure_service.dart`, `read_settings_sheet.dart`, `TextProvider` (chỉ side-table) | `holdout2` ≥ 22/25; chip OFF mặc định; perf đạt |
+**P2** (2–2,5 ngày) | Sửa A–D + `SentenceJoiner` (side-table) + nhãn cấp dòng + **nút bật/tắt nhanh trên `read_bottom_bar`** + nhóm cài đặt | `sentence_structure_display_mode.dart`, `read_bottom_bar.dart`, `read_settings_sheet.dart`, `TextProvider`, `sentence_structure_service.dart` | `holdout2` ≥ 22/25; mặc định `hidden`; 1 chạm là bật/tắt được; không tràn thanh công cụ màn hẹp; perf đạt |
 **P3** (1–2 ngày) | Panel "Cấu trúc câu" + block AI + giải thích tiếng Việt cho negator/conditional | widget mới, AI façade (đã có) | Panel mở từ sheet; AI chỉ hiện khi có model; không nhãn mâu thuẫn |
 
-Ước lượng tổng: **5–8 ngày công** (kể cả test + i18n), chia được thành 3 PR nhỏ.
+Ước lượng tổng: **5,5–8,5 ngày công** (kể cả test + i18n), chia được thành 3 PR nhỏ.
 
 ---
 
@@ -425,11 +470,21 @@ Nhãn tiếng Việt lọt vào locale khác | `test/locale_chrome_no_vietnamese
 `question=tag`, polarity tính trên mệnh đề chính. Đã áp vào `engine.py`, `corpus.json` (case E07) và
 ghi quy ước ở `corpus.json/conventions.tag_question`. Ảnh hưởng số đo: §7.
 
-### 10.2 ⏳ Đang chờ chốt (sau khi giải thích lại)
-2. **Câu vắt dòng** — xem §2.3 và §3.3. Ngắn gọn: phần lớn dòng ĐÃ là một câu; chỉ câu > 20 từ mới bị
-   cắt thành nhiều dòng. Chọn (a) phân tích từng dòng rồi P2 ghép câu, hay (b) ghép câu ngay từ P1?
-3. **Mặc định hiển thị** — (a) khối trong sheet khi chạm từ: ON/OFF? (b) nhãn nhỏ dưới mỗi câu khi
-   đang đọc: ON/OFF? Đề xuất: (a) ON, (b) OFF.
+### 10.2 ✅ ĐÃ CHỐT (2026-09-24) — câu vắt dòng: chọn (a)
+Phân tích theo dòng trước; P2 mới ghép câu (side-table). Dòng là mảnh câu ⇒ chỉ hiện cụm từ + dòng
+nhắc, ẩn thì/thể/công thức (`confidence` thấp). Không đổi `TextItem`/luồng TTS. (Chi tiết §2.3, §3.3.)
+
+### 10.3 ✅ ĐÃ CHỐT (2026-09-24) — mặc định hiển thị
+- **(a) Khối trong sheet khi chạm từ: ON.** Vừa chạm là thấy cụm + công thức + thì/thể.
+- **(b) Nhãn dưới mỗi câu khi đang đọc: OFF mặc định, NHƯNG có nút bật/tắt nhanh trên thanh công cụ
+  đáy tab Đọc** (cạnh nút IPA) — không phải vào Cài đặt mới bật được (yêu cầu trực tiếp của người
+  sở hữu). Nút xoay vòng `Tắt → Dòng hiện tại → Toàn văn bản`; nếu muốn bật/tắt thuần thì bỏ `all`.
+  Thiết kế chi tiết: §2.2.
+
+### 10.4 ⏳ Còn lại (không chặn kế hoạch)
+- Màu accent đề xuất `0xFF7E57C2` + icon `Icons.account_tree_outlined` cho nút mới — có thể veto khi
+  xem bản chạy thật (đổi 1 dòng).
+- Vòng xoay 3 trạng thái hay bật/tắt 2 trạng thái (§2.2) — có thể veto.
 
 ---
 
@@ -439,3 +494,7 @@ ghi quy ước ở `corpus.json/conventions.tag_question`. Ảnh hưởng số �
   ("cụm danh từ / cụm động từ / cụm trạng từ / cụm…" + "câu hỏi–khẳng định–phủ định, thì quá–hiện–vị,
   hoàn thành, tiếp diễn + công thức S+V+…"), gắn đúng chỗ "Loại từ, CEFR" trong tab Đọc.
   Kèm spike đặc tả `tool/grammar_probe/` + 3 bộ corpus + số đo trung thực (68% trên bộ đóng băng).
+- 2026-09-24 | updated | agent `arena/01a0d344-in4up` | người sở hữu chốt cả 3 điểm (§10.1 câu hỏi
+  đuôi; §10.2 câu vắt dòng chọn (a); §10.3 mặc định (a) ON, (b) OFF **kèm nút bật/tắt nhanh trên
+  thanh công cụ**) ⇒ §2.2 viết lại thành thiết kế cụ thể (file, enum, icon/màu, test chống trùng màu,
+  chống tràn thanh công cụ); thêm chuỗi i18n "Cấu trúc câu".

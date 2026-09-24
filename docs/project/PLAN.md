@@ -933,8 +933,12 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - **Đặc tả đã kiểm chứng:** `tool/grammar_probe/` (engine + 3 corpus JSON + runner). Số **trung thực**
   trên bộ đóng băng: **17/25 case (68%)** lúc đóng băng; **18/25 (72%)** sau khi người sở hữu chốt
   quy ước câu hỏi đuôi (đổi do quy ước, không do engine). 7 lỗi còn lại ⇒ 3 nguyên nhân gốc.
-- **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng (1,5–2 ngày)
-  → P3 panel + block AI (1–2 ngày).
+- **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng + nút bật/tắt nhanh
+  trên thanh công cụ đáy (2–2,5 ngày) → P3 panel + block AI (1–2 ngày).
+- **Đã chốt (2026-09-24):** câu hỏi đuôi = "khẳng định + hỏi đuôi"; câu vắt dòng = phân tích theo dòng
+  rồi ghép ở P2; khối trong sheet ON, nhãn cấp dòng OFF **kèm nút bật/tắt nhanh trên thanh công cụ**.
 - **Lịch sử:**
   - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | spike + kế hoạch; chờ chốt 3 điểm §10
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
+    kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu

@@ -38,6 +38,14 @@ Chạy tay ở máy dev (không cần Android SDK):
 scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/*.apk
 ```
 
+## `android_rename_apks.sh <tag> [out_dir]` (CI-ANDROID-01/03)
+
+Đổi tên APK Flutter sinh ra thành `in4up-Android-{armv7,arm64,x64,Universal-All-CPU}-<tag>.apk`.
+Thử lần lượt các tên có thể gặp (`app-<abi>-stable-release` — tên thật của Flutter 3.44.1,
+ABI trước flavor sau — rồi `app-stable-<abi>-release`, `app-<abi>-release`) nên không gãy
+khi đổi Flutter; **thiếu bất kỳ APK nào ⇒ exit 1** kèm `ls` thư mục (hết cảnh `mv || true`
+ship thiếu 3 APK split mà job vẫn xanh).
+
 ## `ios_set_deployment_target.sh [target]`
 
 Đồng bộ iOS deployment target ở **3 nơi** (mặc định `15.5`, hoặc biến

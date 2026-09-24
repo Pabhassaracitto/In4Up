@@ -558,6 +558,7 @@
 - **Lịch sử:**
   - 2026-09-23 | 21:05 UTC | created→doing | agent arena/01a0d013-in4up | Chẩn đoán từ repo: grep `signingConfig` = 0 kết quả; API GitHub soi lịch sử build.gradle.kts (5db5ba10 còn ký debug → c5d7adbf xoá); source flutter 3.44.1 xác nhận rename che `-unsigned`. Không tải được APK release 1.7.0 để soi trực tiếp (release-assets.githubusercontent.com bị chặn trong sandbox) — kết luận dựa trên cấu hình build, độ tin cậy cao vì thiếu signingConfig ⇒ chắc chắn unsigned.
   - 2026-09-24 | 00:30 UTC | doing→doing | agent arena/01a0d013-in4up | Code + 2 script + 2 workflow + docs xong; test script offline 9/9 ca; YAML 2 workflow parse OK; bash -n mọi step `run:` OK. Chờ chủ push tag để oracle (token sandbox hết hạn giữa phiên — xem ghi chú push).
+  - 2026-09-24 | 07:10 UTC | doing→doing | agent arena/01a0d013-in4up | Sandbox tái tạo giữa phiên (bẫy 5.5): working tree còn, 3 commit mất ⇒ commit lại (c4c7294, f4fe0fe, 5723f18) + push thành công lên origin/arena/01a0d013-in4up. Chủ đang tạo keystore (keytool) — bước tiếp: key.properties local → `flutter build apk --release --flavor stable` → cài máy.
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)

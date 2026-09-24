@@ -5,9 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
+import 'ipa_legend_strip.dart';
 import 'quick_library_sheet.dart'; // ← THÊM
 
 class ReadTopBar extends StatelessWidget {
@@ -30,6 +32,7 @@ class ReadTopBar extends StatelessWidget {
                 children: [
                   _ColorModeChip(textProvider: tp, compact: true),
                   _WordTapChip(textProvider: tp),
+                  _IpaLegendToggleIfRelevant(textProvider: tp),
                   _AutoSyncChip(controller: controller),
                   if (!isSmallHeight)
                     _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
@@ -62,6 +65,8 @@ class ReadTopBar extends StatelessWidget {
                   _ColorModeChip(textProvider: tp),
                   const SizedBox(width: 8),
                   _WordTapChip(textProvider: tp),
+                  const SizedBox(width: 8),
+                  _IpaLegendToggleIfRelevant(textProvider: tp),
                   const SizedBox(width: 8),
                   _AutoSyncChip(controller: controller),
                   const SizedBox(width: 8),
@@ -138,6 +143,23 @@ class ReadTopBar extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+// ── IPA Legend Toggle (READ-IPA-006) ─────────────────────────
+// Chỉ hiện khi IPA đang bật (không phải hidden) — panel chỉ có nghĩa
+// khi có dòng IPA để tô màu.
+class _IpaLegendToggleIfRelevant extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _IpaLegendToggleIfRelevant({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (textProvider.ipaDisplayMode == IpaDisplayMode.hidden) {
+      return const SizedBox.shrink();
+    }
+    return IpaLegendToggleButton(tp: textProvider);
   }
 }
 

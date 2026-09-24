@@ -2682,6 +2682,64 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'ද්විස්වර',
   },
 
+  // ── READ-IPA-006 — panel màu IPA tương tác + nối âm + từ nhấn ──
+  'Nối âm': {
+    'en': 'Linking',
+    'hi': 'संधि',
+    'zh': '连读',
+    'zh_TW': '連讀',
+    'si': 'සන්ධිය',
+  },
+  'Từ nhấn': {
+    'en': 'Stressed',
+    'hi': 'बलाघात',
+    'zh': '重读',
+    'zh_TW': '重讀',
+    'si': 'බලය ලත් වචන',
+  },
+  'Màu phiên âm IPA': {
+    'en': 'IPA color legend',
+    'hi': 'IPA रंग सूची',
+    'zh': 'IPA 颜色图例',
+    'zh_TW': 'IPA 顏色圖例',
+    'si': 'IPA වර්ණ ලෙජන්ඩය',
+  },
+  'Màu IPA': {
+    'en': 'IPA colors',
+    'hi': 'IPA रंग',
+    'zh': 'IPA 颜色',
+    'zh_TW': 'IPA 顏色',
+    'si': 'IPA වර්ණ',
+  },
+  'Bảng màu IPA trên văn bản': {
+    'en': 'IPA color panel over the text',
+    'hi': 'पाठ के ऊपर IPA रंग पैनल',
+    'zh': '文本上方的 IPA 颜色面板',
+    'zh_TW': '文字上方的 IPA 顏色面板',
+    'si': 'පෙළට ඉහළින් IPA වර්ණ පැනලය',
+  },
+  'Dải thông tin màu ngay đầu màn hình đọc — ẩn/mở bằng nút “Màu IPA”.': {
+    'en': 'A color legend strip at the top of the reading screen — toggle it with the “IPA colors” button.',
+    'hi': 'पढ़ने की स्क्रीन के शीर्ष पर रंग जानकारी पट्टी — “IPA रंग” बटन से खोलें/बंद करें।',
+    'zh': '阅读屏幕顶部的颜色说明条 — 用“IPA 颜色”按钮开关。',
+    'zh_TW': '閱讀螢幕頂部的顏色說明條 — 用「IPA 顏色」按鈕開關。',
+    'si': 'කියවන තිරයේ ඉහළ වර්ණ තොරතුරු තීරුව — “IPA වර්ණ” බොත්තමෙන් විවෘත/වසන්න.',
+  },
+  'Loại màu (chạm để ẩn/bật):': {
+    'en': 'Color types (tap to hide/show):',
+    'hi': 'रंग प्रकार (छिपाने/दिखाने के लिए दबाएँ):',
+    'zh': '颜色类型（点按隐藏/显示）：',
+    'zh_TW': '顏色類型（點按隱藏/顯示）：',
+    'si': 'වර්ණ වර්ග (සැඟවීමට/පෙන්වීමට තට්ටු කරන්න):',
+  },
+  'Đang ẩn {value0} loại màu — chạm chip để bật lại.': {
+    'en': 'Hiding {value0} color types — tap a chip to re-enable.',
+    'hi': '{value0} रंग प्रकार छिपे हैं — फिर से चालू करने के लिए चिप दबाएँ।',
+    'zh': '已隐藏 {value0} 种颜色类型 — 点按色块重新启用。',
+    'zh_TW': '已隱藏 {value0} 種顏色類型 — 點按色塊重新啟用。',
+    'si': '{value0} වර්ණ වර්ග සඟවා ඇත — නැවත ක්‍රියාත්මක කිරීමට චිපය තට්ටු කරන්න.',
+  },
+
   // ── SHADOW-FILE-001 — persistent audio import + shadowing không bắt buộc AB
   'Đang lưu audio vào thư viện của app…': {
     'en': 'Saving audio into the app library…',

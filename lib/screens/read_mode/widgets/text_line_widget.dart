@@ -1,6 +1,7 @@
 // lib/screens/read_mode/widgets/text_line_widget.dart
 // ★ FIX: Thêm guard index trong Selector2 để tránh RangeError khi lines thay đổi
 
+import 'package:flutter/foundation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../features/translation/translation_display_mode.dart';
 import '../../../features/translation/translation_toolbar.dart';
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_color_visibility.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
 import '../../../models/word_entry.dart';
@@ -20,6 +22,7 @@ import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_bridge.dart';
 import '../../../screens/read_mode/models/playback_recipe.dart';
 import '../../../screens/read_mode/services/playback_controller.dart';
+import '../../../services/ipa_stress_annotator.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
@@ -73,6 +76,7 @@ class TextLineWidget extends StatelessWidget {
                         isCurrent)) {
                   lineIpaSegments = tp.lineIpaSegmentsFor(index);
                 }
+                final ipaVisibility = tp.ipaColorVisibility;
                 return _LineData(
                   content: line.content,
                   translation: line.translation,
@@ -95,6 +99,9 @@ class TextLineWidget extends StatelessWidget {
                   lineIpaSegments: lineIpaSegments,
                   ipaColorByType: tp.ipaColorByType,
                   ipaFadeKnown: tp.ipaFadeKnown,
+                  ipaColorVisibility: ipaVisibility,
+                  lineStress: tp.lineStressFor(lineIpaSegments),
+                  linkMarks: tp.linkMarksFor(lineIpaSegments),
                 );
               },
               shouldRebuild: (prev, next) => prev != next,
@@ -324,6 +331,9 @@ class TextLineWidget extends StatelessWidget {
                   segments,
                   colorByType: data.ipaColorByType,
                   isFaded: isFaded,
+                  visibility: data.ipaColorVisibility,
+                  lineStress: data.lineStress,
+                  linkMarks: data.linkMarks,
                 ),
               ],
             ),
@@ -408,13 +418,7 @@ class TextLineWidget extends StatelessWidget {
                           letterSpacing: 0.3,
                         ),
                         children: [
-                          IpaStyling.segmentSpan(
-                            seg,
-                            colorByType: data.ipaColorByType,
-                            alpha: isFaded(seg.wordCore)
-                                ? IpaStyling.fadedAlpha
-                                : (emphasized ? 1.0 : 0.8),
-                          ),
+                          _buildSegmentSpanWithMarks(context, data, segments, seg, emphasized),
                         ],
                       ),
                     ),
@@ -423,6 +427,66 @@ class TextLineWidget extends StatelessWidget {
             ),
       ],
     );
+  }
+
+  /// Dựng span IPA của 1 từ trong interlinear — kèm mark nhấn/nối âm
+  /// (P2/P3) + ẩn riêng từng loại (P1).
+  InlineSpan _buildSegmentSpanWithMarks(
+    BuildContext context,
+    _LineData data,
+    List<IpaSegment> segments,
+    IpaSegment seg,
+    bool emphasized,
+  ) {
+    final wordIndex = _segmentWordIndex(segments, seg);
+    final alpha = isFadedOf(data, seg.wordCore)
+        ? IpaStyling.fadedAlpha
+        : (emphasized ? 1.0 : 0.8);
+    final base = IpaStyling.segmentSpan(
+      seg,
+      colorByType: data.ipaColorByType,
+      alpha: alpha,
+      visibility: data.ipaColorVisibility,
+    );
+    final primary = (wordIndex >= 0 && data.lineStress != null)
+        ? data.lineStress!.primaryPerWord[wordIndex]
+        : null;
+    final link = (wordIndex >= 0 && data.linkMarks != null &&
+            data.linkMarks!.length == segments.length)
+        ? data.linkMarks![wordIndex]
+        : IpaLinkMark.none;
+    if (!data.ipaColorByType) return base;
+    if (!data.ipaColorVisibility.stressWords && !data.ipaColorVisibility.linking) {
+      return base;
+    }
+    return IpaStyling.stressOrLinkFromIpa(
+      base,
+      seg.ipa ?? '',
+      primary: data.ipaColorVisibility.stressWords ? primary : null,
+      link: (data.ipaColorVisibility.linking && !link.isEmpty) ? link : null,
+      showStress: data.ipaColorVisibility.stressWords,
+      showLink: data.ipaColorVisibility.linking,
+    );
+  }
+
+  static bool isFadedOf(_LineData data, String word) {
+    if (!data.ipaFadeKnown) return false;
+    final entry = VocabularyBridge.findByWord(word);
+    return entry != null && entry.zone == MasteryZone.mastered;
+  }
+
+  /// Index word của [seg] trong [segments]. Dùng identity trước, fallback
+  /// theo surface+wordCore (segments do provider tạo lại từng lượt build nên
+  /// identity có thể khác).
+  static int _segmentWordIndex(List<IpaSegment> segments, IpaSegment seg) {
+    for (var i = 0; i < segments.length; i++) {
+      final s = segments[i];
+      if (identical(s, seg) ||
+          (s.surface == seg.surface && s.wordCore == seg.wordCore)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /// POS/CEFR/difficulty: cùng đoạn chọn + lưu đầy đủ như chế độ không màu.
@@ -684,6 +748,11 @@ class _LineData {
   final bool ipaColorByType;
   final bool ipaFadeKnown;
 
+  /// READ-IPA-006: ẩn riêng từng loại màu + đánh dấu nhấn/nối âm.
+  final IpaColorVisibility ipaColorVisibility;
+  final IpaLineStress? lineStress;
+  final List<IpaLinkMark>? linkMarks;
+
   const _LineData({
     required this.content,
     this.translation,
@@ -705,6 +774,9 @@ class _LineData {
     this.lineIpaSegments,
     this.ipaColorByType = false,
     this.ipaFadeKnown = false,
+    this.ipaColorVisibility = IpaColorVisibility.all,
+    this.lineStress,
+    this.linkMarks,
   });
 
   const _LineData.empty()
@@ -727,7 +799,10 @@ class _LineData {
         ghostTranslation = false, // ★ ĐÃ THÊM
         lineIpaSegments = null,
         ipaColorByType = false,
-        ipaFadeKnown = false;
+        ipaFadeKnown = false,
+        ipaColorVisibility = IpaColorVisibility.all,
+        lineStress = null,
+        linkMarks = null;
 
   @override
   bool operator ==(Object other) {
@@ -753,8 +828,22 @@ class _LineData {
         lineIpaSegments == other.lineIpaSegments &&
         ipaColorByType == other.ipaColorByType &&
         ipaFadeKnown == other.ipaFadeKnown &&
+        ipaColorVisibility == other.ipaColorVisibility &&
+        _mapEqualsNullable(lineStressToMap(lineStress),
+            lineStressToMap(other.lineStress)) &&
+        _listEqualsNullable(linkMarks, other.linkMarks) &&
         ghostTranslation == other.ghostTranslation; // ★ ĐÃ THÊM
   }
+
+  static bool _mapEqualsNullable(
+          Map<int, IpaStressSyllable>? a, Map<int, IpaStressSyllable>? b) =>
+      a == null || b == null ? a == b : mapEquals(a, b);
+
+  static bool _listEqualsNullable(List<IpaLinkMark>? a, List<IpaLinkMark>? b) =>
+      a == null || b == null ? a == b : listEquals(a, b);
+
+  static Map<int, IpaStressSyllable>? lineStressToMap(IpaLineStress? s) =>
+      s?.primaryPerWord;
 
   @override
   int get hashCode => isEmpty
@@ -776,6 +865,7 @@ class _LineData {
               : Object.hashAll(lineIpaSegments!),
           ipaColorByType,
           ipaFadeKnown,
+          ipaColorVisibility,
           ghostTranslation, // ★ ĐÃ THÊM
         );
 }

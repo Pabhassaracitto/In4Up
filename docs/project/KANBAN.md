@@ -91,6 +91,7 @@
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
 | READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | ✅ done | commit `f149237` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); 2 toggle opt-in OFF + legend |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
+| READ-IPA-006 | Panel màu IPA tương tác (ẩn từng loại, default bật hết) + màu NỐI ÂM + đánh dấu từ nhấn | 🔄 doing | code xong chờ CI + nghiệm thu (branch arena/01a0d33c-in4up) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 
 
@@ -3278,3 +3279,51 @@
   chờ foundation).
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | ADR-0005 §6 — blocked on packaged VI/Pali dicts
+
+### READ-IPA-006 — Panel màu IPA tương tác + nối âm (liaison) + từ nhấn
+
+- **Trạng thái:** 🔄 doing (code xong, chờ CI + nghiệm thu build)
+
+  Yêu cầu người dùng (INA 2 Lưu Từ — 4 mục, branch `arena/01a0d33c-in4up`):
+
+  1. **Khi dịch IPA toàn văn bị thiếu dòng:** chưa tái lập được trên máy
+     (sandbox không có Flutter SDK). Khả năng cao: dòng có hyphen nội tại
+     (`well-known`, `re-open`…), ký tự lạ, hoặc từ bị G2P bỏ trống → cả dòng
+     bị loại theo eligibility (P1, chặt). ĐÃ GIỮ NGUYÊN hợp đồng eligibility
+     — cần người dùng gửi RÕ câu/đoạn cụ thể để bisect chính xác.
+
+  2. **Bảng thông tin màu IPA:** ✅
+     - `IpaLegendStrip` — dải chip màu ngay dưới TopBar Read Mode, mỗi loại
+       (nguyên âm/phụ âm/đôi nguyên âm/trọng âm/nối âm/từ nhấn) là 1 chip
+       bật/tắt, MẶC ĐỊNH BẬT HẾT.
+     - Ẩn/bật cả bảng: nút “Màu IPA” trên TopBar + nút X + switch trong
+       Settings → IPA; persist `ipa_legend_visible`.
+     - `IpaColorVisibility` (model) + persist `ipa_color_visibility` (JSON).
+     - Cùng toggle chip trong Settings → IPA (đồng bộ với strip).
+     - Bỏ widget animation (READ-TOOLBAR-001).
+
+  3. **Màu nối âm (liaison C→V):** ✅ — người dùng chốt nghĩa là **nối âm**
+     chứ KHÔNG phải “liên từ/function word”. Khi từ trước kết thúc phụ âm và
+     từ sau bắt đầu nguyên âm: phụ âm cuối + nguyên âm đầu được tô
+     deep-orange (`0xFFFF7043`) + underline. `IpaStyling.detectLinkMarks`
+     quét ký tự IPA thật, KHÔNG phụ thuộc phoneme list.
+
+  4. **Từ/cụm được nhấn trong câu:** ✅ (xấp xỉ) — KHÔNG có word-timestamp
+     (bị strip lúc parse, ADR-0005 §3) nên đánh dấu **trọng âm chính `ˈ`**
+     bằng gạch trên (overline) đúng âm tiết nhấn; `IpaStressAnnotator` bỏ
+     trọng âm phụ `ˌ` và function word bảng dừng (can/to/that/for…) để không
+     lẫn lộn. Toggle riêng `stressWords` (default ON). KHÔNG hứa chính xác
+     sentence stress (dữ liệu nguồn là dictionary form).
+
+- **Phạm vi thay đổi:** `lib/models/ipa_color_visibility.dart` (mới),
+  `lib/services/ipa_styling.dart` (P1/P2/P3 + markRanges primitive),
+  `lib/services/ipa_stress_annotator.dart` (mới),
+  `lib/screens/read_mode/widgets/ipa_legend_strip.dart` (mới),
+  `read_top_bar.dart`, `read_mode_screen.dart`, `read_settings_sheet.dart`,
+  `text_line_widget.dart`, `lib/providers/text_provider.dart`,
+  `lib/services/storage_service.dart`, i18n (`priority_ui_overrides.dart`).
+  Tests: `ipa_styling_test.dart` (mở rộng), `ipa_color_visibility_test.dart`
+  (mới), `ipa_stress_annotator_test.dart` (mới).
+
+- **Lịch sử:**
+  - 2026-09-24 | created→doing | ai | theo yêu cầu IPA 2 (4 mục) trên arena/01a0d33c-in4up

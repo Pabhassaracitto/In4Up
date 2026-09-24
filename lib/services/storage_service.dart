@@ -153,6 +153,25 @@ class StorageService {
     return getSetting<bool>('ipa_fade_known', defaultValue: false) ?? false;
   }
 
+  /// READ-IPA-006: panel màu IPA đang mở hay không.
+  Future<void> saveIpaLegendVisible(bool value) async {
+    await saveSetting('ipa_legend_visible', value);
+  }
+
+  bool getIpaLegendVisible() {
+    return getSetting<bool>('ipa_legend_visible', defaultValue: false) ?? false;
+  }
+
+  /// READ-IPA-006: trạng thái bật/tắt từng loại màu IPA (default bật hết).
+  /// Lưu dạng JSON string (an toàn với Hive typed-cast).
+  Future<void> saveIpaColorVisibility(Map<String, dynamic> json) async {
+    await saveSetting('ipa_color_visibility', jsonEncode(json));
+  }
+
+  String? getIpaColorVisibilityJson() {
+    return getSetting<String>('ipa_color_visibility');
+  }
+
   Future<void> saveShowTranslation(bool show) async {
     await saveSetting('show_translation', show);
   }

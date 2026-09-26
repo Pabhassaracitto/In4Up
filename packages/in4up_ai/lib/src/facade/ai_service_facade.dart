@@ -13,10 +13,15 @@ import '../chat/chat_context_policy.dart';
 import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
 import '../engine/ai_engine_mock.dart';
+import '../engine/ai_engine_remote.dart';
+import '../engine/ai_route_planner.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
+import '../provider/ai_provider_config.dart';
+import '../provider/ai_provider_store.dart';
+import '../provider/ai_sse.dart';
 
 /// Giai đoạn import/tải model — cho UI hiển thị progress + trạng thái rõ ràng.
 enum AiImportStage {
@@ -39,6 +44,28 @@ class AiServiceFacade extends ChangeNotifier {
   bool _initialized = false;
   bool _disposed = false;
   bool _useMock = false;
+
+  // ── WP1 (API-002): engine remote + định tuyến theo AiRoutingPrefs (WP0) ──
+  //
+  // `_engine` vẫn là engine LOCAL (Gemma .gguf hoặc mock) — mọi hành vi cũ
+  // giữ nguyên khi chưa cấu hình provider. Engine remote tạo LƯỚI theo
+  // provider đang bật (key = id|baseUrl|model) và chỉ được dùng khi route
+  // plan cho phép (offlineOnly ⇒ không bao giờ tạo ⇒ không request nào đi ra).
+  AiEngineRemote? _remoteEngine;
+  String? _remoteEngineKey;
+
+  /// Token hủy của lượt chat remote đang stream (nút Dừng / đóng màn).
+  AiChatCancelToken? _activeChatToken;
+
+  /// Lỗi API gần nhất theo MÃ cấu trúc — UI branch theo `lastChatErrorCode`,
+  /// không match chuỗi (mẫu HyMtErrorCode).
+  AiChatException? _lastChatApiError;
+
+  /// Usage của lượt chat remote gần nhất (từ chunk cuối nếu server trả) —
+  /// hiển thị nhẹ đếm token/chi phí ước tính (luật BYOK).
+  AiChatUsage? _lastChatUsage;
+  String? _lastChatModelId;
+  DateTime? _lastStreamNotify;
 
   final _cache = <String, AiAnalysis>{};
 
@@ -75,6 +102,65 @@ class AiServiceFacade extends ChangeNotifier {
       (_engine?.state == AiEngineState.ready ||
           _engine?.state == AiEngineState.processing);
   bool get useMock => _useMock;
+
+  // ── WP1 (API-002): route + trạng thái engine remote cho UI ──
+
+  /// Lỗi API gần nhất (mã cấu trúc) — null khi lượt cuối không lỗi.
+  AiChatException? get lastChatApiError => _lastChatApiError;
+
+  /// Mã lỗi cấu trúc của lượt API gần nhất — UI branch theo mã này, không
+  /// match chuỗi.
+  AiChatErrorCode? get lastChatErrorCode => _lastChatApiError?.code;
+
+  /// Usage lượt chat remote gần nhất (token prompt/completion) — hiển thị
+  /// nhẹ trong chat (luật chi phí BYOK). Null khi không có usage.
+  AiChatUsage? get lastChatUsage => _lastChatUsage;
+
+  /// Model remote đã trả lời lượt gần nhất (vd `llama3.1:8b`).
+  String? get lastChatModelId => _lastChatModelId;
+
+  /// Có provider + model cho chat và mode ≠ offlineOnly (chưa kể model local).
+  bool get isRemoteChatConfigured {
+    final store = AiProviderStore.instance;
+    if (!store.isLoaded) return false;
+    return store.resolveProvider(AiRouteCapability.chat) != null;
+  }
+
+  /// Nhãn route remote cho banner chat ("Ollama nhà · llama3.1:8b"). Đọc từ
+  /// engine đang có hoặc provider trong store (engine tạo lười — chưa request
+  /// lần nào vẫn hiển thị đúng đích sẽ dùng).
+  String get chatRouteLabel {
+    final remote = _remoteEngine;
+    if (remote != null) {
+      final p = remote.providerLabel;
+      final m = remote.modelId;
+      return (p == null || p.isEmpty ? 'API' : p) +
+          (m == null || m.isEmpty ? '' : ' · $m');
+    }
+    final store = AiProviderStore.instance;
+    final provider =
+        store.isLoaded ? store.resolveProvider(AiRouteCapability.chat) : null;
+    if (provider == null) return 'API';
+    final m = provider.chatModel;
+    return (provider.label.isEmpty ? 'API' : provider.label) +
+        (m == null || m.isEmpty ? '' : ' · $m');
+  }
+
+  /// Engine remote có đang là nơi xử lý lượt chat này không (streaming).
+  bool get isRemoteChatActive =>
+      _activeChatToken != null || _remoteEngine?.isBusy == true;
+
+  /// Remote có đứng ĐẦU route chat không (onlineFirst, hoặc offlineFirst mà
+  /// chưa có model local) — UI hiện nhãn "đang dùng API" khi true.
+  bool get isRemoteChatPreferred => _chatRoutePlan().remoteFirst;
+
+  /// Dừng sinh câu trả lời remote NGAY (đóng socket — token không chảy tiếp).
+  /// Local Gemma generate bằng FFI blocking trong isolate nên không cancel
+  /// giữa chừng được — lượt hiện tại vẫn chạy tới watchdog như trước (hàng
+  /// đợi/epoch cũ giữ nguyên).
+  void stopGenerating() {
+    _activeChatToken?.cancel('user stopped');
+  }
 
   // Model loader for source label
   final AiModelLoader _loader = AiModelLoader();
@@ -291,16 +377,52 @@ class AiServiceFacade extends ChangeNotifier {
   }
 
   /// Xử lý MỘT tin trong hàng đợi (bubble user đã có trong lịch sử).
+  ///
+  /// WP1 (API-002): chọn engine theo `AiRoutingPrefs` (WP0):
+  /// * remote đứng đầu route (onlineFirst, hoặc offlineFirst mà chưa có
+  ///   model local) ⇒ streaming từng token qua API, token hiện dần trong UI.
+  /// * Remote lỗi mà chưa thu token nào ⇒ tự fallback engine local (Gemma
+  ///   nếu có model → mock kèm disclaimer như cũ) — không đổi signature.
+  /// * Local lỗi (timeout/engine chết) ⇒ thử remote như stop cuối nếu route
+  ///   có (fallback 2 chiều theo ADR-0007).
   Future<void> _processChat(_PendingChat item) async {
+    final plan = _chatRoutePlan();
+
+    if (plan.remoteFirst) {
+      if (await _processChatRemote(item)) return;
+    }
+
+    final failure = await _processChatLocal(item);
+    if (failure == null) return; // đã có câu trả lời (hoặc tin bị bỏ).
+
+    if (plan.usesRemote && !plan.remoteFirst) {
+      // offlineFirst: local (thật) vừa lỗi ⇒ thử API trước khi báo lỗi.
+      if (await _processChatRemote(item)) return;
+    }
+
+    // Mọi engine đều fail — bubble lỗi trung thực (kèm mã cấu trúc của API
+    // nếu remote cũng vừa lỗi — UI branch theo `lastChatErrorCode`).
+    var text = failure;
+    final apiError = _lastChatApiError;
+    if (plan.usesRemote && apiError != null) {
+      text = '$failure\n(${apiError.code.name}) ${apiError.message}';
+    }
+    if (item.epoch == _chatEpoch) {
+      _addAssistantMessage(text, isError: true);
+    }
+  }
+
+  /// Xử lý 1 tin bằng engine LOCAL (Gemma thật hoặc mock — giữ nguyên toàn bộ
+  /// semantics AI-CHAT-01/02). Trả về:
+  /// * null — đã có kết cục (câu trả lời đã add, hoặc tin bị bỏ vì epoch).
+  /// * failure text — local thất bại; caller quyết định fallback remote hay
+  ///   add bubble lỗi.
+  Future<String?> _processChatLocal(_PendingChat item) async {
     final text = item.message.text.trim();
     final engine = _engine;
 
     if (engine == null) {
-      _addAssistantMessage(
-        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
-        isError: true,
-      );
-      return;
+      return 'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.';
     }
 
     // Engine THẬT: đảm bảo backend còn sống + model đã nạp xong trước khi gửi.
@@ -308,13 +430,9 @@ class AiServiceFacade extends ChangeNotifier {
     if (!_useMock) {
       final ready = await _ensureEngineReady();
       if (!ready) {
-        _addAssistantMessage(
-          'Không kết nối được AI local (model chưa nạp xong). Bạn thử lại sau vài giây.',
-          isError: true,
-        );
-        return;
+        return 'Không kết nối được AI local (model chưa nạp xong). Bạn thử lại sau vài giây.';
       }
-      if (item.epoch != _chatEpoch || _disposed) return;
+      if (item.epoch != _chatEpoch || _disposed) return null;
     }
 
     final engineState = _engine?.state;
@@ -323,11 +441,7 @@ class AiServiceFacade extends ChangeNotifier {
             engineState != AiEngineState.processing)) {
       // processing = request khác (tab Viết/Nghe) còn chạy — engine tự xếp
       // hàng, đây KHÔNG phải "engine not ready" theo nghĩa lỗi.
-      _addAssistantMessage(
-        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
-        isError: true,
-      );
-      return;
+      return 'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.';
     }
 
     // FIX AI-CHAT-01 #3: chỉ gửi các tin MỚI NHẤT và trong ngân sách ký tự —
@@ -358,10 +472,21 @@ class AiServiceFacade extends ChangeNotifier {
           )
           .first
           .timeout(chatRequestTimeout);
-      if (item.epoch != _chatEpoch) return;
+      if (item.epoch != _chatEpoch) return null;
       final answer = result.success && result.summary.isNotEmpty
           ? result.summary
-          : 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
+          : '';
+      if (answer.isEmpty) {
+        if (result.success) {
+          // Success nhưng summary rỗng — giữ đúng behavior cũ (bubble không
+          // đỏ, không phải lỗi kỹ thuật).
+          _addAssistantMessage('Mình chưa tạo được câu trả lời cho tin nhắn này.');
+          return null;
+        }
+        // Model không sinh được gì (JSON hỏng + rescue rỗng) — trả failure để
+        // caller thử fallback remote thay vì add câu chung chung.
+        return 'Mình chưa tạo được câu trả lời cho tin nhắn này.';
+      }
       final isRealModel = _modelLoaded && !_useMock;
       _addAssistantMessage(
         isRealModel
@@ -379,16 +504,11 @@ class AiServiceFacade extends ChangeNotifier {
               'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.',
         ));
       }
+      return null;
     } on TimeoutException {
       // FIX AI-CHAT-01 #2: generate quá lâu (máy yếu / native treo) — trả lời
       // rõ + về trạng thái bình thường; nút gửi không xoay vòng vô hạn.
       _lastError = 'Chat timeout (${chatRequestTimeout.inSeconds}s)';
-      if (item.epoch == _chatEpoch) {
-        _addAssistantMessage(
-          'AI xử lý quá lâu (model lớn trên máy yếu). Vui lòng thử lại sau vài giây.',
-          isError: true,
-        );
-      }
       // Native generate là FFI blocking — không cancel được request trong
       // isolate con. Còn request treo ⇒ dựng lại isolate Ở NỀN để tin sau
       // chạy được thay vì chờ hết watchdog 5 phút (DoD: "request sau vẫn
@@ -399,16 +519,181 @@ class AiServiceFacade extends ChangeNotifier {
               'AI xử lý quá lâu (>${chatRequestTimeout.inSeconds}s) — đang khởi động lại AI',
         ));
       }
+      return 'AI xử lý quá lâu (model lớn trên máy yếu). Vui lòng thử lại sau vài giây.';
     } catch (e) {
       _lastError = e.toString();
-      if (item.epoch == _chatEpoch) {
-        _addAssistantMessage('Có lỗi khi xử lý. Vui lòng thử lại.', isError: true);
-      }
       if (!_useMock && _engine?.state == AiEngineState.error) {
         unawaited(restartEngine(
           reason: 'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.',
         ));
       }
+      return 'Có lỗi khi xử lý. Vui lòng thử lại.';
+    }
+  }
+
+  /// System prompt cho chat qua API remote — model lớn hiểu chỉ thị tốt hơn
+  /// Gemma 2B, trả lời thẳng (không cần ép JSON schema như analysis).
+  static const String _remoteChatSystemPrompt =
+      'Bạn là trợ lý học tập của ứng dụng in4up. Trả lời ngắn gọn, rõ ràng, '
+      'thân thiện. Người dùng đang học tiếng Anh (từ vựng, ngữ pháp, phát '
+      'âm) — ưu tiên giải thích bằng tiếng Việt trừ khi được hỏi bằng ngôn '
+      'ngữ khác. Không bịa đặt: không chắc thì nói rõ là không chắc.';
+
+  /// Xử lý 1 tin bằng engine REMOTE — streaming từng token, bubble assistant
+  /// cập nhật dần (token hiện dần trong UI). Trả về true khi tin này ĐÃ CÓ
+  /// KẾT CỤC (câu trả lời đủ/một phần, user chủ động dừng, hoặc phiên chat
+  /// bị xoá); false khi remote lỗi mà CHƯA thu được token nào — caller bỏ
+  /// placeholder và fallback engine kế tiếp trong route.
+  Future<bool> _processChatRemote(_PendingChat item) async {
+    final remote = await _ensureRemoteEngine();
+    if (remote == null) return false;
+    if (_disposed) return true;
+    if (item.epoch != _chatEpoch) return true; // phiên chat đã bị xoá.
+
+    final text = item.message.text.trim();
+    final index = _chatMessages.indexOf(item.message);
+    final prior =
+        index > 0 ? _chatMessages.sublist(0, index) : const <ChatMessage>[];
+
+    // Bubble placeholder — text cập nhật dần theo từng delta (streaming UI).
+    final placeholder = ChatMessage(
+      id: 'assistant-${DateTime.now().microsecondsSinceEpoch}',
+      role: ChatRole.assistant,
+      text: '',
+    );
+    _chatMessages.add(placeholder);
+    _lastStreamNotify = null;
+    if (!_disposed) notifyListeners();
+
+    final token = AiChatCancelToken();
+    _activeChatToken = token;
+    final buffer = StringBuffer();
+    AiChatUsage? usage;
+    AiChatException? failure;
+    try {
+      // Lịch sử: TÁI DÙNG ChatContextPolicy (tin gần nhất + ngân sách ký tự)
+      // nhưng gửi dạng message chuẩn OpenAI thay vì nhét vào 1 prompt — model
+      // lớn xử lý hội thoại đa lượt tốt hơn nhiều.
+      final history = _chatContext.selectHistory(prior, current: item.message);
+      final messages = <AiChatMessage>[
+        const AiChatMessage('system', _remoteChatSystemPrompt),
+        for (final m in history) AiChatMessage(m.role.name, m.text),
+        AiChatMessage('user', _chatContext.clipQuestion(text)),
+      ];
+      await for (final chunk in remote.chatStream(
+        messages: messages,
+        temperature: 0.4,
+        maxTokens: _chatMaxTokens,
+        cancelToken: token,
+      )) {
+        if (item.epoch != _chatEpoch) {
+          token.cancel('chat cleared');
+          break;
+        }
+        final delta = chunk.deltaContent;
+        if (delta != null && delta.isNotEmpty) {
+          buffer.write(delta);
+          _updateStreamingMessage(placeholder.id, buffer.toString());
+        }
+        if (chunk.usage != null) usage = chunk.usage;
+      }
+    } on AiChatException catch (e) {
+      failure = e;
+    } catch (e) {
+      failure = AiChatException(AiChatErrorCode.invalidResponse, e.toString());
+    } finally {
+      _activeChatToken = null;
+      _lastChatApiError = failure;
+      if (usage != null) {
+        _lastChatUsage = usage;
+        _lastChatModelId = remote.modelId;
+      }
+    }
+
+    if (item.epoch != _chatEpoch) {
+      // Phiên chat bị xoá giữa chừng — bỏ bubble, không trả vào lịch sử mới.
+      _chatMessages.removeWhere((m) => m.id == placeholder.id);
+      if (!_disposed) notifyListeners();
+      return true;
+    }
+
+    final answer = buffer.toString().trim();
+    final userStopped = token.isCancelled;
+    if (answer.isEmpty && failure == null && !userStopped) {
+      // Stream kết thúc "bình thường" nhưng không có nội dung gì — ghi mã
+      // emptyOutput để UI phân nhánh đúng (không phải lỗi mạng).
+      failure = const AiChatException(
+          AiChatErrorCode.emptyOutput, 'Model không trả nội dung');
+      _lastChatApiError = failure;
+    }
+    final idx = _indexOfMessage(placeholder.id);
+    if (idx < 0) return true; // phòng thủ: bubble đã biến mất.
+
+    if (answer.isEmpty) {
+      // Không thu được token nào (lỗi API hoặc model rỗng) — bỏ placeholder,
+      // trả false để route fallback engine kế (AT: fallback rõ, không treo).
+      _chatMessages.removeAt(idx);
+      if (!_disposed) notifyListeners();
+      return false;
+    }
+
+    // Có nội dung (đủ hoặc một phần do user dừng / mạng đứt giữa chừng).
+    var finalText = answer;
+    if (userStopped) {
+      finalText += '\n\n⏹ Đã dừng.';
+    } else if (failure != null) {
+      // Cắt mạng giữa lúc generate: giữ phần đã sinh + cảnh báo theo MÃ —
+      // dừng sạch, không treo, không crash.
+      finalText += '\n\n⚠️ ${_chatFailureNotice(failure)}';
+    }
+    _chatMessages[idx] =
+        _chatMessages[idx].copyWith(text: finalText, isError: failure != null && !userStopped);
+    await _persistChatHistory();
+    if (!_disposed) notifyListeners();
+    return true;
+  }
+
+  /// Thông báo lỗi chat theo MÃ cấu trúc — UI không phải match chuỗi.
+  String _chatFailureNotice(AiChatException e) {
+    switch (e.code) {
+      case AiChatErrorCode.noNetwork:
+        return 'Mất kết nối tới server AI giữa chừng — đã dừng an toàn.';
+      case AiChatErrorCode.timeout:
+        return 'Server AI không phản hồi kịp (timeout).';
+      case AiChatErrorCode.rateLimited:
+        return 'Vượt giới hạn gọi API (429) — thử lại sau ít phút.';
+      case AiChatErrorCode.httpError:
+        return 'Lỗi HTTP từ server AI'
+            '${e.statusCode != null ? ' (${e.statusCode})' : ''}.';
+      case AiChatErrorCode.emptyOutput:
+        return 'Model không trả nội dung.';
+      case AiChatErrorCode.busy:
+        return 'API đang bận — thử lại.';
+      case AiChatErrorCode.canceled:
+        return 'Đã dừng.';
+      case AiChatErrorCode.invalidResponse:
+        return 'Server trả dữ liệu không đúng chuẩn OpenAI.';
+    }
+  }
+
+  int _indexOfMessage(String id) {
+    for (var i = 0; i < _chatMessages.length; i++) {
+      if (_chatMessages[i].id == id) return i;
+    }
+    return -1;
+  }
+
+  /// Cập nhật text bubble đang stream — throttle notify ~60ms/token-batch để
+  /// ListView không rebuild từng ký tự (token vẫn hiện dần mượt).
+  void _updateStreamingMessage(String id, String text) {
+    final idx = _indexOfMessage(id);
+    if (idx < 0) return;
+    _chatMessages[idx] = _chatMessages[idx].copyWith(text: text);
+    final now = DateTime.now();
+    final last = _lastStreamNotify;
+    if (last == null || now.difference(last) >= const Duration(milliseconds: 60)) {
+      _lastStreamNotify = now;
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -540,6 +825,11 @@ class AiServiceFacade extends ChangeNotifier {
   Future<void> initializeAsync() async {
     if (_initialized) return;
     await _restoreChatHistory();
+    // WP1: nạp cấu hình provider/routing (WP0) để route chat/analysis biết
+    // có tầng API nào không. Không chặn khi prefs hỏng — store tự dùng mặc định.
+    unawaited(AiProviderStore.instance.ensureLoaded().catchError((Object e) {
+      debugPrint('[AiServiceFacade] provider store load error: $e');
+    }));
     try {
       final result = await _loader.findOrLoadModel(allowDownload: false);
       _modelStatus = result;
@@ -623,6 +913,92 @@ class AiServiceFacade extends ChangeNotifier {
     return ok;
   }
 
+  // ── WP1 (API-002): định tuyến engine remote/local theo AiRoutingPrefs ──
+
+  /// Hoạch định route LLM thuần (xem `planLlmRoute`). offlineOnly hoặc chưa
+  /// cấu hình provider ⇒ KHÔNG có stop `remote` ⇒ không request nào đi ra.
+  AiLlmRoutePlan _chatRoutePlan() {
+    final store = AiProviderStore.instance;
+    return planLlmRoute(
+      mode: store.routing.modeOf(AiRouteCapability.chat),
+      remoteAvailable: isRemoteChatConfigured,
+      localModelReady: hasModel,
+    );
+  }
+
+  /// Lấy (hoặc tái tạo) engine remote theo provider đang bật. Trả về null
+  /// khi: store chưa nạp / offlineOnly / không provider / provider thiếu
+  /// model chat. Tái tạo khi user đổi cấu hình (khác key) — hủy request cũ.
+  Future<AiEngineRemote?> _ensureRemoteEngine() async {
+    final store = AiProviderStore.instance;
+    if (!store.isLoaded) return null;
+    final provider = store.resolveProvider(AiRouteCapability.chat);
+    if (provider == null) return null;
+    final key = '${provider.id}|${provider.baseUrl}|${provider.chatModel ?? ''}';
+    final existing = _remoteEngine;
+    if (existing != null && _remoteEngineKey == key) return existing;
+    await existing?.dispose();
+    final engine = AiEngineRemote(provider: provider);
+    final ok = await engine.initialize(
+        modelPath: 'api://${provider.id}/${provider.chatModel ?? ''}');
+    if (!ok) {
+      await engine.dispose();
+      _remoteEngine = null;
+      _remoteEngineKey = null;
+      return null;
+    }
+    _remoteEngine = engine;
+    _remoteEngineKey = key;
+    debugPrint('[AiServiceFacade] 🛰️ Remote engine ready: $key');
+    return engine;
+  }
+
+  /// Thử 1 request analysis qua engine remote (khi route cho phép). Trả về
+  /// kết quả THÀNH CÔNG, hoặc null (remote không có trong route / lỗi — đã
+  /// ghi `_lastChatApiError` theo mã cấu trúc). KHÔNG ném lỗi ra ngoài.
+  Future<AiAnalysis?> _tryRemoteAnalysis({
+    required String text,
+    required AiAnalysisType type,
+    String? context,
+    double temperature = 0.1,
+    int maxTokens = 256,
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    final remote = await _ensureRemoteEngine();
+    if (remote == null) return null;
+    try {
+      final result = await remote
+          .analyze(
+            text: text,
+            type: type,
+            context: context,
+            temperature: temperature,
+            maxTokens: maxTokens,
+          )
+          .first
+          .timeout(timeout);
+      if (result.success) {
+        _lastChatApiError = null;
+        _lastChatUsage = remote.lastUsage;
+        _lastChatModelId = remote.modelId;
+        return result;
+      }
+      _lastChatApiError = remote.lastErrorOrNull;
+      return null;
+    } on TimeoutException {
+      _lastChatApiError =
+          const AiChatException(AiChatErrorCode.timeout, 'API xử lý quá lâu');
+      return null;
+    } on AiChatException catch (e) {
+      _lastChatApiError = e;
+      return null;
+    } catch (e) {
+      _lastChatApiError =
+          AiChatException(AiChatErrorCode.httpError, e.toString());
+      return null;
+    }
+  }
+
   // ── Word Lookup (final 9-error fix) ──
 
   Future<AiAnalysis> lookupWord(String word, {String? sentenceContext, Map<String, dynamic>? localDictEntry}) async {
@@ -635,15 +1011,63 @@ class AiServiceFacade extends ChangeNotifier {
       return _cache[cacheKey]!;
     }
 
+    // WP1 (API-002): route theo AiRoutingPrefs — remote đứng đầu (onlineFirst,
+    // hoặc offlineFirst mà chưa có model local) ⇒ hỏi API trước. Word Lookup
+    // qua API vẫn trả ĐÚNG JSON schema như Gemma (Word Lookup AT).
+    final plan = _chatRoutePlan();
+    var remoteTried = false;
+    Future<AiAnalysis?> tryRemote() => _tryRemoteAnalysis(
+          text: word,
+          type: AiAnalysisType.wordLookup,
+          context: sentenceContext,
+          timeout: const Duration(seconds: 45),
+        );
+
+    if (plan.remoteFirst) {
+      remoteTried = true;
+      final remote = await tryRemote();
+      if (remote != null) {
+        final enriched = localDictEntry != null
+            ? enrichWithLocalDict(remote, localDictEntry)
+            : remote;
+        _cache[cacheKey] = enriched;
+        return enriched;
+      }
+    }
+
     try {
       AiAnalysis result;
       // Busy (đang generate cho chat) ⇒ dùng từ điển local ngay — không
       // chen request vào (AI-CHAT-01: isReady giờ bao gồm processing).
+      // WP1: nếu route có remote thì API trả lời song song (không đợi isolate).
       final engineBusy = _engine?.state == AiEngineState.processing;
       if (!isReady || engineBusy) {
+        if (!remoteTried && plan.usesRemote) {
+          remoteTried = true;
+          final remote = await tryRemote();
+          if (remote != null) {
+            final enriched = localDictEntry != null
+                ? enrichWithLocalDict(remote, localDictEntry)
+                : remote;
+            _cache[cacheKey] = enriched;
+            return enriched;
+          }
+        }
         result = buildFromLocalDict(word, localDictEntry);
       } else {
         result = await _engine!.analyze(text: word, type: AiAnalysisType.wordLookup, context: sentenceContext).first.timeout(const Duration(seconds: 30));
+        if (!result.success && !remoteTried && plan.usesRemote) {
+          // Gemma lỗi (JSON hỏng / output rỗng) ⇒ fallback remote theo route.
+          remoteTried = true;
+          final remote = await tryRemote();
+          if (remote != null) {
+            final enriched = localDictEntry != null
+                ? enrichWithLocalDict(remote, localDictEntry)
+                : remote;
+            _cache[cacheKey] = enriched;
+            return enriched;
+          }
+        }
         if (localDictEntry != null) {
           result = enrichWithLocalDict(result, localDictEntry);
         }
@@ -652,6 +1076,17 @@ class AiServiceFacade extends ChangeNotifier {
       return result;
     } catch (e) {
       debugPrint('[AiServiceFacade] lookupWord error: $e');
+      if (!remoteTried && plan.usesRemote) {
+        remoteTried = true;
+        final remote = await tryRemote();
+        if (remote != null) {
+          final enriched = localDictEntry != null
+              ? enrichWithLocalDict(remote, localDictEntry)
+              : remote;
+          _cache[cacheKey] = enriched;
+          return enriched;
+        }
+      }
       return buildFromLocalDict(word, localDictEntry);
     }
   }
@@ -718,6 +1153,23 @@ class AiServiceFacade extends ChangeNotifier {
     _currentAnalysis = null;
     notifyListeners();
 
+    // WP1 (API-002): remote đứng đầu route ⇒ Write Studio hỏi API trước.
+    final plan = _chatRoutePlan();
+    if (plan.remoteFirst) {
+      final remote = await _tryRemoteAnalysis(
+        text: sentence,
+        type: AiAnalysisType.sentenceParse,
+        maxTokens: 384,
+        timeout: const Duration(seconds: 90),
+      );
+      if (remote != null) {
+        _currentAnalysis = remote;
+        _setFacadeState(AiFacadeState.idle);
+        notifyListeners();
+        return;
+      }
+    }
+
     if (_engine != null && _engine!.state == AiEngineState.ready) {
       try {
         await _analyzeWithRetry(word: sentence, type: AiAnalysisType.sentenceParse);
@@ -727,6 +1179,21 @@ class AiServiceFacade extends ChangeNotifier {
     } else {
       _currentAnalysis = AiAnalysis.fallback(sentence, errorReason: 'Engine not ready', analysisType: AiAnalysisType.sentenceParse);
       _setError('AI engine chưa sẵn sàng. Vui lòng import model.');
+    }
+
+    // WP1: local không ra kết quả (chưa sẵn sàng / retry hết) ⇒ remote là
+    // fallback cuối nếu route cho phép.
+    if (plan.usesRemote && !(_currentAnalysis?.success ?? false)) {
+      final remote = await _tryRemoteAnalysis(
+        text: sentence,
+        type: AiAnalysisType.sentenceParse,
+        maxTokens: 384,
+        timeout: const Duration(seconds: 90),
+      );
+      if (remote != null) {
+        _currentAnalysis = remote;
+        _lastError = null;
+      }
     }
 
     _setFacadeState(AiFacadeState.idle);
@@ -742,40 +1209,97 @@ class AiServiceFacade extends ChangeNotifier {
   // ── Summarize ──
 
   Future<AiAnalysis> summarize(String transcript, {String? speakerContext}) async {
-    if (!isReady) {
-      return AiAnalysis.fallback(transcript, errorReason: 'Engine not ready', analysisType: AiAnalysisType.summarize);
-    }
-    try {
-      return await _engine!.analyze(text: transcript, type: AiAnalysisType.summarize, context: speakerContext).first.timeout(const Duration(seconds: 60));
-    } catch (e) {
-      return AiAnalysis.fallback(transcript, errorReason: e.toString(), analysisType: AiAnalysisType.summarize);
-    }
+    return _analyzeWithRoute(
+      text: transcript,
+      type: AiAnalysisType.summarize,
+      context: speakerContext,
+      localTimeout: const Duration(seconds: 60),
+      remoteTimeout: const Duration(seconds: 120),
+      maxTokens: 512,
+    );
   }
 
   // ── Term Extract ──
 
   Future<AiAnalysis> extractTerms(String transcript) async {
-    if (!isReady) {
-      return AiAnalysis.fallback(transcript, errorReason: 'Engine not ready', analysisType: AiAnalysisType.termExtract);
-    }
-    try {
-      return await _engine!.analyze(text: transcript, type: AiAnalysisType.termExtract).first.timeout(const Duration(seconds: 45));
-    } catch (e) {
-      return AiAnalysis.fallback(transcript, errorReason: e.toString(), analysisType: AiAnalysisType.termExtract);
-    }
+    return _analyzeWithRoute(
+      text: transcript,
+      type: AiAnalysisType.termExtract,
+      localTimeout: const Duration(seconds: 45),
+      remoteTimeout: const Duration(seconds: 120),
+      maxTokens: 512,
+    );
   }
 
   // ── PAO Generation ──
 
   Future<AiAnalysis> generatePao(String word) async {
-    if (!isReady) {
-      return AiAnalysis.fallback(word, errorReason: 'Engine not ready', analysisType: AiAnalysisType.paoGeneration);
+    return _analyzeWithRoute(
+      text: word,
+      type: AiAnalysisType.paoGeneration,
+      localTimeout: const Duration(seconds: 20),
+      remoteTimeout: const Duration(seconds: 45),
+    );
+  }
+
+  /// Chạy 1 analysis theo route plan (remote ↔ local 2 chiều): engine đầu
+  /// lỗi ⇒ thử engine kế; thất bại hết ⇒ fallback analysis errorReason rõ.
+  /// KHÔNG có provider ⇒ đúng behavior cũ (chỉ engine local).
+  Future<AiAnalysis> _analyzeWithRoute({
+    required String text,
+    required AiAnalysisType type,
+    String? context,
+    double temperature = 0.1,
+    int maxTokens = 256,
+    required Duration localTimeout,
+    Duration remoteTimeout = const Duration(seconds: 90),
+  }) async {
+    final plan = _chatRoutePlan();
+
+    Future<AiAnalysis?> tryRemote() => _tryRemoteAnalysis(
+          text: text,
+          type: type,
+          context: context,
+          temperature: temperature,
+          maxTokens: maxTokens,
+          timeout: remoteTimeout,
+        );
+
+    if (plan.remoteFirst) {
+      final remote = await tryRemote();
+      if (remote != null) return remote;
     }
-    try {
-      return await _engine!.analyze(text: word, type: AiAnalysisType.paoGeneration).first.timeout(const Duration(seconds: 20));
-    } catch (e) {
-      return AiAnalysis.fallback(word, errorReason: e.toString(), analysisType: AiAnalysisType.paoGeneration);
+
+    if (isReady) {
+      try {
+        // Giữ NGUYÊN call local như bản cũ (không truyền temperature/
+        // maxTokens — engine dùng mặc định của chính nó, context 2048 của
+        // Gemma không bị tăng rủi ro tràn).
+        final result = await _engine!
+            .analyze(text: text, type: type, context: context)
+            .first
+            .timeout(localTimeout);
+        if (result.success) return result;
+        if (plan.usesRemote && !plan.remoteFirst) {
+          final remote = await tryRemote();
+          if (remote != null) return remote;
+        }
+        return result; // engine tự trả fallback analysis (success=false).
+      } catch (e) {
+        if (plan.usesRemote) {
+          final remote = await tryRemote();
+          if (remote != null) return remote;
+        }
+        return AiAnalysis.fallback(text, errorReason: e.toString(), analysisType: type);
+      }
     }
+
+    // Engine local chưa sẵn sàng (chưa import model / đang khởi động lại).
+    if (plan.usesRemote && !plan.remoteFirst) {
+      final remote = await tryRemote();
+      if (remote != null) return remote;
+    }
+    return AiAnalysis.fallback(text, errorReason: 'Engine not ready', analysisType: type);
   }
 
   // ── Legacy 3-tier API for word_analysis_sheet ──
@@ -983,6 +1507,12 @@ class AiServiceFacade extends ChangeNotifier {
     _engineError = null;
   }
 
+  /// Test-seam (AT WP1): route hiện tại có chứa engine remote không — kiểm
+  /// tra "offlineOnly ⇒ không request /chat/completions nào đi ra" bằng logic
+  /// routing thuần, không cần network.
+  @visibleForTesting
+  bool get debugUsesRemoteChatRoute => _chatRoutePlan().usesRemote;
+
   @override
   void dispose() {
     _disposed = true;
@@ -992,6 +1522,12 @@ class AiServiceFacade extends ChangeNotifier {
       if (!item.done.isCompleted) item.done.complete();
     }
     _chatQueue.clear();
+    // WP1: hủy request remote đang stream — token không được chảy tiếp sau
+    // dispose (AT: đóng màn giữa lúc generate ⇒ dừng sạch).
+    _activeChatToken?.cancel('facade disposed');
+    unawaited(_remoteEngine?.dispose());
+    _remoteEngine = null;
+    _remoteEngineKey = null;
     _engine?.dispose();
     _cache.clear();
     _instance = null;

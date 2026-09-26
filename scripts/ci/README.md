@@ -1,5 +1,51 @@
 # scripts/ci — công cụ cho GitHub Actions
 
+## `android_prepare_signing.sh` (CI-ANDROID-03)
+
+Decode keystore từ secrets → `android/app/in4up-release.jks` + ghi
+`android/key.properties` để `android/app/build.gradle.kts` ký APK release bằng
+**key thật**. Chạy TRƯỚC `flutter build apk`. Cần 4 secret:
+
+| Secret | Giá trị |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 in4up-release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | storePassword |
+| `ANDROID_KEY_ALIAS` | alias (vd `in4up`) |
+| `ANDROID_KEY_PASSWORD` | keyPassword |
+
+- Thiếu `ANDROID_KEYSTORE_BASE64` ⇒ **không fail**, in `::warning::`; Gradle fallback
+  ký **debug keystore** (APK vẫn cài được, nhưng không update đè được giữa các
+  release vì mỗi runner một debug key).
+- Có BASE64 nhưng thiếu 1 trong 3 secret còn lại, hoặc sai mật khẩu/alias ⇒ fail
+  **sớm** (keytool -list) trước khi tốn 15 phút compile native.
+- In SHA-1/SHA-256 của cert (không in mật khẩu) — dán vào Firebase Console cho
+  Google Sign-In.
+
+Vì sao cần: `release {}` trong build.gradle.kts từng không có `signingConfig`
+(từ commit c5d7adbf) ⇒ AGP xuất `*-release-unsigned.apk`, Flutter đổi tên che
+mất hậu tố ⇒ Android từ chối cài mọi bản release (local lẫn Actions).
+
+## `android_verify_apk_signed.sh <apk...>` (CI-ANDROID-03)
+
+Lưới an toàn sau bước rename, trước upload/release: mọi APK phải có chữ ký.
+Dùng `apksigner verify --print-certs` nếu tìm thấy (PATH / `$ANDROID_HOME/build-tools/*`),
+không thì đọc cấu trúc file (`APK Sig Block 42` = v2/v3, `META-INF/*.RSA|DSA|EC` = v1).
+Exit 1 nếu có APK unsigned / thiếu file / glob rỗng ⇒ job đỏ thay vì ship APK hỏng.
+
+Chạy tay ở máy dev (không cần Android SDK):
+
+```bash
+scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/*.apk
+```
+
+## `android_rename_apks.sh <tag> [out_dir]` (CI-ANDROID-01/03)
+
+Đổi tên APK Flutter sinh ra thành `in4up-Android-{armv7,arm64,x64,Universal-All-CPU}-<tag>.apk`.
+Thử lần lượt các tên có thể gặp (`app-<abi>-stable-release` — tên thật của Flutter 3.44.1,
+ABI trước flavor sau — rồi `app-stable-<abi>-release`, `app-<abi>-release`) nên không gãy
+khi đổi Flutter; **thiếu bất kỳ APK nào ⇒ exit 1** kèm `ls` thư mục (hết cảnh `mv || true`
+ship thiếu 3 APK split mà job vẫn xanh).
+
 ## `ios_set_deployment_target.sh [target]`
 
 Đồng bộ iOS deployment target ở **3 nơi** (mặc định `15.5`, hoặc biến

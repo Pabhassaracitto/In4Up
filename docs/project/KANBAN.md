@@ -35,8 +35,9 @@
 | WORDLIST-630-01 | Import hàng loạt clipboard/text hoạt động thật + meaning | ✅ done | CSV quotes + smart-fill + preview meaning (chờ nghiệm thu) |
 | SRC-630-01 | Nguồn text mới: .md, .json, .docx (thuần Dart, 0 dep mới) | ✅ done | TextSourceLoader + picker + loadTextFile (chờ nghiệm thu) |
 | AICHAT-01 | AI Chat thật: llama.cpp native backend (hết mock) | ✅ done — **CI build XANH 3 NỀN TẢNG** | run 32592622383: Android ✅ + iOS ✅ + Windows ✅ (llama.cpp build thật trong pipeline) |
-| CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (in-repo fix CI-only — chờ oracle) | in4up_ci_fixes.gradle (CI=true): inject mock client + copy stable→tên không-flavor; oracle tag v1.4.0-ci-android-fix |
+| CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (patch workflow ĐÃ ÁP trong nhánh 01a0d013 cùng CI-ANDROID-03 — chờ oracle) | build.yml + build_final_complete.yml: `--flavor stable` cả 2 bước build, rename `app-<abi>-stable-release.apk`, bỏ `\|\| true`; in4up_ci_fixes.gradle giữ lại (no-op) |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
+| CI-ANDROID-03 | APK release KHÔNG CÀI ĐƯỢC (local + Actions): release không có `signingConfig` ⇒ APK unsigned | 🔄 doing (fix xong, chờ oracle tag `v*` + cài máy) | build.gradle.kts: ký key.properties → fallback debug; workflow: prepare-signing + verify-signed + `--flavor stable` + rename đúng tên + fix YAML indent build.yml + setup-android v4 |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
@@ -479,6 +480,8 @@
   - 2026-08-29 | doing→doing | agent arena/01a02a4a-in4up | Sandbox tái bản giữa lượt: branch local bị reset về base `e9824c1e`, object commit `fbb648d`/`561be0e` bị wipe (reflog còn clone+checkout). Phục hồi theo playbook AUDIT: worktree vẫn giữ đủ content (verify blob-hash 16/16 file khớp origin) ⇒ fetch `origin/arena/01a02a4a-in4up` (4efdba3) + `git reset --mixed` + re-commit → commit mới `f65a460` (= nội dung fbb648d). 0 mất dữ liệu. Tag oracle `v1.4.0-ci-android-fix` cần tạo lại LOCAL (tag cũ bị wipe cùng object).
   - 2026-08-29 | doing→doing | agent arena/01a02a4a-in4up | **GitHub đã reconnect — push thành công**: branch `4efdba3..3735298d` lên origin (gồm f65a460 CI-fix + merge DEV 5f98b94c + fix AI-CHAT-01 3735298d). Tag oracle `v1.4.0-ci-android-fix` force-move về TIP `3735298d` rồi push — chạy cả build.yml (job Android = oracle card này) lẫn build_final_complete (regression); run build.yml đồng thời compile-verify Dart packages/in4up_ai (app_analyze không cover `packages/`). ⚠️ CHỜ OWNER XEM RUN: ĐỎ ⇒ dán ~30–50 dòng cuối step fail (build.yml job Android: step "Build Split APKs" hoặc "Rename All APKs").
 
+  - 2026-09-24 | 00:20 UTC | doing→doing | agent arena/01a0d013-in4up | Chủ yêu cầu sửa trực tiếp ⇒ áp option A vào CẢ 2 workflow trong repo (nhánh này có quyền `workflows`): `--flavor stable` ở Build Split + Build Universal, rename theo tên thật `app-<abi>-stable-release.apk` / `app-stable-release.apk` (verify lại FlutterPlugin.kt + listApkPaths tag 3.44.1 — ABI TRƯỚC flavor SAU; SO_TAY_CHU §"Tên APK" trích nhầm `_apkFilesFor` là hàm cho add-to-app MODULE, đã sửa sổ tay), bỏ `|| fallback`/`|| true` im lặng, thêm `set -e`. Đồng thời phát hiện lý do build.yml không chạy từ 403658a: YAML indent dòng `Get-ChildItem` (patch CI-BUILD-YML-INDENT-FIX) — đã áp. Oracle chung với CI-ANDROID-03.
+
 ### CI-ANDROID-02 — Build llama.cpp cho Android trong CI (pin CMake 3.31.5 + GGML_LLAMAFILE OFF)
 - **Trạng thái:** done — run 32592622383: Build Android APK ✅ (artifact android-apk)
 - **Nội dung:** Job Android của `build_final_complete.yml` (chỉ build `--flavor stable`,
@@ -505,6 +508,68 @@
   - 2026-08-22 | doing→doing | agent arena/01a02a4a-in4up | ORACLE run 32586625020 (tag v1.4.0-android-cmake): iOS ✅ 8m0s, Windows ✅ 16m02s, Android ❌ 10m36s — vẫn chết "Build Split APKs" (annotation .github#248) ⇒ giả thuyết "thiếu CMake 3.22.1" CHƯA đủ giải thích (pin 3.31.5 đã có hiệu lực trên CI). Còn 2 nhóm nghi phạm: (a) CMake/NDK vẫn không resolve đúng (lỗi "version not found" khác / NDK patch), (b) compile error của llama.cpp b10567 trên NDK clang (MSVC + g++ host đã build sạch — NDK là toolchain duy nhất chưa verify). Sandbox không đọc được log (results-receiver bị chặn) ⇒ ĐỀ NGHỊ OWNER DÁN ~30–50 dòng cuối step "Build Split APKs" (đoạn FAILURE) từ run 32586625020 / job 97063853155: https://github.com/Pabhassaracitto/In4Up/actions/runs/32586625020/job/97063853155
   - 2026-08-22 | doing→doing | agent arena/01a02a4a-in4up | **ROOT CAUSE CHỐT** (owner dán log): `sgemm.cpp:311: error: use of undeclared identifier 'vld1q_f16'` (+ :314 vld1_f16) trên target armv7 — upstream ggml-cpu/llamafile/sgemm.cpp dùng intrinsics FP16 NEON cho mọi `__ARM_NEON` (non-MSVC) mà THƯA guard `__ARM_FEATURE_FP16_VECTOR_ARITHMETIC` (có FIXME thẳng trong code); armv7 NDK không có +fp16. Log đồng thời xác nhận: NDK 28.2.13676358 + CMake 3.31.5 resolve ĐÚNG (ninja chạy từ sdk/cmake/3.31.5) — pin CMake trước đó đúng hướng, chỉ chưa đủ. FIX: `set(GGML_LLAMAFILE OFF CACHE BOOL "" FORCE)` trong ai/CMakeLists.txt (commit c6cc97e) — file sgemm.cpp không còn được compile; inference nguyên vẹn (kernel CPU chuẩn). Oracle mới: tag v1.4.0-android-fp16
   - 2026-08-22 | doing→done | agent arena/01a02a4a-in4up | **ORACLE XANH: run 32592622383 — Build Android APK ✅ 9m03s, đủ bước (Split APKs → Universal → Rename → Upload → Release) + artifact android-apk.** GGML_LLAMAFILE OFF + pin CMake 3.31.5 là bộ fix hoàn chỉnh cho stage native Android. (Ghi chú vận hành: sandbox tái bản giữa lượt — branch local bị reset về e9824c1, push non-fast-forward; phục hồi theo playbook AUDIT: fetch remote + reset --soft origin/branch + re-commit, 0 mất dữ liệu; tag v1.4.0-android-fp16 force-move về tip đúng)
+
+### CI-ANDROID-03 — APK release không cài được trên Android (local lẫn GitHub Actions)
+- **Trạng thái:** 🔄 doing — code + CI + docs hoàn tất trên `arena/01a0d013-in4up`, **sẵn sàng mở PR → `arena/01a0251e-in4up`**; chờ oracle (push tag `v*` hoặc workflow_dispatch) + chủ cài APK lên máy thật.
+- **Nguồn:** chủ (2026-09-23, "I4U | APK SIGN"): `flutter build apk --release` ở máy ra file nhưng
+  Android báo không cài được; APK từ Actions cũng vậy.
+- **Root cause (chốt, bằng chứng trong repo — không cần log CI):**
+  1. `android/app/build.gradle.kts` khối `buildTypes.release {}` **không có `signingConfig`**
+     từ commit `c5d7adbf` (05/2026 — comment "XÓA DÒNG signingConfig NÀY ĐI HOẶC ĐỂ MẶC ĐỊNH").
+     "Mặc định" của AGP cho release = **không ký** ⇒ AGP xuất `app-stable-release-unsigned.apk`.
+  2. Flutter Gradle plugin 3.44.1 (`FlutterPlugin.kt` dòng ~386) copy APK sang
+     `build/app/outputs/flutter-apk/` và **`rename { "$filename.apk" }`** ⇒ hậu tố `-unsigned`
+     biến mất, file tên `app-stable-release.apk` trông y như bản ký. Android từ chối cài APK
+     không chữ ký ("App not installed" / "package appears to be invalid";
+     adb: `INSTALL_PARSE_FAILED_NO_CERTIFICATES`). Không workflow nào có bước ký ⇒ đúng
+     triệu chứng ở CẢ local lẫn Actions. Không có keystore/key.properties nào trong repo
+     (đúng — đã gitignore), tức chưa từng có khoá release.
+  3. Phụ: `versionCode = 2` / `versionName = "1.0.0"` cứng (SO_TAY_CHU §4 đã ghi nợ) ⇒ mọi
+     release cùng versionCode, không update đè có kiểm soát được.
+- **Fix (trong nhánh này):**
+  - `android/app/build.gradle.kts`: đọc `android/key.properties` (gitignore) ⇒ có đủ
+    storeFile/storePassword/keyAlias/keyPassword ⇒ `signingConfigs.release` + gán cho
+    release; **không có ⇒ fallback `signingConfigs.getByName("debug")`** (đúng template
+    `flutter create`) + WARNING rõ. APK luôn CÀI ĐƯỢC; ký key thật thì update đè được.
+    `versionCode/versionName` đọc từ pubspec qua `flutter.versionCode/versionName`.
+  - `android/key.properties.example` — mẫu + hướng dẫn `keytool -genkey`.
+  - `scripts/ci/android_prepare_signing.sh` — decode secret `ANDROID_KEYSTORE_BASE64`
+    (+ `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`) → ghi
+    key.properties; verify bằng keytool (sai pass ⇒ fail sớm); thiếu secret ⇒ warning, không fail.
+    Test 4 nhánh bằng keytool thật (JDK 25 qua pip `jdk4py`): 4/4 đúng.
+  - `scripts/ci/android_verify_apk_signed.sh` — lưới an toàn sau rename, trước upload:
+    apksigner nếu có, không thì đọc cấu trúc (APK Sig Block 42 / META-INF/*.RSA). Test
+    3 fixture (unsigned/v1/v2) + 2 ca lỗi: đúng.
+  - `.github/workflows/build.yml` + `build_final_complete.yml`: thêm 2 bước trên; `--flavor
+    stable` + rename đúng tên (CI-ANDROID-01); build.yml: sửa YAML indent (workflow đang
+    không parse được — mọi run "workflow file issue" từ 403658a), `setup-android@v3→v4`
+    (v3 đỏ ở Setup SDK run 34977536488); KHÔNG ghi đè `lib/services/auth_service.dart` nữa
+    (file thật trong git, không secret; stub thiếu `authStateChanges`/`AppUser` sau
+    AUTH-LINUX-01 ⇒ compile đỏ) — cả 3 job của build.yml + job Android của bfc.
+- **Việc của chủ (không thể làm hộ):**
+  1. Tạo keystore MỘT LẦN, cất ngoài repo + backup:
+     `keytool -genkey -v -keystore in4up-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias in4up`
+  2. Local: `cp android/key.properties.example android/key.properties`, điền 4 dòng.
+  3. GitHub → Settings → Secrets → Actions: `ANDROID_KEYSTORE_BASE64` (= `base64 -w0 in4up-release.jks`),
+     `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+  4. Firebase/Google Sign-In: thêm SHA-1/SHA-256 của key mới vào Firebase Console (script
+     in fingerprint trong log CI), tải lại google-services.json vào secret nếu cần đăng nhập Google.
+  5. Máy đang có bản cũ (ký debug hoặc unsigned-fail) ⇒ gỡ rồi cài bản mới lần đầu.
+  6. Đừng cài **universal đè lên split** trên cùng máy: split có `versionCode = ABI×1000 + N`
+     (FlutterPlugin.kt 3.44.1 dòng 634: arm64 = 2003, armv7 = 1003, x64 = 4003 với pubspec `+3`),
+     universal chỉ = 3 ⇒ Android báo hạ cấp (`INSTALL_FAILED_VERSION_DOWNGRADE`, hiện ra cũng là
+     "App not installed"). Chọn một loại cho mỗi máy, hoặc gỡ trước khi đổi loại.
+- **Verify (oracle):** push tag `v*` (hoặc dispatch) ⇒ job Android xanh đủ bước tới
+  "Verify APKs are signed" (log in `Verified using v2 scheme: true` + SHA-256 cert); tải
+  `in4up-Android-arm64-<tag>.apk` cài máy thật. Không có secret keystore ⇒ log có
+  `::warning::[in4up-sign] Thiếu secret ANDROID_KEYSTORE_BASE64` nhưng APK vẫn cài được.
+- **Lịch sử:**
+  - 2026-09-23 | 21:05 UTC | created→doing | agent arena/01a0d013-in4up | Chẩn đoán từ repo: grep `signingConfig` = 0 kết quả; API GitHub soi lịch sử build.gradle.kts (5db5ba10 còn ký debug → c5d7adbf xoá); source flutter 3.44.1 xác nhận rename che `-unsigned`. Không tải được APK release 1.7.0 để soi trực tiếp (release-assets.githubusercontent.com bị chặn trong sandbox) — kết luận dựa trên cấu hình build, độ tin cậy cao vì thiếu signingConfig ⇒ chắc chắn unsigned.
+  - 2026-09-24 | 00:30 UTC | doing→doing | agent arena/01a0d013-in4up | Code + 2 script + 2 workflow + docs xong; test script offline 9/9 ca; YAML 2 workflow parse OK; bash -n mọi step `run:` OK. Chờ chủ push tag để oracle (token sandbox hết hạn giữa phiên — xem ghi chú push).
+  - 2026-09-24 | 07:10 UTC | doing→doing | agent arena/01a0d013-in4up | Sandbox tái tạo giữa phiên (bẫy 5.5): working tree còn, 3 commit mất ⇒ commit lại (c4c7294, f4fe0fe, 5723f18) + push thành công lên origin/arena/01a0d013-in4up. Chủ đang tạo keystore (keytool) — bước tiếp: key.properties local → `flutter build apk --release --flavor stable` → cài máy.
+  - 2026-09-24 | 08:00 UTC | doing→doing (PR-ready) | agent arena/01a0d013-in4up | Gia cố trước PR: `scripts/ci/android_rename_apks.sh` (chịu mọi thứ tự tên, thiếu ⇒ đỏ; test 4/4), import `java.io.File` tường minh + resolver `project.file()` như docs Flutter, README mục build release (EN+VI), ghi bẫy versionCode split 2003 vs universal 3. Sandbox tái tạo lần 2 — đồng bộ local về origin (0a9aa44) không mất gì. Nhánh đích 251e vẫn ở 311fbfd ⇒ PR fast-forward, không conflict. Chưa chạy được Gradle trong sandbox (Maven bị chặn) ⇒ oracle CI/tag là bước xác nhận cuối.
+  - 2026-09-24 | 08:40 UTC | doing→doing | agent arena/01a0d013-in4up | Merge 251e@30f912e vào nhánh (251e nhận #42/#45/#46 + tự sửa indent build.yml): 1 conflict build.yml (lấy bản 251e), SKILL bẫy 5.21/5.22 của tôi → **5.23/5.24** vì 251e đã dùng số đó (commit 5723f18 ghi 5.21/5.22 là số cũ). Mở PR → arena/01a0251e-in4up (số PR ghi ở dòng sau).
+  - 2026-09-24 | 08:45 UTC | doing→doing (PR mở) | agent arena/01a0d013-in4up | **PR #49** https://github.com/Pabhassaracitto/In4Up/pull/49 → arena/01a0251e-in4up. Chờ owner: build local + cài máy, 4 secret ANDROID_KEYSTORE_*, tag `v*` để CI ký + verify.
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)

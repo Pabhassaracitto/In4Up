@@ -47,6 +47,16 @@
 // giá của việc không được sửa workflow (token thiếu quyền `workflows`). Khi
 // owner dán patch --flavor stable vào build.yml, file này vẫn an toàn: inject
 // thành no-op (chỉ build stable), copy vẫn khớp tên.
+//
+// CẬP NHẬT 2026-09-24 (CI-ANDROID-03): cả build.yml lẫn build_final_complete.yml
+// đã chuyển sang `--flavor stable` + rename theo tên thật
+// `app-<abi>-stable-release.apk` ⇒ (1) inject client là no-op (chỉ còn client
+// com.in4up), (2) bản copy không-flavor chỉ là file thừa vô hại trong
+// flutter-apk/ (không được rename/ship). Giữ file để build từ workflow cũ /
+// nhánh cũ vẫn chạy; xoá khi mọi nhánh đã lên workflow mới.
+// LƯU Ý QUAN TRỌNG: file này KHÔNG ký APK — chữ ký nằm ở signingConfig trong
+// build.gradle.kts (đọc android/key.properties). Trước CI-ANDROID-03 APK CI
+// là bản *-unsigned (Flutter đổi tên che mất) ⇒ Android không cho cài.
 // =============================================================================
 
 import groovy.json.JsonOutput

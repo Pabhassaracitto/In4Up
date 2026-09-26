@@ -1,0 +1,26 @@
+# =============================================================================
+# MẪU android/key.properties — ký APK release bằng keystore THẬT.
+#
+# Cách dùng (local):
+#   1. Tạo keystore MỘT LẦN (giữ file .jks + mật khẩu ngoài repo, backup nhiều nơi):
+#        keytool -genkey -v -keystore ~/in4up-release.jks -keyalg RSA -keysize 2048 \
+#                -validity 10000 -alias in4up
+#   2. cp android/key.properties.example android/key.properties  (đã gitignore)
+#   3. Điền 4 giá trị bên dưới, rồi:  flutter build apk --release --flavor stable
+#      Gradle in: "[in4up-sign] release: ký bằng keystore RELEASE (...)"
+#
+# KHÔNG có file key.properties ⇒ build vẫn ra APK CÀI ĐƯỢC (ký debug keystore),
+# nhưng bản đó KHÔNG update đè được lên bản ký key khác — phải gỡ rồi cài lại.
+#
+# CI (GitHub Actions): không commit file này. Workflow decode secret
+# ANDROID_KEYSTORE_BASE64 (+ ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS /
+# ANDROID_KEY_PASSWORD) bằng scripts/ci/android_prepare_signing.sh — script tự
+# ghi key.properties đúng định dạng dưới đây.
+# =============================================================================
+
+# Đường dẫn tuyệt đối, HOẶC tương đối so với thư mục android/app
+# (ví dụ: storeFile=in4up-release.jks nếu file nằm ở android/app/in4up-release.jks)
+storeFile=/ABSOLUTE/PATH/TO/in4up-release.jks
+storePassword=CHANGE_ME
+keyAlias=in4up
+keyPassword=CHANGE_ME

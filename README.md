@@ -112,6 +112,24 @@ flutter run
 flutter run -d windows
 ```
 
+### Build a release APK (Android)
+
+```bash
+flutter build apk --release --flavor stable            # → build/app/outputs/flutter-apk/app-stable-release.apk
+scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/*.apk   # must print "đã ký"
+```
+
+Release builds are **always signed** (an unsigned APK cannot be installed on Android):
+
+- With `android/key.properties` (copy `android/key.properties.example`, point `storeFile`
+  to your keystore) → signed with your **release keystore**; users can update in place.
+- Without it → signed with the **debug keystore** (installable, but a different key per
+  machine, so an update over an APK signed with another key requires uninstalling first).
+  Gradle prints `[in4up-sign] …` telling you which one was used.
+
+Never commit `key.properties` / `*.jks` (already gitignored). CI signs with the
+`ANDROID_KEYSTORE_*` secrets — see `scripts/ci/README.md`.
+
 > Note: This project is intended for personal educational use.  
 > Please respect copyright when downloading external content (e.g. YouTube). [github](https://github.com/Pabhassaracitto/in4up)
 
@@ -171,3 +189,16 @@ flutter run
 ```
 
 > Lưu ý: Cần cấu hình Firebase (google‑services.json / GoogleService‑Info.plist) và build thư viện native bằng CMake trên Windows. [github](https://github.com/Pabhassaracitto/in4up)
+
+### Build APK phát hành (Android)
+
+```bash
+flutter build apk --release --flavor stable            # → build/app/outputs/flutter-apk/app-stable-release.apk
+scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/*.apk   # phải in "đã ký"
+```
+
+APK release **luôn được ký** (APK không chữ ký thì Android không cho cài): có
+`android/key.properties` (chép từ `android/key.properties.example`) ⇒ ký bằng keystore
+phát hành, người dùng cập nhật đè được; không có ⇒ ký bằng debug keystore (cài được, nhưng
+muốn đè bản ký key khác phải gỡ trước). Đọc dòng `[in4up-sign] …` trong log Gradle để biết
+đang ký bằng gì. Không bao giờ commit `key.properties` / `*.jks`.

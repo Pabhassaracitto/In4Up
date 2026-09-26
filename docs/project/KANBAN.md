@@ -9,6 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + test thuần xong, chờ CI) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -136,6 +137,74 @@
     test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
     nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
+
+### API-002 — WP1: LLM chat/analysis qua API + streaming (AiEngineRemote)
+- **Trạng thái:** doing (code + test thuần thuần xong, chờ CI; còn nghiệm thu
+  thiết bị theo AT)
+- **Nguồn:** owner (2026-09-26/27, PROMPT_AGENT_SERVER_API.md WP1) qua agent
+  arena/01a0df5b-in4up — PLAN-031, ADR-0007, `docs/server_api_tu_van.md`.
+- **Nội dung:**
+  - `packages/in4up_ai/lib/src/engine/ai_engine_remote.dart` (mới): implements
+    `AiEngine` — KHÔNG phá interface. `initialize(modelPath)` nhận config
+    encoded `api://<providerId>/<model>` (hoặc provider inject qua constructor);
+    `modelReady` complete ngay (remote không nạp model), `isBusy`/`recover()`
+    trung thực (recover = hủy request treo + sẵn sàng request mới). Analysis
+    tái dùng prompt schema `ai_prompts_library.dart` → parse bằng pipeline
+    `AiAnalysis.fromGemmaJson` hiện có (kèm lột ```json fence — model lớn hay
+    bọc markdown). `temperature`/`maxTokens` map từ tham số hiện có.
+  - `openai_compat_client.dart`: thêm `chatStream(...)` — POST
+    `/v1/chat/completions` (`stream: true`), đọc SSE, xử lý `data: [DONE]`,
+    delta `choices[0].delta.content`, usage chunk cuối (OpenAI
+    `include_usage`/Ollama/Groq `x_groq.usage`). Cơ chế stream:
+    `http.Client.send()` (StreamedResponse — tương đương dio
+    `ResponseType.stream`) thay vì thêm dio — giữ đúng 1 client duy nhất của
+    WP0 + test được bằng `MockClient.streaming`, 0 dependency mới (dio chỉ
+    cần cho multipart ở WP2). Cancel: `AiChatCancelToken` (mẫu dio
+    CancelToken) — cancel ⇒ đóng socket ngay (cancel subscription response
+    stream), kể cả khi đang chờ token tiếp; downstream hủy subscription cũng
+    hủy request (onCancel). Idle timeout hữu hạn (mặc định 60s — hết chữ
+    giữa chừng ⇒ lỗi `timeout`, không treo).
+  - Mã lỗi cấu trúc `AiChatErrorCode` (enum riêng, mẫu HyMtErrorCode):
+    `noNetwork, timeout, rateLimited, httpError, emptyOutput, busy, canceled,
+    invalidResponse` — facade expose `lastChatErrorCode`, UI branch theo mã.
+  - `ai_route_planner.dart` (mới, thuần): `planLlmRoute(mode,
+    remoteAvailable, localModelReady)` — offlineOnly ⇒ KHÔNG có stop remote
+    (engine remote không được tạo ⇒ không request nào đi ra); onlineFirst ⇒
+    [remote, local]; offlineFirst ⇒ [local, remote] khi có model Gemma thật,
+    [remote, local] khi chưa có (mock luôn là lớp cuối).
+  - `AiServiceFacade`: chọn engine theo `AiRoutingPrefs` (WP0), KHÔNG đổi
+    signature hàm public. Chat: remote đứng đầu route ⇒ streaming từng token
+    (bubble cập nhật dần, throttle notify 60ms); lỗi remote chưa thu token
+    nào ⇒ fallback Gemma (nếu có model) → mock kèm disclaimer như cũ; local
+    timeout/engine chết ⇒ thử remote như stop cuối (fallback 2 chiều
+    ADR-0007). Analysis (lookupWord/summarize/extractTerms/generatePao/
+    analyzeSentence): route tương tự, call local giữ NGUYÊN như cũ (không
+    tăng maxTokens cho Gemma). Thêm `stopGenerating()` (nút Dừng + đóng màn),
+    `lastChatUsage`/`lastChatModelId` (đếm token BYOK).
+  - `lib/screens/ai_chat/ai_chat_screen.dart`: nút gửi ⇄ nút Dừng khi remote
+    đang stream; đóng màn ⇒ `stopGenerating()` (token không chảy tiếp sau
+    dispose); banner 1 dòng "Đang dùng server AI · label · model" /
+    "Server AI dự phòng" + ⚡ token vào/ra (từ usage) + dòng lỗi API theo mã.
+  - i18n (quy tắc vàng #5): 14 key mới — 5 literal màn chat + 9 runtime label
+    facade (thêm vào `reviewed_runtime_ui_labels.dart`) + English trong
+    `tool/legacy_ui_english_overrides.json` + tay thêm vào
+    `generated_legacy_ui_fallbacks.dart` (generator đang fail sẵn 50 override
+    stale từ trước WP1 — đã verify HEAD cũng fail y hệt, không phải WP1 gây
+    ra; chưa tự dọn vì ngoài scope).
+  - Test thuần: `test/ai_wp1_remote_test.dart` (24 test) — routing thuần
+    (offlineOnly ⇒ không request), SSE parser (đa biến thể), chatStream qua
+    MockClient (429→rateLimited, đứt mạng→noNetwork, cancel sạch, idle
+    timeout), engine (encoded config, isBusy trung thực, Word Lookup fixture
+    JSON thật parse đúng schema như Gemma, emptyOutput), facade fallback
+    (server chết thật: 127.0.0.1:9 → mock trung thực + mã lỗi; offlineOnly
+    ⇒ không vết request API).
+- **AT (từ prompt WP1):** chat Ollama LAN + Gemini token hiện dần > tốc độ
+  Gemma on-device; cắt mạng giữa lúc generate ⇒ dừng sạch theo mã; routing
+  offline-only ⇒ không request `/chat/completions` nào (đã test logic thuần);
+  Word Lookup parse đúng JSON schema (đã test fixture); CI xanh.
+- **Lịch sử:**
+  - 2026-09-26 | created→doing | agent arena/01a0df5b-in4up | code WP1 đầy
+    đủ (engine + client + facade + UI + i18n + test); chờ CI run đầu tiên
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

@@ -988,7 +988,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
   cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
   model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
   cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
-- Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
+- Trạng thái: doing (WP0 done trên `arena/01a0ddd1-in4up`; WP1 doing trên
+  `arena/01a0df5b-in4up`)
 - Kiến trúc (ADR-0007):
   - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
     (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
@@ -1011,3 +1012,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
     `docs/server_api_tu_van.md` + prompt giao việc + ADR-0007 + code WP0
+  - 2026-09-26 | WP1 doing (API-002) | agent arena/01a0df5b-in4up |
+    AiEngineRemote (chatStream SSE + analysis qua fromGemmaJson) + routing
+    facade theo AiRoutingPrefs + màn chat streaming/nút Dừng + test thuần
+    `test/ai_wp1_remote_test.dart`; chi tiết card API-002 trong KANBAN

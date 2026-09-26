@@ -1011,3 +1011,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
     `docs/server_api_tu_van.md` + prompt giao việc + ADR-0007 + code WP0
+  - 2026-09-27 | WP3 (API-004) code | agent arena/01a0df5e-in4up | WP0 đã
+    xong (API-001 done); code WP3 trên nhánh con của tip WP0:
+    `LlmMtEngine` (giữ slot `__G{n}__`, routing chèn chuỗi dịch) +
+    `chatCompletion` vào client WP0 + test thuần — chi tiết card API-004
+    trong KANBAN

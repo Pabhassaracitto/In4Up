@@ -9,6 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0007) | 🔄 doing (code + test thuần xong, chờ CI) | branch `arena/01a0df5e-in4up` |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -136,6 +137,67 @@
     test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
     nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
+
+### API-004 — WP3: Dịch bằng LLM qua tầng Server API (LlmMtEngine implements TranslationEngine)
+- **Trạng thái:** 🔄 doing — code + test thuần xong trên `arena/01a0df5e-in4up`, chờ CI; nghiệm thu chất lượng 3 đoạn Pali/chuyên ngữ còn thuộc owner (cần provider thật).
+- **Nguồn:** owner (2026-09-26/27) — `PROMPT_AGENT_SERVER_API.md` §6 (WP3), PLAN-031, ADR-0007.
+- **Nội dung:**
+  - `lib/features/translation/engines/llm_mt_engine.dart` (mới): implements
+    `TranslationEngine` (name/id/isAvailable/translate/maxCharsPerRequest=2000/
+    requestDelay=300ms). `isAvailable()` = provider bật + có chatModel + có
+    mạng. Chunk ≤ ~2000 ký tự theo ranh giới câu (`HyMtChunking` — phân hoạch
+    chính xác), mỗi chunk timeout riêng (60s) + outer budget tỷ lệ độ dài ở
+    service (nền 75s + 75s/chunk, trần 8 phút). Single-flight `HyMtSlot`
+    (mã `busy`). 429/5xx → backoff + tối đa 1 retry (luật tầng API 2.7);
+    timeout/4xx không retry. Mã lỗi cấu trúc `LlmMtErrorCode` — 8 mã API
+    trùng TÊN `AiApiErrorCode` (mã chung tầng API) + noProvider/busy/
+    emptyOutput/slotLost/tooLong.
+  - `lib/features/translation/engines/llm_mt_prompts.dart` (mới, thuần):
+    system prompt nghiêm ngặt — "Output ONLY the translated text. No
+    explanation…", slot `__G{n}__` copy EXACTLY, chỉ dẫn Pali/Sanskrit dùng
+    nghĩa đã chuẩn; user prompt = đúng text nguồn (tách system/user để nội
+    dung user không bị coi là chỉ dẫn). `cleanOutput` bỏ fence code/lời dẫn
+    "Translation:"/lặp nguồn — có GUARD bằng nguồn (không cắt "Result:"…
+    khi câu nguồn cũng bắt đầu như vậy). Mất slot trong output = lỗi
+    `slot_lost` → chuỗi rơi engine khác, KHÔNG fake success mất nghĩa khóa.
+  - `OpenAiCompatClient.chatCompletion` + `OpenAiChatMessage` — THÊM method
+    vào client duy nhất của WP0 (không tạo client thứ 2): POST
+    `/v1/chat/completions` (non-streaming), parse `choices[0].message.content`
+    (kể cả biến thể List parts + legacy `choices[0].text`), mã lỗi
+    `AiApiErrorCode`, guard cleartext giữ nguyên, không log key.
+  - `TranslationService` (sửa, không phá hợp đồng): chèn theo routing
+    `AiRouteCapability.translation` — **onlineFirst** → LLM TRƯỚC các engine
+    online miễn phí; **offlineFirst** (mặc định) → sau Hy-MT/ML Kit, TRƯỚC
+    từ điển ("thử offline trước; lỗi → thử API"); offlineOnly/chưa cấu
+    hình/mất mạng → 2 điểm chèn tự ngắn mạch, thứ tự engine hiện có
+    NGUYÊN VẸN. `forTest` nhận thêm `llmMtEngine` (mặc định null — mọi test
+    cũ không đổi). `activeEngines`/`checkAllEngines` có thêm LLM khi tồn tại.
+  - UI: KHÔNG màn hình mới — sheet "⚙️ Engine dịch thuật" thêm mục "Dịch
+    bằng LLM (Server & API)": hiện provider · model khi đã cấu hình + dòng
+    routing; "Chưa cấu hình…" kèm đường dẫn Cài đặt → Quản lý Model AI →
+    Server & API. 4 chuỗi mới qua `uiText` + English fallback trong
+    `legacy_ui_english_overrides.json` (rule vàng #5 — không thêm key ARB).
+  - Test: `test/llm_mt_engine_test.dart` (thuần, không network/key —
+    provider giả dạng server LAN): parse client (MockClient), prompt hợp
+    đồng, cleanOutput + guard, mã lỗi từng nhánh (no_provider/no_network/
+    busy/timeout/rate_limited/unauthorized/http_error/invalid_response/
+    empty_output/slot_lost), retry 429/5xx, giữ/k mất slot, chunking ≤2000,
+    chuỗi TranslationService theo routing (onlineFirst/offlineFirst/
+    tắt mạng/khóa offline/không inject), glossary → slot → restore. Giống
+    tiền lệ WP0: file test qua analyze nhưng CHƯA được workflow nào chạy
+    (app_analyze chạy 4 bộ cố định) — owner duyệt thêm nếu muốn vào CI.
+- **Ghi chú UI sau (đề xuất):** chuỗi dịch chưa có kéo-thả thứ tự như TTS —
+  khi owner duyệt, dựng UI sắp xếp ưu tiên engine dịch (pattern
+  `_buildDefaultEngineOrder` của TTS).
+- **AT (từ prompt WP3):** (1) 3 đoạn Pali/tiếng Anh chuyên ngữ dịch tốt hơn
+  Hy-MT — owner nghiệm thu với provider thật (Gemini/Groq/Ollama qwen);
+  (2) output KHÔNG chứa giải thích — test prompt + parse ✅ (trong file
+  test); (3) tắt mạng → chuỗi fallback nguyên vẹn, không regression test
+  hiện có ✅ (test + mọi test cũ không đổi); (4) CI xanh + card này.
+- **Lịch sử:**
+  - 2026-09-27 | created (doing) | agent arena/01a0df5e-in4up | code WP3:
+    LlmMtEngine + prompts + chatCompletion client + chèn chuỗi theo routing
+    + UI status sheet + 4 chuỗi i18n + test thuần; chờ CI run đầu tiên
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

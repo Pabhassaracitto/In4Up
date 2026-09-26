@@ -9,7 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
-| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | 🔨 doing (code + test thuần — chờ CI) | branch `arena/01a0df5f-in4up`; engine mới xếp sau FPT, thứ tự mặc định user cũ không đổi |
+| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36270893400 (`fca1965`, arena/01a0df5f-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -139,7 +139,8 @@
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
 
 ### API-005 — WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0
-- **Trạng thái:** doing (code + test thuần xong — chờ CI; còn nghiệm thu thiết bị theo AT)
+- **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run
+  36270893400; còn nghiệm thu thiết bị theo AT)
 - **Nguồn:** owner (2026-09-26) qua agent arena/01a0df5f-in4up —
   `PROMPT_AGENT_SERVER_API.md` §7 (WP4 — gói nhẹ nhất, pattern Zalo/FPT đã chống).
 - **Nội dung:**
@@ -179,6 +180,12 @@
   - 2026-09-26 | created→doing | agent arena/01a0df5f-in4up | code client +
     engine + wiring + test; chờ CI run đầu (chú ý bẫy paths-filter 5.7 —
     commit đã có lib/** nên app_analyze tự chạy)
+  - 2026-09-26 | doing→done | agent arena/01a0df5f-in4up | run 36270893400
+    🟢 lần đầu (analyze 0 error + rule #5 + LHB + Cabin), commit `fca1965`;
+    test/tts_api_wp4_test.dart đã qua analyze nhưng CHƯA được workflow nào
+    chạy (app_analyze chỉ chạy 4 bộ test cố định — owner duyệt thêm nếu
+    muốn đưa vào CI, tiền lệ API-001); còn AT thiết bị: chọn Kokoro LAN hoặc
+    OpenAI tts-1 → đọc VI/EN + kéo thả ưu tiên trên máy thật
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

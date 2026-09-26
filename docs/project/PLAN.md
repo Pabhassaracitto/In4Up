@@ -982,3 +982,24 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
+### PLAN-031 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
+- *(Số cũ PLAN-029 — đổi thành 031 ngày 2026-09-27 khi gộp nhánh tích hợp `arena/01a0251e-in4up`,
+  vì 251e đã dùng PLAN-029 cho LHB-006 và PLAN-030 cho Cabin Save.)*
+- **Nguồn:** người sở hữu (2026-09-24, qua agent `arena/01a0d344-in4up`).
+- **Yêu cầu:** nhận diện **cụm** (NP/VP/AdvP/"cụm …") + **cấu trúc câu** (hỏi/khẳng định/phủ định;
+  thì quá–hiện–vị; hoàn thành; tiếp diễn) + **công thức** `S + V + …`, gắn đúng chỗ badge
+  "Loại từ · CEFR" trong tab Đọc.
+- **Trạng thái:** 📋 proposed — kế hoạch đầy đủ ở `docs/project/PLAN-031-cau-truc-cau-read-tab.md`;
+  ADR: `docs/adr/0007-cau-truc-cau-lop-rieng-line-first.md`; KANBAN: `READ-GRAM-001`.
+- **Đặc tả đã kiểm chứng:** `tool/grammar_probe/` (engine + 3 corpus JSON + runner). Số **trung thực**
+  trên bộ đóng băng: **17/25 case (68%)** lúc đóng băng; **18/25 (72%)** sau khi người sở hữu chốt
+  quy ước câu hỏi đuôi (đổi do quy ước, không do engine). 7 lỗi còn lại ⇒ 3 nguyên nhân gốc.
+- **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng + nút bật/tắt nhanh
+  trên thanh công cụ đáy (2–2,5 ngày) → P3 panel + block AI (1–2 ngày).
+- **Đã chốt (2026-09-24):** câu hỏi đuôi = "khẳng định + hỏi đuôi"; câu vắt dòng = phân tích theo dòng
+  rồi ghép ở P2; khối trong sheet ON, nhãn cấp dòng OFF **kèm nút bật/tắt nhanh trên thanh công cụ**.
+- **Lịch sử:**
+  - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | spike + kế hoạch; chờ chốt 3 điểm §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
+    kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu

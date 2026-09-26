@@ -982,3 +982,32 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
+
+### PLAN-031 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)
+- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
+  cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
+  model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
+  cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
+- Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
+- Kiến trúc (ADR-0007):
+  - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
+    (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
+    Speaches/Kokoro). BYOK — app không kèm key; mặc định TẮT + offlineFirst.
+  - Routing từng năng lực: offlineFirst (mặc định) / onlineFirst /
+    offlineOnly + fallback 2 chiều. Giữ on-device: live STT (Zipformer),
+    VAD Silero, ML Kit + engine offline (lớp fallback cuối).
+  - Engine remote cắm vào interface có sẵn: AiEngine (WP1), SttEngine (WP2),
+    TranslationEngine (WP3), TtsEngine (WP4) — không viết lại facade.
+  - Bảo mật: cleartext http chỉ host nội bộ; không log key; apiKey tạm
+    SharedPreferences (chờ duyệt flutter_secure_storage để migrate).
+- Work package (chi tiết đầy đủ `PROMPT_AGENT_SERVER_API.md`):
+  - WP0 (API-001) — nền: ADR + provider store + client + màn "Server & API"
+    (test `/v1/models`, model list động, routing prefs). KHÔNG đụng engine.
+  - WP1 (API-002) — AiEngineRemote: chat/analysis + SSE streaming, fallback
+    Gemma/mock. WP2 (API-003) — SttEngineRemote: bóc băng file dài theo chunk
+    VAD, ghi cùng LRC cache. WP3 (API-004) — LlmMtEngine dịch (giữ slot
+    glossary `__G{n}__`). WP4 (API-005) — TTS OpenAI-compat vào engine-order.
+    WP5 (API-006, tùy chọn) — docker-compose "Server Box" cho LAN.
+- Lịch sử:
+  - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
+    `docs/server_api_tu_van.md` + prompt giao việc + ADR-0007 + code WP0

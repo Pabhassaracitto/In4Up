@@ -8,6 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | 🔨 doing | code trên `arena/01a0ddd1-in4up`, chờ CI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -99,6 +100,31 @@
 
 
 ## Card chi tiết
+
+### API-001 — WP0: nền tảng Server API (ADR-0007) — cấu hình provider + client OpenAI-compat + màn Server & API
+- **Trạng thái:** doing (code xong trên `arena/01a0ddd1-in4up`, chờ CI + nghiệm thu)
+- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-031,
+  ADR-0007, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
+- **Nội dung:**
+  - `packages/in4up_ai/lib/src/provider/` (mới): `AiProviderConfig` /
+    `AiRouteMode` {offlineFirst, onlineFirst, offlineOnly} /
+    `AiRoutingPrefs`; `AiProviderStore` (SharedPreferences, interface thiết kế
+    swap secure-storage sau); `OpenAiCompatClient` (healthCheck 5s +
+    listModels `/v1/models`, guard cleartext chỉ LAN, mã lỗi cấu trúc
+    `AiApiErrorCode`).
+  - `lib/screens/settings/ai_providers_screen.dart` (mới): CRUD provider
+    (preset Gemini/Groq/OpenRouter/OpenAI/Ollama/LM Studio — KHÔNG kèm key),
+    test kết nối, model list động, routing prefs từng năng lực.
+  - Entry card từ màn "Quản lý Model AI"; iOS ATS `NSAllowsLocalNetworking`.
+  - i18n: 38 key ARB × 26 locale (T2 đủ hi/zh/zh_TW/si; T3 = en fallback).
+  - Test thuần: `test/ai_provider_wp0_test.dart` (normalize/guard/parser/
+    round-trip). Không đụng engine nào — WP1–WP4 cắm sau.
+- **AT (từ prompt WP0):** thêm provider Ollama LAN + cloud → test kết nối
+  xanh/đỏ đúng; chưa cấu hình → không request AI nào đi ra, app như cũ; key
+  không lộ logcat; CI App Analyze + Locale xanh.
+- **Lịch sử:**
+  - 2026-09-27 | created→doing | agent arena/01a0ddd1-in4up | code WP0 +
+    ADR-0007 + PLAN-031; chờ CI run đầu tiên
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

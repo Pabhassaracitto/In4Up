@@ -1425,4 +1425,119 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get soundRelated => 'सम्बंधित';
+
+
+  @override
+  String get aiProvidersTitle => 'AI सर्वर और API';
+
+  @override
+  String get aiProvidersSubtitle => 'क्लाउड या घरेलू सर्वर मॉडल का उपयोग करें। ऑफ़लाइन डिफ़ॉल्ट बना रहेगा।';
+
+  @override
+  String get aiProvidersEntryTitle => 'सर्वर और API (क्लाउड / LAN)';
+
+  @override
+  String get aiProvidersEntrySubtitle => 'ऑनलाइन मॉडल जोड़ें — RAM खाली होगी, ऑफ़लाइन बैकअप बना रहेगा';
+
+  @override
+  String get aiProvidersEmpty => 'कोई प्रोवाइडर सेट नहीं है। ऐप पहले की तरह पूरी तरह ऑफ़लाइन चलता है।';
+
+  @override
+  String get aiProviderAdd => 'प्रोवाइडर जोड़ें';
+
+  @override
+  String get aiProviderEdit => 'प्रोवाइडर संपादित करें';
+
+  @override
+  String get aiProviderLabel => 'प्रदर्शित नाम';
+
+  @override
+  String get aiProviderBaseUrl => 'सर्वर URL (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API कुंजी';
+
+  @override
+  String get aiProviderApiKeyHint => 'घरेलू सर्वर के लिए खाली छोड़ें';
+
+  @override
+  String get aiProviderPreset => 'प्रीसेट';
+
+  @override
+  String get aiProviderPresetCustom => 'कस्टम…';
+
+  @override
+  String get aiProviderTestConnection => 'कनेक्शन जाँचें';
+
+  @override
+  String get aiProviderConnectionOk => 'जुड़ा हुआ';
+
+  @override
+  String get aiProviderConnectionFail => 'कनेक्शन विफल';
+
+  @override
+  String get aiProviderLoadModels => 'मॉडल लोड करें';
+
+  @override
+  String get aiProviderModelsLabel => 'मॉडल';
+
+  @override
+  String get aiProviderChatModel => 'चैट / विश्लेषण मॉडल';
+
+  @override
+  String get aiProviderSttModel => 'स्पीच-टू-टेक्स्ट मॉडल';
+
+  @override
+  String get aiProviderTtsModel => 'टेक्स्ट-टू-स्पीच मॉडल';
+
+  @override
+  String get aiProviderNoModels => 'पहले मॉडल सूची लोड करें';
+
+  @override
+  String get aiProviderNone => 'कोई नहीं';
+
+  @override
+  String get aiProviderEnabled => 'सक्रिय';
+
+  @override
+  String get aiProviderDelete => 'हटाएँ';
+
+  @override
+  String get aiProviderDeleteConfirm => 'यह प्रोवाइडर और उसकी सेटिंग्स हटाएँ?';
+
+  @override
+  String get aiRoutingTitle => 'ऑनलाइन मॉडल कब उपयोग करें';
+
+  @override
+  String get aiRoutingChat => 'AI चैट और विश्लेषण';
+
+  @override
+  String get aiRoutingStt => 'ऑडियो फ़ाइल ट्रांसक्रिप्ट';
+
+  @override
+  String get aiRoutingTranslation => 'अनुवाद';
+
+  @override
+  String get aiRoutingTts => 'टेक्स्ट-टू-स्पीच';
+
+  @override
+  String get aiRouteOfflineFirst => 'पहले ऑफ़लाइन';
+
+  @override
+  String get aiRouteOnlineFirst => 'पहले ऑनलाइन';
+
+  @override
+  String get aiRouteOfflineOnly => 'केवल ऑफ़लाइन';
+
+  @override
+  String get aiRoutingProvider => 'प्रोवाइडर';
+
+  @override
+  String get aiProviderSave => 'सहेजें';
+
+  @override
+  String get aiProviderCancel => 'रद्द करें';
+
+  @override
+  String get aiProvidersPrivacy => 'ऑडियो और टेक्स्ट केवल आपके चुने प्रोवाइडर को भेजे जाते हैं। घरेलू सर्वर (LAN) डेटा आपके नेटवर्क में ही रखता है।';
 }

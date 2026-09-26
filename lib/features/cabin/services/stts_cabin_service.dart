@@ -12,6 +12,9 @@ import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/tts/tts_service.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
 import 'package:in4up/features/cabin/services/cabin_asr_plan.dart';
+import 'package:in4up/features/cabin/models/cabin_session.dart';
+import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
+import 'package:in4up/features/cabin/services/cabin_session_settings.dart';
 
 // Engine type + kế hoạch chọn model nằm ở cabin_asr_plan.dart (logic thuần,
 // test được không cần thiết bị). Re-export để call-site cũ không phải sửa.
@@ -73,6 +76,57 @@ class SttsCabinService extends ChangeNotifier {
   String _lastFinalizedText = '';
 
   final _captionStreamController = StreamController<CabinCaption>.broadcast();
+
+  // ── CABIN-SAVE-001: phiên ghi (audio + text) ────────────────────────────
+  CabinSessionRecorder? _recorder;
+  CabinSession? _pendingSession;
+  Duration? _chunkStartOffset;
+
+  /// Phiên đang ghi (null khi không chạy).
+  CabinSessionRecorder? get sessionRecorder => _recorder;
+
+  /// Đang ghi âm thật (engine Offline + bật ghi âm).
+  bool get isRecordingAudio => _recorder?.hasAudio ?? false;
+
+  /// Engine hiện tại có ghi âm song song được không (engine hệ thống giữ mic
+  /// độc quyền trên Android ⇒ chỉ lưu được text).
+  bool get canRecordAudio => _sttEngineType == CabinSttEngineType.sherpaOffline;
+
+  /// Phiên vừa dừng, chờ UI hỏi lưu / tự lưu. UI gọi [takePendingSession].
+  CabinSession? get pendingSession => _pendingSession;
+
+  CabinSession? takePendingSession() {
+    final s = _pendingSession;
+    _pendingSession = null;
+    return s;
+  }
+
+  Future<void> _ensureSession() async {
+    if (_recorder != null) return;
+    final settings = CabinSessionSettings.instance;
+    await settings.ensureLoaded();
+    try {
+      _recorder = await CabinSessionRecorder.begin(
+        sourceLang: sourceLanguage,
+        targetLang: _targetLanguage,
+        engine: _sttEngineType.name,
+        recordAudio: canRecordAudio && settings.recordAudio,
+        textMode: settings.textMode,
+      );
+    } catch (e) {
+      debugPrint('⚠️ SttsCabinService: không tạo được phiên lưu: $e');
+      _recorder = null;
+    }
+  }
+
+  Future<void> _endSession() async {
+    final r = _recorder;
+    _recorder = null;
+    _chunkStartOffset = null;
+    if (r == null) return;
+    final s = await r.finish();
+    if (s != null) _pendingSession = s;
+  }
 
   // ── Getters ───────────────────────────────────────────────────────────────
   CabinState get state => _state;
@@ -235,6 +289,9 @@ class SttsCabinService extends ChangeNotifier {
       _audioRecorder = null;
     }
 
+    // CABIN-SAVE-001: mở phiên ghi (giữ nguyên qua pause/đổi ngôn ngữ).
+    await _ensureSession();
+
     // 2. Chạy theo engine được chọn
     if (_sttEngineType == CabinSttEngineType.sherpaOffline) {
       // Model có thể vừa được import/tải ⇒ quét lại trước khi kết luận thiếu.
@@ -269,13 +326,16 @@ class SttsCabinService extends ChangeNotifier {
       try {
         final recorder = AudioRecorder();
         _audioRecorder = recorder;
-        final pcmStream = await recorder.startStream(
+        final rawPcm = await recorder.startStream(
           const RecordConfig(
             encoder: AudioEncoder.pcm16bits,
             sampleRate: 16000,
             numChannels: 1,
           ),
         );
+
+        // CABIN-SAVE-001: tee PCM → WAV (cùng luồng mic, không mở mic lần 2).
+        final pcmStream = _recorder?.tapPcm(rawPcm) ?? rawPcm;
 
         final ok = await _sherpaStt.startLive(
           language: plan.requestedLanguage,
@@ -308,6 +368,7 @@ class SttsCabinService extends ChangeNotifier {
 
         _state = CabinState.listening;
         _consecutiveStartFails = 0;
+        _recorder?.resumeClock();
         _startKeepAlive();
         notifyListeners();
         debugPrint(
@@ -336,6 +397,7 @@ class SttsCabinService extends ChangeNotifier {
     }
 
     _state = CabinState.listening;
+    _recorder?.resumeClock();
     notifyListeners();
 
     // Nếu keep-alive đang restart dở → đợi nó xong
@@ -497,6 +559,9 @@ class SttsCabinService extends ChangeNotifier {
       await _stt.stopListening();
     } catch (_) {}
 
+    // CABIN-SAVE-001: đóng phiên ghi → UI hỏi lưu / tự lưu.
+    await _endSession();
+
     _state = CabinState.idle;
     notifyListeners();
     debugPrint('🛑 SttsCabinService stopped');
@@ -527,6 +592,7 @@ class SttsCabinService extends ChangeNotifier {
         } catch (_) {}
       }
 
+      _recorder?.pauseClock();
       _state = CabinState.paused;
       notifyListeners();
     }
@@ -636,6 +702,13 @@ class SttsCabinService extends ChangeNotifier {
     final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
+    // CABIN-SAVE-001: mốc bắt đầu câu = lúc có chữ đầu tiên của câu (trừ lùi
+    // ~0.6s độ trễ nhận dạng để LRC nhảy đúng đầu câu khi nghe lại).
+    if (_chunkStartOffset == null && _recorder != null) {
+      final now = _recorder!.elapsed - const Duration(milliseconds: 600);
+      _chunkStartOffset = now.isNegative ? Duration.zero : now;
+    }
+
     final captionId = 'cap_${DateTime.now().millisecondsSinceEpoch}';
 
     // Update active partial caption
@@ -668,6 +741,10 @@ class SttsCabinService extends ChangeNotifier {
     if (_state == CabinState.speaking) return;
     if (trimmed == _lastFinalizedText) return;
     _lastFinalizedText = trimmed;
+
+    final recorder = _recorder;
+    final startOffset = _chunkStartOffset ?? recorder?.elapsed ?? Duration.zero;
+    _chunkStartOffset = null;
 
     _state = CabinState.translating;
     notifyListeners();
@@ -703,6 +780,13 @@ class SttsCabinService extends ChangeNotifier {
     _activeCaption = finalizedCaption;
     _history.add(finalizedCaption);
     _captionStreamController.add(finalizedCaption);
+
+    // CABIN-SAVE-001: ghi câu đã chốt vào journal phiên (ghi đĩa ngay).
+    recorder?.addEntry(CabinTranscriptEntry(
+      offset: startOffset,
+      sourceText: trimmed,
+      translatedText: translated,
+    ));
 
     // Speak translation if Dubbing is enabled
     if (_isDubbingEnabled && translated.isNotEmpty) {

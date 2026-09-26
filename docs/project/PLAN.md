@@ -922,3 +922,63 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Sinhala: piper-voices chưa có giọng si — ghi rõ, không bịa model.
 - Lịch sử:
   - 2026-09-15 | created→doing | agent arena/01a08043-in4up
+
+### PLAN-029 — Đồng bộ lưu trữ Learn by Heart đa thiết bị (LHB-006)
+- Nguồn: người sở hữu (2026-09-23, qua agent arena/01a0d016-in4up) —
+  "đồng bộ lưu trữ cho các bài lưu trong tool học thuộc lòng, như WordList đã có".
+- Trạng thái: done (code + CI xanh trên `arena/01a0d016-in4up`; còn nghiệm thu 2 thiết bị)
+- Milestone đề xuất: cùng đợt với hạ tầng sync hiện có (ADR-0005/WordList) —
+  không cần milestone mới.
+- Vì sao có plan này: rà `docs/project/**` + `docs/adr/**` ngày 2026-09-23 →
+  **chưa từng có kế hoạch/card cho sync LHB**:
+  - `INTEGRATE-1` chỉ nói knowledge module (evidence/ReviewEvent).
+  - `AUDIT-2026-08-21` §4: sync hiện tại phạm vi `vocabulary_v2` + meta.
+  - LHB chỉ lưu SharedPreferences cục bộ ⇒ đổi máy là mất tiến độ SRS.
+- Chi tiết kế hoạch (đã triển khai):
+  - Nguyên tắc: offline-first như WordList — local ghi trước, cloud là lớp phủ;
+    pull-trước/push-sau; pending queue + bia mộ; LWW "cloud thắng" trừ khi bản
+    cục bộ đang chờ đẩy và mới hơn; mọi mutation `markPending` (kể cả khi chưa
+    đăng nhập); lần đầu bật sync + cloud trống → đẩy toàn bộ lên.
+  - Phạm vi dữ liệu: bài thuộc lòng (nội dung + tiến độ FSRS + yêu thích) +
+    nhịp học (streak/lastActiveDate). KHÔNG sync audio/cue image URL file local.
+  - Kênh: Firestore plugin (Android/iOS/Windows/Web) hoặc Firestore REST
+    (Linux — ADR-0005), cùng uid, cùng schema.
+  - UI: icon trạng thái + sheet đồng bộ ở hub LHB; chuỗi 6 ngữ (rule #5).
+  - Quyết định kiến trúc: **ADR-0006** (đọc trước khi sửa vùng này).
+- Nghiệm thu (AT 6 bước trong ADR-0006 §AT): 2 thiết bị thật + 1 máy Linux
+  (REST). Ghi kết quả vào card KANBAN LHB-006.
+- Bằng chứng CI (2026-09-23): run 35922641394 🟢 (analyze + rule #5) và
+  35923191460 🟢 (thêm bước "LHB tests": 47 test, gồm 19 test LHB-006).
+- Lịch sử:
+  - 2026-09-23 | created→doing | agent arena/01a0d016-in4up | chưa có kế hoạch
+    cũ → viết PLAN-029 + ADR-0006 và triển khai code (merge thuần + sync
+    service + pending/bia mộ + badge/sheet hub + test); chờ CI + nghiệm thu
+  - 2026-09-23 | 21:35 UTC | doing→done (code + CI xanh) |
+    agent arena/01a0d016-in4up | commits `6c96d0e`→`fc1e0d3`; App Analyze
+    run 35922641394 🟢 + 35923191460 🟢 (47 test LHB); còn nghiệm thu 2 thiết bị
+### PLAN-030 — Cabin Save: lưu ghi âm + text phiên dịch, gửi sang Tab Đọc (CABIN-SAVE-001)
+- Nguồn: người sở hữu (2026-09-24, qua agent arena/01a0d363-in4up)
+- Trạng thái: accepted (chốt phạm vi: cả 3 bước)
+- Milestone đề xuất: M3
+- Quyết định đã chốt với người sở hữu:
+  - Text mặc định: **song ngữ** (nguồn + dịch); sheet cho đổi Nguồn / Dịch / Song ngữ.
+  - Ghi âm mặc định **WAV** (PCM16 16 kHz mono); Settings có tùy chọn **nén** (xem rủi ro R2).
+  - Khi Dừng: **hiện sheet hỏi lưu**; Settings có công tắc **tự lưu không hỏi**.
+- Kiến trúc:
+  - Engine Offline (sherpa): **tee** luồng PCM `AudioRecorder.startStream` hiện có → (a) Zipformer, (b) `CabinSessionRecorder` ghi WAV streaming xuống đĩa (không mở mic lần 2).
+  - Engine hệ thống: không ghi âm song song (Android giữ mic độc quyền) → chỉ lưu text; nút ghi âm mờ + tooltip gợi ý chuyển Offline.
+  - Mỗi phiên: `AppDocuments/cabin_sessions/<yyyyMMdd_HHmmss>/` gồm `audio.wav`, `transcript.lrc` (mốc = caption final − lúc bắt đầu ghi), `session.json` (lang, engine, thời lượng, số câu).
+  - Chống mất dữ liệu: WAV ghi dần + caption final append ngay; mở lại app → vá header WAV phiên dở, liệt kê là "phiên chưa hoàn tất".
+  - Tab Đọc: dùng luồng `.lrc` sẵn có (`TextProvider.loadTextFile` + `RecentFilesService.addOrUpdate`); bước 3 gắn WAV làm audio kèm LRC.
+- Bước:
+  1. Lưu text LRC/TXT + "Lưu & mở trong Tab Đọc" (cả 2 engine) + Settings (định dạng, tự lưu).
+  2. Ghi WAV (engine Offline) + phục hồi phiên dở.
+  3. Ghép audio+LRC trong Tab Đọc + màn "Phiên đã lưu" (nghe lại / mở Đọc / chia sẻ / xoá).
+- File: mới `features/cabin/models/cabin_session.dart`, `services/cabin_session_recorder.dart`, `services/cabin_transcript_exporter.dart`, `widgets/cabin_save_sheet.dart`, `screens/cabin_sessions_screen.dart`; sửa `stts_cabin_service.dart`, `live_cabin_screen.dart`; ARB vi/en + hi/zh/zh_TW/si; test exporter (LRC timestamp), WAV header, recovery.
+- Rủi ro:
+  - R1: không có Flutter SDK trong sandbox agent → dựa CI `app_analyze.yml`.
+  - R2: repo chưa có thư viện nén audio; `record` không transcode được PCM đã ghi. Tuỳ chọn nén cần hoặc thêm dependency mới, hoặc MediaCodec native (Android) — cần người sở hữu duyệt trước khi thêm (có thể để tuỳ chọn nén ở trạng thái "sắp có" trong bước 1–3).
+  - Không đụng `lib/ffi/` / UltraTimeStretch.
+- Lịch sử:
+  - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
+  - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"

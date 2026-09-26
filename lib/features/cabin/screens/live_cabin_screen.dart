@@ -9,6 +9,10 @@ import 'package:in4up/screens/settings/stt_model_settings_screen.dart';
 import '../models/cabin_caption.dart';
 import '../services/cabin_asr_plan.dart';
 import '../services/stts_cabin_service.dart';
+import '../services/cabin_session_settings.dart';
+import '../services/cabin_session_store.dart';
+import '../widgets/cabin_save_sheet.dart';
+import 'cabin_sessions_screen.dart';
 
 class LiveCabinScreen extends StatefulWidget {
   const LiveCabinScreen({super.key});
@@ -30,6 +34,10 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   late AnimationController _pulseController;
   bool _showHeadphoneBanner = false;
   Timer? _bannerTimer;
+
+  // CABIN-SAVE-001
+  Timer? _recTicker;
+  bool _handlingPending = false;
 
   static const _supportedLanguages = <String, String>{
     'en': 'English',
@@ -61,11 +69,80 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     _asrSub = _modelManager.watchAsr().listen((info) {
       if (mounted) setState(() => _asrInfo = info);
     });
+    // CABIN-SAVE-001: nạp cài đặt lưu + khôi phục phiên bị tắt ngang +
+    // xử lý phiên vừa dừng từ bong bóng nổi khi màn này chưa mở.
+    CabinSessionSettings.instance.ensureLoaded();
+    _recTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _service.sessionRecorder != null) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await CabinSessionStore.instance.recoverInterrupted(
+        activeId: _service.sessionRecorder?.session.id,
+      );
+      _checkPendingSession();
+    });
+  }
+
+  /// CABIN-SAVE-001: phiên vừa dừng → hỏi lưu (hoặc tự lưu theo cài đặt).
+  Future<void> _checkPendingSession() async {
+    if (!mounted || _handlingPending) return;
+    final session = _service.takePendingSession();
+    if (session == null) return;
+    _handlingPending = true;
+    try {
+      await handleFinishedCabinSession(context, session);
+    } finally {
+      _handlingPending = false;
+    }
+  }
+
+  Widget _buildRecIndicator() {
+    final rec = _service.sessionRecorder;
+    if (rec == null) {
+      return IconButton(
+        tooltip: _service.canRecordAudio
+            ? context.uiText('Cài đặt lưu phiên')
+            : context.uiText(
+                'Chỉ lưu được văn bản — chuyển sang engine Offline để ghi âm'),
+        icon: Icon(
+          _service.canRecordAudio
+              ? Icons.fiber_manual_record_outlined
+              : Icons.notes_rounded,
+          size: 20,
+        ),
+        onPressed: () => showCabinSaveSettingsSheet(context),
+      );
+    }
+    final audio = rec.hasAudio;
+    final color = audio ? const Color(0xFFFF5252) : Colors.white70;
+    return Tooltip(
+      message: audio
+          ? context.uiText('Đang ghi âm')
+          : context.uiText(
+              'Chỉ lưu được văn bản — chuyển sang engine Offline để ghi âm'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(audio ? Icons.fiber_manual_record : Icons.notes_rounded,
+                color: color, size: audio ? 12 : 16),
+            const SizedBox(width: 4),
+            Text(
+              cabinFmtDuration(rec.elapsed),
+              style: TextStyle(
+                  color: color, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _recTicker?.cancel();
     _asrSub?.cancel();
     _service.removeListener(_onServiceUpdate);
     _pulseController.dispose();
@@ -76,6 +153,10 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   void _onServiceUpdate() {
     if (!mounted) return;
     setState(() {});
+    if (_service.pendingSession != null) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _checkPendingSession());
+    }
     // Auto-scroll to bottom on new finalized caption
     if (_service.displayMode == CabinDisplayMode.fullTranscript &&
         _scrollController.hasClients) {
@@ -264,6 +345,14 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           ],
         ),
         actions: [
+          _buildRecIndicator(),
+          IconButton(
+            tooltip: context.uiText('Phiên đã lưu'),
+            icon: const Icon(Icons.folder_open_rounded, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CabinSessionsScreen()),
+            ),
+          ),
           IconButton(
             tooltip: context.uiText('Sao chép văn bản'),
             icon: const Icon(Icons.copy_rounded, size: 20),

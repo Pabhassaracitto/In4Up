@@ -1741,5 +1741,9 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Lưu kèm thông tin': 'Save with details',
   'Nghĩa / định nghĩa': 'Meaning / definition',
   'Đang tìm gợi ý...': 'Finding suggestions…',
+  'Dịch bằng LLM (Server & API)': 'Translate with LLM (Server & API)',
+  'Chưa cấu hình — thêm provider trong Cài đặt → Quản lý Model AI → Server & API.': 'Not configured — add a provider in Settings → Manage AI Models → Server & API.',
+  'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.': 'Translation routing: online first — the LLM runs before the free engines.',
+  'Routing Dịch: Ưu tiên offline — LLM chạy sau Hy-MT/ML Kit, trước từ điển.': 'Translation routing: offline first — the LLM runs after Hy-MT/ML Kit, before the dictionary.',
 
 };

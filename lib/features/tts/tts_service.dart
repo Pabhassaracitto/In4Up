@@ -3,12 +3,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
 import 'engines/fpt_tts_engine.dart';
+import 'engines/openai_compat_tts_engine.dart';
 import 'engines/tts_engine.dart';
 import 'engines/google_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
@@ -145,6 +147,18 @@ class TtsService extends ChangeNotifier {
         description: 'Tiếng Việt tự nhiên, nhiều giọng',
         needsApiKey: true,
         priority: 4,
+      ),
+      // WP4 (API-005) — engine TTS qua tầng Server API (OpenAI tts-1,
+      // Kokoro local/LAN…). Nằm SAU offline/Zalo/FPT ⇒ thứ tự mặc định của
+      // user cũ KHÔNG đổi; user kéo lên trong cùng UI này nếu muốn. Chưa cấu
+      // hình provider thì engine tự bỏ qua (chuỗi y hệt trước WP4).
+      // Key/baseUrl/model dùng store chung WP0 (màn Server & API) — KHÔNG
+      // nhập key riêng như Zalo/FPT.
+      const TtsEngineInfo(
+        id: 'openai_compat_tts',
+        name: 'Server TTS (API)',
+        description: 'OpenAI tts-1 / Kokoro — cấu hình ở Server & API',
+        priority: 5,
       ),
     ];
   }
@@ -402,6 +416,16 @@ class TtsService extends ChangeNotifier {
             );
           }
           break;
+
+        case 'openai_compat_tts':
+          // WP4 (API-005): chỉ chạy khi đã có provider hỗ trợ TTS trong
+          // store chung WP0 (routing tts ≠ offlineOnly). Chưa cấu hình →
+          // bỏ qua — chuỗi TTS y hệt như trước khi có engine này.
+          final apiEngine = await _resolveApiTtsEngine();
+          if (apiEngine != null) {
+            played = await _trySpeakOnline(apiEngine, text, lang);
+          }
+          break;
       }
 
       if (played) {
@@ -567,7 +591,7 @@ class TtsService extends ChangeNotifier {
         );
         if (existing != null) return;
 
-        final engines = _getOnlineEngines(lang);
+        final engines = await _getOnlineEngines(lang);
 
         for (final engine in engines) {
           try {
@@ -600,7 +624,24 @@ class TtsService extends ChangeNotifier {
     });
   }
 
-  List<TtsEngine> _getOnlineEngines(String lang) {
+  /// WP4 (API-005) — resolve engine TTS qua API từ store chung WP0.
+  ///
+  /// Trả null (engine bị bỏ qua, chuỗi y hệt hôm nay) khi: chưa cấu hình
+  /// provider nào có ttsModel / routing tts = offlineOnly / provider bị tắt.
+  Future<OpenAiCompatTtsEngine?> _resolveApiTtsEngine() async {
+    try {
+      await AiProviderStore.instance.ensureLoaded();
+      final provider =
+          AiProviderStore.instance.resolveProvider(AiRouteCapability.tts);
+      if (provider == null) return null;
+      return OpenAiCompatTtsEngine(provider: provider);
+    } catch (e) {
+      debugPrint('⚠️ TTS API: lỗi đọc cấu hình provider: $e');
+      return null;
+    }
+  }
+
+  Future<List<TtsEngine>> _getOnlineEngines(String lang) async {
     final engines = <TtsEngine>[];
     final sorted = _engineOrder.where((e) => e.isEnabled && e.isOnline).toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
@@ -623,6 +664,10 @@ class TtsService extends ChangeNotifier {
               lang.startsWith('vi')) {
             engines.add(FptTtsEngine(apiKey: _fptApiKey));
           }
+          break;
+        case 'openai_compat_tts':
+          final apiEngine = await _resolveApiTtsEngine();
+          if (apiEngine != null) engines.add(apiEngine);
           break;
       }
     }
@@ -729,7 +774,7 @@ class TtsService extends ChangeNotifier {
   Future<List<TtsVoice>> getAvailableVoices([String? lang]) async {
     final effectiveLang = lang ?? _language;
     final voices = <TtsVoice>[];
-    for (final engine in _getOnlineEngines(effectiveLang)) {
+    for (final engine in await _getOnlineEngines(effectiveLang)) {
       try {
         voices.addAll(await engine.getAvailableVoices(effectiveLang));
       } catch (_) {}
@@ -748,7 +793,7 @@ class TtsService extends ChangeNotifier {
   Future<Map<String, bool>> checkEngineStatus() async {
     final status = <String, bool>{};
     final lang = _language == 'auto' ? 'vi-VN' : _language;
-    for (final engine in _getOnlineEngines(lang)) {
+    for (final engine in await _getOnlineEngines(lang)) {
       try {
         status[engine.name] =
             await engine.isAvailable().timeout(const Duration(seconds: 5));
@@ -766,10 +811,10 @@ class TtsService extends ChangeNotifier {
     return status;
   }
 
-  List<String> get activeEngines {
+  Future<List<String>> get activeEngines async {
     final lang = _language == 'auto' ? 'vi-VN' : _language;
     return [
-      ..._getOnlineEngines(lang).map((e) => e.name),
+      ...(await _getOnlineEngines(lang)).map((e) => e.name),
       _offlineEngine.name,
     ];
   }

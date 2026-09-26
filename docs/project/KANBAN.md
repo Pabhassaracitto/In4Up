@@ -12,7 +12,7 @@
 | API-003 | WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — SttEngineRemote + chunk theo VAD + cùng cache LRC | 🔨 doing (code xong, CI xanh run 36339966096; còn thiếu nghiệm thu thiết bị thật) | arena/01a0df5d-in4up (nhánh session này) |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose | ✅ done (chờ nghiệm thu máy LAN) | `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
-| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | 🔨 doing (code + test thuần — chờ CI) | branch `arena/01a0df5f-in4up`; engine mới xếp sau FPT, thứ tự mặc định user cũ không đổi |
+| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36270893400 (`fca1965`, arena/01a0df5f-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -311,7 +311,8 @@
     chờ nghiệm thu phần cứng/LAN
 
 ### API-005 — WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0
-- **Trạng thái:** doing (code + test thuần xong — chờ CI; còn nghiệm thu thiết bị theo AT)
+- **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run
+  36270893400; còn nghiệm thu thiết bị theo AT)
 - **Nguồn:** owner (2026-09-26) qua agent arena/01a0df5f-in4up —
   `PROMPT_AGENT_SERVER_API.md` §7 (WP4 — gói nhẹ nhất, pattern Zalo/FPT đã chống).
 - **Nội dung:**
@@ -351,6 +352,12 @@
   - 2026-09-26 | created→doing | agent arena/01a0df5f-in4up | code client +
     engine + wiring + test; chờ CI run đầu (chú ý bẫy paths-filter 5.7 —
     commit đã có lib/** nên app_analyze tự chạy)
+  - 2026-09-26 | doing→done | agent arena/01a0df5f-in4up | run 36270893400
+    🟢 lần đầu (analyze 0 error + rule #5 + LHB + Cabin), commit `fca1965`;
+    test/tts_api_wp4_test.dart đã qua analyze nhưng CHƯA được workflow nào
+    chạy (app_analyze chỉ chạy 4 bộ test cố định — owner duyệt thêm nếu
+    muốn đưa vào CI, tiền lệ API-001); còn AT thiết bị: chọn Kokoro LAN hoặc
+    OpenAI tts-1 → đọc VI/EN + kéo thả ưu tiên trên máy thật
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

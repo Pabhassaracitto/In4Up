@@ -265,8 +265,114 @@ cảm nhận ngay (chat streaming), và prove toàn bộ nền P0 hoạt động
 
 ---
 
-*Phụ lục — các file sẽ bị chạm khi code (tham khảo, chưa cam kết):*
+*Phụ lục A — các file sẽ bị chạm khi code (tham khảo, chưa cam kết):*
 `packages/in4up_ai/lib/src/` (client + remote engine + provider store),
 `packages/in4up_stt/lib/stt_engine_registry.dart` (đăng ký `RemoteSttEngine`),
 `lib/screens/settings/` (màn Server & API mới), `lib/l10n/*.arb` (chuỗi mới,
-đủ 4 locale T2), `docs/adr/00XX-server-api-layer.md`, `docs/project/KANBAN.md`.
+đủ 4 locale T2), `docs/adr/0007-server-api-layer.md`, `docs/project/KANBAN.md`.
+
+---
+
+## Phụ lục B (2026-09-27) — Server đặt Ở ĐÂU? 3 mô hình & câu hỏi "Android có kill không?"
+
+> Trả lời câu hỏi owner 2026-09-27: "API từ mây hay từ PC → Android, hay app
+> server chạy model → app in4up trên chính Android đó? Nếu app→app thì có
+> sợ Android kill không?"
+
+### B.1 Nguyên tắc: in4up luôn là CLIENT — server nằm ở 1 trong 3 chỗ
+
+Tầng API sau khi làm chỉ thêm cho in4up một **cổng cắm HTTP** (chuẩn
+OpenAI-compatible). Cắm vào đâu là lựa chọn của user — code app giống hệt
+nhau, chỉ khác `baseUrl`:
+
+```
+A) CLOUD — máy chủ của hãng (qua Internet)
+   ┌──────────────┐  HTTPS    ┌──────────────────────────────┐
+   │ Android      │ ────────▶ │ api.groq.com / Gemini /      │
+   │ (in4up)      │ ◀──────── │ OpenAI…  (GPU của họ)        │
+   └──────────────┘           └──────────────────────────────┘
+   Cần Internet + API key. Trả phí theo mức dùng. Audio/text rời khỏi máy.
+
+B) PC trong LAN — "Server Box" (khuyên dùng cho chà/nhà)
+   ┌──────────────┐  WiFi LAN ┌──────────────────────────────┐
+   │ Android      │ ────────▶ │ PC / mini-PC (docker-compose)│
+   │ (in4up)      │ ◀──────── │ Ollama(chat) + Speaches(STT) │
+   └──────────────┘ http://   │ + Kokoro(TTS)                │
+                    192.168.x.x:11434/v1
+   KHÔNG cần Internet. Miễn phí. Audio không rời khỏi LAN. PC phải bật.
+
+C) Server app TRÊN CHÍNH CHIẾC ANDROID ĐÓ (Termux/Ollama → 127.0.0.1)
+   ┌────────────────────────────────────┐
+   │ Một chiếc Android                  │
+   │   in4up ──http://127.0.0.1:port──▶ │ app khác chạy model
+   │   (RAM vẫn CHUNG một máy!)         │
+   └────────────────────────────────────┘
+   ❌ KHÔNG khuyến nghị — xem B.2.
+```
+
+### B.2 Vì sao KHÔNG chạy server trên chính Android (option C)
+
+1. **Vô nghĩa về mục tiêu.** Mục tiêu của tầng API là đẩy việc nặng
+   (RAM/CPU/nhiệt) **KHỎI thiết bị**. Server chạy trên cùng một chiếc điện
+   thoại thì RAM vẫn ăn chung của hệ thống — in4up nhẹ đi bao nhiêu thì app
+   server nặng lên bấy nhiêu: máy vẫn chật, vẫn nóng, pin vẫn tụt. Hôm nay
+   in4up đã chạy model trong isolate tách riêng — đó đã là thiết kế đúng cho
+   chế độ on-device; chuyển model sang process khác cùng máy không cải thiện gì.
+2. **Android sẽ kill — nỗi lo của owner là chính đáng.** 4 cơ chế:
+   - **Doze / App Standby:** máy idle (tắt màn hình, không sạc) → cắt mạng,
+     freeze app nền.
+   - **OOM killer:** hết RAM → giết app nền trước tiên — mà app server giữ
+     model 600MB+ là ứng viên số 1.
+   - **Android 8+ hạn chế background service:** muốn chạy nền dai phải bám
+     foreground service + thông báo thường trực.
+   - **OEM aggressive hơn nữa** (Xiaomi/Oppo/Vivo/Samsung "put apps to
+     sleep") — kill cả khi đã whitelist.
+   Termux+Ollama phải `termux-wake-lock` + tắt tối ưu pin + khoá app chạy nền
+   — và vẫn không chắc chắn 100% trên mọi máy. Quan trọng: **in4up là client
+   không thể giữ app khác sống** — việc xin quyền/tắt tối ưu pin phải do app
+   server tự làm, ngoài tầm kiểm soát của mình.
+3. **Kết luận:** option C không hỗ trợ chính thức (client không chặn
+   `127.0.0.1` — user muốn thử vẫn được — nhưng không có trong preset, không
+   có trong docs hướng dẫn, không nhận bug). Muốn server "trong nhà, không
+   mây" → option B với PC/mini-PC cũ (Raspberry Pi cũng chạy được model nhỏ).
+
+### B.3 Vì sao option A/B KHÔNG sợ Android kill
+
+- in4up chỉ là **HTTP client**: gửi request → nhận kết quả → xong. Mỗi
+  request kéo dài vài giây (chat) tới vài phút (1 chunk audio). **Không có
+  process server nào trên Android cần giữ sống.**
+- Job dài (bóc băng file 30–60p) đã tách thành chunk 10–15p, mỗi chunk một
+  request riêng + progress + cache (WP2): app bị kill giữa chừng cũng chỉ mất
+  đúng chunk đang chạy — **khả quan hơn** whisper on-device hôm nay (chạy
+  trong isolate của app, app chết là mất cả job).
+- Nguồn điện của server: cloud = dãy máy chủ hãng; option B = điện lưới PC.
+  Android không liên quan.
+
+### B.4 Bảng so sánh 3 mô hình
+
+| | A. Cloud | B. PC trong LAN | C. Server trên cùng Android |
+|---|---|---|---|
+| Cần Internet? | ✅ | ❌ chỉ cần WiFi LAN | ❌ |
+| Chi phí | theo mức dùng (free tier Gemini) | 0 (tiền điện PC) | 0 |
+| Audio rời khỏi nhà? | ✅ (tới hãng) | ❌ | ❌ |
+| Chất lượng model | lớn nhất (GPU hãng) | theo PC (CPU chạy được 7–8B) | yếu nhất (RAM điện thoại) |
+| Yêu cầu khác | API key (BYOK) | PC bật khi dùng | hack wake-lock, tắt tối ưu pin |
+| Giải phóng RAM/pin Android | ✅ hoàn toàn | ✅ hoàn toàn | ❌ RAM vẫn chung máy |
+| Rủi ro Android kill server | không tồn tại server trên máy | không tồn tại server trên máy | **CAO** (Doze/OOM/OEM) |
+| **Khuyến nghị** | ✅ | ✅ (chùa/nhà có PC cũ) | ❌ bỏ |
+
+### B.5 Sau khi làm xong — user nhìn thấy gì (theo tình huống)
+
+| Tình huống | Hôm nay | Sau khi có tầng API |
+|---|---|---|
+| Bóc băng pháp thoại 45p, ở chà có PC Server Box | whisper-tiny trên máy: chậm gần bằng thời lượng file, máy nóng, sai nhiều tên riêng/Pali | whisper-large-v3 trên PC: chỉ vài phút, điện thoại mát, chính xác hơn hẳn |
+| AI Chat / hỏi nghĩa từ (đi đường, có 4G + key Gemini free) | lần đầu chờ load Gemma 1–2 phút, generate chậm, isolate hay OOM | hỏi ngay, streaming từng chữ, model lớn hơn nhiều |
+| Dịch Pali↔Việt tài liệu dài | Hy-MT 600MB trên máy | LLM cloud/PC; **tuỳ chọn xoá 600MB** giải phóng bộ nhớ |
+| Không có mạng (đi tàu, lên rừng) | offline như hiện tại | **GIỮ NGUYÊN như hiện tại** (offline-first, cache dùng chung) |
+| Điện thoại cũ 2–3GB RAM | gần như không chạy nổi LLM | chạy tốt — việc nặng ở server |
+| Chưa cấu hình gì / tắt tầng API | — | app hành xử **y hệt hôm nay** |
+
+Giá trị giải phóng khi dùng remote: RAM AI ~0,6–1,5GB → ~0; nhiệt/pin gần
+như không đổi; không còn bắt buộc tải/lưu model 37–600MB trên máy (tuỳ chọn
+xoá); chat streaming thay vì chờ load model.
+

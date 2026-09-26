@@ -32,7 +32,15 @@ cần đổi thứ tự giao WP, không đổi nội dung WP):
 4. Preset cloud đầu tiên: **Gemini** (chat/dịch) + **Groq** (STT) — đều BYOK.
 5. Giữ on-device: live STT cabin/shadowing (Zipformer), VAD Silero (dùng cắt
    chunk TRƯỚC khi upload), ML Kit + các engine offline (lớp fallback cuối).
-6. Làm đủ tầng: WP0 → WP1 → WP2 → WP3 → WP4, WP5 tùy chọn. **WP0 phải xong +
+6. **Server đặt ở đâu — 3 mô hình** (chi tiết Phụ lục B `docs/server_api_tu_van.md`,
+   nhánh `origin/arena/01a0ddd1-in4up`): **A) Cloud** (Groq/Gemini/OpenAI…
+   qua Internet) và **B) PC trong LAN** ("Server Box" docker-compose — WP5)
+   là 2 mô hình hỗ trợ chính thức. **C) Server chạy trên chính chiếc Android
+   đó** (Termux/Ollama → `127.0.0.1`) KHÔNG hỗ trợ — vô nghĩa về RAM (chung
+   một máy, không giải phóng được gì) và bị Android kill (Doze/OOM/OEM kill
+   app server nền). Client không chặn 127.0.0.1 nhưng không làm preset,
+   không docs hướng dẫn, không nhận bug — user hỏi thì trả lời theo Phụ lục B.
+7. Làm đủ tầng: WP0 → WP1 → WP2 → WP3 → WP4, WP5 tùy chọn. **WP0 phải xong +
    được leader thu hoạch trước** khi giao WP1–WP4 (cùng dùng client/store của
    WP0). Sau đó WP1–WP4 chạy song song được (đụng file khác nhau; xung đột nhỏ
    ở ARB + KANBAN do leader giải khi harvest).

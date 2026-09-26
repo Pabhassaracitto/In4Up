@@ -17,6 +17,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -244,6 +245,105 @@ class OpenAiCompatClient {
     } catch (e) {
       throw AiApiException(
           AiApiErrorCode.invalidResponse, 'Cannot parse model list: $e');
+    }
+  }
+
+  /// POST {baseUrl}/audio/transcriptions — multipart, chuẩn OpenAI-compatible
+  /// STT (Groq whisper-large-v3, Speaches/whisper-server tự host…) — WP2
+  /// (API-003).
+  ///
+  /// [audioFilePath] PHẢI đã là WAV 16kHz mono (caller — `in4up_stt` — tự
+  /// resample bằng `AudioConverter` trước; client này KHÔNG convert audio,
+  /// chỉ chuyển tiếp HTTP). Upload STREAM từ đĩa qua
+  /// [http.MultipartFile.fromPath] — KHÔNG đọc cả file vào RAM.
+  ///
+  /// Trả JSON thô đã decode (`verbose_json`: `{text, segments:[{start,end,
+  /// text,...}], ...}`) — việc map sang model STT nội bộ (SttSegment) là
+  /// việc của caller, client tầng này KHÔNG bịa/làm giàu dữ liệu.
+  Future<Map<String, dynamic>> transcribeAudio({
+    required String audioFilePath,
+    required String model,
+    String? language,
+    Duration timeout = const Duration(minutes: 5),
+  }) async {
+    _validateBase();
+
+    if (!await File(audioFilePath).exists()) {
+      throw AiApiException(
+        AiApiErrorCode.invalidResponse,
+        'Audio file not found: $audioFilePath',
+      );
+    }
+
+    final request = http.MultipartRequest('POST', _uri('/audio/transcriptions'))
+      ..headers.addAll({
+        if (apiKey != null && apiKey!.isNotEmpty)
+          'Authorization': 'Bearer $apiKey',
+      })
+      ..fields['model'] = model
+      ..fields['response_format'] = 'verbose_json';
+    if (language != null && language.isNotEmpty && language != 'auto') {
+      request.fields['language'] = language;
+    }
+    // fromPath() mở ByteStream từ file (dart:io File.openRead) — không đọc
+    // toàn bộ nội dung vào bộ nhớ trước khi gửi.
+    request.files.add(await http.MultipartFile.fromPath('file', audioFilePath));
+
+    http.StreamedResponse streamed;
+    try {
+      streamed = await _httpClient.send(request).timeout(timeout);
+    } on TimeoutException {
+      throw const AiApiException(
+          AiApiErrorCode.timeout, 'STT API request timed out');
+    } on http.ClientException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    } on SocketException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    }
+
+    final String body;
+    try {
+      body = await streamed.stream.bytesToString().timeout(timeout);
+    } on TimeoutException {
+      throw const AiApiException(
+          AiApiErrorCode.timeout, 'STT API response timed out');
+    } on http.ClientException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    } on SocketException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    }
+
+    if (streamed.statusCode == 401 || streamed.statusCode == 403) {
+      throw AiApiException(
+          AiApiErrorCode.unauthorized,
+          'Unauthorized (HTTP ${streamed.statusCode}) — check API key',
+          statusCode: streamed.statusCode);
+    }
+    if (streamed.statusCode == 429) {
+      throw const AiApiException(
+          AiApiErrorCode.rateLimited, 'Rate limited (HTTP 429)',
+          statusCode: 429);
+    }
+    if (streamed.statusCode != 200) {
+      throw AiApiException(
+          AiApiErrorCode.httpError,
+          'HTTP ${streamed.statusCode}: '
+          '${body.isEmpty ? streamed.reasonPhrase ?? '' : body}',
+          statusCode: streamed.statusCode);
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const AiApiException(
+            AiApiErrorCode.invalidResponse, 'STT response is not a JSON object');
+      }
+      return decoded;
+    } on AiApiException {
+      rethrow;
+    } catch (e) {
+      throw AiApiException(
+          AiApiErrorCode.invalidResponse, 'Cannot parse STT response: $e');
     }
   }
 

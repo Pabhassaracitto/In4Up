@@ -76,6 +76,16 @@ class SttConfig {
     generateLrc: true,
   );
 
+  /// Config "STT qua API" (Groq whisper-large-v3 / Speaches tự host) —
+  /// WP2 (API-003). autoFallback: true → chưa cấu hình provider/offline-only
+  /// thì facade tự quay lại Whisper on-device, KHÔNG treo người dùng.
+  static const remoteApi = SttConfig(
+    preferredEngine: SttEngineType.remote,
+    autoFallback: true,
+    generateLrc: true,
+    cacheResults: true,
+  );
+
   SttConfig copyWith({
     SttEngineType? preferredEngine,
     String? language,

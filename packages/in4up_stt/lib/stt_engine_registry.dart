@@ -8,6 +8,7 @@ import 'models/stt_result.dart';
 import 'stt_engine.dart';
 import 'stt_engine_native.dart';
 import 'stt_engine_native_strategy.dart';
+import 'stt_engine_remote.dart';
 import 'stt_engine_whisper_strategy.dart';
 import 'stt_engine_sherpa.dart';
 
@@ -25,6 +26,10 @@ class SttEngineRegistry {
     SttEngineType.whisper: _whisperFactory,
     // Sherpa — spike PoC từ branch 27, có thể tắt bằng cách bỏ dòng này + pubspec dep
     SttEngineType.sherpa: _sherpaFactory,
+    // Remote — STT qua API OpenAI-compatible (WP2/API-003). Provider đọc
+    // từ AiProviderStore (in4up_ai) — KHÔNG cấu hình gì ở đây, engine tự
+    // báo lỗi cấu trúc (notConfigured/offlineOnly) khi chưa sẵn sàng.
+    SttEngineType.remote: _remoteFactory,
   };
 
   static SttEngine _sherpaFactory() => SherpaSttEngine();
@@ -32,6 +37,7 @@ class SttEngineRegistry {
   /// Whisper cần modelDir — set từ ngoài sau khi SttModelManager khởi tạo.
   static String? whisperModelDir;
   static WhisperSttEngine? _whisperInstance;
+  static SttEngineRemote? _remoteInstance;
 
   static SttEngine _nativeFactory() => NativeSttEngine(SttEngineNative());
 
@@ -41,6 +47,8 @@ class SttEngineRegistry {
     );
     return _whisperInstance!;
   }
+
+  static SttEngine _remoteFactory() => _remoteInstance ??= SttEngineRemote();
 
   /// Đăng ký engine mới (dùng cho Sherpa hoặc custom).
   static void register(SttEngineType type, SttEngineFactory factory) {

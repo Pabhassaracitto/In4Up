@@ -13,6 +13,7 @@ import 'dart:ui';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:in4up_ai/in4up_ai.dart' show AiProviderStore, AiRouteCapability;
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
@@ -2928,13 +2929,14 @@ class GenerateLrcButton extends StatelessWidget {
                   // Tạo lại, không auto chạy Whisper nữa.
                   // Ngôn ngữ: 'auto' (mặc định) = Whisper tự nhận diện
                   // đa ngữ; hoặc ép cụ thể (vi/en/zh/ja/ko/pi...).
-                  onGenerate: (level, grouping, language) =>
+                  onGenerate: (level, grouping, language, useRemote) =>
                       confirmAndGenerateLrc(
                         context,
                         provider,
                         level,
                         grouping,
                         language: language,
+                        useRemote: useRemote,
                       ),
                 ),
                 const SizedBox(height: 12),
@@ -2986,9 +2988,11 @@ class GenerateLrcButton extends StatelessWidget {
 
 class _LrcModelSelector extends StatefulWidget {
   final bool isProcessing;
-  /// (level, grouping, language) — 'auto' = Whisper tự nhận diện ngôn ngữ.
+  /// (level, grouping, language, useRemote) — 'auto' = Whisper tự nhận diện
+  /// ngôn ngữ; [useRemote]: WP2 (API-003) — bóc băng qua API STT (Groq/
+  /// Speaches) thay vì Whisper on-device (level lúc đó bị bỏ qua).
   final Future<SttTranscribeOutput?> Function(
-      WhisperModelLevel?, SttSegmentGrouping, String) onGenerate;
+      WhisperModelLevel?, SttSegmentGrouping, String, bool) onGenerate;
 
   const _LrcModelSelector(
       {required this.isProcessing, required this.onGenerate});
@@ -3021,22 +3025,44 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
   SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
   String _language = 'auto';
 
+  // WP2 (API-003) — bóc băng qua API thay vì Whisper on-device. Chỉ bật
+  // được khi đã cấu hình provider STT cho AiRouteCapability.sttFile (và
+  // routing không phải offline-only) — nếu không, hành vi giữ y hệt hôm nay
+  // (chip bị disable, không route sang remote).
+  bool _useRemote = false;
+
   @override
   Widget build(BuildContext context) {
+    // AiProviderStore là ChangeNotifier — lắng nghe để chip "API" cập nhật
+    // ngay khi user vừa thêm/xoá provider ở "Cài đặt → Server & API" mà
+    // không cần thoát/mở lại màn Nghe.
+    return AnimatedBuilder(
+      animation: AiProviderStore.instance,
+      builder: (context, _) => _buildSelector(context),
+    );
+  }
+
+  Widget _buildSelector(BuildContext context) {
+    final apiSttAllowed =
+        AiProviderStore.instance.apiAllowed(AiRouteCapability.sttFile);
+
     return Material(
       color: Colors.transparent,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Wrap(spacing: 8, runSpacing: 8, children: [
           ChoiceChip(
             label: const Text('AUTO'),
-            selected: _selectedLevel == null,
+            selected: !_useRemote && _selectedLevel == null,
             onSelected: widget.isProcessing
                 ? null
-                : (_) => setState(() => _selectedLevel = null),
+                : (_) => setState(() {
+                      _useRemote = false;
+                      _selectedLevel = null;
+                    }),
           ),
           ...WhisperModelLevel.values.map((level) {
             final info = context.read<PlayerProvider>().getSttModelInfo(level);
-            final isSelected = _selectedLevel == level;
+            final isSelected = !_useRemote && _selectedLevel == level;
             return FilterChip(
               label: Text(
                 '${level.name.toUpperCase()} (${level.sizeInMB}MB)'
@@ -3045,10 +3071,35 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
               selected: isSelected,
               onSelected: widget.isProcessing
                   ? null
-                  : (_) => setState(
-                      () => _selectedLevel = isSelected ? null : level),
+                  : (_) => setState(() {
+                        _useRemote = false;
+                        _selectedLevel = isSelected ? null : level;
+                      }),
             );
           }),
+          // ── WP2 (API-003): STT qua API (Groq whisper-large-v3 /
+          // Speaches tự host) — chỉ hiện khả dụng khi đã cấu hình ở
+          // "Cài đặt → Server & API". Chưa cấu hình → chip vẫn hiện
+          // (khám phá tính năng) nhưng bị disable, tooltip giải thích.
+          Tooltip(
+            message: apiSttAllowed
+                ? 'Bóc băng qua API (Groq/Speaches) — nhanh hơn, không tốn '
+                    'pin/CPU máy, phù hợp file dài 30-60 phút.'
+                : 'Chưa cấu hình provider STT API. Vào Cài đặt → Server & '
+                    'API để thêm (Groq/Speaches...), hoặc dùng Whisper '
+                    'offline.',
+            child: FilterChip(
+              avatar: const Icon(Icons.cloud_outlined, size: 16),
+              label: const Text('API'),
+              selected: _useRemote,
+              onSelected: (widget.isProcessing || !apiSttAllowed)
+                  ? null
+                  : (_) => setState(() {
+                        _useRemote = !_useRemote;
+                        if (_useRemote) _selectedLevel = null;
+                      }),
+            ),
+          ),
         ]),
         const SizedBox(height: 8),
         // Ngôn ngữ STT — mặc định 'Tự động' (Whisper tự nhận diện đa ngữ).
@@ -3110,13 +3161,17 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
           )
         else
           ElevatedButton.icon(
-            onPressed: () =>
-                widget.onGenerate(_selectedLevel, _grouping, _language),
-            icon: const Icon(Icons.subtitles_outlined),
+            onPressed: () => widget.onGenerate(
+                _selectedLevel, _grouping, _language, _useRemote),
+            icon: Icon(_useRemote
+                ? Icons.cloud_upload_outlined
+                : Icons.subtitles_outlined),
             label: Text(
-              _language == 'auto'
-                  ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
-                  : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})',
+              _useRemote
+                  ? 'Tạo lời thoại (qua API)'
+                  : (_language == 'auto'
+                      ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
+                      : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})'),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade700,

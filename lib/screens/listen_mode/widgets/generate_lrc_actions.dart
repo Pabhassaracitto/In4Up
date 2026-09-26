@@ -10,6 +10,9 @@ import '../../../providers/player_provider.dart';
 /// [language]: mã ngôn ngữ Whisper — 'auto' (mặc định) = Whisper tự nhận
 /// diện (đa ngữ); 'vi', 'en', 'zh', 'ja', 'ko', 'pi'... khi muốn ép.
 ///
+/// [useRemote]: WP2 (API-003) — bóc băng qua API (Groq/Speaches) thay vì
+/// Whisper on-device. Xem `PlayerSttMixin.generateLrcForCurrentAudio`.
+///
 /// Trả về [SttTranscribeOutput?] (null khi dùng bản đã lưu / hủy) — khớp
 /// kiểu closure `onGenerate` của _LrcModelSelector.
 Future<SttTranscribeOutput?> confirmAndGenerateLrc(
@@ -18,6 +21,7 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
   WhisperModelLevel? level,
   SttSegmentGrouping grouping, {
   String language = 'auto',
+  bool useRemote = false,
 }) async {
   final hit = await provider.peekCachedLrc();
   var force = false;
@@ -60,5 +64,6 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
     grouping: grouping,
     forceRegenerate: force,
     language: language,
+    useRemote: useRemote,
   );
 }

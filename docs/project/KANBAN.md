@@ -9,6 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-003 | WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — SttEngineRemote + chunk theo VAD + cùng cache LRC | 🔨 doing (code xong, chờ CI đầu tiên chạy trên nhánh này) | arena/01a0df5d-in4up (nhánh session này) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -136,6 +137,136 @@
     test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
     nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
+
+### API-003 — WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — bóc băng file dài
+- **Trạng thái:** 🔨 doing — code xong, rà soát thủ công kỹ (sandbox không có
+  Flutter/Dart SDK + không có mạng ra pub.dev/storage.googleapis.com — không
+  chạy được `pub get`/`flutter analyze`/`flutter test` cục bộ); CHƯA có run
+  CI nào trên nhánh `arena/01a0df5d-in4up`.
+- **Nguồn:** owner — bản đặc tả WP2/API-003 (tiếng Việt) tiếp nối WP0
+  (API-001/ADR-0007): dùng lại 1 client OpenAI-compatible duy nhất, KHÔNG
+  tạo client thứ 2; live mic GIỮ on-device (quyết định đã chốt).
+- **Nội dung:**
+  - `packages/in4up_stt/lib/stt_engine_remote.dart` (mới): `SttEngineRemote
+    implements SttEngine` — `capabilities` trung thực
+    (`supportsFileTranscription: true`, `supportsOffline: false`,
+    `supportsLiveMic: false`); guard 2 lớp (`offlineOnly` /
+    `notConfigured`) trước khi gọi mạng; chunk file dài theo VAD có sẵn
+    (`SherpaVadCore` + model Silero đã tải qua `SherpaModelManager`), fallback
+    lưới cố định khi không có model/VAD lỗi; mỗi chunk cắt+convert WAV 16k
+    mono qua `AudioConverter.cutSegment` (KHÔNG upload file gốc lossless);
+    gọi `OpenAiCompatClient.transcribeAudio()` (stream file từ đĩa, không
+    nạp cả file vào RAM) từng chunk, offset timestamp rồi merge; xoá file
+    chunk tạm ngay sau mỗi lần gọi (kể cả khi lỗi, `finally`).
+  - `packages/in4up_stt/lib/stt_remote_slot.dart` (mới): single-flight kiểu
+    `HyMtSlot` — 1 job STT-API/lúc; request kế tiếp hết hạn chờ (`maxWait`
+    2s) → `SttRemoteFailure(busy)` ngay, không treo.
+  - `packages/in4up_stt/lib/stt_remote_chunk_planner.dart` (mới): thuật
+    toán thuần chia `totalMs` thành `SttChunkWindow` (~12 phút/chunk, trần
+    15 phút — an toàn upload ~25MB @16k mono) — ưu tiên cắt tại khoảng lặng
+    VAD gần mốc mục tiêu nhất, gộp chunk đuôi quá ngắn (<5s) vào chunk
+    trước; luôn là 1 PHÂN HOẠCH CHÍNH XÁC của `[0,totalMs)` (không lặp/mất
+    đoạn — cùng kỷ luật `hymt_chunking`).
+  - `packages/in4up_stt/lib/stt_remote_response_parser.dart` (mới): parse
+    JSON `verbose_json` OpenAI-compatible → `SttSegment`, dịch timestamp
+    theo offset chunk; `words: const []` LUÔN — KHÔNG fake word-level
+    timestamps (nguyên tắc `MeetilyAdapter`); fallback 1 segment phủ hết
+    chunk khi server chỉ trả `text` phẳng.
+  - `packages/in4up_stt/lib/stt_remote_error_mapper.dart` +
+    `stt_remote_errors.dart` (mới): map `AiApiException` (in4up_ai, 8 mã)
+    → `SttRemoteErrorCode` cấu trúc (`busy/notConfigured/offlineOnly/
+    networkLost/timeout/httpError/invalidResponse/cancelled/
+    chunkingFailed`) — mạng rớt giữa chừng có mã lỗi rõ, không treo progress.
+  - `packages/in4up_ai/lib/src/provider/openai_compat_client.dart`: thêm
+    `transcribeAudio({audioFilePath, model, language, timeout})` — POST
+    multipart `/v1/audio/transcriptions`, dùng lại đúng 8
+    `AiApiErrorCode` đã có của WP0 (không thêm mã mới ở tầng client).
+  - `models/stt_result.dart`: thêm `SttEngineType.remote` — đã grep toàn
+    repo mọi nơi so sánh/khởi tạo enum này (`stt_engine_registry.dart`,
+    `stt_service_facade.dart`, `stt_config.dart`, `stt_engine.dart`,
+    `vad_whisper_pipeline.dart`, `player_stt_mixin.dart`,
+    `meetily_adapter.dart`, `stt_isolate_payload.dart`,
+    `stt_engine_native/_whisper/_sherpa.dart`, test files) — xác nhận
+    KHÔNG có `switch` cạn kiệt (exhaustive) nào trên enum này, chỉ so sánh
+    `==`/khởi tạo trực tiếp, nên thêm case mới không làm gãy biên dịch ở
+    bất kỳ nơi nào; đăng ký engine trong `stt_engine_registry.dart`.
+  - `stt_service_facade.dart`: routing mới — `preferredEngine == remote` →
+    `_runRemoteEngineOrFallback` (thử remote; lỗi bất kỳ +
+    `autoFallback: true` → tự quay lại `_runWhisperViaIsolate` với
+    Whisper on-device, KHÔNG treo người dùng); tiến độ per-chunk đẩy qua
+    `progressStream`/`partialResultStream` sẵn có (`SttFacadeStatus.
+    processingRemote` mới) — downstream (LRC/cache/transcript search)
+    GIỮ NGUYÊN, remote chỉ là 1 nguồn segment khác.
+  - `models/stt_config.dart`: preset `SttConfig.remoteApi`
+    (`preferredEngine: remote, autoFallback: true, generateLrc: true,
+    cacheResults: true`) — cache key đã tự tách theo `preferredEngine.name`
+    nên LRC cache của remote và whisper không đụng nhau.
+  - UI (không tạo màn mới — cắm vào đúng chỗ chọn engine sẵn có):
+    `lib/screens/listen_mode/listen_mode_screen.dart`
+    (`_LrcModelSelector`) — thêm chip **"API"** cạnh AUTO/model-level,
+    gate bằng `AiProviderStore.instance.apiAllowed(AiRouteCapability.
+    sttFile)` (disable + tooltip khi chưa cấu hình provider — hành vi
+    STT hôm nay giữ nguyên 100%), lắng nghe `AiProviderStore` (ChangeNotifier)
+    để cập nhật ngay khi vừa thêm provider ở "Cài đặt → Server & API".
+    `lib/providers/player/player_stt_mixin.dart`
+    (`generateLrcForCurrentAudio`) — thêm `useRemote`: khi bật, CỐ Ý bỏ
+    qua nhánh VAD+Whisper on-device (`generateLrcWithVadPipeline`, ngưỡng
+    >5MB) vì `SttEngineRemote` tự chunk theo VAD nội bộ; dùng
+    `SttConfig.remoteApi`. `generate_lrc_actions.dart`
+    (`confirmAndGenerateLrc`) — thread `useRemote` xuống provider (dialog
+    "Dùng bản đã lưu / Tạo lại" giữ nguyên, không đổi vì cache độc lập
+    engine).
+  - Test thuần (không cần thiết bị/SDK/mạng — logic đóng gói riêng khỏi
+    Flutter/IO/HTTP để test được bằng `flutter test` bình thường):
+    `packages/in4up_stt/test/stt_remote_slot_test.dart`,
+    `stt_remote_chunk_planner_test.dart` (bất biến phân hoạch chính xác +
+    gộp chunk đuôi ngắn — có test dựng kịch bản VAD ép điểm cắt sát cuối
+    file để buộc nhánh gộp thực sự chạy),
+    `stt_remote_response_parser_test.dart` (offset/uid/không-fake-word/
+    clamp confidence/fallback text phẳng), `stt_remote_error_mapper_test.dart`
+    (map đủ 8 `AiApiErrorCode`, vòng lặp qua `AiApiErrorCode.values` đảm
+    bảo không thiếu nhánh khi thêm mã lỗi mới ở in4up_ai sau này);
+    `packages/in4up_ai/test/openai_compat_client_stt_test.dart` (đã có từ
+    trước, rà lại khớp `transcribeAudio()` cuối cùng — `MockClient` giả
+    lập 200/401/429/mất mạng/file không tồn tại/cleartext-blocked).
+  - `.github/workflows/app_analyze.yml`: thêm `packages/**` vào path
+    filter push/pull_request (trước đây chỉ `lib/**`/`test/**` — sửa
+    thuần trong `packages/` sẽ KHÔNG kích hoạt CI dù ảnh hưởng type-check
+    của app chính qua path dependency).
+- **Khoảng trống đã biết (giống tiền lệ API-001 với
+  `test/ai_provider_wp0_test.dart`):** 4 file test thuần mới trong
+  `packages/in4up_stt/test/` + 1 file trong `packages/in4up_ai/test/`
+  CHƯA được đưa vào bất kỳ job CI nào (không có job "chạy test riêng từng
+  package" trong `app_analyze.yml`/`build.yml` — chỉ có `flutter analyze`
+  ở gốc repo, phạm vi chính xác của việc này với path-dependency chưa xác
+  nhận được vì sandbox không có SDK để thử). KHÔNG tự thêm bước
+  `flutter pub get`/`test` chạy trong `packages/in4up_stt` vào CI vì package
+  này có nhiều dependency native nặng (`sherpa_onnx`, `ffmpeg_kit_flutter_new`,
+  `whisper_flutter_new`, `firebase_storage`) mà pipeline `pub get` của nó
+  CHƯA từng được xác nhận chạy được trong CI — thêm bừa có thể làm đỏ toàn
+  bộ `app_analyze.yml` cho MỌI nhánh khác đang đụng `lib/**`. Đề xuất: owner
+  duyệt thêm 1 job riêng (kiểu melos hoặc `cd packages/in4up_stt && flutter
+  pub get && flutter test`) sau khi xác nhận resolve dependency ổn.
+- **AT (theo đặc tả WP2):** file ~30 phút qua Groq whisper-large-v3/Speaches
+  nhanh hơn whisper-tiny on-device; timestamp LRC khớp karaoke; transcript
+  search hoạt động bình thường; mất mạng giữa chừng → dừng sạch + mã lỗi
+  cấu trúc, không treo, retry lại bằng whisper on-device được ngay; LRC đã
+  cache từ lần chạy remote trước → mở lại offline vẫn thấy (cùng cache,
+  không trùng lặp); chưa cấu hình/API tắt → hành vi y hệt hôm nay.
+  **CHƯA nghiệm thu bằng thiết bị/audio thật** (cần Flutter SDK + network
+  thật tới Groq/Speaches — ngoài khả năng sandbox này).
+- **Lịch sử:**
+  - 2026-09-26 | created→doing | agent (phiên tiếp nối, arena/01a0df5d-in4up) |
+    code đủ 4 file thuật toán thuần (slot/chunk-planner/response-parser/
+    error-mapper) + `stt_engine_remote.dart` + wiring registry/facade/
+    config/enum + `transcribeAudio()` (in4up_ai) + UI (chip "API" ở màn
+    Nghe + `useRemote` xuyên suốt `player_stt_mixin`/`generate_lrc_actions`)
+    + 5 file test thuần + mở rộng path-filter `app_analyze.yml`; rà soát
+    thủ công từng chỗ nối API có sẵn (`AiProviderStore.resolveProvider`,
+    `AudioConverter.cutSegment`, `SherpaVadCore.detectAsync`,
+    `SherpaModelManager.vadFolderName/vadFileName/vadMinBytes`) khớp đúng
+    signature; CHƯA chạy được CI trên nhánh này (chờ push + oracle chạy
+    lần đầu) và CHƯA nghiệm thu thiết bị.
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

@@ -187,4 +187,6 @@ class SttResult {
       'words=${allWords.length}, fp=$audioFingerprint)';
 }
 
-enum SttEngineType { native, whisper, sherpa }
+// remote = STT qua API OpenAI-compatible (Groq whisper-large-v3, Speaches/
+// whisper-server tự host...) — WP2 (API-003). File-only, KHÔNG live mic.
+enum SttEngineType { native, whisper, sherpa, remote }

@@ -24,6 +24,7 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'packages/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/app_analyze.yml'
@@ -31,6 +32,7 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'packages/**'
       - 'pubspec.yaml'
   workflow_dispatch:
 

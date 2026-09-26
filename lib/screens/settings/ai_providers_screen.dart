@@ -232,10 +232,13 @@ class _ProviderCardState extends State<_ProviderCard> {
                     ],
                   ),
                 ),
-                Switch(
-                  value: _config.enabled,
-                  onChanged: (v) =>
-                      widget.onChanged(_config.copyWith(enabled: v)),
+                Semantics(
+                  label: l10n.aiProviderEnabled,
+                  child: Switch(
+                    value: _config.enabled,
+                    onChanged: (v) =>
+                        widget.onChanged(_config.copyWith(enabled: v)),
+                  ),
                 ),
               ],
             ),

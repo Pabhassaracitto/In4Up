@@ -262,7 +262,7 @@ jobs:
             Write-Host "##[error]Zip chi $sizeMB MB (< 10 MB) — bundle Release khong day du!"
             exit 1
           }
-         Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
+           Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4

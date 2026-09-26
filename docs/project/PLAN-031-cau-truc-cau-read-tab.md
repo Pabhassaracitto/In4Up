@@ -1,4 +1,4 @@
-# PLAN-029 — Nhận diện CỤM TỪ + CẤU TRÚC CÂU trong tab Đọc
+# PLAN-031 — Nhận diện CỤM TỪ + CẤU TRÚC CÂU trong tab Đọc
 
 - **Trạng thái:** 📋 proposed (kế hoạch — chưa code trong sản phẩm)
 - **Nguồn:** người sở hữu (2026-09-24, qua agent `arena/01a0d344-in4up`)
@@ -207,7 +207,7 @@ cùng bậc hoặc nhanh hơn; không cần isolate cho P1).
   `Map<int /*lineIndex*/, SentenceRef{int sentenceId, int startLine, int endLine, int startOffsetInSentence}>`,
   dựng 1 lượt khi load document bằng `TextSegmenter.sentences(text gốc)`, cache theo doc id.
   Chi phí O(n) một lần; không đổi luồng TTS/nhịp đang bám theo dòng.
-- Điều này ghi ở **ADR-0006**: "line-first + side-table" thay vì đổi `TextItem` thành sentence-first.
+- Điều này ghi ở **ADR-0007**: "line-first + side-table" thay vì đổi `TextItem` thành sentence-first.
 
 ---
 
@@ -498,3 +498,7 @@ nhắc, ẩn thì/thể/công thức (`confidence` thấp). Không đổi `TextI
   đuôi; §10.2 câu vắt dòng chọn (a); §10.3 mặc định (a) ON, (b) OFF **kèm nút bật/tắt nhanh trên
   thanh công cụ**) ⇒ §2.2 viết lại thành thiết kế cụ thể (file, enum, icon/màu, test chống trùng màu,
   chống tràn thanh công cụ); thêm chuỗi i18n "Cấu trúc câu".
+- 2026-09-27 | updated | agent `arena/01a0d344-in4up` | gộp nhánh tích hợp `arena/01a0251e-in4up`
+  (4 commit: LHB-006, READ-IMPORT-001, CABIN-SAVE-001, build.yml). Đổi số `PLAN-029 → PLAN-031`
+  và `ADR-0006 → ADR-0007` vì 251e đã dùng PLAN-029 (LHB-006), PLAN-030 (Cabin Save) và
+  ADR-0006 (đồng bộ Thuộc Lòng). Không đổi nội dung kế hoạch.

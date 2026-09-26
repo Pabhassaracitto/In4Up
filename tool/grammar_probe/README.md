@@ -2,7 +2,7 @@
 
 > ⚠️ **Đây KHÔNG phải mã sản phẩm.** Đây là **đặc tả thuật toán chạy được** (Python), viết để
 > kiểm chứng logic trước khi viết Dart — môi trường phát triển của agent không có Flutter/Dart SDK.
-> Kế hoạch sản phẩm: `docs/project/PLAN-029-cau-truc-cau-read-tab.md`,
+> Kế hoạch sản phẩm: `docs/project/PLAN-031-cau-truc-cau-read-tab.md`,
 > quyết định kiến trúc: `docs/adr/0006-cau-truc-cau-lop-rieng-line-first.md`,
 > card: `docs/project/KANBAN.md` → `READ-GRAM-001`.
 >
@@ -34,7 +34,7 @@ Runner in độ chính xác từng trường + runtime, `exit 1` nếu có case 
 chuyển từ sai → đúng, nên bộ đóng băng còn **7/25 sai (18/25 đúng = 72%)**. Khi trích dẫn "khả năng
 tổng quát hoá của engine" phải dùng **17/25**; khi trích dẫn "kết quả theo quy ước đã chốt" dùng **18/25**.
 
-`holdout2` có 8 case sai (7 sau khi áp quy ước hỏi đuôi) ⇒ 4 nguyên nhân gốc, đã phân loại trong PLAN-029 §7.1:
+`holdout2` có 8 case sai (7 sau khi áp quy ước hỏi đuôi) ⇒ 4 nguyên nhân gốc, đã phân loại trong PLAN-031 §7.1:
 **A** PP vị trí ngoài cụm · **B** trạng từ chen trong nhóm động từ + thiếu `would rather` ·
 **C** quy ước câu hỏi đuôi chưa chốt · **D** quan hệ zero + thiếu từ vựng (bản Dart tự khỏi).
 

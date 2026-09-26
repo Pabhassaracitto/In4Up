@@ -1,14 +1,15 @@
-# ADR-0006: Cấu trúc câu — lớp RIÊNG, tái dùng service sẵn có, line-first + side-table, luật-cục-bộ là đường chính
+# ADR-0007: Cấu trúc câu — lớp RIÊNG, tái dùng service sẵn có, line-first + side-table, luật-cục-bộ là đường chính
 
-- **Ngày:** 2026-09-24
+- **Ngày:** 2026-09-24 (đổi số `0006 → 0007` ngày 2026-09-27: nhánh tích hợp
+  `arena/01a0251e-in4up` đã dùng ADR-0006 cho LHB-006 trước khi ADR này vào)
 - **Trạng thái:** 📋 ĐỀ XUẤT (chưa code trong sản phẩm) — đặc tả đã kiểm chứng bằng spike
-  `tool/grammar_probe/` (xem PLAN-029 §7)
+  `tool/grammar_probe/` (xem PLAN-031 §7)
 - **Phạm vi:** tab Đọc (`lib/features/grammar/**`, `read_mode/sheets/word_actions_sheet.dart`,
   `read_mode/sheets/read_settings_sheet.dart`), lớp đọc dữ liệu (`TextProvider` — chỉ thêm
   side-table, **không** đổi schema `TextItem`).
   KHÔNG đổi `ColorMode`/legend POS-CEFR, KHÔNG thêm dependency, KHÔNG đụng `lib/ffi/`,
   KHÔNG đổi `TextSplitterService`.
-- **Liên quan:** PLAN-029, KANBAN `READ-GRAM-001`, ADR-0005 (bài học "lớp riêng, không trộn ngữ nghĩa")
+- **Liên quan:** PLAN-031, KANBAN `READ-GRAM-001`, ADR-0005 (bài học "lớp riêng, không trộn ngữ nghĩa")
 
 ## Bối cảnh
 
@@ -36,7 +37,7 @@ Ràng buộc thực tế của repo:
    - Từ loại/lemma/biến thể: `GrammarLexiconService` — **không** dựng bảng từ mới trong code.
    - Biên câu/mệnh đề: `TextSegmenter.sentences/clauses` — **không** viết lại bộ tách câu.
    - `engine.py` (spike) chỉ là **đặc tả chạy được**; bản Dart viết lại theo idiom Dart và phải
-     chứng minh **parity** bằng 3 corpus JSON (PLAN-029 §7.2). Bảng từ 60 dòng của spike bị bỏ.
+     chứng minh **parity** bằng 3 corpus JSON (PLAN-031 §7.2). Bảng từ 60 dòng của spike bị bỏ.
 
 2. **Câu vắt dòng: giữ `line-first` + thêm side-table (không đổi schema).**
    - P1: phân tích theo dòng đang chứa từ; dòng không kết bằng `.?!` ⇒ nhãn thì/thể/công thức hạ
@@ -70,7 +71,7 @@ Ràng buộc thực tế của repo:
 
 - (+) Không nhân bản logic tách câu/từ vựng; POS nhất quán ở mọi nơi trong Read tab; P1 nhỏ, rollback 1 chỗ.
 - (+) Kiểm chứng được **trước khi** viết Dart (spike + 3 corpus, đo được 17/25 case trên bộ đóng băng
-  và phân loại 4 nguyên nhân gốc — PLAN-029 §7.1).
+  và phân loại 4 nguyên nhân gốc — PLAN-031 §7.1).
 - (+) AI vẫn dùng được nhưng không phải điều kiện sống còn của tính năng.
 - (−) P1 chấp nhận sai số với câu vắt dòng (đã có nhãn nhắc + hạ `confidence`).
 - (−) Phải giữ parity giữa đặc tả Python và bản Dart ⇒ cần golden test Dart nạp chính corpus JSON

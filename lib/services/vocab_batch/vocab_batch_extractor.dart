@@ -1,6 +1,8 @@
+import '../../features/dictionary/services/dictionary_service.dart';
 import '../../models/vocab_context.dart';
 import '../../models/vocabulary_type.dart';
 import '../../providers/vocabulary_bridge.dart';
+import '../ipa_resolver.dart';
 import '../syntax_highlighter_service.dart';
 import 'vocab_batch_models.dart';
 
@@ -100,7 +102,8 @@ class VocabBatchExtractor {
 
     for (final entry in wordFrequencies.entries) {
       final appearsInTitle = _containsAsTerm(titleNormalized, entry.key);
-      final existed = VocabularyBridge.hasWord(entry.key);
+      final existingEntry = VocabularyBridge.findByWord(entry.key);
+      final existed = existingEntry != null;
       final isPriority = appearsInTitle ||
           entry.value >= 3 ||
           (entry.value >= 2 && entry.key.length >= minLength + 2);
@@ -123,6 +126,7 @@ class VocabBatchExtractor {
             appearsInTitle: appearsInTitle,
           ),
           selected: !existed,
+          difficulty: existingEntry?.userDifficulty,
         ),
       );
     }
@@ -134,7 +138,8 @@ class VocabBatchExtractor {
       if (!allowSingleMentionPhrases && !appearsInTitle && entry.value < 2) {
         continue;
       }
-      final existed = VocabularyBridge.hasWord(phrase);
+      final existingEntry = VocabularyBridge.findByWord(phrase);
+      final existed = existingEntry != null;
       final isPriority = appearsInTitle || entry.value >= 2 || wordCount >= 3;
       candidates.add(
         WebExtractionCandidate(
@@ -156,6 +161,7 @@ class VocabBatchExtractor {
             appearsInTitle: appearsInTitle,
           ),
           selected: !existed,
+          difficulty: existingEntry?.userDifficulty,
         ),
       );
     }
@@ -205,6 +211,52 @@ class VocabBatchExtractor {
         direct.meaning != null || direct.phonetic != null
             ? 'local'
             : 'heuristic';
+  }
+
+  /// Fill only missing fields from imported dictionaries. The source sentence
+  /// remains the default example, and manually supplied values are never
+  /// overwritten.
+  static Future<void> enrichCandidateFromDictionary(
+    WebExtractionCandidate candidate, {
+    String pageTitle = '',
+  }) async {
+    enrichCandidateLocally(candidate, pageTitle: pageTitle);
+    var usedDictionary = false;
+
+    if ((candidate.phonetic ?? '').trim().isEmpty) {
+      try {
+        final resolution = await IpaResolver.resolve(
+          candidate.normalized,
+          mode: IpaSaveMode.dict,
+        );
+        if (resolution != null) {
+          candidate.phonetic = resolution.ipa;
+          usedDictionary = true;
+        }
+      } catch (_) {
+        // An unavailable or malformed dictionary is a non-fatal enrichment miss.
+      }
+    }
+
+    if (candidate.meaning.trim().isEmpty) {
+      try {
+        final entries = await DictionaryService.instance.lookup(candidate.normalized);
+        for (final entry in entries) {
+          final definition = entry.plainDefinition.trim();
+          if (definition.isEmpty) continue;
+          candidate.meaning = definition.length > 240
+              ? '${definition.substring(0, 237).trimRight()}…'
+              : definition;
+          usedDictionary = true;
+          break;
+        }
+      } catch (_) {
+        // Keep the existing local/heuristic value when lookup is unavailable.
+      }
+    }
+
+    if (usedDictionary) candidate.enrichSource = 'dictionary';
+    candidate.enriched = true;
   }
 }
 
@@ -257,6 +309,10 @@ class VocabBatchImporter {
                 : null),
         context: contextBuilder?.call(candidate.sampleContext, candidate),
       );
+
+      if (entry != null && candidate.difficulty != null) {
+        VocabularyBridge.updateDifficulty(entry.id, candidate.difficulty);
+      }
 
       if (entry == null) {
         skippedCount++;

@@ -18,6 +18,7 @@ import 'engines/offline_engine.dart';
 import 'engines/hymt_chunking.dart';
 import 'engines/hymt_engine.dart';
 import 'engines/hymt_prompts.dart';
+import 'engines/llm_mt_engine.dart';
 import 'engines/mlkit_engine.dart';
 import 'engines/translation_engine.dart';
 import 'glossary/glossary_store.dart';
@@ -34,6 +35,7 @@ import 'glossary/translation_glossary.dart';
 ///      `__G{n}__`) — TẦNG CHUYÊN NGỮ, chạy TRƯỚC mọi engine
 ///   3. Engine câu — mặc định THÔNG MINH: ONLINE trước (Google Free/
 ///      DeepLX/MyMemory/Libre, nếu có mạng + không khóa "chỉ offline"),
+///      LLM API (WP3/API-004, chèn theo routing — xem LlmMtEngine),
 ///      fallback OFFLINE: Hy-MT GGUF (nếu chọn/có model) → ML Kit
 ///   4. OfflineEngine từ điển từ (last resort, chỉ EN → VI)
 ///   → restore placeholder → cache lưu CÂU ĐÃ RESTORE.
@@ -44,6 +46,7 @@ class TranslationService {
     List<TranslationEngine>? onlineEngines,
     TranslationEngine? offlineEngine,
     TranslationEngine? mlkitEngine,
+    LlmMtEngine? llmMtEngine,
     Glossary? glossary,
     bool? networkAvailable,
   })  : _cache = TranslationCache(),
@@ -51,6 +54,9 @@ class TranslationService {
         _offlineEngine = offlineEngine ?? OfflineEngine(),
         _mlkit = mlkitEngine ?? MlKitEngine(),
         _hymt = onlineEngines == null ? HyMtEngine.instance : null,
+        _llmMt = onlineEngines == null
+            ? (llmMtEngine ?? LlmMtEngine.instance)
+            : llmMtEngine,
         _glossary = glossary ?? const Glossary(const <GlossaryEntry>[]),
         _glossaryStore = glossary == null ? GlossaryStore() : null,
         _injectedNetwork = networkAvailable {
@@ -75,6 +81,7 @@ class TranslationService {
     List<TranslationEngine> onlineEngines = const <TranslationEngine>[],
     TranslationEngine? offlineEngine,
     TranslationEngine? mlkitEngine,
+    LlmMtEngine? llmMtEngine,
     Glossary? glossary,
     bool networkAvailable = false,
   }) {
@@ -82,6 +89,7 @@ class TranslationService {
       onlineEngines: onlineEngines,
       offlineEngine: offlineEngine,
       mlkitEngine: mlkitEngine,
+      llmMtEngine: llmMtEngine,
       glossary: glossary ?? const Glossary(const <GlossaryEntry>[]),
       networkAvailable: networkAvailable,
     );
@@ -92,6 +100,10 @@ class TranslationService {
   final TranslationEngine _offlineEngine;
   final TranslationEngine _mlkit;
   final HyMtEngine? _hymt;
+
+  /// Engine LLM API (WP3/API-004) — singleton app luôn có (tự fail nhanh
+  /// `no_provider` khi chưa cấu hình); instance forTest chỉ có khi inject.
+  final LlmMtEngine? _llmMt;
   Glossary _glossary;
   final GlossaryStore? _glossaryStore;
   final bool? _injectedNetwork;
@@ -146,6 +158,10 @@ class TranslationService {
 
   HyMtEngine? get hymt => _hymt;
 
+  /// Engine LLM API (WP3/API-004) — null với instance forTest không inject.
+  /// UI dùng `currentProvider()`/`routeMode()` để hiện trạng thái cấu hình.
+  LlmMtEngine? get llmMt => _llmMt;
+
   HyMtOfflinePreference get offlineEnginePref => _offlineEnginePref;
   set offlineEnginePref(HyMtOfflinePreference value) {
     _offlineEnginePref = value;
@@ -177,6 +193,7 @@ class TranslationService {
   List<String> get activeEngines => [
         _mlkit.name,
         ..._engines.map((engine) => engine.name),
+        if (_llmMt != null) _llmMt!.name,
         _offlineEngine.name,
       ];
 
@@ -474,11 +491,21 @@ class TranslationService {
   }
 
   /// Engine chain của MỘT bước — mặc định THÔNG MINH:
+  ///   0) LLM API (WP3/API-004) — CHỈ khi routing translation =
+  ///      onlineFirst: API chạy TRƯỚC mọi engine khác (ADR-0007).
   ///   1) ONLINE engines (có mạng + không khóa "chỉ offline") — thử trước;
   ///      online luôn tốt hơn về chất lượng cặp ngôn ngữ mà model offline
   ///      không phủ (vd EN→HI, HI→VI...).
   ///   2) OFFLINE fallback khi hết mạng hoặc mọi online engine fail:
-  ///      Hy-MT GGUF (nếu chọn/auto + có model) → ML Kit → từ điển.
+  ///      Hy-MT GGUF (nếu chọn/auto + có model) → ML Kit.
+  ///   2.5) LLM API — routing offlineFirst (MẶC ĐỊNH): offline câu đã
+  ///      lỗi/thiếu model → thử API TRƯỚC khi rơi xuống từ điển
+  ///      ("thử offline trước; lỗi → thử API").
+  ///   3) Từ điển offline (last resort).
+  ///
+  /// Tầng API TẮT (chưa cấu hình provider / routing offlineOnly / mất
+  /// mạng) → bước 0 + 2.5 tự ngắn mạch, thứ tự các engine hiện có
+  /// NGUYÊN VẸN như trước khi có WP3.
   ///
   /// Lịch sử: chain cũ chạy Hy-MT/ML Kit TRƯỚC online — user có model Hy-MT
   /// thì MỌI câu đều dịch offline (online không bao giờ chạm đến) dù đang
@@ -489,6 +516,15 @@ class TranslationService {
     required String targetCode,
     required bool hasNetwork,
   }) async {
+    // 0) LLM API (WP3/API-004) — routing onlineFirst: API trước mọi thứ.
+    final llm = _llmMt;
+    if (llm != null && hasNetwork && !_offlineOnly) {
+      if (await llm.runsBeforeFreeOnlineEngines()) {
+        final result = await _tryLlmMt(llm, text, sourceCode, targetCode);
+        if (result != null) return result;
+      }
+    }
+
     // 1) ONLINE first (smart default).
     if (hasNetwork && !_offlineOnly) {
       for (final engine in _engines) {
@@ -599,6 +635,17 @@ class TranslationService {
       }
     }
 
+    // 2.5) LLM API (WP3/API-004) — routing offlineFirst (mặc định):
+    //      engine offline câu (Hy-MT/ML Kit) đã fail/thiếu model → thử
+    //      API TRƯỚC từ điển. Tầng tắt/mất mạng → engine fail nhanh
+    //      `no_provider`/`no_network` và chuỗi đi tiếp như chưa có WP3.
+    if (llm != null && hasNetwork && !_offlineOnly) {
+      if (!await llm.runsBeforeFreeOnlineEngines()) {
+        final result = await _tryLlmMt(llm, text, sourceCode, targetCode);
+        if (result != null) return result;
+      }
+    }
+
     // 4) Từ điển offline (last resort — placeholder __G{n}__ không có trong
     //    từ điển nên được giữ nguyên → restore sau).
     final dictResult = await _offlineEngine.translate(
@@ -610,6 +657,62 @@ class TranslationService {
     // Cặp này không service được offline (vd thiếu model Hindi + không
     // mạng) → trả lỗi CỤ THỂ hơn của ML Kit thay cho lỗi chung của từ điển.
     return mlkitFailure ?? dictResult;
+  }
+
+  /// Thử 1 lượt LLM API trong chuỗi. Trả kết quả THÀNH CÔNG, hoặc null
+  /// khi engine fail (đã log + `_activeEngine` nhả lại) → chuỗi đi tiếp
+  /// engine kế tiếp. Timeout ngoài là safety-net tỷ lệ theo độ dài
+  /// (budget thật nằm BÊN TRONG engine — mỗi chunk có timeout riêng).
+  Future<TranslationResult?> _tryLlmMt(
+    LlmMtEngine engine,
+    String text,
+    String sourceCode,
+    String targetCode,
+  ) async {
+    _activeEngine.value = engine.name;
+    try {
+      final result = await engine
+          .translate(
+            text: text,
+            targetLang: targetCode,
+            sourceLang: sourceCode,
+          )
+          .timeout(
+            _llmBudget(text),
+            onTimeout: () => TranslationResult.failure(
+              original: text,
+              error: 'LLM API quá thời gian dự trù '
+                  '(${text.length} ký tự). Server có thể đang chậm — thử lại '
+                  'hoặc dùng engine khác.',
+              engine: engine.name,
+              errorCode: 'timeout',
+              detectedLang: sourceCode,
+              targetLang: targetCode,
+            ),
+          );
+      if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+        return result;
+      }
+      debugPrint('❌ ${engine.name}: ${result.error}');
+      return null;
+    } catch (error) {
+      debugPrint('❌ ${engine.name} exception: $error');
+      return null;
+    }
+  }
+
+  /// Safety-net timeout cho LLM API: nền 75s + 75s cho mỗi chunk ~2000
+  /// ký tự, trần 8 phút (cùng khuôn _hyMtBudget — hữu hạn, tỷ lệ độ dài;
+  /// engine bên trong tự giới hạn chặt hơn: mỗi chunk timeout riêng +
+  /// 1 retry/backoff).
+  Duration _llmBudget(String text) {
+    final segmentCap = LlmMtEngine.maxChunkChars;
+    final segments = (text.length / segmentCap).ceil().clamp(1, 9999);
+    final base = const Duration(seconds: 75);
+    final per = Duration(seconds: 75) * segments;
+    final budget = base + per;
+    const cap = Duration(minutes: 8);
+    return budget > cap ? cap : budget;
   }
 
   // ==================== Batch / engine check / cache ====================
@@ -655,6 +758,15 @@ class TranslationService {
             await engine.isAvailable().timeout(const Duration(seconds: 5));
       } catch (_) {
         results[engine.name] = false;
+      }
+    }
+    final llm = _llmMt;
+    if (llm != null) {
+      try {
+        results[llm.name] =
+            await llm.isAvailable().timeout(const Duration(seconds: 5));
+      } catch (_) {
+        results[llm.name] = false;
       }
     }
     results[_offlineEngine.name] = await _offlineEngine.isAvailable();

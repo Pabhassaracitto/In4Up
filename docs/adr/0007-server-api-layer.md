@@ -1,8 +1,10 @@
 # ADR-0007: Tầng Server API cho AI (cloud + LAN) — OpenAI-compatible, BYOK, offline-first
 
 - **Ngày:** 2026-09-27
-- **Trạng thái:** ĐANG TRIỂN KHAI — WP0 (API-001) trên nhánh
-  `arena/01a0ddd1-in4up`; chờ CI + nghiệm thu thiết bị.
+- **Trạng thái:** WP0 (API-001) ĐÃ TRIỂN KHAI + **CI XANH** (run
+  36268246588: analyze + rule #5 + LHB + cabin) trên
+  `arena/01a0ddd1-in4up` — còn nghiệm thu thiết bị. 38 key ARB mới thuộc
+  keepEnglish (tiền lệ sound_*) chờ T3 dịch dần.
 - **Phạm vi WP0:** `packages/in4up_ai/lib/src/provider/**` (mới: config +
   store + client), `lib/screens/settings/ai_providers_screen.dart` (mới),
   entry card trong `stt_model_settings_screen.dart`, 38 key ARB × 26 locale,

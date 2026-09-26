@@ -9,7 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
-| API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0007) | 🔄 doing (code + test thuần xong, chờ CI) | branch `arena/01a0df5e-in4up` |
+| API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0007) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -139,7 +139,7 @@
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
 
 ### API-004 — WP3: Dịch bằng LLM qua tầng Server API (LlmMtEngine implements TranslationEngine)
-- **Trạng thái:** 🔄 doing — code + test thuần xong trên `arena/01a0df5e-in4up`, chờ CI; nghiệm thu chất lượng 3 đoạn Pali/chuyên ngữ còn thuộc owner (cần provider thật).
+- **Trạng thái:** ✅ done (code + CI 🟢 run 36270711178: analyze + rule #5 + LHB + Cabin — xanh ngay run đầu; còn owner nghiệm thu chất lượng 3 đoạn Pali/chuyên ngữ với provider thật + AT thiết bị).
 - **Nguồn:** owner (2026-09-26/27) — `PROMPT_AGENT_SERVER_API.md` §6 (WP3), PLAN-031, ADR-0007.
 - **Nội dung:**
   - `lib/features/translation/engines/llm_mt_engine.dart` (mới): implements
@@ -198,6 +198,14 @@
   - 2026-09-27 | created (doing) | agent arena/01a0df5e-in4up | code WP3:
     LlmMtEngine + prompts + chatCompletion client + chèn chuỗi theo routing
     + UI status sheet + 4 chuỗi i18n + test thuần; chờ CI run đầu tiên
+  - 2026-09-27 | doing→done | agent arena/01a0df5e-in4up | run 36270711178
+    🟢 xanh ngay lần đầu (analyze + rule #5 + LHB + Cabin), commits
+    `6f15658` (engine+client+service+test) + `1e3b9b6` (UI status + i18n) +
+    `8a3c350` (docs). Test llm_mt_engine_test.dart qua analyze; như tiền lệ
+    WP0, file test CHƯA được workflow nào chạy (app_analyze chạy 4 bộ cố
+    định — owner duyệt thêm nếu muốn đưa vào CI). Còn: owner nghiệm thu
+    chất lượng 3 đoạn Pali (cần provider thật: Gemini/Groq/Ollama qwen +
+    routing Dịch = Ưu tiên online), AT thiết bị
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

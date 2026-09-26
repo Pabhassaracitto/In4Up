@@ -9,6 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | 🔨 doing (code + test thuần — chờ CI) | branch `arena/01a0df5f-in4up`; engine mới xếp sau FPT, thứ tự mặc định user cũ không đổi |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -136,6 +137,48 @@
     test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
     nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
+
+### API-005 — WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0
+- **Trạng thái:** doing (code + test thuần xong — chờ CI; còn nghiệm thu thiết bị theo AT)
+- **Nguồn:** owner (2026-09-26) qua agent arena/01a0df5f-in4up —
+  `PROMPT_AGENT_SERVER_API.md` §7 (WP4 — gói nhẹ nhất, pattern Zalo/FPT đã chống).
+- **Nội dung:**
+  - `packages/in4up_ai/.../openai_compat_client.dart`: thêm TRÊN CÙNG client
+    (luật) `synthesizeSpeech()` — POST `/v1/audio/speech`, đọc response dạng
+    stream → bytes (không buffer text), guard payload ≥100B (minSpeechBytes),
+    mã lỗi cấu trúc đủ nhánh (timeout/noNetwork/unauthorized 401-403/
+    rateLimited 429/httpError kèm snippet ≤160 ký tự từ body server, KHÔNG
+    log key/headers); `listVoices()` — GET `/v1/audio/voices` (endpoint
+    không bắt buộc, lỗi → caller fallback); `OpenAiVoicesParser` (thuần,
+    khoan dung mọi shape: list/string, voices|data|models, id|voice|name).
+  - `lib/features/tts/engines/openai_compat_tts_engine.dart` (mới, theo mẫu
+    zalo_tts_engine): chunk ≤2000 ký tự (tách câu→dấu phẩy→cắt cứng), nghỉ
+    150ms giữa chunks (chống binge rate-limit), tối đa 1 retry sau backoff
+    800ms khi 429/5xx (luật tầng API); speed clamp 0.25–4.0; voices: gọi
+    `/audio/voices`, map prefix Kokoro `af_/bm_/jf_…` (vùng+giới tính),
+    fallback 6 giọng OpenAI chuẩn khi server không có endpoint; thông điệp
+    lỗi chỉ lộ label (không key/baseUrl); client inject được → test thuần.
+  - `lib/features/tts/tts_service.dart`: TtsEngineInfo `openai_compat_tts`
+    priority 5 — SAU piper/offline/google/zalo/fpt ⇒ **thứ tự mặc định người
+    dùng cũ KHÔNG đổi** (kéo thả lên bằng UI có sẵn); `_resolveApiTtsEngine()`
+    đọc `AiProviderStore.resolveProvider(AiRouteCapability.tts)` — KHÔNG khóa
+    riêng kiểu Zalo/FPT; chưa cấu hình → engine bỏ qua y hệt hôm nay;
+    `_getOnlineEngines` chuyển async (4 call-site đã cập nhật).
+  - Phát: bytes → `TtsCache.put` → file temp → `_playFile` AudioPlayer —
+    y hệt đường Zalo/FPT, không đổi playback path.
+  - Test thuần `test/tts_api_wp4_test.dart`: parser mọi shape, request chuẩn
+    + phân lớp lỗi, cleartext-guard (http công cộng bị chặn TRƯỚC khi gửi),
+    guard thiếu model/text rỗng, chunking + thứ tự ghép, clamp speed, retry
+    5xx/429 đúng 1 lần, voices Kokoro + fallback, isAvailable, pin source-scan
+    thứ tự engine mặc định + pin không-SharedPreferences-trong-engine. Key
+    test sinh runtime (BYOK — không key mẫu nào trong repo).
+- **AT (từ prompt WP4):** chọn Kokoro (local) hoặc OpenAI tts-1 → đọc
+  VI/EN; kéo thả ưu tiên như engine khác; chưa cấu hình → chuỗi TTS + mọi
+  mặc định y hệt hôm nay; CI xanh + card này.
+- **Lịch sử:**
+  - 2026-09-26 | created→doing | agent arena/01a0df5f-in4up | code client +
+    engine + wiring + test; chờ CI run đầu (chú ý bẫy paths-filter 5.7 —
+    commit đã có lib/** nên app_analyze tự chạy)
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

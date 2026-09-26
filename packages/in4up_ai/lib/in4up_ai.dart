@@ -38,6 +38,7 @@ export 'src/provider/openai_compat_client.dart'
     show
         OpenAiCompatClient,
         OpenAiModelsParser,
+        OpenAiVoicesParser,
         AiApiException,
         AiApiErrorCode,
         AiProviderHealth;

@@ -17,6 +17,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -80,6 +81,15 @@ class OpenAiCompatClient {
 
   static const _healthTimeout = Duration(seconds: 5);
   static const _listTimeout = Duration(seconds: 15);
+
+  /// WP4 (API-005): request TTS sinh audio có thể chậm (model lớn, box LAN
+  /// yếu) → timeout ngầm định rộng hơn health/list; engine tự siết nếu cần.
+  static const _speechTimeout = Duration(seconds: 60);
+  static const _voicesTimeout = Duration(seconds: 5);
+
+  /// Payload audio tối thiểu hợp lệ — response nhỏ hơn mức này gần như là
+  /// trang lỗi/JSON lỗi, không phải audio (guard, test được).
+  static const minSpeechBytes = 100;
 
   OpenAiCompatClient({
     required this.baseUrl,
@@ -256,6 +266,177 @@ class OpenAiCompatClient {
   @visibleForTesting
   static List<String> parseModelsBody(String body) =>
       const OpenAiModelsParser().parse(body);
+
+  // ────────────────────────────────────────────────────────────────
+  // WP4 (API-005) — TTS qua /v1/audio/speech (+ /v1/audio/voices nếu có)
+  // ────────────────────────────────────────────────────────────────
+
+  /// POST /v1/audio/speech → audio bytes (mặc định mp3).
+  ///
+  /// Đọc response theo STREAM (không buffer text) vì payload là binary và có
+  /// thể lớn; không log body/headers (luật bảo mật tầng API).
+  ///
+  /// Throw [AiApiException] mã cấu trúc: unauthorized (401/403), rateLimited
+  /// (429), httpError (khác kèm status + mô tả lỗi của server nếu có),
+  /// timeout, noNetwork, invalidResponse (payload quá nhỏ — nghi trang lỗi).
+  Future<Uint8List> synthesizeSpeech({
+    required String model,
+    required String input,
+    String voice = 'alloy',
+    double speed = 1.0,
+    String responseFormat = 'mp3',
+    Duration timeout = _speechTimeout,
+  }) async {
+    _validateBase();
+    final request = http.Request('POST', _uri('/audio/speech'))
+      ..headers.addAll(_headers())
+      ..body = jsonEncode(<String, dynamic>{
+        'model': model,
+        'input': input,
+        'voice': voice,
+        'response_format': responseFormat,
+        'speed': speed,
+      });
+
+    http.StreamedResponse response;
+    final body = BytesBuilder(copy: false);
+    try {
+      response = await _httpClient.send(request).timeout(timeout);
+      await response.stream.forEach(body.add).timeout(timeout);
+    } on TimeoutException {
+      throw AiApiException(AiApiErrorCode.timeout,
+          'Speech request timed out after ${timeout.inSeconds}s (model: $model)');
+    } on http.ClientException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    }
+
+    final status = response.statusCode;
+    final bytes = body.takeBytes();
+    if (status == 200) {
+      if (bytes.length < minSpeechBytes) {
+        throw AiApiException(AiApiErrorCode.invalidResponse,
+            'Speech payload too small (${bytes.length} B) — likely not audio');
+      }
+      return bytes;
+    }
+
+    // Lỗi: gỡ mô tả ngắn từ body server (nếu có) — nhiều server trả
+    // {"error": {"message": "..."}} hoặc text thường; KHÔNG log ra debug.
+    final detail = _errorSnippet(bytes);
+    final suffix = detail.isEmpty ? '' : ': $detail';
+    if (status == 401 || status == 403) {
+      throw AiApiException(
+          AiApiErrorCode.unauthorized, 'Unauthorized (HTTP $status)$suffix',
+          statusCode: status);
+    }
+    if (status == 429) {
+      throw AiApiException(
+          AiApiErrorCode.rateLimited, 'Rate limited (HTTP 429)$suffix',
+          statusCode: 429);
+    }
+    throw AiApiException(AiApiErrorCode.httpError, 'HTTP $status$suffix',
+        statusCode: status);
+  }
+
+  /// GET /v1/audio/voices — endpoint KHÔNG bắt buộc của chuẩn
+  /// (Kokoro-FastAPI/Speaches có, OpenAI cloud không): throw [AiApiException]
+  /// khi server không có/lỗi — caller tự fallback list mặc định.
+  Future<List<String>> listVoices() async {
+    _validateBase();
+    try {
+      final response = await _httpClient
+          .get(_uri('/audio/voices'), headers: _headers())
+          .timeout(_voicesTimeout);
+      if (response.statusCode != 200) {
+        throw AiApiException(AiApiErrorCode.httpError,
+            'HTTP ${response.statusCode} loading voices',
+            statusCode: response.statusCode);
+      }
+      return const OpenAiVoicesParser().parse(response.body);
+    } on AiApiException {
+      rethrow;
+    } on TimeoutException {
+      throw const AiApiException(
+          AiApiErrorCode.timeout, 'Timed out loading voices');
+    } on http.ClientException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    } catch (e) {
+      throw AiApiException(
+          AiApiErrorCode.invalidResponse, 'Cannot parse voices list: $e');
+    }
+  }
+
+  /// Gỡ mô tả lỗi ngắn gọn từ body server (tối đa 160 ký tự, tolerant với
+  /// body không phải JSON/UTF-8 đúng chuẩn).
+  static String _errorSnippet(Uint8List bytes) {
+    if (bytes.isEmpty) return '';
+    final text = utf8.decode(bytes, allowMalformed: true).trim();
+    if (text.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        final error = decoded['error'];
+        if (error is Map<String, dynamic> && error['message'] is String) {
+          return _clip(error['message'] as String);
+        }
+        if (decoded['message'] is String) {
+          return _clip(decoded['message'] as String);
+        }
+      }
+    } catch (_) {
+      // Không phải JSON — dùng text thô.
+    }
+    return _clip(text);
+  }
+
+  static String _clip(String s) =>
+      s.length <= 160 ? s : '${s.substring(0, 157)}...';
+
+  @visibleForTesting
+  static List<String> parseVoicesBody(String body) =>
+      const OpenAiVoicesParser().parse(body);
+}
+
+/// Parser danh sách giọng TTS — tách riêng để test thuần (không cần network).
+///
+/// Chuẩn OpenAI KHÔNG định nghĩa schema /audio/voices; chấp nhận khoan dung
+/// các biến thể gặp thực tế:
+/// - Kokoro-FastAPI: `{"voices": ["af_heart", …]}` hoặc `[{"voice": …}]`
+/// - OpenAI-ish:     `{"data": [{"id": …}]}` (như /models)
+/// - một số fork:    `["af_heart", …]` (top-level list) hoặc key `id`/`name`
+class OpenAiVoicesParser {
+  const OpenAiVoicesParser();
+
+  List<String> parse(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is List) return _idsFrom(decoded);
+    if (decoded is Map<String, dynamic>) {
+      for (final key in const ['voices', 'data', 'models']) {
+        final value = decoded[key];
+        if (value is List) return _idsFrom(value);
+      }
+    }
+    throw const AiApiException(
+        AiApiErrorCode.invalidResponse, 'Voices list has unknown shape');
+  }
+
+  List<String> _idsFrom(List list) {
+    final ids = <String>[];
+    for (final item in list) {
+      if (item is String && item.isNotEmpty) {
+        ids.add(item);
+      } else if (item is Map<String, dynamic>) {
+        for (final key in const ['id', 'voice', 'name']) {
+          final value = item[key];
+          if (value is String && value.isNotEmpty) {
+            ids.add(value);
+            break;
+          }
+        }
+      }
+    }
+    return ids;
+  }
 }
 
 /// Tách riêng để test thuần (không cần network).

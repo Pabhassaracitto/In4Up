@@ -21,6 +21,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'ai_sse.dart';
+
 /// Mã lỗi cấu trúc — UI phân nhánh theo mã, không match chuỗi
 /// (cùng khuôn mẫu HyMtErrorCode).
 enum AiApiErrorCode {
@@ -256,6 +258,257 @@ class OpenAiCompatClient {
   @visibleForTesting
   static List<String> parseModelsBody(String body) =>
       const OpenAiModelsParser().parse(body);
+
+  // ── WP1 (API-002): /v1/chat/completions streaming (SSE) ──
+
+  static const _chatConnectTimeout = Duration(seconds: 15);
+  static const _chatIdleTimeout = Duration(seconds: 60);
+  static const _chatErrorBodyTimeout = Duration(seconds: 10);
+
+  /// POST `/v1/chat/completions` với `stream: true` — đọc SSE từng event
+  /// (delta `choices[0].delta.content`, `data: [DONE]`, `usage` ở chunk cuối
+  /// nếu server gửi).
+  ///
+  /// Cơ chế stream: `http.Client.send()` trả `StreamedResponse` — response
+  /// byte stream (tương đương dio `ResponseType.stream`, nhưng giữ đúng 1
+  /// client duy nhất của WP0 và test được bằng `MockClient.streaming` — không
+  /// thêm dependency mới; dio chỉ cần cho multipart WP2).
+  ///
+  /// Contract:
+  /// * Không throw từ chính hàm này (base URL hỏng cũng trả qua error của
+  ///   stream) — caller `await for` và xử lý [AiChatException] theo MÃ.
+  /// * [cancelToken.cancel()] ⇒ đóng socket ngay (cancel subscription của
+  ///   response stream), stream kết thúc bằng lỗi `canceled` — token không
+  ///   "chảy tiếp" sau khi bị hủy.
+  /// * [idleTimeout]: quá lâu không có byte mới (kể cả chờ token đầu) ⇒
+  ///   lỗi `timeout` — mọi thời gian chờ đều hữu hạn.
+  /// * Mạng đứt giữa chừng (socket reset) ⇒ lỗi `noNetwork`, stream dừng
+  ///   sạch — không treo, không crash.
+  Stream<AiChatStreamChunk> chatStream({
+    required String model,
+    required List<AiChatMessage> messages,
+    double temperature = 0.2,
+    int? maxTokens,
+    bool includeUsage = false,
+    AiChatCancelToken? cancelToken,
+    Duration idleTimeout = _chatIdleTimeout,
+  }) {
+    final controller = StreamController<AiChatStreamChunk>();
+    controller.onListen = () {
+      unawaited(_runChatStream(
+        controller,
+        model: model,
+        messages: messages,
+        temperature: temperature,
+        maxTokens: maxTokens,
+        includeUsage: includeUsage,
+        cancelToken: cancelToken,
+        idleTimeout: idleTimeout,
+      ));
+    };
+    return controller.stream;
+  }
+
+  Future<void> _runChatStream(
+    StreamController<AiChatStreamChunk> controller, {
+    required String model,
+    required List<AiChatMessage> messages,
+    required double temperature,
+    required int? maxTokens,
+    required bool includeUsage,
+    required AiChatCancelToken? cancelToken,
+    required Duration idleTimeout,
+  }) async {
+    StreamSubscription<String>? responseSub;
+    Timer? idleTimer;
+    var closed = false;
+
+    // Downstream hủy subscription (await-for break / listener cancel) ⇒ hủy
+    // request NGAY — không cho stream chảy nền sau khi không còn ai nghe.
+    controller.onCancel = () async {
+      closed = true;
+      idleTimer?.cancel();
+      await responseSub?.cancel();
+    };
+
+    void finishWithError(AiChatException error) {
+      if (closed || controller.isClosed) return;
+      closed = true;
+      controller.addError(error);
+      controller.close();
+    }
+
+    Future<void> abort(AiChatException error) async {
+      idleTimer?.cancel();
+      // Đóng socket (cancel subscription của response stream) — không token
+      // nào chảy tiếp sau khi hủy. Callback cancel tới muộn (sau khi stream
+      // đã xong) là no-op nhờ guard `closed`.
+      await responseSub?.cancel();
+      finishWithError(error);
+    }
+
+    try {
+      // Base URL hỏng/chặn cleartext — trả lỗi cấu trúc thay vì throw ra
+      // caller (contract phía trên).
+      try {
+        _validateBase();
+      } on AiApiException catch (e) {
+        finishWithError(AiChatException.fromApi(e));
+        return;
+      }
+
+      final request = http.Request('POST', _uri('/chat/completions'))
+        ..headers.addAll(_headers())
+        ..body = jsonEncode({
+          'model': model,
+          'messages': [for (final m in messages) m.toJson()],
+          'stream': true,
+          'temperature': temperature,
+          if (maxTokens != null && maxTokens > 0) 'max_tokens': maxTokens,
+          if (includeUsage)
+            'stream_options': const {'include_usage': true},
+        });
+
+      final response =
+          await _httpClient.send(request).timeout(_chatConnectTimeout);
+
+      if (closed) {
+        // Bị cancel trong lúc chờ kết nối — đóng luôn socket vừa mở.
+        unawaited(response.stream.listen(null).cancel());
+        return;
+      }
+
+      if (response.statusCode != 200) {
+        // Đọc body lỗi (JSON error của server) rồi map sang mã cấu trúc.
+        String bodyText = '';
+        try {
+          final bytes = await response.stream
+              .fold<List<int>>(<int>[], (acc, d) => acc..addAll(d))
+              .timeout(_chatErrorBodyTimeout);
+          bodyText = utf8.decode(bytes, allowMalformed: true);
+        } catch (_) {}
+        finishWithError(_mapStatusError(response.statusCode, bodyText));
+        return;
+      }
+
+      final parser = AiSseChatParser();
+
+      void onText(String text) {
+        idleTimer?.cancel();
+        idleTimer = Timer(idleTimeout, () {
+          unawaited(abort(AiChatException(AiChatErrorCode.timeout,
+              'Không nhận được dữ liệu mới trong ${idleTimeout.inSeconds}s')));
+        });
+        for (final chunk in parser.feed(text)) {
+          if (!closed && !controller.isClosed) controller.add(chunk);
+        }
+        if (parser.isDone && !closed && !controller.isClosed) {
+          closed = true;
+          idleTimer?.cancel();
+          controller.close();
+          // Server có thể giữ socket mở sau `data: [DONE]` — đóng luôn để
+          // không chờ idle timeout.
+          unawaited(responseSub?.cancel());
+        }
+      }
+
+      idleTimer = Timer(idleTimeout, () {
+        unawaited(abort(AiChatException(AiChatErrorCode.timeout,
+            'Không nhận được token đầu tiên trong ${idleTimeout.inSeconds}s')));
+      });
+
+      if (cancelToken != null) {
+        if (cancelToken.isCancelled) {
+          await abort(AiChatException(
+              AiChatErrorCode.canceled, cancelToken.reason ?? 'canceled'));
+          return;
+        }
+        // Theo dõi token hủy: cancel giữa chừng ⇒ abort ngay (kể cả khi đang
+        // chờ token tiếp theo mà chưa có byte mới). Callback tới muộn sau khi
+        // stream đã kết thúc là no-op (guard `closed` trong abort).
+        unawaited(cancelToken.whenCancelled.then((_) {
+          unawaited(abort(AiChatException(
+              AiChatErrorCode.canceled, cancelToken.reason ?? 'canceled')));
+        }));
+      }
+
+      // utf8.decoder là stream transformer CÓ STATE — xử lý đúng ký tự đa
+      // byte (tiếng Việt) bị cắt giữa 2 chunk mạng; cancel subscription này
+      // đóng luôn socket bên dưới (không token nào chảy tiếp).
+      responseSub = response.stream.transform(utf8.decoder).listen(
+        onText,
+        onError: (Object e) {
+          // Socket reset / mạng đứt giữa chừng — dừng sạch theo mã.
+          idleTimer?.cancel();
+          finishWithError(AiChatException(
+              AiChatErrorCode.noNetwork, 'Kết nối bị đứt giữa chừng: $e'));
+        },
+        onDone: () {
+          idleTimer?.cancel();
+          // Server đóng stream (có thể không gửi [DONE] — Ollama cũ).
+          for (final chunk in parser.close()) {
+            if (!closed && !controller.isClosed) controller.add(chunk);
+          }
+          if (!closed && !controller.isClosed) {
+            closed = true;
+            controller.close();
+          }
+        },
+        cancelOnError: true,
+      );
+
+      await responseSub.done;
+      idleTimer?.cancel();
+      if (!closed && !controller.isClosed) {
+        closed = true;
+        controller.close();
+      }
+    } on TimeoutException {
+      await abort(
+          const AiChatException(AiChatErrorCode.timeout, 'Kết nối quá chậm'));
+    } on AiApiException catch (e) {
+      await abort(AiChatException.fromApi(e));
+    } on http.ClientException catch (e) {
+      await abort(AiChatException(AiChatErrorCode.noNetwork, e.message));
+    } catch (e) {
+      await abort(AiChatException(AiChatErrorCode.invalidResponse, '$e'));
+    }
+  }
+
+  /// Map HTTP status + body lỗi → [AiChatException] cấu trúc.
+  AiChatException _mapStatusError(int statusCode, String bodyText) {
+    switch (statusCode) {
+      case 429:
+        return AiChatException(
+            AiChatErrorCode.rateLimited, 'Rate limited (HTTP 429)',
+            statusCode: 429);
+      case 401:
+      case 403:
+        return AiChatException(AiChatErrorCode.httpError,
+            'Unauthorized (HTTP $statusCode) — kiểm tra API key',
+            statusCode: statusCode);
+      default:
+        return AiChatException(AiChatErrorCode.httpError,
+            'HTTP $statusCode${_serverErrorMessage(bodyText)}',
+            statusCode: statusCode);
+    }
+  }
+
+  /// Lấy `error.message` từ body JSON lỗi của server (nếu có) — không lộ key.
+  static String _serverErrorMessage(String bodyText) {
+    if (bodyText.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(bodyText);
+      if (decoded is Map) {
+        final error = decoded['error'];
+        if (error is Map && error['message'] is String) {
+          final msg = error['message'] as String;
+          return ': ${msg.length > 200 ? msg.substring(0, 200) : msg}';
+        }
+      }
+    } catch (_) {}
+    return '';
+  }
 }
 
 /// Tách riêng để test thuần (không cần network).

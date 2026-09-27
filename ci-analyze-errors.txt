@@ -1,25 +1,17 @@
-# flutter analyze — f197a05
+# flutter analyze — f133932
 # tạo bởi tmp_analyze_report.yml, XOÁ sau khi dùng
 
 ## TÓM TẮT
 
-188 issues found. (ran in 27.3s)
-exit=1
+181 issues found. (ran in 28.9s)
+exit=0
 
 ## MỌI DÒNG CÓ 'error'
-37:  error • The named parameter 'documentFormat' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'documentFormat' • lib/features/ocr/ocr_service.dart:273:7 • undefined_named_parameter
-38:  error • The property 'isEmpty' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/features/ocr/ocr_service.dart:282:25 • unchecked_use_of_nullable_value
-166:   info • 'cancelOnError' is deprecated and shouldn't be used. Use SpeechListenOptions.cancelOnError instead. Try replacing the use of the deprecated member with the replacement • packages/in4up_stt/lib/stt_engine_native.dart:137:9 • deprecated_member_use
-171:   info • 'cancelOnError' is deprecated and shouldn't be used. Use SpeechListenOptions.cancelOnError instead. Try replacing the use of the deprecated member with the replacement • packages/in4up_stt/lib/stt_engine_native.dart:148:11 • deprecated_member_use
+159:   info • 'cancelOnError' is deprecated and shouldn't be used. Use SpeechListenOptions.cancelOnError instead. Try replacing the use of the deprecated member with the replacement • packages/in4up_stt/lib/stt_engine_native.dart:137:9 • deprecated_member_use
+164:   info • 'cancelOnError' is deprecated and shouldn't be used. Use SpeechListenOptions.cancelOnError instead. Try replacing the use of the deprecated member with the replacement • packages/in4up_stt/lib/stt_engine_native.dart:148:11 • deprecated_member_use
 
 ## MỌI DÒNG NHẮC TỚI ocr / pdf_page_ocr
-32:warning • The value of the local variable 'messenger' isn't used. Try removing the variable or using it • lib/features/ocr/ocr_flow.dart:70:11 • unused_local_variable
-33:   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/ocr/ocr_flow.dart:84:7 • use_build_context_synchronously
-34:   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/ocr/ocr_flow.dart:115:26 • use_build_context_synchronously
-35:   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/ocr/ocr_flow.dart:177:27 • use_build_context_synchronously
-36:warning • The '!' will have no effect because the receiver can't be null. Try removing the '!' operator • lib/features/ocr/ocr_result_dialog.dart:166:41 • unnecessary_non_null_assertion
-37:  error • The named parameter 'documentFormat' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'documentFormat' • lib/features/ocr/ocr_service.dart:273:7 • undefined_named_parameter
-38:  error • The property 'isEmpty' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/features/ocr/ocr_service.dart:282:25 • unchecked_use_of_nullable_value
+(không có)
 
 ## 200 DÒNG CUỐI
 Analyzing In4Up...                                              
@@ -53,13 +45,6 @@ warning • Unused import: 'assessment_screen.dart'. Try removing the import dir
    info • Angle brackets will be interpreted as HTML. Try using backticks around the content with angle brackets, or try replacing `<` with `&lt;` and `>` with `&gt;` • lib/features/learn_by_heart/services/learn_by_heart_merge.dart:42:57 • unintended_html_in_doc_comment
 warning • The value of the field '_recordedPath' isn't used. Try removing the field, or using it • lib/features/learn_by_heart/services/voice_recitation_service.dart:53:11 • unused_field
 warning • The value of the local variable 'isAllDone' isn't used. Try removing the variable or using it • lib/features/learn_by_heart/widgets/chain_recitation_view.dart:60:15 • unused_local_variable
-warning • The value of the local variable 'messenger' isn't used. Try removing the variable or using it • lib/features/ocr/ocr_flow.dart:70:11 • unused_local_variable
-   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/ocr/ocr_flow.dart:84:7 • use_build_context_synchronously
-   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/ocr/ocr_flow.dart:115:26 • use_build_context_synchronously
-   info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/ocr/ocr_flow.dart:177:27 • use_build_context_synchronously
-warning • The '!' will have no effect because the receiver can't be null. Try removing the '!' operator • lib/features/ocr/ocr_result_dialog.dart:166:41 • unnecessary_non_null_assertion
-  error • The named parameter 'documentFormat' isn't defined. Try correcting the name to an existing named parameter's name, or defining a named parameter with the name 'documentFormat' • lib/features/ocr/ocr_service.dart:273:7 • undefined_named_parameter
-  error • The property 'isEmpty' can't be unconditionally accessed because the receiver can be 'null'. Try making the access conditional (using '?.') or adding a null check to the target ('!') • lib/features/ocr/ocr_service.dart:282:25 • unchecked_use_of_nullable_value
    info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/pdf_reader/pdf_reader_screen.dart:1194:7 • use_build_context_synchronously
    info • Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check • lib/features/pdf_reader/widgets/pdf_toolbar.dart:633:29 • use_build_context_synchronously
 warning • Unnecessary cast. Try removing the cast • lib/features/shadowing/models/shadowing_result.dart:201:41 • unnecessary_cast
@@ -213,5 +198,5 @@ warning • A value for optional parameter 'throwOnStart' isn't ever given. Try 
    info • Use interpolation to compose strings and values. Try using string interpolation to build the composite string • test/hymt_chunking_test.dart:133:20 • prefer_interpolation_to_compose_strings
    info • Angle brackets will be interpreted as HTML. Try using backticks around the content with angle brackets, or try replacing `<` with `&lt;` and `>` with `&gt;` • test/hymt_engine_runtime_test.dart:13:40 • unintended_html_in_doc_comment
 
-188 issues found. (ran in 27.3s)
-exit=1
+181 issues found. (ran in 28.9s)
+exit=0

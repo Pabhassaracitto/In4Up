@@ -67,8 +67,16 @@ jobs:
           
           ls -R android/app/src | grep google-services.json || true
 
+
+      # IMG-WEB-001 — API key tìm ảnh cho từ vựng (Wordlist).
+      #   secret VOCAB_IMAGE_API_KEY + biến thể provider qua var VOCAB_IMAGE_PROVIDER
+      #   (Settings → Secrets and variables → Actions). KHÔNG commit key vào repo.
+      #   Chuỗi rỗng = app tự rơi về nguồn mở (Openverse/Wikimedia) + nhắc user
+      #   dán key trong sheet chọn ảnh — build vẫn chạy bình thường.
       - name: Build APK (stable only to avoid missing beta client if secret incomplete)
-        run: flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation || flutter build apk --release --flavor stable
+        run: flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation $VOCAB_IMAGE_DEFINES || flutter build apk --release --flavor stable $VOCAB_IMAGE_DEFINES
+        env:
+          VOCAB_IMAGE_DEFINES: "--dart-define=VOCAB_IMAGE_PROVIDER=${{ vars.VOCAB_IMAGE_PROVIDER }} --dart-define=VOCAB_IMAGE_API_KEY=${{ secrets.VOCAB_IMAGE_API_KEY }}"
 
       - name: Rename APK
         run: |
@@ -128,7 +136,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows
-        run: flutter build windows --release --verbose
+        run: flutter build windows --release --verbose --dart-define=VOCAB_IMAGE_PROVIDER=${{ vars.VOCAB_IMAGE_PROVIDER }} --dart-define=VOCAB_IMAGE_API_KEY=${{ secrets.VOCAB_IMAGE_API_KEY }}
 
       - name: List files in Release folder
         shell: powershell
@@ -165,7 +173,7 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+        run: flutter build ios --release --no-codesign --dart-define=VOCAB_IMAGE_PROVIDER=${{ vars.VOCAB_IMAGE_PROVIDER }} --dart-define=VOCAB_IMAGE_API_KEY=${{ secrets.VOCAB_IMAGE_API_KEY }}
 
       - name: Create IPA
         run: |

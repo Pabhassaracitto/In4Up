@@ -9,6 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose | ✅ done (chờ nghiệm thu máy LAN) | `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -137,6 +138,21 @@
     test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
     nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
+
+### API-006 — WP5: In4Up Server Box (docs-only)
+- **Trạng thái:** done (chờ owner nghiệm thu trên một máy LAN sạch)
+- **Nguồn:** owner (2026-09-26) — WP5 trong `PROMPT_AGENT_SERVER_API.md`.
+- **Nội dung:** `docs/server_box/docker-compose.yml` chạy Ollama,
+  Speaches CPU/faster-whisper và Kokoro-FastAPI CPU; tự tải
+  `qwen2.5:1.5b`, giữ model/cache trong volume; healthcheck Docker cho cả ba.
+  `health-check.sh` gọi `/v1/models`; README tiếng Việt ghi cấu hình 8 GB,
+  lấy IP/firewall, URL và cách cấu hình màn Server & API WP0.
+- **AT:** cấu trúc/docs/script đã kiểm tra tĩnh; còn chạy `docker compose up -d`
+  và xác nhận ba service `healthy` + ba nút kết nối xanh trên máy LAN sạch.
+- **Lịch sử:**
+  - 2026-09-26 | created→done-docs | agent arena/01a0df4c-in4up | hoàn tất bộ
+    Compose CPU một lệnh, script health-check và hướng dẫn vận hành tiếng Việt;
+    chờ nghiệm thu phần cứng/LAN
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

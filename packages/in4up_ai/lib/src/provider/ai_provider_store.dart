@@ -2,7 +2,7 @@
 //
 // WP0 (API-001) — Nơi lưu trữ cấu hình provider + routing prefs.
 //
-// ⚠️ ADR-0007: apiKey hiện lưu SharedPreferences (tiền lệ Zalo/FPT key) —
+// ⚠️ ADR-0008: apiKey hiện lưu SharedPreferences (tiền lệ Zalo/FPT key) —
 // interface này thiết kế để migrate sang flutter_secure_storage sau mà
 // KHÔNG đổi caller: chỉ đổi phần đọc/ghi nội bộ (_read/_write).
 //

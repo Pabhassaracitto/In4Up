@@ -10,6 +10,8 @@
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-003 | WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — SttEngineRemote + chunk theo VAD + cùng cache LRC | 🔨 doing (code xong, CI xanh run 36339966096; còn thiếu nghiệm thu thiết bị thật) | arena/01a0df5d-in4up (nhánh session này) |
+| API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose | ✅ done (chờ nghiệm thu máy LAN) | `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -96,16 +98,17 @@
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
 | READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | ✅ done | commit `f149237` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); 2 toggle opt-in OFF + legend |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
+| READ-GRAM-001 | Cấu trúc câu + cụm từ trong tab Đọc (chỗ "Loại từ, CEFR"): cụm NP/VP/AdvP/… + hỏi/khẳng định/phủ định + thì–thể–thái + công thức S+V+… | 📋 proposed (KẾ HOẠCH, chưa code) | đặc tả + spike chạy được: `tool/grammar_probe/` (engine.py + 3 corpus JSON); đo TRUNG THỰC trên bộ đóng băng = 17/25 case (68%; 18/25 sau khi chốt quy ước hỏi đuôi), 8 lỗi phân loại thành 4 nguyên nhân gốc; PLAN-031 + ADR-0007 |
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 
 
 ## Card chi tiết
 
-### API-001 — WP0: nền tảng Server API (ADR-0007) — cấu hình provider + client OpenAI-compat + màn Server & API
+### API-001 — WP0: nền tảng Server API (ADR-0008) — cấu hình provider + client OpenAI-compat + màn Server & API
 - **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run 36268246588; còn nghiệm thu thiết bị theo AT)
-- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-031,
-  ADR-0007, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
+- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-032,
+  ADR-0008, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
 - **Nội dung:**
   - `packages/in4up_ai/lib/src/provider/` (mới): `AiProviderConfig` /
     `AiRouteMode` {offlineFirst, onlineFirst, offlineOnly} /
@@ -125,7 +128,7 @@
   không lộ logcat; CI App Analyze + Locale xanh.
 - **Lịch sử:**
   - 2026-09-27 | created→doing | agent arena/01a0ddd1-in4up | code WP0 +
-    ADR-0007 + PLAN-031; chờ CI run đầu tiên
+    ADR-0008 + PLAN-032; chờ CI run đầu tiên
   - 2026-09-27 | doing (1 run đỏ) | agent arena/01a0ddd1-in4up | run
     36267897524 đỏ test ratchet ADR-0002: 38 key mới English ở 20 locale
     T3 làm độ phủ tụt dưới sàn → fix theo tiền lệ sound_*: thêm key vào
@@ -291,6 +294,20 @@
     in4up` (an toàn vì origin đã có sẵn `0176d5a`) rồi áp lại đúng fix.
     Commit fix `35e200d` → push → run CI **36339966096 xanh** toàn bộ
     (analyze + Rule 5 locale test + LHB tests + Cabin Save test đều pass).
+### API-006 — WP5: In4Up Server Box (docs-only)
+- **Trạng thái:** done (chờ owner nghiệm thu trên một máy LAN sạch)
+- **Nguồn:** owner (2026-09-26) — WP5 trong `PROMPT_AGENT_SERVER_API.md`.
+- **Nội dung:** `docs/server_box/docker-compose.yml` chạy Ollama,
+  Speaches CPU/faster-whisper và Kokoro-FastAPI CPU; tự tải
+  `qwen2.5:1.5b`, giữ model/cache trong volume; healthcheck Docker cho cả ba.
+  `health-check.sh` gọi `/v1/models`; README tiếng Việt ghi cấu hình 8 GB,
+  lấy IP/firewall, URL và cách cấu hình màn Server & API WP0.
+- **AT:** cấu trúc/docs/script đã kiểm tra tĩnh; còn chạy `docker compose up -d`
+  và xác nhận ba service `healthy` + ba nút kết nối xanh trên máy LAN sạch.
+- **Lịch sử:**
+  - 2026-09-26 | created→done-docs | agent arena/01a0df4c-in4up | hoàn tất bộ
+    Compose CPU một lệnh, script health-check và hướng dẫn vận hành tiếng Việt;
+    chờ nghiệm thu phần cứng/LAN
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done
@@ -3463,6 +3480,51 @@
   - 2026-09-23 | 16:05 | created→proposed | ai | theo roadmap P4/ADR-0005 §4
   - 2026-09-23 | 16:35 | proposed→doing | ai | code P4 (IpaStyling + toggles + legend)
   - 2026-09-23 | 16:39 | doing→done | ai | commit f149237 (+ fcdc037); run 35890021728 🟢
+
+### READ-GRAM-001 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR")
+
+- **Trạng thái:** 📋 proposed — **chỉ KẾ HOẠCH, KHÔNG code trong đợt này.**
+- **Bằng chứng (đặc tả đã kiểm chứng):**
+  - `tool/grammar_probe/engine.py` — đặc tả thuật toán chạy được (Python; sandbox không có Dart SDK).
+  - `tool/grammar_probe/run_probe.py` — đo từng trường + runtime, `exit 1` khi lệch (dùng như golden test).
+  - 3 bộ corpus: `corpus.json` (65 case, tinh chỉnh ⇒ 0 sai — KHÔNG phải ước lượng tổng quát hoá),
+    `holdout.json` (30 case), `holdout2.json` (**đóng băng**, chạy 1 lần, không sửa engine sau đó).
+  - **Số trung thực:** bộ đóng băng `holdout2` = **17/25 case đúng trọn (68%)** lúc đóng băng;
+    sau khi người sở hữu chốt quy ước *câu hỏi đuôi = khẳng định + hỏi đuôi* (2026-09-24) ⇒ **18/25 (72%)**
+    (1 case đổi vì QUY ƯỚC, không phải vì engine giỏi hơn);
+    tense 11/11, pattern 5/5, polarity 3/3, voice 3/3, question 3/3, phrase.kind 23/25,
+    phrase.span 21/25; runtime ~286 µs/câu (Python, max 730 µs).
+  - 8 lỗi ⇒ 4 nguyên nhân gốc (PLAN-031 §7.1): (A) PP vị trí ngoài cụm; (B) trạng từ chen trong
+    nhóm động từ + thiếu semi-modal `would rather`; (C) quy ước câu hỏi đuôi chưa chốt;
+    (D) quan hệ zero + thiếu từ vựng (bản Dart tự khỏi nhờ `GrammarLexiconService`).
+- **Nội dung dự kiến:**
+  - **P1:** `SentenceStructureService` (thuần Dart, tái dùng `SyntaxHighlighterService` +
+    `GrammarLexiconService` + `TextSegmenter`) → cụm NP/VP/PHRASAL_V/PP/AdjP/AdvP/GerP/InfP/PartP
+    + cụm bao ngoài + loại câu + thì–thể–thái–modal + công thức; **section gập trong
+    `word_actions_sheet.dart` ngay dưới badge "Loại từ · CEFR"** (không đổi thứ tự section cũ).
+  - **P2:** sửa 4 nguyên nhân gốc + `SentenceJoiner` (side-table cho câu vắt dòng, KHÔNG đổi
+    `TextItem`) + nhãn cấp dòng (mặc định OFF) + **nút bật/tắt nhanh trên `read_bottom_bar.dart`
+    cạnh nút IPA** (xoay `Tắt → Dòng hiện tại → Toàn văn bản`, theo khuôn `IpaDisplayMode`) +
+    nhóm cài đặt "Cấu trúc câu"; key `sentence_structure_settings_v1`.
+  - **P3:** panel "Cấu trúc câu" + block "Giải thích chi tiết (AI)" (dùng façade `sentenceParse`
+    đã có; luật là nhãn chính, AI là block riêng, không trộn).
+  - Precision-first: `confidence` + ẩn nhãn khi yếu; ngôn ngữ ≠ EN ⇒ `supported=false` + câu nhắc.
+  - i18n luật #5 (vi nguồn → en fallback + ưu tiên en/hi/zh/zh_TW/si) + test cổng.
+- **Kèm theo:** `docs/project/PLAN-031-cau-truc-cau-read-tab.md`, `docs/adr/0006-*.md`.
+- **Lịch sử:**
+  - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | yêu cầu người sở hữu; spike + 3 corpus
+    + số đo trung thực; chờ chốt 3 điểm ở PLAN-031 §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.1: câu hỏi
+    đuôi = "khẳng định + hỏi đuôi" (`type=declarative` + `question=tag`) ⇒ áp vào engine + corpus;
+    bộ đóng băng 17/25 → 18/25 (đổi do quy ước).
+  - 2026-09-27 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | gộp nhánh tích hợp
+    `arena/01a0251e-in4up` về nhánh làm việc (giữ đủ cả hai phía ở KANBAN/PLAN theo luật append-only);
+    đổi số `PLAN-029 → PLAN-031`, `ADR-0006 → ADR-0007` (251e đã dùng các số đó cho LHB-006 /
+    Cabin Save). Nội dung kế hoạch không đổi.
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.2 + §10.3:
+    câu vắt dòng chọn (a) phân tích theo dòng rồi ghép ở P2; khối trong sheet ON; nhãn cấp dòng OFF
+    **kèm nút bật/tắt nhanh trên thanh công cụ đáy** (không phải vào Cài đặt). Kế hoạch đã đủ điều
+    kiện để code P1 — **chờ lệnh bắt đầu code của người sở hữu**.
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 

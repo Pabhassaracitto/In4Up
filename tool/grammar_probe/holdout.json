@@ -1,0 +1,482 @@
+{
+  "_doc": "HOLD-OUT: câu MỚI, viết SAU khi engine.py đã đóng băng — dùng để ước lượng khả năng tổng quát hoá (con số trên corpus.json là con số đã tinh chỉnh, KHÔNG tính). Không sửa engine khi chạy file này.",
+  "conventions": {
+    "phrase.span": "Chuỗi con liên tục của câu ứng với cụm NHỎ NHẤT chứa anchor.",
+    "VP": "Nhóm động từ hữu hạn, KHÔNG gồm tân ngữ.",
+    "sentence": "Chỉ so các trường được khai báo.",
+    "clause_fields": "tính trên MỆNH ĐỀ CHÍNH; vai trò mệnh đề chứa anchor ghi ở clause_role.",
+    "update_batch_1": "Sửa 2 nhãn vàng SAI (không sửa engine để khớp): H27 'was very boring' là QUÁ KHỨ; H24 tiền hạn định từ 'such' thuộc NP ⇒ NP đầy đủ là 'such a big fish'."
+  },
+  "cases": [
+    {
+      "id": "H01",
+      "text": "My sister bought a red car last week.",
+      "anchor": "car",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "a red car"
+        },
+        "sentence": {
+          "type": "declarative",
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "H02",
+      "text": "The children are playing in the garden.",
+      "anchor": "playing",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "are playing"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "continuous",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "H03",
+      "text": "He didn't finish his homework.",
+      "anchor": "finish",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "didn't finish"
+        },
+        "sentence": {
+          "polarity": "negative",
+          "tense": "past",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H04",
+      "text": "We have lived in this city since 2015.",
+      "anchor": "lived",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "have lived"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "H05",
+      "text": "The window was broken by the storm.",
+      "anchor": "broken",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "was broken"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "passive"
+        }
+      }
+    },
+    {
+      "id": "H06",
+      "text": "Tom is going to visit his grandmother.",
+      "anchor": "visit",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "is going to visit"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H07",
+      "text": "The girl with the red hat is my cousin.",
+      "anchor": "hat",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "the red hat"
+        },
+        "outer": {
+          "kind": "PP",
+          "span": "with the red hat"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "H08",
+      "text": "I will help you if you ask me.",
+      "anchor": "help",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "will help"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "H09",
+      "text": "She has never been abroad.",
+      "anchor": "been",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "has never been"
+        },
+        "sentence": {
+          "polarity": "negative",
+          "tense": "present",
+          "aspect": "perfect"
+        }
+      }
+    },
+    {
+      "id": "H10",
+      "text": "The teacher told us a story.",
+      "anchor": "us",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "us"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVOO"
+        }
+      }
+    },
+    {
+      "id": "H11",
+      "text": "Reading books is my hobby.",
+      "anchor": "Reading",
+      "expect": {
+        "phrase": {
+          "kind": "GerP",
+          "span": "Reading books"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "H12",
+      "text": "There were many people at the party.",
+      "anchor": "people",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "many people"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "There+V+S"
+        }
+      }
+    },
+    {
+      "id": "H13",
+      "text": "He can swim very well.",
+      "anchor": "swim",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "can swim"
+        },
+        "sentence": {
+          "tense": "modal",
+          "aspect": "simple",
+          "pattern": "SV"
+        }
+      }
+    },
+    {
+      "id": "H14",
+      "text": "The keys were left on the table.",
+      "anchor": "left",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "were left"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "passive"
+        }
+      }
+    },
+    {
+      "id": "H15",
+      "text": "My brother is taller than me.",
+      "anchor": "taller",
+      "expect": {
+        "phrase": {
+          "kind": "ADJP",
+          "span": "taller than me"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "H16",
+      "text": "Do you know where she lives?",
+      "anchor": "know",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "Do you know"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "yesno",
+          "tense": "present",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H17",
+      "text": "When I arrived, they were having dinner.",
+      "anchor": "having",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "were having"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "continuous",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "H18",
+      "text": "The man whose car was stolen called the police.",
+      "anchor": "car",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "whose car"
+        },
+        "clause_role": "relative"
+      }
+    },
+    {
+      "id": "H19",
+      "text": "She said that she would come.",
+      "anchor": "come",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "would come"
+        },
+        "clause_role": "nominal",
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H20",
+      "text": "Put the book on the desk.",
+      "anchor": "book",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "the book"
+        },
+        "sentence": {
+          "type": "imperative",
+          "pattern": "VO"
+        }
+      }
+    },
+    {
+      "id": "H21",
+      "text": "Never touch that button!",
+      "anchor": "touch",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "touch"
+        },
+        "sentence": {
+          "type": "imperative",
+          "polarity": "negative"
+        }
+      }
+    },
+    {
+      "id": "H22",
+      "text": "How beautiful the sunset is!",
+      "anchor": "beautiful",
+      "expect": {
+        "phrase": {
+          "kind": "ADJP",
+          "span": "beautiful"
+        },
+        "sentence": {
+          "type": "exclamative",
+          "polarity": "affirmative"
+        }
+      }
+    },
+    {
+      "id": "H23",
+      "text": "The baby has been sleeping for hours.",
+      "anchor": "sleeping",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "has been sleeping"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect_continuous"
+        }
+      }
+    },
+    {
+      "id": "H24",
+      "text": "I have never seen such a big fish.",
+      "anchor": "fish",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "such a big fish"
+        },
+        "sentence": {
+          "polarity": "negative",
+          "tense": "present",
+          "aspect": "perfect"
+        }
+      }
+    },
+    {
+      "id": "H25",
+      "text": "They are going to build a new school here.",
+      "anchor": "build",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "are going to build"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H26",
+      "text": "Peter's car is very old.",
+      "anchor": "car",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "Peter's car"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "H27",
+      "text": "The film was very boring.",
+      "anchor": "boring",
+      "expect": {
+        "phrase": {
+          "kind": "ADJP",
+          "span": "very boring"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "H28",
+      "text": "We must finish the report today.",
+      "anchor": "finish",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "must finish"
+        },
+        "sentence": {
+          "tense": "modal",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H29",
+      "text": "Does he work in a bank?",
+      "anchor": "work",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "Does he work"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "yesno",
+          "tense": "present",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "H30",
+      "text": "Chúng tôi học tiếng Anh mỗi ngày.",
+      "anchor": "học",
+      "expect": {
+        "supported": false
+      }
+    }
+  ]
+}

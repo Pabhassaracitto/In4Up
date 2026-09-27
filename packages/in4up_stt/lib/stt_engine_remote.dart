@@ -93,6 +93,21 @@ class SttEngineRemote implements SttEngine {
     await _providerStore.ensureLoaded();
   }
 
+  // Remote engine CHỈ transcribe file — live mic GIỮ on-device (quyết định
+  // đã chốt, xem đầu file). Bốn override dưới đây là no-op/rỗng, giống hệt
+  // pattern của WhisperSttEngine (engine file-only khác trong cùng package).
+  @override
+  Stream<SttResult> get liveResultStream => const Stream.empty();
+
+  @override
+  Future<bool> startListening({String language = 'en-US'}) async => false;
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<void> dispose() async {}
+
   /// Provider hiện tại có thể dùng cho STT file không (đã cấu hình + routing
   /// không phải offlineOnly). Facade dùng để quyết định có route sang
   /// remote hay không TRƯỚC khi chạy — tránh phải bắt exception cho luồng

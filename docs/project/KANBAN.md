@@ -101,7 +101,7 @@
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
-| OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36348760217 (`f133932`, arena/01a09c9a-in4up): analyze 0 error + Rule 5 xanh + LHB xanh; 0 issue analyzer nhắc tới OCR |
+| OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 
 
 ## Card chi tiết
@@ -3739,3 +3739,12 @@
   - 2026-09-27 20:45 UTC | doing | agent arena/01a09c9a-in4up | sửa 2 error theo đúng
     source 0.5.0 (commit f29f844e8) + dọn 2 warning/3 info; run 36348760217 **XANH**
     (analyze 0 error, Rule 5 ✓, LHB ✓, Cabin ✓); xoá workflow chẩn đoán tạm
+  - 2026-09-27 20:52 UTC | doing | agent arena/01a09c9a-in4up | merge tip mới của
+    `arena/01a0251e-in4up` (`b90ba3e`, PR #57 API-004) — xung đột duy nhất ở
+    PLAN.md (hai bên cùng append), giữ cả PLAN-032 upstream lẫn PLAN-033 OCR;
+    KANBAN auto-merge đủ 116 card. CI run 36349047556 trên commit merge `86d1626`
+    **XANH** (analyze · Rule 5 · LHB · Cabin). Ghi chú vận hành: clone này có
+    refspec `remote.origin.fetch` CHỈ gồm `main` → `git fetch origin` KHÔNG cập nhật
+    các nhánh arena khác, phải fetch tường minh
+    `git fetch origin refs/heads/arena/01a0251e-in4up:refs/remotes/origin/...`
+    (đã suýt kết luận sai rằng upstream không đi tiếp).

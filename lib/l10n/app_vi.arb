@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Nhà cung cấp",
   "aiProviderSave": "Lưu",
   "aiProviderCancel": "Huỷ",
-  "aiProvidersPrivacy": "Audio và text chỉ được gửi tới nhà cung cấp bạn chọn. Server nhà (LAN) giữ dữ liệu trong mạng của bạn."
+  "aiProvidersPrivacy": "Audio và text chỉ được gửi tới nhà cung cấp bạn chọn. Server nhà (LAN) giữ dữ liệu trong mạng của bạn.",
+  "ocrScanImage": "Quét ảnh",
+  "ocrSheetTitle": "Quét ảnh thành văn bản",
+  "ocrSourceScanner": "Chụp & quét tài liệu",
+  "ocrSourceScannerHint": "Tự dò mép, crop, lọc ảnh · chỉ Android",
+  "ocrSourceGallery": "Chọn ảnh có sẵn",
+  "ocrSourceGalleryHint": "Ảnh chụp trang sách hoặc ảnh scan",
+  "ocrResultTitle": "Kết quả quét",
+  "ocrResultHint": "Kiểm tra và sửa chữ trước khi nạp",
+  "ocrReopenImage": "Quét lại ảnh",
+  "ocrRecognizing": "Đang nhận dạng chữ...",
+  "ocrEmptyResult": "Không tìm thấy chữ trong ảnh. Thử ảnh rõ hơn, đủ sáng.",
+  "ocrLoadedFromImage": "Đã nạp văn bản từ ảnh",
+  "ocrScanPageText": "Quét chữ trang này",
+  "ocrUnsupported": "OCR chỉ chạy trên Android/iOS"
 }

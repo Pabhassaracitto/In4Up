@@ -1032,3 +1032,23 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
     kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu
+
+### PLAN-033 — OCR: ML Kit Text Recognition v2 + Document Scanner làm nguồn văn bản thứ 4 (OCR-001)
+- Nguồn: người sở hữu (2026-09-15, qua agent arena/01a09c9a-in4up) — chốt phạm vi
+  CHỈ làm Text Recognition v2 (OCR) + Document Scanner, bỏ qua phần còn lại của ML Kit.
+- Trạng thái: doing (code xong T1–T5 + T7–T8; chưa có CI; chờ nghiệm thu thiết bị)
+- Milestone đề xuất: M2
+- Chi tiết: ảnh chụp trang sách / sách scan / PDF image-only → văn bản nạp vào Text
+  Studio, để những nguồn này vào được pipeline CEFR · tra từ · Read Mode như PDF có
+  text layer. Quyết định kiến trúc: `docs/adr/0009-mlkit-text-recognition-ocr.md`.
+  Kế hoạch thi công + trạng thái từng task: `docs/mlkit_ocr_integration_plan.md`.
+  On-device hoàn toàn (model ship kèm Play services / iOS SDK) → không tải gì lúc
+  bootstrap, khác ML Kit Translation. Chỉ Android + iOS; desktop/web ẩn nút.
+  Ghép vào `TextProvider.loadFromString` để kế thừa pipeline phân tích sẵn có,
+  KHÔNG xây pipeline song song; provenance dùng `TextSourceType.ocr` + refType
+  `'ocrImage'` để reopen = QUÉT LẠI ảnh (không gọi `loadTextFile` trên JPEG).
+- Lịch sử:
+  - 2026-09-15 | created | agent arena/01a09c9a-in4up | ADR + plan + T1–T5, T7, T8
+  - 2026-09-27 | doing | agent arena/01a09c9a-in4up | sandbox re-clone làm mất 5
+    commit → pull lại `arena/01a0251e-in4up` (755b474, +48 commit) và re-apply toàn
+    bộ phần OCR; đổi số ADR-0005→0009, PLAN-029→033 vì upstream đã chiếm số

@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "प्रतिमा स्कॅन करा",
+  "ocrSheetTitle": "प्रतिमा मजकूरात बदला",
+  "ocrSourceScanner": "दस्तऐवज कॅप्चर आणि स्कॅन करा",
+  "ocrSourceScannerHint": "स्वयंचलित कडा, क्रॉप, सुधारणा · फक्त Android",
+  "ocrSourceGallery": "अस्तित्वातील प्रतिमा निवडा",
+  "ocrSourceGalleryHint": "पुस्तकाच्या पानाचा फोटो किंवा स्कॅन",
+  "ocrResultTitle": "स्कॅन परिणाम",
+  "ocrResultHint": "लोड करण्यापूर्वी तपासा आणि संपादित करा",
+  "ocrReopenImage": "प्रतिमा पुन्हा स्कॅन करा",
+  "ocrRecognizing": "मजकूर ओळखत आहे...",
+  "ocrEmptyResult": "प्रतिमेत मजकूर सापडला नाही. अधिक स्पष्ट आणि उजळ फोटो वापरून पहा.",
+  "ocrLoadedFromImage": "प्रतिमेवरून मजकूर लोड झाला",
+  "ocrScanPageText": "या पानाचा मजकूर स्कॅन करा",
+  "ocrUnsupported": "OCR फक्त Android/iOS वर चालते"
 }

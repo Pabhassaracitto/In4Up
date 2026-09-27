@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "ស្កេនរូបភាព",
+  "ocrSheetTitle": "ប្ដូររូបភាពទៅជាអត្ថបទ",
+  "ocrSourceScanner": "ថត និងស្កេនឯកសារ",
+  "ocrSourceScannerHint": "រកគែម កាត់ និងពង្រឹងដោយស្វ័យប្រវត្តិ · តែ Android",
+  "ocrSourceGallery": "ជ្រើសរូបភាពដែលមាន",
+  "ocrSourceGalleryHint": "រូបថតទំព័រសៀវភៅ ឬការស្កេន",
+  "ocrResultTitle": "លទ្ធផលស្កេន",
+  "ocrResultHint": "ពិនិត្យ និងកែមុនពេលបញ្ចូល",
+  "ocrReopenImage": "ស្កេនរូបភាពម្ដងទៀត",
+  "ocrRecognizing": "កំពុងសម្គាល់អត្ថបទ...",
+  "ocrEmptyResult": "រកមិនឃើញអត្ថបទក្នុងរូបភាព។ សូមព្យាយាមជាមួយរូបភាពច្បាស់ និងភ្លឺជាង។",
+  "ocrLoadedFromImage": "បានបញ្ចូលអត្ថបទពីរូបភាព",
+  "ocrScanPageText": "ស្កេនអត្ថបទទំព័រនេះ",
+  "ocrUnsupported": "OCR ដំណើរការតែលើ Android/iOS"
 }

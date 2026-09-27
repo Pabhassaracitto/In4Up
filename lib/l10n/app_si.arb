@@ -498,5 +498,19 @@
   "aiRoutingProvider": "සැපයුම්කරු",
   "aiProviderSave": "සුරකින්න",
   "aiProviderCancel": "අවලංගු කරන්න",
-  "aiProvidersPrivacy": "ශ්‍රව්‍ය සහ පෙළ ඔබ තෝරාගත් සැපයුම්කරුට පමණක් යවයි. ගෙදර සේවාදායකය (LAN) දත්ත ඔබගේ ජාලය තුළ රඳවා ගනී."
+  "aiProvidersPrivacy": "ශ්‍රව්‍ය සහ පෙළ ඔබ තෝරාගත් සැපයුම්කරුට පමණක් යවයි. ගෙදර සේවාදායකය (LAN) දත්ත ඔබගේ ජාලය තුළ රඳවා ගනී.",
+  "ocrScanImage": "රූපය ස්කෑන් කරන්න",
+  "ocrSheetTitle": "රූපය පෙළ බවට හරවන්න",
+  "ocrSourceScanner": "ලේඛනය ග්‍රහණය කර ස්කෑන් කරන්න",
+  "ocrSourceScannerHint": "ස්වයංක්‍රීය දාර, කපා, වැඩිදියුණු · Android පමණි",
+  "ocrSourceGallery": "දැනට ඇති රූපයක් තෝරන්න",
+  "ocrSourceGalleryHint": "පොත් පිටුවක ඡායාරූපයක් හෝ ස්කෑනයක්",
+  "ocrResultTitle": "ස්කෑන් ප්‍රතිඵලය",
+  "ocrResultHint": "පූරණයට පෙර සමාලෝචනය කර සංස්කරණය කරන්න",
+  "ocrReopenImage": "රූපය නැවත ස්කෑන් කරන්න",
+  "ocrRecognizing": "පෙළ හඳුනාගනිමින්...",
+  "ocrEmptyResult": "රූපයේ පෙළක් හමු නොවීය. පැහැදිලි, හොඳ ආලෝකය ඇති ඡායාරූපයක් උත්සාහ කරන්න.",
+  "ocrLoadedFromImage": "රූපයෙන් පෙළ පූරණය විය",
+  "ocrScanPageText": "මෙම පිටුවේ පෙළ ස්කෑන් කරන්න",
+  "ocrUnsupported": "OCR ක්‍රියාත්මක වන්නේ Android/iOS හි පමණි"
 }

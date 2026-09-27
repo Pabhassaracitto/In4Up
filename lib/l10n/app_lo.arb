@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "ສະແກນຮູບ",
+  "ocrSheetTitle": "ແປງຮູບເປັນຂໍ້ຄວາມ",
+  "ocrSourceScanner": "ຖ່າຍແລະສະແກນເອກະສານ",
+  "ocrSourceScannerHint": "ຂອບອັດຕະໂນມັດ, ຕັດ, ປັບປຸງ · Android ເທົ່ານັ້ນ",
+  "ocrSourceGallery": "ເລືອกรູບທີ່ມີຢູ່",
+  "ocrSourceGalleryHint": "ຮູບຖ່າຍໜ້າປຶ້ມ ຫຼື ແຜ່ນສະແກນ",
+  "ocrResultTitle": "ຜົນການສະແກນ",
+  "ocrResultHint": "ກວດແລະແກ້ໄຂກ່ອນໂຫລດ",
+  "ocrReopenImage": "ສະແກນຮູບໃໝ່ອີກ",
+  "ocrRecognizing": "ກຳລັງຮູ້ຈັກຂໍ້ຄວາມ...",
+  "ocrEmptyResult": "ບໍ່ພົບຂໍ້ຄວາມໃນຮູບ. ລອງຮູບທີ່ຄົມແລະສະຫວ່າງກວ່າ.",
+  "ocrLoadedFromImage": "ໂຫລດຂໍ້ຄວາມຈາກຮູບແລ້ວ",
+  "ocrScanPageText": "ສະແກນຂໍ້ຄວາມໜ້ານີ້",
+  "ocrUnsupported": "OCR ເຮັດວຽກສະເພາະ Android/iOS"
 }

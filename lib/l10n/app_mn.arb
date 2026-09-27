@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "Зураг сканнердах",
+  "ocrSheetTitle": "Зургийг текст рүү хөрвүүлэх",
+  "ocrSourceScanner": "Баримт зураг авах, сканнердах",
+  "ocrSourceScannerHint": "Ирмэг автомат илрүүлэх, тайрах, сайжруулах · зөвхөн Android",
+  "ocrSourceGallery": "Байгаа зураг сонгох",
+  "ocrSourceGalleryHint": "Номын хуудасны зураг эсвэл скан",
+  "ocrResultTitle": "Сканы үр дүн",
+  "ocrResultHint": "Оруулахаас өмнө шалгаж засварла",
+  "ocrReopenImage": "Зургийг дахин сканнердах",
+  "ocrRecognizing": "Текст таниулж байна...",
+  "ocrEmptyResult": "Зургаас текст олдсонгүй. Илүү тод, гэрэлтэй зураг оролдоно уу.",
+  "ocrLoadedFromImage": "Зургаас текст орууллаа",
+  "ocrScanPageText": "Энэ хуудасны текстийг сканнердах",
+  "ocrUnsupported": "OCR зөвхөн Android/iOS дээр ажиллана"
 }

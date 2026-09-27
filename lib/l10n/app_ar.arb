@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "مسح الصورة",
+  "ocrSheetTitle": "تحويل الصورة إلى نص",
+  "ocrSourceScanner": "التقاط ومسح المستند",
+  "ocrSourceScannerHint": "كشف الحواف والقص والتحسين تلقائيًا · أندرويد فقط",
+  "ocrSourceGallery": "اختيار صورة موجودة",
+  "ocrSourceGalleryHint": "صورة لصفحة كتاب أو نسخة ممسوحة",
+  "ocrResultTitle": "نتيجة المسح",
+  "ocrResultHint": "راجع وعدّل قبل التحميل",
+  "ocrReopenImage": "إعادة مسح الصورة",
+  "ocrRecognizing": "جارٍ التعرف على النص...",
+  "ocrEmptyResult": "لم يُعثر على نص في الصورة. جرّب صورة أوضح وإضاءة أفضل.",
+  "ocrLoadedFromImage": "تم تحميل النص من الصورة",
+  "ocrScanPageText": "مسح نص هذه الصفحة",
+  "ocrUnsupported": "التعرف الضوئي يعمل على أندرويد وiOS فقط"
 }

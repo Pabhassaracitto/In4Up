@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "สแกนรูปภาพ",
+  "ocrSheetTitle": "แปลงรูปภาพเป็นข้อความ",
+  "ocrSourceScanner": "ถ่ายและสแกนเอกสาร",
+  "ocrSourceScannerHint": "หาขอบอัตโนมัติ ตัด ปรับภาพ · เฉพาะ Android",
+  "ocrSourceGallery": "เลือกรูปที่มีอยู่",
+  "ocrSourceGalleryHint": "รูปถ่ายหน้าหนังสือหรือภาพสแกน",
+  "ocrResultTitle": "ผลการสแกน",
+  "ocrResultHint": "ตรวจและแก้ไขก่อนโหลด",
+  "ocrReopenImage": "สแกนรูปภาพใหม่",
+  "ocrRecognizing": "กำลังรู้จำข้อความ...",
+  "ocrEmptyResult": "ไม่พบข้อความในรูปภาพ ลองภาพที่คมชัดและสว่างกว่า",
+  "ocrLoadedFromImage": "โหลดข้อความจากรูปภาพแล้ว",
+  "ocrScanPageText": "สแกนข้อความหน้านี้",
+  "ocrUnsupported": "OCR ทำงานเฉพาะบน Android/iOS"
 }

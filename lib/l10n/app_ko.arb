@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "이미지 스캔",
+  "ocrSheetTitle": "이미지를 텍스트로 변환",
+  "ocrSourceScanner": "문서 촬영 및 스캔",
+  "ocrSourceScannerHint": "자동 모서리 감지, 자르기, 보정 · Android 전용",
+  "ocrSourceGallery": "기존 이미지 선택",
+  "ocrSourceGalleryHint": "책 페이지 사진 또는 스캔본",
+  "ocrResultTitle": "스캔 결과",
+  "ocrResultHint": "불러오기 전에 확인하고 수정하세요",
+  "ocrReopenImage": "이미지 다시 스캔",
+  "ocrRecognizing": "텍스트 인식 중...",
+  "ocrEmptyResult": "이미지에서 텍스트를 찾지 못했습니다. 더 선명하고 밝은 사진으로 시도하세요.",
+  "ocrLoadedFromImage": "이미지에서 텍스트를 불러왔습니다",
+  "ocrScanPageText": "이 페이지 텍스트 스캔",
+  "ocrUnsupported": "OCR은 Android/iOS에서만 작동합니다"
 }

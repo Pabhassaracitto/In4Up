@@ -12,7 +12,10 @@
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 
+import '../../ocr/ocr_flow.dart';
+import '../../ocr/ocr_service.dart';
 import '../pdf_reader_controller.dart';
+import '../services/pdf_page_ocr.dart';
 
 class PdfTtsBar extends StatelessWidget {
   final PdfReaderController controller;
@@ -71,6 +74,23 @@ class PdfTtsBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
+          // OCR (ADR-0009 · KANBAN OCR-001): trang scan không có text layer
+          // thì extract-by-code chịu chết — hiện nút quét chữ ngay tại chỗ
+          // thông báo "Trang này là ảnh, không có chữ để đọc".
+          // Ẩn khi trang CÓ chữ (không bày nút thừa) và khi ML Kit không
+          // khả dụng (desktop/web — cùng nguyên tắc với nút ở text library).
+          if (controller.pageHasNoTextLayer && OcrService.instance.isAvailable) ...[
+            _BarBtn(
+              icon: Icons.document_scanner_outlined,
+              tooltip: context.uiText('Quét chữ trang này'),
+              onTap: () {
+                onUserInteraction?.call();
+                HapticFeedback.mediumImpact();
+                _scanPageText(context);
+              },
+            ),
+            const SizedBox(width: 4),
+          ],
           _BarBtn(
             icon: Icons.skip_previous_rounded,
             tooltip: context.uiText('Trang trước'),
@@ -208,6 +228,48 @@ class PdfTtsBar extends StatelessWidget {
   // Ghép từ các chuỗi NGUYÊN VĂN đã có trong catalog: `context.uiText` chỉ
   // khớp exact/template đã review, còn chuỗi nội suy tự do sẽ lọt tiếng Việt
   // sang locale khác (quy tắc vàng #5).
+  /// Render trang hiện tại ra pixels rồi OCR (ADR-0009 · KANBAN OCR-001).
+  ///
+  /// Không ghi file ảnh tạm: `PdfPage.render()` trả BGRA8888 thô, khớp đúng
+  /// `InputImage.fromBitmap` của ML Kit → đưa thẳng sang native.
+  ///
+  /// Provenance: đường này KHÔNG có file ảnh nên `localPath` = null → vocab lưu
+  /// từ văn bản OCR của PDF sẽ không có nút reopen (degradation trung thực,
+  /// còn hơn trỏ ref vào file không tồn tại). Nguồn thật của trang vẫn là PDF
+  /// mà user đang mở.
+  Future<void> _scanPageText(BuildContext context) async {
+    final doc = controller.document;
+    if (doc == null) return;
+
+    // Capture trước khi await (use_build_context_synchronously).
+    final messenger = ScaffoldMessenger.of(context);
+    final pageIndex = controller.currentPage;
+    final title = controller.displayTitle;
+
+    final raster = await rasterizePdfPage(doc, pageIndex);
+    if (!context.mounted) return;
+
+    if (raster == null) {
+      // Chuỗi kỹ thuật ASCII đi sau mẫu 'Lỗi: {value0}' ĐÃ có trong catalog →
+      // uiText dịch được phần prefix, không cần thêm key ARB mới.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Lỗi: render failed (page $pageIndex)')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    await OcrFlow.runOnBitmap(
+      context,
+      pixels: raster.pixels,
+      width: raster.width,
+      height: raster.height,
+      suggestedTitle: title,
+    );
+  }
+
   String _statusLabel(
     BuildContext context,
     bool playing,

@@ -100,6 +100,7 @@
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
+| OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code xong T1–T5+T7–T8, CHƯA có CI) | re-apply trên nền `arena/01a0251e-in4up` @ 755b474 — agent arena/01a09c9a-in4up |
 
 
 ## Card chi tiết
@@ -3562,3 +3563,83 @@
   - 2026-09-28 | created→done | agent arena/01a0e2c8-in4up | `README.md` +
     `README.vi.md` + khôi phục `LICENSE`; nhánh đồng bộ từ `arena/01a0251e-in4up`
     (53b57ab) để README khớp đúng code đang chạy
+
+### OCR-001 — ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản mới
+
+- **Trạng thái:** doing (code xong T1–T5 + T7–T8; **CHƯA có bằng chứng CI**; chờ
+  nghiệm thu trên thiết bị Android/iOS)
+- **Nguồn:** owner — chỉ làm **Text Recognition v2 (OCR) + Document Scanner**, bỏ
+  qua các phần còn lại của ML Kit; yêu cầu thứ tự nghiêm ngặt *pull từ
+  `arena/01a0251e-in4up` → đăng ký KANBAN → mới triển khai code*.
+- **Quyết định kiến trúc:** `docs/adr/0009-mlkit-text-recognition-ocr.md` +
+  `docs/mlkit_ocr_integration_plan.md` (PLAN-033).
+- **Nội dung đã làm:**
+  - **T1 deps:** `google_mlkit_text_recognition: ^0.16.0` +
+    `google_mlkit_document_scanner: ^0.5.0`. PIN 0.16.x/0.5.x vì 0.17.x/0.6.x đòi
+    Dart `^3.12.0` trong khi CI + máy chủ là Flutter 3.44.1 (Dart 3.11.5).
+    `google_mlkit_commons ^0.12.0` trùng đúng bản translation 0.14.0 đang kéo.
+  - **T2 service:** `lib/features/ocr/ocr_service.dart` (singleton, `isAvailable`,
+    `recognizeImage`, `recognizeBitmap`, `normalizeOcrText` + guard) và
+    `ocr_image_picker.dart` (seam bọc `file_picker` để test được trên host VM).
+  - **T3 flow:** `ocr_flow.dart` (chọn nguồn → ảnh → ML Kit → preview/SỬA → nạp),
+    `ocr_source_sheet.dart`, `ocr_result_dialog.dart`. Nạp qua
+    `TextProvider.loadFromString` để **kế thừa nguyên vẹn** pipeline phân tích sẵn
+    có, không xây pipeline song song.
+  - **T4 provenance:** `TextSourceType.ocr` + refType riêng `'ocrImage'` (KHÔNG dùng
+    `'localText'` — đường đó `readAsString()` trên JPEG → throw → nút reopen chết).
+    `vocab_context.dart` thêm nhãn `'Quét lại ảnh'` + icon 📷.
+  - **T5 điểm vào:** nút "Quét ảnh" trong Text Library drawer, chỉ hiện khi
+    `OcrService.instance.isAvailable` (desktop/web ẩn hẳn, không hiện rồi báo lỗi).
+  - **T7 i18n:** 14 key × **26 locale** (không chỉ English — xem ràng buộc dưới),
+    regenerate `generated_ui_translations.dart` (890 source messages).
+  - **T8 PDF Reader:** trang scan không có text layer thì hiện nút "Quét chữ trang
+    này" ngay tại chỗ thông báo; raster hoá bằng `pdf_page_ocr.dart`
+    (`page.render()` → BGRA8888, dùng chung `pdfSnapshotRenderSize` với tính năng
+    in bản chụp) rồi đưa thẳng `InputImage.fromBitmap` — **không ghi file ảnh tạm**.
+  - **Test:** `test/ocr/ocr_service_test.dart` + `test/ocr/ocr_i18n_coverage_test.dart`
+    (thuần Dart, chạy được trên host VM, không cần native/ML Kit).
+- **Ràng buộc i18n (học được khi làm, agent sau phải biết):**
+  - `test/locale_chrome_no_vietnamese_test.dart` (CI `app_analyze.yml` có chạy) bắt
+    **T2 = hi/zh/zh_TW/si phải phủ 100%** → key ARB mới **bắt buộc dịch đủ**, chỉ
+    thêm English là làm đỏ CI ngay.
+  - Sàn ratchet rất mỏng ở một số locale → thêm key English-only làm tụt sàn.
+  - KHÔNG thêm key cho chuỗi đã có sẵn trong catalog (ví dụ 'Nạp vào Đọc'): trùng
+    chuỗi làm generator báo unused, đẩy baseline lệch.
+- **Sự cố sandbox (quan trọng — lý do thẻ này phải làm lại một phần):**
+  sandbox bị **re-clone từ đầu** giữa chừng: 5 commit OCR của phiên trước
+  (`c870bf2`, `26d77d6`, `ac29556`, `4c9e240`, `db1f082`) **mất khỏi git history**
+  (object không còn tồn tại), chỉ sống sót dưới dạng file chưa commit trong working
+  tree. Đã backup toàn bộ working tree ra tarball trước khi pull, rồi
+  `reset --hard` về `origin/arena/01a0251e-in4up` (755b474) và **re-apply** phần OCR.
+  - Kiểm chứng trước khi reset: mọi delta lớn ngoài OCR đều là **bản STALE** (blob
+    từng tồn tại trong lịch sử upstream, đã bị vượt qua) → pull không mất gì.
+  - 42 file untracked là bản dup cũ của công việc đã merge upstream → xoá; 10 file
+    OCR local-only → giữ.
+  - **ADR phải đổi số 0005 → 0009** và **PLAN-029 → PLAN-033**: upstream đã chiếm
+    `0005` tới **ba lần** (`0005-ipa-display…`, `0005-nhip-dieu-hoc-tap…`,
+    `0005-rest-auth-firestore-linux`) và PLAN đã tới 032. Đây là lần thứ hai va
+    đánh số → repo cần một quy ước cấp số ADR/PLAN chặt hơn (xem đề xuất dưới).
+- **Chưa làm / chờ:**
+  - **CI chưa chạy** (`app_analyze.yml` chỉ trigger khi code lên GitHub; phiên trước
+    không push được vì `GH_TOKEN` hết hiệu lực).
+  - **T6 Document Scanner** cần thiết bị Android thật (Google Beta, không chạy trên
+    emulator không có Play services).
+  - **T9 nghiệm thu 7 tiêu chí** trên máy.
+  - Reopen cho văn bản OCR **từ PDF**: đường T8 không có file ảnh nên
+    `localPath = null` → vocab lưu từ đó không có nút reopen (degradation trung thực,
+    còn hơn trỏ ref vào file không tồn tại). Muốn reopen được thì phải lưu ảnh trang
+    ra cache — việc riêng, chưa làm.
+- **Đề xuất governance (cần owner quyết):** thêm một file `docs/adr/README.md` hoặc
+  script cấp số ADR/PLAN kế tiếp, vì hai phiên liên tiếp đều va số (0003 rồi 0005).
+- **Lịch sử:**
+  - 2026-09-15 21:12 UTC | created→doing | agent arena/01a09c9a-in4up | phiên 1:
+    ADR + PLAN + T1–T5, T7, T8; 5 commit local; không push được (GH_TOKEN invalid)
+  - 2026-09-27 20:15 UTC | doing | agent arena/01a09c9a-in4up | sandbox bị re-clone
+    → 5 commit mất khỏi history; backup working tree ra tarball, xác định delta
+    ngoài OCR đều STALE, `reset --hard` về `origin/arena/01a0251e-in4up` (755b474,
+    +48 commit) rồi re-apply toàn bộ phần OCR
+  - 2026-09-27 20:15 UTC | doing | agent arena/01a09c9a-in4up | đổi ADR-0005→0009 +
+    PLAN-029→033 (upstream chiếm số); inject lại 14 key × 26 locale vào ARB mới
+    (492→506 key); regenerate catalog (890 msg); mô phỏng CI
+    `locale_chrome_no_vietnamese_test.dart` bằng Python → PASS cả 5 phép thử
+    (parity · không ký tự Việt · sàn độ phủ · T2 100% · keepEnglish)

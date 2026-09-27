@@ -8,11 +8,15 @@ name: TMP analyze report (xoá sau khi dùng)
 # workflow này đẩy phần ERROR của `flutter analyze` lên chính nhánh dưới dạng
 # một file, để đọc lại bằng `gh api repos/.../contents/...`.
 #
-# Chỉ chạy workflow_dispatch → không tạo vòng lặp push/CI.
+# Chỉ trigger khi CHÍNH file này đổi (path filter) → không tạo vòng lặp
+# push/CI; commit báo cáo (ci-analyze-errors.txt) không kích hoạt lại.
+# Không dùng workflow_dispatch vì API đó đòi file phải nằm trên default branch.
 # XOÁ workflow này và file ci-analyze-errors.txt ngay sau khi chẩn đoán xong.
 
 on:
-  workflow_dispatch:
+  push:
+    branches: ['arena/01a09c9a-in4up']
+    paths: ['.github/workflows/tmp_analyze_report.yml']
 
 permissions:
   contents: write

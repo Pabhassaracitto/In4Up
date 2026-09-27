@@ -2868,6 +2868,234 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Related'**
   String get soundRelated;
+
+  /// No description provided for @aiProvidersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Servers & API'**
+  String get aiProvidersTitle;
+
+  /// No description provided for @aiProvidersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use cloud or home-server models. Offline remains the default.'**
+  String get aiProvidersSubtitle;
+
+  /// No description provided for @aiProvidersEntryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Server & API (cloud / LAN)'**
+  String get aiProvidersEntryTitle;
+
+  /// No description provided for @aiProvidersEntrySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add online models — frees RAM, offline stays as fallback'**
+  String get aiProvidersEntrySubtitle;
+
+  /// No description provided for @aiProvidersEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No provider configured. The app works fully offline, as before.'**
+  String get aiProvidersEmpty;
+
+  /// No description provided for @aiProviderAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add provider'**
+  String get aiProviderAdd;
+
+  /// No description provided for @aiProviderEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit provider'**
+  String get aiProviderEdit;
+
+  /// No description provided for @aiProviderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get aiProviderLabel;
+
+  /// No description provided for @aiProviderBaseUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL (baseUrl)'**
+  String get aiProviderBaseUrl;
+
+  /// No description provided for @aiProviderApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get aiProviderApiKey;
+
+  /// No description provided for @aiProviderApiKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for a home server'**
+  String get aiProviderApiKeyHint;
+
+  /// No description provided for @aiProviderPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get aiProviderPreset;
+
+  /// No description provided for @aiProviderPresetCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom…'**
+  String get aiProviderPresetCustom;
+
+  /// No description provided for @aiProviderTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get aiProviderTestConnection;
+
+  /// No description provided for @aiProviderConnectionOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get aiProviderConnectionOk;
+
+  /// No description provided for @aiProviderConnectionFail.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection failed'**
+  String get aiProviderConnectionFail;
+
+  /// No description provided for @aiProviderLoadModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Load models'**
+  String get aiProviderLoadModels;
+
+  /// No description provided for @aiProviderModelsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'models'**
+  String get aiProviderModelsLabel;
+
+  /// No description provided for @aiProviderChatModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat / analysis model'**
+  String get aiProviderChatModel;
+
+  /// No description provided for @aiProviderSttModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech-to-text model'**
+  String get aiProviderSttModel;
+
+  /// No description provided for @aiProviderTtsModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Text-to-speech model'**
+  String get aiProviderTtsModel;
+
+  /// No description provided for @aiProviderNoModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Load the model list first'**
+  String get aiProviderNoModels;
+
+  /// No description provided for @aiProviderNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get aiProviderNone;
+
+  /// No description provided for @aiProviderEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get aiProviderEnabled;
+
+  /// No description provided for @aiProviderDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get aiProviderDelete;
+
+  /// No description provided for @aiProviderDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this provider and its settings?'**
+  String get aiProviderDeleteConfirm;
+
+  /// No description provided for @aiRoutingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When to use online models'**
+  String get aiRoutingTitle;
+
+  /// No description provided for @aiRoutingChat.
+  ///
+  /// In en, this message translates to:
+  /// **'AI chat & analysis'**
+  String get aiRoutingChat;
+
+  /// No description provided for @aiRoutingStt.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribe audio files'**
+  String get aiRoutingStt;
+
+  /// No description provided for @aiRoutingTranslation.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation'**
+  String get aiRoutingTranslation;
+
+  /// No description provided for @aiRoutingTts.
+  ///
+  /// In en, this message translates to:
+  /// **'Text-to-speech'**
+  String get aiRoutingTts;
+
+  /// No description provided for @aiRouteOfflineFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline first'**
+  String get aiRouteOfflineFirst;
+
+  /// No description provided for @aiRouteOnlineFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Online first'**
+  String get aiRouteOnlineFirst;
+
+  /// No description provided for @aiRouteOfflineOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline only'**
+  String get aiRouteOfflineOnly;
+
+  /// No description provided for @aiRoutingProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get aiRoutingProvider;
+
+  /// No description provided for @aiProviderSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get aiProviderSave;
+
+  /// No description provided for @aiProviderCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get aiProviderCancel;
+
+  /// No description provided for @aiProvidersPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.'**
+  String get aiProvidersPrivacy;
 }
 
 class _AppLocalizationsDelegate

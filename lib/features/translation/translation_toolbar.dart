@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_translation/google_mlkit_translation.dart';
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/language/app_language.dart';
@@ -347,12 +348,31 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
   bool _hymtBusy = false;
   double _hymtProgress = 0;
 
+  // WP3 (API-004): trạng thái engine LLM (provider + routing). Future tạo
+  // MỘT lần trong initState (FutureBuilder trong build không tạo lại).
+  Future<(AiProviderConfig?, AiRouteMode)>? _llmInfo;
+
   @override
   void initState() {
     super.initState();
     _offlineOnly = widget.service.offlineOnly;
     _enginePref = widget.service.offlineEnginePref;
+    _llmInfo = _loadLlmInfo();
     _loadModels();
+  }
+
+  Future<(AiProviderConfig?, AiRouteMode)> _loadLlmInfo() async {
+    final llm = widget.service.llmMt;
+    if (llm == null) {
+      return (null, AiRouteMode.offlineFirst);
+    }
+    try {
+      final provider = await llm.currentProvider();
+      return (provider, await llm.routeMode());
+    } catch (_) {
+      // Đọc cấu hình lỗi → hiển thị "chưa cấu hình" (an toàn, không crash).
+      return (null, AiRouteMode.offlineFirst);
+    }
   }
 
   @override
@@ -577,6 +597,75 @@ class _TranslationEngineSettingsState extends State<_TranslationEngineSettings> 
                     color: Colors.grey,
                   ),
               ],
+            ),
+            const SizedBox(height: 12),
+            // ── LLM API (WP3/API-004) ────────────────────────────────
+            Text(
+              context.uiText('Dịch bằng LLM (Server & API)'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            FutureBuilder<(AiProviderConfig?, AiRouteMode)>(
+              future: _llmInfo,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+                final info = snapshot.data;
+                final provider = info?.$1;
+                final mode = info?.$2 ?? AiRouteMode.offlineFirst;
+                if (provider == null) {
+                  return Text(
+                    context.uiText(
+                      'Chưa cấu hình — thêm provider trong Cài đặt → Quản lý Model AI → Server & API.',
+                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle,
+                            size: 14, color: widget.accentColor),
+                        const SizedBox(width: 4),
+                        // Label/model là dữ liệu user nhập — không dịch.
+                        Expanded(
+                          child: Text(
+                            '${provider.label} · ${provider.chatModel ?? ''}',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      mode == AiRouteMode.onlineFirst
+                          ? context.uiText(
+                              'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.',
+                            )
+                          : context.uiText(
+                              'Routing Dịch: Ưu tiên offline — LLM chạy sau Hy-MT/ML Kit, trước từ điển.',
+                            ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             // ── Chỉ offline ────────────────────────────────────────────

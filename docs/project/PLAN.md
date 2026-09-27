@@ -982,3 +982,61 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
+
+### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
+  cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
+  model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
+  cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
+- Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
+- Kiến trúc (ADR-0008):
+  - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
+    (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
+    Speaches/Kokoro). BYOK — app không kèm key; mặc định TẮT + offlineFirst.
+  - Routing từng năng lực: offlineFirst (mặc định) / onlineFirst /
+    offlineOnly + fallback 2 chiều. Giữ on-device: live STT (Zipformer),
+    VAD Silero, ML Kit + engine offline (lớp fallback cuối).
+  - Engine remote cắm vào interface có sẵn: AiEngine (WP1), SttEngine (WP2),
+    TranslationEngine (WP3), TtsEngine (WP4) — không viết lại facade.
+  - Bảo mật: cleartext http chỉ host nội bộ; không log key; apiKey tạm
+    SharedPreferences (chờ duyệt flutter_secure_storage để migrate).
+- Work package (chi tiết đầy đủ `PROMPT_AGENT_SERVER_API.md`):
+  - WP0 (API-001) — nền: ADR + provider store + client + màn "Server & API"
+    (test `/v1/models`, model list động, routing prefs). KHÔNG đụng engine.
+  - WP1 (API-002) — AiEngineRemote: chat/analysis + SSE streaming, fallback
+    Gemma/mock. WP2 (API-003) — SttEngineRemote: bóc băng file dài theo chunk
+    VAD, ghi cùng LRC cache. WP3 (API-004) — LlmMtEngine dịch (giữ slot
+    glossary `__G{n}__`). WP4 (API-005) — TTS OpenAI-compat vào engine-order.
+    WP5 (API-006, tùy chọn) — docker-compose "Server Box" cho LAN.
+- Lịch sử:
+  - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
+    `docs/server_api_tu_van.md` + prompt giao việc + ADR-0008 + code WP0
+  - 2026-09-27 | WP3 (API-004) code | agent arena/01a0df5e-in4up | WP0 đã
+    xong (API-001 done); code WP3 trên nhánh con của tip WP0:
+    `LlmMtEngine` (giữ slot `__G{n}__`, routing chèn chuỗi dịch) +
+    `chatCompletion` vào client WP0 + test thuần — chi tiết card API-004
+    trong KANBAN
+  - 2026-09-28 | merge leader 251e | agent arena/01a0df5e-in4up | pull
+    `origin/arena/01a0251e-in4up` vào nhánh WP3; adopt numbering của leader
+    cho plan này (PLAN-031→032, ADR-0007→0008) — nội dung WP3 không đổi
+### PLAN-031 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
+- *(Số cũ PLAN-029 — đổi thành 031 ngày 2026-09-27 khi gộp nhánh tích hợp `arena/01a0251e-in4up`,
+  vì 251e đã dùng PLAN-029 cho LHB-006 và PLAN-030 cho Cabin Save.)*
+- **Nguồn:** người sở hữu (2026-09-24, qua agent `arena/01a0d344-in4up`).
+- **Yêu cầu:** nhận diện **cụm** (NP/VP/AdvP/"cụm …") + **cấu trúc câu** (hỏi/khẳng định/phủ định;
+  thì quá–hiện–vị; hoàn thành; tiếp diễn) + **công thức** `S + V + …`, gắn đúng chỗ badge
+  "Loại từ · CEFR" trong tab Đọc.
+- **Trạng thái:** 📋 proposed — kế hoạch đầy đủ ở `docs/project/PLAN-031-cau-truc-cau-read-tab.md`;
+  ADR: `docs/adr/0007-cau-truc-cau-lop-rieng-line-first.md`; KANBAN: `READ-GRAM-001`.
+- **Đặc tả đã kiểm chứng:** `tool/grammar_probe/` (engine + 3 corpus JSON + runner). Số **trung thực**
+  trên bộ đóng băng: **17/25 case (68%)** lúc đóng băng; **18/25 (72%)** sau khi người sở hữu chốt
+  quy ước câu hỏi đuôi (đổi do quy ước, không do engine). 7 lỗi còn lại ⇒ 3 nguyên nhân gốc.
+- **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng + nút bật/tắt nhanh
+  trên thanh công cụ đáy (2–2,5 ngày) → P3 panel + block AI (1–2 ngày).
+- **Đã chốt (2026-09-24):** câu hỏi đuôi = "khẳng định + hỏi đuôi"; câu vắt dòng = phân tích theo dòng
+  rồi ghép ở P2; khối trong sheet ON, nhãn cấp dòng OFF **kèm nút bật/tắt nhanh trên thanh công cụ**.
+- **Lịch sử:**
+  - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | spike + kế hoạch; chờ chốt 3 điểm §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
+    kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu
+

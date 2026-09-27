@@ -983,8 +983,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
 
-### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)
-- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
+### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
   cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
   model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
   cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
@@ -1011,6 +1010,14 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
     `docs/server_api_tu_van.md` + prompt giao việc + ADR-0008 + code WP0
+  - 2026-09-27 | WP3 (API-004) code | agent arena/01a0df5e-in4up | WP0 đã
+    xong (API-001 done); code WP3 trên nhánh con của tip WP0:
+    `LlmMtEngine` (giữ slot `__G{n}__`, routing chèn chuỗi dịch) +
+    `chatCompletion` vào client WP0 + test thuần — chi tiết card API-004
+    trong KANBAN
+  - 2026-09-28 | merge leader 251e | agent arena/01a0df5e-in4up | pull
+    `origin/arena/01a0251e-in4up` vào nhánh WP3; adopt numbering của leader
+    cho plan này (PLAN-031→032, ADR-0007→0008) — nội dung WP3 không đổi
 ### PLAN-031 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
 - *(Số cũ PLAN-029 — đổi thành 031 ngày 2026-09-27 khi gộp nhánh tích hợp `arena/01a0251e-in4up`,
   vì 251e đã dùng PLAN-029 cho LHB-006 và PLAN-030 cho Cabin Save.)*

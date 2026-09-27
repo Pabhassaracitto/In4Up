@@ -59,6 +59,18 @@ class AiApiException implements Exception {
   String toString() => 'AiApiException($code): $message';
 }
 
+/// 1 tin nhắn chat completions (role + content) — đủ cho caller tầng API
+/// (WP3 dịch: system + user). KHÔNG tái dùng `ChatMessage` của UI (id/
+/// createdAt/isError không thuộc tầng này).
+class OpenAiChatMessage {
+  /// 'system' | 'user' | 'assistant'
+  final String role;
+  final String content;
+  const OpenAiChatMessage(this.role, this.content);
+
+  Map<String, dynamic> toJson() => {'role': role, 'content': content};
+}
+
 /// Kết quả kiểm tra kết nối.
 class AiProviderHealth {
   final bool ok;
@@ -256,6 +268,116 @@ class OpenAiCompatClient {
   @visibleForTesting
   static List<String> parseModelsBody(String body) =>
       const OpenAiModelsParser().parse(body);
+
+  /// POST /v1/chat/completions (KHÔNG stream) — WP3 (API-004) dịch bằng LLM.
+  ///
+  /// Trả về text content của trợ lý (`choices[0].message.content`).
+  /// Mọi nhánh lỗi throw [AiApiException] mã cấu trúc — caller map sang
+  /// errorCode của mình, không match chuỗi.
+  ///
+  /// Timeout mặc định 90s: dịch 1 chunk ~2000 ký tự cần hữu hạn nhưng
+  /// thoáng hơn health/list (model chậm trên server nhà vẫn kịp trả).
+  Future<String> chatCompletion({
+    required String model,
+    required List<OpenAiChatMessage> messages,
+    double? temperature,
+    int? maxTokens,
+    Duration timeout = const Duration(seconds: 90),
+  }) async {
+    _validateBase();
+    final body = <String, dynamic>{
+      'model': model,
+      'messages': [for (final m in messages) m.toJson()],
+      if (temperature != null) 'temperature': temperature,
+      if (maxTokens != null) 'max_tokens': maxTokens,
+    };
+    http.Response response;
+    try {
+      response = await _httpClient
+          .post(_uri('/chat/completions'),
+              headers: _headers(), body: jsonEncode(body))
+          .timeout(timeout);
+    } on TimeoutException {
+      throw AiApiException(AiApiErrorCode.timeout,
+          'Chat completion timed out after ${timeout.inSeconds}s');
+    } on http.ClientException catch (e) {
+      throw AiApiException(AiApiErrorCode.noNetwork, e.message);
+    }
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw AiApiException(AiApiErrorCode.unauthorized,
+          'Unauthorized (HTTP ${response.statusCode}) — check API key',
+          statusCode: response.statusCode);
+    }
+    if (response.statusCode == 429) {
+      throw const AiApiException(
+          AiApiErrorCode.rateLimited, 'Rate limited (HTTP 429)',
+          statusCode: 429);
+    }
+    if (response.statusCode != 200) {
+      throw AiApiException(AiApiErrorCode.httpError,
+          'HTTP ${response.statusCode} from chat completions',
+          statusCode: response.statusCode);
+    }
+    return parseChatContent(response.body);
+  }
+
+  /// Parse body /v1/chat/completions → content text của trợ lý.
+  ///
+  /// Chấp nhận: `choices[0].message.content` là String; content là List
+  /// parts (một số lớp compat trả kiểu vision) — ghép phần text; biến thể
+  /// legacy `choices[0].text`. Sai cấu trúc → [AiApiErrorCode.invalidResponse].
+  static String parseChatContent(String body) {
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(body);
+    } catch (_) {
+      throw const AiApiException(
+          AiApiErrorCode.invalidResponse, 'Chat completion body is not JSON');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw const AiApiException(AiApiErrorCode.invalidResponse,
+          'Chat completion body is not a JSON object');
+    }
+    final choices = decoded['choices'];
+    if (choices is! List || choices.isEmpty) {
+      throw const AiApiException(AiApiErrorCode.invalidResponse,
+          'Chat completion has no "choices"');
+    }
+    final first = choices.first;
+    if (first is! Map) {
+      throw const AiApiException(
+          AiApiErrorCode.invalidResponse, 'Choice #0 is not an object');
+    }
+    final message = first['message'];
+    String? content;
+    if (message is Map) {
+      content = _contentToString(message['content']);
+    }
+    content ??= _contentToString(first['text']);
+    if (content == null || content.isEmpty) {
+      throw const AiApiException(
+          AiApiErrorCode.invalidResponse, 'Chat completion has no content');
+    }
+    return content;
+  }
+
+  static String? _contentToString(dynamic content) {
+    if (content is String) return content;
+    if (content is List) {
+      final buffer = StringBuffer();
+      for (final part in content) {
+        if (part is Map) {
+          final text = part['text'] ?? part['content'];
+          if (text is String) buffer.write(text);
+        } else if (part is String) {
+          buffer.write(part);
+        }
+      }
+      final joined = buffer.toString();
+      return joined.isEmpty ? null : joined;
+    }
+    return null;
+  }
 }
 
 /// Tách riêng để test thuần (không cần network).

@@ -12,7 +12,7 @@
 | API-003 | WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — SttEngineRemote + chunk theo VAD + cùng cache LRC | 🔨 doing (code xong, CI xanh run 36339966096; còn thiếu nghiệm thu thiết bị thật) | arena/01a0df5d-in4up (nhánh session này) |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose | ✅ done (chờ nghiệm thu máy LAN) | `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
-| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36270893400 (`fca1965`, arena/01a0df5f-in4up) |
+| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key dùng store chung WP0 | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36346438089 🟢 trên stack mới (`01d7479`, arena/01a0df5f-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -358,6 +358,12 @@
     chạy (app_analyze chỉ chạy 4 bộ test cố định — owner duyệt thêm nếu
     muốn đưa vào CI, tiền lệ API-001); còn AT thiết bị: chọn Kokoro LAN hoặc
     OpenAI tts-1 → đọc VI/EN + kéo thả ưu tiên trên máy thật
+  - 2026-09-28 | done (đổi nền) | agent arena/01a0df5f-in4up | mở PR thấy đáy
+    stack đã tiến: 251e merge vào 01a0ddd1 + #53 (API-003/WP2) ⇒ rebase 2
+    commit lên 2fecdb0; xử 2 conflict: client (giữ GHÉP import dart:io của
+    WP2 + dart:typed_data của WP4 — method transcribe/chat/speech cùng
+    trú 1 client) + KANBAN (giữ nguyên card API-003/API-006/số ADR-0008,
+    chèn card API-005); CI xác nhận lại: run 36346438089 🟢
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

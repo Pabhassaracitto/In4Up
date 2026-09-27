@@ -1,6 +1,6 @@
 // lib/features/translation/engines/llm_mt_engine.dart
 //
-// WP3 (API-004) — Dịch bằng LLM qua tầng Server API (ADR-0007).
+// WP3 (API-004) — Dịch bằng LLM qua tầng Server API (ADR-0008).
 // Mục tiêu: chất lượng dịch (nhất là Pali/chuyên ngữ Phật học) tốt hơn
 // Hy-MT; giảm nhu cầu giữ model 600MB trên máy.
 //
@@ -13,7 +13,7 @@
 //   engine tự fail nhanh với mã cấu trúc → chuỗi fallback hiện có
 //   (DeepLX → Google → … → Hy-MT → ML Kit → Offline) NGUYÊN VẸN.
 //
-// Vị trí chèn theo routing (ADR-0007, AiRouteCapability.translation) —
+// Vị trí chèn theo routing (ADR-0008, AiRouteCapability.translation) —
 // service đọc [runsBeforeFreeOnlineEngines]:
 // - onlineFirst  → TRƯỚC các engine online miễn phí (DeepLX/Google/…).
 // - offlineFirst (mặc định) → SAU Hy-MT + ML Kit, TRƯỚC từ điển offline
@@ -151,7 +151,7 @@ abstract class LlmMtBackend {
 }
 
 /// Backend thật: dùng ĐÚNG client OpenAI-compat duy nhất của tầng API
-/// (ADR-0007 — WP thêm method vào client, không tạo client thứ 2).
+/// (ADR-0008 — WP thêm method vào client, không tạo client thứ 2).
 /// Client không giữ connection dài hạn → tạo theo request là đủ.
 class OpenAiCompatChatBackend implements LlmMtBackend {
   const OpenAiCompatChatBackend();

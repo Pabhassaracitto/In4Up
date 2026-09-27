@@ -1,0 +1,42 @@
+# VipSound Source-Available License (Non-Commercial)
+
+Copyright © 2024 the VipSound authors.
+
+## 1. Grant of Rights
+
+Subject to the terms of this License, you are hereby granted a worldwide,
+royalty-free, non-exclusive, revocable license to use, copy, modify, and
+distribute the source code and compiled binaries of VipSound (the "Software")
+for the following purposes only:
+
+- Personal use;
+- Educational use;
+- Non-commercial academic or research use.
+
+## 2. Restrictions
+
+You may **not**, without prior written permission from the author:
+
+- Use the Software, in whole or in part, for any commercial purpose;
+- Sell, sublicense, or otherwise monetize the Software or derivatives of it;
+- Use the Software to provide a hosted or managed service to third parties
+  for commercial gain.
+
+## 3. Conditions
+
+- Any redistribution of the Software, modified or unmodified, must include a
+  copy of this License and retain all copyright, trademark, and attribution
+  notices.
+- The Software is provided "AS IS", without warranty of any kind, express or
+  implied, including but not limited to the warranties of merchantability,
+  fitness for a particular purpose, and non-infringement.
+- The author shall not be liable for any claim, damages, or other liability
+  arising from the use of the Software.
+
+## 4. Commercial Use
+
+Commercial use of VipSound, in whole or in part, requires prior written
+permission from the author. To request a commercial license, contact the
+project maintainer.
+
+By using the Software, you agree to the terms of this License.

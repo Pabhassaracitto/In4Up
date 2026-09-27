@@ -269,7 +269,7 @@ cảm nhận ngay (chat streaming), và prove toàn bộ nền P0 hoạt động
 `packages/in4up_ai/lib/src/` (client + remote engine + provider store),
 `packages/in4up_stt/lib/stt_engine_registry.dart` (đăng ký `RemoteSttEngine`),
 `lib/screens/settings/` (màn Server & API mới), `lib/l10n/*.arb` (chuỗi mới,
-đủ 4 locale T2), `docs/adr/0007-server-api-layer.md`, `docs/project/KANBAN.md`.
+đủ 4 locale T2), `docs/adr/0008-server-api-layer.md`, `docs/project/KANBAN.md`.
 
 ---
 

@@ -8,8 +8,8 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
-| API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
-| API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0007) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
+| API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -96,16 +96,19 @@
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
 | READ-IPA-004 | Tô màu phoneme (derived Okabe-Ito) + legend + mờ IPA từ đã thuộc (MasteryZone) | ✅ done | commit `f149237` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); 2 toggle opt-in OFF + legend |
 | READ-IPA-005 | G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói | 📋 proposed | theo ADR-0005 §6 — cần asset content VI/Pali + ADR riêng, tách đợt sau |
+| READ-IPA-006 | Panel màu IPA tương tác (ẩn từng loại, default bật hết) + màu NỐI ÂM + đánh dấu từ nhấn | 🔄 doing | code xong chờ CI + nghiệm thu (branch arena/01a0d33c-in4up) |
+| READ-GRAM-001 | Cấu trúc câu + cụm từ trong tab Đọc (chỗ "Loại từ, CEFR"): cụm NP/VP/AdvP/… + hỏi/khẳng định/phủ định + thì–thể–thái + công thức S+V+… | 📋 proposed (KẾ HOẠCH, chưa code) | đặc tả + spike chạy được: `tool/grammar_probe/` (engine.py + 3 corpus JSON); đo TRUNG THỰC trên bộ đóng băng = 17/25 case (68%; 18/25 sau khi chốt quy ước hỏi đuôi), 8 lỗi phân loại thành 4 nguyên nhân gốc; PLAN-031 + ADR-0007 |
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
+| DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
 
 
 ## Card chi tiết
 
-### API-001 — WP0: nền tảng Server API (ADR-0007) — cấu hình provider + client OpenAI-compat + màn Server & API
+### API-001 — WP0: nền tảng Server API (ADR-0008) — cấu hình provider + client OpenAI-compat + màn Server & API
 - **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run 36268246588; còn nghiệm thu thiết bị theo AT)
-- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-031,
-  ADR-0007, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
+- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-032,
+  ADR-0008, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
 - **Nội dung:**
   - `packages/in4up_ai/lib/src/provider/` (mới): `AiProviderConfig` /
     `AiRouteMode` {offlineFirst, onlineFirst, offlineOnly} /
@@ -125,7 +128,7 @@
   không lộ logcat; CI App Analyze + Locale xanh.
 - **Lịch sử:**
   - 2026-09-27 | created→doing | agent arena/01a0ddd1-in4up | code WP0 +
-    ADR-0007 + PLAN-031; chờ CI run đầu tiên
+    ADR-0008 + PLAN-032; chờ CI run đầu tiên
   - 2026-09-27 | doing (1 run đỏ) | agent arena/01a0ddd1-in4up | run
     36267897524 đỏ test ratchet ADR-0002: 38 key mới English ở 20 locale
     T3 làm độ phủ tụt dưới sàn → fix theo tiền lệ sound_*: thêm key vào
@@ -140,7 +143,7 @@
 
 ### API-004 — WP3: Dịch bằng LLM qua tầng Server API (LlmMtEngine implements TranslationEngine)
 - **Trạng thái:** ✅ done (code + CI 🟢 run 36270711178: analyze + rule #5 + LHB + Cabin — xanh ngay run đầu; còn owner nghiệm thu chất lượng 3 đoạn Pali/chuyên ngữ với provider thật + AT thiết bị).
-- **Nguồn:** owner (2026-09-26/27) — `PROMPT_AGENT_SERVER_API.md` §6 (WP3), PLAN-031, ADR-0007.
+- **Nguồn:** owner (2026-09-26/27) — `PROMPT_AGENT_SERVER_API.md` §6 (WP3), PLAN-032, ADR-0008.
 - **Nội dung:**
   - `lib/features/translation/engines/llm_mt_engine.dart` (mới): implements
     `TranslationEngine` (name/id/isAvailable/translate/maxCharsPerRequest=2000/
@@ -206,6 +209,11 @@
     định — owner duyệt thêm nếu muốn đưa vào CI). Còn: owner nghiệm thu
     chất lượng 3 đoạn Pali (cần provider thật: Gemini/Groq/Ollama qwen +
     routing Dịch = Ưu tiên online), AT thiết bị
+  - 2026-09-28 | merge leader 251e | agent arena/01a0df5e-in4up | pull
+    `origin/arena/01a0251e-in4up` vào nhánh WP3 (tiền nghiệm thu PR):
+    adopt numbering của leader (ADR-0007→0008, PLAN-031→PLAN-032 cho tầng
+    Server API), bỏ file ADR-0007 trùng (leader đã có bản 0008), cập nhật
+    tham chiếu trong code + card; nội dung engine/test không đổi
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done
@@ -3379,6 +3387,51 @@
   - 2026-09-23 | 16:35 | proposed→doing | ai | code P4 (IpaStyling + toggles + legend)
   - 2026-09-23 | 16:39 | doing→done | ai | commit f149237 (+ fcdc037); run 35890021728 🟢
 
+### READ-GRAM-001 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR")
+
+- **Trạng thái:** 📋 proposed — **chỉ KẾ HOẠCH, KHÔNG code trong đợt này.**
+- **Bằng chứng (đặc tả đã kiểm chứng):**
+  - `tool/grammar_probe/engine.py` — đặc tả thuật toán chạy được (Python; sandbox không có Dart SDK).
+  - `tool/grammar_probe/run_probe.py` — đo từng trường + runtime, `exit 1` khi lệch (dùng như golden test).
+  - 3 bộ corpus: `corpus.json` (65 case, tinh chỉnh ⇒ 0 sai — KHÔNG phải ước lượng tổng quát hoá),
+    `holdout.json` (30 case), `holdout2.json` (**đóng băng**, chạy 1 lần, không sửa engine sau đó).
+  - **Số trung thực:** bộ đóng băng `holdout2` = **17/25 case đúng trọn (68%)** lúc đóng băng;
+    sau khi người sở hữu chốt quy ước *câu hỏi đuôi = khẳng định + hỏi đuôi* (2026-09-24) ⇒ **18/25 (72%)**
+    (1 case đổi vì QUY ƯỚC, không phải vì engine giỏi hơn);
+    tense 11/11, pattern 5/5, polarity 3/3, voice 3/3, question 3/3, phrase.kind 23/25,
+    phrase.span 21/25; runtime ~286 µs/câu (Python, max 730 µs).
+  - 8 lỗi ⇒ 4 nguyên nhân gốc (PLAN-031 §7.1): (A) PP vị trí ngoài cụm; (B) trạng từ chen trong
+    nhóm động từ + thiếu semi-modal `would rather`; (C) quy ước câu hỏi đuôi chưa chốt;
+    (D) quan hệ zero + thiếu từ vựng (bản Dart tự khỏi nhờ `GrammarLexiconService`).
+- **Nội dung dự kiến:**
+  - **P1:** `SentenceStructureService` (thuần Dart, tái dùng `SyntaxHighlighterService` +
+    `GrammarLexiconService` + `TextSegmenter`) → cụm NP/VP/PHRASAL_V/PP/AdjP/AdvP/GerP/InfP/PartP
+    + cụm bao ngoài + loại câu + thì–thể–thái–modal + công thức; **section gập trong
+    `word_actions_sheet.dart` ngay dưới badge "Loại từ · CEFR"** (không đổi thứ tự section cũ).
+  - **P2:** sửa 4 nguyên nhân gốc + `SentenceJoiner` (side-table cho câu vắt dòng, KHÔNG đổi
+    `TextItem`) + nhãn cấp dòng (mặc định OFF) + **nút bật/tắt nhanh trên `read_bottom_bar.dart`
+    cạnh nút IPA** (xoay `Tắt → Dòng hiện tại → Toàn văn bản`, theo khuôn `IpaDisplayMode`) +
+    nhóm cài đặt "Cấu trúc câu"; key `sentence_structure_settings_v1`.
+  - **P3:** panel "Cấu trúc câu" + block "Giải thích chi tiết (AI)" (dùng façade `sentenceParse`
+    đã có; luật là nhãn chính, AI là block riêng, không trộn).
+  - Precision-first: `confidence` + ẩn nhãn khi yếu; ngôn ngữ ≠ EN ⇒ `supported=false` + câu nhắc.
+  - i18n luật #5 (vi nguồn → en fallback + ưu tiên en/hi/zh/zh_TW/si) + test cổng.
+- **Kèm theo:** `docs/project/PLAN-031-cau-truc-cau-read-tab.md`, `docs/adr/0006-*.md`.
+- **Lịch sử:**
+  - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | yêu cầu người sở hữu; spike + 3 corpus
+    + số đo trung thực; chờ chốt 3 điểm ở PLAN-031 §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.1: câu hỏi
+    đuôi = "khẳng định + hỏi đuôi" (`type=declarative` + `question=tag`) ⇒ áp vào engine + corpus;
+    bộ đóng băng 17/25 → 18/25 (đổi do quy ước).
+  - 2026-09-27 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | gộp nhánh tích hợp
+    `arena/01a0251e-in4up` về nhánh làm việc (giữ đủ cả hai phía ở KANBAN/PLAN theo luật append-only);
+    đổi số `PLAN-029 → PLAN-031`, `ADR-0006 → ADR-0007` (251e đã dùng các số đó cho LHB-006 /
+    Cabin Save). Nội dung kế hoạch không đổi.
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | người sở hữu CHỐT §10.2 + §10.3:
+    câu vắt dòng chọn (a) phân tích theo dòng rồi ghép ở P2; khối trong sheet ON; nhãn cấp dòng OFF
+    **kèm nút bật/tắt nhanh trên thanh công cụ đáy** (không phải vào Cài đặt). Kế hoạch đã đủ điều
+    kiện để code P1 — **chờ lệnh bắt đầu code của người sở hữu**.
+
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 
 - **Trạng thái:** 📋 proposed — **KHÔNG code trong đợt này.**
@@ -3390,6 +3443,62 @@
 - **Lịch sử:**
   - 2026-09-23 | 16:05 | created→proposed | ai | ADR-0005 §6 — blocked on packaged VI/Pali dicts
 
+### READ-IPA-006 — Panel màu IPA tương tác + nối âm (liaison) + từ nhấn
+
+- **Trạng thái:** 🔄 doing (code xong, chờ CI + nghiệm thu build)
+
+  Yêu cầu người dùng (INA 2 Lưu Từ — 4 mục, branch `arena/01a0d33c-in4up`):
+
+  1. **Khi dịch IPA toàn văn bị thiếu dòng:** ✅ đã sửa — root cause đã được
+     xác nhận bằng chẩn đoán Gemini (screenshot dòng 33–36 không có IPA):
+     `_computeSegments` hợp đồng P1 CŨ trả `null` CẢ DÒNG khi có token không
+     khớp `^[A-Za-z][A-Za-z']*$` (từ Pali/Sanskrit có dấu `cetanā`,
+     `(kusa la)`; hoặc dính dấu câu `consciousness.If`, `wholesome(kusa`).
+     SỬA: bỏ short-circuit toàn dòng → tách token theo run chữ, từ Anh vẫn có
+     IPA, phần ngoại/dấu câu thành segment surface-only (skip, render nguyên
+     văn ở interlinear); CHỈ dòng không có từ ASCII nào (thuần Việt/Pali) mới
+     null. Chú giải Pali thường bọc ngoặc trải dài nhiều token
+     (`wholesome(kusa la),`) → theo dõi độ sâu `(` để không tra IPA sai cho
+     `kusa`/`la`. Test mở rộng `line_ipa_service_test.dart` (Pali/diacritic +
+     glue punctuation + dòng lẫn Anh/Việt; sửa 1 test cache tiềm ẩn sai
+     counts vì chưa từng chạy do thiếu SDK).
+
+  2. **Bảng thông tin màu IPA:** ✅
+     - `IpaLegendStrip` — dải chip màu ngay dưới TopBar Read Mode, mỗi loại
+       (nguyên âm/phụ âm/đôi nguyên âm/trọng âm/nối âm/từ nhấn) là 1 chip
+       bật/tắt, MẶC ĐỊNH BẬT HẾT.
+     - Ẩn/bật cả bảng: nút “Màu IPA” trên TopBar + nút X + switch trong
+       Settings → IPA; persist `ipa_legend_visible`.
+     - `IpaColorVisibility` (model) + persist `ipa_color_visibility` (JSON).
+     - Cùng toggle chip trong Settings → IPA (đồng bộ với strip).
+     - Bỏ widget animation (READ-TOOLBAR-001).
+
+  3. **Màu nối âm (liaison C→V):** ✅ — người dùng chốt nghĩa là **nối âm**
+     chứ KHÔNG phải “liên từ/function word”. Khi từ trước kết thúc phụ âm và
+     từ sau bắt đầu nguyên âm: phụ âm cuối + nguyên âm đầu được tô
+     deep-orange (`0xFFFF7043`) + underline. `IpaStyling.detectLinkMarks`
+     quét ký tự IPA thật, KHÔNG phụ thuộc phoneme list.
+
+  4. **Từ/cụm được nhấn trong câu:** ✅ (xấp xỉ) — KHÔNG có word-timestamp
+     (bị strip lúc parse, ADR-0005 §3) nên đánh dấu **trọng âm chính `ˈ`**
+     bằng gạch trên (overline) đúng âm tiết nhấn; `IpaStressAnnotator` bỏ
+     trọng âm phụ `ˌ` và function word bảng dừng (can/to/that/for…) để không
+     lẫn lộn. Toggle riêng `stressWords` (default ON). KHÔNG hứa chính xác
+     sentence stress (dữ liệu nguồn là dictionary form).
+
+- **Phạm vi thay đổi:** `lib/models/ipa_color_visibility.dart` (mới),
+  `lib/services/ipa_styling.dart` (P1/P2/P3 + markRanges primitive),
+  `lib/services/ipa_stress_annotator.dart` (mới),
+  `lib/screens/read_mode/widgets/ipa_legend_strip.dart` (mới),
+  `read_top_bar.dart`, `read_mode_screen.dart`, `read_settings_sheet.dart`,
+  `text_line_widget.dart`, `lib/providers/text_provider.dart`,
+  `lib/services/storage_service.dart`, i18n (`priority_ui_overrides.dart`).
+  Tests: `ipa_styling_test.dart` (mở rộng), `ipa_color_visibility_test.dart`
+  (mới), `ipa_stress_annotator_test.dart` (mới).
+
+- **Lịch sử:**
+  - 2026-09-24 | created→doing | ai | theo yêu cầu IPA 2 (4 mục) trên arena/01a0d33c-in4up
+  - 2026-09-25 | doing | ai | item 1 — xác nhận root cause (LineIpaService bỏ CẢ DÒNG khi token lạ) theo chẩn đoán Gemini; sửa `_computeSegments` thành token-level fallback (tách run chữ, skip từ ngoại/dấu câu, giữ nguyên dòng); mở rộng test Pali/diacritic + glue punctuation; sửa 1 test cache thiếu count
 ### READ-IMPORT-001 — I4U | Read Import Many
 
 - **Trạng thái:** 🔄 doing — chờ Flutter format/analyze/test và QA giao diện.
@@ -3494,3 +3603,37 @@
 - **Lịch sử:**
   - 2026-09-23 | created→done (fix YAML) | agent arena/01a0d016-in4up | commit
     `dfac0e2`; PR #42; xác nhận không còn run `build.yml` đỏ 0s sau commit
+
+### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
+
+- **Trạng thái:** done (chờ owner duyệt nội dung + chốt tên trên file `LICENSE`)
+- **Nguồn:** owner (2026-09-28) qua agent `arena/01a0e2c8-in4up` — "thiết lập readme
+  đúng với tiến độ hiện tại và các chức năng mới" (góc nhìn tâm lý học · màu sắc ·
+  bố cục · IT · CEO).
+- **Nội dung:**
+  - `README.md` (English — trang chủ repo) + `README.vi.md` (tiếng Việt đầy đủ,
+    ngang hàng), có link chuyển ngôn ngữ hai chiều ở đầu trang.
+  - **Bảng tiến độ** chụp từ KANBAN ngày 28-09-2026: 88 thẻ (60 done · 19 doing ·
+    6 proposed · 3 blocked), M0–M2 done, ADR-0001→0008, 32 mục PLAN, 81 file test,
+    26 locale × 492 key, ~600 file Dart.
+  - Bản đồ **7 chế độ Phòng Studio** + 5 đích điều hướng + quick actions; mục
+    "vừa hoàn thành" gom theo 4 cụm (âm thanh/speech · đọc/IPA · tri thức/AI ·
+    shell/nền tảng), mỗi gạch đầu dòng gắn mã thẻ Kanban để tra ngược.
+  - **Hệ thiết kế:** token màu thương hiệu (brand/identity) + màu 7 mode lấy đúng
+    từ `home_screen.dart`, nguyên tắc bố cục responsive, Okabe-Ito + quy ước
+    "mọi tín hiệu màu đều có bạn đồng hành phi màu sắc".
+  - Bảng model offline (theo `docs/project/MODELS.md`), 2 sơ đồ mermaid (vòng học
+    + kiến trúc), cổng chất lượng CI, lộ trình, quy tắc vàng, bản đồ tài liệu
+    quản trị cho người & agent.
+  - Trạng thái được ghi **trung thực**: ✅ đã xong/CI xanh · 🔄 đang làm ·
+    📋 kế hoạch · 🚫 nghẽn — không tô hồng mục còn chờ nghiệm thu máy.
+- **Phát hiện phụ (cần owner quyết):** trunk **không có file `LICENSE`** dù README
+  cũ vẫn link tới ⇒ đã khôi phục **nguyên văn** từ `origin/main`. File vẫn mang tên
+  *"VipSound Source-Available License (Non-Commercial)"* — đổi tên sang In4Up là
+  văn bản pháp lý, agent KHÔNG tự sửa; README hiện gọi trung tính là
+  "Source-Available License (Non-Commercial)".
+- **Không đụng:** `lib/**`, CI, engine, governance (chỉ thêm đúng thẻ này).
+- **Lịch sử:**
+  - 2026-09-28 | created→done | agent arena/01a0e2c8-in4up | `README.md` +
+    `README.vi.md` + khôi phục `LICENSE`; nhánh đồng bộ từ `arena/01a0251e-in4up`
+    (53b57ab) để README khớp đúng code đang chạy

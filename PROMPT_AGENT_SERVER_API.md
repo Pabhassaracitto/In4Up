@@ -129,10 +129,10 @@ TỔNG QUÁT HOÁ 2 mẫu đó thành 1 khối cấu hình dùng chung.
 Sau WP0, app hành xử **y hệt hôm nay** khi user chưa cấu hình gì.
 
 **Bước làm:**
-1. **ADR-0007** (`docs/adr/0007-server-api-layer.md`, xem mẫu format ADR-0006):
+1. **ADR-0008** (`docs/adr/0008-server-api-layer.md`, xem mẫu format ADR-0006):
    chốt OpenAI-compat là chuẩn, BYOK, offline-first routing, lưu key ở đâu
    (secure storage chờ duyệt → tạm SharedPreferences), cleartext chỉ LAN.
-   Đồng thời append **PLAN-031** vào `docs/project/PLAN.md` (milestone này,
+   Đồng thời append **PLAN-032** vào `docs/project/PLAN.md` (milestone này,
    nguồn: owner 2026-09-26 qua agent arena/01a0ddd1-in4up).
 2. `packages/in4up_ai/lib/src/provider/` (mới):
    - `ai_provider_config.dart`: `AiProviderConfig` (id, label, baseUrl,

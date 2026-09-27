@@ -21,6 +21,7 @@ import '../features/youtube/youtube_sheet.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
+import '../services/battery_optimization_service.dart';
 import '../services/storage_service.dart';
 import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
@@ -96,6 +97,8 @@ class _MainShellState extends State<MainShell> {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
       _scheduleShellHintIfNeeded();
+      // BATTERY-OPT-001: xin miễn tối ưu pin (models STT/AI chạy ngầm).
+      unawaited(BatteryOptimizationService.maybeRequestOnStartup(context));
     });
   }
 

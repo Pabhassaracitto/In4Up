@@ -492,7 +492,7 @@ class TranslationService {
 
   /// Engine chain của MỘT bước — mặc định THÔNG MINH:
   ///   0) LLM API (WP3/API-004) — CHỈ khi routing translation =
-  ///      onlineFirst: API chạy TRƯỚC mọi engine khác (ADR-0007).
+  ///      onlineFirst: API chạy TRƯỚC mọi engine khác (ADR-0008).
   ///   1) ONLINE engines (có mạng + không khóa "chỉ offline") — thử trước;
   ///      online luôn tốt hơn về chất lượng cặp ngôn ngữ mà model offline
   ///      không phủ (vd EN→HI, HI→VI...).

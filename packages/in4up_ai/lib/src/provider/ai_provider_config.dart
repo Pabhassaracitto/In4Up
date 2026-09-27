@@ -3,7 +3,7 @@
 // WP0 (API-001) — Cấu hình nhà cung cấp AI (cloud hoặc server LAN) + chính
 // sách định tuyến offline/online cho từng năng lực.
 //
-// Nguyên tắc (ADR-0007):
+// Nguyên tắc (ADR-0008):
 // - App KHÔNG kèm key nào (BYOK) — user tự nhập.
 // - Mặc định: DANH SÁCH RỖNG + mọi năng lực offlineFirst → chưa cấu hình thì
 //   app hành xử y hệt trước khi có tầng API.

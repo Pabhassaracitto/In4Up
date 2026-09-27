@@ -239,11 +239,19 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// nhận diện ngôn ngữ (đa ngữ: vi/en/zh/ja/ko/pi...); hoặc gán cụ thể
   /// ('vi', 'en'...) khi muốn ép ngôn ngữ. Trước đây hardcode 'en' —
   /// file tiếng Việt bị transcribe sai ngôn ngữ.
+  /// [useRemote]: WP2 (API-003) — bóc băng qua API (Groq whisper-large-v3 /
+  /// Speaches tự host) thay vì Whisper on-device. `SttServiceFacade` tự lo
+  /// routing/fallback (xem `_runRemoteEngineOrFallback`); engine remote tự
+  /// chunk file dài theo VAD nội bộ (`SttEngineRemote`/`SttRemoteChunkPlanner`)
+  /// — vì vậy khi `useRemote: true` ta CỐ Ý bỏ qua nhánh VAD+Whisper
+  /// on-device (`generateLrcWithVadPipeline`, chỉ dành cho whisper offline)
+  /// ngay cả với file >5MB.
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     bool forceRegenerate = false,
     String language = 'auto',
+    bool useRemote = false,
   }) async {
     final path = currentSongPath;
     if (path == null) {
@@ -265,24 +273,28 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
 
     // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
-    try {
-      final file = File(path);
-      if (await file.exists()) {
-        // Nếu file >60s, tự động dùng VAD pipeline tối ưu
-        // Probe duration đơn giản qua file size hoặc dùng AudioConverter
-        // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
-        final size = await file.length();
-        if (size > 5 * 1024 * 1024) {
-          debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
-          return await generateLrcWithVadPipeline(
-            level: level,
-            language: language,
-            grouping: grouping,
-            skipSilence: true,
-          );
+    // (CHỈ áp dụng cho whisper on-device — remote tự chunk theo VAD riêng
+    // trong SttEngineRemote, xem doc [useRemote] ở trên).
+    if (!useRemote) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          // Nếu file >60s, tự động dùng VAD pipeline tối ưu
+          // Probe duration đơn giản qua file size hoặc dùng AudioConverter
+          // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
+          final size = await file.length();
+          if (size > 5 * 1024 * 1024) {
+            debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
+            return await generateLrcWithVadPipeline(
+              level: level,
+              language: language,
+              grouping: grouping,
+              skipSilence: true,
+            );
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     _isGeneratingLrc = true;
     _lastSttError = null;
@@ -327,7 +339,21 @@ mixin PlayerSttMixin on ChangeNotifier {
 
       try {
         final SttTranscribeOutput output;
-        if (level == null) {
+        if (useRemote) {
+          // WP2 (API-003): STT qua API. `SttConfig.remoteApi` đã bật
+          // autoFallback — nếu chưa cấu hình provider/offline-only, facade
+          // tự quay lại Whisper on-device (KHÔNG treo người dùng); mọi
+          // lỗi mạng giữa chừng cũng vào cùng đường fallback này.
+          output = await stt.transcribeFile(
+            path,
+            config: SttConfig.remoteApi.copyWith(
+              language: language,
+              generateLrc: true,
+              grouping: grouping,
+            ),
+            generateLrc: true,
+          );
+        } else if (level == null) {
           output = await stt.transcribeAuto(
             path,
             language: language,

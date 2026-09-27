@@ -62,6 +62,7 @@ enum SttFacadeStatus {
   ready,
   processingNative,
   processingWhisper,
+  processingRemote, // STT qua API (WP2/API-003)
   generatingLrc,
   error,
 }
@@ -107,6 +108,7 @@ class SttProgress {
         SttFacadeStatus.initializing ||
         SttFacadeStatus.processingNative ||
         SttFacadeStatus.processingWhisper ||
+        SttFacadeStatus.processingRemote ||
         SttFacadeStatus.generatingLrc =>
           true,
         _ => false,
@@ -311,7 +313,15 @@ class SttServiceFacade extends ChangeNotifier {
     try {
       final SttResult result;
 
-      if (cfg.preferredEngine == SttEngineType.whisper) {
+      if (cfg.preferredEngine == SttEngineType.remote) {
+        result = await _runRemoteEngineOrFallback(
+          audioPath: audioPath,
+          config: cfg,
+          lrcOutputPath: lrcOutputPath,
+          shouldGenerateLrc: shouldGenerateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      } else if (cfg.preferredEngine == SttEngineType.whisper) {
         result = await _runWhisperViaIsolate(
           audioPath: audioPath,
           config: cfg,
@@ -777,6 +787,85 @@ class SttServiceFacade extends ChangeNotifier {
       SttFacadeStatus.processingNative,
       0.90,
       'Native STT hoàn tất',
+    );
+
+    return result;
+  }
+
+  // ── Remote Engine Runner (WP2/API-003) ──────────────────────────────────
+  //
+  // Guard 2 lớp trước khi chạy remote:
+  //   1. offline-only/không cấu hình provider → không route sang remote.
+  //   2. Lỗi giữa chừng (mất mạng, timeout, HTTP...) → SttRemoteFailure có
+  //      mã cấu trúc — KHÔNG treo progress.
+  // Cả 2 lớp đều fallback Whisper on-device khi `autoFallback: true` (mặc
+  // định) — người dùng chạy lại được ngay, không phải tự đổi engine.
+
+  Future<SttResult> _runRemoteEngineOrFallback({
+    required String audioPath,
+    required SttConfig config,
+    required String? lrcOutputPath,
+    required bool shouldGenerateLrc,
+    required String audioFingerprint,
+  }) async {
+    try {
+      return await _runRemoteEngine(audioPath, config, audioFingerprint);
+    } catch (e) {
+      debugPrint('⚠️ Remote STT không dùng được ($e)');
+      if (!config.autoFallback) rethrow;
+      debugPrint('↩️ Fallback sang Whisper on-device (autoFallback=true)');
+      return _runWhisperViaIsolate(
+        audioPath: audioPath,
+        config: config.copyWith(preferredEngine: SttEngineType.whisper),
+        lrcOutputPath: lrcOutputPath,
+        shouldGenerateLrc: shouldGenerateLrc,
+        audioFingerprint: audioFingerprint,
+      );
+    }
+  }
+
+  Future<SttResult> _runRemoteEngine(
+    String audioPath,
+    SttConfig config,
+    String audioFingerprint,
+  ) async {
+    final engine = SttEngineRegistry.create(SttEngineType.remote);
+    if (engine == null) {
+      throw StateError('Remote STT engine chưa được đăng ký.');
+    }
+
+    _emitProgress(
+      SttFacadeStatus.processingRemote,
+      0.05,
+      'Đang gửi lên API STT...',
+      engine: SttEngineType.remote,
+    );
+
+    final result = await engine.transcribeFile(
+      audioPath,
+      options: <String, dynamic>{
+        'language': config.language,
+        'audioFingerprint': audioFingerprint,
+        'shouldCancel': () => _disposed || _cancelRequested,
+        'onChunkProgress': (int index, int count, SttResult partial) {
+          _emitProgress(
+            SttFacadeStatus.processingRemote,
+            0.10 + 0.85 * ((index + 1) / count),
+            'Đang nhận diện qua API chunk ${index + 1}/$count…',
+            engine: SttEngineType.remote,
+            chunkIndex: index,
+            chunkCount: count,
+          );
+          if (!_disposed) _partialSubject.add(partial);
+        },
+      },
+    );
+
+    _emitProgress(
+      SttFacadeStatus.processingRemote,
+      0.90,
+      'API STT hoàn tất!',
+      engine: SttEngineType.remote,
     );
 
     return result;

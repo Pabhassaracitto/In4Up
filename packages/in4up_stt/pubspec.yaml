@@ -10,7 +10,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
+
+  # Engine 4: Remote STT qua API OpenAI-compatible (Groq whisper-large-v3,
+  # Speaches/whisper-server tự host) — WP2 (API-003). Dùng chung
+  # OpenAiCompatClient + AiProviderStore của WP0 (API-001), KHÔNG tạo
+  # client/HTTP config thứ 2.
+  in4up_ai:
+    path: ../in4up_ai
+
   # Engine 1: Native STT (fast, offline)
   speech_to_text: ^7.3.0
   

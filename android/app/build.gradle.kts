@@ -24,6 +24,8 @@ plugins {
 // có bước ký).
 //
 // Thứ tự ưu tiên chọn khoá (đọc android/key.properties — file này đã gitignore):
+// Log dùng logger.quiet: `flutter build` gọi Gradle với `-q` (gradle.dart) nên warn/lifecycle
+// bị nuốt — quiet là mức duy nhất người dùng thấy dòng [in4up-sign] mà không cần `-v`.
 //   (1) android/key.properties tồn tại (local: chủ tự tạo; CI: workflow decode
 //       secret ANDROID_KEYSTORE_BASE64 + ghi key.properties — xem
 //       scripts/ci/android_prepare_signing.sh) ⇒ ký bằng KEYSTORE RELEASE.
@@ -63,8 +65,8 @@ val in4upHasReleaseKeystore: Boolean =
         !in4upKeystoreProperties.getProperty("keyPassword").isNullOrBlank()
 
 if (in4upKeystorePropertiesFile.exists() && !in4upHasReleaseKeystore) {
-    logger.warn(
-        "[in4up-sign] android/key.properties có nhưng THIẾU/SAI (storeFile không tồn tại " +
+    logger.quiet(
+        "[in4up-sign] WARNING android/key.properties có nhưng THIẾU/SAI (storeFile không tồn tại " +
             "hoặc thiếu storePassword/keyAlias/keyPassword) → fallback ký bằng DEBUG keystore. " +
             "storeFile=${in4upReleaseStoreFile?.absolutePath}"
     )
@@ -162,14 +164,14 @@ android {
             // (Flutter đổi tên che mất) ⇒ Android không cho cài. Xem khối comment đầu file.
             if (in4upHasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
-                logger.lifecycle(
+                logger.quiet(
                     "[in4up-sign] release: ký bằng keystore RELEASE " +
                         "(${in4upReleaseStoreFile?.name}, alias=${in4upKeystoreProperties.getProperty("keyAlias")})"
                 )
             } else {
                 signingConfig = signingConfigs.getByName("debug")
-                logger.warn(
-                    "[in4up-sign] release: KHÔNG có android/key.properties → ký bằng DEBUG keystore. " +
+                logger.quiet(
+                    "[in4up-sign] WARNING release: KHÔNG có android/key.properties → ký bằng DEBUG keystore. " +
                         "APK cài được nhưng KHÔNG update đè được bản ký khác key (phải gỡ bản cũ). " +
                         "Bản phát hành thật: tạo keystore + key.properties (xem android/key.properties.example)."
                 )

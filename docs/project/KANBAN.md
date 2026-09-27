@@ -100,7 +100,7 @@
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
-| OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code xong T1–T5+T7–T8, CHƯA có CI) | re-apply trên nền `arena/01a0251e-in4up` @ 755b474 — agent arena/01a09c9a-in4up |
+| OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36348760217 (`f133932`, arena/01a09c9a-in4up): analyze 0 error + Rule 5 xanh + LHB xanh; 0 issue analyzer nhắc tới OCR |
 
 
 ## Card chi tiết
@@ -3566,8 +3566,9 @@
 
 ### OCR-001 — ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản mới
 
-- **Trạng thái:** doing (code xong T1–T5 + T7–T8; **CHƯA có bằng chứng CI**; chờ
-  nghiệm thu trên thiết bị Android/iOS)
+- **Trạng thái:** doing — **code + CI 🟢** (run 36348760217, commit `f133932`:
+  `flutter analyze` 0 error, Rule 5 locale test xanh, LHB xanh, Cabin xanh). Còn
+  chờ nghiệm thu trên thiết bị Android/iOS (T6 Document Scanner + T9 bảy AT).
 - **Nguồn:** owner — chỉ làm **Text Recognition v2 (OCR) + Document Scanner**, bỏ
   qua các phần còn lại của ML Kit; yêu cầu thứ tự nghiêm ngặt *pull từ
   `arena/01a0251e-in4up` → đăng ký KANBAN → mới triển khai code*.
@@ -3619,9 +3620,20 @@
     `0005` tới **ba lần** (`0005-ipa-display…`, `0005-nhip-dieu-hoc-tap…`,
     `0005-rest-auth-firestore-linux`) và PLAN đã tới 032. Đây là lần thứ hai va
     đánh số → repo cần một quy ước cấp số ADR/PLAN chặt hơn (xem đề xuất dưới).
+- **Bằng chứng CI (đã có):**
+  - Run đầu `36347670229` **ĐỎ**: đúng 2 error, cả hai ở `ocr_service.dart`, cả hai
+    vì đối chiếu API Document Scanner trên **master** thay vì trên bản đã pin.
+    `google_mlkit_document_scanner` **0.5.0** khai `documentFormats` (SET, số nhiều)
+    và `DocumentScanningResult.images` là `List<String>?` (**nullable**); master là
+    API **0.6.x** (`documentFormat` số ít, non-null) — 0.6.x đòi Dart `^3.12` nên
+    không dùng được với Flutter 3.44.1/Dart 3.11.5. **Bài học: phải đọc source tại
+    đúng commit release của bản đã pin, không đọc master.**
+  - Đã sửa theo source tại commit release 0.5.0 (`f29f844e8`), dọn luôn 2 warning +
+    3 info trong code OCR → run `36348760217` **XANH**, tổng issue 188 → 181 (đúng
+    bằng 7 issue đã sửa; 181 còn lại là legacy upstream), **0 issue nhắc tới OCR**.
+  - `flutter pub get` xanh → bộ version pin (text_recognition ^0.16.0 +
+    document_scanner ^0.5.0) resolve được, không xung đột `google_mlkit_commons`.
 - **Chưa làm / chờ:**
-  - **CI chưa chạy** (`app_analyze.yml` chỉ trigger khi code lên GitHub; phiên trước
-    không push được vì `GH_TOKEN` hết hiệu lực).
   - **T6 Document Scanner** cần thiết bị Android thật (Google Beta, không chạy trên
     emulator không có Play services).
   - **T9 nghiệm thu 7 tiêu chí** trên máy.
@@ -3643,3 +3655,12 @@
     (492→506 key); regenerate catalog (890 msg); mô phỏng CI
     `locale_chrome_no_vietnamese_test.dart` bằng Python → PASS cả 5 phép thử
     (parity · không ký tự Việt · sàn độ phủ · T2 100% · keepEnglish)
+  - 2026-09-27 20:41 UTC | doing | agent arena/01a09c9a-in4up | push được (GH_TOKEN
+    đã cấp lại) → CI `app_analyze.yml` run 36347670229 ĐỎ: 2 error ở ocr_service.dart
+    (Document Scanner 0.5.0 dùng `documentFormats` dạng Set + `images` nullable, khác
+    master/0.6.x mà tôi đã đối chiếu). Sandbox không đọc được artifact/log
+    (blob.core.windows.net bị chặn) → dựng workflow chẩn đoán tạm đẩy lỗi lên nhánh,
+    đọc qua api.github.com
+  - 2026-09-27 20:45 UTC | doing | agent arena/01a09c9a-in4up | sửa 2 error theo đúng
+    source 0.5.0 (commit f29f844e8) + dọn 2 warning/3 info; run 36348760217 **XANH**
+    (analyze 0 error, Rule 5 ✓, LHB ✓, Cabin ✓); xoá workflow chẩn đoán tạm

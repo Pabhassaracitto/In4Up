@@ -983,13 +983,13 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
 
-### PLAN-031 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)
+### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)
 - Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
   cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
   model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
   cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
 - Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
-- Kiến trúc (ADR-0007):
+- Kiến trúc (ADR-0008):
   - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
     (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
     Speaches/Kokoro). BYOK — app không kèm key; mặc định TẮT + offlineFirst.
@@ -1010,4 +1010,4 @@ Package: `video_player: ^2.8.0` (Flutter official)
     WP5 (API-006, tùy chọn) — docker-compose "Server Box" cho LAN.
 - Lịch sử:
   - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
-    `docs/server_api_tu_van.md` + prompt giao việc + ADR-0007 + code WP0
+    `docs/server_api_tu_van.md` + prompt giao việc + ADR-0008 + code WP0

@@ -8,7 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
-| API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -101,10 +101,10 @@
 
 ## Card chi tiết
 
-### API-001 — WP0: nền tảng Server API (ADR-0007) — cấu hình provider + client OpenAI-compat + màn Server & API
+### API-001 — WP0: nền tảng Server API (ADR-0008) — cấu hình provider + client OpenAI-compat + màn Server & API
 - **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run 36268246588; còn nghiệm thu thiết bị theo AT)
-- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-031,
-  ADR-0007, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
+- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-032,
+  ADR-0008, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
 - **Nội dung:**
   - `packages/in4up_ai/lib/src/provider/` (mới): `AiProviderConfig` /
     `AiRouteMode` {offlineFirst, onlineFirst, offlineOnly} /
@@ -124,7 +124,7 @@
   không lộ logcat; CI App Analyze + Locale xanh.
 - **Lịch sử:**
   - 2026-09-27 | created→doing | agent arena/01a0ddd1-in4up | code WP0 +
-    ADR-0007 + PLAN-031; chờ CI run đầu tiên
+    ADR-0008 + PLAN-032; chờ CI run đầu tiên
   - 2026-09-27 | doing (1 run đỏ) | agent arena/01a0ddd1-in4up | run
     36267897524 đỏ test ratchet ADR-0002: 38 key mới English ở 20 locale
     T3 làm độ phủ tụt dưới sàn → fix theo tiền lệ sound_*: thêm key vào

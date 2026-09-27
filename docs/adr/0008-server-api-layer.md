@@ -1,4 +1,4 @@
-# ADR-0007: Tầng Server API cho AI (cloud + LAN) — OpenAI-compatible, BYOK, offline-first
+# ADR-0008: Tầng Server API cho AI (cloud + LAN) — OpenAI-compatible, BYOK, offline-first
 
 - **Ngày:** 2026-09-27
 - **Trạng thái:** WP0 (API-001) ĐÃ TRIỂN KHAI + **CI XANH** (run

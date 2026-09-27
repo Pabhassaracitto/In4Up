@@ -10,7 +10,7 @@
 // client này (chatStream, transcribeAudio, synthesizeSpeech) — không tạo
 // client thứ 2.
 //
-// Bảo mật (ADR-0007):
+// Bảo mật (ADR-0008):
 // - http:// cleartext CHỈ chấp nhận host LAN/localhost — key cloud tuyệt
 //   đối không đi qua http công cộng.
 // - KHÔNG log key / headers.

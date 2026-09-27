@@ -12,6 +12,7 @@ name: TMP analyze report (xoá sau khi dùng)
 # push/CI; commit báo cáo (ci-analyze-errors.txt) không kích hoạt lại.
 # Không dùng workflow_dispatch vì API đó đòi file phải nằm trên default branch.
 # XOÁ workflow này và file ci-analyze-errors.txt ngay sau khi chẩn đoán xong.
+# (lần chạy 2: verify fix documentFormats + nullable images của scanner 0.5.0)
 
 on:
   push:

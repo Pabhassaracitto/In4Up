@@ -67,7 +67,6 @@ class OcrFlow {
     // Capture TRƯỚC mọi await: dùng context sau async là nguồn bug kinh điển
     // (use_build_context_synchronously). Provider read một lần, dùng lại.
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
 
     // --- Bước nhận dạng: chặn tương tác, hiện trạng thái ---
     // Không await: đóng bằng navigator.pop() ngay sau khi OCR xong.
@@ -80,6 +79,8 @@ class OcrFlow {
     final result = await OcrService.instance.recognizeFiles(paths);
     navigator.pop(); // đóng progress
 
+    // Qua await rồi mới đụng context → phải guard (use_build_context_synchronously).
+    if (!context.mounted) return false;
     return presentResult(
       context,
       result,
@@ -112,6 +113,7 @@ class OcrFlow {
         .recognizeBitmap(pixels: pixels, width: width, height: height);
     navigator.pop();
 
+    if (!context.mounted) return false;
     return presentResult(context, result, suggestedTitle: suggestedTitle);
   }
 
@@ -154,6 +156,10 @@ class OcrFlow {
       return false;
     }
 
+    // Dịch nhãn TRƯỚC khi await: sau await không được đụng context nữa
+    // (use_build_context_synchronously). messenger/tp đã capture ở đầu hàm.
+    final loadedMessage = _tr(context, 'Đã nạp văn bản từ ảnh');
+
     // --- Preview + cho user sửa trước khi nạp (bắt buộc) ---
     final draft = await OcrResultDialog.show(
       context,
@@ -174,7 +180,7 @@ class OcrFlow {
 
     messenger.showSnackBar(
       SnackBar(
-        content: Text(_tr(context, 'Đã nạp văn bản từ ảnh')),
+        content: Text(loadedMessage),
         behavior: SnackBarBehavior.floating,
       ),
     );

@@ -96,9 +96,15 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // `previewPath` chỉ non-null khi ảnh thật sự đọc được → nhánh render dưới
+    // dùng `if (previewPath != null)` là ĐỦ để flow-analysis promote, không cần
+    // toán tử `!` (bản cũ viết `File(imagePath!)` bị analyzer bắt
+    // unnecessary_non_null_assertion).
     final imagePath = widget.imagePath;
-    final hasPreview =
-        imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync();
+    final String? previewPath =
+        imagePath != null && imagePath.isNotEmpty && File(imagePath).existsSync()
+            ? imagePath
+            : null;
 
     return Dialog(
       backgroundColor: const Color(0xFF0D1520),
@@ -159,11 +165,11 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (hasPreview) ...[
+                    if (previewPath != null) ...[
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.file(
-                          File(imagePath!),
+                          File(previewPath),
                           height: 132,
                           width: double.infinity,
                           fit: BoxFit.cover,

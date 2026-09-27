@@ -269,8 +269,12 @@ class OcrService {
       );
     }
 
+    // `documentFormats` là SET (số nhiều) ở bản 0.5.x đang pin — bản 0.6.x đổi
+    // thành `documentFormat` (số ít) nhưng đòi Dart ^3.12 nên không dùng được.
+    // Đối chiếu source tại đúng tag release 0.5.0 (commit f29f844e8), KHÔNG đối
+    // chiếu master: master là API 0.6.x, sai khác cả tên tham số lẫn nullability.
     final options = DocumentScannerOptions(
-      documentFormat: DocumentFormat.jpeg,
+      documentFormats: const {DocumentFormat.jpeg},
       mode: ScannerMode.full,
       pageLimit: pageLimit,
       isGalleryImport: true,
@@ -278,9 +282,11 @@ class OcrService {
     final scanner = DocumentScanner(options: options);
     try {
       final result = await scanner.scanDocument();
-      // User bấm back/hủy → native trả về kết quả rỗng, không phải exception.
-      if (result.images.isEmpty) return null;
-      return result.images;
+      // 0.5.x khai `images` là `List<String>?` (null khi không yêu cầu format
+      // jpeg); user bấm back/hủy → native trả về rỗng, không phải exception.
+      final images = result.images;
+      if (images == null || images.isEmpty) return null;
+      return images;
     } catch (e) {
       debugPrint('❌ OCR scanDocumentPages: $e');
       rethrow;

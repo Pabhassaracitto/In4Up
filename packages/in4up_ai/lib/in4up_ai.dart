@@ -31,6 +31,7 @@ export 'src/engine/ai_engine_gemma.dart';
 
 // WP0 (API-001) — Tầng Server API (cloud + LAN): cấu hình provider,
 // routing offline/online, client OpenAI-compatible duy nhất.
+// WP3 (API-004) thêm chatCompletion + OpenAiChatMessage (dịch bằng LLM).
 export 'src/provider/ai_provider_config.dart';
 export 'src/provider/ai_provider_store.dart'
     show AiProviderStore;
@@ -38,6 +39,7 @@ export 'src/provider/openai_compat_client.dart'
     show
         OpenAiCompatClient,
         OpenAiModelsParser,
+        OpenAiChatMessage,
         AiApiException,
         AiApiErrorCode,
         AiProviderHealth;

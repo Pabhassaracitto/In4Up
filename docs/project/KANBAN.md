@@ -99,6 +99,7 @@
 | READ-GRAM-001 | Cấu trúc câu + cụm từ trong tab Đọc (chỗ "Loại từ, CEFR"): cụm NP/VP/AdvP/… + hỏi/khẳng định/phủ định + thì–thể–thái + công thức S+V+… | 📋 proposed (KẾ HOẠCH, chưa code) | đặc tả + spike chạy được: `tool/grammar_probe/` (engine.py + 3 corpus JSON); đo TRUNG THỰC trên bộ đóng băng = 17/25 case (68%; 18/25 sau khi chốt quy ước hỏi đuôi), 8 lỗi phân loại thành 4 nguyên nhân gốc; PLAN-031 + ADR-0007 |
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
+| DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
 
 
 ## Card chi tiết
@@ -3527,3 +3528,37 @@
 - **Lịch sử:**
   - 2026-09-23 | created→done (fix YAML) | agent arena/01a0d016-in4up | commit
     `dfac0e2`; PR #42; xác nhận không còn run `build.yml` đỏ 0s sau commit
+
+### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
+
+- **Trạng thái:** done (chờ owner duyệt nội dung + chốt tên trên file `LICENSE`)
+- **Nguồn:** owner (2026-09-28) qua agent `arena/01a0e2c8-in4up` — "thiết lập readme
+  đúng với tiến độ hiện tại và các chức năng mới" (góc nhìn tâm lý học · màu sắc ·
+  bố cục · IT · CEO).
+- **Nội dung:**
+  - `README.md` (English — trang chủ repo) + `README.vi.md` (tiếng Việt đầy đủ,
+    ngang hàng), có link chuyển ngôn ngữ hai chiều ở đầu trang.
+  - **Bảng tiến độ** chụp từ KANBAN ngày 28-09-2026: 88 thẻ (60 done · 19 doing ·
+    6 proposed · 3 blocked), M0–M2 done, ADR-0001→0008, 32 mục PLAN, 81 file test,
+    26 locale × 492 key, ~600 file Dart.
+  - Bản đồ **7 chế độ Phòng Studio** + 5 đích điều hướng + quick actions; mục
+    "vừa hoàn thành" gom theo 4 cụm (âm thanh/speech · đọc/IPA · tri thức/AI ·
+    shell/nền tảng), mỗi gạch đầu dòng gắn mã thẻ Kanban để tra ngược.
+  - **Hệ thiết kế:** token màu thương hiệu (brand/identity) + màu 7 mode lấy đúng
+    từ `home_screen.dart`, nguyên tắc bố cục responsive, Okabe-Ito + quy ước
+    "mọi tín hiệu màu đều có bạn đồng hành phi màu sắc".
+  - Bảng model offline (theo `docs/project/MODELS.md`), 2 sơ đồ mermaid (vòng học
+    + kiến trúc), cổng chất lượng CI, lộ trình, quy tắc vàng, bản đồ tài liệu
+    quản trị cho người & agent.
+  - Trạng thái được ghi **trung thực**: ✅ đã xong/CI xanh · 🔄 đang làm ·
+    📋 kế hoạch · 🚫 nghẽn — không tô hồng mục còn chờ nghiệm thu máy.
+- **Phát hiện phụ (cần owner quyết):** trunk **không có file `LICENSE`** dù README
+  cũ vẫn link tới ⇒ đã khôi phục **nguyên văn** từ `origin/main`. File vẫn mang tên
+  *"VipSound Source-Available License (Non-Commercial)"* — đổi tên sang In4Up là
+  văn bản pháp lý, agent KHÔNG tự sửa; README hiện gọi trung tính là
+  "Source-Available License (Non-Commercial)".
+- **Không đụng:** `lib/**`, CI, engine, governance (chỉ thêm đúng thẻ này).
+- **Lịch sử:**
+  - 2026-09-28 | created→done | agent arena/01a0e2c8-in4up | `README.md` +
+    `README.vi.md` + khôi phục `LICENSE`; nhánh đồng bộ từ `arena/01a0251e-in4up`
+    (53b57ab) để README khớp đúng code đang chạy

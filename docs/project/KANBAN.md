@@ -9,7 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0007) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
-| API-003 | WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — SttEngineRemote + chunk theo VAD + cùng cache LRC | 🔨 doing (code xong, chờ CI đầu tiên chạy trên nhánh này) | arena/01a0df5d-in4up (nhánh session này) |
+| API-003 | WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — SttEngineRemote + chunk theo VAD + cùng cache LRC | 🔨 doing (code xong, CI xanh run 36339966096; còn thiếu nghiệm thu thiết bị thật) | arena/01a0df5d-in4up (nhánh session này) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -141,8 +141,9 @@
 ### API-003 — WP2: STT file qua API (Groq whisper-large-v3 / Speaches) — bóc băng file dài
 - **Trạng thái:** 🔨 doing — code xong, rà soát thủ công kỹ (sandbox không có
   Flutter/Dart SDK + không có mạng ra pub.dev/storage.googleapis.com — không
-  chạy được `pub get`/`flutter analyze`/`flutter test` cục bộ); CHƯA có run
-  CI nào trên nhánh `arena/01a0df5d-in4up`.
+  chạy được `pub get`/`flutter analyze`/`flutter test` cục bộ); **CI xanh**
+  trên nhánh `arena/01a0df5d-in4up` ở run 36339966096 (sau 1 vòng đỏ ratchet
+  ở run 36270822481 — xem Lịch sử) — chỉ còn thiếu nghiệm thu thiết bị thật.
 - **Nguồn:** owner — bản đặc tả WP2/API-003 (tiếng Việt) tiếp nối WP0
   (API-001/ADR-0007): dùng lại 1 client OpenAI-compatible duy nhất, KHÔNG
   tạo client thứ 2; live mic GIỮ on-device (quyết định đã chốt).
@@ -267,6 +268,29 @@
     `SherpaModelManager.vadFolderName/vadFileName/vadMinBytes`) khớp đúng
     signature; CHƯA chạy được CI trên nhánh này (chờ push + oracle chạy
     lần đầu) và CHƯA nghiệm thu thiết bị.
+  - 2026-09-26/27 | doing (ratchet 1 vòng đỏ→xanh) | agent (cùng phiên) |
+    push commit `0176d5a` → run CI đầu tiên **36270822481 đỏ** ở bước
+    `flutter analyze` (1 lỗi ERROR trong 178 issues — 177 còn lại là
+    warning/info không fatal, không liên quan): `SttEngineRemote implements
+    SttEngine` (đúng convention repo — mọi engine khác cũng `implements`,
+    không `extends`) nhưng THIẾU override 4 method có default body trong
+    interface (`dispose`, `startListening`, `stopListening`,
+    `liveResultStream`) — `implements` không kế thừa body mặc định như
+    `extends`. Đọc được log CI dù `gh run view --log`/`--log-failed` lỗi
+    EOF (mạng sandbox chặn `results-receiver.actions.githubusercontent.com`
+    lẫn `productionresultssa10.blob.core.windows.net`): lấy signed URL qua
+    `gh api repos/.../actions/jobs/<id>/logs` (dừng ở 302, đọc header
+    `location`) rồi fetch URL đó bằng tool `fetch_page` (network path khác,
+    không bị chặn) — bổ sung kỹ thuật này vào mục 5 của
+    `docs/skills/ci-red-debugging/SKILL.md` nếu tái diễn. Fix: thêm 4
+    override no-op giống hệt pattern `WhisperSttEngine` (engine file-only
+    tương tự, không hỗ trợ live mic) vào `stt_engine_remote.dart`. Trong
+    lúc fix cũng phát hiện sandbox bị "tái bản" giữa phiên (mục 5.5 SKILL —
+    local `git log` mất commit `0176d5a` dù file working-tree còn nguyên):
+    khôi phục bằng `git fetch` + `git reset --hard origin/arena/01a0df5d-
+    in4up` (an toàn vì origin đã có sẵn `0176d5a`) rồi áp lại đúng fix.
+    Commit fix `35e200d` → push → run CI **36339966096 xanh** toàn bộ
+    (analyze + Rule 5 locale test + LHB tests + Cabin Save test đều pass).
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

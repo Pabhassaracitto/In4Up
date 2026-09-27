@@ -163,3 +163,7 @@ reference/*.sqlite3
 reference/*.zip
 assets/db/*.bak
 assets/db/*.part
+
+# Python bytecode cache (spike tooling)
+__pycache__/
+*.pyc

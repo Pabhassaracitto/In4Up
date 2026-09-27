@@ -84,10 +84,14 @@ jobs:
           echo "Assets:"
           ls -R assets | head -n 50
 
+      # KHÔNG ghi đè lib/services/auth_service.dart nữa (giống các job Linux/Windows/iOS
+      # bên dưới): file thật đã trong git, không chứa secret; app dùng
+      # `AuthService().authStateChanges` + `AppUser` mà stub không có ⇒ compile đỏ.
       - name: Create auth_service.dart - Keep real firebase_options.dart with androidForFlavor
         shell: bash
         run: |
           mkdir -p lib/services
+          if [ ! -f lib/services/auth_service.dart ]; then
           cat << 'EOF' > lib/services/auth_service.dart
           import 'package:flutter/foundation.dart';
           class AuthService {
@@ -96,7 +100,8 @@ jobs:
             Future<dynamic> signInWithGoogle() async { debugPrint('Sign in'); return null; }
           }
           EOF
-          echo "auth_service.dart created, keeping lib/firebase_options.dart"
+          fi
+          echo "auth_service.dart present, keeping lib/firebase_options.dart"
           grep -n "androidForFlavor\|androidDev\|androidBeta\|linux\|macos" lib/firebase_options.dart || echo "WARNING: firebase_options.dart missing flavors"
           if ! grep -q "androidForFlavor" lib/firebase_options.dart; then
             echo "ERROR: firebase_options.dart must contain androidForFlavor - creating fallback"
@@ -197,67 +202,54 @@ jobs:
           cp android/app/google-services.json android/app/src/debug/google-services.json
           ls -R android/app/src | grep google-services || true
 
+      # KÝ APK (CI-ANDROID-03): decode keystore từ secrets → android/key.properties
+      # để Gradle ký release bằng KEY THẬT (user update đè được giữa các release).
+      # Thiếu secret ⇒ chỉ warning, Gradle fallback ký DEBUG keystore (vẫn cài được).
+      - name: Prepare Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash scripts/ci/android_prepare_signing.sh
+
       - name: Get dependencies
         run: flutter pub get
 
+      # Không còn `|| fallback` im lặng: split đỏ thì job phải đỏ để còn thấy log,
+      # thay vì âm thầm build fat rồi ship thiếu 3 APK split (CI-ANDROID-01).
       - name: Build Split APKs (stable flavor - side-by-side installable via applicationIdSuffix)
         shell: bash
         run: |
           echo "Building split APKs for stable..."
           flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
-            "--dart-define=FLAVOR=stable" || \
-          flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
             "--dart-define=FLAVOR=stable"
 
+      # Luôn --flavor stable: không --flavor ⇒ Gradle build cả dev/beta (chậm ×3, cần
+      # client google-services cho com.in4up.dev/.beta).
       - name: Build Universal APK
         shell: bash
         run: |
           echo "Building universal APK..."
-          flutter build apk --release --android-skip-build-dependency-validation \
+          flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
-            "--dart-define=FLAVOR=stable" || \
-          flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
-            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+            "--dart-define=FLAVOR=stable"
 
+      # Tên do Flutter 3.44.1 sinh (FlutterPlugin.kt): app<-abi>?<-flavor>?-<mode>.apk
+      # ⇒ split: app-<abi>-stable-release.apk (ABI TRƯỚC, flavor SAU); universal: app-stable-release.apk.
+      # Script thử cả thứ tự khác để không gãy khi đổi Flutter; THIẾU APK nào ⇒ job đỏ (hết `|| true`).
       - name: Rename All APKs
         shell: bash
-        run: |
-          TAG="${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
-          mkdir -p build/app/outputs/flutter-apk
-          ls build/app/outputs/flutter-apk/ || true
-          # armv7
-          if [ -f build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-armeabi-v7a-release.apk build/app/outputs/flutter-apk/in4up-Android-armv7-$TAG.apk || true
-          fi
-          if [ -f build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/in4up-Android-armv7-$TAG.apk || true
-          fi
-          # arm64
-          if [ -f build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-arm64-v8a-release.apk build/app/outputs/flutter-apk/in4up-Android-arm64-$TAG.apk || true
-          fi
-          if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/in4up-Android-arm64-$TAG.apk || true
-          fi
-          # x64
-          if [ -f build/app/outputs/flutter-apk/app-stable-x86_64-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-x86_64-release.apk build/app/outputs/flutter-apk/in4up-Android-x64-$TAG.apk || true
-          fi
-          if [ -f build/app/outputs/flutter-apk/app-x86_64-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/in4up-Android-x64-$TAG.apk || true
-          fi
-          # Universal
-          if [ -f build/app/outputs/flutter-apk/app-stable-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-stable-release.apk build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-$TAG.apk || true
-          fi
-          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/in4up-Android-Universal-All-CPU-$TAG.apk || true
-          fi
-          ls -lh build/app/outputs/flutter-apk/
+        run: bash scripts/ci/android_rename_apks.sh "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+
+      # LƯỚI AN TOÀN (CI-ANDROID-03): APK chưa ký ⇒ fail tại đây, KHÔNG đẩy lên Release.
+      - name: Verify APKs are signed
+        shell: bash
+        run: bash scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/in4up-Android-*.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

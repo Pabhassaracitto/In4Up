@@ -1426,4 +1426,119 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get soundRelated => 'Liên quan';
+
+
+  @override
+  String get aiProvidersTitle => 'Server & API cho AI';
+
+  @override
+  String get aiProvidersSubtitle => 'Dùng model từ cloud hoặc server trong nhà. Offline vẫn là mặc định.';
+
+  @override
+  String get aiProvidersEntryTitle => 'Server & API (mây / LAN)';
+
+  @override
+  String get aiProvidersEntrySubtitle => 'Thêm model online — giải phóng RAM, offline vẫn dự phòng';
+
+  @override
+  String get aiProvidersEmpty => 'Chưa cấu hình nhà cung cấp nào. App vẫn hoạt động offline đầy đủ như trước.';
+
+  @override
+  String get aiProviderAdd => 'Thêm nhà cung cấp';
+
+  @override
+  String get aiProviderEdit => 'Sửa nhà cung cấp';
+
+  @override
+  String get aiProviderLabel => 'Tên hiển thị';
+
+  @override
+  String get aiProviderBaseUrl => 'Địa chỉ server (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API key';
+
+  @override
+  String get aiProviderApiKeyHint => 'Server nhà có thể bỏ trống';
+
+  @override
+  String get aiProviderPreset => 'Mẫu sẵn';
+
+  @override
+  String get aiProviderPresetCustom => 'Tự nhập…';
+
+  @override
+  String get aiProviderTestConnection => 'Kiểm tra kết nối';
+
+  @override
+  String get aiProviderConnectionOk => 'Đã kết nối';
+
+  @override
+  String get aiProviderConnectionFail => 'Kết nối thất bại';
+
+  @override
+  String get aiProviderLoadModels => 'Tải danh sách model';
+
+  @override
+  String get aiProviderModelsLabel => 'model';
+
+  @override
+  String get aiProviderChatModel => 'Model chat / phân tích';
+
+  @override
+  String get aiProviderSttModel => 'Model bóc băng (STT)';
+
+  @override
+  String get aiProviderTtsModel => 'Model đọc chữ (TTS)';
+
+  @override
+  String get aiProviderNoModels => 'Hãy tải danh sách model trước';
+
+  @override
+  String get aiProviderNone => 'Không dùng';
+
+  @override
+  String get aiProviderEnabled => 'Đang bật';
+
+  @override
+  String get aiProviderDelete => 'Xoá';
+
+  @override
+  String get aiProviderDeleteConfirm => 'Xoá nhà cung cấp này cùng toàn bộ cấu hình?';
+
+  @override
+  String get aiRoutingTitle => 'Khi nào dùng model online';
+
+  @override
+  String get aiRoutingChat => 'Chat & phân tích AI';
+
+  @override
+  String get aiRoutingStt => 'Bóc băng file audio';
+
+  @override
+  String get aiRoutingTranslation => 'Dịch thuật';
+
+  @override
+  String get aiRoutingTts => 'Đọc chữ (TTS)';
+
+  @override
+  String get aiRouteOfflineFirst => 'Ưu tiên offline';
+
+  @override
+  String get aiRouteOnlineFirst => 'Ưu tiên online';
+
+  @override
+  String get aiRouteOfflineOnly => 'Chỉ offline';
+
+  @override
+  String get aiRoutingProvider => 'Nhà cung cấp';
+
+  @override
+  String get aiProviderSave => 'Lưu';
+
+  @override
+  String get aiProviderCancel => 'Huỷ';
+
+  @override
+  String get aiProvidersPrivacy => 'Audio và text chỉ được gửi tới nhà cung cấp bạn chọn. Server nhà (LAN) giữ dữ liệu trong mạng của bạn.';
 }

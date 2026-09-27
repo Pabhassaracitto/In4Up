@@ -1426,4 +1426,119 @@ class AppLocalizationsLo extends AppLocalizations {
 
   @override
   String get soundRelated => 'Related';
+
+
+  @override
+  String get aiProvidersTitle => 'AI Servers & API';
+
+  @override
+  String get aiProvidersSubtitle => 'Use cloud or home-server models. Offline remains the default.';
+
+  @override
+  String get aiProvidersEntryTitle => 'Server & API (cloud / LAN)';
+
+  @override
+  String get aiProvidersEntrySubtitle => 'Add online models — frees RAM, offline stays as fallback';
+
+  @override
+  String get aiProvidersEmpty => 'No provider configured. The app works fully offline, as before.';
+
+  @override
+  String get aiProviderAdd => 'Add provider';
+
+  @override
+  String get aiProviderEdit => 'Edit provider';
+
+  @override
+  String get aiProviderLabel => 'Display name';
+
+  @override
+  String get aiProviderBaseUrl => 'Server URL (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API key';
+
+  @override
+  String get aiProviderApiKeyHint => 'Leave empty for a home server';
+
+  @override
+  String get aiProviderPreset => 'Preset';
+
+  @override
+  String get aiProviderPresetCustom => 'Custom…';
+
+  @override
+  String get aiProviderTestConnection => 'Test connection';
+
+  @override
+  String get aiProviderConnectionOk => 'Connected';
+
+  @override
+  String get aiProviderConnectionFail => 'Connection failed';
+
+  @override
+  String get aiProviderLoadModels => 'Load models';
+
+  @override
+  String get aiProviderModelsLabel => 'models';
+
+  @override
+  String get aiProviderChatModel => 'Chat / analysis model';
+
+  @override
+  String get aiProviderSttModel => 'Speech-to-text model';
+
+  @override
+  String get aiProviderTtsModel => 'Text-to-speech model';
+
+  @override
+  String get aiProviderNoModels => 'Load the model list first';
+
+  @override
+  String get aiProviderNone => 'None';
+
+  @override
+  String get aiProviderEnabled => 'Enabled';
+
+  @override
+  String get aiProviderDelete => 'Remove';
+
+  @override
+  String get aiProviderDeleteConfirm => 'Remove this provider and its settings?';
+
+  @override
+  String get aiRoutingTitle => 'When to use online models';
+
+  @override
+  String get aiRoutingChat => 'AI chat & analysis';
+
+  @override
+  String get aiRoutingStt => 'Transcribe audio files';
+
+  @override
+  String get aiRoutingTranslation => 'Translation';
+
+  @override
+  String get aiRoutingTts => 'Text-to-speech';
+
+  @override
+  String get aiRouteOfflineFirst => 'Offline first';
+
+  @override
+  String get aiRouteOnlineFirst => 'Online first';
+
+  @override
+  String get aiRouteOfflineOnly => 'Offline only';
+
+  @override
+  String get aiRoutingProvider => 'Provider';
+
+  @override
+  String get aiProviderSave => 'Save';
+
+  @override
+  String get aiProviderCancel => 'Cancel';
+
+  @override
+  String get aiProvidersPrivacy => 'Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.';
 }

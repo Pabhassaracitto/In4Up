@@ -11,6 +11,7 @@ import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // localized_material đã export material (hide Text) + Text localized.
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -22,6 +23,8 @@ import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
 import '../../features/tts/piper_voice_prefs.dart';
 import '../../features/tts/tts_service.dart';
+
+import 'ai_providers_screen.dart';
 
 import '../../core/language/app_language.dart';
 
@@ -59,6 +62,27 @@ class SttModelSettingsScreen extends StatelessWidget {
           _LanguageSettingCard(),
           const SizedBox(height: 16),
           _SourceInfoCard(),
+          const SizedBox(height: 16),
+          // WP0 (API-001): entry tới màn Server & API (cloud / LAN) —
+          // tầng API tuỳ chọn BYOK, tắt mặc định, offline-first giữ nguyên.
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.dns_outlined,
+                  color: Colors.deepPurpleAccent),
+              title: Text(
+                  AppLocalizations.of(context).aiProvidersEntryTitle),
+              subtitle: Text(
+                  AppLocalizations.of(context).aiProvidersEntrySubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AiProvidersScreen()),
+                );
+              },
+            ),
+          ),
           const SizedBox(height: 16),
           const _SectionLabel('1. STT — Whisper (bóc băng audio thành chữ)'),
           ...WhisperModelLevel.values.map(

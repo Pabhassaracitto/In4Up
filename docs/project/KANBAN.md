@@ -8,6 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -100,6 +101,42 @@
 
 
 ## Card chi tiết
+
+### API-001 — WP0: nền tảng Server API (ADR-0008) — cấu hình provider + client OpenAI-compat + màn Server & API
+- **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run 36268246588; còn nghiệm thu thiết bị theo AT)
+- **Nguồn:** owner (2026-09-26/27) qua agent arena/01a0ddd1-in4up — PLAN-032,
+  ADR-0008, `docs/server_api_tu_van.md`, `PROMPT_AGENT_SERVER_API.md`.
+- **Nội dung:**
+  - `packages/in4up_ai/lib/src/provider/` (mới): `AiProviderConfig` /
+    `AiRouteMode` {offlineFirst, onlineFirst, offlineOnly} /
+    `AiRoutingPrefs`; `AiProviderStore` (SharedPreferences, interface thiết kế
+    swap secure-storage sau); `OpenAiCompatClient` (healthCheck 5s +
+    listModels `/v1/models`, guard cleartext chỉ LAN, mã lỗi cấu trúc
+    `AiApiErrorCode`).
+  - `lib/screens/settings/ai_providers_screen.dart` (mới): CRUD provider
+    (preset Gemini/Groq/OpenRouter/OpenAI/Ollama/LM Studio — KHÔNG kèm key),
+    test kết nối, model list động, routing prefs từng năng lực.
+  - Entry card từ màn "Quản lý Model AI"; iOS ATS `NSAllowsLocalNetworking`.
+  - i18n: 38 key ARB × 26 locale (T2 đủ hi/zh/zh_TW/si; T3 = en fallback).
+  - Test thuần: `test/ai_provider_wp0_test.dart` (normalize/guard/parser/
+    round-trip). Không đụng engine nào — WP1–WP4 cắm sau.
+- **AT (từ prompt WP0):** thêm provider Ollama LAN + cloud → test kết nối
+  xanh/đỏ đúng; chưa cấu hình → không request AI nào đi ra, app như cũ; key
+  không lộ logcat; CI App Analyze + Locale xanh.
+- **Lịch sử:**
+  - 2026-09-27 | created→doing | agent arena/01a0ddd1-in4up | code WP0 +
+    ADR-0008 + PLAN-032; chờ CI run đầu tiên
+  - 2026-09-27 | doing (1 run đỏ) | agent arena/01a0ddd1-in4up | run
+    36267897524 đỏ test ratchet ADR-0002: 38 key mới English ở 20 locale
+    T3 làm độ phủ tụt dưới sàn → fix theo tiền lệ sound_*: thêm key vào
+    keepEnglish global (commit `4ea61fb`); commit fix chỉ chạm tool/ nên
+    KHÔNG trigger CI (bẫy paths-filter 5.7) → commit `3ea1716` chạm lib/
+    (Semantics label dùng key aiProviderEnabled) để chạy lại oracle
+  - 2026-09-27 | doing→done | agent arena/01a0ddd1-in4up | run 36268246588
+    🟢 (analyze + rule #5 + 38-key ARB đủ 26 locale + LHB + Cabin);
+    test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
+    nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
+    nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

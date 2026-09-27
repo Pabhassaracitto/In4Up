@@ -1,0 +1,75 @@
+name: TMP analyze report (xoá sau khi dùng)
+
+# Workflow CHẨN ĐOÁN tạm thời — KHÔNG phải cổng chất lượng.
+#
+# Lý do tồn tại: sandbox agent không với tới được
+# productionresultssa7.blob.core.windows.net (artifact + job log đều EOF), nên
+# không đọc được analyze.log của app_analyze.yml. api.github.com thì thông →
+# workflow này đẩy phần ERROR của `flutter analyze` lên chính nhánh dưới dạng
+# một file, để đọc lại bằng `gh api repos/.../contents/...`.
+#
+# Chỉ chạy workflow_dispatch → không tạo vòng lặp push/CI.
+# XOÁ workflow này và file ci-analyze-errors.txt ngay sau khi chẩn đoán xong.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze (không fail — chỉ thu thập)
+        run: |
+          set +e
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
+          echo "exit=$?" >> analyze.log
+          exit 0
+
+      - name: Viết file báo cáo (ERROR + warning của file OCR)
+        run: |
+          {
+            echo "# flutter analyze — $(git rev-parse --short HEAD)"
+            echo "# tạo bởi tmp_analyze_report.yml, XOÁ sau khi dùng"
+            echo
+            echo "## TÓM TẮT"
+            tail -n 3 analyze.log
+            echo
+            echo "## MỌI DÒNG CÓ 'error'"
+            grep -n -i 'error' analyze.log || echo '(không có dòng nào chứa "error")'
+            echo
+            echo "## MỌI DÒNG NHẮC TỚI ocr / pdf_page_ocr"
+            grep -n -i 'ocr' analyze.log || echo '(không có)'
+            echo
+            echo "## 200 DÒNG CUỐI"
+            tail -n 200 analyze.log
+          } > ci-analyze-errors.txt
+          wc -l ci-analyze-errors.txt
+
+      - name: Đẩy báo cáo lên nhánh
+        run: |
+          git config user.name  "arena-ai-coding-agent[bot]"
+          git config user.email "arena-ai-coding-agent[bot]@users.noreply.github.com"
+          git add ci-analyze-errors.txt
+          if git diff --cached --quiet; then
+            echo "không đổi — bỏ qua commit"
+            exit 0
+          fi
+          git commit -m "chore(tmp): báo cáo flutter analyze để chẩn đoán OCR [skip ci]"
+          git push origin HEAD

@@ -757,6 +757,13 @@ class SherpaModelManager {
   }
 
   /// tokens.txt có ký tự đặc trưng tiếng Việt (BPE VI chứa âm tiết có dấu).
+  ///
+  /// FIX IMPORT-STT-001 — `sherpa-onnx-zipformer-vi-30M-int8-2026-02-09`
+  /// (hynt/Zipformer-30M-RNNT-6000h) có từ vựng VI VIẾT HOA ("RỒI", "CŨNG",
+  /// "HỖ TRỢ"…). Regex cũ chỉ khớp ký tự thường ⇒ tokens "không nhìn ra"
+  /// tiếng Việt ⇒ import trả unknownProfile ("Không nhận diện được model").
+  /// Giờ lower-case nội dung file trước khi so khớp (Dart toLowerCase()
+  /// map đúng Unicode: Ồ→ồ, Đ→đ…).
   static bool asrTokensLookVietnamese(String? tokensPath) {
     if (tokensPath == null) return false;
     try {
@@ -768,7 +775,7 @@ class SherpaModelManager {
       final raf = file.openSync();
       try {
         final bytes = raf.readSync(readLen);
-        final text = utf8.decode(bytes, allowMalformed: true);
+        final text = utf8.decode(bytes, allowMalformed: true).toLowerCase();
         return RegExp(
           r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ'
           r'ùúủũụưừứửữựỳýỷỹỵđ]',
@@ -785,8 +792,12 @@ class SherpaModelManager {
   static bool _nameLooksLanguage(String text, String language) {
     final lower = text.toLowerCase();
     if (language == 'vi' && lower.contains('vietnam')) return true;
-    return RegExp('(^|[^a-z])${RegExp.escape(language)}([^a-z]|\$)')
-        .hasMatch(lower);
+    // Raw string ⇒ `$` giữ nguyên trong Dart, regex hiểu `$` = cuối chuỗi
+    // (bản cũ '[^a-z]|\\$' vô tình thành alternative "ký tự đô-la literal" —
+    // thư mục tên "…-vi" cuối path sẽ không khớp).
+    final pattern =
+        RegExp('(^|[^a-z])' + RegExp.escape(language) + r'([^a-z]|$)');
+    return pattern.hasMatch(lower);
   }
 
   /// Lấy model paths cho một ngôn ngữ hoặc profile ID.

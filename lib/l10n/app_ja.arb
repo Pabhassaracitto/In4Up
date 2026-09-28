@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "画像をスキャン",
+  "ocrSheetTitle": "画像をテキストに変換",
+  "ocrSourceScanner": "書類を撮影してスキャン",
+  "ocrSourceScannerHint": "自動で縁検出・切り抜き・補正 · Android のみ",
+  "ocrSourceGallery": "既存の画像を選択",
+  "ocrSourceGalleryHint": "書籍ページの撮影画像やスキャン",
+  "ocrResultTitle": "スキャン結果",
+  "ocrResultHint": "読み込む前に確認・編集してください",
+  "ocrReopenImage": "画像を再スキャン",
+  "ocrRecognizing": "テキストを認識中...",
+  "ocrEmptyResult": "画像から文字が見つかりませんでした。より鮮明で明るい写真でお試しください。",
+  "ocrLoadedFromImage": "画像からテキストを読み込みました",
+  "ocrScanPageText": "このページの文字をスキャン",
+  "ocrUnsupported": "OCR は Android/iOS でのみ動作します"
 }

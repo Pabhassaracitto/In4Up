@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "ছবি স্ক্যান",
+  "ocrSheetTitle": "ছবি থেকে লেখা",
+  "ocrSourceScanner": "ডকুমেন্ট তুলে স্ক্যান",
+  "ocrSourceScannerHint": "স্বয়ংক্রিয় প্রান্ত, কাটা, উন্নত · শুধু অ্যান্ড্রয়েড",
+  "ocrSourceGallery": "আগে থাকা ছবি বাছুন",
+  "ocrSourceGalleryHint": "বইয়ের পাতার ছবি বা স্ক্যান",
+  "ocrResultTitle": "স্ক্যানের ফল",
+  "ocrResultHint": "লোড করার আগে দেখে নিন ও সম্পাদনা করুন",
+  "ocrReopenImage": "আবার ছবি স্ক্যান",
+  "ocrRecognizing": "লেখা শনাক্ত হচ্ছে...",
+  "ocrEmptyResult": "ছবিতে কোনো লেখা পাওয়া যায়নি। আরও স্পষ্ট ও আলোকিত ছবি চেষ্টা করুন।",
+  "ocrLoadedFromImage": "ছবি থেকে লেখা লোড হয়েছে",
+  "ocrScanPageText": "এই পাতার লেখা স্ক্যান",
+  "ocrUnsupported": "OCR শুধু অ্যান্ড্রয়েড/iOS-এ চলে"
 }

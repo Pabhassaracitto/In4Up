@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "པར་རིས་བཤེར་བ",
+  "ocrSheetTitle": "པར་རིས་ནས་ཡིག་རིས་སུ",
+  "ocrSourceScanner": "ཡིག་ཆ་བཤེར་བ",
+  "ocrSourceScannerHint": "རང་འགུལ་ཟུར་རྙེད་དང་གཏུབ་པ · Android ཁོ་ན",
+  "ocrSourceGallery": "ཡོད་པའི་པར་རིས་འདེམས་པ",
+  "ocrSourceGalleryHint": "དཔེ་ཆའི་ཤོག་ལྷེའི་པར་རིས",
+  "ocrResultTitle": "བཤེར་བའི་འབྲས་བུ",
+  "ocrResultHint": "མ་བཅུག་གོང་བཤེར་བཅོས་བྱོས",
+  "ocrReopenImage": "པར་རིས་བསྐྱར་བཤེར",
+  "ocrRecognizing": "ཡིག་རིས་ངོས་འཛིན་བྱེད་བཞིན་པ...",
+  "ocrEmptyResult": "པར་རིས་ནང་ཡིག་རིས་མ་རྙེད། གསལ་ཞིང་འོད་ལྡན་པའི་པར་རིས་ཚོད་ལྟ་བྱོས།",
+  "ocrLoadedFromImage": "པར་རིས་ནས་ཡིག་རིས་བཅུག་ཟིན",
+  "ocrScanPageText": "ཤོག་ལྷེ་འདིའི་ཡིག་རིས་བཤེར་བ",
+  "ocrUnsupported": "OCR ནི Android དང iOS ཐོག་ཁོ་ནར་འཁོར"
 }

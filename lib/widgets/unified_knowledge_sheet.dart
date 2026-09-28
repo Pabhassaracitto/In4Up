@@ -2,6 +2,8 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 
+import '../features/ocr/ocr_flow.dart';
+import '../features/ocr/ocr_service.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../models/vocab_context.dart';
@@ -775,6 +777,35 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
       return;
     }
 
+    if (type == 'ocrImage') {
+      // ADR-0009 · KANBAN OCR-001: nguồn là ẢNH đã quét, không phải file text.
+      // "Mở lại" = chạy OCR lại trên ảnh đó. Nếu để rơi vào nhánh 'localText'
+      // thì `loadTextFile(ảnh)` sẽ `readAsString()` trên JPEG → throw → bấm
+      // nút không có tác dụng gì (rule vàng #3: phải reopen được đúng nguồn).
+      //
+      // OcrFlow tự lo: báo lỗi nếu ảnh không còn (OcrService check existsSync),
+      // preview + cho user SỬA trước khi nạp, và snackbar kết quả.
+      if (!OcrService.instance.isAvailable) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(context.uiText('OCR chỉ chạy trên Android/iOS')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      final loaded = await OcrFlow.startWithImage(context, ref);
+      if (!mounted || !loaded) return;
+      navigator.pop();
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) =>
+              ReadModeScreen(currentFile: RecentFile.fromLocalText(ref)),
+        ),
+      );
+      return;
+    }
+
     if (type == 'cloudText') {
       final service = TextLibraryService();
       final entry = await service.getById(ref);
@@ -848,6 +879,10 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         return 'Clipboard';
       case 'youtube':
         return 'YouTube';
+      case 'ocr':
+        // Viết tắt giữ nguyên English ở mọi locale (như 'PDF', 'Web',
+        // 'YouTube') — không phải chuỗi cần dịch.
+        return 'OCR';
       default:
         return sourceType;
     }
@@ -865,6 +900,8 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         return const Color(0xFF26C6DA);
       case 'youtube':
         return const Color(0xFFFF0000);
+      case 'ocr':
+        return const Color(0xFFAB47BC);
       default:
         return Colors.grey;
     }
@@ -882,6 +919,8 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
         return Icons.content_paste_go_outlined;
       case 'youtube':
         return Icons.smart_display_outlined;
+      case 'ocr':
+        return Icons.document_scanner_outlined;
       default:
         return Icons.link_outlined;
     }

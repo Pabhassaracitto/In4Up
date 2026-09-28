@@ -54,6 +54,15 @@ enum TextSourceType {
   localFile,
   cloud,
   generated,
+
+  /// Ảnh → văn bản bằng OCR on-device (ML Kit Text Recognition v2).
+  /// ADR-0009 · KANBAN OCR-001. `_currentTextPath` giữ đường dẫn ẢNH GỐC
+  /// để còn "mở lại đúng nguồn" (rule vàng #3) — không phải file text.
+  ///
+  /// Enum này KHÔNG được persist ở đâu cả (chỉ là state runtime của
+  /// TextProvider, reset trong `clearText()`), và codebase không có
+  /// `switch` exhaustive nào trên nó → thêm giá trị là thay đổi an toàn.
+  ocr,
 }
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
@@ -231,6 +240,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? get currentContextSourceRefType {
     if (isCurrentTextFromCloud && _currentCloudId != null) return 'cloudText';
     if (_currentTextPath != null && _currentTextPath!.trim().isNotEmpty) {
+      // OCR: `localPath` là đường dẫn ẢNH, không phải file text. Khai
+      // 'localText' sẽ khiến chỗ reopen gọi `loadTextFile(ảnh)` →
+      // `readAsString()` trên JPEG throw → bấm "Mở lại" không ăn gì.
+      // ADR-0009 · OCR-001: dùng refType riêng để reopen QUÉT LẠI ảnh.
+      if (_currentSourceType == TextSourceType.ocr) return 'ocrImage';
       return 'localText';
     }
     return null;

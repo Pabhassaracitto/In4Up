@@ -498,5 +498,19 @@
   "aiRoutingProvider": "प्रोवाइडर",
   "aiProviderSave": "सहेजें",
   "aiProviderCancel": "रद्द करें",
-  "aiProvidersPrivacy": "ऑडियो और टेक्स्ट केवल आपके चुने प्रोवाइडर को भेजे जाते हैं। घरेलू सर्वर (LAN) डेटा आपके नेटवर्क में ही रखता है।"
+  "aiProvidersPrivacy": "ऑडियो और टेक्स्ट केवल आपके चुने प्रोवाइडर को भेजे जाते हैं। घरेलू सर्वर (LAN) डेटा आपके नेटवर्क में ही रखता है।",
+  "ocrScanImage": "छवि स्कैन करें",
+  "ocrSheetTitle": "छवि को पाठ में बदलें",
+  "ocrSourceScanner": "दस्तावेज़ कैप्चर और स्कैन करें",
+  "ocrSourceScannerHint": "स्वचालित किनारे, क्रॉप, सुधार · केवल Android",
+  "ocrSourceGallery": "मौजूदा छवि चुनें",
+  "ocrSourceGalleryHint": "पुस्तक पृष्ठ का फ़ोटो या स्कैन",
+  "ocrResultTitle": "स्कैन परिणाम",
+  "ocrResultHint": "लोड करने से पहले जांचें और संपादित करें",
+  "ocrReopenImage": "छवि फिर से स्कैन करें",
+  "ocrRecognizing": "पाठ पहचाना जा रहा है...",
+  "ocrEmptyResult": "छवि में कोई पाठ नहीं मिला। अधिक स्पष्ट और उज्ज्वल फ़ोटो आज़माएँ।",
+  "ocrLoadedFromImage": "छवि से पाठ लोड हुआ",
+  "ocrScanPageText": "इस पृष्ठ का पाठ स्कैन करें",
+  "ocrUnsupported": "OCR केवल Android/iOS पर चलता है"
 }

@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "ပုံကို စကင်န်",
+  "ocrSheetTitle": "ပုံကို စာသားအဖြစ် ပြောင်း",
+  "ocrSourceScanner": "စာရွက်စာတမ်း ရိုက်ပြီး စကင်န်",
+  "ocrSourceScannerHint": "အနားအလိုအလျောက်ရှာ၊ ဖြတ်၊ ပြင်ဆင် · Android သီးသန့်",
+  "ocrSourceGallery": "ရှိပြီးသား ပုံကို ရွေး",
+  "ocrSourceGalleryHint": "စာမျက်နှာ ဓာတ်ပုံ သို့မဟုတ် စကင်န်",
+  "ocrResultTitle": "စကင်န် ရလဒ်",
+  "ocrResultHint": "မထည့်မီ စစ်ဆေးပြီး ပြင်ပါ",
+  "ocrReopenImage": "ပုံကို ပြန်စကင်န်",
+  "ocrRecognizing": "စာသား မှတ်သားနေသည်...",
+  "ocrEmptyResult": "ပုံထဲတွင် စာသား မတွေ့ပါ။ ပိုကြည်လင်ပြီး အလင်းကောင်းသော ပုံဖြင့် ထပ်ကြိုးစားပါ။",
+  "ocrLoadedFromImage": "ပုံမှ စာသား ထည့်ပြီးပါပြီ",
+  "ocrScanPageText": "ဤစာမျက်နှာ၏ စာသားကို စကင်န်",
+  "ocrUnsupported": "OCR သည် Android/iOS တွင်သာ အလုပ်လုပ်သည်"
 }

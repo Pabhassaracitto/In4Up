@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "చిత్రాన్ని స్కాన్ చేయండి",
+  "ocrSheetTitle": "చిత్రాన్ని వచనంగా మార్చండి",
+  "ocrSourceScanner": "పత్రాన్ని క్యాప్చర్ చేసి స్కాన్ చేయండి",
+  "ocrSourceScannerHint": "ఆటో అంచులు, క్రాప్, మెరుగుదల · Android మాత్రమే",
+  "ocrSourceGallery": "ఉన్న చిత్రాన్ని ఎంచుకోండి",
+  "ocrSourceGalleryHint": "పుస్తక పేజీ ఫోటో లేదా స్కాన్",
+  "ocrResultTitle": "స్కాన్ ఫలితం",
+  "ocrResultHint": "లోడ్ చేసే ముందు సమీక్షించి సవరించండి",
+  "ocrReopenImage": "చిత్రాన్ని మళ్లీ స్కాన్ చేయండి",
+  "ocrRecognizing": "వచనాన్ని గుర్తిస్తోంది...",
+  "ocrEmptyResult": "చిత్రంలో వచనం కనబడలేదు. స్పష్టమైన, మంచి వెలుతురు ఉన్న ఫోటోను ప్రయత్నించండి.",
+  "ocrLoadedFromImage": "చిత్రం నుండి వచనం లోడ్ అయింది",
+  "ocrScanPageText": "ఈ పేజీ వచనాన్ని స్కాన్ చేయండి",
+  "ocrUnsupported": "OCR Android/iOS లో మాత్రమే పనిచేస్తుంది"
 }

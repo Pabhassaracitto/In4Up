@@ -266,6 +266,8 @@ class TextLineWidget extends StatelessWidget {
     final end = selection.end.clamp(0, data.content.length);
     if (start >= end) return;
 
+    final tp = context.read<TextProvider>();
+    if (tp.currentLineIndex != index) tp.setCurrentLine(index);
     final controller = context.read<ReadModeController>();
     final lineStartOffset = controller.getLineStartOffset(index);
     controller.handleTextSelection(
@@ -301,8 +303,8 @@ class TextLineWidget extends StatelessWidget {
         data.colorMode != ColorMode.none &&
         data.analyzedWords.isNotEmpty;
 
-    if (segments != null && data.isCurrentLine && !coloredChipsActive) {
-      return _buildInterlinear(context, data, segments);
+    if (segments != null && !coloredChipsActive) {
+      return _buildInterlinear(context, data, segments, index);
     }
     if (segments == null) return text;
 
@@ -368,6 +370,7 @@ class TextLineWidget extends StatelessWidget {
     BuildContext context,
     _LineData data,
     List<IpaSegment> segments,
+    int lineIndex,
   ) {
     final tp = context.read<TextProvider>();
     final emphasized = data.isSpeaking || data.isPlaying;
@@ -399,6 +402,7 @@ class TextLineWidget extends StatelessWidget {
             GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
+                if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
                 tp.speak(seg.wordCore);
               },
               child: Column(

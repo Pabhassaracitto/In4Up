@@ -127,12 +127,18 @@ class _ColoredWord extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        context.read<TextProvider>().speak(word.word);
+        final tp = context.read<TextProvider>();
+        if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
+        tp.speak(word.word);
       },
       onDoubleTap: () {
+        final tp = context.read<TextProvider>();
+        if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
         _showQuickMeaning(context);
       },
       onLongPress: () {
+        final tp = context.read<TextProvider>();
+        if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
         WordActionsSheet.show(context, word, lineIndex, wordIndex);
       },
       child: AnimatedContainer(

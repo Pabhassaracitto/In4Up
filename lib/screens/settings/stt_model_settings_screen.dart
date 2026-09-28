@@ -11,6 +11,7 @@ import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
 // localized_material đã export material (hide Text) + Text localized.
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -24,6 +25,10 @@ import '../../features/tts/piper_voice_prefs.dart';
 import '../../features/tts/tts_service.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../features/translation/translation_service.dart';
+
+import '../../services/battery_optimization_service.dart';
+
+import 'ai_providers_screen.dart';
 
 import '../../core/language/app_language.dart';
 
@@ -62,6 +67,30 @@ class SttModelSettingsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _SourceInfoCard(),
           const SizedBox(height: 16),
+          // BATTERY-OPT-001: models chạy ngầm cần miễn tối ưu pin.
+          const _BatteryOptimizationCard(),
+          const SizedBox(height: 16),
+          // WP0 (API-001): entry tới màn Server & API (cloud / LAN) —
+          // tầng API tuỳ chọn BYOK, tắt mặc định, offline-first giữ nguyên.
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.dns_outlined,
+                  color: Colors.deepPurpleAccent),
+              title: Text(
+                  AppLocalizations.of(context).aiProvidersEntryTitle),
+              subtitle: Text(
+                  AppLocalizations.of(context).aiProvidersEntrySubtitle),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const AiProvidersScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
           const _SectionLabel('1. STT — Whisper (bóc băng audio thành chữ)'),
           ...WhisperModelLevel.values.map(
             (level) => _ModelCard(level: level),
@@ -87,6 +116,66 @@ class SttModelSettingsScreen extends StatelessWidget {
               '6. Dịch Offline & Online — Hy-MT & ML Kit'),
           const _TranslationModelSettingsCard(),
         ],
+      ),
+    );
+  }
+}
+
+/// BATTERY-OPT-001 — Thẻ cho phép người dùng bật/kiểm tra quyền
+/// "Dừng tối ưu mức sử dụng pin" bất cứ lúc nào.
+class _BatteryOptimizationCard extends StatefulWidget {
+  const _BatteryOptimizationCard();
+
+  @override
+  State<_BatteryOptimizationCard> createState() =>
+      _BatteryOptimizationCardState();
+}
+
+class _BatteryOptimizationCardState extends State<_BatteryOptimizationCard> {
+  bool? _granted;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final ok = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+    if (mounted) setState(() => _granted = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!BatteryOptimizationService.isSupported) {
+      return const SizedBox.shrink();
+    }
+    final granted = _granted ?? false;
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          granted
+              ? Icons.battery_charging_full_rounded
+              : Icons.battery_alert_rounded,
+          color: granted ? Colors.green : Colors.orangeAccent,
+        ),
+        title: const Text('Dừng tối ưu mức sử dụng pin'),
+        subtitle: Text(
+          granted
+              ? 'Đã cho phép — In4up sec có thể chạy ngầm, mức sử dụng pin '
+                  'không bị hạn chế.'
+              : 'Chưa cho phép — hệ thống có thể tạm dừng model STT/AI khi '
+                  'app chạy ngầm.',
+        ),
+        trailing: granted
+            ? const Icon(Icons.check_circle, color: Colors.green)
+            : FilledButton(
+                onPressed: () async {
+                  await BatteryOptimizationService.requestWithDialog(context);
+                  await _refresh();
+                },
+                child: const Text('Cho phép'),
+              ),
       ),
     );
   }

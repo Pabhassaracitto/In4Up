@@ -1,4 +1,5 @@
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 
@@ -6,7 +7,10 @@ import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
 import '../../../services/text_library_service.dart';
+import '../../../services/vocab_batch/vocab_batch_extractor.dart';
 import '../../../services/vocab_batch/vocab_batch_models.dart';
+import '../../../widgets/difficulty_level_chips.dart';
+import '../../../widgets/vocab_batch_candidate_editor.dart';
 import '../../../widgets/vocab_entry_meta.dart';
 import '../web_reader_controller.dart';
 
@@ -59,6 +63,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   bool _onlyNew = false;
   bool _onlyPhrases = false;
   bool _onlyReady = false;
+  bool _onlyUnrated = false;
   bool _importReadyOnly = false;
   bool _isEnriching = false;
   double _enrichProgress = 0;
@@ -107,6 +112,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       if (_onlyNew && candidate.existed) return false;
       if (_onlyPhrases && !candidate.isPhrase) return false;
       if (_onlyReady && !candidate.isImportReady) return false;
+      if (_onlyUnrated && candidate.difficulty != null) return false;
       if (q.isEmpty) return true;
       return candidate.normalized.contains(q) ||
           candidate.sampleContext.toLowerCase().contains(q) ||
@@ -167,6 +173,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   int get _selectedReadyCount => _candidates
       .where((candidate) => candidate.selected && candidate.isImportReady)
       .length;
+  int get _classifiedCount =>
+      _candidates.where((candidate) => candidate.difficulty != null).length;
+  int get _selectedClassifiedCount => _candidates
+      .where((candidate) => candidate.selected && candidate.difficulty != null)
+      .length;
 
   void _setAllVisible(bool selected) {
     for (final candidate in _visibleCandidates) {
@@ -175,9 +186,36 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
     setState(() {});
   }
 
+  void _applyDifficultyToSelected(DifficultyLevel level) {
+    final selected = _candidates.where((candidate) => candidate.selected).toList();
+    if (selected.isEmpty) return;
+    final previous = <WebExtractionCandidate, DifficultyLevel?>{
+      for (final candidate in selected) candidate: candidate.difficulty,
+    };
+    for (final candidate in selected) {
+      candidate.difficulty = level;
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Đã gán độ khó cho mục đã chọn')),
+        action: SnackBarAction(
+          label: context.uiText('Hoàn tác'),
+          onPressed: () {
+            for (final entry in previous.entries) {
+              entry.key.difficulty = entry.value;
+            }
+            if (mounted) setState(() {});
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _enrichSelected() async {
     final targets = _candidates.where((candidate) => candidate.selected).toList();
-    if (targets.isEmpty) return;
+    if (targets.isEmpty || _isEnriching) return;
 
     final facade = context.read<AiServiceFacade>();
     setState(() {
@@ -185,68 +223,65 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
       _enrichProgress = 0;
     });
 
-    int processed = 0;
-    for (final candidate in targets) {
-      widget.controller.enrichCandidateLocally(candidate);
-
-      if (!candidate.isPhrase) {
-        final localAnalysis = SyntaxHighlighterService.instance.analyzeWord(
-          candidate.normalized,
-        );
+    try {
+      for (var index = 0; index < targets.length; index++) {
+        final candidate = targets[index];
         try {
-          await facade.analyzeWord(
-            word: candidate.normalized,
-            sentenceContext: candidate.sampleContext,
-            localDictLookup: (_) => localAnalysis.meaning,
-            ipaPhoneLookup: (_) => null,
-          );
-          final detail = facade.currentAnalysis?.wordDetail;
-          final topic = (facade.currentAnalysis?.topics.isNotEmpty ?? false)
-              ? facade.currentAnalysis!.topics.first
-              : null;
-          widget.controller.applyAiAssistToCandidate(
+          await VocabBatchExtractor.enrichCandidateFromDictionary(
             candidate,
-            meaning: detail?.meaning,
-            phonetic: detail?.phonetic,
-            topic: topic,
-            example: candidate.sampleContext,
-            usedAi: facade.hasModel,
+            pageTitle: widget.sourceLabel,
           );
-        } catch (_) {
-          widget.controller.applyAiAssistToCandidate(
-            candidate,
-            example: candidate.sampleContext,
-            usedAi: false,
-          );
-        }
-      } else {
-        widget.controller.applyAiAssistToCandidate(
-          candidate,
-          example: candidate.sampleContext,
-          usedAi: false,
-        );
-      }
 
-      processed++;
+          if (facade.hasModel) {
+            final localAnalysis = SyntaxHighlighterService.instance.analyzeWord(
+              candidate.normalized,
+            );
+            await facade.analyzeWord(
+              word: candidate.normalized,
+              sentenceContext: candidate.sampleContext,
+              localDictLookup: (_) => localAnalysis.meaning,
+              ipaPhoneLookup: (_) => null,
+            );
+            final analysis = facade.currentAnalysis;
+            final detail = analysis?.wordDetail;
+            final topic = (analysis?.topics.isNotEmpty ?? false)
+                ? analysis!.topics.first
+                : null;
+            final aiExample = analysis?.contextExamples.cast<String?>().firstWhere(
+                  (example) => (example ?? '').trim().isNotEmpty,
+                  orElse: () => null,
+                );
+            widget.controller.applyAiAssistToCandidate(
+              candidate,
+              meaning: detail?.meaning,
+              phonetic: detail?.phonetic,
+              topic: topic,
+              example: aiExample ?? detail?.memoryHook,
+              usedAi: true,
+            );
+          }
+        } catch (_) {
+          // Keep local/dictionary fields and continue with the other candidates.
+        }
+
+        if (!mounted) return;
+        setState(() => _enrichProgress = (index + 1) / targets.length);
+      }
+    } finally {
       if (mounted) {
         setState(() {
-          _enrichProgress = processed / targets.length;
+          _isEnriching = false;
+          _enrichProgress = 1;
         });
       }
     }
 
     if (!mounted) return;
-    setState(() {
-      _isEnriching = false;
-      _enrichProgress = 1;
-    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          context.uiText(facade.hasModel
-              ? '✨ Đã làm giàu ${targets.length} mục bằng AI/local'
-              : '✨ Đã làm giàu ${targets.length} mục bằng local/heuristic'),
-        ),
+        content: Text(context.uiText(facade.hasModel
+            ? 'Đã bổ sung gợi ý từ điển / AI'
+            : 'Đã bổ sung gợi ý từ điển / nội bộ')),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -404,141 +439,11 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
   }
 
   Future<void> _editCandidate(WebExtractionCandidate candidate) async {
-    final meaningCtrl = TextEditingController(text: candidate.meaning);
-    final phoneticCtrl = TextEditingController(text: candidate.phonetic ?? '');
-    final topicCtrl = TextEditingController(text: candidate.topic ?? '');
-    final exampleCtrl = TextEditingController(
-      text: (candidate.example ?? '').trim().isEmpty
-          ? candidate.sampleContext
-          : candidate.example,
+    final changed = await VocabBatchCandidateEditor.show(
+      context,
+      candidate: candidate,
     );
-
-    final provider = context.read<VocabularyProvider>();
-    final languageOptions = (provider.allLanguages.toList()..sort()).toSet()
-      ..addAll(['en', 'vi', 'pali', 'my']);
-    final sortedLangs = languageOptions.toList()..sort();
-    String selectedLang = candidate.language;
-
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (dialogContext, setLocalState) {
-            return AlertDialog(
-          backgroundColor: const Color(0xFF151B26),
-          title: Text(context.uiText('Sửa mục: ${candidate.text}')),
-          titleTextStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _editorField(
-                    controller: meaningCtrl,
-                    label: 'Meaning',
-                    hint: 'Nghĩa / giải thích ngắn',
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 12),
-                  _editorField(
-                    controller: phoneticCtrl,
-                    label: 'IPA / Phonetic',
-                    hint: '/.../',
-                  ),
-                  const SizedBox(height: 12),
-                  _editorField(
-                    controller: topicCtrl,
-                    label: 'Topic',
-                    hint: 'dharma / english_learning / news...',
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Ngôn ngữ',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final lang in sortedLangs)
-                        ChoiceChip(
-                          label: Text(
-                            labelForLanguage(lang),
-                            style: TextStyle(
-                              color: selectedLang == lang
-                                  ? Colors.white
-                                  : Colors.white54,
-                              fontSize: 11,
-                            ),
-                          ),
-                          selected: selectedLang == lang,
-                          selectedColor: const Color(0xFF42A5F5),
-                          backgroundColor:
-                              Colors.white.withValues(alpha: 0.04),
-                          side: BorderSide(
-                            color: selectedLang == lang
-                                ? const Color(0xFF42A5F5)
-                                : Colors.white.withValues(alpha: 0.1),
-                          ),
-                          onSelected: (value) {
-                            if (value) {
-                              setLocalState(() => selectedLang = lang);
-                            }
-                          },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _editorField(
-                    controller: exampleCtrl,
-                    label: 'Example',
-                    hint: 'Câu ví dụ',
-                    maxLines: 4,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Huỷ'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Lưu'),
-            ),
-          ],
-        );
-          });
-      },
-    );
-
-    if (shouldSave != true || !mounted) return;
-
-    setState(() {
-      candidate.meaning = meaningCtrl.text.trim();
-      candidate.language = selectedLang;
-      candidate.phonetic = phoneticCtrl.text.trim().isEmpty
-          ? null
-          : phoneticCtrl.text.trim();
-      candidate.topic =
-          topicCtrl.text.trim().isEmpty ? null : topicCtrl.text.trim();
-      candidate.example =
-          exampleCtrl.text.trim().isEmpty ? null : exampleCtrl.text.trim();
-      candidate.enriched = true;
-      candidate.enrichSource = 'manual';
-    });
+    if (changed && mounted) setState(() {});
   }
 
   InputDecoration _inputDecoration(String label, {String? hint}) {
@@ -796,6 +701,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 _MetaChip(label: 'Phrase $_phraseCount'),
                 _MetaChip(label: 'Ưu tiên $_priorityCount'),
                 _MetaChip(label: 'Đã enrich $_enrichedCount'),
+                _MetaChip(label: 'Đã đánh giá $_classifiedCount'),
                 _MetaChip(label: 'Sẵn sàng $_readyCount'),
                 _MetaChip(label: 'Đã có $_existingCount'),
                 _MetaChip(label: 'Đã chọn $_selectedCount'),
@@ -860,9 +766,14 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                   onSelected: (value) => setState(() => _onlyPhrases = value),
                 ),
                 ChoiceChip(
-                  label: const Text('Chỉ sẵn sàng'),
+                  label: Text(context.uiText('Chỉ sẵn sàng')),
                   selected: _onlyReady,
                   onSelected: (value) => setState(() => _onlyReady = value),
+                ),
+                ChoiceChip(
+                  label: Text(context.uiText('Chưa đánh giá')),
+                  selected: _onlyUnrated,
+                  onSelected: (value) => setState(() => _onlyUnrated = value),
                 ),
                 _LengthChip(
                   value: _minLength,
@@ -921,6 +832,32 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                 ),
               ],
             ),
+            if (_selectedCount > 0) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.uiText('Đánh giá nhanh mục đã chọn'),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    context.uiText('Đã phân loại $_selectedClassifiedCount / $_selectedCount'),
+                    style: const TextStyle(color: Colors.white38, fontSize: 10.5),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              DifficultyLevelActionChips(
+                dense: true,
+                onSelected: _applyDifficultyToSelected,
+              ),
+            ],
             const SizedBox(height: 12),
             Expanded(
               child: visible.isEmpty
@@ -1069,7 +1006,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                 ],
                                 const SizedBox(height: 6),
                                 Text(
-                                  candidate.sampleContext,
+                                  (candidate.example ?? '').trim().isEmpty
+                                      ? candidate.sampleContext
+                                      : candidate.example!.trim(),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -1090,6 +1029,31 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
+                                const SizedBox(height: 5),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 6, right: 6),
+                                      child: Text(
+                                        context.uiText('Độ khó'),
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 10.5,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: DifficultyLevelChips(
+                                        value: candidate.difficulty,
+                                        dense: true,
+                                        onChanged: (value) => setState(
+                                          () => candidate.difficulty = value,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 if (candidate.enriched) ...[
                                   const SizedBox(height: 4),
                                   Text(
@@ -1097,7 +1061,9 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                         ? '✨ AI/local'
                                         : candidate.enrichSource == 'manual'
                                             ? '✨ Manual'
-                                            : '✨ Local/heuristic',
+                                            : candidate.enrichSource == 'dictionary'
+                                                ? '✨ Dictionary'
+                                                : '✨ Local/heuristic',
                                     style: TextStyle(
                                       color: Colors.purple[200],
                                       fontSize: 11.5,

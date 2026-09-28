@@ -679,10 +679,15 @@ class WebReaderController extends ChangeNotifier {
     return true;
   }
 
+  String suggestedExampleForWord() => _resolveTappedContextText('');
+
   bool saveWordToWordList(
     String word, {
     AnalyzedWord? analyzed,
     String? surroundingText,
+    String? meaningOverride,
+    String? phoneticOverride,
+    String? exampleOverride,
   }) {
     final clean = word.trim().toLowerCase();
     if (clean.isEmpty || clean.length < 2) return false;
@@ -691,11 +696,14 @@ class WebReaderController extends ChangeNotifier {
     final contextText = (surroundingText ?? '').trim().isNotEmpty
         ? surroundingText!.trim()
         : _resolveTappedContextText(clean);
+    final example = exampleOverride == null
+        ? contextText
+        : exampleOverride.trim();
     VocabularyBridge.addContextual(
       text: clean,
-      meaning: analyzed?.meaning ?? '',
-      phonetic: analyzed?.phonetic,
-      example: contextText,
+      meaning: meaningOverride ?? analyzed?.meaning ?? '',
+      phonetic: phoneticOverride ?? analyzed?.phonetic,
+      example: example,
       context: _buildCurrentWebContext(
         contextText,
         anchorText: (_tappedWordRaw ?? clean).trim(),
@@ -869,10 +877,20 @@ class WebReaderController extends ChangeNotifier {
     final aiTopic = (topic ?? '').trim();
     final aiExample = (example ?? '').trim();
 
-    if (aiMeaning.isNotEmpty) candidate.meaning = aiMeaning;
-    if (aiPhonetic.isNotEmpty) candidate.phonetic = aiPhonetic;
-    if (aiTopic.isNotEmpty) candidate.topic = aiTopic;
-    if (aiExample.isNotEmpty) candidate.example = aiExample;
+    // Smart-fill is deliberately non-destructive: a manual or imported value
+    // always wins over a later dictionary/AI suggestion.
+    if (candidate.meaning.trim().isEmpty && aiMeaning.isNotEmpty) {
+      candidate.meaning = aiMeaning;
+    }
+    if ((candidate.phonetic ?? '').trim().isEmpty && aiPhonetic.isNotEmpty) {
+      candidate.phonetic = aiPhonetic;
+    }
+    if ((candidate.topic ?? '').trim().isEmpty && aiTopic.isNotEmpty) {
+      candidate.topic = aiTopic;
+    }
+    if ((candidate.example ?? '').trim().isEmpty && aiExample.isNotEmpty) {
+      candidate.example = aiExample;
+    }
     if ((candidate.topic ?? '').trim().isEmpty) {
       candidate.topic = _inferTopic(candidate.sampleContext);
     }

@@ -1413,6 +1413,121 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get soundRelated => '相关';
+
+
+  @override
+  String get aiProvidersTitle => 'AI 服务器与 API';
+
+  @override
+  String get aiProvidersSubtitle => '使用云端或家庭服务器模型。默认仍为离线。';
+
+  @override
+  String get aiProvidersEntryTitle => '服务器与 API（云端 / 局域网）';
+
+  @override
+  String get aiProvidersEntrySubtitle => '添加在线模型 — 释放内存，离线仍作后备';
+
+  @override
+  String get aiProvidersEmpty => '尚未配置任何提供商。应用仍如往常完全离线运行。';
+
+  @override
+  String get aiProviderAdd => '添加提供商';
+
+  @override
+  String get aiProviderEdit => '编辑提供商';
+
+  @override
+  String get aiProviderLabel => '显示名称';
+
+  @override
+  String get aiProviderBaseUrl => '服务器地址 (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API 密钥';
+
+  @override
+  String get aiProviderApiKeyHint => '家庭服务器可留空';
+
+  @override
+  String get aiProviderPreset => '预设';
+
+  @override
+  String get aiProviderPresetCustom => '自定义…';
+
+  @override
+  String get aiProviderTestConnection => '测试连接';
+
+  @override
+  String get aiProviderConnectionOk => '已连接';
+
+  @override
+  String get aiProviderConnectionFail => '连接失败';
+
+  @override
+  String get aiProviderLoadModels => '加载模型列表';
+
+  @override
+  String get aiProviderModelsLabel => '个模型';
+
+  @override
+  String get aiProviderChatModel => '聊天 / 分析模型';
+
+  @override
+  String get aiProviderSttModel => '语音转文字模型';
+
+  @override
+  String get aiProviderTtsModel => '文字转语音模型';
+
+  @override
+  String get aiProviderNoModels => '请先加载模型列表';
+
+  @override
+  String get aiProviderNone => '不使用';
+
+  @override
+  String get aiProviderEnabled => '已启用';
+
+  @override
+  String get aiProviderDelete => '移除';
+
+  @override
+  String get aiProviderDeleteConfirm => '移除此提供商及其设置？';
+
+  @override
+  String get aiRoutingTitle => '何时使用在线模型';
+
+  @override
+  String get aiRoutingChat => 'AI 聊天与分析';
+
+  @override
+  String get aiRoutingStt => '转录音频文件';
+
+  @override
+  String get aiRoutingTranslation => '翻译';
+
+  @override
+  String get aiRoutingTts => '文字转语音';
+
+  @override
+  String get aiRouteOfflineFirst => '优先离线';
+
+  @override
+  String get aiRouteOnlineFirst => '优先在线';
+
+  @override
+  String get aiRouteOfflineOnly => '仅离线';
+
+  @override
+  String get aiRoutingProvider => '提供商';
+
+  @override
+  String get aiProviderSave => '保存';
+
+  @override
+  String get aiProviderCancel => '取消';
+
+  @override
+  String get aiProvidersPrivacy => '音频和文本仅发送到您选择的提供商。家庭服务器（局域网）让数据留在您的网络内。';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -2823,5 +2938,119 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get sound_26 => '不在觀察清單中';
 
   @override
-  String get soundRelated => '相關';
+  String get soundRelated => '相關'
+
+  @override
+  String get aiProvidersTitle => 'AI 伺服器與 API';
+
+  @override
+  String get aiProvidersSubtitle => '使用雲端或家庭伺服器模型。預設仍為離線。';
+
+  @override
+  String get aiProvidersEntryTitle => '伺服器與 API（雲端 / 區域網路）';
+
+  @override
+  String get aiProvidersEntrySubtitle => '新增線上模型 — 釋放記憶體，離線仍作後備';
+
+  @override
+  String get aiProvidersEmpty => '尚未設定任何供應商。應用程式仍如往常完全離線運作。';
+
+  @override
+  String get aiProviderAdd => '新增供應商';
+
+  @override
+  String get aiProviderEdit => '編輯供應商';
+
+  @override
+  String get aiProviderLabel => '顯示名稱';
+
+  @override
+  String get aiProviderBaseUrl => '伺服器位址 (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API 金鑰';
+
+  @override
+  String get aiProviderApiKeyHint => '家庭伺服器可留空';
+
+  @override
+  String get aiProviderPreset => '預設';
+
+  @override
+  String get aiProviderPresetCustom => '自訂…';
+
+  @override
+  String get aiProviderTestConnection => '測試連線';
+
+  @override
+  String get aiProviderConnectionOk => '已連線';
+
+  @override
+  String get aiProviderConnectionFail => '連線失敗';
+
+  @override
+  String get aiProviderLoadModels => '載入模型清單';
+
+  @override
+  String get aiProviderModelsLabel => '個模型';
+
+  @override
+  String get aiProviderChatModel => '聊天 / 分析模型';
+
+  @override
+  String get aiProviderSttModel => '語音轉文字模型';
+
+  @override
+  String get aiProviderTtsModel => '文字轉語音模型';
+
+  @override
+  String get aiProviderNoModels => '請先載入模型清單';
+
+  @override
+  String get aiProviderNone => '不使用';
+
+  @override
+  String get aiProviderEnabled => '已啟用';
+
+  @override
+  String get aiProviderDelete => '移除';
+
+  @override
+  String get aiProviderDeleteConfirm => '移除此供應商及其設定？';
+
+  @override
+  String get aiRoutingTitle => '何時使用線上模型';
+
+  @override
+  String get aiRoutingChat => 'AI 聊天與分析';
+
+  @override
+  String get aiRoutingStt => '轉錄音訊檔案';
+
+  @override
+  String get aiRoutingTranslation => '翻譯';
+
+  @override
+  String get aiRoutingTts => '文字轉語音';
+
+  @override
+  String get aiRouteOfflineFirst => '優先離線';
+
+  @override
+  String get aiRouteOnlineFirst => '優先線上';
+
+  @override
+  String get aiRouteOfflineOnly => '僅離線';
+
+  @override
+  String get aiRoutingProvider => '供應商';
+
+  @override
+  String get aiProviderSave => '儲存';
+
+  @override
+  String get aiProviderCancel => '取消';
+
+  @override
+  String get aiProvidersPrivacy => '音訊和文字僅傳送到您選擇的供應商。家庭伺服器（區域網路）讓資料留在您的網路內。';
 }

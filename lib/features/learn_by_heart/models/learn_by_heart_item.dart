@@ -49,6 +49,10 @@ class LearnByHeartItem {
   final DateTime? lastAssessmentDate;
   final DateTime createdAt;
   final DateTime? lastReviewedAt;
+
+  /// Mốc cập nhật gần nhất (LWW khi đồng bộ — LHB-006).
+  /// Item cũ/seed không có → null, `syncStamp` sẽ suy từ các mốc khác.
+  final DateTime? updatedAt;
   final bool isFavorite;
   final String? notes;
   final List<ReviewLog> reviewHistory;
@@ -82,6 +86,7 @@ class LearnByHeartItem {
     this.lastAssessmentDate,
     required this.createdAt,
     this.lastReviewedAt,
+    this.updatedAt,
     this.isFavorite = false,
     this.notes,
     this.reviewHistory = const [],
@@ -106,6 +111,10 @@ class LearnByHeartItem {
   bool get isMastered {
     return fsrsParams.stability >= 21.0 && reviewState == ReviewState.review;
   }
+
+  /// Mốc thời gian dùng để hòa giải xung đột khi đồng bộ (LWW):
+  /// `updatedAt` (nếu có) → `lastReviewedAt` → `createdAt`.
+  DateTime get syncStamp => updatedAt ?? lastReviewedAt ?? createdAt;
 
   List<String> get vietnameseLines => _splitLines(vietnameseText);
 
@@ -172,6 +181,7 @@ class LearnByHeartItem {
     DateTime? lastAssessmentDate,
     DateTime? createdAt,
     DateTime? lastReviewedAt,
+    DateTime? updatedAt,
     bool? isFavorite,
     String? notes,
     List<ReviewLog>? reviewHistory,
@@ -205,6 +215,7 @@ class LearnByHeartItem {
       lastAssessmentDate: lastAssessmentDate ?? this.lastAssessmentDate,
       createdAt: createdAt ?? this.createdAt,
       lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       isFavorite: isFavorite ?? this.isFavorite,
       notes: notes ?? this.notes,
       reviewHistory: reviewHistory ?? this.reviewHistory,
@@ -212,6 +223,23 @@ class LearnByHeartItem {
   }
 
   // ==================== SERIALIZATION ====================
+
+  /// Parse một mốc thời gian "chịu lỗi" từ JSON/Firestore:
+  /// `DateTime` → chính nó; chuỗi ISO → parse; Firestore `Timestamp` →
+  /// `toDate()` (gọi qua dynamic để module này không phụ thuộc Firebase).
+  /// Giá trị hỏng → null.
+  static DateTime? parseStamp(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    if (raw is String) return DateTime.tryParse(raw);
+    try {
+      final dynamic converted = (raw as dynamic).toDate();
+      if (converted is DateTime) return converted;
+    } catch (_) {
+      // Không phải Timestamp → bỏ qua.
+    }
+    return null;
+  }
 
   /// Parse `lineRepeatOverrides` từ JSON (key stringified, value num/string)
   /// — TOLERANT: bỏ entry rác (key không parse được / count ngoài 1…999).
@@ -263,6 +291,7 @@ class LearnByHeartItem {
       'lastAssessmentDate': lastAssessmentDate?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'lastReviewedAt': lastReviewedAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
       'isFavorite': isFavorite,
       'notes': notes,
       'reviewHistory': reviewHistory.map((h) => h.toJson()).toList(),
@@ -330,6 +359,7 @@ class LearnByHeartItem {
       lastReviewedAt: json['lastReviewedAt'] != null
           ? DateTime.parse(json['lastReviewedAt'] as String)
           : null,
+      updatedAt: parseStamp(json['updatedAt']),
       isFavorite: json['isFavorite'] as bool? ?? false,
       notes: json['notes'] as String?,
       reviewHistory: (json['reviewHistory'] as List<dynamic>?)

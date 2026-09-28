@@ -922,3 +922,121 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Sinhala: piper-voices chưa có giọng si — ghi rõ, không bịa model.
 - Lịch sử:
   - 2026-09-15 | created→doing | agent arena/01a08043-in4up
+
+### PLAN-029 — Đồng bộ lưu trữ Learn by Heart đa thiết bị (LHB-006)
+- Nguồn: người sở hữu (2026-09-23, qua agent arena/01a0d016-in4up) —
+  "đồng bộ lưu trữ cho các bài lưu trong tool học thuộc lòng, như WordList đã có".
+- Trạng thái: done (code + CI xanh trên `arena/01a0d016-in4up`; còn nghiệm thu 2 thiết bị)
+- Milestone đề xuất: cùng đợt với hạ tầng sync hiện có (ADR-0005/WordList) —
+  không cần milestone mới.
+- Vì sao có plan này: rà `docs/project/**` + `docs/adr/**` ngày 2026-09-23 →
+  **chưa từng có kế hoạch/card cho sync LHB**:
+  - `INTEGRATE-1` chỉ nói knowledge module (evidence/ReviewEvent).
+  - `AUDIT-2026-08-21` §4: sync hiện tại phạm vi `vocabulary_v2` + meta.
+  - LHB chỉ lưu SharedPreferences cục bộ ⇒ đổi máy là mất tiến độ SRS.
+- Chi tiết kế hoạch (đã triển khai):
+  - Nguyên tắc: offline-first như WordList — local ghi trước, cloud là lớp phủ;
+    pull-trước/push-sau; pending queue + bia mộ; LWW "cloud thắng" trừ khi bản
+    cục bộ đang chờ đẩy và mới hơn; mọi mutation `markPending` (kể cả khi chưa
+    đăng nhập); lần đầu bật sync + cloud trống → đẩy toàn bộ lên.
+  - Phạm vi dữ liệu: bài thuộc lòng (nội dung + tiến độ FSRS + yêu thích) +
+    nhịp học (streak/lastActiveDate). KHÔNG sync audio/cue image URL file local.
+  - Kênh: Firestore plugin (Android/iOS/Windows/Web) hoặc Firestore REST
+    (Linux — ADR-0005), cùng uid, cùng schema.
+  - UI: icon trạng thái + sheet đồng bộ ở hub LHB; chuỗi 6 ngữ (rule #5).
+  - Quyết định kiến trúc: **ADR-0006** (đọc trước khi sửa vùng này).
+- Nghiệm thu (AT 6 bước trong ADR-0006 §AT): 2 thiết bị thật + 1 máy Linux
+  (REST). Ghi kết quả vào card KANBAN LHB-006.
+- Bằng chứng CI (2026-09-23): run 35922641394 🟢 (analyze + rule #5) và
+  35923191460 🟢 (thêm bước "LHB tests": 47 test, gồm 19 test LHB-006).
+- Lịch sử:
+  - 2026-09-23 | created→doing | agent arena/01a0d016-in4up | chưa có kế hoạch
+    cũ → viết PLAN-029 + ADR-0006 và triển khai code (merge thuần + sync
+    service + pending/bia mộ + badge/sheet hub + test); chờ CI + nghiệm thu
+  - 2026-09-23 | 21:35 UTC | doing→done (code + CI xanh) |
+    agent arena/01a0d016-in4up | commits `6c96d0e`→`fc1e0d3`; App Analyze
+    run 35922641394 🟢 + 35923191460 🟢 (47 test LHB); còn nghiệm thu 2 thiết bị
+### PLAN-030 — Cabin Save: lưu ghi âm + text phiên dịch, gửi sang Tab Đọc (CABIN-SAVE-001)
+- Nguồn: người sở hữu (2026-09-24, qua agent arena/01a0d363-in4up)
+- Trạng thái: accepted (chốt phạm vi: cả 3 bước)
+- Milestone đề xuất: M3
+- Quyết định đã chốt với người sở hữu:
+  - Text mặc định: **song ngữ** (nguồn + dịch); sheet cho đổi Nguồn / Dịch / Song ngữ.
+  - Ghi âm mặc định **WAV** (PCM16 16 kHz mono); Settings có tùy chọn **nén** (xem rủi ro R2).
+  - Khi Dừng: **hiện sheet hỏi lưu**; Settings có công tắc **tự lưu không hỏi**.
+- Kiến trúc:
+  - Engine Offline (sherpa): **tee** luồng PCM `AudioRecorder.startStream` hiện có → (a) Zipformer, (b) `CabinSessionRecorder` ghi WAV streaming xuống đĩa (không mở mic lần 2).
+  - Engine hệ thống: không ghi âm song song (Android giữ mic độc quyền) → chỉ lưu text; nút ghi âm mờ + tooltip gợi ý chuyển Offline.
+  - Mỗi phiên: `AppDocuments/cabin_sessions/<yyyyMMdd_HHmmss>/` gồm `audio.wav`, `transcript.lrc` (mốc = caption final − lúc bắt đầu ghi), `session.json` (lang, engine, thời lượng, số câu).
+  - Chống mất dữ liệu: WAV ghi dần + caption final append ngay; mở lại app → vá header WAV phiên dở, liệt kê là "phiên chưa hoàn tất".
+  - Tab Đọc: dùng luồng `.lrc` sẵn có (`TextProvider.loadTextFile` + `RecentFilesService.addOrUpdate`); bước 3 gắn WAV làm audio kèm LRC.
+- Bước:
+  1. Lưu text LRC/TXT + "Lưu & mở trong Tab Đọc" (cả 2 engine) + Settings (định dạng, tự lưu).
+  2. Ghi WAV (engine Offline) + phục hồi phiên dở.
+  3. Ghép audio+LRC trong Tab Đọc + màn "Phiên đã lưu" (nghe lại / mở Đọc / chia sẻ / xoá).
+- File: mới `features/cabin/models/cabin_session.dart`, `services/cabin_session_recorder.dart`, `services/cabin_transcript_exporter.dart`, `widgets/cabin_save_sheet.dart`, `screens/cabin_sessions_screen.dart`; sửa `stts_cabin_service.dart`, `live_cabin_screen.dart`; ARB vi/en + hi/zh/zh_TW/si; test exporter (LRC timestamp), WAV header, recovery.
+- Rủi ro:
+  - R1: không có Flutter SDK trong sandbox agent → dựa CI `app_analyze.yml`.
+  - R2: repo chưa có thư viện nén audio; `record` không transcode được PCM đã ghi. Tuỳ chọn nén cần hoặc thêm dependency mới, hoặc MediaCodec native (Android) — cần người sở hữu duyệt trước khi thêm (có thể để tuỳ chọn nén ở trạng thái "sắp có" trong bước 1–3).
+  - Không đụng `lib/ffi/` / UltraTimeStretch.
+- Lịch sử:
+  - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
+  - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
+
+### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
+  cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
+  model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
+  cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
+- Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
+- Kiến trúc (ADR-0008):
+  - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
+    (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
+    Speaches/Kokoro). BYOK — app không kèm key; mặc định TẮT + offlineFirst.
+  - Routing từng năng lực: offlineFirst (mặc định) / onlineFirst /
+    offlineOnly + fallback 2 chiều. Giữ on-device: live STT (Zipformer),
+    VAD Silero, ML Kit + engine offline (lớp fallback cuối).
+  - Engine remote cắm vào interface có sẵn: AiEngine (WP1), SttEngine (WP2),
+    TranslationEngine (WP3), TtsEngine (WP4) — không viết lại facade.
+  - Bảo mật: cleartext http chỉ host nội bộ; không log key; apiKey tạm
+    SharedPreferences (chờ duyệt flutter_secure_storage để migrate).
+- Work package (chi tiết đầy đủ `PROMPT_AGENT_SERVER_API.md`):
+  - WP0 (API-001) — nền: ADR + provider store + client + màn "Server & API"
+    (test `/v1/models`, model list động, routing prefs). KHÔNG đụng engine.
+  - WP1 (API-002) — AiEngineRemote: chat/analysis + SSE streaming, fallback
+    Gemma/mock. WP2 (API-003) — SttEngineRemote: bóc băng file dài theo chunk
+    VAD, ghi cùng LRC cache. WP3 (API-004) — LlmMtEngine dịch (giữ slot
+    glossary `__G{n}__`). WP4 (API-005) — TTS OpenAI-compat vào engine-order.
+    WP5 (API-006, tùy chọn) — docker-compose "Server Box" cho LAN.
+- Lịch sử:
+  - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
+    `docs/server_api_tu_van.md` + prompt giao việc + ADR-0008 + code WP0
+  - 2026-09-27 | WP3 (API-004) code | agent arena/01a0df5e-in4up | WP0 đã
+    xong (API-001 done); code WP3 trên nhánh con của tip WP0:
+    `LlmMtEngine` (giữ slot `__G{n}__`, routing chèn chuỗi dịch) +
+    `chatCompletion` vào client WP0 + test thuần — chi tiết card API-004
+    trong KANBAN
+  - 2026-09-28 | merge leader 251e | agent arena/01a0df5e-in4up | pull
+    `origin/arena/01a0251e-in4up` vào nhánh WP3; adopt numbering của leader
+    cho plan này (PLAN-031→032, ADR-0007→0008) — nội dung WP3 không đổi
+### PLAN-031 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
+- *(Số cũ PLAN-029 — đổi thành 031 ngày 2026-09-27 khi gộp nhánh tích hợp `arena/01a0251e-in4up`,
+  vì 251e đã dùng PLAN-029 cho LHB-006 và PLAN-030 cho Cabin Save.)*
+- **Nguồn:** người sở hữu (2026-09-24, qua agent `arena/01a0d344-in4up`).
+- **Yêu cầu:** nhận diện **cụm** (NP/VP/AdvP/"cụm …") + **cấu trúc câu** (hỏi/khẳng định/phủ định;
+  thì quá–hiện–vị; hoàn thành; tiếp diễn) + **công thức** `S + V + …`, gắn đúng chỗ badge
+  "Loại từ · CEFR" trong tab Đọc.
+- **Trạng thái:** 📋 proposed — kế hoạch đầy đủ ở `docs/project/PLAN-031-cau-truc-cau-read-tab.md`;
+  ADR: `docs/adr/0007-cau-truc-cau-lop-rieng-line-first.md`; KANBAN: `READ-GRAM-001`.
+- **Đặc tả đã kiểm chứng:** `tool/grammar_probe/` (engine + 3 corpus JSON + runner). Số **trung thực**
+  trên bộ đóng băng: **17/25 case (68%)** lúc đóng băng; **18/25 (72%)** sau khi người sở hữu chốt
+  quy ước câu hỏi đuôi (đổi do quy ước, không do engine). 7 lỗi còn lại ⇒ 3 nguyên nhân gốc.
+- **Lộ trình:** P1 sheet-section (2,5–4 ngày) → P2 sửa 4 lỗi + ghép câu vắt dòng + nút bật/tắt nhanh
+  trên thanh công cụ đáy (2–2,5 ngày) → P3 panel + block AI (1–2 ngày).
+- **Đã chốt (2026-09-24):** câu hỏi đuôi = "khẳng định + hỏi đuôi"; câu vắt dòng = phân tích theo dòng
+  rồi ghép ở P2; khối trong sheet ON, nhãn cấp dòng OFF **kèm nút bật/tắt nhanh trên thanh công cụ**.
+- **Lịch sử:**
+  - 2026-09-24 | created→proposed | ai (arena/01a0d344-in4up) | spike + kế hoạch; chờ chốt 3 điểm §10
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
+  - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
+    kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu
+

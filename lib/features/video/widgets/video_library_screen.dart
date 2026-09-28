@@ -1,4 +1,11 @@
-import 'package:in4up/core/language/localized_material.dart';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:video_player/video_player.dart';
 
 import '../models/video_info.dart';
 import '../services/video_library_service.dart';
@@ -56,6 +63,42 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     await _loadVideos();
   }
 
+  Future<void> _addVideo() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mp4', 'mkv', 'webm', 'mov', 'avi', 'm4v'],
+    );
+    if (result == null || result.files.single.path == null || !mounted) return;
+    final path = result.files.single.path!;
+    try {
+      final file = File(path);
+      final stat = await file.stat();
+      final controller = VideoPlayerController.file(file);
+      await controller.initialize();
+      final duration = controller.value.duration;
+      await controller.dispose();
+      final title = result.files.single.name.replaceFirst(RegExp(r'\.[^.]+$'), '');
+      final id = md5.convert(utf8.encode('$path:${stat.modified.millisecondsSinceEpoch}')).toString();
+      await VideoLibraryService.instance.addVideo(VideoInfo(
+        id: id,
+        title: title.isEmpty ? result.files.single.name : title,
+        filePath: path,
+        duration: duration,
+        addedAt: DateTime.now(),
+      ));
+      if (!mounted) return;
+      setState(() => _videos = VideoLibraryService.instance.videos);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã thêm video: $title')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể mở video: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,6 +122,12 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
               : _videos.isEmpty
                   ? _buildEmptyState()
                   : _buildVideoList(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addVideo,
+        backgroundColor: const Color(0xFF9C27B0),
+        icon: const Icon(Icons.video_library_outlined),
+        label: const Text('Thêm video'),
+      ),
     );
   }
 

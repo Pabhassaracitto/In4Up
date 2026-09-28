@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 
 import '../models/vocab_context.dart';
@@ -8,6 +10,9 @@ import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/vocab_batch/vocab_batch_extractor.dart';
 import '../services/vocab_batch/vocab_batch_models.dart';
+import 'difficulty_level_chips.dart';
+import 'vocab_batch_candidate_editor.dart';
+import 'vocab_quick_save_sheet.dart';
 import 'vocab_entry_meta.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -73,6 +78,8 @@ class SelectionSaveSheetView extends StatefulWidget {
 
 class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
   bool _batchMode = false;
+  bool _isEnriching = false;
+  double _enrichProgress = 0;
   List<WebExtractionCandidate> _candidates = const [];
   String? _selectedTopic;
   String _selectedLanguage = 'en';
@@ -128,6 +135,78 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     });
   }
 
+  int get _classifiedCount =>
+      _candidates.where((candidate) => candidate.difficulty != null).length;
+
+  void _applyDifficultyToSelected(DifficultyLevel level) {
+    final selected = _candidates.where((candidate) => candidate.selected).toList();
+    if (selected.isEmpty) return;
+    final previous = <WebExtractionCandidate, DifficultyLevel?>{
+      for (final candidate in selected) candidate: candidate.difficulty,
+    };
+    for (final candidate in selected) {
+      candidate.difficulty = level;
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Đã gán độ khó cho mục đã chọn')),
+        action: SnackBarAction(
+          label: context.uiText('Hoàn tác'),
+          onPressed: () {
+            for (final entry in previous.entries) {
+              entry.key.difficulty = entry.value;
+            }
+            if (mounted) setState(() {});
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _enrichSelectedFromDictionary() async {
+    final targets = _candidates.where((candidate) => candidate.selected).toList();
+    if (targets.isEmpty || _isEnriching) return;
+    setState(() {
+      _isEnriching = true;
+      _enrichProgress = 0;
+    });
+
+    try {
+      for (var index = 0; index < targets.length; index++) {
+        try {
+          await VocabBatchExtractor.enrichCandidateFromDictionary(
+            targets[index],
+            pageTitle: widget.sourceLabel,
+          );
+        } catch (_) {
+          // A single lookup failure must not stop the remaining candidates.
+        }
+        if (!mounted) return;
+        setState(() => _enrichProgress = (index + 1) / targets.length);
+      }
+    } finally {
+      if (mounted) setState(() => _isEnriching = false);
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Đã kiểm tra từ điển cho mục đã chọn')),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _editCandidate(WebExtractionCandidate candidate) async {
+    final changed = await VocabBatchCandidateEditor.show(
+      context,
+      candidate: candidate,
+    );
+    if (changed && mounted) setState(() {});
+  }
+
   void _saveWholeSelection() {
     final text = widget.text.trim();
     if (text.isEmpty) return;
@@ -158,6 +237,62 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
           '${_selectedTopic != null ? '· #$_selectedTopic ' : ''}'
           '· ${labelForLanguage(_selectedLanguage)}',
         ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E5F3A),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _saveWholeSelectionWithDetails() async {
+    final text = widget.text.trim();
+    if (text.isEmpty) return;
+    final existing = VocabularyBridge.findByWord(text.toLowerCase());
+    final details = await VocabQuickSaveSheet.show(
+      context,
+      word: text,
+      meaning: existing?.meaning ?? '',
+      phonetic: existing?.phonetic ?? '',
+      example: (existing?.example ?? '').trim().isNotEmpty
+          ? existing!.example!.trim()
+          : text,
+      sourceContext: text,
+    );
+    if (details == null || !mounted) return;
+
+    final wordCount = text.split(RegExp(r'\s+')).length;
+    final type = wordCount == 1
+        ? VocabularyType.word
+        : (wordCount > 6 ? VocabularyType.sentence : VocabularyType.phrase);
+    final isNew = !VocabularyBridge.hasWord(text.toLowerCase());
+    final entry = VocabularyBridge.addContextual(
+      text: text,
+      meaning: details.meaning,
+      phonetic: details.phonetic.trim().isEmpty ? null : details.phonetic.trim(),
+      example: details.example,
+      forceType: type,
+      topic: _selectedTopic,
+      language: _selectedLanguage,
+      context: widget.contextBuilder?.call(text),
+    );
+    if (entry == null) return;
+    if (existing != null) {
+      context.read<VocabularyProvider>().updateWord(
+            existing.id,
+            meaning: details.meaning,
+            phonetic: details.phonetic.trim(),
+            example: details.example,
+          );
+    }
+
+    final message = context.uiText(isNew
+        ? 'Đã lưu mục kèm IPA / ví dụ'
+        : 'Đã bổ sung thông tin và ngữ cảnh');
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E5F3A),
         duration: const Duration(seconds: 3),
@@ -288,6 +423,17 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
                 ),
               ),
             ),
+            if (!_batchMode) ...[
+              const SizedBox(height: 3),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _saveWholeSelectionWithDetails,
+                  icon: const Icon(Icons.edit_note, size: 16),
+                  label: Text(context.uiText('Lưu kèm IPA / ví dụ…')),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
 
             // ── Chủ đề (chọn có sẵn / tạo mới) ─────────────
@@ -488,33 +634,97 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
             // ── Nội dung theo chế độ ────────────────────────
             Expanded(
               child: _batchMode
-                  ? _buildBatchList()
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: _isEnriching
+                                  ? null
+                                  : () => setState(() {
+                                        for (final c in _candidates) {
+                                          c.selected = !c.existed;
+                                        }
+                                      }),
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: Text(
+                                context.uiText('Chỉ chọn mục mới'),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              context.uiText('Đã chọn: $_selectedCount'),
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                context.uiText('Đánh giá nhanh mục đã chọn'),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              context.uiText('Đã phân loại $_classifiedCount / ${_candidates.length}'),
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        DifficultyLevelActionChips(
+                          dense: true,
+                          onSelected: _applyDifficultyToSelected,
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _selectedCount == 0 || _isEnriching
+                                ? null
+                                : _enrichSelectedFromDictionary,
+                            icon: _isEnriching
+                                ? const SizedBox(
+                                    width: 15,
+                                    height: 15,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.auto_awesome, size: 16),
+                            label: Text(context.uiText(_isEnriching
+                                ? 'Đang tra từ điển...'
+                                : 'Bổ sung từ điển (nghĩa / IPA)')),
+                          ),
+                        ),
+                        if (_isEnriching)
+                          LinearProgressIndicator(
+                            value: _enrichProgress <= 0 ? null : _enrichProgress,
+                            minHeight: 4,
+                            backgroundColor: Colors.white10,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF64B5F6),
+                            ),
+                          ),
+                        Expanded(child: _buildBatchList()),
+                      ],
+                    )
                   : const SizedBox.shrink(),
             ),
 
             // ── Nút hành động ───────────────────────────────
-            if (_batchMode)
-              Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: () => setState(() {
-                      for (final c in _candidates) {
-                        c.selected = !c.existed;
-                      }
-                    }),
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text(
-                      'Chỉ chọn mục MỚI',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Đã chọn: $_selectedCount',
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                ],
-              ),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -574,6 +784,9 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
       ),
       itemBuilder: (context, index) {
         final c = _candidates[index];
+        final previewExample = (c.example ?? '').trim().isNotEmpty
+            ? c.example!.trim()
+            : c.sampleContext.trim();
         return CheckboxListTile(
           dense: true,
           value: c.selected,
@@ -606,20 +819,86 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
                 color: c.existed ? Colors.orangeAccent : Colors.greenAccent,
               ),
               _MiniBadge(label: 'x${c.frequency}', color: Colors.blueAccent),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: context.uiText('Sửa thông tin mục'),
+                onPressed: () => _editCandidate(c),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 17,
+                  color: Colors.white70,
+                ),
+              ),
             ],
           ),
-          subtitle: c.meaning.trim().isNotEmpty
-              ? Text(
-                  c.meaning.trim(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.green[200],
-                    fontSize: 11.5,
-                    height: 1.3,
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (c.meaning.trim().isNotEmpty)
+                  Text(
+                    c.meaning.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.green[200],
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
                   ),
-                )
-              : null,
+                if ((c.phonetic ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    c.phonetic!.trim(),
+                    style: const TextStyle(
+                      color: Color(0xFF90CAF9),
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                if (previewExample.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    previewExample,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 5),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, right: 6),
+                      child: Text(
+                        context.uiText('Độ khó'),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: DifficultyLevelChips(
+                        value: c.difficulty,
+                        dense: true,
+                        onChanged: (value) {
+                          setState(() => c.difficulty = value);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           onChanged: (value) => setState(() => c.selected = value ?? false),
         );
       },

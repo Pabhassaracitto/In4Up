@@ -12,13 +12,12 @@ import 'ipa_source_chip.dart';
 /// (READ-630-02)
 ///
 /// Dùng chung cho tap sheet của PDF + Web reader:
-///  * `VocabEntryMetaInfo`  — hàng thông tin đầy đủ (IPA, loại,
-///    chủ đề, ngôn ngữ) khi entry đã có sẵn.
-///  * `VocabEntryEditSheet` — sửa IPA / loại / thêm-bớt chủ đề /
-///    thêm-bớt ngôn ngữ NGAY TẠI ĐÓ.
+///  * `VocabEntryMetaInfo` — hiện IPA, nghĩa, ví dụ, loại, chủ đề và ngôn ngữ.
+///  * `VocabEntryEditSheet` — sửa nghĩa/IPA/ví dụ/loại và thêm-bớt
+///    chủ đề/ngôn ngữ NGAY TẠI ĐÓ.
 ///
-/// BẢO ĐẢM KHÔNG MẤT DỮ LIỆU: chỉ đụng phonetic/vocabType/topics/
-/// languages — word, context, SM-2, ghi chú KHÔNG thay đổi.
+/// BẢO ĐẢM KHÔNG MẤT DỮ LIỆU: chỉ sửa metadata; word, context, SM-2 và
+/// ghi chú KHÔNG thay đổi.
 /// Xóa 1 chủ đề/ngôn ngữ chỉ gỡ tag ("mất đi 1 tab mà thôi").
 /// ═══════════════════════════════════════════════════════════════
 
@@ -150,6 +149,22 @@ class VocabEntryMetaInfo extends StatelessWidget {
             ],
           ),
         ),
+        if (entry.meaning.trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _MetaTextRow(
+            icon: Icons.menu_book_outlined,
+            label: 'Nghĩa',
+            value: entry.meaning,
+          ),
+        ],
+        if ((entry.example ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          _MetaTextRow(
+            icon: Icons.format_quote_outlined,
+            label: 'Ví dụ',
+            value: entry.example!.trim(),
+          ),
+        ],
         const SizedBox(height: 6),
         // Loại từ/cụm/câu
         Container(
@@ -202,6 +217,53 @@ class VocabEntryMetaInfo extends StatelessWidget {
           color: const Color(0xFF81C784),
         ),
       ],
+    );
+  }
+}
+
+class _MetaTextRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _MetaTextRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 13, color: Colors.white38),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 42,
+            child: Text(
+              context.uiText(label),
+              style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -303,7 +365,9 @@ class _VocabEntryEditSheet extends StatefulWidget {
 }
 
 class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
+  late final TextEditingController _meaningCtrl;
   late final TextEditingController _ipaCtrl;
+  late final TextEditingController _exampleCtrl;
   late VocabularyType _selectedType;
   late Set<String> _topics;
   late Set<String> _languages;
@@ -313,7 +377,9 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
   @override
   void initState() {
     super.initState();
+    _meaningCtrl = TextEditingController(text: widget.entry.meaning);
     _ipaCtrl = TextEditingController(text: widget.entry.phonetic ?? '');
+    _exampleCtrl = TextEditingController(text: widget.entry.example ?? '');
     _selectedType = widget.entry.vocabType;
     _topics = widget.entry.topics.toSet();
     _languages = widget.entry.languages.toSet();
@@ -321,7 +387,9 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
 
   @override
   void dispose() {
+    _meaningCtrl.dispose();
     _ipaCtrl.dispose();
+    _exampleCtrl.dispose();
     _newTopicCtrl.dispose();
     _newLangCtrl.dispose();
     super.dispose();
@@ -344,7 +412,9 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
     final provider = context.read<VocabularyProvider>();
     provider.updateWord(
       widget.entry.id,
+      meaning: _meaningCtrl.text.trim(),
       phonetic: _ipaCtrl.text.trim(),
+      example: _exampleCtrl.text.trim(),
       vocabType: _selectedType,
       topics: _topics.toList(),
       languages: _languages.toList(),
@@ -399,11 +469,33 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
             ),
             const SizedBox(height: 14),
 
+            // ── Meaning ────────────────────────────────────
+            TextField(
+              controller: _meaningCtrl,
+              maxLines: 2,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: _fieldDecoration(
+                'Nghĩa / định nghĩa',
+                hint: 'Giải thích ngắn cho từ hoặc cụm',
+              ),
+            ),
+            const SizedBox(height: 14),
+
             // ── IPA ────────────────────────────────────────
             TextField(
               controller: _ipaCtrl,
               style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: _fieldDecoration('Phiên âm / IPA', hint: '/.../'),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _exampleCtrl,
+              maxLines: 4,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: _fieldDecoration(
+                'Câu ví dụ / ngữ cảnh',
+                hint: 'Một câu tự nhiên có chứa từ hoặc cụm này',
+              ),
             ),
             const SizedBox(height: 14),
 
@@ -596,8 +688,8 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
 
   InputDecoration _fieldDecoration(String label, {String? hint}) {
     return InputDecoration(
-      labelText: label.isEmpty ? null : label,
-      hintText: hint,
+      labelText: label.isEmpty ? null : context.uiText(label),
+      hintText: hint == null ? null : context.uiText(hint),
       labelStyle: const TextStyle(color: Colors.white54),
       hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
       filled: true,

@@ -500,4 +500,177 @@ class LearnByHeartL10n {
         'zh_TW': '恢復預設（長按）',
         'si': 'පෙරනිමි අගයට (දිගු ඔබීම)',
       });
+
+  // ===== ĐỒNG BỘ ĐA THIẾT BỊ (LHB-006) =====
+
+  String get syncTitle => _get({
+        'vi': 'Đồng bộ đa thiết bị',
+        'en': 'Multi-device sync',
+        'hi': 'बहु-उपकरण समकालन',
+        'zh': '多设备同步',
+        'zh_TW': '多裝置同步',
+        'si': 'උපාංග කිහිපය අතර සමමුහුර්තකරණය',
+      });
+
+  String get syncBadgeTooltip => _get({
+        'vi': 'Đồng bộ bài thuộc lòng',
+        'en': 'Sync memorization items',
+        'hi': 'कंठस्थ पाठ समकालित करें',
+        'zh': '同步背诵篇目',
+        'zh_TW': '同步背誦篇目',
+        'si': 'පාඩම් සමමුහුර්ත කරන්න',
+      });
+
+  String get syncIdle => _get({
+        'vi': 'Sẵn sàng đồng bộ',
+        'en': 'Ready to sync',
+        'hi': 'समकालन के लिए तैयार',
+        'zh': '可以同步',
+        'zh_TW': '可以同步',
+        'si': 'සමමුහුර්ත කිරීමට සූදානම්',
+      });
+
+  String get syncSyncing => _get({
+        'vi': 'Đang đồng bộ…',
+        'en': 'Syncing…',
+        'hi': 'समकालन हो रहा है…',
+        'zh': '正在同步…',
+        'zh_TW': '正在同步…',
+        'si': 'සමමුහුර්ත වෙමින්…',
+      });
+
+  String get syncSuccess => _get({
+        'vi': 'Đã đồng bộ',
+        'en': 'Synced',
+        'hi': 'समकालन पूर्ण',
+        'zh': '已同步',
+        'zh_TW': '已同步',
+        'si': 'සමමුහුර්ත කළා',
+      });
+
+  String get syncError => _get({
+        'vi': 'Lỗi đồng bộ',
+        'en': 'Sync error',
+        'hi': 'समकालन त्रुटि',
+        'zh': '同步出错',
+        'zh_TW': '同步錯誤',
+        'si': 'සමමුහුර්ත දෝෂයක්',
+      });
+
+  String get syncErrorHint => _get({
+        'vi': 'Đồng bộ thất bại — kiểm tra mạng rồi thử lại.',
+        'en': 'Sync failed — check your connection and try again.',
+        'hi': 'समकालन विफल — कनेक्शन जाँचें और पुनः प्रयास करें।',
+        'zh': '同步失败 — 请检查网络后重试。',
+        'zh_TW': '同步失敗 — 請檢查網路後重試。',
+        'si': 'සමමුහුර්ත කිරීම අසාර්ථකයි — සම්බන්ධතාවය පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
+      });
+
+  String get syncSignedOut => _get({
+        'vi': 'Đăng nhập để đồng bộ bài thuộc lòng giữa các thiết bị.',
+        'en': 'Sign in to sync memorization items across devices.',
+        'hi': 'उपकरणों के बीच कंठस्थ पाठ समकालित करने के लिए साइन इन करें।',
+        'zh': '登录后可在设备之间同步背诵篇目。',
+        'zh_TW': '登入後可在裝置之間同步背誦篇目。',
+        'si': 'උපාංග අතර පාඩම් සමමුහුර්ත කිරීමට පිවිසෙන්න.',
+      });
+
+  String get syncDescription => _get({
+        'vi': 'Bài thuộc lòng, tiến độ SRS và chuỗi ngày học được lưu trên cloud và tự đồng bộ giữa các thiết bị.',
+        'en': 'Your memorization items, SRS progress and study streak are stored in the cloud and synced across devices.',
+        'hi': 'आपके कंठस्थ पाठ, SRS प्रगति और अध्ययन श्रृंखला क्लाउड में सहेजी जाती है और उपकरणों के बीच समकालित होती है।',
+        'zh': '背诵篇目、SRS 进度与连续学习天数保存在云端，并在设备之间自动同步。',
+        'zh_TW': '背誦篇目、SRS 進度與連續學習天數保存在雲端，並在裝置之間自動同步。',
+        'si': 'ඔබේ පාඩම්, SRS ප්‍රගතිය සහ දින අඛණ්ඩතාව ක්ලවුඩ් හි සුරැකී උපාංග අතර සමමුහුර්ත වේ.',
+      });
+
+  String get syncNow => _get({
+        'vi': 'Đồng bộ ngay',
+        'en': 'Sync now',
+        'hi': 'अभी समकालन करें',
+        'zh': '立即同步',
+        'zh_TW': '立即同步',
+        'si': 'දැන් සමමුහුර්ත කරන්න',
+      });
+
+  String get syncPullAll => _get({
+        'vi': 'Kéo toàn bộ từ cloud',
+        'en': 'Pull everything from cloud',
+        'hi': 'क्लाउड से सब कुछ लाएँ',
+        'zh': '从云端拉取全部',
+        'zh_TW': '從雲端拉取全部',
+        'si': 'ක්ලවුඩ් එකෙන් සියල්ල ලබාගන්න',
+      });
+
+  String get syncPushAll => _get({
+        'vi': 'Đẩy tất cả lên cloud',
+        'en': 'Push all to cloud',
+        'hi': 'सब कुछ क्लाउड पर भेजें',
+        'zh': '全部推送到云端',
+        'zh_TW': '全部推送到雲端',
+        'si': 'සියල්ල ක්ලවුඩ් එකට යවන්න',
+      });
+
+  String get syncNever => _get({
+        'vi': 'Chưa đồng bộ lần nào',
+        'en': 'Never synced yet',
+        'hi': 'अभी तक कोई समकालन नहीं',
+        'zh': '尚未同步',
+        'zh_TW': '尚未同步',
+        'si': 'තවම සමමුහුර්ත කර නැත',
+      });
+
+  String syncLastSynced(String time) => _get({
+        'vi': 'Lần cuối: $time',
+        'en': 'Last synced: $time',
+        'hi': 'अंतिम समकालन: $time',
+        'zh': '上次同步：$time',
+        'zh_TW': '上次同步：$time',
+        'si': 'අවසන් සමමුහුර්ත: $time',
+      });
+
+  String get syncJustNow => _get({
+        'vi': 'vừa xong',
+        'en': 'just now',
+        'hi': 'अभी-अभी',
+        'zh': '刚刚',
+        'zh_TW': '剛剛',
+        'si': 'දැන්',
+      });
+
+  String syncMinutesAgo(int minutes) => _get({
+        'vi': '$minutes phút trước',
+        'en': '$minutes min ago',
+        'hi': '$minutes मिनट पहले',
+        'zh': '$minutes 分钟前',
+        'zh_TW': '$minutes 分鐘前',
+        'si': 'මිනිත්තු $minutes කට පෙර',
+      });
+
+  String syncHoursAgo(int hours) => _get({
+        'vi': '$hours giờ trước',
+        'en': '$hours h ago',
+        'hi': '$hours घंटे पहले',
+        'zh': '$hours 小时前',
+        'zh_TW': '$hours 小時前',
+        'si': 'පැය $hours කට පෙර',
+      });
+
+  String syncDaysAgo(int days) => _get({
+        'vi': '$days ngày trước',
+        'en': '$days d ago',
+        'hi': '$days दिन पहले',
+        'zh': '$days 天前',
+        'zh_TW': '$days 天前',
+        'si': 'දින $days කට පෙර',
+      });
+
+  String get syncClose => _get({
+        'vi': 'Đóng',
+        'en': 'Close',
+        'hi': 'बंद करें',
+        'zh': '关闭',
+        'zh_TW': '關閉',
+        'si': 'වසන්න',
+      });
 }

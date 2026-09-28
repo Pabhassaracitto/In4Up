@@ -1427,4 +1427,119 @@ class AppLocalizationsSi extends AppLocalizations {
 
   @override
   String get soundRelated => 'අදාළ';
+
+
+  @override
+  String get aiProvidersTitle => 'AI සේවාදායක සහ API';
+
+  @override
+  String get aiProvidersSubtitle => 'වලාකුලෝස් හෝ ගෙදර සේවාදායකයේ ආකෘති භාවිත කරන්න. ඕෆ්ලයින් පෙරනිමිය ලෙසම පවතී.';
+
+  @override
+  String get aiProvidersEntryTitle => 'සේවාදායක සහ API (වලාකුල / LAN)';
+
+  @override
+  String get aiProvidersEntrySubtitle => 'සබඳි ආකෘති එක් කරන්න — RAM නිදහස් වේ, ඕෆ්ලයින් අතිරික්තය වේ';
+
+  @override
+  String get aiProvidersEmpty => 'කිසිදු සැපයුම්කරුවෙකු වින්‍යාසගත කර නැත. යෙදුම දැනටමත් සම්පූර්ණයෙන් ඕෆ්ලයින් ක්‍රියා කරයි.';
+
+  @override
+  String get aiProviderAdd => 'සැපයුම්කරු එක් කරන්න';
+
+  @override
+  String get aiProviderEdit => 'සැපයුම්කරු සංස්කරණය කරන්න';
+
+  @override
+  String get aiProviderLabel => 'පෙන්වන නම';
+
+  @override
+  String get aiProviderBaseUrl => 'සේවාදායක URL (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API යතුර';
+
+  @override
+  String get aiProviderApiKeyHint => 'ගෙදර සේවාදායකය සඳහා හිස්ව තබන්න';
+
+  @override
+  String get aiProviderPreset => 'කලින් සකසන ලද';
+
+  @override
+  String get aiProviderPresetCustom => 'අභිරුචි…';
+
+  @override
+  String get aiProviderTestConnection => 'සම්බන්ධය පරීක්ෂා කරන්න';
+
+  @override
+  String get aiProviderConnectionOk => 'සම්බන්ධ වී ඇත';
+
+  @override
+  String get aiProviderConnectionFail => 'සම්බන්ධතාව අසාර්ථක විය';
+
+  @override
+  String get aiProviderLoadModels => 'ආකෘති පූරණය කරන්න';
+
+  @override
+  String get aiProviderModelsLabel => 'ආකෘති';
+
+  @override
+  String get aiProviderChatModel => 'කතාබහ / විශ්ලේෂණ ආකෘතිය';
+
+  @override
+  String get aiProviderSttModel => 'කථන-සිට-පෙළ ආකෘතිය';
+
+  @override
+  String get aiProviderTtsModel => 'පෙළ-සිට-කථන ආකෘතිය';
+
+  @override
+  String get aiProviderNoModels => 'පළමුව ආකෘති ලැයිස්තුව පූරණය කරන්න';
+
+  @override
+  String get aiProviderNone => 'නැත';
+
+  @override
+  String get aiProviderEnabled => 'සක්‍රීයයි';
+
+  @override
+  String get aiProviderDelete => 'ඉවත් කරන්න';
+
+  @override
+  String get aiProviderDeleteConfirm => 'මෙම සැපයුම්කරුවා සහ ඔහුගේ සැකසුම් ඉවත් කරන්නද?';
+
+  @override
+  String get aiRoutingTitle => 'සබඳි ආකෘති කවදා භාවිත කරන්නද';
+
+  @override
+  String get aiRoutingChat => 'AI කතාබහ සහ විශ්ලේෂණය';
+
+  @override
+  String get aiRoutingStt => 'ශ්‍රව්‍ය ගොනු පිටපත් කරන්න';
+
+  @override
+  String get aiRoutingTranslation => 'පරිවර්තනය';
+
+  @override
+  String get aiRoutingTts => 'පෙළ-සිට-කථනය';
+
+  @override
+  String get aiRouteOfflineFirst => 'පළමුව ඕෆ්ලයින්';
+
+  @override
+  String get aiRouteOnlineFirst => 'පළමුව සබඳි';
+
+  @override
+  String get aiRouteOfflineOnly => 'ඕෆ්ලයින් පමණි';
+
+  @override
+  String get aiRoutingProvider => 'සැපයුම්කරු';
+
+  @override
+  String get aiProviderSave => 'සුරකින්න';
+
+  @override
+  String get aiProviderCancel => 'අවලංගු කරන්න';
+
+  @override
+  String get aiProvidersPrivacy => 'ශ්‍රව්‍ය සහ පෙළ ඔබ තෝරාගත් සැපයුම්කරුට පමණක් යවයි. ගෙදර සේවාදායකය (LAN) දත්ත ඔබගේ ජාලය තුළ රඳවා ගනී.';
 }

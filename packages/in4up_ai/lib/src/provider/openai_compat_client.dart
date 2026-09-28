@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'ai_sse.dart';
+import 'ai_transcription.dart';
 
 /// Mã lỗi cấu trúc — UI phân nhánh theo mã, không match chuỗi
 /// (cùng khuôn mẫu HyMtErrorCode).

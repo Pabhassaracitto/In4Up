@@ -10,6 +10,7 @@
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
+| API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -240,6 +241,98 @@
     ChangeNotifier), await void = lỗi analyze [T8–T9].
     Skill ci-red-debugging +bẫy 5.24 (await void — verify RETURN TYPE,
     không chỉ tên). Chuỗi bisect 21 vòng giữ nguyên history trên nhánh.
+
+### API-003 — WP2: STT file qua API (SttEngineRemote — whisper-large-v3)
+- **Trạng thái:** doing (code + CI 🟢 run 36348644820 — analyze + rule #5 +
+  LHB + Cabin; còn nghiệm thu thiết bị theo AT)
+- **Nguồn:** owner (PROMPT_AGENT_SERVER_API.md §5 WP2) qua agent
+  arena/01a0df5b-in4up — PLAN-032, ADR-0008.
+- **Nội dung:**
+  - `packages/in4up_ai/.../ai_transcription.dart` (mới): parse
+    verbose_json (`text`, `language`, `duration`, `segments[id,start,end,
+    text,words?]`) — `words` nullable theo server, KHÔNG fake word
+    timestamps (nguyên tắc MeetilyAdapter).
+  - `OpenAiCompatClient.transcribeAudio()`: POST multipart
+    `/v1/audio/transcriptions` bằng `http.MultipartRequest` của chính
+    package:http — KHÔNG thêm client HTTP thứ 2 (dio có sẵn trong
+    in4up_stt từ trước nhưng WP2 không dùng — rationale: 1 client duy nhất
+    WP0, `MultipartFile.fromPath` stream file từ đĩa không load RAM, test
+    được bằng MockClient.streaming). Fields `model`, `response_format=
+    verbose_json`, `temperature=0`; `language` CHỈ gửi khi mã ISO hợp lệ
+    ('auto' → omit). Header chỉ Authorization (multipart tự sinh
+    boundary). Timeout hữu hạn 10 phút; 429/5xx → drain + backoff
+    (Retry-After ≤30s hoặc 2s) + retry đúng 1 lần; 200 rỗng ⇒
+    invalidResponse (không fake success); lỗi map về `AiApiException`
+    codes có sẵn.
+  - `packages/in4up_stt/lib/stt_engine_remote.dart` (mới): implements
+    `SttEngine`, đăng ký `SttEngineType.remote` (additive — serialization
+    `.name` chuỗi). Capabilities trung thực: file ✓ / offline ✗ /
+    liveMic ✗ (AT: live mic giữ on-device) / wordTimestamps ✓ /
+    chunking ✓. Provider resolve MỖI LẦN gọi (offlineOnly/chưa cấu hình
+    ⇒ `(noProvider)`, không request nào đi ra). Single-flight static busy
+    guard (mẫu hymt_slot) ⇒ `(busy)`. Cancel ⇒ `(canceled)`.
+  - Chunking: luôn convert WAV 16k mono TRƯỚC (KHÔNG upload lossless gốc
+    30p ≈ 57MB > 25MB); target ~10 phút/chunk (~19.2MB), siết theo size
+    thật + limit 24MB. `planRemoteChunks` HÀM THUẦN: chia đều theo target
+    + snap biên vào TRUNG TÂM khoảng lặng gần nhất ±90s, min chunk 60s,
+    phủ kín [0,duration] không chồng lấn (kỷ luật hymt_chunking — không
+    lặp/mất đoạn). DEVIATION so spec: silence detection bằng energy scan
+    thuần Dart stream từ đĩa (`scanSilenceGaps`: RIFF parse đúng chunk
+    'data', window 100ms RMS, lặng ≥400ms) thay vì SherpaVadService — vì
+    SherpaVadCore cần model onnx + FFI init + readWave load full RAM, quá
+    nặng cho mục đích chỉ tìm chỗ cắt (timestamp không phụ thuộc nó).
+  - Offset stitch: timestamps chunk-relative + chunkStartMs; renumber id
+    sequential; UID = ContentId.segmentUid theo mốc FILE GỐC. Partial
+    SttResult sau mỗi chunk qua onProgress(i, count, partial).
+  - Facade: nhánh `preferredEngine == remote` → `_runRemoteEngine`
+    (mirror progress/cancel/partial của _runWhisperViaIsolate;
+    `SttFacadeStatus.processingRemote` + isActive switch); kết quả đi tiếp
+    CÙNG pipeline cache + LRC + diarization (remote chỉ là nguồn segment —
+    AT: LRC cache từ remote mở offline vẫn thấy, không duplicate vì LRC
+    file engine-agnostic tại lrcOutputPath). `transcribeAuto`: hết model
+    local VÀ apiAllowed(sttFile) → remote; còn lại giữ đúng hành vi cũ.
+  - UI auto-TOC: ListTile thứ 3 "Whisper qua API (nhanh, chính xác)" trong
+    `sound_auto_toc_dialog.dart` — chỉ hiện khi store đã load +
+    apiAllowed(sttFile); cắm cạnh 2 lựa chọn hiện có, không dựng màn mới.
+    Chuỗi engine qua `startAutoTocBackground(sttEngine:)` →
+    `autoGenerateToc` → `SoundAutoTocService.transcribe(engine:)`; lỗi
+    engine hiện THẬT (mã cấu trúc) trong error auto-TOC. 'auto' giữ cho
+    remote (server tự detect — khác on-device map 'en' legacy D16). i18n
+    rule #5: 2 literal mới qua uiText + overrides JSON + generated
+    fallbacks cập nhật TAY (precedent WP1).
+  - Test thuần: `test/ai_wp2_stt_api_test.dart` — fromJson (đầy đủ/thiếu
+    field), client multipart qua MockClient (body đúng fields + Bearer +
+    audio/wav + filename; language vi-VN→vi, auto→omit; 429 retry đúng 1
+    lần; 401; 200 rỗng ⇒ invalidResponse; cleartext public chặn),
+    planRemoteChunks (thuần: 1 chunk/chia đều/snap ±90s/min 60s/không
+    trùng lặng), scanSilenceGaps (WAV thật trên đĩa, LIST metadata,
+    lặng <400ms), engine inject toàn bộ I/O (noProvider, busy
+    single-flight, offset stitch 3 chunk + uid mốc gốc + renumber,
+    cancel trước request, emptyResult, noNetwork, language mapping,
+    capabilities), store offlineOnly ⇒ resolve null (AT offline gate).
+- **AT (từ prompt WP2):** file ~30p nhanh hơn whisper-tiny on-device; LRC
+  khớp karaoke; transcript search hoạt động; mất mạng giữa chừng ⇒ dừng
+  sạch có mã lỗi, chạy lại on-device ngay; LRC cache từ remote mở offline
+  vẫn thấy (không duplicate); chưa cấu hình provider ⇒ luồng STT y hệt
+  hôm nay; CI xanh.
+- **Lịch sử:**
+  - 2026-09-27 | created→doing | agent arena/01a0df5b-in4up | code WP2
+    đầy đủ 4 commit theo dependency (client multipart → engine remote →
+    facade routing → UI auto-TOC + i18n) + test; run CI đầu 36347966404
+    ĐỎ step Analyze (artifact/log vẫn không tải được — blob storage chặn
+    khỏi sandbox như WP1); tìm 2 lỗi bằng static review: (1) `sw`
+    (Stopwatch) khai báo trong transcribeFile nhưng dùng trong
+    _transcribeLocked — khác scope; (2) `throw const AiApiException('…
+    ${responseTimeout.inMinutes} min')` — const string interpolation với
+    tham số không hằng. Fix cả 2 + mockClient closure async tường minh
+    trong test.
+  - 2026-09-28 | doing (CI 🟢) | agent arena/01a0df5b-in4up | run
+    **36348644820** XANH TOÀN BỘ (commit `97d57fc`: analyze + rule #5 +
+    LHB + Cabin) — 2 lỗi static review phía trên là ĐÚNG toàn bộ, không
+    cần vòng bisect nào lần này. Còn nghiệm thu AT trên thiết bị thật
+    (Groq/Speaches whisper-large-v3 với file pháp thoại 30–60p: nhanh hơn
+    whisper-tiny on-device, LRC karaoke khớp, mất mạng giữa chừng dừng
+    sạch theo mã + chạy lại on-device, LRC cache offline không duplicate).
 
 ### API-004 — WP3: Dịch bằng LLM qua tầng Server API (LlmMtEngine implements TranslationEngine)
 - **Trạng thái:** ✅ done (code + CI 🟢 run 36270711178: analyze + rule #5 + LHB + Cabin — xanh ngay run đầu; còn owner nghiệm thu chất lượng 3 đoạn Pali/chuyên ngữ với provider thật + AT thiết bị).

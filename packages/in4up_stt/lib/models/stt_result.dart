@@ -187,4 +187,7 @@ class SttResult {
       'words=${allWords.length}, fp=$audioFingerprint)';
 }
 
-enum SttEngineType { native, whisper, sherpa }
+/// `remote` — WP2 (API-003): bóc băng file qua API OpenAI-compatible
+/// (whisper-large-v3 trên Groq/Speaches local). Serialization là chuỗi
+/// `.name` (toJson) — thêm value mới additive, không phá dữ liệu cũ.
+enum SttEngineType { native, whisper, sherpa, remote }

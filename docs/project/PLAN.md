@@ -989,7 +989,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
   model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
   cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
 - Trạng thái: doing (WP0 done trên `arena/01a0ddd1-in4up`; WP1 code+CI 🟢
-  trên `arena/01a0df5b-in4up` — run 36346119791, còn AT thiết bị)
+  trên `arena/01a0df5b-in4up` — run 36346119791; WP2 code+CI 🟢 trên
+  `arena/01a0df5b-in4up` — run 36348644820; WP1+WP2 còn AT thiết bị)
 - Kiến trúc (ADR-0008):
   - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
     (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
@@ -1029,6 +1030,20 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-28 | merge leader 251e | agent arena/01a0df5e-in4up | pull
     `origin/arena/01a0251e-in4up` vào nhánh WP3; adopt numbering của leader
     cho plan này (PLAN-031→032, ADR-0007→0008) — nội dung WP3 không đổi
+  - 2026-09-28 | WP2 doing (API-003) | agent arena/01a0df5b-in4up |
+    transcribeAudio multipart + AiTranscription (in4up_ai); SttEngineRemote
+    (chunking + offset stitch + single-flight + energy-scan silence) +
+    enum remote + registry (in4up_stt, +path dep in4up_ai — acyclic);
+    facade processingRemote + transcribeAuto fallback API; UI auto-TOC
+    "Whisper qua API" + i18n rule #5; test thuần
+    `test/ai_wp2_stt_api_test.dart`. Run đầu 36347966404 ĐỎ (2 lỗi analyze
+    — xem card API-003); chờ run kế sau fix
+  - 2026-09-28 | WP2 CI 🟢 (API-003) | agent arena/01a0df5b-in4up | run
+    36348644820 xanh toàn bộ (analyze + rule #5 + LHB + Cabin) sau khi fix
+    2 lỗi analyze bằng static review (không cần bisect — log/artifact vẫn
+    bị chặn khỏi sandbox); còn nghiệm thu AT trên thiết bị thật
+    (whisper-large-v3 Groq/Speaches, file 30–60p, cắt mạng giữa chừng)
+
 ### PLAN-031 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
 - *(Số cũ PLAN-029 — đổi thành 031 ngày 2026-09-27 khi gộp nhánh tích hợp `arena/01a0251e-in4up`,
   vì 251e đã dùng PLAN-029 cho LHB-006 và PLAN-030 cho Cabin Save.)*

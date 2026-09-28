@@ -335,6 +335,7 @@ class SoundlistProvider extends ChangeNotifier {
     bool useWhisper = true,
     WhisperModelLevel? whisperLevel,
     String language = 'auto',
+    SttEngineType? sttEngine,
     ValueChanged<String>? onStatus,
   }) async {
     onStatus?.call('Phân tích khoảng lặng (VAD)…');
@@ -348,12 +349,19 @@ class SoundlistProvider extends ChangeNotifier {
     );
 
     SttResult? stt;
+    String? sttError;
     if (useWhisper) {
-      onStatus?.call('Đang nhận diện giọng nói (Whisper)…\n'
-          'File dài có thể mất vài phút.');
+      final viaApi = sttEngine == SttEngineType.remote;
+      onStatus?.call(viaApi
+          ? 'Đang bóc băng qua API (whisper-large-v3)…\n'
+              'File dài sẽ tự chia chunk — có thể tắt mạng giữa chừng để dừng.'
+          : 'Đang nhận diện giọng nói (Whisper)…\n'
+              'File dài có thể mất vài phút.');
       stt = await SoundAutoTocService.transcribe(
         audioPath,
         language: language,
+        engine: sttEngine,
+        onError: (msg) => sttError = msg,
       );
     }
 
@@ -379,8 +387,19 @@ class SoundlistProvider extends ChangeNotifier {
             'chạy lại, hoặc giảm "đoạn tối thiểu" trong preset Tách nhiều.');
       }
       if (useWhisper && stt == null) {
-        reasons.add('Whisper không nhận diện được — kiểm tra model trong '
-            'Cài đặt → AI Model');
+        if (sttError != null && sttError!.isNotEmpty) {
+          // Lỗi THẬT từ engine (có MÃ cấu trúc, vd "(noNetwork) …") —
+          // đưa thẳng để user biết vì sao dừng và chạy lại thế nào.
+          reasons.add(sttError!.length > 300
+              ? '${sttError!.substring(0, 300)}…'
+              : sttError!);
+        } else if (sttEngine == SttEngineType.remote) {
+          reasons.add('API không trả được văn bản — kiểm tra kết nối và '
+              'cấu hình Server & API, hoặc chạy lại với Whisper on-device.');
+        } else {
+          reasons.add('Whisper không nhận diện được — kiểm tra model trong '
+              'Cài đặt → AI Model');
+        }
       }
       error = reasons.isEmpty
           ? 'không rõ nguyên nhân'
@@ -430,12 +449,15 @@ class SoundlistProvider extends ChangeNotifier {
     Duration? totalDuration,
     required bool useWhisper,
     String language = 'auto',
+    SttEngineType? sttEngine,
   }) async {
     if (_autoTocRunning) return;
     _autoTocRunning = true;
-    _autoTocStatus = useWhisper
-        ? 'Đang nhận diện giọng nói…'
-        : 'Đang phân tích khoảng lặng…';
+    _autoTocStatus = sttEngine == SttEngineType.remote
+        ? 'Đang bóc băng qua API…'
+        : useWhisper
+            ? 'Đang nhận diện giọng nói…'
+            : 'Đang phân tích khoảng lặng…';
     _autoTocProgress = 0.0;
     _autoTocError = null;
     _lastAutoTocResult = null;
@@ -457,6 +479,7 @@ class SoundlistProvider extends ChangeNotifier {
         totalDuration: totalDuration,
         useWhisper: useWhisper,
         language: language,
+        sttEngine: sttEngine,
         onStatus: (msg) {
           _autoTocStatus = msg;
           notifyListeners();

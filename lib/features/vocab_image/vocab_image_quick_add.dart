@@ -79,14 +79,14 @@ Future<bool> attachVocabImage(
 
   // Toggle "tự gán ảnh đầu tiên" → 1 chạm là xong, không mở sheet. Không gán
   // được gì (mạng/key) thì rơi tiếp vào sheet để người dùng tự chọn.
-  final path = await autoAssignVocabImage(
+  final autoPath = await autoAssignVocabImage(
     provider: provider,
     wordId: wordId,
     word: word,
     meaning: meaning,
     currentImageUrl: currentImageUrl,
   );
-  if (path != null) return true;
+  if (autoPath != null) return true;
 
   final result = await VocabImagePickerSheet.show(
     context,

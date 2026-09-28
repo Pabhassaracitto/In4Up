@@ -212,4 +212,3 @@ void main() {
 /// Implementation thật của picker — khôi phục sau mỗi test để không rò rỉ
 /// stub sang test khác.
 final OcrPickImagesFn _realPick = OcrImagePicker.pick;
-

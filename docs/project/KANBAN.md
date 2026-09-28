@@ -79,6 +79,7 @@
 | CABIN-001 | Cabin dịch: "Không thể khởi động micro / nhận diện giọng nói" — fix mic/STT | ✅ done + CI xanh (chờ nghiệm thu máy) | self-heal session treo + retry + keep-alive + lỗi chẩn đoán cụ thể + bỏ cap 2 phút + dictation + Shadowing mic thành toggle (chặn mic treo) |
 | SHERPA-WP4-01 | Live STT offline qua sherpa Zipformer (cabin không phụ thuộc speech service) | ✅ done (chờ CI + nghiệm thu máy) | docs/Bangiao/bangiao_sherpa_wp4_live_stt.md + PLAN-023; hoàn thiện N1-N4 (VI simulated streaming + EN streaming, SherpaModelManager ASR, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit) |
 | CABIN-SAVE-001 | Cabin Save: lưu ghi âm WAV + text song ngữ (LRC) + mở trong Tab Đọc (PLAN-030) | 🔨 doing (chờ CI + nghiệm thu máy) | bước 1+2+3 code 2026-09-25 (agent arena/01a0d363-in4up): tee PCM→WAV, journal+khôi phục, sheet Lưu/Lưu & mở Đọc/Chia sẻ/Bỏ, cài đặt (ghi âm, tự lưu, định dạng, text mặc định), màn Phiên đã lưu; test `test/cabin/`; nén audio = sắp có (R2) |
+| IMPORT-MODELS-001 | Import model Piper (TTS) + Zipformer VI (STT) không hiện/không nhận diện + gỡ xung đột PR #48 với 251e | ✅ done + CI xanh (chờ nghiệm thu thiết bị) | root cause 2 bug + merge 251e c8132733; run 36407848778 🟢 (analyze 0 error); chi tiết card dưới |
 
 | LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
 | LHB-006 | Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList): bài + tiến độ SRS + streak qua tài khoản | ✅ done + CI xanh (chờ nghiệm thu 2 thiết bị) | ADR-0006; `learn_by_heart_merge.dart` (thuần logic) + `learn_by_heart_sync_service.dart` (plugin/REST) + hàng đợi pending/bia mộ + badge & sheet ở hub; test `learn_by_heart_sync_test.dart`; oracle CI nay chạy thêm bước "LHB tests" (47 test) — run 35923191460 🟢 |
@@ -3703,3 +3704,46 @@
   - 2026-09-28 | created→done | agent arena/01a0e2c8-in4up | `README.md` +
     `README.vi.md` + khôi phục `LICENSE`; nhánh đồng bộ từ `arena/01a0251e-in4up`
     (53b57ab) để README khớp đúng code đang chạy
+
+### IMPORT-MODELS-001 — Import Piper/Zipformer không hiện giọng + "Không nhận diện được model" + xung đột PR #48
+
+- **Nguồn:** owner (2026-09-28) build commit mới nhất 251e:
+  (1) import thư mục/file giọng Piper báo thành công nhưng thẻ "3. TTS" vẫn
+  "Chưa có giọng Piper. Bấm tải giọng"; (2) import
+  `VI-sherpa-onnx-zipformer-vi-30M-int8-2026-02-09` (file + folder) đều bị
+  "Không nhận diện được model"; PR #48 đỏ CI (2 error `HyMtOfflinePreference`)
+  + xung đột `live_cabin_screen.dart` / `stts_cabin_service.dart` với 251e.
+- **Trạng thái:** ✅ done + CI xanh (chờ nghiệm thu thiết bị thật).
+- **Root cause (verify từ docs k2-fsa + HF hynt/Zipformer-30M-RNNT-6000h):**
+  - **TTS (IMPORT-TTS-001):** `discoverVoices()` bỏ qua onnx thiếu tokens —
+    giọng kiểu HuggingFace rhasspy/piper-voices chỉ có `.onnx` + `.onnx.json`
+    (KHÔNG tokens.txt) ⇒ import copy xong báo ✅ nhưng giọng không bao giờ
+    được quét ra.
+  - **STT (IMPORT-STT-001):** model VI 30M int8 2026-02-09 có từ vựng VI
+    **VIẾT HOA** ("RỒI", "CŨNG", "HỖ TRỢ") — `asrTokensLookVietnamese()` chỉ
+    khớp ký tự có dấu thường ⇒ mất bằng chứng duy nhất khi path cache
+    file_picker không chứa "vi" ⇒ `unknownProfile`. Kèm theo regex
+    `_nameLooksLanguage` có alternative `$` bị escape thành ký tự đô-la
+    literal (thư mục "…-vi" cuối path không khớp).
+- **Fix (nhánh `arena/01a0e761-in4up`, bao trùm head PR #48 `2cb9987a`):**
+  1. **Merge 251e `c8132733`** vào chuỗi fix — gỡ 2 xung đột:
+     `live_cabin_screen.dart` (giữ CABIN-SAVE-001 + nút "Dịch: <engine>",
+     bổ sung import `hymt_engine.dart` ⇒ hết 2 error undefined_identifier),
+     `stts_cabin_service.dart` (ghép guard dedup + mốc `_chunkStartOffset`
+     LRC + bản dịch rỗng khi engine lỗi; bỏ 4 import trùng).
+  2. **fix(stt):** `asrTokensLookVietnamese` lower-case trước khớp (Ồ→ồ, Đ→đ);
+     `_nameLooksLanguage` dùng raw string `r'([^a-z]|$)'` đúng anchor; giữ
+     nguyên guard streaming (SIGABRT SHERPA-STREAM-001).
+  3. **fix(tts):** `_completePiperImport()` cho cả 3 đường import — mọi onnx
+     thiếu tokens được ensure tokens dùng chung (tokens giọng khác / tải
+     fallback k2-fsa) + rescan ngay ⇒ giọng hiện trong thẻ TTS không cần
+     thoát màn hình; vẫn thiếu tokens (offline) thì báo RÕ kèm hướng dẫn.
+  4. **Test:** `test/asr_model_routing_test.dart` +4 case (tokens VI hoa →
+     VI; folder kết thúc "-vi" → VI; path cache + tokens VI hoa → VI; file
+     rỗng/garbage → false không throw).
+- **Bằng chứng:** CI `App Analyze + Locale Test` run **36407848778 🟢** trên
+  `arena/01a0e761-in4up` (analyze 0 error — trước đó PR #48 đỏ vì
+  `HyMtOfflinePreference` ×2).
+- **Lịch sử:**
+  - 2026-09-28 | created→doing→done | agent arena/01a0e761-in4up | merge
+    251e + 2 fix commit (d764b453 stt, 3657593a tts) + test; CI xanh cùng ngày

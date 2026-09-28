@@ -1759,4 +1759,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Đã dừng.': 'Stopped.',
   '⏹ Đã dừng.': '⏹ Stopped.',
   '⚡ {value0} token vào · {value1} token ra': '⚡ {value0} prompt tokens · {value1} completion tokens',
+  // WP2 (API-003) — dialog tự tạo mục lục: lựa chọn engine bóc băng qua API.
+  'Whisper qua API (nhanh, chính xác)': 'Whisper via API (fast, accurate)',
+  'Bóc băng bằng whisper-large-v3 trên server — không cần tải model, cần mạng. File 30–60 phút nhanh hơn nhiều so với on-device.': 'Transcribe with whisper-large-v3 on a server — no model download, needs internet. 30–60 min files are much faster than on-device.',
 };

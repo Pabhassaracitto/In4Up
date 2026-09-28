@@ -53,3 +53,6 @@ export 'src/provider/openai_compat_client.dart'
 // WP1 (API-002) — Primitives chat streaming: mã lỗi cấu trúc, cancel token,
 // message/usage/chunk, parser SSE (dùng chung client + engine + facade).
 export 'src/provider/ai_sse.dart';
+
+// WP2 (API-003) — Model + parser kết quả transcribe audio (verbose_json).
+export 'src/provider/ai_transcription.dart';

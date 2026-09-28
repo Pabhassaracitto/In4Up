@@ -10,6 +10,7 @@ import 'stt_engine_native.dart';
 import 'stt_engine_native_strategy.dart';
 import 'stt_engine_whisper_strategy.dart';
 import 'stt_engine_sherpa.dart';
+import 'stt_engine_remote.dart';
 
 /// Factory đăng ký một loại engine.
 typedef SttEngineFactory = SttEngine Function();
@@ -25,9 +26,15 @@ class SttEngineRegistry {
     SttEngineType.whisper: _whisperFactory,
     // Sherpa — spike PoC từ branch 27, có thể tắt bằng cách bỏ dòng này + pubspec dep
     SttEngineType.sherpa: _sherpaFactory,
+    // WP2 (API-003) — file STT qua API (provider resolve từng lần gọi).
+    SttEngineType.remote: _remoteFactory,
   };
 
   static SttEngine _sherpaFactory() => SherpaSttEngine();
+
+  /// Remote không có state riêng (provider resolve mỗi lần transcribe) —
+  /// tạo mới instance mỗi lần, không giữ singleton.
+  static SttEngine _remoteFactory() => SttEngineRemote();
 
   /// Whisper cần modelDir — set từ ngoài sau khi SttModelManager khởi tạo.
   static String? whisperModelDir;

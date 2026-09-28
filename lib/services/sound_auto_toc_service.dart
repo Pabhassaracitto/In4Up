@@ -233,6 +233,8 @@ class SoundAutoTocService {
     WhisperModelLevel? level,
     String language = 'auto',
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
+    SttEngineType? engine,
+    ValueChanged<String>? onError,
   }) async {
     // content:// → copy sang cache (ffmpeg/whisper dùng File-based).
     final localPath = await AudioLibraryChannel.copyContentToCache(audioPath);
@@ -241,7 +243,23 @@ class SoundAutoTocService {
       final facade = SttServiceFacade();
       final effectiveLanguage = language == 'auto' ? 'en' : language;
       final SttTranscribeOutput output;
-      if (level == null) {
+      if (engine == SttEngineType.remote) {
+        // WP2 (API-003): user chọn rõ "Whisper qua API" → luôn remote
+        // (engine tự fail sạch theo MÃ khi offlineOnly/chưa cấu hình).
+        // 'auto' GIỮ NGUYÊN cho remote — server tự nhận diện ngôn ngữ
+        // (khác on-device: plugin whisper cũ cần mã cụ thể nên map 'en').
+        final cfg = SttConfig.deepLearning.copyWith(
+          preferredEngine: SttEngineType.remote,
+          language: language,
+          generateLrc: false,
+          grouping: grouping,
+        );
+        output = await facade.transcribeFile(
+          effectivePath,
+          config: cfg,
+          generateLrc: false,
+        );
+      } else if (level == null) {
         output = await facade.transcribeAuto(
           effectivePath,
           language: effectiveLanguage,
@@ -264,11 +282,13 @@ class SoundAutoTocService {
       if (output.success && output.result.fullText.isNotEmpty) {
         return output.result;
       }
-      debugPrint('⚠️ Auto-TOC transcribe: empty/failed — '
-          '${output.errorMessage ?? 'no text'}');
+      final msg = output.errorMessage ?? 'no text';
+      debugPrint('⚠️ Auto-TOC transcribe: empty/failed — $msg');
+      onError?.call(msg);
       return null;
     } catch (e) {
       debugPrint('❌ Auto-TOC transcribe error: $e');
+      onError?.call(e.toString());
       return null;
     }
   }

@@ -1,10 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
-import 'package:in4up_stt/models/stt_result.dart';
-import 'package:in4up_stt/sherpa_model_manager.dart';
-import 'package:in4up_stt/stt_engine_sherpa.dart';
-import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
@@ -702,6 +698,12 @@ class SttsCabinService extends ChangeNotifier {
     final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
+    // Dedup: engine vừa callback lại đúng câu đã chốt (bản partial lặp lại
+    // sau final) — bỏ qua để không sinh caption/dòng LRC trùng.
+    if (rawText == _lastFinalizedText) {
+      return;
+    }
+
     // CABIN-SAVE-001: mốc bắt đầu câu = lúc có chữ đầu tiên của câu (trừ lùi
     // ~0.6s độ trễ nhận dạng để LRC nhảy đúng đầu câu khi nghe lại).
     if (_chunkStartOffset == null && _recorder != null) {
@@ -716,19 +718,18 @@ class SttsCabinService extends ChangeNotifier {
       id: captionId,
       timestamp: DateTime.now(),
       sourceText: rawText,
-      translatedText: _activeCaption?.translatedText ?? '',
+      translatedText: '',
       sourceLang: sourceLanguage,
       targetLang: _targetLanguage,
       isFinal: sttResult.isFinal,
     );
     notifyListeners();
 
+    _silenceTimer?.cancel();
     if (sttResult.isFinal) {
-      _silenceTimer?.cancel();
       _finalizeCurrentChunk(rawText);
     } else {
       // Reset silence timer for chunk finalization
-      _silenceTimer?.cancel();
       _silenceTimer = Timer(const Duration(milliseconds: 1400), () {
         _finalizeCurrentChunk(rawText);
       });
@@ -736,6 +737,7 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   Future<void> _finalizeCurrentChunk(String text) async {
+    _silenceTimer?.cancel();
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     if (_state == CabinState.speaking) return;
@@ -761,9 +763,13 @@ class SttsCabinService extends ChangeNotifier {
       );
       translated = result.translatedText.trim();
       engine = result.engineName;
+      // Do not duplicate source text if engine returned failure/empty
+      if (!result.isSuccess || translated == trimmed) {
+        translated = '';
+      }
     } catch (e) {
       debugPrint('⚠️ SttsCabinService translation error: $e');
-      translated = trimmed; // Fallback to source
+      translated = '';
     }
 
     final finalizedCaption = CabinCaption(
@@ -811,7 +817,12 @@ class SttsCabinService extends ChangeNotifier {
         await _tryStartSystemEngine();
       }
     }
-    _lastFinalizedText = '';
+    // Keep _lastFinalizedText populated for deduplication against immediate duplicate callbacks
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_lastFinalizedText == trimmed) {
+        _lastFinalizedText = '';
+      }
+    });
     notifyListeners();
   }
 

@@ -273,6 +273,72 @@ void main() {
       }
     });
 
+    // IMPORT-STT-001: sherpa-onnx-zipformer-vi-30M-int8-2026-02-09 (hynt/
+    // Zipformer-30M-RNNT-6000h) có từ vựng VI VIẾT HOA ("RỒI", "CŨNG",
+    // "HỖ TRỢ"… — xem docs k2-fsa). Bản cũ chỉ khớp ký tự thường ⇒ import
+    // file (path cache file_picker không chứa "vi") bị trả unknownProfile
+    // "Không nhận diện được model này".
+    test('asrTokensLookVietnamese: từ vựng VI VIẾT HOA (vi-30M-int8-2026) → VI',
+        () {
+      final dir = Directory.systemTemp.createTempSync('asr_tokens_upper_');
+      try {
+        final viUpperTokens = File('${dir.path}/tokens.txt')
+          ..writeAsStringSync('▁RỒI 100\n▁CŨNG 101\n▁HỖ 102\n▁TRỢ 103\n'
+              'G 104\nẠ 105\nO 106\n');
+        expect(SherpaModelManager.asrTokensLookVietnamese(viUpperTokens.path),
+            isTrue);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('asrTokensLookVietnamese: file rỗng/garbage → false (không throw)',
+        () {
+      final dir = Directory.systemTemp.createTempSync('asr_tokens_bad_');
+      try {
+        final empty = File('${dir.path}/tokens.txt')..writeAsStringSync('');
+        final garbage =
+            File('${dir.path}/tokens2.txt')..writeAsBytesSync([0, 159, 146, 150]);
+        expect(SherpaModelManager.asrTokensLookVietnamese(empty.path), isFalse);
+        expect(SherpaModelManager.asrTokensLookVietnamese(garbage.path), isFalse);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    // IMPORT-STT-001 (phụ): regex tên cũ có alternative "$" bị escape thành
+    // ký tự đô-la literal ⇒ thư mục tên "…-vi" (cuối path) không khớp. Giờ
+    // "$" là anchor cuối chuỗi.
+    test('matchAsrProfile: folder tên kết thúc "-vi" (cuối path) → VI', () {
+      final vi = SherpaModelManager.matchAsrProfile(
+        isStreaming: false,
+        encoderPath: '/data/user/0/in4up/cache/file_picker/encoder.int8.onnx',
+        folderName: '/storage/emulated/0/Download/model-vi',
+      );
+      expect(vi?.id, 'asr-vi-30M-int8');
+    });
+
+    test('matchAsrProfile: path cache file_picker + tokens VI hoa → VI '
+        '(không cần tên thư mục)', () {
+      final dir = Directory.systemTemp.createTempSync('asr_tokens_pick_');
+      try {
+        // File picker Android copy về cache — path KHÔNG chứa "vi" và không
+        // có metadata ONNX ⇒ bằng chứng duy nhất là tokens.txt.
+        final picked = Directory('${dir.path}/picked')..createSync();
+        final tokens = File('${picked.path}/tokens.txt')
+          ..writeAsStringSync('▁RỒI 100\n▁CŨNG 101\n');
+        final vi = SherpaModelManager.matchAsrProfile(
+          isStreaming: false,
+          encoderPath: '${picked.path}/encoder.int8.onnx',
+          tokensPath: tokens.path,
+          folderName: picked.path,
+        );
+        expect(vi?.id, 'asr-vi-30M-int8');
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
     test('SherpaAsrInfo: liệt kê ngôn ngữ đã cài (ưu tiên VI)', () {
       const info = SherpaAsrInfo(
         profileStates: {

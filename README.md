@@ -438,6 +438,25 @@ flutter run -d ios
 | iOS / macOS | `GoogleService-Info.plist` | `ios/Runner/` |
 | Other | generated options | `lib/firebase_options*.dart` per environment |
 
+### Build a release APK (Android)
+
+```bash
+flutter build apk --release --flavor stable            # → build/app/outputs/flutter-apk/app-stable-release.apk
+scripts/ci/android_verify_apk_signed.sh build/app/outputs/flutter-apk/*.apk   # must print "đã ký"
+```
+
+Release builds are **always signed** — an unsigned APK cannot be installed on Android
+(`INSTALL_PARSE_FAILED_NO_CERTIFICATES`, shown to users as "package appears to be invalid"):
+
+- With `android/key.properties` (copy `android/key.properties.example`, point `storeFile` at your
+  keystore) → signed with your **release keystore**; users can update in place.
+- Without it → signed with the **debug keystore** (installable, but each machine has a different
+  key, so updating over an APK signed with another key requires uninstalling first).
+
+Gradle prints one `[in4up-sign] …` line telling you which key was used. Never commit
+`key.properties` / `*.jks` (already gitignored). CI signs with the `ANDROID_KEYSTORE_*`
+secrets — see `scripts/ci/README.md`.
+
 ### Verify before you push
 
 ```bash

@@ -129,3 +129,26 @@ jobs:
           name: app-cabin-test-log
           path: cabin_test.log
           if-no-files-found: ignore
+
+      # IMPORT-MODELS-001 — guard nhận diện model Zipformer khi import
+      # (profile VI/EN, tokens VI viết hoa, guard streaming SIGABRT).
+      - name: ASR routing + import detection test (IMPORT-MODELS-001)
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          if [ ! -f test/asr_model_routing_test.dart ]; then
+            echo "Không có file test ASR routing trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/asr_model_routing_test.dart > asr_test.log 2>&1
+          code=$?
+          cat asr_test.log
+          exit $code
+
+      - name: Upload ASR test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-asr-test-log
+          path: asr_test.log
+          if-no-files-found: ignore

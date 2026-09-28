@@ -18,6 +18,7 @@ import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
 import '../features/youtube/youtube_sheet.dart';
+import '../models/shell_content_order.dart';
 import '../providers/player_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
@@ -79,6 +80,7 @@ class _MainShellState extends State<MainShell> {
   _PrimaryTab _currentTab = _PrimaryTab.home;
   int _listenModeIndex = 0;
   int _readModeIndex = 0;
+  ShellContentOrder _contentOrder = ShellContentOrder.listenRead;
 
   bool _compactModeSwitch = false;
   bool _autoHideModeSwitch = false;
@@ -111,6 +113,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   bool get _isHome => _currentTab == _PrimaryTab.home;
+  bool get _listenFirst => _contentOrder.isListenFirst;
   bool get _showListenModes => _currentTab == _PrimaryTab.listen;
   bool get _showReadModes => _currentTab == _PrimaryTab.read;
   bool get _hasSecondaryModes => _showListenModes || _showReadModes;
@@ -151,6 +154,7 @@ class _MainShellState extends State<MainShell> {
     _autoHideModeSwitch = _storage.getShellAutoHideModeSwitch();
     _enableLongPressModeSwitch = _storage.getShellLongPressModeSwitch();
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
+    _contentOrder = _storage.getShellContentOrder();
     _listenModeIndex =
         ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0)
                 .clamp(0, 2))
@@ -326,19 +330,21 @@ class _MainShellState extends State<MainShell> {
   IconData get _leadingIcon {
     if (_currentTab == _PrimaryTab.home) return Icons.smart_toy_outlined;
     if (_currentTab == _PrimaryTab.remember) return Icons.format_list_bulleted;
-    return Icons.menu_book_rounded;
+    return _leftLibraryIcon;
   }
 
   Color get _leadingColor {
     if (_currentTab == _PrimaryTab.home) return const Color(0xFFFF9800);
     if (_currentTab == _PrimaryTab.remember) return const Color(0xFF66BB6A);
-    return const Color(0xFF2196F3);
+    return _leftLibraryIsAudio
+        ? const Color(0xFF6C63FF)
+        : const Color(0xFF2196F3);
   }
 
   String get _leadingTooltip {
     if (_currentTab == _PrimaryTab.home) return 'Quản lý Model AI';
     if (_currentTab == _PrimaryTab.remember) return 'Danh sách từ';
-    return 'Thư viện văn bản';
+    return _leftLibraryTooltip;
   }
 
   void _setPrimaryTab(_PrimaryTab tab) {
@@ -951,8 +957,14 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFF080B1A),
-      drawer: const TextLibraryDrawer(),
-      endDrawer: const AudioLibraryDrawer(),
+      // Keep the physical drawer side paired with the content-tab side. The
+      // same preference also controls the bottom navigation order.
+      drawer: _listenFirst
+          ? const AudioLibraryDrawer(isLeft: true)
+          : const TextLibraryDrawer(isLeft: true),
+      endDrawer: _listenFirst
+          ? const TextLibraryDrawer(isLeft: false)
+          : const AudioLibraryDrawer(isLeft: false),
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
       body: SafeArea(
@@ -1041,7 +1053,47 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  void _openLeftLibrary() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  void _openRightLibrary() {
+    _scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  void _openAudioLibrary() {
+    if (_listenFirst) {
+      _openLeftLibrary();
+    } else {
+      _openRightLibrary();
+    }
+  }
+
+  bool get _leftLibraryIsAudio => _listenFirst;
+
+  IconData get _leftLibraryIcon =>
+      _leftLibraryIsAudio
+          ? Icons.library_music_rounded
+          : Icons.menu_book_rounded;
+
+  String get _leftLibraryTooltip =>
+      _leftLibraryIsAudio ? 'Thư viện âm thanh' : 'Thư viện văn bản';
+
+  IconData get _rightLibraryIcon =>
+      _leftLibraryIsAudio
+          ? Icons.menu_book_rounded
+          : Icons.library_music_rounded;
+
+  String get _rightLibraryTooltip =>
+      _leftLibraryIsAudio ? 'Thư viện văn bản' : 'Thư viện âm thanh';
+
   Widget _buildAppBar(BuildContext context) {
+    final hasMappedLibraryPair =
+        _currentTab != _PrimaryTab.home &&
+        _currentTab != _PrimaryTab.remember;
+    final rightLibraryIsAudio =
+        hasMappedLibraryPair ? !_leftLibraryIsAudio : true;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: BoxDecoration(
@@ -1071,7 +1123,9 @@ class _MainShellState extends State<MainShell> {
               } else if (_currentTab == _PrimaryTab.remember) {
                 _handleTool('word_list');
               } else {
-                _scaffoldKey.currentState?.openDrawer();
+                // The left app-bar slot follows the same left drawer as the
+                // Listen/Read order; it never opens the opposite library.
+                _openLeftLibrary();
               }
             },
           ),
@@ -1086,10 +1140,20 @@ class _MainShellState extends State<MainShell> {
           ),
           const SizedBox(width: 8),
           _ShellActionButton(
-            icon: Icons.library_music_rounded,
-            color: const Color(0xFF6C63FF),
-            tooltip: context.uiText('Thư viện âm thanh'),
-            onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+            icon: hasMappedLibraryPair
+                ? _rightLibraryIcon
+                : Icons.library_music_rounded,
+            color: rightLibraryIsAudio
+                ? const Color(0xFF6C63FF)
+                : const Color(0xFF2196F3),
+            tooltip: context.uiText(
+              hasMappedLibraryPair
+                  ? _rightLibraryTooltip
+                  : 'Thư viện âm thanh',
+            ),
+            onTap: hasMappedLibraryPair
+                ? _openRightLibrary
+                : _openAudioLibrary,
           ),
         ],
       ),
@@ -1230,8 +1294,67 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  Widget _buildListenNavItem(AppLocalizations l10n) {
+    return Expanded(
+      child: _BottomNavItem(
+        label: l10n.listen,
+        selected: _currentTab == _PrimaryTab.listen,
+        color: _currentTab == _PrimaryTab.listen
+            ? _currentAccent
+            : const Color(0xFF6C63FF),
+        icon: Icons.headphones_outlined,
+        selectedIcon: Icons.headphones,
+        showLongPressHint: _enableLongPressModeSwitch,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _setPrimaryTab(_PrimaryTab.listen);
+        },
+        onLongPress: _enableLongPressModeSwitch
+            ? () {
+                HapticFeedback.mediumImpact();
+                _setListenMode(1);
+              }
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildReadNavItem(AppLocalizations l10n) {
+    return Expanded(
+      child: _BottomNavItem(
+        label: l10n.read,
+        selected: _currentTab == _PrimaryTab.read,
+        color: _currentTab == _PrimaryTab.read
+            ? _currentAccent
+            : const Color(0xFF2196F3),
+        icon: Icons.menu_book_outlined,
+        selectedIcon: Icons.menu_book,
+        showLongPressHint: _enableLongPressModeSwitch,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _setPrimaryTab(_PrimaryTab.read);
+        },
+        onLongPress: _enableLongPressModeSwitch
+            ? () {
+                HapticFeedback.mediumImpact();
+                _setReadMode(1);
+              }
+            : null,
+      ),
+    );
+  }
+
   Widget _buildBottomNav(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final orderedContentTabs = _listenFirst
+        ? <Widget>[
+            _buildListenNavItem(l10n),
+            _buildReadNavItem(l10n),
+          ]
+        : <Widget>[
+            _buildReadNavItem(l10n),
+            _buildListenNavItem(l10n),
+          ];
 
     return Container(
       decoration: BoxDecoration(

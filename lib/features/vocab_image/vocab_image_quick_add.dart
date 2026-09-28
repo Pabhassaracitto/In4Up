@@ -13,8 +13,52 @@ import 'package:provider/provider.dart';
 import '../../core/language/localized_material.dart';
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
+import 'vocab_image_api_config.dart';
 import 'vocab_image_picker_sheet.dart';
+import 'vocab_image_service.dart';
+import 'vocab_image_web_service.dart';
 import 'vocab_image_thumbnail.dart';
+
+/// IMG-WEB-001 — "Tự gán ảnh đầu tiên" (toggle trong dialog Cài đặt ảnh).
+///
+/// Không mở sheet: tìm trên mạng theo `từ + nghĩa`, tải ảnh ĐẦU TIÊN về storage
+/// app rồi gắn vào [wordId]. Mặc định TẮT — chủ dự án chốt "mặc định là tự
+/// tìm, chạm chọn", bật toggle mới dùng đường này.
+///
+/// Im lặng khi không gán được (chưa có key, hết mạng, không ra ảnh): việc lưu
+/// từ không bị cắt, người dùng vẫn gán tay được. Trả về đường dẫn ảnh nếu gán
+/// thành công, null nếu bỏ qua. Không cần BuildContext ⇒ gọi được cả khi sheet
+/// đã đóng.
+Future<String?> autoAssignVocabImage({
+  required VocabularyProvider provider,
+  required String wordId,
+  required String word,
+  String? meaning,
+  String? currentImageUrl,
+}) async {
+  if (wordId.isEmpty) return null;
+  if ((currentImageUrl ?? '').isNotEmpty) return null; // đã có ảnh → không đè
+  final client = VocabImageWebService();
+  try {
+    final cfg = await VocabImageApiConfig.instance.load();
+    if (!cfg.autoAssignFirst) return null;
+    final query =
+        VocabImageWebService.buildQuery(word: word, meaning: meaning);
+    if (query.trim().isEmpty) return null;
+    final results = await client.search(query, limit: 4, settings: cfg);
+    if (results.isEmpty) return null;
+    final path = await VocabImageService.instance
+        .saveFromUrl(results.first.imageUrl, client: client);
+    if (path == null || path.isEmpty) return null;
+    provider.updateImageUrl(wordId, path);
+    return path;
+  } catch (e) {
+    debugPrint('autoAssignVocabImage: bỏ qua — $e');
+    return null;
+  } finally {
+    client.dispose();
+  }
+}
 
 /// Gán/bỏ ảnh cho một từ vừa lưu, qua [VocabImagePickerSheet].
 ///
@@ -32,6 +76,18 @@ Future<bool> attachVocabImage(
   String? currentImageUrl,
 }) async {
   final provider = context.read<VocabularyProvider>();
+
+  // Toggle "tự gán ảnh đầu tiên" → 1 chạm là xong, không mở sheet. Không gán
+  // được gì (mạng/key) thì rơi tiếp vào sheet để người dùng tự chọn.
+  final path = await autoAssignVocabImage(
+    provider: provider,
+    wordId: wordId,
+    word: word,
+    meaning: meaning,
+    currentImageUrl: currentImageUrl,
+  );
+  if (path != null) return true;
+
   final result = await VocabImagePickerSheet.show(
     context,
     word: word,

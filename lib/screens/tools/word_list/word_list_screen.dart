@@ -974,6 +974,17 @@ class _WordListScreenState extends State<WordListScreen> {
       context: vocabContext,
     );
 
+    // IMG-WEB-001: nếu bật "Tự gán ảnh đầu tiên" trong Cài đặt ảnh thì gán luôn
+    // (không mở sheet); tắt thì để người dùng tự chạm "Thêm hình"/mở sheet chọn.
+    // Không await — việc lưu từ không chờ mạng, và hàm tự im lặng bỏ qua khi lỗi.
+    autoAssignVocabImage(
+      provider: p,
+      wordId: entry.id,
+      word: entry.word,
+      meaning: entry.meaning,
+      currentImageUrl: entry.imageUrl,
+    );
+
     HapticFeedback.mediumImpact();
     // Clear search after saving
     setState(() {

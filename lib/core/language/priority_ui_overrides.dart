@@ -3435,4 +3435,22 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '更換圖片',
     'si': 'රූපය වෙනස් කරන්න',
   },
+  'Tự gán ảnh đầu tiên': {
+    'en': 'Auto-assign the first image',
+    'hi': 'पहली छवि स्वतः जोड़ें',
+    'zh': '自动选用第一张图片',
+    'zh_TW': '自動選用第一張圖片',
+    'si': 'පළමු රූපය ස්වයංක්‍රීයව එක් කරන්න',
+  },
+  'Mặc định: tự tìm rồi bạn chạm chọn. Bật để thêm từ là gán luôn ảnh đầu tiên tìm được, không mở sheet.': {
+    'en': 'By default, images are searched and you tap to choose. Turn this '
+        'on to attach the first image found as soon as a word is added, '
+        'without opening the sheet.',
+    'hi': 'पहले से: छवियाँ खोजी जाती हैं और आप चुनने के लिए टैप करते हैं। चालू '
+        'करें तो शब्द जोड़ते ही पहली मिली छवि अपने आप जुड़ जाएगी, शीट नहीं खुलेगी।',
+    'zh': '默认：先搜索，由你点击选择。打开后，添加单词时会自动选用搜到的第一张图片，不再弹出面板。',
+    'zh_TW': '預設：先搜尋，由你點選選擇。開啟後，新增單字時會自動選用搜尋到的第一張圖片，不再彈出面板。',
+    'si': 'පෙරනිමිය: පළමුව සොයා ඔබ තට්ටු කර තෝරයි. සක්‍රිය කළ විට වචනය එක් කළ '
+        'වහාම සොයාගත් පළමු රූපය ස්වයංක්‍රීයව එක් වේ — ෂීට් විවෘත නොවේ.',
+  },
 };

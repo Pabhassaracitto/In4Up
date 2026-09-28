@@ -82,11 +82,22 @@ class VocabImageApiSettings {
   /// Provider đã build-time (null nếu không set).
   final String? buildTimeProvider;
 
+  /// IMG-WEB-001 (owner 2026-09-28): "Mặc định là tự tìm, chạm chọn nhưng có
+  /// thể chọn thêm toggle tự gán ảnh trong cài đặt riêng."
+  ///
+  /// `false` (mặc định) = sheet vẫn mở, tự tìm sẵn và người dùng CHẠM CHỌN ảnh
+  /// — không bao giờ gán ảnh mà chưa ai xem.
+  /// `true` = luồng "thêm từ" gán luôn ảnh ĐẦU TIÊN tìm được trên mạng, không
+  /// mở sheet; thất bại (mạng/key/không ra ảnh) thì im lặng bỏ qua, từ vẫn lưu
+  /// bình thường và vẫn có thể gán tay sau.
+  final bool autoAssignFirst;
+
   const VocabImageApiSettings({
     required this.provider,
     required this.keys,
     required this.hasBuildTimeKey,
     this.buildTimeProvider,
+    this.autoAssignFirst = false,
   });
 
   /// Key hiệu dụng cho [p]: key nhập trong app, fallback key build-time
@@ -131,12 +142,14 @@ class VocabImageApiSettings {
   VocabImageApiSettings copyWith({
     VocabImageProvider? provider,
     Map<String, String>? keys,
+    bool? autoAssignFirst,
   }) =>
       VocabImageApiSettings(
         provider: provider ?? this.provider,
         keys: keys ?? this.keys,
         hasBuildTimeKey: hasBuildTimeKey,
         buildTimeProvider: buildTimeProvider,
+        autoAssignFirst: autoAssignFirst ?? this.autoAssignFirst,
       );
 
   /// Provider hiện chọn có dùng được không (có key, hoặc không cần key).
@@ -161,6 +174,9 @@ class VocabImageApiConfig {
   static final VocabImageApiConfig instance = VocabImageApiConfig._();
 
   static const String _providerKey = 'vocab_image_provider';
+
+  /// Toggle "tự gán ảnh đầu tiên" (IMG-WEB-001) — chỉ trên máy, không đồng bộ.
+  static const String _autoAssignKey = 'vocab_image_auto_assign';
 
   SharedPreferences? _prefs;
   VocabImageApiSettings? _cached;
@@ -187,6 +203,7 @@ class VocabImageApiConfig {
       buildTimeProvider: VocabImageApiSettings.buildTimeProviderName.isEmpty
           ? null
           : VocabImageApiSettings.buildTimeProviderName.toLowerCase(),
+      autoAssignFirst: prefs.getBool(_autoAssignKey) ?? false,
     );
     return _cached = settings;
   }
@@ -205,6 +222,18 @@ class VocabImageApiConfig {
   Future<void> saveProvider(VocabImageProvider provider) async {
     final prefs = await _ensure();
     await prefs.setString(_providerKey, provider.name.toLowerCase());
+    _cached = null;
+  }
+
+  /// Bật/tắt "tự gán ảnh đầu tiên khi thêm từ". Xóa hẳn key khi tắt để prefs
+  /// không mang giá trị thừa.
+  Future<void> saveAutoAssign(bool enabled) async {
+    final prefs = await _ensure();
+    if (enabled) {
+      await prefs.setBool(_autoAssignKey, true);
+    } else {
+      await prefs.remove(_autoAssignKey);
+    }
     _cached = null;
   }
 

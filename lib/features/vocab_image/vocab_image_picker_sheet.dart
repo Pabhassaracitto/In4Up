@@ -633,6 +633,9 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
   final TextEditingController _key = TextEditingController();
   bool _loading = true;
 
+  /// IMG-WEB-001 — "tự gán ảnh đầu tiên" (mặc định tắt: tự tìm + chạm chọn).
+  bool _auto = false;
+
   @override
   void initState() {
     super.initState();
@@ -641,6 +644,7 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
       setState(() {
         _provider = cfg.provider;
         _key.text = cfg.keyFor(cfg.provider) ?? '';
+        _auto = cfg.autoAssignFirst;
         _loading = false;
       });
     });
@@ -659,6 +663,7 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
     final config = VocabImageApiConfig.instance;
     await config.saveProvider(_provider);
     await config.saveKey(_provider, value);
+    await config.saveAutoAssign(_auto);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -738,6 +743,22 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
               context.uiText(
                   'Key chỉ lưu trên máy này (không đi vào Git, không gửi về server In4Up).'),
               style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+            ),
+            const SizedBox(height: 12),
+            // IMG-WEB-001: owner chốt "mặc định là tự tìm, chạm chọn nhưng có
+            // thể chọn thêm toggle tự gán ảnh trong cài đặt riêng" — toggle nằm
+            // ở CHÍNH dialog cài đặt ảnh này, mặc định tắt.
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _auto,
+              onChanged: (v) => setState(() => _auto = v),
+              title: Text(context.uiText('Tự gán ảnh đầu tiên'),
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Text(
+                context.uiText(
+                    'Mặc định: tự tìm rồi bạn chạm chọn. Bật để thêm từ là gán luôn ảnh đầu tiên tìm được, không mở sheet.'),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+              ),
             ),
           ],
         ),

@@ -18,6 +18,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    // WP1 (API-002): đóng màn giữa lúc remote đang generate ⇒ hủy request
+    // NGAY (đóng socket) — token API không được chảy tiếp sau khi dispose
+    // (luật chi phí BYOK). Engine local không bị ảnh hưởng (hàng đợi cũ).
+    AiServiceFacade().stopGenerating();
     super.dispose();
   }
 
@@ -118,6 +122,11 @@ class _AiChatScreenState extends State<AiChatScreen> {
             builder: (context, facade, _) =>
                 _ModelStatusBanner(facade: facade),
           ),
+          // WP1 (API-002): nhãn định tuyến server AI + đếm token (BYOK).
+          Consumer<AiServiceFacade>(
+            builder: (context, facade, _) =>
+                _RemoteRouteBanner(facade: facade),
+          ),
           Expanded(
             child: Consumer<AiServiceFacade>(
               builder: (context, facade, _) {
@@ -164,18 +173,28 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // WP1 (API-002): đang stream qua API ⇒ nút DỪNG (đóng
+                    // socket ngay, token không chảy tiếp); engine local thì
+                    // giữ hành vi cũ (gửi tiếp = vào hàng đợi).
                     IconButton.filled(
-                      tooltip: context.uiText('Gửi'),
-                      // Vẫn bấm được khi AI đang trả lời: tin sẽ vào hàng đợi
-                      // của facade (chỉ spinner đổi để biết đang xử lý).
-                      onPressed: () => _send(facade),
-                      icon: facade.isChatLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.send_rounded),
+                      tooltip: context.uiText(
+                          facade.isChatLoading && facade.isRemoteChatActive
+                              ? 'Dừng tạo câu trả lời'
+                              : 'Gửi'),
+                      onPressed:
+                          facade.isChatLoading && facade.isRemoteChatActive
+                              ? facade.stopGenerating
+                              : () => _send(facade),
+                      icon: facade.isChatLoading && facade.isRemoteChatActive
+                          ? const Icon(Icons.stop_rounded)
+                          : facade.isChatLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.send_rounded),
                     ),
                   ],
                 ),
@@ -492,6 +511,92 @@ class _EmptyChat extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// WP1 (API-002): nhãn định tuyến server AI — hiện NHẸ một dòng khi user đã
+/// cấu hình provider (màn Server & API, WP0):
+/// * remote đứng đầu route: "Đang dùng server AI · <label> · <model>".
+/// * remote chỉ là dự phòng: "Server AI dự phòng (AI local được ưu tiên)".
+/// * lượt gần nhất có usage: "⚡ N token vào · M token ra" (luật BYOK).
+/// * lượt gần nhất lỗi API: dòng đỏ + mã lỗi cấu trúc (branch theo mã,
+///   không match chuỗi).
+class _RemoteRouteBanner extends StatelessWidget {
+  final AiServiceFacade facade;
+  const _RemoteRouteBanner({required this.facade});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!facade.isRemoteChatConfigured) return const SizedBox.shrink();
+
+    final ui = context.uiText;
+    final remotePreferred = facade.isRemoteChatPreferred;
+    final apiError = facade.lastChatApiError;
+    final usage = facade.lastChatUsage;
+
+    return Container(
+      width: double.infinity,
+      color: remotePreferred ? const Color(0xFF10233A) : const Color(0xFF161C30),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                remotePreferred
+                    ? Icons.satellite_alt_outlined
+                    : Icons.satellite_alt,
+                size: 14,
+                color: remotePreferred
+                    ? const Color(0xFF7DD3FC)
+                    : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  remotePreferred
+                      ? '${ui('Đang dùng server AI')} · ${facade.chatRouteLabel}'
+                      : ui('Server AI dự phòng (AI local được ưu tiên)'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: remotePreferred
+                        ? const Color(0xFFBAE6FD)
+                        : const Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+              if (usage != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    // Template '⚡ {value0} token vào · {value1} token ra' —
+                    // chuỗi runtime khớp pattern và dịch theo locale.
+                    ui('⚡ ${usage.promptTokens} token vào · ${usage.completionTokens} token ra') +
+                        (facade.lastChatModelId != null
+                            ? ' · ${facade.lastChatModelId}'
+                            : ''),
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF7DD3FC)),
+                  ),
+                ),
+            ],
+          ),
+          if (apiError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 22),
+              child: Text(
+                '${ui('Lỗi API')} (${apiError.code.name}): ${apiError.message}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: Color(0xFFFFC2CE)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MessageBubble extends StatelessWidget {

@@ -29,6 +29,10 @@ class AiProviderStore extends ChangeNotifier {
   List<AiProviderConfig> get providers => List.unmodifiable(_providers);
   AiRoutingPrefs get routing => _routing;
 
+  /// WP1: facade cần biết cấu hình đã nạp chưa (chưa nạp ⇒ coi như chưa có
+  /// provider — hành xử như trước khi có tầng API, không gọi API mù).
+  bool get isLoaded => _loaded;
+
   /// Provider đang bật (routing chỉ xét các provider này).
   List<AiProviderConfig> get enabledProviders =>
       List.unmodifiable(_providers.where((p) => p.enabled));

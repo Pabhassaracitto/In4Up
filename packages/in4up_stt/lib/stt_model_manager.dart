@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'models/stt_model_info.dart';
+import 'utils/whisper_language.dart';
 
 class SttModelManager {
   static SttModelManager? _instance;
@@ -946,6 +947,27 @@ class SttModelManager {
       }
     }
     return null;
+  }
+
+  /// Model tốt nhất đang có, ưu tiên theo SCRIPT của [language].
+  ///
+  /// Script ngoài Latin (Devanagari, Hán, Kana, Hangul, Thái, Khmer, Miến
+  /// Điện, Ả Rập, Hebrew…) cần model ≥ base: tiny/base rất hay "Latin-hóa"
+  /// kết quả — audio Hindi in ra "main bahut khush" thay vì "मैं खुश".
+  /// Ngôn ngữ Latin giữ chính sách tiny-first (fix OOM Android).
+  WhisperModelLevel? getBestModelLevelForLanguage(String language) {
+    if (!WhisperLanguage.prefersStrongModel(language)) {
+      return getBestAvailableLocalModel();
+    }
+    return getBestAvailableLocalModel(
+      preferredOrder: const [
+        WhisperModelLevel.base,
+        WhisperModelLevel.small,
+        WhisperModelLevel.medium,
+        WhisperModelLevel.large,
+        WhisperModelLevel.tiny,
+      ],
+    );
   }
 
   bool get hasAnyLocalModel =>

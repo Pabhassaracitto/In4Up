@@ -983,11 +983,13 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
 
-### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
+### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)
+- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
   cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
   model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
   cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
-- Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
+- Trạng thái: doing (WP0 done trên `arena/01a0ddd1-in4up`; WP1 code+CI 🟢
+  trên `arena/01a0df5b-in4up` — run 36346119791, còn AT thiết bị)
 - Kiến trúc (ADR-0008):
   - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
     (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
@@ -1010,6 +1012,15 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
     `docs/server_api_tu_van.md` + prompt giao việc + ADR-0008 + code WP0
+  - 2026-09-26 | WP1 doing (API-002) | agent arena/01a0df5b-in4up |
+    AiEngineRemote (chatStream SSE + analysis qua fromGemmaJson) + routing
+    facade theo AiRoutingPrefs + màn chat streaming/nút Dừng + test thuần
+    `test/ai_wp1_remote_test.dart`; chi tiết card API-002 trong KANBAN
+  - 2026-09-27 | WP1 CI 🟢 (API-002) | agent arena/01a0df5b-in4up | run
+    36346119791 xanh toàn bộ sau khi fix 4 lỗi analyze qua 21 vòng bisect CI
+    (chi tiết + bài học: card API-002 KANBAN, bẫy 5.23/5.24 trong skill
+    ci-red-debugging); còn nghiệm thu AT trên thiết bị thật (Ollama LAN +
+    Gemini streaming, cắt mạng giữa lúc generate, routing offline-only)
   - 2026-09-27 | WP3 (API-004) code | agent arena/01a0df5e-in4up | WP0 đã
     xong (API-001 done); code WP3 trên nhánh con của tip WP0:
     `LlmMtEngine` (giữ slot `__G{n}__`, routing chèn chuỗi dịch) +

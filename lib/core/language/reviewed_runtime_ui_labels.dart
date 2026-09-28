@@ -55,4 +55,15 @@ const List<String> reviewedRuntimeUiLabels = [
   'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.',
   'Mình chưa tạo được câu trả lời cho tin nhắn này.',
   'Có lỗi khi xử lý. Vui lòng thử lại.',
+  // WP1 (API-002) — thông báo lỗi chat remote theo mã cấu trúc (facade
+  // packages/in4up_ai, render qua bubble chat → uiText runtime).
+  'Mất kết nối tới server AI giữa chừng — đã dừng an toàn.',
+  'Server AI không phản hồi kịp (timeout).',
+  'Vượt giới hạn gọi API (429) — thử lại sau ít phút.',
+  'Lỗi HTTP từ server AI ({value0}).',
+  'Model không trả nội dung.',
+  'API đang bận — thử lại.',
+  'Đã dừng.',
+  '⏹ Đã dừng.',
+  'Server trả dữ liệu không đúng chuẩn OpenAI.',
 ];

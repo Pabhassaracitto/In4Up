@@ -12,7 +12,10 @@ import '../../../providers/player_provider.dart';
 import 'google_drive_browser.dart';
 
 class AudioLibraryDrawer extends StatefulWidget {
-  const AudioLibraryDrawer({super.key});
+  /// True when this drawer is attached to Scaffold.drawer (left edge).
+  final bool isLeft;
+
+  const AudioLibraryDrawer({super.key, this.isLeft = false});
 
   @override
   State<AudioLibraryDrawer> createState() => _AudioLibraryDrawerState();
@@ -48,7 +51,10 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
               child: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  _LocalAudioTab(onClose: () => Navigator.pop(context)),
+                  _LocalAudioTab(
+                    isLeft: widget.isLeft,
+                    onClose: () => Navigator.pop(context),
+                  ),
                   const GoogleDriveBrowser(),
                   _YouTubeTab(onClose: () => Navigator.pop(context)),
                 ],
@@ -175,8 +181,13 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
 // Tab 0: Thiết bị
 // ─────────────────────────────────────────────────────────
 class _LocalAudioTab extends StatefulWidget {
+  final bool isLeft;
   final VoidCallback onClose;
-  const _LocalAudioTab({required this.onClose});
+
+  const _LocalAudioTab({
+    required this.isLeft,
+    required this.onClose,
+  });
 
   @override
   State<_LocalAudioTab> createState() => _LocalAudioTabState();
@@ -454,7 +465,9 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
               Icon(Icons.info_outline, size: 12, color: Colors.grey[700]),
               const SizedBox(width: 6),
               Text(
-                'Vuốt từ cạnh phải để mở',
+                widget.isLeft
+                    ? 'Vuốt từ cạnh trái để mở'
+                    : 'Vuốt từ cạnh phải để mở',
                 style: TextStyle(color: Colors.grey[700], fontSize: 11),
               ),
             ],

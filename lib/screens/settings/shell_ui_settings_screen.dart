@@ -1,5 +1,6 @@
 import 'package:in4up/core/language/localized_material.dart';
 
+import '../../models/shell_content_order.dart';
 import '../../services/storage_service.dart';
 
 class ShellUiSettingsScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
   late bool _autoHideModeSwitch;
   late bool _longPressModeSwitch;
   late bool _rememberLastSubMode;
+  late ShellContentOrder _contentOrder;
 
   @override
   void initState() {
@@ -24,6 +26,7 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
     _autoHideModeSwitch = _storage.getShellAutoHideModeSwitch();
     _longPressModeSwitch = _storage.getShellLongPressModeSwitch();
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
+    _contentOrder = _storage.getShellContentOrder();
   }
 
   Future<void> _updateCompactMode(bool value) async {
@@ -48,6 +51,11 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
       await _storage.saveShellListenSubMode(0);
       await _storage.saveShellReadSubMode(0);
     }
+  }
+
+  Future<void> _updateContentOrder(ShellContentOrder value) async {
+    setState(() => _contentOrder = value);
+    await _storage.saveShellContentOrder(value);
   }
 
   @override
@@ -79,6 +87,11 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
             child: const SizedBox.shrink(),
           ),
           const SizedBox(height: 16),
+          _ContentOrderCard(
+            value: _contentOrder,
+            onChanged: _updateContentOrder,
+          ),
+          const SizedBox(height: 12),
           _ToggleCard(
             title: 'Compact mode cho switch mode',
             subtitle:
@@ -126,6 +139,94 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
                 '• Người dùng quen tay: bật compact mode + nhớ mode gần nhất.\n'
                 '• Muốn thao tác cực nhanh: bật thêm long-press đổi mode.',
             child: SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContentOrderCard extends StatelessWidget {
+  final ShellContentOrder value;
+  final ValueChanged<ShellContentOrder> onChanged;
+
+  const _ContentOrderCard({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFF6C63FF).withValues(alpha: 0.28),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.swap_horiz_rounded,
+                    color: Color(0xFFB388FF)),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Thứ tự tab Nghe và Đọc',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value.isListenFirst
+                ? 'Nghe bên trái thì thư viện nghe ở bên trái; Đọc bên phải thì thư viện đọc ở bên phải.'
+                : 'Đọc bên trái thì thư viện đọc ở bên trái; Nghe bên phải thì thư viện nghe ở bên phải.',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<ShellContentOrder>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment<ShellContentOrder>(
+                  value: ShellContentOrder.listenRead,
+                  icon: Icon(Icons.headphones_rounded),
+                  label: Text('Nghe → Đọc'),
+                ),
+                ButtonSegment<ShellContentOrder>(
+                  value: ShellContentOrder.readListen,
+                  icon: Icon(Icons.menu_book_rounded),
+                  label: Text('Đọc → Nghe'),
+                ),
+              ],
+              selected: {value},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) onChanged(selection.first);
+              },
+            ),
           ),
         ],
       ),

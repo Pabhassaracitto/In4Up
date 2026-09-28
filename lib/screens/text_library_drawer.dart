@@ -32,7 +32,10 @@ bool _isFirebaseLoggedInSafe() {
 }
 
 class TextLibraryDrawer extends StatefulWidget {
-  const TextLibraryDrawer({super.key});
+  /// True when this drawer is attached to Scaffold.drawer (left edge).
+  final bool isLeft;
+
+  const TextLibraryDrawer({super.key, this.isLeft = true});
 
   @override
   State<TextLibraryDrawer> createState() => _TextLibraryDrawerState();
@@ -200,7 +203,9 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
           Icon(Icons.swipe, size: 14, color: Colors.grey[700]),
           const SizedBox(width: 6),
           Text(
-            'Vuốt từ cạnh trái để mở',
+            widget.isLeft
+                ? 'Vuốt từ cạnh trái để mở'
+                : 'Vuốt từ cạnh phải để mở',
             style: TextStyle(color: Colors.grey[700], fontSize: 11),
           ),
         ],

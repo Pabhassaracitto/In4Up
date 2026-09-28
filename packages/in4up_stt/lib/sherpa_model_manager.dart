@@ -1609,8 +1609,7 @@ class SherpaModelManager {
     if (onnx == 0) {
       return 'Thiếu file .onnx — chọn .onnx + tokens.txt (và .onnx.json nếu có).';
     }
-    await _normalizeSharedTokens(destDir);
-    return _ensureEspeakAfterImport('✅ Đã import $onnx file model');
+    return _completePiperImport(destDir, '✅ Đã import $onnx file model');
   }
 
   Future<String> importPiperFiles(List<String> paths) async {
@@ -1659,8 +1658,7 @@ class SherpaModelManager {
           'espeak-ng-data lấy tự động nếu nằm cạnh file.';
     }
     await _importEspeakNear(paths);
-    await _normalizeSharedTokens(destDir);
-    return _ensureEspeakAfterImport('✅ Đã import $onnx file model');
+    return _completePiperImport(destDir, '✅ Đã import $onnx file model');
   }
 
   Future<String> importPiperFolder(String folderPath) async {
@@ -1744,14 +1742,62 @@ class SherpaModelManager {
       await _importEspeakNear(listing);
     }
 
-    await _normalizeSharedTokens(destDir);
     debugPrint(
         '✅ Import Piper folder: $copiedOnnx onnx, $copiedTokens tokens, '
         '$copiedJson json, $copiedEspeak espeak files');
-    return _ensureEspeakAfterImport(
+    return _completePiperImport(
+      destDir,
       '✅ Đã import $copiedOnnx file model, $copiedTokens tokens, '
       '$copiedJson config',
     );
+  }
+
+  /// Hoàn tất import Piper (folder/file/named-bytes đều gọi):
+  ///
+  /// FIX IMPORT-TTS-001 — trước đây import kiểu HuggingFace (chỉ .onnx +
+  /// .onnx.json, KHÔNG có tokens.txt) báo "✅ Đã import" nhưng giọng không
+  /// bao giờ hiện trong thẻ "3. TTS" (discoverVoices bỏ qua onnx thiếu
+  /// tokens ⇒ UI vẫn "Chưa có giọng Piper. Bấm Tải giọng").
+  ///
+  /// Giờ: mọi onnx thiếu tokens sẽ được đảm bảo tokens dùng chung (tokens
+  /// giọng khác trong máy, hoặc tải fallback k2-fsa — tokens espeak giống
+  /// nhau cho mọi giọng vits-piper), rồi rescan để UI cập nhật NGAY.
+  Future<String> _completePiperImport(String destDir, String okMessage) async {
+    final missingTokens = <String>[];
+    try {
+      for (final entity in Directory(destDir).listSync(followLinks: true)) {
+        final name = p.basename(entity.path);
+        if (!PiperImportPaths.isOnnxModelName(name)) continue;
+        final stem = name.substring(0, name.length - '.onnx'.length);
+        final named = File(p.join(destDir, '${stem}_tokens.txt'));
+        final shared = File(p.join(destDir, 'tokens.txt'));
+        final hasTokens = (named.existsSync() && named.lengthSync() >= 128) ||
+            (shared.existsSync() && shared.lengthSync() >= 128);
+        if (!hasTokens) {
+          await _ensurePiperTokens(destDir, stem);
+          if (!(named.existsSync() && named.lengthSync() >= 128)) {
+            missingTokens.add(stem);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ _completePiperImport tokens check: $e');
+    }
+
+    await _normalizeSharedTokens(destDir);
+    // Rescan trước khi soạn message ⇒ số giọng phản ánh đúng đĩa.
+    await rescan();
+    final voiceCount = piperInfo.voices.length;
+
+    var message = okMessage;
+    if (missingTokens.isEmpty) {
+      message = '✅ Đã import xong — $voiceCount giọng Piper khả dụng';
+    } else {
+      message = '$okMessage — ⚠️ ${missingTokens.length} giọng thiếu '
+          'tokens.txt (không lấy được tokens dùng chung): hãy import kèm '
+          'tokens.txt hoặc bấm Tải giọng.';
+    }
+    return _ensureEspeakAfterImport(message);
   }
 
   Future<void> _normalizeSharedTokens(String destDir) async {

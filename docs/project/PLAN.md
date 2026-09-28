@@ -1076,6 +1076,11 @@ Package: `video_player: ^2.8.0` (Flutter official)
   Hindi + chip SMALL phải ra Devanagari.
 - **Bước sau (đề xuất):** camera + ML Kit Subject Segmentation (xóa phông) +
   Object Label → chụp đồ vật thật gán vào từ vựng.
+- **Mở rộng 2026-09-28 (owner chốt):** cách gán ảnh = **mặc định tự tìm rồi chạm
+  chọn**; ai muốn nhanh hơn thì bật toggle **"Tự gán ảnh đầu tiên"** trong dialog
+  Cài đặt ảnh (key `vocab_image_auto_assign`, lưu theo máy, mặc định tắt). Bật
+  thì thêm từ là gán luôn ảnh đầu tiên tìm được mà không mở sheet; không gán
+  được (thiếu key/mạng/không ra ảnh) thì bỏ qua im lặng, KHÔNG chặn việc lưu từ.
 - **Ghi chú đánh số (2026-09-28):** mục này mới ghi là `PLAN-027`; nhánh
   `arena/01a0251e-in4up` đã dùng PLAN-027…PLAN-032 cho việc khác ⇒ đánh số lại
   thành `PLAN-033` khi rebase, không đổi nội dung.

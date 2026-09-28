@@ -3930,3 +3930,10 @@
   - 2026-09-28 | doing | agent arena/01a0a205-in4up | linearize lịch sử thành 4
     commit trên nền `arena/01a0251e-in4up` mới nhất (`4beb553`, #59) — pull thêm
     #57 + #59, chỉ merge KANBAN (append-only, giữ nguyên card IMPORT-MODELS-001)
+  - 2026-09-28 | doing | agent arena/01a0a205-in4up | owner chốt cách chọn ảnh:
+    **mặc định = tự tìm + chạm chọn**, thêm **toggle "Tự gán ảnh đầu tiên"**
+    trong dialog Cài đặt ảnh (key `vocab_image_auto_assign`, mặc định TẮT). Bật
+    thì `attachVocabImage` / lưu từ Wordlist gán luôn ảnh đầu tìm được, không mở
+    sheet; lỗi mạng/key → im lặng bỏ qua rồi vẫn mở sheet cho chọn tay; đã có
+    ảnh thì không đè. API key: owner tự set GitHub secret `VOCAB_IMAGE_API_KEY`
+    (build.yml đã nối `--dart-define`) — không cần thêm tài liệu

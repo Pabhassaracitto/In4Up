@@ -128,3 +128,27 @@ lib/features/vocab_image/
 - 2026-09-14 | IMG-WEB-001 | `arena/01a0a205-in4up` — đảo priority sang tìm
   ảnh trên mạng qua API key (Pexels/Unsplash/Openverse/Wikimedia), sheet chọn
   nguồn, dialog key, `saveFromUrl`/`saveFromBytes`, 2 file test.
+
+
+## 2d. Tự gán ảnh — toggle trong Cài đặt ảnh (IMG-WEB-001, 2026-09-28)
+
+Owner chốt: **"Mặc định là tự tìm, chạm chọn nhưng có thể chọn thêm toggle tự
+gán ảnh trong cài đặt riêng."**
+
+| Chế độ | Hành vi | Khi nào dùng |
+|---|---|---|
+| **Mặc định** (toggle TẮT) | Mở sheet → tự chạy tìm theo `từ + nghĩa` → người dùng **chạm chọn** ảnh → tải về storage app, gắn vào từ | ảnh phải hợp ngữ cảnh; tránh gán nhầm |
+| **Tự gán ảnh đầu tiên** (toggle BẬT) | Thêm từ (PDF chạm-từ, snackbar Wordlist) là `autoAssignVocabImage()` tìm và gán **luôn ảnh đầu tiên**, không mở sheet | nhập danh sách dài, cần nhanh |
+
+- Vị trí toggle: sheet chọn ảnh → nút cài đặt → dialog **"Nhà cung cấp ảnh + API
+  key"** → `SwitchListTile` "Tự gán ảnh đầu tiên". Lưu SharedPreferences
+  `vocab_image_auto_assign` — **chỉ trên máy**, không đồng bộ, không vào Git.
+- `VocabImageApiSettings.autoAssignFirst` (mặc định `false`) là nguồn sự thật
+  duy nhất; `VocabImageApiConfig.saveAutoAssign()` tắt thì **xóa** key chứ không
+  ghi `false` (prefs sạch).
+- An toàn: đã có ảnh thì **không đè**; lỗi mạng/key/không ra ảnh → trả `null`,
+  `attachVocabImage` vẫn mở sheet cho chọn tay; từ đã lưu vẫn nguyên vẹn.
+- API key: owner tự set secret `VOCAB_IMAGE_API_KEY` (+ var `VOCAB_IMAGE_PROVIDER`)
+  trong repo Settings → Secrets and variables → Actions; `build.yml` đã truyền
+  `--dart-define` cho job APK/Windows/iOS. Secret rỗng ⇒ build vẫn chạy, app rơi
+  về Openverse/Wikimedia và nhắc dán key trong app.

@@ -3456,7 +3456,7 @@
 
 ### READ-GRAM-001 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR")
 
-- **Trạng thái:** 📋 proposed — **chỉ KẾ HOẠCH, KHÔNG code trong đợt này.**
+- **Trạng thái:** 🔄 doing — P1 đang triển khai trong sản phẩm (models/service/widget/test), giữ line-first và không đổi schema.
 - **Bằng chứng (đặc tả đã kiểm chứng):**
   - `tool/grammar_probe/engine.py` — đặc tả thuật toán chạy được (Python; sandbox không có Dart SDK).
   - `tool/grammar_probe/run_probe.py` — đo từng trường + runtime, `exit 1` khi lệch (dùng như golden test).
@@ -3498,6 +3498,10 @@
     câu vắt dòng chọn (a) phân tích theo dòng rồi ghép ở P2; khối trong sheet ON; nhãn cấp dòng OFF
     **kèm nút bật/tắt nhanh trên thanh công cụ đáy** (không phải vào Cài đặt). Kế hoạch đã đủ điều
     kiện để code P1 — **chờ lệnh bắt đầu code của người sở hữu**.
+  - 2026-09-28 | proposed→doing | ai (arena/01a0e7d8-in4up) | bắt đầu code P1 trên nhánh session Arena
+    cố định: thêm models/service/widget section trong `WordActionsSheet`, 4 test CI và sửa UX IPA theo
+    phản hồi (IPA toàn văn hiển thị interlinear khớp từ; toggle IPA có hint nhỏ; chọn dòng cập nhật
+    `currentLineIndex` nhạy hơn). Giữ append-only; không đụng `TextItem`/`ColorMode`/`lib/ffi/`.
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 

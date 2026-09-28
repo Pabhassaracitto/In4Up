@@ -6,6 +6,8 @@ import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
+import '../../../features/grammar/services/grammar_analysis_service.dart';
+import '../../../features/grammar/widgets/structure_section.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
@@ -144,6 +146,38 @@ class _WordActionsContentState extends State<_WordActionsContent> {
     }
   }
 
+  ({int start, int end})? _resolveAnchorRange(String lineText) {
+    if (lineText.trim().isEmpty) return null;
+    final tokens = GrammarAnalysisService.instance.analyzeLine(lineText).tokens;
+    final target = _cleanForAnchor(widget.word.word);
+    if (widget.wordIndex >= 0 && widget.wordIndex < tokens.length) {
+      final token = tokens[widget.wordIndex];
+      final clean = _cleanForAnchor(token.surface);
+      if (target.isEmpty || clean == target || token.surface == widget.word.word) {
+        return (start: token.startOffset, end: token.endOffset);
+      }
+    }
+
+    var seen = -1;
+    for (final token in tokens) {
+      final clean = _cleanForAnchor(token.surface);
+      if (clean != target) continue;
+      seen++;
+      if (seen == widget.wordIndex || widget.wordIndex >= tokens.length) {
+        return (start: token.startOffset, end: token.endOffset);
+      }
+    }
+
+    final idx = lineText.toLowerCase().indexOf(widget.word.word.toLowerCase());
+    if (idx >= 0) return (start: idx, end: idx + widget.word.word.length);
+    return null;
+  }
+
+  String _cleanForAnchor(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r"^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$", unicode: true), '')
+      .trim();
+
   @override
   Widget build(BuildContext context) {
     final tp = context.read<TextProvider>();
@@ -157,6 +191,10 @@ class _WordActionsContentState extends State<_WordActionsContent> {
     final ownIpa = _ownIpa;
     final dictIpa = ownIpa == null ? _dictIpa : null;
     final shownIpa = ownIpa ?? dictIpa;
+    final lineText = widget.lineIndex < tp.lines.length
+        ? tp.lines[widget.lineIndex].content
+        : widget.word.word;
+    final anchorRange = _resolveAnchorRange(lineText);
 
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -257,6 +295,13 @@ class _WordActionsContentState extends State<_WordActionsContent> {
               ),
             ],
           ),
+
+          if (anchorRange != null)
+            StructureSection(
+              lineText: lineText,
+              anchorStart: anchorRange.start,
+              anchorEnd: anchorRange.end,
+            ),
 
           const SizedBox(height: 24),
 

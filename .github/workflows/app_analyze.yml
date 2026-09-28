@@ -84,6 +84,35 @@ jobs:
           path: locale_test.log
           if-no-files-found: ignore
 
+      - name: "READ-GRAM-001 tests — sentence structure"
+        id: sentence-structure-tests
+        run: |
+          set +e
+          files=""
+          for f in test/sentence_structure_golden_test.dart \
+                   test/sentence_structure_perf_test.dart \
+                   test/read_sentence_structure_i18n_test.dart \
+                   test/sentence_structure_language_gate_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test READ-GRAM-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > sentence_structure_test.log 2>&1
+          code=$?
+          cat sentence_structure_test.log
+          exit $code
+
+      - name: Upload READ-GRAM-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-sentence-structure-test-log
+          path: sentence_structure_test.log
+          if-no-files-found: ignore
+
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

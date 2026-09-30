@@ -107,6 +107,7 @@
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
+| I4U18-DOCS-001 | Hướng dẫn sử dụng + QA liên lane: model/API/MDX/Tipiṭaka/media/PDF-OCR-TTS-IPA | ✅ done (docs-only, chờ owner nghiệm thu thiết bị) | `docs/USER_GUIDE.vi.md` + `docs/manual_qa_I4U18_DOCS_001.md`; link check + `git diff --check` sạch |
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 
 
@@ -3902,6 +3903,37 @@
   - 2026-09-28 | created→done | agent arena/01a0e2c8-in4up | `README.md` +
     `README.vi.md` + khôi phục `LICENSE`; nhánh đồng bộ từ `arena/01a0251e-in4up`
     (53b57ab) để README khớp đúng code đang chạy
+
+### I4U18-DOCS-001 — Hướng dẫn sử dụng và QA liên lane
+
+- **Trạng thái:** ✅ done (docs-only; chờ owner chạy checklist trên thiết bị).
+- **Nguồn:** owner (2026-09-30) — lane L18 Agent G; liên quan README, `docs/`,
+  Settings/Help nếu có UI.
+- **Nội dung:**
+  - Thêm `docs/USER_GUIDE.vi.md`: hướng dẫn từng bước cho Piper +
+    `espeak-ng-data`, Whisper/Zipformer STT, Server/API/BYOK/Ollama/LM Studio,
+    từ điển MDX/MDD/CSS, Tipiṭaka + Pāli, Audio/Video library, PDF/OCR/TTS/IPA;
+    kèm bảng khả năng và cách xử lý lỗi thường gặp.
+  - Ghi đúng giới hạn code hiện tại, không tô hồng: picker từ điển mới nhận
+    `.mdx` (MDD/CSS rời chưa có UI link); video mới thêm từng file (chưa
+    scan/filter/playlist); playlist audio là danh sách từ lần chọn nhiều file.
+  - Thêm `docs/manual_qa_I4U18_DOCS_001.md`: fixture nhỏ, ma trận thiết bị và
+    checklist owner cho happy path, lỗi/hủy/offline/restart, quyền, bảo mật key,
+    i18n rule #5, font/màn hẹp và các chuỗi liên lane.
+  - Link guide/checklist từ `README.md` và `README.vi.md`; không thêm Help UI nên
+    không phát sinh key i18n hay thay đổi `lib/**`; không commit ảnh/video/model.
+- **Bằng chứng:** kiểm tra toàn bộ local Markdown links trong 4 file thay đổi;
+  `git diff --check`; rà path/nhãn theo code hiện có. Docs-only nên không chạy
+  Flutter CI/test.
+- **Rủi ro còn lại:** đường dẫn chrome có thể đổi khi các lane UI đang làm được
+  merge; MDD/CSS và video scan/filter/playlist cần cập nhật guide khi UI thật
+  xuất hiện. Nghiệm thu thiết bị theo checklist vẫn do owner thực hiện.
+- **Lịch sử:**
+  - 2026-09-30 | 19:49 UTC | created→doing | agent
+    arena/01a0f3dc-in4up | đọc governance/code các lane, soạn guide + checklist
+  - 2026-09-30 | 19:49 UTC | doing→done | agent
+    arena/01a0f3dc-in4up | docs + README links; local link check và
+    `git diff --check` sạch; không có thay đổi UI
 
 ### IMPORT-MODELS-001 — Import Piper/Zipformer không hiện giọng + "Không nhận diện được model" + xung đột PR #48
 

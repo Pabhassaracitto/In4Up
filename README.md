@@ -278,7 +278,8 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
 ## On-device AI & the model centre
 
 Nothing large is bundled into the app binary. Open **Home ▸ AI Model Manager** to import a file you already
-have or download on demand — the app never downloads a model on its own. Full reference:
+have or download on demand — the app never downloads a model on its own. The current end-user walkthrough
+(Vietnamese) is [`docs/USER_GUIDE.vi.md`](docs/USER_GUIDE.vi.md); developer model layouts are documented in
 [`docs/project/MODELS.md`](docs/project/MODELS.md).
 
 | Model | Folder under `documents/` | Size | Used for | Needed? |
@@ -538,6 +539,8 @@ remembered. Read these before changing anything:
 | [`docs/adr/`](docs/adr) | Architecture Decision Records — every structural decision, with its postmortem |
 | [`docs/skills/`](docs/skills) | Reusable agent skills, starting with CI red-run debugging |
 | [`docs/Bangiao/`](docs/Bangiao) | Handover briefs per subsystem (Sherpa, dictionary, Tipiṭaka, video, images) |
+| [`docs/USER_GUIDE.vi.md`](docs/USER_GUIDE.vi.md) | Vietnamese user walkthrough: offline models, Server/API, MDX, Tipiṭaka, media, PDF/OCR/TTS/IPA |
+| [`docs/manual_qa_I4U18_DOCS_001.md`](docs/manual_qa_I4U18_DOCS_001.md) | On-device cross-lane acceptance checklist for the owner |
 
 ### Golden rules
 

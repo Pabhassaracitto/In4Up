@@ -275,7 +275,8 @@ Hai nguyên tắc sản phẩm bảo vệ vòng học này và được soi tron
 ## AI trên máy & trung tâm model
 
 Không có model nặng nào được nhét vào file cài. Vào **Home ▸ Quản lý Model AI** để **Import** file bạn đã có
-hoặc **Tải về** khi bạn bấm — app không bao giờ tự tải. Tài liệu đầy đủ:
+hoặc **Tải về** khi bạn bấm — app không bao giờ tự tải. Hướng dẫn thao tác cho model, API, từ điển,
+Tipiṭaka, media và PDF/OCR: [`docs/USER_GUIDE.vi.md`](docs/USER_GUIDE.vi.md). Layout model dành cho developer:
 [`docs/project/MODELS.md`](docs/project/MODELS.md).
 
 | Model | Thư mục trong `documents/` | Dung lượng | Dùng cho | Bắt buộc? |
@@ -515,6 +516,8 @@ trí nhớ. Hãy đọc trước khi sửa bất cứ thứ gì:
 | [`docs/adr/`](docs/adr) | Architecture Decision Record — mọi quyết định cấu trúc, kèm postmortem |
 | [`docs/skills/`](docs/skills) | Skill dùng lại cho agent, bắt đầu từ chẩn đoán CI đỏ |
 | [`docs/Bangiao/`](docs/Bangiao) | Bản bàn giao theo từng hệ con (Sherpa, từ điển, Tipiṭaka, video, ảnh) |
+| [`docs/USER_GUIDE.vi.md`](docs/USER_GUIDE.vi.md) | Hướng dẫn người dùng: model offline, Server/API, MDX, Tipiṭaka, media, PDF/OCR/TTS/IPA |
+| [`docs/manual_qa_I4U18_DOCS_001.md`](docs/manual_qa_I4U18_DOCS_001.md) | Checklist owner nghiệm thu các luồng trên thiết bị |
 
 ### Quy tắc vàng
 

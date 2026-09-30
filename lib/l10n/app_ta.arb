@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "படத்தை ஸ்கேன் செய்",
+  "ocrSheetTitle": "படத்தை உரையாக்கவும்",
+  "ocrSourceScanner": "ஆவணத்தை பிடித்து ஸ்கேன் செய்",
+  "ocrSourceScannerHint": "தானியங்கி விளிம்பு, வெட்டு, மேம்படுத்தல் · Android மட்டும்",
+  "ocrSourceGallery": "ஏற்கனவே உள்ள படத்தை தேர்வு செய்",
+  "ocrSourceGalleryHint": "புத்தகப் பக்க படம் அல்லது ஸ்கேன்",
+  "ocrResultTitle": "ஸ்கேன் முடிவு",
+  "ocrResultHint": "ஏற்றும் முன் சரிபார்த்து திருத்து",
+  "ocrReopenImage": "படத்தை மீண்டும் ஸ்கேன் செய்",
+  "ocrRecognizing": "உரையை அடையாளம் காண்கிறது...",
+  "ocrEmptyResult": "படத்தில் உரை எதுவும் இல்லை. தெளிவான, நன்கு ஒளியுள்ள படத்தை முயற்சிக்கவும்.",
+  "ocrLoadedFromImage": "படத்திலிருந்து உரை ஏற்றப்பட்டது",
+  "ocrScanPageText": "இந்தப் பக்க உரையை ஸ்கேன் செய்",
+  "ocrUnsupported": "OCR Android/iOS இல் மட்டுமே இயங்கும்"
 }

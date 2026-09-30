@@ -983,11 +983,14 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | created+accepted | agent arena/01a0d363-in4up | lập kế hoạch, người sở hữu chốt 4 quyết định
   - 2026-09-25 | accepted→doing | agent arena/01a0d363-in4up | code bước 1–3 (Tab Đọc nhận LRC; nghe lại audio trong màn Phiên đã lưu, WAV+LRC cùng tên để tab Nghe tự bắt sidecar); tuỳ chọn nén để "sắp có"
 
-### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
+### PLAN-032 — Tầng Server API cho AI: cloud + LAN server, BYOK, offline-first (API-001..006)
+- Nguồn: người sở hữu (2026-09-26/27, qua agent arena/01a0ddd1-in4up) — yêu
   cầu tư vấn + triển khai tầng API để giải phóng RAM/nhiệt/thời gian load
   model cho app; kèm câu hỏi chốt mô hình đặt server (cloud / PC LAN /
   cùng Android) → chốt A+B, bỏ C (Phụ lục B `docs/server_api_tu_van.md`).
-- Trạng thái: doing (WP0 trên `arena/01a0ddd1-in4up`)
+- Trạng thái: doing (WP0 done trên `arena/01a0ddd1-in4up`; WP1 code+CI 🟢
+  trên `arena/01a0df5b-in4up` — run 36346119791; WP2 code+CI 🟢 trên
+  `arena/01a0df5b-in4up` — run 36348644820; WP1+WP2 còn AT thiết bị)
 - Kiến trúc (ADR-0008):
   - Chuẩn duy nhất OpenAI-compatible; 1 client dùng cho mọi nhà cung cấp
     (cloud: Groq/Gemini/OpenRouter/OpenAI; LAN: Ollama/LM Studio/llama-server/
@@ -1010,6 +1013,15 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-09-26 | created (doing WP0) | agent arena/01a0ddd1-in4up | tư vấn
     `docs/server_api_tu_van.md` + prompt giao việc + ADR-0008 + code WP0
+  - 2026-09-26 | WP1 doing (API-002) | agent arena/01a0df5b-in4up |
+    AiEngineRemote (chatStream SSE + analysis qua fromGemmaJson) + routing
+    facade theo AiRoutingPrefs + màn chat streaming/nút Dừng + test thuần
+    `test/ai_wp1_remote_test.dart`; chi tiết card API-002 trong KANBAN
+  - 2026-09-27 | WP1 CI 🟢 (API-002) | agent arena/01a0df5b-in4up | run
+    36346119791 xanh toàn bộ sau khi fix 4 lỗi analyze qua 21 vòng bisect CI
+    (chi tiết + bài học: card API-002 KANBAN, bẫy 5.23/5.24 trong skill
+    ci-red-debugging); còn nghiệm thu AT trên thiết bị thật (Ollama LAN +
+    Gemini streaming, cắt mạng giữa lúc generate, routing offline-only)
   - 2026-09-27 | WP3 (API-004) code | agent arena/01a0df5e-in4up | WP0 đã
     xong (API-001 done); code WP3 trên nhánh con của tip WP0:
     `LlmMtEngine` (giữ slot `__G{n}__`, routing chèn chuỗi dịch) +
@@ -1018,6 +1030,20 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-28 | merge leader 251e | agent arena/01a0df5e-in4up | pull
     `origin/arena/01a0251e-in4up` vào nhánh WP3; adopt numbering của leader
     cho plan này (PLAN-031→032, ADR-0007→0008) — nội dung WP3 không đổi
+  - 2026-09-28 | WP2 doing (API-003) | agent arena/01a0df5b-in4up |
+    transcribeAudio multipart + AiTranscription (in4up_ai); SttEngineRemote
+    (chunking + offset stitch + single-flight + energy-scan silence) +
+    enum remote + registry (in4up_stt, +path dep in4up_ai — acyclic);
+    facade processingRemote + transcribeAuto fallback API; UI auto-TOC
+    "Whisper qua API" + i18n rule #5; test thuần
+    `test/ai_wp2_stt_api_test.dart`. Run đầu 36347966404 ĐỎ (2 lỗi analyze
+    — xem card API-003); chờ run kế sau fix
+  - 2026-09-28 | WP2 CI 🟢 (API-003) | agent arena/01a0df5b-in4up | run
+    36348644820 xanh toàn bộ (analyze + rule #5 + LHB + Cabin) sau khi fix
+    2 lỗi analyze bằng static review (không cần bisect — log/artifact vẫn
+    bị chặn khỏi sandbox); còn nghiệm thu AT trên thiết bị thật
+    (whisper-large-v3 Groq/Speaches, file 30–60p, cắt mạng giữa chừng)
+
 ### PLAN-031 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR") · 📋 proposed
 - *(Số cũ PLAN-029 — đổi thành 031 ngày 2026-09-27 khi gộp nhánh tích hợp `arena/01a0251e-in4up`,
   vì 251e đã dùng PLAN-029 cho LHB-006 và PLAN-030 cho Cabin Save.)*
@@ -1085,3 +1111,25 @@ Package: `video_player: ^2.8.0` (Flutter official)
   `arena/01a0251e-in4up` đã dùng PLAN-027…PLAN-032 cho việc khác ⇒ đánh số lại
   thành `PLAN-033` khi rebase, không đổi nội dung.
 
+### PLAN-033 — OCR: ML Kit Text Recognition v2 + Document Scanner làm nguồn văn bản thứ 4 (OCR-001)
+- Nguồn: người sở hữu (2026-09-15, qua agent arena/01a09c9a-in4up) — chốt phạm vi
+  CHỈ làm Text Recognition v2 (OCR) + Document Scanner, bỏ qua phần còn lại của ML Kit.
+- Trạng thái: doing (code xong T1–T5 + T7–T8; CI 🟢 run 36348760217; chờ nghiệm thu thiết bị)
+- Milestone đề xuất: M2
+- Chi tiết: ảnh chụp trang sách / sách scan / PDF image-only → văn bản nạp vào Text
+  Studio, để những nguồn này vào được pipeline CEFR · tra từ · Read Mode như PDF có
+  text layer. Quyết định kiến trúc: `docs/adr/0009-mlkit-text-recognition-ocr.md`.
+  Kế hoạch thi công + trạng thái từng task: `docs/mlkit_ocr_integration_plan.md`.
+  On-device hoàn toàn (model ship kèm Play services / iOS SDK) → không tải gì lúc
+  bootstrap, khác ML Kit Translation. Chỉ Android + iOS; desktop/web ẩn nút.
+  Ghép vào `TextProvider.loadFromString` để kế thừa pipeline phân tích sẵn có,
+  KHÔNG xây pipeline song song; provenance dùng `TextSourceType.ocr` + refType
+  `'ocrImage'` để reopen = QUÉT LẠI ảnh (không gọi `loadTextFile` trên JPEG).
+- Lịch sử:
+  - 2026-09-15 | created | agent arena/01a09c9a-in4up | ADR + plan + T1–T5, T7, T8
+  - 2026-09-27 | doing | agent arena/01a09c9a-in4up | sandbox re-clone làm mất 5
+    commit → pull lại `arena/01a0251e-in4up` (755b474, +48 commit) và re-apply toàn
+    bộ phần OCR; đổi số ADR-0005→0009, PLAN-029→033 vì upstream đã chiếm số
+  - 2026-09-27 | doing | agent arena/01a09c9a-in4up | CI xanh sau khi sửa 2 error
+    (Document Scanner 0.5.0 dùng `documentFormats` dạng Set + `images` nullable —
+    khác API master/0.6.x đã đối chiếu nhầm); merge tip `b90ba3e` (PR #57)

@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 /// Nguyên tắc Context-Accumulation: nhiều context = từ quan trọng hơn.
 class VocabContext {
   final String id;
-  final String sourceType; // 'pdf', 'web', 'youtube', 'manual', 'clipboard', 'story'
+  final String sourceType; // 'pdf', 'web', 'youtube', 'manual', 'clipboard', 'story', 'ocr'
   final String? sourceName; // "ML_101.pdf", "https://...", "YouTube: TED Talk"
   final String? pageOrPosition; // "trang 42", "02:15", "dòng 3"
   final String? sourceRef; // reopenable ref: path / url / cloud id if available
-  final String? sourceRefType; // pdfPath | webUrl | localText | cloudText
+  final String? sourceRefType; // pdfPath | webUrl | localText | cloudText | ocrImage
   final String surroundingText; // Câu/đoạn văn chứa từ
   final DateTime encounteredAt;
 
@@ -81,6 +81,9 @@ class VocabContext {
         return '📋';
       case 'story':
         return '📖';
+      case 'ocr':
+        // Nguồn ảnh đã quét chữ (ADR-0009 · OCR-001).
+        return '📷';
       default:
         return '✏️';
     }
@@ -101,6 +104,11 @@ class VocabContext {
       case 'localText':
       case 'cloudText':
         return 'Mở vào Đọc';
+      case 'ocrImage':
+        // ADR-0009 · OCR-001: nguồn là ẢNH đã quét, không phải file text —
+        // mở lại nghĩa là chạy OCR lại trên ảnh đó. Không dùng 'localText'
+        // vì đường đó readAsString() trên JPEG → throw.
+        return 'Quét lại ảnh';
       default:
         return 'Mở lại';
     }

@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up_ai/in4up_ai.dart' show AiProviderStore, AiRouteCapability;
 import 'package:in4up_stt/in4up_stt.dart';
 import 'package:provider/provider.dart';
 
@@ -39,7 +40,8 @@ Future<void> runSoundAutoToc(
   );
   if (selection == null || !context.mounted) return;
 
-  final useWhisper = selection.mode == _AutoTocMode.whisper;
+  final useWhisper = selection.mode != _AutoTocMode.vadOnly;
+  final viaApi = selection.mode == _AutoTocMode.apiWhisper;
   final language = selection.language;
 
   // ── 2. Chạy NỀN (không await) — bubble ở đầu màn hình báo tiến trình ──
@@ -48,6 +50,7 @@ Future<void> runSoundAutoToc(
     totalDuration: totalDuration,
     useWhisper: useWhisper,
     language: language,
+    sttEngine: viaApi ? SttEngineType.remote : null,
   ));
 
   if (!context.mounted) return;
@@ -62,7 +65,7 @@ Future<void> runSoundAutoToc(
     ));
 }
 
-enum _AutoTocMode { whisper, vadOnly }
+enum _AutoTocMode { whisper, vadOnly, apiWhisper }
 
 /// Kết quả chọn: (chế độ, ngôn ngữ Whisper).
 typedef _AutoTocSelection = ({_AutoTocMode mode, String language});
@@ -76,6 +79,11 @@ Future<_AutoTocSelection?> _showModeDialog(
   final baseReady = SoundAutoTocService.isWhisperModelReady(
     WhisperModelLevel.base,
   );
+  // WP2 (API-003): lựa chọn engine API chỉ hiện khi routing cho phép
+  // (đã cấu hình provider có model STT + không offlineOnly). Store chưa
+  // load xong thì ẩn — bảo thủ, không accidentally hiện.
+  final store = AiProviderStore.instance;
+  final apiSttAllowed = store.isLoaded && store.apiAllowed(AiRouteCapability.sttFile);
   final existingWarn = hasExistingChapters
       ? '\n\n⚠️ Mục lục hiện có của file sẽ được THAY THẾ.'
       : '';
@@ -154,6 +162,30 @@ Future<_AutoTocSelection?> _showModeDialog(
                     ),
                     onTap: () => pick(_AutoTocMode.whisper),
                   ),
+                  if (apiSttAllowed) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Color(0xFF7E57C2), width: 1),
+                      ),
+                      leading: const Icon(Icons.cloud_outlined, color: Color(0xFF7E57C2)),
+                      title: Text(
+                        context.uiText('Whisper qua API (nhanh, chính xác)'),
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(
+                        context.uiText(
+                          'Bóc băng bằng whisper-large-v3 trên server — không '
+                          'cần tải model, cần mạng. File 30–60 phút nhanh hơn '
+                          'nhiều so với on-device.',
+                        ),
+                        style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+                      ),
+                      onTap: () => pick(_AutoTocMode.apiWhisper),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   ListTile(
                     contentPadding: EdgeInsets.zero,

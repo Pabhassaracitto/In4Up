@@ -32,6 +32,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_ai/in4up_ai.dart' show AiProviderStore, AiRouteCapability;
 import 'package:path/path.dart' as p;
 import 'package:speech_to_text/speech_to_text.dart' show ListenMode;
 import 'package:path_provider/path_provider.dart';
@@ -48,6 +49,7 @@ import 'stt_engine.dart';
 import 'stt_engine_native.dart';
 import 'stt_engine_registry.dart';
 import 'stt_engine_whisper.dart';
+import 'stt_engine_remote.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
 import 'utils/audio_converter.dart';
@@ -63,6 +65,7 @@ enum SttFacadeStatus {
   ready,
   processingNative,
   processingWhisper,
+  processingRemote,
   generatingLrc,
   error,
 }
@@ -108,6 +111,7 @@ class SttProgress {
         SttFacadeStatus.initializing ||
         SttFacadeStatus.processingNative ||
         SttFacadeStatus.processingWhisper ||
+        SttFacadeStatus.processingRemote ||
         SttFacadeStatus.generatingLrc =>
           true,
         _ => false,
@@ -320,6 +324,16 @@ class SttServiceFacade extends ChangeNotifier {
           shouldGenerateLrc: shouldGenerateLrc,
           audioFingerprint: audioFingerprint,
         );
+      } else if (cfg.preferredEngine == SttEngineType.remote) {
+        // WP2 (API-003) — file STT qua API. Engine tự resolve provider MỖI
+        // LẦN gọi (offlineOnly / chưa cấu hình ⇒ fail sạch với mã
+        // noProvider, không fake success). Offline-only KHÔNG bao giờ đi
+        // vào nhánh này (resolveProvider trả null).
+        result = await _runRemoteEngine(
+          audioPath: audioPath,
+          config: cfg,
+          audioFingerprint: audioFingerprint,
+        );
       } else {
         // Native engine: nhanh, chạy trực tiếp trên Main (không cần Isolate)
         var nativeResult = await _runNativeEngine(audioPath, cfg);
@@ -440,6 +454,23 @@ class SttServiceFacade extends ChangeNotifier {
         _modelManager.getBestModelLevelForLanguage(language);
 
     if (localLevel == null) {
+      // WP2 (API-003): hết model local → thử API nếu routing cho phép.
+      // Ngược lại (offlineOnly / chưa cấu hình) giữ ĐÚNG hành vi cũ.
+      final store = AiProviderStore.instance;
+      if (store.isLoaded && store.apiAllowed(AiRouteCapability.sttFile)) {
+        return transcribeFile(
+          audioPath,
+          config: _config.copyWith(
+            preferredEngine: SttEngineType.remote,
+            language: language,
+            generateLrc: generateLrc,
+            grouping: grouping,
+          ),
+          lrcOutputPath: lrcOutputPath,
+          generateLrc: generateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      }
       _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
       return SttTranscribeOutput.failure(
         'Không có model Whisper nào được tải về. '
@@ -459,6 +490,61 @@ class SttServiceFacade extends ChangeNotifier {
       lrcOutputPath: lrcOutputPath,
       generateLrc: generateLrc,
       audioFingerprint: audioFingerprint,
+    );
+  }
+
+  // ── Remote Engine Orchestrator (WP2 / API-003) ─────────────────────────────
+  //
+  // Mirror progress/cancel của _runWhisperViaIsolate: fingerprint tính trên
+  // Main, progress 0.10 → 0.95 theo chunk, partial đẩy vào _partialSubject.
+  // Chunking/offset-stitch/backoff nằm trong SttEngineRemote — facade chỉ
+  // điều phối. Kết quả đi tiếp qua CÙNG pipeline cache + LRC + diarization
+  // như Whisper on-device (remote chỉ là nguồn segment).
+
+  Future<SttResult> _runRemoteEngine({
+    required String audioPath,
+    required SttConfig config,
+    required String audioFingerprint,
+  }) async {
+    _emitProgress(
+      SttFacadeStatus.processingRemote,
+      0.05,
+      'Đang chuẩn bị upload…',
+      engine: SttEngineType.remote,
+    );
+
+    // Fingerprint tính trên Main Thread (như branch Whisper).
+    final fingerprint = audioFingerprint.isNotEmpty
+        ? audioFingerprint
+        : await _computeAudioFingerprint(audioPath);
+
+    final engine = SttEngineRemote();
+
+    _emitProgress(
+      SttFacadeStatus.processingRemote,
+      0.10,
+      'Đang bóc băng qua API…',
+      engine: SttEngineType.remote,
+    );
+
+    return engine.transcribeFile(
+      audioPath,
+      options: {
+        'language': config.language,
+        'audioFingerprint': fingerprint,
+        'onProgress': (int chunk, int count, SttResult partial) {
+          _emitProgress(
+            SttFacadeStatus.processingRemote,
+            0.10 + 0.85 * ((chunk + 1) / count),
+            'Đang nhận diện chunk ${chunk + 1}/$count qua API…',
+            engine: SttEngineType.remote,
+            chunkIndex: chunk,
+            chunkCount: count,
+          );
+          if (!_disposed) _partialSubject.add(partial);
+        },
+        'shouldCancel': () => _disposed || _cancelRequested,
+      },
     );
   }
 

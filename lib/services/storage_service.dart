@@ -10,6 +10,7 @@ import '../models/segment.dart';
 import '../models/sound_chapter.dart';
 import '../models/sound_loop_stat.dart';
 import '../models/sound_mark.dart';
+import '../models/shell_content_order.dart';
 import '../models/sound_transcript.dart';
 import '../models/text_segment.dart';
 import '../models/vad_settings.dart';
@@ -326,6 +327,20 @@ class StorageService {
   bool getShellRememberLastSubMode() {
     return getSetting<bool>('shell_remember_last_sub_mode', defaultValue: true) ??
         true;
+  }
+
+  /// Persist the order of the two primary content workspaces.
+  ///
+  /// The same value is consumed by bottom navigation and by the Scaffold
+  /// drawer mapping. Keeping it in one setting prevents an order change from
+  /// crossing the Listen and Read libraries.
+  Future<void> saveShellContentOrder(ShellContentOrder order) async {
+    await saveSetting('shell_content_order_v1', order.storageValue);
+  }
+
+  ShellContentOrder getShellContentOrder() {
+    final raw = _settings.get('shell_content_order_v1');
+    return shellContentOrderFromStorage(raw);
   }
 
   Future<void> saveShellListenSubMode(int index) async {

@@ -9,6 +9,8 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
+| API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
+| API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -105,6 +107,7 @@
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
+| OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 
 
 ## Card chi tiết
@@ -144,6 +147,195 @@
     test/ai_provider_wp0_test.dart đã qua analyze nhưng CHƯA được workflow
     nào chạy (app_analyze chỉ chạy 4 bộ test cố định — cần owner duyệt thêm
     nếu muốn đưa vào CI); còn AT thiết bị: test kết nối Ollama LAN + cloud
+
+### API-002 — WP1: LLM chat/analysis qua API + streaming (AiEngineRemote)
+- **Trạng thái:** doing (code + test + CI 🟢 run 36346119791 — analyze + rule
+  #5 + LHB + Cabin; còn nghiệm thu thiết bị theo AT)
+- **Nguồn:** owner (2026-09-26/27, PROMPT_AGENT_SERVER_API.md WP1) qua agent
+  arena/01a0df5b-in4up — PLAN-032, ADR-0008, `docs/server_api_tu_van.md`.
+- **Nội dung:**
+  - `packages/in4up_ai/lib/src/engine/ai_engine_remote.dart` (mới): implements
+    `AiEngine` — KHÔNG phá interface. `initialize(modelPath)` nhận config
+    encoded `api://<providerId>/<model>` (hoặc provider inject qua constructor);
+    `modelReady` complete ngay (remote không nạp model), `isBusy`/`recover()`
+    trung thực (recover = hủy request treo + sẵn sàng request mới). Analysis
+    tái dùng prompt schema `ai_prompts_library.dart` → parse bằng pipeline
+    `AiAnalysis.fromGemmaJson` hiện có (kèm lột ```json fence — model lớn hay
+    bọc markdown). `temperature`/`maxTokens` map từ tham số hiện có.
+  - `openai_compat_client.dart`: thêm `chatStream(...)` — POST
+    `/v1/chat/completions` (`stream: true`), đọc SSE, xử lý `data: [DONE]`,
+    delta `choices[0].delta.content`, usage chunk cuối (OpenAI
+    `include_usage`/Ollama/Groq `x_groq.usage`). Cơ chế stream:
+    `http.Client.send()` (StreamedResponse — tương đương dio
+    `ResponseType.stream`) thay vì thêm dio — giữ đúng 1 client duy nhất của
+    WP0 + test được bằng `MockClient.streaming`, 0 dependency mới (dio chỉ
+    cần cho multipart ở WP2). Cancel: `AiChatCancelToken` (mẫu dio
+    CancelToken) — cancel ⇒ đóng socket ngay (cancel subscription response
+    stream), kể cả khi đang chờ token tiếp; downstream hủy subscription cũng
+    hủy request (onCancel). Idle timeout hữu hạn (mặc định 60s — hết chữ
+    giữa chừng ⇒ lỗi `timeout`, không treo).
+  - Mã lỗi cấu trúc `AiChatErrorCode` (enum riêng, mẫu HyMtErrorCode):
+    `noNetwork, timeout, rateLimited, httpError, emptyOutput, busy, canceled,
+    invalidResponse` — facade expose `lastChatErrorCode`, UI branch theo mã.
+  - `ai_route_planner.dart` (mới, thuần): `planLlmRoute(mode,
+    remoteAvailable, localModelReady)` — offlineOnly ⇒ KHÔNG có stop remote
+    (engine remote không được tạo ⇒ không request nào đi ra); onlineFirst ⇒
+    [remote, local]; offlineFirst ⇒ [local, remote] khi có model Gemma thật,
+    [remote, local] khi chưa có (mock luôn là lớp cuối).
+  - `AiServiceFacade`: chọn engine theo `AiRoutingPrefs` (WP0), KHÔNG đổi
+    signature hàm public. Chat: remote đứng đầu route ⇒ streaming từng token
+    (bubble cập nhật dần, throttle notify 60ms); lỗi remote chưa thu token
+    nào ⇒ fallback Gemma (nếu có model) → mock kèm disclaimer như cũ; local
+    timeout/engine chết ⇒ thử remote như stop cuối (fallback 2 chiều
+    ADR-0008). Analysis (lookupWord/summarize/extractTerms/generatePao/
+    analyzeSentence): route tương tự, call local giữ NGUYÊN như cũ (không
+    tăng maxTokens cho Gemma). Thêm `stopGenerating()` (nút Dừng + đóng màn),
+    `lastChatUsage`/`lastChatModelId` (đếm token BYOK).
+  - `lib/screens/ai_chat/ai_chat_screen.dart`: nút gửi ⇄ nút Dừng khi remote
+    đang stream; đóng màn ⇒ `stopGenerating()` (token không chảy tiếp sau
+    dispose); banner 1 dòng "Đang dùng server AI · label · model" /
+    "Server AI dự phòng" + ⚡ token vào/ra (từ usage) + dòng lỗi API theo mã.
+  - i18n (quy tắc vàng #5): 14 key mới — 5 literal màn chat + 9 runtime label
+    facade (thêm vào `reviewed_runtime_ui_labels.dart`) + English trong
+    `tool/legacy_ui_english_overrides.json` + tay thêm vào
+    `generated_legacy_ui_fallbacks.dart` (generator đang fail sẵn 50 override
+    stale từ trước WP1 — đã verify HEAD cũng fail y hệt, không phải WP1 gây
+    ra; chưa tự dọn vì ngoài scope).
+  - Test thuần: `test/ai_wp1_remote_test.dart` (24 test) — routing thuần
+    (offlineOnly ⇒ không request), SSE parser (đa biến thể), chatStream qua
+    MockClient (429→rateLimited, đứt mạng→noNetwork, cancel sạch, idle
+    timeout), engine (encoded config, isBusy trung thực, Word Lookup fixture
+    JSON thật parse đúng schema như Gemma, emptyOutput), facade fallback
+    (server chết thật: 127.0.0.1:9 → mock trung thực + mã lỗi; offlineOnly
+    ⇒ không vết request API).
+- **AT (từ prompt WP1):** chat Ollama LAN + Gemini token hiện dần > tốc độ
+  Gemma on-device; cắt mạng giữa lúc generate ⇒ dừng sạch theo mã; routing
+  offline-only ⇒ không request `/chat/completions` nào (đã test logic thuần);
+  Word Lookup parse đúng JSON schema (đã test fixture); CI xanh.
+- **Lịch sử:**
+  - 2026-09-26 | created→doing | agent arena/01a0df5b-in4up | code WP1 đầy
+    đủ (engine + client + facade + UI + i18n + test); chờ CI run đầu tiên
+  - 2026-09-27 | doing (CI đỏ → bisect B1–B10) | agent arena/01a0df5b-in4up |
+    run 36271938739 ĐỎ step Analyze; artifact/log không tải được (blob
+    storage bị chặn khỏi sandbox) → bisect theo SKILL ci-red-debugging:
+    B1 bỏ test (đỏ) · B2 hoàn facade/UI/i18n (đỏ) · B3 bỏ engine+planner
+    (đỏ; B3 chỉ chạm packages/ không trigger workflow — bẫy paths-filter
+    5.7/5.22, phải chạm test/) · B4 hoàn client+store (🟢) · B5 trả client
+    (đỏ) ⇒ lỗi ở client · B6 stub _runChatStream (🟢) · B7 nửa đầu (🟢) ·
+    B8 parser/onText/timers (🟢) · B9 +listen/await-done (đỏ) · B10 bỏ đúng
+    1 dòng (🟢). Thủ phạm: `await responseSub.done` — StreamSubscription
+    KHÔNG có getter `done` (đó là của StreamController) ⇒ undefined_getter;
+    review tĩnh 3 lượt không bắt được vì tưởng vấn đề promotion. Fix: bỏ
+    await + tail dư thừa (onDone/onError/abort/onCancel đã tự đóng
+    controller). Ghi bẫy 5.23 vào SKILL; hoàn nguyên toàn bộ bisect về
+    trạng thái WP1 đầy đủ trong 1 commit chốt.
+  - 2026-09-27 | doing (CI 🟢 sau 4 lỗi + 21 vòng bisect) | agent
+    arena/01a0df5b-in4up | run 36346119791 XANH TOÀN BỘ (analyze + rule #5 +
+    LHB + Cabin). Tổng kết 4 lỗi thật — đều KHÔNG nhìn thấy được bằng review
+    tĩnh (phải bisect CI vì artifact/log bị chặn khỏi sandbox):
+    (1) client `await responseSub.done` — StreamSubscription không có getter
+    `done` (của StreamController) [B1–B10];
+    (2) test `parser.close('data: [DONE]')` — close() không nhận tham số
+    [B11];
+    (3) test `MockClient.streaming((req)…)` — http 1.6.0 (pubspec.lock)
+    handler nhận 2 tham số (req, bodyStream); verify source dart-lang/http
+    qua Contents API [T1–T4, patch 8 call site];
+    (4) test `await facade.dispose()` — dispose là void (override
+    ChangeNotifier), await void = lỗi analyze [T8–T9].
+    Skill ci-red-debugging +bẫy 5.24 (await void — verify RETURN TYPE,
+    không chỉ tên). Chuỗi bisect 21 vòng giữ nguyên history trên nhánh.
+
+### API-003 — WP2: STT file qua API (SttEngineRemote — whisper-large-v3)
+- **Trạng thái:** doing (code + CI 🟢 run 36348644820 — analyze + rule #5 +
+  LHB + Cabin; còn nghiệm thu thiết bị theo AT)
+- **Nguồn:** owner (PROMPT_AGENT_SERVER_API.md §5 WP2) qua agent
+  arena/01a0df5b-in4up — PLAN-032, ADR-0008.
+- **Nội dung:**
+  - `packages/in4up_ai/.../ai_transcription.dart` (mới): parse
+    verbose_json (`text`, `language`, `duration`, `segments[id,start,end,
+    text,words?]`) — `words` nullable theo server, KHÔNG fake word
+    timestamps (nguyên tắc MeetilyAdapter).
+  - `OpenAiCompatClient.transcribeAudio()`: POST multipart
+    `/v1/audio/transcriptions` bằng `http.MultipartRequest` của chính
+    package:http — KHÔNG thêm client HTTP thứ 2 (dio có sẵn trong
+    in4up_stt từ trước nhưng WP2 không dùng — rationale: 1 client duy nhất
+    WP0, `MultipartFile.fromPath` stream file từ đĩa không load RAM, test
+    được bằng MockClient.streaming). Fields `model`, `response_format=
+    verbose_json`, `temperature=0`; `language` CHỈ gửi khi mã ISO hợp lệ
+    ('auto' → omit). Header chỉ Authorization (multipart tự sinh
+    boundary). Timeout hữu hạn 10 phút; 429/5xx → drain + backoff
+    (Retry-After ≤30s hoặc 2s) + retry đúng 1 lần; 200 rỗng ⇒
+    invalidResponse (không fake success); lỗi map về `AiApiException`
+    codes có sẵn.
+  - `packages/in4up_stt/lib/stt_engine_remote.dart` (mới): implements
+    `SttEngine`, đăng ký `SttEngineType.remote` (additive — serialization
+    `.name` chuỗi). Capabilities trung thực: file ✓ / offline ✗ /
+    liveMic ✗ (AT: live mic giữ on-device) / wordTimestamps ✓ /
+    chunking ✓. Provider resolve MỖI LẦN gọi (offlineOnly/chưa cấu hình
+    ⇒ `(noProvider)`, không request nào đi ra). Single-flight static busy
+    guard (mẫu hymt_slot) ⇒ `(busy)`. Cancel ⇒ `(canceled)`.
+  - Chunking: luôn convert WAV 16k mono TRƯỚC (KHÔNG upload lossless gốc
+    30p ≈ 57MB > 25MB); target ~10 phút/chunk (~19.2MB), siết theo size
+    thật + limit 24MB. `planRemoteChunks` HÀM THUẦN: chia đều theo target
+    + snap biên vào TRUNG TÂM khoảng lặng gần nhất ±90s, min chunk 60s,
+    phủ kín [0,duration] không chồng lấn (kỷ luật hymt_chunking — không
+    lặp/mất đoạn). DEVIATION so spec: silence detection bằng energy scan
+    thuần Dart stream từ đĩa (`scanSilenceGaps`: RIFF parse đúng chunk
+    'data', window 100ms RMS, lặng ≥400ms) thay vì SherpaVadService — vì
+    SherpaVadCore cần model onnx + FFI init + readWave load full RAM, quá
+    nặng cho mục đích chỉ tìm chỗ cắt (timestamp không phụ thuộc nó).
+  - Offset stitch: timestamps chunk-relative + chunkStartMs; renumber id
+    sequential; UID = ContentId.segmentUid theo mốc FILE GỐC. Partial
+    SttResult sau mỗi chunk qua onProgress(i, count, partial).
+  - Facade: nhánh `preferredEngine == remote` → `_runRemoteEngine`
+    (mirror progress/cancel/partial của _runWhisperViaIsolate;
+    `SttFacadeStatus.processingRemote` + isActive switch); kết quả đi tiếp
+    CÙNG pipeline cache + LRC + diarization (remote chỉ là nguồn segment —
+    AT: LRC cache từ remote mở offline vẫn thấy, không duplicate vì LRC
+    file engine-agnostic tại lrcOutputPath). `transcribeAuto`: hết model
+    local VÀ apiAllowed(sttFile) → remote; còn lại giữ đúng hành vi cũ.
+  - UI auto-TOC: ListTile thứ 3 "Whisper qua API (nhanh, chính xác)" trong
+    `sound_auto_toc_dialog.dart` — chỉ hiện khi store đã load +
+    apiAllowed(sttFile); cắm cạnh 2 lựa chọn hiện có, không dựng màn mới.
+    Chuỗi engine qua `startAutoTocBackground(sttEngine:)` →
+    `autoGenerateToc` → `SoundAutoTocService.transcribe(engine:)`; lỗi
+    engine hiện THẬT (mã cấu trúc) trong error auto-TOC. 'auto' giữ cho
+    remote (server tự detect — khác on-device map 'en' legacy D16). i18n
+    rule #5: 2 literal mới qua uiText + overrides JSON + generated
+    fallbacks cập nhật TAY (precedent WP1).
+  - Test thuần: `test/ai_wp2_stt_api_test.dart` — fromJson (đầy đủ/thiếu
+    field), client multipart qua MockClient (body đúng fields + Bearer +
+    audio/wav + filename; language vi-VN→vi, auto→omit; 429 retry đúng 1
+    lần; 401; 200 rỗng ⇒ invalidResponse; cleartext public chặn),
+    planRemoteChunks (thuần: 1 chunk/chia đều/snap ±90s/min 60s/không
+    trùng lặng), scanSilenceGaps (WAV thật trên đĩa, LIST metadata,
+    lặng <400ms), engine inject toàn bộ I/O (noProvider, busy
+    single-flight, offset stitch 3 chunk + uid mốc gốc + renumber,
+    cancel trước request, emptyResult, noNetwork, language mapping,
+    capabilities), store offlineOnly ⇒ resolve null (AT offline gate).
+- **AT (từ prompt WP2):** file ~30p nhanh hơn whisper-tiny on-device; LRC
+  khớp karaoke; transcript search hoạt động; mất mạng giữa chừng ⇒ dừng
+  sạch có mã lỗi, chạy lại on-device ngay; LRC cache từ remote mở offline
+  vẫn thấy (không duplicate); chưa cấu hình provider ⇒ luồng STT y hệt
+  hôm nay; CI xanh.
+- **Lịch sử:**
+  - 2026-09-27 | created→doing | agent arena/01a0df5b-in4up | code WP2
+    đầy đủ 4 commit theo dependency (client multipart → engine remote →
+    facade routing → UI auto-TOC + i18n) + test; run CI đầu 36347966404
+    ĐỎ step Analyze (artifact/log vẫn không tải được — blob storage chặn
+    khỏi sandbox như WP1); tìm 2 lỗi bằng static review: (1) `sw`
+    (Stopwatch) khai báo trong transcribeFile nhưng dùng trong
+    _transcribeLocked — khác scope; (2) `throw const AiApiException('…
+    ${responseTimeout.inMinutes} min')` — const string interpolation với
+    tham số không hằng. Fix cả 2 + mockClient closure async tường minh
+    trong test.
+  - 2026-09-28 | doing (CI 🟢) | agent arena/01a0df5b-in4up | run
+    **36348644820** XANH TOÀN BỘ (commit `97d57fc`: analyze + rule #5 +
+    LHB + Cabin) — 2 lỗi static review phía trên là ĐÚNG toàn bộ, không
+    cần vòng bisect nào lần này. Còn nghiệm thu AT trên thiết bị thật
+    (Groq/Speaches whisper-large-v3 với file pháp thoại 30–60p: nhanh hơn
+    whisper-tiny on-device, LRC karaoke khớp, mất mạng giữa chừng dừng
+    sạch theo mã + chạy lại on-device, LRC cache offline không duplicate).
 
 ### API-004 — WP3: Dịch bằng LLM qua tầng Server API (LlmMtEngine implements TranslationEngine)
 - **Trạng thái:** ✅ done (code + CI 🟢 run 36270711178: analyze + rule #5 + LHB + Cabin — xanh ngay run đầu; còn owner nghiệm thu chất lượng 3 đoạn Pali/chuyên ngữ với provider thật + AT thiết bị).
@@ -3458,7 +3650,7 @@
 
 ### READ-GRAM-001 — Cụm từ + cấu trúc câu trong tab Đọc (chỗ "Loại từ, CEFR")
 
-- **Trạng thái:** 📋 proposed — **chỉ KẾ HOẠCH, KHÔNG code trong đợt này.**
+- **Trạng thái:** 🔄 doing — P1 đang triển khai trong sản phẩm (models/service/widget/test), giữ line-first và không đổi schema.
 - **Bằng chứng (đặc tả đã kiểm chứng):**
   - `tool/grammar_probe/engine.py` — đặc tả thuật toán chạy được (Python; sandbox không có Dart SDK).
   - `tool/grammar_probe/run_probe.py` — đo từng trường + runtime, `exit 1` khi lệch (dùng như golden test).
@@ -3500,6 +3692,10 @@
     câu vắt dòng chọn (a) phân tích theo dòng rồi ghép ở P2; khối trong sheet ON; nhãn cấp dòng OFF
     **kèm nút bật/tắt nhanh trên thanh công cụ đáy** (không phải vào Cài đặt). Kế hoạch đã đủ điều
     kiện để code P1 — **chờ lệnh bắt đầu code của người sở hữu**.
+  - 2026-09-28 | proposed→doing | ai (arena/01a0e7d8-in4up) | bắt đầu code P1 trên nhánh session Arena
+    cố định: thêm models/service/widget section trong `WordActionsSheet`, 4 test CI và sửa UX IPA theo
+    phản hồi (IPA toàn văn hiển thị interlinear khớp từ; toggle IPA có hint nhỏ; chọn dòng cập nhật
+    `currentLineIndex` nhạy hơn). Giữ append-only; không đụng `TextItem`/`ColorMode`/`lib/ffi/`.
 
 ### READ-IPA-005 — G2P đa ngôn ngữ (VI/Pali) theo từ điển đóng gói
 
@@ -3937,3 +4133,120 @@
     sheet; lỗi mạng/key → im lặng bỏ qua rồi vẫn mở sheet cho chọn tay; đã có
     ảnh thì không đè. API key: owner tự set GitHub secret `VOCAB_IMAGE_API_KEY`
     (build.yml đã nối `--dart-define`) — không cần thêm tài liệu
+### OCR-001 — ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản mới
+
+- **Trạng thái:** doing — **code + CI 🟢** (run 36348760217, commit `f133932`:
+  `flutter analyze` 0 error, Rule 5 locale test xanh, LHB xanh, Cabin xanh). Còn
+  chờ nghiệm thu trên thiết bị Android/iOS (T6 Document Scanner + T9 bảy AT).
+- **Nguồn:** owner — chỉ làm **Text Recognition v2 (OCR) + Document Scanner**, bỏ
+  qua các phần còn lại của ML Kit; yêu cầu thứ tự nghiêm ngặt *pull từ
+  `arena/01a0251e-in4up` → đăng ký KANBAN → mới triển khai code*.
+- **Quyết định kiến trúc:** `docs/adr/0009-mlkit-text-recognition-ocr.md` +
+  `docs/mlkit_ocr_integration_plan.md` (PLAN-033).
+- **Nội dung đã làm:**
+  - **T1 deps:** `google_mlkit_text_recognition: ^0.16.0` +
+    `google_mlkit_document_scanner: ^0.5.0`. PIN 0.16.x/0.5.x vì 0.17.x/0.6.x đòi
+    Dart `^3.12.0` trong khi CI + máy chủ là Flutter 3.44.1 (Dart 3.11.5).
+    `google_mlkit_commons ^0.12.0` trùng đúng bản translation 0.14.0 đang kéo.
+  - **T2 service:** `lib/features/ocr/ocr_service.dart` (singleton, `isAvailable`,
+    `recognizeImage`, `recognizeBitmap`, `normalizeOcrText` + guard) và
+    `ocr_image_picker.dart` (seam bọc `file_picker` để test được trên host VM).
+  - **T3 flow:** `ocr_flow.dart` (chọn nguồn → ảnh → ML Kit → preview/SỬA → nạp),
+    `ocr_source_sheet.dart`, `ocr_result_dialog.dart`. Nạp qua
+    `TextProvider.loadFromString` để **kế thừa nguyên vẹn** pipeline phân tích sẵn
+    có, không xây pipeline song song.
+  - **T4 provenance:** `TextSourceType.ocr` + refType riêng `'ocrImage'` (KHÔNG dùng
+    `'localText'` — đường đó `readAsString()` trên JPEG → throw → nút reopen chết).
+    `vocab_context.dart` thêm nhãn `'Quét lại ảnh'` + icon 📷.
+  - **T5 điểm vào:** nút "Quét ảnh" trong Text Library drawer, chỉ hiện khi
+    `OcrService.instance.isAvailable` (desktop/web ẩn hẳn, không hiện rồi báo lỗi).
+  - **T7 i18n:** 14 key × **26 locale** (không chỉ English — xem ràng buộc dưới),
+    regenerate `generated_ui_translations.dart` (890 source messages).
+  - **T8 PDF Reader:** trang scan không có text layer thì hiện nút "Quét chữ trang
+    này" ngay tại chỗ thông báo; raster hoá bằng `pdf_page_ocr.dart`
+    (`page.render()` → BGRA8888, dùng chung `pdfSnapshotRenderSize` với tính năng
+    in bản chụp) rồi đưa thẳng `InputImage.fromBitmap` — **không ghi file ảnh tạm**.
+  - **Test:** `test/ocr/ocr_service_test.dart` + `test/ocr/ocr_i18n_coverage_test.dart`
+    (thuần Dart, chạy được trên host VM, không cần native/ML Kit).
+- **Ràng buộc i18n (học được khi làm, agent sau phải biết):**
+  - `test/locale_chrome_no_vietnamese_test.dart` (CI `app_analyze.yml` có chạy) bắt
+    **T2 = hi/zh/zh_TW/si phải phủ 100%** → key ARB mới **bắt buộc dịch đủ**, chỉ
+    thêm English là làm đỏ CI ngay.
+  - Sàn ratchet rất mỏng ở một số locale → thêm key English-only làm tụt sàn.
+  - KHÔNG thêm key cho chuỗi đã có sẵn trong catalog (ví dụ 'Nạp vào Đọc'): trùng
+    chuỗi làm generator báo unused, đẩy baseline lệch.
+- **Sự cố sandbox (quan trọng — lý do thẻ này phải làm lại một phần):**
+  sandbox bị **re-clone từ đầu** giữa chừng: 5 commit OCR của phiên trước
+  (`c870bf2`, `26d77d6`, `ac29556`, `4c9e240`, `db1f082`) **mất khỏi git history**
+  (object không còn tồn tại), chỉ sống sót dưới dạng file chưa commit trong working
+  tree. Đã backup toàn bộ working tree ra tarball trước khi pull, rồi
+  `reset --hard` về `origin/arena/01a0251e-in4up` (755b474) và **re-apply** phần OCR.
+  - Kiểm chứng trước khi reset: mọi delta lớn ngoài OCR đều là **bản STALE** (blob
+    từng tồn tại trong lịch sử upstream, đã bị vượt qua) → pull không mất gì.
+  - 42 file untracked là bản dup cũ của công việc đã merge upstream → xoá; 10 file
+    OCR local-only → giữ.
+  - **ADR phải đổi số 0005 → 0009** và **PLAN-029 → PLAN-033**: upstream đã chiếm
+    `0005` tới **ba lần** (`0005-ipa-display…`, `0005-nhip-dieu-hoc-tap…`,
+    `0005-rest-auth-firestore-linux`) và PLAN đã tới 032. Đây là lần thứ hai va
+    đánh số → repo cần một quy ước cấp số ADR/PLAN chặt hơn (xem đề xuất dưới).
+- **Bằng chứng CI (đã có):**
+  - Run đầu `36347670229` **ĐỎ**: đúng 2 error, cả hai ở `ocr_service.dart`, cả hai
+    vì đối chiếu API Document Scanner trên **master** thay vì trên bản đã pin.
+    `google_mlkit_document_scanner` **0.5.0** khai `documentFormats` (SET, số nhiều)
+    và `DocumentScanningResult.images` là `List<String>?` (**nullable**); master là
+    API **0.6.x** (`documentFormat` số ít, non-null) — 0.6.x đòi Dart `^3.12` nên
+    không dùng được với Flutter 3.44.1/Dart 3.11.5. **Bài học: phải đọc source tại
+    đúng commit release của bản đã pin, không đọc master.**
+  - Đã sửa theo source tại commit release 0.5.0 (`f29f844e8`), dọn luôn 2 warning +
+    3 info trong code OCR → run `36348760217` **XANH**, tổng issue 188 → 181 (đúng
+    bằng 7 issue đã sửa; 181 còn lại là legacy upstream), **0 issue nhắc tới OCR**.
+  - `flutter pub get` xanh → bộ version pin (text_recognition ^0.16.0 +
+    document_scanner ^0.5.0) resolve được, không xung đột `google_mlkit_commons`.
+- **Chưa làm / chờ:**
+  - **T6 Document Scanner** cần thiết bị Android thật (Google Beta, không chạy trên
+    emulator không có Play services).
+  - **T9 nghiệm thu 7 tiêu chí** trên máy.
+  - Reopen cho văn bản OCR **từ PDF**: đường T8 không có file ảnh nên
+    `localPath = null` → vocab lưu từ đó không có nút reopen (degradation trung thực,
+    còn hơn trỏ ref vào file không tồn tại). Muốn reopen được thì phải lưu ảnh trang
+    ra cache — việc riêng, chưa làm.
+- **Đề xuất governance (cần owner quyết):** thêm một file `docs/adr/README.md` hoặc
+  script cấp số ADR/PLAN kế tiếp, vì hai phiên liên tiếp đều va số (0003 rồi 0005).
+- **Lịch sử:**
+  - 2026-09-15 21:12 UTC | created→doing | agent arena/01a09c9a-in4up | phiên 1:
+    ADR + PLAN + T1–T5, T7, T8; 5 commit local; không push được (GH_TOKEN invalid)
+  - 2026-09-27 20:15 UTC | doing | agent arena/01a09c9a-in4up | sandbox bị re-clone
+    → 5 commit mất khỏi history; backup working tree ra tarball, xác định delta
+    ngoài OCR đều STALE, `reset --hard` về `origin/arena/01a0251e-in4up` (755b474,
+    +48 commit) rồi re-apply toàn bộ phần OCR
+  - 2026-09-27 20:15 UTC | doing | agent arena/01a09c9a-in4up | đổi ADR-0005→0009 +
+    PLAN-029→033 (upstream chiếm số); inject lại 14 key × 26 locale vào ARB mới
+    (492→506 key); regenerate catalog (890 msg); mô phỏng CI
+    `locale_chrome_no_vietnamese_test.dart` bằng Python → PASS cả 5 phép thử
+    (parity · không ký tự Việt · sàn độ phủ · T2 100% · keepEnglish)
+  - 2026-09-27 20:41 UTC | doing | agent arena/01a09c9a-in4up | push được (GH_TOKEN
+    đã cấp lại) → CI `app_analyze.yml` run 36347670229 ĐỎ: 2 error ở ocr_service.dart
+    (Document Scanner 0.5.0 dùng `documentFormats` dạng Set + `images` nullable, khác
+    master/0.6.x mà tôi đã đối chiếu). Sandbox không đọc được artifact/log
+    (blob.core.windows.net bị chặn) → dựng workflow chẩn đoán tạm đẩy lỗi lên nhánh,
+    đọc qua api.github.com
+  - 2026-09-27 20:45 UTC | doing | agent arena/01a09c9a-in4up | sửa 2 error theo đúng
+    source 0.5.0 (commit f29f844e8) + dọn 2 warning/3 info; run 36348760217 **XANH**
+    (analyze 0 error, Rule 5 ✓, LHB ✓, Cabin ✓); xoá workflow chẩn đoán tạm
+  - 2026-09-27 20:52 UTC | doing | agent arena/01a09c9a-in4up | merge tip mới của
+    `arena/01a0251e-in4up` (`b90ba3e`, PR #57 API-004) — xung đột duy nhất ở
+    PLAN.md (hai bên cùng append), giữ cả PLAN-032 upstream lẫn PLAN-033 OCR;
+    KANBAN auto-merge đủ 116 card. CI run 36349047556 trên commit merge `86d1626`
+    **XANH** (analyze · Rule 5 · LHB · Cabin). Ghi chú vận hành: clone này có
+    refspec `remote.origin.fetch` CHỈ gồm `main` → `git fetch origin` KHÔNG cập nhật
+    các nhánh arena khác, phải fetch tường minh
+    `git fetch origin refs/heads/arena/01a0251e-in4up:refs/remotes/origin/...`
+    (đã suýt kết luận sai rằng upstream không đi tiếp).
+  - 2026-09-28 | doing | agent arena/01a09c9a-in4up | mở PR #61 (base
+    `arena/01a0251e-in4up`) để công việc có chỗ merge — trước đó nhánh này là bản
+    DUY NHẤT còn tồn tại của OCR (sandbox bị re-clone lần 2, git local mất sạch 9
+    commit, chỉ còn remote). Base đã đi tiếp `c813273` + `4beb553` nên PR báo
+    CONFLICTING ở đúng `docs/project/KANBAN.md` (hai bên cùng append card); resolve
+    giữ CẢ HAI (IMPORT-MODELS-001 của base + OCR-001), không xoá lịch sử bên nào.
+    Tự khai trong PR: lịch sử nhánh có 1 merge commit + 4 commit công cụ chẩn đoán
+    tạm (không đạt chuẩn template) — chờ owner quyết có rebase gọn lại hay không

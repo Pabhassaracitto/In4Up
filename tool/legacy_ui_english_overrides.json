@@ -1767,4 +1767,20 @@
   "Ảnh trong máy ít khi có sẵn cho từ mới — hãy ưu tiên tab Trên mạng.": "Your device rarely has an image for a new word — prefer the Online tab.",
   "Tự gán ảnh đầu tiên": "Auto-assign the first image",
   "Mặc định: tự tìm rồi bạn chạm chọn. Bật để thêm từ là gán luôn ảnh đầu tiên tìm được, không mở sheet.": "By default, images are searched and you tap to choose. Turn this on to attach the first image found as soon as a word is added, without opening the sheet."
+  "API đang bận — thử lại.": "The API is busy — try again.",
+  "Dừng tạo câu trả lời": "Stop generating",
+  "Lỗi HTTP từ server AI ({value0}).": "HTTP error from the AI server ({value0}).",
+  "Lỗi API": "API error",
+  "Mất kết nối tới server AI giữa chừng — đã dừng an toàn.": "Connection to the AI server was lost mid-stream — stopped safely.",
+  "Server trả dữ liệu không đúng chuẩn OpenAI.": "The server returned data that does not match the OpenAI format.",
+  "Server AI không phản hồi kịp (timeout).": "The AI server did not respond in time (timeout).",
+  "Server AI dự phòng (AI local được ưu tiên)": "AI server on standby (local AI preferred)",
+  "Vượt giới hạn gọi API (429) — thử lại sau ít phút.": "API rate limit hit (429) — try again in a few minutes.",
+  "Đang dùng server AI": "Using AI server",
+  "Đã dừng.": "Stopped.",
+  "⏹ Đã dừng.": "⏹ Stopped.",
+  "⚡ {value0} token vào · {value1} token ra": "⚡ {value0} prompt tokens · {value1} completion tokens",
+  "Model không trả nội dung.": "The model returned no content.",
+  "Whisper qua API (nhanh, chính xác)": "Whisper via API (fast, accurate)",
+  "Bóc băng bằng whisper-large-v3 trên server — không cần tải model, cần mạng. File 30–60 phút nhanh hơn nhiều so với on-device.": "Transcribe with whisper-large-v3 on a server — no model download, needs internet. 30–60 min files are much faster than on-device."
 }

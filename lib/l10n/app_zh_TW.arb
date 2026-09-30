@@ -498,5 +498,19 @@
   "aiRoutingProvider": "供應商",
   "aiProviderSave": "儲存",
   "aiProviderCancel": "取消",
-  "aiProvidersPrivacy": "音訊和文字僅傳送到您選擇的供應商。家庭伺服器（區域網路）讓資料留在您的網路內。"
+  "aiProvidersPrivacy": "音訊和文字僅傳送到您選擇的供應商。家庭伺服器（區域網路）讓資料留在您的網路內。",
+  "ocrScanImage": "掃描圖片",
+  "ocrSheetTitle": "將圖片轉為文字",
+  "ocrSourceScanner": "拍攝並掃描文件",
+  "ocrSourceScannerHint": "自動描邊、裁切、增強 · 僅限 Android",
+  "ocrSourceGallery": "選擇既有圖片",
+  "ocrSourceGalleryHint": "書頁照片或掃描件",
+  "ocrResultTitle": "掃描結果",
+  "ocrResultHint": "載入前請檢查並修改文字",
+  "ocrReopenImage": "重新掃描圖片",
+  "ocrRecognizing": "正在辨識文字...",
+  "ocrEmptyResult": "未在圖片中找到文字。請嘗試更清晰、光線更好的照片。",
+  "ocrLoadedFromImage": "已從圖片載入文字",
+  "ocrScanPageText": "掃描本頁文字",
+  "ocrUnsupported": "OCR 僅在 Android/iOS 上執行"
 }

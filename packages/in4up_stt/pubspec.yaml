@@ -34,6 +34,12 @@ dependencies:
   path_provider: ^2.1.4
   dio: ^5.4.0
 
+  # WP2 (API-003) — STT file qua API: dùng OpenAiCompatClient (multipart
+  # /v1/audio/transcriptions) + provider store của in4up_ai. KHÔNG thêm
+  # client HTTP thứ 2 (dio vẫn giữ cho dependency cũ — WP2 không dùng dio).
+  in4up_ai:
+    path: ../in4up_ai
+
   firebase_storage: ^12.4.0 #13.3.0 #change from ^13.0.0
 
   path: ^1.9.0

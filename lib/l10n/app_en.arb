@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "Scan image",
+  "ocrSheetTitle": "Scan image to text",
+  "ocrSourceScanner": "Capture & scan document",
+  "ocrSourceScannerHint": "Auto edges, crop, enhance · Android only",
+  "ocrSourceGallery": "Choose an existing image",
+  "ocrSourceGalleryHint": "Photo of a book page or a scan",
+  "ocrResultTitle": "Scan result",
+  "ocrResultHint": "Review and edit before loading",
+  "ocrReopenImage": "Rescan image",
+  "ocrRecognizing": "Recognizing text...",
+  "ocrEmptyResult": "No text found in the image. Try a clearer, better-lit photo.",
+  "ocrLoadedFromImage": "Loaded text from image",
+  "ocrScanPageText": "Scan this page",
+  "ocrUnsupported": "OCR runs on Android/iOS only"
 }

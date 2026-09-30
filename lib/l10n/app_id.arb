@@ -498,5 +498,19 @@
   "aiRoutingProvider": "Provider",
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
-  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network."
+  "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
+  "ocrScanImage": "Pindai gambar",
+  "ocrSheetTitle": "Ubah gambar menjadi teks",
+  "ocrSourceScanner": "Ambil & pindai dokumen",
+  "ocrSourceScannerHint": "Tepi otomatis, potong, percantik · khusus Android",
+  "ocrSourceGallery": "Pilih gambar yang sudah ada",
+  "ocrSourceGalleryHint": "Foto halaman buku atau hasil pindai",
+  "ocrResultTitle": "Hasil pindai",
+  "ocrResultHint": "Periksa dan sunting sebelum dimuat",
+  "ocrReopenImage": "Pindai ulang gambar",
+  "ocrRecognizing": "Mengenali teks...",
+  "ocrEmptyResult": "Tidak ada teks pada gambar. Coba foto yang lebih jelas dan terang.",
+  "ocrLoadedFromImage": "Teks dimuat dari gambar",
+  "ocrScanPageText": "Pindai teks halaman ini",
+  "ocrUnsupported": "OCR hanya berjalan di Android/iOS"
 }

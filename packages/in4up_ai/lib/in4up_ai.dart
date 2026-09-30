@@ -29,6 +29,12 @@ export 'src/engine/ai_engine_mock.dart';
 // in4up v11.0 — Barrel export
 export 'src/engine/ai_engine_gemma.dart';
 
+// WP1 (API-002) — Engine LLM remote (chat streaming + analysis qua API) và
+// hoạch định route theo AiRoutingPrefs.
+export 'src/engine/ai_engine_remote.dart'
+    show AiEngineRemote, AiRemoteJsonExtractor;
+export 'src/engine/ai_route_planner.dart';
+
 // WP0 (API-001) — Tầng Server API (cloud + LAN): cấu hình provider,
 // routing offline/online, client OpenAI-compatible duy nhất.
 // WP3 (API-004) thêm chatCompletion + OpenAiChatMessage (dịch bằng LLM).
@@ -43,3 +49,10 @@ export 'src/provider/openai_compat_client.dart'
         AiApiException,
         AiApiErrorCode,
         AiProviderHealth;
+
+// WP1 (API-002) — Primitives chat streaming: mã lỗi cấu trúc, cancel token,
+// message/usage/chunk, parser SSE (dùng chung client + engine + facade).
+export 'src/provider/ai_sse.dart';
+
+// WP2 (API-003) — Model + parser kết quả transcribe audio (verbose_json).
+export 'src/provider/ai_transcription.dart';

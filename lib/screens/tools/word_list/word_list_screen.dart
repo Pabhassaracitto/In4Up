@@ -18,6 +18,7 @@ import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
+import '../../../features/vocab_image/vocab_image_quick_add.dart';
 import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
@@ -973,6 +974,17 @@ class _WordListScreenState extends State<WordListScreen> {
       context: vocabContext,
     );
 
+    // IMG-WEB-001: nếu bật "Tự gán ảnh đầu tiên" trong Cài đặt ảnh thì gán luôn
+    // (không mở sheet); tắt thì để người dùng tự chạm "Thêm hình"/mở sheet chọn.
+    // Không await — việc lưu từ không chờ mạng, và hàm tự im lặng bỏ qua khi lỗi.
+    autoAssignVocabImage(
+      provider: p,
+      wordId: entry.id,
+      word: entry.word,
+      meaning: entry.meaning,
+      currentImageUrl: entry.imageUrl,
+    );
+
     HapticFeedback.mediumImpact();
     // Clear search after saving
     setState(() {
@@ -999,6 +1011,29 @@ class _WordListScreenState extends State<WordListScreen> {
                   'Đã lưu ${ui.uiText(typeLabel)}: $text',
                 ),
                 style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+            // IMG-WEB-001: "thêm từ" nhanh cũng gán được hình ngay. `SnackBar`
+            // CHỈ có một `action:` (không có `actions:` số nhiều — dùng thử là
+            // `flutter analyze` báo "named parameter isn't defined", đỏ CI),
+            // nên "Thêm hình" nằm trong content, còn `action:` giữ vai trò SỬA.
+            TextButton(
+              onPressed: () => attachVocabImage(
+                ui,
+                wordId: entry.id,
+                word: entry.word,
+                meaning: entry.meaning,
+                currentImageUrl: entry.imageUrl,
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                ui.uiText('Thêm hình'),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
           ],
@@ -1611,6 +1646,8 @@ class _WordListScreenState extends State<WordListScreen> {
                     Center(
                       child: VocabImagePicker(
                         wordId: entry.id,
+                        word: entry.word,
+                        meaning: entry.meaning,
                         currentImageUrl: entry.imageUrl,
                         onImageChanged: (path) {
                           // Image already saved by VocabImagePicker via provider
@@ -2222,6 +2259,8 @@ class _CompactListItem extends StatelessWidget {
           Center(
             child: VocabImagePicker(
               wordId: entry.id,
+              word: entry.word,
+              meaning: entry.meaning,
               currentImageUrl: entry.imageUrl,
               onImageChanged: (path) {
                 // Image already saved by VocabImagePicker via provider

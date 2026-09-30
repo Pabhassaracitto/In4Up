@@ -7,6 +7,7 @@ import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../vocab_image/vocab_image_quick_add.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../../../widgets/vocab_entry_meta.dart';
 import '../../../widgets/vocab_quick_save_sheet.dart';
@@ -771,6 +772,10 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
   }
 
   // ── Đã lưu xong ──
+  //
+  // IMG-WEB-001: lưu nhanh xong là có thể gán hình NGAY tại đây (tìm ảnh trên
+  // mạng qua API key) — chủ dự án yêu cầu chỗ "thêm từ" cũng có hình, không
+  // chỉ trong màn sửa từ của Wordlist.
   Widget _buildSavedState() {
     return Container(
       padding: const EdgeInsets.all(10),
@@ -778,12 +783,15 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
         color: Color(0xFF4CAF50).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 16),
-          SizedBox(width: 8),
-          Text('✅ Đã lưu vào Wordlist',
-              style: TextStyle(color: Color(0xFF4CAF50), fontSize: 12)),
+          const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 16),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text('✅ Đã lưu vào Wordlist',
+                style: TextStyle(color: Color(0xFF4CAF50), fontSize: 12)),
+          ),
+          VocabImageQuickAddButton(word: widget.word, compact: true),
         ],
       ),
     );

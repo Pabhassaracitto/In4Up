@@ -1065,6 +1065,52 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
     kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu
+### PLAN-034: Whisper đúng bảng chữ + Ảnh từ vựng lấy từ mạng (IMG-WEB-001 · STT-LATIN-001)
+- **Nguồn (owner 2026-09-14):**
+  1. "Sao sound to text tạo lời từ file mp3 tiếng Hindi và đã chọn đúng ngôn ngữ
+     này thì nó ra chữ latin thay vì chữ hindi?"
+  2. "Worklist đã có thể thêm hình, tuy nhiên thường nên ưu tiên chọn hình trên
+     mạng vì hình ở máy ít khi có… sau này mới kết hợp thêm chụp hình/xóa phông
+     để thêm vào hình từ vựng (ML Kit)" + "lưu ý là tìm kiếm ảnh phải có key api nhé".
+- **STT-LATIN-001 — mục tiêu:** đã chọn ngôn ngữ thì lời ra ĐÚNG bảng chữ.
+  - `WhisperLanguage` (in4up_stt/utils): whitelist đúng `g_lang` của
+    whisper.cpp (100 mục), bỏ region ('hi-IN'→'hi'), alias (fil→tl, iw→he,
+    ISO-639-2/T), mã Whisper không có (Pali 'pi') → 'auto' thay vì giết job.
+  - Chuẩn hóa ở MỌI biên: mobile plugin (chunked + 1-shot), FFI, CLI, strategy.
+  - Bỏ ep 'auto'→'en' ở auto-TOC (auto-detect thật, qua `whisper.h` contract).
+  - Model theo script: AUTO chọn base/small… cho ngôn ngữ ngoài Latin
+    (`getBestModelLevelForLanguage`); chip model người dùng bấm được tôn trọng
+    (`honorWhisperModel`/`allowModelDowngrade`) — hết cảnh "chọn SMALL vẫn chạy tiny".
+  - Script guard: `latinizedFor` → `PlayerProvider.lastSttScriptWarning` →
+    cảnh báo + hướng dẫn ở tab Nghe (đã dịch en/hi/zh/zh_TW/si).
+- **IMG-WEB-001 — mục tiêu:** chạm ô hình = tìm ảnh TRÊN MẠNG trước, qua API key.
+  - `VocabImagePickerSheet` (web mặc định, tự tìm khi mở; "Trong máy" thứ hai;
+    bỏ ảnh; chừa enum cho `camera`).
+  - `VocabImageWebService`: Pexels/Unsplash (cần key) → Openverse (token
+    khuyến nghị) → Wikimedia Commons; parser thuần + test; chặn HTML giả ảnh.
+  - `VocabImageApiConfig`: key theo provider trong SharedPreferences HOẶC
+    `--dart-define=VOCAB_IMAGE_PROVIDER/API_KEY`; **không commit key vào repo**.
+  - `VocabImageService.saveFromUrl/saveFromBytes` → ảnh nằm trong app storage
+    (ôn offline được), dedup MD5 như ảnh gallery.
+- **Owner chốt (2026-09-15):** Pexels + Unsplash CÙNG bật (fallback
+  Openverse → Wikimedia Commons khi chưa có key); key đặt ở CẢ HAI nơi: dán
+  trong app (SharedPreferences) và `--dart-define` trong `build.yml`
+  (secret `VOCAB_IMAGE_API_KEY` + var `VOCAB_IMAGE_PROVIDER`, đã nối vào 3 job
+  build); "thêm từ" nhanh cũng có nút/action gán hình
+  (`VocabImageQuickAddButton` + `attachVocabImage`).
+- **Chờ owner:** dán key thật (app hoặc GitHub secrets); nghiệm thu máy:
+  Hindi + chip SMALL phải ra Devanagari.
+- **Bước sau (đề xuất):** camera + ML Kit Subject Segmentation (xóa phông) +
+  Object Label → chụp đồ vật thật gán vào từ vựng.
+- **Mở rộng 2026-09-28 (owner chốt):** cách gán ảnh = **mặc định tự tìm rồi chạm
+  chọn**; ai muốn nhanh hơn thì bật toggle **"Tự gán ảnh đầu tiên"** trong dialog
+  Cài đặt ảnh (key `vocab_image_auto_assign`, lưu theo máy, mặc định tắt). Bật
+  thì thêm từ là gán luôn ảnh đầu tiên tìm được mà không mở sheet; không gán
+  được (thiếu key/mạng/không ra ảnh) thì bỏ qua im lặng, KHÔNG chặn việc lưu từ.
+- **Ghi chú đánh số:** khởi đầu là `PLAN-027`; `arena/01a0251e-in4up` đã dùng
+  027…032 ⇒ đổi thành `PLAN-033` khi rebase (2026-09-28); `OCR-001` (PR #61) lại
+  chiếm `PLAN-033` ⇒ số chốt là **`PLAN-034`**. Nội dung không đổi, chỉ đánh số
+  lại — không đụng entry của agent khác.
 
 ### PLAN-033 — OCR: ML Kit Text Recognition v2 + Document Scanner làm nguồn văn bản thứ 4 (OCR-001)
 - Nguồn: người sở hữu (2026-09-15, qua agent arena/01a09c9a-in4up) — chốt phạm vi

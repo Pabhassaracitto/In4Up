@@ -1,16 +1,24 @@
 import 'stt_model_info.dart';
 import 'stt_result.dart';
+import '../utils/whisper_language.dart';
 
 /// Cấu hình cho SttServiceFacade
 class SttConfig {
   /// Engine ưu tiên khi gọi transcribe()
   final SttEngineType preferredEngine;
 
-  /// Ngôn ngữ nhận diện (BCP-47: 'en-US', 'vi-VN', ...)
+  /// Ngôn ngữ nhận diện (BCP-47: 'en-US', 'vi-VN', ...).
+  /// Được [WhisperLanguage.code] chuẩn hóa trước khi vào Whisper — mã lạ
+  /// (Pali, 'zh_TW', 'hi-IN'…) không còn làm fail cả job.
   final String language;
 
   /// Model Whisper sẽ dùng
   final WhisperModelLevel whisperModel;
+
+  /// true = người dùng ĐÃ CHỌN model cụ thể (chip TINY/BASE/SMALL…) →
+  /// engine không được tự hạ model về tiny để "cứu RAM" nữa.
+  /// false (mặc định) = AUTO: engine được quyền fallback model.
+  final bool honorWhisperModel;
 
   /// Có tự động fallback sang engine khác khi lỗi không
   final bool autoFallback;
@@ -40,9 +48,10 @@ class SttConfig {
 
   const SttConfig({
     this.preferredEngine = SttEngineType.native,
-    this.language = 'en-US',
+    this.language = WhisperLanguage.auto,
     // ★ TASK 1: Đổi default từ base → tiny để khởi động nhanh hơn
     this.whisperModel = WhisperModelLevel.tiny,
+    this.honorWhisperModel = false,
     this.autoFallback = true,
     this.generateLrc = false,
     this.cacheResults = true,
@@ -80,6 +89,7 @@ class SttConfig {
     SttEngineType? preferredEngine,
     String? language,
     WhisperModelLevel? whisperModel,
+    bool? honorWhisperModel,
     bool? autoFallback,
     bool? generateLrc,
     bool? cacheResults,
@@ -92,6 +102,7 @@ class SttConfig {
       preferredEngine: preferredEngine ?? this.preferredEngine,
       language: language ?? this.language,
       whisperModel: whisperModel ?? this.whisperModel,
+      honorWhisperModel: honorWhisperModel ?? this.honorWhisperModel,
       autoFallback: autoFallback ?? this.autoFallback,
       generateLrc: generateLrc ?? this.generateLrc,
       cacheResults: cacheResults ?? this.cacheResults,

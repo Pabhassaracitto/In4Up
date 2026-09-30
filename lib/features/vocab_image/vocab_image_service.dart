@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'vocab_image_web_service.dart';
+
 /// Service quản lý hình ảnh cho từ vựng
 class VocabImageService {
   static VocabImageService? _instance;
@@ -29,6 +31,38 @@ class VocabImageService {
     } catch (e) {
       debugPrint('pickFromGallery error: $e');
       return null;
+    }
+  }
+
+  /// Lưu bytes ảnh (từ web / camera / chia sẻ) vào app storage.
+  /// Trả về relative path để nhét vào WordEntry.imageUrl, hoặc null nếu lỗi.
+  Future<String?> saveFromBytes(Uint8List bytes) async {
+    try {
+      if (bytes.isEmpty) return null;
+      return _saveBytesToAppStorage(bytes);
+    } catch (e) {
+      debugPrint('saveFromBytes error: $e');
+      return null;
+    }
+  }
+
+  /// Tải ảnh từ URL (kết quả tìm kiếm trên mạng) → lưu app storage.
+  ///
+  /// Không lưu thẳng URL vào [imageUrl]: ảnh ngoài mạng chết link là mất
+  /// hình, mà tính năng này cần ảnh sống được offline khi ôn tập.
+  Future<String?> saveFromUrl(
+    String url, {
+    VocabImageWebService? client,
+  }) async {
+    final service = client ?? VocabImageWebService();
+    try {
+      final bytes = await service.download(url);
+      return await saveFromBytes(bytes);
+    } catch (e) {
+      debugPrint('saveFromUrl error ($url): $e');
+      return null;
+    } finally {
+      if (client == null) service.dispose();
     }
   }
 

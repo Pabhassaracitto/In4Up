@@ -7,6 +7,7 @@
 import 'models/stt_config.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
+import 'utils/whisper_language.dart';
 import 'stt_engine.dart';
 import 'stt_engine_whisper.dart';
 
@@ -56,7 +57,10 @@ class WhisperSttEngine implements SttEngine {
   }) {
     // Các option tùy engine — parse từ map, giữ mặc định an toàn.
     final level = (options?['level'] as WhisperModelLevel?) ?? defaultLevel;
-    final language = (options?['language'] as String?) ?? 'en';
+    // 'auto' = Whisper tự nhận diện. Trước đây default là 'en' → audio
+    // tiếng Hindi/Trung bị ép ra chữ Latin khi caller không truyền language.
+    final language = (options?['language'] as String?) ?? WhisperLanguage.auto;
+    final honorModel = options?['honorWhisperModel'] == true;
     final grouping =
         (options?['grouping'] as SttSegmentGrouping?) ??
             SttSegmentGrouping.sentence;
@@ -79,6 +83,7 @@ class WhisperSttEngine implements SttEngine {
         chunkDurationSeconds: chunkSeconds,
         maxChunks: maxChunks,
         grouping: grouping,
+        allowModelDowngrade: !honorModel,
       );
     }
 

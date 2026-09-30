@@ -1065,7 +1065,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt §10.1 câu hỏi đuôi; còn 2 điểm
   - 2026-09-24 | proposed (giữ nguyên) | ai (arena/01a0d344-in4up) | chốt đủ 3 điểm (§10.1–§10.3);
     kế hoạch sẵn sàng code P1 — chờ lệnh bắt đầu
-### PLAN-033: Whisper đúng bảng chữ + Ảnh từ vựng lấy từ mạng (IMG-WEB-001 · STT-LATIN-001)
+### PLAN-034: Whisper đúng bảng chữ + Ảnh từ vựng lấy từ mạng (IMG-WEB-001 · STT-LATIN-001)
 - **Nguồn (owner 2026-09-14):**
   1. "Sao sound to text tạo lời từ file mp3 tiếng Hindi và đã chọn đúng ngôn ngữ
      này thì nó ra chữ latin thay vì chữ hindi?"
@@ -1107,9 +1107,10 @@ Package: `video_player: ^2.8.0` (Flutter official)
   Cài đặt ảnh (key `vocab_image_auto_assign`, lưu theo máy, mặc định tắt). Bật
   thì thêm từ là gán luôn ảnh đầu tiên tìm được mà không mở sheet; không gán
   được (thiếu key/mạng/không ra ảnh) thì bỏ qua im lặng, KHÔNG chặn việc lưu từ.
-- **Ghi chú đánh số (2026-09-28):** mục này mới ghi là `PLAN-027`; nhánh
-  `arena/01a0251e-in4up` đã dùng PLAN-027…PLAN-032 cho việc khác ⇒ đánh số lại
-  thành `PLAN-033` khi rebase, không đổi nội dung.
+- **Ghi chú đánh số:** khởi đầu là `PLAN-027`; `arena/01a0251e-in4up` đã dùng
+  027…032 ⇒ đổi thành `PLAN-033` khi rebase (2026-09-28); `OCR-001` (PR #61) lại
+  chiếm `PLAN-033` ⇒ số chốt là **`PLAN-034`**. Nội dung không đổi, chỉ đánh số
+  lại — không đụng entry của agent khác.
 
 ### PLAN-033 — OCR: ML Kit Text Recognition v2 + Document Scanner làm nguồn văn bản thứ 4 (OCR-001)
 - Nguồn: người sở hữu (2026-09-15, qua agent arena/01a09c9a-in4up) — chốt phạm vi

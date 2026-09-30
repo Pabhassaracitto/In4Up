@@ -4133,6 +4133,11 @@
     sheet; lỗi mạng/key → im lặng bỏ qua rồi vẫn mở sheet cho chọn tay; đã có
     ảnh thì không đè. API key: owner tự set GitHub secret `VOCAB_IMAGE_API_KEY`
     (build.yml đã nối `--dart-define`) — không cần thêm tài liệu
+  - 2026-09-28 | doing | agent arena/01a0a205-in4up | sửa hệ quả merge "giữ cả hai
+    phía": `tool/legacy_ui_english_overrides.json` thiếu DẤU PHẨY giữa khối của base
+    và khối của em ⇒ `jsonDecode` nổ ở dòng 1770, `test/locale_chrome_no_vietnamese_test.dart`
+    FAIL (Rule 5). Vá 1 comma; JSON 1784 key, 0 trùng, 0 value chứa ký tự Việt.
+    PLAN của em `PLAN-033` → **`PLAN-034`** vì `OCR-001` (PR #61) đã chiếm 033.
 ### OCR-001 — ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản mới
 
 - **Trạng thái:** doing — **code + CI 🟢** (run 36348760217, commit `f133932`:

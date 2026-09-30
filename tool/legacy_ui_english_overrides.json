@@ -1766,7 +1766,7 @@
   "Ưu tiên ảnh trên mạng — máy ít khi có sẵn ảnh cho từ.": "Images from the web come first — your device rarely has one for a word.",
   "Ảnh trong máy ít khi có sẵn cho từ mới — hãy ưu tiên tab Trên mạng.": "Your device rarely has an image for a new word — prefer the Online tab.",
   "Tự gán ảnh đầu tiên": "Auto-assign the first image",
-  "Mặc định: tự tìm rồi bạn chạm chọn. Bật để thêm từ là gán luôn ảnh đầu tiên tìm được, không mở sheet.": "By default, images are searched and you tap to choose. Turn this on to attach the first image found as soon as a word is added, without opening the sheet."
+  "Mặc định: tự tìm rồi bạn chạm chọn. Bật để thêm từ là gán luôn ảnh đầu tiên tìm được, không mở sheet.": "By default, images are searched and you tap to choose. Turn this on to attach the first image found as soon as a word is added, without opening the sheet.",
   "API đang bận — thử lại.": "The API is busy — try again.",
   "Dừng tạo câu trả lời": "Stop generating",
   "Lỗi HTTP từ server AI ({value0}).": "HTTP error from the AI server ({value0}).",

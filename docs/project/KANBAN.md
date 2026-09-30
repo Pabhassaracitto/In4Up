@@ -4528,3 +4528,15 @@
 - **Lịch sử:**
   - 2026-10-01 | created→doing | agent arena/01a0f41f-in4up | code +
     test + 26 ARB + regen map; branch arena/01a0f41f-in4up, PR vào main.
+  - 2026-10-01 | doing→doing | agent arena/01a0f41f-in4up | CI xanh run
+    36781345809 (app_analyze: analyze 0 lỗi + locale test xanh; PR #66).
+    PHÁT HIỆN khi xem conflict PR: origin/main đã bị thay bằng root commit
+    MỚI 0218c33 ("Fix indentation and improve Windows build script", author
+    2026-09-23, main chỉ còn 1 commit) — snapshot cũ/lech: 733 file vs 1144
+    (mất .github/workflows/app_analyze.yml, mất llm_mt_engine.dart,
+    lib/features/api/, KANBAN 4468→136 dòng…) ⇒ PR #66 không tự merge
+    được (hai lineage không còn tổ tiên chung). Lineage đầy đủ vẫn nguyên
+    vẹn: arena/01a0251e-in4up (= 14140d7, tip cũ của main) + branch này
+    (= 14140d7 + XLAT-DEEPLX-001). Theo GOVERNANCE 4b: KHÔNG merge chéo —
+    chờ owner quyết (phục hồi main từ arena/01a0251e-in4up rồi path-checkout
+    phần Windows build của 0218c33, hoặc path-checkout content từ branch này).

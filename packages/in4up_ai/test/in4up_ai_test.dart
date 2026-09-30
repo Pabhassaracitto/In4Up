@@ -51,6 +51,27 @@ void main() {
     }
   });
 
+  test('conversation prompt answers the user instead of summarizing the task',
+      () async {
+    final engine = AiEngineGemma();
+    try {
+      final ok = await engine.initialize(modelPath: '');
+      expect(ok, isTrue);
+      final result = await engine
+          .analyze(
+            text: 'How do I use serendipity in a sentence?',
+            type: AiAnalysisType.conversation,
+          )
+          .first;
+      expect(result.success, isTrue);
+      expect(result.summary, contains('serendipity'));
+      expect(result.summary.toLowerCase(), isNot(contains('simple task')));
+      expect(result.summary.toLowerCase(), isNot(contains('conversation is about')));
+    } finally {
+      await engine.dispose();
+    }
+  });
+
   test('facade reports hasModel=false in mock mode (truthful model status)',
       () async {
     SharedPreferences.setMockInitialValues({});

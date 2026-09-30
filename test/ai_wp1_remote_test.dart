@@ -403,6 +403,47 @@ void main() {
     });
   });
 
+  group('AiAnalysis.fromGemmaJson — parser phòng thủ cho local/remote LLM', () {
+    test('parse được markdown fence trực tiếp (local Gemma cũng dùng path này)', () {
+      final result = AiAnalysis.fromGemmaJson(
+        '```json\n{"summary":"Nhận xét rõ","topics":["Writing"],"action_items":["Luyện lại câu ngắn"],"language":"vi"}\n```',
+        analysisType: AiAnalysisType.sentenceParse,
+        inputText: 'in4up_WRITE_REVIEW',
+      );
+      expect(result.success, isTrue);
+      expect(result.summary, 'Nhận xét rõ');
+      expect(result.topics, ['Writing']);
+      expect(result.actionItems, ['Luyện lại câu ngắn']);
+    });
+
+    test('JSON bị cắt vẫn cứu summary/topics/action_items cho Tab Viết', () {
+      final result = AiAnalysis.fromGemmaJson(
+        '{"summary":"Bản tóm tắt giữ được ý chính","topics":["Summary","Compression"],"action_items":["Giữ lại hai từ khóa","Rút gọn câu hơn"',
+        analysisType: AiAnalysisType.sentenceParse,
+        inputText: 'in4up_SUMMARY_REVIEW',
+      );
+      expect(result.success, isTrue);
+      expect(result.isPartial, isTrue);
+      expect(result.summary, contains('giữ được ý chính'));
+      expect(result.topics, contains('Summary'));
+      expect(result.actionItems, contains('Giữ lại hai từ khóa'));
+      expect(result.actionItems, contains('Rút gọn câu hơn'));
+    });
+
+    test('JSON hợp lệ nhưng rỗng báo lỗi rõ thay vì trả ba hàng rỗng', () {
+      final result = AiAnalysis.fromGemmaJson(
+        '{}',
+        analysisType: AiAnalysisType.sentenceParse,
+        inputText: 'in4up_REWRITE_REVIEW',
+      );
+      expect(result.success, isFalse);
+      expect(result.summary, contains('Không đọc được phản hồi JSON'));
+      expect(result.topics, ['AI parse error']);
+      expect(result.actionItems, isNotEmpty);
+      expect(result.errorReason, contains('missing useful fields'));
+    });
+  });
+
   group('AiEngineRemote — engine cắm vào interface AiEngine', () {
     test('initialize nhận config encoded api://<providerId>/<model>', () async {
       final engine = AiEngineRemote(provider: _tProvider);
@@ -563,6 +604,50 @@ void main() {
       expect(result.ipaFallback, '/ˌserənˈdɪpəti/');
       expect(engine.lastUsage, isNotNull);
       expect(engine.lastUsage!.promptTokens, 210);
+      await engine.dispose();
+    });
+
+    test('Write Studio review giữ prompt gốc, không bọc Analyze English sentence',
+        () async {
+      http.Request? captured;
+      final engine = AiEngineRemote(
+        provider: _tProvider,
+        httpClient: MockClient.streaming((req, bodyStream) async {
+          captured = req as http.Request;
+          return sseResponse([
+            sse({
+              'choices': [
+                {
+                  'delta': {
+                    'content': jsonEncode({
+                      'summary': 'Bản viết lại rõ hơn.',
+                      'topics': ['Rewrite'],
+                      'action_items': ['Giữ ý chính rồi đổi cấu trúc câu.'],
+                      'technical_terms': <Map<String, dynamic>>[],
+                      'language': 'vi',
+                    })
+                  }
+                }
+              ]
+            }),
+            'data: [DONE]\n\n',
+          ]);
+        }),
+      );
+      await engine.initialize(modelPath: 'api://p1/llama3.1:8b');
+      final result = await engine
+          .analyze(
+            text: 'in4up_REWRITE_REVIEW\nEXPECTED: A\nACTUAL: B',
+            type: AiAnalysisType.sentenceParse,
+          )
+          .first;
+      expect(result.success, isTrue);
+      expect(result.actionItems, isNotEmpty);
+      final body = jsonDecode(captured!.body) as Map<String, dynamic>;
+      final messages = body['messages'] as List<dynamic>;
+      final user = messages.last as Map<String, dynamic>;
+      expect(user['content'], contains('in4up_REWRITE_REVIEW'));
+      expect(user['content'], isNot(contains('Analyze English sentence')));
       await engine.dispose();
     });
 

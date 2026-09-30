@@ -59,6 +59,7 @@ class TranslationService {
             : llmMtEngine,
         _glossary = glossary ?? const Glossary(const <GlossaryEntry>[]),
         _glossaryStore = glossary == null ? GlossaryStore() : null,
+        _persistPrefs = onlineEngines == null,
         _injectedNetwork = networkAvailable {
     if (onlineEngines == null) {
       _initEngines();
@@ -107,6 +108,10 @@ class TranslationService {
   Glossary _glossary;
   final GlossaryStore? _glossaryStore;
   final bool? _injectedNetwork;
+
+  /// XLAT-DEEPLX-001: chỉ instance singleton (app) mới đọc/ghi
+  /// SharedPreferences — instance forTest không chạm (đúng hợp đồng test).
+  final bool _persistPrefs;
   StreamSubscription<void>? _glossarySub;
 
   /// Engine đang chạy (null = không có) — UI dùng để hiện đúng trạng thái
@@ -117,6 +122,9 @@ class TranslationService {
 
   String _sourceLang = 'AUTO';
   String _targetLang = 'VI';
+
+  /// URL DeepLX (đã chuẩn hoá). XLAT-DEEPLX-001: được lưu SharedPreferences —
+  /// khởi động lại app không còn mất cấu hình như trước (trước đây chỉ RAM).
   String? _deeplxUrl;
 
   String _lastUsedEngine = '';
@@ -131,6 +139,7 @@ class TranslationService {
   HyMtOfflinePreference _offlineEnginePref = HyMtOfflinePreference.auto;
 
   static const String _offlineOnlyPrefKey = 'translation_offline_only';
+  static const String _deeplxUrlPrefKey = 'translation_deeplx_url';
 
   // ==================== Public state ====================
 
@@ -236,9 +245,14 @@ class TranslationService {
 
     var rebuildEngines = false;
     if (deeplxUrl != null) {
-      final normalizedUrl = deeplxUrl.trim().isEmpty ? null : deeplxUrl.trim();
+      // XLAT-DEEPLX-001: chuẩn hoá (host trần → tự nối /translate) + lưu lại
+      // để khởi động lần sau vẫn còn.
+      final normalizedUrl = deeplxUrl.trim().isEmpty
+          ? null
+          : DeepLXEngine.normalizeUrl(deeplxUrl.trim());
       rebuildEngines = normalizedUrl != _deeplxUrl;
       _deeplxUrl = normalizedUrl;
+      if (_persistPrefs) _persistDeeplxUrl(normalizedUrl);
     }
     if (rebuildEngines) _initEngines();
 
@@ -843,6 +857,16 @@ class TranslationService {
       final prefs = await SharedPreferences.getInstance();
       _offlineOnly = prefs.getBool(_offlineOnlyPrefKey) ?? false;
       _offlineEnginePref = await HyMtEngine.loadPreference();
+      // XLAT-DEEPLX-001: phục hồi URL DeepLX đã lưu. Chỉ áp dụng khi session
+      // này chưa được configure URL khác (tránh đè cấu hình mới bằng giá trị
+      // cũ khi prefs trả về chậm hơn một lượt configure).
+      final savedDeeplxUrl = prefs.getString(_deeplxUrlPrefKey);
+      if (_deeplxUrl == null &&
+          savedDeeplxUrl != null &&
+          savedDeeplxUrl.trim().isNotEmpty) {
+        _deeplxUrl = DeepLXEngine.normalizeUrl(savedDeeplxUrl);
+        _initEngines();
+      }
     } catch (_) {}
   }
 
@@ -850,6 +874,18 @@ class TranslationService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_offlineOnlyPrefKey, value);
+    } catch (_) {}
+  }
+
+  /// XLAT-DEEPLX-001: lưu/xoá URL DeepLX — `null` là xoá (ô để trống).
+  Future<void> _persistDeeplxUrl(String? url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (url == null) {
+        await prefs.remove(_deeplxUrlPrefKey);
+      } else {
+        await prefs.setString(_deeplxUrlPrefKey, url);
+      }
     } catch (_) {}
   }
 

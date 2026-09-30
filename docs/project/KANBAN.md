@@ -63,6 +63,7 @@
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
+| XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -4468,3 +4469,64 @@
   đúng, không còn chuỗi UI tiếng Việt khi locale khác `vi`.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### XLAT-DEEPLX-001 — Engine DeepLX (HF Space): URL không lưu khi restart, dán host trần không chạy, lỗi im lặng
+- **Triệu chứng (owner):** vừa dựng DeepLX trên Hugging Face Space
+  (`https://beyou8778-deeplx.hf.space/translate`), hỏi cách cắm vào
+  "Engine dịch thuật". Kiểm tra thực tế 2026-10-01: Space đang ở trạng thái
+  "Your space is in error" (cả `/` lẫn `/translate`) — chưa dùng được.
+- **Ba vấn đề trong app (đã verify code tại `14140d7`):**
+  1. URL DeepLX chỉ sống trong RAM (`TranslationService._deeplxUrl`) —
+     khởi động lại app là mất, phải dán lại mỗi lần.
+  2. Engine POST NGUYÊN VĂN chuỗi dán vào (`deeplx_engine.dart`) — dán host
+     trần `https://xxx.hf.space` (dạng HF copy mặc định) là 404; phải dán
+     đủ `.../translate`.
+  3. DeepLX fail (Space ngủ cold-start 20–60s > timeout 10s, 404, 429…)
+     → chuỗi engine im lặng rơi về Google Free, người dùng không biết
+     cấu hình của mình có hoạt động hay không.
+- **Tài liệu đối chiếu (docs DeepLX:** mọi phiên bản OwO-Network từ cũ đến
+  v1.2+ đều giữ `POST /translate` body `{text, source_lang, target_lang}` →
+  `{code:200, data:"..."}`; `/v2/translate` (DeepL-Auth-Key) trả dạng
+  `translations[0].text`; `/jsonrpc` là giao thức NỘI BỘ DeepL
+  (`LMT_handle_texts`) — KHÔNG phải endpoint HTTP của DeepLX, không cần
+  hỗ trợ riêng).
+- **Fix (2026-10-01, agent arena/01a0f41f-in4up):**
+  - `engines/deeplx_engine.dart`: viết lại —
+    (a) `normalizeUrl()`: trim + bỏ `/` thừa; host trần → tự nối
+    `/translate`; path riêng (reverse-proxy) giữ nguyên; giữ query
+    `?token=`; (b) parser chấp nhận 3 dạng response: `data` (chuẩn),
+    `translations[0].text` (/v2), `result.data`/`result.texts[0].text`
+    (jsonrpc wrapper); (c) `probe()`: dịch câu mẫu `Hello` → VI, timeout
+    20s (chịu cold start HF), trả `DeepLXProbeResult` (ok/sample/status/
+    error/responseTime); (d) inject `http.Client` cho test; (e) lỗi rõ
+    ràng: HTTP status + trường `message` server (v1.2+ trả 400 kèm
+    `unsupported target_lang`…).
+  - `translation_service.dart`: `configure(deeplxUrl:)` chuẩn hoá + lưu
+    `SharedPreferences` key `translation_deeplx_url`; `_loadOfflineOnlyPref`
+    phục hồi khi mở app (guard `_deeplxUrl == null` tránh đè configure
+    mới); chỉ singleton đọc/ghi prefs (`_persistPrefs`) — forTest không
+    chạm (giữ hợp đồng test cũ).
+  - `translation_toolbar.dart` (sheet ⚙️ Engine dịch thuật): hint "Chỉ dán
+    host cũng được" + nút "🔌 Thử kết nối DeepLX" (TextButton.icon +
+    spinner) + kết quả inline xanh/đỏ: OK → "✅ … dịch thử: “Xin chào”
+    (245 ms)"; lỗi HTTP → "❌ Lỗi HTTP 404: …"; không kết nối được →
+    "❌ … kiểm tra Space/serve đang chạy (HF Space ngủ sau ~48h không dùng)".
+  - i18n rule #5: 6 key ARB mới (`translationDeepLXUrlHint`,
+    `translationDeepLXTestButton/Empty/Ok/HttpError/Unreachable`) dịch đủ
+    vi/en + T2 (hi/zh/zh_TW/si) ngay trong PR; còn lại English fallback
+    đúng convention; regenerate `generated_ui_translations.dart`
+    (python3 tool/generate_ui_translation_map.py); template `{sample}/
+    {ms}/{code}/{detail}` khớp cơ chế uiText.
+  - Test: `test/deeplx_engine_test.dart` (16 test, MockClient không
+    network): normalizeUrl 4 nhóm, translate 8 (body chuẩn, bỏ
+    source_lang rỗng, 3 dạng response, 404/400+message, text rỗng,
+    exception), probe 4 (ok, URL rác, lỗi HTTP, mất kết nối).
+- **AT (nghiệm thu máy):** Space DeepLX thật (sau khi owner fix Space —
+  lỗi thường gặp: app phải listen cổng 7860, `sdk: docker` + `app_port:
+  7860`, Space Public): dán host trần → nút Thử kết nối xanh với thời
+  gian; kill app mở lại → URL còn (không phải dán lại); tắt Space → nút
+  đỏ kèm lý do; locale ≠ vi → chuỗi nút/kết quả không còn tiếng Việt.
+- **Trạng thái:** doing — code + test + ARB xong, chờ CI + nghiệm thu máy.
+- **Lịch sử:**
+  - 2026-10-01 | created→doing | agent arena/01a0f41f-in4up | code +
+    test + 26 ARB + regen map; branch arena/01a0f41f-in4up, PR vào main.

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/deeplx_engine.dart';
 import 'engines/hymt_engine.dart';
 import 'engines/mlkit_engine.dart';
 import 'glossary/glossary_sheet.dart';
@@ -349,6 +350,12 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   bool _hymtBusy = false;
   double _hymtProgress = 0;
 
+  // XLAT-DEEPLX-001: trạng thái nút "Thử kết nối" DeepLX (dịch câu mẫu ngay
+  // trong sheet — hết cảnh dán URL xong im lặng rơi về Google Free).
+  bool _testingDeeplx = false;
+  bool _deeplxTestOk = false;
+  String? _deeplxTestMessage;
+
   // WP3 (API-004): trạng thái engine LLM (provider + routing). Future tạo
   // MỘT lần trong initState (FutureBuilder trong build không tạo lại).
   Future<(AiProviderConfig?, AiRouteMode)>? _llmInfo;
@@ -495,6 +502,37 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                 hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              context.uiText(
+                'Chỉ dán host cũng được — app tự nối /translate (vd: https://xxx.hf.space/translate).',
+              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+            ),
+            // XLAT-DEEPLX-001: thử kết nối + dịch câu mẫu ngay trong sheet.
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _testingDeeplx ? null : _testDeeplxConnection,
+                  icon: _testingDeeplx
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.network_check, size: 16),
+                  label: Text(context.uiText('Thử kết nối DeepLX')),
+                ),
+              ],
+            ),
+            if (_deeplxTestMessage != null)
+              Text(
+                _deeplxTestMessage!,
+                style: TextStyle(
+                  color: _deeplxTestOk ? Colors.greenAccent : Colors.redAccent,
+                  fontSize: 12,
+                ),
+              ),
             const SizedBox(height: 10),
             Text(
               context.uiText(
@@ -733,6 +771,50 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     );
   }
 
+
+  /// XLAT-DEEPLX-001: thử kết nối DeepLX với URL đang nhập — dịch câu mẫu
+  /// "Hello" → VI và hiện kết quả inline (xanh = OK, đỏ = lỗi kèm lý do).
+  Future<void> _testDeeplxConnection() async {
+    final raw = _urlController.text.trim();
+    if (raw.isEmpty) {
+      setState(() {
+        _deeplxTestOk = false;
+        _deeplxTestMessage = context.uiText('Chưa nhập URL DeepLX.');
+      });
+      return;
+    }
+    setState(() {
+      _testingDeeplx = true;
+      _deeplxTestMessage = null;
+    });
+    // Engine tự chuẩn hoá URL (host trần → /translate).
+    final engine = DeepLXEngine(serverUrl: raw);
+    final probe = await engine.probe(text: 'Hello', targetLang: 'VI');
+    if (!mounted) return;
+    setState(() {
+      _testingDeeplx = false;
+      _deeplxTestOk = probe.ok;
+      if (probe.ok) {
+        _deeplxTestMessage = context.uiText(
+          '✅ DeepLX hoạt động — dịch thử: “${probe.sample ?? ''}” (${probe.responseTime.inMilliseconds} ms)',
+        );
+      } else if (probe.statusCode != null) {
+        _deeplxTestMessage = context.uiText(
+          '❌ Lỗi HTTP ${probe.statusCode}: ${_shortError(probe.error)}',
+        );
+      } else {
+        _deeplxTestMessage = context.uiText(
+          '❌ Không kết nối được server: ${_shortError(probe.error)} — kiểm tra Space/serve đang chạy (HF Space ngủ sau ~48h không dùng).',
+        );
+      }
+    });
+  }
+
+  String _shortError(String? text) {
+    final value = (text ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (value.isEmpty) return '—';
+    return value.length > 160 ? '${value.substring(0, 160)}…' : value;
+  }
 
   Future<void> _importHymt() async {
     final hymt = widget.service.hymt;

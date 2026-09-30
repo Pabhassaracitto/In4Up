@@ -276,7 +276,7 @@ Hai nguyên tắc sản phẩm bảo vệ vòng học này và được soi tron
 
 Không có model nặng nào được nhét vào file cài. Vào **Home ▸ Quản lý Model AI** để **Import** file bạn đã có
 hoặc **Tải về** khi bạn bấm — app không bao giờ tự tải. Hướng dẫn thao tác cho model, API, từ điển,
-Tipiṭaka, media và PDF/OCR: [`docs/USER_GUIDE.vi.md`](docs/USER_GUIDE.vi.md). Layout model dành cho developer:
+Tipiṭaka, media và PDF/OCR: [`Tiếng Việt`](docs/USER_GUIDE.vi.md) · [`English`](docs/USER_GUIDE.md). Layout model dành cho developer:
 [`docs/project/MODELS.md`](docs/project/MODELS.md).
 
 | Model | Thư mục trong `documents/` | Dung lượng | Dùng cho | Bắt buộc? |

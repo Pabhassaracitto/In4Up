@@ -107,8 +107,18 @@
 | READ-IMPORT-001 | I4U Read Import Many: đánh giá độ khó + bổ sung nghĩa/IPA/ví dụ khi nhập batch | 🔄 doing | shared PDF/Web selection + Web batch UI; test model thêm nhưng chưa chạy (Flutter SDK không có trong PATH) |
 | XP-MODE-001 | "Chế độ trải nghiệm": 7 mode (NGHE/NÓI/XEM/ĐỌC/VIẾT/HIỂU/NHỚ) có dẫn đường + mục "Khám phá công cụ ⚡" phơi bày tool ẩn (Tipiṭaka…) — **D1-B: Phòng Studio ở Home, KHÔNG thêm tab** | ✅ **owner đã chốt — chờ bật đèn xanh PR implementation** (chưa code) | phase 1 xong (commit `d3ee12b` · PR #29): `docs/project/XP-MODE-001-wireframe.md` (bản D1-B) + `assets/xp-mode-001-wireframe.png`/`.svg` (vẽ lại theo D1-B) + `XP-MODE-001-route-inventory.csv` (28 entry, route thật) + `XP-MODE-001-i18n-keys.csv` (20 key × 6 locale) + `XP-MODE-001-review-checklist.md` (mục A/B đã tick) + KANBAN checkpoint; cần chốt phối hợp `HOME-STUDIO-001` trước khi sửa `home_screen.dart`; branch `arena/01a0a703-in4up` |
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
-| I4U18-DOCS-001 | Hướng dẫn sử dụng + QA liên lane: model/API/MDX/Tipiṭaka/media/PDF-OCR-TTS-IPA | ✅ done (docs-only, chờ owner nghiệm thu thiết bị) | `docs/USER_GUIDE.vi.md` + `docs/manual_qa_I4U18_DOCS_001.md`; link check + `git diff --check` sạch |
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
+| I4U18-BATCH | I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành các lane nhỏ, tránh xung đột và không để CI đỏ | 📋 proposed | `docs/project/I4U_L18_PROBLEM_BRIEF.md` + `PROMPT_AGENT_I4U_L18.md`; tham chiếu nhánh `arena/01a06931-in4up` cho Tipiṭaka/PDF/Home khi cần |
+| I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 📋 proposed | Gom các lỗi Home chat + Tầng 2 AI local + provider BYOK; phụ thuộc API-001…004, AI-CHAT-01/02 |
+| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 📋 proposed | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
+| I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 📋 proposed | Dựa VID-001; hỗ trợ folder scan, filter/sort, subtitle pairing, reopen |
+| I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | 📋 proposed | Đọc thêm `origin/arena/01a06931-in4up` (không merge mù); mở rộng TIPITAKA-001 |
+| I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 📋 proposed | Mở rộng AUDLIB-001/LISTEN-*; không phá transcript/LRC/reopen audio |
+| I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 📋 proposed | Mở rộng READ-IPA-001…006 + SRC-630-01; cần i18n rule #5 |
+| I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 📋 proposed | Kế thừa HYMT-001 + API-004; không bỏ glossary/protect-token |
+| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 📋 proposed | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
+| I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 📋 proposed | Mở rộng OCR-001/PDF-W0/PDF-W1; ưu tiên state machine/cancel token, không đổ lỗi `flutter clean` |
+| I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 
 
 ## Card chi tiết
@@ -3904,37 +3914,6 @@
     `README.vi.md` + khôi phục `LICENSE`; nhánh đồng bộ từ `arena/01a0251e-in4up`
     (53b57ab) để README khớp đúng code đang chạy
 
-### I4U18-DOCS-001 — Hướng dẫn sử dụng và QA liên lane
-
-- **Trạng thái:** ✅ done (docs-only; chờ owner chạy checklist trên thiết bị).
-- **Nguồn:** owner (2026-09-30) — lane L18 Agent G; liên quan README, `docs/`,
-  Settings/Help nếu có UI.
-- **Nội dung:**
-  - Thêm `docs/USER_GUIDE.vi.md`: hướng dẫn từng bước cho Piper +
-    `espeak-ng-data`, Whisper/Zipformer STT, Server/API/BYOK/Ollama/LM Studio,
-    từ điển MDX/MDD/CSS, Tipiṭaka + Pāli, Audio/Video library, PDF/OCR/TTS/IPA;
-    kèm bảng khả năng và cách xử lý lỗi thường gặp.
-  - Ghi đúng giới hạn code hiện tại, không tô hồng: picker từ điển mới nhận
-    `.mdx` (MDD/CSS rời chưa có UI link); video mới thêm từng file (chưa
-    scan/filter/playlist); playlist audio là danh sách từ lần chọn nhiều file.
-  - Thêm `docs/manual_qa_I4U18_DOCS_001.md`: fixture nhỏ, ma trận thiết bị và
-    checklist owner cho happy path, lỗi/hủy/offline/restart, quyền, bảo mật key,
-    i18n rule #5, font/màn hẹp và các chuỗi liên lane.
-  - Link guide/checklist từ `README.md` và `README.vi.md`; không thêm Help UI nên
-    không phát sinh key i18n hay thay đổi `lib/**`; không commit ảnh/video/model.
-- **Bằng chứng:** kiểm tra toàn bộ local Markdown links trong 4 file thay đổi;
-  `git diff --check`; rà path/nhãn theo code hiện có. Docs-only nên không chạy
-  Flutter CI/test.
-- **Rủi ro còn lại:** đường dẫn chrome có thể đổi khi các lane UI đang làm được
-  merge; MDD/CSS và video scan/filter/playlist cần cập nhật guide khi UI thật
-  xuất hiện. Nghiệm thu thiết bị theo checklist vẫn do owner thực hiện.
-- **Lịch sử:**
-  - 2026-09-30 | 19:49 UTC | created→doing | agent
-    arena/01a0f3dc-in4up | đọc governance/code các lane, soạn guide + checklist
-  - 2026-09-30 | 19:49 UTC | doing→done | agent
-    arena/01a0f3dc-in4up | docs + README links; local link check và
-    `git diff --check` sạch; không có thay đổi UI
-
 ### IMPORT-MODELS-001 — Import Piper/Zipformer không hiện giọng + "Không nhận diện được model" + xung đột PR #48
 
 - **Nguồn:** owner (2026-09-28) build commit mới nhất 251e:
@@ -4287,3 +4266,219 @@
     giữ CẢ HAI (IMPORT-MODELS-001 của base + OCR-001), không xoá lịch sử bên nào.
     Tự khai trong PR: lịch sử nhánh có 1 merge commit + 4 commit công cụ chẩn đoán
     tạm (không đạt chuẩn template) — chờ owner quyết có rebase gọn lại hay không
+
+### I4U18-BATCH — I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành lane nhỏ
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30) — danh sách "I4U l 18 Problem".
+- **Mục tiêu:** biến danh sách phản hồi tự nhiên thành backlog có câu chữ rõ,
+  người đọc được, AI agent đọc được, chia lane để nhiều agent làm song song mà
+  ít xung đột, mỗi lane có DoD và test/CI riêng.
+- **Phạm vi batch:** Home/Chat/Viết AI, Server & API/BYOK, Dịch/Hy-MT, Từ điển,
+  Video, Tipiṭaka, Tab Nghe, Tab Đọc IPA, import model offline, PDF/OCR/TTS và
+  hướng dẫn sử dụng.
+- **Tài liệu đi kèm:** `docs/project/I4U_L18_PROBLEM_BRIEF.md` (bản chỉnh câu chữ
+  + acceptance criteria) và `PROMPT_AGENT_I4U_L18.md` (prompt chia việc cho các
+  agent Arena).
+- **Ràng buộc phối hợp:**
+  - Không gom toàn bộ vào một PR lớn; mỗi lane nên có 1–3 commit logic + 1
+    checkpoint KANBAN nếu có code.
+  - Không để CI đỏ khi bàn giao. Nếu sandbox không có Flutter, phải dùng CI làm
+    oracle và ghi rõ run ID; docs-only tối thiểu chạy `git diff --check`.
+  - Tipiṭaka/PDF/Home có công việc liên quan trên `arena/01a06931-in4up`: chỉ
+    fetch và đọc bằng `git show`/`git diff`, không checkout/merge mù.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | chuẩn hoá yêu
+    cầu, thêm card I4U18-* và prompt phân việc; thay đổi docs-only.
+
+### I4U18-HOME-AI-001 — Home/Chat/Tab Viết: AI chậm, fallback sai, routing Server/API
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 1/3/10/12 của I4U L18.
+- **Vấn đề đã chuẩn hoá:**
+  - Tab Home cần rà soát lại luồng chính; lỗi cụ thể đang thấy rõ nhất nằm ở
+    chat/AI.
+  - Home Chat trả lời chậm và đôi khi sinh thông báo kiểu "mình chưa tạo được câu
+    trả lời cho tin nhắn này" kèm một đoạn tóm tắt tiếng Anh không liên quan
+    (ví dụ "The conversation is about a simple task...").
+  - Tab Viết, tầng 2 AI local: dù đã nạp Gemma 2B, phần tóm tắt/chủ điểm/hành
+    động gợi ý bị rỗng hoặc báo "AI chưa trả về phần tóm tắt rõ ràng", trong khi
+    các commit cũ từng hoạt động tốt.
+  - Cần cho người dùng chọn engine Server & API/LLM cho chat, phân tích và dịch;
+    cân nhắc BYOK/local server để người dùng tự đăng nhập/nhập key hoặc URL.
+- **Hướng giải quyết đề xuất:** dùng routing của API-001…004: offline-first mặc
+  định, online-first/remote tùy chọn; parse JSON/Markdown fence bền hơn; timeout
+  hữu hạn; fallback hiển thị đúng lỗi, không tự bịa summary tiếng Anh.
+- **AT/DoD:**
+  - Gửi 2 tin liên tiếp: UI không kẹt spinner, có nút dừng/hủy, lỗi có mã rõ.
+  - Với model local không trả JSON chuẩn: app vẫn hiển thị phần thô hoặc lỗi rõ,
+    không mất toàn bộ summary/topic/action.
+  - Bật Server/API: chat/analysis/dịch đi đúng provider đã chọn, key không lộ log.
+  - Locale khác `vi`: chrome UI không còn tiếng Việt theo rule #5.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-DICT-001 — Từ điển: import/link thư mục MDX/MDD/CSS và dùng ngay
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 2 của I4U L18.
+- **Vấn đề đã chuẩn hoá:** từ điển vẫn chưa import được ổn định. Bộ từ điển thực
+  tế thường gồm nhiều file liên quan như `.mdx`, `.mdd`, `.css`/asset kèm theo;
+  cần quyết định rõ app sẽ copy import hay chỉ gán/link tới thư mục/file nguồn để
+  dùng trực tiếp.
+- **Hướng giải quyết đề xuất:** ưu tiên hai chế độ:
+  1. **Link/index thư mục** để dùng ngay và tránh nhân đôi dữ liệu lớn.
+  2. **Import/copy vào app storage** khi người dùng muốn ổn định lâu dài hoặc khi
+     SAF/quyền truy cập không bền.
+- **AT/DoD:** chọn một thư mục có MDX+MDD+CSS → app nhận diện thành một dictionary
+  set, tra được từ, hiển thị asset/format tương ứng; thiếu file phụ thì báo thiếu
+  file nào và cho tiếp tục ở chế độ giảm cấp nếu vẫn tra được.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-VIDEO-LIB-001 — Tab Video: quét thư mục và thư viện phát file trực quan
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 4 của I4U L18.
+- **Vấn đề đã chuẩn hoá:** hiện tại dù đã thêm video, app chỉ thêm theo từng file
+  đơn lẻ. Cần cho phép quét thư mục và tổ chức thư viện để người dùng dễ thấy,
+  lọc, chọn và phát file.
+- **Hướng giải quyết đề xuất:** mở rộng VID-001 theo mô hình thư viện: chọn thư
+  mục bằng SAF, quét đệ quy video/subtitle, ghép phụ đề cùng tên, filter/sort,
+  recent/favorite và reopen đúng vị trí phát gần nhất.
+- **AT/DoD:** chọn thư mục có nhiều video → danh sách cập nhật rõ ràng, không nhân
+  đôi item sau khi quét lại, phát được file có/không có phụ đề, vẫn hoạt động khi
+  một file trong thư mục bị xoá/đổi tên.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-TIPITAKA-001 — Tipiṭaka: import pack, tiêu đề thật, cây Tam Tạng, tab/split/TTS
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 5/6 của I4U L18.
+- **Nhánh tham chiếu:** `arena/01a06931-in4up` cũng đang làm nội dung Tipiṭaka;
+  agent phải fetch/read nhánh đó trước khi code, nhưng không merge mù.
+- **Vấn đề đã chuẩn hoá:**
+  - Import ngôn ngữ, ví dụ Tiếng Việt, báo "chưa thấy Pali tương ứng" nhưng chưa
+    hướng dẫn rõ nên import Pali trước hay có thể dùng độc lập.
+  - Ba tạng đang hiện tiêu đề dạng mã như `Vi diệu pháp - Abh01a Att - ABH01A_ATT
+    abh01a_att`; cần tiêu đề nội dung thật, không phơi mã kỹ thuật cho người dùng.
+  - Cần cây thư mục theo cấu trúc: **Tam Tạng Chính Văn → Tạng (Kinh/Luật/Luận) →
+    nhóm/bộ → bài kinh**, kèm nút xem mục lục chi tiết trong từng bài.
+  - Cần mở nhiều tab kiểu Obsidian, chia màn hình xem hai tab cùng lúc để đối
+    chiếu, và bổ sung đọc TTS.
+- **Quyết định UX đề xuất:** không bắt buộc pack dịch phụ thuộc Pali để import;
+  pack dịch có thể dùng độc lập. Chỉ các chức năng đối chiếu song ngữ/căn hàng
+  mới cần Pali và phải hiện gợi ý "nên import Pali trước để đối chiếu tốt hơn".
+- **AT/DoD:** import một pack Việt không có Pali không bị chặn; cây thư viện không
+  hiện mã nội bộ ở tiêu đề chính; mở 2 bài ở 2 tab, bật split view và phát TTS
+  từng đoạn không làm mất vị trí đọc.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-LISTEN-LIB-001 — Tab Nghe: lọc album/tác giả/yêu thích/playlist
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 8 của I4U L18.
+- **Vấn đề đã chuẩn hoá:** thư viện Tab Nghe cần bộ lọc và tổ chức giống thư viện
+  media thật: album, tác giả/nghệ sĩ, yêu thích, danh sách phát thủ công và danh
+  sách thông minh.
+- **Hướng giải quyết đề xuất:** mở rộng AUDLIB-001/LISTEN-* bằng metadata scan,
+  favorites, manual playlist, smart playlist theo folder/tag/recent/unplayed;
+  không phá LRC/transcript và reopen timestamp.
+- **AT/DoD:** người dùng có thể lọc theo album/tác giả, đánh dấu yêu thích, tạo
+  playlist thủ công, và mở lại bài giữ đúng transcript/LRC đang dùng.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-READ-IPA-001 — Tab Đọc IPA: chế độ dòng với Word và hướng dẫn chọn IPA
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 9 của I4U L18.
+- **Vấn đề đã chuẩn hoá:** chế độ dòng khi mở file Word chưa hiển thị đúng; ngay
+  cả khi hiển thị, người dùng khó biết phải chạm vào đâu để bật/hiện IPA.
+- **Hướng giải quyết đề xuất:** sửa luồng DOCX/Word để vào được line mode như văn
+  bản/PDF đã hỗ trợ; thêm hướng dẫn dạng bottom snackbar/sheet vài giây sau khi
+  vào chế độ đọc: "Chạm vào một dòng hoặc một từ để hiện IPA/tra từ; dùng nút IPA
+  trên thanh dưới để bật/tắt".
+- **AT/DoD:** mở DOCX → thấy dòng; chạm dòng/từ hiện IPA/word sheet; hướng dẫn tự
+  ẩn sau đủ thời gian đọc, có thể mở lại từ Help/tooltip, có i18n rule #5.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-TRANSLATE-001 — Dịch: Hy-MT và lựa chọn LLM Server/API
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 10/11 của I4U L18.
+- **Vấn đề đã chuẩn hoá:** Hy-MT vẫn chưa dịch được ổn định trên thiết bị; đồng
+  thời người dùng cần tùy chọn dịch qua LLM Server/API khi muốn chất lượng cao hơn
+  hoặc khi engine offline lỗi.
+- **Hướng giải quyết đề xuất:** kiểm lại validator/model path của Hy-MT sau
+  HYMT-001; dùng API-004 làm engine dịch LLM có routing offline-first/online-first;
+  giữ glossary Phật học/Pali và protect-token trước mọi engine.
+- **AT/DoD:** cùng một đoạn văn: Hy-MT chạy được hoặc báo lỗi cấu trúc có hướng
+  sửa; bật LLM provider thì dịch đi qua provider đã chọn; tắt mạng/remote fail thì
+  fallback đúng chính sách, không trả bản dịch rỗng.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-MODEL-IMPORT-001 — Model import: eSpeak/Piper/STT offline nhận diện sai
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 13 của I4U L18.
+- **Vấn đề đã chuẩn hoá:**
+  - Settings/Home import bằng chọn nhiều file: thư mục `espeak` có sẵn nhưng app
+    không tự nhập, sau đó báo thiếu dữ liệu.
+  - Import bằng thư mục: app báo không tìm thấy `.onnx` và `.txt` dù file thật có
+    trong thư mục.
+  - STT offline: chọn đúng file hoặc chọn cả thư mục vẫn báo không nhận dạng được.
+- **Hướng giải quyết đề xuất:** dùng một validator thống nhất cho model bundle:
+  quét đệ quy, nhận diện alias/tên file phổ biến, phân loại Piper voice, eSpeak
+  data và ASR/Zipformer/Whisper; báo thiếu chính xác theo loại model thay vì báo
+  chung chung.
+- **AT/DoD:** import Piper bằng multi-file và folder đều nhận model+config+tokens+
+  espeak data; import STT offline bằng folder nhận đúng loại model; lỗi thiếu file
+  chỉ ra file cần bổ sung và nút "chọn lại thư mục/file".
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-PDF-OCR-TTS-001 — PDF/OCR Reader: spinner OCR và TTS controls không dừng
+- **Trạng thái:** proposed.
+- **Nguồn:** owner (2026-09-30), mục 14/15 của I4U L18.
+- **Vấn đề đã chuẩn hoá:**
+  - OCR cho PDF bị load chạy hoài ở vùng đọc ngay khi mới mở file PDF.
+  - PDF reader: nút Play/Pause không dừng phát; khi chuyển dòng sau, app lướt rất
+    nhanh qua nhiều dòng, đọc không kịp; bấm Play/Stop/Pause vẫn không tắt ngay.
+- **Nhận định:** `flutter clean` có thể giúp xoá build cache cũ, nhưng các triệu
+  chứng lặp lại ở runtime thường là lỗi state machine/cancel async/controller TTS,
+  không nên coi `flutter clean` là cách sửa chính.
+- **Hướng giải quyết đề xuất:** tách rõ trạng thái idle/loading/playing/paused/
+  stopping; mọi OCR/TTS operation có cancel token; khi pause/stop/next-line phải
+  hủy timer/stream/callback cũ trước khi phát dòng mới; thêm guard chống double-tap.
+- **AT/DoD:** mở PDF text-layer không bật spinner OCR vô hạn; mở PDF scan có
+  timeout/hủy rõ; Play→Pause dừng âm trong thời gian chấp nhận; Next line chỉ phát
+  đúng một dòng kế tiếp; Stop chặn mọi callback phát tiếp sau đó.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+
+### I4U18-DOCS-001 — Hướng dẫn sử dụng cho các luồng mới/dễ lỗi
+- **Trạng thái:** done (docs-only; chờ owner chạy QA trên thiết bị).
+- **Nguồn:** owner (2026-09-30), mục 7 của I4U L18.
+- **Vấn đề đã chuẩn hoá:** người dùng cần hướng dẫn rõ cho các luồng nhiều bước:
+  import model offline, cấu hình Server/API, import/link từ điển, import Tipiṭaka,
+  thư viện media, PDF/OCR/TTS và IPA.
+- **Hướng giải quyết đề xuất:** bổ sung tài liệu trong `docs/` và/hoặc màn Help
+  trong app. Tối thiểu có bản tiếng Việt + English fallback, ảnh/chỉ dẫn từng bước
+  nếu làm UI.
+- **AT/DoD:** người dùng đọc hướng dẫn có thể tự import Piper/STT/dictionary,
+  cấu hình provider API và xử lý lỗi thường gặp; mọi liên kết từ Settings/Help mở
+  đúng, không còn chuỗi UI tiếng Việt khi locale khác `vi`.
+- **Kết quả/bằng chứng:**
+  - `docs/USER_GUIDE.md` + `docs/USER_GUIDE.vi.md`: guide song ngữ cho
+    Piper/eSpeak/Whisper/Zipformer, BYOK/Ollama/LM Studio, MDX/MDD/CSS,
+    Tipiṭaka/Pāli, Listen/Video và PDF/OCR/TTS/IPA; nêu rõ giới hạn UI hiện tại
+    thay vì mô tả chức năng lane khác chưa merge.
+  - `docs/manual_qa_I4U18_DOCS_001.md`: checklist owner cho happy path, lỗi,
+    offline/restart, quyền, key, i18n rule #5 và chuỗi QA liên lane.
+  - Link từ hai README; không thêm Help UI nên không phát sinh key i18n; không
+    commit ảnh/video/model; local Markdown link check + `git diff --check` sạch.
+- **Rủi ro còn lại:** cập nhật lại guide sau khi lane MDD/CSS, video/listen và
+  Tipiṭaka merge UI mới; owner vẫn cần chạy checklist trên thiết bị thật.
+- **Lịch sử:**
+  - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | 19:49 UTC | proposed→doing | agent arena/01a0f3dc-in4up |
+    soạn guide vi + checklist từ code hiện hành; đối chiếu nguồn chuẩn PR #64
+  - 2026-09-30 | 20:32 UTC | doing→done | agent arena/01a0f3dc-in4up |
+    bổ sung English fallback, README links và bằng chứng docs-only; local link
+    check + `git diff --check` sạch

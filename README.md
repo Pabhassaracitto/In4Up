@@ -539,7 +539,7 @@ remembered. Read these before changing anything:
 | [`docs/adr/`](docs/adr) | Architecture Decision Records — every structural decision, with its postmortem |
 | [`docs/skills/`](docs/skills) | Reusable agent skills, starting with CI red-run debugging |
 | [`docs/Bangiao/`](docs/Bangiao) | Handover briefs per subsystem (Sherpa, dictionary, Tipiṭaka, video, images) |
-| [`docs/USER_GUIDE.vi.md`](docs/USER_GUIDE.vi.md) | Vietnamese user walkthrough: offline models, Server/API, MDX, Tipiṭaka, media, PDF/OCR/TTS/IPA |
+| [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) / [`vi`](docs/USER_GUIDE.vi.md) | User walkthrough: offline models, Server/API, MDX, Tipiṭaka, media, PDF/OCR/TTS/IPA |
 | [`docs/manual_qa_I4U18_DOCS_001.md`](docs/manual_qa_I4U18_DOCS_001.md) | On-device cross-lane acceptance checklist for the owner |
 
 ### Golden rules

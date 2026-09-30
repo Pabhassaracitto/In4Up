@@ -1,5 +1,6 @@
 # In4Up — Hướng dẫn sử dụng các luồng import và học ngoại tuyến
 
+> [English](USER_GUIDE.md) · **Tiếng Việt**
 > Cập nhật: 2026-09-30 · Card `I4U18-DOCS-001`
 >
 > Tên nút dưới đây dùng giao diện tiếng Việt. Nếu dùng locale khác, vị trí nút

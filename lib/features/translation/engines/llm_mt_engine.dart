@@ -528,7 +528,10 @@ class LlmMtEngine extends TranslationEngine {
       original: text,
       error: error,
       engine: name,
-      errorCode: code.name,
+      errorCode: code.name.replaceAllMapped(
+        RegExp(r'[A-Z]'),
+        (match) => '_${match.group(0)!.toLowerCase()}',
+      ),
       detectedLang: sourceLang,
       targetLang: targetLang,
     );

@@ -12,6 +12,8 @@
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
+| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
+| API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -422,6 +424,82 @@
     adopt numbering của leader (ADR-0007→0008, PLAN-031→PLAN-032 cho tầng
     Server API), bỏ file ADR-0007 trùng (leader đã có bản 0008), cập nhật
     tham chiếu trong code + card; nội dung engine/test không đổi
+
+### API-005 — WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0
+- **Trạng thái:** ✅ done (code + 23 test thuần; chờ nghiệm thu thiết bị)
+- **Nguồn:** owner (2026-09-26) qua agent arena/01a0df5f-in4up —
+  `PROMPT_AGENT_SERVER_API.md` §7. Hoàn thành + xanh CI trên nhánh
+  `arena/01a0ddd1-in4up` (PR #58, commit gốc `003f9c4`) — bị merge nhầm
+  nhánh phụ, **thu hoạch vào 251e ngày 2026-09-28**.
+- **Nội dung:**
+  - `packages/in4up_ai/.../openai_compat_client.dart`: thêm TRÊN CÙNG
+    client (luật 1 client) `synthesizeSpeech()` — POST `/v1/audio/speech`,
+    đọc response dạng stream → bytes (không buffer text), guard payload
+    ≥100B (`minSpeechBytes`), mã lỗi cấu trúc đủ nhánh (timeout/noNetwork/
+    unauthorized 401-403/rateLimited 429/httpError kèm snippet ≤160 ký tự
+    từ body server, KHÔNG log key/headers); `listVoices()` — GET
+    `/v1/audio/voices` (endpoint không bắt buộc, lỗi → caller fallback);
+    `OpenAiVoicesParser` (thuần, khoan dung mọi shape: list/string,
+    voices|data|models, id|voice|name).
+  - `lib/features/tts/engines/openai_compat_tts_engine.dart` (mới, theo
+    mẫu zalo_tts_engine): chunk ≤2000 ký tự (tách câu→dấu phẩy→cắt
+    cứng), nghỉ 150ms giữa chunks (chống binge rate-limit), tối đa 1
+    retry sau backoff 800ms khi 429/5xx; speed clamp 0.25–4.0; voices:
+    gọi `/audio/voices`, map prefix Kokoro `af_/bm_/jf_…` (vùng+giới
+    tính), fallback 6 giọng OpenAI chuẩn khi server không có endpoint;
+    thông điệp lỗi chỉ lộ label (không key/baseUrl); client inject được
+    → test thuần.
+  - `lib/features/tts/tts_service.dart`: TtsEngineInfo
+    `openai_compat_tts` priority 5 — SAU piper/offline/google/zalo/fpt ⇒
+    **thứ tự mặc định người dùng cũ KHÔNG đổi** (kéo thả lên bằng UI có
+    sẵn); `_resolveApiTtsEngine()` đọc
+    `AiProviderStore.resolveProvider(AiRouteCapability.tts)` — KHÔNG
+    khóa riêng kiểu Zalo/FPT; chưa cấu hình → engine bỏ qua y hệt hôm
+    nay; `_getOnlineEngines` chuyển async (4 call-site đã cập nhật).
+  - Phát: bytes → `TtsCache.put` → file temp → `_playFile` AudioPlayer —
+    y hệt đường Zalo/FPT, không đổi playback path.
+- **Test:** `test/tts_api_wp4_test.dart` (23 test thuần — parser mọi
+  shape, request chuẩn + phân lớp lỗi, cleartext-guard, guard thiếu
+  model/text rỗng, chunking + thứ tự ghép, clamp speed, retry 5xx/429
+  đúng 1 lần, voices Kokoro + fallback, isAvailable, pin source-scan
+  thứ tự engine mặc định + pin không-SharedPreferences-trong-engine. Key
+  test sinh runtime — BYOK, không key mẫu trong repo).
+- **AT (từ prompt WP4):** chọn Kokoro (local) hoặc OpenAI tts-1 → đọc
+  VI/EN; kéo thả ưu tiên như engine khác; chưa cấu hình → chuỗi TTS +
+  mọi mặc định y hệt hôm nay; CI xanh + card này.
+- **Lịch sử:**
+  - 2026-09-26 | created→done (nhánh nguồn) | agent arena/01a0df5f-in4up
+    | code client + engine + wiring + 23 test; CI xanh trên
+    arena/01a0ddd1-in4up (PR #58)
+  - 2026-09-28 | harvest→251e | agent arena/01a0251e-in4up (leader) |
+    thu hoạch thủ công: tts_service.dart adopt nguyên (parent identical
+    với 251e); client merge thủ công 5 điểm (import typed_data, 3 const,
+    synthesizeSpeech+listVoices+_errorSnippet+_clip+parseVoicesBody,
+    class OpenAiVoicesParser, export) — verify byte-identical từng khối
+    với bản gốc; engine + test checkout nguyên; chờ CI 251e + nghiệm thu
+    thiết bị
+
+### API-006 — WP5: In4Up Server Box (docs-only)
+- **Trạng thái:** done (chờ owner nghiệm thu trên một máy LAN sạch)
+- **Nguồn:** owner (2026-09-26) — WP5 trong `PROMPT_AGENT_SERVER_API.md`.
+  Hoàn thành trên `arena/01a0ddd1-in4up` (PR #52, commit gốc `0a0b912`)
+  — **thu hoạch vào 251e ngày 2026-09-28**.
+- **Nội dung:** `docs/server_box/docker-compose.yml` chạy Ollama,
+  Speaches CPU/faster-whisper và Kokoro-FastAPI CPU; tự tải
+  `qwen2.5:1.5b`, giữ model/cache trong volume; healthcheck Docker cho
+  cả ba. `health-check.sh` gọi `/v1/models`; README tiếng Việt ghi cấu
+  hình 8 GB, lấy IP/firewall, URL và cách cấu hình màn Server & API WP0.
+- **AT:** cấu trúc/docs/script đã kiểm tra tĩnh; còn chạy
+  `docker compose up -d` và xác nhận ba service `healthy` + ba nút kết
+  nối xanh trên máy LAN sạch.
+- **Lịch sử:**
+  - 2026-09-26 | created→done-docs | agent arena/01a0df4c-in4up | hoàn
+    tất bộ Compose CPU một lệnh, script health-check và hướng dẫn vận
+    hành tiếng Việt; chờ nghiệm thu phần cứng/LAN
+  - 2026-09-28 | harvest→251e | agent arena/01a0251e-in4up (leader) |
+    checkout nguyên 3 file `docs/server_box/` (README.md,
+    docker-compose.yml, health-check.sh) — docs-only, không ảnh hưởng
+    analyze/build
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done

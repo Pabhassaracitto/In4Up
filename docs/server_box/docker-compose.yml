@@ -1,0 +1,82 @@
+name: in4up-server-box
+
+# Cấu hình mặc định ưu tiên máy CPU/RAM 8 GB. Các API được mở ra toàn bộ LAN;
+# chỉ chạy trên mạng tin cậy và xem hướng dẫn firewall trong README.md.
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-5m}
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  # Tải sẵn model nhẹ để app có thể dùng ngay sau lần khởi động đầu tiên.
+  # Đây là job một lần; trạng thái "Exited (0)" là bình thường.
+  ollama-model-loader:
+    image: curlimages/curl:8.12.1
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:1.5b}
+    command:
+      - sh
+      - -ec
+      - |
+        curl --fail --show-error --silent --max-time 1800 \
+          http://ollama:11434/api/pull \
+          -H 'Content-Type: application/json' \
+          -d "{\"model\":\"$${OLLAMA_MODEL}\",\"stream\":false}"
+
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    restart: unless-stopped
+    ports:
+      - "${SPEACHES_PORT:-8000}:8000"
+    volumes:
+      - speaches-hf-cache:/home/ubuntu/.cache/huggingface/hub
+    environment:
+      WHISPER__INFERENCE_DEVICE: cpu
+      WHISPER__COMPUTE_TYPE: int8
+      STT_MODEL_TTL: ${STT_MODEL_TTL:--1}
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/models', timeout=5)"
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    restart: unless-stopped
+    ports:
+      - "${KOKORO_PORT:-8880}:8880"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8880/v1/models', timeout=5)"
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  ollama-data:
+  speaches-hf-cache:

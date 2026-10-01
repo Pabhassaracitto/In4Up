@@ -2,6 +2,24 @@
 
 > Agent đọc file này trước khi code. Owner tham khảo khi review.
 
+> **Cập nhật I4U18-VIDEO-LIB-001 (2026-09-30):** đã nâng cấp từ "thêm từng file"
+> lên **quét thư mục SAF đệ quy** + thư viện trực quan. Xem card KANBAN
+> `I4U18-VIDEO-LIB-001`. Điểm chính:
+> - Native `scanTree(treeUri, extensions)` (MainActivity.kt) — tổng quát hoá,
+>   truyền `videoScanExtensions` (video + phụ đề) để quét cả cây trong 1 lượt.
+> - `VideoLibraryLogic` (PURE, test): folderKey/label (file + content://),
+>   `matchSubtitle` (cùng tên/thư mục, đa ngữ, fallback an toàn theo số video/
+>   thư mục), `mergeScanned` (de-dupe theo URI, GIỮ favorite/vị trí/phụ đề),
+>   `query` (lọc/sắp/tìm).
+> - `SubtitleParser` (PURE): SRT/VTT/ASS/LRC + `cueAt`.
+> - `VideoPlayerScreen`: phát THẬT (video_player, file + content://) + phụ đề
+>   overlay đồng bộ + **reopen đúng vị trí** (seek lastPositionMs, lưu định kỳ
+>   + khi pause/thoát) + tốc độ 0.5×–2×.
+> - `VideoLibraryScreen`: search + filter chips (Tất cả/Yêu thích/Gần đây/Có
+>   phụ đề) + sort menu + tim yêu thích + nút "Chọn/Quét thư mục" + badge tiến độ.
+> - Test: `test/video_library_logic_test.dart`, `test/subtitle_parser_test.dart`
+>   (chạy trong `app_analyze.yml`).
+
 ## 1. Mục tiêu
 
 Xem video local (MP4, MKV, WebM...) với phụ đề + học từ vựng:

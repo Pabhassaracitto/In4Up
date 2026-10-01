@@ -57,6 +57,12 @@ jobs:
           flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
           code=$?
           tail -n 300 analyze.log
+          # Surface analyzer ERROR lines as GitHub annotations so they are
+          # retrievable via the check-runs annotations API even when blob log
+          # storage is unreachable (CI-red-debugging: log EOF).
+          grep -E '^\s*error' analyze.log | head -50 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
           exit $code
 
       - name: Upload analyze log
@@ -65,6 +71,24 @@ jobs:
         with:
           name: app-analyze-log
           path: analyze.log
+          if-no-files-found: ignore
+
+      - name: "I4U18 tests — Video/Listen Library (logic thuần)"
+        id: i4u18-lib-tests
+        run: |
+          set +e
+          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart"
+          flutter test $files > i4u18_lib_test.log 2>&1
+          code=$?
+          cat i4u18_lib_test.log
+          exit $code
+
+      - name: Upload I4U18 lib test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-i4u18-lib-test-log
+          path: i4u18_lib_test.log
           if-no-files-found: ignore
 
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
@@ -180,4 +204,32 @@ jobs:
         with:
           name: app-asr-test-log
           path: asr_test.log
+          if-no-files-found: ignore
+
+      - name: "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001"
+        id: i4u18-scanner-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/model_bundle_scanner_test.dart \
+                   test/dict_bundle_scanner_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test I4U18 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > i4u18_scanner_test.log 2>&1
+          code=$?
+          cat i4u18_scanner_test.log
+          exit $code
+
+      - name: Upload I4U18 scanner test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-i4u18-scanner-test-log
+          path: i4u18_scanner_test.log
           if-no-files-found: ignore

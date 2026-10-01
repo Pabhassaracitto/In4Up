@@ -26,6 +26,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'asr_model_routing.dart';
+import 'import/model_bundle_scanner.dart';
 import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
 import 'tts/piper_voice_catalog.dart';
@@ -104,6 +105,15 @@ class SherpaAsrImportResult {
   /// Có nhận diện được nội dung model không.
   final bool contentRecognized;
 
+  /// Role Zipformer CÒN THIẾU khi [status] == incompleteFiles — từ scanner
+  /// thống nhất (I4U18-MODEL-IMPORT-001), vd `joiner (joiner*.onnx)`.
+  /// UI hiện nguyên tên file để user bổ sung đúng (không phải chuỗi chrome).
+  final List<String> missingRoles;
+
+  /// Các loại bundle scanner nhìn thấy trong nguồn (để UI gợi ý đúng thẻ
+  /// model khi user import nhầm — vd bộ Zipformer vào thẻ Piper).
+  final Set<ModelBundleKind> detectedKinds;
+
   /// Chi tiết kỹ thuật (log/đường dẫn) — không phải chuỗi chrome.
   final String? detail;
 
@@ -113,6 +123,8 @@ class SherpaAsrImportResult {
     this.detectedProfile,
     this.encoderKind = SherpaAsrEncoderKind.unknown,
     this.contentRecognized = false,
+    this.missingRoles = const [],
+    this.detectedKinds = const {},
     this.detail,
   });
 
@@ -1008,6 +1020,10 @@ class SherpaModelManager {
       case SherpaAsrImportStatus.sourceEmpty:
         return 'Chưa chọn file/thư mục nào';
       case SherpaAsrImportStatus.incompleteFiles:
+        if (result.missingRoles.isNotEmpty) {
+          return 'Import thất bại — thiếu: ${result.missingRoles.join(', ')}. '
+              'Bổ sung file rồi import lại.';
+        }
         return 'Import thất bại: cần đủ 4 file (encoder, decoder, joiner .onnx + tokens.txt)';
       case SherpaAsrImportStatus.unknownProfile:
         return 'Import thất bại: không nhận diện được model này là '
@@ -1035,13 +1051,27 @@ class SherpaModelManager {
     required String sourceLabel,
     String? targetProfileId,
   }) async {
-    String? tokensPath;
-    String? encoderPath;
+    // Quét thống nhất (I4U18-MODEL-IMPORT-001): group theo thư mục cha +
+    // alias tên file — thay cho việc lấy encoder/tokens ĐẦU TIÊN trong walk
+    // order (nguồn gốc lỗi "chọn đúng folder vẫn báo không nhận dạng").
+    final report = ModelBundleScanner.scan([
+      for (final path in listing) ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
+    ]);
+    final zip = report.zipformer;
+
+    String? tokensPath = zip?.tokens?.path;
+    String? encoderPath = zip?.encoder?.path;
+    // Fallback "như cũ" cho tên file ngoài alias (hiếm) — giữ tương thích
+    // với các hướng dẫn import cũ (MODELS.md).
     for (final path in listing) {
       final name = p.basename(path).toLowerCase();
-      if (name.contains('tokens') && name.endsWith('.txt')) {
+      if (tokensPath == null &&
+          name.contains('tokens') &&
+          name.endsWith('.txt')) {
         tokensPath = path;
-      } else if (name.contains('encoder') && name.endsWith('.onnx')) {
+      } else if (encoderPath == null &&
+          name.contains('encoder') &&
+          name.endsWith('.onnx')) {
         encoderPath = path;
       }
     }
@@ -1050,8 +1080,10 @@ class SherpaModelManager {
         ? SherpaAsrEncoderKind.unknown
         : detectEncoderKind(encoderPath);
     // Bằng chứng streaming = metadata ONNX HOẶC tên file/thư mục nguồn.
+    final haystack =
+        '$sourceLabel ${encoderPath ?? ''} ${report.zipformerDir}';
     final streamingEvidence = encoderKind == SherpaAsrEncoderKind.streaming ||
-        nameLooksStreamingModel('$sourceLabel ${encoderPath ?? ''}');
+        nameLooksStreamingModel(haystack);
     final detected = matchAsrProfile(
       isStreaming: streamingEvidence,
       encoderPath: encoderPath,
@@ -1129,18 +1161,42 @@ class SherpaModelManager {
     var copied = 0;
     var archivePath = '';
 
-    for (final path in listing) {
-      final name = p.basename(path).toLowerCase();
-      if (name.endsWith('.tar.bz2') || name.endsWith('.zip')) {
-        archivePath = path;
-        continue;
+    if (zip != null) {
+      // Copy ĐÚNG bộ scanner chọn (1 thư mục) — không trộn file của nhiều
+      // model/phiên bản khác nhau trong cùng folder nguồn.
+      for (final f in [
+        zip.encoder,
+        zip.decoder,
+        zip.joiner,
+        zip.tokens,
+        zip.bpeVocab,
+      ]) {
+        if (f == null) continue;
+        final dest = p.join(destDir, p.basename(f.path));
+        if (await _tryCopyFile(f.path, dest)) copied++;
       }
-      if (name == 'tokens.txt' ||
-          name.endsWith('_tokens.txt') ||
-          (name.contains('tokens') && name.endsWith('.txt')) ||
-          name.endsWith('.onnx')) {
-        final dest = p.join(destDir, p.basename(path));
-        if (await _tryCopyFile(path, dest)) copied++;
+    } else {
+      // Không group được — giữ vòng lặp cũ (tên rộng) cho file lẻ user chọn.
+      for (final path in listing) {
+        final name = p.basename(path).toLowerCase();
+        if (name.endsWith('.tar.bz2') || name.endsWith('.zip')) {
+          archivePath = path;
+          continue;
+        }
+        if (name == 'tokens.txt' ||
+            name.endsWith('_tokens.txt') ||
+            (name.contains('tokens') && name.endsWith('.txt')) ||
+            name == 'bpe.vocab' ||
+            name.endsWith('.onnx')) {
+          final dest = p.join(destDir, p.basename(path));
+          if (await _tryCopyFile(path, dest)) copied++;
+        }
+      }
+    }
+    if (zip == null && archivePath.isEmpty) {
+      for (final a in report.archives) {
+        archivePath = a.path;
+        break;
       }
     }
 
@@ -1148,6 +1204,8 @@ class SherpaModelManager {
       try {
         if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
           await _extractTarBz2(archivePath, destDir);
+        } else if (archivePath.toLowerCase().endsWith('.zip')) {
+          await _extractZip(archivePath, destDir);
         }
       } catch (e) {
         return SherpaAsrImportResult(
@@ -1156,6 +1214,7 @@ class SherpaModelManager {
           detectedProfile: detected,
           encoderKind: encoderKind,
           contentRecognized: detected != null,
+          detectedKinds: report.kinds,
           detail: 'Giải nén archive thất bại: $e',
         );
       }
@@ -1164,12 +1223,30 @@ class SherpaModelManager {
     await rescan();
     final installed = _findAsrModelInDirSync(destDir);
     if (installed == null) {
+      // Báo thiếu CHÍNH XÁC: quét lại thư mục đích — role nào chưa có thì
+      // nêu tên role + tên file mẫu (I4U18-MODEL-IMPORT-001).
+      final destScan = ModelBundleScanner.scan([
+        for (final path in await _walkPaths(destDir))
+          ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
+      ]);
+      final missing = destScan.zipformer?.missingRoles ??
+          zip?.missingRoles ??
+          const [
+            'encoder (encoder*.onnx)',
+            'decoder (decoder*.onnx)',
+            'joiner (joiner*.onnx)',
+            'tokens (tokens.txt)',
+          ];
+      debugPrint('⚠️ ASR import thiếu file: ${missing.join(', ')}');
       return SherpaAsrImportResult(
         status: SherpaAsrImportStatus.incompleteFiles,
         profile: target,
         detectedProfile: detected,
         encoderKind: encoderKind,
-        contentRecognized: detected != null,
+        contentRecognized: detected != null || zip != null,
+        missingRoles: List<String>.from(missing),
+        detectedKinds: report.kinds,
+        detail: sourceLabel,
       );
     }
     // Model vừa cài: loại encoder thực tế lấy từ file đã copy (nguồn sự thật
@@ -1359,6 +1436,41 @@ class SherpaModelManager {
     }
   }
 
+  /// Chuẩn hoá path cho scanner (posix separators — Dart `File` chấp nhận
+  /// '/' trên cả Windows nên dùng lại được cho các thao tác copy).
+  static String _toScanPath(String path) => ModelBundleScanner.normSep(path);
+
+  /// Kích thước file an toàn (SAF/quyền có thể chặn stat — trả 0, không throw).
+  static int _safeLength(String path) {
+    try {
+      return File(path).lengthSync();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Giải nén .zip (archive package) — cửa vào cho model ZIP user nén tay
+  /// (k2-fsa chính thức dùng tar.bz2; zip chỉ hỗ trợ import thủ công).
+  Future<void> _extractZip(String zipPath, String destDir) async {
+    final raw = await File(zipPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(raw);
+    for (final file in archive) {
+      final name = PiperImportPaths.posixRel(file.name);
+      if (name.isEmpty || name == '.' || name == './') continue;
+      final outPath = p.join(destDir, name);
+      if (file.isDirectory || name.endsWith('/')) {
+        await Directory(outPath).create(recursive: true);
+        continue;
+      }
+      final out = File(outPath);
+      await out.parent.create(recursive: true);
+      final content = file.content;
+      if (content is List<int>) {
+        await out.writeAsBytes(content, flush: true);
+      }
+    }
+  }
+
   Future<List<String>> _walkPaths(String root) async {
     final out = <String>[];
     Future<void> walk(Directory dir, int depth) async {
@@ -1451,7 +1563,10 @@ class SherpaModelManager {
     if (piperInfo.espeakInstalled) {
       return '$prefix · đã tải espeak-ng-data (phonemizer dùng chung mọi giọng)';
     }
-    return '$prefix · $fetched';
+    // I4U18-MODEL-IMPORT-001 — nêu ĐÚNG file còn thiếu thay vì báo chung
+    // "thiếu dữ liệu": phonemizer tối thiểu là espeak-ng-data/phontab.
+    return '$prefix · ⚠️ thiếu espeak-ng-data/phontab (phonemizer bắt buộc) '
+        '— $fetched';
   }
 
   /// Download k2-fsa `espeak-ng-data.tar.bz2` (shared phonemizer). User-tap only.
@@ -1607,6 +1722,10 @@ class SherpaModelManager {
       return importPiperFolder(extractDir);
     }
     if (onnx == 0) {
+      // Scanner thống nhất: nhận diện user chọn nhầm loại model (Zipformer /
+      // VAD / Whisper / espeak lẻ) → chỉ đúng thẻ thay vì báo chung chung.
+      final hint = _wrongBundleHint(_scanNames(files));
+      if (hint != null) return hint;
       return 'Thiếu file .onnx — chọn .onnx + tokens.txt (và .onnx.json nếu có).';
     }
     return _completePiperImport(destDir, '✅ Đã import $onnx file model');
@@ -1654,6 +1773,11 @@ class SherpaModelManager {
       }
     }
     if (onnx == 0) {
+      final hint = _wrongBundleHint(ModelBundleScanner.scan([
+        for (final path in paths)
+          ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
+      ]));
+      if (hint != null) return hint;
       return 'Thiếu file .onnx — chọn cả bộ (onnx + tokens [+ json]). '
           'espeak-ng-data lấy tự động nếu nằm cạnh file.';
     }
@@ -1733,6 +1857,22 @@ class SherpaModelManager {
       if (seen.isEmpty) {
         return '$safEmptyPrefix$folderPath';
       }
+      // I4U18-MODEL-IMPORT-001 — trước khi báo "không thấy .onnx": nhận diện
+      // thư mục thật sự là loại model NÀO để chỉ user đúng thẻ import
+      // (bộ Zipformer/Whisper/VAD vào thẻ Piper từng báo mơ hồ).
+      final report = ModelBundleScanner.scan([
+        for (final path in listing)
+          ScannedFile(_toScanPath(p.relative(path, from: dir.path)),
+              sizeBytes: _safeLength(path)),
+      ]);
+      final hint = _wrongBundleHint(report);
+      if (hint != null) return hint;
+      if (report.piperVoices.isNotEmpty) {
+        return 'Phát hiện ${report.piperVoices.length} file .onnx '
+            '(${report.piperVoices.map((v) => v.onnx.name).take(3).join(', ')}) '
+            'nhưng không đọc/copy được — kiểm tra quyền truy cập thư mục rồi '
+            'thử lại, hoặc dùng Import file.';
+      }
       return 'Không tìm thấy file .onnx trong "$folderPath". '
           'App thấy: ${seen.join(', ')}. '
           'Hãy Import file (.onnx + tokens.txt) hoặc Tải phonemizer.';
@@ -1751,6 +1891,34 @@ class SherpaModelManager {
       '$copiedJson config',
     );
   }
+
+  /// Gợi ý đúng thẻ import khi user chọn nhầm loại bundle vào thẻ Piper
+  /// (I4U18-MODEL-IMPORT-001 — scanner thống nhất phân loại nguyên folder).
+  String? _wrongBundleHint(ModelBundleReport report) {
+    final kinds = report.kinds;
+    if (kinds.contains(ModelBundleKind.zipformerAsr)) {
+      return 'Đây là bộ STT Zipformer (encoder/decoder/joiner + tokens.txt) '
+          '— không phải giọng Piper. Hãy bấm Import ở mục "5. STT Offline — '
+          'Zipformer".';
+    }
+    if (kinds.contains(ModelBundleKind.sileroVad)) {
+      return 'Đây là model Silero VAD (silero_vad.onnx) — hãy bấm Import ở '
+          'mục "2. VAD — Silero".';
+    }
+    if (kinds.contains(ModelBundleKind.whisperGgml)) {
+      return 'Đây là model Whisper (ggml-*.bin) — hãy bấm Import ở mục '
+          '"1. STT — Whisper" tương ứng với level model.';
+    }
+    return null;
+  }
+
+  /// Báo cáo scanner từ map tên-file → bytes (đường import SAF named-bytes).
+  static ModelBundleReport _scanNames(Map<String, List<int>> files) =>
+      ModelBundleScanner.scan([
+        for (final entry in files.entries)
+          ScannedFile(ModelBundleScanner.normSep(entry.key),
+              sizeBytes: entry.value.length),
+      ]);
 
   /// Hoàn tất import Piper (folder/file/named-bytes đều gọi):
   ///

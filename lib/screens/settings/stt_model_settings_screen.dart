@@ -1000,9 +1000,12 @@ class _PiperModelCardState extends State<_PiperModelCard> {
   }
 
   Future<void> _importFiles(BuildContext context) async {
+    // I4U18-MODEL-IMPORT-001 (C2.1) — FileType.any: file espeak-ng-data
+    // (phontab/phonindex/phondata/intonations/*_dict) KHÔNG có extension nên
+    // filter cũ không bao giờ chọn được → "kèm thư mục espeak nhưng app
+    // không tự nhận". Manager tự lọc file hợp lệ (scanner thống nhất).
     final result = await fp.FilePicker.pickFiles(
-      type: fp.FileType.custom,
-      allowedExtensions: ['onnx', 'json', 'txt', 'bz2', 'gz', 'tgz'],
+      type: fp.FileType.any,
       allowMultiple: true,
       withData: true,
     );
@@ -1865,8 +1868,13 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
       SherpaAsrImportStatus.profileMismatch => context.uiText(
           'Model không khớp profile đã chọn: model streaming chỉ dùng cho EN, '
           'model offline chỉ dùng cho VI.'),
-      SherpaAsrImportStatus.incompleteFiles => context.uiText(
-          'Thiếu file model: cần encoder, decoder, joiner (.onnx) và tokens.txt.'),
+      SherpaAsrImportStatus.incompleteFiles => result.missingRoles.isNotEmpty
+          // I4U18-MODEL-IMPORT-001 — nêu ĐÚNG file cần bổ sung.
+          ? '${context.uiText('Thiếu file model:')} '
+              '${result.missingRoles.join(', ')}. '
+              '${context.uiText('Bổ sung file rồi bấm Import lại.')}'
+          : context.uiText(
+              'Thiếu file model: cần encoder, decoder, joiner (.onnx) và tokens.txt.'),
       SherpaAsrImportStatus.sourceMissing =>
         context.uiText('Không đọc được thư mục đã chọn.'),
       SherpaAsrImportStatus.sourceEmpty =>
@@ -1889,7 +1897,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
   ) async {
     final picked = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['onnx', 'txt', 'bz2', 'zip'],
+      allowedExtensions: ['onnx', 'txt', 'bz2', 'zip', 'vocab', 'json'],
       allowMultiple: true,
     );
     if (picked == null || picked.files.isEmpty) return;

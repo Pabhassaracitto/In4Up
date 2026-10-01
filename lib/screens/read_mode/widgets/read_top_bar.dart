@@ -10,6 +10,7 @@ import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
 import 'ipa_legend_strip.dart';
+import 'read_line_hint.dart';
 import 'quick_library_sheet.dart'; // ← THÊM
 
 class ReadTopBar extends StatelessWidget {
@@ -34,6 +35,7 @@ class ReadTopBar extends StatelessWidget {
                   _WordTapChip(textProvider: tp),
                   _IpaLegendToggleIfRelevant(textProvider: tp),
                   _AutoSyncChip(controller: controller),
+                  const _ReadHelpButton(),
                   if (!isSmallHeight)
                     _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
                   // Nút Focus mode cho màn hình nhỏ
@@ -69,6 +71,8 @@ class ReadTopBar extends StatelessWidget {
                   _IpaLegendToggleIfRelevant(textProvider: tp),
                   const SizedBox(width: 8),
                   _AutoSyncChip(controller: controller),
+                  const SizedBox(width: 8),
+                  const _ReadHelpButton(),
                   const SizedBox(width: 8),
                   _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
                   const SizedBox(width: 6),
@@ -401,6 +405,34 @@ class _WordTapChip extends StatelessWidget {
             on ? Icons.grid_view_rounded : Icons.grid_view_outlined,
             size: 16,
             color: on ? const Color(0xFFFF9800) : Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// I4U18-READ-IPA-001 (F1.3) — mở lại hướng dẫn chạm dòng/chạm từ bất cứ lúc
+/// nào; người bấm "Đừng nhắc lại" vẫn tìm được hướng dẫn ở đây.
+class _ReadHelpButton extends StatelessWidget {
+  const _ReadHelpButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: context.uiText('Hướng dẫn đọc theo dòng'),
+      child: GestureDetector(
+        onTap: () => ReadLineHint.showSheet(context),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.help_outline,
+            size: 18,
+            color: Colors.white70,
           ),
         ),
       ),

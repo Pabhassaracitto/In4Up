@@ -15,13 +15,13 @@
 // Desktop/web: `OcrService.isAvailable == false` → [start] trả về false ngay;
 // UI cũng ẩn nút nên bình thường không tới được đây.
 
-import 'dart:async' show unawaited;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/text_provider.dart';
+import 'ocr_cancel_token.dart';
 import 'ocr_result_dialog.dart';
 import 'ocr_service.dart';
 import 'ocr_source_sheet.dart';
@@ -66,21 +66,19 @@ class OcrFlow {
   static Future<bool> runOnImages(BuildContext context, List<String> paths) async {
     // Capture TRƯỚC mọi await: dùng context sau async là nguồn bug kinh điển
     // (use_build_context_synchronously). Provider read một lần, dùng lại.
-    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final token = OcrCancelToken();
+    final progress = _OcrProgressHandle.show(context, token);
 
-    // --- Bước nhận dạng: chặn tương tác, hiện trạng thái ---
-    // Không await: đóng bằng navigator.pop() ngay sau khi OCR xong.
-    unawaited(showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _OcrProgress(),
-    ));
-
-    final result = await OcrService.instance.recognizeFiles(paths);
-    navigator.pop(); // đóng progress
+    final result = await OcrService.instance.recognizeFiles(
+      paths,
+      cancelToken: token,
+    );
+    progress.close();
 
     // Qua await rồi mới đụng context → phải guard (use_build_context_synchronously).
     if (!context.mounted) return false;
+    if (_reportInterrupted(context, messenger, result)) return false;
     return presentResult(
       context,
       result,
@@ -101,20 +99,54 @@ class OcrFlow {
     required int height,
     required String suggestedTitle,
   }) async {
-    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final token = OcrCancelToken();
+    final progress = _OcrProgressHandle.show(context, token);
 
-    unawaited(showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _OcrProgress(),
-    ));
-
-    final result = await OcrService.instance
-        .recognizeBitmap(pixels: pixels, width: width, height: height);
-    navigator.pop();
+    final result = await OcrService.instance.recognizeBitmap(
+      pixels: pixels,
+      width: width,
+      height: height,
+      cancelToken: token,
+    );
+    progress.close();
 
     if (!context.mounted) return false;
+    if (_reportInterrupted(context, messenger, result)) return false;
     return presentResult(context, result, suggestedTitle: suggestedTitle);
+  }
+
+  /// Hủy / hết giờ KHÔNG phải "lỗi OCR" — nói đúng chuyện rồi dừng, để
+  /// `presentResult` chỉ còn lo hai ca thật (có chữ / không có chữ).
+  ///
+  /// Trả về true nếu đã xử lý xong (caller phải dừng lại).
+  static bool _reportInterrupted(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    OcrResult result,
+  ) {
+    if (result.isCancelled) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_tr(context, 'Đã hủy nhận dạng chữ')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return true;
+    }
+    if (result.isTimeout) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_tr(
+            context,
+            'Quá lâu không nhận dạng xong — thử ảnh nhỏ hơn hoặc rõ hơn',
+          )),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return true;
+    }
+    return false;
   }
 
   /// Preview + cho user SỬA + nạp vào TextProvider. Tách riêng để cả đường
@@ -243,34 +275,102 @@ class OcrFlow {
   }
 }
 
-/// Overlay trạng thái đang nhận dạng — chặn tương tác để user không bấm lần 2.
-class _OcrProgress extends StatelessWidget {
-  const _OcrProgress();
+/// Điều khiển dialog tiến trình: MỘT chỗ mở, MỘT chỗ đóng.
+///
+/// Trước đây flow gọi thẳng `navigator.pop()` sau khi OCR xong. Nếu dialog đã
+/// biến mất vì lý do khác (route bị pop, màn hình đóng) thì lệnh pop đó ăn vào
+/// MÀN HÌNH PHÍA DƯỚI — người dùng bị đá khỏi PDF Reader. Handle này nhớ route
+/// mình đã đẩy và chỉ gỡ đúng route đó, đúng một lần.
+class _OcrProgressHandle {
+  _OcrProgressHandle._(this._navigator, this._route);
+
+  final NavigatorState _navigator;
+  final DialogRoute<void> _route;
+  bool _closed = false;
+
+  static _OcrProgressHandle show(BuildContext context, OcrCancelToken token) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    // Giữ theme/locale của cây đang mở (showDialog làm đúng việc này bằng
+    // InheritedTheme.capture; ta tự đẩy route nên phải tự capture).
+    final themes = InheritedTheme.capture(
+      from: context,
+      to: navigator.context,
+    );
+    final route = DialogRoute<void>(
+      context: context,
+      barrierDismissible: false,
+      themes: themes,
+      builder: (_) => _OcrProgress(onCancel: token.cancel),
+    );
+    navigator.push(route);
+    return _OcrProgressHandle._(navigator, route);
+  }
+
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    if (_route.isActive) {
+      _navigator.removeRoute(_route);
+    }
+  }
+}
+
+/// Overlay trạng thái đang nhận dạng — chặn tương tác để user không bấm lần 2,
+/// NHƯNG luôn có đường thoát: nút Hủy (F2 — không spinner vô hạn).
+class _OcrProgress extends StatefulWidget {
+  const _OcrProgress({required this.onCancel});
+
+  final VoidCallback onCancel;
+
+  @override
+  State<_OcrProgress> createState() => _OcrProgressState();
+}
+
+class _OcrProgressState extends State<_OcrProgress> {
+  bool _cancelling = false;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: const Color(0xFF0D1520),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF26C6DA)),
+    return PopScope(
+      // Nút Back của Android không được pop dialog này: chỉ `close()` của
+      // handle mới gỡ route, nếu không trạng thái UI và route lệch nhau.
+      canPop: false,
+      child: Dialog(
+        backgroundColor: const Color(0xFF0D1520),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF26C6DA)),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Đang nhận dạng chữ...',
-              style: TextStyle(color: Colors.grey[300], fontSize: 13),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                _cancelling ? 'Đang hủy...' : 'Đang nhận dạng chữ...',
+                style: TextStyle(color: Colors.grey[300], fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: _cancelling
+                    ? null
+                    : () {
+                        setState(() => _cancelling = true);
+                        widget.onCancel();
+                      },
+                child: Text(
+                  'Hủy',
+                  style: const TextStyle(color: Color(0xFF90A4AE), fontSize: 13),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

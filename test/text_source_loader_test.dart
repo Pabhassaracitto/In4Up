@@ -45,7 +45,11 @@ void main() {
       expect(TextSourceLoader.docxXmlToPlainText(xml), 'người Việt');
     });
 
-    test('keeps real paragraph and break boundaries', () {
+    // I4U18-READ-IPA-001: ranh giới đoạn/`<w:br>` phải là DÒNG TRỐNG, vì
+    // `TextSplitterService` (chế độ smart) chỉ coi `\n\s*\n` là ranh giới
+    // cứng — một `\n` đơn bị gộp lại thành một "dòng" khổng lồ, phá chế độ
+    // dòng của tab Đọc. Xem test/read_mode/docx_line_mode_test.dart.
+    test('keeps real paragraph and break boundaries as hard line breaks', () {
       const xml = '''
 <w:p><w:r><w:t>Đoạn một</w:t></w:r></w:p>
 <w:p><w:r><w:t>Dòng</w:t></w:r><w:br/><w:r><w:t>kế</w:t></w:r></w:p>
@@ -53,7 +57,7 @@ void main() {
 
       expect(
         TextSourceLoader.docxXmlToPlainText(xml),
-        'Đoạn một\nDòng\nkế',
+        'Đoạn một\n\nDòng\n\nkế',
       );
     });
 

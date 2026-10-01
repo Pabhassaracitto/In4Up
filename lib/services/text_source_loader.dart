@@ -299,6 +299,15 @@ class TextSourceLoader {
   /// trong cùng một đoạn. Newline giữa thẻ sẽ biến "Việt Nam" thành
   /// từng chữ một dòng. Chỉ lấy nội dung `<w:t>`, nối run trong đoạn,
   /// xuống dòng ở `</w:p>` / `<w:br>` / `<w:cr>`, bỏ `w:instrText`.
+  ///
+  /// I4U18-READ-IPA-001 — CHẾ ĐỘ DÒNG: ranh giới `</w:p>`, `<w:br>`, `<w:cr>`
+  /// xuất ra **dòng trống** (`\n\n`) chứ không phải một `\n`.
+  /// Vì sao: `TextSplitterService._splitSmart` (chế độ mặc định của tab Đọc)
+  /// chỉ coi `\n\s*\n` là ranh giới cứng; một `\n` đơn nằm GIỮA đoạn và bị
+  /// gộp vào cùng "câu" khi đoạn trước không kết bằng `.`/`!`/`?` — đúng kiểu
+  /// văn bản Word (tiêu đề, kệ, danh sách, thơ). Hậu quả cũ: mở .docx ra chỉ
+  /// thấy vài "dòng" khổng lồ, chạm dòng không ra IPA/tra từ theo dòng.
+  /// Mỗi dòng Word nhìn thấy trên màn hình = một dòng đọc.
   static String docxXmlToPlainText(String xml) {
     final out = StringBuffer();
     final tokenRe = RegExp(
@@ -313,7 +322,8 @@ class TextSourceLoader {
       if (lower.startsWith('</w:p') ||
           lower.startsWith('<w:br') ||
           lower.startsWith('<w:cr')) {
-        out.write('\n');
+        // Dòng trống = ranh giới CỨNG cho bộ tách dòng (xem doc ở trên).
+        out.write('\n\n');
       } else if (lower.startsWith('<w:tab')) {
         out.write('\t');
       } else {

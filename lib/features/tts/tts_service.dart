@@ -62,6 +62,18 @@ class TtsService extends ChangeNotifier {
   bool _isSpeaking = false;
   bool _isLoading = false;
   bool _stopRequested = false;
+
+  // ── I4U18-PDF-OCR-TTS-001 (F3) — trọng tài phát ──────────────
+  // `_stopRequested` một mình không đủ: `speak()` đặt lại nó về false ở đầu
+  // mỗi câu, nên lệnh Stop rơi đúng vào lúc đó bị nuốt và câu kế vẫn phát
+  // ("Stop xong vẫn phát"). Thêm một số THẾ HỆ chỉ tăng: mọi lệnh stop tăng
+  // nó lên, và mọi tác vụ phát đang bay đều mang theo thế hệ của mình —
+  // thế hệ cũ thì không được chạm vào AudioPlayer nữa.
+  int _playbackEpoch = 0;
+
+  // Tạm dừng là trạng thái RIÊNG: vòng `speakLines` phải ĐỢI ở đây thay vì
+  // coi câu đã xong rồi chạy tiếp sang câu sau (lỗi "Pause không dừng âm").
+  bool _paused = false;
   String _lastUsedEngine = '';
   String _detectedLanguage = '';
   String? _error;
@@ -76,6 +88,13 @@ class TtsService extends ChangeNotifier {
   // Getters
   bool get isSpeaking => _isSpeaking;
   bool get isLoading => _isLoading;
+  bool get isPaused => _paused;
+
+  /// Thế hệ phát hiện tại — tác vụ async so sánh để biết mình còn hiệu lực.
+  int get playbackEpoch => _playbackEpoch;
+
+  /// True khi [epoch] đã bị một lệnh stop mới hơn thay thế.
+  bool isStaleEpoch(int epoch) => epoch != _playbackEpoch;
   String get lastUsedEngine => _lastUsedEngine;
   String get detectedLanguage => _detectedLanguage;
   String? get error => _error;
@@ -351,10 +370,17 @@ class TtsService extends ChangeNotifier {
 
   Future<void> speak(String text) async {
     if (text.trim().isEmpty) return;
-    await stop();
+    // Dừng âm đang phát nhưng KHÔNG tăng thế hệ: một câu mới trong cùng
+    // phiên đọc không được vô hiệu hoá chính phiên đó.
+    await _silenceCurrentAudio();
 
     _error = null;
     _stopRequested = false;
+    _paused = false;
+    // Nguồn âm của câu trước đã tắt; cờ engine phải về mặc định để
+    // `_awaitLineFinished` không tưởng nhầm là đang dùng giọng máy.
+    _usingOfflineEngine = false;
+    final epoch = _playbackEpoch;
 
     final lang = _resolveLanguage(text);
     _detectedLanguage = lang;
@@ -367,6 +393,7 @@ class TtsService extends ChangeNotifier {
     );
 
     if (cachedPath != null) {
+      if (_stopRequested || isStaleEpoch(epoch)) return;
       _lastUsedEngine = '💾 Cache';
       _safeNotify();
       await _playFile(cachedPath);
@@ -378,7 +405,7 @@ class TtsService extends ChangeNotifier {
     var played = false;
 
     for (final engineInfo in candidates) {
-      if (_stopRequested) break;
+      if (_stopRequested || isStaleEpoch(epoch)) break;
 
       switch (engineInfo.id) {
         case 'piper_tts':
@@ -438,12 +465,12 @@ class TtsService extends ChangeNotifier {
     }
 
     // Nếu tất cả candidate engines đều thất bại, thử fallback khẩn cấp sang Offline (Máy)
-    if (!played && !_stopRequested) {
+    if (!played && !_stopRequested && !isStaleEpoch(epoch)) {
       debugPrint('⚠️ Tất cả engine ưu tiên thất bại, thử fallback khẩn cấp sang Offline Máy');
       played = await _trySpeakOffline(text, lang);
     }
 
-    if (!played && !_stopRequested) {
+    if (!played && !_stopRequested && !isStaleEpoch(epoch)) {
       _error = 'Không có engine TTS nào phát được văn bản này ($lang).';
       _isLoading = false;
       _isSpeaking = false;
@@ -687,28 +714,54 @@ class TtsService extends ChangeNotifier {
   // PLAYBACK
   // ═══════════════════════════════════════
 
+  /// Dừng hẳn: chặn MỌI callback phát tiếp bằng cách tăng thế hệ phát.
   Future<void> stop() async {
+    _playbackEpoch++; // vô hiệu hoá mọi tác vụ đang bay (F3)
     _isSpeaking = false;
     _isLoading = false;
     _stopRequested = true;
+    _paused = false;
     _usingOfflineEngine = false; // ★ FIX: Reset cờ khi stop
+    await _silenceCurrentAudio();
+    _safeNotify();
+  }
+
+  /// Tắt tiếng nguồn âm đang phát mà KHÔNG đổi thế hệ / cờ stop.
+  ///
+  /// Dùng khi chuyển câu trong cùng một phiên đọc.
+  Future<void> _silenceCurrentAudio() async {
     try {
       await _audioPlayer.stop();
     } catch (_) {}
     try {
       await _offlineEngine.stop();
     } catch (_) {}
-    _safeNotify();
   }
 
+  /// Tạm dừng — phải DỪNG ÂM ĐANG PHÁT, cả AudioPlayer lẫn giọng máy.
+  ///
+  /// Lỗi cũ: chỉ `_audioPlayer.pause()`. Khi câu đang được đọc bằng
+  /// flutter_tts (engine offline của máy) thì âm vẫn chạy tới hết câu, và
+  /// vòng `speakLines` lập tức chuyển sang câu kế → bấm Pause xong vẫn nghe.
   Future<void> pause() async {
-    await _audioPlayer.pause();
+    if (_paused) return;
+    _paused = true;
+    try {
+      await _audioPlayer.pause();
+    } catch (_) {}
+    try {
+      await _offlineEngine.pause();
+    } catch (_) {}
     _isSpeaking = false;
     _safeNotify();
   }
 
   Future<void> resume() async {
-    await _audioPlayer.play();
+    if (!_paused) return;
+    _paused = false;
+    try {
+      await _audioPlayer.play();
+    } catch (_) {}
     _isSpeaking = true;
     _safeNotify();
   }
@@ -717,34 +770,85 @@ class TtsService extends ChangeNotifier {
   // SPEAK MULTIPLE
   // ═══════════════════════════════════════
 
+  /// Đọc lần lượt từng dòng.
+  ///
+  /// F3 — ba bảo đảm:
+  ///   • Stop (tăng thế hệ) chặn luôn dòng kế, kể cả khi lệnh rơi vào giữa
+  ///     lúc `speak()` đang dựng nguồn âm;
+  ///   • Pause giữ vòng lặp ĐỨNG YÊN ở đúng dòng đang đọc (không auto-skip);
+  ///   • `onLineChanged` bắn ĐÚNG MỘT LẦN cho mỗi dòng, và không bắn nữa sau
+  ///     khi phiên đã bị thay thế.
   Future<void> speakLines(
     List<String> lines, {
     Duration pauseBetween = const Duration(milliseconds: 500),
     void Function(int currentIndex)? onLineChanged,
   }) async {
-    _isSpeaking = true;
     _stopRequested = false;
+    _paused = false;
+    _isSpeaking = true;
+    final epoch = _playbackEpoch;
     _safeNotify();
 
     for (int i = 0; i < lines.length; i++) {
-      if (_stopRequested) break;
+      if (_stopRequested || isStaleEpoch(epoch)) break;
       onLineChanged?.call(i);
 
       await speak(lines[i]);
+      if (_stopRequested || isStaleEpoch(epoch)) break;
 
       // Đảm bảo trạng thái vẫn đang trong phiên đọc
-      _isSpeaking = true;
+      if (!_paused) _isSpeaking = true;
 
-      await _waitForCompletion();
-      if (_stopRequested) break;
+      await _awaitLineFinished(epoch);
+      if (_stopRequested || isStaleEpoch(epoch)) break;
 
       if (i < lines.length - 1) {
         await Future.delayed(pauseBetween);
       }
     }
 
-    _isSpeaking = false;
-    _safeNotify();
+    if (!isStaleEpoch(epoch)) {
+      _isSpeaking = false;
+      _safeNotify();
+    }
+  }
+
+  /// Chờ dòng hiện tại phát xong, nhưng bỏ chờ ngay khi bị stop, và ĐỨNG YÊN
+  /// (không coi là xong) khi đang tạm dừng.
+  ///
+  /// Dùng polling thay cho `firstWhere` trên `playerStateStream`: lúc pause,
+  /// stream chỉ báo `playing == false` với `processingState == ready`, nên
+  /// điều kiện completed/idle không bao giờ đúng và vòng cũ kẹt tới khi hết
+  /// timeout 60 s rồi mới… chạy tiếp sang dòng sau.
+  Future<void> _awaitLineFinished(int epoch) async {
+    const tick = Duration(milliseconds: 120);
+    // Đang tạm dừng thì ĐỨNG YÊN, kể cả khi nguồn âm đã tắt vì chính lệnh
+    // pause: nếu không, giọng máy (flutter_tts) vừa bị cắt sẽ bị hiểu là
+    // "đọc xong" và vòng lặp nhảy sang dòng kế trong lúc người dùng đang
+    // tạm dừng. Đây chính là kiểu tự lướt dòng đã báo.
+    while (_paused) {
+      if (_stopRequested || isStaleEpoch(epoch)) return;
+      await Future.delayed(tick);
+    }
+    // Giọng máy: `speak()` đã await tới khi đọc xong (awaitSpeakCompletion).
+    // Lưu ý: tạm dừng giữa câu của flutter_tts không phát tiếp được từ chỗ
+    // cũ — resume sẽ bắt đầu từ câu KẾ, không phải giữa câu đang dở.
+    if (_usingOfflineEngine) return;
+    // Trần an toàn cho một dòng (dòng dài nhất của PDF vẫn dưới mức này).
+    final deadline = DateTime.now().add(const Duration(minutes: 5));
+    while (DateTime.now().isBefore(deadline)) {
+      if (_stopRequested || isStaleEpoch(epoch)) return;
+      if (_paused) {
+        await Future.delayed(tick);
+        continue;
+      }
+      final state = _audioPlayer.processingState;
+      if (state == ProcessingState.completed ||
+          state == ProcessingState.idle) {
+        return;
+      }
+      await Future.delayed(tick);
+    }
   }
 
   Future<void> speakRepeat(

@@ -79,7 +79,10 @@ class PdfTtsBar extends StatelessWidget {
           // thông báo "Trang này là ảnh, không có chữ để đọc".
           // Ẩn khi trang CÓ chữ (không bày nút thừa) và khi ML Kit không
           // khả dụng (desktop/web — cùng nguyên tắc với nút ở text library).
-          if (controller.pageHasNoTextLayer && OcrService.instance.isAvailable) ...[
+          // Hiện nút quét khi trang đọc dở không có chữ, HOẶC khi bản dò
+          // kết luận cả tài liệu là scan (F2) — PDF có lớp chữ thì không.
+          if ((controller.pageHasNoTextLayer || controller.isScannedDocument) &&
+              OcrService.instance.isAvailable) ...[
             _BarBtn(
               icon: Icons.document_scanner_outlined,
               tooltip: context.uiText('Quét chữ trang này'),
@@ -246,6 +249,21 @@ class PdfTtsBar extends StatelessWidget {
     final pageIndex = controller.currentPage;
     final title = controller.displayTitle;
 
+    // F2 — không bật OCR khi không cần: trang đã có lớp chữ thì quét lại chỉ
+    // tốn một vòng spinner để nhận về đúng thứ đang có.
+    if (await controller.pageHasExtractableText(pageIndex)) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+              context.uiText('Trang này đã có lớp chữ — không cần quét OCR')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+
     final raster = await rasterizePdfPage(doc, pageIndex);
     if (!context.mounted) return;
 
@@ -286,7 +304,7 @@ class PdfTtsBar extends StatelessWidget {
       ];
       return parts.where((p) => p.isNotEmpty).join(' · ');
     }
-    if (controller.pageHasNoTextLayer) {
+    if (controller.pageHasNoTextLayer || controller.isScannedDocument) {
       return context.uiText('Trang này là ảnh, không có chữ để đọc');
     }
     return context.uiText('Đọc to theo câu');

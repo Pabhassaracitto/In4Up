@@ -18,7 +18,9 @@ import '../../providers/vocabulary_provider.dart';
 import '../../services/learning_activity_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
+import 'services/read_line_hint_service.dart';
 import 'services/recent_files_service.dart';
+import 'widgets/read_line_hint.dart';
 import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/ipa_legend_strip.dart';
@@ -57,6 +59,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   // Smart-hide bottom controls
   bool _bottomControlsVisible = true;
   double _lastScrollOffset = 0;
+
+  // I4U18-READ-IPA-001 (F1.2) — chống lên lịch gợi ý nhiều lần trong khi
+  // đang chờ đọc cờ prefs (build có thể chạy lại vài lần liên tiếp).
+  bool _lineHintScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -113,6 +119,48 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       LearningActivityKind.readingMinutes,
       sourceKey: '${file.id}|$minuteBucket',
     ));
+  }
+
+  /// I4U18-READ-IPA-001 (F1.2) — nhắc "chạm dòng/chạm từ" khi mở nguồn chữ
+  /// theo dòng (Word/DOCX, md, txt…).
+  ///
+  /// Gọi từ `build` nhưng CHỈ lên lịch sau frame: showSnackBar trong build là
+  /// lỗi "setState during build". Khoá theo documentId + cờ "đừng nhắc lại"
+  /// nằm trong ReadLineHintService (logic thuần ở `shouldAutoShowLineHint`).
+  void _maybeShowLineHint(TextProvider tp) {
+    if (_lineHintScheduled) return;
+    final documentId = tp.currentDocument?.id;
+    final path = tp.currentTextPath;
+    final service = ReadLineHintService.instance;
+    if (!shouldAutoShowLineHint(
+      path: path,
+      documentId: documentId,
+      dismissedForever: service.dismissedForever,
+      lastShownDocumentId: service.lastShownDocumentId,
+      hasLines: tp.lines.isNotEmpty,
+    )) {
+      return;
+    }
+    _lineHintScheduled = true;
+    unawaited(() async {
+      await service.ensureLoaded();
+      if (!mounted) return;
+      _lineHintScheduled = false;
+      if (!shouldAutoShowLineHint(
+        path: path,
+        documentId: documentId,
+        dismissedForever: service.dismissedForever,
+        lastShownDocumentId: service.lastShownDocumentId,
+        hasLines: tp.lines.isNotEmpty,
+      )) {
+        return;
+      }
+      service.markShown(documentId!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ReadLineHint.showSnackBar(context, wordSource: isWordSource(path));
+      });
+    }());
   }
 
   void _onScrollEnd(TextProvider tp) {
@@ -174,6 +222,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           if (!textProvider.hasLyrics) {
             return const ReadEmptyState();
           }
+          _maybeShowLineHint(textProvider);
           final showGrammarLegend =
               textProvider.colorMode == ColorMode.wordType &&
                   textProvider.grammarSettings.enabled &&

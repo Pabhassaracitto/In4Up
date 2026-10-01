@@ -123,6 +123,20 @@ class OfflineTtsEngine extends TtsEngine {
     await _tts.stop();
   }
 
+  /// Tạm dừng giọng máy (I4U18-PDF-OCR-TTS-001 F3).
+  ///
+  /// `flutter_tts.pause()` chỉ có trên Android/iOS và ném lỗi ở nơi khác;
+  /// khi đó rơi về `stop()` — thà mất vị trí trong câu còn hơn ÂM VẪN PHÁT
+  /// sau khi người dùng bấm Tạm dừng.
+  Future<void> pause() async {
+    try {
+      await _tts.pause();
+    } catch (e) {
+      debugPrint('OfflineTTS pause không hỗ trợ ($e) — dừng hẳn thay thế');
+      await _tts.stop();
+    }
+  }
+
   @override
   Future<List<TtsVoice>> getAvailableVoices(String language) async {
     await _ensureInitialized();

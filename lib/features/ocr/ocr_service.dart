@@ -37,6 +37,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import 'ocr_cancel_token.dart';
 import 'ocr_image_picker.dart';
 
 /// Kết quả một lần nhận dạng chữ từ ảnh.
@@ -59,11 +60,16 @@ class OcrResult {
   /// null nghĩa là thành công.
   final String? error;
 
+  /// Vì sao thất bại — UI cần phân biệt để nói đúng chuyện
+  /// (I4U18-PDF-OCR-TTS-001 F2: "OCR có timeout/cancel token/error state rõ").
+  final OcrFailureKind failureKind;
+
   const OcrResult({
     required this.text,
     this.sourceImagePath,
     this.elapsed = Duration.zero,
     this.error,
+    this.failureKind = OcrFailureKind.none,
   });
 
   bool get isSuccess => error == null;
@@ -71,9 +77,51 @@ class OcrResult {
   /// True khi chạy xong nhưng ảnh không có chữ nào.
   bool get isEmpty => isSuccess && text.trim().isEmpty;
 
-  factory OcrResult.failure({String? sourceImagePath, required String error}) {
-    return OcrResult(text: '', sourceImagePath: sourceImagePath, error: error);
+  /// Người dùng bấm hủy — KHÔNG phải lỗi, UI không được báo đỏ.
+  bool get isCancelled => failureKind == OcrFailureKind.cancelled;
+
+  /// Hết giờ chờ native — UI gợi ý ảnh nhỏ/rõ hơn thay vì đổ lỗi chung chung.
+  bool get isTimeout => failureKind == OcrFailureKind.timeout;
+
+  factory OcrResult.failure({
+    String? sourceImagePath,
+    required String error,
+    OcrFailureKind kind = OcrFailureKind.error,
+  }) {
+    return OcrResult(
+      text: '',
+      sourceImagePath: sourceImagePath,
+      error: error,
+      failureKind: kind,
+    );
   }
+
+  factory OcrResult.cancelled({String? sourceImagePath}) => OcrResult.failure(
+        sourceImagePath: sourceImagePath,
+        error: 'OCR cancelled by user',
+        kind: OcrFailureKind.cancelled,
+      );
+
+  factory OcrResult.timedOut({String? sourceImagePath}) => OcrResult.failure(
+        sourceImagePath: sourceImagePath,
+        error: 'OCR timed out',
+        kind: OcrFailureKind.timeout,
+      );
+}
+
+/// Phân loại thất bại của một lần OCR.
+enum OcrFailureKind {
+  /// Thành công (không có lỗi).
+  none,
+
+  /// Lỗi thật: file hỏng, native ném exception, nền tảng không hỗ trợ…
+  error,
+
+  /// Người dùng bấm hủy giữa chừng.
+  cancelled,
+
+  /// Hết hạn chờ (xem [kOcrDefaultTimeout]).
+  timeout,
 }
 
 /// Nguồn ảnh mà user chọn để OCR.
@@ -119,7 +167,14 @@ class OcrService {
   /// Trả về [OcrResult] — KHÔNG throw: mọi lỗi (file không tồn tại, native
   /// fail, platform không hỗ trợ) đều thành `OcrResult.failure` có thông báo
   /// rõ ràng để UI hiện cho user, không im lặng và không crash.
-  Future<OcrResult> recognizeFile(String imagePath) async {
+  Future<OcrResult> recognizeFile(
+    String imagePath, {
+    Duration timeout = kOcrDefaultTimeout,
+    OcrCancelToken? cancelToken,
+  }) async {
+    if (cancelToken?.isCancelled ?? false) {
+      return OcrResult.cancelled(sourceImagePath: imagePath);
+    }
     if (!platformSupported) {
       return OcrResult.failure(
         sourceImagePath: imagePath,
@@ -142,8 +197,20 @@ class OcrService {
     final stopwatch = Stopwatch()..start();
     try {
       final input = InputImage.fromFilePath(imagePath);
-      final recognized = await recognizer.processImage(input);
+      // Chạy đua với timeout + cancel: native không có đường hủy, nhưng ta
+      // ngừng CHỜ nó (F2 — không để spinner quay vô hạn).
+      final run = await runOcrGuarded(
+        () => recognizer.processImage(input),
+        timeout: timeout,
+        cancelToken: cancelToken,
+      );
       stopwatch.stop();
+      if (run.isCancelled) return OcrResult.cancelled(sourceImagePath: imagePath);
+      if (run.isTimedOut) {
+        debugPrint('⌛ OCR recognizeFile quá hạn ${timeout.inSeconds}s: $imagePath');
+        return OcrResult.timedOut(sourceImagePath: imagePath);
+      }
+      final recognized = run.value!;
       final cleaned = normalizeOcrText(recognized.text);
       debugPrint(
         '✅ OCR: ${cleaned.length} ký tự / '
@@ -172,20 +239,41 @@ class OcrService {
   /// Các trang ghép bằng một dòng trống — giữ cấu trúc trang để pipeline
   /// ngắt dòng của TextProvider xử lý tự nhiên. Dừng sớm nếu một trang lỗi
   /// để không trả về kết quả nửa vời khó hiểu.
-  Future<OcrResult> recognizeFiles(List<String> imagePaths) async {
+  Future<OcrResult> recognizeFiles(
+    List<String> imagePaths, {
+    Duration timeout = kOcrDefaultTimeout,
+    OcrCancelToken? cancelToken,
+  }) async {
     if (imagePaths.isEmpty) {
       return OcrResult.failure(error: 'Không có ảnh để nhận dạng');
     }
     if (imagePaths.length == 1) {
-      return recognizeFile(imagePaths.first);
+      return recognizeFile(
+        imagePaths.first,
+        timeout: timeout,
+        cancelToken: cancelToken,
+      );
     }
 
     final stopwatch = Stopwatch()..start();
     final pages = <String>[];
     for (final path in imagePaths) {
-      final result = await recognizeFile(path);
+      if (cancelToken?.isCancelled ?? false) {
+        return OcrResult.cancelled(sourceImagePath: path);
+      }
+      // Timeout tính cho TỪNG trang: 10 trang scan chậm không được cộng dồn
+      // thành một lần chờ 4 phút, nhưng một trang kẹt cũng không treo cả xấp.
+      final result = await recognizeFile(
+        path,
+        timeout: timeout,
+        cancelToken: cancelToken,
+      );
       if (!result.isSuccess) {
-        return OcrResult.failure(sourceImagePath: path, error: result.error!);
+        return OcrResult.failure(
+          sourceImagePath: path,
+          error: result.error!,
+          kind: result.failureKind,
+        );
       }
       pages.add(result.text);
     }
@@ -214,7 +302,10 @@ class OcrService {
     required Uint8List pixels,
     required int width,
     required int height,
+    Duration timeout = kOcrDefaultTimeout,
+    OcrCancelToken? cancelToken,
   }) async {
+    if (cancelToken?.isCancelled ?? false) return OcrResult.cancelled();
     if (!platformSupported) {
       return OcrResult.failure(error: 'OCR chỉ chạy trên Android/iOS');
     }
@@ -237,8 +328,18 @@ class OcrService {
         width: width,
         height: height,
       );
-      final recognized = await recognizer.processImage(input);
+      final run = await runOcrGuarded(
+        () => recognizer.processImage(input),
+        timeout: timeout,
+        cancelToken: cancelToken,
+      );
       stopwatch.stop();
+      if (run.isCancelled) return OcrResult.cancelled();
+      if (run.isTimedOut) {
+        debugPrint('⌛ OCR recognizeBitmap quá hạn ${timeout.inSeconds}s');
+        return OcrResult.timedOut();
+      }
+      final recognized = run.value!;
       final cleaned = normalizeOcrText(recognized.text);
       debugPrint(
         '✅ OCR bitmap ${width}x$height: ${cleaned.length} ký tự trong '

@@ -57,12 +57,13 @@ jobs:
           flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
           code=$?
           tail -n 300 analyze.log
-          # Surface analyzer ERROR lines as GitHub annotations so they are
-          # retrievable via the check-runs annotations API even when blob log
-          # storage is unreachable (CI-red-debugging: log EOF).
-          grep -E '^\s*error' analyze.log | head -50 | while IFS= read -r line; do
-            echo "::error::${line}"
-          done
+          # Surface analyzer ERROR lines as GitHub annotations so they remain
+          # retrievable through the check-runs API when artifact logs fail.
+          if [ "$code" -ne 0 ]; then
+            grep -E ' error •|^[[:space:]]*error' analyze.log | head -50 | while IFS= read -r line; do
+              echo "::error title=Flutter analyzer::$line"
+            done
+          fi
           exit $code
 
       - name: Upload analyze log
@@ -135,6 +136,46 @@ jobs:
         with:
           name: app-sentence-structure-test-log
           path: sentence_structure_test.log
+          if-no-files-found: ignore
+
+      - name: "Tipiṭaka — import ngôn ngữ độc lập + Pāli enrich"
+        run: >-
+          flutter test
+          test/tipitaka_independent_language_import_test.dart
+          test/tipitaka_workspace_retention_test.dart
+          test/tipitaka_dictionary_i18n_coverage_test.dart
+
+      # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
+      # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
+      # Thuần logic (không plugin, không mạng) nên chạy được trên CI.
+      - name: "Agent F tests — line mode / OCR guard / PDF TTS state machine"
+        id: agent-f-tests
+        run: |
+          set +e
+          files=""
+          for f in test/read_mode/docx_line_mode_test.dart \
+                   test/read_mode/read_line_hint_test.dart \
+                   test/ocr/ocr_cancel_token_test.dart \
+                   test/pdf_reader/pdf_text_layer_probe_test.dart \
+                   test/pdf_reader/pdf_tts_machine_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test Agent F trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > agent_f_test.log 2>&1
+          code=$?
+          cat agent_f_test.log
+          exit $code
+
+      - name: Upload Agent F test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-agent-f-test-log
+          path: agent_f_test.log
           if-no-files-found: ignore
 
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"

@@ -51,6 +51,36 @@ are inspected, normalized, and installed by the Dart importer; the Python
 script remains useful for large developer/release builds. The app never opens
 a raw source as an empty application schema.
 
+## Developer file locations and scanning
+
+Use these locations:
+
+| Purpose | Location |
+|---|---|
+| Python importer input | repository `reference/` (`.db`, `.sqlite`, `.zip`) |
+| Bundled fallback DB | `assets/db/tipitaka.sqlite` |
+| Runtime scan folder | `<Application Documents>/in4up/tipitaka/imports/` |
+| Downloaded packs | `<Application Documents>/in4up/tipitaka/packs/` |
+
+The Tipiṭaka data manager has **Quét thư mục import của developer**. Put one or
+more source files into the runtime scan folder and the app will find them,
+import Pāli before translation packs, and show one background task banner. The
+runtime folder is intentionally not scanned on every app startup: large DBs
+must only be imported after the user explicitly presses the scan button.
+
+For a packaged developer build, replace `assets/db/tipitaka.sqlite` and rebuild
+when the database should be available on a fresh install. For a device import,
+use the application-documents `imports` folder or the file picker.
+
+## Background task behavior
+
+Downloads and imports run through a process-level coordinator rather than the
+screen that started them. Leaving the screen does not cancel work; the root
+banner and recent-task list show `Đang tải`, `Đang giải nén`, `Đang import`,
+`Đã hoàn tất`, or `Thất bại`. The current task history is intentionally
+in-memory, so an operating-system process kill does not resume a partially
+completed task. Reopen the app and scan/import the source again if that occurs.
+
 ## Download language packages in the app
 
 The Language Packs screen has the Pa-Auk URLs from the integration handoff.

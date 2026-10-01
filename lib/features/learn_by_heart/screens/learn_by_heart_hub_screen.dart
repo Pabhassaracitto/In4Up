@@ -9,6 +9,7 @@ import '../models/learn_by_heart_item.dart';
 import '../models/recitation_category.dart';
 import '../models/review_state.dart';
 import '../services/learn_by_heart_sync_service.dart';
+import '../../tipitaka/widgets/tipitaka_source_link.dart';
 import 'active_recall_screen.dart';
 import 'assessment_screen.dart';
 import 'chunking_flow_screen.dart';
@@ -822,6 +823,11 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                   ),
                 ),
               ],
+              if (item.sourceAnchor != null)
+                TipitakaSourceLink(
+                  anchor: item.sourceAnchor!,
+                  compact: true,
+                ),
               const SizedBox(height: 8),
 
               // Snippet Preview

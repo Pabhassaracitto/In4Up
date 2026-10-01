@@ -6,6 +6,7 @@ import '../controllers/learn_by_heart_provider.dart';
 import '../models/chunk.dart';
 import '../models/learn_by_heart_item.dart';
 import '../models/line_timestamp.dart';
+import '../../tipitaka/widgets/tipitaka_source_link.dart';
 import '../services/multilingual_audio_service.dart';
 import '../widgets/audio_control_bar.dart';
 import '../widgets/bilingual_verse_view.dart';
@@ -100,6 +101,8 @@ class _NewLearningScreenState extends State<NewLearningScreen> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
+          if (item.sourceAnchor != null)
+            TipitakaSourceLink(anchor: item.sourceAnchor!, compact: true),
           IconButton(
             icon: Icon(
               item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,

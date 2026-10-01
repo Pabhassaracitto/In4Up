@@ -6,6 +6,7 @@ import 'line_timestamp.dart';
 import 'recitation_category.dart';
 import 'recitation_language.dart';
 import 'review_state.dart';
+import 'package:in4up/models/tipitaka_source_anchor.dart';
 
 /// Model chính đại diện cho một bài học thuộc lòng (Kệ Pháp Cú, Kinh Tụng, Sutta...)
 class LearnByHeartItem {
@@ -35,6 +36,8 @@ class LearnByHeartItem {
   // ===== ELABORATIVE FIELDS =====
   final List<String> keywords;
   final String shortMeaning;
+  final TipitakaSourceAnchor? sourceAnchor;
+  final TipitakaContextSnapshot? contextSnapshot;
   final String lifeConnection;
   final String? cueImageUrl;
 
@@ -74,6 +77,8 @@ class LearnByHeartItem {
     this.lineRepeatOverrides = const {},
     this.keywords = const [],
     this.shortMeaning = '',
+    this.sourceAnchor,
+    this.contextSnapshot,
     this.lifeConnection = '',
     this.cueImageUrl,
     this.reviewState = ReviewState.newItem,
@@ -169,6 +174,8 @@ class LearnByHeartItem {
     Map<int, int>? lineRepeatOverrides,
     List<String>? keywords,
     String? shortMeaning,
+    TipitakaSourceAnchor? sourceAnchor,
+    TipitakaContextSnapshot? contextSnapshot,
     String? lifeConnection,
     String? cueImageUrl,
     ReviewState? reviewState,
@@ -203,6 +210,8 @@ class LearnByHeartItem {
       lineRepeatOverrides: lineRepeatOverrides ?? this.lineRepeatOverrides,
       keywords: keywords ?? this.keywords,
       shortMeaning: shortMeaning ?? this.shortMeaning,
+      sourceAnchor: sourceAnchor ?? this.sourceAnchor,
+      contextSnapshot: contextSnapshot ?? this.contextSnapshot,
       lifeConnection: lifeConnection ?? this.lifeConnection,
       cueImageUrl: cueImageUrl ?? this.cueImageUrl,
       reviewState: reviewState ?? this.reviewState,
@@ -279,6 +288,8 @@ class LearnByHeartItem {
       },
       'keywords': keywords,
       'shortMeaning': shortMeaning,
+      'sourceAnchor': sourceAnchor?.toJson(),
+      'contextSnapshot': contextSnapshot?.toJson(),
       'lifeConnection': lifeConnection,
       'cueImageUrl': cueImageUrl,
       'reviewState': reviewState.name,
@@ -334,6 +345,16 @@ class LearnByHeartItem {
               .toList() ??
           const [],
       shortMeaning: json['shortMeaning'] as String? ?? '',
+      sourceAnchor: json['sourceAnchor'] is Map
+          ? TipitakaSourceAnchor.fromJson(
+              Map<String, dynamic>.from(json['sourceAnchor'] as Map),
+            )
+          : null,
+      contextSnapshot: json['contextSnapshot'] is Map
+          ? TipitakaContextSnapshot.fromJson(
+              Map<String, dynamic>.from(json['contextSnapshot'] as Map),
+            )
+          : null,
       lifeConnection: json['lifeConnection'] as String? ?? '',
       cueImageUrl: json['cueImageUrl'] as String?,
       reviewState: ReviewState.values.firstWhere(

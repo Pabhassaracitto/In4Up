@@ -81,6 +81,8 @@ class VocabContext {
         return '📋';
       case 'story':
         return '📖';
+      case 'tipitaka':
+        return '📜';
       case 'ocr':
         // Nguồn ảnh đã quét chữ (ADR-0009 · OCR-001).
         return '📷';

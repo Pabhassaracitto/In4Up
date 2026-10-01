@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
+import '../../../features/tipitaka/widgets/tipitaka_source_link.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
@@ -2205,6 +2206,30 @@ class _CompactListItem extends StatelessWidget {
                       ],
                     ]),
               )),
+          const SizedBox(height: 8),
+        ],
+
+        if (entry.tipitakaAnchors.isNotEmpty) ...[
+          _SectionHeader(
+            icon: Icons.auto_stories_outlined,
+            label: 'Tipiṭaka (${entry.tipitakaAnchors.length})',
+          ),
+          const SizedBox(height: 6),
+          ...entry.tipitakaAnchors.take(3).map(
+                (anchor) => Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${anchor.bookCode} · ${anchor.reference}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                      ),
+                    ),
+                    TipitakaSourceLink(anchor: anchor, compact: true),
+                  ],
+                ),
+              ),
           const SizedBox(height: 8),
         ],
 

@@ -12,6 +12,9 @@ class TipitakaSegment extends Equatable {
   final String? translationVi;
   final String? translationMy;
   final String? translationTh;
+  final String sourceTable;
+  final String sourceRowKey;
+  final Map<String, String> translations;
   final int orderIndex;
 
   const TipitakaSegment({
@@ -26,6 +29,9 @@ class TipitakaSegment extends Equatable {
     this.translationVi,
     this.translationMy,
     this.translationTh,
+    this.sourceTable = '',
+    this.sourceRowKey = '',
+    this.translations = const {},
     required this.orderIndex,
   });
 
@@ -41,8 +47,43 @@ class TipitakaSegment extends Equatable {
         translationVi: m['translation_vi'] ?? m['translationVi'],
         translationMy: m['translation_my'] ?? m['translationMy'],
         translationTh: m['translation_th'] ?? m['translationTh'],
+        sourceTable: m['source_table'] ?? m['sourceTable'] ?? '',
+        sourceRowKey: m['source_row_key'] ?? m['sourceRowKey'] ?? '',
+        translations: m['translations'] is Map
+            ? Map<String, String>.from(m['translations'] as Map)
+            : const {},
         orderIndex: m['order_index'] ?? m['orderIndex'] ?? 0,
       );
+
+  String translationFor(String languageCode) {
+    switch (languageCode) {
+      case 'vi':
+        return translationVi ?? '';
+      case 'en':
+        return translationEn ?? '';
+      case 'my':
+        return translationMy ?? '';
+      case 'th':
+        return translationTh ?? '';
+      default:
+        return translations[languageCode] ?? '';
+    }
+  }
+
+  MapEntry<String, String>? get firstTranslation {
+    for (final entry in <String, String?>{
+      'vi': translationVi,
+      'en': translationEn,
+      'my': translationMy,
+      'th': translationTh,
+      ...translations,
+    }.entries) {
+      if ((entry.value ?? '').trim().isNotEmpty) {
+        return MapEntry(entry.key, entry.value!);
+      }
+    }
+    return null;
+  }
 
   @override
   List<Object?> get props => [
@@ -55,6 +96,11 @@ class TipitakaSegment extends Equatable {
         paliText,
         translationEn,
         translationVi,
+        translationMy,
+        translationTh,
+        sourceTable,
+        sourceRowKey,
+        translations,
         orderIndex,
       ];
 }

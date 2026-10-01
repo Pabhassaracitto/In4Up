@@ -3770,4 +3770,159 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'පෙරනිමිය: පළමුව සොයා ඔබ තට්ටු කර තෝරයි. සක්‍රිය කළ විට වචනය එක් කළ '
         'වහාම සොයාගත් පළමු රූපය ස්වයංක්‍රීයව එක් වේ — ෂීට් විවෘත නොවේ.',
   },
+
+  // ── I4U18-DICT-001 + I4U18-MODEL-IMPORT-001 — quản lý từ điển / thiếu
+  // file model. Mirror English: tool/legacy_ui_english_overrides.json.
+  'Quản lý từ điển': {
+    'en': 'Manage dictionaries',
+    'hi': 'शब्दकोश प्रबंधित करें',
+    'zh': '管理词典',
+    'zh_TW': '管理詞典',
+    'si': 'ශබ්දකෝෂ කළමනාකරණය',
+  },
+  'Chưa có từ điển nào': {
+    'en': 'No dictionaries yet',
+    'hi': 'अभी कोई शब्दकोश नहीं',
+    'zh': '还没有词典',
+    'zh_TW': '還沒有詞典',
+    'si': 'තවම ශබ්දකෝෂ නැත',
+  },
+  'Bấm Import thư mục để thêm bộ từ điển (.mdx + .mdd + .css) — dùng ngay không cần copy.': {
+    'en': 'Tap Import folder to add a dictionary set (.mdx + .mdd + .css) — '
+        'ready to use with no copying.',
+    'hi': 'शब्दकोश सेट (.mdx + .mdd + .css) जोड़ने के लिए Import folder दबाएँ — '
+        'बिना कॉपी किए तुरंत उपयोग।',
+    'zh': '点击“导入文件夹”添加词典套装（.mdx + .mdd + .css）——无需复制即可使用。',
+    'zh_TW': '點選「匯入資料夾」以新增詞典套組（.mdx + .mdd + .css）——無需複製即可使用。',
+    'si': 'ශබ්දකෝෂ කට්ටලයක් (.mdx + .mdd + .css) එක් කිරීමට ෆෝල්ඩරය ආයාත කරන්න '
+        'තට්ටු කරන්න — පිටපත් නොකර කෙළින්ම භාවිතයට.',
+  },
+  'Chọn cách dùng từ điển': {
+    'en': 'Choose how to use the dictionary',
+    'hi': 'शब्दकोश उपयोग का तरीका चुनें',
+    'zh': '选择词典使用方式',
+    'zh_TW': '選擇詞典使用方式',
+    'si': 'ශබ්දකෝෂය භාවිත ආකාරය තෝරන්න',
+  },
+  'Liên kết thư mục (khuyến nghị)': {
+    'en': 'Link folder (recommended)',
+    'hi': 'फ़ोल्डर लिंक करें (अनुशंसित)',
+    'zh': '链接文件夹（推荐）',
+    'zh_TW': '連結資料夾（建議）',
+    'si': 'ෆෝල්ඩරය සම්බන්ධ කරන්න (නිර්දේශිත)',
+  },
+  'Dùng ngay — chỉ tạo index tra từ, không copy file lớn (mdx/mdd ở nguyên chỗ cũ). Xoá thư mục gốc sẽ mất hình/âm thanh kèm theo nhưng vẫn tra được từ.': {
+    'en': 'Use right away — only builds a word index, does not copy large '
+        'files (mdx/mdd stay where they are). Deleting the source folder '
+        'loses embedded images/audio in entries, but word lookup still works.',
+    'hi': 'तुरंत उपयोग — केवल शब्द अनुक्रमणिका बनती है, बड़ी फ़ाइलें कॉपी नहीं '
+        'होतीं (mdx/mdd वहीं रहते हैं)। मूल फ़ोल्डर हटाने से एंट्री की '
+        'तस्वीरें/ऑडियो चली जाएँगी, पर शब्द-खोज चलती रहेगी।',
+    'zh': '即刻可用——仅建立查词索引，不复制大文件（mdx/mdd 保留在原位）。删除源文件夹后，词条内的图片/音频会丢失，但仍可正常查词。',
+    'zh_TW': '即刻可用——僅建立查詞索引，不複製大型檔案（mdx/mdd 留在原處）。刪除來源資料夾後，詞條內的圖片/音訊會遺失，但查詞仍可使用。',
+    'si': 'කෙළින්ම භාවිතයට — වචන සූචියක් පමණක් සාදයි, විශාල ගොනු පිටපත් නොකරයි '
+        '(mdx/mdd එතැනම රැඳේ). මූල ෆෝල්ඩරය මකා දැමුවහොත් සටහන්වල රූප/ශ්‍රව්‍ය '
+        'නැති වේ, එහෙත් වචන සෙවීම ක්‍රියාත්මකයි.',
+  },
+  'Sao chép vào app': {
+    'en': 'Copy into app',
+    'hi': 'ऐप में कॉपी करें',
+    'zh': '复制到应用内',
+    'zh_TW': '複製到應用程式內',
+    'si': 'යෙදුමට පිටපත් කරන්න',
+  },
+  'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, không sợ đổi/xoá thư mục gốc (tốn dung lượng tương đương).': {
+    'en': 'Copies mdx + mdd + css into app storage — stable long-term even '
+        'if you move or delete the source folder (uses a similar amount of space).',
+    'hi': 'mdx + mdd + css को ऐप स्टोरेज में कॉपी करता है — मूल फ़ोल्डर '
+        'हटाने/बदलने पर भी स्थायी (लगभग उतनी ही जगह लेता है)।',
+    'zh': '将 mdx + mdd + css 复制到应用存储——即使移动或删除源文件夹也能长期稳定使用（占用相近的存储空间）。',
+    'zh_TW': '將 mdx + mdd + css 複製到應用程式儲存空間——即使移動或刪除來源資料夾也能長期穩定使用（佔用相近的儲存空間）。',
+    'si': 'mdx + mdd + css යෙදුමේ ගබඩාවට පිටපත් කරයි — මූල ෆෝල්ඩරය ගෙන ගියත් '
+        'මකා දැමුවත් දිගුකාලීනව ස්ථාවරයි (සමාන ඉඩ ප්‍රමාණයක් ගනී).',
+  },
+  'Liên kết': {
+    'en': 'Linked',
+    'hi': 'लिंक किया',
+    'zh': '已链接',
+    'zh_TW': '已連結',
+    'si': 'සම්බන්ධ කළ',
+  },
+  'Trong app': {
+    'en': 'In app',
+    'hi': 'ऐप में',
+    'zh': '应用内',
+    'zh_TW': '應用程式內',
+    'si': 'යෙදුමේ',
+  },
+  'Đang import từ điển…': {
+    'en': 'Importing dictionary…',
+    'hi': 'शब्दकोश इम्पोर्ट हो रहा है…',
+    'zh': '正在导入词典…',
+    'zh_TW': '正在匯入詞典…',
+    'si': 'ශබ්දකෝෂය ආයාත වෙමින්…',
+  },
+  'Thiếu file phụ:': {
+    'en': 'Missing companion files:',
+    'hi': 'सहायक फ़ाइलें गायब:',
+    'zh': '缺少配套文件：',
+    'zh_TW': '缺少配套檔案：',
+    'si': 'ආධාරක ගොනු නැත:',
+  },
+  'Vẫn tra được từ ở chế độ giảm cấp.': {
+    'en': 'Word lookup still works in degraded mode.',
+    'hi': 'शब्द-खोज सीमित मोड में भी काम करती है।',
+    'zh': '查词仍可在降级模式下使用。',
+    'zh_TW': '查詞仍可在降級模式下使用。',
+    'si': 'වචන සෙවීම අඩු මාදිලියේත් ක්‍රියාත්මකයි.',
+  },
+  'Đã import:': {
+    'en': 'Imported:',
+    'hi': 'इम्पोर्ट किया गया:',
+    'zh': '已导入：',
+    'zh_TW': '已匯入：',
+    'si': 'ආයාත කළ:',
+  },
+  'File lẻ không thuộc bộ nào:': {
+    'en': 'Loose files not part of any set:',
+    'hi': 'किसी सेट से न जुड़ी अलग फ़ाइलें:',
+    'zh': '不属于任一套装的零散文件：',
+    'zh_TW': '不屬於任一套組的零散檔案：',
+    'si': 'කිසිදු කට්ටලයකට නොවැටහෙන තනි ගොනු:',
+  },
+  'Import thất bại': {
+    'en': 'Import failed',
+    'hi': 'इम्पोर्ट विफल',
+    'zh': '导入失败',
+    'zh_TW': '匯入失敗',
+    'si': 'ආයාතය අසාර්ථකයි',
+  },
+  'Xóa từ điển?': {
+    'en': 'Delete dictionary?',
+    'hi': 'शब्दकोश हटाएँ?',
+    'zh': '删除词典？',
+    'zh_TW': '刪除詞典？',
+    'si': 'ශබ්දකෝෂය මකන්නද?',
+  },
+  'Thư mục nguồn của bạn sẽ KHÔNG bị xoá.': {
+    'en': 'Your source folder will NOT be deleted.',
+    'hi': 'आपका मूल फ़ोल्डर नहीं हटाया जाएगा।',
+    'zh': '不会删除您的源文件夹。',
+    'zh_TW': '不會刪除您的來源資料夾。',
+    'si': 'ඔබේ මූල ෆෝල්ඩරය මකා දැමිය නොහැක.',
+  },
+  'Thiếu file model:': {
+    'en': 'Missing model files:',
+    'hi': 'मॉडल फ़ाइलें गायब:',
+    'zh': '缺少模型文件：',
+    'zh_TW': '缺少模型檔案：',
+    'si': 'ආකෘති ගොනු නැත:',
+  },
+  'Bổ sung file rồi bấm Import lại.': {
+    'en': 'Add the missing files, then tap Import again.',
+    'hi': 'गायब फ़ाइलें जोड़ें, फिर से Import दबाएँ।',
+    'zh': '补齐缺失的文件，然后再次点击“导入”。',
+    'zh_TW': '補齊缺少的檔案，然後再次點選「匯入」。',
+    'si': 'නැති ගොනු එකතු කර නැවත ආයාත කරන්න තට්ටු කරන්න.',
+  },
 };

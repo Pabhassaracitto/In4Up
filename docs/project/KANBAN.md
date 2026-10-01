@@ -112,12 +112,17 @@
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 | I4U18-BATCH | I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành các lane nhỏ, tránh xung đột và không để CI đỏ | 📋 proposed | `docs/project/I4U_L18_PROBLEM_BRIEF.md` + `PROMPT_AGENT_I4U_L18.md`; tham chiếu nhánh `arena/01a06931-in4up` cho Tipiṭaka/PDF/Home khi cần |
+| I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 📋 proposed | Gom các lỗi Home chat + Tầng 2 AI local + provider BYOK; phụ thuộc API-001…004, AI-CHAT-01/02 |
+| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (code xong, CI run 36898178031 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
+| I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | SAF recursive scan + filter/sort/search + recent/favorite + subtitle pairing + reopen; CI run 36771997803 |
 | I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 🔄 doing (code xong, chờ CI/thiết bị) | agent arena/01a0f3d9-in4up — chat prompt trả lời trực tiếp, dừng remote không fallback local, parser local/remote chịu fence/JSON cắt; test bổ sung (sandbox thiếu Flutter SDK) |
 | I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 📋 proposed | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
 | I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 📋 proposed | Dựa VID-001; hỗ trợ folder scan, filter/sort, subtitle pairing, reopen |
 | I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | 📋 proposed | Đọc thêm `origin/arena/01a06931-in4up` (không merge mù); mở rộng TIPITAKA-001 |
-| I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 📋 proposed | Mở rộng AUDLIB-001/LISTEN-*; không phá transcript/LRC/reopen audio |
+| I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
 | I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 📋 proposed | Mở rộng READ-IPA-001…006 + SRC-630-01; cần i18n rule #5 |
+| I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 📋 proposed | Kế thừa HYMT-001 + API-004; không bỏ glossary/protect-token |
+| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (code xong, CI run 36898178031 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
 | I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
 | I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 📋 proposed | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 📋 proposed | Mở rộng OCR-001/PDF-W0/PDF-W1; ưu tiên state machine/cancel token, không đổ lỗi `flutter clean` |
@@ -4397,7 +4402,7 @@
   - 2026-09-30 | 19:47 UTC | proposed→doing | agent arena/01a0f3d9-in4up | code parser/prompt/cancel + test bổ sung; `git diff --check` sạch; chưa chạy Flutter test do sandbox thiếu `flutter`/`dart`.
 
 ### I4U18-DICT-001 — Từ điển: import/link thư mục MDX/MDD/CSS và dùng ngay
-- **Trạng thái:** proposed.
+- **Trạng thái:** 🔄 doing — code + unit test + CI run 36898178031 xanh; chờ PR merge + nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 2 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** từ điển vẫn chưa import được ổn định. Bộ từ điển thực
   tế thường gồm nhiều file liên quan như `.mdx`, `.mdd`, `.css`/asset kèm theo;
@@ -4412,9 +4417,24 @@
   file nào và cho tiếp tục ở chế độ giảm cấp nếu vẫn tra được.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | proposed→doing | agent arena/01a0f3da-in4up | code xong:
+    scanner thuần `dict_bundle_scanner.dart` (ghép set theo folder, mdd
+    stem+multi-part, css/asset tách, stray báo tên) + service 2 chế độ
+    Link/Import + screen mode-dialog/badges + 12 test thuần + i18n rule #5
+    (priorityUiOverrides 5 locale + EN mirror). Commit `8c0969d`. CI chạy
+    qua bước "I4U18 scanner tests" (commit lane, step có guard).
+    CI run id sẽ cập nhật khi push xong.
+  - 2026-10-01 | doing (giữ nguyên) | agent arena/01a0f3da-in4up | push xong
+    + CI xanh: nội dung của `8c0969d`/`b4e6550`/`4355b92` nằm trong commit
+    gộp `2a6b219` (16 file, 2 lane DICT-001 + MODEL-IMPORT-001, kèm merge
+    lane VIDEO/LISTEN-LIB cùng branch) + fix `0ed4662` (gỡ dấu `},` thừa
+    trong `priority_ui_overrides.dart` sau dedup — lỗi parse ở CI run
+    36897541200, đã sửa). CI run **36898178031 SUCCESS** toàn bộ job, gồm
+    bước "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test
+    thuần). Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
 
 ### I4U18-VIDEO-LIB-001 — Tab Video: quét thư mục và thư viện phát file trực quan
-- **Trạng thái:** proposed.
+- **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 4 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** hiện tại dù đã thêm video, app chỉ thêm theo từng file
   đơn lẻ. Cần cho phép quét thư mục và tổ chức thư viện để người dùng dễ thấy,
@@ -4427,6 +4447,7 @@
   một file trong thư mục bị xoá/đổi tên.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-10-01 | proposed→doing | agent arena/01a0f3da-in4up | hoàn tất SAF scan đệ quy, thư viện filter/sort/search/recent/favorite, ghép phụ đề và lưu vị trí; test logic/subtitle + CI run 36771997803 xanh; chờ nghiệm thu Android thực.
 
 ### I4U18-TIPITAKA-001 — Tipiṭaka: import pack, tiêu đề thật, cây Tam Tạng, tab/split/TTS
 - **Trạng thái:** proposed.
@@ -4452,6 +4473,7 @@
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
 
 ### I4U18-LISTEN-LIB-001 — Tab Nghe: lọc album/tác giả/yêu thích/playlist
+- **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.
 - **Trạng thái:** proposed.
 - **Nguồn:** owner (2026-09-30), mục 8 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** thư viện Tab Nghe cần bộ lọc và tổ chức giống thư viện
@@ -4464,6 +4486,7 @@
   playlist thủ công, và mở lại bài giữ đúng transcript/LRC đang dùng.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-10-01 | proposed→doing | agent arena/01a0f3da-in4up | hoàn tất filter album/artist/folder/favorite, manual + smart playlist; playlist chỉ giữ libraryId để bảo toàn LRC/transcript/reopen; test + CI run 36771997803 xanh; chờ nghiệm thu thiết bị.
 
 ### I4U18-READ-IPA-001 — Tab Đọc IPA: chế độ dòng với Word và hướng dẫn chọn IPA
 - **Trạng thái:** proposed.
@@ -4496,7 +4519,7 @@
   - 2026-10-01 | proposed→doing | agent arena/01a0f3d9-in4up | đối chiếu nguồn chuẩn PR #64; gom validator path/import/download, phân biệt thiếu/sai magic/file cắt/không đọc được; giữ load handshake thật và coi output rỗng là lỗi; chuẩn hóa error code snake_case; xác nhận API-004 đã có và routing mặc định vẫn offline-first, glossary/protect-token chạy trước mọi engine; thêm test validator. Chưa chạy Flutter test vì SDK không có trong PATH, còn AT model/native thật trên thiết bị.
 
 ### I4U18-MODEL-IMPORT-001 — Model import: eSpeak/Piper/STT offline nhận diện sai
-- **Trạng thái:** proposed.
+- **Trạng thái:** 🔄 doing — code + unit test + CI run 36898178031 xanh; chờ PR merge + nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 13 của I4U L18.
 - **Vấn đề đã chuẩn hoá:**
   - Settings/Home import bằng chọn nhiều file: thư mục `espeak` có sẵn nhưng app
@@ -4513,6 +4536,19 @@
   chỉ ra file cần bổ sung và nút "chọn lại thư mục/file".
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | proposed→doing | agent arena/01a0f3da-in4up | code xong:
+    scanner thuần `model_bundle_scanner.dart` (classify Piper voice/eSpeak/
+    Zipformer roles/VAD/Whisper, báo thiếu đúng role) + manager ASR import
+    ăn scanner (copy đúng bộ, ZIP fallback, dest-rescan báo thiếu chính
+    xác) + Piper hint nhầm loại bundle + settings picker FileType.any cho
+    espeak + 16 test thuần. Commit `b4e6550`. CI run id CHƯA có — push bị
+    chặn token, cùng cần reconnect GitHub.
+  - 2026-10-01 | doing (giữ nguyên) | agent arena/01a0f3da-in4up | reconnect
+    GitHub xong, push + CI xanh: nội dung nằm trong commit gộp `2a6b219`
+    + fix `0ed4662` (gỡ dấu `},` thừa sau dedup overrides — lỗi ở CI run
+    36897541200). CI run **36898178031 SUCCESS** toàn bộ job, gồm bước
+    "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test thuần).
+    Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
 
 ### I4U18-PDF-OCR-TTS-001 — PDF/OCR Reader: spinner OCR và TTS controls không dừng
 - **Trạng thái:** proposed.

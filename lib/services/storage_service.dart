@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../features/shadowing/models/shadowing_result.dart';
 import '../models/audio_library_entry.dart';
+import '../models/audio_playlist.dart';
 import '../models/segment.dart';
 import '../models/sound_chapter.dart';
 import '../models/sound_loop_stat.dart';
@@ -35,6 +36,7 @@ class StorageService {
   static const String _soundTranscriptsBox = 'sound_transcripts';
   static const String _soundLoopStatsBox = 'sound_loop_stats';
   static const String _audioLibraryBox = 'audio_library';
+  static const String _audioPlaylistsBox = 'audio_playlists';
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -64,6 +66,7 @@ class StorageService {
         Hive.openBox<String>(_soundTranscriptsBox),
         Hive.openBox<String>(_soundLoopStatsBox),
         Hive.openBox<String>(_audioLibraryBox),
+        Hive.openBox<String>(_audioPlaylistsBox),
       ]);
 
       _initialized = true;
@@ -645,6 +648,36 @@ class StorageService {
   }
 
   String _jsonEncodeEntry(AudioLibraryEntry entry) => jsonEncode(entry.toJson());
+
+  // ==================== AUDIO PLAYLISTS (Playlist thủ công) ====================
+
+  Box<String> get _audioPlaylists => Hive.box<String>(_audioPlaylistsBox);
+
+  /// Lưu / cập nhật một playlist.
+  Future<void> saveAudioPlaylist(AudioPlaylist playlist) async {
+    await _audioPlaylists.put(playlist.id, jsonEncode(playlist.toJson()));
+  }
+
+  /// Đọc toàn bộ playlist (sắp xếp theo updatedAt mới → cũ).
+  List<AudioPlaylist> getAllAudioPlaylists() {
+    final list = <AudioPlaylist>[];
+    for (final json in _audioPlaylists.values) {
+      try {
+        list.add(
+          AudioPlaylist.fromJson(jsonDecode(json) as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('Error parsing audio playlist: $e');
+      }
+    }
+    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return list;
+  }
+
+  /// Xóa một playlist.
+  Future<void> deleteAudioPlaylist(String id) async {
+    await _audioPlaylists.delete(id);
+  }
 
   // ==================== TEXT SEGMENTS ====================
 

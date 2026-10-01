@@ -92,11 +92,19 @@ class MainActivity : FlutterActivity() {
                     }
                     "scanTree" -> {
                         val treeUri = call.argument<String>("treeUri")
+                        // Danh sách extension muốn quét (chữ thường, không kèm
+                        // dấu chấm). null/rỗng → dùng bộ mặc định textExtensions
+                        // (giữ tương thích với Thư viện đọc). Thư viện video
+                        // truyền ["mp4","mkv",...,"srt","vtt",...] để quét cả
+                        // video lẫn phụ đề trong cùng một lượt.
+                        val exts = call.argument<List<String>>("extensions")
+                            ?.mapNotNull { it?.toString()?.lowercase() }
+                            ?.toSet()
                         if (treeUri.isNullOrBlank()) {
                             result.success(emptyList<Map<String, Any?>>())
                         } else {
                             try {
-                                result.success(scanTextTree(treeUri))
+                                result.success(scanTextTree(treeUri, exts))
                             } catch (se: SecurityException) {
                                 // Mất persistable permission (gỡ/cập nhật app,
                                 // user thu hồi quyền) → phía Dart hiện lỗi +
@@ -249,8 +257,13 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun scanTextTree(treeUri: String): List<Map<String, Any?>> {
+    private fun scanTextTree(
+        treeUri: String,
+        extensions: Set<String>? = null,
+    ): List<Map<String, Any?>> {
         val out = mutableListOf<Map<String, Any?>>()
+        // Bộ extension hiệu lực: caller truyền → dùng; không → textExtensions.
+        val exts = if (extensions.isNullOrEmpty()) textExtensions else extensions
         val normalized = normalizeTreeUri(treeUri)
             ?: throw IllegalArgumentException(
                 "Không phải SAF tree URI / đường dẫn hợp lệ: $treeUri",
@@ -269,7 +282,7 @@ class MainActivity : FlutterActivity() {
         }
         if (rootDocId.isBlank()) return out
         try {
-            scanTextFolder(rootUri, rootDocId, out, 0)
+            scanTextFolder(rootUri, rootDocId, out, 0, exts)
         } catch (e: SecurityException) {
             // Mất quyền từ gốc (chưa quét được file nào) → ném lên để báo
             // PERMISSION_LOST. Mất quyền giữa chừng (thư mục con) → trả
@@ -306,6 +319,7 @@ class MainActivity : FlutterActivity() {
         docId: String,
         out: MutableList<Map<String, Any?>>,
         depth: Int,
+        extensions: Set<String> = textExtensions,
     ) {
         // Giới hạn: depth 12, 5000 file — đủ cho thư viện sách, tránh quét
         // hang trên tree khổng lồ.
@@ -344,7 +358,7 @@ class MainActivity : FlutterActivity() {
                     val mime = c.getString(mimeCol) ?: ""
 
                     if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                        scanTextFolder(treeUri, id, out, depth + 1)
+                        scanTextFolder(treeUri, id, out, depth + 1, extensions)
                         continue
                     }
 
@@ -354,7 +368,7 @@ class MainActivity : FlutterActivity() {
                     } else {
                         ""
                     }
-                    if (!textExtensions.contains(ext)) continue
+                    if (!extensions.contains(ext)) continue
 
                     val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                     out.add(
@@ -446,18 +460,25 @@ class MainActivity : FlutterActivity() {
     private fun scanMediaStore(): List<Map<String, Any?>> {
         val out = mutableListOf<Map<String, Any?>>()
         try {
-            val projection = arrayOf(
+            // RELATIVE_PATH có từ API 29 (scoped storage) — dùng để nhóm theo
+            // thư mục trong tab Nghe. Trên API cũ hơn cột không tồn tại → bọc
+            // try/catch khi đọc chỉ số cột (không thêm vào projection để tránh
+            // IllegalArgumentException toàn cursor).
+            val hasRelPath = android.os.Build.VERSION.SDK_INT >= 29
+            val projection = mutableListOf(
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.DISPLAY_NAME,
                 MediaStore.Audio.Media.TITLE,
                 MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
                 MediaStore.Audio.Media.DURATION,
                 MediaStore.Audio.Media.SIZE,
                 MediaStore.Audio.Media.DATE_ADDED,
             )
+            if (hasRelPath) projection.add(MediaStore.Audio.Media.RELATIVE_PATH)
             contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                projection,
+                projection.toTypedArray(),
                 null,
                 null,
                 MediaStore.Audio.Media.DATE_ADDED + " DESC",
@@ -466,12 +487,23 @@ class MainActivity : FlutterActivity() {
                 val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
                 val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
                 val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
                 val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
                 val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
                 val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+                val relCol = if (hasRelPath) {
+                    cursor.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH)
+                } else {
+                    -1
+                }
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
+                    val relPath = if (relCol >= 0) {
+                        cursor.getString(relCol) ?: ""
+                    } else {
+                        ""
+                    }
                     out.add(
                         mapOf(
                             "id" to id.toString(),
@@ -479,9 +511,11 @@ class MainActivity : FlutterActivity() {
                             "displayName" to (cursor.getString(nameCol) ?: ""),
                             "title" to (cursor.getString(titleCol) ?: ""),
                             "artist" to (cursor.getString(artistCol) ?: ""),
+                            "album" to (cursor.getString(albumCol) ?: ""),
                             "durationMs" to cursor.getLong(durCol),
                             "sizeBytes" to cursor.getLong(sizeCol),
                             "dateAddedSec" to cursor.getLong(dateCol),
+                            "relativePath" to relPath,
                         ),
                     )
                 }

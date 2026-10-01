@@ -35,6 +35,13 @@ class AudioLibraryEntry {
 
   final String title;
   final String? artist;
+
+  /// Album (từ MediaStore) — lọc theo album ở tab Nghe. null nếu không rõ.
+  final String? album;
+
+  /// Thư mục chứa file (từ RELATIVE_PATH / đường dẫn) — lọc/nhóm theo thư mục.
+  final String folder;
+
   final int durationMs;
   final int sizeBytes;
   final AudioSource source;
@@ -47,17 +54,23 @@ class AudioLibraryEntry {
   /// SHA-256 8 bytes của 64KB đầu file (hex 16) — P3 (re-link). P1 = null.
   final String? fingerprint;
 
+  /// Đánh dấu yêu thích (I4U18-LISTEN-LIB-001).
+  final bool favorite;
+
   AudioLibraryEntry({
     required this.libraryId,
     required this.uri,
     required this.title,
     this.artist,
+    this.album,
+    this.folder = '',
     this.durationMs = 0,
     this.sizeBytes = 0,
     this.source = AudioSource.media,
     required this.addedAt,
     this.lastPlayed,
     this.fingerprint,
+    this.favorite = false,
   });
 
   String get durationLabel {
@@ -86,12 +99,16 @@ class AudioLibraryEntry {
     final size = (m['sizeBytes'] as num?)?.toInt() ?? 0;
     final dateSec = (m['dateAddedSec'] as num?)?.toInt() ?? 0;
     final artist = (m['artist'] ?? '').toString().trim();
+    final album = (m['album'] ?? '').toString().trim();
+    final relPath = (m['relativePath'] ?? '').toString().trim();
 
     return AudioLibraryEntry(
       libraryId: 'media_$id',
       uri: (m['uri'] ?? '').toString(),
       title: titleRaw.isNotEmpty ? titleRaw : (name.isNotEmpty ? name : 'Unknown'),
       artist: artist.isEmpty ? null : artist,
+      album: album.isEmpty ? null : album,
+      folder: folderFromRelativePath(relPath),
       durationMs: dur,
       sizeBytes: size,
       source: AudioSource.media,
@@ -101,9 +118,23 @@ class AudioLibraryEntry {
     );
   }
 
+  /// Tên thư mục cuối cùng từ RELATIVE_PATH kiểu "Music/Dhamma/" → "Dhamma".
+  static String folderFromRelativePath(String relPath) {
+    if (relPath.isEmpty) return '';
+    final segs = relPath
+        .replaceAll('\\', '/')
+        .split('/')
+        .where((s) => s.trim().isNotEmpty)
+        .toList();
+    return segs.isEmpty ? '' : segs.last;
+  }
+
   AudioLibraryEntry copyWith({
     DateTime? lastPlayed,
     String? fingerprint,
+    bool? favorite,
+    String? album,
+    String? folder,
     bool clearLastPlayed = false,
   }) {
     return AudioLibraryEntry(
@@ -111,12 +142,15 @@ class AudioLibraryEntry {
       uri: uri,
       title: title,
       artist: artist,
+      album: album ?? this.album,
+      folder: folder ?? this.folder,
       durationMs: durationMs,
       sizeBytes: sizeBytes,
       source: source,
       addedAt: addedAt,
       lastPlayed: clearLastPlayed ? null : (lastPlayed ?? this.lastPlayed),
       fingerprint: fingerprint ?? this.fingerprint,
+      favorite: favorite ?? this.favorite,
     );
   }
 
@@ -125,12 +159,15 @@ class AudioLibraryEntry {
         'uri': uri,
         'title': title,
         'artist': artist,
+        'album': album,
+        'folder': folder,
         'durationMs': durationMs,
         'sizeBytes': sizeBytes,
         'source': source.name,
         'addedAt': addedAt.toIso8601String(),
         'lastPlayed': lastPlayed?.toIso8601String(),
         'fingerprint': fingerprint,
+        'favorite': favorite,
       };
 
   factory AudioLibraryEntry.fromJson(Map<String, dynamic> j) {
@@ -139,6 +176,8 @@ class AudioLibraryEntry {
       uri: (j['uri'] as String?) ?? '',
       title: (j['title'] as String?) ?? 'Unknown',
       artist: j['artist'] as String?,
+      album: j['album'] as String?,
+      folder: (j['folder'] as String?) ?? '',
       durationMs: (j['durationMs'] as num?)?.toInt() ?? 0,
       sizeBytes: (j['sizeBytes'] as num?)?.toInt() ?? 0,
       source: AudioSource.values.firstWhere(
@@ -151,6 +190,7 @@ class AudioLibraryEntry {
           ? null
           : DateTime.tryParse(j['lastPlayed'] as String),
       fingerprint: j['fingerprint'] as String?,
+      favorite: (j['favorite'] as bool?) ?? false,
     );
   }
 }

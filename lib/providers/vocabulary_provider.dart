@@ -7,6 +7,7 @@ import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../features/translation/glossary/glossary_store.dart';
 import '../models/learning_activity.dart';
+import '../models/tipitaka_source_anchor.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
@@ -594,6 +595,24 @@ class VocabularyProvider extends ChangeNotifier {
       LearningActivityKind.vocabulary,
       sourceKey: key,
     ));
+  }
+
+
+  /// Enriches an existing vocabulary item with a lossless Tipiṭaka source
+  /// pointer instead of creating a duplicate Worklist entry.
+  void addTipitakaContextToWord(
+    String wordId,
+    TipitakaSourceAnchor anchor,
+    TipitakaContextSnapshot snapshot,
+  ) {
+    try {
+      final word = _words.firstWhere((item) => item.id == wordId);
+      word.addTipitakaContext(anchor, snapshot);
+      _saveWord(word);
+      notifyListeners();
+    } catch (_) {
+      debugPrint('addTipitakaContextToWord: word $wordId not found');
+    }
   }
 
   WordEntry addWithAutoClassify({

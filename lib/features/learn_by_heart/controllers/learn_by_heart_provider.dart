@@ -23,6 +23,7 @@ class LearnByHeartProvider extends ChangeNotifier {
   List<LearnByHeartItem> _items = [];
   bool _isLoading = false;
   int _streak = 0;
+  Future<void>? _initialLoadFuture;
 
   bool _isSyncEnabled = false;
   bool _isEnablingSync = false;
@@ -160,7 +161,8 @@ class LearnByHeartProvider extends ChangeNotifier {
 
   // ==================== LIFECYCLE & LOADING ====================
 
-  Future<void> loadData() => _reloadFromStorage(showLoading: true);
+  Future<void> loadData() =>
+      _initialLoadFuture ??= _reloadFromStorage(showLoading: true);
 
   Future<void> _reloadFromStorage({bool showLoading = false}) async {
     if (showLoading) {
@@ -259,6 +261,9 @@ class LearnByHeartProvider extends ChangeNotifier {
 
   /// Thêm hoặc cập nhật bài học thuộc lòng
   Future<void> saveItem(LearnByHeartItem item) async {
+    // A Reader action can race the provider's initial preferences load. Wait
+    // for that same load so the newly saved passage is not overwritten.
+    await loadData();
     final stamped = _stamp(item);
     final index = _items.indexWhere((i) => i.id == item.id);
     if (index >= 0) {

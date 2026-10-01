@@ -52,7 +52,18 @@ Return ONLY valid JSON:
   "visual_prompt": "<concrete scene>"
 }''';
 
-  static String _sentenceParsePrompt(String sentence) => '''
+  static String _sentenceParsePrompt(String sentence) {
+    if (_isWriteStudioReviewPrompt(sentence)) {
+      return '''
+$sentence
+
+Return ONLY one valid JSON object. Do not wrap it in markdown fences.
+Required keys: summary, topics, technical_terms, action_items, language.
+If grammar is useful, include grammar with subject, verb, object, pattern,
+and explanation_vi.
+''';
+    }
+    return '''
 Analyze English sentence: "$sentence" using 5-finger grammar.
 Return ONLY valid JSON:
 {
@@ -72,6 +83,12 @@ Return ONLY valid JSON:
   },
   "context_examples": ["<similar sentence>","<another example>"]
 }''';
+  }
+
+  static bool _isWriteStudioReviewPrompt(String text) =>
+      text.contains('in4up_WRITE_REVIEW') ||
+      text.contains('in4up_REWRITE_REVIEW') ||
+      text.contains('in4up_SUMMARY_REVIEW');
 
   static String _paoPrompt(String word) => '''
 Create 3 PAO memory stories for: "$word".
@@ -114,15 +131,15 @@ Return ONLY valid JSON:
 }''';
 
   static String _conversationPrompt(String text, String? context) => '''
-Analyze conversation: "$text"${context != null ? '\nContext: $context' : ''}.
+You are the in4up study assistant. Answer the user's latest message directly;
+do NOT summarize the conversation or describe it as a task.
+LATEST_USER_MESSAGE: "$text"${context != null && context.trim().isNotEmpty ? '\nRECENT_CONTEXT:\n$context' : ''}
 Return ONLY valid JSON:
 {
-  "summary": "<Vietnamese 60-word summary>",
+  "summary": "<direct helpful answer to the user, in Vietnamese unless the user asks for another language>",
   "topics": ["Conversation"],
-  "technical_terms": [
-    {"text":"<phrase>","definition":"<Vietnamese>","importance":0.8,"sourceJoinKey":"","speakerId":0}
-  ],
+  "technical_terms": [],
   "action_items": [],
-  "language": "en"
+  "language": "vi"
 }''';
 }

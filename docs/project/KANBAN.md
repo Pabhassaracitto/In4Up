@@ -109,13 +109,13 @@
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 | I4U18-BATCH | I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành các lane nhỏ, tránh xung đột và không để CI đỏ | 📋 proposed | `docs/project/I4U_L18_PROBLEM_BRIEF.md` + `PROMPT_AGENT_I4U_L18.md`; tham chiếu nhánh `arena/01a06931-in4up` cho Tipiṭaka/PDF/Home khi cần |
-| I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 📋 proposed | Gom các lỗi Home chat + Tầng 2 AI local + provider BYOK; phụ thuộc API-001…004, AI-CHAT-01/02 |
+| I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 🔄 doing (code xong, chờ CI/thiết bị) | agent arena/01a0f3d9-in4up — chat prompt trả lời trực tiếp, dừng remote không fallback local, parser local/remote chịu fence/JSON cắt; test bổ sung (sandbox thiếu Flutter SDK) |
 | I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 📋 proposed | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
 | I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 📋 proposed | Dựa VID-001; hỗ trợ folder scan, filter/sort, subtitle pairing, reopen |
 | I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | 📋 proposed | Đọc thêm `origin/arena/01a06931-in4up` (không merge mù); mở rộng TIPITAKA-001 |
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 📋 proposed | Mở rộng AUDLIB-001/LISTEN-*; không phá transcript/LRC/reopen audio |
 | I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 📋 proposed | Mở rộng READ-IPA-001…006 + SRC-630-01; cần i18n rule #5 |
-| I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 📋 proposed | Kế thừa HYMT-001 + API-004; không bỏ glossary/protect-token |
+| I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
 | I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 📋 proposed | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 📋 proposed | Mở rộng OCR-001/PDF-W0/PDF-W1; ưu tiên state machine/cancel token, không đổ lỗi `flutter clean` |
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | 📋 proposed | Viết guide song ngữ tối thiểu vi/en; liên kết từ Settings/Help nếu có UI |
@@ -4291,7 +4291,7 @@
     cầu, thêm card I4U18-* và prompt phân việc; thay đổi docs-only.
 
 ### I4U18-HOME-AI-001 — Home/Chat/Tab Viết: AI chậm, fallback sai, routing Server/API
-- **Trạng thái:** proposed.
+- **Trạng thái:** doing (code xong trên `arena/01a0f3d9-in4up`; chờ CI/thiết bị vì sandbox hiện không có Flutter SDK để chạy `flutter test`).
 - **Nguồn:** owner (2026-09-30), mục 1/3/10/12 của I4U L18.
 - **Vấn đề đã chuẩn hoá:**
   - Tab Home cần rà soát lại luồng chính; lỗi cụ thể đang thấy rõ nhất nằm ở
@@ -4315,6 +4315,7 @@
   - Locale khác `vi`: chrome UI không còn tiếng Việt theo rule #5.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | 19:47 UTC | proposed→doing | agent arena/01a0f3d9-in4up | code parser/prompt/cancel + test bổ sung; `git diff --check` sạch; chưa chạy Flutter test do sandbox thiếu `flutter`/`dart`.
 
 ### I4U18-DICT-001 — Từ điển: import/link thư mục MDX/MDD/CSS và dùng ngay
 - **Trạng thái:** proposed.
@@ -4400,7 +4401,7 @@
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
 
 ### I4U18-TRANSLATE-001 — Dịch: Hy-MT và lựa chọn LLM Server/API
-- **Trạng thái:** proposed.
+- **Trạng thái:** doing (code xong, chờ CI + nghiệm thu model thật trên thiết bị).
 - **Nguồn:** owner (2026-09-30), mục 10/11 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** Hy-MT vẫn chưa dịch được ổn định trên thiết bị; đồng
   thời người dùng cần tùy chọn dịch qua LLM Server/API khi muốn chất lượng cao hơn
@@ -4413,6 +4414,7 @@
   fallback đúng chính sách, không trả bản dịch rỗng.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-10-01 | proposed→doing | agent arena/01a0f3d9-in4up | đối chiếu nguồn chuẩn PR #64; gom validator path/import/download, phân biệt thiếu/sai magic/file cắt/không đọc được; giữ load handshake thật và coi output rỗng là lỗi; chuẩn hóa error code snake_case; xác nhận API-004 đã có và routing mặc định vẫn offline-first, glossary/protect-token chạy trước mọi engine; thêm test validator. Chưa chạy Flutter test vì SDK không có trong PATH, còn AT model/native thật trên thiết bị.
 
 ### I4U18-MODEL-IMPORT-001 — Model import: eSpeak/Piper/STT offline nhận diện sai
 - **Trạng thái:** proposed.

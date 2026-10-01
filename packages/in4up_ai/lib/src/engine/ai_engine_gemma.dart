@@ -465,7 +465,8 @@ class AiEngineGemma implements AiEngine {
       return _mockSummaryReview(prompt);
     }
     if (prompt.contains('TYPE: conversation') ||
-        prompt.contains('Analyze conversation:')) {
+        prompt.contains('Analyze conversation:') ||
+        prompt.contains('LATEST_USER_MESSAGE:')) {
       return _mockConversation(prompt);
     }
 
@@ -495,19 +496,28 @@ class AiEngineGemma implements AiEngine {
         .where((line) => line.startsWith('INPUT:'))
         .map((line) => line.substring('INPUT:'.length).trim())
         .toList();
+    final latestUserLines = lines
+        .where((line) => line.startsWith('LATEST_USER_MESSAGE:'))
+        .map((line) => line.substring('LATEST_USER_MESSAGE:'.length).trim())
+        .toList();
     final conversationLine = lines
         .where((line) => line.startsWith('Analyze conversation:'))
         .map((line) => line.substring('Analyze conversation:'.length).trim())
         .toList();
     final input = inputLines.isEmpty ? '' : inputLines.last;
+    final latestUser = latestUserLines.isEmpty ? '' : latestUserLines.last;
+    final legacyConversation =
+        conversationLine.isEmpty ? '' : conversationLine.last;
     final question = input.isNotEmpty
         ? input
-        : conversationLine.isEmpty
-            ? 'câu hỏi của bạn'
-            : conversationLine.last;
+        : latestUser.isNotEmpty
+            ? latestUser
+            : legacyConversation.isEmpty
+                ? 'câu hỏi của bạn'
+                : legacyConversation;
     return jsonEncode({
       'summary':
-          'Mình đã nhận được: "$question". AI Chat đang ở bản beta offline; hãy hỏi mình về từ vựng, ngữ pháp hoặc cách luyện nghe.',
+          'Mình đã nhận được: $question. AI Chat đang ở bản beta offline; hãy hỏi mình về từ vựng, ngữ pháp hoặc cách luyện nghe.',
       'topics': ['Conversation'],
       'analysisType': 'conversation',
       'technical_terms': <Map<String, dynamic>>[],
@@ -770,6 +780,14 @@ class AiEngineGemma implements AiEngine {
         context: ctx,
       );
     }
+    if (_isWriteStudioReviewPrompt(text)) {
+      return '''
+SYSTEM: Bạn là Gemma AI offline của in4up. Chỉ trả JSON hợp lệ, không bọc markdown.
+$text
+${ctx != null ? 'CONTEXT: $ctx' : ''}
+OUTPUT: một JSON object có summary, topics, technical_terms, action_items, language; có thể thêm grammar nếu hữu ích.
+''';
+    }
     return '''
 SYSTEM: Bạn là Gemma AI offline của in4up. Chỉ trả JSON hợp lệ.
 TYPE: ${type.name}
@@ -784,6 +802,11 @@ OUTPUT SCHEMA:
   "language": "en|vi"
 }''';
   }
+
+  static bool _isWriteStudioReviewPrompt(String text) =>
+      text.contains('in4up_WRITE_REVIEW') ||
+      text.contains('in4up_REWRITE_REVIEW') ||
+      text.contains('in4up_SUMMARY_REVIEW');
 }
 
 class _IsolateInit {

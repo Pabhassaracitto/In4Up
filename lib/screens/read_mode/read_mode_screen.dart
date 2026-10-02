@@ -57,6 +57,10 @@ class ReadModeScreen extends StatefulWidget {
   /// được nối thì thanh hành động không hiển thị gì (không đổi UI hiện có).
   final ReadTextActionCallbacks textActionCallbacks;
 
+  /// Shell mới có thể đặt source picker trong header chung; default vẫn true
+  /// để caller cũ giữ nguyên hành vi.
+  final bool showSourcePicker;
+
   const ReadModeScreen({
     super.key,
     this.currentFile,
@@ -64,6 +68,7 @@ class ReadModeScreen extends StatefulWidget {
     this.onSourceChanged,
     this.sourceCallbacks = const ReadSourceCallbacks(),
     this.textActionCallbacks = const ReadTextActionCallbacks(),
+    this.showSourcePicker = true,
   });
 
   @override
@@ -300,7 +305,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                   if (!isFocusMode) const ReadTopBar(),
                   // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
                   // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
-                  if (!isFocusMode)
+                  if (!isFocusMode && widget.showSourcePicker)
                     ReadSourcePicker(
                       selectedSource: _source,
                       onSourceChanged: _handleSourceChanged,

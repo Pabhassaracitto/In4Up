@@ -37,7 +37,16 @@ import 'widgets/speed_chip.dart';
 import 'widgets/status_circle.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
-  const UnderstandModeScreen({super.key});
+  const UnderstandModeScreen({
+    super.key,
+    this.initialMode = UnderstandLearningMode.sync,
+    this.onModeChanged,
+    this.showModeTabs = true,
+  });
+
+  final UnderstandLearningMode initialMode;
+  final ValueChanged<UnderstandLearningMode>? onModeChanged;
+  final bool showModeTabs;
 
   @override
   State<UnderstandModeScreen> createState() => _UnderstandModeScreenState();
@@ -68,7 +77,11 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: _indexForLearningMode(widget.initialMode),
+    );
     // AI Coach cần biết người dùng đang ở mode nào (Đồng bộ/Shadowing) — đồng
     // bộ vào UnderstandProvider để sheet/chat đọc được mà không chạm vào
     // TabController của màn hình này.
@@ -105,6 +118,26 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   }
 
   @override
+  void didUpdateWidget(covariant UnderstandModeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final desiredIndex = _indexForLearningMode(widget.initialMode);
+    if (_tabController.index != desiredIndex) {
+      _tabController.index = desiredIndex;
+      _syncLearningModeToProvider();
+    }
+  }
+
+  int _indexForLearningMode(UnderstandLearningMode mode) {
+    return mode == UnderstandLearningMode.shadowing ? 1 : 0;
+  }
+
+  UnderstandLearningMode _learningModeForIndex(int index) {
+    return index == 1
+        ? UnderstandLearningMode.shadowing
+        : UnderstandLearningMode.sync;
+  }
+
+  @override
   void dispose() {
     _playerProvider?.removeListener(_playerListener);
     _lrcScrollController.dispose();
@@ -117,13 +150,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   /// Tab 0 = Đồng bộ, tab 1 = Shadowing. Ghi nhận mode hiện tại vào
   /// UnderstandProvider (AI Coach chỉ đọc — không đổi được từ sheet/chat).
   void _syncLearningModeToProvider() {
+    final mode = _learningModeForIndex(_tabController.index);
     final understand = _understandProvider;
-    if (understand == null) return;
-    understand.setLearningMode(
-      _tabController.index == 1
-          ? UnderstandLearningMode.shadowing
-          : UnderstandLearningMode.sync,
-    );
+    understand?.setLearningMode(mode);
+    widget.onModeChanged?.call(mode);
   }
 
   @override
@@ -163,7 +193,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
         return Column(
           children: [
-            _buildCompactTabs(),
+            if (widget.showModeTabs) _buildCompactTabs(),
             Expanded(
               child: TabBarView(
                 controller: _tabController,

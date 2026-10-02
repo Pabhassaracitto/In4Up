@@ -17,9 +17,12 @@ import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
+import '../features/understand_ai/understand_ai_context.dart';
 import '../features/youtube/youtube_sheet.dart';
+import '../models/read_content_source.dart';
 import '../models/shell_content_order.dart';
 import '../providers/player_provider.dart';
+import '../providers/text_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/battery_optimization_service.dart';
@@ -47,11 +50,11 @@ import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/word_list/wordlist_bubble.dart';
+import '../widgets/workspace_navigation/workspace_navigation.dart';
 import 'tools/youglish/youglish_screen.dart';
+import 'understand_mode/services/understand_ai_coach_launcher.dart';
 import 'understand_mode/understand_workspace_screen.dart';
 
-import '../features/dictionary/widgets/dict_manager_screen.dart';
-import '../features/video/widgets/video_library_screen.dart';
 
 enum _PrimaryTab { home, listen, read, understand, remember }
 
@@ -81,6 +84,9 @@ class _MainShellState extends State<MainShell> {
   int _listenModeIndex = 0;
   int _readModeIndex = 0;
   ShellContentOrder _contentOrder = ShellContentOrder.listenRead;
+  ReadContentSource _readSource = ReadContentSource.document;
+  ListenContentSource _listenSource = ListenContentSource.audioLibrary;
+  UnderstandWorkspaceMode _understandMode = UnderstandWorkspaceMode.sync;
 
   bool _compactModeSwitch = false;
   bool _autoHideModeSwitch = false;
@@ -149,20 +155,36 @@ class _MainShellState extends State<MainShell> {
     return '';
   }
 
-  void _loadShellUiSettings() {
+  void _loadShellUiSettings({bool preserveWorkspaceState = false}) {
     _compactModeSwitch = _storage.getShellCompactMode();
     _autoHideModeSwitch = _storage.getShellAutoHideModeSwitch();
     _enableLongPressModeSwitch = _storage.getShellLongPressModeSwitch();
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
     _contentOrder = _storage.getShellContentOrder();
-    _listenModeIndex =
-        ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0)
-                .clamp(0, 2))
-            .toInt();
-    _readModeIndex =
-        ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0)
-                .clamp(0, 1))
-            .toInt();
+
+    if (!preserveWorkspaceState) {
+      _listenModeIndex =
+          ((_rememberLastSubMode ? _storage.getShellListenSubMode() : 0)
+                  .clamp(0, 2))
+              .toInt();
+      _readModeIndex =
+          ((_rememberLastSubMode ? _storage.getShellReadSubMode() : 0)
+                  .clamp(0, 1))
+              .toInt();
+      _readSource = _rememberLastSubMode
+          ? _storage.getReadContentSource()
+          : _storage.getDefaultReadContentSource();
+      _listenSource = _rememberLastSubMode
+          ? _storage.getListenContentSource()
+          : _storage.getDefaultListenContentSource();
+      _understandMode = _rememberLastSubMode
+          ? _storage.getUnderstandWorkspaceMode()
+          : _storage.getDefaultUnderstandWorkspaceMode();
+    } else {
+      _listenModeIndex = _listenModeIndex.clamp(0, 2).toInt();
+      _readModeIndex = _readModeIndex.clamp(0, 1).toInt();
+    }
+
     _syncModeSwitchVisibility();
   }
 
@@ -277,7 +299,7 @@ class _MainShellState extends State<MainShell> {
     );
     if (!mounted) return;
     setState(() {
-      _loadShellUiSettings();
+      _loadShellUiSettings(preserveWorkspaceState: true);
     });
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
@@ -363,10 +385,15 @@ class _MainShellState extends State<MainShell> {
       if (!_rememberLastSubMode) {
         if (tab == _PrimaryTab.listen) {
           _listenModeIndex = 0;
+          _listenSource = _storage.getDefaultListenContentSource();
           _storage.saveShellListenSubMode(0);
         } else if (tab == _PrimaryTab.read) {
           _readModeIndex = 0;
+          _readSource = _storage.getDefaultReadContentSource();
           _storage.saveShellReadSubMode(0);
+        } else if (tab == _PrimaryTab.understand) {
+          _understandMode = _storage.getDefaultUnderstandWorkspaceMode();
+          _storage.saveUnderstandWorkspaceMode(_understandMode);
         }
       }
       _syncModeSwitchVisibility();
@@ -412,6 +439,85 @@ class _MainShellState extends State<MainShell> {
         .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
+  void _setReadSource(ReadContentSource source, {bool openSource = false}) {
+    setState(() {
+      _currentTab = _PrimaryTab.read;
+      _readSource = source;
+      _storage.saveReadContentSource(source);
+      _syncModeSwitchVisibility();
+    });
+    if (openSource) _openReadSource(source);
+  }
+
+  void _openReadSource(ReadContentSource source) {
+    switch (source) {
+      case ReadContentSource.document:
+        _openTextLibrary();
+        return;
+      case ReadContentSource.web:
+        unawaited(_handleTool('web_reader'));
+        return;
+      case ReadContentSource.tipitaka:
+        unawaited(_handleTool('tipitaka'));
+        return;
+    }
+  }
+
+  void _setListenSource(
+    ListenContentSource source, {
+    bool openSource = false,
+  }) {
+    setState(() {
+      _currentTab = _PrimaryTab.listen;
+      _listenSource = source;
+      _storage.saveListenContentSource(source);
+      _syncModeSwitchVisibility();
+    });
+    if (openSource) _openListenSource(source);
+  }
+
+  void _openListenSource(ListenContentSource source) {
+    switch (source) {
+      case ListenContentSource.audioLibrary:
+        _openAudioLibrary();
+        return;
+      case ListenContentSource.youtube:
+        unawaited(_handleTool('youtube_downloader'));
+        return;
+      case ListenContentSource.videoLibrary:
+        _setListenMode(2);
+        unawaited(_handleTool('video_library'));
+        return;
+    }
+  }
+
+  void _setUnderstandMode(UnderstandWorkspaceMode mode) {
+    if (_understandMode == mode && _currentTab == _PrimaryTab.understand) {
+      return;
+    }
+    setState(() {
+      _currentTab = _PrimaryTab.understand;
+      _understandMode = mode;
+      _storage.saveUnderstandWorkspaceMode(mode);
+      _syncModeSwitchVisibility();
+    });
+  }
+
+  UnderstandLearningMode get _understandLearningMode {
+    return _understandMode == UnderstandWorkspaceMode.shadowing
+        ? UnderstandLearningMode.shadowing
+        : UnderstandLearningMode.sync;
+  }
+
+  void _handleUnderstandModeChanged(UnderstandLearningMode mode) {
+    final next = mode == UnderstandLearningMode.shadowing
+        ? UnderstandWorkspaceMode.shadowing
+        : UnderstandWorkspaceMode.sync;
+    if (_understandMode == next) return;
+    _understandMode = next;
+    _storage.saveUnderstandWorkspaceMode(next);
+  }
+
   Future<void> _openQuickActions() async {
     // SHELL-GEAR-001: rule-out — nút bolt mở tools overlay (OverlayEntry).
     _shellGearLog('quick-actions: open tools overlay');
@@ -428,229 +534,334 @@ class _MainShellState extends State<MainShell> {
   List<tools.ToolItem> _buildQuickActions(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    final contentTools = <tools.ToolItem>[
-      tools.ToolItem(
+    final toolById = <String, tools.ToolItem>{
+      'shell_ui_settings': tools.ToolItem(
+        id: 'shell_ui_settings',
+        title: context.uiText('Giao diện shell'),
+        subtitle: context.uiText('Mặc định workspace, nguồn và mode'),
+        icon: Icons.tune_rounded,
+        color: const Color(0xFF90CAF9),
+      ),
+      'live_cabin': tools.ToolItem(
         id: 'live_cabin',
         title: context.uiText('Dịch Live Cabin'),
         subtitle: context.uiText('Dịch cabin song song trực tiếp từ giọng nói'),
         icon: Icons.interpreter_mode_rounded,
         color: const Color(0xFF00E676),
       ),
-      tools.ToolItem(
+      'youtube_downloader': tools.ToolItem(
         id: 'youtube_downloader',
         title: l10n.youtube,
         subtitle: l10n.youtubeSubtitle,
         icon: Icons.play_circle_filled,
         color: const Color(0xFFFF0000),
       ),
-      tools.ToolItem(
+      'web_reader': tools.ToolItem(
         id: 'web_reader',
         title: l10n.webReader,
         subtitle: l10n.webReaderSubtitle,
         icon: Icons.language,
         color: const Color(0xFF26A69A),
       ),
-      tools.ToolItem(
+      'pdf_reader': tools.ToolItem(
         id: 'pdf_reader',
         title: l10n.pdfReader,
         subtitle: l10n.pdfReaderSubtitle,
         icon: Icons.picture_as_pdf,
         color: const Color(0xFFEF5350),
       ),
-      tools.ToolItem(
-        id: 'youglish',
-        title: l10n.youglish,
-        subtitle: l10n.youglishSubtitle,
-        icon: Icons.record_voice_over,
-        color: const Color(0xFF00BCD4),
+      'tipitaka': tools.ToolItem(
+        id: 'tipitaka',
+        title: context.uiText('Tipiṭaka'),
+        subtitle: context.uiText('Đọc Tam Tạng, tra cứu kinh điển'),
+        icon: Icons.menu_book_rounded,
+        color: const Color(0xFFFF9800),
       ),
-    ];
-
-    final shellSettingsTool = tools.ToolItem(
-      id: 'shell_ui_settings',
-      title: context.uiText('Giao diện shell'),
-      subtitle: context.uiText('Compact mode, auto-hide, long-press đổi mode'),
-      icon: Icons.tune_rounded,
-      color: const Color(0xFF90CAF9),
-    );
-
-    final rememberTools = <tools.ToolItem>[
-      tools.ToolItem(
-        id: 'learn_by_heart',
-        title: context.uiText('Thuộc lòng (Learn by Heart)'),
-        subtitle: context.uiText('Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa'),
-        icon: Icons.auto_stories_rounded,
-        color: const Color(0xFF4CAF50),
-      ),
-      tools.ToolItem(
-        id: 'review',
-        title: l10n.review,
-        subtitle: l10n.reviewSubtitle,
-        icon: Icons.school,
-        color: const Color(0xFF66BB6A),
-      ),
-      tools.ToolItem(
-        id: 'word_list',
-        title: l10n.wordList,
-        subtitle: l10n.wordListSubtitle,
-        icon: Icons.format_list_bulleted,
-        color: const Color(0xFF6C63FF),
-      ),
-      tools.ToolItem(
-        id: 'sound_list',
-        title: context.uiText('Âm mục'),
-        subtitle: context.uiText('Điểm, đoạn & mục lục âm thanh'),
-        icon: Icons.menu_book_outlined,
-        color: const Color(0xFF26C6DA),
-      ),
-      tools.ToolItem(
-        id: 'dict_manager',
-        title: context.uiText('Từ điển MDX'),
-        subtitle: context.uiText('Quản lý & tra cứu từ điển MDX'),
-        icon: Icons.auto_stories,
-        color: const Color(0xFF7E57C2),
-      ),
-      tools.ToolItem(
+      'video_library': tools.ToolItem(
         id: 'video_library',
         title: context.uiText('Thư viện video'),
         subtitle: context.uiText('Quản lý & phát video học tập'),
         icon: Icons.video_library_outlined,
         color: const Color(0xFFE91E63),
       ),
-      tools.ToolItem(
+      'video_player': tools.ToolItem(
+        id: 'video_player',
+        title: context.uiText('Video'),
+        subtitle: context.uiText('Xem video local + phụ đề'),
+        icon: Icons.videocam,
+        color: const Color(0xFFFFB300),
+      ),
+      'dict_manager': tools.ToolItem(
+        id: 'dict_manager',
+        title: context.uiText('Từ điển MDX'),
+        subtitle: context.uiText('Quản lý & tra cứu từ điển MDX'),
+        icon: Icons.auto_stories,
+        color: const Color(0xFF7E57C2),
+      ),
+      'dictionary': tools.ToolItem(
+        id: 'dictionary',
+        title: context.uiText('Từ điển'),
+        subtitle: context.uiText('Quản lý từ điển MDX đa ngữ'),
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFF2196F3),
+      ),
+      'speak_mode': tools.ToolItem(
+        id: 'speak_mode',
+        title: context.uiText('Nói'),
+        subtitle: context.uiText('Luyện shadowing và phát âm'),
+        icon: Icons.mic_rounded,
+        color: const Color(0xFFB388FF),
+      ),
+      'write_mode': tools.ToolItem(
+        id: 'write_mode',
+        title: context.uiText('Viết'),
+        subtitle: context.uiText('Bài tập chép và recall theo nội dung'),
+        icon: Icons.edit_square,
+        color: const Color(0xFF26C6DA),
+      ),
+      'understand_tab': tools.ToolItem(
+        id: 'understand_tab',
+        title: context.uiText('Hiểu'),
+        subtitle: context.uiText('Không gian đồng bộ audio và text'),
+        icon: Icons.lightbulb,
+        color: const Color(0xFFFFB300),
+      ),
+      'understand_ai_coach': tools.ToolItem(
+        id: 'understand_ai_coach',
+        title: context.uiText('Hỏi AI'),
+        subtitle: context.uiText('Trợ lý hiểu bài theo Audio + Text hiện tại'),
+        icon: Icons.psychology_outlined,
+        color: const Color(0xFF7DD3FC),
+      ),
+      'youglish': tools.ToolItem(
+        id: 'youglish',
+        title: l10n.youglish,
+        subtitle: l10n.youglishSubtitle,
+        icon: Icons.record_voice_over,
+        color: const Color(0xFF00BCD4),
+      ),
+      'learn_by_heart': tools.ToolItem(
+        id: 'learn_by_heart',
+        title: context.uiText('Thuộc lòng'),
+        subtitle: context.uiText('Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa'),
+        icon: Icons.auto_stories_rounded,
+        color: const Color(0xFF4CAF50),
+      ),
+      'review': tools.ToolItem(
+        id: 'review',
+        title: l10n.review,
+        subtitle: l10n.reviewSubtitle,
+        icon: Icons.school,
+        color: const Color(0xFF66BB6A),
+      ),
+      'word_list': tools.ToolItem(
+        id: 'word_list',
+        title: l10n.wordList,
+        subtitle: l10n.wordListSubtitle,
+        icon: Icons.format_list_bulleted,
+        color: const Color(0xFF6C63FF),
+      ),
+      'sound_list': tools.ToolItem(
+        id: 'sound_list',
+        title: context.uiText('Âm mục'),
+        subtitle: context.uiText('Điểm, đoạn & mục lục âm thanh'),
+        icon: Icons.menu_book_outlined,
+        color: const Color(0xFF26C6DA),
+      ),
+      'timeline': tools.ToolItem(
         id: 'timeline',
         title: l10n.timeline,
         subtitle: l10n.timelineSubtitle,
         icon: Icons.timeline,
         color: const Color(0xFF9C27B0),
       ),
-      tools.ToolItem(
+      'wordlist_stats': tools.ToolItem(
         id: 'wordlist_stats',
         title: l10n.wordListStats,
         subtitle: l10n.wordListStatsSubtitle,
         icon: Icons.analytics_outlined,
         color: const Color(0xFF42A5F5),
       ),
-      tools.ToolItem(
+      'stats': tools.ToolItem(
         id: 'stats',
         title: l10n.overview,
         subtitle: l10n.overviewSubtitle,
         icon: Icons.bar_chart_rounded,
         color: const Color(0xFF42A5F5),
       ),
-      tools.ToolItem(
+      'word_map': tools.ToolItem(
         id: 'word_map',
         title: l10n.wordMap,
         subtitle: l10n.wordMapSubtitle,
         icon: Icons.map_outlined,
         color: const Color(0xFF26C6DA),
       ),
-      tools.ToolItem(
+      'triangle': tools.ToolItem(
         id: 'triangle',
         title: l10n.triangle,
         subtitle: l10n.triangleSubtitle,
         icon: Icons.change_history_rounded,
         color: const Color(0xFFFFA726),
       ),
-      tools.ToolItem(
+      'venn': tools.ToolItem(
         id: 'venn',
         title: l10n.vennDiagram,
         subtitle: l10n.vennDiagramSubtitle,
         icon: Icons.hub_outlined,
         color: const Color(0xFFAB47BC),
       ),
-    ];
-
-    final raw = switch (_currentTab) {
-      _PrimaryTab.home => [
-          tools.ToolItem(
-            id: 'speak_mode',
-            title: 'Nói',
-            subtitle: 'Luyện shadowing và phát âm',
-            icon: Icons.mic_rounded,
-            color: const Color(0xFFB388FF),
-          ),
-          tools.ToolItem(
-            id: 'write_mode',
-            title: 'Viết',
-            subtitle: 'Bài tập chép và recall theo nội dung',
-            icon: Icons.edit_square,
-            color: const Color(0xFF26C6DA),
-          ),
-          shellSettingsTool,
-          ...contentTools,
-                    tools.ToolItem(
-            id: 'video_player',
-            title: 'Video',
-            subtitle: 'Xem video local + phụ đề',
-            icon: Icons.videocam,
-            color: const Color(0xFFFFB300),
-          ),
-      tools.ToolItem(
-            id: 'dictionary',
-            title: 'Từ điển',
-            subtitle: 'Quản lý từ điển MDX đa ngữ',
-            icon: Icons.auto_stories_rounded,
-            color: const Color(0xFF2196F3),
-          ),
-      tools.ToolItem(
-            id: 'tipitaka',
-            title: 'Tipiṭaka',
-            subtitle: 'Đọc Tam Tạng, tra cứu kinh điển',
-            icon: Icons.menu_book_rounded,
-            color: const Color(0xFFFF9800),
-          ),
-          ...rememberTools,
-        ],
-      _PrimaryTab.listen => [
-          tools.ToolItem(
-            id: 'speak_mode',
-            title: 'Nói',
-            subtitle: 'Nhảy nhanh sang speaking studio',
-            icon: Icons.mic_rounded,
-            color: const Color(0xFFB388FF),
-          ),
-          tools.ToolItem(
-            id: 'understand_tab',
-            title: 'Hiểu',
-            subtitle: 'Qua không gian đồng bộ audio-text',
-            icon: Icons.lightbulb,
-            color: const Color(0xFFFFB300),
-          ),
-          shellSettingsTool,
-          contentTools[0],
-          contentTools[3],
-        ],
-      _PrimaryTab.read => [
-          tools.ToolItem(
-            id: 'write_mode',
-            title: 'Viết',
-            subtitle: 'Nhảy nhanh sang writing studio',
-            icon: Icons.edit_square,
-            color: const Color(0xFF26C6DA),
-          ),
-          shellSettingsTool,
-          contentTools[1],
-          contentTools[2],
-          rememberTools[1],
-        ],
-      _PrimaryTab.understand => [
-          tools.ToolItem(
-            id: 'speak_mode',
-            title: 'Nói',
-            subtitle: 'Qua speaking studio để luyện shadowing',
-            icon: Icons.mic_rounded,
-            color: const Color(0xFFB388FF),
-          ),
-          shellSettingsTool,
-          contentTools[3],
-          rememberTools[0],
-          rememberTools[1],
-        ],
-      _PrimaryTab.remember => [shellSettingsTool, ...rememberTools],
     };
 
-    return _rankQuickActions(raw);
+    List<tools.ToolItem> take(List<String> ids) => [
+          for (final id in ids)
+            if (toolById[id] != null) toolById[id]!,
+        ];
+
+    final openContent = switch (_currentTab) {
+      _PrimaryTab.home => take([
+          'shell_ui_settings',
+          'tipitaka',
+          'youtube_downloader',
+          'web_reader',
+          'pdf_reader',
+          'video_player',
+          'video_library',
+          'dictionary',
+          'dict_manager',
+        ]),
+      _PrimaryTab.listen => take([
+          'youtube_downloader',
+          'video_library',
+          'pdf_reader',
+          'shell_ui_settings',
+        ]),
+      _PrimaryTab.read => take([
+          'web_reader',
+          'pdf_reader',
+          'tipitaka',
+          'dict_manager',
+          'shell_ui_settings',
+        ]),
+      _PrimaryTab.understand => take([
+          'pdf_reader',
+          'web_reader',
+          'youtube_downloader',
+          'shell_ui_settings',
+        ]),
+      _PrimaryTab.remember => take([
+          'word_list',
+          'learn_by_heart',
+          'shell_ui_settings',
+        ]),
+    };
+
+    final learnFromContent = switch (_currentTab) {
+      _PrimaryTab.home => take([
+          'speak_mode',
+          'write_mode',
+          'understand_tab',
+          'understand_ai_coach',
+          'youglish',
+          'live_cabin',
+        ]),
+      _PrimaryTab.listen => take([
+          'speak_mode',
+          'understand_tab',
+          'understand_ai_coach',
+          'youglish',
+          'live_cabin',
+        ]),
+      _PrimaryTab.read => take([
+          'write_mode',
+          'understand_tab',
+          'understand_ai_coach',
+          'youglish',
+        ]),
+      _PrimaryTab.understand => take([
+          'understand_ai_coach',
+          'speak_mode',
+          'youglish',
+          'live_cabin',
+        ]),
+      _PrimaryTab.remember => take([
+          'review',
+          'learn_by_heart',
+        ]),
+    };
+
+    final reviewAndAnalysis = switch (_currentTab) {
+      _PrimaryTab.home => take([
+          'review',
+          'learn_by_heart',
+          'word_list',
+          'timeline',
+          'stats',
+          'word_map',
+        ]),
+      _PrimaryTab.listen => take([
+          'sound_list',
+          'review',
+          'word_list',
+          'timeline',
+        ]),
+      _PrimaryTab.read => take([
+          'review',
+          'word_list',
+          'wordlist_stats',
+          'word_map',
+        ]),
+      _PrimaryTab.understand => take([
+          'review',
+          'word_list',
+          'timeline',
+          'word_map',
+        ]),
+      _PrimaryTab.remember => take([
+          'review',
+          'learn_by_heart',
+          'word_list',
+          'sound_list',
+          'timeline',
+          'stats',
+          'word_map',
+          'wordlist_stats',
+          'triangle',
+          'venn',
+        ]),
+    };
+
+    final allowedIds = <String>{
+      ...openContent.map((tool) => tool.id),
+      ...learnFromContent.map((tool) => tool.id),
+      ...reviewAndAnalysis.map((tool) => tool.id),
+    };
+    final recent = toolById.values
+        .where((tool) => allowedIds.contains(tool.id))
+        .where((tool) => _storage.getQuickActionLastUsedMillis(tool.id) > 0)
+        .toList()
+      ..sort((a, b) => _storage
+          .getQuickActionLastUsedMillis(b.id)
+          .compareTo(_storage.getQuickActionLastUsedMillis(a.id)));
+
+    return _dedupeQuickActionGroups([
+      recent.take(4).toList(),
+      _rankQuickActions(openContent),
+      _rankQuickActions(learnFromContent),
+      _rankQuickActions(reviewAndAnalysis),
+    ]);
+  }
+
+  List<tools.ToolItem> _dedupeQuickActionGroups(
+    List<List<tools.ToolItem>> groups,
+  ) {
+    final seen = <String>{};
+    final result = <tools.ToolItem>[];
+    for (final group in groups) {
+      for (final tool in group) {
+        if (seen.add(tool.id)) result.add(tool);
+      }
+    }
+    return result;
   }
 
   List<tools.ToolItem> _rankQuickActions(List<tools.ToolItem> items) {
@@ -672,32 +883,39 @@ class _MainShellState extends State<MainShell> {
 
   int _basePriorityForTool(String id) {
     const home = {
-      'speak_mode': 95,
-      'write_mode': 94,
+      'speak_mode': 98,
+      'write_mode': 97,
+      'understand_tab': 96,
+      'tipitaka': 94,
       'shell_ui_settings': 92,
       'youtube_downloader': 90,
       'web_reader': 88,
       'pdf_reader': 87,
       'review': 86,
       'word_list': 85,
-      'tipitaka': 91,
     };
     const listen = {
       'speak_mode': 100,
-      'video_player': 98,
+      'understand_tab': 98,
+      'video_library': 97,
       'youtube_downloader': 96,
       'youglish': 95,
-      'understand_tab': 92,
+      'understand_ai_coach': 94,
+      'sound_list': 92,
       'shell_ui_settings': 88,
     };
     const read = {
       'write_mode': 100,
-      'web_reader': 96,
-      'pdf_reader': 95,
+      'web_reader': 98,
+      'pdf_reader': 97,
+      'tipitaka': 96,
+      'dict_manager': 94,
+      'understand_ai_coach': 92,
       'word_list': 90,
       'shell_ui_settings': 88,
     };
     const understand = {
+      'understand_ai_coach': 100,
       'speak_mode': 98,
       'youglish': 96,
       'review': 94,
@@ -706,6 +924,7 @@ class _MainShellState extends State<MainShell> {
     };
     const remember = {
       'review': 100,
+      'learn_by_heart': 99,
       'word_list': 98,
       'sound_list': 97,
       'timeline': 95,
@@ -766,6 +985,12 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'understand_tab':
         _setPrimaryTab(_PrimaryTab.understand);
+        return;
+      case 'understand_ai_coach':
+        _setPrimaryTab(_PrimaryTab.understand);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openUnderstandAiCoach(context);
+        });
         return;
       case 'word_list':
         nav.push(MaterialPageRoute(builder: (_) => const WordListScreen()));
@@ -908,7 +1133,17 @@ class _MainShellState extends State<MainShell> {
         return IndexedStack(
           index: _readModeIndex,
           children: [
-            const ReadModeScreen(),
+            ReadModeScreen(
+              initialSource: _readSource,
+              onSourceChanged: (source) => _setReadSource(source),
+              sourceCallbacks: ReadSourceCallbacks(
+                onOpenDocumentLibrary: _openTextLibrary,
+                onOpenWebReader: () => _handleTool('web_reader'),
+                onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
+              ),
+              textActionCallbacks: _readTextActionCallbacks,
+              showSourcePicker: false,
+            ),
             WriteStudioScreen(
               onOpenWebReader: () => _handleTool('web_reader'),
               onOpenPdfReader: () => _handleTool('pdf_reader'),
@@ -918,6 +1153,9 @@ class _MainShellState extends State<MainShell> {
         );
       case _PrimaryTab.understand:
         return UnderstandWorkspaceScreen(
+          initialMode: _understandLearningMode,
+          onModeChanged: _handleUnderstandModeChanged,
+          showInternalModeTabs: false,
           onOpenSpeakMode: () => _setListenMode(1),
           onOpenYouGlish: () {
             _handleTool('youglish');
@@ -974,7 +1212,7 @@ class _MainShellState extends State<MainShell> {
             Column(
               children: [
                 _buildAppBar(context),
-                _buildAnimatedModeSwitch(context),
+                _buildWorkspaceHeader(context),
                 Expanded(
                   child: ClipRect(
                     child: _buildCurrentScreen(),
@@ -1066,6 +1304,14 @@ class _MainShellState extends State<MainShell> {
       _openLeftLibrary();
     } else {
       _openRightLibrary();
+    }
+  }
+
+  void _openTextLibrary() {
+    if (_listenFirst) {
+      _openRightLibrary();
+    } else {
+      _openLeftLibrary();
     }
   }
 
@@ -1214,6 +1460,290 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceHeader(BuildContext context) {
+    final children = <Widget>[];
+
+    if (_hasSecondaryModes) {
+      children.add(_buildAnimatedModeSwitch(context));
+    }
+
+    switch (_currentTab) {
+      case _PrimaryTab.listen:
+        children.add(_buildListenContextHeader(context));
+        break;
+      case _PrimaryTab.read:
+        children.add(_buildReadContextHeader(context));
+        break;
+      case _PrimaryTab.understand:
+        children.add(_buildUnderstandContextHeader(context));
+        break;
+      case _PrimaryTab.home:
+      case _PrimaryTab.remember:
+        break;
+    }
+
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Column(mainAxisSize: MainAxisSize.min, children: children);
+  }
+
+  Widget _buildListenContextHeader(BuildContext context) {
+    final actions = switch (_listenModeIndex) {
+      0 => <_WorkspaceHeaderAction>[
+          _WorkspaceHeaderAction(
+            label: 'Mở âm thanh',
+            icon: Icons.library_music_rounded,
+            onPressed: () => _openListenSource(_listenSource),
+          ),
+          _WorkspaceHeaderAction(
+            label: 'Học từ nội dung',
+            icon: Icons.lightbulb_outline,
+            onPressed: () => _setPrimaryTab(_PrimaryTab.understand),
+          ),
+        ],
+      1 => <_WorkspaceHeaderAction>[
+          _WorkspaceHeaderAction(
+            label: 'YouGlish',
+            icon: Icons.record_voice_over,
+            onPressed: () => _handleTool('youglish'),
+          ),
+          _WorkspaceHeaderAction(
+            label: 'Hỏi AI',
+            icon: Icons.psychology_outlined,
+            onPressed: () => _setPrimaryTab(_PrimaryTab.understand),
+          ),
+        ],
+      _ => <_WorkspaceHeaderAction>[
+          _WorkspaceHeaderAction(
+            label: 'Thư viện video',
+            icon: Icons.video_library_outlined,
+            onPressed: () => _handleTool('video_library'),
+          ),
+          _WorkspaceHeaderAction(
+            label: 'YouTube',
+            icon: Icons.play_circle_filled,
+            onPressed: () => _handleTool('youtube_downloader'),
+          ),
+        ],
+    };
+
+    return _WorkspaceHeaderSurface(
+      accent: _currentAccent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _WorkspaceHeaderLabel(
+            icon: Icons.source_outlined,
+            label: context.uiText('Nguồn'),
+          ),
+          const SizedBox(height: 8),
+          WorkspaceSourcePicker<ListenContentSource>(
+            items: _listenSourceItems(context),
+            selectedValue: _listenSource,
+            onChanged: (source) => _setListenSource(source, openSource: true),
+            presentation: WorkspaceNavigationPresentation.chips,
+            menuTooltip: context.uiText('Chọn nguồn'),
+          ),
+          const SizedBox(height: 10),
+          _WorkspaceHeaderActions(actions: actions),
+        ],
+      ),
+    );
+  }
+
+  List<WorkspaceNavigationItem<ListenContentSource>> _listenSourceItems(
+    BuildContext context,
+  ) {
+    return [
+      WorkspaceNavigationItem<ListenContentSource>(
+        value: ListenContentSource.audioLibrary,
+        label: context.uiText('Âm thanh'),
+        icon: Icons.library_music_rounded,
+      ),
+      WorkspaceNavigationItem<ListenContentSource>(
+        value: ListenContentSource.youtube,
+        label: context.uiText('YouTube'),
+        icon: Icons.play_circle_filled,
+      ),
+      WorkspaceNavigationItem<ListenContentSource>(
+        value: ListenContentSource.videoLibrary,
+        label: context.uiText('Video'),
+        icon: Icons.video_library_outlined,
+      ),
+    ];
+  }
+
+  Widget _buildReadContextHeader(BuildContext context) {
+    return _WorkspaceHeaderSurface(
+      accent: _currentAccent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _WorkspaceHeaderLabel(
+            icon: Icons.source_outlined,
+            label: context.uiText('Nguồn'),
+          ),
+          ReadSourcePicker(
+            selectedSource: _readSource,
+            onSourceChanged: (source) => _setReadSource(source),
+            callbacks: ReadSourceCallbacks(
+              onOpenDocumentLibrary: _openTextLibrary,
+              onOpenWebReader: () => _handleTool('web_reader'),
+              onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
+            ),
+            presentation: WorkspaceNavigationPresentation.chips,
+          ),
+          _WorkspaceHeaderActions(
+            actions: [
+              _WorkspaceHeaderAction(
+                label: 'Mở nguồn',
+                icon: Icons.open_in_new_rounded,
+                onPressed: () => _openReadSource(_readSource),
+              ),
+              _WorkspaceHeaderAction(
+                label: 'Dịch',
+                icon: Icons.translate,
+                onPressed: () => _handleReadTextAction(ReadTextAction.translate),
+              ),
+              _WorkspaceHeaderAction(
+                label: 'Ngữ pháp',
+                icon: Icons.auto_awesome_motion,
+                onPressed: () => _handleReadTextAction(ReadTextAction.grammar),
+              ),
+              _WorkspaceHeaderAction(
+                label: 'Phát âm',
+                icon: Icons.record_voice_over,
+                onPressed: () => _handleReadTextAction(ReadTextAction.pronounce),
+              ),
+              _WorkspaceHeaderAction(
+                label: 'Từ điển',
+                icon: Icons.menu_book,
+                onPressed: () => _handleReadTextAction(ReadTextAction.dictionary),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnderstandContextHeader(BuildContext context) {
+    return _WorkspaceHeaderSurface(
+      accent: _currentAccent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _WorkspaceHeaderLabel(
+            icon: Icons.route_outlined,
+            label: context.uiText('Chế độ'),
+          ),
+          const SizedBox(height: 8),
+          WorkspaceModeBar<UnderstandWorkspaceMode>(
+            items: _understandModeItems(context),
+            selectedValue: _understandMode,
+            onChanged: _setUnderstandMode,
+            presentation: WorkspaceNavigationPresentation.chips,
+            menuTooltip: context.uiText('Chọn chế độ'),
+          ),
+          const SizedBox(height: 10),
+          Consumer2<PlayerProvider, TextProvider>(
+            builder: (context, player, textProvider, _) {
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _StatusPill(
+                    icon: Icons.headphones,
+                    label: 'Audio',
+                    ready: player.currentSongPath != null,
+                  ),
+                  _StatusPill(
+                    icon: Icons.menu_book,
+                    label: 'Text',
+                    ready: textProvider.hasLyrics,
+                  ),
+                  _WorkspaceHeaderActionButton(
+                    action: _WorkspaceHeaderAction(
+                      label: 'Hỏi AI',
+                      icon: Icons.psychology_outlined,
+                      onPressed: () => openUnderstandAiCoach(context),
+                    ),
+                    compact: true,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<WorkspaceNavigationItem<UnderstandWorkspaceMode>> _understandModeItems(
+    BuildContext context,
+  ) {
+    return [
+      WorkspaceNavigationItem<UnderstandWorkspaceMode>(
+        value: UnderstandWorkspaceMode.sync,
+        label: context.uiText('Đồng bộ'),
+        icon: Icons.sync_alt_rounded,
+      ),
+      WorkspaceNavigationItem<UnderstandWorkspaceMode>(
+        value: UnderstandWorkspaceMode.shadowing,
+        label: context.uiText('Shadowing'),
+        icon: Icons.record_voice_over,
+      ),
+    ];
+  }
+
+  void _handleReadTextAction(ReadTextAction action, {String? selectedText}) {
+    final textProvider = context.read<TextProvider>();
+    final text = (selectedText ?? textProvider.selectedText ?? '').trim();
+    if (text.isEmpty && action != ReadTextAction.dictionary) {
+      _showWorkspaceSnack('Bạn cần bôi chọn một đoạn trước');
+      return;
+    }
+
+    switch (action) {
+      case ReadTextAction.translate:
+        _showWorkspaceSnack('Bản dịch sẽ dùng đoạn đang chọn trong tab Đọc.');
+        return;
+      case ReadTextAction.grammar:
+        _showWorkspaceSnack('Ngữ pháp sẽ dùng đoạn đang chọn trong tab Đọc.');
+        return;
+      case ReadTextAction.pronounce:
+        unawaited(textProvider.speak(text));
+        return;
+      case ReadTextAction.dictionary:
+        unawaited(_handleTool('dict_manager'));
+        return;
+    }
+  }
+
+  ReadTextActionCallbacks get _readTextActionCallbacks {
+    return ReadTextActionCallbacks(
+      onTranslate: (text) =>
+          _handleReadTextAction(ReadTextAction.translate, selectedText: text),
+      onGrammar: (text) =>
+          _handleReadTextAction(ReadTextAction.grammar, selectedText: text),
+      onPronounce: (text) =>
+          _handleReadTextAction(ReadTextAction.pronounce, selectedText: text),
+      onDictionary: (text) =>
+          _handleReadTextAction(ReadTextAction.dictionary, selectedText: text),
+    );
+  }
+
+  void _showWorkspaceSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(message)),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -1386,52 +1916,7 @@ class _MainShellState extends State<MainShell> {
                   },
                 ),
               ),
-              Expanded(
-                child: _BottomNavItem(
-                  label: l10n.listen,
-                  selected: _currentTab == _PrimaryTab.listen,
-                  color: _currentTab == _PrimaryTab.listen
-                      ? _currentAccent
-                      : const Color(0xFF6C63FF),
-                  icon: Icons.headphones_outlined,
-                  selectedIcon: Icons.headphones,
-                  showLongPressHint: _enableLongPressModeSwitch,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _setPrimaryTab(_PrimaryTab.listen);
-                  },
-                  onLongPress: _enableLongPressModeSwitch
-                      ? () {
-                          _shellGearLog('nav-long-press: listen → speak-mode');
-                          HapticFeedback.mediumImpact();
-                          _setListenMode(1);
-                        }
-                      : null,
-                ),
-              ),
-              Expanded(
-                child: _BottomNavItem(
-                  label: l10n.read,
-                  selected: _currentTab == _PrimaryTab.read,
-                  color: _currentTab == _PrimaryTab.read
-                      ? _currentAccent
-                      : const Color(0xFF2196F3),
-                  icon: Icons.menu_book_outlined,
-                  selectedIcon: Icons.menu_book,
-                  showLongPressHint: _enableLongPressModeSwitch,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _setPrimaryTab(_PrimaryTab.read);
-                  },
-                  onLongPress: _enableLongPressModeSwitch
-                      ? () {
-                          _shellGearLog('nav-long-press: read → write-mode');
-                          HapticFeedback.mediumImpact();
-                          _setReadMode(1);
-                        }
-                      : null,
-                ),
-              ),
+              ...orderedContentTabs,
               Expanded(
                 child: _BottomNavItem(
                   label: l10n.understand,
@@ -1470,6 +1955,153 @@ class _MainShellState extends State<MainShell> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceHeaderAction {
+  const _WorkspaceHeaderAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+}
+
+class _WorkspaceHeaderSurface extends StatelessWidget {
+  const _WorkspaceHeaderSurface({
+    required this.accent,
+    required this.child,
+  });
+
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('workspace-context-header'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101827),
+        border: Border(
+          bottom: BorderSide(color: accent.withValues(alpha: 0.14)),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _WorkspaceHeaderLabel extends StatelessWidget {
+  const _WorkspaceHeaderLabel({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: Colors.white70),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkspaceHeaderActions extends StatelessWidget {
+  const _WorkspaceHeaderActions({required this.actions});
+
+  final List<_WorkspaceHeaderAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final action in actions)
+          _WorkspaceHeaderActionButton(action: action),
+      ],
+    );
+  }
+}
+
+class _WorkspaceHeaderActionButton extends StatelessWidget {
+  const _WorkspaceHeaderActionButton({
+    required this.action,
+    this.compact = false,
+  });
+
+  final _WorkspaceHeaderAction action;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return WorkspaceActionButton(
+      label: context.uiText(action.label),
+      icon: action.icon,
+      onPressed: action.onPressed,
+      compact: compact,
+      tooltip: context.uiText(action.label),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    required this.ready,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool ready;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ready ? const Color(0xFF66BB6A) : Colors.grey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '${context.uiText(label)} · ${context.uiText(ready ? 'Sẵn sàng' : 'Chưa có')}',
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

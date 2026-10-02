@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../features/understand_ai/understand_ai_context.dart';
+
 import '../../widgets/auto_hide_banner.dart';
 import 'services/understand_ai_coach_launcher.dart';
 import 'understand_tab_connector.dart';
@@ -12,6 +14,9 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
   final VoidCallback onOpenYouGlish;
   final VoidCallback onOpenReview;
   final VoidCallback onOpenQuickActions;
+  final UnderstandLearningMode initialMode;
+  final ValueChanged<UnderstandLearningMode>? onModeChanged;
+  final bool showInternalModeTabs;
 
   /// Optional để không phá caller hiện tại (main_shell không cần đổi):
   /// mặc định mở sheet "Trợ lý hiểu bài" từ state của tab Hiểu.
@@ -23,6 +28,9 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
     required this.onOpenYouGlish,
     required this.onOpenReview,
     required this.onOpenQuickActions,
+    this.initialMode = UnderstandLearningMode.sync,
+    this.onModeChanged,
+    this.showInternalModeTabs = true,
     this.onOpenAiCoach,
   });
 
@@ -42,8 +50,12 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
                 onOpenAiCoach ?? () => openUnderstandAiCoach(context),
           ),
         ),
-        const Expanded(
-          child: UnderstandTabConnector(),
+        Expanded(
+          child: UnderstandTabConnector(
+            initialMode: initialMode,
+            onModeChanged: onModeChanged,
+            showInternalModeTabs: showInternalModeTabs,
+          ),
         ),
       ],
     );

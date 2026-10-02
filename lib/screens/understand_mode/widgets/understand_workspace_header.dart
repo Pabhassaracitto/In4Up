@@ -7,7 +7,8 @@
 // tập / Công cụ nhanh) — KHÔNG phải tab/mode thứ ba. TabBar bên dưới vẫn chỉ
 // có Đồng bộ / Shadowing.
 
-import 'package:flutter/material.dart';
+// NOTE: chỉ import localized_material.dart (export material + Text shim +
+// uiText). Import thêm material trực tiếp sẽ làm tên `Text` ambiguous.
 import 'package:in4up/core/language/localized_material.dart';
 
 class UnderstandWorkspaceHeader extends StatelessWidget {

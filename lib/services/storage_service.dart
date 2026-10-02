@@ -12,9 +12,23 @@ import '../models/sound_chapter.dart';
 import '../models/sound_loop_stat.dart';
 import '../models/sound_mark.dart';
 import '../models/shell_content_order.dart';
+import '../models/read_content_source.dart';
 import '../models/sound_transcript.dart';
 import '../models/text_segment.dart';
 import '../models/vad_settings.dart';
+
+/// Source mặc định / gần nhất của workspace Nghe.
+enum ListenContentSource {
+  audioLibrary,
+  youtube,
+  videoLibrary;
+}
+
+/// Mode mặc định / gần nhất của workspace Hiểu.
+enum UnderstandWorkspaceMode {
+  sync,
+  shadowing;
+}
 
 /// Service quản lý lưu trữ dữ liệu local với Hive
 /// Singleton pattern - gọi StorageService() ở bất kỳ đâu
@@ -344,6 +358,124 @@ class StorageService {
   ShellContentOrder getShellContentOrder() {
     final raw = _settings.get('shell_content_order_v1');
     return shellContentOrderFromStorage(raw);
+  }
+
+  static const String _readContentSourceKey = 'read_content_source_v1';
+  static const String _defaultReadContentSourceKey =
+      'default_read_content_source_v1';
+  static const String _listenContentSourceKey = 'listen_content_source_v1';
+  static const String _defaultListenContentSourceKey =
+      'default_listen_content_source_v1';
+  static const String _understandWorkspaceModeKey =
+      'understand_workspace_mode_v1';
+  static const String _defaultUnderstandWorkspaceModeKey =
+      'default_understand_workspace_mode_v1';
+
+  Future<void> saveReadContentSource(ReadContentSource source) async {
+    await saveSetting(_readContentSourceKey, source.name);
+  }
+
+  ReadContentSource getReadContentSource({ReadContentSource? fallback}) {
+    return _readContentSourceFromStorage(
+      _settings.get(_readContentSourceKey),
+      fallback ?? getDefaultReadContentSource(),
+    );
+  }
+
+  Future<void> saveDefaultReadContentSource(ReadContentSource source) async {
+    await saveSetting(_defaultReadContentSourceKey, source.name);
+  }
+
+  ReadContentSource getDefaultReadContentSource() {
+    return _readContentSourceFromStorage(
+      _settings.get(_defaultReadContentSourceKey),
+      ReadContentSource.document,
+    );
+  }
+
+  Future<void> saveListenContentSource(ListenContentSource source) async {
+    await saveSetting(_listenContentSourceKey, source.name);
+  }
+
+  ListenContentSource getListenContentSource({ListenContentSource? fallback}) {
+    return _listenContentSourceFromStorage(
+      _settings.get(_listenContentSourceKey),
+      fallback ?? getDefaultListenContentSource(),
+    );
+  }
+
+  Future<void> saveDefaultListenContentSource(
+    ListenContentSource source,
+  ) async {
+    await saveSetting(_defaultListenContentSourceKey, source.name);
+  }
+
+  ListenContentSource getDefaultListenContentSource() {
+    return _listenContentSourceFromStorage(
+      _settings.get(_defaultListenContentSourceKey),
+      ListenContentSource.audioLibrary,
+    );
+  }
+
+  Future<void> saveUnderstandWorkspaceMode(
+    UnderstandWorkspaceMode mode,
+  ) async {
+    await saveSetting(_understandWorkspaceModeKey, mode.name);
+  }
+
+  UnderstandWorkspaceMode getUnderstandWorkspaceMode({
+    UnderstandWorkspaceMode? fallback,
+  }) {
+    return _understandWorkspaceModeFromStorage(
+      _settings.get(_understandWorkspaceModeKey),
+      fallback ?? getDefaultUnderstandWorkspaceMode(),
+    );
+  }
+
+  Future<void> saveDefaultUnderstandWorkspaceMode(
+    UnderstandWorkspaceMode mode,
+  ) async {
+    await saveSetting(_defaultUnderstandWorkspaceModeKey, mode.name);
+  }
+
+  UnderstandWorkspaceMode getDefaultUnderstandWorkspaceMode() {
+    return _understandWorkspaceModeFromStorage(
+      _settings.get(_defaultUnderstandWorkspaceModeKey),
+      UnderstandWorkspaceMode.sync,
+    );
+  }
+
+  ReadContentSource _readContentSourceFromStorage(
+    Object? raw,
+    ReadContentSource fallback,
+  ) {
+    if (raw is! String) return fallback;
+    for (final source in ReadContentSource.values) {
+      if (source.name == raw) return source;
+    }
+    return fallback;
+  }
+
+  ListenContentSource _listenContentSourceFromStorage(
+    Object? raw,
+    ListenContentSource fallback,
+  ) {
+    if (raw is! String) return fallback;
+    for (final source in ListenContentSource.values) {
+      if (source.name == raw) return source;
+    }
+    return fallback;
+  }
+
+  UnderstandWorkspaceMode _understandWorkspaceModeFromStorage(
+    Object? raw,
+    UnderstandWorkspaceMode fallback,
+  ) {
+    if (raw is! String) return fallback;
+    for (final mode in UnderstandWorkspaceMode.values) {
+      if (mode.name == raw) return mode;
+    }
+    return fallback;
   }
 
   Future<void> saveShellListenSubMode(int index) async {

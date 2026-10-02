@@ -35,6 +35,8 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/widgets/read_source_picker.dart';
+import 'read_mode/widgets/read_text_action_hooks.dart';
 import 'read_mode/write_studio_screen.dart';
 import 'settings/shell_ui_settings_screen.dart';
 import 'settings/stt_model_settings_screen.dart';

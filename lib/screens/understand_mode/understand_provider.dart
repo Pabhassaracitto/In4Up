@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:in4up_stt/stt_lrc_converter.dart';
+
+import '../../features/understand_ai/understand_ai_context.dart';
 import 'models/understand_line.dart';
 import 'services/understand_service.dart';
 
@@ -17,6 +19,18 @@ class UnderstandProvider extends ChangeNotifier {
   List<LrcLine> get lrcLines => _lrcLines;
   int _currentLineIndex = -1;
   int get currentLineIndex => _currentLineIndex;
+
+  // Mode luyện tập hiện tại (Đồng bộ / Shadowing) — UnderstandModeScreen đồng
+  // bộ theo TabController. AI Coach chỉ ĐỌC giá trị này để gắn vào context;
+  // đóng sheet/chat không bao giờ reset nó.
+  UnderstandLearningMode _learningMode = UnderstandLearningMode.sync;
+  UnderstandLearningMode get learningMode => _learningMode;
+
+  void setLearningMode(UnderstandLearningMode mode) {
+    if (mode == _learningMode) return;
+    _learningMode = mode;
+    notifyListeners();
+  }
 
   // Karaoke word-level tracking
   int _currentWordIndex = -1;

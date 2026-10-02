@@ -3,8 +3,22 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/understand_ai/understand_ai_context.dart';
+
+/// Màn chat AI dùng chung (Home) và cho Trợ lý hiểu bài (tab Hiểu).
+///
+/// [context] là ngữ cảnh tab Hiểu — OPTIONAL để caller cũ
+/// (`const AiChatScreen()` từ Home) không đổi và vẫn compile. Khi khác null,
+/// banner trên cùng hiển thị rõ ngữ cảnh sẽ gửi; người dùng thấy và sửa được
+/// câu hỏi (nháp) trước khi bấm gửi. Không tự gửi, không tự upload audio.
 class AiChatScreen extends StatefulWidget {
-  const AiChatScreen({super.key});
+  /// Ngữ cảnh AI Coach từ tab Hiểu. Null = chat chung từ Home.
+  final UnderstandAiContext? context;
+
+  /// Nháp câu hỏi có sẵn (quick action) — người dùng duyệt lại trước khi gửi.
+  final String? initialDraft;
+
+  const AiChatScreen({super.key, this.context, this.initialDraft});
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -13,6 +27,17 @@ class AiChatScreen extends StatefulWidget {
 class _AiChatScreenState extends State<AiChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Nháp từ quick action: hiển thị lại đúng những gì sẽ gửi — người dùng
+    // có thể sửa/xoá trước khi bấm gửi (không tự động gửi).
+    final draft = widget.initialDraft;
+    if (draft != null && draft.isNotEmpty) {
+      _controller.text = draft;
+    }
+  }
 
   @override
   void dispose() {
@@ -77,10 +102,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final coachContext = widget.context;
     return Scaffold(
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(
-        title: Text(context.uiText('I4U AI Chat')),
+        title: Text(
+          coachContext != null
+              ? context.uiText('Trợ lý hiểu bài')
+              : context.uiText('I4U AI Chat'),
+        ),
         backgroundColor: const Color(0xFF11162A),
         actions: [
           Consumer<AiServiceFacade>(
@@ -127,6 +157,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
             builder: (context, facade, _) =>
                 _RemoteRouteBanner(facade: facade),
           ),
+          // Trợ lý hiểu bài: hiển thị rõ ngữ cảnh được gắn kèm (chỉ text).
+          if (coachContext != null)
+            _UnderstandCoachBanner(aiContext: coachContext),
           Expanded(
             child: Consumer<AiServiceFacade>(
               builder: (context, facade, _) {
@@ -511,6 +544,77 @@ class _EmptyChat extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// Banner ngữ cảnh tab Hiểu (AI Coach) — hiện NGAY trên đầu chat những gì
+/// sẽ được gửi kèm câu hỏi: mode, dòng đang hỏi, câu văn bản. Chỉ text:
+/// không audio, không ghi âm, không lịch sử học.
+class _UnderstandCoachBanner extends StatelessWidget {
+  final UnderstandAiContext aiContext;
+  const _UnderstandCoachBanner({required this.aiContext});
+
+  @override
+  Widget build(BuildContext context) {
+    final ui = context.uiText;
+    final isShadowing =
+        aiContext.learningMode == UnderstandLearningMode.shadowing;
+    final parts = <String>[
+      ui('Trợ lý hiểu bài'),
+      isShadowing ? 'Shadowing' : ui('Đồng bộ'),
+      if (aiContext.focusLineIndex != null)
+        ui('Dòng ${aiContext.focusLineIndex! + 1}'),
+    ];
+
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF231A3D),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.psychology_outlined,
+                size: 14,
+                color: Color(0xFFB388FF),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  parts.join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFD6C7FF),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (aiContext.selectedText != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              aiContext.selectedText!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: Colors.white70),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            ui('Chỉ gửi đoạn văn bản này — không gửi audio, không tự ghi âm.'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF9FDCB4)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// WP1 (API-002): nhãn định tuyến server AI — hiện NHẸ một dòng khi user đã

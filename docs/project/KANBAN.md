@@ -121,7 +121,7 @@
 | I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
 | I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (code xong, CI run 36898178031 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `pdf_text_layer_probe.dart` + `ocr_cancel_token.dart` + `pdf_tts_machine.dart` + playback epoch; test OCR/PDF xanh |
-| I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | 📋 proposed | Viết guide song ngữ tối thiểu vi/en; liên kết từ Settings/Help nếu có UI |
+| I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 
 
 ## Card chi tiết
@@ -4663,7 +4663,7 @@
   - 2026-09-30 | 20:40 UTC | doing | agent arena/01a0f3db-in4up | đối chiếu nguồn chuẩn I4U L18: PR #64 (`arena/01a0f3b6-in4up` → `arena/01a0251e-in4up`) đã merge 19:53 UTC (`14140d7`), nhánh session merge base về và GỘP card trùng do nhánh tạo trước thời điểm đó — giữ nguyên Vấn đề/Hướng giải quyết/AT-DoD của card gốc, chỉ thêm phần triển khai + lịch sử. Đã đọc `PROMPT_AGENT_I4U_L18.md` §6 (Agent F): phạm vi F1/F2/F3 và DoD khớp phần đã làm, không phát sinh hạng mục mới.
 
 ### I4U18-DOCS-001 — Hướng dẫn sử dụng cho các luồng mới/dễ lỗi
-- **Trạng thái:** proposed.
+- **Trạng thái:** done (docs-only; chờ owner chạy QA trên thiết bị).
 - **Nguồn:** owner (2026-09-30), mục 7 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** người dùng cần hướng dẫn rõ cho các luồng nhiều bước:
   import model offline, cấu hình Server/API, import/link từ điển, import Tipiṭaka,
@@ -4674,8 +4674,24 @@
 - **AT/DoD:** người dùng đọc hướng dẫn có thể tự import Piper/STT/dictionary,
   cấu hình provider API và xử lý lỗi thường gặp; mọi liên kết từ Settings/Help mở
   đúng, không còn chuỗi UI tiếng Việt khi locale khác `vi`.
+- **Kết quả/bằng chứng:**
+  - `docs/USER_GUIDE.md` + `docs/USER_GUIDE.vi.md`: guide song ngữ cho
+    Piper/eSpeak/Whisper/Zipformer, BYOK/Ollama/LM Studio, MDX/MDD/CSS,
+    Tipiṭaka/Pāli, Listen/Video và PDF/OCR/TTS/IPA; nêu rõ giới hạn UI hiện tại
+    thay vì mô tả chức năng lane khác chưa merge.
+  - `docs/manual_qa_I4U18_DOCS_001.md`: checklist owner cho happy path, lỗi,
+    offline/restart, quyền, key, i18n rule #5 và chuỗi QA liên lane.
+  - Link từ hai README; không thêm Help UI nên không phát sinh key i18n; không
+    commit ảnh/video/model; local Markdown link check + `git diff --check` sạch.
+- **Rủi ro còn lại:** cập nhật lại guide sau khi lane MDD/CSS, video/listen và
+  Tipiṭaka merge UI mới; owner vẫn cần chạy checklist trên thiết bị thật.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | 19:49 UTC | proposed→doing | agent arena/01a0f3dc-in4up |
+    soạn guide vi + checklist từ code hiện hành; đối chiếu nguồn chuẩn PR #64
+  - 2026-09-30 | 20:32 UTC | doing→done | agent arena/01a0f3dc-in4up |
+    bổ sung English fallback, README links và bằng chứng docs-only; local link
+    check + `git diff --check` sạch
 
 ### XLAT-DEEPLX-001 — Engine DeepLX (HF Space): URL không lưu khi restart, dán host trần không chạy, lỗi im lặng
 - **Triệu chứng (owner):** vừa dựng DeepLX trên Hugging Face Space

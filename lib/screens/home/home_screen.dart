@@ -13,6 +13,7 @@ import '../../services/auth_service.dart';
 import '../settings/stt_model_settings_screen.dart';
 import 'quick_capture/quick_capture_sheet.dart';
 import 'quick_capture/quick_suggestion_sheet.dart';
+import 'widgets/continue_learning_card.dart';
 import 'widgets/focus_streak_card.dart';
 import 'widgets/hebbian_input_card.dart';
 import 'widgets/knowledge_graph_preview.dart';
@@ -76,6 +77,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       physics: const BouncingScrollPhysics(),
                       slivers: [
                         SliverToBoxAdapter(child: _buildGlassHeader(context)),
+                        // HOME-CONTINUE-001: "Tiếp tục học" đứng đầu dashboard
+                        // — đưa người học quay lại đúng hoạt động đang dở
+                        // (bài nghe, văn bản, từ đến hạn) từ dữ liệu thật.
+                        SliverPadding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 12,
+                          ),
+                          sliver: SliverToBoxAdapter(
+                            child: ContinueLearningCard(
+                              onResumeListening: widget.onNavigateToListen,
+                              onResumeReading: widget.onNavigateToRead,
+                              onReviewDue: widget.onNavigateToMemory,
+                            ),
+                          ),
+                        ),
                         SliverPadding(
                           padding: EdgeInsets.symmetric(
                             horizontal: horizontalPadding,

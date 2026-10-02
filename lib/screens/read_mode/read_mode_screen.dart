@@ -12,6 +12,7 @@ import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
 import '../../models/ipa_display_mode.dart';
 import '../../models/learning_activity.dart';
+import '../../models/read_content_source.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
@@ -25,6 +26,8 @@ import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/ipa_legend_strip.dart';
 import 'widgets/read_bottom_bar.dart';
+import 'widgets/read_source_picker.dart';
+import 'widgets/read_text_action_hooks.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/smart_playback_bar.dart';
 import 'widgets/text_line_widget.dart';
@@ -32,7 +35,36 @@ import 'widgets/text_line_widget.dart';
 class ReadModeScreen extends StatefulWidget {
   final RecentFile? currentFile;
 
-  const ReadModeScreen({super.key, this.currentFile});
+  /// Nguồn nội dung được chọn sẵn cho source picker (I4U-READ-UX-001).
+  ///
+  /// Mặc định [ReadContentSource.document] để giữ hành vi hiện có: màn hình
+  /// vẫn hiển thị tài liệu đang mở (`currentFile`/`TextProvider`) như trước
+  /// khi chưa có tham số này.
+  final ReadContentSource initialSource;
+
+  /// Gọi mỗi khi người dùng đổi nguồn trong source picker. Optional — nơi
+  /// gọi có thể bỏ qua nếu chưa cần theo dõi lựa chọn nguồn.
+  final ValueChanged<ReadContentSource>? onSourceChanged;
+
+  /// Hợp đồng điều hướng tới `TextLibraryDrawer` / `WebReaderScreen` /
+  /// `TipitakaLibraryScreen` cho integration agent nối dây. Để trống an
+  /// toàn: source picker vẫn đổi trạng thái hiển thị, chỉ là chưa mở được
+  /// màn hình nguồn thật.
+  final ReadSourceCallbacks sourceCallbacks;
+
+  /// Điểm móc cho 4 hành động theo ngữ cảnh khi có text được chọn: Dịch /
+  /// Ngữ pháp / Phát âm / Từ điển. Để trống an toàn: không hành động nào
+  /// được nối thì thanh hành động không hiển thị gì (không đổi UI hiện có).
+  final ReadTextActionCallbacks textActionCallbacks;
+
+  const ReadModeScreen({
+    super.key,
+    this.currentFile,
+    this.initialSource = ReadContentSource.document,
+    this.onSourceChanged,
+    this.sourceCallbacks = const ReadSourceCallbacks(),
+    this.textActionCallbacks = const ReadTextActionCallbacks(),
+  });
 
   @override
   State<ReadModeScreen> createState() => _ReadModeScreenState();
@@ -46,6 +78,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   VoidCallback? _playerListener;
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false;
+
+  // I4U-READ-UX-001 — nguồn nội dung đang chọn trong source picker riêng
+  // của tab Đọc. Tách biệt khỏi Mode (Đọc/Viết, do main_shell sở hữu) và
+  // khỏi Tool (Dịch/Ngữ pháp/Phát âm/Từ điển, xem _textActionCallbacks).
+  late ReadContentSource _source;
 
   PlayerProvider? _playerProviderRef;
 
@@ -63,6 +100,18 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   // I4U18-READ-IPA-001 (F1.2) — chống lên lịch gợi ý nhiều lần trong khi
   // đang chờ đọc cờ prefs (build có thể chạy lại vài lần liên tiếp).
   bool _lineHintScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _source = widget.initialSource;
+  }
+
+  void _handleSourceChanged(ReadContentSource source) {
+    if (_source == source) return;
+    setState(() => _source = source);
+    widget.onSourceChanged?.call(source);
+  }
 
   @override
   void didChangeDependencies() {
@@ -239,11 +288,32 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               textProvider.ipaColorByType &&
               textProvider.ipaDisplayMode != IpaDisplayMode.hidden;
 
+          final selectedText = textProvider.selectedText?.trim() ?? '';
+          final showTextActionBar = !isFocusMode &&
+              selectedText.isNotEmpty &&
+              widget.textActionCallbacks.hasAnyHook;
+
           return Stack(
             children: [
               Column(
                 children: [
                   if (!isFocusMode) const ReadTopBar(),
+                  // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
+                  // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
+                  if (!isFocusMode)
+                    ReadSourcePicker(
+                      selectedSource: _source,
+                      onSourceChanged: _handleSourceChanged,
+                      callbacks: widget.sourceCallbacks,
+                    ),
+                  if (showTextActionBar)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                      child: ReadTextActionBar(
+                        selectedText: selectedText,
+                        callbacks: widget.textActionCallbacks,
+                      ),
+                    ),
                   if (!isFocusMode && showIpaLegend)
                     IpaLegendStrip(tp: textProvider),
                   if (!isFocusMode && showGrammarLegend)

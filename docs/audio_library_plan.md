@@ -5,6 +5,21 @@
 > **Ràng buộc:** ZERO dependency mới (file_picker 11.0.2 đã có; MediaStore/SAF qua MethodChannel tự viết trong `MainActivity.kt` đã có sẵn). Không đổi tên box Hive. Offline-first.
 > **Trạng thái:** Kế hoạch — CHƯA code. Chờ nghiệm thu tay Soundlist + chốt của Hội đồng.
 
+> **Cập nhật I4U18-LISTEN-LIB-001 (2026-09-30):** đã bổ sung lớp UI/lọc trên nền
+> P1 (MediaStore) — xem card KANBAN `I4U18-LISTEN-LIB-001`. Điểm chính:
+> - MediaStore scan +ALBUM +RELATIVE_PATH → `AudioLibraryEntry` thêm
+>   `album`/`folder`/`favorite` (JSON tương thích ngược); `mergeScanned` GIỮ
+>   favorite khi quét lại.
+> - Bộ lọc PURE (`AudioLibraryService`): albums/artists/folders + byAlbum/
+>   byArtist/byFolder/favorites/recent/unplayed/applySmart; search bao gồm album.
+> - Smart playlist tối thiểu: Gần đây / Yêu thích / Chưa nghe (by folder qua facet).
+> - Playlist THỦ CÔNG: `AudioPlaylist` (chỉ giữ `libraryId` → KHÔNG đụng
+>   transcript/LRC/reopen timestamp) + box Hive `audio_playlists` + provider CRUD
+>   + màn chi tiết kéo-thả. UI: chips smart + facet album/tác giả/thư mục + tim
+>   yêu thích + long-press "thêm vào playlist" trong tab Thư viện.
+> - Test: `test/audio_library_filters_test.dart`, `test/audio_playlist_test.dart`
+>   (chạy trong `app_analyze.yml`).
+
 ---
 
 ## 1. Chẩn đoán hiện trạng (đã đọc code — xác minh)

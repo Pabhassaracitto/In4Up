@@ -1,8 +1,17 @@
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import 'package:in4up/features/learn_by_heart/controllers/learn_by_heart_provider.dart';
+import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_learn_by_heart_service.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_worklist_service.dart';
+import 'package:in4up/models/vocabulary_type.dart';
+import 'package:in4up/providers/vocabulary_provider.dart';
 import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tts/tts_service.dart';
 
 /// A continuous, paragraph-aligned Tipiṭaka reader.
 ///
@@ -14,12 +23,18 @@ class TipitakaReaderScreen extends StatefulWidget {
   final int bookId;
   final String bookCode;
   final String bookName;
+  final TipitakaBook? book;
+  final int? initialSegmentId;
+  final bool embedded;
 
   const TipitakaReaderScreen({
     super.key,
     required this.bookId,
     required this.bookCode,
     this.bookName = '',
+    this.book,
+    this.initialSegmentId,
+    this.embedded = false,
   });
 
   @override
@@ -28,29 +43,56 @@ class TipitakaReaderScreen extends StatefulWidget {
 
 class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   static const _pageSize = 60;
+  static int _globalTtsGeneration = 0;
 
   final _scrollController = ScrollController();
   List<TipitakaSegment> _segments = const [];
   int _totalCount = 0;
+  int _loadedOffset = 0;
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = true;
   String? _error;
 
   bool _showPali = true;
+  bool _hasPali = true;
+  Set<String> _availableLanguages = const {};
   bool _showVietnamese = true;
   bool _showEnglish = false;
   double _fontScale = 1;
+  bool _selectionSheetOpen = false;
+  final _initialSegmentKey = GlobalKey();
+  late final TipitakaBook _worklistBook;
+  late int? _requestedSegmentId;
+  final TtsService _tts = TtsService();
+  int? _speakingSegmentId;
+  bool _readingArticle = false;
+  int _ttsCursor = 0;
 
   @override
   void initState() {
     super.initState();
+    _requestedSegmentId = widget.initialSegmentId;
+    _worklistBook = widget.book ??
+        TipitakaBook(
+          id: widget.bookId,
+          collectionId: 0,
+          code: widget.bookCode,
+          namePali: widget.bookCode,
+          nameEn: widget.bookName,
+          nameVi: widget.bookName,
+          orderIndex: 0,
+        );
     _scrollController.addListener(_onScroll);
     _loadFirstPage();
   }
 
   @override
   void dispose() {
+    if (_readingArticle || _speakingSegmentId != null) {
+      _globalTtsGeneration++;
+      _tts.stop();
+    }
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -68,24 +110,42 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         _loading = true;
         _error = null;
         _segments = const [];
+        _loadedOffset = 0;
         _hasMore = true;
       });
     }
     try {
       final db = await TipitakaDb.openReady();
       final total = await TipitakaDb.getBookSegmentCount(db, widget.bookId);
+      final info = await TipitakaDb.info(db);
+      final requestedOffset = _requestedSegmentId == null
+          ? 0
+          : (await TipitakaDb.getSegmentOrderIndex(db, _requestedSegmentId!) ?? 0)
+              .clamp(0, total > 0 ? total - 1 : 0)
+              .toInt();
       final firstPage = await TipitakaDb.getSegmentsByBook(
         db,
         widget.bookId,
         limit: _pageSize,
+        offset: requestedOffset,
       );
       if (!mounted) return;
       setState(() {
         _totalCount = total;
+        _availableLanguages = info.availableLanguages;
+        _hasPali = info.availableLanguages.contains('pi');
+        if (!_hasPali) _showPali = false;
+        _loadedOffset = requestedOffset;
         _segments = firstPage;
-        _hasMore = firstPage.length < total;
+        _hasMore = _loadedOffset + firstPage.length < total;
         _loading = false;
       });
+      if (_requestedSegmentId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final target = _initialSegmentKey.currentContext;
+          if (target != null) Scrollable.ensureVisible(target, alignment: .25);
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -105,12 +165,13 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         db,
         widget.bookId,
         limit: _pageSize,
-        offset: _segments.length,
+        offset: _loadedOffset + _segments.length,
       );
       if (!mounted) return;
       setState(() {
         _segments = [..._segments, ...nextPage];
-        _hasMore = _segments.length < _totalCount && nextPage.isNotEmpty;
+        _hasMore =
+            _loadedOffset + _segments.length < _totalCount && nextPage.isNotEmpty;
         _loadingMore = false;
       });
     } catch (error) {
@@ -151,7 +212,16 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                       contentPadding: EdgeInsets.zero,
                       value: _showPali,
                       title: Text(context.uiText('Pāli nguyên bản')),
-                      onChanged: (value) => update(() => _showPali = value ?? true),
+                      subtitle: _hasPali
+                          ? null
+                          : Text(
+                              context.uiText(
+                                'Chưa import Pāli; bản dịch vẫn đọc độc lập.',
+                              ),
+                            ),
+                      onChanged: !_hasPali
+                          ? null
+                          : (value) => update(() => _showPali = value ?? true),
                     ),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -163,7 +233,22 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                       contentPadding: EdgeInsets.zero,
                       value: _showEnglish,
                       title: const Text('English'),
-                      onChanged: (value) => update(() => _showEnglish = value ?? false),
+                      onChanged: _availableLanguages.contains('en')
+                          ? (value) => update(() => _showEnglish = value ?? false)
+                          : null,
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _hasPali,
+                      title: Text(context.uiText('Căn hàng song ngữ')),
+                      subtitle: !_hasPali
+                          ? Text(
+                              context.uiText(
+                                'Tạm tắt vì chưa có Pāli để đối chiếu.',
+                              ),
+                            )
+                          : null,
+                      onChanged: null,
                     ),
                     const Divider(),
                     Row(
@@ -206,6 +291,340 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     );
   }
 
+  void _onPaliSelection(TipitakaSegment segment, TextSelection selection) {
+    if (_selectionSheetOpen || selection.isCollapsed) return;
+    final text = _cleanDisplayText(segment.paliText);
+    final start = selection.start.clamp(0, text.length).toInt();
+    final end = selection.end.clamp(0, text.length).toInt();
+    if (start >= end) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _selectionSheetOpen) return;
+      _showSelectionActions(segment, text.substring(start, end), start, end);
+    });
+  }
+
+  Future<void> _showSelectionActions(
+    TipitakaSegment segment,
+    String selectedText,
+    int startOffset,
+    int endOffset,
+  ) async {
+    _selectionSheetOpen = true;
+    try {
+      final isWord = !selectedText.trim().contains(RegExp(r'\s'));
+      final action = await showModalBottomSheet<String>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.bookmark_add_outlined),
+                title: Text(
+                  context.uiText(isWord ? 'Lưu từ vào Worklist' : 'Lưu cụm từ vào Worklist'),
+                ),
+                subtitle: Text(selectedText),
+                onTap: () => Navigator.pop(context, 'save'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: Text(context.uiText('Sao chép lựa chọn')),
+                onTap: () => Navigator.pop(context, 'copy'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || action == null) return;
+      if (action == 'copy') {
+        await Clipboard.setData(ClipboardData(text: selectedText));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.uiText('Đã sao chép lựa chọn.'))),
+          );
+        }
+        return;
+      }
+      await _saveSelection(
+        segment,
+        selectedText,
+        startOffset,
+        endOffset,
+      );
+    } finally {
+      _selectionSheetOpen = false;
+    }
+  }
+
+  Future<void> _saveWholeSegment(TipitakaSegment segment) async {
+    final text = _segmentStudyText(segment);
+    if (text.isEmpty) return;
+    await _saveSelection(
+      segment,
+      text,
+      0,
+      text.length,
+      forceType: VocabularyType.paragraph,
+    );
+  }
+
+  Future<void> _learnWholeSegment(TipitakaSegment segment) async {
+    try {
+      final index = _segments.indexWhere((item) => item.id == segment.id);
+      await const TipitakaLearnByHeartService().savePassage(
+        provider: context.read<LearnByHeartProvider>(),
+        book: _worklistBook,
+        segment: segment,
+        bookName: widget.bookName.trim().isEmpty
+            ? widget.bookCode
+            : widget.bookName,
+        contextBefore:
+            index > 0 ? _segmentStudyText(_segments[index - 1]) : '',
+        contextAfter: index >= 0 && index + 1 < _segments.length
+            ? _segmentStudyText(_segments[index + 1])
+            : '',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Đã thêm đoạn vào Học thuộc lòng.'))),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Không thể thêm vào Học thuộc lòng: $error'))),
+      );
+    }
+  }
+
+  Future<void> _saveSelection(
+    TipitakaSegment segment,
+    String selectedText,
+    int startOffset,
+    int endOffset, {
+    VocabularyType? forceType,
+  }) async {
+    try {
+      final index = _segments.indexWhere((item) => item.id == segment.id);
+      final before =
+          index > 0 ? _segmentStudyText(_segments[index - 1]) : '';
+      final after = index >= 0 && index + 1 < _segments.length
+          ? _segmentStudyText(_segments[index + 1])
+          : '';
+      final result = await const TipitakaWorklistService().saveSelection(
+        vocabulary: context.read<VocabularyProvider>(),
+        book: _worklistBook,
+        segment: segment,
+        selectedText: selectedText,
+        startOffset: startOffset,
+        endOffset: endOffset,
+        translationLanguage: _segmentTranslationLanguage(segment),
+        contextBefore: before,
+        contextAfter: after,
+        forceType: forceType,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.wasExisting
+                ? context.uiText('Đã thêm ngữ cảnh Tipiṭaka vào từ đã có.')
+                : context.uiText('Đã lưu vào Worklist.'),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Không thể lưu vào Worklist: $error'))),
+      );
+    }
+  }
+
+  String _segmentStudyText(TipitakaSegment segment) {
+    final pali = _cleanDisplayText(segment.paliText);
+    if (pali.isNotEmpty) return pali;
+    final translation = segment.firstTranslation;
+    return _cleanDisplayText(translation?.value ?? '');
+  }
+
+  String _segmentTranslationLanguage(TipitakaSegment segment) {
+    if ((segment.translationVi ?? '').trim().isNotEmpty) return 'vi';
+    if ((segment.translationEn ?? '').trim().isNotEmpty) return 'en';
+    return segment.firstTranslation?.key ?? 'vi';
+  }
+
+  String _segmentReadingText(TipitakaSegment segment) {
+    if (_showVietnamese) {
+      final vietnamese = _cleanDisplayText(segment.translationFor('vi'));
+      if (vietnamese.isNotEmpty) return vietnamese;
+    }
+    if (_showEnglish) {
+      final english = _cleanDisplayText(segment.translationFor('en'));
+      if (english.isNotEmpty) return english;
+    }
+    final other = segment.firstTranslation;
+    if (other != null && other.value.trim().isNotEmpty) {
+      return _cleanDisplayText(other.value);
+    }
+    return _cleanDisplayText(segment.paliText);
+  }
+
+  Future<void> _stopTts() async {
+    _globalTtsGeneration++;
+    await _tts.stop();
+    if (mounted) {
+      setState(() {
+        _readingArticle = false;
+        _speakingSegmentId = null;
+      });
+    }
+  }
+
+  Future<void> _toggleSegmentTts(
+    TipitakaSegment segment,
+    int absoluteIndex,
+  ) async {
+    if (_speakingSegmentId == segment.id) {
+      await _stopTts();
+      return;
+    }
+    final text = _segmentReadingText(segment);
+    if (text.isEmpty) return;
+    final generation = ++_globalTtsGeneration;
+    await _tts.stop();
+    if (!mounted) return;
+    setState(() {
+      _readingArticle = false;
+      _speakingSegmentId = segment.id;
+      _ttsCursor = absoluteIndex;
+    });
+    await _tts.speak(text);
+    if (!mounted || generation != _globalTtsGeneration) return;
+    setState(() {
+      _speakingSegmentId = null;
+      _ttsCursor = absoluteIndex + 1;
+    });
+  }
+
+  Future<void> _toggleArticleTts() async {
+    if (_readingArticle) {
+      await _stopTts();
+      return;
+    }
+    final generation = ++_globalTtsGeneration;
+    await _tts.stop();
+    if (!mounted) return;
+    setState(() => _readingArticle = true);
+    var offset = _ttsCursor.clamp(0, _totalCount).toInt();
+    if (offset == 0 && _loadedOffset > 0) offset = _loadedOffset;
+    try {
+      final db = await TipitakaDb.openReady();
+      while (offset < _totalCount && generation == _globalTtsGeneration) {
+        final page = await TipitakaDb.getSegmentsByBook(
+          db,
+          widget.bookId,
+          limit: 30,
+          offset: offset,
+        );
+        if (page.isEmpty) break;
+        for (final segment in page) {
+          if (generation != _globalTtsGeneration) return;
+          final text = _segmentReadingText(segment);
+          setState(() {
+            _speakingSegmentId = segment.id;
+            _ttsCursor = offset;
+          });
+          if (text.isNotEmpty) await _tts.speak(text);
+          offset++;
+          _ttsCursor = offset;
+        }
+      }
+    } finally {
+      if (mounted && generation == _globalTtsGeneration) {
+        setState(() {
+          _readingArticle = false;
+          _speakingSegmentId = null;
+          if (_ttsCursor >= _totalCount) _ttsCursor = 0;
+        });
+      }
+    }
+  }
+
+  String _outlineTitle(TipitakaSegment segment) {
+    final translated = Localizations.localeOf(context).languageCode == 'vi'
+        ? segment.translationFor('vi')
+        : segment.translationFor('en');
+    final text = translated.trim().isNotEmpty
+        ? translated
+        : segment.paliText.trim().isNotEmpty
+            ? segment.paliText
+            : segment.firstTranslation?.value ?? '';
+    final clean = _cleanDisplayText(text);
+    return clean.isEmpty ? context.uiText('Mục chưa có tiêu đề') : clean;
+  }
+
+  Future<void> _openTableOfContents() async {
+    final db = await TipitakaDb.openReady();
+    final outline = await TipitakaDb.getBookOutline(db, widget.bookId);
+    if (!mounted) return;
+    final selected = await showModalBottomSheet<TipitakaSegment>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: FractionallySizedBox(
+          heightFactor: .82,
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.format_list_numbered),
+                title: Text(
+                  context.uiText('Mục lục chi tiết'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: outline.length,
+                  itemBuilder: (context, index) => ListTile(
+                    leading: Text('${index + 1}'),
+                    title: Text(
+                      _outlineTitle(outline[index]),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => Navigator.pop(context, outline[index]),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected == null) return;
+    _requestedSegmentId = selected.id;
+    _ttsCursor = await TipitakaDb.getSegmentOrderIndex(db, selected.id) ?? 0;
+    await _loadFirstPage();
+    _scrollToTop();
+  }
+
+  void _showTechnicalDetails() {
+    final index = _worklistBook.catalogIndex;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListTile(
+          leading: const Icon(Icons.data_object),
+          title: Text(context.uiText('Chi tiết kỹ thuật')),
+          subtitle: Text('${index.normalizedCode}\n${index.sourceTable}'),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -213,7 +632,10 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     }
     if (_error != null && _segments.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text('${widget.bookCode} — Tipiṭaka')),
+        appBar: AppBar(
+          automaticallyImplyLeading: !widget.embedded,
+          title: const Text('Tipiṭaka'),
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -248,32 +670,40 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       );
     }
 
-    final title = widget.bookName.trim().isEmpty
-        ? widget.bookCode
-        : widget.bookName;
+    final requestedTitle = widget.bookName.trim();
+    final title = requestedTitle.isEmpty ||
+            _worklistBook.isTechnicalTitle(requestedTitle)
+        ? _worklistBook.displayTitle(
+            Localizations.localeOf(context).languageCode,
+          )
+        : requestedTitle;
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         titleSpacing: 16,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(
-              widget.bookCode,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
-        ),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
-            tooltip: context.uiText('Về đầu sách'),
-            onPressed: _scrollToTop,
-            icon: const Icon(Icons.vertical_align_top),
+            tooltip: context.uiText('Mục lục chi tiết'),
+            onPressed: _openTableOfContents,
+            icon: const Icon(Icons.format_list_numbered),
+          ),
+          IconButton(
+            tooltip: _readingArticle
+                ? context.uiText('Dừng đọc bài')
+                : context.uiText('Đọc bài từ vị trí hiện tại'),
+            onPressed: _toggleArticleTts,
+            icon: Icon(_readingArticle ? Icons.stop_circle : Icons.play_circle),
           ),
           IconButton(
             tooltip: context.uiText('Cài đặt hiển thị'),
             onPressed: _openSettings,
             icon: const Icon(Icons.tune),
+          ),
+          IconButton(
+            tooltip: context.uiText('Chi tiết kỹ thuật'),
+            onPressed: _showTechnicalDetails,
+            icon: const Icon(Icons.info_outline),
           ),
         ],
       ),
@@ -296,12 +726,23 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
             if (index == 0) return _buildBookHeader(context, title);
             if (index <= _segments.length) {
               return _SegmentCard(
+                key: _requestedSegmentId == _segments[index - 1].id
+                    ? _initialSegmentKey
+                    : ValueKey('tipitaka-segment-${_segments[index - 1].id}'),
                 segment: _segments[index - 1],
-                number: index,
+                number: _loadedOffset + index,
                 showPali: _showPali,
                 showVietnamese: _showVietnamese,
                 showEnglish: _showEnglish,
                 fontScale: _fontScale,
+                isSpeaking: _speakingSegmentId == _segments[index - 1].id,
+                onSpeakSegment: (segment) => _toggleSegmentTts(
+                  segment,
+                  _loadedOffset + index - 1,
+                ),
+                onPaliSelection: _onPaliSelection,
+                onSaveSegment: _saveWholeSegment,
+                onLearnSegment: _learnWholeSegment,
               );
             }
             return _buildEndOfBook(context);
@@ -314,7 +755,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   Widget _buildBookHeader(BuildContext context, String title) {
     final progress = _totalCount == 0
         ? 0.0
-        : (_segments.length / _totalCount).clamp(0.0, 1.0);
+        : ((_loadedOffset + _segments.length) / _totalCount).clamp(0.0, 1.0);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -325,11 +766,30 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
             Text(title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(
-              context.uiText(
-                'Đọc song song Pāli và bản dịch theo từng đoạn. Nội dung sẽ tự tải thêm khi cuộn.',
-              ),
+              _hasPali
+                  ? context.uiText(
+                      'Đọc song song Pāli và bản dịch theo từng đoạn. Nội dung sẽ tự tải thêm khi cuộn.',
+                    )
+                  : context.uiText(
+                      'Đang đọc bản dịch độc lập. Nên import Pāli để đối chiếu tốt hơn; song ngữ và căn hàng hiện tạm giảm cấp.',
+                    ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (!_hasPali) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 17),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      context.uiText('Pāli không bắt buộc để tiếp tục đọc.'),
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 14),
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -337,7 +797,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              '${_segments.length}/$_totalCount ${context.uiText('đoạn đã tải')}',
+              '${_loadedOffset + _segments.length}/$_totalCount ${context.uiText('đoạn đã tải')}',
               style: Theme.of(context).textTheme.labelMedium,
             ),
           ],
@@ -384,14 +844,26 @@ class _SegmentCard extends StatelessWidget {
   final bool showVietnamese;
   final bool showEnglish;
   final double fontScale;
+  final bool isSpeaking;
+  final Future<void> Function(TipitakaSegment segment)? onSpeakSegment;
+  final void Function(TipitakaSegment segment, TextSelection selection)?
+      onPaliSelection;
+  final Future<void> Function(TipitakaSegment segment)? onSaveSegment;
+  final Future<void> Function(TipitakaSegment segment)? onLearnSegment;
 
   const _SegmentCard({
+    super.key,
     required this.segment,
     required this.number,
     required this.showPali,
     required this.showVietnamese,
     required this.showEnglish,
     required this.fontScale,
+    required this.isSpeaking,
+    this.onSpeakSegment,
+    this.onPaliSelection,
+    this.onSaveSegment,
+    this.onLearnSegment,
   });
 
   @override
@@ -403,9 +875,14 @@ class _SegmentCard extends StatelessWidget {
     final hasEnglish = englishText.isNotEmpty;
     final displayEnglish =
         hasEnglish && (showEnglish || !showVietnamese || !hasVietnamese);
+    final otherTranslation = !hasVietnamese && !hasEnglish
+        ? segment.firstTranslation
+        : null;
+    final otherText = _cleanDisplayText(otherTranslation?.value ?? '');
     final hasVisibleText = (showPali && paliText.isNotEmpty) ||
         (showVietnamese && hasVietnamese) ||
-        (displayEnglish && hasEnglish);
+        (displayEnglish && hasEnglish) ||
+        otherText.isNotEmpty;
     final reference = segment.reference.trim().isEmpty
         ? 'M $number'
         : segment.reference.trim();
@@ -447,6 +924,31 @@ class _SegmentCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                if (onSpeakSegment != null)
+                  IconButton(
+                    tooltip: isSpeaking
+                        ? context.uiText('Dừng đọc đoạn')
+                        : context.uiText('Đọc đoạn này'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => onSpeakSegment!(segment),
+                    icon: Icon(
+                      isSpeaking ? Icons.stop_circle : Icons.volume_up_outlined,
+                    ),
+                  ),
+                if (onSaveSegment != null)
+                  IconButton(
+                    tooltip: context.uiText('Lưu đoạn vào Worklist'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => onSaveSegment!(segment),
+                    icon: const Icon(Icons.bookmark_add_outlined),
+                  ),
+                if (onLearnSegment != null)
+                  IconButton(
+                    tooltip: context.uiText('Học thuộc đoạn này'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => onLearnSegment!(segment),
+                    icon: const Icon(Icons.school_outlined),
+                  ),
                 Text(
                   '#$number',
                   style: Theme.of(context).textTheme.labelSmall,
@@ -461,6 +963,9 @@ class _SegmentCard extends StatelessWidget {
                 fontSize: 18 * fontScale,
                 italic: true,
                 color: Theme.of(context).colorScheme.onSurface,
+                onSelectionChanged: onPaliSelection == null
+                    ? null
+                    : (selection) => onPaliSelection!(segment, selection),
               ),
             ],
             if (showVietnamese && hasVietnamese) ...[
@@ -478,6 +983,16 @@ class _SegmentCard extends StatelessWidget {
               _TextBlock(
                 label: 'ENGLISH',
                 text: englishText,
+                fontSize: 16 * fontScale,
+                color: Theme.of(context).colorScheme.onSurface,
+                tinted: true,
+              ),
+            ],
+            if (otherText.isNotEmpty) ...[
+              const SizedBox(height: 15),
+              _TextBlock(
+                label: (otherTranslation?.key ?? '').toUpperCase(),
+                text: otherText,
                 fontSize: 16 * fontScale,
                 color: Theme.of(context).colorScheme.onSurface,
                 tinted: true,
@@ -617,6 +1132,7 @@ class _TextBlock extends StatelessWidget {
   final bool italic;
   final Color color;
   final bool tinted;
+  final ValueChanged<TextSelection>? onSelectionChanged;
 
   const _TextBlock({
     required this.label,
@@ -625,6 +1141,7 @@ class _TextBlock extends StatelessWidget {
     required this.color,
     this.italic = false,
     this.tinted = false,
+    this.onSelectionChanged,
   });
 
   @override
@@ -656,6 +1173,9 @@ class _TextBlock extends StatelessWidget {
           const SizedBox(height: 7),
           SelectableText(
             text,
+            onSelectionChanged: onSelectionChanged == null
+                ? null
+                : (selection, _) => onSelectionChanged!(selection),
             style: TextStyle(
               color: color,
               fontSize: fontSize,

@@ -45,6 +45,8 @@ export 'src/provider/openai_compat_client.dart'
     show
         OpenAiCompatClient,
         OpenAiModelsParser,
+        // WP4 (API-005) — parser danh sách giọng TTS (thuần, test được).
+        OpenAiVoicesParser,
         OpenAiChatMessage,
         AiApiException,
         AiApiErrorCode,

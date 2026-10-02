@@ -12,6 +12,8 @@
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
+| API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
+| API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
 | MVA-T3 | Migration adapter WordEntry → Knowledge | ✅ done | run 32302871487 |
@@ -63,6 +65,7 @@
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
+| XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -109,15 +112,15 @@
 | DOC-1 | README v2: `README.md` (EN) + `README.vi.md` (VI) đúng tiến độ hiện tại + chức năng mới; khôi phục `LICENSE` thiếu trên trunk | ✅ done (chờ owner duyệt nội dung) | commit này — agent arena/01a0e2c8-in4up |
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 | I4U18-BATCH | I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành các lane nhỏ, tránh xung đột và không để CI đỏ | 📋 proposed | `docs/project/I4U_L18_PROBLEM_BRIEF.md` + `PROMPT_AGENT_I4U_L18.md`; tham chiếu nhánh `arena/01a06931-in4up` cho Tipiṭaka/PDF/Home khi cần |
-| I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 📋 proposed | Gom các lỗi Home chat + Tầng 2 AI local + provider BYOK; phụ thuộc API-001…004, AI-CHAT-01/02 |
-| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 📋 proposed | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
-| I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 📋 proposed | Dựa VID-001; hỗ trợ folder scan, filter/sort, subtitle pairing, reopen |
-| I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | 📋 proposed | Đọc thêm `origin/arena/01a06931-in4up` (không merge mù); mở rộng TIPITAKA-001 |
-| I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 📋 proposed | Mở rộng AUDLIB-001/LISTEN-*; không phá transcript/LRC/reopen audio |
-| I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 📋 proposed | Mở rộng READ-IPA-001…006 + SRC-630-01; cần i18n rule #5 |
-| I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 📋 proposed | Kế thừa HYMT-001 + API-004; không bỏ glossary/protect-token |
-| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 📋 proposed | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
-| I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 📋 proposed | Mở rộng OCR-001/PDF-W0/PDF-W1; ưu tiên state machine/cancel token, không đổ lỗi `flutter clean` |
+| I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 🔄 doing (code xong, chờ CI/thiết bị) | agent arena/01a0f3d9-in4up — chat prompt trả lời trực tiếp, dừng remote không fallback local, parser local/remote chịu fence/JSON cắt; test bổ sung (sandbox thiếu Flutter SDK) |
+| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (code xong, CI run 36898178031 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
+| I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | SAF recursive scan + filter/sort/search + recent/favorite + subtitle pairing + reopen; CI run 36771997803 |
+| I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | ✅ done (code + CI 🟢; chờ nghiệm thu UX/TTS thiết bị) | run 36771566072: analyze 0 error + Rule 5 + Tipiṭaka import/source-link/workspace-retention + Agent F/LHB/Cabin/ASR tests xanh |
+| I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
+| I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `docxXmlToPlainText` xuống dòng cứng + `ReadLineHint` + nút Trợ giúp; test `test/read_mode/` |
+| I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
+| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (code xong, CI run 36898178031 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
+| I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `pdf_text_layer_probe.dart` + `ocr_cancel_token.dart` + `pdf_tts_machine.dart` + playback epoch; test OCR/PDF xanh |
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 
 
@@ -421,6 +424,82 @@
     adopt numbering của leader (ADR-0007→0008, PLAN-031→PLAN-032 cho tầng
     Server API), bỏ file ADR-0007 trùng (leader đã có bản 0008), cập nhật
     tham chiếu trong code + card; nội dung engine/test không đổi
+
+### API-005 — WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0
+- **Trạng thái:** ✅ done (code + 23 test thuần; chờ nghiệm thu thiết bị)
+- **Nguồn:** owner (2026-09-26) qua agent arena/01a0df5f-in4up —
+  `PROMPT_AGENT_SERVER_API.md` §7. Hoàn thành + xanh CI trên nhánh
+  `arena/01a0ddd1-in4up` (PR #58, commit gốc `003f9c4`) — bị merge nhầm
+  nhánh phụ, **thu hoạch vào 251e ngày 2026-09-28**.
+- **Nội dung:**
+  - `packages/in4up_ai/.../openai_compat_client.dart`: thêm TRÊN CÙNG
+    client (luật 1 client) `synthesizeSpeech()` — POST `/v1/audio/speech`,
+    đọc response dạng stream → bytes (không buffer text), guard payload
+    ≥100B (`minSpeechBytes`), mã lỗi cấu trúc đủ nhánh (timeout/noNetwork/
+    unauthorized 401-403/rateLimited 429/httpError kèm snippet ≤160 ký tự
+    từ body server, KHÔNG log key/headers); `listVoices()` — GET
+    `/v1/audio/voices` (endpoint không bắt buộc, lỗi → caller fallback);
+    `OpenAiVoicesParser` (thuần, khoan dung mọi shape: list/string,
+    voices|data|models, id|voice|name).
+  - `lib/features/tts/engines/openai_compat_tts_engine.dart` (mới, theo
+    mẫu zalo_tts_engine): chunk ≤2000 ký tự (tách câu→dấu phẩy→cắt
+    cứng), nghỉ 150ms giữa chunks (chống binge rate-limit), tối đa 1
+    retry sau backoff 800ms khi 429/5xx; speed clamp 0.25–4.0; voices:
+    gọi `/audio/voices`, map prefix Kokoro `af_/bm_/jf_…` (vùng+giới
+    tính), fallback 6 giọng OpenAI chuẩn khi server không có endpoint;
+    thông điệp lỗi chỉ lộ label (không key/baseUrl); client inject được
+    → test thuần.
+  - `lib/features/tts/tts_service.dart`: TtsEngineInfo
+    `openai_compat_tts` priority 5 — SAU piper/offline/google/zalo/fpt ⇒
+    **thứ tự mặc định người dùng cũ KHÔNG đổi** (kéo thả lên bằng UI có
+    sẵn); `_resolveApiTtsEngine()` đọc
+    `AiProviderStore.resolveProvider(AiRouteCapability.tts)` — KHÔNG
+    khóa riêng kiểu Zalo/FPT; chưa cấu hình → engine bỏ qua y hệt hôm
+    nay; `_getOnlineEngines` chuyển async (4 call-site đã cập nhật).
+  - Phát: bytes → `TtsCache.put` → file temp → `_playFile` AudioPlayer —
+    y hệt đường Zalo/FPT, không đổi playback path.
+- **Test:** `test/tts_api_wp4_test.dart` (23 test thuần — parser mọi
+  shape, request chuẩn + phân lớp lỗi, cleartext-guard, guard thiếu
+  model/text rỗng, chunking + thứ tự ghép, clamp speed, retry 5xx/429
+  đúng 1 lần, voices Kokoro + fallback, isAvailable, pin source-scan
+  thứ tự engine mặc định + pin không-SharedPreferences-trong-engine. Key
+  test sinh runtime — BYOK, không key mẫu trong repo).
+- **AT (từ prompt WP4):** chọn Kokoro (local) hoặc OpenAI tts-1 → đọc
+  VI/EN; kéo thả ưu tiên như engine khác; chưa cấu hình → chuỗi TTS +
+  mọi mặc định y hệt hôm nay; CI xanh + card này.
+- **Lịch sử:**
+  - 2026-09-26 | created→done (nhánh nguồn) | agent arena/01a0df5f-in4up
+    | code client + engine + wiring + 23 test; CI xanh trên
+    arena/01a0ddd1-in4up (PR #58)
+  - 2026-09-28 | harvest→251e | agent arena/01a0251e-in4up (leader) |
+    thu hoạch thủ công: tts_service.dart adopt nguyên (parent identical
+    với 251e); client merge thủ công 5 điểm (import typed_data, 3 const,
+    synthesizeSpeech+listVoices+_errorSnippet+_clip+parseVoicesBody,
+    class OpenAiVoicesParser, export) — verify byte-identical từng khối
+    với bản gốc; engine + test checkout nguyên; chờ CI 251e + nghiệm thu
+    thiết bị
+
+### API-006 — WP5: In4Up Server Box (docs-only)
+- **Trạng thái:** done (chờ owner nghiệm thu trên một máy LAN sạch)
+- **Nguồn:** owner (2026-09-26) — WP5 trong `PROMPT_AGENT_SERVER_API.md`.
+  Hoàn thành trên `arena/01a0ddd1-in4up` (PR #52, commit gốc `0a0b912`)
+  — **thu hoạch vào 251e ngày 2026-09-28**.
+- **Nội dung:** `docs/server_box/docker-compose.yml` chạy Ollama,
+  Speaches CPU/faster-whisper và Kokoro-FastAPI CPU; tự tải
+  `qwen2.5:1.5b`, giữ model/cache trong volume; healthcheck Docker cho
+  cả ba. `health-check.sh` gọi `/v1/models`; README tiếng Việt ghi cấu
+  hình 8 GB, lấy IP/firewall, URL và cách cấu hình màn Server & API WP0.
+- **AT:** cấu trúc/docs/script đã kiểm tra tĩnh; còn chạy
+  `docker compose up -d` và xác nhận ba service `healthy` + ba nút kết
+  nối xanh trên máy LAN sạch.
+- **Lịch sử:**
+  - 2026-09-26 | created→done-docs | agent arena/01a0df4c-in4up | hoàn
+    tất bộ Compose CPU một lệnh, script health-check và hướng dẫn vận
+    hành tiếng Việt; chờ nghiệm thu phần cứng/LAN
+  - 2026-09-28 | harvest→251e | agent arena/01a0251e-in4up (leader) |
+    checkout nguyên 3 file `docs/server_box/` (README.md,
+    docker-compose.yml, health-check.sh) — docs-only, không ảnh hưởng
+    analyze/build
 
 ### MVA-T1 — 5 model schema mục 2 + merge/split hoàn tác
 - **Trạng thái:** done
@@ -4291,7 +4370,7 @@
     cầu, thêm card I4U18-* và prompt phân việc; thay đổi docs-only.
 
 ### I4U18-HOME-AI-001 — Home/Chat/Tab Viết: AI chậm, fallback sai, routing Server/API
-- **Trạng thái:** proposed.
+- **Trạng thái:** doing (code xong trên `arena/01a0f3d9-in4up`; chờ CI/thiết bị vì sandbox hiện không có Flutter SDK để chạy `flutter test`).
 - **Nguồn:** owner (2026-09-30), mục 1/3/10/12 của I4U L18.
 - **Vấn đề đã chuẩn hoá:**
   - Tab Home cần rà soát lại luồng chính; lỗi cụ thể đang thấy rõ nhất nằm ở
@@ -4315,9 +4394,10 @@
   - Locale khác `vi`: chrome UI không còn tiếng Việt theo rule #5.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | 19:47 UTC | proposed→doing | agent arena/01a0f3d9-in4up | code parser/prompt/cancel + test bổ sung; `git diff --check` sạch; chưa chạy Flutter test do sandbox thiếu `flutter`/`dart`.
 
 ### I4U18-DICT-001 — Từ điển: import/link thư mục MDX/MDD/CSS và dùng ngay
-- **Trạng thái:** proposed.
+- **Trạng thái:** 🔄 doing — code + unit test + CI run 36898178031 xanh; chờ PR merge + nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 2 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** từ điển vẫn chưa import được ổn định. Bộ từ điển thực
   tế thường gồm nhiều file liên quan như `.mdx`, `.mdd`, `.css`/asset kèm theo;
@@ -4332,9 +4412,24 @@
   file nào và cho tiếp tục ở chế độ giảm cấp nếu vẫn tra được.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | proposed→doing | agent arena/01a0f3da-in4up | code xong:
+    scanner thuần `dict_bundle_scanner.dart` (ghép set theo folder, mdd
+    stem+multi-part, css/asset tách, stray báo tên) + service 2 chế độ
+    Link/Import + screen mode-dialog/badges + 12 test thuần + i18n rule #5
+    (priorityUiOverrides 5 locale + EN mirror). Commit `8c0969d`. CI chạy
+    qua bước "I4U18 scanner tests" (commit lane, step có guard).
+    CI run id sẽ cập nhật khi push xong.
+  - 2026-10-01 | doing (giữ nguyên) | agent arena/01a0f3da-in4up | push xong
+    + CI xanh: nội dung của `8c0969d`/`b4e6550`/`4355b92` nằm trong commit
+    gộp `2a6b219` (16 file, 2 lane DICT-001 + MODEL-IMPORT-001, kèm merge
+    lane VIDEO/LISTEN-LIB cùng branch) + fix `0ed4662` (gỡ dấu `},` thừa
+    trong `priority_ui_overrides.dart` sau dedup — lỗi parse ở CI run
+    36897541200, đã sửa). CI run **36898178031 SUCCESS** toàn bộ job, gồm
+    bước "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test
+    thuần). Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
 
 ### I4U18-VIDEO-LIB-001 — Tab Video: quét thư mục và thư viện phát file trực quan
-- **Trạng thái:** proposed.
+- **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 4 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** hiện tại dù đã thêm video, app chỉ thêm theo từng file
   đơn lẻ. Cần cho phép quét thư mục và tổ chức thư viện để người dùng dễ thấy,
@@ -4347,9 +4442,10 @@
   một file trong thư mục bị xoá/đổi tên.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-10-01 | proposed→doing | agent arena/01a0f3da-in4up | hoàn tất SAF scan đệ quy, thư viện filter/sort/search/recent/favorite, ghép phụ đề và lưu vị trí; test logic/subtitle + CI run 36771997803 xanh; chờ nghiệm thu Android thực.
 
 ### I4U18-TIPITAKA-001 — Tipiṭaka: import pack, tiêu đề thật, cây Tam Tạng, tab/split/TTS
-- **Trạng thái:** proposed.
+- **Trạng thái:** done — code + CI 🟢 run `36771566072`; chờ nghiệm thu thiết bị cho TTS/UX split.
 - **Nguồn:** owner (2026-09-30), mục 5/6 của I4U L18.
 - **Nhánh tham chiếu:** `arena/01a06931-in4up` cũng đang làm nội dung Tipiṭaka;
   agent phải fetch/read nhánh đó trước khi code, nhưng không merge mù.
@@ -4368,10 +4464,45 @@
 - **AT/DoD:** import một pack Việt không có Pali không bị chặn; cây thư viện không
   hiện mã nội bộ ở tiêu đề chính; mở 2 bài ở 2 tab, bật split view và phát TTS
   từng đoạn không làm mất vị trí đọc.
+- **Nội dung triển khai:**
+  - Import từng gói ngôn ngữ độc lập và atomically: gói Việt có thể tạo thư viện
+    đọc được khi chưa có Pāli; import Pāli sau sẽ enrich đúng segment bằng
+    `source_table/source_row_key` hoặc reference, không xoá bản dịch.
+  - Library đổi thành `Tam Tạng Chính Văn → Tạng → nhóm/bộ → bài kinh`; tiêu đề
+    chính lấy từ nội dung structural, mã kỹ thuật chỉ còn trong sheet chi tiết.
+  - Reader có mục lục chi tiết, arbitrary translation fallback và trạng thái
+    translation-only giải thích rõ Pāli chỉ được khuyến nghị để đối chiếu; các
+    tính năng song ngữ/căn hàng giảm cấp trung thực khi thiếu Pāli.
+  - Workspace kiểu Obsidian: nhiều tab mounted bằng `Offstage`, chia đôi hai tab;
+    reader state/scroll/lazy-page/TTS cursor không bị huỷ khi đổi tab hoặc split.
+  - TTS từng đoạn và cả bài có play/stop, tiếp tục từ cursor; generation toàn cục
+    ngăn hai pane tranh singleton `TtsService`.
+  - Learn by Heart/Worklist giữ durable source anchor + context snapshot; passage
+    translation-only chuyển sang ghi nhớ target side thay vì tạo bài Pāli rỗng;
+    nguồn có nút mở lại trong Learn by Heart và Wordlist.
+  - i18n: đăng ký English canonical fallback cho chrome Tipiṭaka mới trong
+    `priority_ui_overrides.dart`.
+- **Kiểm thử:** `test/tipitaka_independent_language_import_test.dart` khóa luồng
+  Vietnamese-only → đọc thành công → import Pāli sau vẫn giữ bản Việt, tiêu đề
+  semantic không lộ `ABH01A_ATT`, và Learn by Heart JSON round-trip giữ durable
+  source link. `test/tipitaka_workspace_retention_test.dart` khóa hai bài cùng book
+  giữ nguyên State + scroll offset qua đổi tab và bật split. CI run `36771566072`
+  xanh: Flutter analyze 0 error; Rule 5; Tipiṭaka; Agent F; LHB; Cabin; ASR.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | proposed→doing | agent `arena/01a0f3db-in4up` | đã fetch + đọc
+    `arena/01a06931-in4up` theo yêu cầu; không checkout/merge cả nhánh, chỉ port
+    chọn lọc sau khi review diff. Hoàn tất implementation importer/UI/workspace/
+    TTS/provenance + focused test; `git diff --check` xanh, chờ CI compile/test.
+  - 2026-09-30 | doing→done | agent `arena/01a0f3db-in4up` | run đầu phát hiện 6
+    integration error (FilePicker 11 static API, import FlutterError/
+    MemorizeSide/TipitakaSourceLink); sửa tại `e698c5d`. Run `36770934461` xanh
+    toàn bộ: analyze 0 error + Rule 5 + READ-GRAM + Tipiṭaka independent import,
+    Pāli enrich, semantic title, source-link round-trip + LHB/Cabin/ASR.
+  - 2026-09-30 | done | agent `arena/01a0f3db-in4up` | bổ sung widget test hai discourse giữ State + scroll qua tab/split (`beaaf92`); run `36771566072` xanh toàn bộ.
 
 ### I4U18-LISTEN-LIB-001 — Tab Nghe: lọc album/tác giả/yêu thích/playlist
+- **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.
 - **Trạng thái:** proposed.
 - **Nguồn:** owner (2026-09-30), mục 8 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** thư viện Tab Nghe cần bộ lọc và tổ chức giống thư viện
@@ -4384,9 +4515,10 @@
   playlist thủ công, và mở lại bài giữ đúng transcript/LRC đang dùng.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-10-01 | proposed→doing | agent arena/01a0f3da-in4up | hoàn tất filter album/artist/folder/favorite, manual + smart playlist; playlist chỉ giữ libraryId để bảo toàn LRC/transcript/reopen; test + CI run 36771997803 xanh; chờ nghiệm thu thiết bị.
 
 ### I4U18-READ-IPA-001 — Tab Đọc IPA: chế độ dòng với Word và hướng dẫn chọn IPA
-- **Trạng thái:** proposed.
+- **Trạng thái:** doing — code + CI 🟢 run `36771164011`; chờ nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 9 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** chế độ dòng khi mở file Word chưa hiển thị đúng; ngay
   cả khi hiển thị, người dùng khó biết phải chạm vào đâu để bật/hiện IPA.
@@ -4396,11 +4528,35 @@
   trên thanh dưới để bật/tắt".
 - **AT/DoD:** mở DOCX → thấy dòng; chạm dòng/từ hiện IPA/word sheet; hướng dẫn tự
   ẩn sau đủ thời gian đọc, có thể mở lại từ Help/tooltip, có i18n rule #5.
+- **Nội dung (3 hạng mục owner yêu cầu):**
+  - **F1.1 — mở Word/DOCX không vào chế độ dòng.** Gốc lỗi KHÔNG ở tab Đọc mà ở
+    `TextSourceLoader.docxXmlToPlainText`: ranh giới `</w:p>`, `<w:br>`, `<w:cr>` xuất ra
+    MỘT `\n`. `TextSplitterService._splitSmart` (chế độ mặc định) chỉ coi `\n\s*\n` là
+    ranh giới cứng, nên nhiều đoạn Word bị dán thành một "dòng" khổng lồ → chạm dòng
+    không ra IPA theo dòng. Sửa tại lớp DOCX (xuất dòng trống), KHÔNG đụng `_splitSmart`:
+    `\n` đơn phải tiếp tục là ranh giới MỀM, nếu không văn bản `.txt` bẻ dòng cứng sẽ bị
+    băm vụn.
+  - **F1.2 — gợi ý.** `ReadLineHint.showSnackBar` (đáy màn hình, 7 s, có nút "Xem hướng dẫn")
+    tự hiện MỘT LẦN cho mỗi tài liệu khi nguồn là file chữ theo dòng.
+  - **F1.3 — mở lại.** Nút Trợ giúp (`_ReadHelpButton`) trên `ReadTopBar` mở
+    `ReadLineHint.showSheet` bất cứ lúc nào; ai bấm "Đừng nhắc lại" vẫn còn đường vào.
+- **File:** `lib/services/text_source_loader.dart`,
+  `lib/screens/read_mode/services/read_line_hint_service.dart` (mới),
+  `lib/screens/read_mode/widgets/read_line_hint.dart` (mới),
+  `lib/screens/read_mode/read_mode_screen.dart`, `lib/screens/read_mode/widgets/read_top_bar.dart`,
+  `lib/core/language/priority_ui_overrides.dart` (11 key × 6 locale, viết tay — KHÔNG chạy
+  `tool/generate_arbs.py` theo AGENTS.md).
+- **Test:** `test/read_mode/docx_line_mode_test.dart` (6 test: DOCX → dòng, không băm
+  `.txt` bẻ dòng cứng), `test/read_mode/read_line_hint_test.dart` (luật hiện gợi ý),
+  `test/text_source_loader_test.dart` (cập nhật kỳ vọng ranh giới đoạn).
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | 20:05 UTC | proposed→doing | agent arena/01a0f3db-in4up | code + test xong, commit `cca0e0b` (rebase trên `e698c5d` — nhánh đã có công việc Tipiṭaka của phiên trước, giải xung đột GIỮ CẢ HAI ở `app_analyze.yml`, KANBAN, `priority_ui_overrides.dart`)
+  - 2026-09-30 | 20:15 UTC | doing | agent arena/01a0f3db-in4up | CI `app_analyze.yml` run **36771164011 XANH** trên `cca0e0b`: analyze 0 error · Rule 5 ✓ · READ-GRAM ✓ · Tipiṭaka ✓ · **Agent F tests ✓** · LHB ✓ · Cabin ✓ · ASR ✓. CÒN nghiệm thu thiết bị: mở .docx thật → tab Đọc phải ra từng dòng + snackbar hướng dẫn trước khi được coi là done
+  - 2026-09-30 | 20:40 UTC | doing | agent arena/01a0f3db-in4up | đối chiếu nguồn chuẩn I4U L18: PR #64 (`arena/01a0f3b6-in4up` → `arena/01a0251e-in4up`) đã merge 19:53 UTC (`14140d7`), nhánh session merge base về và GỘP card trùng do nhánh tạo trước thời điểm đó — giữ nguyên Vấn đề/Hướng giải quyết/AT-DoD của card gốc, chỉ thêm phần triển khai + lịch sử. Đã đọc `PROMPT_AGENT_I4U_L18.md` §6 (Agent F): phạm vi F1/F2/F3 và DoD khớp phần đã làm, không phát sinh hạng mục mới.
 
 ### I4U18-TRANSLATE-001 — Dịch: Hy-MT và lựa chọn LLM Server/API
-- **Trạng thái:** proposed.
+- **Trạng thái:** doing (code xong, chờ CI + nghiệm thu model thật trên thiết bị).
 - **Nguồn:** owner (2026-09-30), mục 10/11 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** Hy-MT vẫn chưa dịch được ổn định trên thiết bị; đồng
   thời người dùng cần tùy chọn dịch qua LLM Server/API khi muốn chất lượng cao hơn
@@ -4413,9 +4569,10 @@
   fallback đúng chính sách, không trả bản dịch rỗng.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-10-01 | proposed→doing | agent arena/01a0f3d9-in4up | đối chiếu nguồn chuẩn PR #64; gom validator path/import/download, phân biệt thiếu/sai magic/file cắt/không đọc được; giữ load handshake thật và coi output rỗng là lỗi; chuẩn hóa error code snake_case; xác nhận API-004 đã có và routing mặc định vẫn offline-first, glossary/protect-token chạy trước mọi engine; thêm test validator. Chưa chạy Flutter test vì SDK không có trong PATH, còn AT model/native thật trên thiết bị.
 
 ### I4U18-MODEL-IMPORT-001 — Model import: eSpeak/Piper/STT offline nhận diện sai
-- **Trạng thái:** proposed.
+- **Trạng thái:** 🔄 doing — code + unit test + CI run 36898178031 xanh; chờ PR merge + nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 13 của I4U L18.
 - **Vấn đề đã chuẩn hoá:**
   - Settings/Home import bằng chọn nhiều file: thư mục `espeak` có sẵn nhưng app
@@ -4432,9 +4589,22 @@
   chỉ ra file cần bổ sung và nút "chọn lại thư mục/file".
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | proposed→doing | agent arena/01a0f3da-in4up | code xong:
+    scanner thuần `model_bundle_scanner.dart` (classify Piper voice/eSpeak/
+    Zipformer roles/VAD/Whisper, báo thiếu đúng role) + manager ASR import
+    ăn scanner (copy đúng bộ, ZIP fallback, dest-rescan báo thiếu chính
+    xác) + Piper hint nhầm loại bundle + settings picker FileType.any cho
+    espeak + 16 test thuần. Commit `b4e6550`. CI run id CHƯA có — push bị
+    chặn token, cùng cần reconnect GitHub.
+  - 2026-10-01 | doing (giữ nguyên) | agent arena/01a0f3da-in4up | reconnect
+    GitHub xong, push + CI xanh: nội dung nằm trong commit gộp `2a6b219`
+    + fix `0ed4662` (gỡ dấu `},` thừa sau dedup overrides — lỗi ở CI run
+    36897541200). CI run **36898178031 SUCCESS** toàn bộ job, gồm bước
+    "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test thuần).
+    Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
 
 ### I4U18-PDF-OCR-TTS-001 — PDF/OCR Reader: spinner OCR và TTS controls không dừng
-- **Trạng thái:** proposed.
+- **Trạng thái:** doing — code + CI 🟢 run `36771164011`; chờ nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 14/15 của I4U L18.
 - **Vấn đề đã chuẩn hoá:**
   - OCR cho PDF bị load chạy hoài ở vùng đọc ngay khi mới mở file PDF.
@@ -4449,8 +4619,48 @@
 - **AT/DoD:** mở PDF text-layer không bật spinner OCR vô hạn; mở PDF scan có
   timeout/hủy rõ; Play→Pause dừng âm trong thời gian chấp nhận; Next line chỉ phát
   đúng một dòng kế tiếp; Stop chặn mọi callback phát tiếp sau đó.
+- **Nội dung:**
+  - **F2.1 — phân biệt PDF có lớp chữ với PDF scan.** `services/pdf_text_layer_probe.dart`
+    (thuần Dart): lấy mẫu tối đa 5 trang rải đều + trang đang đọc, đếm ký tự `\p{L}\p{N}`;
+    **mọi** trang mẫu trống chữ mới kết luận `scanned` (một trang bìa trống không đủ).
+    Controller chạy dò nền (`unawaited`) sau khi mở tài liệu.
+  - **F2.2 — không quét khi không cần.** Nút "Quét chữ trang này" chỉ hiện khi trang đang
+    đọc không có chữ hoặc bản dò kết luận cả tài liệu là scan; bấm nhầm thì báo
+    "Trang này đã có lớp chữ — không cần quét OCR" thay vì quay spinner một vòng.
+  - **F2.3 — timeout + hủy + error state.** `features/ocr/ocr_cancel_token.dart`
+    (`OcrCancelToken`, `runOcrGuarded`, mặc định 45 s/ảnh) + `OcrFailureKind`
+    (`none/error/cancelled/timeout`) + dialog tiến trình CÓ nút Hủy. Hủy và hết giờ KHÔNG
+    báo đỏ như lỗi thật.
+  - **F3 — máy trạng thái đọc to.** `services/pdf_tts_machine.dart`: một SỐ PHIÊN tăng dần
+    + cờ `busy` chống double-tap. Ba lỗi thực địa và gốc của chúng:
+    - *Pause không dừng âm:* `TtsService.pause()` chỉ tạm dừng `AudioPlayer`, giọng máy
+      (flutter_tts) vẫn đọc hết câu; thêm `OfflineTtsEngine.pause()` và `_awaitLineFinished`
+      ĐỨNG YÊN khi đang tạm dừng (vòng cũ dùng `playerStateStream.firstWhere`, lúc pause
+      không bao giờ khớp nên chờ hết timeout rồi… chạy sang dòng kế).
+    - *Stop xong vẫn phát:* `_stopRequested` bị `speak()` đặt lại `false` ở đầu mỗi câu →
+      lệnh Stop rơi vào đúng khe đó bị nuốt; nay `stop()` tăng `_playbackEpoch` (chỉ tăng),
+      mọi tác vụ đang bay mang theo thế hệ của mình.
+    - *Next lướt nhiều dòng:* `onLineChanged` của phiên đã chết vẫn đẩy `_readingCueIndex`,
+      và khối `finally` của phiên cũ hạ trạng thái của phiên mới; nay mọi tác dụng phụ đều
+      qua `isCurrent(session)` / `markFinished(session)`.
+  - **Không đụng đường khôi phục (ADR-0003/0004):** bản dò chỉ gọi đúng extractor đang dùng,
+    chạy sau khi tài liệu đã mở, không chạm `PdfFileIdentity` (md5 `size|mtime`) cũng không
+    chạm hình học y-up.
+- **File:** `lib/features/ocr/ocr_cancel_token.dart` (mới), `lib/features/ocr/ocr_service.dart`,
+  `lib/features/ocr/ocr_flow.dart`, `lib/features/pdf_reader/services/pdf_text_layer_probe.dart` (mới),
+  `lib/features/pdf_reader/services/pdf_tts_machine.dart` (mới),
+  `lib/features/pdf_reader/pdf_reader_controller.dart`, `lib/features/pdf_reader/widgets/pdf_tts_bar.dart`,
+  `lib/features/tts/tts_service.dart`, `lib/features/tts/engines/offline_tts_engine.dart`.
+- **Test:** `test/ocr/ocr_cancel_token_test.dart` (11), `test/pdf_reader/pdf_text_layer_probe_test.dart` (11),
+  `test/pdf_reader/pdf_tts_machine_test.dart` (14). Đã thêm bước chạy 5 file test này vào
+  `.github/workflows/app_analyze.yml` (trước đó oracle chung KHÔNG chạy `test/pdf_reader`, `test/ocr`).
+- **Ghi chú owner:** `flutter clean` chỉ xoá cache build, không phải cách sửa; ba lỗi trên đều
+  là trạng thái sống trong controller/service, clean xong vẫn tái hiện.
 - **Lịch sử:**
   - 2026-09-30 | created→proposed | agent arena/01a0f3b6-in4up | tạo card từ phản hồi owner.
+  - 2026-09-30 | 20:05 UTC | proposed→doing | agent arena/01a0f3db-in4up | code + 36 test xong, commit `cca0e0b`
+  - 2026-09-30 | 20:15 UTC | doing | agent arena/01a0f3db-in4up | CI `app_analyze.yml` run **36771164011 XANH** trên `cca0e0b` (analyze 0 error + bước mới "Agent F tests" chạy 36 test thuần logic đều xanh). CÒN nghiệm thu thiết bị: PDF có lớp chữ (không mời OCR) · PDF scan (Hủy + hết giờ) · Play→Pause phải tắt tiếng ngay · Next đúng một câu · Stop không phát lại
+  - 2026-09-30 | 20:40 UTC | doing | agent arena/01a0f3db-in4up | đối chiếu nguồn chuẩn I4U L18: PR #64 (`arena/01a0f3b6-in4up` → `arena/01a0251e-in4up`) đã merge 19:53 UTC (`14140d7`), nhánh session merge base về và GỘP card trùng do nhánh tạo trước thời điểm đó — giữ nguyên Vấn đề/Hướng giải quyết/AT-DoD của card gốc, chỉ thêm phần triển khai + lịch sử. Đã đọc `PROMPT_AGENT_I4U_L18.md` §6 (Agent F): phạm vi F1/F2/F3 và DoD khớp phần đã làm, không phát sinh hạng mục mới.
 
 ### I4U18-DOCS-001 — Hướng dẫn sử dụng cho các luồng mới/dễ lỗi
 - **Trạng thái:** done (docs-only; chờ owner chạy QA trên thiết bị).
@@ -4482,3 +4692,76 @@
   - 2026-09-30 | 20:32 UTC | doing→done | agent arena/01a0f3dc-in4up |
     bổ sung English fallback, README links và bằng chứng docs-only; local link
     check + `git diff --check` sạch
+
+### XLAT-DEEPLX-001 — Engine DeepLX (HF Space): URL không lưu khi restart, dán host trần không chạy, lỗi im lặng
+- **Triệu chứng (owner):** vừa dựng DeepLX trên Hugging Face Space
+  (`https://beyou8778-deeplx.hf.space/translate`), hỏi cách cắm vào
+  "Engine dịch thuật". Kiểm tra thực tế 2026-10-01: Space đang ở trạng thái
+  "Your space is in error" (cả `/` lẫn `/translate`) — chưa dùng được.
+- **Ba vấn đề trong app (đã verify code tại `14140d7`):**
+  1. URL DeepLX chỉ sống trong RAM (`TranslationService._deeplxUrl`) —
+     khởi động lại app là mất, phải dán lại mỗi lần.
+  2. Engine POST NGUYÊN VĂN chuỗi dán vào (`deeplx_engine.dart`) — dán host
+     trần `https://xxx.hf.space` (dạng HF copy mặc định) là 404; phải dán
+     đủ `.../translate`.
+  3. DeepLX fail (Space ngủ cold-start 20–60s > timeout 10s, 404, 429…)
+     → chuỗi engine im lặng rơi về Google Free, người dùng không biết
+     cấu hình của mình có hoạt động hay không.
+- **Tài liệu đối chiếu (docs DeepLX:** mọi phiên bản OwO-Network từ cũ đến
+  v1.2+ đều giữ `POST /translate` body `{text, source_lang, target_lang}` →
+  `{code:200, data:"..."}`; `/v2/translate` (DeepL-Auth-Key) trả dạng
+  `translations[0].text`; `/jsonrpc` là giao thức NỘI BỘ DeepL
+  (`LMT_handle_texts`) — KHÔNG phải endpoint HTTP của DeepLX, không cần
+  hỗ trợ riêng).
+- **Fix (2026-10-01, agent arena/01a0f41f-in4up):**
+  - `engines/deeplx_engine.dart`: viết lại —
+    (a) `normalizeUrl()`: trim + bỏ `/` thừa; host trần → tự nối
+    `/translate`; path riêng (reverse-proxy) giữ nguyên; giữ query
+    `?token=`; (b) parser chấp nhận 3 dạng response: `data` (chuẩn),
+    `translations[0].text` (/v2), `result.data`/`result.texts[0].text`
+    (jsonrpc wrapper); (c) `probe()`: dịch câu mẫu `Hello` → VI, timeout
+    20s (chịu cold start HF), trả `DeepLXProbeResult` (ok/sample/status/
+    error/responseTime); (d) inject `http.Client` cho test; (e) lỗi rõ
+    ràng: HTTP status + trường `message` server (v1.2+ trả 400 kèm
+    `unsupported target_lang`…).
+  - `translation_service.dart`: `configure(deeplxUrl:)` chuẩn hoá + lưu
+    `SharedPreferences` key `translation_deeplx_url`; `_loadOfflineOnlyPref`
+    phục hồi khi mở app (guard `_deeplxUrl == null` tránh đè configure
+    mới); chỉ singleton đọc/ghi prefs (`_persistPrefs`) — forTest không
+    chạm (giữ hợp đồng test cũ).
+  - `translation_toolbar.dart` (sheet ⚙️ Engine dịch thuật): hint "Chỉ dán
+    host cũng được" + nút "🔌 Thử kết nối DeepLX" (TextButton.icon +
+    spinner) + kết quả inline xanh/đỏ: OK → "✅ … dịch thử: “Xin chào”
+    (245 ms)"; lỗi HTTP → "❌ Lỗi HTTP 404: …"; không kết nối được →
+    "❌ … kiểm tra Space/serve đang chạy (HF Space ngủ sau ~48h không dùng)".
+  - i18n rule #5: 6 key ARB mới (`translationDeepLXUrlHint`,
+    `translationDeepLXTestButton/Empty/Ok/HttpError/Unreachable`) dịch đủ
+    vi/en + T2 (hi/zh/zh_TW/si) ngay trong PR; còn lại English fallback
+    đúng convention; regenerate `generated_ui_translations.dart`
+    (python3 tool/generate_ui_translation_map.py); template `{sample}/
+    {ms}/{code}/{detail}` khớp cơ chế uiText.
+  - Test: `test/deeplx_engine_test.dart` (16 test, MockClient không
+    network): normalizeUrl 4 nhóm, translate 8 (body chuẩn, bỏ
+    source_lang rỗng, 3 dạng response, 404/400+message, text rỗng,
+    exception), probe 4 (ok, URL rác, lỗi HTTP, mất kết nối).
+- **AT (nghiệm thu máy):** Space DeepLX thật (sau khi owner fix Space —
+  lỗi thường gặp: app phải listen cổng 7860, `sdk: docker` + `app_port:
+  7860`, Space Public): dán host trần → nút Thử kết nối xanh với thời
+  gian; kill app mở lại → URL còn (không phải dán lại); tắt Space → nút
+  đỏ kèm lý do; locale ≠ vi → chuỗi nút/kết quả không còn tiếng Việt.
+- **Trạng thái:** doing — code + test + ARB xong, chờ CI + nghiệm thu máy.
+- **Lịch sử:**
+  - 2026-10-01 | created→doing | agent arena/01a0f41f-in4up | code +
+    test + 26 ARB + regen map; branch arena/01a0f41f-in4up, PR vào main.
+  - 2026-10-01 | doing→doing | agent arena/01a0f41f-in4up | CI xanh run
+    36781345809 (app_analyze: analyze 0 lỗi + locale test xanh; PR #66).
+    PHÁT HIỆN khi xem conflict PR: origin/main đã bị thay bằng root commit
+    MỚI 0218c33 ("Fix indentation and improve Windows build script", author
+    2026-09-23, main chỉ còn 1 commit) — snapshot cũ/lech: 733 file vs 1144
+    (mất .github/workflows/app_analyze.yml, mất llm_mt_engine.dart,
+    lib/features/api/, KANBAN 4468→136 dòng…) ⇒ PR #66 không tự merge
+    được (hai lineage không còn tổ tiên chung). Lineage đầy đủ vẫn nguyên
+    vẹn: arena/01a0251e-in4up (= 14140d7, tip cũ của main) + branch này
+    (= 14140d7 + XLAT-DEEPLX-001). Theo GOVERNANCE 4b: KHÔNG merge chéo —
+    chờ owner quyết (phục hồi main từ arena/01a0251e-in4up rồi path-checkout
+    phần Windows build của 0218c33, hoặc path-checkout content từ branch này).

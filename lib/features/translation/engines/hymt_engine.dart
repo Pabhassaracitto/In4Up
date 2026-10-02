@@ -477,23 +477,38 @@ class HyMtEngine extends TranslationEngine {
   }
 
   static bool looksLikeGguf(List<int> head, int size) {
-    // Từ 2026-09-03: yêu cầu size ≥ minPlausible (~480MB) — file 80-100MB
-    // đầu magic GGUF mà thiếu phần thân là file CẮT (vẫn qua kiểm tra cũ
-    // → llama load fail → "không load được" triền miên).
-    if (size < minPlausibleBytes) return false;
-    return _isGgufMagic(head);
+    return validateModelHeader(head, size) == null;
   }
 
-  static Future<bool> _headIsGguf(String path) async {
+  /// Validator thuần, dùng chung cho import/download/path resolution và test.
+  /// `null` nghĩa là header + kích thước hợp lệ; chuỗi trả về là nguyên nhân
+  /// cụ thể để UI không gom mọi trường hợp thành "native không load được".
+  static String? validateModelHeader(List<int> head, int size) {
+    if (!_isGgufMagic(head)) {
+      return 'sai định dạng (thiếu magic GGUF)';
+    }
+    // File có magic nhưng nhỏ hơn đáng kể model phát hành là download bị cắt.
+    if (size < minPlausibleBytes) {
+      final mb = (size / 1048576).toStringAsFixed(0);
+      return 'bị cắt ($mb MB; cần khoảng 601 MB)';
+    }
+    return null;
+  }
+
+  static Future<String?> _validateModelFile(String path) async {
+    final file = File(path);
     try {
-      // openRead(0, 4).first — pattern đã proof trong file này
-      // (importFromUser dùng openRead(0, 8)); chỉ đọc 4 byte đầu.
-      // KHÔNG dùng RandomAccessFile sync API (analyzer CI từ chối compile —
-      // bài học HYMT-001, 8 vòng bisect).
-      final head = await File(path).openRead(0, 4).first;
-      return _isGgufMagic(head);
-    } catch (_) {
-      return false;
+      if (!await file.exists()) return 'không tồn tại';
+      final size = await file.length();
+      final head = await file.openRead(0, 4).fold<List<int>>(
+        <int>[],
+        (bytes, chunk) => bytes..addAll(chunk),
+      );
+      return validateModelHeader(head, size);
+    } on FileSystemException catch (e) {
+      return 'không đọc được file (${e.osError?.message ?? e.message})';
+    } catch (e) {
+      return 'không đọc được file ($e)';
     }
   }
 
@@ -502,16 +517,11 @@ class HyMtEngine extends TranslationEngine {
   Future<String?> resolvedModelPath() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefPath);
-    if (saved != null && await File(saved).exists()) {
-      final n = File(saved).lengthSync();
-      if (n >= minPlausibleBytes && await _headIsGguf(saved)) return saved;
+    if (saved != null && await _validateModelFile(saved) == null) {
+      return saved;
     }
     final def = await defaultSavePath();
-    if (await File(def).exists() &&
-        File(def).lengthSync() >= minPlausibleBytes &&
-        await _headIsGguf(def)) {
-      return def;
-    }
+    if (await _validateModelFile(def) == null) return def;
     return null;
   }
 
@@ -531,9 +541,11 @@ class HyMtEngine extends TranslationEngine {
         if (path == null) continue;
         final f = File(path);
         if (await f.exists()) {
-          final mb = (f.lengthSync() / 1048576).toStringAsFixed(0);
-          return 'File Hy-MT bị cắt/hỏng (${mb}MB/~601MB) — '
-              'bấm "Tải về" để tải lại file đầy đủ.';
+          final issue = await _validateModelFile(path);
+          if (issue != null) {
+            return 'File Hy-MT $issue: $path — bấm "Tải về" để tải lại '
+                'file đầy đủ hoặc chọn đúng model Hy-MT GGUF.';
+          }
         }
       }
     } catch (_) {}
@@ -576,11 +588,8 @@ class HyMtEngine extends TranslationEngine {
     if (!srcPath.toLowerCase().endsWith('.gguf')) {
       return 'Cần file .gguf (Hy-MT1.5-1.8B-2bit.gguf)';
     }
-    final size = src.lengthSync();
-    final head = await src.openRead(0, 8).first;
-    if (!looksLikeGguf(head, size)) {
-      return 'Không phải GGUF hợp lệ hoặc file quá nhỏ ($size bytes)';
-    }
+    final issue = await _validateModelFile(srcPath);
+    if (issue != null) return 'Model Hy-MT $issue: $srcPath';
     final dest = await defaultSavePath();
     if (p.normalize(src.path) != p.normalize(dest)) {
       await src.copy(dest);
@@ -620,11 +629,10 @@ class HyMtEngine extends TranslationEngine {
       );
       final f = File(tmp);
       if (!await f.exists()) return 'Không ghi được file';
-      final size = f.lengthSync();
-      final head = await f.openRead(0, 8).first;
-      if (!looksLikeGguf(head, size)) {
+      final issue = await _validateModelFile(tmp);
+      if (issue != null) {
         await f.delete();
-        return 'File tải về không phải GGUF ($size bytes)';
+        return 'Model Hy-MT tải về $issue';
       }
       final out = File(dest);
       if (await out.exists()) await out.delete();
@@ -653,13 +661,17 @@ class HyMtEngine extends TranslationEngine {
 
   Future<void> deleteModel() async {
     await disposeRuntime();
-    final path = await resolvedModelPath();
-    if (path != null) {
+    final prefs = await SharedPreferences.getInstance();
+    // Không dùng resolvedModelPath(): validator cố ý trả null cho file hỏng,
+    // nhưng nút Xóa vẫn phải xóa được chính file hỏng đó.
+    final saved = prefs.getString(_prefPath);
+    final def = await defaultSavePath();
+    for (final path in <String>{if (saved != null) saved, def}) {
       try {
-        await File(path).delete();
+        final file = File(path);
+        if (await file.exists()) await file.delete();
       } catch (_) {}
     }
-    final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefPath);
   }
 
@@ -865,6 +877,13 @@ class HyMtEngine extends TranslationEngine {
     }
   }
 
+  /// Stable wire code consumed by UI/cache/tests. Dart enum names are
+  /// camelCase, while TranslationResult's public contract is snake_case.
+  static String _errorCode(HyMtErrorCode code) => code.name.replaceAllMapped(
+        RegExp(r'[A-Z]'),
+        (match) => '_${match.group(0)!.toLowerCase()}',
+      );
+
   static String _fmtDuration(Duration d) => d.inSeconds >= 60
       ? '${d.inMinutes} phút'
       : d.inMilliseconds >= 1000
@@ -937,7 +956,7 @@ class HyMtEngine extends TranslationEngine {
       engine: name,
       detectedLang: src,
       targetLang: tgt,
-      errorCode: code.name,
+      errorCode: _errorCode(code),
     );
   }
 }

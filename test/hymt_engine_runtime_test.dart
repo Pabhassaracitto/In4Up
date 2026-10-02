@@ -87,6 +87,25 @@ class _FakeHyMtBackend implements HyMtBackend {
 }
 
 void main() {
+  group('HyMtEngine — model validator (I4U18-TRANSLATE-001)', () {
+    test('accepts a complete GGUF header and reports precise corruption', () {
+      const magic = <int>[0x47, 0x47, 0x55, 0x46];
+      expect(
+        HyMtEngine.validateModelHeader(magic, HyMtEngine.expectedBytes),
+        isNull,
+      );
+      expect(
+        HyMtEngine.validateModelHeader(<int>[0x3c, 0x68, 0x74, 0x6d],
+            HyMtEngine.expectedBytes),
+        contains('magic GGUF'),
+      );
+      expect(
+        HyMtEngine.validateModelHeader(magic, 100 * 1024 * 1024),
+        allOf(contains('bị cắt'), contains('100 MB')),
+      );
+    });
+  });
+
   group('HyMtEngine — single-flight (HYMT-002 mục 1)', () {
     test('short text: ONE request, no chunking', () async {
       final backend = _FakeHyMtBackend();

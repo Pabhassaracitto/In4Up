@@ -50,3 +50,15 @@ file and a raw Pa-Auk `.db`/`.sqlite`/`.zip` source package. Raw source tables
 are detected and normalized in Dart before installation, so Python is not
 required on a user device. The Python importer remains available for
 developer/release builds and very large offline imports.
+
+For a developer device, place files in
+`<Application Documents>/in4up/tipitaka/imports/` and press the scan button in
+the data manager. Pāli files are processed before translation files. The app
+keeps downloads/imports off the startup path so a large database never blocks
+or unexpectedly changes the library.
+
+Worklist entries can additionally carry `TipitakaSourceAnchor` and
+`TipitakaContextSnapshot` data. The anchor stores book/segment/reference,
+source-row key and selected-text offsets; the snapshot stores the full Pāli
+paragraph, translation and adjacent context. `TipitakaSourceResolver` uses
+those fields to reopen the current DB after an import or replacement.

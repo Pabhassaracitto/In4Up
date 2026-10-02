@@ -603,7 +603,9 @@ class AiServiceFacade extends ChangeNotifier {
       failure = AiChatException(AiChatErrorCode.invalidResponse, e.toString());
     } finally {
       _activeChatToken = null;
-      _lastChatApiError = failure;
+      // User-initiated stop is not an API failure and must not trigger the
+      // local fallback path or leave a red API-error banner behind.
+      _lastChatApiError = token.isCancelled ? null : failure;
       if (usage != null) {
         _lastChatUsage = usage;
         _lastChatModelId = remote.modelId;
@@ -630,6 +632,12 @@ class AiServiceFacade extends ChangeNotifier {
     if (idx < 0) return true; // phòng thủ: bubble đã biến mất.
 
     if (answer.isEmpty) {
+      if (userStopped) {
+        _chatMessages[idx] = placeholder.copyWith(text: '⏹ Đã dừng.');
+        await _persistChatHistory();
+        if (!_disposed) notifyListeners();
+        return true;
+      }
       // Không thu được token nào (lỗi API hoặc model rỗng) — bỏ placeholder,
       // trả false để route fallback engine kế (AT: fallback rõ, không treo).
       _chatMessages.removeAt(idx);

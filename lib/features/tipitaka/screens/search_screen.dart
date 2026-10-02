@@ -103,12 +103,14 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
                         itemCount: results.length,
                         itemBuilder: (context, index) {
                           final segment = results[index];
-                          final pali = segment.paliText;
+                          final content = segment.firstTranslation?.value ??
+                              segment.paliText;
+                          final preview = content.length > 120
+                              ? '${content.substring(0, 120)}…'
+                              : content;
                           return ListTile(
-                            title: Text(segment.reference),
-                            subtitle: Text(
-                              pali.length > 120 ? '${pali.substring(0, 120)}…' : pali,
-                            ),
+                            title: Text(preview),
+                            subtitle: Text(segment.reference),
                             trailing: segment.translationVi?.isNotEmpty == true
                                 ? const Icon(Icons.translate)
                                 : null,

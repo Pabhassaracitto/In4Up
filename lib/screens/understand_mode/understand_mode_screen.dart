@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 
+import '../../features/understand_ai/understand_ai_context.dart';
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/pronunciation_result.dart';
@@ -68,6 +69,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // AI Coach cần biết người dùng đang ở mode nào (Đồng bộ/Shadowing) — đồng
+    // bộ vào UnderstandProvider để sheet/chat đọc được mà không chạm vào
+    // TabController của màn hình này.
+    _tabController.addListener(_syncLearningModeToProvider);
     _waveformController = RollingWaveformController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,6 +80,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
       _understandProvider =
           Provider.of<UnderstandProvider>(context, listen: false);
+      _syncLearningModeToProvider();
       _playerListener = () {
         if (!mounted) return;
 
@@ -106,6 +112,18 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     _waveformController.dispose();
     _textScrollController.dispose();
     super.dispose();
+  }
+
+  /// Tab 0 = Đồng bộ, tab 1 = Shadowing. Ghi nhận mode hiện tại vào
+  /// UnderstandProvider (AI Coach chỉ đọc — không đổi được từ sheet/chat).
+  void _syncLearningModeToProvider() {
+    final understand = _understandProvider;
+    if (understand == null) return;
+    understand.setLearningMode(
+      _tabController.index == 1
+          ? UnderstandLearningMode.shadowing
+          : UnderstandLearningMode.sync,
+    );
   }
 
   @override

@@ -12,7 +12,8 @@
 //   4. Quick action → mở lại AiChatScreen hiện có với nháp câu hỏi; người
 //      dùng thấy và sửa được trước khi bấm gửi.
 
-import 'package:flutter/material.dart';
+// NOTE: chỉ import localized_material.dart (export material + Text shim +
+// uiText). Import thêm material trực tiếp sẽ làm tên `Text` ambiguous.
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../../screens/ai_chat/ai_chat_screen.dart';
@@ -36,8 +37,8 @@ Future<void> showUnderstandAiCoachSheet({
   List<String> lines = const [],
   UnderstandAiAskCallback? onAsk,
   VoidCallback? onOpenChat,
-}) {
-  return showModalBottomSheet(
+}) async {
+  await showModalBottomSheet(
     context: context,
     backgroundColor: const Color(0xFF1A1A2E),
     isScrollControlled: true,

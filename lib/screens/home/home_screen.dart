@@ -680,11 +680,16 @@ class _FirebaseAuthButton extends StatelessWidget {
     return StreamBuilder<AppUser?>(
       stream: auth.authStateChanges,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            width: 32,
-            height: 32,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        // Không để trạng thái Firebase treo vô hạn che nút tài khoản. REST
+        // fallback/Linux có thể không phát event đầu tiên; vẫn cho phép mở
+        // đăng nhập thay vì hiển thị spinner vĩnh viễn.
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return IconButton(
+            tooltip: 'Đăng nhập',
+            icon: const Icon(Icons.account_circle_outlined,
+                color: Colors.white, size: 28),
+            onPressed: () => _handleSignIn(context),
           );
         }
 

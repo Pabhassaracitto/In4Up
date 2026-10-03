@@ -40,6 +40,8 @@ dependencies:
 
   # File & Storage
   file_picker: ^11.0.2 # change from 8.1.2
+  image_picker: ^1.2.1 # Camera capture; gallery still uses file_picker on desktop
+  image: ^4.8.0 # Decode/re-encode ML Kit's transparent PNG output
   path: ^1.9.0
   path_provider: ^2.1.4
   permission_handler: ^12.0.1
@@ -90,6 +92,11 @@ dependencies:
   # Dart ^3.12). CHỈ Android (Google Beta) — không cần quyền camera vì dùng
   # camera của Play services. iOS: chọn ảnh qua file_picker, không scanner.
   google_mlkit_document_scanner: ^0.5.0
+
+  # Background removal — Phase 1. Android-only beta; no ONNX model is bundled.
+  google_mlkit_subject_segmentation: ^0.0.3
+  # Phase 2 is intentionally not enabled here: add the selected ONNX runtime
+  # only to a Phase 2 build profile (see docs/background_removal_phase2.md).
 # Firebase core (bắt buộc)
   firebase_core: ^3.15.2 #4.7.0 #change from 4.0.0
   

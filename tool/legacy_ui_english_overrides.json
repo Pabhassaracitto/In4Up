@@ -1833,5 +1833,16 @@
   "🤔 Cố nhớ nghĩa rồi tap để lật": "🤔 Try to recall the meaning, then tap to flip",
   "🧠 Câu chuyện PAO (chọn 1)": "🧠 PAO story (choose one)",
   "🧠 Nhớ": "🧠 Remember",
-  "🧠 Đã lưu đoạn chọn vào Vườn Nhớ": "🧠 Selection saved to Memory Garden"
+  "🧠 Đã lưu đoạn chọn vào Vườn Nhớ": "🧠 Selection saved to Memory Garden",
+  "Chụp ảnh": "Take a photo",
+  "Tách nền tự động": "Remove background automatically",
+  "Ảnh gốc": "Original image",
+  "Đã tách nền": "Background removed",
+  "Dùng ảnh này": "Use this image",
+  "Chọn lại": "Choose again",
+  "Chưa thể tách nền trên thiết bị này. Ảnh gốc vẫn được giữ nguyên.": "Background removal is not available on this device. The original image is kept.",
+  "Đã tách nền bằng Google ML Kit.": "Background removed with Google ML Kit.",
+  "Không thể lưu ảnh. Vui lòng thử lại.": "Could not save the image. Please try again.",
+  "Chụp ảnh hoặc chọn ảnh trong máy.": "Take a photo or choose one from your device.",
+  "Bạn có thể tách nền tự động trước khi lưu.": "You can remove the background automatically before saving."
 }

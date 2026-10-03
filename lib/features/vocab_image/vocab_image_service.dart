@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'vocab_image_web_service.dart';
@@ -30,6 +31,45 @@ class VocabImageService {
       return await _saveToAppStorage(File(path));
     } catch (e) {
       debugPrint('pickFromGallery error: $e');
+      return null;
+    }
+  }
+
+  /// Đọc một ảnh từ gallery nhưng chưa lưu, để editor có thể cho người dùng
+  /// xem ảnh gốc và ảnh đã tách nền trước khi bấm Lưu.
+  Future<Uint8List?> pickGalleryBytes() async {
+    try {
+      final result = await fp.FilePicker.pickFiles(
+        type: fp.FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes != null && bytes.isNotEmpty) {
+        return bytes;
+      }
+      final path = file.path;
+      return path == null ? null : Uint8List.fromList(await File(path).readAsBytes());
+    } catch (e) {
+      debugPrint('pickGalleryBytes error: $e');
+      return null;
+    }
+  }
+
+  /// Chụp một ảnh bằng camera nhưng chưa lưu.
+  Future<Uint8List?> pickCameraBytes() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 95,
+      );
+      return picked == null ? null : await picked.readAsBytes();
+    } catch (e) {
+      debugPrint('pickCameraBytes error: $e');
       return null;
     }
   }

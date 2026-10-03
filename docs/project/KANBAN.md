@@ -44,6 +44,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (patch workflow ĐÃ ÁP trong nhánh 01a0d013 cùng CI-ANDROID-03 — chờ oracle) | build.yml + build_final_complete.yml: `--flavor stable` cả 2 bước build, rename `app-<abi>-stable-release.apk`, bỏ `\|\| true`; in4up_ci_fixes.gradle giữ lại (no-op) |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-ANDROID-03 | APK release KHÔNG CÀI ĐƯỢC (local + Actions): release không có `signingConfig` ⇒ APK unsigned | 🔄 doing (fix xong, chờ oracle tag `v*` + cài máy) | build.gradle.kts: ký key.properties → fallback debug; workflow: prepare-signing + verify-signed + `--flavor stable` + rename đúng tên + fix YAML indent build.yml + setup-android v4 |
+| CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
@@ -4809,3 +4810,41 @@
     (= 14140d7 + XLAT-DEEPLX-001). Theo GOVERNANCE 4b: KHÔNG merge chéo —
     chờ owner quyết (phục hồi main từ arena/01a0251e-in4up rồi path-checkout
     phần Windows build của 0218c33, hoặc path-checkout content từ branch này).
+
+### CI-DEPS-001 — `flutter pub get` đỏ trên máy cũ: Dart 3.11.5 vs ML Kit subject_segmentation 0.2.x (cần Dart ≥3.12)
+- **Trạng thái:** proposed (chờ 1 máy có Flutter ≥3.47.6 chạy pub get + commit lock)
+- **Triệu chứng (owner, 2026-10-04):** `flutter pub get` ở worktree DEV:
+  "The current Dart SDK version is 3.11.5. Because in4up depends on
+  google_mlkit_subject_segmentation >=0.2.0 which requires SDK version
+  >=3.12.0 <4.0.0, version solving failed. Try Flutter 3.47.6."
+- **Root cause (đã verify):**
+  1. `da2a3d2` (03/10) nâng `google_mlkit_subject_segmentation` ^0.0.3 →
+     ^0.2.0 (ML Kit background removal — OCR/wordlist) — bản 0.2.x yêu cầu
+     Dart ≥3.12 (Flutter ≥3.47.6 theo pub).
+  2. **`pubspec.lock` KHÔNG BAO GIỜ có entry của package này** (git log -S
+     trống) — commit thêm dep (`74ef923`) + nâng constraint (`da2a3d2`) đều
+     không cập nhật lock ⇒ mọi máy `pub get` đều phải resolve MỚI từ
+     pub.dev ⇒ ai SDK <3.12 là đỏ (CI pin Flutter của nó thì xanh).
+- **Sửa (2 bước):**
+  1. **Mọi dev/owner:** upgrade Flutter lên stable mới nhất (≥3.47.6) —
+     `flutter upgrade` (hoặc `fvm install 3.47.6 && fvm use 3.47.6`),
+     kiểm tra `flutter --version` có Dart ≥3.12.0, rồi `flutter clean &&
+     flutter pub get`.
+  2. **Làm 1 lần (ai chạy được bước 1):** sau pub get xanh →
+     `git add pubspec.lock && git commit -am "chore(deps): lock
+     google_mlkit_subject_segmentation 0.2.x (CI-DEPS-001)" && git push`
+     → lock đủ entry ⇒ mọi máy sau này resolve deterministic, không phụ
+     thuộc pub.dev state.
+- **Ghi chú:** CI pin Flutter trong workflows (`flutter-version: '3.44.1'`
+  ở app_analyze/build/build_final_complete) — nếu CI nào bắt đầu đỏ ở bước
+  "Resolve dependencies" với cùng lỗi SDK ⇒ bump `flutter-version` trong
+  workflow (file workflow cần owner push — GitHub App thiếu quyền
+  workflows). Sandbox agent KHÔNG có Flutter SDK nên không tự sinh lock
+  được.
+- **AT:** máy Flutter mới: `flutter pub get` xanh; `git diff pubspec.lock`
+  có entry `google_mlkit_subject_segmentation` 0.2.x sau khi commit; 1 dev
+  khác clone + `pub get` xanh mà không cần sửa gì.
+- **Lịch sử:**
+  - 2026-10-04 | created | agent arena/01a0251e-in4up | diagnose từ lỗi
+    pub get của owner (Dart 3.11.5); verify lock thiếu entry qua git log -S;
+    chờ máy có Flutter ≥3.47.6

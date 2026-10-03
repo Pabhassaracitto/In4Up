@@ -28,7 +28,7 @@ Các file chính:
 
 ```yaml
 dependencies:
-  google_mlkit_subject_segmentation: ^0.0.3
+  google_mlkit_subject_segmentation: ^0.2.0
   image_picker: ^1.2.1
   image: ^4.8.0
 ```

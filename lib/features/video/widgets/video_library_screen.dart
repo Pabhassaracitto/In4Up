@@ -496,6 +496,84 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   }
 }
 
+class _VideoThumbnail extends StatefulWidget {
+  final VideoInfo video;
+  final Color accent;
+
+  const _VideoThumbnail({required this.video, required this.accent});
+
+  @override
+  State<_VideoThumbnail> createState() => _VideoThumbnailState();
+}
+
+class _VideoThumbnailState extends State<_VideoThumbnail> {
+  VideoPlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final value = widget.video.filePath;
+      final controller = value.startsWith('content://')
+          ? VideoPlayerController.contentUri(Uri.parse(value))
+          : VideoPlayerController.file(File(value));
+      await controller.initialize();
+      await controller.seekTo(Duration.zero);
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _controller = controller);
+    } catch (_) {
+      // Unsupported/corrupt files keep the useful extension placeholder.
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: controller.value.size.width,
+              height: controller.value.size.height,
+              child: VideoPlayer(controller),
+            ),
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: Icon(Icons.play_circle_outline,
+                color: Colors.white.withValues(alpha: .9), size: 28),
+          ),
+        ],
+      );
+    }
+    final extension = VideoLibraryLogic.extensionOf(widget.video.title).toUpperCase();
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.movie_outlined, color: widget.accent, size: 25),
+        Text(extension.isEmpty ? 'VIDEO' : extension,
+            style: TextStyle(color: widget.accent, fontSize: 9, fontWeight: FontWeight.w800)),
+      ],
+    );
+  }
+}
+
 class _VideoCard extends StatelessWidget {
   final VideoInfo video;
   final VoidCallback onTap;
@@ -529,8 +607,7 @@ class _VideoCard extends StatelessWidget {
                 color: accent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.play_circle_outline,
-                  color: accent, size: 32),
+              child: _VideoThumbnail(video: video, accent: accent),
             ),
             const SizedBox(width: 14),
             Expanded(

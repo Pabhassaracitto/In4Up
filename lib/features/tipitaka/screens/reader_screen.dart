@@ -60,6 +60,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   bool _showVietnamese = true;
   bool _showEnglish = false;
   double _fontScale = 1;
+  double _ttsSpeed = 1.0;
   bool _selectionSheetOpen = false;
   final _initialSegmentKey = GlobalKey();
   late final TipitakaBook _worklistBook;
@@ -72,6 +73,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _ttsSpeed = _tts.speed;
     _requestedSegmentId = widget.initialSegmentId;
     _worklistBook = widget.book ??
         TipitakaBook(
@@ -251,6 +253,24 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                       onChanged: null,
                     ),
                     const Divider(),
+                    Row(
+                      children: [
+                        Text(context.uiText('Tốc độ đọc')),
+                        const Spacer(),
+                        Text('${_ttsSpeed.toStringAsFixed(2)}x'),
+                      ],
+                    ),
+                    Slider(
+                      value: _ttsSpeed,
+                      min: 0.5,
+                      max: 1.5,
+                      divisions: 10,
+                      label: '${_ttsSpeed.toStringAsFixed(2)}x',
+                      onChanged: (value) {
+                        update(() => _ttsSpeed = value);
+                        _tts.configure(speed: value);
+                      },
+                    ),
                     Row(
                       children: [
                         Text(context.uiText('Cỡ chữ')),

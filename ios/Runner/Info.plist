@@ -39,6 +39,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>In4Up dùng camera để chụp ảnh minh họa cho từ vựng.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>In4Up dùng thư viện ảnh để chọn ảnh minh họa cho từ vựng.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- WP0 (API-001): cho phép gọi server AI trong LAN qua http

@@ -5,20 +5,23 @@
 // Lý do đổi thứ tự: khi học từ, máy người dùng hầu như không có sẵn ảnh minh
 // họa cho từ ("bướm", "tháp Eiffel", "cái cân") — trước đây một chạm mở thẳng
 // gallery nên người dùng toàn bỏ qua bước hình. Giờ: mở là tìm ảnh trên mạng
-// (luôn có), "Chọn ảnh từ máy" là đường thứ hai, còn camera + ML Kit
-// (xóa phông / gắn nhãn đồ vật thật) là bước tiếp theo — chưa bật ở đây.
+// (luôn có), "Trong máy" là đường thứ hai, kèm chụp ảnh và tách nền ML Kit
+// ngay trong preview trước khi lưu.
 //
 // Ảnh web được TẢI VỀ + lưu vào app storage (hash dedup), không lưu thẳng
 // URL: ôn tập phải chạy offline và link ngoài mạng chết bất cứ lúc nào.
 
+import 'dart:typed_data';
+
 import '../../core/language/localized_material.dart';
+import '../background_removal/background_removal.dart';
 
 import 'vocab_image_api_config.dart';
 import 'vocab_image_service.dart';
 import 'vocab_image_web_service.dart';
 
-/// Nguồn ảnh trong sheet. Camera + ML Kit (xóa phông, gắn nhãn từ đồ vật
-/// thật) là bước kế tiếp — thêm giá trị vào enum này mà không đổi API.
+/// Nguồn ảnh trong sheet. Device flow hỗ trợ camera, gallery và preview
+/// tách nền ML Kit trước khi lưu.
 enum VocabImageSourceKind { web, device }
 
 /// Kết quả trả về cho caller ([VocabImagePicker] / word list / word actions).
@@ -95,6 +98,11 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   List<VocabWebImage> _results = const [];
   bool _loading = false;
   bool _busy = false;
+  bool _removingBackground = false;
+  Uint8List? _originalDeviceBytes;
+  Uint8List? _cutoutBytes;
+  bool _showCutout = false;
+  String? _backgroundRemovalMessage;
 
   /// Provider + API key hiện hành (IMG-WEB-001: tìm ảnh PHẢI qua API key;
   /// chưa có key thì rơi về nguồn mở + nhắc user nhập key).
@@ -171,13 +179,68 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     Navigator.of(context).pop(VocabImagePickResult(imagePath: path));
   }
 
-  Future<void> _useDeviceImage() async {
+  Future<void> _pickDeviceImage({required bool camera}) async {
+    setState(() {
+      _busy = true;
+      _backgroundRemovalMessage = null;
+    });
+    final bytes = camera
+        ? await VocabImageService.instance.pickCameraBytes()
+        : await VocabImageService.instance.pickGalleryBytes();
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _originalDeviceBytes = bytes;
+      _cutoutBytes = null;
+      _showCutout = false;
+      _backgroundRemovalMessage = null;
+    });
+  }
+
+  Future<void> _removeBackground() async {
+    final original = _originalDeviceBytes;
+    if (original == null || _removingBackground) return;
+    setState(() {
+      _removingBackground = true;
+      _backgroundRemovalMessage = null;
+    });
+    final cutout = await BackgroundRemovalService.instance.removeBackground(original);
+    if (!mounted) return;
+    setState(() {
+      _removingBackground = false;
+      _cutoutBytes = cutout;
+      _showCutout = cutout != null;
+      _backgroundRemovalMessage = cutout == null
+          ? context.uiText(
+              'Chưa thể tách nền trên thiết bị này. Ảnh gốc vẫn được giữ nguyên.')
+          : context.uiText('Đã tách nền bằng Google ML Kit.');
+    });
+  }
+
+  Future<void> _saveDeviceImage() async {
+    final bytes = _showCutout && _cutoutBytes != null
+        ? _cutoutBytes!
+        : _originalDeviceBytes;
+    if (bytes == null || _busy) return;
     setState(() => _busy = true);
-    final path = await VocabImageService.instance.pickFromGallery();
+    final path = await VocabImageService.instance.saveFromBytes(bytes);
     if (!mounted) return;
     setState(() => _busy = false);
-    if (path == null) return; // user hủy
+    if (path == null) {
+      setState(() => _backgroundRemovalMessage =
+          context.uiText('Không thể lưu ảnh. Vui lòng thử lại.'));
+      return;
+    }
     Navigator.of(context).pop(VocabImagePickResult(imagePath: path));
+  }
+
+  void _resetDeviceImage() {
+    setState(() {
+      _originalDeviceBytes = null;
+      _cutoutBytes = null;
+      _showCutout = false;
+      _backgroundRemovalMessage = null;
+    });
   }
 
   void _remove() =>
@@ -580,30 +643,139 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   // ───────────────────────────────────────────────────────────── MÁY ──────
   Widget _buildDevice() {
     final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.photo_album_outlined,
-                size: 30, color: scheme.onSurfaceVariant),
+    final original = _originalDeviceBytes;
+    final cutout = _cutoutBytes;
+
+    if (original == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.photo_camera_back_outlined,
+                  size: 30, color: scheme.onSurfaceVariant),
+              const SizedBox(height: 8),
+              Text(
+                context.uiText('Chụp ảnh hoặc chọn ảnh trong máy.'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: scheme.onSurfaceVariant, fontSize: 11.5),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _busy
+                        ? null
+                        : () => _pickDeviceImage(camera: true),
+                    icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                    label: Text(context.uiText('Chụp ảnh')),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => _pickDeviceImage(camera: false),
+                    icon: const Icon(Icons.folder_open, size: 18),
+                    label: Text(context.uiText('Thư viện')),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final preview = _showCutout && cutout != null ? cutout : original;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            constraints: const BoxConstraints(maxHeight: 220),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Image.memory(preview, fit: BoxFit.contain),
+          ),
+          const SizedBox(height: 10),
+          if (cutout != null)
+            SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(
+                  value: false,
+                  icon: const Icon(Icons.image_outlined, size: 16),
+                  label: Text(context.uiText('Ảnh gốc')),
+                ),
+                ButtonSegment(
+                  value: true,
+                  icon: const Icon(Icons.auto_fix_high, size: 16),
+                  label: Text(context.uiText('Đã tách nền')),
+                ),
+              ],
+              selected: {_showCutout},
+              onSelectionChanged: (selected) =>
+                  setState(() => _showCutout = selected.first),
+            )
+          else
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                context.uiText('Bạn có thể tách nền tự động trước khi lưu.'),
+                style: TextStyle(
+                    color: scheme.onSurfaceVariant, fontSize: 12),
+              ),
+            ),
+          if (_backgroundRemovalMessage != null) ...[
             const SizedBox(height: 8),
             Text(
-              context.uiText(
-                  'Ảnh trong máy ít khi có sẵn cho từ mới — hãy ưu tiên tab Trên mạng.'),
+              _backgroundRemovalMessage!,
               textAlign: TextAlign.center,
-              style:
-                  TextStyle(color: scheme.onSurfaceVariant, fontSize: 11.5),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.tonalIcon(
-              onPressed: _busy ? null : _useDeviceImage,
-              icon: const Icon(Icons.folder_open, size: 18),
-              label: Text(context.uiText('Chọn ảnh từ máy')),
+              style: TextStyle(
+                color: cutout == null ? Colors.orange.shade300 : Colors.green.shade300,
+                fontSize: 11.5,
+              ),
             ),
           ],
-        ),
+          const SizedBox(height: 10),
+          if (_removingBackground)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => _removeBackground(),
+                  icon: const Icon(Icons.auto_fix_high, size: 18),
+                  label: Text(context.uiText('Tách nền tự động')),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _saveDeviceImage,
+                  icon: const Icon(Icons.check, size: 18),
+                  label: Text(context.uiText('Dùng ảnh này')),
+                ),
+                TextButton.icon(
+                  onPressed: _resetDeviceImage,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: Text(context.uiText('Chọn lại')),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

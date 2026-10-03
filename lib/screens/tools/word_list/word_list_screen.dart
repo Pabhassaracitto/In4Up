@@ -1322,6 +1322,7 @@ class _WordListScreenState extends State<WordListScreen> {
     final topicCtrl = TextEditingController();
     VocabularyType? detectedType;
     String selectedLang = 'en';
+    String? selectedImagePath;
 
     showModalBottomSheet(
       context: context,
@@ -1386,6 +1387,16 @@ class _WordListScreenState extends State<WordListScreen> {
                         decoration: _inputDeco('Chủ đề / Thư mục', 'VD: Phật Pháp hoặc Phật Pháp/Đời Sống',
                             const Color(0xFF9C27B0))),
                     const SizedBox(height: 12),
+                    Center(
+                      child: VocabImagePicker(
+                        word: textCtrl.text,
+                        meaning: meaningCtrl.text,
+                        currentImageUrl: selectedImagePath,
+                        onImageChanged: (path) => setS(() => selectedImagePath = path),
+                        size: 120,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
@@ -1425,6 +1436,9 @@ class _WordListScreenState extends State<WordListScreen> {
                               language: selectedLang,
                               topic: topicCtrl.text.trim().isEmpty ? null : topicCtrl.text.trim(),
                             );
+                            if (selectedImagePath != null && selectedImagePath!.isNotEmpty) {
+                              p.updateImageUrl(entry.id, selectedImagePath);
+                            }
                             Navigator.pop(sheetCtx);
                             if (entry.vocabType != VocabularyType.word) {
                               _showDecomposeDialog(entry, p);
@@ -1597,6 +1611,7 @@ class _WordListScreenState extends State<WordListScreen> {
     final Set<String> allLangOptions = {...baseLangs, ...p.allLanguages};
     final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
+    String? selectedImagePath = entry.imageUrl;
 
     showModalBottomSheet(
       context: context,
@@ -1646,13 +1661,10 @@ class _WordListScreenState extends State<WordListScreen> {
                     // Image picker
                     Center(
                       child: VocabImagePicker(
-                        wordId: entry.id,
-                        word: entry.word,
-                        meaning: entry.meaning,
-                        currentImageUrl: entry.imageUrl,
-                        onImageChanged: (path) {
-                          // Image already saved by VocabImagePicker via provider
-                        },
+                        word: wordC.text,
+                        meaning: meanC.text,
+                        currentImageUrl: selectedImagePath,
+                        onImageChanged: (path) => setS(() => selectedImagePath = path),
                         size: 120,
                       ),
                     ),
@@ -1768,6 +1780,7 @@ class _WordListScreenState extends State<WordListScreen> {
                               languages: selectedLangs.toList(),
                               vocabType: selectedType,
                             );
+                            p.updateImageUrl(entry.id, selectedImagePath);
                             if (noteC.text.trim().isNotEmpty) {
                               p.updateNotes(entry.id, noteC.text.trim());
                             }

@@ -13,6 +13,8 @@ class GrammarLegendBar extends StatelessWidget {
   final bool compact;
   final bool horizontalScroll;
   final bool showHandle;
+  /// Hide the legend without changing the enabled grammar categories.
+  final VoidCallback? onDismiss;
 
   const GrammarLegendBar({
     super.key,
@@ -23,6 +25,7 @@ class GrammarLegendBar extends StatelessWidget {
     this.compact = false,
     this.horizontalScroll = false,
     this.showHandle = false,
+    this.onDismiss,
   });
 
   @override
@@ -100,7 +103,21 @@ class GrammarLegendBar extends StatelessWidget {
               ),
             ),
           ],
-          content,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: content),
+              if (onDismiss != null)
+                IconButton(
+                  tooltip: context.uiText('Ẩn chú giải'),
+                  icon: const Icon(Icons.close, size: 17, color: Colors.white70),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  onPressed: onDismiss,
+                ),
+            ],
+          ),
         ],
       ),
     );

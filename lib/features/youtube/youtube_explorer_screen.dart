@@ -117,6 +117,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   double _rankMax = 100000;
   final _scrollCtrl = ScrollController();
   final _urlCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
   bool _openingUrl = false;
   String? _urlError;
 
@@ -140,6 +142,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   void dispose() {
     _scrollCtrl.dispose();
     _urlCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -214,7 +217,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     if (!_hasApiKey) return (<YtExVideo>[], null);
     final order = _sortMode == YtSortMode.viewCount ? 'viewCount' : 'date';
     final chanParam = _selChannelId != null ? '&channelId=$_selChannelId' : '';
-    final url = '$_kYtApi/search?part=snippet&type=video$chanParam&order=$order'
+    final queryParam = _searchQuery.trim().isEmpty
+        ? ''
+        : '&q=${Uri.encodeQueryComponent(_searchQuery.trim())}';
+    final url = '$_kYtApi/search?part=snippet&type=video$chanParam$queryParam&order=$order'
         '&maxResults=20&relevanceLanguage=en&key=${widget.apiKey.trim()}'
         '${pageToken != null ? '&pageToken=$pageToken' : ''}';
     final res =
@@ -359,6 +365,35 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               ],
             ),
             const SizedBox(height: 8),
+            if (_hasApiKey)
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: context.uiText('Tìm kiếm trực tiếp trên YouTube'),
+                      hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 18),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.07),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) {
+                      setState(() => _searchQuery = _searchCtrl.text);
+                      _loadVideos();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: context.uiText('Tìm kiếm'),
+                  icon: const Icon(Icons.search, color: Colors.white),
+                  onPressed: () { setState(() => _searchQuery = _searchCtrl.text); _loadVideos(); },
+                ),
+              ]),
+            if (_hasApiKey) const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(

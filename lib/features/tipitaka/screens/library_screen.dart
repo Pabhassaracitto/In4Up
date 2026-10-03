@@ -48,19 +48,14 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
     try {
       final db = await TipitakaDb.openReady();
       final collections = await TipitakaDb.getCollections(db);
-      final books = <int, List<TipitakaBook>>{};
-      for (final collection in collections) {
-        books[collection.id] = await TipitakaDb.getBooksByCollection(
-          db,
-          collection.id,
-          languageCode: _language,
-        );
-      }
+      // Chỉ tải catalogue cấp cao ở startup. Danh sách sách/tiêu đề được
+      // tải theo nhu cầu khi người dùng mở từng Tạng; database Tipitaka có
+      // thể rất lớn và không nên chặn màn hình khởi động.
       final info = await TipitakaDb.info(db);
       if (!mounted) return;
       setState(() {
         _collections = collections;
-        _booksByCollection = books;
+        _booksByCollection = const {};
         _languages = info.availableLanguages;
         _loading = false;
       });
@@ -159,6 +154,13 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                               _CollectionTreeNode(
                                 collection: collection,
                                 books: _booksByCollection[collection.id] ?? const [],
+                                onLoadBooks: () async {
+                                  final db = await TipitakaDb.openReady();
+                                  final loaded = await TipitakaDb.getBooksByCollection(
+                                    db, collection.id, languageCode: _language);
+                                  if (mounted) setState(() => _booksByCollection = {
+                                    ..._booksByCollection, collection.id: loaded});
+                                },
                                 onOpen: _openReader,
                               ),
                           ],
@@ -199,9 +201,10 @@ class _LibraryStatusCard extends StatelessWidget {
   }
 }
 
-class _CollectionTreeNode extends StatelessWidget {
+class _CollectionTreeNode extends StatefulWidget {
   final TipitakaCollection collection;
   final List<TipitakaBook> books;
+  final Future<void> Function() onLoadBooks;
   final void Function(
     TipitakaBook book, {
     TipitakaSegment? segment,
@@ -211,11 +214,20 @@ class _CollectionTreeNode extends StatelessWidget {
   const _CollectionTreeNode({
     required this.collection,
     required this.books,
+    required this.onLoadBooks,
     required this.onOpen,
   });
 
+  @override
+  State<_CollectionTreeNode> createState() => _CollectionTreeNodeState();
+}
+
+class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
+  bool _expanded = false;
+  bool _loading = false;
+
   String _title(String language) {
-    final names = '${collection.namePali} ${collection.nameEn} ${collection.nameVi}'
+    final names = '${widget.collection.namePali} ${widget.collection.nameEn} ${widget.collection.nameVi}'
         .toLowerCase();
     if (names.contains('vin') || names.contains('luật')) {
       return language == 'vi' ? 'Tạng Luật' : 'Vinaya Piṭaka';
@@ -232,13 +244,23 @@ class _CollectionTreeNode extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: ExpansionTile(
+        initiallyExpanded: _expanded,
+        onExpansionChanged: (value) async {
+          setState(() => _expanded = value);
+          if (value && widget.books.isEmpty && !_loading) {
+            setState(() => _loading = true);
+            try { await widget.onLoadBooks(); } finally { if (mounted) setState(() => _loading = false); }
+          }
+        },
         leading: const Icon(Icons.folder_open_outlined),
         title: Text(_title(language)),
-        subtitle: Text('${books.length} ${context.uiText('nhóm/bộ')}'),
-        children: [
-          for (final book in books)
-            _BookTreeNode(book: book, onOpen: onOpen),
-        ],
+        subtitle: _loading
+            ? const Text('Đang tải mục lục…')
+            : Text('${widget.books.length} ${context.uiText('nhóm/bộ')}'),
+        children: _loading
+            ? [const LinearProgressIndicator(minHeight: 2)]
+            : [for (final book in widget.books)
+                _BookTreeNode(book: book, onOpen: widget.onOpen)],
       ),
     );
   }

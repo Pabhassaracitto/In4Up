@@ -94,7 +94,7 @@ dependencies:
   google_mlkit_document_scanner: ^0.5.0
 
   # Background removal — Phase 1. Android-only beta; no ONNX model is bundled.
-  google_mlkit_subject_segmentation: ^0.0.3
+  google_mlkit_subject_segmentation: ^0.2.0
   # Phase 2 is intentionally not enabled here: add the selected ONNX runtime
   # only to a Phase 2 build profile (see docs/background_removal_phase2.md).
 # Firebase core (bắt buộc)

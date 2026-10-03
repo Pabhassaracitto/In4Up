@@ -56,6 +56,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   String _selectionText = '';
   DateTime? _lastSnackbar;
   bool _showDashboard = false;
+  bool _lastSpeaking = false;
+  bool _lastPaused = false;
 
   @override
   void initState() {
@@ -85,6 +87,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     final colorModeChanged = _controller.colorMode != _lastColorMode;
     final highlightChanged =
         _controller.highlightVersion != _lastHighlightVersion;
+    final audioChanged = _controller.isSpeaking != _lastSpeaking ||
+        _controller.isPaused != _lastPaused;
+    if (audioChanged) {
+      _lastSpeaking = _controller.isSpeaking;
+      _lastPaused = _controller.isPaused;
+      setState(() {});
+    }
 
     if (colorModeChanged || highlightChanged) {
       _lastColorMode = _controller.colorMode;
@@ -181,6 +190,10 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   }
 
   Future<void> _navigate(String urlOrCommand) async {
+    // Không để giọng của bài cũ tiếp tục khi người dùng chuyển trang.
+    if (_controller.isSpeaking || _controller.isPaused) {
+      await _controller.stopTts();
+    }
     if (urlOrCommand.isEmpty) {
       if (mounted) {
         setState(() {
@@ -428,6 +441,22 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       debugPrint('WebReaderScreen: extract error: $e');
       return null;
     }
+  }
+
+  Future<void> _listenToArticle() async {
+    if (_controller.isSpeaking || _controller.isPaused) {
+      if (mounted) setState(() {});
+      return;
+    }
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+    _showSnack('⏳ Đang chuẩn bị chế độ nghe...', duration: 1);
+    final text = await _extractMainArticleText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack('❌ Không tìm thấy nội dung bài để đọc');
+      return;
+    }
+    await _controller.speakArticle(text);
   }
 
   Future<void> _extractTextToStudio() async {
@@ -1149,6 +1178,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                 : _extractTextToStudio,
             onSavePageToCollection: _saveCurrentPageToCollection,
             onOpenGrammarSettings: _openGrammarSettings,
+            onListenArticle: _listenToArticle,
             showingDashboard: _showDashboard,
             writingMode: widget.writingMode,
           ),
@@ -1191,6 +1221,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           ),
           if (_showSelectionBar && _selectionText.isNotEmpty && !_showDashboard)
             _buildSelectionBar(),
+          if ((_controller.isSpeaking || _controller.isPaused) && !_showDashboard)
+            _buildListenBar(),
         ],
       ),
     );
@@ -1270,6 +1302,49 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             _RecallLegendDot(color: Color(0xFFF44336), label: 'đến kỳ ôn'),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildListenBar() {
+    final paused = _controller.isPaused;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      color: const Color(0xFF172033),
+      child: Row(
+        children: [
+          const Icon(Icons.headphones, color: Color(0xFFFFB74D), size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              paused ? 'Đã tạm dừng bài đọc' : 'Đang đọc bài web',
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text('${_controller.ttsSpeed.toStringAsFixed(1)}x', style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          IconButton(
+            tooltip: paused ? 'Tiếp tục' : 'Tạm dừng',
+            icon: Icon(paused ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 21),
+            onPressed: paused ? _controller.resumeTts : _controller.pauseTts,
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            tooltip: 'Tốc độ đọc',
+            icon: const Icon(Icons.speed, color: Colors.white70, size: 19),
+            onPressed: () {
+              final next = _controller.ttsSpeed >= 1.75 ? 0.75 : _controller.ttsSpeed + 0.25;
+              _controller.setTtsSpeed(next);
+            },
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            tooltip: 'Dừng đọc',
+            icon: const Icon(Icons.stop, color: Colors.redAccent, size: 20),
+            onPressed: _controller.stopTts,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }

@@ -10,6 +10,7 @@ class WebReaderToolbar extends StatefulWidget {
   final VoidCallback onExtractText;
   final VoidCallback onSavePageToCollection;
   final VoidCallback onOpenGrammarSettings;
+  final VoidCallback onListenArticle;
   final bool showingDashboard;
   final bool writingMode;
 
@@ -20,6 +21,7 @@ class WebReaderToolbar extends StatefulWidget {
     required this.onExtractText,
     required this.onSavePageToCollection,
     required this.onOpenGrammarSettings,
+    required this.onListenArticle,
     required this.showingDashboard,
     this.writingMode = false,
   });
@@ -216,6 +218,17 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   tooltip: context.uiText('Cài đặt từ loại chuyên sâu'),
                   activeThumbColor: const Color(0xFF6C63FF),
                 ),
+              _ToolbarBtn(
+                icon: ctrl.isSpeaking ? Icons.volume_up : Icons.headphones_outlined,
+                size: 18,
+                enabled: pageActionsEnabled,
+                isActive: ctrl.isSpeaking,
+                onTap: widget.onListenArticle,
+                tooltip: ctrl.isSpeaking
+                    ? 'Mở điều khiển nghe bài'
+                    : 'Nghe bài web',
+                activeThumbColor: const Color(0xFFFFB74D),
+              ),
               _ToolbarBtn(
                 icon: widget.writingMode
                     ? Icons.edit_square

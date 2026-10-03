@@ -168,7 +168,9 @@ class WebReaderController extends ChangeNotifier {
   // ─── TTS ────────────────────────────────────────────────
   final TtsService _tts = TtsService();
   bool _isSpeaking = false;
+  bool _isPaused = false;
   bool get isSpeaking => _isSpeaking;
+  bool get isPaused => _isPaused;
   double _ttsSpeed = 0.9;
   double get ttsSpeed => _ttsSpeed;
 
@@ -604,17 +606,56 @@ class WebReaderController extends ChangeNotifier {
   }
 
   Future<void> speakText(String text) async {
-    _tts.configure(speed: _ttsSpeed, language: 'en-US');
+    _tts.configure(speed: _ttsSpeed, language: 'auto');
     _isSpeaking = true;
+    _isPaused = false;
     notifyListeners();
     await _tts.speak(text);
     _isSpeaking = false;
+    _isPaused = false;
+    notifyListeners();
+  }
+
+  /// Đọc bài web theo từng đoạn, giống một trình đọc sách nói: không gửi
+  /// toàn bộ trang vào một request TTS và cho phép dừng giữa các đoạn.
+  Future<void> speakArticle(String text) async {
+    final chunks = text
+        .split(RegExp(r'\n+'))
+        .map((line) => line.replaceAll(RegExp(r'\s+'), ' ').trim())
+        .where((line) => line.length > 1)
+        .toList();
+    if (chunks.isEmpty) return;
+    _tts.configure(speed: _ttsSpeed, language: 'auto');
+    _isSpeaking = true;
+    _isPaused = false;
+    notifyListeners();
+    try {
+      await _tts.speakLines(chunks, pauseBetween: const Duration(milliseconds: 350));
+    } finally {
+      _isSpeaking = false;
+      _isPaused = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> pauseTts() async {
+    if (!_isSpeaking) return;
+    _isPaused = true;
+    await _tts.pause();
+    notifyListeners();
+  }
+
+  Future<void> resumeTts() async {
+    if (!_isPaused) return;
+    _isPaused = false;
+    await _tts.resume();
     notifyListeners();
   }
 
   Future<void> stopTts() async {
     await _tts.stop();
     _isSpeaking = false;
+    _isPaused = false;
     notifyListeners();
   }
 

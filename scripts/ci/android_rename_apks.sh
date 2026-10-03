@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Đổi tên APK Flutter sinh ra → tên phát hành `in4up-Android-<abi|Universal-All-CPU>-<tag>.apk`
-# (card CI-ANDROID-01/03). Chạy SAU 2 bước `flutter build apk`, TRƯỚC verify/upload.
+# Đổi tên APK Universal (mọi chip — "chip phổ thông") → tên phát hành
+# `in4up-Android-Universal-All-CPU-<tag>.apk` (card CI-ANDROID-04).
+# Chạy SAU bước `flutter build apk` (không --split-per-abi), TRƯỚC verify/upload.
 #
-# LÝ DO TỒN TẠI:
-#   Tên file do Flutter Gradle plugin sinh (FlutterPlugin.kt, 3.44.1):
-#       app[-<abi>][-<flavor>]-<mode>.apk   → app-arm64-v8a-stable-release.apk (ABI TRƯỚC, flavor SAU)
-#   Sổ tay từng ghi ngược (flavor trước) và workflow cũ `mv ... || true` ⇒ thiếu 3 APK
-#   split mà job vẫn xanh. Script này:
-#     - thử LẦN LƯỢT các tên có thể gặp (ABI-trước / flavor-trước / không-flavor) để không
-#       gãy khi đổi phiên bản Flutter;
-#     - THIẾU bất kỳ APK nào ⇒ exit 1 + `ls` thư mục để đọc log là biết ngay, không ship thiếu.
+# CI-ANDROID-04 (owner 2026-10): RELEASE chỉ ship bản UNIVERSAL (1 file cài
+# được trên mọi chip) thay vì 3 bản tách theo chip (armv7/arm64/x64).
+#   - Universal: app-stable-release.apk / app-release.apk → đổi tên → ship.
+#   - Split (app-<abi>-stable-release.apk...): nếu workflow cũ vẫn build
+#     chúng thì XÓA để output chỉ còn đúng 1 APK release (không lẫn lộn).
 #
 # Dùng:  scripts/ci/android_rename_apks.sh <tag> [out_dir]
 #        out_dir mặc định build/app/outputs/flutter-apk
@@ -29,43 +27,36 @@ if [ ! -d "$OUT" ]; then
   exit 1
 fi
 
-echo "[in4up-rename] Thư mục $OUT trước khi đổi tên:"
+echo "[in4up-rename] Thư mục $OUT trước khi xử lý:"
 ls -la "$OUT"
 
-fail=0
-
-# rename_first <dest> <candidate...>  — mv ứng viên đầu tiên tồn tại.
-rename_first() {
-  local dest="$1"; shift
-  local c
-  for c in "$@"; do
-    if [ -f "$OUT/$c" ]; then
-      mv "$OUT/$c" "$OUT/$dest"
-      echo "[in4up-rename] $c → $dest"
-      return 0
-    fi
-  done
-  echo "::error::[in4up-rename] Không thấy APK nào trong: $* (đích $dest)"
-  fail=1
-  return 0
-}
-
-# Split-per-ABI (flavor stable)
-for pair in "armeabi-v7a:armv7" "arm64-v8a:arm64" "x86_64:x64"; do
-  abi="${pair%%:*}"; short="${pair##*:}"
-  rename_first "in4up-Android-${short}-${TAG}.apk" \
-    "app-${abi}-stable-release.apk" \
-    "app-stable-${abi}-release.apk" \
-    "app-${abi}-release.apk"
+# Xóa bản tách theo chip nếu có (workflow cũ chưa áp patch CI-ANDROID-04) —
+# release chỉ còn bản universal.
+for f in "$OUT"/app-arm64-v8a-stable-release.apk "$OUT"/app-stable-arm64-v8a-release.apk \
+         "$OUT"/app-armeabi-v7a-stable-release.apk "$OUT"/app-stable-armeabi-v7a-release.apk \
+         "$OUT"/app-x86_64-stable-release.apk "$OUT"/app-stable-x86_64-release.apk \
+         "$OUT"/app-arm64-v8a-release.apk "$OUT"/app-armeabi-v7a-release.apk \
+         "$OUT"/app-x86_64-release.apk; do
+  if [ -f "$f" ]; then
+    rm -f "$f"
+    echo "[in4up-rename] Bỏ bản tách chip: $(basename "$f") (CI-ANDROID-04: chỉ ship Universal)"
+  fi
 done
 
-# Universal (fat) APK
-rename_first "in4up-Android-Universal-All-CPU-${TAG}.apk" \
-  "app-stable-release.apk" \
-  "app-release.apk"
+# Universal (fat) APK — THẮNG CUỘC DUY NHẤT được đổi tên + ship.
+renamed=0
+for c in "app-stable-release.apk" "app-release.apk"; do
+  if [ -f "$OUT/$c" ]; then
+    mv "$OUT/$c" "$OUT/in4up-Android-Universal-All-CPU-${TAG}.apk"
+    echo "[in4up-rename] $c → in4up-Android-Universal-All-CPU-${TAG}.apk"
+    renamed=1
+    break
+  fi
+done
 
-if [ "$fail" -ne 0 ]; then
-  echo "::error::[in4up-rename] Thiếu APK — kiểm tra 2 bước 'Build Split APKs' / 'Build Universal APK' (có --flavor stable và --split-per-abi chưa?)."
+if [ "$renamed" -ne 1 ]; then
+  echo "::error::[in4up-rename] Không thấy APK Universal (app-stable-release.apk / app-release.apk) — bước 'Build Universal APK' có chạy chưa? (không dùng --split-per-abi)"
+  ls -la "$OUT"
   exit 1
 fi
 

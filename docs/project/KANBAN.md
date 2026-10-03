@@ -44,6 +44,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (patch workflow ĐÃ ÁP trong nhánh 01a0d013 cùng CI-ANDROID-03 — chờ oracle) | build.yml + build_final_complete.yml: `--flavor stable` cả 2 bước build, rename `app-<abi>-stable-release.apk`, bỏ `\|\| true`; in4up_ci_fixes.gradle giữ lại (no-op) |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-ANDROID-03 | APK release KHÔNG CÀI ĐƯỢC (local + Actions): release không có `signingConfig` ⇒ APK unsigned | 🔄 doing (fix xong, chờ oracle tag `v*` + cài máy) | build.gradle.kts: ký key.properties → fallback debug; workflow: prepare-signing + verify-signed + `--flavor stable` + rename đúng tên + fix YAML indent build.yml + setup-android v4 |
+| CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
@@ -971,6 +972,49 @@
   - 2026-09-24 | 08:40 UTC | doing→doing | agent arena/01a0d013-in4up | Merge 251e@30f912e vào nhánh (251e nhận #42/#45/#46 + tự sửa indent build.yml): 1 conflict build.yml (lấy bản 251e), SKILL bẫy 5.21/5.22 của tôi → **5.23/5.24** vì 251e đã dùng số đó (commit 5723f18 ghi 5.21/5.22 là số cũ). Mở PR → arena/01a0251e-in4up (số PR ghi ở dòng sau).
   - 2026-09-24 | 08:45 UTC | doing→doing (PR mở) | agent arena/01a0d013-in4up | **PR #49** https://github.com/Pabhassaracitto/In4Up/pull/49 → arena/01a0251e-in4up. Chờ owner: build local + cài máy, 4 secret ANDROID_KEYSTORE_*, tag `v*` để CI ký + verify.
   - 2026-09-27 | 21:00 UTC | doing→doing | agent arena/01a0d013-in4up | Owner build ở checkout KHÔNG có fix (không có `scripts/ci/`, 251e chưa merge #49) ⇒ APK vẫn unsigned, "gói không hợp lệ" — đúng dự đoán, chưa phải bằng chứng chống lại fix. Phát hiện `flutter build` gọi Gradle `-q` ⇒ đổi log `[in4up-sign]` sang `logger.quiet` (b6e8bf4) để người build thấy được. Merge lại 251e@b90ba3e (README viết lại ở 251e, chèn lại mục Build a release APK) — PR #49 hết conflict. Cách tự kiểm không cần script: `ls build/app/outputs/apk/stable/release/` — file gốc của AGP mang hậu tố `-unsigned` nếu chưa ký.
+
+### CI-ANDROID-04 — APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip
+- **Trạng thái:** ✅ script done (đã push) + patch workflow chờ owner áp (GitHub App
+  không có quyền `workflows` — push file `.github/workflows/` bị reject).
+- **Nguồn:** owner (2026-10-04): "Hãy update workflow action github đảm bảo file
+  apk dạng chip phổ thông thay vì chip đầy đủ."
+- **Trước fix:** cả 2 workflow (`build.yml`, `build_final_complete.yml`) build
+  **4 APK** — 3 bản tách theo chip (`--split-per-abi`: armv7/arm64/x64) + 1
+  Universal — và đẩy **cả 4** lên artifact + GitHub Release.
+- **Fix (2 tầng, tầng 1 hiệu lực NGAY):**
+  1. `scripts/ci/android_rename_apks.sh` (ĐÃ PUSH — có hiệu lực từ build kế
+     tiếp, không cần chờ ai): chỉ đổi tên + ship bản Universal
+     (`in4up-Android-Universal-All-CPU-<tag>.apk`); nếu bước build split cũ
+     còn để lại `app-<abi>-...-release.apk` → XÓA có log. Verify/upload/push
+     (glob `in4up-Android-*.apk`) tự chỉ còn 1 file. Thiếu Universal ⇒ job
+     ĐỎ (giữ lưới an toàn). Test 3 kịch bản local: pass (universal-only /
+     workflow-còn-split / thiếu-universal→exit 1).
+  2. `scripts/ci/android_universal_only_workflow.patch` (CHỜ OWNER ÁP): bỏ
+     bước "Build Split APKs" ở cả 2 workflow + cập nhật comment. LỢI: tiết
+     kiệm ~3 lần compile native llama.cpp cho 3 ABI (bước nặng nhất job).
+     Owner: `git apply scripts/ci/android_universal_only_workflow.patch &&
+     git commit -am "ci(android): CI-ANDROID-04 — chỉ build Universal APK" &&
+     git push` (hoặc dán tay 2 khối đã xóa trong patch).
+- **⚠️ CẢNH BÁO BẢN CẤY (quan trọng cho owner + user):** versionCode của
+  Universal = `3` (pubspec +3), trong khi bản tách chip = `ABI×1000+3`
+  (arm64 = 2003) — máy ĐANG CẤI bản tách cũ thì cài bản universal mới bị
+  Android chặn `INSTALL_FAILED_VERSION_DOWNGRADE` → phải **gỡ app cũ trước**
+  (một lần duy nhất ở lần chuyển đổi này). Nếu muốn tránh: nâng build
+  number `version: x.y.z+N` trong pubspec.yaml LỚN HƠN versionCode cao
+  nhất của mọi bản tách (x64 = 4003) — ví dụ pubspec `+5001` ⇒ universal
+  versionCode 5001 > 4003/2003/1003 → đè cài được mọi bản split cũ —
+  TRƯỚC khi tag release đầu tiên sau khi đổi.
+- **Trade-off (owner đã chọn):** universal lớn hơn 1 bản tách (chứa native
+  lib cả 3 ABI — kể cả llama.cpp/ggml) nhưng 1 file cài mọi chip, đúng yêu
+  cầu "chip phổ thông".
+- **AT:** chạy 1 release (tag `v*`) sau khi áp patch → GitHub Release chỉ
+  có DUY NHẤT 1 file `in4up-Android-Universal-All-CPU-<tag>.apk` (còn
+  .aar/.app khác bình thường); job Android xanh; bản universal ký thật
+  (bước verify-signed không đổi) + cài máy arm64 thành công.
+- **Lịch sử:**
+  - 2026-10-04 | created→doing | agent arena/01a0251e-in4up | script
+    universal-only (test 3 kịch bản pass) + patch 2 workflow + cảnh báo
+    versionCode; chờ owner áp patch + oracle release
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)

@@ -4159,4 +4159,12 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '開啟 AI 聊天',
     'si': 'AI කතාබහ විවෘත කරන්න',
   },
+  // Tipitaka catalogue is lazy-loaded and uses this transient state label.
+  'Đang tải mục lục…': {
+    'en': 'Loading table of contents…',
+    'hi': 'विषय-सूची लोड हो रही है…',
+    'zh': '正在加载目录…',
+    'zh_TW': '正在載入目錄…',
+    'si': 'අන්තර්ගත වගුව පූරණය වෙමින්…',
+  },
 };

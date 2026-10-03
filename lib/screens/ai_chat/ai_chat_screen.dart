@@ -51,8 +51,22 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Future<void> _send(AiServiceFacade facade) async {
-    final text = _controller.text;
-    if (text.trim().isEmpty) return;
+    final question = _controller.text.trim();
+    if (question.isEmpty) return;
+    final coach = widget.context;
+    // Trước đây context chỉ được hiển thị ở banner, nhưng không đi vào
+    // request nên mở từ tab Hiểu rồi hỏi lại sẽ bị xử lý như chat Home.
+    // Đưa snapshot văn bản (không audio/đường dẫn) vào prompt để cả model
+    // local lẫn remote dùng cùng ngữ cảnh.
+    final text = coach == null
+        ? question
+        : '''Ngữ cảnh trợ lý hiểu bài:
+Bài: ${coach.sourceTitle ?? 'Không rõ'}
+Câu trọng tâm: ${coach.selectedText ?? 'Chưa chọn câu'}
+Các câu xung quanh: ${coach.surroundingText ?? 'Không có'}
+Đoạn vừa nghe: ${coach.recentText ?? 'Không có'}
+
+Câu hỏi của người học: $question''';
     _controller.clear();
     // KHÔNG bỏ tin khi AI đang trả lời (AI-CHAT-01 DoD #3): facade xếp hàng và
     // isolate native xử lý tuần tự — bản cũ `return` sớm nên tin thứ hai bị

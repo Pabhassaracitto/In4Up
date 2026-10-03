@@ -69,6 +69,15 @@ class AudioLibraryProvider extends ChangeNotifier {
   /// Quét MediaStore + hợp nhất + lưu Hive.
   Future<void> scan() async {
     if (_scanning) return;
+    // Nút "Quét thư mục" có thể được gọi trực tiếp từ UI; không yêu cầu
+    // caller nhớ xin quyền trước, nếu không trên Android 13 sẽ trông như
+    // không có phản hồi.
+    final permitted = await ensurePermission();
+    if (!permitted) {
+      _error = 'Chưa được cấp quyền đọc âm thanh. Hãy cho phép trong Cài đặt.';
+      notifyListeners();
+      return;
+    }
     _scanning = true;
     _error = null;
     notifyListeners();

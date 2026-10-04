@@ -178,6 +178,37 @@ jobs:
           path: agent_f_test.log
           if-no-files-found: ignore
 
+      # TTS-EDGE-001 (Edge Read Aloud — giao thức edge-tts) + WP4 (API-005
+      # Server TTS): engine TTS thuần logic (http.Client giả, source-scan
+      # pin đăng ký TtsService) — chạy được trên CI không cần mạng. Bỏ qua
+      # nếu nhánh chưa có file (workflow dùng chung nhiều nhánh).
+      - name: "TTS engine tests — Edge TTS + Server API (WP4)"
+        id: tts-edge-tests
+        run: |
+          set +e
+          files=""
+          for f in test/edge_tts_engine_test.dart \
+                   test/tts_api_wp4_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test engine TTS trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > tts_edge_test.log 2>&1
+          code=$?
+          cat tts_edge_test.log
+          exit $code
+
+      - name: Upload TTS engine test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-tts-edge-test-log
+          path: tts_edge_test.log
+          if-no-files-found: ignore
+
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

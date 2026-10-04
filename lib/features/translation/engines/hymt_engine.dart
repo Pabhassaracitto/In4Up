@@ -25,6 +25,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in4up_ai/src/engine/ai_native_bindings.dart';
+import 'package:in4up_core/heavy_task_monitor.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -778,6 +779,11 @@ class HyMtEngine extends TranslationEngine {
         tgt,
       );
     }
+    // QA-PERF-001: Hy-MT tải MỘT model GGUF + isolate llama.cpp RIÊNG, độc
+    // lập hoàn toàn với engine AI chat (AiServiceFacade/AiEngineGemma) —
+    // 2 isolate native có thể cùng chạy, cộng dồn CPU/RAM. Ghi nhận ở đây để
+    // HeavyTaskMonitor phát hiện chồng chéo (chỉ quan sát, không chặn).
+    HeavyTaskMonitor.instance.begin(HeavyTaskKind.translateOffline);
     try {
       // (2) Health TRƯỚC request: alive + heartbeat; chết/treo/load hỏng
       // → dispose + spawn lại (restart) rồi mới gửi (HYMT-002 mục 2).
@@ -873,6 +879,7 @@ class HyMtEngine extends TranslationEngine {
         responseTime: elapsed,
       );
     } finally {
+      HeavyTaskMonitor.instance.end(HeavyTaskKind.translateOffline);
       slotGuard.release();
     }
   }

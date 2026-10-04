@@ -31,9 +31,9 @@ class DictDbService {
       },
     );
     // WAL: import nhiều batch không block reader và giảm fsync.
-    // (Ngoài onCreate — sqflite chạy onCreate trong transaction mà PRAGMA
-    // journal_mode không chạy được trong transaction.)
-    await db.execute('PRAGMA journal_mode=WAL');
+    // (Ngoài onCreate — sqflite chạy onCreate trong transaction; và dùng
+    // rawQuery vì PRAGMA journal_mode trả về dòng kết quả.)
+    await db.rawQuery('PRAGMA journal_mode=WAL');
     await db.close();
     return dbPath;
   }

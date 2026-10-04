@@ -33,6 +33,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up_ai/in4up_ai.dart' show AiProviderStore, AiRouteCapability;
+import 'package:in4up_core/heavy_task_monitor.dart';
 import 'package:path/path.dart' as p;
 import 'package:speech_to_text/speech_to_text.dart' show ListenMode;
 import 'package:path_provider/path_provider.dart';
@@ -52,6 +53,7 @@ import 'stt_engine_whisper.dart';
 import 'stt_engine_remote.dart';
 import 'stt_lrc_converter.dart';
 import 'stt_model_manager.dart';
+import 'utils/async_mutex.dart';
 import 'utils/audio_converter.dart';
 import 'utils/whisper_language.dart';
 
@@ -170,6 +172,15 @@ class SttServiceFacade extends ChangeNotifier {
 
   // Cờ hủy: người dùng có thể dừng transcribe giữa chừng (giữa các chunk).
   bool _cancelRequested = false;
+
+  // QA-PERF-001 — Whisper on-device là CPU/pin nặng nhất của module STT
+  // (FFI blocking + nhiều luồng + model trăm MB trong RAM). AiServiceFacade
+  // đã tuần tự hoá chat bằng hàng đợi riêng; ở đây dùng AsyncMutex để
+  // transcribeFile() gọi liên tiếp từ nhiều nơi (vd auto-TOC chạy nền +
+  // người dùng bấm bóc băng tay) KHÔNG spawn 2 Isolate Whisper độc lập cùng
+  // lúc — tránh cộng dồn CPU/RAM gây nóng máy hoặc OOM. Engine remote/native
+  // KHÔNG đi qua khoá này (không tốn CPU cục bộ nhiều như Whisper).
+  final AsyncMutex _whisperMutex = AsyncMutex();
 
   final _progressSubject =
       BehaviorSubject<SttProgress>.seeded(SttProgress.idle);
@@ -317,7 +328,7 @@ class SttServiceFacade extends ChangeNotifier {
       final SttResult result;
 
       if (cfg.preferredEngine == SttEngineType.whisper) {
-        result = await _runWhisperViaIsolate(
+        result = await _runWhisperExclusive(
           audioPath: audioPath,
           config: cfg,
           lrcOutputPath: lrcOutputPath,
@@ -340,7 +351,7 @@ class SttServiceFacade extends ChangeNotifier {
 
         if (cfg.autoFallback && nativeResult.fullText.isEmpty) {
           debugPrint('⚠️ Native STT empty → fallback Whisper Isolate');
-          nativeResult = await _runWhisperViaIsolate(
+          nativeResult = await _runWhisperExclusive(
             audioPath: audioPath,
             config: cfg,
             lrcOutputPath: lrcOutputPath,
@@ -545,6 +556,40 @@ class SttServiceFacade extends ChangeNotifier {
         },
         'shouldCancel': () => _disposed || _cancelRequested,
       },
+    );
+  }
+
+  // ── QA-PERF-001: cổng vào DUY NHẤT của Whisper on-device ─────────────────
+  //
+  // Mọi lời gọi Whisper (trực tiếp hoặc fallback từ native) phải đi qua đây
+  // thay vì gọi thẳng `_runWhisperViaIsolate` — [_whisperMutex] đảm bảo
+  // KHÔNG BAO GIỜ có 2 Isolate Whisper cùng chạy (xếp hàng tuần tự, không
+  // đổi kết quả/API của từng lượt), [HeavyTaskMonitor] ghi nhận khoảng thời
+  // gian engine thật sự bận để UI/telemetry biết có tác vụ nặng khác (AI
+  // chat, Hy-MT dịch) đang chồng lên không.
+  Future<SttResult> _runWhisperExclusive({
+    required String audioPath,
+    required SttConfig config,
+    required String? lrcOutputPath,
+    required bool shouldGenerateLrc,
+    required String audioFingerprint,
+  }) {
+    if (_whisperMutex.isBusy) {
+      debugPrint(
+        '⏳ SttServiceFacade: Whisper khác đang chạy — xếp hàng chờ tới lượt',
+      );
+    }
+    return _whisperMutex.run(
+      () => HeavyTaskMonitor.instance.track(
+        HeavyTaskKind.sttWhisper,
+        () => _runWhisperViaIsolate(
+          audioPath: audioPath,
+          config: config,
+          lrcOutputPath: lrcOutputPath,
+          shouldGenerateLrc: shouldGenerateLrc,
+          audioFingerprint: audioFingerprint,
+        ),
+      ),
     );
   }
 
@@ -1006,6 +1051,10 @@ class SttServiceFacade extends ChangeNotifier {
   }
 
   bool get hasAnyModel => _modelManager.hasAnyLocalModel;
+
+  /// QA-PERF-001: có lượt Whisper nào khác đang giữ/chờ khoá không — UI có
+  /// thể dùng để báo "đang chờ tác vụ bóc băng khác xong" thay vì im lặng.
+  bool get isWhisperBusy => _whisperMutex.isBusy;
 
   // ── Live STT ──────────────────────────────────────────────────────────────
 

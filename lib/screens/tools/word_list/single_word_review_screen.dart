@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/tts/tts_service.dart';
+import '../../../features/vocab_image/vocab_image_picker_sheet.dart';
+import '../../../features/vocab_image/vocabulary_media_widget.dart';
 // ← FIX: thêm import
 import '../../../models/sm2_algorithm.dart';
 import '../../../models/word_entry.dart';
@@ -174,8 +176,9 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
                     ),
                   )
                 else ...[
-                  _buildAnswer(word),
-                  const SizedBox(height: 20),
+                  _buildAnswer(word, provider),
+                  _buildIllustrationButton(context, word, provider),
+                  const SizedBox(height: 12),
                   SkillTriangle(word: word, size: 100),
                 ],
               ],
@@ -245,7 +248,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
     }
   }
 
-  Widget _buildAnswer(WordEntry w) {
+  Widget _buildAnswer(WordEntry w, VocabularyProvider provider) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -263,6 +266,19 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
                   fontSize: 16,
                   fontStyle: FontStyle.italic),
             ),
+          // LOTTIE-001 — minh họa (ảnh hoặc Lottie) nằm trong ĐÁP ÁN:
+          // chỉ hiện sau khi bấm "Hiện đáp án", không lộ nghĩa trước.
+          if ((w.imageUrl ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            VocabularyMediaWidget(
+              imageUrl: w.imageUrl,
+              height: 140,
+              animate: true,
+              repeat: true,
+              onMaterialized: (path) =>
+                  provider.updateImageUrl(w.id, path),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
             w.meaning,
@@ -288,6 +304,52 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
         ],
       ),
     );
+  }
+
+  /// LOTTIE-001 — đổi/thêm/bỏ minh họa ngay trong màn ôn tập (mở picker
+  /// dùng chung: ảnh mạng, ảnh máy, dán URL ảnh/Lottie).
+  Widget _buildIllustrationButton(
+    BuildContext context,
+    WordEntry w,
+    VocabularyProvider provider,
+  ) {
+    final hasMedia = (w.imageUrl ?? '').trim().isNotEmpty;
+    return TextButton.icon(
+      onPressed: () => _changeIllustration(context, w, provider),
+      icon: Icon(
+        hasMedia ? Icons.image_outlined : Icons.add_photo_alternate_outlined,
+        size: 15,
+      ),
+      label: Text(
+        context.uiText(hasMedia ? 'Đổi minh họa' : 'Thêm minh họa'),
+        style: const TextStyle(fontSize: 12),
+      ),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        foregroundColor: Colors.grey[400],
+      ),
+    );
+  }
+
+  Future<void> _changeIllustration(
+    BuildContext context,
+    WordEntry w,
+    VocabularyProvider provider,
+  ) async {
+    final result = await VocabImagePickerSheet.show(
+      context,
+      word: w.word,
+      meaning: w.meaning,
+      hasExistingImage: (w.imageUrl ?? '').trim().isNotEmpty,
+    );
+    if (result == null || !mounted) return;
+    if (result.removed) {
+      provider.updateImageUrl(w.id, null);
+      return;
+    }
+    final path = result.imagePath;
+    if (path == null || path.isEmpty) return;
+    provider.updateImageUrl(w.id, path);
   }
 
   Widget _buildSM2Bar(

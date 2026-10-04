@@ -110,7 +110,11 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
               LinearProgressIndicator(value: value.$1 <= 0 ? null : value.$1),
               const SizedBox(height: 12),
               Text(
-                value.$2.isEmpty ? ctx2.uiText('Đang import từ điển…') : value.$2,
+                // Thông điệp service (quét/import/lỗi) cũng là chrome —
+                // dịch qua uiText, chuỗi lạ sẽ đi qua nguyên vẹn.
+                value.$2.isEmpty
+                    ? ctx2.uiText('Đang import từ điển…')
+                    : ctx2.uiText(value.$2),
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -163,7 +167,8 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            '${context.uiText('Import thất bại')}: ${outcome.error ?? ''}',
+            '${context.uiText('Import thất bại')}: '
+            '${context.uiText(outcome.error ?? '')}',
           ),
           backgroundColor: const Color(0xFFEF5350),
           duration: const Duration(seconds: 5),

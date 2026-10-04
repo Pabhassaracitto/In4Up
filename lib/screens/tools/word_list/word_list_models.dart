@@ -199,6 +199,10 @@ class WordEntry {
   final double strength;
   final DateTime? nextReview;
 
+  /// LOTTIE-001 — minh họa (ảnh hoặc Lottie .json): relative path local
+  /// hoặc URL http(s). Plumb từ MemoryItem.imageUrl.
+  final String? imageUrl;
+
   const WordEntry({
     required this.id,
     required this.word,
@@ -212,6 +216,7 @@ class WordEntry {
     required this.addedAt,
     this.strength = 0.0,
     this.nextReview,
+    this.imageUrl,
   });
 
   factory WordEntry.manual({
@@ -263,6 +268,7 @@ class WordEntry {
       strength: strength,
       nextReview: nextReview,
       fullDefinition: fullDefinition,
+      imageUrl: imageUrl,
     );
   }
 
@@ -277,6 +283,8 @@ class WordEntry {
       addedAt: DateTime.now(),
       strength: (item.strength as num?)?.toDouble() ?? 0.0,
       nextReview: item.nextReviewAt as DateTime?,
+      // LOTTIE-001 — MemoryItem (từ LOTTIE-001 trở đi) có imageUrl.
+      imageUrl: item.imageUrl as String?,
     );
   }
 }

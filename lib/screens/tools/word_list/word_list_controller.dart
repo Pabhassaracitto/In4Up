@@ -242,12 +242,17 @@ class WordListController extends ChangeNotifier {
         : _manualEntries.where((e) => e.folderId == folderId).toList();
 
     final buffer = StringBuffer();
-    buffer.writeln('word,meaning,phonetic,example');
+    // LOTTIE-001 — xuất kèm image_url (link ảnh/Lottie hoặc relative path
+    // local) để import lại đầy đủ; chứa dấu phẩy thì bọc "nét nháy"
+    // (parser import đọc được nháy).
+    buffer.writeln('word,meaning,phonetic,example,image_url');
     for (final w in words) {
       final meaning = (w.shortDefinition ?? '').replaceAll(',', ';');
       final phonetic = (w.phonetic ?? '').replaceAll(',', ';');
       final example = (w.example ?? '').replaceAll(',', ';');
-      buffer.writeln('${w.word},$meaning,$phonetic,$example');
+      final media = (w.imageUrl ?? '').trim();
+      final mediaCell = media.contains(',') ? '"$media"' : media;
+      buffer.writeln('${w.word},$meaning,$phonetic,$example,$mediaCell');
     }
     return buffer.toString();
   }

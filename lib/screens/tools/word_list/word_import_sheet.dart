@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -5,6 +6,8 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/vocab_image/vocab_media_import.dart';
+import '../../../features/vocab_image/vocab_media_type.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../utils/text_parser.dart';
@@ -157,6 +160,12 @@ class _WordImportSheetState extends State<WordImportSheet>
         exampleParts.add('Ví dụ phức: ${data['exampleComplex']!.trim()}');
       }
 
+      // LOTTIE-001 — cột image_url: link ảnh tĩnh (.png/.webp) hoặc
+      // animation Lottie (.json). Giữ nguyên raw; materializer chỉ tải
+      // URL http(s), còn relative path (export→reimport cùng máy) dùng
+      // trực tiếp được.
+      final mediaUrl = (data['imageUrl'] ?? '').trim();
+
       candidates.add(
         _ImportCandidate(
           word: word,
@@ -165,6 +174,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           topic: _nullIfEmpty(data['topic']),
           language: _nullIfEmpty(data['language']) ?? 'en',
           example: exampleParts.isEmpty ? null : exampleParts.join('\n'),
+          imageUrl: mediaUrl.isEmpty ? null : mediaUrl,
           rawLine: line,
           existed: existed,
           selected: true,
@@ -253,6 +263,7 @@ class _WordImportSheetState extends State<WordImportSheet>
     final provider = _provider;
     int added = 0;
     int updated = 0;
+    final pendingMedia = <VocabMediaPending>[];
     for (final c in selected) {
       final existed = provider.hasWord(c.word);
       final entry = provider.addWithAutoClassify(
@@ -267,6 +278,16 @@ class _WordImportSheetState extends State<WordImportSheet>
           (entry.example ?? '').trim().isEmpty) {
         provider.updateWord(entry.id, example: c.example);
       }
+      // LOTTIE-001 — minh họa (ảnh/Lottie) cũng smart-fill: entry mới nhận
+      // luôn; entry đã có chỉ điền khi đang trống (không đè minh họa user
+      // đã chọn tay).
+      final media = (c.imageUrl ?? '').trim();
+      if (media.isNotEmpty && (entry.imageUrl ?? '').trim().isEmpty) {
+        provider.updateImageUrl(entry.id, media);
+        if (isNetworkMediaUrl(media)) {
+          pendingMedia.add(VocabMediaPending(wordId: entry.id, url: media));
+        }
+      }
       if (existed) {
         updated++;
       } else {
@@ -275,6 +296,9 @@ class _WordImportSheetState extends State<WordImportSheet>
     }
 
     Navigator.pop(context);
+    // LOTTIE-001 — tải media về máy chạy nền, tuần tự (setting "chỉ tải khi
+    // cần" bật thì materializer tự bỏ qua → lần xem đầu widget tự tải).
+    unawaited(VocabMediaMaterializer.materializeAll(provider, pendingMedia));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -528,7 +552,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                 maxLines: 5,
                 decoration: InputDecoration(
                   hintText: context.uiText(
-                      'Dán bảng có header: word, meaning, ipa, topic, example, language\n(tab hoặc dấu phẩy; meaning có dấu phẩy thì bọc "nét nháy")\nHoặc text thường / một từ mỗi dòng...'),
+                      'Dán bảng có header: word, meaning, ipa, topic, example, language, image_url (tùy chọn — link ảnh/Lottie .json)\n(tab hoặc dấu phẩy; meaning có dấu phẩy thì bọc "nét nháy")\nHoặc text thường / một từ mỗi dòng...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(14),
@@ -694,9 +718,9 @@ class _WordImportSheetState extends State<WordImportSheet>
               const SizedBox(height: 6),
               Text(
                 '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
-                '.csv/.txt bảng cột (cần dòng header): word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
+                '.csv/.txt bảng cột (cần dòng header): word, meaning, ipa, topic, example, example_simple, example_complex, language, image_url (tùy chọn — link ảnh .png/.webp hoặc animation Lottie .json; tải về máy để học offline)\n'
                 'Ngăn cột: tab, phẩy, chấm phẩy hoặc | — ý nghĩa có dấu phẩy thì bọc "nét nháy"\n'
-                'Từ/cụm ĐÃ CÓ trong WordList vẫn hiện (badge "đã có") — import chỉ bổ sung nghĩa/IPA/ví dụ CHỖ TRỐNG + tag, không ghi đè',
+                'Từ/cụm ĐÃ CÓ trong WordList vẫn hiện (badge "đã có") — import chỉ bổ sung nghĩa/IPA/ví dụ/minh họa CHỖ TRỐNG + tag, không ghi đè',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
@@ -959,6 +983,10 @@ class _ImportCandidate {
   final String? topic;
   final String? example;
   final String language;
+
+  /// LOTTIE-001 — link minh họa (ảnh tĩnh hoặc Lottie .json) từ cột
+  /// `image_url`; chỉ smart-fill khi entry chưa có ảnh.
+  final String? imageUrl;
   final String? rawLine;
   final int frequency;
   /// true = từ/cụm này đã có trong WordList (import sẽ smart-fill,
@@ -973,6 +1001,7 @@ class _ImportCandidate {
     this.topic,
     this.example,
     this.language = 'en',
+    this.imageUrl,
     this.rawLine,
     this.frequency = 1,
     this.existed = false,
@@ -1063,6 +1092,8 @@ class _OptionChip extends StatelessWidget {
 //
 // Định dạng chuẩn (như hướng dẫn trong UI):
 //   word, meaning, ipa, topic, example, example_simple, example_complex, language
+//   + image_url (LOTTIE-001, tùy chọn, đặt CUỐI — parser có nhánh căn riêng
+//   cho đuôi `language, image_url`, xem _mediaTail).
 //
 // Robust 3 điểm:
 //  - Header alias được chuẩn hóa (bỏ gạch dưới/dấu) nên `example_simple`
@@ -1108,6 +1139,19 @@ class WordTableParser {
     'ngonngu': 'language',
     'tiengviet': 'language',
     'tienganh': 'language',
+    // LOTTIE-001 — cột minh họa (link ảnh tĩnh .png/.webp hoặc animation
+    // Lottie .json). Đặt CUỐI header để không phá mỏ neo căn cột hiện có.
+    'image_url': 'imageUrl',
+    'image': 'imageUrl',
+    'illustration': 'imageUrl',
+    'lottie': 'imageUrl',
+    'animation': 'imageUrl',
+    'anim': 'imageUrl',
+    'hình': 'imageUrl',
+    'hình ảnh': 'imageUrl',
+    'ảnh': 'imageUrl',
+    'ảnh minh họa': 'imageUrl',
+    'minh họa': 'imageUrl',
   };
 
   /// Cột tự do — có thể chứa dấu phẩy nội bộ (hấp thụ ô dư khi hàng dài
@@ -1277,6 +1321,15 @@ class WordTableParser {
               (parts[n - 2].contains(' ') || parts[n - 2].length >= 5)) {
             final noIpa = <String?>[...fields]..removeAt(p);
             return _zip(parts, noIpa);
+          } else if (_mediaTail(fields) &&
+              n >= 3 &&
+              // LOTTIE-001 — thiếu IPA nhưng CÓ URL cuối: language trượt
+              // về ô kề cuối, URL ở ô cuối → bỏ cột ipa rồi zip.
+              _looksLikeLangCode(parts[n - 2]) &&
+              _looksLikeMediaUrl(parts[n - 1]) &&
+              (parts[n - 3].contains(' ') || parts[n - 3].length >= 5)) {
+            final noIpa = <String?>[...fields]..removeAt(p);
+            return _zip(parts, noIpa);
           }
         }
       }
@@ -1291,6 +1344,15 @@ class WordTableParser {
         if (stolen != null) data[stolen] = '';
         data['language'] = parts.last.trim();
       }
+      // LOTTIE-001 — header …,language,image_url mà hàng THIẾU cột
+      // language (URL đứng cuối, zip đã đẩy nó vào ô language) → đẩy
+      // URL về imageUrl, language để trống.
+      if (_mediaTail(fields) &&
+          n == fields.length - 1 &&
+          _looksLikeMediaUrl(parts.last)) {
+        data['language'] = '';
+        data['imageUrl'] = parts.last.trim();
+      }
       return data;
     }
 
@@ -1303,8 +1365,11 @@ class WordTableParser {
       const {'word', 'meaning', 'phonetic', 'topic', 'example'},
     );
     final wordFirst = fields.first == 'word';
-    final langLast =
-        !present.contains('language') || fields.last == 'language';
+    // LOTTIE-001 — cột media sau language (canonical) vẫn coi là "đuôi
+    // chuẩn" → giữ nguyên căn mỏ neo.
+    final langLast = !present.contains('language') ||
+        fields.last == 'language' ||
+        _mediaTail(fields);
 
     if (!hasAnchors || !wordFirst || !langLast) {
       // Header lạ — best-effort vị trí (lấy đủ số ô bằng số cột).
@@ -1327,6 +1392,19 @@ class WordTableParser {
   /// Giá trị "giống mã ngôn ngữ": en / vi / zh / pali... (2-4 chữ cái).
   static bool _looksLikeLangCode(String s) =>
       RegExp(r'^[a-z]{2,4}$').hasMatch(s.trim().toLowerCase());
+
+  /// LOTTIE-001 — true khi header kết thúc bằng `…, language, image_url`
+  /// (cột media sau language — vị trí canonical, không phá mỏ neo cũ).
+  static bool _mediaTail(List<String?> fields) =>
+      fields.length >= 2 &&
+      fields.last == 'imageUrl' &&
+      fields[fields.length - 2] == 'language';
+
+  /// Ô giống URL media (link ảnh/Lottie dán vào CSV) — LOTTIE-001.
+  static bool _looksLikeMediaUrl(String s) {
+    final v = s.trim().toLowerCase();
+    return v.startsWith('http://') || v.startsWith('https://');
+  }
 
   /// Ô "từ thông thường" (chỉ chữ Latin a-z/A-Z + khoảng trắng/dấu
   /// gạch) — nghi là mảnh meaning/example bị xé, KHÔNG phải IPA-trần
@@ -1352,11 +1430,18 @@ class WordTableParser {
   ) {
     final data = <String, String>{};
     final n = parts.length;
-    final hasLang = fields.last == 'language';
-    final lastIdx = hasLang ? n - 2 : n - 1; // biên phải của vùng giữa
+    // LOTTIE-001 — media có thể đứng SAU language: language/imageUrl được
+    // neo trực tiếp, vùng giữa dừng trước 2 ô cuối.
+    final mediaLast = fields.isNotEmpty && fields.last == 'imageUrl';
+    final hasLang = mediaLast ? _mediaTail(fields) : fields.last == 'language';
+    final rightReserved = (hasLang ? 1 : 0) + (mediaLast ? 1 : 0);
+    final lastIdx = n - 1 - rightReserved; // biên phải của vùng giữa
 
     data['word'] = parts[0].trim();
-    if (hasLang) data['language'] = parts[n - 1].trim();
+    if (hasLang) {
+      data['language'] = parts[n - 1 - (mediaLast ? 1 : 0)].trim();
+    }
+    if (mediaLast) data['imageUrl'] = parts[n - 1].trim();
 
     final ipaIdx = _firstIpaIndex(parts, 1, lastIdx);
 
@@ -1373,7 +1458,8 @@ class WordTableParser {
       final postFields = <String>[];
       for (final f in fields) {
         if (f == null) continue;
-        if (const {'word', 'language', 'phonetic', 'meaning'}.contains(f)) {
+        if (const {'word', 'language', 'phonetic', 'meaning', 'imageUrl'}
+            .contains(f)) {
           continue;
         }
         postFields.add(f);
@@ -1386,7 +1472,9 @@ class WordTableParser {
       final groupFields = <String>[];
       for (final f in fields) {
         if (f == null) continue;
-        if (const {'word', 'language', 'phonetic'}.contains(f)) continue;
+        if (const {'word', 'language', 'phonetic', 'imageUrl'}.contains(f)) {
+          continue;
+        }
         groupFields.add(f);
       }
       _distribute(group, groupFields, data);
@@ -1405,10 +1493,15 @@ class WordTableParser {
     final data = <String, String>{};
     final n = parts.length;
     final p = fields.indexOf('phonetic');
-    final hasLang = fields.last == 'language';
+    // LOTTIE-001 — xử lý đuôi media giống _anchorAlign.
+    final mediaLast = fields.isNotEmpty && fields.last == 'imageUrl';
+    final hasLang = mediaLast ? _mediaTail(fields) : fields.last == 'language';
 
     data['word'] = parts[0].trim();
-    if (hasLang) data['language'] = parts[n - 1].trim();
+    if (hasLang) {
+      data['language'] = parts[n - 1 - (mediaLast ? 1 : 0)].trim();
+    }
+    if (mediaLast) data['imageUrl'] = parts[n - 1].trim();
     // Ô 1..p (kể cả ô "ipa rác") → meaning.
     data['meaning'] = parts
         .sublist(1, p + 1)
@@ -1418,7 +1511,7 @@ class WordTableParser {
     data['phonetic'] = '';
     for (int i = p + 1; i < n; i++) {
       final key = fields[i];
-      if (key == null || key == 'language') continue;
+      if (key == null || key == 'language' || key == 'imageUrl') continue;
       data[key] = parts[i].trim();
     }
     return data;

@@ -222,7 +222,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                     size: 16, color: Color(0xFF2196F3)),
                 const SizedBox(width: 6),
                 Text(
-                  'Từ điển MDX (${_mdxEntries.length})',
+                  context.uiText('Từ điển MDX (${_mdxEntries.length})'),
                   style: const TextStyle(
                     color: Color(0xFF2196F3),
                     fontWeight: FontWeight.bold,
@@ -248,19 +248,19 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
   }
 
   Widget _buildMdxLoading() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 14,
             height: 14,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
-            'Đang tra từ điển...',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
+            context.uiText('Đang tra từ điển...'),
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
           ),
         ],
       ),

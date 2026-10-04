@@ -13,6 +13,7 @@
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
+| TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -4930,3 +4931,58 @@
     bị reject (main đã có e524214). Local owner có 1 commit rác trên 0251e.
     Đã gửi owner 2 bước: (1) fix 0251e (apply CI-ANDROID-04 + reset rác),
     (2) content-sync 0251e→main ĐÚNG nhánh.
+
+### TTS-EDGE-001 — Microsoft Edge Read Aloud TTS (edge-tts) vào chuỗi engine TtsService
+- **Trạng thái:** ✅ done (code + 30 test thuần; chờ nghiệm thu thiết bị thật)
+- **Nguồn:** owner (2026-10-04) — "I4U | TTS Microsoft Ege": bổ sung
+  EdgeTtsEngine (giọng Neural miễn phí, không API key) vào hệ sinh thái
+  TTS hiện có, ưu tiên online cho vi-VN/en-US, fallback mượt khi mất mạng.
+- **Nội dung:**
+  - `lib/features/tts/engines/edge_tts_engine.dart` (mới, theo mẫu
+    zalo/openai engine): port giao thức edge-tts **7.2.8** (bản upstream
+    mới nhất, đã đối chiếu source `constants.py`/`drm.py`/`communicate.py`):
+    WebSocket `wss://speech.platform.bing.com/consumer/speech/synthesize/
+    readaloud/edge/v1` + `TrustedClientToken` + `ConnectionId` + DRM mềm
+    `Sec-MS-GEC` (sha256-UPPER(ticks+token), ticks làm tròn 300s ×10^7) +
+    `Sec-MS-GEC-Version=1-143.0.3650.75`; header extension (Origin
+    chrome-extension://…, Cookie muid, UA Edg/143). Frame speech.config
+    (audio-24khz-48kbitrate-mono-mp3) → Path:ssml → nhận binary
+    `Path:audio` (header BE-2byte) tới `turn.end`. Chia text: câu → dấu
+    phẩy → cắt cứng, rồi cắt byte-an-toàn ≤4096B (không tách UTF-8, không
+    tách XML entity) — y upstream. Trần tham chiếu `maxCharsPerRequest`
+    10000. KHÔNG lưu key / KHÔNG SharedPreferences.
+  - Giọng: catalog trưng 21 giọng — vi-VN-HoaiMyNeural/NamMinhNeural đứng
+    đầu (theo yêu cầu) + en-US Aria/Guy/Emma, ja, ko, zh-CN/TW, th, fr,
+    de, es, ru, pt-BR, id, hi; `getAvailableVoices` thử live-list từ
+    endpoint (mới nhất khi Microsoft đổi), rớt → catalog trưng.
+    `resolveVoice` chỉ nhận voiceId đúng dạng Edge (`xx-YY-*Neural`) —
+    chặn nuốt nhầm `_selectedVoiceId` chung (Piper `vi_VN-…`, Zalo `1`,
+    FPT `banmai`, OpenAI `alloy`).
+  - `lib/features/tts/tts_service.dart`: đăng ký `edge_tts` priority 2 —
+    **online đầu tiên cho cài đặt MỚI** (sau piper/offline); user cũ nhận
+    engine append CUỐI qua merge saved json (thứ tự của họ không đổi —
+    y luật WP4). Cắm switch `speak()` + `_getOnlineEngines` ⇒ tự có trong
+    UI engine-order, engine-status, prefetch, `checkEngineStatus`.
+    Fallback dùng sẵn hạ tầng: `_trySpeakOnline` check mạng trước +
+    timeout 15s → engine kế → emergency Offline (Máy); cache MP3 reuse
+    `TtsCache` (bytes → file temp → just_audio).
+  - UI: không cần sửa — `TtsSettingsSection` render động từ `engineOrder`
+    (kéo-thả + switch bật/tắt).
+- **Test:** `test/edge_tts_engine_test.dart` — known-vector Sec-MS-GEC
+  sinh bằng edge-tts Python 7.2.8 (ts cố định), khung message/SSML/escape,
+  chia text (ranh câu, ≤4096B, entity/emoji/CJK an toàn), parse frame,
+  chọn giọng, isAvailable/getAvailableVoices qua http.Client giả, và
+  source-scan pin đăng ký TtsService. Cập nhật pin thứ tự mặc định trong
+  `test/tts_api_wp4_test.dart` (chèn edge_tts trước google_tts, kèm
+  comment rõ user cũ không bị xáo trộn).
+- **Hạn chế đã biết:** sandbox agent không egress được
+  `speech.platform.bing.com` (curl 000 — giống thiết bị mất mạng/chặn
+  doanh nghiệp) ⇒ chưa nghiệm thu end-to-end ở đây; cần 1 lượt test máy
+  thật (đọc câu tiếng Việt, nghe HoaiMy + NamMinh, bật/tắt mạng kiểm
+  fallback). Nếu Microsoft nâng yêu cầu version, sửa hằng
+  `chromiumFullVersion` trong engine (một chỗ duy nhất).
+- **Lịch sử:**
+  - 2026-10-04 | code + test | agent arena/01a10633-in4up | engine +
+    đăng ký + 30 test thuần (chưa chạy được — sandbox không có
+    Dart/Flutter SDK, đã kiểm chéo thuật toán bằng harness Python; chờ CI/
+    máy dev verify)

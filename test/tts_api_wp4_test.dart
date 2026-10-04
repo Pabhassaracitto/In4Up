@@ -6,9 +6,11 @@
 // - OpenAiCompatClient.synthesizeSpeech: request chuẩn + phân loại lỗi
 // - OpenAiCompatTtsEngine: guard cấu hình, chunking, clamp speed, retry
 //   (429/5xx → tối đa 1 retry), fallback giọng mặc định, mapping Kokoro
-// - Pin nghiệp vụ bằng source-scan: thứ tự engine mặc định KHÔNG đổi so
-//   với trước WP4 (engine mới nằm CUỐI), và engine dùng store chung WP0
-//   (AiProviderStore) — không nhập key riêng.
+// - Pin nghiệp vụ bằng source-scan: thứ tự engine mặc định (engine mới
+//   WP4 nằm CUỐI chuỗi — TTS-EDGE-001 sau này chèn edge_tts ngay trước
+//   google_tts CHO CÀI ĐẶT MỚI, merge saved json vẫn append cuối cho user
+//   cũ), và engine dùng store chung WP0 (AiProviderStore) — không nhập key
+//   riêng.
 
 import 'dart:convert';
 import 'dart:io';
@@ -516,6 +518,9 @@ void main() {
       expect(ids, [
         'piper_tts',
         'offline_tts',
+        'edge_tts', // TTS-EDGE-001 — online đầu tiên cho CÀI ĐẶT MỚI
+        // (neural, miễn phí, không key). User cũ vẫn nhận engine append
+        // CUỐI qua merge saved json ⇒ thứ tự của họ không đổi.
         'google_tts',
         'zalo_tts',
         'fpt_tts',

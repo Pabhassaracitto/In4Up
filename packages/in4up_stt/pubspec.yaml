@@ -40,6 +40,12 @@ dependencies:
   in4up_ai:
     path: ../in4up_ai
 
+  # QA-PERF-001 — HeavyTaskMonitor (giám sát tác vụ nặng chạy đồng thời giữa
+  # các module AI/dịch/STT) sống ở in4up_core để mọi module dùng chung được
+  # một state duy nhất mà không phải vòng qua in4up_ai.
+  in4up_core:
+    path: ../in4up_core
+
   firebase_storage: ^12.4.0 #13.3.0 #change from ^13.0.0
 
   path: ^1.9.0

@@ -4354,4 +4354,89 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '正在載入目錄…',
     'si': 'අන්තර්ගත වගුව පූරණය වෙමින්…',
   },
+  // LOTTIE-001 — flashcard minh họa (ảnh/Lottie): nút đổi/thêm, picker
+  // "Dán URL", toggle lazy trong dialog cài đặt ảnh.
+  'Thêm minh họa': {
+    'en': 'Add illustration',
+    'hi': 'चित्रण जोड़ें',
+    'zh': '添加插图',
+    'zh_TW': '新增插圖',
+    'si': 'රූපය එක් කරන්න',
+  },
+  'Đổi minh họa': {
+    'en': 'Change illustration',
+    'hi': 'चित्रण बदलें',
+    'zh': '更换插图',
+    'zh_TW': '更換插圖',
+    'si': 'රූපය වෙනස් කරන්න',
+  },
+  'Dán URL': {
+    'en': 'Paste URL',
+    'hi': 'URL पेस्ट करें',
+    'zh': '粘贴链接',
+    'zh_TW': '貼上連結',
+    'si': 'URL එක අලවන්න',
+  },
+  'Tải về & lưu': {
+    'en': 'Download & save',
+    'hi': 'डाउनलोड करके सहेजें',
+    'zh': '下载并保存',
+    'zh_TW': '下載並儲存',
+    'si': 'බාගෙන සුරකින්න',
+  },
+  'Dán từ clipboard': {
+    'en': 'Paste from clipboard',
+    'hi': 'क्लिपबोर्ड से पेस्ट करें',
+    'zh': '从剪贴板粘贴',
+    'zh_TW': '從剪貼簿貼上',
+    'si': 'පසුරු පුවරුවෙන් අලවන්න',
+  },
+  'Dán liên kết ảnh (.png/.jpg/.webp) hoặc animation Lottie (.json). File sẽ được tải về máy để học offline.':
+      {
+    'en':
+        'Paste an image link (.png/.jpg/.webp) or a Lottie animation (.json). The file will be downloaded for offline study.',
+    'hi':
+        'छवि लिंक (.png/.jpg/.webp) या Lottie ऐनिमेशन (.json) पेस्ट करें। फ़ाइल ऑफ़लाइन अध्ययन के लिए डाउनलोड होगी।',
+    'zh': '粘贴图片链接（.png/.jpg/.webp）或 Lottie 动画（.json）。文件会下载到本机用于离线学习。',
+    'zh_TW': '貼上圖片連結（.png/.jpg/.webp）或 Lottie 動畫（.json）。檔案會下載到本機供離線學習。',
+    'si':
+        'රූප සබැඳිය (.png/.jpg/.webp) හෝ Lottie සජීවනය (.json) අලවන්න. ගොනුව ඔෆ්ලයින් ඉගෙනීමට බාගැනේ.',
+  },
+  'Liên kết chưa hợp lệ — cần bắt đầu bằng http:// hoặc https://': {
+    'en': 'Invalid link — it must start with http:// or https://',
+    'hi': 'लिंक अमान्य है — http:// या https:// से शुरू होना चाहिए',
+    'zh': '链接无效——需以 http:// 或 https:// 开头',
+    'zh_TW': '連結無效——需以 http:// 或 https:// 開頭',
+    'si': 'සබැඳිය වලංගු නොවේ — http:// හෝ https:// වලින් ආරම්භ විය යුතුය',
+  },
+  'Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).': {
+    'en':
+        'Could not download the file (network error, unsupported format, or animation larger than 2MB).',
+    'hi':
+        'फ़ाइल डाउनलोड नहीं हो सकी (नेटवर्क त्रुटि, गलत फ़ॉर्मैट, या 2MB से बड़ा ऐनिमेशन)।',
+    'zh': '无法下载文件（网络错误、格式不支持，或动画超过 2MB）。',
+    'zh_TW': '無法下載檔案（網路錯誤、格式不支援，或動畫超過 2MB）。',
+    'si':
+        'ගොනුව බාගත නොහැක (ජාල දෝෂය, වැරදි ආකෘතිය, හෝ 2MB ට වැඩි සජීවනය).',
+  },
+  'Chỉ tải ảnh/animation khi xem': {
+    'en': 'Only download media when viewed',
+    'hi': 'मीडिया केवल देखने पर डाउनलोड करें',
+    'zh': '仅在查看时下载媒体',
+    'zh_TW': '僅在檢視時下載媒體',
+    'si': 'නරඹන විට පමණක් මාධ්‍ය බාගන්න',
+  },
+  'Tắt (mặc định): import CSV có link ảnh/Lottie thì tải về máy ngay — học offline trọn vẹn. Bật: giữ link, tự tải và lưu ở lần xem đầu tiên (tiết kiệm dữ liệu, nhưng từ chưa xem sẽ không có minh họa khi offline).':
+      {
+    'en':
+        'Off (default): CSV imports with image/Lottie links download immediately — study fully offline. On: keep the link, download & save on first view (saves data, but unviewed words have no illustration offline).',
+    'hi':
+        'बंद (डिफ़ॉल्ट): CSV इम्पोर्ट में छवि/Lottie लिंक तुरंत डाउनलोड होते हैं — पूर्ण ऑफ़लाइन अध्ययन। चालू: लिंक रखें, पहली बार देखने पर डाउनलोड हो (डेटा बचत, लेकिन न देखे शब्दों का चित्रण ऑफ़लाइन नहीं होगा)।',
+    'zh':
+        '关（默认）：CSV 导入的图片/Lottie 链接会立即下载——完整离线学习。开：保留链接，首次查看时下载保存（省流量，但未查看的单词离线时没有插图）。',
+    'zh_TW':
+        '關（預設）：CSV 匯入的圖片/Lottie 連結會立即下載——完整離線學習。開：保留連結，首次檢視時下載儲存（省流量，但未檢視的單字離線時沒有插圖）。',
+    'si':
+        'අක්‍රිය (පෙරනිමි): CSV ආමදනයේ රූප/Lottie සබැඳි වහා බාගැනේ — සම්පූර්ණයෙන් ඔෆ්ලයින්. ක්‍රිය: සබැඳිය තබා, පළමු නැරඹුමේ බාගෙන සුරකියි (දත්ත ඉතිරිය, නමුත් නොදුටු වචනවලට ඔෆ්ලයින් රූපය නැත).',
+  },
 };

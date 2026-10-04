@@ -105,7 +105,8 @@ void main() {
     test('không tham số → 64 hex HOA', () {
       final gec = EdgeTtsEngine.generateSecMsGec();
       expect(gec.length, 64);
-      expect(gec, RegExp(r'^[0-9A-F]{64}$'));
+      // hasMatch tường minh — tránh lệ thuộc semantic bare-Pattern matcher.
+      expect(RegExp(r'^[0-9A-F]{64}$').hasMatch(gec), isTrue);
     });
   });
 
@@ -146,8 +147,9 @@ void main() {
     });
 
     test('muid/connectId đúng format', () {
-      expect(EdgeTtsEngine.generateMuid(), RegExp(r'^[0-9A-F]{32}$'));
-      expect(EdgeTtsEngine.connectId(), RegExp(r'^[0-9a-f]{32}$'));
+      // hasMatch tường minh — tránh lệ thuộc semantic bare-Pattern matcher.
+      expect(RegExp(r'^[0-9A-F]{32}$').hasMatch(EdgeTtsEngine.generateMuid()), isTrue);
+      expect(RegExp(r'^[0-9a-f]{32}$').hasMatch(EdgeTtsEngine.connectId()), isTrue);
     });
   });
 

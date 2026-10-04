@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/dict_entry.dart';
 
@@ -50,7 +50,7 @@ class DictResultSheet extends StatelessWidget {
                   color: Color(0xFF2196F3), size: 20),
               const SizedBox(width: 8),
               Text(
-                'Từ điển: $word',
+                context.uiText('Từ điển: $word'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -59,7 +59,7 @@ class DictResultSheet extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '${entries.length} kết quả',
+                context.uiText('${entries.length} kết quả'),
                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
             ],
@@ -70,7 +70,7 @@ class DictResultSheet extends StatelessWidget {
           child: entries.isEmpty
               ? Center(
                   child: Text(
-                    'Không tìm thấy "$word"',
+                    context.uiText('Không tìm thấy "$word"'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 14),
                   ),
                 )

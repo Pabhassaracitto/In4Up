@@ -4074,6 +4074,193 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '不會刪除您的來源資料夾。',
     'si': 'ඔබේ මූල ෆෝල්ඩරය මකා දැමිය නොහැක.',
   },
+
+  // ── DICT-001: kết quả tra MDX trong WordActionsSheet /
+  // WordAnalysisSheet / DictResultSheet + thông điệp import từ service.
+  // Mirror English: tool/legacy_ui_english_overrides.json (phần presentation).
+  'Từ điển MDX ({value0} kết quả)': {
+    'en': 'MDX dictionary ({value0} results)',
+    'hi': 'MDX शब्दकोश ({value0} परिणाम)',
+    'zh': 'MDX 词典（{value0} 条结果）',
+    'zh_TW': 'MDX 詞典（{value0} 筆結果）',
+    'si': 'MDX ශබ්දකෝෂය ({value0} ප්\u200dරතිඵල)',
+  },
+  '+ {value0} kết quả khác...': {
+    'en': '+ {value0} more results...',
+    'hi': '+ {value0} और परिणाम...',
+    'zh': '+ 另外 {value0} 条结果...',
+    'zh_TW': '+ 另外 {value0} 筆結果...',
+    'si': '+ තව {value0} ප්\u200dරතිඵල...',
+  },
+  'Từ điển MDX ({value0})': {
+    'en': 'MDX dictionary ({value0})',
+    'hi': 'MDX शब्दकोश ({value0})',
+    'zh': 'MDX 词典（{value0}）',
+    'zh_TW': 'MDX 詞典（{value0}）',
+    'si': 'MDX ශබ්දකෝෂය ({value0})',
+  },
+  'Đang tra từ điển...': {
+    'en': 'Looking up the dictionary...',
+    'hi': 'शब्दकोश खोजा जा रहा है...',
+    'zh': '正在查询词典...',
+    'zh_TW': '正在查詢詞典...',
+    'si': 'ශබ්දකෝෂය සොයමින්...',
+  },
+  'Từ điển: {value0}': {
+    'en': 'Dictionary: {value0}',
+    'hi': 'शब्दकोश: {value0}',
+    'zh': '词典：{value0}',
+    'zh_TW': '詞典：{value0}',
+    'si': 'ශබ්දකෝෂය: {value0}',
+  },
+  '{value0} kết quả': {
+    'en': '{value0} results',
+    'hi': '{value0} परिणाम',
+    'zh': '{value0} 条结果',
+    'zh_TW': '{value0} 筆結果',
+    'si': '{value0} ප්\u200dරතිඵල',
+  },
+  'Chưa chọn file/thư mục nào': {
+    'en': 'No file or folder selected',
+    'hi': 'कोई फ़ाइल या फ़ोल्डर चुना नहीं गया',
+    'zh': '未选择任何文件或文件夹',
+    'zh_TW': '未選擇任何檔案或資料夾',
+    'si': 'ගොනුවක් හෝ ෆෝල්ඩරයක් තෝරාගෙන නැත',
+  },
+  'Không tìm thấy file .mdx nào trong nguồn đã chọn': {
+    'en': 'No .mdx file found in the selected source',
+    'hi': 'चुने गए स्रोत में कोई .mdx फ़ाइल नहीं मिली',
+    'zh': '所选来源中未找到 .mdx 文件',
+    'zh_TW': '所選來源中未找到 .mdx 檔案',
+    'si': 'තෝරාගත් ප්\u200dරභවයේ .mdx ගොනුවක් හමු නොවීය',
+  },
+  'Không tìm thấy file .mdx nào trong nguồn đã chọn (có file lẻ: {value0})': {
+    'en': 'No .mdx file found in the selected source '
+        '(loose files: {value0})',
+    'hi': 'चुने गए स्रोत में कोई .mdx फ़ाइल नहीं मिली '
+        '(अलग फ़ाइलें: {value0})',
+    'zh': '所选来源中未找到 .mdx 文件（零散文件：{value0}）',
+    'zh_TW': '所選來源中未找到 .mdx 檔案（零散檔案：{value0}）',
+    'si': 'තෝරාගත් ප්\u200dරභවයේ .mdx ගොනුවක් හමු නොවීය '
+        '(තනි ගොනු: {value0})',
+  },
+  'Không import được từ điển nào': {
+    'en': 'No dictionary could be imported',
+    'hi': 'कोई शब्दकोश इम्पोर्ट नहीं हो सका',
+    'zh': '未能导入任何词典',
+    'zh_TW': '未能匯入任何詞典',
+    'si': 'කිසිදු ශබ්දකෝෂයක් ආයාත කළ නොහැක',
+  },
+  'Không import được từ điển nào: {value0}': {
+    'en': 'No dictionary could be imported: {value0}',
+    'hi': 'कोई शब्दकोश इम्पोर्ट नहीं हो सका: {value0}',
+    'zh': '未能导入任何词典：{value0}',
+    'zh_TW': '未能匯入任何詞典：{value0}',
+    'si': 'කිසිදු ශබ්දකෝෂයක් ආයාත කළ නොහැක: {value0}',
+  },
+  'File .mdx không có entry nào': {
+    'en': 'The .mdx file contains no entries',
+    'hi': '.mdx फ़ाइल में कोई प्रविष्टि नहीं है',
+    'zh': '.mdx 文件没有任何词条',
+    'zh_TW': '.mdx 檔案沒有任何詞條',
+    'si': '.mdx ගොනුවේ සටහන් නැත',
+  },
+  'Đã đăng ký {value0} từ điển': {
+    'en': 'Registered {value0} dictionaries',
+    'hi': '{value0} शब्दकोश पंजीकृत हुए',
+    'zh': '已注册 {value0} 部词典',
+    'zh_TW': '已註冊 {value0} 部詞典',
+    'si': 'ශබ්දකෝෂ {value0}ක් ලියාපදිංචි විය',
+  },
+  'Chưa chọn thư mục': {
+    'en': 'No folder selected',
+    'hi': 'कोई फ़ोल्डर चुना नहीं गया',
+    'zh': '未选择文件夹',
+    'zh_TW': '未選擇資料夾',
+    'si': 'ෆෝල්ඩරයක් තෝරාගෙන නැත',
+  },
+  'Đang quét thư mục…': {
+    'en': 'Scanning folder…',
+    'hi': 'फ़ोल्डर स्कैन हो रहा है…',
+    'zh': '正在扫描文件夹…',
+    'zh_TW': '正在掃描資料夾…',
+    'si': 'ෆෝල්ඩරය පරීක්ෂා වෙමින්…',
+  },
+  'Chưa chọn file nào': {
+    'en': 'No file selected',
+    'hi': 'कोई फ़ाइल चुनी नहीं गई',
+    'zh': '未选择任何文件',
+    'zh_TW': '未選擇任何檔案',
+    'si': 'ගොනුවක් තෝරාගෙන නැත',
+  },
+  'Không đọc được file (SAF). Thử chọn cả thư mục.': {
+    'en': 'Cannot read the file (SAF). Try selecting the whole folder.',
+    'hi': 'फ़ाइल पढ़ी नहीं जा सकी (SAF)। पूरा फ़ोल्डर चुनें।',
+    'zh': '无法读取文件（SAF）。请尝试选择整个文件夹。',
+    'zh_TW': '無法讀取檔案（SAF）。請嘗試選擇整個資料夾。',
+    'si': 'ගොනුව කියවිය නොහැක (SAF)। සම්පූර්ණ ෆෝල්ඩරය තෝරන්න.',
+  },
+  'Thư mục rỗng hoặc app không đọc được (quyền truy cập). Thử chọn nhiều file thay vì thư mục.':
+      {
+    'en': 'The folder is empty or unreadable (permissions). '
+        'Try selecting files instead.',
+    'hi': 'फ़ोल्डर खाली है या पढ़ा नहीं जा सकता (अनुमति)। '
+        'फ़ोल्डर की जगह फ़ाइलें चुनें।',
+    'zh': '文件夹为空或无法读取（权限问题）。请尝试改为选择多个文件。',
+    'zh_TW': '資料夾為空或無法讀取（權限問題）。請嘗試改為選擇多個檔案。',
+    'si': 'ෆෝල්ඩරය හිස් හෝ කියවිය නොහැක (අවසර)। ඒ වෙනුවට ගොනු '
+        'තෝරන්න.',
+  },
+  'File .mdx không tồn tại hoặc không đọc được': {
+    'en': 'The .mdx file is missing or unreadable',
+    'hi': '.mdx फ़ाइल अनुपस्थित है या पढ़ी नहीं जा सकती',
+    'zh': '.mdx 文件缺失或无法读取',
+    'zh_TW': '.mdx 檔案缺失或無法讀取',
+    'si': '.mdx ගොනුව නැත හෝ කියවිය නොහැක',
+  },
+  'File .mdx rỗng hoặc sai định dạng': {
+    'en': 'The .mdx file is empty or malformed',
+    'hi': '.mdx फ़ाइल खाली या गलत प्रारूप है',
+    'zh': '.mdx 文件为空或格式错误',
+    'zh_TW': '.mdx 檔案為空或格式錯誤',
+    'si': '.mdx ගොනුව හිස් හෝ ආකෘතිය වැරදිය',
+  },
+  'Từ điển có mã hoá (Encrypted) — chưa hỗ trợ': {
+    'en': 'Encrypted dictionary — not supported yet',
+    'hi': 'एन्क्रिप्टेड शब्दकोश — अभी समर्थित नहीं',
+    'zh': '加密词典——暂不支持',
+    'zh_TW': '加密詞典——暫不支援',
+    'si': 'ගුප්තකේතිත ශබ්දකෝෂය — තවම සහාය නැත',
+  },
+  'MDX engine 3.0 chưa hỗ trợ — hãy dùng bản build engine 2.0': {
+    'en': 'MDX engine 3.0 is not supported yet — use an engine 2.0 build',
+    'hi': 'MDX इंजन 3.0 अभी समर्थित नहीं — इंजन 2.0 बिल्ड उपयोग करें',
+    'zh': '暂不支持 MDX 3.0 引擎——请使用 2.0 引擎版本',
+    'zh_TW': '暫不支援 MDX 3.0 引擎——請使用 2.0 引擎版本',
+    'si': 'MDX එන්ජිම 3.0 තවම සහාය නොදක්වයි — 2.0 එන්ජිම සංස්කරණය '
+        'භාවිත කරන්න',
+  },
+  'Kiểu nén không hỗ trợ (comp={value0})': {
+    'en': 'Unsupported compression (comp={value0})',
+    'hi': 'असमर्थित कंप्रेशन (comp={value0})',
+    'zh': '不支持的压缩方式（comp={value0}）',
+    'zh_TW': '不支援的壓縮方式（comp={value0}）',
+    'si': 'සහාය නොදක්වන හැකිලීම (comp={value0})',
+  },
+  'Bảng mã không hỗ trợ: {value0}': {
+    'en': 'Unsupported encoding: {value0}',
+    'hi': 'असमर्थित एन्कोडिंग: {value0}',
+    'zh': '不支持的编码：{value0}',
+    'zh_TW': '不支援的編碼：{value0}',
+    'si': 'සහාය නොදක්වන කේතීකරණය: {value0}',
+  },
+  'Lỗi đọc MDX: {value0}': {
+    'en': 'MDX read error: {value0}',
+    'hi': 'MDX पढ़ने में त्रुटि: {value0}',
+    'zh': 'MDX 读取错误：{value0}',
+    'zh_TW': 'MDX 讀取錯誤：{value0}',
+    'si': 'MDX කියවීමේ දෝෂය: {value0}',
+  },
   'Thiếu file model:': {
     'en': 'Missing model files:',
     'hi': 'मॉडल फ़ाइलें गायब:',

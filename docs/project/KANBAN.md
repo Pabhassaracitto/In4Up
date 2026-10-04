@@ -4986,3 +4986,13 @@
     đăng ký + 30 test thuần (chưa chạy được — sandbox không có
     Dart/Flutter SDK, đã kiểm chéo thuật toán bằng harness Python; chờ CI/
     máy dev verify)
+  - 2026-10-04 | ✅ CI green | agent arena/01a10633-in4up | thêm step
+    "TTS engine tests" vào `app_analyze.yml`; run 37194470015 xanh toàn
+    bộ (analyze + 71/71 test TTS gồm 30 Edge + 41 WP4). Vá 3 lỗi lộ qua
+    CI: (1) 2 expect `expect(x, RegExp(...))` trong test Edge → chuyển
+    `hasMatch` tường minh; (2) pin no-key của WP4 (`isNot(contains
+    ('SharedPreferences'))`) đã đỏ sẵn trên nhánh do comment header của
+    `openai_compat_tts_engine.dart` chứa đúng từ khoá (chưa từng có step
+    CI chạy file test này) → đổi câu chữ comment. Còn lại: nghiệm thu
+    end-to-end trên thiết bị thật (sandbox không egress được
+    speech.platform.bing.com).

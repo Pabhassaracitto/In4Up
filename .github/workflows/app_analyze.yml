@@ -202,8 +202,8 @@ jobs:
           # Đẩy test hỏng thành annotation check-runs (đọc được qua
           # api.github.com khi blob log bị chặn — tiền lệ bước analyze).
           if [ "$code" -ne 0 ]; then
-            grep -nE '\[E\]|Expected:|Actual:|Some tests failed|error •' tts_edge_test.log \
-              | head -80 | while IFS= read -r line; do
+            grep -nE -B4 -A6 'Expected:' tts_edge_test.log \
+              | head -100 | while IFS= read -r line; do
               echo "::error title=TTS engine test fail::$line"
             done
           fi

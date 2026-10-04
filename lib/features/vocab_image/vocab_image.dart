@@ -5,3 +5,6 @@ export 'vocab_image_quick_add.dart';
 export 'vocab_image_service.dart';
 export 'vocab_image_thumbnail.dart';
 export 'vocab_image_web_service.dart';
+export 'vocab_media_import.dart';
+export 'vocab_media_type.dart';
+export 'vocabulary_media_widget.dart';

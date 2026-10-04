@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'vocab_image_web_service.dart';
+import 'vocab_media_type.dart';
 
 /// Service quản lý hình ảnh cho từ vựng
 class VocabImageService {
@@ -17,6 +18,11 @@ class VocabImageService {
   VocabImageService._();
 
   static const String _imageDir = 'vocabulary_images';
+
+  /// LOTTIE-001 — trần kích thước file animation (.json/.lottie) được phép
+  /// lưu. Lottie minh họa từ vựng chuẩn chỉ 20-100KB; file >2MB thường là
+  /// animation phức tạp → decode/render nặng RAM, không hợp flashcard.
+  static const int kMaxLottieBytes = 2 * 1024 * 1024;
 
   /// Chọn ảnh từ gallery → copy vào app storage → trả về local path
   Future<String?> pickFromGallery() async {
@@ -90,13 +96,25 @@ class VocabImageService {
   ///
   /// Không lưu thẳng URL vào [imageUrl]: ảnh ngoài mạng chết link là mất
   /// hình, mà tính năng này cần ảnh sống được offline khi ôn tập.
+  ///
+  /// LOTTIE-001 — URL trỏ tới Lottie (đuôi .json/.lottie) cũng được nhận:
+  /// guard kích thước 2MB cho animation (bảo vệ RAM khi render — ảnh tĩnh
+  /// vẫn theo guard 8MB mặc định của downloader).
   Future<String?> saveFromUrl(
     String url, {
     VocabImageWebService? client,
+    int? maxLottieBytes,
   }) async {
     final service = client ?? VocabImageWebService();
     try {
-      final bytes = await service.download(url);
+      final lottie = isLottieMediaUrl(url);
+      final bytes = await service.download(
+        url,
+        allowJson: lottie,
+        maxBytes: lottie
+            ? (maxLottieBytes ?? kMaxLottieBytes)
+            : 8 * 1024 * 1024,
+      );
       return await saveFromBytes(bytes);
     } catch (e) {
       debugPrint('saveFromUrl error ($url): $e');
@@ -167,7 +185,20 @@ class VocabImageService {
 
   /// Detect extension từ magic bytes
   String _detectExtension(Uint8List bytes) {
+    if (bytes.isNotEmpty) {
+      // Lottie JSON: bắt đầu bằng '{' (0x7B) — LOTTIE-001.
+      if (bytes[0] == 0x7B) {
+        return 'json';
+      }
+    }
     if (bytes.length >= 4) {
+      // dotLottie / ZIP: 50 4B 03 04 ("PK\x03\x04") — LOTTIE-001.
+      if (bytes[0] == 0x50 &&
+          bytes[1] == 0x4B &&
+          bytes[2] == 0x03 &&
+          bytes[3] == 0x04) {
+        return 'lottie';
+      }
       // JPEG: FF D8 FF
       if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
         return 'jpg';

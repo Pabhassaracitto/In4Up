@@ -976,8 +976,10 @@
   - 2026-09-27 | 21:00 UTC | doing→doing | agent arena/01a0d013-in4up | Owner build ở checkout KHÔNG có fix (không có `scripts/ci/`, 251e chưa merge #49) ⇒ APK vẫn unsigned, "gói không hợp lệ" — đúng dự đoán, chưa phải bằng chứng chống lại fix. Phát hiện `flutter build` gọi Gradle `-q` ⇒ đổi log `[in4up-sign]` sang `logger.quiet` (b6e8bf4) để người build thấy được. Merge lại 251e@b90ba3e (README viết lại ở 251e, chèn lại mục Build a release APK) — PR #49 hết conflict. Cách tự kiểm không cần script: `ls build/app/outputs/apk/stable/release/` — file gốc của AGP mang hậu tố `-unsigned` nếu chưa ký.
 
 ### CI-ANDROID-04 — APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip
-- **Trạng thái:** ✅ script done (đã push) + patch workflow chờ owner áp (GitHub App
-  không có quyền `workflows` — push file `.github/workflows/` bị reject).
+- **Trạng thái:** ✅ script done (đã push 0251e) + 0251e: patch workflow chờ áp
+  (bước 1 hướng dẫn 2026-10-05); **main: workflow universal ĐÃ có từ e524214
+  (04/10) nhưng THIẾU 3 scripts/ci** mà nó gọi → job Android main sẽ đỏ khi
+  chạy (bước 2 hướng dẫn cho owner).
 - **Nguồn:** owner (2026-10-04): "Hãy update workflow action github đảm bảo file
   apk dạng chip phổ thông thay vì chip đầy đủ."
 - **Trước fix:** cả 2 workflow (`build.yml`, `build_final_complete.yml`) build
@@ -1017,6 +1019,15 @@
   - 2026-10-04 | created→doing | agent arena/01a0251e-in4up | script
     universal-only (test 3 kịch bản pass) + patch 2 workflow + cảnh báo
     versionCode; chờ owner áp patch + oracle release
+  - 2026-10-05 | sự kiện | main nhận commit e524214 "Modify Android build
+    workflow for universal APK" (tài khoản owner — nguồn: máy khác hay agent
+    session khác, CHƯA xác nhận): workflow universal-only ĐÃ áp vào main
+    NHƯNG main vẫn là snapshot 733 file cũ ⇒ thiếu scripts/ci/ (3 script
+    android_*) mà workflow gọi ⇒ job Android main sẽ đỏ khi chạy. Owner chạy
+    nhầm thủ thuật content-sync trên nhánh 0251e (worktree DEV checkout
+    0251e; main checkout ở clone chính nên không checkout được trong
+    worktree) ⇒ 2 commit rác cục bộ (5c99b7a2 + 798cde87, triệt tiêu nhau),
+    remote an toàn. Hướng dẫn sửa 3 bước đã gửi owner.
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)
@@ -4907,3 +4918,15 @@
   - 2026-10-04 | audit đầy đủ | agent arena/01a0251e-in4up | diff 216 file,
     phân loại 36 file chỉ-main (33 junk + LICENSE), xác nhận Windows fix
     nằm trong workflow cũ; soạn thủ thuật content-sync; chờ owner quyết
+  - 2026-10-05 | cập nhật | e524214 trên main (lại là snapshot-replace 733
+    file, chỉ sửa workflow Android) ⇒ Option A content-sync vẫn CHƯA làm;
+    main giờ thêm lỗi: workflow gọi 3 scripts/ci không tồn tại. CẢNH BÁO
+    GOVERNANCE 4b: main đã "dựng lại" lần nữa — cần owner xác nhận chính
+    chủ e524214 để đồng bộ; sau e524214, Option A càng nên làm để main
+    hết cảnh snapshot cũ + thiếu script.
+  - 2026-10-05 | owner chạy thử | owner chạy thủ thuật content-sync nhưng
+    commit 798cde87 rơi vào nhánh 0251e (không checkout được main trong
+    worktree DEV — main đang checkout ở clone chính) + `git push origin main`
+    bị reject (main đã có e524214). Local owner có 1 commit rác trên 0251e.
+    Đã gửi owner 2 bước: (1) fix 0251e (apply CI-ANDROID-04 + reset rác),
+    (2) content-sync 0251e→main ĐÚNG nhánh.

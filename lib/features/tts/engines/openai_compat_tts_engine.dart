@@ -8,7 +8,7 @@
 // key: baseUrl + apiKey + ttsModel nằm trong store chung WP0
 // (`AiProviderStore` — màn "Server & API"). `TtsService` resolve provider
 // theo routing prefs rồi inject vào constructor ⇒ engine thuần HTTP, test
-// được không cần SharedPreferences/thiết bị.
+// được không cần kho cấu hình riêng/thiết bị.
 //
 // Mẫu trực tiếp: zalo_tts_engine.dart (chunk text → tổng hợp mp3 bytes;
 // TtsService ghi bytes vào file cache temp → phát qua AudioPlayer như mọi

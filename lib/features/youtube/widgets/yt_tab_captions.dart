@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
@@ -47,6 +48,16 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
   String? _savedLrcPath;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.video != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fetchCaptions();
+      });
+    }
+  }
+
+  @override
   void didUpdateWidget(YtTabCaptions old) {
     super.didUpdateWidget(old);
     if (old.video?.id != widget.video?.id) {
@@ -55,6 +66,11 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
         _error = null;
         _savedLrcPath = null;
       });
+      if (widget.video != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _fetchCaptions();
+        });
+      }
     }
   }
 
@@ -65,8 +81,13 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
       _error = null;
     });
 
-    final lines =
-        await YtService.instance.fetchCaptions(widget.video!.id, lang: _lang);
+    final lines = _lang == 'en'
+        ? await YtService.instance.fetchBilingualCaptions(
+            widget.video!.id,
+            lang1: 'en',
+            lang2: 'vi',
+          )
+        : await YtService.instance.fetchCaptions(widget.video!.id, lang: _lang);
 
     if (!mounted) return;
 

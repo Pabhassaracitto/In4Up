@@ -47,6 +47,18 @@ add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
     $<TARGET_FILE_DIR:${BINARY_NAME}>
 )
 
+# AI chat native backend — copy in4up_ai_native.dll cạnh runner.exe (chỉ khi
+# target tồn tại, tức là submodule llama.cpp đã được init).
+if(TARGET in4up_ai_native)
+  add_dependencies(${BINARY_NAME} in4up_ai_native)
+  add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_FILE:in4up_ai_native>
+      $<TARGET_FILE_DIR:${BINARY_NAME}>
+    COMMENT "Copy in4up_ai_native.dll next to the Flutter executable"
+  )
+endif()
+
 # Copy Whisper & GGML DLLs từ windows/libs/ sang thư mục build cạnh file .exe
 # Support both flat libs/ and libs/whisper/ layouts, plus ffmpeg.exe fallback for desktop STT/audio conversion
 set(DLL_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../libs")

@@ -1,7 +1,12 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 // lib/features/tts/widgets/tts_settings_section.dart
 
 import 'package:in4up/core/language/localized_material.dart';
 
+import 'package:in4up_stt/sherpa_model_manager.dart';
+import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+
+import '../piper_voice_prefs.dart';
 import '../tts_service.dart';
 import '../tts_settings.dart';
 
@@ -45,6 +50,9 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
                 _ttsService.setPriority(p);
               },
             ),
+            const SizedBox(height: 16),
+
+            const _PiperVoicePicker(),
             const SizedBox(height: 16),
 
             // ── ENGINE ORDER ──
@@ -489,34 +497,67 @@ class _EngineStatusSection extends StatelessWidget {
         return Wrap(
           spacing: 6,
           runSpacing: 4,
-          children: snap.data!.entries.map((e) {
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: (e.value ? Colors.green : Colors.red)
-                    .withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    e.value ? Icons.check_circle : Icons.cancel,
-                    size: 12,
-                    color: e.value ? Colors.green : Colors.red,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    e.key,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: e.value ? Colors.green[200] : Colors.red[200],
+          children: [
+            ...snap.data!.entries.map((e) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (e.value ? Colors.green : Colors.red)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      e.value ? Icons.check_circle : Icons.cancel,
+                      size: 12,
+                      color: e.value ? Colors.green : Colors.red,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      e.key,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: e.value ? Colors.green[200] : Colors.red[200],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            // Piper × = có thể đã có giọng neural nhưng THIẾU phonemizer
+            // (espeak-ng-data) — giải thích ngay tại đây để không hiểu
+            // nhầm là model hỏng (regression TTS-PIPER-001).
+            if (snap.data!.entries
+                .any((e) => e.key.contains('Piper') && !e.value))
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 11, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Piper × : chưa có giọng HOẶC thiếu phonemizer '
+                      '(espeak-ng-data) — cài tại TTS → Quản lý model',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.orange[200],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          }).toList(),
+          ],
         );
       },
     );
@@ -603,6 +644,163 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PiperVoicePicker extends StatefulWidget {
+  const _PiperVoicePicker();
+
+  @override
+  State<_PiperVoicePicker> createState() => _PiperVoicePickerState();
+}
+
+class _PiperVoicePickerState extends State<_PiperVoicePicker> {
+  Map<String, String> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    SherpaModelManager().initialize();
+    PiperVoicePrefs.instance.all().then((v) {
+      if (mounted) setState(() => _selected = v);
+    });
+  }
+
+  String _langLabel(String code) {
+    switch (code.toLowerCase()) {
+      case 'vi-vn':
+      case 'vi':
+        return '🇻🇳 Tiếng Việt (vi-VN)';
+      case 'en-us':
+      case 'en':
+        return '🇺🇸 Tiếng Anh (en-US)';
+      case 'en-gb':
+        return '🇬🇧 Tiếng Anh Anh (en-GB)';
+      case 'zh-cn':
+      case 'zh':
+        return '🇨🇳 Tiếng Trung (zh-CN)';
+      case 'fr-fr':
+      case 'fr':
+        return '🇫🇷 Tiếng Pháp (fr-FR)';
+      case 'de-de':
+      case 'de':
+        return '🇩🇪 Tiếng Đức (de-DE)';
+      case 'es-es':
+      case 'es':
+        return '🇪🇸 Tiếng Tây Ban Nha (es-ES)';
+      case 'hi-in':
+      case 'hi':
+        return '🇮🇳 Tiếng Hindi (hi-IN)';
+      case 'ja-jp':
+      case 'ja':
+        return '🇯🇵 Tiếng Nhật (ja-JP)';
+      case 'ko-kr':
+      case 'ko':
+        return '🇰🇷 Tiếng Hàn (ko-KR)';
+      case 'th-th':
+      case 'th':
+        return '🇹🇭 Tiếng Thái (th-TH)';
+      case 'pi-in':
+      case 'pi':
+        return '🪷 Tiếng Pali (pi)';
+      case 'sa-in':
+      case 'sa':
+        return '🕉️ Tiếng Sanskrit (sa)';
+      case 'other':
+        return '🌐 Khác / Tự do';
+      default:
+        return '🌐 $code';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SherpaPiperInfo>(
+      stream: SherpaModelManager().watchPiper(),
+      initialData: SherpaModelManager().piperInfo,
+      builder: (context, snap) {
+        final voices = snap.data?.voices ?? const <PiperTtsVoice>[];
+        if (voices.isEmpty) {
+          return Text(
+            context.uiText(
+              'Chưa có giọng Piper. Import trong Quản lý Model AI (Home).',
+            ),
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          );
+        }
+        final byLang = <String, List<PiperTtsVoice>>{};
+        for (final v in voices) {
+          var lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+          if (lang.isEmpty) {
+            lang = 'other';
+          } else {
+            lang = PiperVoicePrefs.normalizeLang(lang);
+          }
+          byLang.putIfAbsent(lang, () => []).add(v);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('Giọng Piper theo ngôn ngữ'),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.uiText(
+                'Mỗi ngôn ngữ chọn 1 giọng đã import. Tự động ưu tiên phát khi dùng Sherpa TTS.',
+              ),
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            for (final entry in byLang.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _langLabel(entry.key),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF80CBC4),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    for (final v in entry.value)
+                      RadioListTile<String>(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: v.name,
+                        groupValue: _selected[entry.key] ??
+                            (entry.value.length == 1 ? v.name : null),
+                        activeColor: const Color(0xFF80CBC4),
+                        title: Text(
+                          v.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onChanged: (name) async {
+                          if (name == null) return;
+                          await PiperVoicePrefs.instance
+                              .setVoiceForLang(entry.key, name);
+                          TtsService().configure(voiceId: name);
+                          setState(() => _selected[entry.key] = name);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

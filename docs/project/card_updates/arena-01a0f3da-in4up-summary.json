@@ -1,0 +1,43 @@
+{
+  "agent_branch": "arena/01a0f3da-in4up",
+  "date": "2026-09-30",
+  "updated": "2026-10-01",
+  "lanes": [
+    "I4U18-DICT-001",
+    "I4U18-MODEL-IMPORT-001"
+  ],
+  "summary": [
+    "Dung lane DICT-001: dict_bundle_scanner (pure) ghep set mdx+mdd+css theo folder; DictInfo them storage mode Link/Imported; dictionary_service 2 che do (link khong copy, import copy bundle + xoa index cu khi re-import); dict_import_service pick folder/files theo mode; dict_manager_screen dialog chon mode + badge thieu file phu (van tra duoc giam cap); 12 test thuan.",
+    "Dung lane MODEL-IMPORT-001: model_bundle_scanner (pure) phan loai Piper voice/eSpeak/Zipformer roles/VAD/Whisper GGML + bao thieu dung role; sherpa_model_manager ASR import an scanner (copy dung bo 1 thu muc, fallback giai nen zip, quet lai dest bao thieu chinh xac); Piper import hint khi user chon nham loai bundle; settings picker FileType.any cho espeak khong extension + vocab/json cho ASR; loi incompleteFiles neu ten file can bo sung; 16 test thuan.",
+    "i18n rule #5: 20 chrome strings moi qua priorityUiOverrides (en/hi/zh/zh_TW/si) + mirror EN trong tool/legacy_ui_english_overrides.json; khong chay generator.",
+    "CI: them step 'I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001' vao app_analyze.yml (co guard)."
+  ],
+  "risks_or_blockers": [
+    "Khong co SDK Flutter/Dart local: da review API bang tay + brace/quote balance python + cross-reference grep; CI la oracle thuc te — run 36898178031 da xac nhan compile + 28 test thuan xanh.",
+    "Da phat hien va tu sua 1 loi parse (dau '},' thua trong priority_ui_overrides.dart sau dedup bang script) truoc khi mo PR: CI run 36897541200 do, commit fix 0ed4662, CI run 36898178031 xanh lai. Bai hoc: sau edit bang script phai xem lai vung sua (sed -n) + dem ngoac tren file that."
+  ],
+  "evidence": [
+    "Commits da push tren arena/01a0f3da-in4up: 2a6b219 (feat gop 16 file — noi dung tuong duong b4e6550 + 8c0969d + 4355b92, kem merge lane VIDEO/LISTEN-LIB cua agent khac tren cung branch) + 0ed4662 (fix i18n brace).",
+    "CI run 36898178031 SUCCESS tren 0ed4662: toan bo job xanh, gom buoc 'I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001' chay 28 test thuan va buoc 'I4U18 tests — Video/Listen Library' cua lane agent khac.",
+    "Test: test/model_bundle_scanner_test.dart (16 case), test/dict_bundle_scanner_test.dart (12 case).",
+    "Lich su: GH_TOKEN sandbox het han 2026-09-30 (blocker cu) — user da reconnect GitHub, push thanh cong 2026-10-01.",
+    "PR #67 (base arena/01a0251e-in4up): https://github.com/Pabhassaracitto/In4Up/pull/67 — cho merge + nghiem thu thiet bi; ca 2 card van doing."
+  ],
+  "files": [
+    "packages/in4up_stt/lib/import/model_bundle_scanner.dart",
+    "packages/in4up_stt/lib/sherpa_model_manager.dart",
+    "packages/in4up_stt/lib/in4up_stt.dart",
+    "lib/screens/settings/stt_model_settings_screen.dart",
+    "test/model_bundle_scanner_test.dart",
+    "lib/features/dictionary/services/dict_bundle_scanner.dart",
+    "lib/features/dictionary/services/dictionary_service.dart",
+    "lib/features/dictionary/services/dict_import_service.dart",
+    "lib/features/dictionary/models/dict_info.dart",
+    "lib/features/dictionary/widgets/dict_manager_screen.dart",
+    "test/dict_bundle_scanner_test.dart",
+    "lib/core/language/priority_ui_overrides.dart",
+    "tool/legacy_ui_english_overrides.json",
+    ".github/workflows/app_analyze.yml",
+    "docs/project/KANBAN.md"
+  ]
+}

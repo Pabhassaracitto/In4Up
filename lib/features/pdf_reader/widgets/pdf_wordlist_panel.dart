@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/tts/tts_service.dart';
+import '../services/pdf_file_identity.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
 
@@ -26,9 +27,13 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
   String _sortMode = 'added'; // 'added' | 'alpha' | 'mastery'
 
   List<WordEntry> _getWordsFromFile(VocabularyProvider p) {
+    // So khớp THEO TÊN FILE: `VocabContext.fileName` từng được sinh bằng
+    // split('/') ở controller còn panel thì cắt theo Platform.pathSeparator →
+    // trên Windows hai bên không bao giờ khớp, panel hiện "chưa có từ nào".
+    final wanted = pdfBaseName(widget.pdfFileName);
     final words = p.allWords
         .where((w) => w.contexts.any(
-              (c) => c.sourceName == widget.pdfFileName,
+              (c) => pdfSourceMatches(c.sourceName, wanted),
             ))
         .toList();
 

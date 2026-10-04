@@ -56,7 +56,7 @@ class AudioMarker {
       'startTime': startTime.inMilliseconds,
       'endTime': endTime?.inMilliseconds,
       'label': label,
-      'color': color.value,
+      'color': color.toARGB32(),
       'type': type.name,
       'createdAt': createdAt.toIso8601String(),
     };

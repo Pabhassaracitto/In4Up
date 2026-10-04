@@ -1,10 +1,11 @@
+// ignore_for_file: unintended_html_in_doc_comment
 // in4up v11.0 — LrcLine với Content-Anchored UID + joinKey
 
-import 'dart:convert';
-import 'models/content_id.dart';
 import 'dart:io';
-import 'package:crypto/crypto.dart';
+
 import 'package:flutter/foundation.dart';
+
+import 'models/content_id.dart';
 import 'models/stt_result.dart';
 
 // ─── LrcWord ──────────────────────────────────────────────────────────────────

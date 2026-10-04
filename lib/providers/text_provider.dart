@@ -14,18 +14,27 @@ import '../features/grammar/models/grammar_highlight_style.dart';
 import '../features/grammar/models/grammar_palette.dart';
 import '../features/grammar/services/grammar_preset_library_service.dart';
 import '../features/grammar/services/grammar_settings_service.dart';
+import '../features/writing/models/writing_source_request.dart';
+import '../features/shadowing/services/phoneme_analyzer.dart';
 import '../features/translation/text_provider_translation.dart';
 import '../features/translation/translation_display_mode.dart';
 import '../features/tts/tts_service.dart';
 import '../models/color_mode.dart';
+import '../models/ipa_color_visibility.dart';
+import '../models/ipa_display_mode.dart';
 import '../models/text_item.dart';
 import '../models/text_segment.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
 import '../screens/memory_mode/memory_provider.dart';
+import '../services/ipa_stress_annotator.dart';
+import '../services/ipa_styling.dart';
+import '../services/line_ipa_service.dart';
+import '../services/reader_display_settings.dart';
 import '../services/storage_service.dart'; // ★ THÊM
 import '../services/syntax_highlighter_service.dart';
+import '../services/text_source_loader.dart';
 import '../services/text_splitter_service.dart';
 import 'vocabulary_bridge.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -45,6 +54,15 @@ enum TextSourceType {
   localFile,
   cloud,
   generated,
+
+  /// Ảnh → văn bản bằng OCR on-device (ML Kit Text Recognition v2).
+  /// ADR-0009 · KANBAN OCR-001. `_currentTextPath` giữ đường dẫn ẢNH GỐC
+  /// để còn "mở lại đúng nguồn" (rule vàng #3) — không phải file text.
+  ///
+  /// Enum này KHÔNG được persist ở đâu cả (chỉ là state runtime của
+  /// TextProvider, reset trong `clearText()`), và codebase không có
+  /// `switch` exhaustive nào trên nó → thêm giá trị là thay đổi an toàn.
+  ocr,
 }
 
 class TextProvider extends ChangeNotifier with TranslationMixin {
@@ -139,9 +157,25 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? _currentCloudId;
   String? _currentTextCategory;
 
+  // ==================== WRITING HANDOFF ====================
+  WritingSourceRequest? _writingSourceRequest;
+  int _writingSourceVersion = 0;
+
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
   ColorMode _colorMode = ColorMode.none;
+  IpaDisplayMode _ipaDisplayMode = IpaDisplayMode.hidden;
+  bool _ipaColorByType = false; // READ-IPA-004: tô màu phoneme (default OFF)
+  bool _ipaFadeKnown = false; // READ-IPA-004: mờ IPA từ đã thuộc (OFF)
+  bool _phonemeEngineLoading = false;
+
+  // READ-IPA-006: panel màu IPA tương tác.
+  bool _ipaLegendVisible = false; // panel đang mở (default ẩn)
+  IpaColorVisibility _ipaColorVisibility = IpaColorVisibility.all;
+
+  // Cache vết nối âm + âm tiết nhấn theo content dòng (P2/P3).
+  final Map<String, List<IpaLinkMark>> _linkMarkCache = {};
+  final Map<String, IpaLineStress> _stressCache = {};
   GrammarHighlightSettings _grammarSettings =
       GrammarHighlightSettings.defaults();
   List<GrammarHighlightPreset> _availableGrammarPresets =
@@ -191,6 +225,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   TextSourceType get currentSourceType => _currentSourceType;
   String? get currentCloudId => _currentCloudId;
   String? get currentTextCategory => _currentTextCategory;
+  WritingSourceRequest? get writingSourceRequest => _writingSourceRequest;
+  int get writingSourceVersion => _writingSourceVersion;
   bool get isCurrentTextFromCloud =>
       _currentSourceType == TextSourceType.cloud && _currentCloudId != null;
   String? get currentContextSourceRef {
@@ -204,6 +240,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   String? get currentContextSourceRefType {
     if (isCurrentTextFromCloud && _currentCloudId != null) return 'cloudText';
     if (_currentTextPath != null && _currentTextPath!.trim().isNotEmpty) {
+      // OCR: `localPath` là đường dẫn ẢNH, không phải file text. Khai
+      // 'localText' sẽ khiến chỗ reopen gọi `loadTextFile(ảnh)` →
+      // `readAsString()` trên JPEG throw → bấm "Mở lại" không ăn gì.
+      // ADR-0009 · OCR-001: dùng refType riêng để reopen QUÉT LẠI ảnh.
+      if (_currentSourceType == TextSourceType.ocr) return 'ocrImage';
       return 'localText';
     }
     return null;
@@ -232,6 +273,13 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       translationDisplayMode != TranslationDisplayMode.hidden; // CHANGED
   bool get showWordTypes => _showWordTypes;
   bool get showLineNumbers => _showLineNumbers;
+  bool get wordTapBoxes => ReaderDisplaySettings().wordTapBoxes;
+
+  /// Bật/tắt "box từng từ" (tap để lưu) — persist qua ReaderDisplaySettings.
+  Future<void> setWordTapBoxes(bool value) async {
+    await ReaderDisplaySettings().setWordTapBoxes(value);
+    notifyListeners();
+  }
   bool get useAutoSplit => _useAutoSplit;
   ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;
@@ -276,6 +324,22 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         (m) => m.name == savedColorMode,
         orElse: () => ColorMode.none,
       );
+
+      // Restore IPA display mode (READ-IPA-001) + options (READ-IPA-004)
+      final savedIpaMode = _storage.getIpaDisplayMode();
+      _ipaDisplayMode = IpaDisplayMode.values.firstWhere(
+        (m) => m.name == savedIpaMode,
+        orElse: () => IpaDisplayMode.hidden,
+      );
+      _ipaColorByType = _storage.getIpaColorByType();
+      _ipaFadeKnown = _storage.getIpaFadeKnown();
+      // READ-IPA-006: khôi phục bảng màu + độ mở panel.
+      _ipaColorVisibility =
+          IpaColorVisibility.fromJsonString(_storage.getIpaColorVisibilityJson());
+      _ipaLegendVisible = _storage.getIpaLegendVisible();
+      if (_ipaDisplayMode != IpaDisplayMode.hidden || _ipaColorByType) {
+        _ensurePhonemeEngine();
+      }
 
       // Restore alignment
       // final savedAlign = _storage.getTextAlign(); // Tạm thời bỏ qua nếu StorageService chưa có
@@ -421,6 +485,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   // ==================== TEXT MANAGEMENT ====================
 
   void loadText(String content, {String? title}) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(sourceType: TextSourceType.manual);
   }
@@ -433,6 +498,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     String? cloudId,
     String? category,
   }) {
+    _writingSourceRequest = null;
     _parsePlainText(content, title: title);
     _setSourceMeta(
       sourceType: sourceType,
@@ -442,24 +508,72 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     );
   }
 
-  Future<void> loadTextFile(String path, {String? title}) async {
+  /// Chuyển nội dung từ Web/PDF Reader thẳng sang một nhiệm vụ trong tab Viết.
+  ///
+  /// Reader chỉ chuẩn bị nguồn và ý định. Writing Studio vẫn cho phép người học
+  /// đổi sang bất kỳ dạng bài nào sau khi quay lại.
+  void loadWritingSource(
+    String content, {
+    required String title,
+    required WritingTaskType task,
+    required WritingSourceKind kind,
+    required String sourceLabel,
+    bool isExcerpt = false,
+  }) {
+    loadFromString(
+      content,
+      title: title,
+      sourceType: TextSourceType.generated,
+    );
+    _writingSourceRequest = WritingSourceRequest(
+      task: task,
+      kind: kind,
+      sourceLabel: sourceLabel,
+      isExcerpt: isExcerpt,
+    );
+    _writingSourceVersion++;
+    notifyListeners();
+  }
+
+  /// Nạp file text (.txt, .md, .json, .docx, .lrc, .srt) vào pipeline Đọc.
+  /// Trả về true nếu nạp được; false nếu file không tồn tại / không đọc
+  /// được / .doc binary cũ (caller tự hiện thông báo cho user).
+  Future<bool> loadTextFile(String path, {String? title}) async {
     try {
+      _writingSourceRequest = null;
       final file = File(path);
       if (!await file.exists()) {
         debugPrint('TextProvider.loadTextFile: File not found: $path');
-        return;
+        return false;
       }
 
-      final content = await file.readAsString();
       final lower = path.toLowerCase();
       final docTitle = title ?? _extractFileName(path);
 
+      // .doc binary cũ (không phải .docx) — không đọc được trực tiếp
+      if (lower.endsWith('.doc') && !lower.endsWith('.docx')) {
+        debugPrint('TextProvider.loadTextFile: .doc legacy không hỗ trợ: $path');
+        return false;
+      }
+
       if (lower.endsWith('.lrc')) {
-        _parseLrc(content, title: docTitle);
+        _parseLrc(await file.readAsString(), title: docTitle);
       } else if (lower.endsWith('.srt')) {
-        _parseSrt(content, title: docTitle);
+        _parseSrt(await file.readAsString(), title: docTitle);
+      } else if (lower.endsWith('.md') ||
+          lower.endsWith('.markdown') ||
+          lower.endsWith('.json') ||
+          lower.endsWith('.docx')) {
+        // md/json/docx → trích text thuần (giữ chữ thật cho pipeline Đọc)
+        final extracted = await TextSourceLoader.extractReadableText(path);
+        if (extracted != null && extracted.trim().isNotEmpty) {
+          _parsePlainText(extracted, title: docTitle);
+        } else {
+          // Fallback: đọc thô (json hỏng sẽ hiện text gốc)
+          _parsePlainText(await file.readAsString(), title: docTitle);
+        }
       } else {
-        _parsePlainText(content, title: docTitle);
+        _parsePlainText(await file.readAsString(), title: docTitle);
       }
 
       _setSourceMeta(
@@ -469,8 +583,18 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
       // ★ THÊM: Save last text path
       _storage.saveLastTextPath(path);
+
+      // ★ REOPEN FIX: mở lại document cũ → paint lại translations từ cache
+      //   (MD5 ổn định) — không dịch lại từ mạng như bài mới.
+      unawaited(rehydrateTranslationsFromCache());
+      if (_lines.isEmpty) {
+        debugPrint('TextProvider.loadTextFile: không trích được dòng chữ: $path');
+        return false;
+      }
+      return true;
     } catch (e) {
       debugPrint('TextProvider.loadTextFile error: $e');
+      return false;
     }
   }
 
@@ -504,6 +628,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _currentCloudId = null;
     _currentTextCategory = null;
     _currentSourceType = TextSourceType.manual;
+    _writingSourceRequest = null;
     notifyListeners();
   }
 
@@ -547,47 +672,139 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   }
 
   void _parsePlainText(String content, {String? title}) {
-    _fullText = content;
+    try {
+      // Issue1 fix: reset translation state để tránh black screen khi AI doc -> Cloud doc
+      try {
+        resetTranslationForNewDocument();
+      } catch (_) {}
+      
+      _fullText = content;
 
-    List<String> lineStrings;
-    if (_useAutoSplit) {
-      // Mặc định tách dòng thông minh
-      lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
-    } else {
-      // Hiển thị nguyên bản (theo dòng trong file)
-      lineStrings =
-          content.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    }
+      List<String> lineStrings;
+      if (_useAutoSplit) {
+        lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
+      } else {
+        lineStrings =
+            content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      }
 
-    _lines = lineStrings.asMap().entries.map((entry) {
-      return TextItem(
-        id: 'line_${entry.key}',
-        content: entry.value.trim(),
+      // Guard: nếu content rỗng hoặc chỉ whitespace, tránh black screen
+      if (lineStrings.isEmpty) {
+        _lines = [];
+        _analyzedLines = [];
+        _currentDocument = TextDocument(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          title: title ?? 'Untitled',
+          lines: _lines,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        _currentLineIndex = -1;
+        _focusCueLineIndex = null;
+        _selectedTextInfo = null;
+        _selectedText = null;
+        notifyListeners();
+        return;
+      }
+
+      _lines = lineStrings.asMap().entries.map((entry) {
+        return TextItem(
+          id: 'line_${entry.key}',
+          content: entry.value.trim(),
+        );
+      }).toList();
+
+      // Guard analyzedLines với try-catch để không crash
+      try {
+        _analyzedLines = SyntaxHighlighterService.analyzeLines(
+          _lines.map((l) => l.content).toList(),
+        );
+      } catch (e) {
+        debugPrint('⚠️ _parsePlainText analyzeLines error: $e — fallback empty');
+        _analyzedLines = List.generate(_lines.length, (_) => []);
+      }
+
+      _currentDocument = TextDocument(
+        id: DateTime.now().millisecondsSinceEpoch.toString(), // luôn tạo id mới để tránh conflict AI->Cloud
+        title: title ?? _currentDocument?.title ?? 'Untitled',
+        lines: _lines,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
       );
-    }).toList();
 
-    _analyzedLines = SyntaxHighlighterService.analyzeLines(
-      _lines.map((l) => l.content).toList(),
-    );
+      _currentLineIndex = -1;
+      _focusCueLineIndex = null;
+      _selectedTextInfo = null;
+      _selectedText = null;
+      notifyListeners();
+    } catch (e, st) {
+      debugPrint('❌ _parsePlainText fatal error: $e\n$st');
+      // Fallback an toàn tránh black screen
+      _lines = [];
+      _analyzedLines = [];
+      _currentDocument = null;
+      _currentLineIndex = -1;
+      _focusCueLineIndex = null;
+      _selectedTextInfo = null;
+      _selectedText = null;
+      _fullText = '';
+      notifyListeners();
+    }
+  }
 
-    _currentDocument = TextDocument(
-      id: _currentDocument?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      title: title ?? _currentDocument?.title ?? 'Untitled',
-      lines: _lines,
-      createdAt: _currentDocument?.createdAt ?? DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+  /// Issue2: áp dụng translations đã lưu từ Cloud entry vào lines hiện tại
+  void applySavedTranslations(List<String>? savedTranslations, String langCode) {
+    if (savedTranslations == null || savedTranslations.isEmpty) return;
+    if (_lines.isEmpty) return;
+    
+    try {
+      for (var i = 0; i < _lines.length && i < savedTranslations.length; i++) {
+        final t = savedTranslations[i];
+        if (t.trim().isNotEmpty) {
+          _lines[i] = _lines[i].copyWith(
+            translation: t.trim(),
+            translationLanguageCode: langCode,
+          );
+        }
+      }
+      debugPrint('✅ Applied ${savedTranslations.where((t) => t.trim().isNotEmpty).length} saved translations for $langCode');
+      notifyListeners();
+      
+      // Tự động hiện translation toolbar nếu có bản dịch
+      if (translatedLineCount > 0 && translationDisplayMode == TranslationDisplayMode.hidden) {
+        setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+      }
+    } catch (e) {
+      debugPrint('⚠️ applySavedTranslations error: $e');
+    }
+  }
 
-    _currentLineIndex = -1;
-    _focusCueLineIndex = null;
-    _selectedTextInfo = null;
-    _selectedText = null;
-    notifyListeners();
+  /// Issue2: lưu translations hiện tại vào Cloud nếu đang đọc file Cloud
+  Future<void> saveCurrentTranslationsToCloud() async {
+    if (!isCurrentTextFromCloud || _currentCloudId == null) return;
+    if (_lines.isEmpty) return;
+    
+    try {
+      final targetLang = translationTargetLanguage.translationCode;
+      final translationsList = _lines.map((l) => l.translation ?? '').toList();
+      final hasAny = translationsList.any((t) => t.trim().isNotEmpty);
+      if (!hasAny) return;
+      
+      // Lưu vào Hive local trước để nhanh
+      final docId = _currentCloudId!;
+      final storageKey = 'translations_${docId}_$targetLang';
+      await _storage.saveSetting(storageKey, translationsList);
+      
+      // TODO: Đồng bộ lên Firestore (cần mở rộng TextLibraryService.updateTranslations)
+      debugPrint('💾 Saved translations locally for $docId lang=$targetLang count=${translationsList.where((t) => t.trim().isNotEmpty).length}');
+    } catch (e) {
+      debugPrint('⚠️ saveCurrentTranslationsToCloud error: $e');
+    }
   }
 
   // ★ THÊM: Phương thức để load kết quả từ STT
   void loadFromSttResult(SttResult result) {
+    _writingSourceRequest = null;
     _fullText = result.fullText;
     _lines = result.segments.map((seg) {
       return TextItem(
@@ -781,6 +998,182 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _storage.saveColorMode(_colorMode.name);
 
     notifyListeners();
+  }
+
+  // ==================== IPA DISPLAY (READ-IPA-001) ====================
+
+  IpaDisplayMode get ipaDisplayMode => _ipaDisplayMode;
+  bool get ipaColorByType => _ipaColorByType;
+  bool get ipaFadeKnown => _ipaFadeKnown;
+
+  /// READ-IPA-006: panel màu IPA đang mở hay không.
+  bool get ipaLegendVisible => _ipaLegendVisible;
+
+  /// READ-IPA-006: trạng thái bật/tắt từng loại màu (default bật hết).
+  IpaColorVisibility get ipaColorVisibility => _ipaColorVisibility;
+
+  void setIpaLegendVisible(bool value) {
+    if (_ipaLegendVisible == value) return;
+    _ipaLegendVisible = value;
+    // Persist để user "ẩn bảng thông tin" giữ nguyên qua các phiên.
+    _storage.saveIpaLegendVisible(value);
+    notifyListeners();
+  }
+
+  void setIpaColorVisible({
+    bool? vowels,
+    bool? consonants,
+    bool? diphthongs,
+    bool? stress,
+    bool? linking,
+    bool? stressWords,
+  }) {
+    final next = _ipaColorVisibility.copyWith(
+      vowels: vowels,
+      consonants: consonants,
+      diphthongs: diphthongs,
+      stress: stress,
+      linking: linking,
+      stressWords: stressWords,
+    );
+    if (next == _ipaColorVisibility) return;
+    _ipaColorVisibility = next;
+    _storage.saveIpaColorVisibility(next.toJson());
+    notifyListeners();
+  }
+
+  void resetIpaColorVisibility() {
+    if (_ipaColorVisibility == IpaColorVisibility.all) return;
+    setIpaColorVisible(
+      vowels: true,
+      consonants: true,
+      diphthongs: true,
+      stress: true,
+      linking: true,
+      stressWords: true,
+    );
+  }
+
+  /// READ-IPA-004: tô màu phoneme theo loại (vowel/consonant/diphthong).
+  /// Bật khi IPA mode đang mở → ensure engine CMU (phoneme types).
+  void setIpaColorByType(bool value) {
+    if (_ipaColorByType == value) return;
+    _ipaColorByType = value;
+    _storage.saveIpaColorByType(value);
+    if (value && _ipaDisplayMode != IpaDisplayMode.hidden) {
+      _ensurePhonemeEngine();
+    }
+    notifyListeners();
+  }
+
+  /// READ-IPA-004: mờ IPA của từ đã MasteryZone.mastered.
+  /// Không cần engine — chỉ đổi alpha lúc render (qua VocabularyBridge).
+  void setIpaFadeKnown(bool value) {
+    if (_ipaFadeKnown == value) return;
+    _ipaFadeKnown = value;
+    _storage.saveIpaFadeKnown(value);
+    notifyListeners();
+  }
+
+  /// Chuyển IPA mode + persist. Khi bật (không phải hidden) ensure
+  /// CMU Dict đã load — lần compute đầu có thể ra G2P (thấp chất lượng
+  /// hơn), khi load xong cache được clear và các dòng compute lại.
+  void setIpaDisplayMode(IpaDisplayMode mode) {
+    if (_ipaDisplayMode == mode) return;
+    _ipaDisplayMode = mode;
+
+    _storage.saveIpaDisplayMode(mode.name);
+
+    if (mode != IpaDisplayMode.hidden) {
+      _ensurePhonemeEngine();
+    }
+
+    notifyListeners();
+  }
+
+  /// Cycle: Tắt → Dòng hiện tại → Toàn văn bản → Tắt …
+  void cycleIpaDisplayMode() {
+    setIpaDisplayMode(_ipaDisplayMode.next);
+  }
+
+  /// Dòng IPA cho [index] — null nếu index ngoài phạm vi.
+  /// Việc ẩn/hiện theo mode (hidden / activeLine) do widget quyết định
+  /// trước khi gọi (selector trong TextLineWidget).
+  String? lineIpaFor(int index) {
+    if (index < 0 || index >= _lines.length) return null;
+    return LineIpaService.buildLineIpa(_lines[index].content);
+  }
+
+  /// Segments (surface + ipa + phonemes) cho [index] — READ-IPA-003.
+  /// Dòng active dựng interlinear từ đây; view phẳng join bằng
+  /// [LineIpaService.flatIpa]. Ẩn/hiện theo mode do widget quyết định.
+  List<IpaSegment>? lineIpaSegmentsFor(int index) {
+    if (index < 0 || index >= _lines.length) return null;
+    return LineIpaService.buildLineIpaSegments(_lines[index].content);
+  }
+
+  /// READ-IPA-006 P2: vết nối âm C→V của dòng (length = segments.length).
+  List<IpaLinkMark>? linkMarksFor(List<IpaSegment>? segments) {
+    if (segments == null) return null;
+    final key = _ipaSegmentsKey(segments);
+    final cached = _linkMarkCache[key];
+    if (cached != null) return cached;
+    if (_linkMarkCache.length >= _ipaMarkCacheCap) _linkMarkCache.clear();
+    return _linkMarkCache[key] = IpaStyling.detectLinkMarks(segments);
+  }
+
+  /// READ-IPA-006 P3: âm tiết nhấn chính của dòng.
+  IpaLineStress? lineStressFor(List<IpaSegment>? segments) {
+    if (segments == null) return null;
+    final key = _ipaSegmentsKey(segments);
+    final cached = _stressCache[key];
+    if (cached != null) return cached;
+    if (_stressCache.length >= _ipaMarkCacheCap) _stressCache.clear();
+    return _stressCache[key] = IpaStressAnnotator.annotate(segments);
+  }
+
+  static const int _ipaMarkCacheCap = 600;
+
+  /// Key cache theo surface + ipa + phonemes — khi CMU load (G2P→CMU) phoneme
+  /// đổi ⇒ key đổi ⇒ cache cũ tự bị bỏ, không trả vết nhấn/nối âm lỗi thời.
+  static String _ipaSegmentsKey(List<IpaSegment> segments) {
+    final b = StringBuffer();
+    for (final s in segments) {
+      b
+        ..write(s.surface)
+        ..write('|')
+        ..write(s.wordCore)
+        ..write('|')
+        ..write(s.ipa ?? '')
+        ..write('|')
+        ..write(s.phonemes.join(','))
+        ..write('\u0001');
+    }
+    return b.toString();
+  }
+
+  /// Xóa cache P2/P3 khi nội dung thay đổi (gọi cùng clearCache của IPA).
+  void clearIpaMarkCaches() {
+    _linkMarkCache.clear();
+    _stressCache.clear();
+  }
+
+  void _ensurePhonemeEngine() {
+    if (PhonemeAnalyzer.isInitialized || _phonemeEngineLoading) return;
+    _phonemeEngineLoading = true;
+    // Fire-and-forget: không block UI; khi xong → clear cache + rebuild
+    // để các dòng đã cache kết quả G2P được thay bằng CMU (chính xác).
+    unawaited(
+      PhonemeAnalyzer.initialize().then((_) {
+        _phonemeEngineLoading = false;
+        LineIpaService.clearCache();
+        clearIpaMarkCaches();
+        notifyListeners();
+      }).catchError((Object e) {
+        _phonemeEngineLoading = false;
+        debugPrint('⚠️ Phoneme engine init failed: $e');
+      }),
+    );
   }
 
   // ==================== TEXT SELECTION ====================

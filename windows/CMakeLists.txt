@@ -77,6 +77,54 @@ endif()
 
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+# === Local GGUF inference backend (llama.cpp shallow submodule) ===
+# Dart FFI mở in4up_ai_native.dll lúc runtime; nếu thiếu submodule, configure
+# vẫn thành công (chỉ WARNING) và Dart engine fallback về mock.
+set(_IN4UP_LLAMA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/llama.cpp")
+
+# Tự init submodule nếu thiếu (git có sẵn). Lý do: token GitHub App của repo
+# không có quyền `workflows` nên KHÔNG thể sửa .github/workflows để thêm bước
+# "git submodule update"; tự chữa tại configure giúp CI (chạy workflow gốc)
+# vẫn build + kiểm chứng được native backend, và dev local khỏi cần lệnh tay.
+if(NOT EXISTS "${_IN4UP_LLAMA_DIR}/CMakeLists.txt")
+  get_filename_component(_IN4UP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+  find_program(GIT_EXECUTABLE git)
+  if(GIT_EXECUTABLE AND EXISTS "${_IN4UP_ROOT}/.git")
+    execute_process(
+      COMMAND "${GIT_EXECUTABLE}" submodule update --init --depth 1 -- third_party/llama.cpp
+      WORKING_DIRECTORY "${_IN4UP_ROOT}"
+      RESULT_VARIABLE _IN4UP_GIT_RC
+      OUTPUT_QUIET ERROR_QUIET
+    )
+  endif()
+endif()
+
+if(EXISTS "${_IN4UP_LLAMA_DIR}/CMakeLists.txt")
+  set(LLAMA_BUILD_COMMON    OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_TESTS     OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_EXAMPLES  OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_TOOLS     OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_SERVER    OFF CACHE BOOL "" FORCE)
+  set(LLAMA_BUILD_LLAMA_CLI OFF CACHE BOOL "" FORCE)
+  set(GGML_OPENMP           OFF CACHE BOOL "" FORCE)
+  set(GGML_NATIVE           OFF CACHE BOOL "" FORCE)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  add_subdirectory(${_IN4UP_LLAMA_DIR} ${CMAKE_CURRENT_BINARY_DIR}/llama.cpp EXCLUDE_FROM_ALL)
+
+  add_library(in4up_ai_native SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/../packages/in4up_ai/native/in4up_ai_native.cpp
+  )
+  target_compile_features(in4up_ai_native PRIVATE cxx_std_17)
+  target_compile_options(in4up_ai_native PRIVATE /EHsc)
+  target_include_directories(in4up_ai_native PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../packages/in4up_ai/native
+    ${_IN4UP_LLAMA_DIR}/include
+  )
+  target_link_libraries(in4up_ai_native PRIVATE llama)
+else()
+  message(WARNING "[in4up-ai] third_party/llama.cpp missing. Run: git submodule update --init --depth 1. AI native backend disabled; Dart falls back to mock.")
+endif()
+
 # === PATCH: Workaround for broken Windows plugins ===
 # Issue: ffmpeg_kit_flutter_new v4.2.1 fails with C1083
 #   Cannot open include file: 'include/ffmpeg_kit_flutter_new_full/f_fmpeg_kit_flutter_plugin.h'
@@ -202,6 +250,13 @@ install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}
 
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
+
+# AI chat native backend — ship the DLL next to the executable (release bundle).
+if(TARGET in4up_ai_native)
+  install(FILES $<TARGET_FILE:in4up_ai_native>
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
 
 if(PLUGIN_BUNDLED_LIBRARIES)
   install(FILES "${PLUGIN_BUNDLED_LIBRARIES}"

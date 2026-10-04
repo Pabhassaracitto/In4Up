@@ -1,3 +1,4 @@
+// ignore_for_file: unintended_html_in_doc_comment
 //
 // FIX kẹt 5%: dùng await for trực tiếp trên stream (theo cách của yt_service_explode.dart)
 //             Bỏ StreamController trung gian gây race condition

@@ -1188,4 +1188,357 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'thế giới';
+
+  @override
+  String get shellUiSettings => 'Giao diện shell';
+
+  @override
+  String get shellUiSettingsSubtitle =>
+      'Compact mode, auto-hide, long-press đổi mode';
+
+  @override
+  String get learnByHeart => 'Thuộc lòng (Learn by Heart)';
+
+  @override
+  String get learnByHeartSubtitle =>
+      'Kinh Pháp Cú, kinh tụng & đoạn kinh ý nghĩa';
+
+  @override
+  String get soundList => 'Âm mục';
+
+  @override
+  String get soundListSubtitle => 'Điểm, đoạn & mục lục âm thanh';
+
+  @override
+  String get lhb_0 => 'Để sau';
+
+  @override
+  String get lhb_1 => 'Kiểm tra ngay';
+
+  @override
+  String get lhb_2 => 'Kiểm tra thực chất';
+
+  @override
+  String get lhb_3 => 'Điền khuyết';
+
+  @override
+  String get lhb_4 => 'Ý nghĩa → Kinh';
+
+  @override
+  String get lhb_5 => 'Nghe & Đọc tiếp';
+
+  @override
+  String get lhb_6 => 'Xem đáp án để đối chiếu';
+
+  @override
+  String get lhb_7 => 'Phát nửa câu đầu';
+
+  @override
+  String get lhb_8 => 'Hiện phần còn lại để kiểm tra';
+
+  @override
+  String get lhb_9 => 'Quay lại';
+
+  @override
+  String get lhb_10 => 'Tiếp theo';
+
+  @override
+  String get lhb_11 => 'Thêm bài kinh mới';
+
+  @override
+  String get lhb_12 => 'Khôi phục mẫu gốc';
+
+  @override
+  String get lhb_13 => 'Thêm bài mới';
+
+  @override
+  String get lhb_14 => 'Tất cả thể loại';
+
+  @override
+  String get lhb_15 => 'Tất cả trạng thái';
+
+  @override
+  String get lhb_16 => 'Ôn Active Recall';
+
+  @override
+  String get lhb_17 => 'Học cuốn chiếu';
+
+  @override
+  String get lhb_18 => 'Chỉnh sửa';
+
+  @override
+  String get lhb_19 => 'Xóa bài';
+
+  @override
+  String get lhb_20 => 'Xác nhận xóa';
+
+  @override
+  String get lhb_21 =>
+      'Bạn có chắc muốn xóa bài học này không? Tiến trình ôn tập sẽ bị mất.';
+
+  @override
+  String get lhb_22 => 'Hủy';
+
+  @override
+  String get lhb_23 => 'Xóa';
+
+  @override
+  String get lhb_24 => 'Khôi phục dữ liệu mẫu';
+
+  @override
+  String get lhb_25 => 'Khôi phục';
+
+  @override
+  String get audit_0 => 'Gần đây';
+
+  @override
+  String get audit_1 => 'Gần đây nhất';
+
+  @override
+  String get audit_2 => 'Thư viện';
+
+  @override
+  String get audit_3 => 'Thư viện âm thanh';
+
+  @override
+  String get audit_4 => 'Thư viện nghe';
+
+  @override
+  String get audit_5 => 'Listen';
+
+  @override
+  String get audit_6 => 'Read';
+
+  @override
+  String get audit_7 => 'Note listened';
+
+  @override
+  String get audit_8 => 'Recent';
+
+  @override
+  String get audit_9 => 'Cloud';
+
+  @override
+  String get audit_10 => 'Device';
+
+  @override
+  String get audit_11 => 'Unread';
+
+  @override
+  String get audit_12 => 'Reading Library';
+
+  @override
+  String get audit_13 => 'Writing';
+
+  @override
+  String get audit_14 => 'Speaking';
+
+  @override
+  String get audit_15 => 'Understanding';
+
+  @override
+  String get audit_16 => 'Memory';
+
+  @override
+  String get audit_17 => 'Shell interface';
+
+  @override
+  String get sound_0 => 'Điểm';
+
+  @override
+  String get sound_1 => 'Đoạn';
+
+  @override
+  String get sound_2 => 'Mục lục';
+
+  @override
+  String get sound_3 => 'Nội dung';
+
+  @override
+  String get sound_4 => 'Chương';
+
+  @override
+  String get sound_5 => 'Ghi chú';
+
+  @override
+  String get sound_6 => 'Ghi chú mục';
+
+  @override
+  String get sound_7 => 'Đánh dấu';
+
+  @override
+  String get sound_8 => 'Tìm kiếm';
+
+  @override
+  String get sound_9 => 'Làm mới';
+
+  @override
+  String get sound_10 => 'Phát';
+
+  @override
+  String get sound_11 => 'Thêm';
+
+  @override
+  String get sound_12 => 'Tất cả';
+
+  @override
+  String get sound_13 => 'Tự tạo';
+
+  @override
+  String get sound_14 => 'Lưu';
+
+  @override
+  String get sound_15 => 'Hủy';
+
+  @override
+  String get sound_16 => 'Xóa';
+
+  @override
+  String get sound_17 => 'Đổi tên';
+
+  @override
+  String get sound_18 => 'Âm mục';
+
+  @override
+  String get sound_19 => 'Âm mục còn trống';
+
+  @override
+  String get sound_20 => 'Âm mục — Thư viện âm thanh';
+
+  @override
+  String get sound_21 => 'Chưa có mục lục.';
+
+  @override
+  String get sound_22 => 'Chưa có điểm nào.';
+
+  @override
+  String get sound_23 => 'Chưa có đoạn nào.';
+
+  @override
+  String get sound_24 =>
+      'File chưa có dữ liệu — mở trong Listen Mode và đánh dấu.';
+
+  @override
+  String get sound_25 => 'Không tìm thấy kết quả cho từ khóa này.';
+
+  @override
+  String get sound_26 => 'Không có trong danh sách quan sát';
+
+  @override
+  String get soundRelated => 'Liên quan';
+
+
+  @override
+  String get aiProvidersTitle => 'Server & API cho AI';
+
+  @override
+  String get aiProvidersSubtitle => 'Dùng model từ cloud hoặc server trong nhà. Offline vẫn là mặc định.';
+
+  @override
+  String get aiProvidersEntryTitle => 'Server & API (mây / LAN)';
+
+  @override
+  String get aiProvidersEntrySubtitle => 'Thêm model online — giải phóng RAM, offline vẫn dự phòng';
+
+  @override
+  String get aiProvidersEmpty => 'Chưa cấu hình nhà cung cấp nào. App vẫn hoạt động offline đầy đủ như trước.';
+
+  @override
+  String get aiProviderAdd => 'Thêm nhà cung cấp';
+
+  @override
+  String get aiProviderEdit => 'Sửa nhà cung cấp';
+
+  @override
+  String get aiProviderLabel => 'Tên hiển thị';
+
+  @override
+  String get aiProviderBaseUrl => 'Địa chỉ server (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API key';
+
+  @override
+  String get aiProviderApiKeyHint => 'Server nhà có thể bỏ trống';
+
+  @override
+  String get aiProviderPreset => 'Mẫu sẵn';
+
+  @override
+  String get aiProviderPresetCustom => 'Tự nhập…';
+
+  @override
+  String get aiProviderTestConnection => 'Kiểm tra kết nối';
+
+  @override
+  String get aiProviderConnectionOk => 'Đã kết nối';
+
+  @override
+  String get aiProviderConnectionFail => 'Kết nối thất bại';
+
+  @override
+  String get aiProviderLoadModels => 'Tải danh sách model';
+
+  @override
+  String get aiProviderModelsLabel => 'model';
+
+  @override
+  String get aiProviderChatModel => 'Model chat / phân tích';
+
+  @override
+  String get aiProviderSttModel => 'Model bóc băng (STT)';
+
+  @override
+  String get aiProviderTtsModel => 'Model đọc chữ (TTS)';
+
+  @override
+  String get aiProviderNoModels => 'Hãy tải danh sách model trước';
+
+  @override
+  String get aiProviderNone => 'Không dùng';
+
+  @override
+  String get aiProviderEnabled => 'Đang bật';
+
+  @override
+  String get aiProviderDelete => 'Xoá';
+
+  @override
+  String get aiProviderDeleteConfirm => 'Xoá nhà cung cấp này cùng toàn bộ cấu hình?';
+
+  @override
+  String get aiRoutingTitle => 'Khi nào dùng model online';
+
+  @override
+  String get aiRoutingChat => 'Chat & phân tích AI';
+
+  @override
+  String get aiRoutingStt => 'Bóc băng file audio';
+
+  @override
+  String get aiRoutingTranslation => 'Dịch thuật';
+
+  @override
+  String get aiRoutingTts => 'Đọc chữ (TTS)';
+
+  @override
+  String get aiRouteOfflineFirst => 'Ưu tiên offline';
+
+  @override
+  String get aiRouteOnlineFirst => 'Ưu tiên online';
+
+  @override
+  String get aiRouteOfflineOnly => 'Chỉ offline';
+
+  @override
+  String get aiRoutingProvider => 'Nhà cung cấp';
+
+  @override
+  String get aiProviderSave => 'Lưu';
+
+  @override
+  String get aiProviderCancel => 'Huỷ';
+
+  @override
+  String get aiProvidersPrivacy => 'Audio và text chỉ được gửi tới nhà cung cấp bạn chọn. Server nhà (LAN) giữ dữ liệu trong mạng của bạn.';
 }

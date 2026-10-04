@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/translation/translation_display_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
@@ -83,6 +84,20 @@ class ReadBottomBar extends StatelessWidget {
                   ),
                   SizedBox(width: isSmall ? 6 : 12),
 
+                  // IPA stacked line — cycle: Tắt → Dòng hiện tại → Toàn văn
+                  // Icons.abc đã dùng trong repo (phoneme_display) — an toàn.
+                  _BarAction(
+                    icon: Icons.abc,
+                    isActive: tp.ipaDisplayMode != IpaDisplayMode.hidden,
+                    activeThumbColor: const Color(0xFF4DD0E1),
+                    compact: isSmall,
+                    onTap: () {
+                      tp.cycleIpaDisplayMode();
+                      _showIpaModeHint(context, tp.ipaDisplayMode);
+                    },
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+
                   // TTS current line
                   _BarAction(
                     icon: tp.isSpeaking
@@ -126,6 +141,28 @@ class ReadBottomBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showIpaModeHint(BuildContext context, IpaDisplayMode mode) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.abc, color: Color(0xFF4DD0E1), size: 18),
+            const SizedBox(width: 8),
+            Text('IPA · ${context.uiText(mode.label)}'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2A2A3E),
+        duration: const Duration(milliseconds: 1400),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 72),
       ),
     );
   }

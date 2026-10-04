@@ -1,0 +1,1254 @@
+import 'dart:async';
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/services.dart';
+// sherpa_model_manager re-export cả asr_model_routing (profile + router).
+import 'package:in4up_stt/sherpa_model_manager.dart';
+
+import 'package:in4up/screens/settings/stt_model_settings_screen.dart';
+
+import '../models/cabin_caption.dart';
+import '../services/cabin_asr_plan.dart';
+import '../services/stts_cabin_service.dart';
+import '../../translation/engines/hymt_engine.dart';
+import '../../translation/translation_toolbar.dart';
+import '../../translation/translation_service.dart';
+import '../services/cabin_session_settings.dart';
+import '../services/cabin_session_store.dart';
+import '../widgets/cabin_save_sheet.dart';
+import 'cabin_sessions_screen.dart';
+
+class LiveCabinScreen extends StatefulWidget {
+  const LiveCabinScreen({super.key});
+
+  @override
+  State<LiveCabinScreen> createState() => _LiveCabinScreenState();
+}
+
+class _LiveCabinScreenState extends State<LiveCabinScreen>
+    with SingleTickerProviderStateMixin {
+  final SttsCabinService _service = SttsCabinService();
+  final ScrollController _scrollController = ScrollController();
+  final SherpaModelManager _modelManager = SherpaModelManager();
+
+  /// State cài đặt model (để đánh dấu ngôn ngữ nào chưa có model offline).
+  SherpaAsrInfo _asrInfo = const SherpaAsrInfo();
+  StreamSubscription<SherpaAsrInfo>? _asrSub;
+
+  late AnimationController _pulseController;
+  bool _showHeadphoneBanner = false;
+  Timer? _bannerTimer;
+
+  // CABIN-SAVE-001
+  Timer? _recTicker;
+  bool _handlingPending = false;
+
+  static const _supportedLanguages = <String, String>{
+    'en': 'English',
+    'vi': 'Tiếng Việt',
+    'zh': '中文 (Chinese)',
+    'fr': 'Français (French)',
+    'de': 'Deutsch (German)',
+    'ja': '日本語 (Japanese)',
+    'ko': '한국어 (Korean)',
+    'th': 'ไทย (Thai)',
+    'hi': 'हिन्दी (Hindi)',
+    'si': 'සිංහල (Sinhala)',
+    'my': 'မြန်မာ (Burmese)',
+    'pi': 'Pāli',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _service.addListener(_onServiceUpdate);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _asrInfo = _modelManager.asrInfo;
+    _modelManager.ensureFresh().then((_) {
+      if (mounted) setState(() => _asrInfo = _modelManager.asrInfo);
+    }).catchError((_) {});
+    _asrSub = _modelManager.watchAsr().listen((info) {
+      if (mounted) setState(() => _asrInfo = info);
+    });
+    // CABIN-SAVE-001: nạp cài đặt lưu + khôi phục phiên bị tắt ngang +
+    // xử lý phiên vừa dừng từ bong bóng nổi khi màn này chưa mở.
+    CabinSessionSettings.instance.ensureLoaded();
+    _recTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _service.sessionRecorder != null) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await CabinSessionStore.instance.recoverInterrupted(
+        activeId: _service.sessionRecorder?.session.id,
+      );
+      _checkPendingSession();
+    });
+  }
+
+  /// CABIN-SAVE-001: phiên vừa dừng → hỏi lưu (hoặc tự lưu theo cài đặt).
+  Future<void> _checkPendingSession() async {
+    if (!mounted || _handlingPending) return;
+    final session = _service.takePendingSession();
+    if (session == null) return;
+    _handlingPending = true;
+    try {
+      await handleFinishedCabinSession(context, session);
+    } finally {
+      _handlingPending = false;
+    }
+  }
+
+  Widget _buildRecIndicator() {
+    final rec = _service.sessionRecorder;
+    if (rec == null) {
+      return IconButton(
+        tooltip: _service.canRecordAudio
+            ? context.uiText('Cài đặt lưu phiên')
+            : context.uiText(
+                'Chỉ lưu được văn bản — chuyển sang engine Offline để ghi âm'),
+        icon: Icon(
+          _service.canRecordAudio
+              ? Icons.fiber_manual_record_outlined
+              : Icons.notes_rounded,
+          size: 20,
+        ),
+        onPressed: () => showCabinSaveSettingsSheet(context),
+      );
+    }
+    final audio = rec.hasAudio;
+    final color = audio ? const Color(0xFFFF5252) : Colors.white70;
+    return Tooltip(
+      message: audio
+          ? context.uiText('Đang ghi âm')
+          : context.uiText(
+              'Chỉ lưu được văn bản — chuyển sang engine Offline để ghi âm'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(audio ? Icons.fiber_manual_record : Icons.notes_rounded,
+                color: color, size: audio ? 12 : 16),
+            const SizedBox(width: 4),
+            Text(
+              cabinFmtDuration(rec.elapsed),
+              style: TextStyle(
+                  color: color, fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel();
+    _recTicker?.cancel();
+    _asrSub?.cancel();
+    _service.removeListener(_onServiceUpdate);
+    _pulseController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onServiceUpdate() {
+    if (!mounted) return;
+    setState(() {});
+    if (_service.pendingSession != null) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _checkPendingSession());
+    }
+    // Auto-scroll to bottom on new finalized caption
+    if (_service.displayMode == CabinDisplayMode.fullTranscript &&
+        _scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
+  void _toggleDubbing() {
+    final next = !_service.isDubbingEnabled;
+    _service.setDubbing(next);
+
+    if (next) {
+      // Show headphone reminder banner
+      _bannerTimer?.cancel();
+      setState(() => _showHeadphoneBanner = true);
+      _bannerTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) setState(() => _showHeadphoneBanner = false);
+      });
+    } else {
+      setState(() => _showHeadphoneBanner = false);
+    }
+  }
+
+  void _showLanguagePicker({required bool isSource}) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  context.uiText(isSource ? 'Chọn ngôn ngữ nói (Gốc)' : 'Chọn ngôn ngữ dịch (Đích)'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  children: _supportedLanguages.entries.map((entry) {
+                    final selected = isSource
+                        ? _service.sourceLanguage == entry.key
+                        : _service.targetLanguage == entry.key;
+                    // Đánh dấu ngôn ngữ CHƯA có model offline khi engine
+                    // đang là Sherpa (CABIN-ASR-002: không dẫn user vào ngõ cụt).
+                    final offlineNote = isSource &&
+                            _service.sttEngineType ==
+                                CabinSttEngineType.sherpaOffline
+                        ? _offlineModelNoteFor(entry.key)
+                        : null;
+                    final unavailableOffline = offlineNote != null;
+
+                    return ListTile(
+                      leading: Icon(
+                        selected ? Icons.check_circle : Icons.circle_outlined,
+                        color: selected ? const Color(0xFF00E676) : Colors.grey,
+                      ),
+                      title: Text(
+                        entry.value,
+                        style: TextStyle(
+                          color: selected ? Colors.white : Colors.white70,
+                          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: offlineNote == null
+                          ? null
+                          : Text(
+                              context.uiText(offlineNote),
+                              style: const TextStyle(
+                                color: Colors.orangeAccent,
+                                fontSize: 11,
+                              ),
+                            ),
+                      trailing: Text(
+                        entry.key.toUpperCase(),
+                        style: TextStyle(
+                          color: unavailableOffline
+                              ? Colors.orangeAccent
+                              : Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        if (isSource) {
+                          _service.setSourceLanguage(entry.key);
+                          if (_service.sttEngineType ==
+                              CabinSttEngineType.sherpaOffline) {
+                            try {
+                              await _modelManager.ensureFresh();
+                            } catch (_) {}
+                            final selection = AsrModelRouter.resolve(
+                              entry.key,
+                              isInstalled: _modelManager.isAsrProfileInstalled,
+                            );
+                            if (!selection.isReady && mounted) {
+                              await _showMissingModelDialog(selection);
+                            }
+                          }
+                        } else {
+                          _service.setTargetLanguage(entry.key);
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Ghi chú cho dropdown ngôn ngữ nguồn khi engine Offline:
+  /// `null` = đã có model, ngược lại là message hiển thị.
+  String? _offlineModelNoteFor(String language) {
+    final profile = AsrModelRouter.profileForLanguage(language);
+    if (profile == null) {
+      return 'Chưa hỗ trợ offline — chỉ Engine Hệ thống';
+    }
+    if (!_asrInfo.isReady(profile.id)) {
+      return 'Chưa cài model Zipformer — mở Quản lý Model AI';
+    }
+    return null;
+  }
+
+  void _copyAllTranscript() {
+    if (_service.history.isEmpty) return;
+    final buffer = StringBuffer();
+    for (final c in _service.history) {
+      buffer.writeln('[${c.sourceLang.toUpperCase()}] ${c.sourceText}');
+      buffer.writeln('[${c.targetLang.toUpperCase()}] ${c.translatedText}');
+      buffer.writeln('');
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Đã sao chép toàn bộ nội dung dịch cabin vào bộ nhớ tạm!')),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0E21),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF141A32),
+        elevation: 0,
+        title: Row(
+          children: [
+            const Icon(Icons.interpreter_mode_rounded, color: Color(0xFF00E676), size: 22),
+            const SizedBox(width: 8),
+            Text(
+              context.uiText('Dịch Live Cabin'),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          _buildRecIndicator(),
+          IconButton(
+            tooltip: context.uiText('Phiên đã lưu'),
+            icon: const Icon(Icons.folder_open_rounded, size: 20),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CabinSessionsScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: context.uiText('Sao chép văn bản'),
+            icon: const Icon(Icons.copy_rounded, size: 20),
+            onPressed: _service.history.isNotEmpty ? _copyAllTranscript : null,
+          ),
+          IconButton(
+            tooltip: context.uiText('Xóa lịch sử'),
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            onPressed: _service.history.isNotEmpty
+                ? () {
+                    _service.clearHistory();
+                    HapticFeedback.lightImpact();
+                  }
+                : null,
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Bar: Language Pair Selector & Mode Chips
+            _buildLanguageAndModeBar(),
+
+            // Headphone Warning Banner
+            if (_showHeadphoneBanner) _buildHeadphoneReminder(),
+
+            // Error banner if any
+            if (_service.lastError != null) _buildErrorBanner(),
+
+            // Main Visualizer & Transcript Area
+            Expanded(
+              child: _buildMainContent(),
+            ),
+
+            // Bottom Control Toolbar
+            _buildBottomControlBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageAndModeBar() {
+    final srcName = _supportedLanguages[_service.sourceLanguage] ?? _service.sourceLanguage.toUpperCase();
+    final tgtName = _supportedLanguages[_service.targetLanguage] ?? _service.targetLanguage.toUpperCase();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF141A32),
+        border: Border(bottom: BorderSide(color: Colors.white10)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Source Lang Button
+              Expanded(
+                child: InkWell(
+                  onTap: () => _showLanguagePicker(isSource: true),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1F2847),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            srcName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Swap Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: IconButton(
+                  icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF00E676)),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    _service.swapLanguages();
+                  },
+                ),
+              ),
+
+              // Target Lang Button
+              Expanded(
+                child: InkWell(
+                  onTap: () => _showLanguagePicker(isSource: false),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1F2847),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            tgtName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 18),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Display Mode Segmented Control
+          Row(
+            children: [
+              _buildModeChip('1 Chữ', CabinDisplayMode.oneWord),
+              const SizedBox(width: 8),
+              _buildModeChip('1 Dòng', CabinDisplayMode.oneLine),
+              const SizedBox(width: 8),
+              _buildModeChip('Toàn bộ', CabinDisplayMode.fullTranscript),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // STT Engine Switcher (System vs Offline Sherpa Zipformer) + Dịch Engine
+          Row(
+            children: [
+              _buildEngineChip('Hệ thống', CabinSttEngineType.system, Icons.phone_android_rounded),
+              const SizedBox(width: 8),
+              _buildEngineChip('Offline (sherpa)', CabinSttEngineType.sherpaOffline, Icons.offline_bolt_rounded),
+              const SizedBox(width: 8),
+              _buildTranslationEngineButton(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Chọn engine mic. Engine Offline cần model cho ngôn ngữ nguồn — thiếu thì
+  /// báo RÕ + dẫn đường (Quản lý Model AI) hoặc hỏi xác nhận fallback.
+  Future<void> _handleEngineTap(CabinSttEngineType type) async {
+    HapticFeedback.selectionClick();
+    if (type == CabinSttEngineType.sherpaOffline) {
+      try {
+        await _modelManager.ensureFresh();
+      } catch (_) {}
+      final language = _service.sourceLanguage;
+      final selection = AsrModelRouter.resolve(
+        language,
+        isInstalled: _modelManager.isAsrProfileInstalled,
+      );
+      if (!selection.isReady && mounted) {
+        await _showMissingModelDialog(selection);
+      }
+    }
+    await _service.setSttEngineType(type);
+  }
+
+  /// Dialog thiếu model Zipformer: mở Quản lý Model AI, hoặc xác nhận dùng
+  /// ngôn ngữ đã cài (KHÔNG tự đổi sau lưng user).
+  Future<void> _showMissingModelDialog(AsrModelSelection selection) async {
+    final fallback = selection.fallbackLanguage;
+    final language = selection.requestedLanguage.toUpperCase();
+    final languageNote = fallback?.toUpperCase() ?? '';
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          dialogContext.uiText(
+            selection.issue == AsrModelIssue.noProfileForLanguage
+                ? 'Chưa hỗ trợ nhận diện offline cho $language'
+                : 'Chưa cài model Zipformer cho $language',
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              dialogContext.uiText(
+                selection.issue == AsrModelIssue.noProfileForLanguage
+                    ? 'App chỉ có model offline cho Tiếng Việt và English (streaming). Hãy chọn Tiếng Việt/English hoặc dùng Engine "Hệ thống".'
+                    : 'Cabin chỉ nhận diện $language khi model đã có trên máy. Thiếu model, app KHÔNG tự nhận $language bằng model ngôn ngữ khác.',
+              ),
+            ),
+            if (fallback != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                dialogContext.uiText(
+                  'Máy đang có $languageNote — cần bạn xác nhận mới dùng thay.',
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'manage'),
+            child: Text(dialogContext.uiText('Quản lý Model AI')),
+          ),
+          if (fallback != null)
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, 'fallback'),
+              child: Text(
+                dialogContext.uiText('Dùng ${fallback.toUpperCase()} (đã cài)'),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, null),
+            child: Text(dialogContext.uiText('Để sau')),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (choice == 'manage') {
+      await _openModelManager();
+    } else if (choice == 'fallback') {
+      await _service.confirmFallbackToInstalledLanguage();
+    }
+  }
+
+  Future<void> _openModelManager() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SttModelSettingsScreen()),
+    );
+    // Về từ màn quản lý model → state có thể vừa đổi (import/tải xong).
+    try {
+      await _modelManager.ensureFresh();
+    } catch (_) {}
+    _service.clearModelBlocker();
+    if (mounted) setState(() => _asrInfo = _modelManager.asrInfo);
+  }
+
+  Widget _buildTranslationEngineButton() {
+    final transService = TranslationService();
+    final pref = transService.offlineEnginePref;
+    final isOfflineOnly = transService.offlineOnly;
+    final label = isOfflineOnly
+        ? 'Dịch: ${pref == HyMtOfflinePreference.hymt ? "Hy-MT" : pref == HyMtOfflinePreference.mlkit ? "ML Kit" : "Offline"}'
+        : 'Dịch: Online';
+
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: const Color(0xFF1A1A2E),
+          isScrollControlled: true,
+          useSafeArea: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (ctx) => TranslationEngineSettingsSheet(
+            service: transService,
+            accentColor: const Color(0xFF00E676),
+          ),
+        ).then((_) {
+          if (mounted) setState(() {});
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00E676).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: const Color(0xFF00E676).withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.tune_rounded,
+              size: 14,
+              color: Color(0xFF00E676),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              context.uiText(label),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF00E676),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEngineChip(String label, CabinSttEngineType type, IconData icon) {
+    final isSelected = _service.sttEngineType == type;
+    return Expanded(
+      child: InkWell(
+        onTap: () => _handleEngineTap(type),
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.7)
+                  : Colors.white10,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? const Color(0xFF9E95FF) : Colors.white60,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  context.uiText(label),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected ? const Color(0xFF9E95FF) : Colors.white70,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeChip(String label, CabinDisplayMode mode) {
+    final isSelected = _service.displayMode == mode;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _service.setDisplayMode(mode);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF00E676).withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF00E676).withValues(alpha: 0.6) : Colors.white10,
+            ),
+          ),
+          child: Text(
+            context.uiText(label),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? const Color(0xFF00E676) : Colors.white70,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeadphoneReminder() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E1C0C),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.headphones_rounded, color: Color(0xFFFF9800), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.uiText('Khuyên dùng tai nghe khi bật phát âm để tránh tiếng dịch lọt ngược vào micro!'),
+              style: const TextStyle(color: Color(0xFFFFD54F), fontSize: 11, height: 1.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _errorBannerText(),
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ),
+          if (_service.hasModelBlocker)
+            TextButton(
+              onPressed: _openModelManager,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 28),
+              ),
+              child: Text(
+                context.uiText('Mở Quản lý Model AI'),
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Message lỗi đã bản địa hoá: ưu tiên mô tả trạng thái THIẾU MODEL
+  /// (có dẫn đường), còn lại hiện lỗi kỹ thuật từ service.
+  String _errorBannerText() {
+    if (_service.hasModelBlocker) {
+      final language = (_service.missingModelLanguage ?? '').toUpperCase();
+      final fallback = _service.suggestedFallbackLanguage?.toUpperCase();
+      if (!_service.missingModelHasOfflineProfile) {
+        return context.uiText(
+          'App chưa hỗ trợ nhận diện offline cho $language — chọn Tiếng Việt/English hoặc dùng Engine "Hệ thống".',
+        );
+      }
+      final base = context.uiText(
+        'Chưa cài model Zipformer cho $language. Mở Quản lý Model AI để tải/import.',
+      );
+      if (fallback == null) return base;
+      return '$base ${context.uiText('Hoặc dùng $fallback (đã cài) sau khi xác nhận.')}';
+    }
+    return _service.lastError ?? '';
+  }
+
+  Widget _buildMainContent() {
+    if (_service.displayMode == CabinDisplayMode.oneWord) {
+      return _buildOneWordView();
+    }
+    if (_service.displayMode == CabinDisplayMode.oneLine) {
+      return _buildOneLineView();
+    }
+    return _buildFullTranscriptView();
+  }
+
+  Widget _buildOneWordView() {
+    final active = _service.activeCaption;
+    final lastWord = active?.sourceText.split(RegExp(r'\s+')).lastWhere((w) => w.isNotEmpty, orElse: () => '') ?? '...';
+    final translated = active?.translatedText ?? '';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_service.isListening)
+              FadeTransition(
+                opacity: Tween(begin: 0.4, end: 1.0).animate(_pulseController),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E676).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.mic, color: Color(0xFF00E676), size: 16),
+                      const SizedBox(width: 6),
+                      Text(context.uiText('Đang nghe trực tiếp...'), style: const TextStyle(color: Color(0xFF00E676), fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 30),
+            Text(
+              lastWord.isNotEmpty ? lastWord : '...',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 42,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (translated.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141A32),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  translated,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF00E676),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOneLineView() {
+    final active = _service.activeCaption;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Original Speech Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141A32),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _service.isListening
+                    ? const Color(0xFF6C63FF).withValues(alpha: 0.6)
+                    : Colors.white12,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.record_voice_over_rounded, color: Color(0xFF6C63FF), size: 18),
+                        const SizedBox(width: 6),
+                      Text(
+                        '${context.uiText('GỐC')} (${_service.sourceLanguage.toUpperCase()})',
+                        style: const TextStyle(color: Color(0xFF6C63FF), fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  if (_service.isListening)
+                    FadeTransition(
+                      opacity: Tween(begin: 0.3, end: 1.0).animate(_pulseController),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.circle, color: Color(0xFF00E676), size: 8),
+                          SizedBox(width: 4),
+                          Text('Live', style: TextStyle(color: Color(0xFF00E676), fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                active?.sourceText.isNotEmpty == true
+                    ? active!.sourceText
+                    : context.uiText('Nói vào microphone để bắt đầu dịch cabin...'),
+                style: TextStyle(
+                  color: active?.sourceText.isNotEmpty == true ? Colors.white : Colors.white38,
+                  fontSize: 18,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Translated Output Card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF13222E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF00E676).withValues(alpha: 0.4),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.translate_rounded, color: Color(0xFF00E676), size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${context.uiText('BẢN DỊCH')} (${_service.targetLanguage.toUpperCase()})',
+                        style: const TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  if (active?.translatedText.isNotEmpty == true)
+                    IconButton(
+                      icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF00E676), size: 20),
+                      onPressed: () => _service.replayCaption(active!),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                active?.translatedText.isNotEmpty == true
+                    ? active!.translatedText
+                    : context.uiText('Bản dịch thời gian thực sẽ hiển thị tại đây...'),
+                style: TextStyle(
+                  color: active?.translatedText.isNotEmpty == true
+                      ? const Color(0xFFE8F5E9)
+                      : Colors.white30,
+                  fontSize: 19,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullTranscriptView() {
+    if (_service.history.isEmpty && _service.activeCaption == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.mic_none_rounded, size: 64, color: Colors.white.withValues(alpha: 0.15)),
+            const SizedBox(height: 16),
+            Text(
+              context.uiText('Chưa có dữ liệu hội thoại.\nBấm nút Micro để bắt đầu phiên dịch cabin.'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white38, fontSize: 14, height: 1.5),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final items = [..._service.history];
+    if (_service.activeCaption != null && !_service.activeCaption!.isFinal) {
+      items.add(_service.activeCaption!);
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final caption = items[index];
+        return _buildTranscriptCard(caption, index);
+      },
+    );
+  }
+
+  Widget _buildTranscriptCard(CabinCaption caption, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141A32),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: caption.isFinal ? Colors.white10 : const Color(0xFF00E676).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '#${index + 1} · ${_fmtTime(caption.timestamp)}',
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (caption.translatedText.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.volume_up_rounded, size: 16, color: Color(0xFF00E676)),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _service.replayCaption(caption),
+                    ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 15, color: Colors.grey),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: '${caption.sourceText}\n${caption.translatedText}'));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(context.uiText('Đã chép câu dịch!')), duration: const Duration(seconds: 1)),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            caption.sourceText,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          if (caption.translatedText.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              caption.translatedText,
+              style: const TextStyle(
+                color: Color(0xFF00E676),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomControlBar() {
+    final isListening = _service.isListening;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      decoration: const BoxDecoration(
+        color: Color(0xFF141A32),
+        border: Border(top: BorderSide(color: Colors.white10)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Dubbing Switch (Phát âm bản dịch)
+          InkWell(
+            onTap: _toggleDubbing,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _service.isDubbingEnabled
+                    ? const Color(0xFF00E676).withValues(alpha: 0.18)
+                    : Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _service.isDubbingEnabled ? const Color(0xFF00E676) : Colors.white12,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _service.isDubbingEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    color: _service.isDubbingEnabled ? const Color(0xFF00E676) : Colors.grey,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    context.uiText('Đọc dịch'),
+                    style: TextStyle(
+                      color: _service.isDubbingEnabled ? const Color(0xFF00E676) : Colors.grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Main Mic Toggle Button
+          GestureDetector(
+            onTap: () async {
+              HapticFeedback.heavyImpact();
+              if (isListening) {
+                await _service.stopCabin();
+              } else {
+                await _service.startCabin();
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isListening ? const Color(0xFFFF5252) : const Color(0xFF00E676),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isListening ? const Color(0xFFFF5252) : const Color(0xFF00E676)).withValues(alpha: 0.4),
+                    blurRadius: 18,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Icon(
+                isListening ? Icons.stop_rounded : Icons.mic_rounded,
+                color: Colors.black,
+                size: 32,
+              ),
+            ),
+          ),
+
+          // Pause / Resume Button
+          IconButton(
+            icon: Icon(
+              _service.isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              color: isListening || _service.isPaused ? Colors.white : Colors.white30,
+              size: 28,
+            ),
+            onPressed: isListening || _service.isPaused
+                ? () {
+                    HapticFeedback.mediumImpact();
+                    _service.togglePause();
+                  }
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fmtTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    final s = dt.second.toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+}

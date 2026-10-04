@@ -1,5 +1,7 @@
 // lib/screens/read_mode/read_mode_screen.dart
 // Thêm tracking tiến độ đọc vào code hiện tại
+import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,14 +10,24 @@ import 'package:in4up/models/word_entry.dart';
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
+import '../../models/ipa_display_mode.dart';
+import '../../models/learning_activity.dart';
+import '../../models/read_content_source.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../services/learning_activity_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
+import 'services/read_line_hint_service.dart';
 import 'services/recent_files_service.dart';
+import 'widgets/read_line_hint.dart';
+import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
+import 'widgets/ipa_legend_strip.dart';
 import 'widgets/read_bottom_bar.dart';
+import 'widgets/read_source_picker.dart';
+import 'widgets/read_text_action_hooks.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/smart_playback_bar.dart';
 import 'widgets/text_line_widget.dart';
@@ -23,7 +35,41 @@ import 'widgets/text_line_widget.dart';
 class ReadModeScreen extends StatefulWidget {
   final RecentFile? currentFile;
 
-  const ReadModeScreen({super.key, this.currentFile});
+  /// Nguồn nội dung được chọn sẵn cho source picker (I4U-READ-UX-001).
+  ///
+  /// Mặc định [ReadContentSource.document] để giữ hành vi hiện có: màn hình
+  /// vẫn hiển thị tài liệu đang mở (`currentFile`/`TextProvider`) như trước
+  /// khi chưa có tham số này.
+  final ReadContentSource initialSource;
+
+  /// Gọi mỗi khi người dùng đổi nguồn trong source picker. Optional — nơi
+  /// gọi có thể bỏ qua nếu chưa cần theo dõi lựa chọn nguồn.
+  final ValueChanged<ReadContentSource>? onSourceChanged;
+
+  /// Hợp đồng điều hướng tới `TextLibraryDrawer` / `WebReaderScreen` /
+  /// `TipitakaLibraryScreen` cho integration agent nối dây. Để trống an
+  /// toàn: source picker vẫn đổi trạng thái hiển thị, chỉ là chưa mở được
+  /// màn hình nguồn thật.
+  final ReadSourceCallbacks sourceCallbacks;
+
+  /// Điểm móc cho 4 hành động theo ngữ cảnh khi có text được chọn: Dịch /
+  /// Ngữ pháp / Phát âm / Từ điển. Để trống an toàn: không hành động nào
+  /// được nối thì thanh hành động không hiển thị gì (không đổi UI hiện có).
+  final ReadTextActionCallbacks textActionCallbacks;
+
+  /// Shell mới có thể đặt source picker trong header chung; default vẫn true
+  /// để caller cũ giữ nguyên hành vi.
+  final bool showSourcePicker;
+
+  const ReadModeScreen({
+    super.key,
+    this.currentFile,
+    this.initialSource = ReadContentSource.document,
+    this.onSourceChanged,
+    this.sourceCallbacks = const ReadSourceCallbacks(),
+    this.textActionCallbacks = const ReadTextActionCallbacks(),
+    this.showSourcePicker = true,
+  });
 
   @override
   State<ReadModeScreen> createState() => _ReadModeScreenState();
@@ -38,14 +84,39 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false;
 
+  // I4U-READ-UX-001 — nguồn nội dung đang chọn trong source picker riêng
+  // của tab Đọc. Tách biệt khỏi Mode (Đọc/Viết, do main_shell sở hữu) và
+  // khỏi Tool (Dịch/Ngữ pháp/Phát âm/Từ điển, xem _textActionCallbacks).
+  late ReadContentSource _source;
+
   PlayerProvider? _playerProviderRef;
 
   final _recentService = RecentFilesService();
   int _lastSavedLine = 0;
 
+  // HOME-STREAK-001 — nhịp đếm phút đọc thật (1 phút/lần, có khoá chống trùng).
+  Timer? _readingHeartbeat;
+  String? _readingSessionFileId;
+
   // Smart-hide bottom controls
   bool _bottomControlsVisible = true;
   double _lastScrollOffset = 0;
+
+  // I4U18-READ-IPA-001 (F1.2) — chống lên lịch gợi ý nhiều lần trong khi
+  // đang chờ đọc cờ prefs (build có thể chạy lại vài lần liên tiếp).
+  bool _lineHintScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _source = widget.initialSource;
+  }
+
+  void _handleSourceChanged(ReadContentSource source) {
+    if (_source == source) return;
+    setState(() => _source = source);
+    widget.onSourceChanged?.call(source);
+  }
 
   @override
   void didChangeDependencies() {
@@ -70,6 +141,80 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       pp.addListener(_playerListener!);
       _controllerInitialized = true;
     }
+
+    _startReadingSession();
+  }
+
+  /// Bắt đầu đếm phút đọc cho tài liệu đang mở (HOME-STREAK-001).
+  ///
+  /// Gọi trong `didChangeDependencies` — an toàn khi rebuild vì có chốt theo
+  /// id tài liệu; event được ghi ngoài build().
+  void _startReadingSession() {
+    final file = widget.currentFile;
+    if (file == null || _readingSessionFileId == file.id) return;
+    _readingSessionFileId = file.id;
+    _readingHeartbeat?.cancel();
+    _readingHeartbeat = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _recordReadingMinute(),
+    );
+  }
+
+  void _recordReadingMinute() {
+    final file = widget.currentFile;
+    if (file == null) return;
+
+    // Khoá theo phút đồng hồ: dựng lại widget / mở lại app trong cùng một phút
+    // không đếm trùng, nhưng đọc tiếp phút sau vẫn cộng thêm.
+    final now = DateTime.now();
+    final minuteBucket = '${now.year}-${now.month}-${now.day}'
+        'T${now.hour}:${now.minute}';
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.readingMinutes,
+      sourceKey: '${file.id}|$minuteBucket',
+    ));
+  }
+
+  /// I4U18-READ-IPA-001 (F1.2) — nhắc "chạm dòng/chạm từ" khi mở nguồn chữ
+  /// theo dòng (Word/DOCX, md, txt…).
+  ///
+  /// Gọi từ `build` nhưng CHỈ lên lịch sau frame: showSnackBar trong build là
+  /// lỗi "setState during build". Khoá theo documentId + cờ "đừng nhắc lại"
+  /// nằm trong ReadLineHintService (logic thuần ở `shouldAutoShowLineHint`).
+  void _maybeShowLineHint(TextProvider tp) {
+    if (_lineHintScheduled) return;
+    final documentId = tp.currentDocument?.id;
+    final path = tp.currentTextPath;
+    final service = ReadLineHintService.instance;
+    if (!shouldAutoShowLineHint(
+      path: path,
+      documentId: documentId,
+      dismissedForever: service.dismissedForever,
+      lastShownDocumentId: service.lastShownDocumentId,
+      hasLines: tp.lines.isNotEmpty,
+    )) {
+      return;
+    }
+    _lineHintScheduled = true;
+    unawaited(() async {
+      await service.ensureLoaded();
+      if (!mounted) return;
+      _lineHintScheduled = false;
+      if (!shouldAutoShowLineHint(
+        path: path,
+        documentId: documentId,
+        dismissedForever: service.dismissedForever,
+        lastShownDocumentId: service.lastShownDocumentId,
+        hasLines: tp.lines.isNotEmpty,
+      )) {
+        return;
+      }
+      service.markShown(documentId!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ReadLineHint.showSnackBar(context, wordSource: isWordSource(path));
+      });
+    }());
   }
 
   void _onScrollEnd(TextProvider tp) {
@@ -102,6 +247,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     if (_playerListener != null && _playerProviderRef != null) {
       _playerProviderRef!.removeListener(_playerListener!);
     }
+    _readingHeartbeat?.cancel();
+    _readingHeartbeat = null;
     _scrollController.dispose();
     _controller.dispose();
     super.dispose();
@@ -129,6 +276,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           if (!textProvider.hasLyrics) {
             return const ReadEmptyState();
           }
+          _maybeShowLineHint(textProvider);
           final showGrammarLegend =
               textProvider.colorMode == ColorMode.wordType &&
                   textProvider.grammarSettings.enabled &&
@@ -139,11 +287,40 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           final isSmallScreen = MediaQuery.of(context).size.height < 700 ||
               MediaQuery.of(context).size.width < 380;
 
+          // READ-IPA-006: panel màu IPA — dải thông tin tương tác ngay dưới
+          // TopBar, ẩn được (yêu cầu mục 2). Chỉ có nghĩa khi có IPA + tô màu.
+          final showIpaLegend = textProvider.ipaLegendVisible &&
+              textProvider.ipaColorByType &&
+              textProvider.ipaDisplayMode != IpaDisplayMode.hidden;
+
+          final selectedText = textProvider.selectedText?.trim() ?? '';
+          final showTextActionBar = !isFocusMode &&
+              selectedText.isNotEmpty &&
+              widget.textActionCallbacks.hasAnyHook;
+
           return Stack(
             children: [
               Column(
                 children: [
                   if (!isFocusMode) const ReadTopBar(),
+                  // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
+                  // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
+                  if (!isFocusMode && widget.showSourcePicker)
+                    ReadSourcePicker(
+                      selectedSource: _source,
+                      onSourceChanged: _handleSourceChanged,
+                      callbacks: widget.sourceCallbacks,
+                    ),
+                  if (showTextActionBar)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                      child: ReadTextActionBar(
+                        selectedText: selectedText,
+                        callbacks: widget.textActionCallbacks,
+                      ),
+                    ),
+                  if (!isFocusMode && showIpaLegend)
+                    IpaLegendStrip(tp: textProvider),
                   if (!isFocusMode && showGrammarLegend)
                     _GrammarLegendStrip(textProvider: textProvider),
                   if (!isFocusMode &&
@@ -173,30 +350,30 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                             child: _buildTextList(textProvider, isFocusMode),
                           ),
                   ),
-                  // Bottom controls with smart hide animation
-                  AnimatedSlide(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                    offset: _bottomControlsVisible && !isFocusMode
-                        ? Offset.zero
-                        : const Offset(0, 1.2),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _bottomControlsVisible && !isFocusMode ? 1 : 0,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SmartPlaybackBar(),
-                          ReadBottomBar(
-                            showWordlistPanel: _showWordlistPanel,
-                            onToggleWordlist: () {
-                              setState(() =>
-                                  _showWordlistPanel = !_showWordlistPanel);
-                              HapticFeedback.lightImpact();
-                            },
-                          ),
-                        ],
-                      ),
+                  // Bottom controls with smart hide (v2: bỏ toàn bộ animation widget).
+                  // FOCUS MODE: gập CHIỀU CAO về 0 (trả không gian cho
+                  // vùng đọc) — build điều kiện SizedBox(height: 0).
+                  // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi: Opacity 0 +
+                  // IgnorePointer, không gập — tránh văn bản nhảy khi đọc.)
+                  // READ-TOOLBAR-001 (v2): wrapper không còn AnimatedSize,
+                  // AnimatedSlide, AnimatedOpacity, hay ClipRect để triệt tiêu
+                  // khối đen GPU Mali/Adreno.
+                  CollapsibleBottomControls(
+                    visible: _bottomControlsVisible,
+                    collapsed: isFocusMode,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SmartPlaybackBar(),
+                        ReadBottomBar(
+                          showWordlistPanel: _showWordlistPanel,
+                          onToggleWordlist: () {
+                            setState(() =>
+                                _showWordlistPanel = !_showWordlistPanel);
+                            HapticFeedback.lightImpact();
+                          },
+                        ),
+                      ],
                     ),
                   ),
                   if (isSmallScreen && !isFocusMode && !_bottomControlsVisible)

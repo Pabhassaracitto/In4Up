@@ -119,35 +119,6 @@ class _WordImportSheetState extends State<WordImportSheet>
     return _parseText(text);
   }
 
-  static const Map<String, String> _fieldAliases = {
-    'word': 'word',
-    'vocab': 'word',
-    'tu': 'word',
-    'tuvung': 'word',
-    'term': 'word',
-    'meaning': 'meaning',
-    'nghia': 'meaning',
-    'definition': 'meaning',
-    'ipa': 'phonetic',
-    'phonetic': 'phonetic',
-    'pronunciation': 'phonetic',
-    'topic': 'topic',
-    'category': 'topic',
-    'chude': 'topic',
-    'folder': 'topic',
-    'example': 'example',
-    'example_simple': 'exampleSimple',
-    'simpleexample': 'exampleSimple',
-    'vidu': 'example',
-    'vidudon': 'exampleSimple',
-    'example_complex': 'exampleComplex',
-    'complexexample': 'exampleComplex',
-    'viduphuc': 'exampleComplex',
-    'language': 'language',
-    'lang': 'language',
-    'ngonngu': 'language',
-  };
-
   List<_ImportCandidate> _parseStructuredContent(String content) {
     final lines = content
         .split(RegExp(r'\r?\n'))
@@ -156,26 +127,24 @@ class _WordImportSheetState extends State<WordImportSheet>
         .toList();
     if (lines.length < 2) return const [];
 
-    final headerParts = _splitStructuredLine(lines.first);
-    final normalizedHeader = headerParts.map(_normalizeHeaderKey).toList();
-    final mapped = normalizedHeader.map((e) => _fieldAliases[e]).toList();
+    final mapped = WordTableParser.mapHeader(lines.first);
     if (!mapped.contains('word')) return const [];
     if (mapped.whereType<String>().toSet().length < 2) return const [];
+    final delimiter = WordTableParser.detectDelimiter(lines.first);
 
     final candidates = <_ImportCandidate>[];
     for (final line in lines.skip(1)) {
-      final parts = _splitStructuredLine(line);
+      final parts = WordTableParser.splitCsvLine(line, delimiter);
       if (parts.isEmpty) continue;
-      final data = <String, String>{};
-      for (int i = 0; i < mapped.length && i < parts.length; i++) {
-        final key = mapped[i];
-        if (key == null) continue;
-        data[key] = parts[i].trim();
-      }
+      final data = WordTableParser.alignRow(parts, mapped);
 
       final word = (data['word'] ?? '').trim().toLowerCase();
-      if (word.isEmpty || word.length < _minLength) continue;
-      if (_onlyNewWords && _provider.hasWord(word)) continue;
+      // Hàng cấu trúc = người dùng liệt kê ĐÚNG Ý → không áp _minLength
+      // (từ 1-2 ký tự vẫn là entry hợp lệ cho từ điển/trò chơi).
+      if (word.isEmpty) continue;
+      final existed = _provider.hasWord(word);
+      // Hàng đã có trong WordList vẫn HIỆN để user xem/cập nhật meaning
+      // (smart-fill khi import: chỉ điền chỗ trống, không ghi đè).
 
       final exampleParts = <String>[];
       if ((data['example'] ?? '').trim().isNotEmpty) {
@@ -197,6 +166,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           language: _nullIfEmpty(data['language']) ?? 'en',
           example: exampleParts.isEmpty ? null : exampleParts.join('\n'),
           rawLine: line,
+          existed: existed,
           selected: true,
           frequency: 1,
         ),
@@ -204,50 +174,6 @@ class _WordImportSheetState extends State<WordImportSheet>
     }
 
     return candidates;
-  }
-
-  List<String> _splitStructuredLine(String line) {
-    if (line.contains('\t')) {
-      return line.split('\t').map((e) => e.trim()).toList();
-    }
-    if (line.contains('|')) {
-      return line.split('|').map((e) => e.trim()).toList();
-    }
-    if (line.contains(';')) {
-      return line.split(';').map((e) => e.trim()).toList();
-    }
-    if (line.contains(',')) {
-      return line.split(',').map((e) => e.trim()).toList();
-    }
-    return const [];
-  }
-
-  String _normalizeHeaderKey(String input) {
-    return input
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-zA-Z\u00C0-\u024F]'), '')
-        .replaceAll('ừ', 'u')
-        .replaceAll('ự', 'u')
-        .replaceAll('ư', 'u')
-        .replaceAll('í', 'i')
-        .replaceAll('ị', 'i')
-        .replaceAll('ý', 'y')
-        .replaceAll('ỳ', 'y')
-        .replaceAll('đ', 'd')
-        .replaceAll('á', 'a')
-        .replaceAll('à', 'a')
-        .replaceAll('ả', 'a')
-        .replaceAll('ã', 'a')
-        .replaceAll('ạ', 'a')
-        .replaceAll('â', 'a')
-        .replaceAll('ă', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('è', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll('ó', 'o')
-        .replaceAll('ò', 'o')
-        .replaceAll('ô', 'o')
-        .replaceAll('ơ', 'o');
   }
 
   String? _nullIfEmpty(String? value) {
@@ -316,33 +242,46 @@ class _WordImportSheetState extends State<WordImportSheet>
     return candidates;
   }
 
-  // ★ UPDATED: Dùng VocabularyProvider.addWithAutoClassify thay vì WordEntry.manual
+  // ★ UPDATED: Dùng VocabularyProvider.addWithAutoClassify (smart-fill) —
+  // entry MỚI: tạo đầy đủ meaning/phonetic/topic/language/example.
+  // entry ĐÃ CÓ: chỉ BỔ SUNG chỗ trống (meaning/IPA/example) + tag
+  // topic/language — không ghi đè dữ liệu cũ, không mất ngữ cảnh.
   void _doImport(List<_ImportCandidate> candidates) {
     final selected = candidates.where((c) => c.selected).toList();
     if (selected.isEmpty) return;
 
     final provider = _provider;
-    int count = 0;
+    int added = 0;
+    int updated = 0;
     for (final c in selected) {
-      if (!provider.hasWord(c.word)) {
-        final entry = provider.addWithAutoClassify(
-          text: c.word,
-          meaning: c.meaning ?? '',
-          phonetic: c.phonetic,
-          language: c.language,
-          topic: c.topic,
-        );
-        if ((c.example ?? '').trim().isNotEmpty) {
-          provider.updateWord(entry.id, example: c.example);
-        }
-        count++;
+      final existed = provider.hasWord(c.word);
+      final entry = provider.addWithAutoClassify(
+        text: c.word,
+        meaning: c.meaning ?? '',
+        phonetic: c.phonetic,
+        language: c.language,
+        topic: c.topic,
+      );
+      // example: chỉ điền khi còn trống (không đè ví dụ user đã có)
+      if ((c.example ?? '').trim().isNotEmpty &&
+          (entry.example ?? '').trim().isEmpty) {
+        provider.updateWord(entry.id, example: c.example);
+      }
+      if (existed) {
+        updated++;
+      } else {
+        added++;
       }
     }
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(context.uiText('✅ Đã import $count từ')),
+        content: Text(
+          updated > 0
+              ? '✅ Đã import: +$added mới, cập nhật $updated đã có'
+              : '✅ Đã import $added từ',
+        ),
         backgroundColor: const Color(0xFF4CAF50),
         behavior: SnackBarBehavior.floating,
       ),
@@ -588,8 +527,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText:
-                      context.uiText('Dán văn bản hoặc danh sách từ vào đây...\nHỗ trợ: text thường, một từ mỗi dòng, hoặc bảng có cột như word, meaning, ipa, topic, example, language'),
+                  hintText: context.uiText(
+                      'Dán bảng có header: word, meaning, ipa, topic, example, language\n(tab hoặc dấu phẩy; meaning có dấu phẩy thì bọc "nét nháy")\nHoặc text thường / một từ mỗi dòng...'),
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(14),
@@ -755,8 +694,9 @@ class _WordImportSheetState extends State<WordImportSheet>
               const SizedBox(height: 6),
               Text(
                 '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
-                '.csv/.txt bảng cột: word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
-                'Có thể dùng dấu phẩy, chấm phẩy, tab hoặc | để ngăn cột',
+                '.csv/.txt bảng cột (cần dòng header): word, meaning, ipa, topic, example, example_simple, example_complex, language\n'
+                'Ngăn cột: tab, phẩy, chấm phẩy hoặc | — ý nghĩa có dấu phẩy thì bọc "nét nháy"\n'
+                'Từ/cụm ĐÃ CÓ trong WordList vẫn hiện (badge "đã có") — import chỉ bổ sung nghĩa/IPA/ví dụ CHỖ TRỐNG + tag, không ghi đè',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
               ),
             ],
@@ -876,37 +816,87 @@ class _WordImportSheetState extends State<WordImportSheet>
                         : Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      w.selected ? Icons.check_circle : Icons.radio_button_unchecked,
-                      size: 13,
-                      color: w.selected
-                          ? const Color(0xFF9C8FFF)
-                          : Colors.grey[700],
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          w.selected
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 13,
+                          color: w.selected
+                              ? const Color(0xFF9C8FFF)
+                              : Colors.grey[700],
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            w.word,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color:
+                                  w.selected ? Colors.white : Colors.grey[500],
+                              fontSize: 12,
+                              fontWeight: w.selected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (w.existed) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'đã có',
+                              style: TextStyle(
+                                  color: Colors.orange[300], fontSize: 8.5),
+                            ),
+                          ),
+                        ],
+                        if (w.frequency > 1) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '×${w.frequency}',
+                            style:
+                                TextStyle(color: Colors.grey[600], fontSize: 9),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      w.word,
-                      style: TextStyle(
-                        color: w.selected ? Colors.white : Colors.grey[500],
-                        fontSize: 12,
-                        fontWeight:
-                            w.selected ? FontWeight.w600 : FontWeight.normal,
+                    // meaning / IPA / topic — thuộc tính giải thích cho từ,
+                    // quan trọng cho merge từ điển + trò chơi "nhìn chữ,
+                    // nghe âm, viết nghĩa" (AI chấm)
+                    if ((w.meaning ?? '').trim().isNotEmpty ||
+                        (w.phonetic ?? '').trim().isNotEmpty ||
+                        (w.topic ?? '').trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 19, top: 1),
+                        child: Text(
+                          [
+                            if ((w.phonetic ?? '').trim().isNotEmpty)
+                              w.phonetic!.trim(),
+                            if ((w.meaning ?? '').trim().isNotEmpty)
+                              w.meaning!.trim(),
+                          ].join('  ·  '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 10.5,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (w.frequency > 1) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        '×${w.frequency}',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 9),
-                      ),
-                    ],
-                    if ((w.meaning ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Icon(Icons.info_outline, size: 11, color: Colors.grey[600]),
-                    ],
                   ],
                 ),
               ),
@@ -971,6 +961,9 @@ class _ImportCandidate {
   final String language;
   final String? rawLine;
   final int frequency;
+  /// true = từ/cụm này đã có trong WordList (import sẽ smart-fill,
+  /// không tạo entry trùng).
+  final bool existed;
   bool selected;
 
   _ImportCandidate({
@@ -982,6 +975,7 @@ class _ImportCandidate {
     this.language = 'en',
     this.rawLine,
     this.frequency = 1,
+    this.existed = false,
     this.selected = true,
   });
 }
@@ -1061,5 +1055,447 @@ class _OptionChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PURE PARSER — bảng có header (test được, không phụ thuộc widget)
+//
+// Định dạng chuẩn (như hướng dẫn trong UI):
+//   word, meaning, ipa, topic, example, example_simple, example_complex, language
+//
+// Robust 3 điểm:
+//  - Header alias được chuẩn hóa (bỏ gạch dưới/dấu) nên `example_simple`
+//    /`example_complex` KHÔNG còn bị bỏ sót (bug cũ: key alias có `_`
+//    nhưng key đã normalize không có `_` → tra không thấy).
+//  - Hỗ trợ nháy kép ("...") cho cột chứa delimiter.
+//  - Khi một HÀNG có NHIỀU ô hơn header (meaning/example chứa dấu phẩy
+//    KHÔNG bọc nháy — rất hay gặp với danh sách Gemini sinh ra) → căn lại
+//    bằng mỏ neo (word = ô đầu, ipa = ô /.../, language = ô cuối) để cột
+//    không bị lệch phải.
+// ═══════════════════════════════════════════════════════════
+
+class WordTableParser {
+  WordTableParser._();
+
+  static const Map<String, String> fieldAliases = {
+    'word': 'word',
+    'vocab': 'word',
+    'tu': 'word',
+    'tuvung': 'word',
+    'term': 'word',
+    'meaning': 'meaning',
+    'nghia': 'meaning',
+    'definition': 'meaning',
+    'ipa': 'phonetic',
+    'phonetic': 'phonetic',
+    'pronunciation': 'phonetic',
+    'phienam': 'phonetic',
+    'topic': 'topic',
+    'category': 'topic',
+    'chude': 'topic',
+    'folder': 'topic',
+    'example': 'example',
+    'vidu': 'example',
+    'example_simple': 'exampleSimple',
+    'simpleexample': 'exampleSimple',
+    'vidudon': 'exampleSimple',
+    'example_complex': 'exampleComplex',
+    'complexexample': 'exampleComplex',
+    'viduphuc': 'exampleComplex',
+    'language': 'language',
+    'lang': 'language',
+    'ngonngu': 'language',
+    'tiengviet': 'language',
+    'tienganh': 'language',
+  };
+
+  /// Cột tự do — có thể chứa dấu phẩy nội bộ (hấp thụ ô dư khi hàng dài
+  /// hơn header).
+  static const Set<String> _wideFields = {
+    'meaning',
+    'example',
+    'exampleSimple',
+    'exampleComplex',
+  };
+
+  /// Alias đã normalize key (tra nhanh, tránh lệch do gạch dưới/dấu).
+  static final Map<String, String> _normAliases = {
+    for (final e in fieldAliases.entries) normKey(e.key): e.value,
+  };
+
+  /// Bảng bỏ dấu tiếng Việt ĐẦY ĐỦ (cả khối Latin Extended Additional
+  /// U+1E00+ — nếu strip TRƯỚC khi map thì 'từ' mất cả chữ 'u' → 't').
+  static const Map<String, String> _viBase = {
+    // a
+    '\u00E0': 'a', '\u00E1': 'a', '\u00E2': 'a', '\u00E3': 'a', '\u00E4': 'a', '\u00E5': 'a', '\u0101': 'a', '\u0103': 'a', '\u0105': 'a', '\u01CE': 'a', '\u01DF': 'a', '\u01E1': 'a', '\u01FB': 'a', '\u0201': 'a', '\u0203': 'a', '\u0227': 'a', '\u1E01': 'a', '\u1EA1': 'a', '\u1EA3': 'a', '\u1EA5': 'a', '\u1EA7': 'a', '\u1EA9': 'a', '\u1EAB': 'a', '\u1EAD': 'a', '\u1EAF': 'a', '\u1EB1': 'a', '\u1EB3': 'a', '\u1EB5': 'a', '\u1EB7': 'a',
+    // e
+    '\u00E8': 'e', '\u00E9': 'e', '\u00EA': 'e', '\u00EB': 'e', '\u0113': 'e', '\u0115': 'e', '\u0117': 'e', '\u0119': 'e', '\u011B': 'e', '\u0205': 'e', '\u0207': 'e', '\u0229': 'e', '\u1E15': 'e', '\u1E17': 'e', '\u1E19': 'e', '\u1E1B': 'e', '\u1E1D': 'e', '\u1EB9': 'e', '\u1EBB': 'e', '\u1EBD': 'e', '\u1EBF': 'e', '\u1EC1': 'e', '\u1EC3': 'e', '\u1EC5': 'e', '\u1EC7': 'e',
+    // i
+    '\u00EC': 'i', '\u00ED': 'i', '\u00EE': 'i', '\u00EF': 'i', '\u0129': 'i', '\u012B': 'i', '\u012D': 'i', '\u012F': 'i', '\u01D0': 'i', '\u0209': 'i', '\u020B': 'i', '\u1E2D': 'i', '\u1E2F': 'i', '\u1EC9': 'i', '\u1ECB': 'i',
+    // o
+    '\u00F2': 'o', '\u00F3': 'o', '\u00F4': 'o', '\u00F5': 'o', '\u00F6': 'o', '\u014D': 'o', '\u014F': 'o', '\u0151': 'o', '\u01A1': 'o', '\u01D2': 'o', '\u01EB': 'o', '\u01ED': 'o', '\u020D': 'o', '\u020F': 'o', '\u022B': 'o', '\u022D': 'o', '\u022F': 'o', '\u0231': 'o', '\u1E4D': 'o', '\u1E4F': 'o', '\u1E51': 'o', '\u1E53': 'o', '\u1ECD': 'o', '\u1ECF': 'o', '\u1ED1': 'o', '\u1ED3': 'o', '\u1ED5': 'o', '\u1ED7': 'o', '\u1ED9': 'o', '\u1EDB': 'o', '\u1EDD': 'o', '\u1EDF': 'o', '\u1EE1': 'o', '\u1EE3': 'o',
+    // u
+    '\u00F9': 'u', '\u00FA': 'u', '\u00FB': 'u', '\u00FC': 'u', '\u0169': 'u', '\u016B': 'u', '\u016D': 'u', '\u016F': 'u', '\u0171': 'u', '\u0173': 'u', '\u01B0': 'u', '\u01D4': 'u', '\u01D6': 'u', '\u01D8': 'u', '\u01DA': 'u', '\u01DC': 'u', '\u0215': 'u', '\u0217': 'u', '\u1E73': 'u', '\u1E75': 'u', '\u1E77': 'u', '\u1E79': 'u', '\u1E7B': 'u', '\u1EE5': 'u', '\u1EE7': 'u', '\u1EE9': 'u', '\u1EEB': 'u', '\u1EED': 'u', '\u1EEF': 'u', '\u1EF1': 'u',
+    // y
+    '\u00FD': 'y', '\u00FF': 'y', '\u0177': 'y', '\u0233': 'y', '\u1E8F': 'y', '\u1E99': 'y', '\u1EF3': 'y', '\u1EF5': 'y', '\u1EF7': 'y', '\u1EF9': 'y',
+    // d
+    '\u0111': 'd', '\u010F': 'd', '\u1E0B': 'd', '\u1E0D': 'd', '\u1E0F': 'd', '\u1E11': 'd', '\u1E13': 'd',
+  };
+
+  /// Chuẩn hóa tên cột header: hạ chữ thường → bỏ dấu tiếng Việt →
+  /// bỏ ký tự đặc biệt (để "Từ vựng" ≡ "tu" ≡ "tu_vung" ≡ "tuvung").
+  static String normKey(String input) {
+    var s = input.toLowerCase();
+    for (final e in _viBase.entries) {
+      s = s.replaceAll(e.key, e.value);
+    }
+    return s.replaceAll(RegExp(r'[^a-zA-Z]'), '');
+  }
+
+  /// Map dòng header → danh sách tên trường (null = cột không nhận ra).
+  static List<String?> mapHeader(String headerLine) {
+    final parts = splitHeaderLine(headerLine);
+    return parts.map((e) => _normAliases[normKey(e)]).toList();
+  }
+
+  /// Chọn delimiter từ dòng header: tab > | > ; > ,
+  static String detectDelimiter(String line) {
+    if (line.contains('\t')) return '\t';
+    if (line.contains('|')) return '|';
+    if (line.contains(';')) return ';';
+    return ',';
+  }
+
+  /// Tách dòng header (không cần hiểu nháy — header không chứa nháy).
+  static List<String> splitHeaderLine(String line) {
+    if (line.contains('\t')) {
+      return line.split('\t').map((e) => e.trim()).toList();
+    }
+    if (line.contains('|')) {
+      return line.split('|').map((e) => e.trim()).toList();
+    }
+    if (line.contains(';')) {
+      return line.split(';').map((e) => e.trim()).toList();
+    }
+    if (line.contains(',')) {
+      return line.split(',').map((e) => e.trim()).toList();
+    }
+    return const [];
+  }
+
+  /// Tách hàng dữ liệu theo delimiter, hiểu NHÁY KÉP (`"..."`) + escape
+  /// `""` — meaning như `Chuyển tiếp, thay đổi trạng thái` bọc nháy
+  /// không bị xé giữa chừng (CSV đúng chuẩn).
+  static List<String> splitCsvLine(String line, String delimiter) {
+    final parts = <String>[];
+    final buf = StringBuffer();
+    var inQuotes = false;
+    for (int i = 0; i < line.length; i++) {
+      final ch = line[i];
+      if (inQuotes) {
+        if (ch == '"') {
+          if (i + 1 < line.length && line[i + 1] == '"') {
+            buf.write('"');
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          buf.write(ch);
+        }
+      } else if (ch == '"') {
+        inQuotes = true;
+      } else if (ch == delimiter) {
+        parts.add(buf.toString().trim());
+        buf.clear();
+      } else {
+        buf.write(ch);
+      }
+    }
+    parts.add(buf.toString().trim());
+    return parts;
+  }
+
+  /// Cell có dạng IPA: `/əˈbʌndəns/`.
+  static bool looksLikeIpa(String s) {
+    final t = s.trim();
+    return t.length >= 3 && t.startsWith('/') && t.endsWith('/');
+  }
+
+  /// Căn ô của hàng dữ liệu ([parts]) với cột header ([fields]).
+  ///
+  /// - Ô < cột → khớp 1-1 theo vị trí, đệm '' (như trước).
+  /// - Ô = cột → thường là hàng sạch → 1-1. NGOẠI LỆ (Gemini hay gặp):
+  ///     + ô ở cột ipa KHÔNG phải IPA nhưng 1 ô khác DẠNG IPA
+  ///       (vd meaning lọt 1 dấu phẩy làm IPA chạy sang ô khác)
+  ///       → căn lại bằng mỏ neo.
+  ///     + ô ở cột ipa không phải IPA và CHỨA DẤU CÁCH (IPA không bao
+  ///       giờ có khoảng trắng) → coi IPA bị bỏ trống, ô đó là phần
+  ///       meaning bị tách → gộp vào meaning.
+  /// - Ô > cột (dấu phẩy không bọc nháy) → căn lại bằng mỏ neo:
+  ///     word = ô đầu · language = ô cuối · ipa = ô /.../ đầu tiên.
+  ///   Ô TRƯỚC ipa → gộp vào meaning (", "); ô SAU ipa →
+  ///   topic/example/exampleSimple/exampleComplex (cột tự do đứng đầu
+  ///   hấp thụ ô dư).
+  ///
+  /// Chỉ áp căn neo khi đủ mỏ neo của định dạng chuẩn; header lạ →
+  /// giữ hành vi vị trí cũ (best-effort).
+  static Map<String, String> alignRow(
+    List<String> parts,
+    List<String?> fields,
+  ) {
+    if (parts.isEmpty || fields.isEmpty) return const {};
+
+    // Số ô ≤ số cột.
+    if (parts.length <= fields.length) {
+      final n = parts.length;
+      final p = fields.indexOf('phonetic');
+      if (p > 0 && p < n) {
+        final cell = parts[p].trim();
+        if (!looksLikeIpa(cell)) {
+          final alt = _firstIpaIndex(parts, 1, n - 2);
+          if (alt >= 0) {
+            // IPA đang ở ô khác → hàng đã lệch → căn neo.
+            return _anchorAlign(parts, fields);
+          }
+          if (n == fields.length) {
+            // IPA trống + ô ở cột ipa KHÔNG phải IPA → nghi là mảnh
+            // meaning bị xé (meaning chứa phẩy không bọc nháy) → gộp
+            // vào meaning, các ô còn lại khớp 1-1. IPA-trần (không bọc
+            // /.../) thường chứa ký tự ngoài bảng Latin (ə ʃ θ ð ŋ...)
+            // nên "từ thông thường" chỉ chứa a-z A-Z là mảnh text,
+            // KHÔNG phải IPA → gộp an toàn.
+            if (cell.contains(' ') || _isPlainWord(cell)) {
+              return _mergeIntoMeaningNoIpa(parts, fields);
+            }
+          } else if (fields.last == 'language' &&
+              _looksLikeLangCode(parts.last) &&
+              // Ô kề cuối phải "giống ví dụ" (có khoảng trắng hoặc
+              // ≥5 ký tự) → xác nhận hàng đủ các cột text, chỉ thiếu
+              // giá trị IPA → các ô sau ô ipa TRƯỢT TRÁI.
+              (parts[n - 2].contains(' ') || parts[n - 2].length >= 5)) {
+            final noIpa = <String?>[...fields]..removeAt(p);
+            return _zip(parts, noIpa);
+          }
+        }
+      }
+      final data = _zip(parts, fields);
+      // Hàng thiếu CỘT CUỐI: ô cuối giống mã ngôn ngữ nhưng zip đẩy nó
+      // vào cột text (vd language bị đẩy sang exampleSimple) → chuyển
+      // ô cuối về cột language.
+      if (fields.last == 'language' &&
+          _looksLikeLangCode(parts.last) &&
+          !_looksLikeLangCode(data['language'] ?? '')) {
+        final stolen = fields[n - 1];
+        if (stolen != null) data[stolen] = '';
+        data['language'] = parts.last.trim();
+      }
+      return data;
+    }
+
+    // Nhiều ô hơn cột — chỉ căn neo với định dạng chuẩn.
+    final present = <String>{};
+    for (final f in fields) {
+      if (f != null) present.add(f);
+    }
+    final hasAnchors = present.containsAll(
+      const {'word', 'meaning', 'phonetic', 'topic', 'example'},
+    );
+    final wordFirst = fields.first == 'word';
+    final langLast =
+        !present.contains('language') || fields.last == 'language';
+
+    if (!hasAnchors || !wordFirst || !langLast) {
+      // Header lạ — best-effort vị trí (lấy đủ số ô bằng số cột).
+      return _zip(parts, fields);
+    }
+    return _anchorAlign(parts, fields);
+  }
+
+  /// Khớp 1-1 theo vị trí (đệm '' nếu thiếu ô).
+  static Map<String, String> _zip(List<String> parts, List<String?> fields) {
+    final data = <String, String>{};
+    for (int i = 0; i < fields.length; i++) {
+      final key = fields[i];
+      if (key == null) continue;
+      data[key] = i < parts.length ? parts[i].trim() : '';
+    }
+    return data;
+  }
+
+  /// Giá trị "giống mã ngôn ngữ": en / vi / zh / pali... (2-4 chữ cái).
+  static bool _looksLikeLangCode(String s) =>
+      RegExp(r'^[a-z]{2,4}$').hasMatch(s.trim().toLowerCase());
+
+  /// Ô "từ thông thường" (chỉ chữ Latin a-z/A-Z + khoảng trắng/dấu
+  /// gạch) — nghi là mảnh meaning/example bị xé, KHÔNG phải IPA-trần
+  /// (IPA thường có ký tự ngoài bảng Latin: ə ʃ θ ð ŋ... hoặc bọc /.../).
+  static bool _isPlainWord(String s) =>
+      RegExp(r'^[a-zA-Z][a-zA-Z\- ]*$').hasMatch(s.trim());
+
+  /// Index ô đầu tiên (trong [from]..[toInclusive]) có dạng IPA.
+  static int _firstIpaIndex(List<String> parts, int from, int toInclusive) {
+    final hi = toInclusive.clamp(0, parts.length - 1);
+    for (int i = from; i <= hi; i++) {
+      if (looksLikeIpa(parts[i])) return i;
+    }
+    return -1;
+  }
+
+  /// Căn bằng mỏ neo: word = ô đầu · language = ô cuối · ipa = ô /.../.
+  /// Ô TRƯỚC ipa → meaning (gộp); ô SAU ipa → các cột còn lại
+  /// (cột tự do đứng đầu hấp thụ ô dư).
+  static Map<String, String> _anchorAlign(
+    List<String> parts,
+    List<String?> fields,
+  ) {
+    final data = <String, String>{};
+    final n = parts.length;
+    final hasLang = fields.last == 'language';
+    final lastIdx = hasLang ? n - 2 : n - 1; // biên phải của vùng giữa
+
+    data['word'] = parts[0].trim();
+    if (hasLang) data['language'] = parts[n - 1].trim();
+
+    final ipaIdx = _firstIpaIndex(parts, 1, lastIdx);
+
+    if (ipaIdx >= 0) {
+      data['phonetic'] = parts[ipaIdx].trim();
+      // Ô TRƯỚC ipa → meaning (gộp ", ").
+      final pre = [for (int i = 1; i < ipaIdx; i++) parts[i]];
+      data['meaning'] = pre
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+      // Ô SAU ipa → topic / example / exampleSimple / exampleComplex.
+      final post = [for (int i = ipaIdx + 1; i <= lastIdx; i++) parts[i]];
+      final postFields = <String>[];
+      for (final f in fields) {
+        if (f == null) continue;
+        if (const {'word', 'language', 'phonetic', 'meaning'}.contains(f)) {
+          continue;
+        }
+        postFields.add(f);
+      }
+      _distribute(post, postFields, data);
+    } else {
+      // Hàng không có ô IPA → 1 nhóm giữa word và language.
+      data['phonetic'] = '';
+      final group = [for (int i = 1; i <= lastIdx; i++) parts[i]];
+      final groupFields = <String>[];
+      for (final f in fields) {
+        if (f == null) continue;
+        if (const {'word', 'language', 'phonetic'}.contains(f)) continue;
+        groupFields.add(f);
+      }
+      _distribute(group, groupFields, data);
+    }
+
+    return data;
+  }
+
+  /// Ô = cột, cột ipa chứa giá trị KHÔNG phải IPA (có khoảng trắng) →
+  /// coi IPA bị bỏ trống, ô đó là phần meaning bị tách → gộp vào
+  /// meaning; các ô sau khớp 1-1 với cột tương ứng.
+  static Map<String, String> _mergeIntoMeaningNoIpa(
+    List<String> parts,
+    List<String?> fields,
+  ) {
+    final data = <String, String>{};
+    final n = parts.length;
+    final p = fields.indexOf('phonetic');
+    final hasLang = fields.last == 'language';
+
+    data['word'] = parts[0].trim();
+    if (hasLang) data['language'] = parts[n - 1].trim();
+    // Ô 1..p (kể cả ô "ipa rác") → meaning.
+    data['meaning'] = parts
+        .sublist(1, p + 1)
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+    data['phonetic'] = '';
+    for (int i = p + 1; i < n; i++) {
+      final key = fields[i];
+      if (key == null || key == 'language') continue;
+      data[key] = parts[i].trim();
+    }
+    return data;
+  }
+
+  /// Chia [cells] vào [fields] (theo thứ tự header).
+  ///  - cell == field → 1-1.
+  ///  - cell > field → cột tự do (wide) ĐẦU TIÊN hấp thụ ô dư (gộp ", ");
+  ///    các cột hẹp đứng trước nó (vd topic) vẫn lấy đúng 1 ô.
+  ///  - cell < field → 1-1 rồi đệm ''.
+  static void _distribute(
+    List<String> cells,
+    List<String> fields,
+    Map<String, String> out,
+  ) {
+    if (fields.isEmpty) return;
+    if (cells.isEmpty) {
+      for (final f in fields) {
+        out[f] = '';
+      }
+      return;
+    }
+    if (cells.length == fields.length) {
+      for (int i = 0; i < fields.length; i++) {
+        out[fields[i]] = cells[i].trim();
+      }
+      return;
+    }
+    if (cells.length > fields.length) {
+      // Cột HẤP THỤ ô dư: mặc định = cột tự do đầu tiên, nhưng chọn
+      // cột khiến ÍT cột tự do nào đó bị "cụt" thành ô 1 từ nhất
+      // (vd ví dụ đơn 'A simple, one' thay vì ví dụ chính nuốt luôn
+      // 'A simple' và để ví dụ đơn chỉ còn 'one').
+      final wideIdxs = [
+        for (int i = 0; i < fields.length; i++)
+          if (_wideFields.contains(fields[i])) i,
+      ];
+      int absorb = wideIdxs.isNotEmpty ? wideIdxs.first : 0;
+      final take = cells.length - (fields.length - 1);
+      if (wideIdxs.length > 1) {
+        int bestScore = -1;
+        for (final c in wideIdxs) {
+          // Chấm điểm: số cột TỰ DO (không phải cột hấp thụ) nhận ô
+          // KHÔNG có khoảng trắng (nghi là mảnh bị xé).
+          var cursor = 0;
+          var score = 0;
+          for (int i = 0; i < fields.length; i++) {
+            final cell = (i == c)
+                ? cells.sublist(cursor, cursor + take)
+                : [cells[cursor]];
+            final isWide = _wideFields.contains(fields[i]);
+            if (isWide && i != c && !cell.first.contains(' ')) score++;
+            cursor += cell.length;
+          }
+          if (bestScore < 0 || score < bestScore) {
+            bestScore = score;
+            absorb = c;
+          }
+          if (score == 0) break; // tốt nhất có thể — dừng sớm
+        }
+      }
+      for (int i = 0; i < absorb; i++) {
+        out[fields[i]] = cells[i].trim();
+      }
+      out[fields[absorb]] = cells
+          .sublist(absorb, absorb + take)
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+      for (int i = absorb + 1; i < fields.length; i++) {
+        out[fields[i]] = cells[absorb + take + (i - absorb - 1)].trim();
+      }
+      return;
+    }
+    // Ít ô hơn cột: 1-1 rồi đệm ''.
+    for (int i = 0; i < fields.length; i++) {
+      out[fields[i]] = i < cells.length ? cells[i].trim() : '';
+    }
   }
 }

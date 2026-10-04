@@ -1,3 +1,4 @@
+// ignore_for_file: unintended_html_in_doc_comment
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,8 @@ import '../../core/language/app_language.dart';
 import '../../models/text_item.dart';
 import '../../services/storage_service.dart';
 import '../tts/language_detector.dart';
+import 'cache/translation_cache.dart';
+import 'engines/translation_engine.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -17,6 +20,24 @@ mixin TranslationMixin on ChangeNotifier {
   String? _translationError;
   String _currentEngine = '';
   int _translationRunId = 0;
+  String? _appliedPipelineTag;
+
+  /// Nguồn dịch EXPLICIT user đã gắn (translation code, vd 'EN');
+  /// null = chế độ AUTO (nhận diện tự động).
+  ///
+  /// XLAT-MLKIT-001: khi đã gắn nguồn, mọi dòng dùng đúng nguồn đó — không
+  /// re-detect từng dòng (câu ngắn dễ bị detector nhầm, vd EN → 'DE', rồi
+  /// báo "Chưa tải gói dịch german" dù user chọn EN→VI). Chỉ AUTO mới
+  /// re-detect từng dòng cho tài liệu hỗn hợp ngôn ngữ.
+  String? _pinnedTranslationSourceCode;
+
+  /// Seam test cho lane translation: thay singleton bằng instance
+  /// `TranslationService.forTest` có engine giả. Production để null.
+  @visibleForTesting
+  TranslationService? translationServiceForTest;
+
+  TranslationService get _translationService =>
+      translationServiceForTest ?? TranslationService();
 
   List<TextItem> get lines;
 
@@ -26,8 +47,22 @@ mixin TranslationMixin on ChangeNotifier {
   String? get translationError => _translationError;
   String get currentEngine => _currentEngine;
 
+  /// Engine đang chạy (qua TranslationService) — UI hiện đúng nhãn
+  /// "Đang dịch bằng Hy-MT offline, có thể chậm" khi Hy-MT đang xử lý
+  /// (HYMT-002). `null` = không có engine chạy.
+  ValueNotifier<String?> get translationEngineNotifier =>
+      TranslationService().activeEngineNotifier;
+
+  bool get translationPipelineStale {
+    final current = _translationService.pipelineTag;
+    return _appliedPipelineTag != null && _appliedPipelineTag != current;
+  }
+
+  /// Rebuild toolbar after engine/offline-only settings change.
+  void refreshTranslationChrome() => notifyListeners();
+
   AppLanguage get translationTargetLanguage =>
-      TranslationService().targetLanguage;
+      _translationService.targetLanguage;
 
   AppLanguage get detectedSourceLanguage {
     final sample = lines
@@ -38,8 +73,62 @@ mixin TranslationMixin on ChangeNotifier {
     return LanguageDetector.detectLanguage(sample);
   }
 
+  /// Nguồn dịch hiệu dụng của tài liệu: nguồn user GẮN (explicit) nếu có,
+  /// ngược lại kết quả nhận diện tự động theo mẫu nội dung.
+  AppLanguage get translationSourceLanguage =>
+      _pinnedTranslationSourceCode == null
+          ? detectedSourceLanguage
+          : AppLanguageCatalog.fromCode(_pinnedTranslationSourceCode);
+
+  /// True khi user đã gắn nguồn explicit (≠ AUTO).
+  bool get translationSourceIsPinned => _pinnedTranslationSourceCode != null;
+
+  /// Gắn nguồn dịch explicit cho tài liệu hiện tại.
+  ///
+  /// - 'AUTO' (hoặc rỗng) → bỏ gắn, quay lại nhận diện tự động.
+  /// - Code hợp lệ trong catalog → gắn nguồn cho TẤT CẢ dòng (không
+  ///   re-detect từng dòng, không retry bằng ngôn ngữ khác).
+  /// - Code không có trong catalog → return false, không đổi gì.
+  ///
+  /// Đổi nguồn sẽ xoá bản dịch cũ và dịch lại như [setTranslationTargetLanguage].
+  /// Nguồn gắn là state phiên/tài liệu (reset bởi [resetTranslationForNewDocument]);
+  /// chưa lưu bền vững — việc lưu + UI chọn nguồn thuộc lane khác.
+  Future<bool> setTranslationSourceLanguage(
+    String code, {
+    bool retranslateExisting = true,
+  }) async {
+    final normalized = code.trim().replaceAll('_', '-').toUpperCase();
+    final isAuto = normalized.isEmpty || normalized == 'AUTO';
+    final language =
+        isAuto ? null : AppLanguageCatalog.maybeFromCode(normalized);
+    if (!isAuto && language == null) return false;
+    final newCode = language?.translationCode;
+    if (newCode == _pinnedTranslationSourceCode) return false;
+
+    final hadTranslations = lines.any(
+      (line) => line.translation != null && line.translation!.trim().isNotEmpty,
+    );
+
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    _pinnedTranslationSourceCode = newCode;
+    for (var index = 0; index < lines.length; index++) {
+      lines[index] = lines[index].copyWith(clearTranslation: true);
+    }
+    notifyListeners();
+
+    if (retranslateExisting &&
+        hadTranslations &&
+        !translationPairUsesSameLanguage) {
+      unawaited(translateAll(forceRetranslate: true));
+    }
+    return true;
+  }
+
   bool get translationPairUsesSameLanguage =>
-      detectedSourceLanguage.translationCode ==
+      translationSourceLanguage.translationCode ==
       translationTargetLanguage.translationCode;
 
   int get translatedLineCount {
@@ -55,7 +144,7 @@ mixin TranslationMixin on ChangeNotifier {
   }
 
   void restoreTranslationTargetLanguage(String code) {
-    TranslationService().configure(targetLang: code);
+    _translationService.configure(targetLang: code);
   }
 
   Future<bool> setTranslationTargetLanguage(
@@ -65,7 +154,7 @@ mixin TranslationMixin on ChangeNotifier {
     final language = AppLanguageCatalog.maybeFromCode(code);
     if (language == null) return false;
 
-    final service = TranslationService();
+    final service = _translationService;
     if (service.targetLang == language.translationCode) return false;
 
     final hadTranslations = lines.any(
@@ -116,12 +205,79 @@ mixin TranslationMixin on ChangeNotifier {
     notifyListeners();
   }
 
+  /// Nguồn của MỘT dòng. Chế độ AUTO (không gắn nguồn) re-detect từng dòng
+  /// với fallback = nguồn tài liệu (hỗ trợ tài liệu hỗn hợp ngôn ngữ).
+  /// Nguồn explicit dùng đúng nguồn đã gắn cho mọi dòng — KHÔNG re-detect
+  /// (XLAT-MLKIT-001: không để câu ngắn đổi tài liệu EN thành DE).
+  AppLanguage _lineSourceFor(String content, AppLanguage documentSource) {
+    if (translationSourceIsPinned) return documentSource;
+    return LanguageDetector.detectLanguage(content, fallback: documentSource);
+  }
+
+  /// Dịch 1 dòng qua service. Chế độ AUTO: nếu dòng bị nhận diện nhầm sang
+  /// ngôn ngữ khác nguồn tài liệu và model của ngôn ngữ vừa nhận diện chưa
+  /// tải (missingModelCodes) → retry ĐÚNG 1 LẦN với nguồn tài liệu trước khi
+  /// chấp nhận lỗi. Nguồn explicit KHÔNG BAO GIỜ retry bằng ngôn ngữ khác.
+  Future<(TranslationResult, AppLanguage)> _translateLineContent(
+    TranslationService service, {
+    required String content,
+    required AppLanguage documentSource,
+    required AppLanguage lineSource,
+    required String targetCode,
+    required bool skipCache,
+  }) async {
+    var result = await service.translateText(
+      content,
+      sourceLang: lineSource.translationCode,
+      targetLang: targetCode,
+      skipCache: skipCache,
+    );
+    var appliedSource = lineSource;
+    if (!result.isSuccess &&
+        !translationSourceIsPinned &&
+        lineSource.translationCode != documentSource.translationCode &&
+        (result.missingModelCodes ?? const <String>[])
+            .contains(lineSource.translationCode)) {
+      final retry = await service.translateText(
+        content,
+        sourceLang: documentSource.translationCode,
+        targetLang: targetCode,
+        skipCache: skipCache,
+      );
+      if (retry.isSuccess && retry.translatedText.trim().isNotEmpty) {
+        result = retry;
+        appliedSource = documentSource;
+      }
+    }
+    return (result, appliedSource);
+  }
+
+  /// Lỗi dịch có cấu trúc: khi model của NGUỒN thiếu, phân biệt "nguồn tự
+  /// nhận diện" (chế độ AUTO — user nên kiểm tra lại ngôn ngữ nguồn) với
+  /// "cặp nguồn đã chọn" (explicit — không đổi ngôn ngữ âm thầm).
+  String _translationErrorFor(
+    TranslationResult result, {
+    required AppLanguage lineSource,
+  }) {
+    final base = '${result.engineName}: ${result.error}';
+    final missing = result.missingModelCodes;
+    if (missing == null ||
+        missing.isEmpty ||
+        !missing.contains(lineSource.translationCode)) {
+      return base;
+    }
+    return translationSourceIsPinned
+        ? '$base (cặp nguồn đã chọn)'
+        : '$base (nguồn tự nhận diện — kiểm tra lại ngôn ngữ nguồn)';
+  }
+
   Future<void> translateLine(int index) async {
     if (index < 0 || index >= lines.length) return;
     final line = lines[index];
     if (line.content.trim().isEmpty) return;
 
-    final source = detectedSourceLanguage;
+    final service = _translationService;
+    final source = translationSourceLanguage;
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
@@ -130,30 +286,33 @@ mixin TranslationMixin on ChangeNotifier {
       return;
     }
 
-    final lineSource = LanguageDetector.detectLanguage(
-      line.content,
-      fallback: source,
-    );
+    final lineSource = _lineSourceFor(line.content, source);
     final runId = _translationRunId;
-    final result = await TranslationService().translateText(
-      line.content,
-      sourceLang: lineSource.translationCode,
-      targetLang: target.translationCode,
+    TranslationService().activeEngineNotifier.value = null;
+    final (result, appliedSource) = await _translateLineContent(
+      service,
+      content: line.content,
+      documentSource: source,
+      lineSource: lineSource,
+      targetCode: target.translationCode,
+      skipCache: true,
     );
 
     if (runId != _translationRunId || index >= lines.length) return;
-    if (TranslationService().targetLang != target.translationCode) return;
+    if (service.targetLang != target.translationCode) return;
 
     if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
       lines[index] = line.copyWith(
         translation: result.translatedText,
-        sourceLanguageCode: result.detectedLang ?? lineSource.translationCode,
+        sourceLanguageCode:
+            result.detectedLang ?? appliedSource.translationCode,
         translationLanguageCode: target.translationCode,
       );
-      _currentEngine = TranslationService().lastUsedEngine;
+      _currentEngine = service.lastUsedEngine;
+      _appliedPipelineTag = service.pipelineTag;
       _translationError = null;
     } else {
-      _translationError = '${result.engineName}: ${result.error}';
+      _translationError = _translationErrorFor(result, lineSource: lineSource);
     }
     notifyListeners();
   }
@@ -161,8 +320,8 @@ mixin TranslationMixin on ChangeNotifier {
   Future<void> translateAll({bool forceRetranslate = false}) async {
     if (_isTranslating) return;
 
-    final service = TranslationService();
-    final source = detectedSourceLanguage;
+    final service = _translationService;
+    final source = translationSourceLanguage;
     final target = translationTargetLanguage;
     if (source.translationCode == target.translationCode) {
       _translationError =
@@ -173,6 +332,10 @@ mixin TranslationMixin on ChangeNotifier {
     }
 
     final targetCode = target.translationCode;
+    final pipelineTag = service.pipelineTag;
+    final pipelineChanged = _appliedPipelineTag != null &&
+        _appliedPipelineTag != pipelineTag;
+    final force = forceRetranslate || pipelineChanged;
     final toTranslate = <int>[];
     for (var index = 0; index < lines.length; index++) {
       final line = lines[index];
@@ -185,11 +348,12 @@ mixin TranslationMixin on ChangeNotifier {
       final hasCurrentTranslation = line.translation != null &&
           line.translation!.trim().isNotEmpty &&
           existingTarget == targetCode;
-      if (!forceRetranslate && hasCurrentTranslation) continue;
+      if (!force && hasCurrentTranslation) continue;
       toTranslate.add(index);
     }
 
     if (toTranslate.isEmpty) {
+      _appliedPipelineTag = pipelineTag;
       if (_translationDisplayMode == TranslationDisplayMode.hidden) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }
@@ -201,6 +365,8 @@ mixin TranslationMixin on ChangeNotifier {
     _isTranslating = true;
     _translationProgress = 0;
     _translationError = null;
+    // HYMT-002: hint engine sạch cho run mới (engine sẽ tự set khi chạy).
+    service.activeEngineNotifier.value = null;
     notifyListeners();
 
     var consecutiveErrors = 0;
@@ -215,14 +381,14 @@ mixin TranslationMixin on ChangeNotifier {
         final lineIndex = toTranslate[position];
         if (lineIndex >= lines.length) continue;
         final line = lines[lineIndex];
-        final lineSource = LanguageDetector.detectLanguage(
-          line.content,
-          fallback: source,
-        );
-        final result = await service.translateText(
-          line.content,
-          sourceLang: lineSource.translationCode,
-          targetLang: targetCode,
+        final lineSource = _lineSourceFor(line.content, source);
+        final (result, appliedSource) = await _translateLineContent(
+          service,
+          content: line.content,
+          documentSource: source,
+          lineSource: lineSource,
+          targetCode: targetCode,
+          skipCache: force,
         );
 
         if (runId != _translationRunId || service.targetLang != targetCode) {
@@ -233,13 +399,16 @@ mixin TranslationMixin on ChangeNotifier {
             lines[lineIndex] = line.copyWith(
               translation: result.translatedText,
               sourceLanguageCode:
-                  result.detectedLang ?? lineSource.translationCode,
+                  result.detectedLang ?? appliedSource.translationCode,
               translationLanguageCode: targetCode,
             );
             _currentEngine = service.lastUsedEngine;
             consecutiveErrors = 0;
           } else {
-            _translationError = '${result.engineName}: ${result.error}';
+            _translationError = _translationErrorFor(
+              result,
+              lineSource: lineSource,
+            );
             consecutiveErrors++;
             if (consecutiveErrors >= 5) {
               _translationError =
@@ -263,12 +432,24 @@ mixin TranslationMixin on ChangeNotifier {
           translatedLineCount > 0) {
         _translationDisplayMode = TranslationDisplayMode.stackedBelow;
       }
+
+      // Issue2: tự động lưu translations vào cache/cloud sau khi dịch xong
+      try {
+        // Gọi qua dynamic để tránh import cycle với TextProvider
+        final self = this as dynamic;
+        if (self.saveCurrentTranslationsToCloud != null) {
+          await self.saveCurrentTranslationsToCloud();
+        }
+      } catch (e) {
+        debugPrint('⚠️ auto-save translations error: $e');
+      }
     } catch (error) {
       _translationError = error.toString();
     } finally {
       if (runId == _translationRunId) {
         _isTranslating = false;
         _translationProgress = doneCount / toTranslate.length;
+        _appliedPipelineTag = pipelineTag;
         notifyListeners();
       }
     }
@@ -277,12 +458,14 @@ mixin TranslationMixin on ChangeNotifier {
   void cancelTranslation() {
     _translationRunId++;
     _isTranslating = false;
+    TranslationService().activeEngineNotifier.value = null;
     notifyListeners();
   }
 
   void clearAllTranslations() {
     _translationRunId++;
     _isTranslating = false;
+    TranslationService().activeEngineNotifier.value = null;
     for (var index = 0; index < lines.length; index++) {
       lines[index] = lines[index].copyWith(clearTranslation: true);
     }
@@ -290,6 +473,74 @@ mixin TranslationMixin on ChangeNotifier {
     _translationProgress = 0;
     _translationError = null;
     _currentEngine = '';
+    _appliedPipelineTag = null;
     notifyListeners();
+  }
+
+  /// Handover fix cho issue 1 & 2: khi load tài liệu mới (AI -> Cloud) phải reset
+  /// translation state để tránh black screen do runId cũ còn chạy, và để chuẩn bị
+  /// lưu translations mới.
+  void resetTranslationForNewDocument() {
+    _translationRunId++;
+    _isTranslating = false;
+    _translationProgress = 0;
+    _translationError = null;
+    _currentEngine = '';
+    _appliedPipelineTag = null;
+    _translationDisplayMode = TranslationDisplayMode.hidden;
+    // Nguồn explicit gắn cho tài liệu CŨ không kéo sang tài liệu mới.
+    _pinnedTranslationSourceCode = null;
+    // Không notify ở đây — caller sẽ notify sau khi parse lines
+  }
+
+  /// Lưu translations hiện tại vào cache để issue 2 không phải dịch lại
+  /// Trả về Map<lineIndex, translation>
+  Map<int, String> exportCurrentTranslations() {
+    final map = <int, String>{};
+    for (var i = 0; i < lines.length; i++) {
+      final t = lines[i].translation;
+      if (t != null && t.trim().isNotEmpty) {
+        map[i] = t;
+      }
+    }
+    return map;
+  }
+
+  /// After reopen: paint saved translations onto lines (no network).
+  Future<int> rehydrateTranslationsFromCache() async {
+    if (lines.isEmpty) return 0;
+    final cache = TranslationCache();
+    final target = translationTargetLanguage.translationCode;
+    var hits = 0;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.content.trim().isEmpty) continue;
+      if (line.translation != null && line.translation!.trim().isNotEmpty) {
+        continue;
+      }
+      final source = _lineSourceFor(line.content, translationSourceLanguage);
+      final cached = await cache.get(
+        text: line.content,
+        sourceLang: source.translationCode,
+        targetLang: target,
+        engine: _translationService.pipelineTag,
+      );
+      if (cached == null || cached.trim().isEmpty) continue;
+      lines[i] = line.copyWith(
+        translation: cached,
+        sourceLanguageCode: source.translationCode,
+        translationLanguageCode: target,
+      );
+      hits++;
+    }
+    if (hits > 0) {
+      _appliedPipelineTag = _translationService.pipelineTag;
+      if (_translationDisplayMode == TranslationDisplayMode.hidden) {
+        _translationDisplayMode = TranslationDisplayMode.stackedBelow;
+      }
+      notifyListeners();
+    }
+    debugPrint('[Translation] rehydrated $hits/${lines.length} lines from cache');
+    return hits;
   }
 }

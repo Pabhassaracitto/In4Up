@@ -1,8 +1,11 @@
 // lib/screens/read_mode/services/recent_files_service.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../models/learning_activity.dart';
+import '../../../services/learning_activity_service.dart';
 import '../models/recent_file.dart';
 
 class RecentFilesService {
@@ -55,7 +58,11 @@ class RecentFilesService {
     final files = List<RecentFile>.from(await getAll());
 
     // Xóa nếu đã có
-    files.removeWhere((f) => f.id == file.id);
+    files.removeWhere((f) =>
+        f.id == file.id ||
+        (file.localPath != null &&
+            f.localPath != null &&
+            f.localPath!.toLowerCase() == file.localPath!.toLowerCase()));
 
     // Thêm lên đầu với timestamp mới
     files.insert(
@@ -66,6 +73,13 @@ class RecentFilesService {
     // Giới hạn
     final trimmed = files.take(_maxItems).toList();
     await _saveToDisk(trimmed);
+
+    // HOME-STREAK-001: mở/đọc một tài liệu là hoạt động học thật.
+    // Khoá theo id tài liệu ⇒ mở lại cùng tài liệu trong ngày không đếm lặp.
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.readDocument,
+      sourceKey: file.id,
+    ));
   }
 
   // ── Cập nhật tiến độ ────────────────────────────────────────

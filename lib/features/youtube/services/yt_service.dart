@@ -117,25 +117,29 @@ class YtService {
     final l1Lines = await fetchCaptions(videoId, lang: lang1);
     if (l1Lines.isEmpty) return [];
 
-    final l2Lines = await fetchCaptions(videoId, lang: lang2);
+    var l2Lines = await fetchCaptions(videoId, lang: lang2);
+
+    if (l2Lines.isEmpty) {
+      try {
+        l2Lines = await _fetchTimedtextTranslated(videoId, lang1, lang2);
+      } catch (e) {
+        debugPrint('timedtext tlang failed: $e');
+      }
+    }
 
     if (l2Lines.isNotEmpty) {
-      // Merge base on timestamps
       return _mergeCaptions(l1Lines, l2Lines);
     } else if (useAiFallback) {
-      // Dùng máy dịch (batch dịch cho nhanh)
-      debugPrint('🔄 Lang2 ($lang2) không có trên YT, dùng AI translate...');
+      debugPrint('🔄 Lang2 ($lang2) không có trên YT, dùng TranslationService...');
       final texts = l1Lines.map((e) => e.text).toList();
-
-      // Config translation service
       final ts = TranslationService();
-      ts.configure(sourceLang: lang1, targetLang: lang2.toUpperCase());
-
+      ts.configure(sourceLang: lang1, targetLang: lang2);
       final results = await ts.translateBatch(texts);
       final merged = <YtCaptionLine>[];
       for (int i = 0; i < l1Lines.length; i++) {
+        final translated = i < results.length ? results[i].translatedText : '';
         merged.add(l1Lines[i].copyWith(
-          translation: results[i].translatedText,
+          translation: translated.trim().isEmpty ? null : translated,
         ));
       }
       return merged;
@@ -296,6 +300,25 @@ class YtService {
     return _parseXml(resp.body);
   }
 
+  /// Timedtext với tham số tlang — YouTube tự dịch phụ đề nguồn `lang`
+  /// sang `tlang` (dùng khi video không có phụ đề tlang được làm sẵn).
+  /// Bù cho call `_fetchTimedtextTranslated` bị thiếu định nghĩa trong
+  /// 19f6c3a của 01a01580 (chi nhánh nguồn compile lỗi — CI đỏ).
+  Future<List<YtCaptionLine>> _fetchTimedtextTranslated(
+      String videoId, String lang, String tlang) async {
+    final uri = Uri.parse(
+      'https://www.youtube.com/api/timedtext'
+      '?v=$videoId&lang=$lang&tlang=$tlang&fmt=srv3',
+    );
+    final resp = await http.get(uri, headers: {
+      'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    }).timeout(const Duration(seconds: 12));
+
+    if (resp.statusCode != 200 || resp.body.trim().isEmpty) return [];
+    return _parseXml(resp.body);
+  }
+
   // ─── Tầng 3: page HTML ────────────────────────────────
 
   Future<List<YtCaptionLine>> _fetchFromPageHtml(
@@ -443,10 +466,8 @@ class YtService {
       final dir = await getApplicationDocumentsDirectory();
       final folder = Directory('${dir.path}/youtube_captions');
       if (!await folder.exists()) await folder.create(recursive: true);
-      final safe = video.title
-          .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
-          .substring(0, video.title.length.clamp(0, 50));
-      final path = '${folder.path}/$safe.lrc';
+      final id = video.id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
+      final path = '${folder.path}/yt_${id.isEmpty ? 'clip' : id}.lrc';
       await File(path).writeAsString(captionsToLrc(captions, video));
       return path;
     } catch (e) {

@@ -1,0 +1,20 @@
+diff --git a/.github/workflows/app_analyze.yml b/.github/workflows/app_analyze.yml
+index 8f44c4d..9a37549 100644
+--- a/.github/workflows/app_analyze.yml
++++ b/.github/workflows/app_analyze.yml
+@@ -17,6 +17,7 @@ on:
+     paths:
+       - 'lib/**'
+       - 'test/**'
++      - 'packages/**'
+       - 'pubspec.yaml'
+       - 'pubspec.lock'
+       - '.github/workflows/app_analyze.yml'
+@@ -24,6 +25,7 @@ on:
+     paths:
+       - 'lib/**'
+       - 'test/**'
++      - 'packages/**'
+       - 'pubspec.yaml'
+   workflow_dispatch:
+ 

@@ -7,6 +7,7 @@ import '../../../features/grammar/models/grammar_palette.dart';
 import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../models/color_mode.dart';
 import '../models/pdf_word_info.dart';
+import '../services/pdf_geometry.dart';
 
 /// CustomPaint overlay vẽ highlight màu từng từ lên PDF page.
 class PdfWordOverlay extends StatelessWidget {
@@ -23,6 +24,15 @@ class PdfWordOverlay extends StatelessWidget {
   final int? focusTextStartOffsetCue;
   final int? focusTextEndOffsetCue;
 
+  /// READ-630-03: marker "từ đã lưu" chỉ vẽ khi BẬT (mặc định tắt).
+  final bool showRecallMarkers;
+
+  /// Câu đang được TTS đọc (rect theo từng dòng, không gian PDF của trang).
+  /// Tô theo dòng chứ không tô một khối bao trọn: câu 3 dòng mà phủ một hình
+  /// chữ nhật từ đầu dòng 1 tới cuối dòng 3 thì khoảng trắng hai bên cũng sáng
+  /// theo, nhìn như lỗi render.
+  final List<Rect> ttsCueRects;
+
   const PdfWordOverlay({
     super.key,
     required this.words,
@@ -37,18 +47,26 @@ class PdfWordOverlay extends StatelessWidget {
     this.focusPageIndexCue,
     this.focusTextStartOffsetCue,
     this.focusTextEndOffsetCue,
+    this.showRecallMarkers = false,
+    this.ttsCueRects = const [],
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasRecallMarkers = words.any((w) =>
-        w.analyzed?.isSaved == true ||
-        w.analyzed?.hasSavedNotes == true ||
-        w.analyzed?.hasDueReview == true);
+    final hasRecallMarkers = showRecallMarkers &&
+        words.any((w) =>
+            w.analyzed?.isSaved == true ||
+            w.analyzed?.hasSavedNotes == true ||
+            w.analyzed?.hasDueReview == true);
     final hasFocusCue =
         focusWordCue != null || focusRectCue != null || focusTextStartOffsetCue != null;
+    final hasTtsCue = ttsCueRects.isNotEmpty;
 
-    if (colorMode == ColorMode.none && speakingWord == null && !hasRecallMarkers && !hasFocusCue) {
+    if (colorMode == ColorMode.none &&
+        speakingWord == null &&
+        !hasRecallMarkers &&
+        !hasFocusCue &&
+        !hasTtsCue) {
       return const SizedBox.shrink();
     }
 
@@ -73,6 +91,8 @@ class PdfWordOverlay extends StatelessWidget {
           focusTextStartOffsetCue: focusTextStartOffsetCue,
           focusTextEndOffsetCue: focusTextEndOffsetCue,
           pageHeight: page.height,
+          showRecallMarkers: showRecallMarkers,
+          ttsCueRects: ttsCueRects,
         ),
       );
     });
@@ -94,6 +114,8 @@ class _WordHighlightPainter extends CustomPainter {
   final int? focusTextStartOffsetCue;
   final int? focusTextEndOffsetCue;
   final double pageHeight;
+  final bool showRecallMarkers;
+  final List<Rect> ttsCueRects;
 
   _WordHighlightPainter({
     required this.words,
@@ -110,6 +132,8 @@ class _WordHighlightPainter extends CustomPainter {
     this.focusTextStartOffsetCue,
     this.focusTextEndOffsetCue,
     required this.pageHeight,
+    this.showRecallMarkers = false,
+    this.ttsCueRects = const [],
   });
 
   @override
@@ -171,29 +195,32 @@ class _WordHighlightPainter extends CustomPainter {
         }
       }
 
+      // READ-630-03: recall marker chỉ vẽ khi người dùng BẬT
       final analyzed = word.analyzed;
-      if (analyzed?.isSaved == true) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(screenRect.inflate(1), const Radius.circular(3)),
-          Paint()
-            ..color = const Color(0xFF4CAF50).withValues(alpha: 0.45)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
-        );
-      }
-      if (analyzed?.hasSavedNotes == true) {
-        canvas.drawCircle(
-          Offset(screenRect.right - 3, screenRect.top + 3),
-          2.4,
-          Paint()..color = Colors.amberAccent,
-        );
-      }
-      if (analyzed?.hasDueReview == true) {
-        canvas.drawCircle(
-          Offset(screenRect.left + 3, screenRect.top + 3),
-          2.4,
-          Paint()..color = Colors.redAccent,
-        );
+      if (showRecallMarkers) {
+        if (analyzed?.isSaved == true) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(screenRect.inflate(1), const Radius.circular(3)),
+            Paint()
+              ..color = const Color(0xFF4CAF50).withValues(alpha: 0.45)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1,
+          );
+        }
+        if (analyzed?.hasSavedNotes == true) {
+          canvas.drawCircle(
+            Offset(screenRect.right - 3, screenRect.top + 3),
+            2.4,
+            Paint()..color = Colors.amberAccent,
+          );
+        }
+        if (analyzed?.hasDueReview == true) {
+          canvas.drawCircle(
+            Offset(screenRect.left + 3, screenRect.top + 3),
+            2.4,
+            Paint()..color = Colors.redAccent,
+          );
+        }
       }
 
       if (_matchesPreciseCue(word)) {
@@ -226,6 +253,8 @@ class _WordHighlightPainter extends CustomPainter {
       }
     }
 
+    _drawTtsCue(canvas);
+
     final shouldDrawFallbackRect = focusRectCue != null &&
         !matchedPreciseCue &&
         (focusPageIndexCue == null || focusPageIndexCue == pageIndex);
@@ -251,14 +280,35 @@ class _WordHighlightPainter extends CustomPainter {
     return false;
   }
 
-  Rect _toScreenRect(Rect pdfRect) {
-    final flippedTop = pageHeight - pdfRect.bottom;
-    return Rect.fromLTWH(
-      pdfRect.left * scaleX,
-      flippedTop * scaleY,
-      pdfRect.width * scaleX,
-      pdfRect.height * scaleY,
-    );
+  /// Rect → không gian nhìn. `pdfRectToViewerRect` là nơi duy nhất định nghĩa
+  /// phép quy đổi (rect PDF có `top > bottom`, nên `pdfRect.height` là số ÂM —
+  /// dùng trực tiếp sẽ cho highlight lộn ngược / cao độ 0).
+  Rect _toScreenRect(Rect pdfRect) => pdfRectToViewerRect(
+        pdfRect,
+        pageHeight: pageHeight,
+        scaleX: scaleX,
+        scaleY: scaleY,
+      );
+
+  void _drawTtsCue(Canvas canvas) {
+    if (ttsCueRects.isEmpty) return;
+    final fill = Paint()
+      ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.16);
+    final line = Paint()
+      ..color = const Color(0xFFFFEB3B).withValues(alpha: 0.85)
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    for (final rect in ttsCueRects) {
+      final screenRect = _toScreenRect(rect);
+      if (screenRect.isEmpty) continue;
+      final rrect = RRect.fromRectAndRadius(screenRect, const Radius.circular(3));
+      canvas.drawRRect(rrect, fill);
+      canvas.drawLine(
+        Offset(screenRect.left, screenRect.bottom + 1.4),
+        Offset(screenRect.right, screenRect.bottom + 1.4),
+        line,
+      );
+    }
   }
 
   void _drawFocusCue(Canvas canvas, Rect screenRect) {
@@ -290,10 +340,15 @@ class _WordHighlightPainter extends CustomPainter {
       old.grammarSettings != grammarSettings ||
       old.grammarPalette.id != grammarPalette.id ||
       old.speakingWord != speakingWord ||
+      old.showRecallMarkers != showRecallMarkers ||
       old.focusWordCue != focusWordCue ||
       old.focusRectCue != focusRectCue ||
       old.focusPageIndexCue != focusPageIndexCue ||
       old.focusTextStartOffsetCue != focusTextStartOffsetCue ||
       old.focusTextEndOffsetCue != focusTextEndOffsetCue ||
-      old.words.length != words.length;
+      old.words.length != words.length ||
+      old.ttsCueRects.length != ttsCueRects.length ||
+      (old.ttsCueRects.isNotEmpty &&
+          ttsCueRects.isNotEmpty &&
+          old.ttsCueRects.first != ttsCueRects.first);
 }

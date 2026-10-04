@@ -30,3 +30,9 @@ analyzer:
   exclude:
     - "backups/**"       # Bỏ qua toàn bộ file trong thư mục backups ở thư mục gốc
     - "**/backups/**"     # Bỏ qua mọi thư mục tên backups ở bất kỳ đâu trong dự án
+
+    # Legacy package từ dòng vipsound — KHÔNG phải dependency của app
+    # (pubspec chỉ dùng in4up_ai/in4up_core/in4up_stt). App không import
+    # chúng ⇒ không analyze chung, tránh lỗi đỏ từ code không chạy.
+    - "packages/vipsound_ai/**"
+    - "packages/vipsound_core/**"

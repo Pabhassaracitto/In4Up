@@ -1,0 +1,39 @@
+name: Knowledge Module Tests (MVA Task 1)
+
+# CI nhẹ cho module Knowledge (MATRIX KNOWLEDGE MVA v2.0 — mục 8 Task 1).
+# Sandbox/dev không cần build app đầy đủ; chỉ compile + test module mới.
+
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'lib/knowledge/**'
+      - 'test/knowledge/**'
+      - '.github/workflows/knowledge_tests.yml'
+  pull_request:
+    paths:
+      - 'lib/knowledge/**'
+      - 'test/knowledge/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml — tránh lệch dependency
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze knowledge module
+        run: flutter analyze lib/knowledge test/knowledge
+
+      - name: Run knowledge tests (Task 1 DoD)
+        run: flutter test test/knowledge

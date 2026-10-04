@@ -5,8 +5,30 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../features/shadowing/models/shadowing_result.dart';
+import '../models/audio_library_entry.dart';
+import '../models/audio_playlist.dart';
 import '../models/segment.dart';
+import '../models/sound_chapter.dart';
+import '../models/sound_loop_stat.dart';
+import '../models/sound_mark.dart';
+import '../models/shell_content_order.dart';
+import '../models/read_content_source.dart';
+import '../models/sound_transcript.dart';
 import '../models/text_segment.dart';
+import '../models/vad_settings.dart';
+
+/// Source mặc định / gần nhất của workspace Nghe.
+enum ListenContentSource {
+  audioLibrary,
+  youtube,
+  videoLibrary;
+}
+
+/// Mode mặc định / gần nhất của workspace Hiểu.
+enum UnderstandWorkspaceMode {
+  sync,
+  shadowing;
+}
 
 /// Service quản lý lưu trữ dữ liệu local với Hive
 /// Singleton pattern - gọi StorageService() ở bất kỳ đâu
@@ -23,6 +45,12 @@ class StorageService {
   static const String _shadowingHistoryBox = 'shadowing_history';
   static const String _savedWordsBox = 'saved_words';
   static const String _dailyStatsBox = 'daily_stats';
+  static const String _soundMarksBox = 'sound_marks';
+  static const String _soundChaptersBox = 'sound_chapters';
+  static const String _soundTranscriptsBox = 'sound_transcripts';
+  static const String _soundLoopStatsBox = 'sound_loop_stats';
+  static const String _audioLibraryBox = 'audio_library';
+  static const String _audioPlaylistsBox = 'audio_playlists';
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -47,6 +75,12 @@ class StorageService {
         Hive.openBox(_dailyStatsBox),
         Hive.openBox<String>('web_reader_history'),
         Hive.openBox<String>('pdf_annotations'),
+        Hive.openBox<String>(_soundMarksBox),
+        Hive.openBox<String>(_soundChaptersBox),
+        Hive.openBox<String>(_soundTranscriptsBox),
+        Hive.openBox<String>(_soundLoopStatsBox),
+        Hive.openBox<String>(_audioLibraryBox),
+        Hive.openBox<String>(_audioPlaylistsBox),
       ]);
 
       _initialized = true;
@@ -104,6 +138,58 @@ class StorageService {
     return getSetting<String>('color_mode', defaultValue: 'none') ?? 'none';
   }
 
+  Future<void> saveIpaDisplayMode(String mode) async {
+    await saveSetting('ipa_display_mode', mode);
+  }
+
+  String getIpaDisplayMode() {
+    return getSetting<String>('ipa_display_mode', defaultValue: 'hidden') ??
+        'hidden';
+  }
+
+  Future<void> saveIpaSaveSource(String source) async {
+    await saveSetting('ipa_save_source', source);
+  }
+
+  String getIpaSaveSource() {
+    return getSetting<String>('ipa_save_source', defaultValue: 'auto') ?? 'auto';
+  }
+
+  Future<void> saveIpaColorByType(bool value) async {
+    await saveSetting('ipa_color_by_type', value);
+  }
+
+  bool getIpaColorByType() {
+    return getSetting<bool>('ipa_color_by_type', defaultValue: false) ?? false;
+  }
+
+  Future<void> saveIpaFadeKnown(bool value) async {
+    await saveSetting('ipa_fade_known', value);
+  }
+
+  bool getIpaFadeKnown() {
+    return getSetting<bool>('ipa_fade_known', defaultValue: false) ?? false;
+  }
+
+  /// READ-IPA-006: panel màu IPA đang mở hay không.
+  Future<void> saveIpaLegendVisible(bool value) async {
+    await saveSetting('ipa_legend_visible', value);
+  }
+
+  bool getIpaLegendVisible() {
+    return getSetting<bool>('ipa_legend_visible', defaultValue: false) ?? false;
+  }
+
+  /// READ-IPA-006: trạng thái bật/tắt từng loại màu IPA (default bật hết).
+  /// Lưu dạng JSON string (an toàn với Hive typed-cast).
+  Future<void> saveIpaColorVisibility(Map<String, dynamic> json) async {
+    await saveSetting('ipa_color_visibility', jsonEncode(json));
+  }
+
+  String? getIpaColorVisibilityJson() {
+    return getSetting<String>('ipa_color_visibility');
+  }
+
   Future<void> saveShowTranslation(bool show) async {
     await saveSetting('show_translation', show);
   }
@@ -156,6 +242,30 @@ class StorageService {
     return getSetting<String>('last_text_path');
   }
 
+  // ==================== WRITING DRAFTS ====================
+
+  String _writingDraftKey(String id) => 'writing_draft_v1_$id';
+
+  Future<void> saveWritingDraft(String id, String text) async {
+    if (!_initialized) return;
+    final normalized = text.trim();
+    if (normalized.isEmpty) {
+      await _settings.delete(_writingDraftKey(id));
+      return;
+    }
+    await _settings.put(_writingDraftKey(id), text);
+  }
+
+  String? getWritingDraft(String id) {
+    if (!_initialized) return null;
+    return _settings.get(_writingDraftKey(id)) as String?;
+  }
+
+  Future<void> deleteWritingDraft(String id) async {
+    if (!_initialized) return;
+    await _settings.delete(_writingDraftKey(id));
+  }
+
   Future<void> saveShadowingRepeatCount(int count) async {
     await saveSetting('shadowing_repeat_count', count);
   }
@@ -195,7 +305,7 @@ class StorageService {
     if (raw is List) {
       return raw
           .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e as Map))
+          .map((e) => Map<String, dynamic>.from(e))
           .toList();
     }
     return const [];
@@ -234,6 +344,138 @@ class StorageService {
   bool getShellRememberLastSubMode() {
     return getSetting<bool>('shell_remember_last_sub_mode', defaultValue: true) ??
         true;
+  }
+
+  /// Persist the order of the two primary content workspaces.
+  ///
+  /// The same value is consumed by bottom navigation and by the Scaffold
+  /// drawer mapping. Keeping it in one setting prevents an order change from
+  /// crossing the Listen and Read libraries.
+  Future<void> saveShellContentOrder(ShellContentOrder order) async {
+    await saveSetting('shell_content_order_v1', order.storageValue);
+  }
+
+  ShellContentOrder getShellContentOrder() {
+    final raw = _settings.get('shell_content_order_v1');
+    return shellContentOrderFromStorage(raw);
+  }
+
+  static const String _readContentSourceKey = 'read_content_source_v1';
+  static const String _defaultReadContentSourceKey =
+      'default_read_content_source_v1';
+  static const String _listenContentSourceKey = 'listen_content_source_v1';
+  static const String _defaultListenContentSourceKey =
+      'default_listen_content_source_v1';
+  static const String _understandWorkspaceModeKey =
+      'understand_workspace_mode_v1';
+  static const String _defaultUnderstandWorkspaceModeKey =
+      'default_understand_workspace_mode_v1';
+
+  Future<void> saveReadContentSource(ReadContentSource source) async {
+    await saveSetting(_readContentSourceKey, source.name);
+  }
+
+  ReadContentSource getReadContentSource({ReadContentSource? fallback}) {
+    return _readContentSourceFromStorage(
+      _settings.get(_readContentSourceKey),
+      fallback ?? getDefaultReadContentSource(),
+    );
+  }
+
+  Future<void> saveDefaultReadContentSource(ReadContentSource source) async {
+    await saveSetting(_defaultReadContentSourceKey, source.name);
+  }
+
+  ReadContentSource getDefaultReadContentSource() {
+    return _readContentSourceFromStorage(
+      _settings.get(_defaultReadContentSourceKey),
+      ReadContentSource.document,
+    );
+  }
+
+  Future<void> saveListenContentSource(ListenContentSource source) async {
+    await saveSetting(_listenContentSourceKey, source.name);
+  }
+
+  ListenContentSource getListenContentSource({ListenContentSource? fallback}) {
+    return _listenContentSourceFromStorage(
+      _settings.get(_listenContentSourceKey),
+      fallback ?? getDefaultListenContentSource(),
+    );
+  }
+
+  Future<void> saveDefaultListenContentSource(
+    ListenContentSource source,
+  ) async {
+    await saveSetting(_defaultListenContentSourceKey, source.name);
+  }
+
+  ListenContentSource getDefaultListenContentSource() {
+    return _listenContentSourceFromStorage(
+      _settings.get(_defaultListenContentSourceKey),
+      ListenContentSource.audioLibrary,
+    );
+  }
+
+  Future<void> saveUnderstandWorkspaceMode(
+    UnderstandWorkspaceMode mode,
+  ) async {
+    await saveSetting(_understandWorkspaceModeKey, mode.name);
+  }
+
+  UnderstandWorkspaceMode getUnderstandWorkspaceMode({
+    UnderstandWorkspaceMode? fallback,
+  }) {
+    return _understandWorkspaceModeFromStorage(
+      _settings.get(_understandWorkspaceModeKey),
+      fallback ?? getDefaultUnderstandWorkspaceMode(),
+    );
+  }
+
+  Future<void> saveDefaultUnderstandWorkspaceMode(
+    UnderstandWorkspaceMode mode,
+  ) async {
+    await saveSetting(_defaultUnderstandWorkspaceModeKey, mode.name);
+  }
+
+  UnderstandWorkspaceMode getDefaultUnderstandWorkspaceMode() {
+    return _understandWorkspaceModeFromStorage(
+      _settings.get(_defaultUnderstandWorkspaceModeKey),
+      UnderstandWorkspaceMode.sync,
+    );
+  }
+
+  ReadContentSource _readContentSourceFromStorage(
+    Object? raw,
+    ReadContentSource fallback,
+  ) {
+    if (raw is! String) return fallback;
+    for (final source in ReadContentSource.values) {
+      if (source.name == raw) return source;
+    }
+    return fallback;
+  }
+
+  ListenContentSource _listenContentSourceFromStorage(
+    Object? raw,
+    ListenContentSource fallback,
+  ) {
+    if (raw is! String) return fallback;
+    for (final source in ListenContentSource.values) {
+      if (source.name == raw) return source;
+    }
+    return fallback;
+  }
+
+  UnderstandWorkspaceMode _understandWorkspaceModeFromStorage(
+    Object? raw,
+    UnderstandWorkspaceMode fallback,
+  ) {
+    if (raw is! String) return fallback;
+    for (final mode in UnderstandWorkspaceMode.values) {
+      if (mode.name == raw) return mode;
+    }
+    return fallback;
   }
 
   Future<void> saveShellListenSubMode(int index) async {
@@ -336,6 +578,239 @@ class StorageService {
     await _audioSegments.clear();
   }
 
+  // ==================== SOUND MARKS (Điểm âm thanh) ====================
+
+  Box<String> get _soundMarks => Hive.box<String>(_soundMarksBox);
+
+  /// Lưu / cập nhật một điểm đánh dấu âm thanh
+  Future<void> saveSoundMark(SoundMark mark) async {
+    await _soundMarks.put(mark.id, jsonEncode(mark.toJson()));
+  }
+
+  /// Lưu nhiều điểm
+  Future<void> saveAllSoundMarks(List<SoundMark> marks) async {
+    final entries = <String, String>{};
+    for (final mark in marks) {
+      entries[mark.id] = jsonEncode(mark.toJson());
+    }
+    await _soundMarks.putAll(entries);
+  }
+
+  /// Đọc tất cả điểm
+  List<SoundMark> getAllSoundMarks() {
+    final marks = <SoundMark>[];
+    for (final json in _soundMarks.values) {
+      try {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        marks.add(SoundMark.fromJson(map));
+      } catch (e) {
+        debugPrint('Error parsing sound mark: $e');
+      }
+    }
+    return marks;
+  }
+
+  /// Đọc điểm theo file audio
+  List<SoundMark> getSoundMarksForFile(String audioPath) {
+    return getAllSoundMarks()
+        .where((m) => m.audioPath == audioPath)
+        .toList();
+  }
+
+  /// Xóa một điểm
+  Future<void> deleteSoundMark(String id) async {
+    await _soundMarks.delete(id);
+  }
+
+  // ==================== SOUND CHAPTERS (Mục lục âm thanh) ====================
+
+  Box<String> get _soundChapters => Hive.box<String>(_soundChaptersBox);
+
+  /// Lưu / cập nhật một chương / mục
+  Future<void> saveSoundChapter(SoundChapter chapter) async {
+    await _soundChapters.put(chapter.id, jsonEncode(chapter.toJson()));
+  }
+
+  /// Đọc tất cả chương / mục
+  List<SoundChapter> getAllSoundChapters() {
+    final chapters = <SoundChapter>[];
+    for (final json in _soundChapters.values) {
+      try {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        chapters.add(SoundChapter.fromJson(map));
+      } catch (e) {
+        debugPrint('Error parsing sound chapter: $e');
+      }
+    }
+    return chapters;
+  }
+
+  /// Đọc chương / mục theo file audio
+  List<SoundChapter> getSoundChaptersForFile(String audioPath) {
+    return getAllSoundChapters()
+        .where((c) => c.audioPath == audioPath)
+        .toList();
+  }
+
+  /// Xóa một chương / mục
+  Future<void> deleteSoundChapter(String id) async {
+    await _soundChapters.delete(id);
+  }
+
+  // ==================== SOUND TRANSCRIPTS (Bản ghi nội dung) ====================
+
+  Box<String> get _soundTranscripts => Hive.box<String>(_soundTranscriptsBox);
+
+  /// Lưu transcript theo audio path
+  Future<void> saveSoundTranscript(SoundTranscript transcript) async {
+    await _soundTranscripts.put(
+      transcript.audioPath,
+      jsonEncode(transcript.toJson()),
+    );
+  }
+
+  /// Đọc transcript của một file
+  SoundTranscript? getSoundTranscript(String audioPath) {
+    final json = _soundTranscripts.get(audioPath);
+    if (json == null) return null;
+    try {
+      return SoundTranscript.fromJson(
+        jsonDecode(json) as Map<String, dynamic>,
+      );
+    } catch (e) {
+      debugPrint('Error parsing sound transcript: $e');
+      return null;
+    }
+  }
+
+  /// Đọc toàn bộ transcript (cho tìm kiếm ở thư viện)
+  Map<String, SoundTranscript> getAllSoundTranscripts() {
+    final result = <String, SoundTranscript>{};
+    for (final entry in _soundTranscripts.toMap().entries) {
+      try {
+        result[entry.key] = SoundTranscript.fromJson(
+          jsonDecode(entry.value) as Map<String, dynamic>,
+        );
+      } catch (e) {
+        debugPrint('Error parsing sound transcript: $e');
+      }
+    }
+    return result;
+  }
+
+  // ==================== SOUND LOOP STATS (Thói quen lặp) ====================
+
+  Box<String> get _soundLoopStats => Hive.box<String>(_soundLoopStatsBox);
+
+  /// Lưu / cập nhật thống kê lặp
+  Future<void> saveSoundLoopStat(SoundLoopStat stat) async {
+    await _soundLoopStats.put(stat.id, jsonEncode(stat.toJson()));
+  }
+
+  /// Đọc tất cả thống kê lặp
+  List<SoundLoopStat> getAllSoundLoopStats() {
+    final stats = <SoundLoopStat>[];
+    for (final json in _soundLoopStats.values) {
+      try {
+        stats.add(
+          SoundLoopStat.fromJson(jsonDecode(json) as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('Error parsing sound loop stat: $e');
+      }
+    }
+    return stats;
+  }
+
+  // ==================== VAD SETTINGS (Cài đặt tách đoạn) ====================
+
+  /// Lưu cài đặt tách đoạn VAD (dạng JSON trong settings box)
+  Future<void> saveVadSettings(VadSettings settings) async {
+    await saveSetting('soundlist_vad_settings', jsonEncode(settings.toJson()));
+  }
+
+  VadSettings getVadSettings() {
+    final raw = getSetting<String>('soundlist_vad_settings');
+    if (raw == null) return const VadSettings();
+    try {
+      return VadSettings.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return const VadSettings();
+    }
+  }
+
+  // ==================== AUDIO LIBRARY (Thư viện âm thanh — P1) ====================
+
+  Box<String> get _audioLibrary => Hive.box<String>(_audioLibraryBox);
+
+  /// Lưu toàn bộ chỉ mục thư viện (thay thế).
+  Future<void> saveAllAudioLibraryEntries(List<AudioLibraryEntry> entries) async {
+    final map = <String, String>{};
+    for (final e in entries) {
+      map[e.libraryId] = _jsonEncodeEntry(e);
+    }
+    await _audioLibrary.putAll(map);
+  }
+
+  /// Lưu / cập nhật một entry.
+  Future<void> saveAudioLibraryEntry(AudioLibraryEntry entry) async {
+    await _audioLibrary.put(entry.libraryId, _jsonEncodeEntry(entry));
+  }
+
+  /// Đọc toàn bộ chỉ mục.
+  List<AudioLibraryEntry> getAllAudioLibraryEntries() {
+    final entries = <AudioLibraryEntry>[];
+    for (final json in _audioLibrary.values) {
+      try {
+        entries.add(
+          AudioLibraryEntry.fromJson(jsonDecode(json) as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('Error parsing audio library entry: $e');
+      }
+    }
+    return entries;
+  }
+
+  /// Xóa một entry.
+  Future<void> deleteAudioLibraryEntry(String libraryId) async {
+    await _audioLibrary.delete(libraryId);
+  }
+
+  String _jsonEncodeEntry(AudioLibraryEntry entry) => jsonEncode(entry.toJson());
+
+  // ==================== AUDIO PLAYLISTS (Playlist thủ công) ====================
+
+  Box<String> get _audioPlaylists => Hive.box<String>(_audioPlaylistsBox);
+
+  /// Lưu / cập nhật một playlist.
+  Future<void> saveAudioPlaylist(AudioPlaylist playlist) async {
+    await _audioPlaylists.put(playlist.id, jsonEncode(playlist.toJson()));
+  }
+
+  /// Đọc toàn bộ playlist (sắp xếp theo updatedAt mới → cũ).
+  List<AudioPlaylist> getAllAudioPlaylists() {
+    final list = <AudioPlaylist>[];
+    for (final json in _audioPlaylists.values) {
+      try {
+        list.add(
+          AudioPlaylist.fromJson(jsonDecode(json) as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('Error parsing audio playlist: $e');
+      }
+    }
+    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return list;
+  }
+
+  /// Xóa một playlist.
+  Future<void> deleteAudioPlaylist(String id) async {
+    await _audioPlaylists.delete(id);
+  }
+
   // ==================== TEXT SEGMENTS ====================
 
   Box<String> get _textSegments => Hive.box<String>(_textSegmentsBox);
@@ -410,7 +885,9 @@ class StorageService {
   Map<String, int> getAllSavedPositions() {
     final result = <String, int>{};
     for (final key in _positions.keys) {
-      result[key as String] = _positions.get(key)!;
+      final keyStr = key.toString();
+      final val = _positions.get(key);
+      if (val != null) result[keyStr] = val;
     }
     return result;
   }

@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'package:device_preview/device_preview.dart';
 import 'dart:io' show Platform;
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:in4up/core/language/localized_material.dart';
@@ -20,12 +18,16 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/responsive/app_responsive.dart';
+import 'features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'features/shadowing/providers/shadowing_provider.dart';
 import 'firebase_options.dart';
+import 'providers/audio_library_provider.dart';
+import 'providers/text_device_provider.dart';
 import 'providers/focus_provider.dart';
 import 'providers/karaoke_settings_provider.dart';
 import 'providers/locale_provider.dart';
 import 'providers/player_provider.dart';
+import 'providers/soundlist_provider.dart';
 import 'providers/text_provider.dart';
 import 'providers/vocabulary_provider.dart';
 import 'providers/waveform_provider.dart';
@@ -35,29 +37,26 @@ import 'screens/read_mode/services/playback_controller.dart';
 import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
+import 'services/auth_service.dart';
+import 'services/firebase_rest_auth.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
+import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
 
 bool isFirebaseAvailable = false;
 
-/// Thay 5 link này bằng nguồn thật của bạn.
-/// Nếu model đã có sẵn trong assets/local thì app sẽ dùng luôn, không tải lại.
+/// Handover SECTION 1 — Fix HttpException: Connection closed
+/// Rule 2: Disable Auto-Download hoàn toàn để tránh HuggingFace CDN timeout
+/// trên Android Tablet do Battery Saver.
+/// Trước đây sai filePath -> fallback tự động gọi HTTP GET -> HttpException
+/// Giờ ép app chỉ nạp file đã chép sẵn tại absolute path (Rule 1).
+/// Nếu model chưa có, SttModelManager sẽ báo lỗi thân thiện thay vì tải.
 final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
-  WhisperModelLevel.tiny: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin?download=true',
-  ],
-  WhisperModelLevel.base: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin?download=true',
-  ],
-  WhisperModelLevel.small: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true',
-  ],
-  WhisperModelLevel.medium: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin?download=true',
-  ],
-  WhisperModelLevel.large: [
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v2.bin?download=true',
-  ],
+  WhisperModelLevel.tiny: [],
+  WhisperModelLevel.base: [],
+  WhisperModelLevel.small: [],
+  WhisperModelLevel.medium: [],
+  WhisperModelLevel.large: [],
 };
 
 /// Tên file được chấp nhận khi:
@@ -96,17 +95,15 @@ Future<void> main() async {
     await Hive.openBox<String>('vocab_sync_pending');
   }
 
-  // ★ runApp ngay - không block
-  const bool useDevicePreview = false; // Thay đổi giá trị này thành true khi cần DevicePreview
+  // Linux: FlutterFire không có plugin native → khôi phục phiên đăng nhập qua
+  // REST fallback (chạy nền, không block startup; authStateChanges sẽ phát
+  // user khi khôi phục xong, sync tự bật theo).
+  if (!isFirebaseAvailable) {
+    unawaited(FirebaseRestAuth().restoreSession());
+  }
 
-  runApp(
-    useDevicePreview
-        ? DevicePreview(
-            enabled: true,
-            builder: (context) => const MyApp(),
-          )
-        : const MyApp(),
-  );
+  // ★ runApp ngay - không block
+  runApp(const MyApp());
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();
@@ -150,9 +147,13 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
         app = await Firebase.initializeApp();
       } catch (e) {
         debugPrint('⚠️ Android native init failed, fallback to options: $e');
-        // Fallback: dùng options theo flavor
+        // Fallback: dùng options theo flavor (androidForFlavor nằm trong
+        // currentPlatform của bản đầy đủ). Lưu ý: CI workflow GHI ĐÈ
+        // lib/firebase_options.dart bằng bản tối giản chỉ có currentPlatform
+        // nên KHÔNG được gọi androidForFlavor trực tiếp ở đây — sẽ lỗi
+        // "Member not found" và đỏ cả 3 nền tảng build.
         app = await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.androidForFlavor,
+          options: DefaultFirebaseOptions.currentPlatform,
         );
       }
     } else if (Platform.isIOS || Platform.isMacOS) {
@@ -250,31 +251,40 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
-        ChangeNotifierProvider(create: (_) => PlayerProvider()),
+        ChangeNotifierProvider(
+          create: (context) => PlayerProvider(
+            understandProvider: context.read<UnderstandProvider>(),
+          ),
+        ),
+        // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
+        ChangeNotifierProvider(
+          create: (ctx) => SoundlistProvider()
+            ..load()
+            ..attachPlayer(ctx.read<PlayerProvider>()),
+        ),
+        // Thư viện âm thanh (P1): quét MediaStore, chỉ mục Hive
+        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
+        // Thư viện đọc (tab Thiết bị): quét thư mục trên máy (SAF tree, Android)
+        ChangeNotifierProvider(create: (_) => TextDeviceProvider()..init()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
         ChangeNotifierProvider(create: (_) => WaveformProvider()),
         ChangeNotifierProvider(
           create: (_) {
             final prov = VocabularyProvider();
             prov.loadData(); // Nạp danh sách từ cục bộ từ Hive
+            unawaited(ReaderDisplaySettings().init()); // READ-630-03
 
-            // Tự động kích hoạt sync khi có User đăng nhập - chỉ khi Firebase sẵn sàng (fix Linux no-app)
-            if (isFirebaseAvailable) {
-              try {
-                FirebaseAuth.instance.authStateChanges().listen((user) {
-                  if (user != null) {
-                    debugPrint('☁️ Sync Enabled for user: ${user.uid}');
-                    unawaited(prov.enableSync(user.uid));
-                  } else {
-                    prov.disableSync();
-                  }
-                });
-              } catch (e) {
-                debugPrint('⚠️ FirebaseAuth listener failed (Linux no-app expected): $e');
+            // Tự động kích hoạt sync khi có User đăng nhập — dùng stream thống
+            // nhất của AuthService: Firebase plugin (Android/Win/macOS) hoặc
+            // REST fallback (Linux — fix "không có nút đăng nhập trên Linux")
+            AuthService().authStateChanges.listen((user) {
+              if (user != null) {
+                debugPrint('☁️ Sync Enabled for user: ${user.uid}');
+                unawaited(prov.enableSync(user.uid));
+              } else {
+                prov.disableSync();
               }
-            } else {
-              debugPrint('ℹ️ Firebase not available (Linux), skip auth sync listener');
-            }
+            });
 
             return prov;
           },
@@ -283,6 +293,25 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => FocusProvider()),
         ChangeNotifierProvider(
             create: (_) => KaraokeSettingsProvider()..load()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final lhb = LearnByHeartProvider();
+            unawaited(lhb.loadData()); // Nạp bài cục bộ (SharedPreferences)
+
+            // LHB-006 — tự bật đồng bộ Thuộc Lòng khi có user đăng nhập, dùng
+            // chung stream thống nhất của AuthService (plugin hoặc REST/Linux)
+            // giống VocabularyProvider ⇒ cloud về đúng tài khoản.
+            AuthService().authStateChanges.listen((user) {
+              if (user != null) {
+                unawaited(lhb.enableSync(user.uid));
+              } else {
+                lhb.disableSync();
+              }
+            });
+
+            return lhb;
+          },
+        ),
 
         // Nếu đây là singleton/global controller thì dùng .value an toàn hơn
         ChangeNotifierProvider<MemoryController>.value(
@@ -493,3 +522,4 @@ class _AppErrorScreen extends StatelessWidget {
     );
   }
 }
+

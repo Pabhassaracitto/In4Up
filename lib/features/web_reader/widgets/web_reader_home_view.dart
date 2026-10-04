@@ -1,10 +1,11 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/text_provider.dart';
 import '../models/web_collection.dart';
-import '../models/web_extraction_candidate.dart';
+import '../../../services/vocab_batch/vocab_batch_models.dart';
 import '../web_reader_controller.dart';
 import 'web_extraction_batch_sheet.dart';
 

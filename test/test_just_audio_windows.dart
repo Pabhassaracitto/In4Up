@@ -1,3 +1,4 @@
+// ignore_for_file: use_key_in_widget_constructors, library_private_types_in_public_api, avoid_print, annotate_overrides
 // test_just_audio_windows.dart
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';

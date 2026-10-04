@@ -23,6 +23,8 @@ class WebReaderJS {
   const HIDE_ALL_WORD_TYPES = !!CONFIG.hideAllWordTypes;
   const WORDTYPE_BOLD = CONFIG.wordTypeBold || {};
   const SUFFIXES = CONFIG.suffixes || {};
+  // READ-630-03: marker "từ đã lưu" chỉ hiện khi Flutter gửi true
+  const SHOW_RECALL = !!CONFIG.showRecallMarkers;
 
   // ── Cleanup script (xóa highlight cũ) ─────────────────
   function removeHighlights() {
@@ -138,7 +140,7 @@ class WebReaderJS {
   }
 
   function applyRecallStyle(span, meta) {
-    if (!meta) return;
+    if (!SHOW_RECALL || !meta) return;
     if (meta.saved) {
       span.style.outline = '1px solid rgba(76,175,80,0.45)';
       span.style.outlineOffset = '1px';

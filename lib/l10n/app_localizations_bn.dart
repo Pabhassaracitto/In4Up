@@ -1187,4 +1187,358 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get demoWordWorld => 'world';
+
+  @override
+  String get shellUiSettings => 'Shell interface';
+
+  @override
+  String get shellUiSettingsSubtitle =>
+      'Compact mode, auto-hide, long-press to change mode';
+
+  @override
+  String get learnByHeart => 'Learn by Heart';
+
+  @override
+  String get learnByHeartSubtitle =>
+      'Dhammapada, recitations and meaningful passages';
+
+  @override
+  String get soundList => 'Soundlist';
+
+  @override
+  String get soundListSubtitle =>
+      'Scores, chapters and audio table of contents';
+
+  @override
+  String get lhb_0 => 'Later';
+
+  @override
+  String get lhb_1 => 'Check now';
+
+  @override
+  String get lhb_2 => 'Deep assessment';
+
+  @override
+  String get lhb_3 => 'Fill in the blanks';
+
+  @override
+  String get lhb_4 => 'Meaning → Verse';
+
+  @override
+  String get lhb_5 => 'Listen and continue reading';
+
+  @override
+  String get lhb_6 => 'Show answer to compare';
+
+  @override
+  String get lhb_7 => 'Play the first half';
+
+  @override
+  String get lhb_8 => 'Show the rest to check';
+
+  @override
+  String get lhb_9 => 'Back';
+
+  @override
+  String get lhb_10 => 'Next';
+
+  @override
+  String get lhb_11 => 'Add a new recitation';
+
+  @override
+  String get lhb_12 => 'Restore built-in samples';
+
+  @override
+  String get lhb_13 => 'Add new item';
+
+  @override
+  String get lhb_14 => 'All categories';
+
+  @override
+  String get lhb_15 => 'All statuses';
+
+  @override
+  String get lhb_16 => 'Review Active Recall';
+
+  @override
+  String get lhb_17 => 'Progressive learning';
+
+  @override
+  String get lhb_18 => 'Edit';
+
+  @override
+  String get lhb_19 => 'Delete item';
+
+  @override
+  String get lhb_20 => 'Confirm deletion';
+
+  @override
+  String get lhb_21 =>
+      'Are you sure you want to delete this lesson? Review progress will be lost.';
+
+  @override
+  String get lhb_22 => 'Cancel';
+
+  @override
+  String get lhb_23 => 'Delete';
+
+  @override
+  String get lhb_24 => 'Restore sample data';
+
+  @override
+  String get lhb_25 => 'Restore';
+
+  @override
+  String get audit_0 => 'Recent';
+
+  @override
+  String get audit_1 => 'Most recent';
+
+  @override
+  String get audit_2 => 'Library';
+
+  @override
+  String get audit_3 => 'Audio library';
+
+  @override
+  String get audit_4 => 'Listening library';
+
+  @override
+  String get audit_5 => 'Listen';
+
+  @override
+  String get audit_6 => 'Read';
+
+  @override
+  String get audit_7 => 'Listened notes';
+
+  @override
+  String get audit_8 => 'Recent';
+
+  @override
+  String get audit_9 => 'Cloud';
+
+  @override
+  String get audit_10 => 'Device';
+
+  @override
+  String get audit_11 => 'Unread';
+
+  @override
+  String get audit_12 => 'Reading Library';
+
+  @override
+  String get audit_13 => 'Writing';
+
+  @override
+  String get audit_14 => 'Speaking';
+
+  @override
+  String get audit_15 => 'Understanding';
+
+  @override
+  String get audit_16 => 'Memory';
+
+  @override
+  String get audit_17 => 'Shell interface';
+
+  @override
+  String get sound_0 => 'Score';
+
+  @override
+  String get sound_1 => 'Segment';
+
+  @override
+  String get sound_2 => 'Table of contents';
+
+  @override
+  String get sound_3 => 'Content';
+
+  @override
+  String get sound_4 => 'Chapter';
+
+  @override
+  String get sound_5 => 'Note';
+
+  @override
+  String get sound_6 => 'Chapter note';
+
+  @override
+  String get sound_7 => 'Bookmark';
+
+  @override
+  String get sound_8 => 'Search';
+
+  @override
+  String get sound_9 => 'Refresh';
+
+  @override
+  String get sound_10 => 'Play';
+
+  @override
+  String get sound_11 => 'Add';
+
+  @override
+  String get sound_12 => 'All';
+
+  @override
+  String get sound_13 => 'Manual';
+
+  @override
+  String get sound_14 => 'Save';
+
+  @override
+  String get sound_15 => 'Cancel';
+
+  @override
+  String get sound_16 => 'Delete';
+
+  @override
+  String get sound_17 => 'Rename';
+
+  @override
+  String get sound_18 => 'Soundlist';
+
+  @override
+  String get sound_19 => 'Soundlist is empty';
+
+  @override
+  String get sound_20 => 'Soundlist — Audio library';
+
+  @override
+  String get sound_21 => 'No table of contents yet.';
+
+  @override
+  String get sound_22 => 'No scores yet.';
+
+  @override
+  String get sound_23 => 'No segments yet.';
+
+  @override
+  String get sound_24 =>
+      'This file has no data — open it in Listen Mode and add bookmarks.';
+
+  @override
+  String get sound_25 => 'No results found for this keyword.';
+
+  @override
+  String get sound_26 => 'None in the observation list';
+
+  @override
+  String get soundRelated => 'Related';
+
+
+  @override
+  String get aiProvidersTitle => 'AI Servers & API';
+
+  @override
+  String get aiProvidersSubtitle => 'Use cloud or home-server models. Offline remains the default.';
+
+  @override
+  String get aiProvidersEntryTitle => 'Server & API (cloud / LAN)';
+
+  @override
+  String get aiProvidersEntrySubtitle => 'Add online models — frees RAM, offline stays as fallback';
+
+  @override
+  String get aiProvidersEmpty => 'No provider configured. The app works fully offline, as before.';
+
+  @override
+  String get aiProviderAdd => 'Add provider';
+
+  @override
+  String get aiProviderEdit => 'Edit provider';
+
+  @override
+  String get aiProviderLabel => 'Display name';
+
+  @override
+  String get aiProviderBaseUrl => 'Server URL (baseUrl)';
+
+  @override
+  String get aiProviderApiKey => 'API key';
+
+  @override
+  String get aiProviderApiKeyHint => 'Leave empty for a home server';
+
+  @override
+  String get aiProviderPreset => 'Preset';
+
+  @override
+  String get aiProviderPresetCustom => 'Custom…';
+
+  @override
+  String get aiProviderTestConnection => 'Test connection';
+
+  @override
+  String get aiProviderConnectionOk => 'Connected';
+
+  @override
+  String get aiProviderConnectionFail => 'Connection failed';
+
+  @override
+  String get aiProviderLoadModels => 'Load models';
+
+  @override
+  String get aiProviderModelsLabel => 'models';
+
+  @override
+  String get aiProviderChatModel => 'Chat / analysis model';
+
+  @override
+  String get aiProviderSttModel => 'Speech-to-text model';
+
+  @override
+  String get aiProviderTtsModel => 'Text-to-speech model';
+
+  @override
+  String get aiProviderNoModels => 'Load the model list first';
+
+  @override
+  String get aiProviderNone => 'None';
+
+  @override
+  String get aiProviderEnabled => 'Enabled';
+
+  @override
+  String get aiProviderDelete => 'Remove';
+
+  @override
+  String get aiProviderDeleteConfirm => 'Remove this provider and its settings?';
+
+  @override
+  String get aiRoutingTitle => 'When to use online models';
+
+  @override
+  String get aiRoutingChat => 'AI chat & analysis';
+
+  @override
+  String get aiRoutingStt => 'Transcribe audio files';
+
+  @override
+  String get aiRoutingTranslation => 'Translation';
+
+  @override
+  String get aiRoutingTts => 'Text-to-speech';
+
+  @override
+  String get aiRouteOfflineFirst => 'Offline first';
+
+  @override
+  String get aiRouteOnlineFirst => 'Online first';
+
+  @override
+  String get aiRouteOfflineOnly => 'Offline only';
+
+  @override
+  String get aiRoutingProvider => 'Provider';
+
+  @override
+  String get aiProviderSave => 'Save';
+
+  @override
+  String get aiProviderCancel => 'Cancel';
+
+  @override
+  String get aiProvidersPrivacy => 'Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.';
 }

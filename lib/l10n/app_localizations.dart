@@ -2400,6 +2400,702 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'world'**
   String get demoWordWorld;
+
+  /// No description provided for @shellUiSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Shell interface'**
+  String get shellUiSettings;
+
+  /// No description provided for @shellUiSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact mode, auto-hide, long-press to change mode'**
+  String get shellUiSettingsSubtitle;
+
+  /// No description provided for @learnByHeart.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn by Heart'**
+  String get learnByHeart;
+
+  /// No description provided for @learnByHeartSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dhammapada, recitations and meaningful passages'**
+  String get learnByHeartSubtitle;
+
+  /// No description provided for @soundList.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist'**
+  String get soundList;
+
+  /// No description provided for @soundListSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scores, chapters and audio table of contents'**
+  String get soundListSubtitle;
+
+  /// No description provided for @lhb_0.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get lhb_0;
+
+  /// No description provided for @lhb_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get lhb_1;
+
+  /// No description provided for @lhb_2.
+  ///
+  /// In en, this message translates to:
+  /// **'Deep assessment'**
+  String get lhb_2;
+
+  /// No description provided for @lhb_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in the blanks'**
+  String get lhb_3;
+
+  /// No description provided for @lhb_4.
+  ///
+  /// In en, this message translates to:
+  /// **'Meaning → Verse'**
+  String get lhb_4;
+
+  /// No description provided for @lhb_5.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen and continue reading'**
+  String get lhb_5;
+
+  /// No description provided for @lhb_6.
+  ///
+  /// In en, this message translates to:
+  /// **'Show answer to compare'**
+  String get lhb_6;
+
+  /// No description provided for @lhb_7.
+  ///
+  /// In en, this message translates to:
+  /// **'Play the first half'**
+  String get lhb_7;
+
+  /// No description provided for @lhb_8.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the rest to check'**
+  String get lhb_8;
+
+  /// No description provided for @lhb_9.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get lhb_9;
+
+  /// No description provided for @lhb_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get lhb_10;
+
+  /// No description provided for @lhb_11.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a new recitation'**
+  String get lhb_11;
+
+  /// No description provided for @lhb_12.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore built-in samples'**
+  String get lhb_12;
+
+  /// No description provided for @lhb_13.
+  ///
+  /// In en, this message translates to:
+  /// **'Add new item'**
+  String get lhb_13;
+
+  /// No description provided for @lhb_14.
+  ///
+  /// In en, this message translates to:
+  /// **'All categories'**
+  String get lhb_14;
+
+  /// No description provided for @lhb_15.
+  ///
+  /// In en, this message translates to:
+  /// **'All statuses'**
+  String get lhb_15;
+
+  /// No description provided for @lhb_16.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Active Recall'**
+  String get lhb_16;
+
+  /// No description provided for @lhb_17.
+  ///
+  /// In en, this message translates to:
+  /// **'Progressive learning'**
+  String get lhb_17;
+
+  /// No description provided for @lhb_18.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get lhb_18;
+
+  /// No description provided for @lhb_19.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete item'**
+  String get lhb_19;
+
+  /// No description provided for @lhb_20.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm deletion'**
+  String get lhb_20;
+
+  /// No description provided for @lhb_21.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this lesson? Review progress will be lost.'**
+  String get lhb_21;
+
+  /// No description provided for @lhb_22.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get lhb_22;
+
+  /// No description provided for @lhb_23.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get lhb_23;
+
+  /// No description provided for @lhb_24.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore sample data'**
+  String get lhb_24;
+
+  /// No description provided for @lhb_25.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get lhb_25;
+
+  /// No description provided for @audit_0.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get audit_0;
+
+  /// No description provided for @audit_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Most recent'**
+  String get audit_1;
+
+  /// No description provided for @audit_2.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get audit_2;
+
+  /// No description provided for @audit_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio library'**
+  String get audit_3;
+
+  /// No description provided for @audit_4.
+  ///
+  /// In en, this message translates to:
+  /// **'Listening library'**
+  String get audit_4;
+
+  /// No description provided for @audit_5.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen'**
+  String get audit_5;
+
+  /// No description provided for @audit_6.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get audit_6;
+
+  /// No description provided for @audit_7.
+  ///
+  /// In en, this message translates to:
+  /// **'Listened notes'**
+  String get audit_7;
+
+  /// No description provided for @audit_8.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get audit_8;
+
+  /// No description provided for @audit_9.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud'**
+  String get audit_9;
+
+  /// No description provided for @audit_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get audit_10;
+
+  /// No description provided for @audit_11.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get audit_11;
+
+  /// No description provided for @audit_12.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading Library'**
+  String get audit_12;
+
+  /// No description provided for @audit_13.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing'**
+  String get audit_13;
+
+  /// No description provided for @audit_14.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking'**
+  String get audit_14;
+
+  /// No description provided for @audit_15.
+  ///
+  /// In en, this message translates to:
+  /// **'Understanding'**
+  String get audit_15;
+
+  /// No description provided for @audit_16.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get audit_16;
+
+  /// No description provided for @audit_17.
+  ///
+  /// In en, this message translates to:
+  /// **'Shell interface'**
+  String get audit_17;
+
+  /// No description provided for @sound_0.
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get sound_0;
+
+  /// No description provided for @sound_1.
+  ///
+  /// In en, this message translates to:
+  /// **'Segment'**
+  String get sound_1;
+
+  /// No description provided for @sound_2.
+  ///
+  /// In en, this message translates to:
+  /// **'Table of contents'**
+  String get sound_2;
+
+  /// No description provided for @sound_3.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get sound_3;
+
+  /// No description provided for @sound_4.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get sound_4;
+
+  /// No description provided for @sound_5.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get sound_5;
+
+  /// No description provided for @sound_6.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter note'**
+  String get sound_6;
+
+  /// No description provided for @sound_7.
+  ///
+  /// In en, this message translates to:
+  /// **'Bookmark'**
+  String get sound_7;
+
+  /// No description provided for @sound_8.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get sound_8;
+
+  /// No description provided for @sound_9.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get sound_9;
+
+  /// No description provided for @sound_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get sound_10;
+
+  /// No description provided for @sound_11.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get sound_11;
+
+  /// No description provided for @sound_12.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get sound_12;
+
+  /// No description provided for @sound_13.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get sound_13;
+
+  /// No description provided for @sound_14.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get sound_14;
+
+  /// No description provided for @sound_15.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get sound_15;
+
+  /// No description provided for @sound_16.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get sound_16;
+
+  /// No description provided for @sound_17.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get sound_17;
+
+  /// No description provided for @sound_18.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist'**
+  String get sound_18;
+
+  /// No description provided for @sound_19.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist is empty'**
+  String get sound_19;
+
+  /// No description provided for @sound_20.
+  ///
+  /// In en, this message translates to:
+  /// **'Soundlist — Audio library'**
+  String get sound_20;
+
+  /// No description provided for @sound_21.
+  ///
+  /// In en, this message translates to:
+  /// **'No table of contents yet.'**
+  String get sound_21;
+
+  /// No description provided for @sound_22.
+  ///
+  /// In en, this message translates to:
+  /// **'No scores yet.'**
+  String get sound_22;
+
+  /// No description provided for @sound_23.
+  ///
+  /// In en, this message translates to:
+  /// **'No segments yet.'**
+  String get sound_23;
+
+  /// No description provided for @sound_24.
+  ///
+  /// In en, this message translates to:
+  /// **'This file has no data — open it in Listen Mode and add bookmarks.'**
+  String get sound_24;
+
+  /// No description provided for @sound_25.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found for this keyword.'**
+  String get sound_25;
+
+  /// No description provided for @sound_26.
+  ///
+  /// In en, this message translates to:
+  /// **'None in the observation list'**
+  String get sound_26;
+
+  /// No description provided for @soundRelated.
+  ///
+  /// In en, this message translates to:
+  /// **'Related'**
+  String get soundRelated;
+
+  /// No description provided for @aiProvidersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Servers & API'**
+  String get aiProvidersTitle;
+
+  /// No description provided for @aiProvidersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use cloud or home-server models. Offline remains the default.'**
+  String get aiProvidersSubtitle;
+
+  /// No description provided for @aiProvidersEntryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Server & API (cloud / LAN)'**
+  String get aiProvidersEntryTitle;
+
+  /// No description provided for @aiProvidersEntrySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add online models — frees RAM, offline stays as fallback'**
+  String get aiProvidersEntrySubtitle;
+
+  /// No description provided for @aiProvidersEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No provider configured. The app works fully offline, as before.'**
+  String get aiProvidersEmpty;
+
+  /// No description provided for @aiProviderAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add provider'**
+  String get aiProviderAdd;
+
+  /// No description provided for @aiProviderEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit provider'**
+  String get aiProviderEdit;
+
+  /// No description provided for @aiProviderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get aiProviderLabel;
+
+  /// No description provided for @aiProviderBaseUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL (baseUrl)'**
+  String get aiProviderBaseUrl;
+
+  /// No description provided for @aiProviderApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get aiProviderApiKey;
+
+  /// No description provided for @aiProviderApiKeyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for a home server'**
+  String get aiProviderApiKeyHint;
+
+  /// No description provided for @aiProviderPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'Preset'**
+  String get aiProviderPreset;
+
+  /// No description provided for @aiProviderPresetCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom…'**
+  String get aiProviderPresetCustom;
+
+  /// No description provided for @aiProviderTestConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get aiProviderTestConnection;
+
+  /// No description provided for @aiProviderConnectionOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get aiProviderConnectionOk;
+
+  /// No description provided for @aiProviderConnectionFail.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection failed'**
+  String get aiProviderConnectionFail;
+
+  /// No description provided for @aiProviderLoadModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Load models'**
+  String get aiProviderLoadModels;
+
+  /// No description provided for @aiProviderModelsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'models'**
+  String get aiProviderModelsLabel;
+
+  /// No description provided for @aiProviderChatModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat / analysis model'**
+  String get aiProviderChatModel;
+
+  /// No description provided for @aiProviderSttModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech-to-text model'**
+  String get aiProviderSttModel;
+
+  /// No description provided for @aiProviderTtsModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Text-to-speech model'**
+  String get aiProviderTtsModel;
+
+  /// No description provided for @aiProviderNoModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Load the model list first'**
+  String get aiProviderNoModels;
+
+  /// No description provided for @aiProviderNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get aiProviderNone;
+
+  /// No description provided for @aiProviderEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get aiProviderEnabled;
+
+  /// No description provided for @aiProviderDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get aiProviderDelete;
+
+  /// No description provided for @aiProviderDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this provider and its settings?'**
+  String get aiProviderDeleteConfirm;
+
+  /// No description provided for @aiRoutingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When to use online models'**
+  String get aiRoutingTitle;
+
+  /// No description provided for @aiRoutingChat.
+  ///
+  /// In en, this message translates to:
+  /// **'AI chat & analysis'**
+  String get aiRoutingChat;
+
+  /// No description provided for @aiRoutingStt.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribe audio files'**
+  String get aiRoutingStt;
+
+  /// No description provided for @aiRoutingTranslation.
+  ///
+  /// In en, this message translates to:
+  /// **'Translation'**
+  String get aiRoutingTranslation;
+
+  /// No description provided for @aiRoutingTts.
+  ///
+  /// In en, this message translates to:
+  /// **'Text-to-speech'**
+  String get aiRoutingTts;
+
+  /// No description provided for @aiRouteOfflineFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline first'**
+  String get aiRouteOfflineFirst;
+
+  /// No description provided for @aiRouteOnlineFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Online first'**
+  String get aiRouteOnlineFirst;
+
+  /// No description provided for @aiRouteOfflineOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline only'**
+  String get aiRouteOfflineOnly;
+
+  /// No description provided for @aiRoutingProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get aiRoutingProvider;
+
+  /// No description provided for @aiProviderSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get aiProviderSave;
+
+  /// No description provided for @aiProviderCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get aiProviderCancel;
+
+  /// No description provided for @aiProvidersPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.'**
+  String get aiProvidersPrivacy;
 }
 
 class _AppLocalizationsDelegate

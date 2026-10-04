@@ -1,3 +1,4 @@
+// packages/vipsound_ai/lib/src/prompts/ai_prompts_library.dart
 // v11.0-final — đồng bộ hoàn toàn với AiAnalysisType enum
 
 import '../models/ai_analysis.dart';
@@ -13,9 +14,9 @@ class AiPromptsLibrary {
     switch (type) {
       case AiAnalysisType.wordLookup:
         return _wordLookupPrompt(text, context);
-      case AiAnalysisType.sentenceParse: // ★ FIX: không còn sentenceAnalysis
+      case AiAnalysisType.sentenceParse:
         return _sentenceParsePrompt(text);
-      case AiAnalysisType.paoGeneration: // ★ đã có
+      case AiAnalysisType.paoGeneration:
         return _paoPrompt(text);
       case AiAnalysisType.termExtract:
         return _termExtractPrompt(text, context);
@@ -27,8 +28,6 @@ class AiPromptsLibrary {
         return 'error';
     }
   }
-
-  // ── Word Lookup ───────────────────────────────────────────
 
   static String _wordLookupPrompt(String word, String? context) => '''
 You are a language learning assistant. Analyze: "$word"${context != null ? ' in context: "$context"' : ''}.
@@ -53,9 +52,18 @@ Return ONLY valid JSON:
   "visual_prompt": "<concrete scene>"
 }''';
 
-  // ── Sentence Parse (đổi tên từ sentenceAnalysis) ──────────
+  static String _sentenceParsePrompt(String sentence) {
+    if (_isWriteStudioReviewPrompt(sentence)) {
+      return '''
+$sentence
 
-  static String _sentenceParsePrompt(String sentence) => '''
+Return ONLY one valid JSON object. Do not wrap it in markdown fences.
+Required keys: summary, topics, technical_terms, action_items, language.
+If grammar is useful, include grammar with subject, verb, object, pattern,
+and explanation_vi.
+''';
+    }
+    return '''
 Analyze English sentence: "$sentence" using 5-finger grammar.
 Return ONLY valid JSON:
 {
@@ -75,8 +83,12 @@ Return ONLY valid JSON:
   },
   "context_examples": ["<similar sentence>","<another example>"]
 }''';
+  }
 
-  // ── PAO Generation ────────────────────────────────────────
+  static bool _isWriteStudioReviewPrompt(String text) =>
+      text.contains('in4up_WRITE_REVIEW') ||
+      text.contains('in4up_REWRITE_REVIEW') ||
+      text.contains('in4up_SUMMARY_REVIEW');
 
   static String _paoPrompt(String word) => '''
 Create 3 PAO memory stories for: "$word".
@@ -94,8 +106,6 @@ Return ONLY valid JSON:
   ]
 }''';
 
-  // ── Term Extract ──────────────────────────────────────────
-
   static String _termExtractPrompt(String text, String? context) => '''
 Extract technical terms from: "$text"${context != null ? '\nContext: $context' : ''}.
 Return ONLY valid JSON:
@@ -109,8 +119,6 @@ Return ONLY valid JSON:
   "language": "en"
 }''';
 
-  // ── Summarize ─────────────────────────────────────────────
-
   static String _summarizePrompt(String text, String? context) => '''
 Summarize: "$text"${context != null ? '\nContext: $context' : ''}.
 Return ONLY valid JSON:
@@ -122,18 +130,16 @@ Return ONLY valid JSON:
   "language": "vi"
 }''';
 
-  // ── Conversation ──────────────────────────────────────────
-
   static String _conversationPrompt(String text, String? context) => '''
-Analyze conversation: "$text"${context != null ? '\nContext: $context' : ''}.
+You are the in4up study assistant. Answer the user's latest message directly;
+do NOT summarize the conversation or describe it as a task.
+LATEST_USER_MESSAGE: "$text"${context != null && context.trim().isNotEmpty ? '\nRECENT_CONTEXT:\n$context' : ''}
 Return ONLY valid JSON:
 {
-  "summary": "<Vietnamese 60-word summary>",
+  "summary": "<direct helpful answer to the user, in Vietnamese unless the user asks for another language>",
   "topics": ["Conversation"],
-  "technical_terms": [
-    {"text":"<phrase>","definition":"<Vietnamese>","importance":0.8,"sourceJoinKey":"","speakerId":0}
-  ],
+  "technical_terms": [],
   "action_items": [],
-  "language": "en"
+  "language": "vi"
 }''';
 }

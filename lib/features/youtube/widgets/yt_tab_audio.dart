@@ -20,11 +20,13 @@ enum _DlState { idle, fetchingQualities, fetching, downloading, done, failed }
 class YtTabAudio extends StatefulWidget {
   final YtVideo? video;
   final bool isLoadingVideo;
+  final ValueChanged<String>? onDownloaded;
 
   const YtTabAudio({
     super.key,
     required this.video,
     required this.isLoadingVideo,
+    this.onDownloaded,
   });
 
   @override
@@ -176,6 +178,7 @@ class _YtTabAudioState extends State<YtTabAudio>
                   _savedPath = event.filePath;
                   _savedQuality = event.quality;
                 });
+                widget.onDownloaded?.call(event.filePath);
                 if (context.mounted) {
                   await context.read<PlayerProvider>().loadSong(
                         path: event.filePath,

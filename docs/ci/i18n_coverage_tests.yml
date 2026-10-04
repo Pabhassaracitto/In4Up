@@ -1,0 +1,59 @@
+# BẢN MẪU — chưa bật được bằng token của agent (GitHub từ chối push vào
+# `.github/workflows/**` khi GitHub App thiếu quyền `workflows`). Bật bằng:
+#
+#   copy docs\ci\i18n_coverage_tests.yml .github\workflows\i18n_coverage_tests.yml   (Windows)
+#   cp docs/ci/i18n_coverage_tests.yml .github/workflows/                           (macOS/Linux)
+#   git add .github/workflows/i18n_coverage_tests.yml && git commit -m "ci: bật job i18n coverage (rule #5)" && git push
+#
+# Vì sao cần job riêng: quy tắc vàng #5 (locale ≠ vi → chrome không được còn tiếng
+# Việt) hiện chỉ được `test/locale_chrome_no_vietnamese_test.dart` kiểm ở chiều
+# "catalog đã sinh ra phải sạch". Chiều NGƯỢC LẠI — "nhãn trong mã nguồn phải còn
+# key trong catalog" — KHÔNG có job nào chạy, nên `c738b85` đã xoá 18 key tipitaka
+# khỏi priority_ui_overrides trong khi màn hình vẫn uiText() y nguyên mà CI vẫn xanh.
+# Job này chạy đúng 3 test phủ chiều đó.
+
+name: i18n Coverage — PDF Reader / Tipiṭaka / Dictionary (rule #5)
+
+on:
+  push:
+    branches: ['arena/**']
+    paths:
+      - 'lib/features/pdf_reader/**'
+      - 'lib/features/tipitaka/**'
+      - 'lib/features/dictionary/**'
+      - 'lib/core/language/**'
+      - 'test/pdf_reader/**'
+      - 'test/tipitaka_dictionary_i18n_coverage_test.dart'
+      - '.github/workflows/i18n_coverage_tests.yml'
+  pull_request:
+    paths:
+      - 'lib/features/pdf_reader/**'
+      - 'lib/features/tipitaka/**'
+      - 'lib/features/dictionary/**'
+      - 'lib/core/language/**'
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml + app_analyze.yml
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Rule #5 — catalog sạch ở mọi locale ≠ vi
+        run: flutter test test/locale_chrome_no_vietnamese_test.dart
+
+      - name: Rule #5 — nhãn trong mã nguồn phải còn key trong catalog
+        run: |
+          flutter test \
+            test/pdf_reader/pdf_reader_i18n_coverage_test.dart \
+            test/tipitaka_dictionary_i18n_coverage_test.dart

@@ -49,7 +49,11 @@ class RecentAudioService {
   // ── Thêm / cập nhật ─────────────────────────────────────────
   Future<void> addOrUpdate(RecentAudio audio) async {
     final list = List<RecentAudio>.from(await getAll());
-    list.removeWhere((a) => a.id == audio.id);
+    list.removeWhere((a) =>
+        a.id == audio.id ||
+        (audio.localPath != null &&
+            a.localPath != null &&
+            a.localPath!.toLowerCase() == audio.localPath!.toLowerCase()));
     list.insert(0, audio.copyWith(lastOpened: DateTime.now()));
     await _saveToDisk(list.take(_maxItems).toList());
   }

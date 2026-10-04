@@ -1,12 +1,16 @@
-// v11.0-final — fix param analysisType (không phải type)
+// packages/in4up_ai/lib/src/engine/ai_engine_gemma.dart
+// Isolate + native GGUF when available; write-aware mock fallback.
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
 import 'ai_engine.dart';
+import 'ai_native_bindings.dart';
+import '../prompts/ai_prompts_library.dart';
 
 class AiEngineGemma implements AiEngine {
   @override
@@ -16,15 +20,104 @@ class AiEngineGemma implements AiEngine {
   Isolate? _isolate;
   SendPort? _sendPort;
   ReceivePort? _receivePort;
+  // FIX 251e: addOnExitListener(SendPort, {response}) — nhận SendPort, KHÔNG
+  // phải callback (bản 01a02a41 truyền closure => lỗi compile:
+  // "Null Function(dynamic)" can't be assigned to SendPort).
+  ReceivePort? _isolateExitPort;
   bool _disposed = false;
+  String? _modelPath;
+
+  /// Lý do backend bị mất (isolate chết / OOM) — dùng làm errorReason cho các
+  /// request sau thay vì để caller chờ tới watchdog 5 phút.
+  String? _backendLostReason;
+
+  /// Chỉ dùng trong test/AT: cho isolate treo (không xử lý message) để kiểm
+  /// tra watchdog + đường isolate chết. Luôn false ở production.
+  bool _debugHangIsolate = false;
+
+  /// "Thế hệ" isolate: mỗi lần teardown/spawn tăng lên. Listener của isolate CŨ
+  /// giữ số của nó và tự bỏ qua nếu không còn là isolate hiện tại — tránh việc
+  /// isolate vừa bị kill lúc recover lại báo lỗi cho các request MỚI.
+  int _isolateGeneration = 0;
+
+  /// ReceivePort của các request đang chờ isolate trả lời — để báo lỗi ngay
+  /// khi isolate chết (OOM killer thu hồi process con trên máy yếu) thay vì
+  /// caller treo vô hạn. (FIX AI-CHAT-01)
+  final _pendingReplyPorts = <ReceivePort>[];
+
+  /// Complete khi isolate báo native model đã load xong (hoặc fail).
+  /// Reset ở mỗi _spawnIsolate (engine có thể re-init với modelPath mới).
+  Completer<void>? _modelLoadCompleter;
+
+  @override
+  Future<void> get modelReady => _modelLoadCompleter?.future ??
+      Future.error(StateError('Engine chưa khởi động'));
+
+  /// Còn request nào đang chờ isolate trả lời (kể cả request bị caller bỏ rơi
+  /// sau timeout) hay không.
+  @override
+  bool get isBusy => _inFlight > 0 || _pendingReplyPorts.isNotEmpty;
+
+  /// Hủy mọi request đang treo + dựng lại isolate với CÙNG model path.
+  ///
+  /// Vì sao phải kill thay vì "cancel": `native.generate` là FFI blocking
+  /// trong isolate con — không có cách nào ngắt giữa chừng; nếu llama.cpp
+  /// deadlock hoặc OOM killer thu hồi isolate thì request cũ treo tới watchdog
+  /// 5 phút và MỌI request sau cũng chờ vô ích. Kill + spawn lại là cách duy
+  /// nhất để "tin sau chạy được" (DoD AI-CHAT-01, AT: ép timeout/isolate
+  /// restart → tin sau hoạt động).
+  @override
+  Future<bool> recover({String? reason}) async {
+    if (_disposed) return false;
+    final path = _modelPath;
+    if (path == null) return false; // chưa từng initialize ⇒ facade tự init.
+
+    final note = reason ?? 'AI engine không phản hồi — khởi động lại';
+    debugPrint('[AiEngineGemma] ♻️ Recover: $note (model=$path)');
+
+    // 1) Báo kết cục cho mọi request đang treo (không để caller treo tiếp).
+    _state = AiEngineState.loading;
+    _failPending(note);
+    // 2) Kill isolate cũ + đóng port (tăng generation ⇒ listener cũ vô hiệu).
+    await _teardownIsolate();
+
+    // 3) Spawn lại và chờ handshake SendPort.
+    try {
+      await _spawnIsolate(path);
+      _backendLostReason = null;
+      _state = AiEngineState.ready;
+      debugPrint('[AiEngineGemma] ♻️ Recover xong — isolate mới đã sẵn sàng');
+      return true;
+    } catch (e) {
+      debugPrint('[AiEngineGemma] ❌ Recover failed: $e');
+      _state = AiEngineState.error;
+      _backendLostReason = 'Không khởi động lại được AI: $e';
+      await _teardownIsolate();
+      return false;
+    }
+  }
 
   @override
   Future<bool> initialize({required String modelPath}) async {
-    if (_state == AiEngineState.ready) return true;
+    if (_state == AiEngineState.ready && _modelPath == modelPath) {
+      return true;
+    }
+    // Có backend cũ (đang chạy HOẶC đã chết vì OOM/error) ⇒ dọn sạch trước khi
+    // spawn mới; tránh leak receive port và listener của isolate cũ.
+    if (_isolate != null ||
+        _receivePort != null ||
+        _state == AiEngineState.ready ||
+        _state == AiEngineState.error) {
+      await dispose();
+      _disposed = false;
+      _state = AiEngineState.uninitialized;
+    }
     _state = AiEngineState.loading;
     try {
       await _spawnIsolate(modelPath);
+      _modelPath = modelPath;
       _state = AiEngineState.ready;
+      _backendLostReason = null;
       debugPrint('[AiEngineGemma] ✅ Ready: $modelPath');
       return true;
     } catch (e) {
@@ -34,56 +127,133 @@ class AiEngineGemma implements AiEngine {
     }
   }
 
+  /// Số request đang chờ isolate (mỗi generator analyze = 1). Dùng để
+  /// khôi phục state processing → ready DETERMINISTIC khi generator thoát
+  /// (kể cả khi caller timeout bỏ rơi stream — .first.timeout KHÔNG cancel
+  /// được stream, generator vẫn treo trong await for cho tới khi isolate
+  /// trả lời hoặc watchdog 5 phút).
+  int _inFlight = 0;
+
   @override
   Stream<AiAnalysis> analyze({
     required String text,
     required AiAnalysisType type,
     String? context,
     double temperature = 0.1,
+    int maxTokens = 256,
   }) async* {
+    if (_disposed || _sendPort == null) {
+      yield AiAnalysis.fallback(
+        text,
+        errorReason: _backendLostReason ?? 'Engine not ready',
+        analysisType: type,
+      );
+      return;
+    }
+
+    // FIX AI-CHAT-01 (audit B3): isolate đã chết (OOM thu hồi) ⇒ `_sendPort` bị
+    // null hoá ở exit listener và state = error. Không được chờ watchdog 5
+    // phút cho một backend không còn tồn tại — trả lỗi rõ ngay để UI báo
+    // "thử lại" và facade tự recover.
+    if (_state == AiEngineState.error || _state == AiEngineState.disposed) {
+      yield AiAnalysis.fallback(
+        text,
+        errorReason: _backendLostReason ??
+            'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.',
+        analysisType: type,
+      );
+      return;
+    }
+
+    // FIX AI-CHAT-02 (chủ báo 2026-09-03: chat "cứ xoay vòng"): bản cũ
+    // yield fallback "Engine not ready" NGAY khi state=processing — tức là
+    // sau MỘT lần chat chậm/timeout (3 phút), mọi message kế tiếp trong
+    // ~2 phút (đến khi watchdog 5 phút hay isolate trả lời request cũ) đều
+    // chết yểu, user gửi liên tục là thấy chat treo/lỗi. Isolate xử lý
+    // TUẦN TỰ nên cách đúng là ĐỢI request cũ xong (message của mình sẽ
+    // vào hàng đợi port) — tối đa 90s.
+    if (_state == AiEngineState.processing) {
+      final waitSw = Stopwatch()..start();
+      while (_state == AiEngineState.processing &&
+          waitSw.elapsed < const Duration(seconds: 90)) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+    }
+
     if (_disposed || _state != AiEngineState.ready || _sendPort == null) {
       yield AiAnalysis.fallback(
         text,
-        errorReason: 'Engine not ready',
+        errorReason: _state == AiEngineState.processing
+            ? 'Engine vẫn đang kẹt với request trước (đã chờ 90s) — thử lại sau vài giây'
+            : 'Engine not ready',
+        analysisType: type,
       );
       return;
     }
 
     _state = AiEngineState.processing;
+    _inFlight++;
     final prompt = _buildPrompt(type, text, context);
     final responsePort = ReceivePort();
     final weakEngine = WeakReference(this);
+    _pendingReplyPorts.add(responsePort);
 
     _sendPort!.send(_IsolateMessage(
       prompt: prompt,
       replyPort: responsePort.sendPort,
       temperature: temperature,
+      maxTokens: maxTokens,
     ));
 
-    await for (final msg in responsePort) {
-      final engine = weakEngine.target;
-      if (engine == null || engine._disposed) {
-        responsePort.close();
-        return;
-      }
+    // Watchdog (FIX AI-CHAT-01): native generate là FFI blocking — nếu treo
+    // (deadlock llama.cpp) hoặc isolate chết mà chưa kịp gửi lỗi, caller
+    // (chat) sẽ chờ VÔ HẠN và nút gửi xoay vòng mãi. Timer này ép một lỗi
+    // rõ để mọi request luôn có kết cục (UI thoát khỏi trạng thái xử lý).
+    // 5 phút > timeout chat 3 phút ở facade: chat tự bỏ cuộc + recover trước.
+    final watchdog = Timer(const Duration(minutes: 5), () {
+      responsePort.sendPort.send(const _IsolateError(
+        error: 'Model phản hồi quá lâu (5 phút) — vui lòng thử lại.',
+      ));
+    });
 
-      if (msg is _IsolateResponse && msg.isComplete) {
-        engine._state = AiEngineState.ready;
-        final json = jsonDecode(msg.fullText) as Map<String, dynamic>;
-        yield AiAnalysis.fromJson(
-          json,
-          text,
-        ); // type is extracted from json['analysisType'] inside fromJson
-        responsePort.close();
-        break;
-      } else if (msg is _IsolateError) {
-        engine._state = AiEngineState.ready;
-        yield AiAnalysis.fallback(
-          text,
-          errorReason: msg.error,
-        );
-        responsePort.close();
-        break;
+    try {
+      await for (final msg in responsePort) {
+        final engine = weakEngine.target;
+        if (engine == null || engine._disposed) {
+          return;
+        }
+
+        if (msg is _IsolateResponse && msg.isComplete) {
+          yield AiAnalysis.fromGemmaJson(
+            msg.fullText,
+            analysisType: type,
+            inputText: text,
+          );
+          break;
+        } else if (msg is _IsolateError) {
+          yield AiAnalysis.fallback(
+            text,
+            errorReason: msg.error,
+            analysisType: type,
+          );
+          break;
+        }
+      }
+    } finally {
+      watchdog.cancel();
+      _pendingReplyPorts.remove(responsePort);
+      responsePort.close();
+      // FIX AI-CHAT-02: caller timeout (3 phút) bỏ rơi stream ⇒ generator
+      // thoát ở đây mà request chưa có kết cục — KHÔNG được để state kẹt
+      // ở processing. Generator CUỐI CÙNG thoát mới được đặt về ready.
+      // `_state` được đặt ở đây (không đặt trong nhánh nhận message) để 2
+      // request chồng nhau không tự nhận "ready" khi request kia còn chạy.
+      _inFlight--;
+      if (_inFlight <= 0) {
+        _inFlight = 0;
+        if (!_disposed && _state == AiEngineState.processing) {
+          _state = AiEngineState.ready;
+        }
       }
     }
   }
@@ -104,27 +274,117 @@ class AiEngineGemma implements AiEngine {
   @override
   Future<void> dispose() async {
     _disposed = true;
-    _isolate?.kill(priority: Isolate.immediate);
-    _receivePort?.close();
-    _isolate = null;
-    _sendPort = null;
+    final loadCompleter = _modelLoadCompleter;
+    if (loadCompleter != null && !loadCompleter.isCompleted) {
+      loadCompleter.completeError(StateError('Engine disposed'));
+    }
+    await _teardownIsolate();
+    _modelPath = null;
     _state = AiEngineState.disposed;
   }
 
+  /// Kill isolate hiện tại + đóng mọi port của nó. Tăng [_isolateGeneration]
+  /// để listener của isolate cũ (exit/onError) không còn tác dụng lên các
+  /// request mới (bẫy: isolate vừa bị kill lúc recover lại báo "bị thu hồi"
+  /// cho request vừa gửi sang isolate mới).
+  Future<void> _teardownIsolate() async {
+    _isolateGeneration++;
+    final isolate = _isolate;
+    _isolate = null;
+    _sendPort = null;
+    isolate?.kill(priority: Isolate.immediate);
+    _receivePort?.close();
+    _receivePort = null;
+    _isolateExitPort?.close();
+    _isolateExitPort = null;
+  }
+
+  /// Báo lỗi cho MỌI request đang chờ trả lời (dùng khi isolate chết hoặc
+  /// khi recover hủy các request treo) — caller luôn có kết cục hữu hạn.
+  void _failPending(String reason) {
+    for (final port in List.of(_pendingReplyPorts)) {
+      port.sendPort.send(_IsolateError(error: reason));
+    }
+    _pendingReplyPorts.clear();
+  }
+
+  /// Test/AT seam: ép isolate chết như OOM killer thu hồi (không kill app) để
+  /// kiểm tra "request sau vẫn chạy được" mà không cần máy yếu thật.
+  @visibleForTesting
+  void debugKillIsolate() {
+    _isolate?.kill(priority: Isolate.immediate);
+  }
+
+  /// Test/AT seam: cho isolate "treo" như llama.cpp deadlock (nhận request
+  /// nhưng không bao giờ trả lời) — dùng để chứng minh watchdog/isolate-exit
+  /// luôn cho request một kết cục hữu hạn.
+  @visibleForTesting
+  void debugSetIsolateHang(bool hang) {
+    _debugHangIsolate = hang;
+  }
+
   Future<void> _spawnIsolate(String modelPath) async {
+    // FIX 251e: local non-null trước, gán field sau — bản 01a02a4a đọc
+    // field nullable (Completer<void>?) rồi dùng .isCompleted không null-check
+    // => lỗi compile "receiver can be null" (CI đỏ 32665063225).
+    final loadCompleter = Completer<void>();
+    _modelLoadCompleter = loadCompleter;
+    // Giữ 1 listener nội bộ: nếu không ai await modelReady (mock/test), lỗi
+    // "native không nạp được" vẫn không bị zone báo là unhandled async error.
+    unawaited(loadCompleter.future.then<void>((_) {}, onError: (Object _) {}));
+
+    final generation = ++_isolateGeneration;
     _receivePort = ReceivePort();
     _isolate = await Isolate.spawn(
       _isolateEntry,
-      _IsolateInit(modelPath: modelPath, mainSendPort: _receivePort!.sendPort),
+      _IsolateInit(
+        modelPath: modelPath,
+        mainSendPort: _receivePort!.sendPort,
+        debugHang: _debugHangIsolate,
+      ),
       debugName: 'GemmaIsolate',
     );
 
+    // FIX AI-CHAT-01: isolate chết giữa chừng (crash native / OOM killer
+    // thu hồi process con — hay gặp khi nạp model 600MB+ trên tablet RAM
+    // hạn chế) ⇒ không ai trả lời các request đang chờ. Báo lỗi cho MỌI
+    // phía đang đợi: loadCompleter (model chưa kịp load) + các port đang
+    // chờ trả lời — thay vì để chat treo "xoay vòng mãi".
+    final exitPort = ReceivePort();
+    _isolateExitPort = exitPort;
+    _isolate!.addOnExitListener(exitPort.sendPort, response: 'isolate-exited');
+    exitPort.listen((_) {
+      if (generation != _isolateGeneration) return; // isolate cũ, đã teardown
+      exitPort.close();
+      _isolateExitPort = null;
+      _isolate = null;
+      _sendPort = null;
+      _backendLostReason =
+          'AI process bị hệ thống thu hồi (thiếu bộ nhớ) — thử lại.';
+      if (!_disposed && _state != AiEngineState.disposed) {
+        _state = AiEngineState.error;
+      }
+      if (!loadCompleter.isCompleted) {
+        loadCompleter.completeError(StateError(
+            'AI isolate bị thu hồi (thiếu bộ nhớ?) — model chưa nạp xong'));
+      }
+      _failPending(_backendLostReason!);
+    });
+
     final completer = Completer<SendPort>();
-    late StreamSubscription sub;
-    sub = _receivePort!.listen((msg) {
+    _receivePort!.listen((msg) {
       if (msg is SendPort) {
-        completer.complete(msg);
-        sub.cancel();
+        if (!completer.isCompleted) completer.complete(msg);
+      } else if (msg is _IsolateModelLoaded) {
+        if (!loadCompleter.isCompleted) {
+          if (msg.ok) {
+            loadCompleter.complete();
+          } else {
+            loadCompleter.completeError(
+              StateError(msg.error.isEmpty ? 'Model load failed' : msg.error),
+            );
+          }
+        }
       }
     });
     _sendPort = await completer.future.timeout(const Duration(seconds: 30));
@@ -132,18 +392,65 @@ class AiEngineGemma implements AiEngine {
 
   static void _isolateEntry(_IsolateInit init) async {
     final port = ReceivePort();
+    // Báo sẵn sàng NGAY — việc load model native có thể mất vài giây (file GGUF
+    // lớn). Message gửi tới trong lúc load sẽ nằm queue ở ReceivePort và được
+    // xử lý sau khi native handle sẵn sàng.
     init.mainSendPort.send(port.sendPort);
+
+    // Test/AT: giữ isolate "treo" (native deadlock) — request sẽ nằm chờ mãi,
+    // dùng để chứng minh watchdog/isolate-exit luôn cho request kết cục hữu hạn.
+    if (init.debugHang) {
+      await Future<void>.delayed(const Duration(minutes: 10));
+    }
+
+    // Nối backend llama.cpp thật nếu native lib đã được build (Android:
+    // libin4up_ai_native.so; Windows: in4up_ai_native.dll). Nếu không có lib
+    // hoặc model không load được ⇒ fallback mock để app vẫn dùng được.
+    final native = init.modelPath.trim().isEmpty
+        ? null
+        : AiNativeBindings.tryLoad();
+    ffi.Pointer<ffi.Void>? nativeHandle;
+    if (native != null) {
+      nativeHandle = native.create(init.modelPath);
+      if (nativeHandle == ffi.nullptr) {
+        debugPrint('[AiEngineGemma] Native model load failed — mock fallback.');
+        nativeHandle = null;
+        init.mainSendPort.send(const _IsolateModelLoaded(
+          ok: false,
+          error:
+              'Model GGUF không load được — file có thể hỏng hoặc sai kiến trúc.',
+        ));
+      } else {
+        debugPrint('[AiEngineGemma] ✅ Native llama.cpp backend ready.');
+        init.mainSendPort.send(const _IsolateModelLoaded(ok: true));
+      }
+    } else if (native == null) {
+      debugPrint('[AiEngineGemma] Native lib not found — mock fallback.');
+      init.mainSendPort.send(const _IsolateModelLoaded(
+        ok: false,
+        error:
+            'Build chưa chứa AI backend (lib in4up_ai_native). App chạy mock — build lại app để dùng model thật.',
+      ));
+    }
+
     await for (final msg in port) {
       if (msg is _IsolateMessage) {
         try {
+          final nativeOutput = native != null && nativeHandle != null
+              ? native.generate(nativeHandle!, msg.prompt,
+                  temperature: msg.temperature, maxTokens: msg.maxTokens)
+              : null;
           msg.replyPort.send(_IsolateResponse(
-            fullText: _mockInference(msg.prompt),
+            fullText: nativeOutput ?? _mockInference(msg.prompt),
             isComplete: true,
           ));
         } catch (e) {
           msg.replyPort.send(_IsolateError(error: e.toString()));
         }
       }
+    }
+    if (native != null && nativeHandle != null) {
+      native.destroy(nativeHandle!);
     }
   }
 
@@ -156,6 +463,11 @@ class AiEngineGemma implements AiEngine {
     }
     if (prompt.contains('in4up_SUMMARY_REVIEW')) {
       return _mockSummaryReview(prompt);
+    }
+    if (prompt.contains('TYPE: conversation') ||
+        prompt.contains('Analyze conversation:') ||
+        prompt.contains('LATEST_USER_MESSAGE:')) {
+      return _mockConversation(prompt);
     }
 
     return jsonEncode({
@@ -174,6 +486,42 @@ class AiEngineGemma implements AiEngine {
       'action_items': [
         'Đọc lại ý chính và rút ngắn phản hồi vào 1-2 ý rõ ràng.'
       ],
+      'language': 'vi',
+    });
+  }
+
+  static String _mockConversation(String prompt) {
+    final lines = prompt.split('\n');
+    final inputLines = lines
+        .where((line) => line.startsWith('INPUT:'))
+        .map((line) => line.substring('INPUT:'.length).trim())
+        .toList();
+    final latestUserLines = lines
+        .where((line) => line.startsWith('LATEST_USER_MESSAGE:'))
+        .map((line) => line.substring('LATEST_USER_MESSAGE:'.length).trim())
+        .toList();
+    final conversationLine = lines
+        .where((line) => line.startsWith('Analyze conversation:'))
+        .map((line) => line.substring('Analyze conversation:'.length).trim())
+        .toList();
+    final input = inputLines.isEmpty ? '' : inputLines.last;
+    final latestUser = latestUserLines.isEmpty ? '' : latestUserLines.last;
+    final legacyConversation =
+        conversationLine.isEmpty ? '' : conversationLine.last;
+    final question = input.isNotEmpty
+        ? input
+        : latestUser.isNotEmpty
+            ? latestUser
+            : legacyConversation.isEmpty
+                ? 'câu hỏi của bạn'
+                : legacyConversation;
+    return jsonEncode({
+      'summary':
+          'Mình đã nhận được: $question. AI Chat đang ở bản beta offline; hãy hỏi mình về từ vựng, ngữ pháp hoặc cách luyện nghe.',
+      'topics': ['Conversation'],
+      'analysisType': 'conversation',
+      'technical_terms': <Map<String, dynamic>>[],
+      'action_items': <String>[],
       'language': 'vi',
     });
   }
@@ -424,7 +772,23 @@ class AiEngineGemma implements AiEngine {
     };
   }
 
-  String _buildPrompt(AiAnalysisType type, String text, String? ctx) => '''
+  String _buildPrompt(AiAnalysisType type, String text, String? ctx) {
+    if (type == AiAnalysisType.conversation) {
+      return AiPromptsLibrary.buildPrompt(
+        type: type,
+        text: text,
+        context: ctx,
+      );
+    }
+    if (_isWriteStudioReviewPrompt(text)) {
+      return '''
+SYSTEM: Bạn là Gemma AI offline của in4up. Chỉ trả JSON hợp lệ, không bọc markdown.
+$text
+${ctx != null ? 'CONTEXT: $ctx' : ''}
+OUTPUT: một JSON object có summary, topics, technical_terms, action_items, language; có thể thêm grammar nếu hữu ích.
+''';
+    }
+    return '''
 SYSTEM: Bạn là Gemma AI offline của in4up. Chỉ trả JSON hợp lệ.
 TYPE: ${type.name}
 INPUT: $text
@@ -437,22 +801,37 @@ OUTPUT SCHEMA:
   "action_items": ["string"],
   "language": "en|vi"
 }''';
+  }
+
+  static bool _isWriteStudioReviewPrompt(String text) =>
+      text.contains('in4up_WRITE_REVIEW') ||
+      text.contains('in4up_REWRITE_REVIEW') ||
+      text.contains('in4up_SUMMARY_REVIEW');
 }
 
 class _IsolateInit {
   final String modelPath;
   final SendPort mainSendPort;
-  const _IsolateInit({required this.modelPath, required this.mainSendPort});
+
+  /// Test/AT: treo isolate (không bao giờ trả lời) — mô phỏng native deadlock.
+  final bool debugHang;
+  const _IsolateInit({
+    required this.modelPath,
+    required this.mainSendPort,
+    this.debugHang = false,
+  });
 }
 
 class _IsolateMessage {
   final String prompt;
   final SendPort replyPort;
   final double temperature;
+  final int maxTokens;
   const _IsolateMessage({
     required this.prompt,
     required this.replyPort,
     this.temperature = 0.1,
+    this.maxTokens = 256,
   });
 }
 
@@ -465,4 +844,11 @@ class _IsolateResponse {
 class _IsolateError {
   final String error;
   const _IsolateError({required this.error});
+}
+
+/// Isolate báo kết quả load model native (gửi sau khi handshake SendPort).
+class _IsolateModelLoaded {
+  final bool ok;
+  final String error;
+  const _IsolateModelLoaded({required this.ok, this.error = ''});
 }

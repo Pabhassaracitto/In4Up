@@ -1,7 +1,24 @@
 import 'package:in4up/core/language/localized_material.dart';
 
+/// Card "NẠP TRI THỨC NHANH" ở tab Home (HOME-QUICK-001).
+///
+/// Hai hành động THẬT (không còn stub rỗng):
+///  * [onStartVoiceCapture] — mở sheet STT dùng chung với FAB microphone
+///    (`QuickCaptureSheet`): transcript realtime → lưu WordList / ghi chú.
+///  * [onShowSuggestion] — hiện MỘT entry thật từ WordList (ưu tiên thẻ
+///    đến kỳ ôn) kèm IPA/nghĩa + TTS.
+///
+/// Card giữ vai trò trình bày: caller (HomeScreen) quyết định mở sheet nào
+/// để FAB và card đi chung MỘT flow, không tạo STT session rời rạc.
 class HebbianInputCard extends StatelessWidget {
-  const HebbianInputCard({super.key});
+  const HebbianInputCard({
+    super.key,
+    this.onStartVoiceCapture,
+    this.onShowSuggestion,
+  });
+
+  final VoidCallback? onStartVoiceCapture;
+  final VoidCallback? onShowSuggestion;
 
   @override
   Widget build(BuildContext context) {
@@ -15,9 +32,9 @@ class HebbianInputCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'NẠP TRI THỨC NHANH',
-            style: TextStyle(
+          Text(
+            context.uiText('NẠP TRI THỨC NHANH'),
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               color: Colors.grey,
@@ -30,22 +47,18 @@ class HebbianInputCard extends StatelessWidget {
               Expanded(
                 child: _QuickInputButton(
                   icon: Icons.mic,
-                  label: 'Ghi chú nói',
+                  label: context.uiText('Ghi chú nói'),
                   color: const Color(0xFFFF4848),
-                  onTap: () {
-                    // Start STT flow
-                  },
+                  onTap: onStartVoiceCapture,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _QuickInputButton(
                   icon: Icons.auto_awesome,
-                  label: 'Gợi ý',
+                  label: context.uiText('Gợi ý'),
                   color: const Color(0xFF00D1FF),
-                  onTap: () {
-                    // Show random word with image
-                  },
+                  onTap: onShowSuggestion,
                 ),
               ),
             ],
@@ -60,7 +73,7 @@ class _QuickInputButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _QuickInputButton({
     required this.icon,

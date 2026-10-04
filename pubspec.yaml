@@ -17,6 +17,10 @@ dependencies:
     path: ./packages/in4up_core
   in4up_ai:
     path: ./packages/in4up_ai
+  # Tipitaka integration
+  sqflite: ^2.3.3
+  sqflite_common_ffi: ^2.4.0+3 # SQLite implementation for Windows/Linux tests
+  archive: ^4.0.9 # unpack downloadable SQLite language packs
   # UI
   flutter_localizations:
     sdk: flutter
@@ -36,6 +40,8 @@ dependencies:
 
   # File & Storage
   file_picker: ^11.0.2 # change from 8.1.2
+  image_picker: ^1.2.1 # Camera capture; gallery still uses file_picker on desktop
+  image: ^4.8.0 # Decode/re-encode ML Kit's transparent PNG output
   path: ^1.9.0
   path_provider: ^2.1.4
   permission_handler: ^12.0.1
@@ -64,6 +70,33 @@ dependencies:
   http: ^1.2.2
   connectivity_plus: ^6.1.4 #7.1.0    # Check network
   crypto: ^3.0.6                 # MD5 hash cho cache key
+
+  # Dịch offline on-device (Android/iOS) — model CHỈ tải khi user bấm
+  # (màn Cài đặt engine dịch), không auto-download lúc mở app.
+  # PIN 0.14.x: bản 0.15.1 yêu cầu Dart SDK ^3.12.0 — CI + máy chủ là
+  # Flutter 3.44.1 (Dart 3.11.5) → version solving fail. API 0.14.0 ==
+  # 0.15.1 (đã đối chiếu source flutter-ml/google_ml_kit_flutter).
+  google_mlkit_translation: ^0.14.0
+
+  # OCR — nhận dạng chữ từ ảnh (ADR-0009, KANBAN OCR-001): sách scan, ảnh
+  # chụp trang sách, PDF image-only → văn bản nạp vào Text Studio.
+  # Model ship kèm Google Play services (Android) / SDK (iOS) → KHÔNG có
+  # bước "Tải về", không tải gì lúc bootstrap (khác Translation).
+  # PIN 0.16.x: bản 0.17.x yêu cầu Dart SDK ^3.12.0 — CI + máy chủ là
+  # Flutter 3.44.1 (Dart 3.11.5) → version solving fail. 0.16.0 cần
+  # google_mlkit_commons ^0.12.0 = ĐÚNG bản translation 0.14.0 đang kéo
+  # (không xung đột). API 0.16 == 0.17 (đã đối chiếu source).
+  # Chỉ Android + iOS: desktop/web isAvailable()==false, ẩn nút (rule mlkit_engine).
+  google_mlkit_text_recognition: ^0.16.0
+  # Document Scanner: crop/thẳng trang trước khi OCR. PIN 0.5.x (0.6.x đòi
+  # Dart ^3.12). CHỈ Android (Google Beta) — không cần quyền camera vì dùng
+  # camera của Play services. iOS: chọn ảnh qua file_picker, không scanner.
+  google_mlkit_document_scanner: ^0.5.0
+
+  # Background removal — Phase 1. Android-only beta; no ONNX model is bundled.
+  google_mlkit_subject_segmentation: ^0.2.0
+  # Phase 2 is intentionally not enabled here: add the selected ONNX runtime
+  # only to a Phase 2 build profile (see docs/background_removal_phase2.md).
 # Firebase core (bắt buộc)
   firebase_core: ^3.15.2 #4.7.0 #change from 4.0.0
   
@@ -77,6 +110,8 @@ dependencies:
 
   # Youglish Android & iOS
   webview_flutter: ^4.9.0
+  # Video player cho video local (MP4, MKV, WebM...)
+  video_player: ^2.8.0
   # Youglish Win
   webview_win_floating: ^3.0.0
   webview_windows: ^0.4.0   # Chỉ cho Windows
@@ -111,3 +146,7 @@ flutter:
     - assets/dictionary/ 
     - assets/icons/   
     - assets/whisper_models/
+    - assets/glossary/
+    # Optional small/demo normalized Tipiṭaka DB. Production builds may omit
+    # it and install a DB into the app documents directory instead.
+    - assets/db/tipitaka.sqlite

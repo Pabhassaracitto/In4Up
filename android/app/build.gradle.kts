@@ -133,6 +133,12 @@ android {
 
     flavorDimensions.add("default")
 
+    // ⚠️ BẮT BUỘC build RELEASE bằng `--flavor stable`:
+    //      flutter build apk --release --flavor stable ...
+    // Build KHÔNG --flavor → APK CRASH khi nhấn ĐĂNG NHẬP (Firebase Auth /
+    // google-services không khớp applicationId của bản không-flavor).
+    // stable = applicationId com.in4up (khớp client google-services).
+    // dev/beta chỉ dùng nội bộ (applicationId com.in4up.dev/.beta).
     productFlavors {
         create("stable") {
             dimension = "default"

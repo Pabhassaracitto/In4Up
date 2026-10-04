@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
 # Đổi tên APK (chỉ chip arm64-v8a — "chip phổ thông") → tên phát hành
-# `in4up-Android-arm64-v8a-<tag>.apk` (card CI-ANDROID-04).
+# `in4up-Android-arm64-v8a-<tag>-<commit5>.apk` (card CI-ANDROID-04).
+# <commit5> = 5 ký tự đầu hash commit (GITHUB_SHA) — build local không có đuôi.
 # Chạy SAU bước `flutter build apk` (không --split-per-abi), TRƯỚC verify/upload.
 #
 # CI-ANDROID-04 (owner 2026-10): RELEASE chỉ ship 1 bản CHO CHIP PHỔ THÔNG
@@ -18,6 +19,16 @@ set -euo pipefail
 
 TAG="${1:-}"
 OUT="${2:-build/app/outputs/flutter-apk}"
+# Đuôi 5 ký tự hash commit — GITHUB_SHA (GitHub Actions tự đặt env này).
+# Build local (không có GITHUB_SHA) → bỏ đuôi hash. `${GITHUB_SHA:-}` để
+# không lỗi với `set -u` khi biến chưa set (local).
+SHA="${GITHUB_SHA:-}"
+SHA="${SHA:0:5}"
+if [ -n "$SHA" ]; then
+  APK_NAME="in4up-Android-arm64-v8a-${TAG}-${SHA}.apk"
+else
+  APK_NAME="in4up-Android-arm64-v8a-${TAG}.apk"
+fi
 
 if [ -z "$TAG" ]; then
   echo "::error::[in4up-rename] Thiếu tag/version (tham số 1)."
@@ -48,8 +59,8 @@ done
 renamed=0
 for c in "app-stable-release.apk" "app-release.apk"; do
   if [ -f "$OUT/$c" ]; then
-    mv "$OUT/$c" "$OUT/in4up-Android-arm64-v8a-${TAG}.apk"
-    echo "[in4up-rename] $c → in4up-Android-arm64-v8a-${TAG}.apk"
+    mv "$OUT/$c" "$OUT/$APK_NAME"
+    echo "[in4up-rename] $c → $APK_NAME"
     renamed=1
     break
   fi

@@ -273,7 +273,7 @@ class VocabImageWebService {
 
   /// Tải bytes ảnh (có trần dung lượng) để lưu vào app storage.
   Future<Uint8List> download(String imageUrl,
-      {int maxBytes = 8 * 1024 * 1024}) async {
+      {int maxBytes = 8 * 1024 * 1024, bool allowJson = false}) async {
     final res = await _client
         .get(Uri.parse(imageUrl), headers: const {'User-Agent': userAgent})
         .timeout(const Duration(seconds: 30));
@@ -285,12 +285,30 @@ class VocabImageWebService {
       throw const VocabImageSearchException('empty body');
     }
     if (bytes.length > maxBytes) {
-      throw const VocabImageSearchException('image too large');
+      throw VocabImageSearchException(
+          allowJson ? 'lottie too large' : 'image too large');
+    }
+    // LOTTIE-001 — caller báo URL là Lottie (.json/.lottie) thì chấp nhận
+    // payload JSON/zip; đó cũng là chốt chặn URL .json trỏ ra HTML lỗi.
+    if (allowJson && looksLikeLottie(bytes)) {
+      return bytes;
     }
     if (!looksLikeImage(bytes)) {
       throw const VocabImageSearchException('not an image');
     }
     return bytes;
+  }
+
+  /// LOTTIE-001 — payload là Lottie: JSON bắt đầu bằng '{' hoặc dotLottie
+  /// (ZIP magic "PK\x03\x04").
+  static bool looksLikeLottie(Uint8List b) {
+    if (b.isEmpty) return false;
+    if (b[0] == 0x7B) return true; // '{'
+    return b.length >= 4 &&
+        b[0] == 0x50 &&
+        b[1] == 0x4B &&
+        b[2] == 0x03 &&
+        b[3] == 0x04;
   }
 
   void dispose() => _client.close();

@@ -92,12 +92,24 @@ class VocabImageApiSettings {
   /// bình thường và vẫn có thể gán tay sau.
   final bool autoAssignFirst;
 
+  /// LOTTIE-001 (owner 2026-10-04): "Có thể tải về local ngay (tuy nhiên có
+  /// thể thiết lập lựa chọn lazy trong cài đặt)".
+  ///
+  /// `false` (mặc định) = import CSV có link ảnh/Lottie thì TẢI VỀ MÁY NGAY
+  /// sau import — học offline trọn vẹn (đúng triết lý ảnh tĩnh hiện có).
+  /// `true` = giữ nguyên URL sau import; ảnh/animation chỉ tải và lưu về máy
+  /// ở LẦN XEM ĐẦU TIÊN (VocabularyMediaWidget materialize) — tiết kiệm dữ
+  /// liệu/dung lượng với bộ từ lớn, đổi lại từ chưa xem sẽ không có minh
+  /// họa khi offline.
+  final bool lazyDownload;
+
   const VocabImageApiSettings({
     required this.provider,
     required this.keys,
     required this.hasBuildTimeKey,
     this.buildTimeProvider,
     this.autoAssignFirst = false,
+    this.lazyDownload = false,
   });
 
   /// Key hiệu dụng cho [p]: key nhập trong app, fallback key build-time
@@ -143,6 +155,7 @@ class VocabImageApiSettings {
     VocabImageProvider? provider,
     Map<String, String>? keys,
     bool? autoAssignFirst,
+    bool? lazyDownload,
   }) =>
       VocabImageApiSettings(
         provider: provider ?? this.provider,
@@ -150,6 +163,7 @@ class VocabImageApiSettings {
         hasBuildTimeKey: hasBuildTimeKey,
         buildTimeProvider: buildTimeProvider,
         autoAssignFirst: autoAssignFirst ?? this.autoAssignFirst,
+        lazyDownload: lazyDownload ?? this.lazyDownload,
       );
 
   /// Provider hiện chọn có dùng được không (có key, hoặc không cần key).
@@ -178,6 +192,9 @@ class VocabImageApiConfig {
   /// Toggle "tự gán ảnh đầu tiên" (IMG-WEB-001) — chỉ trên máy, không đồng bộ.
   static const String _autoAssignKey = 'vocab_image_auto_assign';
 
+  /// Toggle "chỉ tải media khi xem" (LOTTIE-001) — chỉ trên máy.
+  static const String _lazyDownloadKey = 'vocab_image_lazy_download';
+
   SharedPreferences? _prefs;
   VocabImageApiSettings? _cached;
 
@@ -204,6 +221,7 @@ class VocabImageApiConfig {
           ? null
           : VocabImageApiSettings.buildTimeProviderName.toLowerCase(),
       autoAssignFirst: prefs.getBool(_autoAssignKey) ?? false,
+      lazyDownload: prefs.getBool(_lazyDownloadKey) ?? false,
     );
     return _cached = settings;
   }
@@ -233,6 +251,17 @@ class VocabImageApiConfig {
       await prefs.setBool(_autoAssignKey, true);
     } else {
       await prefs.remove(_autoAssignKey);
+    }
+    _cached = null;
+  }
+
+  /// Bật/tắt "chỉ tải ảnh/animation về máy ở lần xem đầu" (LOTTIE-001).
+  Future<void> saveLazyDownload(bool enabled) async {
+    final prefs = await _ensure();
+    if (enabled) {
+      await prefs.setBool(_lazyDownloadKey, true);
+    } else {
+      await prefs.remove(_lazyDownloadKey);
     }
     _cached = null;
   }

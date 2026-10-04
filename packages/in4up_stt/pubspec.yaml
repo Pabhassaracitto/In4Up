@@ -18,6 +18,10 @@ dependencies:
   # whisper_flutter_new only supports Android/iOS/macOS — on Windows,
   # we fallback to FFI (whisper.dll) or CLI (whisper.exe) via stt_engine_whisper.dart
   whisper_flutter_new: ^1.0.1
+  # Engine 3: Sherpa-ONNX (PoC from branch 019fe27a, Strategy Pattern Step2)
+  # sherpa_onnx ^1.13.6 — next-gen Kaldi, offline file + streaming, .onnx 2-5MB VAD
+  # (CHỈ khai báo 1 lần — bản ^1.13.4 cũ đã lược bỏ, tránh duplicate key làm pub get lỗi)
+
   # Audio conversion: mobile uses FFmpegKit (native lib bundled),
   # desktop uses `ffmpeg` binary via Process (see audio_converter.dart)
   # NOTE: ffmpeg_kit_flutter_new 4.2.1 has broken Windows header (C1083).
@@ -30,12 +34,20 @@ dependencies:
   path_provider: ^2.1.4
   dio: ^5.4.0
 
+  # WP2 (API-003) — STT file qua API: dùng OpenAiCompatClient (multipart
+  # /v1/audio/transcriptions) + provider store của in4up_ai. KHÔNG thêm
+  # client HTTP thứ 2 (dio vẫn giữ cho dependency cũ — WP2 không dùng dio).
+  in4up_ai:
+    path: ../in4up_ai
+
   firebase_storage: ^12.4.0 #13.3.0 #change from ^13.0.0
 
   path: ^1.9.0
   # Utilities
   rxdart: ^0.28.0
   crypto: ^3.0.6
+  sherpa_onnx: ^1.13.6
+  archive: ^4.0.9
 
 dev_dependencies:
   flutter_test:

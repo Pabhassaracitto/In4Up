@@ -5,21 +5,27 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
-import 'package:in4up_stt/stt_service_facade.dart';
-
+import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
+import '../../services/source_artifact_store.dart';
+import '../../utils/audio_source_identity.dart';
 
 mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
   String? get currentSongPath;
   UnderstandProvider? get understandProvider;
   Future<void> pause();
+  Duration get playbackDuration;
 
   final SttServiceFacade _sttService = SttServiceFacade();
   SttServiceFacade get sttService => _sttService;
 
   SttTranscribeOutput? _lastTranscribeOutput;
   SttTranscribeOutput? get lastTranscribeOutput => _lastTranscribeOutput;
+
+  // The in-memory STT fallback is valid only for the audio that produced it.
+  // Without this binding, opening audio B could reuse audio A's last .lrc.
+  String? _lastSttAudioPath;
 
   bool _lrcJustGenerated = false;
   bool get lrcJustGenerated => _lrcJustGenerated;
@@ -28,6 +34,24 @@ mixin PlayerSttMixin on ChangeNotifier {
     if (_lrcJustGenerated) {
       _lrcJustGenerated = false;
     }
+  }
+
+  /// Invalidates every transient STT/LRC signal when the audio source changes.
+  /// Late callbacks are additionally guarded by [_isCurrentAudio] before they
+  /// are allowed to publish lyrics.
+  void resetLrcStateForAudioChange() {
+    _lrcJustGenerated = false;
+    _shouldOpenAiPanel = false;
+    _lastSttError = null;
+    _lastSttScriptWarning = null;
+    _isGeneratingLrc = false;
+    _lastTranscribeOutput = null;
+    _lastSttOutput = null;
+    _lastSttAudioPath = null;
+    _lastGeneratedLrcPath = null;
+    try {
+      _sttService.cancelTranscription();
+    } catch (_) {}
   }
 
   Future<void> initializeStt() async {
@@ -42,51 +66,42 @@ mixin PlayerSttMixin on ChangeNotifier {
   Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
   SttProgress get sttProgress => _sttService.currentProgress;
 
-  String _computeFileHash(String normalizedPath) {
-    return normalizedPath.hashCode.toRadixString(16);
+  bool _isCurrentAudio(String expectedPath) {
+    final current = currentSongPath;
+    return current != null && AudioSourceIdentity.matches(current, expectedPath);
+  }
+
+  bool _isLastSttFor(String requestedPath) {
+    final source = _lastSttAudioPath;
+    return source != null &&
+        AudioSourceIdentity.matches(source, requestedPath);
+  }
+
+  Future<CachedLrcHit?> peekCachedLrc({String? path}) async {
+    final audioPath = path ?? currentSongPath;
+    if (audioPath == null || audioPath.isEmpty) return null;
+    try {
+      final hit = await SourceArtifactStore.instance.findLrc(
+        audioPath,
+        durationMs: playbackDuration.inMilliseconds,
+      );
+      if (hit != null) return hit;
+      final outputFromStt = _lastSttOutput;
+      if (_isLastSttFor(audioPath) && outputFromStt?.lrcFilePath != null) {
+        final lrcFile = File(outputFromStt!.lrcFilePath!);
+        if (await lrcFile.exists()) {
+          return CachedLrcHit(lrcPath: outputFromStt.lrcFilePath!);
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ peekCachedLrc error: $e');
+    }
+    return null;
   }
 
   Future<String?> findCachedLrcPath(String normalizedPath) async {
-    try {
-      final hash = _computeFileHash(normalizedPath);
-
-      final candidates = <String>[
-        '${normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))}'
-            '/${hash}.lrc',
-        '/data/user/0/com.in4up.app/cache/lrc/$hash.lrc',
-        _replaceExtension(normalizedPath, '.lrc'),
-      ];
-
-      for (final candidate in candidates) {
-        final file = File(candidate);
-        if (await file.exists()) {
-          debugPrint('✅ Found cached LRC: $candidate');
-          return candidate;
-        }
-      }
-
-      final outputFromStt = _lastSttOutput;
-      if (outputFromStt?.lrcFilePath != null) {
-        final lrcFile = File(outputFromStt!.lrcFilePath!);
-        if (await lrcFile.exists()) {
-          return outputFromStt.lrcFilePath;
-        }
-      }
-
-      return null;
-    } catch (e) {
-      debugPrint('⚠️ _findCachedLrcPath error: $e');
-      return null;
-    }
-  }
-
-  String _replaceExtension(String path, String newExt) {
-    final lastDot = path.lastIndexOf('.');
-    final lastSlash = path.lastIndexOf('/');
-    if (lastDot > lastSlash && lastDot >= 0) {
-      return '${path.substring(0, lastDot)}$newExt';
-    }
-    return '$path$newExt';
+    final hit = await peekCachedLrc(path: normalizedPath);
+    return hit?.lrcPath;
   }
 
   Future<List<LrcLine>> parseLrcFile(String lrcPath) async {
@@ -97,7 +112,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       final content = await file.readAsString();
       // Dùng SttLrcConverter để tách đúng: bỏ inline `<mm:ss.cs>` khỏi text
       // hiển thị và lưu vào words cho karaoke (tránh lộ timestamps ra chữ).
-      final lines = await SttLrcConverter().parseLrcContent(content);
+      final lines = SttLrcConverter().parseLrcContent(content);
       debugPrint('📄 Parsed ${lines.length} LRC lines from $lrcPath');
       return lines;
     } catch (e) {
@@ -106,9 +121,19 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
   }
 
-  Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
+  // Handover SECTION 2 — VAD Pipeline integration
+  // File 1h từ 20p -> 8-10p nhờ loại bỏ silence + chunk tối ưu
+  final VadPipelineIntegration _vadIntegration = VadPipelineIntegration();
+
+  /// Tạo LRC dùng VAD pipeline tối ưu (khuyên dùng cho file dài >60s)
+  /// Pipeline: File Audio -> VAD -> Chunk Extractor -> Whisper Isolate -> Offset Corrector -> UI Stream
+  /// [language]: mã ngôn ngữ Whisper ('auto' = tự nhận diện đa ngữ;
+  /// 'vi', 'en', 'zh', 'ja', 'ko', 'pi'...). Mặc định 'auto' — đa ngữ.
+  Future<SttTranscribeOutput?> generateLrcWithVadPipeline({
     WhisperModelLevel? level,
+    String language = 'auto',
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
+    bool skipSilence = true,
   }) async {
     final path = currentSongPath;
     if (path == null) {
@@ -119,6 +144,164 @@ mixin PlayerSttMixin on ChangeNotifier {
 
     _isGeneratingLrc = true;
     _lastSttError = null;
+    _lastSttScriptWarning = null;
+
+    try {
+      await pause();
+      debugPrint('[VAD Pipeline] Paused player, delay 1s for BufferPool release');
+      await Future.delayed(const Duration(milliseconds: 1000));
+    } catch (_) {}
+
+    if (!_isCurrentAudio(path)) return null;
+    understandProvider?.clear();
+    notifyListeners();
+
+    try {
+      // ★ FIX (STT-LATIN-001): AUTO trước đây CỨNG về tiny. tiny không đủ
+      // sức viết Devanagari/Hán/Hangul → Hindi ra chữ Latin. Với AUTO giờ
+      // chọn model tốt nhất ĐANG CÓ theo script của ngôn ngữ (xem
+      // SttModelManager.getBestModelLevelForLanguage). Chọn chip tay thì giữ
+      // nguyên model đó (honorModelLevel) — engine không tự hạ về tiny nữa.
+      final modelLevel = level ??
+          _sttService.bestWhisperLevel(language: language) ??
+          WhisperModelLevel.tiny;
+
+      final output = await _vadIntegration.transcribeWithVad(
+        audioPath: path,
+        modelLevel: modelLevel,
+        honorModelLevel: level != null,
+        language: language,
+        skipSilence: skipSilence,
+        onProgress: (prog) {
+          debugPrint(
+            '[VAD Pipeline] ${prog.status.name} ${prog.progress.toStringAsFixed(2)} '
+            '${prog.message} chunk ${prog.currentChunkIndex}/${prog.totalChunks}',
+          );
+          // Có thể emit progress ra UI qua _sttService hoặc notifyListeners
+        },
+        onPartialResult: (partial) async {
+          if (!_isCurrentAudio(path) ||
+              partial.segments.isEmpty ||
+              understandProvider == null) {
+            return;
+          }
+          final lrcLines = partial.segments
+              .map((s) => LrcLine(
+                    timestamp: Duration(milliseconds: s.startMs),
+                    text: s.text,
+                  ))
+              .where((l) => l.text.trim().isNotEmpty)
+              .toList();
+          if (lrcLines.isNotEmpty) {
+            understandProvider!.loadLrcLines(lrcLines);
+          }
+        },
+      );
+
+      if (!_isCurrentAudio(path)) {
+        debugPrint('⏭️ Discard VAD result from previous audio: $path');
+        return null;
+      }
+
+      _lastSttOutput = output;
+      _lastSttAudioPath = path;
+      _lastSttError = output.success ? null : output.errorMessage;
+      if (output.success) {
+        _trackScriptWarning(language: language, result: output.result);
+      } else {
+        _lastSttScriptWarning = null;
+      }
+
+      if (output.success && understandProvider != null) {
+        final lrcLines = output.result.segments
+            .map((s) => LrcLine(
+                  timestamp: Duration(milliseconds: s.startMs),
+                  text: s.text,
+                ))
+            .where((l) => l.text.trim().isNotEmpty)
+            .toList();
+        if (lrcLines.isNotEmpty) {
+          understandProvider!.loadLrcLines(lrcLines);
+          debugPrint('✅ VAD Pipeline loaded ${lrcLines.length} LRC lines');
+        }
+        _lrcJustGenerated = true;
+        // Diarization is an offline overlay: persist it beside the LRC so
+        // reopening the audio does not require running STT again.
+        if (output.lrcFilePath != null) {
+          final annotations = await const HeuristicDiarizationService()
+              .diarize(output.result);
+          await SpeakerSidecar.save(
+            lrcPath: output.lrcFilePath!,
+            audioFingerprint: output.result.audioFingerprint,
+            annotations: annotations,
+          );
+        }
+        await _rememberGeneratedLrc(path, output.lrcFilePath);
+      }
+
+      return output;
+    } catch (e) {
+      _lastSttError = e.toString();
+      debugPrint('❌ VAD Pipeline error: $e');
+      return null;
+    } finally {
+      _isGeneratingLrc = false;
+      notifyListeners();
+    }
+  }
+
+  /// [language]: mã ngôn ngữ Whisper — 'auto' (mặc định) = Whisper tự
+  /// nhận diện ngôn ngữ (đa ngữ: vi/en/zh/ja/ko/pi...); hoặc gán cụ thể
+  /// ('vi', 'en'...) khi muốn ép ngôn ngữ. Trước đây hardcode 'en' —
+  /// file tiếng Việt bị transcribe sai ngôn ngữ.
+  Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
+    WhisperModelLevel? level,
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
+    bool forceRegenerate = false,
+    String language = 'auto',
+  }) async {
+    final path = currentSongPath;
+    if (path == null) {
+      _lastSttError = 'Chưa có file audio đang phát';
+      notifyListeners();
+      return null;
+    }
+
+    // ★ REOPEN FIX: đã có LRC lưu sẵn (SourceArtifactStore) → nạp lại,
+    //   KHÔNG chạy Whisper lần nữa (mất thời gian + phí). Chỉ re-transcribe
+    //   khi forceRegenerate: true (user bấm "Tạo lại" ở hộp thoại hỏi).
+    if (!forceRegenerate) {
+      final hit = await peekCachedLrc(path: path);
+      if (!_isCurrentAudio(path)) return null;
+      if (hit != null) {
+        await applyCachedLrc(hit: hit);
+        return null;
+      }
+    }
+
+    // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        // Nếu file >60s, tự động dùng VAD pipeline tối ưu
+        // Probe duration đơn giản qua file size hoặc dùng AudioConverter
+        // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
+        final size = await file.length();
+        if (size > 5 * 1024 * 1024) {
+          debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
+          return await generateLrcWithVadPipeline(
+            level: level,
+            language: language,
+            grouping: grouping,
+            skipSilence: true,
+          );
+        }
+      }
+    } catch (_) {}
+
+    _isGeneratingLrc = true;
+    _lastSttError = null;
+    _lastSttScriptWarning = null;
 
     // FIX OOM v3: dung player truoc khi transcribe de giai phong ExoPlayer (BufferPoolAccessor) + FFmpeg native RAM
     // v7: them delay 1s sau pause de ExoPlayer giai phong buffer pool truoc khi Whisper chiem RAM
@@ -128,6 +311,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 1000));
     } catch (_) {}
 
+    if (!_isCurrentAudio(path)) return null;
     // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
     //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").
     understandProvider?.clear();
@@ -139,7 +323,11 @@ mixin PlayerSttMixin on ChangeNotifier {
       // ★ Stream kết quả từng phần: hiện dần lyrics mỗi khi xong 1 chunk,
       //   thay vì đợi hết cả file mới hiện.
       final partialSub = stt.partialResultStream.listen((partial) {
-        if (partial.segments.isEmpty || understandProvider == null) return;
+        if (!_isCurrentAudio(path) ||
+            partial.segments.isEmpty ||
+            understandProvider == null) {
+          return;
+        }
         // Chuyển partial → LrcLine để UnderstandProvider hiện dần
         final lrcLines = partial.segments
             .map((s) => LrcLine(
@@ -158,7 +346,7 @@ mixin PlayerSttMixin on ChangeNotifier {
         if (level == null) {
           output = await stt.transcribeAuto(
             path,
-            language: 'en',
+            language: language,
             generateLrc: true,
             grouping: grouping,
           );
@@ -168,7 +356,9 @@ mixin PlayerSttMixin on ChangeNotifier {
             config: SttConfig.deepLearning.copyWith(
               preferredEngine: SttEngineType.whisper,
               whisperModel: level,
-              language: 'en',
+              // chip model trong UI = lựa chọn TAY → engine phải giữ model đó.
+              honorWhisperModel: true,
+              language: language,
               generateLrc: true,
               grouping: grouping,
             ),
@@ -176,8 +366,19 @@ mixin PlayerSttMixin on ChangeNotifier {
           );
         }
 
+        if (!_isCurrentAudio(path)) {
+          debugPrint('⏭️ Discard STT result from previous audio: $path');
+          return null;
+        }
+
         _lastSttOutput = output;
+        _lastSttAudioPath = path;
         _lastSttError = output.success ? null : output.errorMessage;
+        if (output.success) {
+          _trackScriptWarning(language: language, result: output.result);
+        } else {
+          _lastSttScriptWarning = null;
+        }
 
         if (output.lrcFilePath != null) {
           _lastGeneratedLrcPath = output.lrcFilePath;
@@ -187,6 +388,10 @@ mixin PlayerSttMixin on ChangeNotifier {
             output.lrcFilePath != null &&
             understandProvider != null) {
           final lrcLines = await parseLrcFile(output.lrcFilePath!);
+          if (!_isCurrentAudio(path)) {
+            debugPrint('⏭️ Discard parsed STT LRC from previous audio: $path');
+            return null;
+          }
           if (lrcLines.isNotEmpty) {
             understandProvider!.loadLrcLines(lrcLines);
             debugPrint(
@@ -194,6 +399,7 @@ mixin PlayerSttMixin on ChangeNotifier {
             );
           }
           _lrcJustGenerated = true;
+          await _rememberGeneratedLrc(path, output.lrcFilePath);
         }
 
         return output;
@@ -238,9 +444,18 @@ mixin PlayerSttMixin on ChangeNotifier {
   Future<void> autoLoadCachedLrc(String normalizedPath) async {
     try {
       final cachedLrcPath = await findCachedLrcPath(normalizedPath);
+      if (!_isCurrentAudio(normalizedPath)) {
+        debugPrint('⏭️ Ignore stale LRC lookup for: $normalizedPath');
+        return;
+      }
 
       if (cachedLrcPath != null) {
         final lrcLines = await parseLrcFile(cachedLrcPath);
+        // The user may switch audio while the cache file is being parsed.
+        if (!_isCurrentAudio(normalizedPath)) {
+          debugPrint('⏭️ Ignore stale parsed LRC for: $normalizedPath');
+          return;
+        }
         if (lrcLines.isNotEmpty && understandProvider != null) {
           understandProvider!.loadLrcLines(lrcLines);
           _lastGeneratedLrcPath = cachedLrcPath;
@@ -261,6 +476,60 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
   }
 
+  /// Nạp LRC đã lưu vào UI (không STT). Dùng khi user chọn "Dùng bản đã lưu"
+  /// hoặc khi nút Tạo lời phát hiện cache sẵn (reopen fix).
+  Future<void> applyCachedLrc({required CachedLrcHit hit}) async {
+    final audioPath = currentSongPath;
+    if (audioPath == null) return;
+
+    try {
+      final lrcLines = await parseLrcFile(hit.lrcPath);
+      if (!_isCurrentAudio(audioPath)) {
+        debugPrint('⏭️ Ignore cached LRC selected for previous audio: $audioPath');
+        return;
+      }
+      if (lrcLines.isNotEmpty && understandProvider != null) {
+        understandProvider!.clear();
+        understandProvider!.loadLrcLines(lrcLines);
+        _lastGeneratedLrcPath = hit.lrcPath;
+        _lrcJustGenerated = true;
+        debugPrint(
+          '✅ Applied cached LRC (${lrcLines.length} lines): ${hit.lrcPath}',
+        );
+        notifyListeners();
+      } else {
+        debugPrint('⚠️ Cached LRC rỗng, bỏ qua: ${hit.lrcPath}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ applyCachedLrc error: $e');
+    }
+  }
+
+  /// Ghi nhớ LRC vừa tạo vào SourceArtifactStore (fingerprint size|duration|tên)
+  /// để mở lại file sau này tìm thấy mà không cần tạo lời lại.
+  Future<void> _rememberGeneratedLrc(String audioPath, String? lrcPath) async {
+    if (lrcPath == null || lrcPath.isEmpty) return;
+    try {
+      int lineCount = 0;
+      final lrcFile = File(lrcPath);
+      if (await lrcFile.exists()) {
+        lineCount = (await lrcFile.readAsString())
+            .split('\n')
+            .where((l) => l.trim().startsWith('['))
+            .length;
+      }
+      await SourceArtifactStore.instance.rememberLrc(
+        audioPath: audioPath,
+        lrcPath: lrcPath,
+        lineCount: lineCount,
+        durationMs: playbackDuration.inMilliseconds,
+      );
+      debugPrint('[SourceArtifact] remembered LRC for $audioPath → $lrcPath');
+    } catch (e) {
+      debugPrint('⚠️ _rememberGeneratedLrc error: $e');
+    }
+  }
+
   bool _shouldOpenAiPanel = false;
   bool get shouldOpenAiPanel => _shouldOpenAiPanel;
 
@@ -276,10 +545,43 @@ mixin PlayerSttMixin on ChangeNotifier {
 
   SttTranscribeOutput? _lastSttOutput;
   SttTranscribeOutput? get lastSttOutput => _lastSttOutput;
-  set lastSttOutput(SttTranscribeOutput? value) => _lastSttOutput = value;
+  set lastSttOutput(SttTranscribeOutput? value) {
+    _lastSttOutput = value;
+    _lastSttAudioPath = value == null ? null : currentSongPath;
+  }
 
   String? _lastSttError;
   String? get lastSttError => _lastSttError;
+
+  /// Mã ngôn ngữ Whisper mà kết quả tạo lời KHÔNG ra đúng bảng chữ cái
+  /// (vd chọn Hindi nhưng toàn bộ lời là chữ Latin). null = bình thường.
+  /// UI dùng để gợi ý "chọn model BASE/SMALL rồi tạo lại" — dữ liệu thô,
+  /// không chứa chuỗi hiển thị (rule #5: chrome locale-hóa ở tầng UI).
+  String? _lastSttScriptWarning;
+  String? get lastSttScriptWarning => _lastSttScriptWarning;
+
+  /// Phát hiện "Latin-hóa": ngôn ngữ yêu cầu script ngoài Latin nhưng văn bản
+  /// trả về chỉ có chữ Latin → model quá nhỏ / audio không đúng ngôn ngữ.
+  void _trackScriptWarning({
+    required String language,
+    required SttResult result,
+  }) {
+    _lastSttScriptWarning = null;
+    if (result.segments.isEmpty) return;
+    if (!WhisperLanguage.latinizedFor(
+      language: language,
+      text: result.fullText,
+    )) {
+      return;
+    }
+    final code = WhisperLanguage.code(language);
+    _lastSttScriptWarning = code;
+    debugPrint(
+      '⚠️ [STT] Lời ra chữ Latin trong khi ngôn ngữ = "$code" '
+      '(script mong đợi: ${WhisperLanguage.scriptFor(code)}). '
+      'Gợi ý: chọn model base/small rồi tạo lại.',
+    );
+  }
 
   bool _isGeneratingLrc = false;
   bool get isGeneratingLrc => _isGeneratingLrc;
@@ -290,8 +592,9 @@ mixin PlayerSttMixin on ChangeNotifier {
   String? get lastGeneratedLrcPath => _lastGeneratedLrcPath;
 
   void clearSttError() {
-    if (_lastSttError != null) {
+    if (_lastSttError != null || _lastSttScriptWarning != null) {
       _lastSttError = null;
+      _lastSttScriptWarning = null;
       notifyListeners();
     }
   }

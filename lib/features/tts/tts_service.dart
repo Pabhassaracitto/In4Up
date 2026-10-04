@@ -1,19 +1,23 @@
 // lib/features/tts/tts_service.dart
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
 import 'engines/fpt_tts_engine.dart';
+import 'engines/openai_compat_tts_engine.dart';
 import 'engines/tts_engine.dart';
 import 'engines/google_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
+import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'language_detector.dart';
 import 'tts_settings.dart';
-// VoidCallback
 
 class TtsService extends ChangeNotifier {
   // ═══════════════════════════════════════
@@ -34,6 +38,14 @@ class TtsService extends ChangeNotifier {
   final TtsCache _cache = TtsCache();
   final OfflineTtsEngine _offlineEngine = OfflineTtsEngine();
 
+  // Settings Keys
+  static const _kPriorityKey = 'tts_priority_mode';
+  static const _kEngineOrderKey = 'tts_engine_order_json';
+  static const _kFptApiKey = 'tts_fpt_api_key';
+  static const _kZaloApiKey = 'tts_zalo_api_key';
+  static const _kSpeedKey = 'tts_speed_val';
+  static const _kPitchKey = 'tts_pitch_val';
+
   // Settings
   TtsPriority _priority = TtsPriority.offlineFirst;
   String _language = 'auto';
@@ -50,6 +62,18 @@ class TtsService extends ChangeNotifier {
   bool _isSpeaking = false;
   bool _isLoading = false;
   bool _stopRequested = false;
+
+  // ── I4U18-PDF-OCR-TTS-001 (F3) — trọng tài phát ──────────────
+  // `_stopRequested` một mình không đủ: `speak()` đặt lại nó về false ở đầu
+  // mỗi câu, nên lệnh Stop rơi đúng vào lúc đó bị nuốt và câu kế vẫn phát
+  // ("Stop xong vẫn phát"). Thêm một số THẾ HỆ chỉ tăng: mọi lệnh stop tăng
+  // nó lên, và mọi tác vụ phát đang bay đều mang theo thế hệ của mình —
+  // thế hệ cũ thì không được chạm vào AudioPlayer nữa.
+  int _playbackEpoch = 0;
+
+  // Tạm dừng là trạng thái RIÊNG: vòng `speakLines` phải ĐỢI ở đây thay vì
+  // coi câu đã xong rồi chạy tiếp sang câu sau (lỗi "Pause không dừng âm").
+  bool _paused = false;
   String _lastUsedEngine = '';
   String _detectedLanguage = '';
   String? _error;
@@ -64,6 +88,13 @@ class TtsService extends ChangeNotifier {
   // Getters
   bool get isSpeaking => _isSpeaking;
   bool get isLoading => _isLoading;
+  bool get isPaused => _paused;
+
+  /// Thế hệ phát hiện tại — tác vụ async so sánh để biết mình còn hiệu lực.
+  int get playbackEpoch => _playbackEpoch;
+
+  /// True khi [epoch] đã bị một lệnh stop mới hơn thay thế.
+  bool isStaleEpoch(int epoch) => epoch != _playbackEpoch;
   String get lastUsedEngine => _lastUsedEngine;
   String get detectedLanguage => _detectedLanguage;
   String? get error => _error;
@@ -84,6 +115,7 @@ class TtsService extends ChangeNotifier {
 
   void _init() {
     _buildDefaultEngineOrder();
+    _loadPersistedSettings();
 
     _audioPlayer.playerStateStream.listen((state) {
       // ★ FIX: Chỉ xử lý stream khi đang dùng AudioPlayer (KHÔNG dùng OfflineEngine)
@@ -102,33 +134,136 @@ class TtsService extends ChangeNotifier {
   void _buildDefaultEngineOrder() {
     _engineOrder = [
       const TtsEngineInfo(
-        id: 'offline_tts',
-        name: 'Offline (Máy)',
-        description: 'Phát ngay, giọng máy',
+        id: 'piper_tts',
+        name: 'Piper (neural / Sherpa)',
+        description: 'Offline, giọng neural đã import',
         isOnline: false,
         priority: 0,
+      ),
+      const TtsEngineInfo(
+        id: 'offline_tts',
+        name: 'Offline (Máy)',
+        description: 'Phát ngay, giọng máy hệ thống',
+        isOnline: false,
+        priority: 1,
       ),
       const TtsEngineInfo(
         id: 'google_tts',
         name: 'Google TTS',
         description: 'Miễn phí, khá tự nhiên',
-        priority: 1,
+        priority: 2,
       ),
       const TtsEngineInfo(
         id: 'zalo_tts',
         name: 'Zalo AI',
         description: 'Tiếng Việt cực tự nhiên',
         needsApiKey: true,
-        priority: 2,
+        priority: 3,
       ),
       const TtsEngineInfo(
         id: 'fpt_tts',
         name: 'FPT.AI',
         description: 'Tiếng Việt tự nhiên, nhiều giọng',
         needsApiKey: true,
-        priority: 3,
+        priority: 4,
+      ),
+      // WP4 (API-005) — engine TTS qua tầng Server API (OpenAI tts-1,
+      // Kokoro local/LAN…). Nằm SAU offline/Zalo/FPT ⇒ thứ tự mặc định của
+      // user cũ KHÔNG đổi; user kéo lên trong cùng UI này nếu muốn. Chưa cấu
+      // hình provider thì engine tự bỏ qua (chuỗi y hệt trước WP4).
+      // Key/baseUrl/model dùng store chung WP0 (màn Server & API) — KHÔNG
+      // nhập key riêng như Zalo/FPT.
+      const TtsEngineInfo(
+        id: 'openai_compat_tts',
+        name: 'Server TTS (API)',
+        description: 'OpenAI tts-1 / Kokoro — cấu hình ở Server & API',
+        priority: 5,
       ),
     ];
+  }
+
+  Future<void> _loadPersistedSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final priorityStr = prefs.getString(_kPriorityKey);
+      if (priorityStr != null) {
+        for (final p in TtsPriority.values) {
+          if (p.name == priorityStr) {
+            _priority = p;
+            break;
+          }
+        }
+      }
+
+      _fptApiKey = prefs.getString(_kFptApiKey);
+      _zaloApiKey = prefs.getString(_kZaloApiKey);
+      _speed = prefs.getDouble(_kSpeedKey) ?? _speed;
+      _pitch = prefs.getDouble(_kPitchKey) ?? _pitch;
+
+      final engineJson = prefs.getString(_kEngineOrderKey);
+      if (engineJson != null && engineJson.isNotEmpty) {
+        final decoded = jsonDecode(engineJson) as List<dynamic>;
+        final map = <String, bool>{};
+        final orderList = <String>[];
+        for (final item in decoded) {
+          if (item is Map) {
+            final id = item['id']?.toString() ?? '';
+            final enabled = item['enabled'] == true;
+            if (id.isNotEmpty) {
+              map[id] = enabled;
+              orderList.add(id);
+            }
+          }
+        }
+
+        final currentMap = {for (final e in _engineOrder) e.id: e};
+        final reordered = <TtsEngineInfo>[];
+        for (final id in orderList) {
+          if (currentMap.containsKey(id)) {
+            final existing = currentMap.remove(id)!;
+            reordered.add(existing.copyWith(
+              isEnabled: map[id] ?? existing.isEnabled,
+              priority: reordered.length,
+            ));
+          }
+        }
+        // Thêm các engine mới chưa có trong saved json
+        for (final remaining in currentMap.values) {
+          reordered.add(remaining.copyWith(priority: reordered.length));
+        }
+        _engineOrder = reordered;
+      }
+      _safeNotify();
+    } catch (e) {
+      debugPrint('⚠️ TtsService load settings error: $e');
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kPriorityKey, _priority.name);
+      if (_fptApiKey != null) {
+        await prefs.setString(_kFptApiKey, _fptApiKey!);
+      } else {
+        await prefs.remove(_kFptApiKey);
+      }
+      if (_zaloApiKey != null) {
+        await prefs.setString(_kZaloApiKey, _zaloApiKey!);
+      } else {
+        await prefs.remove(_kZaloApiKey);
+      }
+      await prefs.setDouble(_kSpeedKey, _speed);
+      await prefs.setDouble(_kPitchKey, _pitch);
+
+      final serialized = _engineOrder
+          .map((e) => {'id': e.id, 'enabled': e.isEnabled})
+          .toList();
+      await prefs.setString(_kEngineOrderKey, jsonEncode(serialized));
+    } catch (e) {
+      debugPrint('⚠️ TtsService save settings error: $e');
+    }
   }
 
   /// ★ FIX: Bọc notifyListeners để tránh crash khi đã dispose
@@ -170,6 +305,7 @@ class TtsService extends ChangeNotifier {
     if (zaloApiKey != null) {
       _zaloApiKey = zaloApiKey.trim().isEmpty ? null : zaloApiKey.trim();
     }
+    _saveSettings();
     _safeNotify();
   }
 
@@ -179,6 +315,7 @@ class TtsService extends ChangeNotifier {
         .entries
         .map((e) => e.value.copyWith(priority: e.key))
         .toList();
+    _saveSettings();
     _safeNotify();
   }
 
@@ -187,46 +324,68 @@ class TtsService extends ChangeNotifier {
       if (e.id == engineId) return e.copyWith(isEnabled: enabled);
       return e;
     }).toList();
+    _saveSettings();
     _safeNotify();
   }
 
   void setPriority(TtsPriority p) {
     _priority = p;
+    _saveSettings();
     _safeNotify();
   }
 
   // ═══════════════════════════════════════
-  // 🔥 SPEAK - HÀM CHÍNH
+  // 🔥 SPEAK - CƠ CHẾ LINH HOẠT & ƯU TIÊN
   // ═══════════════════════════════════════
+
+  /// Danh sách candidate engines theo thứ tự ưu tiên cấu hình
+  List<TtsEngineInfo> _getCandidateEngines(TtsPriority priority) {
+    final enabled = _engineOrder.where((e) => e.isEnabled).toList()
+      ..sort((a, b) => a.priority.compareTo(b.priority));
+
+    switch (priority) {
+      case TtsPriority.offlineFirst:
+        // Offline trước (Piper Sherpa, Máy), sau đó Online (Google, Zalo, FPT)
+        final off = enabled.where((e) => !e.isOnline).toList();
+        final on = enabled.where((e) => e.isOnline).toList();
+        return [...off, ...on];
+
+      case TtsPriority.onlineFirst:
+        // Online trước, sau đó fallback Offline
+        final on = enabled.where((e) => e.isOnline).toList();
+        final off = enabled.where((e) => !e.isOnline).toList();
+        return [...on, ...off];
+
+      case TtsPriority.offlineOnly:
+        // Chỉ offline
+        return enabled.where((e) => !e.isOnline).toList();
+
+      case TtsPriority.onlineOnly:
+        // Online trước, fallback offline nếu cần thiết
+        final on = enabled.where((e) => e.isOnline).toList();
+        final off = enabled.where((e) => !e.isOnline).toList();
+        return [...on, ...off];
+    }
+  }
 
   Future<void> speak(String text) async {
     if (text.trim().isEmpty) return;
-    await stop();
+    // Dừng âm đang phát nhưng KHÔNG tăng thế hệ: một câu mới trong cùng
+    // phiên đọc không được vô hiệu hoá chính phiên đó.
+    await _silenceCurrentAudio();
 
     _error = null;
+    _stopRequested = false;
+    _paused = false;
+    // Nguồn âm của câu trước đã tắt; cờ engine phải về mặc định để
+    // `_awaitLineFinished` không tưởng nhầm là đang dùng giọng máy.
+    _usingOfflineEngine = false;
+    final epoch = _playbackEpoch;
 
     final lang = _resolveLanguage(text);
     _detectedLanguage = lang;
 
-    switch (_priority) {
-      case TtsPriority.offlineFirst:
-        await _speakOfflineFirst(text, lang);
-        break;
-      case TtsPriority.onlineFirst:
-        await _speakOnlineFirst(text, lang);
-        break;
-      case TtsPriority.offlineOnly:
-        await _speakOfflineOnly(text, lang);
-        break;
-      case TtsPriority.onlineOnly:
-        await _speakOnlineFirst(text, lang);
-        break;
-    }
-  }
-
-  /// MODE 1: Offline trước → phát ngay, tải online nền
-  Future<void> _speakOfflineFirst(String text, String lang) async {
-    // Check cache trước
+    // 1. Kiểm tra cache trước
     final cachedPath = await _cache.get(
       text: text,
       language: lang,
@@ -234,15 +393,143 @@ class TtsService extends ChangeNotifier {
     );
 
     if (cachedPath != null) {
+      if (_stopRequested || isStaleEpoch(epoch)) return;
       _lastUsedEngine = '💾 Cache';
       _safeNotify();
       await _playFile(cachedPath);
       return;
     }
 
-    // ★ FIX: Đánh dấu đang dùng offline engine TRƯỚC KHI set _isSpeaking
+    // 2. Chạy qua danh sách engine theo thứ tự ưu tiên
+    final candidates = _getCandidateEngines(_priority);
+    var played = false;
+
+    for (final engineInfo in candidates) {
+      if (_stopRequested || isStaleEpoch(epoch)) break;
+
+      switch (engineInfo.id) {
+        case 'piper_tts':
+          played = await _trySpeakPiper(text, lang);
+          break;
+
+        case 'offline_tts':
+          played = await _trySpeakOffline(text, lang);
+          break;
+
+        case 'google_tts':
+          played = await _trySpeakOnline(GoogleTtsEngine(), text, lang);
+          break;
+
+        case 'zalo_tts':
+          if (_zaloApiKey != null &&
+              _zaloApiKey!.isNotEmpty &&
+              lang.startsWith('vi')) {
+            played = await _trySpeakOnline(
+              ZaloTtsEngine(apiKey: _zaloApiKey),
+              text,
+              lang,
+            );
+          }
+          break;
+
+        case 'fpt_tts':
+          if (_fptApiKey != null &&
+              _fptApiKey!.isNotEmpty &&
+              lang.startsWith('vi')) {
+            played = await _trySpeakOnline(
+              FptTtsEngine(apiKey: _fptApiKey),
+              text,
+              lang,
+            );
+          }
+          break;
+
+        case 'openai_compat_tts':
+          // WP4 (API-005): chỉ chạy khi đã có provider hỗ trợ TTS trong
+          // store chung WP0 (routing tts ≠ offlineOnly). Chưa cấu hình →
+          // bỏ qua — chuỗi TTS y hệt như trước khi có engine này.
+          final apiEngine = await _resolveApiTtsEngine();
+          if (apiEngine != null) {
+            played = await _trySpeakOnline(apiEngine, text, lang);
+          }
+          break;
+      }
+
+      if (played) {
+        // Nếu dùng offline và chế độ offlineFirst, kích hoạt prefetch online nền
+        if (_priority == TtsPriority.offlineFirst) {
+          _prefetchOnline(text, lang);
+        }
+        return;
+      }
+    }
+
+    // Nếu tất cả candidate engines đều thất bại, thử fallback khẩn cấp sang Offline (Máy)
+    if (!played && !_stopRequested && !isStaleEpoch(epoch)) {
+      debugPrint('⚠️ Tất cả engine ưu tiên thất bại, thử fallback khẩn cấp sang Offline Máy');
+      played = await _trySpeakOffline(text, lang);
+    }
+
+    if (!played && !_stopRequested && !isStaleEpoch(epoch)) {
+      _error = 'Không có engine TTS nào phát được văn bản này ($lang).';
+      _isLoading = false;
+      _isSpeaking = false;
+      _safeNotify();
+    }
+  }
+
+  /// Thử phát bằng Sherpa Piper neural TTS.
+  /// Trả về true nếu thành công, false nếu không có model / lỗi để tự động fallback.
+  Future<bool> _trySpeakPiper(String text, String lang) async {
+    try {
+      final piper = PiperTtsEngine.instance;
+      if (!await piper.isAvailable()) return false;
+
+      _usingOfflineEngine = false;
+      _isLoading = true;
+      _safeNotify();
+
+      final result = await piper.synthesize(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+        voiceId: _selectedVoiceId,
+      );
+
+      _isLoading = false;
+
+      if (!result.isSuccess ||
+          result.audioData == null ||
+          result.audioData!.isEmpty) {
+        debugPrint('ℹ️ Sherpa Piper TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
+        _safeNotify();
+        return false;
+      }
+
+      final filePath = await _cache.put(
+        text: text,
+        language: lang,
+        engineId: piper.id,
+        audioData: result.audioData!,
+      );
+
+      _lastUsedEngine = '🎙️ Sherpa Piper';
+      _safeNotify();
+      await _playFile(filePath);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ Piper TTS error: $e, fallback tiếp');
+      _isLoading = false;
+      _safeNotify();
+      return false;
+    }
+  }
+
+  /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)
+  Future<bool> _trySpeakOffline(String text, String lang) async {
     _usingOfflineEngine = true;
-    _lastUsedEngine = '📖 Offline';
+    _lastUsedEngine = '📖 Offline (Máy)';
     _isSpeaking = true;
     _safeNotify();
 
@@ -253,138 +540,64 @@ class TtsService extends ChangeNotifier {
         speed: _speed,
         pitch: _pitch,
       );
+      return true;
     } catch (e) {
-      _error = 'Lỗi offline TTS: $e';
-      debugPrint('OfflineTTS error: $e');
+      debugPrint('⚠️ OfflineTTS direct error: $e');
+      return false;
     } finally {
-      // ★ FIX: Reset cờ TRƯỚC KHI update state
       _usingOfflineEngine = false;
       _isSpeaking = false;
       _safeNotify();
     }
-
-    // Tải online ở nền (fire-and-forget)
-    _prefetchOnline(text, lang);
   }
 
-  /// MODE 2: Online trước → chờ tải, chất lượng cao
-  Future<void> _speakOnlineFirst(String text, String lang) async {
-    final cachedPath = await _cache.get(
-      text: text,
-      language: lang,
-      engineId: 'any',
-    );
-
-    if (cachedPath != null) {
-      _lastUsedEngine = '💾 Cache';
-      _safeNotify();
-      await _playFile(cachedPath);
-      return;
-    }
+  /// Thử phát bằng Online Engine (Google, Zalo, FPT)
+  Future<bool> _trySpeakOnline(TtsEngine engine, String text, String lang) async {
+    final hasNet = await _checkNetwork();
+    if (!hasNet) return false;
 
     _isLoading = true;
     _safeNotify();
 
-    final hasNetwork = await _checkNetwork();
+    try {
+      final result = await engine
+          .synthesize(
+            text: text,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: _selectedVoiceId,
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (hasNetwork) {
-      final engines = _getOnlineEngines(lang);
+      _isLoading = false;
 
-      for (final engine in engines) {
-        try {
-          final result = await engine
-              .synthesize(
-                text: text,
-                language: lang,
-                speed: _speed,
-                pitch: _pitch,
-                voiceId: _selectedVoiceId,
-              )
-              .timeout(const Duration(seconds: 15));
+      if (result.isSuccess) {
+        if (result.audioData != null && result.audioData!.isNotEmpty) {
+          final filePath = await _cache.put(
+            text: text,
+            language: lang,
+            engineId: engine.id,
+            audioData: result.audioData!,
+          );
 
-          if (result.isSuccess) {
-            if (result.audioData != null && result.audioData!.isNotEmpty) {
-              final filePath = await _cache.put(
-                text: text,
-                language: lang,
-                engineId: engine.id,
-                audioData: result.audioData!,
-              );
-
-              _lastUsedEngine = '🌐 ${result.engineName}';
-              _isLoading = false;
-              _safeNotify();
-              await _playFile(filePath);
-              return;
-            } else if (result.audioUrl != null) {
-              _lastUsedEngine = '🌐 ${result.engineName}';
-              _isLoading = false;
-              _safeNotify();
-              await _playUrl(result.audioUrl!);
-              return;
-            }
-          }
-        } catch (e) {
-          debugPrint('❌ ${engine.name}: $e');
+          _lastUsedEngine = '🌐 ${result.engineName}';
+          _safeNotify();
+          await _playFile(filePath);
+          return true;
+        } else if (result.audioUrl != null) {
+          _lastUsedEngine = '🌐 ${result.engineName}';
+          _safeNotify();
+          await _playUrl(result.audioUrl!);
+          return true;
         }
       }
-    }
-
-    // Fallback offline
-    _isLoading = false;
-
-    // ★ FIX: Đánh dấu offline mode
-    _usingOfflineEngine = true;
-    _lastUsedEngine = '📖 Offline';
-    _isSpeaking = true;
-    _safeNotify();
-
-    try {
-      await _offlineEngine.speakDirect(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-      );
-    } finally {
-      _usingOfflineEngine = false;
-      _isSpeaking = false;
+      return false;
+    } catch (e) {
+      debugPrint('❌ Online ${engine.name} error: $e');
+      _isLoading = false;
       _safeNotify();
-    }
-  }
-
-  /// MODE 3: Chỉ offline
-  Future<void> _speakOfflineOnly(String text, String lang) async {
-    final cachedPath = await _cache.get(
-      text: text,
-      language: lang,
-      engineId: 'any',
-    );
-
-    if (cachedPath != null) {
-      _lastUsedEngine = '💾 Cache';
-      _safeNotify();
-      await _playFile(cachedPath);
-      return;
-    }
-
-    // ★ FIX: Đánh dấu offline mode
-    _usingOfflineEngine = true;
-    _lastUsedEngine = '📖 Offline';
-    _isSpeaking = true;
-    _safeNotify();
-
-    try {
-      await _offlineEngine.speakDirect(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-      );
-    } finally {
-      _usingOfflineEngine = false;
-      _isSpeaking = false;
-      _safeNotify();
+      return false;
     }
   }
 
@@ -392,7 +605,6 @@ class TtsService extends ChangeNotifier {
   void _prefetchOnline(String text, String lang) {
     if (_isPrefetching) return;
     _isPrefetching = true;
-    // ★ FIX: Không gọi _safeNotify ở đây - tránh rebuild không cần thiết
 
     Future(() async {
       try {
@@ -406,7 +618,7 @@ class TtsService extends ChangeNotifier {
         );
         if (existing != null) return;
 
-        final engines = _getOnlineEngines(lang);
+        final engines = await _getOnlineEngines(lang);
 
         for (final engine in engines) {
           try {
@@ -435,16 +647,28 @@ class TtsService extends ChangeNotifier {
         }
       } finally {
         _isPrefetching = false;
-        // ★ FIX: Không notify ở đây - prefetch là silent operation
-        // Chỉ notify nếu app còn sống
-        if (!_disposed) {
-          // Không cần notify - prefetch là background, UI không cần biết
-        }
       }
     });
   }
 
-  List<TtsEngine> _getOnlineEngines(String lang) {
+  /// WP4 (API-005) — resolve engine TTS qua API từ store chung WP0.
+  ///
+  /// Trả null (engine bị bỏ qua, chuỗi y hệt hôm nay) khi: chưa cấu hình
+  /// provider nào có ttsModel / routing tts = offlineOnly / provider bị tắt.
+  Future<OpenAiCompatTtsEngine?> _resolveApiTtsEngine() async {
+    try {
+      await AiProviderStore.instance.ensureLoaded();
+      final provider =
+          AiProviderStore.instance.resolveProvider(AiRouteCapability.tts);
+      if (provider == null) return null;
+      return OpenAiCompatTtsEngine(provider: provider);
+    } catch (e) {
+      debugPrint('⚠️ TTS API: lỗi đọc cấu hình provider: $e');
+      return null;
+    }
+  }
+
+  Future<List<TtsEngine>> _getOnlineEngines(String lang) async {
     final engines = <TtsEngine>[];
     final sorted = _engineOrder.where((e) => e.isEnabled && e.isOnline).toList()
       ..sort((a, b) => a.priority.compareTo(b.priority));
@@ -468,6 +692,10 @@ class TtsService extends ChangeNotifier {
             engines.add(FptTtsEngine(apiKey: _fptApiKey));
           }
           break;
+        case 'openai_compat_tts':
+          final apiEngine = await _resolveApiTtsEngine();
+          if (apiEngine != null) engines.add(apiEngine);
+          break;
       }
     }
 
@@ -486,28 +714,54 @@ class TtsService extends ChangeNotifier {
   // PLAYBACK
   // ═══════════════════════════════════════
 
+  /// Dừng hẳn: chặn MỌI callback phát tiếp bằng cách tăng thế hệ phát.
   Future<void> stop() async {
+    _playbackEpoch++; // vô hiệu hoá mọi tác vụ đang bay (F3)
     _isSpeaking = false;
     _isLoading = false;
     _stopRequested = true;
+    _paused = false;
     _usingOfflineEngine = false; // ★ FIX: Reset cờ khi stop
+    await _silenceCurrentAudio();
+    _safeNotify();
+  }
+
+  /// Tắt tiếng nguồn âm đang phát mà KHÔNG đổi thế hệ / cờ stop.
+  ///
+  /// Dùng khi chuyển câu trong cùng một phiên đọc.
+  Future<void> _silenceCurrentAudio() async {
     try {
       await _audioPlayer.stop();
     } catch (_) {}
     try {
       await _offlineEngine.stop();
     } catch (_) {}
-    _safeNotify();
   }
 
+  /// Tạm dừng — phải DỪNG ÂM ĐANG PHÁT, cả AudioPlayer lẫn giọng máy.
+  ///
+  /// Lỗi cũ: chỉ `_audioPlayer.pause()`. Khi câu đang được đọc bằng
+  /// flutter_tts (engine offline của máy) thì âm vẫn chạy tới hết câu, và
+  /// vòng `speakLines` lập tức chuyển sang câu kế → bấm Pause xong vẫn nghe.
   Future<void> pause() async {
-    await _audioPlayer.pause();
+    if (_paused) return;
+    _paused = true;
+    try {
+      await _audioPlayer.pause();
+    } catch (_) {}
+    try {
+      await _offlineEngine.pause();
+    } catch (_) {}
     _isSpeaking = false;
     _safeNotify();
   }
 
   Future<void> resume() async {
-    await _audioPlayer.play();
+    if (!_paused) return;
+    _paused = false;
+    try {
+      await _audioPlayer.play();
+    } catch (_) {}
     _isSpeaking = true;
     _safeNotify();
   }
@@ -516,34 +770,85 @@ class TtsService extends ChangeNotifier {
   // SPEAK MULTIPLE
   // ═══════════════════════════════════════
 
+  /// Đọc lần lượt từng dòng.
+  ///
+  /// F3 — ba bảo đảm:
+  ///   • Stop (tăng thế hệ) chặn luôn dòng kế, kể cả khi lệnh rơi vào giữa
+  ///     lúc `speak()` đang dựng nguồn âm;
+  ///   • Pause giữ vòng lặp ĐỨNG YÊN ở đúng dòng đang đọc (không auto-skip);
+  ///   • `onLineChanged` bắn ĐÚNG MỘT LẦN cho mỗi dòng, và không bắn nữa sau
+  ///     khi phiên đã bị thay thế.
   Future<void> speakLines(
     List<String> lines, {
     Duration pauseBetween = const Duration(milliseconds: 500),
     void Function(int currentIndex)? onLineChanged,
   }) async {
-    _isSpeaking = true;
     _stopRequested = false;
+    _paused = false;
+    _isSpeaking = true;
+    final epoch = _playbackEpoch;
     _safeNotify();
 
     for (int i = 0; i < lines.length; i++) {
-      if (_stopRequested) break;
+      if (_stopRequested || isStaleEpoch(epoch)) break;
       onLineChanged?.call(i);
 
       await speak(lines[i]);
+      if (_stopRequested || isStaleEpoch(epoch)) break;
 
       // Đảm bảo trạng thái vẫn đang trong phiên đọc
-      _isSpeaking = true;
+      if (!_paused) _isSpeaking = true;
 
-      await _waitForCompletion();
-      if (_stopRequested) break;
+      await _awaitLineFinished(epoch);
+      if (_stopRequested || isStaleEpoch(epoch)) break;
 
       if (i < lines.length - 1) {
         await Future.delayed(pauseBetween);
       }
     }
 
-    _isSpeaking = false;
-    _safeNotify();
+    if (!isStaleEpoch(epoch)) {
+      _isSpeaking = false;
+      _safeNotify();
+    }
+  }
+
+  /// Chờ dòng hiện tại phát xong, nhưng bỏ chờ ngay khi bị stop, và ĐỨNG YÊN
+  /// (không coi là xong) khi đang tạm dừng.
+  ///
+  /// Dùng polling thay cho `firstWhere` trên `playerStateStream`: lúc pause,
+  /// stream chỉ báo `playing == false` với `processingState == ready`, nên
+  /// điều kiện completed/idle không bao giờ đúng và vòng cũ kẹt tới khi hết
+  /// timeout 60 s rồi mới… chạy tiếp sang dòng sau.
+  Future<void> _awaitLineFinished(int epoch) async {
+    const tick = Duration(milliseconds: 120);
+    // Đang tạm dừng thì ĐỨNG YÊN, kể cả khi nguồn âm đã tắt vì chính lệnh
+    // pause: nếu không, giọng máy (flutter_tts) vừa bị cắt sẽ bị hiểu là
+    // "đọc xong" và vòng lặp nhảy sang dòng kế trong lúc người dùng đang
+    // tạm dừng. Đây chính là kiểu tự lướt dòng đã báo.
+    while (_paused) {
+      if (_stopRequested || isStaleEpoch(epoch)) return;
+      await Future.delayed(tick);
+    }
+    // Giọng máy: `speak()` đã await tới khi đọc xong (awaitSpeakCompletion).
+    // Lưu ý: tạm dừng giữa câu của flutter_tts không phát tiếp được từ chỗ
+    // cũ — resume sẽ bắt đầu từ câu KẾ, không phải giữa câu đang dở.
+    if (_usingOfflineEngine) return;
+    // Trần an toàn cho một dòng (dòng dài nhất của PDF vẫn dưới mức này).
+    final deadline = DateTime.now().add(const Duration(minutes: 5));
+    while (DateTime.now().isBefore(deadline)) {
+      if (_stopRequested || isStaleEpoch(epoch)) return;
+      if (_paused) {
+        await Future.delayed(tick);
+        continue;
+      }
+      final state = _audioPlayer.processingState;
+      if (state == ProcessingState.completed ||
+          state == ProcessingState.idle) {
+        return;
+      }
+      await Future.delayed(tick);
+    }
   }
 
   Future<void> speakRepeat(
@@ -573,7 +878,7 @@ class TtsService extends ChangeNotifier {
   Future<List<TtsVoice>> getAvailableVoices([String? lang]) async {
     final effectiveLang = lang ?? _language;
     final voices = <TtsVoice>[];
-    for (final engine in _getOnlineEngines(effectiveLang)) {
+    for (final engine in await _getOnlineEngines(effectiveLang)) {
       try {
         voices.addAll(await engine.getAvailableVoices(effectiveLang));
       } catch (_) {}
@@ -581,13 +886,18 @@ class TtsService extends ChangeNotifier {
     try {
       voices.addAll(await _offlineEngine.getAvailableVoices(effectiveLang));
     } catch (_) {}
+    try {
+      voices.addAll(
+        await PiperTtsEngine.instance.getAvailableVoices(effectiveLang),
+      );
+    } catch (_) {}
     return voices;
   }
 
   Future<Map<String, bool>> checkEngineStatus() async {
     final status = <String, bool>{};
     final lang = _language == 'auto' ? 'vi-VN' : _language;
-    for (final engine in _getOnlineEngines(lang)) {
+    for (final engine in await _getOnlineEngines(lang)) {
       try {
         status[engine.name] =
             await engine.isAvailable().timeout(const Duration(seconds: 5));
@@ -596,13 +906,19 @@ class TtsService extends ChangeNotifier {
       }
     }
     status[_offlineEngine.name] = await _offlineEngine.isAvailable();
+    try {
+      status[PiperTtsEngine.instance.name] =
+          await PiperTtsEngine.instance.isAvailable();
+    } catch (_) {
+      status[PiperTtsEngine.instance.name] = false;
+    }
     return status;
   }
 
-  List<String> get activeEngines {
+  Future<List<String>> get activeEngines async {
     final lang = _language == 'auto' ? 'vi-VN' : _language;
     return [
-      ..._getOnlineEngines(lang).map((e) => e.name),
+      ...(await _getOnlineEngines(lang)).map((e) => e.name),
       _offlineEngine.name,
     ];
   }
@@ -644,6 +960,8 @@ class TtsService extends ChangeNotifier {
       _safeNotify();
     }
   }
+
+  Future<void> waitForCompletion() => _waitForCompletion();
 
   Future<void> _waitForCompletion() async {
     if (_usingOfflineEngine) return; // ★ Offline đã await trực tiếp rồi

@@ -10,7 +10,7 @@ enum VocabularyType {
   paragraph;
 
   String label(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = AppLocalizations.of(context);
     switch (this) {
       case VocabularyType.word:
         return l10n.vocabWord;

@@ -63,7 +63,7 @@ ehthumbs.db
 Desktop.ini
 
 # IDE
-.vscode/
+.vscode/*
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
@@ -131,17 +131,10 @@ docs/api/
 build_log.txt
 .firebase/
 **/.firebase/
-google_sign_in_config.dart
-*.bin
-*.claudignore
-.ai/
-.roo/
-project/
-# Bỏ qua các file localization tự sinh
-lib/l10n/app_localizations*.dart
-.dart_tool/
+android/local.properties
 .guide/
 google-services.json
+android/app/google-services.json
 # Exceptions - force track important files
 !pubspec.lock
 !android/app/src/main/jniLibs/arm64-v8a/libnative_audio.so
@@ -154,3 +147,23 @@ google-services.json
 !assets/whisper_models/.gitkeep
 !ios/Runner.xcodeproj/project.pbxproj
 setup-env.ps1
+
+# Local offline models for VS Code / desktop debug (không ship APK)
+dev_models/**
+!dev_models/README.md
+!dev_models/**/.gitkeep
+reference/english_tipitaka_translation_data-2026-04-28.db
+reference/tipitaka-roman-pali.db
+reference/vietnamese_tipitaka_translation_data-2026-04-29.db
+reference/__MACOSX/._tipitaka-roman-pali.db
+# Downloaded Tipiṭaka source packages and importer backups are local-only.
+reference/*.db
+reference/*.sqlite
+reference/*.sqlite3
+reference/*.zip
+assets/db/*.bak
+assets/db/*.part
+
+# Python bytecode cache (spike tooling)
+__pycache__/
+*.pyc

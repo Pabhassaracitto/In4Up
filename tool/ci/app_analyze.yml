@@ -1,0 +1,78 @@
+name: App Analyze + Locale Test (wide oracle)
+
+# Oracle rộng cho toàn app (lib/**) — bổ sung cho knowledge_tests.yml /
+# soundlist_tests.yml (chỉ cover module hẹp).
+#
+# Chiến lược "chỉ sai khi ĐỎ THẬT": --no-fatal-infos --no-fatal-warnings
+# → chỉ ERROR mới fail (codebase legacy có nhiều info-lint lịch sử —
+# coi info là lỗi sẽ đỏ triền miên, không dùng làm oracle được).
+# Log analyze upload thành artifact (GitHub App token không đọc được
+# workflow log trực tiếp — tải artifact để đọc lỗi).
+#
+# Skill: docs/skills/ci-red-debugging/SKILL.md
+
+on:
+  push:
+    branches: ['arena/**', 'main']
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/app_analyze.yml'
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+  workflow_dispatch:
+
+jobs:
+  analyze-and-locale-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml — tránh lệch dependency
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze full app (chỉ ERROR là fatal)
+        id: analyze
+        run: |
+          set +e
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
+          code=$?
+          tail -n 300 analyze.log
+          exit $code
+
+      - name: Upload analyze log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-analyze-log
+          path: analyze.log
+          if-no-files-found: ignore
+
+      - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
+        id: locale-test
+        run: |
+          set +e
+          flutter test test/locale_chrome_no_vietnamese_test.dart > locale_test.log 2>&1
+          code=$?
+          cat locale_test.log
+          exit $code
+
+      - name: Upload locale test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-locale-test-log
+          path: locale_test.log
+          if-no-files-found: ignore

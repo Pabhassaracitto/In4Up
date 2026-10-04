@@ -24,6 +24,11 @@ class TextLibraryEntry {
   final int wordCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+  // Issue 2: lưu bản dịch cũ để không phải dịch lại mỗi lần mở
+  // translations: { "VI": ["dòng dịch 1", "dòng dịch 2"], "EN": [...] }
+  // hoặc dạng Map<langCode, Map<lineIndex, translation>>
+  final Map<String, dynamic>? translations;
+  final Map<String, dynamic>? translationMeta;
 
   const TextLibraryEntry({
     required this.id,
@@ -33,6 +38,8 @@ class TextLibraryEntry {
     required this.wordCount,
     required this.createdAt,
     required this.updatedAt,
+    this.translations,
+    this.translationMeta,
   });
 
   // Số dòng để hiển thị trong list
@@ -56,6 +63,8 @@ class TextLibraryEntry {
       wordCount: data['wordCount'] as int? ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      translations: data['translations'] as Map<String, dynamic>?,
+      translationMeta: data['translationMeta'] as Map<String, dynamic>?,
     );
   }
 
@@ -66,12 +75,16 @@ class TextLibraryEntry {
     'wordCount': wordCount,
     'createdAt': Timestamp.fromDate(createdAt),
     'updatedAt': Timestamp.fromDate(updatedAt),
+    if (translations != null) 'translations': translations,
+    if (translationMeta != null) 'translationMeta': translationMeta,
   };
 
   TextLibraryEntry copyWith({
     String? title,
     String? content,
     String? category,
+    Map<String, dynamic>? translations,
+    Map<String, dynamic>? translationMeta,
   }) {
     final newContent = content ?? this.content;
     return TextLibraryEntry(
@@ -82,7 +95,31 @@ class TextLibraryEntry {
       wordCount: newContent.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
+      translations: translations ?? this.translations,
+      translationMeta: translationMeta ?? this.translationMeta,
     );
+  }
+
+  /// Lấy translations cho 1 ngôn ngữ đích (VD: VI)
+  List<String>? getTranslationsForLang(String langCode) {
+    if (translations == null) return null;
+    final normalized = langCode.toUpperCase();
+    final data = translations![normalized] ?? translations![normalized.toLowerCase()] ?? translations![langCode];
+    if (data is List) {
+      return data.map((e) => e.toString()).toList();
+    }
+    if (data is Map) {
+      // dạng Map<index, translation>
+      final list = List<String>.filled(lineCount, '');
+      data.forEach((k, v) {
+        final idx = int.tryParse(k.toString());
+        if (idx != null && idx >= 0 && idx < list.length) {
+          list[idx] = v.toString();
+        }
+      });
+      return list;
+    }
+    return null;
   }
 }
 

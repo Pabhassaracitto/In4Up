@@ -12,11 +12,15 @@ import 'package:provider/provider.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
+import '../../../features/tipitaka/widgets/tipitaka_source_link.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../services/vocab_classifier.dart';
 import '../../../widgets/sync_status_badge.dart';
 import '../../memory_mode/controllers/memory_controller.dart';
+import '../../../features/vocab_image/vocab_image_picker.dart';
+import '../../../features/vocab_image/vocab_image_quick_add.dart';
+import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
@@ -971,6 +975,17 @@ class _WordListScreenState extends State<WordListScreen> {
       context: vocabContext,
     );
 
+    // IMG-WEB-001: nếu bật "Tự gán ảnh đầu tiên" trong Cài đặt ảnh thì gán luôn
+    // (không mở sheet); tắt thì để người dùng tự chạm "Thêm hình"/mở sheet chọn.
+    // Không await — việc lưu từ không chờ mạng, và hàm tự im lặng bỏ qua khi lỗi.
+    autoAssignVocabImage(
+      provider: p,
+      wordId: entry.id,
+      word: entry.word,
+      meaning: entry.meaning,
+      currentImageUrl: entry.imageUrl,
+    );
+
     HapticFeedback.mediumImpact();
     // Clear search after saving
     setState(() {
@@ -999,6 +1014,29 @@ class _WordListScreenState extends State<WordListScreen> {
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
             ),
+            // IMG-WEB-001: "thêm từ" nhanh cũng gán được hình ngay. `SnackBar`
+            // CHỈ có một `action:` (không có `actions:` số nhiều — dùng thử là
+            // `flutter analyze` báo "named parameter isn't defined", đỏ CI),
+            // nên "Thêm hình" nằm trong content, còn `action:` giữ vai trò SỬA.
+            TextButton(
+              onPressed: () => attachVocabImage(
+                ui,
+                wordId: entry.id,
+                word: entry.word,
+                meaning: entry.meaning,
+                currentImageUrl: entry.imageUrl,
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                ui.uiText('Thêm hình'),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
           ],
         ),
         backgroundColor: const Color(0xFF4CAF50),
@@ -1014,15 +1052,6 @@ class _WordListScreenState extends State<WordListScreen> {
 
   Future<void> _speakWord(WordEntry entry) async {
     await _playbackService.playSingle(entry);
-  }
-
-  Future<void> _speakWordLegacy(String text) async {
-    // For cases where only text is available
-    final vocab = context.read<VocabularyProvider>();
-    final match = vocab.allWords.where((w) => w.word == text).toList();
-    if (match.isNotEmpty) {
-      await _playbackService.playSingle(match.first);
-    }
   }
 
   void _showAddMenu(VocabularyProvider provider) {
@@ -1293,6 +1322,7 @@ class _WordListScreenState extends State<WordListScreen> {
     final topicCtrl = TextEditingController();
     VocabularyType? detectedType;
     String selectedLang = 'en';
+    String? selectedImagePath;
 
     showModalBottomSheet(
       context: context,
@@ -1357,6 +1387,16 @@ class _WordListScreenState extends State<WordListScreen> {
                         decoration: _inputDeco('Chủ đề / Thư mục', 'VD: Phật Pháp hoặc Phật Pháp/Đời Sống',
                             const Color(0xFF9C27B0))),
                     const SizedBox(height: 12),
+                    Center(
+                      child: VocabImagePicker(
+                        word: textCtrl.text,
+                        meaning: meaningCtrl.text,
+                        currentImageUrl: selectedImagePath,
+                        onImageChanged: (path) => setS(() => selectedImagePath = path),
+                        size: 120,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
                     SingleChildScrollView(
@@ -1396,6 +1436,9 @@ class _WordListScreenState extends State<WordListScreen> {
                               language: selectedLang,
                               topic: topicCtrl.text.trim().isEmpty ? null : topicCtrl.text.trim(),
                             );
+                            if (selectedImagePath != null && selectedImagePath!.isNotEmpty) {
+                              p.updateImageUrl(entry.id, selectedImagePath);
+                            }
                             Navigator.pop(sheetCtx);
                             if (entry.vocabType != VocabularyType.word) {
                               _showDecomposeDialog(entry, p);
@@ -1560,8 +1603,15 @@ class _WordListScreenState extends State<WordListScreen> {
     final ipaC = TextEditingController(text: entry.phonetic ?? '');
     final noteC = TextEditingController(text: entry.personalNotes ?? '');
     final topicC = TextEditingController(text: entry.topic ?? '');
-    String selectedLang = entry.language;
+    // READ-630-02: multi-topic / multi-language — thêm/bớt tag,
+    // từ + ngữ cảnh giữ nguyên (xóa tag chỉ "mất 1 tab").
+    final Set<String> extraTopics = entry.topics.skip(1).toSet();
+    final Set<String> selectedLangs = entry.languages.toSet();
+    final Set<String> baseLangs = {'en', 'vi', 'pali', 'my'};
+    final Set<String> allLangOptions = {...baseLangs, ...p.allLanguages};
+    final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
+    String? selectedImagePath = entry.imageUrl;
 
     showModalBottomSheet(
       context: context,
@@ -1606,8 +1656,56 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(noteC, 'Ghi chú', Icons.note_alt_outlined, maxLines: 2),
                     const SizedBox(height: 10),
-                    _editField(topicC, 'Chủ đề / Thư mục', Icons.folder_outlined),
-                    
+                    _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
+                    const SizedBox(height: 12),
+                    // Image picker
+                    Center(
+                      child: VocabImagePicker(
+                        word: wordC.text,
+                        meaning: meanC.text,
+                        currentImageUrl: selectedImagePath,
+                        onImageChanged: (path) => setS(() => selectedImagePath = path),
+                        size: 120,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final t in List<String>.of(extraTopics))
+                          ActionChip(
+                            avatar: const Icon(Icons.close, size: 12),
+                            label: Text(t,
+                                style: const TextStyle(
+                                    color: Color(0xFFFFB74D), fontSize: 11)),
+                            backgroundColor:
+                                const Color(0xFFFFB74D).withValues(alpha: 0.14),
+                            side: BorderSide(
+                                color: const Color(0xFFFFB74D).withValues(alpha: 0.35)),
+                            onPressed: () =>
+                                setS(() => extraTopics.remove(t)),
+                          ),
+                        for (final t in allTopicOptions
+                            .where((t) =>
+                                t.trim().isNotEmpty &&
+                                t != topicC.text.trim() &&
+                                !extraTopics.contains(t))
+                            .toList()
+                              ..sort())
+                          ChoiceChip(
+                            label: Text('+ $t',
+                                style: const TextStyle(
+                                    color: Colors.white54, fontSize: 11)),
+                            selected: false,
+                            backgroundColor: Colors.white.withValues(alpha: 0.04),
+                            side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.1)),
+                            onSelected: (_) => setS(() => extraTopics.add(t)),
+                          ),
+                      ],
+                    ),
+
                     const SizedBox(height: 12),
                     const Text('Phân loại Thực thể', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
@@ -1636,30 +1734,32 @@ class _WordListScreenState extends State<WordListScreen> {
                     ),
 
                     const SizedBox(height: 12),
-                    const Text('Ngôn ngữ', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Ngôn ngữ (chọn 1–n — đầu danh sách = chính)', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 4),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final lang in ['en', 'vi', 'pali', 'my'])
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: ChoiceChip(
-                                label: Text(
-                                  lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : 'Burmese',
-                                  style: TextStyle(color: selectedLang == lang ? Colors.white : Colors.grey, fontSize: 11),
-                                ),
-                                selected: selectedLang == lang,
-                                selectedColor: const Color(0xFF42A5F5),
-                                backgroundColor: Colors.white.withValues(alpha: 0.05),
-                                onSelected: (val) {
-                                  if (val) setS(() => selectedLang = lang);
-                                },
-                              ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final lang in List<String>.of(allLangOptions)..sort())
+                          ChoiceChip(
+                            label: Text(
+                              '${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}',
+                              style: TextStyle(color: selectedLangs.contains(lang) ? Colors.white : Colors.grey, fontSize: 11),
                             ),
-                        ],
-                      ),
+                            selected: selectedLangs.contains(lang),
+                            selectedColor: const Color(0xFF42A5F5),
+                            backgroundColor: Colors.white.withValues(alpha: 0.05),
+                            onSelected: (val) {
+                              setS(() {
+                                if (val) {
+                                  selectedLangs.add(lang);
+                                } else if (selectedLangs.length > 1) {
+                                  selectedLangs.remove(lang);
+                                }
+                              });
+                            },
+                          ),
+                      ],
                     ),
 
                     const SizedBox(height: 20),
@@ -1672,10 +1772,15 @@ class _WordListScreenState extends State<WordListScreen> {
                               word: wordC.text.trim(),
                               meaning: meanC.text.trim(),
                               phonetic: ipaC.text.trim(),
-                              language: selectedLang,
-                              topic: topicC.text.trim(),
+                              topics: [
+                                if (topicC.text.trim().isNotEmpty)
+                                  topicC.text.trim(),
+                                ...extraTopics,
+                              ],
+                              languages: selectedLangs.toList(),
                               vocabType: selectedType,
                             );
+                            p.updateImageUrl(entry.id, selectedImagePath);
                             if (noteC.text.trim().isNotEmpty) {
                               p.updateNotes(entry.id, noteC.text.trim());
                             }
@@ -1837,6 +1942,14 @@ class _CompactListItem extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Row(children: [
+                      // Image thumbnail (if available)
+                      if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+                        VocabImageThumbnail(
+                          imageUrl: entry.imageUrl,
+                          size: 36,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       if (settings.showWord)
                         Flexible(
                             child: Text(entry.word,
@@ -2054,6 +2167,18 @@ class _CompactListItem extends StatelessWidget {
         Divider(color: Colors.white.withValues(alpha: 0.06), height: 4),
         const SizedBox(height: 8),
 
+        // Vocab Image Thumbnail
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+          Center(
+            child: VocabImageThumbnail(
+              imageUrl: entry.imageUrl,
+              size: 80,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
         // Contexts
         if (entry.contexts.isNotEmpty) ...[
           _SectionHeader(
@@ -2097,6 +2222,30 @@ class _CompactListItem extends StatelessWidget {
           const SizedBox(height: 8),
         ],
 
+        if (entry.tipitakaAnchors.isNotEmpty) ...[
+          _SectionHeader(
+            icon: Icons.auto_stories_outlined,
+            label: 'Tipiṭaka (${entry.tipitakaAnchors.length})',
+          ),
+          const SizedBox(height: 6),
+          ...entry.tipitakaAnchors.take(3).map(
+                (anchor) => Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${anchor.bookCode} · ${anchor.reference}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                      ),
+                    ),
+                    TipitakaSourceLink(anchor: anchor, compact: true),
+                  ],
+                ),
+              ),
+          const SizedBox(height: 8),
+        ],
+
         // Relationships
         if (parents.isNotEmpty || children.isNotEmpty) ...[
           const _SectionHeader(icon: Icons.link, label: 'Liên kết'),
@@ -2124,6 +2273,39 @@ class _CompactListItem extends StatelessWidget {
                     .map((c) => _RelatedChip(entry: c, prefix: '▼'))
                     .toList()),
           ],
+          const SizedBox(height: 8),
+        ],
+
+        // Image (if exists)
+        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
+          const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),
+          const SizedBox(height: 6),
+          Center(
+            child: VocabImageThumbnail(
+              imageUrl: entry.imageUrl,
+              size: 120,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        // Image picker (always show in expanded for adding/editing)
+        if (entry.imageUrl == null || entry.imageUrl!.isEmpty) ...[
+          const _SectionHeader(icon: Icons.add_photo_alternate_outlined, label: 'Thêm hình ảnh'),
+          const SizedBox(height: 6),
+          Center(
+            child: VocabImagePicker(
+              wordId: entry.id,
+              word: entry.word,
+              meaning: entry.meaning,
+              currentImageUrl: entry.imageUrl,
+              onImageChanged: (path) {
+                // Image already saved by VocabImagePicker via provider
+              },
+              size: 100,
+            ),
+          ),
           const SizedBox(height: 8),
         ],
 

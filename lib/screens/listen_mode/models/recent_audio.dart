@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 enum RecentAudioType { local, youtube }
 
 class RecentAudio {
@@ -138,7 +142,7 @@ class RecentAudio {
     final nameNoExt =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
     return RecentAudio(
-      id: 'local_${normalizedPath.toLowerCase().hashCode}',
+      id: 'local_${md5.convert(utf8.encode(normalizedPath.toLowerCase())).toString().substring(0, 12)}',
       title: title ?? nameNoExt,
       type: RecentAudioType.local,
       localPath: normalizedPath,

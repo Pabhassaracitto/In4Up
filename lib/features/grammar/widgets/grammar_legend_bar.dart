@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:in4up/core/language/tr_extension.dart';
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:path/path.dart';
 
 import '../models/grammar_category.dart';
 import '../models/grammar_highlight_settings.dart';
@@ -13,6 +13,8 @@ class GrammarLegendBar extends StatelessWidget {
   final bool compact;
   final bool horizontalScroll;
   final bool showHandle;
+  /// Hide the legend without changing the enabled grammar categories.
+  final VoidCallback? onDismiss;
 
   const GrammarLegendBar({
     super.key,
@@ -23,6 +25,7 @@ class GrammarLegendBar extends StatelessWidget {
     this.compact = false,
     this.horizontalScroll = false,
     this.showHandle = false,
+    this.onDismiss,
   });
 
   @override
@@ -41,7 +44,8 @@ class GrammarLegendBar extends StatelessWidget {
       ),
     );
 
-    final chipWidgets = categories.map((c) => _buildChip(context, c)).toList();
+    final chipWidgets =
+        categories.map((category) => _buildChip(context, category)).toList();
     final content = categories.isEmpty
         ? emptyText
         : horizontalScroll
@@ -99,7 +103,21 @@ class GrammarLegendBar extends StatelessWidget {
               ),
             ),
           ],
-          content,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: content),
+              if (onDismiss != null)
+                IconButton(
+                  tooltip: context.uiText('Ẩn chú giải'),
+                  icon: const Icon(Icons.close, size: 17, color: Colors.white70),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                  onPressed: onDismiss,
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -142,7 +160,7 @@ class GrammarLegendBar extends StatelessWidget {
           if (showLabel) ...[
             const SizedBox(width: 6),
             Text(
-              context.tr(category.labelVi),
+              context.uiText(category.labelVi),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11.5,
@@ -156,8 +174,7 @@ class GrammarLegendBar extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(999),
-      onTap:
-          onToggleCategory == null ? null : () => onToggleCategory!(category),
+      onTap: onToggleCategory == null ? null : () => onToggleCategory!(category),
       child: child,
     );
   }

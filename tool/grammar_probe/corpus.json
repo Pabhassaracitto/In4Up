@@ -1,0 +1,1042 @@
+{
+  "_doc": "Corpus vàng cho spike cụm từ + cấu trúc câu (Tab Đọc). Mỗi case: câu, từ được chạm (anchor), và kết quả ĐÚNG về mặt ngữ pháp. Dùng để đo độ chính xác của engine.py; khi port sang Dart, file này là nguồn sinh test.",
+  "conventions": {
+    "phrase.span": "Chuỗi con LIÊN TỤC của câu (đúng như trong nguồn) ứng với cụm NHỎ NHẤT chứa anchor.",
+    "cau_hoi_span_verb_group": "Trong câu hỏi, nhóm động từ bị chủ ngữ chen giữa vẫn lấy span liền mạch gồm cả chủ ngữ (vd 'Did you have') — UI sẽ làm mờ phần chủ ngữ.",
+    "VP": "Nhóm động từ hữu hạn (trợ động từ + phủ định + trạng từ chen + động từ chính + tiểu từ) — KHÔNG gồm tân ngữ.",
+    "PHRASAL_V": "Động từ + tiểu từ của cụm động từ cố định (+ đại từ chen giữa nếu có).",
+    "sentence": "Chỉ so các trường ĐƯỢC KHAI BÁO; trường không khai báo = ngoài phạm vi case đó.",
+    "clause_fields": "type/question/polarity/tense/aspect/voice/pattern LUÔN tính trên MỆNH ĐỀ CHÍNH; vai trò mệnh đề chứa anchor ghi ở clause_role.",
+    "tense": "present | past | future | modal | none",
+    "aspect": "simple | continuous | perfect | perfect_continuous | none",
+    "pattern": "SV | SVO | SVC | SVOO | SVOC | SVOA | SVA | There+V+S | IT-CLEFT | VO | V",
+    "tag_question": "Quyết định người sở hữu 2026-09-24: câu hỏi đuôi ⇒ type=declarative + question=tag (hiển thị 'Khẳng định + hỏi đuôi'), polarity theo MỆNH ĐỀ CHÍNH."
+  },
+  "cases": [
+    {
+      "id": "E01",
+      "text": "The old man gave his son a book yesterday.",
+      "anchor": "son",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "his son"
+        },
+        "sentence": {
+          "type": "declarative",
+          "question": "none",
+          "polarity": "affirmative",
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVOO"
+        }
+      }
+    },
+    {
+      "id": "E02",
+      "text": "The old man gave his son a book yesterday.",
+      "anchor": "gave",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "gave"
+        }
+      }
+    },
+    {
+      "id": "E03",
+      "text": "The old man gave his son a book yesterday.",
+      "anchor": "book",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "a book"
+        }
+      }
+    },
+    {
+      "id": "E04",
+      "text": "She does not like coffee.",
+      "anchor": "like",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "does not like"
+        },
+        "sentence": {
+          "type": "declarative",
+          "polarity": "negative",
+          "tense": "present",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E05",
+      "text": "Did you have lunch?",
+      "anchor": "have",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "Did you have"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "yesno",
+          "polarity": "affirmative",
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E06",
+      "text": "Where did you go last summer?",
+      "anchor": "go",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "did you go"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "wh",
+          "tense": "past",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "E07",
+      "text": "You are a student, aren't you?",
+      "anchor": "student",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "a student"
+        },
+        "sentence": {
+          "type": "declarative",
+          "question": "tag",
+          "polarity": "affirmative",
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E08",
+      "text": "Do you want tea or coffee?",
+      "anchor": "coffee",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "coffee"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "alternative",
+          "tense": "present",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "E09",
+      "text": "Close the door, please.",
+      "anchor": "door",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "the door"
+        },
+        "sentence": {
+          "type": "imperative",
+          "polarity": "affirmative",
+          "pattern": "VO"
+        }
+      }
+    },
+    {
+      "id": "E10",
+      "text": "Don't touch the wires!",
+      "anchor": "touch",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "Don't touch"
+        },
+        "sentence": {
+          "type": "imperative",
+          "polarity": "negative"
+        }
+      }
+    },
+    {
+      "id": "E11",
+      "text": "Let's go to the beach.",
+      "anchor": "go",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "go"
+        },
+        "sentence": {
+          "type": "imperative",
+          "polarity": "affirmative"
+        }
+      }
+    },
+    {
+      "id": "E12",
+      "text": "What a beautiful day it is!",
+      "anchor": "beautiful",
+      "expect": {
+        "phrase": {
+          "kind": "ADJP",
+          "span": "beautiful"
+        },
+        "sentence": {
+          "type": "exclamative",
+          "polarity": "affirmative"
+        }
+      }
+    },
+    {
+      "id": "E13",
+      "text": "The letter was written by Mary.",
+      "anchor": "written",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "was written"
+        },
+        "sentence": {
+          "type": "declarative",
+          "polarity": "affirmative",
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "passive"
+        }
+      }
+    },
+    {
+      "id": "E14",
+      "text": "He has lived here for ten years.",
+      "anchor": "lived",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "has lived"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E15",
+      "text": "They have been waiting since morning.",
+      "anchor": "waiting",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "have been waiting"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect_continuous",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E16",
+      "text": "She had finished her homework before dinner.",
+      "anchor": "finished",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "had finished"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "perfect",
+          "voice": "active",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E17",
+      "text": "We were watching a movie at 8 p.m.",
+      "anchor": "watching",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "were watching"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "continuous",
+          "voice": "active",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E18",
+      "text": "I will call you tomorrow.",
+      "anchor": "call",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "will call"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E19",
+      "text": "This time next week I will be flying to Japan.",
+      "anchor": "flying",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "will be flying"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "continuous"
+        }
+      }
+    },
+    {
+      "id": "E20",
+      "text": "By 2030, they will have built the bridge.",
+      "anchor": "built",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "will have built"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E21",
+      "text": "She is going to start a new job.",
+      "anchor": "start",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "is going to start"
+        },
+        "sentence": {
+          "tense": "future",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "E22",
+      "text": "You should see a doctor.",
+      "anchor": "see",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "should see"
+        },
+        "sentence": {
+          "tense": "modal",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E23",
+      "text": "I have been to Paris.",
+      "anchor": "been",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "have been"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E24",
+      "text": "The book is on the table.",
+      "anchor": "on",
+      "expect": {
+        "phrase": {
+          "kind": "PP",
+          "span": "on the table"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVA"
+        }
+      }
+    },
+    {
+      "id": "E25",
+      "text": "The book is on the table.",
+      "anchor": "table",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "the table"
+        },
+        "outer": {
+          "kind": "PP",
+          "span": "on the table"
+        }
+      }
+    },
+    {
+      "id": "E26",
+      "text": "She is a teacher.",
+      "anchor": "teacher",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "a teacher"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E27",
+      "text": "She is running in the park.",
+      "anchor": "running",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "is running"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "continuous"
+        }
+      }
+    },
+    {
+      "id": "E28",
+      "text": "It is raining.",
+      "anchor": "raining",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "is raining"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "continuous",
+          "pattern": "SV"
+        }
+      }
+    },
+    {
+      "id": "E29",
+      "text": "There is a book on the table.",
+      "anchor": "book",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "a book"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "There+V+S"
+        }
+      }
+    },
+    {
+      "id": "E30",
+      "text": "I want to learn English.",
+      "anchor": "learn",
+      "expect": {
+        "phrase": {
+          "kind": "InfP",
+          "span": "to learn English"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E31",
+      "text": "Swimming is good for health.",
+      "anchor": "Swimming",
+      "expect": {
+        "phrase": {
+          "kind": "GerP",
+          "span": "Swimming"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E32",
+      "text": "I enjoy reading books.",
+      "anchor": "reading",
+      "expect": {
+        "phrase": {
+          "kind": "GerP",
+          "span": "reading books"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E33",
+      "text": "The man standing there is my uncle.",
+      "anchor": "standing",
+      "expect": {
+        "phrase": {
+          "kind": "PartP",
+          "span": "standing there"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E34",
+      "text": "The man standing there is my uncle.",
+      "anchor": "man",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "The man standing there"
+        }
+      }
+    },
+    {
+      "id": "E35",
+      "text": "The book that I bought yesterday is interesting.",
+      "anchor": "book",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "The book that I bought yesterday"
+        }
+      }
+    },
+    {
+      "id": "E36",
+      "text": "The book that I bought yesterday is interesting.",
+      "anchor": "bought",
+      "expect": {
+        "clause_role": "relative",
+        "sentence": {
+          "type": "declarative",
+          "tense": "present",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E37",
+      "text": "Because of the rain, we stayed at home.",
+      "anchor": "rain",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "the rain"
+        },
+        "outer": {
+          "kind": "PP",
+          "span": "Because of the rain"
+        },
+        "clause_role": "adverbial",
+        "sentence": {
+          "type": "declarative",
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVA"
+        }
+      }
+    },
+    {
+      "id": "E38",
+      "text": "He is smart and kind.",
+      "anchor": "smart",
+      "expect": {
+        "phrase": {
+          "kind": "ADJP",
+          "span": "smart"
+        },
+        "outer": {
+          "kind": "COORD",
+          "span": "smart and kind"
+        },
+        "sentence": {
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E39",
+      "text": "Please turn off the light.",
+      "anchor": "turn",
+      "expect": {
+        "phrase": {
+          "kind": "PHRASAL_V",
+          "span": "turn off"
+        },
+        "sentence": {
+          "type": "imperative",
+          "pattern": "VO"
+        }
+      }
+    },
+    {
+      "id": "E40",
+      "text": "She looked after the baby.",
+      "anchor": "after",
+      "expect": {
+        "phrase": {
+          "kind": "PHRASAL_V",
+          "span": "looked after"
+        },
+        "sentence": {
+          "type": "declarative",
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E41",
+      "text": "Please pick it up.",
+      "anchor": "up",
+      "expect": {
+        "phrase": {
+          "kind": "PHRASAL_V",
+          "span": "pick it up"
+        }
+      }
+    },
+    {
+      "id": "E42",
+      "text": "He runs very quickly.",
+      "anchor": "quickly",
+      "expect": {
+        "phrase": {
+          "kind": "ADVP",
+          "span": "very quickly"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SV"
+        }
+      }
+    },
+    {
+      "id": "E43",
+      "text": "She is extremely happy today.",
+      "anchor": "happy",
+      "expect": {
+        "phrase": {
+          "kind": "ADJP",
+          "span": "extremely happy"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E44",
+      "text": "They elected him president.",
+      "anchor": "president",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "president"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVOC"
+        }
+      }
+    },
+    {
+      "id": "E45",
+      "text": "She put the keys on the table.",
+      "anchor": "keys",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "the keys"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVOA"
+        }
+      }
+    },
+    {
+      "id": "E46",
+      "text": "It was John who broke the window.",
+      "anchor": "broke",
+      "expect": {
+        "clause_role": "relative",
+        "sentence": {
+          "type": "declarative",
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "IT-CLEFT"
+        }
+      }
+    },
+    {
+      "id": "E47",
+      "text": "Hôm nay trời đẹp và tôi đi học.",
+      "anchor": "trời",
+      "expect": {
+        "supported": false
+      }
+    },
+    {
+      "id": "E48",
+      "text": "I had a dream last night.",
+      "anchor": "had",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "had"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "active",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E49",
+      "text": "He has been to Paris twice.",
+      "anchor": "been",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "has been"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E50",
+      "text": "She used to work here.",
+      "anchor": "work",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "used to work"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E51",
+      "text": "I am used to waking up early.",
+      "anchor": "waking",
+      "expect": {
+        "phrase": {
+          "kind": "GerP",
+          "span": "waking up"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "E52",
+      "text": "I don’t know the answer.",
+      "anchor": "know",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "don’t know"
+        },
+        "sentence": {
+          "polarity": "negative",
+          "tense": "present",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "E53",
+      "text": "She's finished her work.",
+      "anchor": "finished",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "She's finished"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E54",
+      "text": "He's a doctor.",
+      "anchor": "doctor",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "a doctor"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVC"
+        }
+      }
+    },
+    {
+      "id": "E55",
+      "text": "Dr. Smith arrived early. He was tired.",
+      "anchor": "arrived",
+      "expect": {
+        "sentence_span": "Dr. Smith arrived early.",
+        "sentence": {
+          "type": "declarative",
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SV"
+        }
+      }
+    },
+    {
+      "id": "E56",
+      "text": "It rained. We stayed home.",
+      "anchor": "stayed",
+      "expect": {
+        "sentence_span": "We stayed home.",
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple"
+        }
+      }
+    },
+    {
+      "id": "E57",
+      "text": "I bought bread and milk.",
+      "anchor": "milk",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "milk"
+        },
+        "outer": {
+          "kind": "COORD",
+          "span": "bread and milk"
+        },
+        "sentence": {
+          "tense": "past",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E58",
+      "text": "Never give up!",
+      "anchor": "give",
+      "expect": {
+        "phrase": {
+          "kind": "PHRASAL_V",
+          "span": "give up"
+        },
+        "sentence": {
+          "type": "imperative",
+          "polarity": "negative"
+        }
+      }
+    },
+    {
+      "id": "E59",
+      "text": "Does she like coffee?",
+      "anchor": "like",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "Does she like"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "yesno",
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E60",
+      "text": "Have you ever been to Japan?",
+      "anchor": "been",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "Have you ever been"
+        },
+        "sentence": {
+          "type": "interrogative",
+          "question": "yesno",
+          "tense": "present",
+          "aspect": "perfect",
+          "voice": "active"
+        }
+      }
+    },
+    {
+      "id": "E61",
+      "text": "The report must be submitted by Friday.",
+      "anchor": "submitted",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "must be submitted"
+        },
+        "sentence": {
+          "tense": "modal",
+          "aspect": "simple",
+          "voice": "passive"
+        }
+      }
+    },
+    {
+      "id": "E62",
+      "text": "If it rains tomorrow, we will stay at home.",
+      "anchor": "stay",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "will stay"
+        },
+        "conditional": 1,
+        "sentence": {
+          "type": "declarative",
+          "tense": "future",
+          "aspect": "simple",
+          "pattern": "SVA"
+        }
+      }
+    },
+    {
+      "id": "E63",
+      "text": "She wishes she had a car.",
+      "anchor": "had",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "had"
+        },
+        "sentence": {
+          "tense": "present",
+          "aspect": "simple",
+          "pattern": "SVO"
+        }
+      }
+    },
+    {
+      "id": "E64",
+      "text": "This is the man whose car was stolen.",
+      "anchor": "car",
+      "expect": {
+        "phrase": {
+          "kind": "NP",
+          "span": "whose car"
+        },
+        "clause_role": "relative"
+      }
+    },
+    {
+      "id": "E65",
+      "text": "The children were not playing outside.",
+      "anchor": "playing",
+      "expect": {
+        "phrase": {
+          "kind": "VP",
+          "span": "were not playing"
+        },
+        "sentence": {
+          "polarity": "negative",
+          "tense": "past",
+          "aspect": "continuous"
+        }
+      }
+    }
+  ]
+}

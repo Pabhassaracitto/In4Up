@@ -1,0 +1,276 @@
+name: App Analyze + Locale Test (wide oracle)
+
+# Oracle rộng cho toàn app (lib/**) — bổ sung cho knowledge_tests.yml /
+# soundlist_tests.yml (chỉ cover module hẹp).
+#
+# Chiến lược "chỉ sai khi ĐỎ THẬT": --no-fatal-infos --no-fatal-warnings
+# → chỉ ERROR mới fail (codebase legacy có nhiều info-lint lịch sử —
+# coi info là lỗi sẽ đỏ triền miên, không dùng làm oracle được).
+# Log analyze upload thành artifact (GitHub App token không đọc được
+# workflow log trực tiếp — tải artifact để đọc lỗi).
+#
+# Kèm 2 "máy bắt" chạy bằng flutter test:
+#   - Rule 5 (AGENTS.md): chrome UI không tiếng Việt khi locale ≠ vi.
+#   - Module Thuộc Lòng (LHB): SRS/cloze/ngôn ngữ + đồng bộ đa thiết bị
+#     (LHB-006 — mốc LWW, bia mộ, hàng đợi pending, streak; thuần logic,
+#     không cần mạng). Bước này tự bỏ qua nếu file test không có trên nhánh
+#     (nhánh khác chưa merge) để không làm đỏ oracle dùng chung.
+#
+# Skill: docs/skills/ci-red-debugging/SKILL.md
+
+on:
+  push:
+    branches: ['arena/**', 'main']
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/app_analyze.yml'
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+  workflow_dispatch:
+
+jobs:
+  analyze-and-locale-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1' # khớp build.yml — tránh lệch dependency
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze full app (chỉ ERROR là fatal)
+        id: analyze
+        run: |
+          set +e
+          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.log 2>&1
+          code=$?
+          tail -n 300 analyze.log
+          # Surface analyzer ERROR lines as GitHub annotations so they remain
+          # retrievable through the check-runs API when artifact logs fail.
+          if [ "$code" -ne 0 ]; then
+            grep -E ' error •|^[[:space:]]*error' analyze.log | head -50 | while IFS= read -r line; do
+              echo "::error title=Flutter analyzer::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload analyze log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-analyze-log
+          path: analyze.log
+          if-no-files-found: ignore
+
+      - name: "I4U18 tests — Video/Listen Library (logic thuần)"
+        id: i4u18-lib-tests
+        run: |
+          set +e
+          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart"
+          flutter test $files > i4u18_lib_test.log 2>&1
+          code=$?
+          cat i4u18_lib_test.log
+          exit $code
+
+      - name: Upload I4U18 lib test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-i4u18-lib-test-log
+          path: i4u18_lib_test.log
+          if-no-files-found: ignore
+
+      - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
+        id: locale-test
+        run: |
+          set +e
+          flutter test test/locale_chrome_no_vietnamese_test.dart > locale_test.log 2>&1
+          code=$?
+          cat locale_test.log
+          exit $code
+
+      - name: Upload locale test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-locale-test-log
+          path: locale_test.log
+          if-no-files-found: ignore
+
+      - name: "READ-GRAM-001 tests — sentence structure"
+        id: sentence-structure-tests
+        run: |
+          set +e
+          files=""
+          for f in test/sentence_structure_golden_test.dart \
+                   test/sentence_structure_perf_test.dart \
+                   test/read_sentence_structure_i18n_test.dart \
+                   test/sentence_structure_language_gate_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test READ-GRAM-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > sentence_structure_test.log 2>&1
+          code=$?
+          cat sentence_structure_test.log
+          exit $code
+
+      - name: Upload READ-GRAM-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-sentence-structure-test-log
+          path: sentence_structure_test.log
+          if-no-files-found: ignore
+
+      - name: "Tipiṭaka — import ngôn ngữ độc lập + Pāli enrich"
+        run: >-
+          flutter test
+          test/tipitaka_independent_language_import_test.dart
+          test/tipitaka_workspace_retention_test.dart
+          test/tipitaka_dictionary_i18n_coverage_test.dart
+
+      # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
+      # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
+      # Thuần logic (không plugin, không mạng) nên chạy được trên CI.
+      - name: "Agent F tests — line mode / OCR guard / PDF TTS state machine"
+        id: agent-f-tests
+        run: |
+          set +e
+          files=""
+          for f in test/read_mode/docx_line_mode_test.dart \
+                   test/read_mode/read_line_hint_test.dart \
+                   test/ocr/ocr_cancel_token_test.dart \
+                   test/pdf_reader/pdf_text_layer_probe_test.dart \
+                   test/pdf_reader/pdf_tts_machine_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test Agent F trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > agent_f_test.log 2>&1
+          code=$?
+          cat agent_f_test.log
+          exit $code
+
+      - name: Upload Agent F test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-agent-f-test-log
+          path: agent_f_test.log
+          if-no-files-found: ignore
+
+      - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
+        id: lhb-tests
+        run: |
+          set +e
+          files=""
+          for f in test/learn_by_heart_test.dart \
+                   test/learn_by_heart_cloze_test.dart \
+                   test/learn_by_heart_language_test.dart \
+                   test/learn_by_heart_sync_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test LHB trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > lhb_test.log 2>&1
+          code=$?
+          tail -n 400 lhb_test.log
+          exit $code
+
+      - name: Upload LHB test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-lhb-test-log
+          path: lhb_test.log
+          if-no-files-found: ignore
+
+      - name: Cabin Save test (CABIN-SAVE-001)
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          flutter test test/cabin/ > cabin_test.log 2>&1
+          code=$?
+          cat cabin_test.log
+          exit $code
+
+      - name: Upload cabin test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-cabin-test-log
+          path: cabin_test.log
+          if-no-files-found: ignore
+
+      # IMPORT-MODELS-001 — guard nhận diện model Zipformer khi import
+      # (profile VI/EN, tokens VI viết hoa, guard streaming SIGABRT).
+      - name: ASR routing + import detection test (IMPORT-MODELS-001)
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          if [ ! -f test/asr_model_routing_test.dart ]; then
+            echo "Không có file test ASR routing trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/asr_model_routing_test.dart > asr_test.log 2>&1
+          code=$?
+          cat asr_test.log
+          exit $code
+
+      - name: Upload ASR test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-asr-test-log
+          path: asr_test.log
+          if-no-files-found: ignore
+
+      - name: "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001"
+        id: i4u18-scanner-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/model_bundle_scanner_test.dart \
+                   test/dict_bundle_scanner_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test I4U18 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > i4u18_scanner_test.log 2>&1
+          code=$?
+          cat i4u18_scanner_test.log
+          exit $code
+
+      - name: Upload I4U18 scanner test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-i4u18-scanner-test-log
+          path: i4u18_scanner_test.log
+          if-no-files-found: ignore

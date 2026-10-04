@@ -52,9 +52,10 @@ def main() -> None:
     # key in template order; ARBs intentionally put common actions before feature
     # specific aliases.
     seen_sources: set[str] = set()
-    for key, source in vietnamese.items():
-        if source in seen_sources:
-            continue
+
+    def emit_source(source: str, key: str, *, vietnamese_source: str | None = None) -> None:
+        if not source or source in seen_sources:
+            return
         seen_sources.add(source)
         lines.append(f"  {dart_string(source)}: {{")
         lines.append(f"    'en': {dart_string(english[key])},")
@@ -64,11 +65,23 @@ def main() -> None:
             # ARBs already use English for untranslated entries. Enforce it here
             # too so an absent/malformed catalog value can never leak Vietnamese.
             value = catalogs[locale].get(key) or english[key]
-            if value == source:
+            if value == vietnamese_source:
                 value = english[key]
             lines.append(f"    {dart_string(locale)}: {dart_string(value)},")
-        lines.append(f"    'vi': {dart_string(source)},")
+        # For a Vietnamese source alias, vi remains Vietnamese. For an English
+        # source alias, vi must remain English: this lets legacy English Text
+        # widgets be localized when they use the reviewed material shim.
+        lines.append(f"    'vi': {dart_string(vietnamese_source or source)},")
         lines.append("  },")
+
+    for key, source in vietnamese.items():
+        emit_source(source, key, vietnamese_source=source)
+
+    # The application still contains reviewed English chrome in older screens.
+    # Emit English aliases for the same catalog entries so Text('Settings') is
+    # localized just like Text('Cài đặt'), without translating arbitrary content.
+    for key, source in vietnamese.items():
+        emit_source(english[key], key, vietnamese_source=source)
 
     lines.extend(["};", ""])
     OUTPUT.write_text("\n".join(lines), encoding="utf-8")

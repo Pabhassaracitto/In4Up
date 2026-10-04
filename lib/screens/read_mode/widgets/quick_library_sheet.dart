@@ -55,18 +55,20 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
 
   // ── Mở file ─────────────────────────────────────────────────
   Future<void> _openFile(RecentFile file) async {
-    // Lưu refs TRƯỚC khi await
+    // Lưu refs trước khi đóng sheet. Sau khi pop, State của sheet có thể bị
+    // dispose trong lúc Firestore còn đang tải; TextProvider vẫn sống cùng app
+    // nên không được dùng `mounted` để quyết định có nạp tài liệu hay không.
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
 
-    // Đóng sheet trước
+    // QuickLibrarySheet chỉ là lớp phủ. Đóng đúng một route — pop lần thứ hai
+    // sẽ pop luôn MainShell và tạo ra màn hình đen khi mở file Cloud.
     nav.pop();
 
     switch (file.type) {
       case RecentFileType.localText:
         if (file.localPath == null) return;
         await tp.loadTextFile(file.localPath!);
-        if (!mounted) return;
         await _service.addOrUpdate(
           file.copyWith(
             lastOpened: DateTime.now(),
@@ -80,44 +82,59 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
         await _service.addOrUpdate(
           file.copyWith(lastOpened: DateTime.now()),
         );
-        if (!mounted) return;
+        if (!nav.mounted) return;
         nav.push(MaterialPageRoute(
           builder: (_) => PdfReaderScreen(pdfPath: file.localPath!),
         ));
         break;
 
       case RecentFileType.cloud:
-        if (!mounted) return;
+        final cloudId = file.cloudId;
+        if (cloudId == null || cloudId.isEmpty) return;
 
-        // Đóng QuickLibrarySheet trước
-        Navigator.pop(context);
-
-        // Mở CloudPickerSheet với cloudId được lọc sẵn
-        if (file.cloudId != null) {
-          // Load trực tiếp từ Firestore theo id
-          final svc = TextLibraryService();
-          final entry = await svc.getById(file.cloudId!);
-          if (!mounted) return;
-
-          if (entry != null) {
-            final tp = context.read<TextProvider>();
-            tp.loadFromString(
-              entry.content,
-              title: entry.title,
-              sourceType: TextSourceType.cloud,
-              cloudId: entry.id,
-              category: entry.category,
-            );
-
-            // Cập nhật recent
-            await _service.addOrUpdate(
-              file.copyWith(lastOpened: DateTime.now()),
-            );
-          } else {
-            // Entry bị xóa khỏi cloud → mở CloudPickerSheet để chọn lại
-            if (mounted) {
-              CloudPickerSheet.show(context);
+        try {
+          // Load trực tiếp từ Firestore theo id đã lưu trong RecentFile.
+          final entry = await TextLibraryService().getById(cloudId);
+          if (entry == null) {
+            // Entry bị xóa khỏi cloud → mở picker trên Navigator còn sống.
+            if (nav.mounted) {
+              await CloudPickerSheet.show(nav.context);
             }
+            return;
+          }
+
+          tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
+
+          // Giữ lại bản dịch đã lưu của tài liệu Cloud nếu có.
+          try {
+            final targetLang = tp.translationTargetLanguage.translationCode;
+            final saved = entry.getTranslationsForLang(targetLang);
+            if (saved != null &&
+                saved.any((translation) => translation.trim().isNotEmpty)) {
+              tp.applySavedTranslations(saved, targetLang);
+            }
+          } catch (e) {
+            debugPrint('⚠️ Cloud translation restore error: $e');
+          }
+
+          await _service.addOrUpdate(
+            file.copyWith(
+              lastOpened: DateTime.now(),
+              totalLines: entry.lineCount,
+            ),
+          );
+        } catch (e, st) {
+          debugPrint('❌ QuickLibrarySheet cloud open error: $e\n$st');
+          if (nav.mounted) {
+            ScaffoldMessenger.maybeOf(nav.context)?.showSnackBar(
+              SnackBar(content: Text('Lỗi mở Cloud: $e')),
+            );
           }
         }
         break;

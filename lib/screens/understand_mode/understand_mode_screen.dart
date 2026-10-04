@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 
+import '../../features/understand_ai/understand_ai_context.dart';
 import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/widgets/pronunciation_result.dart';
@@ -14,6 +15,7 @@ import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
+import '../../utils/safe_set_state.dart';
 import '../../providers/karaoke_settings_provider.dart';
 import '../../widgets/karaoke_lyrics_line.dart';
 import '../../widgets/karaoke_settings_sheet.dart';
@@ -22,6 +24,7 @@ import '../listen_mode/controllers/rolling_waveform_controller.dart';
 import '../listen_mode/listen_mode_screen.dart';
 import '../listen_mode/widgets/rolling_waveform_view.dart';
 // Import để dùng GenerateLrcButton
+import 'services/lrc_translation_resolver.dart';
 import 'sheets/loop_control_sheet.dart';
 import 'sheets/speed_control_sheet.dart';
 import 'widgets/auto_scroll_button.dart';
@@ -34,21 +37,36 @@ import 'widgets/speed_chip.dart';
 import 'widgets/status_circle.dart';
 
 class UnderstandModeScreen extends StatefulWidget {
-  const UnderstandModeScreen({super.key});
+  const UnderstandModeScreen({
+    super.key,
+    this.initialMode = UnderstandLearningMode.sync,
+    this.onModeChanged,
+    this.showModeTabs = true,
+  });
+
+  final UnderstandLearningMode initialMode;
+  final ValueChanged<UnderstandLearningMode>? onModeChanged;
+  final bool showModeTabs;
 
   @override
   State<UnderstandModeScreen> createState() => _UnderstandModeScreenState();
 }
 
 class _UnderstandModeScreenState extends State<UnderstandModeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SafeSetStateMixin {
   late TabController _tabController;
   late RollingWaveformController _waveformController;
   final ScrollController _textScrollController = ScrollController();
-  late UnderstandProvider _understandProvider;
   PlayerProvider? _playerProvider;
+  // LISTEN-LRC-001: stored ref — the player listener must not resolve
+  // providers through context (stale context after tab switches).
+  UnderstandProvider? _understandProvider;
   late final VoidCallback _playerListener;
   final ScrollController _lrcScrollController = ScrollController();
+  // Coalesce flags: build() may run every player tick, but each sync below
+  // schedules at most one post-frame callback at a time.
+  bool _waveformSyncScheduled = false;
+  bool _shadowingSyncScheduled = false;
 
   // Auto-scroll to current line
   bool _autoScroll = true;
@@ -59,28 +77,64 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: _indexForLearningMode(widget.initialMode),
+    );
+    // AI Coach cần biết người dùng đang ở mode nào (Đồng bộ/Shadowing) — đồng
+    // bộ vào UnderstandProvider để sheet/chat đọc được mà không chạm vào
+    // TabController của màn hình này.
+    _tabController.addListener(_syncLearningModeToProvider);
     _waveformController = RollingWaveformController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
-      final player = _playerProvider!;
+      _understandProvider =
+          Provider.of<UnderstandProvider>(context, listen: false);
+      _syncLearningModeToProvider();
       _playerListener = () {
-        if (!mounted || !context.mounted) return;
+        if (!mounted) return;
 
-        final understandProvider =
-            Provider.of<UnderstandProvider>(context, listen: false);
-        understandProvider.updatePosition(_playerProvider!.state.position);
+        final player = _playerProvider;
+        final understand = _understandProvider;
+        if (player == null || understand == null) return;
+        understand.updatePosition(player.state.position);
 
-        final idx = understandProvider.currentLineIndex;
+        final idx = understand.currentLineIndex;
         // ★ FIX: Gọi _scrollToLine với đúng index (chỉ khi user không tự kéo)
         if (idx >= 0 && _autoScroll && !_userScrollingLrc) {
-          _scrollToLine(idx);
+          // LISTEN-LRC-001: animateTo must not run mid-build.
+          if (listenShouldDeferSetState()) {
+            runPostFrame(() => _scrollToLine(idx));
+          } else {
+            _scrollToLine(idx);
+          }
         }
       };
       _playerProvider?.addListener(_playerListener);
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant UnderstandModeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final desiredIndex = _indexForLearningMode(widget.initialMode);
+    if (_tabController.index != desiredIndex) {
+      _tabController.index = desiredIndex;
+      _syncLearningModeToProvider();
+    }
+  }
+
+  int _indexForLearningMode(UnderstandLearningMode mode) {
+    return mode == UnderstandLearningMode.shadowing ? 1 : 0;
+  }
+
+  UnderstandLearningMode _learningModeForIndex(int index) {
+    return index == 1
+        ? UnderstandLearningMode.shadowing
+        : UnderstandLearningMode.sync;
   }
 
   @override
@@ -91,6 +145,15 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     _waveformController.dispose();
     _textScrollController.dispose();
     super.dispose();
+  }
+
+  /// Tab 0 = Đồng bộ, tab 1 = Shadowing. Ghi nhận mode hiện tại vào
+  /// UnderstandProvider (AI Coach chỉ đọc — không đổi được từ sheet/chat).
+  void _syncLearningModeToProvider() {
+    final mode = _learningModeForIndex(_tabController.index);
+    final understand = _understandProvider;
+    understand?.setLearningMode(mode);
+    widget.onModeChanged?.call(mode);
   }
 
   @override
@@ -109,18 +172,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           });
         }
 
-        if (waveform.waveformData.isNotEmpty) {
-          final currentData = _waveformController.waveformData;
-          if (currentData == null ||
-              (player.state.duration > Duration.zero &&
-                  currentData.duration != player.state.duration) ||
-              currentData.samples.length != waveform.waveformData.length) {
-            _waveformController.setWaveformData(WaveformData(
-              samples: waveform.waveformData,
-              duration: player.state.duration,
-            ));
-          }
-        }
+        // LISTEN-LRC-001: controller mutations notify listeners — they must
+        // run post-frame, never synchronously inside build().
+        _scheduleWaveformSync(player, waveform);
 
         if (_waveformController.position != player.state.position) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -128,17 +182,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
               _waveformController.updatePosition(player.state.position);
             }
           });
-        }
-
-        if (player.loopStart != null && player.loopEnd != null) {
-          if (_waveformController.loopRegions.isEmpty) {
-            _waveformController.addLoopRegion(LoopRegion(
-              start: player.loopStart!,
-              end: player.loopEnd!,
-            ));
-          }
-        } else {
-          _waveformController.clearLoopRegions();
         }
 
         final hasAudio = player.currentSongPath != null;
@@ -150,7 +193,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
         return Column(
           children: [
-            _buildCompactTabs(),
+            if (widget.showModeTabs) _buildCompactTabs(),
             Expanded(
               child: TabBarView(
                 controller: _tabController,
@@ -165,6 +208,66 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         );
       },
     );
+  }
+
+  /// LISTEN-LRC-001: mirrors the old in-build waveform sync, but runs it
+  /// post-frame. Guards re-check inside the callback so a stale scheduled
+  /// sync never publishes outdated data or notifies in a loop.
+  void _scheduleWaveformSync(
+      PlayerProvider player, WaveformProvider waveform) {
+    if (_waveformSyncScheduled) return;
+    _waveformSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _waveformSyncScheduled = false;
+      if (!mounted) return;
+      if (waveform.waveformData.isNotEmpty) {
+        final currentData = _waveformController.waveformData;
+        if (currentData == null ||
+            (player.state.duration > Duration.zero &&
+                currentData.duration != player.state.duration) ||
+            currentData.samples.length != waveform.waveformData.length) {
+          _waveformController.setWaveformData(WaveformData(
+            samples: waveform.waveformData,
+            duration: player.state.duration,
+          ));
+        }
+      }
+      if (player.loopStart != null && player.loopEnd != null) {
+        if (_waveformController.loopRegions.isEmpty) {
+          _waveformController.addLoopRegion(LoopRegion(
+            start: player.loopStart!,
+            end: player.loopEnd!,
+          ));
+        }
+      } else if (_waveformController.loopRegions.isNotEmpty) {
+        _waveformController.clearLoopRegions();
+      }
+    });
+  }
+
+  /// LISTEN-LRC-001: shadowing setters notify listeners — defer them
+  /// post-frame. All three setters early-return when unchanged, so the
+  /// deferred sync cannot loop.
+  void _scheduleShadowingSync(
+    ShadowingProvider shadowing,
+    String loopText,
+    String? audioPath,
+    Duration loopStart,
+    Duration loopEnd,
+  ) {
+    if (_shadowingSyncScheduled) return;
+    _shadowingSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _shadowingSyncScheduled = false;
+      if (!mounted) return;
+      if (loopText.isNotEmpty) {
+        shadowing.setPracticeText(loopText);
+      }
+      if (audioPath != null) {
+        shadowing.setOriginalAudioPath(audioPath);
+      }
+      shadowing.setLoopRegion(loopStart, loopEnd);
+    });
   }
 
   // NEW: Auto-scroll to active line
@@ -214,13 +317,25 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['lrc', 'srt', 'txt'],
+        allowedExtensions: const [
+          'lrc', 'srt', 'txt', 'md', 'markdown', 'json', 'docx',
+        ],
       );
       if (result != null && result.files.single.path != null) {
         if (context.mounted) {
-          await context
+          final loaded = await context
               .read<TextProvider>()
               .loadTextFile(result.files.single.path!);
+          if (!loaded && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -469,6 +584,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                                   ? provider.currentWordIndex
                                   : -1,
                               style: karaoke.style,
+                              translation: resolveLrcTranslation(
+                                textProvider.lines,
+                                line.text,
+                              ),
                             ),
                           ),
                         ),
@@ -672,13 +791,14 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
     debugPrint('📝 Loop text found: "$loopText"');
 
-    if (loopText.isNotEmpty) {
-      shadowing.setPracticeText(loopText);
-    }
-    if (player.currentSongPath != null) {
-      shadowing.setOriginalAudioPath(player.currentSongPath!);
-    }
-    shadowing.setLoopRegion(loopStart, loopEnd);
+    // LISTEN-LRC-001: deferred — these setters notify during build otherwise.
+    _scheduleShadowingSync(
+      shadowing,
+      loopText,
+      player.currentSongPath,
+      loopStart,
+      loopEnd,
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1089,21 +1209,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  void _showLoopSetSnackbar(BuildContext context, int lineIndex) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.uiText('Đã set loop cho dòng ${lineIndex + 1}')),
-        backgroundColor: const Color(0xFF4CAF50),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: context.uiText('Xóa'),
-          textColor: Colors.white,
-          onPressed: () => context.read<PlayerProvider>().clearLoop(),
-        ),
       ),
     );
   }

@@ -1,0 +1,104 @@
+// packages/in2up_stt/lib/stt_engine_whisper_strategy.dart
+//
+// WhisperSttEngine — adapter của SttEngineWhisper theo interface SttEngine
+// (Strategy Pattern). Giữ nguyên mọi logic hiện có (chunking, karaoke,
+// mobile plugin / desktop FFI/CLI); chỉ bọc lại để facade switch được.
+
+import 'models/stt_config.dart';
+import 'models/stt_model_info.dart';
+import 'models/stt_result.dart';
+import 'utils/whisper_language.dart';
+import 'stt_engine.dart';
+import 'stt_engine_whisper.dart';
+
+class WhisperSttEngine implements SttEngine {
+  /// Nơi đặt model (modelDir cho mobile plugin).
+  final String modelDir;
+
+  /// Model mặc định.
+  final WhisperModelLevel defaultLevel;
+
+  WhisperSttEngine({
+    required this.modelDir,
+    this.defaultLevel = WhisperModelLevel.tiny,
+  });
+
+  @override
+  String get engineName => 'whisper';
+
+  @override
+  SttEngineCapabilities get capabilities => const SttEngineCapabilities(
+        supportsFileTranscription: true,
+        supportsWordTimestamps: true,
+        supportsOffline: true,
+        supportsChunking: true,
+      );
+
+  @override
+  Future<void> initialize() async {}
+
+  /// Whisper là engine FILE (không live mic — capabilities.supportsLiveMic
+  /// = false). Implement tường minh theo đúng ngữ nghĩa interface (engine
+  /// không hỗ trợ: Stream.empty / false) để tương thích mọi bản
+  /// SttEngine — kể cả bản khai báo các member này là abstract.
+  @override
+  Stream<SttResult> get liveResultStream => const Stream.empty();
+
+  @override
+  Future<bool> startListening({String language = 'en-US'}) async => false;
+
+  @override
+  Future<void> stopListening() async {}
+
+  @override
+  Future<SttResult> transcribeFile(
+    String audioPath, {
+    Map<String, dynamic>? options,
+  }) {
+    // Các option tùy engine — parse từ map, giữ mặc định an toàn.
+    final level = (options?['level'] as WhisperModelLevel?) ?? defaultLevel;
+    // 'auto' = Whisper tự nhận diện. Trước đây default là 'en' → audio
+    // tiếng Hindi/Trung bị ép ra chữ Latin khi caller không truyền language.
+    final language = (options?['language'] as String?) ?? WhisperLanguage.auto;
+    final honorModel = options?['honorWhisperModel'] == true;
+    final grouping =
+        (options?['grouping'] as SttSegmentGrouping?) ??
+            SttSegmentGrouping.sentence;
+    final chunkSeconds = (options?['chunkDurationSeconds'] as int?) ?? 30;
+    final maxChunks = (options?['maxChunks'] as int?) ?? 0;
+    final audioFingerprint = (options?['audioFingerprint'] as String?) ?? '';
+
+    // Mobile: dùng plugin (chunked progressive). Desktop: FFI/CLI.
+    if (SttEngineWhisper.isMobilePluginSupported) {
+      // Align model file cho plugin (STT-CRASH-001) — fallback scan
+      // modelDir khi không có path verified.
+      SttEngineWhisper.ensurePluginModelFile(modelDir: modelDir, level: level);
+      return SttEngineWhisper.transcribeMobileChunked(
+        audioPath: audioPath,
+        modelDir: modelDir,
+        level: level,
+        language: language,
+        wordTimestamps: true,
+        audioFingerprint: audioFingerprint,
+        chunkDurationSeconds: chunkSeconds,
+        maxChunks: maxChunks,
+        grouping: grouping,
+        allowModelDowngrade: !honorModel,
+      );
+    }
+
+    // Desktop: engine trực tiếp (FFI/CLI). Cần modelPath.
+    final modelPath = (options?['modelPath'] as String?) ?? '';
+    return SttEngineWhisper().transcribe(
+      audioPath,
+      level: level,
+      language: language,
+      wordTimestamps: true,
+      modelPath: modelPath,
+      audioFingerprint: audioFingerprint,
+    );
+  }
+
+  @override
+  Future<void> dispose() async {}
+}

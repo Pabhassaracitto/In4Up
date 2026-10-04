@@ -1,11 +1,16 @@
+// ignore_for_file: use_key_in_widget_constructors, prefer_const_constructors, prefer_const_constructors_in_immutables, prefer_const_literals_to_create_immutables, sort_child_properties_last, avoid_unnecessary_containers, sized_box_for_whitespace, use_build_context_synchronously, avoid_print
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
+import '../../../services/audio_import_service.dart';
+import '../../../services/audio_library_service.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
+import 'audio_library_view.dart';
 import 'recent_audio_card.dart';
 
 class ListenLibraryScreen extends StatefulWidget {
@@ -16,17 +21,19 @@ class ListenLibraryScreen extends StatefulWidget {
 }
 
 class _ListenLibraryScreenState extends State<ListenLibraryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _service = RecentAudioService();
   List<RecentAudio> _files = [];
   bool _isLoading = true;
 
   late final AnimationController _fabAnim;
   late final Animation<double> _fabScale;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _fabAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -40,6 +47,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
 
   @override
   void dispose() {
+    _tabController.dispose();
     _fabAnim.dispose();
     super.dispose();
   }
@@ -73,12 +81,44 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       case RecentAudioType.local:
         if (audio.localPath == null) return;
 
-        await player.loadSong(
-          path: audio.localPath!,
+        // content:// (từ tab Thư viện) → copy sang cache trước khi phát.
+        final playable = await AudioLibraryService().resolvePlayablePath(
+          audio.localPath!,
+        );
+        if (!mounted) return;
+
+        final loaded = await player.loadSong(
+          path: playable,
           title: audio.title,
           autoPlay: false, // ★ THAY: false để seek trước khi play
         );
         if (!mounted) return;
+
+        // SHADOW-FILE-001: path cache cũ đã chết (ENOENT) → hiện hướng dẫn
+        // chọn lại file (copy persistent), KHÔNG crash/im lặng.
+        if (!loaded) {
+          if (player.lastLoadError == AudioLoadErrorKind.missingFile) {
+            _showMissingFileDialog(audio);
+          } else {
+            _showSnack(
+              icon: Icons.error_outline,
+              message: 'Không phát được file này — vui lòng chọn lại audio.',
+              color: Colors.orange,
+            );
+          }
+          return;
+        }
+
+        // Path cũ chết nhưng trong audio_imports/ còn bản → đã tự khôi phục.
+        final nowPlaying = player.currentSongPath;
+        if (nowPlaying != null &&
+            nowPlaying != playable.replaceAll(r'\', '/')) {
+          _showSnack(
+            icon: Icons.restore,
+            message: 'Đã khôi phục audio từ bản lưu trong thư viện.',
+            color: const Color(0xFF4CAF50),
+          );
+        }
 
         // Resume vị trí đã nghe
         if (audio.lastPosition > Duration.zero &&
@@ -171,23 +211,106 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
     final file = result.files.single;
     final path = file.path!;
 
-    // Load và phát
-    await player.loadSong(
-      path: path,
+    // SHADOW-FILE-001: copy vào audio_imports/ TRƯỚC khi phát & lưu recent —
+    // path file_picker trỏ vào cache, hệ thống dọn bất kỳ lúc nào → ENOENT.
+    AudioImportResult? imported;
+    try {
+      imported = await AudioImportService.instance.ensurePersistent(
+        sourcePath: path,
+        displayName: file.name,
+      );
+    } catch (e) {
+      debugPrint('[ListenLibrary] Import audio thất bại: $e');
+    }
+    if (!mounted) return;
+    if (imported == null) {
+      _showSnack(
+        icon: Icons.error_outline,
+        message:
+            'Không lưu được file audio vào thư viện — vui lòng thử lại.',
+        color: Colors.orange,
+      );
+      return;
+    }
+    final persistentPath = imported.path;
+
+    // Load và phát bằng path persistent
+    final loaded = await player.loadSong(
+      path: persistentPath,
       title: file.name,
       autoPlay: true,
     );
     if (!mounted) return;
+    if (!loaded) {
+      _showSnack(
+        icon: Icons.error_outline,
+        message: 'Không phát được file vừa chọn — vui lòng thử file khác.',
+        color: Colors.orange,
+      );
+      return;
+    }
 
-    // Lưu vào recent
+    // Lưu vào recent — path persistent (phát lại được sau khi xóa cache).
     final audio = RecentAudio.fromLocalFile(
-      path: path,
+      path: persistentPath,
       title: file.name,
       totalDuration: player.state.duration,
     );
     await _service.addOrUpdate(audio);
     if (!mounted) return;
     await _load();
+  }
+
+  // ── SHADOW-FILE-001: path cũ (cache) gặp ENOENT → hướng dẫn chọn lại ────
+  void _showMissingFileDialog(RecentAudio audio) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2235),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          context.uiText('File không còn tồn tại'),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          context.uiText(
+            'File này đã bị hệ thống dọn cache hoặc đã bị xóa. Hãy chọn lại file — app sẽ lưu vào thư viện riêng để không bị mất nữa.',
+          ),
+          style: const TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(context.uiText('Đóng')),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await _service.remove(audio.id);
+              if (mounted) await _load();
+            },
+            child: Text(
+              context.uiText('Xóa khỏi danh sách'),
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _pickAudioFile();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+            ),
+            child: Text(
+              context.uiText('Chọn lại file'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── File options ─────────────────────────────────────────────
@@ -244,8 +367,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ListTile(
               leading: const Icon(Icons.play_circle_outline,
                   color: Color(0xFF6C63FF)),
-              title: const Text('Phát audio',
-                  style: TextStyle(color: Colors.white)),
+              title: Text(context.uiText('Phát audio'),
+                  style: const TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context);
                 _openAudio(audio);
@@ -253,8 +376,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text('Xóa khỏi danh sách',
-                  style: TextStyle(color: Colors.red)),
+              title: Text(context.uiText('Xóa khỏi danh sách'),
+                  style: const TextStyle(color: Colors.red)),
               onTap: () async {
                 Navigator.pop(context);
                 HapticFeedback.heavyImpact();
@@ -306,25 +429,71 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       body: Column(
         children: [
           _buildHeader(),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-      floatingActionButton: ScaleTransition(
-        scale: _fabScale,
-        child: FloatingActionButton.extended(
-          onPressed: _pickAudioFile,
-          backgroundColor: const Color(0xFF6C63FF),
-          elevation: 4,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
-          label: const Text(
-            'Thêm audio',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
+          _buildTabBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildRecentBody(),
+                const AudioLibraryView(),
+              ],
             ),
           ),
-        ),
+        ],
+      ),
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, _) {
+          final isRecentTab = _tabController.index == 0;
+          return ScaleTransition(
+            scale: _fabScale,
+            child: FloatingActionButton.extended(
+              onPressed: isRecentTab ? _pickAudioFile : _scanLibrary,
+              backgroundColor: const Color(0xFF6C63FF),
+              elevation: 4,
+              icon: Icon(
+                isRecentTab ? Icons.add_rounded : Icons.refresh_rounded,
+                color: Colors.white,
+              ),
+              label: Text(
+                isRecentTab ? 'Thêm audio' : 'Quét thư viện',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// FAB tab "Thư viện": quét lại MediaStore.
+  void _scanLibrary() {
+    context.read<AudioLibraryProvider>().scan();
+  }
+
+  // ── Tab bar (Gần đây / Thư viện) ─────────────────────────────
+  Widget _buildTabBar() {
+    return Container(
+      color: const Color(0xFF0D1520),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: TabBar(
+        controller: _tabController,
+        indicatorColor: const Color(0xFF6C63FF),
+        indicatorWeight: 2.5,
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white38,
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(fontSize: 13),
+        tabs: [
+          // i18n (rule 5): tab chrome phải localize — locale ≠ vi hiện
+          // bản dịch/English, không để tiếng Việt trần.
+          Tab(text: context.uiText('Gần đây')),
+          Tab(text: context.uiText('Thư viện')),
+        ],
       ),
     );
   }
@@ -399,8 +568,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
     );
   }
 
-  // ── Body ─────────────────────────────────────────────────────
-  Widget _buildBody() {
+  // ── Body tab "Gần đây" ───────────────────────────────────────
+  Widget _buildRecentBody() {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -423,7 +592,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_inProgress.isNotEmpty) ...[
             _SectionHeader(
               emoji: '🎵',
-              title: 'Đang nghe',
+              title: context.uiText('Đang nghe'),
               count: _inProgress.length,
             ),
             ..._inProgress.map((a) => RecentAudioCard(
@@ -438,7 +607,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_newFiles.isNotEmpty) ...[
             _SectionHeader(
               emoji: '🆕',
-              title: 'Chưa nghe',
+              title: context.uiText('Chưa nghe'),
               count: _newFiles.length,
             ),
             ..._newFiles.map((a) => RecentAudioCard(
@@ -453,7 +622,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           if (_completed.isNotEmpty) ...[
             _SectionHeader(
               emoji: '✅',
-              title: 'Đã nghe xong',
+              title: context.uiText('Đã nghe xong'),
               count: _completed.length,
             ),
             ..._completed.map((a) => RecentAudioCard(

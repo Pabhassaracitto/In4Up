@@ -3,6 +3,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../models/learning_activity.dart';
+import '../../../services/learning_activity_service.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
 import '../models/memory_stats.dart';
@@ -200,6 +202,12 @@ class MemoryController extends ChangeNotifier {
 
     _allItems.add(item);
     _persist(); // Lưu xuống storage
+    // HOME-STREAK-001: lưu từ vào Vườn trí nhớ cũng là hoạt động học thật.
+    // Khoá theo từ (normalize) nên thêm trùng trong ngày không tăng số liệu.
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.vocabulary,
+      sourceKey: wordLower,
+    ));
     notifyListeners();
 
     debugPrint('🧠 ✅ Added word: "$word" → total: ${_allItems.length}');

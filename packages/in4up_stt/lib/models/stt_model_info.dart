@@ -160,13 +160,15 @@ class SttModelInfo {
     String? localPath,
     double? downloadProgress,
     String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return SttModelInfo(
       level: level,
       status: status ?? this.status,
       localPath: localPath ?? this.localPath,
       downloadProgress: downloadProgress ?? this.downloadProgress,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage:
+          clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }

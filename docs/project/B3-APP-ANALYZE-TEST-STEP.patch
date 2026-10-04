@@ -1,0 +1,44 @@
+diff --git a/.github/workflows/app_analyze.yml b/.github/workflows/app_analyze.yml
+index 8f44c4d..6af1153 100644
+--- a/.github/workflows/app_analyze.yml
++++ b/.github/workflows/app_analyze.yml
+@@ -17,6 +17,7 @@ on:
+     paths:
+       - 'lib/**'
+       - 'test/**'
++      - 'packages/in4up_ai/**'
+       - 'pubspec.yaml'
+       - 'pubspec.lock'
+       - '.github/workflows/app_analyze.yml'
+@@ -24,6 +25,7 @@ on:
+     paths:
+       - 'lib/**'
+       - 'test/**'
++      - 'packages/in4up_ai/**'
+       - 'pubspec.yaml'
+   workflow_dispatch:
+ 
+@@ -76,3 +78,20 @@ jobs:
+           name: app-locale-test-log
+           path: locale_test.log
+           if-no-files-found: ignore
++
++      - name: AI chat runtime stability test (AI-CHAT-01)
++        id: ai-chat-test
++        run: |
++          set +e
++          flutter test test/ai_chat > ai_chat_test.log 2>&1
++          code=$?
++          cat ai_chat_test.log
++          exit $code
++
++      - name: Upload AI chat test log
++        if: always()
++        uses: actions/upload-artifact@v4
++        with:
++          name: app-ai-chat-test-log
++          path: ai_chat_test.log
++          if-no-files-found: ignore
+-- 
+2.39.5
+

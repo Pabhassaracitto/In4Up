@@ -1,21 +1,34 @@
 // lib/screens/read_mode/widgets/text_line_widget.dart
 // ★ FIX: Thêm guard index trong Selector2 để tránh RangeError khi lines thay đổi
 
+import 'package:flutter/foundation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/grammar/models/grammar_category.dart';
+import '../../../features/grammar/models/grammar_highlight_settings.dart';
+import '../../../features/grammar/models/grammar_palette.dart';
+import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../features/translation/translation_display_mode.dart';
 import '../../../features/translation/translation_toolbar.dart';
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_color_visibility.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_entry.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
+import '../../../providers/vocabulary_bridge.dart';
 import '../../../screens/read_mode/models/playback_recipe.dart';
 import '../../../screens/read_mode/services/playback_controller.dart';
+import '../../../services/ipa_stress_annotator.dart';
+import '../../../services/ipa_styling.dart';
+import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
+import '../sheets/word_actions_sheet.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
 
@@ -53,16 +66,27 @@ class TextLineWidget extends StatelessWidget {
                   return const _LineData.empty();
                 }
                 final line = tp.lines[index];
+                // IPA stacked line (READ-IPA-001): hidden → không tính;
+                // activeLine → chỉ dòng phát / dòng hiện tại; all → mọi dòng.
+                final isCurrent =
+                    index == tp.currentLineIndex || isPlaybackActive;
+                List<IpaSegment>? lineIpaSegments;
+                if (tp.ipaDisplayMode == IpaDisplayMode.all ||
+                    (tp.ipaDisplayMode == IpaDisplayMode.activeLine &&
+                        isCurrent)) {
+                  lineIpaSegments = tp.lineIpaSegmentsFor(index);
+                }
+                final ipaVisibility = tp.ipaColorVisibility;
                 return _LineData(
                   content: line.content,
                   translation: line.translation,
                   startTime: line.startTime,
                   endTime: line.endTime,
-                  isCurrentLine:
-                      index == tp.currentLineIndex || isPlaybackActive,
+                  isCurrentLine: isCurrent,
                   isPlaying: _checkIsPlaying(tp, pp, index),
                   isFocusCue: index == tp.focusCueLineIndex,
                   colorMode: tp.colorMode,
+                  wordTapBoxes: tp.wordTapBoxes,
                   showLineNumbers: tp.showLineNumbers,
                   textAlign: tp.textAlign,
                   fontSize: tp.fontSize,
@@ -72,6 +96,12 @@ class TextLineWidget extends StatelessWidget {
                       ? tp.analyzedLines[index]
                       : const <AnalyzedWord>[],
                   ghostTranslation: ghostTranslation, // ★ Đảm bảo có dòng này
+                  lineIpaSegments: lineIpaSegments,
+                  ipaColorByType: tp.ipaColorByType,
+                  ipaFadeKnown: tp.ipaFadeKnown,
+                  ipaColorVisibility: ipaVisibility,
+                  lineStress: tp.lineStressFor(lineIpaSegments),
+                  linkMarks: tp.linkMarksFor(lineIpaSegments),
                 );
               },
               shouldRebuild: (prev, next) => prev != next,
@@ -207,7 +237,7 @@ class TextLineWidget extends StatelessWidget {
               originalText: data.content,
               translatedText: data.translation,
               displayMode: data.displayMode,
-              originalWidget: _buildTextContent(context, data),
+              originalWidget: _buildOriginalWithIpa(context, data, index),
               textAlign: data.textAlign,
               // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được
               // Trước đây alpha 0.15 quá mờ khiến user tưởng bản dịch biến mất
@@ -226,47 +256,385 @@ class TextLineWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildTextContent(BuildContext context, _LineData data) {
-    if (data.colorMode == ColorMode.none) {
-      return SelectableText(
-        data.content,
-        textAlign: data.textAlign,
-        style: TextStyle(
+  void _onLineSelectionChanged(
+    BuildContext context,
+    _LineData data,
+    TextSelection selection,
+  ) {
+    if (selection.baseOffset == selection.extentOffset) return;
+    final start = selection.start.clamp(0, data.content.length);
+    final end = selection.end.clamp(0, data.content.length);
+    if (start >= end) return;
+
+    final tp = context.read<TextProvider>();
+    if (tp.currentLineIndex != index) tp.setCurrentLine(index);
+    final controller = context.read<ReadModeController>();
+    final lineStartOffset = controller.getLineStartOffset(index);
+    controller.handleTextSelection(
+      selection: selection,
+      content: data.content,
+      lineStartOffset: lineStartOffset,
+      lineIndex: index,
+    );
+    FloatingTextActions.show(
+      context,
+      data.content.substring(start, end),
+      index,
+    );
+  }
+
+  /// Bọc text content + IPA (READ-IPA-001 stacked / READ-IPA-003 interlinear).
+  /// Nằm TRONG originalWidget nên hoạt động cả stacked lẫn side-by-side
+  /// (side-by-side: IPA nằm trong cột original, không đụng cột dịch).
+  ///
+  /// - Dòng active + có segments + KHÔNG trùng ColoredTextWidget
+  ///   → interlinear: chính dòng là word-chips (chữ trên, IPA dưới),
+  ///     tap chip = nghe phát âm từ; nhấn nháy IPA khi đang phát.
+  /// - Còn lại → text (SelectableText/colored) + dòng IPA phẳng bên dưới
+  ///   (giữ nguyên style P1).
+  Widget _buildOriginalWithIpa(
+    BuildContext context,
+    _LineData data,
+    int index,
+  ) {
+    final text = _buildTextContent(context, data, index);
+    final segments = data.lineIpaSegments;
+    final coloredChipsActive = data.wordTapBoxes &&
+        data.colorMode != ColorMode.none &&
+        data.analyzedWords.isNotEmpty;
+
+    if (segments != null && !coloredChipsActive) {
+      return _buildInterlinear(context, data, segments, index);
+    }
+    if (segments == null) return text;
+
+    bool isFaded(String word) {
+      if (!data.ipaFadeKnown) return false;
+      final entry = VocabularyBridge.findByWord(word);
+      return entry != null && entry.zone == MasteryZone.mastered;
+    }
+
+    final ipa = LineIpaService.flatIpa(segments);
+    if (ipa == null || ipa.isEmpty) return text;
+    final useRichIpa = data.ipaColorByType || data.ipaFadeKnown;
+    // Dùng RichText (KHÔNG phải Text.rich — Text là shim i18n không có .rich).
+    final ipaLine = useRichIpa
+        ? RichText(
+            textAlign: data.textAlign,
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: data.fontSize * 0.75,
+                color: IpaStyling.baseIpaColor.withValues(alpha: 0.9),
+                height: 1.4,
+                letterSpacing: 0.3,
+              ),
+              children: [
+                IpaStyling.buildFlatSpan(
+                  segments,
+                  colorByType: data.ipaColorByType,
+                  isFaded: isFaded,
+                  visibility: data.ipaColorVisibility,
+                  lineStress: data.lineStress,
+                  linkMarks: data.linkMarks,
+                ),
+              ],
+            ),
+          )
+        : Text(
+            ipa,
+            textAlign: data.textAlign,
+            style: TextStyle(
+              fontSize: data.fontSize * 0.75,
+              color: const Color(0xFF4DD0E1).withValues(alpha: 0.9),
+              height: 1.4,
+              letterSpacing: 0.3,
+            ),
+          );
+    return Column(
+      crossAxisAlignment: data.textAlign == TextAlign.center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        text,
+        const SizedBox(height: 4),
+        ipaLine,
+      ],
+    );
+  }
+
+  /// Interlinear (READ-IPA-003): dựng lại dòng từ segments — mỗi từ 1 chip
+  /// 2 tầng (chữ thô + IPA), token punct/số là text trần. Dòng đang
+  /// TTS/playback → IPA đậm hơn + weight cao hơn (nhấn nháy cấp dòng —
+  /// không karaoke từng từ, ADR-0005 §3).
+  Widget _buildInterlinear(
+    BuildContext context,
+    _LineData data,
+    List<IpaSegment> segments,
+    int lineIndex,
+  ) {
+    final tp = context.read<TextProvider>();
+    final emphasized = data.isSpeaking || data.isPlaying;
+    final wordStyle = TextStyle(
+      fontSize: data.fontSize,
+      color: Colors.white,
+      height: 1.15,
+      fontWeight: FontWeight.w500,
+    );
+
+    bool isFaded(String word) {
+      if (!data.ipaFadeKnown) return false;
+      final entry = VocabularyBridge.findByWord(word);
+      return entry != null && entry.zone == MasteryZone.mastered;
+    }
+
+    return Wrap(
+      alignment: data.textAlign == TextAlign.center
+          ? WrapAlignment.center
+          : WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        for (final seg in segments)
+          if (!seg.isWord)
+            Text(seg.surface, style: wordStyle)
+          else
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
+                tp.speak(seg.wordCore);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(seg.surface, style: wordStyle),
+                  if (seg.hasIpa)
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: data.fontSize * 0.72,
+                          fontWeight: emphasized
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          height: 1.25,
+                          letterSpacing: 0.3,
+                        ),
+                        children: [
+                          _buildSegmentSpanWithMarks(context, data, segments, seg, emphasized),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+      ],
+    );
+  }
+
+  /// Dựng span IPA của 1 từ trong interlinear — kèm mark nhấn/nối âm
+  /// (P2/P3) + ẩn riêng từng loại (P1).
+  InlineSpan _buildSegmentSpanWithMarks(
+    BuildContext context,
+    _LineData data,
+    List<IpaSegment> segments,
+    IpaSegment seg,
+    bool emphasized,
+  ) {
+    final wordIndex = _segmentWordIndex(segments, seg);
+    final alpha = isFadedOf(data, seg.wordCore)
+        ? IpaStyling.fadedAlpha
+        : (emphasized ? 1.0 : 0.8);
+    final base = IpaStyling.segmentSpan(
+      seg,
+      colorByType: data.ipaColorByType,
+      alpha: alpha,
+      visibility: data.ipaColorVisibility,
+    );
+    final primary = (wordIndex >= 0 && data.lineStress != null)
+        ? data.lineStress!.primaryPerWord[wordIndex]
+        : null;
+    final link = (wordIndex >= 0 && data.linkMarks != null &&
+            data.linkMarks!.length == segments.length)
+        ? data.linkMarks![wordIndex]
+        : IpaLinkMark.none;
+    if (!data.ipaColorByType) return base;
+    if (!data.ipaColorVisibility.stressWords && !data.ipaColorVisibility.linking) {
+      return base;
+    }
+    return IpaStyling.stressOrLinkFromIpa(
+      base,
+      seg.ipa ?? '',
+      primary: data.ipaColorVisibility.stressWords ? primary : null,
+      link: (data.ipaColorVisibility.linking && !link.isEmpty) ? link : null,
+      showStress: data.ipaColorVisibility.stressWords,
+      showLink: data.ipaColorVisibility.linking,
+    );
+  }
+
+  static bool isFadedOf(_LineData data, String word) {
+    if (!data.ipaFadeKnown) return false;
+    final entry = VocabularyBridge.findByWord(word);
+    return entry != null && entry.zone == MasteryZone.mastered;
+  }
+
+  /// Index word của [seg] trong [segments]. Dùng identity trước, fallback
+  /// theo surface+wordCore (segments do provider tạo lại từng lượt build nên
+  /// identity có thể khác).
+  static int _segmentWordIndex(List<IpaSegment> segments, IpaSegment seg) {
+    for (var i = 0; i < segments.length; i++) {
+      final s = segments[i];
+      if (identical(s, seg) ||
+          (s.surface == seg.surface && s.wordCore == seg.wordCore)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /// POS/CEFR/difficulty: cùng đoạn chọn + lưu đầy đủ như chế độ không màu.
+  /// Màu nằm trên TextSpan (không Wrap từng chip — chữ Việt không bị bể hàng).
+  /// [index] = index dòng trong document (ColoredTextWidget tra trạng thái phát).
+  Widget _buildTextContent(BuildContext context, _LineData data, int index) {
+    final baseStyle = TextStyle(
+      fontSize: data.fontSize,
+      color: Colors.white,
+      height: 1.6,
+    );
+
+    if (data.wordTapBoxes &&
+        data.colorMode != ColorMode.none &&
+        data.analyzedWords.isNotEmpty) {
+      return Align(
+        alignment: data.textAlign == TextAlign.center
+            ? Alignment.center
+            : Alignment.centerLeft,
+        child: ColoredTextWidget(
+          words: data.analyzedWords,
           fontSize: data.fontSize,
-          color: Colors.white,
-          height: 1.6,
+          colorMode: data.colorMode,
+          lineIndex: index,
         ),
-        onSelectionChanged: (selection, cause) {
-          if (selection.baseOffset != selection.extentOffset) {
-            final controller = context.read<ReadModeController>();
-            final lineStartOffset = controller.getLineStartOffset(index);
-
-            controller.handleTextSelection(
-              selection: selection,
-              content: data.content,
-              lineStartOffset: lineStartOffset,
-              lineIndex: index,
-            );
-
-            final selectedText =
-                data.content.substring(selection.start, selection.end);
-            FloatingTextActions.show(context, selectedText, index);
-          }
-        },
       );
     }
 
-    return Align(
-      alignment: data.textAlign == TextAlign.center
-          ? Alignment.center
-          : Alignment.centerLeft,
-      child: ColoredTextWidget(
-        words: data.analyzedWords,
-        fontSize: data.fontSize,
-        colorMode: data.colorMode,
-        lineIndex: index,
-      ),
+    if (data.colorMode == ColorMode.none || data.analyzedWords.isEmpty) {
+      return SelectableText(
+        data.content,
+        textAlign: data.textAlign,
+        style: baseStyle,
+        onSelectionChanged: (selection, _) =>
+            _onLineSelectionChanged(context, data, selection),
+      );
+    }
+
+    final grammarSettings =
+        context.select<TextProvider, GrammarHighlightSettings>(
+      (tp) => tp.grammarSettings,
     );
+    final palette = context.select<TextProvider, GrammarPalette>(
+      (tp) => tp.activeGrammarPalette,
+    );
+
+    return SelectableText.rich(
+      TextSpan(
+        style: baseStyle,
+        children: _coloredSpans(data, grammarSettings, palette),
+      ),
+      textAlign: data.textAlign,
+      onSelectionChanged: (selection, _) =>
+          _onLineSelectionChanged(context, data, selection),
+      contextMenuBuilder: (ctx, editableState) {
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: editableState.contextMenuAnchors,
+          buttonItems: [
+            ...editableState.contextMenuButtonItems,
+            ContextMenuButtonItem(
+              label: 'Chi tiết từ',
+              onPressed: () {
+                ContextMenuController.removeAny();
+                _openWordAtSelection(ctx, data, editableState);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openWordAtSelection(
+    BuildContext context,
+    _LineData data,
+    EditableTextState editableState,
+  ) {
+    final sel = editableState.textEditingValue.selection;
+    final offset = sel.isValid ? sel.baseOffset : 0;
+    var cursor = 0;
+    for (var i = 0; i < data.analyzedWords.length; i++) {
+      final word = data.analyzedWords[i];
+      final idx = data.content.indexOf(word.word, cursor);
+      if (idx < 0) continue;
+      final end = idx + word.word.length;
+      if (offset >= idx && offset <= end) {
+        WordActionsSheet.show(context, word, index, i);
+        return;
+      }
+      cursor = end;
+    }
+  }
+
+  List<InlineSpan> _coloredSpans(
+    _LineData data,
+    GrammarHighlightSettings grammarSettings,
+    dynamic palette,
+  ) {
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    final content = data.content;
+
+    for (final word in data.analyzedWords) {
+      final idx = content.indexOf(word.word, cursor);
+      if (idx < 0) continue;
+      if (idx > cursor) {
+        spans.add(TextSpan(text: content.substring(cursor, idx)));
+      }
+
+      final useGrammar = data.colorMode == ColorMode.wordType &&
+          grammarSettings.enabled;
+      final grammarCategory = useGrammar
+          ? grammarCategoryFromLegacyWordType(word.wordType)
+          : null;
+      final grammarResolved = useGrammar && grammarCategory != null
+          ? GrammarStyleMapper.resolve(
+              category: grammarCategory,
+              palette: palette,
+              settings: grammarSettings,
+              defaultTextColor: Colors.white,
+            )
+          : null;
+
+      spans.add(
+        TextSpan(
+          text: word.word,
+          style: TextStyle(
+            color: grammarResolved?.foreground ?? word.getColor(data.colorMode),
+            backgroundColor: grammarResolved?.background ??
+                word.getBackgroundColor(data.colorMode),
+            fontWeight: grammarResolved?.fontWeight,
+          ),
+        ),
+      );
+      cursor = idx + word.word.length;
+    }
+
+    if (cursor < content.length) {
+      spans.add(TextSpan(text: content.substring(cursor)));
+    }
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: content));
+    }
+    return spans;
   }
 
   void _showQuickBookmarkFeedback(BuildContext context) {
@@ -367,6 +735,7 @@ class _LineData {
   final bool isPlaying;
   final bool isFocusCue;
   final ColorMode colorMode;
+  final bool wordTapBoxes;
   final bool showLineNumbers;
   final TextAlign textAlign;
   final double fontSize;
@@ -375,6 +744,18 @@ class _LineData {
   final List<AnalyzedWord> analyzedWords;
   final bool isEmpty;
   final bool ghostTranslation; // ★ ĐÃ THÊM
+  /// READ-IPA-001/003: segments IPA xếp chồng (null = ẩn/đủ điều kiện).
+  /// Dòng active render interlinear từ segments; các dòng khác join phẳng.
+  final List<IpaSegment>? lineIpaSegments;
+
+  /// READ-IPA-004: tô màu phoneme + mờ IPA từ đã thuộc (default OFF).
+  final bool ipaColorByType;
+  final bool ipaFadeKnown;
+
+  /// READ-IPA-006: ẩn riêng từng loại màu + đánh dấu nhấn/nối âm.
+  final IpaColorVisibility ipaColorVisibility;
+  final IpaLineStress? lineStress;
+  final List<IpaLinkMark>? linkMarks;
 
   const _LineData({
     required this.content,
@@ -385,6 +766,7 @@ class _LineData {
     required this.isPlaying,
     required this.isFocusCue,
     required this.colorMode,
+    this.wordTapBoxes = false,
     required this.showLineNumbers,
     required this.textAlign,
     required this.fontSize,
@@ -393,6 +775,12 @@ class _LineData {
     required this.analyzedWords,
     this.isEmpty = false,
     this.ghostTranslation = false, // ★ ĐÃ THÊM
+    this.lineIpaSegments,
+    this.ipaColorByType = false,
+    this.ipaFadeKnown = false,
+    this.ipaColorVisibility = IpaColorVisibility.all,
+    this.lineStress,
+    this.linkMarks,
   });
 
   const _LineData.empty()
@@ -404,6 +792,7 @@ class _LineData {
         isPlaying = false,
         isFocusCue = false,
         colorMode = ColorMode.none,
+        wordTapBoxes = false,
         showLineNumbers = true,
         textAlign = TextAlign.left,
         fontSize = 18,
@@ -411,7 +800,13 @@ class _LineData {
         isSpeaking = false,
         analyzedWords = const [],
         isEmpty = true,
-        ghostTranslation = false; // ★ ĐÃ THÊM
+        ghostTranslation = false, // ★ ĐÃ THÊM
+        lineIpaSegments = null,
+        ipaColorByType = false,
+        ipaFadeKnown = false,
+        ipaColorVisibility = IpaColorVisibility.all,
+        lineStress = null,
+        linkMarks = null;
 
   @override
   bool operator ==(Object other) {
@@ -428,13 +823,31 @@ class _LineData {
         isPlaying == other.isPlaying &&
         isFocusCue == other.isFocusCue &&
         colorMode == other.colorMode &&
+        wordTapBoxes == other.wordTapBoxes &&
         showLineNumbers == other.showLineNumbers &&
         textAlign == other.textAlign &&
         fontSize == other.fontSize &&
         displayMode == other.displayMode &&
         isSpeaking == other.isSpeaking &&
+        lineIpaSegments == other.lineIpaSegments &&
+        ipaColorByType == other.ipaColorByType &&
+        ipaFadeKnown == other.ipaFadeKnown &&
+        ipaColorVisibility == other.ipaColorVisibility &&
+        _mapEqualsNullable(lineStressToMap(lineStress),
+            lineStressToMap(other.lineStress)) &&
+        _listEqualsNullable(linkMarks, other.linkMarks) &&
         ghostTranslation == other.ghostTranslation; // ★ ĐÃ THÊM
   }
+
+  static bool _mapEqualsNullable(
+          Map<int, IpaStressSyllable>? a, Map<int, IpaStressSyllable>? b) =>
+      a == null || b == null ? a == b : mapEquals(a, b);
+
+  static bool _listEqualsNullable(List<IpaLinkMark>? a, List<IpaLinkMark>? b) =>
+      a == null || b == null ? a == b : listEquals(a, b);
+
+  static Map<int, IpaStressSyllable>? lineStressToMap(IpaLineStress? s) =>
+      s?.primaryPerWord;
 
   @override
   int get hashCode => isEmpty
@@ -451,6 +864,12 @@ class _LineData {
           fontSize,
           displayMode,
           isSpeaking,
+          lineIpaSegments == null
+              ? null
+              : Object.hashAll(lineIpaSegments!),
+          ipaColorByType,
+          ipaFadeKnown,
+          ipaColorVisibility,
           ghostTranslation, // ★ ĐÃ THÊM
         );
 }

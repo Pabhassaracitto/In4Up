@@ -12,6 +12,18 @@ void main() {
       expect(AppUITranslations.translate('Lưu', 'bo-CN'), 'Save');
     });
 
+    test('Home hub copy is English / native, not leftover Vietnamese', () {
+      const home =
+          'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.';
+      expect(AppUITranslations.translate(home, 'en'), isNot(contains('là trung tâm')));
+      expect(AppUITranslations.translate('Nghe · Nói', 'en'), 'Listen · Speak');
+      expect(AppUITranslations.translate('Nghe · Nói', 'zh'), '听 · 说');
+      expect(AppUITranslations.translate('Nghe · Nói', 'si'), isNot('Nghe · Nói'));
+      expect(AppUITranslations.translate('Quản lý Model AI', 'hi'), isNot('Quản lý Model AI'));
+      expect(AppUITranslations.translate('Tải về', 'en'), 'Download');
+      expect(AppUITranslations.translate('Ôn tập · SRS', 'zh'), '复习 · SRS');
+    });
+
     test('uses real locale translations when the catalog has one', () {
       expect(AppUITranslations.translate('Lưu', 'de-DE'), 'Speichern');
       expect(AppUITranslations.translate('Lưu', 'fr-FR'), 'Enregistrer');
@@ -182,6 +194,38 @@ void main() {
         'Hiểu + Đọc': 'Understand + Read',
         'Nghe + Đọc': 'Listen + Read',
         '🟢 NGHE': '🟢 LISTEN',
+      };
+      cases.forEach((source, english) {
+        expect(AppUITranslations.translate(source, 'en'), english);
+        expect(AppUITranslations.translate(source, 'ja'), isNot(source));
+      });
+    });
+
+    test('falls back to English for I2U chat harvest labels', () {
+      const cases = {
+        'Hỏi đáp về từ vựng và ngữ pháp': 'Ask about vocabulary and grammar',
+        'Trợ lý học tập I2U': 'I2U learning assistant',
+        'Xóa cuộc trò chuyện': 'Clear conversation',
+        'AI local chưa sẵn sàng. Bạn có thể import model .gguf trong phần cài đặt AI.':
+            'Local AI is not ready. You can import a .gguf model in AI settings.',
+      };
+      cases.forEach((source, english) {
+        expect(AppUITranslations.translate(source, 'en'), english);
+        expect(AppUITranslations.translate(source, 'ja'), isNot(source));
+      });
+    });
+
+    test('falls back to English for writing-studio harvest labels', () {
+      const cases = {
+        'Nguồn cho Viết': 'Writing source',
+        'Dùng đoạn này cho bài Viết lại ý':
+            'Use this passage for a rewrite exercise',
+        'Đã nhận đoạn chọn để luyện Viết':
+            'Received a selected passage for writing practice',
+        'Tín hiệu quan sát · không phải điểm semantic':
+            'Observational signals · not a semantic score',
+        '65% độ dài nguồn': '65% of source length',
+        'Đoạn trích · Example article': 'Excerpt · Example article',
       };
       cases.forEach((source, english) {
         expect(AppUITranslations.translate(source, 'en'), english);

@@ -1,14 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
+import '../features/translation/glossary/glossary_store.dart';
+import '../models/learning_activity.dart';
+import '../models/tipitaka_source_anchor.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_entry.dart';
+import '../services/auth_service.dart';
+import '../services/ipa_resolver.dart';
+import '../services/learning_activity_service.dart';
+import '../services/storage_service.dart';
 import '../services/vocab_classifier.dart';
 import '../services/vocab_sync_service.dart';
 
@@ -33,8 +39,9 @@ class VocabularyProvider extends ChangeNotifier {
   final Set<String> _customTopics = {};
 
   final VocabSyncService _sync = VocabSyncService();
+  final StorageService _storage = StorageService();
   bool _isSyncEnabled = false;
-  StreamSubscription<User?>? _authSub;
+  StreamSubscription<AppUser?>? _authSub;
   bool _isEnablingSync = false;
   String? _syncUid;
 
@@ -53,22 +60,22 @@ class VocabularyProvider extends ChangeNotifier {
   DateTime? get lastSyncedAt => _sync.lastSyncedAt.value;
 
   Set<String> get allLanguages {
-    final Set<String> langs = _words
-        .map((w) => w.language)
-        .where((l) => l.isNotEmpty)
-        .toSet()
-      ..addAll(_customLanguages);
+    final Set<String> langs = <String>{};
+    for (final w in _words) {
+      langs.addAll(w.languages.where((l) => l.isNotEmpty));
+    }
+    langs.addAll(_customLanguages);
     if (langs.isEmpty) return {'en'};
     return langs;
   }
 
   Set<String> get allTopics {
-    return _words
-        .map((w) => w.topic)
-        .whereType<String>()
-        .where((t) => t.isNotEmpty)
-        .toSet()
-      ..addAll(_customTopics);
+    final Set<String> topics = <String>{};
+    for (final w in _words) {
+      topics.addAll(w.topics.where((t) => t.isNotEmpty));
+    }
+    topics.addAll(_customTopics);
+    return topics;
   }
 
   bool isCustomLanguage(String lang) => _customLanguages.contains(lang);
@@ -91,15 +98,10 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void bindAuthState() {
-    try {
-      if (FirebaseAuth.instance.app.name.isEmpty) return;
-    } catch (_) {
-      debugPrint('⚠️ bindAuthState: Firebase not available, skip');
-      return;
-    }
+    // Stream thống nhất: Firebase plugin (Android/Win) hoặc REST fallback (Linux)
     _authSub?.cancel();
     try {
-      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      _authSub = AuthService().authStateChanges.listen((user) async {
         if (user == null) {
           disableSync();
           return;
@@ -126,10 +128,10 @@ class VocabularyProvider extends ChangeNotifier {
           .toList();
     }
     if (_filterLanguage != null) {
-      list = list.where((w) => w.language == _filterLanguage).toList();
+      list = list.where((w) => w.languages.contains(_filterLanguage)).toList();
     }
     if (_filterTopic != null) {
-      list = list.where((w) => w.topic == _filterTopic).toList();
+      list = list.where((w) => w.topics.contains(_filterTopic)).toList();
     }
     if (_filterLearningStatus != null) {
       switch (_filterLearningStatus) {
@@ -351,8 +353,20 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       _box.put(w.id, jsonEncode(w.toJson()));
       if (_isSyncEnabled) _sync.markDirty(w.id);
+      // Đồng bộ MỘT CHIỀU → glossary dịch: WordEntry Pali/Phật học +
+      // meaning có giá trị → entry domain=user (không ghi đè entry có sẵn).
+      // Best-effort: không bao giờ làm hỏng việc lưu từ vựng.
+      unawaited(_syncGlossary(w));
     } catch (e) {
       debugPrint('VocabularyProvider._saveWord error: $e');
+    }
+  }
+
+  Future<void> _syncGlossary(WordEntry w) async {
+    try {
+      await GlossaryStore().syncFromWordEntry(w);
+    } catch (e) {
+      debugPrint('VocabularyProvider._syncGlossary error: $e');
     }
   }
 
@@ -503,6 +517,56 @@ class VocabularyProvider extends ChangeNotifier {
     }
     _words.add(w);
     _saveWord(w);
+    _recordLearningEvent(w.word);
+    notifyListeners();
+    // READ-IPA-002: điền IPA còn trống theo waterfall (không đè dữ liệu có).
+    _scheduleIpaResolve(w.id);
+  }
+
+  /// Điền IPA cho entry [id] nếu vẫn đang trống — theo mode
+  /// `ipa_save_source` (auto/dict/g2p/off). Async (tra từ điển SQLite +
+  /// CMU), không block luồng lưu; nếu user gõ tay trước khi resolve xong
+  /// thì resolve thấy đã có giá trị → bỏ (invariant không ghi đè).
+  void _scheduleIpaResolve(String id) {
+    final mode = IpaSaveMode.fromName(_storage.getIpaSaveSource());
+    if (mode == IpaSaveMode.off) return;
+    WordEntry? w;
+    for (final e in _words) {
+      if (e.id == id) {
+        w = e;
+        break;
+      }
+    }
+    if (w == null || (w.phonetic ?? '').trim().isNotEmpty) return;
+    unawaited(_resolveIpaFor(id, mode));
+  }
+
+  Future<void> _resolveIpaFor(String id, IpaSaveMode mode) async {
+    WordEntry? w;
+    for (final e in _words) {
+      if (e.id == id) {
+        w = e;
+        break;
+      }
+    }
+    if (w == null || (w.phonetic ?? '').trim().isNotEmpty) return;
+
+    final res = await IpaResolver.resolve(w.word, mode: mode);
+    if (res == null) return;
+
+    // Re-check sau await: user có thể đã gõ tay / xóa từ trong lúc tra.
+    WordEntry? cur;
+    for (final e in _words) {
+      if (e.id == id) {
+        cur = e;
+        break;
+      }
+    }
+    if (cur == null || (cur.phonetic ?? '').trim().isNotEmpty) return;
+    cur.phonetic = res.ipa;
+    cur.phoneticSource = res.source;
+    cur.updatedAt = DateTime.now();
+    _saveWord(cur);
     notifyListeners();
   }
 
@@ -514,15 +578,48 @@ class VocabularyProvider extends ChangeNotifier {
       }
       _words.add(w);
       _saveWord(w);
+      _recordLearningEvent(w.word);
       changed = true;
     }
     if (changed) notifyListeners();
+  }
+
+  /// HOME-STREAK-001 — "lưu/import từ" là một hoạt động học thật.
+  ///
+  /// Khoá theo chính từ (đã normalize) nên nhập lại cùng một từ trong ngày
+  /// không làm số liệu tăng thêm; gọi ở đây, KHÔNG gọi trong build().
+  void _recordLearningEvent(String word) {
+    final key = word.trim().toLowerCase();
+    if (key.isEmpty) return;
+    unawaited(LearningActivityService.instance.record(
+      LearningActivityKind.vocabulary,
+      sourceKey: key,
+    ));
+  }
+
+
+  /// Enriches an existing vocabulary item with a lossless Tipiṭaka source
+  /// pointer instead of creating a duplicate Worklist entry.
+  void addTipitakaContextToWord(
+    String wordId,
+    TipitakaSourceAnchor anchor,
+    TipitakaContextSnapshot snapshot,
+  ) {
+    try {
+      final word = _words.firstWhere((item) => item.id == wordId);
+      word.addTipitakaContext(anchor, snapshot);
+      _saveWord(word);
+      notifyListeners();
+    } catch (_) {
+      debugPrint('addTipitakaContextToWord: word $wordId not found');
+    }
   }
 
   WordEntry addWithAutoClassify({
     required String text,
     String meaning = '',
     String? phonetic,
+    String? phoneticSource,
     VocabContext? context,
     VocabularyType? forceType,
     String language = 'en',
@@ -532,10 +629,37 @@ class VocabularyProvider extends ChangeNotifier {
 
     final existing = findByWord(normalized);
     if (existing != null) {
+      bool changed = false;
       if (context != null) {
         existing.addContext(context);
+        changed = true;
+      }
+      // Smart-fill: chỉ BỔ SUNG chỗ trống / tag mới — không ghi đè dữ liệu cũ
+      if ((phonetic ?? '').trim().isNotEmpty &&
+          (existing.phonetic ?? '').trim().isEmpty) {
+        existing.phonetic = phonetic!.trim();
+        existing.phoneticSource = phoneticSource;
+        changed = true;
+      }
+      if (meaning.trim().isNotEmpty && existing.meaning.trim().isEmpty) {
+        existing.meaning = meaning.trim();
+        existing.isUnborn = false;
+        changed = true;
+      }
+      if ((topic ?? '').trim().isNotEmpty) {
+        existing.addTopic(topic!.trim());
+        changed = true;
+      }
+      if (language.trim().isNotEmpty) {
+        existing.addLanguage(language.trim());
+        changed = true;
+      }
+      if (changed) {
         _saveWord(existing);
         notifyListeners();
+        if ((existing.phonetic ?? '').trim().isEmpty) {
+          _scheduleIpaResolve(existing.id);
+        }
       }
       return existing;
     }
@@ -547,16 +671,18 @@ class VocabularyProvider extends ChangeNotifier {
       word: normalized,
       meaning: meaning,
       phonetic: phonetic,
+      phoneticSource: phoneticSource,
       vocabType: type,
       contexts: context != null ? [context] : [],
       isUnborn: meaning.trim().isEmpty,
       language: language,
-      topic: topic,
+      topics: (topic ?? '').trim().isNotEmpty ? [topic!.trim()] : const [],
     );
 
     _words.add(entry);
     _saveWord(entry);
     notifyListeners();
+    _scheduleIpaResolve(entry.id);
     return entry;
   }
 
@@ -647,7 +773,15 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   void updateWord(String id,
-      {String? word, String? meaning, String? phonetic, String? example, String? language, String? topic, VocabularyType? vocabType}) {
+      {String? word,
+      String? meaning,
+      String? phonetic,
+      String? example,
+      String? language,
+      String? topic,
+      List<String>? topics,
+      List<String>? languages,
+      VocabularyType? vocabType}) {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       if (word != null) w.word = word;
@@ -657,6 +791,10 @@ class VocabularyProvider extends ChangeNotifier {
       }
       if (phonetic != null) {
         w.phonetic = phonetic;
+        // Sửa tay trong EditSheet/bulk-edit → nguồn là 'user';
+        // xóa trắng → bỏ cả nguồn (lần lưu sau resolver điền lại theo mode).
+        w.phoneticSource =
+            phonetic.trim().isEmpty ? null : 'user';
         if (phonetic.trim().isNotEmpty) w.isUnborn = false;
       }
       if (example != null) {
@@ -664,7 +802,14 @@ class VocabularyProvider extends ChangeNotifier {
         if (example.trim().isNotEmpty) w.isUnborn = false;
       }
       if (language != null) w.language = language;
-      if (topic != null) w.topic = topic.trim().isEmpty ? null : topic;
+      // topic: thay chủ đề CHÍNH, giữ nguyên các chủ đề còn lại
+      if (topic != null) {
+        final v = topic.trim();
+        final rest = w.topics.length > 1 ? w.topics.sublist(1) : const <String>[];
+        w.topics = v.isEmpty ? rest : [v, ...rest];
+      }
+      if (topics != null) w.setTopics(topics);
+      if (languages != null) w.setLanguages(languages);
       if (vocabType != null) {
         w.vocabType = vocabType;
       }
@@ -678,6 +823,17 @@ class VocabularyProvider extends ChangeNotifier {
     try {
       final w = _words.firstWhere((w) => w.id == id);
       w.personalNotes = notes;
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// Cập nhật hình ảnh cho từ vựng
+  void updateImageUrl(String id, String? imageUrl) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.imageUrl = imageUrl;
       w.updatedAt = DateTime.now();
       _saveWord(w);
       notifyListeners();

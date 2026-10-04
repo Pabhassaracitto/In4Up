@@ -52,7 +52,6 @@ class SyncStatusBadge extends StatelessWidget {
         label = 'Đã đồng bộ';
         break;
       case SyncStatus.idle:
-      default:
         color = Colors.grey;
         icon = Icons.cloud_queue;
         if (lastSync != null) {

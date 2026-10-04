@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_library_name
 /// Flutter FFI plugin for loading PDFium native libraries.
 ///
 /// This package bundles PDFium binaries for Android, iOS, Windows, macOS, and Linux

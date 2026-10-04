@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/color_mode.dart';
+import '../../../models/ipa_display_mode.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
+import 'ipa_legend_strip.dart';
+import 'read_line_hint.dart';
 import 'quick_library_sheet.dart'; // ← THÊM
 
 class ReadTopBar extends StatelessWidget {
@@ -29,7 +32,10 @@ class ReadTopBar extends StatelessWidget {
                 alignment: WrapAlignment.end,
                 children: [
                   _ColorModeChip(textProvider: tp, compact: true),
+                  _WordTapChip(textProvider: tp),
+                  _IpaLegendToggleIfRelevant(textProvider: tp),
                   _AutoSyncChip(controller: controller),
+                  const _ReadHelpButton(),
                   if (!isSmallHeight)
                     _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
                   // Nút Focus mode cho màn hình nhỏ
@@ -60,7 +66,13 @@ class ReadTopBar extends StatelessWidget {
                 children: [
                   _ColorModeChip(textProvider: tp),
                   const SizedBox(width: 8),
+                  _WordTapChip(textProvider: tp),
+                  const SizedBox(width: 8),
+                  _IpaLegendToggleIfRelevant(textProvider: tp),
+                  const SizedBox(width: 8),
                   _AutoSyncChip(controller: controller),
+                  const SizedBox(width: 8),
+                  const _ReadHelpButton(),
                   const SizedBox(width: 8),
                   _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
                   const SizedBox(width: 6),
@@ -135,6 +147,23 @@ class ReadTopBar extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+// ── IPA Legend Toggle (READ-IPA-006) ─────────────────────────
+// Chỉ hiện khi IPA đang bật (không phải hidden) — panel chỉ có nghĩa
+// khi có dòng IPA để tô màu.
+class _IpaLegendToggleIfRelevant extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _IpaLegendToggleIfRelevant({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (textProvider.ipaDisplayMode == IpaDisplayMode.hidden) {
+      return const SizedBox.shrink();
+    }
+    return IpaLegendToggleButton(tp: textProvider);
   }
 }
 
@@ -337,6 +366,74 @@ class _ColorModeChip extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WordTapChip extends StatelessWidget {
+  final TextProvider textProvider;
+
+  const _WordTapChip({required this.textProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final on = textProvider.wordTapBoxes;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        textProvider.setWordTapBoxes(!on);
+      },
+      child: Tooltip(
+        message: on
+            ? 'Box từng từ — chạm để về bôi nhiều chữ'
+            : 'Bôi nhiều chữ — chạm để box từng từ',
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: on
+                ? const Color(0xFFFF9800).withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: on
+                ? Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4))
+                : null,
+          ),
+          child: Icon(
+            on ? Icons.grid_view_rounded : Icons.grid_view_outlined,
+            size: 16,
+            color: on ? const Color(0xFFFF9800) : Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// I4U18-READ-IPA-001 (F1.3) — mở lại hướng dẫn chạm dòng/chạm từ bất cứ lúc
+/// nào; người bấm "Đừng nhắc lại" vẫn tìm được hướng dẫn ở đây.
+class _ReadHelpButton extends StatelessWidget {
+  const _ReadHelpButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: context.uiText('Hướng dẫn đọc theo dòng'),
+      child: GestureDetector(
+        onTap: () => ReadLineHint.showSheet(context),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.help_outline,
+            size: 18,
+            color: Colors.white70,
+          ),
         ),
       ),
     );

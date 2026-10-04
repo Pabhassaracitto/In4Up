@@ -28,9 +28,27 @@ class SyntaxHighlighterService {
     return lines.map(_analyzeLine).toList();
   }
 
+  /// Chữ Unicode (Việt/Pali/Hindi + dấu kết hợp) — `\w` Dart chỉ ASCII nên
+  /// từng cắt "Việt" / "người" thành từng ký tự khi tô màu từ.
+  static final RegExp _tokenizeRe = RegExp(
+    r"[\p{L}\p{M}\p{N}']+|[^\p{L}\p{M}\p{N}\s]",
+    unicode: true,
+  );
+  static final RegExp _nonWordRe = RegExp(
+    r"[^\p{L}\p{M}\p{N}']+",
+    unicode: true,
+  );
+  static final RegExp _punctuationOnlyRe = RegExp(
+    r'^[^\p{L}\p{M}\p{N}]+$',
+    unicode: true,
+  );
+
+  static String cleanToken(String token) =>
+      token.replaceAll(_nonWordRe, '').toLowerCase();
+
   /// Public method cho Web Reader và PDF Reader
   AnalyzedWord analyzeWord(String word) {
-    final clean = word.toLowerCase().replaceAll(RegExp(r"[^\w']"), '');
+    final clean = cleanToken(word);
     if (clean.isEmpty) {
       return AnalyzedWord(word: word, wordType: WordType.unknown);
     }
@@ -62,7 +80,7 @@ class SyntaxHighlighterService {
       return cached
           .map((word) => _applyGlobalVocabularyData(
                 word,
-                word.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), ''),
+                cleanToken(word.word),
               ))
           .toList();
     }
@@ -71,10 +89,10 @@ class SyntaxHighlighterService {
     final result = <AnalyzedWord>[];
 
     for (final token in tokens) {
-      final clean = token.replaceAll(RegExp(r"[^\w']"), '').toLowerCase();
+      final clean = cleanToken(token);
 
       // punctuation
-      if (RegExp(r'^[^\w]+$').hasMatch(token)) {
+      if (_punctuationOnlyRe.hasMatch(token)) {
         result.add(AnalyzedWord(
           word: token,
           originalWord: token,
@@ -129,7 +147,7 @@ class SyntaxHighlighterService {
     return result
         .map((word) => _applyGlobalVocabularyData(
               word,
-              word.word.toLowerCase().replaceAll(RegExp(r"[^\w']"), ''),
+              cleanToken(word.word),
             ))
         .toList();
   }
@@ -155,9 +173,12 @@ class SyntaxHighlighterService {
   }
 
   List<String> _tokenize(String text) {
-    // words + punctuation as tokens
-    final regex = RegExp(r"[\w']+|[^\w\s]");
-    return regex.allMatches(text).map((m) => m.group(0)!).toList();
+    return _tokenizeRe.allMatches(text).map((m) => m.group(0)!).toList();
+  }
+
+  /// Dùng cho test / Web-PDF khi cần tách từ Unicode giống pipeline Đọc.
+  static List<String> tokenizeText(String text) {
+    return _tokenizeRe.allMatches(text).map((m) => m.group(0)!).toList();
   }
 
   void _trimCacheIfNeeded() {

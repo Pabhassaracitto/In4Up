@@ -10,7 +10,9 @@ class WebReaderToolbar extends StatefulWidget {
   final VoidCallback onExtractText;
   final VoidCallback onSavePageToCollection;
   final VoidCallback onOpenGrammarSettings;
+  final VoidCallback onListenArticle;
   final bool showingDashboard;
+  final bool writingMode;
 
   const WebReaderToolbar({
     super.key,
@@ -19,7 +21,9 @@ class WebReaderToolbar extends StatefulWidget {
     required this.onExtractText,
     required this.onSavePageToCollection,
     required this.onOpenGrammarSettings,
+    required this.onListenArticle,
     required this.showingDashboard,
+    this.writingMode = false,
   });
 
   @override
@@ -187,6 +191,23 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
               ),
               const SizedBox(width: 4),
               _ColorModeButton(controller: ctrl, enabled: pageActionsEnabled),
+              _ToolbarBtn(
+                icon: ctrl.showRecallMarkers
+                    ? Icons.visibility
+                    : Icons.visibility_outlined,
+                size: 16,
+                enabled: true,
+                isActive: ctrl.showRecallMarkers,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  ctrl.toggleRecallMarkers();
+                },
+                activeThumbColor: const Color(0xFF66BB6A),
+                tooltip: context.uiText(
+                  'Đánh dấu từ đã lưu (bật/tắt marker: xanh = đã lưu, '
+                  'vàng = có ghi chú, đỏ = đến kỳ ôn)',
+                ),
+              ),
               if (pageActionsEnabled && ctrl.colorMode == ColorMode.wordType)
                 _ToolbarBtn(
                   icon: Icons.auto_awesome_motion,
@@ -198,12 +219,29 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   activeThumbColor: const Color(0xFF6C63FF),
                 ),
               _ToolbarBtn(
-                icon: Icons.text_fields,
+                icon: ctrl.isSpeaking ? Icons.volume_up : Icons.headphones_outlined,
+                size: 18,
+                enabled: pageActionsEnabled,
+                isActive: ctrl.isSpeaking,
+                onTap: widget.onListenArticle,
+                tooltip: ctrl.isSpeaking
+                    ? 'Mở điều khiển nghe bài'
+                    : 'Nghe bài web',
+                activeThumbColor: const Color(0xFFFFB74D),
+              ),
+              _ToolbarBtn(
+                icon: widget.writingMode
+                    ? Icons.edit_square
+                    : Icons.text_fields,
                 size: 18,
                 enabled: pageActionsEnabled,
                 onTap: widget.onExtractText,
-                tooltip: context.uiText('Mở trong Text Studio'),
-                activeThumbColor: const Color(0xFF2196F3),
+                tooltip: widget.writingMode
+                    ? 'Dùng cả bài làm nguồn luyện Viết'
+                    : 'Mở trong Text Studio',
+                activeThumbColor: widget.writingMode
+                    ? const Color(0xFF26C6DA)
+                    : const Color(0xFF2196F3),
               ),
               _ToolbarBtn(
                 icon: Icons.playlist_add,

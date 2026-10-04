@@ -12,6 +12,8 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../features/ocr/ocr_flow.dart';
+import '../features/ocr/ocr_service.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/youtube/youtube_sheet.dart';
 import '../providers/text_provider.dart';
@@ -32,7 +34,10 @@ bool _isFirebaseLoggedInSafe() {
 }
 
 class TextLibraryDrawer extends StatefulWidget {
-  const TextLibraryDrawer({super.key});
+  /// True when this drawer is attached to Scaffold.drawer (left edge).
+  final bool isLeft;
+
+  const TextLibraryDrawer({super.key, this.isLeft = true});
 
   @override
   State<TextLibraryDrawer> createState() => _TextLibraryDrawerState();
@@ -200,7 +205,9 @@ class _TextLibraryDrawerState extends State<TextLibraryDrawer>
           Icon(Icons.swipe, size: 14, color: Colors.grey[700]),
           const SizedBox(width: 6),
           Text(
-            'Vuốt từ cạnh trái để mở',
+            widget.isLeft
+                ? 'Vuốt từ cạnh trái để mở'
+                : 'Vuốt từ cạnh phải để mở',
             style: TextStyle(color: Colors.grey[700], fontSize: 11),
           ),
         ],
@@ -242,6 +249,17 @@ class _LocalTab extends StatelessWidget {
                           color: const Color(0xFF26C6DA),
                           onTap: () => _openManualEntryDialog(context),
                         ),
+                        // OCR (ADR-0009 · KANBAN OCR-001): ảnh trang sách /
+                        // sách scan → văn bản. CHỈ hiện khi ML Kit khả dụng
+                        // (Android/iOS) — desktop/web ẩn hẳn nút, không hiện
+                        // rồi báo lỗi (cùng nguyên tắc mlkit_engine).
+                        if (OcrService.instance.isAvailable)
+                          _ActionButton(
+                            icon: Icons.document_scanner_outlined,
+                            label: 'Quét ảnh',
+                            color: const Color(0xFF66BB6A),
+                            onTap: () => _openOcrFlow(context),
+                          ),
                         _ActionButton(
                           icon: Icons.play_circle_fill,
                           label: 'YouTube',
@@ -358,10 +376,24 @@ class _LocalTab extends StatelessWidget {
     }
   }
 
+  /// OCR: ảnh trang sách / sách scan → văn bản (ADR-0009 · KANBAN OCR-001).
+  ///
+  /// Toàn bộ luồng (chọn nguồn → chụp/chọn ảnh → ML Kit Text Recognition →
+  /// preview cho user SỬA → nạp TextProvider với `TextSourceType.ocr`) nằm
+  /// trong `OcrFlow`. Ở đây chỉ đóng drawer sau khi nạp thành công — cùng
+  /// hành vi với các nút nạp text khác.
+  Future<void> _openOcrFlow(BuildContext context) async {
+    final loaded = await OcrFlow.start(context);
+    if (!loaded || !context.mounted) return;
+    onClose();
+  }
+
   Future<void> _importTextFile(BuildContext context) async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['txt', 'lrc', 'srt'],
+      allowedExtensions: const [
+        'txt', 'lrc', 'srt', 'md', 'markdown', 'json', 'docx',
+      ],
     );
     if (result == null || result.files.single.path == null) return;
 
@@ -369,7 +401,18 @@ class _LocalTab extends StatelessWidget {
     if (!context.mounted) return;
 
     final tp = context.read<TextProvider>();
-    await tp.loadTextFile(path);
+    final loaded = await tp.loadTextFile(path);
+    if (!loaded && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không đọc được file — .doc cũ vui lòng lưu lại .docx hoặc .txt',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (context.mounted) {
       final file = RecentFile.fromLocalText(path).copyWith(
@@ -687,29 +730,49 @@ class _CloudTabState extends State<_CloudTab> {
   }
 
   // ── Load văn bản vào TextProvider ─────────────────────────
+  // Issue1 fix: try-catch tránh black screen khi AI doc -> Cloud
   void _loadEntry(BuildContext context, TextLibraryEntry entry) {
-    HapticFeedback.mediumImpact();
+    try {
+      HapticFeedback.mediumImpact();
 
-    // Load text vào TextProvider
-    context.read<TextProvider>().loadFromString(
-          entry.content,
-          title: entry.title,
-          sourceType: TextSourceType.cloud,
-          cloudId: entry.id,
-          category: entry.category,
+      final tp = context.read<TextProvider>();
+      tp.loadFromString(
+            entry.content,
+            title: entry.title,
+            sourceType: TextSourceType.cloud,
+            cloudId: entry.id,
+            category: entry.category,
+          );
+
+      // Issue2: apply saved translations
+      try {
+        final targetLang = tp.translationTargetLanguage.translationCode;
+        final saved = entry.getTranslationsForLang(targetLang);
+        if (saved != null) {
+          tp.applySavedTranslations(saved, targetLang);
+        }
+      } catch (e) {
+        debugPrint('⚠️ _loadEntry apply translations error: $e');
+      }
+
+      final file = RecentFile.fromCloud(
+        id: entry.id,
+        title: entry.title,
+        category: entry.category,
+        totalLines: entry.lineCount,
+      );
+      RecentFilesService().addOrUpdate(file);
+
+      widget.onClose();
+    } catch (e, st) {
+      debugPrint('❌ _loadEntry error: $e\n$st');
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi mở Cloud: $e')),
         );
-
-    // ★ THÊM: Lưu vào RecentFiles để hiện trong thư viện đọc
-    final file = RecentFile.fromCloud(
-      id: entry.id,
-      title: entry.title,
-      category: entry.category,
-      totalLines: entry.lineCount,
-    );
-    // Fire-and-forget
-    RecentFilesService().addOrUpdate(file);
-
-    widget.onClose();
+      } catch (_) {}
+      widget.onClose();
+    }
   }
 
   // ── Mở dialog thêm mới ────────────────────────────────────

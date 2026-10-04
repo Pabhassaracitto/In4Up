@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
 
@@ -44,6 +45,22 @@ class DictionaryService {
 
   final List<DictInfo> _dicts = [];
   bool _initialized = false;
+
+  /// Test seam (DICT-001 §8): ghi đè thư mục documents — chỉ set trong test,
+  /// production luôn dùng path_provider.
+  @visibleForTesting
+  static Directory? documentsDirectoryOverride;
+
+  /// Reset singleton cho test (kèm manifest đã nạp trong lần trước).
+  @visibleForTesting
+  static void resetForTest() {
+    _instance?._dicts.clear();
+    _instance?._initialized = false;
+    _instance = null;
+  }
+
+  static Future<Directory> _appDocuments() async =>
+      documentsDirectoryOverride ?? await getApplicationDocumentsDirectory();
 
   List<DictInfo> get dictionaries => List.unmodifiable(_dicts);
   List<DictInfo> get enabledDictionaries =>
@@ -161,7 +178,7 @@ class DictionaryService {
       );
     }
 
-    final appDir = await getApplicationDocumentsDirectory();
+    final appDir = await _appDocuments();
     final dictDir = Directory('${appDir.path}/dictionaries');
     if (!dictDir.existsSync()) {
       dictDir.createSync(recursive: true);
@@ -173,6 +190,7 @@ class DictionaryService {
     for (final set in report.sets) {
       setIndex++;
       final progressBase = 0.1 + 0.85 * (setIndex - 1) / report.sets.length;
+      final progressSpan = 0.85 / report.sets.length;
       onProgress?.call(progressBase, 'Index ${set.suggestedName}…');
 
       try {
@@ -182,6 +200,8 @@ class DictionaryService {
           relRoot: relRoot,
           dictDir: dictDir.path,
           mode: mode,
+          onFileProgress: (p, message) =>
+              onProgress?.call(progressBase + progressSpan * p, message),
         );
         if (info != null) {
           // Thay thế bản cũ cùng id (re-import sau khi user thêm file phụ).
@@ -189,6 +209,8 @@ class DictionaryService {
           _dicts.add(info);
           imported.add(info);
           missingAll.addAll(info.missingResources);
+        } else {
+          missingAll.add('${set.suggestedName}: File .mdx không có entry nào');
         }
       } catch (e) {
         missingAll.add('${set.suggestedName}: $e');
@@ -205,7 +227,12 @@ class DictionaryService {
     return DictImportOutcome(
       imported: imported,
       missingParts: missingAll.toList(),
-      error: imported.isEmpty ? 'Không import được từ điển nào' : null,
+      // Lỗi tổng kèm lý do parse cụ thể của set đầu tiên (AT #6: báo lỗi rõ).
+      error: imported.isEmpty
+          ? (missingAll.isEmpty
+              ? 'Không import được từ điển nào'
+              : 'Không import được từ điển nào: ${missingAll.first}')
+          : null,
       strayCompanions: [
         for (final f in report.strayCompanions) f.name,
       ],
@@ -219,6 +246,7 @@ class DictionaryService {
     required String relRoot,
     required String dictDir,
     required DictStorageMode mode,
+    void Function(double progress, String message)? onFileProgress,
   }) async {
     String absOf(DictScannedFile f) =>
         relToAbs[f.path] ?? _absoluteFromRel(f.path, relRoot);
@@ -299,6 +327,7 @@ class DictionaryService {
     String? sourceFolder,
     List<String> cssPaths = const [],
     required String langProbe,
+    void Function(double progress, String message)? onFileProgress,
   }) async {
     // Re-import: xoá index cũ trước khi ghi (insertBatch append — nếu giữ
     // file cũ mỗi lần import lại nhân đôi entries).
@@ -309,7 +338,11 @@ class DictionaryService {
 
     final entries = <Map<String, dynamic>>[];
     var entryCount = 0;
-    await for (final entry in MdxParser.parse(mdxToParse, dictId: dictId)) {
+    await for (final entry in MdxParser.parse(
+      mdxToParse,
+      dictId: dictId,
+      onProgress: onFileProgress,
+    )) {
       entries.add(entry.toMap());
       entryCount++;
       // Tránh quá tải RAM với từ điển lớn: flush theo batch.
@@ -407,7 +440,7 @@ class DictionaryService {
   }
 
   Future<String> get _manifestPath async {
-    final appDir = await getApplicationDocumentsDirectory();
+    final appDir = await _appDocuments();
     return '${appDir.path}/dictionaries/manifest.json';
   }
 

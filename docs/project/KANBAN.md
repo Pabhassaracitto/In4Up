@@ -116,7 +116,7 @@
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 | I4U18-BATCH | I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành các lane nhỏ, tránh xung đột và không để CI đỏ | 📋 proposed | `docs/project/I4U_L18_PROBLEM_BRIEF.md` + `PROMPT_AGENT_I4U_L18.md`; tham chiếu nhánh `arena/01a06931-in4up` cho Tipiṭaka/PDF/Home khi cần |
 | I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 🔄 doing (code xong, chờ CI/thiết bị) | agent arena/01a0f3d9-in4up — chat prompt trả lời trực tiếp, dừng remote không fallback local, parser local/remote chịu fence/JSON cắt; test bổ sung (sandbox thiếu Flutter SDK) |
-| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (code xong, CI run 36898178031 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
+| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (WP2 parser+import xong, CI run 37175921579 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
 | I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | SAF recursive scan + filter/sort/search + recent/favorite + subtitle pairing + reopen; CI run 36771997803 |
 | I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | ✅ done (code + CI 🟢; chờ nghiệm thu UX/TTS thiết bị) | run 36771566072: analyze 0 error + Rule 5 + Tipiṭaka import/source-link/workspace-retention + Agent F/LHB/Cabin/ASR tests xanh |
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
@@ -4443,7 +4443,9 @@
   - 2026-09-30 | 19:47 UTC | proposed→doing | agent arena/01a0f3d9-in4up | code parser/prompt/cancel + test bổ sung; `git diff --check` sạch; chưa chạy Flutter test do sandbox thiếu `flutter`/`dart`.
 
 ### I4U18-DICT-001 — Từ điển: import/link thư mục MDX/MDD/CSS và dùng ngay
-- **Trạng thái:** 🔄 doing — code + unit test + CI run 36898178031 xanh; chờ PR merge + nghiệm thu thiết bị.
+- **Trạng thái:** 🔄 doing — WP2 (MDX parser + import + tra cứu SQLite) hoàn
+  tất kèm 59 test, CI run 37175921579 xanh trên `arena/01a104cf-in4up`; chờ
+  rebase/merge PR + nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 2 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** từ điển vẫn chưa import được ổn định. Bộ từ điển thực
   tế thường gồm nhiều file liên quan như `.mdx`, `.mdd`, `.css`/asset kèm theo;
@@ -4473,6 +4475,17 @@
     36897541200, đã sửa). CI run **36898178031 SUCCESS** toàn bộ job, gồm
     bước "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test
     thuần). Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
+  - 2026-10-04 | doing (tiếp tục — WP2 handoff DICT-001) | agent
+    arena/01a104cf-in4up | MDX parser thuần Dart đúng đặc tả 1.2/2.0
+    (UTF-8/UTF-16, zlib, multi-block, key index nén v1.2 fallback, lỗi rõ
+    cho encrypted/GBK/LZO/engine 3.0) chạy trong isolate + progress;
+    DictDbService SQLite WAL; DictionaryService import/link + manifest
+    persisted; 59 test (MdxTestBuilder tổng hợp file MDX nhị phân theo
+    readmdict.py + parser 15 + db 6 + import 7 + widget 3 + scanner 28);
+    CI xanh run 37175921579 (kèm nâng cấp bước scanner: -r expanded +
+    annotation tên test fail vì log blob không tải được qua API). 3 commit
+    chính trên branch `arena/01a104cf-in4up` (lane riêng với PR #67 —
+    cùng task I4U18-DICT-001, owner gộp khi rebase/merge).
 
 ### I4U18-VIDEO-LIB-001 — Tab Video: quét thư mục và thư viện phát file trực quan
 - **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.

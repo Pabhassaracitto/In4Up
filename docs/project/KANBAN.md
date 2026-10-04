@@ -44,6 +44,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (patch workflow ĐÃ ÁP trong nhánh 01a0d013 cùng CI-ANDROID-03 — chờ oracle) | build.yml + build_final_complete.yml: `--flavor stable` cả 2 bước build, rename `app-<abi>-stable-release.apk`, bỏ `\|\| true`; in4up_ci_fixes.gradle giữ lại (no-op) |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-ANDROID-03 | APK release KHÔNG CÀI ĐƯỢC (local + Actions): release không có `signingConfig` ⇒ APK unsigned | 🔄 doing (fix xong, chờ oracle tag `v*` + cài máy) | build.gradle.kts: ký key.properties → fallback debug; workflow: prepare-signing + verify-signed + `--flavor stable` + rename đúng tên + fix YAML indent build.yml + setup-android v4 |
+| MAIN-RESTORE-001 | main = snapshot cũ 2026-09-23 (733 file, mất CI mới + 26k dòng) — cần content-sync từ 0251e | 📋 proposed (chờ owner quyết, GOVERNANCE 4b) | KHÔNG merge chéo (2 lineage không tổ tiên chung); content-sync bằng 1 commit thường trên main; giữ LICENSE nếu muốn; chi tiết thủ thuật trong card |
 | CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
@@ -4848,3 +4849,61 @@
   - 2026-10-04 | created | agent arena/01a0251e-in4up | diagnose từ lỗi
     pub get của owner (Dart 3.11.5); verify lock thiếu entry qua git log -S;
     chờ máy có Flutter ≥3.47.6
+
+### MAIN-RESTORE-001 — main là snapshot cũ (0218c33, 2026-09-23): content-sync từ 0251e theo GOVERNANCE 4b
+- **Trạng thái:** proposed — chờ owner quyết (đã phát hiện từ 2026-10-01 trong
+  XLAT-DEEPLX-001; audit đầy đủ 2026-10-04).
+- **Thực trạng main (audit 2026-10-04, verify git):**
+  - main = đúng 1 commit `0218c33` "Fix indentation and improve Windows
+    build script" (2026-09-23) — snapshot CŨ: 733 file vs 0251e 1144 file
+    (diff main→0251e: 216 files, +26221/−7302).
+  - Mất so với 0251e: `.github/workflows/app_analyze.yml` (+ knowledge/
+    soundlist tests), `lib/features/api/`, `llm_mt_engine.dart`, phần lớn
+    KANBAN (4468→136 dòng), toàn bộ CI-ANDROID-01..04 scripts
+    (`scripts/ci/android_*.sh` không tồn tại trong main), workflow Android
+    trong main vẫn là build cũ ("Build Split APKs", không có rename/verify
+    script).
+  - 36 file CHỈ main có: 33 file là build-artifact không nên commit
+    (`linux/flutter/ephemeral/*`, `gradle-wrapper.jar`, `gradlew`,
+    `GeneratedPluginRegistrant.java`, `icudtl.dat`, 2 package-lock của
+    in4up_ai/in4up_core) + **`LICENSE`** (VipSound Non-Commercial — file
+    "độc nhất" có giá trị, do owner quyết giữ/bỏ).
+  - "Windows build fix" của 0218c33 nằm trong 2 workflow file (bản cũ);
+    workflow 0251e MỚI HƠN (đã gồm các fix Windows build đời sau) ⇒ không
+    mất gì khi sync 0251e sang.
+  - Hệ quả: PR từ feature-branch → main không merge được (2 lineage không
+    còn tổ tiên chung); tag release từ main sẽ build bằng pipeline cũ
+    (APK split, không có signing-verify…).
+- **Luật áp dụng (GOVERNANCE 4b):** KHÔNG force-push/squash-rewrite main;
+  KHÔNG merge chéo lineage squash ⇒ chỉ **content-sync bằng commit thường**
+  (hoặc path-checkout).
+- **Thủ thuật đề xuất (Option A — owner chạy, agent session 0251e KHÔNG
+  push được main):**
+  ```bash
+  git fetch origin
+  git checkout main && git pull
+  git rm -rf .                                    # bỏ toàn bộ cây hiện tại (giữ .git)
+  git checkout origin/arena/01a0251e-in4up -- .  # trồng cây 0251e (stage sẵn)
+  # (tuỳ chọn) giữ LICENSE cũ:  git show 0218c33:LICENSE > LICENSE && git add LICENSE
+  git commit -m "chore(main): content-sync toàn bộ từ arena/01a0251e-in4up (GOVERNANCE 4b.2) — main thành bản kiểm toán hiện tại"
+  git push origin main
+  ```
+  → main giữ lịch sử (commit mới đè trên 0218c33), nội dung = 0251e, 0
+  conflict (không merge). Sau đó PR feature→main hoạt động lại bình thường.
+  **Trật tự đúng:** (1) owner áp patch CI-ANDROID-04 trên 0251e trước
+  (`git apply scripts/ci/android_universal_only_workflow.patch`…), (2) rồi
+  mới sync main ⇒ main nhận luôn workflow Universal-only.
+- **Option B (nếu owner không muốn động main):** main giữ nguyên làm
+  backup; mọi release tag từ 0251e; chấp nhận PR→main hỏng cho tới khi
+  quyết. (Không ảnh hưởng APK "chip phổ thông" nếu tag từ 0251e.)
+- **Ghi chú cho câu hỏi owner 2026-10-04 ("main có cần điều chỉnh không?"):**
+  - Nếu tag release từ **0251e** → việc APK universal đã đủ ở 0251e, main
+    KHÔNG cần chỉnh riêng cho việc này.
+  - main "cần chỉnh" ở tầm LỚN HƠN: nó không còn đại diện app hiện tại
+    (Option A ở trên).
+- **Lịch sử:**
+  - 2026-10-01 | phát hiện | agent arena/01a0f41f-in4up | PR #66 thấy main
+    đổi thành 0218c33 (ghi trong XLAT-DEEPLX-001)
+  - 2026-10-04 | audit đầy đủ | agent arena/01a0251e-in4up | diff 216 file,
+    phân loại 36 file chỉ-main (33 junk + LICENSE), xác nhận Windows fix
+    nằm trong workflow cũ; soạn thủ thuật content-sync; chờ owner quyết

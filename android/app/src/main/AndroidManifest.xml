@@ -15,6 +15,19 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- XLAT-SCR-002: Dịch màn hình TOÀN HỆ THỐNG (bong bóng + chụp màn hình).
+         - SYSTEM_ALERT_WINDOW: vẽ bong bóng + lớp bản dịch đè lên app khác
+           (user phải bật tay trong Settings, app chỉ mở được màn hình đó).
+         - FOREGROUND_SERVICE_MEDIA_PROJECTION: bắt buộc từ API 34 khi service
+           giữ MediaProjection; SPECIAL_USE cho giai đoạn chỉ có bong bóng
+           (chưa xin consent) — Android 14 chặn type mediaProjection khi chưa
+           có token projection.
+         - POST_NOTIFICATIONS: API 33+ cần để hiện notification điều khiển. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- BATTERY-OPT-001: Xin miễn tối ưu pin để app (STT/AI models, tải model,
          phát audio dài) không bị hệ thống giết khi chạy ngầm. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -74,6 +87,26 @@
                 <data android:mimeType="audio/*" />
             </intent-filter>
         </activity>
+
+        <!-- XLAT-SCR-002 — Dịch màn hình toàn hệ thống (ADR-0011).
+             Service giữ bong bóng + MediaProjection + engine Flutter nền;
+             activity trong suốt chỉ để xin consent chụp màn hình. -->
+        <service
+            android:name="com.in4up.screentranslate.ScreenTranslateService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating screen-translate bubble kept alive while the user browses other apps" />
+        </service>
+
+        <activity
+            android:name="com.in4up.screentranslate.ScreenCaptureRequestActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <meta-data
             android:name="flutterEmbedding"

@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import com.in4up.screentranslate.ScreenTranslatePlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -54,6 +55,12 @@ class MainActivity : FlutterActivity() {
     private val textChannelName = "in4up/textlib"
     private val dictionaryChannelName = "in4up/dictionary"
 
+    // XLAT-SCR-002 — channel điều khiển "Dịch màn hình toàn hệ thống".
+    // Service + capture + overlay nằm ở package screentranslate; activity này
+    // chỉ là nơi đăng ký channel (createScreenCaptureIntent cần Activity nên
+    // có activity trong suốt riêng — xem ScreenCaptureRequestActivity).
+    private var screenTranslatePlugin: ScreenTranslatePlugin? = null
+
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
 
@@ -68,6 +75,10 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        ScreenTranslatePlugin(this).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+            screenTranslatePlugin = it
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -541,6 +552,12 @@ class MainActivity : FlutterActivity() {
             } catch (_: Exception) {
             }
         }
+    }
+
+    override fun onDestroy() {
+        screenTranslatePlugin?.detach()
+        screenTranslatePlugin = null
+        super.onDestroy()
     }
 
     private fun scanMediaStore(): List<Map<String, Any?>> {

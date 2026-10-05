@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  XLAT-SCR-002 — chuỗi chrome của service "Dịch màn hình toàn hệ thống".
+
+  Quy tắc vàng #5 (AGENTS.md): bản MẶC ĐỊNH ở đây là TIẾNG ANH. Máy đặt
+  locale khác tiếng Việt sẽ thấy English, KHÔNG bao giờ rơi về tiếng Việt.
+  Bản tiếng Việt nằm ở res/values-vi/strings_screen_translate.xml.
+-->
+<resources>
+    <string name="screen_translate_title">Screen translator</string>
+    <string name="screen_translate_channel">Screen translator</string>
+    <string name="screen_translate_bubble_label">文A</string>
+    <string name="screen_translate_idle">Tap the bubble to translate this screen</string>
+    <string name="screen_translate_consent">Waiting for screen capture permission…</string>
+    <string name="screen_translate_working">Reading and translating the screen…</string>
+    <string name="screen_translate_done">Translation shown — tap the bubble to hide</string>
+    <string name="screen_translate_done_engine">Translated with %1$s — tap the bubble to hide</string>
+    <string name="screen_translate_error">Could not translate this screen</string>
+    <string name="screen_translate_stop">Turn off</string>
+</resources>

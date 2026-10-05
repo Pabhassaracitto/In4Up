@@ -443,13 +443,17 @@ class ScreenTranslateService : Service() {
                 val buffer = plane.buffer
                 val bytes = ByteArray(buffer.remaining())
                 buffer.get(bytes)
+                // Đọc rowStride NGAY: `image.close()` ở finally chạy TRƯỚC
+                // runnable dưới đây, chạm vào plane sau đó là dùng bộ nhớ đã
+                // trả (cùng bài học "dùng pixels sau dispose" của PDF export).
+                val rowStride = plane.rowStride
                 mainHandler.post {
                     teardownCapture()
                     sendFrameToDart(
                         bytes = bytes,
                         width = captureWidth,
                         height = captureHeight,
-                        rowStride = plane.rowStride,
+                        rowStride = rowStride,
                         screenWidth = screenWidth,
                         screenHeight = screenHeight,
                         density = metrics.density,
@@ -743,7 +747,10 @@ class ScreenTranslateService : Service() {
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(
-                    null,
+                    // null Icon: overload (Icon?, CharSequence, PendingIntent)
+                    // — ép kiểu tường minh để Kotlin không phân vân với
+                    // overload (int, CharSequence, PendingIntent) đã deprecated.
+                    null as android.graphics.drawable.Icon?,
                     getString(R.string.screen_translate_stop),
                     stopPending,
                 ).build(),

@@ -93,10 +93,10 @@
 | CABIN-SAVE-001 | Cabin Save: lưu ghi âm WAV + text song ngữ (LRC) + mở trong Tab Đọc (PLAN-030) | 🔨 doing (chờ CI + nghiệm thu máy) | bước 1+2+3 code 2026-09-25 (agent arena/01a0d363-in4up): tee PCM→WAV, journal+khôi phục, sheet Lưu/Lưu & mở Đọc/Chia sẻ/Bỏ, cài đặt (ghi âm, tự lưu, định dạng, text mặc định), màn Phiên đã lưu; test `test/cabin/`; nén audio = sắp có (R2) |
 | IMPORT-MODELS-001 | Import model Piper (TTS) + Zipformer VI (STT) không hiện/không nhận diện + gỡ xung đột PR #48 với 251e | ✅ done + CI xanh (chờ nghiệm thu thiết bị) | root cause 2 bug + merge 251e c8132733; run 36407848778 🟢 (analyze 0 error); chi tiết card dưới |
 
-| LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | 🔄 doing (chờ CI + nghiệm thu máy) | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình) |
+| LHB-005 | LHB: bấm icon lặp 1× của câu không mở menu — chọn cả dòng luôn | ✅ done + CI xanh (run 37356246667 trên tip d7a4696) — chờ owner build lại từ tip MỚI + nghiệm thu máy | chip per-line: HitTestBehavior.opaque + vùng chạm min 44×32 + menu neo context của CHIP (trước neo rect cả ListView → menu ra ngoài màn hình); fix `58e0318` (đã vào tip sau rebase) |
 | LHB-006 | Đồng bộ lưu trữ Thuộc Lòng đa thiết bị (như WordList): bài + tiến độ SRS + streak qua tài khoản | ✅ done + CI xanh (chờ nghiệm thu 2 thiết bị) | ADR-0006; `learn_by_heart_merge.dart` (thuần logic) + `learn_by_heart_sync_service.dart` (plugin/REST) + hàng đợi pending/bia mộ + badge & sheet ở hub; test `learn_by_heart_sync_test.dart`; oracle CI nay chạy thêm bước "LHB tests" (47 test) — run 35923191460 🟢 |
-| TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | 🔄 doing (chờ CI + nghiệm thu máy) | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native |
-| READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | 🔄 doing (chờ CI + nghiệm thu máy) | Focus mode: AnimatedSize gập chiều cao bottom bar về 0 (trả không gian cho vùng đọc); smart-hide khi cuộn giữ nguyên hành vi cũ |
+| TTS-PIPER-001 | LHB phát tới câu tiếng Việt sập app (Piper TTS) dù đã import vi_VN-25hours_single | ✅ done + CI xanh (run 37356246667 trên tip d7a4696) — chờ owner build lại từ tip MỚI + nghiệm thu máy | pre-flight TRƯỚC init native: kiểm tra espeak-ng-data (phontab) + file model nguyên vẹn (onnx ≥1MB, tokens ≥1KB); thiếu/hỏng → fallback giọng máy (không crash) + isAvailable() chuẩn xác + log init native; fix `d28a1e9` + `b6b2384` (đã vào tip sau rebase) |
+| READ-FOCUS-001 | Tab Đọc Focus: thanh đáy chỉ ẩn icon, vẫn chiếm không gian | ✅ done + CI xanh (run 37356246667 trên tip d7a4696) — chờ owner build lại từ tip MỚI + nghiệm thu máy | Focus mode: gập chiều cao bottom bar về 0 (CollapsibleBottomControls, KHÔNG còn AnimatedSize/Slide/Opacity/ClipRect — READ-TOOLBAR-001 v2); smart-hide khi cuộn giữ nguyên hành vi cũ; fix `6ba029a` (đã vào tip sau rebase) |
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 v2: READ-TOOLBAR-001 loại bỏ toàn bộ widget animation (bước 2 của card) do AT v1 icon ẩn nhưng vẫn còn khối đen; chờ nghiệm thu máy lần 2 |
 | HOME-QUICK-001 | Home: "Nạp tri thức nhanh" + icon ghi âm chưa hoạt động (stub) | ✅ done + CI xanh (chờ nghiệm thu máy) | flow STT thật dùng chung card + FAB (Sherpa offline trước, fallback STT hệ thống), transcript realtime → lưu WordList/ghi chú; "Gợi ý" rút entry THẬT ưu tiên thẻ đến kỳ; bỏ `_SttDialog` giả — run 35863346239 |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
@@ -2741,7 +2741,7 @@
     script đồng bộ + tắt SPM; chờ run CI xác nhận
 
 ### LHB-005 — Bấm icon lặp 1× của câu không mở menu (chọn cả dòng luôn)
-- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Trạng thái:** done + CI xanh (run 37356246667 trên tip `d7a4696`) — chờ owner build lại từ tip MỚI + nghiệm thu máy
 - **Triệu chứng (owner 2026-09-08):** "bấm vô 1x của từng câu để chỉnh thử
   thì không được. Nhấn vào biểu tượng lặp ở dòng thì nó chọn cả dòng chứ
   không phản ứng với icon lặp 1x."
@@ -2770,9 +2770,14 @@
 - **Lịch sử:**
   - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | fix chip
     (opaque + target lớn + menu neo chip context); chờ CI + nghiệm thu
+  - 2026-10-06 | doing→done(CI xanh) | agent arena/01a0251e-in4up | sau rebase
+    lên tip `d7a4696`, App Analyze + Locale Test CI XANH run 37356246667 — fix
+    `58e0318` đã nằm TRONG tip. Còn lại: owner build lại từ tip MỚI (KHÔNG phải
+    build cũ 1d58b78) + nghiệm thu máy. Nếu VẪN chọn cả dòng khi bấm chip trên
+    build MỚI → gửi repro chính xác + logcat để debug tiếp.
 
 ### TTS-PIPER-001 — LHB phát tới câu tiếng Việt SẬPP app (Piper TTS)
-- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Trạng thái:** done + CI xanh (run 37356246667 trên tip `d7a4696`) — chờ owner build lại từ tip MỚI + nghiệm thu máy
 - **Triệu chứng (owner 2026-09-08):** "tool học thuộc lòng khi nhấn phát
   âm thanh, sau khi phát pali xong tới phần tiếng Việt thì nó bị dish out
   app. Trong khi đã import vi_VN-25hours_single và en_US-lessac-medium rồi."
@@ -2809,9 +2814,16 @@
   - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | pre-flight
     espeak + model plausibility trước init native + isAvailable chuẩn +
     log; chờ CI + nghiệm thu (Pali + VI liên tiếp không sập)
+  - 2026-10-06 | doing→done(CI xanh) | agent arena/01a0251e-in4up | sau rebase
+    lên tip `d7a4696`, CI XANH run 37356246667 — fix `d28a1e9` + `b6b2384` đã
+    nằm TRONG tip. build cũ `1d58b78` của owner KHÔNG có đủ bộ vá này → sập.
+    Còn lại: owner build lại từ tip MỚI + nghiệm thu (Pali + VI liên tiếp không
+    sập). Nếu phát VI bằng GIỌNG MÁY = thiếu espeak-ng-data → Cài đặt → TTS/
+    Quản lý model → "Tải phonemizer"; nếu VẪN sập trên build MỚI = model hỏng
+    hoặc thiếu RAM → tải lại vi_VN-25hours_single + gửi logcat.
 
 ### READ-FOCUS-001 — Tab Đọc Focus: thanh đáy vẫn chiếm không gian
-- **Trạng thái:** doing (chờ CI + nghiệm thu máy)
+- **Trạng thái:** done + CI xanh (run 37356246667 trên tip `d7a4696`) — chờ owner build lại từ tip MỚI + nghiệm thu máy
 - **Triệu chứng (owner 2026-09-08):** "khi nhấn Focus thì vùng bên dưới
   bottom vẫn chưa ẩn, nó chỉ không hiện các icon chức năng chứ vẫn chiếm
   không gian."
@@ -2833,6 +2845,15 @@
 - **Lịch sử:**
   - 2026-09-08 | created→doing | agent arena/01a0251e-in4up | AnimatedSize
     gập đáy về 0 trong Focus mode; chờ CI + nghiệm thu
+  - 2026-09-15 | làm lại v2 (READ-TOOLBAR-001 v2) | agent | bỏ TOÀN BỘ widget
+    animation (AnimatedSize/Slide/Opacity/ClipRect) → `CollapsibleBottomControls`
+    build điều kiện `SizedBox(height: 0)` tức thì — hết "khối đen che chữ" trên
+    GPU Mali/Adreno; commit `6ba029a` + `311fbfd`
+  - 2026-10-06 | doing→done(CI xanh) | agent arena/01a0251e-in4up | sau rebase
+    lên tip `d7a4696`, CI XANH run 37356246667 — fix đã nằm TRONG tip. build cũ
+    `1d58b78` của owner thiếu vá này → thanh đáy vẫn chiếm không gian. Còn lại:
+    owner build lại từ tip MỚI + nghiệm thu (bấm Focus → đáy gập về 0, vùng đọc
+    mở rộng hết đáy).
 
 ### VIENEU-001 — VieNeu-TTS (PLAN-027)
 - **Trạng thái:** proposed

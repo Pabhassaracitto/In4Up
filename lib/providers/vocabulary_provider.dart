@@ -964,6 +964,16 @@ class VocabularyProvider extends ChangeNotifier {
     }
   }
 
+  /// Tra cứu theo id (LOTTIE-001: materializer cần đọc imageUrl hiện tại
+  /// trước khi thay URL bằng path local — tránh đè ảnh user vừa đổi tay).
+  WordEntry? findById(String id) {
+    try {
+      return _words.firstWhere((w) => w.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool hasWord(String word) => findByWord(word) != null;
 
   List<WordEntry> getDueForSkill(Skill skill) =>

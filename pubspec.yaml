@@ -123,6 +123,12 @@ dependencies:
   flutter_animate: ^4.5.2
   flutter_gen: ^5.9.0
   device_preview: ^1.2.0
+  # LOTTIE-001 — minh họa flashcard bằng Lottie (.json/.lottie siêu nhẹ
+  # 20-100KB, render thuần Dart/Skia → chạy cả Android/iOS/Windows/Linux/Web).
+  # PIN ^3.6.1: bản 3.6.x yêu cầu Dart ^3.11.0 + Flutter >=3.41.0 — khớp CI +
+  # máy chủ (Flutter 3.44.1, Dart 3.11.5). Deps dùng chung archive ^4 + http
+  # ^1 (đã có sẵn trong dự án) → không kéo thêm cây dependency mới.
+  lottie: ^3.6.1
 dependency_overrides:
   pdfium_flutter:
     path: third_party/pdfium_flutter

@@ -1,7 +1,7 @@
 {
   "commandCenter": "CENTRE DE COMMANDEMENT",
   "knowledgeOS": "OS de Connaissance",
-  "manageAIModels": "Gérer les modèles d''IA",
+  "manageAIModels": "Gérer les modèles d'IA",
   "loginFailed": "Échec de connexion : {error}",
   "@loginFailed": {
     "placeholders": {
@@ -21,7 +21,7 @@
   "wordList": "Liste de Mots",
   "wordListSubtitle": "Liste de vocabulaire",
   "timeline": "Chronologie",
-  "timelineSubtitle": "Chronologie d''apprentissage",
+  "timelineSubtitle": "Chronologie d'apprentissage",
   "wordListStats": "Statistiques des Mots",
   "wordListStatsSubtitle": "Statistiques détaillées",
   "webReader": "Lecteur Web",
@@ -33,7 +33,7 @@
   "youglish": "YouGlish",
   "youglishSubtitle": "Prononciation native",
   "overview": "Aperçu",
-  "overviewSubtitle": "Progrès d''apprentissage",
+  "overviewSubtitle": "Progrès d'apprentissage",
   "wordMap": "Carte des Mots",
   "wordMapSubtitle": "Connu → Petit · Inconnu → Grand",
   "triangle": "Triangle",
@@ -505,18 +505,18 @@
   "aiProviderSave": "Save",
   "aiProviderCancel": "Cancel",
   "aiProvidersPrivacy": "Audio and text are sent only to the provider you choose. A home server (LAN) keeps data inside your network.",
-  "ocrScanImage": "Numériser l''image",
-  "ocrSheetTitle": "Convertir l''image en texte",
+  "ocrScanImage": "Numériser l'image",
+  "ocrSheetTitle": "Convertir l'image en texte",
   "ocrSourceScanner": "Capturer et numériser le document",
   "ocrSourceScannerHint": "Bords, recadrage et amélioration automatiques · Android uniquement",
   "ocrSourceGallery": "Choisir une image existante",
-  "ocrSourceGalleryHint": "Photo d''une page de livre ou numérisation",
+  "ocrSourceGalleryHint": "Photo d'une page de livre ou numérisation",
   "ocrResultTitle": "Résultat de la numérisation",
   "ocrResultHint": "Vérifiez et modifiez avant de charger",
-  "ocrReopenImage": "Rescanner l''image",
+  "ocrReopenImage": "Rescanner l'image",
   "ocrRecognizing": "Reconnaissance du texte...",
-  "ocrEmptyResult": "Aucun texte trouvé dans l''image. Essayez une photo plus nette et mieux éclairée.",
-  "ocrLoadedFromImage": "Texte chargé depuis l''image",
+  "ocrEmptyResult": "Aucun texte trouvé dans l'image. Essayez une photo plus nette et mieux éclairée.",
+  "ocrLoadedFromImage": "Texte chargé depuis l'image",
   "ocrScanPageText": "Numériser le texte de cette page",
-  "ocrUnsupported": "L''OCR ne fonctionne que sur Android/iOS"
+  "ocrUnsupported": "L'OCR ne fonctionne que sur Android/iOS"
 }

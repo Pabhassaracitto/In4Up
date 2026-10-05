@@ -1,7 +1,10 @@
 import 'package:sqflite/sqflite.dart';
 import '../models/dict_entry.dart';
 
-/// SQLite CRUD cho dictionary entries
+/// SQLite CRUD cho dictionary entries (DICT-001).
+///
+/// Import dùng WAL + transaction batch: từ điển lớn (vài trăm nghìn entry)
+/// ghi nhanh hơn nhiều so với insert từng dòng.
 class DictDbService {
   static Future<String> createDb(String dbPath) async {
     final db = await openDatabase(
@@ -27,6 +30,10 @@ class DictDbService {
         );
       },
     );
+    // WAL: import nhiều batch không block reader và giảm fsync.
+    // (Ngoài onCreate — sqflite chạy onCreate trong transaction; và dùng
+    // rawQuery vì PRAGMA journal_mode trả về dòng kết quả.)
+    await db.rawQuery('PRAGMA journal_mode=WAL');
     await db.close();
     return dbPath;
   }
@@ -35,28 +42,33 @@ class DictDbService {
     String dbPath,
     List<Map<String, dynamic>> entries,
   ) async {
+    if (entries.isEmpty) return 0;
     final db = await openDatabase(dbPath);
-    int count = 0;
-    await db.transaction((txn) async {
+    try {
+      final batch = db.batch();
       for (final entry in entries) {
-        await txn.insert('dict_entries', entry);
-        count++;
+        batch.insert('dict_entries', entry);
       }
-    });
-    await db.close();
-    return count;
+      await batch.commit(noResult: true);
+    } finally {
+      await db.close();
+    }
+    return entries.length;
   }
 
   static Future<List<DictEntry>> lookup(String dbPath, String word) async {
     final db = await openDatabase(dbPath, readOnly: true);
-    final maps = await db.query(
-      'dict_entries',
-      where: 'headword = ? COLLATE NOCASE',
-      whereArgs: [word],
-      limit: 10,
-    );
-    await db.close();
-    return maps.map((m) => DictEntry.fromMap(m)).toList();
+    try {
+      final maps = await db.query(
+        'dict_entries',
+        where: 'headword = ? COLLATE NOCASE',
+        whereArgs: [word],
+        limit: 10,
+      );
+      return maps.map((m) => DictEntry.fromMap(m)).toList();
+    } finally {
+      await db.close();
+    }
   }
 
   static Future<List<DictEntry>> lookupPrefix(
@@ -65,14 +77,17 @@ class DictDbService {
     int limit = 10,
   }) async {
     final db = await openDatabase(dbPath, readOnly: true);
-    final maps = await db.query(
-      'dict_entries',
-      where: 'headword LIKE ? COLLATE NOCASE',
-      whereArgs: ['$prefix%'],
-      limit: limit,
-    );
-    await db.close();
-    return maps.map((m) => DictEntry.fromMap(m)).toList();
+    try {
+      final maps = await db.query(
+        'dict_entries',
+        where: 'headword LIKE ? COLLATE NOCASE',
+        whereArgs: ['$prefix%'],
+        limit: limit,
+      );
+      return maps.map((m) => DictEntry.fromMap(m)).toList();
+    } finally {
+      await db.close();
+    }
   }
 
   static Future<void> deleteDb(String dbPath) async {

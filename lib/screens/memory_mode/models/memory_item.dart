@@ -10,6 +10,11 @@ class MemoryItem {
   final String? phonetic;
   final String? example;
   final String? context;
+
+  /// LOTTIE-001 — minh họa (ảnh tĩnh hoặc Lottie .json): relative path local
+  /// hoặc URL http(s). Render qua VocabularyMediaWidget ở mặt sau flashcard.
+  final String? imageUrl;
+
   final String? audioPath;
   final Duration? audioStart;
   final Duration? audioEnd;
@@ -38,6 +43,7 @@ class MemoryItem {
     this.phonetic,
     this.example,
     this.context,
+    this.imageUrl,
     this.audioPath,
     this.audioStart,
     this.audioEnd,
@@ -220,6 +226,7 @@ class MemoryItem {
       'phonetic': phonetic,
       'example': example,
       'context': context,
+      'imageUrl': imageUrl,
       'audioPath': audioPath,
       'audioStart': audioStart?.inMilliseconds,
       'audioEnd': audioEnd?.inMilliseconds,
@@ -247,6 +254,8 @@ class MemoryItem {
       phonetic: json['phonetic'] as String?,
       example: json['example'] as String?,
       context: json['context'] as String?,
+      // Additive — item cũ không có key này vẫn parse bình thường.
+      imageUrl: json['imageUrl'] as String?,
       audioPath: json['audioPath'] as String?,
       audioStart: json['audioStart'] != null
           ? Duration(milliseconds: json['audioStart'] as int)
@@ -289,6 +298,8 @@ class MemoryItem {
     double? easeFactor,
     DateTime? lastReviewedAt,
     DateTime? nextReviewAt,
+    String? imageUrl,
+    bool clearImageUrl = false,
   }) {
     return MemoryItem(
       id: id,
@@ -297,6 +308,7 @@ class MemoryItem {
       phonetic: phonetic,
       example: example,
       context: context,
+      imageUrl: clearImageUrl ? null : (imageUrl ?? this.imageUrl),
       audioPath: audioPath,
       audioStart: audioStart,
       audioEnd: audioEnd,
@@ -315,6 +327,10 @@ class MemoryItem {
       tags: tags,
     );
   }
+
+  /// LOTTIE-001 — đổi/bỏ minh họa của thẻ (null = bỏ hẳn).
+  MemoryItem withImageUrl(String? url) =>
+      _copyWith(imageUrl: url, clearImageUrl: url == null || url.trim().isEmpty);
 
   @override
   bool operator ==(Object other) =>

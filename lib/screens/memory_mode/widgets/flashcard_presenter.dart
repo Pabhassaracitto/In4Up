@@ -4,6 +4,9 @@ import 'dart:math';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../features/vocab_image/vocab_image_picker_sheet.dart';
+import '../../../features/vocab_image/vocabulary_media_widget.dart';
+import '../../../providers/vocabulary_provider.dart';
 import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
@@ -693,8 +696,58 @@ class _BackFace extends StatelessWidget {
   final MemoryItem item;
   const _BackFace({required this.item});
 
+  /// LOTTIE-001 — minh họa hiệu dụng: ưu tiên ảnh riêng của thẻ MemoryItem;
+  /// thẻ chưa có thì dùng chung ảnh của WordEntry cùng từ trong WordList
+  /// (cùng app storage → file local dùng chung được, vẫn offline).
+  String? _mediaUrl(BuildContext context) {
+    final own = (item.imageUrl ?? '').trim();
+    if (own.isNotEmpty) return own;
+    final provider = context.watch<VocabularyProvider>();
+    final shared = provider.findByWord(item.word)?.imageUrl?.trim() ?? '';
+    return shared.isEmpty ? null : shared;
+  }
+
+  /// URL http vừa được widget tải về app storage → ghi path local mới vào
+  /// mọi kho đang trỏ URL đó (MemoryItem + WordEntry cùng từ nếu có).
+  void _applyMaterializedPath(BuildContext context, String localPath) {
+    if ((item.imageUrl ?? '').startsWith('http')) {
+      context.read<MemoryController>().updateImageUrl(item.id, localPath);
+    }
+    final provider = context.read<VocabularyProvider>();
+    final entry = provider.findByWord(item.word);
+    if (entry != null && (entry.imageUrl ?? '').startsWith('http')) {
+      provider.updateImageUrl(entry.id, localPath);
+    }
+  }
+
+  /// "Đổi minh họa" — mở picker (ảnh mạng/máy/dán URL Lottie) rồi áp kết
+  /// quả cho cả thẻ MemoryItem lẫn WordEntry cùng từ (nếu có) để hai hệ
+  /// flashcard dùng chung một minh họa. Kết quả removed → bỏ ảnh ở cả hai.
+  Future<void> _changeIllustration(BuildContext context) async {
+    final vocab = context.read<VocabularyProvider>();
+    final controller = context.read<MemoryController>();
+    final entry = vocab.findByWord(item.word);
+    final result = await VocabImagePickerSheet.show(
+      context,
+      word: item.word,
+      meaning: item.meaning ?? entry?.meaning,
+      hasExistingImage: _mediaUrl(context) != null,
+    );
+    if (result == null || !context.mounted) return;
+    if (result.removed) {
+      controller.updateImageUrl(item.id, null);
+      if (entry != null) vocab.updateImageUrl(entry.id, null);
+      return;
+    }
+    final path = result.imagePath;
+    if (path == null || path.isEmpty) return;
+    controller.updateImageUrl(item.id, path);
+    if (entry != null) vocab.updateImageUrl(entry.id, path);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final mediaUrl = _mediaUrl(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -718,6 +771,18 @@ class _BackFace extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+          // LOTTIE-001 — minh họa (ẢNH hoặc LOTTIE) ở MẶT SAU: không lộ
+          // đáp án trước khi lật. repeat=true vì user tự nhịp đọc lâu >1s.
+          if (mediaUrl != null) ...[
+            VocabularyMediaWidget(
+              imageUrl: mediaUrl,
+              height: 120,
+              animate: true,
+              repeat: true,
+              onMaterialized: (path) => _applyMaterializedPath(context, path),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (item.meaning != null)
             Container(
               padding: const EdgeInsets.all(16),
@@ -781,6 +846,28 @@ class _BackFace extends StatelessWidget {
                 color: Colors.grey,
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          // LOTTIE-001 — đổi/thêm/bỏ minh họa ngay trên thẻ (picker dùng
+          // chung với WordList: ảnh mạng, ảnh máy, dán URL Lottie/ảnh).
+          TextButton.icon(
+            onPressed: () => _changeIllustration(context),
+            icon: Icon(
+              mediaUrl == null
+                  ? Icons.add_photo_alternate_outlined
+                  : Icons.image_outlined,
+              size: 15,
+            ),
+            label: Text(
+              context.uiText(
+                mediaUrl == null ? 'Thêm minh họa' : 'Đổi minh họa',
+              ),
+              style: const TextStyle(fontSize: 12),
+            ),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: Colors.grey[400],
+            ),
           ),
         ],
       ),

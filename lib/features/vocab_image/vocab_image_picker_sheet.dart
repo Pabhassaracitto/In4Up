@@ -13,16 +13,23 @@
 
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
+
 import '../../core/language/localized_material.dart';
 import '../background_removal/background_removal.dart';
 
 import 'vocab_image_api_config.dart';
 import 'vocab_image_service.dart';
 import 'vocab_image_web_service.dart';
+import 'vocab_media_type.dart';
 
 /// Nguồn ảnh trong sheet. Device flow hỗ trợ camera, gallery và preview
 /// tách nền ML Kit trước khi lưu.
-enum VocabImageSourceKind { web, device }
+///
+/// LOTTIE-001 — thêm nhánh `pasteUrl`: dán liên kết ảnh tĩnh (.png/.webp…)
+/// HOẶC animation Lottie (.json/.lottie); file vẫn được tải về app storage
+/// để học offline (giống 2 nguồn còn lại).
+enum VocabImageSourceKind { web, device, pasteUrl }
 
 /// Kết quả trả về cho caller ([VocabImagePicker] / word list / word actions).
 class VocabImagePickResult {
@@ -117,6 +124,10 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   VocabImageSourceKind _source = VocabImageSourceKind.web;
   int _busyIndex = -1;
 
+  /// LOTTIE-001 — ô dán URL (ảnh hoặc Lottie .json).
+  final TextEditingController _urlCtrl = TextEditingController();
+  String? _urlError;
+
   @override
   void initState() {
     super.initState();
@@ -135,6 +146,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   void dispose() {
     _query.dispose();
     _scroll.dispose();
+    _urlCtrl.dispose();
     _web.dispose();
     super.dispose();
   }
@@ -241,6 +253,30 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
       _showCutout = false;
       _backgroundRemovalMessage = null;
     });
+  }
+
+  /// LOTTIE-001 — tải media từ URL dán (ảnh tĩnh hoặc Lottie .json) về
+  /// app storage rồi trả kết quả như mọi nguồn khác → offline được ngay.
+  Future<void> _downloadPastedUrl() async {
+    final url = _urlCtrl.text.trim();
+    if (!isNetworkMediaUrl(url)) {
+      setState(() => _urlError = context.uiText(
+          'Liên kết chưa hợp lệ — cần bắt đầu bằng http:// hoặc https://'));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _urlError = null;
+    });
+    final path = await VocabImageService.instance.saveFromUrl(url);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (path == null || path.isEmpty) {
+      setState(() => _urlError = context.uiText(
+          'Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).'));
+      return;
+    }
+    Navigator.of(context).pop(VocabImagePickResult(imagePath: path));
   }
 
   void _remove() =>
@@ -361,6 +397,13 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                   icon: const Icon(Icons.smartphone, size: 15),
                   label: Text(context.uiText('Trong máy')),
                 ),
+                // LOTTIE-001 — dán liên kết Lottie/ảnh (WordUp-style:
+                // user tự mang animation từ LottieFiles về).
+                ButtonSegment(
+                  value: VocabImageSourceKind.pasteUrl,
+                  icon: const Icon(Icons.link, size: 15),
+                  label: Text(context.uiText('Dán URL')),
+                ),
               ],
               selected: {_source},
               onSelectionChanged: (s) => setState(() => _source = s.first),
@@ -369,9 +412,11 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
           const SizedBox(height: 8),
 
           Flexible(
-            child: _source == VocabImageSourceKind.web
-                ? _buildWeb(columns)
-                : _buildDevice(),
+            child: switch (_source) {
+              VocabImageSourceKind.web => _buildWeb(columns),
+              VocabImageSourceKind.device => _buildDevice(),
+              VocabImageSourceKind.pasteUrl => _buildUrlPaste(),
+            },
           ),
 
           // ── Footer: bỏ ảnh đang có ──────────────────────────────────────
@@ -640,6 +685,74 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     );
   }
 
+  // ─────────────────────────────────────────────────────── DÁN URL ────────
+  /// LOTTIE-001 — nhánh "Dán URL": nhận link ảnh tĩnh hoặc animation
+  /// Lottie, tải về máy (offline-first) rồi trả kết quả như nguồn web/device.
+  Widget _buildUrlPaste() {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Icon(Icons.animation_outlined, size: 30, color: scheme.primary),
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(
+                  'Dán liên kết ảnh (.png/.jpg/.webp) hoặc animation Lottie (.json). File sẽ được tải về máy để học offline.'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: scheme.onSurfaceVariant, fontSize: 11.5, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _urlCtrl,
+              autocorrect: false,
+              enableSuggestions: false,
+              keyboardType: TextInputType.url,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'https://lottie.host/…/minh-hoa.json',
+                prefixIcon: const Icon(Icons.link, size: 16),
+                suffixIcon: IconButton(
+                  tooltip: context.uiText('Dán từ clipboard'),
+                  icon: const Icon(Icons.content_paste, size: 16),
+                  onPressed: () async {
+                    final data =
+                        await Clipboard.getData(Clipboard.kTextPlain);
+                    final text = data?.text?.trim() ?? '';
+                    if (text.isNotEmpty) {
+                      _urlCtrl.text = text;
+                      setState(() => _urlError = null);
+                    }
+                  },
+                ),
+              ),
+              onSubmitted: _busy ? null : (_) => _downloadPastedUrl(),
+            ),
+            if (_urlError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _urlError!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: scheme.error, fontSize: 11),
+              ),
+            ],
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _busy ? null : _downloadPastedUrl,
+              icon: const Icon(Icons.download_outlined, size: 18),
+              label: Text(context.uiText('Tải về & lưu')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ───────────────────────────────────────────────────────────── MÁY ──────
   Widget _buildDevice() {
     final scheme = Theme.of(context).colorScheme;
@@ -808,6 +921,10 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
   /// IMG-WEB-001 — "tự gán ảnh đầu tiên" (mặc định tắt: tự tìm + chạm chọn).
   bool _auto = false;
 
+  /// LOTTIE-001 — "chỉ tải ảnh/animation khi xem" (mặc định tắt: tải về
+  /// máy ngay sau import để học offline).
+  bool _lazy = false;
+
   @override
   void initState() {
     super.initState();
@@ -817,6 +934,7 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
         _provider = cfg.provider;
         _key.text = cfg.keyFor(cfg.provider) ?? '';
         _auto = cfg.autoAssignFirst;
+        _lazy = cfg.lazyDownload;
         _loading = false;
       });
     });
@@ -836,6 +954,7 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
     await config.saveProvider(_provider);
     await config.saveKey(_provider, value);
     await config.saveAutoAssign(_auto);
+    await config.saveLazyDownload(_lazy);
     if (!mounted) return;
     Navigator.of(context).pop(true);
   }
@@ -929,6 +1048,20 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
               subtitle: Text(
                 context.uiText(
                     'Mặc định: tự tìm rồi bạn chạm chọn. Bật để thêm từ là gán luôn ảnh đầu tiên tìm được, không mở sheet.'),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+              ),
+            ),
+            // LOTTIE-001 — chiến lược tải media khi import CSV.
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _lazy,
+              onChanged: (v) => setState(() => _lazy = v),
+              title: Text(
+                  context.uiText('Chỉ tải ảnh/animation khi xem'),
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Text(
+                context.uiText(
+                    'Tắt (mặc định): import CSV có link ảnh/Lottie thì tải về máy ngay — học offline trọn vẹn. Bật: giữ link, tự tải và lưu ở lần xem đầu tiên (tiết kiệm dữ liệu, nhưng từ chưa xem sẽ không có minh họa khi offline).'),
                 style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
               ),
             ),

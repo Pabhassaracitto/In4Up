@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:in4up_core/heavy_task_monitor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../chat/chat_context_policy.dart';
@@ -358,7 +359,12 @@ class AiServiceFacade extends ChangeNotifier {
         _lastError = null;
         if (!_disposed) notifyListeners();
         try {
-          await _processChat(item);
+          // QA-PERF-001: ghi nhận khoảng thời gian engine AI local (hoặc
+          // remote — tuỳ route) thật sự bận, để HeavyTaskMonitor phát hiện
+          // khi tác vụ nặng KHÁC (Hy-MT dịch offline, Whisper on-device)
+          // đang chạy chồng — chỉ quan sát, không chặn/đổi hành vi chat.
+          await HeavyTaskMonitor.instance
+              .track(HeavyTaskKind.aiChatLocal, () => _processChat(item));
         } catch (e) {
           debugPrint('[AiServiceFacade] chat worker error: $e');
           _addAssistantMessage('Có lỗi khi xử lý. Vui lòng thử lại.', isError: true);

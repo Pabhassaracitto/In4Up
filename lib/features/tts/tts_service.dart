@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
+import 'engines/edge_tts_engine.dart';
 import 'engines/fpt_tts_engine.dart';
 import 'engines/openai_compat_tts_engine.dart';
 import 'engines/tts_engine.dart';
@@ -147,25 +148,38 @@ class TtsService extends ChangeNotifier {
         isOnline: false,
         priority: 1,
       ),
+      // TTS-EDGE-001 — Microsoft Edge Read Aloud (giao thức edge-tts):
+      // giọng Neural cực tự nhiên, KHÔNG cần API key, miễn phí ⇒ làm
+      // engine ONLINE ĐẦU TIÊN của cài đặt mới. User cũ (đã có saved
+      // order) không bị xáo trộn: merge `_loadPersistedSettings` append
+      // engine mới xuống CUỐI (kéo lên bằng UI sẵn có). Mạng chập chờn/
+      // timeout ⇒ chuỗi `_getCandidateEngines` + emergency Offline lo
+      // fallback (không nghẽn app).
+      const TtsEngineInfo(
+        id: 'edge_tts',
+        name: 'Microsoft Edge TTS',
+        description: 'Neural siêu tự nhiên, miễn phí, không cần key',
+        priority: 2,
+      ),
       const TtsEngineInfo(
         id: 'google_tts',
         name: 'Google TTS',
         description: 'Miễn phí, khá tự nhiên',
-        priority: 2,
+        priority: 3,
       ),
       const TtsEngineInfo(
         id: 'zalo_tts',
         name: 'Zalo AI',
         description: 'Tiếng Việt cực tự nhiên',
         needsApiKey: true,
-        priority: 3,
+        priority: 4,
       ),
       const TtsEngineInfo(
         id: 'fpt_tts',
         name: 'FPT.AI',
         description: 'Tiếng Việt tự nhiên, nhiều giọng',
         needsApiKey: true,
-        priority: 4,
+        priority: 5,
       ),
       // WP4 (API-005) — engine TTS qua tầng Server API (OpenAI tts-1,
       // Kokoro local/LAN…). Nằm SAU offline/Zalo/FPT ⇒ thứ tự mặc định của
@@ -177,7 +191,7 @@ class TtsService extends ChangeNotifier {
         id: 'openai_compat_tts',
         name: 'Server TTS (API)',
         description: 'OpenAI tts-1 / Kokoro — cấu hình ở Server & API',
-        priority: 5,
+        priority: 6,
       ),
     ];
   }
@@ -414,6 +428,13 @@ class TtsService extends ChangeNotifier {
 
         case 'offline_tts':
           played = await _trySpeakOffline(text, lang);
+          break;
+
+        case 'edge_tts':
+          // TTS-EDGE-001 — không cần key, mọi ngôn ngữ: thử trực tiếp;
+          // `_trySpeakOnline` tự check mạng + timeout 15s → false ⇒ chuỗi
+          // chạy tiếp engine kế (fallback mượt, không nghẽn app).
+          played = await _trySpeakOnline(EdgeTtsEngine(), text, lang);
           break;
 
         case 'google_tts':
@@ -675,6 +696,9 @@ class TtsService extends ChangeNotifier {
 
     for (final info in sorted) {
       switch (info.id) {
+        case 'edge_tts':
+          engines.add(EdgeTtsEngine());
+          break;
         case 'google_tts':
           engines.add(GoogleTtsEngine());
           break;

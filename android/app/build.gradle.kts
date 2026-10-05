@@ -93,6 +93,15 @@ android {
     // (không cần bước cài thêm trong workflow)
     ndkVersion = "28.2.13676358"
 
+    // CHỈ build native cho chip PHỔ THÔNG arm64-v8a (đại đa số Android hiện nay).
+    // → APK nhỏ hơn ĐÁNG KỂ so với universal 3-ABI (212 MB) và build nhanh hơn
+    //   (llama.cpp/sherpa/whisper chỉ compile 1 ABI thay vì 3).
+    // Bỏ armv7 (legacy 32-bit, điện thoại cũ) + x86_64 (chủ yếu emulator).
+    // Ảnh hưởng MỌI build (local + CI) — nếu muốn CI-only, bọc vào `if (in4upCiBuild)`.
+    ndk {
+        abiFilters += "arm64-v8a"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -124,6 +133,12 @@ android {
 
     flavorDimensions.add("default")
 
+    // ⚠️ BẮT BUỘC build RELEASE bằng `--flavor stable`:
+    //      flutter build apk --release --flavor stable ...
+    // Build KHÔNG --flavor → APK CRASH khi nhấn ĐĂNG NHẬP (Firebase Auth /
+    // google-services không khớp applicationId của bản không-flavor).
+    // stable = applicationId com.in4up (khớp client google-services).
+    // dev/beta chỉ dùng nội bộ (applicationId com.in4up.dev/.beta).
     productFlavors {
         create("stable") {
             dimension = "default"

@@ -163,6 +163,7 @@ class MemoryController extends ChangeNotifier {
     String? phonetic,
     String? example,
     String? context,
+    String? imageUrl,
     String? audioPath,
     Duration? audioStart,
     Duration? audioEnd,
@@ -188,6 +189,7 @@ class MemoryController extends ChangeNotifier {
       phonetic: phonetic?.trim(),
       example: example?.trim(),
       context: context?.trim(),
+      imageUrl: imageUrl?.trim(),
       audioPath: audioPath,
       audioStart: audioStart,
       audioEnd: audioEnd,
@@ -227,6 +229,7 @@ class MemoryController extends ChangeNotifier {
         phonetic: w['phonetic'] as String?,
         example: w['example'] as String?,
         context: w['context'] as String?,
+        imageUrl: w['imageUrl'] as String?,
         wordType: w['wordType'] as String?,
         cefrLevel: w['cefrLevel'] as String?,
         sourceFile: w['sourceFile'] as String?,
@@ -239,6 +242,27 @@ class MemoryController extends ChangeNotifier {
 
   void removeItem(String id) {
     _allItems.removeWhere((i) => i.id == id);
+    _persist();
+    notifyListeners();
+  }
+
+  /// LOTTIE-001 — ghi đè/bỏ minh họa (ảnh hoặc Lottie) của một thẻ.
+  /// Cập nhật cả phần tử trong reviewQueue đang mở (nếu có) để flashcard
+  /// hiển thị mới ngay, không cần thoát phiên ôn tập.
+  void updateImageUrl(String id, String? imageUrl) {
+    var changed = false;
+    final idx = _allItems.indexWhere((i) => i.id == id);
+    if (idx >= 0) {
+      _allItems[idx] = _allItems[idx].withImageUrl(imageUrl);
+      changed = true;
+    }
+    for (var i = 0; i < _reviewQueue.length; i++) {
+      if (_reviewQueue[i].id == id) {
+        _reviewQueue[i] = _reviewQueue[i].withImageUrl(imageUrl);
+        changed = true;
+      }
+    }
+    if (!changed) return;
     _persist();
     notifyListeners();
   }

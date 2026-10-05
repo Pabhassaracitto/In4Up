@@ -13,6 +13,7 @@
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
+| TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -116,7 +117,7 @@
 | OCR-001 | ML Kit Text Recognition v2 (OCR) + Document Scanner làm nguồn văn bản thứ 4 — ảnh trang sách / sách scan / PDF image-only → text (ADR-0009, PLAN-033) | 🔨 doing (code+CI 🟢, chờ nghiệm thu thiết bị Android/iOS) | run 36349047556 (`86d1626` = merge tip 251e `b90ba3e`, arena/01a09c9a-in4up) 🟢; trước đó run 36348760217 (`f133932`): analyze 0 error, 0 issue nhắc tới OCR |
 | I4U18-BATCH | I4U L18 Problem: chuẩn hoá 15 phản hồi nghiệm thu thành các lane nhỏ, tránh xung đột và không để CI đỏ | 📋 proposed | `docs/project/I4U_L18_PROBLEM_BRIEF.md` + `PROMPT_AGENT_I4U_L18.md`; tham chiếu nhánh `arena/01a06931-in4up` cho Tipiṭaka/PDF/Home khi cần |
 | I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 🔄 doing (code xong, chờ CI/thiết bị) | agent arena/01a0f3d9-in4up — chat prompt trả lời trực tiếp, dừng remote không fallback local, parser local/remote chịu fence/JSON cắt; test bổ sung (sandbox thiếu Flutter SDK) |
-| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (code xong, CI run 36898178031 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
+| I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (WP2 parser+import xong, CI run 37175921579 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
 | I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | SAF recursive scan + filter/sort/search + recent/favorite + subtitle pairing + reopen; CI run 36771997803 |
 | I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | ✅ done (code + CI 🟢; chờ nghiệm thu UX/TTS thiết bị) | run 36771566072: analyze 0 error + Rule 5 + Tipiṭaka import/source-link/workspace-retention + Agent F/LHB/Cabin/ASR tests xanh |
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
@@ -4454,7 +4455,9 @@
   - 2026-09-30 | 19:47 UTC | proposed→doing | agent arena/01a0f3d9-in4up | code parser/prompt/cancel + test bổ sung; `git diff --check` sạch; chưa chạy Flutter test do sandbox thiếu `flutter`/`dart`.
 
 ### I4U18-DICT-001 — Từ điển: import/link thư mục MDX/MDD/CSS và dùng ngay
-- **Trạng thái:** 🔄 doing — code + unit test + CI run 36898178031 xanh; chờ PR merge + nghiệm thu thiết bị.
+- **Trạng thái:** 🔄 doing — WP2 (MDX parser + import + tra cứu SQLite) hoàn
+  tất kèm 59 test, CI run 37175921579 xanh trên `arena/01a104cf-in4up`; chờ
+  rebase/merge PR + nghiệm thu thiết bị.
 - **Nguồn:** owner (2026-09-30), mục 2 của I4U L18.
 - **Vấn đề đã chuẩn hoá:** từ điển vẫn chưa import được ổn định. Bộ từ điển thực
   tế thường gồm nhiều file liên quan như `.mdx`, `.mdd`, `.css`/asset kèm theo;
@@ -4484,6 +4487,17 @@
     36897541200, đã sửa). CI run **36898178031 SUCCESS** toàn bộ job, gồm
     bước "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test
     thuần). Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
+  - 2026-10-04 | doing (tiếp tục — WP2 handoff DICT-001) | agent
+    arena/01a104cf-in4up | MDX parser thuần Dart đúng đặc tả 1.2/2.0
+    (UTF-8/UTF-16, zlib, multi-block, key index nén v1.2 fallback, lỗi rõ
+    cho encrypted/GBK/LZO/engine 3.0) chạy trong isolate + progress;
+    DictDbService SQLite WAL; DictionaryService import/link + manifest
+    persisted; 59 test (MdxTestBuilder tổng hợp file MDX nhị phân theo
+    readmdict.py + parser 15 + db 6 + import 7 + widget 3 + scanner 28);
+    CI xanh run 37175921579 (kèm nâng cấp bước scanner: -r expanded +
+    annotation tên test fail vì log blob không tải được qua API). 3 commit
+    chính trên branch `arena/01a104cf-in4up` (lane riêng với PR #67 —
+    cùng task I4U18-DICT-001, owner gộp khi rebase/merge).
 
 ### I4U18-VIDEO-LIB-001 — Tab Video: quét thư mục và thư viện phát file trực quan
 - **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.
@@ -4930,3 +4944,68 @@
     bị reject (main đã có e524214). Local owner có 1 commit rác trên 0251e.
     Đã gửi owner 2 bước: (1) fix 0251e (apply CI-ANDROID-04 + reset rác),
     (2) content-sync 0251e→main ĐÚNG nhánh.
+
+### TTS-EDGE-001 — Microsoft Edge Read Aloud TTS (edge-tts) vào chuỗi engine TtsService
+- **Trạng thái:** ✅ done (code + 30 test thuần; chờ nghiệm thu thiết bị thật)
+- **Nguồn:** owner (2026-10-04) — "I4U | TTS Microsoft Ege": bổ sung
+  EdgeTtsEngine (giọng Neural miễn phí, không API key) vào hệ sinh thái
+  TTS hiện có, ưu tiên online cho vi-VN/en-US, fallback mượt khi mất mạng.
+- **Nội dung:**
+  - `lib/features/tts/engines/edge_tts_engine.dart` (mới, theo mẫu
+    zalo/openai engine): port giao thức edge-tts **7.2.8** (bản upstream
+    mới nhất, đã đối chiếu source `constants.py`/`drm.py`/`communicate.py`):
+    WebSocket `wss://speech.platform.bing.com/consumer/speech/synthesize/
+    readaloud/edge/v1` + `TrustedClientToken` + `ConnectionId` + DRM mềm
+    `Sec-MS-GEC` (sha256-UPPER(ticks+token), ticks làm tròn 300s ×10^7) +
+    `Sec-MS-GEC-Version=1-143.0.3650.75`; header extension (Origin
+    chrome-extension://…, Cookie muid, UA Edg/143). Frame speech.config
+    (audio-24khz-48kbitrate-mono-mp3) → Path:ssml → nhận binary
+    `Path:audio` (header BE-2byte) tới `turn.end`. Chia text: câu → dấu
+    phẩy → cắt cứng, rồi cắt byte-an-toàn ≤4096B (không tách UTF-8, không
+    tách XML entity) — y upstream. Trần tham chiếu `maxCharsPerRequest`
+    10000. KHÔNG lưu key / KHÔNG SharedPreferences.
+  - Giọng: catalog trưng 21 giọng — vi-VN-HoaiMyNeural/NamMinhNeural đứng
+    đầu (theo yêu cầu) + en-US Aria/Guy/Emma, ja, ko, zh-CN/TW, th, fr,
+    de, es, ru, pt-BR, id, hi; `getAvailableVoices` thử live-list từ
+    endpoint (mới nhất khi Microsoft đổi), rớt → catalog trưng.
+    `resolveVoice` chỉ nhận voiceId đúng dạng Edge (`xx-YY-*Neural`) —
+    chặn nuốt nhầm `_selectedVoiceId` chung (Piper `vi_VN-…`, Zalo `1`,
+    FPT `banmai`, OpenAI `alloy`).
+  - `lib/features/tts/tts_service.dart`: đăng ký `edge_tts` priority 2 —
+    **online đầu tiên cho cài đặt MỚI** (sau piper/offline); user cũ nhận
+    engine append CUỐI qua merge saved json (thứ tự của họ không đổi —
+    y luật WP4). Cắm switch `speak()` + `_getOnlineEngines` ⇒ tự có trong
+    UI engine-order, engine-status, prefetch, `checkEngineStatus`.
+    Fallback dùng sẵn hạ tầng: `_trySpeakOnline` check mạng trước +
+    timeout 15s → engine kế → emergency Offline (Máy); cache MP3 reuse
+    `TtsCache` (bytes → file temp → just_audio).
+  - UI: không cần sửa — `TtsSettingsSection` render động từ `engineOrder`
+    (kéo-thả + switch bật/tắt).
+- **Test:** `test/edge_tts_engine_test.dart` — known-vector Sec-MS-GEC
+  sinh bằng edge-tts Python 7.2.8 (ts cố định), khung message/SSML/escape,
+  chia text (ranh câu, ≤4096B, entity/emoji/CJK an toàn), parse frame,
+  chọn giọng, isAvailable/getAvailableVoices qua http.Client giả, và
+  source-scan pin đăng ký TtsService. Cập nhật pin thứ tự mặc định trong
+  `test/tts_api_wp4_test.dart` (chèn edge_tts trước google_tts, kèm
+  comment rõ user cũ không bị xáo trộn).
+- **Hạn chế đã biết:** sandbox agent không egress được
+  `speech.platform.bing.com` (curl 000 — giống thiết bị mất mạng/chặn
+  doanh nghiệp) ⇒ chưa nghiệm thu end-to-end ở đây; cần 1 lượt test máy
+  thật (đọc câu tiếng Việt, nghe HoaiMy + NamMinh, bật/tắt mạng kiểm
+  fallback). Nếu Microsoft nâng yêu cầu version, sửa hằng
+  `chromiumFullVersion` trong engine (một chỗ duy nhất).
+- **Lịch sử:**
+  - 2026-10-04 | code + test | agent arena/01a10633-in4up | engine +
+    đăng ký + 30 test thuần (chưa chạy được — sandbox không có
+    Dart/Flutter SDK, đã kiểm chéo thuật toán bằng harness Python; chờ CI/
+    máy dev verify)
+  - 2026-10-04 | ✅ CI green | agent arena/01a10633-in4up | thêm step
+    "TTS engine tests" vào `app_analyze.yml`; run 37194470015 xanh toàn
+    bộ (analyze + 71/71 test TTS gồm 30 Edge + 41 WP4). Vá 3 lỗi lộ qua
+    CI: (1) 2 expect `expect(x, RegExp(...))` trong test Edge → chuyển
+    `hasMatch` tường minh; (2) pin no-key của WP4 (`isNot(contains
+    ('SharedPreferences'))`) đã đỏ sẵn trên nhánh do comment header của
+    `openai_compat_tts_engine.dart` chứa đúng từ khoá (chưa từng có step
+    CI chạy file test này) → đổi câu chữ comment. Còn lại: nghiệm thu
+    end-to-end trên thiết bị thật (sandbox không egress được
+    speech.platform.bing.com).

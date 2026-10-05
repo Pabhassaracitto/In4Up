@@ -327,7 +327,8 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                           size: 14, color: Color(0xFF2196F3)),
                       const SizedBox(width: 6),
                       Text(
-                        'T\u1EEB \u0111i\u1EC3n MDX (${_dictEntries.length} k\u1EBFt qu\u1EA3)',
+                        context.uiText(
+                            'Từ điển MDX (${_dictEntries.length} kết quả)'),
                         style: const TextStyle(
                           color: Color(0xFF2196F3),
                           fontSize: 11,
@@ -352,7 +353,8 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                       ))),
                   if (_dictEntries.length > 3)
                     Text(
-                      '+ ${_dictEntries.length - 3} k\u1EBFt qu\u1EA3 kh\u00E1c...',
+                      context.uiText(
+                          '+ ${_dictEntries.length - 3} kết quả khác...'),
                       style: TextStyle(
                         color: Colors.grey[600],
                         fontSize: 11,

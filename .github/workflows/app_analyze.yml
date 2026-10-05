@@ -178,6 +178,45 @@ jobs:
           path: agent_f_test.log
           if-no-files-found: ignore
 
+      # TTS-EDGE-001 (Edge Read Aloud — giao thức edge-tts) + WP4 (API-005
+      # Server TTS): engine TTS thuần logic (http.Client giả, source-scan
+      # pin đăng ký TtsService) — chạy được trên CI không cần mạng. Bỏ qua
+      # nếu nhánh chưa có file (workflow dùng chung nhiều nhánh).
+      - name: "TTS engine tests — Edge TTS + Server API (WP4)"
+        id: tts-edge-tests
+        run: |
+          set +e
+          files=""
+          for f in test/edge_tts_engine_test.dart \
+                   test/tts_api_wp4_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test engine TTS trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > tts_edge_test.log 2>&1
+          code=$?
+          cat tts_edge_test.log
+          # Đẩy test hỏng thành annotation check-runs (đọc được qua
+          # api.github.com khi blob log bị chặn — tiền lệ bước analyze).
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' tts_edge_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=TTS engine test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload TTS engine test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-tts-edge-test-log
+          path: tts_edge_test.log
+          if-no-files-found: ignore
+
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |
@@ -254,7 +293,11 @@ jobs:
           set +e
           files=""
           for f in test/model_bundle_scanner_test.dart \
-                   test/dict_bundle_scanner_test.dart; do
+                   test/dict_bundle_scanner_test.dart \
+                   test/dictionary/dict_db_service_test.dart \
+                   test/dictionary/dict_result_sheet_test.dart \
+                   test/dictionary/mdx_parser_test.dart \
+                   test/dictionary/dict_import_lookup_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
@@ -262,9 +305,21 @@ jobs:
             exit 0
           fi
           echo "Chạy:$files"
-          flutter test $files > i4u18_scanner_test.log 2>&1
+          # -r expanded: mỗi test 1 dòng (compact reporter dùng \b khi
+          # redirect, khó grep tên test fail).
+          flutter test $files -r expanded > i4u18_scanner_test.log 2>&1
           code=$?
           cat i4u18_scanner_test.log
+          # Đưa tên test fail + context lên annotation để tra cứu qua API
+          # (log blob không tải được từ một số môi trường). Strip ANSI + \r
+          # + \b trước vì dart test có thể in mã màu/ký tự tiến trình.
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+            i4u18_scanner_test.log > i4u18_clean.log || true
+          grep -n "\[E\]" i4u18_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" i4u18_clean.log \
+              | head -c 700 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::TEST FAILED: $msg"
+          done || true
           exit $code
 
       - name: Upload I4U18 scanner test log

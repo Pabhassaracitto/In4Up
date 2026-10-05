@@ -394,11 +394,23 @@ class DictionaryService {
       // skip
     }
 
-    if (dict.resourcePath != null &&
-        !dict.isLinked && // chỉ xoá bundle trong app — link mode KHÔNG đụng thư mục user
-        dict.resourcePath!.contains('/dictionaries/')) {
+    // Imported resourcePath is always the app-owned bundle created by
+    // _importSet.  Do not check for a literal '/' here: Windows stores this
+    // path with backslashes, so the old check leaked every bundle on Windows.
+    if (dict.resourcePath != null && !dict.isLinked) {
       try {
-        await Directory(dict.resourcePath!).delete(recursive: true);
+        final appDir = await _appDocuments();
+        final dictionariesRoot = Directory(
+          '${appDir.path}${Platform.pathSeparator}dictionaries',
+        ).absolute.path;
+        final resourcePath = Directory(dict.resourcePath!).absolute.path;
+        final isOwned = resourcePath == dictionariesRoot ||
+            resourcePath.startsWith(
+              '$dictionariesRoot${Platform.pathSeparator}',
+            );
+        if (isOwned) {
+          await Directory(resourcePath).delete(recursive: true);
+        }
       } catch (e) {
         // skip
       }

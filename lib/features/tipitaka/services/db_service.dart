@@ -1381,6 +1381,33 @@ class TipitakaDb {
       "$alias.pali_text LIKE '%rend=\"subhead\"%' OR "
       "$alias.pali_text LIKE '%rend=\"heading\"%')";
 
+  /// Looks up a single book by id. Search results use this to deep-link
+  /// straight into the reader workspace. Content titles are derived with the
+  /// same outline subqueries as the catalogue so
+  /// [TipitakaBook.displayTitle] stays consistent.
+  static Future<TipitakaBook?> getBookById(Database db, int bookId) async {
+    final rows = await db.rawQuery('''
+      SELECT b.*,
+        (SELECT NULLIF(TRIM(s.pali_text), '')
+           FROM tipitaka_segments s
+          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_pali,
+        (SELECT NULLIF(TRIM(s.translation_en), '')
+           FROM tipitaka_segments s
+          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_en,
+        (SELECT NULLIF(TRIM(s.translation_vi), '')
+           FROM tipitaka_segments s
+          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi
+      FROM tipitaka_books b
+      WHERE b.id = ?
+      LIMIT 1
+    ''', [bookId]);
+    if (rows.isEmpty) return null;
+    return TipitakaBook.fromMap(rows.first);
+  }
+
   static Future<List<Map<String, dynamic>>> _withTranslations(
     Database db,
     List<Map<String, Object?>> rows,

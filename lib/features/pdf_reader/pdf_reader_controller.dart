@@ -667,6 +667,13 @@ class PdfReaderController extends ChangeNotifier {
   Future<void> switchToTextMode() async {
     if (_document == null) return;
     _viewMode = PdfViewMode.textMode;
+    // Panel "Dịch màn hình" chỉ có nghĩa ở chế độ xem trang; để panel "mở vô
+    // hình" trong Text Mode thì onPageChanged còn tự dịch ngầm hao pin.
+    if (_pageTranslatePanelVisible) {
+      _pageTranslateRunId++;
+      _isTranslatingPage = false;
+      _pageTranslatePanelVisible = false;
+    }
     notifyListeners();
 
     if (_extractedFullText.isEmpty && !_isExtractingText) {

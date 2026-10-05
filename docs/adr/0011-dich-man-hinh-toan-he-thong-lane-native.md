@@ -3,20 +3,24 @@
 - **Ngày:** 2026-10-05
 - **Trạng thái:** ĐÃ TRIỂN KHAI TRONG CODE (P1 Android), chờ CI + nghiệm thu
   thiết bị thật. Xem card `XLAT-SCR-002` trong `docs/project/KANBAN.md`.
-- **Nhánh:** `arena/01a10bdd-in4up` (tách từ `arena/01a0251e-in4up` @ de9e00b).
+- **Nhánh:** `arena/01a10bdd-in4up` (tách từ `arena/01a0251e-in4up` @ de9e00b,
+  đã rebase lên tip `296eafc`). Kế hoạch: PLAN-036.
 - **Phạm vi:** Android. iOS = KHÔNG LÀM (không có overlay toàn hệ thống).
   Desktop Linux/Windows = P2 (ghi nhận, chưa làm).
 
 ## Bối cảnh
 
-- Prompt giao việc nhắc tới "ADR-0010 — dịch màn hình in-app" và card
-  `XLAT-SCR-001`. **Trên lineage này (251e @ de9e00b) hai thứ đó KHÔNG tồn
-  tại**: `docs/adr/0010-*` là *dictionary-cross-platform-import*, và không có
-  `lib/features/pdf_reader/services/pdf_page_translate.dart`. Đã kiểm tra
-  bằng `git grep` + liệt kê `docs/adr/`, không chẩn đoán lại.
-  ⇒ ADR này lấy số **0011** và tự mô tả kiến trúc; khi lane in-app được
-  thâu hoạch về đây, hai lane vẫn độc lập đúng như tinh thần đã chốt
-  ("system-wide là lane native RIÊNG, không đụng lane in-app").
+- Lane **in-app** đã có trên `arena/01a0251e-in4up`: `ADR-0010 — dịch màn
+  hình in-app trước`, card `XLAT-SCR-001` + `PDF-OCR-002`,
+  `lib/features/pdf_reader/services/pdf_page_translate.dart`, panel
+  `pdf_page_translate_panel.dart`. ADR này **không đụng** vào lane đó; nó mô
+  tả lane **native** chạy song song, đúng tinh thần ADR-0010 ("system-wide là
+  lane native RIÊNG").
+  > Ghi chú lịch sử: nhánh `arena/01a10bdd-in4up` được tách ra từ `de9e00b`
+  > — thời điểm đó ADR-0010/XLAT-SCR-001 CHƯA có trên lineage (ADR-0010 khi
+  > ấy là *dictionary-cross-platform-import*). Toàn bộ code được viết độc
+  > lập rồi **rebase lên tip 251e `296eafc`**: không một file code nào xung
+  > đột, chỉ KANBAN/PLAN phải hợp nhất thủ công và PLAN-035 → **PLAN-036**.
 - Hạ tầng sẵn có và PHẢI tái dùng:
   - `lib/features/ocr/ocr_service.dart` — ML Kit Text Recognition v2 (Latin),
     `recognizeBitmap(pixels: BGRA8888, …)`, timeout + cancel token (ADR-0009).

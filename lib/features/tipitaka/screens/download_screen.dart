@@ -310,6 +310,18 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.copyright_outlined),
+              title: Text(context.uiText('Nguồn dữ liệu Pāli')),
+              subtitle: Text(
+                context.uiText(
+                  'Chaṭṭha Saṅgāyana (CSCD), Vipassana Research Institute — CC BY-NC. Giữ ghi công và chỉ sử dụng phi thương mại.',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: info?.isReady == true ? _openLibrary : null,
             icon: const Icon(Icons.menu_book_rounded),

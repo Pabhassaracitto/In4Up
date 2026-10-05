@@ -2,12 +2,14 @@ import 'package:in4up/core/language/localized_material.dart';
 
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/screens/search_screen.dart';
 import 'package:in4up/features/tipitaka/screens/workspace_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 
 /// Canonical-content tree:
 /// Tam Tạng Chính Văn → Tạng → nhóm/bộ → bài kinh.
@@ -133,9 +135,29 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
     );
   }
 
+  Future<void> _openHighlight(TipitakaHighlight highlight) async {
+    final db = await TipitakaDb.openReady();
+    final book = await TipitakaDb.getBookById(db, highlight.bookId);
+    if (!mounted || book == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TipitakaWorkspaceScreen(
+          initialTab: TipitakaWorkspaceTab(
+            book: book,
+            title: book.displayTitle(_language),
+            initialSegmentId: highlight.segmentId,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
       appBar: AppBar(
         title: Text(context.uiText('Thư viện Tipiṭaka')),
         actions: [
@@ -157,8 +179,16 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
             icon: const Icon(Icons.storage_outlined),
           ),
         ],
+        bottom: TabBar(
+          tabs: [
+            Tab(text: context.uiText('Thư viện')),
+            Tab(text: context.uiText('Đánh dấu')),
+          ],
+        ),
       ),
-      body: _loading
+      body: TabBarView(
+        children: [
+          _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _MissingDatabaseView(
@@ -217,6 +247,82 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                     ],
                   ),
                 ),
+          _HighlightsView(onOpen: _openHighlight),
+        ],
+      ),
+    ));
+  }
+}
+
+class _HighlightsView extends StatefulWidget {
+  final Future<void> Function(TipitakaHighlight highlight) onOpen;
+
+  const _HighlightsView({required this.onOpen});
+
+  @override
+  State<_HighlightsView> createState() => _HighlightsViewState();
+}
+
+class _HighlightsViewState extends State<_HighlightsView> {
+  late Future<List<TipitakaHighlight>> _items = _load();
+
+  Future<List<TipitakaHighlight>> _load() async {
+    final db = await TipitakaDb.openReady();
+    return TipitakaDb.getHighlights(db);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TipitakaHighlight>>(
+      future: _items,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final items = snapshot.data ?? const [];
+        if (items.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                context.uiText('Chưa có đoạn được đánh dấu. Nhấn giữ một đoạn khi đọc để bắt đầu.'),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() => _items = _load());
+            await _items;
+          },
+          child: ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final excerpt = cleanTipitakaText(item.paliText).trim();
+              return ListTile(
+                leading: const Icon(Icons.highlight_outlined),
+                title: Text(
+                  item.reference.trim().isEmpty ? context.uiText('Đoạn đã đánh dấu') : item.reference,
+                ),
+                subtitle: Text(
+                  [
+                    if (item.bookTitle.isNotEmpty) item.bookTitle,
+                    if (excerpt.isNotEmpty) excerpt,
+                    if (item.note.isNotEmpty) item.note,
+                  ].join('\n'),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => widget.onOpen(item),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

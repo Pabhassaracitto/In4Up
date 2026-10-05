@@ -39,6 +39,8 @@ enum TipitakaBlockKind {
 
 /// Cross-platform serif stack for canonical text. Android ships Noto Serif;
 /// Apple/Windows machines resolve Georgia/Times. No bundled font required.
+const tipitakaSerifFamily = 'NotoSerifTipitaka';
+
 const tipitakaSerifFallback = <String>[
   'Noto Serif',
   'Source Serif 4',
@@ -129,9 +131,32 @@ TipitakaBlockKind tipitakaBlockKind(TipitakaSegment segment) {
   return TipitakaBlockKind.paragraph;
 }
 
+/// Plain canonical text separated from compact CSCD apparatus notes.
+class TipitakaParsedText {
+  final String text;
+  final List<String> apparatus;
+
+  const TipitakaParsedText(this.text, this.apparatus);
+}
+
+/// Extracts apparatus such as `[(syā.) (sī.)]` in one shared parser.
+/// The source string is never mutated in the database.
+TipitakaParsedText parseTipitakaText(String value, {bool apparatusInline = false}) {
+  final notes = <String>[];
+  final apparatusPattern = RegExp(r'\[\((.*?)\)\]', dotAll: true);
+  final withoutApparatus = value.replaceAllMapped(apparatusPattern, (match) {
+    final note = (match.group(1) ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (note.isNotEmpty) notes.add(note);
+    return apparatusInline ? match.group(0)! : ' ';
+  });
+  return TipitakaParsedText(_cleanTipitakaMarkup(withoutApparatus), notes);
+}
+
 /// Strips CSCD/HTML markup into displayable plain text, keeping intentional
 /// line breaks (paragraph and verse boundaries).
-String cleanTipitakaText(String value) {
+String cleanTipitakaText(String value) => parseTipitakaText(value).text;
+
+String _cleanTipitakaMarkup(String value) {
   return value
       .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n')
       .replaceAll(RegExp(r'</\s*p\s*>', caseSensitive: false), '\n')

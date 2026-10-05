@@ -33,6 +33,7 @@ class TipitakaReaderAppearance extends ChangeNotifier {
   static const _kEnglishSecondary = 'tipitaka.reader.english_secondary';
   static const _kFontScale = 'tipitaka.reader.font_scale';
   static const _kReadingTheme = 'tipitaka.reader.reading_theme';
+  static const _kApparatusInline = 'tipitaka.reader.apparatus_inline';
 
   static const minFontScale = 0.8;
   static const maxFontScale = 1.6;
@@ -43,12 +44,14 @@ class TipitakaReaderAppearance extends ChangeNotifier {
   bool _englishSecondary = false;
   double _fontScale = 1;
   TipitakaReadingTheme _readingTheme = TipitakaReadingTheme.system;
+  bool _apparatusInline = false;
 
   TipitakaDisplayMode get displayMode => _displayMode;
   String get primaryLanguage => _primaryLanguage;
   bool get englishSecondary => _englishSecondary;
   double get fontScale => _fontScale;
   TipitakaReadingTheme get readingTheme => _readingTheme;
+  bool get apparatusInline => _apparatusInline;
 
   /// Loads persisted values once. Safe to call from every reader `initState`.
   Future<void> ensureLoaded() async {
@@ -71,6 +74,7 @@ class TipitakaReaderAppearance extends ChangeNotifier {
           .clamp(0, TipitakaReadingTheme.values.length - 1)
           .toInt();
       _readingTheme = TipitakaReadingTheme.values[themeIndex];
+      _apparatusInline = prefs.getBool(_kApparatusInline) ?? false;
     } catch (_) {
       // Preferences are best-effort: keep in-memory defaults on failure.
     }
@@ -116,6 +120,13 @@ class TipitakaReaderAppearance extends ChangeNotifier {
     notifyListeners();
   }
 
+  set apparatusInline(bool value) {
+    if (value == _apparatusInline) return;
+    _apparatusInline = value;
+    _persist();
+    notifyListeners();
+  }
+
   /// Restores factory defaults (bilingual, Vietnamese, 100%, system theme).
   void reset() {
     _displayMode = TipitakaDisplayMode.bilingual;
@@ -123,6 +134,7 @@ class TipitakaReaderAppearance extends ChangeNotifier {
     _englishSecondary = false;
     _fontScale = 1;
     _readingTheme = TipitakaReadingTheme.system;
+    _apparatusInline = false;
     _persist();
     notifyListeners();
   }
@@ -136,6 +148,7 @@ class TipitakaReaderAppearance extends ChangeNotifier {
       await prefs.setBool(_kEnglishSecondary, _englishSecondary);
       await prefs.setDouble(_kFontScale, _fontScale);
       await prefs.setInt(_kReadingTheme, _readingTheme.index);
+      await prefs.setBool(_kApparatusInline, _apparatusInline);
     } catch (_) {
       // Persistence failures must never break reading.
     }

@@ -5,6 +5,7 @@ import 'package:in4up/features/tipitaka/models/collection.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/reader_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
 
 class TipitakaWorkspaceTab {
   final TipitakaBook book;
@@ -54,6 +55,72 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
   int _primaryIndex = 0;
   int? _secondaryIndex;
   bool _split = false;
+  final TipitakaScrollSyncController _scrollSync =
+      TipitakaScrollSyncController();
+
+  @override
+  void dispose() {
+    _scrollSync.dispose();
+    super.dispose();
+  }
+
+  bool get _canSyncEditions {
+    final secondary = _secondaryIndex;
+    if (!_split || secondary == null) return false;
+    final left = _tabs[_primaryIndex].book.catalogIndex;
+    final right = _tabs[secondary].book.catalogIndex;
+    return left.parallelFamilyCode == right.parallelFamilyCode &&
+        _tabs[_primaryIndex].book.id != _tabs[secondary].book.id;
+  }
+
+  Future<void> _openParallelEdition(TipitakaWorkspaceTab source) async {
+    try {
+      final language = Localizations.localeOf(context).languageCode;
+      final db = await TipitakaDb.openReady();
+      final book = await TipitakaDb.getParallelBook(
+        db,
+        source.book,
+        languageCode: language,
+      );
+      if (!mounted) return;
+      if (book == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.uiText('Không tìm thấy bản đối chiếu cho sách này.'))),
+        );
+        return;
+      }
+      int? targetSegmentId;
+      if (source.initialSegmentId != null) {
+        final order = await TipitakaDb.getSegmentOrderIndex(
+          db,
+          source.initialSegmentId!,
+        );
+        if (order != null) {
+          targetSegmentId = (await TipitakaDb.getSegmentAtOrder(db, book.id, order))?.id;
+        }
+      }
+      final tab = TipitakaWorkspaceTab(
+        book: book,
+        title: book.displayTitle(language),
+        initialSegmentId: targetSegmentId,
+      );
+      final existing = _tabs.indexWhere((item) => item.id == tab.id);
+      setState(() {
+        final sourceIndex = _tabs.indexWhere((item) => item.id == source.id);
+        final targetIndex = existing >= 0 ? existing : _tabs.length;
+        if (existing < 0) _tabs.add(tab);
+        _primaryIndex = sourceIndex < 0 ? _primaryIndex : sourceIndex;
+        _secondaryIndex = targetIndex;
+        _split = true;
+        _scrollSync.enabled = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Không thể mở bản đối chiếu: $error'))),
+      );
+    }
+  }
 
   void _openTab(TipitakaWorkspaceTab tab) {
     final existing = _tabs.indexWhere((item) => item.id == tab.id);
@@ -92,6 +159,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     }
     setState(() {
       _split = !_split;
+      if (!_split) _scrollSync.enabled = false;
       if (_split && (_secondaryIndex == null || _secondaryIndex == _primaryIndex)) {
         _secondaryIndex = _primaryIndex == 0 ? 1 : 0;
       }
@@ -123,6 +191,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
       }
       if (_tabs.length < 2) {
         _split = false;
+        _scrollSync.enabled = false;
         _secondaryIndex = null;
       } else if (_split &&
           (_secondaryIndex == null || _secondaryIndex == _primaryIndex)) {
@@ -291,6 +360,17 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
             tooltip: context.uiText('Chia đôi màn hình'),
             icon: Icon(_split ? Icons.vertical_split : Icons.view_sidebar_outlined),
           ),
+          if (_canSyncEditions)
+            IconButton(
+              key: const ValueKey('tipitaka-toggle-scroll-sync'),
+              onPressed: () => setState(() {
+                _scrollSync.enabled = !_scrollSync.enabled;
+              }),
+              tooltip: context.uiText('Đồng bộ cuộn hai ấn bản'),
+              icon: Icon(
+                _scrollSync.enabled ? Icons.sync : Icons.sync_disabled,
+              ),
+            ),
         ],
       ),
       body: Column(
@@ -391,6 +471,8 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
                     book: _tabs[index].book,
                     initialSegmentId: _tabs[index].initialSegmentId,
                     embedded: true,
+                    onOpenParallel: () => _openParallelEdition(_tabs[index]),
+                    scrollSync: _canSyncEditions ? _scrollSync : null,
                   ),
             ),
           ),

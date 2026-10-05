@@ -10,6 +10,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
 
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 
 /// The normalized database contract used by the Tipiṭaka UI.
@@ -1201,6 +1202,33 @@ class TipitakaDb {
       )
     ''');
     await db.execute('''
+      CREATE TABLE IF NOT EXISTS tipitaka_highlights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id INTEGER NOT NULL,
+        segment_id INTEGER NOT NULL,
+        color TEXT NOT NULL DEFAULT 'yellow',
+        note TEXT NOT NULL DEFAULT '',
+        updated_at INTEGER NOT NULL,
+        UNIQUE(book_id, segment_id)
+      )
+    ''');
+    await _ensureColumn(db, 'tipitaka_highlights', 'book_id', 'INTEGER');
+    await _ensureColumn(db, 'tipitaka_highlights', 'segment_id', 'INTEGER');
+    await _ensureColumn(
+      db, 'tipitaka_highlights', 'color', "TEXT NOT NULL DEFAULT 'yellow'",
+    );
+    await _ensureColumn(
+      db, 'tipitaka_highlights', 'note', "TEXT NOT NULL DEFAULT ''",
+    );
+    await _ensureColumn(
+      db, 'tipitaka_highlights', 'updated_at', 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_tipitaka_highlight_segment '
+      'ON tipitaka_highlights(book_id, segment_id)',
+    );
+
+    await db.execute('''
       CREATE TABLE IF NOT EXISTS tipitaka_user_notes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL DEFAULT 1,
@@ -1489,12 +1517,124 @@ class TipitakaDb {
     return enriched.map(TipitakaSegment.fromMap).toList();
   }
 
+  /// Returns annotations whose book and segment still exist and agree.
+  /// Orphan rows left by a replaced database are deliberately hidden.
+  static Future<List<TipitakaHighlight>> getHighlights(
+    Database db, {
+    int? bookId,
+  }) async {
+    final rows = await db.rawQuery('''
+      SELECT h.*, s.reference, s.pali_text,
+             COALESCE(NULLIF(s.translation_vi, ''),
+                      NULLIF(s.translation_en, ''), '') AS translation,
+             COALESCE(NULLIF(b.name_vi, ''), NULLIF(b.name_en, ''),
+                      NULLIF(b.name_pali, ''), b.code) AS book_title
+        FROM tipitaka_highlights h
+        JOIN tipitaka_segments s
+          ON s.id = h.segment_id AND s.book_id = h.book_id
+        JOIN tipitaka_books b ON b.id = h.book_id
+       ${bookId == null ? '' : 'WHERE h.book_id = ?'}
+       ORDER BY h.updated_at DESC, h.id DESC
+    ''', bookId == null ? const [] : [bookId]);
+    return rows.map(TipitakaHighlight.fromMap).toList();
+  }
+
+  static Future<TipitakaHighlight?> getHighlight(
+    Database db,
+    int bookId,
+    int segmentId,
+  ) async {
+    final rows = await getHighlights(db, bookId: bookId);
+    for (final item in rows) {
+      if (item.segmentId == segmentId) return item;
+    }
+    return null;
+  }
+
+  static Future<void> saveHighlight(
+    Database db, {
+    required int bookId,
+    required int segmentId,
+    required String color,
+    String note = '',
+  }) async {
+    await db.insert(
+      'tipitaka_highlights',
+      {
+        'book_id': bookId,
+        'segment_id': segmentId,
+        'color': color,
+        'note': note.trim(),
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> deleteHighlight(
+    Database db,
+    int bookId,
+    int segmentId,
+  ) async {
+    await db.delete(
+      'tipitaka_highlights',
+      where: 'book_id = ? AND segment_id = ?',
+      whereArgs: [bookId, segmentId],
+    );
+  }
+
+  /// Finds another edition in the same canonical family (Mūla/ATT/Ṭīkā).
+  static Future<TipitakaBook?> getParallelBook(
+    Database db,
+    TipitakaBook source, {
+    String languageCode = 'en',
+  }) async {
+    final sourceIndex = source.catalogIndex;
+    final books = await getBooksByCollection(
+      db,
+      source.collectionId,
+      languageCode: languageCode,
+    );
+    final wanted = sourceIndex.editionCode == 'MUL'
+        ? const ['ATT', 'TIK']
+        : const ['MUL', 'ATT', 'TIK'];
+    for (final edition in wanted) {
+      for (final book in books) {
+        final index = book.catalogIndex;
+        if (book.id != source.id &&
+            index.parallelFamilyCode == sourceIndex.parallelFamilyCode &&
+            index.editionCode == edition) {
+          return book;
+        }
+      }
+    }
+    return null;
+  }
+
   static Future<int> getBookSegmentCount(Database db, int bookId) async {
     final rows = await db.rawQuery(
       'SELECT COUNT(*) AS n FROM tipitaka_segments WHERE book_id = ?',
       [bookId],
     );
     return _asInt(rows.first['n'], 0);
+  }
+
+  static Future<TipitakaSegment?> getSegmentAtOrder(
+    Database db,
+    int bookId,
+    int orderIndex,
+  ) async {
+    final rows = await db.query(
+      'tipitaka_segments',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'order_index ASC, paragraph_no ASC, id ASC',
+      limit: 1,
+      offset: orderIndex < 0 ? 0 : orderIndex,
+    );
+    if (rows.isEmpty) return null;
+    final enriched = await _withTranslations(db, rows);
+    return TipitakaSegment.fromMap(enriched.first);
   }
 
   static Future<int?> getSegmentOrderIndex(Database db, int segmentId) async {

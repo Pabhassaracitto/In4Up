@@ -1,12 +1,15 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 
 import 'package:in4up/features/learn_by_heart/controllers/learn_by_heart_provider.dart';
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/reader_appearance.dart';
+import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
+import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_learn_by_heart_service.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_worklist_service.dart';
@@ -39,6 +42,8 @@ class TipitakaReaderScreen extends StatefulWidget {
   final TipitakaBook? book;
   final int? initialSegmentId;
   final bool embedded;
+  final VoidCallback? onOpenParallel;
+  final TipitakaScrollSyncController? scrollSync;
 
   const TipitakaReaderScreen({
     super.key,
@@ -48,6 +53,8 @@ class TipitakaReaderScreen extends StatefulWidget {
     this.book,
     this.initialSegmentId,
     this.embedded = false,
+    this.onOpenParallel,
+    this.scrollSync,
   });
 
   @override
@@ -68,6 +75,8 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   bool _loadingPrevious = false;
   bool _hasMore = true;
   String? _error;
+  Map<int, TipitakaHighlight> _highlights = const {};
+  bool _applyingSyncedScroll = false;
 
   bool _hasPali = true;
   Set<String> _availableLanguages = const {};
@@ -125,7 +134,17 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     _appearance.addListener(_onAppearanceChanged);
     _appearance.ensureLoaded();
     _scrollController.addListener(_onScroll);
+    widget.scrollSync?.addListener(_onSyncedScroll);
     _loadFirstPage();
+  }
+
+  @override
+  void didUpdateWidget(covariant TipitakaReaderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollSync != widget.scrollSync) {
+      oldWidget.scrollSync?.removeListener(_onSyncedScroll);
+      widget.scrollSync?.addListener(_onSyncedScroll);
+    }
   }
 
   @override
@@ -139,6 +158,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       );
     }
     _appearance.removeListener(_onAppearanceChanged);
+    widget.scrollSync?.removeListener(_onSyncedScroll);
     if (_readingArticle || _speakingSegmentId != null) {
       _globalTtsGeneration++;
       _tts.stop();
@@ -164,8 +184,62 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       }
     }
     _maybeSavePosition(position.pixels);
+    if (!_applyingSyncedScroll && _segments.isNotEmpty) {
+      final relative = position.maxScrollExtent <= 0
+          ? 0.0
+          : (position.pixels / position.maxScrollExtent).clamp(0.0, 1.0);
+      widget.scrollSync?.publish(
+        bookId: widget.bookId,
+        order: _loadedOffset + (relative * _segments.length).floor(),
+      );
+    }
     if (_loadingMore || !_hasMore) return;
     if (position.extentAfter < 700) _loadMore();
+  }
+
+  Future<void> _onSyncedScroll() async {
+    final sync = widget.scrollSync;
+    if (sync == null || !sync.enabled || sync.sourceBookId == widget.bookId ||
+        _applyingSyncedScroll || _loading) {
+      return;
+    }
+    _applyingSyncedScroll = true;
+    try {
+      final target = sync.orderIndex
+          .clamp(0, _totalCount > 0 ? _totalCount - 1 : 0)
+          .toInt();
+      if (target < _loadedOffset || target >= _loadedOffset + _segments.length) {
+        final db = await TipitakaDb.openReady();
+        final segment = await TipitakaDb.getSegmentAtOrder(db, widget.bookId, target);
+        if (segment != null && mounted) {
+          _requestedSegmentId = segment.id;
+          await _loadFirstPage();
+          await WidgetsBinding.instance.endOfFrame;
+        }
+      }
+      if (!mounted || !_scrollController.hasClients || _segments.isEmpty) return;
+      final relative = ((target - _loadedOffset) / _segments.length).clamp(0.0, 1.0);
+      final position = _scrollController.position;
+      _scrollController.jumpTo(
+        (relative * position.maxScrollExtent)
+            .clamp(0.0, position.maxScrollExtent)
+            .toDouble(),
+      );
+    } finally {
+      _applyingSyncedScroll = false;
+    }
+  }
+
+  Future<void> _loadHighlights() async {
+    try {
+      final db = await TipitakaDb.openReady();
+      final items = await TipitakaDb.getHighlights(db, bookId: widget.bookId);
+      if (mounted) {
+        setState(() => _highlights = {for (final item in items) item.segmentId: item});
+      }
+    } catch (_) {
+      // Annotations are optional and must never prevent canonical text loading.
+    }
   }
 
   /// Throttled "Đọc tiếp" checkpoint: persists the scroll offset when the
@@ -260,6 +334,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         _hasMore = _loadedOffset + firstPage.length < total;
         _loading = false;
       });
+      await _loadHighlights();
       if (_requestedSegmentId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final target = _initialSegmentKey.currentContext;
@@ -494,6 +569,14 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(context.uiText('Hiện chú thích dị bản trong dòng')),
+                      subtitle: Text(context.uiText('Tắt để thu gọn chú thích thành chip bên dưới đoạn.')),
+                      value: _appearance.apparatusInline,
+                      onChanged: (value) => _appearance.apparatusInline = value,
+                    ),
                     const SizedBox(height: 18),
                     _SettingsSectionLabel(context.uiText('Cỡ chữ')),
                     Row(
@@ -640,7 +723,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.copy),
-                title: Text(context.uiText('Sao chép lựa chọn')),
+                title: Text(context.uiText('Sao chép kèm trích dẫn')),
                 onTap: () => Navigator.pop(context, 'copy'),
               ),
             ],
@@ -649,7 +732,9 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       );
       if (!mounted || action == null) return;
       if (action == 'copy') {
-        await Clipboard.setData(ClipboardData(text: selectedText));
+        await Clipboard.setData(ClipboardData(
+          text: '$selectedText\n— ${_citation(segment)} (In4Up Tipiṭaka)',
+        ));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(context.uiText('Đã sao chép lựa chọn.'))),
@@ -665,6 +750,113 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       );
     } finally {
       _selectionSheetOpen = false;
+    }
+  }
+
+  String _citation(TipitakaSegment segment) {
+    final reference = segment.reference.trim();
+    final technical = reference.isEmpty ||
+        reference.contains('_') ||
+        RegExp(r'^(SEG|ROW|PARA)?\s*\d+$', caseSensitive: false)
+            .hasMatch(reference);
+    if (!technical) return reference;
+    final index = _segments.indexWhere((item) => item.id == segment.id);
+    final number = index < 0 ? segment.orderIndex + 1 : _loadedOffset + index + 1;
+    return '${context.uiText('Đoạn')} $number';
+  }
+
+  String _shareText(TipitakaSegment segment) {
+    final pali = parseTipitakaText(segment.paliText).text;
+    final translation = _resolveTranslation(
+      segment,
+      _appearance.primaryLanguage,
+    ).text;
+    return [
+      if (pali.isNotEmpty) pali,
+      if (translation.isNotEmpty) translation,
+      '— ${_citation(segment)} (In4Up Tipiṭaka)',
+    ].join('\n');
+  }
+
+  Future<void> _shareSegment(TipitakaSegment segment) async {
+    await SharePlus.instance.share(ShareParams(text: _shareText(segment)));
+  }
+
+  Future<void> _editHighlight(TipitakaSegment segment) async {
+    final existing = _highlights[segment.id];
+    var color = existing?.color ?? 'yellow';
+    final note = TextEditingController(text: existing?.note ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(context.uiText('Đánh dấu và ghi chú đoạn')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.uiText('Màu đánh dấu')),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                children: [
+                  for (final item in const ['yellow', 'green', 'blue', 'pink'])
+                    ChoiceChip(
+                      label: Text(context.uiText(_highlightColorLabel(item))),
+                      selected: color == item,
+                      avatar: CircleAvatar(backgroundColor: _highlightColor(item)),
+                      onSelected: (_) => setDialogState(() => color = item),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: note,
+                minLines: 2,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  labelText: context.uiText('Ghi chú'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            if (existing != null)
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, 'delete'),
+                child: Text(context.uiText('Xoá đánh dấu')),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(context.uiText('Huỷ')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, 'save'),
+              child: Text(context.uiText('Lưu')),
+            ),
+          ],
+        ),
+      ),
+    );
+    try {
+      final db = await TipitakaDb.openReady();
+      if (result == 'delete') {
+        await TipitakaDb.deleteHighlight(db, widget.bookId, segment.id);
+      } else if (result == 'save') {
+        await TipitakaDb.saveHighlight(
+          db,
+          bookId: widget.bookId,
+          segmentId: segment.id,
+          color: color,
+          note: note.text,
+        );
+      } else {
+        return;
+      }
+      await _loadHighlights();
+    } finally {
+      note.dispose();
     }
   }
 
@@ -1156,6 +1348,12 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                       ],
                     ),
                     actions: [
+                      if (widget.onOpenParallel != null)
+                        IconButton(
+                          tooltip: context.uiText('Mở bản đối chiếu'),
+                          onPressed: widget.onOpenParallel,
+                          icon: const Icon(Icons.compare_arrows),
+                        ),
                       IconButton(
                         tooltip: context.uiText('Mục lục chi tiết'),
                         onPressed: _openTableOfContents,
@@ -1238,6 +1436,10 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         fontScale: _appearance.fontScale,
         isSpeaking: _speakingSegmentId == segment.id,
         isAnchor: _requestedSegmentId == segment.id,
+        highlight: _highlights[segment.id],
+        apparatusInline: _appearance.apparatusInline,
+        onEditHighlight: _editHighlight,
+        onShareSegment: _shareSegment,
         onSpeakSegment: (value) =>
             _toggleSegmentTts(value, _loadedOffset + segmentIndex),
         onPaliSelection: _onPaliSelection,
@@ -1304,6 +1506,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
               height: 1.25,
               fontWeight: FontWeight.w800,
               color: scheme.onSurface,
+              fontFamily: tipitakaSerifFamily,
               fontFamilyFallback: tipitakaSerifFallback,
             ),
           ),
@@ -1440,6 +1643,10 @@ class _SectionBlock extends StatelessWidget {
   final double fontScale;
   final bool isSpeaking;
   final bool isAnchor;
+  final TipitakaHighlight? highlight;
+  final bool apparatusInline;
+  final Future<void> Function(TipitakaSegment segment)? onEditHighlight;
+  final Future<void> Function(TipitakaSegment segment)? onShareSegment;
   final Future<void> Function(TipitakaSegment segment)? onSpeakSegment;
   final void Function(TipitakaSegment segment, TextSelection selection)?
       onPaliSelection;
@@ -1458,6 +1665,10 @@ class _SectionBlock extends StatelessWidget {
     required this.fontScale,
     required this.isSpeaking,
     required this.isAnchor,
+    required this.highlight,
+    required this.apparatusInline,
+    this.onEditHighlight,
+    this.onShareSegment,
     this.onSpeakSegment,
     this.onPaliSelection,
     this.onSaveSegment,
@@ -1466,7 +1677,11 @@ class _SectionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paliText = cleanTipitakaText(segment.paliText);
+    final parsedPali = parseTipitakaText(
+      segment.paliText,
+      apparatusInline: apparatusInline,
+    );
+    final paliText = parsedPali.text;
     final translation = _resolveTranslation(segment, primaryLanguage);
     final englishText = cleanTipitakaText(segment.translationEn ?? '');
     final showEnglishBlock = showEnglishSecondary &&
@@ -1501,15 +1716,19 @@ class _SectionBlock extends StatelessWidget {
     final verse = kind == TipitakaBlockKind.gatha;
 
     final scheme = Theme.of(context).colorScheme;
-    final decorated = isSpeaking || isAnchor;
-    return Container(
+    final decorated = isSpeaking || isAnchor || highlight != null;
+    return GestureDetector(
+      onLongPress: onEditHighlight == null ? null : () => onEditHighlight!(segment),
+      child: Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: decorated
           ? BoxDecoration(
               color: isSpeaking
                   ? scheme.primaryContainer.withValues(alpha: .24)
-                  : scheme.secondaryContainer.withValues(alpha: .28),
+                  : highlight != null
+                      ? _highlightColor(highlight!.color).withValues(alpha: .22)
+                      : scheme.secondaryContainer.withValues(alpha: .28),
               borderRadius: BorderRadius.circular(14),
             )
           : null,
@@ -1524,6 +1743,8 @@ class _SectionBlock extends StatelessWidget {
             onSpeakSegment: onSpeakSegment,
             onSaveSegment: onSaveSegment,
             onLearnSegment: onLearnSegment,
+            onEditHighlight: onEditHighlight,
+            onShareSegment: onShareSegment,
           ),
           if (visiblePali || paliFallback) ...[
             const SizedBox(height: 12),
@@ -1569,6 +1790,42 @@ class _SectionBlock extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
+          if (!apparatusInline && parsedPali.apparatus.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final note in parsedPali.apparatus)
+                  ActionChip(
+                    avatar: const Icon(Icons.info_outline, size: 16),
+                    label: Text(context.uiText('Chú thích dị bản')),
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      builder: (context) => SafeArea(
+                        child: ListTile(
+                          leading: const Icon(Icons.info_outline),
+                          title: Text(context.uiText('Chú thích dị bản')),
+                          subtitle: SelectableText(note),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if ((highlight?.note ?? '').isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.sticky_note_2_outlined, size: 17),
+                const SizedBox(width: 7),
+                Expanded(child: Text(highlight!.note)),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           Divider(
             height: 1,
@@ -1577,7 +1834,7 @@ class _SectionBlock extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -1592,6 +1849,8 @@ class _SegmentMetaBar extends StatelessWidget {
   final Future<void> Function(TipitakaSegment segment)? onSpeakSegment;
   final Future<void> Function(TipitakaSegment segment)? onSaveSegment;
   final Future<void> Function(TipitakaSegment segment)? onLearnSegment;
+  final Future<void> Function(TipitakaSegment segment)? onEditHighlight;
+  final Future<void> Function(TipitakaSegment segment)? onShareSegment;
 
   const _SegmentMetaBar({
     required this.segment,
@@ -1600,6 +1859,8 @@ class _SegmentMetaBar extends StatelessWidget {
     this.onSpeakSegment,
     this.onSaveSegment,
     this.onLearnSegment,
+    this.onEditHighlight,
+    this.onShareSegment,
   });
 
   @override
@@ -1630,6 +1891,24 @@ class _SegmentMetaBar extends StatelessWidget {
                 context.uiText('Lưu đoạn vào Worklist'),
               ),
             ),
+          if (onEditHighlight != null)
+            PopupMenuItem<String>(
+              value: 'highlight',
+              child: _menuRow(
+                context,
+                Icons.highlight_outlined,
+                context.uiText('Đánh dấu và ghi chú'),
+              ),
+            ),
+          if (onShareSegment != null)
+            PopupMenuItem<String>(
+              value: 'share',
+              child: _menuRow(
+                context,
+                Icons.share_outlined,
+                context.uiText('Chia sẻ đoạn'),
+              ),
+            ),
           if (onLearnSegment != null)
             PopupMenuItem<String>(
               value: 'learn',
@@ -1641,7 +1920,8 @@ class _SegmentMetaBar extends StatelessWidget {
             ),
         ];
         final useOverflowMenu = tight ||
-            (compact && (onSaveSegment != null || onLearnSegment != null));
+            (compact && (onSaveSegment != null || onLearnSegment != null ||
+                onEditHighlight != null || onShareSegment != null));
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -1709,6 +1989,10 @@ class _SegmentMetaBar extends StatelessWidget {
                     onSpeakSegment?.call(segment);
                   } else if (value == 'save') {
                     onSaveSegment?.call(segment);
+                  } else if (value == 'highlight') {
+                    onEditHighlight?.call(segment);
+                  } else if (value == 'share') {
+                    onShareSegment?.call(segment);
                   } else if (value == 'learn') {
                     onLearnSegment?.call(segment);
                   }
@@ -1723,6 +2007,22 @@ class _SegmentMetaBar extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                   onPressed: () => onSaveSegment!(segment),
                   icon: const Icon(Icons.bookmark_add_outlined),
+                ),
+              if (onEditHighlight != null)
+                IconButton(
+                  tooltip: context.uiText('Đánh dấu và ghi chú'),
+                  visualDensity: VisualDensity.compact,
+                  color: scheme.onSurfaceVariant,
+                  onPressed: () => onEditHighlight!(segment),
+                  icon: const Icon(Icons.highlight_outlined),
+                ),
+              if (onShareSegment != null)
+                IconButton(
+                  tooltip: context.uiText('Chia sẻ đoạn'),
+                  visualDensity: VisualDensity.compact,
+                  color: scheme.onSurfaceVariant,
+                  onPressed: () => onShareSegment!(segment),
+                  icon: const Icon(Icons.share_outlined),
                 ),
               if (onLearnSegment != null)
                 IconButton(
@@ -1754,6 +2054,20 @@ class _SegmentMetaBar extends StatelessWidget {
     );
   }
 }
+
+Color _highlightColor(String value) => switch (value) {
+      'green' => const Color(0xFF81C784),
+      'blue' => const Color(0xFF64B5F6),
+      'pink' => const Color(0xFFF48FB1),
+      _ => const Color(0xFFFFD54F),
+    };
+
+String _highlightColorLabel(String value) => switch (value) {
+      'green' => 'Xanh lá',
+      'blue' => 'Xanh dương',
+      'pink' => 'Hồng',
+      _ => 'Vàng',
+    };
 
 String _referenceLabel(
   BuildContext context,
@@ -1832,7 +2146,8 @@ class _HeadingBlock extends StatelessWidget {
                     isBook || isChapter ? FontWeight.w800 : FontWeight.w700,
                 fontStyle: isCenter ? FontStyle.italic : FontStyle.normal,
                 color: scheme.primary,
-                fontFamilyFallback: tipitakaSerifFallback,
+                fontFamily: tipitakaSerifFamily,
+              fontFamilyFallback: tipitakaSerifFallback,
               ),
             ),
           if (translationText.isNotEmpty) ...[
@@ -1845,7 +2160,8 @@ class _HeadingBlock extends StatelessWidget {
                 height: 1.45,
                 fontWeight: FontWeight.w600,
                 color: scheme.secondary,
-                fontFamilyFallback: tipitakaSerifFallback,
+                fontFamily: tipitakaSerifFamily,
+              fontFamilyFallback: tipitakaSerifFallback,
               ),
             ),
           ],
@@ -1858,7 +2174,8 @@ class _HeadingBlock extends StatelessWidget {
                 fontSize: titleSize * .68,
                 height: 1.45,
                 color: scheme.onSurfaceVariant,
-                fontFamilyFallback: tipitakaSerifFallback,
+                fontFamily: tipitakaSerifFamily,
+              fontFamilyFallback: tipitakaSerifFallback,
               ),
             ),
           ],
@@ -1940,6 +2257,7 @@ class _TextBlock extends StatelessWidget {
               fontSize: fontSize,
               height: 1.72,
               fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+              fontFamily: tipitakaSerifFamily,
               fontFamilyFallback: tipitakaSerifFallback,
             ),
           ),

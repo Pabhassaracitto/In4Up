@@ -194,6 +194,12 @@ class TipitakaBookIndex {
     }
   }
 
+  /// Edition-independent family (`VIN01M`/`VIN01A`/`VIN01T` → `VIN01`).
+  String get parallelFamilyCode {
+    final match = RegExp(r'^([A-Z]{2,6}\d{1,3})[MAT]$').firstMatch(canonicalCode);
+    return match?.group(1) ?? canonicalCode;
+  }
+
   String get compactLabel => editionCode.isEmpty
       ? canonicalCode
       : '$canonicalCode · $editionCode';

@@ -2,6 +2,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../models/color_mode.dart';
+import '../../ocr/ocr_service.dart';
 import '../pdf_reader_controller.dart';
 import '../services/pdf_reader_theme.dart';
 
@@ -17,6 +18,10 @@ class PdfToolbar extends StatelessWidget {
   /// READ-630-04: lưu hàng loạt từ trang hiện tại (chọn nhiều
   /// từ/cụm/câu → 1 chủ đề + ngôn ngữ).
   final VoidCallback? onBatchSavePage;
+
+  /// Mở sheet chọn phạm vi quét OCR (trang hiện tại / khoảng / toàn bộ —
+  /// PLAN-035 · PDF-OCR-002). Null = nền tảng không có OCR (ẩn mục menu).
+  final VoidCallback? onOpenOcrSheet;
 
   /// Mở tìm kiếm trong file / mục lục / nhảy nhanh tới trang (Wave 1).
   final VoidCallback? onSearch;
@@ -38,6 +43,7 @@ class PdfToolbar extends StatelessWidget {
     this.writingMode = false,
     this.onSendToWriting,
     this.onBatchSavePage,
+    this.onOpenOcrSheet,
     this.onSearch,
     this.onShowToc,
     this.onJumpToPage,
@@ -147,6 +153,16 @@ class PdfToolbar extends StatelessWidget {
                 onUserInteraction: onUserInteraction,
               ),
               const SizedBox(width: 4),
+              // Dịch màn hình (PLAN-035 · XLAT-SCR-001): chỉ có nghĩa ở chế độ
+              // xem trang — Text Mode đã có đường "Mở trong Read Mode" với
+              // translateAll đầy đủ.
+              if (controller.viewMode == PdfViewMode.pdfView) ...[
+                _TranslatePageButton(
+                  controller: controller,
+                  onUserInteraction: onUserInteraction,
+                ),
+                const SizedBox(width: 4),
+              ],
               _ViewModeButton(
                 controller: controller,
                 onUserInteraction: onUserInteraction,
@@ -161,6 +177,7 @@ class PdfToolbar extends StatelessWidget {
                 onShowReaderTheme: onShowReaderTheme,
                 readerThemeState: readerThemeState,
                 onBatchSavePage: onBatchSavePage,
+                onOpenOcrSheet: onOpenOcrSheet,
               ),
             ],
           ),
@@ -347,6 +364,60 @@ class _RecallMarkersButton extends StatelessWidget {
   }
 }
 
+// ── Translate Page Button (Dịch màn hình) ─────────────────
+
+/// Nút "Dịch trang hiện tại" trên toolbar (PLAN-035 · XLAT-SCR-001) — theo
+/// đề xuất tư vấn Gemini của owner: một nút trên thanh công cụ, quét segment
+/// văn bản đang hiển thị rồi dịch batch qua TranslationService đã có.
+class _TranslatePageButton extends StatelessWidget {
+  final PdfReaderController controller;
+  final VoidCallback? onUserInteraction;
+
+  const _TranslatePageButton({
+    required this.controller,
+    this.onUserInteraction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = controller.pageTranslatePanelVisible;
+    return GestureDetector(
+      onTap: () {
+        onUserInteraction?.call();
+        HapticFeedback.selectionClick();
+        controller.togglePageTranslatePanel();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: active
+              ? const Color(0xFF66BB6A).withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(8),
+          border: active
+              ? Border.all(
+                  color: const Color(0xFF66BB6A).withValues(alpha: 0.4))
+              : null,
+        ),
+        child: controller.isTranslatingPage
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.8,
+                  valueColor: AlwaysStoppedAnimation(Color(0xFF66BB6A)),
+                ),
+              )
+            : Icon(
+                Icons.translate,
+                size: 16,
+                color: active ? const Color(0xFF81C784) : Colors.white70,
+              ),
+      ),
+    );
+  }
+}
+
 // ── View Mode Button ──────────────────────────────────────
 
 class _ViewModeButton extends StatelessWidget {
@@ -395,6 +466,7 @@ class _MoreButton extends StatelessWidget {
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
   final VoidCallback? onBatchSavePage;
+  final VoidCallback? onOpenOcrSheet;
   final VoidCallback? onShowShortcuts;
   final VoidCallback? onShowReaderTheme;
   final PdfReaderThemeState? readerThemeState;
@@ -405,6 +477,7 @@ class _MoreButton extends StatelessWidget {
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
     this.onBatchSavePage,
+    this.onOpenOcrSheet,
     this.onShowShortcuts,
     this.onShowReaderTheme,
     this.readerThemeState,
@@ -440,6 +513,7 @@ class _MoreButton extends StatelessWidget {
         onShowAnnotations: onShowAnnotations,
         onOpenGrammarSettings: onOpenGrammarSettings,
         onBatchSavePage: onBatchSavePage,
+        onOpenOcrSheet: onOpenOcrSheet,
         onShowShortcuts: onShowShortcuts,
         onShowReaderTheme: onShowReaderTheme,
         readerThemeState: readerThemeState,
@@ -453,6 +527,7 @@ class _PdfOptionsSheet extends StatelessWidget {
   final VoidCallback? onShowAnnotations;
   final VoidCallback? onOpenGrammarSettings;
   final VoidCallback? onBatchSavePage;
+  final VoidCallback? onOpenOcrSheet;
   final VoidCallback? onShowReaderTheme;
   final PdfReaderThemeState? readerThemeState;
   final VoidCallback? onShowShortcuts;
@@ -462,6 +537,7 @@ class _PdfOptionsSheet extends StatelessWidget {
     this.onShowAnnotations,
     this.onOpenGrammarSettings,
     this.onBatchSavePage,
+    this.onOpenOcrSheet,
     this.onShowShortcuts,
     this.onShowReaderTheme,
     this.readerThemeState,
@@ -550,6 +626,31 @@ class _PdfOptionsSheet extends StatelessWidget {
               onTap: () {
                 Navigator.pop(context);
                 onBatchSavePage?.call();
+              },
+            ),
+
+          // PLAN-035 · PDF-OCR-002: batch OCR — chọn trang hiện tại / khoảng /
+          // toàn bộ tài liệu. Menu này là lối vào KỂ CẢ khi trang hiện tại có
+          // lớp chữ (nút trên thanh TTS chỉ hiện khi trang không có chữ).
+          if (onOpenOcrSheet != null && OcrService.instance.isAvailable)
+            ListTile(
+              leading: const Icon(
+                Icons.document_scanner_outlined,
+                color: Color(0xFF26C6DA),
+              ),
+              title: Text(
+                context.uiText('Quét OCR (trang / toàn bộ)…'),
+                style: const TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Nhận dạng chữ trang scan → nạp vào Text Studio',
+                ),
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                onOpenOcrSheet?.call();
               },
             ),
 

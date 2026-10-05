@@ -12,7 +12,9 @@ import '../../features/grammar/models/grammar_highlight_style.dart';
 import '../../features/grammar/models/grammar_palette.dart';
 import '../../features/grammar/services/grammar_preset_library_service.dart';
 import '../../features/grammar/services/grammar_settings_service.dart';
+import '../../features/ocr/ocr_service.dart';
 import '../../features/tts/tts_service.dart';
+import '../../features/translation/translation_service.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../models/vocabulary_type.dart';
@@ -20,11 +22,14 @@ import '../../providers/vocabulary_bridge.dart';
 import '../../screens/memory_mode/memory_provider.dart';
 import '../../services/reader_display_settings.dart';
 import 'models/pdf_annotation.dart';
+import 'models/pdf_page_translation.dart';
 import 'models/pdf_sentence_cue.dart';
 import 'models/pdf_word_info.dart';
 import 'services/pdf_annotation_storage.dart';
 import 'services/pdf_annotation_sidecar.dart' show mergeSidecarAnnotations;
 import 'services/pdf_file_identity.dart';
+import 'services/pdf_page_ocr.dart';
+import 'services/pdf_page_translate.dart';
 import 'services/pdf_text_extractor.dart';
 import 'services/pdf_text_layer_probe.dart';
 import 'services/pdf_tts_machine.dart';
@@ -430,6 +435,12 @@ class PdfReaderController extends ChangeNotifier {
 
     _loadWordsForPage(pageIndex);
     if (pageIndex + 1 < totalPages) _loadWordsForPage(pageIndex + 1);
+
+    // Panel "Dịch màn hình" đang mở → theo kịp trang mới. Trang đã cache thì
+    // hiển thị ngay; trang mới thì dịch lại (TranslationCache ăn phần lớn).
+    if (_pageTranslatePanelVisible) {
+      unawaited(translateCurrentPage());
+    }
   }
 
   /// Điều khiển bằng nút ngoài (TTS bar, phím tắt).
@@ -941,6 +952,171 @@ class PdfReaderController extends ChangeNotifier {
     } catch (e) {
       debugPrint('PdfReaderController: extractCurrentPageText error: $e');
       return '';
+    }
+  }
+
+  // ─── Dịch màn hình: bản dịch trang hiện tại (PLAN-035 · XLAT-SCR-001) ──
+  //
+  // Vì sao làm theo TRANG thay vì overlay từng dòng ngay bản đầu: controller
+  // đã có `extractSentences` (câu + rect) và TranslationService đã có cache +
+  // glossary pipeline — ghép hai thứ đó là 95% giá trị "dịch màn hình" với
+  // rủi ro thấp nhất. Overlay đè lên dòng gốc (CustomPainter theo rect) là
+  // bước nâng cấp sau (ADR-0010) — schema đã giữ sẵn `bounds`.
+
+  /// Bản dịch theo câu, cache ~6 trang gần nhất. Key = pageIndex 0-based.
+  final Map<int, List<PdfPageSentenceTranslation>> _pageTranslations = {};
+  static const int _kPageTranslationCacheLimit = 6;
+
+  bool _pageTranslatePanelVisible = false;
+  bool _isTranslatingPage = false;
+  double _pageTranslateProgress = 0;
+  String? _pageTranslateError;
+  int _pageTranslateRunId = 0;
+
+  List<PdfPageSentenceTranslation> get pageTranslations =>
+      _pageTranslations[_currentPage] ?? const <PdfPageSentenceTranslation>[];
+  bool get pageTranslatePanelVisible => _pageTranslatePanelVisible;
+  bool get isTranslatingPage => _isTranslatingPage;
+  double get pageTranslateProgress => _pageTranslateProgress;
+
+  /// 'page_no_text' = trang không có chữ (scan + không OCR được);
+  /// 'translate_failed' = engine dịch fail (mạng / cấu hình).
+  String? get pageTranslateError => _pageTranslateError;
+
+  int get pageTranslatedCount =>
+      pageTranslations.where((t) => t.hasTranslation).length;
+
+  void togglePageTranslatePanel() {
+    if (_pageTranslatePanelVisible) {
+      hidePageTranslatePanel();
+    } else {
+      showPageTranslatePanel();
+    }
+  }
+
+  void showPageTranslatePanel() {
+    _pageTranslatePanelVisible = true;
+    _pageTranslateError = null;
+    notifyListeners();
+    if (_pageTranslations[_currentPage] == null) {
+      unawaited(translateCurrentPage());
+    }
+  }
+
+  void hidePageTranslatePanel() {
+    _pageTranslatePanelVisible = false;
+    // Hủy phiên đang chạy: đóng panel là người dùng không còn xem trang đó.
+    _pageTranslateRunId++;
+    _isTranslatingPage = false;
+    notifyListeners();
+  }
+
+  /// Dịch trang hiện tại: câu từ lớp chữ; trang scan thì OCR 1 trang (chỉ
+  /// Android/iOS) rồi dịch theo đoạn. Lật lại trang đã cache là gần như miễn
+  /// phí nhờ TranslationCache bên dưới TranslationService.
+  ///
+  /// Không có guard "đang bận" kiểu return-ngay: đổi trang giữa chừng cần HỦY
+  /// phiên cũ và bắt đầu phiên mới ngay — phiên cũ tự thành no-op qua các
+  /// checkpoint `runId != _pageTranslateRunId` (cùng pattern session của
+  /// `_ttsMachine` và `_translationRunId` của TranslationMixin).
+  Future<void> translateCurrentPage({bool force = false}) async {
+    final doc = _document;
+    if (doc == null) return;
+    final pageIndex = _currentPage.clamp(0, doc.pages.length - 1);
+    if (!force &&
+        (_pageTranslations[pageIndex]?.isNotEmpty ?? false)) {
+      return;
+    }
+
+    final runId = ++_pageTranslateRunId;
+    _isTranslatingPage = true;
+    _pageTranslateProgress = 0;
+    _pageTranslateError = null;
+    notifyListeners();
+
+    try {
+      // 1) Lấy seed: câu từ lớp chữ → trống thì OCR 1 trang (trang scan).
+      var seeds =
+          cuesToTranslationSeeds(pageIndex, await _extractor.extractSentences(
+        doc.pages[pageIndex],
+        pageIndex,
+      ));
+      if (runId != _pageTranslateRunId) return;
+
+      if (seeds.isEmpty && OcrService.instance.isAvailable) {
+        final raster = await rasterizePdfPage(doc, pageIndex);
+        if (runId != _pageTranslateRunId) return;
+        if (raster != null) {
+          final ocr = await OcrService.instance.recognizeBitmap(
+            pixels: raster.pixels,
+            width: raster.width,
+            height: raster.height,
+          );
+          if (runId != _pageTranslateRunId) return;
+          if (ocr.isSuccess && ocr.text.trim().isNotEmpty) {
+            seeds = ocrTextToTranslationSeeds(pageIndex, ocr.text);
+          }
+        }
+      }
+
+      if (seeds.isEmpty) {
+        _pageTranslations.remove(pageIndex);
+        _pageTranslateError = 'page_no_text';
+        return; // finally sẽ notify + tắt spinner
+      }
+
+      // 2) Dịch tuần tự qua TranslationService (cache → online → offline,
+      // glossary protect-tokens đã ở trong pipeline của translateText).
+      final service = TranslationService();
+      final report = await translatePdfPageUnits(
+        pageIndex: pageIndex,
+        seeds: seeds,
+        translate: (text) async {
+          final result = await service.translateText(text);
+          return (result.isSuccess && result.translatedText.trim().isNotEmpty)
+              ? result.translatedText
+              : null;
+        },
+        onProgress: (done, total) {
+          if (runId != _pageTranslateRunId) return;
+          _pageTranslateProgress = total <= 0 ? 1 : done / total;
+          notifyListeners();
+        },
+        shouldStop: () => runId != _pageTranslateRunId,
+      );
+      if (runId != _pageTranslateRunId) return;
+
+      _pageTranslations[pageIndex] = report.translations;
+      _trimPageTranslationCache(pageIndex);
+      if (report.translations.every((t) => !t.hasTranslation)) {
+        _pageTranslateError = 'translate_failed';
+      }
+    } catch (e) {
+      debugPrint('PdfReaderController: translateCurrentPage error: $e');
+      _pageTranslateError = 'translate_failed';
+    } finally {
+      if (runId == _pageTranslateRunId) {
+        _isTranslatingPage = false;
+        _pageTranslateProgress = 1;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Giữ cache nhỏ: xóa các trang XA trang hiện tại nhất trước — lật qua lại
+  /// 1-2 trang (thói quen đọc song ngữ) không bị mất cache.
+  void _trimPageTranslationCache(int keepPageIndex) {
+    while (_pageTranslations.length > _kPageTranslationCacheLimit) {
+      int? farthest;
+      var farthestDistance = -1;
+      for (final key in _pageTranslations.keys) {
+        final distance = (key - keepPageIndex).abs();
+        if (distance > farthestDistance) {
+          farthestDistance = distance;
+          farthest = key;
+        }
+      }
+      _pageTranslations.remove(farthest);
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:in4up/features/learn_by_heart/controllers/learn_by_heart_provide
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/reader_appearance.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
+import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_learn_by_heart_service.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_worklist_service.dart';
@@ -82,6 +83,10 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   bool _readingArticle = false;
   int _ttsCursor = 0;
   double _scrollProgress = 0;
+  bool _restoreAttempted = false;
+  double _lastSavedPixels = -1;
+  DateTime _lastPositionSavedAt =
+      DateTime.fromMillisecondsSinceEpoch(0);
 
   bool get _showPali =>
       _hasPali &&
@@ -125,6 +130,14 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
 
   @override
   void dispose() {
+    // Final "Đọc tiếp" checkpoint before the screen tears down.
+    if (_scrollController.hasClients && widget.bookId > 0 && !_loading) {
+      TipitakaReadingPositions.save(
+        widget.bookId,
+        _scrollController.position.pixels,
+        _totalCount,
+      );
+    }
     _appearance.removeListener(_onAppearanceChanged);
     if (_readingArticle || _speakingSegmentId != null) {
       _globalTtsGeneration++;
@@ -150,8 +163,57 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         setState(() => _scrollProgress = progress);
       }
     }
+    _maybeSavePosition(position.pixels);
     if (_loadingMore || !_hasMore) return;
     if (position.extentAfter < 700) _loadMore();
+  }
+
+  /// Throttled "Đọc tiếp" checkpoint: persists the scroll offset when the
+  /// user has moved meaningfully and at most ~once per 1.2 s.
+  void _maybeSavePosition(double pixels) {
+    if (widget.bookId <= 0 || _loading) return;
+    if ((pixels - _lastSavedPixels).abs() < 320) return;
+    final now = DateTime.now();
+    if (now.difference(_lastPositionSavedAt).inMilliseconds < 1200) return;
+    _lastSavedPixels = pixels;
+    _lastPositionSavedAt = now;
+    TipitakaReadingPositions.save(widget.bookId, pixels, _totalCount);
+  }
+
+  /// Restores the saved "Đọc tiếp" offset after opening a book from the top,
+  /// paging forward until the content is tall enough to host it.
+  Future<void> _restoreReadingPosition() async {
+    try {
+      final saved = await TipitakaReadingPositions.load(widget.bookId);
+      if (!mounted ||
+          saved == null ||
+          saved.pixels < TipitakaReadingPositions.minMeaningfulPixels) {
+        return;
+      }
+      var guard = 0;
+      while (mounted && _hasMore && guard < 25) {
+        final position =
+            _scrollController.hasClients ? _scrollController.position : null;
+        if (position == null ||
+            position.maxScrollExtent >= saved.pixels) {
+          break;
+        }
+        guard++;
+        await _loadMore();
+        await WidgetsBinding.instance.endOfFrame;
+      }
+      if (!mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      final limit = position.hasContentDimensions
+          ? position.maxScrollExtent
+          : 0.0;
+      final target = saved.pixels.clamp(0.0, limit).toDouble();
+      if (target >= TipitakaReadingPositions.minMeaningfulPixels) {
+        _scrollController.jumpTo(target);
+      }
+    } catch (_) {
+      // Best-effort resume: a restore failure must never block reading.
+    }
   }
 
   Key _keyForSegment(TipitakaSegment segment) {
@@ -202,6 +264,11 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final target = _initialSegmentKey.currentContext;
           if (target != null) Scrollable.ensureVisible(target, alignment: .22);
+        });
+      } else if (!_restoreAttempted) {
+        _restoreAttempted = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _restoreReadingPosition();
         });
       }
     } catch (error) {

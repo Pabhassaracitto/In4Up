@@ -7,6 +7,7 @@ import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/screens/search_screen.dart';
 import 'package:in4up/features/tipitaka/screens/workspace_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 
 /// Canonical-content tree:
 /// Tam Tạng Chính Văn → Tạng → nhóm/bộ → bài kinh.
@@ -21,6 +22,8 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   List<TipitakaCollection> _collections = const [];
   Map<int, List<TipitakaBook>> _booksByCollection = const {};
   Set<String> _languages = const {};
+  List<({TipitakaReadingPosition position, TipitakaBook book})>
+      _recentPositions = const [];
   String _language = 'en';
   bool _loading = true;
   String? _error;
@@ -59,6 +62,7 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
         _languages = info.availableLanguages;
         _loading = false;
       });
+      _loadRecentPositions();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -76,6 +80,37 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
       MaterialPageRoute(builder: (_) => const TipitakaDownloadScreen()),
     );
     if (mounted) _load();
+  }
+
+  /// Loads up to 3 resumable reading positions ("Đọc tiếp") and resolves
+  /// them to books still present in the current database.
+  Future<void> _loadRecentPositions() async {
+    try {
+      final positions = await TipitakaReadingPositions.loadAll();
+      if (positions.isEmpty) {
+        if (mounted && _recentPositions.isNotEmpty) {
+          setState(() => _recentPositions = const []);
+        }
+        return;
+      }
+      final db = await TipitakaDb.openReady();
+      final recent =
+          <({TipitakaReadingPosition position, TipitakaBook book})>[];
+      for (final position in positions) {
+        if (recent.length >= 3) break;
+        if (position.pixels <
+            TipitakaReadingPositions.minMeaningfulPixels) {
+          continue;
+        }
+        final book = await TipitakaDb.getBookById(db, position.bookId);
+        if (book != null) {
+          recent.add((position: position, book: book));
+        }
+      }
+      if (mounted) setState(() => _recentPositions = recent);
+    } catch (_) {
+      // Vị trí đọc là tiện ích phụ — lỗi đọc không được ảnh hưởng thư viện.
+    }
   }
 
   void _openReader(
@@ -135,6 +170,19 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
                     children: [
+                      if (_recentPositions.isNotEmpty) ...[
+                        _RecentPositionsCard(
+                          entries: _recentPositions,
+                          onOpen: (entry) => _openReader(entry.book),
+                          onRemove: (position) async {
+                            await TipitakaReadingPositions.remove(
+                              position.bookId,
+                            );
+                            await _loadRecentPositions();
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       _LibraryStatusCard(languages: _languages),
                       const SizedBox(height: 10),
                       Card(
@@ -169,6 +217,75 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+}
+
+/// "Đọc tiếp" card — resumes books at their saved scroll positions.
+class _RecentPositionsCard extends StatelessWidget {
+  final List<({TipitakaReadingPosition position, TipitakaBook book})> entries;
+  final void Function(({TipitakaReadingPosition position, TipitakaBook book})
+      entry) onOpen;
+  final void Function(TipitakaReadingPosition position) onRemove;
+
+  const _RecentPositionsCard({
+    required this.entries,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  static String _formatSavedAt(DateTime time) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${two(time.day)}/${two(time.month)}/${time.year} '
+        '${two(time.hour)}:${two(time.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final language = Localizations.localeOf(context).languageCode;
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+            child: Row(
+              children: [
+                Icon(Icons.history_edu_outlined,
+                    size: 19, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  context.uiText('Đọc tiếp'),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+          for (final entry in entries)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.menu_book_outlined),
+              title: Text(
+                entry.book.displayTitle(language),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(_formatSavedAt(entry.position.savedAt)),
+              trailing: IconButton(
+                tooltip: context.uiText('Xóa vị trí đã lưu'),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => onRemove(entry.position),
+                icon: const Icon(Icons.close, size: 18),
+              ),
+              onTap: () => onOpen(entry),
+            ),
+        ],
+      ),
     );
   }
 }

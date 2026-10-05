@@ -1158,3 +1158,27 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-10-05 | created → doing | agent arena/01a10b7e-in4up | ADR-0010 +
     plan + code in-app/batch (5 file lib + 2 file test + i18n 30 entry
     priority overrides) + prompt XLAT-SCR-002; chờ CI + nghiệm thu thiết bị
+
+### PLAN-036 — Dịch màn hình TOÀN HỆ THỐNG trên Android: thi công P1 (XLAT-SCR-002)
+- Nguồn: người sở hữu (2026-10-05, prompt giao việc "XLAT-SCR-002 · System-wide
+  Screen Translator") — qua agent arena/01a10bdd-in4up. Đây là MẢNH (3) của
+  PLAN-035 được tách ra thi công; PLAN-035 giữ nguyên phần in-app + batch OCR.
+- Trạng thái: doing (code P1 xong; chờ CI + nghiệm thu thiết bị thật)
+- Milestone đề xuất: M2
+- Chi tiết: bong bóng nổi trên mọi ứng dụng → bấm → chụp màn hình
+  (MediaProjection) → OCR ML Kit có bbox → dịch bằng ĐÚNG engine user đang
+  chọn → overlay đè bản dịch lên từng khối chữ (kiểu Google Lens/NormCap).
+  Kiến trúc: `docs/adr/0011-dich-man-hinh-toan-he-thong-lane-native.md` —
+  chụp + vẽ ở native Kotlin, hiểu chữ + dịch ở Dart (engine Flutter nền qua
+  FlutterEngineGroup), tái dùng 100% OcrService + TranslationService + cache,
+  KHÔNG tải model tự động (thiếu gói offline thì báo rõ `missingModel`).
+  Phạm vi P1 = Android. iOS KHÔNG làm (hệ thống không cho overlay toàn cục).
+  P2 ghi nhận, chưa làm: desktop Linux/Windows (maim/scrot + Tesseract +
+  cửa sổ trong suốt), script OCR ngoài Latin (CJK — cần ADR riêng), capture
+  liên tục theo vòng lặp.
+- Lịch sử:
+  - 2026-10-05 | created | agent arena/01a10bdd-in4up | ADR-0011 + card
+    KANBAN XLAT-SCR-002 + lane Dart/native/UI/i18n/test thuần
+  - 2026-10-05 | rebase lên 251e | agent arena/01a10bdd-in4up | đổi số
+    PLAN-035→036 vì upstream (arena/01a10b7e-in4up) đã chiếm PLAN-035 cho
+    mảnh in-app + batch OCR; ADR giữ số 0011 (0010 là lane in-app)

@@ -70,6 +70,7 @@
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
+| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart; sandbox KHÔNG có Flutter/Android SDK |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -131,7 +132,7 @@
 | TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 🔄 doing (code + CI oracle 🟢; chờ full test/AT thiết bị) | branch arena/01a10b88-in4up; CI run 37295697496 analyze + Rule #5 + Tipiṭaka tests xanh |
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
-| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 📋 proposed (prompt bàn giao sẵn, chờ agent nhận) | `PROMPT_AGENT_DICH_MAN_HINH.md` — kiến trúc chốt trong ADR-0010: native Kotlin capture + vẽ overlay, Dart OCR + dịch; P1 Android only |
+| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37306440924 trước rebase; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
 
 
 ## Card chi tiết
@@ -5155,8 +5156,11 @@
     lật trang nhanh khi panel mở)
 
 ### XLAT-SCR-002 — Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + overlay)
-- **Trạng thái:** 📋 proposed — prompt bàn giao đầy đủ, chờ owner giao agent
-  Arena khác nhận (lane native riêng theo ADR-0010, không chặn XLAT-SCR-001).
+- **Trạng thái:** 🔨 doing — P1 Android đã thi công xong (code + test thuần,
+  CI 🟢 run 37306440924 trước rebase); chờ owner nghiệm thu thiết bị thật +
+  một lượt build APK `--flavor stable` (Kotlin chưa có CI biên dịch).
+  Lane native riêng theo ADR-0010 → chi tiết kiến trúc trong **ADR-0011**;
+  KHÔNG đụng lane in-app XLAT-SCR-001.
 - **Nguồn:** owner (2026-10-05) — hướng 2 trong tư vấn Gemini: dịch app ngoài
   hệ thống kiểu Google Lens/NormCap.
 - **Nội dung bàn giao:** `PROMPT_AGENT_DICH_MAN_HINH.md` — luật phiên (AGENTS.md,
@@ -5166,6 +5170,65 @@
   OcrService mở rộng nhận blocks + TranslationService dịch; MethodChannel
   `in4up/screentranslate`), 7 cạm bẫy đã biết, 8 task + 7 tiêu chí nghiệm thu
   trên máy thật (Android 14 consent mỗi phiên, pin, cache lặp lại).
+- **Thi công P1 (agent arena/01a10bdd-in4up):**
+  - Kiến trúc: **chụp + vẽ ở native, hiểu chữ + dịch ở Dart** (ADR-0011).
+    Tái dùng 100% `OcrService` (ML Kit Latin) + `TranslationService`
+    (cache → glossary → ML Kit offline → online) — KHÔNG engine dịch thứ hai.
+  - **Dart** `lib/features/screen_translate/`: `screen_translate_geometry.dart`
+    (một hàm quy đổi toạ độ duy nhất + cắt rowStride padding + hoán R↔B),
+    `screen_translate_models.dart` (giao thức channel), `..._channel.dart`
+    (client điều khiển + binding engine nền), `..._controller.dart`
+    (`CaptureGate` debounce 1.5s, cắt tối đa 32 khối, gom
+    `missingModelCodes`), `..._entrypoint.dart` (entrypoint engine nền),
+    `..._prefs.dart` (ngôn ngữ đích dùng chung qua SharedPreferences),
+    `..._card.dart` (UI bật/tắt trong Quản lý Model AI mục 7).
+  - **OCR:** thêm `OcrService.recognizeBitmapBlocks()` trả `List<OcrBlock>`
+    (text + bbox) + `lib/features/ocr/ocr_block.dart`. `recognizeBitmap()`
+    CŨ KHÔNG ĐỔI (PDF Reader đang dùng).
+  - **Native** `android/app/src/main/kotlin/com/in4up/screentranslate/`:
+    `ScreenTranslateService` (foreground service, bong bóng kéo được,
+    ImageReader 1 frame/lần bấm, FlutterEngineGroup chạy
+    `screenTranslateMain`, notification có action Tắt),
+    `ScreenCaptureRequestActivity` (xin consent mỗi phiên — Android 14+),
+    `TranslationOverlayView` (vẽ bản dịch đè, tự thu nhỏ cỡ chữ),
+    `ScreenTranslatePlugin` (channel `in4up/screentranslate`) đăng ký trong
+    `MainActivity`. Manifest: `SYSTEM_ALERT_WINDOW`,
+    `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `FOREGROUND_SERVICE_SPECIAL_USE`,
+    `POST_NOTIFICATIONS` + khai service (`mediaProjection|specialUse`) và
+    activity trong suốt; proguard `-keep` cho package screentranslate.
+  - **i18n:** 17 chuỗi chrome mới trong `priority_ui_overrides.dart` đủ
+    en/hi/zh/zh_TW/si; chuỗi service nằm ở `res/values` **mặc định tiếng
+    Anh** + `res/values-vi` tiếng Việt (quy tắc vàng #5 — không fallback vi).
+  - **Phạm vi:** P1 Android. iOS KHÔNG làm (không có overlay toàn hệ thống).
+    Desktop Linux/Windows = P2 (nút hiện "Chỉ có trên Android", bị khoá).
+- **Bằng chứng:** `test/screen_translate/` — `ocr_block_test.dart`,
+  `screen_translate_geometry_test.dart` (scale ở 2 mật độ, rowStride, hoán
+  R/B), `screen_translate_controller_test.dart` (debounce, noText,
+  missingModel, lỗi từng khối, cắt hạn mức), `screen_translate_protocol_test.dart`
+  (round-trip payload + tên khoá Kotlin đọc), `screen_translate_prefs_test.dart`.
+- **Đã xác nhận bằng CI (trước rebase, base de9e00b):** run 37306440924 —
+  `flutter analyze` 0 error, test rule #5 xanh, step mới "Screen translate
+  tests — XLAT-SCR-002" (`test/screen_translate/`) xanh.
+- **CHƯA có máy bắt:** phần Kotlin — không workflow nào biên dịch Android
+  (build chỉ chạy theo tag/`workflow_dispatch`); sandbox không có Android
+  SDK. Cần một lượt `flutter build apk --flavor stable` của owner.
+- **Nghiệm thu thiết bị (owner):** 1) bật bong bóng → cấp quyền overlay +
+  đồng ý capture → bong bóng hiện ở mọi app; 2) web tiếng Anh → bấm →
+  ≤3s thấy bản dịch đè đúng khối, xoay ngang không lệch; 3) đổi engine
+  trong Cài đặt dịch → bản dịch theo engine đó, lặp màn hình không tốn
+  request (cache); 4) tắt → overlay + notification + tiến trình ngầm biến
+  mất; 5) Android 14: tắt rồi bật lại → hỏi consent lại; 6) desktop không
+  hỏng; 7) `flutter analyze` 0 error + 2 test locale xanh.
 - **Lịch sử:**
   - 2026-10-05 | created (proposed) | agent arena/01a10b7e-in4up | prompt +
     ADR-0010; P1 Android only, P2 desktop + script CJK cần ADR riêng
+  - 2026-10-05 | proposed→doing | agent arena/01a10bdd-in4up | nhận prompt
+    giao việc, thi công P1: seam Dart + OCR bbox, lane native Kotlin, UI +
+    i18n, 5 file test thuần, ADR-0011 (lane native — số 0010 đã là lane
+    in-app). CI 🟢 run 37306440924 (analyze 0 error + rule #5 + step mới
+    "Screen translate tests" trong `app_analyze.yml`) — CHẠY TRƯỚC rebase,
+    trên base de9e00b.
+  - 2026-10-05 | rebase lên 251e | agent arena/01a10bdd-in4up | rebase 6
+    commit lên tip 296eafc (có sẵn lane in-app XLAT-SCR-001 + PDF-OCR-002);
+    hợp nhất card này (giữ nguyên lịch sử của agent arena/01a10b7e-in4up),
+    đổi PLAN-035→PLAN-036 vì số đã bị chiếm; không có xung đột code.

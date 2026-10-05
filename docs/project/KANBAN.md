@@ -70,7 +70,7 @@
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
-| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37306440924; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
+| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -132,7 +132,7 @@
 | TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 🔄 doing (code + CI oracle 🟢; chờ full test/AT thiết bị) | branch arena/01a10b88-in4up; CI run 37295697496 analyze + Rule #5 + Tipiṭaka tests xanh |
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
-| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37306440924 trước rebase; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
+| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
 
 
 ## Card chi tiết
@@ -5206,9 +5206,12 @@
   R/B), `screen_translate_controller_test.dart` (debounce, noText,
   missingModel, lỗi từng khối, cắt hạn mức), `screen_translate_protocol_test.dart`
   (round-trip payload + tên khoá Kotlin đọc), `screen_translate_prefs_test.dart`.
-- **Đã xác nhận bằng CI (trước rebase, base de9e00b):** run 37306440924 —
-  `flutter analyze` 0 error, test rule #5 xanh, step mới "Screen translate
-  tests — XLAT-SCR-002" (`test/screen_translate/`) xanh.
+- **Đã xác nhận bằng CI:** run 37306440924 (trước rebase, base de9e00b) và
+  run **37337092117** (sau rebase, trên nền tip 251e `296eafc`) — cả hai
+  xanh toàn bộ: `flutter analyze` 0 error, test rule #5 xanh, step mới
+  "Screen translate tests — XLAT-SCR-002" (`test/screen_translate/`) xanh,
+  và các batch test của lane in-app (Agent F) cũng xanh ⇒ hai lane không
+  giẫm chân nhau.
 - **CHƯA có máy bắt:** phần Kotlin — không workflow nào biên dịch Android
   (build chỉ chạy theo tag/`workflow_dispatch`); sandbox không có Android
   SDK. Cần một lượt `flutter build apk --flavor stable` của owner.
@@ -5232,3 +5235,15 @@
     commit lên tip 296eafc (có sẵn lane in-app XLAT-SCR-001 + PDF-OCR-002);
     hợp nhất card này (giữ nguyên lịch sử của agent arena/01a10b7e-in4up),
     đổi PLAN-035→PLAN-036 vì số đã bị chiếm; không có xung đột code.
+  - 2026-10-05 | 16:10 UTC | doing→doing | agent arena/01a10bdd-in4up | CI
+    sau rebase ĐỎ ở bước "Resolve dependencies" vì commit nâng dependency của
+    chủ dự án đặt `intl: 0.20.3` trong khi `flutter_localizations` của Flutter
+    3.44.1 ghim ĐÚNG 0.20.2 (đỏ sẵn trên chính nhánh 251e — run 37311461428,
+    mọi bước sau bị skip). Hạ về 0.20.2 trong `pubspec.yaml` + `pubspec.lock`
+    ⇒ run **37337092117 🟢 toàn bộ**. Nếu owner cần 0.20.3 thì phải nâng
+    Flutter trong CI và drop commit nhỏ này.
+  - 2026-10-05 | 16:15 UTC | doing→doing | agent arena/01a10bdd-in4up | bàn
+    giao phần còn lại bằng `PROMPT_AGENT_DICH_MAN_HINH_P2.md`: (a) thêm CI
+    biên dịch Kotlin + nghiệm thu 7 tiêu chí trên máy thật, (b) P1+ (chạm xem
+    bản gốc, chọn vùng, vòng lặp capture), (c) P2 script CJK (ADR riêng),
+    (d) P2 desktop Linux/Windows.

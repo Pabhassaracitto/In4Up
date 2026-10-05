@@ -28,7 +28,7 @@ import 'screen_translate_channel.dart';
 import 'screen_translate_controller.dart';
 
 /// Giữ tham chiếu để binding không bị GC khi `main` kết thúc.
-ScreenTranslateWorkerBinding? _binding;
+ScreenTranslateWorkerBinding? screenTranslateWorkerBinding;
 
 /// Controller của engine nền (lộ ra để test gọi lại `handleFrame`).
 ScreenTranslateController? screenTranslateWorkerController;
@@ -59,6 +59,6 @@ Future<void> prepareScreenTranslateWorker({
         onFrame: ctrl.handleFrame,
         onStopped: () => debugPrint('ℹ️ screen translate worker: service dừng'),
       );
-  _binding = bind;
+  screenTranslateWorkerBinding = bind;
   await bind.attach();
 }

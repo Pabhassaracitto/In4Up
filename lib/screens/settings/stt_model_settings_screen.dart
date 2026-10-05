@@ -23,6 +23,7 @@ import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
 import '../../features/tts/piper_voice_prefs.dart';
 import '../../features/tts/tts_service.dart';
+import '../../features/screen_translate/screen_translate_card.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../features/translation/translation_service.dart';
 
@@ -115,6 +116,12 @@ class SttModelSettingsScreen extends StatelessWidget {
           const _SectionLabel(
               '6. Dịch Offline & Online — Hy-MT & ML Kit'),
           const _TranslationModelSettingsCard(),
+          const SizedBox(height: 16),
+          // XLAT-SCR-002: lane native (bong bóng + MediaProjection) nằm
+          // cạnh lane dịch trong app, dùng chung TranslationService.
+          const _SectionLabel(
+              '7. Dịch màn hình toàn hệ thống — bong bóng nổi (Android)'),
+          const ScreenTranslateCard(),
         ],
       ),
     );

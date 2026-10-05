@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/dict_info.dart';
@@ -54,17 +56,18 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ModeOption(
-                icon: Icons.link,
-                title: ctx.uiText('Liên kết thư mục (khuyến nghị)'),
-                subtitle: ctx.uiText(
-                  'Dùng ngay — chỉ tạo index tra từ, không copy file lớn '
-                  '(mdx/mdd ở nguyên chỗ cũ). Xoá thư mục gốc sẽ mất hình/âm thanh '
-                  'kèm theo nhưng vẫn tra được từ.',
+              if (!Platform.isAndroid)
+                _ModeOption(
+                  icon: Icons.link,
+                  title: ctx.uiText('Liên kết thư mục (khuyến nghị)'),
+                  subtitle: ctx.uiText(
+                    'Dùng ngay — chỉ tạo index tra từ, không copy file lớn '
+                    '(mdx/mdd ở nguyên chỗ cũ). Xoá thư mục gốc sẽ mất hình/âm thanh '
+                    'kèm theo nhưng vẫn tra được từ.',
+                  ),
+                  onTap: () => Navigator.pop(ctx, DictStorageMode.linked),
                 ),
-                onTap: () => Navigator.pop(ctx, DictStorageMode.linked),
-              ),
-              const SizedBox(height: 8),
+              if (!Platform.isAndroid) const SizedBox(height: 8),
               _ModeOption(
                 icon: Icons.save_alt,
                 title: ctx.uiText('Sao chép vào app'),

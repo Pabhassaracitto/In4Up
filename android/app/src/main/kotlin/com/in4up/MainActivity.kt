@@ -52,6 +52,7 @@ import java.io.FileOutputStream
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
     private val textChannelName = "in4up/textlib"
+    private val dictionaryChannelName = "in4up/dictionary"
 
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
@@ -128,6 +129,54 @@ class MainActivity : FlutterActivity() {
                     "copyContentToCache" -> {
                         val uri = call.argument<String>("uri")
                         result.success(uri?.let { copyContentToCache(it) })
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, dictionaryChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Reuse the hardened SAF implementation used by the text
+                    // and video libraries.  Unlike file_picker's Android
+                    // directory API, this returns a persistable tree URI.
+                    "pickFolder" -> launchFolderPicker(result)
+                    "scanFolder" -> {
+                        val treeUri = call.argument<String>("treeUri")
+                        val exts = call.argument<List<String>>("extensions")
+                            ?.mapNotNull { it?.toString()?.lowercase() }
+                            ?.toSet()
+                        if (treeUri.isNullOrBlank()) {
+                            result.success(emptyList<Map<String, Any?>>())
+                        } else {
+                            try {
+                                result.success(scanTextTree(treeUri, exts))
+                            } catch (se: SecurityException) {
+                                result.error(
+                                    "PERMISSION_LOST",
+                                    "Mất quyền đọc thư mục: ${se.message}",
+                                    null,
+                                )
+                            } catch (iae: IllegalArgumentException) {
+                                result.error("BAD_URI", iae.message, null)
+                            } catch (e: Exception) {
+                                result.error("SCAN_FAILED", e.message, null)
+                            }
+                        }
+                    }
+                    "copyDocumentToPath" -> {
+                        val uri = call.argument<String>("uri")
+                        val destination = call.argument<String>("destination")
+                        if (uri.isNullOrBlank() || destination.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            // MDD files can be hundreds of MB.  Never copy
+                            // them on Android's main thread or the picker
+                            // flow can appear frozen / trigger an ANR.
+                            Thread {
+                                val copied = copyContentToPath(uri, destination)
+                                runOnUiThread { result.success(copied) }
+                            }.start()
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -282,7 +331,7 @@ class MainActivity : FlutterActivity() {
         }
         if (rootDocId.isBlank()) return out
         try {
-            scanTextFolder(rootUri, rootDocId, out, 0, exts)
+            scanTextFolder(rootUri, rootDocId, out, 0, exts, "")
         } catch (e: SecurityException) {
             // Mất quyền từ gốc (chưa quét được file nào) → ném lên để báo
             // PERMISSION_LOST. Mất quyền giữa chừng (thư mục con) → trả
@@ -320,6 +369,7 @@ class MainActivity : FlutterActivity() {
         out: MutableList<Map<String, Any?>>,
         depth: Int,
         extensions: Set<String> = textExtensions,
+        relativeDir: String = "",
     ) {
         // Giới hạn: depth 12, 5000 file — đủ cho thư viện sách, tránh quét
         // hang trên tree khổng lồ.
@@ -358,7 +408,14 @@ class MainActivity : FlutterActivity() {
                     val mime = c.getString(mimeCol) ?: ""
 
                     if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                        scanTextFolder(treeUri, id, out, depth + 1, extensions)
+                        scanTextFolder(
+                            treeUri,
+                            id,
+                            out,
+                            depth + 1,
+                            extensions,
+                            "$relativeDir$name/",
+                        )
                         continue
                     }
 
@@ -375,6 +432,7 @@ class MainActivity : FlutterActivity() {
                         mapOf(
                             "uri" to docUri.toString(),
                             "name" to name,
+                            "relativePath" to "$relativeDir$name",
                             "sizeBytes" to c.getLong(sizeCol),
                             "dateModifiedMs" to c.getLong(modCol),
                             "ext" to ext,
@@ -410,6 +468,34 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    /**
+     * Materialize one SAF document at an app-owned path.  MDX parsing needs a
+     * seekable File and cannot operate on a content:// URI directly.  The
+     * destination is always supplied by Dart under the app documents/cache
+     * directory; a partial destination is removed on failure.
+     */
+    private fun copyContentToPath(contentUri: String, destination: String): Boolean {
+        val outputFile = File(destination)
+        return try {
+            val input = contentResolver.openInputStream(Uri.parse(contentUri))
+                ?: return false
+            outputFile.parentFile?.mkdirs()
+            FileOutputStream(outputFile).use { output ->
+                input.use { inputStream ->
+                    inputStream.copyTo(output)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                outputFile.delete()
+            } catch (_: Exception) {
+            }
+            false
         }
     }
 

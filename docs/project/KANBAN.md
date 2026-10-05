@@ -33,6 +33,8 @@
 | READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | ✅ done | VocabEntryEditSheet (chờ nghiệm thu build) |
 | READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
+| WEB-LOAD-001 | Web Reader: spinner/load "kẹt" — trang đã load xong mà vẫn xoay + load (kể cả khi bấm icon "eye" đánh dấu từ đã lưu) | 🔄 doing (code xong, chờ CI + nghiệm thu máy) | WEB-LOAD-001 watchdog: `onPageFinished` vắng mặt >10s ⇒ tự `state→ready` (ẩn spinner); sửa `web_reader_controller.dart` — owner báo 2026-10-06 (build cũ) |
+| WEB-TTS-PAUSE-001 | Web Reader: bấm nút Pause bài đọc vẫn tiếp tục đọc (icon đã đổi sang ▶ tam giác) | ✅ done + CI xanh (trong tip) — chờ owner build lại + nghiệm thu máy | fix PAUSE F3 đã ở tip `72b1e85` (2026-10-01): `pause()` dừng CẢ AudioPlayer + giọng máy + `speakLines` ĐỨNG YÊN khi pause (không auto-skip câu kế); build cũ `1d58b78` (09-15) KHÔNG có fix này → "bấm Pause xong vẫn nghe" |
 | PDF-W0 | Wave 0 PDF Reader: nối selection + TTS câu + định danh file + hệ toạ độ + i18n + test sàn | 🔨 doing | code + CI 🟢 05-09-2026 (`370ff91`, run 33984585516: analyze 0 error + test rule #5 xanh) trên `arena/01a07250-in4up`; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` ở máy dev |
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
@@ -2854,6 +2856,65 @@
     `1d58b78` của owner thiếu vá này → thanh đáy vẫn chiếm không gian. Còn lại:
     owner build lại từ tip MỚI + nghiệm thu (bấm Focus → đáy gập về 0, vùng đọc
     mở rộng hết đáy).
+
+### WEB-LOAD-001 — Web Reader: spinner/load "kẹt" dù trang đã load xong
+- **Trạng thái:** doing (code xong, chờ CI + nghiệm thu máy)
+- **Triệu chứng (owner 2026-10-06):** "web reader khi mở web lên nó cứ xoay
+  xoay + load trong khi thực tế đã load xong rồi; chọn icon 'eye' đánh dấu từ
+  đã lưu thì nó vẫn xoay + load."
+- **Định vị (code):** spinner toàn màn hình + thanh tiến trình AppBar hiển thị
+  khi `state == WebReaderState.loading` (`web_reader_screen.dart`). `state` chỉ
+  chuyển `loading→ready` khi WebView bắn `onPageFinished`. Một số trang (nặng /
+  redirect / SPA / ad giữ load event / websocket) KHÔNG BAO GIỜ bắn
+  `onPageFinished` → `state` kẹt ở `loading` → spinner che trang đã sẵn sàng.
+  Icon "eye" (recall marker) chỉ re-inject JS highlight (KHÔNG navigate) nên
+  không phải thủ phạm — nó chỉ là chỗ owner RỐT RA thấy spinner kẹt.
+- **Fix (WEB-LOAD-001 — load watchdog):** `web_reader_controller.dart`
+  - `onPageStarted` ⇒ `_startLoadWatchdog()` (Timer 10s, restart mỗi lần
+    navigate mới).
+  - `onPageFinished` / `onError` / `dispose` ⇒ `_stopLoadWatchdog()`.
+  - Watchdog fire mà vẫn `loading` ⇒ ép `state→ready` + ẩn spinner (WebView
+    vẫn load ngầm, không che tầm nhìn). An toàn: nếu `onPageFinished` tới muộn
+    sau đó chỉ set `ready` lại (không hại); navigate mới lại set `loading`
+    (đúng nghĩa).
+- **AT nghiệm thu:** mở 1 trang web nặng/SPA (vd trang có nhiều ad / feed
+  infinite scroll) → trong ≤10s spinner TẮT dù trang có kịp load xong hay
+  chưa → đọc/scroll bình thường; mở trang thường → spinner tắt ngay khi load
+  xong (onPageFinished); chuyển trang → spinner hiện lại đúng lúc.
+- **Lưu ý cho owner:** fix này MỚI (commit hiện tại) — cần build lại từ tip
+  MỚI nhất của `arena/01a0251e-in4up` để có.
+- **Lịch sử:**
+  - 2026-10-06 | created→doing | agent arena/01a0251e-in4up | watchdog
+    `onPageFinished` 10s tự ẩn spinner; chờ CI + nghiệm thu máy
+
+### WEB-TTS-PAUSE-001 — Web Reader: bấm Pause bài đọc vẫn tiếp tục đọc
+- **Trạng thái:** done + CI xanh (fix đã trong tip) — chờ owner build lại +
+  nghiệm thu máy
+- **Triệu chứng (owner 2026-10-06):** "khi phát âm thanh ở web read, khi nhấn
+  nút pause thì nó vẫn đọc, trong khi đã chuyển qua nút tam giác (icon)."
+- **Root cause (xác minh bằng code build cũ `1d58b78`):** build của owner
+  (09-15) có `pause()` CHỈ `await _audioPlayer.pause()` (KHÔNG pause giọng máy
+  flutter_tts) + vòng `speakLines` KHÔNG có guard pause ⇒ câu đang đọc bằng
+  giọng máy chạy tới hết + vòng lặp NHẢY sang câu kế → "bấm Pause xong vẫn
+  nghe". Icon đổi ▶ vì cờ `_isPaused=true` (UI đúng) nhưng ÂM không dừng.
+- **Fix (đã ở tip, commit `72b1e85` 2026-10-01 — I4U18-PDF-OCR-TTS-001 F3):**
+  `tts_service.dart`
+  - `pause()` = DỪNG ÂM ĐANG PHÁT CẢ AudioPlayer lẫn giọng máy
+    (`_offlineEngine.pause()`, fallback `stop()` nếu device không hỗ trợ pause).
+  - `speakLines` + `_awaitLineFinished` có guard: khi `_paused` vòng lặp ĐỨNG
+    YÊN ở đúng câu đang đọc (KHÔNG auto-skip câu kế).
+  - `stop()` tăng `_playbackEpoch` chặn mọi tác vụ phát đang bay.
+- **AT nghiệm thu:** tab web → đọc bài (🎧) → bấm Pause → ÂM DỪNG NGAY (icon
+  ▶) → bấm ▶ (Tiếp tục) → đọc lại → bấm ⏹ (Dừng) → hết. Kiểm tra cả 2 kiểu
+  giọng: Piper/online (AudioPlayer) + giọng máy (flutter_tts).
+- **Lưu ý cho owner:** fix NÀY đã có ở tip hiện tại — build cũ `1d58b78` của
+  owner thiếu nên mới sập. Build lại từ tip MỚI để có. (Hạn chế còn lại đã
+  ghi: resume giọng máy flutter_tts bắt đầu từ câu kế, không nối giữa câu —
+  đúng như thiết kế F3.)
+- **Lịch sử:**
+  - 2026-10-06 | created→done(CI xanh) | agent arena/01a0251e-in4up | xác minh
+    fix PAUSE F3 (`72b1e85`) đã trong tip, build cũ `1d58b78` thiếu; chờ owner
+    build lại + nghiệm thu máy
 
 ### VIENEU-001 — VieNeu-TTS (PLAN-027)
 - **Trạng thái:** proposed

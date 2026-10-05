@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -115,6 +116,35 @@ class WebReaderController extends ChangeNotifier {
 
   double _loadingProgress = 0;
   double get loadingProgress => _loadingProgress;
+
+  // ─── WEB-LOAD-001: watchdog chống spinner "kẹt" ──────────
+  /// Trang đã load xong nhưng WebView không bắn `onPageFinished` (trang nặng /
+  /// redirect / SPA / ad giữ load event) → state kẹt ở `loading` → spinner che
+  /// trang đã sẵn sàng. Watchdog tự ẩn spinner nếu `onPageFinished` vắng mặt
+  /// quá [_loadWatchdogDuration] — WebView vẫn load ngầm, không che tầm nhìn.
+  static const _loadWatchdogDuration = Duration(seconds: 10);
+  Timer? _loadWatchdog;
+
+  void _startLoadWatchdog() {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = Timer(_loadWatchdogDuration, () {
+      _loadWatchdog = null;
+      if (_state == WebReaderState.loading) {
+        debugPrint(
+          'WebReader: watchdog — onPageFinished vắng mặt sau '
+          '${_loadWatchdogDuration.inSeconds}s, tự ẩn spinner (state→ready)',
+        );
+        _state = WebReaderState.ready;
+        _loadingProgress = 1.0;
+        notifyListeners();
+      }
+    });
+  }
+
+  void _stopLoadWatchdog() {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = null;
+  }
 
   // ─── Color Mode ───────────────────────────────────────────
   ColorMode _colorMode = ColorMode.none;
@@ -298,6 +328,7 @@ class WebReaderController extends ChangeNotifier {
     _currentUrl = url;
     _state = WebReaderState.loading;
     _loadingProgress = 0.1;
+    _startLoadWatchdog();
     notifyListeners();
   }
 
@@ -311,6 +342,7 @@ class WebReaderController extends ChangeNotifier {
     _pageTitle = title.isNotEmpty ? title : _safeHost(url);
     _state = WebReaderState.ready;
     _loadingProgress = 1.0;
+    _stopLoadWatchdog();
     notifyListeners();
 
     _rememberLastOpenedUrl(url);
@@ -328,6 +360,7 @@ class WebReaderController extends ChangeNotifier {
 
   void onError(String message) {
     _state = WebReaderState.error;
+    _stopLoadWatchdog();
     notifyListeners();
   }
 
@@ -1819,6 +1852,7 @@ class WebReaderController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _stopLoadWatchdog();
     ReaderDisplaySettings().removeListener(_onReaderDisplaySettingsChanged);
     _tts.stop();
     super.dispose();

@@ -126,9 +126,60 @@
 | I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (code xong, CI run 36898178031 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `pdf_text_layer_probe.dart` + `ocr_cancel_token.dart` + `pdf_tts_machine.dart` + playback epoch; test OCR/PDF xanh |
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
+| TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
+| TPI-DISPLAY-02 | Tipiṭaka: ghi nhớ vị trí đọc + thẻ "Đọc tiếp" (P4a) — store px theo book_id, reader auto-restore, thư viện resume tối đa 3 sách | ✅ done (code; CÒN nghiệm thu thiết bị) | branch arena/01a10843-in4up commit 0f7fe18 |
+| TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 📋 proposed | brief bàn giao `PROMPT_AGENT_TIPITAKA_P2.md`; làm xong TPI-DISPLAY-01/02 trước |
 
 
 ## Card chi tiết
+
+### TPI-DISPLAY-01 — Reader "trang sách" chuẩn OpenTipitaka + cài đặt hiển thị lưu bền (P0–P3)
+- **Trạng thái:** done (code hoàn tất 2026-10-05; static checks + mô phỏng test
+  i18n 🟢; CÒN `flutter analyze` + full `flutter test` + nghiệm thu thiết bị —
+  sandbox không có Flutter SDK nên chưa có oracle runtime).
+- **Nguồn:** owner (2026-10-04) qua agent arena/01a10843-in4up — yêu cầu tối ưu
+  hiển thị theo `opentipitaka.org/texts/vin01m_mul?ui=vi&lang=vi` + brief phân
+  tích của Claude. Kế hoạch: `docs/tipitaka_display_optimization_plan.md`.
+- **Nội dung (3 commit sau khi rebase e93a28e):**
+  - `79d5a20` reader + infra: `services/tipitaka_markup.dart` (parser CSCD:
+    clean text, block kind book/chapter/subhead/centre/hangnum/gatha, page
+    markers `<pb ed n>` → chip "M n", serif fallback stack),
+    `models/reader_appearance.dart` (ChangeNotifier + SharedPreferences: chế độ
+    Song ngữ/Pāli/Bản dịch, ngôn ngữ bản dịch chính độc lập UI, nền đọc
+    Hệ thống/Sáng/Sepia/Tối, cỡ chữ 80–160%, English phụ); reader viết lại:
+    cột giữa ≤800px, hairline thay Card, SliverAppBar floating+snap + progress
+    theo vị trí cuộn, tải 2 chiều "Tải các đoạn phía trước", che reference kỹ
+    thuật → "Đoạn N", meta bar thích ứng (overflow menu khi pane hẹp), TOC lọc.
+  - `64411eb` search deep-link: kết quả mở Workspace tại đúng đoạn (thêm
+    `TipitakaDb.getBookById`), snippet cắt quanh query + highlight match.
+  - `a445f12` library: icon+màu 3 Tạng, chip Mūla/Aṭṭhakathā/Ṭīkā; docs plan.
+  - i18n: 16 nhãn chrome mới → `priority_ui_overrides.dart` (cùng PR; rule #5).
+- **AT:** reader mở demo DB (Mahāvaṃsa 10k đoạn) thấy heading/kệ/số đoạn/chip
+  "M n"; settings đổi được mode/ngôn ngữ/nền Sepia-tối/cỡ chữ và GIỮ sau restart;
+  search "namassitvāna" mở đúng đoạn; UI en không còn chrome tiếng Việt;
+  `tipitaka_workspace_retention_test` xanh.
+- **Lịch sử:**
+  - 2026-10-05 | doing | agent arena/01a10843-in4up | audit 9 vấn đề hiển thị +
+    implement P0–P3; 1 commit gốc `9ec243d` sau đó chia 3 commit logic +
+    rebase lên `arena/01a0251e-in4up` (e93a28e) theo yêu cầu owner
+
+### TPI-DISPLAY-02 — Ghi nhớ vị trí đọc + thẻ "Đọc tiếp" (P4a)
+- **Trạng thái:** done (code 2026-10-05 commit `0f7fe18`; CÒN nghiệm thu
+  thiết bị: restore đúng chỗ sau kill app, card xuất hiện/ẩn hợp lý).
+- **Nội dung:** `services/reading_position_store.dart` (offset px theo
+  book_id, SharedPreferences JSON v1, ≤16 sách); reader auto-restore khi mở
+  từ đầu (tải dần ≤25 trang tới khi đủ chiều cao, jumpTo), checkpoint throttle
+  scroll + dispose; thư viện thẻ "Đọc tiếp" ≤3 sách resolve getBookById + nút xóa.
+- **AT:** mở sách → cuộn sâu → back → mở lại: về đúng chỗ (±vài đoạn); nhảy từ
+  TOC/search KHÔNG bị restore đè; xóa vị trí → card mất entry; i18n en sạch.
+
+### TPI-DISPLAY-03 — Tipiṭaka P4b–P6 (lộ trình còn lại)
+- **Trạng thái:** proposed. Làm tiếp sau khi TPI-DISPLAY-01/02 qua oracle/runtime.
+- **Phạm vi:** ấn bản song hành Mūla↔Aṭṭhakathā ở split view (nút "mở bản đối
+  chiếu"); highlight/ghi chú đoạn; footnote apparatus `\[(...)\]` chạm-mở; share
+  đoạn kèm citation (DN 1.1); bundle Noto Serif assets/fonts; sync cuộn split;
+  rà VRI attribution (CC-BY-NC) ở màn quản lý dữ liệu.
+- **Brief:** `PROMPT_AGENT_TIPITAKA_P2.md`.
 
 ### API-001 — WP0: nền tảng Server API (ADR-0008) — cấu hình provider + client OpenAI-compat + màn Server & API
 - **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run 36268246588; còn nghiệm thu thiết bị theo AT)

@@ -193,6 +193,7 @@ jobs:
           set +e
           files=""
           for f in test/edge_tts_engine_test.dart \
+                   test/edge_voice_prefs_test.dart \
                    test/tts_api_wp4_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done

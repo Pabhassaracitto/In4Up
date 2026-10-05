@@ -128,7 +128,7 @@
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 | TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
 | TPI-DISPLAY-02 | Tipiṭaka: ghi nhớ vị trí đọc + thẻ "Đọc tiếp" (P4a) — store px theo book_id, reader auto-restore, thư viện resume tối đa 3 sách | ✅ done (code; CÒN nghiệm thu thiết bị) | branch arena/01a10843-in4up commit 0f7fe18 |
-| TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 📋 proposed | brief bàn giao `PROMPT_AGENT_TIPITAKA_P2.md`; làm xong TPI-DISPLAY-01/02 trước |
+| TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 🔄 doing (code + CI oracle 🟢; chờ full test/AT thiết bị) | branch arena/01a10b88-in4up; CI run 37295697496 analyze + Rule #5 + Tipiṭaka tests xanh |
 
 
 ## Card chi tiết
@@ -174,12 +174,21 @@
   TOC/search KHÔNG bị restore đè; xóa vị trí → card mất entry; i18n en sạch.
 
 ### TPI-DISPLAY-03 — Tipiṭaka P4b–P6 (lộ trình còn lại)
-- **Trạng thái:** proposed. Làm tiếp sau khi TPI-DISPLAY-01/02 qua oracle/runtime.
+- **Trạng thái:** doing — code Phase 2 hoàn tất; CI run `37295697496` xanh
+  (analyze 0 error, Rule #5, import độc lập, workspace retention, dictionary i18n);
+  còn full `flutter test` và checklist nghiệm thu thiết bị trước khi chuyển `done`.
 - **Phạm vi:** ấn bản song hành Mūla↔Aṭṭhakathā ở split view (nút "mở bản đối
   chiếu"); highlight/ghi chú đoạn; footnote apparatus `\[(...)\]` chạm-mở; share
   đoạn kèm citation (DN 1.1); bundle Noto Serif assets/fonts; sync cuộn split;
   rà VRI attribution (CC-BY-NC) ở màn quản lý dữ liệu.
 - **Brief:** `PROMPT_AGENT_TIPITAKA_P2.md`.
+- **Hiện thực:** đối chiếu Mūla/ATT/TIK theo family code và split; sync cuộn theo
+  `order_index`; highlight/note migration-safe + tab thư viện; apparatus parser chung
+  + setting inline; share/copy citation; Noto Serif variable TTF (Regular/Italic/Bold)
+  + OFL; attribution VRI/CSCD trên màn dữ liệu và bàn giao.
+- **Lịch sử:**
+  - 2026-10-05 | proposed→doing | agent arena/01a10b88-in4up | commits
+    `9abf6b3` + `b0329c8`; CI run `37295697496` xanh; chưa tự nhận AT thiết bị/full suite
 
 ### API-001 — WP0: nền tảng Server API (ADR-0008) — cấu hình provider + client OpenAI-compat + màn Server & API
 - **Trạng thái:** done (CI 🟢 App Analyze + Locale + LHB + Cabin — run 36268246588; còn nghiệm thu thiết bị theo AT)

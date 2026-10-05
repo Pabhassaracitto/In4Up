@@ -90,17 +90,17 @@
   fallback stack).
 - `lib/features/tipitaka/models/reader_appearance.dart` — state hiển thị bền.
 
-## 4. Lộ trình tiếp theo (chưa làm — đề xuất)
+## 4. Phase 2 (đã hiện thực; chờ nghiệm thu thiết bị)
 
 | Ưu tiên | Hạng mục | Ghi chú |
 |---|---|---|
 | ~~P4~~ | ~~Bookmark vị trí + "Đọc tiếp"~~ | ✅ ĐÃ LÀM ở đợt 2 (xem P4a mục 3) |
-| P4 | Ấn bản song hành (Mūla ↔ Aṭṭhakathā) trong split view | Workspace đã hỗ trợ split; cần nút "mở bản đối chiếu" |
-| P4 | Highlight đoạn + ghi chú đoạn (bookmark nội dung) | Khác vị trí cuộn: đánh dấu đoạn yêu thích |
-| P5 | Footnote/apparatus `\[(...)\]` thu gọn thành chú thích chạm-mở | Hiện inline như OpenTipitaka |
-| P5 | Chia sẻ đoạn (deep link trong app) + copy kèm citation chuẩn (DN 1.1) | share_plus đã có |
-| P5 | Bundle font Noto Serif thật (assets/fonts) | Sandbox hiện không tải được binary font; stack fallback đã đủ tốt |
-| P6 | Đồng bộ cuộn Pāli↔dịch ở chế độ song ngữ ở split | Cần ScrollController đôi |
+| P4 | Ấn bản song hành (Mūla ↔ Aṭṭhakathā/Ṭīkā) trong split view | ✅ Nút mở đối chiếu + suy family code + fallback rõ ràng |
+| P4 | Highlight đoạn + ghi chú đoạn (bookmark nội dung) | ✅ Bảng phụ migration-safe + long-press + tab thư viện |
+| P5 | Footnote/apparatus `\[(...)\]` thu gọn thành chú thích chạm-mở | ✅ Parser chung + chip + setting inline lưu bền |
+| P5 | Chia sẻ đoạn + copy kèm citation chuẩn (DN 1.1) | ✅ `share_plus`, fallback “Đoạn N” |
+| P5 | Bundle font Noto Serif thật (assets/fonts) | ✅ Regular/Italic/Bold + OFL, family `NotoSerifTipitaka` |
+| P6 | Đồng bộ cuộn hai ấn bản ở split | ✅ Toggle + bridge theo `order_index`, chỉ bật cùng family |
 
 ## 5. Lưu ý license dữ liệu
 
@@ -116,5 +116,5 @@ chưa rà soát giấy phép.
   `readerBuilder` thay thế reader).
 - `db_service.dart` chỉ **thêm** phương thức đọc → các test import/i18n không
   đổi.
-- Sandbox không có Flutter SDK → cần chạy lại `flutter analyze` +
-  `flutter test` trên máy dev/CI sau khi merge.
+- CI run `37295697496`: analyze 0 error + Rule #5 + bộ test Tipiṭaka hiện có xanh.
+- Còn chạy full `flutter test` và nghiệm thu thiết bị trước khi đóng card Phase 2.

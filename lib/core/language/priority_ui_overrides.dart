@@ -2245,6 +2245,12 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Thêm thao tác': {
     'en': 'More actions',
   },
+  'Đọc tiếp': {
+    'en': 'Continue reading',
+  },
+  'Xóa vị trí đã lưu': {
+    'en': 'Remove saved position',
+  },
   'Chạm để mở tại đúng đoạn': {
     'en': 'Tap to open at the exact paragraph',
   },

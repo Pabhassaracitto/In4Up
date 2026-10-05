@@ -73,6 +73,17 @@
 - [x] Chip ấn bản Mūla/Aṭṭhakathā/Ṭīkā trên từng sách.
 - [x] TOC bottom-sheet có ô lọc nhanh.
 
+### P4a — Ghi nhớ vị trí đọc + "Đọc tiếp" (đợt 2)
+- [x] `reading_position_store.dart` (mới): lưu offset cuộn (px) mới nhất theo
+  `book_id` vào SharedPreferences (tối đa 16 sách, recency-ordered, JSON v1).
+- [x] Reader tự **khôi phục vị trí đọc** khi mở sách từ đầu: phục hồi an toàn
+  bằng cách tải dần các trang tới khi đủ chiều cao chứa offset (≤25 trang),
+  `jumpTo` chính xác; nhảy từ TOC/search (initialSegmentId) thì bỏ qua.
+- [x] Lưu checkpoint thông minh: throttle theo scroll (Δ≥320px & ≥1.2s) +
+  lưu lần cuối khi rồi màn đọc (dispose).
+- [x] Thư viện hiển thị card **"Đọc tiếp"** (tối đa 3 sách gần nhất, resolve
+  book qua `getBookById`, tự lọc sách không còn trong DB, nút xóa vị trí).
+
 ### Tài nguyên kiến trúc mới
 - `lib/features/tipitaka/services/tipitaka_markup.dart` — parser thuần Dart
   dùng chung (clean text, classify block, page markers, nhãn số đoạn, serif
@@ -83,8 +94,9 @@
 
 | Ưu tiên | Hạng mục | Ghi chú |
 |---|---|---|
-| P4 | Bookmark/highlight đoạn + "Đọc tiếp" | Lưu vị trí cuộn cuối cùng theo book_id; resume khi mở lại |
+| ~~P4~~ | ~~Bookmark vị trí + "Đọc tiếp"~~ | ✅ ĐÃ LÀM ở đợt 2 (xem P4a mục 3) |
 | P4 | Ấn bản song hành (Mūla ↔ Aṭṭhakathā) trong split view | Workspace đã hỗ trợ split; cần nút "mở bản đối chiếu" |
+| P4 | Highlight đoạn + ghi chú đoạn (bookmark nội dung) | Khác vị trí cuộn: đánh dấu đoạn yêu thích |
 | P5 | Footnote/apparatus `\[(...)\]` thu gọn thành chú thích chạm-mở | Hiện inline như OpenTipitaka |
 | P5 | Chia sẻ đoạn (deep link trong app) + copy kèm citation chuẩn (DN 1.1) | share_plus đã có |
 | P5 | Bundle font Noto Serif thật (assets/fonts) | Sandbox hiện không tải được binary font; stack fallback đã đủ tốt |

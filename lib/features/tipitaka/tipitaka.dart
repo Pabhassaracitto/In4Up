@@ -8,6 +8,7 @@ export 'models/language_pack.dart';
 export 'models/reader_appearance.dart';
 export 'services/db_service.dart';
 export 'services/tipitaka_markup.dart';
+export 'services/reading_position_store.dart';
 export 'services/language_pack_service.dart';
 export 'services/tipitaka_learn_by_heart_service.dart';
 export 'services/tipitaka_source_resolver.dart';

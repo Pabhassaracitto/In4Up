@@ -1182,3 +1182,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-10-05 | rebase lên 251e | agent arena/01a10bdd-in4up | đổi số
     PLAN-035→036 vì upstream (arena/01a10b7e-in4up) đã chiếm PLAN-035 cho
     mảnh in-app + batch OCR; ADR giữ số 0011 (0010 là lane in-app)
+  - 2026-10-05 | CI xanh sau rebase | agent arena/01a10bdd-in4up | run
+    37337092117 xanh toàn bộ trên nền tip 251e (kèm fix `intl` 0.20.3→0.20.2
+    vì flutter_localizations của Flutter 3.44.1 ghim đúng 0.20.2); phần còn
+    lại bàn giao trong `PROMPT_AGENT_DICH_MAN_HINH_P2.md`

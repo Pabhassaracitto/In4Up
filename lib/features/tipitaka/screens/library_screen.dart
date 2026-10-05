@@ -226,21 +226,36 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
   bool _expanded = false;
   bool _loading = false;
 
-  String _title(String language) {
+  /// Piṭaka identity: title, icon and accent colour per basket, so the three
+  /// Tipiṭaka divisions are visually distinct like on OpenTipitaka.
+  ({String title, IconData icon, Color color}) _style(String language) {
     final names = '${widget.collection.namePali} ${widget.collection.nameEn} ${widget.collection.nameVi}'
         .toLowerCase();
     if (names.contains('vin') || names.contains('luật')) {
-      return language == 'vi' ? 'Tạng Luật' : 'Vinaya Piṭaka';
+      return (
+        title: language == 'vi' ? 'Tạng Luật' : 'Vinaya Piṭaka',
+        icon: Icons.balance_outlined,
+        color: Colors.deepPurple,
+      );
     }
     if (names.contains('abh') || names.contains('diệu')) {
-      return language == 'vi' ? 'Tạng Luận' : 'Abhidhamma Piṭaka';
+      return (
+        title: language == 'vi' ? 'Tạng Luận' : 'Abhidhamma Piṭaka',
+        icon: Icons.psychology_outlined,
+        color: Colors.deepOrange,
+      );
     }
-    return language == 'vi' ? 'Tạng Kinh' : 'Sutta Piṭaka';
+    return (
+      title: language == 'vi' ? 'Tạng Kinh' : 'Sutta Piṭaka',
+      icon: Icons.menu_book_outlined,
+      color: Colors.teal,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final language = Localizations.localeOf(context).languageCode;
+    final style = _style(language);
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: ExpansionTile(
@@ -252,8 +267,15 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
             try { await widget.onLoadBooks(); } finally { if (mounted) setState(() => _loading = false); }
           }
         },
-        leading: const Icon(Icons.folder_open_outlined),
-        title: Text(_title(language)),
+        leading: CircleAvatar(
+          radius: 17,
+          backgroundColor: style.color.withValues(alpha: .14),
+          child: Icon(style.icon, size: 18, color: style.color),
+        ),
+        title: Text(
+          style.title,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         subtitle: _loading
             ? const Text('Đang tải mục lục…')
             : Text('${widget.books.length} ${context.uiText('nhóm/bộ')}'),
@@ -331,12 +353,40 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
   Widget build(BuildContext context) {
     final language = Localizations.localeOf(context).languageCode;
     final outline = _outline;
+    final edition = widget.book.catalogIndex.editionLabel;
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 4),
       child: ExpansionTile(
         onExpansionChanged: _loadOutline,
         leading: const Icon(Icons.library_books_outlined),
         title: Text(widget.book.displayTitle(language)),
+        subtitle: edition.isEmpty
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .secondaryContainer
+                          .withValues(alpha: .55),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      edition,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer,
+                          ),
+                    ),
+                  ),
+                ),
+              ),
         trailing: IconButton(
           onPressed: () => _showDetails(context),
           tooltip: context.uiText('Chi tiết kỹ thuật'),

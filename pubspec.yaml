@@ -24,7 +24,7 @@ dependencies:
   # UI
   flutter_localizations:
     sdk: flutter
-  intl: 0.20.3 # change from ^0.18.0
+  intl: 0.20.2 # change from ^0.18.0 (flutter_localizations của Flutter 3.44.1 ghim đúng 0.20.2)
 
   # State Management
   provider: ^6.1.2

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_translate_title">Dịch màn hình</string>
+    <string name="screen_translate_channel">Dịch màn hình</string>
+    <string name="screen_translate_idle">Bấm bong bóng để dịch màn hình này</string>
+    <string name="screen_translate_consent">Đang chờ bạn cho phép chụp màn hình…</string>
+    <string name="screen_translate_working">Đang đọc chữ và dịch màn hình…</string>
+    <string name="screen_translate_done">Đã hiện bản dịch — bấm bong bóng để tắt</string>
+    <string name="screen_translate_done_engine">Đã dịch bằng %1$s — bấm bong bóng để tắt</string>
+    <string name="screen_translate_error">Không dịch được màn hình này</string>
+    <string name="screen_translate_stop">Tắt</string>
+</resources>

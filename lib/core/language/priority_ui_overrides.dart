@@ -4589,20 +4589,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '異文註釋',
     'si': 'පාඨ ප්\u200dරභේද සටහන',
   },
-  'Thư viện': {
-    'en': 'Library',
-    'hi': 'पुस्तकालय',
-    'zh': '书库',
-    'zh_TW': '書庫',
-    'si': 'පුස්තකාලය',
-  },
-  'Đánh dấu': {
-    'en': 'Highlights',
-    'hi': 'हाइलाइट',
-    'zh': '高亮',
-    'zh_TW': '標記',
-    'si': 'උද්දීපන',
-  },
   'Chưa có đoạn được đánh dấu. Nhấn giữ một đoạn khi đọc để bắt đầu.': {
     'en': 'No highlighted passages yet. Long-press a passage while reading to begin.',
     'hi': 'No highlighted passages yet. Long-press a passage while reading to begin.',

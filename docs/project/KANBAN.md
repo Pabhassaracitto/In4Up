@@ -14,6 +14,7 @@
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
+| TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test xong, chờ CI + nghiệm thu máy) | **Re-apply** (commit gốc `c307e0a` MẤT — không được push trước khi phiên 01a10633 đóng): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -5162,6 +5163,49 @@
     CI chạy file test này) → đổi câu chữ comment. Còn lại: nghiệm thu
     end-to-end trên thiết bị thật (sandbox không egress được
     speech.platform.bing.com).
+
+### TTS-EDGE-VOICE-001 — Edge TTS chọn giọng theo ngôn ngữ (trước chỉ có picker Piper)
+- **Trạng thái:** doing (code + 5 test pin xong, chờ CI + nghiệm thu máy)
+- **Nguồn (owner 2026-10-06):** "app chỉ có bộ chọn giọng riêng cho Piper;
+  các engine online (Google/Zalo/FPT/Edge) chưa có chỗ chọn giọng. Vì vậy
+  Edge luôn dùng giọng mặc định `vi-VN-HoaiMyNeural` (nữ)."
+- **Lịch sử commit gốc:** do agent phiên `arena/01a10633-in4up` làm thành
+  commit **local `c307e0a`** (5 phần) — nhưng **KHÔNG ĐƯỢC PUSH** (phiên đóng
+  sau khi PR #79 merge, mất quyền push). Commit LỎI. Phiên
+  `arena/01a0251e-in4up` này **RE-APPLY** lại toàn bộ theo spec + mẫu repo.
+- **Nội dung (5 phần):**
+  1. `lib/features/tts/edge_voice_prefs.dart` (MỚI) — kho giọng Edge
+     **theo ngôn ngữ**, singleton + SharedPreferences, theo đúng mẫu
+     `PiperVoicePrefs` (khoá `edge_voice_for_lang_<lang>` + short code).
+  2. `EdgeTtsEngine.catalogVoices` / `catalogVoicesFor(language)` (MỚI,
+     **đồng bộ, KHÔNG mạng**) — bản static của danh mục trưng offline, cho
+     UI render tức thì (getAvailableVoices vẫn fetch-live khi tổng hợp).
+  3. `TtsService._trySpeakOnline(..., {String? voiceOverride})` — Edge đọc
+     giọng đã lưu từ `EdgeVoicePrefs.instance.voiceForLang(lang)`; engine
+     khác (Google/Zalo/FPT) vẫn dùng `_selectedVoiceId` (voiceOverride=null).
+     **KHÔNG** set `_selectedVoiceId` chung từ picker Edge → không làm bẩn
+     playback Piper/Zalo/FPT (mỗi engine một kho giọng).
+  4. UI `_EdgeVoicePicker` trong `tts_settings_section.dart` — nhóm theo
+     ngôn ngữ (🇻🇳 vi-VN, 🇺🇸 en-US, 🇯 ja-JP…), radio từng giọng,
+     **vi-VN: Hoài My (nữ) / Nam Minh (nam)**, mặc định highlight HoaiMy.
+  5. Test pin: `test/edge_tts_engine_test.dart` (+2: catalog đủ/thứ tự/
+     unique + lọc locale) + `test/edge_voice_prefs_test.dart` (MỚI:
+     normalizeLang + set/voice round-trip + chưa chọn→null).
+- **Phát hiện bổ sung (đã xác minh code):** đọc cache
+  (`TtsCache.get(engineId:'any')`) thực tế không bao giờ trúng file đã lưu
+  (khoá literal `'any'` không match engine-id thật) ⇒ **đổi giọng Edge áp
+  dụng NGAY cho câu tiếp theo** (mỗi câu tổng hợp mới + đọc giọng mới),
+  KHÔNG lo cache giọng cũ — không cần sửa cache trong phạm vi này.
+- **AT nghiệm thu:** Build app → Cài đặt → TTS → mục **"Giọng Microsoft
+  Edge Neural theo ngôn ngữ"** → chọn **Nam Minh (nam)** cho tiếng Việt →
+  đọc câu tiếng Việt bất kỳ (khi engine Edge được dùng) → nghe **giọng nam**.
+  Chọn lại Hoài My → về giọng nữ. Catalog trưng **21 giọng** (offline, sẵn
+  dùng chọn; khi có mạng endpoint còn trả live-list mới hơn).
+- **Lịch sử:**
+  - 2026-10-04 | created (agent 01a10633) | commit local `c307e0a` — MẤT
+    (không push được)
+  - 2026-10-06 | re-apply (agent 01a0251e) | tái hiện 5 phần + 5 test pin
+    trên `arena/01a0251e-in4up`; chờ CI + nghiệm thu máy
 
 ### PDF-OCR-002 — PDF Reader: Batch OCR (trang hiện tại / khoảng trang / toàn bộ tài liệu)
 - **Trạng thái:** 🔨 doing — code + test thuần xong (sandbox không Flutter SDK

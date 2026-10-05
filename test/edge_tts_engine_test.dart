@@ -405,6 +405,41 @@ void main() {
         'en-US-AriaNeural',
       );
     });
+
+    test('catalogVoices — offline catalog đủ, vi-VN ưu tiên đầu, id unique + đúng Edge', () {
+      final cat = EdgeTtsEngine.catalogVoices;
+      expect(cat, isNotEmpty);
+      // Ưu tiên tiếng Việt: 2 giọng đầu là vi-VN (HoaiMy nữ, NamMinh nam).
+      expect(cat.first.language, 'vi-VN');
+      expect(cat.map((v) => v.id).take(2).toList(),
+          containsAll(['vi-VN-HoaiMyNeural', 'vi-VN-NamMinhNeural']));
+      // Id unique + mọi giọng đều đúng dạng Edge Neural.
+      final ids = cat.map((v) => v.id).toSet();
+      expect(ids.length, cat.length);
+      for (final v in cat) {
+        expect(EdgeTtsEngine.isEdgeVoiceId(v.id), isTrue, reason: v.id);
+      }
+    });
+
+    test('catalogVoicesFor — lọc locale đồng bộ (không mạng), short-code OK', () {
+      final vi = EdgeTtsEngine.catalogVoicesFor('vi-VN');
+      expect(vi, isNotEmpty);
+      expect(vi.map((v) => v.id), contains('vi-VN-HoaiMyNeural'));
+      expect(vi.map((v) => v.id), contains('vi-VN-NamMinhNeural'));
+      for (final v in vi) {
+        expect(v.language.toLowerCase(), startsWith('vi'));
+      }
+      // Short code `vi` cũng lọc được.
+      expect(EdgeTtsEngine.catalogVoicesFor('vi'), isNotEmpty);
+      // en → mọi giọng en-*.
+      final en = EdgeTtsEngine.catalogVoicesFor('en-US');
+      expect(en, isNotEmpty);
+      for (final v in en) {
+        expect(v.language.toLowerCase(), startsWith('en'));
+      }
+      // Ngôn ngữ không có trong catalog → rỗng (UI sẽ ẩn nhóm đó).
+      expect(EdgeTtsEngine.catalogVoicesFor('xx-XX'), isEmpty);
+    });
   });
 
   group('isAvailable / getAvailableVoices (http giả)', () {

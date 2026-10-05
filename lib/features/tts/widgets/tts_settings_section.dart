@@ -6,6 +6,9 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
+import '../edge_voice_prefs.dart';
+import '../engines/edge_tts_engine.dart';
+import '../engines/tts_engine.dart';
 import '../piper_voice_prefs.dart';
 import '../tts_service.dart';
 import '../tts_settings.dart';
@@ -53,6 +56,10 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
             const SizedBox(height: 16),
 
             const _PiperVoicePicker(),
+            const SizedBox(height: 16),
+
+            // ── EDGE NEURAL VOICE (TTS-EDGE-VOICE-001) ──
+            const _EdgeVoicePicker(),
             const SizedBox(height: 16),
 
             // ── ENGINE ORDER ──
@@ -801,6 +808,173 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
           ],
         );
       },
+    );
+  }
+}
+
+/// TTS-EDGE-VOICE-001 — bộ chọn giọng Microsoft Edge Neural theo ngôn ngữ.
+///
+/// Trước đây Edge luôn dùng giọng mặc định (vi-VN → HoaiMy, nữ) vì app chỉ có
+/// picker cho Piper. Widget này dùng CATALOG OFFLINE đồng bộ
+/// ([EdgeTtsEngine.catalogVoices]) — KHÔNG chờ mạng — nhóm theo ngôn ngữ,
+/// radio từng giọng. Lưu vào [EdgeVoicePrefs] (TtsService đọc khi phát bằng
+/// Edge). KHÔNG set `_selectedVoiceId` chung để không làm bẩn playback Piper/
+/// Zalo/FPT (mỗi engine một kho giọng riêng).
+class _EdgeVoicePicker extends StatefulWidget {
+  const _EdgeVoicePicker();
+
+  @override
+  State<_EdgeVoicePicker> createState() => _EdgeVoicePickerState();
+}
+
+class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
+  Map<String, String> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    EdgeVoicePrefs.instance.all().then((v) {
+      if (mounted) setState(() => _selected = v);
+    });
+  }
+
+  String _langLabel(String code) {
+    switch (code.toLowerCase()) {
+      case 'vi-vn':
+      case 'vi':
+        return '🇻🇳 Tiếng Việt (vi-VN)';
+      case 'en-us':
+      case 'en':
+        return '🇺🇸 Tiếng Anh (en-US)';
+      case 'en-gb':
+        return '🇬🇧 Tiếng Anh Anh (en-GB)';
+      case 'zh-cn':
+      case 'zh':
+        return '🇨🇳 Tiếng Trung (zh-CN)';
+      case 'zh-tw':
+        return '🇨🇳 Tiếng Trung Đài Loan (zh-TW)';
+      case 'ja-jp':
+      case 'ja':
+        return '🇯🇵 Tiếng Nhật (ja-JP)';
+      case 'ko-kr':
+      case 'ko':
+        return '🇰🇷 Tiếng Hàn (ko-KR)';
+      case 'th-th':
+      case 'th':
+        return '🇹🇭 Tiếng Thái (th-TH)';
+      case 'fr-fr':
+      case 'fr':
+        return '🇫🇷 Tiếng Pháp (fr-FR)';
+      case 'de-de':
+      case 'de':
+        return '🇩🇪 Tiếng Đức (de-DE)';
+      case 'es-es':
+      case 'es':
+        return '🇪🇸 Tiếng Tây Ban Nha (es-ES)';
+      case 'ru-ru':
+      case 'ru':
+        return '🇷🇺 Tiếng Nga (ru-RU)';
+      case 'pt-br':
+      case 'pt':
+        return '🇧🇷 Tiếng Bồ Đào Nha (pt-BR)';
+      case 'id-id':
+      case 'id':
+        return '🇮🇩 Tiếng Indonesia (id-ID)';
+      case 'hi-in':
+      case 'hi':
+        return '🇮🇳 Tiếng Hindi (hi-IN)';
+      default:
+        return '🌐 $code';
+    }
+  }
+
+  /// Giọng đang chọn của nhóm [lang]: ưu tiên giọng user đã chọn; chưa chọn
+  /// thì highlight giọng MẶC ĐỊNH của ngôn ngữ (vd vi-VN → HoaiMy); nhóm chỉ
+  /// 1 giọng → highlight giọng đó. Trả về null nếu không có mặc định hợp lệ.
+  String? _groupValueFor(String lang, List<TtsVoice> voices) {
+    final sel = _selected[lang];
+    if (sel != null && voices.any((v) => v.id == sel)) return sel;
+    if (voices.length == 1) return voices.first.id;
+    final def = EdgeTtsEngine.defaultVoiceForLanguage(lang);
+    return voices.any((v) => v.id == def) ? def : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final voices = EdgeTtsEngine.catalogVoices;
+    if (voices.isEmpty) return const SizedBox.shrink();
+
+    // Nhóm theo ngôn ngữ (khoá chuẩn hoá), giữ thứ tự ưu tiên của catalog.
+    final byLang = <String, List<TtsVoice>>{};
+    final order = <String>[];
+    for (final v in voices) {
+      final lang =
+          EdgeVoicePrefs.normalizeLang(v.language).isEmpty ? 'other'
+              : EdgeVoicePrefs.normalizeLang(v.language);
+      if (!byLang.containsKey(lang)) order.add(lang);
+      byLang.putIfAbsent(lang, () => []).add(v);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.uiText('Giọng Microsoft Edge Neural theo ngôn ngữ'),
+          style: TextStyle(fontSize: 13, color: Colors.grey[400], fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          context.uiText(
+            'Mỗi ngôn ngữ chọn 1 giọng Edge. Tự động áp dụng khi phát bằng '
+            'engine Microsoft Edge TTS (không ảnh hưởng Piper/giọng máy).',
+          ),
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 8),
+        for (final lang in order)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _langLabel(lang),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64B5F6),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                for (final v in byLang[lang]!)
+                  RadioListTile<String>(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: v.id,
+                    // groupValue PHẢI như nhau cho mọi tile trong cùng nhóm
+                    // (đúng ngữ nghĩa RadioListTile) — tính 1 lần theo ngôn ngữ.
+                    groupValue: _groupValueFor(lang, byLang[lang]!),
+                    activeColor: const Color(0xFF64B5F6),
+                    title: Text(
+                      v.name,
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    secondary: Text(
+                      v.gender == 'male' ? '♂' : '♀',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                    onChanged: (id) async {
+                      if (id == null) return;
+                      await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
+                      setState(() => _selected[lang] = id);
+                    },
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

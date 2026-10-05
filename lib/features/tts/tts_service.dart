@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
 import 'cache/tts_cache.dart';
+import 'edge_voice_prefs.dart';
 import 'engines/edge_tts_engine.dart';
 import 'engines/fpt_tts_engine.dart';
 import 'engines/openai_compat_tts_engine.dart';
@@ -434,7 +435,15 @@ class TtsService extends ChangeNotifier {
           // TTS-EDGE-001 — không cần key, mọi ngôn ngữ: thử trực tiếp;
           // `_trySpeakOnline` tự check mạng + timeout 15s → false ⇒ chuỗi
           // chạy tiếp engine kế (fallback mượt, không nghẽn app).
-          played = await _trySpeakOnline(EdgeTtsEngine(), text, lang);
+          // TTS-EDGE-VOICE-001 — dùng giọng Edge đã chọn theo ngôn ngữ
+          // (EdgeVoicePrefs); chưa chọn → null → engine tự chọn mặc định.
+          final edgeVoice = await EdgeVoicePrefs.instance.voiceForLang(lang);
+          played = await _trySpeakOnline(
+            EdgeTtsEngine(),
+            text,
+            lang,
+            voiceOverride: edgeVoice,
+          );
           break;
 
         case 'google_tts':
@@ -572,8 +581,17 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// Thử phát bằng Online Engine (Google, Zalo, FPT)
-  Future<bool> _trySpeakOnline(TtsEngine engine, String text, String lang) async {
+  /// Thử phát bằng Online Engine (Google, Zalo, FPT, Edge)
+  ///
+  /// [voiceOverride] — giọng ưu tiên cho engine này (TTS-EDGE-VOICE-001: Edge
+  /// đọc giọng đã chọn theo ngôn ngữ từ [EdgeVoicePrefs]). `null` → dùng
+  /// `_selectedVoiceId` chung (hành vi cũ cho Google/Zalo/FPT).
+  Future<bool> _trySpeakOnline(
+    TtsEngine engine,
+    String text,
+    String lang, {
+    String? voiceOverride,
+  }) async {
     final hasNet = await _checkNetwork();
     if (!hasNet) return false;
 
@@ -587,7 +605,7 @@ class TtsService extends ChangeNotifier {
             language: lang,
             speed: _speed,
             pitch: _pitch,
-            voiceId: _selectedVoiceId,
+            voiceId: voiceOverride ?? _selectedVoiceId,
           )
           .timeout(const Duration(seconds: 15));
 

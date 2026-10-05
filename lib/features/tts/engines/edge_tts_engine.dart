@@ -736,6 +736,23 @@ class EdgeTtsEngine extends TtsEngine {
   }
 
   // ═══════════════════════════════════════
+  // CATALOG OFFLINE (đồng bộ, KHÔNG mạng) — cho UI bộ chọn giọng
+  // ═══════════════════════════════════════
+  //
+  // TTS-EDGE-VOICE-001: `getAvailableVoices` (async) ưu tiên fetch LIVE từ
+  // endpoint rồi mới fallback offline — UI bộ chọn KHÔNG thể chờ mạng mỗi lần
+  // mở settings. Hai getter DƯỚI là bản đồng bộ của danh mục trưng offline,
+  // để UI render tức thì; mạng vẫn chỉ dùng khi THỰC TẾ tổng hợp.
+
+  /// Toàn bộ danh mục giọng trưng offline (trật tự ưu tiên: vi-VN đầu tiên).
+  static List<TtsVoice> get catalogVoices => _voices;
+
+  /// Danh mục offline lọc theo [language] (đồng bộ, không mạng).
+  /// Dùng `filterVoicesByLanguage` chung với `getAvailableVoices`.
+  static List<TtsVoice> catalogVoicesFor(String language) =>
+      filterVoicesByLanguage(_voices, language);
+
+  // ═══════════════════════════════════════
   // TtsEngine API
   // ═══════════════════════════════════════
 

@@ -4558,6 +4558,13 @@
     annotation tên test fail vì log blob không tải được qua API). 3 commit
     chính trên branch `arena/01a104cf-in4up` (lane riêng với PR #67 —
     cùng task I4U18-DICT-001, owner gộp khi rebase/merge).
+  - 2026-10-05 | 09:58 UTC | doing→doing | agent arena/01a10b79-in4up |
+    audit phản hồi "Windows + Android vẫn không import": sửa backend SQLite
+    desktop bằng `sqflite_common_ffi`; Android dùng SAF tree URI + scan/copy
+    nền thay cho raw `/storage` và cache path; file picker có read-stream
+    fallback; bundle import Windows path-safe. ADR-0010 + commit `7d64c70`,
+    CI app analyze + 59 dictionary tests xanh run `37293368838`; chờ build
+    APK/Windows và nghiệm thu trên thiết bị.
 
 ### I4U18-VIDEO-LIB-001 — Tab Video: quét thư mục và thư viện phát file trực quan
 - **Trạng thái:** 🔄 doing — code + unit test + CI xanh; chờ nghiệm thu thiết bị.

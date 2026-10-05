@@ -129,10 +129,11 @@ void main() {
     test('quét tuần tự, join các trang có chữ bằng dòng trống', () async {
       final outcome = await runPdfBatchOcr(
         pages: const [0, 1, 2],
-        recognize: (page) async => PdfPageOcrOutcome.ok(
-          page,
-          page == 1 ? '' : 'Trang $page',
-        ),
+        // Fake recognizer theo ĐÚNG hợp đồng production (_recognizePage):
+        // text rỗng → .empty, không bao giờ .ok với text rỗng.
+        recognize: (page) async => page == 1
+            ? PdfPageOcrOutcome.empty(page)
+            : PdfPageOcrOutcome.ok(page, 'Trang $page'),
         delayBetweenPages: Duration.zero,
       );
 

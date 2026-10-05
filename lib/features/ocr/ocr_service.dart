@@ -37,8 +37,11 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import 'ocr_block.dart';
 import 'ocr_cancel_token.dart';
 import 'ocr_image_picker.dart';
+
+export 'ocr_block.dart' show OcrBlock, OcrBlockRect;
 
 /// Kết quả một lần nhận dạng chữ từ ảnh.
 ///
@@ -122,6 +125,53 @@ enum OcrFailureKind {
 
   /// Hết hạn chờ (xem [kOcrDefaultTimeout]).
   timeout,
+}
+
+/// Kết quả OCR CÓ KHUNG BAO — dùng cho lane dịch màn hình (XLAT-SCR-002).
+///
+/// Tách khỏi [OcrResult] (chỉ có chuỗi phẳng) để KHÔNG đổi hợp đồng cũ mà
+/// PDF Reader đang phụ thuộc.
+class OcrBlocksResult {
+  /// Các khối chữ đã sắp theo thứ tự đọc (rỗng khi lỗi hoặc ảnh không chữ).
+  final List<OcrBlock> blocks;
+
+  /// Thời gian nhận dạng.
+  final Duration elapsed;
+
+  /// Thông báo lỗi (null = thành công).
+  final String? error;
+
+  /// Vì sao thất bại — cùng bộ phân loại với [OcrResult].
+  final OcrFailureKind failureKind;
+
+  const OcrBlocksResult({
+    this.blocks = const <OcrBlock>[],
+    this.elapsed = Duration.zero,
+    this.error,
+    this.failureKind = OcrFailureKind.none,
+  });
+
+  bool get isSuccess => error == null;
+  bool get isEmpty => isSuccess && blocks.isEmpty;
+  bool get isCancelled => failureKind == OcrFailureKind.cancelled;
+  bool get isTimeout => failureKind == OcrFailureKind.timeout;
+
+  factory OcrBlocksResult.failure({
+    required String error,
+    OcrFailureKind kind = OcrFailureKind.error,
+  }) {
+    return OcrBlocksResult(error: error, failureKind: kind);
+  }
+
+  factory OcrBlocksResult.cancelled() => OcrBlocksResult.failure(
+        error: 'OCR cancelled by user',
+        kind: OcrFailureKind.cancelled,
+      );
+
+  factory OcrBlocksResult.timedOut() => OcrBlocksResult.failure(
+        error: 'OCR timed out',
+        kind: OcrFailureKind.timeout,
+      );
 }
 
 /// Nguồn ảnh mà user chọn để OCR.
@@ -350,6 +400,88 @@ class OcrService {
       stopwatch.stop();
       debugPrint('❌ OCR recognizeBitmap: $e');
       return OcrResult.failure(error: 'Lỗi nhận dạng chữ: $e');
+    } finally {
+      await recognizer.close().catchError((_) {});
+    }
+  }
+
+  /// Như [recognizeBitmap] nhưng trả thêm KHUNG BAO từng khối chữ.
+  ///
+  /// XLAT-SCR-002: lane "dịch màn hình toàn hệ thống" cần bbox để vẽ bản dịch
+  /// đè đúng vị trí. KHÔNG đổi [recognizeBitmap] (PDF Reader đang dùng, chỉ
+  /// cần chuỗi phẳng) — thêm hàm mới bên cạnh, cùng guard/timeout/cancel.
+  ///
+  /// Toạ độ trả về là PIXEL của ảnh đưa vào (y-down). Việc quy đổi sang dp
+  /// của overlay là của `screen_translate_geometry.dart`, không phải ở đây.
+  Future<OcrBlocksResult> recognizeBitmapBlocks({
+    required Uint8List pixels,
+    required int width,
+    required int height,
+    Duration timeout = kOcrDefaultTimeout,
+    OcrCancelToken? cancelToken,
+  }) async {
+    if (cancelToken?.isCancelled ?? false) {
+      return OcrBlocksResult.cancelled();
+    }
+    if (!platformSupported) {
+      return OcrBlocksResult.failure(error: 'OCR chỉ chạy trên Android/iOS');
+    }
+    if (width <= 0 || height <= 0) {
+      return OcrBlocksResult.failure(error: 'Kích thước ảnh không hợp lệ');
+    }
+    if (pixels.length != width * height * 4) {
+      return OcrBlocksResult.failure(
+        error:
+            'Dữ liệu ảnh ${pixels.length} byte không khớp ${width}x$height BGRA',
+      );
+    }
+
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    final stopwatch = Stopwatch()..start();
+    try {
+      final input = InputImage.fromBitmap(
+        bitmap: pixels,
+        width: width,
+        height: height,
+      );
+      final run = await runOcrGuarded(
+        () => recognizer.processImage(input),
+        timeout: timeout,
+        cancelToken: cancelToken,
+      );
+      stopwatch.stop();
+      if (run.isCancelled) return OcrBlocksResult.cancelled();
+      if (run.isTimedOut) {
+        debugPrint('⌛ OCR recognizeBitmapBlocks quá hạn ${timeout.inSeconds}s');
+        return OcrBlocksResult.timedOut();
+      }
+      final recognized = run.value!;
+      final blocks = <OcrBlock>[];
+      for (final block in recognized.blocks) {
+        final box = block.boundingBox;
+        final made = makeOcrBlock(
+          text: block.text,
+          left: box.left.round(),
+          top: box.top.round(),
+          right: box.right.round(),
+          bottom: box.bottom.round(),
+          imageWidth: width,
+          imageHeight: height,
+        );
+        if (made != null) blocks.add(made);
+      }
+      debugPrint(
+        '✅ OCR blocks ${width}x$height: ${blocks.length} khối trong '
+        '${stopwatch.elapsedMilliseconds}ms',
+      );
+      return OcrBlocksResult(
+        blocks: sortOcrBlocksForReading(blocks),
+        elapsed: stopwatch.elapsed,
+      );
+    } catch (e) {
+      stopwatch.stop();
+      debugPrint('❌ OCR recognizeBitmapBlocks: $e');
+      return OcrBlocksResult.failure(error: 'Lỗi nhận dạng chữ: $e');
     } finally {
       await recognizer.close().catchError((_) {});
     }

@@ -4858,4 +4858,142 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': 'Yellow',
     'si': 'Yellow',
   },
+  // ── XLAT-SCR-002 — Dịch màn hình toàn hệ thống (bong bóng nổi) ──────
+  'Dịch màn hình toàn hệ thống': {
+    'en': 'System-wide screen translator',
+    'hi': 'पूरे सिस्टम का स्क्रीन अनुवाद',
+    'zh': '全系统屏幕翻译',
+    'zh_TW': '全系統螢幕翻譯',
+    'si': 'සම්පූර්ණ පද්ධතියේ තිර පරිවර්තනය',
+  },
+  '7. Dịch màn hình toàn hệ thống — bong bóng nổi (Android)': {
+    'en': '7. System-wide screen translator — floating bubble (Android)',
+    'hi': '7. पूरे सिस्टम का स्क्रीन अनुवाद — फ़्लोटिंग बबल (Android)',
+    'zh': '7. 全系统屏幕翻译 — 悬浮气泡（Android）',
+    'zh_TW': '7. 全系統螢幕翻譯 — 懸浮氣泡（Android）',
+    'si': '7. පද්ධති පුරා තිර පරිවර්තනය — පාවෙන බුබුළ (Android)',
+  },
+  'Bong bóng nổi trên mọi ứng dụng: bấm để chụp màn hình, nhận dạng chữ rồi hiện bản dịch đè đúng vị trí. Dùng đúng engine dịch bạn đang chọn.':
+      {
+    'en':
+        'A floating bubble over every app: tap it to capture the screen, read the text and overlay the translation in place. It uses the translation engine you already selected.',
+    'hi':
+        'हर ऐप के ऊपर एक फ़्लोटिंग बबल: स्क्रीन कैप्चर करने, टेक्स्ट पढ़ने और उसी जगह अनुवाद दिखाने के लिए टैप करें। यह आपका चुना हुआ अनुवाद इंजन ही उपयोग करता है।',
+    'zh': '悬浮气泡显示在所有应用之上：点击即可截屏、识别文字并在原位置叠加译文，使用你已选择的翻译引擎。',
+    'zh_TW': '懸浮氣泡顯示在所有應用之上：點擊即可截圖、辨識文字並在原位置疊加譯文，使用你已選擇的翻譯引擎。',
+    'si':
+        'සෑම යෙදුමකටම ඉහළින් පාවෙන බුබුළක්: තිරය ගෙන, අකුරු හඳුනාගෙන, එම ස්ථානයේම පරිවර්තනය පෙන්වයි.',
+  },
+  'Chỉ có trên Android': {
+    'en': 'Android only',
+    'hi': 'केवल Android पर',
+    'zh': '仅限 Android',
+    'zh_TW': '僅限 Android',
+    'si': 'Android සඳහා පමණි',
+  },
+  'Ngôn ngữ đích': {
+    'en': 'Target language',
+    'hi': 'लक्ष्य भाषा',
+    'zh': '目标语言',
+    'zh_TW': '目標語言',
+    'si': 'ඉලක්ක භාෂාව',
+  },
+  'Cần quyền "Hiển thị trên ứng dụng khác" để vẽ bong bóng và bản dịch.': {
+    'en':
+        'The "Display over other apps" permission is required to draw the bubble and the translation.',
+    'hi':
+        'बबल और अनुवाद दिखाने के लिए "अन्य ऐप्स के ऊपर दिखाएँ" अनुमति चाहिए।',
+    'zh': '需要“显示在其他应用上层”权限才能绘制气泡和译文。',
+    'zh_TW': '需要「顯示在其他應用程式上層」權限才能繪製氣泡與譯文。',
+    'si': 'බුබුළ සහ පරිවර්තනය පෙන්වීමට "වෙනත් යෙදුම් මත පෙන්වන්න" අවසරය අවශ්‍යයි.',
+  },
+  'Cấp quyền hiển thị trên ứng dụng khác': {
+    'en': 'Grant "Display over other apps"',
+    'hi': '"अन्य ऐप्स के ऊपर दिखाएँ" अनुमति दें',
+    'zh': '授予“显示在其他应用上层”权限',
+    'zh_TW': '授予「顯示在其他應用程式上層」權限',
+    'si': 'වෙනත් යෙදුම් මත පෙන්වීමේ අවසරය දෙන්න',
+  },
+  'Bật bong bóng dịch': {
+    'en': 'Turn on the translate bubble',
+    'hi': 'अनुवाद बबल चालू करें',
+    'zh': '开启翻译气泡',
+    'zh_TW': '開啟翻譯氣泡',
+    'si': 'පරිවර්තන බුබුළ ක්‍රියාත්මක කරන්න',
+  },
+  'Tắt bong bóng dịch': {
+    'en': 'Turn off the translate bubble',
+    'hi': 'अनुवाद बबल बंद करें',
+    'zh': '关闭翻译气泡',
+    'zh_TW': '關閉翻譯氣泡',
+    'si': 'පරිවර්තන බුබුළ අක්‍රිය කරන්න',
+  },
+  'Không bật được bong bóng. Kiểm tra quyền hiển thị trên ứng dụng khác.': {
+    'en':
+        'Could not start the bubble. Check the "Display over other apps" permission.',
+    'hi':
+        'बबल शुरू नहीं हो सका। "अन्य ऐप्स के ऊपर दिखाएँ" अनुमति जाँचें।',
+    'zh': '无法启动气泡，请检查“显示在其他应用上层”权限。',
+    'zh_TW': '無法啟動氣泡，請檢查「顯示在其他應用程式上層」權限。',
+    'si': 'බුබුළ ආරම්භ කළ නොහැකි විය. අවසරය පරීක්ෂා කරන්න.',
+  },
+  'Android hỏi bạn cho phép chụp màn hình mỗi lần bật — đó là quy định của hệ thống, không phải lỗi.':
+      {
+    'en':
+        'Android asks for screen-capture consent every time you start it — that is a system rule, not a bug.',
+    'hi':
+        'हर बार शुरू करने पर Android स्क्रीन कैप्चर की अनुमति माँगता है — यह सिस्टम का नियम है, कोई गड़बड़ी नहीं।',
+    'zh': '每次启动时 Android 都会询问屏幕录制许可——这是系统规定，不是故障。',
+    'zh_TW': '每次啟動時 Android 都會詢問螢幕擷取許可——這是系統規定，不是故障。',
+    'si': 'ඔබ ආරම්භ කරන සෑම විටම Android තිරය ගැනීමට අවසර අසයි — එය පද්ධති නීතියකි.',
+  },
+  'Đang dịch màn hình, chờ chút…': {
+    'en': 'Translating the screen, one moment…',
+    'hi': 'स्क्रीन का अनुवाद हो रहा है, एक क्षण…',
+    'zh': '正在翻译屏幕，请稍候…',
+    'zh_TW': '正在翻譯螢幕，請稍候…',
+    'si': 'තිරය පරිවර්තනය වෙමින්, මොහොතක්…',
+  },
+  'Không chụp được màn hình': {
+    'en': 'Could not capture the screen',
+    'hi': 'स्क्रीन कैप्चर नहीं हो सकी',
+    'zh': '无法截取屏幕',
+    'zh_TW': '無法擷取螢幕',
+    'si': 'තිරය ගත නොහැකි විය',
+  },
+  'Nhận dạng chữ quá lâu, thử lại': {
+    'en': 'Text recognition took too long, try again',
+    'hi': 'टेक्स्ट पहचान में बहुत समय लगा, फिर कोशिश करें',
+    'zh': '文字识别耗时过长，请重试',
+    'zh_TW': '文字辨識耗時過長，請重試',
+    'si': 'අකුරු හඳුනාගැනීම ඉතා දිගු විය, නැවත උත්සාහ කරන්න',
+  },
+  'Không nhận dạng được chữ trên màn hình': {
+    'en': 'Could not recognise the text on this screen',
+    'hi': 'इस स्क्रीन का टेक्स्ट पहचाना नहीं जा सका',
+    'zh': '无法识别此屏幕上的文字',
+    'zh_TW': '無法辨識此螢幕上的文字',
+    'si': 'මෙම තිරයේ අකුරු හඳුනාගත නොහැකි විය',
+  },
+  'Không thấy chữ nào trên màn hình': {
+    'en': 'No text found on this screen',
+    'hi': 'इस स्क्रीन पर कोई टेक्स्ट नहीं मिला',
+    'zh': '此屏幕上未发现文字',
+    'zh_TW': '此螢幕上未發現文字',
+    'si': 'මෙම තිරයේ අකුරු හමු නොවීය',
+  },
+  'Chưa tải gói dịch ngoại tuyến cho ngôn ngữ này': {
+    'en': 'The offline translation pack for this language is not downloaded yet',
+    'hi': 'इस भाषा का ऑफ़लाइन अनुवाद पैक अभी डाउनलोड नहीं हुआ है',
+    'zh': '尚未下载该语言的离线翻译包',
+    'zh_TW': '尚未下載該語言的離線翻譯包',
+    'si': 'මෙම භාෂාව සඳහා නොබැඳි පරිවර්තන පැකේජය තවම බාගත කර නැත',
+  },
+  'Dịch màn hình thất bại': {
+    'en': 'Screen translation failed',
+    'hi': 'स्क्रीन अनुवाद विफल रहा',
+    'zh': '屏幕翻译失败',
+    'zh_TW': '螢幕翻譯失敗',
+    'si': 'තිර පරිවර්තනය අසාර්ථක විය',
+  },
 };

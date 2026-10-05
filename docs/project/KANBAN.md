@@ -129,6 +129,9 @@
 | TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
 | TPI-DISPLAY-02 | Tipiṭaka: ghi nhớ vị trí đọc + thẻ "Đọc tiếp" (P4a) — store px theo book_id, reader auto-restore, thư viện resume tối đa 3 sách | ✅ done (code; CÒN nghiệm thu thiết bị) | branch arena/01a10843-in4up commit 0f7fe18 |
 | TPI-DISPLAY-03 | Tipiṭaka P4b–P6: ấn bản song hành split, highlight/ghi chú đoạn, footnote apparatus, share+citation, bundle Noto Serif, sync cuộn, VRI attribution | 🔄 doing (code + CI oracle 🟢; chờ full test/AT thiết bị) | branch arena/01a10b88-in4up; CI run 37295697496 analyze + Rule #5 + Tipiṭaka tests xanh |
+| PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
+| XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
+| XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 📋 proposed (prompt bàn giao sẵn, chờ agent nhận) | `PROMPT_AGENT_DICH_MAN_HINH.md` — kiến trúc chốt trong ADR-0010: native Kotlin capture + vẽ overlay, Dart OCR + dịch; P1 Android only |
 
 
 ## Card chi tiết
@@ -5076,3 +5079,93 @@
     CI chạy file test này) → đổi câu chữ comment. Còn lại: nghiệm thu
     end-to-end trên thiết bị thật (sandbox không egress được
     speech.platform.bing.com).
+
+### PDF-OCR-002 — PDF Reader: Batch OCR (trang hiện tại / khoảng trang / toàn bộ tài liệu)
+- **Trạng thái:** 🔨 doing — code + test thuần xong (sandbox không Flutter SDK
+  — chờ CI `app_analyze.yml` + nghiệm thu thiết bị Android/iOS).
+- **Nguồn:** owner (2026-10-05) — "PDF reader chế độ Tr khi bấm vô thường nó
+  hiện được vài dòng text thôi, chưa có làm cho tất cả. Nên cho người dùng lựa
+  chọn quét OCR toàn bộ hay mấy trang, trang nào."
+- **Quyết định kiến trúc:** mở rộng ADR-0009 (tái dùng ML Kit `recognizeBitmap`
+  + `rasterizePdfPage`, KHÔNG dependency mới, KHÔNG pipeline OCR song song);
+  kế hoạch `docs/pdf_ocr_batch_va_dich_man_hinh_plan.md` (PLAN-035).
+- **Nội dung:**
+  - `lib/features/pdf_reader/services/pdf_batch_ocr.dart`: `resolvePdfOcrPages`
+    (3 phạm vi + clamp + hoán đổi from/to) + `runPdfBatchOcr` (recognizer/probe
+    tiêm vào để test host VM; MỘT trang lỗi không giết cả lô — khác
+    `recognizeFiles` dừng sớm; cancel giữ phần đã quét; skip trang đã có lớp
+    chữ mặc định bật; join `\n\n` theo quy ước `recognizeFiles`).
+  - `lib/features/pdf_reader/widgets/pdf_ocr_sheet.dart`: sheet chọn phạm vi +
+    toggle skip + tổng kết số trang + ước lượng thời gian + cảnh báo tài liệu
+    dài; `runPdfOcrBatchFlow` chạy dialog tiến độ có Hủy (route handle tự gỡ
+    đúng 1 lần — pattern `_OcrProgressHandle` của ocr_flow) rồi qua
+    `OcrFlow.presentResult` → preview/SỬA (bắt buộc ADR-0009) →
+    `TextProvider.loadFromString(sourceType: ocr)`.
+  - 3 điểm vào: (1) nút quét trên thanh TTS (trước đây quét cứng 1 trang — giờ
+    mở sheet, mặc định "Trang hiện tại"); (2) menu ⋮ → "Quét OCR (trang /
+    toàn bộ)…" — lối vào KỂ CẢ khi trang có lớp chữ; (3) Text Mode với PDF
+    scan (trước đây ngõ cụt "Không thể trích xuất text…") → nút "Quét OCR tài
+    liệu này" mặc định TOÀN BỘ. Tất cả gate `OcrService.instance.isAvailable`
+    (desktop/web ẩn).
+- **Test:** `test/pdf_reader/pdf_batch_ocr_test.dart` — resolve (biên + hoán
+  đổi), skip, lỗi không chết lô, cancel giữa chừng giữ phần đã quét, progress,
+  join. Thuần Dart.
+- **i18n:** 22 chuỗi mới đăng ký `priority_ui_overrides.dart` đủ
+  en/hi/zh/zh_TW/si (không thêm key ARB — không đụng sàn ratchet T2);
+  mô phỏng `pdf_reader_i18n_coverage_test.dart` = 0 missing.
+- **Lịch sử:**
+  - 2026-10-05 | created → doing | agent arena/01a10b7e-in4up | code + test
+    thuần + ADR-0010 + PLAN-035; chờ CI + nghiệm thu thiết bị (batch 50+ trang
+    scan thật, cancel giữa chừng, sheet trên màn nhỏ)
+
+### XLAT-SCR-001 — Dịch màn hình IN-APP cho PDF Reader (nút 🌐 → panel song ngữ theo trang)
+- **Trạng thái:** 🔨 doing — code + test thuần xong (chờ CI + nghiệm thu thiết
+  bị; cần máy thật xác nhận UX panel + tốc độ dịch trang dài).
+- **Nguồn:** owner (2026-10-05) — tư vấn Gemini "Tính năng dịch màn hình…
+  hướng 1: dịch nội dung bên trong app; tạo nút Dịch màn hình hiện tại trên
+  toolbar". ADR-0010: in-app trước (95% khả thi, tận dụng 100%
+  TranslationService/Cache), system-wide tách lane XLAT-SCR-002.
+- **Nội dung:**
+  - `lib/features/pdf_reader/models/pdf_page_translation.dart` +
+    `services/pdf_page_translate.dart`: seeds từ `PdfSentenceCue` (trang có lớp
+    chữ, giữ `bounds` cho overlay tương lai) HOẶC từ text OCR
+    (`splitOcrTextIntoUnits`: ngắt đoạn trống, gom câu ≤480 ký tự, cắt cứng câu
+    không dấu chấm) — translator tiêm vào, dừng sau 5 lỗi liên tiếp (mirror
+    `translateAll`), shouldStop theo runId.
+  - `PdfReaderController`: `translateCurrentPage()` (runId versioning như
+    `_ttsMachine`/`TranslationMixin` — đổi trang giữa chừng hủy phiên cũ tự
+    động), cache ~6 trang gần nhất (trim theo khoảng cách trang), lật trang khi
+    panel mở → tự dịch trang mới (TranslationCache ăn phần lớn).
+  - UI: nút `Icons.translate` trên PdfToolbar (chỉ pdfView) + panel
+    `pdf_page_translate_panel.dart` ghép trên thanh TTS (cùng ẩn/hiện với
+    chrome): từng câu gốc → bản dịch ngay dưới, spinner + progress bar, "Dịch
+    lại", "Đóng", "Mở trong Read Mode" (load trang hiện tại vào TextProvider —
+    dịch toàn bộ bằng translateAll đã có).
+  - Trang scan: fallback OCR 1 trang trong cùng luồng (chỉ Android/iOS);
+    không OCR được → error rõ 'page_no_text' với gợi ý quét OCR.
+- **Test:** `test/pdf_reader/pdf_page_translate_test.dart` — seeds lọc
+  isUsable, dịch tuần tự + progress, lỗi đơn không chết trang, 5 lỗi liên tiếp
+  dừng, shouldStop, translator throw không crash, `splitOcrTextIntoUnits` (ngắt
+  đoạn/budget/cắt cứng/giữ nguyên ký tự). Thuần Dart.
+- **Chưa làm (nâng cấp sau, đã chừa schema):** overlay CustomPainter vẽ bản
+  dịch đè lên dòng gốc theo `bounds` — cần nghiệm thu thiết bị thật (ADR-0010).
+- **Lịch sử:**
+  - 2026-10-05 | created → doing | agent arena/01a10b7e-in4up | code + test
+    thuần + ADR-0010; chờ CI + nghiệm thu (PDF tiếng Anh nhiều câu, PDF scan,
+    lật trang nhanh khi panel mở)
+
+### XLAT-SCR-002 — Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + overlay)
+- **Trạng thái:** 📋 proposed — prompt bàn giao đầy đủ, chờ owner giao agent
+  Arena khác nhận (lane native riêng theo ADR-0010, không chặn XLAT-SCR-001).
+- **Nguồn:** owner (2026-10-05) — hướng 2 trong tư vấn Gemini: dịch app ngoài
+  hệ thống kiểu Google Lens/NormCap.
+- **Nội dung bàn giao:** `PROMPT_AGENT_DICH_MAN_HINH.md` — luật phiên (AGENTS.md,
+  quy tắc vàng, pin ML Kit 0.16.x, --flavor stable, i18n rule #5, KHÔNG tải
+  model lúc bootstrap), sự thật repo (bảng đối chiếu), kiến trúc chốt (native
+  Kotlin: foreground service + bubble + MediaProjection + overlay view; Dart:
+  OcrService mở rộng nhận blocks + TranslationService dịch; MethodChannel
+  `in4up/screentranslate`), 7 cạm bẫy đã biết, 8 task + 7 tiêu chí nghiệm thu
+  trên máy thật (Android 14 consent mỗi phiên, pin, cache lặp lại).
+- **Lịch sử:**
+  - 2026-10-05 | created (proposed) | agent arena/01a10b7e-in4up | prompt +
+    ADR-0010; P1 Android only, P2 desktop + script CJK cần ADR riêng

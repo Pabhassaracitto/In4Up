@@ -107,6 +107,7 @@
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-BUILD-01 | Workflow `build.yml` không parse được (YAML) ⇒ mọi push trên mọi nhánh đều có run đỏ ~0s, không build release được | ✅ fix YAML (chờ run build thật khi push tag/dispatch) | thụt lề 9 space trong block PowerShell `run: \|` cắt block scalar (lỗi có sẵn từ `origin/main`); sửa 1 space + kiểm chứng bằng parser YAML thật — commit `dfac0e2` |
+| CI-BUILD-NDK | Build Android APK đỏ: `Unresolved reference: ndk` / `abiFilters` ở build.gradle.kts:101 | ✅ fix code (chờ owner re-trigger build — bot không có quyền dispatch) | `ndk { abiFilters += "arm64-v8a" }` bị đặt ở **top-level android{}** (commit `f1d4b49` arm64-only) — Kotlin DSL AGP 8.9.1 chỉ có `ndk` trong **defaultConfig** → script compile lỗi. Fix `eeace04`: di chuyển khối `ndk {}` VÀO `defaultConfig {}` (re-apply fix `24d0fa8` bị MẤT khi rebase). Xác minh: run pre-fix `37382171299` (f44eb96) Android=failure, 3 platform còn lại success ⇒ đúng 1 blocker này |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
@@ -4163,6 +4164,68 @@
 - **Lịch sử:**
   - 2026-09-23 | created→done (fix YAML) | agent arena/01a0d016-in4up | commit
     `dfac0e2`; PR #42; xác nhận không còn run `build.yml` đỏ 0s sau commit
+
+### CI-BUILD-NDK — Build Android APK đỏ: `Unresolved reference: ndk` (build.gradle.kts:101)
+- **Nguồn:** owner (2026-10-06) — build `assembleStableRelease` fail:
+  ```
+  e: .../android/app/build.gradle.kts:101:5: Unresolved reference: ndk
+  e: .../android/app/build.gradle.kts:102:9: Unresolved reference: abiFilters
+  e: .../android/app/build.gradle.kts:102:20: Unresolved reference: +=
+  ```
+- **Trạng thái:** ✅ fix code (chờ owner re-trigger build — bot không có quyền
+  `workflow_dispatch`)
+- **Nguyên nhân (đã verify code):** commit `f1d4b49`
+  ("perf(android): chỉ build chip phổ thông arm64-v8a") thêm khối
+  ```kotlin
+  android {
+      ...
+      ndk {                 // ← SAI: đặt ở top-level android{}
+          abiFilters += "arm64-v8a"
+      }
+  }
+  ```
+  Trong **Kotlin DSL AGP 8.9.1**, `ndk {}` là extension của
+  **`DefaultConfig`** — chỉ hợp lệ **trong `defaultConfig {}`**. Đặt ở
+  top-level `android {}` thì Kotlin compiler (compile build script) không
+  resolve `ndk` → `Unresolved reference: ndk` + 2 lỗi dây theo
+  (`abiFilters`, `+=`). Lỗi này là lỗi **compile script** (chạy trước mọi
+  build thật) nên wide-oracle (flutter analyze/test) KHÔNG bắt được — chỉ
+  workflow build APK mới lộ.
+- **Lịch sử commit gốc:** fix trước đó là commit **local `24d0fa8`**
+  ("fix(android): ndk{abiFilters} phải nằm TRONG defaultConfig") — nhưng
+  **MẤT khi rebase** (chưa push). Remote tip chỉ có bản SAI `f1d4b49`.
+- **Fix (`eeace04` — re-apply `24d0fa8`):** di chuyển khối `ndk {}` VÀO
+  `defaultConfig {}`:
+  ```kotlin
+  defaultConfig {
+      applicationId = "com.in4up"
+      minSdk = 24
+      ...
+      ndk {                 // ✅ ĐÚNG: trong defaultConfig
+          abiFilters += "arm64-v8a"
+      }
+      externalNativeBuild { cmake { arguments += listOf("-DANDROID_STL=c++_static") } }
+  }
+  ```
+  Giữ nguyên `ndkVersion = "28.2.13676358"` ở top-level (đó là property hợp
+  lệ của `android {}`). `abiFilters += "arm64-v8a"` = **add** (không thay
+  thế) — chỉ compile arm64-v8a (APK nhỏ, build nhanh), đúng ý `f1d4b49`.
+- **Xác minh:** run pre-fix `37382171299` (headSha `f44eb96`) →
+  **Build Android APK = failure** (đúng lỗi ndk), trong khi
+  **Linux/iOS/Windows = success** ⇒ xác nhận ĐÚNG 1 blocker là khối `ndk`.
+  Fix `eeace04` (chưa được build vì run đó chạy code cũ).
+- **Vận hành (quan trọng):** bot `arena-ai-coding-agent[bot]` **không có
+  quyền** `workflow_dispatch` (HTTP 403) nên agent **không tự re-trigger
+  được** build. Tag push `v*` thì chạy **4 platform + tạo GitHub Release**
+  (nặng, không dùng để verify nhẹ). → **OWNER re-trigger**: GitHub Actions →
+  `build_final_complete.yml` → **Run workflow** → `Build Android APK = true`,
+  3 platform còn lại `false` (chạy ~15–20p) → xem job **Build Android APK**
+  xanh = fix OK. Hoặc nếu muốn build release thật: push tag `v*`.
+- **Lịch sử:**
+  - 2026-10-04 | created | agent (fix local `24d0fa8`) — MẤT khi rebase
+  - 2026-10-06 | re-apply + xác minh | agent arena/01a0251e-in4up | fix
+    `eeace04` (ndk vào defaultConfig); xác minh run pre-fix `37382171299`
+    Android=failure; chờ owner re-trigger build (bot 403 dispatch)
 
 ### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
 

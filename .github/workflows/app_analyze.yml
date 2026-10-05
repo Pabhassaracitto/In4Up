@@ -222,6 +222,37 @@ jobs:
           path: tts_edge_test.log
           if-no-files-found: ignore
 
+      # XLAT-SCR-002 — Dịch màn hình toàn hệ thống (ADR-0011): bbox OCR,
+      # quy đổi toạ độ capture→overlay, rowStride + hoán kênh R/B, debounce,
+      # pipeline OCR→dịch và giao thức MethodChannel. Thuần Dart (OCR/engine
+      # dịch được bơm giả) nên chạy được trên CI không cần thiết bị.
+      - name: "Screen translate tests — XLAT-SCR-002 (logic thuần)"
+        id: screen-translate-tests
+        run: |
+          set +e
+          if [ ! -d test/screen_translate ]; then
+            echo "Không có test/screen_translate trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/screen_translate/ -r expanded > screen_translate_test.log 2>&1
+          code=$?
+          cat screen_translate_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' screen_translate_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=Screen translate test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload screen translate test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screen-translate-test-log
+          path: screen_translate_test.log
+          if-no-files-found: ignore
+
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

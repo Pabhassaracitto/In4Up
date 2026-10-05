@@ -239,7 +239,7 @@ class DictImportService {
         ? DictStorageMode.imported
         : mode;
     final stagedStreamPaths = [
-      ...paths.where((path) => path.contains('/in4up_dictionary_files_')),
+      ...paths.where((path) => path.contains('in4up_dictionary_files_')),
     ];
     try {
       return await DictionaryService.instance.importDictionaryBundle(

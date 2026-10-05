@@ -122,7 +122,8 @@ android {
         // top-level android{} thì Kotlin DSL báo "Unresolved reference: ndk" (fix
         // 24d0fa8 bị mất khi rebase, re-apply).
         ndk {
-            abiFilters += "arm64-v8a"
+            // Dùng API MutableSet trực tiếp để Kotlin DSL không phải resolve toán tử `+=`.
+            abiFilters.add("arm64-v8a")
         }
 
         // STL cho native build (llama.cpp cần C++ STL). Kotlin DSL dùng

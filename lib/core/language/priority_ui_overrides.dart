@@ -2212,6 +2212,57 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Cài đặt hiển thị': {
     'en': 'Display settings',
   },
+  'Chế độ đọc': {
+    'en': 'Reading mode',
+  },
+  'Kèm thêm English': {
+    'en': 'Include English',
+  },
+  'Hiển thị English dưới bản dịch chính': {
+    'en': 'Show English below the primary translation',
+  },
+  'Nền trang đọc': {
+    'en': 'Reading page background',
+  },
+  'Đặt lại mặc định': {
+    'en': 'Reset to defaults',
+  },
+  'Tải các đoạn phía trước': {
+    'en': 'Load earlier paragraphs',
+  },
+  'đoạn': {
+    'en': 'paragraphs',
+  },
+  'Lọc mục lục…': {
+    'en': 'Filter contents…',
+  },
+  'Không có mục nào khớp bộ lọc.': {
+    'en': 'No section matches the filter.',
+  },
+  'Không tìm thấy sách chứa đoạn này.': {
+    'en': 'The book containing this paragraph could not be found.',
+  },
+  'Thêm thao tác': {
+    'en': 'More actions',
+  },
+  'Chạm để mở tại đúng đoạn': {
+    'en': 'Tap to open at the exact paragraph',
+  },
+  'Xóa từ khóa': {
+    'en': 'Clear search',
+  },
+  'Độc lập với ngôn ngữ giao diện — xem Pāli kèm bản dịch bất kỳ đã import.': {
+    'en':
+        'Independent from the interface language — read Pāli alongside any imported translation.',
+  },
+  'Đọc song song Pāli và bản dịch theo từng đoạn. Nội dung tự tải thêm khi cuộn.': {
+    'en':
+        'Read Pāli alongside translations paragraph by paragraph. More content loads as you scroll.',
+  },
+  'Đang đọc bản dịch độc lập. Nên import Pāli để đối chiếu tốt hơn.': {
+    'en':
+        'Reading the translation on its own. Importing Pāli is recommended for better comparison.',
+  },
   'Pāli nguyên bản': {
     'en': 'Pāli original',
   },

@@ -1134,3 +1134,27 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-27 | doing | agent arena/01a09c9a-in4up | CI xanh sau khi sửa 2 error
     (Document Scanner 0.5.0 dùng `documentFormats` dạng Set + `images` nullable —
     khác API master/0.6.x đã đối chiếu nhầm); merge tip `b90ba3e` (PR #57)
+
+### PLAN-035 — PDF Batch OCR + Dịch màn hình in-app (PDF-OCR-002 · XLAT-SCR-001/002)
+- Nguồn: người sở hữu (2026-10-05, qua agent arena/01a10b7e-in4up) — kèm tư vấn
+  Gemini về 2 hướng dịch màn hình (in-app ~95% khả thi thuần Flutter trước;
+  system-wide native sau).
+- Trạng thái: doing (phần in-app + batch OCR: code + test thuần xong, chờ CI +
+  nghiệm thu thiết bị; system-wide: proposed, prompt bàn giao
+  `PROMPT_AGENT_DICH_MAN_HINH.md` cho agent khác)
+- Milestone đề xuất: M2
+- Chi tiết: kế hoạch đầy đủ `docs/pdf_ocr_batch_va_dich_man_hinh_plan.md`; quyết
+  định kiến trúc `docs/adr/0010-dich-man-hinh-in-app-truoc.md`. Ba mảnh:
+  (1) **Batch OCR PDF** — sheet chọn phạm vi trang hiện tại / khoảng / toàn bộ,
+  runner bền lỗi + cancel + skip trang có lớp chữ, kết quả qua preview/SỬA của
+  OcrFlow rồi nạp TextProvider (mở rộng ADR-0009, 0 dependency mới);
+  (2) **Dịch màn hình in-app** — nút 🌐 trên PdfToolbar → dịch trang hiện tại
+  (câu từ `extractSentences`, trang scan tự OCR 1 trang) → panel song ngữ trên
+  thanh TTS, cache ~6 trang, tái dùng 100% TranslationService + TranslationCache
+  + glossary; (3) **System-wide** (XLAT-SCR-002) — lane native riêng:
+  MediaProjection + bubble overlay Android, Dart OCR + dịch, prompt bàn giao
+  có sẵn 8 task + 7 tiêu chí nghiệm thu.
+- Lịch sử:
+  - 2026-10-05 | created → doing | agent arena/01a10b7e-in4up | ADR-0010 +
+    plan + code in-app/batch (5 file lib + 2 file test + i18n 30 entry
+    priority overrides) + prompt XLAT-SCR-002; chờ CI + nghiệm thu thiết bị

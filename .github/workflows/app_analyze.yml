@@ -148,8 +148,10 @@ jobs:
 
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
+      # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch
+      # trang (cùng họ thuần logic — recognizer/translator tiêm vào).
       # Thuần logic (không plugin, không mạng) nên chạy được trên CI.
-      - name: "Agent F tests — line mode / OCR guard / PDF TTS state machine"
+      - name: "Agent F tests — line mode / OCR guard / PDF TTS + batch OCR + page translate"
         id: agent-f-tests
         run: |
           set +e
@@ -158,7 +160,9 @@ jobs:
                    test/read_mode/read_line_hint_test.dart \
                    test/ocr/ocr_cancel_token_test.dart \
                    test/pdf_reader/pdf_text_layer_probe_test.dart \
-                   test/pdf_reader/pdf_tts_machine_test.dart; do
+                   test/pdf_reader/pdf_tts_machine_test.dart \
+                   test/pdf_reader/pdf_batch_ocr_test.dart \
+                   test/pdf_reader/pdf_page_translate_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

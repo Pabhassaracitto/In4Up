@@ -144,6 +144,7 @@ jobs:
           test/tipitaka_independent_language_import_test.dart
           test/tipitaka_workspace_retention_test.dart
           test/tipitaka_dictionary_i18n_coverage_test.dart
+          test/tipitaka_display_phase2_test.dart
 
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.

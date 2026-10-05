@@ -15,6 +15,7 @@ import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
 import 'package:provider/provider.dart';
 
 import '../../features/grammar/grammar.dart';
+import '../../features/ocr/ocr_service.dart';
 import '../../features/writing/models/writing_source_request.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
@@ -25,6 +26,7 @@ import '../../widgets/selection_save_sheet.dart';
 import '../../widgets/unified_knowledge_sheet.dart';
 import 'models/pdf_annotation.dart';
 import 'pdf_reader_controller.dart';
+import 'services/pdf_batch_ocr.dart';
 import 'services/pdf_file_identity.dart';
 import 'services/pdf_geometry.dart';
 import 'services/pdf_outline_index.dart';
@@ -36,6 +38,8 @@ import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_annotation_sheet.dart';
 import 'widgets/pdf_export_row.dart';
 import 'widgets/pdf_jump_to_page_dialog.dart';
+import 'widgets/pdf_ocr_sheet.dart';
+import 'widgets/pdf_page_translate_panel.dart';
 import 'widgets/pdf_page_veils.dart';
 import 'widgets/pdf_reader_theme_sheet.dart';
 import 'widgets/pdf_reader_viewport_shell.dart';
@@ -571,6 +575,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                           writingMode: widget.writingMode,
                           onSendToWriting: _sendPdfToWriting,
                           onBatchSavePage: _openBatchSaveFromPage,
+                          onOpenOcrSheet: () => _openOcrSheet(),
                           onSearch: _toggleSearch,
                           onShowToc: _openTocNavigator,
                           onJumpToPage: _showJumpToPageDialog,
@@ -605,9 +610,24 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
                     opacity: _showBottomChrome ? 1 : 0,
-                    child: PdfTtsBar(
-                      controller: _controller,
-                      onUserInteraction: () => _showChrome(),
+                    // Panel "Dịch màn hình" ghép TRÊN thanh TTS: cùng ẩn/hiện
+                    // với chrome để không che nội dung khi đọc toàn màn hình.
+                    // Chỉ ở chế độ xem trang — Text Mode có đường Read Mode
+                    // đầy đủ hơn (PLAN-035 · XLAT-SCR-001).
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_controller.pageTranslatePanelVisible &&
+                            _controller.viewMode == PdfViewMode.pdfView)
+                          PdfPageTranslatePanel(
+                            controller: _controller,
+                            onOpenInReadMode: _loadCurrentPageIntoReadMode,
+                          ),
+                        PdfTtsBar(
+                          controller: _controller,
+                          onUserInteraction: () => _showChrome(),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -882,11 +902,39 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     }
 
     if (_controller.extractedFullText.isEmpty) {
-      return const Center(
-        child: Text(
-          'Không thể trích xuất text từ PDF này.\nCó thể là PDF scan (hình ảnh).',
-          style: TextStyle(color: Colors.white70),
-          textAlign: TextAlign.center,
+      // PDF scan: extract-by-code trả rỗng — trước đây là ngõ cụt. Giờ có nút
+      // quét OCR (mặc định TOÀN BỘ tài liệu) ngay tại chỗ (PLAN-035 ·
+      // PDF-OCR-002). Desktop/web không có ML Kit → ẩn nút, giữ nguyên thông
+      // báo (cùng rule với mọi nút OCR khác).
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Không thể trích xuất text từ PDF này.\nCó thể là PDF scan (hình ảnh).',
+              style: TextStyle(color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
+            if (OcrService.instance.isAvailable) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: () =>
+                    _openOcrSheet(initialScope: PdfOcrScope.all),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF26C6DA),
+                  foregroundColor: const Color(0xFF06222A),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                ),
+                icon: const Icon(Icons.document_scanner_outlined, size: 18),
+                label: Text(
+                  context.uiText('Quét OCR tài liệu này'),
+                  style: const TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ],
         ),
       );
     }
@@ -1234,6 +1282,58 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
+    );
+  }
+
+  /// Panel "Dịch màn hình" → mở TRANG HIỆN TẠI trong Read Mode để dùng trọn
+  /// bộ translateAll + display mode đã có (khác `_loadIntoReadMode` là toàn
+  /// tài liệu — trang đang đọc thường là thứ user vừa xem bản dịch).
+  Future<void> _loadCurrentPageIntoReadMode() async {
+    _showChrome();
+    final text = await _controller.extractCurrentPageText();
+    if (!mounted) return;
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Không trích xuất được text từ trang này.')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    context.read<TextProvider>().loadFromString(
+          text,
+          title: context.uiText(
+            '$_title · trang ${_controller.currentPage + 1}',
+          ),
+        );
+    Navigator.pop(context);
+  }
+
+  /// Mở sheet chọn phạm vi quét OCR (PLAN-035 · PDF-OCR-002).
+  Future<void> _openOcrSheet({
+    PdfOcrScope initialScope = PdfOcrScope.currentPage,
+  }) async {
+    _showChrome();
+    if (!OcrService.instance.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('OCR chỉ chạy trên Android/iOS')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final request = await PdfOcrSheet.show(
+      context,
+      controller: _controller,
+      initialScope: initialScope,
+    );
+    if (!mounted || request == null) return;
+    await runPdfOcrBatchFlow(
+      context: context,
+      controller: _controller,
+      request: request,
     );
   }
 

@@ -2938,7 +2938,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get sound_26 => '不在觀察清單中';
 
   @override
-  String get soundRelated => '相關'
+  String get soundRelated => '相關';
 
   @override
   String get aiProvidersTitle => 'AI 伺服器與 API';

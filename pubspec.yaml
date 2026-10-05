@@ -3,7 +3,7 @@ description: In4Up - Read, remember, learn, and listen with the UltraTimeStretch
 
 publish_to: 'none'
 
-version: 1.4.1+3
+version: 1.9.2+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -24,7 +24,7 @@ dependencies:
   # UI
   flutter_localizations:
     sdk: flutter
-  intl: 0.20.2 # change from ^0.18.0
+  intl: 0.20.3 # change from ^0.18.0
 
   # State Management
   provider: ^6.1.2

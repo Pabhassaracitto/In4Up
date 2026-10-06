@@ -108,7 +108,7 @@
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-BUILD-01 | Workflow `build.yml` không parse được (YAML) ⇒ mọi push trên mọi nhánh đều có run đỏ ~0s, không build release được | ✅ fix YAML (chờ run build thật khi push tag/dispatch) | thụt lề 9 space trong block PowerShell `run: \|` cắt block scalar (lỗi có sẵn từ `origin/main`); sửa 1 space + kiểm chứng bằng parser YAML thật — commit `dfac0e2` |
 | CI-BUILD-NDK | Build Android APK đỏ: `Unresolved reference: ndk` / `abiFilters` ở build.gradle.kts:101 | ✅ fix code (chờ owner re-trigger build — bot không có quyền dispatch) | `ndk { abiFilters += "arm64-v8a" }` bị đặt ở **top-level android{}** (commit `f1d4b49` arm64-only) — Kotlin DSL AGP 8.9.1 chỉ có `ndk` trong **defaultConfig** → script compile lỗi. Fix `eeace04`: di chuyển khối `ndk {}` VÀO `defaultConfig {}` (re-apply fix `24d0fa8` bị MẤT khi rebase). Xác minh: run pre-fix `37382171299` (f44eb96) Android=failure, 3 platform còn lại success ⇒ đúng 1 blocker này |
-| CI-BUILD-ABI-001 | Release 1.10.3 (build bằng Actions) "có 3 chip" dù đã có lệnh 1-chip; tên APK ghi `arm64-v8a` nhưng file là 3-ABI ~216MB | 🔨 doing (đã xác định gốc; cần merge fix ndk vào main + PR tối thiểu) | Release 1.10.3 build từ `main` (tag `1.10.3`→`7386295`): (1) APK Android là **bản 3-ABI cũ** (tên file ghi commit `2f357` = TRƯỚC khi 1-chip có hiệu lực trên main); (2) `main` HIỆN có khối `ndk{abiFilters}` ở **top-level (sai)** ⇒ main **không build được Android** (lỗi ndk) cho tới khi fix `eeace04` vào main; (3) `android_rename_apks.sh` **hardcode** "arm64-v8a" vào tên ⇒ gắn nhãn SAI cho bản 3-ABI. Workflow KHÔNG sai (build đúng 1 bản universal, không --split-per-abi) |
+| CI-BUILD-ABI-001 | Release 1.10.3 (build bằng Actions) "có 3 chip" dù đã có lệnh 1-chip; tên APK ghi `arm64-v8a` nhưng file là 3-ABI ~216MB | 🔨 doing — **PR #88** mở (merge vào main) → main build Android xanh + bản 1-chip thật | Release 1.10.3 build từ `main` (tag `1.10.3`→`7386295`): (1) APK Android là **bản 3-ABI cũ** (tên file ghi commit `2f357` = TRƯỚC khi 1-chip có hiệu lực trên main); (2) `main` HIỆN có khối `ndk{abiFilters}` ở **top-level (sai)** ⇒ main **không build được Android** (lỗi ndk) cho tới khi fix `eeace04` vào main; (3) `android_rename_apks.sh` **hardcode** "arm64-v8a" vào tên ⇒ gắn nhãn SAI cho bản 3-ABI. Workflow KHÔNG sai (build đúng 1 bản universal, không --split-per-abi) |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
@@ -4273,6 +4273,10 @@
     release 1.10.3 = main `7386295`; APK build từ `2f357` (3-ABI cũ); main
     có ndk sai scope (không build được Android); rename script hardcode
     arm64-v8a. Workflow không sai.
+  - 2026-10-06 | mở **PR #88** (tối thiểu, 1 file: chỉ fix ndk vào
+    defaultConfig) từ branch `fix/ndk-abi-defaultconfig` → **main** —
+    https://github.com/Pabhassaracitto/In4Up/pull/88 . Owner merge PR #88
+    → main build Android xanh + bản 1-chip arm64 thật.
 
 ### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
 

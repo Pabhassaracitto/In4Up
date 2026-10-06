@@ -76,11 +76,21 @@ void main() {
       expect(foreign.first.core, contains('second English'));
     });
 
-    test('tiếng Việt không dấu được giữ nguyên (thà bỏ sót còn hơn dịch bậy)',
-        () {
-      const text = 'Toi di hoc bai moi.';
-      expect(containsForeignSegment(text, target: vi), isFalse,
-          reason: 'không có tín hiệu ngoại ngữ rõ ràng thì không đụng vào');
+    // Giới hạn đã biết, ghi lại để người sau không "sửa nhầm": tiếng Việt
+    // viết KHÔNG DẤU là mơ hồ thật sự ("di" là giới từ tiếng Indonesia/Ý,
+    // "toi" là đại từ tiếng Pháp) nên có thể bị coi là ngoại ngữ. Hậu quả
+    // chỉ là dòng đó được dịch thừa — nguyên văn không bao giờ bị thay —
+    // nên chấp nhận được, đổi lại tài liệu lẫn lộn thật sự được dịch.
+    test('tiếng Việt CÓ DẤU không bao giờ bị coi là ngoại ngữ', () {
+      const text = 'Tôi đi học bài mới. Hôm nay cô giáo dạy rất kỹ. '
+          'Buổi chiều tôi ôn lại toàn bộ bài.';
+      expect(containsForeignSegment(text, target: vi), isFalse);
+    });
+
+    test('nguyên văn luôn được giữ nguyên ký tự khi ghép lại', () {
+      const text = 'Toi di hoc bai moi. The lesson was very useful today.';
+      final segments = segmentByLanguage(text, target: vi);
+      expect(segments.map((segment) => segment.text).join(), text);
     });
   });
 }

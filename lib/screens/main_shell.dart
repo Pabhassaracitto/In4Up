@@ -35,6 +35,7 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/services/read_text_action_runner.dart';
 import 'read_mode/widgets/read_source_picker.dart';
 import 'read_mode/widgets/read_text_action_hooks.dart';
 import 'read_mode/write_studio_screen.dart';
@@ -1598,7 +1599,38 @@ class _MainShellState extends State<MainShell> {
             ),
             presentation: WorkspaceNavigationPresentation.chips,
           ),
+          const SizedBox(height: 6),
+          // READ-ACT-001: cho biết 4 nút dưới đây đang áp dụng lên đoạn nào,
+          // thay cho snackbar "Bạn cần bôi chọn một đoạn trước".
+          Consumer<TextProvider>(
+            builder: (context, textProvider, _) {
+              final target = ReadTextActionRunner.targetFor(textProvider);
+              if (target == null) return const SizedBox.shrink();
+              final scope = target.fromSelection
+                  ? context.uiText('đoạn đang chọn')
+                  : context.uiText('dòng đang đọc');
+              final preview = target.text.length > 42
+                  ? '${target.text.substring(0, 42)}…'
+                  : target.text;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '${context.uiText('Áp dụng cho')}: $scope — $preview',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.85),
+                  ),
+                ),
+              );
+            },
+          ),
           _WorkspaceHeaderActions(
+            dense: true,
             actions: [
               _WorkspaceHeaderAction(
                 label: 'Mở nguồn',
@@ -1702,28 +1734,19 @@ class _MainShellState extends State<MainShell> {
     ];
   }
 
+  // READ-ACT-001: mọi hành động văn bản của tab Đọc đi qua một bộ chạy duy
+  // nhất. Không còn chặn bằng "phải bôi chọn trước" — ReadTextActionRunner
+  // tự lùi về dòng đang đọc khi chưa có selection (các chế độ hiển thị theo
+  // ô/interlinear không tạo được selection, xem audit 0.10.3 mục 1.b).
   void _handleReadTextAction(ReadTextAction action, {String? selectedText}) {
-    final textProvider = context.read<TextProvider>();
-    final text = (selectedText ?? textProvider.selectedText ?? '').trim();
-    if (text.isEmpty && action != ReadTextAction.dictionary) {
-      _showWorkspaceSnack('Bạn cần bôi chọn một đoạn trước');
-      return;
-    }
-
-    switch (action) {
-      case ReadTextAction.translate:
-        _showWorkspaceSnack('Bản dịch sẽ dùng đoạn đang chọn trong tab Đọc.');
-        return;
-      case ReadTextAction.grammar:
-        _showWorkspaceSnack('Ngữ pháp sẽ dùng đoạn đang chọn trong tab Đọc.');
-        return;
-      case ReadTextAction.pronounce:
-        unawaited(textProvider.speak(text));
-        return;
-      case ReadTextAction.dictionary:
-        unawaited(_handleTool('dict_manager'));
-        return;
-    }
+    unawaited(
+      ReadTextActionRunner.run(
+        context,
+        action,
+        selectedText: selectedText,
+        onOpenDictionaryManager: () => unawaited(_handleTool('dict_manager')),
+      ),
+    );
   }
 
   ReadTextActionCallbacks get _readTextActionCallbacks {
@@ -2031,19 +2054,52 @@ class _WorkspaceHeaderLabel extends StatelessWidget {
 }
 
 class _WorkspaceHeaderActions extends StatelessWidget {
-  const _WorkspaceHeaderActions({required this.actions});
+  const _WorkspaceHeaderActions({required this.actions, this.dense = false});
 
   final List<_WorkspaceHeaderAction> actions;
 
+  /// READ-ACT-001 (audit 1.c): hàng nút thấp hơn và cuộn ngang trên điện
+  /// thoại thay vì `Wrap` thành hai hàng cao chiếm hết màn hình đọc.
+  final bool dense;
+
+  /// Dưới bề ngang này thì cuộn ngang; từ tablet trở lên vẫn xuống dòng.
+  static const double _scrollBreakpoint = 600;
+
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final action in actions)
-          _WorkspaceHeaderActionButton(action: action),
-      ],
+    if (!dense) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final action in actions)
+            _WorkspaceHeaderActionButton(action: action),
+        ],
+      );
+    }
+
+    final buttons = [
+      for (final action in actions)
+        _WorkspaceHeaderActionButton(action: action, dense: true),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _scrollBreakpoint) {
+          return Wrap(spacing: 8, runSpacing: 8, children: buttons);
+        }
+        return SizedBox(
+          height: WorkspaceActionButton.denseHeight,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: buttons.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, index) => buttons[index],
+          ),
+        );
+      },
     );
   }
 }
@@ -2052,10 +2108,12 @@ class _WorkspaceHeaderActionButton extends StatelessWidget {
   const _WorkspaceHeaderActionButton({
     required this.action,
     this.compact = false,
+    this.dense = false,
   });
 
   final _WorkspaceHeaderAction action;
   final bool compact;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -2064,6 +2122,7 @@ class _WorkspaceHeaderActionButton extends StatelessWidget {
       icon: action.icon,
       onPressed: action.onPressed,
       compact: compact,
+      dense: dense,
       tooltip: context.uiText(action.label),
     );
   }

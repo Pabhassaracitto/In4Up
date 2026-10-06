@@ -293,10 +293,13 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               textProvider.ipaColorByType &&
               textProvider.ipaDisplayMode != IpaDisplayMode.hidden;
 
-          final selectedText = textProvider.selectedText?.trim() ?? '';
-          final showTextActionBar = !isFocusMode &&
-              selectedText.isNotEmpty &&
-              widget.textActionCallbacks.hasAnyHook;
+          // READ-ACT-001 (audit 1.a — phương án 1): KHÔNG dựng lại
+          // `ReadTextActionBar` ở đây nữa. Bốn hành động Dịch/Ngữ pháp/
+          // Phát âm/Từ điển chỉ còn MỘT chỗ duy nhất: hàng nút có nhãn ở
+          // header workspace (main_shell). Thanh nổi cũ lặp đúng 4 hành
+          // động đó nên vừa thừa vừa che mất chữ đang đọc.
+          // Widget `ReadTextActionBar` vẫn giữ nguyên (còn test + còn dùng
+          // được cho màn hình khác), chỉ bỏ chỗ dựng trùng này.
 
           return Stack(
             children: [
@@ -310,14 +313,6 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                       selectedSource: _source,
                       onSourceChanged: _handleSourceChanged,
                       callbacks: widget.sourceCallbacks,
-                    ),
-                  if (showTextActionBar)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                      child: ReadTextActionBar(
-                        selectedText: selectedText,
-                        callbacks: widget.textActionCallbacks,
-                      ),
                     ),
                   if (!isFocusMode && showIpaLegend)
                     IpaLegendStrip(tp: textProvider),

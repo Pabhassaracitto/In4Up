@@ -73,10 +73,27 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
                 title: ctx.uiText('Sao chép vào app'),
                 subtitle: ctx.uiText(
                   'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, '
-                  'không sợ đổi/xoá thư mục gốc (tốn dung lượng tương đương).',
+                  'không sợ đổi/xoá thư mục gốc. Bộ từ điển sẽ nằm ở HAI nơi '
+                  '(thư mục gốc + bộ nhớ app); xoá bản gốc sau khi copy xong '
+                  'để không tốn gấp đôi.',
                 ),
                 onTap: () => Navigator.pop(ctx, DictStorageMode.imported),
               ),
+              // DICT-LINK-001 (audit 1.d): trên Android chỉ còn một lựa
+              // chọn nên người dùng tưởng app đã bỏ mất chế độ Liên kết.
+              // Nói thẳng lý do thay vì im lặng.
+              if (Platform.isAndroid) ...[
+                const SizedBox(height: 10),
+                Text(
+                  ctx.uiText(
+                    'Trên Android, chế độ "Liên kết thư mục" tạm thời chưa '
+                    'dùng được: hệ thống chỉ cấp quyền qua SAF nên app không '
+                    'mở thẳng được file mdx/mdd theo đường dẫn cũ. Chúng tôi '
+                    'đang làm bản đọc qua SAF để trả lại lựa chọn này.',
+                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+              ],
             ],
           ),
           actions: [

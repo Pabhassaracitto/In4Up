@@ -5148,4 +5148,19 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '捨棄',
     'si': 'ඉවතලන්න',
   },
+  // DICT-LINK-001 — giải thích vì sao Android chỉ còn "Sao chép vào app".
+  'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, không sợ đổi/xoá thư mục gốc. Bộ từ điển sẽ nằm ở HAI nơi (thư mục gốc + bộ nhớ app); xoá bản gốc sau khi copy xong để không tốn gấp đôi.': {
+    'en': 'Copies mdx + mdd + css into app storage — stable long term, immune to moving or deleting the source folder. The dictionary then exists in TWO places (source folder + app storage); delete the original after copying so it does not cost twice the space.',
+    'hi': 'mdx + mdd + css ऐप स्टोरेज में कॉपी होते हैं — लंबे समय तक स्थिर, स्रोत फ़ोल्डर बदलने/हटाने से असर नहीं। तब शब्दकोश दो जगह रहता है (स्रोत + ऐप); दोगुनी जगह बचाने के लिए कॉपी के बाद मूल हटाएँ।',
+    'zh': '将 mdx + mdd + css 复制到应用存储 — 长期稳定，不怕源文件夹被移动或删除。此时词典存在两处（源文件夹 + 应用存储）；复制完成后请删除原件以免占用双倍空间。',
+    'zh_TW': '將 mdx + mdd + css 複製到應用程式儲存 — 長期穩定，不怕來源資料夾被移動或刪除。此時詞典存在兩處（來源資料夾 + 應用程式儲存）；複製完成後請刪除原件以免佔用雙倍空間。',
+    'si': 'mdx + mdd + css යෙදුම් ගබඩාවට පිටපත් කරයි — දිගුකාලීනව ස්ථාවරයි. එවිට ශබ්දකෝෂය ස්ථාන දෙකක ඇත (මූල ෆෝල්ඩරය + යෙදුම); ඉඩ දෙගුණ නොවීමට පිටපත් කිරීමෙන් පසු මුල් පිටපත මකන්න.',
+  },
+  'Trên Android, chế độ "Liên kết thư mục" tạm thời chưa dùng được: hệ thống chỉ cấp quyền qua SAF nên app không mở thẳng được file mdx/mdd theo đường dẫn cũ. Chúng tôi đang làm bản đọc qua SAF để trả lại lựa chọn này.': {
+    'en': 'On Android the "Link folder" mode is temporarily unavailable: the system only grants access through SAF, so the app cannot open mdx/mdd files by path. A SAF-based reader is in progress to bring this option back.',
+    'hi': 'Android पर "फ़ोल्डर लिंक करें" मोड फ़िलहाल उपलब्ध नहीं है: सिस्टम केवल SAF से पहुँच देता है, इसलिए ऐप mdx/mdd फ़ाइलें पथ से नहीं खोल सकता। SAF आधारित रीडर पर काम चल रहा है।',
+    'zh': '在 Android 上，“链接文件夹”模式暂不可用：系统仅通过 SAF 授权，应用无法按路径直接打开 mdx/mdd 文件。基于 SAF 的读取功能正在开发，以便恢复该选项。',
+    'zh_TW': '在 Android 上，「連結資料夾」模式暫不可用：系統僅透過 SAF 授權，應用程式無法依路徑直接開啟 mdx/mdd 檔案。以 SAF 為基礎的讀取功能正在開發，以便恢復該選項。',
+    'si': 'Android හි "ෆෝල්ඩරය සම්බන්ධ කරන්න" ප්‍රකාරය තාවකාලිකව නොමැත: පද්ධතිය SAF හරහා පමණක් ප්‍රවේශය දෙන බැවින් යෙදුමට mdx/mdd ගොනු මාර්ගයෙන් විවෘත කළ නොහැක. SAF පාදක කියවීමක් සකස් වෙමින් පවතී.',
+  },
 };

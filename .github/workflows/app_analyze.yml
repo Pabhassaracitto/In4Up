@@ -254,6 +254,42 @@ jobs:
           path: screen_translate_test.log
           if-no-files-found: ignore
 
+      # READ-ACT-001 + XLAT-MIX-001 (audit bản 0.10.3): luật chọn đoạn cho 4
+      # hành động của tab Đọc và bộ tách đoạn hỗn hợp ngôn ngữ. Thuần Dart,
+      # không plugin/mạng. Tự bỏ qua nếu nhánh chưa có file.
+      - name: "Read actions + mixed-language tests (logic thuần)"
+        id: read-act-tests
+        run: |
+          set +e
+          files=""
+          for f in test/read_mode/read_text_action_runner_test.dart \
+                   test/translation/mixed_language_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test READ-ACT-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > read_act_test.log 2>&1
+          code=$?
+          cat read_act_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' read_act_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=Read action test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload read actions test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-read-act-test-log
+          path: read_act_test.log
+          if-no-files-found: ignore
+
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

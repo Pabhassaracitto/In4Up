@@ -108,7 +108,8 @@
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
 | CI-BUILD-01 | Workflow `build.yml` không parse được (YAML) ⇒ mọi push trên mọi nhánh đều có run đỏ ~0s, không build release được | ✅ fix YAML (chờ run build thật khi push tag/dispatch) | thụt lề 9 space trong block PowerShell `run: \|` cắt block scalar (lỗi có sẵn từ `origin/main`); sửa 1 space + kiểm chứng bằng parser YAML thật — commit `dfac0e2` |
 | CI-BUILD-NDK | Build Android APK đỏ: `Unresolved reference: ndk` / `abiFilters` ở build.gradle.kts:101 | ✅ fix code (chờ owner re-trigger build — bot không có quyền dispatch) | `ndk { abiFilters += "arm64-v8a" }` bị đặt ở **top-level android{}** (commit `f1d4b49` arm64-only) — Kotlin DSL AGP 8.9.1 chỉ có `ndk` trong **defaultConfig** → script compile lỗi. Fix `eeace04`: di chuyển khối `ndk {}` VÀO `defaultConfig {}` (re-apply fix `24d0fa8` bị MẤT khi rebase). Xác minh: run pre-fix `37382171299` (f44eb96) Android=failure, 3 platform còn lại success ⇒ đúng 1 blocker này |
-| CI-BUILD-ABI-001 | Release 1.10.3 (build bằng Actions) "có 3 chip" dù đã có lệnh 1-chip; tên APK ghi `arm64-v8a` nhưng file là 3-ABI ~216MB | 🔨 doing — **PR #88** mở (merge vào main) → main build Android xanh + bản 1-chip thật | Release 1.10.3 build từ `main` (tag `1.10.3`→`7386295`): (1) APK Android là **bản 3-ABI cũ** (tên file ghi commit `2f357` = TRƯỚC khi 1-chip có hiệu lực trên main); (2) `main` HIỆN có khối `ndk{abiFilters}` ở **top-level (sai)** ⇒ main **không build được Android** (lỗi ndk) cho tới khi fix `eeace04` vào main; (3) `android_rename_apks.sh` **hardcode** "arm64-v8a" vào tên ⇒ gắn nhãn SAI cho bản 3-ABI. Workflow KHÔNG sai (build đúng 1 bản universal, không --split-per-abi) |
+| CI-BUILD-ABI-001 | Release 1.10.3 (build bằng Actions) "có 3 chip" dù đã có lệnh 1-chip; tên APK ghi `arm64-v8a` nhưng file là 3-ABI ~216MB | 🔨 doing — **PR #88** mở (merge vào main) → main build Android xanh + bản 1-chip thật |
+| CI-BUILD-LOGIN-001 | Bản 2f357 (release 1.10.3) crash khi chạm icon đăng nhập — owner nghi "flavor không có stable" | 🔬 investigating — **ĐÃ LOẠI**: 2f357 build đúng `--flavor stable`; nghi chính: **SHA1 keystore không khớp** client com.in4up (fallback DEBUG keystore) | 2f357 = "fix(android): configure arm64 ABI" (nhánh `arena/124c5760-in4up`), workflow tại 2f357 CÓ `--flavor stable` (build_final_complete.yml:227). google-services: client `com.in4up` cần `certificate_hash 8a1bc02e…` (release); CI fallback ký **DEBUG** keystore (SHA1 `7697fcbc…`) khi thiếu secret release ⇒ Google Sign-In sai hash → crash. Xem card chi tiết | Release 1.10.3 build từ `main` (tag `1.10.3`→`7386295`): (1) APK Android là **bản 3-ABI cũ** (tên file ghi commit `2f357` = TRƯỚC khi 1-chip có hiệu lực trên main); (2) `main` HIỆN có khối `ndk{abiFilters}` ở **top-level (sai)** ⇒ main **không build được Android** (lỗi ndk) cho tới khi fix `eeace04` vào main; (3) `android_rename_apks.sh` **hardcode** "arm64-v8a" vào tên ⇒ gắn nhãn SAI cho bản 3-ABI. Workflow KHÔNG sai (build đúng 1 bản universal, không --split-per-abi) |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
@@ -4277,6 +4278,68 @@
     defaultConfig) từ branch `fix/ndk-abi-defaultconfig` → **main** —
     https://github.com/Pabhassaracitto/In4Up/pull/88 . Owner merge PR #88
     → main build Android xanh + bản 1-chip arm64 thật.
+
+### CI-BUILD-LOGIN-001 — Bản 2f357 (release 1.10.3) crash khi chạm icon đăng nhập
+- **Nguồn:** owner (2026-10-06) — "bản commit 2f357 … crash khi chạm icon
+  đăng nhập; có lẽ do build trong workflow mà flavor không có chữ stable?"
+- **Trạng thái:** 🔬 investigating — đã LOẠI giả thuyết "thiếu stable flavor";
+  nghi chính: **SHA1 keystore không khớp** client `com.in4up`.
+- **GIẢ THUYẾT "flavor không có stable" — ĐÃ LOẠI (có bằng chứng):**
+  - Workflow tại chính commit `2f357` **CÓ** `--flavor stable` ở CẢ 2
+    workflow: `build_final_complete.yml:227` + `build.yml:116`
+    (`flutter build apk --release --flavor stable …`).
+  - ⇒ Bản 2f357 build đúng **flavor stable** (applicationId `com.in4up`).
+  - Quy tắc "build KHÔNG `--flavor stable` → crash đăng nhập" là **THẬT**
+    (đã ghi trong `build.gradle.kts` dòng 139–144 + card CI-ANDROID-01/03)
+    nhưng **không áp dụng** cho 2f357 (vì 2f357 đã dùng stable).
+- **2f357 là gì (xác minh):** commit "fix(android): configure arm64 ABI with
+  Kotlin DSL API" (2026-10-05), trên nhánh **`arena/124c5760-in4up`** (1 phiên
+  khác). Diff chỉ 3 dòng: `abiFilters += "arm64-v8a"` → `abiFilters.add
+  ("arm64-v8a")` (cả 2 đúng; khối `ndk{}` nằm TRONG `defaultConfig`). Vậy
+  2f357 = bản **1-chip arm64 + stable**.
+- **NGUYÊN NHÂN NGHI CHÍNH — SHA1 keystore không khớp (evidence-based):**
+  - google-services.json (cả secret lẫn fallback trong workflow) — client
+    `com.in4up` yêu cầu `certificate_hash` =
+    **`8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127`** (RELEASE); client
+    `com.in4up.dev` = `7697fcbcd36289fe5fb220575fcfb27704f4ca83` (DEBUG).
+  - CI KÝ APK từ keystore decode từ secrets; **nếu thiếu/sai secret
+    release → fallback ký bằng DEBUG keystore** (`build.gradle.kts`:
+    "[in4up-sign] WARNING … fallback ký bằng DEBUG keystore").
+  - Nếu bản 2f357 bị ký bằng **DEBUG** keystore (SHA1 `7697fcbc…`) thì
+    **KHÔNG khớp** client `com.in4up` (`8a1bc02e…`) ⇒ **Google Sign-In**
+    (icon đăng nhập tab Home) sai hash → lỗi/crash.
+  - Lưu ý: `android_verify_apk_signed.sh` chỉ kiểm tra "đã ký" (pass cả khi
+    ký debug) — nên bước verify KHÔNG bắt được lỗi SHA1 sai này.
+- **MÂU THUẪN "3 chip" (cần chủ kiểm chứng APK thật):** 2f357 set
+  `abiFilters.add("arm64-v8a")` ⇒ APK **nên là 1-chip**. Owner báo "3 chip"
+  ⇒ hoặc (a) đang xem nhầm file, hoặc (b) lệnh abiFilters chưa có hiệu lực
+  (cần `unzip -l` xem `lib/`). *(Sandbox agent KHÔNG tải được APK — CDN
+  release-assets bị chặn SSL — nên chưa xác minh trực tiếp.)*
+- **BƯỚC CHỦ CHẠY ĐỂ XÁC NHẬN (trên máy, với file APK 1.10.3):**
+  1. **Kiểm tra ABI (1-chip hay 3-chip):**
+     `unzip -l in4up-Android-arm64-v8a-1.10.3-2f357.apk | grep "lib/"`
+     → chỉ `lib/arm64-v8a/` = 1-chip (đúng config); có thêm `lib/armeabi-
+     v7a/` + `lib/x86_64/` = 3-chip (abiFilters chưa hiệu lực).
+  2. **Kiểm tra SHA1 ký (gốc crash đăng nhập):**
+     `apksigner verify --print-certs in4up-…-2f357.apk` (build-tools)
+     → đọc **SHA-1** của signer. Hoặc:
+     `unzip -p in4up-….apk META-INF/CERT.RSA | openssl pkcs7 -inform DER
+      -print_certs | openssl x509 -noout -fingerprint -sha1`
+     - SHA1 = `8a1bc02e…` → khớp com.in4up (đăng nhập OK).
+     - SHA1 = `7697fcbc…` (debug) hoặc khác → **KHÔNG khớp → crash đăng
+       nhập** (khớp nghi chính).
+  3. **Lấy logcat crash** khi bấm đăng nhập:
+     `adb logcat -d | grep -iE "Firebase|GoogleSignIn|Auth|FATAL|Exception"`.
+  4. **Xem build log 2f357** (Actions): tìm dòng `[in4up-sign]` — có bị
+     "fallback ký bằng DEBUG keystore" không?
+- **HƯỚNG SỬA (nếu xác nhận SHA1):** đảm bảo CI dùng **đúng release
+  keystore** (secret `ANDROID_KEYSTORE` + `key.properties` đúng) để SHA1 =
+  `8a1bc02e…`; KHÔNG rơi vào fallback debug. *(Secret do owner quản lý.)*
+- **Lịch sử:**
+  - 2026-10-06 | created→investigating | agent arena/01a0251e-in4up | loại
+    giả thuyết "thiếu stable" (2f357 có `--flavor stable`); định vị 2f357
+    (nhánh 124c5760, 1-chip+stable); nghi chính SHA1 keystore (debug
+    fallback vs com.in4up `8a1bc02e…`); ghi 4 bước chủ tự xác minh.
 
 ### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
 

@@ -93,15 +93,6 @@ android {
     // (không cần bước cài thêm trong workflow)
     ndkVersion = "28.2.13676358"
 
-    // CHỈ build native cho chip PHỔ THÔNG arm64-v8a (đại đa số Android hiện nay).
-    // → APK nhỏ hơn ĐÁNG KỂ so với universal 3-ABI (212 MB) và build nhanh hơn
-    //   (llama.cpp/sherpa/whisper chỉ compile 1 ABI thay vì 3).
-    // Bỏ armv7 (legacy 32-bit, điện thoại cũ) + x86_64 (chủ yếu emulator).
-    // Ảnh hưởng MỌI build (local + CI) — nếu muốn CI-only, bọc vào `if (in4upCiBuild)`.
-    ndk {
-        abiFilters += "arm64-v8a"
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -121,6 +112,18 @@ android {
         // báo 1.0.0 và versionCode không tăng ⇒ không thể update đè có kiểm soát.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // CHỈ build native cho chip PHỔ THÔNG arm64-v8a (đại đa số Android hiện nay).
+        // → APK nhỏ hơn ĐÁNG KỂ so với universal 3-ABI (212 MB) và build nhanh hơn
+        //   (llama.cpp/sherpa/whisper chỉ compile 1 ABI thay vì 3).
+        // Bỏ armv7 (legacy 32-bit, điện thoại cũ) + x86_64 (chủ yếu emulator).
+        // Ảnh hưởng MỌI build (local + CI) — nếu muốn CI-only, bọc vào `if (in4upCiBuild)`.
+        // ⚠️ CI-BUILD-NDK/ABI-001: khối `ndk {}` BẮT BUỘC nằm TRONG defaultConfig —
+        // đặt ở top-level android{} thì Kotlin DSL AGP 8.9.1 báo "Unresolved
+        // reference: ndk" (build Android đỏ). (Re-apply từ arena/01a0251e-in4up eeace04.)
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
 
         // STL cho native build (llama.cpp cần C++ STL). Kotlin DSL dùng
         // `arguments += listOf(...)` — KHÔNG dùng syntax Groovy `arguments("-D...")`.

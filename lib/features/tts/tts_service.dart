@@ -400,20 +400,12 @@ class TtsService extends ChangeNotifier {
     final lang = _resolveLanguage(text);
     _detectedLanguage = lang;
 
-    // 1. Kiểm tra cache trước
-    final cachedPath = await _cache.get(
-      text: text,
-      language: lang,
-      engineId: 'any',
-    );
-
-    if (cachedPath != null) {
-      if (_stopRequested || isStaleEpoch(epoch)) return;
-      _lastUsedEngine = '💾 Cache';
-      _safeNotify();
-      await _playFile(cachedPath);
-      return;
-    }
+    // 1. Cache: KHÔNG dò bằng engineId 'any' nữa.
+    // TTS-VOICE-CACHE-001 (audit 1.g): `get(engineId: 'any')` không bao giờ
+    // khớp `put(engineId: engine.id)` ⇒ cache coi như chết; và nếu khớp thì
+    // còn tệ hơn — một bản ghi giọng mặc định (nữ) sẽ phát đè lên giọng
+    // người dùng vừa chọn. Giờ mỗi engine tự dò cache theo đúng danh tính
+    // (engine + ngôn ngữ + giọng + tốc độ + cao độ).
 
     // 2. Chạy qua danh sách engine theo thứ tự ưu tiên
     final candidates = _getCandidateEngines(_priority);
@@ -437,7 +429,7 @@ class TtsService extends ChangeNotifier {
           // chạy tiếp engine kế (fallback mượt, không nghẽn app).
           // TTS-EDGE-VOICE-001 — dùng giọng Edge đã chọn theo ngôn ngữ
           // (EdgeVoicePrefs); chưa chọn → null → engine tự chọn mặc định.
-          final edgeVoice = await EdgeVoicePrefs.instance.voiceForLang(lang);
+          final edgeVoice = await _resolveEdgeVoice(lang);
           played = await _trySpeakOnline(
             EdgeTtsEngine(),
             text,
@@ -515,6 +507,23 @@ class TtsService extends ChangeNotifier {
       final piper = PiperTtsEngine.instance;
       if (!await piper.isAvailable()) return false;
 
+      // Cache theo đúng danh tính (engine + ngôn ngữ + giọng + tốc độ +
+      // cao độ) — TTS-VOICE-CACHE-001.
+      final cached = await _cache.get(
+        text: text,
+        language: lang,
+        engineId: piper.id,
+        voiceId: _selectedVoiceId,
+        speed: _speed,
+        pitch: _pitch,
+      );
+      if (cached != null) {
+        _lastUsedEngine = '💾 Cache · Sherpa Piper';
+        _safeNotify();
+        await _playFile(cached);
+        return true;
+      }
+
       _usingOfflineEngine = false;
       _isLoading = true;
       _safeNotify();
@@ -542,6 +551,9 @@ class TtsService extends ChangeNotifier {
         language: lang,
         engineId: piper.id,
         audioData: result.audioData!,
+        voiceId: _selectedVoiceId,
+        speed: _speed,
+        pitch: _pitch,
       );
 
       _lastUsedEngine = '🎙️ Sherpa Piper';
@@ -581,6 +593,35 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  /// Nhãn ngắn của giọng để hiện cạnh tên engine: `vi-VN-NamMinhNeural`
+  /// → `NamMinh`. Người dùng nhìn là biết ngay giọng nào vừa đọc — trước
+  /// đây chỉ thấy "Edge TTS" nên không cách nào tự kiểm chứng (audit 1.g).
+  String _shortVoiceLabel(String voiceId) {
+    final parts = voiceId.split('-');
+    final last = parts.isEmpty ? voiceId : parts.last;
+    return last.endsWith('Neural')
+        ? last.substring(0, last.length - 'Neural'.length)
+        : last;
+  }
+
+  /// Giọng Edge sẽ dùng cho [lang] — TTS-EDGE-VOICE-002 (audit 1.g).
+  ///
+  /// Trước đây chỉ hỏi [EdgeVoicePrefs.voiceForLang]; khi câu được NHẬN
+  /// DIỆN sang một ngôn ngữ mà người dùng chưa cấu hình (rất hay gặp với
+  /// tài liệu lẫn lộn Việt–Anh), hàm trả null ⇒ Edge rơi về giọng mặc định
+  /// của ngôn ngữ đó (en-US → Aria, nữ) ⇒ "chọn giọng nam mà giọng nữ đọc".
+  /// Bậc thang mới: giọng theo ngôn ngữ → giọng chung đang chọn nếu đúng
+  /// dạng id Edge → null (engine tự mặc định).
+  Future<String?> _resolveEdgeVoice(String lang) async {
+    final perLanguage = await EdgeVoicePrefs.instance.voiceForLang(lang);
+    if (perLanguage != null && perLanguage.trim().isNotEmpty) {
+      return perLanguage;
+    }
+    final shared = _selectedVoiceId;
+    if (shared != null && EdgeTtsEngine.isEdgeVoiceId(shared)) return shared;
+    return null;
+  }
+
   /// Thử phát bằng Online Engine (Google, Zalo, FPT, Edge)
   ///
   /// [voiceOverride] — giọng ưu tiên cho engine này (TTS-EDGE-VOICE-001: Edge
@@ -592,6 +633,25 @@ class TtsService extends ChangeNotifier {
     String lang, {
     String? voiceOverride,
   }) async {
+    final voiceId = voiceOverride ?? _selectedVoiceId;
+
+    // Cache theo đúng danh tính giọng — bản ghi của giọng khác KHÔNG được
+    // dùng lại (TTS-VOICE-CACHE-001).
+    final cached = await _cache.get(
+      text: text,
+      language: lang,
+      engineId: engine.id,
+      voiceId: voiceId,
+      speed: _speed,
+      pitch: _pitch,
+    );
+    if (cached != null) {
+      _lastUsedEngine = '💾 Cache · ${engine.name}';
+      _safeNotify();
+      await _playFile(cached);
+      return true;
+    }
+
     final hasNet = await _checkNetwork();
     if (!hasNet) return false;
 
@@ -605,7 +665,7 @@ class TtsService extends ChangeNotifier {
             language: lang,
             speed: _speed,
             pitch: _pitch,
-            voiceId: voiceOverride ?? _selectedVoiceId,
+            voiceId: voiceId,
           )
           .timeout(const Duration(seconds: 15));
 
@@ -618,9 +678,14 @@ class TtsService extends ChangeNotifier {
             language: lang,
             engineId: engine.id,
             audioData: result.audioData!,
+            voiceId: voiceId,
+            speed: _speed,
+            pitch: _pitch,
           );
 
-          _lastUsedEngine = '🌐 ${result.engineName}';
+          _lastUsedEngine = voiceId == null || voiceId.trim().isEmpty
+              ? '🌐 ${result.engineName}'
+              : '🌐 ${result.engineName} · ${_shortVoiceLabel(voiceId)}';
           _safeNotify();
           await _playFile(filePath);
           return true;
@@ -650,23 +715,35 @@ class TtsService extends ChangeNotifier {
         final hasNetwork = await _checkNetwork();
         if (!hasNetwork) return;
 
-        final existing = await _cache.get(
-          text: text,
-          language: lang,
-          engineId: 'any',
-        );
-        if (existing != null) return;
-
         final engines = await _getOnlineEngines(lang);
 
         for (final engine in engines) {
           try {
+            // TTS-VOICE-CACHE-001: prefetch phải dùng ĐÚNG giọng mà lúc
+            // phát sẽ dùng, nếu không sẽ nạp sẵn một bản ghi giọng mặc
+            // định (nữ) rồi không bao giờ khớp key — vừa phí mạng vừa là
+            // nguồn gốc của "chọn giọng nam mà giọng nữ đọc".
+            final voiceId = engine.id == 'edge_tts'
+                ? await _resolveEdgeVoice(lang)
+                : _selectedVoiceId;
+
+            final existing = await _cache.get(
+              text: text,
+              language: lang,
+              engineId: engine.id,
+              voiceId: voiceId,
+              speed: _speed,
+              pitch: _pitch,
+            );
+            if (existing != null) return;
+
             final result = await engine
                 .synthesize(
                   text: text,
                   language: lang,
                   speed: _speed,
                   pitch: _pitch,
+                  voiceId: voiceId,
                 )
                 .timeout(const Duration(seconds: 20));
 
@@ -678,6 +755,9 @@ class TtsService extends ChangeNotifier {
                 language: lang,
                 engineId: engine.id,
                 audioData: result.audioData!,
+                voiceId: voiceId,
+                speed: _speed,
+                pitch: _pitch,
               );
               debugPrint('📥 Prefetch done: ${engine.name}');
               return;

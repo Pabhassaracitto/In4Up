@@ -931,50 +931,122 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
           style: TextStyle(fontSize: 10, color: Colors.grey[600]),
         ),
         const SizedBox(height: 8),
+        // TTS-EDGE-VOICE-002 (audit 1.f): trước đây đổ THẲNG toàn bộ danh
+        // mục (~16 ngôn ngữ × nhiều giọng) thành một rừng RadioListTile —
+        // phải cuộn rất lâu mới tới ngôn ngữ của mình. Giờ mỗi ngôn ngữ là
+        // MỘT dòng gập lại, hiện đúng giọng đang chọn; bung ra mới thấy
+        // danh sách giọng của riêng ngôn ngữ đó.
         for (final lang in order)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _langLabel(lang),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64B5F6),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                for (final v in byLang[lang]!)
-                  RadioListTile<String>(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    value: v.id,
-                    // groupValue PHẢI như nhau cho mọi tile trong cùng nhóm
-                    // (đúng ngữ nghĩa RadioListTile) — tính 1 lần theo ngôn ngữ.
-                    groupValue: _groupValueFor(lang, byLang[lang]!),
-                    activeColor: const Color(0xFF64B5F6),
-                    title: Text(
-                      v.name,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    secondary: Text(
-                      v.gender == 'male' ? '♂' : '♀',
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
-                    ),
-                    onChanged: (id) async {
-                      if (id == null) return;
-                      await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
-                      setState(() => _selected[lang] = id);
-                    },
-                  ),
-              ],
-            ),
+          _EdgeVoiceLanguageTile(
+            languageLabel: _langLabel(lang),
+            voices: byLang[lang]!,
+            selectedVoiceId: _groupValueFor(lang, byLang[lang]!),
+            isExplicit: _selected.containsKey(lang),
+            onSelected: (id) async {
+              await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
+              setState(() => _selected[lang] = id);
+            },
           ),
       ],
+    );
+  }
+}
+
+/// Một ngôn ngữ = một dòng gập (TTS-EDGE-VOICE-002).
+class _EdgeVoiceLanguageTile extends StatelessWidget {
+  const _EdgeVoiceLanguageTile({
+    required this.languageLabel,
+    required this.voices,
+    required this.selectedVoiceId,
+    required this.isExplicit,
+    required this.onSelected,
+  });
+
+  final String languageLabel;
+  final List<TtsVoice> voices;
+  final String? selectedVoiceId;
+
+  /// true = người dùng đã tự chọn; false = đang là giọng mặc định.
+  final bool isExplicit;
+
+  final Future<void> Function(String voiceId) onSelected;
+
+  static String _genderMark(TtsVoice voice) =>
+      voice.gender == 'male' ? '♂' : '♀';
+
+  @override
+  Widget build(BuildContext context) {
+    TtsVoice? current;
+    for (final voice in voices) {
+      if (voice.id == selectedVoiceId) {
+        current = voice;
+        break;
+      }
+    }
+
+    final summary = current == null
+        ? context.uiText('Giọng mặc định')
+        : '${current.name} ${_genderMark(current)}'
+            '${isExplicit ? '' : ' · ${context.uiText('mặc định')}'}';
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        iconColor: const Color(0xFF64B5F6),
+        collapsedIconColor: Colors.white38,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                languageLabel,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64B5F6),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${voices.length}',
+              style: const TextStyle(fontSize: 10, color: Colors.white30),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          summary,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, color: Colors.white60),
+        ),
+        children: [
+          for (final v in voices)
+            RadioListTile<String>(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: v.id,
+              // groupValue PHẢI như nhau cho mọi tile trong cùng nhóm
+              // (đúng ngữ nghĩa RadioListTile) — tính 1 lần theo ngôn ngữ.
+              groupValue: selectedVoiceId,
+              activeColor: const Color(0xFF64B5F6),
+              title: Text(
+                v.name,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              secondary: Text(
+                _genderMark(v),
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              onChanged: (id) async {
+                if (id == null) return;
+                await onSelected(id);
+              },
+            ),
+        ],
+      ),
     );
   }
 }

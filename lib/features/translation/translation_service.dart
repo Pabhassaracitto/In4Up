@@ -24,6 +24,7 @@ import 'engines/translation_engine.dart';
 import 'glossary/glossary_store.dart';
 import 'glossary/protect_tokens.dart';
 import 'glossary/translation_glossary.dart';
+import 'mixed_language_segmenter.dart';
 
 /// Translation orchestration with automatic source detection and engine
 /// fallback. Language metadata comes from the same 26-language catalog used
@@ -341,6 +342,13 @@ class TranslationService {
     );
 
     if (source.translationCode == target.translationCode) {
+      // XLAT-MIX-001 (audit 1.h): tài liệu lẫn lộn Việt–Anh bị nhận diện
+      // thành đúng ngôn ngữ đích ⇒ trước đây trả nguyên văn, người dùng
+      // thấy "bấm Dịch không có gì xảy ra". Giờ soi từng mẩu câu: còn mẩu
+      // ngoại ngữ thì vẫn dịch riêng mẩu đó rồi ghép lại.
+      final mixed = await _translateMixedLanguage(text, target);
+      if (mixed != null) return mixed;
+
       _lastUsedEngine = '↔️ Cùng ngôn ngữ';
       return TranslationResult.success(
         original: text,
@@ -374,6 +382,58 @@ class TranslationService {
     await _ensureGlossary();
     final hasNetwork = _offlineOnly ? false : await _checkNetwork();
     return _translateWithPipeline(text, source, target, hasNetwork);
+  }
+
+  /// Dịch phần NGOẠI NGỮ của một đoạn đã cùng ngôn ngữ với đích.
+  ///
+  /// Trả null khi đoạn không có mẩu ngoại ngữ nào (để người gọi giữ nguyên
+  /// đường cũ `same-language`). Mẩu nào dịch hỏng thì giữ nguyên văn —
+  /// không bao giờ nuốt chữ của người dùng.
+  Future<TranslationResult?> _translateMixedLanguage(
+    String text,
+    AppLanguage target,
+  ) async {
+    final segments = segmentByLanguage(text, target: target);
+    if (!segments.any((segment) => segment.isForeign)) return null;
+
+    final hasNetwork = _offlineOnly ? false : await _checkNetwork();
+    await _ensureGlossary();
+
+    final buffer = StringBuffer();
+    final engines = <String>{};
+    var translatedAny = false;
+
+    for (final segment in segments) {
+      if (!segment.isForeign) {
+        buffer.write(segment.text);
+        continue;
+      }
+      final result = await _translateWithPipeline(
+        segment.core,
+        segment.language,
+        target,
+        hasNetwork,
+      );
+      final translated = result.translatedText.trim();
+      if (result.isSuccess && translated.isNotEmpty) {
+        buffer.write(segment.text.replaceFirst(segment.core, translated));
+        engines.add(result.engineName);
+        translatedAny = true;
+      } else {
+        buffer.write(segment.text);
+      }
+    }
+
+    if (!translatedAny) return null;
+
+    _lastUsedEngine = '🧩 Hỗn hợp ngôn ngữ · ${engines.join(' · ')}';
+    return TranslationResult.success(
+      original: text,
+      translated: buffer.toString(),
+      engine: 'mixed-language',
+      detectedLang: 'MIXED',
+      targetLang: target.translationCode,
+    );
   }
 
   /// Glossary (protect) → engine chain (ML Kit → online → từ điển) →

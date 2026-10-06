@@ -9,6 +9,7 @@ import '../../services/storage_service.dart';
 import '../tts/language_detector.dart';
 import 'cache/translation_cache.dart';
 import 'engines/translation_engine.dart';
+import 'mixed_language_segmenter.dart';
 import 'translation_display_mode.dart';
 import 'translation_service.dart';
 
@@ -214,6 +215,40 @@ mixin TranslationMixin on ChangeNotifier {
     return LanguageDetector.detectLanguage(content, fallback: documentSource);
   }
 
+  /// XLAT-MIX-001 (audit 1.h) — dòng này có mẩu nào KHÁC ngôn ngữ đích
+  /// không? Dùng để không chặn oan tài liệu lẫn lộn Việt–Anh khi ngôn ngữ
+  /// nguồn của cả tài liệu bị nhận diện trùng ngôn ngữ đích.
+  bool _lineNeedsTranslation(
+    String content, {
+    required AppLanguage lineSource,
+    required AppLanguage target,
+    required AppLanguage documentSource,
+  }) {
+    if (lineSource.translationCode != target.translationCode) return true;
+    return containsForeignSegment(
+      content,
+      target: target,
+      fallback: documentSource,
+    );
+  }
+
+  /// Tài liệu còn ít nhất một dòng đáng dịch sang [target] hay không.
+  bool _documentNeedsTranslation(AppLanguage source, AppLanguage target) {
+    for (final line in lines) {
+      final content = line.content;
+      if (content.trim().isEmpty) continue;
+      if (_lineNeedsTranslation(
+        content,
+        lineSource: _lineSourceFor(content, source),
+        target: target,
+        documentSource: source,
+      )) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /// Dịch 1 dòng qua service. Chế độ AUTO: nếu dòng bị nhận diện nhầm sang
   /// ngôn ngữ khác nguồn tài liệu và model của ngôn ngữ vừa nhận diện chưa
   /// tải (missingModelCodes) → retry ĐÚNG 1 LẦN với nguồn tài liệu trước khi
@@ -279,14 +314,21 @@ mixin TranslationMixin on ChangeNotifier {
     final service = _translationService;
     final source = translationSourceLanguage;
     final target = translationTargetLanguage;
-    if (source.translationCode == target.translationCode) {
+    final lineSource = _lineSourceFor(line.content, source);
+    // XLAT-MIX-001: xét NGÔN NGỮ CỦA DÒNG (và các mẩu trong dòng), không
+    // xét ngôn ngữ gộp của cả tài liệu — dòng tiếng Anh nằm trong tài liệu
+    // tiếng Việt vẫn phải dịch được.
+    if (!_lineNeedsTranslation(
+      line.content,
+      lineSource: lineSource,
+      target: target,
+      documentSource: source,
+    )) {
       _translationError =
           'Ngôn ngữ nguồn và ngôn ngữ đích đang giống nhau.';
       notifyListeners();
       return;
     }
-
-    final lineSource = _lineSourceFor(line.content, source);
     final runId = _translationRunId;
     TranslationService().activeEngineNotifier.value = null;
     final (result, appliedSource) = await _translateLineContent(
@@ -323,7 +365,11 @@ mixin TranslationMixin on ChangeNotifier {
     final service = _translationService;
     final source = translationSourceLanguage;
     final target = translationTargetLanguage;
-    if (source.translationCode == target.translationCode) {
+    final sameAsTarget = source.translationCode == target.translationCode;
+    // XLAT-MIX-001 (audit 1.h): chỉ từ chối khi THẬT SỰ không còn gì để
+    // dịch. Tài liệu lẫn lộn Việt–Anh bị gộp mẫu thành "VI" vẫn phải dịch
+    // được các dòng/mẩu tiếng Anh sang tiếng Việt.
+    if (sameAsTarget && !_documentNeedsTranslation(source, target)) {
       _translationError =
           '${source.flag} ${source.nativeName} đã là ngôn ngữ đích. '
           'Hãy chọn một ngôn ngữ khác.';
@@ -349,6 +395,17 @@ mixin TranslationMixin on ChangeNotifier {
           line.translation!.trim().isNotEmpty &&
           existingTarget == targetCode;
       if (!force && hasCurrentTranslation) continue;
+      if (sameAsTarget &&
+          !_lineNeedsTranslation(
+            line.content,
+            lineSource: _lineSourceFor(line.content, source),
+            target: target,
+            documentSource: source,
+          )) {
+        // Dòng đã ở ngôn ngữ đích và không lẫn ngoại ngữ — bỏ qua thay vì
+        // ghi bản dịch trùng nguyên văn.
+        continue;
+      }
       toTranslate.add(index);
     }
 

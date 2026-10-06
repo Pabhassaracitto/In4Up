@@ -5068,4 +5068,47 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '目前行',
     'si': 'වත්මන් පේළිය',
   },
+  // READ-HINT-001 — bảng hướng dẫn đọc theo dòng nói đúng thao tác thật.
+  'Chạm một dòng để hiện IPA, giữ một từ để tra nghĩa.': {
+    'en': 'Tap a line to show its IPA, long-press a word to look it up.',
+    'hi': 'IPA देखने के लिए पंक्ति टैप करें, अर्थ के लिए शब्द देर तक दबाएँ।',
+    'zh': '点一行显示音标，长按一个词查词义。',
+    'zh_TW': '點一行顯示音標，長按一個詞查詞義。',
+    'si': 'IPA සඳහා පේළියක් තට්ටු කරන්න, අරුත සඳහා වචනයක් තද කර අල්ලන්න.',
+  },
+  'Đã mở theo dòng: chạm một dòng để hiện IPA, giữ một từ để tra nghĩa.': {
+    'en': 'Opened line by line: tap a line for IPA, long-press a word to look it up.',
+    'hi': 'पंक्ति-दर-पंक्ति खुला: IPA के लिए पंक्ति टैप करें, अर्थ के लिए शब्द देर तक दबाएँ।',
+    'zh': '已按行打开：点一行显示音标，长按一个词查词义。',
+    'zh_TW': '已按行開啟：點一行顯示音標，長按一個詞查詞義。',
+    'si': 'පේළියෙන් පේළිය විවෘතයි: IPA සඳහා පේළියක් තට්ටු කරන්න, අරුත සඳහා වචනයක් තද කර අල්ලන්න.',
+  },
+  'Chạm một từ: nghe phát âm ngay.': {
+    'en': 'Tap a word: hear it read aloud right away.',
+    'hi': 'शब्द टैप करें: तुरंत उच्चारण सुनें।',
+    'zh': '点一个词：立即听发音。',
+    'zh_TW': '點一個詞：立即聽發音。',
+    'si': 'වචනයක් තට්ටු කරන්න: එකෙණෙහිම උච්චාරණය අසන්න.',
+  },
+  'Chạm hai lần vào một từ: xem nghĩa nhanh.': {
+    'en': 'Double-tap a word: see a quick meaning.',
+    'hi': 'शब्द पर दो बार टैप करें: त्वरित अर्थ देखें।',
+    'zh': '双击一个词：查看快速释义。',
+    'zh_TW': '雙擊一個詞：檢視快速釋義。',
+    'si': 'වචනයක් දෙවරක් තට්ටු කරන්න: ඉක්මන් අරුත බලන්න.',
+  },
+  'Giữ một từ: mở bảng tra từ đầy đủ (nghĩa, ngữ pháp, lưu từ).': {
+    'en': 'Long-press a word: open the full lookup sheet (meaning, grammar, save).',
+    'hi': 'शब्द देर तक दबाएँ: पूरा शब्दकोश पैनल खोलें (अर्थ, व्याकरण, सहेजें)।',
+    'zh': '长按一个词：打开完整查词面板（释义、语法、保存）。',
+    'zh_TW': '長按一個詞：開啟完整查詞面板（釋義、文法、儲存）。',
+    'si': 'වචනයක් තද කර අල්ලන්න: සම්පූර්ණ ශබ්දකෝෂ පුවරුව විවෘත වේ (අරුත, ව්‍යාකරණ, සුරැකීම).',
+  },
+  'Muốn xử lý nhiều từ: 4 nút ở trên chạy trên cả dòng đang đọc.': {
+    'en': 'For several words at once: the 4 buttons above act on the whole current line.',
+    'hi': 'कई शब्दों के लिए: ऊपर के 4 बटन पूरी वर्तमान पंक्ति पर काम करते हैं।',
+    'zh': '要处理多个词：上方 4 个按钮会作用于整行当前内容。',
+    'zh_TW': '要處理多個詞：上方 4 個按鈕會作用於整行目前內容。',
+    'si': 'වචන කිහිපයක් සඳහා: ඉහත බොත්තම් 4 සම්පූර්ණ වත්මන් පේළියට බලපායි.',
+  },
 };

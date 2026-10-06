@@ -272,8 +272,18 @@ class VocabImageWebService {
   }
 
   /// Tải bytes ảnh (có trần dung lượng) để lưu vào app storage.
-  Future<Uint8List> download(String imageUrl,
-      {int maxBytes = 8 * 1024 * 1024, bool allowJson = false}) async {
+  ///
+  /// LOTTIE-IMPORT-002 (audit mục 2): [allowJson] cũ suy ra TỪ ĐUÔI URL nên
+  /// link Lottie không có đuôi (`https://lottie.host/abc-123/`, link chia sẻ
+  /// có `?download=`, CDN rewrite…) bị ném 'not an image' — đúng cái lỗi
+  /// "dán link thì báo ảnh hỏng". Giờ nhận diện theo NỘI DUNG THẬT: payload
+  /// nào là Lottie hợp lệ thì nhận, chỉ áp trần riêng cho animation.
+  Future<Uint8List> download(
+    String imageUrl, {
+    int maxBytes = 8 * 1024 * 1024,
+    bool allowJson = false,
+    int lottieMaxBytes = 2 * 1024 * 1024,
+  }) async {
     final res = await _client
         .get(Uri.parse(imageUrl), headers: const {'User-Agent': userAgent})
         .timeout(const Duration(seconds: 30));
@@ -284,19 +294,61 @@ class VocabImageWebService {
     if (bytes.isEmpty) {
       throw const VocabImageSearchException('empty body');
     }
-    if (bytes.length > maxBytes) {
-      throw VocabImageSearchException(
-          allowJson ? 'lottie too large' : 'image too large');
-    }
-    // LOTTIE-001 — caller báo URL là Lottie (.json/.lottie) thì chấp nhận
-    // payload JSON/zip; đó cũng là chốt chặn URL .json trỏ ra HTML lỗi.
-    if (allowJson && looksLikeLottie(bytes)) {
+
+    final contentType = (res.headers['content-type'] ?? '').toLowerCase();
+    final lottie = looksLikeLottieContent(bytes, contentType: contentType);
+
+    if (lottie) {
+      if (bytes.length > lottieMaxBytes) {
+        throw const VocabImageSearchException('lottie too large');
+      }
       return bytes;
     }
+
+    if (bytes.length > maxBytes) {
+      throw const VocabImageSearchException('image too large');
+    }
     if (!looksLikeImage(bytes)) {
-      throw const VocabImageSearchException('not an image');
+      throw VocabImageSearchException(
+        allowJson ? 'not an image or Lottie' : 'not an image',
+      );
     }
     return bytes;
+  }
+
+  /// Payload CÓ THẬT là Lottie hay không (không tin đuôi URL).
+  ///
+  /// • dotLottie = zip (`PK\x03\x04`) → nhận ngay.
+  /// • JSON → phải có dấu vết schema Lottie (`"v"` + `"layers"`/`"fr"`/
+  ///   `"op"`), nếu không thì đó chỉ là một file JSON bất kỳ (hoặc JSON lỗi
+  ///   của API) và KHÔNG được lưu làm minh họa.
+  static bool looksLikeLottieContent(
+    Uint8List bytes, {
+    String contentType = '',
+  }) {
+    if (bytes.isEmpty) return false;
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x50 &&
+        bytes[1] == 0x4B &&
+        bytes[2] == 0x03 &&
+        bytes[3] == 0x04) {
+      // zip: dotLottie thật, hoặc file zip khác — chỉ nhận khi header/đuôi
+      // gợi ý Lottie để không nuốt một file nén bất kỳ.
+      return contentType.contains('lottie') ||
+          contentType.contains('zip') ||
+          contentType.contains('octet-stream');
+    }
+    if (bytes[0] != 0x7B) return false; // không phải '{'
+
+    final head = String.fromCharCodes(
+      bytes.take(2048).where((b) => b >= 0x09 && b < 0x7F),
+    );
+    final hasVersion = head.contains('"v"') || head.contains("'v'");
+    final hasShape = head.contains('"layers"') ||
+        head.contains('"fr"') ||
+        head.contains('"op"') ||
+        head.contains('"assets"');
+    return hasVersion && hasShape;
   }
 
   /// LOTTIE-001 — payload là Lottie: JSON bắt đầu bằng '{' hoặc dotLottie

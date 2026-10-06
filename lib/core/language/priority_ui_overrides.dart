@@ -5119,4 +5119,33 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '預設語音',
     'si': 'පෙරනිමි හඬ',
   },
+  // LOTTIE-IMPORT-002 — xem trước ảnh/animation trước khi tải về.
+  'Lưu vào từ này': {
+    'en': 'Save to this word',
+    'hi': 'इस शब्द में सहेजें',
+    'zh': '保存到该词条',
+    'zh_TW': '儲存到該詞條',
+    'si': 'මෙම වචනයට සුරකින්න',
+  },
+  'Không đọc được animation này.': {
+    'en': 'This animation could not be read.',
+    'hi': 'यह एनिमेशन पढ़ा नहीं जा सका।',
+    'zh': '无法读取该动画。',
+    'zh_TW': '無法讀取該動畫。',
+    'si': 'මෙම සජීවිකරණය කියවිය නොහැකි විය.',
+  },
+  'Chụp ảnh, hoặc chọn ảnh/animation Lottie trong máy.': {
+    'en': 'Take a photo, or pick an image / Lottie animation from this device.',
+    'hi': 'फ़ोटो लें, या डिवाइस से इमेज / Lottie एनिमेशन चुनें।',
+    'zh': '拍照，或从本机选择图片 / Lottie 动画。',
+    'zh_TW': '拍照，或從本機選擇圖片 / Lottie 動畫。',
+    'si': 'ඡායාරූපයක් ගන්න, නැතහොත් උපාංගයෙන් රූපයක් / Lottie සජීවිකරණයක් තෝරන්න.',
+  },
+  'Bỏ': {
+    'en': 'Discard',
+    'hi': 'हटाएँ',
+    'zh': '丢弃',
+    'zh_TW': '捨棄',
+    'si': 'ඉවතලන්න',
+  },
 };

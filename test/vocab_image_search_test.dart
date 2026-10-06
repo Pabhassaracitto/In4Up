@@ -421,4 +421,48 @@ void main() {
       expect(names, contains('vocab_image_key_pexels'));
     });
   });
+
+  // LOTTIE-IMPORT-002 (audit bản 0.10.3 mục 2) — "dán link Lottie thì báo
+  // ảnh hỏng". Nhận diện phải theo NỘI DUNG, không theo đuôi URL.
+  group('looksLikeLottieContent — nhận Lottie theo nội dung', () {
+    Uint8List bytes(List<int> v) => Uint8List.fromList(v);
+    Uint8List json(String v) => Uint8List.fromList(utf8.encode(v));
+
+    test('JSON Lottie thật (có "v" + "layers") → nhận', () {
+      final payload = json(
+        '{"v":"5.7.4","fr":30,"ip":0,"op":60,"w":512,"h":512,"layers":[]}',
+      );
+      expect(VocabImageWebService.looksLikeLottieContent(payload), isTrue);
+    });
+
+    test('JSON bất kỳ (không phải Lottie) → từ chối', () {
+      final payload = json('{"error":"not found","status":404}');
+      expect(VocabImageWebService.looksLikeLottieContent(payload), isFalse);
+    });
+
+    test('trang HTML lỗi trả về từ link .json → từ chối', () {
+      final payload = json('<!doctype html><html><body>404</body></html>');
+      expect(VocabImageWebService.looksLikeLottieContent(payload), isFalse);
+    });
+
+    test('dotLottie (zip) kèm content-type hợp lệ → nhận', () {
+      final payload = bytes([0x50, 0x4B, 0x03, 0x04, 0, 0, 0, 0]);
+      expect(
+        VocabImageWebService.looksLikeLottieContent(
+          payload,
+          contentType: 'application/zip',
+        ),
+        isTrue,
+      );
+      expect(
+        VocabImageWebService.looksLikeLottieContent(payload),
+        isFalse,
+        reason: 'zip không rõ loại thì không nuốt bừa',
+      );
+    });
+
+    test('rỗng → từ chối', () {
+      expect(VocabImageWebService.looksLikeLottieContent(bytes([])), isFalse);
+    });
+  });
 }

@@ -14,6 +14,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../core/language/localized_material.dart';
 import '../background_removal/background_removal.dart';
@@ -128,6 +129,12 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   final TextEditingController _urlCtrl = TextEditingController();
   String? _urlError;
 
+  /// LOTTIE-IMPORT-002 — bytes vừa tải về để XEM TRƯỚC (chưa lưu).
+  Uint8List? _previewBytes;
+
+  /// URL ứng với [_previewBytes] (đổi link thì bỏ preview cũ).
+  String? _previewUrl;
+
   @override
   void initState() {
     super.initState();
@@ -196,9 +203,12 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
       _busy = true;
       _backgroundRemovalMessage = null;
     });
+    // LOTTIE-IMPORT-002 (audit mục 2): nút Thư viện dùng bộ chọn CHẤP NHẬN
+    // CẢ `.json`/`.lottie`. Trước đây `FileType.image` làm mờ hai đuôi này
+    // nên "nhập Lottie từ máy" là bất khả thi, không phải do file hỏng.
     final bytes = camera
         ? await VocabImageService.instance.pickCameraBytes()
-        : await VocabImageService.instance.pickGalleryBytes();
+        : await VocabImageService.instance.pickMediaBytes();
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -253,6 +263,51 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
       _showCutout = false;
       _backgroundRemovalMessage = null;
     });
+  }
+
+  /// LOTTIE-IMPORT-002 — XEM TRƯỚC link vừa dán: tải bytes về RAM, render
+  /// ảnh/animation ngay trong sheet, chưa ghi gì xuống máy. Người dùng nhìn
+  /// thấy đúng thứ mình muốn rồi mới bấm lưu (yêu cầu của chủ dự án).
+  Future<void> _previewPastedUrl() async {
+    final url = _urlCtrl.text.trim();
+    if (!isNetworkMediaUrl(url)) {
+      setState(() => _urlError = context.uiText(
+          'Liên kết chưa hợp lệ — cần bắt đầu bằng http:// hoặc https://'));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _urlError = null;
+      _previewBytes = null;
+      _previewUrl = null;
+    });
+    final bytes = await VocabImageService.instance.fetchPreviewBytes(url);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _previewBytes = bytes;
+      _previewUrl = bytes == null ? null : url;
+      _urlError = bytes == null
+          ? context.uiText(
+              'Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).')
+          : null;
+    });
+  }
+
+  /// Lưu đúng bytes đang xem trước — không tải lại lần hai.
+  Future<void> _savePreviewBytes() async {
+    final bytes = _previewBytes;
+    if (bytes == null) return;
+    setState(() => _busy = true);
+    final path = await VocabImageService.instance.saveFromBytes(bytes);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (path == null || path.isEmpty) {
+      setState(() => _urlError =
+          context.uiText('Không thể lưu ảnh. Vui lòng thử lại.'));
+      return;
+    }
+    Navigator.of(context).pop(VocabImagePickResult(imagePath: path));
   }
 
   /// LOTTIE-001 — tải media từ URL dán (ảnh tĩnh hoặc Lottie .json) về
@@ -742,15 +797,90 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               ),
             ],
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _busy ? null : _downloadPastedUrl,
-              icon: const Icon(Icons.download_outlined, size: 18),
-              label: Text(context.uiText('Tải về & lưu')),
-            ),
+            // LOTTIE-IMPORT-002 — xem trước TRƯỚC khi tải về máy.
+            if (_previewBytes != null) ...[
+              Container(
+                height: 170,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _buildPastedPreview(_previewBytes!),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _previewBytes = null;
+                                _previewUrl = null;
+                              }),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: Text(context.uiText('Bỏ')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _savePreviewBytes,
+                      icon: const Icon(Icons.save_alt, size: 18),
+                      label: Text(context.uiText('Lưu vào từ này')),
+                    ),
+                  ),
+                ],
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _previewPastedUrl,
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      label: Text(context.uiText('Xem trước')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _downloadPastedUrl,
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      label: Text(context.uiText('Tải về & lưu')),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),
     );
+  }
+
+  /// Render bytes đang xem trước: Lottie nếu là animation, ảnh nếu là ảnh.
+  Widget _buildPastedPreview(Uint8List bytes) {
+    final isLottie = VocabImageWebService.looksLikeLottieContent(
+          bytes,
+          contentType: 'application/octet-stream',
+        ) ||
+        isLottieMediaUrl(_previewUrl);
+    if (isLottie) {
+      return Lottie.memory(
+        bytes,
+        fit: BoxFit.contain,
+        repeat: true,
+        errorBuilder: (_, __, ___) => Center(
+          child: Text(
+            context.uiText('Không đọc được animation này.'),
+            style: const TextStyle(fontSize: 11.5),
+          ),
+        ),
+      );
+    }
+    return Image.memory(bytes, fit: BoxFit.contain);
   }
 
   // ───────────────────────────────────────────────────────────── MÁY ──────
@@ -770,7 +900,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                   size: 30, color: scheme.onSurfaceVariant),
               const SizedBox(height: 8),
               Text(
-                context.uiText('Chụp ảnh hoặc chọn ảnh trong máy.'),
+                context.uiText('Chụp ảnh, hoặc chọn ảnh/animation Lottie trong máy.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: scheme.onSurfaceVariant, fontSize: 11.5),
@@ -818,7 +948,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               border: Border.all(color: scheme.outlineVariant),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Image.memory(preview, fit: BoxFit.contain),
+            child: _buildPastedPreview(preview),
           ),
           const SizedBox(height: 10),
           if (cutout != null)

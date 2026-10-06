@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'vocab_image_web_service.dart';
-import 'vocab_media_type.dart';
 
 /// Service quản lý hình ảnh cho từ vựng
 class VocabImageService {
@@ -107,13 +106,13 @@ class VocabImageService {
   }) async {
     final service = client ?? VocabImageWebService();
     try {
-      final lottie = isLottieMediaUrl(url);
+      // LOTTIE-IMPORT-002 (audit mục 2): KHÔNG còn khoá theo đuôi URL —
+      // downloader tự nhận diện Lottie theo nội dung và áp trần riêng.
       final bytes = await service.download(
         url,
-        allowJson: lottie,
-        maxBytes: lottie
-            ? (maxLottieBytes ?? kMaxLottieBytes)
-            : 8 * 1024 * 1024,
+        allowJson: true,
+        maxBytes: 8 * 1024 * 1024,
+        lottieMaxBytes: maxLottieBytes ?? kMaxLottieBytes,
       );
       return await saveFromBytes(bytes);
     } catch (e) {
@@ -121,6 +120,68 @@ class VocabImageService {
       return null;
     } finally {
       if (client == null) service.dispose();
+    }
+  }
+
+  /// LOTTIE-IMPORT-002 — tải bytes để XEM TRƯỚC, chưa lưu gì cả.
+  ///
+  /// Người dùng xem ảnh/animation trước rồi mới quyết định có tải về hay
+  /// không (yêu cầu của chủ dự án). Trả null nếu link hỏng/sai định dạng.
+  Future<Uint8List?> fetchPreviewBytes(
+    String url, {
+    VocabImageWebService? client,
+    int? maxLottieBytes,
+  }) async {
+    final service = client ?? VocabImageWebService();
+    try {
+      return await service.download(
+        url,
+        allowJson: true,
+        maxBytes: 8 * 1024 * 1024,
+        lottieMaxBytes: maxLottieBytes ?? kMaxLottieBytes,
+      );
+    } catch (e) {
+      debugPrint('fetchPreviewBytes error ($url): $e');
+      return null;
+    } finally {
+      if (client == null) service.dispose();
+    }
+  }
+
+  /// LOTTIE-IMPORT-002 — chọn ẢNH **hoặc** ANIMATION từ máy.
+  ///
+  /// Lỗi gốc (audit mục 2 — "nhập Lottie .json từ máy không được"):
+  /// [pickFromGallery]/[pickGalleryBytes] dùng `FileType.image`, mà
+  /// `.json`/`.lottie` không phải ảnh nên file picker của hệ điều hành
+  /// LÀM MỜ chúng — người dùng không thể chọn. Ở đây dùng `FileType.custom`
+  /// với danh sách đuôi gồm cả Lottie.
+  Future<Uint8List?> pickMediaBytes() async {
+    try {
+      final result = await fp.FilePicker.pickFiles(
+        type: fp.FileType.custom,
+        allowedExtensions: const [
+          'jpg',
+          'jpeg',
+          'png',
+          'webp',
+          'gif',
+          'bmp',
+          'json',
+          'lottie',
+        ],
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes != null && bytes.isNotEmpty) return bytes;
+      final path = file.path;
+      if (path == null) return null;
+      return Uint8List.fromList(await File(path).readAsBytes());
+    } catch (e) {
+      debugPrint('pickMediaBytes error: $e');
+      return null;
     }
   }
 

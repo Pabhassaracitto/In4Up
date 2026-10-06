@@ -29,11 +29,26 @@ class TtsCache {
     return _cacheDir!;
   }
 
-  /// Tạo key từ text + language + engine
-  String _makeKey(String text, String language, String engineId) {
-    final input = '${engineId}_${language}_$text';
-    final hash = md5.convert(utf8.encode(input)).toString();
-    return hash;
+  /// Tạo key từ text + language + engine + GIỌNG + tốc độ + cao độ.
+  ///
+  /// TTS-VOICE-CACHE-001 (audit 1.g — "chọn giọng nam mà giọng nữ đọc"):
+  /// key cũ chỉ gồm engine+ngôn ngữ+chữ ⇒ một file audio đọc bằng giọng
+  /// mặc định (nữ) có thể được phát lại cho MỌI giọng của cùng ngôn ngữ.
+  /// Giọng/tốc độ/cao độ là một phần danh tính của bản ghi nên phải nằm
+  /// trong key.
+  @visibleForTesting
+  static String makeKey(
+    String text,
+    String language,
+    String engineId, {
+    String? voiceId,
+    double speed = 1.0,
+    double pitch = 1.0,
+  }) {
+    final voice = (voiceId ?? '').trim().isEmpty ? 'default' : voiceId!.trim();
+    final input = '${engineId}_${language}_${voice}_'
+        '${speed.toStringAsFixed(2)}_${pitch.toStringAsFixed(2)}_$text';
+    return md5.convert(utf8.encode(input)).toString();
   }
 
   /// Lưu audio vào cache
@@ -42,8 +57,18 @@ class TtsCache {
     required String language,
     required String engineId,
     required Uint8List audioData,
+    String? voiceId,
+    double speed = 1.0,
+    double pitch = 1.0,
   }) async {
-    final key = _makeKey(text, language, engineId);
+    final key = makeKey(
+      text,
+      language,
+      engineId,
+      voiceId: voiceId,
+      speed: speed,
+      pitch: pitch,
+    );
     final path = '${await _cachePath}/$key.mp3';
 
     final file = File(path);
@@ -59,8 +84,18 @@ class TtsCache {
     required String text,
     required String language,
     required String engineId,
+    String? voiceId,
+    double speed = 1.0,
+    double pitch = 1.0,
   }) async {
-    final key = _makeKey(text, language, engineId);
+    final key = makeKey(
+      text,
+      language,
+      engineId,
+      voiceId: voiceId,
+      speed: speed,
+      pitch: pitch,
+    );
     final path = '${await _cachePath}/$key.mp3';
 
     final file = File(path);

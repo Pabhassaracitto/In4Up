@@ -710,7 +710,10 @@ class EdgeTtsEngine extends TtsEngine {
 
   /// true nếu [voiceId] đúng dạng giọng Edge Neural (chống nhầm id của
   /// engine khác: Piper/Zalo/FPT/OpenAI dùng chung `_selectedVoiceId`).
-  @visibleForTesting
+  ///
+  /// TTS-EDGE-VOICE-002: cũng dùng ở production (TtsService hỏi xem giọng
+  /// chung đang chọn có phải giọng Edge không) nên không còn
+  /// `@visibleForTesting`.
   static bool isEdgeVoiceId(String voiceId) =>
       _edgeVoicePattern.hasMatch(voiceId.trim());
 

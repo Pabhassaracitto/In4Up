@@ -5111,4 +5111,12 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '要處理多個詞：上方 4 個按鈕會作用於整行目前內容。',
     'si': 'වචන කිහිපයක් සඳහා: ඉහත බොත්තම් 4 සම්පූර්ණ වත්මන් පේළියට බලපායි.',
   },
+  // TTS-EDGE-VOICE-002 — danh sách giọng Edge gập theo ngôn ngữ.
+  'Giọng mặc định': {
+    'en': 'Default voice',
+    'hi': 'डिफ़ॉल्ट आवाज़',
+    'zh': '默认语音',
+    'zh_TW': '預設語音',
+    'si': 'පෙරනිමි හඬ',
+  },
 };

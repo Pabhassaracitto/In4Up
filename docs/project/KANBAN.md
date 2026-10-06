@@ -74,6 +74,16 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
+| READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
+| READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
+| XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
+| TTS-EDGE-VOICE-002 | Giọng Edge: danh sách quá dài (1.f) + chọn giọng nam vẫn nghe giọng nữ (1.g) | 🔄 doing (code + CI 🟢; **chờ nghiệm thu tai nghe trên máy**) | audit 1.f/1.g — picker gập theo ngôn ngữ (ExpansionTile); khoá cache TTS thêm giọng/tốc độ/cao độ, bỏ bất đối xứng `get('any')` vs `put(engine.id)`, prefetch dùng đúng giọng, bậc thang `_resolveEdgeVoice`, nhãn engine kèm tên giọng. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` |
+| LOTTIE-IMPORT-002 | Worklist: nhập Lottie `.json` từ máy không được, dán link báo "ảnh hỏng", Lottie đã lưu hiện icon vỡ trong danh sách | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit mục 2 — `FileType.custom` cho `.json/.lottie`; nhận diện Lottie theo NỘI DUNG (`looksLikeLottieContent`) thay vì đuôi URL; xem trước trước khi tải; thumbnail giao Lottie cho `VocabularyMediaWidget(animate:false)` |
+| DICT-LINK-001 | Từ điển: mất lựa chọn "Liên kết thư mục", lời thoại dung lượng gây hiểu nhầm | 🔄 doing (phần lời + giải thích ✅; phần đọc SAF chờ agent khác) | audit 1.d — Android chỉ cấp `content://` qua SAF nên parser MDX (`RandomAccessFile`) không mở được ⇒ lựa chọn bị ẩn. Hộp thoại nay nói rõ lý do + "bộ từ điển nằm ở HAI nơi". Prompt: `PROMPT_AGENT_DICT_SAF_LINK.md` |
+| OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 📋 proposed (cần máy thật + logcat) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md` |
+| XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
+| READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 📋 proposed | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
+| VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 📋 proposed | audit mục 2 (phần còn lại) — `WordEntry.imageUrl` là MỘT trường; cần thêm `imageUrl2` additive + sửa các màn hiển thị. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -5550,3 +5560,55 @@
     biên dịch Kotlin + nghiệm thu 7 tiêu chí trên máy thật, (b) P1+ (chạm xem
     bản gốc, chọn vùng, vòng lặp capture), (c) P2 script CJK (ADR riêng),
     (d) P2 desktop Linux/Windows.
+
+### AUDIT-0103 — Đợt kiểm định bản 0.10.3 của chủ dự án (10 mục)
+
+- **Trạng thái:** 🔨 doing — 6 mục đã sửa và CI 🟢 trên nhánh
+  `arena/78cea3c6-in4up` (PR nhắm `251e`); 4 mục còn lại cần máy thật hoặc
+  đụng schema ⇒ đã có prompt giao việc riêng.
+- **Nguồn:** chủ dự án, 2026-10-06 — danh sách kiểm định bản 0.10.3.
+- **Đã sửa trong đợt này (mỗi vùng một commit để rebase & merge dễ):**
+  - `READ-ACT-001` (mục 1.a + 1.b + 1.c) — bỏ thanh hành động nổi trùng
+    lặp (phương án 1 của owner); 4 nút chạy service thật qua
+    `ReadTextActionRunner`; nút nhỏ lại + cuộn ngang trên điện thoại.
+    Nguyên nhân gốc của "bôi chọn rồi vẫn báo chưa bôi chọn":
+    `TextProvider.selectedText` **chỉ** được ghi bởi
+    `SelectableText.onSelectionChanged`, mà chế độ ô chữ/interlinear không
+    có `SelectableText`.
+  - `READ-HINT-001` (mục 1.e phần hướng dẫn) — bảng hướng dẫn nói đúng
+    thao tác thật; ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng
+    nói về IPA.
+  - `XLAT-MIX-001` (mục 1.h) — nhận diện ngôn ngữ theo **từng mẩu câu**;
+    `TranslationService` dịch riêng mẩu ngoại ngữ rồi ghép lại nguyên văn.
+  - `TTS-EDGE-VOICE-002` (mục 1.f + 1.g) — picker giọng gập theo ngôn ngữ;
+    khoá cache TTS có giọng/tốc độ/cao độ; prefetch dùng đúng giọng.
+  - `LOTTIE-IMPORT-002` (mục 2 phần bug) — nhập `.json/.lottie` từ máy;
+    nhận diện Lottie theo nội dung; xem trước trước khi tải; thumbnail
+    Lottie hết vỡ.
+  - `DICT-LINK-001` (mục 1.d phần lời) — nói rõ vì sao Android tạm mất chế
+    độ "Liên kết thư mục" + sửa câu gây hiểu nhầm về dung lượng.
+- **Bàn giao bằng prompt (không làm nửa vời):**
+  `PROMPT_AGENT_OCR_SCAN_CRASH.md` (1.i),
+  `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` (1.j),
+  `PROMPT_AGENT_DICT_SAF_LINK.md` (1.d phần native),
+  `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` (mục 2 phần 1–2 ảnh + duyệt animation),
+  `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` (nghiệm thu 1.g trên máy +
+  kéo chọn nhiều từ 1.e).
+- **Máy bắt:** `app_analyze.yml` — thêm bước
+  "Read actions + mixed-language tests (logic thuần)"
+  (`test/read_mode/read_text_action_runner_test.dart`,
+  `test/translation/mixed_language_test.dart`), cộng nhóm
+  `looksLikeLottieContent` trong `test/vocab_image_search_test.dart`.
+- **Giới hạn đã biết (ghi để người sau không "sửa nhầm"):** tiếng Việt viết
+  **không dấu** có thể bị bộ tách mẩu coi là ngoại ngữ ("di" là giới từ
+  Indonesia/Ý, "toi" là đại từ Pháp). Hậu quả tối đa là dòng đó bị dịch
+  thừa — nguyên văn không bao giờ bị thay.
+- **Nghiệm thu còn thiếu (owner):** nghe giọng Edge nam/nữ trước và sau khi
+  đổi giọng (bài kiểm tra cache), dịch một tài liệu lẫn Việt–Anh, nhập một
+  file Lottie từ máy và một link Lottie, và một lượt dùng tab Đọc trên điện
+  thoại để xác nhận hàng nút không còn chiếm chỗ.
+- **Lịch sử:**
+  - 2026-10-06 | created (doing) | agent arena/78cea3c6-in4up | kiểm định
+    10 mục; 6 mục sửa tại chỗ (6 commit theo vùng), 4 mục ra prompt giao
+    việc; CI app_analyze xanh ở `74af5d8` (analyze 0 error + toàn bộ bước
+    test, gồm bước mới của đợt này).

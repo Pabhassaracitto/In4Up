@@ -91,3 +91,119 @@
 - CHƯA chạy được `flutter analyze` / `flutter test` trong sandbox (không có
   Flutter SDK) và CHƯA build Android (không có Android SDK) — CI
   `app_analyze.yml` + nghiệm thu thiết bị theo mục 5 của card là cổng cuối.
+
+---
+
+## Bản sửa đổi 2026-10-07 — XLAT-SCR-003: "chạm bong bóng không có gì xảy ra"
+
+> ADR là append-only: phần trên giữ nguyên, phần này BỔ SUNG và sửa lại mục 4,
+> 5 và 12 của quyết định gốc. Agent `arena/92e02500-in4up`.
+
+### Bối cảnh
+
+Bản 0.10.3: bật bong bóng → chạm vào ⇒ không overlay, không toast, không lỗi.
+Ba chặn đã biết của Android đều **im lặng**, nên không có log nào chỉ tay vào
+chúng. Đọc code + đối chiếu tài liệu chính thức phát hiện thêm **hai** chặn
+nữa (xem #4 và #5 bên dưới).
+
+### Sửa quyết định 4 (consent MediaProjection)
+
+**Cũ:** "`createScreenCaptureIntent` cần Activity ⇒ có
+`ScreenCaptureRequestActivity` trong suốt" — nhưng activity đó được mở bằng
+`startActivity` **từ foreground service**, và Android 10+ (API 29) chặn mở
+activity từ nền: hệ thống BỎ QUA lệnh, log chỉ còn một dòng
+`ActivityTaskManager: Background activity start ...`. Service không nằm trong
+danh sách được miễn.
+
+**Mới (2 đường, dùng cả hai):**
+
+1. **Đường chính — xin consent khi app còn foreground.**
+   `ScreenTranslatePlugin.start` (được gọi từ màn hình Cài đặt) khởi service
+   rồi mở `ScreenCaptureRequestActivity` ngay. Khi ấy app đang hiện trên màn
+   hình nên việc mở activity là hợp pháp, không vướng chặn nào. Hệ quả: lần
+   chạm bong bóng đầu tiên đã có projection sẵn ⇒ có kết quả ngay.
+2. **Đường dự phòng — PendingIntent có opt-in.**
+   Khi consent bị mất giữa phiên (Android 14 thu hồi theo phiên, user bấm
+   "Dừng chia sẻ", token đã dùng), `requestConsent()` gửi
+   `PendingIntent.getActivity(...)` được tạo với
+   `ActivityOptions.setPendingIntentBackgroundActivityStartMode(
+   MODE_BACKGROUND_ACTIVITY_START_ALLOWED)` (API 34+) — opt-in theo đúng
+   tài liệu "Behavior changes: apps targeting Android 14". Trước API 34,
+   `PendingIntent.send()` vẫn là đường được phép.
+
+**Watchdog (bắt buộc):** hệ thống vẫn CÓ THỂ chặn (màn hình khoá, ROM siết,
+`appSwitchState`). Vì vậy activity báo ngược `ACTION_CONSENT_UI_SHOWN` khi
+thực sự `onCreate`; nếu sau 2.5s service không nhận được tín hiệu, nó kết luận
+"đã bị chặn" và hiện **thông báo heads-up có thể bấm** (khi user bấm thông báo,
+hệ thống mới là bên gửi pending intent ⇒ được miễn chặn). Không có watchdog thì
+bản sửa chỉ là "hy vọng là chạy".
+
+### Sửa quyết định 5 (loại foreground service)
+
+Giữ nguyên thứ tự và cả hai loại. Đã kiểm chứng bằng tài liệu chính thức
+(*Foreground service types → Media projection*): runtime prerequisite là
+`createScreenCaptureIntent()` phải được gọi TRƯỚC `startForeground`, và
+`getMediaProjection()` chỉ được gọi SAU khi foreground service đã chạy. Thứ tự
+hiện tại trong code (`consent → startForeground(type=mediaProjection) →
+getMediaProjection → createVirtualDisplay`) đã đúng; giữ nguyên, không "tối
+ưu". Kiểm tra chéo `compileSdk 36 / targetSdk 35 / minSdk 24`.
+
+### Bổ sung: một phiên chụp = một VirtualDisplay (chặn #4, MỚI)
+
+Tài liệu *Media projection*: "A session is a single call to
+`createVirtualDisplay()`. A MediaProjection token must be used only once.";
+Android 14 ném `SecurityException` nếu gọi `createVirtualDisplay()` quá một
+lần trên cùng `MediaProjection`. Code cũ tạo rồi gỡ VirtualDisplay sau **mỗi**
+lần bấm ⇒ lần bấm thứ hai trở đi hỏng trên Android 14.
+
+**Quyết định:** tạo `ImageReader` + `VirtualDisplay` **MỘT LẦN cho cả phiên**
+(khi vừa có consent), giữ ấm đến khi tắt; mỗi lần bấm chỉ gọi
+`acquireLatestImage()` — lấy frame mới nhất, rồi đẩy sang Dart. Quyết định 3
+("một lần bấm = một lần chụp") **không thay đổi**: Dart vẫn chỉ xử lý đúng một
+frame mỗi lần bấm, không có vòng lặp capture. Đổi đổi lấy: tốn thêm một ít pin
+và icon "đang truyền màn hình" của hệ thống hiện trong lúc bật bong bóng —
+đánh đổi này minh bạch, và là cách duy nhất để bấm nhiều lần được trên
+Android 14.
+
+### Bổ sung: luật "không bao giờ im lặng" (chặn #5, MỚI)
+
+Mọi nhánh thất bại của `onBubbleTapped()` PHẢI gọi `tellUser()` = **toast +
+notification + rung nhẹ**, kèm bước tiếp theo cụ thể. Toast được ưu tiên vì
+Android 13+ có thể chưa cấp `POST_NOTIFICATIONS` (app trước đây chưa bao giờ
+xin quyền này ⇒ notification bị ẩn mà không ai báo). Thêm:
+
+- Kênh thông báo riêng `in4up_screen_translate_alert` (IMPORTANCE_HIGH) cho các
+  trường hợp "cần user thao tác".
+- Bong bóng 2 trạng thái: xanh "文A" = sẵn sàng; cam "⚙" = **cần thiết lập**.
+- `OnAttachStateChangeListener` trên bong bóng: hệ thống tự gỡ bong bóng khi
+  quyền overlay bị thu hồi ⇒ phát hiện được và hướng dẫn mở đúng màn hình
+  Cài đặt (trước đây chỉ có `printStackTrace()` rồi `stopEverything()`).
+
+### Sửa quyết định 12 (i18n)
+
+Nguyên tắc giữ nguyên. Riêng chuỗi của service: thêm 10 chuỗi, bản mặc định
+trong `res/values` là **tiếng Anh** + `res/values-vi` tiếng Việt ⇒ máy locale
+khác không bao giờ rơi về tiếng Việt (quy tắc vàng #5). Chuỗi chrome Dart: 5
+chuỗi mới trong `priority_ui_overrides.dart` đủ en/hi/zh/zh_TW/si.
+
+### Quyết định 13 (MỚI): quyền do DART quyết định, không phải Kotlin
+
+Phần Kotlin **chưa có CI biên dịch** (xem card XLAT-SCR-002) nên mọi quyết
+định "thiếu quyền gì / bước tiếp theo là gì" được đẩy sang Dart, nơi có máy
+bắt:
+
+- `lib/features/screen_translate/screen_translate_permission.dart` —
+  `ScreenTranslatePermissionState` (unsupported / needsOverlayPermission /
+  needsCaptureConsent / consentDenied / ready) +
+  `ScreenTranslateNativeStatus` (đọc map của Kotlin, chịu kiểu lạ) +
+  `ScreenTranslateRecoveryAction`. THUẦN DART, test được trên host VM.
+- Kotlin chỉ trả dữ kiện qua `ScreenTranslatePlugin.status()` (9 khoá).
+- Thẻ Cài đặt không tự đoán: đọc máy trạng thái rồi hiện đúng thông điệp + nút.
+
+### Hệ quả / việc còn nợ
+
+- Thêm quyền `VIBRATE`. `POST_NOTIFICATIONS` đã có trong manifest, nay được xin
+  runtime từ Dart (`permission_handler`) trước khi bật bong bóng.
+- CHƯA có bằng chứng logcat và CHƯA nghiệm thu thiết bị: sandbox không có
+  adb/Android SDK/Flutter SDK. Script `scripts/qa/screen_translate_logcat.sh`
+  đã viết sẵn để chủ dự án chạy trên máy thật (mục 3.1 của prompt).

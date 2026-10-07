@@ -80,7 +80,7 @@
 | TTS-EDGE-VOICE-002 | Giọng Edge: danh sách quá dài (1.f) + chọn giọng nam vẫn nghe giọng nữ (1.g) | 🔄 doing (code + CI 🟢; **chờ nghiệm thu tai nghe trên máy**) | audit 1.f/1.g — picker gập theo ngôn ngữ (ExpansionTile); khoá cache TTS thêm giọng/tốc độ/cao độ, bỏ bất đối xứng `get('any')` vs `put(engine.id)`, prefetch dùng đúng giọng, bậc thang `_resolveEdgeVoice`, nhãn engine kèm tên giọng. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` |
 | LOTTIE-IMPORT-002 | Worklist: nhập Lottie `.json` từ máy không được, dán link báo "ảnh hỏng", Lottie đã lưu hiện icon vỡ trong danh sách | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit mục 2 — `FileType.custom` cho `.json/.lottie`; nhận diện Lottie theo NỘI DUNG (`looksLikeLottieContent`) thay vì đuôi URL; xem trước trước khi tải; thumbnail giao Lottie cho `VocabularyMediaWidget(animate:false)` |
 | DICT-LINK-001 | Từ điển: mất lựa chọn "Liên kết thư mục", lời thoại dung lượng gây hiểu nhầm | 🔄 doing (phần lời + giải thích ✅; phần đọc SAF chờ agent khác) | audit 1.d — Android chỉ cấp `content://` qua SAF nên parser MDX (`RandomAccessFile`) không mở được ⇒ lựa chọn bị ẩn. Hộp thoại nay nói rõ lý do + "bộ từ điển nằm ở HAI nơi". Prompt: `PROMPT_AGENT_DICT_SAF_LINK.md` |
-| OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 📋 proposed (cần máy thật + logcat) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md` |
+| OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 📋 proposed | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 📋 proposed | audit mục 2 (phần còn lại) — `WordEntry.imageUrl` là MỘT trường; cần thêm `imageUrl2` additive + sửa các màn hiển thị. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
@@ -5681,3 +5681,107 @@
     10 mục; 6 mục sửa tại chỗ (6 commit theo vùng), 4 mục ra prompt giao
     việc; CI app_analyze xanh ở `74af5d8` (analyze 0 error + toàn bộ bước
     test, gồm bước mới của đợt này).
+
+### OCR-SCAN-CRASH-001 — "Chụp & quét tài liệu" làm sập app (Thư viện đọc ▸ Quét ảnh)
+
+- **Trạng thái:** doing — code + máy bắt CI 🟢 (run `37653016584`: bước "Analyze
+  full app" 0 error, bước "OCR scan safety tests" chạy 4 s và có artifact
+  `app-ocr-scan-test-log` ⇒ 2 file test THẬT SỰ chạy, không bị bỏ qua);
+  **CÒN nghiệm thu thiết bị**: vết `adb logcat` (hoặc tệp chẩn đoán app tự ghi)
+  + 4 tiêu chí nghiệm thu dưới. Sandbox phiên này KHÔNG có `adb`/thiết bị/Dart
+  SDK ⇒ không tự lấy log được — owner xác nhận trên máy.
+- **Nguồn:** owner (audit bản 0.10.3, mục 1.i) — Thư viện đọc ▸ Quét ảnh ▸
+  "Chụp & quét tài liệu" ⇒ app tắt ngay, không toast/dialog/màn hình lỗi.
+  Prompt giao việc: `PROMPT_AGENT_OCR_SCAN_CRASH.md`.
+- **Quyết định kiến trúc:** `docs/adr/0012-ocr-scan-crash-safety-net.md`.
+- **Phân tích (đối chiếu source, không đoán):**
+  - `google_mlkit_document_scanner` **0.5.0** = commit release `f29f844` (đọc
+    source tại ĐÚNG commit đó; master là 0.6.x — đòi Dart `^3.12` nên không
+    dùng được với Flutter 3.44.1). `DocumentScanner.handleScanner` gọi
+    `GmsDocumentScanning.getClient()` / `getStartScanIntent(activity)` **không**
+    bọc try/catch; chỉ bắt `SendIntentException` quanh `startIntentSenderForResult`.
+  - Document Scanner là thư viện **unbundled**: model + logic + UI tải động qua
+    **Google Play services** (tài liệu ML Kit: API 21+ và **≥ 1,7 GB RAM**; thấp
+    hơn ⇒ `MlKitException` mã `UNSUPPORTED`). Máy thiếu/tắt GMS ⇒ lỗi ném ở
+    luồng native ⇒ tiến trình chết, lớp try/catch của Dart không bắt được
+    (khớp hiện tượng "app tắt ngay").
+  - Plugin giữ **đúng một** ô `pendingResult` và chỉ trả lời trong
+    `onActivityResult`; activity bị huỷ giữa lúc máy quét mở ⇒ instance mới
+    không có `pendingResult` ⇒ `scanDocument()` treo im lặng. Đây là dấu hiệu
+    PHÂN BIỆT: nhánh này gây TREO, không phải tắt app.
+  - `google_mlkit_text_recognition` 0.16.0 dùng bản **bundled**
+    (`com.google.mlkit:text-recognition:16.0.1`) ⇒ nhận dạng CHỮ không cần GMS;
+    chỉ máy quét mới là unbundled.
+  - App **không** xin quyền `CAMERA` và không mở intent camera của app (máy quét
+    dùng camera của Play services) ⇒ nhánh "thiếu quyền camera" của prompt KHÔNG
+    áp dụng. Bổ sung `<queries><package android:name="com.google.android.gms"/>`
+    (Android 11+ chặn truy vấn gói không khai báo); KHÔNG đổi `launchMode`
+    (không có bằng chứng nào chỉ vào đó, đổi chỉ thêm rủi ro back-stack).
+- **Đã làm (code):**
+  - `lib/features/ocr/ocr_precheck.dart` — quyết định thuần Dart:
+    `missingPlayServices` (thiếu/tắt GMS ⇒ CHẶN trước khi vào đường native),
+    `lowRam` (< 1,7 GB), `unsupportedPlatform`, `scannerUnsupported`, `ready`;
+    RAM không đo được ⇒ vẫn cho thử (không chặn oan).
+  - `lib/features/ocr/ocr_scan_guard.dart` — `watchOcrScan()` chạy đua lời gọi
+    quét với nhịp hỏi tín hiệu native (800 ms) + `classifyOcrScannerError()`
+    (phân biệt "Operation cancelled" với "Failed to start document scanner").
+  - `lib/features/ocr/ocr_native_bridge.dart` — kênh `in4up/ocr`:
+    `probeCapabilities`, `beginScanSession`/`endScanSession`, `pollScanSignal`,
+    nhận callback `onOcrNativeCrash`; seam `OcrNativeBridge.invoke` cho test.
+  - `lib/features/ocr/ocr_service.dart` — `scanDocumentPages` trả
+    `OcrScanOutcome` (`completed/cancelled/interrupted/nativeCrash/failed`) thay
+    vì `List<String>?`; `probeCapabilities()` không bao giờ ném; giữ nguyên
+    `recognizeFile`/`recognizeBitmap`/`recognizeBitmapBlocks`/`normalizeOcrText`.
+  - `lib/features/ocr/ocr_flow.dart` — precheck TRƯỚC khi mở máy quét + thông
+    báo có hành động ("Mở Google Play services" → Play Store
+    `com.google.android.gms`); user bấm Back/huỷ KHÔNG còn hiện snackbar đỏ.
+  - `MainActivity.kt` — kênh `in4up/ocr`, cờ phiên quét lưu qua
+    `onSaveInstanceState`, **crash shield** chỉ nuốt exception có dấu vết
+    ML Kit/GMS scanner (mọi exception khác vẫn đi handler cũ) và LUÔN ghi vết ra
+    `Android/data/com.in4up/files/in4up_diagnostics/ocr-crash-<ts>.log`.
+  - i18n: 10 chuỗi mới vào `lib/core/language/priority_ui_overrides.dart`
+    (vi + en/hi/zh/zh_TW/si — rule vàng #5; KHÔNG chạy `generate_arbs.py`).
+- **Máy bắt CI:** bước mới "OCR scan safety tests — OCR-SCAN-CRASH-001" trong
+  `.github/workflows/app_analyze.yml` chạy `test/ocr/ocr_precheck_test.dart` +
+  `test/ocr/ocr_scan_guard_test.dart` (guard `[ -f ]` như các bước khác).
+- **CÒN THIẾU (bắt buộc cho DoD):**
+  1. `adb logcat -c` → tái hiện → `adb logcat -d > crash.log`, **dán stack trace
+     vào card này**. Không có adb thì lấy tệp app tự ghi:
+     `Android/data/com.in4up/files/in4up_diagnostics/ocr-crash-<ts>.log`.
+  2. Máy có GMS đầy đủ: chụp → quét → ra chữ, app sống.
+  3. Máy/emulator **không** có GMS: hiện thông báo tiếng Việt rõ ràng, app sống.
+  4. Bật *Don't keep activities*: chụp → quay lại → báo lịch sự, không treo/crash.
+  5. `flutter analyze` 0 error + các bước test trong `app_analyze.yml` xanh
+     (2 file test mới chưa từng chạy — sandbox không có Dart SDK).
+- **Lịch sử:**
+  - 2026-10-06 | proposed | agent arena/78cea3c6-in4up | audit 1.i — lớp Dart đã
+    try/catch ⇒ nghi crash ở native; bàn giao bằng prompt (không đủ điều kiện
+    làm tiếp trong phiên).
+  - 2026-10-07 | 16:30 UTC | proposed→doing | agent arena/b07d7c38-in4up | đọc
+    source plugin tại commit release `f29f844` (0.5.0) + tài liệu ML Kit
+    Document Scanner (unbundled, ≥1,7 GB RAM); thêm precheck GMS/RAM + trọng tài
+    phiên quét + crash shield + ADR-0012 + 2 file test thuần nối
+    `app_analyze.yml`; i18n 10 chuỗi đủ 5 locale T2. CHƯA có logcat thiết bị
+    (sandbox không có adb/thiết bị/Dart SDK) ⇒ giữ nguyên yêu cầu nghiệm thu máy.
+  - 2026-10-07 | 16:36 UTC | doing (không đổi trạng thái) | agent
+    arena/b07d7c38-in4up | bằng chứng CI đầu tiên: run `37653016584` @ `469522f`
+    🟢 — bước 5 "Analyze full app" success (0 error), bước 16 "OCR scan safety
+    tests" success trong 4 s + artifact `app-ocr-scan-test-log` (có artifact ⇒
+    `ocr_scan_test.log` được tạo ⇒ `flutter test` chạy thật trên 2 file mới).
+    Bước 9 "Rule 5 test — chrome UI không tiếng Việt" success ⇒ 10 chuỗi i18n mới
+    khớp literal trong code và đủ bản dịch. Còn thiếu: logcat/tệp chẩn đoán +
+    nghiệm thu thiết bị.
+  - 2026-10-07 | 16:41 UTC | doing (không đổi trạng thái) | agent
+    arena/b07d7c38-in4up | mở **PR #90** (`arena/b07d7c38-in4up` → `arena/01a0251e-in4up`,
+    8 commit); CI `pull_request` run `37653592248` @ `2b271bf` 🟢 — analyze 0 error,
+    bước "OCR scan safety tests" success + artifact. Việc còn lại KHÔNG đổi: logcat
+    máy thật + 4 tiêu chí nghiệm thu thiết bị.
+  - 2026-10-07 | 17:45 UTC | doing (không đổi trạng thái) | agent
+    arena/b07d7c38-in4up | theo yêu cầu owner: kiểm tra lại `arena/01a0251e-in4up`
+    — tip vẫn là `07a0e51` (= base của nhánh này), **không có commit mới ⇒ không
+    cần rebase**; gộp 9 commit → **3 commit** cho dễ rebase & merge:
+    (1) i18n + lớp quyết định thuần Dart, (2) nối vào app + native Android,
+    (3) test + CI + tài liệu. Cây nội dung KHÔNG đổi so với bản đã CI xanh
+    (run `37653016584`); 9 commit cũ (`73789dd`, `b556c12`, `f87c288`, `5849b89`,
+    `d1b3477`, `a574ebc`, `469522f`, `2b271bf`, `e1e1f62`) chỉ còn trong lịch sử
+    Actions + reflog máy agent. PR #90 vẫn mở vào `arena/01a0251e-in4up`.

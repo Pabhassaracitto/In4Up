@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/dict_info.dart';
+import '../services/dict_device_channel.dart';
 import '../services/dict_import_service.dart';
 import '../services/dictionary_service.dart';
 
@@ -56,44 +55,27 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!Platform.isAndroid)
-                _ModeOption(
-                  icon: Icons.link,
-                  title: ctx.uiText('Liên kết thư mục (khuyến nghị)'),
-                  subtitle: ctx.uiText(
-                    'Dùng ngay — chỉ tạo index tra từ, không copy file lớn '
-                    '(mdx/mdd ở nguyên chỗ cũ). Xoá thư mục gốc sẽ mất hình/âm thanh '
-                    'kèm theo nhưng vẫn tra được từ.',
-                  ),
-                  onTap: () => Navigator.pop(ctx, DictStorageMode.linked),
+              _ModeOption(
+                icon: Icons.link,
+                title: ctx.uiText('Liên kết thư mục (khuyến nghị)'),
+                subtitle: ctx.uiText(
+                  'Ưu tiên — chỉ lưu chỉ mục tra từ nhỏ trong app; không sao '
+                  'chép bộ từ điển (mdx/mdd vẫn ở thư mục gốc). Nếu nguồn '
+                  'không còn truy cập được, chọn lại; chỉ mục vẫn được giữ.',
                 ),
-              if (!Platform.isAndroid) const SizedBox(height: 8),
+                onTap: () => Navigator.pop(ctx, DictStorageMode.linked),
+              ),
+              const SizedBox(height: 8),
               _ModeOption(
                 icon: Icons.save_alt,
                 title: ctx.uiText('Sao chép vào app'),
                 subtitle: ctx.uiText(
-                  'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, '
-                  'không sợ đổi/xoá thư mục gốc. Bộ từ điển sẽ nằm ở HAI nơi '
-                  '(thư mục gốc + bộ nhớ app); xoá bản gốc sau khi copy xong '
-                  'để không tốn gấp đôi.',
+                  'Sao chép mdx + mdd + css vào bộ nhớ app để dùng ổn định '
+                  'khi di chuyển hoặc xoá nguồn. Bản gốc vẫn được giữ nguyên; '
+                  'app có thêm một bản sao nên tốn thêm dung lượng tương ứng.',
                 ),
                 onTap: () => Navigator.pop(ctx, DictStorageMode.imported),
               ),
-              // DICT-LINK-001 (audit 1.d): trên Android chỉ còn một lựa
-              // chọn nên người dùng tưởng app đã bỏ mất chế độ Liên kết.
-              // Nói thẳng lý do thay vì im lặng.
-              if (Platform.isAndroid) ...[
-                const SizedBox(height: 10),
-                Text(
-                  ctx.uiText(
-                    'Trên Android, chế độ "Liên kết thư mục" tạm thời chưa '
-                    'dùng được: hệ thống chỉ cấp quyền qua SAF nên app không '
-                    'mở thẳng được file mdx/mdd theo đường dẫn cũ. Chúng tôi '
-                    'đang làm bản đọc qua SAF để trả lại lựa chọn này.',
-                  ),
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
-                ),
-              ],
             ],
           ),
           actions: [
@@ -181,6 +163,13 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
               ? const Color(0xFF4CAF50)
               : const Color(0xFFF9A825),
           duration: const Duration(seconds: 5),
+          action: outcome.needsReselect
+              ? SnackBarAction(
+                  label: context.uiText('Chọn lại nguồn'),
+                  textColor: Colors.white,
+                  onPressed: () => _import(folder: folder),
+                )
+              : null,
         ),
       );
     } else {
@@ -192,9 +181,34 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
           ),
           backgroundColor: const Color(0xFFEF5350),
           duration: const Duration(seconds: 5),
+          action: outcome.needsReselect
+              ? SnackBarAction(
+                  label: context.uiText('Chọn lại nguồn'),
+                  textColor: Colors.white,
+                  onPressed: () => _import(folder: folder),
+                )
+              : null,
         ),
       );
     }
+  }
+
+  Future<void> _reselectLinkedSource(DictInfo dict) async {
+    final restored = await DictImportService.reselectLinkedSource(dict);
+    await _loadDicts();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(
+          restored
+              ? 'Đã kết nối lại nguồn từ điển.'
+              : 'Không tìm thấy bộ từ điển này trong nguồn đã chọn.',
+        )),
+        backgroundColor: restored
+            ? const Color(0xFF4CAF50)
+            : const Color(0xFFF9A825),
+      ),
+    );
   }
 
   Future<void> _deleteDict(DictInfo dict) async {
@@ -305,7 +319,8 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
             child: Text(
               context.uiText(
                 'Bấm Import thư mục để thêm bộ từ điển '
-                '(.mdx + .mdd + .css) — dùng ngay không cần copy.',
+                '(.mdx + .mdd + .css), rồi chọn liên kết (không sao chép) '
+                'hoặc sao chép vào app.',
               ),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[700], fontSize: 13),
@@ -330,6 +345,9 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
             await _loadDicts();
           },
           onDelete: () => _deleteDict(dict),
+          onReselect: DictDeviceChannel.isSupported
+              ? () => _reselectLinkedSource(dict)
+              : null,
         );
       },
     );
@@ -398,12 +416,14 @@ class _DictCard extends StatelessWidget {
   final String modeLabel;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
+  final VoidCallback? onReselect;
 
   const _DictCard({
     required this.dict,
     required this.modeLabel,
     required this.onToggle,
     required this.onDelete,
+    required this.onReselect,
   });
 
   @override
@@ -468,6 +488,45 @@ class _DictCard extends StatelessWidget {
               ),
             ],
           ),
+          if (dict.needsReselect) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.amber, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.uiText(
+                        'Thư mục từ điển không còn truy cập được — chọn lại. '
+                        'Chỉ mục SQLite trong app vẫn được giữ.',
+                      ),
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  if (onReselect != null)
+                    TextButton(
+                      onPressed: onReselect,
+                      child: Text(context.uiText('Chọn lại nguồn')),
+                    ),
+                ],
+              ),
+            ),
+          ],
           // Badge thiếu file phụ — từ điển vẫn dùng được giảm cấp.
           if (dict.hasMissingResources) ...[
             const SizedBox(height: 8),

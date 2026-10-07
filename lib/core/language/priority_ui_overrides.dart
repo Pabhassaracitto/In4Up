@@ -4007,15 +4007,15 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '還沒有詞典',
     'si': 'තවම ශබ්දකෝෂ නැත',
   },
-  'Bấm Import thư mục để thêm bộ từ điển (.mdx + .mdd + .css) — dùng ngay không cần copy.': {
-    'en': 'Tap Import folder to add a dictionary set (.mdx + .mdd + .css) — '
-        'ready to use with no copying.',
-    'hi': 'शब्दकोश सेट (.mdx + .mdd + .css) जोड़ने के लिए Import folder दबाएँ — '
-        'बिना कॉपी किए तुरंत उपयोग।',
-    'zh': '点击“导入文件夹”添加词典套装（.mdx + .mdd + .css）——无需复制即可使用。',
-    'zh_TW': '點選「匯入資料夾」以新增詞典套組（.mdx + .mdd + .css）——無需複製即可使用。',
-    'si': 'ශබ්දකෝෂ කට්ටලයක් (.mdx + .mdd + .css) එක් කිරීමට ෆෝල්ඩරය ආයාත කරන්න '
-        'තට්ටු කරන්න — පිටපත් නොකර කෙළින්ම භාවිතයට.',
+  'Bấm Import thư mục để thêm bộ từ điển (.mdx + .mdd + .css), rồi chọn liên kết (không sao chép) hoặc sao chép vào app.': {
+    'en': 'Tap Import folder to add a dictionary set (.mdx + .mdd + .css), '
+        'then choose Link (no copying) or Copy into app.',
+    'hi': 'शब्दकोश सेट (.mdx + .mdd + .css) जोड़ने के लिए Import folder दबाएँ, '
+        'फिर लिंक करें (कॉपी नहीं) या ऐप में कॉपी चुनें।',
+    'zh': '点击“导入文件夹”添加词典套装（.mdx + .mdd + .css），然后选择链接（不复制）或复制到应用内。',
+    'zh_TW': '點選「匯入資料夾」新增詞典套組（.mdx + .mdd + .css），再選擇連結（不複製）或複製到應用程式內。',
+    'si': 'ශබ්දකෝෂ කට්ටලයක් (.mdx + .mdd + .css) එක් කිරීමට ෆෝල්ඩරය ආයාත '
+        'කරන්න, ඉන්පසු සම්බන්ධ කරන්න (පිටපත් නොකර) හෝ යෙදුමට පිටපත් කරන්න තෝරන්න.',
   },
   'Chọn cách dùng từ điển': {
     'en': 'Choose how to use the dictionary',
@@ -4031,18 +4031,18 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '連結資料夾（建議）',
     'si': 'ෆෝල්ඩරය සම්බන්ධ කරන්න (නිර්දේශිත)',
   },
-  'Dùng ngay — chỉ tạo index tra từ, không copy file lớn (mdx/mdd ở nguyên chỗ cũ). Xoá thư mục gốc sẽ mất hình/âm thanh kèm theo nhưng vẫn tra được từ.': {
-    'en': 'Use right away — only builds a word index, does not copy large '
-        'files (mdx/mdd stay where they are). Deleting the source folder '
-        'loses embedded images/audio in entries, but word lookup still works.',
-    'hi': 'तुरंत उपयोग — केवल शब्द अनुक्रमणिका बनती है, बड़ी फ़ाइलें कॉपी नहीं '
-        'होतीं (mdx/mdd वहीं रहते हैं)। मूल फ़ोल्डर हटाने से एंट्री की '
-        'तस्वीरें/ऑडियो चली जाएँगी, पर शब्द-खोज चलती रहेगी।',
-    'zh': '即刻可用——仅建立查词索引，不复制大文件（mdx/mdd 保留在原位）。删除源文件夹后，词条内的图片/音频会丢失，但仍可正常查词。',
-    'zh_TW': '即刻可用——僅建立查詞索引，不複製大型檔案（mdx/mdd 留在原處）。刪除來源資料夾後，詞條內的圖片/音訊會遺失，但查詞仍可使用。',
-    'si': 'කෙළින්ම භාවිතයට — වචන සූචියක් පමණක් සාදයි, විශාල ගොනු පිටපත් නොකරයි '
-        '(mdx/mdd එතැනම රැඳේ). මූල ෆෝල්ඩරය මකා දැමුවහොත් සටහන්වල රූප/ශ්‍රව්‍ය '
-        'නැති වේ, එහෙත් වචන සෙවීම ක්‍රියාත්මකයි.',
+  'Ưu tiên — chỉ lưu chỉ mục tra từ nhỏ trong app; không sao chép bộ từ điển (mdx/mdd vẫn ở thư mục gốc). Nếu nguồn không còn truy cập được, chọn lại; chỉ mục vẫn được giữ.': {
+    'en': 'Recommended — only a small lookup index is stored in the app; the '
+        'dictionary files (mdx/mdd) stay in the source folder. If the source '
+        'becomes unavailable, select it again; the index is kept.',
+    'hi': 'अनुशंसित — ऐप में केवल छोटी खोज-सूची रखी जाती है; शब्दकोश फ़ाइलें '
+        '(mdx/mdd) मूल फ़ोल्डर में रहती हैं। स्रोत उपलब्ध न रहे तो उसे फिर '
+        'चुनें; अनुक्रमणिका सुरक्षित रहती है।',
+    'zh': '推荐——应用内仅保存较小的查词索引；词典文件（mdx/mdd）仍留在源文件夹。若来源无法访问，请重新选择；索引会保留。',
+    'zh_TW': '建議——應用程式內僅保存較小的查詞索引；詞典檔案（mdx/mdd）仍留在來源資料夾。若來源無法存取，請重新選擇；索引會保留。',
+    'si': 'නිර්දේශිතයි — යෙදුමේ කුඩා සෙවුම් සූචියක් පමණක් තබයි; ශබ්දකෝෂ ගොනු '
+        '(mdx/mdd) මූල ෆෝල්ඩරයේම පවතී. මූලය නොලැබේ නම් නැවත තෝරන්න; සූචිය '
+        'ආරක්ෂිතව පවතී.',
   },
   'Sao chép vào app': {
     'en': 'Copy into app',
@@ -4051,15 +4051,18 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '複製到應用程式內',
     'si': 'යෙදුමට පිටපත් කරන්න',
   },
-  'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, không sợ đổi/xoá thư mục gốc (tốn dung lượng tương đương).': {
-    'en': 'Copies mdx + mdd + css into app storage — stable long-term even '
-        'if you move or delete the source folder (uses a similar amount of space).',
-    'hi': 'mdx + mdd + css को ऐप स्टोरेज में कॉपी करता है — मूल फ़ोल्डर '
-        'हटाने/बदलने पर भी स्थायी (लगभग उतनी ही जगह लेता है)।',
-    'zh': '将 mdx + mdd + css 复制到应用存储——即使移动或删除源文件夹也能长期稳定使用（占用相近的存储空间）。',
-    'zh_TW': '將 mdx + mdd + css 複製到應用程式儲存空間——即使移動或刪除來源資料夾也能長期穩定使用（佔用相近的儲存空間）。',
-    'si': 'mdx + mdd + css යෙදුමේ ගබඩාවට පිටපත් කරයි — මූල ෆෝල්ඩරය ගෙන ගියත් '
-        'මකා දැමුවත් දිගුකාලීනව ස්ථාවරයි (සමාන ඉඩ ප්‍රමාණයක් ගනී).',
+  'Sao chép mdx + mdd + css vào bộ nhớ app để dùng ổn định khi di chuyển hoặc xoá nguồn. Bản gốc vẫn được giữ nguyên; app có thêm một bản sao nên tốn thêm dung lượng tương ứng.': {
+    'en': 'Copies mdx + mdd + css into app storage so the dictionary keeps '
+        'working if the source is moved or removed. The original stays '
+        'untouched; the app keeps an extra copy and uses that much additional space.',
+    'hi': 'mdx + mdd + css को ऐप स्टोरेज में कॉपी करता है ताकि स्रोत हटाने या '
+        'स्थानांतरित करने पर भी शब्दकोश चलता रहे। मूल फ़ाइलें जस की तस रहती हैं; '
+        'ऐप की अतिरिक्त कॉपी उतनी ही अतिरिक्त जगह लेती है।',
+    'zh': '将 mdx + mdd + css 复制到应用存储，移动或移除来源后仍可使用。原件保持不变；应用会多保存一份，因此额外占用相应空间。',
+    'zh_TW': '將 mdx + mdd + css 複製到應用程式儲存空間，移動或移除來源後仍可使用。原始檔案保持不變；應用程式會多保存一份，因此額外佔用相應空間。',
+    'si': 'මූලය ගෙන ගියත් හෝ ඉවත් කළත් භාවිතා කළ හැකි ලෙස mdx + mdd + css '
+        'යෙදුම් ගබඩාවට පිටපත් කරයි. මුල් ගොනු නොවෙනස්ව තබයි; අමතර පිටපත නිසා '
+        'ඒ තරම් අමතර ඉඩක් භාවිත වේ.',
   },
   'Liên kết': {
     'en': 'Linked',
@@ -5148,19 +5151,42 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '捨棄',
     'si': 'ඉවතලන්න',
   },
-  // DICT-LINK-001 — giải thích vì sao Android chỉ còn "Sao chép vào app".
-  'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, không sợ đổi/xoá thư mục gốc. Bộ từ điển sẽ nằm ở HAI nơi (thư mục gốc + bộ nhớ app); xoá bản gốc sau khi copy xong để không tốn gấp đôi.': {
-    'en': 'Copies mdx + mdd + css into app storage — stable long term, immune to moving or deleting the source folder. The dictionary then exists in TWO places (source folder + app storage); delete the original after copying so it does not cost twice the space.',
-    'hi': 'mdx + mdd + css ऐप स्टोरेज में कॉपी होते हैं — लंबे समय तक स्थिर, स्रोत फ़ोल्डर बदलने/हटाने से असर नहीं। तब शब्दकोश दो जगह रहता है (स्रोत + ऐप); दोगुनी जगह बचाने के लिए कॉपी के बाद मूल हटाएँ।',
-    'zh': '将 mdx + mdd + css 复制到应用存储 — 长期稳定，不怕源文件夹被移动或删除。此时词典存在两处（源文件夹 + 应用存储）；复制完成后请删除原件以免占用双倍空间。',
-    'zh_TW': '將 mdx + mdd + css 複製到應用程式儲存 — 長期穩定，不怕來源資料夾被移動或刪除。此時詞典存在兩處（來源資料夾 + 應用程式儲存）；複製完成後請刪除原件以免佔用雙倍空間。',
-    'si': 'mdx + mdd + css යෙදුම් ගබඩාවට පිටපත් කරයි — දිගුකාලීනව ස්ථාවරයි. එවිට ශබ්දකෝෂය ස්ථාන දෙකක ඇත (මූල ෆෝල්ඩරය + යෙදුම); ඉඩ දෙගුණ නොවීමට පිටපත් කිරීමෙන් පසු මුල් පිටපත මකන්න.',
+  'Thư mục từ điển không còn truy cập được — chọn lại': {
+    'en': 'The dictionary folder is no longer accessible — select it again.',
+    'hi': 'शब्दकोश फ़ोल्डर अब उपलब्ध नहीं है — इसे फिर चुनें।',
+    'zh': '词典文件夹已无法访问——请重新选择。',
+    'zh_TW': '詞典資料夾已無法存取——請重新選擇。',
+    'si': 'ශබ්දකෝෂ ෆෝල්ඩරයට තවදුරටත් ප්‍රවේශ විය නොහැක — නැවත තෝරන්න.',
   },
-  'Trên Android, chế độ "Liên kết thư mục" tạm thời chưa dùng được: hệ thống chỉ cấp quyền qua SAF nên app không mở thẳng được file mdx/mdd theo đường dẫn cũ. Chúng tôi đang làm bản đọc qua SAF để trả lại lựa chọn này.': {
-    'en': 'On Android the "Link folder" mode is temporarily unavailable: the system only grants access through SAF, so the app cannot open mdx/mdd files by path. A SAF-based reader is in progress to bring this option back.',
-    'hi': 'Android पर "फ़ोल्डर लिंक करें" मोड फ़िलहाल उपलब्ध नहीं है: सिस्टम केवल SAF से पहुँच देता है, इसलिए ऐप mdx/mdd फ़ाइलें पथ से नहीं खोल सकता। SAF आधारित रीडर पर काम चल रहा है।',
-    'zh': '在 Android 上，“链接文件夹”模式暂不可用：系统仅通过 SAF 授权，应用无法按路径直接打开 mdx/mdd 文件。基于 SAF 的读取功能正在开发，以便恢复该选项。',
-    'zh_TW': '在 Android 上，「連結資料夾」模式暫不可用：系統僅透過 SAF 授權，應用程式無法依路徑直接開啟 mdx/mdd 檔案。以 SAF 為基礎的讀取功能正在開發，以便恢復該選項。',
-    'si': 'Android හි "ෆෝල්ඩරය සම්බන්ධ කරන්න" ප්‍රකාරය තාවකාලිකව නොමැත: පද්ධතිය SAF හරහා පමණක් ප්‍රවේශය දෙන බැවින් යෙදුමට mdx/mdd ගොනු මාර්ගයෙන් විවෘත කළ නොහැක. SAF පාදක කියවීමක් සකස් වෙමින් පවතී.',
+  'Thư mục từ điển không còn truy cập được — chọn lại. Chỉ mục SQLite trong app vẫn được giữ.': {
+    'en': 'The dictionary folder is no longer accessible — select it again. '
+        'The SQLite index in the app is still kept.',
+    'hi': 'शब्दकोश फ़ोल्डर अब उपलब्ध नहीं है — इसे फिर चुनें। ऐप की SQLite '
+        'अनुक्रमणिका सुरक्षित रखी गई है।',
+    'zh': '词典文件夹已无法访问——请重新选择。应用内的 SQLite 索引仍会保留。',
+    'zh_TW': '詞典資料夾已無法存取——請重新選擇。應用程式內的 SQLite 索引仍會保留。',
+    'si': 'ශබ්දකෝෂ ෆෝල්ඩරයට ප්‍රවේශ විය නොහැක — නැවත තෝරන්න. යෙදුමේ SQLite '
+        'සූචිය තවමත් තබා ඇත.',
+  },
+  'Chọn lại nguồn': {
+    'en': 'Select source again',
+    'hi': 'स्रोत फिर चुनें',
+    'zh': '重新选择来源',
+    'zh_TW': '重新選擇來源',
+    'si': 'මූලය නැවත තෝරන්න',
+  },
+  'Đã kết nối lại nguồn từ điển.': {
+    'en': 'Dictionary source connected again.',
+    'hi': 'शब्दकोश स्रोत फिर से जुड़ गया है।',
+    'zh': '词典来源已重新连接。',
+    'zh_TW': '詞典來源已重新連結。',
+    'si': 'ශබ්දකෝෂ මූලය නැවත සම්බන්ධ කර ඇත.',
+  },
+  'Không tìm thấy bộ từ điển này trong nguồn đã chọn.': {
+    'en': 'This dictionary was not found in the selected source.',
+    'hi': 'चुने गए स्रोत में यह शब्दकोश नहीं मिला।',
+    'zh': '在所选来源中找不到此词典。',
+    'zh_TW': '在所選來源中找不到此詞典。',
+    'si': 'තෝරාගත් මූලයේ මෙම ශබ්දකෝෂය හමු නොවීය.',
   },
 };

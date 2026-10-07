@@ -3,16 +3,24 @@ package com.in4up
 import android.app.Activity
 import android.content.ContentResolver
 import android.content.Intent
+import android.content.res.AssetFileDescriptor
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import com.in4up.screentranslate.ScreenTranslatePlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * MainActivity — đăng ký MethodChannel cho các thư viện thiết bị.
@@ -63,10 +71,23 @@ class MainActivity : FlutterActivity() {
 
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
+    private val reqOpenDictionaryDocuments = 0x2A12
+    private val maxDictionaryReadBytes = 64 * 1024
 
-    // Result của MethodChannel đang chờ user chọn thư mục (1 picker tại 1
-    // thời điểm — SAF Picker là modal hệ thống).
+    // Result của MethodChannel đang chờ picker SAF (chỉ một picker modal tại
+    // một thời điểm).
     private var pendingFolderPicker: MethodChannel.Result? = null
+    private var pendingDictionaryDocumentsPicker: MethodChannel.Result? = null
+
+    private data class OpenDictionaryDocument(
+        val descriptor: AssetFileDescriptor,
+        val startOffset: Long,
+        val length: Long,
+    )
+
+    // PFD được giữ mở giữa các lệnh đọc offset; mỗi lệnh native seek/read có
+    // synchronized trên handle để không làm lệch vị trí giữa các request.
+    private val openDictionaryDocuments = ConcurrentHashMap<String, OpenDictionaryDocument>()
 
     // Định dạng đọc hỗ trợ bởi tab Thiết bị của Thư viện đọc.
     private val textExtensions = setOf(
@@ -147,10 +168,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, dictionaryChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    // Reuse the hardened SAF implementation used by the text
-                    // and video libraries.  Unlike file_picker's Android
-                    // directory API, this returns a persistable tree URI.
                     "pickFolder" -> launchFolderPicker(result)
+                    "pickDocuments" -> launchDictionaryDocumentsPicker(result)
                     "scanFolder" -> {
                         val treeUri = call.argument<String>("treeUri")
                         val exts = call.argument<List<String>>("extensions")
@@ -162,11 +181,7 @@ class MainActivity : FlutterActivity() {
                             try {
                                 result.success(scanTextTree(treeUri, exts))
                             } catch (se: SecurityException) {
-                                result.error(
-                                    "PERMISSION_LOST",
-                                    "Mất quyền đọc thư mục: ${se.message}",
-                                    null,
-                                )
+                                result.error("PERMISSION_LOST", se.message, null)
                             } catch (iae: IllegalArgumentException) {
                                 result.error("BAD_URI", iae.message, null)
                             } catch (e: Exception) {
@@ -174,15 +189,90 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "isDocumentAccessible" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            Thread {
+                                val accessible = isDocumentAccessible(uri)
+                                runOnUiThread { result.success(accessible) }
+                            }.start()
+                        }
+                    }
+                    "openRandomAccess" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrBlank()) {
+                            result.error("BAD_URI", "Thiếu SAF document URI.", null)
+                        } else {
+                            Thread {
+                                try {
+                                    val opened = openDictionaryDocument(uri)
+                                    runOnUiThread { result.success(opened) }
+                                } catch (e: SecurityException) {
+                                    runOnUiThread {
+                                        result.error("PERMISSION_LOST", e.message, null)
+                                    }
+                                } catch (e: FileNotFoundException) {
+                                    runOnUiThread {
+                                        result.error("SOURCE_UNAVAILABLE", e.message, null)
+                                    }
+                                } catch (e: UnsupportedOperationException) {
+                                    runOnUiThread {
+                                        result.error("NOT_SEEKABLE", e.message, null)
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread {
+                                        result.error("SOURCE_UNAVAILABLE", e.message, null)
+                                    }
+                                }
+                            }.start()
+                        }
+                    }
+                    "readRandomAccess" -> {
+                        val id = call.argument<String>("id")
+                        val offset = call.argument<Number>("offset")?.toLong()
+                        val count = call.argument<Number>("count")?.toInt()
+                        if (id.isNullOrBlank() || offset == null || count == null) {
+                            result.error("BAD_RANGE", "Thiếu tham số đọc file.", null)
+                        } else {
+                            Thread {
+                                try {
+                                    val bytes = readDictionaryRange(id, offset, count)
+                                    runOnUiThread { result.success(bytes) }
+                                } catch (e: SecurityException) {
+                                    runOnUiThread {
+                                        result.error("PERMISSION_LOST", e.message, null)
+                                    }
+                                } catch (e: FileNotFoundException) {
+                                    runOnUiThread {
+                                        result.error("SOURCE_UNAVAILABLE", e.message, null)
+                                    }
+                                } catch (e: UnsupportedOperationException) {
+                                    runOnUiThread {
+                                        result.error("NOT_SEEKABLE", e.message, null)
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread {
+                                        result.error("READ_FAILED", e.message, null)
+                                    }
+                                }
+                            }.start()
+                        }
+                    }
+                    "closeRandomAccess" -> {
+                        val id = call.argument<String>("id")
+                        if (id != null) closeDictionaryDocument(id)
+                        result.success(null)
+                    }
                     "copyDocumentToPath" -> {
                         val uri = call.argument<String>("uri")
                         val destination = call.argument<String>("destination")
                         if (uri.isNullOrBlank() || destination.isNullOrBlank()) {
                             result.success(false)
                         } else {
-                            // MDD files can be hundreds of MB.  Never copy
-                            // them on Android's main thread or the picker
-                            // flow can appear frozen / trigger an ANR.
+                            // MDD files can be hundreds of MB. Keep the existing
+                            // copy/import mode off Android's main thread.
                             Thread {
                                 val copied = copyContentToPath(uri, destination)
                                 runOnUiThread { result.success(copied) }
@@ -199,8 +289,8 @@ class MainActivity : FlutterActivity() {
     // ═══════════════════════════════════════════════════════════
 
     private fun launchFolderPicker(result: MethodChannel.Result) {
-        if (pendingFolderPicker != null) {
-            result.error("PICKER_BUSY", "Folder picker đang mở.", null)
+        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+            result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
@@ -219,29 +309,138 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun launchDictionaryDocumentsPicker(result: MethodChannel.Result) {
+        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+            result.error("PICKER_BUSY", "SAF picker đang mở.", null)
+            return
+        }
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        pendingDictionaryDocumentsPicker = result
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, reqOpenDictionaryDocuments)
+        } catch (e: Exception) {
+            pendingDictionaryDocumentsPicker = null
+            result.error("PICKER_UNAVAILABLE", e.message, null)
+        }
+    }
+
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != reqOpenTextTree) return
+        when (requestCode) {
+            reqOpenTextTree -> handleFolderPickerResult(resultCode, data)
+            reqOpenDictionaryDocuments -> handleDictionaryDocumentsResult(resultCode, data)
+        }
+    }
+
+    private fun handleFolderPickerResult(resultCode: Int, data: Intent?) {
         val pending = pendingFolderPicker
         pendingFolderPicker = null
         if (pending == null) return
-        val uri = data?.data
-        if (resultCode == Activity.RESULT_OK && uri != null) {
-            // Persist quyền đọc NGAY TẠI ĐÂY (grant từ SAF Picker chỉ tồn
-            // tại trong phiên nếu không persist) → lần mở app sau vẫn quét
-            // được, không cần chọn lại thư mục.
-            try {
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(null)
+            return
+        }
+        val uri = data.data
+        if (uri == null) {
+            pending.success(null)
+            return
+        }
+        try {
+            val readFlag = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+            if (readFlag == 0) {
+                pending.error("PERMISSION_PERSIST_FAILED", "SAF không cấp quyền đọc.", null)
+                return
             }
+            contentResolver.takePersistableUriPermission(uri, readFlag)
             pending.success(uri.toString())
-        } else {
-            pending.success(null) // user hủy
+        } catch (e: Exception) {
+            pending.error("PERMISSION_PERSIST_FAILED", e.message, null)
+        }
+    }
+
+    private fun handleDictionaryDocumentsResult(resultCode: Int, data: Intent?) {
+        val pending = pendingDictionaryDocumentsPicker
+        pendingDictionaryDocumentsPicker = null
+        if (pending == null) return
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(null)
+            return
+        }
+
+        val uris = mutableListOf<Uri>()
+        data.clipData?.let { clip ->
+            for (index in 0 until clip.itemCount) {
+                clip.getItemAt(index).uri?.let(uris::add)
+            }
+        }
+        if (uris.isEmpty()) data.data?.let(uris::add)
+        if (uris.isEmpty()) {
+            pending.success(emptyList<Map<String, Any?>>())
+            return
+        }
+
+        try {
+            val readFlag = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+            if (readFlag == 0) {
+                pending.error("PERMISSION_PERSIST_FAILED", "SAF không cấp quyền đọc.", null)
+                return
+            }
+            val documents = uris.distinct().map { uri ->
+                contentResolver.takePersistableUriPermission(uri, readFlag)
+                val metadata = queryDocumentMetadata(uri)
+                val name = metadata.first ?: uri.lastPathSegment ?: "dictionary.bin"
+                val dot = name.lastIndexOf('.')
+                val ext = if (dot >= 0 && dot < name.length - 1) {
+                    name.substring(dot + 1).lowercase()
+                } else {
+                    ""
+                }
+                mapOf(
+                    "uri" to uri.toString(),
+                    "name" to name,
+                    "relativePath" to name,
+                    "sizeBytes" to metadata.second,
+                    "ext" to ext,
+                )
+            }
+            pending.success(documents)
+        } catch (e: SecurityException) {
+            pending.error("PERMISSION_PERSIST_FAILED", e.message, null)
+        } catch (e: Exception) {
+            pending.error("PICK_FAILED", e.message, null)
+        }
+    }
+
+    private fun queryDocumentMetadata(uri: Uri): Pair<String?, Long> {
+        return try {
+            contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return null to 0L
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                val name = if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                    cursor.getLong(sizeIndex)
+                } else {
+                    0L
+                }
+                name to size
+            } ?: (null to 0L)
+        } catch (_: Exception) {
+            null to 0L
         }
     }
 
@@ -461,6 +660,121 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun isDocumentAccessible(documentUri: String): Boolean {
+        return try {
+            val uri = Uri.parse(documentUri)
+            if (uri.scheme != "content") return false
+            contentResolver.openFileDescriptor(uri, "r")?.use { true } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Open and retain a seekable SAF PFD; Dart receives only an opaque id. */
+    private fun openDictionaryDocument(documentUri: String): Map<String, Any> {
+        val uri = Uri.parse(documentUri)
+        if (uri.scheme != "content") {
+            throw IllegalArgumentException("Không phải SAF document URI: $documentUri")
+        }
+        val descriptor = contentResolver.openAssetFileDescriptor(uri, "r")
+            ?: throw FileNotFoundException("SAF document không mở được: $documentUri")
+        val statSize = descriptor.parcelFileDescriptor.statSize
+        val length = if (descriptor.length >= 0) {
+            descriptor.length
+        } else if (statSize >= descriptor.startOffset) {
+            statSize - descriptor.startOffset
+        } else {
+            // Some document providers do not expose fstat size on the PFD but
+            // do provide OpenableColumns.SIZE in their metadata cursor.
+            queryDocumentMetadata(uri).second
+        }
+        if (length < 0) {
+            descriptor.close()
+            throw UnsupportedOperationException("Provider không cung cấp kích thước file.")
+        }
+        try {
+            Os.lseek(
+                descriptor.parcelFileDescriptor.fileDescriptor,
+                descriptor.startOffset,
+                OsConstants.SEEK_SET,
+            )
+        } catch (error: ErrnoException) {
+            descriptor.close()
+            if (error.errno == OsConstants.ESPIPE) {
+                throw UnsupportedOperationException(
+                    "Provider chỉ cấp stream, không hỗ trợ seek ngẫu nhiên.",
+                    error,
+                )
+            }
+            throw error
+        }
+
+        val id = UUID.randomUUID().toString()
+        openDictionaryDocuments[id] = OpenDictionaryDocument(
+            descriptor = descriptor,
+            startOffset = descriptor.startOffset,
+            length = length,
+        )
+        return mapOf("id" to id, "length" to length)
+    }
+
+    /** Read at most 64 KiB from a retained seekable document descriptor. */
+    private fun readDictionaryRange(id: String, offset: Long, count: Int): ByteArray {
+        val handle = openDictionaryDocuments[id]
+            ?: throw FileNotFoundException("SAF reader handle is closed.")
+        if (offset < 0 || offset > handle.length || count < 0 || count > maxDictionaryReadBytes) {
+            throw IllegalArgumentException("Offset/count ngoài phạm vi hoặc vượt 64 KiB.")
+        }
+        val amount = minOf(count.toLong(), handle.length - offset).toInt()
+        if (amount == 0) return byteArrayOf()
+
+        synchronized(handle) {
+            val fd = handle.descriptor.parcelFileDescriptor.fileDescriptor
+            try {
+                Os.lseek(fd, handle.startOffset + offset, OsConstants.SEEK_SET)
+            } catch (error: ErrnoException) {
+                if (error.errno == OsConstants.ESPIPE) {
+                    throw UnsupportedOperationException(
+                        "Provider không còn hỗ trợ seek ngẫu nhiên.",
+                        error,
+                    )
+                }
+                if (error.errno == OsConstants.EBADF || error.errno == OsConstants.ENOENT) {
+                    throw FileNotFoundException(
+                        error.message ?: "SAF source is no longer available.",
+                    )
+                }
+                throw error
+            }
+            val bytes = ByteArray(amount)
+            var read = 0
+            while (read < amount) {
+                val countRead = try {
+                    Os.read(fd, bytes, read, amount - read)
+                } catch (error: ErrnoException) {
+                    if (error.errno == OsConstants.EBADF || error.errno == OsConstants.ENOENT) {
+                        throw FileNotFoundException(
+                            error.message ?: "SAF source is no longer available.",
+                        )
+                    }
+                    throw error
+                }
+                if (countRead <= 0) break
+                read += countRead
+            }
+            return if (read == amount) bytes else bytes.copyOf(read)
+        }
+    }
+
+    private fun closeDictionaryDocument(id: String) {
+        val handle = openDictionaryDocuments.remove(id) ?: return
+        try {
+            handle.descriptor.close()
+        } catch (_: Exception) {
+            // Best-effort close after app-side cancellation/provider removal.
+        }
+    }
+
     private fun copyContentToCache(contentUri: String): String? {
         return try {
             val resolver: ContentResolver = contentResolver
@@ -557,6 +871,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         screenTranslatePlugin?.detach()
         screenTranslatePlugin = null
+        openDictionaryDocuments.keys.toList().forEach(::closeDictionaryDocument)
         super.onDestroy()
     }
 

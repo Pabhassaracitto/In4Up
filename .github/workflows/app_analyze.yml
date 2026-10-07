@@ -370,7 +370,8 @@ jobs:
                    test/dictionary/dict_db_service_test.dart \
                    test/dictionary/dict_result_sheet_test.dart \
                    test/dictionary/mdx_parser_test.dart \
-                   test/dictionary/dict_import_lookup_test.dart; do
+                   test/dictionary/dict_import_lookup_test.dart \
+                   test/dictionary/dict_random_access_source_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

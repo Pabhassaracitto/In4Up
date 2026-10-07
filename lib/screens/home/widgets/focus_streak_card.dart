@@ -4,12 +4,12 @@ import 'package:provider/provider.dart';
 import '../../../models/learning_activity.dart';
 import '../../../providers/focus_provider.dart';
 
-/// HOME-STREAK-001 — thẻ "Nhịp điệu học tập".
+/// HOME-RHYTHM-001 — thẻ "Nhịp học gần đây".
 ///
 /// Hiển thị số liệu THẬT lấy từ [FocusProvider] (nguồn: LearningActivityService):
 /// - số liệu hôm nay theo từng loại hoạt động (phút đọc, tài liệu, từ đã lưu,
 ///   lượt ôn LHB, lượt shadowing, câu đã dịch),
-/// - số ngày học liên tiếp (streak),
+/// - số ngày có hoạt động gần đây, không dùng ngôn ngữ streak,
 /// - biểu đồ 7 ngày gần nhất (nhãn là số ngày trong tháng — không cần dịch).
 ///
 /// Không hardcode số liệu và không ghi event trong build(): mọi sự kiện được
@@ -61,8 +61,8 @@ class _StreakHeader extends StatelessWidget {
             color: const Color(0xFFFF6B35).withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.local_fire_department,
-              color: Color(0xFFFF6B35), size: 24),
+          child: const Icon(Icons.calendar_today_outlined,
+              color: Color(0xFF90CAF9), size: 24),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -70,7 +70,7 @@ class _StreakHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'NHỊP ĐIỆU HỌC TẬP',
+                'NHỊP HỌC GẦN ĐÂY',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -79,7 +79,7 @@ class _StreakHeader extends StatelessWidget {
                 ),
               ),
               Text(
-                context.uiText('$streak ngày liên tiếp'),
+                context.uiText('$streak ngày có hoạt động gần đây'),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

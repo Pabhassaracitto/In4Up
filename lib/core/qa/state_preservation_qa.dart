@@ -552,7 +552,7 @@ final List<I4uPreservationScenario> kI4uPreservationScenarios =
     requirement: 'Offset vượt độ dài văn bản bị kẹp; dữ liệu cũ thiếu revision vẫn đọc được',
     body: () {
       const resolver = I4uSemanticAnchorResolver();
-      const text = 'A' * 200;
+      final text = 'A' * 200;
       final loaded = I4uSemanticReadingAnchor.fromJson(<String, Object?>{
         'sourceId': 'book-1',
         'blockId': 'para_014',

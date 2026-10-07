@@ -5721,6 +5721,8 @@
   - ⚠️ Không tải được log chi tiết từ sandbox (`gh run view --log` và artifact
     đều EOF — đúng bẫy mục 5 của skill `ci-red-debugging`); bằng chứng là
     trạng thái 🟢 của từng bước trong run.
+  - PR **#92** nhắm `arena/01a0251e-in4up` — CI run **37656761181 🟢**
+    (analyze 0 error + rule #5 + screen translate).
 - **CHƯA làm được (cần owner + máy thật):**
   - Mục 3.1 của prompt: `adb logcat` ghi lại đúng dòng chặn. Sandbox không có
     adb/Android SDK ⇒ KHÔNG tự bịa log. Script đã viết sẵn:
@@ -5760,7 +5762,8 @@
   - 2026-10-07 | 17:00 UTC | doing→doing | agent arena/92e02500-in4up | CI
     run **37655919751 🟢**: `flutter analyze` 0 error + rule #5 + step
     "Screen translate tests — XLAT-SCR-002/003" + mọi batch test khác đều
-    xanh. 4 commit nhỏ (Kotlin / Dart+i18n / test / docs). Chờ: logcat máy
+    xanh. Mở **PR #92** nhắm `arena/01a0251e-in4up` (CI run 37656761181 🟢).
+    5 commit nhỏ (Kotlin / Dart+i18n / test / docs / ghi CI). Chờ: logcat máy
     thật (script `scripts/qa/screen_translate_logcat.sh`), nghiệm thu 7 tiêu
     chí, và một lượt `flutter build apk --flavor stable` (Kotlin chưa có CI
     biên dịch).

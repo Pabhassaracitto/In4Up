@@ -610,8 +610,11 @@ class TtsService extends ChangeNotifier {
   /// DIỆN sang một ngôn ngữ mà người dùng chưa cấu hình (rất hay gặp với
   /// tài liệu lẫn lộn Việt–Anh), hàm trả null ⇒ Edge rơi về giọng mặc định
   /// của ngôn ngữ đó (en-US → Aria, nữ) ⇒ "chọn giọng nam mà giọng nữ đọc".
-  /// Bậc thang mới: giọng theo ngôn ngữ → giọng chung đang chọn nếu đúng
-  /// dạng id Edge → null (engine tự mặc định).
+  /// Bậc thang mới: giọng theo ngôn ngữ → giọng GHIM cho mọi ngôn ngữ chưa
+  /// chọn giọng riêng (TTS-EDGE-VOICE-003, công tắc trong phần cài đặt
+  /// Edge) → giọng chung đang chọn nếu đúng dạng id Edge → null (engine tự
+  /// mặc định). Phần ghim nằm TRONG [EdgeVoicePrefs.voiceForLang] nên đường
+  /// phát, đường nạp sẵn và nhãn giọng đều đi qua đúng một luật.
   Future<String?> _resolveEdgeVoice(String lang) async {
     final perLanguage = await EdgeVoicePrefs.instance.voiceForLang(lang);
     if (perLanguage != null && perLanguage.trim().isNotEmpty) {

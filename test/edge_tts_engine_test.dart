@@ -525,6 +525,56 @@ void main() {
     });
   });
 
+  // TTS-EDGE-VOICE-002/003 — ba nguyên nhân cộng dồn của "chọn giọng nam mà
+  // giọng nữ đọc" (audit 0.10.3 mục 1.g) phải nằm lại trong mã, không chỉ
+  // trong commit message: khoá cache mất danh tính giọng, dò/ghi cache bất
+  // đối xứng, và prefetch nạp sẵn giọng mặc định.
+  group('Source-scan: TTS-EDGE-VOICE-002/003 — giọng không bị nuốt', () {
+    String ttsSource() =>
+        File('lib/features/tts/tts_service.dart').readAsStringSync();
+
+    test('không còn dò cache bằng engineId: any (get/put bất đối xứng)', () {
+      // Bỏ comment trước khi soi: chính comment giải thích lỗi cũ có nhắc
+      // tới `engineId: 'any'` (nói về quá khứ, không phải mã đang chạy).
+      final code = ttsSource().replaceAll(RegExp(r'//[^\n]*'), '');
+      expect(code, isNot(contains("engineId: 'any'")));
+    });
+
+    test('cache get/put dùng đúng danh tính engine + giọng', () {
+      final source = ttsSource();
+      // _trySpeakOnline (get + put) và _prefetchOnline (get + put).
+      final identityUses =
+          RegExp(r'engineId: engine\.id').allMatches(source).length;
+      expect(identityUses, greaterThanOrEqualTo(4));
+      expect(source, contains('voiceOverride ?? _selectedVoiceId'));
+    });
+
+    test('speak() và _prefetchOnline đều hỏi _resolveEdgeVoice(lang)', () {
+      final source = ttsSource();
+      final resolves =
+          RegExp(r'_resolveEdgeVoice\(lang\)').allMatches(source).length;
+      expect(resolves, greaterThanOrEqualTo(2));
+      expect(source, contains('final edgeVoice = await _resolveEdgeVoice(lang);'),
+          reason: 'speak() phải truyền giọng Edge đã chọn vào voiceOverride');
+      expect(source, contains("engine.id == 'edge_tts'"),
+          reason: 'prefetch phải dùng đúng giọng sẽ phát, không phải giọng '
+              'mặc định');
+    });
+
+    test('nhãn engine kèm tên giọng (nghe sai là thấy ngay)', () {
+      expect(ttsSource(), contains('_shortVoiceLabel(voiceId)'));
+      expect(ttsSource(), contains('🌐 \${result.engineName}'));
+    });
+
+    test('EdgeVoicePrefs ghim giọng: giọng riêng thắng, ghim cho ngôn ngữ trống',
+        () {
+      final prefs = File('lib/features/tts/edge_voice_prefs.dart')
+          .readAsStringSync();
+      expect(prefs, contains('resolveVoiceForLanguage'));
+      expect(prefs, contains('pinAllLanguages'));
+    });
+  });
+
   group('TtsVoice/TtsResult wiring cơ bản', () {
     test('synthesize với text trống → failure không chạm network', () async {
       final result = await _engineThrowing().synthesize(

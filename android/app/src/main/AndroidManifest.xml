@@ -118,5 +118,11 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="audio/*" />
         </intent>
+        <!-- OCR-SCAN-CRASH-001: Android 11+ chặn truy vấn gói không khai báo.
+             OcrPrecheck hỏi PackageManager xem máy có Google Play services
+             không TRƯỚC khi mở máy quét tài liệu (thư viện "unbundled" của ML
+             Kit nằm trong Play services — thiếu là lỗi ném ở luồng native).
+             KHÔNG xin quyền CAMERA: máy quét dùng camera của Play services. -->
+        <package android:name="com.google.android.gms" />
     </queries>
 </manifest>

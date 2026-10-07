@@ -5215,4 +5215,81 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '在 Android 上，「連結資料夾」模式暫不可用：系統僅透過 SAF 授權，應用程式無法依路徑直接開啟 mdx/mdd 檔案。以 SAF 為基礎的讀取功能正在開發，以便恢復該選項。',
     'si': 'Android හි "ෆෝල්ඩරය සම්බන්ධ කරන්න" ප්‍රකාරය තාවකාලිකව නොමැත: පද්ධතිය SAF හරහා පමණක් ප්‍රවේශය දෙන බැවින් යෙදුමට mdx/mdd ගොනු මාර්ගයෙන් විවෘත කළ නොහැක. SAF පාදක කියවීමක් සකස් වෙමින් පවතී.',
   },
+
+  // ---------------------------------------------------------------------------
+  // OCR-SCAN-CRASH-001 (audit 2026-10-07) — lane "Quét ảnh ▸ Chụp & quét tài
+  // liệu" làm sập app ở bản 0.10.3. Các thông báo dưới đây là chuỗi NGUỒN
+  // (vi) cho lớp an toàn mới; en + 4 locale T2 (hi/zh/zh_TW/si) bắt buộc có
+  // theo quy tắc vàng #5 / ADR-0002.
+  // ---------------------------------------------------------------------------
+  'Máy này thiếu hoặc đang tắt Google Play services — máy quét tài liệu cần Play services để tải và chạy. Cài/cập nhật rồi thử lại.': {
+    'en': 'Google Play services is missing or disabled — the document scanner needs it to download and run. Install/update it and try again.',
+    'hi': 'Google Play services मौजूद नहीं है या बंद है — दस्तावेज़ स्कैनर को चलाने और डाउनलोड करने के लिए इसकी ज़रूरत है। इसे इंस्टॉल/अपडेट करके फिर कोशिश करें।',
+    'zh': '缺少或已停用 Google Play 服务 — 文档扫描仪需要它来下载并运行。请安装或更新后重试。',
+    'zh_TW': '缺少或已停用 Google Play 服務 — 文件掃描器需要它來下載並執行。請安裝或更新後重試。',
+    'si': 'Google Play services නොමැත හෝ අක්‍රීයයි — ලේඛන ස්කෑනරය ක්‍රියාත්මක වීමට එය අවශ්‍යයි. ස්ථාපනය/යාවත්කාලීන කර නැවත උත්සාහ කරන්න.',
+  },
+  'Thiết bị dưới 1,7 GB RAM nên Google không hỗ trợ máy quét tài liệu. Hãy chọn ảnh có sẵn thay thế.': {
+    'en': 'This device has less than 1.7 GB RAM, which Google requires for the document scanner. Please choose an existing image instead.',
+    'hi': 'इस डिवाइस में 1.7 GB से कम RAM है, जिसकी आवश्यकता Google दस्तावेज़ स्कैनर के लिए है। कृपया कोई मौजूदा छवि चुनें।',
+    'zh': '此设备内存低于 1.7 GB，Google 文档扫描仪要求至少 1.7 GB。请改选已有图片。',
+    'zh_TW': '此裝置記憶體低於 1.7 GB，Google 文件掃描器要求至少 1.7 GB。請改選現有圖片。',
+    'si': 'මෙම උපාංගයේ RAM 1.7 GB ට අඩුය — Google ලේඛන ස්කෑනරයට එය අවශ්‍යයි. කරුණාකර පවතින රූපයක් තෝරන්න.',
+  },
+  'Máy quét tài liệu chỉ có trên Android — hãy chọn ảnh có sẵn.': {
+    'en': 'The document scanner is Android-only — please choose an existing image instead.',
+    'hi': 'दस्तावेज़ स्कैनर केवल Android पर है — कृपया कोई मौजूदा छवि चुनें।',
+    'zh': '文档扫描仪仅支持 Android — 请改选已有图片。',
+    'zh_TW': '文件掃描器僅支援 Android — 請改選現有圖片。',
+    'si': 'ලේඛන ස්කෑනරය Android සඳහා පමණි — පවතින රූපයක් තෝරන්න.',
+  },
+  'Bản cài này thiếu plugin máy quét tài liệu (ML Kit) — hãy cập nhật app hoặc chọn ảnh có sẵn.': {
+    'en': 'This build is missing the document scanner plugin (ML Kit) — please update the app or choose an existing image.',
+    'hi': 'इस बिल्ड में दस्तावेज़ स्कैनर प्लगइन (ML Kit) नहीं है — ऐप अपडेट करें या कोई मौजूदा छवि चुनें।',
+    'zh': '此版本缺少文档扫描仪插件（ML Kit）— 请更新应用或改选已有图片。',
+    'zh_TW': '此版本缺少文件掃描器外掛（ML Kit）— 請更新應用程式或改選現有圖片。',
+    'si': 'මෙම ස්ථාපනයේ ලේඛන ස්කෑනර් ප්ලගිනය (ML Kit) නොමැත — යෙදුම යාවත්කාලීන කරන්න හෝ රූපයක් තෝරන්න.',
+  },
+  'Không mở được máy quét tài liệu — thiếu hoặc lỗi Google Play services. Cài/cập nhật rồi thử lại.': {
+    'en': 'Could not start the document scanner — Google Play services is missing or broken. Install/update it and try again.',
+    'hi': 'दस्तावेज़ स्कैनर शुरू नहीं हो सका — Google Play services मौजूद नहीं है या ख़राब है। इसे इंस्टॉल/अपडेट करके फिर कोशिश करें।',
+    'zh': '无法启动文档扫描仪 — Google Play 服务缺失或异常。请安装或更新后重试。',
+    'zh_TW': '無法啟動文件掃描器 — Google Play 服務缺失或異常。請安裝或更新後重試。',
+    'si': 'ලේඛන ස්කෑනරය ආරම්භ කළ නොහැක — Google Play services නොමැත හෝ දෝෂ සහිතයි. ස්ථාපනය/යාවත්කාලීන කර නැවත උත්සාහ කරන්න.',
+  },
+  'Cấu hình máy quét không hợp lệ — hãy chọn ảnh có sẵn thay thế.': {
+    'en': 'The scanner configuration is invalid — please choose an existing image instead.',
+    'hi': 'स्कैनर कॉन्फ़िगरेशन अमान्य है — कृपया कोई मौजूदा छवि चुनें।',
+    'zh': '扫描仪配置无效 — 请改选已有图片。',
+    'zh_TW': '掃描器設定無效 — 請改選現有圖片。',
+    'si': 'ස්කෑනර් වින්‍යාසය වලංගු නොවේ — පවතින රූපයක් තෝරන්න.',
+  },
+  'Máy quét tài liệu gặp lỗi không mong đợi — hãy thử lại hoặc chọn ảnh có sẵn.': {
+    'en': 'The document scanner hit an unexpected error — try again or choose an existing image.',
+    'hi': 'दस्तावेज़ स्कैनर में अप्रत्याशित त्रुटि हुई — फिर कोशिश करें या कोई मौजूदा छवि चुनें।',
+    'zh': '文档扫描仪发生意外错误 — 请重试或改选已有图片。',
+    'zh_TW': '文件掃描器發生意外錯誤 — 請重試或改選現有圖片。',
+    'si': 'ලේඛන ස්කෑනරයේ අනපේක්ෂිත දෝෂයක් — නැවත උත්සාහ කරන්න හෝ රූපයක් තෝරන්න.',
+  },
+  'Phiên quét bị hệ thống cắt ngang (máy thiếu bộ nhớ?) — hãy thử lại hoặc chọn ảnh có sẵn.': {
+    'en': 'The scan session was interrupted (the system reclaimed memory) — try again or choose an existing image.',
+    'hi': 'स्कैन सत्र बाधित हो गया (सिस्टम ने मेमोरी वापस ली) — फिर कोशिश करें या कोई मौजूदा छवि चुनें।',
+    'zh': '扫描会话被中断（系统回收了内存）— 请重试或改选已有图片。',
+    'zh_TW': '掃描工作階段被中斷（系統回收了記憶體）— 請重試或改選現有圖片。',
+    'si': 'ස්කෑන් සැසිය බාධා විය (පද්ධතිය මතකය නැවත ලබාගත්තා) — නැවත උත්සාහ කරන්න හෝ රූපයක් තෝරන්න.',
+  },
+  'Máy quét tài liệu bị dừng đột ngột — app đã giữ an toàn và ghi lại vết lỗi để chẩn đoán. Hãy thử lại hoặc chọn ảnh có sẵn.': {
+    'en': 'The document scanner stopped unexpectedly — the app stayed safe and saved a crash trace for diagnosis. Try again or choose an existing image.',
+    'hi': 'दस्तावेज़ स्कैनर अचानक रुक गया — ऐप सुरक्षित रहा और निदान के लिए क्रैश विवरण सहेजा गया। फिर कोशिश करें या कोई मौजूदा छवि चुनें।',
+    'zh': '文档扫描仪意外停止 — 应用保持安全并已保存崩溃日志用于诊断。请重试或改选已有图片。',
+    'zh_TW': '文件掃描器意外停止 — 應用程式保持安全並已儲存當機記錄以供診斷。請重試或改選現有圖片。',
+    'si': 'ලේඛන ස්කෑනරය හදිසියේ නැවතුණි — යෙදුම ආරක්ෂිතව පැවති අතර රෝග විනිශ්චය සඳහා විස්තරය සුරකින ලදී. නැවත උත්සාහ කරන්න හෝ රූපයක් තෝරන්න.',
+  },
+  'Mở Google Play services': {
+    'en': 'Open Google Play services',
+    'hi': 'Google Play services खोलें',
+    'zh': '打开 Google Play 服务',
+    'zh_TW': '開啟 Google Play 服務',
+    'si': 'Google Play services විවෘත කරන්න',
+  },
 };

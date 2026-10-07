@@ -183,6 +183,45 @@ jobs:
           path: agent_f_test.log
           if-no-files-found: ignore
 
+      # OCR-SCAN-CRASH-001 (audit 2026-10-07): "Quét ảnh ▸ Chụp & quét tài
+      # liệu" làm sập app. Máy bắt cho phần QUYẾT ĐỊNH của lớp an toàn —
+      # precheck Google Play services/RAM trước khi mở máy quét, và trọng tài
+      # phiên quét (activity bị huỷ / crash native ⇒ không treo im lặng).
+      # Thuần Dart (kênh native được thay bằng seam `OcrNativeBridge.invoke`),
+      # không cần thiết bị. Tự bỏ qua nếu nhánh chưa có file.
+      - name: "OCR scan safety tests — OCR-SCAN-CRASH-001 (logic thuần)"
+        id: ocr-scan-tests
+        run: |
+          set +e
+          files=""
+          for f in test/ocr/ocr_precheck_test.dart \
+                   test/ocr/ocr_scan_guard_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test OCR-SCAN-CRASH-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > ocr_scan_test.log 2>&1
+          code=$?
+          cat ocr_scan_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' ocr_scan_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=OCR scan safety test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload OCR scan safety test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ocr-scan-test-log
+          path: ocr_scan_test.log
+          if-no-files-found: ignore
+
       # TTS-EDGE-001 (Edge Read Aloud — giao thức edge-tts) + WP4 (API-005
       # Server TTS): engine TTS thuần logic (http.Client giả, source-scan
       # pin đăng ký TtsService) — chạy được trên CI không cần mạng. Bỏ qua

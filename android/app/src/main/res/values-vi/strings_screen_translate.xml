@@ -2,8 +2,19 @@
 <resources>
     <string name="screen_translate_title">Dịch màn hình</string>
     <string name="screen_translate_channel">Dịch màn hình</string>
+    <string name="screen_translate_alert_channel">Dịch màn hình — cần bạn thao tác</string>
+    <string name="screen_translate_bubble_label">文A</string>
+    <string name="screen_translate_bubble_setup_label">⚙</string>
     <string name="screen_translate_idle">Bấm bong bóng để dịch màn hình này</string>
+    <string name="screen_translate_idle_consent">Bấm bong bóng rồi cho phép chụp màn hình</string>
     <string name="screen_translate_consent">Đang chờ bạn cho phép chụp màn hình…</string>
+    <string name="screen_translate_consent_denied">Bạn đã từ chối quyền chụp màn hình. Bấm bong bóng để thử lại.</string>
+    <string name="screen_translate_consent_blocked">Android chặn mở màn hình xin quyền từ chạy nền. Hãy bấm vào thông báo này để cho phép chụp màn hình.</string>
+    <string name="screen_translate_consent_retry">Không bắt đầu được phiên chụp màn hình. Bấm bong bóng để cấp lại quyền.</string>
+    <string name="screen_translate_overlay_revoked">Quyền hiển thị trên ứng dụng khác đã bị tắt. Hãy bật lại trong Cài đặt để dùng bong bóng dịch.</string>
+    <string name="screen_translate_capture_lost">Phiên chụp màn hình đã kết thúc. Bấm bong bóng để bắt đầu lại.</string>
+    <string name="screen_translate_busy">Đang dịch màn hình trước, chờ chút…</string>
+    <string name="screen_translate_hidden">Đã ẩn bản dịch. Bấm bong bóng để dịch lại.</string>
     <string name="screen_translate_working">Đang đọc chữ và dịch màn hình…</string>
     <string name="screen_translate_done">Đã hiện bản dịch — bấm bong bóng để tắt</string>
     <string name="screen_translate_done_engine">Đã dịch bằng %1$s — bấm bong bóng để tắt</string>

@@ -22,11 +22,14 @@
            giữ MediaProjection; SPECIAL_USE cho giai đoạn chỉ có bong bóng
            (chưa xin consent) — Android 14 chặn type mediaProjection khi chưa
            có token projection.
-         - POST_NOTIFICATIONS: API 33+ cần để hiện notification điều khiển. -->
+         - POST_NOTIFICATIONS: API 33+ cần để hiện notification điều khiển.
+         - VIBRATE: XLAT-SCR-003 — rung nhẹ khi bong bóng KHÔNG làm được việc,
+           để user biết có chuyện gì ngay cả khi notification bị ẩn. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- BATTERY-OPT-001: Xin miễn tối ưu pin để app (STT/AI models, tải model,
          phát audio dài) không bị hệ thống giết khi chạy ngầm. -->
@@ -88,9 +91,24 @@
             </intent-filter>
         </activity>
 
-        <!-- XLAT-SCR-002 — Dịch màn hình toàn hệ thống (ADR-0011).
+        <!-- XLAT-SCR-002 / XLAT-SCR-003 — Dịch màn hình toàn hệ thống (ADR-0011).
              Service giữ bong bóng + MediaProjection + engine Flutter nền;
-             activity trong suốt chỉ để xin consent chụp màn hình. -->
+             activity trong suốt chỉ để xin consent chụp màn hình.
+
+             ĐÃ KIỂM TRA CHÉO với android/app/build.gradle.kts (2026-10-07):
+               compileSdk 36 · targetSdk 35 · minSdk 24.
+             - targetSdk 35 (Android 15) ⇒ bắt buộc khai báo
+               `android:foregroundServiceType` và quyền FGS tương ứng; thiếu là
+               MissingForegroundServiceTypeException lúc startForeground.
+             - `mediaProjection` cần quyền FOREGROUND_SERVICE_MEDIA_PROJECTION
+               (đã khai ở trên) và CHỈ được dùng SAU khi đã gọi
+               createScreenCaptureIntent + user đồng ý (thứ tự bắt buộc của
+               Android 14). `specialUse` dùng cho giai đoạn chỉ có bong bóng.
+             - Activity xin consent KHÔNG đổi: vẫn `exported=false`,
+               trong suốt, noHistory. Nó được mở bằng PendingIntent có opt-in
+               MODE_BACKGROUND_ACTIVITY_START_ALLOWED (Android 14+) hoặc từ
+               MainActivity khi app còn foreground — KHÔNG bao giờ bằng
+               Context.startActivity từ service (Android 10+ chặn im lặng). -->
         <service
             android:name="com.in4up.screentranslate.ScreenTranslateService"
             android:exported="false"

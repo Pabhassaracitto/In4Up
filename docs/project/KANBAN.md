@@ -4345,11 +4345,31 @@
 - **HƯỚNG SỬA (nếu xác nhận SHA1):** đảm bảo CI dùng **đúng release
   keystore** (secret `ANDROID_KEYSTORE` + `key.properties` đúng) để SHA1 =
   `8a1bc02e…`; KHÔNG rơi vào fallback debug. *(Secret do owner quản lý.)*
+- **2026-10-06 cập nhật (owner gửi Firebase Console + keystore):**
+  - Firebase Console app `com.in4up` **đã đăng ký CẢ 2 SHA-1**: `7697fcbc…`
+    (DEBUG) + `8a1bc02e…` (RELEASE) (+1 SHA-256). ⇒ ký bằng debug HOẶC
+    release(8a1bc02e) đều KHỚP. Vậy crash chỉ còn 2 khả năng:
+    (a) CI ký bằng keystore KHÁC (SHA-1 không nằm trong 2 cái trên), HOẶC
+    (b) `google-services.json` trong **secret CI lỗi đồng bộ** Console (chưa
+    chứa SHA-1 CI đang dùng để ký).
+  - Keystore release của owner: `E:\PROJECTS\in4up.worktree\DEV\in4up-release.jks`
+    (storepass `870078`). **Chờ owner chạy keytool lấy SHA-1** để chốt:
+    - SHA-1 = `8a1bc02e…`/`7697fcbc…` → KHÔNG cần thêm Console; chỉ
+      **tải lại google-services.json + cập nhật secret CI** + keystore khớp.
+    - SHA-1 khác → **Add fingerprint** vào Console + tải lại + cập nhật secret.
+  - Nguyên tắc 4-cái-khớp: Console(SHA-1) → google-services.json → secret CI
+    → keystore CI ký.
 - **Lịch sử:**
   - 2026-10-06 | created→investigating | agent arena/01a0251e-in4up | loại
     giả thuyết "thiếu stable" (2f357 có `--flavor stable`); định vị 2f357
     (nhánh 124c5760, 1-chip+stable); nghi chính SHA1 keystore (debug
     fallback vs com.in4up `8a1bc02e…`); ghi 4 bước chủ tự xác minh.
+  - 2026-10-06 | investigating (cập nhật) | agent | owner gửi Firebase
+    Console: com.in4up ĐÃ có CẢ 2 SHA-1 (7697fcbc debug + 8a1bc02e release)
+    ⇒ thu hẹp còn 2 khả năng (a) CI ký keystore khác, (b) google-services.json
+    trong secret CI lỗi đồng bộ; hướng sửa = đồng bộ google-services.json
+    + secret + keystore; chờ owner chạy keytool lấy SHA-1 của
+    `in4up-release.jks` để chốt.
 
 ### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
 

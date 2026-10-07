@@ -205,6 +205,16 @@
 - **Quyết định:** Chấp nhận 7 resolution về shortcut governance, mobile layer stacking, Replace/Split panel, hierarchical back, offline conflict, Calm Focus Rhythm và semantic anchoring làm hợp đồng kiến trúc trước production.
 - **Lý do:** Các blocker xuyên hệ thống đã có policy thống nhất, không còn cần thêm mockup lớn.
 
+## D-030 — Tách logic chức năng của baseline khỏi bố cục UX mới
+
+- **Ngày:** 2026-10-08
+- **Trạng thái:** quyết định đang áp dụng
+- **Quyết định:** `origin/arena/01a0251e-in4up` là nguồn tham chiếu ưu tiên cho business logic, data flow, safety và các regression fix. Kiến trúc UX/UI mới của `arena/01a10675-in4up` có quyền tổ chức lại bố cục, entry point, panel, sheet và navigation để đạt progressive disclosure và trải nghiệm nhất quán.
+- **Không được làm:** không copy nguyên si toolbar, action placement, sheet stacking hoặc navigation cũ chỉ vì chúng đã tồn tại.
+- **Bắt buộc giữ:** semantics của chức năng, source context, data preservation, accessibility, failure recovery và test regression từ baseline.
+- **Nguyên tắc:** preserve capability, redesign presentation. Nếu logic cũ gắn chặt với UI cũ, tách logic thành callback/service seam trước khi đưa vào UX shell mới.
+- **Lý do:** nhánh 251e ưu tiên hoàn thiện chức năng/logic; dự án này đang ưu tiên UX architecture riêng, không biến UX mới thành lớp vỏ của giao diện cũ.
+
 ## Câu hỏi mở hiện tại
 
 - O-001: Review/Stats là Context Bar hay sub-workspace của Nhớ?

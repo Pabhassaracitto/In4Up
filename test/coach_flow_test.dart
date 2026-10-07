@@ -27,4 +27,25 @@ void main() {
     flow.start(I4uCoachTask.explain);
     expect(flow.value.sessionState, I4uCoachSessionState.idle);
   });
+
+  // C-31 — state preservation QA: sự kiện hệ thống không xoá nháp người gõ.
+  test('markStale giữ nháp trả lời, mức gợi ý và bước hiện tại', () {
+    final flow = I4uCoachFlowController();
+    const source = I4uSourceFingerprint(
+      sourceType: I4uSourceType.document,
+      sourceId: 'book-1',
+      returnPath: '/read/book-1',
+    );
+    flow.loadSource(source);
+    flow.start(I4uCoachTask.explain);
+    flow.requestHint();
+    flow.updateDraft('Đang viết dở');
+    flow.markStale();
+
+    expect(flow.value.sessionState, I4uCoachSessionState.stale);
+    expect(flow.value.answerDraft, 'Đang viết dở');
+    expect(flow.value.hintLevel, 1);
+    expect(flow.value.source?.sourceId, 'book-1');
+    expect(flow.value.task, I4uCoachTask.explain);
+  });
 }

@@ -120,6 +120,7 @@
 | CI-BUILD-NDK | Build Android APK đỏ: `Unresolved reference: ndk` / `abiFilters` ở build.gradle.kts:101 | ✅ fix code (chờ owner re-trigger build — bot không có quyền dispatch) | `ndk { abiFilters += "arm64-v8a" }` bị đặt ở **top-level android{}** (commit `f1d4b49` arm64-only) — Kotlin DSL AGP 8.9.1 chỉ có `ndk` trong **defaultConfig** → script compile lỗi. Fix `eeace04`: di chuyển khối `ndk {}` VÀO `defaultConfig {}` (re-apply fix `24d0fa8` bị MẤT khi rebase). Xác minh: run pre-fix `37382171299` (f44eb96) Android=failure, 3 platform còn lại success ⇒ đúng 1 blocker này |
 | CI-BUILD-ABI-001 | Release 1.10.3 (build bằng Actions) "có 3 chip" dù đã có lệnh 1-chip; tên APK ghi `arm64-v8a` nhưng file là 3-ABI ~216MB | 🔨 doing — **PR #88** mở (merge vào main) → main build Android xanh + bản 1-chip thật |
 | CI-BUILD-LOGIN-001 | Bản 2f357 (release 1.10.3) crash khi chạm icon đăng nhập — owner nghi "flavor không có stable" | ✅ **ĐÃ XÁC NHẬN**: CI ký keystore `in4up-release.jks` (SHA-1 `88d5ee0d…`) mà google-services.json cũ CHƯA có ⇒ Sign-In sai hash; owner đã thêm SHA vào Console, còn đổi secret CI | 2f357 = "fix(android): configure arm64 ABI" (nhánh `arena/124c5760-in4up`), workflow tại 2f357 CÓ `--flavor stable` (build_final_complete.yml:227). google-services: client `com.in4up` cần `certificate_hash 8a1bc02e…` (release); CI fallback ký **DEBUG** keystore (SHA1 `7697fcbc…`) khi thiếu secret release ⇒ Google Sign-In sai hash → crash. Xem card chi tiết | Release 1.10.3 build từ `main` (tag `1.10.3`→`7386295`): (1) APK Android là **bản 3-ABI cũ** (tên file ghi commit `2f357` = TRƯỚC khi 1-chip có hiệu lực trên main); (2) `main` HIỆN có khối `ndk{abiFilters}` ở **top-level (sai)** ⇒ main **không build được Android** (lỗi ndk) cho tới khi fix `eeace04` vào main; (3) `android_rename_apks.sh` **hardcode** "arm64-v8a" vào tên ⇒ gắn nhãn SAI cho bản 3-ABI. Workflow KHÔNG sai (build đúng 1 bản universal, không --split-per-abi) |
+| L10N-REGEN-001 | Build fail: `dart format` exit 65 khi sinh localizations — `app_localizations_th/vi/zh.dart` "could not be parsed" | ✅ done (chờ build xác nhận) | Root cause: file sinh `app_localizations*.dart` (build artifact, `generate:true`) bị **commit + hỏng** — `app_localizations_zh.dart` có **493 getter trùng** (gộp zh+zh_TW vào 1 file, thiếu file zh_TW riêng) ⇒ parse lỗi. Fix `b44c964`: **bỏ 26 file sinh ra khỏi git + gitignore** ⇒ build (local+CI) tự sinh file sạch từ `.arb`. ARB (nguồn) đã verify: JSON hợp lệ, không apostrophe/backslash lạ, placeholder khớp EN |
 | CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
@@ -4381,6 +4382,43 @@
     `_KEY_PASSWORD` trỏ đúng `in4up-release.jks` (88d5ee0d); (4) build lại.
     4-cái-trùng: Console(88d5ee0d) → google-services.json → secret CI →
     keystore ký. Chờ owner build + nghiệm thu login.
+
+### L10N-REGEN-001 — Build fail: `dart format` (exit 65) khi sinh localizations (th/vi/zh "could not be parsed")
+- **Nguồn:** owner (2026-10-07) — lỗi khi `flutter run/build` local:
+  "Generating synthetic localizations package failed … `dart format` failed
+  with exit code 65 … Could not format because the source could not be
+  parsed: app_localizations_th.dart:1541 / _vi.dart:1546 / _zh.dart:3209".
+- **Trạng thái:** ✅ done (chờ build của owner xác nhận xanh).
+- **Diagnose (đã verify code):**
+  - 26 file `lib/l10n/app_localizations*.dart` là **build artifact** (sinh bởi
+    `flutter gen-l10n`, `generate: true` trong pubspec) nhưng **bị commit**
+    vào git và **stale/hỏng**.
+  - `app_localizations_zh.dart` checked-in **BỊ HỎNG**: **493 getter trùng**
+    — gộp cả dịch zh (giản thể) + zh_TW (chuyền thống) vào **1 file**, và
+    **không có** file `app_localizations_zh_TW.dart` riêng ⇒ 2 getter cùng tên
+    trong 1 class = lỗi parse. (File zh dài gấp đôi 1544→3056 dòng vì lý do này.)
+  - th/vi không trùng getter nhưng stale. ARB (nguồn) đã verify: 4 file đều
+    JSON hợp lệ (514 keys), **không** apostrophe/backslash/ký tự điều khiển lạ
+    trong value mới (ocr*, translationDeepLX*), placeholder `{…}` khớp EN.
+    (fr/it có apostrophe nhưng gen-l10n escape tốt — không phải thủ phạm.)
+- **Fix (`b44c964`):** `git rm` 26 file `app_localizations*.dart` + thêm
+  `.gitignore`: `lib/l10n/app_localizations*.dart`. Giữ nguyên 25 `.arb` +
+  `l10n.yaml`. ⇒ Mọi build (local + CI, qua `flutter pub get`) tự **sinh file
+  SẠCH** từ `.arb` (zh và zh_TW tách riêng, không trùng) ⇒ `dart format` parse
+  được.
+- **LƯU Ý CHERRY-PICK (owner yêu cầu pick `7386295` + `e9b5900`):**
+  - `7386295` ("Fix formatting in build_final_complete.yml") = **commit RỖNG**
+    (không thay đổi file) ⇒ không có gì để pick.
+  - `e9b5900` ("ndk{abiFilters} vào defaultConfig") = **root commit** (thêm cả
+    1242 file, không có parent — artifact mất lịch sử) ⇒ **không pick được**
+    bình thường; và fix ndk của nó **ĐÃ CÓ sẵn trên 251e** (`eeace04`).
+  - ⇒ 251e **đã tuyến tính + đã có fix ndk**; không pick gì thêm. (Nếu owner
+    muốn đồng bộ workflow với main, báo em diff `build_final_complete.yml`.)
+- **Lịch sử:**
+  - 2026-10-07 | created→done | agent arena/01a0251e-in4up | xác định file sinh
+    checked-in hỏng (zh 493 getter trùng); bỏ 26 file sinh ra khỏi git +
+    gitignore (`b44c964`); ghi nhận 2 commit cherry-pick không pick được
+    (1 rỗng, 1 root-commit đã có sẵn fix). Chờ owner build xác nhận.
 
 ### DOC-1 — README v2 (EN + VI) đúng tiến độ hiện tại
 

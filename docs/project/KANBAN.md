@@ -77,12 +77,12 @@
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
-| TTS-EDGE-VOICE-002 | Giọng Edge: danh sách quá dài (1.f) + chọn giọng nam vẫn nghe giọng nữ (1.g) | 🔄 doing (code + CI 🟢; **chờ nghiệm thu tai nghe trên máy**) | audit 1.f/1.g — picker gập theo ngôn ngữ (ExpansionTile); khoá cache TTS thêm giọng/tốc độ/cao độ, bỏ bất đối xứng `get('any')` vs `put(engine.id)`, prefetch dùng đúng giọng, bậc thang `_resolveEdgeVoice`, nhãn engine kèm tên giọng. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` |
+| TTS-EDGE-VOICE-002 | Giọng Edge: danh sách quá dài (1.f) + chọn giọng nam vẫn nghe giọng nữ (1.g) | 🔄 doing (code + CI 🟢; **chờ nghiệm thu tai nghe trên máy**) — thêm: dọn cache theo phiên bản khoá + hướng GHIM giọng cho ngôn ngữ chưa cấu hình (arena/a106f0d6-in4up) | audit 1.f/1.g — picker gập theo ngôn ngữ (ExpansionTile); khoá cache TTS thêm giọng/tốc độ/cao độ, bỏ bất đối xứng `get('any')` vs `put(engine.id)`, prefetch dùng đúng giọng, bậc thang `_resolveEdgeVoice`, nhãn engine kèm tên giọng. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` |
 | LOTTIE-IMPORT-002 | Worklist: nhập Lottie `.json` từ máy không được, dán link báo "ảnh hỏng", Lottie đã lưu hiện icon vỡ trong danh sách | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit mục 2 — `FileType.custom` cho `.json/.lottie`; nhận diện Lottie theo NỘI DUNG (`looksLikeLottieContent`) thay vì đuôi URL; xem trước trước khi tải; thumbnail giao Lottie cho `VocabularyMediaWidget(animate:false)` |
 | DICT-LINK-001 | Từ điển: mất lựa chọn "Liên kết thư mục", lời thoại dung lượng gây hiểu nhầm | 🔄 doing (phần lời + giải thích ✅; phần đọc SAF chờ agent khác) | audit 1.d — Android chỉ cấp `content://` qua SAF nên parser MDX (`RandomAccessFile`) không mở được ⇒ lựa chọn bị ẩn. Hộp thoại nay nói rõ lý do + "bộ từ điển nằm ở HAI nơi". Prompt: `PROMPT_AGENT_DICT_SAF_LINK.md` |
 | OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
-| READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 📋 proposed | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
+| READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 📋 proposed | audit mục 2 (phần còn lại) — `WordEntry.imageUrl` là MỘT trường; cần thêm `imageUrl2` additive + sửa các màn hiển thị. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
@@ -5682,6 +5682,145 @@
     việc; CI app_analyze xanh ở `74af5d8` (analyze 0 error + toàn bộ bước
     test, gồm bước mới của đợt này).
 
+### TTS-EDGE-VOICE-002 — nghiệm thu "chọn giọng nam mà giọng nữ đọc" (máy thật)
+
+- **Trạng thái:** 🔨 doing — phần code + "máy bắt" đã xanh CI trên nhánh
+  `arena/a106f0d6-in4up` (run `37653001863`: analyze 0 error + bước
+  TTS engine tests); phần **nghe trên máy thật** vẫn còn ở chủ dự án (sandbox
+  không có đường mạng tới `speech.platform.bing.com` và không có tai nghe).
+- **Nguồn:** chủ dự án 2026-10-06 (AUDIT-0103 mục 1.f/1.g) +
+  `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` (Việc A).
+- **Đã làm (nhánh `arena/a106f0d6-in4up`):**
+  - **A.2.3 — dọn cache cũ (TTS-VOICE-CACHE-002):** `TtsCache.keyVersion = 2`
+    + `TtsCache.shouldWipeForStoredVersion()`; lần đầu tiến trình chạm vào
+    cache sẽ **xoá cả thư mục `tts_cache/` đúng một lần** khi phiên bản khoá
+    ghi trên máy khác phiên bản hiện tại (khoá SharedPreferences
+    `tts_cache_key_version`), rồi ghi phiên bản mới. Lỗi đọc prefs/plugin ⇒
+    KHÔNG xoá gì (thà giữ cache cũ còn hơn làm gãy đường phát âm). Người dùng
+    cũ vì thế KHÔNG nghe lại bản ghi giọng mặc định (nữ) đã lưu bằng khoá
+    không-giọng.
+  - **A.2.4 — test thuần khoá cache:** `test/tts_cache_key_test.dart` — đổi
+    giọng/tốc độ/cao độ ⇒ khoá đổi; cùng tham số ⇒ khoá ổn định; `null` và
+    giọng rỗng đều là "chưa chọn giọng"; speed/pitch lượng tử 2 chữ số. Đã nối
+    file này vào bước `TTS engine tests` của `app_analyze.yml`.
+  - **A.2.2 — đoạn lẫn Việt–Anh (QUYẾT ĐỊNH, ghi theo yêu cầu prompt):** chọn
+    hướng **"ghim một giọng cho mọi ngôn ngữ CHƯA chọn giọng riêng"**, KHÔNG
+    thêm bộ chọn giọng ngay trong luồng đọc. Lý do: (1) đúng triệu chứng của
+    audit — dòng `en-US` chưa cấu hình giọng nên rơi về giọng mặc định Aria
+    (nữ) dù người dùng vừa chọn Nam Minh; (2) không thêm UI vào luồng đọc;
+    (3) thứ tự rõ ràng: **giọng riêng theo ngôn ngữ luôn thắng giọng ghim**,
+    ghim chỉ lấp chỗ trống. Công tắc mặc định **TẮT** ⇒ người dùng cũ không
+    đổi hành vi cho tới khi họ tự bật.
+    - UI: Cài đặt → giọng Edge có công tắc **"Ghim một giọng cho mọi ngôn
+      ngữ"** + dropdown chọn giọng ghim (có dấu ♂/♀); chọn giọng ở nhóm
+      "ngôn ngữ khác" cũng chính là ghim.
+    - `EdgeVoicePrefs.resolveVoiceForLanguage({perLanguageVoice, pinnedVoice,
+      pinAll})` là hàm thuần; `voiceForLang` chạy qua nó, nên cả đường phát,
+      đường nạp sẵn và nhãn giọng đi qua đúng một luật.
+  - **Máy bắt cho 3 nguyên nhân cũ:** nhóm source-scan mới trong
+    `test/edge_tts_engine_test.dart` — không còn `engineId: 'any'` trong MÃ
+    (chỉ còn trong comment giải thích lỗi cũ); cache get/put dùng `engine.id`;
+    `speak()` truyền `_resolveEdgeVoice(lang)` vào `voiceOverride`;
+    `_prefetchOnline` cũng hỏi `_resolveEdgeVoice(lang)`;
+    `_shortVoiceLabel` vẫn nằm trong nhãn engine.
+  - **i18n (rule #5):** 3 chuỗi mới đủ `en/hi/zh/zh_TW/si` trong
+    `lib/core/language/priority_ui_overrides.dart`.
+- **Nghiệm thu máy thật (chủ dự án — bước duy nhất agent không làm thay được):**
+  1. Cài đặt → giọng Edge → Tiếng Việt → chọn **Nam Minh (♂)** → đọc một đoạn
+     tiếng Việt: phải là giọng NAM, nhãn hiện `🌐 Edge TTS · NamMinh`.
+  2. Đọc lại đúng đoạn đó: vẫn giọng nam, nhãn `💾 Cache · Edge TTS`.
+  3. Đổi sang **Hoài My (♀)** rồi đọc lại đoạn cũ: **phải đổi giọng ngay**
+     (không ăn cache cũ) — bài kiểm tra quan trọng nhất.
+  4. Tài liệu lẫn Việt–Anh: bật công tắc ghim (ghi lại giọng ghim đang chọn)
+     rồi đọc một dòng tiếng Anh ⇒ phải đúng giọng ghim (hết Aria nữ); tắt ghim
+     ⇒ quay lại hành vi cũ (giọng mặc định của en-US).
+  5. Máy đã từng nghe giọng nữ ở bản cũ: sau khi cập nhật, lần đọc đầu tiên
+     phải là giọng đã chọn (nhờ dọn cache theo phiên bản khoá) — nếu vẫn là
+     giọng nữ, ghi lại nguyên văn nhãn engine để đối chiếu.
+- **Ghi nhận thêm (ngoài phạm vi, để người sau biết):**
+  - `tool/generate_legacy_ui_fallbacks.py` **đang đỏ ở baseline** trên nhánh
+    này: `ValueError: 64 reviewed overrides no longer match extracted
+    presentation sources` (ví dụ `'"..." đã lưu'`, `'+ Nghĩa'`). Không workflow
+    nào chạy script này ⇒ CI không đỏ, nhưng đừng chạy nó rồi tưởng mình vừa
+    làm hỏng catalog.
+  - Bộ chọn giọng Edge trong Cài đặt vẫn hiện nhãn ngôn ngữ viết tiếng Việt
+    cho mọi locale (`🇻🇳 Tiếng Việt (vi-VN)`… trong `tts_settings_section.dart`)
+    — lỗ hổng rule #5 có sẵn, không sửa trong phiên này (ngoài phạm vi 2 việc
+    được giao).
+- **Lịch sử:**
+  - 2026-10-07 | created (doing) | agent arena/a106f0d6-in4up | dọn cache theo
+    phiên bản khoá + test `TtsCache.makeKey` (nối CI) + quyết định & làm hướng
+    GHIM giọng cho ngôn ngữ chưa cấu hình + source-scan 3 nguyên nhân cũ; CI
+    app_analyze xanh `37653001863`. Còn nghiệm thu tai nghe trên máy thật.
+  - 2026-10-07 | cập nhật | agent arena/a106f0d6-in4up | thêm nhóm source-scan
+    chống tái phát trong `test/edge_tts_engine_test.dart`; CI xanh
+    `37653678342` (push) và `37654118609` (pull_request của PR #91).
+  - 2026-10-07 | fix | agent arena/a106f0d6-in4up | **hậu quả gộp nhánh**: bản
+    merge `arena/01a0251e-in4up` vào nhánh này đã ghép khối chuỗi
+    OCR-SCAN-CRASH-001 vào BÊN TRONG mục `'Đang ghim'` của
+    `priority_ui_overrides.dart` (mất dấu `},` đóng mục) ⇒ một dấu `{` không
+    được đóng, cả file không biên dịch (`Can't find '}' to match '{'`, mọi
+    test fail). Đã trả lại đúng cấu trúc (mục `'Đang ghim'` đóng trước, khối
+    OCR nằm sau). Đồng thời **gom 7 commit của phiên thành 3 commit chính**
+    (TTS / READ / ci+docs) trên nền `6620909` (tip 251e) để dễ rebase & merge
+    — nhánh đã force-push, PR #91 cập nhật theo.
+
+### READ-SELECT-002 — kéo chọn nhiều từ ở chế độ ô chữ của tab Đọc
+
+- **Trạng thái:** 🔨 doing — code + test logic xong, CI xanh trên
+  `arena/a106f0d6-in4up`; nghiệm thu chạm tay trên máy thật còn lại chủ dự án.
+- **Nguồn:** chủ dự án 2026-10-06 (AUDIT-0103 mục 1.e — "chọn nhiều từ thường
+  thất bại") + `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` (Việc B).
+- **Sự thật đã xác nhận trong mã:** ở chế độ ô chữ mỗi từ là một
+  `GestureDetector` riêng, KHÔNG có `SelectableText` ⇒ không thể bôi chọn —
+  giới hạn thiết kế, không phải lỗi ngẫu nhiên.
+- **Đã làm (nhánh `arena/a106f0d6-in4up`):**
+  - `lib/screens/read_mode/services/word_range_selection.dart` — toàn bộ luật
+    ở dạng THUẦN LOGIC: `resolveWordRange` (mỏ neo ↔ đầu kéo, kẹp biên),
+    `buildWordSelectionText` (chuỗi ghép bằng đúng 1 dấu cách + offset đầu/cuối
+    trong dòng), `wordIndexAtPoint` (kéo thì biết đang ở từ nào; ô chưa đo được
+    bị bỏ qua), `WordSelectionState` (dòng đang chọn).
+  - `colored_text_widget.dart`: **giữ một từ ⇒ vào chế độ chọn** (từ đó là mỏ
+    neo, viền xanh đậm rõ ràng), **kéo ngang khi đang giữ hoặc chạm từ thứ hai
+    ⇒ mở rộng vùng chọn liên tục**; thanh hành động dưới vùng chọn gọi **đúng
+    `ReadTextActionRunner.run(...)`** với `selectedText` là chuỗi đã ghép
+    (không có nhánh xử lý thứ hai) và ghi vùng chọn vào
+    `TextProvider.selectTextWithOffsets(...)` để phần còn lại của app (nút
+    Dịch/Ngữ pháp ở header, lưu từ, hành động của dòng) thấy như một selection
+    thật. Nút **"Từ chi tiết"** mở lại `WordActionsSheet` (bảng tra từ đầy đủ
+    trước đây nằm ở thao tác giữ) nên không mất chức năng nào.
+  - **Thoát chế độ chọn:** nút ✕, chạm vào khoảng trống trong vùng ô chữ, chạm
+    sang dòng khác, hoặc chạm vùng trống của màn Đọc ⇒ `clearSelection()`.
+  - **Không đổi hành vi cũ khi chưa ở chế độ chọn:** chạm = phát âm, chạm hai
+    lần = nghĩa nhanh (giữ nguyên phản xạ); chế độ interlinear và chế độ dòng
+    không bị đụng (widget chỉ bọc thêm detector KHI đang chọn).
+  - `read_line_hint.dart`: bảng hướng dẫn nói đúng thao tác mới (giữ = chọn
+    nhiều từ, "Từ chi tiết" = bảng tra từ, chưa chọn gì thì 4 nút chạy trên cả
+    dòng) + 5 chuỗi i18n đủ `en/hi/zh/zh_TW/si`.
+  - `test/read_mode/word_range_selection_test.dart` (mỏ neo → mở rộng → chuỗi +
+    offset; kẹp biên; từ gần nhất khi kéo quá mép) — đã nối vào bước
+    `Read actions + mixed-language tests` của `app_analyze.yml`.
+- **Nghiệm thu chạm tay (chủ dự án):** giữ một từ → kéo 5 từ → bấm **Dịch** ⇒
+  dịch đúng 5 từ đó; bấm **Ngữ pháp** ⇒ phân tích đúng cụm; **thoát chọn** ⇒
+  chạm lại một từ phát âm như cũ; kiểm thêm chế độ dòng/`SelectableText` và
+  interlinear không đổi hành vi.
+- **Lịch sử:**
+  - 2026-10-07 | created (doing) | agent arena/a106f0d6-in4up | luật chọn nhiều
+    từ (thuần logic) + widget ô chữ vào chế độ chọn + ghi selection thật +
+    bảng hướng dẫn/i18n + test nối CI; CI app_analyze xanh `37653001863`.
+    Còn nghiệm thu chạm tay trên máy thật.
+  - 2026-10-07 | cập nhật | agent arena/a106f0d6-in4up | bảng hướng dẫn bọc
+    `SingleChildScrollView` (thêm dòng mới không tràn trên máy thấp); CI xanh
+    `37654112487` (push) — PR #91.
+  - 2026-10-07 | fix | agent arena/a106f0d6-in4up | **hậu quả gộp nhánh**: bản
+    merge `arena/01a0251e-in4up` vào nhánh này đã ghép khối chuỗi
+    OCR-SCAN-CRASH-001 vào BÊN TRONG mục `'Đang ghim'` của
+    `priority_ui_overrides.dart` (mất dấu `},` đóng mục) ⇒ một dấu `{` không
+    được đóng, cả file không biên dịch (`Can't find '}' to match '{'`, mọi
+    test fail). Đã trả lại đúng cấu trúc (mục `'Đang ghim'` đóng trước, khối
+    OCR nằm sau). Đồng thời **gom 7 commit của phiên thành 3 commit chính**
+    (TTS / READ / ci+docs) trên nền `6620909` (tip 251e) để dễ rebase & merge
+    — nhánh đã force-push, PR #91 cập nhật theo.
 ### OCR-SCAN-CRASH-001 — "Chụp & quét tài liệu" làm sập app (Thư viện đọc ▸ Quét ảnh)
 
 - **Trạng thái:** doing — code + máy bắt CI 🟢 (run `37653016584`: bước "Analyze

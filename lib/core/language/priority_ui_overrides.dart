@@ -5149,19 +5149,51 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '雙擊一個詞：檢視快速釋義。',
     'si': 'වචනයක් දෙවරක් තට්ටු කරන්න: ඉක්මන් අරුත බලන්න.',
   },
-  'Giữ một từ: mở bảng tra từ đầy đủ (nghĩa, ngữ pháp, lưu từ).': {
-    'en': 'Long-press a word: open the full lookup sheet (meaning, grammar, save).',
-    'hi': 'शब्द देर तक दबाएँ: पूरा शब्दकोश पैनल खोलें (अर्थ, व्याकरण, सहेजें)।',
-    'zh': '长按一个词：打开完整查词面板（释义、语法、保存）。',
-    'zh_TW': '長按一個詞：開啟完整查詞面板（釋義、文法、儲存）。',
-    'si': 'වචනයක් තද කර අල්ලන්න: සම්පූර්ණ ශබ්දකෝෂ පුවරුව විවෘත වේ (අරුත, ව්‍යාකරණ, සුරැකීම).',
+  // READ-SELECT-002 (audit 1.e) — chế độ ô chữ nay CHỌN ĐƯỢC nhiều từ, nên
+  // bảng hướng dẫn đổi theo: giữ = vào chế độ chọn, bảng tra từ đầy đủ nằm ở
+  // nút "Từ chi tiết" của thanh hành động.
+  'Giữ một từ ở chế độ ô chữ: vào chế độ chọn nhiều từ; nút Từ chi tiết mở bảng tra từ đầy đủ.':
+      {
+    'en':
+        'Long-press a word in box mode: start selecting several words; the Word details button opens the full lookup sheet.',
+    'hi':
+        'बॉक्स मोड में शब्द देर तक दबाएँ: कई शब्द चुनना शुरू होता है; "शब्द विवरण" बटन से पूरा शब्दकोश पैनल खुलता है।',
+    'zh': '在方框模式下长按一个词：进入多词选择；“词详情”按钮打开完整查词面板。',
+    'zh_TW': '在方框模式下長按一個詞：進入多詞選擇；「詞詳情」按鈕開啟完整查詞面板。',
+    'si':
+        'බොක්ස් ප්‍රකාරයේ වචනයක් තද කර අල්ලන්න: බහු-වචන තේරීම ආරම්භ වේ; "වචන විස්තර" බොත්තමෙන් සම්පූර්ණ ශබ්දකෝෂ පුවරුව විවෘත වේ.',
   },
-  'Muốn xử lý nhiều từ: 4 nút ở trên chạy trên cả dòng đang đọc.': {
-    'en': 'For several words at once: the 4 buttons above act on the whole current line.',
-    'hi': 'कई शब्दों के लिए: ऊपर के 4 बटन पूरी वर्तमान पंक्ति पर काम करते हैं।',
-    'zh': '要处理多个词：上方 4 个按钮会作用于整行当前内容。',
-    'zh_TW': '要處理多個詞：上方 4 個按鈕會作用於整行目前內容。',
-    'si': 'වචන කිහිපයක් සඳහා: ඉහත බොත්තම් 4 සම්පූර්ණ වත්මන් පේළියට බලපායි.',
+  'Muốn xử lý nhiều từ: giữ một từ rồi kéo ngang để chọn cả cụm (nút ✕ để thoát).':
+      {
+    'en':
+        'For several words: long-press a word and drag sideways to select the phrase (✕ to exit).',
+    'hi':
+        'कई शब्दों के लिए: शब्द देर तक दबाएँ और बग़ल में खींचें — पूरा वाक्यांश चुना जाएगा (बाहर निकलने के लिए ✕)।',
+    'zh': '要处理多个词：长按一个词并横向拖动即可选中整段短语（✕ 退出）。',
+    'zh_TW': '要處理多個詞：長按一個詞並橫向拖動即可選中整段短語（✕ 退出）。',
+    'si':
+        'වචන කිහිපයක් සඳහා: වචනයක් තද කර අල්ලා පැත්තට අදින්න — මුළු වාක්‍ය ඛණ්ඩය තෝරාගනී (✕ අත්හැරීමට).',
+  },
+  'Chưa chọn từ nào: 4 nút ở trên chạy trên cả dòng đang đọc.': {
+    'en': 'Nothing selected yet: the 4 buttons above act on the whole current line.',
+    'hi': 'अभी कुछ चुना नहीं: ऊपर के 4 बटन पूरी वर्तमान पंक्ति पर काम करते हैं।',
+    'zh': '尚未选择内容：上方 4 个按钮作用于整行当前内容。',
+    'zh_TW': '尚未選擇內容：上方 4 個按鈕作用於整行目前內容。',
+    'si': 'තවම තේරීමක් නැත: ඉහත බොත්තම් 4 සම්පූර්ණ වත්මන් පේළියට බලපායි.',
+  },
+  'Từ chi tiết': {
+    'en': 'Word details',
+    'hi': 'शब्द विवरण',
+    'zh': '词详情',
+    'zh_TW': '詞詳情',
+    'si': 'වචන විස්තර',
+  },
+  'Thoát chọn': {
+    'en': 'Exit selection',
+    'hi': 'चयन से बाहर',
+    'zh': '退出选择',
+    'zh_TW': '退出選擇',
+    'si': 'තේරීමෙන් ඉවත් වන්න',
   },
   // TTS-EDGE-VOICE-002 — danh sách giọng Edge gập theo ngôn ngữ.
   'Giọng mặc định': {
@@ -5215,7 +5247,33 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '在 Android 上，「連結資料夾」模式暫不可用：系統僅透過 SAF 授權，應用程式無法依路徑直接開啟 mdx/mdd 檔案。以 SAF 為基礎的讀取功能正在開發，以便恢復該選項。',
     'si': 'Android හි "ෆෝල්ඩරය සම්බන්ධ කරන්න" ප්‍රකාරය තාවකාලිකව නොමැත: පද්ධතිය SAF හරහා පමණක් ප්‍රවේශය දෙන බැවින් යෙදුමට mdx/mdd ගොනු මාර්ගයෙන් විවෘත කළ නොහැක. SAF පාදක කියවීමක් සකස් වෙමින් පවතී.',
   },
-
+  // TTS-EDGE-VOICE-003 (nghiệm thu máy thật, audit 1.g) — ghim một giọng
+  // Edge cho mọi ngôn ngữ CHƯA chọn giọng riêng (tài liệu lẫn Việt–Anh).
+  'Ghim một giọng cho mọi ngôn ngữ': {
+    'en': 'Pin one voice for every language',
+    'hi': 'हर भाषा के लिए एक आवाज़ पिन करें',
+    'zh': '为所有语言固定一个语音',
+    'zh_TW': '為所有語言固定一個語音',
+    'si': 'සෑම භාෂාවකටම එක් හඬක් පින් කරන්න',
+  },
+  'Câu ngoại ngữ trong tài liệu (ví dụ dòng tiếng Anh) sẽ đọc bằng giọng ghim. Giọng riêng của từng ngôn ngữ vẫn được ưu tiên.':
+      {
+    'en':
+        'Foreign-language lines in a document (for example an English line) are read with the pinned voice. A language-specific voice still wins.',
+    'hi':
+        'दस्तावेज़ की विदेशी-भाषा पंक्तियाँ (जैसे अंग्रेज़ी पंक्ति) पिन की गई आवाज़ में पढ़ी जाएँगी। भाषा-विशेष आवाज़ को प्राथमिकता रहेगी।',
+    'zh': '文档中的外语行（例如英文行）将使用固定语音朗读。各语言单独选择的语音仍优先。',
+    'zh_TW': '文件中的外語行（例如英文行）將使用固定語音朗讀。各語言單獨選擇的語音仍優先。',
+    'si':
+        'ලේඛනයේ විදේශීය භාෂා පේළි (උදා: ඉංග්‍රීසි පේළිය) පින් කළ හඬින් කියවනු ලැබේ. භාෂාවට වෙන්ව තෝරාගත් හඬට ප්‍රමුඛතාව ඇත.',
+  },
+  'Đang ghim': {
+    'en': 'Pinned',
+    'hi': 'पिन किया गया',
+    'zh': '已固定',
+    'zh_TW': '已固定',
+    'si': 'පින් කර ඇත',
+  },
   // ---------------------------------------------------------------------------
   // OCR-SCAN-CRASH-001 (audit 2026-10-07) — lane "Quét ảnh ▸ Chụp & quét tài
   // liệu" làm sập app ở bản 0.10.3. Các thông báo dưới đây là chuỗi NGUỒN

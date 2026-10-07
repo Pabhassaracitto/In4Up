@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 /// Cache audio TTS đã tải về
@@ -13,13 +14,26 @@ class TtsCache {
   factory TtsCache() => _instance;
   TtsCache._();
 
+  /// Phiên bản công thức khoá cache. TĂNG số này mỗi khi [makeKey] đổi.
+  ///
+  /// TTS-VOICE-CACHE-002 (audit 1.g): bản 1 ghi file theo khoá
+  /// `engine + ngôn ngữ + chữ` — KHÔNG có giọng, nên bản ghi giọng mặc định
+  /// (nữ) nằm lại trên máy người dùng cũ. Khi phiên bản khoá đổi, toàn bộ
+  /// thư mục phải bị xoá một lần; nếu không, người dùng đã cập nhật app vẫn
+  /// nghe lại giọng sai cho tới khi cache hết hạn theo dung lượng.
+  static const int keyVersion = 2;
+
+  /// Khoá SharedPreferences ghi phiên bản khoá đang dùng trên máy này.
+  static const String keyVersionPrefsKey = 'tts_cache_key_version';
+
   String? _cacheDir;
 
   Future<String> get _cachePath async {
-    if (_cacheDir != null) return _cacheDir!;
-
-    final dir = await getTemporaryDirectory();
-    _cacheDir = '${dir.path}/tts_cache';
+    if (_cacheDir == null) {
+      final dir = await getTemporaryDirectory();
+      _cacheDir = '${dir.path}/tts_cache';
+      await _ensureKeyVersion();
+    }
 
     final cacheFolder = Directory(_cacheDir!);
     if (!await cacheFolder.exists()) {
@@ -27,6 +41,46 @@ class TtsCache {
     }
 
     return _cacheDir!;
+  }
+
+  /// Có phải xoá cache khi phiên bản khoá đã ghi trên máy là [storedVersion]?
+  ///
+  /// Tách riêng để test thuần (không cần path_provider/plugin): lần đầu chạy
+  /// (`null`) coi như khớp — máy mới thì chưa có gì để xoá.
+  @visibleForTesting
+  static bool shouldWipeForStoredVersion(int? storedVersion) {
+    if (storedVersion == null) return false;
+    return storedVersion != keyVersion;
+  }
+
+  /// Xoá cache một lần khi phiên bản công thức khoá đổi (chạy tối đa 1
+  /// lần/tiến trình nhờ [_cachePath] memo hoá).
+  Future<void> _ensureKeyVersion() async {
+    final dir = _cacheDir;
+    if (dir == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getInt(keyVersionPrefsKey);
+      if (shouldWipeForStoredVersion(stored)) {
+        final folder = Directory(dir);
+        if (await folder.exists()) {
+          await folder.delete(recursive: true);
+        }
+        debugPrint(
+            '🧹 TTS Cache: phiên bản khoá $stored → $keyVersion — đã xoá cache cũ.');
+      }
+      if (stored != keyVersion) {
+        await prefs.setInt(keyVersionPrefsKey, keyVersion);
+      }
+      final folder = Directory(dir);
+      if (!await folder.exists()) {
+        await folder.create(recursive: true);
+      }
+    } catch (e) {
+      // Không có SharedPreferences (test/đời nền) → KHÔNG xoá gì: thà giữ
+      // cache cũ còn hơn làm hỏng đường phát âm.
+      debugPrint('⚠️ TTS Cache: không kiểm được phiên bản khoá: $e');
+    }
   }
 
   /// Tạo key từ text + language + engine + GIỌNG + tốc độ + cao độ.

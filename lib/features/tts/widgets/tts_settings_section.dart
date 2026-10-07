@@ -830,12 +830,55 @@ class _EdgeVoicePicker extends StatefulWidget {
 class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
   Map<String, String> _selected = {};
 
+  /// TTS-EDGE-VOICE-003 — trạng thái GHIM (xem [EdgeVoicePrefs]).
+  bool _pinAll = false;
+  String? _pinnedVoice;
+
+  /// Giọng tường minh gần nhất người dùng vừa chạm — dùng làm giá trị mặc
+  /// định khi bật ghim (bật ghim rồi mà ghim giọng nữ mặc định thì lại đúng
+  /// triệu chứng đang sửa).
+  String? _lastExplicitVoice;
+
   @override
   void initState() {
     super.initState();
     EdgeVoicePrefs.instance.all().then((v) {
       if (mounted) setState(() => _selected = v);
     });
+    EdgeVoicePrefs.instance.pinAllLanguages.then((v) {
+      if (mounted) setState(() => _pinAll = v);
+    });
+    EdgeVoicePrefs.instance.pinnedVoice.then((v) {
+      if (mounted) setState(() => _pinnedVoice = v);
+    });
+  }
+
+  /// Giọng sẽ ghim: giọng vừa chạm → giọng tiếng Việt đã chọn → giọng đầu
+  /// danh mục (cùng giọng mặc định của app khi chưa chọn gì).
+  String _voiceToPin() {
+    final recent = _lastExplicitVoice;
+    if (recent != null && recent.isNotEmpty) return recent;
+    for (final key in const ['vi-VN', 'vi']) {
+      final stored = _selected[key];
+      if (stored != null && stored.isNotEmpty) return stored;
+    }
+    return EdgeTtsEngine.catalogVoices.first.id;
+  }
+
+  Future<void> _togglePin(bool value) async {
+    final voice = _voiceToPin();
+    await EdgeVoicePrefs.instance.setPinAllLanguages(value, voiceId: voice);
+    if (!mounted) return;
+    setState(() {
+      _pinAll = value;
+      _pinnedVoice = voice;
+    });
+  }
+
+  Future<void> _setPinnedVoice(String voiceId) async {
+    await EdgeVoicePrefs.instance.setPinnedVoice(voiceId);
+    if (!mounted) return;
+    setState(() => _pinnedVoice = voiceId);
   }
 
   String _langLabel(String code) {
@@ -904,6 +947,14 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
     final voices = EdgeTtsEngine.catalogVoices;
     if (voices.isEmpty) return const SizedBox.shrink();
 
+    TtsVoice? pinnedInCatalog;
+    for (final v in voices) {
+      if (v.id == _pinnedVoice) {
+        pinnedInCatalog = v;
+        break;
+      }
+    }
+
     // Nhóm theo ngôn ngữ (khoá chuẩn hoá), giữ thứ tự ưu tiên của catalog.
     final byLang = <String, List<TtsVoice>>{};
     final order = <String>[];
@@ -930,6 +981,83 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
           ),
           style: TextStyle(fontSize: 10, color: Colors.grey[600]),
         ),
+        const SizedBox(height: 4),
+        // TTS-EDGE-VOICE-003 (nghiệm thu 1.g trên máy thật): tài liệu tiếng
+        // Việt có câu tiếng Anh → câu đó nhận diện `en-US`, chưa được cấu
+        // hình giọng ⇒ Edge đọc bằng Aria (nữ) dù người dùng đã chọn Nam
+        // Minh. Công tắc này cho phép ghim một giọng dùng cho mọi ngôn ngữ
+        // CHƯA chọn giọng riêng; mặc định TẮT.
+        SwitchListTile(
+          key: const Key('edge-voice-pin-switch'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          activeColor: const Color(0xFF64B5F6),
+          value: _pinAll,
+          onChanged: (v) => _togglePin(v),
+          title: Text(
+            context.uiText('Ghim một giọng cho mọi ngôn ngữ'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            context.uiText(
+              'Câu ngoại ngữ trong tài liệu (ví dụ dòng tiếng Anh) sẽ đọc '
+              'bằng giọng ghim. Giọng riêng của từng ngôn ngữ vẫn được ưu '
+              'tiên.',
+            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          ),
+        ),
+        if (_pinAll)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButton<String>(
+                    key: const Key('edge-voice-pin-dropdown'),
+                    isExpanded: true,
+                    // DropdownButton ném assertion nếu `value` không có trong
+                    // `items` — giọng ghim có thể đến từ danh mục LIVE (đã
+                    // fetch mạng) mà catalog offline không có.
+                    value: pinnedInCatalog == null ? null : _pinnedVoice,
+                    dropdownColor: const Color(0xFF1A1A2E),
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(fontSize: 11.5, color: Colors.white),
+                    items: [
+                      for (final v in voices)
+                        DropdownMenuItem<String>(
+                          value: v.id,
+                          child: Text(
+                            '${v.name} ${v.gender == 'male' ? '♂' : '♀'} · '
+                            '${EdgeVoicePrefs.normalizeLang(v.language)}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (id) {
+                      if (id != null) _setPinnedVoice(id);
+                    },
+                  ),
+                ),
+                if (pinnedInCatalog == null && _pinnedVoice != null) ...[
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '${context.uiText('Đang ghim')}: ${_pinnedVoice!}',
+                      style:
+                          const TextStyle(fontSize: 10, color: Colors.white54),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         const SizedBox(height: 8),
         // TTS-EDGE-VOICE-002 (audit 1.f): trước đây đổ THẲNG toàn bộ danh
         // mục (~16 ngôn ngữ × nhiều giọng) thành một rừng RadioListTile —
@@ -944,7 +1072,17 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
             isExplicit: _selected.containsKey(lang),
             onSelected: (id) async {
               await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
-              setState(() => _selected[lang] = id);
+              if (!mounted) return;
+              setState(() {
+                _selected[lang] = id;
+                _lastExplicitVoice = id;
+                // Nhóm "ngôn ngữ khác" chính là ô ghim (xem EdgeVoicePrefs):
+                // chọn giọng ở đây = ghim cho mọi ngôn ngữ chưa cấu hình.
+                if (lang == 'other') {
+                  _pinAll = true;
+                  _pinnedVoice = id;
+                }
+              });
             },
           ),
       ],

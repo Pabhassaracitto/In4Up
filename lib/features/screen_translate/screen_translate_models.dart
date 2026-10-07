@@ -195,6 +195,13 @@ class ScreenTranslateProtocol {
   static const String methodIsRunning = 'isRunning';
   static const String methodSetTargetLanguage = 'setTargetLanguage';
 
+  // XLAT-SCR-003 — tự kiểm tra quyền trước khi hiện bong bóng.
+  /// Trả Map trạng thái quyền (khoá xem [ScreenTranslateNativeStatus]).
+  static const String methodStatus = 'status';
+
+  /// Xin consent MediaProjection NGAY (chỉ gọi khi app đang foreground).
+  static const String methodRequestConsent = 'requestConsent';
+
   // native → Dart (engine nền)
   static const String methodOnFrame = 'onFrame';
   static const String methodOnStopped = 'onStopped';

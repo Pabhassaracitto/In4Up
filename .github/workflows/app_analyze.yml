@@ -262,11 +262,14 @@ jobs:
           path: tts_edge_test.log
           if-no-files-found: ignore
 
-      # XLAT-SCR-002 — Dịch màn hình toàn hệ thống (ADR-0011): bbox OCR,
-      # quy đổi toạ độ capture→overlay, rowStride + hoán kênh R/B, debounce,
-      # pipeline OCR→dịch và giao thức MethodChannel. Thuần Dart (OCR/engine
-      # dịch được bơm giả) nên chạy được trên CI không cần thiết bị.
-      - name: "Screen translate tests — XLAT-SCR-002 (logic thuần)"
+      # XLAT-SCR-002 / XLAT-SCR-003 — Dịch màn hình toàn hệ thống (ADR-0011):
+      # bbox OCR, quy đổi toạ độ capture→overlay, rowStride + hoán kênh R/B,
+      # debounce, pipeline OCR→dịch, giao thức MethodChannel, và MÁY TRẠNG THÁI
+      # QUYỀN (thiếu overlay / thiếu consent / sẵn sàng — XLAT-SCR-003: phần
+      # Kotlin chưa có CI biên dịch nên mọi quyết định quyền đẩy sang Dart).
+      # Thuần Dart (OCR/engine dịch được bơm giả) nên chạy được trên CI không
+      # cần thiết bị.
+      - name: "Screen translate tests — XLAT-SCR-002/003 (logic thuần)"
         id: screen-translate-tests
         run: |
           set +e

@@ -80,6 +80,8 @@
 | TTS-EDGE-VOICE-002 | Giọng Edge: danh sách quá dài (1.f) + chọn giọng nam vẫn nghe giọng nữ (1.g) | 🔄 doing (code + CI 🟢; **chờ nghiệm thu tai nghe trên máy**) | audit 1.f/1.g — picker gập theo ngôn ngữ (ExpansionTile); khoá cache TTS thêm giọng/tốc độ/cao độ, bỏ bất đối xứng `get('any')` vs `put(engine.id)`, prefetch dùng đúng giọng, bậc thang `_resolveEdgeVoice`, nhãn engine kèm tên giọng. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` |
 | LOTTIE-IMPORT-002 | Worklist: nhập Lottie `.json` từ máy không được, dán link báo "ảnh hỏng", Lottie đã lưu hiện icon vỡ trong danh sách | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit mục 2 — `FileType.custom` cho `.json/.lottie`; nhận diện Lottie theo NỘI DUNG (`looksLikeLottieContent`) thay vì đuôi URL; xem trước trước khi tải; thumbnail giao Lottie cho `VocabularyMediaWidget(animate:false)` |
 | DICT-LINK-001 | Từ điển: mất lựa chọn "Liên kết thư mục", lời thoại dung lượng gây hiểu nhầm | 🔄 doing (phần lời + giải thích ✅; phần đọc SAF chờ agent khác) | audit 1.d — Android chỉ cấp `content://` qua SAF nên parser MDX (`RandomAccessFile`) không mở được ⇒ lựa chọn bị ẩn. Hộp thoại nay nói rõ lý do + "bộ từ điển nằm ở HAI nơi". Prompt: `PROMPT_AGENT_DICT_SAF_LINK.md` |
+| OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 📋 proposed (cần máy thật + logcat) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md` |
+| XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 🔨 doing (code + test thuần xong; **CHỜ logcat + nghiệm thu máy thật** — sandbox không có thiết bị/adb/Flutter SDK) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Đã sửa: PendingIntent có opt-in `MODE_BACKGROUND_ACTIVITY_START_ALLOWED` + xin consent ngay khi app còn foreground + watchdog 2.5s + toast/rung ở MỌI nhánh thất bại + máy trạng thái quyền `ScreenTranslatePermissionState` (thuần Dart, có test). Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 📋 proposed | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
@@ -5629,6 +5631,144 @@
     biên dịch Kotlin + nghiệm thu 7 tiêu chí trên máy thật, (b) P1+ (chạm xem
     bản gốc, chọn vùng, vòng lặp capture), (c) P2 script CJK (ADR riêng),
     (d) P2 desktop Linux/Windows.
+
+### XLAT-SCR-003 — Chạm bong bóng "không có gì xảy ra" (dịch màn hình toàn hệ thống)
+
+- **Trạng thái:** 🔨 doing — phần sửa được từ sandbox ĐÃ xong (Kotlin + Dart +
+  i18n + test thuần + ADR). **Còn 2 việc BẮT BUỘC có máy thật, sandbox không
+  làm được:** (a) dựng logcat để ghi lại đúng dòng chặn, (b) nghiệm thu 7 tiêu
+  chí trên Android 12/13/14. Không có adb/Android SDK/Flutter SDK trong sandbox
+  (GCS + pub.dev bị chặn ⇒ cũng không chạy được `flutter analyze`/`test` tại
+  chỗ; CI `app_analyze.yml` là máy bắt).
+- **Nguồn:** chủ dự án, audit 1.j bản 0.10.3 — Home → Cài đặt → bật **Dịch
+  màn hình toàn hệ thống** → bong bóng hiện → **chạm vào không có gì xảy ra**
+  (không overlay, không toast, không lỗi).
+- **Phân tích (3 chặn đề xuất + 2 chặn phát hiện thêm khi đọc code):**
+  1. **Android 10+ chặn `startActivity` từ nền** — `onBubbleTapped()` →
+     `requestConsent()` → `startActivity(...)` từ foreground service. Service
+     KHÔNG nằm trong danh sách được miễn ⇒ hệ thống BỎ QUA lệnh, log chỉ có
+     một dòng `ActivityTaskManager: Background activity start ...`. Đây là
+     nguyên nhân chính. Đường được phép: `PendingIntent` + (API 34+)
+     `ActivityOptions.setPendingIntentBackgroundActivityStartMode(
+     MODE_BACKGROUND_ACTIVITY_START_ALLOWED)`, hoặc xin consent lúc app còn
+     foreground.
+  2. **Android 14 (API 34):** FGS type `mediaProjection` + consent mỗi phiên.
+     Thứ tự bắt buộc theo tài liệu: `createScreenCaptureIntent` (consent) →
+     `startForeground(type=mediaProjection)` → `getMediaProjection` →
+     `createVirtualDisplay`. Code cũ ĐÃ đúng thứ tự này (giữ nguyên).
+  3. **Quyền overlay bị thu hồi** ⇒ `WindowManager.addView` ném, catch in
+     `e.printStackTrace()` rồi `stopEverything()` — im lặng hoàn toàn.
+  4. **(mới, từ tài liệu Android 14)** Một token consent dùng được MỘT lần và
+     `createVirtualDisplay()` bị ném `SecurityException` nếu gọi quá một lần
+     trên cùng `MediaProjection`. Code cũ tạo/gỡ VirtualDisplay sau MỖI lần
+     bấm ⇒ **bấm lần thứ hai trở đi hỏng trên Android 14**. Sửa: tạo
+     VirtualDisplay MỘT LẦN cho cả phiên, mỗi lần bấm chỉ đọc frame mới nhất.
+  5. **(mới)** Chưa xin quyền `POST_NOTIFICATIONS` (runtime, API 33+) ở bất kỳ
+     đâu trong app ⇒ notification của service bị ẩn trên Android 13+ ⇒ user
+     chẳng thấy trạng thái gì (một dạng im lặng khác).
+- **Thi công (agent `arena/92e02500-in4up`, 2026-10-07):**
+  - `ScreenCaptureRequestActivity.kt`: thêm `newPendingIntent()` (opt-in
+    `MODE_BACKGROUND_ACTIVITY_START_ALLOWED` khi TẠO pending intent — đúng
+    khuyến nghị tài liệu Android 14); báo ngược `ACTION_CONSENT_UI_SHOWN` cho
+    service làm bằng chứng "activity đã lên foreground thật"; `IllegalStateException`
+    (background service start) khi gửi kết quả ⇒ tự hạ cấp xuống
+    `startForegroundService`.
+  - `ScreenTranslateService.kt`:
+    - `requestConsent()` gửi PendingIntent (KHÔNG `startActivity`) + **watchdog
+      2.5s**: không nhận được `ACTION_CONSENT_UI_SHOWN` ⇒ kết luận "bị chặn" và
+      hiện thông báo heads-up có thể bấm (hệ thống gửi pending intent khi user
+      bấm thông báo ⇒ được miễn chặn).
+    - `tellUser()` = toast + notification + rung, gọi ở MỌI nhánh thất bại
+      (consent bị chặn / bị từ chối / lỗi projection / thiếu frame / overlay bị
+      thu hồi / engine lỗi / đang dịch). Toast được ưu tiên vì notification có
+      thể bị ẩn do thiếu `POST_NOTIFICATIONS`.
+    - Kênh thông báo riêng `in4up_screen_translate_alert` (IMPORTANCE_HIGH,
+      heads-up) cho các trường hợp "cần user thao tác".
+    - Bong bóng 2 trạng thái: xanh "文A" = sẵn sàng; cam "⚙" = **cần thiết
+      lập**; `OnAttachStateChangeListener` phát hiện hệ thống gỡ bong bóng
+      (mất quyền overlay) ⇒ hướng dẫn mở đúng màn hình Cài đặt.
+    - Mở Cài đặt overlay cũng qua PendingIntent + opt-in; luôn kèm lời hướng
+      dẫn vì nhiều ROM chặn deep-link `ACTION_MANAGE_OVERLAY_PERMISSION`.
+    - VirtualDisplay + ImageReader tạo MỘT LẦN/phiên (chặn #4); `acquireLatestImage()`
+      mỗi lần bấm, thử lại một nhịp 350ms nếu frame đầu chưa kịp có.
+    - Trạng thái phục vụ UI: `isRunning`, `captureConsented`, `consentDenied`,
+      `lastBlockReason` (+ `statusMap()` của plugin).
+  - `ScreenTranslatePlugin.kt`: thêm method `status` (9 khoá) và
+    `requestConsent`; `start` **xin consent ngay khi app còn foreground** (đường
+    chính, không vướng chặn nền) ⇒ lần bấm bong bóng đầu tiên đã có kết quả.
+  - **Dart:** `screen_translate_permission.dart` — máy trạng thái quyền
+    `ScreenTranslatePermissionState` (unsupported / needsOverlayPermission /
+    needsCaptureConsent / consentDenied / ready) + `ScreenTranslateNativeStatus`
+    (đọc map của Kotlin, chịu kiểu lạ) + `ScreenTranslateRecoveryAction`. Thẻ
+    Cài đặt (`screen_translate_card.dart`) chỉ việc đọc máy trạng thái: nói rõ
+    thiếu gì, nút phụ "Cấp lại quyền chụp màn hình", xin `POST_NOTIFICATIONS`
+    trước khi bật, và refresh khi quay lại từ màn hình Cài đặt hệ thống
+    (`didChangeAppLifecycleState`).
+  - **Manifest:** thêm `VIBRATE`; giữ `foregroundServiceType=
+    "mediaProjection|specialUse"` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`; ghi chú
+    kiểm tra chéo `compileSdk 36 / targetSdk 35 / minSdk 24`.
+  - **i18n:** 5 chuỗi chrome mới trong `priority_ui_overrides.dart` đủ
+    en/hi/zh/zh_TW/si; 10 chuỗi service trong `res/values` (mặc định tiếng Anh)
+    + `res/values-vi` (quy tắc vàng #5).
+- **Bằng chứng (máy bắt trong CI):** `test/screen_translate/
+  screen_translate_permission_state_test.dart` — 21 test thuần Dart (5 trạng
+  thái, luật ưu tiên, cảnh báo phụ, mốc API 34, round-trip map Kotlin, kiểu
+  lạ, tên method mới, host VM). Chạy cùng bước "Screen translate tests" đã có
+  trong `app_analyze.yml` (step chạy cả thư mục ⇒ tự nối, không sửa workflow).
+  - CI **run 37655919751 🟢** trên `arena/92e02500-in4up`: `flutter analyze`
+    0 error; bước "Rule 5 test" xanh; bước
+    **"Screen translate tests — XLAT-SCR-002/003" xanh**; các batch test khác
+    (Agent F, READ-GRAM-001, LHB, TTS, Cabin, ASR, I4U18) cũng xanh ⇒ hai lane
+    dịch màn hình (in-app 001 / toàn hệ thống 002-003) không giẫm chân nhau.
+  - ⚠️ Không tải được log chi tiết từ sandbox (`gh run view --log` và artifact
+    đều EOF — đúng bẫy mục 5 của skill `ci-red-debugging`); bằng chứng là
+    trạng thái 🟢 của từng bước trong run.
+  - PR **#92** nhắm `arena/01a0251e-in4up` — CI run **37656761181 🟢**
+    (analyze 0 error + rule #5 + screen translate).
+- **CHƯA làm được (cần owner + máy thật):**
+  - Mục 3.1 của prompt: `adb logcat` ghi lại đúng dòng chặn. Sandbox không có
+    adb/Android SDK ⇒ KHÔNG tự bịa log. Script đã viết sẵn:
+    `scripts/qa/screen_translate_logcat.sh` (chạy trên máy có adb, tự gắn cờ
+    `adb shell setprop log.tag.In4UpScreenTranslate VERBOSE` nếu cần, lọc
+    `in4up|screentranslate|MediaProjection|ActivityTaskManager|WindowManager`,
+    ghi ra `screen_translate_logcat_<timestamp>.txt`).
+  - Mục 4 (nghiệm thu 7 tiêu chí): Android 12/13/14 thật.
+  - Một lượt `flutter build apk --flavor stable` (Kotlin vẫn chưa có CI biên
+    dịch — xem card XLAT-SCR-002).
+  - `flutter analyze` 0 error + 2 bước test xanh: chờ CI run trên nhánh này.
+- **Nghiệm thu (owner, máy thật):**
+  1. Android 12/13: chạm bong bóng → có bản dịch đè ≤3s (consent đã xin lúc
+     bật, KHÔNG cần hộp thoại nữa).
+  2. Android 14: tắt rồi bật lại → hỏi consent lại → vẫn chạy; bấm bong bóng
+     LẦN 2, LẦN 3 vẫn chụp được (chặn #4).
+  3. Thu hồi quyền overlay trong Cài đặt hệ thống → bong bóng biến mất +
+     thông báo/toast hướng dẫn mở đúng màn hình (không im lặng).
+  4. Từ chối consent → thông báo rõ + bong bóng chuyển sang "⚙" cam + app
+     không crash + có thể thử lại.
+  5. Tắt tính năng → overlay + notification + thông báo heads-up + tiến trình
+     ngầm biến mất sạch.
+  6. `flutter analyze` 0 error + bước test locale + screen translate xanh.
+  7. `flutter build apk --flavor stable` thành công.
+- **Lịch sử:**
+  - 2026-10-06 | created (proposed) | agent arena/78cea3c6-in4up | tách từ audit
+    1.j bản 0.10.3; prompt `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md`.
+  - 2026-10-07 | proposed→doing | agent arena/92e02500-in4up | đọc ADR-0011 +
+    card XLAT-SCR-002 + 2 prompt giao việc; kiểm chứng 3 chặn bằng tài liệu
+    chính thức (FGS types: mediaProjection cần consent TRƯỚC startForeground;
+    Android 14: 1 token = 1 `createVirtualDisplay`); phát hiện thêm chặn #4
+    (VirtualDisplay tạo lại mỗi lần bấm) và #5 (thiếu POST_NOTIFICATIONS).
+    Sửa Kotlin (PendingIntent + opt-in + watchdog + toast/rung + bong bóng 2
+    trạng thái + VirtualDisplay 1 lần/phiên), thêm máy trạng thái quyền thuần
+    Dart + 21 test, i18n đủ 5 locale, bổ sung bản sửa đổi ADR-0011 (mục 4, 5,
+    12, 13). **Ghi rõ giới hạn: chưa có logcat/nghiệm thu máy thật.**
+  - 2026-10-07 | 17:00 UTC | doing→doing | agent arena/92e02500-in4up | CI
+    run **37655919751 🟢**: `flutter analyze` 0 error + rule #5 + step
+    "Screen translate tests — XLAT-SCR-002/003" + mọi batch test khác đều
+    xanh. Mở **PR #92** nhắm `arena/01a0251e-in4up` (CI run 37656761181 🟢).
+    5 commit nhỏ (Kotlin / Dart+i18n / test / docs / ghi CI). Chờ: logcat máy
+    thật (script `scripts/qa/screen_translate_logcat.sh`), nghiệm thu 7 tiêu
+    chí, và một lượt `flutter build apk --flavor stable` (Kotlin chưa có CI
+    biên dịch).
 
 ### AUDIT-0103 — Đợt kiểm định bản 0.10.3 của chủ dự án (10 mục)
 

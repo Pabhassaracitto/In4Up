@@ -1,17 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  XLAT-SCR-002 — chuỗi chrome của service "Dịch màn hình toàn hệ thống".
+  XLAT-SCR-002 / XLAT-SCR-003 — chuỗi chrome của service "Dịch màn hình toàn
+  hệ thống".
 
   Quy tắc vàng #5 (AGENTS.md): bản MẶC ĐỊNH ở đây là TIẾNG ANH. Máy đặt
   locale khác tiếng Việt sẽ thấy English, KHÔNG bao giờ rơi về tiếng Việt.
   Bản tiếng Việt nằm ở res/values-vi/strings_screen_translate.xml.
+
+  XLAT-SCR-003: mọi chuỗi mới đều thuộc nhánh "bong bóng KHÔNG làm được việc"
+  — luật bắt buộc là mỗi nhánh thất bại phải có thông điệp nói rõ bước tiếp
+  theo, không được để trống (triệu chứng 0.10.3: bấm bong bóng ⇒ không có gì).
 -->
 <resources>
     <string name="screen_translate_title">Screen translator</string>
     <string name="screen_translate_channel">Screen translator</string>
+    <string name="screen_translate_alert_channel">Screen translator — action needed</string>
     <string name="screen_translate_bubble_label">文A</string>
+    <!-- Bong bóng ở trạng thái "cần thiết lập" (chưa có quyền chụp màn hình). -->
+    <string name="screen_translate_bubble_setup_label">⚙</string>
     <string name="screen_translate_idle">Tap the bubble to translate this screen</string>
+    <string name="screen_translate_idle_consent">Tap the bubble, then allow screen capture</string>
     <string name="screen_translate_consent">Waiting for screen capture permission…</string>
+    <string name="screen_translate_consent_denied">Screen capture was refused. Tap the bubble to try again.</string>
+    <string name="screen_translate_consent_blocked">Android blocked the permission screen from the background. Tap this notification to allow screen capture.</string>
+    <string name="screen_translate_consent_retry">Screen capture could not be started. Tap the bubble to grant it again.</string>
+    <string name="screen_translate_overlay_revoked">Permission to draw over other apps was turned off. Turn it back on in Settings to use the translate bubble.</string>
+    <string name="screen_translate_capture_lost">The screen capture session ended. Tap the bubble to start it again.</string>
+    <string name="screen_translate_busy">Still translating the previous screen, one moment…</string>
+    <string name="screen_translate_hidden">Translation hidden. Tap the bubble to translate again.</string>
     <string name="screen_translate_working">Reading and translating the screen…</string>
     <string name="screen_translate_done">Translation shown — tap the bubble to hide</string>
     <string name="screen_translate_done_engine">Translated with %1$s — tap the bubble to hide</string>

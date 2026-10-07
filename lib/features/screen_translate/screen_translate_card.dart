@@ -1,21 +1,28 @@
 // lib/features/screen_translate/screen_translate_card.dart
 //
 // Thẻ bật/tắt "Dịch màn hình toàn hệ thống" trong Quản lý Model AI
-// (XLAT-SCR-002 · ADR-0011).
+// (XLAT-SCR-002 · ADR-0011 · sửa XLAT-SCR-003).
 //
 // Nền tảng không phải Android: thẻ vẫn hiện nhưng ở trạng thái "chỉ Android"
 // và mọi nút bị khoá — tiêu chí nghiệm thu #6 (desktop không hỏng, không
 // bày nút bấm vào thì lỗi).
+//
+// XLAT-SCR-003: thẻ KHÔNG tự đoán quyền nữa — mọi quyết định đi qua
+// `ScreenTranslatePermissionResolver` (thuần Dart, có test). Thiếu overlay hay
+// thiếu consent thì thẻ nói RÕ thiếu gì và mở đúng màn hình cài đặt, thay vì
+// để user bật bong bóng xong bấm vào không thấy gì.
 //
 // i18n: mọi chuỗi đi qua `context.uiText(...)` và đã đăng ký trong
 // `lib/core/language/priority_ui_overrides.dart` đủ en/hi/zh/zh_TW/si
 // (quy tắc vàng #5).
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/language/app_language.dart';
 import '../translation/translation_language_picker.dart';
 import 'screen_translate_channel.dart';
+import 'screen_translate_permission.dart';
 import 'screen_translate_prefs.dart';
 
 class ScreenTranslateCard extends StatefulWidget {
@@ -28,32 +35,48 @@ class ScreenTranslateCard extends StatefulWidget {
   State<ScreenTranslateCard> createState() => _ScreenTranslateCardState();
 }
 
-class _ScreenTranslateCardState extends State<ScreenTranslateCard> {
+class _ScreenTranslateCardState extends State<ScreenTranslateCard>
+    with WidgetsBindingObserver {
   late final ScreenTranslateChannel _channel =
       widget.channel ?? ScreenTranslateChannel();
 
-  bool _supported = false;
-  bool _hasOverlay = false;
-  bool _running = false;
+  static const ScreenTranslatePermissionResolver _resolver =
+      ScreenTranslatePermissionResolver();
+
   bool _busy = false;
   String _target = kScreenTranslateDefaultTarget;
+  ScreenTranslateNativeStatus _status = ScreenTranslateNativeStatus.fallback;
+
+  /// Máy trạng thái quyền — nguồn duy nhất quyết định UI.
+  ScreenTranslatePermissionSnapshot get _state => _resolver.resolve(_status);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refresh();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Quay lại từ màn hình Cài đặt hệ thống (cấp quyền overlay / consent) ⇒
+  /// đọc lại trạng thái. Không có bước này thì user phải tắt/mở lại màn hình
+  /// mới thấy quyền vừa cấp — đúng kiểu "im lặng" mà card này phải chữa.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
   Future<void> _refresh() async {
-    final supported = await _channel.isSupported();
-    final overlay = supported ? await _channel.hasOverlayPermission() : false;
-    final running = supported ? await _channel.isRunning() : false;
+    final status = await _channel.status();
     final target = await loadScreenTranslateTarget();
     if (!mounted) return;
     setState(() {
-      _supported = supported;
-      _hasOverlay = overlay;
-      _running = running;
+      _status = status;
       _target = target;
     });
   }
@@ -62,21 +85,25 @@ class _ScreenTranslateCardState extends State<ScreenTranslateCard> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      if (_running) {
+      final state = _state;
+      if (state.status.running) {
         await _channel.stop();
-        if (!mounted) return;
-        setState(() => _running = false);
         return;
       }
-      if (!_hasOverlay) {
+      if (state.state ==
+          ScreenTranslatePermissionState.needsOverlayPermission) {
+        // Quyền được cấp ở màn hình Settings của hệ thống → quay lại mới biết
+        // kết quả; user bấm lại nút là đủ (không poll nền tốn pin).
         await _channel.requestOverlayPermission();
-        // Quyền được cấp ở màn hình Settings của hệ thống → quay lại mới
-        // biết kết quả; user bấm lại nút là đủ (không poll nền tốn pin).
         return;
+      }
+      if (state.notificationsBlocked) {
+        // Android 13+ chưa cấp POST_NOTIFICATIONS ⇒ notification của service
+        // bị ẨN, user sẽ không bao giờ thấy trạng thái (một dạng im lặng).
+        await Permission.notification.request();
       }
       final started = await _channel.start(targetLanguage: _target);
       if (!mounted) return;
-      setState(() => _running = started);
       if (!started) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -96,20 +123,64 @@ class _ScreenTranslateCardState extends State<ScreenTranslateCard> {
     }
   }
 
+  /// Nút phụ: cấp lại consent MediaProjection khi đang ở foreground.
+  Future<void> _reconsent() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await _channel.requestConsent();
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+        await _refresh();
+      }
+    }
+  }
+
   Future<void> _onLanguageSelected(AppLanguage language) async {
     final code = await saveScreenTranslateTarget(language.translationCode);
     if (!mounted) return;
     setState(() => _target = code);
-    if (_running) await _channel.setTargetLanguage(code);
+    if (_state.status.running) await _channel.setTargetLanguage(code);
+  }
+
+  /// Chuỗi nguồn tiếng Việt (đi qua `uiText` ⇒ có đủ en/hi/zh/zh_TW/si).
+  /// Rỗng = không có gì cần báo.
+  String _statusMessage() {
+    final state = _state;
+    if (state.state == ScreenTranslatePermissionState.unsupported) return '';
+    if (state.state == ScreenTranslatePermissionState.needsOverlayPermission) {
+      return 'Cần quyền "Hiển thị trên ứng dụng khác" để vẽ bong bóng và bản dịch.';
+    }
+    if (state.state == ScreenTranslatePermissionState.consentDenied) {
+      return 'Bạn đã từ chối quyền chụp màn hình, nên bấm bong bóng chưa chụp được. Có thể cấp lại quyền bất cứ lúc nào.';
+    }
+    if (state.state == ScreenTranslatePermissionState.needsCaptureConsent) {
+      // blockedBySystem = Android đã nuốt lệnh mở màn hình xin quyền từ nền;
+      // khi ấy chỉ còn cách mở app rồi cấp quyền từ bên trong.
+      return state.blockedBySystem
+          ? 'Android vừa chặn việc mở màn hình xin quyền từ chạy nền. Hãy mở ứng dụng In4Up lên rồi bấm "Cấp lại quyền chụp màn hình".'
+          : 'Chưa có quyền chụp màn hình cho phiên này. Bấm bong bóng rồi chọn "Bắt đầu ngay", hoặc cấp lại quyền ngay bên dưới.';
+    }
+    if (state.notificationsBlocked) {
+      return 'Thông báo đang bị tắt nên bạn sẽ không thấy trạng thái dịch. Hãy bật thông báo để theo dõi.';
+    }
+    return '';
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = _state;
     final target = AppLanguageCatalog.fromCode(
       _target,
       fallback: AppLanguageCatalog.vietnamese,
     );
     final androidOnly = !ScreenTranslateChannel.platformSupported;
+    final message = _statusMessage();
+    final orange = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(color: Colors.orangeAccent);
 
     return Card(
       elevation: 2,
@@ -162,43 +233,64 @@ class _ScreenTranslateCardState extends State<ScreenTranslateCard> {
               ],
             ),
             const SizedBox(height: 12),
-            if (_supported && !_hasOverlay)
+            if (message.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  context.uiText(
-                    'Cần quyền "Hiển thị trên ứng dụng khác" để vẽ bong bóng và bản dịch.',
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.orangeAccent,
-                      ),
+                  context.uiText(message),
+                  style: orange,
                 ),
               ),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: Icon(
-                  _running
+                  state.status.running
                       ? Icons.stop_circle_outlined
                       : Icons.bubble_chart_outlined,
                 ),
                 label: Text(
-                  !_supported
+                  !state.status.supported
                       ? context.uiText('Chỉ có trên Android')
-                      : !_hasOverlay
-                          ? context.uiText('Cấp quyền hiển thị trên ứng dụng khác')
-                          : _running
+                      : state.state ==
+                              ScreenTranslatePermissionState
+                                  .needsOverlayPermission
+                          ? context
+                              .uiText('Cấp quyền hiển thị trên ứng dụng khác')
+                          : state.status.running
                               ? context.uiText('Tắt bong bóng dịch')
                               : context.uiText('Bật bong bóng dịch'),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _running ? Colors.red.shade700 : Colors.lightBlue.shade700,
+                  backgroundColor: state.status.running
+                      ? Colors.red.shade700
+                      : Colors.lightBlue.shade700,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: (!_supported || _busy) ? null : _toggle,
+                onPressed: (state.state ==
+                            ScreenTranslatePermissionState.unsupported ||
+                        _busy)
+                    ? null
+                    : _toggle,
               ),
             ),
+            // Chỉ hiện khi service ĐANG chạy mà thiếu consent (máy trạng thái
+            // trả requestCaptureConsent đúng trong trường hợp đó).
+            if (state.action ==
+                ScreenTranslateRecoveryAction.requestCaptureConsent)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.screen_share_outlined),
+                    label: Text(
+                      context.uiText('Cấp lại quyền chụp màn hình'),
+                    ),
+                    onPressed: _busy ? null : _reconsent,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             Text(
               context.uiText(

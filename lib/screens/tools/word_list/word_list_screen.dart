@@ -21,6 +21,7 @@ import '../../memory_mode/controllers/memory_controller.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../features/vocab_image/vocab_image_quick_add.dart';
 import '../../../features/vocab_image/vocab_image_thumbnail.dart';
+import '../../../features/vocab_image/vocab_media_slots_editor.dart';
 import 'knowledge_graph_screen.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
@@ -1612,6 +1613,8 @@ class _WordListScreenState extends State<WordListScreen> {
     final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
     String? selectedImagePath = entry.imageUrl;
+    // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (slot 2) của màn sửa từ.
+    String? selectedImagePath2 = entry.imageUrl2;
 
     showModalBottomSheet(
       context: context,
@@ -1658,14 +1661,19 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
                     const SizedBox(height: 12),
-                    // Image picker
+                    // VOCAB-MEDIA-003 (ADR-0012) — ô minh họa 2 khung (ảnh
+                    // chính + ảnh phụ), menu mỗi khung: Đổi/Xoá/Đặt làm chính.
                     Center(
-                      child: VocabImagePicker(
+                      child: VocabMediaSlotsEditor(
                         word: wordC.text,
                         meaning: meanC.text,
-                        currentImageUrl: selectedImagePath,
-                        onImageChanged: (path) => setS(() => selectedImagePath = path),
-                        size: 120,
+                        primaryUrl: selectedImagePath,
+                        secondaryUrl: selectedImagePath2,
+                        onChanged: (a, b) => setS(() {
+                          selectedImagePath = a;
+                          selectedImagePath2 = b;
+                        }),
+                        size: 110,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1780,7 +1788,10 @@ class _WordListScreenState extends State<WordListScreen> {
                               languages: selectedLangs.toList(),
                               vocabType: selectedType,
                             );
-                            p.updateImageUrl(entry.id, selectedImagePath);
+                            // VOCAB-MEDIA-003: ghi cả 2 slot (updateMediaSlots
+                            // tự giữ quy tắc promote khi xoá ảnh chính).
+                            p.updateMediaSlots(
+                                entry.id, selectedImagePath, selectedImagePath2);
                             if (noteC.text.trim().isNotEmpty) {
                               p.updateNotes(entry.id, noteC.text.trim());
                             }
@@ -2167,18 +2178,6 @@ class _CompactListItem extends StatelessWidget {
         Divider(color: Colors.white.withValues(alpha: 0.06), height: 4),
         const SizedBox(height: 8),
 
-        // Vocab Image Thumbnail
-        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
-          Center(
-            child: VocabImageThumbnail(
-              imageUrl: entry.imageUrl,
-              size: 80,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-
         // Contexts
         if (entry.contexts.isNotEmpty) ...[
           _SectionHeader(
@@ -2276,38 +2275,22 @@ class _CompactListItem extends StatelessWidget {
           const SizedBox(height: 8),
         ],
 
-        // Image (if exists)
-        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
-          const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),
-          const SizedBox(height: 6),
-          Center(
-            child: VocabImageThumbnail(
-              imageUrl: entry.imageUrl,
-              size: 120,
-              borderRadius: BorderRadius.circular(12),
-            ),
+        // VOCAB-MEDIA-003 (ADR-0012) — ô minh họa 2 khung (ảnh chính + ảnh
+        // phụ); khung trống có nút "+", mỗi khung có menu Đổi/Xoá/Đặt làm ảnh
+        // chính. Danh sách (thu nhỏ) vẫn chỉ hiện 1 thumbnail ảnh chính.
+        const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),
+        const SizedBox(height: 6),
+        Center(
+          child: VocabMediaSlotsEditor(
+            wordId: entry.id,
+            word: entry.word,
+            meaning: entry.meaning,
+            primaryUrl: entry.imageUrl,
+            secondaryUrl: entry.imageUrl2,
+            size: 120,
           ),
-          const SizedBox(height: 8),
-        ],
-
-        // Image picker (always show in expanded for adding/editing)
-        if (entry.imageUrl == null || entry.imageUrl!.isEmpty) ...[
-          const _SectionHeader(icon: Icons.add_photo_alternate_outlined, label: 'Thêm hình ảnh'),
-          const SizedBox(height: 6),
-          Center(
-            child: VocabImagePicker(
-              wordId: entry.id,
-              word: entry.word,
-              meaning: entry.meaning,
-              currentImageUrl: entry.imageUrl,
-              onImageChanged: (path) {
-                // Image already saved by VocabImagePicker via provider
-              },
-              size: 100,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+        ),
+        const SizedBox(height: 8),
 
         // Notes
         if (entry.personalNotes != null && entry.personalNotes!.isNotEmpty) ...[

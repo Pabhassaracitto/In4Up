@@ -233,6 +233,7 @@ jobs:
           files=""
           for f in test/edge_tts_engine_test.dart \
                    test/edge_voice_prefs_test.dart \
+                   test/tts_cache_key_test.dart \
                    test/tts_api_wp4_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
@@ -305,6 +306,7 @@ jobs:
           set +e
           files=""
           for f in test/read_mode/read_text_action_runner_test.dart \
+                   test/read_mode/word_range_selection_test.dart \
                    test/translation/mixed_language_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done

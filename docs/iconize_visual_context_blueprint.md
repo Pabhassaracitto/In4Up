@@ -7,7 +7,7 @@ Hệ thống học từ vựng qua Ngữ cảnh Thị giác — "Direct Visual A
 - **Hội đồng:** MAX (điều phối) · Claude (Kiến trúc) · ChatGPT (Học thuật) ·
   Gemini (Dữ liệu) · Grok (Phản biện đỏ).
 - **ADR đi kèm:** `docs/adr/0013-iconize-visual-context.md` (Proposed).
-- **Card KANBAN:** `ICONIZE-001` (📋 proposed, 8 lane a–h).
+- **Card KANBAN:** `ICONIZE-001` (📋 proposed, 9 lane: a–h + d2 (Tab Đọc v1 trước, Tab Hiểu v1.1)).
 - **Prompt gốc của hội đồng:** `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md` (gốc repo).
 
 ---
@@ -254,8 +254,23 @@ WidgetSpan(
 
 ## 4. Khối B — Nút "Icon hóa" trong panel dịch
 
-- **Vị trí:** `translation_toolbar.dart`, `pdf_page_translate_panel.dart`,
-  panel dịch Tab Hiểu, Web reader.
+### 4.0 Thứ tự rollout bề mặt (chốt với owner 2026-10-07)
+
+Owner phân vân "Tab Đọc hay Tab Hiểu" — chốt: **không hoặc–hoặc, chỉ là thứ tự**.
+Engine là pure function + toggle lưu per-surface nên thêm bề mặt sau gần như
+miễn phí. Thứ tự:
+
+- **v1 (lane 001d):** Tab Đọc — `pdf_page_translate_panel.dart` + Web reader.
+  Lý do: (1) thời gian đọc tập trung ở đây; (2) pha ENCODE của Direct Visual
+  Anchoring Loop xảy ra khi gặp từ trong bài đọc thật; (3) nguồn câu ví dụ ưu
+  tiên #1 ("ngữ cảnh user đã gặp từ") sinh ra từ Tab Đọc — không có Iconize ở
+  đây thì chuỗi ENCODE → RETRIEVE hụt đầu vào; (4) hạ tầng dày nhất (word tap
+  sheet, CEFR/POS, panel dịch trang).
+- **v1.1 (lane 001d2, sau nghiệm thu v1):** `translation_toolbar.dart` dùng
+  chung + panel dịch Tab Hiểu — lúc này chỉ là gắn nút gọi engine đã chạy ổn.
+
+- **Vị trí (đủ 4 bề mặt khi xong v1.1):** `translation_toolbar.dart`,
+  `pdf_page_translate_panel.dart`, panel dịch Tab Hiểu, Web reader.
 - **Tương tác:** chạm = bật/tắt toggle; **long-press = mở Density Slider popup**
   (3 nấc Low/Medium/High), mặc định gợi ý theo CEFR tự khai (mục 3.3).
 - **Trạng thái lưu:** per-surface, khóa `iconize_enabled_<surface_id>`, không global.
@@ -500,14 +515,15 @@ class DocumentIconOverride {
 Xem `docs/adr/0013-iconize-visual-context.md` (Status: Proposed — chờ owner
 duyệt). Số 027 trong bản hội đồng là sai; đã sửa theo chuỗi ADR thật của repo.
 
-## 12. Breakdown KANBAN (8 lane trong card ICONIZE-001, mỗi PR ≤ 500 dòng)
+## 12. Breakdown KANBAN (9 lane trong card ICONIZE-001 — a–h + d2, mỗi PR ≤ 500 dòng)
 
 | # | Lane | Nội dung | Phụ thuộc |
 |---|---|---|---|
 | ICONIZE-001a | Build tool + asset | `tool/build_icon_map.dart`, sinh `concreteness.bin`, `icons_bundle.bin`, `icon_index.bin` với Magic Header | — |
 | ICONIZE-001b | Iconize Engine core | `IconizeEngine`, data classes, lemmatize+POS, lookup `(lemma,POS)`, unit test bộ vàng | 001a |
 | ICONIZE-001c | Guard + fallback + Bridge-to-English | Cognitive-load guard theo density, fallback 4 tầng, Bridge-to-English | 001b |
-| ICONIZE-001d | UI toggle + Density Slider | Toggle trong 4 bề mặt, popup density, render `WidgetSpan`+`Semantics`, error badge binary corrupt; **quyết định visibility_detector vs virtualization sẵn có** | 001b, 001c |
+| ICONIZE-001d | UI toggle + Density Slider — **Tab Đọc (v1)** | Toggle ở `pdf_page_translate_panel` + Web reader, popup density, render `WidgetSpan`+`Semantics`, error badge binary corrupt; **quyết định visibility_detector vs virtualization sẵn có** | 001b, 001c |
+| ICONIZE-001d2 | UI toggle — **toolbar chung + Tab Hiểu (v1.1)** | Gắn toggle vào `translation_toolbar.dart` dùng chung + panel dịch Tab Hiểu; tái dùng toàn bộ widget/popup của 001d, chỉ thêm surface_id mới | 001d **+ nghiệm thu v1 của owner** |
 | ICONIZE-001e | Câu ví dụ thị giác | Pipeline Tatoeba 6 tầng, schema additive `WordEntry`, hiển thị word tap sheet | 001b |
 | ICONIZE-001f | Smart Cloze + scaffolding | Thuật toán rút giàn giáo (quality 0..5), hint ladder context-aware, chấm → SM-2/FSRS, nudge 30 ngày | 001e |
 | ICONIZE-001g | Power-user: override & blacklist | Per-document override (box riêng, prefix chuẩn), blacklist toàn cục đồng bộ qua kênh sẵn có | 001b, 001d |

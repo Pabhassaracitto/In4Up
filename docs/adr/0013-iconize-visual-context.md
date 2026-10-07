@@ -49,6 +49,12 @@ dữ liệu additive.
 10. Schema `WordEntry` additive (`visualExample`, `visualExampleSource`,
     `visualScaffoldStage` default 2) theo tiền lệ `phoneticSource`/`imageUrl2`;
     rà mọi serializer trong `lib/services/`.
+11. **Thứ tự rollout bề mặt (chốt với owner 2026-10-07):** v1 chỉ Tab Đọc
+    (`pdf_page_translate_panel` + Web reader) — nơi pha ENCODE xảy ra và nguồn
+    "ngữ cảnh user đã gặp từ" sinh ra; v1.1 (lane 001d2, SAU nghiệm thu v1)
+    mới gắn `translation_toolbar` dùng chung + panel dịch Tab Hiểu. Không phải
+    hoặc–hoặc: engine pure function + toggle per-surface nên bề mặt sau chỉ là
+    gắn nút.
 
 ## Consequences
 
@@ -65,7 +71,8 @@ dữ liệu additive.
 
 ## Work breakdown
 
-Card KANBAN `ICONIZE-001` — 8 lane a–h, mỗi PR ≤ 500 dòng, thứ tự:
-asset build tool → engine core → guard/fallback/bridge → UI toggle →
-câu ví dụ → Smart Cloze → override/blacklist → test hiệu năng.
+Card KANBAN `ICONIZE-001` — 9 lane (a–h + d2), mỗi PR ≤ 500 dòng, thứ tự:
+asset build tool → engine core → guard/fallback/bridge → UI toggle Tab Đọc (v1)
+→ câu ví dụ → Smart Cloze → override/blacklist → test hiệu năng; lane 001d2
+(toolbar chung + Tab Hiểu, v1.1) chỉ mở sau nghiệm thu v1 của owner.
 Chi tiết: blueprint mục 12.

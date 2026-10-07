@@ -92,6 +92,24 @@ jobs:
           path: i4u18_lib_test.log
           if-no-files-found: ignore
 
+      - name: "ICONIZE-001b tests — engine core + reader nhị phân (logic thuần)"
+        id: iconize-tests
+        run: |
+          set +e
+          files="test/iconize/iconize_binary_test.dart test/iconize/iconize_lemmatizer_test.dart test/iconize/iconize_engine_golden_test.dart"
+          flutter test $files > iconize_test.log 2>&1
+          code=$?
+          cat iconize_test.log
+          exit $code
+
+      - name: Upload ICONIZE test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-iconize-test-log
+          path: iconize_test.log
+          if-no-files-found: ignore
+
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
         id: locale-test
         run: |

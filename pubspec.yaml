@@ -161,6 +161,7 @@ flutter:
   assets:
     - assets/dictionary/ 
     - assets/icons/   
+    - assets/iconize/
     - assets/whisper_models/
     - assets/glossary/
     # Optional small/demo normalized Tipiṭaka DB. Production builds may omit

@@ -6116,3 +6116,17 @@
     từ Conc.M ≥ 3.5). Phát hiện tiện: file Brysbaert có sẵn cột SUBTLEX +
     Dom_Pos → câu hỏi mở #5 khỏi cần COCA. Còn CHỜ: loader Dart lane 001b
     đọc format theo hợp đồng `tool/iconize/README.md`.
+  - 2026-10-08 (b): **lane 001b code xong** (agent arena/3ad55219-in4up) —
+    `lib/features/iconize/` (models + reader nhị phân + lemmatizer + engine
+    thuần Dart; `iconize_assets.dart` là file duy nhất chạm Flutter, lỗi
+    asset → null + badge theo blueprint 3.8, không crash). Test
+    `test/iconize/` 3 file: reader trên asset thật, lemmatizer (bất quy tắc
+    + luật đuôi), **bộ vàng 53 câu** + 7 test hành vi (guard URL/`__G{n}__`/
+    backtick/danh từ riêng, density đơn điệu + sàn 1 icon, idempotency,
+    lang≠en rỗng). Kỳ vọng golden đã đối chiếu bằng mô phỏng Python trên
+    asset thật: 53/53 khớp (2 vòng sửa: second-chance số nhiều "drums",
+    hạn chế Dom_Pos với "taste"). CI: nối step ICONIZE-001b vào
+    `app_analyze.yml`; pubspec đăng ký `assets/iconize/`. Hạn chế v1 ghi
+    trong code: POS theo Dom_Pos Brysbaert, adapter sentence_structure +
+    Bridge-to-English + fallback user-image/CDN = lane 001c. CÒN CHỜ:
+    CI xanh (sandbox không có Flutter SDK) + nghiệm thu thiết bị.

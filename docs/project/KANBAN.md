@@ -87,7 +87,7 @@
 | OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
-| VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 📋 proposed | audit mục 2 (phần còn lại) — `WordEntry.imageUrl` là MỘT trường; cần thêm `imageUrl2` additive + sửa các màn hiển thị. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
+| VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 🔨 doing (code + test thuần; chờ CI + nghiệm thu máy) | audit mục 2 (phần còn lại) — ADR-0012: `imageUrl2` additive (không migration) + `mediaPaths`/`setMediaSlot` promote + `swapMediaSlots`; sheet thêm nguồn thứ 4 "Hoạt ảnh" (endpoint cấu hình được + fallback Wikimedia Commons, chỉ ô đang hiện mới chạy); ô 2 khung trong sửa từ/chi tiết. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -6072,3 +6072,64 @@
     (run `37653016584`); 9 commit cũ (`73789dd`, `b556c12`, `f87c288`, `5849b89`,
     `d1b3477`, `a574ebc`, `469522f`, `2b271bf`, `e1e1f62`) chỉ còn trong lịch sử
     Actions + reflog máy agent. PR #90 vẫn mở vào `arena/01a0251e-in4up`.
+
+### VOCAB-MEDIA-003 — 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation
+- **Trạng thái:** 🔨 doing — code + test thuần xong 2026-10-07; chờ CI
+  (`app_analyze.yml`) + nghiệm thu thiết bị (cuộn 50 ô animation, 2 ảnh trên
+  máy thật).
+- **Nguồn:** owner (audit 0.10.3 mục 2, phần còn lại) — prompt
+  `PROMPT_AGENT_VOCAB_TWO_IMAGES.md`; thiết kế đã chốt trước khi code (§3 của
+  prompt), ghi thành ADR-0012.
+- **Quyết định (ADR-0012):**
+  - `WordEntry.imageUrl2` + `MemoryItem.imageUrl2` — additive, `toJson` chỉ ghi
+    khi có giá trị, dữ liệu cũ mở bình thường (không migration).
+  - Getter `mediaPaths` (lọc null/rỗng) + `setMediaSlot` (xoá slot 1 khi có
+    slot 2 ⇒ **slot 2 lên thay**, không mất dữ liệu) + `swapMediaSlots`
+    ("Đặt làm ảnh chính", no-op khi slot 2 trống để giữ invariant).
+  - Sheet vẫn trả `VocabImagePickResult`; **caller** quyết định slot.
+- **Hiện thực:**
+  - Model/serializer: `word_entry.dart`, `memory_item.dart` (+`_copyWith`
+    `clearImageUrl2`, `removePrimaryMedia`), `memory_controller.dart`
+    (`updateImageUrl` promote + `updateImageUrl2`), `memory_provider.dart`,
+    `vocabulary_provider.dart` (`updateImageUrl2`, `updateMediaSlots`,
+    `swapImageSlots`), `word_list_models.dart`, `word_entry_migrator.dart`.
+  - Sync: `VocabSyncService` đi map JSON nguyên khối từ Hive → không cần sửa
+    (đã rà `lib/services/`: không serializer nào khác bỏ sót trường).
+  - CSV: export thêm cột `image_url_2` ở cuối; import thêm alias
+    `image_url_2`/`ảnh 2`/`animation2`… + parser đuôi media 2 cột (mọi nhánh
+    `_anchorAlign`/`_mergeIntoMeaningNoIpa`/shift-left); materializer tải theo
+    `slot`.
+  - UI: `vocab_media_slots_editor.dart` (MỚI) — ô 2 khung, menu Đổi/Xoá/Đặt
+    làm ảnh chính; dùng ở sheet sửa từ (local, lưu bằng `updateMediaSlots`) và
+    ở mục chi tiết trong danh sách (ghi thẳng provider). Danh sách vẫn 1
+    thumbnail (`imageUrl`); mặt sau flashcard (Vườn nhớ) và màn ôn từ hiện cả
+    2 ảnh cạnh nhau.
+  - Thư viện animation: `vocab_animation_library.dart` (MỚI) — cấu hình prefs
+    `vocab_animation_endpoint` + `vocab_animation_api_key` (không hard-code key
+    nào), mặc định Wikimedia Commons (`filemime:application/json`, không cần
+    key), parser thuần `parseAnimationLibraryJson` +
+    `parseCommonsAnimations`; chỉ tải khi mở tab + bấm Tìm (không tải lúc mở
+    app); bấm ô ⇒ dialog xem trước lớn ⇒ "Lưu vào từ này"
+    (`fetchPreviewBytes` → `saveFromBytes`, một lần tải duy nhất).
+  - Hiệu năng: ô lưới chỉ chạy khi nằm trong khung nhìn; ô chưa từng hiện
+    không tải gì; thumbnail/ô sửa từ luôn `animate: false`.
+  - i18n: 18 chuỗi mới đủ `en/hi/zh/zh_TW/si` trong `priority_ui_overrides.dart`
+    (rule #5); `tool/generate_arbs.py` KHÔNG chạy.
+- **Máy bắt:** bước mới "VOCAB-MEDIA-003 tests — 2 ảnh mỗi từ + thư viện
+  animation (logic thuần)" trong `app_analyze.yml` —
+  `test/vocab_two_images_test.dart` (dữ liệu cũ thiếu key, round-trip,
+  `mediaPaths`, promote, swap; MemoryItem tương ứng),
+  `test/vocab_animation_library_test.dart` (parser endpoint + Commons),
+  `test/word_import_parser_image_url2_test.dart` (CSV 2 cột media + hồi quy
+  1 cột), cộng 3 file vocab cũ (`word_import_parser_image_url_test`,
+  `memory_item_image_url_test`, `vocab_media_type_test`,
+  `vocab_image_search_test`).
+- **AT (theo prompt §5):** 1 ảnh → màn cũ y như trước; 2 ảnh → chỉ hiện thêm ở
+  chi tiết/mặt sau, danh sách vẫn 1 thumbnail; xoá ảnh chính khi có 2 ảnh ⇒
+  ảnh phụ lên thay; mở file dữ liệu cũ chạy bình thường; cuộn 50 ô animation
+  không giật/nóng máy; `flutter analyze` 0 error + test xanh.
+- **Lịch sử:**
+  - 2026-10-07 | proposed→doing | agent arena/d3c5b2cb-in4up | ADR-0012 +
+    code model/sync/UI/thư viện animation + 3 file test thuần + bước CI;
+    chưa có run CI/PR tại thời điểm ghi (sandbox không có Flutter SDK —
+    chờ CI GitHub).

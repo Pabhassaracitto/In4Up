@@ -6186,3 +6186,11 @@
   - 2026-10-07 | proposed→doing | agent arena/af0abe2f-in4up | mở session mới sau khi PR #95
     bị đóng; vá cổng CI của nhánh nền trước (main_shell syntax), sau đó thêm harness C-31 +
     3 fix bảo toàn trạng thái; PR mở vào `main`.
+  - 2026-10-07 | doing (không đổi trạng thái) | agent arena/af0abe2f-in4up | CI 🟢 **run
+    37692296674** @ `6d7ed2f` (analyze 0 error + mọi bước test scoped xanh) — lần đầu nhánh
+    này xanh sau 8 run đỏ liên tiếp của bản nền; PR **#96** → `main` checks xanh. Đường hợp
+    nhất: nhánh **743 ahead / 41 behind** `main` (merge-base `82d7c56`), GitHub báo
+    conflicting ⇒ cần quyết định lineage của người sở hữu (MAIN-RESTORE-001 / GOVERNANCE
+    §4b content-sync), KHÔNG tự merge chéo. Lỗi CI bắt được và đã sửa: `const_eval_type_num`
+    ở kịch bản ANC-05 (`6d7ed2f`). Còn: bước CI riêng cho C-31 (token thiếu quyền sửa
+    `.github/workflows/`) + nghiệm thu thiết bị theo mục "QA TAY".

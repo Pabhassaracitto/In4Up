@@ -96,9 +96,16 @@ Mỗi lỗi có test nhớ lại: `test/state_preservation_qa_test.dart` (kịch
 
 - Máy bắt: `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart`
   (thuần Dart: không plugin, không mạng, không `BuildContext`).
-- CI: `flutter analyze` trên nhánh này phải 0 error (nhánh nền trước đó đỏ vì lỗi
-  cú pháp `main_shell.dart` — xem mục 7).
-- Số kịch bản: 26 kịch bản / 6 vùng; trạng thái cụ thể đọc từ `toSummary()`.
+- Số kịch bản: 26 kịch bản / 6 vùng (5/5/5/5/2/4); đối chiếu tự động cho thấy mã
+  kịch bản trong code khớp 100% với bảng ở mục 3; trạng thái cụ thể đọc từ `toSummary()`.
+- CI 🟢 **run 37692296674** trên nhánh `arena/af0abe2f-in4up` (`6d7ed2f`) — analyze 0 error
+  (đã có cả harness + test mới) và toàn bộ bước test scoped chạy xanh; trước đó là
+  run 37691501665 (mốc sau khi vá cú pháp `main_shell.dart`).
+- PR **#96** (`arena/af0abe2f-in4up` → `main`) — checks xanh.
+  Lưu ý đường hợp nhất: nhánh đi trước `main` 743 commit / sau 41 commit (merge-base
+  `82d7c56`), GitHub đánh dấu conflicting ⇒ việc hợp nhất cần quyết định lineage của
+  người sở hữu (xem `MAIN-RESTORE-001`, GOVERNANCE §4b: content-sync bằng path-checkout),
+  không tự merge chéo trong session này.
 
 ## 7. Việc còn mở (không tự nhận đã đóng)
 

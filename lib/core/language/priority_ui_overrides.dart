@@ -4947,6 +4947,58 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '每次啟動時 Android 都會詢問螢幕擷取許可——這是系統規定，不是故障。',
     'si': 'ඔබ ආරම්භ කරන සෑම විටම Android තිරය ගැනීමට අවසර අසයි — එය පද්ධති නීතියකි.',
   },
+  // ── XLAT-SCR-003 — chạm bong bóng không có gì xảy ra: nói rõ thiếu gì ────
+  'Cấp lại quyền chụp màn hình': {
+    'en': 'Grant screen-capture permission again',
+    'hi': 'स्क्रीन कैप्चर अनुमति फिर से दें',
+    'zh': '重新授予屏幕录制权限',
+    'zh_TW': '重新授予螢幕擷取權限',
+    'si': 'නැවත තිර ගැනීමේ අවසරය දෙන්න',
+  },
+  'Chưa có quyền chụp màn hình cho phiên này. Bấm bong bóng rồi chọn "Bắt đầu ngay", hoặc cấp lại quyền ngay bên dưới.':
+      {
+    'en':
+        'No screen-capture permission for this session yet. Tap the bubble and choose "Start now", or grant it again just below.',
+    'hi':
+        'इस सेशन के लिए अभी स्क्रीन कैप्चर की अनुमति नहीं है। बबल पर टैप करें और "अभी शुरू करें" चुनें, या नीचे दिए बटन से अनुमति फिर से दें।',
+    'zh': '当前会话尚未获得屏幕录制权限。点击气泡并选择“立即开始”，或用下方按钮重新授权。',
+    'zh_TW': '目前工作階段尚未取得螢幕擷取權限。點擊氣泡並選擇「立即開始」，或用下方按鈕重新授權。',
+    'si':
+        'මෙම සැසිය සඳහා තවම තිර ගැනීමේ අවසරය නැත. බුබුළ තට්ටු කර "දැන් ආරම්භ කරන්න" තෝරන්න, හෝ පහත බොත්තමෙන් නැවත අවසර දෙන්න.',
+  },
+  'Bạn đã từ chối quyền chụp màn hình, nên bấm bong bóng chưa chụp được. Có thể cấp lại quyền bất cứ lúc nào.':
+      {
+    'en':
+        'You declined screen-capture permission, so the bubble cannot capture yet. You can grant it again at any time.',
+    'hi':
+        'आपने स्क्रीन कैप्चर अनुमति अस्वीकार कर दी, इसलिए बबल अभी कैप्चर नहीं कर सकता। आप कभी भी अनुमति फिर से दे सकते हैं।',
+    'zh': '你已拒绝屏幕录制权限，因此气泡暂时无法截屏。随时都可以重新授权。',
+    'zh_TW': '你已拒絕螢幕擷取權限，因此氣泡暫時無法截圖。隨時都能重新授權。',
+    'si':
+        'ඔබ තිර ගැනීමේ අවසරය ප්‍රතික්ෂේප කළ නිසා බුබුළට තවම ගත නොහැක. ඕනෑම වේලාවක නැවත අවසර දිය හැක.',
+  },
+  'Android vừa chặn việc mở màn hình xin quyền từ chạy nền. Hãy mở ứng dụng In4Up lên rồi bấm "Cấp lại quyền chụp màn hình".':
+      {
+    'en':
+        'Android just blocked the permission screen from opening in the background. Open In4Up, then tap "Grant screen-capture permission again".',
+    'hi':
+        'Android ने अभी बैकग्राउंड से अनुमति स्क्रीन खुलने पर रोक लगा दी। In4Up खोलें, फिर "स्क्रीन कैप्चर अनुमति फिर से दें" पर टैप करें।',
+    'zh': 'Android 刚刚阻止了从后台打开授权界面。请打开 In4Up，然后点按“重新授予屏幕录制权限”。',
+    'zh_TW': 'Android 剛剛阻止了從背景開啟授權畫面。請開啟 In4Up，然後點按「重新授予螢幕擷取權限」。',
+    'si':
+        'Android පසුබිමෙන් අවසර තිරය විවෘත කිරීම දැන් වළක්වන ලදී. In4Up විවෘත කර "නැවත තිර ගැනීමේ අවසරය දෙන්න" තට්ටු කරන්න.',
+  },
+  'Thông báo đang bị tắt nên bạn sẽ không thấy trạng thái dịch. Hãy bật thông báo để theo dõi.':
+      {
+    'en':
+        'Notifications are off, so you will not see the translation status. Turn notifications on to follow it.',
+    'hi':
+        'सूचनाएँ बंद हैं, इसलिए आप अनुवाद की स्थिति नहीं देख पाएँगे। उसे देखने के लिए सूचनाएँ चालू करें।',
+    'zh': '通知已关闭，因此你看不到翻译状态。请开启通知以便查看。',
+    'zh_TW': '通知已關閉，因此你將看不到翻譯狀態。請開啟通知以便查看。',
+    'si':
+        'දැනුම්දීම් අක්‍රියයි, එබැවින් පරිවර්තන තත්ත්වය ඔබට නොපෙනේ. එය බැලීමට දැනුම්දීම් සක්‍රිය කරන්න.',
+  },
   'Đang dịch màn hình, chờ chút…': {
     'en': 'Translating the screen, one moment…',
     'hi': 'स्क्रीन का अनुवाद हो रहा है, एक क्षण…',

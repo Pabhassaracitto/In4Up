@@ -18,6 +18,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 
 import 'screen_translate_models.dart';
+import 'screen_translate_permission.dart';
 
 /// Client phía Dart cho channel điều khiển.
 ///
@@ -50,6 +51,35 @@ class ScreenTranslateChannel {
 
   Future<bool> isRunning() =>
       _boolCall(ScreenTranslateProtocol.methodIsRunning);
+
+  /// Ảnh chụp trạng thái QUYỀN (XLAT-SCR-003).
+  ///
+  /// Dùng để hiện đúng hướng dẫn TRƯỚC khi user bấm bong bóng, thay vì để họ
+  /// bấm rồi không thấy gì. Trả [ScreenTranslateNativeStatus.fallback] khi
+  /// native chưa đăng ký method (build cũ / chạy test).
+  Future<ScreenTranslateNativeStatus> status() async {
+    if (!platformSupported) return ScreenTranslateNativeStatus.fallback;
+    try {
+      final raw = await _channel.invokeMethod<Object?>(
+        ScreenTranslateProtocol.methodStatus,
+      );
+      if (raw is Map) return ScreenTranslateNativeStatus.fromMap(raw);
+      return ScreenTranslateNativeStatus.fallback;
+    } on MissingPluginException {
+      debugPrint('ℹ️ screentranslate: native chưa đăng ký method status');
+      return ScreenTranslateNativeStatus.fallback;
+    } on PlatformException catch (e) {
+      debugPrint('❌ screentranslate.status: ${e.code} ${e.message}');
+      return ScreenTranslateNativeStatus.fallback;
+    }
+  }
+
+  /// Xin consent MediaProjection ngay (chỉ gọi khi app đang ở foreground).
+  ///
+  /// Đây là đường CHÍNH: Android 10+ chặn mở activity từ nền, nên consent phải
+  /// được xin lúc app còn hiện trên màn hình.
+  Future<bool> requestConsent() =>
+      _boolCall(ScreenTranslateProtocol.methodRequestConsent);
 
   /// Bật bong bóng. Native sẽ tự xin consent MediaProjection khi user BẤM
   /// bong bóng lần đầu của phiên (Android 14+ bắt buộc hỏi lại mỗi phiên).

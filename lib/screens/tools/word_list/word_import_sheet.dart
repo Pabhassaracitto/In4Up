@@ -165,7 +165,7 @@ class _WordImportSheetState extends State<WordImportSheet>
       // URL http(s), còn relative path (export→reimport cùng máy) dùng
       // trực tiếp được.
       final mediaUrl = (data['imageUrl'] ?? '').trim();
-      // VOCAB-MEDIA-003 (ADR-0012) — cột image_url_2: ảnh/animation thứ hai.
+      // VOCAB-MEDIA-003 (ADR-0013) — cột image_url_2: ảnh/animation thứ hai.
       final mediaUrl2 = (data['imageUrl2'] ?? '').trim();
 
       candidates.add(
@@ -291,7 +291,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           pendingMedia.add(VocabMediaPending(wordId: entry.id, url: media));
         }
       }
-      // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (image_url_2) cùng smart-fill
+      // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (image_url_2) cùng smart-fill
       // như ảnh chính: chỉ điền khi slot 2 đang trống, có URL thì materialize.
       final media2 = (c.imageUrl2 ?? '').trim();
       if (media2.isNotEmpty && (entry.imageUrl2 ?? '').trim().isEmpty) {
@@ -1001,7 +1001,7 @@ class _ImportCandidate {
   /// `image_url`; chỉ smart-fill khi entry chưa có ảnh.
   final String? imageUrl;
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — link minh họa THỨ HAI từ cột `image_url_2`;
+  /// VOCAB-MEDIA-003 (ADR-0013) — link minh họa THỨ HAI từ cột `image_url_2`;
   /// smart-fill như ảnh chính (chỉ khi slot 2 đang trống).
   final String? imageUrl2;
   final String? rawLine;
@@ -1172,7 +1172,7 @@ class WordTableParser {
     'minh họa': 'imageUrl',
   };
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — nhận diện cột minh họa THỨ HAI (slot 2).
+  /// VOCAB-MEDIA-003 (ADR-0013) — nhận diện cột minh họa THỨ HAI (slot 2).
   ///
   /// KHÔNG nhét thẳng alias `…_2` vào [fieldAliases]: `normKey` bỏ MỌI ký tự
   /// không phải chữ cái (kể cả chữ số) ⇒ `image_url_2` và `image_url` cùng
@@ -1455,7 +1455,7 @@ class WordTableParser {
     return fields[fields.length - 1 - mediaCount] == 'language';
   }
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — số cột media ở CUỐI header (0/1/2):
+  /// VOCAB-MEDIA-003 (ADR-0013) — số cột media ở CUỐI header (0/1/2):
   /// `image_url` hoặc `image_url, image_url_2`.
   static int _mediaTailCount(List<String?> fields) {
     if (fields.isEmpty) return 0;

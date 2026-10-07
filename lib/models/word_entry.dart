@@ -133,7 +133,7 @@ class WordEntry {
   String? example;
   String? imageUrl;
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa THỨ HAI (slot 2), cùng ngữ nghĩa
+  /// VOCAB-MEDIA-003 (ADR-0013) — minh họa THỨ HAI (slot 2), cùng ngữ nghĩa
   /// với [imageUrl]: relative path local (`vocabulary_images/xx.webp`) hoặc
   /// URL http(s). Additive — dữ liệu cũ không có key này ⇒ null, không
   /// migration. Không bao giờ nhồi 2 path vào một chuỗi: mọi nơi đọc
@@ -404,7 +404,7 @@ class WordEntry {
   }
 
   // ═══════════════════════════════════════
-  // MEDIA SLOTS (VOCAB-MEDIA-003 / ADR-0012) — 1 hoặc 2 ảnh mỗi từ
+  // MEDIA SLOTS (VOCAB-MEDIA-003 / ADR-0013) — 1 hoặc 2 ảnh mỗi từ
   // ═══════════════════════════════════════
 
   /// Danh sách media hợp lệ (slot 1 trước, slot 2 sau), lọc null/rỗng.
@@ -423,7 +423,7 @@ class WordEntry {
 
   /// Đặt media vào slot (1 = ảnh chính, 2 = ảnh phụ).
   ///
-  /// Quy tắc xoá (nghiệm thu ADR-0012 — không mất dữ liệu): xoá slot 1 khi
+  /// Quy tắc xoá (nghiệm thu ADR-0013 — không mất dữ liệu): xoá slot 1 khi
   /// đang có slot 2 ⇒ slot 2 LÊN THAY (promote); xoá slot 2 chỉ xoá slot 2.
   /// Slot khác 1/2 → bỏ qua (no-op). Chuỗi trắng coi như xoá.
   void setMediaSlot(int slot, String? path) {
@@ -665,7 +665,7 @@ class WordEntry {
         'phoneticSource': phoneticSource,
         'example': example,
         'imageUrl': imageUrl,
-        // VOCAB-MEDIA-003 (ADR-0012) — chỉ ghi khi có giá trị: giữ file nhỏ,
+        // VOCAB-MEDIA-003 (ADR-0013) — chỉ ghi khi có giá trị: giữ file nhỏ,
         // tương thích ngược (dữ liệu cũ không có key này đọc vẫn null).
         if (imageUrl2 != null && imageUrl2!.trim().isNotEmpty)
           'imageUrl2': imageUrl2,
@@ -765,7 +765,7 @@ class WordEntry {
         phoneticSource: json['phoneticSource'] as String?,
         example: json['example'] as String?,
         imageUrl: json['imageUrl'] as String?,
-        // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0012).
+        // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0013).
         imageUrl2: json['imageUrl2'] as String?,
         tags: (json['tags'] as List?)?.cast<String>() ?? [],
         understand: (json['understand'] as num?)?.toDouble() ?? 0.0,
@@ -808,7 +808,7 @@ class WordEntry {
       phoneticSource: json['phoneticSource'] as String?,
       example: json['example'] as String?,
       imageUrl: json['imageUrl'] as String?,
-      // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0012).
+      // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0013).
       imageUrl2: json['imageUrl2'] as String?,
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
       understandData: json['understandData'] != null

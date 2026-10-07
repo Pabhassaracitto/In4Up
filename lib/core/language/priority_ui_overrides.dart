@@ -5377,7 +5377,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'Google Play services විවෘත කරන්න',
   },
 
-  // VOCAB-MEDIA-003 (ADR-0012) — 2 ảnh mỗi từ + thư viện animation.
+  // VOCAB-MEDIA-003 (ADR-0013) — 2 ảnh mỗi từ + thư viện animation.
   'Ảnh chính': {
     'en': 'Primary image',
     'hi': 'मुख्य छवि',

@@ -253,7 +253,7 @@ class MemoryController extends ChangeNotifier {
   /// Cập nhật cả phần tử trong reviewQueue đang mở (nếu có) để flashcard
   /// hiển thị mới ngay, không cần thoát phiên ôn tập.
   ///
-  /// VOCAB-MEDIA-003 (ADR-0012): truyền null/rỗng = XOÁ ảnh chính; nếu thẻ
+  /// VOCAB-MEDIA-003 (ADR-0013): truyền null/rỗng = XOÁ ảnh chính; nếu thẻ
   /// đang có ảnh thứ hai (slot 2) thì ảnh phụ LÊN THAY (cùng quy tắc
   /// `WordEntry.setMediaSlot` — không mất dữ liệu).
   void updateImageUrl(String id, String? imageUrl) {
@@ -278,7 +278,7 @@ class MemoryController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — ghi đè/bỏ minh họa THỨ HAI (slot 2) của
+  /// VOCAB-MEDIA-003 (ADR-0013) — ghi đè/bỏ minh họa THỨ HAI (slot 2) của
   /// một thẻ. null/rỗng = xoá ảnh phụ (không đụng ảnh chính).
   void updateImageUrl2(String id, String? imageUrl2) {
     var changed = false;

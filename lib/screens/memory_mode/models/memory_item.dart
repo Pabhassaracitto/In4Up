@@ -15,7 +15,7 @@ class MemoryItem {
   /// hoặc URL http(s). Render qua VocabularyMediaWidget ở mặt sau flashcard.
   final String? imageUrl;
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa THỨ HAI (slot 2), cùng ngữ nghĩa
+  /// VOCAB-MEDIA-003 (ADR-0013) — minh họa THỨ HAI (slot 2), cùng ngữ nghĩa
   /// với [imageUrl]. Additive — item cũ không có key này ⇒ null, không
   /// migration. Ảnh phụ hiện ở mặt sau thẻ (cùng ảnh chính).
   final String? imageUrl2;
@@ -233,7 +233,7 @@ class MemoryItem {
       'example': example,
       'context': context,
       'imageUrl': imageUrl,
-      // VOCAB-MEDIA-003 (ADR-0012) — chỉ ghi khi có giá trị (tương thích ngược).
+      // VOCAB-MEDIA-003 (ADR-0013) — chỉ ghi khi có giá trị (tương thích ngược).
       if (imageUrl2 != null && imageUrl2!.trim().isNotEmpty)
         'imageUrl2': imageUrl2,
       'audioPath': audioPath,
@@ -265,7 +265,7 @@ class MemoryItem {
       context: json['context'] as String?,
       // Additive — item cũ không có key này vẫn parse bình thường.
       imageUrl: json['imageUrl'] as String?,
-      // Additive (ADR-0012) — item cũ không có key này ⇒ null.
+      // Additive (ADR-0013) — item cũ không có key này ⇒ null.
       imageUrl2: json['imageUrl2'] as String?,
       audioPath: json['audioPath'] as String?,
       audioStart: json['audioStart'] != null
@@ -346,11 +346,11 @@ class MemoryItem {
   MemoryItem withImageUrl(String? url) =>
       _copyWith(imageUrl: url, clearImageUrl: url == null || url.trim().isEmpty);
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — đổi/bỏ minh họa THỨ HAI của thẻ (slot 2).
+  /// VOCAB-MEDIA-003 (ADR-0013) — đổi/bỏ minh họa THỨ HAI của thẻ (slot 2).
   MemoryItem withImageUrl2(String? url) => _copyWith(
       imageUrl2: url, clearImageUrl2: url == null || url.trim().isEmpty);
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — xoá ảnh chính: nếu đang có ảnh phụ (slot 2)
+  /// VOCAB-MEDIA-003 (ADR-0013) — xoá ảnh chính: nếu đang có ảnh phụ (slot 2)
   /// thì ảnh phụ LÊN THAY (không mất dữ liệu); không có ảnh phụ thì xoá hẳn.
   MemoryItem removePrimaryMedia() {
     final secondary = (imageUrl2 ?? '').trim();

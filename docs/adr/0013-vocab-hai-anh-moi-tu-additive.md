@@ -1,4 +1,4 @@
-# ADR-0012: Mỗi từ có 1 HOẶC 2 ảnh/animation — thêm `imageUrl2` additive, không migration
+# ADR-0013: Mỗi từ có 1 HOẶC 2 ảnh/animation — thêm `imageUrl2` additive, không migration
 
 - **Ngày:** 2026-10-07
 - **Trạng thái:** ĐÃ QUYẾT ĐỊNH (chờ triển khai + CI, xem card KANBAN `VOCAB-MEDIA-003`)

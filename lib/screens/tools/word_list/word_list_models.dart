@@ -203,7 +203,7 @@ class WordEntry {
   /// hoặc URL http(s). Plumb từ MemoryItem.imageUrl.
   final String? imageUrl;
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa thứ hai (slot 2), plumb từ
+  /// VOCAB-MEDIA-003 (ADR-0013) — minh họa thứ hai (slot 2), plumb từ
   /// MemoryItem.imageUrl2. Additive — dữ liệu cũ ⇒ null.
   final String? imageUrl2;
 
@@ -291,7 +291,7 @@ class WordEntry {
       nextReview: item.nextReviewAt as DateTime?,
       // LOTTIE-001 — MemoryItem (từ LOTTIE-001 trở đi) có imageUrl.
       imageUrl: item.imageUrl as String?,
-      // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (slot 2).
+      // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (slot 2).
       imageUrl2: item.imageUrl2 as String?,
     );
   }

@@ -1613,7 +1613,7 @@ class _WordListScreenState extends State<WordListScreen> {
     final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
     String? selectedImagePath = entry.imageUrl;
-    // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (slot 2) của màn sửa từ.
+    // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (slot 2) của màn sửa từ.
     String? selectedImagePath2 = entry.imageUrl2;
 
     showModalBottomSheet(
@@ -1661,7 +1661,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
                     const SizedBox(height: 12),
-                    // VOCAB-MEDIA-003 (ADR-0012) — ô minh họa 2 khung (ảnh
+                    // VOCAB-MEDIA-003 (ADR-0013) — ô minh họa 2 khung (ảnh
                     // chính + ảnh phụ), menu mỗi khung: Đổi/Xoá/Đặt làm chính.
                     Center(
                       child: VocabMediaSlotsEditor(
@@ -2275,7 +2275,7 @@ class _CompactListItem extends StatelessWidget {
           const SizedBox(height: 8),
         ],
 
-        // VOCAB-MEDIA-003 (ADR-0012) — ô minh họa 2 khung (ảnh chính + ảnh
+        // VOCAB-MEDIA-003 (ADR-0013) — ô minh họa 2 khung (ảnh chính + ảnh
         // phụ); khung trống có nút "+", mỗi khung có menu Đổi/Xoá/Đặt làm ảnh
         // chính. Danh sách (thu nhỏ) vẫn chỉ hiện 1 thumbnail ảnh chính.
         const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),

@@ -1,6 +1,6 @@
 // test/vocab_two_images_test.dart
 //
-// VOCAB-MEDIA-003 (ADR-0012) — 1 hoặc 2 ảnh mỗi từ:
+// VOCAB-MEDIA-003 (ADR-0013) — 1 hoặc 2 ảnh mỗi từ:
 //  1. Dữ liệu CŨ (không có key `imageUrl2`) đọc bình thường (không migration).
 //  2. Round-trip toJson → fromJson giữ nguyên cả 2 ảnh; key chỉ ghi khi có giá
 //     trị (file cũ không phình thêm key null).

@@ -1,6 +1,6 @@
 // lib/features/vocab_image/vocab_media_slots_editor.dart
 //
-// VOCAB-MEDIA-003 (ADR-0012) — ô minh họa 2 KHUNG trong màn sửa từ / chi tiết từ:
+// VOCAB-MEDIA-003 (ADR-0013) — ô minh họa 2 KHUNG trong màn sửa từ / chi tiết từ:
 //   • tối đa 2 ảnh/animation (slot 1 = ảnh chính, slot 2 = ảnh phụ),
 //   • khung trống có nút "+" (chỉ hiện khi chưa đủ 2 ảnh),
 //   • mỗi khung có menu: Đổi / Xoá / Đặt làm ảnh chính (hoán đổi slot).
@@ -13,7 +13,7 @@
 // có wordId (đang thêm/sửa nháp) → báo ra ngoài qua [onChanged] để caller tự
 // lưu (vd nút Lưu của sheet sửa từ).
 //
-// Invariant (ADR-0012): nếu slot 2 có giá trị thì slot 1 luôn có giá trị —
+// Invariant (ADR-0013): nếu slot 2 có giá trị thì slot 1 luôn có giá trị —
 // xoá ảnh chính thì ảnh phụ lên thay, không khi nào để slot 1 trống.
 
 // localized_material = material.dart (hide Text) + Text/uiText đã locale-hóa.
@@ -116,7 +116,7 @@ class _VocabMediaSlotsEditorState extends State<VocabMediaSlotsEditor> {
     setState(() {
       if (slot == 1) {
         if (value.isEmpty) {
-          // Xoá ảnh chính: ảnh phụ lên thay (ADR-0012 — không mất dữ liệu).
+          // Xoá ảnh chính: ảnh phụ lên thay (ADR-0013 — không mất dữ liệu).
           _primary = _secondary;
           _secondary = null;
         } else {

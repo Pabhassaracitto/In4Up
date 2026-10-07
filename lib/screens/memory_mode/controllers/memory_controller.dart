@@ -164,6 +164,7 @@ class MemoryController extends ChangeNotifier {
     String? example,
     String? context,
     String? imageUrl,
+    String? imageUrl2,
     String? audioPath,
     Duration? audioStart,
     Duration? audioEnd,
@@ -190,6 +191,7 @@ class MemoryController extends ChangeNotifier {
       example: example?.trim(),
       context: context?.trim(),
       imageUrl: imageUrl?.trim(),
+      imageUrl2: imageUrl2?.trim(),
       audioPath: audioPath,
       audioStart: audioStart,
       audioEnd: audioEnd,
@@ -230,6 +232,7 @@ class MemoryController extends ChangeNotifier {
         example: w['example'] as String?,
         context: w['context'] as String?,
         imageUrl: w['imageUrl'] as String?,
+        imageUrl2: w['imageUrl2'] as String?,
         wordType: w['wordType'] as String?,
         cefrLevel: w['cefrLevel'] as String?,
         sourceFile: w['sourceFile'] as String?,
@@ -249,16 +252,44 @@ class MemoryController extends ChangeNotifier {
   /// LOTTIE-001 — ghi đè/bỏ minh họa (ảnh hoặc Lottie) của một thẻ.
   /// Cập nhật cả phần tử trong reviewQueue đang mở (nếu có) để flashcard
   /// hiển thị mới ngay, không cần thoát phiên ôn tập.
+  ///
+  /// VOCAB-MEDIA-003 (ADR-0012): truyền null/rỗng = XOÁ ảnh chính; nếu thẻ
+  /// đang có ảnh thứ hai (slot 2) thì ảnh phụ LÊN THAY (cùng quy tắc
+  /// `WordEntry.setMediaSlot` — không mất dữ liệu).
   void updateImageUrl(String id, String? imageUrl) {
     var changed = false;
+    MemoryItem apply(MemoryItem item) =>
+        (imageUrl == null || imageUrl.trim().isEmpty)
+            ? item.removePrimaryMedia()
+            : item.withImageUrl(imageUrl);
     final idx = _allItems.indexWhere((i) => i.id == id);
     if (idx >= 0) {
-      _allItems[idx] = _allItems[idx].withImageUrl(imageUrl);
+      _allItems[idx] = apply(_allItems[idx]);
       changed = true;
     }
     for (var i = 0; i < _reviewQueue.length; i++) {
       if (_reviewQueue[i].id == id) {
-        _reviewQueue[i] = _reviewQueue[i].withImageUrl(imageUrl);
+        _reviewQueue[i] = apply(_reviewQueue[i]);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    _persist();
+    notifyListeners();
+  }
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — ghi đè/bỏ minh họa THỨ HAI (slot 2) của
+  /// một thẻ. null/rỗng = xoá ảnh phụ (không đụng ảnh chính).
+  void updateImageUrl2(String id, String? imageUrl2) {
+    var changed = false;
+    final idx = _allItems.indexWhere((i) => i.id == id);
+    if (idx >= 0) {
+      _allItems[idx] = _allItems[idx].withImageUrl2(imageUrl2);
+      changed = true;
+    }
+    for (var i = 0; i < _reviewQueue.length; i++) {
+      if (_reviewQueue[i].id == id) {
+        _reviewQueue[i] = _reviewQueue[i].withImageUrl2(imageUrl2);
         changed = true;
       }
     }

@@ -15,6 +15,11 @@ class MemoryItem {
   /// hoặc URL http(s). Render qua VocabularyMediaWidget ở mặt sau flashcard.
   final String? imageUrl;
 
+  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa THỨ HAI (slot 2), cùng ngữ nghĩa
+  /// với [imageUrl]. Additive — item cũ không có key này ⇒ null, không
+  /// migration. Ảnh phụ hiện ở mặt sau thẻ (cùng ảnh chính).
+  final String? imageUrl2;
+
   final String? audioPath;
   final Duration? audioStart;
   final Duration? audioEnd;
@@ -44,6 +49,7 @@ class MemoryItem {
     this.example,
     this.context,
     this.imageUrl,
+    this.imageUrl2,
     this.audioPath,
     this.audioStart,
     this.audioEnd,
@@ -227,6 +233,9 @@ class MemoryItem {
       'example': example,
       'context': context,
       'imageUrl': imageUrl,
+      // VOCAB-MEDIA-003 (ADR-0012) — chỉ ghi khi có giá trị (tương thích ngược).
+      if (imageUrl2 != null && imageUrl2!.trim().isNotEmpty)
+        'imageUrl2': imageUrl2,
       'audioPath': audioPath,
       'audioStart': audioStart?.inMilliseconds,
       'audioEnd': audioEnd?.inMilliseconds,
@@ -256,6 +265,8 @@ class MemoryItem {
       context: json['context'] as String?,
       // Additive — item cũ không có key này vẫn parse bình thường.
       imageUrl: json['imageUrl'] as String?,
+      // Additive (ADR-0012) — item cũ không có key này ⇒ null.
+      imageUrl2: json['imageUrl2'] as String?,
       audioPath: json['audioPath'] as String?,
       audioStart: json['audioStart'] != null
           ? Duration(milliseconds: json['audioStart'] as int)
@@ -300,6 +311,8 @@ class MemoryItem {
     DateTime? nextReviewAt,
     String? imageUrl,
     bool clearImageUrl = false,
+    String? imageUrl2,
+    bool clearImageUrl2 = false,
   }) {
     return MemoryItem(
       id: id,
@@ -309,6 +322,7 @@ class MemoryItem {
       example: example,
       context: context,
       imageUrl: clearImageUrl ? null : (imageUrl ?? this.imageUrl),
+      imageUrl2: clearImageUrl2 ? null : (imageUrl2 ?? this.imageUrl2),
       audioPath: audioPath,
       audioStart: audioStart,
       audioEnd: audioEnd,
@@ -331,6 +345,19 @@ class MemoryItem {
   /// LOTTIE-001 — đổi/bỏ minh họa của thẻ (null = bỏ hẳn).
   MemoryItem withImageUrl(String? url) =>
       _copyWith(imageUrl: url, clearImageUrl: url == null || url.trim().isEmpty);
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — đổi/bỏ minh họa THỨ HAI của thẻ (slot 2).
+  MemoryItem withImageUrl2(String? url) => _copyWith(
+      imageUrl2: url, clearImageUrl2: url == null || url.trim().isEmpty);
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — xoá ảnh chính: nếu đang có ảnh phụ (slot 2)
+  /// thì ảnh phụ LÊN THAY (không mất dữ liệu); không có ảnh phụ thì xoá hẳn.
+  MemoryItem removePrimaryMedia() {
+    final secondary = (imageUrl2 ?? '').trim();
+    return secondary.isEmpty
+        ? _copyWith(clearImageUrl: true)
+        : _copyWith(imageUrl: secondary, clearImageUrl2: true);
+  }
 
   @override
   bool operator ==(Object other) =>

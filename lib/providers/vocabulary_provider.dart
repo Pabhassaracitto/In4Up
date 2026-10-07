@@ -829,11 +829,55 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// Cập nhật hình ảnh cho từ vựng
+  /// Cập nhật hình ảnh cho từ vựng (slot 1 — ảnh chính).
+  ///
+  /// VOCAB-MEDIA-003 (ADR-0012): truyền null/rỗng = XOÁ ảnh chính; nếu từ
+  /// đang có ảnh thứ hai (slot 2) thì ảnh phụ LÊN THAY (không mất dữ liệu —
+  /// cùng quy tắc `WordEntry.setMediaSlot`).
   void updateImageUrl(String id, String? imageUrl) {
     try {
       final w = _words.firstWhere((w) => w.id == id);
-      w.imageUrl = imageUrl;
+      w.setMediaSlot(1, imageUrl);
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — cập nhật ảnh thứ hai (slot 2).
+  /// null/rỗng = xoá ảnh phụ (không đụng ảnh chính).
+  void updateImageUrl2(String id, String? imageUrl2) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.setMediaSlot(2, imageUrl2);
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — ghi cả 2 slot một lúc.
+  ///
+  /// Ghi slot 2 TRƯỚC rồi mới slot 1: nếu [primary] null mà [secondary] cũng
+  /// null thì `setMediaSlot(1, null)` xoá hẳn (không promote nhầm ảnh phụ
+  /// vừa bị xoá ở slot 2).
+  void updateMediaSlots(String id, String? primary, String? secondary) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.setMediaSlot(2, secondary);
+      w.setMediaSlot(1, primary);
+      w.updatedAt = DateTime.now();
+      _saveWord(w);
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — hoán đổi ảnh chính ↔ ảnh phụ
+  /// ("Đặt làm ảnh chính" ở ô minh họa 2 khung).
+  void swapImageSlots(String id) {
+    try {
+      final w = _words.firstWhere((w) => w.id == id);
+      w.swapMediaSlots();
       w.updatedAt = DateTime.now();
       _saveWord(w);
       notifyListeners();

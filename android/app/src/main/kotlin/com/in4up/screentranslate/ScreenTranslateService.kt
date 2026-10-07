@@ -619,11 +619,12 @@ class ScreenTranslateService : Service() {
 
     private fun onOverlayRevoked() {
         if (isStopping) return
-        setBlockReason("overlay")
         // Bong bóng không vẽ được nữa ⇒ không có lý do giữ service sống.
         // Dừng TRƯỚC rồi mới báo: stopEverything huỷ thông báo đang hiển thị,
         // báo sau cùng thì hướng dẫn mới còn lại trên màn hình.
         stopEverything()
+        // Đặt lý do SAU stopEverything (hàm đó gọi resetSessionFlags()).
+        setBlockReason("overlay")
         reportOverlayMissing()
     }
 

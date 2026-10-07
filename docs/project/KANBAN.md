@@ -6128,5 +6128,8 @@
     hạn chế Dom_Pos với "taste"). CI: nối step ICONIZE-001b vào
     `app_analyze.yml`; pubspec đăng ký `assets/iconize/`. Hạn chế v1 ghi
     trong code: POS theo Dom_Pos Brysbaert, adapter sentence_structure +
-    Bridge-to-English + fallback user-image/CDN = lane 001c. CÒN CHỜ:
-    CI xanh (sandbox không có Flutter SDK) + nghiệm thu thiết bị.
+    Bridge-to-English + fallback user-image/CDN = lane 001c. CI XANH:
+    run 37690864896 (2m43s, job success — step ICONIZE-001b nằm trong
+    chuỗi exit-on-fail nên xanh = 60+ test pass; artifact log không tải
+    được từ sandbox do egress chặn blob — bẫy đã ghi trong skill
+    ci-red-debugging). CÒN: nghiệm thu thiết bị khi có UI (lane 001d).

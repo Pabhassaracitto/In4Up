@@ -26,6 +26,7 @@ import '../../../services/ipa_stress_annotator.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
+import '../services/word_range_selection.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/line_edit_sheet.dart';
 import '../sheets/word_actions_sheet.dart';
@@ -177,6 +178,14 @@ class TextLineWidget extends StatelessWidget {
         final controller = context.read<ReadModeController>();
         final tp = context.read<TextProvider>();
         if (index < 0 || index >= tp.lines.length) return; // ★ FIX
+        // READ-SELECT-002: đang chọn nhiều từ ở ô chữ ⇒ "chạm ra ngoài" là
+        // BỎ CHỌN (không đọc dòng/seek như thường lệ). Widget ô chữ tự thoát
+        // khi thấy selection của provider đã bị xoá.
+        if (WordSelectionState.isActive) {
+          tp.clearSelection();
+          HapticFeedback.selectionClick();
+          return;
+        }
         controller.removeFloatingMenu();
         tp.setCurrentLine(index);
         HapticFeedback.selectionClick();
@@ -515,6 +524,11 @@ class TextLineWidget extends StatelessWidget {
           fontSize: data.fontSize,
           colorMode: data.colorMode,
           lineIndex: index,
+          // READ-SELECT-002: offset đầu dòng để vùng chọn nhiều từ ghi vào
+          // TextProvider như một selection thật (cùng công thức với
+          // SelectableText ở các chế độ khác).
+          lineStartOffset:
+              context.read<ReadModeController>().getLineStartOffset(index),
         ),
       );
     }

@@ -21,6 +21,7 @@ import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/read_line_hint_service.dart';
 import 'services/recent_files_service.dart';
+import 'services/word_range_selection.dart';
 import 'widgets/read_line_hint.dart';
 import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
@@ -330,6 +331,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                                 _controller.setFocusMode(false);
                                 setState(() => _bottomControlsVisible = true);
                               } else {
+                                // READ-SELECT-002: đang chọn nhiều từ ở ô chữ
+                                // ⇒ chạm ra vùng trống cũng là BỎ CHỌN.
+                                if (WordSelectionState.isActive) {
+                                  textProvider.clearSelection();
+                                }
                                 _controller.removeFloatingMenu();
                               }
                             },

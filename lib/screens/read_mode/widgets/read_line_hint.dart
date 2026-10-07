@@ -60,7 +60,9 @@ class ReadLineHint {
       ),
       builder: (sheetContext) => SafeArea(
         top: false,
-        child: Padding(
+        // READ-SELECT-002: bảng có thêm dòng hướng dẫn mới ⇒ phải cuộn được,
+        // nếu không sẽ tràn (RenderFlex overflow) trên máy thấp.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -107,10 +109,14 @@ class ReadLineHint {
                 icon: Icons.flash_on_outlined,
                 label: 'Chạm hai lần vào một từ: xem nghĩa nhanh.',
               ),
+              // READ-SELECT-002 (audit 1.e): GIỮ một từ ở chế độ ô chữ nay vào
+              // chế độ CHỌN NHIỀU TỪ (kéo ngang để mở rộng) — bảng tra từ đầy
+              // đủ chuyển sang nút "Từ chi tiết" trên thanh hành động của vùng
+              // chọn. Bảng hướng dẫn phải nói đúng thao tác thật.
               const _HintRow(
                 icon: Icons.menu_book_outlined,
                 label:
-                    'Giữ một từ: mở bảng tra từ đầy đủ (nghĩa, ngữ pháp, lưu từ).',
+                    'Giữ một từ ở chế độ ô chữ: vào chế độ chọn nhiều từ; nút Từ chi tiết mở bảng tra từ đầy đủ.',
               ),
               const _HintRow(
                 icon: Icons.touch_app,
@@ -123,7 +129,12 @@ class ReadLineHint {
               const _HintRow(
                 icon: Icons.select_all,
                 label:
-                    'Muốn xử lý nhiều từ: 4 nút ở trên chạy trên cả dòng đang đọc.',
+                    'Muốn xử lý nhiều từ: giữ một từ rồi kéo ngang để chọn cả cụm (nút ✕ để thoát).',
+              ),
+              const _HintRow(
+                icon: Icons.touch_app_outlined,
+                label:
+                    'Chưa chọn từ nào: 4 nút ở trên chạy trên cả dòng đang đọc.',
               ),
               const SizedBox(height: 14),
               Row(

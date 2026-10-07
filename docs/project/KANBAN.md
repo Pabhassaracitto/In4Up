@@ -74,6 +74,7 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
+| UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (code + máy bắt 26 kịch bản; chờ CI 🟢 + nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -6142,3 +6143,46 @@
     "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
     thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
     duyệt PR.
+
+### UX-C31 — State preservation QA (6 vùng) + 3 lỗi thật đã sửa
+- **Trạng thái:** 🔨 doing — code + máy bắt xong 2026-10-07 (26 kịch bản / 6 vùng);
+  còn CI 🟢 + nghiệm thu thiết bị (mục "QA TAY" trong báo cáo của harness).
+- **Nguồn:** `docs/ux/39-capability-breakdown.vi.md` mục C-31 (Phase 3 — Cross-cutting QA);
+  contract tham chiếu: `docs/ux/38-shared-state-contract.vi.md` + `docs/ux/36-pre-freeze-review.vi.md`
+  (§2 layer state machine, §5 anchor fallback).
+- **Hiện thực:**
+  - `lib/core/qa/state_preservation_qa.dart` — harness thuần Dart (không plugin/mạng/
+    `BuildContext`): enum 6 vùng, 26 kịch bản có mã (`C31-SRC/ANC/DFT/PLY/RTN/OFF`),
+    `I4uPreservationReport` + `toQualityRun()` nối vào `I4uQualityRun` của C-30,
+    `toSummary()` để dán log; danh sách QA tay `kI4uPreservationManualChecks`.
+    **Cổng chặn:** vùng không có kịch bản ⇒ `uncoveredAreas` khác rỗng ⇒ KHÔNG
+    freeze-ready (không "pass rỗng").
+  - `test/state_preservation_qa_test.dart` — chạy cả bộ + 4 test âm tính (thiếu vùng,
+    fail có chi tiết, summary nêu QA tay, bộ kịch bản phủ đủ 6 vùng).
+  - `docs/ux/41-state-preservation-qa.vi.md` — phạm vi, cách chạy, ma trận 26 kịch bản,
+    3 lỗi đã sửa, việc QA tay, việc còn mở.
+- **Lỗi thật đã sửa (do chính bộ kịch bản bắt):**
+  1. `I4uCoachFlowController.markStale()` xoá `answerDraft`/`hintLevel` ⇒ nguồn đổi
+     revision là mất chữ đang gõ (sự kiện hệ thống, không phải người học) — nay giữ;
+     chỉ `nextStep()`/`start()` xoá (chủ ý).
+  2. `I4uRememberFlowController` xoá `source` ở mọi bước + xoá `stage` khi
+     `pause()`/`nextCard()`, xoá `rating` khi `pause()` ⇒ mất nguồn đang ôn
+     (vi phạm rule vàng #3) và UI quên tầng học thuộc — nay giữ `source` suốt phiên,
+     giữ `stage`, `rating` thuộc thẻ đang mở; thêm `loadSource()`.
+  3. `I4uMiniPlayerSurfaceState` không có bộ nhớ trạng thái trước khi lớp phủ ẩn ⇒
+     đóng Quick Actions/sheet lớn là Mini Player biến mất (trái `docs/ux/36 §2`:
+     `largeSheetClosed → restore previous mini state`) — nay có `suspendedMode` +
+     khôi phục, playback không đổi.
+- **Sửa cổng CI của nhánh nền (cùng session):** `lib/screens/main_shell.dart` hỏng cú pháp
+  (1 dấu `),` thừa ở `_buildBottomNav` + 2 dấu đóng thiếu ở `_BottomNavItem.build`) làm
+  `Analyze full app` đỏ trên `arena/01a10675-in4up` từ run 37682387649 → mọi bước test
+  đều bị skip, toàn bộ hợp đồng UX đợt trước chưa từng được máy kiểm chứng. Đã sửa bằng
+  bộ đếm ngoặc hiệu chuẩn trên bản `main` (BALANCED) — 2 commit riêng (`3e3d770` + commit bù).
+- **Máy bắt / lệnh chạy:**
+  `flutter test test/state_preservation_qa_test.dart` (+ 3 file test nhớ lại: remember/coach/
+  mini player). Lưu ý: chưa có bước CI riêng vì token không có quyền sửa `.github/workflows/`
+  → đề xuất thêm step cạnh các bước UX contract (mục 7 của `docs/ux/41`).
+- **Lịch sử:**
+  - 2026-10-07 | proposed→doing | agent arena/af0abe2f-in4up | mở session mới sau khi PR #95
+    bị đóng; vá cổng CI của nhánh nền trước (main_shell syntax), sau đó thêm harness C-31 +
+    3 fix bảo toàn trạng thái; PR mở vào `main`.

@@ -215,6 +215,14 @@
 - **Nguyên tắc:** preserve capability, redesign presentation. Nếu logic cũ gắn chặt với UI cũ, tách logic thành callback/service seam trước khi đưa vào UX shell mới.
 - **Lý do:** nhánh 251e ưu tiên hoàn thiện chức năng/logic; dự án này đang ưu tiên UX architecture riêng, không biến UX mới thành lớp vỏ của giao diện cũ.
 
+## D-031 — C-31 đóng bằng máy bắt 6 vùng, không bằng "đã review"
+
+- **Ngày:** 2026-10-07
+- **Trạng thái:** đang áp dụng
+- **Quyết định:** State preservation QA (C-31) được coi là có bằng chứng chỉ khi có bộ kịch bản chạy được cho **cả 6 vùng** (source return, reading anchor, draft, playback, route return, offline event/conflict), và báo cáo nối vào `I4uQualityRun` của C-30. Vùng thiếu máy bắt ⇒ `uncoveredAreas` khác rỗng ⇒ **fail**, không được tính là đạt; việc chỉ kết luận được trên thiết bị thật nằm ở danh sách QA tay và không bao giờ tự động PASS.
+- **Hệ quả:** một số hành vi trước đây được coi là "chi tiết triển khai" nay thành bất biến phải giữ: sự kiện hệ thống (nguồn đổi revision) không được xoá nháp người học; `source` của phiên ôn sống suốt phiên (rule vàng #3); lớp phủ đóng phải khôi phục đúng trạng thái Mini Player trước đó (`docs/ux/36` §2); conflict review chỉ đánh dấu "không tính mastery" chứ không xoá event.
+- **Lý do:** nhánh nền `arena/01a10675-in4up` đỏ CI từ run 37682387649 vì lỗi cú pháp `main_shell.dart`; cả 8 run đều đỏ ở `Analyze full app` và **mọi bước test bị skip** — tức hợp đồng UX đợt trước chưa từng được máy kiểm chứng lần nào. Từ nay mỗi capability UX phải chứng minh bằng một lệnh chạy được, không chỉ bằng tài liệu.
+
 ## Câu hỏi mở hiện tại
 
 - O-001: Review/Stats là Context Bar hay sub-workspace của Nhớ?

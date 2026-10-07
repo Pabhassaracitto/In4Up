@@ -53,7 +53,6 @@ import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/word_list/wordlist_bubble.dart';
-import '../widgets/collapsible_action_bar.dart';
 import '../widgets/workspace_navigation/workspace_navigation.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/services/understand_ai_coach_launcher.dart';
@@ -213,33 +212,13 @@ class _MainShellState extends State<MainShell> {
     _modeSwitchExpanded = true;
   }
 
-  /// IN4-31: KHÔNG tự ẩn thanh mode sau vài giây nữa.
-  ///
-  /// Trước đây thanh mode (Đọc/Viết…) tự ẩn sau 4s ⇒ người dùng chưa kịp
-  /// chọn là mất, mỗi lần tìm lại để mở thì không thấy đâu. Nay thanh **giữ
-  /// nguyên** (mặc định hiện); ai muốn ẩn thì bấm **dấu X** trên thanh →
-  /// tắt luôn chế độ tự ẩn (lưu vào setting).
   void _scheduleModeSwitchAutoHide() {
-    // Không còn timer ẩn tự động — giữ chỗ cho tương thích, không làm gì.
     _modeSwitchHideTimer?.cancel();
-  }
-
-  /// Tắt chế độ tự ẩn thanh mode (nút X trên thanh mode).
-  Future<void> _disableAutoHideModeSwitch() async {
-    _modeSwitchHideTimer?.cancel();
-    setState(() {
-      _autoHideModeSwitch = false;
-      _modeSwitchExpanded = true;
+    if (!_autoHideModeSwitch) return;
+    _modeSwitchHideTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted || !_hasSecondaryModes) return;
+      setState(() => _modeSwitchExpanded = false);
     });
-    await _storage.saveShellAutoHideModeSwitch(false);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã tắt tự ẩn thanh chế độ'),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   void _scheduleShellHintIfNeeded() {
@@ -1214,6 +1193,81 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  Widget _buildDesktopSidebar(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final items = <({String label, IconData icon, IconData selectedIcon, _PrimaryTab tab})>[
+      (label: l10n.home, icon: Icons.home_outlined, selectedIcon: Icons.home, tab: _PrimaryTab.home),
+      (label: l10n.read, icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, tab: _PrimaryTab.read),
+      (label: l10n.listen, icon: Icons.headphones_outlined, selectedIcon: Icons.headphones, tab: _PrimaryTab.listen),
+      (label: l10n.understand, icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, tab: _PrimaryTab.understand),
+      (label: l10n.remember, icon: Icons.psychology_outlined, selectedIcon: Icons.psychology, tab: _PrimaryTab.remember),
+    ];
+
+    return Material(
+      color: const Color(0xFF111827),
+      child: SafeArea(
+        right: false,
+        bottom: false,
+        child: SizedBox(
+          width: 248,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 16, 24),
+                child: Text(
+                  '4U Scholar',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              for (final item in items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Semantics(
+                    button: true,
+                    selected: _currentTab == item.tab,
+                    label: item.label,
+                    child: ListTile(
+                      selected: _currentTab == item.tab,
+                      selectedTileColor: _currentAccent.withValues(alpha: 0.14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      leading: Icon(
+                        _currentTab == item.tab ? item.selectedIcon : item.icon,
+                        color: _currentTab == item.tab ? _currentAccent : Colors.white70,
+                      ),
+                      title: Text(
+                        item.label,
+                        style: TextStyle(
+                          color: _currentTab == item.tab ? Colors.white : Colors.white70,
+                          fontWeight: _currentTab == item.tab ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        _setPrimaryTab(item.tab);
+                      },
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: Text(
+                  'Workspace',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.42), fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1229,9 +1283,17 @@ class _MainShellState extends State<MainShell> {
           : const AudioLibraryDrawer(isLeft: false),
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth >= 1024;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isDesktop) _buildDesktopSidebar(context),
+              Expanded(
+                child: SafeArea(
+                  bottom: false,
+                  child: Stack(
           children: [
             Column(
               children: [
@@ -1310,8 +1372,15 @@ class _MainShellState extends State<MainShell> {
             const LiveCaptionBubble(),
           ],
         ),
-      ),
-      bottomNavigationBar: _buildBottomNav(context),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      bottomNavigationBar: MediaQuery.sizeOf(context).width >= 1024
+          ? null
+          : _buildBottomNav(context),
     );
   }
 
@@ -1559,28 +1628,19 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AUDIT-2026-10-20 (mục 5): nhãn + nguồn CHUNG MỘT HÀNG (chips
-          // cuộn ngang) ⇒ header gọn hơn, vẫn đồng bộ 3 tab.
-          Row(
-            children: [
-              _WorkspaceHeaderLabel(
-                icon: Icons.source_outlined,
-                label: context.uiText('Nguồn'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: WorkspaceSourcePicker<ListenContentSource>(
-                  items: _listenSourceItems(context),
-                  selectedValue: _listenSource,
-                  onChanged: (source) =>
-                      _setListenSource(source, openSource: true),
-                  presentation: WorkspaceNavigationPresentation.chips,
-                  menuTooltip: context.uiText('Chọn nguồn'),
-                ),
-              ),
-            ],
+          _WorkspaceHeaderLabel(
+            icon: Icons.source_outlined,
+            label: context.uiText('Nguồn'),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          WorkspaceSourcePicker<ListenContentSource>(
+            items: _listenSourceItems(context),
+            selectedValue: _listenSource,
+            onChanged: (source) => _setListenSource(source, openSource: true),
+            presentation: WorkspaceNavigationPresentation.chips,
+            menuTooltip: context.uiText('Chọn nguồn'),
+          ),
+          const SizedBox(height: 10),
           _WorkspaceHeaderActions(actions: actions),
         ],
       ),
@@ -1615,29 +1675,21 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AUDIT-2026-10-20 (mục 5): nhãn + nguồn chung một hàng.
-          Row(
-            children: [
-              _WorkspaceHeaderLabel(
-                icon: Icons.source_outlined,
-                label: context.uiText('Nguồn'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ReadSourcePicker(
-                  selectedSource: _readSource,
-                  onSourceChanged: (source) => _setReadSource(source),
-                  callbacks: ReadSourceCallbacks(
-                    onOpenDocumentLibrary: _openTextLibrary,
-                    onOpenWebReader: () => _handleTool('web_reader'),
-                    onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
-                  ),
-                  presentation: WorkspaceNavigationPresentation.chips,
-                ),
-              ),
-            ],
+          _WorkspaceHeaderLabel(
+            icon: Icons.source_outlined,
+            label: context.uiText('Nguồn'),
           ),
-          const SizedBox(height: 4),
+          ReadSourcePicker(
+            selectedSource: _readSource,
+            onSourceChanged: (source) => _setReadSource(source),
+            callbacks: ReadSourceCallbacks(
+              onOpenDocumentLibrary: _openTextLibrary,
+              onOpenWebReader: () => _handleTool('web_reader'),
+              onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
+            ),
+            presentation: WorkspaceNavigationPresentation.chips,
+          ),
+          const SizedBox(height: 6),
           // READ-ACT-001: cho biết 4 nút dưới đây đang áp dụng lên đoạn nào,
           // thay cho snackbar "Bạn cần bôi chọn một đoạn trước".
           Consumer<TextProvider>(
@@ -1708,26 +1760,19 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AUDIT-2026-10-20 (mục 5): nhãn + chế độ chung một hàng.
-          Row(
-            children: [
-              _WorkspaceHeaderLabel(
-                icon: Icons.route_outlined,
-                label: context.uiText('Chế độ'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: WorkspaceModeBar<UnderstandWorkspaceMode>(
-                  items: _understandModeItems(context),
-                  selectedValue: _understandMode,
-                  onChanged: _setUnderstandMode,
-                  presentation: WorkspaceNavigationPresentation.chips,
-                  menuTooltip: context.uiText('Chọn chế độ'),
-                ),
-              ),
-            ],
+          _WorkspaceHeaderLabel(
+            icon: Icons.route_outlined,
+            label: context.uiText('Chế độ'),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
+          WorkspaceModeBar<UnderstandWorkspaceMode>(
+            items: _understandModeItems(context),
+            selectedValue: _understandMode,
+            onChanged: _setUnderstandMode,
+            presentation: WorkspaceNavigationPresentation.chips,
+            menuTooltip: context.uiText('Chọn chế độ'),
+          ),
+          const SizedBox(height: 10),
           Consumer2<PlayerProvider, TextProvider>(
             builder: (context, player, textProvider, _) {
               return Wrap(
@@ -1847,66 +1892,49 @@ class _MainShellState extends State<MainShell> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       color: const Color(0xFF111827),
       child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              children: List.generate(labels.length, (index) {
-                final selected = index == selectedIndex;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
-                    child: InkWell(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        if (isListen) {
-                          _setListenMode(index);
-                        } else {
-                          _setReadMode(index);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? accent.withValues(alpha: 0.18)
-                              : Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: selected
-                                ? accent.withValues(alpha: 0.35)
-                                : Colors.white.withValues(alpha: 0.06),
-                          ),
-                        ),
-                        child: Text(
-                          context.uiText(labels[index]),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: selected ? accent : Colors.grey[400],
-                            fontWeight:
-                                selected ? FontWeight.w700 : FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
+        children: List.generate(labels.length, (index) {
+          final selected = index == selectedIndex;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  if (isListen) {
+                    _setListenMode(index);
+                  } else {
+                    _setReadMode(index);
+                  }
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? accent.withValues(alpha: 0.18)
+                        : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: selected
+                          ? accent.withValues(alpha: 0.35)
+                          : Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
-                );
-              }),
+                  child: Text(
+                    context.uiText(labels[index]),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: selected ? accent : Colors.grey[400],
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          // IN4-31: dấu X để TẮT chế độ tự ẩn — thanh mode giữ hiện.
-          if (_autoHideModeSwitch)
-            IconButton(
-              tooltip: context.uiText('Tắt tự ẩn thanh chế độ'),
-              onPressed: _disableAutoHideModeSwitch,
-              icon: const Icon(Icons.close, size: 18, color: Colors.white54),
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            ),
-        ],
+          );
+        }),
       ),
     );
   }
@@ -2041,10 +2069,8 @@ class _MainShellState extends State<MainShell> {
               ),
             ],
           ),
-
-            ),
-          ),
-    
+        ),
+      ),
     );
   }
 }
@@ -2075,8 +2101,7 @@ class _WorkspaceHeaderSurface extends StatelessWidget {
     return Container(
       key: const Key('workspace-context-header'),
       width: double.infinity,
-      // AUDIT-2026-10-20 (mục 5): padding gọn hơn để dành chỗ cho nội dung.
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: const Color(0xFF101827),
         border: Border(
@@ -2127,22 +2152,44 @@ class _WorkspaceHeaderActions extends StatelessWidget {
   /// thoại thay vì `Wrap` thành hai hàng cao chiếm hết màn hình đọc.
   final bool dense;
 
-  /// AUDIT-2026-10-20 (mục 5): dùng chung [CollapsibleActionBar] — hẹp thì
-  /// GỘP (chỉ icon + mũi tên), rộng/bung thì có nhãn. Nhờ vậy thanh chức
-  /// năng của 3 tab (Nghe / Đọc / Hiểu) gọn gàng, tiết kiệm không gian mà
-  /// vẫn đồng bộ và tiện dụng.
+  /// Dưới bề ngang này thì cuộn ngang; từ tablet trở lên vẫn xuống dòng.
+  static const double _scrollBreakpoint = 600;
+
   @override
   Widget build(BuildContext context) {
-    if (actions.isEmpty) return const SizedBox.shrink();
-    return CollapsibleActionBar(
-      actions: [
-        for (final a in actions)
-          CollapsibleAction(
-            label: a.label,
-            icon: a.icon,
-            onPressed: a.onPressed,
+    if (!dense) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final action in actions)
+            _WorkspaceHeaderActionButton(action: action),
+        ],
+      );
+    }
+
+    final buttons = [
+      for (final action in actions)
+        _WorkspaceHeaderActionButton(action: action, dense: true),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _scrollBreakpoint) {
+          return Wrap(spacing: 8, runSpacing: 8, children: buttons);
+        }
+        return SizedBox(
+          height: WorkspaceActionButton.denseHeight,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: buttons.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, index) => buttons[index],
           ),
-      ],
+        );
+      },
     );
   }
 }
@@ -2351,98 +2398,96 @@ class _BottomNavItem extends StatelessWidget {
   });
 
   @override
-Widget build(BuildContext context) {
-  final activeColor = selected ? color : Colors.grey[500]!;
+  Widget build(BuildContext context) {
+    final activeColor = selected ? color : Colors.grey[500]!;
 
-
-  return Semantics(
-    button: true,
-    selected: selected,
-    label: label,
-    hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: 56,
-        minHeight: kMinInteractiveDimension,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-            decoration: BoxDecoration(
-              color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? color.withValues(alpha: 0.24) : Colors.transparent,
-              ),
-
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Icon(selected ? selectedIcon : icon,
-                        color: activeColor, size: 22),
-                    if (badgeText != null)
-                      Positioned(
-                        top: -6,
-                        right: -14,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            badgeText!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (showLongPressHint)
-                      Positioned(
-                        bottom: -2,
-                        right: -8,
-                        child: Icon(
-                          Icons.subdirectory_arrow_left,
-                          size: 10,
-                          color: activeColor.withValues(alpha: 0.8),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: activeColor,
-                      fontSize: 10,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: 56,
+          minHeight: kMinInteractiveDimension,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          decoration: BoxDecoration(
+            color:
+                selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+                  selected ? color.withValues(alpha: 0.24) : Colors.transparent,
             ),
           ),
-        ), // <-- Đóng InkWell
-      ), // <-- Đóng Padding
-    ), // <-- Đóng ConstrainedBox
-  ); // <-- Đóng Semantics và kết thúc hàm build
-}
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(selected ? selectedIcon : icon,
+                      color: activeColor, size: 22),
+                  if (badgeText != null)
+                    Positioned(
+                      top: -6,
+                      right: -14,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          badgeText!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (showLongPressHint)
+                    Positioned(
+                      bottom: -2,
+                      right: -8,
+                      child: Icon(
+                        Icons.subdirectory_arrow_left,
+                        size: 10,
+                        color: activeColor.withValues(alpha: 0.8),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: activeColor,
+                    fontSize: 10,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

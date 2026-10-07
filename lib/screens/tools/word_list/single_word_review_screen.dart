@@ -249,6 +249,51 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
   }
 
   Widget _buildAnswer(WordEntry w, VocabularyProvider provider) {
+    // LOTTIE-001 — minh họa (ảnh hoặc Lottie) nằm trong ĐÁP ÁN: chỉ hiện
+    // sau khi bấm "Hiện đáp án", không lộ nghĩa trước.
+    // VOCAB-MEDIA-003 (ADR-0012) — có ảnh thứ hai (slot 2) thì hiện cả hai
+    // cạnh nhau; materialize bản xem trước theo đúng slot.
+    final media1 = (w.imageUrl ?? '').trim();
+    final media2 = (w.imageUrl2 ?? '').trim();
+    Widget? media;
+    if (media1.isNotEmpty && media2.isNotEmpty) {
+      media = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: VocabularyMediaWidget(
+              imageUrl: media1,
+              height: 110,
+              animate: true,
+              repeat: true,
+              onMaterialized: (path) => provider.updateImageUrl(w.id, path),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: VocabularyMediaWidget(
+              imageUrl: media2,
+              height: 110,
+              animate: true,
+              repeat: true,
+              onMaterialized: (path) => provider.updateImageUrl2(w.id, path),
+            ),
+          ),
+        ],
+      );
+    } else if (media1.isNotEmpty || media2.isNotEmpty) {
+      final only = media1.isNotEmpty ? media1 : media2;
+      media = VocabularyMediaWidget(
+        imageUrl: only,
+        height: 140,
+        animate: true,
+        repeat: true,
+        onMaterialized: (path) => media1.isNotEmpty
+            ? provider.updateImageUrl(w.id, path)
+            : provider.updateImageUrl2(w.id, path),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -266,18 +311,9 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
                   fontSize: 16,
                   fontStyle: FontStyle.italic),
             ),
-          // LOTTIE-001 — minh họa (ảnh hoặc Lottie) nằm trong ĐÁP ÁN:
-          // chỉ hiện sau khi bấm "Hiện đáp án", không lộ nghĩa trước.
-          if ((w.imageUrl ?? '').trim().isNotEmpty) ...[
+          if (media != null) ...[
             const SizedBox(height: 8),
-            VocabularyMediaWidget(
-              imageUrl: w.imageUrl,
-              height: 140,
-              animate: true,
-              repeat: true,
-              onMaterialized: (path) =>
-                  provider.updateImageUrl(w.id, path),
-            ),
+            media,
           ],
           const SizedBox(height: 8),
           Text(
@@ -313,7 +349,8 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
     WordEntry w,
     VocabularyProvider provider,
   ) {
-    final hasMedia = (w.imageUrl ?? '').trim().isNotEmpty;
+    // VOCAB-MEDIA-003: có cả ảnh chính lẫn ảnh phụ (mediaPaths lọc đủ 2 slot).
+    final hasMedia = w.mediaPaths.isNotEmpty;
     return TextButton.icon(
       onPressed: () => _changeIllustration(context, w, provider),
       icon: Icon(

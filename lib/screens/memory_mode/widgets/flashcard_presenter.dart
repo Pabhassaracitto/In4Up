@@ -707,9 +707,32 @@ class _BackFace extends StatelessWidget {
     return shared.isEmpty ? null : shared;
   }
 
+  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa THỨ HAI (slot 2) của mặt sau thẻ:
+  /// ưu tiên ảnh riêng của thẻ, nếu không thì dùng chung của WordEntry.
+  String? _mediaUrl2(BuildContext context) {
+    final own = (item.imageUrl2 ?? '').trim();
+    if (own.isNotEmpty) return own;
+    final provider = context.watch<VocabularyProvider>();
+    final shared = provider.findByWord(item.word)?.imageUrl2?.trim() ?? '';
+    return shared.isEmpty ? null : shared;
+  }
+
   /// URL http vừa được widget tải về app storage → ghi path local mới vào
   /// mọi kho đang trỏ URL đó (MemoryItem + WordEntry cùng từ nếu có).
-  void _applyMaterializedPath(BuildContext context, String localPath) {
+  /// [slot] 1 = ảnh chính, 2 = ảnh phụ (VOCAB-MEDIA-003).
+  void _applyMaterializedPath(BuildContext context, String localPath,
+      {required int slot}) {
+    if (slot == 2) {
+      if ((item.imageUrl2 ?? '').startsWith('http')) {
+        context.read<MemoryController>().updateImageUrl2(item.id, localPath);
+      }
+      final provider = context.read<VocabularyProvider>();
+      final entry = provider.findByWord(item.word);
+      if (entry != null && (entry.imageUrl2 ?? '').startsWith('http')) {
+        provider.updateImageUrl2(entry.id, localPath);
+      }
+      return;
+    }
     if ((item.imageUrl ?? '').startsWith('http')) {
       context.read<MemoryController>().updateImageUrl(item.id, localPath);
     }
@@ -748,6 +771,8 @@ class _BackFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaUrl = _mediaUrl(context);
+    // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (slot 2) cũng hiện ở mặt sau.
+    final mediaUrl2 = _mediaUrl2(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -773,13 +798,46 @@ class _BackFace extends StatelessWidget {
           const SizedBox(height: 20),
           // LOTTIE-001 — minh họa (ẢNH hoặc LOTTIE) ở MẶT SAU: không lộ
           // đáp án trước khi lật. repeat=true vì user tự nhịp đọc lâu >1s.
-          if (mediaUrl != null) ...[
+          // VOCAB-MEDIA-003 — có 2 ảnh thì hiện cả hai cạnh nhau.
+          if (mediaUrl != null && mediaUrl2 != null) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: VocabularyMediaWidget(
+                    imageUrl: mediaUrl,
+                    height: 110,
+                    animate: true,
+                    repeat: true,
+                    onMaterialized: (path) =>
+                        _applyMaterializedPath(context, path, slot: 1),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: VocabularyMediaWidget(
+                    imageUrl: mediaUrl2,
+                    height: 110,
+                    animate: true,
+                    repeat: true,
+                    onMaterialized: (path) =>
+                        _applyMaterializedPath(context, path, slot: 2),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ] else if (mediaUrl != null || mediaUrl2 != null) ...[
             VocabularyMediaWidget(
-              imageUrl: mediaUrl,
+              imageUrl: mediaUrl ?? mediaUrl2,
               height: 120,
               animate: true,
               repeat: true,
-              onMaterialized: (path) => _applyMaterializedPath(context, path),
+              onMaterialized: (path) => _applyMaterializedPath(
+                context,
+                path,
+                slot: mediaUrl != null ? 1 : 2,
+              ),
             ),
             const SizedBox(height: 16),
           ],

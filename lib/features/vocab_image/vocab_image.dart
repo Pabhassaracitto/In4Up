@@ -1,3 +1,4 @@
+export 'vocab_animation_library.dart';
 export 'vocab_image_api_config.dart';
 export 'vocab_image_picker.dart';
 export 'vocab_image_picker_sheet.dart';
@@ -6,5 +7,6 @@ export 'vocab_image_service.dart';
 export 'vocab_image_thumbnail.dart';
 export 'vocab_image_web_service.dart';
 export 'vocab_media_import.dart';
+export 'vocab_media_slots_editor.dart';
 export 'vocab_media_type.dart';
 export 'vocabulary_media_widget.dart';

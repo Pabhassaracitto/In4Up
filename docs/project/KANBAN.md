@@ -5709,10 +5709,18 @@
     en/hi/zh/zh_TW/si; 10 chuỗi service trong `res/values` (mặc định tiếng Anh)
     + `res/values-vi` (quy tắc vàng #5).
 - **Bằng chứng (máy bắt trong CI):** `test/screen_translate/
-  screen_translate_permission_state_test.dart` — 20 test thuần Dart (5 trạng
-  thái, cảnh báo phụ, mốc API 34, round-trip map Kotlin, kiểu lạ, tên method
-  mới). Chạy cùng bước "Screen translate tests" đã có trong `app_analyze.yml`
-  (step chạy cả thư mục ⇒ tự nối, không sửa workflow).
+  screen_translate_permission_state_test.dart` — 21 test thuần Dart (5 trạng
+  thái, luật ưu tiên, cảnh báo phụ, mốc API 34, round-trip map Kotlin, kiểu
+  lạ, tên method mới, host VM). Chạy cùng bước "Screen translate tests" đã có
+  trong `app_analyze.yml` (step chạy cả thư mục ⇒ tự nối, không sửa workflow).
+  - CI **run 37655919751 🟢** trên `arena/92e02500-in4up`: `flutter analyze`
+    0 error; bước "Rule 5 test" xanh; bước
+    **"Screen translate tests — XLAT-SCR-002/003" xanh**; các batch test khác
+    (Agent F, READ-GRAM-001, LHB, TTS, Cabin, ASR, I4U18) cũng xanh ⇒ hai lane
+    dịch màn hình (in-app 001 / toàn hệ thống 002-003) không giẫm chân nhau.
+  - ⚠️ Không tải được log chi tiết từ sandbox (`gh run view --log` và artifact
+    đều EOF — đúng bẫy mục 5 của skill `ci-red-debugging`); bằng chứng là
+    trạng thái 🟢 của từng bước trong run.
 - **CHƯA làm được (cần owner + máy thật):**
   - Mục 3.1 của prompt: `adb logcat` ghi lại đúng dòng chặn. Sandbox không có
     adb/Android SDK ⇒ KHÔNG tự bịa log. Script đã viết sẵn:
@@ -5747,8 +5755,15 @@
     (VirtualDisplay tạo lại mỗi lần bấm) và #5 (thiếu POST_NOTIFICATIONS).
     Sửa Kotlin (PendingIntent + opt-in + watchdog + toast/rung + bong bóng 2
     trạng thái + VirtualDisplay 1 lần/phiên), thêm máy trạng thái quyền thuần
-    Dart + 20 test, i18n đủ 5 locale, bổ sung bản sửa đổi ADR-0011 (mục 4, 5,
-    12). **Ghi rõ giới hạn: chưa có logcat/nghiệm thu máy thật.**
+    Dart + 21 test, i18n đủ 5 locale, bổ sung bản sửa đổi ADR-0011 (mục 4, 5,
+    12, 13). **Ghi rõ giới hạn: chưa có logcat/nghiệm thu máy thật.**
+  - 2026-10-07 | 17:00 UTC | doing→doing | agent arena/92e02500-in4up | CI
+    run **37655919751 🟢**: `flutter analyze` 0 error + rule #5 + step
+    "Screen translate tests — XLAT-SCR-002/003" + mọi batch test khác đều
+    xanh. 4 commit nhỏ (Kotlin / Dart+i18n / test / docs). Chờ: logcat máy
+    thật (script `scripts/qa/screen_translate_logcat.sh`), nghiệm thu 7 tiêu
+    chí, và một lượt `flutter build apk --flavor stable` (Kotlin chưa có CI
+    biên dịch).
 
 ### AUDIT-0103 — Đợt kiểm định bản 0.10.3 của chủ dự án (10 mục)
 

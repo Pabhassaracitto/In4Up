@@ -132,6 +132,13 @@ class WordEntry {
   String? phoneticSource;
   String? example;
   String? imageUrl;
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa THỨ HAI (slot 2), cùng ngữ nghĩa
+  /// với [imageUrl]: relative path local (`vocabulary_images/xx.webp`) hoặc
+  /// URL http(s). Additive — dữ liệu cũ không có key này ⇒ null, không
+  /// migration. Không bao giờ nhồi 2 path vào một chuỗi: mọi nơi đọc
+  /// `imageUrl` (slot 1 = ảnh chính) vẫn hoạt động nguyên như cũ.
+  String? imageUrl2;
   List<String> tags;
 
   // ── 3 chiều kỹ năng với SM-2 riêng ──
@@ -236,6 +243,7 @@ class WordEntry {
     this.phoneticSource,
     this.example,
     this.imageUrl,
+    this.imageUrl2,
     List<String>? tags,
     double understand = 0.0,
     double listen = 0.0,
@@ -393,6 +401,55 @@ class WordEntry {
     ].whereType<DateTime>().toList();
     if (dates.isEmpty) return null;
     return dates.reduce((a, b) => a.isBefore(b) ? a : b);
+  }
+
+  // ═══════════════════════════════════════
+  // MEDIA SLOTS (VOCAB-MEDIA-003 / ADR-0012) — 1 hoặc 2 ảnh mỗi từ
+  // ═══════════════════════════════════════
+
+  /// Danh sách media hợp lệ (slot 1 trước, slot 2 sau), lọc null/rỗng.
+  /// Dùng cho chỗ cần duyệt cả 2 ảnh (màn chi tiết, mặt sau thẻ).
+  List<String> get mediaPaths {
+    final out = <String>[];
+    for (final p in [imageUrl, imageUrl2]) {
+      final t = (p ?? '').trim();
+      if (t.isNotEmpty) out.add(t);
+    }
+    return out;
+  }
+
+  /// true khi từ đang có ảnh/animation thứ hai (slot 2).
+  bool get hasSecondaryMedia => (imageUrl2 ?? '').trim().isNotEmpty;
+
+  /// Đặt media vào slot (1 = ảnh chính, 2 = ảnh phụ).
+  ///
+  /// Quy tắc xoá (nghiệm thu ADR-0012 — không mất dữ liệu): xoá slot 1 khi
+  /// đang có slot 2 ⇒ slot 2 LÊN THAY (promote); xoá slot 2 chỉ xoá slot 2.
+  /// Slot khác 1/2 → bỏ qua (no-op). Chuỗi trắng coi như xoá.
+  void setMediaSlot(int slot, String? path) {
+    final value = (path ?? '').trim();
+    if (slot == 1) {
+      if (value.isEmpty) {
+        final secondary = (imageUrl2 ?? '').trim();
+        imageUrl = secondary.isEmpty ? null : secondary;
+        imageUrl2 = null;
+      } else {
+        imageUrl = value;
+      }
+    } else if (slot == 2) {
+      imageUrl2 = value.isEmpty ? null : value;
+    }
+  }
+
+  /// Hoán đổi slot 1 ↔ slot 2 ("Đặt làm ảnh chính").
+  ///
+  /// No-op khi slot 2 trống — giữ invariant: nếu slot 2 có giá trị thì slot 1
+  /// luôn có giá trị (slot 1 không bao giờ để trống trong khi slot 2 có ảnh).
+  void swapMediaSlots() {
+    if (!hasSecondaryMedia) return;
+    final primary = imageUrl;
+    imageUrl = imageUrl2;
+    imageUrl2 = primary;
   }
 
   // ═══════════════════════════════════════
@@ -608,6 +665,10 @@ class WordEntry {
         'phoneticSource': phoneticSource,
         'example': example,
         'imageUrl': imageUrl,
+        // VOCAB-MEDIA-003 (ADR-0012) — chỉ ghi khi có giá trị: giữ file nhỏ,
+        // tương thích ngược (dữ liệu cũ không có key này đọc vẫn null).
+        if (imageUrl2 != null && imageUrl2!.trim().isNotEmpty)
+          'imageUrl2': imageUrl2,
         'tags': tags,
         'understandData': understandData.toJson(),
         'listenData': listenData.toJson(),
@@ -704,6 +765,8 @@ class WordEntry {
         phoneticSource: json['phoneticSource'] as String?,
         example: json['example'] as String?,
         imageUrl: json['imageUrl'] as String?,
+        // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0012).
+        imageUrl2: json['imageUrl2'] as String?,
         tags: (json['tags'] as List?)?.cast<String>() ?? [],
         understand: (json['understand'] as num?)?.toDouble() ?? 0.0,
         listen: (json['listen'] as num?)?.toDouble() ?? 0.0,
@@ -745,6 +808,8 @@ class WordEntry {
       phoneticSource: json['phoneticSource'] as String?,
       example: json['example'] as String?,
       imageUrl: json['imageUrl'] as String?,
+      // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0012).
+      imageUrl2: json['imageUrl2'] as String?,
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
       understandData: json['understandData'] != null
           ? SkillReviewData.fromJson(json['understandData'])
@@ -787,6 +852,7 @@ class WordEntry {
     String? phonetic,
     String? phoneticSource,
     String? example,
+    String? imageUrl2,
     VocabularyType? vocabType,
     String? personalNotes,
     DifficultyLevel? userDifficulty,
@@ -804,6 +870,7 @@ class WordEntry {
         phoneticSource: phoneticSource ?? this.phoneticSource,
         example: example ?? this.example,
         imageUrl: imageUrl,
+        imageUrl2: imageUrl2 ?? this.imageUrl2,
         tags: tags,
         understandData: understandData,
         listenData: listenData,

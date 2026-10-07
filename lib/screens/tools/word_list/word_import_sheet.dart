@@ -165,6 +165,8 @@ class _WordImportSheetState extends State<WordImportSheet>
       // URL http(s), còn relative path (export→reimport cùng máy) dùng
       // trực tiếp được.
       final mediaUrl = (data['imageUrl'] ?? '').trim();
+      // VOCAB-MEDIA-003 (ADR-0012) — cột image_url_2: ảnh/animation thứ hai.
+      final mediaUrl2 = (data['imageUrl2'] ?? '').trim();
 
       candidates.add(
         _ImportCandidate(
@@ -175,6 +177,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           language: _nullIfEmpty(data['language']) ?? 'en',
           example: exampleParts.isEmpty ? null : exampleParts.join('\n'),
           imageUrl: mediaUrl.isEmpty ? null : mediaUrl,
+          imageUrl2: mediaUrl2.isEmpty ? null : mediaUrl2,
           rawLine: line,
           existed: existed,
           selected: true,
@@ -286,6 +289,16 @@ class _WordImportSheetState extends State<WordImportSheet>
         provider.updateImageUrl(entry.id, media);
         if (isNetworkMediaUrl(media)) {
           pendingMedia.add(VocabMediaPending(wordId: entry.id, url: media));
+        }
+      }
+      // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (image_url_2) cùng smart-fill
+      // như ảnh chính: chỉ điền khi slot 2 đang trống, có URL thì materialize.
+      final media2 = (c.imageUrl2 ?? '').trim();
+      if (media2.isNotEmpty && (entry.imageUrl2 ?? '').trim().isEmpty) {
+        provider.updateImageUrl2(entry.id, media2);
+        if (isNetworkMediaUrl(media2)) {
+          pendingMedia.add(
+              VocabMediaPending(wordId: entry.id, url: media2, slot: 2));
         }
       }
       if (existed) {
@@ -987,6 +1000,10 @@ class _ImportCandidate {
   /// LOTTIE-001 — link minh họa (ảnh tĩnh hoặc Lottie .json) từ cột
   /// `image_url`; chỉ smart-fill khi entry chưa có ảnh.
   final String? imageUrl;
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — link minh họa THỨ HAI từ cột `image_url_2`;
+  /// smart-fill như ảnh chính (chỉ khi slot 2 đang trống).
+  final String? imageUrl2;
   final String? rawLine;
   final int frequency;
   /// true = từ/cụm này đã có trong WordList (import sẽ smart-fill,
@@ -1002,6 +1019,7 @@ class _ImportCandidate {
     this.example,
     this.language = 'en',
     this.imageUrl,
+    this.imageUrl2,
     this.rawLine,
     this.frequency = 1,
     this.existed = false,
@@ -1154,6 +1172,29 @@ class WordTableParser {
     'minh họa': 'imageUrl',
   };
 
+  /// VOCAB-MEDIA-003 (ADR-0012) — nhận diện cột minh họa THỨ HAI (slot 2).
+  ///
+  /// KHÔNG nhét thẳng alias `…_2` vào [fieldAliases]: `normKey` bỏ MỌI ký tự
+  /// không phải chữ cái (kể cả chữ số) ⇒ `image_url_2` và `image_url` cùng
+  /// chuẩn hoá thành `imageurl`, bản ghi thêm sau sẽ ĐÈ bản ghi trước → header
+  /// 1 cột `image_url` bị map nhầm sang imageUrl2. Vì vậy nhận diện riêng
+  /// theo HẬU TỐ "2" của ô header.
+  static final RegExp _slot2Suffix = RegExp(r'[_\-\s]*2$');
+
+  /// Map một ô header → tên trường (null = cột không nhận ra).
+  ///
+  /// `…_2` / `… 2` / `…2` có gốc là cột minh họa (`image_url`, `ảnh`,
+  /// `animation`, …) ⇒ `imageUrl2`.
+  static String? resolveHeaderField(String rawCell) {
+    final cell = rawCell.trim();
+    final withoutSuffix = cell.replaceFirst(_slot2Suffix, '');
+    if (withoutSuffix != cell &&
+        _normAliases[normKey(withoutSuffix)] == 'imageUrl') {
+      return 'imageUrl2';
+    }
+    return _normAliases[normKey(cell)];
+  }
+
   /// Cột tự do — có thể chứa dấu phẩy nội bộ (hấp thụ ô dư khi hàng dài
   /// hơn header).
   static const Set<String> _wideFields = {
@@ -1200,7 +1241,7 @@ class WordTableParser {
   /// Map dòng header → danh sách tên trường (null = cột không nhận ra).
   static List<String?> mapHeader(String headerLine) {
     final parts = splitHeaderLine(headerLine);
-    return parts.map((e) => _normAliases[normKey(e)]).toList();
+    return parts.map(resolveHeaderField).toList();
   }
 
   /// Chọn delimiter từ dòng header: tab > | > ; > ,
@@ -1322,12 +1363,16 @@ class WordTableParser {
             final noIpa = <String?>[...fields]..removeAt(p);
             return _zip(parts, noIpa);
           } else if (_mediaTail(fields) &&
-              n >= 3 &&
-              // LOTTIE-001 — thiếu IPA nhưng CÓ URL cuối: language trượt
-              // về ô kề cuối, URL ở ô cuối → bỏ cột ipa rồi zip.
-              _looksLikeLangCode(parts[n - 2]) &&
+              // LOTTIE-001 + VOCAB-MEDIA-003 — thiếu IPA nhưng CÓ URL ở
+              // cuối: language trượt về ô kề cuối (theo số cột media), các
+              // URL ở ô cuối → bỏ cột ipa rồi zip.
+              n >= 2 + _mediaTailCount(fields) &&
+              _looksLikeLangCode(parts[n - 1 - _mediaTailCount(fields)]) &&
+              (_mediaTailCount(fields) < 2 ||
+                  _looksLikeMediaUrl(parts[n - 2])) &&
               _looksLikeMediaUrl(parts[n - 1]) &&
-              (parts[n - 3].contains(' ') || parts[n - 3].length >= 5)) {
+              (parts[n - 2 - _mediaTailCount(fields)].contains(' ') ||
+                  parts[n - 2 - _mediaTailCount(fields)].length >= 5)) {
             final noIpa = <String?>[...fields]..removeAt(p);
             return _zip(parts, noIpa);
           }
@@ -1344,14 +1389,22 @@ class WordTableParser {
         if (stolen != null) data[stolen] = '';
         data['language'] = parts.last.trim();
       }
-      // LOTTIE-001 — header …,language,image_url mà hàng THIẾU cột
-      // language (URL đứng cuối, zip đã đẩy nó vào ô language) → đẩy
-      // URL về imageUrl, language để trống.
+      // LOTTIE-001 + VOCAB-MEDIA-003 — header …,language,image_url[,image_url_2]
+      // mà hàng THIẾU cột language (URL đứng cuối, zip đã đẩy nó vào ô
+      // language) → đẩy URL về đúng cột media, language để trống.
+      //
+      // Điều kiện "ô language ĐANG bị URL chiếm" là bắt buộc khi có 2 cột
+      // media: hàng 7 ô của header 8 cột có HAI nghĩa (thiếu language ⇒ ô
+      // language là URL, hay thiếu URL 2 ⇒ ô language vẫn là mã ngôn ngữ).
+      // Chỉ nhánh đầu được sửa — nhánh sau giữ nguyên language.
+      final mediaCount = _mediaTailCount(fields);
       if (_mediaTail(fields) &&
           n == fields.length - 1 &&
+          _looksLikeMediaUrl(data['language'] ?? '') &&
           _looksLikeMediaUrl(parts.last)) {
         data['language'] = '';
-        data['imageUrl'] = parts.last.trim();
+        if (mediaCount >= 1) data['imageUrl'] = parts[n - mediaCount].trim();
+        if (mediaCount >= 2) data['imageUrl2'] = parts[n - 1].trim();
       }
       return data;
     }
@@ -1393,12 +1446,27 @@ class WordTableParser {
   static bool _looksLikeLangCode(String s) =>
       RegExp(r'^[a-z]{2,4}$').hasMatch(s.trim().toLowerCase());
 
-  /// LOTTIE-001 — true khi header kết thúc bằng `…, language, image_url`
-  /// (cột media sau language — vị trí canonical, không phá mỏ neo cũ).
-  static bool _mediaTail(List<String?> fields) =>
-      fields.length >= 2 &&
-      fields.last == 'imageUrl' &&
-      fields[fields.length - 2] == 'language';
+  /// LOTTIE-001 + VOCAB-MEDIA-003 — true khi header kết thúc bằng
+  /// `…, language, image_url [, image_url_2]` (cột media sau language — vị
+  /// trí canonical, không phá mỏ neo cũ).
+  static bool _mediaTail(List<String?> fields) {
+    final mediaCount = _mediaTailCount(fields);
+    if (mediaCount == 0) return false;
+    return fields[fields.length - 1 - mediaCount] == 'language';
+  }
+
+  /// VOCAB-MEDIA-003 (ADR-0012) — số cột media ở CUỐI header (0/1/2):
+  /// `image_url` hoặc `image_url, image_url_2`.
+  static int _mediaTailCount(List<String?> fields) {
+    if (fields.isEmpty) return 0;
+    if (fields.last == 'imageUrl2' &&
+        fields.length >= 2 &&
+        fields[fields.length - 2] == 'imageUrl') {
+      return 2;
+    }
+    if (fields.last == 'imageUrl') return 1;
+    return 0;
+  }
 
   /// Ô giống URL media (link ảnh/Lottie dán vào CSV) — LOTTIE-001.
   static bool _looksLikeMediaUrl(String s) {
@@ -1430,18 +1498,21 @@ class WordTableParser {
   ) {
     final data = <String, String>{};
     final n = parts.length;
-    // LOTTIE-001 — media có thể đứng SAU language: language/imageUrl được
-    // neo trực tiếp, vùng giữa dừng trước 2 ô cuối.
-    final mediaLast = fields.isNotEmpty && fields.last == 'imageUrl';
-    final hasLang = mediaLast ? _mediaTail(fields) : fields.last == 'language';
-    final rightReserved = (hasLang ? 1 : 0) + (mediaLast ? 1 : 0);
+    // LOTTIE-001 + VOCAB-MEDIA-003 — media có thể đứng SAU language (tối đa
+    // 2 cột: image_url, image_url_2): language/các cột media được neo trực
+    // tiếp ở cuối, vùng giữa dừng trước cụm đó.
+    final mediaCount = _mediaTailCount(fields);
+    final hasLang =
+        mediaCount > 0 ? _mediaTail(fields) : fields.last == 'language';
+    final rightReserved = (hasLang ? 1 : 0) + mediaCount;
     final lastIdx = n - 1 - rightReserved; // biên phải của vùng giữa
 
     data['word'] = parts[0].trim();
     if (hasLang) {
-      data['language'] = parts[n - 1 - (mediaLast ? 1 : 0)].trim();
+      data['language'] = parts[n - 1 - mediaCount].trim();
     }
-    if (mediaLast) data['imageUrl'] = parts[n - 1].trim();
+    if (mediaCount >= 1) data['imageUrl'] = parts[n - mediaCount].trim();
+    if (mediaCount >= 2) data['imageUrl2'] = parts[n - 1].trim();
 
     final ipaIdx = _firstIpaIndex(parts, 1, lastIdx);
 
@@ -1458,7 +1529,7 @@ class WordTableParser {
       final postFields = <String>[];
       for (final f in fields) {
         if (f == null) continue;
-        if (const {'word', 'language', 'phonetic', 'meaning', 'imageUrl'}
+        if (const {'word', 'language', 'phonetic', 'meaning', 'imageUrl', 'imageUrl2'}
             .contains(f)) {
           continue;
         }
@@ -1472,7 +1543,8 @@ class WordTableParser {
       final groupFields = <String>[];
       for (final f in fields) {
         if (f == null) continue;
-        if (const {'word', 'language', 'phonetic', 'imageUrl'}.contains(f)) {
+        if (const {'word', 'language', 'phonetic', 'imageUrl', 'imageUrl2'}
+            .contains(f)) {
           continue;
         }
         groupFields.add(f);
@@ -1493,15 +1565,18 @@ class WordTableParser {
     final data = <String, String>{};
     final n = parts.length;
     final p = fields.indexOf('phonetic');
-    // LOTTIE-001 — xử lý đuôi media giống _anchorAlign.
-    final mediaLast = fields.isNotEmpty && fields.last == 'imageUrl';
-    final hasLang = mediaLast ? _mediaTail(fields) : fields.last == 'language';
+    // LOTTIE-001 + VOCAB-MEDIA-003 — xử lý đuôi media (tối đa 2 cột) giống
+    // _anchorAlign.
+    final mediaCount = _mediaTailCount(fields);
+    final hasLang =
+        mediaCount > 0 ? _mediaTail(fields) : fields.last == 'language';
 
     data['word'] = parts[0].trim();
     if (hasLang) {
-      data['language'] = parts[n - 1 - (mediaLast ? 1 : 0)].trim();
+      data['language'] = parts[n - 1 - mediaCount].trim();
     }
-    if (mediaLast) data['imageUrl'] = parts[n - 1].trim();
+    if (mediaCount >= 1) data['imageUrl'] = parts[n - mediaCount].trim();
+    if (mediaCount >= 2) data['imageUrl2'] = parts[n - 1].trim();
     // Ô 1..p (kể cả ô "ipa rác") → meaning.
     data['meaning'] = parts
         .sublist(1, p + 1)
@@ -1511,7 +1586,12 @@ class WordTableParser {
     data['phonetic'] = '';
     for (int i = p + 1; i < n; i++) {
       final key = fields[i];
-      if (key == null || key == 'language' || key == 'imageUrl') continue;
+      if (key == null ||
+          key == 'language' ||
+          key == 'imageUrl' ||
+          key == 'imageUrl2') {
+        continue;
+      }
       data[key] = parts[i].trim();
     }
     return data;

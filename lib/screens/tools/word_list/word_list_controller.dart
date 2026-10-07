@@ -245,14 +245,18 @@ class WordListController extends ChangeNotifier {
     // LOTTIE-001 — xuất kèm image_url (link ảnh/Lottie hoặc relative path
     // local) để import lại đầy đủ; chứa dấu phẩy thì bọc "nét nháy"
     // (parser import đọc được nháy).
-    buffer.writeln('word,meaning,phonetic,example,image_url');
+    // VOCAB-MEDIA-003 (ADR-0012) — thêm image_url_2 ở CUỐI (additive: parser
+    // cũ đọc vẫn được, cột mới rơi vào ô tự do).
+    buffer.writeln('word,meaning,phonetic,example,image_url,image_url_2');
     for (final w in words) {
       final meaning = (w.shortDefinition ?? '').replaceAll(',', ';');
       final phonetic = (w.phonetic ?? '').replaceAll(',', ';');
       final example = (w.example ?? '').replaceAll(',', ';');
       final media = (w.imageUrl ?? '').trim();
       final mediaCell = media.contains(',') ? '"$media"' : media;
-      buffer.writeln('${w.word},$meaning,$phonetic,$example,$mediaCell');
+      final media2 = (w.imageUrl2 ?? '').trim();
+      final media2Cell = media2.contains(',') ? '"$media2"' : media2;
+      buffer.writeln('${w.word},$meaning,$phonetic,$example,$mediaCell,$media2Cell');
     }
     return buffer.toString();
   }

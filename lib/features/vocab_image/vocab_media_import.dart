@@ -14,10 +14,20 @@ import 'vocab_image_api_config.dart';
 import 'vocab_image_service.dart';
 
 /// Một URL media (http) chờ tải về local + id entry nhận path mới.
+///
+/// VOCAB-MEDIA-003 (ADR-0012): [slot] 1 = ảnh chính (`imageUrl`), 2 = ảnh
+/// phụ (`imageUrl2`) — mặc định 1 để giữ nguyên các caller cũ.
 class VocabMediaPending {
   final String wordId;
   final String url;
-  const VocabMediaPending({required this.wordId, required this.url});
+
+  /// 1 = ảnh chính, 2 = ảnh phụ.
+  final int slot;
+  const VocabMediaPending({
+    required this.wordId,
+    required this.url,
+    this.slot = 1,
+  });
 }
 
 class VocabMediaMaterializer {
@@ -48,10 +58,17 @@ class VocabMediaMaterializer {
           if (path != null && path.isNotEmpty) {
             // Chỉ thay URL khi entry vẫn đang giữ ĐÚNG url này (user có thể
             // đã đổi minh họa tay trong lúc tải → không đè).
-            final current =
-                provider.findById(item.wordId)?.imageUrl ?? '';
+            // VOCAB-MEDIA-003: slot 2 đọc/ghi imageUrl2 (ảnh phụ).
+            final entry = provider.findById(item.wordId);
+            final current = item.slot == 2
+                ? (entry?.imageUrl2 ?? '')
+                : (entry?.imageUrl ?? '');
             if (current.trim() == item.url.trim()) {
-              provider.updateImageUrl(item.wordId, path);
+              if (item.slot == 2) {
+                provider.updateImageUrl2(item.wordId, path);
+              } else {
+                provider.updateImageUrl(item.wordId, path);
+              }
               ok++;
             }
           }

@@ -1,6 +1,6 @@
 // lib/features/vocab_image/vocab_animation_library.dart
 //
-// VOCAB-MEDIA-003 (ADR-0012) — nguồn thứ 4 của sheet chọn media: duyệt
+// VOCAB-MEDIA-003 (ADR-0013) — nguồn thứ 4 của sheet chọn media: duyệt
 // THƯ VIỆN ANIMATION (Lottie) + xem trước từng cái trước khi lưu.
 //
 // Nguồn dữ liệu (đúng triết lý IMG-WEB-001 — không hard-code key bên thứ ba):

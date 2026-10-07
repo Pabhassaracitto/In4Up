@@ -331,7 +331,7 @@ class WordEntryMigrator {
     if ((entry.phonetic ?? '').isNotEmpty) into.add('phonetic');
     if ((entry.example ?? '').isNotEmpty) into.add('example');
     if ((entry.imageUrl ?? '').isNotEmpty) into.add('imageUrl');
-    // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (slot 2) cũng chưa có chỗ
+    // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (slot 2) cũng chưa có chỗ
     // trong schema v1 → liệt kê để không mất âm thầm.
     if ((entry.imageUrl2 ?? '').isNotEmpty) into.add('imageUrl2');
     if (entry.tags.isNotEmpty) into.add('tags');

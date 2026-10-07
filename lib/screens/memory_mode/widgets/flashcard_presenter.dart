@@ -707,7 +707,7 @@ class _BackFace extends StatelessWidget {
     return shared.isEmpty ? null : shared;
   }
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — minh họa THỨ HAI (slot 2) của mặt sau thẻ:
+  /// VOCAB-MEDIA-003 (ADR-0013) — minh họa THỨ HAI (slot 2) của mặt sau thẻ:
   /// ưu tiên ảnh riêng của thẻ, nếu không thì dùng chung của WordEntry.
   String? _mediaUrl2(BuildContext context) {
     final own = (item.imageUrl2 ?? '').trim();
@@ -771,7 +771,7 @@ class _BackFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaUrl = _mediaUrl(context);
-    // VOCAB-MEDIA-003 (ADR-0012) — ảnh thứ hai (slot 2) cũng hiện ở mặt sau.
+    // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (slot 2) cũng hiện ở mặt sau.
     final mediaUrl2 = _mediaUrl2(context);
     return Container(
       width: double.infinity,

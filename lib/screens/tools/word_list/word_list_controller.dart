@@ -245,7 +245,7 @@ class WordListController extends ChangeNotifier {
     // LOTTIE-001 — xuất kèm image_url (link ảnh/Lottie hoặc relative path
     // local) để import lại đầy đủ; chứa dấu phẩy thì bọc "nét nháy"
     // (parser import đọc được nháy).
-    // VOCAB-MEDIA-003 (ADR-0012) — thêm image_url_2 ở CUỐI (additive: parser
+    // VOCAB-MEDIA-003 (ADR-0013) — thêm image_url_2 ở CUỐI (additive: parser
     // cũ đọc vẫn được, cột mới rơi vào ô tự do).
     buffer.writeln('word,meaning,phonetic,example,image_url,image_url_2');
     for (final w in words) {

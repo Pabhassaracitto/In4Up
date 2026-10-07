@@ -32,7 +32,7 @@ import 'vocab_media_type.dart';
 /// HOẶC animation Lottie (.json/.lottie); file vẫn được tải về app storage
 /// để học offline (giống 2 nguồn còn lại).
 ///
-/// VOCAB-MEDIA-003 (ADR-0012) — thêm nhánh `animation`: duyệt THƯ VIỆN
+/// VOCAB-MEDIA-003 (ADR-0013) — thêm nhánh `animation`: duyệt THƯ VIỆN
 /// animation (Lottie) dạng lưới, mỗi ô xem trước chạy nhẹ (chỉ ô đang hiện
 /// trên màn hình mới chạy); bấm ô ⇒ xem trước lớn ⇒ "Lưu vào từ này".
 enum VocabImageSourceKind { web, device, pasteUrl, animation }

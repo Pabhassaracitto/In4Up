@@ -15,7 +15,7 @@ import 'vocab_image_service.dart';
 
 /// Một URL media (http) chờ tải về local + id entry nhận path mới.
 ///
-/// VOCAB-MEDIA-003 (ADR-0012): [slot] 1 = ảnh chính (`imageUrl`), 2 = ảnh
+/// VOCAB-MEDIA-003 (ADR-0013): [slot] 1 = ảnh chính (`imageUrl`), 2 = ảnh
 /// phụ (`imageUrl2`) — mặc định 1 để giữ nguyên các caller cũ.
 class VocabMediaPending {
   final String wordId;

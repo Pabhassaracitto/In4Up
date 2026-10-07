@@ -831,7 +831,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   /// Cập nhật hình ảnh cho từ vựng (slot 1 — ảnh chính).
   ///
-  /// VOCAB-MEDIA-003 (ADR-0012): truyền null/rỗng = XOÁ ảnh chính; nếu từ
+  /// VOCAB-MEDIA-003 (ADR-0013): truyền null/rỗng = XOÁ ảnh chính; nếu từ
   /// đang có ảnh thứ hai (slot 2) thì ảnh phụ LÊN THAY (không mất dữ liệu —
   /// cùng quy tắc `WordEntry.setMediaSlot`).
   void updateImageUrl(String id, String? imageUrl) {
@@ -844,7 +844,7 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — cập nhật ảnh thứ hai (slot 2).
+  /// VOCAB-MEDIA-003 (ADR-0013) — cập nhật ảnh thứ hai (slot 2).
   /// null/rỗng = xoá ảnh phụ (không đụng ảnh chính).
   void updateImageUrl2(String id, String? imageUrl2) {
     try {
@@ -856,7 +856,7 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — ghi cả 2 slot một lúc.
+  /// VOCAB-MEDIA-003 (ADR-0013) — ghi cả 2 slot một lúc.
   ///
   /// Ghi slot 2 TRƯỚC rồi mới slot 1: nếu [primary] null mà [secondary] cũng
   /// null thì `setMediaSlot(1, null)` xoá hẳn (không promote nhầm ảnh phụ
@@ -872,7 +872,7 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// VOCAB-MEDIA-003 (ADR-0012) — hoán đổi ảnh chính ↔ ảnh phụ
+  /// VOCAB-MEDIA-003 (ADR-0013) — hoán đổi ảnh chính ↔ ảnh phụ
   /// ("Đặt làm ảnh chính" ở ô minh họa 2 khung).
   void swapImageSlots(String id) {
     try {

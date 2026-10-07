@@ -334,7 +334,7 @@ jobs:
           path: read_act_test.log
           if-no-files-found: ignore
 
-      # VOCAB-MEDIA-003 (ADR-0012, audit 0.10.3 mục 2) — 1 hoặc 2 ảnh mỗi từ
+      # VOCAB-MEDIA-003 (ADR-0013, audit 0.10.3 mục 2) — 1 hoặc 2 ảnh mỗi từ
       # (imageUrl2 additive: dữ liệu cũ vẫn mở được, promote khi xoá ảnh chính,
       # swap slot) + duyệt thư viện animation (parser endpoint tùy chỉnh +
       # MediaWiki Commons). Thuần Dart — không plugin/mạng/SharedPreferences.

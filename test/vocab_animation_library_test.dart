@@ -1,6 +1,6 @@
 // test/vocab_animation_library_test.dart
 //
-// VOCAB-MEDIA-003 (ADR-0012) — nguồn "Animation" của sheet chọn media:
+// VOCAB-MEDIA-003 (ADR-0013) — nguồn "Animation" của sheet chọn media:
 //  1. Parser endpoint tùy chỉnh: nhận nhiều shape (`results`/`data`/`items`/
 //     list thuần), CHỈ giữ link .json/.lottie tuyệt đối, lấy preview/title/
 //     creator/license, tôn trọng limit, không ném khi JSON hỏng.

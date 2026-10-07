@@ -1,6 +1,6 @@
 // test/word_import_parser_image_url2_test.dart
 //
-// VOCAB-MEDIA-003 (ADR-0012) — CSV có HAI cột minh họa ở cuối header
+// VOCAB-MEDIA-003 (ADR-0013) — CSV có HAI cột minh họa ở cuối header
 // (`…, language, image_url, image_url_2`):
 //  1) Header map đúng alias (EN + VI + "2").
 //  2) Hàng đủ cột → 2 URL vào đúng 2 chỗ.

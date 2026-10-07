@@ -251,7 +251,7 @@ class _SingleWordReviewScreenState extends State<SingleWordReviewScreen> {
   Widget _buildAnswer(WordEntry w, VocabularyProvider provider) {
     // LOTTIE-001 — minh họa (ảnh hoặc Lottie) nằm trong ĐÁP ÁN: chỉ hiện
     // sau khi bấm "Hiện đáp án", không lộ nghĩa trước.
-    // VOCAB-MEDIA-003 (ADR-0012) — có ảnh thứ hai (slot 2) thì hiện cả hai
+    // VOCAB-MEDIA-003 (ADR-0013) — có ảnh thứ hai (slot 2) thì hiện cả hai
     // cạnh nhau; materialize bản xem trước theo đúng slot.
     final media1 = (w.imageUrl ?? '').trim();
     final media2 = (w.imageUrl2 ?? '').trim();

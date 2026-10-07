@@ -1,18 +1,28 @@
 package com.in4up
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.util.Log
 import com.in4up.screentranslate.ScreenTranslatePlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * MainActivity — đăng ký MethodChannel cho các thư viện thiết bị.
@@ -73,11 +83,69 @@ class MainActivity : FlutterActivity() {
         "txt", "lrc", "srt", "md", "markdown", "json", "docx", "pdf",
     )
 
+    // -------------------------------------------------------------------------
+    // OCR-SCAN-CRASH-001 — lớp an toàn cho lane "Quét ảnh ▸ Chụp & quét tài liệu".
+    //
+    // Vì sao phải ở native: plugin `google_mlkit_document_scanner` 0.5.0 (đọc
+    // tại đúng commit release `f29f844`) gọi GmsDocumentScanning.getClient() /
+    // getStartScanIntent() thẳng trên luồng platform mà KHÔNG bọc try/catch.
+    // Máy thiếu/tắt Google Play services, hoặc RAM dưới 1,7 GB (ngưỡng Google
+    // ghi trong tài liệu Document Scanner: trả MlKitException mã UNSUPPORTED)
+    // ⇒ lỗi ném thẳng ra luồng chính → tiến trình chết, không toast/dialog kịp
+    // hiện — đúng hiện tượng owner báo ở bản 0.10.3 ("app tắt ngay").
+    //
+    // Ba việc ở đây:
+    //   1. `probeCapabilities` — trả dữ liệu thô (GMS cài/bật/versionCode,
+    //      SDK_INT, tổng RAM) để `OcrPrecheck.decide()` quyết định TRƯỚC khi mở
+    //      máy quét (lib/features/ocr/ocr_precheck.dart).
+    //   2. `beginScanSession` / `endScanSession` + onSaveInstanceState — nhớ
+    //      "đang có phiên quét" để instance mới biết phiên đã bị hệ thống cắt
+    //      ngang (mất activity result — giả thuyết 2), thay vì treo im lặng.
+    //   3. Crash shield — CHỈ với exception có dấu vết ML Kit/GMS scanner: ghi
+    //      vết ra tệp chẩn đoán + báo Dart rồi GIỮ APP SỐNG để UI nói cho
+    //      người dùng. Mọi exception khác vẫn đi đường cũ (không che bug ngoài
+    //      lane này).
+    // -------------------------------------------------------------------------
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        appContext = applicationContext
+        if (savedInstanceState?.getBoolean(STATE_OCR_SCAN_IN_FLIGHT) == true) {
+            interruptedScanPending = true
+        }
+        installOcrCrashShield()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // Chỉ lưu khi thật sự có phiên quét đang chờ: instance mới đọc cờ này
+        // để biết kết quả máy quét đã bị hệ thống nuốt mất.
+        if (scanSessionInFlight) {
+            outState.putBoolean(STATE_OCR_SCAN_IN_FLIGHT, true)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         ScreenTranslatePlugin(this).also {
             it.attach(flutterEngine.dartExecutor.binaryMessenger)
             screenTranslatePlugin = it
+        }
+        ocrChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OCR_CHANNEL_NAME)
+        ocrChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "probeCapabilities" -> result.success(probeOcrCapabilities())
+                "beginScanSession" -> {
+                    scanSessionInFlight = true
+                    result.success(null)
+                }
+                "endScanSession" -> {
+                    scanSessionInFlight = false
+                    result.success(null)
+                }
+                "pollScanSignal" -> result.success(pollOcrScanSignal())
+                else -> result.notImplemented()
+            }
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
@@ -557,7 +625,154 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         screenTranslatePlugin?.detach()
         screenTranslatePlugin = null
+        ocrChannel = null
         super.onDestroy()
+    }
+
+    /**
+     * Trạng thái + hạ tầng an toàn cho lane quét tài liệu (OCR-SCAN-CRASH-001).
+     *
+     * Đặt ở companion (static) vì crash shield sống lâu hơn một activity: nó
+     * bắt exception trên luồng chính và phải còn hiệu lực khi activity đã bị
+     * huỷ/tạo lại (đúng cảnh giả thuyết 2). Không giữ Activity trong handler —
+     * chỉ giữ applicationContext (không rò rỉ).
+     */
+    private companion object {
+        private const val OCR_TAG = "In4UpOcr"
+        private const val OCR_CHANNEL_NAME = "in4up/ocr"
+        private const val STATE_OCR_SCAN_IN_FLIGHT = "in4up.ocrScanInFlight"
+
+        /** Dấu vết nhận diện exception đến từ lane quét tài liệu (ML Kit/GMS). */
+        private val OCR_CRASH_MARKERS = listOf(
+            "com.google_mlkit_document_scanner",
+            "mlkit_vision_document_scanner",
+            "GmsDocumentScanning",
+            "com.google.mlkit.vision.documentscanner",
+        )
+
+        @Volatile private var crashShieldInstalled = false
+        @Volatile private var appContext: Context? = null
+
+        /** Vết crash đã bắt, chờ Dart đọc (pollScanSignal / onOcrNativeCrash). */
+        @Volatile private var capturedCrash: String? = null
+
+        /** Dart đang có phiên quét chờ kết quả (beginScanSession/endScanSession). */
+        @Volatile private var scanSessionInFlight = false
+
+        /** Instance mới phát hiện phiên quét bị cắt ngang lúc activity bị huỷ. */
+        @Volatile private var interruptedScanPending = false
+
+        /** Kênh để đẩy thông báo crash sang Dart (null khi engine chưa sẵn). */
+        @Volatile private var ocrChannel: MethodChannel? = null
+
+        /** Cài crash shield đúng một lần cho cả tiến trình. */
+        private fun installOcrCrashShield() {
+            if (crashShieldInstalled) return
+            crashShieldInstalled = true
+            val previous = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+                val trace = Log.getStackTraceString(error)
+                writeOcrDiagnostics(trace)
+
+                val isOcrLane = OCR_CRASH_MARKERS.any { trace.contains(it) }
+                if (!isOcrLane) {
+                    // Ngoài lane quét: giữ nguyên hành vi hệ thống (không che bug).
+                    previous?.uncaughtException(thread, error)
+                    return@setDefaultUncaughtExceptionHandler
+                }
+
+                capturedCrash = trace
+                Log.e(OCR_TAG, "Bắt crash lane quét tài liệu — giữ app sống, báo Dart")
+                // MethodChannel yêu cầu gọi trên luồng chính.
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    try {
+                        ocrChannel?.invokeMethod("onOcrNativeCrash", trace)
+                    } catch (e: Exception) {
+                        Log.e(OCR_TAG, "Không báo được Dart: ${e.message}")
+                    }
+                }
+            }
+        }
+
+        /** Ghi vết crash ra tệp để owner dán vào KANBAN (thay cho adb logcat). */
+        private fun writeOcrDiagnostics(trace: String) {
+            val context = appContext ?: return
+            try {
+                val base = context.getExternalFilesDir(null) ?: context.filesDir
+                val dir = File(base, "in4up_diagnostics")
+                if (!dir.exists()) dir.mkdirs()
+                val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                val file = File(dir, "ocr-crash-$stamp.log")
+                file.writeText(trace)
+                Log.e(OCR_TAG, "Đã ghi vết crash: ${file.absolutePath}")
+            } catch (e: Exception) {
+                Log.e(OCR_TAG, "Không ghi được vết crash: ${e.message}")
+            }
+        }
+
+        /** Dữ liệu thô cho `OcrPrecheck.decide()` — không bao giờ ném. */
+        private fun probeOcrCapabilities(): Map<String, Any?> {
+            val context = appContext
+            var installed = false
+            var enabled = false
+            var versionCode: Long? = null
+
+            if (context != null) {
+                val pm = context.packageManager
+                try {
+                    val info = pm.getPackageInfo("com.google.android.gms", 0)
+                    installed = true
+                    enabled = pm.getApplicationInfo("com.google.android.gms", 0).enabled
+                    versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        info.longVersionCode
+                    } else {
+                        info.versionCode.toLong()
+                    }
+                } catch (e: PackageManager.NameNotFoundException) {
+                    // Không thấy gói = máy không có Play services (hoặc bị ẩn với
+                    // app này — manifest đã khai <queries> cho gói đó).
+                    installed = false
+                    enabled = false
+                } catch (e: Exception) {
+                    Log.e(OCR_TAG, "probe OCR thất bại: ${e.message}")
+                }
+            }
+
+            return mapOf(
+                "gmsInstalled" to installed,
+                "gmsEnabled" to enabled,
+                "gmsVersionCode" to versionCode,
+                "sdkInt" to Build.VERSION.SDK_INT,
+                "totalRamBytes" to totalRamBytes(context),
+            )
+        }
+
+        /** Tổng RAM (byte) — ngưỡng Document Scanner của Google là 1,7 GB. */
+        private fun totalRamBytes(context: Context?): Long? {
+            val ctx = context ?: return null
+            return try {
+                val manager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                val memoryInfo = ActivityManager.MemoryInfo()
+                manager?.getMemoryInfo(memoryInfo)
+                memoryInfo.totalMem.takeIf { it > 0 }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /** Nhịp hỏi của `watchOcrScan` (ocr_scan_guard.dart). */
+        private fun pollOcrScanSignal(): Map<String, Any?> {
+            val crash = capturedCrash
+            if (crash != null) {
+                capturedCrash = null
+                return mapOf("signal" to "nativeCrash", "trace" to crash)
+            }
+            if (interruptedScanPending) {
+                interruptedScanPending = false
+                return mapOf("signal" to "interrupted")
+            }
+            return mapOf("signal" to "none")
+        }
     }
 
     private fun scanMediaStore(): List<Map<String, Any?>> {

@@ -154,7 +154,7 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
-| ICONIZE-001 | Iconize Visual Context: học từ vựng qua câu ví dụ/bản dịch chèn icon (Direct Visual Anchoring Loop) — engine render ephemeral + toggle "Icon hóa" panel dịch + câu ví dụ thị giác + Smart Cloze scaffolding, 9 lane a–h + d2 (rollout: Tab Đọc v1 → toolbar chung + Tab Hiểu v1.1) | 📋 proposed (blueprint hội đồng 94.2/100 đã audit repo; CHỜ owner duyệt ADR-0013) | agent arena/3ad55219-in4up 2026-10-07 — `docs/iconize_visual_context_blueprint.md` + `docs/adr/0013-iconize-visual-context.md` (Proposed) + prompt gốc `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md` |
+| ICONIZE-001 | Iconize Visual Context: học từ vựng qua câu ví dụ/bản dịch chèn icon (Direct Visual Anchoring Loop) — engine render ephemeral + toggle "Icon hóa" panel dịch + câu ví dụ thị giác + Smart Cloze scaffolding, 9 lane a–h + d2 (rollout: Tab Đọc v1 → toolbar chung + Tab Hiểu v1.1) | 🔨 doing (ADR-0013 Accepted 2026-10-08; lane 001a đang chạy) | agent arena/3ad55219-in4up 2026-10-07 — `docs/iconize_visual_context_blueprint.md` + `docs/adr/0013-iconize-visual-context.md` (Proposed) + prompt gốc `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md` |
 
 
 ## Card chi tiết
@@ -6074,10 +6074,9 @@
     `d1b3477`, `a574ebc`, `469522f`, `2b271bf`, `e1e1f62`) chỉ còn trong lịch sử
     Actions + reflog máy agent. PR #90 vẫn mở vào `arena/01a0251e-in4up`.
 
-### ICONIZE-001 — Iconize Visual Context: học từ vựng qua ngữ cảnh thị giác (blueprint hội đồng → chờ ADR-0013)
-- **Trạng thái:** 📋 proposed — blueprint hội đồng đa AI (5 vòng, 94.2/100)
-  đã qua audit đối chiếu repo; CHỜ owner duyệt `docs/adr/0013-iconize-visual-context.md`
-  trước khi mở lane code nào.
+### ICONIZE-001 — Iconize Visual Context: học từ vựng qua ngữ cảnh thị giác (ADR-0013 Accepted)
+- **Trạng thái:** 🔨 doing — ADR-0013 được owner duyệt 2026-10-08 ("Được hãy
+  bắt đầu"); lane 001a (build tool + asset) đang chạy trên arena/3ad55219-in4up.
 - **Nguồn:** owner 2026-10-07 — ý tưởng "Visual Context / câu ví dụ Iconized"
   (trao đổi với Gemini) + yêu cầu nút "Icon hóa" trong panel dịch; prompt hội
   đồng `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md`; kết quả chốt qua agent
@@ -6107,3 +6106,13 @@
     v1.1, chờ nghiệm thu v1); blueprint mục 4.0 + ADR-0013 quyết định #11.
     Rebase lên 251e tip `9700212`; đổi số ADR 0012→0013 vì 0012 đã bị chiếm
     2 lần trên 251e (dictionary-SAF, ocr-crash).
+  - 2026-10-08: owner duyệt ADR-0013 → Accepted; **lane 001a XONG** (agent
+    arena/3ad55219-in4up): `tool/iconize/build_icon_assets.py` (Python —
+    sandbox không có Dart; output tất định, tự verify) + core asset
+    `assets/iconize/` đã commit. **Số thật vs ước tính blueprint:** index
+    1.303 khóa lemma|POS / 769 icon (trần = CLDR chú giải 1.961 emoji đơn,
+    không phải 2.000 như ước — gói Model Centre bù sau); tổng core ~1,59 MB
+    (< 2,1 MB ước); riêng concreteness.bin 179 KB (> 85 KB ước — giữ 11.619
+    từ Conc.M ≥ 3.5). Phát hiện tiện: file Brysbaert có sẵn cột SUBTLEX +
+    Dom_Pos → câu hỏi mở #5 khỏi cần COCA. Còn CHỜ: loader Dart lane 001b
+    đọc format theo hợp đồng `tool/iconize/README.md`.

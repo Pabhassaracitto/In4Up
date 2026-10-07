@@ -1,6 +1,6 @@
 # ADR-0013 — Iconize Visual Context: tầng render ephemeral cho học từ vựng qua ngữ cảnh thị giác
 
-- **Status:** Proposed (chờ owner duyệt — blueprint hội đồng đã qua audit repo)
+- **Status:** Accepted (owner duyệt 2026-10-08 — "Được hãy bắt đầu")
 - **Date:** 2026-10-07
 - **Nguồn:** Hội đồng đa AI ICONIZE-001 (5 vòng, 94.2/100) + audit đối chiếu
   repo của agent. Blueprint đầy đủ: `docs/iconize_visual_context_blueprint.md`.

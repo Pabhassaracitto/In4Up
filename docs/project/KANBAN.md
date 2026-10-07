@@ -154,6 +154,7 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
+| ICONIZE-001 | Iconize Visual Context: học từ vựng qua câu ví dụ/bản dịch chèn icon (Direct Visual Anchoring Loop) — engine render ephemeral + toggle "Icon hóa" panel dịch + câu ví dụ thị giác + Smart Cloze scaffolding, 8 lane a–h | 📋 proposed (blueprint hội đồng 94.2/100 đã audit repo; CHỜ owner duyệt ADR-0013) | agent arena/3ad55219-in4up 2026-10-07 — `docs/iconize_visual_context_blueprint.md` + `docs/adr/0013-iconize-visual-context.md` (Proposed) + prompt gốc `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md` |
 
 
 ## Card chi tiết
@@ -6072,3 +6073,30 @@
     (run `37653016584`); 9 commit cũ (`73789dd`, `b556c12`, `f87c288`, `5849b89`,
     `d1b3477`, `a574ebc`, `469522f`, `2b271bf`, `e1e1f62`) chỉ còn trong lịch sử
     Actions + reflog máy agent. PR #90 vẫn mở vào `arena/01a0251e-in4up`.
+
+### ICONIZE-001 — Iconize Visual Context: học từ vựng qua ngữ cảnh thị giác (blueprint hội đồng → chờ ADR-0013)
+- **Trạng thái:** 📋 proposed — blueprint hội đồng đa AI (5 vòng, 94.2/100)
+  đã qua audit đối chiếu repo; CHỜ owner duyệt `docs/adr/0013-iconize-visual-context.md`
+  trước khi mở lane code nào.
+- **Nguồn:** owner 2026-10-07 — ý tưởng "Visual Context / câu ví dụ Iconized"
+  (trao đổi với Gemini) + yêu cầu nút "Icon hóa" trong panel dịch; prompt hội
+  đồng `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md`; kết quả chốt qua agent
+  arena/3ad55219-in4up.
+- **Tài liệu:** `docs/iconize_visual_context_blueprint.md` (bản đầy đủ A–F,
+  gồm mục 0 "Hiệu đính repo-audit": ADR số 0012 chứ không phải 027; SM-2 nhận
+  `quality` int 0..5 chứ không có enum ReviewGrade; `visibility_detector` chưa
+  có trong pubspec — chốt ở lane d; "CEFR tự khai" là setting mới additive).
+- **Tóm tắt thiết kế:** IconizeEngine pure function tầng render (ephemeral,
+  không ghi `TranslationCache`); tra `(lemma,POS)`, không chắc → giữ chữ;
+  fallback 4 tầng (vocab_image user > core bundle 2.000 Twemoji > CDN Material
+  Symbols > giữ chữ); density 18/32/48%; scaffolding rút theo kết quả ôn thật
+  đổ về SM-2/FSRS sẵn có; per-document override box Hive riêng prefix
+  `icon_override_<documentHash>`; core bundle ~2.1MB, pack Model Centre
+  ~8.5–9.5MB; giấy phép Twemoji/Material/Brysbaert/Tatoeba (loại OpenMoji).
+- **8 lane (mỗi PR ≤ 500 dòng, thứ tự phụ thuộc trong blueprint mục 12):**
+  001a asset build tool → 001b engine core → 001c guard/fallback/bridge →
+  001d UI toggle+density → 001e câu ví dụ thị giác → 001f Smart Cloze +
+  scaffolding → 001g override/blacklist → 001h test hiệu năng toàn diện.
+- **Lịch sử:**
+  - 2026-10-07: tạo card từ blueprint hội đồng v2.1-FINAL + audit repo
+    (agent arena/3ad55219-in4up). Chưa có lane nào được code.

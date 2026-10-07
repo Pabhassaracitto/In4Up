@@ -53,6 +53,8 @@ class _MemoryRandomAccessSource implements RandomAccessSource {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('RandomAccessSource', () {
     test('memory source reads requested offsets and clips at EOF', () async {
       final source = _MemoryRandomAccessSource(List.generate(10, (i) => i));

@@ -5,19 +5,26 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import '../models/dict_entry.dart';
+import 'random_access_source.dart';
 
 /// Lỗi parse MDX có lý do rõ ràng — AT #6 (file .mdx hỏng/lạ → báo lỗi rõ,
-/// không crash): import bắt exception này và đưa reason vào outcome error.
+/// không crash): import bắt exception này và đưa reason vào outcome.
 class MdxParseException implements Exception {
   final String reason;
-  const MdxParseException(this.reason);
+  final bool needsReselect;
+
+  const MdxParseException(this.reason, {this.needsReselect = false});
 
   @override
   String toString() => reason;
 }
 
 /// Parser MDX/MDD (MDict engine **1.2 & 2.0**) — thuần Dart, compute-bound,
-/// chạy trong isolate riêng để không block UI với từ điển lớn (>100MB).
+/// chạy phần decode/index trong isolate riêng để không block UI với từ điển lớn.
+///
+/// Nguồn được đọc bằng RandomAccessSource. SAF chuyển từng trang 64 KiB qua
+/// native; parser hiện chỉ cần materialize file MDX (không đọc MDD vào RAM).
+/// Tài nguyên MDD được giữ ngoài luồng index và không bao giờ được nạp ở đây.
 ///
 /// Layout theo đặc tả writemdict/fileformat.md + tham chiếu đọc đã được
 /// kiểm chứng thực chiến (mdict-utils `readmdict.py`):
@@ -33,7 +40,7 @@ class MdxParseException implements Exception {
 /// - Key index (sau giải nén): mỗi block: num_entries, first/last word
 ///   (size u16 ở v2.0, u8 ở v1.2; text có null terminator ở v2.0),
 ///   comp_size, decomp_size. v1.2 index RAW, v2.0 nén zlib.
-/// - Key block (sau giải nén): [key_id BE][key text \x00]…
+/// - Key block (sau giải nén): [key_id BE][key text \\x00]…
 /// - Record section: 4 số header + cặp (comp, decomp) RAW (không nén)
 ///   + các record block nén; key_id là offset trong stream record đã giải
 ///   nén và nối tiếp nhau.
@@ -43,25 +50,80 @@ class MdxParseException implements Exception {
 class MdxParser {
   MdxParser._();
 
-  /// Parse file .mdx → stream entry. Parse chạy trong isolate; entry được
-  /// gửi về theo batch để giữ UI mượt.
-  ///
-  /// [onProgress] nhận tiến độ 0..1 của file này + thông điệp locale-trung
-  /// lập (dạng "Index 1234/56789").
-  ///
-  /// Bắn [MdxParseException] qua stream error khi file không đọc được theo
-  /// đúng đặc tả (hỏng, mã hoá, bảng mã lạ, engine 3.0…).
+  /// API tương thích cũ: parse file-system path.
   static Stream<DictEntry> parse(
     String filePath, {
+    required String dictId,
+    void Function(double progress, String message)? onProgress,
+  }) =>
+      _parseInFileIsolate(
+        filePath,
+        dictId: dictId,
+        onProgress: onProgress,
+      );
+
+  /// Parse từ một nguồn bất kỳ. Nguồn được sở hữu bởi parser và luôn đóng
+  /// khi parse xong hoặc bị huỷ. Dùng cho nguồn giả trong test/adapter khác.
+  static Stream<DictEntry> parseSource(
+    RandomAccessSource source, {
+    required String dictId,
+    void Function(double progress, String message)? onProgress,
+  }) {
+    final controller = StreamController<DictEntry>();
+    var cancelled = false;
+    controller.onListen = () {
+      unawaited(() async {
+        try {
+          final bytes = await _readSourceBytes(source);
+          await source.close();
+          if (cancelled) return;
+          _runParserBytes(
+            bytes: bytes,
+            dictId: dictId,
+            emit: (entries) {
+              for (final entry in entries) {
+                controller.add(entry);
+              }
+            },
+            progress: (p, message) => onProgress?.call(p, message),
+            fail: (error) {
+              controller.addError(error);
+              controller.close();
+            },
+            done: controller.close,
+          );
+        } catch (error) {
+          await source.close();
+          if (cancelled) return;
+          controller.addError(_toParseException(error));
+          await controller.close();
+        }
+      }());
+    };
+    controller.onCancel = () async {
+      cancelled = true;
+      await source.close();
+    };
+    return controller.stream;
+  }
+
+  /// Parse SAF document URI. Source reads stay on the root isolate (where
+  /// MethodChannel is available), then the CPU-heavy MDX decode runs in a
+  /// worker isolate, matching the legacy filesystem path's responsiveness.
+  static Stream<DictEntry> parseSafDocument(
+    String documentUri, {
     required String dictId,
     void Function(double progress, String message)? onProgress,
   }) {
     final controller = StreamController<DictEntry>();
     Isolate? worker;
+    SafRandomAccessSource? source;
+    ReceivePort? port;
+    var cancelled = false;
 
     controller.onListen = () {
-      final port = ReceivePort();
-      port.listen((message) {
+      port = ReceivePort();
+      port!.listen((message) {
         final msg = message as List;
         switch (msg[0] as int) {
           case _kMsgBatch:
@@ -71,80 +133,104 @@ class MdxParser {
           case _kMsgProgress:
             onProgress?.call(msg[1] as double, msg[2] as String);
           case _kMsgError:
-            controller.addError(MdxParseException(msg[1] as String));
-            port.close();
+            controller.addError(
+              MdxParseException(
+                msg[1] as String,
+                needsReselect: msg.length > 2 && msg[2] == true,
+              ),
+            );
+            port?.close();
             controller.close();
           case _kMsgDone:
-            port.close();
+            port?.close();
             controller.close();
         }
       });
 
       unawaited(() async {
         try {
+          source = await SafRandomAccessSource.open(documentUri);
+          if (cancelled) {
+            await source!.close();
+            source = null;
+            return;
+          }
+          final bytes = await _readSourceBytes(source!);
+          await source!.close();
+          source = null;
+          if (cancelled) return;
           worker = await Isolate.spawn(
-            _parseIsolate,
-            [port.sendPort, filePath, dictId],
+            _parseBytesIsolate,
+            [
+              port!.sendPort,
+              TransferableTypedData.fromList([bytes]),
+              dictId,
+            ],
           );
-        } catch (_) {
-          // Không spawn được isolate (platform giới hạn) → parse thẳng trên
-          // isolate hiện tại để hành vi import vẫn xác định.
-          _runParser(
-            filePath: filePath,
-            dictId: dictId,
-            emit: (entries) {
-              for (final entry in entries) {
-                controller.add(entry);
-              }
-            },
-            progress: (p, message) => onProgress?.call(p, message),
-            fail: (reason) => controller.addError(MdxParseException(reason)),
-            done: () => controller.close(),
-          );
+          if (cancelled) worker?.kill(priority: Isolate.immediate);
+        } catch (error) {
+          await source?.close();
+          source = null;
+          if (cancelled) return;
+          final parseError = _toParseException(error);
+          controller.addError(parseError);
+          port?.close();
+          await controller.close();
         }
       }());
     };
 
-    controller.onCancel = () {
+    controller.onCancel = () async {
+      cancelled = true;
       worker?.kill(priority: Isolate.immediate);
+      port?.close();
+      await source?.close();
     };
-
     return controller.stream;
   }
 
-  /// Đọc metadata từ header MDX (không parse toàn bộ file — chỉ đọc vài KB
-  /// đầu). Trả map rỗng khi file không đọc được.
+  /// Read metadata from an existing random-access source. This only reads the
+  /// first few KB. Ownership transfers to this method and the source is closed.
+  static Future<Map<String, String?>> detectLanguageFromSource(
+    RandomAccessSource source, {
+    required String fileName,
+  }) async {
+    try {
+      final fileLength = await source.length;
+      if (fileLength < 4) return {};
+      final sizeBytes = await source.readAt(0, 4);
+      if (sizeBytes.length < 4) return {};
+      final size = ByteData.sublistView(sizeBytes).getUint32(0, Endian.big);
+      if (size <= 0 || size > 64 * 1024 || 8 + size > fileLength) return {};
+      final raw = await source.readAt(4, size);
+      var text = _decodeUtf16Le(raw);
+      if (text.contains('\u0000')) text = text.replaceAll('\u0000', '');
+      if (!text.contains('=')) {
+        text = utf8.decode(raw, allowMalformed: true);
+      }
+      final attrs = _parseHeaderAttrs(text);
+      final name = attrs['title'];
+      final match = RegExp(r'^(\w{2})_(\w{2})', caseSensitive: false)
+          .firstMatch(fileName.split(Platform.pathSeparator).last);
+      return {
+        'name': (name == null || name.isEmpty) ? null : name,
+        'source_lang': match?.group(1),
+        'target_lang': match?.group(2),
+      };
+    } catch (_) {
+      return {};
+    } finally {
+      await source.close();
+    }
+  }
+
+  /// Read metadata from a filesystem path (public API retained).
   static Future<Map<String, String?>> detectLanguage(String filePath) async {
     try {
-      final file = File(filePath);
-      if (!file.existsSync()) return {};
-      final handle = await file.open();
-      try {
-        final sizeBytes = await handle.read(4);
-        if (sizeBytes.length < 4) return {};
-        final size = ByteData.sublistView(sizeBytes).getUint32(0, Endian.big);
-        // Header có thể chứa Description dài — chỉ đọc tối đa 64KB.
-        if (size <= 0 || size > 64 * 1024) return {};
-        final raw = await handle.read(size);
-        var text = _decodeUtf16Le(raw);
-        if (text.contains('\u0000')) {
-          text = text.replaceAll('\u0000', '');
-        }
-        if (!text.contains('=')) {
-          text = utf8.decode(raw, allowMalformed: true);
-        }
-        final attrs = _parseHeaderAttrs(text);
-        final name = attrs['title'];
-        final match = RegExp(r'^(\w{2})_(\w{2})', caseSensitive: false)
-            .firstMatch(filePath.split(Platform.pathSeparator).last);
-        return {
-          'name': (name == null || name.isEmpty) ? null : name,
-          'source_lang': match?.group(1),
-          'target_lang': match?.group(2),
-        };
-      } finally {
-        await handle.close();
-      }
+      return await detectLanguageFromSource(
+        await FileRandomAccessSource.open(filePath),
+        fileName: filePath,
+      );
     } catch (_) {
       return {};
     }
@@ -157,42 +243,190 @@ class MdxParser {
   static const int _kMsgError = 2;
   static const int _kMsgDone = 3;
 
-  static void _parseIsolate(List args) {
-    _runParser(
-      filePath: args[1] as String,
+  static Stream<DictEntry> _parseInFileIsolate(
+    String filePath, {
+    required String dictId,
+    void Function(double progress, String message)? onProgress,
+  }) {
+    final controller = StreamController<DictEntry>();
+    Isolate? worker;
+    ReceivePort? port;
+    var cancelled = false;
+    controller.onListen = () {
+      port = ReceivePort();
+      port!.listen((message) {
+        final msg = message as List;
+        switch (msg[0] as int) {
+          case _kMsgBatch:
+            for (final entry in msg[1] as List<DictEntry>) {
+              controller.add(entry);
+            }
+          case _kMsgProgress:
+            onProgress?.call(msg[1] as double, msg[2] as String);
+          case _kMsgError:
+            controller.addError(
+              MdxParseException(
+                msg[1] as String,
+                needsReselect: msg.length > 2 && msg[2] == true,
+              ),
+            );
+            port?.close();
+            controller.close();
+          case _kMsgDone:
+            port?.close();
+            controller.close();
+        }
+      });
+
+      unawaited(() async {
+        try {
+          worker = await Isolate.spawn(
+            _parseFileIsolate,
+            [port!.sendPort, filePath, dictId],
+          );
+          if (cancelled) worker?.kill(priority: Isolate.immediate);
+        } catch (_) {
+          // Nếu platform không cho spawn, parse sync trên isolate hiện tại.
+          try {
+            final source = await FileRandomAccessSource.open(filePath);
+            final bytes = await _readSourceBytes(source);
+            await source.close();
+            _runParserBytes(
+              bytes: bytes,
+              dictId: dictId,
+              emit: (entries) {
+                for (final entry in entries) {
+                  controller.add(entry);
+                }
+              },
+              progress: (p, message) => onProgress?.call(p, message),
+              fail: (error) {
+                controller.addError(error);
+                controller.close();
+              },
+              done: controller.close,
+            );
+          } catch (error) {
+            controller.addError(_toParseException(error));
+            await controller.close();
+          }
+        }
+      }());
+
+    };
+    controller.onCancel = () {
+      cancelled = true;
+      worker?.kill(priority: Isolate.immediate);
+      port?.close();
+    };
+    return controller.stream;
+  }
+
+  static void _parseFileIsolate(List args) {
+    final sendPort = args[0] as SendPort;
+    unawaited(() async {
+      try {
+        final path = args[1] as String;
+        if (!File(path).existsSync()) {
+          throw const MdxParseException(
+            'File .mdx không tồn tại hoặc không đọc được',
+          );
+        }
+        final source = await FileRandomAccessSource.open(path);
+        final bytes = await _readSourceBytes(source);
+        await source.close();
+        _runParserBytes(
+          bytes: bytes,
+          dictId: args[2] as String,
+          emit: (entries) => sendPort.send([_kMsgBatch, entries]),
+          progress: (p, message) =>
+              sendPort.send([_kMsgProgress, p, message]),
+          fail: (error) => sendPort.send([
+            _kMsgError,
+            error.reason,
+            error.needsReselect,
+          ]),
+          done: () => sendPort.send([_kMsgDone]),
+        );
+      } catch (error) {
+        final parseError = _toParseException(error);
+        sendPort.send([
+          _kMsgError,
+          parseError.reason,
+          parseError.needsReselect,
+        ]);
+      }
+    }());
+  }
+
+  static void _parseBytesIsolate(List args) {
+    final sendPort = args[0] as SendPort;
+    final bytes = (args[1] as TransferableTypedData).materialize().asUint8List();
+    _runParserBytes(
+      bytes: bytes,
       dictId: args[2] as String,
-      emit: (entries) => (args[0] as SendPort).send([_kMsgBatch, entries]),
-      progress: (p, message) =>
-          (args[0] as SendPort).send([_kMsgProgress, p, message]),
-      fail: (reason) => (args[0] as SendPort).send([_kMsgError, reason]),
-      done: () => (args[0] as SendPort).send([_kMsgDone]),
+      emit: (entries) => sendPort.send([_kMsgBatch, entries]),
+      progress: (p, message) => sendPort.send([_kMsgProgress, p, message]),
+      fail: (error) => sendPort.send([
+        _kMsgError,
+        error.reason,
+        error.needsReselect,
+      ]),
+      done: () => sendPort.send([_kMsgDone]),
     );
   }
 
-  /// Thân parser dùng chung cho isolate và fallback sync.
-  static void _runParser({
-    required String filePath,
+  static Future<Uint8List> _readSourceBytes(RandomAccessSource source) async {
+    final length = await source.length;
+    if (length <= 0) {
+      throw const MdxParseException('File .mdx rỗng hoặc sai định dạng');
+    }
+    await source.seek(0);
+    final builder = BytesBuilder(copy: false);
+    var remaining = length;
+    while (remaining > 0) {
+      final request = remaining < SafRandomAccessSource.pageSize
+          ? remaining
+          : SafRandomAccessSource.pageSize;
+      final chunk = await source.read(request);
+      if (chunk.isEmpty) {
+        throw const MdxParseException(
+          'File .mdx không tồn tại hoặc không đọc được',
+        );
+      }
+      builder.add(chunk);
+      remaining -= chunk.length;
+    }
+    return builder.takeBytes();
+  }
+
+  static MdxParseException _toParseException(Object error) {
+    if (error is MdxParseException) return error;
+    if (error is RandomAccessSourceException) {
+      return MdxParseException(
+        error.message,
+        needsReselect: error.needsReselect,
+      );
+    }
+    return MdxParseException('Lỗi đọc MDX: $error');
+  }
+
+  /// Synchronous parser body shared by file, SAF, and in-memory sources.
+  static void _runParserBytes({
+    required Uint8List bytes,
     required String dictId,
     required void Function(List<DictEntry>) emit,
     required void Function(double, String) progress,
-    required void Function(String) fail,
+    required void Function(MdxParseException) fail,
     required void Function() done,
   }) {
     try {
-      final file = File(filePath);
-      if (!file.existsSync()) {
-        throw const MdxParseException(
-            'File .mdx không tồn tại hoặc không đọc được');
-      }
-      final bytes = file.readAsBytesSync();
       final core = _MdxCore(bytes, dictId);
       core.parse(emit: emit, progress: progress);
       progress(1.0, 'Index done');
       done();
-    } on MdxParseException catch (e) {
-      fail(e.reason);
-    } catch (e) {
-      fail('Lỗi đọc MDX: $e');
+    } catch (error) {
+      fail(_toParseException(error));
     }
   }
 }

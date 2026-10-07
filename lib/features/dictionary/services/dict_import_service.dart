@@ -39,12 +39,13 @@ class DictImportService {
     DictStorageMode mode, {
     void Function(double progress, String message)? onProgress,
   }) async {
-    // Android's file_picker directory API returns a raw /storage path.  On
+    // Android's file_picker directory API returns a raw /storage path. On
     // scoped-storage devices that path is not readable by dart:io even though
-    // the user just granted access.  Use the app's SAF bridge there, then
-    // stage seekable copies for the common MDX parser.
+    // the user just granted access. Use SAF there: link mode reads document
+    // URIs directly, while copy mode stages seekable files for the parser.
     if (Platform.isAndroid) {
       return _pickAndroidSafFolderAndImport(
+        mode,
         onProgress: onProgress,
       );
     }
@@ -92,29 +93,38 @@ class DictImportService {
     'woff2',
   };
 
-  /// Android SAF does not give Dart a seekable path.  Copy the selected
-  /// documents into a private staging folder, import them with the normal
-  /// service, and remove the staging folder afterwards.  The final import is
-  /// deliberately [DictStorageMode.imported]: a cache/content URI is not a
-  /// durable "linked" source after the app or provider is restarted.
-  static Future<DictImportOutcome> _pickAndroidSafFolderAndImport({
+  /// Android SAF does not give Dart a filesystem path. Linked mode indexes
+  /// the persisted document URIs directly; copy mode stages them privately,
+  /// copies the final bundle into app storage, then removes only the staging
+  /// folder. The user's selected source is never deleted.
+  static Future<DictImportOutcome> _pickAndroidSafFolderAndImport(
+    DictStorageMode mode, {
     void Function(double progress, String message)? onProgress,
   }) async {
-    String? treeUri;
     try {
-      treeUri = await DictDeviceChannel.pickFolder();
-      if (treeUri == null || treeUri!.isEmpty) {
+      final treeUri = await DictDeviceChannel.pickFolder();
+      if (treeUri == null || treeUri.isEmpty) {
         return const DictImportOutcome(error: 'Chưa chọn thư mục');
       }
 
       onProgress?.call(0.05, 'Đang quét thư mục…');
       final files = await DictDeviceChannel.scanFolder(
-        treeUri!,
+        treeUri,
         extensions: _androidDictionaryExtensions,
       );
       if (files.isEmpty) {
         return const DictImportOutcome(
           error: 'Thư mục rỗng hoặc không có file từ điển (.mdx)',
+        );
+      }
+
+      if (mode == DictStorageMode.linked) {
+        return DictionaryService.instance.importSafDictionaryBundle(
+          files: files,
+          mode: mode,
+          treeUri: treeUri,
+          sourceWasFolder: true,
+          onProgress: onProgress,
         );
       }
 
@@ -175,8 +185,14 @@ class DictImportService {
         }
       }
     } on Exception catch (error) {
+      final needsReselect = error is DictDeviceChannelException &&
+          (error.code == 'PERMISSION_LOST' ||
+              error.code == 'SOURCE_UNAVAILABLE');
       return DictImportOutcome(
-        error: 'Không thể đọc thư mục từ thiết bị: $error',
+        error: needsReselect
+            ? 'Thư mục từ điển không còn truy cập được — chọn lại'
+            : 'Không thể đọc thư mục từ thiết bị: $error',
+        needsReselect: needsReselect,
       );
     }
   }
@@ -204,6 +220,33 @@ class DictImportService {
     DictStorageMode mode, {
     void Function(double progress, String message)? onProgress,
   }) async {
+    if (Platform.isAndroid && mode == DictStorageMode.linked) {
+      try {
+        final files = await DictDeviceChannel.pickDocuments(
+          extensions: const {'mdx', 'mdd', 'css'},
+        );
+        if (files == null || files.isEmpty) {
+          return const DictImportOutcome(error: 'Chưa chọn file nào');
+        }
+        return DictionaryService.instance.importSafDictionaryBundle(
+          files: files,
+          mode: mode,
+          sourceWasFolder: false,
+          onProgress: onProgress,
+        );
+      } on Exception catch (error) {
+        final needsReselect = error is DictDeviceChannelException &&
+            (error.code == 'PERMISSION_LOST' ||
+                error.code == 'SOURCE_UNAVAILABLE');
+        return DictImportOutcome(
+          error: needsReselect
+              ? 'Thư mục từ điển không còn truy cập được — chọn lại'
+              : 'Không thể đọc file từ thiết bị: $error',
+          needsReselect: needsReselect,
+        );
+      }
+    }
+
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mdx', 'mdd', 'css'],
@@ -261,6 +304,41 @@ class DictImportService {
           // Cache cleanup is best effort.
         }
       }
+    }
+  }
+
+  /// Regrant access for an existing linked dictionary without rebuilding or
+  /// deleting its SQLite index.
+  static Future<bool> reselectLinkedSource(DictInfo dict) async {
+    if (!Platform.isAndroid || !dict.isLinked) return false;
+    try {
+      if (dict.sourceWasFolder) {
+        final treeUri = await DictDeviceChannel.pickFolder();
+        if (treeUri == null || treeUri.isEmpty) return false;
+        final files = await DictDeviceChannel.scanFolder(
+          treeUri,
+          extensions: _androidDictionaryExtensions,
+        );
+        return DictionaryService.instance.relinkSafSource(
+          dict.id,
+          files: files,
+          treeUri: treeUri,
+          sourceWasFolder: true,
+        );
+      }
+
+      final files = await DictDeviceChannel.pickDocuments(
+        extensions: const {'mdx', 'mdd', 'css'},
+      );
+      if (files == null || files.isEmpty) return false;
+      return DictionaryService.instance.relinkSafSource(
+        dict.id,
+        files: files,
+        treeUri: null,
+        sourceWasFolder: false,
+      );
+    } on Exception {
+      return false;
     }
   }
 

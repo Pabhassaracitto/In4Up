@@ -334,6 +334,49 @@ jobs:
           path: read_act_test.log
           if-no-files-found: ignore
 
+      # VOCAB-MEDIA-003 (ADR-0012, audit 0.10.3 mục 2) — 1 hoặc 2 ảnh mỗi từ
+      # (imageUrl2 additive: dữ liệu cũ vẫn mở được, promote khi xoá ảnh chính,
+      # swap slot) + duyệt thư viện animation (parser endpoint tùy chỉnh +
+      # MediaWiki Commons). Thuần Dart — không plugin/mạng/SharedPreferences.
+      # Tự bỏ qua nếu nhánh chưa có file (workflow dùng chung nhiều nhánh).
+      - name: "VOCAB-MEDIA-003 tests — 2 ảnh mỗi từ + thư viện animation (logic thuần)"
+        id: vocab-media-tests
+        run: |
+          set +e
+          files=""
+          for f in test/vocab_two_images_test.dart \
+                   test/vocab_animation_library_test.dart \
+                   test/word_import_parser_image_url2_test.dart \
+                   test/word_import_parser_image_url_test.dart \
+                   test/memory_item_image_url_test.dart \
+                   test/vocab_media_type_test.dart \
+                   test/vocab_image_search_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test VOCAB-MEDIA-003 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > vocab_media_test.log 2>&1
+          code=$?
+          cat vocab_media_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:|Unhandled exception' vocab_media_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=VOCAB-MEDIA-003 test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload VOCAB-MEDIA-003 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-vocab-media-test-log
+          path: vocab_media_test.log
+          if-no-files-found: ignore
+
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

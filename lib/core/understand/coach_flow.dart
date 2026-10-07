@@ -68,6 +68,8 @@ class I4uCoachFlowController extends ValueNotifier<I4uUnderstandWorkspaceState> 
     );
   }
 
+  /// Sang câu hỏi/nhiệm vụ kế tiếp: nháp của câu TRƯỚC được xoá là chủ ý
+  /// (đã submit hoặc người học chủ động bỏ), gợi ý cũng về mức 0.
   void nextStep() {
     value = I4uUnderstandWorkspaceState(
       loadState: value.loadState,
@@ -90,11 +92,18 @@ class I4uCoachFlowController extends ValueNotifier<I4uUnderstandWorkspaceState> 
     );
   }
 
+  /// Nguồn đã đổi (revision khác) ⇒ phiên cũ trở thành "stale".
+  ///
+  /// C-31: đây là sự kiện do HỆ THỐNG, không phải người học — nên không được
+  /// xoá nháp trả lời đang gõ dở, số bước hay mức gợi ý. Người học chỉ mất
+  /// nháp khi chính họ chuyển bước ([nextStep]) hoặc đổi nhiệm vụ ([start]).
   void markStale() => value = I4uUnderstandWorkspaceState(
         loadState: value.loadState,
         source: value.source,
         task: value.task,
         sessionState: I4uCoachSessionState.stale,
         step: value.step,
+        answerDraft: value.answerDraft,
+        hintLevel: value.hintLevel,
       );
 }

@@ -334,7 +334,9 @@ jobs:
           path: read_act_test.log
           if-no-files-found: ignore
 
-      # UX shell contracts (C-00..C-31) — bộ "máy bắt" của hợp đồng UX shell:
+      # UX shell contracts (C-00..C-31) — bộ "máy bắt" của hợp đồng UX shell
+      # (C-30 responsive/accessibility + C-31 state preservation là 2 bộ QA
+      # cross-cutting; C-30 có cả widget test đo nhãn/vùng chạm/bàn phím):
       # shared shell contracts, back/dismiss, safe-area/overlay policy, các
       # flow reader/remember/understand/watch/audio + C-31 state preservation QA
       # (docs/ux/41-state-preservation-qa.vi.md).
@@ -347,6 +349,7 @@ jobs:
           set +e
           files=""
           for f in test/state_preservation_qa_test.dart \
+                   test/responsive_accessibility_qa_test.dart \
                    test/i4u_shell_contracts_test.dart \
                    test/ux_quality_contract_test.dart \
                    test/back_dismiss_coordinator_test.dart \

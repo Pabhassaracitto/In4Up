@@ -223,6 +223,14 @@
 - **Hệ quả:** một số hành vi trước đây được coi là "chi tiết triển khai" nay thành bất biến phải giữ: sự kiện hệ thống (nguồn đổi revision) không được xoá nháp người học; `source` của phiên ôn sống suốt phiên (rule vàng #3); lớp phủ đóng phải khôi phục đúng trạng thái Mini Player trước đó (`docs/ux/36` §2); conflict review chỉ đánh dấu "không tính mastery" chứ không xoá event.
 - **Lý do:** nhánh nền `arena/01a10675-in4up` đỏ CI từ run 37682387649 vì lỗi cú pháp `main_shell.dart`; cả 8 run đều đỏ ở `Analyze full app` và **mọi bước test bị skip** — tức hợp đồng UX đợt trước chưa từng được máy kiểm chứng lần nào. Từ nay mỗi capability UX phải chứng minh bằng một lệnh chạy được, không chỉ bằng tài liệu.
 
+## D-032 — C-30 tách bằng chứng "logic" khỏi bằng chứng "đo trên widget"
+
+- **Ngày:** 2026-10-08
+- **Trạng thái:** đang áp dụng
+- **Quyết định:** Responsive/accessibility QA (C-30) chạy theo hai tầng bằng chứng: (1) kịch bản logic thuần bảo vệ **policy** (dải cỡ chữ, inset bàn phím, thứ tự lớp, ngưỡng breakpoint); (2) bằng chứng đo trên **widget thật** (nhãn semantics, kích thước vùng chạm, bàn phím che input, xoay máy). Vùng nào không thể kết luận bằng logic (`screen-reader-labels`, `touch-targets`) thì **chỉ** được tính khi có bằng chứng widget; thiếu bằng chứng ⇒ `isComplete = false` và là blocker, không phải pass rỗng.
+- **Hệ quả:** một báo cáo C-30 xanh mà không chạy widget test là báo cáo giả — test tự kiểm điều này. Kèm luật đo: nút icon phải kiểm **cả** kích thước lẫn `MaterialTapTargetSize` (M3: 40×40 widget + padded ⇒ vùng chạm 48), không chỉ nhìn một con số.
+- **Lý do:** C-31 đã chứng minh giá trị của máy bắt; nhưng a11y/responsive không thể suy ra từ số học. Đồng thời C-30 phát hiện policy C-02 (`AppResponsive`/`I4uSafeAreaPolicy`/`I4uOverlayPolicy`) **chưa được nối vào app** — điều này sẽ bị che mất nếu chỉ kiểm widget theo cách "chạy được là xanh".
+
 ## Câu hỏi mở hiện tại
 
 - O-001: Review/Stats là Context Bar hay sub-workspace của Nhớ?

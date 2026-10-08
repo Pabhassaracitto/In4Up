@@ -14,7 +14,7 @@
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
-| TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test xong, chờ CI + nghiệm thu máy) | **Re-apply** (commit gốc `c307e0a` MẤT — không được push trước khi phiên 01a10633 đóng): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -5474,7 +5474,7 @@
     speech.platform.bing.com).
 
 ### TTS-EDGE-VOICE-001 — Edge TTS chọn giọng theo ngôn ngữ (trước chỉ có picker Piper)
-- **Trạng thái:** doing (code + 5 test pin xong, chờ CI + nghiệm thu máy)
+- **Trạng thái:** doing (code + 5 test pin + CI 🟢 xong, chờ nghiệm thu máy)
 - **Nguồn (owner 2026-10-06):** "app chỉ có bộ chọn giọng riêng cho Piper;
   các engine online (Google/Zalo/FPT/Edge) chưa có chỗ chọn giọng. Vì vậy
   Edge luôn dùng giọng mặc định `vi-VN-HoaiMyNeural` (nữ)."
@@ -5515,6 +5515,21 @@
     (không push được)
   - 2026-10-06 | re-apply (agent 01a0251e) | tái hiện 5 phần + 5 test pin
     trên `arena/01a0251e-in4up`; chờ CI + nghiệm thu máy
+  - 2026-10-09 | ✅ CI green | agent 01a0251e | app_analyze 🟢 run
+    37664933897 (nối test mới) + build 4 nền tảng 🟢 run 37724784118 trên
+    `e22cd3a` (đứa hậu duệ của `612843f` — đủ code VOICE-001/002/003)
+  - 2026-10-09 | xác minh commit gốc (agent 01a0251e, theo yêu cầu owner)
+    | `c307e0a` **xác nhận MẤT TOÀN DIỆN, không khôi phục được**: fetch
+    toàn bộ nhánh `arena/01a10633-in4up` từ GitHub (1023 commit, tip
+    `79f27d9` = TTS-EDGE-001 CI green — commit cuối CÒN push được của
+    phiên đó) → object `c307e0a` vẫn KHÔNG tồn tại; `git ls-remote` (40+
+    ref) không ref nào trỏ tới; `git fsck` + reflog local sạch. Commit chỉ
+    nằm trong object store của sandbox phiên 01a10633 (đã đóng) ⇒ hết
+    cách lấy lại. **HỆ QUẢ = 0:** phần việc không mất — re-apply
+    `110141f` (+5 test pin) và follow-up `612843f` (VOICE-002/003: dọn
+    cache theo phiên bản khoá + ghim giọng Edge) đã push lên
+    `arena/01a0251e-in4up`, CI 🟢 (xem trên). Còn lại: nghiệm thu máy
+    (AT: chọn Nam Minh → nghe giọng nam)
 
 ### PDF-OCR-002 — PDF Reader: Batch OCR (trang hiện tại / khoảng trang / toàn bộ tài liệu)
 - **Trạng thái:** 🔨 doing — code + test thuần xong (sandbox không Flutter SDK

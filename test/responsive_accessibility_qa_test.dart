@@ -122,11 +122,14 @@ void main() {
     I4uCommand(id: 'open-listen', label: 'Mở Nghe', icon: Icons.headphones),
   ];
 
-  // Ghim locale `vi`: test này đo CHROME (nhãn/vùng chạm) và các assert viết theo
-  // tiếng Việt. Hành vi dịch ở locale ≠ vi do `test/shell_chrome_i18n_coverage_test.dart`
-  // canh riêng (I18N-001) — đừng trộn hai mối quan tâm vào một test.
+  // LƯU Ý (bài học CI 2026-10-08): `MaterialApp(locale: Locale('vi'))` KHÔNG đủ để test
+  // chạy ở locale vi — MaterialApp vẫn resolve về en_US (default supportedLocales), nên
+  // chrome đã bọc uiText hiện tiếng Anh. Muốn ghim vi thật phải thêm `supportedLocales`
+  // (+ delegates nếu cần MaterialLocalizations). Ở đây test ĐO CHROME (nhãn semantics,
+  // vùng chạm, bàn phím) nên giữ locale mặc định của test env (en_US) và assert theo
+  // nhãn English — hành vi dịch ở locale ≠ vi do
+  // `test/shell_chrome_i18n_coverage_test.dart` canh riêng (I18N-002).
   Widget paletteHost({double textScale = 1.0}) => MaterialApp(
-        locale: const Locale('vi'),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
@@ -221,7 +224,6 @@ void main() {
 
   // ─────────── Chat surface: nhãn + vùng chạm + bàn phím + xoay máy ───────────
   Widget chatHost() => MaterialApp(
-        locale: const Locale('vi'),
         home: Scaffold(
           body: I4uGlobalChatSurface(onSend: (message) async => 'echo: $message'),
         ),
@@ -236,7 +238,8 @@ void main() {
     await tester.pumpWidget(chatHost());
     await tester.pumpAndSettle();
 
-    final send = tester.getSemantics(find.byTooltip('Gửi')).getSemanticsData();
+    // Chrome đã qua `uiText` (I18N-002) ⇒ ở locale mặc định en_US nhãn là 'Send'.
+    final send = tester.getSemantics(find.byTooltip('Send')).getSemanticsData();
     final hasLabel = send.label.isNotEmpty || send.tooltip.isNotEmpty;
     // Nhả semantics ngay sau khi lấy dữ liệu (đo xong không cần nữa).
     semantics.dispose();
@@ -251,16 +254,7 @@ void main() {
         reason: 'nút gửi icon-only không có nhãn cho screen reader • '
             'đo được: ${_widgetEvidence.last.detail}');
 
-    final sendSize = tester.getSize(find.byTooltip('Gửi'));
-    // Ghi lại số đo TRƯỚC khi kiểm để reason luôn có dữ liệu chẩn đoán.
-    _record(
-      id: 'C30-W-TCH-02',
-      area: I4uResponsiveArea.touchTargets,
-      requirement: 'Nút icon ≥ 40 logical px VÀ tap target không bị shrinkWrap (vùng chạm 48)',
-      passed: false,
-      detail: 'đang đo… kích thước nút gửi=$sendSize',
-    );
-    _widgetEvidence.removeLast();
+    final sendSize = tester.getSize(find.byTooltip('Send'));
     final theme = Theme.of(tester.element(find.byType(I4uGlobalChatSurface)));
     // IconButton Material 3 mặc định 40×40 + MaterialTapTargetSize.padded ⇒ vùng chạm
     // hiệu dụng ≥ 48. Cả hai điều kiện đều được kiểm, không chỉ nhìn kích thước widget.

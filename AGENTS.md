@@ -72,6 +72,14 @@
      `test/shell_chrome_i18n_coverage_test.dart` (vùng `lib/widgets/shell/`, card `I18N-002`)
      làm khuôn — literal Việt phải bọc `uiText/tr`; mỗi nhãn phải dịch được ở mọi locale ≠ vi;
      dựng widget ở locale `en` và quét Text/RichText/Tooltip không còn ký tự Việt.
+   - **Bẫy widget test + locale (kiểm chứng CI 2026-10-08):** `MaterialApp(locale: Locale('vi'))`
+     **không đủ** để test chạy ở locale vi — app vẫn resolve về `en_US` (default
+     `supportedLocales`), nên chrome đã bọc `uiText` sẽ ra tiếng Anh và finder kiểu
+     `find.byTooltip('Gửi')` gãy. Hai cách đúng: (a) thêm `supportedLocales: [Locale('vi')]`
+     (+ delegates nếu cần MaterialLocalizations); (b) test **đo chrome** thì giữ locale mặc
+     định (en_US) và assert theo nhãn English — trường hợp của
+     `test/responsive_accessibility_qa_test.dart`. Việc dịch được canh riêng bởi test ở
+     `lib/widgets/shell/` (I18N-002).
    - KHÔNG bật dịch máy runtime cho mọi chuỗi lạ.
 
 ## Vận hành CI / môi trường (đúc kết từ thực chiến)

@@ -94,7 +94,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1 đã dịch** 2026-10-08 (68 chuỗi STT/Quick capture có hiệu lực ngay); còn **580** chuỗi uiText/Text chưa English + **787** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1+2 đã dịch** 2026-10-08 (145 chuỗi, có hiệu lực runtime ngay); còn **503** chuỗi uiText/Text chưa English + **710** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -1944,6 +1944,10 @@
   - 2026-10-08 | doing (phần 2, lô 1) | agent arena/af0abe2f-in4up | +khoá nợ `missing_english`
     (648) +`--generate`; dịch 68 chuỗi STT/Quick capture (catalog → 1845 key, sàn 580/787, file
     fallback 1845 mục, residual 0).
+  - 2026-10-08 | doing (phần 2, lô 2 — Tipiṭaka) | agent arena/af0abe2f-in4up | dịch 77 chuỗi
+    `tipitaka/reader_screen.dart` (51) + `download_screen.dart` (26) — nhãn chrome dài (import DB,
+    quét thư mục, đánh dấu/ghi chú, chế độ đọc, gói ngôn ngữ Pa-Auk); giữ nguyên Pāli/diacritics
+    và phần ghi công CC BY-NC. Catalog → 1922 key, sàn 503/710, residual 0.
   - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
     rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
     ListenLibraryScreen/AudioLibraryView (chờ CI)

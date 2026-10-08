@@ -51,6 +51,7 @@
 | MAIN-RESTORE-001 | main = snapshot cũ 2026-09-23 (733 file, mất CI mới + 26k dòng) — cần content-sync từ 0251e | 📋 proposed (chờ owner quyết, GOVERNANCE 4b) | KHÔNG merge chéo (2 lineage không tổ tiên chung); content-sync bằng 1 commit thường trên main; giữ LICENSE nếu muốn; chi tiết thủ thuật trong card |
 | CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
+| CI-ANDROID-05 | (IN4-73) Chỉ build APK **arm64-v8a** thay vì Universal 3-ABI — giảm dung lượng tải về | 🔨 doing (code xong, chờ build Android thật xác nhận) | `build_final_complete.yml`: `flutter build apk … --target-platform android-arm64` (ĐẢM BẢO 1 ABI, không phụ thuộc abiFilters) + bước rename đổi tên "Build APK (arm64-v8a only — IN4-73)"; `android_rename_apks.sh`: chỉ XÓA ABI không-arm64 (armv7/x86_64), nhận mọi tên output arm64 + fallback 1-APK. `abiFilters arm64-v8a` trong build.gradle.kts GIỮ LẠI (kép, an toàn) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
@@ -1115,6 +1116,49 @@
     0251e; main checkout ở clone chính nên không checkout được trong
     worktree) ⇒ 2 commit rác cục bộ (5c99b7a2 + 798cde87, triệt tiêu nhau),
     remote an toàn. Hướng dẫn sửa 3 bước đã gửi owner.
+
+### CI-ANDROID-05 — (IN4-73) Chỉ build APK arm64-v8a thay vì Universal 3-ABI (giảm dung lượng)
+- **Trạng thái:** 🔨 doing (code xong, chờ 1 build Android thật xác nhận)
+- **Nguồn:** Linear **IN4-73** (owner 2026-10-08): "build bản v1.11.0-Beta đang
+  chạy bước 'Build Universal APK'… gộp 3 kiến trúc chip nên dung lượng lớn.
+  Yêu cầu chỉ build 1 APK cho ARM64/arm64-v8a để giảm dung lượng tải về."
+- **Bối cảnh:** CI-ANDROID-04 đã chuyển từ 3 bản tách chip → 1 bản Universal
+  (1 file mọi chip) — nhưng "universal" = **3 ABI trong 1 APK (~212MB)** nên
+  vẫn to. IN4-73 tiến thêm 1 bước: chỉ giữ **arm64-v8a** (chip phổ thông) →
+  APK nhỏ hơn hẳn (bỏ native lib armv7 + x86_64, kể cả llama.cpp/ggml × 2 ABI).
+- **Vì sao không chỉ dựa vào `abiFilters`:** `build.gradle.kts` ĐÃ có
+  `ndk { abiFilters += "arm64-v8a" }` (từ `f1d4b49`) NHƯNG bản v1.11.0-Beta
+  vẫn ra universal ⇒ `abiFilters` trong defaultConfig **chưa đủ đảm bảo** 1 ABI
+  cho build Flutter (plugin .so/libflutter có thể không bị lọc). Fix IN4-73
+  dùng `--target-platform android-arm64` — cách **đảm bảo** 1 ABI của Flutter.
+- **Fix (2 file, agent arena/01a0251e-in4up):**
+  1. `.github/workflows/build_final_complete.yml` — bước "Build Universal APK"
+     → "**Build APK (arm64-v8a only — IN4-73)**": `flutter build apk --release
+     --flavor stable --target-platform android-arm64 --android-skip-build-
+     dependency-validation …` (các --dart-define giữ nguyên).
+  2. `scripts/ci/android_rename_apks.sh` — (a) vòng XÓA giờ chỉ bỏ ABI
+     **không-arm64** (armv7/x86_64) — KHÔNG xóa bản arm64 (nay là bản ship);
+     (b) vòng đổi tên nhận **mọi tên output arm64** (`app-stable-release.apk`
+     HAY `app-arm64-v8a-*.apk` nếu Flutter đổi tên khi dùng --target-platform);
+     (c) fallback an toàn: đúng 1 .apk duy nhất tên lạ → đổi tên; >1 .apk → lỗi.
+  - `abiFilters arm64-v8a` trong build.gradle.kts **GIỮ LẠI** (kép, an toàn,
+     cũng áp cho build local).
+- **Không đổi:** verify-signed / upload / push release (glob
+  `in4up-Android-*.apk` vẫn khớp `in4up-Android-arm64-v8a-<tag>-<sha>.apk`);
+  các job Windows/iOS/Linux không đụng.
+- **AT (owner):** chạy 1 build Android (dispatch) → job Android XANH; artifact
+  `android-apk` = DUY NHẤT 1 file `in4up-Android-arm64-v8a-<tag>-<sha>.apk`;
+  dung lượng APK **nhỏ hơn** bản universal 212MB (ước ~120-150MB — bỏ armv7+
+  x86_64 native); cài máy arm64 thành công + đăng nhập OK.
+- **Cảnh báo versionCode (kế thừa CI-ANDROID-04):** nếu máy user đang cài bản
+  universal/3-ABI cũ, bản arm64-only mới có versionCode thấp hơn có thể bị chặn
+  `INSTALL_FAILED_VERSION_DOWNGRADE` → cần gỡ app cũ 1 lần HOẶC nâng build
+  number pubspec LỚN hơn versionCode cao nhất của mọi bản cũ trước khi tag.
+- **Lịch sử:**
+  - 2026-10-08 | created→doing | agent arena/01a0251e-in4up (IN4-73) |
+    `--target-platform android-arm64` + rename script robust (chỉ xóa ABI
+    không-arm64, nhận mọi tên arm64 + fallback). Chờ 1 build Android thật
+    xác nhận + owner AT.
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)

@@ -42,22 +42,24 @@ fi
 echo "[in4up-rename] Thư mục $OUT trước khi xử lý:"
 ls -la "$OUT"
 
-# Xóa bản tách theo chip nếu có (workflow cũ chưa áp patch CI-ANDROID-04) —
-# release chỉ còn bản arm64.
-for f in "$OUT"/app-arm64-v8a-stable-release.apk "$OUT"/app-stable-arm64-v8a-release.apk \
-         "$OUT"/app-armeabi-v7a-stable-release.apk "$OUT"/app-stable-armeabi-v7a-release.apk \
+# IN4-73: Xóa bản tách theo chip KHÔNG phải arm64 (armv7/x86_64) nếu có —
+# release chỉ ship arm64-v8a. KHÔNG xóa bản arm64 (nay là bản cần ship).
+for f in "$OUT"/app-armeabi-v7a-stable-release.apk "$OUT"/app-stable-armeabi-v7a-release.apk \
          "$OUT"/app-x86_64-stable-release.apk "$OUT"/app-stable-x86_64-release.apk \
-         "$OUT"/app-arm64-v8a-release.apk "$OUT"/app-armeabi-v7a-release.apk \
-         "$OUT"/app-x86_64-release.apk; do
+         "$OUT"/app-armeabi-v7a-release.apk "$OUT"/app-x86_64-release.apk; do
   if [ -f "$f" ]; then
     rm -f "$f"
-    echo "[in4up-rename] Bỏ bản tách chip: $(basename "$f") (CI-ANDROID-04: chỉ ship Universal)"
+    echo "[in4up-rename] Bỏ bản tách chip (không arm64): $(basename "$f") (IN4-73: chỉ ship arm64-v8a)"
   fi
 done
 
-# APK arm64-v8a (abiFilters) — THẮNG CUỘC DUY NHẤT được đổi tên + ship.
+# APK arm64-v8a — THẮNG CUỘC DUY NHẤT được đổi tên + ship. Chấp nhận mọi tên
+# output arm64 (fat "app-stable-release.apk" HAY tên kèm ABI nếu Flutter/AGP
+# đổi cách đặt tên khi dùng --target-platform android-arm64).
 renamed=0
-for c in "app-stable-release.apk" "app-release.apk"; do
+for c in "app-stable-release.apk" "app-release.apk" \
+         "app-arm64-v8a-stable-release.apk" "app-stable-arm64-v8a-release.apk" \
+         "app-arm64-v8a-release.apk"; do
   if [ -f "$OUT/$c" ]; then
     mv "$OUT/$c" "$OUT/$APK_NAME"
     echo "[in4up-rename] $c → $APK_NAME"
@@ -67,7 +69,19 @@ for c in "app-stable-release.apk" "app-release.apk"; do
 done
 
 if [ "$renamed" -ne 1 ]; then
-  echo "::error::[in4up-rename] Không thấy APK (app-stable-release.apk / app-release.apk) — bước 'Build Universal APK' có chạy chưa? (không dùng --split-per-abi)"
+  # Fallback an toàn: nếu đúng 1 .apk duy nhất trong thư mục output (tên lạ do
+  # Flutter/AGP đổi cách đặt tên) thì đổi tên nó; nhiều hơn 1 .apk ⇒ không đoán,
+  # báo lỗi để người xem kiểm tra.
+  mapfile -t apks < <(ls -1 "$OUT"/*.apk 2>/dev/null || true)
+  if [ "${#apks[@]}" -eq 1 ] && [ -f "${apks[0]}" ]; then
+    mv "${apks[0]}" "$OUT/$APK_NAME"
+    echo "[in4up-rename] (fallback) $(basename "${apks[0]}") → $APK_NAME"
+    renamed=1
+  fi
+fi
+
+if [ "$renamed" -ne 1 ]; then
+  echo "::error::[in4up-rename] Không thấy APK arm64 (app-stable-release.apk / app-arm64-v8a-*.apk) — bước 'Build APK (arm64-v8a only — IN4-73)' có chạy chưa?"
   ls -la "$OUT"
   exit 1
 fi

@@ -250,6 +250,40 @@
   Chỉ `en` theo tiền lệ 15 key Tipiṭaka: rule #5 quy định fallback là English, không bịa bản dịch T2
   chưa ai review.
 
+## D-034 — Nợ i18n dùng "sàn ratchet" + đưa generator literal-chrome vào CI
+
+- **Ngày:** 2026-10-08
+- **Trạng thái:** đang áp dụng
+- **Quyết định:** `tool/generate_legacy_ui_fallbacks.py` thêm `--floors-check` (CI) và
+  `--write-floors`, so với sàn `tool/i18n_ratchet_floors.json` gồm 3 tập nợ: `stale_overrides`,
+  `unused_exclusions`, `unclassified_literals`. CI **chỉ đỏ khi phát sinh nợ MỚI**; nợ cũ (855
+  literal) chốt sàn. Thêm `tool/**` vào `paths` để đổi catalog cũng chạy gate.
+- **Hệ quả:** literal chrome tiếng Việt mới không lọt qua như 7 nhãn của I18N-002; muốn tăng nợ phải
+  chạy `--write-floors` (hiện rõ trong diff — có chủ ý). Strict mode vẫn là đích cuối; khi nợ về 0
+  thì bỏ được sàn.
+- **Lý do:** "máy bắt" rule #5 trước đây vừa đỏ sẵn vừa không được CI chạy ⇒ không phòng ngừa được
+  gì. Với 855 literal (mỗi chuỗi cần dịch/đánh giá) thì bắt CI xanh toàn bộ là bất khả thi trong một
+  capability; ratchet cho giá trị phòng ngừa ngay mà không giả vờ đã trả hết nợ. Kèm dọn 81 override
+  stale (đối chứng từng key) để sàn `stale_overrides = 0`.
+
+## D-035 — Shell tiêu thụ policy responsive; chỉ nối phần "không đổi pixel"
+
+- **Ngày:** 2026-10-08
+- **Trạng thái:** đang áp dụng
+- **Quyết định (UX-C02b):** `main_shell.dart` đọc `AppResponsive.expandedWidth` thay cho 2 literal
+  `>= 1024`; `command_palette.dart` đọc `AppResponsive.overlayDialogMaxWidth/Height` thay cho
+  `640/620`. Không nối `I4uSafeAreaPolicy`/`I4uSafeAreaFloatingHost` cho các sheet đang tự viết
+  `viewInsets.bottom + N`, và không gán `I4uOverlayPolicy.miniPlayerVisibleInForeground` cho
+  `_shouldShowShellMiniPlayer`.
+- **Hệ quả:** ngưỡng breakpoint chỉ còn một nguồn; drift guard `C30-W-ORI-04` canh được cả việc
+  "xoá ngưỡng mà không dùng policy". Các surface nổi giữ nguyên cảm giác padding hiện tại.
+- **Lý do:** `I4uSafeAreaFloatingHost` **cộng** safe-area bottom + `navigationHeight` — thay vào các
+  sheet hiện tại là đổi pixel thật ở máy notch/gesture bar, không thể nghiệm thu trong sandbox
+  (không có Flutter/thiết bị). `miniPlayerVisibleInForeground` mô tả ẩn/hiện theo overlay state
+  (quick actions / sheet lớn / player mở rộng), còn `_shouldShowShellMiniPlayer` đang xét **tab** —
+  gán vào nhau là đổi hành vi, không phải dedupe. Nguyên tắc: nối policy ở chỗ **pixel-neutral**,
+  việc còn lại tách capability riêng kèm QA thiết bị.
+
 ## Câu hỏi mở hiện tại
 
 - O-001: Review/Stats là Context Bar hay sub-workspace của Nhớ?

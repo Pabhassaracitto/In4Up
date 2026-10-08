@@ -63,15 +63,24 @@
         phải có giá trị `en` (canonical fallback).
      3. QA tay: EN + 1 locale chưa dịch hết (JA/BN) — chrome không `vi`; mở file
         tiếng Việt vẫn thấy tiếng Việt.
-   - **Trạng thái "máy bắt" i18n (kiểm chứng 2026-10-08 — đọc trước khi tin):** generator
-     `tool/generate_legacy_ui_fallbacks.py` **đang đỏ** ở chốt stale-override
-     (`ValueError: 68 reviewed overrides no longer match extracted presentation sources`) và
-     **không workflow nào** trong `.github/workflows/` gọi nó ⇒ đừng giả định nó xanh, và đừng
-     lấy "generator chưa báo" làm bằng chứng chrome đã sạch. Chi tiết + việc cần làm: card
-     `I18N-001` (KANBAN). Vì vậy vùng chrome mới **phải tự có test nguồn**: xem
-     `test/shell_chrome_i18n_coverage_test.dart` (vùng `lib/widgets/shell/`, card `I18N-002`)
-     làm khuôn — literal Việt phải bọc `uiText/tr`; mỗi nhãn phải dịch được ở mọi locale ≠ vi;
-     dựng widget ở locale `en` và quét Text/RichText/Tooltip không còn ký tự Việt.
+   - **"Máy bắt" literal chrome — trạng thái 2026-10-08 (đọc trước khi tin ghi chú cũ):**
+     generator `tool/generate_legacy_ui_fallbacks.py` **đã được CI chạy** ở chế độ sàn ratchet:
+     bước *"i18n ratchet — literal chrome mới phải được phân loại"* (đầu job `app_analyze.yml`,
+     `python3 … --floors-check`, ~2s, không cần Flutter; `paths` đã có `tool/**`). Sàn ở
+     `tool/i18n_ratchet_floors.json`: nợ cũ đã chốt (855 literal chưa phân loại, 0 stale) —
+     **CI chỉ đỏ khi phát sinh literal Việt MỚI**. Chế độ strict toàn phần
+     (`python3 tool/generate_legacy_ui_fallbacks.py`) vẫn đỏ vì 855 literal đó, nên:
+     - Thêm chuỗi chrome: bọc `uiText('…')` + English vào
+       `tool/legacy_ui_english_overrides.json`; **sau khi thêm xong nhớ chạy lại** `--floors-check`**
+       (nếu literal mới chưa phân loại, bước CI sẽ đỏ và in `::error::… 'chuỗi mới'`).
+     - Chuỗi **ngắn/không dấu** (`'Xem'`, `'Nghe'`, `'Chung'`, template `'trang {value0}'`) thì
+       extractor cố ý bỏ qua ⇒ đặt ở `lib/core/language/priority_ui_overrides.dart` (catalog
+       runtime), KHÔNG đặt ở JSON trên (sẽ bị báo stale).
+     - Muốn tăng nợ có chủ ý: `--write-floors` (diff sẽ thể hiện — đừng làm lén).
+     - Vùng chrome mới **vẫn phải có test nguồn riêng**: khuôn là
+       `test/shell_chrome_i18n_coverage_test.dart` (vùng `lib/widgets/shell/`, card `I18N-002`) —
+       literal Việt phải bọc `uiText/tr`; mỗi nhãn phải dịch được ở mọi locale ≠ vi; dựng widget ở
+       locale `en` và quét Text/RichText/Tooltip không còn ký tự Việt.
    - **Bẫy widget test + locale (kiểm chứng CI 2026-10-08):** `MaterialApp(locale: Locale('vi'))`
      **không đủ** để test chạy ở locale vi — app vẫn resolve về `en_US` (default
      `supportedLocales`), nên chrome đã bọc `uiText` sẽ ra tiếng Anh và finder kiểu

@@ -5531,4 +5531,21 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Viết câu hỏi…': {
     'en': 'Type a question…',
   },
+  // ── Nhận từ tool/legacy_ui_english_overrides.json (dọn stale 2026-10-08, I18N-001) ──
+  // Đây là các chuỗi chrome NGẮN/không dấu ('Chung', 'Xem', '🟢 NGHE') hoặc template
+  // nội suy ('trang {value0}') — extractor của generator chỉ quét literal CÓ DẤU Việt
+  // nên không bao giờ thấy chúng ⇒ nằm trong JSON sẽ luôn bị báo "stale". Chuyển về
+  // catalog runtime (đúng vai trò: map tra cứu lúc chạy, shim/template đều đọc map này).
+  'Chung': {
+    'en': 'General',
+  },
+  'Xem': {
+    'en': 'View',
+  },
+  '🟢 NGHE': {
+    'en': '🟢 LISTEN',
+  },
+  'trang {value0}': {
+    'en': 'page {value0}',
+  },
 };

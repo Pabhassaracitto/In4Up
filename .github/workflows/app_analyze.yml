@@ -24,6 +24,7 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'tool/**'          # catalog i18n + sàn ratchet (rule #5)
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/app_analyze.yml'
@@ -31,6 +32,7 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'tool/**'          # catalog i18n + sàn ratchet (rule #5)
       - 'pubspec.yaml'
   workflow_dispatch:
 
@@ -40,6 +42,13 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+
+      # Rule #5 — "máy bắt" literal chrome (thuần Python, không cần Flutter):
+      # chỉ ĐỎ khi phát sinh literal tiếng Việt MỚI chưa phân loại UI/nội dung.
+      # Nợ cũ (855 literal) đã chốt trong tool/i18n_ratchet_floors.json —
+      # xem card I18N-001 trong docs/project/KANBAN.md.
+      - name: i18n ratchet — literal chrome mới phải được phân loại (rule #5)
+        run: python3 tool/generate_legacy_ui_fallbacks.py --floors-check
 
       - uses: subosito/flutter-action@v2
         with:

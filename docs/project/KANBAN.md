@@ -1126,11 +1126,15 @@
   (1 file mọi chip) — nhưng "universal" = **3 ABI trong 1 APK (~212MB)** nên
   vẫn to. IN4-73 tiến thêm 1 bước: chỉ giữ **arm64-v8a** (chip phổ thông) →
   APK nhỏ hơn hẳn (bỏ native lib armv7 + x86_64, kể cả llama.cpp/ggml × 2 ABI).
-- **Vì sao không chỉ dựa vào `abiFilters`:** `build.gradle.kts` ĐÃ có
-  `ndk { abiFilters += "arm64-v8a" }` (từ `f1d4b49`) NHƯNG bản v1.11.0-Beta
-  vẫn ra universal ⇒ `abiFilters` trong defaultConfig **chưa đủ đảm bảo** 1 ABI
-  cho build Flutter (plugin .so/libflutter có thể không bị lọc). Fix IN4-73
-  dùng `--target-platform android-arm64` — cách **đảm bảo** 1 ABI của Flutter.
+- **Vì sao dùng `--target-platform` (không chỉ dựa `abiFilters`):**
+  `build.gradle.kts` ĐÃ có `ndk { abiFilters += "arm64-v8a" }` (v1.11.0-Beta
+  `e9b5900` cũng đã có, nằm trong defaultConfig) NHƯNG bản v1.11.0-Beta vẫn
+  ra universal ~212MB ⇒ `abiFilters` trong defaultConfig **chưa đảm bảo** lọc
+  mọi native lib trong build Flutter (`.so` build sẵn của plugin +
+  `libflutter.so` có thể không bị `abiFilters` lọc). `--target-platform
+  android-arm64` là cách **chuẩn & đảm bảo** của Flutter để build 1 ABI. Fix
+  IN4-73 dùng `--target-platform android-arm64` (đảm bảo 1 ABI, độc lập với
+  abiFilters); `abiFilters` GIỮ LẠI (kép, an toàn).
 - **Fix (2 file, agent arena/01a0251e-in4up):**
   1. `.github/workflows/build_final_complete.yml` — bước "Build Universal APK"
      → "**Build APK (arm64-v8a only — IN4-73)**": `flutter build apk --release

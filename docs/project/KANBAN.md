@@ -74,7 +74,7 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
-| UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (code + máy bắt 26 kịch bản; chờ CI 🟢 + nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` |
+| UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (máy bắt 26 kịch bản + bước CI riêng 🟢 run 37782521070; còn nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` (PR #96 → `arena/01a0251e-in4up`, mergeable clean) — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` + step CI trong `app_analyze.yml` |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -6180,12 +6180,25 @@
   bộ đếm ngoặc hiệu chuẩn trên bản `main` (BALANCED) — 2 commit riêng (`3e3d770` + commit bù).
 - **Máy bắt / lệnh chạy:**
   `flutter test test/state_preservation_qa_test.dart` (+ 3 file test nhớ lại: remember/coach/
-  mini player). Lưu ý: chưa có bước CI riêng vì token không có quyền sửa `.github/workflows/`
-  → đề xuất thêm step cạnh các bước UX contract (mục 7 của `docs/ux/41`).
+  mini player). **Đã có bước CI riêng** (commit `fcc519f0`): step *"UX shell contracts + C-31
+  state preservation (logic thuần)"* trong `app_analyze.yml` chạy 22 file test thuần Dart —
+  CI 🟢 run 37782521070 (step 24 success, artifact `app-ux-contract-test-log`).
+  **Đính chính:** kết luận cũ "token không có quyền sửa `.github/workflows/`" là SAI — push
+  đổi workflow thành công; ghi chú thiếu quyền `workflows` thuộc `CI-WINDOWS-01` (token
+  GitHub App của job release, không phải token agent). **Luật:** với sự kiện `push`, GitHub
+  dùng workflow trên chính nhánh được push ⇒ KHÔNG cần (và không nên) copy tay file này vào
+  `main`; bước đi kèm nhánh khi merge.
 - **Lịch sử:**
   - 2026-10-07 | proposed→doing | agent arena/af0abe2f-in4up | mở session mới sau khi PR #95
     bị đóng; vá cổng CI của nhánh nền trước (main_shell syntax), sau đó thêm harness C-31 +
     3 fix bảo toàn trạng thái; PR mở vào `main`.
+  - 2026-10-08 | doing (không đổi trạng thái) | agent arena/af0abe2f-in4up | thêm **bước CI
+    riêng cho C-31** (`fcc519f0`): step "UX shell contracts + C-31 state preservation (logic
+    thuần)" chạy 22 file test thuần Dart (đã rà import: chỉ flutter_test/in4up); CI 🟢 **run
+    37782521070** — analyze 0 error, step 24 success, artifact `app-ux-contract-test-log`.
+    **Đính chính:** token CÓ quyền push `.github/workflows/` (kết luận cũ sai). PR #96 đổi base
+    `main` → **`arena/01a0251e-in4up`** theo yêu cầu owner; nhánh đi trước 251e 24 commit /
+    sau 0 ⇒ `mergeable=clean` (fast-forward), hết cảnh conflicting như khi so với `main`.
   - 2026-10-07 | doing (không đổi trạng thái) | agent arena/af0abe2f-in4up | CI 🟢 **run
     37692296674** @ `6d7ed2f` (analyze 0 error + mọi bước test scoped xanh) — lần đầu nhánh
     này xanh sau 8 run đỏ liên tiếp của bản nền; PR **#96** → `main` checks xanh. Đường hợp

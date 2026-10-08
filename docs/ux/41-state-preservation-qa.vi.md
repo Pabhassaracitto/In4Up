@@ -98,21 +98,34 @@ Mỗi lỗi có test nhớ lại: `test/state_preservation_qa_test.dart` (kịch
   (thuần Dart: không plugin, không mạng, không `BuildContext`).
 - Số kịch bản: 26 kịch bản / 6 vùng (5/5/5/5/2/4); đối chiếu tự động cho thấy mã
   kịch bản trong code khớp 100% với bảng ở mục 3; trạng thái cụ thể đọc từ `toSummary()`.
-- CI 🟢 **run 37692296674** trên nhánh `arena/af0abe2f-in4up` (`6d7ed2f`) — analyze 0 error
-  (đã có cả harness + test mới) và toàn bộ bước test scoped chạy xanh; trước đó là
-  run 37691501665 (mốc sau khi vá cú pháp `main_shell.dart`).
-- PR **#96** (`arena/af0abe2f-in4up` → `main`) — checks xanh.
-  Lưu ý đường hợp nhất: nhánh đi trước `main` 743 commit / sau 41 commit (merge-base
-  `82d7c56`), GitHub đánh dấu conflicting ⇒ việc hợp nhất cần quyết định lineage của
-  người sở hữu (xem `MAIN-RESTORE-001`, GOVERNANCE §4b: content-sync bằng path-checkout),
-  không tự merge chéo trong session này.
+- CI 🟢 **run 37782521070** trên nhánh `arena/af0abe2f-in4up` (`fcc519f0`) — analyze 0 error,
+  và bước **"UX shell contracts + C-31 state preservation (logic thuần)"** (step 24) chạy
+  **success** cùng bước upload log (step 25, artifact `app-ux-contract-test-log`).
+  Đây là mốc có bước CI riêng cho C-31; trước đó là run 37692296674 (`6d7ed2f`).
+- PR **#96** (`arena/af0abe2f-in4up` → `arena/01a0251e-in4up`) — checks xanh,
+  `mergeable=clean` (nhánh đi trước 251e 24 commit / sau 0 ⇒ hợp nhất kiểu fast-forward,
+  không conflict; khác hẳn khi so với `main`).
 
 ## 7. Việc còn mở (không tự nhận đã đóng)
 
-1. **Bước CI riêng cho C-31 chưa có.** `app_analyze.yml` chỉ chạy các file test
-   được liệt kê tường minh; thêm bước mới cần quyền sửa `.github/workflows/`
-   (token hiện tại không có quyền `workflows`). Đề xuất: thêm step
-   `flutter test test/state_preservation_qa_test.dart` cạnh các bước UX contract.
+1. ~~Bước CI riêng cho C-31 chưa có.~~ **Đã xong trên nhánh này** (commit `fcc519f0`):
+   `app_analyze.yml` có thêm step *"UX shell contracts + C-31 state preservation (logic thuần)"*
+   chạy 22 file test thuần Dart (C-31 + hợp đồng shell), đã xanh trong CI.
+
+   > **Đính chính một kết luận sai của session:** trước đó tài liệu này ghi "token không có
+   > quyền sửa `.github/workflows/`". Điều đó **không đúng** với token hiện tại — push đổi
+   > workflow đã thành công ngay lần thử đầu. Ghi chú "thiếu quyền `workflows`" trong KANBAN
+   > thuộc `CI-WINDOWS-01` và nói về **token GitHub App khác** (dùng cho job release), không
+   > phải token của agent.
+
+   **Luật vận hành (trả lời câu hỏi "copy file này vào `.github/workflows` của main?"):**
+   không cần copy tay vào `main`, và copy vào `main` cũng **không** làm bước này chạy cho
+   nhánh khác. Với sự kiện `push`, GitHub dùng **workflow trên chính commit vừa push** —
+   tức bản `.github/workflows/app_analyze.yml` **trên nhánh đang làm việc**. Vì vậy:
+   - Bước C-31 phải nằm trên **nhánh được push** (đã nằm: nhánh này) ⇒ CI của nhánh này chạy.
+   - Khi PR vào `251e`/`main`, bước này đi kèm theo nhánh ⇒ các nhánh sau chỉ cần rebase là có.
+   - Nếu muốn mọi nhánh cũ đều có bước: thêm ở nơi chúng dựa vào (`251e`, rồi `main`) — nhưng
+     nhánh cũ sẽ vẫn chạy bản workflow của chính nó cho tới khi rebase.
 2. **Route return trên navigator thật** (Flutter Router/back stack) thuộc QA tay —
    harness chỉ kiểm lớp quyết định thuần (`I4uBackDismissCoordinator`).
 3. **Offline sync thật** (Firestore + hàng đợi pending, LHB-006) không thuộc phạm vi

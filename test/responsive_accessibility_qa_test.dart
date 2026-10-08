@@ -165,7 +165,9 @@ void main() {
           ? 'đã tìm thấy nhãn cho ${commands.length} lệnh'
           : 'thiếu nhãn cho ít nhất 1 lệnh',
     );
-    expect(allLabelled, isTrue, reason: 'lệnh thiếu nhãn ⇒ screen reader chỉ đọc "button"');
+    expect(allLabelled, isTrue,
+        reason: 'lệnh thiếu nhãn ⇒ screen reader chỉ đọc "button" • '
+            'đo được: ${_widgetEvidence.last.detail}');
 
     final tiles = find.byType(ListTile);
     expect(tiles.evaluate().length, commands.length);
@@ -182,7 +184,8 @@ void main() {
       passed: minRowHeight >= 48,
       detail: 'chiều cao nhỏ nhất đo được: $minRowHeight',
     );
-    expect(minRowHeight, greaterThanOrEqualTo(48.0));
+    expect(minRowHeight, greaterThanOrEqualTo(48.0),
+        reason: 'vùng chạm mục lệnh • đo được: ${_widgetEvidence.last.detail}');
   });
 
   testWidgets('C-30 TXT — Command Palette không tràn ở trần cỡ chữ chính sách (1.15)', (tester) async {
@@ -233,9 +236,20 @@ void main() {
       passed: hasLabel,
       detail: hasLabel ? 'label="${send.label}" tooltip="${send.tooltip}"' : 'không có nhãn',
     );
-    expect(hasLabel, isTrue, reason: 'nút gửi icon-only không có nhãn cho screen reader');
+    expect(hasLabel, isTrue,
+        reason: 'nút gửi icon-only không có nhãn cho screen reader • '
+            'đo được: ${_widgetEvidence.last.detail}');
 
     final sendSize = tester.getSize(find.byTooltip('Gửi'));
+    // Ghi lại số đo TRƯỚC khi kiểm để reason luôn có dữ liệu chẩn đoán.
+    _record(
+      id: 'C30-W-TCH-02',
+      area: I4uResponsiveArea.touchTargets,
+      requirement: 'Nút icon ≥ 40 logical px VÀ tap target không bị shrinkWrap (vùng chạm 48)',
+      passed: false,
+      detail: 'đang đo… kích thước nút gửi=$sendSize',
+    );
+    _widgetEvidence.removeLast();
     final theme = Theme.of(tester.element(find.byType(I4uGlobalChatSurface)));
     // IconButton Material 3 mặc định 40×40 + MaterialTapTargetSize.padded ⇒ vùng chạm
     // hiệu dụng ≥ 48. Cả hai điều kiện đều được kiểm, không chỉ nhìn kích thước widget.

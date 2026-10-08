@@ -386,9 +386,12 @@ jobs:
             # được từ một số môi trường). Strip ANSI + \r + \b trước.
             sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
               ux_contract_test.log > ux_contract_clean.log || true
+            # Chi tiết exception của `-r expanded` nằm TRƯỚC dòng [E] ⇒ cửa sổ
+            # annotation phải lấy cả 30 dòng phía trước, không chỉ phía sau.
             grep -n "\[E\]" ux_contract_clean.log | cut -d: -f1 | while read -r ln; do
-              msg=$(sed -n "${ln},$((ln + 22))p" ux_contract_clean.log \
-                | head -c 700 | sed ':a;N;$!ba;s/\n/%0A/g')
+              start=$((ln > 30 ? ln - 30 : 1))
+              msg=$(sed -n "${start},$((ln + 6))p" ux_contract_clean.log \
+                | head -c 2600 | sed ':a;N;$!ba;s/\n/%0A/g')
               echo "::error::TEST FAILED: $msg"
             done || true
           fi

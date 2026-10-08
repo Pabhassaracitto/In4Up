@@ -1,4 +1,5 @@
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/core/responsive/app_responsive.dart';
 
 @immutable
 class I4uCommand {
@@ -65,7 +66,10 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 620),
+        constraints: const BoxConstraints(
+          maxWidth: AppResponsive.overlayDialogMaxWidth,
+          maxHeight: AppResponsive.overlayDialogMaxHeight,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

@@ -91,6 +91,13 @@
      `lib/widgets/shell/` (I18N-002).
    - KHÔNG bật dịch máy runtime cho mọi chuỗi lạ.
 
+6. **Ngưỡng/kích thước chrome của shell lấy từ policy `AppResponsive`** — không hard-code số
+   (`>= 1024`, `maxWidth: 640`…) trong `lib/screens/main_shell.dart` hay `lib/widgets/shell/`.
+   Drift guard `C30-W-ORI-04` trong `test/responsive_accessibility_qa_test.dart` canh cả 3 điều
+   kiện: không literal `>= NNN`, shell **thật sự** dùng `AppResponsive.expandedWidth`, và trần
+   overlay (Command Palette) lấy từ `overlayDialogMaxWidth/Height`. Cần trần mới ⇒ thêm vào policy,
+   không thêm vào widget. (Capability UX-C02b.)
+
 ## Vận hành CI / môi trường (đúc kết từ thực chiến)
 
 - CI test module Knowledge: `.github/workflows/knowledge_tests.yml` (flutter 3.44.1,

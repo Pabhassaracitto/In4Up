@@ -55,26 +55,59 @@ void main() {
     expect(report.toQualityRun().isReadyForFreeze, isFalse);
   });
 
-  test('C-30 — drift guard: ngưỡng cứng trong main_shell phải khớp policy (không đẻ ngưỡng thứ hai)', () {
-    final source = File('lib/screens/main_shell.dart').readAsStringSync();
-    final literals = RegExp(r'>= ?(\d{3,4})\b')
-        .allMatches(source)
-        .map((match) => match.group(1)!)
-        .toSet();
-    const policyThresholds = <int>{600, 1024, 1440};
-    final unknown = literals.where((value) => !policyThresholds.contains(int.parse(value))).toList();
+  test('C-30/C-02b — drift guard: shell lấy ngưỡng + trần overlay từ policy AppResponsive', () {
+    final mainShellPath = 'lib/screens/main_shell.dart';
+    final shellSources = <String, String>{
+      mainShellPath: File(mainShellPath).readAsStringSync(),
+      for (final entity in Directory('lib/widgets/shell').listSync())
+        if (entity is File && entity.path.endsWith('.dart'))
+          entity.path: entity.readAsStringSync(),
+    };
 
+    // 1) Không còn ngưỡng số cứng kiểu `>= 1024` ở shell (nguồn duy nhất: policy).
+    final rawThresholds = <String>[
+      for (final source in shellSources.entries)
+        for (final match in RegExp(r'>= ?\d{3,4}\b').allMatches(source.value))
+          '${source.key}: ${match.group(0)}',
+    ];
+
+    // 2) Shell phải THỰC SỰ dùng ngưỡng của policy — không chỉ xoá ngưỡng cũ.
+    final usesPolicyWidth = shellSources[mainShellPath]!.contains('AppResponsive.expandedWidth');
+
+    // 3) Trần kích thước overlay của shell cũng phải đến từ policy.
+    final palette = shellSources['lib/widgets/shell/command_palette.dart'] ?? '';
+    final usesPolicyCap =
+        palette.contains('AppResponsive.overlayDialogMaxWidth') &&
+            palette.contains('AppResponsive.overlayDialogMaxHeight');
+    final hardCodedCaps = RegExp(r'(maxWidth|maxHeight): ?\d{2,4}\b')
+        .allMatches(palette)
+        .map((match) => match.group(0)!)
+        .toList();
+
+    final passed = rawThresholds.isEmpty &&
+        usesPolicyWidth &&
+        usesPolicyCap &&
+        hardCodedCaps.isEmpty;
     _record(
       id: 'C30-W-ORI-04',
       area: I4uResponsiveArea.orientation,
-      requirement: 'Ngưỡng breakpoint trong shell trùng policy AppResponsive (không có ngưỡng thứ hai)',
-      passed: unknown.isEmpty,
-      detail: unknown.isEmpty
-          ? 'ngưỡng dùng trong shell: $literals (đều thuộc policy)'
-          : 'ngưỡng lạ ngoài policy: $unknown',
+      requirement:
+          'Shell dùng ngưỡng + trần overlay của policy AppResponsive (không có ngưỡng/kích thước thứ hai)',
+      passed: passed,
+      detail: passed
+          ? 'shell đọc AppResponsive.expandedWidth + trần overlay policy; không còn literal ngưỡng'
+          : 'ngưỡng cứng: $rawThresholds • dùng policy width: $usesPolicyWidth • '
+              'dùng trần policy: $usesPolicyCap • trần hard-code: $hardCodedCaps',
     );
 
-    expect(unknown, isEmpty);
+    expect(rawThresholds, isEmpty,
+        reason: 'ngưỡng cứng ở shell phải thay bằng AppResponsive.* • thấy: $rawThresholds');
+    expect(usesPolicyWidth, isTrue,
+        reason: 'shell chưa dùng AppResponsive.expandedWidth');
+    expect(usesPolicyCap, isTrue,
+        reason: 'Command Palette chưa dùng trần overlay của policy');
+    expect(hardCodedCaps, isEmpty,
+        reason: 'trần overlay hard-code trong shell • thấy: $hardCodedCaps');
   });
 
   // ───────────────────────── safe-area (widget thật) ─────────────────────────

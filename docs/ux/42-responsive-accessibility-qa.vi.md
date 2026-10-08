@@ -103,6 +103,17 @@ trị **trùng** `AppResponsive.expandedWidth` nên hiện chưa lệch, nhưng 
 cùng một ngưỡng. Kịch bản `C30-W-ORI-04` (drift guard) canh việc này: nếu ai đổi một bên, test đỏ.
 Việc còn lại là **nối policy vào shell** — thuộc capability C-02b/C-10 (không nằm trong phạm vi QA).
 
+> **✅ Đã nối phần breakpoint + trần overlay ở UX-C02b (2026-10-08):** `main_shell.dart` nay đọc
+> `AppResponsive.expandedWidth` (2 chỗ, không còn literal `1024`); `command_palette.dart` đọc
+> `AppResponsive.overlayDialogMaxWidth/Height`. Drift guard `C30-W-ORI-04` được siết thành 4 phép
+> khẳng định (không literal `>= NNN` trong `lib/widgets/shell/` + `main_shell.dart`, shell **thật sự**
+> dùng policy, palette **thật sự** dùng trần policy, không cap hard-code trong palette).
+> **Chưa** nối: `I4uSafeAreaPolicy` / `I4uSafeAreaFloatingHost` / `I4uOverlayPolicy` cho các surface
+> nổi thật — ~20 sheet/surface đang tự viết `viewInsets.bottom + N` (đổi sang host sẽ **cộng thêm**
+> safe-area bottom ⇒ đổi cảm giác padding); `I4uOverlayPolicy.miniPlayerVisibleInForeground` cũng
+> chưa khớp ngữ nghĩa với `_shouldShowShellMiniPlayer` (theo tab, không theo overlay state). Hai việc
+> này để capability riêng, cần QA thiết bị.
+
 ### 4.2 Chrome tiếng Việt hard-code trong 2 widget shell (rule #5) — ✅ đã đóng ở I18N-002
 
 `command_palette.dart` + `global_chat_surface.dart` có **8 literal tiếng Việt**, **không** đi qua
@@ -174,7 +185,9 @@ nguồn vẫn hard-code nên key đó vô hiệu ở runtime. `'Global Chat'` kh
 
 ## 7. Việc còn mở
 
-1. **Nối policy C-02 vào shell** (mục 4.1) — hiện policy chỉ được bảo vệ bằng test, chưa điều khiển UI thật.
+1. **Nối policy C-02 vào shell** (mục 4.1) — ✅ breakpoint + trần overlay đã nối ở UX-C02b;
+   còn `I4uSafeAreaPolicy`/`I4uSafeAreaFloatingHost` (surface nổi, ~20 sheet) và
+   `I4uOverlayPolicy` (ưu tiên mini player) — cần capability riêng + QA thiết bị vì đổi padding thật.
 2. ~~Chuỗi chrome tiếng Việt trong 2 widget shell~~ — ✅ đã đóng ở I18N-002 (đăng ký `en`; T2
    `hi/zh/zh_TW/si` hiện rơi về `en` theo rule #5, chờ đợt dịch T2 như mọi key legacy khác).
 3. **TalkBack/VoiceOver + cỡ chữ hệ thống thật**: không thể kết luận trong sandbox; cần QA tay theo §5.

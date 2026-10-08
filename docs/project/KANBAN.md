@@ -6296,14 +6296,16 @@
     tap target padded + bàn phím 300 không che ô nhập + xoay dọc↔ngang), drift guard ngưỡng
     breakpoint của `main_shell.dart`, và 1 test tổng hợp khẳng định thiếu bằng chứng widget thì
     KHÔNG được coi là đạt.
-  - `docs/ux/42-responsive-accessibility-qa.vi.md` — phạm vi, cách chạy, ma trận 16+7, phát hiện,
+  - `docs/ux/42-responsive-accessibility-qa.vi.md` — phạm vi, cách chạy, ma trận 16+9, phát hiện,
     QA tay, việc còn mở. `docs/ux/decision-log.vi.md` D-032.
 - **Phát hiện (không tự sửa trong C-30, ghi lại để không mất):**
   1. **Policy C-02 chưa nối vào app:** `AppResponsive` / `I4uSafeAreaPolicy` / `I4uOverlayPolicy` /
      `I4uSafeAreaFloatingHost` có 0 usage trong `lib/` ngoài QA/test (`grep` chứng minh).
      `main_shell.dart` tự so ngưỡng cứng `>= 1024` (2 chỗ, dòng 1288/1381) — trùng
      `AppResponsive.expandedWidth` nên chưa lệch, nhưng là bản sao thứ hai; kịch bản `C30-W-ORI-04`
-     canh drift này. Việc nối policy vào shell thuộc capability C-02b/C-10.
+     canh drift này. **✅ 2026-10-08: đã nối phần breakpoint + trần overlay ở UX-C02b** (row cùng
+     tên); còn `I4uSafeAreaPolicy`/`I4uSafeAreaFloatingHost`/`I4uOverlayPolicy` cho surface nổi —
+     xem D-035 (lý do: đổi padding thật, cần QA thiết bị).
   2. **7 chuỗi chrome tiếng Việt hard-code** trong `command_palette.dart` + `global_chat_surface.dart`
      (không qua `uiText`/ARB, không có trong `tool/legacy_ui_english_overrides.json`) — vi phạm
      quy tắc vàng #5 ở locale ≠ vi; **đã đóng ở I18N-002** (bọc uiText + English; T2 chờ đợt dịch).
@@ -6319,6 +6321,32 @@
     nguyên phép đo) ⇒ `37801748437` (push) + `37801754613` (PR) xanh, bước 24 success, commit
     `61d85e0`. Đồng thời nới cửa sổ annotation của bước CI (30 dòng trước dòng `[E]`) và ghi
     2 bài học vào `AGENTS.md`.
+  - 2026-10-08 | doing | agent arena/af0abe2f-in4up | đóng phát hiện #1 phần breakpoint/overlay ở
+    UX-C02b: `main_shell.dart` đọc `AppResponsive.expandedWidth`, palette đọc trần overlay policy,
+    drift guard `C30-W-ORI-04` siết 4 phép khẳng định (xem `docs/ux/decision-log` D-035).
+
+### UX-C02b — Shell tiêu thụ policy responsive (`AppResponsive`) thay vì ngưỡng cứng
+- **Trạng thái:** ✅ done — code + máy bắt; chờ QA tay (xoay máy / thu nhỏ cửa sổ desktop < 1024).
+- **Nguồn:** phát hiện #1 của C-30 (`docs/ux/42` §4.1) — policy C-02 có test nhưng 0 nơi dùng trong
+  `lib/`; `main_shell.dart` giữ bản sao thứ hai của ngưỡng `1024`.
+- **Đã làm (giữ nguyên pixel — chọn chỗ nối "không đổi giao diện"):**
+  1. `lib/core/responsive/app_responsive.dart`: thêm `overlayDialogMaxWidth = 640` /
+     `overlayDialogMaxHeight = 620` (trần overlay của shell giờ thuộc policy).
+  2. `lib/screens/main_shell.dart`: 2 chỗ `>= 1024` (dòng 1288/1381) → `AppResponsive.expandedWidth`.
+  3. `lib/widgets/shell/command_palette.dart`: `BoxConstraints(640/620)` → hằng số policy.
+  4. `test/responsive_accessibility_qa_test.dart`: drift guard `C30-W-ORI-04` siết thành 4 phép
+     khẳng định — (a) không literal `>= NNN` trong `main_shell.dart` + cả `lib/widgets/shell/`;
+     (b) shell **thật sự** dùng `AppResponsive.expandedWidth` (bắt trường hợp xoá ngưỡng mà không
+     nối policy); (c) palette dùng trần policy; (d) không cap số hard-code trong palette.
+- **Cố ý KHÔNG làm (tách capability riêng, cần QA thiết bị):** thay ~20 chỗ `viewInsets.bottom + N`
+  bằng `I4uSafeAreaFloatingHost` (host **cộng** safe-area bottom ⇒ đổi padding thật); gán
+  `I4uOverlayPolicy.miniPlayerVisibleInForeground` cho `_shouldShowShellMiniPlayer` (ngữ nghĩa
+  overlay-state ≠ ngữ nghĩa tab ⇒ đổi hành vi). Lý do đầy đủ: D-035.
+- **Máy bắt / lệnh chạy:** `flutter test test/responsive_accessibility_qa_test.dart` (đã nằm trong
+  bước CI "UX shell contracts + C-31 state preservation").
+- **Lịch sử:**
+  - 2026-10-08 | proposed→done | agent arena/af0abe2f-in4up | nối `AppResponsive` vào `main_shell`
+    + palette, siết drift guard 4 phép khẳng định, +D-035 +quy tắc vàng #6 trong AGENTS.md.
 
 ### I18N-002 — Chrome shell tuân rule #5 (bọc `uiText` + English + máy bắt 3 tầng)
 - **Trạng thái:** ✅ done — code + máy bắt + CI 🟢 (2026-10-08); chờ QA tay trên thiết bị với locale ≠ vi.

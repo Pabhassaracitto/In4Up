@@ -13,6 +13,7 @@ import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
+import '../core/responsive/app_responsive.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
@@ -1285,7 +1286,8 @@ class _MainShellState extends State<MainShell> {
       endDrawerEnableOpenDragGesture: !_isHome,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth >= 1024;
+          final isDesktop =
+              constraints.maxWidth >= AppResponsive.expandedWidth;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1378,7 +1380,9 @@ class _MainShellState extends State<MainShell> {
             );
           },
         ),
-      bottomNavigationBar: MediaQuery.sizeOf(context).width >= 1024
+      bottomNavigationBar:
+          MediaQuery.sizeOf(context).width >=
+              AppResponsive.expandedWidth
           ? null
           : _buildBottomNav(context),
     );

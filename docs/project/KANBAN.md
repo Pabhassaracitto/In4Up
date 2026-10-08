@@ -6081,6 +6081,37 @@
 | `PROMPT_AGENT_STT_OCR_MISC.md` | #2 + #15 + #19 |
 | `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` (cập nhật) | #8 |
 
+### 📊 Linear — project "Kiểm định bản 1.10.4" (đồng bộ 2026-10-08)
+Team **In4up (IN4)** → project **Kiểm định bản 1.10.4** (21 issue IN4-15…IN4-35).
+Labels: `P0`/`P1`/`P2`, `agent-handoff` (đã có prompt), `waiting-on-device`
+(cần máy thật), + `Bug`/`Feature`/`Improvement`. **Cách dùng:** mở issue ở
+Linear (thân issue có link prompt file) → copy prompt làm nhiệm vụ phiên cho
+agent → agent PR vào `251e` → đóng issue ở Linear khi nghiệm thu xong.
+
+| # | Card | Priority | Linear |
+|---|---|---|---|
+| 1 | LOGIN-CRASH-002 | P0 | [IN4-15](https://linear.app/in4up/issue/IN4-15) |
+| 2 | BATTERY-PROMPT-001 | P2 | [IN4-27](https://linear.app/in4up/issue/IN4-27) |
+| 3 | NETAWARE-001 | P1 | [IN4-24](https://linear.app/in4up/issue/IN4-24) |
+| 4 | APIVAULT-001 | P1 | [IN4-25](https://linear.app/in4up/issue/IN4-25) |
+| 5 | MODELIMPORT-001 | P1 | [IN4-16](https://linear.app/in4up/issue/IN4-16) |
+| 6 | XLAT-OFFLINE-LANG-001 | P2 | [IN4-28](https://linear.app/in4up/issue/IN4-28) |
+| 7 | XLAT-OFFLINE-SYNC-001 | P2 | [IN4-29](https://linear.app/in4up/issue/IN4-29) |
+| 8 | XLAT-SCR-003 | P1 | [IN4-17](https://linear.app/in4up/issue/IN4-17) |
+| 9 | I4U-BRAND-001 | P2 | [IN4-26](https://linear.app/in4up/issue/IN4-26) |
+| 10 | AI-CHAT-UX-001 | P1 | [IN4-19](https://linear.app/in4up/issue/IN4-19) |
+| 11 | MODEL-COPY-CANCEL-001 | P1 | [IN4-23](https://linear.app/in4up/issue/IN4-23) |
+| 12 | TTS-EDGE-VOICE-003 | P1 | [IN4-18](https://linear.app/in4up/issue/IN4-18) |
+| 13 | READ-FOCUS-002 | P2 | [IN4-30](https://linear.app/in4up/issue/IN4-30) |
+| 14 | READ-SCROLL-CLUSTER-001 | P2 | [IN4-31](https://linear.app/in4up/issue/IN4-31) |
+| 15 | OCR-AI-REFINE-001 | P2 | [IN4-32](https://linear.app/in4up/issue/IN4-32) |
+| 16 | PDF-XLAT-MULTI-001 | P1 | [IN4-20](https://linear.app/in4up/issue/IN4-20) |
+| 17 | WORDLIST-TTS-001 | P2 | [IN4-33](https://linear.app/in4up/issue/IN4-33) |
+| 18 | WORDLIST-BULK-001 | P1 | [IN4-21](https://linear.app/in4up/issue/IN4-21) |
+| 19 | PARAKEET-001 | P2 | [IN4-34](https://linear.app/in4up/issue/IN4-34) |
+| 20 | SRS-GARDEN-001 | P1 | [IN4-22](https://linear.app/in4up/issue/IN4-22) |
+| 21 | READ-SET-VOICE-COLLAPSE-001 | P2 | [IN4-35](https://linear.app/in4up/issue/IN4-35) |
+
 ### TTS-EDGE-VOICE-002 — nghiệm thu "chọn giọng nam mà giọng nữ đọc" (máy thật)
 
 - **Trạng thái:** 🔨 doing — phần code + "máy bắt" đã xanh CI trên nhánh

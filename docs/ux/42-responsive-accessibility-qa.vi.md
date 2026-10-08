@@ -159,6 +159,10 @@ nguồn vẫn hard-code nên key đó vô hiệu ở runtime. `'Global Chat'` kh
 - CI: bước *"UX shell contracts + C-31 state preservation (logic thuần)"* trong
   `.github/workflows/app_analyze.yml` nay chạy **24 file** test (đã gồm C-30 và
   `test/shell_chrome_i18n_coverage_test.dart` của I18N-002) — artifact `app-ux-contract-test-log`.
+- Bằng chứng CI xanh cuối (2026-10-08, commit `fc5d7ea`): push `37804605761` + PR `37804624188`
+  — analyze ✓, Rule 5 ✓, **step 24 success** trên 24 file test (có cả máy bắt shell của I18N-002).
+  Lưu ý tương tác: C-30 đo chrome nên 2 finder đổi theo nhãn đã bản địa hoá (`find.byTooltip('Send')`
+  ở locale mặc định của test env) — xem AGENTS.md “Bẫy widget test + locale”.
 - Bằng chứng CI (2026-10-08): run `37800693993` **đỏ** đúng 2 test A11Y với lỗi
   *"A SemanticsHandle was active at the end of the test."* — ở Flutter 3.44.1,
   `WidgetTester._endOfTestVerifications` chạy cuối thân test **trước `addTearDown`**, nên

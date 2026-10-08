@@ -101,7 +101,7 @@
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
 | UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (máy bắt 26 kịch bản + bước CI riêng 🟢 run 37782521070; còn nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` (PR #96 → `arena/01a0251e-in4up`, mergeable clean) — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` + step CI trong `app_analyze.yml` |
-| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 7 bằng chứng widget | 🔨 doing (code + máy bắt; chờ CI 🟢 + QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell + 7 chuỗi chrome tiếng Việt trong widget shell (thuộc I18N-001) |
+| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37801748437`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell + 7 chuỗi chrome tiếng Việt trong widget shell (thuộc I18N-001) |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -6247,8 +6247,9 @@
     `.github/workflows/`) + nghiệm thu thiết bị theo mục "QA TAY".
 
 ### UX-C30 — Responsive/accessibility QA (7 vùng) — máy bắt 2 tầng
-- **Trạng thái:** 🔨 doing — code + máy bắt xong 2026-10-08 (16 kịch bản logic + 7 bằng chứng widget);
-  còn CI 🟢 + QA tay thiết bị (TalkBack/VoiceOver, cỡ chữ hệ thống, xoay máy thật).
+- **Trạng thái:** 🔨 doing — code + máy bắt xong 2026-10-08 (16 kịch bản logic + 9 bằng chứng widget);
+  **CI đã 🟢** (push `37801748437` + PR `37801754613`, bước 24 success, commit `61d85e0`);
+  còn QA tay thiết bị (TalkBack/VoiceOver, cỡ chữ hệ thống, xoay máy thật).
 - **Nguồn:** `docs/ux/39-capability-breakdown.vi.md` mục C-30 (Phase 3 — Cross-cutting QA);
   hợp đồng tham chiếu `docs/ux/36-pre-freeze-review.vi.md` §6 (Split accessibility) + `docs/ux/37` (KeyboardAvoidingSurface/FocusTrap).
 - **Hiện thực:**
@@ -6281,3 +6282,9 @@
   - 2026-10-08 | proposed→doing | agent arena/af0abe2f-in4up | thêm harness C-30 + widget test
     (đo nhãn/vùng chạm/bàn phím/xoay) + drift guard breakpoint + tài liệu; phát hiện policy C-02
     chưa nối vào shell và 7 chuỗi chrome tiếng Việt; CI bổ sung file vào bước UX contract.
+  - 2026-10-08 | doing (CI 🟢) | agent arena/af0abe2f-in4up | run `37800693993` đỏ 2 test A11Y —
+    nguyên nhân là bẫy Flutter 3.44.1: `_endOfTestVerifications` chạy trước `addTearDown` nên
+    `SemanticsHandle` chưa dispose. Sửa `semantics.dispose()` tường minh trong thân test (giữ
+    nguyên phép đo) ⇒ `37801748437` (push) + `37801754613` (PR) xanh, bước 24 success, commit
+    `61d85e0`. Đồng thời nới cửa sổ annotation của bước CI (30 dòng trước dòng `[E]`) và ghi
+    2 bài học vào `AGENTS.md`.

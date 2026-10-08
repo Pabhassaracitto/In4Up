@@ -90,6 +90,15 @@
   việc**. Sửa workflow ở `main`/nhánh khác **KHÔNG** làm nhánh này chạy bước mới (các
   nhánh cũ vẫn dùng bản workflow của chính chúng cho tới khi rebase). Muốn một "máy
   bắt" chạy cho nhánh X ⇒ thêm bước vào workflow **của X**, rồi để nó đi kèm khi merge.
+- **Bẫy widget test (Flutter 3.44.1) — `SemanticsHandle`:** `WidgetTester._endOfTestVerifications`
+  chạy ở **cuối thân test, TRƯỚC mọi callback `addTearDown`** ⇒ `tester.ensureSemantics()` mà chỉ
+  `addTearDown(handle.dispose)` vẫn đỏ: *"A SemanticsHandle was active at the end of the test."*
+  Luôn `handle.dispose()` **tường minh trong thân test** ngay sau khi đo xong **trước mọi `expect`**.
+  (Bằng chứng: C-30 — run `37800693993` đỏ 2 test A11Y → sửa → `37801748437` xanh.)
+- **Đọc log khi CI đỏ:** artifact test không tải được từ sandbox (`gh run download` ⇒ blobstorage
+  `EOF`) ⇒ dùng `gh api repos/<owner>/<repo>/check-runs/<job_id>/annotations`. Bước *UX shell
+  contracts* thông báo lỗi bằng cửa sổ **30 dòng TRƯỚC + 6 dòng sau** dòng `[E]` — vì chi tiết
+  Expected/Actual của reporter `expanded` nằm **TRƯỚC** dòng `[E]`. Đừng đoán lỗi từ tên test.
 
 ## Module mới (đang trên branch `arena/01a019bb-in4up`, chờ merge)
 

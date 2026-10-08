@@ -1,6 +1,6 @@
 # I4U UX — C-30 Responsive / Accessibility QA
 
-> Trạng thái: bộ kiểm định chạy được cho cả 7 vùng (16 kịch bản logic + 7 bằng chứng đo trên widget thật)
+> Trạng thái: bộ kiểm định chạy được cho cả 7 vùng (16 kịch bản logic + **9** bằng chứng đo trên widget thật)
 > + 2 phát hiện cần theo dõi.
 > Nguồn: `docs/ux/39-capability-breakdown.vi.md` (C-30), `docs/ux/36-pre-freeze-review.vi.md` §6 (Split accessibility),
 > `docs/ux/37-component-inventory.vi.md` (KeyboardAvoidingSurface / FocusTrap).
@@ -133,10 +133,18 @@ Theo quy tắc vàng #5, locale ≠ vi phải thấy tiếng Anh (hoặc bản d
 ## 6. Bằng chứng
 
 - Máy bắt: `lib/core/qa/responsive_accessibility_qa.dart` +
-  `test/responsive_accessibility_qa_test.dart` (16 kịch bản logic + 7 bằng chứng widget).
+  `test/responsive_accessibility_qa_test.dart` (16 kịch bản logic + **9** bằng chứng widget:
+  `C30-W-SAF-01`, `C30-W-A11Y-01/02`, `C30-W-TCH-01/02`, `C30-W-TXT-01`, `C30-W-KBD-01`,
+  `C30-W-ORI-01/04`).
 - CI: bước *"UX shell contracts + C-31 state preservation (logic thuần)"* trong
-  `.github/workflows/app_analyze.yml` nay chạy 23 file test (đã gồm C-30) — xem run mới nhất trên
-  nhánh `arena/af0abe2f-in4up`, artifact `app-ux-contract-test-log`.
+  `.github/workflows/app_analyze.yml` nay chạy 23 file test (đã gồm C-30) — artifact
+  `app-ux-contract-test-log`.
+- Bằng chứng CI (2026-10-08): run `37800693993` **đỏ** đúng 2 test A11Y với lỗi
+  *"A SemanticsHandle was active at the end of the test."* — ở Flutter 3.44.1,
+  `WidgetTester._endOfTestVerifications` chạy cuối thân test **trước `addTearDown`**, nên
+  `addTearDown(semantics.dispose)` là quá muộn. Đã sửa bằng `semantics.dispose()` tường minh trong
+  thân test (giữ nguyên mọi phép đo) ⇒ run `37801748437` (push) và `37801754613` (PR) **xanh**,
+  bước 24 success (commit `61d85e0`). Bài học đã ghi vào `AGENTS.md`.
 - Kịch bản "không tự nhận đạt" được kiểm bằng test: chạy harness **không** kèm bằng chứng widget ⇒
   `isComplete = false` và `toQualityRun().hasBlocker = true`.
 

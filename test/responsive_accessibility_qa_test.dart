@@ -143,39 +143,35 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(400, 800);
     addTearDown(tester.view.reset);
+    // Flutter 3.44 kiểm tra "SemanticsHandle đã dispose" ở CUỐI thân test,
+    // TRƯỚC các addTearDown ⇒ phải dispose tường minh trong thân test.
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
 
     await tester.pumpWidget(paletteHost());
     await tester.tap(find.text('mở bảng lệnh'));
     await tester.pumpAndSettle();
 
-    var allLabelled = true;
-    for (final command in commands) {
-      if (find.bySemanticsLabel(command.label).evaluate().isEmpty) {
-        allLabelled = false;
-      }
-    }
+    final missingLabels = <String>[
+      for (final command in commands)
+        if (find.bySemanticsLabel(command.label).evaluate().isEmpty) command.label,
+    ];
+    final allLabelled = missingLabels.isEmpty;
+    final labelDetail = allLabelled
+        ? 'đã tìm thấy nhãn cho ${commands.length} lệnh'
+        : 'thiếu nhãn: $missingLabels';
     _record(
       id: 'C30-W-A11Y-01',
       area: I4uResponsiveArea.screenReaderLabels,
       requirement: 'Mỗi mục trong Command Palette có nhãn đọc được (không icon trần)',
       passed: allLabelled,
-      detail: allLabelled
-          ? 'đã tìm thấy nhãn cho ${commands.length} lệnh'
-          : 'thiếu nhãn cho ít nhất 1 lệnh',
+      detail: labelDetail,
     );
-    expect(allLabelled, isTrue,
-        reason: 'lệnh thiếu nhãn ⇒ screen reader chỉ đọc "button" • '
-            'đo được: ${_widgetEvidence.last.detail}');
-
     final tiles = find.byType(ListTile);
-    expect(tiles.evaluate().length, commands.length);
+    final tileCount = tiles.evaluate().length;
     var minRowHeight = double.infinity;
-    for (var index = 0; index < commands.length; index++) {
-      minRowHeight = minRowHeight < tester.getSize(tiles.at(index)).height
-          ? minRowHeight
-          : tester.getSize(tiles.at(index)).height;
+    for (var index = 0; index < tileCount; index++) {
+      final height = tester.getSize(tiles.at(index)).height;
+      if (height < minRowHeight) minRowHeight = height;
     }
     _record(
       id: 'C30-W-TCH-01',
@@ -184,8 +180,17 @@ void main() {
       passed: minRowHeight >= 48,
       detail: 'chiều cao nhỏ nhất đo được: $minRowHeight',
     );
+
+    // Đo xong ⇒ nhả semantics TRƯỚC mọi assert (Flutter 3.44 kiểm tra handle
+    // đã dispose ở cuối thân test, trước cả addTearDown).
+    semantics.dispose();
+
+    expect(tileCount, commands.length,
+        reason: 'số mục lệnh hiển thị • đo được: $tileCount');
+    expect(allLabelled, isTrue,
+        reason: 'lệnh thiếu nhãn ⇒ screen reader chỉ đọc "button" • đo được: $labelDetail');
     expect(minRowHeight, greaterThanOrEqualTo(48.0),
-        reason: 'vùng chạm mục lệnh • đo được: ${_widgetEvidence.last.detail}');
+        reason: 'vùng chạm mục lệnh • đo được: $minRowHeight');
   });
 
   testWidgets('C-30 TXT — Command Palette không tràn ở trần cỡ chữ chính sách (1.15)', (tester) async {
@@ -222,13 +227,14 @@ void main() {
     tester.view.physicalSize = const Size(400, 800);
     addTearDown(tester.view.reset);
     final semantics = tester.ensureSemantics();
-    addTearDown(semantics.dispose);
 
     await tester.pumpWidget(chatHost());
     await tester.pumpAndSettle();
 
     final send = tester.getSemantics(find.byTooltip('Gửi')).getSemanticsData();
     final hasLabel = send.label.isNotEmpty || send.tooltip.isNotEmpty;
+    // Nhả semantics ngay sau khi lấy dữ liệu (đo xong không cần nữa).
+    semantics.dispose();
     _record(
       id: 'C30-W-A11Y-02',
       area: I4uResponsiveArea.screenReaderLabels,

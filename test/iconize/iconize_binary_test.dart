@@ -91,5 +91,14 @@ void main() {
         expect(svg.length, greaterThan(50), reason: '$key SVG quá nhỏ');
       }
     });
+
+    // ICONIZE-001d: tầng render tra ngược "bundle:<tên>" → iconId.
+    test('idForName khứ hồi với name() + tên lạ → null', () {
+      for (final id in [0, bundle.count ~/ 2, bundle.count - 1]) {
+        expect(bundle.idForName(bundle.name(id)), id);
+      }
+      expect(bundle.idForName('khong-ton-tai'), isNull);
+      expect(bundle.idForName(''), isNull);
+    });
   });
 }

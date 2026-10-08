@@ -179,4 +179,18 @@ class IconsBundle {
           'icons_bundle.bin: iconId $iconId ngoài [0,$count)');
     }
   }
+
+  // ICONIZE-001d: tầng render nhận `iconAssetRef` dạng "bundle:<tên>" từ
+  // engine — cần tra ngược tên → iconId để lấy bytes SVG. Map dựng lười
+  // MỘT lần (769 entry, ~vài chục KB) rồi dùng cho mọi câu.
+  Map<String, int>? _idByName;
+
+  /// iconId theo tên icon (chuỗi codepoint Twemoji, vd "1f408");
+  /// null nếu tên không có trong bundle — caller phải giữ CHỮ, không throw.
+  int? idForName(String iconName) {
+    final map = _idByName ??= {
+      for (var i = 0; i < count; i++) name(i): i,
+    };
+    return map[iconName];
+  }
 }

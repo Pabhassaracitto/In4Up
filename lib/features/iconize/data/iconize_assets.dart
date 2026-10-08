@@ -11,7 +11,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 
+import '../engine/iconize_bridge.dart';
 import '../engine/iconize_engine.dart';
+import '../engine/iconize_icon_source.dart';
 import '../engine/iconize_lemmatizer.dart';
 import 'iconize_binary.dart';
 
@@ -20,8 +22,14 @@ class IconizeAssets {
 
   /// Dựng engine từ asset bundle. Trả null nếu BẤT KỲ file nào hỏng —
   /// caller phải coi null là "Iconize tắt cho session này".
-  static Future<DefaultIconizeEngine?> loadEngine(
-      {AssetBundle? bundle}) async {
+  ///
+  /// [userSources]/[bridge] (ICONIZE-001d): tiêm tầng icon user + bảng
+  /// Bridge-to-English khi dựng — engine vẫn pure function, không state.
+  static Future<DefaultIconizeEngine?> loadEngine({
+    AssetBundle? bundle,
+    List<IconizeIconSource> userSources = const [],
+    EnglishBridgeDictionary? bridge,
+  }) async {
     final b = bundle ?? rootBundle;
     try {
       final conc = await b.load('$dir/concreteness.bin');
@@ -33,6 +41,8 @@ class IconizeAssets {
         iconIndex: IconIndexTable(index.buffer.asUint8List()),
         iconsBundle: IconsBundle(icons.buffer.asUint8List()),
         lemmatizer: IconizeLemmatizer.fromJsonString(lemmas),
+        userSources: userSources,
+        bridge: bridge,
       );
     } on IconizeBinaryFormatException catch (e) {
       debugPrint('Iconize disabled: $e');

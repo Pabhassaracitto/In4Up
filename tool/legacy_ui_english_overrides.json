@@ -1849,5 +1849,14 @@
   "Đã tách nền bằng Google ML Kit.": "Background removed with Google ML Kit.",
   "Không thể lưu ảnh. Vui lòng thử lại.": "Could not save the image. Please try again.",
   "Chụp ảnh hoặc chọn ảnh trong máy.": "Take a photo or choose one from your device.",
-  "Bạn có thể tách nền tự động trước khi lưu.": "You can remove the background automatically before saving."
+  "Bạn có thể tách nền tự động trước khi lưu.": "You can remove the background automatically before saving.",
+  "Mật độ icon": "Icon density",
+  "Thấp — khoảng 18% từ": "Low — about 18% of words",
+  "Vừa — khoảng 32% từ": "Medium — about 32% of words",
+  "Cao — khoảng 48% từ": "High — about 48% of words",
+  "Icon hóa cả bản dịch": "Iconize the translation too",
+  "Mặc định tắt — bản dịch là chỗ dựa nghĩa.": "Off by default — the translation is your anchor for meaning.",
+  "Chỉ từ cụ thể, dễ hình dung mới được thay bằng icon — không chắc thì giữ chữ. Chạm icon để xem lại từ gốc.": "Only concrete, easy-to-picture words are replaced with icons — when unsure, the text stays. Tap an icon to see the original word.",
+  "Icon hóa tạm tắt do lỗi dữ liệu": "Iconize is temporarily off due to a data error",
+  "Icon hóa — nhấn giữ để chỉnh mật độ": "Iconize — long-press to adjust density"
 }

@@ -6152,3 +6152,30 @@
     hiện tại: user → bundle → giữ chữ). CI XANH: run 37777594144 (2m46s,
     xanh ngay lần push đầu). CÒN: nghiệm thu thiết bị khi có UI — lane
     kế: 001d (toggle Tab Đọc).
+  - 2026-10-08 (d): **lane 001d code xong** — UI Iconize vào panel dịch
+    PDF (Tab Đọc v1): nút toggle "Icon hóa" trong header (tap bật/tắt,
+    nhấn giữ mở sheet mật độ 3 nấc 18/32/48% + sub-toggle "Icon hóa cả
+    bản dịch" mặc định TẮT — blueprint Khối B); câu gốc + bản dịch render
+    qua `IconizeSentenceText` → `IconizedRichText` (WidgetSpan SVG từ
+    icons_bundle qua flutter_svg MỚI THÊM pubspec; ảnh user qua
+    Image.file; Semantics label = từ gốc; tap icon = tooltip từ gốc;
+    mọi lỗi icon → giữ chữ). Hạ tầng: `IconizeSettings` (SharedPreferences,
+    mirror ReaderDisplaySettings, mặc định tắt), `IconizeService`
+    (singleton nạp lười; asset hỏng → disabled cả session + badge lỗi
+    trên nút), adapter `VocabImageIconSource` wire WordEntry.imageUrl
+    (chỉ ảnh local, resolve ngoài vòng render), heuristic
+    `guessIconizeLang` bảo thủ (sourceLang AUTO: dấu VN→vi; ASCII +
+    stopword EN→en; còn lại→other=giữ chữ — "Le chat dort." không bao
+    giờ bị icon mèo). i18n rule #5: 9 chuỗi mới đủ en/hi/zh/zh_TW/si
+    trong priority_ui_overrides + phân loại trong
+    legacy_ui_english_overrides.json. **PHÁT HIỆN TỒN ĐỌNG (không thuộc
+    lane):** `tool/generate_legacy_ui_fallbacks.py` fail trên cây SẠCH
+    (66 override mồ côi) → không regenerate được catalog legacy; runtime
+    vẫn đúng vì priority overrides được tra TRƯỚC. **ĐỔI PHẠM VI có ghi
+    vết:** bề mặt Web reader dời 001d2 — Web reader là WebView DOM,
+    KHÔNG có panel dịch Flutter để gắn (khác giả định blueprint); lazy
+    viewport (visibility_detector) chưa cần — panel chỉ render câu của
+    ~1 trang. Test mới: lang_guess (thuần) + widget test IconizedRichText
+    (icon builder giả — cấu trúc span/semantics/keep-text) + idForName
+    khứ hồi trong binary test; cả hai file nối vào step CI ICONIZE.
+    CÒN: CI + nghiệm thu máy thật (toggle, mật độ, ảnh user, badge lỗi).

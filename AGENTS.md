@@ -76,6 +76,20 @@
   khiến `git branch -r` / `git show origin/arena/*:...` không thấy nhánh lineage.
   Xem **GOVERNANCE mục 2a** để fetch đúng ref — ĐỪNG kết luận "nhánh gốc bị mất".
 - Commit nhỏ, push ngay — push là backup (sandbox có thể tái bản giữa phiên).
+- **Quyền sửa `.github/workflows/` (đã kiểm chứng 2026-10-08):** token của agent
+  Arena hiện tại **CÓ** quyền push thay đổi vào `.github/workflows/**` — bằng chứng
+  commit `fcc519f0` (thêm step vào `app_analyze.yml`) chạy đúng trong CI run
+  `37782521070`. Nhiều ghi chú cũ trong KANBAN/ADR/handoff nói "token thiếu quyền
+  `workflows`" là **thông tin lịch sử của thời điểm đó** — ĐỪNG kết luận lại từ chúng.
+  Cách kiểm chứng duy nhất: thử push một thay đổi nhỏ; nếu bị chặn, thông báo thật là
+  `refusing to allow a Personal Access Token to create or update workflow ...`.
+  (Ghi chú "thiếu quyền `workflows`" nay chỉ còn đúng với **token GitHub App của job
+  release** — xem card `CI-WINDOWS-01` trong KANBAN.)
+- **Workflow nào chạy cho nhánh nào:** với sự kiện `push`, GitHub dùng
+  `.github/workflows/*` **trên chính commit vừa push** — tức bản của **nhánh đang làm
+  việc**. Sửa workflow ở `main`/nhánh khác **KHÔNG** làm nhánh này chạy bước mới (các
+  nhánh cũ vẫn dùng bản workflow của chính chúng cho tới khi rebase). Muốn một "máy
+  bắt" chạy cho nhánh X ⇒ thêm bước vào workflow **của X**, rồi để nó đi kèm khi merge.
 
 ## Module mới (đang trên branch `arena/01a019bb-in4up`, chờ merge)
 

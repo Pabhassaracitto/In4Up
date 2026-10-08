@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';
+// `material` có tiền tố để nội dung user/AI render bằng material.Text THẬT —
+// rule #5 loại trừ nội dung user/AI khỏi mọi cơ chế dịch chrome.
+import 'package:flutter/material.dart' as material;
+import 'package:in4up/core/language/localized_material.dart';
 
 class I4uGlobalChatSurface extends StatefulWidget {
   const I4uGlobalChatSurface({
@@ -43,7 +46,7 @@ class _I4uGlobalChatSurfaceState extends State<I4uGlobalChatSurface> {
       setState(() => _messages.add((user: false, text: reply)));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _messages.add((user: false, text: 'Không thể gửi lúc này. Hãy thử lại.')));
+      setState(() => _messages.add((user: false, text: context.uiText('Không thể gửi lúc này. Hãy thử lại.'))));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -59,11 +62,11 @@ class _I4uGlobalChatSurfaceState extends State<I4uGlobalChatSurface> {
             ListTile(
               leading: const Icon(Icons.chat_bubble_outline),
               title: const Text('Global Chat'),
-              subtitle: Text(widget.contextLabel ?? 'Không có source context'),
+              subtitle: Text(widget.contextLabel ?? context.uiText('Không có source context')),
               trailing: widget.contextLabel == null || widget.onResetContext == null
                   ? null
                   : IconButton(
-                      tooltip: 'Đổi context',
+                      tooltip: context.uiText('Đổi context'),
                       icon: const Icon(Icons.refresh),
                       onPressed: widget.onResetContext,
                     ),
@@ -71,7 +74,7 @@ class _I4uGlobalChatSurfaceState extends State<I4uGlobalChatSurface> {
             const Divider(height: 1),
             Expanded(
               child: _messages.isEmpty
-                  ? const Center(child: Text('Đặt câu hỏi để bắt đầu.'))
+                  ? Center(child: Text(context.uiText('Đặt câu hỏi để bắt đầu.')))
                   : ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.all(16),
@@ -83,7 +86,7 @@ class _I4uGlobalChatSurfaceState extends State<I4uGlobalChatSurface> {
                           child: Card(
                             child: Padding(
                               padding: const EdgeInsets.all(12),
-                              child: Text(message.text),
+                              child: material.Text(message.text),
                             ),
                           ),
                         );
@@ -102,11 +105,13 @@ class _I4uGlobalChatSurfaceState extends State<I4uGlobalChatSurface> {
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
-                      decoration: const InputDecoration(hintText: 'Viết câu hỏi…'),
+                      decoration: InputDecoration(
+                        hintText: context.uiText('Viết câu hỏi…'),
+                      ),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Gửi',
+                    tooltip: context.uiText('Gửi'),
                     onPressed: _sending ? null : _send,
                     icon: _sending
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))

@@ -1849,5 +1849,12 @@
   "Đã tách nền bằng Google ML Kit.": "Background removed with Google ML Kit.",
   "Không thể lưu ảnh. Vui lòng thử lại.": "Could not save the image. Please try again.",
   "Chụp ảnh hoặc chọn ảnh trong máy.": "Take a photo or choose one from your device.",
-  "Bạn có thể tách nền tự động trước khi lưu.": "You can remove the background automatically before saving."
+  "Bạn có thể tách nền tự động trước khi lưu.": "You can remove the background automatically before saving.",
+  "Tìm lệnh hoặc workspace": "Search commands or workspaces",
+  "Không tìm thấy lệnh phù hợp.": "No matching commands found.",
+  "Không thể gửi lúc này. Hãy thử lại.": "Could not send right now. Please try again.",
+  "Không có source context": "No source context",
+  "Đổi context": "Change context",
+  "Đặt câu hỏi để bắt đầu.": "Ask a question to get started.",
+  "Viết câu hỏi…": "Type a question…"
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 @immutable
 class I4uCommand {
@@ -76,18 +76,19 @@ class _CommandPaletteDialogState extends State<_CommandPaletteDialog> {
                 focusNode: _focus,
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Tìm lệnh hoặc workspace',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  // Chrome ⇒ đi qua uiText (rule #5): locale ≠ vi hiện English.
+                  hintText: context.uiText('Tìm lệnh hoặc workspace'),
+                  border: const OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => filtered.isNotEmpty ? Navigator.pop(context, filtered.first.id) : null,
               ),
               const SizedBox(height: 12),
               if (filtered.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('Không tìm thấy lệnh phù hợp.'),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(context.uiText('Không tìm thấy lệnh phù hợp.')),
                 )
               else
                 Flexible(

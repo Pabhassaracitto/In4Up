@@ -94,14 +94,15 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: 354 chrome literals chưa phân loại UI/content (generator legacy fallbacks không chạy được) + raw strings player tab Nghe | 📋 proposed | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5) |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content (generator legacy fallbacks không chạy được) + raw strings player tab Nghe | 📋 proposed | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08:** generator nay đỏ SỚM HƠN ở `68 reviewed overrides no longer match…` (trước là 14 stale, đã dọn 2026-09-03) và **không workflow nào chạy nó** ⇒ phải dọn stale trước khi tới được chốt 354 literal |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
 | UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (máy bắt 26 kịch bản + bước CI riêng 🟢 run 37782521070; còn nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` (PR #96 → `arena/01a0251e-in4up`, mergeable clean) — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` + step CI trong `app_analyze.yml` |
-| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37801748437`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell + 7 chuỗi chrome tiếng Việt trong widget shell (thuộc I18N-001) |
+| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37801748437`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell + 8 literal chrome tiếng Việt trong widget shell (đã đóng ở I18N-002) |
+| I18N-002 | Chrome shell (`lib/widgets/shell/`): 7 nhãn hard-code tiếng Việt ⇒ locale ≠ vi hiện nguyên tiếng Việt (rule #5, phát hiện bởi C-30 §4.2) | ✅ done (code + máy bắt 3 tầng + CI 🟢; chờ QA tay locale ≠ vi) | nhánh `arena/af0abe2f-in4up` — bọc `context.uiText` + English ở `priority_ui_overrides.dart` & `tool/legacy_ui_english_overrides.json` + `test/shell_chrome_i18n_coverage_test.dart` (bước CI 24 file) |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -1895,6 +1896,15 @@
      `docs/skills/i18n-localization/SKILL.md`: uiText + ARB parity +
      hi/zh/zh_TW/si, không fallback về Việt.
   3. Regenerate + CI App Analyze + Locale xanh + nghiệm thu locale ≠ vi.
+- **Chốt lại 2026-10-08 (điều tra phát hiện C-30 §4.2 — 7 nhãn chrome hard-code ở `lib/widgets/shell/`):**
+  generator nay dừng **sớm hơn** ở chốt stale-override:
+  `ValueError: 68 reviewed overrides no longer match extracted presentation sources:
+  '"{value0}" đã lưu', '+ Nghĩa', …` — trước đây con số này là 14 (đã dọn 2026-09-03), tức các lần
+  merge sau đó lại làm override trỏ vào chuỗi không còn được trích xuất. Thêm nữa: **không workflow
+  nào** trong `.github/workflows/` gọi generator (đã `grep`) ⇒ "máy bắt" này chưa từng chạy trong CI.
+  Đó chính là lỗ hổng để 7 nhãn trên lọt lưới tới tận C-30. Giảm nhẹ tạm thời: I18N-002 có test riêng
+  cho `lib/widgets/shell/`; việc dọn 68 stale + phân loại đủ literal + thêm bước CI (`--check`,
+  `git diff --exit-code`) vẫn nằm ở card này.
 - **Lịch sử:**
   - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
     rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
@@ -6275,7 +6285,7 @@
      canh drift này. Việc nối policy vào shell thuộc capability C-02b/C-10.
   2. **7 chuỗi chrome tiếng Việt hard-code** trong `command_palette.dart` + `global_chat_surface.dart`
      (không qua `uiText`/ARB, không có trong `tool/legacy_ui_english_overrides.json`) — vi phạm
-     quy tắc vàng #5 ở locale ≠ vi; thuộc backlog **I18N-001** (cần `en/hi/zh/zh_TW/si`).
+     quy tắc vàng #5 ở locale ≠ vi; **đã đóng ở I18N-002** (bọc uiText + English; T2 chờ đợt dịch).
 - **Máy bắt / lệnh chạy:** `flutter test test/responsive_accessibility_qa_test.dart`;
   bước CI "UX shell contracts + C-31 state preservation (logic thuần)" đã thêm file C-30 (23 file).
 - **Lịch sử:**
@@ -6288,3 +6298,29 @@
     nguyên phép đo) ⇒ `37801748437` (push) + `37801754613` (PR) xanh, bước 24 success, commit
     `61d85e0`. Đồng thời nới cửa sổ annotation của bước CI (30 dòng trước dòng `[E]`) và ghi
     2 bài học vào `AGENTS.md`.
+
+### I18N-002 — Chrome shell tuân rule #5 (bọc `uiText` + English + máy bắt 3 tầng)
+- **Trạng thái:** ✅ done — code + máy bắt + CI 🟢 (2026-10-08); chờ QA tay trên thiết bị với locale ≠ vi.
+- **Nguồn:** phát hiện #2 của C-30 (`docs/ux/42-responsive-accessibility-qa.vi.md` §4.2) — bước CI
+  *"Rule 5 test"* chỉ quét catalog đã sinh, literal hard-code trong widget là **điểm mù thật**.
+- **Số liệu trước khi sửa (chính xác):** 8 literal Việt trong 2 file `lib/widgets/shell/` — 7 nhãn
+  chưa có English trong catalog + `'Gửi'` đã có English nhưng mã nguồn hard-code nên key vô hiệu.
+  (`'Global Chat'` không tính — đã là tiếng Anh.)
+- **Hiện thực:** bọc cả 7 nhãn bằng `context.uiText(...)` (import `localized_material.dart`, bỏ
+  `const` ở 3 chỗ dựng widget tương ứng); đăng ký English ở **cả hai** đường catalog
+  (`lib/core/language/priority_ui_overrides.dart` cho runtime + `tool/legacy_ui_english_overrides.json`
+  cho nguồn generator); bong bóng tin nhắn render bằng `material.Text` (tiền tố) để nội dung user/AI
+  **không bao giờ** đi qua cơ chế dịch chrome (rule #5 loại trừ).
+- **Máy bắt:** `test/shell_chrome_i18n_coverage_test.dart` — 3 tầng: (1) literal Việt trong
+  `lib/widgets/shell/` phải được bọc `uiText/tr` (cổng chặn "pass rỗng": ≥ 7 nhãn); (2) mọi nhãn bọc
+  phải dịch được ở `en/hi/zh/zh_TW/si/ja`, không rơi về `vi`; (3) dựng thật 2 surface ở locale `en`,
+  quét Text/RichText/Tooltip — không còn ký tự Việt (kèm assert English thật: `Send`,
+  `Ask a question to get started.`, `No source context`, `Search commands or workspaces`,
+  `No matching commands found.`). Test C-30 ghim `locale: vi` để hai mối quan tâm không trộn nhau.
+- **Quyết định:** D-033 trong `docs/ux/decision-log.vi.md` (đăng ký ở cả hai đường catalog, chỉ `en`).
+- **Việc còn mở:** bản dịch T2 `hi/zh/zh_TW/si` cho các key legacy (hiện rơi về `en` — đúng rule #5);
+  QA tay: mở app ở locale `en` + 1 locale chưa dịch hết, chrome shell không `vi`.
+- **Lịch sử:**
+  - 2026-10-08 | proposed→done | agent arena/af0abe2f-in4up | phát hiện bởi C-30; sửa 2 widget +
+    đăng ký 7 key English + test 3 tầng + đưa vào bước CI (24 file); chuyển bằng chứng generator
+    (68 override stale + không chạy trong CI) sang card `I18N-001`.

@@ -231,6 +231,25 @@
 - **Hệ quả:** một báo cáo C-30 xanh mà không chạy widget test là báo cáo giả — test tự kiểm điều này. Kèm luật đo: nút icon phải kiểm **cả** kích thước lẫn `MaterialTapTargetSize` (M3: 40×40 widget + padded ⇒ vùng chạm 48), không chỉ nhìn một con số.
 - **Lý do:** C-31 đã chứng minh giá trị của máy bắt; nhưng a11y/responsive không thể suy ra từ số học. Đồng thời C-30 phát hiện policy C-02 (`AppResponsive`/`I4uSafeAreaPolicy`/`I4uOverlayPolicy`) **chưa được nối vào app** — điều này sẽ bị che mất nếu chỉ kiểm widget theo cách "chạy được là xanh".
 
+## D-033 — Chrome shell: bọc `uiText` + đăng ký English ở cả hai đường catalog
+
+- **Ngày:** 2026-10-08
+- **Trạng thái:** đang áp dụng
+- **Quyết định:** 7 nhãn chrome hard-code trong `lib/widgets/shell/` (command palette + global chat)
+  được bọc `context.uiText(...)` và đăng ký English ở **cả hai** nơi: `priority_ui_overrides.dart`
+  (đường runtime — `AppUITranslations.translate` đọc map này trước) và
+  `tool/legacy_ui_english_overrides.json` (nguồn của generator `.dart`). Chỉ đăng ký `en`.
+  Nội dung user/AI trong chat render bằng `material.Text` (import có tiền tố) để **không** bao giờ
+  đi qua cơ chế dịch chrome.
+- **Hệ quả:** kiểm bằng `test/shell_chrome_i18n_coverage_test.dart` (3 tầng: nguồn phải bọc; catalog
+  phải dịch được ở mọi locale ≠ vi; runtime ở locale `en` không còn ký tự Việt). Test C-30 ghim
+  `locale: vi` — đo chrome, không đo dịch.
+- **Lý do:** bước CI *"Rule 5 test"* chỉ quét catalog đã sinh, nên literal hard-code trong widget là
+  điểm mù thật (C-30 §4.2 tìm ra nó). Đăng ký ở `priority_ui_overrides` sửa được runtime ngay;
+  ghi thêm vào JSON nguồn để khi generator sống lại (card `I18N-001`) thì hai đường không lệch nhau.
+  Chỉ `en` theo tiền lệ 15 key Tipiṭaka: rule #5 quy định fallback là English, không bịa bản dịch T2
+  chưa ai review.
+
 ## Câu hỏi mở hiện tại
 
 - O-001: Review/Stats là Context Bar hay sub-workspace của Nhớ?

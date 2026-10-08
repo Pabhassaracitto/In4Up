@@ -122,7 +122,11 @@ void main() {
     I4uCommand(id: 'open-listen', label: 'Mở Nghe', icon: Icons.headphones),
   ];
 
+  // Ghim locale `vi`: test này đo CHROME (nhãn/vùng chạm) và các assert viết theo
+  // tiếng Việt. Hành vi dịch ở locale ≠ vi do `test/shell_chrome_i18n_coverage_test.dart`
+  // canh riêng (I18N-001) — đừng trộn hai mối quan tâm vào một test.
   Widget paletteHost({double textScale = 1.0}) => MaterialApp(
+        locale: const Locale('vi'),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
@@ -217,6 +221,7 @@ void main() {
 
   // ─────────── Chat surface: nhãn + vùng chạm + bàn phím + xoay máy ───────────
   Widget chatHost() => MaterialApp(
+        locale: const Locale('vi'),
         home: Scaffold(
           body: I4uGlobalChatSurface(onSend: (message) async => 'echo: $message'),
         ),

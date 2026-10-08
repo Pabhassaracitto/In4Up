@@ -66,7 +66,7 @@ print(report.toSummary());
 | C30-ORI-02 | orientation | Đổi hướng ⇒ bố cục đổi theo (cột/padding/bề rộng dòng) |
 | C30-ORI-03 | orientation | Ngưỡng breakpoint là một nguồn duy nhất, `classify` khớp đúng tại biên |
 
-### 3.2 Bằng chứng đo trên widget thật (7)
+### 3.2 Bằng chứng đo trên widget thật (9)
 
 | Mã | Vùng | Đo gì trên widget nào |
 |---|---|---|
@@ -103,20 +103,40 @@ trị **trùng** `AppResponsive.expandedWidth` nên hiện chưa lệch, nhưng 
 cùng một ngưỡng. Kịch bản `C30-W-ORI-04` (drift guard) canh việc này: nếu ai đổi một bên, test đỏ.
 Việc còn lại là **nối policy vào shell** — thuộc capability C-02b/C-10 (không nằm trong phạm vi QA).
 
-### 4.2 Chrome tiếng Việt hard-code trong 2 widget shell (rule #5)
+### 4.2 Chrome tiếng Việt hard-code trong 2 widget shell (rule #5) — ✅ đã đóng ở I18N-002
 
-`command_palette.dart` + `global_chat_surface.dart` có 7 chuỗi chrome viết thẳng bằng tiếng Việt,
-**không** qua `uiText`/ARB và cũng **không** có trong `tool/legacy_ui_english_overrides.json`
-(đã kiểm: `grep uiText` trong 2 file = 0):
+`command_palette.dart` + `global_chat_surface.dart` có **8 literal tiếng Việt**, **không** đi qua
+`uiText`/ARB (`grep uiText` trong 2 file = 0) ⇒ locale ≠ vi hiện nguyên tiếng Việt:
 
 ```text
-'Không tìm thấy lệnh phù hợp.'  'Global Chat'  'Không có source context'
-'Đổi context'  'Đặt câu hỏi để bắt đầu.'  'Viết câu hỏi…'  'Gửi'
-'Không thể gửi lúc này. Hãy thử lại.'
+'Không thể gửi lúc này. Hãy thử lại.'  'Không có source context'  'Đổi context'
+'Đặt câu hỏi để bắt đầu.'  'Viết câu hỏi…'  'Gửi'   ← 6 literal trong global_chat_surface.dart
+'Tìm lệnh hoặc workspace'  'Không tìm thấy lệnh phù hợp.'   ← 2 literal trong command_palette.dart
 ```
 
-Theo quy tắc vàng #5, locale ≠ vi phải thấy tiếng Anh (hoặc bản dịch), không được thấy tiếng Việt.
-Đây là việc của backlog **I18N-001** (cần bản dịch `en/hi/zh/zh_TW/si`), không sửa lẻ trong C-30.
+**Số liệu chính xác** (bản đầu ghi "7 chuỗi" do đếm sót): 7 nhãn **chưa có** English trong catalog
++ 1 nhãn (`'Gửi'`) **đã có** English (`generated_legacy_ui_fallbacks.dart` → `'Send'`) nhưng mã
+nguồn vẫn hard-code nên key đó vô hiệu ở runtime. `'Global Chat'` không tính (đã là tiếng Anh).
+
+**Đã sửa trong I18N-002** (2026-10-08):
+- Bọc cả 7 nhãn bằng `context.uiText(...)` (thêm import `localized_material.dart`; bỏ `const` ở
+  `InputDecoration`/`Padding`/`Center` tương ứng).
+- Đăng ký English ở **cả hai** nơi: `lib/core/language/priority_ui_overrides.dart` (đường runtime —
+  `AppUITranslations` đọc map này trước) và `tool/legacy_ui_english_overrides.json` (nguồn của
+  generator). Chỉ `en`, theo tiền lệ 15 key Tipiṭaka: đó là canonical fallback của rule #5, không
+  bịa bản dịch `hi/zh/zh_TW/si` chưa ai review.
+- Bong bóng tin nhắn trong `global_chat_surface.dart` render bằng `material.Text` (import có tiền
+  tố) — rule #5 **loại trừ nội dung user/AI**, không đi qua cơ chế dịch chrome.
+- Máy bắt mới `test/shell_chrome_i18n_coverage_test.dart`: (1) literal Việt trong `lib/widgets/shell/`
+  phải được bọc `uiText/tr`; (2) mọi nhãn bọc phải dịch được ở `en/hi/zh/zh_TW/si/ja` và không rơi
+  về `vi`; (3) dựng thật 2 surface ở locale `en`, quét Text/RichText/Tooltip — không còn ký tự Việt.
+  Test C-30 được ghim `locale: vi` (đo chrome, không đo dịch) để hai mối quan tâm không trộn nhau.
+
+**Phát hiện kèm theo (đã ghi vào card I18N-001, chưa sửa):** "máy bắt" phân loại literal chrome
+`tool/generate_legacy_ui_fallbacks.py` **đang chết** và **không được CI chạy**:
+`ValueError: 68 reviewed overrides no longer match extracted presentation sources` (chạy thử
+2026-10-08). Đây chính là lỗ hổng khiến 7 nhãn trên lọt qua. Sửa nó là capability riêng (68 key cũ
++ phân loại lại toàn bộ literal) — xem card `I18N-001` trong KANBAN.
 
 ## 5. Việc phải QA tay (không tự nhận đạt)
 
@@ -137,8 +157,8 @@ Theo quy tắc vàng #5, locale ≠ vi phải thấy tiếng Anh (hoặc bản d
   `C30-W-SAF-01`, `C30-W-A11Y-01/02`, `C30-W-TCH-01/02`, `C30-W-TXT-01`, `C30-W-KBD-01`,
   `C30-W-ORI-01/04`).
 - CI: bước *"UX shell contracts + C-31 state preservation (logic thuần)"* trong
-  `.github/workflows/app_analyze.yml` nay chạy 23 file test (đã gồm C-30) — artifact
-  `app-ux-contract-test-log`.
+  `.github/workflows/app_analyze.yml` nay chạy **24 file** test (đã gồm C-30 và
+  `test/shell_chrome_i18n_coverage_test.dart` của I18N-002) — artifact `app-ux-contract-test-log`.
 - Bằng chứng CI (2026-10-08): run `37800693993` **đỏ** đúng 2 test A11Y với lỗi
   *"A SemanticsHandle was active at the end of the test."* — ở Flutter 3.44.1,
   `WidgetTester._endOfTestVerifications` chạy cuối thân test **trước `addTearDown`**, nên
@@ -151,7 +171,8 @@ Theo quy tắc vàng #5, locale ≠ vi phải thấy tiếng Anh (hoặc bản d
 ## 7. Việc còn mở
 
 1. **Nối policy C-02 vào shell** (mục 4.1) — hiện policy chỉ được bảo vệ bằng test, chưa điều khiển UI thật.
-2. **Chuỗi chrome tiếng Việt trong 2 widget shell** (mục 4.2) — thuộc I18N-001, cần 4 locale T2.
+2. ~~Chuỗi chrome tiếng Việt trong 2 widget shell~~ — ✅ đã đóng ở I18N-002 (đăng ký `en`; T2
+   `hi/zh/zh_TW/si` hiện rơi về `en` theo rule #5, chờ đợt dịch T2 như mọi key legacy khác).
 3. **TalkBack/VoiceOver + cỡ chữ hệ thống thật**: không thể kết luận trong sandbox; cần QA tay theo §5.
 4. **Split view ≥1440px** (`docs/ux/36` §6: divider, close từng pane, keyboard nav, screen reader label,
    minimum content width, fallback Replace) chưa được kiểm — chưa có màn hình Split thật để đo.

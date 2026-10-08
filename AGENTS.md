@@ -63,6 +63,15 @@
         phải có giá trị `en` (canonical fallback).
      3. QA tay: EN + 1 locale chưa dịch hết (JA/BN) — chrome không `vi`; mở file
         tiếng Việt vẫn thấy tiếng Việt.
+   - **Trạng thái "máy bắt" i18n (kiểm chứng 2026-10-08 — đọc trước khi tin):** generator
+     `tool/generate_legacy_ui_fallbacks.py` **đang đỏ** ở chốt stale-override
+     (`ValueError: 68 reviewed overrides no longer match extracted presentation sources`) và
+     **không workflow nào** trong `.github/workflows/` gọi nó ⇒ đừng giả định nó xanh, và đừng
+     lấy "generator chưa báo" làm bằng chứng chrome đã sạch. Chi tiết + việc cần làm: card
+     `I18N-001` (KANBAN). Vì vậy vùng chrome mới **phải tự có test nguồn**: xem
+     `test/shell_chrome_i18n_coverage_test.dart` (vùng `lib/widgets/shell/`, card `I18N-002`)
+     làm khuôn — literal Việt phải bọc `uiText/tr`; mỗi nhãn phải dịch được ở mọi locale ≠ vi;
+     dựng widget ở locale `en` và quét Text/RichText/Tooltip không còn ký tự Việt.
    - KHÔNG bật dịch máy runtime cho mọi chuỗi lạ.
 
 ## Vận hành CI / môi trường (đúc kết từ thực chiến)

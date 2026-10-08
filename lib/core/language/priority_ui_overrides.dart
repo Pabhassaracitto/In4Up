@@ -5504,4 +5504,31 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': 'API key（選填，若 endpoint 需要）',
     'si': 'API යතුර (විකල්ප, endpoint එකට අවශ්\u200dය නම්)',
   },
+  // ── Chrome của shell (command palette + global chat) ────────────────────────
+  // Phát hiện bởi C-30 (docs/ux/42 §4.2): 7 nhãn hard-code, không qua uiText nên
+  // locale ≠ vi hiện nguyên tiếng Việt (vi phạm rule #5). Đã bọc `context.uiText`
+  // và đăng ký ở đây + `tool/legacy_ui_english_overrides.json`.
+  // Chỉ `en` — giống tiền lệ 15 key Tipiṭaka: đó là canonical fallback theo rule
+  // #5, không bịa bản dịch hi/zh/zh_TW/si chưa ai review.
+  'Tìm lệnh hoặc workspace': {
+    'en': 'Search commands or workspaces',
+  },
+  'Không tìm thấy lệnh phù hợp.': {
+    'en': 'No matching commands found.',
+  },
+  'Không thể gửi lúc này. Hãy thử lại.': {
+    'en': 'Could not send right now. Please try again.',
+  },
+  'Không có source context': {
+    'en': 'No source context',
+  },
+  'Đổi context': {
+    'en': 'Change context',
+  },
+  'Đặt câu hỏi để bắt đầu.': {
+    'en': 'Ask a question to get started.',
+  },
+  'Viết câu hỏi…': {
+    'en': 'Type a question…',
+  },
 };

@@ -6133,3 +6133,20 @@
     chuỗi exit-on-fail nên xanh = 60+ test pass; artifact log không tải
     được từ sandbox do egress chặn blob — bẫy đã ghi trong skill
     ci-red-debugging). CÒN: nghiệm thu thiết bị khi có UI (lane 001d).
+  - 2026-10-08 (c): **lane 001c code xong** — (1) Bridge-to-English vi
+    (`iconize_bridge.dart`: bảng đảo VI→EN từ OfflineDictionary.entries
+    ~500 cặp + bóc loại từ con/cái/cuốn/ngôi…, cố ý KHÔNG bóc "mặt";
+    luật đồng thuận: các ứng viên EN resolve được phải ra đúng 1 icon —
+    vd "mắt" giữ chữ vì eye 👁 vs eyes 👀 bất đồng, đúng thiết kế);
+    (2) tầng nguồn icon user (`iconize_icon_source.dart` — interface,
+    ưu tiên trước bundle, không cần qua index; adapter vocab_image wire ở
+    001d); (3) posHint từ cú pháp (sửa case Dom_Pos sai: "taste" VERB
+    hint → giữ chữ; "kiss" Dom_Pos VERB + hint NOUN + icon user → mở).
+    OfflineDictionary thêm getter `entries` (additive). Test mới
+    `iconize_bridge_test.dart` (bridge + vi golden + user source + hint),
+    đã xác minh mô phỏng Python trên asset + từ điển thật (bắt 1 tiền đề
+    sai: drink Dom_Pos=Noun → đổi sang kiss). **ĐỔI PHẠM VI có ghi vết:**
+    tầng CDN dời sang gói mở rộng Model Centre (Material Symbols đặt tên
+    theo khái niệm, không theo từ EN — map từ→symbol cần bảng riêng, làm
+    cùng extended pack; blueprint 3.6 tầng 3 chưa kích hoạt, fallback
+    hiện tại: user → bundle → giữ chữ). CÒN: CI + nghiệm thu thiết bị.

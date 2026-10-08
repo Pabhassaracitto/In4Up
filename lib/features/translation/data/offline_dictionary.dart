@@ -12,6 +12,11 @@ class OfflineDictionary {
     return _enVi[word.toLowerCase().trim()];
   }
 
+  /// Toàn bộ cặp EN→VI (read-only) — ICONIZE-001c dùng để dựng bảng đảo
+  /// VI→EN cho Bridge-to-English (blueprint mục 3.5). Additive, không đổi
+  /// hành vi cũ.
+  static Map<String, String> get entries => _enVi;
+
   /// Tra phiên âm
   String? phonetic(String word) {
     return _phonetics[word.toLowerCase().trim()];

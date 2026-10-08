@@ -122,12 +122,17 @@ void main() {
           (s) => s.surfaceForm == 'catches', 'động từ bị icon hóa'))));
     });
 
-    test('ngôn ngữ khác en → spans rỗng (Bridge-to-English là lane 001c)',
-        () async {
+    test('ngôn ngữ chưa hỗ trợ (ja) → spans rỗng', () async {
       final r = await engine.iconize('The cat catches the mouse.',
-          langCode: 'vi');
+          langCode: 'ja');
       expect(r.spans, isEmpty);
       expect(r.actualIconPercent, 0);
+    });
+
+    test('vi KHÔNG có bridge → spans rỗng (engine này không gắn bridge)',
+        () async {
+      final r = await engine.iconize('Mưa rơi trên giường.', langCode: 'vi');
+      expect(r.spans, isEmpty);
     });
 
     test('chuỗi rỗng → kết quả rỗng, không lỗi', () async {

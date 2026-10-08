@@ -96,7 +96,7 @@ jobs:
         id: iconize-tests
         run: |
           set +e
-          files="test/iconize/iconize_binary_test.dart test/iconize/iconize_lemmatizer_test.dart test/iconize/iconize_engine_golden_test.dart"
+          files="test/iconize/iconize_binary_test.dart test/iconize/iconize_lemmatizer_test.dart test/iconize/iconize_engine_golden_test.dart test/iconize/iconize_bridge_test.dart"
           flutter test $files > iconize_test.log 2>&1
           code=$?
           cat iconize_test.log

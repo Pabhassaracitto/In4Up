@@ -117,6 +117,7 @@
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 v2: READ-TOOLBAR-001 loại bỏ toàn bộ widget animation (bước 2 của card) do AT v1 icon ẩn nhưng vẫn còn khối đen; chờ nghiệm thu máy lần 2 |
 | HOME-QUICK-001 | Home: "Nạp tri thức nhanh" + icon ghi âm chưa hoạt động (stub) | ✅ done + CI xanh (chờ nghiệm thu máy) | flow STT thật dùng chung card + FAB (Sherpa offline trước, fallback STT hệ thống), transcript realtime → lưu WordList/ghi chú; "Gợi ý" rút entry THẬT ưu tiên thẻ đến kỳ; bỏ `_SttDialog` giả — run 35863346239 |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
+| AUDIT-0104 | **Audit bản 1.10.4** (owner 2026-10-08) — 21 mục, dạng checklist "kiểm tra trước bay"; (P0) login văng app + verify commit build | 🔨 triage done — 21 card con + prompt giao việc; chờ agent nhận việc | Build 1.10.4 (run `37724784118`) dùng commit **`e22cd3a` = tip MỚI NHẤT 251e** (KHÔNG phải commit cũ — đã verify). Xem section "BATCH AUDIT v1.10.4" + 10 file `PROMPT_AGENT_*.md` |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
@@ -5829,6 +5830,256 @@
     CI/analyze and real Android device acceptance remain pending (SDK/device
     unavailable in this sandbox); MDD media parsing/rendering is still absent
     from the existing dictionary UI and remains an acceptance gap.
+
+## 🔥 BATCH AUDIT v1.10.4 — 21 mục (owner 2026-10-08), dạng checklist "kiểm tra trước bay"
+
+> Owner audit bản 1.10.4. Mỗi mục viết dạng **checklist trước bay**:
+> `Triệu chứng → Kỳ vọng → Ưu tiên → Nơi đọc → Nghiệm thu`. Agent chỉ cần
+> đọc mục là biết làm gì. **P0** = chặn release / vốn liếng user; **P1** =
+> bug rõ; **P2** = cải tiến/chuẩn. Prompt giao việc: 10 file
+> `PROMPT_AGENT_*.md` ở gốc repo (liệt kê cuối section).
+>
+> **Xác minh build (mục P0):** build 1.10.4 thành công = run
+> `37724784118`, dùng commit **`e22cd3a`** (= tip mới nhất 251e lúc đó) —
+> **KHÔNG** phải commit cũ. Vậy code build là mới nhất; lỗi login (mục 1)
+> KHÔNG do build cũ.
+
+### 1. LOGIN-CRASH-002 — (P0) Nhấn đăng nhập là VĂNG app
+- **Triệu chứng:** Màn đăng nhập → bấm nút đăng nhập (Google) → app tắt.
+- **Kỳ vọng:** Đăng nhập Google thành công, vào app, không crash.
+- **Ưu tiên:** **P0** — "vốn liếng người dùng" (dữ liệu/đồng bộ).
+- **Đã loại trừ:** build 1.10.4 dùng commit mới nhất (`e22cd3a`) — không phải
+  build cũ. ⇒ Lỗi ở runtime (Firebase/Google Sign-In).
+- **Nơi đọc:** `lib/services/auth_service.dart`; `google-services.json`
+  (secret CI); SHA-1 keystore ký vs `certificate_hash` trong google-services.
+  Cross-ref `CI-BUILD-LOGIN-001`.
+- **Nghiệm thu:** cài APK 1.10.4 → đăng nhập Google → vào app OK. Nếu crash:
+  `adb logcat` ghi nguyên văn exception + xác nhận SHA-1 APK (apksigner) =
+  SHA-1 trong google-services.json.
+- **Prompt:** `PROMPT_AGENT_LOGIN_CRASH.md`.
+
+### 2. BATTERY-PROMPT-001 — (P2) 2 thông báo pin dồn dập khi mới cài
+- **Triệu chứng:** Vừa cài app → hiện thông báo pin (1) → xong ra thông báo
+  chính thức (2) xin tắt giới hạn pin.
+- **Kỳ vọng:** Chỉ **1** thông báo/giữ phép pin rõ ràng, gọn.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** tìm `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` / `battery` /
+  `ignoreBattery` trong `lib/` (2 nơi xin quyền pin).
+- **Nghiệm thu:** cài mới → chỉ 1 lần xin quyền pin.
+- **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục BATTERY).
+
+### 3. NETAWARE-001 — (P1) Ưu tiên local/online theo mạng (Wi-Fi→online, 4G→offline)
+- **Triệu chứng:** Hiện ưu tiên local (model phải cài, nhiều khi xung đột làm
+  tắt app) do lo user tốn 4G/5G; nhưng local hay lỗi.
+- **Kỳ vọng:** Máy **tự biết** đang dùng Wi-Fi hay mobile data → Wi-Fi thì
+  ưu tiên online model, 4G/5G thì ưu tiên offline — **nhưng user vẫn được
+  quyết định cuối** (override trong cài đặt).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** routing model/AI (`lib/features/.../routing`),
+  `connectivity_plus`, cài đặt model hiện tại.
+- **Nghiệm thu:** chuyển Wi-Fi↔4G → engine ưu tiên đổi tương ứng; set tay
+  "luôn online"/"luôn offline" được tôn trọng.
+- **Prompt:** `PROMPT_AGENT_NETAWARE_APIVAULT.md` (mục NETAWARE).
+
+### 4. APIVAULT-001 — (P1) Kho API tự quản lý + đồng bộ đám mây
+- **Triệu chứng:** Mỗi lần cài lại app phải nhập lại API key. 1 nhà cung cấp
+  có thể có N tài khoản ⇒ N API.
+- **Kỳ vọng:** **Kho API** trong app: thêm/quản lý nhiều API (nhiều tài
+  khoản/nguồn), **đồng bộ đám mây** (Firebase) để không mất khi cài lại.
+  Tư vấn phương án hợp lý nhất.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/ai/` (provider store WP0), Firebase sync
+  hiện có (WordList/LHB sync), `AiProviderStore`.
+- **Nghiệm thu:** thêm 2 API cùng provider → cả 2 chọn được; logout/cài lại
+  → API vẫn còn (sync); xoá 1 API → không mất cái còn lại.
+- **Prompt:** `PROMPT_AGENT_NETAWARE_APIVAULT.md` (mục APIVAULT).
+
+### 5. MODELIMPORT-001 — (P1) Import model báo "thiếu file" SAI (TTS + STT offline)
+- **Triệu chứng:** Setting Home → (3) TTS nạp **thư mục** báo thiếu file,
+  nạp **file** thì OK. (5) STT Offline cả **thư mục lẫn file** đều báo thiếu
+  trong khi thực tế đủ file.
+- **Kỳ vọng:** Import đúng — nhận đủ file hợp lệ, chỉ báo thiếu khi THẬT SỰ
+  thiếu (kèm tên file cụ thể).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `SherpaModelManager` / validator import (so sánh danh sách
+  file mong đợi vs file thực tế); logic chọn thư mục vs file.
+- **Nghiệm thu:** import 1 bộ model TTS + 1 bộ STT đủ file → "OK"; bỏ 1 file
+  → báo đúng tên file thiếu.
+- **Prompt:** `PROMPT_AGENT_MODEL_IMPORT_VALIDATION.md`.
+
+### 6. XLAT-OFFLINE-LANG-001 — (P2) Dịch offline ML Kit: thêm ngôn ngữ (ẩn, sổ ra)
+- **Triệu chứng:** Gói dịch offline (ML Kit) hiện chỉ 3 ngôn ngữ.
+- **Kỳ vọng:** Cho thêm ngôn ngữ khác, **ẩn** — chỉ sổ ra khi user cần.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** engine dịch offline (ML Kit), danh sách ngôn ngữ hỗ trợ.
+- **Nghiệm thu:** thấy 3 ngôn ngữ phổ biến + nút "Thêm ngôn ngữ" sổ ra thêm.
+- **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục ML-KIT-LANG).
+
+### 7. XLAT-OFFLINE-SYNC-001 — (P2) "Chỉ dùng dịch offline" có mâu thuẫn Server & API?
+- **Triệu chứng:** Chỗ Engine dịch thuật có "Chỉ dùng dịch offline" — chưa rõ
+  có đồng bộ/mâu thuẫn với phần "Server & API cho AI" không.
+- **Kỳ vọng:** Một nguồn sự thật duy nhất cho routing dịch; 2 chỗ không
+  mâu thuẫn.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `TranslationService` routing + `AiProviderStore`/Server API
+  routing.
+- **Nghiệm thu:** đổi 1 chỗ → hiệu lực nhất quán; không có 2 toggle mâu thuẫn.
+- **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục SYNC-CHECK).
+
+### 8. XLAT-SCR-003 — (P1) Dịch màn hình: chờ ngầm lâu + kéo chọn vùng thì SẬP
+- **Triệu chứng:** Nhấn bong bóng → hoạt động ngầm rất lâu; nhấn lần nữa hiện
+  "Đang dịch màn hình trước…"; khi bong bóng đổi cho kéo chọn vùng dịch, kéo
+  xong → **sập app**.
+- **Kỳ vọng:** Phản hồi nhanh có progress rõ; kéo chọn vùng dịch ổn định,
+  không crash.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/screen_translate/` + `com/in4up/screentranslate/`
+  (lane native). Cross-ref `XLAT-SCR-002` + `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md`.
+- **Nghiệm thu:** bong bóng → có progress; kéo chọn vùng → dịch được, không sập
+  (cần máy thật + logcat).
+- **Prompt:** `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` (cập nhật thêm crash kéo-vùng).
+
+### 9. I4U-BRAND-001 — (P2) Còn để "I2U" — phải là "I4U"
+- **Triệu chứng:** AI Chat vẫn "Hỏi **I2U** về từ vựng, ngữ pháp…" + "Trợ lý
+  học tập **I2U**".
+- **Kỳ vọng:** Toàn bộ là **I4U**.
+- **Ưu tiên:** P2 (nhưng dễ + quan trọng về thương hiệu).
+- **Nơi đọc:** `grep -rn "I2U\|i2u" lib/` (chuỗi UI + l10n).
+- **Nghiệm thu:** không còn "I2U" ở đâu; đúng "I4U".
+- **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục BRAND).
+
+### 10. AI-CHAT-UX-001 — (P1) Chat offline: thiếu "đang suy nghĩ" + nút gửi không loading
+- **Triệu chứng:** Chat offline chạy được nhưng (a) không có biểu tượng AI
+  đang suy nghĩ; (b) nút gửi chỉ **trắng** toàn bộ, không phải loading;
+  (c) phản hồi chưa nhất quán (hỏi "xin chào" nó hỏi lại "bạn cần gì", nhưng
+  hỏi về Trump thì… [câu chưa rõ — cần owner bổ sung]).
+- **Kỳ vọng:** Có trạng thái "đang suy nghĩ" rõ; nút gửi hiện loading trong
+  lúc xử lý; phản hồi nhất quán.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/ai_chat/` (widget chat, trạng thái streaming/
+  thinking, nút gửi).
+- **Nghiệm thu:** gửi câu → hiện "đang suy nghĩ" + nút gửi loading → trả lời
+  hiện dần. *(Cần owner làm rõ phần (c) về câu Trump.)*
+- **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục CHAT-UX).
+
+### 11. MODEL-COPY-CANCEL-001 — (P1) "Đang copy model" không có nút dừng/hủy
+- **Triệu chứng:** Đổi model → hiện "Đang copy model" nhưng đổi ý thì **không
+  có chỗ dừng/hủy**.
+- **Kỳ vọng:** Có nút **Hủy** khi đang copy model.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** luồng copy model (Setting Home + chọn model), `cancel` token.
+- **Nghiệm thu:** bấm đổi model → "Đang copy" → bấm Hủy → dừng, về model cũ.
+- **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục COPY-CANCEL).
+
+### 12. TTS-EDGE-VOICE-003 — (P1) Chọn giọng nam Edge vẫn phát giọng nữ
+- **Triệu chứng:** Chọn giọng nam (Edge/Microsoft) nhưng vẫn phát giọng nữ.
+- **Kỳ vọng:** Chọn giọng nào phát giọng đó.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `TtsService` + `EdgeVoicePrefs` + cache TTS (khóa cache theo
+  giọng). Cross-ref `TTS-EDGE-VOICE-002` (đã có fix, chờ nghiệm thu máy).
+- **Nghiệm thu:** chọn Nam Minh → nghe giọng nam; đổi Hoài My → giọng nữ
+  *(cần máy thật + nghe)*.
+- **Prompt:** `PROMPT_AGENT_EDGE_VOICE_FIX.md`.
+
+### 13. READ-FOCUS-002 — (P2) Nút Focus tab Đọc: ẩn khi dùng, chỉ để trên title
+- **Triệu chứng:** Nút Focus ở vị trí chưa hợp lý khi đang dùng.
+- **Kỳ vọng:** Khi dùng chế độ Focus → ẩn nút, chỉ để lại **trên title Đọc**,
+  dưới tab chính.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/screens/read_mode/read_mode_screen.dart` (nút Focus,
+  `isFocusMode`).
+- **Nghiệm thu:** vào Focus → nút ẩn, còn nút thoát trên title; thoát → hiện lại.
+- **Prompt:** `PROMPT_AGENT_READ_FOCUS_SCROLL.md` (mục FOCUS).
+
+### 14. READ-SCROLL-CLUSTER-001 — (P2) Kéo lên: 2 cụm chức năng vẫn còn nền
+- **Triệu chứng:** Kéo lên → 2 cụm chức năng vẫn còn (nền), kéo xuống mới hiện
+  lại — hành vi chưa hợp lý.
+- **Kỳ vọng:** Ẩn/hiện cụm chức năng theo cuộn hợp lý, không "dính" nền.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `read_mode_screen.dart` (smart-hide khi cuộn, 2 cụm chức năng).
+- **Nghiệm thu:** cuộn lên/xuống → cụm ẩn/hiện mượt, không đọng nền.
+- **Prompt:** `PROMPT_AGENT_READ_FOCUS_SCROLL.md` (mục SCROLL).
+
+### 15. OCR-AI-REFINE-001 — (P2) Kết quả OCR còn lỗi → cho AI tinh chỉnh
+- **Triệu chứng:** Kết quả OCR thường còn lỗi chính tả/cấu trúc.
+- **Kỳ vọng:** Cho user **chọn** xử lý bằng AI để tinh chỉnh kết quả OCR
+  (tuỳ chọn, không mặc định).
+- **Ưu tiên:** P2.
+- **Nơi đọc:** lane OCR (`lib/features/ocr/`) + AI refine (dùng AI engine có).
+- **Nghiệm thu:** sau OCR → nút "Tinh chỉnh bằng AI" → văn bản sạch hơn.
+- **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục OCR-AI).
+
+### 16. PDF-XLAT-MULTI-001 — (P1) Dịch PDF cố định EN→VN → đa ngôn ngữ (≥26)
+- **Triệu chứng:** Chức năng dịch trong PDF cố định **EL→VN**.
+- **Kỳ vọng:** Linh hoạt nhiều ngôn ngữ — tối thiểu **26** (vài ngôn ngữ phổ
+  thông + "thêm" để sổ ra).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** engine dịch PDF + `TranslationService` + danh sách ngôn ngữ.
+- **Nghiệm thu:** chọn nguồn/mục tiêu khác EN/VN → dịch đúng; danh sách ≥26.
+- **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục PDF-MULTI).
+
+### 17. WORDLIST-TTS-001 — (P2) WordList: chọn phát "từ + nghĩa", thứ tự tuỳ
+- **Triệu chứng:** Chưa có tuỳ chọn phát kèm nghĩa + thứ tự phát.
+- **Kỳ vọng:** Phát **từ vựng + ý nghĩa**, chọn thứ tự: từ→nghĩa **hoặc**
+  nghĩa→từ.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/screens/tools/word_list/` (playback service) + TTS.
+- **Nghiệm thu:** bật phát → nghe từ rồi nghĩa (hoặc ngược lại theo chọn).
+- **Prompt:** `PROMPT_AGENT_WORDLIST_TTS_BULK.md` (mục TTS).
+
+### 18. WORDLIST-BULK-001 — (P1) WordList: chọn hàng loạt nhưng chưa XÓA hàng loạt
+- **Triệu chứng:** Chọn nhiều từ được nhưng **không xóa hàng loạt**.
+- **Kỳ vọng:** Bulk actions: **xóa**, **thay chủ đề chung**, (mở rộng thêm).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `word_list_controller.dart` (selection + bulk ops).
+- **Nghiệm thu:** chọn 5 từ → xóa hàng loạt OK; thay chủ đề chung OK.
+- **Prompt:** `PROMPT_AGENT_WORDLIST_TTS_BULK.md` (mục BULK).
+
+### 19. PARAKEET-001 — (P2) Bổ sung Parakeet (STT) như Whisper
+- **Triệu chứng:** Chưa có Parakeet.
+- **Kỳ vọng:** Thêm engine **Parakeet**: hoạt động + **import thư mục, import
+  file, xóa, tải** — đầy đủ như Whisper.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/features/.../stt` (mẫu Whisper strategy),
+  `SherpaModelManager`/model manager.
+- **Nghiệm thu:** tải/import Parakeet → chạy STT được → xóa được.
+- **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục PARAKEET).
+
+### 20. SRS-GARDEN-001 — (P1) Vườn nhớ SRS: chạm từ không phản ứng → long-press chấm điểm
+- **Triệu chứng:** Mở vườn nhớ (SRS) → các từ chỉ **hiện**, chạm vô **không
+  phản ứng** gì; user không biết làm gì thêm. SRS hay nhưng tiếp cận chưa tốt.
+- **Kỳ vọng:** **Nhấn giữ** 1 từ → chấm điểm SRS nhanh (kiểu kéo **4 hướng**);
+  onboarding/gợi ý rõ để user biết dùng SRS.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/.../srs` (vườn nhớ, engine SM-2), gesture.
+- **Nghiệm thu:** long-press 1 từ → hiện 4 lựa chọn (lại/quên/ổn/giỏi) kéo 4
+  hướng → cập nhật lịch ôn; có gợi ý dùng.
+- **Prompt:** `PROMPT_AGENT_SRS_GARDEN.md`.
+
+### 21. READ-SET-VOICE-COLLAPSE-001 — (P2) Setting tab Đọc: danh sách giọng Microsoft quá dài
+- **Triệu chứng:** Chỗ giọng Microsoft (Edge) liệt kê **quá nhiều ngôn ngữ**,
+  chiếm chỗ.
+- **Kỳ vọng:** Chỉ hiện **vài ngôn ngữ phổ biến** + cơ chế **sổ ra** khi cần.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** picker giọng Edge trong setting tab Đọc (cross-ref
+  `TTS-EDGE-VOICE-002` — picker đã gập theo ngôn ngữ, áp dụng tương tự).
+- **Nghiệm thu:** hiện ngôn ngữ phổ biến + "thêm" sổ ra ngôn ngữ khác.
+- **Prompt:** `PROMPT_AGENT_EDGE_VOICE_FIX.md` (mục COLLAPSE).
+
+### 📄 Prompt giao việc (file ở gốc repo) — BATCH AUDIT v1.10.4
+| File | Mục bao phủ |
+|---|---|
+| `PROMPT_AGENT_LOGIN_CRASH.md` | #1 (P0) |
+| `PROMPT_AGENT_MODEL_IMPORT_VALIDATION.md` | #5 |
+| `PROMPT_AGENT_I4U_AI_CHAT.md` | #9 + #10 + #11 |
+| `PROMPT_AGENT_EDGE_VOICE_FIX.md` | #12 + #21 |
+| `PROMPT_AGENT_WORDLIST_TTS_BULK.md` | #17 + #18 |
+| `PROMPT_AGENT_SRS_GARDEN.md` | #20 |
+| `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` | #6 + #7 + #16 |
+| `PROMPT_AGENT_READ_FOCUS_SCROLL.md` | #13 + #14 |
+| `PROMPT_AGENT_NETAWARE_APIVAULT.md` | #3 + #4 |
+| `PROMPT_AGENT_STT_OCR_MISC.md` | #2 + #15 + #19 |
+| `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` (cập nhật) | #8 |
 
 ### TTS-EDGE-VOICE-002 — nghiệm thu "chọn giọng nam mà giọng nữ đọc" (máy thật)
 

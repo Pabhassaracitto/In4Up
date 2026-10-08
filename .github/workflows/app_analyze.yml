@@ -334,6 +334,71 @@ jobs:
           path: read_act_test.log
           if-no-files-found: ignore
 
+      # UX shell contracts (C-00..C-31) — bộ "máy bắt" của hợp đồng UX shell:
+      # shared shell contracts, back/dismiss, safe-area/overlay policy, các
+      # flow reader/remember/understand/watch/audio + C-31 state preservation QA
+      # (docs/ux/41-state-preservation-qa.vi.md).
+      # Toàn bộ đều là logic thuần Dart (đã rà import: chỉ flutter_test/in4up),
+      # không plugin, không mạng. Tự bỏ qua file chưa có trên nhánh.
+      - name: "UX shell contracts + C-31 state preservation (logic thuần)"
+        id: ux-contract-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/state_preservation_qa_test.dart \
+                   test/i4u_shell_contracts_test.dart \
+                   test/ux_quality_contract_test.dart \
+                   test/back_dismiss_coordinator_test.dart \
+                   test/shortcut_registry_test.dart \
+                   test/safe_area_overlay_policy_test.dart \
+                   test/mini_player_surface_state_test.dart \
+                   test/semantic_anchor_resolver_test.dart \
+                   test/reader_contextual_flow_test.dart \
+                   test/reader_contextual_panel_state_test.dart \
+                   test/reader_contextual_handoffs_test.dart \
+                   test/reader_contextual_action_orchestrator_test.dart \
+                   test/remember_flow_test.dart \
+                   test/remember_workspace_state_test.dart \
+                   test/understand_workspace_state_test.dart \
+                   test/coach_flow_test.dart \
+                   test/watch_mode_flow_test.dart \
+                   test/watch_mode_state_test.dart \
+                   test/audio_library_flow_test.dart \
+                   test/audio_library_state_test.dart \
+                   test/home_reader_shell_state_test.dart \
+                   test/shell_content_order_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test UX contract trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > ux_contract_test.log 2>&1
+          code=$?
+          cat ux_contract_test.log
+          if [ "$code" -ne 0 ]; then
+            # Đưa tên test fail + context lên annotation (log blob không tải
+            # được từ một số môi trường). Strip ANSI + \r + \b trước.
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              ux_contract_test.log > ux_contract_clean.log || true
+            grep -n "\[E\]" ux_contract_clean.log | cut -d: -f1 | while read -r ln; do
+              msg=$(sed -n "${ln},$((ln + 22))p" ux_contract_clean.log \
+                | head -c 700 | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error::TEST FAILED: $msg"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload UX contract + C-31 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ux-contract-test-log
+          path: ux_contract_test.log
+          if-no-files-found: ignore
+
       # VOCAB-MEDIA-003 (ADR-0013, audit 0.10.3 mục 2) — 1 hoặc 2 ảnh mỗi từ
       # (imageUrl2 additive: dữ liệu cũ vẫn mở được, promote khi xoá ảnh chính,
       # swap slot) + duyệt thư viện animation (parser endpoint tùy chỉnh +

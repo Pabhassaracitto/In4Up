@@ -6149,4 +6149,6 @@
     tầng CDN dời sang gói mở rộng Model Centre (Material Symbols đặt tên
     theo khái niệm, không theo từ EN — map từ→symbol cần bảng riêng, làm
     cùng extended pack; blueprint 3.6 tầng 3 chưa kích hoạt, fallback
-    hiện tại: user → bundle → giữ chữ). CÒN: CI + nghiệm thu thiết bị.
+    hiện tại: user → bundle → giữ chữ). CI XANH: run 37777594144 (2m46s,
+    xanh ngay lần push đầu). CÒN: nghiệm thu thiết bị khi có UI — lane
+    kế: 001d (toggle Tab Đọc).

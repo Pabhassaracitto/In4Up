@@ -6178,4 +6178,7 @@
     ~1 trang. Test mới: lang_guess (thuần) + widget test IconizedRichText
     (icon builder giả — cấu trúc span/semantics/keep-text) + idForName
     khứ hồi trong binary test; cả hai file nối vào step CI ICONIZE.
-    CÒN: CI + nghiệm thu máy thật (toggle, mật độ, ảnh user, badge lỗi).
+    CI XANH: run 37783819431 (2m46s, xanh ngay lần push đầu — analyze
+    full app + 6 file test ICONIZE + rule 5 locale đều pass). CÒN:
+    nghiệm thu máy thật (toggle, mật độ, ảnh user, badge lỗi, a11y
+    TalkBack) — đây là lane ĐẦU TIÊN có UI nên cần build APK thử.

@@ -265,6 +265,11 @@
   gì. Với 855 literal (mỗi chuỗi cần dịch/đánh giá) thì bắt CI xanh toàn bộ là bất khả thi trong một
   capability; ratchet cho giá trị phòng ngừa ngay mà không giả vờ đã trả hết nợ. Kèm dọn 81 override
   stale (đối chứng từng key) để sàn `stale_overrides = 0`.
+- **Bổ sung (2026-10-08, lô 1):** nợ có **4 khoá**, thêm `missing_english` = chuỗi đã bọc
+  `uiText`/`Text` nhưng chưa có English review (648). Thêm cờ `--generate` để sinh file fallback khi
+  vẫn còn nợ đã biết (vẫn chặn stale / placeholder lệch / English chứa tiếng Việt) ⇒ **mỗi lô dịch
+  có hiệu lực runtime ngay** thay vì phải hoàn thành cả 648 chuỗi mới được land. Lô 1: 68 chuỗi
+  STT settings + Quick capture (catalog 1777→1845; sàn 580/787).
 
 ## D-035 — Shell tiêu thụ policy responsive; chỉ nối phần "không đổi pixel"
 

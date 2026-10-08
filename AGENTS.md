@@ -77,6 +77,11 @@
        extractor cố ý bỏ qua ⇒ đặt ở `lib/core/language/priority_ui_overrides.dart` (catalog
        runtime), KHÔNG đặt ở JSON trên (sẽ bị báo stale).
      - Muốn tăng nợ có chủ ý: `--write-floors` (diff sẽ thể hiện — đừng làm lén).
+     - **Dịch theo lô (I18N-001 phần 2):** dịch thêm chuỗi vào JSON rồi `python3
+       tool/generate_legacy_ui_fallbacks.py --generate` (sinh file fallback dù còn nợ đã biết) +
+       `--write-floors` (hạ sàn). Sàn có 4 khoá: `stale_overrides`, `unused_exclusions`,
+       `missing_english` (chuỗi đã bọc `uiText/Text` chưa có English — **thêm uiText mà quên English
+       là CI đỏ**), `unclassified_literals`.
      - Vùng chrome mới **vẫn phải có test nguồn riêng**: khuôn là
        `test/shell_chrome_i18n_coverage_test.dart` (vùng `lib/widgets/shell/`, card `I18N-002`) —
        literal Việt phải bọc `uiText/tr`; mỗi nhãn phải dịch được ở mọi locale ≠ vi; dựng widget ở

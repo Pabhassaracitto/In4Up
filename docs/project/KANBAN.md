@@ -94,7 +94,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong 2026-10-08 (dọn 81 override stale; ratchet `--floors-check` vào CI; còn **855** literal chưa phân loại) | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1 đã dịch** 2026-10-08 (68 chuỗi STT/Quick capture có hiệu lực ngay); còn **580** chuỗi uiText/Text chưa English + **787** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -1902,8 +1902,22 @@
      **855**) + bước CI *"i18n ratchet — literal chrome mới phải được phân loại"* chạy ĐẦU job bằng
      `python3` (~2s, không cần Flutter) và thêm `tool/**` vào `paths` của push + PR.
      Đã kiểm răng: thêm 1 literal Việt mới ⇒ đỏ kèm `::error::… 'chuỗi mới'`; gỡ ⇒ xanh.
-  4. **Còn lại (phần 2):** chế độ strict vẫn đỏ vì 855 literal chưa phân loại — dịch/phân loại theo
-     lô, mỗi lô hạ sàn bằng `--write-floors` để diff thể hiện đúng phần đã trả nợ.
+  4. **Phần 2 — dịch/phân loại theo lô (đang làm):** strict vẫn đỏ vì nợ chưa trả; mỗi lô land
+     được ngay nhờ `--generate` (sinh file fallback trong khi vẫn chặn stale/thiếu-English-mới?
+     không — xem dưới) + hạ sàn bằng `--write-floors` để diff thể hiện đúng phần đã trả nợ.
+     - **Bổ sung khoá nợ thứ 4 `missing_english`:** chuỗi đã bọc `uiText`/`Text` nhưng **chưa có
+       English review** (648 chuỗi khi bắt đầu). Trước đây chốt này chỉ có ở chế độ strict ⇒ không
+       thể land từng lô; nay nó là nợ có sàn, và **tăng lên là CI đỏ** (thêm `uiText` mà quên English).
+     - **`--generate`:** sinh `generated_legacy_ui_fallbacks.dart` khi vẫn còn nợ đã biết (đếm bởi
+       `--floors-check`), nhưng vẫn CHẶN: stale, unused-exclusions, placeholder lệch, English còn
+       tiếng Việt. Nhờ vậy mỗi lô dịch **có hiệu lực runtime ngay**, không phải chờ hết 648 chuỗi.
+     - **Lô 1 (2026-10-08, `623a86b`+):** 68 chuỗi ở `stt_model_settings_screen.dart` (46) +
+       `quick_capture_sheet.dart` (22) — engine/model AI, Piper TTS, SAF, quyền micro, ghi chú nói…
+       Catalog 1777 → **1845** key; sàn: `missing_english 648 → 580`, `unclassified 855 → 787`;
+       file fallback 1781 → **1845** mục; residual tiếng Việt trong English = 0.
+     - **Đòn bẩy để dịch lô sau:** `/home/user/i18n_owner.json` (literal → file, trích bằng chính bộ
+       trích xuất) — dịch theo cụm màn hình, kiểm placeholder bằng `PLACEHOLDER_RE`, rồi `--generate`
+       + `--write-floors`.
 - **Làm gì (branch mới từ tip DEV):**
   1. Chạy generator, lấy danh sách 354; rà từng chuỗi: chrome UI →
      `tool/legacy_ui_english_overrides.json` (keep-English T3 theo ADR-0002)
@@ -1927,6 +1941,9 @@
     generator (`collect_state`/`compute_debt`, `--floors-check`/`--write-floors`) + sàn
     `tool/i18n_ratchet_floors.json` (855) + bước CI ratchet (`paths: tool/**`); đối chứng strict mode
     không đổi hành vi; kiểm răng: literal mới ⇒ đỏ.
+  - 2026-10-08 | doing (phần 2, lô 1) | agent arena/af0abe2f-in4up | +khoá nợ `missing_english`
+    (648) +`--generate`; dịch 68 chuỗi STT/Quick capture (catalog → 1845 key, sàn 580/787, file
+    fallback 1845 mục, residual 0).
   - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
     rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
     ListenLibraryScreen/AudioLibraryView (chờ CI)

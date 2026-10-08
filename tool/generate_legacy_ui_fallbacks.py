@@ -427,13 +427,23 @@ def compute_debt(
         - (state["presentation_literals"] | state["direct_sources"]),
         "unused_exclusions": set(content_exclusions)
         - state["presentation_literals"],
+        "missing_english": state["direct_sources"]
+        - set(overrides)
+        - set(content_exclusions),
         "unclassified_literals": state["presentation_literals"]
         - set(overrides)
         - set(content_exclusions),
     }
 
 
-def main() -> None:
+def check_and_generate(*, allow_unclassified_debt: bool) -> None:
+    """Kiểm tra catalog rồi sinh `generated_legacy_ui_fallbacks.dart`.
+
+    `allow_unclassified_debt=True` (--generate): vẫn CHẶN stale / unused-exclusions /
+    thiếu override cho `uiText()` / English còn tiếng Việt, nhưng cho phép còn literal
+    chưa phân loại — nhờ vậy có thể dịch theo lô mà mỗi lô có hiệu lực runtime ngay
+    (nợ vẫn bị đếm bởi --floors-check nên không thể tăng lén).
+    """
     overrides = load_overrides()
     state = collect_state(overrides)
     direct_sources = state["direct_sources"]
@@ -459,11 +469,16 @@ def main() -> None:
         )
 
     unclassified_sources = debt["unclassified_literals"]
-    if unclassified_sources:
+    if unclassified_sources and not allow_unclassified_debt:
         examples = ", ".join(repr(value) for value in sorted(unclassified_sources)[:5])
         raise ValueError(
             f"{len(unclassified_sources)} accented presentation literals need UI/content "
-            f"classification: {examples}"
+            f"classification: {examples} (hoặc chạy --generate để sinh file với nợ đã biết)"
+        )
+    elif unclassified_sources:
+        print(
+            f"--generate: bỏ qua {len(unclassified_sources)} literal chưa phân loại "
+            f"(nợ vẫn được --floors-check đếm)"
         )
 
     for source, english in overrides.items():
@@ -475,12 +490,17 @@ def main() -> None:
                 f"expected {source_placeholders}, got {english_placeholders}"
             )
 
-    missing_overrides = direct_sources.difference(overrides)
-    if missing_overrides:
+    missing_overrides = debt["missing_english"]
+    if missing_overrides and not allow_unclassified_debt:
         examples = ", ".join(repr(value) for value in sorted(missing_overrides)[:5])
         raise ValueError(
             f"{len(missing_overrides)} extracted presentation sources need reviewed "
-            f"English overrides: {examples}"
+            f"English overrides: {examples} (hoặc chạy --generate để sinh file với nợ đã biết)"
+        )
+    elif missing_overrides:
+        print(
+            f"--generate: bỏ qua {len(missing_overrides)} chuỗi uiText/Text chưa có English "
+            f"(nợ vẫn được --floors-check đếm)"
         )
 
     translations = {source: overrides[source] for source in sorted(overrides)}
@@ -500,7 +520,7 @@ def main() -> None:
 
     lines = [
         "// GENERATED CODE - DO NOT EDIT BY HAND.",
-        "// Run: python3 tool/generate_legacy_ui_fallbacks.py",
+        "// Run: python3 tool/generate_legacy_ui_fallbacks.py --generate",
         "// Exact presentation-source fallbacks only; unknown runtime text is untouched.",
         "",
         "const Map<String, String> generatedLegacyUiEnglishFallbacks = {",
@@ -516,7 +536,12 @@ def main() -> None:
 
 # ── Ratchet floors (ADR-0002 tinh thần "sàn chỉ tăng"; xem docs/ux/decision-log D-034) ──
 FLOORS = ROOT / "tool" / "i18n_ratchet_floors.json"
-_DEBT_KEYS = ("stale_overrides", "unused_exclusions", "unclassified_literals")
+_DEBT_KEYS = (
+    "stale_overrides",
+    "unused_exclusions",
+    "missing_english",      # chuỗi đã bọc uiText/Text nhưng CHƯA có English review
+    "unclassified_literals",
+)
 
 
 def load_floors(path: Path) -> dict[str, list[str]]:
@@ -574,10 +599,17 @@ def write_floors(path: Path) -> None:
           + ", ".join(f"{key}={len(payload[key])}" for key in _DEBT_KEYS))
 
 
+def main() -> None:
+    """Chế độ strict: mọi literal presentation phải đã phân loại."""
+    check_and_generate(allow_unclassified_debt=False)
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--generate", action="store_true",
+                        help="sinh file fallback kể cả khi còn literal chưa phân loại (dịch theo lô)")
     parser.add_argument("--floors-check", action="store_true",
                         help="chỉ đỏ khi phát sinh nợ i18n mới (dùng trong CI)")
     parser.add_argument("--write-floors", action="store_true",
@@ -589,4 +621,4 @@ if __name__ == "__main__":
     if args.write_floors:
         write_floors(Path(args.floors))
         raise SystemExit(0)
-    main()
+    check_and_generate(allow_unclassified_debt=args.generate)

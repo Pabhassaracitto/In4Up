@@ -3038,6 +3038,8 @@
 - **Lịch sử:**
   - 2026-10-09 | created→doing | agent arena/c9a78a86-in4up | 2 tính năng +
     i18n 15 chuỗi mới; chờ CI + nghiệm thu thiết bị
+  - 2026-10-09 | PR #97 (gộp cả nhánh, commit `c032fa3`) | agent
+    arena/c9a78a86-in4up | chờ CI + nghiệm thu thiết bị
 
 ### VIENEU-001 — VieNeu-TTS (PLAN-027)
 - **Trạng thái:** proposed

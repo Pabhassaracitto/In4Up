@@ -698,6 +698,20 @@ class WebReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Xuất văn bản thành file âm thanh (TTS → file, không phát) — dùng cho
+  /// "Lưu bài đọc thành âm thanh" ở Web Reader. Trả về đường dẫn file đầy đủ
+  /// (có extension), null nếu thất bại. Dùng tốc độ đọc hiện tại của user.
+  Future<String?> synthesizeTextToFile(
+    String text, {
+    required String pathWithoutExtension,
+  }) async {
+    _tts.configure(speed: _ttsSpeed, language: 'auto');
+    return _tts.synthesizeToFile(
+      text,
+      pathWithoutExtension: pathWithoutExtension,
+    );
+  }
+
   // ─── Save to Memory ──────────────────────────────────────
 
   void saveWordToMemory(String word, {AnalyzedWord? analyzed}) {

@@ -2227,6 +2227,20 @@
     (timedtext API + tlang + srv3, theo style _fetchTimedtext) → CI XANH
     33355331358. Chờ nghiệm thu thiết bị (mở video → Học video → phụ đề
     song ngữ + lặp câu + tap từ + Mở trong tab Nghe)
+  - 2026-10-09 | nối nốt (YT-SRCH-001) | agent arena/c9a78a86-in4up | Explorer
+    hết phụ thuộc Data API key (trước đây `_kDefaultApiKey = ''` nên thanh
+    search bị ẩn và list rỗng): search keyless 2 tầng (explode
+    `search.search` → fallback parse `ytInitialData`), kênh mặc định liệt kê
+    video keyless (`channels.getUploads` → fallback HTML), gợi ý từ khoá dropdown
+    (`getQuerySuggestions`, debounce 350ms). File mới:
+    `lib/features/youtube/services/yt_search_service.dart` +
+    `yt_initial_data_parser.dart` (parser thuần Dart, không Flutter). Test
+    fixture `test/youtube_search_parser_test.dart` thêm vào step
+    i4u18-lib-tests của app_analyze.yml. 7 chuỗi chrome mới đăng ký đủ trong
+    `tool/legacy_ui_english_overrides.json` + `generated_legacy_ui_fallbacks.dart`
+    ('Xoá tìm kiếm' đã có sẵn); generator đang ĐỎ baseline 66 override cũ nên
+    không chạy lại được — đã chèn tay đúng format, chờ dọn debt. Sandbox
+    không có Flutter → chưa chạy analyze/test, chờ CI + nghiệm thu thiết bị.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

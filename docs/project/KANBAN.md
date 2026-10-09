@@ -52,7 +52,7 @@
 | MAIN-RESTORE-001 | main = snapshot cũ 2026-09-23 (733 file, mất CI mới + 26k dòng) — cần content-sync từ 0251e | 📋 proposed (chờ owner quyết, GOVERNANCE 4b) | KHÔNG merge chéo (2 lineage không tổ tiên chung); content-sync bằng 1 commit thường trên main; giữ LICENSE nếu muốn; chi tiết thủ thuật trong card |
 | CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
-| CI-ANDROID-05 | (IN4-73) Chỉ build APK **arm64-v8a** thay vì Universal 3-ABI — giảm dung lượng tải về | 🔨 doing (code xong, chờ build Android thật xác nhận) | `build_final_complete.yml`: `flutter build apk … --target-platform android-arm64` (ĐẢM BẢO 1 ABI, không phụ thuộc abiFilters) + bước rename đổi tên "Build APK (arm64-v8a only — IN4-73)"; `android_rename_apks.sh`: chỉ XÓA ABI không-arm64 (armv7/x86_64), nhận mọi tên output arm64 + fallback 1-APK. `abiFilters arm64-v8a` trong build.gradle.kts GIỮ LẠI (kép, an toàn) |
+| CI-ANDROID-05 | (IN4-73) Chỉ build APK **arm64-v8a** thay vì Universal 3-ABI — giảm dung lượng tải về | ✅ done (build thật XANH + owner đã cài bản arm64 lên máy) | build `37994985198` (commit `60bff6b`) Android job xanh, artifact arm64-only `in4up-Android-arm64-v8a-1.11.0-60bff.apk` — owner đã cài + dùng bản này (IN4-78/79). `build_final_complete.yml`: `--target-platform android-arm64` (ĐẢM BẢO 1 ABI) + rename "Build APK (arm64-v8a only)"; `android_rename_apks.sh`: chỉ XÓA ABI không-arm64, nhận mọi tên output arm64. `abiFilters arm64-v8a` GIỮ LẠI (kép, an toàn) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
@@ -93,6 +93,7 @@
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
+| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer cho video nhúng (~10/2025) | 🔄 doing (code + test pin, chờ CI + máy) | wrapper `loadHtml(baseUrl:)` (loadDataWithBaseURL → có Referer) + `youtube-nocookie.com` + meta referrer + IFrame API (giữ sync phụ đề/seek) + overlay lỗi VT + nút Thử lại; test `test/yt_player_embed_test.dart` vào i4u18-lib-tests |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
@@ -1119,7 +1120,7 @@
     remote an toàn. Hướng dẫn sửa 3 bước đã gửi owner.
 
 ### CI-ANDROID-05 — (IN4-73) Chỉ build APK arm64-v8a thay vì Universal 3-ABI (giảm dung lượng)
-- **Trạng thái:** 🔨 doing (code xong, chờ 1 build Android thật xác nhận)
+- **Trạng thái:** ✅ done (build Android thật XANH + owner đã cài bản arm64 lên máy)
 - **Nguồn:** Linear **IN4-73** (owner 2026-10-08): "build bản v1.11.0-Beta đang
   chạy bước 'Build Universal APK'… gộp 3 kiến trúc chip nên dung lượng lớn.
   Yêu cầu chỉ build 1 APK cho ARM64/arm64-v8a để giảm dung lượng tải về."
@@ -1164,6 +1165,14 @@
     `--target-platform android-arm64` + rename script robust (chỉ xóa ABI
     không-arm64, nhận mọi tên arm64 + fallback). Chờ 1 build Android thật
     xác nhận + owner AT.
+  - 2026-10-10 | ✅ done | agent arena/01a0251e-in4up | build thật XANH:
+    run `37994985198` (build_final_complete, commit `60bff6b`) — job Android
+    thành công, artifact ship là file arm64-only
+    `in4up-Android-arm64-v8a-1.11.0-60bff.apk` (đúng tên sau rename
+    arm64-v8a). **Owner đã CÀI VÀ DÙNG chính bản này trên máy arm64**
+    (IN4-78/IN4-79 báo từ build đó) ⇒ tiêu chí "cài máy arm64 thành công"
+    đạt; APK chỉ 1 ABI. (Phần "đăng nhập OK" của AT chưa đạt — nhưng đó là
+    bug riêng LOGIN-CRASH-002, không phải vấn đề build/ABI.)
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)
@@ -2266,6 +2275,38 @@
     super constructor; `sidecar.isAvailable()` gọi static qua instance; 2
     import bị sót do edit tool không persist (tts_service dart:io, yt_service
     yt_dlp_sidecar). Fix commit `31d3651`. VẪN chờ nghiệm thu thiết bị thật.
+
+### YT-PLAY-153-001 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát
+- **Trạng thái:** doing (code + test pin xong, chờ CI + nghiệm thu máy) — [IN4-78](https://linear.app/in4up/issue/IN4-78)
+- **Nguồn (owner 2026-10-10):** bản `in4up-Android-arm64-v8a-1.11.0-60bff.apk`
+  (build 37994985198, commit `60bff6b`): tìm được video YouTube nhưng trình
+  phát báo **"Lỗi cấu hình trình phát video, mã 153"**.
+- **Root cause:** từ ~10/2025 YouTube bắt buộc request video nhúng phải có
+  **HTTP Referer** hợp lệ (chính sách anti-hotlinking mới). WebView load
+  thẳng `https://www.youtube.com/embed/<id>` (top-level, không có trang
+  nguồn) → không gửi Referer → player từ chối, trả mã 153. (Nguồn: Stack
+  Overflow #79802987 + nhiều báo cáo 09-10/2025; cách sửa chuẩn trên
+  WebView = `loadDataWithBaseURL` + referrer policy + domain nocookie.)
+- **Sửa:** `yt_player_screen.dart` — thay `loadRequest(embed)` bằng wrapper
+  page load qua `loadHtml(html, baseUrl: https://in4up.app/embed)`
+  (Android: `loadDataWithBaseURL` → request iframe player MANG Referer) +
+  host `youtube-nocookie.com` (domain nhúng chuẩn của Google) +
+  `<meta name="referrer" content="strict-origin-when-cross-origin">`.
+  Dùng **IFrame API thật** (thay postMessage thô) để giữ đầy đủ tính năng:
+  `getCurrentTime()` tick 250ms qua kênh `YtSync` (đồng bộ phụ đề/lặp câu),
+  `seekTo/pauseVideo/playVideo`, `onError` → overlay tiếng Việt + nút
+  **Thử lại** (không còn màn chết im lặng). Bỏ timer Dart 400ms (wrapper tự
+  report). Giữ `rel=0`, `playsinline=1`, `cc_load_policy=0` (CC app tự làm).
+- **Test:** `test/yt_player_embed_test.dart` (mới) pin: base URL https,
+  host nocookie, meta referrer, video id + escape, IFrame API onReady/onError,
+  kênh YtSync + tick, parse `t:<s>`, bảng mã lỗi (153/100/101/150/…). Nối vào
+  step i4u18-lib-tests của `app_analyze.yml`.
+- **Nghiệm thu (máy):** mở video YouTube → **phát được**, phụ đề chạy theo,
+  lặp câu + tap từ + seek hoạt động; bấm "Học video" bình thường. Nếu vẫn
+  153 → overlay sẽ hiện mã lỗi (log tag `[in4up-yt]`).
+- **Lịch sử:**
+  - 2026-10-10 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
@@ -5988,6 +6029,20 @@
   `adb logcat` ghi nguyên văn exception + xác nhận SHA-1 APK (apksigner) =
   SHA-1 trong google-services.json.
 - **Prompt:** `PROMPT_AGENT_LOGIN_CRASH.md`.
+- **Tiến triển 2026-10-10 (IN4-79):** owner báo VẪN văng ở bản
+  `arm64-v8a-1.11.0-60bff` (build 37994985198) → crash chưa hết. Đã thêm
+  **instrumentation** (sandbox không có máy, chưa có logcat): đường mobile
+  tách 4 bước `[1/4]…[4/4]` có log tag `[in4up-auth]` ở từng bước (logcat
+  `grep in4up-auth` sẽ chỉ đúng bước chết); bắt riêng
+  `PlatformException` (in code/details); in context Firebase khi khởi động
+  (appId/project); mọi lỗi Dart bọc thành thông báo tiếng Việt kèm hành
+  động — không còn crash trần. **Còn cần owner (máy thật):**
+  1. `adb logcat -c` → bấm đăng nhập → crash → `adb logcat -d > login_crash.log`
+     (lần này log đã có sẵn tag `[in4up-auth]` để định vị).
+  2. `apksigner verify --print-certs <apk>` → so SHA-1 với
+     `certificate_hash` (client `com.in4up`) trong google-services.json
+     (secret CI) — khác ⇒ owner cập nhật secret (Firebase Console đã có
+     SHA-1 `88:D5:EE:0D…:E5:B0` từ trước; file build phải sinh SAU khi thêm).
 
 ### 2. BATTERY-PROMPT-001 — (P2) 2 thông báo pin dồn dập khi mới cài
 - **Triệu chứng:** Vừa cài app → hiện thông báo pin (1) → xong ra thông báo

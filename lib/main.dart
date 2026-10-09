@@ -169,6 +169,13 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
     isFirebaseAvailable = true;
     debugPrint(
         '✅ Firebase initialized: ${app.options.projectId} flavor=${const String.fromEnvironment('FLAVOR', defaultValue: 'stable')}');
+    // IN4-79/LOGIN-CRASH-002: in context đăng nhập ra logcat (tag
+    // `in4up-auth`) để đối chiếu SHA-1:
+    //   apksigner verify --print-certs <apk>  →  SHA-1 của APK đã ký
+    //   google-services.json (client com.in4up → certificate_hash)
+    // Hai SHA-1 phải giống nhau; khác ⇒ báo owner cập nhật secret CI.
+    debugPrint(
+        '[in4up-auth] firebase appId=${app.options.appId} project=${app.options.projectId}');
     return app;
   } on FirebaseException catch (e) {
     if (e.code == 'duplicate-app') {

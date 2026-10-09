@@ -2258,6 +2258,14 @@
     arena/c9a78a86-in4up | 3 commit gọn để rebase/merge: `ad682f6` (search
     keyless) + `42dfa02` (WP-Z) + `c032fa3` (WEB-RDR-001); base == tip 251e
     nên không cần rebase; chờ CI + nghiệm thu máy
+  - 2026-10-09 | CI XANH | agent arena/c9a78a86-in4up | PR #97 run
+    37986055127 (analyze 0 error + i4u18-lib-tests có 2 test mới + locale
+    test xanh). CI đỏ 6 run đầu do 5 lỗi analyze ERROR — phát hiện qua
+    workflow debug tạm (analyze từng file song song, đã xóa): parser
+    `int.tryParse(m.group(2))` thiếu ?? '0'; sidecar sealed class thiếu const
+    super constructor; `sidecar.isAvailable()` gọi static qua instance; 2
+    import bị sót do edit tool không persist (tts_service dart:io, yt_service
+    yt_dlp_sidecar). Fix commit `31d3651`. VẪN chờ nghiệm thu thiết bị thật.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

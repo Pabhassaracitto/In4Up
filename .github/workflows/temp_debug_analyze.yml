@@ -1,0 +1,67 @@
+# TEMP — debug CI đỏ: analyze từng file của nhánh arena/c9a78a86-in4up,
+# chỉ ERROR là fatal (giống app_analyze.yml). Job đỏ = file đó có error.
+# XÓA FILE NÀY sau khi tìm được lỗi.
+name: TEMP debug analyze per-file (xóa sau khi xong)
+on:
+  push:
+    branches: [arena/c9a78a86-in4up]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  analyze-one-file:
+    name: ${{ matrix.file }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - lib/features/youtube/services/yt_search_service.dart
+          - lib/features/youtube/services/yt_initial_data_parser.dart
+          - lib/features/youtube/services/yt_dlp_sidecar.dart
+          - lib/features/youtube/youtube_explorer_screen.dart
+          - lib/features/youtube/services/yt_downloader.dart
+          - lib/features/youtube/services/yt_service.dart
+          - lib/features/tts/tts_service.dart
+          - lib/features/web_reader/web_reader_controller.dart
+          - lib/features/web_reader/web_reader_screen.dart
+          - lib/screens/settings/shell_ui_settings_screen.dart
+          - lib/core/language/generated_legacy_ui_fallbacks.dart
+          - test/youtube_search_parser_test.dart
+          - test/yt_dlp_sidecar_test.dart
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Analyze file (chỉ ERROR là fatal) + báo lỗi lên PR #97
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          dart analyze "${{ matrix.file }}" > one.log 2>&1
+          code=$?
+          if [ $code -eq 0 ]; then
+            echo "OK: ${{ matrix.file }}"
+            exit 0
+          fi
+          if grep -qE ' error •|^[[:space:]]*error' one.log; then
+            {
+              echo "### ❌ analyze ERROR trong \`${{ matrix.file }}\`"
+              echo '```'
+              grep -E ' error •|^[[:space:]]*error' one.log | head -15
+              echo '```'
+            } > err.md
+            echo "::error file=${{ matrix.file }}::có analyze error — xem comment trên PR #97"
+            gh pr comment 97 --body-file err.md 2>/dev/null || true
+            exit 1
+          fi
+          echo "chỉ warning/info (không fatal): ${{ matrix.file }}"
+          exit 0

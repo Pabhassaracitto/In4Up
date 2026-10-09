@@ -102,6 +102,18 @@ class YtService {
       debugPrint('page HTML captions failed: $e');
     }
 
+    // Tầng 4: yt-dlp sidecar (desktop, user tự cài) — khi cả 3 tầng trên gãy
+    try {
+      final lines =
+          await YtDlpSidecar.instance.fetchCaptions(videoId, lang: lang);
+      if (lines.isNotEmpty) {
+        debugPrint('✅ Captions yt-dlp: ${lines.length} dòng (lang=$lang)');
+        return lines;
+      }
+    } catch (e) {
+      debugPrint('yt-dlp captions failed: $e');
+    }
+
     debugPrint('❌ Không tìm thấy captions cho lang=$lang');
     return [];
   }

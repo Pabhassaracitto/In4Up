@@ -1,5 +1,6 @@
 import 'package:in4up/core/language/localized_material.dart';
 
+import '../../features/youtube/services/yt_dlp_sidecar.dart';
 import '../../models/read_content_source.dart';
 import '../../models/shell_content_order.dart';
 import '../../services/storage_service.dart';
@@ -183,6 +184,8 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
                 '• Muốn thao tác cực nhanh: bật thêm long-press đổi mode.',
             child: SizedBox.shrink(),
           ),
+          const SizedBox(height: 16),
+          const _YtDlpInfoCard(),
         ],
       ),
     );
@@ -574,6 +577,69 @@ class _SectionCard extends StatelessWidget {
             const SizedBox(height: 12),
             child,
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Thẻ thông tin yt-dlp (WP-Z của PLAN-020): báo user biết app có phát hiện
+/// sidecar không. Chỉ desktop mới dùng được; đây là thông tin, không phải
+/// toggle — cài đặt/cập nhật yt-dlp là việc của user.
+class _YtDlpInfoCard extends StatefulWidget {
+  const _YtDlpInfoCard();
+
+  @override
+  State<_YtDlpInfoCard> createState() => _YtDlpInfoCardState();
+}
+
+class _YtDlpInfoCardState extends State<_YtDlpInfoCard> {
+  bool? _available;
+
+  @override
+  void initState() {
+    super.initState();
+    YtDlpSidecar.isAvailable().then((v) {
+      if (mounted) setState(() => _available = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, text) = switch (_available) {
+      null => (
+          Icons.hourglass_empty,
+          Colors.white54,
+          context.uiText('Đang kiểm tra yt-dlp…'),
+        ),
+      true => (
+          Icons.check_circle_outline,
+          const Color(0xFF66BB6A),
+          context.uiText(
+              'yt-dlp đã cài — app dùng làm lớp dự phòng tải audio/phụ đề khi cần (desktop).'),
+        ),
+      false => (
+          Icons.cancel_outlined,
+          const Color(0xFFFF9800),
+          context.uiText(
+              'Chưa tìm thấy yt-dlp — cài thủ công để có thêm lớp dự phòng tải YouTube (chỉ desktop).'),
+        ),
+    };
+    return _SectionCard(
+      title: context.uiText('yt-dlp (dự phòng YouTube)'),
+      subtitle: context.uiText(
+          'Tùy chọn: app tự phát hiện và dùng khi tải audio/phụ đề YouTube gặp lỗi. Không bắt buộc, không thu thập dữ liệu.'),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                  color: Colors.white70, fontSize: 12, height: 1.4),
+            ),
+          ),
         ],
       ),
     );

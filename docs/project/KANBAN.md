@@ -2241,6 +2241,18 @@
     ('Xoá tìm kiếm' đã có sẵn); generator đang ĐỎ baseline 66 override cũ nên
     không chạy lại được — đã chèn tay đúng format, chờ dọn debt. Sandbox
     không có Flutter → chưa chạy analyze/test, chờ CI + nghiệm thu thiết bị.
+  - 2026-10-09 | nối nốt (WP-Z của PLAN-020) | agent arena/c9a78a86-in4up |
+    yt-dlp sidecar đúng chuẩn: `yt_dlp_sidecar.dart` mới (chỉ desktop, user tự
+    cài, Process.start + watchdog 10 phút + cancel kill process; sự kiện riêng
+    YtDlpEvent tránh import vòng). Tải audio: tầng 2 trong `YtDownloader`
+    (explode gãy → yt-dlp; thử `-x --audio-format m4a` rồi fallback tải thẳng
+    bestaudio không cần ffmpeg). Phụ đề: tầng 4 trong `YtService.fetchCaptions`
+    (`--write-sub --write-auto-sub`, parse bằng SubtitleParser có sẵn). Thẻ
+    thông tin trong ShellUiSettings (phát hiện `yt-dlp --version`, có cache).
+    Test thuần `test/yt_dlp_sidecar_test.dart` (parse progress / build args /
+    pick sub file) thêm vào step i4u18-lib-tests. Android/iOS/Web không hiện
+    gì — fallback im lặng. Sandbox không có Flutter → chờ CI + nghiệm thu
+    desktop (máy có yt-dlp và máy không có để kiểm cả 2 nhánh).
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
@@ -6495,6 +6507,13 @@ agent → agent PR vào `251e` → đóng issue ở Linear khi nghiệm thu xong
   - 2026-10-07 | doing (không đổi trạng thái) | agent arena/d3c5b2cb-in4up |
     CI 🟢 run `37667414865` @ `b16541e` — analyze 0 error + bước
     "VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alias
+    `image_url_2` bị `normKey` bỏ chữ số ⇒ chuẩn hoá trùng `image_url` và ĐÈ
+    bản ghi trước (header 1 cột map nhầm sang imageUrl2) → nhận diện slot 2
+    bằng HẬU TỐ "2" (`resolveHeaderField`) thay vì thêm alias; thêm guard
+    "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
+    thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
+    duyệt PR.
+VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alias
     `image_url_2` bị `normKey` bỏ chữ số ⇒ chuẩn hoá trùng `image_url` và ĐÈ
     bản ghi trước (header 1 cột map nhầm sang imageUrl2) → nhận diện slot 2
     bằng HẬU TỐ "2" (`resolveHeaderField`) thay vì thêm alias; thêm guard

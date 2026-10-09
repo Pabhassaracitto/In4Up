@@ -42,9 +42,67 @@ permissions:
 # firebase_options.dart giữ androidForFlavor / androidDev / androidBeta - KHÔNG overwrite
 # =============================================================================
 jobs:
+  # =============================================================================
+  # CI-RELEASE-001 (UIU-1): release phải đúng với commit của nhánh đã chọn build.
+  # Triệu chứng cũ: tag 1.11.0-Beta/1.11.0 đã tồn tại sẵn trên main (commit cũ e9b5900),
+  # ncipollo/release-action chỉ attach asset vào release của tag cũ mà KHÔNG retag
+  # ⇒ trang release luôn hiện commit cũ dù artifact là bản build mới.
+  # Job này chạy TRƯỚC 4 job build: nếu tag lệch commit đang build thì xóa release+tag
+  # cũ rồi tạo lại tag đúng commit (release-action sau đó tạo release đúng commit).
+  # =============================================================================
+  align-release:
+    name: Align release tag with built commit
+    if: ${{ github.event_name == 'push' || inputs.build_android == true || inputs.build_windows == true || inputs.build_ios == true || inputs.build_linux == true }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="${{ inputs.version_name }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Retarget tag to the commit being built
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.vars.outputs.tag }}"
+          SHA="${{ github.sha }}"
+          echo "Release tag: $TAG | commit đang build: $SHA"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            REMOTE="$(git ls-remote origin "refs/tags/$TAG" | awk '{print $1}')"
+            if [ "$REMOTE" = "$SHA" ]; then
+              echo "Tag $TAG đã trỏ đúng commit build — không cần retag."
+              exit 0
+            fi
+            echo "Tag $TAG đang trỏ $REMOTE (commit khác) — xóa release + tag cũ để tạo lại đúng $SHA."
+            gh release delete "$TAG" --yes || echo "WARNING: không xóa được release $TAG (có thể chưa có)"
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$TAG" \
+              || echo "WARNING: không xóa được tag $TAG"
+          else
+            echo "Tag $TAG chưa tồn tại — sẽ tạo tại $SHA."
+          fi
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
+          echo "Tag $TAG hiện trỏ đúng commit build $SHA."
+
   build-android:
     name: Build Android APK
     if: ${{ github.event_name == 'push' || inputs.build_android == true }}
+    needs: align-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -266,6 +324,7 @@ jobs:
   build-linux:
     name: Build Linux App
     if: ${{ github.event_name == 'push' || inputs.build_linux == true }}
+    needs: align-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -352,6 +411,7 @@ jobs:
   build-windows:
     name: Build Windows App
     if: ${{ github.event_name == 'push' || inputs.build_windows == true }}
+    needs: align-release
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -473,6 +533,7 @@ jobs:
   build-ios:
     name: Build iOS IPA (sideload)
     if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
+    needs: align-release
     runs-on: macos-15
     steps:
       - name: Checkout code

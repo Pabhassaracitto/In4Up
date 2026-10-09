@@ -3040,6 +3040,9 @@
     i18n 15 chuỗi mới; chờ CI + nghiệm thu thiết bị
   - 2026-10-09 | PR #97 (gộp cả nhánh, commit `c032fa3`) | agent
     arena/c9a78a86-in4up | chờ CI + nghiệm thu thiết bị
+  - 2026-10-09 | CI XANH | agent arena/c9a78a86-in4up | PR #97 run
+    37986055127 xanh toàn bộ (cùng commit fix `31d3651` — xem lịch sử
+    YT-LR-001 về 5 lỗi analyze đã sửa). VẪN chờ nghiệm thu thiết bị thật.
 
 ### VIENEU-001 — VieNeu-TTS (PLAN-027)
 - **Trạng thái:** proposed
@@ -6546,6 +6549,12 @@ agent → agent PR vào `251e` → đóng issue ở Linear khi nghiệm thu xong
     duyệt PR.
 VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alias
     `image_url_2` bị `normKey` bỏ chữ số ⇒ chuẩn hoá trùng `image_url` và ĐÈ
+    bản ghi trước (header 1 cột map nhầm sang imageUrl2) → nhận diện slot 2
+    bằng HẬU TỐ "2" (`resolveHeaderField`) thay vì thêm alias; thêm guard
+    "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
+    thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
+    duyệt PR.
+á trùng `image_url` và ĐÈ
     bản ghi trước (header 1 cột map nhầm sang imageUrl2) → nhận diện slot 2
     bằng HẬU TỐ "2" (`resolveHeaderField`) thay vì thêm alias; thêm guard
     "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt

@@ -14,6 +14,18 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../features/translation/translation_service.dart';
+import '../../models/vocab_context.dart';
+import '../../models/word_analysis.dart';
+import '../../providers/player_provider.dart';
+import '../../providers/text_provider.dart';
+import '../../providers/vocabulary_bridge.dart';
+import '../../services/syntax_highlighter_service.dart';
+import '../word_lookup/word_analysis_sheet.dart';
+import 'models/yt_video.dart';
+import 'services/yt_service.dart';
+import 'youtube_explorer_screen.dart';
+
 // ─── IN4-78 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" ───────
 // Từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/) phải có
 // **HTTP Referer** hợp lệ. WebView load thẳng /embed/ (load đầu tiên,
@@ -44,18 +56,6 @@ bool ytLooksLikePlayerError(String bodyText) {
       t.contains('video player configuration error') ||
       t.contains('player configuration error');
 }
-
-import '../../features/translation/translation_service.dart';
-import '../../models/vocab_context.dart';
-import '../../models/word_analysis.dart';
-import '../../providers/player_provider.dart';
-import '../../providers/text_provider.dart';
-import '../../providers/vocabulary_bridge.dart';
-import '../../services/syntax_highlighter_service.dart';
-import '../word_lookup/word_analysis_sheet.dart';
-import 'models/yt_video.dart';
-import 'services/yt_service.dart';
-import 'youtube_explorer_screen.dart';
 
 // ─── Word knowledge state ─────────────────────────────────
 enum WordState { unknown, known, learning, ignored }

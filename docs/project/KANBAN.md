@@ -2254,6 +2254,10 @@
     pick sub file) thêm vào step i4u18-lib-tests. Android/iOS/Web không hiện
     gì — fallback im lặng. Sandbox không có Flutter → chờ CI + nghiệm thu
     desktop (máy có yt-dlp và máy không có để kiểm cả 2 nhánh).
+  - 2026-10-09 | PR #97 mở vào `arena/01a0251e-in4up` | agent
+    arena/c9a78a86-in4up | 3 commit gọn để rebase/merge: `ad682f6` (search
+    keyless) + `42dfa02` (WP-Z) + `c032fa3` (WEB-RDR-001); base == tip 251e
+    nên không cần rebase; chờ CI + nghiệm thu máy
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

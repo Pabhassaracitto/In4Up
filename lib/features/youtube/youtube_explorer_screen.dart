@@ -1,6 +1,7 @@
 // Language Reactor-style YouTube Explorer
 // Trang 1 PDF: sidebar rank slider + sort + kênh, main: info kênh + video list
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -9,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/yt_video.dart';
+import 'services/yt_initial_data_parser.dart';
+import 'services/yt_search_service.dart';
 import 'services/yt_service.dart';
 import 'yt_player_screen.dart';
 
@@ -122,6 +125,12 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   bool _openingUrl = false;
   String? _urlError;
 
+  // ── Tìm kiếm không cần API key (gợi ý từ khoá + submit) ──
+  final _searchFocus = FocusNode();
+  Timer? _suggestDebounce;
+  List<String> _suggestions = [];
+  bool _showSuggestions = false;
+
   bool get _hasApiKey => YtVideo.isUsableDataApiKey(widget.apiKey);
 
   @override
@@ -143,6 +152,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     _scrollCtrl.dispose();
     _urlCtrl.dispose();
     _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _suggestDebounce?.cancel();
     super.dispose();
   }
 
@@ -153,7 +164,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ..addAll(
             _kDefaultChannels.map((e) => YtExChannel(id: e.$1, title: e.$2)));
     });
-    if (_hasApiKey) await _enrichChannels();
+    if (_hasApiKey) {
+      await _enrichChannels();
+    } else if (_channels.isNotEmpty) {
+      // Không có key: chọn sẵn kênh đầu tiên để có nội dung xem ngay —
+      // danh sách kênh và tìm kiếm đều chạy không cần key (YtSearchService).
+      _selChannelId ??= _channels.first.id;
+    }
     await _loadVideos();
   }
 
@@ -191,6 +208,22 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
 
   Future<void> _loadVideos({bool reset = true}) async {
     if (_loading) return;
+    final query = _searchQuery.trim();
+    // Chế độ không cần Data API key: search theo từ khoá hoặc xem kênh.
+    final keylessSearch = query.isNotEmpty && !_hasApiKey;
+    final keylessChannel =
+        query.isEmpty && !_hasApiKey && _selChannelId != null;
+    if (!_hasApiKey && !keylessSearch && !keylessChannel) {
+      // Không key, không từ khoá, không chọn kênh → không có gì để tải
+      if (reset && mounted) {
+        setState(() {
+          _videos.clear();
+          _nextPageToken = null;
+          _hasMore = false;
+        });
+      }
+      return;
+    }
     setState(() {
       _loading = true;
       if (reset) {
@@ -199,19 +232,43 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       }
     });
     try {
-      final (vids, next) = await _fetch(_nextPageToken);
-      if (!mounted) return;
-      setState(() {
-        _videos.addAll(vids);
-        _nextPageToken = next;
-        _hasMore = next != null;
-      });
+      if (keylessSearch || keylessChannel) {
+        // Keyless: một trang kết quả, không phân trang tiếp
+        final hits = keylessSearch
+            ? await YtSearchService.instance.searchVideos(query)
+            : await YtSearchService.instance
+                .fetchChannelVideos(_selChannelId!);
+        if (!mounted) return;
+        setState(() {
+          _videos.addAll(hits.map(_hitToEx));
+          _hasMore = false;
+        });
+      } else {
+        final (vids, next) = await _fetch(_nextPageToken);
+        if (!mounted) return;
+        setState(() {
+          _videos.addAll(vids);
+          _nextPageToken = next;
+          _hasMore = next != null;
+        });
+      }
     } catch (e) {
       debugPrint('loadVideos: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  YtExVideo _hitToEx(YtSearchHit h) => YtExVideo(
+        id: h.id,
+        title: h.title,
+        channelId: h.channelId,
+        channelTitle: h.channel,
+        thumb: h.thumb,
+        publishedAt: h.publishedAt,
+        viewCount: h.viewCount,
+        duration: h.duration,
+      );
 
   Future<(List<YtExVideo>, String?)> _fetch(String? pageToken) async {
     if (!_hasApiKey) return (<YtExVideo>[], null);
@@ -308,6 +365,121 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   void _openVideo(YtExVideo v) => Navigator.push(
       context, MaterialPageRoute(builder: (_) => YtPlayerScreen(video: v)));
 
+  // ── Thanh tìm kiếm (luôn hiện, chạy không cần Data API key) ──
+
+  Widget _searchArea() => Column(
+        children: [
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: context.uiText('Tìm kiếm trực tiếp trên YouTube'),
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Colors.grey, size: 18),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          tooltip: context.uiText('Xoá tìm kiếm'),
+                          icon:
+                              const Icon(Icons.close, color: Colors.grey, size: 16),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _submitSearch('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.07),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none),
+                  isDense: true,
+                ),
+                onChanged: _onSearchChanged,
+                onSubmitted: (_) => _submitSearch(),
+                onTapOutside: (_) => setState(() => _showSuggestions = false),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: context.uiText('Tìm kiếm'),
+              icon: const Icon(Icons.search, color: Colors.white),
+              onPressed: () => _submitSearch(),
+            ),
+          ]),
+          if (_showSuggestions && _suggestions.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161B22),
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _suggestions.length,
+                  itemBuilder: (_, i) {
+                    final s = _suggestions[i];
+                    return ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      leading:
+                          const Icon(Icons.history, color: Colors.grey, size: 14),
+                      title: Text(s,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12)),
+                      onTap: () {
+                        _searchCtrl.text = s;
+                        _submitSearch(s);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
+      );
+
+  void _onSearchChanged(String v) {
+    _suggestDebounce?.cancel();
+    final q = v.trim();
+    if (q.length < 2) {
+      setState(() {
+        _suggestions = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+    // Gợi ý từ khoá của YouTube (keyless) — debounce 350ms
+    _suggestDebounce = Timer(const Duration(milliseconds: 350), () async {
+      final s = await YtSearchService.instance.getSuggestions(q);
+      if (!mounted) return;
+      setState(() {
+        _suggestions = s.take(6).toList();
+        _showSuggestions = _suggestions.isNotEmpty && _searchFocus.hasFocus;
+      });
+    });
+    // Cập nhật nút xoá (X) khi nội dung ô thay đổi
+    setState(() {});
+  }
+
+  void _submitSearch([String? query]) {
+    _suggestDebounce?.cancel();
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _searchQuery = (query ?? _searchCtrl.text).trim();
+      _showSuggestions = false;
+    });
+    _loadVideos();
+  }
+
   // ════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
@@ -359,41 +531,14 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
                 Text(
-                  _hasApiKey ? 'API' : 'Dán URL',
+                  context.uiText(_hasApiKey ? 'Data API' : 'Không cần key'),
                   style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            if (_hasApiKey)
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: context.uiText('Tìm kiếm trực tiếp trên YouTube'),
-                      hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 18),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.07),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      isDense: true,
-                    ),
-                    onSubmitted: (_) {
-                      setState(() => _searchQuery = _searchCtrl.text);
-                      _loadVideos();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: context.uiText('Tìm kiếm'),
-                  icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: () { setState(() => _searchQuery = _searchCtrl.text); _loadVideos(); },
-                ),
-              ]),
-            if (_hasApiKey) const SizedBox(height: 6),
+            _searchArea(),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Expanded(
@@ -903,7 +1048,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Icon(Icons.school_outlined, size: 44, color: Colors.grey[700]),
             const SizedBox(height: 10),
             Text(
-              'Dán URL YouTube ở thanh trên',
+              context.uiText('Tìm video ở thanh trên hoặc dán URL YouTube'),
               style: TextStyle(color: Colors.grey[500], fontSize: 13),
             ),
             const SizedBox(height: 10),
@@ -917,9 +1062,9 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     color: const Color(0xFF9C27B0).withValues(alpha: 0.25)),
               ),
               child: Text(
-                _hasApiKey
+                context.uiText(_hasApiKey
                     ? 'Không có video cho bộ lọc này.'
-                    : 'Học video không cần Data API key. Khám phá kênh cần key thật — không dùng YOUR_KEY_HERE.',
+                    : 'Tìm kiếm và danh sách kênh chạy không cần Data API key — gõ từ khoá ở trên hoặc chọn kênh bên trái.'),
                 style: TextStyle(color: Colors.purple[100], fontSize: 11),
                 textAlign: TextAlign.center,
               ),

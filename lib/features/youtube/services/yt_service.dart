@@ -14,6 +14,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_exp;
 import '../../translation/translation_service.dart';
 
 import '../models/yt_video.dart';
+import 'yt_dlp_sidecar.dart';
 
 class YtService {
   YtService._();

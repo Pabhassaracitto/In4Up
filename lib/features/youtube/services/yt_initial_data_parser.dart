@@ -240,8 +240,8 @@ Duration? parseLength(String? text) {
   final m = RegExp(r'^(?:(\d+):)?(\d{1,2}):(\d{2})$').firstMatch(text.trim());
   if (m == null) return null;
   final h = int.tryParse(m.group(1) ?? '0') ?? 0;
-  final min = int.tryParse(m.group(2)) ?? 0;
-  final s = int.tryParse(m.group(3)) ?? 0;
+  final min = int.tryParse(m.group(2) ?? '0') ?? 0;
+  final s = int.tryParse(m.group(3) ?? '0') ?? 0;
   return Duration(hours: h, minutes: min, seconds: s);
 }
 

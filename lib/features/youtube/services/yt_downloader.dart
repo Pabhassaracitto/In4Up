@@ -231,7 +231,7 @@ class YtDownloader {
     YtAudioQuality quality,
   ) async {
     final sidecar = YtDlpSidecar.instance;
-    if (!await sidecar.isAvailable()) return false;
+    if (!await YtDlpSidecar.isAvailable()) return false;
     debugPrint('⬇️ explode gãy — thử yt-dlp sidecar cho ${video.id}');
     try {
       await for (final ev in sidecar.downloadAudio(

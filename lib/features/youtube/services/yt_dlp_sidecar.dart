@@ -23,7 +23,9 @@ import '../models/yt_video.dart';
 
 // ─── Events ───────────────────────────────────────────────
 
-sealed class YtDlpEvent {}
+sealed class YtDlpEvent {
+  const YtDlpEvent();
+}
 
 class YtDlpProgress extends YtDlpEvent {
   final double progress; // 0.0 → 1.0

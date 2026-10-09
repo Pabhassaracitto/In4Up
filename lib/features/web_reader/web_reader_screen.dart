@@ -8,14 +8,17 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
 import '../../features/grammar/grammar.dart';
+import '../../features/translation/translation_service.dart';
 import '../../features/writing/models/writing_source_request.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
+import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../widgets/selection_save_sheet.dart';
 import 'js/web_reader_js.dart';
@@ -1007,6 +1010,99 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
+  /// Dịch đoạn đang chọn bằng TranslationService (đa engine, có cache).
+  /// Đích dịch theo ngôn ngữ UI của app (vi → Việt, còn lại → English).
+  Future<void> _translateSelection() async {
+    final selection = _selectionText.trim();
+    if (selection.isEmpty || _showDashboard) return;
+    _showSnack(context.uiText('⏳ Đang dịch đoạn chọn…'), duration: 1);
+    final target =
+        Localizations.localeOf(context).languageCode == 'vi' ? 'vi' : 'en';
+    final ts = TranslationService();
+    ts.configure(sourceLang: 'AUTO', targetLang: target);
+    final result = await ts.translateText(selection);
+    if (!mounted) return;
+    final translated = result.translatedText.trim();
+    if (!result.isSuccess || translated.isEmpty) {
+      _showSnack(context.uiText('❌ Không dịch được đoạn chọn'));
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2235),
+        title: Text(context.uiText('Bản dịch'),
+            style: const TextStyle(color: Colors.white, fontSize: 14)),
+        content: SelectableText(
+          translated,
+          style: const TextStyle(
+              color: Colors.white70, fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.uiText('Đóng'),
+                style: TextStyle(color: Colors.grey[500])),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Lưu cả bài đọc hiện tại thành file âm thanh (TTS → file, không phát),
+  /// rồi có thể mở trong tab Nghe để học với tốc độ chậm / A-B loop.
+  Future<void> _saveArticleAsAudio() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+    _showSnack(context.uiText('⏳ Đang tạo file âm thanh…'), duration: 1);
+    final text = await _extractMainArticleText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack(context.uiText('❌ Không thể lấy nội dung bài để tạo âm thanh'));
+      return;
+    }
+    final dir = Directory(
+        '${(await getApplicationDocumentsDirectory()).path}/web_reader_audio');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final title = _controller.pageTitle.trim().isEmpty
+        ? _controller.currentUrl
+        : _controller.pageTitle.trim();
+    // Piper/Edge có giới hạn độ dài — cắt ở 20.000 ký tự cho an toàn
+    final capped = text.length > 20000 ? text.substring(0, 20000) : text;
+    final path = await _controller.synthesizeTextToFile(
+      capped,
+      pathWithoutExtension: '${dir.path}/${_sanitizeFileName(title)}',
+    );
+    if (!mounted) return;
+    if (path == null) {
+      _showSnack(context.uiText('❌ Không lưu được file âm thanh'));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('✅ Đã lưu âm thanh bài đọc')),
+        action: SnackBarAction(
+          label: context.uiText('Mở trong tab Nghe'),
+          onPressed: () {
+            context.read<PlayerProvider>().loadSong(
+                  path: path,
+                  title: title,
+                  autoPlay: true,
+                );
+          },
+        ),
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  static String _sanitizeFileName(String name) {
+    final cleaned = name
+        .replaceAll(RegExp(r'[<>:\"/\\|?*]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return cleaned.substring(0, cleaned.length.clamp(0, 80));
+  }
+
   void _openSelectionInTextStudio() {
     if (widget.writingMode) {
       _sendSelectionToWriting();
@@ -1162,6 +1258,10 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
                           ? 'Dùng cả bài để luyện Viết'
                           : 'Mở trong Text Studio',
                     ),
+                  ),
+                  PopupMenuItem(
+                    value: 'saveAudio',
+                    child: Text(context.uiText('Lưu bài đọc thành âm thanh')),
                   ),
                 ];
               },

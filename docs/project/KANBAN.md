@@ -36,6 +36,7 @@
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | WEB-LOAD-001 | Web Reader: spinner/load "kẹt" — trang đã load xong mà vẫn xoay + load (kể cả khi bấm icon "eye" đánh dấu từ đã lưu) | 🔄 doing (code xong, chờ CI + nghiệm thu máy) | WEB-LOAD-001 watchdog: `onPageFinished` vắng mặt >10s ⇒ tự `state→ready` (ẩn spinner); sửa `web_reader_controller.dart` — owner báo 2026-10-06 (build cũ) |
 | WEB-TTS-PAUSE-001 | Web Reader: bấm nút Pause bài đọc vẫn tiếp tục đọc (icon đã đổi sang ▶ tam giác) | ✅ done + CI xanh (trong tip) — chờ owner build lại + nghiệm thu máy | fix PAUSE F3 đã ở tip `72b1e85` (2026-10-01): `pause()` dừng CẢ AudioPlayer + giọng máy + `speakLines` ĐỨNG YÊN khi pause (không auto-skip câu kế); build cũ `1d58b78` (09-15) KHÔNG có fix này → "bấm Pause xong vẫn nghe" |
+| WEB-RDR-001 | Web Reader: dịch đoạn chọn (TranslationService) + lưu bài đọc thành file âm thanh (TTS → file, mở trong tab Nghe) | 🔨 doing (code xong, chờ CI + nghiệm thu máy) | nút Dịch trên thanh selection + menu "Lưu bài đọc thành âm thanh" (`web_reader_screen.dart`); `TtsService.synthesizeToFile` (Piper offline → Edge online) + `WebReaderController.synthesizeTextToFile`; 15 chuỗi chrome mới đăng ký i18n rule #5 |
 | PDF-W0 | Wave 0 PDF Reader: nối selection + TTS câu + định danh file + hệ toạ độ + i18n + test sàn | 🔨 doing | code + CI 🟢 05-09-2026 (`370ff91`, run 33984585516: analyze 0 error + test rule #5 xanh) trên `arena/01a07250-in4up`; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` ở máy dev |
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
@@ -3009,6 +3010,30 @@
   - 2026-10-06 | created→done(CI xanh) | agent arena/01a0251e-in4up | xác minh
     fix PAUSE F3 (`72b1e85`) đã trong tip, build cũ `1d58b78` thiếu; chờ owner
     build lại + nghiệm thu máy
+
+### WEB-RDR-001 — Web Reader: dịch đoạn chọn + lưu bài đọc thành âm thanh
+- **Trạng thái:** doing (code xong, chờ CI + nghiệm thu máy)
+- **Nguồn:** owner (2026-10-09) — hỏi web reader trên Facebook/TikTok có học từ
+  vựng, dịch, xuất âm thanh/video không. Phần học từ vựng + phát âm + tô màu
+  + đọc bài TTS đã có sẵn (tap từ → nghĩa + IPA + phát âm + WordList; CEFR);
+  bổ sung đúng 2 mảnh còn thiếu: dịch đoạn + xuất file âm thanh.
+- **Nội dung:**
+  - Dịch đoạn chọn: nút Dịch (Icons.translate) trên thanh selection →
+    `TranslationService.translateText` (đa engine, có cache), đích theo ngôn
+    ngữ UI (vi → Việt, khác → English), kết quả hiện dialog có thể chọn text.
+  - Lưu bài đọc thành âm thanh: menu "Tác vụ bài đọc" →
+    `WebReaderController.synthesizeTextToFile` → `TtsService.synthesizeToFile`
+    (mới: Piper offline → file .wav, fallback Edge online → .mp3; dùng giọng +
+    tốc độ user đang cài) → lưu vào `web_reader_audio/` → snackbar có nút
+    "Mở trong tab Nghe" (`PlayerProvider.loadSong`) để học với tốc độ
+    0.05–10× + A-B loop. Cắt an toàn ở 20.000 ký tự.
+  - Không xuất video, không tải media của trang (Web Reader là trình đọc).
+- **Lưu ý Facebook/TikTok:** trang public đọc được thì học từ vựng bình
+  thường; phần lớn nội dung sau login hoặc chặn bot — không phải kênh chính.
+  Tải video TikTok/Facebook: không làm (ToS + hay gãy).
+- **Lịch sử:**
+  - 2026-10-09 | created→doing | agent arena/c9a78a86-in4up | 2 tính năng +
+    i18n 15 chuỗi mới; chờ CI + nghiệm thu thiết bị
 
 ### VIENEU-001 — VieNeu-TTS (PLAN-027)
 - **Trạng thái:** proposed

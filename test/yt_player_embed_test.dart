@@ -1,118 +1,81 @@
 // IN4-78 — YouTube báo lỗi 153 khi phát video.
 //
-// Root cause: từ ~10/2025 YouTube bắt buộc request video nhúng phải có
-// HTTP Referer hợp lệ; WebView load thẳng `youtube.com/embed/...` không
-// gửi Referer → "Lỗi cấu hình trình phát video, mã 153".
+// Root cause: từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/)
+// phải có HTTP Referer hợp lệ; WebView load thẳng /embed/ (load đầu, không
+// có trang trước) → không gửi Referer → "Lỗi cấu hình trình phát video,
+// mã 153".
 //
-// Fix: wrapper page load bằng `loadHtml(html, baseUrl:)` (Android:
-// loadDataWithBaseURL → request con mang Referer = base URL) + host
-// `youtube-nocookie.com` + meta referrer. Test pin phần quyết định này
-// (không cần WebView thật).
+// Fix: tải TRƯỚC trang seed cùng domain (`youtube-nocookie.com/embed`),
+// rồi điều hướng tới /embed/<id> — request lúc đó tự mang Referer (mặc
+// định referrer policy của WebView gửi origin). Test pin phần quyết định
+// này (không cần WebView thật).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/youtube/yt_player_screen.dart';
 
 void main() {
-  group('kYtEmbedBase (IN4-78)', () {
-    test('phải là https (YouTube từ chối base URL không bảo mật làm Referer)',
-        () {
-      expect(kYtEmbedBase.scheme, 'https');
-      expect(kYtEmbedBase.host, isNotEmpty);
+  group('kYtEmbedSeedUrl (IN4-78)', () {
+    test('phải là https (Referer không bảo mật vô dụng)', () {
+      expect(kYtEmbedSeedUrl, startsWith('https://'));
     });
 
-    test('host cố định — đổi là phải có lý do + cập nhật test', () {
-      expect(kYtEmbedBase.toString(), 'https://in4up.app/embed');
+    test('phải CÙNG domain với trang embed thật (nguồn của Referer)', () {
+      final seed = Uri.parse(kYtEmbedSeedUrl);
+      final embed = Uri.parse(buildYtEmbedUrl('x'));
+      expect(seed.host, embed.host);
     });
   });
 
-  group('buildYtEmbedHtml (IN4-78)', () {
-    test('nhúng đúng video ID', () {
+  group('buildYtEmbedUrl (IN4-78)', () {
+    test('nhúng đúng video ID trên domain nocookie (domain nhúng chuẩn)', () {
       const id = 'dQw4w9WgXcQ';
-      final html = buildYtEmbedHtml(id);
-      expect(html, contains('var VIDEO_ID = "$id";'));
+      final url = buildYtEmbedUrl(id);
+      expect(url, contains('youtube-nocookie.com/embed/$id'));
+      expect(url, isNot(contains('www.youtube.com/embed/')));
     });
 
-    test('video ID lạ không phá vỡ JS (escape nháy kép)', () {
-      final html = buildYtEmbedHtml('abc"def');
-      expect(html, isNot(contains('VIDEO_ID = "abc"def"')));
-      expect(html, contains('var VIDEO_ID = "abcdef";'));
-    });
-
-    test('dùng host youtube-nocookie.com (domain nhúng chuẩn của Google)',
+    test('giữ parameters cũ: enablejsapi + cc_off + rel=0 + playsinline',
         () {
-      expect(buildYtEmbedHtml('x'), contains('youtube-nocookie.com'));
+      final url = buildYtEmbedUrl('x');
+      expect(url, contains('enablejsapi=1'));
+      expect(url, contains('cc_load_policy=0'));
+      expect(url, contains('rel=0'));
+      expect(url, contains('playsinline=1'));
     });
 
-    test('tải IFrame API chính chủ + player có onReady/onError', () {
-      final html = buildYtEmbedHtml('x');
-      expect(html, contains('https://www.youtube.com/iframe_api'));
-      expect(html, contains('onReady'));
-      expect(html, contains('onError'));
-      expect(html, contains("post('err:' + e.data)"));
+    test('origin khớp domain thực (player kiểm tra referrer theo param này)',
+        () {
+      final url = buildYtEmbedUrl('x');
+      expect(url, contains('origin=https://www.youtube-nocookie.com'));
     });
+  });
 
-    test('referrer policy phòng khi nền tảng bỏ qua base URL', () {
+  group('ytLooksLikePlayerError (IN4-78)', () {
+    test('phát hiện màn lỗi tiếng Việt (mã 153 theo screenshot owner)', () {
       expect(
-        buildYtEmbedHtml('x'),
-        contains('strict-origin-when-cross-origin'),
+        ytLooksLikePlayerError(
+            'Lỗi cấu hình trình phát video\nMã lỗi 153'),
+        isTrue,
       );
     });
 
-    test('kênh YtSync + tick 250ms (đồng bộ phụ đề) + lệnh seek/pause/play',
-        () {
-      final html = buildYtEmbedHtml('x');
-      expect(html, contains('window.YtSync'));
-      expect(html, contains("post('t:'"));
-      expect(html, contains('setInterval(tick, 250)'));
-      expect(html, contains('window._in4upSeek'));
-      expect(html, contains('window._in4upPause'));
-      expect(html, contains('window._in4upPlay'));
+    test('phát hiện "lỗi cấu hình" + 153 tách dòng', () {
+      expect(ytLooksLikePlayerError('Lỗi cấu hình\n153'), isTrue);
     });
 
-    test('playsinline + rel=0 (giữ hành vi cũ: xem inline, không gợi ý video khác)',
-        () {
-      expect(buildYtEmbedHtml('x'), contains('playsinline: 1'));
-      expect(buildYtEmbedHtml('x'), contains('rel: 0'));
-    });
-  });
-
-  group('ytParseTimeMessage (IN4-78)', () {
-    test('t:<s> → giây', () {
-      expect(ytParseTimeMessage('t:12.345'), 12.345);
-      expect(ytParseTimeMessage('t:0'), 0.0);
+    test('phát hiện bản tiếng Anh', () {
+      expect(
+        ytLooksLikePlayerError('Video player configuration error. Error 153'),
+        isTrue,
+      );
     });
 
-    test('không phải tin thời gian → null', () {
-      expect(ytParseTimeMessage('ready'), isNull);
-      expect(ytParseTimeMessage('state:1'), isNull);
-      expect(ytParseTimeMessage('err:153'), isNull);
-      expect(ytParseTimeMessage(''), isNull);
-    });
-
-    test('t: rác → null (không throw)', () {
-      expect(ytParseTimeMessage('t:abc'), isNull);
-      expect(ytParseTimeMessage('t:'), isNull);
-    });
-  });
-
-  group('describeYtPlayerError (IN4-78)', () {
-    test('mã 153 → giải thích chính sách referrer + gợi ý hành động', () {
-      final msg = describeYtPlayerError('153');
-      expect(msg, contains('153'));
-      expect(msg, contains('Thử lại'));
-    });
-
-    test('mã 100/120 → video không tồn tại', () {
-      expect(describeYtPlayerError('100'), contains('Không tìm thấy video'));
-      expect(describeYtPlayerError('120'), contains('Không tìm thấy video'));
-    });
-
-    test('mã 101/150 → chủ video cấm nhúng', () {
-      expect(describeYtPlayerError('101'), contains('không cho phép'));
-      expect(describeYtPlayerError('150'), contains('không cho phép'));
-    });
-
-    test('mã lạ → vẫn nêu được mã (để owner báo lại)', () {
-      expect(describeYtPlayerError('999'), contains('999'));
+    test('trang player bình thường / phụ đề / trống → KHÔNG báo lỗi', () {
+      expect(ytLooksLikePlayerError(''), isFalse);
+      expect(ytLooksLikePlayerError('Hello world, this is a video'), isFalse);
+      expect(ytLooksLikePlayerError('Phụ đề tiếng Việt cho bài học'), isFalse);
+      // Số 153 xuất hiện bình thường (phụ đề có con số) mà không kèm
+      // "lỗi cấu hình" → không dương tính giả.
+      expect(ytLooksLikePlayerError('Năm 153 sau công nguyên'), isFalse);
     });
   });
 }

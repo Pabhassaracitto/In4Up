@@ -14,6 +14,37 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+// ─── IN4-78 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" ───────
+// Từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/) phải có
+// **HTTP Referer** hợp lệ. WebView load thẳng /embed/ (load đầu tiên,
+// không có trang trước) → không có Referer → player trả mã 153.
+//
+// Fix (không cần API mới — webview_flutter 4.x không có loadHtml):
+// tải TRƯỚC 1 trang cùng domain `youtube-nocookie.com/embed` (seed) → khi
+// điều hướng sang trang /embed/<id> thật, WebView tự gửi
+// `Referer: https://www.youtube-nocookie.com` (mặc định
+// strict-origin-when-cross-origin → gửi origin) → đạt yêu cầu mới.
+// Hàm top-level để test thuần bắt được.
+
+/// Trang seed — chỉ để tạo Referer cho request /embed/ kế tiếp.
+const String kYtEmbedSeedUrl = 'https://www.youtube-nocookie.com/embed';
+
+/// URL trang nhúng YouTube (domain nocookie — domain nhúng chuẩn của Google).
+String buildYtEmbedUrl(String videoId) =>
+    'https://www.youtube-nocookie.com/embed/$videoId'
+    '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1'
+    '&origin=https://www.youtube-nocookie.com';
+
+/// body text của trang player đang chứa màn lỗi YouTube (153 hoặc khác)
+/// → app hiện overlay tiếng Việt + nút Thử lại (không để chết im lặng).
+bool ytLooksLikePlayerError(String bodyText) {
+  final t = bodyText.toLowerCase();
+  return t.contains('lỗi cấu hình trình phát') ||
+      (t.contains('lỗi cấu hình') && t.contains('153')) ||
+      t.contains('video player configuration error') ||
+      t.contains('player configuration error');
+}
+
 import '../../features/translation/translation_service.dart';
 import '../../models/vocab_context.dart';
 import '../../models/word_analysis.dart';
@@ -84,120 +115,6 @@ class LrWord {
   }
 }
 
-// ─── Embed wrapper (IN4-78 — YouTube error 153) ─────────────
-// Hàm top-level (không phụ thuộc widget) để test thuần bắt được.
-
-/// Base URL cho wrapper page nhúng YouTube.
-///
-/// WebView load wrapper bằng `loadHtml(html, baseUrl:)` (Android:
-/// `loadDataWithBaseURL`) → request iframe player mang Referer = base này.
-/// YouTube (từ ~10/2025) bắt buộc Referer hợp lệ cho video nhúng; load
-/// thẳng `youtube.com/embed/...` không có Referer → "mã 153".
-const Uri kYtEmbedBase = Uri.parse('https://in4up.app/embed');
-
-/// Wrapper page chứa YouTube IFrame API trên host
-/// `youtube-nocookie.com` (domain nhúng chuẩn, ít cookie) + meta referrer
-/// phòng khi nền tảng WebView bỏ qua base URL.
-String buildYtEmbedHtml(String videoId) {
-  // videoId đến từ ID video của YouTube (A-Za-z0-9_-) — an toàn khi nhúng
-  // vào JS string không nháy kép dưới đây; vẫn escape phòng thủ.
-  final id = videoId.replaceAll('"', '');
-  return '''
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="referrer" content="strict-origin-when-cross-origin">
-<style>
-  html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
-  #yt{position:fixed;inset:0;width:100%;height:100%}
-  #yt iframe{width:100% !important;height:100% !important}
-</style>
-</head>
-<body>
-<div id="yt"></div>
-<script src="https://www.youtube.com/iframe_api"></script>
-<script>
-(function() {
-  var VIDEO_ID = "$id";
-  function post(msg) {
-    try { if (window.YtSync) YtSync.postMessage(msg); } catch (e) {}
-  }
-  window._in4upSeek = function(s) {
-    try { window.player.seekTo(s, true); } catch (e) {}
-  };
-  window._in4upPause = function() {
-    try { window.player.pauseVideo(); } catch (e) {}
-  };
-  window._in4upPlay = function() {
-    try { window.player.playVideo(); } catch (e) {}
-  };
-  function tick() {
-    try {
-      if (window.player && window.player.getCurrentTime) {
-        post('t:' + window.player.getCurrentTime().toFixed(3));
-      }
-    } catch (e) {}
-  }
-  window.onYouTubeIframeAPIReady = function() {
-    try {
-      window.player = new YT.Player('yt', {
-        width: '100%',
-        height: '100%',
-        videoId: VIDEO_ID,
-        host: 'https://www.youtube-nocookie.com',
-        // cc_load_policy: 0 — giữ hành vi cũ: không tải CC của player (app
-        // có hệ thống phụ đề riêng; tránh phụ đề chồng 2 lớp).
-        playerVars: { rel: 0, playsinline: 1, cc_load_policy: 0 },
-        events: {
-          onReady: function() {
-            post('ready');
-            try { window.player.playVideo(); } catch (e) {}
-            setInterval(tick, 250);
-          },
-          onStateChange: function(e) { post('state:' + e.data); },
-          onError: function(e) { post('err:' + e.data); }
-        }
-      });
-    } catch (e) { post('err:-1'); }
-  };
-})();
-</script>
-</body>
-</html>
-''';
-}
-
-/// Mô tả tiếng Việt theo mã lỗi IFrame API của YouTube
-/// (https://developers.google.com/youtube/iframe_api_reference#Error_Codes).
-String describeYtPlayerError(String code) {
-  switch (code) {
-    case '2':
-      return 'Video không phát được (tham số không hợp lệ).';
-    case '5':
-      return 'Video không phát được bằng trình phát HTML5 của thiết bị này.';
-    case '100':
-    case '120':
-      return 'Không tìm thấy video — có thể video riêng tư hoặc đã bị xóa.';
-    case '101':
-    case '150':
-      return 'Chủ video không cho phép phát ở trình nhúng.';
-    case '153':
-      return 'YouTube từ chối phát do chính sách referrer (mã 153). Bấm Thử lại — nếu vẫn lỗi, kiểm tra mạng/VPN.';
-    case '-1':
-      return 'Không khởi tạo được trình phát YouTube (lỗi nội bộ).';
-    default:
-      return 'Lỗi trình phát YouTube (mã $code).';
-  }
-}
-
-/// Parse tin vị trí phát từ wrapper page: `t:<seconds>` → giây (null nếu
-/// không phải tin thời gian hoặc không parse được).
-double? ytParseTimeMessage(String message) {
-  if (!message.startsWith('t:')) return null;
-  return double.tryParse(message.substring(2));
-}
-
 // ─── Subtitle line ────────────────────────────────────────
 class SubtitleLine {
   final Duration start;
@@ -231,13 +148,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   late WebViewController _ytCtrl;
+  Timer? _timer;
+  Timer? _errWatchdog;
   bool _isLoading = true;
 
-  /// Lỗi trình phát YouTube (mã IFrame API) — null = không lỗi.
-  /// IN4-78: YouTube yêu cầu Referer hợp lệ cho video nhúng (thay đổi chính
-  /// sách ~10/2025) → WebView không có base URL bị trả mã 153. Sửa: load
-  /// wrapper page bằng `loadHtml(baseUrl:)` (tạo Referer) + host
-  /// `youtube-nocookie.com` + meta referrer.
+  /// (IN4-78) Lỗi trình phát YouTube (mã 153…) — null = không lỗi.
   String? _playerError;
 
   // ── Subtitle state ────────────────────────────────────────
@@ -257,17 +172,16 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _initWebView();
     unawaited(_loadWordStates());
     unawaited(_loadRealSubtitles());
-    // (IN4-78) Không còn timer Dart đọc vị trí: wrapper page tự post
-    // 't:<seconds>' mỗi 250ms qua kênh YtSync (IFrame API getCurrentTime).
+    _startTimer();
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
+    _errWatchdog?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
-
-  String _embedHtml() => buildYtEmbedHtml(widget.video.id);
 
   void _initWebView() {
     _ytCtrl = WebViewController()
@@ -276,42 +190,110 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
-            debugPrint('[in4up-yt] page finished: $url');
+            // (IN4-78) 2 bước: trang seed (cùng domain youtube-nocookie)
+            // load xong → điều hướng tới /embed/<id> thật; request lúc đó
+            // tự mang Referer hợp lệ. (Load thẳng /embed/ ở bước đầu thì
+            // không có Referer → YouTube trả lỗi 153.)
+            if (url.toString() == kYtEmbedSeedUrl) {
+              debugPrint('[in4up-yt] seed done → load embed (referrer OK)');
+              _ytCtrl.loadRequest(Uri.parse(buildYtEmbedUrl(widget.video.id)));
+              return;
+            }
+            _injectSyncScript();
+            _startErrorWatchdog();
           },
         ),
       )
       ..addJavaScriptChannel(
         'YtSync',
         onMessageReceived: (msg) {
-          _handlePlayerMessage(msg.message);
+          final time = double.tryParse(msg.message) ?? 0;
+          _updateTime(time);
         },
       )
-      ..loadHtml(_embedHtml(), baseUrl: kYtEmbedBase);
+      ..loadRequest(Uri.parse(kYtEmbedSeedUrl));
   }
 
-  void _reloadPlayer() {
-    debugPrint('[in4up-yt] reload player');
-    setState(() => _playerError = null);
-    _ytCtrl.loadHtml(_embedHtml(), baseUrl: kYtEmbedBase);
-  }
-
-  /// Tin từ wrapper page: `t:<s>` (vị trí phát), `ready`, `state:<n>`,
-  /// `err:<mã>` (lỗi IFrame API: 2/5/100/101/120/150/153/200...).
-  void _handlePlayerMessage(String m) {
-    if (!mounted) return;
-    final time = ytParseTimeMessage(m);
-    if (time != null) {
-      _updateTime(time);
-      return;
-    }
-    if (m.startsWith('err:')) {
-      final code = m.substring(4).trim();
-      debugPrint('[in4up-yt] player error code=$code');
-      if (_playerError == null) {
-        // Báo lần đầu; lần sau (nếu user bấm Thử lại rồi vẫn lỗi) giữ nguyên.
-        setState(() => _playerError = describeYtPlayerError(code));
+  /// (IN4-78) Theo dõi 3s/lần: nếu trang player hiện màn lỗi (mã 153…)
+  /// → hiện overlay tiếng Việt + nút Thử lại. Chạy tới khi có lỗi hoặc
+  /// screen dispose.
+  void _startErrorWatchdog() {
+    _errWatchdog?.cancel();
+    _errWatchdog = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (!mounted) return;
+      try {
+        final res = await _ytCtrl.runJavaScriptReturningResult(
+            "(function(){ var b = document.body; "
+            "return b ? b.innerText.slice(0, 3000) : ''; })();");
+        final text = res == null ? '' : res.toString();
+        if (text.isEmpty) return;
+        if (ytLooksLikePlayerError(text)) {
+          debugPrint('[in4up-yt] player error detected (IN4-78)');
+          _errWatchdog?.cancel();
+          if (mounted && _playerError == null) {
+            setState(() => _playerError =
+                'YouTube từ chối phát video này (lỗi cấu hình trình phát, '
+                'thường là mã 153). Kiểm tra mạng/VPN rồi bấm Thử lại.');
+          }
+        }
+      } catch (e) {
+        // runJavaScript có thể lỗi khi đang chuyển trang — bỏ qua.
       }
-    }
+    });
+  }
+
+  /// (IN4-78) Nút "Thử lại" trên overlay lỗi: quay lại từ đầu (seed → embed).
+  void _reloadPlayer() {
+    debugPrint('[in4up-yt] reload player (IN4-78)');
+    _errWatchdog?.cancel();
+    setState(() => _playerError = null);
+    _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
+  }
+
+  void _injectSyncScript() {
+    const js = r'''
+      (function() {
+        function videoEl() { return document.querySelector('video'); }
+        window._in4upSeek = function(s) {
+          try { var v = videoEl(); if (v) { v.currentTime = s; return; } } catch (e) {}
+          try {
+            document.querySelectorAll('iframe').forEach(function(f) {
+              f.contentWindow.postMessage(JSON.stringify({
+                event: 'command', func: 'seekTo', args: [s, true]
+              }), '*');
+            });
+          } catch (e) {}
+        };
+        window._in4upPause = function() {
+          try { var v = videoEl(); if (v) { v.pause(); return; } } catch (e) {}
+          try {
+            document.querySelectorAll('iframe').forEach(function(f) {
+              f.contentWindow.postMessage(JSON.stringify({
+                event: 'command', func: 'pauseVideo', args: []
+              }), '*');
+            });
+          } catch (e) {}
+        };
+        window._in4upPlay = function() {
+          try { var v = videoEl(); if (v) { v.play(); return; } } catch (e) {}
+          try {
+            document.querySelectorAll('iframe').forEach(function(f) {
+              f.contentWindow.postMessage(JSON.stringify({
+                event: 'command', func: 'playVideo', args: []
+              }), '*');
+            });
+          } catch (e) {}
+        };
+        function tick() {
+          try {
+            var v = videoEl();
+            if (v && window.YtSync) YtSync.postMessage(String(v.currentTime));
+          } catch (e) {}
+        }
+        setInterval(tick, 250);
+      })();
+    ''';
+    _ytCtrl.runJavaScript(js);
   }
 
   void _updateTime(double time) {
@@ -341,6 +323,17 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     } else {
       _currentTime = time;
     }
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      _ytCtrl.runJavaScript('''
+        (function(){
+          var v = document.querySelector('video');
+          if (v && window.YtSync) YtSync.postMessage(String(v.currentTime));
+        })();
+      ''');
+    });
   }
 
   Future<void> _loadWordStates() async {
@@ -626,6 +619,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       fit: StackFit.expand,
       children: [
         WebViewWidget(controller: _ytCtrl),
+        // (IN4-78) Không để màn lỗi YouTube chết im lặng: overlay + Thử lại.
         if (_playerError != null)
           Container(
             color: const Color(0xCC000000),

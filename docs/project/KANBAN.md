@@ -95,7 +95,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–11 đã dịch** 2026-10-08 (518/648 chuỗi, hiệu lực runtime ngay); còn **130** chuỗi uiText/Text chưa English + **337** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–12 đã dịch** 2026-10-09 (545/648 chuỗi, hiệu lực runtime ngay); còn **103** chuỗi uiText/Text chưa English + **310** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -1092,6 +1092,24 @@
   - 2026-09-24 | 08:45 UTC | doing→doing (PR mở) | agent arena/01a0d013-in4up | **PR #49** https://github.com/Pabhassaracitto/In4Up/pull/49 → arena/01a0251e-in4up. Chờ owner: build local + cài máy, 4 secret ANDROID_KEYSTORE_*, tag `v*` để CI ký + verify.
   - 2026-09-27 | 21:00 UTC | doing→doing | agent arena/01a0d013-in4up | Owner build ở checkout KHÔNG có fix (không có `scripts/ci/`, 251e chưa merge #49) ⇒ APK vẫn unsigned, "gói không hợp lệ" — đúng dự đoán, chưa phải bằng chứng chống lại fix. Phát hiện `flutter build` gọi Gradle `-q` ⇒ đổi log `[in4up-sign]` sang `logger.quiet` (b6e8bf4) để người build thấy được. Merge lại 251e@b90ba3e (README viết lại ở 251e, chèn lại mục Build a release APK) — PR #49 hết conflict. Cách tự kiểm không cần script: `ls build/app/outputs/apk/stable/release/` — file gốc của AGP mang hậu tố `-unsigned` nếu chưa ký.
 
+### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
+
+- Owner hỏi: 251e có commit fix lỗi đăng nhập thì cherry-pick sang nhánh này.
+- Kết quả: **fix đã có sẵn trên nhánh này** — root cause (APK ký sai/unsigned ⇒ Google
+  Sign-In crash khi bấm icon đăng nhập) được fix bởi `c813273` (CI-ANDROID-03: signingConfig
+  release từ `key.properties` + fallback debug có cảnh báo `[in4up-sign]` + version đọc từ
+  pubspec + scripts `android_prepare_signing.sh`/`android_verify_apk_signed.sh`) và
+  `e93a28e` (cảnh báo BẮT BUỘC `--flavor stable` trong `build.gradle.kts` — build không
+  flavor ⇒ crash đăng nhập; rename APK + commit5). Cả 2 đã vào nhánh này qua ancestry
+  (01a10675/main): `git diff c813273 HEAD -- android/app/build.gradle.kts scripts/ci/…` chỉ
+  còn khác biệt do các fix SAU (khối `ndk{}` chuyển vào trong `defaultConfig` của
+  CI-BUILD-NDK), không thiếu nội dung fix. `android_rename_apks.sh` đã có đuôi commit5.
+- ⇒ Không cherry-pick (pick sẽ rỗng/conflict vô ích). 3 commit docs điều tra
+  (`fc5e08c`/`46ba897`/`0de1841`) chỉ sửa KANBAN 251e — không pick vì KANBAN đã phân kỳ.
+- Lịch sử:
+  - 2026-10-09 | checked (no cherry-pick needed) | agent arena/af0abe2f-in4up | đối chiếu 251e,
+    xác nhận fix đăng nhập đã có sẵn, ghi chú card này.
+
 ### CI-RELEASE-001 — Release hiện commit cũ dù build từ nhánh mới (Linear UIU-1)
 
 - **Trạng thái:** 🔨 doing — fix đã push lên `arena/af0abe2f-in4up` (job `align-release` trong `build_final_complete.yml`); chờ owner dispatch 1 bản beta để xác nhận release đúng commit.
@@ -2016,6 +2034,13 @@
     `bản đối chiếu`→`parallel view`, `song ngữ/căn hàng`→`bilingual/alignment`,
     `gói ngôn ngữ`→`language pack`, `Pāli`/`Tipiṭaka` giữ nguyên dấu. Catalog → 2295 key,
     sàn 130/337, residual 0.
+  - 2026-10-09 | doing (phần 2, lô 12 — cụm Dịch & Ngữ pháp) | agent arena/af0abe2f-in4up | dịch 27 chuỗi
+    4 file (`screen_translate_card`, `translation_toolbar`, `grammar/structure_section`,
+    `grammar/legend_bar`) — bong bóng dịch màn hình (quyền chụp màn hình/hiển thị trên app khác,
+    bật/tắt, Android only), thanh công cụ dịch (Hy-MT/ML Kit + từ điển, DeepLX test, lỗi HTTP/
+    kết nối server, import .gguf), phân tích cấu trúc câu (Mệnh đề, Câu điều kiện, Công thức câu,
+    Cụm rộng hơn, Ẩn chú giải). Thuật ngữ khớp catalog: `Câu`→`Sentence`, `Cụm từ`→`Phrase`,
+    `bong bóng`→`bubble`, `chú giải`→`explanations`. Catalog → 2322 key, sàn 103/310, residual 0.
   - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
     rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
     ListenLibraryScreen/AudioLibraryView (chờ CI)

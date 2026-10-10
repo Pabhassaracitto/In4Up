@@ -87,7 +87,7 @@ jobs:
         id: i4u18-lib-tests
         run: |
           set +e
-          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart"
+          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart test/youtube_search_parser_test.dart test/yt_dlp_sidecar_test.dart test/yt_player_embed_test.dart"
           flutter test $files > i4u18_lib_test.log 2>&1
           code=$?
           cat i4u18_lib_test.log

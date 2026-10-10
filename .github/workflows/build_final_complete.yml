@@ -274,15 +274,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # CI-ANDROID-04: CHỈ build Universal APK (1 bản "chip phổ thông" cho mọi
-      # chip) — bỏ 3 bản tách theo chip (llama.cpp × 3 ABI tốn CI mà release
-      # giờ không ship). Luôn --flavor stable: không --flavor ⇒ Gradle build
-      # cả dev/beta (chậm ×3, cần client google-services cho com.in4up.dev/.beta).
-      - name: Build Universal APK
+      # IN4-73: CHỈ build APK arm64-v8a (chip phổ thông) — KHÔNG universal 3-ABI
+      # (armv7+arm64+x64 ~212MB) để giảm dung lượng tải về. Dùng
+      # --target-platform android-arm64 (ĐẢM BẢO 1 ABI duy nhất, không phụ thuộc
+      # abiFilters) + abiFilters arm64-v8a trong build.gradle.kts (kép, an toàn).
+      # Bỏ 3 bản tách theo chip (CI-ANDROID-04). Luôn --flavor stable: không
+      # --flavor ⇒ Gradle build cả dev/beta (chậm ×3, cần client google-services
+      # cho com.in4up.dev/.beta).
+      - name: Build APK (arm64-v8a only — IN4-73)
         shell: bash
         run: |
-          echo "Building universal APK..."
-          flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
+          echo "Building arm64-v8a-only APK (IN4-73)..."
+          flutter build apk --release --flavor stable --target-platform android-arm64 --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \

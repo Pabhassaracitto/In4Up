@@ -1,6 +1,7 @@
 // lib/features/tts/tts_service.dart
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -994,6 +995,73 @@ class TtsService extends ChangeNotifier {
         await Future.delayed(pauseBetween);
       }
     }
+  }
+
+  /// Tổng hợp văn bản thành FILE âm thanh (không phát) — cho tính năng
+  /// "lưu bài đọc thành âm thanh" ở Web Reader: file thu được có thể mở lại
+  /// trong tab Nghe để học với tốc độ chậm / A-B loop.
+  /// Ưu tiên Piper offline (on-device, .wav); nếu không có thì thử Edge
+  /// online (.mp3). Trả về đường dẫn file đầy đủ (có extension), null nếu
+  /// thất bại. Dùng giọng/tốc độ/cao độ đang cài đặt của user.
+  Future<String?> synthesizeToFile(
+    String text, {
+    required String pathWithoutExtension,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
+    final lang = _resolveLanguage(trimmed);
+
+    // 1. Piper offline — on-device, riêng tư
+    try {
+      final piper = PiperTtsEngine.instance;
+      if (await piper.isAvailable()) {
+        final result = await piper.synthesize(
+          text: trimmed,
+          language: lang,
+          speed: _speed,
+          pitch: _pitch,
+          voiceId: _selectedVoiceId,
+        );
+        if (result.isSuccess &&
+            result.audioData != null &&
+            result.audioData!.isNotEmpty) {
+          final path = '$pathWithoutExtension.wav';
+          await File(path).writeAsBytes(result.audioData!, flush: true);
+          _lastUsedEngine = '🎙️ Sherpa Piper (lưu file)';
+          debugPrint('✅ TTS lưu file: $path');
+          return path;
+        }
+        debugPrint('ℹ️ synthesizeToFile: Piper fail (${result.error})');
+      }
+    } catch (e) {
+      debugPrint('⚠️ synthesizeToFile piper error: $e');
+    }
+
+    // 2. Edge online — cần mạng
+    try {
+      final edgeVoice = await _resolveEdgeVoice(lang);
+      final result = await EdgeTtsEngine().synthesize(
+        text: trimmed,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+        voiceId: edgeVoice,
+      );
+      if (result.isSuccess &&
+          result.audioData != null &&
+          result.audioData!.isNotEmpty) {
+        final path = '$pathWithoutExtension.mp3';
+        await File(path).writeAsBytes(result.audioData!, flush: true);
+        _lastUsedEngine = '☁️ Edge (lưu file)';
+        debugPrint('✅ TTS lưu file: $path');
+        return path;
+      }
+      debugPrint('ℹ️ synthesizeToFile: Edge fail (${result.error})');
+    } catch (e) {
+      debugPrint('⚠️ synthesizeToFile edge error: $e');
+    }
+
+    return null;
   }
 
   // ═══════════════════════════════════════

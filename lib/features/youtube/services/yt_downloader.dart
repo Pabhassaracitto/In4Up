@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/yt_video.dart';
+import 'yt_dlp_sidecar.dart';
 
 // ─── Audio Quality ────────────────────────────────────────
 
@@ -203,13 +204,68 @@ class YtDownloader {
       if (!ctrl.isClosed) ctrl.close();
     } catch (e) {
       yt.close();
-      fail(_friendlyError(e.toString()));
+      // WP-Z (PLAN-020): tầng 2 — yt-dlp sidecar (desktop, user tự cài)
+      // khi explode gãy (YouTube đổi client). Không có sidecar thì báo lỗi gốc.
+      final ok = await _trySidecarDownload(ctrl, video, quality);
+      if (!ok) fail(_friendlyError(e.toString()));
     }
   }
 
   /// Hủy download đang chạy
   void cancel() {
     _cancelled = true;
+  }
+
+  /// yt-dlp (thang 0–10, 0 = tốt nhất) tương ứng [YtAudioQuality]
+  int _sidecarAudioQuality(YtAudioQuality q) => switch (q) {
+        YtAudioQuality.highest => 0,
+        YtAudioQuality.medium => 5,
+        YtAudioQuality.low => 8,
+      };
+
+  /// Tầng 2: tải bằng yt-dlp sidecar. Trả về true nếu đã có kết quả
+  /// (thành công hoặc tự xử lý sự kiện hủy).
+  Future<bool> _trySidecarDownload(
+    StreamController<YtDownloadEvent> ctrl,
+    YtVideo video,
+    YtAudioQuality quality,
+  ) async {
+    final sidecar = YtDlpSidecar.instance;
+    if (!await YtDlpSidecar.isAvailable()) return false;
+    debugPrint('⬇️ explode gãy — thử yt-dlp sidecar cho ${video.id}');
+    try {
+      await for (final ev in sidecar.downloadAudio(
+        video.id,
+        audioQuality: _sidecarAudioQuality(quality),
+      )) {
+        if (_cancelled) {
+          sidecar.cancel();
+          break;
+        }
+        if (ctrl.isClosed) return false;
+        if (ev is YtDlpProgress) {
+          ctrl.add(YtDownloadProgress(ev.progress, ev.text));
+        } else if (ev is YtDlpDone) {
+          ctrl.add(YtDownloadDone(ev.filePath, quality: 'yt-dlp'));
+          if (!ctrl.isClosed) ctrl.close();
+          return true;
+        } else if (ev is YtDlpFailed) {
+          debugPrint('yt-dlp sidecar fail: ${ev.message}');
+          break;
+        }
+      }
+      if (_cancelled) {
+        if (!ctrl.isClosed) {
+          ctrl.add(YtDownloadFailed('Đã hủy'));
+          ctrl.close();
+        }
+        return true; // đã tự kết thúc bằng sự kiện hủy
+      }
+      return false;
+    } catch (e) {
+      debugPrint('yt-dlp sidecar error: $e');
+      return false;
+    }
   }
 
   // ─── Helpers ─────────────────────────────────────────

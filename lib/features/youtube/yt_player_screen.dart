@@ -26,6 +26,37 @@ import 'models/yt_video.dart';
 import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
 
+// ─── IN4-78 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" ───────
+// Từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/) phải có
+// **HTTP Referer** hợp lệ. WebView load thẳng /embed/ (load đầu tiên,
+// không có trang trước) → không có Referer → player trả mã 153.
+//
+// Fix (không cần API mới — webview_flutter 4.x không có loadHtml):
+// tải TRƯỚC 1 trang cùng domain `youtube-nocookie.com/embed` (seed) → khi
+// điều hướng sang trang /embed/<id> thật, WebView tự gửi
+// `Referer: https://www.youtube-nocookie.com` (mặc định
+// strict-origin-when-cross-origin → gửi origin) → đạt yêu cầu mới.
+// Hàm top-level để test thuần bắt được.
+
+/// Trang seed — chỉ để tạo Referer cho request /embed/ kế tiếp.
+const String kYtEmbedSeedUrl = 'https://www.youtube-nocookie.com/embed';
+
+/// URL trang nhúng YouTube (domain nocookie — domain nhúng chuẩn của Google).
+String buildYtEmbedUrl(String videoId) =>
+    'https://www.youtube-nocookie.com/embed/$videoId'
+    '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1'
+    '&origin=https://www.youtube-nocookie.com';
+
+/// body text của trang player đang chứa màn lỗi YouTube (153 hoặc khác)
+/// → app hiện overlay tiếng Việt + nút Thử lại (không để chết im lặng).
+bool ytLooksLikePlayerError(String bodyText) {
+  final t = bodyText.toLowerCase();
+  return t.contains('lỗi cấu hình trình phát') ||
+      (t.contains('lỗi cấu hình') && t.contains('153')) ||
+      t.contains('video player configuration error') ||
+      t.contains('player configuration error');
+}
+
 // ─── Word knowledge state ─────────────────────────────────
 enum WordState { unknown, known, learning, ignored }
 
@@ -118,7 +149,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   late TabController _tabCtrl;
   late WebViewController _ytCtrl;
   Timer? _timer;
+  Timer? _errWatchdog;
   bool _isLoading = true;
+
+  /// (IN4-78) Lỗi trình phát YouTube (mã 153…) — null = không lỗi.
+  String? _playerError;
 
   // ── Subtitle state ────────────────────────────────────────
   final List<SubtitleLine> _lines = [];
@@ -143,6 +178,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   @override
   void dispose() {
     _timer?.cancel();
+    _errWatchdog?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -154,7 +190,17 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
+            // (IN4-78) 2 bước: trang seed (cùng domain youtube-nocookie)
+            // load xong → điều hướng tới /embed/<id> thật; request lúc đó
+            // tự mang Referer hợp lệ. (Load thẳng /embed/ ở bước đầu thì
+            // không có Referer → YouTube trả lỗi 153.)
+            if (url.toString() == kYtEmbedSeedUrl) {
+              debugPrint('[in4up-yt] seed done → load embed (referrer OK)');
+              _ytCtrl.loadRequest(Uri.parse(buildYtEmbedUrl(widget.video.id)));
+              return;
+            }
             _injectSyncScript();
+            _startErrorWatchdog();
           },
         ),
       )
@@ -165,9 +211,43 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           _updateTime(time);
         },
       )
-      ..loadRequest(Uri.parse(
-          'https://www.youtube.com/embed/${widget.video.id}'
-          '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1&origin=https://www.youtube.com'));
+      ..loadRequest(Uri.parse(kYtEmbedSeedUrl));
+  }
+
+  /// (IN4-78) Theo dõi 3s/lần: nếu trang player hiện màn lỗi (mã 153…)
+  /// → hiện overlay tiếng Việt + nút Thử lại. Chạy tới khi có lỗi hoặc
+  /// screen dispose.
+  void _startErrorWatchdog() {
+    _errWatchdog?.cancel();
+    _errWatchdog = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (!mounted) return;
+      try {
+        final res = await _ytCtrl.runJavaScriptReturningResult(
+            "(function(){ var b = document.body; "
+            "return b ? b.innerText.slice(0, 3000) : ''; })();");
+        final text = res == null ? '' : res.toString();
+        if (text.isEmpty) return;
+        if (ytLooksLikePlayerError(text)) {
+          debugPrint('[in4up-yt] player error detected (IN4-78)');
+          _errWatchdog?.cancel();
+          if (mounted && _playerError == null) {
+            setState(() => _playerError =
+                'YouTube từ chối phát video này (lỗi cấu hình trình phát, '
+                'thường là mã 153). Kiểm tra mạng/VPN rồi bấm Thử lại.');
+          }
+        }
+      } catch (e) {
+        // runJavaScript có thể lỗi khi đang chuyển trang — bỏ qua.
+      }
+    });
+  }
+
+  /// (IN4-78) Nút "Thử lại" trên overlay lỗi: quay lại từ đầu (seed → embed).
+  void _reloadPlayer() {
+    debugPrint('[in4up-yt] reload player (IN4-78)');
+    _errWatchdog?.cancel();
+    setState(() => _playerError = null);
+    _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
   }
 
   void _injectSyncScript() {
@@ -535,7 +615,36 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   // ── Video Player ──────────────────────────────────────────
   Widget _buildVideoPlayer() {
-    return WebViewWidget(controller: _ytCtrl);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        WebViewWidget(controller: _ytCtrl),
+        // (IN4-78) Không để màn lỗi YouTube chết im lặng: overlay + Thử lại.
+        if (_playerError != null)
+          Container(
+            color: const Color(0xCC000000),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.redAccent, size: 36),
+                const SizedBox(height: 10),
+                Text(
+                  _playerError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: _reloadPlayer,
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 
   // ── Subtitle area ─────────────────────────────────────────

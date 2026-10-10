@@ -8,6 +8,17 @@ Tiền đề: lane native đã có sẵn (XLAT-SCR-002, ADR-0011). Đây **khôn
 viết lại tính năng, mà là làm cho cú chạm bong bóng có kết quả — hoặc ít nhất
 nói cho người dùng biết vì sao không có kết quả.
 
+> ### ⚠️ UPDATE bản 1.10.4 (owner 2026-10-08) — THÊM triệu chứng, ưu tiên CRASH
+> - Nhấn bong bóng → **hoạt động ngầm RẤT LÂU** (không progress rõ).
+> - Nhấn **lần nữa** → hiện "Đang dịch màn hình trước…" (chặn chồng lệnh).
+> - Khi bong bóng đổi cho **kéo chọn vùng dịch**, **kéo xong → SẬP APP**.
+>
+> ⇒ **CRASH khi kéo chọn vùng là P1** (trên cả "chạm không có gì"). Lấy
+> `adb logcat` stack trace của crash kéo-vùng trước tiên (sản phẩm bắt buộc),
+> sửa đúng nguyên nhân native (nghi: xử lý bitmap/bbox của vùng kéo trên
+> thread sai, hoặc NPE khi vùng kéo rỗng/ra ngoài màn hình, hoặc
+> MediaProjection frame null). Cross-ref card `XLAT-SCR-003`.
+
 ---
 
 ## 0. Luật phiên

@@ -1,34 +1,9 @@
+
 # KANBAN — Bảng việc dự án (nguồn sự thật duy nhất về trạng thái)
 
 > Luật cập nhật: xem `docs/GOVERNANCE.md` mục 3 — CHỈ đổi trạng thái +
 > append lịch sử, không xóa. Bảng tóm tắt dưới đây luôn được làm mới
 > tương đồng với các card phía dưới.
-
-## ⚠️ ĐÍNH CHÍNH 2026-10-08 — quyền sửa `.github/workflows/` (đọc trước khi tin ghi chú cũ)
-
-> **Sự thật đã kiểm chứng:** token của agent Arena **CÓ** quyền push thay đổi vào
-> `.github/workflows/**`. Bằng chứng: commit `fcc519f0` (nhánh `arena/af0abe2f-in4up`)
-> thêm step *"UX shell contracts + C-31 state preservation"* vào `app_analyze.yml` và CI
-> chạy đúng step đó — run `37782521070`, step 24 success, artifact
-> `app-ux-contract-test-log`.
->
-> **Vì sao cần box này:** nhiều dòng trong KANBAN (card `CI-WINDOWS-01`, `CI-LINUX-01`,
-> `CI-ANDROID-01`, `CI-IOS-01` và các dòng lịch sử của chúng) + `docs/adr/0002`,
-> `docs/adr/0005-*`, `docs/handoff_soundlist_v1.md`, `docs/pdf_reader_readera_upgrade.md`
-> ghi "token/GitHub App của agent thiếu quyền `workflows`". Đó là **thông tin lịch sử
-> của thời điểm viết** (một số từng đúng với token lúc đó); **KHÔNG dùng để kết luận
-> hiện tại**. Ghi chú đó nay chỉ còn đúng với **token GitHub App của job release**
-> (`CI-WINDOWS-01`), không phải token agent.
->
-> **Cách kiểm chứng (đừng đoán):** thử push một thay đổi nhỏ vào `.github/workflows/`.
-> Nếu bị chặn, thông báo thật sẽ là `refusing to allow a Personal Access Token to
-> create or update workflow ...` — chứ không phải suy luận từ ghi chú cũ.
->
-> **Luật chạy workflow:** với sự kiện `push`, GitHub dùng `.github/workflows/*` **trên
-> chính commit vừa push** (bản của nhánh đang làm việc). Sửa workflow ở `main`/nhánh
-> khác **không** làm nhánh này chạy bước mới; muốn có "máy bắt" cho nhánh X thì thêm
-> bước vào workflow **của X** rồi để nó đi kèm khi merge. (Đã ghi cùng luật vào
-> `AGENTS.md` mục "Vận hành CI / môi trường".)
 
 ## Tổng quan
 
@@ -40,7 +15,7 @@
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
-| TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test xong, chờ CI + nghiệm thu máy) | **Re-apply** (commit gốc `c307e0a` MẤT — không được push trước khi phiên 01a10633 đóng): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -62,6 +37,7 @@
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
 | WEB-LOAD-001 | Web Reader: spinner/load "kẹt" — trang đã load xong mà vẫn xoay + load (kể cả khi bấm icon "eye" đánh dấu từ đã lưu) | 🔄 doing (code xong, chờ CI + nghiệm thu máy) | WEB-LOAD-001 watchdog: `onPageFinished` vắng mặt >10s ⇒ tự `state→ready` (ẩn spinner); sửa `web_reader_controller.dart` — owner báo 2026-10-06 (build cũ) |
 | WEB-TTS-PAUSE-001 | Web Reader: bấm nút Pause bài đọc vẫn tiếp tục đọc (icon đã đổi sang ▶ tam giác) | ✅ done + CI xanh (trong tip) — chờ owner build lại + nghiệm thu máy | fix PAUSE F3 đã ở tip `72b1e85` (2026-10-01): `pause()` dừng CẢ AudioPlayer + giọng máy + `speakLines` ĐỨNG YÊN khi pause (không auto-skip câu kế); build cũ `1d58b78` (09-15) KHÔNG có fix này → "bấm Pause xong vẫn nghe" |
+| WEB-RDR-001 | Web Reader: dịch đoạn chọn (TranslationService) + lưu bài đọc thành file âm thanh (TTS → file, mở trong tab Nghe) | 🔨 doing (code xong, chờ CI + nghiệm thu máy) | nút Dịch trên thanh selection + menu "Lưu bài đọc thành âm thanh" (`web_reader_screen.dart`); `TtsService.synthesizeToFile` (Piper offline → Edge online) + `WebReaderController.synthesizeTextToFile`; 15 chuỗi chrome mới đăng ký i18n rule #5 |
 | PDF-W0 | Wave 0 PDF Reader: nối selection + TTS câu + định danh file + hệ toạ độ + i18n + test sàn | 🔨 doing | code + CI 🟢 05-09-2026 (`370ff91`, run 33984585516: analyze 0 error + test rule #5 xanh) trên `arena/01a07250-in4up`; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` ở máy dev |
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
@@ -77,6 +53,7 @@
 | MAIN-RESTORE-001 | main = snapshot cũ 2026-09-23 (733 file, mất CI mới + 26k dòng) — cần content-sync từ 0251e | 📋 proposed (chờ owner quyết, GOVERNANCE 4b) | KHÔNG merge chéo (2 lineage không tổ tiên chung); content-sync bằng 1 commit thường trên main; giữ LICENSE nếu muốn; chi tiết thủ thuật trong card |
 | CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
+| CI-ANDROID-05 | (IN4-73) Chỉ build APK **arm64-v8a** thay vì Universal 3-ABI — giảm dung lượng tải về | ✅ done (build thật XANH + owner đã cài bản arm64 lên máy) | build `37994985198` (commit `60bff6b`) Android job xanh, artifact arm64-only `in4up-Android-arm64-v8a-1.11.0-60bff.apk` — owner đã cài + dùng bản này (IN4-78/79). `build_final_complete.yml`: `--target-platform android-arm64` (ĐẢM BẢO 1 ABI) + rename "Build APK (arm64-v8a only)"; `android_rename_apks.sh`: chỉ XÓA ABI không-arm64, nhận mọi tên output arm64. `abiFilters arm64-v8a` GIỮ LẠI (kép, an toàn) |
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner chọn thời điểm áp patch; **KHÔNG vướng quyền `workflows`** — xem ĐÍNH CHÍNH) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu; fix = +1 apt package, agent tự push được nếu owner cho phép |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner quyết định áp patch release) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm `CMakeFiles/*.dir/Release` rác thay vì `runner/Release`; patch ở `docs/project/CI-WINDOWS-01-patch.diff`. **ĐÍNH CHÍNH:** blocker cũ "token thiếu quyền `workflows`" KHÔNG đúng với token agent (xem box đầu file) — agent push được `.github/workflows/*`; việc còn lại là owner chọn thời điểm áp + xác nhận bằng 1 tag release |
 | CI-RELEASE-001 | Release hiện commit cũ dù build từ nhánh mới (Linear UIU-1): tag 1.11.0/1.11.0-Beta tồn tại sẵn trên main (e9b5900), release-action chỉ attach asset, không retag | 🔨 doing (fix đã push: job `align-release` retag về đúng commit đang build, chạy trước 4 job build) | root cause 2 lớp: tag cũ trên main + version_name chọn release khác — xem card; nhánh `arena/af0abe2f-in4up` — `.github/workflows/build_final_complete.yml` |
@@ -101,11 +78,6 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
-| UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (máy bắt 26 kịch bản + bước CI riêng 🟢 run 37782521070; còn nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` (PR #96 → `arena/01a0251e-in4up`, mergeable clean) — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` + step CI trong `app_analyze.yml` |
-| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37804605761`/`37804624188`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell (✅ phần breakpoint/overlay đóng ở UX-C02b) + 8 literal chrome tiếng Việt trong widget shell (đã đóng ở I18N-002) |
-| UX-C02b | C-02b Nối policy responsive vào shell: `main_shell.dart` hết literal `>= 1024`; Command Palette đọc trần overlay từ policy; drift guard siết 4 phép khẳng định | ✅ done (code + máy bắt + CI 🟢 push `37821634820` + PR `37821645232` @ `57d23db` — chờ QA tay xoay/thu nhỏ cửa sổ thiết bị) | nhánh `arena/af0abe2f-in4up` — `app_responsive.dart` (+`overlayDialogMaxWidth/Height`), `main_shell.dart`, `widgets/shell/command_palette.dart`, `test/responsive_accessibility_qa_test.dart`; xem D-035 (phần safe-area/overlay để capability riêng) |
-| I18N-002 | Chrome shell (`lib/widgets/shell/`): 7 nhãn hard-code tiếng Việt ⇒ locale ≠ vi hiện nguyên tiếng Việt (rule #5, phát hiện bởi C-30 §4.2) | ✅ done (code + máy bắt 3 tầng + CI 🟢 `37804605761`/`37804624188`; chờ QA tay locale ≠ vi) | nhánh `arena/af0abe2f-in4up` — bọc `context.uiText` + English ở `priority_ui_overrides.dart` & `tool/legacy_ui_english_overrides.json` + `test/shell_chrome_i18n_coverage_test.dart` (bước CI 24 file) |
-| UX-C27 | C-27 Cabin Live / Real-time Interpretation — cross-workspace live utility (KHÔNG phải workspace thứ 6; 5 workspace cố định) — 14-state machine, caption 3 giai đoạn, handoff 10 trường + returnPath, flow Nghe→Cabin→Hiểu→Nhớ→về Cabin | ✅ done — docs 42/43 + D-036; code state contract + controller; 3 test file (27 test) trong CI; analyze + UX-contract + PR check xanh | nhánh `arena/af0abe2f-in4up` — `lib/features/cabin/models/c27_cabin_live_state.dart`, `controllers/c27_cabin_live_controller.dart`, 3 test C-27 trong app_analyze (27 file); docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md` |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -123,6 +95,7 @@
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
+| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer cho video nhúng (~10/2025) | 🔄 doing (code + test + CI 🟢 38002011629, chờ nghiệm thu máy) | 2 bước `loadRequest`: seed `youtube-nocookie.com/embed` → trang thật (request tự mang Referer) + watchdog 3s phát hiện màn lỗi → overlay VT + nút Thử lại; test `test/yt_player_embed_test.dart` (10 test) vào i4u18-lib-tests |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
@@ -149,6 +122,7 @@
 | BATCH-0915 | 9 lỗi sau build 1d58b78 (owner 2026-09-15) — handoff agent Arena | 🔄 doing | 9 card chi tiết: PDF-JUMP-001, WLIST-LANG-001, PDF-PAGE-001, XLAT-MLKIT-001, READ-TOOLBAR-001, TTS-PIPER-002 (fix xong chờ nghiệm thu), SHELL-GEAR-001, LISTEN-LRC-001, LISTEN-VIEW-001 — xem section "BATCH OWNER 2026-09-15" — cập nhật A4 v2: READ-TOOLBAR-001 loại bỏ toàn bộ widget animation (bước 2 của card) do AT v1 icon ẩn nhưng vẫn còn khối đen; chờ nghiệm thu máy lần 2 |
 | HOME-QUICK-001 | Home: "Nạp tri thức nhanh" + icon ghi âm chưa hoạt động (stub) | ✅ done + CI xanh (chờ nghiệm thu máy) | flow STT thật dùng chung card + FAB (Sherpa offline trước, fallback STT hệ thống), transcript realtime → lưu WordList/ghi chú; "Gợi ý" rút entry THẬT ưu tiên thẻ đến kỳ; bỏ `_SttDialog` giả — run 35863346239 |
 | BATCH-0916 | 9 việc mới (owner 2026-09-16) — handoff agent Arena | 🔄 doing | HYMT-002 (timeout Hy-MT), CABIN-ASR-002 (Zipformer "cho EN" + cabin offline regression), HOME-QUICK-001 (nạp tri thức + mic stub), HOME-STUDIO-001 (Studio đủ 7 mode), HOME-KG-001 (Knowledge Graph vô đáp), HOME-STREAK-001 (thống kê thật), LISTEN-LRC-LAYOUT-001 (lời AI chạm sóng âm), XP-MODE-001 (tab Trải nghiệm + tool ẩn), SHADOW-FILE-001 (ENOENT cache + AB) — xem section "BATCH OWNER 2026-09-16" |
+| AUDIT-0104 | **Audit bản 1.10.4** (owner 2026-10-08) — 21 mục, dạng checklist "kiểm tra trước bay"; (P0) login văng app + verify commit build | 🔨 triage done — 21 card con + prompt giao việc; chờ agent nhận việc | Build 1.10.4 (run `37724784118`) dùng commit **`e22cd3a` = tip MỚI NHẤT 251e** (KHÔNG phải commit cũ — đã verify). Xem section "BATCH AUDIT v1.10.4" + 10 file `PROMPT_AGENT_*.md` |
 | SHERPA-STREAM-001 | Crash SIGABRT: model streaming nạp qua OfflineRecognizer ("Got 51 Expected 39") | ✅ fix code (chờ CI + nghiệm thu máy) | detection 2 lớp (tên + metadata) + 3 hard-guard chặn OfflineRecognizer với model streaming — live EN (streaming) chạy OnlineRecognizer, file/LRC với model streaming báo lỗi rõ không crash |
 | VIENEU-001 | VieNeu-TTS optional engine (PLAN-027) | 📋 proposed | chỉ ghi plan — chưa code |
 | TTS-PIPER-002 | Catalog tải Piper (HF rhasspy/piper-voices) ưu tiên VI/EN/ZH/HI + xem thêm | 🔄 doing | PLAN-028; sheet Tải giọng + k2-fsa rồi HF |
@@ -186,7 +160,38 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
+| UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (máy bắt 26 kịch bản + bước CI riêng 🟢 run 37782521070; còn nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` (PR #96 → `arena/01a0251e-in4up`, mergeable clean) — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` + step CI trong `app_analyze.yml` |
+| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37804605761`/`37804624188`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell (✅ phần breakpoint/overlay đóng ở UX-C02b) + 8 literal chrome tiếng Việt trong widget shell (đã đóng ở I18N-002) |
+| UX-C02b | C-02b Nối policy responsive vào shell: `main_shell.dart` hết literal `>= 1024`; Command Palette đọc trần overlay từ policy; drift guard siết 4 phép khẳng định | ✅ done (code + máy bắt + CI 🟢 push `37821634820` + PR `37821645232` @ `57d23db` — chờ QA tay xoay/thu nhỏ cửa sổ thiết bị) | nhánh `arena/af0abe2f-in4up` — `app_responsive.dart` (+`overlayDialogMaxWidth/Height`), `main_shell.dart`, `widgets/shell/command_palette.dart`, `test/responsive_accessibility_qa_test.dart`; xem D-035 (phần safe-area/overlay để capability riêng) |
+| I18N-002 | Chrome shell (`lib/widgets/shell/`): 7 nhãn hard-code tiếng Việt ⇒ locale ≠ vi hiện nguyên tiếng Việt (rule #5, phát hiện bởi C-30 §4.2) | ✅ done (code + máy bắt 3 tầng + CI 🟢 `37804605761`/`37804624188`; chờ QA tay locale ≠ vi) | nhánh `arena/af0abe2f-in4up` — bọc `context.uiText` + English ở `priority_ui_overrides.dart` & `tool/legacy_ui_english_overrides.json` + `test/shell_chrome_i18n_coverage_test.dart` (bước CI 24 file) |
+| UX-C27 | C-27 Cabin Live / Real-time Interpretation — cross-workspace live utility (KHÔNG phải workspace thứ 6; 5 workspace cố định) — 14-state machine, caption 3 giai đoạn, handoff 10 trường + returnPath, flow Nghe→Cabin→Hiểu→Nhớ→về Cabin | ✅ done — docs 42/43 + D-036; code state contract + controller; 3 test file (27 test) trong CI; analyze + UX-contract + PR check xanh | nhánh `arena/af0abe2f-in4up` — `lib/features/cabin/models/c27_cabin_live_state.dart`, `controllers/c27_cabin_live_controller.dart`, 3 test C-27 trong app_analyze (27 file); docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md` |
 
+
+## ⚠️ ĐÍNH CHÍNH 2026-10-08 — quyền sửa `.github/workflows/` (đọc trước khi tin ghi chú cũ)
+
+> **Sự thật đã kiểm chứng:** token của agent Arena **CÓ** quyền push thay đổi vào
+> `.github/workflows/**`. Bằng chứng: commit `fcc519f0` (nhánh `arena/af0abe2f-in4up`)
+> thêm step *"UX shell contracts + C-31 state preservation"* vào `app_analyze.yml` và CI
+> chạy đúng step đó — run `37782521070`, step 24 success, artifact
+> `app-ux-contract-test-log`.
+>
+> **Vì sao cần box này:** nhiều dòng trong KANBAN (card `CI-WINDOWS-01`, `CI-LINUX-01`,
+> `CI-ANDROID-01`, `CI-IOS-01` và các dòng lịch sử của chúng) + `docs/adr/0002`,
+> `docs/adr/0005-*`, `docs/handoff_soundlist_v1.md`, `docs/pdf_reader_readera_upgrade.md`
+> ghi "token/GitHub App của agent thiếu quyền `workflows`". Đó là **thông tin lịch sử
+> của thời điểm viết** (một số từng đúng với token lúc đó); **KHÔNG dùng để kết luận
+> hiện tại**. Ghi chú đó nay chỉ còn đúng với **token GitHub App của job release**
+> (`CI-WINDOWS-01`), không phải token agent.
+>
+> **Cách kiểm chứng (đừng đoán):** thử push một thay đổi nhỏ vào `.github/workflows/`.
+> Nếu bị chặn, thông báo thật sẽ là `refusing to allow a Personal Access Token to
+> create or update workflow ...` — chứ không phải suy luận từ ghi chú cũ.
+>
+> **Luật chạy workflow:** với sự kiện `push`, GitHub dùng `.github/workflows/*` **trên
+> chính commit vừa push** (bản của nhánh đang làm việc). Sửa workflow ở `main`/nhánh
+> khác **không** làm nhánh này chạy bước mới; muốn có "máy bắt" cho nhánh X thì thêm
+> bước vào workflow **của X** rồi để nó đi kèm khi merge. (Đã ghi cùng luật vào
+> `AGENTS.md` mục "Vận hành CI / môi trường".)
 
 ## Card chi tiết
 
@@ -1223,6 +1228,61 @@
     worktree) ⇒ 2 commit rác cục bộ (5c99b7a2 + 798cde87, triệt tiêu nhau),
     remote an toàn. Hướng dẫn sửa 3 bước đã gửi owner.
 
+### CI-ANDROID-05 — (IN4-73) Chỉ build APK arm64-v8a thay vì Universal 3-ABI (giảm dung lượng)
+- **Trạng thái:** ✅ done (build Android thật XANH + owner đã cài bản arm64 lên máy)
+- **Nguồn:** Linear **IN4-73** (owner 2026-10-08): "build bản v1.11.0-Beta đang
+  chạy bước 'Build Universal APK'… gộp 3 kiến trúc chip nên dung lượng lớn.
+  Yêu cầu chỉ build 1 APK cho ARM64/arm64-v8a để giảm dung lượng tải về."
+- **Bối cảnh:** CI-ANDROID-04 đã chuyển từ 3 bản tách chip → 1 bản Universal
+  (1 file mọi chip) — nhưng "universal" = **3 ABI trong 1 APK (~212MB)** nên
+  vẫn to. IN4-73 tiến thêm 1 bước: chỉ giữ **arm64-v8a** (chip phổ thông) →
+  APK nhỏ hơn hẳn (bỏ native lib armv7 + x86_64, kể cả llama.cpp/ggml × 2 ABI).
+- **Vì sao dùng `--target-platform` (không chỉ dựa `abiFilters`):**
+  `build.gradle.kts` ĐÃ có `ndk { abiFilters += "arm64-v8a" }` (trong
+  defaultConfig) NHƯNG `abiFilters` **không phải cách đảm bảo** để build
+  Flutter ra đúng 1 ABI — `.so` build sẵn của plugin + `libflutter.so` có thể
+  **không** bị `abiFilters` lọc, và bản v1.11.0-Beta vẫn ra universal ~212MB
+  (theo báo cáo IN4-73). `--target-platform android-arm64` là cách **chuẩn &
+  đảm bảo** của Flutter để build 1 ABI. Fix IN4-73 dùng `--target-platform
+  android-arm64` (đảm bảo 1 ABI, độc lập với abiFilters); `abiFilters` GIỮ LẠI
+  (kép, an toàn).
+- **Fix (2 file, agent arena/01a0251e-in4up):**
+  1. `.github/workflows/build_final_complete.yml` — bước "Build Universal APK"
+     → "**Build APK (arm64-v8a only — IN4-73)**": `flutter build apk --release
+     --flavor stable --target-platform android-arm64 --android-skip-build-
+     dependency-validation …` (các --dart-define giữ nguyên).
+  2. `scripts/ci/android_rename_apks.sh` — (a) vòng XÓA giờ chỉ bỏ ABI
+     **không-arm64** (armv7/x86_64) — KHÔNG xóa bản arm64 (nay là bản ship);
+     (b) vòng đổi tên nhận **mọi tên output arm64** (`app-stable-release.apk`
+     HAY `app-arm64-v8a-*.apk` nếu Flutter đổi tên khi dùng --target-platform);
+     (c) fallback an toàn: đúng 1 .apk duy nhất tên lạ → đổi tên; >1 .apk → lỗi.
+  - `abiFilters arm64-v8a` trong build.gradle.kts **GIỮ LẠI** (kép, an toàn,
+     cũng áp cho build local).
+- **Không đổi:** verify-signed / upload / push release (glob
+  `in4up-Android-*.apk` vẫn khớp `in4up-Android-arm64-v8a-<tag>-<sha>.apk`);
+  các job Windows/iOS/Linux không đụng.
+- **AT (owner):** chạy 1 build Android (dispatch) → job Android XANH; artifact
+  `android-apk` = DUY NHẤT 1 file `in4up-Android-arm64-v8a-<tag>-<sha>.apk`;
+  dung lượng APK **nhỏ hơn** bản universal 212MB (ước ~120-150MB — bỏ armv7+
+  x86_64 native); cài máy arm64 thành công + đăng nhập OK.
+- **Cảnh báo versionCode (kế thừa CI-ANDROID-04):** nếu máy user đang cài bản
+  universal/3-ABI cũ, bản arm64-only mới có versionCode thấp hơn có thể bị chặn
+  `INSTALL_FAILED_VERSION_DOWNGRADE` → cần gỡ app cũ 1 lần HOẶC nâng build
+  number pubspec LỚN hơn versionCode cao nhất của mọi bản cũ trước khi tag.
+- **Lịch sử:**
+  - 2026-10-08 | created→doing | agent arena/01a0251e-in4up (IN4-73) |
+    `--target-platform android-arm64` + rename script robust (chỉ xóa ABI
+    không-arm64, nhận mọi tên arm64 + fallback). Chờ 1 build Android thật
+    xác nhận + owner AT.
+  - 2026-10-10 | ✅ done | agent arena/01a0251e-in4up | build thật XANH:
+    run `37994985198` (build_final_complete, commit `60bff6b`) — job Android
+    thành công, artifact ship là file arm64-only
+    `in4up-Android-arm64-v8a-1.11.0-60bff.apk` (đúng tên sau rename
+    arm64-v8a). **Owner đã CÀI VÀ DÙNG chính bản này trên máy arm64**
+    (IN4-78/IN4-79 báo từ build đó) ⇒ tiêu chí "cài máy arm64 thành công"
+    đạt; APK chỉ 1 ABI. (Phần "đăng nhập OK" của AT chưa đạt — nhưng đó là
+    bug riêng LOGIN-CRASH-002, không phải vấn đề build/ABI.)
+
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
 - **Trạng thái:** blocked (chờ owner **cho phép thời điểm áp patch** — KHÔNG còn vướng quyền
   `workflows`: token agent push được `.github/workflows/*`, xem box ĐÍNH CHÍNH đầu file)
@@ -2019,6 +2079,7 @@
   cho `lib/widgets/shell/`; việc dọn 68 stale + phân loại đủ literal + thêm bước CI (`--check`,
   `git diff --exit-code`) vẫn nằm ở card này.
 - **Lịch sử:**
+  - 2026-10-11 | merge base | agent arena/af0abe2f-in4up | merge `arena/01a0251e-in4up` (20 commits) vào nhánh UX: catalog union 2379 key (base có 72 key stale chỉ tồn tại ở file generated — đã loại), +3 literal lỗi 153 ở `yt_player_screen.dart` đã dịch EN ⇒ catalog 2382; sàn hạ 77+284 → 73+280; ratchet floors-check OK. Không đổi package name/import; UX/C-27 files giữ nguyên.
   - 2026-10-08 | proposed→doing (phần 1) | agent arena/af0abe2f-in4up | dọn 81 stale + refactor
     generator (`collect_state`/`compute_debt`, `--floors-check`/`--write-floors`) + sàn
     `tool/i18n_ratchet_floors.json` (855) + bước CI ratchet (`paths: tool/**`); đối chứng strict mode
@@ -2416,6 +2477,86 @@
     (timedtext API + tlang + srv3, theo style _fetchTimedtext) → CI XANH
     33355331358. Chờ nghiệm thu thiết bị (mở video → Học video → phụ đề
     song ngữ + lặp câu + tap từ + Mở trong tab Nghe)
+  - 2026-10-09 | nối nốt (YT-SRCH-001) | agent arena/c9a78a86-in4up | Explorer
+    hết phụ thuộc Data API key (trước đây `_kDefaultApiKey = ''` nên thanh
+    search bị ẩn và list rỗng): search keyless 2 tầng (explode
+    `search.search` → fallback parse `ytInitialData`), kênh mặc định liệt kê
+    video keyless (`channels.getUploads` → fallback HTML), gợi ý từ khoá dropdown
+    (`getQuerySuggestions`, debounce 350ms). File mới:
+    `lib/features/youtube/services/yt_search_service.dart` +
+    `yt_initial_data_parser.dart` (parser thuần Dart, không Flutter). Test
+    fixture `test/youtube_search_parser_test.dart` thêm vào step
+    i4u18-lib-tests của app_analyze.yml. 7 chuỗi chrome mới đăng ký đủ trong
+    `tool/legacy_ui_english_overrides.json` + `generated_legacy_ui_fallbacks.dart`
+    ('Xoá tìm kiếm' đã có sẵn); generator đang ĐỎ baseline 66 override cũ nên
+    không chạy lại được — đã chèn tay đúng format, chờ dọn debt. Sandbox
+    không có Flutter → chưa chạy analyze/test, chờ CI + nghiệm thu thiết bị.
+  - 2026-10-09 | nối nốt (WP-Z của PLAN-020) | agent arena/c9a78a86-in4up |
+    yt-dlp sidecar đúng chuẩn: `yt_dlp_sidecar.dart` mới (chỉ desktop, user tự
+    cài, Process.start + watchdog 10 phút + cancel kill process; sự kiện riêng
+    YtDlpEvent tránh import vòng). Tải audio: tầng 2 trong `YtDownloader`
+    (explode gãy → yt-dlp; thử `-x --audio-format m4a` rồi fallback tải thẳng
+    bestaudio không cần ffmpeg). Phụ đề: tầng 4 trong `YtService.fetchCaptions`
+    (`--write-sub --write-auto-sub`, parse bằng SubtitleParser có sẵn). Thẻ
+    thông tin trong ShellUiSettings (phát hiện `yt-dlp --version`, có cache).
+    Test thuần `test/yt_dlp_sidecar_test.dart` (parse progress / build args /
+    pick sub file) thêm vào step i4u18-lib-tests. Android/iOS/Web không hiện
+    gì — fallback im lặng. Sandbox không có Flutter → chờ CI + nghiệm thu
+    desktop (máy có yt-dlp và máy không có để kiểm cả 2 nhánh).
+  - 2026-10-09 | PR #97 mở vào `arena/01a0251e-in4up` | agent
+    arena/c9a78a86-in4up | 3 commit gọn để rebase/merge: `ad682f6` (search
+    keyless) + `42dfa02` (WP-Z) + `c032fa3` (WEB-RDR-001); base == tip 251e
+    nên không cần rebase; chờ CI + nghiệm thu máy
+  - 2026-10-09 | CI XANH | agent arena/c9a78a86-in4up | PR #97 run
+    37986055127 (analyze 0 error + i4u18-lib-tests có 2 test mới + locale
+    test xanh). CI đỏ 6 run đầu do 5 lỗi analyze ERROR — phát hiện qua
+    workflow debug tạm (analyze từng file song song, đã xóa): parser
+    `int.tryParse(m.group(2))` thiếu ?? '0'; sidecar sealed class thiếu const
+    super constructor; `sidecar.isAvailable()` gọi static qua instance; 2
+    import bị sót do edit tool không persist (tts_service dart:io, yt_service
+    yt_dlp_sidecar). Fix commit `31d3651`. VẪN chờ nghiệm thu thiết bị thật.
+
+### YT-PLAY-153-001 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát
+- **Trạng thái:** doing (code + test pin xong, chờ CI + nghiệm thu máy) — [IN4-78](https://linear.app/in4up/issue/IN4-78)
+- **Nguồn (owner 2026-10-10):** bản `in4up-Android-arm64-v8a-1.11.0-60bff.apk`
+  (build 37994985198, commit `60bff6b`): tìm được video YouTube nhưng trình
+  phát báo **"Lỗi cấu hình trình phát video, mã 153"**.
+- **Root cause:** từ ~10/2025 YouTube bắt buộc request video nhúng phải có
+  **HTTP Referer** hợp lệ (chính sách anti-hotlinking mới). WebView load
+  thẳng `https://www.youtube.com/embed/<id>` (top-level, không có trang
+  nguồn) → không gửi Referer → player từ chối, trả mã 153. (Nguồn: Stack
+  Overflow #79802987 + nhiều báo cáo 09-10/2025; cách sửa chuẩn trên
+  WebView = `loadDataWithBaseURL` + referrer policy + domain nocookie.)
+- **Sửa (bản cuối, `c334d7f`):** `yt_player_screen.dart` — **2 bước
+  loadRequest** (webview_flutter 4.14 KHÔNG có `loadHtml`/
+  `loadDataWithBaseURL` — cách wrapper page ban đầu không dùng được):
+  (1) load TRƯỚC trang seed `https://www.youtube-nocookie.com/embed` (cùng
+  domain), (2) `onPageFinished` → load trang thật
+  `youtube-nocookie.com/embed/<id>?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1&origin=https://www.youtube-nocookie.com`
+  — request lúc này tự mang `Referer: https://www.youtube-nocookie.com`
+  (mặc định strict-origin-when-cross-origin → gửi origin) ⇒ đạt yêu cầu mới.
+  Giữ nguyên toàn bộ sync cũ (inject script + timer 400ms + kênh `YtSync`).
+  Thêm **watchdog 3s** đọc body text: hiện màn lỗi (153/cấu hình) → overlay
+  tiếng Việt + nút **Thử lại** (chạy lại seed→embed) — không còn chết im
+  lặng. Log tag `[in4up-yt]`.
+- **Test:** `test/yt_player_embed_test.dart` (mới, 10 test) pin: seed https
+  + CÙNG domain trang embed (nguồn Referer), URL embed (nocookie + params
+  cũ + origin khớp domain), phát hiện màn lỗi VT/EN + không dương tính giả
+  (số 153 trong phụ đề thường). Nối vào step i4u18-lib-tests của
+  `app_analyze.yml`.
+- **Nghiệm thu (máy):** mở video YouTube → **phát được** (có thể +~1s do
+  bước seed), phụ đề chạy theo, lặp câu + tap từ + seek hoạt động; bấm
+  "Học video" bình thường. Nếu vẫn 153 → overlay hiện + log `[in4up-yt]`.
+- **Lịch sử:**
+  - 2026-10-10 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
+  - 2026-10-10 | ✅ CI xanh | agent arena/01a0251e-in4up | run
+    `38002011629` (analyze 0 error + i4u18-lib-tests có 10 test mới +
+    locale test). Vá 3 đợt lỗi analyze lộ qua CI: (1) `PlatformException`
+    import từ `flutter/services.dart` (không phải `dart:io`); (2) `loadHtml`
+    KHÔNG TỒN TẠI ở webview_flutter 4.14 → đổi sang cách 2 bước seed;
+    (3) khối hàm chèn giữa 2 khối import → `directive_after_declaration`.
+    VẪN chờ nghiệm thu máy thật.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
@@ -3172,6 +3313,35 @@
   - 2026-10-06 | created→done(CI xanh) | agent arena/01a0251e-in4up | xác minh
     fix PAUSE F3 (`72b1e85`) đã trong tip, build cũ `1d58b78` thiếu; chờ owner
     build lại + nghiệm thu máy
+
+### WEB-RDR-001 — Web Reader: dịch đoạn chọn + lưu bài đọc thành âm thanh
+- **Trạng thái:** doing (code xong, chờ CI + nghiệm thu máy)
+- **Nguồn:** owner (2026-10-09) — hỏi web reader trên Facebook/TikTok có học từ
+  vựng, dịch, xuất âm thanh/video không. Phần học từ vựng + phát âm + tô màu
+  + đọc bài TTS đã có sẵn (tap từ → nghĩa + IPA + phát âm + WordList; CEFR);
+  bổ sung đúng 2 mảnh còn thiếu: dịch đoạn + xuất file âm thanh.
+- **Nội dung:**
+  - Dịch đoạn chọn: nút Dịch (Icons.translate) trên thanh selection →
+    `TranslationService.translateText` (đa engine, có cache), đích theo ngôn
+    ngữ UI (vi → Việt, khác → English), kết quả hiện dialog có thể chọn text.
+  - Lưu bài đọc thành âm thanh: menu "Tác vụ bài đọc" →
+    `WebReaderController.synthesizeTextToFile` → `TtsService.synthesizeToFile`
+    (mới: Piper offline → file .wav, fallback Edge online → .mp3; dùng giọng +
+    tốc độ user đang cài) → lưu vào `web_reader_audio/` → snackbar có nút
+    "Mở trong tab Nghe" (`PlayerProvider.loadSong`) để học với tốc độ
+    0.05–10× + A-B loop. Cắt an toàn ở 20.000 ký tự.
+  - Không xuất video, không tải media của trang (Web Reader là trình đọc).
+- **Lưu ý Facebook/TikTok:** trang public đọc được thì học từ vựng bình
+  thường; phần lớn nội dung sau login hoặc chặn bot — không phải kênh chính.
+  Tải video TikTok/Facebook: không làm (ToS + hay gãy).
+- **Lịch sử:**
+  - 2026-10-09 | created→doing | agent arena/c9a78a86-in4up | 2 tính năng +
+    i18n 15 chuỗi mới; chờ CI + nghiệm thu thiết bị
+  - 2026-10-09 | PR #97 (gộp cả nhánh, commit `c032fa3`) | agent
+    arena/c9a78a86-in4up | chờ CI + nghiệm thu thiết bị
+  - 2026-10-09 | CI XANH | agent arena/c9a78a86-in4up | PR #97 run
+    37986055127 xanh toàn bộ (cùng commit fix `31d3651` — xem lịch sử
+    YT-LR-001 về 5 lỗi analyze đã sửa). VẪN chờ nghiệm thu thiết bị thật.
 
 ### VIENEU-001 — VieNeu-TTS (PLAN-027)
 - **Trạng thái:** proposed
@@ -5663,7 +5833,7 @@
     speech.platform.bing.com).
 
 ### TTS-EDGE-VOICE-001 — Edge TTS chọn giọng theo ngôn ngữ (trước chỉ có picker Piper)
-- **Trạng thái:** doing (code + 5 test pin xong, chờ CI + nghiệm thu máy)
+- **Trạng thái:** doing (code + 5 test pin + CI 🟢 xong, chờ nghiệm thu máy)
 - **Nguồn (owner 2026-10-06):** "app chỉ có bộ chọn giọng riêng cho Piper;
   các engine online (Google/Zalo/FPT/Edge) chưa có chỗ chọn giọng. Vì vậy
   Edge luôn dùng giọng mặc định `vi-VN-HoaiMyNeural` (nữ)."
@@ -5704,6 +5874,21 @@
     (không push được)
   - 2026-10-06 | re-apply (agent 01a0251e) | tái hiện 5 phần + 5 test pin
     trên `arena/01a0251e-in4up`; chờ CI + nghiệm thu máy
+  - 2026-10-09 | ✅ CI green | agent 01a0251e | app_analyze 🟢 run
+    37664933897 (nối test mới) + build 4 nền tảng 🟢 run 37724784118 trên
+    `e22cd3a` (đứa hậu duệ của `612843f` — đủ code VOICE-001/002/003)
+  - 2026-10-09 | xác minh commit gốc (agent 01a0251e, theo yêu cầu owner)
+    | `c307e0a` **xác nhận MẤT TOÀN DIỆN, không khôi phục được**: fetch
+    toàn bộ nhánh `arena/01a10633-in4up` từ GitHub (1023 commit, tip
+    `79f27d9` = TTS-EDGE-001 CI green — commit cuối CÒN push được của
+    phiên đó) → object `c307e0a` vẫn KHÔNG tồn tại; `git ls-remote` (40+
+    ref) không ref nào trỏ tới; `git fsck` + reflog local sạch. Commit chỉ
+    nằm trong object store của sandbox phiên 01a10633 (đã đóng) ⇒ hết
+    cách lấy lại. **HỆ QUẢ = 0:** phần việc không mất — re-apply
+    `110141f` (+5 test pin) và follow-up `612843f` (VOICE-002/003: dọn
+    cache theo phiên bản khoá + ghim giọng Edge) đã push lên
+    `arena/01a0251e-in4up`, CI 🟢 (xem trên). Còn lại: nghiệm thu máy
+    (AT: chọn Nam Minh → nghe giọng nam)
 
 ### PDF-OCR-002 — PDF Reader: Batch OCR (trang hiện tại / khoảng trang / toàn bộ tài liệu)
 - **Trạng thái:** 🔨 doing — code + test thuần xong (sandbox không Flutter SDK
@@ -6068,6 +6253,302 @@
     unavailable in this sandbox); MDD media parsing/rendering is still absent
     from the existing dictionary UI and remains an acceptance gap.
 
+## 🔥 BATCH AUDIT v1.10.4 — 21 mục (owner 2026-10-08), dạng checklist "kiểm tra trước bay"
+
+> Owner audit bản 1.10.4. Mỗi mục viết dạng **checklist trước bay**:
+> `Triệu chứng → Kỳ vọng → Ưu tiên → Nơi đọc → Nghiệm thu`. Agent chỉ cần
+> đọc mục là biết làm gì. **P0** = chặn release / vốn liếng user; **P1** =
+> bug rõ; **P2** = cải tiến/chuẩn. Prompt giao việc: 10 file
+> `PROMPT_AGENT_*.md` ở gốc repo (liệt kê cuối section).
+>
+> **Xác minh build (mục P0):** build 1.10.4 thành công = run
+> `37724784118`, dùng commit **`e22cd3a`** (= tip mới nhất 251e lúc đó) —
+> **KHÔNG** phải commit cũ. Vậy code build là mới nhất; lỗi login (mục 1)
+> KHÔNG do build cũ.
+
+### 1. LOGIN-CRASH-002 — (P0) Nhấn đăng nhập là VĂNG app
+- **Triệu chứng:** Màn đăng nhập → bấm nút đăng nhập (Google) → app tắt.
+- **Kỳ vọng:** Đăng nhập Google thành công, vào app, không crash.
+- **Ưu tiên:** **P0** — "vốn liếng người dùng" (dữ liệu/đồng bộ).
+- **Đã loại trừ:** build 1.10.4 dùng commit mới nhất (`e22cd3a`) — không phải
+  build cũ. ⇒ Lỗi ở runtime (Firebase/Google Sign-In).
+- **Nơi đọc:** `lib/services/auth_service.dart`; `google-services.json`
+  (secret CI); SHA-1 keystore ký vs `certificate_hash` trong google-services.
+  Cross-ref `CI-BUILD-LOGIN-001`.
+- **Nghiệm thu:** cài APK 1.10.4 → đăng nhập Google → vào app OK. Nếu crash:
+  `adb logcat` ghi nguyên văn exception + xác nhận SHA-1 APK (apksigner) =
+  SHA-1 trong google-services.json.
+- **Prompt:** `PROMPT_AGENT_LOGIN_CRASH.md`.
+- **Tiến triển 2026-10-10 (IN4-79):** owner báo VẪN văng ở bản
+  `arm64-v8a-1.11.0-60bff` (build 37994985198) → crash chưa hết. Đã thêm
+  **instrumentation** (sandbox không có máy, chưa có logcat): đường mobile
+  tách 4 bước `[1/4]…[4/4]` có log tag `[in4up-auth]` ở từng bước (logcat
+  `grep in4up-auth` sẽ chỉ đúng bước chết); bắt riêng
+  `PlatformException` (in code/details); in context Firebase khi khởi động
+  (appId/project); mọi lỗi Dart bọc thành thông báo tiếng Việt kèm hành
+  động — không còn crash trần. **CI 🟢** run `38002011629` (analyze 0
+  error + toàn bộ test, commit `c334d7f`). **Còn cần owner (máy thật):**
+  1. `adb logcat -c` → bấm đăng nhập → crash → `adb logcat -d > login_crash.log`
+     (lần này log đã có sẵn tag `[in4up-auth]` để định vị).
+  2. `apksigner verify --print-certs <apk>` → so SHA-1 với
+     `certificate_hash` (client `com.in4up`) trong google-services.json
+     (secret CI) — khác ⇒ owner cập nhật secret (Firebase Console đã có
+     SHA-1 `88:D5:EE:0D…:E5:B0` từ trước; file build phải sinh SAU khi thêm).
+
+### 2. BATTERY-PROMPT-001 — (P2) 2 thông báo pin dồn dập khi mới cài
+- **Triệu chứng:** Vừa cài app → hiện thông báo pin (1) → xong ra thông báo
+  chính thức (2) xin tắt giới hạn pin.
+- **Kỳ vọng:** Chỉ **1** thông báo/giữ phép pin rõ ràng, gọn.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** tìm `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` / `battery` /
+  `ignoreBattery` trong `lib/` (2 nơi xin quyền pin).
+- **Nghiệm thu:** cài mới → chỉ 1 lần xin quyền pin.
+- **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục BATTERY).
+
+### 3. NETAWARE-001 — (P1) Ưu tiên local/online theo mạng (Wi-Fi→online, 4G→offline)
+- **Triệu chứng:** Hiện ưu tiên local (model phải cài, nhiều khi xung đột làm
+  tắt app) do lo user tốn 4G/5G; nhưng local hay lỗi.
+- **Kỳ vọng:** Máy **tự biết** đang dùng Wi-Fi hay mobile data → Wi-Fi thì
+  ưu tiên online model, 4G/5G thì ưu tiên offline — **nhưng user vẫn được
+  quyết định cuối** (override trong cài đặt).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** routing model/AI (`lib/features/.../routing`),
+  `connectivity_plus`, cài đặt model hiện tại.
+- **Nghiệm thu:** chuyển Wi-Fi↔4G → engine ưu tiên đổi tương ứng; set tay
+  "luôn online"/"luôn offline" được tôn trọng.
+- **Prompt:** `PROMPT_AGENT_NETAWARE_APIVAULT.md` (mục NETAWARE).
+
+### 4. APIVAULT-001 — (P1) Kho API tự quản lý + đồng bộ đám mây
+- **Triệu chứng:** Mỗi lần cài lại app phải nhập lại API key. 1 nhà cung cấp
+  có thể có N tài khoản ⇒ N API.
+- **Kỳ vọng:** **Kho API** trong app: thêm/quản lý nhiều API (nhiều tài
+  khoản/nguồn), **đồng bộ đám mây** (Firebase) để không mất khi cài lại.
+  Tư vấn phương án hợp lý nhất.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/ai/` (provider store WP0), Firebase sync
+  hiện có (WordList/LHB sync), `AiProviderStore`.
+- **Nghiệm thu:** thêm 2 API cùng provider → cả 2 chọn được; logout/cài lại
+  → API vẫn còn (sync); xoá 1 API → không mất cái còn lại.
+- **Prompt:** `PROMPT_AGENT_NETAWARE_APIVAULT.md` (mục APIVAULT).
+
+### 5. MODELIMPORT-001 — (P1) Import model báo "thiếu file" SAI (TTS + STT offline)
+- **Triệu chứng:** Setting Home → (3) TTS nạp **thư mục** báo thiếu file,
+  nạp **file** thì OK. (5) STT Offline cả **thư mục lẫn file** đều báo thiếu
+  trong khi thực tế đủ file.
+- **Kỳ vọng:** Import đúng — nhận đủ file hợp lệ, chỉ báo thiếu khi THẬT SỰ
+  thiếu (kèm tên file cụ thể).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `SherpaModelManager` / validator import (so sánh danh sách
+  file mong đợi vs file thực tế); logic chọn thư mục vs file.
+- **Nghiệm thu:** import 1 bộ model TTS + 1 bộ STT đủ file → "OK"; bỏ 1 file
+  → báo đúng tên file thiếu.
+- **Prompt:** `PROMPT_AGENT_MODEL_IMPORT_VALIDATION.md`.
+
+### 6. XLAT-OFFLINE-LANG-001 — (P2) Dịch offline ML Kit: thêm ngôn ngữ (ẩn, sổ ra)
+- **Triệu chứng:** Gói dịch offline (ML Kit) hiện chỉ 3 ngôn ngữ.
+- **Kỳ vọng:** Cho thêm ngôn ngữ khác, **ẩn** — chỉ sổ ra khi user cần.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** engine dịch offline (ML Kit), danh sách ngôn ngữ hỗ trợ.
+- **Nghiệm thu:** thấy 3 ngôn ngữ phổ biến + nút "Thêm ngôn ngữ" sổ ra thêm.
+- **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục ML-KIT-LANG).
+
+### 7. XLAT-OFFLINE-SYNC-001 — (P2) "Chỉ dùng dịch offline" có mâu thuẫn Server & API?
+- **Triệu chứng:** Chỗ Engine dịch thuật có "Chỉ dùng dịch offline" — chưa rõ
+  có đồng bộ/mâu thuẫn với phần "Server & API cho AI" không.
+- **Kỳ vọng:** Một nguồn sự thật duy nhất cho routing dịch; 2 chỗ không
+  mâu thuẫn.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `TranslationService` routing + `AiProviderStore`/Server API
+  routing.
+- **Nghiệm thu:** đổi 1 chỗ → hiệu lực nhất quán; không có 2 toggle mâu thuẫn.
+- **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục SYNC-CHECK).
+
+### 8. XLAT-SCR-003 — (P1) Dịch màn hình: chờ ngầm lâu + kéo chọn vùng thì SẬP
+- **Triệu chứng:** Nhấn bong bóng → hoạt động ngầm rất lâu; nhấn lần nữa hiện
+  "Đang dịch màn hình trước…"; khi bong bóng đổi cho kéo chọn vùng dịch, kéo
+  xong → **sập app**.
+- **Kỳ vọng:** Phản hồi nhanh có progress rõ; kéo chọn vùng dịch ổn định,
+  không crash.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/screen_translate/` + `com/in4up/screentranslate/`
+  (lane native). Cross-ref `XLAT-SCR-002` + `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md`.
+- **Nghiệm thu:** bong bóng → có progress; kéo chọn vùng → dịch được, không sập
+  (cần máy thật + logcat).
+- **Prompt:** `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` (cập nhật thêm crash kéo-vùng).
+
+### 9. I4U-BRAND-001 — (P2) Còn để "I2U" — phải là "I4U"
+- **Triệu chứng:** AI Chat vẫn "Hỏi **I2U** về từ vựng, ngữ pháp…" + "Trợ lý
+  học tập **I2U**".
+- **Kỳ vọng:** Toàn bộ là **I4U**.
+- **Ưu tiên:** P2 (nhưng dễ + quan trọng về thương hiệu).
+- **Nơi đọc:** `grep -rn "I2U\|i2u" lib/` (chuỗi UI + l10n).
+- **Nghiệm thu:** không còn "I2U" ở đâu; đúng "I4U".
+- **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục BRAND).
+
+### 10. AI-CHAT-UX-001 — (P1) Chat offline: thiếu "đang suy nghĩ" + nút gửi không loading
+- **Triệu chứng:** Chat offline chạy được nhưng (a) không có biểu tượng AI
+  đang suy nghĩ; (b) nút gửi chỉ **trắng** toàn bộ, không phải loading;
+  (c) phản hồi chưa nhất quán (hỏi "xin chào" nó hỏi lại "bạn cần gì", nhưng
+  hỏi về Trump thì… [câu chưa rõ — cần owner bổ sung]).
+- **Kỳ vọng:** Có trạng thái "đang suy nghĩ" rõ; nút gửi hiện loading trong
+  lúc xử lý; phản hồi nhất quán.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/ai_chat/` (widget chat, trạng thái streaming/
+  thinking, nút gửi).
+- **Nghiệm thu:** gửi câu → hiện "đang suy nghĩ" + nút gửi loading → trả lời
+  hiện dần. *(Cần owner làm rõ phần (c) về câu Trump.)*
+- **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục CHAT-UX).
+
+### 11. MODEL-COPY-CANCEL-001 — (P1) "Đang copy model" không có nút dừng/hủy
+- **Triệu chứng:** Đổi model → hiện "Đang copy model" nhưng đổi ý thì **không
+  có chỗ dừng/hủy**.
+- **Kỳ vọng:** Có nút **Hủy** khi đang copy model.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** luồng copy model (Setting Home + chọn model), `cancel` token.
+- **Nghiệm thu:** bấm đổi model → "Đang copy" → bấm Hủy → dừng, về model cũ.
+- **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục COPY-CANCEL).
+
+### 12. TTS-EDGE-VOICE-003 — (P1) Chọn giọng nam Edge vẫn phát giọng nữ
+- **Triệu chứng:** Chọn giọng nam (Edge/Microsoft) nhưng vẫn phát giọng nữ.
+- **Kỳ vọng:** Chọn giọng nào phát giọng đó.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `TtsService` + `EdgeVoicePrefs` + cache TTS (khóa cache theo
+  giọng). Cross-ref `TTS-EDGE-VOICE-002` (đã có fix, chờ nghiệm thu máy).
+- **Nghiệm thu:** chọn Nam Minh → nghe giọng nam; đổi Hoài My → giọng nữ
+  *(cần máy thật + nghe)*.
+- **Prompt:** `PROMPT_AGENT_EDGE_VOICE_FIX.md`.
+
+### 13. READ-FOCUS-002 — (P2) Nút Focus tab Đọc: ẩn khi dùng, chỉ để trên title
+- **Triệu chứng:** Nút Focus ở vị trí chưa hợp lý khi đang dùng.
+- **Kỳ vọng:** Khi dùng chế độ Focus → ẩn nút, chỉ để lại **trên title Đọc**,
+  dưới tab chính.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/screens/read_mode/read_mode_screen.dart` (nút Focus,
+  `isFocusMode`).
+- **Nghiệm thu:** vào Focus → nút ẩn, còn nút thoát trên title; thoát → hiện lại.
+- **Prompt:** `PROMPT_AGENT_READ_FOCUS_SCROLL.md` (mục FOCUS).
+
+### 14. READ-SCROLL-CLUSTER-001 — (P2) Kéo lên: 2 cụm chức năng vẫn còn nền
+- **Triệu chứng:** Kéo lên → 2 cụm chức năng vẫn còn (nền), kéo xuống mới hiện
+  lại — hành vi chưa hợp lý.
+- **Kỳ vọng:** Ẩn/hiện cụm chức năng theo cuộn hợp lý, không "dính" nền.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `read_mode_screen.dart` (smart-hide khi cuộn, 2 cụm chức năng).
+- **Nghiệm thu:** cuộn lên/xuống → cụm ẩn/hiện mượt, không đọng nền.
+- **Prompt:** `PROMPT_AGENT_READ_FOCUS_SCROLL.md` (mục SCROLL).
+
+### 15. OCR-AI-REFINE-001 — (P2) Kết quả OCR còn lỗi → cho AI tinh chỉnh
+- **Triệu chứng:** Kết quả OCR thường còn lỗi chính tả/cấu trúc.
+- **Kỳ vọng:** Cho user **chọn** xử lý bằng AI để tinh chỉnh kết quả OCR
+  (tuỳ chọn, không mặc định).
+- **Ưu tiên:** P2.
+- **Nơi đọc:** lane OCR (`lib/features/ocr/`) + AI refine (dùng AI engine có).
+- **Nghiệm thu:** sau OCR → nút "Tinh chỉnh bằng AI" → văn bản sạch hơn.
+- **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục OCR-AI).
+
+### 16. PDF-XLAT-MULTI-001 — (P1) Dịch PDF cố định EN→VN → đa ngôn ngữ (≥26)
+- **Triệu chứng:** Chức năng dịch trong PDF cố định **EL→VN**.
+- **Kỳ vọng:** Linh hoạt nhiều ngôn ngữ — tối thiểu **26** (vài ngôn ngữ phổ
+  thông + "thêm" để sổ ra).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** engine dịch PDF + `TranslationService` + danh sách ngôn ngữ.
+- **Nghiệm thu:** chọn nguồn/mục tiêu khác EN/VN → dịch đúng; danh sách ≥26.
+- **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục PDF-MULTI).
+
+### 17. WORDLIST-TTS-001 — (P2) WordList: chọn phát "từ + nghĩa", thứ tự tuỳ
+- **Triệu chứng:** Chưa có tuỳ chọn phát kèm nghĩa + thứ tự phát.
+- **Kỳ vọng:** Phát **từ vựng + ý nghĩa**, chọn thứ tự: từ→nghĩa **hoặc**
+  nghĩa→từ.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/screens/tools/word_list/` (playback service) + TTS.
+- **Nghiệm thu:** bật phát → nghe từ rồi nghĩa (hoặc ngược lại theo chọn).
+- **Prompt:** `PROMPT_AGENT_WORDLIST_TTS_BULK.md` (mục TTS).
+
+### 18. WORDLIST-BULK-001 — (P1) WordList: chọn hàng loạt nhưng chưa XÓA hàng loạt
+- **Triệu chứng:** Chọn nhiều từ được nhưng **không xóa hàng loạt**.
+- **Kỳ vọng:** Bulk actions: **xóa**, **thay chủ đề chung**, (mở rộng thêm).
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `word_list_controller.dart` (selection + bulk ops).
+- **Nghiệm thu:** chọn 5 từ → xóa hàng loạt OK; thay chủ đề chung OK.
+- **Prompt:** `PROMPT_AGENT_WORDLIST_TTS_BULK.md` (mục BULK).
+
+### 19. PARAKEET-001 — (P2) Bổ sung Parakeet (STT) như Whisper
+- **Triệu chứng:** Chưa có Parakeet.
+- **Kỳ vọng:** Thêm engine **Parakeet**: hoạt động + **import thư mục, import
+  file, xóa, tải** — đầy đủ như Whisper.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/features/.../stt` (mẫu Whisper strategy),
+  `SherpaModelManager`/model manager.
+- **Nghiệm thu:** tải/import Parakeet → chạy STT được → xóa được.
+- **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục PARAKEET).
+
+### 20. SRS-GARDEN-001 — (P1) Vườn nhớ SRS: chạm từ không phản ứng → long-press chấm điểm
+- **Triệu chứng:** Mở vườn nhớ (SRS) → các từ chỉ **hiện**, chạm vô **không
+  phản ứng** gì; user không biết làm gì thêm. SRS hay nhưng tiếp cận chưa tốt.
+- **Kỳ vọng:** **Nhấn giữ** 1 từ → chấm điểm SRS nhanh (kiểu kéo **4 hướng**);
+  onboarding/gợi ý rõ để user biết dùng SRS.
+- **Ưu tiên:** P1.
+- **Nơi đọc:** `lib/features/.../srs` (vườn nhớ, engine SM-2), gesture.
+- **Nghiệm thu:** long-press 1 từ → hiện 4 lựa chọn (lại/quên/ổn/giỏi) kéo 4
+  hướng → cập nhật lịch ôn; có gợi ý dùng.
+- **Prompt:** `PROMPT_AGENT_SRS_GARDEN.md`.
+
+### 21. READ-SET-VOICE-COLLAPSE-001 — (P2) Setting tab Đọc: danh sách giọng Microsoft quá dài
+- **Triệu chứng:** Chỗ giọng Microsoft (Edge) liệt kê **quá nhiều ngôn ngữ**,
+  chiếm chỗ.
+- **Kỳ vọng:** Chỉ hiện **vài ngôn ngữ phổ biến** + cơ chế **sổ ra** khi cần.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** picker giọng Edge trong setting tab Đọc (cross-ref
+  `TTS-EDGE-VOICE-002` — picker đã gập theo ngôn ngữ, áp dụng tương tự).
+- **Nghiệm thu:** hiện ngôn ngữ phổ biến + "thêm" sổ ra ngôn ngữ khác.
+- **Prompt:** `PROMPT_AGENT_EDGE_VOICE_FIX.md` (mục COLLAPSE).
+
+### 📄 Prompt giao việc (file ở gốc repo) — BATCH AUDIT v1.10.4
+| File | Mục bao phủ |
+|---|---|
+| `PROMPT_AGENT_LOGIN_CRASH.md` | #1 (P0) |
+| `PROMPT_AGENT_MODEL_IMPORT_VALIDATION.md` | #5 |
+| `PROMPT_AGENT_I4U_AI_CHAT.md` | #9 + #10 + #11 |
+| `PROMPT_AGENT_EDGE_VOICE_FIX.md` | #12 + #21 |
+| `PROMPT_AGENT_WORDLIST_TTS_BULK.md` | #17 + #18 |
+| `PROMPT_AGENT_SRS_GARDEN.md` | #20 |
+| `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` | #6 + #7 + #16 |
+| `PROMPT_AGENT_READ_FOCUS_SCROLL.md` | #13 + #14 |
+| `PROMPT_AGENT_NETAWARE_APIVAULT.md` | #3 + #4 |
+| `PROMPT_AGENT_STT_OCR_MISC.md` | #2 + #15 + #19 |
+| `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` (cập nhật) | #8 |
+
+### 📊 Linear — project "Kiểm định bản 1.10.4" (đồng bộ 2026-10-08)
+Team **In4up (IN4)** → project **Kiểm định bản 1.10.4** (21 issue IN4-15…IN4-35).
+Labels: `P0`/`P1`/`P2`, `agent-handoff` (đã có prompt), `waiting-on-device`
+(cần máy thật), + `Bug`/`Feature`/`Improvement`. **Cách dùng:** mở issue ở
+Linear (thân issue có link prompt file) → copy prompt làm nhiệm vụ phiên cho
+agent → agent PR vào `251e` → đóng issue ở Linear khi nghiệm thu xong.
+
+| # | Card | Priority | Linear |
+|---|---|---|---|
+| 1 | LOGIN-CRASH-002 | P0 | [IN4-15](https://linear.app/in4up/issue/IN4-15) |
+| 2 | BATTERY-PROMPT-001 | P2 | [IN4-27](https://linear.app/in4up/issue/IN4-27) |
+| 3 | NETAWARE-001 | P1 | [IN4-24](https://linear.app/in4up/issue/IN4-24) |
+| 4 | APIVAULT-001 | P1 | [IN4-25](https://linear.app/in4up/issue/IN4-25) |
+| 5 | MODELIMPORT-001 | P1 | [IN4-16](https://linear.app/in4up/issue/IN4-16) |
+| 6 | XLAT-OFFLINE-LANG-001 | P2 | [IN4-28](https://linear.app/in4up/issue/IN4-28) |
+| 7 | XLAT-OFFLINE-SYNC-001 | P2 | [IN4-29](https://linear.app/in4up/issue/IN4-29) |
+| 8 | XLAT-SCR-003 | P1 | [IN4-17](https://linear.app/in4up/issue/IN4-17) |
+| 9 | I4U-BRAND-001 | P2 | [IN4-26](https://linear.app/in4up/issue/IN4-26) |
+| 10 | AI-CHAT-UX-001 | P1 | [IN4-19](https://linear.app/in4up/issue/IN4-19) |
+| 11 | MODEL-COPY-CANCEL-001 | P1 | [IN4-23](https://linear.app/in4up/issue/IN4-23) |
+| 12 | TTS-EDGE-VOICE-003 | P1 | [IN4-18](https://linear.app/in4up/issue/IN4-18) |
+| 13 | READ-FOCUS-002 | P2 | [IN4-30](https://linear.app/in4up/issue/IN4-30) |
+| 14 | READ-SCROLL-CLUSTER-001 | P2 | [IN4-31](https://linear.app/in4up/issue/IN4-31) |
+| 15 | OCR-AI-REFINE-001 | P2 | [IN4-32](https://linear.app/in4up/issue/IN4-32) |
+| 16 | PDF-XLAT-MULTI-001 | P1 | [IN4-20](https://linear.app/in4up/issue/IN4-20) |
+| 17 | WORDLIST-TTS-001 | P2 | [IN4-33](https://linear.app/in4up/issue/IN4-33) |
+| 18 | WORDLIST-BULK-001 | P1 | [IN4-21](https://linear.app/in4up/issue/IN4-21) |
+| 19 | PARAKEET-001 | P2 | [IN4-34](https://linear.app/in4up/issue/IN4-34) |
+| 20 | SRS-GARDEN-001 | P1 | [IN4-22](https://linear.app/in4up/issue/IN4-22) |
+| 21 | READ-SET-VOICE-COLLAPSE-001 | P2 | [IN4-35](https://linear.app/in4up/issue/IN4-35) |
+
 ### TTS-EDGE-VOICE-002 — nghiệm thu "chọn giọng nam mà giọng nữ đọc" (máy thật)
 
 - **Trạng thái:** 🔨 doing — phần code + "máy bắt" đã xanh CI trên nhánh
@@ -6380,6 +6861,19 @@
     "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
     thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
     duyệt PR.
+VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alias
+    `image_url_2` bị `normKey` bỏ chữ số ⇒ chuẩn hoá trùng `image_url` và ĐÈ
+    bản ghi trước (header 1 cột map nhầm sang imageUrl2) → nhận diện slot 2
+    bằng HẬU TỐ "2" (`resolveHeaderField`) thay vì thêm alias; thêm guard
+    "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
+    thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
+    duyệt PR.
+á trùng `image_url` và ĐÈ
+    bản ghi trước (header 1 cột map nhầm sang imageUrl2) → nhận diện slot 2
+    bằng HẬU TỐ "2" (`resolveHeaderField`) thay vì thêm alias; thêm guard
+    "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
+    thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
+    duyệt PR.
 
 ### UX-C31 — State preservation QA (6 vùng) + 3 lỗi thật đã sửa
 - **Trạng thái:** 🔨 doing — code + máy bắt xong 2026-10-07 (26 kịch bản / 6 vùng);
@@ -6546,3 +7040,4 @@
     Locale('vi'))` KHÔNG làm test chạy locale vi (vẫn resolve en_US theo default `supportedLocales`).
     Sửa: bỏ ghim locale, finder dùng nhãn English của test env + ghi bài học vào AGENTS.md ⇒
     `37804605761` (push) + `37804624188` (PR) xanh, step 24 success, commit `fc5d7ea`.
+

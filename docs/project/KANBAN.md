@@ -1117,6 +1117,9 @@
 - **Lịch sử:**
   - 2026-10-09 | doing | agent arena/af0abe2f-in4up | docs 42/43 + D-036 + 39 cập nhật;
     code state contract + controller + 3 test; CI 27 file.
+  - 2026-10-09 | fix CI | agent arena/af0abe2f-in4up | CI fail `38078285616`: tên enum
+    `final` đụng từ khóa Dart → đổi `finalStage` (model + test + doc 43); analyze +
+    UX-contract step chạy lại.
 
 ### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
 

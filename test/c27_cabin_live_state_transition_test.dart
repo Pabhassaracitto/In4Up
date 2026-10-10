@@ -4,7 +4,7 @@ import 'package:in4up/features/cabin/models/c27_cabin_live_state.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
 
 /// C-27 — state transition test (doc 43 §3/§4/§9).
-/// Kiểm证: đủ 14 state, happy path Nghe→Cabin→Hiểu→Nhớ→về, các chuyển bị reject,
+/// Kiểm chứng: đủ 14 state, happy path Nghe→Cabin→Hiểu→Nhớ→về, các chuyển bị reject,
 /// guard reconnect 3 lượt, recovery, save/discard, partial không vào snapshot.
 void main() {
   CabinCaption caption(
@@ -47,7 +47,7 @@ void main() {
       controller.onFinalCaption(caption('c1', isFinal: true));
       expect(controller.state, C27CabinLiveState.translating);
       expect(stageOfCabinCaption(controller.captions.single),
-          C27CaptionStage.final);
+          C27CaptionStage.finalStage);
 
       controller.onTranslatedCaption('c1', 'hello');
       expect(controller.state, C27CabinLiveState.listening);

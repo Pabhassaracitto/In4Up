@@ -154,7 +154,7 @@ class C27CabinLiveStateMachine {
     return _transitions[_state]?[event];
   }
 
-  /// Bảng chuyển chính tắc (doc 43 §3, 43 dòng; self-loop = cập nhật dữ liệu).
+  /// Bảng chuyển chính tắc (doc 43 §3, 48 dòng; self-loop = cập nhật dữ liệu).
   static const Map<C27CabinLiveState, Map<C27CabinEvent, C27CabinLiveState>>
       _transitions = {
     C27CabinLiveState.idle: {
@@ -183,6 +183,7 @@ class C27CabinLiveStateMachine {
       C27CabinEvent.pause: C27CabinLiveState.paused,
       C27CabinEvent.connectionLost: C27CabinLiveState.reconnecting,
       C27CabinEvent.networkLost: C27CabinLiveState.offline,
+      C27CabinEvent.serviceUnavailable: C27CabinLiveState.error,
       C27CabinEvent.handoffOpened: C27CabinLiveState.handoffActive,
       C27CabinEvent.endRequested: C27CabinLiveState.ending,
     },
@@ -190,17 +191,20 @@ class C27CabinLiveStateMachine {
       C27CabinEvent.translatedCaption: C27CabinLiveState.listening,
       C27CabinEvent.connectionLost: C27CabinLiveState.reconnecting,
       C27CabinEvent.networkLost: C27CabinLiveState.offline,
+      C27CabinEvent.serviceUnavailable: C27CabinLiveState.error,
       C27CabinEvent.endRequested: C27CabinLiveState.ending,
     },
     C27CabinLiveState.speaking: {
       C27CabinEvent.playbackEnded: C27CabinLiveState.listening,
       C27CabinEvent.connectionLost: C27CabinLiveState.reconnecting,
       C27CabinEvent.networkLost: C27CabinLiveState.offline,
+      C27CabinEvent.serviceUnavailable: C27CabinLiveState.error,
       C27CabinEvent.endRequested: C27CabinLiveState.ending,
     },
     C27CabinLiveState.paused: {
       C27CabinEvent.resume: C27CabinLiveState.listening,
       C27CabinEvent.networkLost: C27CabinLiveState.offline,
+      C27CabinEvent.serviceUnavailable: C27CabinLiveState.error,
       C27CabinEvent.handoffOpened: C27CabinLiveState.handoffActive,
       C27CabinEvent.endRequested: C27CabinLiveState.ending,
     },
@@ -230,14 +234,15 @@ class C27CabinLiveStateMachine {
   };
 }
 
-/// Ba giai đoạn của một caption (doc 43 §5): partial → final → translated.
-enum C27CaptionStage { partial, final, translated }
+/// Ba giai đoạn của một caption (doc 43 §5): partial → finalStage → translated.
+/// (`final` là từ khóa của Dart nên tên enum phải là `finalStage`.)
+enum C27CaptionStage { partial, finalStage, translated }
 
 /// Suy stage từ `CabinCaption` hiện có (ánh xạ 1-1, không đổi dữ liệu).
 C27CaptionStage stageOfCabinCaption(CabinCaption caption) {
   if (!caption.isFinal) return C27CaptionStage.partial;
   return caption.translatedText.isEmpty
-      ? C27CaptionStage.final
+      ? C27CaptionStage.finalStage
       : C27CaptionStage.translated;
 }
 

@@ -57,53 +57,53 @@ state không đổi.
 | # | Từ | Event | Đến | Guard / side effect |
 |---|---|---|---|---|
 | 1 | idle | startRequested | permissionRequesting | tạo `sessionId` mới |
-| 2 | permissionRequesting | permissionsGranted | ready | |
+| 2 | permissionRequesting | permissionsGranted | ready |  |
 | 3 | permissionRequesting | permissionsDenied | error | có retry (dismissError) |
 | 4 | ready | engineConnect | connecting | `reconnectAttempts = 0` |
-| ready | endRequested | ending | khôi phục phiên cũ rồi kết thúc ngay (save draft / discard) |
-| 5 | connecting | engineConnected | listening | `reconnectAttempts = 0` |
-| 6 | connecting | engineConnectFailed | reconnecting | `reconnectAttempts++` |
-| 7 | connecting | serviceUnavailable | error | giữ session |
-| 8 | listening | partialCaption | listening (self) | upsert caption stage=partial |
-| listening | serviceUnavailable | error | giữ session (service unavailable giữa phiên) |
-| 9 | listening | finalCaption | translating | upsert caption stage=final |
-| 10 | translating | translatedCaption | listening | caption stage=translated |
-| translating | serviceUnavailable | error | giữ session |
-| 11 | listening | playbackStarted | speaking | |
-| 12 | speaking | playbackEnded | listening |
-| speaking | serviceUnavailable | error | giữ session | |
-| 13 | listening | pause | paused | giữ sessionId + timer offset |
-| 14 | paused | resume | listening |
-| paused | serviceUnavailable | error | giữ session | |
-| 15 | connecting | connectionLost | reconnecting | `reconnectAttempts++` |
-| 16 | listening | connectionLost | reconnecting | `reconnectAttempts++` |
-| 17 | translating | connectionLost | reconnecting | `reconnectAttempts++` |
-| 18 | speaking | connectionLost | reconnecting | `reconnectAttempts++` |
-| 19 | reconnecting | reconnected | listening | `reconnectAttempts = 0` |
-| 20 | reconnecting | reconnectFailed | reconnecting | nếu `reconnectAttempts < 3` (self, đếm tiếp) |
-| 21 | reconnecting | reconnectFailed | offline | nếu `reconnectAttempts >= 3` |
-| 22 | reconnecting | serviceUnavailable | error | giữ session |
-| 23 | listening | networkLost | offline | |
-| 24 | translating | networkLost | offline | |
-| 25 | speaking | networkLost | offline | |
-| 26 | paused | networkLost | offline | |
-| 27 | offline | networkRestored | connecting | |
-| 28 | offline | serviceUnavailable | error | giữ session |
-| 29 | listening | handoffOpened | handoffActive | nhớ `handoffOrigin = listening` |
-| 30 | paused | handoffOpened | handoffActive | nhớ `handoffOrigin = paused` |
-| 31 | handoffActive | handoffClosed | (handoffOrigin) | về đúng listening/paused |
-| 32 | listening | endRequested | ending | |
-| 33 | translating | endRequested | ending | |
-| 34 | speaking | endRequested | ending | |
-| 35 | paused | endRequested | ending | |
-| 36 | reconnecting | endRequested | ending | |
-| 37 | offline | endRequested | ending | |
-| 38 | handoffActive | endRequested | ending | |
-| 39 | ending | saveDraft | saved | ghi cache (chỉ final/translated) |
-| 40 | ending | discardDraft | idle | xoá nháp, `sessionId` bỏ |
-| 41 | saved | reset | idle | `sessionId` mới ở lần start tiếp |
-| 42 | error | dismissError | idle | giữ sessionId để recovery |
-| 43 | idle | recoveryLoaded | ready | `CabinSession.recovered = true` |
+| 5 | ready | endRequested | ending | khôi phục phiên cũ rồi kết thúc ngay (save draft / discard) |
+| 6 | connecting | engineConnected | listening | `reconnectAttempts = 0` |
+| 7 | connecting | engineConnectFailed | reconnecting | `reconnectAttempts++` |
+| 8 | connecting | serviceUnavailable | error | giữ session |
+| 9 | listening | partialCaption | listening (self) | upsert caption stage=partial |
+| 10 | listening | serviceUnavailable | error | giữ session (service unavailable giữa phiên) |
+| 11 | listening | finalCaption | translating | upsert caption stage=finalStage |
+| 12 | translating | translatedCaption | listening | caption stage=translated |
+| 13 | translating | serviceUnavailable | error | giữ session |
+| 14 | listening | playbackStarted | speaking |  |
+| 15 | speaking | playbackEnded | listening |
+| 16 | speaking | serviceUnavailable | error | giữ session |  |
+| 17 | listening | pause | paused | giữ sessionId + timer offset |
+| 18 | paused | resume | listening |
+| 19 | paused | serviceUnavailable | error | giữ session |  |
+| 20 | connecting | connectionLost | reconnecting | `reconnectAttempts++` |
+| 21 | listening | connectionLost | reconnecting | `reconnectAttempts++` |
+| 22 | translating | connectionLost | reconnecting | `reconnectAttempts++` |
+| 23 | speaking | connectionLost | reconnecting | `reconnectAttempts++` |
+| 24 | reconnecting | reconnected | listening | `reconnectAttempts = 0` |
+| 25 | reconnecting | reconnectFailed | reconnecting | nếu `reconnectAttempts < 3` (self, đếm tiếp) |
+| 26 | reconnecting | reconnectFailed | offline | nếu `reconnectAttempts >= 3` |
+| 27 | reconnecting | serviceUnavailable | error | giữ session |
+| 28 | listening | networkLost | offline |  |
+| 29 | translating | networkLost | offline |  |
+| 30 | speaking | networkLost | offline |  |
+| 31 | paused | networkLost | offline |  |
+| 32 | offline | networkRestored | connecting |  |
+| 33 | offline | serviceUnavailable | error | giữ session |
+| 34 | listening | handoffOpened | handoffActive | nhớ `handoffOrigin = listening` |
+| 35 | paused | handoffOpened | handoffActive | nhớ `handoffOrigin = paused` |
+| 36 | handoffActive | handoffClosed | (handoffOrigin) | về đúng listening/paused |
+| 37 | listening | endRequested | ending |  |
+| 38 | translating | endRequested | ending |  |
+| 39 | speaking | endRequested | ending |  |
+| 40 | paused | endRequested | ending |  |
+| 41 | reconnecting | endRequested | ending |  |
+| 42 | offline | endRequested | ending |  |
+| 43 | handoffActive | endRequested | ending |  |
+| 44 | ending | saveDraft | saved | ghi cache (chỉ final/translated) |
+| 45 | ending | discardDraft | idle | xoá nháp, `sessionId` bỏ |
+| 46 | saved | reset | idle | `sessionId` mới ở lần start tiếp |
+| 47 | error | dismissError | idle | giữ sessionId để recovery |
+| 48 | idle | recoveryLoaded | ready | `CabinSession.recovered = true` |
 
 **Bất kỳ cặp (state, event) không có trong bảng ⇒ REJECT** — `transition()` trả `null`,
 state không đổi, không side effect.
@@ -127,7 +127,7 @@ state không đổi, không side effect.
 ## 5. Caption contract (3 stage)
 
 ```text
-enum C27CaptionStage { partial, final, translated }
+enum C27CaptionStage { partial, finalStage, translated } (`final` là từ khóa Dart)
 ```
 
 - `partial`: `isFinal = false`, `translatedText` rỗng, text thay đổi liên tục (cùng id).

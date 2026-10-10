@@ -289,6 +289,30 @@
   gán vào nhau là đổi hành vi, không phải dedupe. Nguyên tắc: nối policy ở chỗ **pixel-neutral**,
   việc còn lại tách capability riêng kèm QA thiết bị.
 
+## D-036 — C-27 Cabin Live là cross-workspace live utility, không phải workspace thứ 6
+
+- **Ngày:** 2026-10-09
+- **Trạng thái:** đang áp dụng
+- **Quyết định:** C-27 (Cabin Live / Real-time Interpretation) là tiện ích sống liên
+  workspace, đặt trên Global Shell — gồm Full Cabin Viewport, LiveCaptionBubble (overlay
+  nổi trên mọi màn hình) và Handoff Drawer. 5 workspace giữ cố định: Home, Đọc, Nghe,
+  Hiểu, Nhớ (theo D-003). 251e chỉ là nguồn tham chiếu capability (audio/session
+  behavior); branch UX quyết định presentation/orchestration, không copy layout cũ.
+- **Cấu trúc state:** 14-state matrix (mở rộng `CabinState` 6 state hiện có) + state
+  machine chính tắc; caption 3 giai đoạn partial/final/translated; local session cache kế
+  thừa `CabinSessionStore`; handoff schema 10 trường + `returnPath`.
+- **Dòng chảy ưu tiên:** Nghe → Cabin Live → Hiểu → Nhớ → quay lại Cabin Live
+  (returnPath giữ nguyên suốt chuỗi sau Cabin).
+- **Hệ quả:** không thay đổi số lượng workspace; bubble của Cabin nằm trên Bottom
+  Navigation (z-order trong shell Stack) nhưng không che tab đang active; shortcut của
+  Cabin chỉ trong scope Cabin (focus scope), không trigger shortcut shell.
+- **Lý do:** Cabin Live cần hiện diện trên mọi workspace (nghe trực tiếp ở bất kỳ đâu) —
+  đây là lý do nó là utility liên workspace chứ không gói trong Nghe. Không copy layout
+  cũ vì shell đã responsive theo D-035 (4 window class).
+- **Tài liệu:** `docs/ux/42-c27-cabin-live-state-detail.vi.md` (chi tiết),
+  `docs/ux/43-c27-cabin-live-state-contract.vi.md` (hợp đồng + test mapping),
+  `docs/ux/39-capability-breakdown.vi.md` mục C-27.
+
 ## Câu hỏi mở hiện tại
 
 - O-001: Review/Stats là Context Bar hay sub-workspace của Nhớ?

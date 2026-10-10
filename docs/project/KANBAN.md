@@ -105,6 +105,7 @@
 | UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37804605761`/`37804624188`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell (✅ phần breakpoint/overlay đóng ở UX-C02b) + 8 literal chrome tiếng Việt trong widget shell (đã đóng ở I18N-002) |
 | UX-C02b | C-02b Nối policy responsive vào shell: `main_shell.dart` hết literal `>= 1024`; Command Palette đọc trần overlay từ policy; drift guard siết 4 phép khẳng định | ✅ done (code + máy bắt + CI 🟢 push `37821634820` + PR `37821645232` @ `57d23db` — chờ QA tay xoay/thu nhỏ cửa sổ thiết bị) | nhánh `arena/af0abe2f-in4up` — `app_responsive.dart` (+`overlayDialogMaxWidth/Height`), `main_shell.dart`, `widgets/shell/command_palette.dart`, `test/responsive_accessibility_qa_test.dart`; xem D-035 (phần safe-area/overlay để capability riêng) |
 | I18N-002 | Chrome shell (`lib/widgets/shell/`): 7 nhãn hard-code tiếng Việt ⇒ locale ≠ vi hiện nguyên tiếng Việt (rule #5, phát hiện bởi C-30 §4.2) | ✅ done (code + máy bắt 3 tầng + CI 🟢 `37804605761`/`37804624188`; chờ QA tay locale ≠ vi) | nhánh `arena/af0abe2f-in4up` — bọc `context.uiText` + English ở `priority_ui_overrides.dart` & `tool/legacy_ui_english_overrides.json` + `test/shell_chrome_i18n_coverage_test.dart` (bước CI 24 file) |
+| UX-C27 | C-27 Cabin Live / Real-time Interpretation — cross-workspace live utility (KHÔNG phải workspace thứ 6; 5 workspace cố định) — 14-state machine, caption 3 giai đoạn, handoff 10 trường + returnPath, flow Nghe→Cabin→Hiểu→Nhớ→về Cabin | 🔨 doing (docs 42/43 + D-036 xong; code state contract + controller + 3 test file đang ở commit riêng) | nhánh `arena/af0abe2f-in4up` — `lib/features/cabin/models/c27_cabin_live_state.dart`, `controllers/c27_cabin_live_controller.dart`, 3 test C-27 trong app_analyze (27 file); docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md` |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -1091,6 +1092,31 @@
   - 2026-09-24 | 08:40 UTC | doing→doing | agent arena/01a0d013-in4up | Merge 251e@30f912e vào nhánh (251e nhận #42/#45/#46 + tự sửa indent build.yml): 1 conflict build.yml (lấy bản 251e), SKILL bẫy 5.21/5.22 của tôi → **5.23/5.24** vì 251e đã dùng số đó (commit 5723f18 ghi 5.21/5.22 là số cũ). Mở PR → arena/01a0251e-in4up (số PR ghi ở dòng sau).
   - 2026-09-24 | 08:45 UTC | doing→doing (PR mở) | agent arena/01a0d013-in4up | **PR #49** https://github.com/Pabhassaracitto/In4Up/pull/49 → arena/01a0251e-in4up. Chờ owner: build local + cài máy, 4 secret ANDROID_KEYSTORE_*, tag `v*` để CI ký + verify.
   - 2026-09-27 | 21:00 UTC | doing→doing | agent arena/01a0d013-in4up | Owner build ở checkout KHÔNG có fix (không có `scripts/ci/`, 251e chưa merge #49) ⇒ APK vẫn unsigned, "gói không hợp lệ" — đúng dự đoán, chưa phải bằng chứng chống lại fix. Phát hiện `flutter build` gọi Gradle `-q` ⇒ đổi log `[in4up-sign]` sang `logger.quiet` (b6e8bf4) để người build thấy được. Merge lại 251e@b90ba3e (README viết lại ở 251e, chèn lại mục Build a release APK) — PR #49 hết conflict. Cách tự kiểm không cần script: `ls build/app/outputs/apk/stable/release/` — file gốc của AGP mang hậu tố `-unsigned` nếu chưa ký.
+
+### C-27 — Cabin Live / Real-time Interpretation (cross-workspace live utility)
+
+- **Nguồn:** owner 2026-10-09 — C-27 là Cabin Live, không phải workspace thứ 6; 5 workspace
+  cố định (Home, Đọc, Nghe, Hiểu, Nhớ). 251e là reference capability (audio/session behavior);
+  UX branch quyết định presentation/orchestration, không copy layout cũ.
+- **Phạm vi:** 14-state matrix + state machine; caption 3 giai đoạn (partial/final/translated);
+  local session cache (kế thừa `CabinSessionStore`); permission flow; reconnect/offline/service
+  unavailable; session ended save draft/discard; 3 display form (Full Cabin Viewport,
+  LiveCaptionBubble, Handoff Drawer); handoff schema 10 trường + returnPath; safe-area; Bottom
+  Navigation stacking; shortcut focus scope; responsive 4 cỡ.
+- **Dòng chảy ưu tiên:** Nghe → Cabin Live → Hiểu → Nhớ → quay lại Cabin Live (returnPath).
+- **Đã làm:** docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md`
+  (48 chuyển, 27 event, 8 bất biến); cập nhật `39-capability-breakdown.vi.md` (mục C-27 +
+  dependency order); `decision-log.vi.md` **D-036** (owner ghi D-032 nhưng D-032 đã là của C-30,
+  nên lấy số tiếp theo); code `c27_cabin_live_state.dart` (machine + handoff schema +
+  snapshot) + `c27_cabin_live_controller.dart` (flow/controller); 3 test file: state transition,
+  handoff preservation, offline/reconnect/session preservation — đưa vào bước CI
+  "UX shell contracts" (24→27 file).
+- **Chưa làm (QA tay):** 3 display form trên thiết bị thật (Full Cabin Viewport,
+  LiveCaptionBubble nổi trên bottom nav, Handoff Drawer bottom sheet mobile / side panel desktop);
+  permission flow trên Android thật (mic + overlay); shortcut focus scope trên desktop.
+- **Lịch sử:**
+  - 2026-10-09 | doing | agent arena/af0abe2f-in4up | docs 42/43 + D-036 + 39 cập nhật;
+    code state contract + controller + 3 test; CI 27 file.
 
 ### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
 

@@ -123,6 +123,20 @@
 - soft delete/undo.
 - offline/sync/conflict.
 
+### C-27 — Cabin Live / Real-time Interpretation (cross-workspace live utility)
+
+- không phải workspace thứ 6; 5 workspace cố định: Home, Đọc, Nghe, Hiểu, Nhớ.
+- cabin live đặt trên Global Shell: Full Cabin Viewport + LiveCaptionBubble (overlay
+  liên workspace) + Handoff Drawer.
+- 14-state matrix + state machine (mở rộng CabinState 6 state hiện có).
+- caption model 3 giai đoạn: partial / final / translated.
+- local session cache (kế thừa CabinSessionStore): recording / unsaved / saved / recovered.
+- permission flow (mic + overlay bubble); reconnect / offline / service unavailable.
+- session ended: save draft / discard.
+- handoff schema 10 trường + returnPath; flow: Nghe → Cabin Live → Hiểu → Nhớ → về Cabin Live.
+- safe-area, Bottom Navigation stacking, shortcut focus scope, responsive 4 cỡ.
+- doc chi tiết: `42-c27-cabin-live-state-detail.vi.md`; hợp đồng: `43-c27-cabin-live-state-contract.vi.md`.
+
 ## Phase 3 — Cross-cutting QA
 
 ### C-30 — Responsive/accessibility QA
@@ -158,6 +172,7 @@ C-10..C-16
 → C-20..C-26
 
 C-20..C-26
+→ C-27 (cross-workspace live utility)
 → C-30..C-31
 ```
 

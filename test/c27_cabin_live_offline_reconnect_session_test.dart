@@ -108,7 +108,7 @@ void main() {
       // bỏ lỗi → idle → khôi phục phiên → kết thúc và lưu nháp
       controller.dismissError();
       expect(controller.state, C27CabinLiveState.idle);
-      controller.loadRecovered(sessionId: id, sessionTitle: 'Phiên offline');
+      controller.loadRecovered(sessionId: id!, sessionTitle: 'Phiên offline');
       expect(controller.state, C27CabinLiveState.ready);
       expect(controller.machine.sessionId, id);
 

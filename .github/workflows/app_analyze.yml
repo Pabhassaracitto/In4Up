@@ -24,6 +24,7 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'tool/**'          # catalog i18n + sàn ratchet (rule #5)
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/app_analyze.yml'
@@ -31,6 +32,7 @@ on:
     paths:
       - 'lib/**'
       - 'test/**'
+      - 'tool/**'          # catalog i18n + sàn ratchet (rule #5)
       - 'pubspec.yaml'
   workflow_dispatch:
 
@@ -40,6 +42,13 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+
+      # Rule #5 — "máy bắt" literal chrome (thuần Python, không cần Flutter):
+      # chỉ ĐỎ khi phát sinh literal tiếng Việt MỚI chưa phân loại UI/nội dung.
+      # Nợ cũ (855 literal) đã chốt trong tool/i18n_ratchet_floors.json —
+      # xem card I18N-001 trong docs/project/KANBAN.md.
+      - name: i18n ratchet — literal chrome mới phải được phân loại (rule #5)
+        run: python3 tool/generate_legacy_ui_fallbacks.py --floors-check
 
       - uses: subosito/flutter-action@v2
         with:
@@ -332,6 +341,91 @@ jobs:
         with:
           name: app-read-act-test-log
           path: read_act_test.log
+          if-no-files-found: ignore
+
+      # UX shell contracts (C-00..C-31 + I18N-001) — bộ "máy bắt" của hợp đồng
+      # UX shell, 27 file: C-30 responsive/accessibility + C-31 state preservation + C-27 cabin live
+      # là 2 bộ QA cross-cutting (C-30 có cả widget test đo nhãn/vùng chạm/bàn
+      # phím); I18N-001 canh chrome shell ở locale ≠ vi (rule #5).
+      # shared shell contracts, back/dismiss, safe-area/overlay policy, các
+      # flow reader/remember/understand/watch/audio + C-31 state preservation QA
+      # (docs/ux/41-state-preservation-qa.vi.md).
+      # Toàn bộ đều là logic thuần Dart (đã rà import: chỉ flutter_test/in4up),
+      # không plugin, không mạng. Tự bỏ qua file chưa có trên nhánh.
+      - name: "UX shell contracts + C-31 state preservation (logic thuần)"
+        id: ux-contract-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/state_preservation_qa_test.dart \
+                   test/responsive_accessibility_qa_test.dart \
+                   test/shell_chrome_i18n_coverage_test.dart \
+                   test/i4u_shell_contracts_test.dart \
+                   test/ux_quality_contract_test.dart \
+                   test/back_dismiss_coordinator_test.dart \
+                   test/shortcut_registry_test.dart \
+                   test/safe_area_overlay_policy_test.dart \
+                   test/mini_player_surface_state_test.dart \
+                   test/semantic_anchor_resolver_test.dart \
+                   test/reader_contextual_flow_test.dart \
+                   test/reader_contextual_panel_state_test.dart \
+                   test/reader_contextual_handoffs_test.dart \
+                   test/reader_contextual_action_orchestrator_test.dart \
+                   test/remember_flow_test.dart \
+                   test/remember_workspace_state_test.dart \
+                   test/understand_workspace_state_test.dart \
+                   test/coach_flow_test.dart \
+                   test/watch_mode_flow_test.dart \
+                   test/watch_mode_state_test.dart \
+                   test/audio_library_flow_test.dart \
+                   test/audio_library_state_test.dart \
+                   test/home_reader_shell_state_test.dart \
+                   test/shell_content_order_test.dart \
+                   test/c27_cabin_live_state_transition_test.dart \
+                   test/c27_cabin_live_handoff_preservation_test.dart \
+                   test/c27_cabin_live_offline_reconnect_session_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test UX contract trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > ux_contract_test.log 2>&1
+          code=$?
+          cat ux_contract_test.log
+          if [ "$code" -ne 0 ]; then
+            # Đưa tên test fail + context lên annotation (log blob không tải
+            # được từ một số môi trường). Strip ANSI + \r + \b trước.
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              ux_contract_test.log > ux_contract_clean.log || true
+            # Chi tiết exception của `-r expanded` nằm TRƯỚC dòng [E] ⇒ cửa sổ
+            # annotation phải lấy cả 30 dòng phía trước, không chỉ phía sau.
+            grep -n "\[E\]" ux_contract_clean.log | cut -d: -f1 | while read -r ln; do
+              start=$((ln > 30 ? ln - 30 : 1))
+              msg=$(sed -n "${start},$((ln + 6))p" ux_contract_clean.log \
+                | head -c 2600 | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error::TEST FAILED: $msg"
+              # Bổ sung: chi tiết fail (dòng [E] + Expected/Actual + stack) và
+              # 5 dòng cuối log (tổng kết +X -Y) — log blob không tải được từ
+              # một số môi trường nên annotation phải tự đủ dùng.
+              detail=$(sed -n "${ln},$((ln + 12))p" ux_contract_clean.log \
+                | head -c 2600 | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error::FAIL DETAIL: $detail"
+              tail -n 5 ux_contract_clean.log \
+                | sed ':a;N;$!ba;s/\n/%0A/g' \
+                | while IFS= read -r tl; do echo "::error::LOG TAIL: $tl"; done
+            done || true
+          fi
+          exit $code
+
+      - name: Upload UX contract + C-31 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ux-contract-test-log
+          path: ux_contract_test.log
           if-no-files-found: ignore
 
       # VOCAB-MEDIA-003 (ADR-0013, audit 0.10.3 mục 2) — 1 hoặc 2 ảnh mỗi từ

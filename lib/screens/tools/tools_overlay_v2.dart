@@ -240,18 +240,22 @@ class _ToolsOverlayScreenV2State extends State<_ToolsOverlayScreenV2>
               ],
             ),
             const Spacer(),
-            GestureDetector(
-              onTap: () => _dismiss(null),
-              child: Container(
-                width: 36,
-                height: 36,
+            Semantics(
+              button: true,
+              label: 'Đóng Công Cụ',
+              child: GestureDetector(
+                onTap: () => _dismiss(null),
+                child: Container(
+                  width: 44,
+                  height: 44,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border:
                       Border.all(color: Colors.white.withValues(alpha: 0.1)),
                 ),
-                child: Icon(Icons.close, color: Colors.grey[400], size: 18),
+                  child: Icon(Icons.close, color: Colors.grey[400], size: 18),
+                ),
               ),
             ),
           ],
@@ -365,8 +369,13 @@ class _ToolCardState extends State<_ToolCard> {
     final tool = widget.tool;
     final isAvailable = tool.isAvailable;
 
-    return GestureDetector(
-      onTapDown: isAvailable ? (_) => setState(() => _pressed = true) : null,
+    return Semantics(
+      button: isAvailable,
+      enabled: isAvailable,
+      label: tool.title,
+      hint: isAvailable ? tool.subtitle : 'Tính năng hiện chưa khả dụng',
+      child: GestureDetector(
+        onTapDown: isAvailable ? (_) => setState(() => _pressed = true) : null,
       onTapUp: isAvailable
           ? (_) {
               setState(() => _pressed = false);
@@ -463,6 +472,7 @@ class _ToolCardState extends State<_ToolCard> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

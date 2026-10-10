@@ -293,7 +293,51 @@ def dart_string(value: str) -> str:
                        .replace("\r", "\\r")) + "'"
 
 
-def main() -> None:
+def load_overrides() -> dict[str, str]:
+    """Đọc + kiểm tra catalog override đã review."""
+    overrides = json.loads(
+        OVERRIDES.read_text(),
+        object_pairs_hook=reject_duplicate_keys,
+    )
+    if not isinstance(overrides, dict) or not all(
+        isinstance(source, str) and isinstance(english, str)
+        for source, english in overrides.items()
+    ):
+        raise ValueError(f"{OVERRIDES.relative_to(ROOT)} must contain a JSON string map")
+    return overrides
+
+
+def load_exclusions(overrides: dict[str, str]) -> dict[str, str]:
+    """Đọc + kiểm tra danh sách loại trừ nội dung (phải kèm lý do).
+
+    Nhận `overrides` để chặn một chuỗi bị phân loại vừa UI vừa nội dung.
+    """
+    content_exclusions = json.loads(
+        CONTENT_EXCLUSIONS.read_text(),
+        object_pairs_hook=reject_duplicate_keys,
+    )
+    if not isinstance(content_exclusions, dict) or not all(
+        isinstance(source, str) and isinstance(reason, str) and reason.strip()
+        for source, reason in content_exclusions.items()
+    ):
+        raise ValueError(
+            f"{CONTENT_EXCLUSIONS.relative_to(ROOT)} must contain a JSON string map "
+            "with a non-empty review reason for every source"
+        )
+
+    conflicting_classifications = set(overrides).intersection(content_exclusions)
+    if conflicting_classifications:
+        examples = ", ".join(
+            repr(value) for value in sorted(conflicting_classifications)[:5]
+        )
+        raise ValueError(
+            f"{len(conflicting_classifications)} sources are classified as both UI and "
+            f"content: {examples}"
+        )
+    return content_exclusions
+
+
+def collect_state(overrides: dict[str, str]) -> dict[str, set[str]]:
     direct_sources: set[str] = set()
     direct_candidates: set[str] = set()
     presentation_literals: set[str] = set()
@@ -353,16 +397,6 @@ def main() -> None:
         if not (len(source.strip()) == 1 and source.strip().isalpha())
     }
 
-    overrides = json.loads(
-        OVERRIDES.read_text(),
-        object_pairs_hook=reject_duplicate_keys,
-    )
-    if not isinstance(overrides, dict) or not all(
-        isinstance(source, str) and isinstance(english, str)
-        for source, english in overrides.items()
-    ):
-        raise ValueError(f"{OVERRIDES.relative_to(ROOT)} must contain a JSON string map")
-
     # ASCII-only Vietnamese cannot be identified safely with a broad language
     # heuristic. Admit it only when the exact source was deliberately added to
     # the reviewed override catalog and still exists in presentation code.
@@ -374,32 +408,51 @@ def main() -> None:
         presentation_candidates.intersection(reviewed_unaccented)
     )
 
-    content_exclusions = json.loads(
-        CONTENT_EXCLUSIONS.read_text(),
-        object_pairs_hook=reject_duplicate_keys,
-    )
-    if not isinstance(content_exclusions, dict) or not all(
-        isinstance(source, str) and isinstance(reason, str) and reason.strip()
-        for source, reason in content_exclusions.items()
-    ):
-        raise ValueError(
-            f"{CONTENT_EXCLUSIONS.relative_to(ROOT)} must contain a JSON string map "
-            "with a non-empty review reason for every source"
-        )
+    return {
+        "direct_sources": direct_sources,
+        "direct_candidates": direct_candidates,
+        "presentation_literals": presentation_literals,
+        "presentation_candidates": presentation_candidates,
+    }
 
-    conflicting_classifications = set(overrides).intersection(content_exclusions)
-    if conflicting_classifications:
-        examples = ", ".join(
-            repr(value) for value in sorted(conflicting_classifications)[:5]
-        )
-        raise ValueError(
-            f"{len(conflicting_classifications)} sources are classified as both UI and "
-            f"content: {examples}"
-        )
 
-    unused_overrides = set(overrides).difference(
-        presentation_literals | direct_sources,
-    )
+def compute_debt(
+    state: dict[str, set[str]],
+    overrides: dict[str, str],
+    content_exclusions: dict[str, str],
+) -> dict[str, set[str]]:
+    """Ba tập "nợ" mà ratchet canh — CHUNG một nguồn với chế độ strict."""
+    return {
+        "stale_overrides": set(overrides)
+        - (state["presentation_literals"] | state["direct_sources"]),
+        "unused_exclusions": set(content_exclusions)
+        - state["presentation_literals"],
+        "missing_english": state["direct_sources"]
+        - set(overrides)
+        - set(content_exclusions),
+        "unclassified_literals": state["presentation_literals"]
+        - set(overrides)
+        - set(content_exclusions),
+    }
+
+
+def check_and_generate(*, allow_unclassified_debt: bool) -> None:
+    """Kiểm tra catalog rồi sinh `generated_legacy_ui_fallbacks.dart`.
+
+    `allow_unclassified_debt=True` (--generate): vẫn CHẶN stale / unused-exclusions /
+    thiếu override cho `uiText()` / English còn tiếng Việt, nhưng cho phép còn literal
+    chưa phân loại — nhờ vậy có thể dịch theo lô mà mỗi lô có hiệu lực runtime ngay
+    (nợ vẫn bị đếm bởi --floors-check nên không thể tăng lén).
+    """
+    overrides = load_overrides()
+    state = collect_state(overrides)
+    direct_sources = state["direct_sources"]
+    direct_candidates = state["direct_candidates"]
+    presentation_literals = state["presentation_literals"]
+    presentation_candidates = state["presentation_candidates"]
+    content_exclusions = load_exclusions(overrides)
+    debt = compute_debt(state, overrides, content_exclusions)
+    unused_overrides = debt["stale_overrides"]
     if unused_overrides:
         examples = ", ".join(repr(value) for value in sorted(unused_overrides)[:5])
         raise ValueError(
@@ -407,7 +460,7 @@ def main() -> None:
             f"presentation sources: {examples}"
         )
 
-    unused_exclusions = set(content_exclusions).difference(presentation_literals)
+    unused_exclusions = debt["unused_exclusions"]
     if unused_exclusions:
         examples = ", ".join(repr(value) for value in sorted(unused_exclusions)[:5])
         raise ValueError(
@@ -415,15 +468,17 @@ def main() -> None:
             f"extracted presentation sources: {examples}"
         )
 
-    unclassified_sources = presentation_literals.difference(
-        overrides,
-        content_exclusions,
-    )
-    if unclassified_sources:
+    unclassified_sources = debt["unclassified_literals"]
+    if unclassified_sources and not allow_unclassified_debt:
         examples = ", ".join(repr(value) for value in sorted(unclassified_sources)[:5])
         raise ValueError(
             f"{len(unclassified_sources)} accented presentation literals need UI/content "
-            f"classification: {examples}"
+            f"classification: {examples} (hoặc chạy --generate để sinh file với nợ đã biết)"
+        )
+    elif unclassified_sources:
+        print(
+            f"--generate: bỏ qua {len(unclassified_sources)} literal chưa phân loại "
+            f"(nợ vẫn được --floors-check đếm)"
         )
 
     for source, english in overrides.items():
@@ -435,12 +490,17 @@ def main() -> None:
                 f"expected {source_placeholders}, got {english_placeholders}"
             )
 
-    missing_overrides = direct_sources.difference(overrides)
-    if missing_overrides:
+    missing_overrides = debt["missing_english"]
+    if missing_overrides and not allow_unclassified_debt:
         examples = ", ".join(repr(value) for value in sorted(missing_overrides)[:5])
         raise ValueError(
             f"{len(missing_overrides)} extracted presentation sources need reviewed "
-            f"English overrides: {examples}"
+            f"English overrides: {examples} (hoặc chạy --generate để sinh file với nợ đã biết)"
+        )
+    elif missing_overrides:
+        print(
+            f"--generate: bỏ qua {len(missing_overrides)} chuỗi uiText/Text chưa có English "
+            f"(nợ vẫn được --floors-check đếm)"
         )
 
     translations = {source: overrides[source] for source in sorted(overrides)}
@@ -460,7 +520,7 @@ def main() -> None:
 
     lines = [
         "// GENERATED CODE - DO NOT EDIT BY HAND.",
-        "// Run: python3 tool/generate_legacy_ui_fallbacks.py",
+        "// Run: python3 tool/generate_legacy_ui_fallbacks.py --generate",
         "// Exact presentation-source fallbacks only; unknown runtime text is untouched.",
         "",
         "const Map<String, String> generatedLegacyUiEnglishFallbacks = {",
@@ -474,5 +534,91 @@ def main() -> None:
     print(f"Residual accented translations: {len(residual)} ({report})")
 
 
+# ── Ratchet floors (ADR-0002 tinh thần "sàn chỉ tăng"; xem docs/ux/decision-log D-034) ──
+FLOORS = ROOT / "tool" / "i18n_ratchet_floors.json"
+_DEBT_KEYS = (
+    "stale_overrides",
+    "unused_exclusions",
+    "missing_english",      # chuỗi đã bọc uiText/Text nhưng CHƯA có English review
+    "unclassified_literals",
+)
+
+
+def load_floors(path: Path) -> dict[str, list[str]]:
+    if not path.exists():
+        return {key: [] for key in _DEBT_KEYS}
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict) or not all(
+        isinstance(value, list) and all(isinstance(item, str) for item in value)
+        for value in data.values()
+    ):
+        raise ValueError(f"{path} phải là map<string, list<string>>")
+    return {key: data.get(key, []) for key in _DEBT_KEYS}
+
+
+def floors_check(path: Path) -> int:
+    """Chỉ ĐỎ khi phát sinh nợ i18n MỚI. Nợ cũ đã chốt trong file floors."""
+    overrides = load_overrides()
+    content_exclusions = load_exclusions(overrides)
+    state = collect_state(overrides)
+    debt = compute_debt(state, overrides, content_exclusions)
+    floors_state = load_floors(path)
+    introduced = {key: sorted(debt[key] - set(floors_state[key])) for key in _DEBT_KEYS}
+    reduced = {key: sorted(set(floors_state[key]) - debt[key]) for key in _DEBT_KEYS}
+
+    for key in _DEBT_KEYS:
+        print(f"{key}: hiện {len(debt[key])}, sàn {len(floors_state[key])}")
+    for key in _DEBT_KEYS:
+        if introduced[key]:
+            examples = ", ".join(repr(x) for x in introduced[key][:5])
+            print(f"::error::i18n ratchet — {len(introduced[key])} {key} MỚI: {examples}")
+        if reduced[key]:
+            print(
+                f"i18n ratchet: nợ {key} đã giảm {len(reduced[key])} — "
+                f"chạy --write-floors để hạ sàn (không bắt buộc)"
+            )
+    if any(introduced.values()):
+        print(
+            "Nợ i18n mới: phân loại literal thành UI (thêm English vào "
+            "tool/legacy_ui_english_overrides.json) hoặc nội dung "
+            "(tool/legacy_ui_content_exclusions.json kèm lý do)."
+        )
+        return 1
+    print("i18n ratchet OK — không phát sinh literal chrome mới chưa phân loại.")
+    return 0
+
+
+def write_floors(path: Path) -> None:
+    overrides = load_overrides()
+    content_exclusions = load_exclusions(overrides)
+    state = collect_state(overrides)
+    debt = compute_debt(state, overrides, content_exclusions)
+    payload = {key: sorted(debt[key]) for key in _DEBT_KEYS}
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    print(f"Đã ghi {path.relative_to(ROOT)}: "
+          + ", ".join(f"{key}={len(payload[key])}" for key in _DEBT_KEYS))
+
+
+def main() -> None:
+    """Chế độ strict: mọi literal presentation phải đã phân loại."""
+    check_and_generate(allow_unclassified_debt=False)
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--generate", action="store_true",
+                        help="sinh file fallback kể cả khi còn literal chưa phân loại (dịch theo lô)")
+    parser.add_argument("--floors-check", action="store_true",
+                        help="chỉ đỏ khi phát sinh nợ i18n mới (dùng trong CI)")
+    parser.add_argument("--write-floors", action="store_true",
+                        help="chốt/hạ sàn theo trạng thái hiện tại")
+    parser.add_argument("--floors", default=str(FLOORS), help="đường dẫn file sàn")
+    args = parser.parse_args()
+    if args.floors_check:
+        raise SystemExit(floors_check(Path(args.floors)))
+    if args.write_floors:
+        write_floors(Path(args.floors))
+        raise SystemExit(0)
+    check_and_generate(allow_unclassified_debt=args.generate)

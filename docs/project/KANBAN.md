@@ -1,3 +1,4 @@
+
 # KANBAN — Bảng việc dự án (nguồn sự thật duy nhất về trạng thái)
 
 > Luật cập nhật: xem `docs/GOVERNANCE.md` mục 3 — CHỈ đổi trạng thái +
@@ -53,8 +54,9 @@
 | CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
 | CI-ANDROID-05 | (IN4-73) Chỉ build APK **arm64-v8a** thay vì Universal 3-ABI — giảm dung lượng tải về | ✅ done (build thật XANH + owner đã cài bản arm64 lên máy) | build `37994985198` (commit `60bff6b`) Android job xanh, artifact arm64-only `in4up-Android-arm64-v8a-1.11.0-60bff.apk` — owner đã cài + dùng bản này (IN4-78/79). `build_final_complete.yml`: `--target-platform android-arm64` (ĐẢM BẢO 1 ABI) + rename "Build APK (arm64-v8a only)"; `android_rename_apks.sh`: chỉ XÓA ABI không-arm64, nhận mọi tên output arm64. `abiFilters arm64-v8a` GIỮ LẠI (kép, an toàn) |
-| CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
-| CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
+| CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner chọn thời điểm áp patch; **KHÔNG vướng quyền `workflows`** — xem ĐÍNH CHÍNH) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu; fix = +1 apt package, agent tự push được nếu owner cho phép |
+| CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner quyết định áp patch release) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm `CMakeFiles/*.dir/Release` rác thay vì `runner/Release`; patch ở `docs/project/CI-WINDOWS-01-patch.diff`. **ĐÍNH CHÍNH:** blocker cũ "token thiếu quyền `workflows`" KHÔNG đúng với token agent (xem box đầu file) — agent push được `.github/workflows/*`; việc còn lại là owner chọn thời điểm áp + xác nhận bằng 1 tag release |
+| CI-RELEASE-001 | Release hiện commit cũ dù build từ nhánh mới (Linear UIU-1): tag 1.11.0/1.11.0-Beta tồn tại sẵn trên main (e9b5900), release-action chỉ attach asset, không retag | 🔨 doing (fix đã push: job `align-release` retag về đúng commit đang build, chạy trước 4 job build) | root cause 2 lớp: tag cũ trên main + version_name chọn release khác — xem card; nhánh `arena/af0abe2f-in4up` — `.github/workflows/build_final_complete.yml` |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
 | AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ nghiệm thu máy) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn. Lane B3 (aae4ec6 + 29f1e2b): queue FIFO, context GẦN NHẤT + ngân sách token + clip câu hỏi, engineError/`restartEngine()` tự hồi, banner 8 nhánh; CI 35027200801 XANH (app_analyze) + build.yml 35027568392 (Windows/iOS ✅) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
@@ -70,7 +72,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: 354 chrome literals chưa phân loại UI/content (generator legacy fallbacks không chạy được) + raw strings player tab Nghe | 📋 proposed | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5) |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–13 đã dịch** 2026-10-09 (571/648 chuỗi, hiệu lực runtime ngay); còn **77** chuỗi uiText/Text chưa English + **284** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -129,7 +131,7 @@
 | CI-BUILD-ABI-001 | Release 1.10.3 (build bằng Actions) "có 3 chip" dù đã có lệnh 1-chip; tên APK ghi `arm64-v8a` nhưng file là 3-ABI ~216MB | 🔨 doing — **PR #88** mở (merge vào main) → main build Android xanh + bản 1-chip thật |
 | CI-BUILD-LOGIN-001 | Bản 2f357 (release 1.10.3) crash khi chạm icon đăng nhập — owner nghi "flavor không có stable" | ✅ **ĐÃ XÁC NHẬN**: CI ký keystore `in4up-release.jks` (SHA-1 `88d5ee0d…`) mà google-services.json cũ CHƯA có ⇒ Sign-In sai hash; owner đã thêm SHA vào Console, còn đổi secret CI | 2f357 = "fix(android): configure arm64 ABI" (nhánh `arena/124c5760-in4up`), workflow tại 2f357 CÓ `--flavor stable` (build_final_complete.yml:227). google-services: client `com.in4up` cần `certificate_hash 8a1bc02e…` (release); CI fallback ký **DEBUG** keystore (SHA1 `7697fcbc…`) khi thiếu secret release ⇒ Google Sign-In sai hash → crash. Xem card chi tiết | Release 1.10.3 build từ `main` (tag `1.10.3`→`7386295`): (1) APK Android là **bản 3-ABI cũ** (tên file ghi commit `2f357` = TRƯỚC khi 1-chip có hiệu lực trên main); (2) `main` HIỆN có khối `ndk{abiFilters}` ở **top-level (sai)** ⇒ main **không build được Android** (lỗi ndk) cho tới khi fix `eeace04` vào main; (3) `android_rename_apks.sh` **hardcode** "arm64-v8a" vào tên ⇒ gắn nhãn SAI cho bản 3-ABI. Workflow KHÔNG sai (build đúng 1 bản universal, không --split-per-abi) |
 | L10N-REGEN-001 | Build fail: `dart format` exit 65 khi sinh localizations — `app_localizations_th/vi/zh.dart` "could not be parsed" | ✅ done (chờ build xác nhận) | Root cause: file sinh `app_localizations*.dart` (build artifact, `generate:true`) bị **commit + hỏng** — `app_localizations_zh.dart` có **493 getter trùng** (gộp zh+zh_TW vào 1 file, thiếu file zh_TW riêng) ⇒ parse lỗi. Fix `b44c964`: **bỏ 26 file sinh ra khỏi git + gitignore** ⇒ build (local+CI) tự sinh file sạch từ `.arb`. ARB (nguồn) đã verify: JSON hợp lệ, không apostrophe/backslash lạ, placeholder khớp EN |
-| CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` (owner áp — app thiếu quyền `workflows`) |
+| CI-IOS-01 | Action iOS đỏ: `pod install` báo google_mlkit_commons cần deployment target cao hơn | ✅ done (chờ run CI xác nhận) | nâng iOS min target 13/14/15.0 → **15.5** (Podfile + project.pbxproj + AppFrameworkInfo.plist) + script `scripts/ci/ios_set_deployment_target.sh`; patch workflow ở `scripts/ci/ios_ci_workflow.patch` — **agent tự áp được** (ĐÍNH CHÍNH: token agent CÓ quyền `workflows`) |
 | READ-IPA-001 | IPA xếp chồng Read Mode: toggle 3 trạng thái + dòng IPA dưới chữ | ✅ done | commit `e1a4382`; App Analyze run 35687736425 🟢 |
 | READ-IPA-002 | Nguồn IPA khi lưu: waterfall MDX→CMU→G2P + provenance + setting + chip | ✅ done | commit `259c322`; App Analyze run 35886676119 🟢 (2026-09-23) |
 | READ-IPA-003 | Ruby IPA dòng active (word-chip chữ+IPA) + nháy theo nhịp dòng TTS/playback | ✅ done | commit `9b27586` (+ `fcdc037`); App Analyze run 35890021728 🟢 (2026-09-23); karaoke TỪ vẫn blocked (word-timestamp bị strip — cần capture riêng) |
@@ -158,7 +160,38 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
+| UX-C31 | C-31 State preservation QA: 6 vùng (source return / reading anchor / draft / playback / route return / offline event-conflict) + 3 lỗi thật đã sửa | 🔨 doing (máy bắt 26 kịch bản + bước CI riêng 🟢 run 37782521070; còn nghiệm thu thiết bị) | nhánh `arena/af0abe2f-in4up` (PR #96 → `arena/01a0251e-in4up`, mergeable clean) — `lib/core/qa/state_preservation_qa.dart` + `test/state_preservation_qa_test.dart` + `docs/ux/41-state-preservation-qa.vi.md` + step CI trong `app_analyze.yml` |
+| UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37804605761`/`37804624188`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell (✅ phần breakpoint/overlay đóng ở UX-C02b) + 8 literal chrome tiếng Việt trong widget shell (đã đóng ở I18N-002) |
+| UX-C02b | C-02b Nối policy responsive vào shell: `main_shell.dart` hết literal `>= 1024`; Command Palette đọc trần overlay từ policy; drift guard siết 4 phép khẳng định | ✅ done (code + máy bắt + CI 🟢 push `37821634820` + PR `37821645232` @ `57d23db` — chờ QA tay xoay/thu nhỏ cửa sổ thiết bị) | nhánh `arena/af0abe2f-in4up` — `app_responsive.dart` (+`overlayDialogMaxWidth/Height`), `main_shell.dart`, `widgets/shell/command_palette.dart`, `test/responsive_accessibility_qa_test.dart`; xem D-035 (phần safe-area/overlay để capability riêng) |
+| I18N-002 | Chrome shell (`lib/widgets/shell/`): 7 nhãn hard-code tiếng Việt ⇒ locale ≠ vi hiện nguyên tiếng Việt (rule #5, phát hiện bởi C-30 §4.2) | ✅ done (code + máy bắt 3 tầng + CI 🟢 `37804605761`/`37804624188`; chờ QA tay locale ≠ vi) | nhánh `arena/af0abe2f-in4up` — bọc `context.uiText` + English ở `priority_ui_overrides.dart` & `tool/legacy_ui_english_overrides.json` + `test/shell_chrome_i18n_coverage_test.dart` (bước CI 24 file) |
+| UX-C27 | C-27 Cabin Live / Real-time Interpretation — cross-workspace live utility (KHÔNG phải workspace thứ 6; 5 workspace cố định) — 14-state machine, caption 3 giai đoạn, handoff 10 trường + returnPath, flow Nghe→Cabin→Hiểu→Nhớ→về Cabin | ✅ done — docs 42/43 + D-036; code state contract + controller; 3 test file (27 test) trong CI; analyze + UX-contract + PR check xanh | nhánh `arena/af0abe2f-in4up` — `lib/features/cabin/models/c27_cabin_live_state.dart`, `controllers/c27_cabin_live_controller.dart`, 3 test C-27 trong app_analyze (27 file); docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md` |
 
+
+## ⚠️ ĐÍNH CHÍNH 2026-10-08 — quyền sửa `.github/workflows/` (đọc trước khi tin ghi chú cũ)
+
+> **Sự thật đã kiểm chứng:** token của agent Arena **CÓ** quyền push thay đổi vào
+> `.github/workflows/**`. Bằng chứng: commit `fcc519f0` (nhánh `arena/af0abe2f-in4up`)
+> thêm step *"UX shell contracts + C-31 state preservation"* vào `app_analyze.yml` và CI
+> chạy đúng step đó — run `37782521070`, step 24 success, artifact
+> `app-ux-contract-test-log`.
+>
+> **Vì sao cần box này:** nhiều dòng trong KANBAN (card `CI-WINDOWS-01`, `CI-LINUX-01`,
+> `CI-ANDROID-01`, `CI-IOS-01` và các dòng lịch sử của chúng) + `docs/adr/0002`,
+> `docs/adr/0005-*`, `docs/handoff_soundlist_v1.md`, `docs/pdf_reader_readera_upgrade.md`
+> ghi "token/GitHub App của agent thiếu quyền `workflows`". Đó là **thông tin lịch sử
+> của thời điểm viết** (một số từng đúng với token lúc đó); **KHÔNG dùng để kết luận
+> hiện tại**. Ghi chú đó nay chỉ còn đúng với **token GitHub App của job release**
+> (`CI-WINDOWS-01`), không phải token agent.
+>
+> **Cách kiểm chứng (đừng đoán):** thử push một thay đổi nhỏ vào `.github/workflows/`.
+> Nếu bị chặn, thông báo thật sẽ là `refusing to allow a Personal Access Token to
+> create or update workflow ...` — chứ không phải suy luận từ ghi chú cũ.
+>
+> **Luật chạy workflow:** với sự kiện `push`, GitHub dùng `.github/workflows/*` **trên
+> chính commit vừa push** (bản của nhánh đang làm việc). Sửa workflow ở `main`/nhánh
+> khác **không** làm nhánh này chạy bước mới; muốn có "máy bắt" cho nhánh X thì thêm
+> bước vào workflow **của X** rồi để nó đi kèm khi merge. (Đã ghi cùng luật vào
+> `AGENTS.md` mục "Vận hành CI / môi trường".)
 
 ## Card chi tiết
 
@@ -920,7 +953,7 @@
   - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | **ORACLE XANH: run 32592622383 (tag v1.4.0-android-fp16) — Build Android APK ✅ (9m, artifact android-apk) + iOS ✅ + Windows ✅** ⇒ llama.cpp build thật trong CI cả 3 nền tảng (Android = nền cuối). Release v1.4.0-android-fp16 đã có artifact 3 nền. Còn lại: CI-ANDROID-01 (build.yml, chờ owner) + CI-LINUX-01 (1 apt package, chờ owner)
 
 ### CI-ANDROID-01 — Fix job Android của build.yml (chỉ ship stable + rename đúng tên)
-- **Trạng thái:** doing — in-repo fix CI-only `android/app/in4up_ci_fixes.gradle` (chỉ active `CI=true`, local no-op) chờ oracle tag `v1.4.0-ci-android-fix`. Patch workflow option A bên dưới vẫn là fix gốc — giữ nguyên cho owner dán khi có quyền `workflows`; khi đó in4up_ci_fixes thành no-op an toàn.
+- **Trạng thái:** doing — in-repo fix CI-only `android/app/in4up_ci_fixes.gradle` (chỉ active `CI=true`, local no-op) chờ oracle tag `v1.4.0-ci-android-fix`. Patch workflow option A bên dưới vẫn là fix gốc — agent áp được (ĐÍNH CHÍNH 2026-10-08: token agent CÓ quyền `workflows`; xem box đầu file), việc còn lại là owner chọn thời điểm; khi đó in4up_ci_fixes thành no-op an toàn.
 - **Nội dung:** Job Build Android APK của `build.yml` đỏ vì 2 lỗi chồng, ĐỀU không liên quan code AI:
   1. `flutter build apk --release --split-per-abi` (không `--flavor`) build **cả 3 flavor** →
      `:app:processBetaReleaseGoogleServices` chết: "No matching client found for package name
@@ -1065,6 +1098,82 @@
   - 2026-09-24 | 08:45 UTC | doing→doing (PR mở) | agent arena/01a0d013-in4up | **PR #49** https://github.com/Pabhassaracitto/In4Up/pull/49 → arena/01a0251e-in4up. Chờ owner: build local + cài máy, 4 secret ANDROID_KEYSTORE_*, tag `v*` để CI ký + verify.
   - 2026-09-27 | 21:00 UTC | doing→doing | agent arena/01a0d013-in4up | Owner build ở checkout KHÔNG có fix (không có `scripts/ci/`, 251e chưa merge #49) ⇒ APK vẫn unsigned, "gói không hợp lệ" — đúng dự đoán, chưa phải bằng chứng chống lại fix. Phát hiện `flutter build` gọi Gradle `-q` ⇒ đổi log `[in4up-sign]` sang `logger.quiet` (b6e8bf4) để người build thấy được. Merge lại 251e@b90ba3e (README viết lại ở 251e, chèn lại mục Build a release APK) — PR #49 hết conflict. Cách tự kiểm không cần script: `ls build/app/outputs/apk/stable/release/` — file gốc của AGP mang hậu tố `-unsigned` nếu chưa ký.
 
+### C-27 — Cabin Live / Real-time Interpretation (cross-workspace live utility)
+
+- **Nguồn:** owner 2026-10-09 — C-27 là Cabin Live, không phải workspace thứ 6; 5 workspace
+  cố định (Home, Đọc, Nghe, Hiểu, Nhớ). 251e là reference capability (audio/session behavior);
+  UX branch quyết định presentation/orchestration, không copy layout cũ.
+- **Phạm vi:** 14-state matrix + state machine; caption 3 giai đoạn (partial/final/translated);
+  local session cache (kế thừa `CabinSessionStore`); permission flow; reconnect/offline/service
+  unavailable; session ended save draft/discard; 3 display form (Full Cabin Viewport,
+  LiveCaptionBubble, Handoff Drawer); handoff schema 10 trường + returnPath; safe-area; Bottom
+  Navigation stacking; shortcut focus scope; responsive 4 cỡ.
+- **Dòng chảy ưu tiên:** Nghe → Cabin Live → Hiểu → Nhớ → quay lại Cabin Live (returnPath).
+- **Đã làm:** docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md`
+  (48 chuyển, 27 event, 8 bất biến); cập nhật `39-capability-breakdown.vi.md` (mục C-27 +
+  dependency order); `decision-log.vi.md` **D-036** (owner ghi D-032 nhưng D-032 đã là của C-30,
+  nên lấy số tiếp theo); code `c27_cabin_live_state.dart` (machine + handoff schema +
+  snapshot) + `c27_cabin_live_controller.dart` (flow/controller); 3 test file: state transition,
+  handoff preservation, offline/reconnect/session preservation — đưa vào bước CI
+  "UX shell contracts" (24→27 file).
+- **Visual validation:** ✅ đã hoàn tất — 2 visual reference Stitch (Desktop: Full Viewport
+  & Handoff Drawer; Mobile: 3 Display Forms & Safe-Area). Không gửi Stitch thêm trừ khi
+  phát hiện lỗi cụ thể (bubble che Mini Player / Bottom Nav, Handoff Drawer cạnh tranh
+  Context Panel, partial/final/translated khó phân biệt, mobile keyboard che caption).
+- **Chưa làm:** wiring UI (bước 6): LiveCaptionBubble + Quick Actions + Nghe/Hiểu/Nhớ;
+  QA tay trên thiết bị thật (permission flow mic + overlay trên Android, shortcut focus
+  scope trên desktop).
+- **Lịch sử:**
+  - 2026-10-09 | doing | agent arena/af0abe2f-in4up | docs 42/43 + D-036 + 39 cập nhật;
+    code state contract + controller + 3 test; CI 27 file.
+  - 2026-10-09 | fix CI | agent arena/af0abe2f-in4up | CI fail `38078285616`: tên enum
+    `final` đụng từ khóa Dart → đổi `finalStage` (model + test + doc 43); analyze +
+    UX-contract step chạy lại.
+  - 2026-10-09 | fix CI | agent arena/af0abe2f-in4up | `3e787ea` enum finalStage +
+    serviceUnavailable giữa phiên + endRequested từ ready; `54af171` thiếu import
+    cabin_session; `14490c2` fix test offline (pause từ listening) + annotation
+    FAIL DETAIL/LOG TAIL cho bước UX-contract.
+  - 2026-10-09 | done | agent arena/af0abe2f-in4up | CI xanh `38079880910`
+    (head `14490c2`): analyze success, UX-contract step success (27 file incl. 3
+    C-27 test file, 27 test: 12 state transition + 8 handoff + 7 offline/reconnect),
+    PR #96 check `analyze-and-locale-test` pass. C-27 code+test xong; còn QA tay
+    3 display form + permission flow trên thiết bị thật.
+  - 2026-10-09 | update | agent arena/af0abe2f-in4up | Visual Validation hoàn tất
+    (Stitch desktop + mobile) — ghi vào doc 42 §10 + card; D-036 bổ sung cross-ref
+    (owner ghi D-032 nhưng đã thuộc C-30). Còn lại: wiring UI bước 6.
+
+### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
+
+- Owner hỏi: 251e có commit fix lỗi đăng nhập thì cherry-pick sang nhánh này.
+- Kết quả: **fix đã có sẵn trên nhánh này** — root cause (APK ký sai/unsigned ⇒ Google
+  Sign-In crash khi bấm icon đăng nhập) được fix bởi `c813273` (CI-ANDROID-03: signingConfig
+  release từ `key.properties` + fallback debug có cảnh báo `[in4up-sign]` + version đọc từ
+  pubspec + scripts `android_prepare_signing.sh`/`android_verify_apk_signed.sh`) và
+  `e93a28e` (cảnh báo BẮT BUỘC `--flavor stable` trong `build.gradle.kts` — build không
+  flavor ⇒ crash đăng nhập; rename APK + commit5). Cả 2 đã vào nhánh này qua ancestry
+  (01a10675/main): `git diff c813273 HEAD -- android/app/build.gradle.kts scripts/ci/…` chỉ
+  còn khác biệt do các fix SAU (khối `ndk{}` chuyển vào trong `defaultConfig` của
+  CI-BUILD-NDK), không thiếu nội dung fix. `android_rename_apks.sh` đã có đuôi commit5.
+- ⇒ Không cherry-pick (pick sẽ rỗng/conflict vô ích). 3 commit docs điều tra
+  (`fc5e08c`/`46ba897`/`0de1841`) chỉ sửa KANBAN 251e — không pick vì KANBAN đã phân kỳ.
+- Lịch sử:
+  - 2026-10-09 | checked (no cherry-pick needed) | agent arena/af0abe2f-in4up | đối chiếu 251e,
+    xác nhận fix đăng nhập đã có sẵn, ghi chú card này.
+
+### CI-RELEASE-001 — Release hiện commit cũ dù build từ nhánh mới (Linear UIU-1)
+
+- **Trạng thái:** 🔨 doing — fix đã push lên `arena/af0abe2f-in4up` (job `align-release` trong `build_final_complete.yml`); chờ owner dispatch 1 bản beta để xác nhận release đúng commit.
+- **Nguồn:** Linear UIU-1 (team UIUX, 2026-10-08): "Release mang commit mới nhưng chưa bản build cũ" — release `1.11.0-Beta` hiện commit `e9b5900` nhưng APK tên `...-e5f0d.apk`; owner khẳng định build từ nhánh mới nhất vẫn ra commit cũ.
+- **Root cause (đã điều tra, 2 lớp):**
+  1. Tag `1.11.0-Beta` và `1.11.0` đã tồn tại sẵn trên **main** (cùng `1.10.4`, cả 3 đều trỏ `e9b5900` — commit fix NDK). `ncipollo/release-action@v1` (`tag: version_name`, `allowUpdates: true`) chỉ attach/replace asset vào release của tag cũ — **không bao giờ move tag** ⇒ trang release luôn hiện commit của tag (main, cũ) dù artifact là bản build mới.
+  2. Release đích chọn theo input `version_name` — bản build 22:34 (4ef1a46, run `37854330816`) đi sang release **`1.11.0`** (published 22:37, APK `in4up-Android-arm64-v8a-1.11.0-4ef1a.apk`) vì version_name nhập `1.11.0`; release `1.11.0-Beta` vẫn giữ bản 21:23 (e5f0de9, APK `...-e5f0d.apk`). Xem `1.11.0-Beta` ⇒ tưởng "commit cũ, file cũ".
+- **Bằng chứng nội dung đúng với tên file:** tên APK do `scripts/ci/android_rename_apks.sh` gắn 5 ký tự `GITHUB_SHA` của CHÍNH job build (không có đường "vỏ mới ruột cũ"); artifact 2 run lệch nhau ~1,7 KB (đúng số chuỗi lô 8); timeline upload khớp từng job. (Không tải APK về sandbox được — host download ngoài allowlist — nhưng bằng chứng tên/size/timeline là kết luận.)
+- **Fix (đã push):** thêm job `align-release` (chạy trước 4 job build qua `needs`): nếu tag release đang trỏ commit khác commit đang build ⇒ xóa release + xóa tag cũ, rồi `git tag` + push tag đúng commit; release-action sau đó tạo release đúng commit. Tag đã đúng commit thì bỏ qua.
+- **Lưu ý:** job có quyền xóa tag/release (cần `contents: write` — đã có ở workflow). Tag `1.10.4` (cùng trỏ e9b5900) không bị đụng trừ khi build với version_name `1.10.4`.
+- **AT (owner):** dispatch `build_final_complete.yml` từ nhánh này với version_name `1.11.0-Beta` ⇒ align-release xóa tag/release cũ, tag mới trỏ đúng HEAD; sau 4 job, trang release `1.11.0-Beta` hiện đúng commit vừa build + đủ 4 artifact mới.
+- **Lịch sử:**
+  - 2026-10-08 | created→doing→fix pushed | agent arena/af0abe2f-in4up | điều tra UIU-1 (2 root cause), fix workflow (align-release retag), row + card này.
+
 ### CI-ANDROID-04 — APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip
 - **Trạng thái:** ✅ script done (đã push 0251e) + 0251e: patch workflow chờ áp
   (bước 1 hướng dẫn 2026-10-05); **main: workflow universal ĐÃ có từ e524214
@@ -1175,7 +1284,8 @@
     bug riêng LOGIN-CRASH-002, không phải vấn đề build/ABI.)
 
 ### CI-LINUX-01 — Fix job Linux của build_final_complete.yml
-- **Trạng thái:** blocked (chờ owner: thêm 1 apt package vào workflow HOẶC cấp quyền `workflows`)
+- **Trạng thái:** blocked (chờ owner **cho phép thời điểm áp patch** — KHÔNG còn vướng quyền
+  `workflows`: token agent push được `.github/workflows/*`, xem box ĐÍNH CHÍNH đầu file)
 - **Nội dung:** Job Build Linux App của `build_final_complete.yml` ĐỎ ở bước
   "Build Linux Release" trong MỌI run (32581570950: 2m06s; 32586625020: 1m57s —
   chết sớm sau khi pub get). Pre-existing, riêng rẽ với Android/AI (Linux build
@@ -1185,7 +1295,7 @@
   screen: web_reader, youtube ×2, youglish ×2 — KHÔNG gỡ được khỏi pubspec) khai
   `pkg_search_module(WebKit REQUIRED webkit2gtk-4.1 webkit2gtk-4.2 webkit2gtk-4.3)`
   mà runner ubuntu-latest không cài webkit2gtk (apt list trong workflow thiếu).
-  **Fix (1 dòng, cần quyền workflows):** thêm `libwebkit2gtk-4.1-dev` vào step
+  **Fix (1 dòng — agent tự áp được, không cần owner cấp quyền):** thêm `libwebkit2gtk-4.1-dev` vào step
   "Install Linux dependencies":
   ```diff
   -          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libglu1-mesa libjson-glib-dev
@@ -1194,11 +1304,16 @@
 - **Lịch sử:**
   - 2026-08-22 | created | agent arena/01a02a4a-in4up | phát hiện khi soi run oracle (job Linux đỏ mọi vòng)
   - 2026-08-22 | proposed→blocked | agent arena/01a02a4a-in4up | owner dán log Linux ⇒ root cause webkit2gtk (CMake plugin REQUIRED); fix = 1 apt package, chờ owner áp (token thiếu quyền workflows)
+  - 2026-10-08 | blocked (không đổi trạng thái) | agent arena/af0abe2f-in4up | **ĐÍNH CHÍNH tiền đề blocker:** token agent hiện tại CÓ quyền push `.github/workflows/**` (bằng chứng: commit `fcc519f0` thêm step vào `app_analyze.yml`, CI run `37782521070` chạy đúng step đó). Việc còn lại KHÔNG phải quyền hạn mà là: (1) owner cho phép chạm workflow release, (2) cần 1 run của `build_final_complete.yml` để xác nhận (chỉ owner trigger được). Fix 1 dòng sẵn sàng — agent áp được ngay khi owner đồng ý.
 ### CI-WINDOWS-01 — Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây
-- **Trạng thái:** 🚫 blocked (chờ owner: token GitHub App của agent KHÔNG có
-  quyền `workflows` nên không push được sửa đổi `.github/workflows/*.yml` —
-  y hệt tình huống CI-LINUX-01. Patch đã viết xong và test logic kỹ, chỉ cần
-  owner tự áp hoặc cấp quyền `workflows` cho agent)
+- **Trạng thái:** 🚫 blocked (chờ owner **quyết định thời điểm áp patch release**).
+  ⚠️ **ĐÍNH CHÍNH 2026-10-08:** câu cũ "token GitHub App của agent KHÔNG có quyền
+  `workflows` nên không push được `.github/workflows/*.yml`" **không còn đúng với token
+  agent** — xem box ĐÍNH CHÍNH đầu file (bằng chứng commit `fcc519f0` + CI run
+  `37782521070`). Phần "token GitHub App" đúng ở đây là **token của job release**
+  (quyền của GitHub Actions khi tạo release), KHÔNG phải quyền push của agent. Patch đã
+  viết xong và test logic kỹ; agent push được, việc còn lại là owner cho phép áp + xác
+  nhận bằng 1 tag release (thay đổi workflow release nên owner quyết thời điểm)
 - **Nguồn:** owner (2026-09-06) — hỏi vì sao release `in4up-Windows-1.7.0.zip`
   chỉ nặng 9.63 KB thay vì hàng chục MB như app Flutter Windows thật.
 - **Patch sẵn sàng:** `docs/project/CI-WINDOWS-01-patch.diff` (áp bằng
@@ -1231,6 +1346,11 @@
   - 2026-09-06 | created→done | agent arena/01a07863-in4up | owner hỏi vì sao
     release 1.7.0 chỉ 9.63KB; fix cả build.yml + build_final_complete.yml,
     thêm guard chống tái diễn
+  - 2026-10-08 | done→blocked | agent arena/af0abe2f-in4up | **ĐÍNH CHÍNH tiền đề blocker:**
+    quyền push `.github/workflows/*` KHÔNG phải rào cản (token agent có quyền — bằng chứng
+    `fcc519f0` + run `37782521070`). Lý do blocked thật: đây là workflow **release**, thay
+    đổi cần owner chọn thời điểm + 1 tag release để xác nhận zip > 5MB. Patch
+    `docs/project/CI-WINDOWS-01-patch.diff` giữ nguyên, agent áp được khi owner đồng ý.
 
 ### SHERPA-001 — Silero VAD (sherpa_onnx) thay EnergyVad fallback
 - **Trạng thái:** done (code; chờ nghiệm thu trên thiết bị)
@@ -1906,6 +2026,40 @@
   'Hẹn giờ ngủ', 'Theo câu/Theo cụm', 'Đang phân tích...', 'Hủy', …) —
   cùng class bug như tab "Gần đây"/"Thư viện" (đã fix: 9 strings
   ListenLibraryScreen + 2 strings AudioLibraryView qua uiText + fallback).
+- **Phần 1 đã làm (2026-10-08, nhánh `arena/af0abe2f-in4up` — PR #96):**
+  1. **Dọn 81 override stale** trong `tool/legacy_ui_english_overrides.json` (stale = key không còn
+     chuỗi nguồn dùng, hoặc chuỗi ngắn/không dấu mà extractor cố ý bỏ qua). Kiểm từng key: 67 key
+     không còn mã nguồn nào dùng; 3 nhãn chrome ngắn (`'Chung'`→General, `'Xem'`→View,
+     `'🟢 NGHE'`→🟢 LISTEN) + 1 template (`'trang {value0}'`→page) **chuyển sang
+     `priority_ui_overrides.dart`** (catalog runtime — nơi shim/template đọc); `'Import AI model'` ≡
+     English nguồn; `'{value0} ngày liên tiếp'` đã có 'en' riêng trong `learn_by_heart_l10n.dart`.
+  2. **Refactor generator** về một nguồn sự thật: `collect_state()` + `compute_debt()`, thêm
+     `--floors-check` / `--write-floors` / `--floors PATH`. Strict giữ nguyên hành vi (đối chứng với
+     JSON cũ: đúng thông báo "68 reviewed overrides no longer match…").
+  3. **Sàn ratchet** `tool/i18n_ratchet_floors.json` (stale 0 / unused-exclusions 0 / unclassified
+     **855**) + bước CI *"i18n ratchet — literal chrome mới phải được phân loại"* chạy ĐẦU job bằng
+     `python3` (~2s, không cần Flutter) và thêm `tool/**` vào `paths` của push + PR.
+     Đã kiểm răng: thêm 1 literal Việt mới ⇒ đỏ kèm `::error::… 'chuỗi mới'`; gỡ ⇒ xanh.
+  4. **Phần 2 — dịch/phân loại theo lô (đang làm):** strict vẫn đỏ vì nợ chưa trả; mỗi lô land
+     được ngay nhờ `--generate` (sinh file fallback trong khi vẫn chặn stale/thiếu-English-mới?
+     không — xem dưới) + hạ sàn bằng `--write-floors` để diff thể hiện đúng phần đã trả nợ.
+     - **Bổ sung khoá nợ thứ 4 `missing_english`:** chuỗi đã bọc `uiText`/`Text` nhưng **chưa có
+       English review** (648 chuỗi khi bắt đầu). Trước đây chốt này chỉ có ở chế độ strict ⇒ không
+       thể land từng lô; nay nó là nợ có sàn, và **tăng lên là CI đỏ** (thêm `uiText` mà quên English).
+     - **`--generate`:** sinh `generated_legacy_ui_fallbacks.dart` khi vẫn còn nợ đã biết (đếm bởi
+       `--floors-check`), nhưng vẫn CHẶN: stale, unused-exclusions, placeholder lệch, English còn
+       tiếng Việt. Nhờ vậy mỗi lô dịch **có hiệu lực runtime ngay**, không phải chờ hết 648 chuỗi.
+     - **Lô 1 (2026-10-08, `623a86b`+):** 68 chuỗi ở `stt_model_settings_screen.dart` (46) +
+       `quick_capture_sheet.dart` (22) — engine/model AI, Piper TTS, SAF, quyền micro, ghi chú nói…
+       Catalog 1777 → **1845** key; sàn: `missing_english 648 → 580`, `unclassified 855 → 787`;
+       file fallback 1781 → **1845** mục; residual tiếng Việt trong English = 0.
+     - **Ghi chú governance (số commit):** phần 2 vượt khuyến nghị "1–3 commit/capability" vì đây là trả
+       nợ dài theo sàn ratchet — **mỗi lô là 1 commit độc lập, review được theo cụm màn hình, tự mang
+       số liệu sàn trước/sau**; gộp cả 648 chuỗi vào 1–2 commit sẽ không thể review. Đây là quyết định
+       có chủ ý, ghi ở đây để phiên sau không hiểu nhầm là vi phạm.
+     - **Đòn bẩy để dịch lô sau:** `/home/user/i18n_owner.json` (literal → file, trích bằng chính bộ
+       trích xuất) — dịch theo cụm màn hình, kiểm placeholder bằng `PLACEHOLDER_RE`, rồi `--generate`
+       + `--write-floors`.
 - **Làm gì (branch mới từ tip DEV):**
   1. Chạy generator, lấy danh sách 354; rà từng chuỗi: chrome UI →
      `tool/legacy_ui_english_overrides.json` (keep-English T3 theo ADR-0002)
@@ -1915,7 +2069,94 @@
      `docs/skills/i18n-localization/SKILL.md`: uiText + ARB parity +
      hi/zh/zh_TW/si, không fallback về Việt.
   3. Regenerate + CI App Analyze + Locale xanh + nghiệm thu locale ≠ vi.
+- **Chốt lại 2026-10-08 (điều tra phát hiện C-30 §4.2 — 7 nhãn chrome hard-code ở `lib/widgets/shell/`):**
+  generator nay dừng **sớm hơn** ở chốt stale-override:
+  `ValueError: 68 reviewed overrides no longer match extracted presentation sources:
+  '"{value0}" đã lưu', '+ Nghĩa', …` — trước đây con số này là 14 (đã dọn 2026-09-03), tức các lần
+  merge sau đó lại làm override trỏ vào chuỗi không còn được trích xuất. Thêm nữa: **không workflow
+  nào** trong `.github/workflows/` gọi generator (đã `grep`) ⇒ "máy bắt" này chưa từng chạy trong CI.
+  Đó chính là lỗ hổng để 7 nhãn trên lọt lưới tới tận C-30. Giảm nhẹ tạm thời: I18N-002 có test riêng
+  cho `lib/widgets/shell/`; việc dọn 68 stale + phân loại đủ literal + thêm bước CI (`--check`,
+  `git diff --exit-code`) vẫn nằm ở card này.
 - **Lịch sử:**
+  - 2026-10-11 | merge base | agent arena/af0abe2f-in4up | merge `arena/01a0251e-in4up` (20 commits) vào nhánh UX: catalog union 2379 key (base có 72 key stale chỉ tồn tại ở file generated — đã loại), +3 literal lỗi 153 ở `yt_player_screen.dart` đã dịch EN ⇒ catalog 2382; sàn hạ 77+284 → 73+280; ratchet floors-check OK. Không đổi package name/import; UX/C-27 files giữ nguyên.
+  - 2026-10-11 | merge base done | agent arena/af0abe2f-in4up | CI 🟢 run `38084072894` (head `dd30c3d5`): ratchet + analyze + toàn bộ test step xanh (UX-contract 27 file incl. C-27 27 test, Cabin Save, ASR, scanner, i4u18-lib); PR #96 `mergeState: CLEAN`, `mergeable: MERGEABLE`, check `analyze-and-locale-test` pass. Merge commit `ca133418` + fix staging `dd30c3d5` (3 file catalog/dart/floors). Backup tag local: `backup-before-base-sync-2026-10-11` (trước merge).
+  - 2026-10-08 | proposed→doing (phần 1) | agent arena/af0abe2f-in4up | dọn 81 stale + refactor
+    generator (`collect_state`/`compute_debt`, `--floors-check`/`--write-floors`) + sàn
+    `tool/i18n_ratchet_floors.json` (855) + bước CI ratchet (`paths: tool/**`); đối chứng strict mode
+    không đổi hành vi; kiểm răng: literal mới ⇒ đỏ.
+  - 2026-10-08 | doing (phần 2, lô 1) | agent arena/af0abe2f-in4up | +khoá nợ `missing_english`
+    (648) +`--generate`; dịch 68 chuỗi STT/Quick capture (catalog → 1845 key, sàn 580/787, file
+    fallback 1845 mục, residual 0).
+  - 2026-10-08 | doing (phần 2, lô 2 — Tipiṭaka) | agent arena/af0abe2f-in4up | dịch 77 chuỗi
+    `tipitaka/reader_screen.dart` (51) + `download_screen.dart` (26) — nhãn chrome dài (import DB,
+    quét thư mục, đánh dấu/ghi chú, chế độ đọc, gói ngôn ngữ Pa-Auk); giữ nguyên Pāli/diacritics
+    và phần ghi công CC BY-NC. Catalog → 1922 key, sàn 503/710, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 3 — audio) | agent arena/af0abe2f-in4up | dịch 39 chuỗi
+    `soundlist_panel.dart` (20) + `sound_auto_toc_dialog.dart` (19) — VAD/Whisper, tự tạo mục lục,
+    tách đoạn, xoá/đổi tên mục, nhãn 💪 Khó. Catalog → 1961 key, sàn 464/671, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 4 — media/PDF) | agent arena/af0abe2f-in4up | dịch 56 chuỗi
+    `vocab_image_picker_sheet.dart` + `pdf_ocr_sheet.dart` + `pdf_toolbar.dart` — ảnh/Lottie,
+    Wikimedia Commons, OCR trang scan, khoảng trang/toàn bộ, đánh dấu trang, phím tắt. Catalog →
+    2017 key, sàn 408/615, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 5 — Live Cabin) | agent arena/af0abe2f-in4up | dịch 41 chuỗi
+    `features/cabin/` — phiên dịch cabin (Gốc/Đích), ghi âm khi dịch, giữ ghi âm/văn bản, lưu & mở
+    trong Tab Đọc, định dạng WAV, cảnh báo tai nghe, khôi phục phiên sau khi app bị tắt ngang.
+    Catalog → 2058 key, sàn 367/574, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 6 — cụm thư viện) | agent arena/af0abe2f-in4up | dịch 57 chuỗi
+    4 màn thư viện (`tipitaka/library_screen`, `video/video_library_screen`,
+    `read_mode/library_screen`, `listen_mode/audio_library_view`) — quét thư mục/quyền truy cập,
+    lọc & sắp xếp (Tên A→Z/Dài nhất/Tác giả/Theo thư mục), đoạn đã đánh dấu, đọc tiếp/đọc toàn bộ
+    nhóm-bộ, Pāli đối chiếu theo đoạn. Catalog → 2115 key, sàn 310/517, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 7 — cụm Học thuộc lòng) | agent arena/af0abe2f-in4up | dịch 60 chuỗi
+    toàn bộ feature `learn_by_heart` (10 file: hub, editor, assessment, active recall, chunking flow,
+    voice recitation sheet, chain recitation, rating bar, audio bar, new learning) — FSRS, kệ Pháp Cú,
+    xích kệ ngôn, cloze `{{c1::…}}`, quyền Microphone, ZERO-CUE BLIND MODE… 6 chuỗi trùng với bản Anh
+    chính thức ở `learn_by_heart_l10n.dart` được dùng lại nguyên văn. Catalog → 2175 key, sàn 250/457,
+    residual 0.
+  - 2026-10-08 | doing (phần 2, lô 8 — cụm PDF Reader) | agent arena/af0abe2f-in4up | dịch 40 chuỗi
+    toàn bộ feature `pdf_reader` (9 file: màn hình chính, panel dịch trang, thanh TTS, tìm kiếm,
+    xuất/nhập annotation, sheet theme, jump-to-page, thumbnail, mục lục) — thuật ngữ khớp với lô 4
+    (`Scan OCR`, `Mark this page`, `Đánh dấu trang`→`Page mark`, `WordList`, `chú thích`→`note`).
+    Catalog → 2215 key, sàn 210/417, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 9 — cụm Nghe/listen_mode) | agent arena/af0abe2f-in4up | dịch 28 chuỗi
+    5 file (`listen_mode_screen`, `audio_playlists_sheet`, `generate_lrc_actions`,
+    `listen_library_screen`, `audio_library_drawer`) — playlist (tạo/thêm/danh sách trống), tạo LRC
+    (lyrics, tự nhận ngôn ngữ, giữ lời thoại đã lưu), quét thư viện, nhãn người nói, thông báo tạo
+    mục lục VAD+Whisper. Thuật ngữ khớp catalog: `bài`→`items`, `lời thoại`→`Lyrics`,
+    `Pháp thoại`→`Dharma talk`, `mục lục`→`table of contents`. Catalog → 2243 key, sàn 182/389,
+    residual 0.
+  - 2026-10-08 | doing (phần 2, lô 10 — cụm Đọc/read_mode) | agent arena/af0abe2f-in4up | dịch 25 chuỗi
+    12 file (`read_selection_sheets`, `read_line_hint`, `write_studio_screen`, `read_settings_sheet`,
+    `colored_text_widget`, `floating_text_actions` + 6 file lẻ) — chọn nguồn, dịch/ngữ pháp đoạn chọn,
+    hướng dẫn theo dòng, Exit Focus, box từng từ, cụm từ trong WordList, IPA, từ điển, .doc cũ,
+    Tầng 2 mẫu (Level 2 sample/.gguf). Thuật ngữ khớp catalog: `từ điển`→`dictionary`,
+    `bôi`→`highlight`, `Tầng 2`→`Level 2`, `ngôn ngữ đích`→`target language`.
+    Catalog → 2268 key, sàn 157/364, residual 0.
+  - 2026-10-08 | doing (phần 2, lô 11 — cụm Tipiṭaka còn lại) | agent arena/af0abe2f-in4up | dịch 27 chuỗi
+    5 file (`workspace_screen`, `search_screen`, `language_pack_screen`, `tipitaka_source_link`,
+    `tipitaka_task_overlay`) — không gian đọc, chia đôi màn hình, mở nguồn/trang Pa-Auk, tìm kiếm
+    (từ khóa Pāli/bản dịch), gói ngôn ngữ (tải/import độc lập), thông báo lỗi mở (nguồn/danh mục/
+    đoạn/sách/bản đối chiếu), đồng bộ cuộn hai ấn bản, đóng tab. Thuật ngữ khớp lô 2:
+    `bản đối chiếu`→`parallel view`, `song ngữ/căn hàng`→`bilingual/alignment`,
+    `gói ngôn ngữ`→`language pack`, `Pāli`/`Tipiṭaka` giữ nguyên dấu. Catalog → 2295 key,
+    sàn 130/337, residual 0.
+  - 2026-10-09 | doing (phần 2, lô 12 — cụm Dịch & Ngữ pháp) | agent arena/af0abe2f-in4up | dịch 27 chuỗi
+    4 file (`screen_translate_card`, `translation_toolbar`, `grammar/structure_section`,
+    `grammar/legend_bar`) — bong bóng dịch màn hình (quyền chụp màn hình/hiển thị trên app khác,
+    bật/tắt, Android only), thanh công cụ dịch (Hy-MT/ML Kit + từ điển, DeepLX test, lỗi HTTP/
+    kết nối server, import .gguf), phân tích cấu trúc câu (Mệnh đề, Câu điều kiện, Công thức câu,
+    Cụm rộng hơn, Ẩn chú giải). Thuật ngữ khớp catalog: `Câu`→`Sentence`, `Cụm từ`→`Phrase`,
+    `bong bóng`→`bubble`, `chú giải`→`explanations`. Catalog → 2322 key, sàn 103/310, residual 0.
+  - 2026-10-09 | doing (phần 2, lô 13 — cụm Home + Tools) | agent arena/af0abe2f-in4up | dịch 26 chuỗi
+    8 file (`quick_suggestion_sheet`, `sound_list_screen`, `word_import_sheet`,
+    `continue_learning_section`, `focus_streak_card`, `single_word_review_screen`, `home_screen`,
+    `word_list_screen`) — quick capture (gợi ý WordList, Nạp tri thức nhanh, huy hiệu lặp nhiều,
+    hướng dẫn import .txt/.csv, huy hiệu "đã có"), sound list (minh họa, mục cho file, đang phát,
+    đã import), word list (TIẾP TỤC HỌC, ngôn ngữ, thống kê điểm/đoạn/mục, nhịp học gần đây).
+    Thuật ngữ khớp catalog: `Ghi chú nói`→`Speaking notes`, `Dấu`→`Bookmark`, `minh họa`→`illustration`,
+    `mục`→`item/entry`, `điểm`→`points`, `đã có`→`already added`. Có 3 chuỗi multiline (key có newline
+    thật — đúng pitfall đã ghi). Catalog → 2348 key, sàn 77/284, residual 0.
   - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
     rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
     ListenLibraryScreen/AudioLibraryView (chờ CI)
@@ -6634,3 +6875,170 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
     thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
     duyệt PR.
+
+### UX-C31 — State preservation QA (6 vùng) + 3 lỗi thật đã sửa
+- **Trạng thái:** 🔨 doing — code + máy bắt xong 2026-10-07 (26 kịch bản / 6 vùng);
+  còn CI 🟢 + nghiệm thu thiết bị (mục "QA TAY" trong báo cáo của harness).
+- **Nguồn:** `docs/ux/39-capability-breakdown.vi.md` mục C-31 (Phase 3 — Cross-cutting QA);
+  contract tham chiếu: `docs/ux/38-shared-state-contract.vi.md` + `docs/ux/36-pre-freeze-review.vi.md`
+  (§2 layer state machine, §5 anchor fallback).
+- **Hiện thực:**
+  - `lib/core/qa/state_preservation_qa.dart` — harness thuần Dart (không plugin/mạng/
+    `BuildContext`): enum 6 vùng, 26 kịch bản có mã (`C31-SRC/ANC/DFT/PLY/RTN/OFF`),
+    `I4uPreservationReport` + `toQualityRun()` nối vào `I4uQualityRun` của C-30,
+    `toSummary()` để dán log; danh sách QA tay `kI4uPreservationManualChecks`.
+    **Cổng chặn:** vùng không có kịch bản ⇒ `uncoveredAreas` khác rỗng ⇒ KHÔNG
+    freeze-ready (không "pass rỗng").
+  - `test/state_preservation_qa_test.dart` — chạy cả bộ + 4 test âm tính (thiếu vùng,
+    fail có chi tiết, summary nêu QA tay, bộ kịch bản phủ đủ 6 vùng).
+  - `docs/ux/41-state-preservation-qa.vi.md` — phạm vi, cách chạy, ma trận 26 kịch bản,
+    3 lỗi đã sửa, việc QA tay, việc còn mở.
+- **Lỗi thật đã sửa (do chính bộ kịch bản bắt):**
+  1. `I4uCoachFlowController.markStale()` xoá `answerDraft`/`hintLevel` ⇒ nguồn đổi
+     revision là mất chữ đang gõ (sự kiện hệ thống, không phải người học) — nay giữ;
+     chỉ `nextStep()`/`start()` xoá (chủ ý).
+  2. `I4uRememberFlowController` xoá `source` ở mọi bước + xoá `stage` khi
+     `pause()`/`nextCard()`, xoá `rating` khi `pause()` ⇒ mất nguồn đang ôn
+     (vi phạm rule vàng #3) và UI quên tầng học thuộc — nay giữ `source` suốt phiên,
+     giữ `stage`, `rating` thuộc thẻ đang mở; thêm `loadSource()`.
+  3. `I4uMiniPlayerSurfaceState` không có bộ nhớ trạng thái trước khi lớp phủ ẩn ⇒
+     đóng Quick Actions/sheet lớn là Mini Player biến mất (trái `docs/ux/36 §2`:
+     `largeSheetClosed → restore previous mini state`) — nay có `suspendedMode` +
+     khôi phục, playback không đổi.
+- **Sửa cổng CI của nhánh nền (cùng session):** `lib/screens/main_shell.dart` hỏng cú pháp
+  (1 dấu `),` thừa ở `_buildBottomNav` + 2 dấu đóng thiếu ở `_BottomNavItem.build`) làm
+  `Analyze full app` đỏ trên `arena/01a10675-in4up` từ run 37682387649 → mọi bước test
+  đều bị skip, toàn bộ hợp đồng UX đợt trước chưa từng được máy kiểm chứng. Đã sửa bằng
+  bộ đếm ngoặc hiệu chuẩn trên bản `main` (BALANCED) — 2 commit riêng (`3e3d770` + commit bù).
+- **Máy bắt / lệnh chạy:**
+  `flutter test test/state_preservation_qa_test.dart` (+ 3 file test nhớ lại: remember/coach/
+  mini player). **Đã có bước CI riêng** (commit `fcc519f0`): step *"UX shell contracts + C-31
+  state preservation (logic thuần)"* trong `app_analyze.yml` chạy 22 file test thuần Dart —
+  CI 🟢 run 37782521070 (step 24 success, artifact `app-ux-contract-test-log`).
+  **Đính chính:** kết luận cũ "token không có quyền sửa `.github/workflows/`" là SAI — push
+  đổi workflow thành công; ghi chú thiếu quyền `workflows` thuộc `CI-WINDOWS-01` (token
+  GitHub App của job release, không phải token agent). **Luật:** với sự kiện `push`, GitHub
+  dùng workflow trên chính nhánh được push ⇒ KHÔNG cần (và không nên) copy tay file này vào
+  `main`; bước đi kèm nhánh khi merge.
+- **Lịch sử:**
+  - 2026-10-07 | proposed→doing | agent arena/af0abe2f-in4up | mở session mới sau khi PR #95
+    bị đóng; vá cổng CI của nhánh nền trước (main_shell syntax), sau đó thêm harness C-31 +
+    3 fix bảo toàn trạng thái; PR mở vào `main`.
+  - 2026-10-08 | doing (không đổi trạng thái) | agent arena/af0abe2f-in4up | thêm **bước CI
+    riêng cho C-31** (`fcc519f0`): step "UX shell contracts + C-31 state preservation (logic
+    thuần)" chạy 22 file test thuần Dart (đã rà import: chỉ flutter_test/in4up); CI 🟢 **run
+    37782521070** — analyze 0 error, step 24 success, artifact `app-ux-contract-test-log`.
+    **Đính chính:** token CÓ quyền push `.github/workflows/` (kết luận cũ sai). PR #96 đổi base
+    `main` → **`arena/01a0251e-in4up`** theo yêu cầu owner; nhánh đi trước 251e 24 commit /
+    sau 0 ⇒ `mergeable=clean` (fast-forward), hết cảnh conflicting như khi so với `main`.
+  - 2026-10-07 | doing (không đổi trạng thái) | agent arena/af0abe2f-in4up | CI 🟢 **run
+    37692296674** @ `6d7ed2f` (analyze 0 error + mọi bước test scoped xanh) — lần đầu nhánh
+    này xanh sau 8 run đỏ liên tiếp của bản nền; PR **#96** → `main` checks xanh. Đường hợp
+    nhất: nhánh **743 ahead / 41 behind** `main` (merge-base `82d7c56`), GitHub báo
+    conflicting ⇒ cần quyết định lineage của người sở hữu (MAIN-RESTORE-001 / GOVERNANCE
+    §4b content-sync), KHÔNG tự merge chéo. Lỗi CI bắt được và đã sửa: `const_eval_type_num`
+    ở kịch bản ANC-05 (`6d7ed2f`). Còn: bước CI riêng cho C-31 (token thiếu quyền sửa
+    `.github/workflows/`) + nghiệm thu thiết bị theo mục "QA TAY".
+
+### UX-C30 — Responsive/accessibility QA (7 vùng) — máy bắt 2 tầng
+- **Trạng thái:** 🔨 doing — code + máy bắt xong 2026-10-08 (16 kịch bản logic + 9 bằng chứng widget);
+  **CI đã 🟢** (push `37801748437` + PR `37801754613`, bước 24 success, commit `61d85e0`);
+  còn QA tay thiết bị (TalkBack/VoiceOver, cỡ chữ hệ thống, xoay máy thật).
+- **Nguồn:** `docs/ux/39-capability-breakdown.vi.md` mục C-30 (Phase 3 — Cross-cutting QA);
+  hợp đồng tham chiếu `docs/ux/36-pre-freeze-review.vi.md` §6 (Split accessibility) + `docs/ux/37` (KeyboardAvoidingSurface/FocusTrap).
+- **Hiện thực:**
+  - `lib/core/qa/responsive_accessibility_qa.dart` — enum 7 vùng, 16 kịch bản có mã
+    (`C30-TXT/KBD/SAF/OVL/ORI`), `I4uResponsiveEvidence` (bằng chứng widget),
+    `I4uResponsiveReport.toQualityRun()` nối `I4uQualityRun`, `toSummary()`, danh sách QA tay
+    `kI4uResponsiveManualChecks`.
+    **Cổng chặn 2 tầng:** vùng `screen-reader-labels`/`touch-targets` KHÔNG có kịch bản logic ⇒
+    chỉ đạt khi test widget nạp bằng chứng; thiếu ⇒ `uncoveredAreas` khác rỗng ⇒ fail/blocker.
+  - `test/responsive_accessibility_qa_test.dart` — chạy harness + widget test đo thật:
+    `I4uSafeAreaFloatingHost` (76/110/376 theo inset runtime), Command Palette (nhãn semantics +
+    mục lệnh ≥ 48px + không tràn ở trần cỡ chữ 1.15), `I4uGlobalChatSurface` (nhãn nút gửi +
+    tap target padded + bàn phím 300 không che ô nhập + xoay dọc↔ngang), drift guard ngưỡng
+    breakpoint của `main_shell.dart`, và 1 test tổng hợp khẳng định thiếu bằng chứng widget thì
+    KHÔNG được coi là đạt.
+  - `docs/ux/42-responsive-accessibility-qa.vi.md` — phạm vi, cách chạy, ma trận 16+9, phát hiện,
+    QA tay, việc còn mở. `docs/ux/decision-log.vi.md` D-032.
+- **Phát hiện (không tự sửa trong C-30, ghi lại để không mất):**
+  1. **Policy C-02 chưa nối vào app:** `AppResponsive` / `I4uSafeAreaPolicy` / `I4uOverlayPolicy` /
+     `I4uSafeAreaFloatingHost` có 0 usage trong `lib/` ngoài QA/test (`grep` chứng minh).
+     `main_shell.dart` tự so ngưỡng cứng `>= 1024` (2 chỗ, dòng 1288/1381) — trùng
+     `AppResponsive.expandedWidth` nên chưa lệch, nhưng là bản sao thứ hai; kịch bản `C30-W-ORI-04`
+     canh drift này. **✅ 2026-10-08: đã nối phần breakpoint + trần overlay ở UX-C02b** (row cùng
+     tên); còn `I4uSafeAreaPolicy`/`I4uSafeAreaFloatingHost`/`I4uOverlayPolicy` cho surface nổi —
+     xem D-035 (lý do: đổi padding thật, cần QA thiết bị).
+  2. **7 chuỗi chrome tiếng Việt hard-code** trong `command_palette.dart` + `global_chat_surface.dart`
+     (không qua `uiText`/ARB, không có trong `tool/legacy_ui_english_overrides.json`) — vi phạm
+     quy tắc vàng #5 ở locale ≠ vi; **đã đóng ở I18N-002** (bọc uiText + English; T2 chờ đợt dịch).
+- **Máy bắt / lệnh chạy:** `flutter test test/responsive_accessibility_qa_test.dart`;
+  bước CI "UX shell contracts + C-31 state preservation (logic thuần)" đã thêm file C-30 (23 file).
+- **Lịch sử:**
+  - 2026-10-08 | proposed→doing | agent arena/af0abe2f-in4up | thêm harness C-30 + widget test
+    (đo nhãn/vùng chạm/bàn phím/xoay) + drift guard breakpoint + tài liệu; phát hiện policy C-02
+    chưa nối vào shell và 7 chuỗi chrome tiếng Việt; CI bổ sung file vào bước UX contract.
+  - 2026-10-08 | doing (CI 🟢) | agent arena/af0abe2f-in4up | run `37800693993` đỏ 2 test A11Y —
+    nguyên nhân là bẫy Flutter 3.44.1: `_endOfTestVerifications` chạy trước `addTearDown` nên
+    `SemanticsHandle` chưa dispose. Sửa `semantics.dispose()` tường minh trong thân test (giữ
+    nguyên phép đo) ⇒ `37801748437` (push) + `37801754613` (PR) xanh, bước 24 success, commit
+    `61d85e0`. Đồng thời nới cửa sổ annotation của bước CI (30 dòng trước dòng `[E]`) và ghi
+    2 bài học vào `AGENTS.md`.
+  - 2026-10-08 | doing | agent arena/af0abe2f-in4up | đóng phát hiện #1 phần breakpoint/overlay ở
+    UX-C02b: `main_shell.dart` đọc `AppResponsive.expandedWidth`, palette đọc trần overlay policy,
+    drift guard `C30-W-ORI-04` siết 4 phép khẳng định (xem `docs/ux/decision-log` D-035).
+
+### UX-C02b — Shell tiêu thụ policy responsive (`AppResponsive`) thay vì ngưỡng cứng
+- **Trạng thái:** ✅ done — code + máy bắt; chờ QA tay (xoay máy / thu nhỏ cửa sổ desktop < 1024).
+- **Nguồn:** phát hiện #1 của C-30 (`docs/ux/42` §4.1) — policy C-02 có test nhưng 0 nơi dùng trong
+  `lib/`; `main_shell.dart` giữ bản sao thứ hai của ngưỡng `1024`.
+- **Đã làm (giữ nguyên pixel — chọn chỗ nối "không đổi giao diện"):**
+  1. `lib/core/responsive/app_responsive.dart`: thêm `overlayDialogMaxWidth = 640` /
+     `overlayDialogMaxHeight = 620` (trần overlay của shell giờ thuộc policy).
+  2. `lib/screens/main_shell.dart`: 2 chỗ `>= 1024` (dòng 1288/1381) → `AppResponsive.expandedWidth`.
+  3. `lib/widgets/shell/command_palette.dart`: `BoxConstraints(640/620)` → hằng số policy.
+  4. `test/responsive_accessibility_qa_test.dart`: drift guard `C30-W-ORI-04` siết thành 4 phép
+     khẳng định — (a) không literal `>= NNN` trong `main_shell.dart` + cả `lib/widgets/shell/`;
+     (b) shell **thật sự** dùng `AppResponsive.expandedWidth` (bắt trường hợp xoá ngưỡng mà không
+     nối policy); (c) palette dùng trần policy; (d) không cap số hard-code trong palette.
+- **Cố ý KHÔNG làm (tách capability riêng, cần QA thiết bị):** thay ~20 chỗ `viewInsets.bottom + N`
+  bằng `I4uSafeAreaFloatingHost` (host **cộng** safe-area bottom ⇒ đổi padding thật); gán
+  `I4uOverlayPolicy.miniPlayerVisibleInForeground` cho `_shouldShowShellMiniPlayer` (ngữ nghĩa
+  overlay-state ≠ ngữ nghĩa tab ⇒ đổi hành vi). Lý do đầy đủ: D-035.
+- **Máy bắt / lệnh chạy:** `flutter test test/responsive_accessibility_qa_test.dart` (đã nằm trong
+  bước CI "UX shell contracts + C-31 state preservation").
+- **Lịch sử:**
+  - 2026-10-08 | proposed→done | agent arena/af0abe2f-in4up | nối `AppResponsive` vào `main_shell`
+    + palette, siết drift guard 4 phép khẳng định, +D-035 +quy tắc vàng #6 trong AGENTS.md.
+
+### I18N-002 — Chrome shell tuân rule #5 (bọc `uiText` + English + máy bắt 3 tầng)
+- **Trạng thái:** ✅ done — code + máy bắt + CI 🟢 (2026-10-08); chờ QA tay trên thiết bị với locale ≠ vi.
+- **Nguồn:** phát hiện #2 của C-30 (`docs/ux/42-responsive-accessibility-qa.vi.md` §4.2) — bước CI
+  *"Rule 5 test"* chỉ quét catalog đã sinh, literal hard-code trong widget là **điểm mù thật**.
+- **Số liệu trước khi sửa (chính xác):** 8 literal Việt trong 2 file `lib/widgets/shell/` — 7 nhãn
+  chưa có English trong catalog + `'Gửi'` đã có English nhưng mã nguồn hard-code nên key vô hiệu.
+  (`'Global Chat'` không tính — đã là tiếng Anh.)
+- **Hiện thực:** bọc cả 7 nhãn bằng `context.uiText(...)` (import `localized_material.dart`, bỏ
+  `const` ở 3 chỗ dựng widget tương ứng); đăng ký English ở **cả hai** đường catalog
+  (`lib/core/language/priority_ui_overrides.dart` cho runtime + `tool/legacy_ui_english_overrides.json`
+  cho nguồn generator); bong bóng tin nhắn render bằng `material.Text` (tiền tố) để nội dung user/AI
+  **không bao giờ** đi qua cơ chế dịch chrome (rule #5 loại trừ).
+- **Máy bắt:** `test/shell_chrome_i18n_coverage_test.dart` — 3 tầng: (1) literal Việt trong
+  `lib/widgets/shell/` phải được bọc `uiText/tr` (cổng chặn "pass rỗng": ≥ 7 nhãn); (2) mọi nhãn bọc
+  phải dịch được ở `en/hi/zh/zh_TW/si/ja`, không rơi về `vi`; (3) dựng thật 2 surface ở locale `en`,
+  quét Text/RichText/Tooltip — không còn ký tự Việt (kèm assert English thật: `Send`,
+  `Ask a question to get started.`, `No source context`, `Search commands or workspaces`,
+  `No matching commands found.`). Test C-30 ghim `locale: vi` để hai mối quan tâm không trộn nhau.
+- **Quyết định:** D-033 trong `docs/ux/decision-log.vi.md` (đăng ký ở cả hai đường catalog, chỉ `en`).
+- **Việc còn mở:** bản dịch T2 `hi/zh/zh_TW/si` cho các key legacy (hiện rơi về `en` — đúng rule #5);
+  QA tay: mở app ở locale `en` + 1 locale chưa dịch hết, chrome shell không `vi`.
+- **Lịch sử:**
+  - 2026-10-08 | proposed→done | agent arena/af0abe2f-in4up | phát hiện bởi C-30; sửa 2 widget +
+    đăng ký 7 key English + test 3 tầng + đưa vào bước CI (24 file); chuyển bằng chứng generator
+    (68 override stale + không chạy trong CI) sang card `I18N-001`.
+  - 2026-10-08 | CI đỏ→xanh | agent arena/af0abe2f-in4up | run `37803959116` đỏ ở C-30 A11Y-02:
+    `find.byTooltip('Gửi')` hết khớp vì chrome nay bản địa hoá; bẫy phụ: `MaterialApp(locale:
+    Locale('vi'))` KHÔNG làm test chạy locale vi (vẫn resolve en_US theo default `supportedLocales`).
+    Sửa: bỏ ghim locale, finder dùng nhãn English của test env + ghi bài học vào AGENTS.md ⇒
+    `37804605761` (push) + `37804624188` (PR) xanh, step 24 success, commit `fc5d7ea`.
+

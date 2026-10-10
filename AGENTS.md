@@ -63,7 +63,45 @@
         phải có giá trị `en` (canonical fallback).
      3. QA tay: EN + 1 locale chưa dịch hết (JA/BN) — chrome không `vi`; mở file
         tiếng Việt vẫn thấy tiếng Việt.
+   - **"Máy bắt" literal chrome — trạng thái 2026-10-08 (đọc trước khi tin ghi chú cũ):**
+     generator `tool/generate_legacy_ui_fallbacks.py` **đã được CI chạy** ở chế độ sàn ratchet:
+     bước *"i18n ratchet — literal chrome mới phải được phân loại"* (đầu job `app_analyze.yml`,
+     `python3 … --floors-check`, ~2s, không cần Flutter; `paths` đã có `tool/**`). Sàn ở
+     `tool/i18n_ratchet_floors.json`: nợ cũ đã chốt (855 literal chưa phân loại, 0 stale) —
+     **CI chỉ đỏ khi phát sinh literal Việt MỚI**. Chế độ strict toàn phần
+     (`python3 tool/generate_legacy_ui_fallbacks.py`) vẫn đỏ vì 855 literal đó, nên:
+     - Thêm chuỗi chrome: bọc `uiText('…')` + English vào
+       `tool/legacy_ui_english_overrides.json`; **sau khi thêm xong nhớ chạy lại** `--floors-check`**
+       (nếu literal mới chưa phân loại, bước CI sẽ đỏ và in `::error::… 'chuỗi mới'`).
+     - Chuỗi **ngắn/không dấu** (`'Xem'`, `'Nghe'`, `'Chung'`, template `'trang {value0}'`) thì
+       extractor cố ý bỏ qua ⇒ đặt ở `lib/core/language/priority_ui_overrides.dart` (catalog
+       runtime), KHÔNG đặt ở JSON trên (sẽ bị báo stale).
+     - Muốn tăng nợ có chủ ý: `--write-floors` (diff sẽ thể hiện — đừng làm lén).
+     - **Dịch theo lô (I18N-001 phần 2):** dịch thêm chuỗi vào JSON rồi `python3
+       tool/generate_legacy_ui_fallbacks.py --generate` (sinh file fallback dù còn nợ đã biết) +
+       `--write-floors` (hạ sàn). Sàn có 4 khoá: `stale_overrides`, `unused_exclusions`,
+       `missing_english` (chuỗi đã bọc `uiText/Text` chưa có English — **thêm uiText mà quên English
+       là CI đỏ**), `unclassified_literals`.
+     - Vùng chrome mới **vẫn phải có test nguồn riêng**: khuôn là
+       `test/shell_chrome_i18n_coverage_test.dart` (vùng `lib/widgets/shell/`, card `I18N-002`) —
+       literal Việt phải bọc `uiText/tr`; mỗi nhãn phải dịch được ở mọi locale ≠ vi; dựng widget ở
+       locale `en` và quét Text/RichText/Tooltip không còn ký tự Việt.
+   - **Bẫy widget test + locale (kiểm chứng CI 2026-10-08):** `MaterialApp(locale: Locale('vi'))`
+     **không đủ** để test chạy ở locale vi — app vẫn resolve về `en_US` (default
+     `supportedLocales`), nên chrome đã bọc `uiText` sẽ ra tiếng Anh và finder kiểu
+     `find.byTooltip('Gửi')` gãy. Hai cách đúng: (a) thêm `supportedLocales: [Locale('vi')]`
+     (+ delegates nếu cần MaterialLocalizations); (b) test **đo chrome** thì giữ locale mặc
+     định (en_US) và assert theo nhãn English — trường hợp của
+     `test/responsive_accessibility_qa_test.dart`. Việc dịch được canh riêng bởi test ở
+     `lib/widgets/shell/` (I18N-002).
    - KHÔNG bật dịch máy runtime cho mọi chuỗi lạ.
+
+6. **Ngưỡng/kích thước chrome của shell lấy từ policy `AppResponsive`** — không hard-code số
+   (`>= 1024`, `maxWidth: 640`…) trong `lib/screens/main_shell.dart` hay `lib/widgets/shell/`.
+   Drift guard `C30-W-ORI-04` trong `test/responsive_accessibility_qa_test.dart` canh cả 3 điều
+   kiện: không literal `>= NNN`, shell **thật sự** dùng `AppResponsive.expandedWidth`, và trần
+   overlay (Command Palette) lấy từ `overlayDialogMaxWidth/Height`. Cần trần mới ⇒ thêm vào policy,
+   không thêm vào widget. (Capability UX-C02b.)
 
 ## Vận hành CI / môi trường (đúc kết từ thực chiến)
 
@@ -76,6 +114,29 @@
   khiến `git branch -r` / `git show origin/arena/*:...` không thấy nhánh lineage.
   Xem **GOVERNANCE mục 2a** để fetch đúng ref — ĐỪNG kết luận "nhánh gốc bị mất".
 - Commit nhỏ, push ngay — push là backup (sandbox có thể tái bản giữa phiên).
+- **Quyền sửa `.github/workflows/` (đã kiểm chứng 2026-10-08):** token của agent
+  Arena hiện tại **CÓ** quyền push thay đổi vào `.github/workflows/**` — bằng chứng
+  commit `fcc519f0` (thêm step vào `app_analyze.yml`) chạy đúng trong CI run
+  `37782521070`. Nhiều ghi chú cũ trong KANBAN/ADR/handoff nói "token thiếu quyền
+  `workflows`" là **thông tin lịch sử của thời điểm đó** — ĐỪNG kết luận lại từ chúng.
+  Cách kiểm chứng duy nhất: thử push một thay đổi nhỏ; nếu bị chặn, thông báo thật là
+  `refusing to allow a Personal Access Token to create or update workflow ...`.
+  (Ghi chú "thiếu quyền `workflows`" nay chỉ còn đúng với **token GitHub App của job
+  release** — xem card `CI-WINDOWS-01` trong KANBAN.)
+- **Workflow nào chạy cho nhánh nào:** với sự kiện `push`, GitHub dùng
+  `.github/workflows/*` **trên chính commit vừa push** — tức bản của **nhánh đang làm
+  việc**. Sửa workflow ở `main`/nhánh khác **KHÔNG** làm nhánh này chạy bước mới (các
+  nhánh cũ vẫn dùng bản workflow của chính chúng cho tới khi rebase). Muốn một "máy
+  bắt" chạy cho nhánh X ⇒ thêm bước vào workflow **của X**, rồi để nó đi kèm khi merge.
+- **Bẫy widget test (Flutter 3.44.1) — `SemanticsHandle`:** `WidgetTester._endOfTestVerifications`
+  chạy ở **cuối thân test, TRƯỚC mọi callback `addTearDown`** ⇒ `tester.ensureSemantics()` mà chỉ
+  `addTearDown(handle.dispose)` vẫn đỏ: *"A SemanticsHandle was active at the end of the test."*
+  Luôn `handle.dispose()` **tường minh trong thân test** ngay sau khi đo xong **trước mọi `expect`**.
+  (Bằng chứng: C-30 — run `37800693993` đỏ 2 test A11Y → sửa → `37801748437` xanh.)
+- **Đọc log khi CI đỏ:** artifact test không tải được từ sandbox (`gh run download` ⇒ blobstorage
+  `EOF`) ⇒ dùng `gh api repos/<owner>/<repo>/check-runs/<job_id>/annotations`. Bước *UX shell
+  contracts* thông báo lỗi bằng cửa sổ **30 dòng TRƯỚC + 6 dòng sau** dòng `[E]` — vì chi tiết
+  Expected/Actual của reporter `expanded` nằm **TRƯỚC** dòng `[E]`. Đừng đoán lỗi từ tên test.
 
 ## Module mới (đang trên branch `arena/01a019bb-in4up`, chờ merge)
 

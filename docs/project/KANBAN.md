@@ -2080,6 +2080,7 @@
   `git diff --exit-code`) vẫn nằm ở card này.
 - **Lịch sử:**
   - 2026-10-11 | merge base | agent arena/af0abe2f-in4up | merge `arena/01a0251e-in4up` (20 commits) vào nhánh UX: catalog union 2379 key (base có 72 key stale chỉ tồn tại ở file generated — đã loại), +3 literal lỗi 153 ở `yt_player_screen.dart` đã dịch EN ⇒ catalog 2382; sàn hạ 77+284 → 73+280; ratchet floors-check OK. Không đổi package name/import; UX/C-27 files giữ nguyên.
+  - 2026-10-11 | merge base done | agent arena/af0abe2f-in4up | CI 🟢 run `38084072894` (head `dd30c3d5`): ratchet + analyze + toàn bộ test step xanh (UX-contract 27 file incl. C-27 27 test, Cabin Save, ASR, scanner, i4u18-lib); PR #96 `mergeState: CLEAN`, `mergeable: MERGEABLE`, check `analyze-and-locale-test` pass. Merge commit `ca133418` + fix staging `dd30c3d5` (3 file catalog/dart/floors). Backup tag local: `backup-before-base-sync-2026-10-11` (trước merge).
   - 2026-10-08 | proposed→doing (phần 1) | agent arena/af0abe2f-in4up | dọn 81 stale + refactor
     generator (`collect_state`/`compute_debt`, `--floors-check`/`--write-floors`) + sàn
     `tool/i18n_ratchet_floors.json` (855) + bước CI ratchet (`paths: tool/**`); đối chứng strict mode

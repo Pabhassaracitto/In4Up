@@ -344,7 +344,7 @@ jobs:
           if-no-files-found: ignore
 
       # UX shell contracts (C-00..C-31 + I18N-001) — bộ "máy bắt" của hợp đồng
-      # UX shell, 24 file: C-30 responsive/accessibility + C-31 state preservation
+      # UX shell, 27 file: C-30 responsive/accessibility + C-31 state preservation + C-27 cabin live
       # là 2 bộ QA cross-cutting (C-30 có cả widget test đo nhãn/vùng chạm/bàn
       # phím); I18N-001 canh chrome shell ở locale ≠ vi (rule #5).
       # shared shell contracts, back/dismiss, safe-area/overlay policy, các
@@ -381,7 +381,10 @@ jobs:
                    test/audio_library_flow_test.dart \
                    test/audio_library_state_test.dart \
                    test/home_reader_shell_state_test.dart \
-                   test/shell_content_order_test.dart; do
+                   test/shell_content_order_test.dart \
+                   test/c27_cabin_live_state_transition_test.dart \
+                   test/c27_cabin_live_handoff_preservation_test.dart \
+                   test/c27_cabin_live_offline_reconnect_session_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

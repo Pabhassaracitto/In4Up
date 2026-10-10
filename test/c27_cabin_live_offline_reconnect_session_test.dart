@@ -74,6 +74,7 @@ void main() {
     test('mất mạng từ paused → offline; có mạng → tiếp tục, session giữ nguyên', () {
       final controller = startedController();
       controller.onFinalCaption(caption('c1', isFinal: true));
+      controller.onTranslatedCaption('c1', 'dịch c1');
       final id = controller.machine.sessionId;
 
       controller.pause();

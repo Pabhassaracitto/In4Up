@@ -407,6 +407,15 @@ jobs:
               msg=$(sed -n "${start},$((ln + 6))p" ux_contract_clean.log \
                 | head -c 2600 | sed ':a;N;$!ba;s/\n/%0A/g')
               echo "::error::TEST FAILED: $msg"
+              # Bổ sung: chi tiết fail (dòng [E] + Expected/Actual + stack) và
+              # 5 dòng cuối log (tổng kết +X -Y) — log blob không tải được từ
+              # một số môi trường nên annotation phải tự đủ dùng.
+              detail=$(sed -n "${ln},$((ln + 12))p" ux_contract_clean.log \
+                | head -c 2600 | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error::FAIL DETAIL: $detail"
+              tail -n 5 ux_contract_clean.log \
+                | sed ':a;N;$!ba;s/\n/%0A/g' \
+                | while IFS= read -r tl; do echo "::error::LOG TAIL: $tl"; done
             done || true
           fi
           exit $code

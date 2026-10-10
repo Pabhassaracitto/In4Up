@@ -312,6 +312,9 @@
 - **Tài liệu:** `docs/ux/42-c27-cabin-live-state-detail.vi.md` (chi tiết),
   `docs/ux/43-c27-cabin-live-state-contract.vi.md` (hợp đồng + test mapping),
   `docs/ux/39-capability-breakdown.vi.md` mục C-27.
+- **Đánh số:** owner ghi nhầm **D-032** trong brief — D-032 đã thuộc về C-30 (tách bằng
+  chứng "logic" khỏi bằng chứng "đo trên widget"), nên quyết định C-27 lấy số tiếp
+  theo là **D-036** (log chỉ ghi thêm, không đổi số cũ).
 
 ## Câu hỏi mở hiện tại
 

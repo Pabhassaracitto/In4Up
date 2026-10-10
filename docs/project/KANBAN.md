@@ -1111,9 +1111,13 @@
   snapshot) + `c27_cabin_live_controller.dart` (flow/controller); 3 test file: state transition,
   handoff preservation, offline/reconnect/session preservation — đưa vào bước CI
   "UX shell contracts" (24→27 file).
-- **Chưa làm (QA tay):** 3 display form trên thiết bị thật (Full Cabin Viewport,
-  LiveCaptionBubble nổi trên bottom nav, Handoff Drawer bottom sheet mobile / side panel desktop);
-  permission flow trên Android thật (mic + overlay); shortcut focus scope trên desktop.
+- **Visual validation:** ✅ đã hoàn tất — 2 visual reference Stitch (Desktop: Full Viewport
+  & Handoff Drawer; Mobile: 3 Display Forms & Safe-Area). Không gửi Stitch thêm trừ khi
+  phát hiện lỗi cụ thể (bubble che Mini Player / Bottom Nav, Handoff Drawer cạnh tranh
+  Context Panel, partial/final/translated khó phân biệt, mobile keyboard che caption).
+- **Chưa làm:** wiring UI (bước 6): LiveCaptionBubble + Quick Actions + Nghe/Hiểu/Nhớ;
+  QA tay trên thiết bị thật (permission flow mic + overlay trên Android, shortcut focus
+  scope trên desktop).
 - **Lịch sử:**
   - 2026-10-09 | doing | agent arena/af0abe2f-in4up | docs 42/43 + D-036 + 39 cập nhật;
     code state contract + controller + 3 test; CI 27 file.
@@ -1129,6 +1133,9 @@
     C-27 test file, 27 test: 12 state transition + 8 handoff + 7 offline/reconnect),
     PR #96 check `analyze-and-locale-test` pass. C-27 code+test xong; còn QA tay
     3 display form + permission flow trên thiết bị thật.
+  - 2026-10-09 | update | agent arena/af0abe2f-in4up | Visual Validation hoàn tất
+    (Stitch desktop + mobile) — ghi vào doc 42 §10 + card; D-036 bổ sung cross-ref
+    (owner ghi D-032 nhưng đã thuộc C-30). Còn lại: wiring UI bước 6.
 
 ### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
 

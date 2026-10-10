@@ -213,6 +213,13 @@ Kế thừa `CabinSessionStore` (file-based, đã có):
 - Chọn đích: **Hiểu** (gửi context vào Global Chat của Hiểu) hoặc **Nhớ** (tạo thẻ ôn tập).
 - Hiển thị preview handoff (schema §11) trước khi xác nhận.
 
+> **Visual validation (2026-10-09):** đã hoàn tất — có đủ 2 visual reference Stitch:
+> **Desktop** "I4U Desktop — C-27 Cabin Live / Full Viewport & Handoff Drawer" và
+> **Mobile** "I4U Mobile — C-27 Cabin Live / 3 Display Forms & Safe-Area". Không gửi
+> thêm prompt Stitch trừ khi phát hiện lỗi cụ thể: bubble che Mini Player, bubble che
+> Bottom Navigation, Handoff Drawer cạnh tranh Context Panel, partial/final/translated
+> khó phân biệt, hoặc mobile keyboard che caption.
+
 ## 11. Source context handoff schema + returnPath
 
 Schema tối thiểu (10 trường bắt buộc — xem bản chính tắc ở doc 43):

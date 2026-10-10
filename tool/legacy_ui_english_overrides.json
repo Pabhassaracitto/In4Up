@@ -2377,5 +2377,8 @@
   "❌ Không dịch được đoạn chọn": "❌ Could not translate the selection",
   "❌ Không lưu được file âm thanh": "❌ Could not save the audio file",
   "❌ Không thể lấy nội dung bài để tạo âm thanh": "❌ Could not extract the article to make audio",
-  "🟢 NGHE": "🟢 LISTEN"
+  "🟢 NGHE": "🟢 LISTEN",
+  "YouTube từ chối phát video này (lỗi cấu hình trình phát, thường là mã 153). Kiểm tra mạng/VPN rồi bấm Thử lại.": "YouTube refused to play this video (player configuration error, usually code 153). Check your network/VPN and tap Retry.",
+  "lỗi cấu hình trình phát": "player configuration error",
+  "lỗi cấu hình": "configuration error"
 }

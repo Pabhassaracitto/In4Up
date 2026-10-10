@@ -95,7 +95,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–12 đã dịch** 2026-10-09 (545/648 chuỗi, hiệu lực runtime ngay); còn **103** chuỗi uiText/Text chưa English + **310** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–13 đã dịch** 2026-10-09 (571/648 chuỗi, hiệu lực runtime ngay); còn **77** chuỗi uiText/Text chưa English + **284** literal chưa phân loại | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -2041,6 +2041,15 @@
     kết nối server, import .gguf), phân tích cấu trúc câu (Mệnh đề, Câu điều kiện, Công thức câu,
     Cụm rộng hơn, Ẩn chú giải). Thuật ngữ khớp catalog: `Câu`→`Sentence`, `Cụm từ`→`Phrase`,
     `bong bóng`→`bubble`, `chú giải`→`explanations`. Catalog → 2322 key, sàn 103/310, residual 0.
+  - 2026-10-09 | doing (phần 2, lô 13 — cụm Home + Tools) | agent arena/af0abe2f-in4up | dịch 26 chuỗi
+    8 file (`quick_suggestion_sheet`, `sound_list_screen`, `word_import_sheet`,
+    `continue_learning_section`, `focus_streak_card`, `single_word_review_screen`, `home_screen`,
+    `word_list_screen`) — quick capture (gợi ý WordList, Nạp tri thức nhanh, huy hiệu lặp nhiều,
+    hướng dẫn import .txt/.csv, huy hiệu "đã có"), sound list (minh họa, mục cho file, đang phát,
+    đã import), word list (TIẾP TỤC HỌC, ngôn ngữ, thống kê điểm/đoạn/mục, nhịp học gần đây).
+    Thuật ngữ khớp catalog: `Ghi chú nói`→`Speaking notes`, `Dấu`→`Bookmark`, `minh họa`→`illustration`,
+    `mục`→`item/entry`, `điểm`→`points`, `đã có`→`already added`. Có 3 chuỗi multiline (key có newline
+    thật — đúng pitfall đã ghi). Catalog → 2348 key, sàn 77/284, residual 0.
   - 2026-09-03 | proposed | agent arena/01a0251e-in4up | phát hiện khi fix
     rule-5 tab Nghe; dọn 14 override + 1 exclusion stale; fix lẻ 11 strings
     ListenLibraryScreen/AudioLibraryView (chờ CI)

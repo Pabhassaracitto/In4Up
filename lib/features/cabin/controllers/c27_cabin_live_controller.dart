@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/c27_cabin_live_state.dart';
 import '../models/cabin_caption.dart';
+import '../models/cabin_session.dart';
 
 /// C-27 Cabin Live — flow/controller (doc 42 + doc 43).
 ///

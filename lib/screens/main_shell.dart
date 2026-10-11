@@ -14,6 +14,8 @@ import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
+import '../features/cabin/controllers/c27_cabin_live_scope.dart';
+import '../features/cabin/models/c27_cabin_live_state.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
@@ -104,6 +106,7 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _loadShellUiSettings();
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
+    C27CabinLiveScope.instance.addListener(_onC27ScopeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
@@ -116,9 +119,28 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
+    C27CabinLiveScope.instance.removeListener(_onC27ScopeChanged);
     _modeSwitchHideTimer?.cancel();
     _shellHintTimer?.cancel();
     super.dispose();
+  }
+
+  /// C-27: shell lắng nghe scope — khi Cabin Live gửi handoff sang Hiểu/Nhớ
+  /// thì tự chuyển tab (đúng flow Nghe → Cabin → Hiểu → Nhớ → quay lại Cabin).
+  void _onC27ScopeChanged() {
+    if (!mounted) return;
+    final target = C27CabinLiveScope.instance.consumePendingTarget();
+    if (target == null) return;
+    final _PrimaryTab? tab;
+    if (target == C27SourceType.understand) {
+      tab = _PrimaryTab.understand;
+    } else if (target == C27SourceType.remember) {
+      tab = _PrimaryTab.remember;
+    } else {
+      tab = null;
+    }
+    if (tab == null || _currentTab == tab) return;
+    setState(() => _currentTab = tab);
   }
 
   bool get _isHome => _currentTab == _PrimaryTab.home;
@@ -1369,7 +1391,77 @@ class _MainShellState extends State<MainShell> {
             // ★ Wordlist floating bubble – persistent TTS across tabs
             const WordlistBubble(),
             // ★ Live Cabin floating bubble – persistent STS across tabs
-            const LiveCaptionBubble(),
+            // C-27: bubble chỉ hiện khi phiên Cabin đang chạy và viewport
+            // đang đóng (doc 42 §10.2 — bubble nhường Full Cabin Viewport).
+            ListenableBuilder(
+              listenable: C27CabinLiveScope.instance,
+              builder: (context, _) {
+                final scope = C27CabinLiveScope.instance;
+                if (scope.viewportOpen || !scope.sessionActive) {
+                  return const SizedBox.shrink();
+                }
+                return const LiveCaptionBubble();
+              },
+            ),
+            // C-27: chip ngữ cảnh handoff — hiện ở tab Hiểu/Nhớ sau khi gửi
+            // từ Cabin Live; bấm để quay lại Cabin Live (returnPath 'cabin').
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 88,
+              child: ListenableBuilder(
+                listenable: C27CabinLiveScope.instance,
+                builder: (context, _) {
+                  final scope = C27CabinLiveScope.instance;
+                  final handoff = scope.handoffInbox;
+                  if (handoff == null) return const SizedBox.shrink();
+                  if (_currentTab != _PrimaryTab.understand &&
+                      _currentTab != _PrimaryTab.remember) {
+                    return const SizedBox.shrink();
+                  }
+                  final preview = handoff.translatedCaption.isNotEmpty
+                      ? '${handoff.originalCaption} → ${handoff.translatedCaption}'
+                      : handoff.originalCaption;
+                  return Material(
+                    color: const Color(0xFF101B2B),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.forward_to_inbox_rounded,
+                              color: Color(0xFF00E676), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              preview,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              scope.clearHandoffInbox();
+                              Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const LiveCabinScreen(),
+                              ));
+                            },
+                            child: Text(
+                              context.uiText('Quay lại Cabin Live'),
+                              style:
+                                  const TextStyle(color: Color(0xFF00E676)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
                   ),

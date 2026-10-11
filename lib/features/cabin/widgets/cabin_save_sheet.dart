@@ -4,6 +4,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/cabin_session.dart';
+import '../controllers/c27_cabin_live_scope.dart';
 import '../services/cabin_read_bridge.dart';
 import '../services/cabin_session_settings.dart';
 import '../services/cabin_session_store.dart';
@@ -49,6 +50,10 @@ Future<void> handleFinishedCabinSession(
       title: session.title,
       textMode: settings.textMode,
     );
+    // C-27: tự lưu thì state machine sang nhánh saved luôn.
+    if (saved != null) {
+      C27CabinLiveScope.instance.controller.endSession(save: true);
+    }
     if (saved != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(context.uiText('Đã lưu phiên Cabin')),
@@ -105,14 +110,20 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
     super.dispose();
   }
 
-  Future<CabinSession?> _save() {
-    return CabinSessionStore.instance.save(
+  Future<CabinSession?> _save() async {
+    final saved = await CabinSessionStore.instance.save(
       widget.session,
       title: _title.text,
       textMode: _mode,
       keepAudio: _keepAudio,
       keepText: _keepText,
     );
+    // C-27: lưu thành công ⇒ state machine sang nhánh saved
+    // (snapshot chỉ giữ final/translated — bất biến #8, doc 43).
+    if (saved != null) {
+      C27CabinLiveScope.instance.controller.endSession(save: true);
+    }
+    return saved;
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -295,6 +306,9 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
                   ? null
                   : () => _run(() async {
                         await CabinSessionStore.instance.delete(s);
+                        // C-27: bỏ phiên ⇒ state machine sang nhánh discard.
+                        C27CabinLiveScope.instance.controller
+                            .endSession(save: false);
                         if (mounted) Navigator.of(context).pop();
                       }),
             ),

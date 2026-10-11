@@ -164,7 +164,7 @@
 | UX-C30 | C-30 Responsive/accessibility QA: 7 vùng (text scale / keyboard / screen reader labels / touch targets / orientation / safe-area / overlay stacking) — 16 kịch bản logic + 9 bằng chứng widget | 🔨 doing (máy bắt + CI 🟢 `37804605761`/`37804624188`; chờ QA tay thiết bị) | nhánh `arena/af0abe2f-in4up` — `lib/core/qa/responsive_accessibility_qa.dart` + `test/responsive_accessibility_qa_test.dart` + `docs/ux/42-responsive-accessibility-qa.vi.md`; phát hiện: policy C-02 chưa nối vào shell (✅ phần breakpoint/overlay đóng ở UX-C02b) + 8 literal chrome tiếng Việt trong widget shell (đã đóng ở I18N-002) |
 | UX-C02b | C-02b Nối policy responsive vào shell: `main_shell.dart` hết literal `>= 1024`; Command Palette đọc trần overlay từ policy; drift guard siết 4 phép khẳng định | ✅ done (code + máy bắt + CI 🟢 push `37821634820` + PR `37821645232` @ `57d23db` — chờ QA tay xoay/thu nhỏ cửa sổ thiết bị) | nhánh `arena/af0abe2f-in4up` — `app_responsive.dart` (+`overlayDialogMaxWidth/Height`), `main_shell.dart`, `widgets/shell/command_palette.dart`, `test/responsive_accessibility_qa_test.dart`; xem D-035 (phần safe-area/overlay để capability riêng) |
 | I18N-002 | Chrome shell (`lib/widgets/shell/`): 7 nhãn hard-code tiếng Việt ⇒ locale ≠ vi hiện nguyên tiếng Việt (rule #5, phát hiện bởi C-30 §4.2) | ✅ done (code + máy bắt 3 tầng + CI 🟢 `37804605761`/`37804624188`; chờ QA tay locale ≠ vi) | nhánh `arena/af0abe2f-in4up` — bọc `context.uiText` + English ở `priority_ui_overrides.dart` & `tool/legacy_ui_english_overrides.json` + `test/shell_chrome_i18n_coverage_test.dart` (bước CI 24 file) |
-| UX-C27 | C-27 Cabin Live / Real-time Interpretation — cross-workspace live utility (KHÔNG phải workspace thứ 6; 5 workspace cố định) — 14-state machine, caption 3 giai đoạn, handoff 10 trường + returnPath, flow Nghe→Cabin→Hiểu→Nhớ→về Cabin | ✅ done — docs 42/43 + D-036; code state contract + controller; 3 test file (27 test) trong CI; analyze + UX-contract + PR check xanh | nhánh `arena/af0abe2f-in4up` — `lib/features/cabin/models/c27_cabin_live_state.dart`, `controllers/c27_cabin_live_controller.dart`, 3 test C-27 trong app_analyze (27 file); docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md` |
+| UX-C27 | C-27 Cabin Live / Real-time Interpretation — cross-workspace live utility (KHÔNG phải workspace thứ 6; 5 workspace cố định) — 14-state machine, caption 3 giai đoạn, handoff 10 trường + returnPath, flow Nghe→Cabin→Hiểu→Nhớ→về Cabin | ✅ done — docs 42/43 + D-036; state contract + controller; wiring bước 6 xong (scope + bridge + Handoff Drawer + shell); 4 test file (34 test) trong CI; analyze + UX-contract + PR check xanh | nhánh `arena/af0abe2f-in4up` — `lib/features/cabin/models/c27_cabin_live_state.dart`, `controllers/c27_cabin_live_controller.dart`, 3 test C-27 trong app_analyze (27 file); docs `42-c27-cabin-live-state-detail.vi.md` + `43-c27-cabin-live-state-contract.vi.md` |
 
 
 ## ⚠️ ĐÍNH CHÍNH 2026-10-08 — quyền sửa `.github/workflows/` (đọc trước khi tin ghi chú cũ)
@@ -1120,9 +1120,17 @@
   & Handoff Drawer; Mobile: 3 Display Forms & Safe-Area). Không gửi Stitch thêm trừ khi
   phát hiện lỗi cụ thể (bubble che Mini Player / Bottom Nav, Handoff Drawer cạnh tranh
   Context Panel, partial/final/translated khó phân biệt, mobile keyboard che caption).
-- **Chưa làm:** wiring UI (bước 6): LiveCaptionBubble + Quick Actions + Nghe/Hiểu/Nhớ;
-  QA tay trên thiết bị thật (permission flow mic + overlay trên Android, shortcut focus
-  scope trên desktop).
+- **Wiring (bước 6) xong 2026-10-11:** `C27CabinLiveScope` (phiên chia sẻ giữa viewport,
+  bubble, shell); `LiveCabinScreen` điều khiển state machine (start/caption partial-final-
+  translated/pause-resume/end + `loadRecovered`); `LiveCaptionBubble` ở shell — chỉ hiện
+  khi phiên chạy và viewport đóng; Handoff Drawer mới (`c27_handoff_drawer.dart`) —
+  preview schema 10 trường + gửi sang Hiểu/Nhớ; shell tự chuyển tab theo đích + chip
+  "Quay lại Cabin Live" (returnPath); Quick Actions đã có sẵn (`live_cabin` trong tools
+  overlay); save sheet hook `endSession(save/discard)` + autoSave. Test mới
+  `c27_cabin_live_scope_test.dart` (7 test) — bộ UX-contract nay 28 file (34 test C-27).
+- **Chưa làm (QA tay trên thiết bị thật):** permission flow mic + overlay trên Android;
+  shortcut focus scope trên desktop; kiểm thử trực quan 3 display form (có đủ reference
+  Stitch — không cần gửi thêm).
 - **Lịch sử:**
   - 2026-10-09 | doing | agent arena/af0abe2f-in4up | docs 42/43 + D-036 + 39 cập nhật;
     code state contract + controller + 3 test; CI 27 file.
@@ -1141,6 +1149,11 @@
   - 2026-10-09 | update | agent arena/af0abe2f-in4up | Visual Validation hoàn tất
     (Stitch desktop + mobile) — ghi vào doc 42 §10 + card; D-036 bổ sung cross-ref
     (owner ghi D-032 nhưng đã thuộc C-30). Còn lại: wiring UI bước 6.
+  - 2026-10-11 | wiring xong | agent arena/af0abe2f-in4up | C-27 bước 6: scope chia sẻ
+    phiên + bridge vào LiveCabinScreen + Handoff Drawer (Hiểu/Nhớ) + bubble theo C-27
+    state ở shell + chip quay lại Cabin Live; Quick Actions đã có sẵn. 7 literal UI mới
+    đã dịch EN (catalog 2419); test scope 7 test — bộ UX-contract 28 file. CI xanh
+    (xem run kế tiếp); còn QA tay trên thiết bị thật.
 
 ### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
 

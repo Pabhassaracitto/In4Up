@@ -2410,5 +2410,12 @@
   "Mỗi ngôn ngữ chọn 1 giọng đã import. Tự động ưu tiên phát khi dùng Sherpa TTS.": "Pick 1 imported voice per language. Automatically preferred when playing with Sherpa TTS.",
   "Nghe bên trái thì thư viện nghe ở bên trái; Đọc bên phải thì thư viện đọc ở bên phải.": "With Listen on the left, the listen library is on the left; with Read on the right, the read library is on the right.",
   "Nghe → Đọc": "Listen → Read",
-  "Ngôn ngữ áp cho tất cả": "Language applied to all"
+  "Ngôn ngữ áp cho tất cả": "Language applied to all",
+  "Gửi ngữ cảnh sang Hiểu/Nhớ": "Send context to Understand/Remember",
+  "Chuyển ngữ cảnh Cabin": "Hand off Cabin context",
+  "Chọn câu cần chuyển sang Hiểu hoặc Nhớ": "Pick a sentence to send to Understand or Remember",
+  "Chưa có câu đã dịch — nghe thêm ít nhất một câu.": "No translated sentence yet — listen to at least one more.",
+  "Gửi sang Hiểu": "Send to Understand",
+  "Gửi sang Nhớ": "Send to Remember",
+  "Quay lại Cabin Live": "Back to Cabin Live"
 }

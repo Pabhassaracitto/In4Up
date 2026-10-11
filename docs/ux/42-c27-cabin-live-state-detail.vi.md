@@ -213,6 +213,14 @@ Kế thừa `CabinSessionStore` (file-based, đã có):
 - Chọn đích: **Hiểu** (gửi context vào Global Chat của Hiểu) hoặc **Nhớ** (tạo thẻ ôn tập).
 - Hiển thị preview handoff (schema §11) trước khi xác nhận.
 
+> **Wiring (2026-10-11):** đã kết nối — `C27CabinLiveScope` giữ phiên chia sẻ;
+> `LiveCabinScreen` điều khiển state machine (start / partial→final→translated /
+> pause-resume / end + `loadRecovered`); `LiveCaptionBubble` ở shell chỉ hiện khi
+> phiên chạy và viewport đóng; Handoff Drawer (`c27_handoff_drawer.dart`) preview
+> schema 10 trường + gửi sang Hiểu/Nhớ; shell tự chuyển tab + chip "Quay lại Cabin
+> Live"; Quick Actions đã có sẵn (`live_cabin` trong tools overlay). Test:
+> `test/c27_cabin_live_scope_test.dart` (7 test) trong bộ UX-contract (28 file).
+>
 > **Visual validation (2026-10-09):** đã hoàn tất — có đủ 2 visual reference Stitch:
 > **Desktop** "I4U Desktop — C-27 Cabin Live / Full Viewport & Handoff Drawer" và
 > **Mobile** "I4U Mobile — C-27 Cabin Live / 3 Display Forms & Safe-Area". Không gửi

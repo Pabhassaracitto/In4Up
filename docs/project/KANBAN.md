@@ -1149,11 +1149,15 @@
   - 2026-10-09 | update | agent arena/af0abe2f-in4up | Visual Validation hoàn tất
     (Stitch desktop + mobile) — ghi vào doc 42 §10 + card; D-036 bổ sung cross-ref
     (owner ghi D-032 nhưng đã thuộc C-30). Còn lại: wiring UI bước 6.
-  - 2026-10-11 | wiring xong | agent arena/af0abe2f-in4up | C-27 bước 6: scope chia sẻ
-    phiên + bridge vào LiveCabinScreen + Handoff Drawer (Hiểu/Nhớ) + bubble theo C-27
-    state ở shell + chip quay lại Cabin Live; Quick Actions đã có sẵn. 7 literal UI mới
-    đã dịch EN (catalog 2419); test scope 7 test — bộ UX-contract 28 file. CI xanh
-    (xem run kế tiếp); còn QA tay trên thiết bị thật.
+  - 2026-10-11 | wiring xong + CI xanh | agent arena/af0abe2f-in4up | C-27 bước 6
+    commit `2848021` (scope chia sẻ phiên + bridge vào LiveCabinScreen + Handoff Drawer
+    Hiểu/Nhớ + bubble theo C-27 state ở shell + chip quay lại Cabin Live; Quick Actions
+    đã có sẵn). 7 literal UI mới đã dịch EN (catalog 2419, residual 0, floors 43+250
+    không đổi); test scope 7 test — bộ UX-contract nay 28 file (34 test C-27). 2 fix CI:
+    `58cbfbc` (drawer bỏ import kép flutter/material — Text ambiguous với
+    localized_material), `848df8e` (shell tab đích non-nullable — promotion trong closure).
+    CI xanh tại `848df8e`: push `38178717988` + PR check `38178722261` đều success
+    (analyze + ratchet + toàn bộ test step incl. scope test). Còn QA tay trên thiết bị thật.
 
 ### CI-BUILD-LOGIN-001 — đối chiếu fix lỗi đăng nhập từ 251e (2026-10-09, check của owner)
 

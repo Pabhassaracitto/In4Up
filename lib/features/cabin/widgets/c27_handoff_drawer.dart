@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../controllers/c27_cabin_live_controller.dart';

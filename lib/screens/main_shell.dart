@@ -131,15 +131,13 @@ class _MainShellState extends State<MainShell> {
     if (!mounted) return;
     final target = C27CabinLiveScope.instance.consumePendingTarget();
     if (target == null) return;
-    final _PrimaryTab? tab;
-    if (target == C27SourceType.understand) {
-      tab = _PrimaryTab.understand;
-    } else if (target == C27SourceType.remember) {
-      tab = _PrimaryTab.remember;
-    } else {
-      tab = null;
+    if (target != C27SourceType.understand && target != C27SourceType.remember) {
+      return;
     }
-    if (tab == null || _currentTab == tab) return;
+    final tab = target == C27SourceType.understand
+        ? _PrimaryTab.understand
+        : _PrimaryTab.remember;
+    if (_currentTab == tab) return;
     setState(() => _currentTab = tab);
   }
 

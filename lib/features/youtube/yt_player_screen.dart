@@ -187,6 +187,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   bool _pageFinished = false;
   bool _gotReady = false;
   bool _embedRequested = false;
+  bool _videoReady = false;
   int _errTicks = 0;
 
   // ── Subtitle state ────────────────────────────────────────
@@ -270,10 +271,12 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     if (m == 'ready') {
       _gotReady = true;
       _loadWatchdog?.cancel();
+      if (!_videoReady) setState(() => _videoReady = true);
       return;
     }
     final time = ytParseTimeMessage(m);
     if (time != null) {
+      if (!_videoReady) setState(() => _videoReady = true);
       _updateTime(time);
       return;
     }
@@ -312,6 +315,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _attempt = 1;
     _pageFinished = false;
     _embedRequested = false;
+    _videoReady = false;
     _errTicks = 0;
     _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
     _startLoadWatchdog();
@@ -371,6 +375,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _pageFinished = false;
     _gotReady = false;
     _embedRequested = false;
+    _videoReady = false;
     _errTicks = 0;
     setState(() => _playerError = null);
     _ytCtrl.loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
@@ -438,6 +443,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   void _updateTime(double time) {
     if (!mounted) return;
+    // _currentTime KHÔNG hiển thị ở UI (chỉ dùng cho seek/lặp) → cập nhật
+    // THƯỜNG, không setState. (IN4-78 nghiệm thu 2: trước setState ~2
+    // lần/giây cho phần không đổi → churn semantics liên tục, assertion
+    // debug `!semantics.parentDataDirty` spam trên máy có accessibility.)
+    _currentTime = time;
     if (_looping && _lines.isNotEmpty) {
       final line = _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
       if (time * 1000 >= line.end.inMilliseconds - 60) {
@@ -455,13 +465,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       }
       if (ms >= l.start.inMilliseconds) idx = i;
     }
-    if (idx != _currentLineIdx || (time - _currentTime).abs() > 0.45) {
-      setState(() {
-        _currentTime = time;
-        _currentLineIdx = idx;
-      });
-    } else {
-      _currentTime = time;
+    // Chỉ rebuild khi DÒNG PHỤ ĐỀ đổi (phần hiển thị thực sự).
+    if (idx != _currentLineIdx) {
+      setState(() => _currentLineIdx = idx);
     }
   }
 
@@ -759,6 +765,24 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       fit: StackFit.expand,
       children: [
         WebViewWidget(controller: _ytCtrl),
+        // (IN4-78 nghiệm thu 2) "load từ rất lâu" mà không có tín hiệu —
+        // hiện spinner tới khi player ready / phát đầu tiên.
+        if (!_videoReady && _playerError == null)
+          Container(
+            color: Colors.black,
+            alignment: Alignment.center,
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(strokeWidth: 2.5),
+                SizedBox(height: 10),
+                Text(
+                  'Đang tải video…',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
         // (IN4-78) Không để màn lỗi YouTube chết im lặng: overlay + Thử lại.
         if (_playerError != null)
           Container(

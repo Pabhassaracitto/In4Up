@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../features/translation/translation_service.dart';
@@ -27,34 +28,52 @@ import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
 
 // ─── IN4-78 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" ───────
-// Từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/) phải có
-// **HTTP Referer** hợp lệ. WebView load thẳng /embed/ (load đầu tiên,
-// không có trang trước) → không có Referer → player trả mã 153.
+// YouTube (từ ~07/2025) yêu cầu request trang nhúng /embed/ phải có
+// **HTTP Referer** hợp lệ ("API Clients that use the YouTube embedded
+// player must provide identification through the HTTP Referer request
+// header" — YouTube IFrame API docs). WebView của app không tạo đủ
+// Referrer cho load top-level → player trả mã 153.
 //
-// Fix (không cần API mới — webview_flutter 4.x không có loadHtml):
-// tải TRƯỚC 1 trang cùng domain `youtube-nocookie.com/embed` (seed) → khi
-// điều hướng sang trang /embed/<id> thật, WebView tự gửi
-// `Referer: https://www.youtube-nocookie.com` (mặc định
-// strict-origin-when-cross-origin → gửi origin) → đạt yêu cầu mới.
+// Chain tải (từ chắc chắn nhất):
+// 1) **Wrapper GitHub Pages** — `yt_embed.html?videoId=X` trên origin
+//    https thật (pabhassaracitto.github.io); iframe /embed/ bên trong
+//    tự gửi `Referer: https://pabhassaracitto.github.io…` → YouTube chấp
+//    nhận (cách fix được cộng đồng xác minh nhiều nhất, 2025-2026).
+//    Wrapper tự chứa IFrame API + kênh YtSync + báo lỗi qua `err:<code>`.
+// 2) **Seed → embed trực tiếp** — load trước trang cùng domain
+//    youtube-nocookie.com/embed rồi sang /embed/<id> (request mang
+//    Referer same-origin). Dùng khi wrapper không tải được.
+// 3) **Overlay + "Mở ngoài"** — nếu player vẫn lỗi: nút mở YouTube
+//    trong trình duyệt/app hệ thống (luôn hoạt động).
 // Hàm top-level để test thuần bắt được.
 
-/// Trang seed — chỉ để tạo Referer cho request /embed/ kế tiếp.
+/// Wrapper static trên GitHub Pages (branch gh-pages của repo In4Up).
+/// CẦN: repo Settings → Pages → Deploy from branch: gh-pages / (root).
+const String kYtWrapperBaseUrl =
+    'https://pabhassaracitto.github.io/In4Up/yt_embed.html';
+
+/// URL wrapper cho 1 video.
+String buildYtWrapperUrl(String videoId) =>
+    '$kYtWrapperBaseUrl?videoId=$videoId';
+
+/// Trang seed (fallback) — chỉ để tạo Referer cho request /embed/ kế tiếp.
 const String kYtEmbedSeedUrl = 'https://www.youtube-nocookie.com/embed';
 
-/// URL trang nhúng YouTube (domain nocookie — domain nhúng chuẩn của Google).
+/// URL trang nhúng YouTube trực tiếp (fallback).
 String buildYtEmbedUrl(String videoId) =>
     'https://www.youtube-nocookie.com/embed/$videoId'
     '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1'
     '&origin=https://www.youtube-nocookie.com';
 
 /// body text của trang player đang chứa màn lỗi YouTube (153 hoặc khác)
-/// → app hiện overlay tiếng Việt + nút Thử lại (không để chết im lặng).
+/// → app hiện overlay tiếng Việt + nút Thử lại/Mở ngoài (chết im lặng).
 bool ytLooksLikePlayerError(String bodyText) {
   final t = bodyText.toLowerCase();
   return t.contains('lỗi cấu hình trình phát') ||
       (t.contains('lỗi cấu hình') && t.contains('153')) ||
       t.contains('video player configuration error') ||
-      t.contains('player configuration error');
+      t.contains('player configuration error') ||
+      t.contains('youtube player error');
 }
 
 // ─── Word knowledge state ─────────────────────────────────
@@ -150,10 +169,18 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   late WebViewController _ytCtrl;
   Timer? _timer;
   Timer? _errWatchdog;
+  Timer? _loadWatchdog;
   bool _isLoading = true;
 
   /// (IN4-78) Lỗi trình phát YouTube (mã 153…) — null = không lỗi.
   String? _playerError;
+
+  /// (IN4-78) 0 = wrapper GitHub Pages, 1 = seed→embed trực tiếp.
+  int _attempt = 0;
+  bool _pageFinished = false;
+  bool _gotReady = false;
+  bool _embedRequested = false;
+  int _errTicks = 0;
 
   // ── Subtitle state ────────────────────────────────────────
   final List<SubtitleLine> _lines = [];
@@ -179,6 +206,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   void dispose() {
     _timer?.cancel();
     _errWatchdog?.cancel();
+    _loadWatchdog?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -190,16 +218,30 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
-            // (IN4-78) 2 bước: trang seed (cùng domain youtube-nocookie)
-            // load xong → điều hướng tới /embed/<id> thật; request lúc đó
-            // tự mang Referer hợp lệ. (Load thẳng /embed/ ở bước đầu thì
-            // không có Referer → YouTube trả lỗi 153.)
-            if (url.toString() == kYtEmbedSeedUrl) {
+            final u = url.toString();
+            // (IN4-78) fallback: trang đầu (seed) load xong → điều hướng
+            // tới /embed/<id>; request lúc đó tự mang Referer. Chốt theo
+            // cờ (không so URL y hệt) để vẫn chạy nếu seed bị redirect.
+            if (_attempt == 1 && !_embedRequested) {
+              _embedRequested = true;
               debugPrint('[in4up-yt] seed done → load embed (referrer OK)');
               _ytCtrl.loadRequest(Uri.parse(buildYtEmbedUrl(widget.video.id)));
               return;
             }
-            _injectSyncScript();
+            _pageFinished = true;
+            _loadWatchdog?.cancel();
+            // Referrer diagnostics (fallback path): xem trang embed nhận
+            // được Referer gì từ bước seed.
+            if (u.contains('youtube-nocookie.com/embed/')) {
+              _ytCtrl.runJavaScriptReturningResult('document.referrer').then(
+                (r) => debugPrint('[in4up-yt] embed referrer: ${r ?? "∅"}'),
+              ).catchError((_) {});
+            }
+            // Wrapper (GitHub Pages) tự chứa IFrame API + YtSync — không
+            // cần inject. Trang embed trực tiếp cần inject script cũ.
+            if (!u.contains(Uri.parse(kYtWrapperBaseUrl).host)) {
+              _injectSyncScript();
+            }
             _startErrorWatchdog();
           },
         ),
@@ -207,34 +249,105 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ..addJavaScriptChannel(
         'YtSync',
         onMessageReceived: (msg) {
-          final time = double.tryParse(msg.message) ?? 0;
-          _updateTime(time);
+          _handlePlayerMessage(msg.message);
         },
       )
-      ..loadRequest(Uri.parse(kYtEmbedSeedUrl));
+      ..loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
+    _startLoadWatchdog();
   }
 
-  /// (IN4-78) Theo dõi 3s/lần: nếu trang player hiện màn lỗi (mã 153…)
-  /// → hiện overlay tiếng Việt + nút Thử lại. Chạy tới khi có lỗi hoặc
-  /// screen dispose.
+  /// (IN4-78) Tin từ wrapper/embed qua kênh YtSync:
+  /// `t:<s>` vị trí phát, `ready`, `state:<n>`, `err:<mã>`.
+  void _handlePlayerMessage(String m) {
+    if (!mounted) return;
+    if (m == 'ready') {
+      _gotReady = true;
+      _loadWatchdog?.cancel();
+      return;
+    }
+    final time = ytParseTimeMessage(m);
+    if (time != null) {
+      _updateTime(time);
+      return;
+    }
+    // Compat: script inject cũ (đường embed trực tiếp) post số TRẺ không
+    // có prefix 't:' — vẫn nhận làm vị trí phát.
+    final raw = double.tryParse(m);
+    if (raw != null) {
+      _updateTime(raw);
+      return;
+    }
+    if (m.startsWith('err:')) {
+      _onPlayerError(m.substring(4).trim());
+    }
+  }
+
+  /// (IN4-78) wrapper không load được trong 12s (Pages chưa bật / mạng)
+  /// → tự chuyển sang fallback seed→embed.
+  void _startLoadWatchdog() {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = Timer(const Duration(seconds: 12), () {
+      if (!mounted) return;
+      if (_attempt == 0 && !_pageFinished) {
+        debugPrint('[in4up-yt] wrapper timeout → fallback seed→embed');
+        _fallbackToDirect();
+      }
+    });
+  }
+
+  /// Mã lỗi KHÔNG liên quan môi trường nhúng (video sai/cấm nhúng) —
+  /// fallback cũng vô ích, báo thẳng overlay.
+  static const Set<String> _kNoFallbackCodes =
+      {'2', '5', '100', '101', '120', '150'};
+
+  /// (IN4-78) fallback: seed → embed trực tiếp (mang Referer same-origin).
+  void _fallbackToDirect() {
+    _attempt = 1;
+    _pageFinished = false;
+    _embedRequested = false;
+    _errTicks = 0;
+    _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
+    _startLoadWatchdog();
+  }
+
+  /// (IN4-78) Player báo lỗi (từ wrapper `err:<code>` hoặc watchdog text):
+  /// còn attempt thì fallback; hết thì overlay + "Mở ngoài".
+  void _onPlayerError(String code) {
+    if (!mounted) return;
+    debugPrint('[in4up-yt] player error code=$code attempt=$_attempt (IN4-78)');
+    if (_attempt == 0 && !_kNoFallbackCodes.contains(code)) {
+      _fallbackToDirect();
+      return;
+    }
+    if (_playerError == null) {
+      setState(() => _playerError =
+          'YouTube từ chối phát video này (lỗi cấu hình trình phát, '
+          'mã $code). Bấm Thử lại, hoặc Mở ngoài để xem trong trình duyệt.');
+    }
+  }
+
+  /// (IN4-78) Theo dõi 3s/lần: nếu trang player hiện màn lỗi → xử lý.
+  /// Wrapper tự báo `err:` nên watchdog chủ yếu cho đường embed trực tiếp;
+  /// thêm: 15s mà vẫn chưa `ready` (wrapper chết lặng) → fallback.
   void _startErrorWatchdog() {
     _errWatchdog?.cancel();
     _errWatchdog = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (!mounted) return;
+      if (_attempt == 0 && !_gotReady) {
+        _errTicks++;
+        if (_errTicks >= 5) {
+          debugPrint('[in4up-yt] wrapper không ready 15s → fallback');
+          _fallbackToDirect();
+          return;
+        }
+      }
       try {
         final res = await _ytCtrl.runJavaScriptReturningResult(
             "(function(){ var b = document.body; "
             "return b ? b.innerText.slice(0, 3000) : ''; })();");
         final text = res == null ? '' : res.toString();
-        if (text.isEmpty) return;
-        if (ytLooksLikePlayerError(text)) {
-          debugPrint('[in4up-yt] player error detected (IN4-78)');
-          _errWatchdog?.cancel();
-          if (mounted && _playerError == null) {
-            setState(() => _playerError =
-                'YouTube từ chối phát video này (lỗi cấu hình trình phát, '
-                'thường là mã 153). Kiểm tra mạng/VPN rồi bấm Thử lại.');
-          }
+        if (text.isNotEmpty && ytLooksLikePlayerError(text)) {
+          _onPlayerError('153?');
         }
       } catch (e) {
         // runJavaScript có thể lỗi khi đang chuyển trang — bỏ qua.
@@ -242,12 +355,32 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     });
   }
 
-  /// (IN4-78) Nút "Thử lại" trên overlay lỗi: quay lại từ đầu (seed → embed).
+  /// (IN4-78) Nút "Thử lại" trên overlay: chạy lại từ đầu (wrapper).
   void _reloadPlayer() {
     debugPrint('[in4up-yt] reload player (IN4-78)');
     _errWatchdog?.cancel();
+    _loadWatchdog?.cancel();
+    _attempt = 0;
+    _pageFinished = false;
+    _gotReady = false;
+    _embedRequested = false;
+    _errTicks = 0;
     setState(() => _playerError = null);
-    _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
+    _ytCtrl.loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
+    _startLoadWatchdog();
+  }
+
+  /// (IN4-78) Nút "Mở ngoài": xem video trong YouTube/trình duyệt hệ thống
+  /// — luôn hoạt động (khuyến nghị chính thức cho WebView bị chặn).
+  Future<void> _openExternally() async {
+    final url = Uri.parse('https://www.youtube.com/watch?v=${widget.video.id}');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        debugPrint('[in4up-yt] open externally failed: $e');
+      }
+    }
   }
 
   void _injectSyncScript() {
@@ -636,9 +769,22 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: _reloadPlayer,
-                  child: const Text('Thử lại'),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FilledButton(
+                      onPressed: _reloadPlayer,
+                      child: const Text('Thử lại'),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      onPressed: _openExternally,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Mở ngoài'),
+                    ),
+                  ],
                 ),
               ],
             ),

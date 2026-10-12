@@ -1,18 +1,38 @@
 // IN4-78 — YouTube báo lỗi 153 khi phát video.
 //
-// Root cause: từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/)
-// phải có HTTP Referer hợp lệ; WebView load thẳng /embed/ (load đầu, không
-// có trang trước) → không gửi Referer → "Lỗi cấu hình trình phát video,
-// mã 153".
+// Root cause: từ ~07/2025 YouTube bắt buộc request trang nhúng (/embed/)
+// phải có HTTP Referer hợp lệ ("must provide identification through the
+// HTTP Referer request header" — YouTube IFrame API docs). WebView của
+// app không tạo đủ Referrer cho load top-level → "Lỗi cấu hình trình
+// phát video, mã 153". (Mất ~1 tuần xác minh trên máy thật: cách seed
+// same-origin vẫn bị 153 ⇒ cần origin https THẬT.)
 //
-// Fix: tải TRƯỚC trang seed cùng domain (`youtube-nocookie.com/embed`),
-// rồi điều hướng tới /embed/<id> — request lúc đó tự mang Referer (mặc
-// định referrer policy của WebView gửi origin). Test pin phần quyết định
-// này (không cần WebView thật).
+// Chain fix (từ chắc chắn nhất):
+// 1) wrapper static trên GitHub Pages (origin https thật) → iframe
+//    /embed/ bên trong tự gửi Referer thật;
+// 2) seed → /embed/<id> (Referer same-origin) — fallback;
+// 3) overlay + "Mở ngoài" trong trình duyệt/app hệ thống.
+// Test pin phần quyết định này (không cần WebView thật).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/youtube/yt_player_screen.dart';
 
 void main() {
+  group('wrapper GitHub Pages (IN4-78)', () {
+    test('kYtWrapperBaseUrl là https trên origin github.io thật', () {
+      final u = Uri.parse(kYtWrapperBaseUrl);
+      expect(u.scheme, 'https');
+      expect(u.host, 'pabhassaracitto.github.io');
+      expect(u.path, endsWith('/yt_embed.html'));
+    });
+
+    test('buildYtWrapperUrl gắn videoId đúng', () {
+      const id = 'dQw4w9WgXcQ';
+      final url = Uri.parse(buildYtWrapperUrl(id));
+      expect(url.queryParameters['videoId'], id);
+      expect(url.host, 'pabhassaracitto.github.io');
+    });
+  });
+
   group('kYtEmbedSeedUrl (IN4-78)', () {
     test('phải là https (Referer không bảo mật vô dụng)', () {
       expect(kYtEmbedSeedUrl, startsWith('https://'));

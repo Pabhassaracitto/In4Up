@@ -93,7 +93,7 @@
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
-| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer THẬT cho video nhúng | 🔄 doing (chờ owner BẬT GitHub Pages + build mới + máy) | Chain 3 tầng `732d862`: (1) wrapper `gh-pages` (origin https thật) (2) seed→embed fallback (3) overlay "Thử lại/Mở ngoài"; máy thật đã xác nhận seed alone VẪN 153 (logcat owner); test `test/yt_player_embed_test.dart` vào i4u18-lib-tests |
+| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer THẬT cho video nhúng | ✅ nghiệm thu: video PHÁT ĐƯỢC qua wrapper (chờ xác nhận bản `e88be46`) | Chain 3 tầng: (1) wrapper `gh-pages` (origin https thật) (2) seed→embed fallback (3) overlay "Thử lại/Mở ngoài"; bản `e88be46` (CI 🟢 38303389331): setState chỉ khi dòng phụ đề đổi (giảm churn semantics — assertion debug spam trên máy có accessibility) + spinner "Đang tải video…" |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
@@ -2277,7 +2277,7 @@
     yt_dlp_sidecar). Fix commit `31d3651`. VẪN chờ nghiệm thu thiết bị thật.
 
 ### YT-PLAY-153-001 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát
-- **Trạng thái:** doing (code + test pin xong, chờ CI + nghiệm thu máy) — [IN4-78](https://linear.app/in4up/issue/IN4-78)
+- **Trạng thái:** ✅ nghiệm thu: VIDEO PHÁT ĐƯỢC qua wrapper (owner 2026-10-12) — còn xác nhận bản mới `e88be46` (setState chỉ khi dòng phụ đề đổi + spinner "Đang tải…") — [IN4-78](https://linear.app/in4up/issue/IN4-78)
 - **Nguồn (owner 2026-10-10):** bản `in4up-Android-arm64-v8a-1.11.0-60bff.apk`
   (build 37994985198, commit `60bff6b`): tìm được video YouTube nhưng trình
   phát báo **"Lỗi cấu hình trình phát video, mã 153"**.
@@ -2341,6 +2341,22 @@
     `document.referrer`; channel uploads log HTTP status khi 0 video.
     **CHỜ OWNER BẬT GitHub PAGES** (Settings → Pages → branch `gh-pages`/
     root — 1 phút) + build mới + nghiệm thu.
+  - 2026-10-12 | ✅ NGHIỆM THU: VIDEO PHÁT ĐƯỢC | owner bật Pages + build
+    mới | "Đã lên video rồi" — wrapper GitHub Pages làm việc. 2 điểm còn
+    lại: (1) assertion debug `!semantics.parentDataDirty` spam ~50 lần/s;
+    (2) load lâu không có tín hiệu.
+  - 2026-10-12 | fix 2 điểm nghiệm thu (commit `e88be46`, CI 🟢
+    `38303389331`) | agent arena/01a0251e-in4up | (1) Assertion =
+    **debug-only** (release strip asserts) — do cây semantics churn khi
+    platform-view render frame × accessibility bridge đang hoạt động trên
+    máy (log tràn `I/AccessibilityBridge`). Phần app đóng góp: `setState`
+    ~2 lần/giây cho `_currentTime` KHÔNG hiển thị ở UI → giờ chỉ setState
+    khi DÒNG PHỤ ĐỀ đổi (giảm churn mạnh). Không phải crash, không ảnh
+    hưởng build release; log sạch hơn nếu tắt dịch vụ accessibility trên
+    máy test hoặc chạy bản release. (2) Spinner "Đang tải video…" hiện
+    tới khi player `ready`/phát tick đầu. **CÒN CHỜ:** build mới + xác
+    nhận video phát ổn định + assertion còn không (bản debug) / không có
+    (bản release).
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

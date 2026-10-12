@@ -93,7 +93,7 @@
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
-| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer cho video nhúng (~10/2025) | 🔄 doing (code + test + CI 🟢 38002011629, chờ nghiệm thu máy) | 2 bước `loadRequest`: seed `youtube-nocookie.com/embed` → trang thật (request tự mang Referer) + watchdog 3s phát hiện màn lỗi → overlay VT + nút Thử lại; test `test/yt_player_embed_test.dart` (10 test) vào i4u18-lib-tests |
+| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer THẬT cho video nhúng | 🔄 doing (chờ owner BẬT GitHub Pages + build mới + máy) | Chain 3 tầng `732d862`: (1) wrapper `gh-pages` (origin https thật) (2) seed→embed fallback (3) overlay "Thử lại/Mở ngoài"; máy thật đã xác nhận seed alone VẪN 153 (logcat owner); test `test/yt_player_embed_test.dart` vào i4u18-lib-tests |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
@@ -2287,26 +2287,39 @@
   nguồn) → không gửi Referer → player từ chối, trả mã 153. (Nguồn: Stack
   Overflow #79802987 + nhiều báo cáo 09-10/2025; cách sửa chuẩn trên
   WebView = `loadDataWithBaseURL` + referrer policy + domain nocookie.)
-- **Sửa (bản cuối, `c334d7f`):** `yt_player_screen.dart` — **2 bước
-  loadRequest** (webview_flutter 4.14 KHÔNG có `loadHtml`/
-  `loadDataWithBaseURL` — cách wrapper page ban đầu không dùng được):
-  (1) load TRƯỚC trang seed `https://www.youtube-nocookie.com/embed` (cùng
-  domain), (2) `onPageFinished` → load trang thật
-  `youtube-nocookie.com/embed/<id>?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1&origin=https://www.youtube-nocookie.com`
-  — request lúc này tự mang `Referer: https://www.youtube-nocookie.com`
-  (mặc định strict-origin-when-cross-origin → gửi origin) ⇒ đạt yêu cầu mới.
-  Giữ nguyên toàn bộ sync cũ (inject script + timer 400ms + kênh `YtSync`).
-  Thêm **watchdog 3s** đọc body text: hiện màn lỗi (153/cấu hình) → overlay
-  tiếng Việt + nút **Thử lại** (chạy lại seed→embed) — không còn chết im
-  lặng. Log tag `[in4up-yt]`.
-- **Test:** `test/yt_player_embed_test.dart` (mới, 10 test) pin: seed https
-  + CÙNG domain trang embed (nguồn Referer), URL embed (nocookie + params
-  cũ + origin khớp domain), phát hiện màn lỗi VT/EN + không dương tính giả
-  (số 153 trong phụ đề thường). Nối vào step i4u18-lib-tests của
-  `app_analyze.yml`.
-- **Nghiệm thu (máy):** mở video YouTube → **phát được** (có thể +~1s do
-  bước seed), phụ đề chạy theo, lặp câu + tap từ + seek hoạt động; bấm
-  "Học video" bình thường. Nếu vẫn 153 → overlay hiện + log `[in4up-yt]`.
+- **Sửa (bản `732d862` — CHAIN 3 TẦNG):** logcat máy thật (owner gửi
+  2026-10-10) chứng minh cách seed same-origin `c334d7f` chạy đúng nhưng
+  VẪN 153 ⇒ YouTube cần **origin https THẬT** (nghiên cứu cộng đồng 2025-
+  2026: Obsidian #969 test matrix — Referrer http/https thật thì chơi,
+  không có thì 153; `origin=` param KHÔNG thay thế được; cách duy nhất
+  chắc chắn = **wrapper page trên domain https thật**).
+  1. **Chính: wrapper GitHub Pages** — `yt_embed.html?videoId=X` trên
+     `https://pabhassaracitto.github.io/In4Up/` (branch `gh-pages` đã push,
+     commit `f3b11b5`). Wrapper tự chứa IFrame API + kênh `YtSync` (tick
+     250ms) + báo `err:<code>` → iframe /embed/ bên trong tự gửi
+     `Referer: https://pabhassaracitto.github.io…`. **⚠️ CẦN OWNER BẬT
+     PAGES MỘT LẦN** (integration không có quyền Pages API): repo
+     Settings → Pages → Deploy from a branch → `gh-pages` / (root) →
+     Save (1 phút; sau đó site live trong ~5 phút).
+  2. **Fallback: seed → /embed/<id>** (Referer same-origin) — tự chuyển
+     khi wrapper timeout 12s / không `ready` sau 15s / wrapper `err:`
+     (trừ mã video-sai/cấm-nhúng 2/5/100/101/120/150 → báo thẳng).
+  3. **Overlay**: "YouTube từ chối phát video này (mã …)" + nút **Thử
+     lại** (chạy lại từ wrapper) + **Mở ngoài** (youtube.com/watch trong
+     trình duyệt/app hệ thống — luôn hoạt động, khuyến nghị chính thức
+     cho WebView bị chặn).
+  - Chẩn đoán: log `document.referrer` của trang embed (tag `[in4up-yt]`);
+    watchdog 3s đọc body text (mẫu lỗi VT/EN).
+- **Test:** `test/yt_player_embed_test.dart` pin: wrapper https trên
+  github.io + videoId đúng, seed https + CÙNG domain trang embed, URL embed
+  (nocookie + params cũ + origin khớp domain), phát hiện màn lỗi VT/EN +
+  không dương tính giả (số 153 trong phụ đề thường). Nối vào step
+  i4u18-lib-tests của `app_analyze.yml`.
+- **Nghiệm thu (máy):** (sau khi owner bật Pages) mở video YouTube →
+  **phát được** (wrapper), phụ đề chạy theo, lặp câu + tap từ + seek hoạt
+  động; bấm "Học video" bình thường. Log `[in4up-yt]` sẽ hiện đường đang
+  chạy (wrapper/fallback) + `embed referrer:` khi đi fallback. Nếu vẫn lỗi
+  → overlay "Thử lại/Mở ngoài".
 - **Lịch sử:**
   - 2026-10-10 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
@@ -2316,7 +2329,18 @@
     import từ `flutter/services.dart` (không phải `dart:io`); (2) `loadHtml`
     KHÔNG TỒN TẠI ở webview_flutter 4.14 → đổi sang cách 2 bước seed;
     (3) khối hàm chèn giữa 2 khối import → `directive_after_declaration`.
-    VẪN chờ nghiệm thu máy thật.
+  - 2026-10-10 | nghiệm thu máy: VẪN 153 | owner gửi logcat | seed→embed
+    chạy đúng (`[in4up-yt] seed done → load embed`) nhưng watchdog vẫn bắt
+    màn lỗi 153; phụ đề/dịch chạy tốt (44 dòng EN → TranslationService VI)
+    nên tab VĂN BẢN/TỪ có chữ. ⇒ seed same-origin KHÔNG đủ; cần origin
+    https thật (research: Obsidian #969, MAUI, Invidious — chỉ wrapper
+    hosting mới chắc chắn).
+  - 2026-10-10 | chain 3 tầng (commit `732d862`) | agent
+    arena/01a0251e-in4up | wrapper GitHub Pages (branch `gh-pages`
+    `f3b11b5` đã push) + fallback seed→embed + overlay "Mở ngoài"; log
+    `document.referrer`; channel uploads log HTTP status khi 0 video.
+    **CHỜ OWNER BẬT GitHub PAGES** (Settings → Pages → branch `gh-pages`/
+    root — 1 phút) + build mới + nghiệm thu.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

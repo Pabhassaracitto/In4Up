@@ -65,6 +65,13 @@ String buildYtEmbedUrl(String videoId) =>
     '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1'
     '&origin=https://www.youtube-nocookie.com';
 
+/// Parse tin vị trí phát từ kênh YtSync: `t:<seconds>` → giây (null nếu
+/// không phải tin thời gian hoặc không parse được).
+double? ytParseTimeMessage(String message) {
+  if (!message.startsWith('t:')) return null;
+  return double.tryParse(message.substring(2));
+}
+
 /// body text của trang player đang chứa màn lỗi YouTube (153 hoặc khác)
 /// → app hiện overlay tiếng Việt + nút Thử lại/Mở ngoài (chết im lặng).
 bool ytLooksLikePlayerError(String bodyText) {

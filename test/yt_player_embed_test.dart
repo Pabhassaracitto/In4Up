@@ -69,6 +69,21 @@ void main() {
     });
   });
 
+  group('ytParseTimeMessage (IN4-78)', () {
+    test('t:<s> → giây', () {
+      expect(ytParseTimeMessage('t:12.345'), 12.345);
+      expect(ytParseTimeMessage('t:0'), 0.0);
+    });
+
+    test('không phải tin thời gian → null (không throw)', () {
+      expect(ytParseTimeMessage('ready'), isNull);
+      expect(ytParseTimeMessage('state:1'), isNull);
+      expect(ytParseTimeMessage('err:153'), isNull);
+      expect(ytParseTimeMessage('t:abc'), isNull);
+      expect(ytParseTimeMessage(''), isNull);
+    });
+  });
+
   group('ytLooksLikePlayerError (IN4-78)', () {
     test('phát hiện màn lỗi tiếng Việt (mã 153 theo screenshot owner)', () {
       expect(

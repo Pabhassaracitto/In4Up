@@ -13,7 +13,10 @@ import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
+import '../core/responsive/app_responsive.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
+import '../features/cabin/controllers/c27_cabin_live_scope.dart';
+import '../features/cabin/models/c27_cabin_live_state.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
@@ -104,6 +107,7 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _loadShellUiSettings();
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
+    C27CabinLiveScope.instance.addListener(_onC27ScopeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
       VocabularyBridge.init(vocabProvider);
@@ -116,9 +120,26 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
+    C27CabinLiveScope.instance.removeListener(_onC27ScopeChanged);
     _modeSwitchHideTimer?.cancel();
     _shellHintTimer?.cancel();
     super.dispose();
+  }
+
+  /// C-27: shell lắng nghe scope — khi Cabin Live gửi handoff sang Hiểu/Nhớ
+  /// thì tự chuyển tab (đúng flow Nghe → Cabin → Hiểu → Nhớ → quay lại Cabin).
+  void _onC27ScopeChanged() {
+    if (!mounted) return;
+    final target = C27CabinLiveScope.instance.consumePendingTarget();
+    if (target == null) return;
+    if (target != C27SourceType.understand && target != C27SourceType.remember) {
+      return;
+    }
+    final tab = target == C27SourceType.understand
+        ? _PrimaryTab.understand
+        : _PrimaryTab.remember;
+    if (_currentTab == tab) return;
+    setState(() => _currentTab = tab);
   }
 
   bool get _isHome => _currentTab == _PrimaryTab.home;
@@ -1193,6 +1214,81 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
+  Widget _buildDesktopSidebar(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final items = <({String label, IconData icon, IconData selectedIcon, _PrimaryTab tab})>[
+      (label: l10n.home, icon: Icons.home_outlined, selectedIcon: Icons.home, tab: _PrimaryTab.home),
+      (label: l10n.read, icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, tab: _PrimaryTab.read),
+      (label: l10n.listen, icon: Icons.headphones_outlined, selectedIcon: Icons.headphones, tab: _PrimaryTab.listen),
+      (label: l10n.understand, icon: Icons.lightbulb_outline, selectedIcon: Icons.lightbulb, tab: _PrimaryTab.understand),
+      (label: l10n.remember, icon: Icons.psychology_outlined, selectedIcon: Icons.psychology, tab: _PrimaryTab.remember),
+    ];
+
+    return Material(
+      color: const Color(0xFF111827),
+      child: SafeArea(
+        right: false,
+        bottom: false,
+        child: SizedBox(
+          width: 248,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 16, 24),
+                child: Text(
+                  '4U Scholar',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.94),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              for (final item in items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                  child: Semantics(
+                    button: true,
+                    selected: _currentTab == item.tab,
+                    label: item.label,
+                    child: ListTile(
+                      selected: _currentTab == item.tab,
+                      selectedTileColor: _currentAccent.withValues(alpha: 0.14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      leading: Icon(
+                        _currentTab == item.tab ? item.selectedIcon : item.icon,
+                        color: _currentTab == item.tab ? _currentAccent : Colors.white70,
+                      ),
+                      title: Text(
+                        item.label,
+                        style: TextStyle(
+                          color: _currentTab == item.tab ? Colors.white : Colors.white70,
+                          fontWeight: _currentTab == item.tab ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        _setPrimaryTab(item.tab);
+                      },
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: Text(
+                  'Workspace',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.42), fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1208,9 +1304,18 @@ class _MainShellState extends State<MainShell> {
           : const AudioLibraryDrawer(isLeft: false),
       drawerEnableOpenDragGesture: !_isHome,
       endDrawerEnableOpenDragGesture: !_isHome,
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop =
+              constraints.maxWidth >= AppResponsive.expandedWidth;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isDesktop) _buildDesktopSidebar(context),
+              Expanded(
+                child: SafeArea(
+                  bottom: false,
+                  child: Stack(
           children: [
             Column(
               children: [
@@ -1286,11 +1391,90 @@ class _MainShellState extends State<MainShell> {
             // ★ Wordlist floating bubble – persistent TTS across tabs
             const WordlistBubble(),
             // ★ Live Cabin floating bubble – persistent STS across tabs
-            const LiveCaptionBubble(),
+            // C-27: bubble chỉ hiện khi phiên Cabin đang chạy và viewport
+            // đang đóng (doc 42 §10.2 — bubble nhường Full Cabin Viewport).
+            ListenableBuilder(
+              listenable: C27CabinLiveScope.instance,
+              builder: (context, _) {
+                final scope = C27CabinLiveScope.instance;
+                if (scope.viewportOpen || !scope.sessionActive) {
+                  return const SizedBox.shrink();
+                }
+                return const LiveCaptionBubble();
+              },
+            ),
+            // C-27: chip ngữ cảnh handoff — hiện ở tab Hiểu/Nhớ sau khi gửi
+            // từ Cabin Live; bấm để quay lại Cabin Live (returnPath 'cabin').
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 88,
+              child: ListenableBuilder(
+                listenable: C27CabinLiveScope.instance,
+                builder: (context, _) {
+                  final scope = C27CabinLiveScope.instance;
+                  final handoff = scope.handoffInbox;
+                  if (handoff == null) return const SizedBox.shrink();
+                  if (_currentTab != _PrimaryTab.understand &&
+                      _currentTab != _PrimaryTab.remember) {
+                    return const SizedBox.shrink();
+                  }
+                  final preview = handoff.translatedCaption.isNotEmpty
+                      ? '${handoff.originalCaption} → ${handoff.translatedCaption}'
+                      : handoff.originalCaption;
+                  return Material(
+                    color: const Color(0xFF101B2B),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.forward_to_inbox_rounded,
+                              color: Color(0xFF00E676), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              preview,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              scope.clearHandoffInbox();
+                              Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const LiveCabinScreen(),
+                              ));
+                            },
+                            child: Text(
+                              context.uiText('Quay lại Cabin Live'),
+                              style:
+                                  const TextStyle(color: Color(0xFF00E676)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
-      ),
-      bottomNavigationBar: _buildBottomNav(context),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      bottomNavigationBar:
+          MediaQuery.sizeOf(context).width >=
+              AppResponsive.expandedWidth
+          ? null
+          : _buildBottomNav(context),
     );
   }
 
@@ -2311,80 +2495,92 @@ class _BottomNavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeColor = selected ? color : Colors.grey[500]!;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-          decoration: BoxDecoration(
-            color:
-                selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: 56,
+          minHeight: kMinInteractiveDimension,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color:
-                  selected ? color.withValues(alpha: 0.24) : Colors.transparent,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(selected ? selectedIcon : icon,
-                      color: activeColor, size: 22),
-                  if (badgeText != null)
-                    Positioned(
-                      top: -6,
-                      right: -14,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          badgeText!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (showLongPressHint)
-                    Positioned(
-                      bottom: -2,
-                      right: -8,
-                      child: Icon(
-                        Icons.subdirectory_arrow_left,
-                        size: 10,
-                        color: activeColor.withValues(alpha: 0.8),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: activeColor,
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              decoration: BoxDecoration(
+                color:
+                    selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color:
+                      selected ? color.withValues(alpha: 0.24) : Colors.transparent,
                 ),
               ),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(selected ? selectedIcon : icon,
+                          color: activeColor, size: 22),
+                      if (badgeText != null)
+                        Positioned(
+                          top: -6,
+                          right: -14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              badgeText!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (showLongPressHint)
+                        Positioned(
+                          bottom: -2,
+                          right: -8,
+                          child: Icon(
+                            Icons.subdirectory_arrow_left,
+                            size: 10,
+                            color: activeColor.withValues(alpha: 0.8),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: activeColor,
+                        fontSize: 10,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

@@ -15,6 +15,12 @@ class AppResponsive {
   static const double expandedWidth = 1024;
   static const double largeWidth = 1440;
 
+  /// Trần kích thước cho overlay của shell (Command Palette…). Đặt ở policy để
+  /// shell không tự khai báo ngưỡng/kích thước riêng — xem C-02b và drift guard
+  /// trong `test/responsive_accessibility_qa_test.dart`.
+  static const double overlayDialogMaxWidth = 640;
+  static const double overlayDialogMaxHeight = 620;
+
   static AppWindowClass classify(double width) {
     if (width < mediumWidth) return AppWindowClass.compact;
     if (width < expandedWidth) return AppWindowClass.medium;

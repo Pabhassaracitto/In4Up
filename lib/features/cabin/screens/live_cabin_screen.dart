@@ -15,6 +15,8 @@ import '../../translation/translation_service.dart';
 import '../services/cabin_session_settings.dart';
 import '../services/cabin_session_store.dart';
 import '../widgets/cabin_save_sheet.dart';
+import '../controllers/c27_cabin_live_scope.dart';
+import '../widgets/c27_handoff_drawer.dart';
 import 'cabin_sessions_screen.dart';
 
 class LiveCabinScreen extends StatefulWidget {
@@ -29,6 +31,10 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   final SttsCabinService _service = SttsCabinService();
   final ScrollController _scrollController = ScrollController();
   final SherpaModelManager _modelManager = SherpaModelManager();
+
+  /// C-27 wiring scope — phiên Cabin chia sẻ với bubble (shell) + Handoff.
+  C27CabinLiveScope get _c27 => C27CabinLiveScope.instance;
+  StreamSubscription<CabinCaption>? _c27CaptionSub;
 
   /// State cài đặt model (để đánh dấu ngôn ngữ nào chưa có model offline).
   SherpaAsrInfo _asrInfo = const SherpaAsrInfo();
@@ -61,6 +67,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   void initState() {
     super.initState();
     _service.addListener(_onServiceUpdate);
+    // C-27 wiring: viewport mở ⇒ bubble ẩn; caption final về state machine.
+    _c27.setViewportOpen(true);
+    _c27CaptionSub = _service.captionStream.listen(_onC27FinalCaption);
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -91,6 +100,11 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     if (!mounted || _handlingPending) return;
     final session = _service.takePendingSession();
     if (session == null) return;
+    // C-27: khôi phục phiên vào state machine (sessionId giữ nguyên).
+    _c27.controller.loadRecovered(
+      sessionId: session.id,
+      sessionTitle: session.title,
+    );
     _handlingPending = true;
     try {
       await handleFinishedCabinSession(context, session);
@@ -147,15 +161,39 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     _bannerTimer?.cancel();
     _recTicker?.cancel();
     _asrSub?.cancel();
+    _c27CaptionSub?.cancel();
     _service.removeListener(_onServiceUpdate);
+    _c27.setViewportOpen(false);
     _pulseController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
+  void _onC27FinalCaption(CabinCaption caption) {
+    _c27.controller.onFinalCaption(caption);
+  }
+
   void _onServiceUpdate() {
     if (!mounted) return;
     setState(() {});
+    // C-27: phản ánh caption tạm / bản dịch vào state machine dùng chung.
+    final active = _service.activeCaption;
+    if (active != null && !active.isFinal) {
+      _c27.controller.onPartialCaption(active);
+    } else if (active != null &&
+        active.isFinal &&
+        active.translatedText.isNotEmpty) {
+      var hasTranslation = false;
+      for (final c in _c27.controller.captions) {
+        if (c.id == active.id && c.translatedText == active.translatedText) {
+          hasTranslation = true;
+          break;
+        }
+      }
+      if (!hasTranslation) {
+        _c27.controller.onTranslatedCaption(active.id, active.translatedText);
+      }
+    }
     if (_service.pendingSession != null) {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _checkPendingSession());
@@ -1199,8 +1237,19 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               HapticFeedback.heavyImpact();
               if (isListening) {
                 await _service.stopCabin();
+                // C-27: dừng engine — phiên vẫn giữ để save draft
+                // (xử lý ở _checkPendingSession → handleFinishedCabinSession).
               } else {
-                await _service.startCabin();
+                final ok = await _service.startCabin();
+                if (ok && mounted) {
+                  // C-27: bắt đầu phiên theo state machine dùng chung.
+                  _c27.controller.startFromListen(
+                    sourceLang: _service.sourceLanguage,
+                    targetLang: _service.targetLanguage,
+                    sessionTitle:
+                        _service.sessionRecorder?.session.title ?? '',
+                  );
+                }
               }
             },
             child: AnimatedContainer(
@@ -1234,11 +1283,29 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               size: 28,
             ),
             onPressed: isListening || _service.isPaused
-                ? () {
+                ? () async {
                     HapticFeedback.mediumImpact();
-                    _service.togglePause();
+                    await _service.togglePause();
+                    if (!mounted) return;
+                    // C-27: phản ánh pause/resume vào state machine.
+                    if (_service.isPaused) {
+                      _c27.controller.pause();
+                    } else {
+                      _c27.controller.resume();
+                    }
                   }
                 : null,
+          ),
+
+          // C-27 Handoff: mở Handoff Drawer — gửi ngữ cảnh sang Hiểu/Nhớ.
+          IconButton(
+            icon: const Icon(
+              Icons.forward_to_inbox_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+            tooltip: context.uiText('Gửi ngữ cảnh sang Hiểu/Nhớ'),
+            onPressed: () => showC27HandoffDrawer(context, hostContext: context),
           ),
         ],
       ),

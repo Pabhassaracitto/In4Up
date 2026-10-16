@@ -1814,4 +1814,10 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Không thể lưu ảnh. Vui lòng thử lại.': 'Could not save the image. Please try again.',
   'Chụp ảnh hoặc chọn ảnh trong máy.': 'Take a photo or choose one from your device.',
   'Bạn có thể tách nền tự động trước khi lưu.': 'You can remove the background automatically before saving.',
+  // IN4-36 — sửa dòng: chạm giữ mở action sheet; nút Xóa xuống góc trái
+  'Sửa dòng…': 'Edit line…',
+  'Sửa văn bản gốc & bản dịch': 'Edit original text & translation',
+  'Xoá dòng': 'Delete line',
+  'Hành động này không thể hoàn tác.': 'This action cannot be undone.',
+  'Giữ lại': 'Keep',
 };

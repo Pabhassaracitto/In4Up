@@ -89,6 +89,7 @@
 | OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
+| READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin, chờ CI + máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 🔨 doing (code + test thuần + CI 🟢 `37667414865`; chờ nghiệm thu máy) | audit mục 2 (phần còn lại) — ADR-0013: `imageUrl2` additive (không migration) + `mediaPaths`/`setMediaSlot` promote + `swapMediaSlots`; sheet thêm nguồn thứ 4 "Hoạt ảnh" (endpoint cấu hình được + fallback Wikimedia Commons, chỉ ô đang hiện mới chạy); ô 2 khung trong sửa từ/chi tiết. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
@@ -2357,6 +2358,45 @@
     tới khi player `ready`/phát tick đầu. **CÒN CHỜ:** build mới + xác
     nhận video phát ổn định + assertion còn không (bản debug) / không có
     (bản release).
+
+### READ-LINEEDIT-001 — (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + dễ XÓA NHẦM dòng
+- **Trạng thái:** doing (code + test pin, chờ CI + nghiệm thu máy) — [IN4-36](https://linear.app/in4up/issue/IN4-36)
+- **Nguồn (audit 1.10.4, 2026-10-08):**
+  1. Chạm giữ một dòng mở bảng sửa dòng — chỉnh sửa tại chỗ ÍT cần (nội dung gốc
+     thường không cần sửa, bản dịch khó cải tiến hơn AI/Google Translate)
+     ⇒ "lãng phí" cử chỉ; cần xem xét lại cách sử dụng cử chỉ.
+  2. Trong bảng sửa, nút **Xóa** nằm quá sát nút **X** (đóng) — người dùng dễ
+     bấm nhầm Xóa khi chỉ muốn đóng bảng ⇒ xóa dòng ngoài ý muốn.
+     "Đây là rủi ro cần tránh."
+- **Giải pháp:**
+  1. **Gán lại cử chỉ** (`text_line_widget.dart`): chạm giữ → **LineActionsSheet**
+     (Đọc TTS / phát audio / lưu bộ sưu tập / sao chép — chức năng hữu ích,
+     cùng hành vi với chạm 2 lần). Sửa dòng KHÔNG còn là cử chỉ trực tiếp.
+  2. **"Sửa dòng…"** là entry cuối trong LineActionsSheet (`line_actions_sheet.dart`)
+     → chức năng giữ nguyên nhưng cần chủ động (2 bước: mở sheet → chọn Sửa).
+  3. **Bố cục lại `LineEditSheet`** (`line_edit_sheet.dart`): header chỉ còn
+     nút X (đóng, bên phải — vị trí chuẩn). Nút **Xoá dòng** xuống **GÓC TRÁI**
+     hàng nút dưới: `[🗑 Xoá dòng (đỏ)] [Huỷ] [Lưu]` — cách xa mọi nút đóng.
+  4. **Hai lớp phòng thủ**: dialog xác nhận hiển thị 80 ký tự đầu dòng +
+     cảnh báo cam "Hành động này không thể hoàn tác."; nút an toàn **"Giữ lại"**
+     đặt cuối phải (lựa chọn mặc định khi vội).
+  5. **i18n rule #5**: 5 chuỗi mới đủ en/hi/zh/zh_TW/si ('Sửa dòng…',
+     'Sửa văn bản gốc & bản dịch', 'Xoá dòng', 'Hành động này không thể
+     hoàn tác.', 'Giữ lại') → `priority_ui_overrides.dart` +
+     `generated_legacy_ui_fallbacks.dart` + `tool/legacy_ui_english_overrides.json`.
+- **Test:** `test/read_mode/line_edit_gesture_test.dart` (mới) — source-scan
+  guard: `text_line_widget.dart` KHÔNG gọi `LineEditSheet.show(` trực tiếp;
+  `LineActionsSheet.show(` ≥ 2 (double-tap + long-press); header bảng sửa
+  không còn icon xóa; nút 'Xoá dòng' nằm sau marker "── Buttons"; dialog xác
+  nhận + "không thể hoàn tác" + 'Giữ lại' còn; 5 chuỗi i18n đủ 5 locale.
+  Nối vào step read-act-tests của `app_analyze.yml`.
+- **Nghiệm thu (máy):** tab Đọc (mode dòng): chạm giữ 1 dòng → action sheet
+  (TTS/phát/lưu/sao chép/Sửa dòng…); mở Sửa dòng… → nút xóa ở GÓC TRÁI dưới,
+  không còn cạnh X; bấm xóa → dialog cảnh báo; bấm Giữ lại → bảng đóng,
+  nguyên vẹn. Chạm 2 lần vẫn mở action sheet như cũ.
+- **Lịch sử:**
+  - 2026-10-12 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

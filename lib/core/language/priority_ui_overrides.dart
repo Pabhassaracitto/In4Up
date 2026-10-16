@@ -5504,4 +5504,40 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': 'API key（選填，若 endpoint 需要）',
     'si': 'API යතුර (විකල්ප, endpoint එකට අවශ්\u200dය නම්)',
   },
+  // ── IN4-36 — sửa dòng: chạm giữ mở action sheet; nút Xóa xuống góc trái ──
+  'Sửa dòng…': {
+    'en': 'Edit line…',
+    'hi': 'पंक्ति संपादित करें…',
+    'zh': '编辑行…',
+    'zh_TW': '編輯行…',
+    'si': 'පේළිය සංස්කරණය…',
+  },
+  'Sửa văn bản gốc & bản dịch': {
+    'en': 'Edit original text & translation',
+    'hi': 'मूल पाठ और अनुवाद संपादित करें',
+    'zh': '编辑原文与译文',
+    'zh_TW': '編輯原文與譯文',
+    'si': 'මුල් පෙළ සහ පරිවර්තනය සංස්කරණය කරන්න',
+  },
+  'Xoá dòng': {
+    'en': 'Delete line',
+    'hi': 'पंक्ति हटाएँ',
+    'zh': '删除行',
+    'zh_TW': '刪除行',
+    'si': 'පේළිය මකන්න',
+  },
+  'Hành động này không thể hoàn tác.': {
+    'en': 'This action cannot be undone.',
+    'hi': 'इस कार्रवाई को पूर्ववत नहीं किया जा सकता।',
+    'zh': '此操作无法撤销。',
+    'zh_TW': '此操作無法撤銷。',
+    'si': 'මෙම ක්‍රියාව නැවත නොකළ හැක.',
+  },
+  'Giữ lại': {
+    'en': 'Keep',
+    'hi': 'रखें',
+    'zh': '保留',
+    'zh_TW': '保留',
+    'si': 'සුරක්ෂිත রাখන්න',
+  },
 };

@@ -89,7 +89,7 @@
 | OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
-| READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin, chờ CI + máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
+| READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin + CI 🟢 `38970096071`, chờ máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 🔨 doing (code + test thuần + CI 🟢 `37667414865`; chờ nghiệm thu máy) | audit mục 2 (phần còn lại) — ADR-0013: `imageUrl2` additive (không migration) + `mediaPaths`/`setMediaSlot` promote + `swapMediaSlots`; sheet thêm nguồn thứ 4 "Hoạt ảnh" (endpoint cấu hình được + fallback Wikimedia Commons, chỉ ô đang hiện mới chạy); ô 2 khung trong sửa từ/chi tiết. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
@@ -2360,7 +2360,7 @@
     (bản release).
 
 ### READ-LINEEDIT-001 — (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + dễ XÓA NHẦM dòng
-- **Trạng thái:** doing (code + test pin, chờ CI + nghiệm thu máy) — [IN4-36](https://linear.app/in4up/issue/IN4-36)
+- **Trạng thái:** doing (code + test pin + CI 🟢 `38970096071`, chờ nghiệm thu máy) — [IN4-36](https://linear.app/in4up/issue/IN4-36)
 - **Nguồn (audit 1.10.4, 2026-10-08):**
   1. Chạm giữ một dòng mở bảng sửa dòng — chỉnh sửa tại chỗ ÍT cần (nội dung gốc
      thường không cần sửa, bản dịch khó cải tiến hơn AI/Google Translate)
@@ -2397,6 +2397,11 @@
 - **Lịch sử:**
   - 2026-10-12 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
+  - 2026-10-16 | ✅ CI xanh | agent arena/01a0251e-in4up | commit `4d0aeca`,
+    run `38970096071` (analyze 0 error + read-act-tests có test
+    line_edit_gesture mới + locale test). Vá 1 lỗi syntax (thiếu `}`) do
+    self-check balance phát hiện trước khi push. Chờ nghiệm thu máy (4 điểm
+    a–d ở mục Nghiệm thu).
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

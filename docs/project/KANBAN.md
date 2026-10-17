@@ -6188,6 +6188,20 @@
 - **Nghiệm thu:** import 1 bộ model TTS + 1 bộ STT đủ file → "OK"; bỏ 1 file
   → báo đúng tên file thiếu.
 - **Prompt:** `PROMPT_AGENT_MODEL_IMPORT_VALIDATION.md`.
+- **Tiến triển 2026-10-10 (agent 01a0251e):** ROOT CAUSE = **Android SAF**:
+  picker trả URI `content://` — `dart:io` KHÔNG đọc được path đó, nên copy
+  file thất bại hết → báo "thiếu" SAI dù file đủ. (TTS file OK vì UI đọc
+  bytes `withData: true` — chính ASR file import LỖI chỗ này: chưa `withData`.)
+  Fix: (1) `SherpaModelManager.importAsrNamedBytesResult(Map<String,Uint8List>)`
+  — cùng logic validate, copy từ bytes (SAF-safe); `_copyListingFile` +
+  `_safeLength` hỗ trợ bytes; archive bytes → file tạm → giải nén.
+  (2) UI ASR `_importFiles` thêm `withData: true` + ưu tiên bytes (đường TTS
+  đã chứng minh OK); (3) UI ASR `_importFolder`: thư mục SAF (`content:`)
+  → hướng dẫn + mở thẳng Import file (không để user kẹt). Test thuần
+  `test/model_import_saf_bytes_test.dart` (bộ đủ→không thiếu, thiếu 1→nêu
+  đúng role, int8 ưu tiên, Piper không lẫn, i18n SAF đủ 5 locale) nối
+  i4u18-scanner-tests. **Chờ CI + nghiệm thu máy** (import 4 file Zipformer
+  + import thư mục trên Android).
 
 ### 6. XLAT-OFFLINE-LANG-001 — (P2) Dịch offline ML Kit: thêm ngôn ngữ (ẩn, sổ ra)
 - **Triệu chứng:** Gói dịch offline (ML Kit) hiện chỉ 3 ngôn ngữ.
@@ -6229,6 +6243,13 @@
 - **Nơi đọc:** `grep -rn "I2U\|i2u" lib/` (chuỗi UI + l10n).
 - **Nghiệm thu:** không còn "I2U" ở đâu; đúng "I4U".
 - **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục BRAND).
+- **Tiến triển 2026-10-10 (agent 01a0251e):** ĐÃ SỬA — 2 chuỗi UI trong
+  `ai_chat_screen.dart` + 2 entry fallback (key+value) trong
+  `generated_legacy_ui_fallbacks.dart` + 2 entry JSON
+  `legacy_ui_english_overrides.json` (I2U→I4U). `grep "I2U" lib/` = sạch.
+  Test máy bắt `test/ai_chat/brand_i4u_test.dart` (nguồn UI + catalog không
+  còn I2U) nối bước `flutter test` toàn tập. **Chờ CI + nghiệm thu** (mở
+  AI Chat: hint + header hiện "I4U").
 
 ### 10. AI-CHAT-UX-001 — (P1) Chat offline: thiếu "đang suy nghĩ" + nút gửi không loading
 - **Triệu chứng:** Chat offline chạy được nhưng (a) không có biểu tượng AI

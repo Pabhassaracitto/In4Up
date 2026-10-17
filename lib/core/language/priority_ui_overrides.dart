@@ -5540,4 +5540,19 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '保留',
     'si': 'සුරක්ෂිත রাখන්න',
   },
+  // ── IN4-16 — import model SAF (bytes) ──
+  'Không đọc được file (SAF). Vui lòng chọn lại các file model.': {
+    'en': 'Could not read the file (SAF). Please re-select the model files.',
+    'hi': 'फ़ाइल पढ़ी नहीं जा सकी (SAF)। कृपया मॉडल फ़ाइलें फिर से चुनें।',
+    'zh': '无法读取文件（SAF）。请重新选择模型文件。',
+    'zh_TW': '無法讀取檔案（SAF）。請重新選擇模型檔案。',
+    'si': ' ගොනුව කියවිය නොහැක (SAF). කරුණාකර මෝඩල ගොනු නැවත තෝරන්න.',
+  },
+  'Không đọc trực tiếp thư mục trên thiết bị này (SAF). Hãy chọn file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.': {
+    'en': 'Cannot read this folder directly on this device (SAF). Please pick the files inside it: encoder/decoder/joiner (.onnx) + tokens.txt.',
+    'hi': 'इस डिवाइस पर इस फ़ोल्डर का सीधा पठन संभव नहीं (SAF)। कृपया उसके अंदर की फ़ाइलें चुनें: encoder/decoder/joiner (.onnx) + tokens.txt.',
+    'zh': '此设备无法直接读取该文件夹（SAF）。请选择其中的文件：encoder/decoder/joiner (.onnx) + tokens.txt。',
+    'zh_TW': '此裝置無法直接讀取該資料夾（SAF）。請選擇其中的檔案：encoder/decoder/joiner (.onnx) + tokens.txt。',
+    'si': 'මෙම උපාංගය මත මෙම පොලඩරය සෘජුව කියවිය නොහැක (SAF). එහි ඇති ගොනු තෝරන්න: encoder/decoder/joiner (.onnx) + tokens.txt.',
+  },
 };

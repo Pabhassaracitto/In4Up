@@ -1856,6 +1856,20 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     final result =
         await _manager.importAsrFolderResult(path, targetProfileId: profile.id);
     if (!mounted) return;
+    // IN4-16 (MODELIMPORT-001) — Android SAF: getDirectoryPath() trả URI
+    // `content://` (dart:io không đọc được) → KHÔNG để user kẹt với thông
+    // báo chung chung: hướng dẫn + mở thẳng Import file (đường bytes).
+    if (result.status == SherpaAsrImportStatus.sourceMissing &&
+        path.startsWith('content:')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(
+              'Không đọc trực tiếp thư mục trên thiết bị này (SAF). Hãy chọn file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.')),
+        ),
+      );
+      await _importFiles(context, profile);
+      return;
+    }
     _showAsrImportResult(context, profile, result);
   }
 
@@ -1902,17 +1916,45 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     BuildContext context,
     SherpaAsrProfile profile,
   ) async {
+    // IN4-16 (MODELIMPORT-001) — `withData: true` là CHÌA KHÓA: trên
+    // Android SAF, `f.path` là URI `content://` (dart:io KHÔNG đọc được)
+    // nên copy file cũ THẤT BẠI HẾT → báo "thiếu file" SAI dù file đủ.
+    // Đọc thẳng bytes rồi dùng importAsrNamedBytesResult (đường TTS file
+    // dùng cùng cách — owner xác nhận TTS file OK).
     final picked = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
       allowedExtensions: ['onnx', 'txt', 'bz2', 'zip', 'vocab', 'json'],
       allowMultiple: true,
+      withData: true,
     );
     if (picked == null || picked.files.isEmpty) return;
-    final paths = picked.files.map((f) => f.path).whereType<String>().toList();
-    if (paths.isEmpty) return;
-
-    final result =
-        await _manager.importAsrFilesResult(paths, targetProfileId: profile.id);
+    final named = <String, Uint8List>{};
+    final paths = <String>[];
+    for (final f in picked.files) {
+      final b = f.bytes;
+      if (b != null && b.isNotEmpty) {
+        named[f.name] = b;
+      } else if (f.path != null && f.path!.isNotEmpty) {
+        paths.add(f.path!);
+      }
+    }
+    final SherpaAsrImportResult result;
+    if (named.isNotEmpty) {
+      result = await _manager
+          .importAsrNamedBytesResult(named, targetProfileId: profile.id);
+    } else if (paths.isNotEmpty) {
+      result =
+          await _manager.importAsrFilesResult(paths, targetProfileId: profile.id);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(
+              'Không đọc được file (SAF). Vui lòng chọn lại các file model.')),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     _showAsrImportResult(context, profile, result);
   }

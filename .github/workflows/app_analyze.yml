@@ -454,6 +454,7 @@ jobs:
           set +e
           files=""
           for f in test/model_bundle_scanner_test.dart \
+                   test/model_import_saf_bytes_test.dart \
                    test/dict_bundle_scanner_test.dart \
                    test/dictionary/dict_db_service_test.dart \
                    test/dictionary/dict_result_sheet_test.dart \

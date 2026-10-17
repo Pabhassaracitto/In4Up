@@ -416,7 +416,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Hết bộ nhớ': 'Out of storage',
   'Hệ số': 'Factor',
   'Học nhanh': 'Quick study',
-  'Hỏi I2U về từ vựng, ngữ pháp...': 'Ask I2U about vocabulary, grammar...',
+  'Hỏi I4U về từ vựng, ngữ pháp...': 'Ask I4U about vocabulary, grammar...',
   'Hỏi đáp về từ vựng và ngữ pháp': 'Ask about vocabulary and grammar',
   'Hồ sơ tri thức': 'Knowledge profile',
   'Import AI model': 'Import AI model',
@@ -959,7 +959,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Trạng thái sinh trưởng': 'Growth status',
   'Trạng thái trí nhớ': 'Memory status',
   'Trạng từ': 'Adverb',
-  'Trợ lý học tập I2U': 'I2U learning assistant',
+  'Trợ lý học tập I4U': 'I4U learning assistant',
   'Trợ động từ': 'Auxiliary verb',
   'Tuyệt vời! Đã thông thạo cả 3 chiều': 'Great! Mastered all 3 sides',
   'Tuần này': 'This week',
@@ -1820,4 +1820,7 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Xoá dòng': 'Delete line',
   'Hành động này không thể hoàn tác.': 'This action cannot be undone.',
   'Giữ lại': 'Keep',
+  // IN4-16 — import model SAF (bytes)
+  'Không đọc được file (SAF). Vui lòng chọn lại các file model.': 'Could not read the file (SAF). Please re-select the model files.',
+  'Không đọc trực tiếp thư mục trên thiết bị này (SAF). Hãy chọn file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.': 'Cannot read this folder directly on this device (SAF). Please pick the files inside it: encoder/decoder/joiner (.onnx) + tokens.txt.',
 };

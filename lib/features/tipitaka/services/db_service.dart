@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:flutter/foundation.dart' show FlutterError;
+import 'package:flutter/foundation.dart' show FlutterError, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -169,6 +170,9 @@ class TipitakaDb {
     final temporary = File('$target.part');
     final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
     await temporary.writeAsBytes(bytes, flush: true);
+    // IN4-80: đóng connection đang mở trên file đích TRƯỚC khi thay —
+    // xoá/rename file khi SQLite còn giữ handle ⇒ SQLITE_READONLY_DBMOVED.
+    await close();
     if (await targetFile.exists()) await targetFile.delete();
     await temporary.rename(target);
     return target;
@@ -177,7 +181,13 @@ class TipitakaDb {
   /// Installs either a normalized DB or a Pa-Auk source DB selected by the
   /// user/developer. Source databases are normalized in-app, so the user does
   /// not need Python just to import a downloaded language package.
-  static Future<String> installDatabaseFile(String sourcePath) async {
+  static Future<String> installDatabaseFile(String sourcePath) {
+    // IN4-80: xếp hàng — cài file cũng thay DB đích, không được chạy song
+    // song với import đang chạy (cùng lý do DBMOVED).
+    return _withImportLock(() => _installDatabaseFileLocked(sourcePath));
+  }
+
+  static Future<String> _installDatabaseFileLocked(String sourcePath) async {
     final source = File(sourcePath);
     if (!await source.exists()) {
       throw const TipitakaDatabaseException('Không tìm thấy file cơ sở dữ liệu.');
@@ -194,12 +204,16 @@ class TipitakaDb {
       await target.parent.create(recursive: true);
       final temporary = File('$targetPath.part');
       await source.copy(temporary.path);
+      // IN4-80: sao lưu DB cài đặt trước khi thay (bảo toàn dữ liệu).
+      await _backupInstalledDatabase(targetPath);
       if (await target.exists()) await target.delete();
       await temporary.rename(target.path);
       return target.path;
     }
 
-    return importSourceDatabase(sourcePath);
+    // Gọi bản KHÔNG khóa (đang giữ khoá rồi — gọi bản công khai sẽ tự
+    // chờ khoá ⇒ DEADLOCK).
+    return _importSourceDatabaseLocked(sourcePath);
   }
 
   static Future<bool> _isZipFile(String path) async {
@@ -260,7 +274,9 @@ class TipitakaDb {
       // deterministic choice and is also how the download service behaves.
       for (final extractedPath in extractedPaths) {
         try {
-          return await installDatabaseFile(extractedPath);
+          // Bản KHÔNG khóa: đang giữ khoá import (bản công khai sẽ chờ
+          // khoá ⇒ DEADLOCK).
+          return await _installDatabaseFileLocked(extractedPath);
         } on TipitakaDatabaseException {
           // Try the next DB entry before reporting a package failure.
         }
@@ -283,6 +299,19 @@ class TipitakaDb {
   /// source rows in place. Every import is built in a temporary copy and
   /// atomically installed, so an interrupted merge cannot damage user data.
   static Future<String> importSourceDatabase(
+    String sourcePath, {
+    String? languageCode,
+    String? destinationPath,
+  }) {
+    // IN4-80: xếp hàng — 2 import song song làm hỏng DB đích (DBMOVED).
+    return _withImportLock(() => _importSourceDatabaseLocked(
+          sourcePath,
+          languageCode: languageCode,
+          destinationPath: destinationPath,
+        ));
+  }
+
+  static Future<String> _importSourceDatabaseLocked(
     String sourcePath, {
     String? languageCode,
     String? destinationPath,
@@ -336,6 +365,53 @@ class TipitakaDb {
     );
   }
 
+  /// IN4-80: đường dẫn tạm RIÊNG cho mỗi lần import.
+  ///
+  /// Trước đây MỌI import dùng chung `'$targetPath.importing'` và
+  /// `_openImportTarget` XOÁ file tạm nếu tồn tại ⇒ khi 2 import chạy song
+  /// song (Pāli + Việt), import thứ hai XOÁ file mà import thứ nhất đang
+  /// giữ connection SQLite ⇒ cây lệnh `UPDATE` của import thứ nhất trả
+  /// `SQLITE_READONLY_DBMOVED (1032)` ("attempt to write a readonly
+  /// database") dù file KHÔNG hỏng.
+  static String _importTemporaryPath(String targetPath) =>
+      '$targetPath.importing-${DateTime.now().microsecondsSinceEpoch}';
+
+  /// Khoá tuần tự hoá import (IN4-80).
+  ///
+  /// Mọi thao tác import + cài đặt DB đi qua hàng đợi MỘT ⇒ không bao giờ
+  /// có 2 import cùng lúc (vừa tránh DBMOVED, vừa tránh 2 install tranh
+  /// nhau xoá/đổi file đích).
+  static Future<void> _importQueue = Future<void>.value();
+
+  static Future<T> _withImportLock<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    final previous = _importQueue;
+    _importQueue = previous.then((_) {}, onError: (_) {}).then((_) async {
+      try {
+        completer.complete(await action());
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      }
+    });
+    return completer.future;
+  }
+
+  /// Sao lưu DB đang cài trước khi thay thế (IN4-80: "bảo toàn dữ liệu
+  /// trước mọi thao tác phá hủy"). Giữ 1 bản `.bak` — nếu lần import sau hỏng,
+  /// người dùng vẫn có DB tốt gần nhất để khôi phục.
+  static Future<void> _backupInstalledDatabase(String targetPath) async {
+    final source = File(targetPath);
+    if (!await source.exists()) return;
+    final backup = File('$targetPath.bak');
+    try {
+      if (await backup.exists()) await backup.delete();
+      await source.copy(backup.path);
+      debugPrint('💾 Tipitaka: đã sao lưu DB cài đặt → ${backup.path}');
+    } catch (error) {
+      debugPrint('⚠️ Tipitaka: không sao lưu được DB cài đặt: $error');
+    }
+  }
+
   static Future<String> _installImportTarget(
     Database target,
     String targetPath,
@@ -343,6 +419,8 @@ class TipitakaDb {
   ) async {
     await target.close();
     await close();
+    // IN4-80: sao lưu bản đang chạy TRƯỚC khi thay file đích.
+    await _backupInstalledDatabase(targetPath);
     final destination = File(targetPath);
     if (await destination.exists()) await destination.delete();
     await File(temporaryPath).rename(targetPath);
@@ -353,7 +431,8 @@ class TipitakaDb {
     Database source,
     String targetPath,
   ) async {
-    final temporaryPath = '$targetPath.importing';
+    // IN4-80: đường dẫn tạm RIÊNG (tránh đụng import khác đang chạy).
+    final temporaryPath = _importTemporaryPath(targetPath);
     Database? target;
     try {
       target = await _openImportTarget(targetPath, temporaryPath);
@@ -383,7 +462,8 @@ class TipitakaDb {
     String language,
     String targetPath,
   ) async {
-    final temporaryPath = '$targetPath.importing';
+    // IN4-80: đường dẫn tạm RIÊNG (tránh đụng import khác đang chạy).
+    final temporaryPath = _importTemporaryPath(targetPath);
     Database? target;
     try {
       target = await _openImportTarget(targetPath, temporaryPath);

@@ -48,6 +48,15 @@ class ScreenCaptureRequestActivity : Activity() {
          * `MODE_BACKGROUND_ACTIVITY_START_ALLOWED` LÚC TẠO pending intent
          * (truyền lúc `send()` cũng được nhưng tạo sẵn gọn hơn và đúng với
          * khuyến nghị của tài liệu Android 14).
+         *
+         * ⚠️ IN4-17 (crash 18/10): chế độ background-start chỉ hợp lệ với
+         * PendingIntent **MUTABLE** — hệ thống ném
+         * `IllegalArgumentException: pendingIntentBackgroundActivityStartMode
+         * must not be set when creating a PendingIntent` nếu dùng
+         * FLAG_IMMUTABLE (đã crash cả service khi xử lý consent/notification).
+         * An toàn vì intent 100% nội bộ (không có extra/data từ bên ngoài),
+         * kẻ bắt cóc PendingIntent chỉ có thể kích hoạt mở activity consent
+         * — đúng mức rủi ro Android docs chấp nhận cho luồng này.
          */
         fun newPendingIntent(context: Context): android.app.PendingIntent {
             val options =
@@ -66,7 +75,7 @@ class ScreenCaptureRequestActivity : Activity() {
                 REQUEST_CODE,
                 newIntent(context),
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or
-                    android.app.PendingIntent.FLAG_IMMUTABLE,
+                    android.app.PendingIntent.FLAG_MUTABLE,
                 options,
             )
         }

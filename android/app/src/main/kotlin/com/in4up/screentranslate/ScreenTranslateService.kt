@@ -1225,11 +1225,10 @@ class ScreenTranslateService : Service() {
         // Bấm vào thông báo thường cũng phải "làm được việc": khi user bấm,
         // HỆ THỐNG là bên gửi pending intent ⇒ được miễn chặn background
         // activity start (đường thoát chắc chắn nhất khi bong bóng bị chặn).
-        val recovery = when (pendingRecovery) {
-            Recovery.CONSENT -> consentPendingIntent()
-            Recovery.OVERLAY_SETTINGS -> overlaySettingsPendingIntent()
-            Recovery.NONE -> null
-        }
+        // IN4-17: TẠO pending intent phải được bọc try/catch — nếu lỗi (vd
+        // sai flag API 34+), notification vẫn phải hiện, KHÔNG được để
+        // exception thoát ra giết service ngay giữa nhánh báo lỗi cho user.
+        val recovery = safeRecoveryPendingIntent()
         if (recovery != null) builder.setContentIntent(recovery)
         return builder
             .setContentTitle(getString(R.string.screen_translate_title))
@@ -1249,13 +1248,28 @@ class ScreenTranslateService : Service() {
             .build()
     }
 
+    /**
+     * Tạo PendingIntent "recovery" an toàn (IN4-17): mọi lỗi tạo PendingIntent
+     * đều bị nuốt kèm log + blockReason — KHÔNG bao giờ thoát ra ngoài làm
+     * chết service (log 18/10: chính helper này gây FATAL EXCEPTION ở cả 3
+     * nhánh notification/alert/handleConsent).
+     */
+    private fun safeRecoveryPendingIntent(): PendingIntent? =
+        try {
+            when (pendingRecovery) {
+                Recovery.CONSENT -> consentPendingIntent()
+                Recovery.OVERLAY_SETTINGS -> overlaySettingsPendingIntent()
+                Recovery.NONE -> null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            setBlockReason("pending_intent_error")
+            null
+        }
+
     /** Thông báo heads-up có thể bấm — đường thoát khi không mở được activity. */
     private fun postAlert(text: String) {
-        val content = when (pendingRecovery) {
-            Recovery.CONSENT -> consentPendingIntent()
-            Recovery.OVERLAY_SETTINGS -> overlaySettingsPendingIntent()
-            Recovery.NONE -> null
-        }
+        val content = safeRecoveryPendingIntent()
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ALERT_ID)
         } else {

@@ -43,6 +43,16 @@ import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
 
+// IN4-17 (XLAT-SCR-003): thư viện entrypoint của ENGINE NỀN
+// (ScreenTranslateService khởi engine phụ qua
+// `package:in4up/features/screen_translate/screen_translate_entrypoint.dart`).
+// MUST import ở đây để thư viện được biên dịch VÀO snapshot (AOT release/profile
+// và cả app.dill của debug): không có import này, engine phụ báo
+// "library ... not found → Could not create root isolate" dù file tồn tại.
+// (Flutter multiple-flutters: engine phụ resolve entrypoint từ CÙNG snapshot.)
+// ignore: unused_import
+import 'features/screen_translate/screen_translate_entrypoint.dart';
+
 bool isFirebaseAvailable = false;
 
 /// Handover SECTION 1 — Fix HttpException: Connection closed

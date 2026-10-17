@@ -26,9 +26,15 @@ void main() {
       .readAsStringSync();
 
   group('IN4-80 — đường dẫn tạm RIÊNG cho mỗi lần import', () {
-    test('không còn đường dẫn tạm dùng chung "$targetPath.importing"', () {
+    test(r'không còn đường dẫn tạm dùng chung "$targetPath.importing"', () {
+      // Bỏ COMMENT trước khi so (ghi chú giải thích cũ có thể nhắc lại
+      // chuỗi cũ mà không phải code).
+      final code = dbService
+          .split('\n')
+          .where((line) => !line.trimLeft().startsWith('//'))
+          .join('\n');
       expect(
-        dbService.contains("'\$targetPath.importing'"),
+        code.contains("'\$targetPath.importing'"),
         isFalse,
         reason: 'Đường dẫn tạm dùng chung ⇒ import song song xoá nhau '
             '(nguyên nhân SQLITE_READONLY_DBMOVED).',
@@ -46,8 +52,10 @@ void main() {
     });
 
     test('cả 2 nhánh import (Pāli + bản dịch) dùng đường dẫn tạm riêng', () {
-      final pali = dbService.indexOf('_importPaliSource(');
-      final translation = dbService.indexOf('_importTranslationSource(');
+      // Tìm phần KHAI BÁO (chỗ gọi hàm nằm trước trong file).
+      final pali = dbService.indexOf('static Future<String> _importPaliSource(');
+      final translation =
+          dbService.indexOf('static Future<String> _importTranslationSource(');
       expect(pali, greaterThan(0));
       expect(translation, greaterThan(0));
       // Mỗi nhánh phải gọi helper (không tự chế đường dẫn tạm).
@@ -102,8 +110,10 @@ void main() {
   group('IN4-80 — đóng connection + sao lưu trước khi thay file', () {
     test('copyBundledDatabaseIfPresent đóng connection trước khi thay file',
         () {
-      final idx = dbService.indexOf('copyBundledDatabaseIfPresent');
-      expect(idx, greaterThan(0));
+      final idx = dbService.indexOf(
+          'static Future<String?> copyBundledDatabaseIfPresent');
+      expect(idx, greaterThan(0),
+          reason: 'Phải tìm được phần KHAI BÁO hàm (không phải chỗ gọi).');
       final body = dbService.substring(
           idx, dbService.indexOf('\n  }', idx) + 4);
       expect(body, contains('await close();'),

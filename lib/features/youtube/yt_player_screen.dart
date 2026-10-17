@@ -190,6 +190,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   bool _videoReady = false;
   int _errTicks = 0;
 
+  /// IN4-81: thế hệ load hiện trạng — mọi kết quả async của video CŨ bị bỏ
+  /// qua khi video đổi (không để lời của video cũ lẫn vào video mới).
+  int _loadGeneration = 0;
+
+  /// IN4-81: mốc thời gian mở video (để đo "tới khung hình đầu tiên").
+  final DateTime _openedAt = DateTime.now();
+
   // ── Subtitle state ────────────────────────────────────────
   final List<SubtitleLine> _lines = [];
   int _currentLineIdx = 0;
@@ -208,6 +215,28 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     unawaited(_loadWordStates());
     unawaited(_loadRealSubtitles());
     _startTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant YtPlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // IN4-81: đổi video ⇒ huỷ kết quả của video cũ (token thế hệ tăng),
+    // xoá lời cũ, nạp lại từ đầu cho video mới.
+    if (oldWidget.video.id != widget.video.id) {
+      debugPrint(
+          '[in4up-yt] đổi video: ${oldWidget.video.id} → ${widget.video.id}');
+      _loadGeneration++; // vô hiệu hoá mọi tác vụ async của video cũ
+      _lines.clear();
+      _currentLineIdx = 0;
+      _currentTime = 0;
+      _videoReady = false;
+      _playerError = null;
+      _errTicks = 0;
+      _embedRequested = false;
+      _attempt = 0;
+      _ytCtrl.loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
+      unawaited(_loadRealSubtitles());
+    }
   }
 
   @override
@@ -271,12 +300,18 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     if (m == 'ready') {
       _gotReady = true;
       _loadWatchdog?.cancel();
-      if (!_videoReady) setState(() => _videoReady = true);
+      if (!_videoReady) {
+        _markFirstFrame();
+        setState(() => _videoReady = true);
+      }
       return;
     }
     final time = ytParseTimeMessage(m);
     if (time != null) {
-      if (!_videoReady) setState(() => _videoReady = true);
+      if (!_videoReady) {
+        _markFirstFrame();
+        setState(() => _videoReady = true);
+      }
       _updateTime(time);
       return;
     }
@@ -524,35 +559,124 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   Future<void> _loadRealSubtitles() async {
+    // IN4-81: ưu tiên VIDEO, lời/dịch KHÔNG được chặn player.
+    // Chia 3 pha:
+    //  A) lấy phụ đề GỐC (en) → hiện ngay (chưa có dịch);
+    //  B) lấy phụ đề đích trên YT → ghép (nhanh, không cần AI);
+    //  C) nếu YT không có bản dịch → dịch AI theo LÔ nhỏ, hiện tăng dần.
+    // Mọi kết quả của video cũ bị BỎ QUA nếu video đã đổi (token thế hệ).
+    final generation = ++_loadGeneration;
+    final videoId = widget.video.id;
+    final startedAt = DateTime.now();
     setState(() => _isLoading = true);
+
+    List<YtCaptionLine>? base;
     try {
-      final target = TranslationService().targetLang.toLowerCase();
-      final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
-      final captions = await YtService.instance.fetchBilingualCaptions(
-        widget.video.id,
-        lang1: 'en',
-        lang2: lang2,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _lines.clear();
-        for (final c in captions) {
-          _lines.add(SubtitleLine(
-            start: c.start,
-            end: c.end,
-            text: c.text,
-            translation: c.translation,
-            words: _parseWords(c.text),
-          ));
-        }
-        _isLoading = false;
-      });
+      base = await YtService.instance.fetchCaptions(videoId, lang: 'en');
+      if (_isStale(generation)) return;
+      if (base.isEmpty) {
+        debugPrint('[in4up-yt] không có phụ đề gốc cho $videoId');
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      _applyCaptionLines(base);
+      final tCaptions = DateTime.now()
+          .difference(startedAt)
+          .inMilliseconds;
+      debugPrint(
+          '[in4up-yt] TIMING phụ đề đầu tiên: ${tCaptions}ms '
+          '(${base.length} dòng)');
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Load subtitles error: $e');
       if (mounted) setState(() => _isLoading = false);
+      return;
     }
+
+    if (_isStale(generation)) return;
+    final target = TranslationService().targetLang.toLowerCase();
+    final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
+
+    // (B) bản dịch có sẵn trên YouTube — nhanh, không cần AI.
+    try {
+      final localized = await YtService.instance.fetchCaptions(videoId, lang: lang2);
+      if (_isStale(generation)) return;
+      if (localized.isNotEmpty) {
+        final merged = YtService.instance.mergeCaptions(base, localized);
+        _applyCaptionLines(merged);
+        final tAll = DateTime.now().difference(startedAt).inMilliseconds;
+        debugPrint('[in4up-yt] TIMING bản dịch (YT) đầy đủ: ${tAll}ms');
+        return;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [in4up-yt] lấy phụ đề $lang2 lỗi: $e');
+    }
+    if (_isStale(generation)) return;
+
+    // (C) không có bản dịch trên YT → dịch AI TĂNG DẦN theo lô.
+    debugPrint('🔄 [in4up-yt] $lang2 không có trên YT → dịch AI tăng dần');
+    const chunkSize = 6;
+    final total = base.length;
+    var firstTranslationMs = 0;
+    for (var offset = 0; offset < total; offset += chunkSize) {
+      if (_isStale(generation)) return;
+      final end = (offset + chunkSize) > total ? total : offset + chunkSize;
+      final slice = base.sublist(offset, end);
+      List<String> translated;
+      try {
+        translated = await YtService.instance.translateLines(
+          slice.map((e) => e.text).toList(),
+          sourceLang: 'en',
+          targetLang: lang2,
+        );
+      } catch (e) {
+        debugPrint('⚠️ [in4up-yt] dịch lô $offset-$end lỗi: $e');
+        continue;
+      }
+      if (_isStale(generation)) return;
+      // Ghi đè bản dịch của đúng các dòng vừa dịch, giữ nguyên phần còn lại.
+      final merged = List<YtCaptionLine>.from(base);
+      for (var i = 0; i < slice.length; i++) {
+        final text = i < translated.length ? translated[i].trim() : '';
+        merged[offset + i] = merged[offset + i].copyWith(
+          translation: text.isEmpty ? null : text,
+        );
+      }
+      _applyCaptionLines(merged);
+      if (firstTranslationMs == 0) {
+        firstTranslationMs = DateTime.now().difference(startedAt).inMilliseconds;
+        debugPrint(
+            '[in4up-yt] TIMING bản dịch đầu tiên: ${firstTranslationMs}ms');
+      }
+    }
+    final tAll = DateTime.now().difference(startedAt).inMilliseconds;
+    debugPrint('[in4up-yt] TIMING bản dịch đầy đủ: ${tAll}ms');
+  }
+
+  /// Kết quả của lần load cũ (video đã đổi) ⇒ bỏ qua.
+  bool _isStale(int generation) => generation != _loadGeneration || !mounted;
+
+  /// IN4-81: đo mốc "khung hình đầu tiên" (lần đầu player báo ready/tick).
+  void _markFirstFrame() {
+    final ms = DateTime.now().difference(_openedAt).inMilliseconds;
+    debugPrint('[in4up-yt] TIMING khung hình đầu tiên: ${ms}ms');
+  }
+
+  /// Đưa danh sách phụ đề vào state (giữ nguyên phần dịch đã có).
+  void _applyCaptionLines(List<YtCaptionLine> captions) {
+    if (!mounted) return;
+    setState(() {
+      _lines.clear();
+      for (final c in captions) {
+        _lines.add(SubtitleLine(
+          start: c.start,
+          end: c.end,
+          text: c.text,
+          translation: c.translation,
+          words: _parseWords(c.text),
+        ));
+      }
+    });
   }
 
   List<LrWord> _parseWords(String text) {
@@ -767,20 +891,34 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         WebViewWidget(controller: _ytCtrl),
         // (IN4-78 nghiệm thu 2) "load từ rất lâu" mà không có tín hiệu —
         // hiện spinner tới khi player ready / phát đầu tiên.
+        // IN4-81: KHÔNG che video — chỉ đặt spinner ở GÓC (video phải thấy
+        // được ngay, lời/dịch không được chặn player).
         if (!_videoReady && _playerError == null)
-          Container(
-            color: Colors.black,
-            alignment: Alignment.center,
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(strokeWidth: 2.5),
-                SizedBox(height: 10),
-                Text(
-                  'Đang tải video…',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white70),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Đang tải…',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ),
         // (IN4-78) Không để màn lỗi YouTube chết im lặng: overlay + Thử lại.

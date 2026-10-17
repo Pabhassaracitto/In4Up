@@ -115,6 +115,19 @@ Future<void> main() async {
   // ★ runApp ngay - không block
   runApp(const MyApp());
 
+  // IN4-15 (LOGIN-CRASH-002): chẩn đoán lúc khởi động — logcat trả lời
+  // ngay: bản nào đang chạy (flavor), phiên đã khôi phục được chưa, và
+  // auth có lỗi gì không (đăng nhập MỚI vs KHÔI PHỤC PHIÊN là 2 việc
+  // khác nhau — không được suy từ avatar debug sang release).
+  unawaited(AuthService().logAuthState('startup'));
+  // Theo dõi MỌI thay đổi trạng thái auth (khôi phục phiên / đăng nhập xong
+  // / sign-out) — phân biệt được "đăng nhập mới" với "khôi phục phiên".
+  final authService = AuthService();
+  authService.authStateChanges.listen(
+    (_) => authService.logAuthState('change'),
+    onError: (Object e) => authService.logAuthState('change-error', e),
+  );
+
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();
 }

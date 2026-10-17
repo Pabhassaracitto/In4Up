@@ -147,6 +147,13 @@ jobs:
           test/tipitaka_display_phase2_test.dart
           test/tipitaka_import_concurrency_test.dart
 
+      # IN4-15 (LOGIN-CRASH-002): đăng nhập release — guard cấu trúc cho
+      # CI gate SHA-1 ↔ google-services.json + log trạng thái auth.
+      - name: "Login release verification (IN4-15)"
+        run: >-
+          flutter test
+          test/login_release_verification_test.dart
+
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
       # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch

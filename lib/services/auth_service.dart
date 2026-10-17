@@ -174,6 +174,28 @@ class AuthService {
   }
 
   // ─── Mobile: dùng google_sign_in package ─────────────────
+  /// Trạng thái đăng nhập + ngữ cảnh build — để logcat trả lời NGAY 3 câu
+  /// hỏi khi điều tra IN4-15:
+  ///  1. app đang chạy bản nào (applicationId = com.in4up | .dev | .beta)?
+  ///  2. phiên đăng nhập đã được KHÔI PHỤC chưa (avatar có hiện)?
+  ///  3. auth lỗi ở bước nào (đăng nhập mới vs khôi phục phiên)?
+  ///
+  /// Gọi 1 lần lúc app khởi động + mỗi lần trạng thái auth đổi.
+  Future<void> logAuthState(String phase, [Object? error]) async {
+    try {
+      final info = currentUserInfo;
+      debugPrint(
+        '[in4up-auth] STATE[$phase] '
+        'flavor=$_flavor signedIn=${info != null} '
+        'uid=${info?.uid ?? "-"} email=${info?.email ?? "-"} '
+        'plugin=${isPluginAuthAvailable}'
+        '${error == null ? '' : ' error=$error'}',
+      );
+    } catch (e) {
+      debugPrint('[in4up-auth] STATE[$phase] lỗi khi đọc trạng thái: $e');
+    }
+  }
+
   /// IN4-79/LOGIN-CRASH-002: tách 4 bước rõ ràng, mỗi bước có log tag
   /// `[in4up-auth]` để logcat (`adb logcat | grep in4up-auth`) chỉ đúng bước
   /// chết — không còn "văng app" mà không biết lỗi ở đâu. Mọi lỗi Dart

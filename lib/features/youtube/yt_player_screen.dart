@@ -24,6 +24,7 @@ import '../../providers/vocabulary_bridge.dart';
 import '../../services/syntax_highlighter_service.dart';
 import '../word_lookup/word_analysis_sheet.dart';
 import 'models/yt_video.dart';
+import 'services/yt_downloader.dart';
 import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
 
@@ -147,6 +148,11 @@ class SubtitleLine {
   final Duration end;
   final String text;
   final String? translation;
+
+  /// Văn bản GỐC của dòng (khi track là "rolling window" thì [text] chỉ là
+  /// phần MỚI, còn [fullText] là cả cửa sổ). Dùng cho tab VĂN BẢN.
+  final String fullText;
+
   final List<LrWord> words;
 
   SubtitleLine({
@@ -154,8 +160,9 @@ class SubtitleLine {
     required this.end,
     required this.text,
     this.translation,
+    String? fullText,
     required this.words,
-  });
+  }) : fullText = fullText ?? text;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -210,7 +217,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    // IN4-77: thêm tab 3 "TẢI" (audio + caption + lịch sử) — tích hợp
+    // các tính năng của giao diện tầng 2 vào ngay màn player.
+    _tabCtrl = TabController(length: 3, vsync: this);
     _initWebView();
     unawaited(_loadWordStates());
     unawaited(_loadRealSubtitles());
@@ -502,6 +511,19 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     }
     // Chỉ rebuild khi DÒNG PHỤ ĐỀ đổi (phần hiển thị thực sự).
     if (idx != _currentLineIdx) {
+      // IN4-81: log TIMESTAMP thực tế để đo độ lệch (audio vs chữ) — KHÔNG
+      // dùng offset cố định. Nếu "âm thanh đi trước chữ" thì log này cho
+      // biết chọn dòng có đúng không và độ lệch là bao nhiêu.
+      final line = _lines[idx];
+      final gapBefore = idx > 0
+          ? (line.start - _lines[idx - 1].end).inMilliseconds
+          : 0;
+      debugPrint(
+        '[in4up-yt] line $idx '
+        'start=${line.start.inMilliseconds}ms end=${line.end.inMilliseconds}ms '
+        '| t=${ms}ms | gapBefore=${gapBefore}ms | '
+        '${line.text.length > 40 ? "${line.text.substring(0, 40)}…" : line.text}',
+      );
       setState(() => _currentLineIdx = idx);
     }
   }
@@ -663,17 +685,59 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   /// Đưa danh sách phụ đề vào state (giữ nguyên phần dịch đã có).
+  /// Track phụ đề "rolling window" (auto-caption của YouTube): mỗi dòng LẶP
+  /// lại phần chữ của dòng trước rồi thêm chữ mới
+  /// (vd "hello" → "hello world" → "hello world how").
+  ///
+  /// Với dạng này, hiển thị CẢ cửa sổ khiến chữ luôn **trễ hơn âm
+  /// thanh khoảng một dòng** (chữ mới chỉ xuất hiện ở cuối cửa sổ) —
+  /// đúng triệu chứng owner báo (IN4-81). Cách sửa KHÔNG dùng offset cố
+  /// định: nhận diện theo NỘI DUNG rồi hiển thị đúng phần chữ **đang
+  /// được đọc** (phần mới) — dòng nào "đang nói" thì hiện đúng phần đó.
+  static bool _isCumulativeCaptionTrack(List<YtCaptionLine> captions) {
+    if (captions.length < 3) return false;
+    var cumulative = 0;
+    var checked = 0;
+    for (var i = 1; i < captions.length; i++) {
+      final prev = captions[i - 1].text.trim();
+      final cur = captions[i].text.trim();
+      if (prev.isEmpty || cur.isEmpty) continue;
+      checked++;
+      if (cur.length > prev.length && cur.startsWith(prev)) cumulative++;
+    }
+    if (checked == 0) return false;
+    // ≥ 60% dòng lặp tiền tố ⇒ đây là rolling window.
+    return cumulative / checked >= 0.6;
+  }
+
   void _applyCaptionLines(List<YtCaptionLine> captions) {
     if (!mounted) return;
+    final cumulative = _isCumulativeCaptionTrack(captions);
+    if (cumulative) {
+      debugPrint(
+        '🔁 [in4up-yt] phụ đề dạng ROLLING WINDOW (${captions.length} dòng) — '
+        'hiển thị phần chữ mới theo từng dòng (không dùng offset cố định).',
+      );
+    }
     setState(() {
       _lines.clear();
-      for (final c in captions) {
+      for (var i = 0; i < captions.length; i++) {
+        final c = captions[i];
+        var display = c.text;
+        if (cumulative && i > 0) {
+          final prev = captions[i - 1].text.trim();
+          final cur = c.text.trim();
+          if (cur.length > prev.length && cur.startsWith(prev)) {
+            display = cur.substring(prev.length).trim();
+          }
+        }
         _lines.add(SubtitleLine(
           start: c.start,
           end: c.end,
-          text: c.text,
+          text: display.isEmpty ? c.text : display,
+          fullText: c.text,
           translation: c.translation,
-          words: _parseWords(c.text),
+          words: _parseWords(display.isEmpty ? c.text : display),
         ));
       }
     });
@@ -1116,6 +1180,21 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _ytCtrl.runJavaScript('window._in4upPause && window._in4upPause();');
   }
 
+  /// Mở audio ĐÃ TẢI (tab TẢI) trong tab Nghe — dùng chung đường LRC.
+  Future<void> _openInListenTab() async {
+    final audio = _downloadedAudioPath;
+    if (audio == null || audio.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Chưa có audio đã tải.')),
+        ),
+      );
+      return;
+    }
+    await _openAudioInListen(audio);
+  }
+
   Future<void> _openInListen() async {
     final audio = widget.audioPath;
     if (audio == null || audio.isEmpty) {
@@ -1129,14 +1208,21 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       );
       return;
     }
+    await _openAudioInListen(audio);
+  }
+
+  /// Nạp audio (đã tải hoặc đã có) + LRC phụ đề vào tab Nghe.
+  Future<void> _openAudioInListen(String audio) async {
     final asYt = YtVideo(
       id: widget.video.id,
       title: widget.video.title,
       channel: widget.video.channelTitle,
       thumb: widget.video.thumb,
     );
+    // LRC dùng VĂN BẢN GỐC của dòng (fullText) — không dùng phần "chữ mới"
+    // (khi track là rolling window) để LRC khớp đúng track phụ đề gốc.
     final captions = _lines
-        .map((l) => YtCaptionLine(l.start, l.end, l.text,
+        .map((l) => YtCaptionLine(l.start, l.end, l.fullText,
             translation: l.translation))
         .toList();
     final lrcPath = captions.isEmpty
@@ -1197,6 +1283,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               tabs: [
                 Tab(text: context.uiText('VĂN BẢN')),
                 Tab(text: context.uiText('TỪ')),
+                Tab(text: context.uiText('TẢI')),
               ],
             ),
           ),
@@ -1216,6 +1303,223 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       children: [
         _buildTranscriptTab(),
         _buildWordTab(),
+        _buildDownloadTab(),
+      ],
+    );
+  }
+
+  // ── Tab TẢI (IN4-77): audio + caption + lịch sử ở giao diện tầng 2 ──
+
+  /// Đường dẫn audio đã tải (để mở trong tab Nghe).
+  String? _downloadedAudioPath;
+  String? _downloadStatus;
+  double? _downloadProgress;
+  bool _downloading = false;
+
+  /// Lịch sử xem (tải lại khi mở tab).
+  List<YtVideo> _history = const [];
+  bool _historyLoaded = false;
+
+  Future<void> _loadHistory() async {
+    await YtHistory.ensureOpen();
+    final list = YtHistory.load();
+    if (!mounted) return;
+    setState(() {
+      _history = list;
+      _historyLoaded = true;
+    });
+  }
+
+  /// Tải audio của video hiện tại (yt-dlp/explode) — có progress.
+  Future<void> _downloadAudio() async {
+    if (_downloading) return;
+    setState(() {
+      _downloading = true;
+      _downloadProgress = 0;
+      _downloadStatus = 'Đang chuẩn bị...';
+    });
+    final video = YtVideo(
+      id: widget.video.id,
+      title: widget.video.title,
+      channel: widget.video.channelTitle,
+      thumb: widget.video.thumb,
+    );
+    try {
+      await for (final event in YtDownloader.instance.download(video)) {
+        if (!mounted) return;
+        if (event is YtDownloadProgress) {
+          setState(() {
+            _downloadProgress = event.progress;
+            _downloadStatus = event.progressText;
+          });
+        } else if (event is YtDownloadDone) {
+          setState(() {
+            _downloading = false;
+            _downloadedAudioPath = event.filePath;
+            _downloadProgress = 1;
+            _downloadStatus = 'Đã tải xong (${event.quality})';
+          });
+        } else if (event is YtDownloadFailed) {
+          setState(() {
+            _downloading = false;
+            _downloadStatus = 'Tải thất bại: ${event.message}';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _downloadStatus = 'Lỗi: $e';
+        });
+      }
+    }
+  }
+
+  /// Tải phụ đề (caption) của video hiện tại về máy (file .srt).
+  Future<void> _downloadCaptions() async {
+    setState(() => _downloadStatus = 'Đang tải phụ đề...');
+    try {
+      final lines = await YtService.instance
+          .fetchCaptions(widget.video.id, lang: 'en');
+      if (lines.isEmpty) {
+        if (mounted) {
+          setState(() => _downloadStatus = 'Video không có phụ đề (en)');
+        }
+        return;
+      }
+      final path = await YtService.instance
+          .saveLrc(lines, YtVideo(
+            id: widget.video.id,
+            title: widget.video.title,
+            channel: widget.video.channelTitle,
+            thumb: widget.video.thumb,
+          ));
+      if (mounted) {
+        setState(() => _downloadStatus =
+            'Đã lưu phụ đề (${lines.length} dòng): ${path ?? "?"}');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _downloadStatus = 'Lỗi tải phụ đề: $e');
+    }
+  }
+
+  Widget _buildDownloadTab() {
+    if (!_historyLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadHistory());
+    }
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        // ── Audio ──
+        Text(
+          context.uiText('Tải audio'),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _downloading ? null : _downloadAudio,
+                icon: const Icon(Icons.download, size: 16),
+                label: Text(context.uiText(
+                    _downloading ? 'Đang tải...' : 'Tải audio')),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _downloading ? null : _downloadCaptions,
+                icon: const Icon(Icons.subtitles, size: 16),
+                label: Text(context.uiText('Tải phụ đề')),
+              ),
+            ),
+          ],
+        ),
+        if (_downloadProgress != null && _downloading) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: _downloadProgress),
+        ],
+        if (_downloadStatus != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _downloadStatus!,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+        ],
+        if (_downloadedAudioPath != null) ...[
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _openInListenTab,
+            icon: const Icon(Icons.headphones, size: 16),
+            label: Text(context.uiText('Mở trong tab Nghe')),
+          ),
+        ],
+        const SizedBox(height: 18),
+        // ── Lịch sử ──
+        Text(
+          context.uiText('Lịch sử xem'),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (_history.isEmpty)
+          Text(
+            context.uiText('Chưa có lịch sử xem.'),
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          )
+        else
+          ..._history.take(30).map((v) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: v.thumb == null
+                    ? const Icon(Icons.play_circle_outline,
+                        color: Colors.white38, size: 20)
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          v.thumb!,
+                          width: 44,
+                          height: 26,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white38,
+                              size: 20),
+                        ),
+                      ),
+                title: Text(
+                  v.shortTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                subtitle: Text(
+                  v.channel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => YtPlayerScreen(
+                        video: YtExVideo(
+                          id: v.id,
+                          title: v.title,
+                          channelId: '',
+                          channelTitle: v.channel,
+                          thumb: v.thumb,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              )),
       ],
     );
   }

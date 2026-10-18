@@ -217,15 +217,58 @@ class ScreenTranslateService : Service() {
         if (awaitingConsentUi) onConsentBlocked()
     }
 
+    /**
+     * Cờ "đang gỡ/gắn lại bong bóng CHỦ ĐỘNG".
+     *
+     * IN4-17 (log 18/10): `showOverlay()` gỡ bong bóng rồi gắn lại (để bong
+     * bóng nằm trên overlay) ⇒ `removeView` bắn `onViewDetachedFromWindow` ⇒
+     * listener cứ coi là "quyền overlay bị thu hồi" ⇒ `onOverlayRevoked()` ⇒
+     * dừng MediaProjection, gỡ overlay, FFmpeg/TTS rớt — **overlay vừa hiện
+     * lại bị dọn**. Cờ này cho biết detach là do app tự làm.
+     */
+    @Volatile
+    private var bubbleReordering = false
+
     private val overlayDetachListener = object : View.OnAttachStateChangeListener {
         override fun onViewAttachedToWindow(v: View) = Unit
 
         override fun onViewDetachedFromWindow(v: View) {
-            // Hệ thống gỡ bong bóng khi quyền overlay bị thu hồi (hoặc app bị
-            // đóng gói). Ta tự gỡ trong stopEverything ⇒ bỏ qua bằng isStopping.
+            // (1) App tự gỡ để gắn lại ⇒ KHÔNG phải thu hồi quyền.
+            if (bubbleReordering) {
+                android.util.Log.i("In4upScr", "bubble detach: do app gỡ để gắn lại — bỏ qua")
+                return
+            }
+            // (2) Còn quyền overlay? ⇒ hệ thống gỡ view vì lý do khác
+            //     (vd app bị gọi removeBubble khi dừng) ⇒ KHÔNG kết luận
+            //     "thu hồi quyền", chỉ cần dựng lại bong bóng.
+            if (hasOverlayPermission(this@ScreenTranslateService)) {
+                android.util.Log.w(
+                    "In4upScr",
+                    "bubble detach nhưng quyền overlay VẪN còn — không coi là thu hồi",
+                )
+                // View đã bị gỡ khỏi cửa sổ ⇒ phải xoá tham chiếu để
+                // showBubble() dựng lại được (nó return sớm nếu bubbleView != null).
+                bubbleView = null
+                bubbleParams = null
+                mainHandler.post { restoreBubbleIfNeeded() }
+                return
+            }
+            // (3) Mất quyền thật ⇒ mới teardown.
             if (isRunning && !isStopping) {
+                android.util.Log.w("In4upScr", "bubble detach + mất quyền overlay ⇒ teardown phiên")
                 mainHandler.post { onOverlayRevoked() }
             }
+        }
+    }
+
+    /** Dựng lại bong bóng nếu bị gỡ nhưng phiên vẫn sống. */
+    private fun restoreBubbleIfNeeded() {
+        if (!isRunning || isStopping) return
+        if (bubbleView != null) return
+        try {
+            showBubble()
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -628,6 +671,29 @@ class ScreenTranslateService : Service() {
         reportOverlayMissing()
     }
 
+    /**
+     * PendingIntent mở activity TỪ NỀN (opt-in background-activity-start).
+     *
+     * IN4-17: Android 14+ **bắt buộc** PendingIntent phải MUTABLE khi dùng
+     * `MODE_BACKGROUND_ACTIVITY_START_ALLOWED` — nếu kèm FLAG_IMMUTABLE thì
+     * framework ném `IllegalArgumentException:
+     * pendingIntentBackgroundActivityStartMode must not be set when creating a
+     * PendingIntent` (log 18/10 còn hiện ở nhánh settings/recovery).
+     *
+     * Dùng MỘT helper cho MỌI nhánh (consent + mở Cài đặt overlay) để không
+     * lặp lại pattern lỗi. Intent ở đây là nội bộ (không extra từ ngoài).
+     */
+    private fun backgroundActivityPendingIntent(
+        requestCode: Int,
+        intent: Intent,
+    ): PendingIntent = PendingIntent.getActivity(
+        this,
+        requestCode,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        backgroundActivityOptions(),
+    )
+
     private fun launchOverlaySettingsActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val intent = Intent(
@@ -635,13 +701,7 @@ class ScreenTranslateService : Service() {
             Uri.parse("package:$packageName"),
         )
         try {
-            PendingIntent.getActivity(
-                this,
-                REQ_OVERLAY,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                backgroundActivityOptions(),
-            ).send()
+            backgroundActivityPendingIntent(REQ_OVERLAY, intent).send()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -1076,13 +1136,19 @@ class ScreenTranslateService : Service() {
             }
             overlayView = view
             // Bong bóng phải nằm TRÊN overlay: gỡ ra thêm lại để lên trên cùng.
+            // IN4-17: đặt cờ `bubbleReordering` để detach do ta tự gây ra KHÔNG
+            // bị hiểu nhầm là "quyền overlay bị thu hồi" (trước đó việc này
+            // làm dừng cả phiên: overlay hiện xong bị dọn ngay).
             bubbleView?.let { bubble ->
                 bubbleParams?.let { params2 ->
                     try {
+                        bubbleReordering = true
                         wm.removeView(bubble)
                         wm.addView(bubble, params2)
                     } catch (e: Exception) {
                         e.printStackTrace()
+                    } finally {
+                        bubbleReordering = false
                     }
                 }
             }
@@ -1300,15 +1366,12 @@ class ScreenTranslateService : Service() {
     }
 
     private fun overlaySettingsPendingIntent(): PendingIntent =
-        PendingIntent.getActivity(
-            this,
+        backgroundActivityPendingIntent(
             REQ_OVERLAY,
             Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName"),
             ),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            backgroundActivityOptions(),
         )
 
     private fun startForegroundCompat(mediaProjectionType: Boolean) {

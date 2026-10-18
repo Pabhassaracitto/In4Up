@@ -117,6 +117,13 @@ class SherpaAsrImportResult {
   /// Chi tiết kỹ thuật (log/đường dẫn) — không phải chuỗi chrome.
   final String? detail;
 
+  /// Số file ĐỌC ĐƯỢC trong nguồn (0 = không đọc được gì — vd SAF
+  /// `content://` hoặc thẻ nhớ ngoài bị scoped storage chặn).
+  ///
+  /// IN4-16: UI dùng số này để biết có nên hướng dẫn user chọn FILE
+  /// (đường bytes) thay vì thư mục.
+  final int sourceFileCount;
+
   const SherpaAsrImportResult({
     required this.status,
     this.profile,
@@ -126,6 +133,7 @@ class SherpaAsrImportResult {
     this.missingRoles = const [],
     this.detectedKinds = const {},
     this.detail,
+    this.sourceFileCount = 0,
   });
 
   bool get isSuccess => status == SherpaAsrImportStatus.imported;
@@ -1082,6 +1090,31 @@ class SherpaModelManager {
       for (final path in listing)
         ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path, namedBytes: namedBytes)),
     ]);
+
+    // IN4-16: log chi tiết từng file (tên + kích thước + nguồn) để chẩn đoán
+    // "không đọc được" vs "thiếu file" vs "sai định dạng".
+    debugPrint(
+      '📂 ASR import nguồn: ${listing.length} file — '
+      '${namedBytes != null ? "đường BYTES (SAF)" : "đường path"}',
+    );
+    for (final path in listing) {
+      final size = _safeLength(path, namedBytes: namedBytes);
+      final readable = namedBytes != null
+          ? (namedBytes[path] ?? namedBytes[p.basename(path)])?.isNotEmpty ??
+              false
+          : File(path).existsSync();
+      debugPrint(
+        '   • ${p.basename(path)} — ${size > 0 ? "$size bytes" : "rỗng/không đọc được"}'
+        '${readable ? "" : " (KHÔNG đọc được)"}',
+      );
+    }
+    if (listing.isEmpty) {
+      debugPrint(
+        '⚠️ ASR import: KHÔNG đọc được file nào từ nguồn '
+        '(${sourceLabel.isEmpty ? "(không rõ)" : sourceLabel}) — '
+        'thường là SAF content:// hoặc thẻ nhớ ngoài bị scoped storage chặn.',
+      );
+    }
     final zip = report.zipformer;
 
     String? tokensPath = zip?.tokens?.path;
@@ -1128,6 +1161,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: false,
+        sourceFileCount: listing.length,
       );
     }
     if (streamingEvidence && !target.isStreaming) {
@@ -1137,6 +1171,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: detected != null,
+        sourceFileCount: listing.length,
       );
     }
     if (encoderKind == SherpaAsrEncoderKind.nonStreaming && target.isStreaming) {
@@ -1146,6 +1181,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: detected != null,
+        sourceFileCount: listing.length,
       );
     }
     if (detected != null && detected.id != target.id) {
@@ -1173,6 +1209,7 @@ class SherpaModelManager {
           detectedProfile: detected,
           encoderKind: encoderKind,
           contentRecognized: false,
+          sourceFileCount: listing.length,
           detail: 'Không đọc được metadata ONNX và không có bằng chứng '
               'ngôn ngữ/loại model cho profile ${target.id}',
         );
@@ -1263,6 +1300,7 @@ class SherpaModelManager {
           encoderKind: encoderKind,
           contentRecognized: detected != null,
           detectedKinds: report.kinds,
+          sourceFileCount: listing.length,
           detail: 'Giải nén archive thất bại: $e',
         );
       } finally {
@@ -1298,6 +1336,7 @@ class SherpaModelManager {
         contentRecognized: detected != null || zip != null,
         missingRoles: List<String>.from(missing),
         detectedKinds: report.kinds,
+        sourceFileCount: listing.length,
         detail: sourceLabel,
       );
     }
@@ -1309,6 +1348,7 @@ class SherpaModelManager {
       detectedProfile: detected,
       encoderKind: detectedKindFor(installed),
       contentRecognized: detected != null || explicit != null,
+      sourceFileCount: listing.length,
       detail: destDir,
     );
   }

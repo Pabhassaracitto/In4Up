@@ -1856,15 +1856,21 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     final result =
         await _manager.importAsrFolderResult(path, targetProfileId: profile.id);
     if (!mounted) return;
-    // IN4-16 (MODELIMPORT-001) — Android SAF: getDirectoryPath() trả URI
-    // `content://` (dart:io không đọc được) → KHÔNG để user kẹt với thông
-    // báo chung chung: hướng dẫn + mở thẳng Import file (đường bytes).
-    if (result.status == SherpaAsrImportStatus.sourceMissing &&
-        path.startsWith('content:')) {
+    // IN4-16 (MODELIMPORT-001) — 2 trường hợp app KHÔNG đọc được thư mục:
+    // (a) SAF trả URI `content://`; (b) đường dẫn THẬT trên thẻ nhớ ngoài
+    //     bị scoped storage chặn (log 18/10: /storage/3033-3963/…) →
+    //     `sourceFileCount == 0` (không đọc được file nào). Cả hai đều dẫn
+    //     user tới đường BYTES (chọn nhiều file) — đường duy nhất chắc chắn
+    //     đọc được trên Android.
+    final unreadableFolder =
+        result.status == SherpaAsrImportStatus.sourceMissing ||
+            (result.sourceFileCount == 0 &&
+                result.status != SherpaAsrImportStatus.sourceEmpty);
+    if (unreadableFolder) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.uiText(
-              'Không đọc trực tiếp thư mục trên thiết bị này (SAF). Hãy chọn file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.')),
+              'Không đọc trực tiếp thư mục trên thiết bị này (SAF/thẻ nhớ). Hãy chọn các file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.')),
         ),
       );
       await _importFiles(context, profile);

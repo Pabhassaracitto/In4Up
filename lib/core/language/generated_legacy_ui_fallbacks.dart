@@ -1822,5 +1822,11 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Giữ lại': 'Keep',
   // IN4-16 — import model SAF (bytes)
   'Không đọc được file (SAF). Vui lòng chọn lại các file model.': 'Could not read the file (SAF). Please re-select the model files.',
-  'Không đọc trực tiếp thư mục trên thiết bị này (SAF). Hãy chọn file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.': 'Cannot read this folder directly on this device (SAF). Please pick the files inside it: encoder/decoder/joiner (.onnx) + tokens.txt.',
+  'Không đọc trực tiếp thư mục trên thiết bị này (SAF/thẻ nhớ). Hãy chọn các file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.': 'Cannot read this folder directly on this device (SAF/storage). Please pick the files inside it: encoder/decoder/joiner (.onnx) + tokens.txt.',
+  'Tải audio': 'Download audio',
+  'Tải phụ đề': 'Download captions',
+  'Đang tải...': 'Downloading...',
+  'Lịch sử xem': 'Watch history',
+  'Chưa có lịch sử xem.': 'No watch history yet.',
+  'Chưa có audio đã tải.': 'No downloaded audio yet.',
 };

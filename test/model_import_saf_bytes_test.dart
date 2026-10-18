@@ -115,8 +115,8 @@ void main() {
   group('IN4-16 — i18n thông báo SAF (rule #5: 5 locale đủ)', () {
     const newStrings = [
       'Không đọc được file (SAF). Vui lòng chọn lại các file model.',
-      'Không đọc trực tiếp thư mục trên thiết bị này (SAF). '
-          'Hãy chọn file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.',
+      'Không đọc trực tiếp thư mục trên thiết bị này (SAF/thẻ nhớ). '
+          'Hãy chọn các file trong thư mục: encoder/decoder/joiner (.onnx) + tokens.txt.',
     ];
     const locales = ['en', 'hi', 'zh', 'zh_TW', 'si'];
 

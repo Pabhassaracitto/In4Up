@@ -2433,6 +2433,23 @@
   crash** + có thông báo rõ; bấm lại ⇒ hỏi consent lần nữa; kéo vùng ⇒
   dịch được. Kiểm riêng debug (`com.in4up.dev`) và release (`com.in4up`).
   **Chưa kiểm định trên máy** (sandbox không có thiết bị).
+- **Đợt 2 (log 18/10 — commit `36176c5` + `639ce76`, CI 🟢 `39099502372`):**
+  1. **PendingIntent nhánh settings/recovery** — tôi sửa nhánh consent nhưng
+     bỏ sót 2 chỗ dùng y hệt pattern lỗi (`FLAG_IMMUTABLE` +
+     `backgroundActivityOptions()`): `launchOverlaySettingsActivity():638` +
+     `overlaySettingsPendingIntent():1303` ⇒ gộp về **MỘT helper**
+     `backgroundActivityPendingIntent()` (`FLAG_MUTABLE`).
+  2. **"Overlay vừa hiện lại bị dọn"** — root cause: `showOverlay()` gỡ
+     bong bóng rồi gắn lại (để bubble nằm trên overlay) ⇒ `removeView` bắn
+     `onViewDetachedFromWindow` ⇒ bị hiểu nhầm là thu hồi quyền ⇒ teardown
+     phiên. Sửa 3 tầng: cờ `bubbleReordering` (detach chủ động) → bỏ qua;
+     quyền overlay **còn** → chỉ dựng lại bubble; **mất quyền thật** mới
+     teardown. Log tag `In4upScr`.
+  3. **Log lặp routing LLM** — `_tryLlmMt()` không kiểm provider trước ⇒ log
+     `❌ LLM: Chưa cấu hình provider…` **mỗi block OCR**; `_initEngines()` in
+     danh sách engine mỗi lần. Sửa: LLM bỏ qua im lặng + thông báo **1
+     lần**; danh sách engine chỉ log khi **thực sự đổi**. Routing **không
+     đổi**.
 - **Lịch sử:**
   - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | 2 fix nêu
     trên + commit `8503d12` (CI 🟢 sau khi vá lỗi test ở `7be7c4a`).
@@ -2461,6 +2478,14 @@
 - **Nghiệm thu (máy):** import Pāli + Anh + Việt (có thể chạy song song)
   ⇒ cả 3 thành công, cập nhật `translation_en/_vi` đúng, **không
   DBMOVED**; có file `.bak` trong thư mục dữ liệu.
+- **Đợt 2 (log 18/10 — commit `36176c5` + `639ce76`, CI 🟢 `39099502372`):**
+  đường dẫn trong log là `/storage/3033-3963/AI/models/stt/VI-…` = **thẻ nhớ
+  NGOÀI** (không phải `content://`) ⇒ check `startsWith('content:')` cũ không
+  trúng, và `dart:io` không list được thư mục đó (scoped storage) ⇒ scanner
+  thấy 0 file. Sửa: (a) **log chi tiết** (số file nguồn, từng tên + kích
+  thước + kết quả đọc, nguồn bytes/path); (b) thêm `sourceFileCount` ⇒ khi
+  **không đọc được file nào** (SAF *hoặc* thẻ nhớ) → app **tự mở Import
+  file** (chọn nhiều file — đường bytes) kèm hướng dẫn.
 - **Lịch sử:**
   - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (chờ CI + máy).
@@ -2484,6 +2509,14 @@
   `[in4up-yt] TIMING …` để lấy số đo.
 - **Ghi chú (IN4-78/IN4-77):** KHÔNG trộn nguyên nhân với lỗi 153 (đã
   sửa bằng wrapper GitHub Pages) — lỗi này là "lời/dịch chặn player".
+- **Đợt 2 (log 18/10 — commit `36176c5`, CI 🟢 `39099502372`):** "âm thanh
+  đi trước chữ ~1 dòng" — nguyên nhân khả dĩ đã kiểm trong code: phụ đề tự
+  động ở dạng **rolling window** (mỗi dòng lặp lại chữ dòng trước + thêm
+  chữ mới) ⇒ hiển thị cả cửa sổ khiến chữ mới xuất hiện ở CUỐI cửa sổ ⇒
+  trễ ~1 dòng. Sửa **theo timestamp/nội dung, KHÔNG offset cố định**:
+  nhận diện rolling window (≥60% dòng lặp tiền tố) → hiện **phần chữ mới**;
+  track thường giữ nguyên; tab VĂN BẢN + LRC dùng **văn bản gốc đầy đủ**.
+  Thêm log đo độ lệch: `[in4up-yt] line N start=… end=… | t=… | gapBefore=…`.
 - **Lịch sử:**
   - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (chờ CI + máy).

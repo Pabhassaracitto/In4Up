@@ -72,7 +72,7 @@
 | SOUNDLIST-630-02 | transcriptFromLrcLines: end = dòng KHÔNG TRỐNG kế tiếp (dòng trống phá highlight) | ✅ done | c978432 (providers copy sống); CI Soundlist xanh 32663677483 |
 | AUDLIB-001 | Audio Library P1 (MediaStore) — fix content:// playback + VAD-only fallback + sherpa pubspec | ✅ done | thâu hoạch 01a0018e 70c4efc; CI xanh 33037686097 + 33037686068 (chờ nghiệm thu thiết bị) |
 | LANG-03033-01 | Chrome i18n Soundlist/LHB/shell + hi/zh/zh_TW/si (thâu hoạch 01a03033) + fix 2 regression | ✅ done | ff f149d5a + fix 10 file bị dd081fb revert (a5ee489) + fix rule5 ARB (881d8aa); CI xanh 33078187839 |
-| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–15 đã dịch** 2026-10-09/14 (644/648 chuỗi, hiệu lực runtime ngay); **missing_english = 0** — toàn bộ uiText/Text đã có English; còn **207** literal chưa phân loại (chỉ còn phân loại UI/nội dung) | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
+| I18N-001 | i18n backlog: chrome literals chưa phân loại UI/content + raw strings player tab Nghe | 🔨 doing — phần 1 xong + **lô 1–15 đã dịch** 2026-10-09/14 (644/648 chuỗi, hiệu lực runtime ngay); **missing_english = 0** — toàn bộ uiText/Text đã có English; còn **198** literal chưa phân loại (chỉ còn phân loại UI/nội dung; catalog 2481 sau merge base đợt 2) | cần branch i18n riêng (rà soát theo skill i18n-localization); fix lẻ tab Gần đây/Thư viện đã làm (rule 5). **Chốt 2026-10-08 (phần 1):** đã dọn 81 override stale + đưa generator vào CI ở chế độ sàn ratchet (`--floors-check`) ⇒ literal chrome MỚI không lọt nữa; chế độ strict còn đỏ vì **855** literal chưa phân loại (phần 2) — xem đầu card |
 | READ-630-06 | Bôi nhiều chữ mặc định; box-từng-từ tuỳ chọn (chip cam + settings); sheet lưu từ hiện từ cũ + Sửa | ✅ done | thâu hoạch 01a01580 db5c6ed (path-checkout 6 file) + fix 5 lỗi compile; CI xanh 33082501188 (chờ nghiệm thu thiết bị) |
 | XLAT-001 | Dịch offline: glossary Phật học/Pali + protect-tokens trước mọi engine + ML Kit (EN↔VI, EN↔HI; HI↔VI pivot EN) + offline-only | ✅ done + CI xanh | thâu hoạch 02ffc + 7 lỗi compile (6 agent + 1 owner fix import extension bcpCode); CI xanh 33273465065 (chờ nghiệm thu máy EN→VI/EN→HI) |
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
@@ -2176,6 +2176,15 @@
     CÙNG (MDX/từ điển/ảnh/A-B, WordList/selection, shell settings, Nhớ, Piper/web/Youtube):
     catalog 2419→2462, missing_english 43→0 (xong phần dịch uiText/Text), unclassified
     250→207; residual 0; ratchet floors-check OK; CI xanh (xem run kế tiếp).
+  - 2026-10-14 | merge base đợt 2 | agent arena/af0abe2f-in4up | merge base `fe715ae`
+    (16 commit từ `325ab96`: IN4-78/IN4-81 YouTube, IN4-30/31/36 read mode, IN4-15 login
+    + CI gate SHA-1, IN4-17/16/12/26/80, chore deps + file_selector) vào nhánh UX —
+    merge commit `abb8e56f`. Conflict resolve giữ cả 2 phía: `main_shell.dart` (C-27
+    wiring + IN4-31; Semantics/ConstrainedBox đã có cả 2 phía), `priority_ui_overrides.dart`
+    (chrome shell C-30 + IN4-36 base), app_analyze/build_final_complete/KANBAN auto-merge
+    union. Catalog union 2464 key (+93 base, −91 stale) + 17 chuỗi UI mới dịch EN + 13
+    log/nội dung vào exclusions ⇒ catalog 2481, missing 0, unclassified 198, residual 0;
+    ratchet floors-check OK; CI xanh (xem run kế tiếp).
     8 file (`quick_suggestion_sheet`, `sound_list_screen`, `word_import_sheet`,
     `continue_learning_section`, `focus_streak_card`, `single_word_review_screen`, `home_screen`,
     `word_list_screen`) — quick capture (gợi ý WordList, Nạp tri thức nhanh, huy hiệu lặp nhiều,

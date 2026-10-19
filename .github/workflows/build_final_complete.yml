@@ -234,7 +234,7 @@ jobs:
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in2up"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in2up.dev"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in2up.beta"}},"oauth_client":[],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
-              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in4up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
+              {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in4up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up","certificate_hash":"88d5ee0da168b320c52f51b7aab404675862e5b0"}},{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:807fbf766789f7dd1319d4","android_client_info":{"package_name":"com.in4up.dev"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.dev","certificate_hash":"7697fcbcd36289fe5fb220575fcfb27704f4ca83"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:7f7683e09f8781ae1319d4","android_client_info":{"package_name":"com.in4up.beta"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in4up.beta","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
               {"client_info":{"mobilesdk_app_id":"1:342774597309:android:b0bcf08d94b674b21319d4","android_client_info":{"package_name":"com.in2up"}},"oauth_client":[{"client_id":"dummy","client_type":1,"android_info":{"package_name":"com.in2up","certificate_hash":"8a1bc02e5c8f2509eb18624fb5f4eb68df0a6127"}}],"api_key":[{"current_key":"AIzaSyAsYaEwRBlZ3RW51DoElscbKx6X2JKP2dw"}],"services":{"appinvite_service":{"other_platform_oauth_client":[]}}},
@@ -270,6 +270,13 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: bash scripts/ci/android_prepare_signing.sh
+
+      # IN4-15 (LOGIN-CRASH-002): SHA-1 ký APK phải CÓ trong
+      # google-services.json — lệch ⇒ Google Sign-In trả DEVELOPER_ERROR ⇒
+      # nút đăng nhập văng app. Fail NGAY tại đây (trước khi build 20 phút).
+      - name: Verify signing SHA-1 matches google-services.json
+        shell: bash
+        run: bash scripts/ci/android_verify_signing_matches_google_services.sh
 
       - name: Get dependencies
         run: flutter pub get

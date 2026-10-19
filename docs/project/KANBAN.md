@@ -90,12 +90,17 @@
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 🔨 doing (code + test thuần xong; **CHỜ logcat + nghiệm thu máy thật** — sandbox không có thiết bị/adb/Flutter SDK) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Đã sửa: PendingIntent có opt-in `MODE_BACKGROUND_ACTIVITY_START_ALLOWED` + xin consent ngay khi app còn foreground + watchdog 2.5s + toast/rung ở MỌI nhánh thất bại + máy trạng thái quyền `ScreenTranslatePermissionState` (thuần Dart, có test). Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | OCR-SCAN-CRASH-001 | Thư viện đọc ▸ Quét ảnh ▸ "Chụp & quét tài liệu" làm **sập app** | 🔨 doing (code + test thuần; **CÒN logcat máy thật** — sandbox không có adb/thiết bị) | audit 1.i — lớp Dart đã try/catch ⇒ crash ở native: nghi tải module ML Kit qua GMS / mất activity result (`singleTop`) / thiếu quyền-khai báo. Prompt: `PROMPT_AGENT_OCR_SCAN_CRASH.md`. Agent `arena/b07d7c38-in4up`: precheck GMS+RAM trước khi mở máy quét (`OcrPrecheck`) + trọng tài phiên quét (`watchOcrScan`) + crash shield ghi vết ra tệp + ADR-0012; 2 test thuần nối CI. |
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
+| XLAT-SCR-004 | (IN4-17/IN4-12) Bong bóng dịch màn hình: crash `pendingIntentBackgroundActivityStartMode` + engine nền không tạo được root isolate | 🔨 doing (code + CI 🟢; chờ máy) | PendingIntent background-start bắt buộc `FLAG_MUTABLE` (code dùng IMMUTABLE ⇒ Android 14 ném exception) + bọc mọi nhánh tạo PendingIntent; import `screen_translate_entrypoint.dart` vào `main.dart` (không có trong AOT snapshot ⇒ 'library not found') |
+| TIPI-IMPORT-001 | (IN4-80) Import bản dịch Tipitaka lỗi SQLITE_READONLY_DBMOVED (1032) | 🔨 doing (code + test + CI 🟢; chờ máy) | 2 import song song xoá chung file tạm `$targetPath.importing` ⇒ SQLite mất file ⇒ DBMOVED; fix: đường dẫn tạm RIÊNG + khoá tuần tự hoá + đóng connection trước khi thay file + sao lưu `.bak` |
+| YT-PROGRESS-001 | (IN4-81) YouTube: lời/dịch chặn player, video load lâu, đổi video lẫn lời cũ | 🔨 doing (code + test + CI 🟢; chờ máy) | tải 3 pha (lời gốc → ghép bản dịch YT → dịch AI theo lô 6 dòng, hiện tăng dần) + overlay spinner ở góc (không che video) + token huỷ kết quả cũ + log TIMING (khung hình/lời/dịch đầu) |
+| LOGIN-REL-001 | (IN4-15) Đăng nhập release vẫn văng app (debug `com.in4up.dev` thì OK) | 🔨 doing (code + CI gate 🟢; chờ build release + máy) | keystore release SHA-1 `88d5ee0d…` nhưng fallback google-services.json trong CI chỉ có hash cũ `8a1bc02e…` ⇒ CI gate mới FAIL khi lệch; fallback bổ sung hash hiện tại; app log `STATE[phase] flavor/signedIn/uid` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
+| READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin + CI 🟢 `38970096071`, chờ máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 🔨 doing (code + test thuần + CI 🟢 `37667414865`; chờ nghiệm thu máy) | audit mục 2 (phần còn lại) — ADR-0013: `imageUrl2` additive (không migration) + `mediaPaths`/`setMediaSlot` promote + `swapMediaSlots`; sheet thêm nguồn thứ 4 "Hoạt ảnh" (endpoint cấu hình được + fallback Wikimedia Commons, chỉ ô đang hiện mới chạy); ô 2 khung trong sửa từ/chi tiết. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
-| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer cho video nhúng (~10/2025) | 🔄 doing (code + test + CI 🟢 38002011629, chờ nghiệm thu máy) | 2 bước `loadRequest`: seed `youtube-nocookie.com/embed` → trang thật (request tự mang Referer) + watchdog 3s phát hiện màn lỗi → overlay VT + nút Thử lại; test `test/yt_player_embed_test.dart` (10 test) vào i4u18-lib-tests |
+| YT-PLAY-153-001 | (IN4-78) YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát — YouTube bắt buộc Referer THẬT cho video nhúng | ✅ nghiệm thu: video PHÁT ĐƯỢC qua wrapper (chờ xác nhận bản `e88be46`) | Chain 3 tầng: (1) wrapper `gh-pages` (origin https thật) (2) seed→embed fallback (3) overlay "Thử lại/Mở ngoài"; bản `e88be46` (CI 🟢 38303389331): setState chỉ khi dòng phụ đề đổi (giảm churn semantics — assertion debug spam trên máy có accessibility) + spinner "Đang tải video…" |
 | STT-CRASH-001 | Crash SIGSEGV libwhisper.so khi tạo lời — serialize request native + pre-flight + align model file plugin | ✅ done + CI xanh | af65675 + 9ad6f85 (run 33687604868); root cause: plugin không check NULL sau whisper_init_from_file; crash 2 = file plugin ggml-tiny.bin cũ/hỏng trong khi manager verify ggml-tiny-q5_1.bin (chờ nghiệm thu thiết bị) |
 | TIPITAKA-001 | Tipiṭaka (OpenTipitaka Pa-Auk): module Library/Reader song ngữ/Search + 26 language pack + import script + quick-action bolt | 🔄 doing (DEMO trong DEV) | 18813d6 (code+DB DEMO 1.69MB); bước production F/D/B/C trên nhánh mới — PLAN-021 + docs/Bangiao/bangiao_tipitaka.md |
 | SHERPA-WP23-01 | WP2 speaker waveform + WP3 voice commands (thâu hoạch 01a039e9) | ✅ done + CI xanh (chờ nghiệm thu máy) | 01f5235 + 8c2e868 (run 33336160268); việc tiếp (WP3 translate action, WP-Z) — PLAN-022 + docs/Bangiao/bangiao_sherpa.md |
@@ -2540,7 +2545,7 @@
     yt_dlp_sidecar). Fix commit `31d3651`. VẪN chờ nghiệm thu thiết bị thật.
 
 ### YT-PLAY-153-001 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" khi phát
-- **Trạng thái:** doing (code + test pin xong, chờ CI + nghiệm thu máy) — [IN4-78](https://linear.app/in4up/issue/IN4-78)
+- **Trạng thái:** ✅ nghiệm thu: VIDEO PHÁT ĐƯỢC qua wrapper (owner 2026-10-12) — còn xác nhận bản mới `e88be46` (setState chỉ khi dòng phụ đề đổi + spinner "Đang tải…") — [IN4-78](https://linear.app/in4up/issue/IN4-78)
 - **Nguồn (owner 2026-10-10):** bản `in4up-Android-arm64-v8a-1.11.0-60bff.apk`
   (build 37994985198, commit `60bff6b`): tìm được video YouTube nhưng trình
   phát báo **"Lỗi cấu hình trình phát video, mã 153"**.
@@ -2550,26 +2555,39 @@
   nguồn) → không gửi Referer → player từ chối, trả mã 153. (Nguồn: Stack
   Overflow #79802987 + nhiều báo cáo 09-10/2025; cách sửa chuẩn trên
   WebView = `loadDataWithBaseURL` + referrer policy + domain nocookie.)
-- **Sửa (bản cuối, `c334d7f`):** `yt_player_screen.dart` — **2 bước
-  loadRequest** (webview_flutter 4.14 KHÔNG có `loadHtml`/
-  `loadDataWithBaseURL` — cách wrapper page ban đầu không dùng được):
-  (1) load TRƯỚC trang seed `https://www.youtube-nocookie.com/embed` (cùng
-  domain), (2) `onPageFinished` → load trang thật
-  `youtube-nocookie.com/embed/<id>?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1&origin=https://www.youtube-nocookie.com`
-  — request lúc này tự mang `Referer: https://www.youtube-nocookie.com`
-  (mặc định strict-origin-when-cross-origin → gửi origin) ⇒ đạt yêu cầu mới.
-  Giữ nguyên toàn bộ sync cũ (inject script + timer 400ms + kênh `YtSync`).
-  Thêm **watchdog 3s** đọc body text: hiện màn lỗi (153/cấu hình) → overlay
-  tiếng Việt + nút **Thử lại** (chạy lại seed→embed) — không còn chết im
-  lặng. Log tag `[in4up-yt]`.
-- **Test:** `test/yt_player_embed_test.dart` (mới, 10 test) pin: seed https
-  + CÙNG domain trang embed (nguồn Referer), URL embed (nocookie + params
-  cũ + origin khớp domain), phát hiện màn lỗi VT/EN + không dương tính giả
-  (số 153 trong phụ đề thường). Nối vào step i4u18-lib-tests của
-  `app_analyze.yml`.
-- **Nghiệm thu (máy):** mở video YouTube → **phát được** (có thể +~1s do
-  bước seed), phụ đề chạy theo, lặp câu + tap từ + seek hoạt động; bấm
-  "Học video" bình thường. Nếu vẫn 153 → overlay hiện + log `[in4up-yt]`.
+- **Sửa (bản `732d862` — CHAIN 3 TẦNG):** logcat máy thật (owner gửi
+  2026-10-10) chứng minh cách seed same-origin `c334d7f` chạy đúng nhưng
+  VẪN 153 ⇒ YouTube cần **origin https THẬT** (nghiên cứu cộng đồng 2025-
+  2026: Obsidian #969 test matrix — Referrer http/https thật thì chơi,
+  không có thì 153; `origin=` param KHÔNG thay thế được; cách duy nhất
+  chắc chắn = **wrapper page trên domain https thật**).
+  1. **Chính: wrapper GitHub Pages** — `yt_embed.html?videoId=X` trên
+     `https://pabhassaracitto.github.io/In4Up/` (branch `gh-pages` đã push,
+     commit `f3b11b5`). Wrapper tự chứa IFrame API + kênh `YtSync` (tick
+     250ms) + báo `err:<code>` → iframe /embed/ bên trong tự gửi
+     `Referer: https://pabhassaracitto.github.io…`. **⚠️ CẦN OWNER BẬT
+     PAGES MỘT LẦN** (integration không có quyền Pages API): repo
+     Settings → Pages → Deploy from a branch → `gh-pages` / (root) →
+     Save (1 phút; sau đó site live trong ~5 phút).
+  2. **Fallback: seed → /embed/<id>** (Referer same-origin) — tự chuyển
+     khi wrapper timeout 12s / không `ready` sau 15s / wrapper `err:`
+     (trừ mã video-sai/cấm-nhúng 2/5/100/101/120/150 → báo thẳng).
+  3. **Overlay**: "YouTube từ chối phát video này (mã …)" + nút **Thử
+     lại** (chạy lại từ wrapper) + **Mở ngoài** (youtube.com/watch trong
+     trình duyệt/app hệ thống — luôn hoạt động, khuyến nghị chính thức
+     cho WebView bị chặn).
+  - Chẩn đoán: log `document.referrer` của trang embed (tag `[in4up-yt]`);
+    watchdog 3s đọc body text (mẫu lỗi VT/EN).
+- **Test:** `test/yt_player_embed_test.dart` pin: wrapper https trên
+  github.io + videoId đúng, seed https + CÙNG domain trang embed, URL embed
+  (nocookie + params cũ + origin khớp domain), phát hiện màn lỗi VT/EN +
+  không dương tính giả (số 153 trong phụ đề thường). Nối vào step
+  i4u18-lib-tests của `app_analyze.yml`.
+- **Nghiệm thu (máy):** (sau khi owner bật Pages) mở video YouTube →
+  **phát được** (wrapper), phụ đề chạy theo, lặp câu + tap từ + seek hoạt
+  động; bấm "Học video" bình thường. Log `[in4up-yt]` sẽ hiện đường đang
+  chạy (wrapper/fallback) + `embed referrer:` khi đi fallback. Nếu vẫn lỗi
+  → overlay "Thử lại/Mở ngoài".
 - **Lịch sử:**
   - 2026-10-10 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
@@ -2579,7 +2597,256 @@
     import từ `flutter/services.dart` (không phải `dart:io`); (2) `loadHtml`
     KHÔNG TỒN TẠI ở webview_flutter 4.14 → đổi sang cách 2 bước seed;
     (3) khối hàm chèn giữa 2 khối import → `directive_after_declaration`.
-    VẪN chờ nghiệm thu máy thật.
+  - 2026-10-10 | nghiệm thu máy: VẪN 153 | owner gửi logcat | seed→embed
+    chạy đúng (`[in4up-yt] seed done → load embed`) nhưng watchdog vẫn bắt
+    màn lỗi 153; phụ đề/dịch chạy tốt (44 dòng EN → TranslationService VI)
+    nên tab VĂN BẢN/TỪ có chữ. ⇒ seed same-origin KHÔNG đủ; cần origin
+    https thật (research: Obsidian #969, MAUI, Invidious — chỉ wrapper
+    hosting mới chắc chắn).
+  - 2026-10-10 | chain 3 tầng (commit `732d862`) | agent
+    arena/01a0251e-in4up | wrapper GitHub Pages (branch `gh-pages`
+    `f3b11b5` đã push) + fallback seed→embed + overlay "Mở ngoài"; log
+    `document.referrer`; channel uploads log HTTP status khi 0 video.
+    **CHỜ OWNER BẬT GitHub PAGES** (Settings → Pages → branch `gh-pages`/
+    root — 1 phút) + build mới + nghiệm thu.
+  - 2026-10-12 | ✅ NGHIỆM THU: VIDEO PHÁT ĐƯỢC | owner bật Pages + build
+    mới | "Đã lên video rồi" — wrapper GitHub Pages làm việc. 2 điểm còn
+    lại: (1) assertion debug `!semantics.parentDataDirty` spam ~50 lần/s;
+    (2) load lâu không có tín hiệu.
+  - 2026-10-12 | fix 2 điểm nghiệm thu (commit `e88be46`, CI 🟢
+    `38303389331`) | agent arena/01a0251e-in4up | (1) Assertion =
+    **debug-only** (release strip asserts) — do cây semantics churn khi
+    platform-view render frame × accessibility bridge đang hoạt động trên
+    máy (log tràn `I/AccessibilityBridge`). Phần app đóng góp: `setState`
+    ~2 lần/giây cho `_currentTime` KHÔNG hiển thị ở UI → giờ chỉ setState
+    khi DÒNG PHỤ ĐỀ đổi (giảm churn mạnh). Không phải crash, không ảnh
+    hưởng build release; log sạch hơn nếu tắt dịch vụ accessibility trên
+    máy test hoặc chạy bản release. (2) Spinner "Đang tải video…" hiện
+    tới khi player `ready`/phát tick đầu. **CÒN CHỜ:** build mới + xác
+    nhận video phát ổn định + assertion còn không (bản debug) / không có
+    (bản release).
+
+### READ-LINEEDIT-001 — (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + dễ XÓA NHẦM dòng
+- **Trạng thái:** doing (code + test pin + CI 🟢 `38970096071`, chờ nghiệm thu máy) — [IN4-36](https://linear.app/in4up/issue/IN4-36)
+- **Nguồn (audit 1.10.4, 2026-10-08):**
+  1. Chạm giữ một dòng mở bảng sửa dòng — chỉnh sửa tại chỗ ÍT cần (nội dung gốc
+     thường không cần sửa, bản dịch khó cải tiến hơn AI/Google Translate)
+     ⇒ "lãng phí" cử chỉ; cần xem xét lại cách sử dụng cử chỉ.
+  2. Trong bảng sửa, nút **Xóa** nằm quá sát nút **X** (đóng) — người dùng dễ
+     bấm nhầm Xóa khi chỉ muốn đóng bảng ⇒ xóa dòng ngoài ý muốn.
+     "Đây là rủi ro cần tránh."
+- **Giải pháp:**
+  1. **Gán lại cử chỉ** (`text_line_widget.dart`): chạm giữ → **LineActionsSheet**
+     (Đọc TTS / phát audio / lưu bộ sưu tập / sao chép — chức năng hữu ích,
+     cùng hành vi với chạm 2 lần). Sửa dòng KHÔNG còn là cử chỉ trực tiếp.
+  2. **"Sửa dòng…"** là entry cuối trong LineActionsSheet (`line_actions_sheet.dart`)
+     → chức năng giữ nguyên nhưng cần chủ động (2 bước: mở sheet → chọn Sửa).
+  3. **Bố cục lại `LineEditSheet`** (`line_edit_sheet.dart`): header chỉ còn
+     nút X (đóng, bên phải — vị trí chuẩn). Nút **Xoá dòng** xuống **GÓC TRÁI**
+     hàng nút dưới: `[🗑 Xoá dòng (đỏ)] [Huỷ] [Lưu]` — cách xa mọi nút đóng.
+  4. **Hai lớp phòng thủ**: dialog xác nhận hiển thị 80 ký tự đầu dòng +
+     cảnh báo cam "Hành động này không thể hoàn tác."; nút an toàn **"Giữ lại"**
+     đặt cuối phải (lựa chọn mặc định khi vội).
+  5. **i18n rule #5**: 5 chuỗi mới đủ en/hi/zh/zh_TW/si ('Sửa dòng…',
+     'Sửa văn bản gốc & bản dịch', 'Xoá dòng', 'Hành động này không thể
+     hoàn tác.', 'Giữ lại') → `priority_ui_overrides.dart` +
+     `generated_legacy_ui_fallbacks.dart` + `tool/legacy_ui_english_overrides.json`.
+- **Test:** `test/read_mode/line_edit_gesture_test.dart` (mới) — source-scan
+  guard: `text_line_widget.dart` KHÔNG gọi `LineEditSheet.show(` trực tiếp;
+  `LineActionsSheet.show(` ≥ 2 (double-tap + long-press); header bảng sửa
+  không còn icon xóa; nút 'Xoá dòng' nằm sau marker "── Buttons"; dialog xác
+  nhận + "không thể hoàn tác" + 'Giữ lại' còn; 5 chuỗi i18n đủ 5 locale.
+  Nối vào step read-act-tests của `app_analyze.yml`.
+- **Nghiệm thu (máy):** tab Đọc (mode dòng): chạm giữ 1 dòng → action sheet
+  (TTS/phát/lưu/sao chép/Sửa dòng…); mở Sửa dòng… → nút xóa ở GÓC TRÁI dưới,
+  không còn cạnh X; bấm xóa → dialog cảnh báo; bấm Giữ lại → bảng đóng,
+  nguyên vẹn. Chạm 2 lần vẫn mở action sheet như cũ.
+- **Lịch sử:**
+  - 2026-10-12 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (sandbox không Flutter SDK — chờ CI `app_analyze` + nghiệm thu máy)
+  - 2026-10-16 | ✅ CI xanh | agent arena/01a0251e-in4up | commit `4d0aeca`,
+    run `38970096071` (analyze 0 error + read-act-tests có test
+    line_edit_gesture mới + locale test). Vá 1 lỗi syntax (thiếu `}`) do
+    self-check balance phát hiện trước khi push. Chờ nghiệm thu máy (4 điểm
+    a–d ở mục Nghiệm thu).
+
+### XLAT-SCR-004 — (IN4-17/IN4-12) Bong bóng dịch màn hình: crash PendingIntent + engine nền không khởi tạo được
+- **Trạng thái:** 🔨 doing (code + CI 🟢; **chờ nghiệm thu máy**) — [IN4-17](https://linear.app/in4up/issue/IN4-17) · [IN4-12](https://linear.app/in4up/issue/IN4-12)
+- **Nguồn (log debug `com.in4up.dev`, 18/10/2026):** 2 lỗi **ĐỘC LẬP** —
+  (1) `FATAL EXCEPTION: main … IllegalArgumentException:
+  pendingIntentBackgroundActivityStartMode must not be set when creating a
+  PendingIntent` (điểm tạo: `ScreenCaptureRequestActivity.kt:64` →
+  `ScreenTranslateService.kt:588`); (2) `Dart_LookupLibrary: library
+  'package:in4up/features/screen_translate/screen_translate_entrypoint.dart'
+  not found → Could not create root isolate → engine phụ không chạy.
+- **Sửa (đọc code xác minh, KHÔNG phải suy đoán):**
+  1. **PendingIntent (API 34+):** chế độ background-activity-start **bắt
+     buộc** PendingIntent phải **MUTABLE**; code dùng `FLAG_IMMUTABLE` ⇒
+     framework ném exception. Đổi sang `FLAG_UPDATE_CURRENT or
+     FLAG_MUTABLE` (intent nội bộ, không có extra từ bên ngoài). Thêm
+     `safeRecoveryPendingIntent()` bọc **mọi** nơi tạo PendingIntent
+     (notification / heads-up alert / consent) ⇒ **không còn nhánh nào giết
+     service** khi lỗi.
+  2. **Engine nền:** file `screen_translate_entrypoint.dart` CÓ trong repo
+     nhưng **không được import ở bất kỳ đâu** ⇒ không có trong AOT snapshot
+     ⇒ `DartEntrypoint` không resolve được. Đã import vào `lib/main.dart`
+     (kèm `ignore: unused_import`) để thư viện luôn nằm trong snapshot.
+- **Nghiệm thu (máy):** bấm bong bóng → hộp consent của hệ thống hiện →
+  chấp nhận ⇒ overlay dịch xuất hiện + có progress; từ chối/huỷ ⇒ **không
+  crash** + có thông báo rõ; bấm lại ⇒ hỏi consent lần nữa; kéo vùng ⇒
+  dịch được. Kiểm riêng debug (`com.in4up.dev`) và release (`com.in4up`).
+  **Chưa kiểm định trên máy** (sandbox không có thiết bị).
+- **Đợt 2 (log 18/10 — commit `36176c5` + `639ce76`, CI 🟢 `39099502372`):**
+  1. **PendingIntent nhánh settings/recovery** — tôi sửa nhánh consent nhưng
+     bỏ sót 2 chỗ dùng y hệt pattern lỗi (`FLAG_IMMUTABLE` +
+     `backgroundActivityOptions()`): `launchOverlaySettingsActivity():638` +
+     `overlaySettingsPendingIntent():1303` ⇒ gộp về **MỘT helper**
+     `backgroundActivityPendingIntent()` (`FLAG_MUTABLE`).
+  2. **"Overlay vừa hiện lại bị dọn"** — root cause: `showOverlay()` gỡ
+     bong bóng rồi gắn lại (để bubble nằm trên overlay) ⇒ `removeView` bắn
+     `onViewDetachedFromWindow` ⇒ bị hiểu nhầm là thu hồi quyền ⇒ teardown
+     phiên. Sửa 3 tầng: cờ `bubbleReordering` (detach chủ động) → bỏ qua;
+     quyền overlay **còn** → chỉ dựng lại bubble; **mất quyền thật** mới
+     teardown. Log tag `In4upScr`.
+  3. **Log lặp routing LLM** — `_tryLlmMt()` không kiểm provider trước ⇒ log
+     `❌ LLM: Chưa cấu hình provider…` **mỗi block OCR**; `_initEngines()` in
+     danh sách engine mỗi lần. Sửa: LLM bỏ qua im lặng + thông báo **1
+     lần**; danh sách engine chỉ log khi **thực sự đổi**. Routing **không
+     đổi**.
+- **Lịch sử:**
+  - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | 2 fix nêu
+    trên + commit `8503d12` (CI 🟢 sau khi vá lỗi test ở `7be7c4a`).
+
+### TIPI-IMPORT-001 — (IN4-80) Import bản dịch Tipitaka lỗi SQLITE_READONLY_DBMOVED
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢; **chờ nghiệm thu máy**) — [IN4-80](https://linear.app/in4up/issue/IN4-80)
+- **Root cause (xác minh trong code, KHÔNG phải file hỏng):** mọi import
+  dùng CHUNG đường dẫn tạm `'$targetPath.importing'` và
+  `_openImportTarget` **xoá** file tạm nếu tồn tại ⇒ khi Pāli + Việt chạy
+  song song, import thứ hai **xoá file mà import thứ nhất đang giữ
+  connection SQLite** ⇒ cây `UPDATE tipitaka_segments SET translation_en…`
+  trả `SQLITE_READONLY_DBMOVED (1032)` "attempt to write a readonly
+  database" dù file hoàn toàn **KHÔNG hỏng**. Thay file DB đích khi
+  connection còn mở cũng cho lỗi tương tự.
+- **Sửa (commit `8503d12`):** (a) đường dẫn tạm **RIÊNG** mỗi lần import
+  (`_importTemporaryPath` + timestamp µs); (b) **khoá tuần tự hoá** mọi thao
+  tác import + cài đặt (`_withImportLock`) — tránh 2 import cùng lúc; các
+  nhánh trong khoá gọi bản **KHÔNG khóa** (tránh deadlock); (c) **đóng
+  connection** trước khi xoá/rename file đích (kể cả
+  `copyBundledDatabaseIfPresent`); (d) **sao lưu `.bak`** trước mọi thao tác
+  phá hủy (khôi phục được).
+- **Test:** `test/tipitaka_import_concurrency_test.dart` (mới) pin: không còn
+  đường dẫn tạm dùng chung, helper đường dẫn riêng, cả 2 nhánh import dùng
+  helper, có khoá + không khoá lồng, đóng connection, sao lưu trước khi
+  xoá. Nối step Tipiṭaka của `app_analyze.yml`.
+- **Nghiệm thu (máy):** import Pāli + Anh + Việt (có thể chạy song song)
+  ⇒ cả 3 thành công, cập nhật `translation_en/_vi` đúng, **không
+  DBMOVED**; có file `.bak` trong thư mục dữ liệu.
+- **Đợt 2 (log 18/10 — commit `36176c5` + `639ce76`, CI 🟢 `39099502372`):**
+  đường dẫn trong log là `/storage/3033-3963/AI/models/stt/VI-…` = **thẻ nhớ
+  NGOÀI** (không phải `content://`) ⇒ check `startsWith('content:')` cũ không
+  trúng, và `dart:io` không list được thư mục đó (scoped storage) ⇒ scanner
+  thấy 0 file. Sửa: (a) **log chi tiết** (số file nguồn, từng tên + kích
+  thước + kết quả đọc, nguồn bytes/path); (b) thêm `sourceFileCount` ⇒ khi
+  **không đọc được file nào** (SAF *hoặc* thẻ nhớ) → app **tự mở Import
+  file** (chọn nhiều file — đường bytes) kèm hướng dẫn.
+- **Lịch sử:**
+  - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (chờ CI + máy).
+
+### YT-PROGRESS-001 — (IN4-81) YouTube: ưu tiên phát video, lời/dịch không chặn player
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢; **chờ nghiệm thu máy**) — [IN4-81](https://linear.app/in4up/issue/IN4-81)
+- **Root cause (đọc code):** `fetchBilingualCaptions` chờ **TẤT CẢ**
+  (kể cả dịch AI toàn bộ lời) mới trả về ⇒ UI trống + overlay đen **che
+  mất video** trong lúc chờ; đổi video không có cơ chế huỷ kết quả cũ.
+- **Sửa (commit `54d0c55`):** tải 3 pha — (A) phụ đề **gốc** (en) hiện
+  ngay; (B) phụ đề đích có sẵn trên YT → ghép; (C) không có thì dịch AI
+  **theo lô 6 dòng**, hiện **tăng dần**. Overlay loading chuyển sang
+  **spinner ở góc** (không che video). Token thế hệ `_loadGeneration` +
+  `didUpdateWidget` ⇒ đổi video **huỷ bỏ** kết quả cũ. Log **TIMING**:
+  khung hình đầu / phụ đề đầu / bản dịch đầu / bản dịch đủ. `YtService`
+  bật `mergeCaptions` + `translateLines` công khai.
+- **Test:** `test/yt_progressive_loading_test.dart` (mới) pin các ràng buộc
+  trên. Nối step i4u18-lib-tests.
+- **Nghiệm thu (máy):** mở video → **thấy video ngay**; lời hiện sớm, bản
+  dịch **tới dần**; đổi video → không còn lời video cũ; đọc log
+  `[in4up-yt] TIMING …` để lấy số đo.
+- **Ghi chú (IN4-78/IN4-77):** KHÔNG trộn nguyên nhân với lỗi 153 (đã
+  sửa bằng wrapper GitHub Pages) — lỗi này là "lời/dịch chặn player".
+- **Đợt 2 (log 18/10 — commit `36176c5`, CI 🟢 `39099502372`):** "âm thanh
+  đi trước chữ ~1 dòng" — nguyên nhân khả dĩ đã kiểm trong code: phụ đề tự
+  động ở dạng **rolling window** (mỗi dòng lặp lại chữ dòng trước + thêm
+  chữ mới) ⇒ hiển thị cả cửa sổ khiến chữ mới xuất hiện ở CUỐI cửa sổ ⇒
+  trễ ~1 dòng. Sửa **theo timestamp/nội dung, KHÔNG offset cố định**:
+  nhận diện rolling window (≥60% dòng lặp tiền tố) → hiện **phần chữ mới**;
+  track thường giữ nguyên; tab VĂN BẢN + LRC dùng **văn bản gốc đầy đủ**.
+  Thêm log đo độ lệch: `[in4up-yt] line N start=… end=… | t=… | gapBefore=…`.
+- **Lịch sử:**
+  - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (chờ CI + máy).
+
+### LOGIN-REL-001 — (IN4-15) Đăng nhập release: SHA-1 ký APK phải khớp google-services.json
+- **Trạng thái:** 🔨 doing (code + CI gate + CI 🟢; **chờ build lại + máy**) — [IN4-15](https://linear.app/in4up/issue/IN4-15)
+- **Bối cảnh (đọc repo, KHÔNG suy đoán):** owner đã đăng nhập được ở
+  **debug `com.in4up.dev`** (avatar hiện) — điều đó **không** chứng minh
+  release `com.in4up` được (khác applicationId ⇒ khác Firebase client ⇒
+  khác SHA-1). Keystore release `in4up-release.jks` có SHA-1
+  **`88d5ee0da168b320c52f51b7aab404675862e5b0`** (đã thêm vào Console) —
+  nhưng bản `google-services.json` **fallback trong CI** chỉ khai báo hash
+  **cũ** `8a1bc02e…` ⇒ nếu secret CI thiếu/sai, APK release được ký bằng
+  key mà Firebase **không biết** ⇒ Google Sign-In trả DEVELOPER_ERROR ⇒
+  **nút đăng nhập văng app** (còn mọi thứ khác vẫn chạy).
+- **Sửa (commit `f029ad3`):**
+  1. **CI gate mới** `scripts/ci/android_verify_signing_matches_google_services.sh`
+     — đọc SHA-1 keystore thật (keytool) và so với mọi `certificate_hash`
+     trong `google-services.json`; **lệch ⇒ FAIL build** (trước khi build 20
+     phút) kèm hướng dẫn sửa. Gọi ngay sau bước chuẩn bị signing.
+  2. **Fallback `google-services.json` trong CI** thêm SHA-1 release hiện tại
+     `88d5ee0d…` (giữ luôn hash cũ) ⇒ fallback không còn **gây hại**.
+  3. **Log trạng thái auth lúc khởi động** + mỗi lần trạng thái đổi
+     (`[in4up-auth] STATE[phase] flavor=… signedIn=… uid=…`) ⇒ logcat trả
+     lời ngay: bản nào đang chạy, phiên đã khôi phục chưa, lỗi ở bước nào
+     (**đăng nhập MỚI** vs **khôi phục phiên** là 2 việc khác nhau).
+- **Test:** `test/login_release_verification_test.dart` (mới) pin: có gate
+  + gate chạy sau prepare-signing + fallback có SHA-1 hiện tại + app log
+  flavor/trạng thái. Nối CI step riêng.
+- **Nghiệm thu (máy + CI):** CI build mới phải **XANH** ở gate (nghĩa là
+  SHA-1 khớp) → cài APK release → đăng nhập Google OK (không văng) →
+  tắt app mở lại ⇒ phiên **khôi phục** (avatar vẫn hiện) → kiểm tra
+  logcat `[in4up-auth] STATE[...]`.
+- **Lịch sử:**
+  - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (chờ CI + build release + máy).
+
+### READ-LINEEDIT-002 — (IN4-30/IN4-31) Focus giữ phần tiêu đề + ẩn nền khi cuộn + bỏ tự ẩn thanh mode
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢 `39191910926`; **chờ nghiệm thu máy**) — [IN4-30](https://linear.app/in4up/issue/IN4-30) · [IN4-31](https://linear.app/in4up/issue/IN4-31)
+- **IN4-30 (Focus):** thêm **cơ chế ẩn linh hoạt** + tùy chọn
+  **Focus chỉ giữ phần tiêu đề**. Pref `read_focus_title_position` ∈
+  {`hidden` (mặc định, hành vi cũ), `top`, `bottom`} trong
+  `StorageService`; widget mới `ReadFocusTitleBar` (chỉ tiêu đề, KHÔNG kéo
+  icon chức năng) dựng ở trên/dưới vùng đọc; bộ chọn 3 nút trong
+  **Cài đặt Text Studio** (mục "Chế độ Focus: giữ tiêu đề").
+- **IN4-31 (cuộn):** đã ẩn icon chức năng thì **ẩn LUÔN nền** —
+  `CollapsibleBottomControls` chuyển từ `Opacity(0)` (giữ chỗ layout ⇒
+  **khối đen vẫn dính**) sang **gập `height: 0`**; bỏ spacer 8px thừa.
+  ⇒ hết trạng thái "icon biến mất mà nền đen vẫn còn" (khó hiểu).
+  *Ghi rõ:* nguyên nhân "nền chưa ẩn" trước đây là **giả thuyết**
+  (do `Opacity(0)` giữ chỗ layout) — nay đã **xác minh** bằng code và sửa.
+- **Thanh mode (shell):** bỏ **tự ẩn sau 4 giây** (người dùng chưa kịp
+  chọn đã bị ẩn ⇒ mỗi lần tìm lại để mở không thấy đâu). Thanh **giữ
+  hiện mặc định**; thêm **nút X** trên thanh ⇒ **tắt luôn chế độ tự ẩn**
+  (lưu setting `shell_auto_hide_mode_switch = false`).
+- **Test:** `test/read_mode/focus_title_and_scroll_test.dart` (mới) pin: pref 3
+  giá trị, màn Đọc dựng thanh tiêu đề trên/dưới, `ReadFocusTitleBar` KHÔNG
+  chứa icon chức năng, bộ chọn trong settings, collapsible **gập height 0**
+  (không còn `Opacity(`), **không còn timer 4s**, có nút X tắt ẩn; 6 chuỗi
+  i18n đủ 5 locale. Nối step read-act-tests.
+- **Nghiệm thu (máy):** (1) vào Focus ⇒ theo lựa chọn: ẩn hẳn / chỉ tiêu
+  đề trên / chỉ tiêu đề dưới; (2) cuộn lên ⇒ **cụm đáy biến mất hẳn, không
+  còn khối nền đen**; cuộn xuống ⇒ hiện lại; (3) thanh mode **không tự ẩn**
+  sau vài giây; bấm **X** ⇒ thanh giữ hiện vĩnh viễn.
+- **Lịch sử:**
+  - 2026-10-19 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (commit `f18bfa2` + fix `a24812b`, CI 🟢 `39191910926`); **chưa kiểm định máy**.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
@@ -6366,6 +6633,20 @@
 - **Nghiệm thu:** import 1 bộ model TTS + 1 bộ STT đủ file → "OK"; bỏ 1 file
   → báo đúng tên file thiếu.
 - **Prompt:** `PROMPT_AGENT_MODEL_IMPORT_VALIDATION.md`.
+- **Tiến triển 2026-10-10 (agent 01a0251e):** ROOT CAUSE = **Android SAF**:
+  picker trả URI `content://` — `dart:io` KHÔNG đọc được path đó, nên copy
+  file thất bại hết → báo "thiếu" SAI dù file đủ. (TTS file OK vì UI đọc
+  bytes `withData: true` — chính ASR file import LỖI chỗ này: chưa `withData`.)
+  Fix: (1) `SherpaModelManager.importAsrNamedBytesResult(Map<String,Uint8List>)`
+  — cùng logic validate, copy từ bytes (SAF-safe); `_copyListingFile` +
+  `_safeLength` hỗ trợ bytes; archive bytes → file tạm → giải nén.
+  (2) UI ASR `_importFiles` thêm `withData: true` + ưu tiên bytes (đường TTS
+  đã chứng minh OK); (3) UI ASR `_importFolder`: thư mục SAF (`content:`)
+  → hướng dẫn + mở thẳng Import file (không để user kẹt). Test thuần
+  `test/model_import_saf_bytes_test.dart` (bộ đủ→không thiếu, thiếu 1→nêu
+  đúng role, int8 ưu tiên, Piper không lẫn, i18n SAF đủ 5 locale) nối
+  i4u18-scanner-tests. **Chờ CI + nghiệm thu máy** (import 4 file Zipformer
+  + import thư mục trên Android).
 
 ### 6. XLAT-OFFLINE-LANG-001 — (P2) Dịch offline ML Kit: thêm ngôn ngữ (ẩn, sổ ra)
 - **Triệu chứng:** Gói dịch offline (ML Kit) hiện chỉ 3 ngôn ngữ.
@@ -6407,6 +6688,13 @@
 - **Nơi đọc:** `grep -rn "I2U\|i2u" lib/` (chuỗi UI + l10n).
 - **Nghiệm thu:** không còn "I2U" ở đâu; đúng "I4U".
 - **Prompt:** `PROMPT_AGENT_I4U_AI_CHAT.md` (mục BRAND).
+- **Tiến triển 2026-10-10 (agent 01a0251e):** ĐÃ SỬA — 2 chuỗi UI trong
+  `ai_chat_screen.dart` + 2 entry fallback (key+value) trong
+  `generated_legacy_ui_fallbacks.dart` + 2 entry JSON
+  `legacy_ui_english_overrides.json` (I2U→I4U). `grep "I2U" lib/` = sạch.
+  Test máy bắt `test/ai_chat/brand_i4u_test.dart` (nguồn UI + catalog không
+  còn I2U) nối bước `flutter test` toàn tập. **Chờ CI + nghiệm thu** (mở
+  AI Chat: hint + header hiện "I4U").
 
 ### 10. AI-CHAT-UX-001 — (P1) Chat offline: thiếu "đang suy nghĩ" + nút gửi không loading
 - **Triệu chứng:** Chat offline chạy được nhưng (a) không có biểu tượng AI
@@ -6440,6 +6728,19 @@
 - **Nghiệm thu:** chọn Nam Minh → nghe giọng nam; đổi Hoài My → giọng nữ
   *(cần máy thật + nghe)*.
 - **Prompt:** `PROMPT_AGENT_EDGE_VOICE_FIX.md`.
+- **Trạng thái 2026-10-17 (giữ nguyên, KHÔNG sửa code):** chưa có bằng
+  chứng MỚI nên **không đụng** picker/cache key (đã có đầy đủ từ
+  TTS-EDGE-VOICE-002/003: `_resolveEdgeVoice` bậc thang 3 bước +
+  `EdgeVoicePrefs.voiceForLang` + cache khoá theo `voiceId` trong
+  `tts_cache.dart`). Chỉ bổ sung **checklist hồi quy** để owner nghe trên
+  máy:
+  1. Edge → vi-VN → **Nam Minh** → đọc câu tiếng Việt → **nam**;
+  2. đổi **Hoài My** → đọc lại → **nữ**;
+  3. đổi lại **Nam Minh** → đọc lại → **nam** (kiểm tra không "dính" giọng
+     cũ do cache);
+  4. lặp lại 4 bước khi **đã có cache** (đọc cùng câu) và khi **xoá cache**
+     → kết quả phải giống nhau.
+  Đây là checklist nghe tai — agent không kiểm được (cần tai + máy).
 
 ### 13. READ-FOCUS-002 — (P2) Nút Focus tab Đọc: ẩn khi dùng, chỉ để trên title
 - **Triệu chứng:** Nút Focus ở vị trí chưa hợp lý khi đang dùng.

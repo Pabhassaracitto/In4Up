@@ -208,7 +208,7 @@ Câu hỏi của người học: $question''';
                         onSubmitted: (_) => _send(facade),
                         decoration: InputDecoration(
                           hintText: context.uiText(
-                            'Hỏi I2U về từ vựng, ngữ pháp...',
+                            'Hỏi I4U về từ vựng, ngữ pháp...',
                           ),
                           filled: true,
                           fillColor: const Color(0xFF171D34),
@@ -540,7 +540,7 @@ class _EmptyChat extends StatelessWidget {
                   size: 48, color: Color(0xFFB388FF)),
               const SizedBox(height: 16),
               Text(
-                context.uiText('Trợ lý học tập I2U'),
+                context.uiText('Trợ lý học tập I4U'),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,

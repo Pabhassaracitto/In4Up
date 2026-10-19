@@ -43,6 +43,16 @@ import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
 
+// IN4-17 (XLAT-SCR-003): thư viện entrypoint của ENGINE NỀN
+// (ScreenTranslateService khởi engine phụ qua
+// `package:in4up/features/screen_translate/screen_translate_entrypoint.dart`).
+// MUST import ở đây để thư viện được biên dịch VÀO snapshot (AOT release/profile
+// và cả app.dill của debug): không có import này, engine phụ báo
+// "library ... not found → Could not create root isolate" dù file tồn tại.
+// (Flutter multiple-flutters: engine phụ resolve entrypoint từ CÙNG snapshot.)
+// ignore: unused_import
+import 'features/screen_translate/screen_translate_entrypoint.dart';
+
 bool isFirebaseAvailable = false;
 
 /// Handover SECTION 1 — Fix HttpException: Connection closed
@@ -104,6 +114,19 @@ Future<void> main() async {
 
   // ★ runApp ngay - không block
   runApp(const MyApp());
+
+  // IN4-15 (LOGIN-CRASH-002): chẩn đoán lúc khởi động — logcat trả lời
+  // ngay: bản nào đang chạy (flavor), phiên đã khôi phục được chưa, và
+  // auth có lỗi gì không (đăng nhập MỚI vs KHÔI PHỤC PHIÊN là 2 việc
+  // khác nhau — không được suy từ avatar debug sang release).
+  unawaited(AuthService().logAuthState('startup'));
+  // Theo dõi MỌI thay đổi trạng thái auth (khôi phục phiên / đăng nhập xong
+  // / sign-out) — phân biệt được "đăng nhập mới" với "khôi phục phiên".
+  final authService = AuthService();
+  authService.authStateChanges.listen(
+    (_) => authService.logAuthState('change'),
+    onError: (Object e) => authService.logAuthState('change-error', e),
+  );
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();

@@ -1041,6 +1041,26 @@ class StorageService {
     _initialized = false;
   }
 
+  // ── READ-FOCUS-002 (IN4-30): vị trí phần TIÊU ĐỀ khi ở chế độ Focus ──
+  //
+  // 'hidden' = ẩn hẳn (hành vi cũ: Focus ẩn trọn thanh trên).
+  // 'top'    = chỉ giữ phần tiêu đề ở TRÊN vùng đọc.
+  // 'bottom' = chỉ giữ phần tiêu đề ở DƯỚI vùng đọc.
+  static const String readFocusTitleHidden = 'hidden';
+  static const String readFocusTitleTop = 'top';
+  static const String readFocusTitleBottom = 'bottom';
+
+  String getReadFocusTitlePosition() {
+    final v = getSetting<String>('read_focus_title_position',
+        defaultValue: readFocusTitleHidden);
+    if (v == readFocusTitleTop || v == readFocusTitleBottom) return v!;
+    return readFocusTitleHidden;
+  }
+
+  Future<void> saveReadFocusTitlePosition(String value) async {
+    await saveSetting('read_focus_title_position', value);
+  }
+
   /// Debug: in thông tin storage
   void debugInfo() {
     debugPrint('=== StorageService Debug ===');

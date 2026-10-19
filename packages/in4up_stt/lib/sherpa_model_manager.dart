@@ -117,6 +117,13 @@ class SherpaAsrImportResult {
   /// Chi tiết kỹ thuật (log/đường dẫn) — không phải chuỗi chrome.
   final String? detail;
 
+  /// Số file ĐỌC ĐƯỢC trong nguồn (0 = không đọc được gì — vd SAF
+  /// `content://` hoặc thẻ nhớ ngoài bị scoped storage chặn).
+  ///
+  /// IN4-16: UI dùng số này để biết có nên hướng dẫn user chọn FILE
+  /// (đường bytes) thay vì thư mục.
+  final int sourceFileCount;
+
   const SherpaAsrImportResult({
     required this.status,
     this.profile,
@@ -126,6 +133,7 @@ class SherpaAsrImportResult {
     this.missingRoles = const [],
     this.detectedKinds = const {},
     this.detail,
+    this.sourceFileCount = 0,
   });
 
   bool get isSuccess => status == SherpaAsrImportStatus.imported;
@@ -996,6 +1004,29 @@ class SherpaModelManager {
     );
   }
 
+  /// IN4-16 (MODELIMPORT-001) — Import ASR từ BYTES trong bộ nhớ
+  /// (Android SAF: picker trả URI `content://` — `dart:io` KHÔNG đọc được
+  /// path đó; UI đọc bytes bằng `withData: true` và truyền vào đây).
+  /// Logic nhận diện/validate GIỐNG hệt đường file — chỉ khác nguồn copy.
+  Future<SherpaAsrImportResult> importAsrNamedBytesResult(
+    Map<String, Uint8List> files, {
+    String? targetProfileId,
+  }) async {
+    if (files.isEmpty) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceEmpty,
+        detail: 'Chưa chọn file nào',
+      );
+    }
+    final listing = [for (final key in files.keys) _toScanPath(key)];
+    return _importAsrListing(
+      listing,
+      sourceLabel: files.keys.join(', '),
+      targetProfileId: targetProfileId,
+      namedBytes: files,
+    );
+  }
+
   /// Bản cũ trả chuỗi tiếng Việt (giữ để không phá call-site cũ).
   Future<String> importAsrFolder(String folderPath, {String? targetProfileId}) async {
     final result =
@@ -1050,13 +1081,40 @@ class SherpaModelManager {
     List<String> listing, {
     required String sourceLabel,
     String? targetProfileId,
+    Map<String, Uint8List>? namedBytes,
   }) async {
     // Quét thống nhất (I4U18-MODEL-IMPORT-001): group theo thư mục cha +
     // alias tên file — thay cho việc lấy encoder/tokens ĐẦU TIÊN trong walk
     // order (nguồn gốc lỗi "chọn đúng folder vẫn báo không nhận dạng").
     final report = ModelBundleScanner.scan([
-      for (final path in listing) ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
+      for (final path in listing)
+        ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path, namedBytes: namedBytes)),
     ]);
+
+    // IN4-16: log chi tiết từng file (tên + kích thước + nguồn) để chẩn đoán
+    // "không đọc được" vs "thiếu file" vs "sai định dạng".
+    debugPrint(
+      '📂 ASR import nguồn: ${listing.length} file — '
+      '${namedBytes != null ? "đường BYTES (SAF)" : "đường path"}',
+    );
+    for (final path in listing) {
+      final size = _safeLength(path, namedBytes: namedBytes);
+      final readable = namedBytes != null
+          ? (namedBytes[path] ?? namedBytes[p.basename(path)])?.isNotEmpty ??
+              false
+          : File(path).existsSync();
+      debugPrint(
+        '   • ${p.basename(path)} — ${size > 0 ? "$size bytes" : "rỗng/không đọc được"}'
+        '${readable ? "" : " (KHÔNG đọc được)"}',
+      );
+    }
+    if (listing.isEmpty) {
+      debugPrint(
+        '⚠️ ASR import: KHÔNG đọc được file nào từ nguồn '
+        '(${sourceLabel.isEmpty ? "(không rõ)" : sourceLabel}) — '
+        'thường là SAF content:// hoặc thẻ nhớ ngoài bị scoped storage chặn.',
+      );
+    }
     final zip = report.zipformer;
 
     String? tokensPath = zip?.tokens?.path;
@@ -1103,6 +1161,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: false,
+        sourceFileCount: listing.length,
       );
     }
     if (streamingEvidence && !target.isStreaming) {
@@ -1112,6 +1171,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: detected != null,
+        sourceFileCount: listing.length,
       );
     }
     if (encoderKind == SherpaAsrEncoderKind.nonStreaming && target.isStreaming) {
@@ -1121,6 +1181,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: detected != null,
+        sourceFileCount: listing.length,
       );
     }
     if (detected != null && detected.id != target.id) {
@@ -1148,6 +1209,7 @@ class SherpaModelManager {
           detectedProfile: detected,
           encoderKind: encoderKind,
           contentRecognized: false,
+          sourceFileCount: listing.length,
           detail: 'Không đọc được metadata ONNX và không có bằng chứng '
               'ngôn ngữ/loại model cho profile ${target.id}',
         );
@@ -1173,7 +1235,7 @@ class SherpaModelManager {
       ]) {
         if (f == null) continue;
         final dest = p.join(destDir, p.basename(f.path));
-        if (await _tryCopyFile(f.path, dest)) copied++;
+        if (await _copyListingFile(f.path, dest, namedBytes: namedBytes)) copied++;
       }
     } else {
       // Không group được — giữ vòng lặp cũ (tên rộng) cho file lẻ user chọn.
@@ -1189,7 +1251,7 @@ class SherpaModelManager {
             name == 'bpe.vocab' ||
             name.endsWith('.onnx')) {
           final dest = p.join(destDir, p.basename(path));
-          if (await _tryCopyFile(path, dest)) copied++;
+          if (await _copyListingFile(path, dest, namedBytes: namedBytes)) copied++;
         }
       }
     }
@@ -1201,11 +1263,34 @@ class SherpaModelManager {
     }
 
     if (copied == 0 && archivePath.isNotEmpty) {
+      // IN4-16: đường bytes (SAF) — ghi archive ra file tạm rồi giải nén.
+      String archiveOnDisk = archivePath;
+      File? tmpArchive;
       try {
-        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
-          await _extractTarBz2(archivePath, destDir);
-        } else if (archivePath.toLowerCase().endsWith('.zip')) {
-          await _extractZip(archivePath, destDir);
+        if (namedBytes != null) {
+          final b = namedBytes[archivePath] ??
+              namedBytes[p.basename(archivePath)];
+          if (b == null || b.isEmpty) {
+            return SherpaAsrImportResult(
+              status: SherpaAsrImportStatus.failed,
+              profile: target,
+              detectedProfile: detected,
+              encoderKind: encoderKind,
+              contentRecognized: detected != null,
+              detectedKinds: report.kinds,
+              detail: 'Không đọc được bytes của archive',
+            );
+          }
+          tmpArchive = File(
+              p.join(await _documents(), 'downloads', 'asr_named_${p.basename(archivePath)}'));
+          await tmpArchive.parent.create(recursive: true);
+          await tmpArchive.writeAsBytes(b, flush: true);
+          archiveOnDisk = tmpArchive.path;
+        }
+        if (archiveOnDisk.toLowerCase().endsWith('.tar.bz2')) {
+          await _extractTarBz2(archiveOnDisk, destDir);
+        } else if (archiveOnDisk.toLowerCase().endsWith('.zip')) {
+          await _extractZip(archiveOnDisk, destDir);
         }
       } catch (e) {
         return SherpaAsrImportResult(
@@ -1215,8 +1300,13 @@ class SherpaModelManager {
           encoderKind: encoderKind,
           contentRecognized: detected != null,
           detectedKinds: report.kinds,
+          sourceFileCount: listing.length,
           detail: 'Giải nén archive thất bại: $e',
         );
+      } finally {
+        try {
+          if (tmpArchive != null) await tmpArchive!.delete();
+        } catch (_) {}
       }
     }
 
@@ -1246,6 +1336,7 @@ class SherpaModelManager {
         contentRecognized: detected != null || zip != null,
         missingRoles: List<String>.from(missing),
         detectedKinds: report.kinds,
+        sourceFileCount: listing.length,
         detail: sourceLabel,
       );
     }
@@ -1257,6 +1348,7 @@ class SherpaModelManager {
       detectedProfile: detected,
       encoderKind: detectedKindFor(installed),
       contentRecognized: detected != null || explicit != null,
+      sourceFileCount: listing.length,
       detail: destDir,
     );
   }
@@ -1441,12 +1533,40 @@ class SherpaModelManager {
   static String _toScanPath(String path) => ModelBundleScanner.normSep(path);
 
   /// Kích thước file an toàn (SAF/quyền có thể chặn stat — trả 0, không throw).
-  static int _safeLength(String path) {
+  /// Đường bytes (IN4-16): lấy kích thước từ map bytes thay vì đĩa.
+  static int _safeLength(String path, {Map<String, Uint8List>? namedBytes}) {
+    if (namedBytes != null) {
+      final b = namedBytes[path] ?? namedBytes[p.basename(path)];
+      return b == null ? 0 : b.length;
+    }
     try {
       return File(path).lengthSync();
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Copy 1 file của listing vào destDir — từ đĩa (`_tryCopyFile`) hoặc từ
+  /// map bytes (Android SAF — IN4-16: content:// URI không đọc bằng dart:io).
+  Future<bool> _copyListingFile(
+    String src,
+    String dest, {
+    Map<String, Uint8List>? namedBytes,
+  }) async {
+    if (namedBytes != null) {
+      final b = namedBytes[src] ?? namedBytes[p.basename(src)];
+      if (b == null || b.isEmpty) return false;
+      try {
+        final f = File(dest);
+        await f.parent.create(recursive: true);
+        await f.writeAsBytes(b, flush: true);
+        return true;
+      } catch (e) {
+        debugPrint('⚠️ ASR bytes copy $src → $dest: $e');
+        return false;
+      }
+    }
+    return _tryCopyFile(src, dest);
   }
 
   /// Giải nén .zip (archive package) — cửa vào cho model ZIP user nén tay

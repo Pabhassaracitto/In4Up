@@ -111,6 +111,15 @@ class YtSearchService {
           debugPrint('✅ channel ytInitialData: ${hits.length} video của $id');
           return hits;
         }
+        // (IN4-77 phụ: nút "Xem video kênh" trống) — log dữ liệu để chẩn
+        // đoán: 200 nhưng 0 video thường là trang bot-check/consent hoặc
+        // layout mới mà parser chưa cover.
+        debugPrint('❌ channel ytInitialData: 200 nhưng 0 video '
+            '(body ${resp.body.length} chars; '
+            '${resp.body.contains('ytInitialData') ? 'có' : 'KHÔNG'} '
+            'ytInitialData) — $id');
+      } else {
+        debugPrint('❌ channel ytInitialData: HTTP ${resp.statusCode} — $id');
       }
     } catch (e) {
       debugPrint('channel ytInitialData failed: $e');

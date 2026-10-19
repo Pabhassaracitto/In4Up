@@ -8,5 +8,18 @@
   "ngôn ngữ": "Built-in vocabulary seed meaning; learning content, not UI.",
   "nhớ": "Built-in vocabulary seed meaning; learning content, not UI.",
   "thực hành": "Built-in vocabulary seed meaning; learning content, not UI.",
-  "đẹp": "Built-in vocabulary seed meaning; learning content, not UI."
+  "đẹp": "Built-in vocabulary seed meaning; learning content, not UI.",
+  "[in4up-yt] TIMING bản dịch (YT) đầy đủ: {value0}ms": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] TIMING bản dịch đầu tiên: {value0}ms": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] TIMING bản dịch đầy đủ: {value0}ms": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] TIMING khung hình đầu tiên: {value0}ms": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] TIMING phụ đề đầu tiên: {value0}ms ({value1} dòng)": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] không có phụ đề gốc cho {value0}": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] wrapper không ready 15s → fallback": "Internal YouTube debug/timing log; never rendered as UI.",
+  "[in4up-yt] đổi video: {value0} → {value1}": "Internal YouTube debug/timing log; never rendered as UI.",
+  "⚠️ [in4up-yt] dịch lô {value0}-{value1} lỗi: {value2}": "Internal YouTube debug/timing log; never rendered as UI.",
+  "⚠️ [in4up-yt] lấy phụ đề {value0} lỗi: {value1}": "Internal YouTube debug/timing log; never rendered as UI.",
+  "🔁 [in4up-yt] phụ đề dạng ROLLING WINDOW ({value0} dòng) — hiển thị phần chữ mới theo từng dòng (không dùng offset cố định).": "Internal YouTube debug/timing log; never rendered as UI.",
+  "🔄 [in4up-yt] {value0} không có trên YT → dịch AI tăng dần": "Internal YouTube debug/timing log; never rendered as UI.",
+  "Ý dẫn đầu các pháp,\nÝ làm chủ, ý tạo...": "Tipiṭaka learning content; not UI chrome."
 }

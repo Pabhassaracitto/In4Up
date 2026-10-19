@@ -495,3 +495,37 @@ class _AutoSyncChip extends StatelessWidget {
     );
   }
 }
+
+// ── Focus title bar (READ-FOCUS-002 / IN4-30) ────────────────────────────
+// Chế độ Focus mặc định ẩn TRỌN thanh trên. Người dùng có thể chọn
+// chỉ giữ lại PHẦN TIÊU ĐỀ (tên tài liệu) — đặt TRÊN hoặc DƯỚI vùng
+// đọc — để vẫn biết đang đọc tài liệu nào mà không mất không gian đọc.
+//
+// Widget này CHỈ hiện tiêu đề (không kéo theo icon chức năng) — đúng nghĩa
+// "chỉ giữ phần tiêu đề".
+class ReadFocusTitleBar extends StatelessWidget {
+  final TextProvider tp;
+  final ReadModeController controller;
+
+  const ReadFocusTitleBar({
+    super.key,
+    required this.tp,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+      color: const Color(0xFF0D1520),
+      child: Row(
+        children: [
+          const Icon(Icons.article_outlined, size: 14, color: Colors.white38),
+          const SizedBox(width: 6),
+          Expanded(child: _TitleButton(tp: tp, controller: controller)),
+        ],
+      ),
+    );
+  }
+}

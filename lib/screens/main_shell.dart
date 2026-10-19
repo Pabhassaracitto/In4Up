@@ -233,13 +233,33 @@ class _MainShellState extends State<MainShell> {
     _modeSwitchExpanded = true;
   }
 
+  /// IN4-31: KHÔNG tự ẩn thanh mode sau vài giây nữa.
+  ///
+  /// Trước đây thanh mode (Đọc/Viết…) tự ẩn sau 4s ⇒ người dùng chưa kịp
+  /// chọn là mất, mỗi lần tìm lại để mở thì không thấy đâu. Nay thanh **giữ
+  /// nguyên** (mặc định hiện); ai muốn ẩn thì bấm **dấu X** trên thanh →
+  /// tắt luôn chế độ tự ẩn (lưu vào setting).
   void _scheduleModeSwitchAutoHide() {
+    // Không còn timer ẩn tự động — giữ chỗ cho tương thích, không làm gì.
     _modeSwitchHideTimer?.cancel();
-    if (!_autoHideModeSwitch) return;
-    _modeSwitchHideTimer = Timer(const Duration(seconds: 4), () {
-      if (!mounted || !_hasSecondaryModes) return;
-      setState(() => _modeSwitchExpanded = false);
+  }
+
+  /// Tắt chế độ tự ẩn thanh mode (nút X trên thanh mode).
+  Future<void> _disableAutoHideModeSwitch() async {
+    _modeSwitchHideTimer?.cancel();
+    setState(() {
+      _autoHideModeSwitch = false;
+      _modeSwitchExpanded = true;
     });
+    await _storage.saveShellAutoHideModeSwitch(false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã tắt tự ẩn thanh chế độ'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _scheduleShellHintIfNeeded() {
@@ -1986,49 +2006,66 @@ class _MainShellState extends State<MainShell> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       color: const Color(0xFF111827),
       child: Row(
-        children: List.generate(labels.length, (index) {
-          final selected = index == selectedIndex;
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  if (isListen) {
-                    _setListenMode(index);
-                  } else {
-                    _setReadMode(index);
-                  }
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? accent.withValues(alpha: 0.18)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: selected
-                          ? accent.withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.06),
+        children: [
+          Expanded(
+            child: Row(
+              children: List.generate(labels.length, (index) {
+                final selected = index == selectedIndex;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        if (isListen) {
+                          _setListenMode(index);
+                        } else {
+                          _setReadMode(index);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? accent.withValues(alpha: 0.18)
+                              : Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected
+                                ? accent.withValues(alpha: 0.35)
+                                : Colors.white.withValues(alpha: 0.06),
+                          ),
+                        ),
+                        child: Text(
+                          context.uiText(labels[index]),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selected ? accent : Colors.grey[400],
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    context.uiText(labels[index]),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected ? accent : Colors.grey[400],
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
+                );
+              }),
             ),
-          );
-        }),
+          ),
+          // IN4-31: dấu X để TẮT chế độ tự ẩn — thanh mode giữ hiện.
+          if (_autoHideModeSwitch)
+            IconButton(
+              tooltip: context.uiText('Tắt tự ẩn thanh chế độ'),
+              onPressed: _disableAutoHideModeSwitch,
+              icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+        ],
       ),
     );
   }
@@ -2163,8 +2200,10 @@ class _MainShellState extends State<MainShell> {
               ),
             ],
           ),
-        ),
-      ),
+
+            ),
+          ),
+    
     );
   }
 }
@@ -2492,8 +2531,35 @@ class _BottomNavItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final activeColor = selected ? color : Colors.grey[500]!;
+Widget build(BuildContext context) {
+  final activeColor = selected ? color : Colors.grey[500]!;
+
+
+  return Semantics(
+    button: true,
+    selected: selected,
+    label: label,
+    hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: 56,
+        minHeight: kMinInteractiveDimension,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+            decoration: BoxDecoration(
+              color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? color.withValues(alpha: 0.24) : Colors.transparent,
+              ),
 
     return Semantics(
       button: true,
@@ -2582,8 +2648,9 @@ class _BottomNavItem extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
+        ), // <-- Đóng InkWell
+      ), // <-- Đóng Padding
+    ), // <-- Đóng ConstrainedBox
+  ); // <-- Đóng Semantics và kết thúc hàm build
+}
 }

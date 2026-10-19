@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../features/translation/translation_service.dart';
@@ -23,38 +24,64 @@ import '../../providers/vocabulary_bridge.dart';
 import '../../services/syntax_highlighter_service.dart';
 import '../word_lookup/word_analysis_sheet.dart';
 import 'models/yt_video.dart';
+import 'services/yt_downloader.dart';
 import 'services/yt_service.dart';
 import 'youtube_explorer_screen.dart';
 
 // ─── IN4-78 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" ───────
-// Từ ~10/2025 YouTube bắt buộc request trang nhúng (/embed/) phải có
-// **HTTP Referer** hợp lệ. WebView load thẳng /embed/ (load đầu tiên,
-// không có trang trước) → không có Referer → player trả mã 153.
+// YouTube (từ ~07/2025) yêu cầu request trang nhúng /embed/ phải có
+// **HTTP Referer** hợp lệ ("API Clients that use the YouTube embedded
+// player must provide identification through the HTTP Referer request
+// header" — YouTube IFrame API docs). WebView của app không tạo đủ
+// Referrer cho load top-level → player trả mã 153.
 //
-// Fix (không cần API mới — webview_flutter 4.x không có loadHtml):
-// tải TRƯỚC 1 trang cùng domain `youtube-nocookie.com/embed` (seed) → khi
-// điều hướng sang trang /embed/<id> thật, WebView tự gửi
-// `Referer: https://www.youtube-nocookie.com` (mặc định
-// strict-origin-when-cross-origin → gửi origin) → đạt yêu cầu mới.
+// Chain tải (từ chắc chắn nhất):
+// 1) **Wrapper GitHub Pages** — `yt_embed.html?videoId=X` trên origin
+//    https thật (pabhassaracitto.github.io); iframe /embed/ bên trong
+//    tự gửi `Referer: https://pabhassaracitto.github.io…` → YouTube chấp
+//    nhận (cách fix được cộng đồng xác minh nhiều nhất, 2025-2026).
+//    Wrapper tự chứa IFrame API + kênh YtSync + báo lỗi qua `err:<code>`.
+// 2) **Seed → embed trực tiếp** — load trước trang cùng domain
+//    youtube-nocookie.com/embed rồi sang /embed/<id> (request mang
+//    Referer same-origin). Dùng khi wrapper không tải được.
+// 3) **Overlay + "Mở ngoài"** — nếu player vẫn lỗi: nút mở YouTube
+//    trong trình duyệt/app hệ thống (luôn hoạt động).
 // Hàm top-level để test thuần bắt được.
 
-/// Trang seed — chỉ để tạo Referer cho request /embed/ kế tiếp.
+/// Wrapper static trên GitHub Pages (branch gh-pages của repo In4Up).
+/// CẦN: repo Settings → Pages → Deploy from branch: gh-pages / (root).
+const String kYtWrapperBaseUrl =
+    'https://pabhassaracitto.github.io/In4Up/yt_embed.html';
+
+/// URL wrapper cho 1 video.
+String buildYtWrapperUrl(String videoId) =>
+    '$kYtWrapperBaseUrl?videoId=$videoId';
+
+/// Trang seed (fallback) — chỉ để tạo Referer cho request /embed/ kế tiếp.
 const String kYtEmbedSeedUrl = 'https://www.youtube-nocookie.com/embed';
 
-/// URL trang nhúng YouTube (domain nocookie — domain nhúng chuẩn của Google).
+/// URL trang nhúng YouTube trực tiếp (fallback).
 String buildYtEmbedUrl(String videoId) =>
     'https://www.youtube-nocookie.com/embed/$videoId'
     '?enablejsapi=1&cc_load_policy=0&rel=0&playsinline=1'
     '&origin=https://www.youtube-nocookie.com';
 
+/// Parse tin vị trí phát từ kênh YtSync: `t:<seconds>` → giây (null nếu
+/// không phải tin thời gian hoặc không parse được).
+double? ytParseTimeMessage(String message) {
+  if (!message.startsWith('t:')) return null;
+  return double.tryParse(message.substring(2));
+}
+
 /// body text của trang player đang chứa màn lỗi YouTube (153 hoặc khác)
-/// → app hiện overlay tiếng Việt + nút Thử lại (không để chết im lặng).
+/// → app hiện overlay tiếng Việt + nút Thử lại/Mở ngoài (chết im lặng).
 bool ytLooksLikePlayerError(String bodyText) {
   final t = bodyText.toLowerCase();
   return t.contains('lỗi cấu hình trình phát') ||
       (t.contains('lỗi cấu hình') && t.contains('153')) ||
       t.contains('video player configuration error') ||
-      t.contains('player configuration error');
+      t.contains('player configuration error') ||
+      t.contains('youtube player error');
 }
 
 // ─── Word knowledge state ─────────────────────────────────
@@ -121,6 +148,11 @@ class SubtitleLine {
   final Duration end;
   final String text;
   final String? translation;
+
+  /// Văn bản GỐC của dòng (khi track là "rolling window" thì [text] chỉ là
+  /// phần MỚI, còn [fullText] là cả cửa sổ). Dùng cho tab VĂN BẢN.
+  final String fullText;
+
   final List<LrWord> words;
 
   SubtitleLine({
@@ -128,8 +160,9 @@ class SubtitleLine {
     required this.end,
     required this.text,
     this.translation,
+    String? fullText,
     required this.words,
-  });
+  }) : fullText = fullText ?? text;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -150,10 +183,26 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   late WebViewController _ytCtrl;
   Timer? _timer;
   Timer? _errWatchdog;
+  Timer? _loadWatchdog;
   bool _isLoading = true;
 
   /// (IN4-78) Lỗi trình phát YouTube (mã 153…) — null = không lỗi.
   String? _playerError;
+
+  /// (IN4-78) 0 = wrapper GitHub Pages, 1 = seed→embed trực tiếp.
+  int _attempt = 0;
+  bool _pageFinished = false;
+  bool _gotReady = false;
+  bool _embedRequested = false;
+  bool _videoReady = false;
+  int _errTicks = 0;
+
+  /// IN4-81: thế hệ load hiện trạng — mọi kết quả async của video CŨ bị bỏ
+  /// qua khi video đổi (không để lời của video cũ lẫn vào video mới).
+  int _loadGeneration = 0;
+
+  /// IN4-81: mốc thời gian mở video (để đo "tới khung hình đầu tiên").
+  final DateTime _openedAt = DateTime.now();
 
   // ── Subtitle state ────────────────────────────────────────
   final List<SubtitleLine> _lines = [];
@@ -168,7 +217,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    // IN4-77: thêm tab 3 "TẢI" (audio + caption + lịch sử) — tích hợp
+    // các tính năng của giao diện tầng 2 vào ngay màn player.
+    _tabCtrl = TabController(length: 3, vsync: this);
     _initWebView();
     unawaited(_loadWordStates());
     unawaited(_loadRealSubtitles());
@@ -176,9 +227,32 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   @override
+  void didUpdateWidget(covariant YtPlayerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // IN4-81: đổi video ⇒ huỷ kết quả của video cũ (token thế hệ tăng),
+    // xoá lời cũ, nạp lại từ đầu cho video mới.
+    if (oldWidget.video.id != widget.video.id) {
+      debugPrint(
+          '[in4up-yt] đổi video: ${oldWidget.video.id} → ${widget.video.id}');
+      _loadGeneration++; // vô hiệu hoá mọi tác vụ async của video cũ
+      _lines.clear();
+      _currentLineIdx = 0;
+      _currentTime = 0;
+      _videoReady = false;
+      _playerError = null;
+      _errTicks = 0;
+      _embedRequested = false;
+      _attempt = 0;
+      _ytCtrl.loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
+      unawaited(_loadRealSubtitles());
+    }
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
     _errWatchdog?.cancel();
+    _loadWatchdog?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -190,16 +264,30 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (url) {
-            // (IN4-78) 2 bước: trang seed (cùng domain youtube-nocookie)
-            // load xong → điều hướng tới /embed/<id> thật; request lúc đó
-            // tự mang Referer hợp lệ. (Load thẳng /embed/ ở bước đầu thì
-            // không có Referer → YouTube trả lỗi 153.)
-            if (url.toString() == kYtEmbedSeedUrl) {
+            final u = url.toString();
+            // (IN4-78) fallback: trang đầu (seed) load xong → điều hướng
+            // tới /embed/<id>; request lúc đó tự mang Referer. Chốt theo
+            // cờ (không so URL y hệt) để vẫn chạy nếu seed bị redirect.
+            if (_attempt == 1 && !_embedRequested) {
+              _embedRequested = true;
               debugPrint('[in4up-yt] seed done → load embed (referrer OK)');
               _ytCtrl.loadRequest(Uri.parse(buildYtEmbedUrl(widget.video.id)));
               return;
             }
-            _injectSyncScript();
+            _pageFinished = true;
+            _loadWatchdog?.cancel();
+            // Referrer diagnostics (fallback path): xem trang embed nhận
+            // được Referer gì từ bước seed.
+            if (u.contains('youtube-nocookie.com/embed/')) {
+              _ytCtrl.runJavaScriptReturningResult('document.referrer').then(
+                (r) => debugPrint('[in4up-yt] embed referrer: ${r ?? "∅"}'),
+              ).catchError((_) {});
+            }
+            // Wrapper (GitHub Pages) tự chứa IFrame API + YtSync — không
+            // cần inject. Trang embed trực tiếp cần inject script cũ.
+            if (!u.contains(Uri.parse(kYtWrapperBaseUrl).host)) {
+              _injectSyncScript();
+            }
             _startErrorWatchdog();
           },
         ),
@@ -207,34 +295,114 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ..addJavaScriptChannel(
         'YtSync',
         onMessageReceived: (msg) {
-          final time = double.tryParse(msg.message) ?? 0;
-          _updateTime(time);
+          _handlePlayerMessage(msg.message);
         },
       )
-      ..loadRequest(Uri.parse(kYtEmbedSeedUrl));
+      ..loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
+    _startLoadWatchdog();
   }
 
-  /// (IN4-78) Theo dõi 3s/lần: nếu trang player hiện màn lỗi (mã 153…)
-  /// → hiện overlay tiếng Việt + nút Thử lại. Chạy tới khi có lỗi hoặc
-  /// screen dispose.
+  /// (IN4-78) Tin từ wrapper/embed qua kênh YtSync:
+  /// `t:<s>` vị trí phát, `ready`, `state:<n>`, `err:<mã>`.
+  void _handlePlayerMessage(String m) {
+    if (!mounted) return;
+    if (m == 'ready') {
+      _gotReady = true;
+      _loadWatchdog?.cancel();
+      if (!_videoReady) {
+        _markFirstFrame();
+        setState(() => _videoReady = true);
+      }
+      return;
+    }
+    final time = ytParseTimeMessage(m);
+    if (time != null) {
+      if (!_videoReady) {
+        _markFirstFrame();
+        setState(() => _videoReady = true);
+      }
+      _updateTime(time);
+      return;
+    }
+    // Compat: script inject cũ (đường embed trực tiếp) post số TRẺ không
+    // có prefix 't:' — vẫn nhận làm vị trí phát.
+    final raw = double.tryParse(m);
+    if (raw != null) {
+      _updateTime(raw);
+      return;
+    }
+    if (m.startsWith('err:')) {
+      _onPlayerError(m.substring(4).trim());
+    }
+  }
+
+  /// (IN4-78) wrapper không load được trong 12s (Pages chưa bật / mạng)
+  /// → tự chuyển sang fallback seed→embed.
+  void _startLoadWatchdog() {
+    _loadWatchdog?.cancel();
+    _loadWatchdog = Timer(const Duration(seconds: 12), () {
+      if (!mounted) return;
+      if (_attempt == 0 && !_pageFinished) {
+        debugPrint('[in4up-yt] wrapper timeout → fallback seed→embed');
+        _fallbackToDirect();
+      }
+    });
+  }
+
+  /// Mã lỗi KHÔNG liên quan môi trường nhúng (video sai/cấm nhúng) —
+  /// fallback cũng vô ích, báo thẳng overlay.
+  static const Set<String> _kNoFallbackCodes =
+      {'2', '5', '100', '101', '120', '150'};
+
+  /// (IN4-78) fallback: seed → embed trực tiếp (mang Referer same-origin).
+  void _fallbackToDirect() {
+    _attempt = 1;
+    _pageFinished = false;
+    _embedRequested = false;
+    _videoReady = false;
+    _errTicks = 0;
+    _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
+    _startLoadWatchdog();
+  }
+
+  /// (IN4-78) Player báo lỗi (từ wrapper `err:<code>` hoặc watchdog text):
+  /// còn attempt thì fallback; hết thì overlay + "Mở ngoài".
+  void _onPlayerError(String code) {
+    if (!mounted) return;
+    debugPrint('[in4up-yt] player error code=$code attempt=$_attempt (IN4-78)');
+    if (_attempt == 0 && !_kNoFallbackCodes.contains(code)) {
+      _fallbackToDirect();
+      return;
+    }
+    if (_playerError == null) {
+      setState(() => _playerError =
+          'YouTube từ chối phát video này (lỗi cấu hình trình phát, '
+          'mã $code). Bấm Thử lại, hoặc Mở ngoài để xem trong trình duyệt.');
+    }
+  }
+
+  /// (IN4-78) Theo dõi 3s/lần: nếu trang player hiện màn lỗi → xử lý.
+  /// Wrapper tự báo `err:` nên watchdog chủ yếu cho đường embed trực tiếp;
+  /// thêm: 15s mà vẫn chưa `ready` (wrapper chết lặng) → fallback.
   void _startErrorWatchdog() {
     _errWatchdog?.cancel();
     _errWatchdog = Timer.periodic(const Duration(seconds: 3), (_) async {
       if (!mounted) return;
+      if (_attempt == 0 && !_gotReady) {
+        _errTicks++;
+        if (_errTicks >= 5) {
+          debugPrint('[in4up-yt] wrapper không ready 15s → fallback');
+          _fallbackToDirect();
+          return;
+        }
+      }
       try {
         final res = await _ytCtrl.runJavaScriptReturningResult(
             "(function(){ var b = document.body; "
             "return b ? b.innerText.slice(0, 3000) : ''; })();");
         final text = res == null ? '' : res.toString();
-        if (text.isEmpty) return;
-        if (ytLooksLikePlayerError(text)) {
-          debugPrint('[in4up-yt] player error detected (IN4-78)');
-          _errWatchdog?.cancel();
-          if (mounted && _playerError == null) {
-            setState(() => _playerError =
-                'YouTube từ chối phát video này (lỗi cấu hình trình phát, '
-                'thường là mã 153). Kiểm tra mạng/VPN rồi bấm Thử lại.');
-          }
+        if (text.isNotEmpty && ytLooksLikePlayerError(text)) {
+          _onPlayerError('153?');
         }
       } catch (e) {
         // runJavaScript có thể lỗi khi đang chuyển trang — bỏ qua.
@@ -242,12 +410,33 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     });
   }
 
-  /// (IN4-78) Nút "Thử lại" trên overlay lỗi: quay lại từ đầu (seed → embed).
+  /// (IN4-78) Nút "Thử lại" trên overlay: chạy lại từ đầu (wrapper).
   void _reloadPlayer() {
     debugPrint('[in4up-yt] reload player (IN4-78)');
     _errWatchdog?.cancel();
+    _loadWatchdog?.cancel();
+    _attempt = 0;
+    _pageFinished = false;
+    _gotReady = false;
+    _embedRequested = false;
+    _videoReady = false;
+    _errTicks = 0;
     setState(() => _playerError = null);
-    _ytCtrl.loadRequest(Uri.parse(kYtEmbedSeedUrl));
+    _ytCtrl.loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
+    _startLoadWatchdog();
+  }
+
+  /// (IN4-78) Nút "Mở ngoài": xem video trong YouTube/trình duyệt hệ thống
+  /// — luôn hoạt động (khuyến nghị chính thức cho WebView bị chặn).
+  Future<void> _openExternally() async {
+    final url = Uri.parse('https://www.youtube.com/watch?v=${widget.video.id}');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (mounted) {
+        debugPrint('[in4up-yt] open externally failed: $e');
+      }
+    }
   }
 
   void _injectSyncScript() {
@@ -298,6 +487,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   void _updateTime(double time) {
     if (!mounted) return;
+    // _currentTime KHÔNG hiển thị ở UI (chỉ dùng cho seek/lặp) → cập nhật
+    // THƯỜNG, không setState. (IN4-78 nghiệm thu 2: trước setState ~2
+    // lần/giây cho phần không đổi → churn semantics liên tục, assertion
+    // debug `!semantics.parentDataDirty` spam trên máy có accessibility.)
+    _currentTime = time;
     if (_looping && _lines.isNotEmpty) {
       final line = _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
       if (time * 1000 >= line.end.inMilliseconds - 60) {
@@ -315,13 +509,22 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       }
       if (ms >= l.start.inMilliseconds) idx = i;
     }
-    if (idx != _currentLineIdx || (time - _currentTime).abs() > 0.45) {
-      setState(() {
-        _currentTime = time;
-        _currentLineIdx = idx;
-      });
-    } else {
-      _currentTime = time;
+    // Chỉ rebuild khi DÒNG PHỤ ĐỀ đổi (phần hiển thị thực sự).
+    if (idx != _currentLineIdx) {
+      // IN4-81: log TIMESTAMP thực tế để đo độ lệch (audio vs chữ) — KHÔNG
+      // dùng offset cố định. Nếu "âm thanh đi trước chữ" thì log này cho
+      // biết chọn dòng có đúng không và độ lệch là bao nhiêu.
+      final line = _lines[idx];
+      final gapBefore = idx > 0
+          ? (line.start - _lines[idx - 1].end).inMilliseconds
+          : 0;
+      debugPrint(
+        '[in4up-yt] line $idx '
+        'start=${line.start.inMilliseconds}ms end=${line.end.inMilliseconds}ms '
+        '| t=${ms}ms | gapBefore=${gapBefore}ms | '
+        '${line.text.length > 40 ? "${line.text.substring(0, 40)}…" : line.text}',
+      );
+      setState(() => _currentLineIdx = idx);
     }
   }
 
@@ -378,35 +581,166 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   Future<void> _loadRealSubtitles() async {
+    // IN4-81: ưu tiên VIDEO, lời/dịch KHÔNG được chặn player.
+    // Chia 3 pha:
+    //  A) lấy phụ đề GỐC (en) → hiện ngay (chưa có dịch);
+    //  B) lấy phụ đề đích trên YT → ghép (nhanh, không cần AI);
+    //  C) nếu YT không có bản dịch → dịch AI theo LÔ nhỏ, hiện tăng dần.
+    // Mọi kết quả của video cũ bị BỎ QUA nếu video đã đổi (token thế hệ).
+    final generation = ++_loadGeneration;
+    final videoId = widget.video.id;
+    final startedAt = DateTime.now();
     setState(() => _isLoading = true);
+
+    List<YtCaptionLine>? base;
     try {
-      final target = TranslationService().targetLang.toLowerCase();
-      final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
-      final captions = await YtService.instance.fetchBilingualCaptions(
-        widget.video.id,
-        lang1: 'en',
-        lang2: lang2,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _lines.clear();
-        for (final c in captions) {
-          _lines.add(SubtitleLine(
-            start: c.start,
-            end: c.end,
-            text: c.text,
-            translation: c.translation,
-            words: _parseWords(c.text),
-          ));
-        }
-        _isLoading = false;
-      });
+      base = await YtService.instance.fetchCaptions(videoId, lang: 'en');
+      if (_isStale(generation)) return;
+      if (base.isEmpty) {
+        debugPrint('[in4up-yt] không có phụ đề gốc cho $videoId');
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      _applyCaptionLines(base);
+      final tCaptions = DateTime.now()
+          .difference(startedAt)
+          .inMilliseconds;
+      debugPrint(
+          '[in4up-yt] TIMING phụ đề đầu tiên: ${tCaptions}ms '
+          '(${base.length} dòng)');
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Load subtitles error: $e');
       if (mounted) setState(() => _isLoading = false);
+      return;
     }
+
+    if (_isStale(generation)) return;
+    final target = TranslationService().targetLang.toLowerCase();
+    final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
+
+    // (B) bản dịch có sẵn trên YouTube — nhanh, không cần AI.
+    try {
+      final localized = await YtService.instance.fetchCaptions(videoId, lang: lang2);
+      if (_isStale(generation)) return;
+      if (localized.isNotEmpty) {
+        final merged = YtService.instance.mergeCaptions(base, localized);
+        _applyCaptionLines(merged);
+        final tAll = DateTime.now().difference(startedAt).inMilliseconds;
+        debugPrint('[in4up-yt] TIMING bản dịch (YT) đầy đủ: ${tAll}ms');
+        return;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [in4up-yt] lấy phụ đề $lang2 lỗi: $e');
+    }
+    if (_isStale(generation)) return;
+
+    // (C) không có bản dịch trên YT → dịch AI TĂNG DẦN theo lô.
+    debugPrint('🔄 [in4up-yt] $lang2 không có trên YT → dịch AI tăng dần');
+    const chunkSize = 6;
+    final total = base.length;
+    var firstTranslationMs = 0;
+    for (var offset = 0; offset < total; offset += chunkSize) {
+      if (_isStale(generation)) return;
+      final end = (offset + chunkSize) > total ? total : offset + chunkSize;
+      final slice = base.sublist(offset, end);
+      List<String> translated;
+      try {
+        translated = await YtService.instance.translateLines(
+          slice.map((e) => e.text).toList(),
+          sourceLang: 'en',
+          targetLang: lang2,
+        );
+      } catch (e) {
+        debugPrint('⚠️ [in4up-yt] dịch lô $offset-$end lỗi: $e');
+        continue;
+      }
+      if (_isStale(generation)) return;
+      // Ghi đè bản dịch của đúng các dòng vừa dịch, giữ nguyên phần còn lại.
+      final merged = List<YtCaptionLine>.from(base);
+      for (var i = 0; i < slice.length; i++) {
+        final text = i < translated.length ? translated[i].trim() : '';
+        merged[offset + i] = merged[offset + i].copyWith(
+          translation: text.isEmpty ? null : text,
+        );
+      }
+      _applyCaptionLines(merged);
+      if (firstTranslationMs == 0) {
+        firstTranslationMs = DateTime.now().difference(startedAt).inMilliseconds;
+        debugPrint(
+            '[in4up-yt] TIMING bản dịch đầu tiên: ${firstTranslationMs}ms');
+      }
+    }
+    final tAll = DateTime.now().difference(startedAt).inMilliseconds;
+    debugPrint('[in4up-yt] TIMING bản dịch đầy đủ: ${tAll}ms');
+  }
+
+  /// Kết quả của lần load cũ (video đã đổi) ⇒ bỏ qua.
+  bool _isStale(int generation) => generation != _loadGeneration || !mounted;
+
+  /// IN4-81: đo mốc "khung hình đầu tiên" (lần đầu player báo ready/tick).
+  void _markFirstFrame() {
+    final ms = DateTime.now().difference(_openedAt).inMilliseconds;
+    debugPrint('[in4up-yt] TIMING khung hình đầu tiên: ${ms}ms');
+  }
+
+  /// Đưa danh sách phụ đề vào state (giữ nguyên phần dịch đã có).
+  /// Track phụ đề "rolling window" (auto-caption của YouTube): mỗi dòng LẶP
+  /// lại phần chữ của dòng trước rồi thêm chữ mới
+  /// (vd "hello" → "hello world" → "hello world how").
+  ///
+  /// Với dạng này, hiển thị CẢ cửa sổ khiến chữ luôn **trễ hơn âm
+  /// thanh khoảng một dòng** (chữ mới chỉ xuất hiện ở cuối cửa sổ) —
+  /// đúng triệu chứng owner báo (IN4-81). Cách sửa KHÔNG dùng offset cố
+  /// định: nhận diện theo NỘI DUNG rồi hiển thị đúng phần chữ **đang
+  /// được đọc** (phần mới) — dòng nào "đang nói" thì hiện đúng phần đó.
+  static bool _isCumulativeCaptionTrack(List<YtCaptionLine> captions) {
+    if (captions.length < 3) return false;
+    var cumulative = 0;
+    var checked = 0;
+    for (var i = 1; i < captions.length; i++) {
+      final prev = captions[i - 1].text.trim();
+      final cur = captions[i].text.trim();
+      if (prev.isEmpty || cur.isEmpty) continue;
+      checked++;
+      if (cur.length > prev.length && cur.startsWith(prev)) cumulative++;
+    }
+    if (checked == 0) return false;
+    // ≥ 60% dòng lặp tiền tố ⇒ đây là rolling window.
+    return cumulative / checked >= 0.6;
+  }
+
+  void _applyCaptionLines(List<YtCaptionLine> captions) {
+    if (!mounted) return;
+    final cumulative = _isCumulativeCaptionTrack(captions);
+    if (cumulative) {
+      debugPrint(
+        '🔁 [in4up-yt] phụ đề dạng ROLLING WINDOW (${captions.length} dòng) — '
+        'hiển thị phần chữ mới theo từng dòng (không dùng offset cố định).',
+      );
+    }
+    setState(() {
+      _lines.clear();
+      for (var i = 0; i < captions.length; i++) {
+        final c = captions[i];
+        var display = c.text;
+        if (cumulative && i > 0) {
+          final prev = captions[i - 1].text.trim();
+          final cur = c.text.trim();
+          if (cur.length > prev.length && cur.startsWith(prev)) {
+            display = cur.substring(prev.length).trim();
+          }
+        }
+        _lines.add(SubtitleLine(
+          start: c.start,
+          end: c.end,
+          text: display.isEmpty ? c.text : display,
+          fullText: c.text,
+          translation: c.translation,
+          words: _parseWords(display.isEmpty ? c.text : display),
+        ));
+      }
+    });
   }
 
   List<LrWord> _parseWords(String text) {
@@ -619,6 +953,38 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       fit: StackFit.expand,
       children: [
         WebViewWidget(controller: _ytCtrl),
+        // (IN4-78 nghiệm thu 2) "load từ rất lâu" mà không có tín hiệu —
+        // hiện spinner tới khi player ready / phát đầu tiên.
+        // IN4-81: KHÔNG che video — chỉ đặt spinner ở GÓC (video phải thấy
+        // được ngay, lời/dịch không được chặn player).
+        if (!_videoReady && _playerError == null)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white70),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Đang tải…',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
         // (IN4-78) Không để màn lỗi YouTube chết im lặng: overlay + Thử lại.
         if (_playerError != null)
           Container(
@@ -636,9 +1002,22 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: _reloadPlayer,
-                  child: const Text('Thử lại'),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FilledButton(
+                      onPressed: _reloadPlayer,
+                      child: const Text('Thử lại'),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      onPressed: _openExternally,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Mở ngoài'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -801,6 +1180,21 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _ytCtrl.runJavaScript('window._in4upPause && window._in4upPause();');
   }
 
+  /// Mở audio ĐÃ TẢI (tab TẢI) trong tab Nghe — dùng chung đường LRC.
+  Future<void> _openInListenTab() async {
+    final audio = _downloadedAudioPath;
+    if (audio == null || audio.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Chưa có audio đã tải.')),
+        ),
+      );
+      return;
+    }
+    await _openAudioInListen(audio);
+  }
+
   Future<void> _openInListen() async {
     final audio = widget.audioPath;
     if (audio == null || audio.isEmpty) {
@@ -814,14 +1208,21 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       );
       return;
     }
+    await _openAudioInListen(audio);
+  }
+
+  /// Nạp audio (đã tải hoặc đã có) + LRC phụ đề vào tab Nghe.
+  Future<void> _openAudioInListen(String audio) async {
     final asYt = YtVideo(
       id: widget.video.id,
       title: widget.video.title,
       channel: widget.video.channelTitle,
       thumb: widget.video.thumb,
     );
+    // LRC dùng VĂN BẢN GỐC của dòng (fullText) — không dùng phần "chữ mới"
+    // (khi track là rolling window) để LRC khớp đúng track phụ đề gốc.
     final captions = _lines
-        .map((l) => YtCaptionLine(l.start, l.end, l.text,
+        .map((l) => YtCaptionLine(l.start, l.end, l.fullText,
             translation: l.translation))
         .toList();
     final lrcPath = captions.isEmpty
@@ -882,6 +1283,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               tabs: [
                 Tab(text: context.uiText('VĂN BẢN')),
                 Tab(text: context.uiText('TỪ')),
+                Tab(text: context.uiText('TẢI')),
               ],
             ),
           ),
@@ -901,6 +1303,223 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       children: [
         _buildTranscriptTab(),
         _buildWordTab(),
+        _buildDownloadTab(),
+      ],
+    );
+  }
+
+  // ── Tab TẢI (IN4-77): audio + caption + lịch sử ở giao diện tầng 2 ──
+
+  /// Đường dẫn audio đã tải (để mở trong tab Nghe).
+  String? _downloadedAudioPath;
+  String? _downloadStatus;
+  double? _downloadProgress;
+  bool _downloading = false;
+
+  /// Lịch sử xem (tải lại khi mở tab).
+  List<YtVideo> _history = const [];
+  bool _historyLoaded = false;
+
+  Future<void> _loadHistory() async {
+    await YtHistory.ensureOpen();
+    final list = YtHistory.load();
+    if (!mounted) return;
+    setState(() {
+      _history = list;
+      _historyLoaded = true;
+    });
+  }
+
+  /// Tải audio của video hiện tại (yt-dlp/explode) — có progress.
+  Future<void> _downloadAudio() async {
+    if (_downloading) return;
+    setState(() {
+      _downloading = true;
+      _downloadProgress = 0;
+      _downloadStatus = 'Đang chuẩn bị...';
+    });
+    final video = YtVideo(
+      id: widget.video.id,
+      title: widget.video.title,
+      channel: widget.video.channelTitle,
+      thumb: widget.video.thumb,
+    );
+    try {
+      await for (final event in YtDownloader.instance.download(video)) {
+        if (!mounted) return;
+        if (event is YtDownloadProgress) {
+          setState(() {
+            _downloadProgress = event.progress;
+            _downloadStatus = event.progressText;
+          });
+        } else if (event is YtDownloadDone) {
+          setState(() {
+            _downloading = false;
+            _downloadedAudioPath = event.filePath;
+            _downloadProgress = 1;
+            _downloadStatus = 'Đã tải xong (${event.quality})';
+          });
+        } else if (event is YtDownloadFailed) {
+          setState(() {
+            _downloading = false;
+            _downloadStatus = 'Tải thất bại: ${event.message}';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _downloadStatus = 'Lỗi: $e';
+        });
+      }
+    }
+  }
+
+  /// Tải phụ đề (caption) của video hiện tại về máy (file .srt).
+  Future<void> _downloadCaptions() async {
+    setState(() => _downloadStatus = 'Đang tải phụ đề...');
+    try {
+      final lines = await YtService.instance
+          .fetchCaptions(widget.video.id, lang: 'en');
+      if (lines.isEmpty) {
+        if (mounted) {
+          setState(() => _downloadStatus = 'Video không có phụ đề (en)');
+        }
+        return;
+      }
+      final path = await YtService.instance
+          .saveLrc(lines, YtVideo(
+            id: widget.video.id,
+            title: widget.video.title,
+            channel: widget.video.channelTitle,
+            thumb: widget.video.thumb,
+          ));
+      if (mounted) {
+        setState(() => _downloadStatus =
+            'Đã lưu phụ đề (${lines.length} dòng): ${path ?? "?"}');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _downloadStatus = 'Lỗi tải phụ đề: $e');
+    }
+  }
+
+  Widget _buildDownloadTab() {
+    if (!_historyLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadHistory());
+    }
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        // ── Audio ──
+        Text(
+          context.uiText('Tải audio'),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _downloading ? null : _downloadAudio,
+                icon: const Icon(Icons.download, size: 16),
+                label: Text(context.uiText(
+                    _downloading ? 'Đang tải...' : 'Tải audio')),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _downloading ? null : _downloadCaptions,
+                icon: const Icon(Icons.subtitles, size: 16),
+                label: Text(context.uiText('Tải phụ đề')),
+              ),
+            ),
+          ],
+        ),
+        if (_downloadProgress != null && _downloading) ...[
+          const SizedBox(height: 8),
+          LinearProgressIndicator(value: _downloadProgress),
+        ],
+        if (_downloadStatus != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _downloadStatus!,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+        ],
+        if (_downloadedAudioPath != null) ...[
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: _openInListenTab,
+            icon: const Icon(Icons.headphones, size: 16),
+            label: Text(context.uiText('Mở trong tab Nghe')),
+          ),
+        ],
+        const SizedBox(height: 18),
+        // ── Lịch sử ──
+        Text(
+          context.uiText('Lịch sử xem'),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        if (_history.isEmpty)
+          Text(
+            context.uiText('Chưa có lịch sử xem.'),
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          )
+        else
+          ..._history.take(30).map((v) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: v.thumb == null
+                    ? const Icon(Icons.play_circle_outline,
+                        color: Colors.white38, size: 20)
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          v.thumb!,
+                          width: 44,
+                          height: 26,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.play_circle_outline,
+                              color: Colors.white38,
+                              size: 20),
+                        ),
+                      ),
+                title: Text(
+                  v.shortTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                subtitle: Text(
+                  v.channel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => YtPlayerScreen(
+                        video: YtExVideo(
+                          id: v.id,
+                          title: v.title,
+                          channelId: '',
+                          channelTitle: v.channel,
+                          thumb: v.thumb,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              )),
       ],
     );
   }

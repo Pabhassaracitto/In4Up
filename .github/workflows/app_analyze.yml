@@ -87,7 +87,7 @@ jobs:
         id: i4u18-lib-tests
         run: |
           set +e
-          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart test/youtube_search_parser_test.dart test/yt_dlp_sidecar_test.dart test/yt_player_embed_test.dart"
+          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart test/youtube_search_parser_test.dart test/yt_dlp_sidecar_test.dart test/yt_player_embed_test.dart test/yt_progressive_loading_test.dart"
           flutter test $files > i4u18_lib_test.log 2>&1
           code=$?
           cat i4u18_lib_test.log
@@ -154,6 +154,14 @@ jobs:
           test/tipitaka_workspace_retention_test.dart
           test/tipitaka_dictionary_i18n_coverage_test.dart
           test/tipitaka_display_phase2_test.dart
+          test/tipitaka_import_concurrency_test.dart
+
+      # IN4-15 (LOGIN-CRASH-002): đăng nhập release — guard cấu trúc cho
+      # CI gate SHA-1 ↔ google-services.json + log trạng thái auth.
+      - name: "Login release verification (IN4-15)"
+        run: >-
+          flutter test
+          test/login_release_verification_test.dart
 
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
@@ -316,6 +324,8 @@ jobs:
           files=""
           for f in test/read_mode/read_text_action_runner_test.dart \
                    test/read_mode/word_range_selection_test.dart \
+                   test/read_mode/focus_title_and_scroll_test.dart \
+                   test/read_mode/line_edit_gesture_test.dart \
                    test/translation/mixed_language_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
@@ -547,6 +557,7 @@ jobs:
           set +e
           files=""
           for f in test/model_bundle_scanner_test.dart \
+                   test/model_import_saf_bytes_test.dart \
                    test/dict_bundle_scanner_test.dart \
                    test/dictionary/dict_db_service_test.dart \
                    test/dictionary/dict_result_sheet_test.dart \

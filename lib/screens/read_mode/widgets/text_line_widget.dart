@@ -28,7 +28,6 @@ import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
 import '../services/word_range_selection.dart';
 import '../sheets/line_actions_sheet.dart';
-import '../sheets/line_edit_sheet.dart';
 import '../sheets/word_actions_sheet.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
@@ -198,9 +197,13 @@ class TextLineWidget extends StatelessWidget {
         HapticFeedback.lightImpact();
         LineActionsSheet.show(context, index);
       },
+      // IN4-36: chạm giữ KHÔNG còn mở thẳng bảng sửa dòng (chức năng ít
+      // dùng — "lãng phí" cử chỉ theo audit 1.10.4). Giờ chạm giữ mở
+      // LineActionsSheet (đọc TTS/luân lưu/lưu/sao chép) — hữu ích;
+      // "Sửa dòng…" vẫn vào được TỪ TRONG sheet đó (chủ động hơn).
       onLongPress: () {
         HapticFeedback.mediumImpact();
-        LineEditSheet.show(context, index);
+        LineActionsSheet.show(context, index);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

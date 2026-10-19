@@ -207,6 +207,13 @@ class TranslationService {
         _offlineEngine.name,
       ];
 
+  /// Danh sách engine đã in lần cuối — để chỉ log khi danh sách THAY ĐỔI.
+  ///
+  /// IN4-17 (log 18/10): dịch màn hình gọi `configure()` nhiều lần ⇒ dòng
+  /// "🔧 Translation engines — online trước: …" bị lặp liên tục, đọc như
+  /// lỗi routing. Nay chỉ in khi danh sách thực sự khác.
+  String? _lastEnginesLog;
+
   void _initEngines() {
     _engines.clear();
     if (_deeplxUrl != null && _deeplxUrl!.isNotEmpty) {
@@ -217,11 +224,13 @@ class TranslationService {
       ..add(MyMemoryEngine())
       ..add(LibreEngine());
 
-    debugPrint(
-      '🔧 Translation engines — online trước: '
-      '${_engines.map((e) => e.name).join(" → ")}'
-      ' | offline fallback: Hy-MT → ML Kit → Offline',
-    );
+    final line = '🔧 Translation engines — online trước: '
+        '${_engines.map((e) => e.name).join(" → ")}'
+        ' | offline fallback: Hy-MT → ML Kit → Offline';
+    if (line != _lastEnginesLog) {
+      _lastEnginesLog = line;
+      debugPrint(line);
+    }
   }
 
   void configure({
@@ -737,12 +746,33 @@ class TranslationService {
   /// khi engine fail (đã log + `_activeEngine` nhả lại) → chuỗi đi tiếp
   /// engine kế tiếp. Timeout ngoài là safety-net tỷ lệ theo độ dài
   /// (budget thật nằm BÊN TRONG engine — mỗi chunk có timeout riêng).
+  /// Đã nhắc "chưa cấu hình provider LLM" chưa — chỉ nhắc 1 lần / phiên.
+  ///
+  /// IN4-17 (log 18/10): dịch màn hình gọi dịch liên tục (mỗi block OCR),
+  /// nên thông báo này bị lặp ~2 lần/giây và làm log ngỡ như lỗi routing.
+  bool _llmNoProviderNoticeShown = false;
+
   Future<TranslationResult?> _tryLlmMt(
     LlmMtEngine engine,
     String text,
     String sourceCode,
     String targetCode,
   ) async {
+    // IN4-17: provider chưa cấu hình ⇒ lớp LLM KHÔNG có gì để làm — bỏ qua
+    // im lặng (thông báo 1 lần) để chuỗi engine online/offline phía dưới chạy
+    // bình thường. Không đổi routing, không ép online.
+    if (!await engine.isAvailable()) {
+      if (!_llmNoProviderNoticeShown) {
+        _llmNoProviderNoticeShown = true;
+        debugPrint(
+          'ℹ️ LLM API: chưa cấu hình provider cho dịch LLM (màn Server & API) '
+          'hoặc routing "Dịch" đang "Chỉ offline" — bỏ qua lớp LLM, '
+          'dùng engine khác. (thông báo này chỉ in 1 lần)',
+        );
+      }
+      return null;
+    }
+    _llmNoProviderNoticeShown = false;
     _activeEngine.value = engine.name;
     try {
       final result = await engine

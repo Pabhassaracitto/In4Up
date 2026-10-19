@@ -161,6 +161,31 @@ class YtService {
     return l1Lines;
   }
 
+  /// IN4-81: bản CÔNG KHAI của ghép 2 nguồn phụ đề (để UI dựng dần:
+  /// lấy phụ đề gốc trước → hiện ngay, ghép bản dịch sau).
+  List<YtCaptionLine> mergeCaptions(
+    List<YtCaptionLine> base,
+    List<YtCaptionLine> target,
+  ) => _mergeCaptions(base, target);
+
+  /// IN4-81: dịch MỘT lô dòng sang ngôn ngữ đích (dùng TranslationService
+  /// đã cấu hình) — UI gọi theo lô để bản dịch hiện TĂNG DẦN thay vì
+  /// chờ dịch xong toàn bộ mới hiện (video không bị chặn).
+  Future<List<String>> translateLines(
+    List<String> texts, {
+    required String sourceLang,
+    required String targetLang,
+  }) async {
+    if (texts.isEmpty) return const [];
+    final ts = TranslationService();
+    ts.configure(sourceLang: sourceLang, targetLang: targetLang);
+    final results = await ts.translateBatch(texts);
+    return [
+      for (var i = 0; i < texts.length; i++)
+        i < results.length ? results[i].translatedText : '',
+    ];
+  }
+
   List<YtCaptionLine> _mergeCaptions(
     List<YtCaptionLine> base,
     List<YtCaptionLine> target,

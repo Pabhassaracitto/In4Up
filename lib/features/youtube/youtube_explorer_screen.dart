@@ -136,6 +136,12 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   @override
   void initState() {
     super.initState();
+    // IN4-77: mở YouTube → vào THẲNG tìm kiếm (ô tìm kiếm có focus,
+    // con trỏ nhảy vào ô) thay vì phải cuộn/tap mới tìm được.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _searchFocus.requestFocus();
+    });
     _init();
     _scrollCtrl.addListener(() {
       if (_scrollCtrl.position.pixels >=

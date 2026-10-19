@@ -8,6 +8,7 @@ import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../controllers/read_mode_controller.dart';
 import 'create_segment_sheet.dart';
+import 'line_edit_sheet.dart';
 
 class LineActionsSheet {
   LineActionsSheet._();
@@ -150,6 +151,19 @@ class LineActionsSheet {
                   );
                 },
               ),
+
+            // IN4-36: sửa dòng là chức năng ÍT dùng — không giữ riêng cử
+            // chỉ chạm giữ; vào qua đây (chủ động, có thấy danh sách).
+            _ActionTile(
+              icon: Icons.edit_outlined,
+              label: 'Sửa dòng…',
+              subtitle: 'Sửa văn bản gốc & bản dịch',
+              color: Colors.blueGrey,
+              onTap: () {
+                Navigator.pop(sheetContext);
+                LineEditSheet.show(context, lineIndex);
+              },
+            ),
 
             const SizedBox(height: 8),
           ],

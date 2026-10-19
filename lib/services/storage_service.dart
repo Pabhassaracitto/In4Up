@@ -1053,7 +1053,7 @@ class StorageService {
   String getReadFocusTitlePosition() {
     final v = getSetting<String>('read_focus_title_position',
         defaultValue: readFocusTitleHidden);
-    if (v == readFocusTitleTop || v == readFocusTitleBottom) return v;
+    if (v == readFocusTitleTop || v == readFocusTitleBottom) return v!;
     return readFocusTitleHidden;
   }
 

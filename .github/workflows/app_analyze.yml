@@ -154,6 +154,16 @@ jobs:
           flutter test
           test/login_release_verification_test.dart
 
+      # IN4-94 + IN4-83 (AI-PROV-BUILTIN-001): hết vạch vàng-đen overflow ở
+      # màn "Sửa nhà cung cấp" + provider CÓ SẴN OpenRouter (bật, model
+      # minimax/minimax-m3.1-flash:free) + routing Chat → ưu tiên online +
+      # OpenRouter + căn lề MỌI hàng của tab Đọc. Test thuần + source-scan
+      # (không plugin, không mạng) nên chạy được trên CI.
+      - name: "AI provider builtin + read alignment (2026-10-17)"
+        run: >-
+          flutter test
+          test/ai_provider_builtin_and_read_align_test.dart
+
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
       # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch

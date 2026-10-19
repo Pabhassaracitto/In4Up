@@ -12,7 +12,6 @@
 // Test thuần + source-scan (máy bắt).
 import 'dart:io';
 
-import 'package:flutter/material.dart' show TextAlign;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 

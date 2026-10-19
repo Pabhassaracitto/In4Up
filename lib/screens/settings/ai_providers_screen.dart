@@ -427,6 +427,28 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
                   ),
                 ),
               ),
+              // Provider OpenRouter CÓ SẴN: nếu build này không có key
+              // (build cục bộ / thiếu secret CI) ⇒ báo rõ để user dán key
+              // một lần thay vì tưởng app hỏng.
+              if (_isBuiltinOpenRouterWithoutKey) ...[
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 14, color: Colors.orange),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        context.uiText(
+                            'Chưa có API key cho OpenRouter. Dán key (sk-or-v1-…) vào ô trên, hoặc build lại bằng CI có secret OPENROUTER_API_KEY.'),
+                        style: const TextStyle(
+                            color: Colors.orange, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -519,6 +541,12 @@ class _ProviderFormDialogState extends State<_ProviderFormDialog> {
       ],
     );
   }
+
+  /// Provider OpenRouter có sẵn mà build này KHÔNG có key
+  /// (build cục bộ, hoặc CI thiếu secret OPENROUTER_API_KEY).
+  bool get _isBuiltinOpenRouterWithoutKey =>
+      widget.existing?.id == kBuiltinOpenRouterId &&
+      _apiKey.text.trim().isEmpty;
 
   String _detectPreset() {
     final normalized = OpenAiCompatClient.normalizeBaseUrl(_baseUrl.text);

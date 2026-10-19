@@ -234,11 +234,21 @@ jobs:
         shell: bash
         run: |
           echo "Building arm64-v8a-only APK (IN4-73)..."
+          # Provider có sẵn OpenRouter (2026-10-17): key đến từ SECRET CI
+          # (không hard-code trong repo — GitHub chặn push secret).
+          # Thiếu secret ⇒ app vẫn seed provider (base URL + model) nhưng user
+          # phải dán key 1 lần trong Cài đặt → Sửa nhà cung cấp.
+          if [ -z "${{ secrets.OPENROUTER_API_KEY }}" ]; then
+            echo "::warning::[in4up-or] Thiếu secret OPENROUTER_API_KEY — provider OpenRouter có sẵn sẽ KHÔNG có sẵn API key; user cần dán key trong Cài đặt → Sửa nhà cung cấp. Thêm secret: Settings → Secrets and variables → Actions → OPENROUTER_API_KEY."
+          else
+            echo "[in4up-or] Đã có secret OPENROUTER_API_KEY (provider có sẵn dùng key này)."
+          fi
           flutter build apk --release --flavor stable --target-platform android-arm64 --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" \
             "--dart-define=FLAVOR=stable"
 
       # Đổi tên bản Universal (CI-ANDROID-04): tên do Flutter 3.44.1 sinh

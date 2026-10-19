@@ -1835,4 +1835,5 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Ẩn': 'Hide',
   'Trên': 'Top',
   'Dưới': 'Bottom',
+  'Chưa có API key cho OpenRouter. Dán key (sk-or-v1-…) vào ô trên, hoặc build lại bằng CI có secret OPENROUTER_API_KEY.': 'No OpenRouter API key yet. Paste the key (sk-or-v1-…) above, or rebuild via CI with the OPENROUTER_API_KEY secret.',
 };

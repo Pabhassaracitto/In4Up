@@ -54,10 +54,28 @@ void main() {
       expect(p.baseUrl, 'https://openrouter.ai/api/v1');
       expect(p.enabled, isTrue, reason: 'Provider có sẵn phải BẬT.');
       expect(p.chatModel, 'minimax/minimax-m3.1-flash:free');
-      expect(p.apiKey, isNotNull);
-      expect(p.apiKey, startsWith('sk-or-v1-'));
       // Provider có sẵn phải hỗ trợ năng lực chat (để routing chọn được).
       expect(p.supports(AiRouteCapability.chat), isTrue);
+    });
+
+    test('API key đến từ môi trường, KHÔNG hard-code trong repo', () {
+      // GitHub chặn push khi có secret trong source ⇒ key phải từ
+      // --dart-define (CI secret OPENROUTER_API_KEY).
+      final src = File(
+              'packages/in4up_ai/lib/src/provider/builtin_ai_providers.dart')
+          .readAsStringSync();
+      expect(src, contains("String.fromEnvironment('OPENROUTER_API_KEY')"));
+      expect(
+        RegExp(r'sk-or-v1-[0-9a-f]{32,}').hasMatch(src),
+        isFalse,
+        reason: 'KHÔNG được hard-code key trong repo (GitHub chặn push; ai có '
+            'repo đều dùng được key).',
+      );
+      // CI phải chèn define + cảnh báo khi thiếu secret.
+      final wf = File('.github/workflows/build_final_complete.yml')
+          .readAsStringSync();
+      expect(wf, contains('OPENROUTER_API_KEY'));
+      expect(wf, contains('--dart-define=OPENROUTER_API_KEY='));
     });
 
     test('routing mặc định: Chat → ưu tiên online + OpenRouter', () {

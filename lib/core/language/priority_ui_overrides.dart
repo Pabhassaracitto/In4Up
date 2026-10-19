@@ -5646,4 +5646,11 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '底部',
     'si': 'පහළ',
   },
+  'Chưa có API key cho OpenRouter. Dán key (sk-or-v1-…) vào ô trên, hoặc build lại bằng CI có secret OPENROUTER_API_KEY.': {
+    'en': 'No OpenRouter API key yet. Paste the key (sk-or-v1-…) above, or rebuild via CI with the OPENROUTER_API_KEY secret.',
+    'hi': 'Chưa có API key cho OpenRouter. Dán key (sk-or-v1-…) vào ô trên, hoặc build lại bằng CI có secret OPENROUTER_API_KEY.',
+    'zh': '还没有 OpenRouter 的 API key。请在上方粘贴 key（sk-or-v1-…），或用带 OPENROUTER_API_KEY secret 的 CI 重新构建。',
+    'zh_TW': '還沒有 OpenRouter 的 API key。請在上方貼上 key（sk-or-v1-…），或用有 OPENROUTER_API_KEY secret 的 CI 重新建置。',
+    'si': 'තවමත් OpenRouter API key නොමැත. ඉහල කොටසේ key (sk-or-v1-…) ඇතුළත් කරන්න, හෝ OPENROUTER_API_KEY secret සහිත CI මගින් නැවත ගොඩනගන්න.',
+  },
 };

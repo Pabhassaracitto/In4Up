@@ -2585,6 +2585,56 @@
   - 2026-10-19 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (commit `f18bfa2` + fix `a24812b`, CI 🟢 `39191910926`); **chưa kiểm định máy**.
 
+### AI-PROV-BUILTIN-001 — (2026-10-17) Provider có sẵn OpenRouter + hết vạch vàng-đen + căn lề tab Đọc
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢 `39326599241`; **chờ build + máy**) — Linear IN4 (nhà cung cấp) + sửa tab Đọc
+- **1) Vạch vàng-đen 64px ở "Cài đặt → Sửa nhà cung cấp":** đây là cảnh
+  báo **Flutter overflow** (vạch vàng-đen), **KHÔNG** phải lỗi ảnh. Nguyên
+  nhân: `DropdownButton` mặc định `isExpanded: false` ⇒ nút rộng bằng item
+  dài nhất; tên model dài (`minimax/minimax-m3.1-flash:free`) ⇒ **tràn ngang**.
+  Sửa: `isExpanded: true` + `TextOverflow.ellipsis` cho dropdown model; dropdown
+  **nhà cung cấp** ở mục routing bọc `Expanded` + `isExpanded` + ellipsis.
+- **2) Provider CÓ SẴN OpenRouter:** file mới
+  `packages/in4up_ai/lib/src/provider/builtin_ai_providers.dart` (id
+  `openrouter`, base `https://openrouter.ai/api/v1`, model
+  `minimax/minimax-m3.1-flash:free`, **bật**). `AiProviderStore.ensureLoaded()`
+  **seed 1 lần** (cờ `ai_builtin_providers_seeded_v1`) ⇒ user xoá được mà
+  không bị thêm lại; routing seed: **Chat & Phân tích AI → Ưu tiên online →
+  nhà cung cấp OpenRouter** (không ghi đè lựa chọn của user — `putIfAbsent`).
+  Seed chạy **TRƯỚC** khi store báo "đã nạp" ⇒ engine không lúc nào thấy
+  danh sách provider rỗng.
+  - ⚠️ **API key KHÔNG hard-code trong repo**: lần đầu đặt key thật vào
+    source ⇒ **GitHub chặn push** (secret push protection — đúng như thiết
+    kế, key trong repo = ai có repo đều dùng được + nằm vĩnh viễn trong
+    history). ⇒ key đến từ **CI secret `OPENROUTER_API_KEY`** qua
+    `--dart-define` (workflow đã nối + cảnh báo khi thiếu secret). Build
+    cục bộ không có define ⇒ provider vẫn seed (base URL + model + routing)
+    và UI **báo rõ** "Chưa có API key cho OpenRouter…".
+    **Owner cần làm:** thêm secret `OPENROUTER_API_KEY` (Settings → Secrets
+    and variables → Actions) rồi build lại ⇒ provider có sẵn chạy được
+    ngay, không phải dán key tay.
+- **3) Tab Đọc — đoạn dài rớt dòng bị canh trái:** `ColoredTextWidget` (chế độ
+  ô chữ) dựng `Wrap` **không có `alignment`** ⇒ mặc định `WrapAlignment.start`
+  ⇒ **mọi hàng** (kể cả hàng rớt) canh tráí, còn hàng đầu được `Align` ngoài
+  canh giữa ⇒ nhìn lệch. Sửa: `ColoredTextWidget` nhận `textAlign` (truyền
+  từ tầng dòng) và `Wrap` canh theo (`center`/`start`). Các đường còn lại
+  (`SelectableText`) vốn đã canh đúng.
+- **Test:** `test/ai_provider_builtin_and_read_align_test.dart` (mới) pin:
+  dropdown `isExpanded`+ellipsis, provider OpenRouter bật/đúng model, routing
+  chat→onlineFirst+OpenRouter, **key phải đến từ môi trường (không
+  hard-code)**, CI có define, Wrap canh theo textAlign. Nối CI step riêng.
+- **Nghiệm thu (máy):** (1) Cài đặt → Sửa nhà cung cấp (OpenRouter) ⇒
+  **không còn vạch vàng-đen**; danh sách model hiện gọn, cắt bằng "…";
+  (2) danh sách provider có **OpenRouter (đã bật)**; mục "Khi nào dùng model
+  online" → Chat & Phân tích AI = **Ưu tiên online**, nhà cung cấp =
+  **OpenRouter**; (3) AI Chat trả lời được (build có secret) hoặc báo cần
+  key; (4) tab Đọc, canh giữa, dòng dài rớt hàng ⇒ **mọi hàng đều canh
+  giữa**.
+- **Lịch sử:**
+  - 2026-10-19 | created→doing | agent arena/01a0251e-in4up | commit
+    `a615869` + fix `e9837eb` (CI 🟢 `39326599241`). Lưu ý: có 1 commit
+    trung gian đỏ trên nhánh (`4297875`, dùng để thử push khi GitHub chặn
+    secret) — đã sửa ở commit sau, **không cần revert** (nhánh đang xanh).
+
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
 - **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK

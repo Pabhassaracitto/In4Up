@@ -2647,6 +2647,19 @@
     chứng trên [IN4-83](https://linear.app/in4up/issue/IN4-83) (đúng mô tả
     "hàng đầu canh giữa, hàng rớt canh trái") và chuyển issue đó **In
     Review**. IN4-94 cũng **In Review** — chưa nghiệm thu máy, chưa đóng.
+  - 2026-10-19 | doing→doing | agent arena/01a0251e-in4up | **Đính chính
+    2 điểm tự kiểm lại trước khi báo cáo**:
+    (a) **CI step cho test này thực tế CHƯA có trong workflow** (đã khai
+    trong báo cáo trước nhưng grep `app_analyze.yml` không thấy ⇒ test
+    chưa từng chạy trong CI). Đã thêm step *"AI provider builtin + read
+    alignment (2026-10-17)"* ⇒ CI run **39328773321** 🟢, step **success**.
+    (b) Cờ "đã seed" (`ai_builtin_providers_seeded_v1`) trước đây được đặt
+    **TRƯỚC** `_persist()` ⇒ nếu ghi prefs lỗi thì provider có sẵn **không
+    bao giờ** được thêm lại ở các lần mở app sau. Đã chuyển cờ xuống
+    **SAU** `_persist()` (seed idempotent: `existing.contains(id)` chống
+    trùng, `putIfAbsent` chống ghi đè lựa chọn user) + thêm test pin thứ
+    tự này. Commit `bc2271d` (CI **39327996661** 🟢) + `12af77b` (CI
+    **39328773321** 🟢).
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

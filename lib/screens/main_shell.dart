@@ -2531,35 +2531,8 @@ class _BottomNavItem extends StatelessWidget {
   });
 
   @override
-Widget build(BuildContext context) {
-  final activeColor = selected ? color : Colors.grey[500]!;
-
-
-  return Semantics(
-    button: true,
-    selected: selected,
-    label: label,
-    hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: 56,
-        minHeight: kMinInteractiveDimension,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: onLongPress,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-            decoration: BoxDecoration(
-              color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? color.withValues(alpha: 0.24) : Colors.transparent,
-              ),
+  Widget build(BuildContext context) {
+    final activeColor = selected ? color : Colors.grey[500]!;
 
     return Semantics(
       button: true,
@@ -2648,9 +2621,8 @@ Widget build(BuildContext context) {
               ),
             ),
           ),
-        ), // <-- Đóng InkWell
-      ), // <-- Đóng Padding
-    ), // <-- Đóng ConstrainedBox
-  ); // <-- Đóng Semantics và kết thúc hàm build
-}
+        ),
+      ),
+    );
+  }
 }

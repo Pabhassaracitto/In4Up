@@ -2189,6 +2189,11 @@
     resolve tay bị gãy 1 entry (Dart báo Can't find '}'); làm lại đúng cách: lấy file
     của tôi nguyên vẹn + chèn 142 dòng base thêm vào trước `};` — cân bằng ngoặc
     1247/1247, có cả chrome shell (C-30) + IN4-36 (base).
+  - 2026-10-14 | fix resolve merge 2 | agent arena/af0abe2f-in4up | main_shell.dart resolve
+    tay sai (common-top của base + HEAD side lặp ⇒ 2 return lồng nhau, Dart báo Unexpected
+    'return'); làm lại đúng cách: lấy file của tôi nguyên v Raven + áp patch base (3 hunk
+    IN4-31 OK, hunk _BottomNavItem reject vì của tôi đã có Semantics+showLongPressHint) —
+    cân bằng 210/210, 1 return duy nhất trong build.
     8 file (`quick_suggestion_sheet`, `sound_list_screen`, `word_import_sheet`,
     `continue_learning_section`, `focus_streak_card`, `single_word_review_screen`, `home_screen`,
     `word_list_screen`) — quick capture (gợi ý WordList, Nạp tri thức nhanh, huy hiệu lặp nhiều,

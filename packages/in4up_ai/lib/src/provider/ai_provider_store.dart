@@ -81,7 +81,6 @@ class AiProviderStore extends ChangeNotifier {
   Future<void> _seedBuiltinProviders(SharedPreferences prefs) async {
     try {
       if (prefs.getBool(_kBuiltinSeeded) ?? false) return;
-      await prefs.setBool(_kBuiltinSeeded, true);
 
       final existing = {for (final p in _providers) p.id};
       final added = <AiProviderConfig>[];
@@ -115,6 +114,13 @@ class AiProviderStore extends ChangeNotifier {
             'AiProviderStore: đã thêm provider có sẵn '
             '${added.map((p) => p.label).join(', ')}');
       }
+      // Cờ "đã seed" đặt **SAU** khi lưu thành công (không đặt trước):
+      // nếu `_persist()` lỗi (disk đầy, prefs hỏng…) mà cờ đã bật thì
+      // provider có sẵn sẽ **KHÔNG BAO GIỜ** được thêm lại ở các lần mở
+      // app sau. Đặt sau ⇒ lần mở sau thử seed lại; seed là idempotent
+      // (`existing.contains(id)` chống thêm trùng, `putIfAbsent` chống
+      // ghi đè lựa chọn của user) nên chạy lại là an toàn.
+      await prefs.setBool(_kBuiltinSeeded, true);
     } catch (e) {
       debugPrint('AiProviderStore: seed provider có sẵn lỗi ($e) — bỏ qua');
     }

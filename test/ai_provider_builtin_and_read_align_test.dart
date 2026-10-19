@@ -96,6 +96,23 @@ void main() {
       expect(store.contains('putIfAbsent'), isTrue);
     });
 
+    test('cờ "đã seed" đặt SAU khi lưu (lỗi persist không bỏ sót provider)',
+        () {
+      final store =
+          File('packages/in4up_ai/lib/src/provider/ai_provider_store.dart')
+              .readAsStringSync();
+      final seedIdx = store.indexOf('Future<void> _seedBuiltinProviders');
+      expect(seedIdx, greaterThan(0));
+      final body = store.substring(seedIdx);
+      final persistIdx = body.indexOf('await _persist();');
+      final flagIdx = body.indexOf('await prefs.setBool(_kBuiltinSeeded, true);');
+      expect(persistIdx, greaterThan(0));
+      expect(flagIdx, greaterThan(0));
+      expect(flagIdx, greaterThan(persistIdx),
+          reason: 'Nếu cờ "đã seed" bật TRƯỚC khi _persist() lỗi ⇒ provider '
+              'có sẵn không bao giờ được thêm lại ở lần mở app sau.');
+    });
+
     test('package export provider có sẵn', () {
       final pkg = File('packages/in4up_ai/lib/in4up_ai.dart').readAsStringSync();
       expect(pkg, contains('builtin_ai_providers.dart'));

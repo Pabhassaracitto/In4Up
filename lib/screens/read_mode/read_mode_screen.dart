@@ -17,6 +17,7 @@ import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../services/learning_activity_service.dart';
+import '../../services/storage_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/read_line_hint_service.dart';
@@ -101,6 +102,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   // Smart-hide bottom controls
   bool _bottomControlsVisible = true;
+
+  /// IN4-30 (READ-FOCUS-002): vị trí phần TIÊU ĐỀ khi ở chế độ Focus —
+  /// 'hidden' (mặc định) | 'top' | 'bottom'.
+  String _focusTitlePosition = StorageService.readFocusTitleHidden;
   double _lastScrollOffset = 0;
 
   // I4U18-READ-IPA-001 (F1.2) — chống lên lịch gợi ý nhiều lần trong khi
@@ -111,6 +116,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   void initState() {
     super.initState();
     _source = widget.initialSource;
+    // IN4-30: đọc lựa chọn "chỉ giữ phần tiêu đề" khi ở chế độ Focus.
+    _focusTitlePosition = StorageService().getReadFocusTitlePosition();
   }
 
   void _handleSourceChanged(ReadContentSource source) {
@@ -307,6 +314,14 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               Column(
                 children: [
                   if (!isFocusMode) const ReadTopBar(),
+                  // IN4-30 (READ-FOCUS-002): ở chế độ Focus, người dùng có
+                  // thể chọn "chỉ giữ phần tiêu đề" — TRÊN hoặc DƯỚI vùng
+                  // đọc (mặc định: ẩn hẳn, hành vi cũ).
+                  if (isFocusMode && _focusTitlePosition == 'top')
+                    ReadFocusTitleBar(
+                      tp: textProvider,
+                      controller: _controller,
+                    ),
                   // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
                   // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
                   if (!isFocusMode && widget.showSourcePicker)
@@ -377,8 +392,15 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                       ],
                     ),
                   ),
-                  if (isSmallScreen && !isFocusMode && !_bottomControlsVisible)
-                    const SizedBox(height: 8),
+                  // IN4-30: thanh tiêu đề tối giản đặt DƯỚI vùng đọc.
+                  if (isFocusMode && _focusTitlePosition == 'bottom')
+                    ReadFocusTitleBar(
+                      tp: textProvider,
+                      controller: _controller,
+                    ),
+                  // IN4-31: cụm đáy đã gập hẳn khi ẩn (chiều cao 0) ⇒
+                  // không cần spacer 8px nữa (trước đó để chừa chỗ cho
+                  // nền đen vẫn còn).
                 ],
               ),
               // Focus mode exit FAB

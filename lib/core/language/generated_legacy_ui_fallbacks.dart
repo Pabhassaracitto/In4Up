@@ -1829,4 +1829,10 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Lịch sử xem': 'Watch history',
   'Chưa có lịch sử xem.': 'No watch history yet.',
   'Chưa có audio đã tải.': 'No downloaded audio yet.',
+  'Tắt tự ẩn thanh chế độ': 'Disable auto-hide mode bar',
+  'Đã tắt tự ẩn thanh chế độ': 'Auto-hide for the mode bar is off',
+  'Chế độ Focus: giữ tiêu đề': 'Focus mode: keep the title',
+  'Ẩn': 'Hide',
+  'Trên': 'Top',
+  'Dưới': 'Bottom',
 };

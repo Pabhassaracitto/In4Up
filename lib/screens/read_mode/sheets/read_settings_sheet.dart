@@ -95,6 +95,13 @@ class _SettingsContent extends StatelessWidget {
                   _SubModeSelector(tp: tp),
                   const SizedBox(height: 24),
 
+                  // ===== FOCUS: giữ phần tiêu đề (IN4-30) =====
+                  const _SectionTitle(
+                      title: 'Chế độ Focus: giữ tiêu đề', icon: Icons.fullscreen),
+                  const SizedBox(height: 12),
+                  const _FocusTitlePositionSelector(),
+                  const SizedBox(height: 24),
+
                   // ===== ALIGNMENT =====
                   const _SectionTitle(
                       title: 'Căn lề văn bản', icon: Icons.format_align_center),
@@ -2187,6 +2194,82 @@ class _SubModeItem extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       onTap: onTap,
       dense: true,
+    );
+  }
+}
+
+// ── Chọn vị trí phần TIÊU ĐỀ khi ở chế độ Focus (IN4-30) ────────────────
+// Ẩn hẳn (mặc định, hành vi cũ) | Trên | Dưới.
+class _FocusTitlePositionSelector extends StatefulWidget {
+  const _FocusTitlePositionSelector();
+
+  @override
+  State<_FocusTitlePositionSelector> createState() =>
+      _FocusTitlePositionSelectorState();
+}
+
+class _FocusTitlePositionSelectorState
+    extends State<_FocusTitlePositionSelector> {
+  String _value = StorageService.readFocusTitleHidden;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = StorageService().getReadFocusTitlePosition();
+  }
+
+  Future<void> _set(String value) async {
+    setState(() => _value = value);
+    await StorageService().saveReadFocusTitlePosition(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _btn(context, Icons.visibility_off, 'Ẩn', StorageService.readFocusTitleHidden),
+          const SizedBox(width: 8),
+          _btn(context, Icons.vertical_align_top, 'Trên', StorageService.readFocusTitleTop),
+          const SizedBox(width: 8),
+          _btn(context, Icons.vertical_align_bottom, 'Dưới', StorageService.readFocusTitleBottom),
+        ],
+      ),
+    );
+  }
+
+  Widget _btn(BuildContext context, IconData icon, String label, String value) {
+    final selected = _value == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _set(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF6C63FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: selected ? Colors.white : Colors.grey),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

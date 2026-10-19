@@ -44,8 +44,14 @@ class CollapsibleBottomControls extends StatelessWidget {
     required this.child,
   });
 
-  /// Smart-hide khi cuộn: `false` = ẩn (opacity 0 + IgnorePointer, VẪN chiếm chỗ
-  /// layout — tránh văn bản nhảy khi đọc).
+  /// Smart-hide khi cuộn: `false` = **ẩn trọn khối** (chiều cao 0) — gộp cả
+  /// nền đen với icon chức năng.
+  ///
+  /// IN4-31 (READ-SCROLL-CLUSTER-001): trước đây ẩn bằng `Opacity(0)` +
+  /// `IgnorePointer` nên **nền đen vẫn còn** (dính nền) trong khi icon đã
+  /// biến mất ⇒ nhìn rất khó hiểu. Theo đúng ý owner: đã ẩn icon thì **ẩn
+  /// luôn nền** (ưu tiên ẩn nền), còn khi không ẩn thì giữ nguyên như bình
+  /// thường.
   final bool visible;
 
   /// Focus mode: gập chiều cao về 0 (hợp đồng READ-FOCUS-001).
@@ -58,13 +64,13 @@ class CollapsibleBottomControls extends StatelessWidget {
     if (collapsed) {
       return const SizedBox(width: double.infinity, height: 0);
     }
+    // Ẩn do cuộn ⇒ gập hẳn (không chừa nền đen).
+    if (!visible) {
+      return const SizedBox(width: double.infinity, height: 0);
+    }
 
-    return IgnorePointer(
-      ignoring: !visible,
-      child: Opacity(
-        opacity: visible ? 1.0 : 0.0,
-        child: child,
-      ),
-    );
+    // Hiện: vẽ trực tiếp (opacity 1.0) — không qua lớp animation/clipping
+    // nào (READ-TOOLBAR-001: tránh khối đen GPU Mali/Adreno).
+    return child;
   }
 }

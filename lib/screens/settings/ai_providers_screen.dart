@@ -11,6 +11,7 @@
 // - Chưa cấu hình gì → app hành xử y hệt trước khi có tầng API.
 
 import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 

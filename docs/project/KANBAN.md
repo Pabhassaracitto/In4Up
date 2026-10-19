@@ -2554,6 +2554,37 @@
   - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (chờ CI + build release + máy).
 
+### READ-LINEEDIT-002 — (IN4-30/IN4-31) Focus giữ phần tiêu đề + ẩn nền khi cuộn + bỏ tự ẩn thanh mode
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢 `39191910926`; **chờ nghiệm thu máy**) — [IN4-30](https://linear.app/in4up/issue/IN4-30) · [IN4-31](https://linear.app/in4up/issue/IN4-31)
+- **IN4-30 (Focus):** thêm **cơ chế ẩn linh hoạt** + tùy chọn
+  **Focus chỉ giữ phần tiêu đề**. Pref `read_focus_title_position` ∈
+  {`hidden` (mặc định, hành vi cũ), `top`, `bottom`} trong
+  `StorageService`; widget mới `ReadFocusTitleBar` (chỉ tiêu đề, KHÔNG kéo
+  icon chức năng) dựng ở trên/dưới vùng đọc; bộ chọn 3 nút trong
+  **Cài đặt Text Studio** (mục "Chế độ Focus: giữ tiêu đề").
+- **IN4-31 (cuộn):** đã ẩn icon chức năng thì **ẩn LUÔN nền** —
+  `CollapsibleBottomControls` chuyển từ `Opacity(0)` (giữ chỗ layout ⇒
+  **khối đen vẫn dính**) sang **gập `height: 0`**; bỏ spacer 8px thừa.
+  ⇒ hết trạng thái "icon biến mất mà nền đen vẫn còn" (khó hiểu).
+  *Ghi rõ:* nguyên nhân "nền chưa ẩn" trước đây là **giả thuyết**
+  (do `Opacity(0)` giữ chỗ layout) — nay đã **xác minh** bằng code và sửa.
+- **Thanh mode (shell):** bỏ **tự ẩn sau 4 giây** (người dùng chưa kịp
+  chọn đã bị ẩn ⇒ mỗi lần tìm lại để mở không thấy đâu). Thanh **giữ
+  hiện mặc định**; thêm **nút X** trên thanh ⇒ **tắt luôn chế độ tự ẩn**
+  (lưu setting `shell_auto_hide_mode_switch = false`).
+- **Test:** `test/read_mode/focus_title_and_scroll_test.dart` (mới) pin: pref 3
+  giá trị, màn Đọc dựng thanh tiêu đề trên/dưới, `ReadFocusTitleBar` KHÔNG
+  chứa icon chức năng, bộ chọn trong settings, collapsible **gập height 0**
+  (không còn `Opacity(`), **không còn timer 4s**, có nút X tắt ẩn; 6 chuỗi
+  i18n đủ 5 locale. Nối step read-act-tests.
+- **Nghiệm thu (máy):** (1) vào Focus ⇒ theo lựa chọn: ẩn hẳn / chỉ tiêu
+  đề trên / chỉ tiêu đề dưới; (2) cuộn lên ⇒ **cụm đáy biến mất hẳn, không
+  còn khối nền đen**; cuộn xuống ⇒ hiện lại; (3) thanh mode **không tự ẩn**
+  sau vài giây; bấm **X** ⇒ thanh giữ hiện vĩnh viễn.
+- **Lịch sử:**
+  - 2026-10-19 | created→doing | agent arena/01a0251e-in4up | code + test pin
+    (commit `f18bfa2` + fix `a24812b`, CI 🟢 `39191910926`); **chưa kiểm định máy**.
+
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
 - **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK

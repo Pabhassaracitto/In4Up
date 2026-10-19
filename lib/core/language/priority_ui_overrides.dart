@@ -5547,6 +5547,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   },
   'trang {value0}': {
     'en': 'page {value0}',
+  },
   // ── IN4-36 — sửa dòng: chạm giữ mở action sheet; nút Xóa xuống góc trái ──
   'Sửa dòng…': {
     'en': 'Edit line…',

@@ -2185,6 +2185,10 @@
     union. Catalog union 2464 key (+93 base, −91 stale) + 17 chuỗi UI mới dịch EN + 13
     log/nội dung vào exclusions ⇒ catalog 2481, missing 0, unclassified 198, residual 0;
     ratchet floors-check OK; CI xanh (xem run kế tiếp).
+  - 2026-10-14 | fix resolve merge | agent arena/af0abe2f-in4up | priority_ui_overrides.dart
+    resolve tay bị gãy 1 entry (Dart báo Can't find '}'); làm lại đúng cách: lấy file
+    của tôi nguyên vẹn + chèn 142 dòng base thêm vào trước `};` — cân bằng ngoặc
+    1247/1247, có cả chrome shell (C-30) + IN4-36 (base).
     8 file (`quick_suggestion_sheet`, `sound_list_screen`, `word_import_sheet`,
     `continue_learning_section`, `focus_streak_card`, `single_word_review_screen`, `home_screen`,
     `word_list_screen`) — quick capture (gợi ý WordList, Nạp tri thức nhanh, huy hiệu lặp nhiều,

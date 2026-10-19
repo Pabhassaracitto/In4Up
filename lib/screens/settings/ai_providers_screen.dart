@@ -625,13 +625,23 @@ class _ModelDropdown extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String?>(
         value: hasValue ? value : null,
+        // IN4 (sọc vàng-đen 64px): tên model dài (vd
+        // `minimax/minimax-m3.1-flash:free`) làm DropdownButton (mặc định
+        // isExpanded: false) rộng hơn khung ⇒ TRÀN NGANG ⇒ Flutter vẽ vạch
+        // vàng-đen cảnh báo overflow. isExpanded + ellipsis ⇒ vừa khung.
+        isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
         ),
         items: [
-          DropdownMenuItem<String?>(value: null, child: Text(noneLabel)),
-          ...models.map((m) => DropdownMenuItem<String?>(value: m, child: Text(m))),
+          DropdownMenuItem<String?>(
+              value: null, child: Text(noneLabel, overflow: TextOverflow.ellipsis)),
+          ...models.map((m) => DropdownMenuItem<String?>(
+                value: m,
+                child: Text(m,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              )),
         ],
         onChanged: onChanged,
       ),
@@ -719,21 +729,28 @@ class _RoutingTile extends StatelessWidget {
                 children: [
                   Text('${l10n.aiRoutingProvider}: ',
                       style: Theme.of(context).textTheme.bodySmall),
-                  DropdownButton<String?>(
-                    value: _preferredValue(candidates),
-                    items: [
-                      DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text(l10n.aiProviderNone),
-                      ),
-                      ...candidates.map(
-                        (p) => DropdownMenuItem<String?>(
-                          value: p.id,
-                          child: Text(p.label),
+                  // IN4 (sọc vàng-đen 64px): Expanded + isExpanded + ellipsis
+                  // ⇒ nhãn provider dài không tràn ngang.
+                  Expanded(
+                    child: DropdownButton<String?>(
+                      value: _preferredValue(candidates),
+                      isExpanded: true,
+                      items: [
+                        DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text(l10n.aiProviderNone,
+                              overflow: TextOverflow.ellipsis),
                         ),
-                      ),
-                    ],
-                    onChanged: (v) => _setPreferred(v),
+                        ...candidates.map(
+                          (p) => DropdownMenuItem<String?>(
+                            value: p.id,
+                            child: Text(p.label,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
+                      ],
+                      onChanged: (v) => _setPreferred(v),
+                    ),
                   ),
                 ],
               ),

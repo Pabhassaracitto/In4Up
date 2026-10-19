@@ -43,6 +43,10 @@ class ColoredTextWidget extends StatefulWidget {
   /// đi tìm controller; `null` thì tự tính đúng công thức đó.
   final int? lineStartOffset;
 
+  /// Căn lề của dòng (IN4: dòng dài rớt hàng thì phần rớt bị canh TRÁI
+  /// trong khi hàng đầu canh giữa). Dùng để canh **từng hàng** của Wrap.
+  final TextAlign textAlign;
+
   const ColoredTextWidget({
     super.key,
     required this.words,
@@ -50,6 +54,7 @@ class ColoredTextWidget extends StatefulWidget {
     required this.colorMode,
     required this.lineIndex,
     this.lineStartOffset,
+    this.textAlign = TextAlign.left,
   });
 
   @override
@@ -128,6 +133,13 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
     }
 
     final wrap = Wrap(
+      // IN4: Wrap mặc định `WrapAlignment.start` ⇒ MỖI hàng (kể cả hàng
+      // rớt xuống khi dòng quá dài) đều canh TRÁI, trong khi hàng đầu
+      // được `Align` bên ngoài canh giữa ⇒ nhìn rất lệch. Canh theo
+      // textAlign để MỌI hàng đều giống nhau.
+      alignment: widget.textAlign == TextAlign.center
+          ? WrapAlignment.center
+          : WrapAlignment.start,
       spacing: 3,
       runSpacing: 4,
       children: [

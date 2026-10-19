@@ -527,6 +527,9 @@ class TextLineWidget extends StatelessWidget {
           fontSize: data.fontSize,
           colorMode: data.colorMode,
           lineIndex: index,
+          // IN4: truyền căn lề để Wrap canh TỪNG hàng (hàng rớt khi dòng
+          // dài) — trước đó hàng rớt bị canh trái, hàng đầu canh giữa.
+          textAlign: data.textAlign,
           // READ-SELECT-002: offset đầu dòng để vùng chọn nhiều từ ghi vào
           // TextProvider như một selection thật (cùng công thức với
           // SelectableText ở các chế độ khác).

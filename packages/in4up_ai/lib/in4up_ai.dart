@@ -39,6 +39,7 @@ export 'src/engine/ai_route_planner.dart';
 // routing offline/online, client OpenAI-compatible duy nhất.
 // WP3 (API-004) thêm chatCompletion + OpenAiChatMessage (dịch bằng LLM).
 export 'src/provider/ai_provider_config.dart';
+export 'src/provider/builtin_ai_providers.dart';
 export 'src/provider/ai_provider_store.dart'
     show AiProviderStore;
 export 'src/provider/openai_compat_client.dart'

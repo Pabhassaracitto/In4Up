@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ai_provider_config.dart';
+import 'builtin_ai_providers.dart';
 
 class AiProviderStore extends ChangeNotifier {
   AiProviderStore._();
@@ -21,6 +22,10 @@ class AiProviderStore extends ChangeNotifier {
 
   static const _kProvidersJson = 'ai_providers_json_v1';
   static const _kRoutingJson = 'ai_routing_json_v1';
+
+  /// Cờ "đã seed provider có sẵn" — để seed MỘT LẦN (user xoá được mà
+  /// không bị thêm lại).
+  static const _kBuiltinSeeded = 'ai_builtin_providers_seeded_v1';
 
   List<AiProviderConfig> _providers = const [];
   AiRoutingPrefs _routing = const AiRoutingPrefs();
@@ -60,8 +65,59 @@ class AiProviderStore extends ChangeNotifier {
         _routing = const AiRoutingPrefs();
       }
     }
+    // Seed provider CÓ SẴN (OpenRouter) + routing "ưu tiên online" cho
+    // Chat & Phân tích AI — chỉ MỘT LẦN (cờ), để user xoá được mà không
+    // bị thêm lại (và không ghi đè lựa chọn của user về sau).
+    //
+    // QUAN TRỌNG: seed TRƯỚC khi báo "đã nạp xong" — nếu không, engine
+    // có thể hỏi `resolveProvider` trong khoảnh thời gian store đã loaded
+    // nhưng provider có sẵn chưa được thêm ⇒ tưởng không có API.
+    await _seedBuiltinProviders(prefs);
+
     _loaded = true;
     notifyListeners();
+  }
+  /// Thêm provider có sẵn + routing mặc định (một lần duy nhất).
+  Future<void> _seedBuiltinProviders(SharedPreferences prefs) async {
+    try {
+      if (prefs.getBool(_kBuiltinSeeded) ?? false) return;
+      await prefs.setBool(_kBuiltinSeeded, true);
+
+      final existing = {for (final p in _providers) p.id};
+      final added = <AiProviderConfig>[];
+      for (final builtin in builtinAiProviders()) {
+        if (existing.contains(builtin.id)) continue;
+        added.add(builtin);
+      }
+
+      var routing = _routing;
+      if (added.isNotEmpty) {
+        _providers = [..._providers, ...added];
+        // Routing mặc định cho provider có sẵn: "Khi nào dùng model online"
+        // (Chat & Phân tích AI) → Ưu tiên online + nhà cung cấp ưu tiên.
+        final builtinRouting = builtinAiRouting();
+        final modes = Map<AiRouteCapability, AiRouteMode>.from(routing.modes);
+        final preferred =
+            Map<AiRouteCapability, String>.from(routing.preferredProviderIds);
+        for (final entry in builtinRouting.modes.entries) {
+          modes.putIfAbsent(entry.key, () => entry.value);
+        }
+        for (final entry in builtinRouting.preferredProviderIds.entries) {
+          preferred.putIfAbsent(entry.key, () => entry.value);
+        }
+        routing = routing.copyWith(
+          modes: modes,
+          preferredProviderIds: preferred,
+        );
+        _routing = routing;
+        await _persist();
+        debugPrint(
+            'AiProviderStore: đã thêm provider có sẵn '
+            '${added.map((p) => p.label).join(', ')}');
+      }
+    } catch (e) {
+      debugPrint('AiProviderStore: seed provider có sẵn lỗi ($e) — bỏ qua');
+    }
   }
 
   /// Thêm mới (id sinh bởi caller — uuid hoặc timestamp) hoặc cập nhật

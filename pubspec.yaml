@@ -3,7 +3,7 @@ description: In4Up - Read, remember, learn, and listen with the UltraTimeStretch
 
 publish_to: 'none'
 
-version: 1.9.2+6
+version: 1.12.0+8
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -55,7 +55,7 @@ dependencies:
   # NEW
   hive: ^2.2.3                    # Local database
   hive_flutter: ^1.1.0            # Hive cho Flutter
-  audio_service: ^0.18.12         # Background playback
+  audio_service: ^0.18.17         # Background playback
 
   uuid: ^4.2.1                    # Generate unique IDs
   share_plus: ^12.0.2              # Share segments
@@ -94,7 +94,7 @@ dependencies:
   google_mlkit_document_scanner: ^0.5.0
 
   # Background removal — Phase 1. Android-only beta; no ONNX model is bundled.
-  google_mlkit_subject_segmentation: ^0.2.0
+  google_mlkit_subject_segmentation: ^0.1.0 #0.2.0
   # Phase 2 is intentionally not enabled here: add the selected ONNX runtime
   # only to a Phase 2 build profile (see docs/background_removal_phase2.md).
 # Firebase core (bắt buộc)
@@ -117,7 +117,7 @@ dependencies:
   webview_windows: ^0.4.0   # Chỉ cho Windows
   # Youtube
   youtube_explode_dart: ^3.0.5
-  pdfrx: ^2.2.24          # PDF render + text extraction (Android/iOS/Windows)
+  pdfrx: ^2.2.1 #Hạ từ ^2.2.20   # Hạ từ 2.2.24 xuống bản ổn định thấp hơn một chút
   graphview: ^1.2.0  
   animations: ^2.1.2
   flutter_animate: ^4.5.2
@@ -132,10 +132,12 @@ dependencies:
 dependency_overrides:
   pdfium_flutter:
     path: third_party/pdfium_flutter
+  pdfium_dart: 0.1.2     # <--- THÊM DÒNG NÀY VÀO ĐÂY
   just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^
   just_audio_web: 0.4.16                # KHÔNG dùng ^
   audio_session: 0.2.2                  # KHÔNG dùng ^
-
+  #pdfrx_engine: ^0.6.1                  # ← THÊM DÒNG NÀY VÀO ĐÂY
+  meta: ^1.18.0   # <-- Thêm dòng này vào cùng
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -2586,7 +2586,7 @@
     (commit `f18bfa2` + fix `a24812b`, CI 🟢 `39191910926`); **chưa kiểm định máy**.
 
 ### AI-PROV-BUILTIN-001 — (2026-10-17) Provider có sẵn OpenRouter + hết vạch vàng-đen + căn lề tab Đọc
-- **Trạng thái:** 🔨 doing (code + test + CI 🟢 `39326599241`; **chờ build + máy**) — Linear IN4 (nhà cung cấp) + sửa tab Đọc
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢 `39326599241`; **chờ build + máy**) — Linear: [IN4-94](https://linear.app/in4up/issue/IN4-94) (nhà cung cấp) + [IN4-83](https://linear.app/in4up/issue/IN4-83) (căn lề tab Đọc) — cả hai để **In Review**
 - **1) Vạch vàng-đen 64px ở "Cài đặt → Sửa nhà cung cấp":** đây là cảnh
   báo **Flutter overflow** (vạch vàng-đen), **KHÔNG** phải lỗi ảnh. Nguyên
   nhân: `DropdownButton` mặc định `isExpanded: false` ⇒ nút rộng bằng item
@@ -2634,6 +2634,19 @@
     `a615869` + fix `e9837eb` (CI 🟢 `39326599241`). Lưu ý: có 1 commit
     trung gian đỏ trên nhánh (`4297875`, dùng để thử push khi GitHub chặn
     secret) — đã sửa ở commit sau, **không cần revert** (nhánh đang xanh).
+  - 2026-10-19 | doing→doing | agent arena/01a0251e-in4up | **Linear đã
+    cập nhật**: tạo [IN4-94](https://linear.app/in4up/issue/IN4-94) cho
+    (1)+(2) — owner nói "có issue trong linear" cho lỗi sọc vàng-đen nhưng
+    quét **toàn bộ** IN4-1…IN4-93 + UIU-1 theo ~20 từ khoá tiêu đề
+    (`sọc`/`vàng`/`đen`/`vạch`/`64`/`pixel`/`cung cấp`/`provider`/`Cài
+    đặt`/`OpenRouter`/`nạp sẵn`/`tích hợp`/`hiển thị`/`tràn`/`overflow`…)
+    ⇒ **không có tiêu đề nào khớp** ⇒ tạo issue mới làm nơi theo dõi (có
+    ghi chú để owner gửi link issue gốc nếu nằm workspace khác; quan hệ
+    `related` với [IN4-25](https://linear.app/in4up/issue/IN4-25)
+    APIVAULT-001 vì cùng màn Server & API). Comment trình bày fix + bằng
+    chứng trên [IN4-83](https://linear.app/in4up/issue/IN4-83) (đúng mô tả
+    "hàng đầu canh giữa, hàng rớt canh trái") và chuyển issue đó **In
+    Review**. IN4-94 cũng **In Review** — chưa nghiệm thu máy, chưa đóng.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

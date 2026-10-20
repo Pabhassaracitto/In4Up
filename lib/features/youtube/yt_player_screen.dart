@@ -8,6 +8,10 @@
 
 import 'dart:async';
 import 'dart:convert';
+// YT-LR-002 (IN4-88): chế độ "Làm mờ bản dịch" dùng MaskFilter.blur ngay trên
+// paint của chữ (ổn định hơn ImageFilter/layer blur — từng render TRỐNG trên
+// một số GPU Android khiến người dùng tưởng bản dịch bị ẩn hẳn).
+import 'dart:ui' show BlurStyle, MaskFilter;
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/core/language/localized_material.dart';
@@ -22,10 +26,15 @@ import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_bridge.dart';
 import '../../services/syntax_highlighter_service.dart';
-import '../word_lookup/word_analysis_sheet.dart';
+import 'models/yt_learning_settings.dart';
+import 'models/yt_subtitle.dart';
 import 'models/yt_video.dart';
 import 'services/yt_downloader.dart';
+import 'services/yt_learning_settings_service.dart';
 import 'services/yt_service.dart';
+import 'widgets/yt_lexa_chat_tab.dart';
+import 'widgets/yt_subtitle_settings_sheet.dart';
+import 'widgets/yt_word_panel.dart';
 import 'youtube_explorer_screen.dart';
 
 // ─── IN4-78 — YouTube báo "Lỗi cấu hình trình phát video, mã 153" ───────
@@ -84,86 +93,10 @@ bool ytLooksLikePlayerError(String bodyText) {
       t.contains('youtube player error');
 }
 
-// ─── Word knowledge state ─────────────────────────────────
-enum WordState { unknown, known, learning, ignored }
-
-class LrWord {
-  final String text;
-  final String type; // noun, verb, adj, adv, prep, conj, other
-  final int langRank;
-  WordState state;
-
-  LrWord({
-    required this.text,
-    required this.type,
-    required this.langRank,
-    this.state = WordState.unknown,
-  });
-
-  Color get typeColor {
-    switch (type) {
-      case 'verb':
-        return const Color(0xFF4CAF50); // xanh lá
-      case 'noun':
-        return const Color(0xFFFF9800); // cam
-      case 'proper':
-        return const Color(0xFF9C27B0); // tím
-      case 'adj':
-        return const Color(0xFF2196F3); // xanh
-      case 'adv':
-        return const Color(0xFFFFCA28); // vàng
-      case 'prep':
-      case 'conj':
-        return const Color(0xFF78909C); // xám
-      default:
-        return Colors.white;
-    }
-  }
-
-  String get typeLabel {
-    switch (type) {
-      case 'verb':
-        return 'động từ';
-      case 'noun':
-        return 'danh từ';
-      case 'proper':
-        return 'tên riêng';
-      case 'adj':
-        return 'tính từ';
-      case 'adv':
-        return 'trạng từ';
-      case 'prep':
-        return 'giới từ';
-      case 'conj':
-        return 'liên từ';
-      default:
-        return 'từ';
-    }
-  }
-}
-
-// ─── Subtitle line ────────────────────────────────────────
-class SubtitleLine {
-  final Duration start;
-  final Duration end;
-  final String text;
-  final String? translation;
-
-  /// Văn bản GỐC của dòng (khi track là "rolling window" thì [text] chỉ là
-  /// phần MỚI, còn [fullText] là cả cửa sổ). Dùng cho tab VĂN BẢN.
-  final String fullText;
-
-  final List<LrWord> words;
-
-  SubtitleLine({
-    required this.start,
-    required this.end,
-    required this.text,
-    this.translation,
-    String? fullText,
-    required this.words,
-  }) : fullText = fullText ?? text;
-}
+// ─── Word knowledge state / phụ đề ───────────────────────
+// YT-LR-002: model `WordState`, `LrWord`, `SubtitleLine` đã chuyển sang
+// `models/yt_subtitle.dart` để bảng tra từ (`widgets/yt_word_panel.dart`)
+// dùng chung mà không tạo import vòng với màn hình này.
 
 // ══════════════════════════════════════════════════════════
 //  YT PLAYER SCREEN
@@ -208,22 +141,56 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   final List<SubtitleLine> _lines = [];
   int _currentLineIdx = 0;
   double _currentTime = 0;
+  // IN4-81: mẫu độ lệch (ms) giữa vị trí phát và mốc bắt đầu dòng vừa chọn,
+  // để ĐO chứ không đoán. `drift > 0` ⇒ tiếng nói đi trước lúc chữ đổi.
+  final List<int> _syncDrifts = <int>[];
 
   // ── Word knowledge ────────────────────────────────────────
   final Map<String, WordState> _wordStates = {};
   bool _looping = false;
   static const _kWordBox = 'yt_lr_word_states';
 
+  // ── YT-LR-002: cài đặt học tập (IN4-88) ───────────────────
+  /// Cài đặt phụ đề/bố cục/ngưỡng tần suất — lưu toàn cục, áp dụng mọi video.
+  YtLearningSettings _settings = const YtLearningSettings();
+
+  /// Chế độ `Làm mờ bản dịch`: người dùng bấm để hiện tạm rồi mờ lại.
+  bool _translationRevealed = false;
+
+  /// Từ người dùng vừa mở bảng tra (làm ngữ cảnh cho tab Lexa).
+  String? _selectedWord;
+
   @override
   void initState() {
     super.initState();
     // IN4-77: thêm tab 3 "TẢI" (audio + caption + lịch sử) — tích hợp
     // các tính năng của giao diện tầng 2 vào ngay màn player.
-    _tabCtrl = TabController(length: 3, vsync: this);
+    // YT-LR-002 (IN4-87): thêm tab 4 "LEXA" (AI chat bám ngữ cảnh video).
+    _tabCtrl = TabController(length: 4, vsync: this);
     _initWebView();
     unawaited(_loadWordStates());
+    unawaited(_loadSettings());
     unawaited(_loadRealSubtitles());
     _startTimer();
+  }
+
+  Future<void> _loadSettings() async {
+    await YtLearningSettingsService.ensureOpen();
+    if (!mounted) return;
+    setState(() => _settings = YtLearningSettingsService.load());
+  }
+
+  Future<void> _openSubtitleSettings() async {
+    final next = await showYtSubtitleSettingsSheet(context, _settings);
+    if (next == null) return;
+    setState(() => _settings = next);
+    unawaited(YtLearningSettingsService.save(next));
+  }
+
+  void _onFrequencyChanged(double value) {
+    final next = _settings.copyWith(frequencyRankThreshold: value);
+    setState(() => _settings = next);
+    unawaited(YtLearningSettingsService.save(next));
   }
 
   @override
@@ -238,6 +205,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       _lines.clear();
       _currentLineIdx = 0;
       _currentTime = 0;
+      // YT-LR-002: đổi video ⇒ xoá trạng thái tạm của video cũ.
+      _translationRevealed = false;
+      _selectedWord = null;
       _videoReady = false;
       _playerError = null;
       _errTicks = 0;
@@ -253,6 +223,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _timer?.cancel();
     _errWatchdog?.cancel();
     _loadWatchdog?.cancel();
+    _dlWatchdog?.cancel();
+    _dlSub?.cancel();
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -473,13 +445,42 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             });
           } catch (e) {}
         };
+        var lastT = null;
         function tick() {
           try {
             var v = videoEl();
-            if (v && window.YtSync) YtSync.postMessage(String(v.currentTime));
+            if (!v || !window.YtSync) return;
+            var t = String(v.currentTime);
+            if (t === lastT) return;   // skip duplicates
+            lastT = t;
+            YtSync.postMessage('t:' + t);
           } catch (e) {}
         }
-        setInterval(tick, 250);
+        // IN4-81: PUSH ON EVENT instead of setInterval(250). `timeupdate`
+        // fires the moment currentTime changes (sub-frame latency), while
+        // setInterval waits for the next tick and adds up to ~250ms of
+        // lag -- exactly the "audio runs ahead of the text" symptom.
+        // `seeked`/`ratechange`/`play` resync right after seek/speed change.
+        function hook(v) {
+          v.addEventListener('timeupdate', tick);
+          v.addEventListener('seeked', tick);
+          v.addEventListener('ratechange', tick);
+          v.addEventListener('play', tick);
+        }
+        var v0 = videoEl();
+        if (v0) {
+          hook(v0);
+        } else {
+          // <video> not created yet (IFrame API) -> wait, then attach.
+          var tries = 0;
+          var iv = setInterval(function() {
+            var v = videoEl();
+            if (v) { hook(v); clearInterval(iv); }
+            else if (++tries > 40) clearInterval(iv);
+          }, 250);
+        }
+        // Fallback when the browser throttles timers in a hidden tab.
+        setInterval(tick, 1000);
       })();
     ''';
     _ytCtrl.runJavaScript(js);
@@ -518,10 +519,18 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       final gapBefore = idx > 0
           ? (line.start - _lines[idx - 1].end).inMilliseconds
           : 0;
+      // drift = vị trí phát TRỪ mốc bắt đầu dòng. Dương & lớn ⇒ chữ đổi
+      // TRỄ so với tiếng nói (đúng triệu chứng "âm thanh nhanh hơn chữ").
+      // Giữ 60 mẫu gần nhất để đọc xu hướng trên logcat, KHÔNG tự áp offset.
+      final drift = ms - line.start.inMilliseconds;
+      _syncDrifts.add(drift);
+      if (_syncDrifts.length > 60) _syncDrifts.removeAt(0);
+      final avg = _syncDrifts.reduce((a, b) => a + b) / _syncDrifts.length;
       debugPrint(
         '[in4up-yt] line $idx '
         'start=${line.start.inMilliseconds}ms end=${line.end.inMilliseconds}ms '
-        '| t=${ms}ms | gapBefore=${gapBefore}ms | '
+        '| t=${ms}ms | drift=${drift}ms | driftTB=${avg.toStringAsFixed(0)}ms '
+        '| gapBefore=${gapBefore}ms | '
         '${line.text.length > 40 ? "${line.text.substring(0, 40)}…" : line.text}',
       );
       setState(() => _currentLineIdx = idx);
@@ -529,7 +538,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+    // IN4-81: trang đã ĐẨY `t:` theo sự kiện `timeupdate` (xem
+    // `_injectSyncScript`), nên nhịp hỏi từ Dart chỉ còn là dự phòng khi JS
+    // trong trang bị chặn → giảm tần suất để đỡ tải WebView.
+    _timer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
       _ytCtrl.runJavaScript('''
         (function(){
           var v = document.querySelector('video');
@@ -639,6 +651,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     debugPrint('🔄 [in4up-yt] $lang2 không có trên YT → dịch AI tăng dần');
     const chunkSize = 6;
     final total = base.length;
+
+    // YT-LR-002 (fix lệch/mất bản dịch, IN4-81): bộ nhớ dịch **TÍCH LUỸ**.
+    // Bản cũ dựng lại `merged` từ `base` (bản gốc CHƯA có dịch) ở mỗi lô rồi
+    // chỉ gắn dịch cho 6 dòng của lô đó ⇒ XOÁ SẠCH dịch của các lô trước ⇒
+    // cuối cùng chỉ còn 6 dòng CUỐI có bản dịch (triệu chứng owner báo:
+    // "ẩn đi nhiều dòng dịch, chỉ còn các dòng dịch cuối").
+    final translations = List<String?>.filled(total, null);
     var firstTranslationMs = 0;
     for (var offset = 0; offset < total; offset += chunkSize) {
       if (_isStale(generation)) return;
@@ -656,14 +675,16 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         continue;
       }
       if (_isStale(generation)) return;
-      // Ghi đè bản dịch của đúng các dòng vừa dịch, giữ nguyên phần còn lại.
-      final merged = List<YtCaptionLine>.from(base);
+      // Ghi THÊM vào bảng tích luỹ (không mất gì đã dịch trước đó).
       for (var i = 0; i < slice.length; i++) {
         final text = i < translated.length ? translated[i].trim() : '';
-        merged[offset + i] = merged[offset + i].copyWith(
-          translation: text.isEmpty ? null : text,
-        );
+        translations[offset + i] = text.isEmpty ? null : text;
       }
+      // Áp lại TOÀN BỘ danh sách từ bảng tích luỹ.
+      final merged = <YtCaptionLine>[
+        for (var i = 0; i < total; i++)
+          base[i].copyWith(translation: translations[i]),
+      ];
       _applyCaptionLines(merged);
       if (firstTranslationMs == 0) {
         firstTranslationMs = DateTime.now().difference(startedAt).inMilliseconds;
@@ -863,6 +884,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // YT-LR-002 (IN4-88): menu Subtitle Settings.
+              IconButton(
+                tooltip: context.uiText('Cài đặt phụ đề'),
+                icon: const Icon(Icons.subtitles_outlined,
+                    color: Colors.white70, size: 20),
+                onPressed: _openSubtitleSettings,
+              ),
               IconButton(
                 tooltip: 'Học trong tab Nghe',
                 icon: Icon(
@@ -913,6 +941,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              // YT-LR-002 (IN4-88): menu Subtitle Settings (cả ngang lẫn dọc).
+              IconButton(
+                tooltip: context.uiText('Cài đặt phụ đề'),
+                icon: const Icon(Icons.subtitles_outlined,
+                    color: Colors.white70, size: 18),
+                onPressed: _openSubtitleSettings,
               ),
             ],
           ),
@@ -1129,29 +1164,94 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           ),
           ),
           const SizedBox(height: 12),
-          // Colored words subtitle
-          Wrap(
-            spacing: 5,
-            runSpacing: 4,
-            children: line.words
-                .map((w) => _WordChip(
-                      word: w,
-                      onTap: () => _showWordPopup(w),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 10),
-          // Translation
-          if (line.translation != null)
-            Text(
-              line.translation!,
-              style: TextStyle(
-                color: Colors.amber.withValues(alpha: 0.8),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                height: 1.4,
-              ),
+          // Colored words subtitle (YT-LR-002: ẩn khi chế độ `Ẩn phụ đề`).
+          if (_settings.hidesSubtitle)
+            _buildHiddenSubtitleHint()
+          else
+            Wrap(
+              spacing: 5,
+              runSpacing: 4,
+              children: line.words
+                  .map((w) => _WordChip(
+                        word: w,
+                        onTap: () => _showWordPopup(w),
+                      ))
+                  .toList(),
             ),
+          const SizedBox(height: 10),
+          // Translation (YT-LR-002: 4 chế độ — hiện / ẩn / mờ / ẩn cả phụ đề).
+          _buildTranslationLine(line),
+        ],
+      ),
+    );
+  }
+
+  /// YT-LR-002 (IN4-88) — chế độ `Ẩn phụ đề`: giữ chỗ trống cùng chiều cao để
+  /// đổi chế độ không làm giật player, và vẫn cho biết cách hiện lại.
+  Widget _buildHiddenSubtitleHint() {
+    return SizedBox(
+      height: 44,
+      child: Center(
+        child: Text(
+          context.uiText('Phụ đề đang ẩn — mở Cài đặt phụ đề để hiện lại.'),
+          style: const TextStyle(color: Colors.white38, fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  /// YT-LR-002 (IN4-88) — phần bản dịch theo 4 chế độ:
+  /// `Có bản dịch` (hiện) · `Ẩn bản dịch` (khỏi) · `Làm mờ bản dịch`
+  /// (mờ, bấm để hiện tạm rồi mờ lại) · `Ẩn phụ đề` (khỏi cả hai).
+  ///
+  /// Chế độ "mờ" dùng `MaskFilter.blur` trên chính paint của chữ thay vì
+  /// `ImageFiltered` (lớp blur riêng): nhẹ hơn, luôn vẽ ra chữ, và không phụ
+  /// thuộc vào khả năng composite của GPU.
+  Widget _buildTranslationLine(SubtitleLine line) {
+    if (!_settings.showsTranslation) return const SizedBox.shrink();
+    final text = line.translation;
+    if (text == null || text.isEmpty) return const SizedBox.shrink();
+
+    final blurred = _settings.blursTranslation && !_translationRevealed;
+
+    final child = Text(
+      text,
+      style: blurred
+          ? TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+              // Khi set `foreground`, `color` bị bỏ qua ⇒ đặt màu trên Paint.
+              foreground: Paint()
+                ..color = const Color(0xFFFFC107).withValues(alpha: 0.9)
+                ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+            )
+          : TextStyle(
+              color: Colors.amber.withValues(alpha: 0.8),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+    );
+
+    if (!_settings.blursTranslation) return child;
+
+    // Chế độ mờ: bấm để hiện tạm, bấm lần nữa để mờ lại.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _translationRevealed = !_translationRevealed),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          child,
+          const SizedBox(height: 4),
+          Text(
+            _translationRevealed
+                ? context.uiText('Bấm để làm mờ bản dịch.')
+                : context.uiText('Bấm để hiện bản dịch.'),
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
+          ),
         ],
       ),
     );
@@ -1241,21 +1341,27 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     if (mounted) Navigator.pop(context);
   }
 
+  /// YT-LR-002 (IN4-86) — mở bảng `Word Dictionary & Analysis` thay vì sheet
+  /// phân tích cũ: có phiên âm, thanh tần suất, 3 nút Known/Learning/Ignored
+  /// và tab Giải thích & Ngữ pháp.
+  ///
+  /// Vẫn **pause video** khi mở (giữ nguyên hành vi cũ) và ghi nhớ từ đang mở
+  /// để tab Lexa dùng làm ngữ cảnh.
   void _showWordPopup(LrWord word) {
     _pauseVideo();
     String? contextSentence;
     if (_lines.isNotEmpty && _currentLineIdx < _lines.length) {
       contextSentence = _lines[_currentLineIdx].text;
     }
+    setState(() => _selectedWord = word.text);
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => WordAnalysisSheet(
-        selectedWord: word.text,
-        sentenceContext: contextSentence,
-      ),
+    showYtWordPanel(
+      context,
+      word: word,
+      sentenceContext: contextSentence,
+      settings: _settings,
+      onFrequencyChanged: _onFrequencyChanged,
+      onStateChanged: (state) => _setWordState(word.text, state),
     );
   }
 
@@ -1274,7 +1380,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           Expanded(
             child: TabBar(
               controller: _tabCtrl,
-              isScrollable: false,
+              // YT-LR-002 (IN4-87): 4 tab — cho cuộn ngang trên màn hẹp.
+              isScrollable: true,
               indicatorColor: const Color(0xFF9C27B0),
               labelColor: Colors.white,
               unselectedLabelColor: Colors.grey,
@@ -1284,6 +1391,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 Tab(text: context.uiText('VĂN BẢN')),
                 Tab(text: context.uiText('TỪ')),
                 Tab(text: context.uiText('TẢI')),
+                Tab(text: context.uiText('LEXA')),
               ],
             ),
           ),
@@ -1304,7 +1412,22 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         _buildTranscriptTab(),
         _buildWordTab(),
         _buildDownloadTab(),
+        _buildLexaTab(),
       ],
+    );
+  }
+
+  /// YT-LR-002 (IN4-87) — tab `Lexa AI Chat`: hỏi đáp về từ vựng / cấu trúc
+  /// câu / ngữ pháp của video đang xem. Local-first, không gọi server.
+  Widget _buildLexaTab() {
+    final sentence = _lines.isEmpty
+        ? null
+        : _lines[_currentLineIdx.clamp(0, _lines.length - 1)].text;
+    return YtLexaChatTab(
+      videoTitle: widget.video.title,
+      videoId: widget.video.id,
+      currentSentence: sentence,
+      selectedWord: _selectedWord,
     );
   }
 
@@ -1315,6 +1438,12 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   String? _downloadStatus;
   double? _downloadProgress;
   bool _downloading = false;
+  // YT-LR-002 (fix tab Tải Audio kẹt "Đang tải…"): giữ subscription để có thể
+  // huỷ giữa chừng (`await for` KHÔNG huỷ được từ ngoài) + bộ canh báo kẹt khi
+  // quá lâu không nhận thêm byte nào.
+  StreamSubscription<YtDownloadEvent>? _dlSub;
+  Timer? _dlWatchdog;
+  bool _dlStalled = false;
 
   /// Lịch sử xem (tải lại khi mở tab).
   List<YtVideo> _history = const [];
@@ -1330,11 +1459,20 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     });
   }
 
-  /// Tải audio của video hiện tại (yt-dlp/explode) — có progress.
+  /// Tải audio của video hiện tại (yt-dlp/explode) — có progress + nút Dừng.
+  ///
+  /// YT-LR-002: bản cũ dùng `await for` ⇒ không có cách nào ngắt luồng từ UI,
+  /// nên nếu `YoutubeExplode` treo ở bước lấy manifest/stream thì giao diện kẹt
+  /// ở "Đang tải…" mãi mãi. Ở đây đổi sang `listen(...)` để giữ
+  /// [StreamSubscription], cộng thêm bộ canh 45 giây không có tiến triển →
+  /// hiện cảnh báo + nút Dừng.
   Future<void> _downloadAudio() async {
     if (_downloading) return;
+    await _dlSub?.cancel();
+    _dlWatchdog?.cancel();
     setState(() {
       _downloading = true;
+      _dlStalled = false;
       _downloadProgress = 0;
       _downloadStatus = 'Đang chuẩn bị...';
     });
@@ -1344,15 +1482,38 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       channel: widget.video.channelTitle,
       thumb: widget.video.thumb,
     );
-    try {
-      await for (final event in YtDownloader.instance.download(video)) {
+
+    var lastProgress = 0.0;
+    var stallTicks = 0;
+    _dlWatchdog = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || !_downloading) return;
+      // Chỉ đếm khi con số % không nhúc nhích (đang chờ mạng/manifest).
+      if ((_downloadProgress ?? 0) > lastProgress + 0.001) {
+        lastProgress = _downloadProgress ?? 0;
+        stallTicks = 0;
+        if (_dlStalled && mounted) setState(() => _dlStalled = false);
+        return;
+      }
+      stallTicks++;
+      if (stallTicks >= 3 && mounted) {
+        setState(() {
+          _dlStalled = true;
+          _downloadStatus =
+              'Không thấy tiến triển trong 45 giây. YouTube có thể đang chặn — bấm Dừng rồi thử lại.';
+        });
+      }
+    });
+
+    _dlSub = YtDownloader.instance.download(video).listen(
+      (event) {
         if (!mounted) return;
         if (event is YtDownloadProgress) {
           setState(() {
             _downloadProgress = event.progress;
-            _downloadStatus = event.progressText;
+            if (!_dlStalled) _downloadStatus = event.progressText;
           });
         } else if (event is YtDownloadDone) {
+          _stopDownloadWatchdog();
           setState(() {
             _downloading = false;
             _downloadedAudioPath = event.filePath;
@@ -1360,20 +1521,57 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             _downloadStatus = 'Đã tải xong (${event.quality})';
           });
         } else if (event is YtDownloadFailed) {
+          _stopDownloadWatchdog();
           setState(() {
             _downloading = false;
             _downloadStatus = 'Tải thất bại: ${event.message}';
           });
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _downloading = false;
-          _downloadStatus = 'Lỗi: $e';
-        });
-      }
-    }
+      },
+      onError: (Object e) {
+        _stopDownloadWatchdog();
+        if (mounted) {
+          setState(() {
+            _downloading = false;
+            _downloadStatus = 'Lỗi: $e';
+          });
+        }
+      },
+      onDone: () {
+        // Luồng đóng mà chưa emit Done/Failed (bị huỷ) → chốt trạng thái.
+        _stopDownloadWatchdog();
+        if (mounted && _downloading) {
+          setState(() {
+            _downloading = false;
+            _downloadStatus ??= 'Đã dừng tải.';
+          });
+        }
+      },
+      cancelOnError: false,
+    );
+  }
+
+  void _stopDownloadWatchdog() {
+    _dlWatchdog?.cancel();
+    _dlWatchdog = null;
+  }
+
+  /// Bấm nút "Dừng": ngắt luồng tải, báo [YtDownloader] dừng ghi file, xoá
+  /// subscription và trả giao diện về trạng thái chờ.
+  Future<void> _cancelDownloadAudio() async {
+    if (!_downloading) return;
+    YtDownloader.instance.cancel();
+    await _dlSub?.cancel();
+    _dlSub = null;
+    _stopDownloadWatchdog();
+    if (!mounted) return;
+    setState(() {
+      _downloading = false;
+      _dlStalled = false;
+      _downloadProgress = null;
+      _downloadStatus = 'Đã dừng tải audio.';
+    });
+    debugPrint('[in4up-yt] audio download stopped by user ${widget.video.id}');
   }
 
   /// Tải phụ đề (caption) của video hiện tại về máy (file .srt).
@@ -1438,15 +1636,61 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             ),
           ],
         ),
-        if (_downloadProgress != null && _downloading) ...[
+        if (_downloading) ...[
           const SizedBox(height: 8),
-          LinearProgressIndicator(value: _downloadProgress),
+          Row(
+            children: [
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: _downloadProgress == null || _downloadProgress == 0
+                      ? null
+                      : _downloadProgress,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // YT-LR-002: nút Dừng — tab Tải trước đây không có cách huỷ.
+              SizedBox(
+                height: 28,
+                child: OutlinedButton.icon(
+                  onPressed: _cancelDownloadAudio,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  icon: const Icon(Icons.stop, size: 14),
+                  label: Text(context.uiText('Dừng')),
+                ),
+              ),
+            ],
+          ),
         ],
         if (_downloadStatus != null) ...[
           const SizedBox(height: 6),
-          Text(
-            _downloadStatus!,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_dlStalled) ...[
+                const Padding(
+                  padding: EdgeInsets.only(top: 1, right: 5),
+                  child: Icon(Icons.hourglass_disabled,
+                      size: 13, color: Colors.orangeAccent),
+                ),
+              ],
+              Expanded(
+                // YT-LR-002: đưa qua `uiText` để các chuỗi CỐ ĐỊNH
+                // ("Đã dừng tải audio.", "Không thấy tiến triển…") có bản
+                // tiếng Anh; chuỗi động (ví dụ "128 / 45.2 MB") không khớp
+                // catalog nên được trả nguyên — không đổi hành vi.
+                child: Text(
+                  context.uiText(_downloadStatus!),
+                  style: TextStyle(
+                    color: _dlStalled ? Colors.orangeAccent : Colors.white70,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
         if (_downloadedAudioPath != null) ...[
@@ -1565,46 +1809,77 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   )
                 else
                   const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Colored words
-                      Wrap(
-                        spacing: 3,
-                        runSpacing: 2,
-                        children: line.words
-                            .map((w) => GestureDetector(
-                                  onTap: () => _showWordPopup(w),
-                                  child: Text(
-                                    '${w.text} ',
-                                    style: TextStyle(
-                                      color: w.type == 'other'
-                                          ? Colors.white
-                                          : w.typeColor,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ))
-                            .toList(),
-                      ),
-                      const SizedBox(height: 3),
-                      // Translation
-                      if (line.translation != null)
-                        Text(
-                          line.translation!,
-                          style:
-                              TextStyle(color: Colors.grey[500], fontSize: 11),
-                        ),
-                    ],
-                  ),
-                ),
+                // YT-LR-002 (IN4-88): 3 bố cục danh sách phụ đề.
+                Expanded(child: _buildTranscriptBody(line)),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  /// YT-LR-002 (IN4-88) — thân một dòng transcript theo bố cục đã chọn:
+  /// `simple` (chỉ bản gốc) · `sideBySide` (gốc và dịch cạnh nhau) ·
+  /// `stacked` (gốc trên, dịch dưới).
+  Widget _buildTranscriptBody(SubtitleLine line) {
+    final original = _buildTranscriptWords(line);
+    final translation = line.translation;
+    final hasTranslation = translation != null && translation.isNotEmpty;
+
+    switch (_settings.subtitleLayout) {
+      case YtSubtitleLayout.simple:
+        return original;
+
+      case YtSubtitleLayout.sideBySide:
+        if (!hasTranslation) return original;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: original),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                translation,
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              ),
+            ),
+          ],
+        );
+
+      case YtSubtitleLayout.stacked:
+        if (!hasTranslation) return original;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            original,
+            const SizedBox(height: 3),
+            Text(
+              translation,
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _buildTranscriptWords(SubtitleLine line) {
+    return Wrap(
+      spacing: 3,
+      runSpacing: 2,
+      children: line.words
+          .map((w) => GestureDetector(
+                onTap: () => _showWordPopup(w),
+                child: Text(
+                  '${w.text} ',
+                  style: TextStyle(
+                    color: w.type == 'other' ? Colors.white : w.typeColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 

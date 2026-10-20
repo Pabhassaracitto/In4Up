@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/yt_video.dart';
+import 'widgets/yt_video_card.dart' show YtHistoryItem;
 import 'services/yt_initial_data_parser.dart';
 import 'services/yt_search_service.dart';
 import 'services/yt_service.dart';
@@ -125,6 +126,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   bool _openingUrl = false;
   String? _urlError;
 
+  // YT-LR-004 (IN4-94): tầng 2 thay tầng 1 cũ ⇒ phải giữ lại Lịch sử xem
+  // (tầng 1 cũ có tab Lịch sử) để không mất tính năng.
+  List<YtVideo> _history = const [];
+
   // ── Tìm kiếm không cần API key (gợi ý từ khoá + submit) ──
   final _searchFocus = FocusNode();
   Timer? _suggestDebounce;
@@ -143,6 +148,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       _searchFocus.requestFocus();
     });
     _init();
+    _loadHistory();
     _scrollCtrl.addListener(() {
       if (_scrollCtrl.position.pixels >=
               _scrollCtrl.position.maxScrollExtent - 300 &&
@@ -371,6 +377,121 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   void _openVideo(YtExVideo v) => Navigator.push(
       context, MaterialPageRoute(builder: (_) => YtPlayerScreen(video: v)));
 
+  // ── Lịch sử xem (việc của tab Lịch sử ở tầng 1 cũ) ─────────
+
+  Future<void> _loadHistory() async {
+    await YtHistory.ensureOpen();
+    if (!mounted) return;
+    setState(() => _history = YtHistory.load());
+  }
+
+  void _showHistory() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF161B22),
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, color: Colors.grey, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.uiText('Lịch sử'),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _history.isEmpty
+                    ? Center(
+                        child: Text(
+                          context.uiText('Chưa có lịch sử'),
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        itemCount: _history.length,
+                        itemBuilder: (_, i) {
+                          final v = _history[i];
+                          return YtHistoryItem(
+                            video: v,
+                            onTap: () {
+                              Navigator.pop(context);
+                              _openVideo(
+                                YtExVideo(
+                                  id: v.id,
+                                  title: v.title,
+                                  channelId: '',
+                                  channelTitle: v.channel,
+                                  thumb: v.thumb,
+                                ),
+                              );
+                            },
+                            onDelete: () async {
+                              await YtHistory.remove(v.id);
+                              if (!mounted) return;
+                              setState(() => _history = YtHistory.load());
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bộ lọc dạng bottom sheet (màn hẹp thay cho sidebar) ─────
+
+  void _showFilters() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF161B22),
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(child: _sidebarContent()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Thanh tìm kiếm (luôn hiện, chạy không cần Data API key) ──
 
   Widget _searchArea() => Column(
@@ -492,27 +613,38 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
       body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sidebar(),
-                  Container(
-                      width: 1, color: Colors.white.withValues(alpha: 0.07)),
-                  Expanded(child: _mainPanel()),
-                ],
-              ),
-            ),
-          ],
+        // YT-LR-004 (IN4-94): tầng 2 giờ là cửa vào YouTube DUY NHẤT từ icon
+        // YouTube ⇒ phải dùng được trên điệnthoại đứng. Sidebar cố định 195px
+        // sẽ ép vùng kết quả còn ~165px trên màn 360dp ⇒ khi hẹp, bỏ sidebar
+        // và đưa bộ lọc vào bottom sheet (nút "Bộ lọc" trên thanh trên cùng).
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final isWide = c.maxWidth >= 560;
+            return Column(
+              children: [
+                _topBar(isWide: isWide),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isWide) _sidebar(),
+                      if (isWide)
+                        Container(
+                            width: 1,
+                            color: Colors.white.withValues(alpha: 0.07)),
+                      Expanded(child: _mainPanel()),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _topBar() => Container(
+  Widget _topBar({required bool isWide}) => Container(
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
         color: const Color(0xFF161B22),
         child: Column(
@@ -536,6 +668,27 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         fontSize: 15,
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
+                // YT-LR-004: Lịch sử xem — việc của tab Lịch sử ở tầng 1 cũ.
+                IconButton(
+                  tooltip: context.uiText('Lịch sử'),
+                  icon: const Icon(Icons.history, color: Colors.grey, size: 18),
+                  onPressed: _showHistory,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                // Màn hẹp: bộ lọc (cấp độ từ vựng / sắp xếp / kênh) xuống
+                // bottom sheet thay vì chiếm ngang 195px.
+                if (!isWide)
+                  IconButton(
+                    tooltip: context.uiText('Bộ lọc'),
+                    icon: const Icon(Icons.tune, color: Colors.grey, size: 18),
+                    onPressed: _showFilters,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                const SizedBox(width: 4),
                 Text(
                   context.uiText(_hasApiKey ? 'Data API' : 'Không cần key'),
                   style: TextStyle(color: Colors.grey[600], fontSize: 10),
@@ -636,8 +789,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ),
       );
 
-  Widget _sidebar() => Container(
+  /// Bộ lọc (dùng cả ở sidebar rộng 195px lẫn bottom sheet khi màn hẹp).
+  Widget _sidebar() => SizedBox(
         width: 195,
+        child: _sidebarContent(),
+      );
+
+  Widget _sidebarContent() => Container(
         color: const Color(0xFF161B22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

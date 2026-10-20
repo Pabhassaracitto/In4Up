@@ -18,7 +18,7 @@ import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
 import '../features/understand_ai/understand_ai_context.dart';
-import '../features/youtube/youtube_sheet.dart';
+import '../features/youtube/youtube_explorer_screen.dart';
 import '../models/read_content_source.dart';
 import '../models/shell_content_order.dart';
 import '../providers/player_provider.dart';
@@ -1040,7 +1040,14 @@ class _MainShellState extends State<MainShell> {
         );
         return;
       case 'youtube_downloader':
-        await YoutubeSheet.show(context);
+        // YT-LR-004 (IN4-94): bỏ hẳn "tầng 1 cũ" (bottom sheet CHỈ dán URL,
+        // không search được) — vào THẲNG tầng 2 `YoutubeExplorerScreen`:
+        // có ô tìm kiếm (chạy keyless, không cần Data API key) và vẫn dán
+        // được URL. Các việc của tầng 1 cũ không bị mất: tải audio / tải
+        // phụ đề / lịch sử xem nằm ở tab TẢI của màn player (tầng 3).
+        nav.push(
+          MaterialPageRoute(builder: (_) => const YoutubeExplorerScreen()),
+        );
         return;
       case 'pdf_reader':
         final result = await FilePicker.pickFiles(

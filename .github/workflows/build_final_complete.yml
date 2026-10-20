@@ -3,7 +3,20 @@ env:
 on:
   push:
     tags:
+      # 'v*' (lịch sử) + '[0-9]*' (tag dạng "1.12.1" — KHỚP tên release
+      # hiện có: 1.10.4 / 1.11.0 / 1.12.0, KHÔNG có tiền tố "v").
+      #
+      # ⚠️ VÌ SAO KHÔNG trigger workflow legacy `build.yml`:
+      # `build.yml` (Flutter Full Build) là bản CŨ — build **universal**
+      # (không --target-platform android-arm64), KHÔNG có gate verify chữ
+      # ký, KHÔNG có --dart-define=OPENROUTER_API_KEY. Cả 2 workflow dùng
+      # CÙNG script rename ⇒ CÙNG tên file APK
+      # (`in4up-Android-arm64-v8a-<tag>-<sha>.apk`) + `allowUpdates: true`
+      # ⇒ chạy cùng lúc sẽ tranh nhau, bản legacy (universal, KHÔNG có key)
+      # có thể ĐÈ bản đúng. Vì vậy workflow này nhận tag dạng "1.12.1"
+      # (bắt đầu bằng chữ số) — `build.yml` chỉ nghe 'v*' ⇒ KHÔNG chạy.
       - 'v*'
+      - '[0-9]*'
   workflow_dispatch:
     inputs:
       version_name:

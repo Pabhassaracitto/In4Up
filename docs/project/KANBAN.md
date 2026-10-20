@@ -97,6 +97,9 @@
 | TIPI-IMPORT-001 | (IN4-80) Import bản dịch Tipitaka lỗi SQLITE_READONLY_DBMOVED (1032) | 🔨 doing (code + test + CI 🟢; chờ máy) | 2 import song song xoá chung file tạm `$targetPath.importing` ⇒ SQLite mất file ⇒ DBMOVED; fix: đường dẫn tạm RIÊNG + khoá tuần tự hoá + đóng connection trước khi thay file + sao lưu `.bak` |
 | TIPI-LANG-001 | Tipiṭaka đã import tiếng Việt nhưng reader chỉ thấy Pāli | 🔨 doing (code + regression tests; chờ Flutter CI + xác minh DB của user) | Chuẩn hoá join `(source_table,row_key)` ở importer Dart/Python (table case/underscore, ID có zero-padding); thông báo revision để reader đang mở reload sau import; `test/test_import_tipitaka.py` + test Dart mới |
 | YT-PROGRESS-001 | (IN4-81) YouTube: lời/dịch chặn player, video load lâu, đổi video lẫn lời cũ | 🔨 doing (code + test + CI 🟢; chờ máy) | tải 3 pha (lời gốc → ghép bản dịch YT → dịch AI theo lô 6 dòng, hiện tăng dần) + overlay spinner ở góc (không che video) + token huỷ kết quả cũ + log TIMING (khung hình/lời/dịch đầu) |
+| YT-LR-002 | (IN4-85) Chế độ YouTube còn sơ sài: thiếu menu `Subtitle Settings`, bảng tra cứu từ vựng (phiên âm / thanh tần suất / Known-Learning-Ignored), tab `Lexa AI Chat` | 🔨 doing (lõi đã code xong + test thuần; **chờ nghiệm thu máy thật** — sandbox không có Flutter SDK/thiết bị) | Epic **IN4-85** + 7 issue con (**IN4-86…IN4-92**). Lõi (IN4-88 / IN4-86 / IN4-87): 4 chế độ bản dịch (Có / Ẩn / Làm mờ / Ẩn hẳn phụ đề) + 3 bố cục danh sách (Đơn giản / Song song / Trên–dưới) + bảng `Word Dictionary & Analysis` (IPA, thanh trượt tần suất, 3 nút ✓/📖/🚫, tab Giải thích & Ngữ pháp) + tab `Lexa AI Chat` bám ngữ cảnh video. Model tách khỏi presentation: `models/yt_subtitle.dart` + `models/yt_learning_settings.dart` (+ service) để khỏi vướng gate i18n. 40 chuỗi chrome mới có English fallback; tái sinh `generated_legacy_ui_fallbacks.dart` (1932 mục) — **0 vi phạm gate i18n mới** so baseline. Test: `test/yt_learning_settings_test.dart`. Đề xuất nâng cao để Backlog: IN4-89 (radial preset), IN4-90 (SM-2 garden), IN4-91 (shadowing), IN4-92 (lưu từ 2 cấp). |
+| YT-LR-003 | (IN4-85/86/88/81 + IN4-93) 5 lỗi sau nghiệm thu máy thật YT-LR-002: mất bản dịch khi bấm dòng · "Làm mờ" thành ẩn hẳn · tab Tải audio kẹt "Đang tải…" không có nút dừng · âm thanh nhanh hơn chữ ~1 dòng · tab GIẢI THÍCH không phản hồi + crash layout | 🔨 doing (code + test pin; **chờ nghiệm thu lại trên máy**) | (1) dịch theo lô đổi sang bảng **tích luỹ** (bản cũ dựng lại từ `base` mỗi lô ⇒ xoá dịch các lô trước, chỉ còn 6 dòng cuối); (2) bỏ `ImageFiltered` (layer blur render trống trên một số GPU Android) → `MaskFilter.blur` ngay trên paint chữ + dòng gợi ý bấm; (3) `await for` → `listen()` giữ `StreamSubscription` + nút **Dừng** gọi `YtDownloader.instance.cancel()` + bộ canh 45s báo kẹt; (4) đẩy vị trí phát theo **sự kiện** `timeupdate` (thay `setInterval(250)` cộng tới 250ms trễ) + log `drift=` / `driftTB=` để ĐO thay vì đoán (IN4-81); (5) tab GIẢI THÍCH: bỏ `TabBarView`→`IndexedStack`, bỏ `context.select` provider (crash `'!_debugDoingThisLayout'`), panel tự gọi `lookupWord` + timeout 90s + 4 trạng thái rõ ràng (đang chờ / lỗi / chỉ từ điển / xong). 15 English fallback mới; gate i18n **+0** so `4253b76`. Test pin: `test/yt_lr_002_fixes_test.dart` (32 assertion). |
+| YT-LR-004 | (IN4-95) Nhấn icon YouTube vẫn rơi vào **tầng 1 cũ** (bottom sheet chỉ có ô dán URL, muốn tìm phải bấm thêm "Khám phá kênh") | 🔨 doing (code + test pin; **chờ nghiệm thu máy thật**) | Luồng `youtube_downloader` trong `main_shell.dart` đổi `YoutubeSheet.show()` → `Navigator.push(YoutubeExplorerScreen)` (tầng 2: ô tìm kiếm keyless + vẫn dán được URL). Vì tầng 2 trở thành cửa vào DUY NHẤT nên làm thêm: (a) **responsive** — `LayoutBuilder`, sidebar 195px chỉ hiện khi `maxWidth >= 560`, màn hẹp chuyển bộ lọc (cấp độ từ vựng / sắp xếp / kênh) sang bottom sheet qua nút **Bộ lọc**; (b) **giữ Lịch sử xem** (từng là tab ở tầng 1) bằng nút Lịch sử trên thanh trên cùng + bottom sheet dùng lại `YtHistoryItem`. Việc còn lại của tầng 1 cũ (tải audio / tải phụ đề) đã có ở tab TẢI của màn player. 1 English fallback mới (`Bộ lọc`); gate i18n **+0** so `5c72bd8` — lưu ý `Lịch sử`/`Chưa có lịch sử` đã có trong `app_vi.arb` nên KHÔNG được đưa vào catalog override. Test: `test/yt_explorer_entry_test.dart` (17 assertion). | 
 | LOGIN-REL-001 | (IN4-15) Đăng nhập release vẫn văng app (debug `com.in4up.dev` thì OK) | 🔨 doing (code + CI gate 🟢; chờ build release + máy) | keystore release SHA-1 `88d5ee0d…` nhưng fallback google-services.json trong CI chỉ có hash cũ `8a1bc02e…` ⇒ CI gate mới FAIL khi lệch; fallback bổ sung hash hiện tại; app log `STATE[phase] flavor/signedIn/uid` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
 | READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin + CI 🟢 `38970096071`, chờ máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
@@ -7426,6 +7429,66 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
     thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
     duyệt PR.
+
+
+### YT-LR-002 — Chế độ YouTube: bộ tính năng học kiểu Language Reactor (phụ đề · bảng tra từ · Lexa AI chat)
+
+- **Trạng thái:** doing (lõi code xong + test thuần; chờ nghiệm thu máy thật)
+- **Nguồn:** người sở hữu (2026-10-19) — bản mô tả giao diện hệ thống học ngôn
+  ngữ kiểu Language Reactor / *in4up* (menu `Subtitle Settings`, bảng
+  `Word Dictionary & Analysis`, tab `Lexa AI Chat`) + 4 đề xuất nâng cao
+  (Preset Quick-Switch, luồng lưu từ đa cấp, Memory Garden SM-2, Shadowing
+  chấm điểm phát âm). Tham chiếu mô phỏng web React để chốt UX.
+- **Kiểm kê trước khi làm (19/10/2026, branch `arena/9498c207-in4up`):**
+  `lib/features/youtube/**` đã có 12 file ~6.800 dòng — player iframe (wrapper
+  GitHub Pages chống lỗi 153), phụ đề timestamp + dịch 3 pha, click từ →
+  `WordAnalysisSheet`, `WordState known/learning/ignored` lưu Hive, tab
+  VĂN BẢN / TỪ / TẢI, nút Biết hết / Học cả câu / Lặp câu, tải audio → tab Nghe.
+  **Thiếu** đúng 7 nhóm trong bản mô tả (xem epic IN4-85).
+- **Phạm vi đã chốt với chủ dự án (19/10/2026):** ưu tiên **code Flutter thật**
+  trong app (không prototype HTML riêng); làm **lõi** trước (IN4-88 / IN4-86 /
+  IN4-87); 4 đề xuất nâng cao mở issue ở Backlog (IN4-89 / IN4-90 / IN4-91 /
+  IN4-92). Linear: 1 epic + issue con.
+- **File đã đụng:**
+  - MỚI `lib/features/youtube/models/yt_subtitle.dart` (`WordState`, `LrWord`,
+    `SubtitleLine` — tách khỏi `yt_player_screen.dart` để tránh import vòng với
+    bảng tra từ và để file model không bị gate i18n quét).
+  - MỚI `lib/features/youtube/models/yt_learning_settings.dart`
+    (`YtTranslationMode`, `YtSubtitleLayout`, `YtLearningSettings`).
+  - MỚI `lib/features/youtube/services/yt_learning_settings_service.dart`
+    (lưu Hive box `yt_learning_settings`, cùng pattern `YtHistory`).
+  - MỚI `lib/features/youtube/services/cmu_phonetics_service.dart` (bọc
+    `CMUDictionaryService` lấy IPA; `initialize()` đã có guard).
+  - MỚI `lib/features/youtube/widgets/yt_subtitle_settings_sheet.dart`
+    (menu `Subtitle Settings`).
+  - MỚI `lib/features/youtube/widgets/yt_word_panel.dart` (bảng tra từ).
+  - MỚI `lib/features/youtube/widgets/yt_lexa_chat_tab.dart` (tab AI chat).
+  - SỬA `lib/features/youtube/yt_player_screen.dart` (4 tab, áp dụng chế độ
+    phụ đề + bố cục, `_showWordPopup` → bảng tra từ, nút cài đặt).
+  - MỚI `test/yt_learning_settings_test.dart` (test thuần, không cần máy).
+  - SỬA `tool/legacy_ui_english_overrides.json` (+40 English fallback) và
+    tái sinh `lib/core/language/generated_legacy_ui_fallbacks.dart` (1932 mục).
+- **Không đụng (theo quy tắc vàng):** `lib/ffi/` / UltraTimeStretch; không gộp
+  3 skill SM-2; không server `yt-dlp`; không RAG / embedding / vector DB.
+- **Giới hạn đã biết:**
+  - Tab Lexa dùng chung lịch sử của `AiServiceFacade`; tab này chỉ lưu **chỉ
+    số** câu trả lời nên "Cuộc trò chuyện mới" đổi góc nhìn cục bộ, **không**
+    xoá lịch sử AI chung của app.
+  - Prompt gửi xuống model viết bằng tiếng Anh (tránh đưa literal có dấu vào
+    file presentation — gate i18n bắt mọi literal phải phân loại); model được
+    yêu cầu trả lời cùng ngôn ngữ với câu hỏi.
+  - Kho ví dụ kiểu Tatoeba **chưa có nguồn offline** trong repo ⇒ tab Giải thích
+    hiện `contextExamples` do AI sinh + mục từ điển MDX, chưa có câu mẫu
+    Tatoeba (ghi rõ trong IN4-86).
+  - Chưa có Flutter SDK trong sandbox ⇒ **chưa chạy được** `flutter analyze` /
+    `flutter test`; đã kiểm bằng parser cân bằng ngoặc tự viết + đối chiếu toàn
+    bộ assertion của `test/yt_progressive_loading_test.dart` (16/16 OK).
+- **Lịch sử:**
+  - 2026-10-19 | created | owner via chat (+ agent arena/9498c207-in4up) |
+    "chế độ YouTube quá sơ sài — tham khảo web học tiếng anh reaction language
+    để bổ sung tính năng; nạp issue vô Linear nếu chưa có sẵn".
+  - 2026-10-19 | proposed→doing | agent arena/9498c207-in4up | nạp Linear
+    IN4-85 (epic) + IN4-86…IN4-92; code lõi xong; 0 vi phạm gate i18n mới.
 
 ### WEB-BUILD-002 — (2026-10-22) Web VẪN TRẮNG + YouTube lỗi -1 tái phát sau fix WEB-BUILD-001
 - **Trạng thái:** 🔨 **ĐÃ FIX — chờ CI + owner hard-reload nghiệm thu** — Linear [IN4-109](https://linear.app/in4up/issue/IN4-109) (tiếp nối)

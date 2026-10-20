@@ -132,6 +132,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
           orderIndex: 0,
         );
     _appearance.addListener(_onAppearanceChanged);
+    TipitakaDb.importRevision.addListener(_onDatabaseImportChanged);
     _appearance.ensureLoaded();
     _scrollController.addListener(_onScroll);
     widget.scrollSync?.addListener(_onSyncedScroll);
@@ -158,6 +159,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       );
     }
     _appearance.removeListener(_onAppearanceChanged);
+    TipitakaDb.importRevision.removeListener(_onDatabaseImportChanged);
     widget.scrollSync?.removeListener(_onSyncedScroll);
     if (_readingArticle || _speakingSegmentId != null) {
       _globalTtsGeneration++;
@@ -171,6 +173,22 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
 
   void _onAppearanceChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onDatabaseImportChanged() {
+    if (!mounted) return;
+    if (_segments.isNotEmpty && _scrollController.hasClients) {
+      final position = _scrollController.position;
+      final progress = position.maxScrollExtent <= 0
+          ? 0.0
+          : (position.pixels / position.maxScrollExtent).clamp(0.0, 1.0);
+      final index = (progress * _segments.length)
+          .floor()
+          .clamp(0, _segments.length - 1)
+          .toInt();
+      _requestedSegmentId = _segments[index].id;
+    }
+    _loadFirstPage();
   }
 
   void _onScroll() {

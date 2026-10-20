@@ -2722,6 +2722,61 @@
       được phía Console.
     - **Chưa nghiệm thu máy thật** ⇒ IN4-94 + IN4-83 vẫn **In Review**.
 
+### UI-COMPACT-001 — (2026-10-20) Audit 5 mục giao diện: Focus fix + thanh 2 tầng + pop nhỏ
+- **Trạng thái:** 🔨 doing (code + test + CI 🟢 `39409643789`; **chờ build + máy**) — Linear [IN4-95](https://linear.app/in4up/issue/IN4-95) (mục 5) + liên quan [IN4-30](https://linear.app/in4up/issue/IN4-30) (mục 1) · [IN4-31](https://linear.app/in4up/issue/IN4-31) (mục 2) · [IN4-14](https://linear.app/in4up/issue/IN4-14) (mục 4) · [IN4-22](https://linear.app/in4up/issue/IN4-22) (mục 3)
+- **Mục 1 — Tab Đọc, chế độ Focus KHÔNG có tác dụng (Ẩn/Trên/Dưới không đổi
+  gì):** **root cause** = màn Đọc chỉ `watch` `TextProvider` ⇒
+  `ReadModeController.toggleFocusMode()` gọi `notifyListeners()` mà **KHÔNG ai
+  nghe** ⇒ màn không rebuild ⇒ Focus + vị trí tiêu đề không đổi gì. Sửa:
+  `addListener(_onControllerChanged)` (+ `removeListener` khi dispose) — listener
+  đọc lại pref `read_focus_title_position` ⇒ lựa chọn có hiệu lực ngay;
+  `ReadModeController.requestRefresh()` + sheet Cài đặt gọi khi đóng;
+  double-tap đọc trạng thái **MỚI** (trước dùng giá trị cũ ⇒ thanh dưới
+  bật/ẩn ngược).
+- **Mục 2 — Tab Đọc, thanh chức năng TRÊN chiếm quá nhiều không gian (điện
+  thoại nhỏ ⇒ chữ bị giới hạn):** dùng chung widget mới
+  `lib/widgets/collapsible_action_bar.dart` — hẹp thì **GỘP** (chỉ icon) +
+  nút mũi tên, rộng/bung thì có nhãn (pattern "con dao xếp" như thanh phát
+  trong vùng đọc). Gộp 7 chip cũ (`_ColorModeChip`, `_WordTapChip`,
+  `_IpaLegendToggleIfRelevant`, `_AutoSyncChip`, `_ReadHelpButton`,
+  `_SettingsButton`) về 1 widget chung, giữ trạng thái **active** + badge
+  preset ngữ pháp.
+- **Mục 3 — Tab Nhớ, thanh icon chức năng bị ẩn sau mấy giây (người dùng
+  chưa kịp chọn):** bỏ `AutoHideInfoBanner` (auto-hide 5s) bọc cả thanh;
+  nhóm "Xem tiến độ" nay dùng `CollapsibleActionBar` (gộp/bung bằng mũi
+  tên), banner gọn hơn, chuỗi header đã i18n đủ 5 locale.
+- **Mục 4 — Tab Đọc, ô chữ:** pop **NHỎ** mới (`word_mini_pop.dart`) chứa đúng
+  phần owner yêu cầu — từ gốc + IPA + loại từ + CEFR (A1/A2/B1…) + độ khó
+  (dễ / trung bình / khó / rất khó) + lưu nhớ + nghĩa; **"rèm" ở đầu pop** kéo
+  lên ⇒ bung thông tin đầy đủ (`WordActionsSheet`); kèm **thêm ảnh**
+  (`VocabImagePicker` — cùng cơ chế tìm/chọn ảnh của Worklist + Sửa từ vựng)
+  + nút "Bôi nhiều chữ" để **không mất** READ-SELECT-002. Chạm đúp **và**
+  nhấn giữ đều mở pop nhỏ (trước đây chạm đúp chỉ hiện snackbar nghĩa nhanh,
+  nhấn giữ vào thẳng chế độ bôi chữ).
+- **Mục 5 — Tab Nghe/Đọc/Hiểu, header chức năng:** nhãn + nguồn/chế độ
+  chung **MỘT hàng** (chips cuộn ngang), hành động dùng chung
+  `CollapsibleActionBar` ⇒ **đồng bộ 3 tab**, padding gọn hơn.
+- **i18n (rule #5):** 13 chuỗi mới, khai đủ `en/hi/zh/zh_TW/si` trong
+  `priority_ui_overrides.dart` + `generated_legacy_ui_fallbacks.dart` +
+  `tool/legacy_ui_english_overrides.json`; 2 chuỗi hard-code tiếng Việt cũ
+  trong header Nhớ ("Nhớ · Retention Workspace", "Ôn tập ngay", mô tả) cũng
+  đã đưa vào catalog.
+- **Test:** `test/read_mode/audit_2026_10_20_ui_compact_test.dart` (mới) —
+  source-scan cho cả 5 mục + **widget test** cơ chế 2 tầng (hẹp: gộp + có
+  mũi tên; bấm mũi tên ⇒ bung nhãn; rộng: luôn bung, không mũi tên). Nối vào
+  CI step *Read actions + mixed-language tests*.
+- **Lịch sử:**
+  - 2026-10-20 | created→doing | agent arena/01a0251e-in4up | commit
+    `c93a525` + fix compile `058eb5b` + `d155a28` + `2e5b139` + fix test
+    `80c46c2`. CI: `39406078543` 🔴 (import mơ hồ `Text` + `context` undefined)
+    → `39407041920` 🔴 (thiếu field `active`/`activeColor` + thiếu import
+    extension `DifficultyLevel`) → `39407947810` 🔴 (thiếu biến `accent`) →
+    `39408812690` 🔴 (assertion false-positive do comment) → **`39409643789`
+    🟢** (analyze + rule #5 + read-act tests, 0 lỗi).
+  - Bài học: khi không có Flutter SDK local, **đọc annotation của check-run**
+    qua API (`gh api …/check-runs/{id}/annotations`) để lấy đúng lỗi compile
+    (log blob không tải được từ sandbox).
+
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
 - **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK

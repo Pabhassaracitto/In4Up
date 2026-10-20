@@ -339,7 +339,8 @@ jobs:
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
-            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}"
 
       - name: Tar Linux bundle
         shell: bash
@@ -439,7 +440,8 @@ jobs:
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
-            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}"
       # ⚠ FIX zip chỉ vài KB: KHÔNG quét "Get-ChildItem -Recurse -Filter Release | Select -First 1"
       # vì cây build có nhiều thư mục "Release" trung gian (CMakeFiles/flutter/plugins),
       # duyệt theo bảng chữ cái sẽ nhặt nhầm thư mục chỉ chứa .obj/.lib/1 DLL.
@@ -587,7 +589,8 @@ jobs:
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
-            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+            "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+            "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}"
 
       - name: Create IPA from Runner.app
         shell: bash

@@ -75,6 +75,20 @@ void main() {
           .readAsStringSync();
       expect(wf, contains('OPENROUTER_API_KEY'));
       expect(wf, contains('--dart-define=OPENROUTER_API_KEY='));
+      // Mọi nền tảng build đều phải có define (Android + desktop + iOS):
+      // provider có sẵn được seed trên mọi nền tảng, thiếu define ở job
+      // nào thì bản build đó phải dán key tay.
+      for (final job in ['flutter build apk', 'flutter build linux',
+        'flutter build windows', 'flutter build ios']) {
+        final i = wf.indexOf(job);
+        expect(i, greaterThan(0), reason: 'Không thấy lệnh build: $job');
+        final seg = wf.substring(i, wf.length);
+        final end = seg.indexOf('\n\n');
+        final block = end > 0 ? seg.substring(0, end) : seg;
+        expect(block, contains('--dart-define=OPENROUTER_API_KEY='),
+            reason: 'Job "$job" thiếu --dart-define=OPENROUTER_API_KEY ⇒ bản '
+                'build đó provider có sẵn sẽ không có key.');
+      }
     });
 
     test('routing mặc định: Chat → ưu tiên online + OpenRouter', () {

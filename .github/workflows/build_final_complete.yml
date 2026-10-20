@@ -226,6 +226,17 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: bash scripts/ci/android_prepare_signing.sh
 
+      # IN4-15 (LOGIN-CRASH-002): SỬA google-services.json cho khớp SHA-1
+      # keystore đang ký (secret CI có thể là bản CŨ — tải về từ Firebase
+      # Console trước khi owner đăng ký SHA-1 release mới ⇒ client com.in4up
+      # chỉ có hash cũ ⇒ Google Sign-In trả DEVELOPER_ERROR ⇒ nút đăng nhập
+      # văng app). Script lấy SHA-1 TỪ CHÍNH keystore CI (không hard-code)
+      # rồi gắn vào client com.in4up* — đúng hình dạng Firebase tạo ra khi
+      # 1 client có nhiều SHA-1. Gate ở bước sau vẫn verify lại (fail loud).
+      - name: Ensure signing SHA-1 is present in google-services.json
+        shell: bash
+        run: bash scripts/ci/android_ensure_signing_sha1_in_google_services.sh
+
       # IN4-15 (LOGIN-CRASH-002): SHA-1 ký APK phải CÓ trong
       # google-services.json — lệch ⇒ Google Sign-In trả DEVELOPER_ERROR ⇒
       # nút đăng nhập văng app. Fail NGAY tại đây (trước khi build 20 phút).

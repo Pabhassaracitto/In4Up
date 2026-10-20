@@ -66,6 +66,41 @@ void main() {
     });
   });
 
+  group('IN4-15 — tự sửa JSON khi secret CI là bản CŨ', () {
+    test('script sửa tồn tại + lấy SHA-1 từ keystore (không hard-code)', () {
+      final fix = File(
+              'scripts/ci/android_ensure_signing_sha1_in_google_services.sh')
+          .readAsStringSync();
+      expect(fix.contains('keytool'), isTrue,
+          reason: 'SHA-1 phải lấy TỪ keystore CI đang ký, không hard-code.');
+      expect(fix.contains('certificate_hash'), isTrue);
+      expect(fix.contains('com.in4up'), isTrue);
+      // Không được hard-code một SHA-1 cụ thể (sẽ hỏng khi rotate key).
+      expect(fix.contains('88d5ee0d'), isFalse,
+          reason: 'SHA-1 phải tính động từ keystore, không ghi cứng.');
+    });
+
+    test('workflow gọi bước sửa TRƯỚC gate verify', () {
+      final fixIdx = workflow.indexOf(
+          'android_ensure_signing_sha1_in_google_services.sh');
+      final gateIdx = workflow.indexOf(
+          'android_verify_signing_matches_google_services.sh');
+      expect(fixIdx, greaterThan(0));
+      expect(gateIdx, greaterThan(fixIdx),
+          reason: 'Sửa JSON phải chạy trước gate verify (gate kiểm kết quả).');
+    });
+
+    test('bước sửa đồng bộ lại bản copy theo flavor (Gradle ưu tiên flavor)',
+        () {
+      final fix = File(
+              'scripts/ci/android_ensure_signing_sha1_in_google_services.sh')
+          .readAsStringSync();
+      expect(fix.contains('android/app/src/'), isTrue,
+          reason: 'Phải copy lại JSON đã sửa sang src/<flavor>/ — nếu không, '
+              'Gradle vẫn dùng bản JSON CŨ ở flavor dir ⇒ sửa vô ích.');
+    });
+  });
+
   group('IN4-15 — chẩn đoán runtime (biết đúng bản nào + trạng thái phiên)',
       () {
     test('AuthService có logAuthState in flavor + signedIn + uid', () {

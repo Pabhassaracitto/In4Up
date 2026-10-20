@@ -418,7 +418,7 @@ class _TtsControls extends StatelessWidget {
                   icon: Icons.play_arrow,
                   label: 'Đọc dòng',
                   color: const Color(0xFF4CAF50),
-                  enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
+                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
                   onTap: () {
                     Navigator.pop(context);
                     tp.speakCurrentLine();
@@ -431,7 +431,7 @@ class _TtsControls extends StatelessWidget {
                   icon: Icons.playlist_play,
                   label: 'Đọc tất cả',
                   color: const Color(0xFF2196F3),
-                  enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
+                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
                   onTap: () {
                     Navigator.pop(context);
                     tp.speakAllLines();
@@ -444,7 +444,7 @@ class _TtsControls extends StatelessWidget {
                   icon: Icons.stop,
                   label: 'Dừng',
                   color: Colors.red,
-                  enabled: tp.isSpeaking,
+                  enabled: tp.isTtsActive,
                   onTap: () => tp.stopSpeaking(),
                 ),
               ),

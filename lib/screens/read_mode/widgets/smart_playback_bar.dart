@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/language/app_language.dart';
 import '../../../providers/text_provider.dart';
+import '../../../widgets/pulsing_icon.dart';
 import '../models/playback_anchor.dart';
 import '../models/playback_recipe.dart';
 import '../models/playback_snapshot.dart';
@@ -1133,7 +1134,10 @@ class _PlayBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // AUDIT-2026-10-20 (mục 6): icon loa "đang phát" phải **sống** — nhấp
+    // nháy + đổi màu đỏ (đổi sang nút DỪNG) ⇒ user thấy ngay app đang phát
+    // thay vì bấm xong không biết có chạy không. Chạm lần 2 ⇒ dừng (đã có).
+    final button = GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
       child: AnimatedContainer(
@@ -1148,18 +1152,26 @@ class _PlayBtn extends StatelessWidget {
               color: (isRunning
                       ? const Color(0xFFEF4444)
                       : const Color(0xFF6C63FF))
-                  .withValues(alpha: 0.4),
-              blurRadius: 10,
-              spreadRadius: 1,
+                  .withValues(alpha: isRunning ? 0.55 : 0.4),
+              blurRadius: isRunning ? 14 : 10,
+              spreadRadius: isRunning ? 2 : 1,
             ),
           ],
         ),
-        child: Icon(
-          isRunning ? Icons.stop_rounded : Icons.play_arrow_rounded,
+        child: PulsingIcon(
+          icon: isRunning ? Icons.stop_rounded : Icons.play_arrow_rounded,
           color: Colors.white,
           size: 28,
+          active: isRunning,
+          maxScale: 1.12,
         ),
       ),
+    );
+    return Tooltip(
+      message: isRunning
+          ? context.uiText('Đang phát — chạm để dừng')
+          : context.uiText('Phát âm thanh'),
+      child: button,
     );
   }
 }

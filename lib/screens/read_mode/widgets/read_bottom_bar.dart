@@ -8,6 +8,7 @@ import '../../../features/translation/translation_display_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
+import '../../../widgets/pulsing_icon.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/segments_list_sheet.dart';
 
@@ -98,16 +99,26 @@ class ReadBottomBar extends StatelessWidget {
                   ),
                   SizedBox(width: isSmall ? 6 : 12),
 
-                  // TTS current line
+                  // TTS current line — AUDIT-2026-10-20 (mục 6):
+                  // dùng `isTtsActive` (MỌI phiên TTS) chứ không phải
+                  // `isSpeaking` (chỉ TRUE khi đọc CẢ BÀI) ⇒ trước đây bấm
+                  // "đọc dòng hiện tại" thì icon KHÔNG báo gì (vì owner =
+                  // preview) và chạm lần 2 lại phát tiếp thay vì dừng.
+                  // Nay: đang phát ⇒ icon đổi màu + NHẤP NHÁY, chạm lần 2
+                  // ⇒ DỪNG thật sự.
                   _BarAction(
-                    icon: tp.isSpeaking
+                    icon: tp.isTtsActive
                         ? Icons.stop_circle_outlined
                         : Icons.record_voice_over,
-                    isActive: tp.isSpeaking,
-                    activeThumbColor: Colors.orange,
+                    isActive: tp.isTtsActive,
+                    activeThumbColor: const Color(0xFF4CAF50),
                     compact: isSmall,
+                    animate: tp.isTtsActive,
+                    tooltip: tp.isTtsActive
+                        ? context.uiText('Đang đọc — chạm để dừng')
+                        : context.uiText('Đọc dòng hiện tại'),
                     onTap: () {
-                      if (tp.isSpeaking) {
+                      if (tp.isTtsActive) {
                         tp.stopSpeaking();
                       } else {
                         tp.speakCurrentLine();
@@ -199,6 +210,12 @@ class _BarAction extends StatelessWidget {
   final String? badge;
   final bool compact;
 
+  /// Icon nhấp nháy khi [isActive] (trạng thái "đang phát").
+  final bool animate;
+
+  /// Tooltip giải thích nút làm gì (quan trọng với icon chỉ có hình).
+  final String? tooltip;
+
   const _BarAction({
     required this.icon,
     required this.onTap,
@@ -206,6 +223,8 @@ class _BarAction extends StatelessWidget {
     this.activeThumbColor,
     this.badge,
     this.compact = false,
+    this.animate = false,
+    this.tooltip,
   });
 
   @override
@@ -213,7 +232,7 @@ class _BarAction extends StatelessWidget {
     final color =
         isActive ? (activeThumbColor ?? const Color(0xFF2196F3)) : Colors.grey;
 
-    return GestureDetector(
+    final button = GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
         onTap();
@@ -230,7 +249,12 @@ class _BarAction extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   )
                 : null,
-            child: Icon(icon, color: color, size: compact ? 18 : 22),
+            child: PulsingIcon(
+              icon: icon,
+              color: color,
+              size: compact ? 18 : 22,
+              active: animate,
+            ),
           ),
           if (badge != null)
             Positioned(
@@ -255,5 +279,8 @@ class _BarAction extends StatelessWidget {
         ],
       ),
     );
+
+    if (tooltip == null || tooltip!.isEmpty) return button;
+    return Tooltip(message: tooltip!, child: button);
   }
 }

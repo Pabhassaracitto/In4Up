@@ -265,6 +265,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   double get ttsPitch => _ttsPitch;
   String get ttsLanguage => _ttsLanguage;
   bool get isSpeaking => _isSpeaking;
+
+  /// Đang có phiên TTS nào chạy — **mọi loại**: đọc cả bài (allLines),
+  /// đọc 1 dòng / đọc 1 từ (preview), đọc đoạn (segment).
+  ///
+  /// AUDIT-2026-10-20 (mục 6): `isSpeaking` chỉ TRUE khi đọc **cả bài**
+  /// ⇒ nút "đọc dòng hiện tại" (owner = preview) **không bao giờ** báo
+  /// "đang phát" và chạm lần 2 lại **phát tiếp** thay vì dừng. Getter này
+  /// dùng cho TRẠNG THÁI HIỂN THỊ của nút.
+  bool get isTtsActive => _ttsOwner != TtsPlaybackOwner.none;
   bool get isPlayingSegment => _isPlayingSegment;
   TextSegment? get currentPlayingSegment => _currentPlayingSegment;
   int get currentRepeatIndex => _currentRepeatIndex;

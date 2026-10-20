@@ -1850,4 +1850,8 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Đã lưu từ': 'Word saved',
   'Hãy lưu từ trước khi thêm ảnh': 'Save the word before adding an image',
   'Bôi nhiều chữ': 'Select multiple words',
+  'Đọc dòng hiện tại': 'Read the current line',
+  'Đang đọc — chạm để dừng': 'Reading — tap to stop',
+  'Đang phát — chạm để dừng': 'Playing — tap to stop',
+  'Phát âm thanh': 'Play audio',
 };

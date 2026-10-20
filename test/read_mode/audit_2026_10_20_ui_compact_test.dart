@@ -45,6 +45,14 @@ void main() {
           'lib/screens/memory_mode/widgets/remember_workspace_header.dart')
       .readAsStringSync();
   final shell = File('lib/screens/main_shell.dart').readAsStringSync();
+  final bottomBar =
+      File('lib/screens/read_mode/widgets/read_bottom_bar.dart')
+          .readAsStringSync();
+  final playbackBar =
+      File('lib/screens/read_mode/widgets/smart_playback_bar.dart')
+          .readAsStringSync();
+  final textProvider =
+      File('lib/providers/text_provider.dart').readAsStringSync();
 
   group('mục 1 — Focus mode: màn Đọc PHẢI rebuild khi controller đổi', () {
     test('màn Đọc lắng nghe controller (trước đây không có ai nghe)', () {
@@ -159,6 +167,47 @@ void main() {
 
     test('nhãn + nguồn/chế độ chung một hàng (tiết kiệm bề dọc)', () {
       expect(shell.contains('AUDIT-2026-10-20 (mục 5)'), isTrue);
+    });
+  });
+
+  group('mục 6 — icon đọc âm thanh/loa phải "thông minh"', () {
+    test('có getter isTtsActive phản ánh MỌI phiên TTS', () {
+      expect(textProvider.contains('bool get isTtsActive'), isTrue);
+      expect(textProvider.contains('_ttsOwner != TtsPlaybackOwner.none'),
+          isTrue,
+          reason: 'isSpeaking chỉ TRUE khi đọc CẢ BÀI (allLines) ⇒ nút "đọc '
+              'dòng hiện tại" không bao giờ báo đang phát + chạm lần 2 lại '
+              'phát tiếp thay vì dừng.');
+    });
+
+    test('nút đọc dòng hiện tại dùng isTtsActive + nhấp nháy + dừng khi chạm lại',
+        () {
+      expect(bottomBar.contains('tp.isTtsActive'), isTrue);
+      expect(bottomBar.contains('animate: tp.isTtsActive'), isTrue);
+      expect(bottomBar.contains('PulsingIcon('), isTrue);
+      // Chạm lần 2 phải DỪNG (không phát tiếp).
+      expect(bottomBar.contains('if (tp.isTtsActive)'), isTrue);
+      expect(bottomBar.contains('tp.stopSpeaking();'), isTrue);
+      // Không dùng isSpeaking (chỉ allLines) cho nút này.
+      final idx = bottomBar.indexOf('// TTS current line');
+      final block = bottomBar.substring(idx, idx + 900);
+      expect(block.contains('tp.isSpeaking'), isFalse);
+    });
+
+    test('nút loa (phát âm thanh) nhấp nháy khi đang chạy', () {
+      expect(playbackBar.contains('PulsingIcon('), isTrue);
+      final idx = playbackBar.indexOf('class _PlayBtn');
+      expect(idx, greaterThan(0));
+      final block = playbackBar.substring(idx, idx + 2000);
+      expect(block.contains('active: isRunning'), isTrue,
+          reason: 'Icon loa phải nhấp nháy khi đang phát để user thấy ngay.');
+    });
+
+    test('widget PulsingIcon tồn tại (dùng chung cho cả 2 nút)', () {
+      final pulsing =
+          File('lib/widgets/pulsing_icon.dart').readAsStringSync();
+      expect(pulsing.contains('class PulsingIcon'), isTrue);
+      expect(pulsing.contains('AnimationController'), isTrue);
     });
   });
 

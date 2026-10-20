@@ -2792,6 +2792,14 @@
     Dừng) dùng `isTtsActive`. Test: thêm group "mục 6" vào
     `audit_2026_10_20_ui_compact_test.dart`; CI **39414535788** 🟢.
   - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
+    release 1.12.3** (bump `1.12.2+10` → `1.12.3+11`, commit `ab0e82b`; CI
+    `39415459896` 🟢) — run build `39416302252` **cả 4 job XANH**. Release:
+    https://github.com/Pabhassaracitto/In4Up/releases/tag/1.12.3 →
+    `in4up-Android-arm64-v8a-1.12.3-ab0e8.apk` (188 MB, arm64-only),
+    `in4up-iOS-1.12.3.ipa`, `in4up-Linux-1.12.3.tar.gz`,
+    `in4up-Windows-1.12.3.zip`. Bản này có **đủ 6 mục** (5 mục audit +
+    mục 6 icon đọc âm thanh/loa) + provider OpenRouter có sẵn + key.
+  - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
     release 1.12.2** (bump `1.12.1+9` → `1.12.2+10`, commit `297f2aa`; CI
     `39410695751` 🟢) — run build `39411512454` **cả 4 job XANH** (Android /
     iOS / Windows / Linux). Release: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.12.2

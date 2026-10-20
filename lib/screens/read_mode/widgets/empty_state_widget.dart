@@ -19,9 +19,9 @@ class ReadEmptyState extends StatelessWidget {
 // lib/screens/read_mode/widgets/empty_state_widget.dart
 /*
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
@@ -332,7 +332,7 @@ class _ImportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.lightImpact();
+        SafeHaptics.lightImpact();
         onTap();
       },
       child: Container(

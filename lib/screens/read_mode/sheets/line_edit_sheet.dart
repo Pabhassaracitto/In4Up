@@ -1,8 +1,8 @@
 // lib/screens/read_mode/sheets/line_edit_sheet.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../providers/text_provider.dart';
 
@@ -122,7 +122,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
 
     Navigator.pop(context);
 
-    HapticFeedback.lightImpact();
+    SafeHaptics.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

@@ -1,8 +1,8 @@
 // lib/screens/read_mode/widgets/read_bottom_bar.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/translation/translation_display_mode.dart';
 import '../../../models/ipa_display_mode.dart';
@@ -234,7 +234,7 @@ class _BarAction extends StatelessWidget {
 
     final button = GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Stack(

@@ -3,6 +3,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
@@ -52,7 +53,7 @@ class WordActionsSheet {
     int lineIndex,
     int wordIndex,
   ) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
 
     showModalBottomSheet(
       context: context,
@@ -277,7 +278,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
               // Speak button
               GestureDetector(
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   tp.speak(widget.word.word);
                 },
                 child: Container(
@@ -493,7 +494,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
               final isSelected = widget.word.userDifficulty == level;
               return GestureDetector(
                 onTap: () {
-                  HapticFeedback.selectionClick();
+                  SafeHaptics.selectionClick();
                   tp.markWordDifficulty(
                       widget.lineIndex, widget.wordIndex, level);
                   Navigator.pop(context);

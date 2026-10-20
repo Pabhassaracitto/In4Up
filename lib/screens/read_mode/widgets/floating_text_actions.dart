@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/word_entry.dart';
@@ -174,7 +175,7 @@ class _FloatingBar extends StatelessWidget {
                 color: const Color(0xFF2196F3),
                 tooltip: context.uiText('Phát âm'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   context.read<TextProvider>().speakSelected();
                   onDismiss();
                 },
@@ -187,7 +188,7 @@ class _FloatingBar extends StatelessWidget {
                 color: Colors.amber,
                 tooltip: context.uiText('Lưu học'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   onDismiss();
                   CreateSegmentSheet.show(context, lineIndex);
                 },
@@ -200,7 +201,7 @@ class _FloatingBar extends StatelessWidget {
                 color: const Color(0xFF4CAF50),
                 tooltip: context.uiText('Lưu nhanh'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   _saveQuick(context);
                   onDismiss();
                 },
@@ -213,7 +214,7 @@ class _FloatingBar extends StatelessWidget {
                         color: const Color(0xFF9C27B0),
                         tooltip: isPhrase ? 'Lưu đủ (cụm/câu + gợi ý)' : 'Lưu đủ + nghĩa',
                         onTap: () {
-                          HapticFeedback.mediumImpact();
+                          SafeHaptics.mediumImpact();
                           _saveFull(context);
                         },
                       ),
@@ -225,7 +226,7 @@ class _FloatingBar extends StatelessWidget {
                 color: Colors.grey,
                 tooltip: context.uiText('Sao chép'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   Clipboard.setData(ClipboardData(text: selectedText));
                   onDismiss();
                   ScaffoldMessenger.of(context).showSnackBar(

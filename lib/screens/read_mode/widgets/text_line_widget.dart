@@ -3,8 +3,8 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/grammar/models/grammar_category.dart';
 import '../../../features/grammar/models/grammar_highlight_settings.dart';
@@ -135,12 +135,12 @@ class TextLineWidget extends StatelessWidget {
         if (index < 0 || index >= tp.lines.length) return false;
 
         if (direction == DismissDirection.endToStart) {
-          HapticFeedback.mediumImpact();
+          SafeHaptics.mediumImpact();
           controller.bookmarkLine(index);
           _showQuickBookmarkFeedback(context);
           return false;
         } else if (direction == DismissDirection.startToEnd) {
-          HapticFeedback.lightImpact();
+          SafeHaptics.lightImpact();
           tp.setCurrentLine(index);
           tp.speakAllLines(startIndex: index);
           return false;
@@ -182,19 +182,19 @@ class TextLineWidget extends StatelessWidget {
         // khi thấy selection của provider đã bị xoá.
         if (WordSelectionState.isActive) {
           tp.clearSelection();
-          HapticFeedback.selectionClick();
+          SafeHaptics.selectionClick();
           return;
         }
         controller.removeFloatingMenu();
         tp.setCurrentLine(index);
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
 
         if (data.startTime != null) {
           context.read<PlayerProvider>().seek(data.startTime!);
         }
       },
       onDoubleTap: () {
-        HapticFeedback.lightImpact();
+        SafeHaptics.lightImpact();
         LineActionsSheet.show(context, index);
       },
       // IN4-36: chạm giữ KHÔNG còn mở thẳng bảng sửa dòng (chức năng ít
@@ -202,7 +202,7 @@ class TextLineWidget extends StatelessWidget {
       // LineActionsSheet (đọc TTS/luân lưu/lưu/sao chép) — hữu ích;
       // "Sửa dòng…" vẫn vào được TỪ TRONG sheet đó (chủ động hơn).
       onLongPress: () {
-        HapticFeedback.mediumImpact();
+        SafeHaptics.mediumImpact();
         LineActionsSheet.show(context, index);
       },
       child: AnimatedContainer(
@@ -413,7 +413,7 @@ class TextLineWidget extends StatelessWidget {
           else
             GestureDetector(
               onTap: () {
-                HapticFeedback.selectionClick();
+                SafeHaptics.selectionClick();
                 if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
                 tp.speak(seg.wordCore);
               },

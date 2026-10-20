@@ -3,6 +3,7 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
@@ -14,7 +15,7 @@ class LineActionsSheet {
   LineActionsSheet._();
 
   static void show(BuildContext context, int lineIndex) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
 
     final tp = context.read<TextProvider>();
     final player = context.read<PlayerProvider>();

@@ -5,8 +5,8 @@
 //   2. QuickLibrarySheet → cloud item
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../providers/text_provider.dart';
 import '../../../services/storage_service.dart';
@@ -369,7 +369,7 @@ class _CloudEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Container(

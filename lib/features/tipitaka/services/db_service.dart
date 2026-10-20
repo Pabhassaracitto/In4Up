@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:flutter/foundation.dart' show FlutterError, debugPrint;
+import 'package:flutter/foundation.dart'
+    show FlutterError, ValueNotifier, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -55,6 +56,13 @@ class TipitakaDatabaseInfo {
 }
 
 class TipitakaDb {
+  /// Notifies active readers after a language/Pāli pack is atomically installed.
+  static final ValueNotifier<int> importRevision = ValueNotifier<int>(0);
+
+  static void _notifyImportChanged() {
+    importRevision.value++;
+  }
+
   static Database? _db;
   static String? _openPath;
   static TipitakaDatabaseSource _openSource = TipitakaDatabaseSource.installed;
@@ -448,6 +456,7 @@ class TipitakaDb {
         temporaryPath,
       );
       target = null;
+      _notifyImportChanged();
       return installed;
     } catch (_) {
       await target?.close();
@@ -484,6 +493,7 @@ class TipitakaDb {
         temporaryPath,
       );
       target = null;
+      _notifyImportChanged();
       return installed;
     } catch (_) {
       await target?.close();
@@ -583,10 +593,10 @@ class TipitakaDb {
       final table = '${row['source_table'] ?? ''}';
       final key = '${row['source_row_key'] ?? ''}';
       if (table.isNotEmpty && key.isNotEmpty) {
-        targetBySource['$table::$key'] = id;
+        targetBySource[_sourceJoinKey(table, key)] = id;
       }
       final reference = '${row['reference'] ?? ''}';
-      if (reference.isNotEmpty) targetByReference.putIfAbsent(reference, () => id);
+      if (reference.isNotEmpty) targetByReference.putIfAbsent(_referenceJoinKey(reference), () => id);
     }
 
     var imported = 0;
@@ -649,8 +659,8 @@ class TipitakaDb {
               text.isNotEmpty) {
             contentTitle = text;
           }
-          final segmentId = targetBySource['$table::$key'] ??
-              targetByReference[reference];
+          final segmentId = targetBySource[_sourceJoinKey(table, key)] ??
+              targetByReference[_referenceJoinKey(reference)];
           final values = {
             'book_id': bookId,
             'reference': reference,
@@ -714,10 +724,10 @@ class TipitakaDb {
       final table = '${row['source_table'] ?? ''}';
       final key = '${row['source_row_key'] ?? ''}';
       if (table.isNotEmpty && key.isNotEmpty) {
-        targetBySource['$table::$key'] = id;
+        targetBySource[_sourceJoinKey(table, key)] = id;
       }
       final reference = '${row['reference'] ?? ''}';
-      if (reference.isNotEmpty) targetByReference.putIfAbsent(reference, () => id);
+      if (reference.isNotEmpty) targetByReference.putIfAbsent(_referenceJoinKey(reference), () => id);
     }
 
     var updated = 0;
@@ -776,8 +786,8 @@ class TipitakaDb {
           final reference = _plainText(row['_reference']).trim().isEmpty
               ? '$effectiveTable:$key'
               : _plainText(row['_reference']).trim();
-          var segmentId = targetBySource['$effectiveTable::$key'] ??
-              targetByReference[reference];
+          var segmentId = targetBySource[_sourceJoinKey(effectiveTable, key)] ??
+              targetByReference[_referenceJoinKey(reference)];
           int? bookId;
           if (segmentId == null && createMissing) {
             bookId = await _ensureBook(
@@ -798,8 +808,11 @@ class TipitakaDb {
               if (fixedColumn != null) fixedColumn: text,
             };
             segmentId = await target.insert('tipitaka_segments', values);
-            targetBySource['$effectiveTable::$key'] = segmentId;
-            targetByReference.putIfAbsent(reference, () => segmentId!);
+            targetBySource[_sourceJoinKey(effectiveTable, key)] = segmentId;
+            targetByReference.putIfAbsent(
+              _referenceJoinKey(reference),
+              () => segmentId!,
+            );
           }
           if (segmentId == null) continue;
           if (fixedColumn != null) {
@@ -947,6 +960,21 @@ class TipitakaDb {
 
   static String _normalizeName(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  /// Stable join key for source packs whose table names differ only by case,
+  /// underscores, or spacing. Numeric row IDs also ignore zero-padding.
+  static String _sourceJoinKey(String table, String key) {
+    final trimmedKey = key.trim();
+    final numericKey = int.tryParse(trimmedKey);
+    final normalizedKey = numericKey?.toString() ??
+        trimmedKey.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return '${_normalizeName(table)}::$normalizedKey';
+  }
+
+  /// References are compared case-insensitively with whitespace collapsed;
+  /// punctuation remains significant to avoid joining different citations.
+  static String _referenceJoinKey(String reference) =>
+      _plainText(reference).trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
   static String _quote(String value) => '"${value.replaceAll('"', '""')}"';
 

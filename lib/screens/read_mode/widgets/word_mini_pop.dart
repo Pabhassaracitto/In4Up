@@ -13,7 +13,7 @@
 //     vựng) ⇒ pop cũng phải làm được.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';

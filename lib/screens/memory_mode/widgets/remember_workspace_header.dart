@@ -74,18 +74,18 @@ class RememberWorkspaceHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildBanner(),
+          _buildBanner(context),
           const SizedBox(height: 10),
-          _buildPrimaryActions(),
+          _buildPrimaryActions(context),
           const SizedBox(height: 10),
-          _buildProgressTools(),
+          _buildProgressTools(context),
         ],
       ),
     );
   }
 
   // ── Tầng 0: banner nhận diện + badge số liệu ───────────────────────────
-  Widget _buildBanner() {
+  Widget _buildBanner(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -157,7 +157,7 @@ class RememberWorkspaceHeader extends StatelessWidget {
   }
 
   // ── Tầng 1: hoạt động học chính ────────────────────────────────────────
-  Widget _buildPrimaryActions() {
+  Widget _buildPrimaryActions(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -178,7 +178,7 @@ class RememberWorkspaceHeader extends StatelessWidget {
               children: [
                 const Icon(Icons.school, size: 20),
                 const SizedBox(width: 8),
-                const Flexible(
+                Flexible(
                   child: Text(
                     context.uiText('Ôn tập ngay'),
                     maxLines: 1,
@@ -249,7 +249,7 @@ class RememberWorkspaceHeader extends StatelessWidget {
   // bằng mũi tên) giống thanh phát trong vùng đọc — mặc định GỘP (chỉ
   // icon) cho gọn, bấm mũi tên để bung nhãn. Trước đây CẢ thanh chức năng
   // bị `AutoHideInfoBanner` ẩn sau 5 giây ⇒ người dùng chưa kịp chọn.
-  Widget _buildProgressTools() {
+  Widget _buildProgressTools(BuildContext context) {
     return Column(
       key: rememberProgressGroupKey,
       crossAxisAlignment: CrossAxisAlignment.start,

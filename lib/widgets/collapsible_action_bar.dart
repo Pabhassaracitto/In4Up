@@ -20,7 +20,7 @@
 // Không dùng AnimatedSize/AnimatedOpacity (theo READ-TOOLBAR-001: tránh
 // khối đen GPU Mali/Adreno) — chỉ đổi cây widget, không animation.
 import 'package:flutter/material.dart';
-import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
 
 import 'workspace_navigation/workspace_action_button.dart';
 

@@ -90,7 +90,8 @@ void main() {
 
   group('mục 3 — Tab Nhớ: bỏ tự ẩn sau N giây, thay bằng bung/gộp', () {
     test('không còn AutoHideInfoBanner bọc thanh chức năng', () {
-      expect(rememberScreen.contains('AutoHideInfoBanner'), isFalse,
+      // Kiểm TRA LỜI GỌI widget (không kiểm tra chuỗi trong comment).
+      expect(rememberScreen.contains('AutoHideInfoBanner('), isFalse,
           reason: 'AutoHideInfoBanner ẩn cả thanh sau 5 giây ⇒ người dùng '
               'chưa kịp chọn.');
       expect(rememberScreen.contains('auto_hide_banner.dart'), isFalse);

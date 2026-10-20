@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:provider/provider.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';

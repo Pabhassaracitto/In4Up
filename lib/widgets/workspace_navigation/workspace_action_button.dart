@@ -31,6 +31,12 @@ class WorkspaceActionButton extends StatelessWidget {
 
   final String? tooltip;
 
+  /// Đang BẬT ⇒ nền/icon được tô đậm (dùng cho nút bật/tắt trong header).
+  final bool active;
+
+  /// Màu nhấn khi [active].
+  final Color? activeColor;
+
   /// Height of a dense button; still inside Material's comfortable range for
   /// a secondary toolbar action (the primary targets stay 48 dp).
   static const double denseHeight = 38;

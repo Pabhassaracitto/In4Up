@@ -2885,6 +2885,22 @@
     đậm + tooltip; 4 chuỗi i18n mới; sheet Cài đặt (Đọc dòng / Đọc tất cả /
     Dừng) dùng `isTtsActive`. Test: thêm group "mục 6" vào
     `audit_2026_10_20_ui_compact_test.dart`; CI **39414535788** 🟢.
+  - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **MỤC 6 (phần 2
+    — phần owner gửi lại)** — *"nhấn là phát nhưng **chưa thấy chỗ để cho
+    dùng**"*: lượt trước mới làm phần icon (đổi màu + nhấp nháy + chạm lần 2
+    dừng); phần còn thiếu là **chỗ thấy được đang đọc ở đâu**. Root cause:
+    tầng dòng dùng `tp.isSpeaking && index == tp.currentLineIndex` mà
+    `isSpeaking` CHỈ TRUE khi đọc **CẢ BÀI** ⇒ đọc 1 dòng thì **KHÔNG dòng
+    nào đổi màu** ⇒ thấy "có phát" mà không biết đang đọc đâu. Sửa:
+    `TextProvider` +`_ttsSpokenLineIndex` (TÁCH khỏi `_currentLineIndex` để
+    không phá nguyên tắc "preview KHÔNG đổi con trỏ đọc") +`isLineBeingSpoken(index)`
+    + `speak(text, {int? lineIndex})`; tầng dòng dùng `isLineBeingSpoken` ⇒
+    dòng đang đọc có **nền + viền tím ứng dụng** (khác dòng hiện tại xanh
+    dương / dòng phát audio xanh lá) + icon `graphic_eq` tím; icon đọc ở
+    thanh phụ có **badge SỐ DÒNG** đang đọc; pop nhỏ đọc từ cũng truyền
+    `lineIndex` ⇒ highlight đúng dòng. Ghi chú: nhánh có thêm 5 commit của
+    agent khác (`SafeHaptics` cho desktop) ⇒ thay đổi áp LÊN trên HEAD mới,
+    giữ nguyên `SafeHaptics`. Commit `59b2d2c`; CI **39499641663** 🟢.
   - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
     release 1.12.3** (bump `1.12.2+10` → `1.12.3+11`, commit `ab0e82b`; CI
     `39415459896` 🟢) — run build `39416302252` **cả 4 job XANH**. Release:

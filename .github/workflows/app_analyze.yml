@@ -23,15 +23,29 @@ on:
     branches: ['arena/**', 'main']
     paths:
       - 'lib/**'
+      - 'packages/in4up_ai/**'
+      - 'windows/**'
+      - 'scripts/import_tipitaka.py'
+      - '.gitmodules'
       - 'test/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/app_analyze.yml'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/build_final_complete.yml'
   pull_request:
     paths:
       - 'lib/**'
+      - 'packages/in4up_ai/**'
+      - 'windows/**'
+      - 'scripts/import_tipitaka.py'
+      - '.gitmodules'
       - 'test/**'
       - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/app_analyze.yml'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/build_final_complete.yml'
   workflow_dispatch:
 
 jobs:
@@ -40,6 +54,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tipitaka importer join regression (Python)
+        run: python3 test/test_import_tipitaka.py
 
       - uses: subosito/flutter-action@v2
         with:
@@ -251,6 +268,7 @@ jobs:
           files=""
           for f in test/edge_tts_engine_test.dart \
                    test/edge_voice_prefs_test.dart \
+                   test/tts_candidate_router_test.dart \
                    test/tts_cache_key_test.dart \
                    test/tts_api_wp4_test.dart; do
             [ -f "$f" ] && files="$files $f"
@@ -328,6 +346,7 @@ jobs:
                    test/read_mode/focus_title_and_scroll_test.dart \
                    test/read_mode/line_edit_gesture_test.dart \
                    test/read_mode/audit_2026_10_20_ui_compact_test.dart \
+                   test/safe_haptics_test.dart \
                    test/translation/mixed_language_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done

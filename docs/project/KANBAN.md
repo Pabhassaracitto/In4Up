@@ -14,6 +14,7 @@
 | API-004 | WP3: Dịch bằng LLM — LlmMtEngine vào chuỗi dịch theo routing (ADR-0008) | ✅ done (code+CI 🟢 run 36270711178; chờ owner nghiệm thu chất lượng 3 đoạn Pali + AT thiết bị) | run 36270711178 (`6f15658`..`8a3c350`, arena/01a0df5e-in4up) |
 | API-005 | WP4: engine TTS qua Server API (OpenAI tts-1 / Kokoro local) cắm chuỗi engine-order, key store chung WP0 | ✅ done (chờ nghiệm thu thiết bị) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`003f9c4`, PR #58) vào 251e — engine mới xếp SAU FPT (priority 5), thứ tự mặc định user cũ không đổi; 23 test thuần |
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
+| TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
@@ -56,6 +57,7 @@
 | CI-LINUX-01 | Fix job Linux của build_final_complete.yml | 🚫 blocked (chờ owner) | root cause chốt: plugin webview_win_floating REQUIRE webkit2gtk-4.1 — apt thiếu |
 | CI-WINDOWS-01 | Release Windows zip chỉ ~9-10 KB (rỗng) từ nhiều bản gần đây | 🚫 blocked (chờ owner: token GitHub App thiếu quyền `workflows`) | root cause chốt: `Get-ChildItem -Recurse -Directory -Filter Release \| Select -First 1` vớ nhầm thư mục `CMakeFiles/*.dir/Release` rác thay vì `runner/Release` thật; patch sẵn sàng ở `docs/project/CI-WINDOWS-01-patch.diff`, chờ owner áp hoặc cấp quyền |
 | MODELS-002 | Trung tâm model: quản lý AI Chat GGUF 1 chỗ + UX import rõ (PLAN-018) | 🔄 doing (chờ nghiệm thu máy) | banner trạng thái + progress + mock disclaimer + section Chat trong Quản lý Model AI (thu hoạch 01a02a4a); CI app_analyze run 35027200801 XANH |
+| AI-NATIVE-WIN-001 | Windows Gemma báo thiếu `lib/in4up_ai_native`, chạy mock thay vì backend thật | 🔨 doing (mandatory CMake + workflow artifact gate + C++ inference fixes; chờ Windows CI) | llama.cpp submodule thành dependency bắt buộc; release workflow init submodule + kiểm tra DLL/4 exports; reset KV cache mỗi lượt và dùng temperature sampler; chưa có GGUF smoke model/Windows run mới |
 | AI-CHAT-01 | Chat: báo "Chưa nạp model AI" sau khi gửi + nút gửi xoay vòng mãi | 🔄 doing (chờ nghiệm thu máy) | root cause: state=processing ⇒ hasModel=false khi đang generate; chat không có timeout; không xử lý isolate chết; context không giới hạn. Lane B3 (aae4ec6 + 29f1e2b): queue FIFO, context GẦN NHẤT + ngân sách token + clip câu hỏi, engineError/`restartEngine()` tự hồi, banner 8 nhánh; CI 35027200801 XANH (app_analyze) + build.yml 35027568392 (Windows/iOS ✅) |
 | SHERPA-001 | Silero VAD (sherpa_onnx) thay EnergyVad fallback (PLAN-008) | ✅ done | 4a50a77 + cd9cccf (chờ nghiệm thu trên thiết bị) |
 | SHERPA-002 | TTS Piper offline (sherpa_onnx): core + engine trong TtsService | ✅ done | run 32524455212 (chờ nghiệm thu build) |
@@ -76,6 +78,7 @@
 | XLAT-002 | Dịch ONLINE-FIRST (smart default): online trước, offline fallback khi hết mạng/online fail; vẫn đổi được trong Cài đặt dịch | ✅ done + CI xanh | ce4945a; CI xanh 33697490397 (chờ nghiệm thu máy online/offline) |
 | XLAT-DEEPLX-001 | Engine DeepLX (HF Space): lưu URL qua SharedPreferences (hết mất khi restart) + chuẩn hoá host trần → /translate + nút "Thử kết nối" dịch câu mẫu báo lỗi rõ ràng | 🔄 doing | agent arena/01a0f41f-in4up — code + test + ARB 6 key (dịch đủ hi/zh/zh_TW/si); chờ CI + nghiệm thu máy thật với Space |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG (Android): bong bóng nổi + MediaProjection → OCR bbox → dịch bằng engine đang chọn → overlay đè đúng vị trí từng khối chữ | 🔄 doing (code + CI 🟢 run 37337092117 sau rebase; chờ nghiệm thu thiết bị) | agent arena/01a10bdd-in4up — ADR-0011; lane native Kotlin + engine Flutter nền (FlutterEngineGroup) + 5 file test thuần Dart chạy trong app_analyze; Kotlin CHƯA có CI build (workflow Android chỉ chạy theo tag/dispatch) |
+| XLAT-SCR-WIN-001 | Windows system-wide screen translator: chụp toàn màn hình + kéo chọn vùng rồi dịch | 📋 proposed (kế hoạch W0–W4, chưa có code/build/AT) | PLAN-037 + `docs/plans/windows_screen_translate_plan.md` — chốt scope, OCR/capture spike, DPI/multi-monitor, privacy, CI và 7 tiêu chí nghiệm thu |
 | READ-ACT-001 | Tab Đọc: 4 nút Dịch/Ngữ pháp/Phát âm/Từ điển báo "Bạn cần bôi chọn một đoạn trước" rồi không làm gì + thanh nổi trùng lặp + nút quá to | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 0.10.3 mục 1.a/1.b/1.c — `read_text_action_runner.dart` (đoạn chọn → dòng đang đọc → dòng đầu có chữ) + 2 sheet kết quả thật; bỏ render `ReadTextActionBar` (phương án 1 của owner); `WorkspaceActionButton.dense` + hàng nút cuộn ngang < 600 dp |
 | READ-HINT-001 | Tab Đọc: bảng hướng dẫn hứa sai ("chạm một từ … mở bảng tra từ") + ghi chú IPA nằm sai chỗ | ✅ done (code + CI 🟢) | audit 1.e — ghi chú IPA thành dòng phụ trong ngoặc ngay dưới dòng nói về IPA; tách đúng 3 thao tác chạm/chạm đúp/giữ; thêm lối đi cho "nhiều từ" (4 nút chạy trên cả dòng) |
 | XLAT-MIX-001 | Tài liệu lẫn tiếng Việt + tiếng Anh không dịch được sang tiếng Việt (bấm Dịch không có gì xảy ra) | ✅ done (code + CI 🟢; chờ nghiệm thu máy) | audit 1.h — nhận diện ngôn ngữ ở mức TÀI LIỆU (24 dòng gộp một mẫu) ⇒ nguồn == đích ⇒ 3 tầng cùng từ chối. Thêm `mixed_language_segmenter.dart` (nhận diện từng mẩu câu) + nhánh `_translateMixedLanguage` + nới guard `translateAll`/`translateLine` |
@@ -90,10 +93,12 @@
 | XLAT-SCR-003 | Dịch màn hình toàn hệ thống: chạm bong bóng **không có gì xảy ra** | 📋 proposed (cần máy thật + logcat) | audit 1.j — xin consent MediaProjection bằng `startActivity` **từ foreground service** ⇒ Android 10+ chặn im lặng; Android 14 còn bắt `foregroundServiceType=mediaProjection` + consent mỗi phiên. Prompt: `PROMPT_AGENT_SCREEN_TRANSLATE_BUBBLE.md` |
 | XLAT-SCR-004 | (IN4-17/IN4-12) Bong bóng dịch màn hình: crash `pendingIntentBackgroundActivityStartMode` + engine nền không tạo được root isolate | 🔨 doing (code + CI 🟢; chờ máy) | PendingIntent background-start bắt buộc `FLAG_MUTABLE` (code dùng IMMUTABLE ⇒ Android 14 ném exception) + bọc mọi nhánh tạo PendingIntent; import `screen_translate_entrypoint.dart` vào `main.dart` (không có trong AOT snapshot ⇒ 'library not found') |
 | TIPI-IMPORT-001 | (IN4-80) Import bản dịch Tipitaka lỗi SQLITE_READONLY_DBMOVED (1032) | 🔨 doing (code + test + CI 🟢; chờ máy) | 2 import song song xoá chung file tạm `$targetPath.importing` ⇒ SQLite mất file ⇒ DBMOVED; fix: đường dẫn tạm RIÊNG + khoá tuần tự hoá + đóng connection trước khi thay file + sao lưu `.bak` |
+| TIPI-LANG-001 | Tipiṭaka đã import tiếng Việt nhưng reader chỉ thấy Pāli | 🔨 doing (code + regression tests; chờ Flutter CI + xác minh DB của user) | Chuẩn hoá join `(source_table,row_key)` ở importer Dart/Python (table case/underscore, ID có zero-padding); thông báo revision để reader đang mở reload sau import; `test/test_import_tipitaka.py` + test Dart mới |
 | YT-PROGRESS-001 | (IN4-81) YouTube: lời/dịch chặn player, video load lâu, đổi video lẫn lời cũ | 🔨 doing (code + test + CI 🟢; chờ máy) | tải 3 pha (lời gốc → ghép bản dịch YT → dịch AI theo lô 6 dòng, hiện tăng dần) + overlay spinner ở góc (không che video) + token huỷ kết quả cũ + log TIMING (khung hình/lời/dịch đầu) |
 | LOGIN-REL-001 | (IN4-15) Đăng nhập release vẫn văng app (debug `com.in4up.dev` thì OK) | 🔨 doing (code + CI gate 🟢; chờ build release + máy) | keystore release SHA-1 `88d5ee0d…` nhưng fallback google-services.json trong CI chỉ có hash cũ `8a1bc02e…` ⇒ CI gate mới FAIL khi lệch; fallback bổ sung hash hiện tại; app log `STATE[phase] flavor/signedIn/uid` |
 | READ-SELECT-002 | Tab Đọc: không kéo chọn được nhiều từ ở chế độ ô chữ | 🔄 doing (code + CI 🟢; chờ nghiệm thu chạm tay trên máy) | audit 1.e — mỗi từ là một `GestureDetector`, không có `SelectableText` ⇒ giới hạn thiết kế. Giảm đau tạm: 4 nút chạy trên cả dòng (READ-ACT-001). Đã làm (arena/a106f0d6-in4up): giữ một từ = mỏ neo, kéo/chạm từ thứ hai = mở rộng, thanh hành động gọi đúng `ReadTextActionRunner.run`, ghi selection thật vào TextProvider. Prompt: `PROMPT_AGENT_READ_TTS_DEVICE_VERIFY.md` việc B |
 | READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin + CI 🟢 `38970096071`, chờ máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
+| READ-HAPTIC-CRASH-001 | Windows `.exe`: giữ chữ trong tab Đọc làm crash | 🔨 doing (haptics desktop-safe + tests; chưa tái hiện/log Windows) | 63 direct haptics calls đã đi qua `SafeHaptics`; Windows/Linux/macOS/web skip, mobile plugin failure is non-fatal; `test/safe_haptics_test.dart` được nối read-action batch |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 🔨 doing (code + test thuần + CI 🟢 `37667414865`; chờ nghiệm thu máy) | audit mục 2 (phần còn lại) — ADR-0013: `imageUrl2` additive (không migration) + `mediaPaths`/`setMediaSlot` promote + `swapMediaSlots`; sheet thêm nguồn thứ 4 "Hoạt ảnh" (endpoint cấu hình được + fallback Wikimedia Commons, chỉ ô đang hiện mới chạy); ô 2 khung trong sửa từ/chi tiết. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
@@ -923,6 +928,38 @@
   - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | owner dán log Android (processBetaReleaseGoogleServices / No matching client com.in4up.beta). CHẨN DOÁN CHUYỂN HƯỚNG: (1) run 32582388796 (build_final_complete, no-native tag v1.4.0-android-no-native) job Android **XANH 16m30s + artifact android-apk** — run bisect trước chỉ nhìn job build.yml (32582388775) nên kết luận "Android đỏ pre-existing" chưa đầy đủ; (2) build_final_complete với native ĐỎ ở "Build Split APKs" (run 32581570950) ⇒ riêng workflow này, native chính là điểm chặn; (3) tách 2 card CI-ANDROID-01 (build.yml — cần owner sửa workflow) + CI-ANDROID-02 (native build trong CI — pin CMake 3.31.5). Bỏ approach lách trong repo (inject client / alias tên APK / tắt flavor khi CI) — phá build_final_complete (dùng `--flavor stable`) và che secret thật, đã thống nhất với branch 01a01580
   - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | owner dán log step "Build Split APKs" ⇒ **root cause Android native chốt: sgemm.cpp (llamafile) dùng FP16 NEON thiếu guard trên armv7** (upstream FIXME); fix GGML_LLAMAFILE OFF (c6cc97e) + pin CMake 3.31.5 (5995183) — cả 2 đúng (log xác nhận toolchain resolve đúng, sai ở compile). Chờ oracle tag v1.4.0-android-fp16. Log Linux cùng lúc chốt webkit2gtk (CI-LINUX-01)
   - 2026-08-22 | done→done | agent arena/01a02a4a-in4up | **ORACLE XANH: run 32592622383 (tag v1.4.0-android-fp16) — Build Android APK ✅ (9m, artifact android-apk) + iOS ✅ + Windows ✅** ⇒ llama.cpp build thật trong CI cả 3 nền tảng (Android = nền cuối). Release v1.4.0-android-fp16 đã có artifact 3 nền. Còn lại: CI-ANDROID-01 (build.yml, chờ owner) + CI-LINUX-01 (1 apt package, chờ owner)
+
+### AI-NATIVE-WIN-001 — Windows Gemma dùng mock do thiếu native backend DLL
+
+- **Trạng thái:** 🔨 doing — CMake fail-fast, Windows release artifact gate và
+  sửa đường inference C++; chờ Windows build/CI mới và kiểm tra `.exe` thật.
+- **Nguồn:** chủ dự án, 2026-10-20 — Home → Settings → mục “4. Chat - Gemma
+  (LLM for AI Chat — .gguf)” báo thiếu `lib/in4up_ai_native`, chạy mock.
+- **Thay đổi:**
+  - `windows/CMakeLists.txt`: llama.cpp không còn là warning/optional; nếu
+    submodule không sẵn có và không khởi tạo được thì configure thất bại thay
+    vì đóng gói app mock-only. Ép các thư viện llama/ggml static trong phạm vi
+    subproject (khôi phục `BUILD_SHARED_LIBS` sau đó) để backend không phụ thuộc
+    DLL native bị bỏ sót khi đóng gói.
+  - `build.yml` + `build_final_complete.yml`: checkout/init pinned submodule;
+    sau Windows release build xác nhận `in4up_ai_native.dll` nằm cạnh
+    `in4up.exe`, có kích thước hợp lý và export đủ
+    `in4up_ai_create/generate/free_string/destroy` qua
+    `scripts/ci/verify_windows_ai_backend.ps1`.
+  - `in4up_ai_native.cpp`: clear llama.cpp KV memory trước mỗi request;
+    clamp temperature và dùng greedy khi 0, temperature + distribution sampler
+    khi lớn hơn 0 (trước đây temperature bị bỏ qua và sampler greedy cố định).
+- **Phạm vi kiểm chứng:** CI release kiểm tra build artifact + ABI exports;
+  chưa chứng minh inference với GGUF thật vì repo/sandbox không có model thử
+  nhỏ. Không đổi fallback mock ở runtime khi người dùng không import `.gguf`.
+- **Nghiệm thu:** build Windows release thành công; DLL cạnh exe + exports;
+  mở app, import GGUF tương thích, chat ít nhất 3 lượt không rơi mock, thay
+  temperature có hiệu lực; thiếu DLL ở test build phải FAIL, không báo build
+  thành công giả.
+- **Lịch sử:**
+  - 2026-10-20 | created→doing | agent Arena | bắt buộc llama.cpp, thêm
+    submodule + artifact verify cho hai Windows release workflow, fix KV reset /
+    temperature sampling; chưa có CI/Windows/GGUF run mới.
 
 ### CI-ANDROID-01 — Fix job Android của build.yml (chỉ ship stable + rename đúng tên)
 - **Trạng thái:** doing — in-repo fix CI-only `android/app/in4up_ci_fixes.gradle` (chỉ active `CI=true`, local no-op) chờ oracle tag `v1.4.0-ci-android-fix`. Patch workflow option A bên dưới vẫn là fix gốc — giữ nguyên cho owner dán khi có quyền `workflows`; khi đó in4up_ci_fixes thành no-op an toàn.
@@ -2407,6 +2444,30 @@
     self-check balance phát hiện trước khi push. Chờ nghiệm thu máy (4 điểm
     a–d ở mục Nghiệm thu).
 
+### READ-HAPTIC-CRASH-001 — Windows `.exe`: nhấn giữ chữ trong tab Đọc làm crash
+
+- **Trạng thái:** 🔨 doing — đã harden haptics trên mọi điểm chạm Read-mode;
+  nguyên nhân crash chưa xác nhận vì không có log/repro của máy user.
+- **Nguồn:** chủ dự án, 2026-10-20 — giữ chữ nguồn trong tab Đọc trên Windows
+  `.exe` làm ứng dụng sập.
+- **Phát hiện:** giữ chữ mở `WordMiniPop`; giữ dòng mở `LineActionsSheet`.
+  Cả cây Read-mode có 63 lời gọi `HapticFeedback` trực tiếp. Desktop Flutter
+  không có backend haptics tương đương mobile; một lỗi platform-channel không
+  được chờ/catch có thể trở thành lỗi không xử lý trong gesture. Đây là giả
+  thuyết hợp lý, chưa được xác nhận bằng crash log.
+- **Sửa:** thêm `SafeHaptics`: Windows/Linux/macOS/web bỏ qua haptics; Android/iOS
+  vẫn thử rung nhưng lỗi plugin không chặn hành động. Thay 63 call site trong
+  Read-mode; giữ nguyên flow mở sheet/copy/chỉnh sửa.
+- **Test:** `test/safe_haptics_test.dart` pin desktop/web skip, mobile callback
+  chạy, và `MissingPluginException` không propagate; nối read-action batch của
+  `app_analyze.yml`.
+- **Nghiệm thu:** build Windows `.exe`, giữ một chữ nguồn → `WordMiniPop`; giữ
+  dòng → `LineActionsSheet`; app không thoát. Nếu còn crash cần Windows dump/log
+  để khoanh vùng widget/native khác.
+- **Lịch sử:**
+  - 2026-10-20 | created→doing | agent Arena | harden 63 call sites + test;
+    chưa có Windows dump hoặc thiết bị để tái hiện.
+
 ### XLAT-SCR-004 — (IN4-17/IN4-12) Bong bóng dịch màn hình: crash PendingIntent + engine nền không khởi tạo được
 - **Trạng thái:** 🔨 doing (code + CI 🟢; **chờ nghiệm thu máy**) — [IN4-17](https://linear.app/in4up/issue/IN4-17) · [IN4-12](https://linear.app/in4up/issue/IN4-12)
 - **Nguồn (log debug `com.in4up.dev`, 18/10/2026):** 2 lỗi **ĐỘC LẬP** —
@@ -2489,6 +2550,39 @@
 - **Lịch sử:**
   - 2026-10-17 | created→doing | agent arena/01a0251e-in4up | code + test pin
     (chờ CI + máy).
+
+### TIPI-LANG-001 — Tipiṭaka import tiếng Việt nhưng reader chỉ hiện Pāli
+
+- **Trạng thái:** 🔨 doing — đã sửa đường nối nguồn Dart/Python và thêm
+  regression tests; chờ Flutter CI và kiểm tra bằng chính DB/pack của user.
+- **Nguồn:** chủ dự án, 2026-10-20 — đã import Tiếng Việt cho Tipiṭaka nhưng
+  reader chỉ thấy Pāli.
+- **Điểm cần xử lý:** importer chỉ ghép chính xác `(source_table, row_key)`;
+  table-name khác kiểu chữ/dấu gạch dưới hoặc ID số có zero-padding khiến bản
+  dịch không ghép với Pāli, có thể sinh đoạn dịch rỗng Pāli. Reader đang mở
+  cũng không nghe thông báo sau khi DB được cài nguyên tử. DB thật của user
+  chưa có trong sandbox nên đây là đường lỗi được tái hiện bằng DB tổng hợp,
+  không kết luận chắc chắn nguyên nhân của file người dùng.
+- **Thay đổi:**
+  - `TipitakaDb`: canonical source join key (table không phân biệt hoa/thường,
+    bỏ dấu phân cách, numeric key bỏ zero-padding); reference fallback gộp
+    whitespace/không phân biệt hoa thường.
+  - Sau import thành công, tăng `importRevision`; reader reload pack trong khi
+    giữ gần đúng vị trí đang đọc.
+  - `scripts/import_tipitaka.py`: áp dụng cùng luật join; thêm regression test
+    Python để importer build database không tái tạo lỗi này.
+- **Test:** `test/tipitaka_independent_language_import_test.dart` pin join Dart
+  khi tên bảng/ID/reference khác nhau; `test/test_import_tipitaka.py` pin
+  Python join; Python test đã chạy ở sandbox và xanh. Flutter tests/analyze
+  chưa chạy vì sandbox không có Flutter/Dart.
+- **Nghiệm thu:** import bản Pāli + Vietnamese thực tế, xác minh
+  `availableLanguages` có `pi` và `vi`, cùng một segment có `pali_text` và
+  `translation_vi`; reader hiển thị bản dịch sau import mà không khởi động lại.
+  Kiểm tra Cài đặt reader: display mode phải là Song ngữ/Bản dịch và ngôn ngữ
+  chính `vi`; lựa chọn Pāli-only đã lưu vẫn là lựa chọn tường minh của user.
+- **Lịch sử:**
+  - 2026-10-20 | created→doing | agent Arena | thêm canonical joins, reader
+    refresh listener, 1 test Dart + 1 test Python; chưa có DB thật để xác minh.
 
 ### YT-PROGRESS-001 — (IN4-81) YouTube: ưu tiên phát video, lời/dịch không chặn player
 - **Trạng thái:** 🔨 doing (code + test + CI 🟢; **chờ nghiệm thu máy**) — [IN4-81](https://linear.app/in4up/issue/IN4-81)
@@ -6142,6 +6236,32 @@
     `arena/01a0251e-in4up`, CI 🟢 (xem trên). Còn lại: nghiệm thu máy
     (AT: chọn Nam Minh → nghe giọng nam)
 
+### TTS-EDGE-ROUTE-001 — Windows Edge TTS không hoạt động dù đã chọn giọng
+
+- **Trạng thái:** 🔨 doing — đã sửa routing và network precheck, thêm test
+  thuần; chờ Flutter CI và xác minh end-to-end trên Windows.
+- **Nguồn:** chủ dự án, 2026-10-20 — Microsoft Edge TTS không phát trong
+  Windows `.exe`.
+- **Phát hiện từ code (chưa tái hiện trên máy user):** chế độ mặc định
+  `offlineFirst` xếp Piper/system offline trước Edge, dù user đã chọn rõ một
+  giọng Edge; connectivity precheck cũng có thể chặn request khi desktop plugin
+  trả trạng thái rỗng/lỗi. Hai khả năng này giải thích được “đã chọn nhưng
+  không chạy”, chưa xác nhận duy nhất nguyên nhân trên máy.
+- **Sửa:** Edge voice theo ngôn ngữ được chọn làm preferred engine đầu tiên
+  (sau đó vẫn fallback); `offlineOnly` và công tắc engine tắt giữ nguyên quyền
+  ưu tiên. Network precheck chỉ từ chối nhanh khi báo rõ `none`; trạng thái
+  desktop không xác định cho phép request có timeout hữu hạn rồi fallback.
+- **Test:** `test/tts_candidate_router_test.dart` pin offline-first cũ, Edge
+  selection, online-first/offline-only và disabled engine. Nối TTS batch trong
+  `app_analyze.yml`.
+- **Nghiệm thu Windows:** chọn Edge + giọng vi-VN, nghe câu thật; thử mất mạng
+  để xác nhận fallback; kiểm tra cache và xem `lastUsedEngine`. CI kiểm tra
+  routing không thay thế được WebSocket test tới Microsoft.
+- **Lịch sử:**
+  - 2026-10-20 | created→doing | agent Arena | thêm preferred-Edge routing,
+    permissive desktop connectivity probe (bounded timeout remains) và test;
+    chưa có Windows `.exe`/egress thật trong sandbox.
+
 ### PDF-OCR-002 — PDF Reader: Batch OCR (trang hiện tại / khoảng trang / toàn bộ tài liệu)
 - **Trạng thái:** 🔨 doing — code + test thuần xong (sandbox không Flutter SDK
   — chờ CI `app_analyze.yml` + nghiệm thu thiết bị Android/iOS).
@@ -6446,6 +6566,30 @@
     thật (script `scripts/qa/screen_translate_logcat.sh`), nghiệm thu 7 tiêu
     chí, và một lượt `flutter build apk --flavor stable` (Kotlin chưa có CI
     biên dịch).
+
+### XLAT-SCR-WIN-001 — Dịch màn hình toàn hệ thống trên Windows
+
+- **Trạng thái:** 📋 proposed — đã ghi scope/kiến trúc/AT; chưa có Windows
+  capture/overlay code, chưa build native, chưa thử trên máy Windows.
+- **Nguồn:** chủ dự án, 2026-10-20 — Windows `.exe` mục 7 báo “Chỉ Android”;
+  yêu cầu dịch toàn màn hình và kéo chọn khung/vùng.
+- **Kế hoạch:** `PLAN-037` + `docs/plans/windows_screen_translate_plan.md`.
+  W0 bắt buộc spike capture API/interop, Windows minimum version, OCR backend
+  (Windows OCR API so với Tesseract), DPI/virtual desktop, multi-monitor,
+  overlay exclusion và đóng gói. W1 capture full display; W2 drag-select +
+  cancel; W3 OCR → `TranslationService` → overlay; W4 Windows debug/release CI
+  + smoke test. Giữ tách biệt lane native Android; tái dùng Dart model/controller
+  khi seam OCR được tách. ML Kit OCR hiện không hỗ trợ Windows.
+- **Privacy:** thao tác người dùng cho từng frame; không loop, không lưu/upload
+  ảnh, chỉ gửi OCR text theo engine dịch đã chọn; không vượt qua protected
+  content. Ảnh/frame phải được giải phóng sau OCR/cancel.
+- **AT:** toàn màn hình; vùng kéo chọn và Esc; đúng tọa độ ở 100/125/150/200%,
+  hai monitor khác DPI và origin âm; overlay không tự OCR; routing/cache/cancel/
+  lỗi rõ; Windows 10/11 build + máy thật sạch. Xem plan cho 7 tiêu chí đầy đủ.
+- **Lịch sử:**
+  - 2026-10-20 | proposed | agent Arena | tạo kế hoạch Windows riêng để thay
+    thông báo “Chỉ Android” bằng lộ trình có capture, drag-region, OCR seam,
+    DPI/multi-monitor, privacy, CI và nghiệm thu; chưa tuyên bố đã triển khai.
 
 ### AUDIT-0103 — Đợt kiểm định bản 0.10.3 của chủ dự án (10 mục)
 

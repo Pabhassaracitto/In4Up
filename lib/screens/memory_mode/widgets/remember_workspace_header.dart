@@ -1,5 +1,7 @@
 import 'package:in4up/core/language/localized_material.dart';
 
+import '../../../widgets/collapsible_action_bar.dart';
+
 /// NHỚ-WORKSPACE-002 — header của workspace Nhớ, tách rõ hai tầng:
 ///
 /// 1. HOẠT ĐỘNG CHÍNH: Ôn tập (CTA chính, kèm badge từ đến hạn) và
@@ -86,7 +88,7 @@ class RememberWorkspaceHeader extends StatelessWidget {
   Widget _buildBanner() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -103,25 +105,29 @@ class RememberWorkspaceHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nhớ · Retention Workspace',
+                  context.uiText('Nhớ · Retention Workspace'),
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 15,
+                    fontSize: 14,
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  'Tập trung vào ôn tập, duy trì ký ức dài hạn và nhìn lại tiến độ từ vựng.',
+                  context.uiText(
+                    'Tập trung vào ôn tập, duy trì ký ức dài hạn và nhìn lại tiến độ từ vựng.',
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 12,
-                    height: 1.4,
+                    fontSize: 11.5,
+                    height: 1.3,
                   ),
                 ),
               ],
@@ -174,7 +180,7 @@ class RememberWorkspaceHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 const Flexible(
                   child: Text(
-                    'Ôn tập ngay',
+                    context.uiText('Ôn tập ngay'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -238,16 +244,21 @@ class RememberWorkspaceHeader extends StatelessWidget {
   }
 
   // ── Tầng 2: công cụ xem dữ liệu ("Xem tiến độ") ────────────────────────
+  //
+  // AUDIT-2026-10-20 (mục 3): nhóm này nay dùng cơ chế 2 TẦNG (gộp ⇄ bung
+  // bằng mũi tên) giống thanh phát trong vùng đọc — mặc định GỘP (chỉ
+  // icon) cho gọn, bấm mũi tên để bung nhãn. Trước đây CẢ thanh chức năng
+  // bị `AutoHideInfoBanner` ẩn sau 5 giây ⇒ người dùng chưa kịp chọn.
   Widget _buildProgressTools() {
     return Column(
       key: rememberProgressGroupKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 6),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
           child: Text(
-            'XEM TIẾN ĐỘ',
-            style: TextStyle(
+            context.uiText('Xem tiến độ').toUpperCase(),
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
               color: Colors.grey,
@@ -255,102 +266,54 @@ class RememberWorkspaceHeader extends StatelessWidget {
             ),
           ),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _WorkspaceChip(
-                key: rememberToolWordListKey,
-                icon: Icons.format_list_bulleted,
+        Align(
+          alignment: Alignment.centerLeft,
+          child: CollapsibleActionBar(
+            actions: [
+              CollapsibleAction(
+                widgetKey: rememberToolWordListKey,
                 label: 'Word List',
-                color: const Color(0xFF6C63FF),
-                onTap: onOpenWordList,
+                icon: Icons.format_list_bulleted,
+                active: true,
+                activeColor: const Color(0xFF6C63FF),
+                onPressed: onOpenWordList,
               ),
-              const SizedBox(width: 8),
-              _WorkspaceChip(
-                key: rememberToolTimelineKey,
-                icon: Icons.timeline,
+              CollapsibleAction(
+                widgetKey: rememberToolTimelineKey,
                 label: 'Timeline',
-                color: const Color(0xFF9C27B0),
-                onTap: onOpenTimeline,
+                icon: Icons.timeline,
+                active: true,
+                activeColor: const Color(0xFF9C27B0),
+                onPressed: onOpenTimeline,
               ),
-              const SizedBox(width: 8),
-              _WorkspaceChip(
-                key: rememberToolStatsKey,
+              CollapsibleAction(
+                widgetKey: rememberToolStatsKey,
+                label: context.uiText('Thống kê'),
                 icon: Icons.bar_chart_rounded,
-                label: 'Thống kê',
-                color: const Color(0xFF42A5F5),
-                onTap: onOpenStats,
+                active: true,
+                activeColor: const Color(0xFF42A5F5),
+                onPressed: onOpenStats,
               ),
-              const SizedBox(width: 8),
-              _WorkspaceChip(
-                key: rememberToolWordMapKey,
-                icon: Icons.map_outlined,
+              CollapsibleAction(
+                widgetKey: rememberToolWordMapKey,
                 label: 'Word Map',
-                color: const Color(0xFF26C6DA),
-                onTap: onOpenMap,
+                icon: Icons.map_outlined,
+                active: true,
+                activeColor: const Color(0xFF26C6DA),
+                onPressed: onOpenMap,
               ),
-              const SizedBox(width: 8),
-              _WorkspaceChip(
-                key: rememberToolQuickActionsKey,
+              CollapsibleAction(
+                widgetKey: rememberToolQuickActionsKey,
+                label: context.uiText('Công cụ nhanh'),
                 icon: Icons.auto_awesome,
-                label: 'Công cụ nhanh',
-                color: const Color(0xFF81C784),
-                onTap: onOpenQuickActions,
+                active: true,
+                activeColor: const Color(0xFF81C784),
+                onPressed: onOpenQuickActions,
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _WorkspaceChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _WorkspaceChip({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        // Vùng chạm ≥ 40dp cao; chip nằm trong scroll ngang nên không gây
-        // overflow ngang ở màn hẹp.
-        constraints: const BoxConstraints(minHeight: 40),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

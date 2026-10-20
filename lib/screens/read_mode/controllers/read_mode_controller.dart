@@ -228,6 +228,16 @@ class ReadModeController extends ChangeNotifier {
     }
   }
 
+  /// AUDIT-2026-10-20 (mục 1): báo cho UI biết "cấu hình đã đổi, hãy đọc
+  /// lại" — dùng khi sheet Cài đặt đóng lại (ví dụ vị trí phần TIÊU ĐỀ khi
+  /// ở chế độ Focus: Ẩn / Trên / Dưới) để thay đổi có hiệu lực NGAY mà
+  /// không phải mở lại app.
+  ///
+  /// Không đụng `isFocusMode` (nó đã có `toggleFocusMode`/`setFocusMode`).
+  void requestRefresh() {
+    notifyListeners();
+  }
+
   // ===== CLEANUP =====
   @override
   void dispose() {

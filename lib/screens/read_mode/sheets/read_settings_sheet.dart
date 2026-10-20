@@ -14,6 +14,7 @@ import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../services/storage_service.dart';
+import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
 
 class ReadSettingsSheet {
@@ -29,7 +30,18 @@ class ReadSettingsSheet {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => const _SettingsContent(),
-    );
+    ).then((_) {
+      // AUDIT-2026-10-20 (mục 1): sheet đóng ⇒ cấu hình vừa đổi (ví dụ vị
+      // trí phần TIÊU ĐỀ khi ở chế độ Focus) phải có hiệu lực NGAY, không
+      // phải đợi mở lại app. Báo cho ReadModeController refresh ⇒ màn Đọc
+      // rebuild ⇒ đọc lại setting từ storage.
+      if (!context.mounted) return;
+      try {
+        context.read<ReadModeController>().requestRefresh();
+      } catch (_) {
+        // Màn Đọc đã bị đóng trong lúc mở sheet — không cần refresh.
+      }
+    });
   }
 }
 

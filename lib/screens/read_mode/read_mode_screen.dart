@@ -126,6 +126,19 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     widget.onSourceChanged?.call(source);
   }
 
+  /// AUDIT-2026-10-20 (mục 1): controller đổi ⇒ màn rebuild + đọc lại cấu
+  /// hình "vị trí phần TIÊU ĐỀ khi ở chế độ Focus" (Ẩn / Trên / Dưới) từ
+  /// storage, để lựa chọn trong Cài đặt có hiệu lực ngay.
+  void _onControllerChanged() {
+    if (!mounted) return;
+    final next = StorageService().getReadFocusTitlePosition();
+    if (next == _focusTitlePosition) {
+      setState(() {});
+      return;
+    }
+    setState(() => _focusTitlePosition = next);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -136,6 +149,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       _playerProviderRef = pp;
 
       _controller = ReadModeController(textProvider: tp, playerProvider: pp);
+      // AUDIT-2026-10-20 (mục 1): màn Đọc PHẢI rebuild khi controller đổi.
+      // Trước đây screen chỉ watch TextProvider ⇒ `toggleFocusMode()` gọi
+      // notifyListeners() nhưng KHÔNG ai nghe ⇒ bấm nút Focus (và chọn
+      // Ẩn/Trên/Dưới trong Cài đặt) không hề thay đổi gì trên màn.
+      _controller.addListener(_onControllerChanged);
       _playerListener = () {
         if (!mounted) return;
         final pos = pp.state.position;
@@ -258,6 +276,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     _readingHeartbeat?.cancel();
     _readingHeartbeat = null;
     _scrollController.dispose();
+    // AUDIT-2026-10-20 (mục 1): bỏ listener trước khi dispose controller.
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -355,13 +375,14 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                               }
                             },
                             onDoubleTap: () {
-                              if (isSmallScreen) {
-                                _controller.toggleFocusMode();
-                                setState(() => _bottomControlsVisible = !isFocusMode);
-                              } else {
-                                // On large screen double-tap also toggles focus
-                                _controller.toggleFocusMode();
-                              }
+                              // AUDIT-2026-10-20 (mục 1): đọc TRẠNG THÁI MỚI
+                              // sau khi toggle (trước đây dùng giá trị cũ
+                              // ⇒ thanh dưới bị hiện/ẩn ngược).
+                              _controller.toggleFocusMode();
+                              setState(
+                                () => _bottomControlsVisible =
+                                    !_controller.isFocusMode,
+                              );
                             },
                             child: _buildTextList(textProvider, isFocusMode),
                           ),

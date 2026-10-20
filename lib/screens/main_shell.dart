@@ -53,6 +53,7 @@ import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/word_list/wordlist_bubble.dart';
+import '../widgets/collapsible_action_bar.dart';
 import '../widgets/workspace_navigation/workspace_navigation.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/services/understand_ai_coach_launcher.dart';
@@ -1558,19 +1559,28 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeaderLabel(
-            icon: Icons.source_outlined,
-            label: context.uiText('Nguồn'),
+          // AUDIT-2026-10-20 (mục 5): nhãn + nguồn CHUNG MỘT HÀNG (chips
+          // cuộn ngang) ⇒ header gọn hơn, vẫn đồng bộ 3 tab.
+          Row(
+            children: [
+              _WorkspaceHeaderLabel(
+                icon: Icons.source_outlined,
+                label: context.uiText('Nguồn'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: WorkspaceSourcePicker<ListenContentSource>(
+                  items: _listenSourceItems(context),
+                  selectedValue: _listenSource,
+                  onChanged: (source) =>
+                      _setListenSource(source, openSource: true),
+                  presentation: WorkspaceNavigationPresentation.chips,
+                  menuTooltip: context.uiText('Chọn nguồn'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          WorkspaceSourcePicker<ListenContentSource>(
-            items: _listenSourceItems(context),
-            selectedValue: _listenSource,
-            onChanged: (source) => _setListenSource(source, openSource: true),
-            presentation: WorkspaceNavigationPresentation.chips,
-            menuTooltip: context.uiText('Chọn nguồn'),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           _WorkspaceHeaderActions(actions: actions),
         ],
       ),
@@ -1605,21 +1615,29 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeaderLabel(
-            icon: Icons.source_outlined,
-            label: context.uiText('Nguồn'),
+          // AUDIT-2026-10-20 (mục 5): nhãn + nguồn chung một hàng.
+          Row(
+            children: [
+              _WorkspaceHeaderLabel(
+                icon: Icons.source_outlined,
+                label: context.uiText('Nguồn'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ReadSourcePicker(
+                  selectedSource: _readSource,
+                  onSourceChanged: (source) => _setReadSource(source),
+                  callbacks: ReadSourceCallbacks(
+                    onOpenDocumentLibrary: _openTextLibrary,
+                    onOpenWebReader: () => _handleTool('web_reader'),
+                    onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
+                  ),
+                  presentation: WorkspaceNavigationPresentation.chips,
+                ),
+              ),
+            ],
           ),
-          ReadSourcePicker(
-            selectedSource: _readSource,
-            onSourceChanged: (source) => _setReadSource(source),
-            callbacks: ReadSourceCallbacks(
-              onOpenDocumentLibrary: _openTextLibrary,
-              onOpenWebReader: () => _handleTool('web_reader'),
-              onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
-            ),
-            presentation: WorkspaceNavigationPresentation.chips,
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           // READ-ACT-001: cho biết 4 nút dưới đây đang áp dụng lên đoạn nào,
           // thay cho snackbar "Bạn cần bôi chọn một đoạn trước".
           Consumer<TextProvider>(
@@ -1690,19 +1708,26 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeaderLabel(
-            icon: Icons.route_outlined,
-            label: context.uiText('Chế độ'),
+          // AUDIT-2026-10-20 (mục 5): nhãn + chế độ chung một hàng.
+          Row(
+            children: [
+              _WorkspaceHeaderLabel(
+                icon: Icons.route_outlined,
+                label: context.uiText('Chế độ'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: WorkspaceModeBar<UnderstandWorkspaceMode>(
+                  items: _understandModeItems(context),
+                  selectedValue: _understandMode,
+                  onChanged: _setUnderstandMode,
+                  presentation: WorkspaceNavigationPresentation.chips,
+                  menuTooltip: context.uiText('Chọn chế độ'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          WorkspaceModeBar<UnderstandWorkspaceMode>(
-            items: _understandModeItems(context),
-            selectedValue: _understandMode,
-            onChanged: _setUnderstandMode,
-            presentation: WorkspaceNavigationPresentation.chips,
-            menuTooltip: context.uiText('Chọn chế độ'),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Consumer2<PlayerProvider, TextProvider>(
             builder: (context, player, textProvider, _) {
               return Wrap(
@@ -2050,7 +2075,8 @@ class _WorkspaceHeaderSurface extends StatelessWidget {
     return Container(
       key: const Key('workspace-context-header'),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      // AUDIT-2026-10-20 (mục 5): padding gọn hơn để dành chỗ cho nội dung.
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       decoration: BoxDecoration(
         color: const Color(0xFF101827),
         border: Border(
@@ -2101,44 +2127,22 @@ class _WorkspaceHeaderActions extends StatelessWidget {
   /// thoại thay vì `Wrap` thành hai hàng cao chiếm hết màn hình đọc.
   final bool dense;
 
-  /// Dưới bề ngang này thì cuộn ngang; từ tablet trở lên vẫn xuống dòng.
-  static const double _scrollBreakpoint = 600;
-
+  /// AUDIT-2026-10-20 (mục 5): dùng chung [CollapsibleActionBar] — hẹp thì
+  /// GỘP (chỉ icon + mũi tên), rộng/bung thì có nhãn. Nhờ vậy thanh chức
+  /// năng của 3 tab (Nghe / Đọc / Hiểu) gọn gàng, tiết kiệm không gian mà
+  /// vẫn đồng bộ và tiện dụng.
   @override
   Widget build(BuildContext context) {
-    if (!dense) {
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final action in actions)
-            _WorkspaceHeaderActionButton(action: action),
-        ],
-      );
-    }
-
-    final buttons = [
-      for (final action in actions)
-        _WorkspaceHeaderActionButton(action: action, dense: true),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= _scrollBreakpoint) {
-          return Wrap(spacing: 8, runSpacing: 8, children: buttons);
-        }
-        return SizedBox(
-          height: WorkspaceActionButton.denseHeight,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const ClampingScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: buttons.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (_, index) => buttons[index],
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return CollapsibleActionBar(
+      actions: [
+        for (final a in actions)
+          CollapsibleAction(
+            label: a.label,
+            icon: a.icon,
+            onPressed: a.onPressed,
           ),
-        );
-      },
+      ],
     );
   }
 }

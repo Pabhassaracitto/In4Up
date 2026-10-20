@@ -16,6 +16,7 @@ import '../services/read_text_action_runner.dart';
 import '../services/word_range_selection.dart';
 import '../sheets/word_actions_sheet.dart';
 import 'read_text_action_hooks.dart';
+import 'word_mini_pop.dart';
 
 /// Chế độ ô chữ (tô màu / IPA) của tab Đọc — mỗi từ một ô chạm được.
 ///
@@ -183,8 +184,14 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       isAnchor: isAnchor,
       selectionActive: range != null,
       onTap: () => _selecting ? _extendTo(index) : _speak(index),
-      onDoubleTap: _selecting ? null : () => _showQuickMeaning(index),
-      onLongPressStart: () => _startSelection(index),
+      // AUDIT-2026-10-20 (mục 4): chạm đúp và nhấn giữ đều mở POP NHỎ
+      // (gọn, đủ thông tin cơ bản + nút "Bôi nhiều chữ"); kéo "rèm" ở đầu
+      // pop lên ⇒ bung thông tin đầy đủ. Trước đây chạm đúp chỉ hiện
+      // snackbar nghĩa nhanh, còn nhấn giữ vào thẳng chế độ bôi chữ.
+      onDoubleTap: _selecting
+          ? null
+          : () => _openMiniPop(context, index),
+      onLongPressStart: () => _openMiniPop(context, index),
       onLongPressMoveUpdate: (position) => _dragTo(position),
     );
   }
@@ -264,8 +271,15 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
     tp.speak(widget.words[index].word);
   }
 
-  void _showQuickMeaning(int index) {
-    _QuickMeaning.show(context, widget.words[index]);
+  /// Mở pop nhỏ cho từ (mục 4) — kèm nút quay lại chế độ bôi nhiều chữ.
+  void _openMiniPop(BuildContext context, int index) {
+    WordMiniPop.show(
+      context,
+      word: widget.words[index],
+      lineIndex: widget.lineIndex,
+      wordIndex: index,
+      onSelectMore: () => _startSelection(index),
+    );
   }
 
   void _startSelection(int index) {
@@ -535,65 +549,6 @@ class _ColoredWord extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Nghĩa nhanh (chạm hai lần) — tách khỏi `_ColoredWord` để widget từ chỉ còn
-/// lo hiển thị + thao tác (READ-SELECT-002 cần `_ColoredWord` nhận callback
-/// thay vì tự quyết định hành vi).
-class _QuickMeaning {
-  _QuickMeaning._();
-
-  static void show(BuildContext context, AnalyzedWord word) {
-    if (word.meaning == null) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: word.wordType.color.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                word.word,
-                style: TextStyle(
-                  color: word.wordType.color,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    word.meaning!,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  Text(
-                    '${context.uiText(grammarCategoryFromLegacyWordType(word.wordType).labelVi)} · ${word.cefrLevel.shortLabel}',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF2A2A3E),
-        duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
       ),
     );
   }

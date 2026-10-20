@@ -15,6 +15,8 @@ class WorkspaceActionButton extends StatelessWidget {
     this.compact = false,
     this.dense = false,
     this.tooltip,
+    this.active = false,
+    this.activeColor,
   });
 
   final String label;
@@ -49,13 +51,25 @@ class WorkspaceActionButton extends StatelessWidget {
     if (dense) {
       final button = FilledButton.tonalIcon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 16),
-        label: Text(label, overflow: TextOverflow.ellipsis, maxLines: 1),
+        icon: Icon(icon, size: 16, color: active ? accent : null),
+        label: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: active ? accent : null,
+          ),
+        ),
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           minimumSize: const Size(0, denseHeight),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           visualDensity: VisualDensity.compact,
+          backgroundColor: active
+              ? accent.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.08),
           textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
         ),
       );

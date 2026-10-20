@@ -153,6 +153,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Initialize required llama.cpp submodule
+        shell: pwsh
+        run: |
+          git submodule update --init --depth 1 -- third_party/llama.cpp
+          if (-not (Test-Path "third_party/llama.cpp/CMakeLists.txt")) {
+            throw "llama.cpp submodule is required for the real Windows Gemma backend."
+          }
+          git -C third_party/llama.cpp rev-parse HEAD
+
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
@@ -237,6 +246,10 @@ jobs:
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+
+      - name: Verify real Windows Gemma backend
+        shell: pwsh
+        run: ./scripts/ci/verify_windows_ai_backend.ps1 -BuildDirectory "build/windows/x64/runner/Release"
 
       # Nén thư mục Release CHUẨN của Flutter: build/windows/x64/runner/Release
       # ⚠ FIX zip chỉ vài KB: trước đây dùng

@@ -5,8 +5,8 @@
 // Bấm "Xem tất cả" → TextProvider.clearText() → về ReadLibraryScreen
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../providers/text_provider.dart';
@@ -357,7 +357,7 @@ class _QuickFileRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Padding(

@@ -3,8 +3,8 @@
 import 'dart:async';
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../core/language/app_language.dart';
 import '../../../providers/text_provider.dart';
@@ -202,7 +202,7 @@ class _MainRow extends StatelessWidget {
                         tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
                         active: recipe.mode == PlaybackMode.enOnly,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          SafeHaptics.selectionClick();
                           controller.updateRecipe(
                             recipe.copyWith(mode: PlaybackMode.enOnly),
                           );
@@ -215,7 +215,7 @@ class _MainRow extends StatelessWidget {
                         active: recipe.mode == PlaybackMode.interleaved ||
                             recipe.mode == PlaybackMode.custom,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          SafeHaptics.selectionClick();
                           if (!tp.translationPairUsesSameLanguage &&
                               tp.translatedLineCount == 0) {
                             unawaited(tp.translateAll());
@@ -231,7 +231,7 @@ class _MainRow extends StatelessWidget {
                           }
                         },
                         onLongPress: () {
-                          HapticFeedback.mediumImpact();
+                          SafeHaptics.mediumImpact();
                           controller.updateRecipe(
                             recipe.copyWith(mode: PlaybackMode.custom),
                           );
@@ -244,7 +244,7 @@ class _MainRow extends StatelessWidget {
                         tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
                         active: recipe.mode == PlaybackMode.viOnly,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          SafeHaptics.selectionClick();
                           if (tp.translationPairUsesSameLanguage) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -320,7 +320,7 @@ class _MainRow extends StatelessWidget {
                   tooltip: context.uiText('Chỉ ${sourceLanguage.nativeName}'),
                   active: recipe.mode == PlaybackMode.enOnly,
                   onTap: () {
-                    HapticFeedback.selectionClick();
+                    SafeHaptics.selectionClick();
                     controller.updateRecipe(
                       recipe.copyWith(mode: PlaybackMode.enOnly),
                     );
@@ -333,7 +333,7 @@ class _MainRow extends StatelessWidget {
                   active: recipe.mode == PlaybackMode.interleaved ||
                       recipe.mode == PlaybackMode.custom,
                   onTap: () {
-                    HapticFeedback.selectionClick();
+                    SafeHaptics.selectionClick();
                     if (!tp.translationPairUsesSameLanguage &&
                         tp.translatedLineCount == 0) {
                       unawaited(tp.translateAll());
@@ -351,7 +351,7 @@ class _MainRow extends StatelessWidget {
                   },
                   onLongPress: () {
                     // Long press → custom mode + mở expand
-                    HapticFeedback.mediumImpact();
+                    SafeHaptics.mediumImpact();
                     controller.updateRecipe(
                       recipe.copyWith(mode: PlaybackMode.custom),
                     );
@@ -364,7 +364,7 @@ class _MainRow extends StatelessWidget {
                   tooltip: context.uiText('Chỉ ${targetLanguage.nativeName}'),
                   active: recipe.mode == PlaybackMode.viOnly,
                   onTap: () {
-                    HapticFeedback.selectionClick();
+                    SafeHaptics.selectionClick();
                     if (tp.translationPairUsesSameLanguage) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -445,7 +445,7 @@ class _MainRow extends StatelessWidget {
   // ── Handlers ────────────────────────────────────────────────
 
   void _onPlayTap(BuildContext context) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     if (controller.isRunning) {
       controller.stop(fileId: tp.currentDocument?.id ?? 'unknown');
     } else {
@@ -527,7 +527,7 @@ class _MainRow extends StatelessWidget {
   }
 
   void _showPresetSheet(BuildContext context) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF0D1520),
@@ -1011,7 +1011,7 @@ class _PresetSheet extends StatelessWidget {
             final isActive = controller.recipe == p.recipe;
             return GestureDetector(
               onTap: () {
-                HapticFeedback.selectionClick();
+                SafeHaptics.selectionClick();
                 controller.updateRecipe(p.recipe);
                 Navigator.pop(context);
               },

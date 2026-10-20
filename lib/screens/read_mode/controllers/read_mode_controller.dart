@@ -2,7 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
@@ -86,7 +86,7 @@ class ReadModeController extends ChangeNotifier {
   // ===== AUTO-SCROLL SYNC =====
   void toggleAutoSync() {
     _autoSyncEnabled = !_autoSyncEnabled;
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     notifyListeners();
   }
 
@@ -217,7 +217,7 @@ class ReadModeController extends ChangeNotifier {
 
   void toggleFocusMode() {
     _isFocusMode = !_isFocusMode;
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     notifyListeners();
   }
 

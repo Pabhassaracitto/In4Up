@@ -5,10 +5,10 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
 import '../../../models/text_device_entry.dart';
@@ -268,7 +268,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // content:// không đọc trực tiếp được → copy cache → persist vào app
   // docs (ổn định qua restart) → mở như file local thường.
   Future<void> _openDeviceEntry(TextDeviceEntry entry) async {
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
 
@@ -406,7 +406,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   // ── Delete file from recent ────────────────────────────────
   Future<void> _removeFile(RecentFile file) async {
-    HapticFeedback.heavyImpact();
+    SafeHaptics.heavyImpact();
     await _service.remove(file.id);
     if (mounted) await _load();
   }
@@ -1434,7 +1434,7 @@ class _DeviceTabState extends State<_DeviceTab> {
   }
 
   Future<void> _pickFolder() async {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     await _provider.pickFolder();
   }
 
@@ -1832,7 +1832,7 @@ class _DeviceScanButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: loading ? null : () {
-        HapticFeedback.mediumImpact();
+        SafeHaptics.mediumImpact();
         onTap();
       },
       child: Container(
@@ -2071,7 +2071,7 @@ class _CloudEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Container(
@@ -2189,7 +2189,7 @@ class _DevicePickButton extends StatelessWidget {
       onTap: loading
           ? null
           : () {
-              HapticFeedback.mediumImpact();
+              SafeHaptics.mediumImpact();
               onTap();
             },
       child: Container(

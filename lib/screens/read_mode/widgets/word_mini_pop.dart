@@ -12,10 +12,10 @@
 //   • Thêm ảnh cho từ (đã có sẵn cơ chế tìm/chọn ảnh ở Worklist + Sửa từ
 //     vựng) ⇒ pop cũng phải làm được.
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
@@ -71,7 +71,7 @@ class WordMiniPop extends StatefulWidget {
     required int wordIndex,
     VoidCallback? onSelectMore,
   }) {
-    HapticFeedback.lightImpact();
+    SafeHaptics.lightImpact();
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -368,7 +368,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
                               icon: Icons.volume_up_rounded,
                               tooltip: context.uiText('Phát âm'),
                               onTap: () {
-                                HapticFeedback.lightImpact();
+                                SafeHaptics.lightImpact();
                                 tp.speak(widget.word.word);
                               },
                             ),

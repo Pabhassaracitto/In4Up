@@ -1,8 +1,8 @@
 // lib/screens/read_mode/widgets/read_top_bar.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
@@ -65,7 +65,7 @@ class ReadTopBar extends StatelessWidget {
                   )
                 : null,
             onPressed: () {
-              HapticFeedback.selectionClick();
+              SafeHaptics.selectionClick();
               tp.cycleColorMode();
             },
           ),
@@ -83,7 +83,7 @@ class ReadTopBar extends StatelessWidget {
             active: tp.wordTapBoxes,
             activeColor: const Color(0xFFFF9800),
             onPressed: () {
-              HapticFeedback.selectionClick();
+              SafeHaptics.selectionClick();
               tp.setWordTapBoxes(!tp.wordTapBoxes);
             },
           ),
@@ -219,7 +219,7 @@ class _TitleButton extends StatelessWidget {
               fit: FlexFit.loose,
               child: GestureDetector(
                 onTap: () {
-                  HapticFeedback.selectionClick();
+                  SafeHaptics.selectionClick();
                   QuickLibrarySheet.show(context);
                 },
                 child: Container(

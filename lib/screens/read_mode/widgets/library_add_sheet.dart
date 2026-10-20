@@ -1,7 +1,7 @@
 // lib/screens/read_mode/widgets/library_add_sheet.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 class LibraryAddSheet extends StatelessWidget {
   final VoidCallback onAddManualText;
@@ -161,7 +161,7 @@ class _OptionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Container(

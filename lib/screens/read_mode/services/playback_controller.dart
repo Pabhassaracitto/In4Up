@@ -4,8 +4,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../core/language/app_ui_translations.dart';
 import '../../../models/text_item.dart'; // ← THÊM
@@ -172,7 +172,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _recipe = _recipe.copyWith(speed: newSpeed);
     await _engine.updateSpeed(newSpeed);
     await _persistRecipe();
-    HapticFeedback.lightImpact();
+    SafeHaptics.lightImpact();
     _safeNotify();
   }
 
@@ -218,7 +218,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
 
     switch (event.type) {
       case PlaybackEventType.lineStart:
-        HapticFeedback.lightImpact();
+        SafeHaptics.lightImpact();
         activeLineNotifier.value = event.snapshot.line;
         isSourceNotifier.value = event.snapshot.isSource;
         unawaited(_notification.updateNotification(
@@ -230,7 +230,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
         break;
 
       case PlaybackEventType.languageSwitch:
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         isSourceNotifier.value = event.snapshot.isSource;
         break;
 

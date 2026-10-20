@@ -3,9 +3,9 @@
 import 'dart:async';
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/models/word_entry.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
@@ -407,7 +407,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                           onToggleWordlist: () {
                             setState(() =>
                                 _showWordlistPanel = !_showWordlistPanel);
-                            HapticFeedback.lightImpact();
+                            SafeHaptics.lightImpact();
                           },
                         ),
                       ],

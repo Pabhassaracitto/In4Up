@@ -3,8 +3,8 @@
 // Chỉ thay đổi: thêm 2 controller, 2 field trong UI, truyền vào addSegment()
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../providers/text_provider.dart';
 
@@ -15,7 +15,7 @@ class CreateSegmentSheet {
       showFromLine(context, lineIndex);
 
   static void showFromLine(BuildContext context, int lineIndex) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -29,7 +29,7 @@ class CreateSegmentSheet {
   }
 
   static void showFromRange(BuildContext context, int startLine, int endLine) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -306,7 +306,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                     _selectedColor.toARGB32() == color.toARGB32();
                 return GestureDetector(
                   onTap: () {
-                    HapticFeedback.selectionClick();
+                    SafeHaptics.selectionClick();
                     setState(() => _selectedColor = color);
                   },
                   child: AnimatedContainer(
@@ -428,7 +428,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
           GestureDetector(
             onTap: value > min
                 ? () {
-                    HapticFeedback.selectionClick();
+                    SafeHaptics.selectionClick();
                     onChanged(value - 1);
                   }
                 : null,
@@ -446,7 +446,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
           GestureDetector(
             onTap: value < max
                 ? () {
-                    HapticFeedback.selectionClick();
+                    SafeHaptics.selectionClick();
                     onChanged(value + 1);
                   }
                 : null,

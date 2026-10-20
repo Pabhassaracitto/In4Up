@@ -1,9 +1,9 @@
 // lib/screens/read_mode/widgets/colored_text_widget.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/grammar/models/grammar_category.dart';
 import '../../../features/grammar/models/grammar_highlight_settings.dart';
@@ -263,7 +263,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
   // ── Thao tác ────────────────────────────────────────────────────────────
 
   void _speak(int index) {
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     final tp = context.read<TextProvider>();
     if (tp.currentLineIndex != widget.lineIndex) {
       tp.setCurrentLine(widget.lineIndex);
@@ -289,7 +289,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       wordCount: widget.words.length,
     );
     if (range == null) return;
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     final tp = context.read<TextProvider>();
     if (tp.currentLineIndex != widget.lineIndex) {
       tp.setCurrentLine(widget.lineIndex);
@@ -308,7 +308,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       wordCount: widget.words.length,
     );
     if (next == null || next.focusIndex == range.focusIndex) return;
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     setState(() => _range = next);
     _publishSelection(next);
   }

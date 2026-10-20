@@ -2776,6 +2776,16 @@
   - Bài học: khi không có Flutter SDK local, **đọc annotation của check-run**
     qua API (`gh api …/check-runs/{id}/annotations`) để lấy đúng lỗi compile
     (log blob không tải được từ sandbox).
+  - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
+    release 1.12.2** (bump `1.12.1+9` → `1.12.2+10`, commit `297f2aa`; CI
+    `39410695751` 🟢) — run build `39411512454` **cả 4 job XANH** (Android /
+    iOS / Windows / Linux). Release: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.12.2
+    → `in4up-Android-arm64-v8a-1.12.2-297f2.apk` (188 MB, arm64-only),
+    `in4up-iOS-1.12.2.ipa`, `in4up-Linux-1.12.2.tar.gz`,
+    `in4up-Windows-1.12.2.zip`. Gate IN4-15 xanh (SHA-1 khớp) ⇒ build không
+    bị chặn. **Secret `OPENROUTER_API_KEY` CÓ trong bản build này** (workflow
+    chỉ phát `::warning::[in4up-or] Thiếu secret…` khi secret rỗng; annotations
+    của job Build APK **không có** warning đó).
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

@@ -2776,6 +2776,21 @@
   - Bài học: khi không có Flutter SDK local, **đọc annotation của check-run**
     qua API (`gh api …/check-runs/{id}/annotations`) để lấy đúng lỗi compile
     (log blob không tải được từ sandbox).
+  - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **MỤC 6 (bổ
+    sung)** — *"icon ở thanh phụ bên dưới (phần đọc âm thanh icon người và âm
+    thanh) hiện nhấn là phát nhưng chưa thấy chỗ để cho dùng … khi nhấn mà
+    đang phát thì đổi màu hay loa chuyển động ngay icon này và khi chạm lần 2
+    thì nó dừng"*. **Root cause**: `TextProvider.isSpeaking` chỉ TRUE khi đọc
+    **CẢ BÀI** (`owner == allLines`) ⇒ nút *đọc dòng hiện tại* (`owner ==
+    preview`) **không bao giờ** báo "đang phát" + chạm lần 2 lại **phát tiếp**
+    thay vì dừng. Sửa: getter mới `isTtsActive` (có phiên TTS nào chạy:
+    allLines/preview/segment) + widget mới `lib/widgets/pulsing_icon.dart`
+    (icon nhấp nháy bằng `Transform.scale` — nhẹ với GPU) ⇒ nút *đọc dòng
+    hiện tại* đổi sang icon **dừng** + màu xanh + **nhấp nháy**, chạm lần 2
+    ⇒ dừng thật sự; nút **loa** (play/stop) ở thanh phát cũng nhấp nháy + halo
+    đậm + tooltip; 4 chuỗi i18n mới; sheet Cài đặt (Đọc dòng / Đọc tất cả /
+    Dừng) dùng `isTtsActive`. Test: thêm group "mục 6" vào
+    `audit_2026_10_20_ui_compact_test.dart`; CI **39414535788** 🟢.
   - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
     release 1.12.2** (bump `1.12.1+9` → `1.12.2+10`, commit `297f2aa`; CI
     `39410695751` 🟢) — run build `39411512454` **cả 4 job XANH** (Android /

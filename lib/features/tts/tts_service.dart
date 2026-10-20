@@ -20,6 +20,7 @@ import 'engines/offline_tts_engine.dart';
 import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'language_detector.dart';
+import 'tts_candidate_router.dart';
 import 'tts_settings.dart';
 
 class TtsService extends ChangeNotifier {
@@ -354,35 +355,18 @@ class TtsService extends ChangeNotifier {
   // 🔥 SPEAK - CƠ CHẾ LINH HOẠT & ƯU TIÊN
   // ═══════════════════════════════════════
 
-  /// Danh sách candidate engines theo thứ tự ưu tiên cấu hình
-  List<TtsEngineInfo> _getCandidateEngines(TtsPriority priority) {
-    final enabled = _engineOrder.where((e) => e.isEnabled).toList()
-      ..sort((a, b) => a.priority.compareTo(b.priority));
-
-    switch (priority) {
-      case TtsPriority.offlineFirst:
-        // Offline trước (Piper Sherpa, Máy), sau đó Online (Google, Zalo, FPT)
-        final off = enabled.where((e) => !e.isOnline).toList();
-        final on = enabled.where((e) => e.isOnline).toList();
-        return [...off, ...on];
-
-      case TtsPriority.onlineFirst:
-        // Online trước, sau đó fallback Offline
-        final on = enabled.where((e) => e.isOnline).toList();
-        final off = enabled.where((e) => !e.isOnline).toList();
-        return [...on, ...off];
-
-      case TtsPriority.offlineOnly:
-        // Chỉ offline
-        return enabled.where((e) => !e.isOnline).toList();
-
-      case TtsPriority.onlineOnly:
-        // Online trước, fallback offline nếu cần thiết
-        final on = enabled.where((e) => e.isOnline).toList();
-        final off = enabled.where((e) => !e.isOnline).toList();
-        return [...on, ...off];
-    }
-  }
+  /// Danh sách candidate engines theo thứ tự ưu tiên cấu hình.
+  /// Nếu user đã chọn rõ một giọng Edge, lựa chọn đó được ưu tiên trước
+  /// fallback offline (trừ chế độ `offlineOnly`).
+  List<TtsEngineInfo> _getCandidateEngines(
+    TtsPriority priority, {
+    String? preferredEngineId,
+  }) =>
+      orderTtsCandidates(
+        engines: _engineOrder,
+        priority: priority,
+        preferredEngineId: preferredEngineId,
+      );
 
   Future<void> speak(String text) async {
     if (text.trim().isEmpty) return;
@@ -408,8 +392,19 @@ class TtsService extends ChangeNotifier {
     // người dùng vừa chọn. Giờ mỗi engine tự dò cache theo đúng danh tính
     // (engine + ngôn ngữ + giọng + tốc độ + cao độ).
 
-    // 2. Chạy qua danh sách engine theo thứ tự ưu tiên
-    final candidates = _getCandidateEngines(_priority);
+    // 2. Chạy qua danh sách engine theo thứ tự ưu tiên. Chọn một giọng Edge
+    // cụ thể là lựa chọn engine tường minh: thử Edge trước rồi mới fallback.
+    // `offlineOnly` và công tắc tắt Edge vẫn được tôn trọng.
+    final edgeEnabled = _engineOrder.any(
+      (engine) => engine.id == 'edge_tts' && engine.isEnabled,
+    );
+    final edgeVoice = edgeEnabled && _priority != TtsPriority.offlineOnly
+        ? await _resolveEdgeVoice(lang)
+        : null;
+    final candidates = _getCandidateEngines(
+      _priority,
+      preferredEngineId: edgeVoice == null ? null : 'edge_tts',
+    );
     var played = false;
 
     for (final engineInfo in candidates) {
@@ -430,7 +425,6 @@ class TtsService extends ChangeNotifier {
           // chạy tiếp engine kế (fallback mượt, không nghẽn app).
           // TTS-EDGE-VOICE-001 — dùng giọng Edge đã chọn theo ngôn ngữ
           // (EdgeVoicePrefs); chưa chọn → null → engine tự chọn mặc định.
-          final edgeVoice = await _resolveEdgeVoice(lang);
           played = await _trySpeakOnline(
             EdgeTtsEngine(),
             text,
@@ -617,9 +611,15 @@ class TtsService extends ChangeNotifier {
   /// mặc định). Phần ghim nằm TRONG [EdgeVoicePrefs.voiceForLang] nên đường
   /// phát, đường nạp sẵn và nhãn giọng đều đi qua đúng một luật.
   Future<String?> _resolveEdgeVoice(String lang) async {
-    final perLanguage = await EdgeVoicePrefs.instance.voiceForLang(lang);
-    if (perLanguage != null && perLanguage.trim().isNotEmpty) {
-      return perLanguage;
+    try {
+      final perLanguage = await EdgeVoicePrefs.instance.voiceForLang(lang);
+      if (perLanguage != null && perLanguage.trim().isNotEmpty) {
+        return perLanguage;
+      }
+    } catch (error) {
+      // Voice preferences must not block offline speech or the default Edge
+      // voice when SharedPreferences is unavailable on a desktop build.
+      debugPrint('⚠️ Edge voice preferences unavailable: $error');
     }
     final shared = _selectedVoiceId;
     if (shared != null && EdgeTtsEngine.isEdgeVoiceId(shared)) return shared;
@@ -1170,12 +1170,24 @@ class TtsService extends ChangeNotifier {
   Future<bool> _checkNetwork() async {
     try {
       final result = await Connectivity().checkConnectivity();
-      return result.any((r) =>
+      // Desktop and corporate networks may expose only a VPN/other adapter.
+      // Connectivity reports link types, not Internet reachability; the actual
+      // TTS request remains the final check and already falls back on failure.
+      final hasOnlineAdapter = result.any((r) =>
           r == ConnectivityResult.wifi ||
           r == ConnectivityResult.mobile ||
-          r == ConnectivityResult.ethernet);
+          r == ConnectivityResult.ethernet ||
+          r == ConnectivityResult.vpn ||
+          r == ConnectivityResult.other);
+      if (hasOnlineAdapter) return true;
+      // Only skip the request when the plugin explicitly reports no network.
+      // Empty/unknown desktop results are not reliable enough to block Edge;
+      // the bounded synthesize timeout remains the definitive reachability test.
+      return result.isEmpty || !result.contains(ConnectivityResult.none);
     } catch (_) {
-      return false;
+      // Some desktop builds have no connectivity implementation. Try the
+      // request rather than silently disabling online TTS.
+      return true;
     }
   }
 

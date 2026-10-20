@@ -45,7 +45,7 @@ if [ -s "$KEYSTORE" ] && [ -s "$PROPS" ]; then
     KEY_SHA1="$(keytool -list -v -keystore "$KEYSTORE" -alias "$alias_name" \
         -storepass "$store_pass" 2>/dev/null \
         | sed -n 's/.*SHA1: \(.*\)/\1/p' | head -n1 | tr -d '[:space:]' \
-        | tr 'A-Z' 'a-z')"
+        | tr -d ':' | tr 'A-Z' 'a-z')"
   fi
 fi
 

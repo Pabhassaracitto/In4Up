@@ -48,10 +48,14 @@ if [ -s "$KEYSTORE" ] && [ -s "$PROPS" ]; then
   alias_name="$(sed -n 's/^keyAlias=//p' "$PROPS" | head -n1)"
   store_pass="$(sed -n 's/^storePassword=//p' "$PROPS" | head -n1)"
   if command -v keytool >/dev/null 2>&1; then
+    # ⚠️ `keytool` in SHA-1 dạng `88:D5:EE:0D:…` (CÓ dấu `:`), còn
+    # `certificate_hash` trong google-services.json lưu dạng KHÔNG dấu `:`.
+    # Phải bỏ dấu `:` (và khoảng trắng) để 2 bên so khớp được — nếu không,
+    # gate luôn FAIL dù JSON ĐÃ có đúng hash.
     KEY_SHA1="$(keytool -list -v -keystore "$KEYSTORE" -alias "$alias_name" \
         -storepass "$store_pass" 2>/dev/null \
         | sed -n 's/.*SHA1: \(.*\)/\1/p' | head -n1 | tr -d '[:space:]' \
-        | tr 'A-Z' 'a-z')"
+        | tr -d ':' | tr 'A-Z' 'a-z')"
   fi
 fi
 

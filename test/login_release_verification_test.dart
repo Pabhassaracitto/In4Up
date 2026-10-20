@@ -99,6 +99,20 @@ void main() {
           reason: 'Phải copy lại JSON đã sửa sang src/<flavor>/ — nếu không, '
               'Gradle vẫn dùng bản JSON CŨ ở flavor dir ⇒ sửa vô ích.');
     });
+
+    test('cả 2 script phải BỎ DẤU ":" khi so khớp SHA-1', () {
+      // keytool in SHA-1 dạng `88:D5:EE:0D:…` (CÓ dấu ':'), còn
+      // `certificate_hash` trong google-services.json lưu KHÔNG dấu ':'.
+      // Không bỏ dấu ':' ⇒ gate LUÔN fail dù JSON đã có đúng hash.
+      final fix = File(
+              'scripts/ci/android_ensure_signing_sha1_in_google_services.sh')
+          .readAsStringSync();
+      for (final s in [script, fix]) {
+        expect(s.contains("tr -d ':'"), isTrue,
+            reason: 'Phải chuẩn hoá SHA-1 (bỏ dấu ":") trước khi so khớp '
+                'với certificate_hash trong google-services.json.');
+      }
+    });
   });
 
   group('IN4-15 — chẩn đoán runtime (biết đúng bản nào + trạng thái phiên)',

@@ -43,13 +43,20 @@ class WorkspaceActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = activeColor ?? const Color(0xFF6C63FF);
+
     if (compact) {
       return ConstrainedBox(
         constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
         child: IconButton.filledTonal(
           onPressed: onPressed,
-          icon: Icon(icon),
+          icon: Icon(icon, color: active ? accent : null),
           tooltip: tooltip ?? label,
+          style: active
+              ? IconButton.styleFrom(
+                  backgroundColor: accent.withValues(alpha: 0.18),
+                )
+              : null,
         ),
       );
     }
@@ -90,8 +97,17 @@ class WorkspaceActionButton extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
       child: FilledButton.tonalIcon(
         onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label, overflow: TextOverflow.ellipsis),
+        icon: Icon(icon, color: active ? accent : null),
+        label: Text(
+          label,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: active ? accent : null),
+        ),
+        style: active
+            ? FilledButton.styleFrom(
+                backgroundColor: accent.withValues(alpha: 0.18),
+              )
+            : null,
       ),
     );
   }

@@ -2902,6 +2902,14 @@
     agent khác (`SafeHaptics` cho desktop) ⇒ thay đổi áp LÊN trên HEAD mới,
     giữ nguyên `SafeHaptics`. Commit `59b2d2c`; CI **39499641663** 🟢.
   - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
+    release 1.12.4** (bump `1.12.3+11` → `1.12.4+12`, commit `09fa688`; CI
+    `39500643417` 🟢) — run build `39501671455` **cả 4 job XANH**. Release:
+    https://github.com/Pabhassaracitto/In4Up/releases/tag/1.12.4 →
+    `in4up-Android-arm64-v8a-1.12.4-09fa6.apk` (188 MB, arm64-only),
+    `in4up-iOS-1.12.4.ipa`, `in4up-Linux-1.12.4.tar.gz`,
+    `in4up-Windows-1.12.4.zip`. Bản này có **đủ 6 mục** (5 mục audit +
+    mục 6 gồm cả phần "thấy chỗ đang đọc") + provider OpenRouter có sẵn.
+  - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
     release 1.12.3** (bump `1.12.2+10` → `1.12.3+11`, commit `ab0e82b`; CI
     `39415459896` 🟢) — run build `39416302252` **cả 4 job XANH**. Release:
     https://github.com/Pabhassaracitto/In4Up/releases/tag/1.12.3 →

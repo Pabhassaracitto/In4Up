@@ -2660,6 +2660,67 @@
     trùng, `putIfAbsent` chống ghi đè lựa chọn user) + thêm test pin thứ
     tự này. Commit `bc2271d` (CI **39327996661** 🟢) + `12af77b` (CI
     **39328773321** 🟢).
+  - 2026-10-20 | doing→doing | agent arena/01a0251e-in4up | **BUILD THẬT
+    release 1.12.1** (owner đã thêm repository secret `OPENROUTER_API_KEY`):
+    - **Nối `--dart-define=OPENROUTER_API_KEY` cho CẢ 4 job** (android /
+      linux / windows / ios) — trước đó chỉ job android có ⇒ bản desktop/iOS
+      seed provider nhưng không có key. Commit `1d16235` (CI **39364989916** 🟢).
+    - **Bump version** `pubspec.yaml` `1.12.0+8` → `1.12.1+9`.
+    - **Token GitHub App của agent KHÔNG dispatch được workflow** (403
+      `Resource not accessible by integration`) ⇒ kích hoạt build bằng push
+      tag. Workflow legacy `build.yml` (bản CŨ: build **universal**, KHÔNG có
+      gate verify chữ ký, KHÔNG có define OpenRouter) cũng nghe `v*` và dùng
+      CÙNG script rename ⇒ **CÙNG tên file APK** + `allowUpdates: true` ⇒
+      chạy cùng lúc sẽ tranh nhau, bản legacy (không có key) có thể ĐÈ bản
+      đúng. ⇒ `build_final_complete.yml` nghe thêm tag dạng `[0-9]*` (tag
+      `1.12.1`, khớp tên release hiện có 1.10.4/1.11.0/1.12.0 — KHÔNG có
+      tiền tố "v"); `build.yml` chỉ nghe `v*` ⇒ **không chạy**. Commit
+      `edbf40a`.
+    - **2 lần build đỏ liên tiếp — mỗi lần lộ 1 lỗi thật (đều do gate
+      IN4-15 chưa từng chạy trong release build thật):**
+      1. Run `39366220987` (tag `1.12.1` @ `edbf40a`): job Android **ĐỎ** ở
+         step *"Verify signing SHA-1 matches google-services.json"*.
+         Annotation: SHA-1 keystore `88:d5:ee:0d:…` **KHÔNG có** trong
+         `certificate_hash` của `google-services.json` (secret
+         `ANDROID_GOOGLE_SERVICES_JSON` là bản CŨ — chỉ có hash cũ
+         `8a1bc02e…`). SHA-1 `88d5ee0d…` **đã có trong Firebase Console**
+         (client `com.in4up`) nhưng secret CI chưa refresh.
+         ⇒ Thêm script mới `scripts/ci/android_ensure_signing_sha1_in_google_
+         services.sh`: lấy SHA-1 **TỪ CHÍNH keystore CI** (không hard-code) →
+         gắn vào client `com.in4up*` của JSON đang dùng → **đồng bộ lại các
+         bản copy theo flavor** (Gradle ưu tiên `src/<flavor>/`, không copy
+         thì sửa vô ích). Gate verify chạy SAU ⇒ vẫn fail loud nếu còn lệch.
+         Commit `171e6b6` (CI **39368336597** 🟢).
+      2. Run `39368911743` (tag `1.12.1` @ `171e6b6`): job Android **ĐỎ**
+         LẠI, annotation vẫn `88:d5:ee:0d:…` — dù script sửa đã chạy
+         "success". ⇒ **LỖI SO KHỚP DẤU `:`**: `keytool` in SHA-1 dạng
+         `88:D5:EE:0D:…` (**có** dấu `:`), còn `certificate_hash` trong JSON
+         lưu **không** dấu `:` ⇒ 2 bên không bao giờ bằng nhau ⇒ **gate
+         fail 100%** kể cả khi JSON ĐÃ đúng (gate này chưa từng chạy trong
+         release build thật nên lỗi này chưa lộ). ⇒ Bỏ dấu `:` ở **cả 2**
+         script (sửa + gate). Đã test cục bộ 4 kịch bản với `keytool` giả:
+         sửa JSON cũ → gắn đúng; gate ⇒ PASS ✅; chạy sửa 2 lần ⇒ không
+         nhân bản; bỏ hash + không sửa ⇒ gate exit 1 (fail loud) ✅.
+         Commit `5658245` (CI **39369071003** 🟢).
+    - **Run `39369640021` (tag `1.12.1` @ `5658245`) — CẢ 4 JOB XANH** ✅:
+      `Ensure signing SHA-1…` ✅ · `Verify signing SHA-1…` ✅ (gate pass) ·
+      `Build APK (arm64-v8a only)` ✅ · `Rename All APKs` ✅ ·
+      `Verify APKs are signed` ✅ · `Push APKs to GitHub Release` ✅.
+      Release **1.12.1** (https://github.com/Pabhassaracitto/In4Up/releases/tag/1.12.1):
+      `in4up-Android-arm64-v8a-1.12.1-56582.apk` (188 MB, arm64-only — nhỏ hơn
+      bản universal 227 MB của 1.12.0), `in4up-iOS-1.12.1.ipa`,
+      `in4up-Linux-1.12.1.tar.gz`, `in4up-Windows-1.12.1.zip`.
+    - **Bằng chứng secret OpenRouter ĐÃ có trong build**: step build APK chỉ
+      phát `::warning::[in4up-or] Thiếu secret OPENROUTER_API_KEY` khi secret
+      RỖNG; annotations của job Build APK (đã xanh) **KHÔNG có** warning đó ⇒
+      secret ĐÃ được nạp ⇒ APK có key ⇒ provider có sẵn chạy được ngay.
+      (Không tải được APK trong sandbox: host `release-assets.githubusercontent.com`
+      không nằm trong allowlist outbound.)
+    - **Owner nên làm (không chặn)**: refresh secret `ANDROID_GOOGLE_SERVICES_JSON`
+      từ Firebase Console (bản hiện tại thiếu SHA-1 `88d5ee0d…` cho
+      `com.in4up`) — script tự sửa chỉ sửa file JSON trong build, KHÔNG sửa
+      được phía Console.
+    - **Chưa nghiệm thu máy thật** ⇒ IN4-94 + IN4-83 vẫn **In Review**.
 
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)

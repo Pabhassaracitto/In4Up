@@ -1186,3 +1186,22 @@ Package: `video_player: ^2.8.0` (Flutter official)
     37337092117 xanh toàn bộ trên nền tip 251e (kèm fix `intl` 0.20.3→0.20.2
     vì flutter_localizations của Flutter 3.44.1 ghim đúng 0.20.2); phần còn
     lại bàn giao trong `PROMPT_AGENT_DICH_MAN_HINH_P2.md`
+
+### PLAN-037 — Dịch màn hình toàn hệ thống trên Windows (XLAT-SCR-WIN-001)
+- Nguồn: người sở hữu (2026-10-20) — Windows `.exe` hiện báo tính năng 7
+  chỉ có Android; yêu cầu chụp/dịch toàn màn hình và kéo chọn vùng.
+- Trạng thái: proposed — đã lập phạm vi/kiến trúc/AT; chưa có code Windows,
+  chưa build native, chưa nghiệm thu.
+- Milestone đề xuất: M2.
+- Chi tiết: `docs/plans/windows_screen_translate_plan.md`. Tách lane Windows
+  khỏi native Android; ưu tiên capture một frame theo thao tác người dùng, chọn
+  display, kéo khung vùng + Esc/Enter, OCR bounding boxes và overlay dịch.
+  Tái dùng models/controller/cache/`TranslationService`; ML Kit OCR hiện không
+  hỗ trợ desktop nên W0 phải chọn Windows OCR adapter (so sánh Windows OCR API
+  và Tesseract) cùng capture API/interop, minimum OS, DPI, packaging trong ADR
+  bổ sung trước khi code. Không capture nền, không lưu/upload ảnh, không lách
+  protected content. Phases W0–W4 và 7 tiêu chí nghiệm thu nằm trong plan.
+- Lịch sử:
+  - 2026-10-20 | proposed | agent Arena | chuyển yêu cầu “Chỉ Android” thành
+    kế hoạch Windows có WGC/Win32 spike, full-screen + drag-region flow,
+    multi-monitor/DPI, OCR seam, privacy, CI và nghiệm thu máy thật.

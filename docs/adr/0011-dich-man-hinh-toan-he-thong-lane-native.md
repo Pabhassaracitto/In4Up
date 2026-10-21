@@ -207,3 +207,26 @@ bắt:
 - CHƯA có bằng chứng logcat và CHƯA nghiệm thu thiết bị: sandbox không có
   adb/Android SDK/Flutter SDK. Script `scripts/qa/screen_translate_logcat.sh`
   đã viết sẵn để chủ dự án chạy trên máy thật (mục 3.1 của prompt).
+
+---
+
+## Addendum 2026-10-20 — Windows P2 scope (planned, not implemented)
+
+Card `XLAT-SCR-WIN-001` / `PLAN-037` narrows the earlier “desktop
+(maim/scrot + Tesseract)” note for Windows. Linux capture tools are not a Windows
+implementation. The Windows lane must support both a user-triggered full-display
+capture and a drag-selected rectangle, then reuse the screen-translation Dart
+pipeline and `TranslationService` where possible. It remains separate from the
+Android foreground-service/MediaProjection implementation.
+
+Before code, W0 must choose and verify the Windows capture API/interop and OCR
+adapter, minimum supported Windows version, monitor/DPI coordinate contract,
+overlay exclusion, and native dependency packaging. Current ML Kit OCR reports
+desktop unsupported, so `OcrService.recognizeBitmapBlocks()` cannot simply be
+called on Windows; compare Windows OCR APIs with packaged Tesseract and record
+the choice in a follow-up ADR. Capture is user-initiated per frame; no polling,
+no retained/uploaded screenshot, and no attempt to bypass protected content.
+
+Detailed flows, W0–W4, privacy requirements, and acceptance criteria are in
+`docs/plans/windows_screen_translate_plan.md`. This addendum is a plan only;
+there is no Windows capture/overlay implementation or device verification yet.

@@ -2928,6 +2928,102 @@
     chỉ phát `::warning::[in4up-or] Thiếu secret…` khi secret rỗng; annotations
     của job Build APK **không có** warning đó).
 
+### WEB-BUILD-001 — (2026-10-21) `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages
+- **Trạng thái:** ✅ **ĐÃ SỬA + ĐÃ DEPLOY** (web build xanh, đã publish lên `gh-pages`; chờ owner mở web kiểm) — Linear [IN4-109](https://linear.app/in4up/issue/IN4-109)
+- **Triệu chứng:** workflow `deploy-web.yml` (thêm ở commit `563fabc`) fail ở step
+  *"Build web app"* — run `39595541854`.
+- **Lỗi thật (lấy từ annotation của run, không suy đoán):**
+  `Error: Dart library 'dart:ffi' is not available on this platform.` (lặp nhiều
+  lần; **71** dòng log khớp `dart:io|dart:ffi`).
+- **Root cause:** `flutter build web` compile `lib/main.dart` cho web. Đồ thị import
+  reachable từ `main.dart` có **63 file** dùng `dart:io`/`dart:ffi` — hai thư viện
+  **không tồn tại trên web**. File "đầu sợi" trong repo:
+  `lib/ffi/ultra_engine_ffi_v2.dart` (dart:ffi — **vùng bảo vệ** AGENTS.md #1),
+  `lib/native/whisper_bindings.dart`, `lib/services/whisper_service.dart`,
+  `lib/features/translation/engines/hymt_engine.dart`,
+  `packages/in4up_ai/.../ai_native_bindings.dart`,
+  `packages/in4up_stt/.../stt_engine_whisper.dart`.
+  Ngoài ra còn **plugin pub.dev không có web**: `ffi-2.2.0`, `whisper_flutter_new-1.0.1`
+  (+ `flutter_tts`, `sherpa_onnx` có thư mục web nhưng vẫn lỗi).
+  ⇒ **Không phải hồi quy nhỏ** — app vốn thiết kế cho mobile/desktop (FFI
+  whisper/sherpa + đọc/ghi file).
+- **Vấn đề thứ 2 (độc lập): xung đột nguồn Pages.** API Pages cho:
+  `build_type: legacy`, `source: {branch: gh-pages, path: /}` ⇒ Pages đang deploy
+  từ **nhánh `gh-pages`** — nhánh đó phục vụ **wrapper YouTube** (`yt_embed.html`,
+  đã nghiệm thu ở YT-PLAY-153-001 / IN4-78). Workflow mới dùng
+  `actions/deploy-pages` (nguồn "GitHub Actions") ⇒ GitHub chỉ nhận **MỘT** nguồn
+  Pages ⇒ chạy xong có thể **phá wrapper YouTube** đang hoạt động.
+- **Đã làm trong lúc chẩn đoán (giữ lại, có ích):**
+  - `deploy-web.yml`: step build giờ bắt lỗi compiler ra **annotation của run**
+    (đọc được qua API, không cần mở giao diện log) + **Step Summary**; tắt `-e`
+    trong step (GitHub chạy bash `-e -o pipefail` ⇒ `grep` rỗng làm step abort
+    trước khi phát annotation).
+  - Đã dùng 1 workflow chẩn đoán TẠM để lấy lỗi thật ⇒ **đã xoá** sau khi
+    lấy đủ bằng chứng.
+- **ĐÃ LÀM (owner yêu cầu "sửa lỗi") — hướng 2 (entrypoint web riêng):**
+  1. **`lib/main_web.dart` (MỚI)** — entrypoint RIÊNG cho web, chỉ dùng code
+     web-safe (`http`, `Clipboard`, engine dịch Google-free, `url_launcher`):
+     dán văn bản / dán URL → đọc theo dòng (từ = chip, chạm = copy), **dịch
+     Google-free sang tiếng Việt**, mở wrapper YouTube (`yt_embed.html`).
+     Đồ thị import của nó: **0** file `dart:io`/`dart:ffi` (kiểm bằng script
+     quét đồ thị — `lib/main.dart` thì **86** file ⇒ web build không thể).
+  2. **`deploy-web.yml`**: build `-t lib/main_web.dart` + kiểm tra artifact
+     (tự nhận diện `*.dart.js` — Flutter sinh tên `main.dart.js` dù target là
+     `main_web.dart`) + **publish bằng cách push vào nhánh `gh-pages`**
+     (`cp` KHÔNG `--delete` ⇒ `yt_embed.html` **được giữ nguyên**) + trigger
+     thêm `arena/**` để tự deploy khi có thay đổi (build lỗi ⇒ KHÔNG publish
+     ⇒ Pages giữ bản tốt gần nhất).
+  3. **Bằng chứng:** run `39609827864` — **cả 9 step XANH** (build web ✓, kiểm
+     tra artifact ✓, publish `gh-pages` ✓). `gh-pages` sau deploy: `index.html`
+     (base href `/In4Up/`), `main.dart.js` (1.76 MB), **`yt_embed.html` còn
+     nguyên** (2641 byte) ⇒ wrapper YouTube không bị phá.
+  4. CI `app_analyze` **39609333445** 🟢 (còn bắt được 3 lỗi compile trong
+     `main_web.dart` ở run `39608530312` trước đó — đã sửa: ambiguous import
+     `Text` (→ `hide Text`), thiếu `ClipboardData` trong `show`, field
+     `translated` → `translatedText`).
+  5. 15 chuỗi i18n mới (en/hi/zh/zh_TW/si) cho chrome web app.
+  6. Đã bỏ workflow chẩn đoán TẠM (lấy đủ bằng chứng rồi).
+  > **Phạm vi thẳng thắn:** đây là bản web **rút gọn**; toàn bộ tính năng
+  > native (TTS offline, STT whisper, kho từ vựng, thư viện, tipitaka…) vẫn ở
+  > app mobile/desktop. Port toàn bộ sang web (hướng 3) chưa làm — rất lớn và
+  > đụng `lib/ffi/` (vùng bảo vệ).
+  - **Sửa tiếp (owner báo web VẪN TRẮNG + wrapper lỗi -1):**
+    1. **Trang trắng** — root cause: bootstrap mặc định của Flutter tải
+       CanvasKit từ **CDN `gstatic.com`** (`useLocalCanvasKit=false` ⇒ `E()` trả
+       URL gstatic) dù build có sẵn `canvaskit/` cục bộ ⇒ mạng chặn/slow CDN
+       là app không khởi tạo được renderer ⇒ trắng. Fix: thêm
+       `web/flutter_bootstrap.js` trỏ `canvasKitBaseUrl: "canvaskit/"` (cục bộ)
+       + giữ `serviceWorkerSettings` (SW cũ đã cache bản lỗi phải được thay).
+    2. **`main_web.dart`** bắt lỗi khởi động (`FlutterError.onError` +
+       `runZonedGuarded`) và **HIỆN lên trang** thay vì trắng ⇒ lần sau thấy
+       ngay nguyên nhân.
+    3. **Wrapper YouTube lỗi -1** — root cause: dùng
+       `host: 'https://www.youtube-nocookie.com'` mà **KHÔNG truyền playerVar
+       `origin`** ⇒ theo tài liệu YT IFrame API, chế độ privacy-enhanced bắt
+       buộc phải có `origin` ⇒ player trả **-1** (INVALID_PARAMETER). Fix:
+       thêm `origin: location.origin` + `enablejsapi: 1` (app điều khiển
+       seek/pause được) + fallback `www.youtube.com` khi nocookie lỗi; và
+       **đưa `web/yt_embed.html` vào repo** (trước chỉ nằm trên nhánh
+       `gh-pages`, không version-controlled ⇒ không sửa/audit được).
+    4. Deploy lại (run `39673630072` 🟢) ⇒ `gh-pages` đã có bootstrap dùng
+       CanvasKit cục bộ + wrapper có `origin`/`enablejsapi`/fallback.
+  - **Dọn lịch sử (owner yêu cầu "gom commit thành commit đắt giá"):** 19
+    commit rời rạt từ `ad817de` đã gom còn **7 commit theo tính năng**
+    (fix tts / fix tipitaka / fix windows gemma / ci windows plan /
+    feat read-mode dòng-đang-đọc / feat web + deploy / docs kanban). Cây file
+    **IDENTICAL** với bản gốc (kiểm bằng `git diff` ⇒ rỗng). Lịch sử cũ giữ ở
+    tag `backup/pre-rewrite-20260721`.
+- **Hướng (nếu owner muốn mở rộng web):**
+  1. **Bỏ web** (app chạy Android/iOS/Windows/Linux) — xoá `deploy-web.yml` hoặc
+     để nhưng không dispatch. *Rẻ nhất, đúng bản chất app.*
+  2. **Entrypoint web tối giản riêng** (`lib/main_web.dart` chỉ phần Đọc cơ bản,
+     không TTS native / whisper / file I/O) + workflow build với `-t lib/main_web.dart`
+     và **push output vào nhánh `gh-pages`** (giữ nguồn Pages branch-based, không
+     phá wrapper YouTube). *Trung bình.*
+  3. **Port toàn bộ app sang web-safe** (conditional import + stub cho mọi API
+     `dart:io`/`dart:ffi`, thay plugin không có web). *Rất lớn, và đụng `lib/ffi/`
+     (vùng bảo vệ) ⇒ không khuyến nghị.*
+
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
 - **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK

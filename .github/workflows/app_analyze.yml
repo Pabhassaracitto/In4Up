@@ -531,3 +531,56 @@ jobs:
           name: app-i4u18-scanner-test-log
           path: i4u18_scanner_test.log
           if-no-files-found: ignore
+
+      # YT-AUDIT (IN4-97..104) — Chế độ YouTube: pin logic THUẦN để máy bắt
+      # các fix đã bàn giao không bị regress (không cần thiết bị / network).
+      - name: "YouTube audit tests — Đợt 1 + 2 + 3 + 4 (logic thuần)"
+        id: yt-audit-tests
+        # `always()` để bước này vẫn chạy khi một bước test KHÁC ở trên đỏ —
+        # cần biết kết quả độc lập, không bị "skipped" che mất.
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/yt_audit_2026_10_20_batch1_test.dart \
+                   test/yt_learning_settings_test.dart \
+                   test/yt_lr_002_fixes_test.dart \
+                   test/yt_explorer_entry_test.dart \
+                   test/yt_lang_resolution_test.dart \
+                   test/ai_connectivity_routing_test.dart \
+                   test/ai_provider_wp0_test.dart \
+                   test/yt_sentence_segment_test.dart \
+                   test/yt_sync_offset_test.dart \
+                   test/yt_word_analysis_fallback_test.dart \
+                   test/yt_ai_word_prompt_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test YouTube audit trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          # -r expanded: mỗi test 1 dòng (compact reporter dùng \b khi
+          # redirect, khó grep tên test fail).
+          flutter test $files -r expanded > yt_audit_test.log 2>&1
+          code=$?
+          cat yt_audit_test.log
+          # Đưa tên test fail + context lên annotation để tra cứu qua API
+          # (log blob không tải được từ một số môi trường). Strip ANSI + \r
+          # + \b trước vì dart test có thể in mã màu/ký tự tiến trình.
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+            yt_audit_test.log > yt_audit_clean.log || true
+          grep -n "\[E\]" yt_audit_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" yt_audit_clean.log \
+              | head -c 900 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::TEST FAILED: $msg"
+          done || true
+          exit $code
+
+      - name: Upload YouTube audit test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-yt-audit-test-log
+          path: yt_audit_test.log
+          if-no-files-found: ignore

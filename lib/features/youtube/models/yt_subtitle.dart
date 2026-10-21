@@ -42,6 +42,16 @@ class LrWord {
       case 'prep':
       case 'conj':
         return const Color(0xFF78909C); // xám
+      // YT-AUDIT-08 (IN4-100): các từ loại mới có nhãn riêng ⇒ cần màu
+      // riêng để chip và chữ không rớt về trắng (trông như "không có loại").
+      case 'pron':
+        return const Color(0xFF00BCD4); // cyan
+      case 'det':
+        return const Color(0xFF8D6E63); // nâu
+      case 'num':
+        return const Color(0xFFE91E63); // hồng
+      case 'intj':
+        return const Color(0xFFFF5722); // cam đỏ
       default:
         return Colors.white;
     }

@@ -5,7 +5,10 @@
 //      các dòng CUỐI. Nguyên nhân: mỗi lô dịch dựng lại `merged` từ `base`
 //      (chưa có dịch) ⇒ xoá sạch dịch của các lô trước.
 //   2. Chế độ "Làm mờ bản dịch": dịch bị ẩn hẳn thay vì mờ. Nguyên nhân:
-//      `ImageFiltered` (lớp blur riêng) có thể render trống trên GPU Android.
+//      `ImageFiltered` (lớp blur riêng) render trống trên máy thật; cách
+//      thay thế bằng `MaskFilter` trên paint của chữ cũng hỏng (Impeller bỏ
+//      qua ⇒ không thấy gì) — xem YT-AUDIT-02 / IN4-98, cách đúng là
+//      `TextStyle.shadows`.
 //   3. Tab Tải audio: không có nút dừng, kẹt "Đang tải…". Nguyên nhân:
 //      `await for` không huỷ được từ UI.
 //   4. Âm thanh nhanh hơn chữ ~1 dòng (IN4-81). Nguyên nhân: hỏi vị trí phát
@@ -64,17 +67,41 @@ void main() {
   });
 
   group('Lỗi 2 — "Làm mờ bản dịch" phải MỜ, không được ẩn', () {
-    test('dùng MaskFilter.blur trên paint của chữ', () {
+    // YT-AUDIT-02 (IN4-98): hai cách cũ ĐỀU hỏng — `ImageFiltered` render
+    // TRỐNG trên máy thật, còn `MaskFilter` trên paint của chữ bị Impeller
+    // bỏ qua ⇒ chữ hiện bình thường ("không thấy gì"). Cách đứng vững là
+    // `TextStyle.shadows` (Skia lẫn Impeller đều hỗ trợ).
+    test('làm mờ bằng TextStyle.shadows', () {
       expect(
-        player.contains('MaskFilter.blur(BlurStyle.normal, 4)'),
+        player.contains('shadows: <Shadow>['),
         isTrue,
-        reason: 'MaskFilter vẽ chữ mờ trực tiếp, không phụ thuộc layer blur.',
+        reason: 'Phải làm mờ bằng bóng của chính chữ — không phụ thuộc '
+            'backend vẽ.',
+      );
+      expect(
+        player.contains('Shadow(color: Color(0xFFFFC107), blurRadius: 7)'),
+        isTrue,
+        reason: 'Cần 2 lớp bóng mờ cùng màu để chữ thành vệt mờ.',
+      );
+    });
+
+    test('không còn MaskFilter / ImageFilter / import dart:ui', () {
+      expect(
+        player.contains('MaskFilter.blur('),
+        isFalse,
+        reason: 'MaskFilter trên paint của chữ bị Impeller bỏ qua ⇒ '
+            'người dùng không thấy hiệu ứng mờ.',
       );
       expect(
         player.contains('ImageFilter.blur('),
         isFalse,
-        reason: 'ImageFiltered/layer blur từng render TRỐNG trên một số GPU '
-            'Android ⇒ người dùng tưởng bản dịch bị ẩn hẳn.',
+        reason: 'ImageFiltered/layer blur từng render TRỐNG trên máy thật '
+            '⇒ người dùng tưởng bản dịch bị ẩn hẳn.',
+      );
+      expect(
+        player.contains("import 'dart:ui'"),
+        isFalse,
+        reason: 'Đã bỏ hẳn blur ở lớp composite ⇒ không cần dart:ui.',
       );
     });
 

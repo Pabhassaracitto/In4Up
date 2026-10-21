@@ -46,8 +46,17 @@ void main() {
 
   group('IN4-81 — tải lời/dịch TĂNG DẦN', () {
     test('3 pha: phụ đề gốc → ghép bản dịch YT → dịch AI theo lô', () {
-      expect(player.contains('fetchCaptions(videoId, lang: \'en\')'), isTrue,
+      // YT-AUDIT-04 (IN4-103): pha A lấy phụ đề gốc theo ngôn ngữ NGƯỜI DÙNG
+      // CHỌN (`_settings.subtitleLang`) — bản cũ hard-code 'en' ⇒ sai khi học
+      // tiếng Nhật/Hàn/Trung (và cả sourceLang đưa vào AI translate).
+      expect(player.contains('fetchCaptions(videoId, lang: subLang)'), isTrue,
           reason: 'Pha A: lấy phụ đề GỐC trước (hiện ngay).');
+      expect(player.contains('final subLang = _settings.subtitleLang;'), isTrue,
+          reason: 'Ngôn ngữ phụ đề gốc phải theo cài đặt, không hard-code.');
+      expect(player.contains("fetchCaptions(videoId, lang: 'en')"), isFalse,
+          reason: "Hard-code 'en' ⇒ học tiếng Nhật/Hàn/Trung sẽ sai.");
+      expect(player.contains('sourceLang: subLang.startsWith'), isTrue,
+          reason: 'Nguồn đưa vào AI translate phải là ngôn ngữ phụ đề gốc.');
       expect(player.contains('mergeCaptions(base, localized)'), isTrue,
           reason: 'Pha B: ghép bản dịch có sẵn trên YT.');
       expect(player.contains('translateLines('), isTrue,

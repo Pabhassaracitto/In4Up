@@ -522,6 +522,53 @@ class TranslationService {
     return enriched;
   }
 
+  /// YT-AUDIT-03 (IN4-101) — soi **đầu ra** của một engine trước khi nhận.
+  ///
+  /// Engine online (MyMemory / Libre / Google Free) khi hết quota, bị
+  /// rate-limit hoặc không hỗ trợ cặp ngôn ngữ thường **trả nguyên văn bản
+  /// nguồn** mà vẫn báo `isSuccess`. Chuỗi engine cũ nhận ngay kết quả đó ⇒
+  /// app dùng tiếng Anh làm "bản dịch tiếng Việt" (đúng triệu chứng owner
+  /// báo: "đôi khi dịch ra tiếng Anh"), và còn **lưu luôn vào cache**.
+  ///
+  /// Trả `true` ⇒ coi như engine này thất bại, chuỗi đi tiếp engine kế.
+  bool _looksUntranslated(
+    String sourceText,
+    String translatedText,
+    String sourceCode,
+    String targetCode,
+  ) {
+    if (sourceCode == targetCode) return false;
+
+    final src = sourceText.trim();
+    final out = translatedText.trim();
+    if (out.isEmpty) return true;
+
+    // Không có chữ cái (số, ký hiệu, placeholder glossary `__G1__`) ⇒
+    // không có gì để dịch, không phải lỗi engine.
+    if (!RegExp(r"\p{L}", unicode: true).hasMatch(out)) return false;
+
+    // Quá ngắn: nhiều cặp ngôn ngữ giữ nguyên ("OK", tên riêng, một từ)
+    // ⇒ không đủ tín hiệu, bỏ qua để tránh bắt nhầm.
+    if (out.length < 12 && src.length < 12) return false;
+
+    // Trùng với nguồn (chỉ khác hoa/thường, dấu câu, khoảng trắng) ⇒
+    // engine chưa làm gì cả.
+    if (_normalizeForCompare(out) == _normalizeForCompare(src)) return true;
+
+    // Khác nhưng VẪN LÀ NGÔN NGỮ NGUỒN ⇒ engine trả lại bản gốc đã bị
+    // "làm sạch". Chỉ xét khi đủ dài để nhận diện có ý nghĩa.
+    if (out.split(RegExp(r"\s+")).length >= 4) {
+      final detected = detectSourceLanguage(out);
+      if (detected.translationCode == sourceCode) return true;
+    }
+    return false;
+  }
+
+  /// Gạch bỏ mọi thứ không phải chữ/số để so "trùng nhau" (bỏ qua hoa
+  /// thường, dấu câu, khoảng trắng).
+  static String _normalizeForCompare(String s) =>
+      s.toLowerCase().replaceAll(RegExp(r"[^\p{L}\p{N}]+", unicode: true), '');
+
   /// HI ↔ VI không dịch trực tiếp trong ML Kit → pivot qua EN (2 lần +
   /// glossary hai đầu). Chỉ pivot khi model ML Kit đủ cho CẢ tuyến;
   /// ngược lại giữ cặp trực tiếp (online engines tự xử lý).
@@ -631,7 +678,22 @@ class TranslationService {
               );
 
           if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-            return result;
+            // YT-AUDIT-03 (IN4-101): engine trả nguyên văn bản nguồn mà vẫn
+            // báo thành công ⇒ ĐÓ LÀ THẤT BẠI, đi tiếp engine kế thay vì
+            // nhận tiếng Anh làm bản dịch.
+            if (_looksUntranslated(
+              text,
+              result.translatedText,
+              sourceCode,
+              targetCode,
+            )) {
+              debugPrint(
+                '⏭️ ${engine.name}: trả về NGÔN NGỮ NGUỒN '
+                '($sourceCode→$targetCode) ⇒ bỏ qua, thử engine kế.',
+              );
+            } else {
+              return result;
+            }
           }
           debugPrint('❌ ${engine.name}: ${result.error}');
         } catch (error) {
@@ -671,7 +733,20 @@ class TranslationService {
               ),
             );
         if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-          return result;
+          // YT-AUDIT-03 (IN4-101): cùng bước soi đầu ra như engine online.
+          if (_looksUntranslated(
+            text,
+            result.translatedText,
+            sourceCode,
+            targetCode,
+          )) {
+            debugPrint(
+              '⏭️ ${hymt.name}: trả về NGÔN NGỮ NGUỒN '
+              '($sourceCode→$targetCode) ⇒ bỏ qua.',
+            );
+          } else {
+            return result;
+          }
         }
         sentenceFailure = result;
         debugPrint('❌ ${hymt.name}: ${result.error}');
@@ -709,7 +784,20 @@ class TranslationService {
               ),
             );
         if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-          return result;
+          // YT-AUDIT-03 (IN4-101): cùng bước soi đầu ra như engine online.
+          if (_looksUntranslated(
+            text,
+            result.translatedText,
+            sourceCode,
+            targetCode,
+          )) {
+            debugPrint(
+              '⏭️ ${_mlkit.name}: trả về NGÔN NGỮ NGUỒN '
+              '($sourceCode→$targetCode) ⇒ bỏ qua.',
+            );
+          } else {
+            return result;
+          }
         }
         mlkitFailure = result;
         debugPrint('❌ ${_mlkit.name}: ${result.error}');
@@ -795,7 +883,20 @@ class TranslationService {
             ),
           );
       if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-        return result;
+        // YT-AUDIT-03 (IN4-101): cùng bước soi đầu ra như engine online.
+        if (_looksUntranslated(
+          text,
+          result.translatedText,
+          sourceCode,
+          targetCode,
+        )) {
+          debugPrint(
+            '⏭️ ${engine.name}: trả về NGÔN NGỮ NGUỒN '
+            '($sourceCode→$targetCode) ⇒ bỏ qua.',
+          );
+        } else {
+          return result;
+        }
       }
       debugPrint('❌ ${engine.name}: ${result.error}');
       return null;

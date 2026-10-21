@@ -30,6 +30,13 @@ enum AiRouteCapability {
 
 /// Chính sách định tuyến cho 1 năng lực.
 enum AiRouteMode {
+  /// YT-AUDIT-06 (IN4-104): **theo loại mạng** — wifi ⇒ ưu tiên online,
+  /// mạng di động ⇒ ưu tiên cục bộ rồi mới online, không mạng ⇒ chỉ cục bộ.
+  ///
+  /// Đây là MẶC ĐỊNH mới (trước đây mặc định `offlineFirst`). Resolve ở
+  /// `resolveRouteMode()` / `AiConnectivityRouter.resolve()`.
+  auto,
+
   /// Thử engine offline trước; lỗi/thiếu model → thử API (nếu có provider).
   offlineFirst,
 
@@ -133,7 +140,7 @@ class AiProviderConfig {
   }
 }
 
-/// Chính sách định tuyến toàn app — mặc định toàn bộ offlineFirst.
+/// Chính sách định tuyến toàn app — mặc định `auto` (theo loại mạng).
 class AiRoutingPrefs {
   final Map<AiRouteCapability, AiRouteMode> modes;
   final Map<AiRouteCapability, String> preferredProviderIds;
@@ -143,8 +150,10 @@ class AiRoutingPrefs {
     this.preferredProviderIds = const {},
   });
 
-  AiRouteMode modeOf(AiRouteCapability c) =>
-      modes[c] ?? AiRouteMode.offlineFirst;
+  /// YT-AUDIT-06 (IN4-104): mặc định `auto` (theo loại mạng) thay vì
+  /// `offlineFirst`. Lưu ý: đây là mode NGƯỜI DÙNG CHỌN (hoặc mặc định) —
+  /// mode THẬT phải đi qua `resolveRouteMode()` / `AiConnectivityRouter`.
+  AiRouteMode modeOf(AiRouteCapability c) => modes[c] ?? AiRouteMode.auto;
 
   String? preferredProviderOf(AiRouteCapability c) => preferredProviderIds[c];
 

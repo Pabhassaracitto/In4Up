@@ -8,10 +8,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-// YT-LR-002 (IN4-88): chế độ "Làm mờ bản dịch" dùng MaskFilter.blur ngay trên
-// paint của chữ (ổn định hơn ImageFilter/layer blur — từng render TRỐNG trên
-// một số GPU Android khiến người dùng tưởng bản dịch bị ẩn hẳn).
-import 'dart:ui' show BlurStyle, MaskFilter;
+// YT-AUDIT-02 (IN4-98): chế độ "Làm mờ bản dịch" KHÔNG còn dùng
+// `dart:ui` (MaskFilter / ImageFilter). Cả hai cách đó đều hỏng trên máy thật
+// (xem chú thích tại `_buildTranslationLine`); giờ làm mờ bằng
+// `TextStyle.shadows` — thuần Flutter, chạy được trên mọi backend.
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/core/language/localized_material.dart';
@@ -31,6 +31,7 @@ import 'models/yt_subtitle.dart';
 import 'models/yt_video.dart';
 import 'services/yt_downloader.dart';
 import 'services/yt_learning_settings_service.dart';
+import 'services/yt_sentence_segmenter.dart';
 import 'services/yt_service.dart';
 import 'widgets/yt_lexa_chat_tab.dart';
 import 'widgets/yt_subtitle_settings_sheet.dart';
@@ -77,9 +78,27 @@ String buildYtEmbedUrl(String videoId) =>
 
 /// Parse tin vị trí phát từ kênh YtSync: `t:<seconds>` → giây (null nếu
 /// không phải tin thời gian hoặc không parse được).
+///
+/// YT-AUDIT-11 (IN4-106): tin có thể kèm mốc thời gian để ĐO độ trễ kênh,
+/// dạng `t:<seconds>|<jsNowMs>`. Phần sau dấu `|` bị bỏ qua ở hàm này (xem
+/// [ytParseSentAt]).
 double? ytParseTimeMessage(String message) {
   if (!message.startsWith('t:')) return null;
-  return double.tryParse(message.substring(2));
+  final body = message.substring(2);
+  final bar = body.indexOf('|');
+  return double.tryParse(bar < 0 ? body : body.substring(0, bar));
+}
+
+/// Mốc thời gian JS gửi kèm trong tin `t:` (`Date.now()`, epoch ms).
+///
+/// Dùng để ĐO độ trễ kênh WebView → Flutter — phần của triệu chứng
+/// "âm thanh nhanh hơn chữ" mà ta đo được mà KHÔNG cần tín hiệu PCM
+/// (VAD đã bị bác: iframe WebView không lấy được PCM).
+int? ytParseSentAt(String message) {
+  if (!message.startsWith('t:')) return null;
+  final bar = message.indexOf('|');
+  if (bar < 0) return null;
+  return int.tryParse(message.substring(bar + 1).trim());
 }
 
 /// body text của trang player đang chứa màn lỗi YouTube (153 hoặc khác)
@@ -141,9 +160,60 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   final List<SubtitleLine> _lines = [];
   int _currentLineIdx = 0;
   double _currentTime = 0;
+
+  /// YT-AUDIT-10 (IN4-102): key gắn **CHỈ** cho dòng transcript đang active
+  /// (không tạo key cho hàng nghìn dòng) ⇒ `Scrollable.ensureVisible` cuộn
+  /// chính xác tới dòng đang phát bất kể chiều cao các dòng khác nhau.
+  final GlobalKey _activeLineKey = GlobalKey();
   // IN4-81: mẫu độ lệch (ms) giữa vị trí phát và mốc bắt đầu dòng vừa chọn,
   // để ĐO chứ không đoán. `drift > 0` ⇒ tiếng nói đi trước lúc chữ đổi.
   final List<int> _syncDrifts = <int>[];
+
+  /// YT-AUDIT-11 (IN4-106): mẫu độ trễ KÊNH WebView → Flutter (ms).
+  ///
+  /// JS gửi kèm `Date.now()` tại thời điểm đọc `currentTime`; Dart lấy
+  /// `DateTime.now()` khi NHẬN ⇒ hiệu = thời gian tin nằm trong hàng đợi.
+  /// Đó chính là khoảng "âm thanh đã nói rồi mà chữ vẫn chưa đổi".
+  final List<int> _syncLags = <int>[];
+
+  /// Bù trễ TỰ ĐỘNG hiện tại (ms) — lấy từ trung vị [_syncLags].
+  int _autoLagMs = 0;
+
+  /// Số mẫu tối thiểu trước khi tin vào kết quả đo (tránh bù theo nhiễu).
+  static const int _kMinLagSamples = 8;
+
+  /// Cửa sổ trượt của mẫu đo.
+  static const int _kLagWindow = 40;
+
+  /// Không tự bù quá 1,5 s: vượt mức này thường là đồng hồ lệch hoặc thiết bị
+  /// quá tải — bù tự động sẽ làm chữ NHẢY LỘN XỘN. Phần còn lại để người dùng
+  /// tự chỉnh bằng thanh trượt (nơi có chủ đích).
+  static const int _kMaxAutoLagMs = 1500;
+
+  /// Độ trễ kênh đã đo (trung vị), `0` khi chưa đủ mẫu — UI đọc để gợi ý.
+  int get measuredLagMs {
+    if (_syncLags.length < _kMinLagSamples) return 0;
+    final sorted = List<int>.of(_syncLags)..sort();
+    return sorted[sorted.length ~/ 2];
+  }
+
+  /// Đo độ trễ kênh và cập nhật [_autoLagMs].
+  ///
+  /// Nuốt mọi mẫu rác: đồng hồ JS/Dart có thể lệch trên một số thiết bị, nên
+  /// mẫu âm hoặc > 10 s bị bỏ (10 s không phải độ trễ kênh, là dữ liệu hỏng).
+  void _trackChannelLag(int? sentAtMs) {
+    if (sentAtMs == null) return;
+    final lag = DateTime.now().millisecondsSinceEpoch - sentAtMs;
+    if (lag < 0 || lag > 10000) return;
+    _syncLags.add(lag);
+    if (_syncLags.length > _kLagWindow) _syncLags.removeAt(0);
+    if (_syncLags.length < _kMinLagSamples) return;
+    final m = measuredLagMs;
+    final next = m < 0 ? 0 : (m > _kMaxAutoLagMs ? _kMaxAutoLagMs : m);
+    // Chỉ đổi khi lệch đáng kể để chữ không giật từng 100 ms một.
+    if ((next - _autoLagMs).abs() < 100) return;
+    _autoLagMs = next;
+  }
 
   // ── Word knowledge ────────────────────────────────────────
   final Map<String, WordState> _wordStates = {};
@@ -167,11 +237,48 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     // các tính năng của giao diện tầng 2 vào ngay màn player.
     // YT-LR-002 (IN4-87): thêm tab 4 "LEXA" (AI chat bám ngữ cảnh video).
     _tabCtrl = TabController(length: 4, vsync: this);
+    // YT-AUDIT-10 (IN4-102): vừa chuyển sang tab VĂN BẢN ⇒ cuộn ngay tới
+    // dòng đang phát (nếu không người dùng phải tự kéo từ đầu danh sách).
+    _tabCtrl.addListener(() {
+      if (_tabCtrl.index == 0) _followActiveLine();
+    });
     _initWebView();
     unawaited(_loadWordStates());
     unawaited(_loadSettings());
     unawaited(_loadRealSubtitles());
+    // YT-AUDIT-04 (IN4-103): nạp danh sách ngôn ngữ phụ đề thật của video.
+    unawaited(_loadAvailableLangs());
+    // YT-AUDIT-07 (IN4-99): ghi lịch sử xem NGAY khi mở player — đây là
+    // điểm duy nhất phủ mọi đường vào (search / dán URL / lịch sử / kênh).
+    unawaited(_recordHistory());
     _startTimer();
+  }
+
+  /// YT-AUDIT-07 (IN4-99) — ghi video đang mở vào `YtHistory`.
+  ///
+  /// `YtHistory.add()` từng **chỉ** được gọi ở `youtube_sheet.dart` (tầng 1
+  /// "Dán URL YouTube…"). Từ IN4-95 nhấn icon YouTube đi thẳng vào tầng 2
+  /// (`YoutubeExplorerScreen`) nên luồng mới **không bao giờ ghi lịch sử**.
+  /// Ghi ở player ⇒ một chỗ, phủ mọi đường vào.
+  ///
+  /// Local-first: chỉ chạm Hive trên máy; lỗi bị nuốt để không làm hỏng
+  /// việc mở video.
+  Future<void> _recordHistory() async {
+    try {
+      await YtHistory.ensureOpen();
+      await YtHistory.add(
+        YtVideo(
+          id: widget.video.id,
+          title: widget.video.title,
+          channel: widget.video.channelTitle,
+          thumb: widget.video.thumb,
+        ),
+      );
+      // Log ASCII (không dấu) để không bị gate i18n quét như literal UI.
+      debugPrint('[in4up-yt] history saved: ${widget.video.id}');
+    } catch (e) {
+      debugPrint('[in4up-yt] history save failed: $e');
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -180,11 +287,48 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     setState(() => _settings = YtLearningSettingsService.load());
   }
 
+  /// YT-AUDIT-04 (IN4-103): cache danh sách ngôn ngữ phụ đề THẬT của video
+  /// (từ `getAvailableLanguages`) — lấy 1 lần, dùng cho ô chọn trong
+  /// "Cài đặt phụ đề". Trống ⇒ sheet tự rớt về danh sách mặc định.
+  List<({String code, String name})> _availableLangs = const [];
+
+  Future<void> _loadAvailableLangs() async {
+    try {
+      final langs =
+          await YtService.instance.getAvailableLanguages(widget.video.id);
+      if (!mounted || langs.isEmpty) return;
+      setState(() => _availableLangs = langs);
+    } catch (e) {
+      debugPrint('[in4up-yt] available langs failed: $e');
+    }
+  }
+
   Future<void> _openSubtitleSettings() async {
-    final next = await showYtSubtitleSettingsSheet(context, _settings);
+    final next = await showYtSubtitleSettingsSheet(
+      context,
+      _settings,
+      videoId: widget.video.id,
+      availableLangs: _availableLangs,
+      // YT-AUDIT-11 (IN4-106): truyền độ trễ kênh ĐÃ ĐO để sheet gợi ý.
+      measuredLagMs: measuredLagMs,
+    );
     if (next == null) return;
-    setState(() => _settings = next);
+    final langChanged = next.subtitleLang != _settings.subtitleLang ||
+        next.targetLang != _settings.targetLang;
+    setState(() {
+      _settings = next;
+      // YT-AUDIT-04 (IN4-103): đổi ngôn ngữ ⇒ xoá phụ đề + bản dịch CŨ ngay
+      // trong cùng một rebuild (nếu clear ngoài setState, UI vẫn giữ bản dịch
+      // ngôn ngữ cũ cho tới khi tải xong ⇒ người dùng tưởng app không đổi).
+      if (langChanged) {
+        _lines.clear();
+        _currentLineIdx = 0;
+      }
+    });
     unawaited(YtLearningSettingsService.save(next));
+    // Tải lại phụ đề theo ngôn ngữ mới. `_loadRealSubtitles()` tự tăng token
+    // thế hệ `_loadGeneration` ⇒ mọi kết quả của lần tải trước bị bỏ qua.
+    if (langChanged) unawaited(_loadRealSubtitles());
   }
 
   void _onFrequencyChanged(double value) {
@@ -215,6 +359,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       _attempt = 0;
       _ytCtrl.loadRequest(Uri.parse(buildYtWrapperUrl(widget.video.id)));
       unawaited(_loadRealSubtitles());
+      // YT-AUDIT-07 (IN4-99): đổi video trong cùng player ⇒ ghi lịch sử
+      // cho video MỚI (initState chỉ chạy một lần).
+      unawaited(_recordHistory());
     }
   }
 
@@ -293,7 +440,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         _markFirstFrame();
         setState(() => _videoReady = true);
       }
-      _updateTime(time);
+      // YT-AUDIT-11 (IN4-106): truyền cả mốc JS gửi để đo độ trễ kênh.
+      _updateTime(time, sentAtMs: ytParseSentAt(m));
       return;
     }
     // Compat: script inject cũ (đường embed trực tiếp) post số TRẺ không
@@ -451,9 +599,12 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             var v = videoEl();
             if (!v || !window.YtSync) return;
             var t = String(v.currentTime);
-            if (t === lastT) return;   // skip duplicates
-            lastT = t;
-            YtSync.postMessage('t:' + t);
+            // YT-AUDIT-11 (IN4-106): gửi kèm Date.now() để Dart đo được
+            // độ trễ kênh (tin nằm trong hàng đợi bao lâu).
+            var stamp = t + '|' + Date.now();
+            if (stamp === lastT) return;   // skip duplicates
+            lastT = stamp;
+            YtSync.postMessage('t:' + stamp);
           } catch (e) {}
         }
         // IN4-81: PUSH ON EVENT instead of setInterval(250). `timeupdate`
@@ -486,8 +637,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _ytCtrl.runJavaScript(js);
   }
 
-  void _updateTime(double time) {
+  void _updateTime(double time, {int? sentAtMs}) {
     if (!mounted) return;
+    // YT-AUDIT-11 (IN4-106): đo độ trễ kênh TRƯỚC — kết quả cộng ngay vào vị
+    // trí phát dùng để chọn dòng phụ đề ở bên dưới.
+    _trackChannelLag(sentAtMs);
     // _currentTime KHÔNG hiển thị ở UI (chỉ dùng cho seek/lặp) → cập nhật
     // THƯỜNG, không setState. (IN4-78 nghiệm thu 2: trước setState ~2
     // lần/giây cho phần không đổi → churn semantics liên tục, assertion
@@ -501,14 +655,21 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       }
     }
     final ms = (time * 1000).round();
+    // YT-AUDIT-11 (IN4-106): vị trí phát THẬT (dùng cho seek/lặp) giữ nguyên;
+    // chỉ vị trí dùng để CHỌN DÒNG PHỤ ĐỀ mới được cộng bù trễ. Hai phần:
+    //   + audioLeadMs — do người dùng đặt (track phụ đề lệch so với audio;
+    //     KHÔNG đo được nếu không có PCM).
+    //   + _autoLagMs  — đo được từ kênh WebView → Flutter.
+    // Dương = âm thanh nhanh hơn chữ ⇒ chữ đổi SỚM hơn.
+    final syncMs = ms + _settings.audioLeadMs.round() + _autoLagMs;
     var idx = _currentLineIdx;
     for (var i = 0; i < _lines.length; i++) {
       final l = _lines[i];
-      if (ms >= l.start.inMilliseconds && ms < l.end.inMilliseconds) {
+      if (syncMs >= l.start.inMilliseconds && syncMs < l.end.inMilliseconds) {
         idx = i;
         break;
       }
-      if (ms >= l.start.inMilliseconds) idx = i;
+      if (syncMs >= l.start.inMilliseconds) idx = i;
     }
     // Chỉ rebuild khi DÒNG PHỤ ĐỀ đổi (phần hiển thị thực sự).
     if (idx != _currentLineIdx) {
@@ -519,9 +680,15 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       final gapBefore = idx > 0
           ? (line.start - _lines[idx - 1].end).inMilliseconds
           : 0;
-      // drift = vị trí phát TRỪ mốc bắt đầu dòng. Dương & lớn ⇒ chữ đổi
-      // TRỄ so với tiếng nói (đúng triệu chứng "âm thanh nhanh hơn chữ").
-      // Giữ 60 mẫu gần nhất để đọc xu hướng trên logcat, KHÔNG tự áp offset.
+      // drift = vị trí phát THẬT (chưa bù) TRỪ mốc bắt đầu dòng. Dương & lớn
+      // ⇒ chữ đổi TRỄ so với tiếng nói (đúng triệu chứng "âm thanh nhanh hơn
+      // chữ"). Giữ 60 mẫu gần nhất để đọc xu hướng trên logcat, KHÔNG tự áp
+      // offset.
+      //
+      // CÓ CHỦ ĐÍCH dùng `ms` (không phải `syncMs`): đây là PHÉP ĐO chẩn đoán,
+      // nên phải nói lên LỆCH GỐC, không được bị bù trễ che mất. Khi đã bù
+      // đúng, drift ≈ -(lead+lag) — đọc con số đó biết ngay bù còn dư/thiếu
+      // bao nhiêu. Dùng `syncMs` thì drift ≈ 0 mãi ⇒ mất tác dụng.
       final drift = ms - line.start.inMilliseconds;
       _syncDrifts.add(drift);
       if (_syncDrifts.length > 60) _syncDrifts.removeAt(0);
@@ -529,12 +696,45 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       debugPrint(
         '[in4up-yt] line $idx '
         'start=${line.start.inMilliseconds}ms end=${line.end.inMilliseconds}ms '
-        '| t=${ms}ms | drift=${drift}ms | driftTB=${avg.toStringAsFixed(0)}ms '
+        '| t=${ms}ms | sync=${syncMs}ms '
+        '(lead=${_settings.audioLeadMs.round()} lag=$_autoLagMs) '
+        '| drift=${drift}ms | driftTB=${avg.toStringAsFixed(0)}ms '
         '| gapBefore=${gapBefore}ms | '
         '${line.text.length > 40 ? "${line.text.substring(0, 40)}…" : line.text}',
       );
       setState(() => _currentLineIdx = idx);
+      _followActiveLine();
     }
+  }
+
+  /// YT-AUDIT-10 (IN4-102): cuộn tab VĂN BẢN tới dòng đang phát.
+  ///
+  /// Trước đây `_buildTranscriptTab` là `ListView.builder` trần, không có
+  /// `ScrollController` ⇒ không theo dõi gì cả. Chỉ cuộn khi người dùng BẬT
+  /// `transcriptAutoFollow` (mặc định) và đang ở đúng tab VĂN BẢN.
+  void _followActiveLine() {
+    if (!_settings.transcriptAutoFollow) return;
+    // Chỉ tab 0 (VĂN BẢN) có danh sách cuộn được.
+    if (_tabCtrl.index != 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _activeLineKey.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.35, // dòng active nằm khoảng 1/3 từ trên xuống
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  /// YT-AUDIT-10 (IN4-102): bật/tắt tự động theo dòng hiện tại.
+  void _onAutoFollowChanged(bool value) {
+    final next = _settings.copyWith(transcriptAutoFollow: value);
+    setState(() => _settings = next);
+    unawaited(YtLearningSettingsService.save(next));
+    if (value) _followActiveLine();
   }
 
   void _startTimer() {
@@ -545,7 +745,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       _ytCtrl.runJavaScript('''
         (function(){
           var v = document.querySelector('video');
-          if (v && window.YtSync) YtSync.postMessage(String(v.currentTime));
+          if (v && window.YtSync) {
+            YtSync.postMessage('t:' + String(v.currentTime) + '|' + Date.now());
+          }
         })();
       ''');
     });
@@ -604,15 +806,28 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     final startedAt = DateTime.now();
     setState(() => _isLoading = true);
 
+    // YT-AUDIT-04 (IN4-103): phụ đề gốc lấy theo ngôn ngữ người dùng CHỌN
+    // (mặc định `en`), không còn hard-code 'en'. Khai báo ngoài `try` vì được
+    // dùng ở cả 3 pha A/B/C bên dưới.
+    final subLang = _settings.subtitleLang;
+
     List<YtCaptionLine>? base;
     try {
-      base = await YtService.instance.fetchCaptions(videoId, lang: 'en');
+      base = await YtService.instance.fetchCaptions(videoId, lang: subLang);
       if (_isStale(generation)) return;
       if (base.isEmpty) {
         debugPrint('[in4up-yt] không có phụ đề gốc cho $videoId');
         if (mounted) setState(() => _isLoading = false);
         return;
       }
+      // YT-AUDIT-11 (IN4-106): gộp các cue vụn của YouTube thành CÂU HOÀN
+      // CHỈNH (dấu đầy đủ + viết hoa đầu câu) TRƯỚC khi dựng dòng và trước
+      // khi dịch — dịch nguyên câu cho kết quả tốt hơn hẳn dịch mẩu câu.
+      final rawCount = base.length;
+      base = YtSentenceSegmenter.segmentCaptions(base);
+      debugPrint(
+        '[in4up-yt] chia cau: $rawCount cue -> ${base.length} cau',
+      );
       _applyCaptionLines(base);
       final tCaptions = DateTime.now()
           .difference(startedAt)
@@ -628,8 +843,21 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     }
 
     if (_isStale(generation)) return;
-    final target = TranslationService().targetLang.toLowerCase();
-    final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
+    // YT-AUDIT-04 (IN4-103): ngôn ngữ đích = override của người dùng (nếu có),
+    // ngược lại THEO CÀI ĐẶT HOME. Bản cũ tự đoán `target == 'en' ? 'vi'` một
+    // cách im lặng ⇒ người dùng không hề biết app đã đổi ngôn ngữ dịch.
+    final resolved = YtLearningSettings.resolveTargetLang(
+      subtitleLang: subLang,
+      overrideTargetLang: _settings.targetLang,
+      homeTargetLang: TranslationService().targetLang,
+    );
+    final lang2 = resolved.lang;
+    if (resolved.fellBack) {
+      debugPrint(
+        '[in4up-yt] ngon ngu dich trung phu de goc ($subLang) -> '
+        'roi ve tieng Viet (ro rang, khong len)',
+      );
+    }
 
     // (B) bản dịch có sẵn trên YouTube — nhanh, không cần AI.
     try {
@@ -667,7 +895,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       try {
         translated = await YtService.instance.translateLines(
           slice.map((e) => e.text).toList(),
-          sourceLang: 'en',
+          // YT-AUDIT-04 (IN4-103): nguồn là ngôn ngữ phụ đề gốc thật, không
+          // còn hard-code 'en' (sai khi học tiếng Nhật/Hàn/Trung).
+          sourceLang: subLang.startsWith('a.') ? subLang.substring(2) : subLang,
           targetLang: lang2,
         );
       } catch (e) {
@@ -715,21 +945,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   /// đúng triệu chứng owner báo (IN4-81). Cách sửa KHÔNG dùng offset cố
   /// định: nhận diện theo NỘI DUNG rồi hiển thị đúng phần chữ **đang
   /// được đọc** (phần mới) — dòng nào "đang nói" thì hiện đúng phần đó.
-  static bool _isCumulativeCaptionTrack(List<YtCaptionLine> captions) {
-    if (captions.length < 3) return false;
-    var cumulative = 0;
-    var checked = 0;
-    for (var i = 1; i < captions.length; i++) {
-      final prev = captions[i - 1].text.trim();
-      final cur = captions[i].text.trim();
-      if (prev.isEmpty || cur.isEmpty) continue;
-      checked++;
-      if (cur.length > prev.length && cur.startsWith(prev)) cumulative++;
-    }
-    if (checked == 0) return false;
-    // ≥ 60% dòng lặp tiền tố ⇒ đây là rolling window.
-    return cumulative / checked >= 0.6;
-  }
+  /// Uỷ quyền cho [YtSentenceSegmenter.isCumulativeTrack] — cùng một tiêu
+  /// chí, chỉ còn MỘT bản (tránh hai nơi lệch nhau).
+  static bool _isCumulativeCaptionTrack(List<YtCaptionLine> captions) =>
+      YtSentenceSegmenter.isCumulativeTrack(captions);
 
   void _applyCaptionLines(List<YtCaptionLine> captions) {
     if (!mounted) return;
@@ -773,6 +992,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       if (token.isEmpty) continue;
       if (w.wordType == WordType.punctuation) continue;
       final lower = token.toLowerCase();
+      // YT-AUDIT-08 (IN4-100): map ĐẦY ĐỦ mọi `WordType` thay vì gom phần
+      // còn lại vào `'other'` ⇒ bảng tra từ hiện đúng từ loại (đại từ, từ
+      // hạn định, số từ, thán từ…). Nhãn tiếng Việt nằm ở `_typeLabel`
+      // trong `widgets/yt_word_panel.dart` (call-site của `uiText()`).
       final type = switch (w.wordType) {
         WordType.verb => 'verb',
         WordType.noun => 'noun',
@@ -780,7 +1003,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         WordType.adverb => 'adv',
         WordType.preposition => 'prep',
         WordType.conjunction => 'conj',
-        _ => 'other',
+        WordType.pronoun => 'pron',
+        WordType.determiner => 'det',
+        WordType.number => 'num',
+        WordType.interjection => 'intj',
+        WordType.punctuation ||
+        WordType.unknown =>
+          'other',
       };
       var state = _wordStates[lower] ?? WordState.unknown;
       if (state == WordState.unknown && VocabularyBridge.hasWord(lower)) {
@@ -1181,7 +1410,31 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           const SizedBox(height: 10),
           // Translation (YT-LR-002: 4 chế độ — hiện / ẩn / mờ / ẩn cả phụ đề).
           _buildTranslationLine(line),
+          // YT-AUDIT-04 (IN4-103): khi ngôn ngữ dịch trùng phụ đề gốc, app
+          // rớt về tiếng Việt — phải NÓI RA, không được lén như bản cũ.
+          _buildLanguageFallbackNotice(),
         ],
+      ),
+    );
+  }
+
+  /// YT-AUDIT-04 (IN4-103): dòng chú thích NHỎ dưới bản dịch khi ngôn ngữ
+  /// đích trùng với phụ đề gốc. Bản cũ tự đổi sang tiếng Việt mà không nói gì
+  /// (`target == 'en' ? 'vi' : target`) ⇒ người dùng tưởng app dịch sai.
+  Widget _buildLanguageFallbackNotice() {
+    final resolved = YtLearningSettings.resolveTargetLang(
+      subtitleLang: _settings.subtitleLang,
+      overrideTargetLang: _settings.targetLang,
+      homeTargetLang: TranslationService().targetLang,
+    );
+    if (!resolved.fellBack) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        context.uiText(
+          'Ngôn ngữ dịch trùng với phụ đề gốc — đang tạm dùng tiếng Việt.',
+        ),
+        style: const TextStyle(color: Colors.amber, fontSize: 10, height: 1.3),
       ),
     );
   }
@@ -1204,9 +1457,15 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   /// `Có bản dịch` (hiện) · `Ẩn bản dịch` (khỏi) · `Làm mờ bản dịch`
   /// (mờ, bấm để hiện tạm rồi mờ lại) · `Ẩn phụ đề` (khỏi cả hai).
   ///
-  /// Chế độ "mờ" dùng `MaskFilter.blur` trên chính paint của chữ thay vì
-  /// `ImageFiltered` (lớp blur riêng): nhẹ hơn, luôn vẽ ra chữ, và không phụ
-  /// thuộc vào khả năng composite của GPU.
+  /// Chế độ "mờ" làm mờ bằng **chính bóng của chữ** (`TextStyle.shadows`),
+  /// KHÔNG dùng blur ở lớp composite. Lý do (YT-AUDIT-02 / IN4-98) — cả hai
+  /// cách trước đều hỏng, mỗi cách một kiểu:
+  ///   • `ImageFiltered(ImageFilter.blur)` ⇒ render **TRỐNG** trên máy thật.
+  ///   • `MaskFilter.blur` trên `foreground: Paint()` của chữ ⇒ bị Impeller
+  ///     bỏ qua ⇒ chữ hiện bình thường, người dùng "không thấy gì".
+  /// `TextStyle.shadows` được Skia lẫn Impeller hỗ trợ đầy đủ: glyph fill để
+  /// gần trong suốt rồi vẽ 2 lớp bóng mờ cùng màu ⇒ chữ thành vệt mờ mà
+  /// **luôn vẽ ra cái gì đó** (không bao giờ trống).
   Widget _buildTranslationLine(SubtitleLine line) {
     if (!_settings.showsTranslation) return const SizedBox.shrink();
     final text = line.translation;
@@ -1217,14 +1476,17 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     final child = Text(
       text,
       style: blurred
-          ? TextStyle(
+          ? const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w500,
               height: 1.4,
-              // Khi set `foreground`, `color` bị bỏ qua ⇒ đặt màu trên Paint.
-              foreground: Paint()
-                ..color = const Color(0xFFFFC107).withValues(alpha: 0.9)
-                ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+              // Alpha thấp ⇒ nét chữ thật gần như tàng hình, chỉ còn lại
+              // vệt mờ do 2 lớp bóng vẽ ra.
+              color: Color(0x4DFFC107),
+              shadows: <Shadow>[
+                Shadow(color: Color(0xFFFFC107), blurRadius: 7),
+                Shadow(color: Color(0xFFFFC107), blurRadius: 7),
+              ],
             )
           : TextStyle(
               color: Colors.amber.withValues(alpha: 0.8),
@@ -1769,7 +2031,125 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   // ── Transcript tab ────────────────────────────────────────
+  /// YT-AUDIT-10 (IN4-102): hàng công tắc "Tự động theo dòng hiện tại"
+  /// (mặc định BẬT) + danh sách tự cuộn theo dòng đang phát.
   Widget _buildTranscriptTab() {
+    final follow = _settings.transcriptAutoFollow;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: Row(
+            children: [
+              Icon(
+                follow ? Icons.play_arrow : Icons.pan_tool_outlined,
+                size: 14,
+                color: follow ? const Color(0xFF9C27B0) : Colors.grey,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  follow
+                      ? context.uiText('Tự động theo dòng hiện tại')
+                      : context.uiText('Cuộn tự do'),
+                  style: TextStyle(
+                    color: follow ? Colors.white70 : Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 26,
+                child: Switch(
+                  value: follow,
+                  activeColor: const Color(0xFF9C27B0),
+                  onChanged: _onAutoFollowChanged,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // YT-AUDIT-11 (IN4-106): căn chỉnh NGAY TẠI tab này — người dùng phải
+        // VỪA NGHE VỪA BẤM +/− được. Mở sheet thì không nghe thấy gì để mà chỉnh.
+        _buildAudioSyncTuner(),
+        Expanded(child: _buildTranscriptList()),
+      ],
+    );
+  }
+
+  /// YT-AUDIT-11 (IN4-106): hàng căn chỉnh âm thanh & chữ (bước 0,1 giây).
+  Widget _buildAudioSyncTuner() {
+    final lead = _settings.audioLeadMs;
+    final head = lead == 0
+        ? context.uiText('Đang khớp')
+        : (lead > 0
+            ? context.uiText('Âm thanh nhanh hơn chữ')
+            : context.uiText('Chữ nhanh hơn âm thanh'));
+    final secs = _settings.audioLeadSeconds;
+    final sign = secs > 0 ? '+' : '';
+    final value =
+        lead == 0 ? '' : '  $sign${secs.toStringAsFixed(1)}s';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Row(
+        children: [
+          const Icon(Icons.sync_alt, size: 14, color: Colors.grey),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '$head$value',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+          _syncTuneButton(Icons.remove, -1),
+          _syncTuneButton(Icons.add, 1),
+          if (lead != 0)
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                iconSize: 16,
+                color: Colors.grey,
+                icon: const Icon(Icons.restart_alt),
+                tooltip: context.uiText('Đặt về 0'),
+                onPressed: () => _onAudioLeadChanged(0),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _syncTuneButton(IconData icon, int dir) {
+    return SizedBox(
+      width: 30,
+      height: 28,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        color: Colors.white70,
+        icon: Icon(icon),
+        tooltip: dir > 0 ? '+' : '-',
+        onPressed: () => _onAudioLeadChanged(
+          // Chốt về bước 100 ms TRƯỚC rồi mới +/-: nếu không, giá trị đã lưu
+          // lẻ (vd 437 từ nút "áp dụng") cộng thêm sẽ thành 537, 637…
+          YtLearningSettings.snapAudioLead(_settings.audioLeadMs) +
+              dir * YtLearningSettings.kAudioLeadStep,
+        ),
+      ),
+    );
+  }
+
+  /// YT-AUDIT-11 (IN4-106): đổi bù trễ thủ công (biên được kẹp trong model).
+  void _onAudioLeadChanged(double v) {
+    final next = _settings.copyWith(
+        audioLeadMs: YtLearningSettings.snapAudioLead(v));
+    setState(() => _settings = next);
+    unawaited(YtLearningSettingsService.save(next));
+  }
+
+  Widget _buildTranscriptList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _lines.length,
@@ -1777,6 +2157,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         final line = _lines[i];
         final isActive = i == _currentLineIdx;
         return GestureDetector(
+          // YT-AUDIT-10: key CHỈ gắn cho dòng active — không phải mỗi dòng
+          // một key (transcript có thể dài hàng nghìn dòng).
+          key: isActive ? _activeLineKey : null,
           onTap: () {
             setState(() => _currentLineIdx = i);
             _seekTo(line.start.inMilliseconds / 1000.0);

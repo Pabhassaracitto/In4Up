@@ -50,11 +50,118 @@ class YtLearningSettings {
   /// Thanh trượt trong bảng tra từ cho phép người dùng kéo đổi ngưỡng này.
   final double frequencyRankThreshold;
 
+  /// YT-AUDIT-10 (IN4-102): tab VĂN BẢN tự cuộn theo dòng phụ đề đang phát.
+  /// Mặc định BẬT; tắt đi để người dùng tự do đọc/kéo (auto cuộn sẽ không
+  /// giật lại vị trí đang đọc).
+  final bool transcriptAutoFollow;
+
+  /// YT-AUDIT-04 (IN4-103): ngôn ngữ của **phụ đề gốc** lấy từ YouTube
+  /// (vd `en`, `ja`, `a.en` cho auto-generated). Mặc định `en`.
+  ///
+  /// Khác với [targetLang]: đây là thứ đang được NÓI trong video, còn
+  /// [targetLang] là thứ người dùng muốn ĐỌC.
+  final String subtitleLang;
+
+  /// YT-AUDIT-04 (IN4-103): ngôn ngữ dịch.
+  ///
+  /// `null` (mặc định) ⇒ **theo Cài đặt Home** (`TranslationService.targetLang`).
+  /// Khác `null` ⇒ người dùng đã chọn riêng cho YouTube, không bám Home nữa.
+  ///
+  /// English nằm trong danh sách CHỌN, không phải mặc định — học tiếng Anh
+  /// mà dịch Anh→Anh là vô nghĩa.
+  final String? targetLang;
+
+  /// YT-AUDIT-11 (IN4-106): bù trễ **THỦ CÔNG** giữa âm thanh và chữ (ms).
+  ///
+  /// Chiều dương được định nghĩa theo đúng cách owner mô tả triệu chứng:
+  ///   * `> 0` ⇒ **âm thanh nhanh hơn chữ** ⇒ chữ phải đổi SỚM hơn
+  ///     (cộng thêm vào vị trí phát khi chọn dòng phụ đề).
+  ///   * `< 0` ⇒ chữ nhanh hơn âm thanh ⇒ chữ đổi muộn hơn.
+  ///
+  /// Lý do phải có tay: phần lệch do **track phụ đề** (YouTube caption lệch so
+  /// với audio) là KHÔNG ĐO ĐƯỢC nếu không có tín hiệu PCM (VAD đã bị bác vì
+  /// iframe WebView không lấy được PCM). Phần lệch do **kênh WebView→Flutter**
+  /// thì đo được và được bù TỰ ĐỘNG ở `AiConnectivity…` của player — hai phần
+  /// này cộng lại, không thay thế nhau.
+  final double audioLeadMs;
+
   const YtLearningSettings({
     this.translationMode = YtTranslationMode.withTranslation,
     this.subtitleLayout = YtSubtitleLayout.stacked,
     this.frequencyRankThreshold = 300,
+    this.transcriptAutoFollow = true,
+    this.subtitleLang = 'en',
+    this.targetLang,
+    this.audioLeadMs = 0,
   });
+
+  /// YT-AUDIT-04 (IN4-103) — ngôn ngữ dịch THỰC TẾ + có đang phải "rớt về
+  /// tiếng Việt" hay không.
+  ///
+  /// Trước đây code tự đoán trong im lặng:
+  /// ```dart
+  /// final target = TranslationService().targetLang.toLowerCase();
+  /// final lang2 = target.isEmpty || target == 'en' ? 'vi' : target;
+  /// ```
+  /// ⇒ Home đang để EN thì **lén** đổi sang VI mà người dùng không hay. Giờ
+  /// vẫn giữ hành vi rớt về `vi` (đừng làm mất bản dịch) nhưng trả kèm
+  /// `fellBack: true` để UI **nói rõ lý do** thay vì im lặng.
+  static ({String lang, bool fellBack}) resolveTargetLang({
+    required String subtitleLang,
+    String? overrideTargetLang,
+    required String homeTargetLang,
+  }) {
+    var sub = subtitleLang.trim().toLowerCase();
+    // `a.en` = phụ đề auto-generated TIẾNG ANH của YouTube. Bỏ tiền tố để so
+    // sánh cho đúng: dịch en (gốc) → en (đích) cũng vô nghĩa như a.en → en.
+    if (sub.startsWith('a.')) sub = sub.substring(2);
+    final chosen = (overrideTargetLang ?? '').trim().toLowerCase();
+    final home = homeTargetLang.trim().toLowerCase();
+
+    var lang = chosen.isNotEmpty ? chosen : home;
+    if (lang.isEmpty) lang = 'vi';
+
+    if (lang == sub) {
+      // Ngôn ngữ đích trùng với phụ đề gốc ⇒ dịch là vô nghĩa.
+      // Rớt về tiếng Việt nhưng BÁO cho UI biết.
+      return (lang: 'vi', fellBack: true);
+    }
+    return (lang: lang, fellBack: false);
+  }
+
+  /// Biên dưới của thanh trượt bù trễ (ms) — chữ đổi muộn hơn 3 giây.
+  static const double kAudioLeadMin = -3000;
+
+  /// Biên trên của thanh trượt bù trễ (ms) — chữ đổi sớm hơn 3 giây.
+  static const double kAudioLeadMax = 3000;
+
+  /// Bước của thanh trượt / nút +− (ms) = 0,1 giây.
+  static const double kAudioLeadStep = 100;
+
+  /// Kẹp giá trị bù trễ vào biên cho phép.
+  ///
+  /// `double.clamp` trả `num` ⇒ viết tay để giữ kiểu `double` cho Slider.
+  static double clampAudioLead(double v) {
+    if (v.isNaN) return 0;
+    if (v < kAudioLeadMin) return kAudioLeadMin;
+    if (v > kAudioLeadMax) return kAudioLeadMax;
+    return v;
+  }
+
+  /// Chốt giá trị bù trễ về đúng BƯỚC 100 ms.
+  ///
+  /// Slider có `divisions` vẫn có thể trả `-1.4e-14` hoặc `100.00000000000001`
+  /// (chia cho 60 rồi nhân 6000). Những giá trị đó làm UI hiện "-0.0s" và làm
+  /// `lead == 0` sai ⇒ phải chốt lại. `-0.0` được ép thành `0.0`.
+  static double snapAudioLead(double v) {
+    final clamped = clampAudioLead(v);
+    final snapped = (clamped / kAudioLeadStep).round() * kAudioLeadStep;
+    // `-0.0 == 0.0` là true ⇒ ghi đè cả hai về `0.0` (UI so sánh `== 0`).
+    return snapped == 0 ? 0.0 : snapped.toDouble();
+  }
+
+  /// Bù trễ đang đặt, tính theo GIÂY (UI đọc số này).
+  double get audioLeadSeconds => audioLeadMs / 1000.0;
 
   /// Biên dưới của thanh trượt tần suất (`LrWord.langRank` bắt đầu từ 100).
   static const double kMinRank = 100;
@@ -85,19 +192,41 @@ class YtLearningSettings {
     YtTranslationMode? translationMode,
     YtSubtitleLayout? subtitleLayout,
     double? frequencyRankThreshold,
+    bool? transcriptAutoFollow,
+    String? subtitleLang,
+    Object? targetLang = _kNoChange,
+    double? audioLeadMs,
   }) {
     return YtLearningSettings(
       translationMode: translationMode ?? this.translationMode,
       subtitleLayout: subtitleLayout ?? this.subtitleLayout,
       frequencyRankThreshold:
           frequencyRankThreshold ?? this.frequencyRankThreshold,
+      transcriptAutoFollow:
+          transcriptAutoFollow ?? this.transcriptAutoFollow,
+      subtitleLang: subtitleLang ?? this.subtitleLang,
+      // `Object?` sentinel để phân biệt "không đổi" với "đặt về null"
+      // (= quay lại theo Cài đặt Home).
+      targetLang: identical(targetLang, _kNoChange)
+          ? this.targetLang
+          : targetLang as String?,
+      audioLeadMs: audioLeadMs == null
+          ? this.audioLeadMs
+          : clampAudioLead(audioLeadMs),
     );
   }
+
+  /// Sentinel cho [copyWith] — phân biệt "giữ nguyên" và "xoá override".
+  static const Object _kNoChange = Object();
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'translationMode': translationMode.name,
         'subtitleLayout': subtitleLayout.name,
         'frequencyRankThreshold': frequencyRankThreshold,
+        'transcriptAutoFollow': transcriptAutoFollow,
+        'subtitleLang': subtitleLang,
+        'targetLang': targetLang,
+        'audioLeadMs': audioLeadMs,
       };
 
   factory YtLearningSettings.fromJson(Map<String, dynamic> json) {
@@ -112,6 +241,14 @@ class YtLearningSettings {
       ),
       frequencyRankThreshold:
           (json['frequencyRankThreshold'] as num?)?.toDouble() ?? 300,
+      // Dữ liệu cũ không có khoá này ⇒ mặc định BẬT (đúng yêu cầu owner:
+      // "auto là mặc định").
+      transcriptAutoFollow: json['transcriptAutoFollow'] as bool? ?? true,
+      // Dữ liệu cũ ⇒ ngôn ngữ gốc `en`, ngôn ngữ dịch theo Cài đặt Home.
+      subtitleLang: (json['subtitleLang'] as String?) ?? 'en',
+      targetLang: json['targetLang'] as String?,
+      // Dữ liệu cũ không có khoá này ⇒ 0 (không bù).
+      audioLeadMs: (json['audioLeadMs'] as num?)?.toDouble() ?? 0,
     );
   }
 }

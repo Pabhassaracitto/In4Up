@@ -13,6 +13,8 @@
 // 2) seed → /embed/<id> (Referer same-origin) — fallback;
 // 3) overlay + "Mở ngoài" trong trình duyệt/app hệ thống.
 // Test pin phần quyết định này (không cần WebView thật).
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/youtube/yt_player_screen.dart';
 
@@ -111,6 +113,78 @@ void main() {
       // Số 153 xuất hiện bình thường (phụ đề có con số) mà không kèm
       // "lỗi cấu hình" → không dương tính giả.
       expect(ytLooksLikePlayerError('Năm 153 sau công nguyên'), isFalse);
+    });
+  });
+
+  // IN4-109 (2026-10-21) — wrapper HTML phải nằm trong REPO (version
+  // controlled) + đủ tham số bắt buộc, nếu không player báo lỗi -1.
+  group('web/yt_embed.html — file wrapper trong repo (IN4-109)', () {
+    final wrapper = File('web/yt_embed.html').readAsStringSync();
+
+    test('file wrapper nằm trong repo (không chỉ ở nhánh gh-pages)', () {
+      expect(wrapper.contains('<html'), isTrue);
+      expect(wrapper.contains('onYouTubeIframeAPIReady'), isTrue);
+    });
+
+    test('có playerVar origin + enablejsapi (thiếu ⇒ player error -1)', () {
+      expect(
+        wrapper.contains('origin: location.origin'),
+        isTrue,
+        reason: 'Dùng host youtube-nocookie.com thì BẮT BUỘC phải có '
+            'playerVar origin — thiếu ⇒ YouTube trả mã -1 (INVALID_PARAMETER).',
+      );
+      expect(
+        wrapper.contains('enablejsapi: 1'),
+        isTrue,
+        reason: 'Cần JS API để app điều khiển player (seek/pause/play).',
+      );
+    });
+
+    test('có fallback sang www.youtube.com khi nocookie lỗi', () {
+      expect(
+        wrapper.contains("host: 'https://www.youtube.com'"),
+        isTrue,
+        reason: 'Mạng chặn nocookie thì phải thử được host thường.',
+      );
+    });
+
+    test('giữ nguyên API surface cho app (seek/pause/play + postMessage)', () {
+      expect(wrapper.contains('_in4upSeek'), isTrue);
+      expect(wrapper.contains('_in4upPause'), isTrue);
+      expect(wrapper.contains('_in4upPlay'), isTrue);
+      expect(wrapper.contains("post('ready')"), isTrue);
+      expect(wrapper.contains("post('err:'"), isTrue);
+    });
+  });
+
+  // IN4-109 (2026-10-21) — trang web TRẮNG vì CanvasKit tải từ CDN gstatic.
+  group('web/flutter_bootstrap.js — CanvasKit cục bộ (IN4-109)', () {
+    final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
+
+    test('bootstrap có template token của Flutter', () {
+      expect(bootstrap.contains('{{flutter_js}}'), isTrue);
+      expect(bootstrap.contains('{{flutter_build_config}}'), isTrue);
+    });
+
+    test('trỏ CanvasKit về thư mục CỤC BỘ (không phụ thuộc CDN)', () {
+      expect(
+        bootstrap.contains('canvasKitBaseUrl: "canvaskit/"'),
+        isTrue,
+        reason: 'Mặc định Flutter tải CanvasKit từ gstatic.com ⇒ mạng chặn '
+            'CDN là trang trắng. Build có sẵn canvaskit/ cục bộ.',
+      );
+      // Chỉ kiểm CONFIG (không kiểm cả comment trong file).
+      expect(
+        bootstrap.contains('canvasKitBaseUrl: "https://www.gstatic.com'),
+        isFalse,
+        reason: 'Không được trỏ CanvasKit về CDN.',
+      );
+      expect(bootstrap.contains('useLocalCanvasKit: false'), isFalse);
+    });
+
+    test('vẫn đăng ký service worker (để SW cũ bị thay, không giữ file lỗi)', () {
+      expect(bootstrap.contains('serviceWorkerSettings'), isTrue);
+      expect(bootstrap.contains('{{flutter_service_worker_version}}'), isTrue);
     });
   });
 }

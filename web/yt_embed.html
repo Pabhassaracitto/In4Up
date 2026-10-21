@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- IN4-78: wrapper hosted on GitHub Pages để iframe /embed/ bên trong có
+     Referer thật (https://pabhassaracitto.github.io) — YouTube từ chối
+     player không có Referer hợp lệ từ ~07/2025 (mã 153).
+
+     IN4-109 (2026-10-21): sửa lỗi "YouTube player error -1":
+       * `host: youtube-nocookie.com` BẮT BUỘC phải có playerVar
+         `origin` (theo tài liệu YT IFrame API) — thiếu ⇒ player trả mã
+         **-1** (INVALID_PARAMETER) ⇒ không phát được.
+       * thêm `enablejsapi: 1` để app điều khiển được player
+         (seekTo/pauseVideo/playVideo qua `_in4upSeek`… — cần JS API).
+       * fallback: nếu nocookie vẫn lỗi ⇒ dùng `www.youtube.com` (thường
+         chỉ bị chặn ở một số mạng).
+     File này được copy vào `build/web/` khi build ⇒ workflow deploy-web
+     push lên nhánh `gh-pages` ⇒ **nguồn sự thật nằm trong repo** (trước đây
+     file chỉ nằm trên nhánh `gh-pages`, không version-controlled). -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
+  #yt{position:fixed;inset:0;width:100%;height:100%}
+  #yt iframe{width:100% !important;height:100% !important}
+  #err{display:none;position:fixed;inset:0;background:#000;color:#fff;
+       font-family:sans-serif;font-size:14px;align-items:center;
+       justify-content:center;text-align:center;padding:16px;z-index:9}
+</style>
+</head>
+<body>
+<div id="yt"></div>
+<div id="err"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+(function() {
+  var p = new URLSearchParams(location.search);
+  var VIDEO_ID = p.get('videoId') || '';
+  var usedFallback = false;
+
+  function post(msg) {
+    try { if (window.YtSync) YtSync.postMessage(msg); } catch (e) {}
+  }
+  function showErr(code) {
+    var el = document.getElementById('err');
+    el.style.display = 'flex';
+    el.textContent = 'YouTube player error ' + code + ' (IN4-78)';
+    post('err:' + code);
+  }
+  // API surface cho app (Dart runJavaScript):
+  window._in4upSeek = function(s) {
+    try { window.player.seekTo(s, true); } catch (e) {}
+  };
+  window._in4upPause = function() {
+    try { window.player.pauseVideo(); } catch (e) {}
+  };
+  window._in4upPlay = function() {
+    try { window.player.playVideo(); } catch (e) {}
+  };
+  function tick() {
+    try {
+      if (window.player && window.player.getCurrentTime) {
+        post('t:' + window.player.getCurrentTime().toFixed(3));
+      }
+    } catch (e) {}
+  }
+
+  function makePlayer(host) {
+    window.player = new YT.Player('yt', {
+      width: '100%',
+      height: '100%',
+      videoId: VIDEO_ID,
+      host: host,
+      playerVars: {
+        rel: 0,
+        playsinline: 1,
+        cc_load_policy: 0,
+        // BẮT BUỘC với youtube-nocookie.com — thiếu ⇒ player error -1.
+        origin: location.origin,
+        // Bật JS API để app điều khiển player (seek/pause/play).
+        enablejsapi: 1
+      },
+      events: {
+        onReady: function() {
+          post('ready');
+          try { window.player.playVideo(); } catch (e) {}
+          setInterval(tick, 250);
+        },
+        onStateChange: function(e) { post('state:' + e.data); },
+        onError: function(e) {
+          // -1 thường là do host/`origin` bị chặn ở mạng hiện tại ⇒ thử
+          // lại bằng www.youtube.com trước khi báo lỗi cho app.
+          if (!usedFallback && (e.data === -1 || e.data === -2 || e.data === 5 || e.data === 150)) {
+            usedFallback = true;
+            try {
+              window.player = new YT.Player('yt', {
+                width: '100%',
+                height: '100%',
+                videoId: VIDEO_ID,
+                host: 'https://www.youtube.com',
+                playerVars: {
+                  rel: 0,
+                  playsinline: 1,
+                  cc_load_policy: 0,
+                  origin: location.origin,
+                  enablejsapi: 1
+                },
+                events: {
+                  onReady: function() {
+                    post('ready');
+                    try { window.player.playVideo(); } catch (e) {}
+                    setInterval(tick, 250);
+                  },
+                  onStateChange: function(ev) { post('state:' + ev.data); },
+                  onError: function(ev) { showErr(ev.data); }
+                }
+              });
+              return;
+            } catch (e2) { /* rơi xuống showErr bên dưới */ }
+          }
+          showErr(e.data);
+        }
+      }
+    });
+  }
+
+  window.onYouTubeIframeAPIReady = function() {
+    if (!VIDEO_ID) { showErr('no-video-id'); return; }
+    try {
+      makePlayer('https://www.youtube-nocookie.com');
+    } catch (e) {
+      showErr(-1);
+    }
+  };
+})();
+</script>
+</body>
+</html>

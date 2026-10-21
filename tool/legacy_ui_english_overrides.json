@@ -1909,5 +1909,19 @@
   "Đọc dòng hiện tại": "Read the current line",
   "Đang đọc — chạm để dừng": "Reading — tap to stop",
   "Đang phát — chạm để dừng": "Playing — tap to stop",
-  "Phát âm thanh": "Play audio"
+  "Phát âm thanh": "Play audio",
+  "Chưa có nội dung": "Nothing to read yet",
+  "Không tải được trang": "Could not load the page",
+  "Đã sao chép": "Copied",
+  "Sao chép": "Copy",
+  "Sao chép toàn bộ": "Copy all",
+  "Dán văn bản để đọc": "Paste text to read",
+  "Dán URL trang web": "Paste a web page URL",
+  "Tải & đọc": "Load & read",
+  "Đang tải…": "Loading…",
+  "Dòng": "Line",
+  "Trình phát YouTube": "YouTube player",
+  "Video ID hoặc URL YouTube": "YouTube video ID or URL",
+  "Mở trình phát YouTube": "Open YouTube player",
+  "Không mở được trình phát": "Could not open the player"
 }

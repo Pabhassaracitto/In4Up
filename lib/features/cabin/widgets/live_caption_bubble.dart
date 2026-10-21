@@ -91,12 +91,23 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
         ? active!.translatedText
         : (active?.sourceText ?? 'Đang nghe cabin...');
 
-    final screenSize = MediaQuery.of(context).size;
-    final maxX = math.max(10.0, screenSize.width - 90);
-    final maxY = math.max(80.0, screenSize.height - 180);
+    final media = MediaQuery.of(context);
+    final screenSize = media.size;
+    // The bubble lives in the shell Stack, so its bounds must account for
+    // more than the system inset: Bottom Navigation, Mini Player and the
+    // keyboard can all occupy the lower edge. Keep these as layout tokens,
+    // not a fixed "12px from bottom" contract.
+    const bubbleHeight = 54.0;
+    const shellBottomGap = 24.0;
+    final topInset = math.max(12.0, media.padding.top + 12.0);
+    final bottomInset = math.max(media.padding.bottom, media.viewInsets.bottom);
+    final reservedBottom =
+        bottomInset + kBottomNavigationBarHeight + shellBottomGap;
+    final maxX = math.max(10.0, screenSize.width - 90.0);
+    final maxY = math.max(topInset, screenSize.height - reservedBottom - bubbleHeight);
     final pos = Offset(
       _position.dx.clamp(10.0, maxX),
-      _position.dy.clamp(80.0, maxY),
+      _position.dy.clamp(topInset, maxY),
     );
 
     return Positioned(

@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in4up/audio/audio_player_service.dart';
 import 'package:in4up/models/playback_state.dart';
+import 'package:in4up/models/mini_player_surface_state.dart';
 import 'package:in4up/models/segment.dart';
 import 'package:in4up/screens/listen_mode/models/recent_audio.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
@@ -160,6 +161,28 @@ class PlayerProvider extends ChangeNotifier
   }
 
   bool get isPlaying => _state.status == PlaybackStatus.playing;
+
+  /// Shared shell projection. Visual visibility is intentionally derived from
+  /// whether a track exists, while playback status remains independent.
+  I4uMiniPlayerSurfaceState get miniPlayerSurfaceState {
+    final visualMode = _currentSongPath == null
+        ? I4uMiniPlayerVisualMode.hidden
+        : I4uMiniPlayerVisualMode.mini;
+    final playbackStatus = switch (_state.status) {
+      PlaybackStatus.loading || PlaybackStatus.buffering =>
+        I4uPlaybackStatus.loading,
+      PlaybackStatus.playing => I4uPlaybackStatus.playing,
+      PlaybackStatus.paused => I4uPlaybackStatus.paused,
+      PlaybackStatus.error => I4uPlaybackStatus.failed,
+      PlaybackStatus.completed || PlaybackStatus.stopped =>
+        I4uPlaybackStatus.idle,
+    };
+    return I4uMiniPlayerSurfaceState(
+      visualMode: visualMode,
+      playbackStatus: playbackStatus,
+    );
+  }
+
   bool get isPaused => _state.status == PlaybackStatus.paused;
   bool get isStopped => _state.status == PlaybackStatus.stopped;
   bool get isLoading => _state.status == PlaybackStatus.loading;

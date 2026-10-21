@@ -2928,6 +2928,49 @@
     chỉ phát `::warning::[in4up-or] Thiếu secret…` khi secret rỗng; annotations
     của job Build APK **không có** warning đó).
 
+### WEB-BUILD-001 — (2026-10-21) `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages
+- **Trạng thái:** 🔎 chẩn đoán xong (chưa sửa code — cần owner chọn hướng) — Linear [IN4-97](https://linear.app/in4up/issue/IN4-97)
+- **Triệu chứng:** workflow `deploy-web.yml` (thêm ở commit `563fabc`) fail ở step
+  *"Build web app"* — run `39595541854`.
+- **Lỗi thật (lấy từ annotation của run, không suy đoán):**
+  `Error: Dart library 'dart:ffi' is not available on this platform.` (lặp nhiều
+  lần; **71** dòng log khớp `dart:io|dart:ffi`).
+- **Root cause:** `flutter build web` compile `lib/main.dart` cho web. Đồ thị import
+  reachable từ `main.dart` có **63 file** dùng `dart:io`/`dart:ffi` — hai thư viện
+  **không tồn tại trên web**. File "đầu sợi" trong repo:
+  `lib/ffi/ultra_engine_ffi_v2.dart` (dart:ffi — **vùng bảo vệ** AGENTS.md #1),
+  `lib/native/whisper_bindings.dart`, `lib/services/whisper_service.dart`,
+  `lib/features/translation/engines/hymt_engine.dart`,
+  `packages/in4up_ai/.../ai_native_bindings.dart`,
+  `packages/in4up_stt/.../stt_engine_whisper.dart`.
+  Ngoài ra còn **plugin pub.dev không có web**: `ffi-2.2.0`, `whisper_flutter_new-1.0.1`
+  (+ `flutter_tts`, `sherpa_onnx` có thư mục web nhưng vẫn lỗi).
+  ⇒ **Không phải hồi quy nhỏ** — app vốn thiết kế cho mobile/desktop (FFI
+  whisper/sherpa + đọc/ghi file).
+- **Vấn đề thứ 2 (độc lập): xung đột nguồn Pages.** API Pages cho:
+  `build_type: legacy`, `source: {branch: gh-pages, path: /}` ⇒ Pages đang deploy
+  từ **nhánh `gh-pages`** — nhánh đó phục vụ **wrapper YouTube** (`yt_embed.html`,
+  đã nghiệm thu ở YT-PLAY-153-001 / IN4-78). Workflow mới dùng
+  `actions/deploy-pages` (nguồn "GitHub Actions") ⇒ GitHub chỉ nhận **MỘT** nguồn
+  Pages ⇒ chạy xong có thể **phá wrapper YouTube** đang hoạt động.
+- **Đã làm trong lúc chẩn đoán (giữ lại, có ích):**
+  - `deploy-web.yml`: step build giờ bắt lỗi compiler ra **annotation của run**
+    (đọc được qua API, không cần mở giao diện log) + **Step Summary**; tắt `-e`
+    trong step (GitHub chạy bash `-e -o pipefail` ⇒ `grep` rỗng làm step abort
+    trước khi phát annotation).
+  - Đã dùng 1 workflow chẩn đoán TẠM để lấy lỗi thật ⇒ **đã xoá** sau khi
+    lấy đủ bằng chứng.
+- **Hướng (chờ owner chọn):**
+  1. **Bỏ web** (app chạy Android/iOS/Windows/Linux) — xoá `deploy-web.yml` hoặc
+     để nhưng không dispatch. *Rẻ nhất, đúng bản chất app.*
+  2. **Entrypoint web tối giản riêng** (`lib/main_web.dart` chỉ phần Đọc cơ bản,
+     không TTS native / whisper / file I/O) + workflow build với `-t lib/main_web.dart`
+     và **push output vào nhánh `gh-pages`** (giữ nguồn Pages branch-based, không
+     phá wrapper YouTube). *Trung bình.*
+  3. **Port toàn bộ app sang web-safe** (conditional import + stub cho mọi API
+     `dart:io`/`dart:ffi`, thay plugin không có web). *Rất lớn, và đụng `lib/ffi/`
+     (vùng bảo vệ) ⇒ không khuyến nghị.*
+
 ### STT-CRASH-001 — Crash SIGSEGV libwhisper.so khi tạo lời (LRC)
 - **Trạng thái:** done + CI xanh (chờ nghiệm thu thiết bị)
 - **Triệu chứng:** Tạo lời cho file dài → FFmpeg cắt chunk OK

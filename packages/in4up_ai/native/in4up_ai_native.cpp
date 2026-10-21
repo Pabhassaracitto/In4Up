@@ -2,6 +2,9 @@
 #include "llama.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -10,12 +13,20 @@
 struct In4upAiContext {
     llama_model * model = nullptr;
     llama_context * context = nullptr;
-    llama_sampler * sampler = nullptr;
     const llama_vocab * vocab = nullptr;
     int n_threads = 4;
 };
 
-static std::string generate_text(In4upAiContext * ai, const char * prompt, int max_tokens) {
+static std::string generate_text(
+    In4upAiContext * ai,
+    const char * prompt,
+    int max_tokens,
+    float temperature) {
+    // Each chat turn must start with an empty KV cache. Reusing the context
+    // without clearing it causes later prompts to inherit old tokens and
+    // eventually exhaust n_ctx (especially in multi-turn chat).
+    llama_memory_clear(llama_get_memory(ai->context), true);
+
     const int prompt_len = static_cast<int>(std::strlen(prompt));
     const int n_prompt = -llama_tokenize(ai->vocab, prompt, prompt_len, nullptr, 0, true, true);
     if (n_prompt <= 0) return {};
@@ -26,9 +37,25 @@ static std::string generate_text(In4upAiContext * ai, const char * prompt, int m
     llama_batch batch = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
     if (llama_decode(ai->context, batch) != 0) return {};
 
+    auto sampler_params = llama_sampler_chain_default_params();
+    llama_sampler * sampler = llama_sampler_chain_init(sampler_params);
+    if (!sampler) return {};
+
+    const float safe_temperature = std::isfinite(temperature)
+        ? std::clamp(temperature, 0.0f, 2.0f)
+        : 0.2f;
+    if (safe_temperature <= 0.0001f) {
+        llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
+    } else {
+        llama_sampler_chain_add(sampler, llama_sampler_init_temp(safe_temperature));
+        const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+        const auto seed = static_cast<uint32_t>(ticks);
+        llama_sampler_chain_add(sampler, llama_sampler_init_dist(seed));
+    }
+
     std::string result;
     for (int i = 0; i < max_tokens; ++i) {
-        const llama_token token = llama_sampler_sample(ai->sampler, ai->context, -1);
+        const llama_token token = llama_sampler_sample(sampler, ai->context, -1);
         if (llama_vocab_is_eog(ai->vocab, token)) break;
 
         char piece[256];
@@ -37,6 +64,7 @@ static std::string generate_text(In4upAiContext * ai, const char * prompt, int m
         batch = llama_batch_get_one(const_cast<llama_token *>(&token), 1);
         if (llama_decode(ai->context, batch) != 0) break;
     }
+    llama_sampler_free(sampler);
     return result;
 }
 
@@ -66,19 +94,17 @@ extern "C" in4up_ai_handle in4up_ai_create(const char * model_path, int n_ctx, i
         return nullptr;
     }
 
-    auto sampler_params = llama_sampler_chain_default_params();
-    ai->sampler = llama_sampler_chain_init(sampler_params);
-    llama_sampler_chain_add(ai->sampler, llama_sampler_init_temp(0.2f));
-    llama_sampler_chain_add(ai->sampler, llama_sampler_init_greedy());
     return ai;
 }
 
 extern "C" int in4up_ai_generate(in4up_ai_handle handle, const char * prompt, int max_tokens, float temperature, char ** output) {
     if (!handle || !prompt || !output) return -1;
     auto * ai = static_cast<In4upAiContext *>(handle);
-    if (ai->sampler) llama_sampler_reset(ai->sampler);
-    (void) temperature;
-    const auto result = generate_text(ai, prompt, std::max(1, max_tokens));
+    const auto result = generate_text(
+        ai,
+        prompt,
+        std::max(1, max_tokens),
+        temperature);
     *output = static_cast<char *>(std::malloc(result.size() + 1));
     if (!*output) return -2;
     std::memcpy(*output, result.data(), result.size());
@@ -91,7 +117,6 @@ extern "C" void in4up_ai_free_string(char * value) { std::free(value); }
 extern "C" void in4up_ai_destroy(in4up_ai_handle handle) {
     auto * ai = static_cast<In4upAiContext *>(handle);
     if (!ai) return;
-    if (ai->sampler) llama_sampler_free(ai->sampler);
     if (ai->context) llama_free(ai->context);
     if (ai->model) llama_model_free(ai->model);
     delete ai;

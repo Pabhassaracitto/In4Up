@@ -1,3 +1,21 @@
+> **📄 Để nghiệm thu, dùng file này thay vì đọc từng đợt:**
+> [`bangiao_yt_nghiem_thu_chung.md`](./bangiao_yt_nghiem_thu_chung.md) — một
+> checklist duy nhất cho toàn bộ (YT-LR-002/003/004 + cả 4 đợt).
+> File bên dưới là **lịch sử bàn giao theo đợt**, giữ lại để tra nguyên nhân.
+>
+> **⚠️ Số commit đã đổi 2 lần — lần cuối 2026-10-22:** 19 commit rời rạc
+> → gom thành 6 → nay **gom còn 3** và **rebase lên tip mới của
+> `arena/01a0251e-in4up` (`a1a0eeb`)** (branch 251e đã tự làm phần web nên
+> toàn bộ việc deploy web đã bỏ khỏi branch này). Mọi số commit ghi trong các
+> phần dưới là số **cũ** — chỉ còn tra được qua lịch sử force-push. Bảng đối
+> chiếu hiện tại → cũ:
+>
+> | Commit hiện tại | Nội dung | Gồm những commit cũ |
+> |---|---|---|
+> | `6547772` | YT-LR-002/003/004 — 3 nhóm lõi + bỏ tầng 1 | `c65cbac` ← `61dd388`…`98bfc64` (8) |
+> | `5f98233` | YT-AUDIT-001 — cả 4 đợt (10 mục) | `6941457` + `6e1dd73` + `b6958ef` + `511f2ae` |
+> | *(commit docs, cuối branch)* | Bản audit nghiệm thu chung + ghi chú | `da3064c` + `904b51e` |
+
 # Bàn giao YT-AUDIT-001 — Đợt 1/4: 6 lỗi audit YouTube (2026-10-20)
 
 **Epic:** IN4-85 · **Issue:** IN4-97, IN4-98, IN4-99, IN4-100, IN4-101, IN4-102
@@ -672,9 +690,13 @@ từ trước của tab NGHĨA (`Ngữ pháp`, `Từ đồng nghĩa`).
 
 | Đợt | Mục | Issue | CI |
 |---|---|---|---|
-| 1 | #1 #2 #3 #7 #8 #10 | IN4-97…102 | 🟢 `39432459448` |
-| 2 | #4 #6 | IN4-103, IN4-104 | 🟢 `39496675963` |
-| 3 | #11 | IN4-108 | 🟢 `39507761643` |
-| 4 | #5 | IN4-105 | 🟢 `39542337818` |
+| 1 | #1 #2 #3 #7 #8 #10 | IN4-97…102 | 🟢 `39432459448` → `6941457` |
+| 2 | #4 #6 | IN4-103, IN4-104 | 🟢 `39496675963` → `6e1dd73` |
+| 3 | #11 | IN4-108 | 🟢 `39507761643` → `b6958ef` |
+| 4 | #5 | IN4-105 | 🟢 `39542337818` → `511f2ae` |
+
+*(Cột phải = commit sau khi gom lần 1 ngày 2026-10-21. Sau lần gom 2
+(2026-10-22) cả 4 đợt nằm chung commit `5f98233`, đã rebase lên `a1a0eeb`;
+`6547772` = YT-LR-002/003/004, commit cuối = bản audit nghiệm thu chung.)*
 
 #9 owner xác nhận đã fix ở YT-LR-003, không làm lại.

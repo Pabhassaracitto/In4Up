@@ -91,7 +91,11 @@ class TextLineWidget extends StatelessWidget {
                   textAlign: tp.textAlign,
                   fontSize: tp.fontSize,
                   displayMode: tp.translationDisplayMode,
-                  isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
+                  // AUDIT-2026-10-20 (mục 6): dùng isLineBeingSpoken ⇒
+                  // dòng đang đọc được highlight kể cả khi đọc THỬ 1 dòng
+                  // (trước chỉ đọc CẢ BÀI mới highlight ⇒ "có phát mà không
+                  // thấy chỗ để cho dùng").
+                  isSpeaking: tp.isLineBeingSpoken(index),
                   analyzedWords: index < tp.analyzedLines.length
                       ? tp.analyzedLines[index]
                       : const <AnalyzedWord>[],
@@ -210,23 +214,33 @@ class TextLineWidget extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
+          // AUDIT-2026-10-20 (mục 6): thêm trạng thái "ĐANG ĐỌC" (TTS) —
+          // tím ứng dụng, khác với dòng hiện tại (xanh dương) và dòng đang
+          // phát audio (xanh lá) ⇒ user NHÌN THẤY ngay dòng nào đang đọc
+          // (kể cả khi chỉ đọc 1 dòng).
           color: data.isFocusCue
               ? const Color(0xFFFFD54F).withValues(alpha: 0.12)
-              : data.isCurrentLine
-                  ? const Color(0xFF2196F3).withValues(alpha: 0.08)
-                  : data.isPlaying
-                      ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
-                      : Colors.transparent,
+              : data.isSpeaking
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.12)
+                  : data.isCurrentLine
+                      ? const Color(0xFF2196F3).withValues(alpha: 0.08)
+                      : data.isPlaying
+                          ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
+                          : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: data.isFocusCue
                 ? const Color(0xFFFFD54F).withValues(alpha: 0.7)
-                : data.isCurrentLine
-                    ? const Color(0xFF2196F3).withValues(alpha: 0.25)
-                    : data.isPlaying
-                        ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
-                        : Colors.transparent,
-            width: data.isFocusCue || data.isCurrentLine ? 1.5 : 1.0,
+                : data.isSpeaking
+                    ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                    : data.isCurrentLine
+                        ? const Color(0xFF2196F3).withValues(alpha: 0.25)
+                        : data.isPlaying
+                            ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
+                            : Colors.transparent,
+            width: data.isFocusCue || data.isSpeaking || data.isCurrentLine
+                ? 1.5
+                : 1.0,
           ),
           boxShadow: data.isFocusCue
               ? [
@@ -732,7 +746,7 @@ class _LineHeader extends StatelessWidget {
         ],
         const Spacer(),
         if (data.isSpeaking)
-          const Icon(Icons.graphic_eq, color: Color(0xFF2196F3), size: 14),
+          const Icon(Icons.graphic_eq, color: Color(0xFF6C63FF), size: 14),
         if (data.isPlaying)
           const Icon(Icons.volume_up, color: Color(0xFF4CAF50), size: 14),
       ],

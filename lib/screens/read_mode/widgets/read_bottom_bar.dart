@@ -111,9 +111,15 @@ class ReadBottomBar extends StatelessWidget {
                         ? Icons.stop_circle_outlined
                         : Icons.record_voice_over,
                     isActive: tp.isTtsActive,
-                    activeThumbColor: const Color(0xFF4CAF50),
+                    activeThumbColor: const Color(0xFF6C63FF),
                     compact: isSmall,
                     animate: tp.isTtsActive,
+                    // SỐ DÒNG đang đọc hiện thành badge ngay trên icon ⇒
+                    // user biết chính xác app đang đọc ở đâu (mục 6:
+                    // "chưa thấy chỗ để cho dùng").
+                    badge: (tp.isTtsActive && tp.ttsSpokenLineIndex >= 0)
+                        ? '${tp.ttsSpokenLineIndex + 1}'
+                        : null,
                     tooltip: tp.isTtsActive
                         ? context.uiText('Đang đọc — chạm để dừng')
                         : context.uiText('Đọc dòng hiện tại'),

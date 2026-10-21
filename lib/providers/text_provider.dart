@@ -113,6 +113,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         _currentLineIndex = -1;
       }
     }
+    // Đọc 1 dòng / 1 từ xong ⇒ bỏ highlight dòng đang đọc.
+    _ttsSpokenLineIndex = -1;
 
     if (owner == TtsPlaybackOwner.segment ||
         owner == TtsPlaybackOwner.vocabReview) {
@@ -135,6 +137,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
+    _ttsSpokenLineIndex = -1;
 
     if (clearReadingCursor) {
       _currentLineIndex = -1;
@@ -274,6 +277,23 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   /// "đang phát" và chạm lần 2 lại **phát tiếp** thay vì dừng. Getter này
   /// dùng cho TRẠNG THÁI HIỂN THỊ của nút.
   bool get isTtsActive => _ttsOwner != TtsPlaybackOwner.none;
+
+  /// Dòng đang được **ĐỌC THỬ** (đọc 1 dòng / đọc 1 từ) — KHÁC với
+  /// [_currentLineIndex] (con trỏ đọc, cố ý KHÔNG đổi khi preview để tab
+  /// đếm câu / highlight không nhảy lung tung).
+  ///
+  /// AUDIT-2026-10-20 (mục 6): tầng dòng cần biết **dòng nào đang được đọc**
+  /// để highlight — trước đây đọc 1 dòng thì KHÔNG dòng nào đổi màu ⇒ user
+  /// thấy "có phát" mà không biết đang đọc ở đâu ("chưa thấy chỗ để cho dùng").
+  int _ttsSpokenLineIndex = -1;
+
+  /// Dòng đang được đọc (đọc cả bài hoặc đọc 1 dòng) — -1 = không có.
+  int get ttsSpokenLineIndex => _ttsSpokenLineIndex;
+
+  /// Dòng [index] có đang được đọc không (để tầng dòng highlight + icon).
+  bool isLineBeingSpoken(int index) =>
+      (isSpeaking && index == currentLineIndex) ||
+      (index >= 0 && index == _ttsSpokenLineIndex);
   bool get isPlayingSegment => _isPlayingSegment;
   TextSegment? get currentPlayingSegment => _currentPlayingSegment;
   int get currentRepeatIndex => _currentRepeatIndex;
@@ -1454,10 +1474,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         ? _currentLineIndex
         : 0;
 
-    await speak(_lines[index].content);
+    // truyền index ⇒ dòng đang đọc được HIGHLIGHT (mục 6)
+    await speak(_lines[index].content, lineIndex: index);
   }
 
-  Future<void> speak(String text) async {
+  /// Đọc một đoạn text bằng TTS.
+  ///
+  /// [lineIndex] (tuỳ chọn) = dòng đang đọc, để tầng dòng highlight — dùng
+  /// cho "đọc dòng hiện tại" và đọc 1 từ từ pop nhỏ.
+  Future<void> speak(String text, {int? lineIndex}) async {
     if (text.trim().isEmpty) return;
 
     final sessionId = await _startExclusiveTtsSession(TtsPlaybackOwner.preview);
@@ -1465,6 +1490,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     // QUAN TRỌNG:
     // preview KHÔNG thay _currentLineIndex
     // để tab đếm câu / highlight không bị nhảy lung tung
+    _ttsSpokenLineIndex = lineIndex ?? -1;
+    notifyListeners();
+
     await _ttsService.speak(text);
 
     _finishTtsSession(sessionId, TtsPlaybackOwner.preview);

@@ -369,7 +369,11 @@ class _WordMiniPopState extends State<WordMiniPop> {
                               tooltip: context.uiText('Phát âm'),
                               onTap: () {
                                 SafeHaptics.lightImpact();
-                                tp.speak(widget.word.word);
+                                // lineIndex ⇒ dòng đang đọc được highlight
+                                tp.speak(
+                                  widget.word.word,
+                                  lineIndex: widget.lineIndex,
+                                );
                               },
                             ),
                           ],

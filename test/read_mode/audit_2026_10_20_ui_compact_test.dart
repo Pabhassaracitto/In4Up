@@ -53,6 +53,9 @@ void main() {
           .readAsStringSync();
   final textProvider =
       File('lib/providers/text_provider.dart').readAsStringSync();
+  final textLine =
+      File('lib/screens/read_mode/widgets/text_line_widget.dart')
+          .readAsStringSync();
 
   group('mục 1 — Focus mode: màn Đọc PHẢI rebuild khi controller đổi', () {
     test('màn Đọc lắng nghe controller (trước đây không có ai nghe)', () {
@@ -201,6 +204,37 @@ void main() {
       final block = playbackBar.substring(idx, idx + 2000);
       expect(block.contains('active: isRunning'), isTrue,
           reason: 'Icon loa phải nhấp nháy khi đang phát để user thấy ngay.');
+    });
+
+    test('dòng đang đọc PHẢI được highlight (kể cả đọc 1 dòng)', () {
+      expect(textProvider.contains('int get ttsSpokenLineIndex'), isTrue);
+      expect(textProvider.contains('bool isLineBeingSpoken(int index)'), isTrue);
+      expect(textProvider.contains('Future<void> speak(String text, {int? lineIndex})'),
+          isTrue,
+          reason: 'speak() phải nhận lineIndex để biết dòng nào đang đọc.');
+      // Tầng dòng dùng isLineBeingSpoken (KHÔNG chỉ allLines).
+      expect(textLine.contains('tp.isLineBeingSpoken(index)'), isTrue);
+      expect(textLine.contains('tp.isSpeaking && index == tp.currentLineIndex'),
+          isFalse,
+          reason: 'Chỉ đọc CẢ BÀI thì highlight ⇒ đọc 1 dòng không thấy "chỗ" '
+              'đang đọc (mục 6).');
+      // Dòng đang đọc có nền + viền riêng (tím ứng dụng).
+      final idx = textLine.indexOf('Widget _buildLineContainer');
+      expect(idx, greaterThan(0));
+      final block = textLine.substring(idx, idx + 2600);
+      expect(block.contains('data.isSpeaking'), isTrue);
+      expect(block.contains('0xFF6C63FF'), isTrue,
+          reason: 'Dòng đang đọc cần nền/viền khác dòng hiện tại + dòng phát '
+              'audio để nhìn ra ngay.');
+    });
+
+    test('icon đọc hiện SỐ DÒNG đang đọc (badge)', () {
+      expect(bottomBar.contains('tp.ttsSpokenLineIndex'), isTrue);
+      expect(bottomBar.contains("badge: (tp.isTtsActive"), isTrue);
+    });
+
+    test('pop nhỏ truyền lineIndex khi đọc từ (để highlight dòng đó)', () {
+      expect(miniPop.contains('lineIndex: widget.lineIndex'), isTrue);
     });
 
     test('widget PulsingIcon tồn tại (dùng chung cho cả 2 nút)', () {

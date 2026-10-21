@@ -2929,7 +2929,7 @@
     của job Build APK **không có** warning đó).
 
 ### WEB-BUILD-001 — (2026-10-21) `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages
-- **Trạng thái:** 🔎 chẩn đoán xong (chưa sửa code — cần owner chọn hướng) — Linear [IN4-109](https://linear.app/in4up/issue/IN4-109)
+- **Trạng thái:** ✅ **ĐÃ SỬA + ĐÃ DEPLOY** (web build xanh, đã publish lên `gh-pages`; chờ owner mở web kiểm) — Linear [IN4-109](https://linear.app/in4up/issue/IN4-109)
 - **Triệu chứng:** workflow `deploy-web.yml` (thêm ở commit `563fabc`) fail ở step
   *"Build web app"* — run `39595541854`.
 - **Lỗi thật (lấy từ annotation của run, không suy đoán):**
@@ -2960,7 +2960,34 @@
     trước khi phát annotation).
   - Đã dùng 1 workflow chẩn đoán TẠM để lấy lỗi thật ⇒ **đã xoá** sau khi
     lấy đủ bằng chứng.
-- **Hướng (chờ owner chọn):**
+- **ĐÃ LÀM (owner yêu cầu "sửa lỗi") — hướng 2 (entrypoint web riêng):**
+  1. **`lib/main_web.dart` (MỚI)** — entrypoint RIÊNG cho web, chỉ dùng code
+     web-safe (`http`, `Clipboard`, engine dịch Google-free, `url_launcher`):
+     dán văn bản / dán URL → đọc theo dòng (từ = chip, chạm = copy), **dịch
+     Google-free sang tiếng Việt**, mở wrapper YouTube (`yt_embed.html`).
+     Đồ thị import của nó: **0** file `dart:io`/`dart:ffi` (kiểm bằng script
+     quét đồ thị — `lib/main.dart` thì **86** file ⇒ web build không thể).
+  2. **`deploy-web.yml`**: build `-t lib/main_web.dart` + kiểm tra artifact
+     (tự nhận diện `*.dart.js` — Flutter sinh tên `main.dart.js` dù target là
+     `main_web.dart`) + **publish bằng cách push vào nhánh `gh-pages`**
+     (`cp` KHÔNG `--delete` ⇒ `yt_embed.html` **được giữ nguyên**) + trigger
+     thêm `arena/**` để tự deploy khi có thay đổi (build lỗi ⇒ KHÔNG publish
+     ⇒ Pages giữ bản tốt gần nhất).
+  3. **Bằng chứng:** run `39609827864` — **cả 9 step XANH** (build web ✓, kiểm
+     tra artifact ✓, publish `gh-pages` ✓). `gh-pages` sau deploy: `index.html`
+     (base href `/In4Up/`), `main.dart.js` (1.76 MB), **`yt_embed.html` còn
+     nguyên** (2641 byte) ⇒ wrapper YouTube không bị phá.
+  4. CI `app_analyze` **39609333445** 🟢 (còn bắt được 3 lỗi compile trong
+     `main_web.dart` ở run `39608530312` trước đó — đã sửa: ambiguous import
+     `Text` (→ `hide Text`), thiếu `ClipboardData` trong `show`, field
+     `translated` → `translatedText`).
+  5. 15 chuỗi i18n mới (en/hi/zh/zh_TW/si) cho chrome web app.
+  6. Đã bỏ workflow chẩn đoán TẠM (lấy đủ bằng chứng rồi).
+  > **Phạm vi thẳng thắn:** đây là bản web **rút gọn**; toàn bộ tính năng
+  > native (TTS offline, STT whisper, kho từ vựng, thư viện, tipitaka…) vẫn ở
+  > app mobile/desktop. Port toàn bộ sang web (hướng 3) chưa làm — rất lớn và
+  > đụng `lib/ffi/` (vùng bảo vệ).
+- **Hướng (nếu owner muốn mở rộng web):**
   1. **Bỏ web** (app chạy Android/iOS/Windows/Linux) — xoá `deploy-web.yml` hoặc
      để nhưng không dispatch. *Rẻ nhất, đúng bản chất app.*
   2. **Entrypoint web tối giản riêng** (`lib/main_web.dart` chỉ phần Đọc cơ bản,

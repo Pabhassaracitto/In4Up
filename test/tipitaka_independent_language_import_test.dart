@@ -121,6 +121,68 @@ void main() {
     );
   });
 
+  test('Vietnamese joins Pāli when source table casing and numeric IDs differ',
+      () async {
+    final paliPath = '${temporaryDirectory.path}/tipitaka_pali_base.sqlite';
+    final pali = await databaseFactoryFfi.openDatabase(paliPath);
+    await pali.execute('''
+      CREATE TABLE MN01M_MUL (
+        id INTEGER PRIMARY KEY,
+        reference TEXT NOT NULL,
+        pali_text TEXT NOT NULL
+      )
+    ''');
+    await pali.insert('MN01M_MUL', {
+      'id': 1,
+      'reference': 'MN 1',
+      'pali_text': 'Evaṃ me sutaṃ.',
+    });
+    await pali.close();
+    await TipitakaDb.importSourceDatabase(
+      paliPath,
+      languageCode: 'pi',
+      destinationPath: targetPath,
+    );
+
+    final vietnamesePath = '${temporaryDirectory.path}/tipitaka_vietnamese.sqlite';
+    final vietnamese = await databaseFactoryFfi.openDatabase(vietnamesePath);
+    await vietnamese.execute('''
+      CREATE TABLE mn01m_mul (
+        id TEXT PRIMARY KEY,
+        reference TEXT NOT NULL,
+        vietnamese TEXT NOT NULL
+      )
+    ''');
+    await vietnamese.insert('mn01m_mul', {
+      'id': '0001',
+      'reference': 'different reference forces the source-key join',
+      'vietnamese': 'Nội dung tiếng Việt đã khớp.',
+    });
+    await vietnamese.close();
+
+    final revisionBefore = TipitakaDb.importRevision.value;
+    await TipitakaDb.importSourceDatabase(
+      vietnamesePath,
+      languageCode: 'vi',
+      destinationPath: targetPath,
+    );
+    expect(TipitakaDb.importRevision.value, revisionBefore + 1);
+
+    final db = await TipitakaDb.openAt(targetPath);
+    final collections = await TipitakaDb.getCollections(db);
+    final books = await TipitakaDb.getBooksByCollection(
+      db,
+      collections.single.id,
+    );
+    final segments = await TipitakaDb.getSegmentsByBook(db, books.single.id);
+    expect(segments, hasLength(1));
+    expect(segments.single.paliText, 'Evaṃ me sutaṃ.');
+    expect(
+      segments.single.translationFor('vi'),
+      'Nội dung tiếng Việt đã khớp.',
+    );
+  });
+
   test('technical identifiers are never primary book titles', () {
     const book = TipitakaBook(
       id: 1,

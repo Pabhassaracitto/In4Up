@@ -2929,7 +2929,7 @@
     của job Build APK **không có** warning đó).
 
 ### WEB-BUILD-001 — (2026-10-21) `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages
-- **Trạng thái:** 🔎 chẩn đoán xong (chưa sửa code — cần owner chọn hướng) — Linear [IN4-97](https://linear.app/in4up/issue/IN4-97)
+- **Trạng thái:** 🔎 chẩn đoán xong (chưa sửa code — cần owner chọn hướng) — Linear [IN4-109](https://linear.app/in4up/issue/IN4-109)
 - **Triệu chứng:** workflow `deploy-web.yml` (thêm ở commit `563fabc`) fail ở step
   *"Build web app"* — run `39595541854`.
 - **Lỗi thật (lấy từ annotation của run, không suy đoán):**

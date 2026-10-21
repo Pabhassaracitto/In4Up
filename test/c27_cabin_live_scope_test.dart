@@ -64,6 +64,15 @@ void main() {
       expect(entries.single.sourceText, 'src-f1');
     });
 
+    test('controller transition được forward ra scope cho shell rebuild', () {
+      final scope = C27CabinLiveScope();
+      var notified = 0;
+      scope.addListener(() => notified++);
+      scope.controller.startFromListen(sessionTitle: 'Phiên học');
+      expect(scope.sessionActive, isTrue);
+      expect(notified, greaterThan(0));
+    });
+
     test('setViewportOpen: notify khi đổi, idempotent khi trùng', () {
       final scope = C27CabinLiveScope();
       var notified = 0;

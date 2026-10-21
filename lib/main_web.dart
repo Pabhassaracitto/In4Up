@@ -28,6 +28,7 @@
 //
 // Lưu ý CORS: gọi `http.get(url)` từ trình duyệt bị CORS chặn với phần lớn
 // trang ⇒ hiển thị lỗi rõ ràng cho user (không nuốt lỗi).
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -39,8 +40,21 @@ import 'package:in4up/features/translation/engines/google_free_engine.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+/// Lỗi chạy lúc khởi động (nếu có) — hiện NGAY trên trang thay vì trang
+/// trắng, để owner thấy nguyên nhân mà không cần mở DevTools.
+String? _fatalError;
+
 void main() {
-  runApp(const In4UpWebApp());
+  FlutterError.onError = (details) {
+    _fatalError ??= details.exceptionAsString();
+    FlutterError.presentError(details);
+  };
+  runZonedGuarded(
+    () => runApp(const In4UpWebApp()),
+    (error, stack) {
+      _fatalError ??= error.toString();
+    },
+  );
 }
 
 /// App web In4Up.
@@ -70,6 +84,26 @@ class In4UpWebApp extends StatelessWidget {
       },
       supportedLocales: AppLocalizations.supportedLocales,
       theme: _theme(),
+      builder: (context, child) {
+        final err = _fatalError;
+        if (err == null) return child ?? const SizedBox.shrink();
+        // Trang trắng là triệu chứng khó chịu nhất ⇒ hiện lỗi luôn.
+        return Column(
+          children: [
+            Expanded(child: child ?? const SizedBox.shrink()),
+            Material(
+              color: const Color(0xFFEF4444),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Text(
+                  err,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

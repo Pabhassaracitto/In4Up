@@ -31,10 +31,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
-import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:in4up/features/translation/engines/google_free_engine.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -225,7 +225,7 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
           text: _lines[i],
           targetLang: 'vi',
         );
-        final t = res.translated?.trim() ?? '';
+        final t = res.translatedText.trim();
         if (t.isNotEmpty) out[i] = t;
       } catch (_) {
         // Bỏ qua dòng lỗi — vẫn hiện phần đã dịch.
@@ -270,7 +270,13 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
       return;
     }
     // Cùng Pages ⇒ cùng origin ⇒ wrapper `yt_embed.html` vẫn chạy.
-    final url = Uri.parse('yt_embed.html?videoId=${Uri.encodeComponent(id)}');
+    // URL phải TUYỆT ĐỐI (url_launcher trên web không nhận URL tương đối);
+    // `Uri.base` = trang hiện tại (web-only, không cần dart:html).
+    final base = Uri.base;
+    final url = base.replace(
+      path: '${base.path}yt_embed.html',
+      queryParameters: {'videoId': id},
+    );
     final ok = await launchUrl(url, webOnlyWindowName: '_blank');
     if (!ok && mounted) {
       _setError(context.uiText('Không mở được trình phát'));

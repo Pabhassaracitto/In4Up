@@ -1,13 +1,31 @@
 name: Deploy Flutter web to GitHub Pages
 
+# Deploy bản WEB của In4Up lên GitHub Pages.
+#
+# QUAN TRỌNG (IN4-109 / WEB-BUILD-001):
+#   * Build dùng ENTRYPOINT RIÊNG cho web: `lib/main_web.dart` (target -t).
+#     App chính (`lib/main.dart`) dùng native: FFI (whisper/sherpa/
+#     UltraTimeStretch) + đọc/ghi file ⇒ `dart:ffi`/`dart:io` KHÔNG có trên
+#     web ⇒ build web đỏ với
+#     "Error: Dart library 'dart:ffi' is not available on this platform."
+#     (86 file reachable từ lib/main.dart dùng 2 thư viện đó.)
+#   * Deploy bằng cách PUSH kết quả vào nhánh `gh-pages` (GIỮ NGUYÊN các file
+#     sẵn có, vd `yt_embed.html` — wrapper YouTube đang chạy trên Pages).
+#     KHÔNG dùng `actions/deploy-pages` để **không đổi nguồn Pages** (Pages
+#     hiện deploy từ nhánh `gh-pages`; đổi sang "GitHub Actions" sẽ phá
+#     wrapper YouTube).
 on:
   push:
     branches:
       - main
+      # Nhánh làm việc của owner ⇒ tự deploy khi có thay đổi (bỏ được
+      # việc bấm "Run workflow" thủ công). Build lỗi ⇒ KHÔNG publish ⇒
+      # Pages giữ nguyên bản tốt gần nhất.
+      - 'arena/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -35,40 +53,63 @@ jobs:
       - name: Build web app
         # GitHub chạy bash với `-e -o pipefail` ⇒ `grep` rỗng sẽ ABORT step
         # trước khi phát annotation ⇒ tắt `-e` trong step này.
+        id: build-web
         continue-on-error: true
         run: |
           set +e
-          flutter build web --release --base-href /In4Up/ > build_web.log 2>&1
+          flutter build web --release --base-href /In4Up/ -t lib/main_web.dart > build_web.log 2>&1
           code=$?
           {
-            echo "### ❌ flutter build web — exit code $code"
+            echo "### flutter build web — exit code $code"
             echo '```'
             head -50 build_web.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY" || true
-          msg=$(grep -m 8 -E "Error|error|not available|Unsupported" build_web.log | tr -d '\r' | cut -c1-200 | sed 's/%/%25/g' | sed 's/^/ /' | paste -sd' ~ ' -)
-          echo "::error title=flutter build web failed::${msg:-exit code $code}" || true
-          exit 0
+          if [ "$code" != "0" ]; then
+            msg=$(grep -m 8 -E "Error|error|not available|Unsupported" build_web.log | tr -d '\r' | cut -c1-200 | sed 's/%/%25/g' | sed 's/^/ /' | paste -sd' ~ ' -)
+            echo "::error title=flutter build web failed::${msg:-exit code $code}" || true
+            exit 1
+          fi
+          echo "::notice title=flutter build web::build OK (main_web.dart.js)"
 
-      - name: Fail build web (báo lỗi rõ ràng)
-        if: always()
+      - name: Dừng nếu build web lỗi
+        # `outcome` = failure khi step build lỗi (dù continue-on-error) ⇒ chỉ
+        # báo đỏ ĐÚNG lúc build hỏng, không đỏ nhầm khi build thành công.
+        if: steps.build-web.outcome == 'failure'
         run: exit 1
 
       - name: Preserve Flutter's client-side routing on GitHub Pages
         run: cp build/web/index.html build/web/404.html
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
+      - name: Kiểm tra artifact web
+        run: |
+          set -e
+          test -f build/web/index.html || { echo "::error::thiếu build/web/index.html"; exit 1; }
+          test -f build/web/main_web.dart.js || { echo "::error::thiếu main_web.dart.js (sai target build?)"; exit 1; }
+          grep -q "main_web.dart.js" build/web/flutter_bootstrap.js \
+            || echo "::warning::flutter_bootstrap.js không nhắc main_web.dart.js — kiểm tra lại sau khi deploy."
+          echo "OK: build/web có index.html + main_web.dart.js"
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Publish to gh-pages (giữ nguyên file khác, vd wrapper YouTube)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          rm -rf /tmp/pages
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/pages
+          # `cp -r` KHÔNG --delete ⇒ file cũ (yt_embed.html) còn nguyên.
+          cp -r build/web/. /tmp/pages/
+          cd /tmp/pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Không có thay đổi so với gh-pages — bỏ qua push."
+          else
+            git commit -m "Deploy web app In4Up (${{ github.sha }})"
+            git push origin HEAD:gh-pages
+            echo "Đã push lên gh-pages."
+          fi
+          echo "--- file trên gh-pages ---"
+          ls -1 | head -20

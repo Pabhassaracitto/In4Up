@@ -85,10 +85,21 @@ jobs:
         run: |
           set -e
           test -f build/web/index.html || { echo "::error::thiếu build/web/index.html"; exit 1; }
-          test -f build/web/main_web.dart.js || { echo "::error::thiếu main_web.dart.js (sai target build?)"; exit 1; }
-          grep -q "main_web.dart.js" build/web/flutter_bootstrap.js \
-            || echo "::warning::flutter_bootstrap.js không nhắc main_web.dart.js — kiểm tra lại sau khi deploy."
-          echo "OK: build/web có index.html + main_web.dart.js"
+          # Tên file JS là do Flutter sinh ra theo target ⇒ tự nhận diện thay
+          # vì hard-code (dễ vỡ khi đổi tên entrypoint).
+          JS=$(ls build/web/*.dart.js 2>/dev/null | head -1 || true)
+          if [ -z "$JS" ]; then
+            echo "::error::không thấy file *.dart.js trong build/web — build web có thể chưa sinh ra JS"
+            ls -1 build/web | head -30 | while IFS= read -r f; do echo "::notice::build/web/$f"; done
+            exit 1
+          fi
+          echo "::notice::JS chính: $(basename "$JS")"
+          ls -1 build/web | head -20 | while IFS= read -r f; do echo "::notice::build/web/$f"; done
+          if [ -f build/web/flutter_bootstrap.js ]; then
+            grep -q "$(basename "$JS")" build/web/flutter_bootstrap.js \
+              || echo "::warning::flutter_bootstrap.js không nhắc $(basename "$JS") — trang có thể trắng sau khi deploy."
+          fi
+          echo "OK: build/web có index.html + $(basename "$JS")"
 
       - name: Publish to gh-pages (giữ nguyên file khác, vd wrapper YouTube)
         env:

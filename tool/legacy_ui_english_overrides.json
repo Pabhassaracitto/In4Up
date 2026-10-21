@@ -2479,5 +2479,15 @@
   "Video không có phụ đề (en)": "Video has no (en) subtitles",
   "YouTube từ chối phát video này (lỗi cấu hình trình phát, mã {value0}). Bấm Thử lại, hoặc Mở ngoài để xem trong trình duyệt.": "YouTube refused to play this video (player configuration error, code {value0}). Tap Retry, or Open externally to watch it in the browser.",
   "Đã lưu phụ đề ({value0} dòng): {value1}": "Subtitles saved ({value0} lines): {value1}",
-  "Đã tải xong ({value0})": "Download complete ({value0})"
+  "Đã tải xong ({value0})": "Download complete ({value0})",
+  "Chung": "General",
+  "Import AI model": "Import AI model",
+  "Import file": "Import files",
+  "Nghe": "Listen",
+  "Trong app": "In app",
+  "XEM": "WATCH",
+  "Xem": "View",
+  "Xem Knowledge Graph →": "View Knowledge Graph →",
+  "trang {value0}": "page {value0}",
+  "🟢 NGHE": "🟢 LISTEN"
 }

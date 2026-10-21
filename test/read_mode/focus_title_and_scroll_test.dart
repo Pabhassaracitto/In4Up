@@ -117,6 +117,9 @@ void main() {
       'Dưới',
     ];
     const locales = ['en', 'hi', 'zh', 'zh_TW', 'si'];
+    // 'Ẩn'/'Dílio' đã có bản dịch ARB (app_vi.arb) ⇒ không cần legacy fallback
+    // (ratchet stale cấm để chuỗi ARB-backed trong legacy catalog).
+    const arbBacked = {'Ẩn', 'Dưới'};
 
     for (final s in newStrings) {
       test('priorityUiOverrides["$s"] đủ 5 locale + fallback en', () {
@@ -125,6 +128,7 @@ void main() {
         for (final loc in locales) {
           expect(entry![loc], isNotNull, reason: 'Thiếu locale $loc cho "$s"');
         }
+        if (arbBacked.contains(s)) return; // ARB-backed — đã đủ 5 locale ở trên
         expect(generatedLegacyUiEnglishFallbacks[s], isNotNull,
             reason: 'Thiếu English fallback "$s"');
       });

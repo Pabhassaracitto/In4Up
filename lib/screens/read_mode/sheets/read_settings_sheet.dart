@@ -2233,11 +2233,11 @@ class _FocusTitlePositionSelectorState
       ),
       child: Row(
         children: [
-          _btn(context, Icons.visibility_off, 'Ẩn', StorageService.readFocusTitleHidden),
+          _btn(context, Icons.visibility_off, context.uiText('Ẩn'), StorageService.readFocusTitleHidden),
           const SizedBox(width: 8),
           _btn(context, Icons.vertical_align_top, 'Trên', StorageService.readFocusTitleTop),
           const SizedBox(width: 8),
-          _btn(context, Icons.vertical_align_bottom, 'Dưới', StorageService.readFocusTitleBottom),
+          _btn(context, Icons.vertical_align_bottom, context.uiText('Dưới'), StorageService.readFocusTitleBottom),
         ],
       ),
     );

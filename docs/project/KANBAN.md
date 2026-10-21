@@ -2189,6 +2189,13 @@
     resolve tay bị gãy 1 entry (Dart báo Can't find '}'); làm lại đúng cách: lấy file
     của tôi nguyên vẹn + chèn 142 dòng base thêm vào trước `};` — cân bằng ngoặc
     1247/1247, có cả chrome shell (C-30) + IN4-36 (base).
+  - 2026-10-14 | fix test base sau merge | agent arena/af0abe2f-in4up | 3 test mới của
+    base fail sau merge: (1) focus_title_and_scroll_test check legacy fallback cho 'Ẩn'/'Dílio'
+    — 2 chuỗi này ARB-backed nên không thể nằm trong legacy catalog (ratchet stale cấm),
+    sửa test: ARB-backed chỉ check priorityUiOverrides đủ 5 locale; (2) 12 key catalog bị
+    stale sau merge (base đổi source) — xóa đúng theo ratchet, catalog 2491; (3) bọc
+    uiText('Ẩn'/'Dílio') tại chỗ gọi trong read_settings_sheet (rule #5). Ratchet OK:
+    missing 0 / unclassified 198, residual 0.
   - 2026-10-14 | fix resolve merge 2 | agent arena/af0abe2f-in4up | main_shell.dart resolve
     tay sai (common-top của base + HEAD side lặp ⇒ 2 return lồng nhau, Dart báo Unexpected
     'return'); làm lại đúng cách: lấy file của tôi nguyên v Raven + áp patch base (3 hunk

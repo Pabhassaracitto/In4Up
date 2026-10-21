@@ -43,9 +43,12 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY" || true
           # 1 annotation duy nhất, đã sanitize (% -> %25, bỏ CR, 1 dòng)
-          msg=$(grep -m 8 -E "Error|error|not available|Unsupported" build_web.log | tr -d '\r' | cut -c1-200 | sed 's/%/%25/g' | sed 's/^/ /' | paste -sd' ~ ' -)
-          echo "::error title=flutter build web failed::${msg:-exit code $code}" || true
-          echo "::error title=so dong khop dart:io|dart:ffi::$(grep -cE 'dart:io|dart:ffi' build_web.log || true)" || true
+          # 10 dong loi compiler dau tien, kem "file:line:col"
+          msg=$(grep -m 10 -E "^[^ ]*\.dart:[0-9]+:[0-9]+: Error:" build_web.log | tr -d '\r' | cut -c1-190 | sed 's/%/%25/g' | sed 's/^/ /' | paste -sd' ~ ' -)
+          echo "::error title=flutter build web — loi compiler::${msg:-exit code $code}" || true
+          files=$(grep -oE "^[^ ]*\.dart" build_web.log | sort -u | tr -d '\r' | head -20 | paste -sd', ' -)
+          echo "::error title=file bi lo::${files:-khong ro}" || true
+          echo "::error title=so dong chua dart:io|dart:ffi::$(grep -cE 'dart:io|dart:ffi' build_web.log || true)" || true
           exit 0
 
       - name: Fail (để run hiện đỏ)

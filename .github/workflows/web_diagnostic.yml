@@ -1,0 +1,47 @@
+name: TEMP web build diagnostic (xoá sau khi chẩn đoán)
+
+# Workflow TẠM để chẩn đoán lỗi `flutter build web` — đưa lỗi compiler ra
+# annotation của run (đọc được qua API, không cần mở giao diện log).
+on:
+  push:
+    branches:
+      - 'arena/**'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web app (capture errors)
+        run: |
+          set -o pipefail
+          flutter build web --release --base-href /In4Up/ 2>&1 | tee build_web.log
+          code=${PIPESTATUS[0]}
+          echo "### exit code: $code" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          head -60 build_web.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" != "0" ]; then
+            head -25 build_web.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            grep -cE "dart:io|dart:ffi" build_web.log | while read -r n; do
+              echo "::error::so dong loi chua 'dart:io|dart:ffi' trong log: $n"
+            done
+            exit 1
+          fi

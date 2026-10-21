@@ -33,7 +33,22 @@ jobs:
         run: flutter pub get
 
       - name: Build web app
-        run: flutter build web --release --base-href /In4Up/
+        run: |
+          set -o pipefail
+          flutter build web --release --base-href /In4Up/ 2>&1 | tee build_web.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            # Đưa lỗi compiler ra ANNOTATION của run (đọc được qua API
+            # mà không cần mở giao diện log) + ghi tóm tắt vào Step Summary.
+            echo "### ❌ flutter build web thất bại" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -nE "^lib/|^Error:|error:|Error:|Unsupported operation|dart:io|dart:ffi" build_web.log | head -40 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -nE "Error:|error:|Unsupported operation|dart:io|dart:ffi" build_web.log | head -12 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
 
       - name: Preserve Flutter's client-side routing on GitHub Pages
         run: cp build/web/index.html build/web/404.html

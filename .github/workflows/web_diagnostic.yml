@@ -28,20 +28,29 @@ jobs:
         run: flutter pub get
 
       - name: Build web app (capture errors)
+        id: wb
+        # continue-on-error + `set +e`: GitHub chạy bash với `-e -o pipefail`
+        # ⇒ một `grep` rỗng sẽ ABORT step trước khi phát annotation.
+        continue-on-error: true
         run: |
-          set -o pipefail
-          flutter build web --release --base-href /In4Up/ 2>&1 | tee build_web.log
-          code=${PIPESTATUS[0]}
-          echo "### exit code: $code" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          head -60 build_web.log >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          if [ "$code" != "0" ]; then
-            head -25 build_web.log | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            grep -cE "dart:io|dart:ffi" build_web.log | while read -r n; do
-              echo "::error::so dong loi chua 'dart:io|dart:ffi' trong log: $n"
-            done
-            exit 1
-          fi
+          set +e
+          flutter build web --release --base-href /In4Up/ > build_web.log 2>&1
+          code=$?
+          {
+            echo "### ❌ flutter build web — exit code $code"
+            echo '```'
+            head -50 build_web.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY" || true
+          # 1 annotation duy nhất, đã sanitize (% -> %25, bỏ CR, 1 dòng)
+          msg=$(grep -m 8 -E "Error|error|not available|Unsupported" build_web.log | tr -d '\r' | cut -c1-200 | sed 's/%/%25/g' | sed 's/^/ /' | paste -sd' ~ ' -)
+          echo "::error title=flutter build web failed::${msg:-exit code $code}" || true
+          echo "::error title=so dong khop dart:io|dart:ffi::$(grep -cE 'dart:io|dart:ffi' build_web.log || true)" || true
+          exit 0
+
+      - name: Fail (để run hiện đỏ)
+        if: always()
+        run: |
+          set +e
+          echo "::error title=web build::Xem Step Summary để đọc log đầy đủ."
+          exit 1

@@ -15,7 +15,10 @@ import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
 import '../engine/ai_engine_mock.dart';
 import '../engine/ai_engine_remote.dart';
+// YT-AUDIT-06 (IN4-104)
+import '../engine/ai_connectivity_routing.dart';
 import '../engine/ai_route_planner.dart';
+import '../error/ai_error_codes.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
@@ -392,6 +395,8 @@ class AiServiceFacade extends ChangeNotifier {
   /// * Local lỗi (timeout/engine chết) ⇒ thử remote như stop cuối nếu route
   ///   có (fallback 2 chiều theo ADR-0007).
   Future<void> _processChat(_PendingChat item) async {
+    // YT-AUDIT-06 (IN4-104): cùng một nhịp đo mạng như `lookupWord`.
+    await _refreshRouteMode();
     final plan = _chatRoutePlan();
 
     if (plan.remoteFirst) {
@@ -838,6 +843,9 @@ class AiServiceFacade extends ChangeNotifier {
 
   Future<void> initializeAsync() async {
     if (_initialized) return;
+    // YT-AUDIT-06 (IN4-104): bắt đầu lắng nghe loại mạng — không chặn khởi
+    // động (router tự đo lần đầu bên trong).
+    unawaited(AiConnectivityRouter.instance.ensureStarted());
     await _restoreChatHistory();
     // WP1: nạp cấu hình provider/routing (WP0) để route chat/analysis biết
     // có tầng API nào không. Không chặn khi prefs hỏng — store tự dùng mặc định.
@@ -931,13 +939,28 @@ class AiServiceFacade extends ChangeNotifier {
 
   /// Hoạch định route LLM thuần (xem `planLlmRoute`). offlineOnly hoặc chưa
   /// cấu hình provider ⇒ KHÔNG có stop `remote` ⇒ không request nào đi ra.
+  ///
+  /// YT-AUDIT-06 (IN4-104): mode từ `AiRoutingPrefs` được resolve theo loại
+  /// mạng trước khi đưa vào planner (`auto` ⇒ wifi: onlineFirst · 4G:
+  /// offlineFirst · không mạng: offlineOnly). Planner vẫn thuần như cũ.
   AiLlmRoutePlan _chatRoutePlan() {
     final store = AiProviderStore.instance;
+    final configured = store.routing.modeOf(AiRouteCapability.chat);
+    final mode = AiConnectivityRouter.instance.resolve(configured);
     return planLlmRoute(
-      mode: store.routing.modeOf(AiRouteCapability.chat),
+      mode: mode,
       remoteAvailable: isRemoteChatConfigured,
       localModelReady: hasModel,
     );
+  }
+
+  /// YT-AUDIT-06 (IN4-104): đo lại loại mạng rồi trả mode THẬT. Gọi ở đầu
+  /// mỗi luồng AI bất đồng bộ để quyết định định tuyến luôn tươi (lắng nghe
+  /// `onConnectivityChanged` chỉ cập nhật khi có sự kiện).
+  Future<AiRouteMode> _refreshRouteMode() async {
+    await AiConnectivityRouter.instance.refresh();
+    return AiConnectivityRouter.instance
+        .resolve(AiProviderStore.instance.routing.modeOf(AiRouteCapability.chat));
   }
 
   /// Lấy (hoặc tái tạo) engine remote theo provider đang bật. Trả về null
@@ -1025,6 +1048,9 @@ class AiServiceFacade extends ChangeNotifier {
       return _cache[cacheKey]!;
     }
 
+    // YT-AUDIT-06 (IN4-104): đo lại loại mạng TRƯỚC khi hoạch định — tra từ
+    // là luồng hay gọi nhất nên cần quyết định định tuyến luôn tươi.
+    await _refreshRouteMode();
     // WP1 (API-002): route theo AiRoutingPrefs — remote đứng đầu (onlineFirst,
     // hoặc offlineFirst mà chưa có model local) ⇒ hỏi API trước. Word Lookup
     // qua API vẫn trả ĐÚNG JSON schema như Gemma (Word Lookup AT).
@@ -1105,13 +1131,29 @@ class AiServiceFacade extends ChangeNotifier {
     }
   }
 
+  /// Rớt về nghĩa từ điển khi không có engine (chưa cài model / đang bận).
+  ///
+  /// YT-AUDIT-05 (IN4-105): hai chỗ bản cũ làm UI nói năng vô nghĩa với người
+  /// dùng:
+  ///   * `errorReason` là câu tiếng Anh thô của engine
+  ///     (`'No local dict entry and engine not ready'`) ⇒ hiện nguyên lên màn
+  ///     hình. Đổi sang **mã máy** (`local_dict_missing`) để UI dịch được —
+  ///     người gọi tự map sang ngôn ngữ của họ.
+  ///   * `example` bị nhét vào `memoryHook` ⇒ câu ví dụ hiện dưới nhãn “Mẹo
+  ///     nhớ”. Đưa `example` về đúng chỗ (`contextExamples`).
   AiAnalysis buildFromLocalDict(String word, Map<String, dynamic>? dictEntry) {
     if (dictEntry == null) {
-      return AiAnalysis.fallback(word, errorReason: 'No local dict entry and engine not ready');
+      return AiAnalysis.fallback(
+        word,
+        errorReason: kAiErrLocalDictMissing,
+        analysisType: AiAnalysisType.wordLookup,
+      );
     }
     final meaning = dictEntry['meaning'] as String? ?? '';
     final phonetic = dictEntry['phonetic'] as String?;
     final example = dictEntry['example'] as String?;
+    final wordType = dictEntry['word_type'] as String? ??
+        dictEntry['wordType'] as String?;
     return AiAnalysis(
       summary: meaning,
       topics: const ['Vocabulary'],
@@ -1120,7 +1162,14 @@ class AiServiceFacade extends ChangeNotifier {
       language: 'en',
       analysisType: AiAnalysisType.wordLookup,
       generatedAt: DateTime.now(),
-      wordDetail: WordDetail(word: word, meaning: meaning, phonetic: phonetic, memoryHook: example),
+      contextExamples:
+          example == null || example.isEmpty ? const [] : <String>[example],
+      wordDetail: WordDetail(
+        word: word,
+        meaning: meaning,
+        phonetic: phonetic,
+        wordType: wordType,
+      ),
     );
   }
 

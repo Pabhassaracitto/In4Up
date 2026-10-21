@@ -747,12 +747,22 @@ class _RoutingTile extends StatelessWidget {
             children: [
               for (final m in AiRouteMode.values)
                 ChoiceChip(
-                  label: Text(_modeLabel(l10n, m)),
+                  label: Text(_modeLabel(context, l10n, m)),
                   selected: mode == m,
                   onSelected: (_) => _setMode(m),
                 ),
             ],
           ),
+          // YT-AUDIT-06 (IN4-104): nói rõ "Tự động" đang thành cái gì trên
+          // máy này — người dùng không phải đoán.
+          if (mode == AiRouteMode.auto)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _autoModeHint(context),
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+            ),
           if (mode != AiRouteMode.offlineOnly && candidates.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -797,8 +807,13 @@ class _RoutingTile extends StatelessWidget {
     return candidates.any((p) => p.id == preferred) ? preferred : null;
   }
 
-  String _modeLabel(AppLocalizations l10n, AiRouteMode m) {
+  String _modeLabel(BuildContext context, AppLocalizations l10n, AiRouteMode m) {
     switch (m) {
+      // YT-AUDIT-06 (IN4-104): nhãn "Tự động" đi qua `uiText()` + English
+      // fallback trong `tool/legacy_ui_english_overrides.json` (không cần
+      // thêm khoá ARB mới cho 26 locale).
+      case AiRouteMode.auto:
+        return context.uiText('Tự động (theo mạng)');
       case AiRouteMode.offlineFirst:
         return l10n.aiRouteOfflineFirst;
       case AiRouteMode.onlineFirst:
@@ -806,6 +821,20 @@ class _RoutingTile extends StatelessWidget {
       case AiRouteMode.offlineOnly:
         return l10n.aiRouteOfflineOnly;
     }
+  }
+
+  /// YT-AUDIT-06 (IN4-104): giải thích mode `auto` theo loại mạng hiện tại.
+  String _autoModeHint(BuildContext context) {
+    final kind = AiConnectivityRouter.instance.kind;
+    return switch (kind) {
+      AiNetworkKind.wifi => context.uiText(
+          'Đang dùng Wifi ⇒ ưu tiên trả lời từ mạng, hỏng mới chạy trên máy.',
+        ),
+      AiNetworkKind.mobile => context.uiText(
+          'Đang dùng mạng di động ⇒ ưu tiên chạy trên máy, không được mới qua mạng.',
+        ),
+      AiNetworkKind.none => context.uiText('Không có mạng ⇒ chỉ chạy trên máy.'),
+    };
   }
 
   void _setMode(AiRouteMode m) {

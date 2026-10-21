@@ -23,6 +23,15 @@ export 'src/engine/ai_engine.dart' show AiEngine, AiEngineState;
 // Error log - để app layer lưu vào storage
 export 'src/error/ai_error_handler.dart' show ErrorLogEntry;
 
+// YT-AUDIT-05 (IN4-105): mã lỗi MÁY cho `AiAnalysis.errorReason` (UI dịch,
+// engine không được nhét chuỗi tiếng Anh thô vào đó nữa).
+export 'src/error/ai_error_codes.dart';
+
+// YT-AUDIT-05 (IN4-105): thư viện prompt — export để test pin được NỘI
+// DUNG prompt (tra từ phải xin đủ 7 phần, có `grammar` khi có câu). Nếu
+// không export thì chỉ có thể test gián tiếp qua engine thật.
+export 'src/prompts/ai_prompts_library.dart';
+
 // Mock engine - cho testing
 export 'src/engine/ai_engine_mock.dart';
 
@@ -34,6 +43,9 @@ export 'src/engine/ai_engine_gemma.dart';
 export 'src/engine/ai_engine_remote.dart'
     show AiEngineRemote, AiRemoteJsonExtractor;
 export 'src/engine/ai_route_planner.dart';
+// YT-AUDIT-06 (IN4-104): định tuyến theo loại mạng (wifi ⇒ online,
+// 4G ⇒ cục bộ rồi online, không mạng ⇒ chỉ cục bộ).
+export 'src/engine/ai_connectivity_routing.dart';
 
 // WP0 (API-001) — Tầng Server API (cloud + LAN): cấu hình provider,
 // routing offline/online, client OpenAI-compatible duy nhất.

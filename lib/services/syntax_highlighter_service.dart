@@ -194,6 +194,12 @@ class SyntaxHighlighterService {
     if (_determiners.contains(w)) return WordType.determiner;
     if (_prepositions.contains(w)) return WordType.preposition;
     if (_conjunctions.contains(w)) return WordType.conjunction;
+    // YT-AUDIT-08 (IN4-100): nhánh `_adverbs` từng CHỈ có trong
+    // `_classifyStopWord`, nên những trạng từ thông dụng không nằm trong
+    // `_stopWords` (vd "very", "often", "quickly" không đuôi -ly, "maybe")
+    // rơi thẳng xuống `unknown` ⇒ bảng tra từ hiện "từ" thay vì "trạng từ".
+    // Đặt TRƯỚC `_commonVerbs` để không bị nuốt bởi động từ đa nghĩa.
+    if (_adverbs.contains(w)) return WordType.adverb;
     if (_commonVerbs.contains(w)) return WordType.verb;
 
     if (w.endsWith('ing') ||

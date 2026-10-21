@@ -374,8 +374,18 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     ));
   }
 
-  void _openVideo(YtExVideo v) => Navigator.push(
-      context, MaterialPageRoute(builder: (_) => YtPlayerScreen(video: v)));
+  /// YT-AUDIT-07 (IN4-99): player ghi lịch sử khi mở (xem
+  /// `YtPlayerScreen._recordHistory`), nên sau khi quay lại đây chỉ cần
+  /// nạp lại danh sách — nếu không, danh sách Lịch sử vẫn là bản cũ đọc
+  /// lúc `initState`.
+  Future<void> _openVideo(YtExVideo v) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => YtPlayerScreen(video: v)),
+    );
+    if (!mounted) return;
+    await _loadHistory();
+  }
 
   // ── Lịch sử xem (việc của tab Lịch sử ở tầng 1 cũ) ─────────
 

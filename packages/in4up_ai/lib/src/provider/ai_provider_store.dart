@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../engine/ai_connectivity_routing.dart'; // YT-AUDIT-06 (IN4-104)
 import 'ai_provider_config.dart';
 import 'builtin_ai_providers.dart';
 
@@ -169,7 +170,11 @@ class AiProviderStore extends ChangeNotifier {
   /// Ưu tiên: preferred provider (nếu còn hợp lệ) → provider bật đầu tiên
   /// có model cho năng lực.
   AiProviderConfig? resolveProvider(AiRouteCapability c) {
-    if (_routing.modeOf(c) == AiRouteMode.offlineOnly) return null;
+    // YT-AUDIT-06 (IN4-104): so mode THẬT (đã resolve theo loại mạng). Không
+    // có mạng ⇒ `auto` resolve thành offlineOnly ⇒ không trả provider ⇒ chắc
+    // chắn không tạo được request remote.
+    final mode = AiConnectivityRouter.instance.resolve(_routing.modeOf(c));
+    if (mode == AiRouteMode.offlineOnly) return null;
     final candidates =
         enabledProviders.where((p) => p.supports(c)).toList();
     if (candidates.isEmpty) return null;

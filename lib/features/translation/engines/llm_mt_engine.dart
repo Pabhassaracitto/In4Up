@@ -120,7 +120,12 @@ class _StoreEnv implements LlmMtEnv {
   @override
   Future<AiRouteMode> routeMode() async {
     final store = await _loadStore();
-    return store.routing.modeOf(AiRouteCapability.translation);
+    final configured = store.routing.modeOf(AiRouteCapability.translation);
+    // YT-AUDIT-06 (IN4-104): trả mode THẬT (đã resolve theo loại mạng), không
+    // phải mode cấu hình. `ensureStarted()` idempotent + lắng nghe thay đổi
+    // mạng ⇒ không đo lại từng lần dịch (tránh 5s timeout mỗi request).
+    await AiConnectivityRouter.instance.ensureStarted();
+    return AiConnectivityRouter.instance.resolve(configured);
   }
 
   @override

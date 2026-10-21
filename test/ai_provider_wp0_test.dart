@@ -138,16 +138,19 @@ void main() {
     });
   });
 
-  group('AiRoutingPrefs JSON round-trip + mặc định offline-first', () {
-    test('mặc định: mọi năng lực offlineFirst, không preferred provider', () {
+  group('AiRoutingPrefs JSON round-trip + mặc định', () {
+    // YT-AUDIT-06 (IN4-104): mặc định đổi offlineFirst → auto (theo loại
+    // mạng). Mode THẬT do `resolveRouteMode()` quyết định, xem
+    // `test/ai_connectivity_routing_test.dart`.
+    test('mặc định: mọi năng lực auto, không preferred provider', () {
       const prefs = AiRoutingPrefs();
       for (final cap in AiRouteCapability.values) {
-        expect(prefs.modeOf(cap), AiRouteMode.offlineFirst);
+        expect(prefs.modeOf(cap), AiRouteMode.auto);
         expect(prefs.preferredProviderOf(cap), isNull);
       }
       final decoded = AiRoutingPrefs.fromJson(prefs.toJson());
       for (final cap in AiRouteCapability.values) {
-        expect(decoded.modeOf(cap), AiRouteMode.offlineFirst);
+        expect(decoded.modeOf(cap), AiRouteMode.auto);
       }
     });
 
@@ -168,7 +171,8 @@ void main() {
       expect(decoded.modeOf(AiRouteCapability.sttFile), AiRouteMode.offlineFirst);
       expect(
           decoded.modeOf(AiRouteCapability.translation), AiRouteMode.offlineOnly);
-      expect(decoded.modeOf(AiRouteCapability.tts), AiRouteMode.offlineFirst);
+      // tts không có trong map ⇒ rớt về mặc định (auto, xem group trên).
+      expect(decoded.modeOf(AiRouteCapability.tts), AiRouteMode.auto);
       expect(decoded.preferredProviderOf(AiRouteCapability.chat), 'groq-home');
       expect(decoded.preferredProviderOf(AiRouteCapability.tts), 'ollama-pc');
       expect(decoded.preferredProviderOf(AiRouteCapability.sttFile), isNull);

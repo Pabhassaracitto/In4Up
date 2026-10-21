@@ -39,6 +39,8 @@ class AiLlmRoutePlan {
 ///   thật duy nhất — mock chỉ là lớp cuối trung thực).
 /// * Không provider hợp lệ (chưa cấu hình / provider tắt / thiếu model) →
 ///   [local] — app hành xử y hệt trước khi có tầng API (mặc định WP0).
+/// * auto (YT-AUDIT-06 / IN4-104) → caller PHẢI resolve theo loại mạng trước
+///   (`resolveRouteMode`); nếu lọt xuống đây thì coi như offlineFirst.
 AiLlmRoutePlan planLlmRoute({
   required AiRouteMode mode,
   required bool remoteAvailable,
@@ -50,6 +52,16 @@ AiLlmRoutePlan planLlmRoute({
   switch (mode) {
     case AiRouteMode.offlineOnly:
       return const AiLlmRoutePlan([AiLlmRouteStop.local]);
+    // YT-AUDIT-06 (IN4-104): `auto` phải được resolve TRƯỚC khi vào đây
+    // (`resolveRouteMode()` / `AiConnectivityRouter.resolve()`). Rớt tới đây
+    // nghĩa là caller quên resolve ⇒ hành xử như mặc định CŨ (cục bộ trước)
+    // để không tốn data di động, vẫn giữ remote làm stop cuối.
+    case AiRouteMode.auto:
+      return localModelReady
+          ? const AiLlmRoutePlan(
+              [AiLlmRouteStop.local, AiLlmRouteStop.remote])
+          : const AiLlmRoutePlan(
+              [AiLlmRouteStop.remote, AiLlmRouteStop.local]);
     case AiRouteMode.onlineFirst:
       return const AiLlmRoutePlan(
           [AiLlmRouteStop.remote, AiLlmRouteStop.local]);

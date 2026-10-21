@@ -20,6 +20,7 @@ import '../../dictionary/models/dict_entry.dart';
 import '../../dictionary/services/dictionary_service.dart';
 import '../../translation/data/offline_dictionary.dart';
 import '../services/cmu_phonetics_service.dart';
+import '../services/yt_word_analysis_fallback.dart';
 import '../models/yt_learning_settings.dart';
 import '../models/yt_subtitle.dart' show LrWord, WordState;
 
@@ -113,10 +114,17 @@ class _YtWordPanelState extends State<YtWordPanel>
     _tabCtrl = TabController(length: 2, vsync: this);
     // Nghĩa offline (đồng bộ) lấy ngay để truyền vào AI làm nền tảng.
     _localMeaning = _dict.lookup(widget.word.text);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      _lookupMdx();
-      _lookupPhonetic();
+      // YT-AUDIT-05 (IN4-105): nghĩa + phiên âm offline phải xong TRƯỚC khi
+      // hỏi AI — chúng vừa là nền tảng gửi cho model, vừa là nội dung dự phòng
+      // khi AI không trả được gì. Bản cũ gọi `_prepareAi()` ngay ⇒ gửi cho
+      // facade một `localDictEntry` rỗng và rớt thẳng vào "No local dict entry".
+      await Future.wait<void>([
+        _lookupPhonetic(),
+        _lookupMdx().timeout(const Duration(seconds: 5), onTimeout: () {}),
+      ]);
+      if (!mounted) return;
       _prepareAi();
     });
   }
@@ -157,16 +165,82 @@ class _YtWordPanelState extends State<YtWordPanel>
     try {
       final entries =
           await DictionaryService.instance.lookup(widget.word.text);
-      if (mounted) {
-        setState(() {
-          _mdxEntries = entries;
-          _mdxLoading = false;
-        });
-      }
+      if (mounted) setState(() => _mdxEntries = entries);
     } catch (_) {
+      // Không có từ điển MDX nào được cài ⇒ im lặng, tab vẫn hiện nghĩa offline.
+    } finally {
+      // Đặt ở `finally` để kể cả khi bị timeout (5s ở initState) thì tab NGHĨA
+      // cũng không kẹt mãi ở "Đang tra từ điển…".
       if (mounted) setState(() => _mdxLoading = false);
     }
   }
+
+  /// YT-AUDIT-05 (IN4-105): gửi cho AI — và cho nhánh rớt về từ điển — ĐẦY ĐỦ
+  /// những gì đã có trên máy.
+  ///
+  /// Bản cũ chỉ gửi `{'meaning': _localMeaning}` và gửi **`null`** khi từ điển
+  /// nhanh không có từ ⇒ facade rớt thẳng vào `local_dict_missing` dù ta vẫn
+  /// còn nghĩa từ MDX và câu phụ đề đang phát.
+  Map<String, dynamic>? _localDictEntry() {
+    return YtWordAnalysisFallback.buildLocalDictEntry(
+      meaning: YtWordAnalysisFallback.pickMeaning(
+        offline: _localMeaning,
+        mdxDefinitions: [for (final e in _mdxEntries) e.plainDefinition],
+      ),
+      phonetic: _ipa,
+      // Câu phụ đề đang phát — ví dụ trong ngữ cảnh ĐÚNG NHẤT vì chính là câu
+      // người dùng vừa bấm vào.
+      example: widget.sentenceContext,
+      // CÓ CHỦ ĐÍCH **không** gửi `wordType`: bảng đã biết từ loại nhờ phân
+      // tích của player (`_typeLabel`). Gửi vào đây sẽ làm kết quả rớt về từ
+      // điển trông NHƯ AI ĐÃ TRẢ LỜI (`_isDictionaryOnly` đo độ sâu, và
+      // `wordDetail.wordType` là một trong các dấu hiệu đó) ⇒ mất luôn cảnh
+      // báo "thực ra chỉ là nghĩa từ điển".
+    );
+  }
+
+  /// YT-AUDIT-05 (IN4-105): engine trả **mã máy** ⇒ dịch sang thứ người dùng
+  /// hiểu được.
+  ///
+  /// Bản cũ hiện nguyên câu tiếng Anh thô (`No local dict entry and engine not
+  /// ready`) ⇒ không ai hiểu, và không dịch được theo locale.
+  String _aiErrorText() {
+    final raw = _aiError ?? _aiResult?.errorReason;
+    final code = YtWordAnalysisFallback.errorCode(raw);
+    final text = switch (code) {
+      kAiErrLocalDictMissing => context.uiText(
+          'Máy chưa có model AI, và cũng không có nghĩa offline cho từ này.',
+        ),
+      kAiErrEngineNotReady => context.uiText(
+          'Model AI chưa nạp xong. Đợi một lát rồi thử lại.',
+        ),
+      kAiErrTimeout => context.uiText(
+          'AI xử lý quá lâu nên đã bỏ cuộc. Thử lại để có kết quả.',
+        ),
+      kAiErrNetwork => context.uiText('Không gọi được AI. Kiểm tra kết nối mạng.'),
+      kAiErrEmptyWord => context.uiText('Từ rỗng — không thể phân tích.'),
+      _ => context.uiText('Không rõ lý do.'),
+    };
+    // Mã không nhận ra ⇒ giữ nguyên văn làm bằng chứng để báo lỗi.
+    final r = raw?.trim() ?? '';
+    if (code == kAiErrUnknown && r.isNotEmpty) return '$text ($r)';
+    return text;
+  }
+
+  /// Tên các phần còn thiếu, đã dịch (dùng cho ô "cần AI").
+  String _missingLabels(List<String> missing) => missing
+      .map(
+        (k) => switch (k) {
+          YtWordSection.summary => context.uiText('Tóm tắt'),
+          YtWordSection.memoryHook => context.uiText('Mẹo nhớ'),
+          YtWordSection.grammar => context.uiText('Ngữ pháp'),
+          YtWordSection.examples => context.uiText('Ví dụ'),
+          YtWordSection.visual => context.uiText('Hình ảnh gợi nhớ'),
+          YtWordSection.pao => context.uiText('Câu chuyện ghi nhớ'),
+          _ => k,
+        },
+      )
+      .join(' · ');
 
   /// Có đường AI nào dùng được không (model local đã nạp, hoặc API remote
   /// đã cấu hình). Không có ⇒ đừng gọi, đừng để người dùng chờ vô ích.
@@ -218,8 +292,7 @@ class _YtWordPanelState extends State<YtWordPanel>
           .lookupWord(
             widget.word.text,
             sentenceContext: widget.sentenceContext,
-            localDictEntry:
-                _localMeaning == null ? null : {'meaning': _localMeaning!},
+            localDictEntry: _localDictEntry(),
           )
           .timeout(const Duration(seconds: 90));
       if (!mounted) return;
@@ -358,6 +431,12 @@ class _YtWordPanelState extends State<YtWordPanel>
       'adv' => context.uiText('trạng từ'),
       'prep' => context.uiText('giới từ'),
       'conj' => context.uiText('liên từ'),
+      // YT-AUDIT-08 (IN4-100): bổ sung nhãn cho các từ loại mới được map ở
+      // `YtPlayerScreen._parseWords` (trước đây gom hết vào `'other'`).
+      'pron' => context.uiText('đại từ'),
+      'det' => context.uiText('từ hạn định'),
+      'num' => context.uiText('số từ'),
+      'intj' => context.uiText('thán từ'),
       _ => context.uiText('từ'),
     };
   }
@@ -612,7 +691,7 @@ class _YtWordPanelState extends State<YtWordPanel>
             color: Colors.redAccent,
             icon: Icons.error_outline,
             title: context.uiText('AI chưa phân tích được.'),
-            body: _aiError ?? a?.errorReason ?? context.uiText('Không rõ lý do.'),
+            body: _aiErrorText(),
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
               child: FilledButton.icon(
@@ -705,11 +784,76 @@ class _YtWordPanelState extends State<YtWordPanel>
           ),
           const SizedBox(height: 12),
         ],
-        if (_localMeaning != null) ...[
-          _block(context.uiText('Nghĩa từ điển offline'), _localMeaning!),
-        ],
+        // 5) YT-AUDIT-05 (IN4-105): phần LẤY ĐƯỢC TRÊN MÁY — hiện luôn, kể cả
+        //    khi AI hoàn toàn không trả được gì. Đây là nội dung thật, không
+        //    phải chỗ trống.
+        if (!_aiWaiting) _buildOfflineAnalysis(),
+
+        // 6) YT-AUDIT-05: nói ĐÚNG phần nào vẫn thiếu thay vì một câu lỗi
+        //    chung chung rồi để trắng cả tab.
+        if (!_aiWaiting) _buildMissingSectionsCard(),
+
         const SizedBox(height: 16),
       ],
+    );
+  }
+
+  /// Những phần có THẬT trên máy (không cần AI).
+  ///
+  /// Quan trọng nhất là **ví dụ trong ngữ cảnh** = chính câu phụ đề người dùng
+  /// vừa bấm vào — luôn có, luôn đúng, không phải đoán.
+  Widget _buildOfflineAnalysis() {
+    final sentence = widget.sentenceContext?.trim() ?? '';
+    final meaning = YtWordAnalysisFallback.pickMeaning(
+      offline: _localMeaning,
+      mdxDefinitions: [for (final e in _mdxEntries) e.plainDefinition],
+    );
+    if (meaning == null && sentence.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.uiText('Có sẵn trên máy'),
+          style: const TextStyle(
+            color: Color(0xFF2196F3),
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (meaning != null) _block(context.uiText('Nghĩa'), meaning),
+        // Nhãn riêng (không dùng "Ví dụ trong ngữ cảnh") để KHÔNG trùng với
+        // khối cùng tên do AI trả — một tab mà hai khối cùng nhãn là rối.
+        if (sentence.isNotEmpty)
+          _block(context.uiText('Câu đang phát'), sentence),
+      ],
+    );
+  }
+
+  /// Ô "còn thiếu những phần nào" — chỉ AI mới làm được, nên nói thẳng ra.
+  ///
+  /// CÓ CHỦ ĐÍCH không đoán bằng regex: phân tích ngữ pháp/mẹo nhớ sai còn tệ
+  /// hơn là không có, vì nó dạy sai người học.
+  Widget _buildMissingSectionsCard() {
+    final missing = YtWordAnalysisFallback.missingSections(_aiResult);
+    if (missing.isEmpty) return const SizedBox.shrink();
+    return _aiStatusCard(
+      color: Colors.blueGrey,
+      icon: Icons.auto_awesome_outlined,
+      title: context.uiText('Cần AI cho phần còn lại'),
+      body:
+          '${context.uiText('Chỉ AI mới viết được: ')}${_missingLabels(missing)}.',
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF9C27B0),
+          ),
+          onPressed: _triggerAnalysis,
+          icon: const Icon(Icons.auto_awesome, size: 16),
+          label: Text(context.uiText('Phân tích bằng AI')),
+        ),
+      ),
     );
   }
 
@@ -791,10 +935,10 @@ class _YtWordPanelState extends State<YtWordPanel>
           icon: const Icon(Icons.download, size: 16),
           label: Text(context.uiText('Cài AI')),
         ),
-        if (_localMeaning != null) ...[
-          const SizedBox(height: 16),
-          _block(context.uiText('Nghĩa từ điển offline'), _localMeaning!),
-        ],
+        const SizedBox(height: 16),
+        // YT-AUDIT-05 (IN4-105): chưa có model thì vẫn phải có NỘI DUNG —
+        // nghĩa offline (từ điển nhanh hoặc MDX) + câu phụ đề đang phát.
+        _buildOfflineAnalysis(),
       ],
     );
   }

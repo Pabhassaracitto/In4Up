@@ -137,6 +137,28 @@ jobs:
           if [ -f build/web/yt_embed.html ]; then
             grep -q "isValidId" build/web/yt_embed.html && echo "::notice::yt_embed v2 present" || echo "::warning::yt_embed old"
           fi
+          # Ghi tóm tắt ra Step Summary để đọc qua web UI (không cần log blob)
+          {
+            echo "### Kiểm tra artifact"
+            echo "- JS: $(basename "$JS" 2>/dev/null || echo none)"
+            echo "- Loader trong build: $(grep -c in4up-loader build/web/index.html || echo 0)"
+            echo "- yt_embed v2: $(grep -c isValidId build/web/yt_embed.html || echo 0)"
+            echo "- .nojekyll: $(ls -lh build/web/.nojekyll 2>&1 | head -1)"
+            echo "- main.dart.js size: $(wc -c < build/web/main.dart.js 2>/dev/null || echo 0) bytes"
+            echo "- main.dart.js has WebHomeScreen: $(grep -c WebHomeScreen build/web/main.dart.js || echo 0)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload debug artifact (index.html + main.dart.js head)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build-debug-${{ github.sha }}
+          path: |
+            build/web/index.html
+            build/web/flutter_bootstrap.js
+            build/web/yt_embed.html
+            build/web/.nojekyll
+          retention-days: 3
+          if-no-files-found: warn
 
       - name: Publish to gh-pages (giữ nguyên file khác, vd wrapper YouTube)
         env:

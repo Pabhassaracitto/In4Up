@@ -17,7 +17,10 @@
          chỉ bị chặn ở một số mạng).
      File này được copy vào `build/web/` khi build ⇒ workflow deploy-web
      push lên nhánh `gh-pages` ⇒ **nguồn sự thật nằm trong repo** (trước đây
-     file chỉ nằm trên nhánh `gh-pages`, không version-controlled). -->
+     file chỉ nằm trên nhánh `gh-pages`, không version-controlled).
+
+     v2 (2026-10-22): thêm kiểm tra videoId hợp lệ + dọn fallback + ghi chú
+     test: dùng ID thật (11 ký tự, vd dQw4w9WgXcQ) — `videoId=…` sẽ luôn lỗi. -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
@@ -25,26 +28,42 @@
   #yt iframe{width:100% !important;height:100% !important}
   #err{display:none;position:fixed;inset:0;background:#000;color:#fff;
        font-family:sans-serif;font-size:14px;align-items:center;
-       justify-content:center;text-align:center;padding:16px;z-index:9}
+       justify-content:center;text-align:center;padding:16px;z-index:9;white-space:pre-wrap}
+  #dbg{position:fixed;left:8px;bottom:8px;max-width:92%;background:rgba(0,0,0,0.7);color:#9ec8ff;
+       font:11px/1.4 monospace;padding:6px 8px;border-radius:8px;z-index:8;pointer-events:none}
 </style>
 </head>
 <body>
 <div id="yt"></div>
 <div id="err"></div>
+<div id="dbg"></div>
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 (function() {
   var p = new URLSearchParams(location.search);
-  var VIDEO_ID = p.get('videoId') || '';
+  var VIDEO_ID = (p.get('videoId') || '').trim();
   var usedFallback = false;
+  var dbgEl = document.getElementById('dbg');
 
+  function dbg(msg) {
+    // Chỉ hiện khi có ?debug=1 để không làm phiền user thường.
+    if (p.get('debug') === '1' && dbgEl) dbgEl.textContent = msg;
+    try { console.log('[yt_embed] ' + msg); } catch(e) {}
+  }
   function post(msg) {
     try { if (window.YtSync) YtSync.postMessage(msg); } catch (e) {}
   }
   function showErr(code) {
     var el = document.getElementById('err');
     el.style.display = 'flex';
-    el.textContent = 'YouTube player error ' + code + ' (IN4-78)';
+    // Gợi ý rõ hơn cho từng mã
+    var hint = '';
+    if (code === -1 || code === '-1') hint = '\n(INVALID_PARAMETER — thường do origin/host sai)';
+    else if (code === 150 || code === 5) hint = '\n(Video bị hạn chế nhúng / không khả dụng)';
+    else if (code === 'no-video-id') hint = '\nThiếu videoId — dùng ?videoId=<ID 11 ký tự>, vd dQw4w9WgXcQ';
+    else if (code === 'bad-video-id') hint = '\nID không hợp lệ — phải 11 ký tự [A-Za-z0-9_-], vd dQw4w9WgXcQ';
+    el.textContent = 'YouTube player error ' + code + hint + ' (IN4-78)';
+    dbg('error ' + code + ' videoId=' + VIDEO_ID + ' origin=' + location.origin);
     post('err:' + code);
   }
   // API surface cho app (Dart runJavaScript):
@@ -66,6 +85,9 @@
   }
 
   function makePlayer(host) {
+    dbg('makePlayer host=' + host + ' videoId=' + VIDEO_ID + ' origin=' + location.origin);
+    // Dọn iframe cũ trước khi tạo mới (tránh xung đột 2 player cùng div)
+    try { document.getElementById('yt').innerHTML = ''; } catch(e) {}
     window.player = new YT.Player('yt', {
       width: '100%',
       height: '100%',
@@ -78,21 +100,27 @@
         // BẮT BUỘC với youtube-nocookie.com — thiếu ⇒ player error -1.
         origin: location.origin,
         // Bật JS API để app điều khiển player (seek/pause/play).
-        enablejsapi: 1
+        enablejsapi: 1,
+        // Gợi ý referrer cho YouTube kiểm tra (một số mạng chặn nocookie nếu thiếu)
+        widget_referrer: location.origin
       },
       events: {
         onReady: function() {
+          dbg('ready host=' + host);
           post('ready');
           try { window.player.playVideo(); } catch (e) {}
           setInterval(tick, 250);
         },
         onStateChange: function(e) { post('state:' + e.data); },
         onError: function(e) {
+          dbg('onError ' + e.data + ' host=' + host);
           // -1 thường là do host/`origin` bị chặn ở mạng hiện tại ⇒ thử
           // lại bằng www.youtube.com trước khi báo lỗi cho app.
-          if (!usedFallback && (e.data === -1 || e.data === -2 || e.data === 5 || e.data === 150)) {
+          if (!usedFallback && (e.data === -1 || e.data === -2 || e.data === 5 || e.data === 150 || e.data === 2 || e.data === 100)) {
             usedFallback = true;
             try {
+              // Dọn container trước khi fallback
+              document.getElementById('yt').innerHTML = '';
               window.player = new YT.Player('yt', {
                 width: '100%',
                 height: '100%',
@@ -103,20 +131,22 @@
                   playsinline: 1,
                   cc_load_policy: 0,
                   origin: location.origin,
-                  enablejsapi: 1
+                  enablejsapi: 1,
+                  widget_referrer: location.origin
                 },
                 events: {
                   onReady: function() {
+                    dbg('fallback ready');
                     post('ready');
                     try { window.player.playVideo(); } catch (e) {}
                     setInterval(tick, 250);
                   },
                   onStateChange: function(ev) { post('state:' + ev.data); },
-                  onError: function(ev) { showErr(ev.data); }
+                  onError: function(ev) { dbg('fallback error ' + ev.data); showErr(ev.data); }
                 }
               });
               return;
-            } catch (e2) { /* rơi xuống showErr bên dưới */ }
+            } catch (e2) { dbg('fallback exception ' + e2); }
           }
           showErr(e.data);
         }
@@ -124,14 +154,41 @@
     });
   }
 
+  // Kiểm tra ID trước khi gọi YT API — tránh lỗi -1 khó hiểu
+  function isValidId(id) {
+    // YouTube ID chuẩn 11 ký tự, cho phép 11 hoặc 10 trong một số trường hợp cũ
+    return /^[A-Za-z0-9_-]{11}$/.test(id);
+  }
+
   window.onYouTubeIframeAPIReady = function() {
+    dbg('YT API ready, videoId=' + VIDEO_ID);
     if (!VIDEO_ID) { showErr('no-video-id'); return; }
+    if (!isValidId(VIDEO_ID)) {
+      // Vẫn thử phát (một số ID cũ không đúng 11 vẫn phát được) nhưng cảnh báo
+      dbg('bad-video-id format, vẫn thử phát');
+      // Nếu ID chứa "…" hoặc ký tự lạ ⇒ báo lỗi rõ ràng
+      if (/[…\u2026]/.test(VIDEO_ID) || VIDEO_ID.length < 6 || /[^A-Za-z0-9_-]/.test(VIDEO_ID)) {
+        showErr('bad-video-id');
+        // Vẫn thử fallback để owner thấy lỗi thật từ YouTube nếu muốn debug (?debug=1)
+        // nhưng không tự phát để tránh spam error -1
+        return;
+      }
+    }
     try {
       makePlayer('https://www.youtube-nocookie.com');
     } catch (e) {
+      dbg('makePlayer exception ' + e);
       showErr(-1);
     }
   };
+
+  // Timeout nếu YT API không load (mạng chặn youtube.com)
+  setTimeout(function(){
+    if (!window.YT || !window.YT.Player) {
+      dbg('YT API not loaded after 8s');
+      showErr('yt-api-timeout');
+    }
+  }, 8000);
 })();
 </script>
 </body>

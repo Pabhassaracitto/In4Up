@@ -32,16 +32,59 @@
 
   <title>In4Up</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Màn chờ trước khi Flutter khởi tạo — thay vì trắng hoàn toàn. */
+    #in4up-loader {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #080B1A; color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center; z-index: 9999;
+    }
+    #in4up-loader .spin {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #6C63FF;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #in4up-loader p { margin: 4px 0; opacity: 0.9; font-size: 14px; }
+    #in4up-loader small { opacity: 0.6; font-size: 12px; }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Loader hiện ngay khi mở trang — Flutter sẽ thay thế toàn bộ body khi sẵn sàng. -->
+  <div id="in4up-loader" role="status" aria-live="polite">
+    <div class="spin"></div>
+    <p>In4Up đang khởi tạo…</p>
+    <small>Nếu màn này hiện quá 10 giây, hãy thử hard-reload (Ctrl+Shift+R)</small>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- Flutter bootstrap -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <!-- Nếu Flutter không khởi tạo (lỗi JS), hiện thông báo thay vì trắng -->
+  <script>
+    window.addEventListener('error', function(e) {
+      var el = document.getElementById('in4up-loader');
+      if (!el) return;
+      el.innerHTML = '<p style="color:#ff6b6b">Không tải được ứng dụng</p>'
+        + '<small style="max-width:320px;display:block;margin:8px auto;opacity:0.8">'
+        + (e.message || 'Lỗi JavaScript') + '<br>Thử hard-reload (Ctrl+Shift+R) hoặc mở DevTools xem Console.'
+        + '</small>';
+    });
+    // Sau 12s vẫn còn loader ⇒ có thể bootstrap kẹt (CDN chặn, SW cũ)
+    setTimeout(function() {
+      var el = document.getElementById('in4up-loader');
+      if (el && el.parentNode) {
+        el.querySelector('p').textContent = 'Đang tải chậm…';
+        var s = el.querySelector('small');
+        if (s) s.textContent = 'Nếu vẫn trắng, hãy xoá cache site: DevTools → Application → Clear storage → Reload.';
+      }
+    }, 12000);
+  </script>
 </body>
 </html>

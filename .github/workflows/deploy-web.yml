@@ -121,32 +121,24 @@ jobs:
             grep -q "$(basename "$JS")" build/web/flutter_bootstrap.js \
               || echo "::warning::flutter_bootstrap.js không nhắc $(basename "$JS") — trang có thể trắng sau khi deploy."
           fi
-          # Kiểm tra loader mới (không trắng)
+          # Kiểm tra loader mới (không trắng) — FAIL nếu thiếu để CI đỏ và thấy ngay
           if grep -q "in4up-loader" build/web/index.html; then
-            echo "::notice::index.html có loader (đã fix trắng)"
+            echo "::notice title=loader OK::index.html có loader (đã fix trắng) — $(grep -c in4up-loader build/web/index.html) hit"
           else
-            echo "::warning::index.html thiếu loader — trang có thể trắng khi lỗi"
+            echo "::error title=loader missing::build/web/index.html thiếu in4up-loader — Flutter build không copy web/index.html!"
+            echo "Nguồn web/index.html loader: $(grep -c in4up-loader web/index.html || echo 0)"
+            echo "Build output head:"
+            head -20 build/web/index.html | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::BUILD $l"; done || true
+            exit 1
           fi
-          echo "OK: build/web có index.html + $(basename "$JS") + .nojekyll"
-          # Debug: in 30 dòng đầu index.html để verify loader có vào build không
-          echo "--- build/web/index.html head ---"
-          head -40 build/web/index.html | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::$l"; done || true
-          echo "--- end head ---"
-          ls -lh build/web/.nojekyll 2>&1 | while IFS= read -r l; do echo "::notice::$l"; done || true
-          ls -lh build/web/yt_embed.html 2>&1 | while IFS= read -r l; do echo "::notice::$l"; done || true
-          if [ -f build/web/yt_embed.html ]; then
-            grep -q "isValidId" build/web/yt_embed.html && echo "::notice::yt_embed v2 present" || echo "::warning::yt_embed old"
+          if grep -q "isValidId" build/web/yt_embed.html; then
+            echo "::notice title=yt v2 OK::yt_embed.html v2 present"
+          else
+            echo "::error title=yt old::build/web/yt_embed.html thiếu isValidId — chưa phải v2"
+            exit 1
           fi
-          # Ghi tóm tắt ra Step Summary để đọc qua web UI (không cần log blob)
-          {
-            echo "### Kiểm tra artifact"
-            echo "- JS: $(basename "$JS" 2>/dev/null || echo none)"
-            echo "- Loader trong build: $(grep -c in4up-loader build/web/index.html || echo 0)"
-            echo "- yt_embed v2: $(grep -c isValidId build/web/yt_embed.html || echo 0)"
-            echo "- .nojekyll: $(ls -lh build/web/.nojekyll 2>&1 | head -1)"
-            echo "- main.dart.js size: $(wc -c < build/web/main.dart.js 2>/dev/null || echo 0) bytes"
-            echo "- main.dart.js has WebHomeScreen: $(grep -c WebHomeScreen build/web/main.dart.js || echo 0)"
-          } >> "$GITHUB_STEP_SUMMARY"
+          test -f build/web/.nojekyll || { echo "::error::thiếu build/web/.nojekyll"; exit 1; }
+          echo "OK: build/web có index.html + $(basename "$JS") + .nojekyll + loader + yt v2"
 
       - name: Upload debug artifact (index.html + main.dart.js head)
         uses: actions/upload-artifact@v4

@@ -169,22 +169,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
+          # Debug sau khi add
+          echo "::notice::gh-pages HEAD $(git rev-parse HEAD)"
+          echo "::notice::after cp loader in /tmp/pages: $(grep -c in4up-loader /tmp/pages/index.html 2>/dev/null || echo 0) vs build: $(grep -c in4up-loader "$GITHUB_WORKSPACE/build/web/index.html" 2>/dev/null || echo 0)"
+          echo "::notice::after cp yt v2 in /tmp/pages: $(grep -c isValidId /tmp/pages/yt_embed.html 2>/dev/null || echo 0) vs build: $(grep -c isValidId "$GITHUB_WORKSPACE/build/web/yt_embed.html" 2>/dev/null || echo 0)"
+          echo "::notice::/tmp/pages .nojekyll $(ls -lh /tmp/pages/.nojekyll 2>&1 | head -1 | sed 's/%/%25/g')"
+          git diff --cached --stat | head -30 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::DIFF $l"; done || echo "::notice::no diff stat"
           if git diff --cached --quiet; then
-            echo "Không có thay đổi so với gh-pages — bỏ qua push."
-            # Debug: cho biết gh-pages hiện tại có gì
-            echo "gh-pages HEAD: $(git rev-parse HEAD)"
-            echo "build/web HEAD loader: $(grep -c in4up-loader /tmp/pages/index.html || echo 0) vs new $(grep -c in4up-loader build/web/index.html || echo 0)"
-            git diff --cached --stat || true
-            git diff --stat || true
+            echo "::notice::Không có thay đổi so với gh-pages — bỏ qua push."
+            git status --porcelain | head -20 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::STATUS $l"; done || true
+            echo "No diff — check why build output same as gh-pages"
           else
-            echo "Có thay đổi — sẽ push (diff cached):"
-            git diff --cached --stat || true
+            echo "::notice::Có thay đổi — sẽ push"
+            git diff --cached --stat | head -30 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::PUSH $l"; done || true
             git commit -m "Deploy web app In4Up (${{ github.sha }})"
-            # Dùng --force để tránh race khi nhiều nhánh arena/** cùng push gh-pages
-            # (concurrency group github-pages có cancel-in-progress nhưng vẫn có race window)
             git push --force origin HEAD:gh-pages || git push origin HEAD:gh-pages
-            echo "Đã push lên gh-pages."
+            echo "::notice::Đã push lên gh-pages"
           fi
-          echo "--- file trên gh-pages ---"
-          ls -1 | head -20
-          ls -lh .nojekyll 2>&1 | head -5 || echo "no .nojekyll in gh-pages"
+          echo "::notice::--- file trên gh-pages ---"
+          ls -1 | head -20 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::FILE $l"; done || true

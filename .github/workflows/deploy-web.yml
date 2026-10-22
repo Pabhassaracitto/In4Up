@@ -134,7 +134,9 @@ jobs:
             echo "Không có thay đổi so với gh-pages — bỏ qua push."
           else
             git commit -m "Deploy web app In4Up (${{ github.sha }})"
-            git push origin HEAD:gh-pages
+            # Dùng --force để tránh race khi nhiều nhánh arena/** cùng push gh-pages
+            # (concurrency group github-pages có cancel-in-progress nhưng vẫn có race window)
+            git push --force origin HEAD:gh-pages || git push origin HEAD:gh-pages
             echo "Đã push lên gh-pages."
           fi
           echo "--- file trên gh-pages ---"

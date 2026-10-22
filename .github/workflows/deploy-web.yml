@@ -112,6 +112,15 @@ jobs:
             echo "::warning::index.html thiếu loader — trang có thể trắng khi lỗi"
           fi
           echo "OK: build/web có index.html + $(basename "$JS") + .nojekyll"
+          # Debug: in 30 dòng đầu index.html để verify loader có vào build không
+          echo "--- build/web/index.html head ---"
+          head -40 build/web/index.html | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::$l"; done || true
+          echo "--- end head ---"
+          ls -lh build/web/.nojekyll 2>&1 | while IFS= read -r l; do echo "::notice::$l"; done || true
+          ls -lh build/web/yt_embed.html 2>&1 | while IFS= read -r l; do echo "::notice::$l"; done || true
+          if [ -f build/web/yt_embed.html ]; then
+            grep -q "isValidId" build/web/yt_embed.html && echo "::notice::yt_embed v2 present" || echo "::warning::yt_embed old"
+          fi
 
       - name: Publish to gh-pages (giữ nguyên file khác, vd wrapper YouTube)
         env:
@@ -132,7 +141,14 @@ jobs:
           git add -A
           if git diff --cached --quiet; then
             echo "Không có thay đổi so với gh-pages — bỏ qua push."
+            # Debug: cho biết gh-pages hiện tại có gì
+            echo "gh-pages HEAD: $(git rev-parse HEAD)"
+            echo "build/web HEAD loader: $(grep -c in4up-loader /tmp/pages/index.html || echo 0) vs new $(grep -c in4up-loader build/web/index.html || echo 0)"
+            git diff --cached --stat || true
+            git diff --stat || true
           else
+            echo "Có thay đổi — sẽ push (diff cached):"
+            git diff --cached --stat || true
             git commit -m "Deploy web app In4Up (${{ github.sha }})"
             # Dùng --force để tránh race khi nhiều nhánh arena/** cùng push gh-pages
             # (concurrency group github-pages có cancel-in-progress nhưng vẫn có race window)
@@ -141,3 +157,4 @@ jobs:
           fi
           echo "--- file trên gh-pages ---"
           ls -1 | head -20
+          ls -lh .nojekyll 2>&1 | head -5 || echo "no .nojekyll in gh-pages"

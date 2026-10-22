@@ -7445,6 +7445,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   1. Hard-reload trang web: **Ctrl+Shift+R** (hoặc DevTools → Application → Clear storage → Reload) — SW cũ đã cache bản trắng cũ.
   2. Mở `https://pabhassaracitto.github.io/In4Up/` → phải thấy spinner \"In4Up đang khởi tạo…\" ~1-2s rồi vào màn \"Dán văn bản để đọc\" (không trắng).
   3. Mở `…/yt_embed.html?videoId=dQw4w9WgXcQ` → video phát được (không -1). Mở `?videoId=…` → báo `bad-video-id` (không -1 mù mờ). Thêm `&debug=1` để xem log.
+- **Follow-up 2026-10-22 — loader xoay mãi (owner: \"Nó cứ xoay hoài\"):** `#in4up-loader` có `z-index:9999` che toàn app, Flutter render xong vẫn bị che → xoay mãi. Fix `5c6cbd1`: `window.addEventListener('flutter-first-frame', hide)` + polling `flt-glass-pane` + sau 12s hiện nút \"Tải lại / Xoá cache & tải lại\" (xoá `caches` + `unregister` SW). Đã deploy `839d258` (5c6cbd1) — `gh-pages` có loader 11 hit + `flutter-first-frame` + nút xoá cache.
 - **Lịch sử:**
   - 2026-10-22 | reported→doing | owner báo \"vẫn trắng, vẫn lỗi -1\" sau deploy 202931b
-  - 2026-10-22 | doing | agent arena/01a0251e-in4up | tìm ra thiếu `home:` là root cause trắng + thêm loader/.nojekyll/yt_embed v2; chờ CI + hard-reload
+  - 2026-10-22 | doing | agent arena/01a0251e-in4up | tìm ra thiếu `home:` là root cause trắng + thêm loader/.nojekyll/yt_embed v2; CI xanh nhưng loader che app → xoay mãi
+  - 2026-10-22 | doing→doing | agent arena/01a0251e-in4up | fix loader xoay mãi (5c6cbd1) — ẩn khi `flutter-first-frame`, deploy 839d258 OK; chờ owner hard-reload

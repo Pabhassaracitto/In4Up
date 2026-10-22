@@ -40,6 +40,8 @@
 | WEB-RDR-001 | Web Reader: dịch đoạn chọn (TranslationService) + lưu bài đọc thành file âm thanh (TTS → file, mở trong tab Nghe) | 🔨 doing (code xong, chờ CI + nghiệm thu máy) | nút Dịch trên thanh selection + menu "Lưu bài đọc thành âm thanh" (`web_reader_screen.dart`); `TtsService.synthesizeToFile` (Piper offline → Edge online) + `WebReaderController.synthesizeTextToFile`; 15 chuỗi chrome mới đăng ký i18n rule #5 |
 | PDF-W0 | Wave 0 PDF Reader: nối selection + TTS câu + định danh file + hệ toạ độ + i18n + test sàn | 🔨 doing | code + CI 🟢 05-09-2026 (`370ff91`, run 33984585516: analyze 0 error + test rule #5 xanh) trên `arena/01a07250-in4up`; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` ở máy dev |
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
+| WEB-BUILD-001 | `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages | ✅ done (đã deploy `gh-pages`, chờ owner kiểm) | entrypoint `lib/main_web.dart` web-safe + `web/flutter_bootstrap.js` canvasKit cục bộ + `web/yt_embed.html` fix -1 (origin/enablejsapi) — IN4-109 |
+| WEB-BUILD-002 | Web VẪN TRẮNG + YouTube -1 tái phát sau fix 001 — thiếu `home:` + thiếu loader/.nojekyll | 🔨 doing (đã fix, chờ CI + hard-reload) | `home:` rỗng ⇒ trắng; thêm loader + `.nojekyll` + yt_embed v2 validate ID — IN4-109 tiếp nối |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
 | LISTEN-823-01 | Tab Nghe: rèm LRC + AI sheet + dịch Hiểu + transcript đúng audio | ✅ done | 1d05ce9; CI run 32660616256 xanh (chờ QA đổi file nhanh) |
@@ -7424,3 +7426,25 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     "ô language đang bị URL chiếm" cho hàng 7 ô của header 8 cột (phân biệt
     thiếu `language` vs thiếu `image_url_2`). Còn: nghiệm thu thiết bị +
     duyệt PR.
+
+### WEB-BUILD-002 — (2026-10-22) Web VẪN TRẮNG + YouTube lỗi -1 tái phát sau fix WEB-BUILD-001
+- **Trạng thái:** 🔨 **ĐÃ FIX — chờ CI + owner hard-reload nghiệm thu** — Linear [IN4-109](https://linear.app/in4up/issue/IN4-109) (tiếp nối)
+- **Triệu chứng (owner 2026-10-22):** sau fix WEB-BUILD-001, mở `https://pabhassaracitto.github.io/In4Up/` **vẫn trắng**, mở `…/yt_embed.html?videoId=…` **vẫn báo \"YouTube player error -1 (IN4-78)\"**.
+- **Root cause ĐÃ TÌM (2 lỗi còn sót):**
+  1. **Trang trắng — `lib/main_web.dart` thiếu `home:`** — `MaterialApp` chỉ có `builder` + `theme` mà KHÔNG có `home` ⇒ Navigator rỗng ⇒ Flutter render khung trắng tinh (không crash, không log). Đây là lỗi code thuần túy, giải thích vì sao `gh-pages` deploy **thành công** (CI xanh) nhưng trang vẫn trắng. Fix: thêm `home: const WebHomeScreen()` + sửa `builder` dùng `ValueListenableBuilder<String?>` + `Stack` (thay `Column+Expanded` có thể gây lỗi layout) để hiện lỗi khởi động nếu có.
+  2. **Trang trắng — thiếu `web/index.html` loader** — khi Flutter chưa kịp khởi tạo (JS đang tải/CDN chậm/SW cũ kẹt) thì trang hoàn toàn trắng, user không biết đang tải hay đã lỗi. Fix: thêm `#in4up-loader` (spinner tím #6C63FF + chữ \"In4Up đang khởi tạo…\" + gợi ý hard-reload) trong `web/index.html`; Flutter sẽ thay thế toàn bộ body khi sẵn sàng. Thêm `window.addEventListener('error')` + timeout 12s để báo lỗi thay vì trắng.
+  3. **Trang trắng — thiếu `.nojekyll`** — `gh-pages` không có file `.nojekyll` ⇒ GitHub Pages chạy Jekyll ⇒ có thể xử lý sai assets (Jekyll bỏ qua file `_` và xử lý Liquid). Fix: `deploy-web.yml` tạo `build/web/.nojekyll` và `touch /tmp/pages/.nojekyll` trước push.
+  4. **YouTube -1 — chủ yếu do test ID `\"…\"`** — owner test bằng `?videoId=…` (dấu ba chấm) ⇒ ID không hợp lệ (YouTube ID phải 11 ký tự `[A-Za-z0-9_-]`) ⇒ YouTube trả -1 là **đúng**. Fix `web/yt_embed.html` v2: thêm `isValidId()` check, báo `bad-video-id` rõ ràng (hướng dẫn \"dùng ID 11 ký tự, vd dQw4w9WgXcQ\"), thêm `widget_referrer`, dọn `yt` container trước fallback, thêm `?debug=1` overlay, timeout 8s cho API không load, và log chi tiết. **Lưu ý owner:** test lại bằng ID thật (vd `dQw4w9WgXcQ` — Rick Astley) thay vì `…`.
+- **Đã làm:**
+  - `lib/main_web.dart`: `String? _fatalError` → `ValueNotifier<String?>` + `home:` + `builder` Stack + `SelectableText` cho lỗi.
+  - `web/index.html`: thêm CSS + `#in4up-loader` + script error/timeout.
+  - `web/yt_embed.html`: v2 — validate ID, hint, widget_referrer, dọn container, debug overlay, timeout, fallback cải tiến.
+  - `.github/workflows/deploy-web.yml`: `touch build/web/.nojekyll` + check loader + `touch /tmp/pages/.nojekyll`.
+  - `docs/project/KANBAN.md`: card này.
+- **Cách nghiệm thu (owner, sau khi CI xanh):**
+  1. Hard-reload trang web: **Ctrl+Shift+R** (hoặc DevTools → Application → Clear storage → Reload) — SW cũ đã cache bản trắng cũ.
+  2. Mở `https://pabhassaracitto.github.io/In4Up/` → phải thấy spinner \"In4Up đang khởi tạo…\" ~1-2s rồi vào màn \"Dán văn bản để đọc\" (không trắng).
+  3. Mở `…/yt_embed.html?videoId=dQw4w9WgXcQ` → video phát được (không -1). Mở `?videoId=…` → báo `bad-video-id` (không -1 mù mờ). Thêm `&debug=1` để xem log.
+- **Lịch sử:**
+  - 2026-10-22 | reported→doing | owner báo \"vẫn trắng, vẫn lỗi -1\" sau deploy 202931b
+  - 2026-10-22 | doing | agent arena/01a0251e-in4up | tìm ra thiếu `home:` là root cause trắng + thêm loader/.nojekyll/yt_embed v2; chờ CI + hard-reload

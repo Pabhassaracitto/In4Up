@@ -81,10 +81,16 @@ jobs:
       - name: Preserve Flutter's client-side routing on GitHub Pages
         run: cp build/web/index.html build/web/404.html
 
+      - name: Thêm .nojekyll để Pages không chạy Jekyll (cần cho Flutter web)
+        run: |
+          touch build/web/.nojekyll
+          echo "Đã tạo build/web/.nojekyll"
+
       - name: Kiểm tra artifact web
         run: |
           set -e
           test -f build/web/index.html || { echo "::error::thiếu build/web/index.html"; exit 1; }
+          test -f build/web/.nojekyll || { echo "::warning::thiếu .nojekyll"; }
           # Tên file JS là do Flutter sinh ra theo target ⇒ tự nhận diện thay
           # vì hard-code (dễ vỡ khi đổi tên entrypoint).
           JS=$(ls build/web/*.dart.js 2>/dev/null | head -1 || true)
@@ -99,7 +105,13 @@ jobs:
             grep -q "$(basename "$JS")" build/web/flutter_bootstrap.js \
               || echo "::warning::flutter_bootstrap.js không nhắc $(basename "$JS") — trang có thể trắng sau khi deploy."
           fi
-          echo "OK: build/web có index.html + $(basename "$JS")"
+          # Kiểm tra loader mới (không trắng)
+          if grep -q "in4up-loader" build/web/index.html; then
+            echo "::notice::index.html có loader (đã fix trắng)"
+          else
+            echo "::warning::index.html thiếu loader — trang có thể trắng khi lỗi"
+          fi
+          echo "OK: build/web có index.html + $(basename "$JS") + .nojekyll"
 
       - name: Publish to gh-pages (giữ nguyên file khác, vd wrapper YouTube)
         env:
@@ -110,7 +122,10 @@ jobs:
           git clone --depth 1 --branch gh-pages \
             "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/pages
           # `cp -r` KHÔNG --delete ⇒ file cũ (yt_embed.html) còn nguyên.
+          # Nhưng lần này đảm bảo .nojekyll luôn có (Jekyll tắt).
           cp -r build/web/. /tmp/pages/
+          # Đảm bảo .nojekyll tồn tại ngay cả khi build không tạo (phòng thủ)
+          touch /tmp/pages/.nojekyll
           cd /tmp/pages
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

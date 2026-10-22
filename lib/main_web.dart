@@ -42,17 +42,17 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// Lỗi chạy lúc khởi động (nếu có) — hiện NGAY trên trang thay vì trang
 /// trắng, để owner thấy nguyên nhân mà không cần mở DevTools.
-String? _fatalError;
+final ValueNotifier<String?> _fatalError = ValueNotifier<String?>(null);
 
 void main() {
   FlutterError.onError = (details) {
-    _fatalError ??= details.exceptionAsString();
+    _fatalError.value ??= details.exceptionAsString();
     FlutterError.presentError(details);
   };
   runZonedGuarded(
     () => runApp(const In4UpWebApp()),
     (error, stack) {
-      _fatalError ??= error.toString();
+      _fatalError.value ??= error.toString();
     },
   );
 }
@@ -84,24 +84,37 @@ class In4UpWebApp extends StatelessWidget {
       },
       supportedLocales: AppLocalizations.supportedLocales,
       theme: _theme(),
+      // TRẮNG: MaterialApp KHÔNG có `home` ⇒ Navigator rỗng ⇒ trắng.
+      // Đã fix: thêm `home` + builder hiển thị lỗi khởi động bằng Stack.
+      home: const WebHomeScreen(),
       builder: (context, child) {
-        final err = _fatalError;
-        if (err == null) return child ?? const SizedBox.shrink();
-        // Trang trắng là triệu chứng khó chịu nhất ⇒ hiện lỗi luôn.
-        return Column(
-          children: [
-            Expanded(child: child ?? const SizedBox.shrink()),
-            Material(
-              color: const Color(0xFFEF4444),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Text(
-                  err,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+        // Lắng nghe lỗi khởi động (ValueNotifier) ⇒ hiện banner đỏ bên trên.
+        return ValueListenableBuilder<String?>(
+          valueListenable: _fatalError,
+          builder: (ctx, err, _) {
+            if (err == null) return child ?? const SizedBox.shrink();
+            return Stack(
+              children: [
+                if (child != null) child,
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Material(
+                    color: const Color(0xFFEF4444),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: SelectableText(
+                        err,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

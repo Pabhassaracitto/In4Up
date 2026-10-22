@@ -103,7 +103,9 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
     final bottomInset = math.max(media.padding.bottom, media.viewInsets.bottom);
     final reservedBottom =
         bottomInset + kBottomNavigationBarHeight + shellBottomGap;
-    final maxX = math.max(10.0, screenSize.width - 90.0);
+    final expandedWidth = math.min(220.0, math.max(54.0, screenSize.width - 32.0));
+    final currentWidth = _isExpanded ? expandedWidth : 54.0;
+    final maxX = math.max(10.0, screenSize.width - currentWidth - 10.0);
     final maxY = math.max(topInset, screenSize.height - reservedBottom - bubbleHeight);
     final pos = Offset(
       _position.dx.clamp(10.0, maxX),
@@ -132,7 +134,7 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
-          width: _isExpanded ? 220 : 54,
+          width: currentWidth,
           height: 54,
           decoration: BoxDecoration(
             color: const Color(0xFF101B2B).withValues(alpha: _isExpanded ? 0.95 : 0.88),

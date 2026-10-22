@@ -50,6 +50,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Debug nguồn web trước build
+        run: |
+          echo "### web/index.html nguồn (trước build)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```html' >> "$GITHUB_STEP_SUMMARY"
+          grep -c "in4up-loader" web/index.html && echo "source has loader: YES" >> "$GITHUB_STEP_SUMMARY" || echo "source has loader: NO" >> "$GITHUB_STEP_SUMMARY"
+          head -50 web/index.html >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "web/yt_embed.html v2 check: $(grep -c isValidId web/yt_embed.html || echo 0)" >> "$GITHUB_STEP_SUMMARY"
+          cat web/index.html | head -30 | sed 's/%/%25/g' | while IFS= read -r l; do echo "::notice::SRC $l"; done || true
+
       - name: Build web app
         # GitHub chạy bash với `-e -o pipefail` ⇒ `grep` rỗng sẽ ABORT step
         # trước khi phát annotation ⇒ tắt `-e` trong step này.
@@ -62,7 +72,7 @@ jobs:
           {
             echo "### flutter build web — exit code $code"
             echo '```'
-            head -50 build_web.log
+            head -100 build_web.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY" || true
           if [ "$code" != "0" ]; then
@@ -71,6 +81,12 @@ jobs:
             exit 1
           fi
           echo "::notice title=flutter build web::build OK (main_web.dart.js)"
+          echo "### build/web/index.html sau build" >> "$GITHUB_STEP_SUMMARY"
+          echo '```html' >> "$GITHUB_STEP_SUMMARY"
+          grep -c "in4up-loader" build/web/index.html && echo "build has loader: YES" >> "$GITHUB_STEP_SUMMARY" || echo "build has loader: NO" >> "$GITHUB_STEP_SUMMARY"
+          head -60 build/web/index.html >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh build/web/index.html build/web/yt_embed.html build/web/.nojekyll 2>&1 >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Dừng nếu build web lỗi
         # `outcome` = failure khi step build lỗi (dù continue-on-error) ⇒ chỉ

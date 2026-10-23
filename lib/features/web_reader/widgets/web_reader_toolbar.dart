@@ -1,27 +1,35 @@
-import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../../../models/color_mode.dart';
 import '../web_reader_controller.dart';
 
 class WebReaderToolbar extends StatefulWidget {
   final WebReaderController controller;
+  final VoidCallback onExit;
   final Function(String url) onNavigate;
+  final VoidCallback onRefresh;
+  final VoidCallback onTranslatePage;
   final VoidCallback onExtractText;
   final VoidCallback onSavePageToCollection;
   final VoidCallback onOpenGrammarSettings;
   final VoidCallback onListenArticle;
+  final ValueChanged<String> onPageAction;
   final bool showingDashboard;
   final bool writingMode;
 
   const WebReaderToolbar({
     super.key,
     required this.controller,
+    required this.onExit,
     required this.onNavigate,
+    required this.onRefresh,
+    required this.onTranslatePage,
     required this.onExtractText,
     required this.onSavePageToCollection,
     required this.onOpenGrammarSettings,
     required this.onListenArticle,
+    required this.onPageAction,
     required this.showingDashboard,
     this.writingMode = false,
   });
@@ -38,18 +46,28 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
   @override
   void initState() {
     super.initState();
+    _urlCtrl.text = widget.controller.currentUrl;
     widget.controller.addListener(_onControllerUpdate);
   }
 
   void _onControllerUpdate() {
-    if (!_isEditing && mounted) {
+    if (!mounted) return;
+    if (!_isEditing && _urlCtrl.text != widget.controller.currentUrl) {
       _urlCtrl.text = widget.controller.currentUrl;
     }
+    // Toolbar actions, history buttons, and the load indicator are all driven
+    // by controller state, so refresh this compact row on controller updates.
+    setState(() {});
   }
 
   @override
   void didUpdateWidget(covariant WebReaderToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerUpdate);
+      widget.controller.addListener(_onControllerUpdate);
+      if (!_isEditing) _urlCtrl.text = widget.controller.currentUrl;
+    }
     if (!oldWidget.showingDashboard &&
         widget.showingDashboard &&
         !_isEditing &&
@@ -81,7 +99,14 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
         !widget.showingDashboard && ctrl.state == WebReaderState.ready;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+      // The old screen AppBar is folded into this one compact row. Keep the
+      // status-bar inset here so the browser still respects mobile safe areas.
+      padding: EdgeInsets.fromLTRB(
+        6,
+        MediaQuery.of(context).padding.top + 2,
+        6,
+        4,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1117),
         border: Border(
@@ -94,29 +119,20 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
           Row(
             children: [
               _ToolbarBtn(
-                icon: Icons.home_outlined,
-                size: 20,
+                icon: Icons.close_rounded,
+                size: 19,
                 enabled: true,
-                isActive: widget.showingDashboard,
-                onTap: () => widget.onNavigate(''),
-                tooltip: context.uiText('Trang chủ Dashboard'),
+                onTap: widget.onExit,
+                tooltip: context.uiText('Quay lại'),
               ),
-              const SizedBox(width: 2),
               _ToolbarBtn(
-                icon: Icons.arrow_back_ios_new,
-                size: 16,
+                icon: Icons.arrow_back_rounded,
+                size: 18,
                 enabled: !widget.showingDashboard && ctrl.canGoBack,
                 onTap: () => widget.onNavigate('__back__'),
                 tooltip: context.uiText('Trang trước'),
               ),
-              _ToolbarBtn(
-                icon: Icons.arrow_forward_ios,
-                size: 16,
-                enabled: !widget.showingDashboard && ctrl.canGoForward,
-                onTap: () => widget.onNavigate('__forward__'),
-                tooltip: context.uiText('Trang sau'),
-              ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               Expanded(
                 child: GestureDetector(
                   onTap: () {
@@ -129,10 +145,10 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                   },
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(9),
                       border: Border.all(
                         color: _isEditing
                             ? const Color(0xFF2196F3).withValues(alpha: 0.5)
@@ -150,13 +166,15 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                               ? const Color(0xFF4CAF50)
                               : Colors.grey,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 5),
                         Expanded(
                           child: TextField(
                             controller: _urlCtrl,
                             focusNode: _focusNode,
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                             decoration: InputDecoration(
                               hintText: context.uiText(
                                 widget.showingDashboard
@@ -164,7 +182,9 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                                     : 'URL hoặc tìm kiếm...',
                               ),
                               hintStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 12),
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
@@ -181,87 +201,36 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
                               _urlCtrl.clear();
                               setState(() => _isEditing = true);
                             },
-                            child: const Icon(Icons.close,
-                                size: 14, color: Colors.grey),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
                           ),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              _ColorModeButton(controller: ctrl, enabled: pageActionsEnabled),
+              const SizedBox(width: 2),
+              _ColorModeButton(
+                controller: ctrl,
+                enabled: pageActionsEnabled,
+              ),
               _ToolbarBtn(
-                icon: ctrl.showRecallMarkers
-                    ? Icons.visibility
-                    : Icons.visibility_outlined,
-                size: 16,
-                enabled: true,
-                isActive: ctrl.showRecallMarkers,
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  ctrl.toggleRecallMarkers();
-                },
+                icon: Icons.translate_rounded,
+                size: 18,
+                enabled: pageActionsEnabled,
+                onTap: widget.onTranslatePage,
                 activeThumbColor: const Color(0xFF66BB6A),
-                tooltip: context.uiText(
-                  'Đánh dấu từ đã lưu (bật/tắt marker: xanh = đã lưu, '
-                  'vàng = có ghi chú, đỏ = đến kỳ ôn)',
-                ),
+                tooltip: context.uiText('Dịch trang'),
               ),
-              if (pageActionsEnabled && ctrl.colorMode == ColorMode.wordType)
-                _ToolbarBtn(
-                  icon: Icons.auto_awesome_motion,
-                  size: 18,
-                  enabled: true,
-                  isActive: ctrl.grammarSettings.enabled,
-                  onTap: widget.onOpenGrammarSettings,
-                  tooltip: context.uiText('Cài đặt từ loại chuyên sâu'),
-                  activeThumbColor: const Color(0xFF6C63FF),
-                ),
-              _ToolbarBtn(
-                icon: ctrl.isSpeaking ? Icons.volume_up : Icons.headphones_outlined,
-                size: 18,
-                enabled: pageActionsEnabled,
-                isActive: ctrl.isSpeaking,
-                onTap: widget.onListenArticle,
-                tooltip: ctrl.isSpeaking
-                    ? 'Mở điều khiển nghe bài'
-                    : 'Nghe bài web',
-                activeThumbColor: const Color(0xFFFFB74D),
-              ),
-              _ToolbarBtn(
-                icon: widget.writingMode
-                    ? Icons.edit_square
-                    : Icons.text_fields,
-                size: 18,
-                enabled: pageActionsEnabled,
-                onTap: widget.onExtractText,
-                tooltip: widget.writingMode
-                    ? 'Dùng cả bài làm nguồn luyện Viết'
-                    : 'Mở trong Text Studio',
-                activeThumbColor: widget.writingMode
-                    ? const Color(0xFF26C6DA)
-                    : const Color(0xFF2196F3),
-              ),
-              _ToolbarBtn(
-                icon: Icons.playlist_add,
-                size: 18,
-                enabled: pageActionsEnabled,
-                onTap: widget.onSavePageToCollection,
-                tooltip: context.uiText('Lưu trang hiện tại vào nhóm'),
-                activeThumbColor: const Color(0xFF66BB6A),
-              ),
-              _ToolbarBtn(
-                icon: ctrl.isBookmarked(ctrl.currentUrl)
-                    ? Icons.bookmark
-                    : Icons.bookmark_border,
-                size: 18,
-                enabled: pageActionsEnabled,
-                onTap: ctrl.toggleBookmark,
-                activeThumbColor: Colors.amber,
-                isActive:
-                    pageActionsEnabled && ctrl.isBookmarked(ctrl.currentUrl),
-                tooltip: context.uiText('Bookmark trang hiện tại'),
+              PopupMenuButton<String>(
+                tooltip: context.uiText('Tác vụ bài đọc'),
+                color: const Color(0xFF151B26),
+                icon: const Icon(Icons.more_vert, color: Colors.white70, size: 21),
+                onSelected: _handleMenuAction,
+                itemBuilder: _buildMenuItems,
               ),
             ],
           ),
@@ -280,6 +249,180 @@ class _WebReaderToolbarState extends State<WebReaderToolbar> {
       ),
     );
   }
+
+  List<PopupMenuEntry<String>> _buildMenuItems(BuildContext context) {
+    final ctrl = widget.controller;
+    final pageActionsEnabled =
+        !widget.showingDashboard && ctrl.state == WebReaderState.ready;
+    final items = <PopupMenuEntry<String>>[
+      _menuItem(context, '__home__', Icons.home_outlined, 'Trang chủ Dashboard'),
+      if (ctrl.canGoForward)
+        _menuItem(context, '__forward__', Icons.arrow_forward_rounded, 'Trang sau'),
+      if (!widget.showingDashboard)
+        _menuItem(context, '__refresh__', Icons.refresh_rounded, 'Tải lại trang'),
+      const PopupMenuDivider(),
+      _menuItem(
+        context,
+        '__recall__',
+        ctrl.showRecallMarkers ? Icons.visibility : Icons.visibility_outlined,
+        'Đánh dấu từ đã lưu (bật/tắt marker: xanh = đã lưu, vàng = có ghi chú, đỏ = đến kỳ ôn)',
+        enabled: !widget.showingDashboard,
+      ),
+      if (pageActionsEnabled && ctrl.colorMode == ColorMode.wordType)
+        _menuItem(
+          context,
+          '__grammar__',
+          Icons.auto_awesome_motion,
+          'Cài đặt từ loại chuyên sâu',
+        ),
+      _menuItem(
+        context,
+        '__listen__',
+        ctrl.isSpeaking ? Icons.headphones : Icons.headphones_outlined,
+        ctrl.isSpeaking ? 'Mở điều khiển nghe bài' : 'Nghe bài web',
+        enabled: pageActionsEnabled,
+      ),
+      _menuItem(
+        context,
+        '__extract__',
+        widget.writingMode ? Icons.edit_square : Icons.text_fields,
+        widget.writingMode
+            ? 'Dùng cả bài làm nguồn luyện Viết'
+            : 'Mở trong Text Studio',
+        enabled: pageActionsEnabled,
+      ),
+      _menuItem(
+        context,
+        '__collection__',
+        Icons.playlist_add,
+        'Lưu trang hiện tại vào nhóm',
+        enabled: pageActionsEnabled,
+      ),
+      _menuItem(
+        context,
+        '__bookmark__',
+        ctrl.isBookmarked(ctrl.currentUrl)
+            ? Icons.bookmark
+            : Icons.bookmark_border,
+        ctrl.isBookmarked(ctrl.currentUrl)
+            ? 'Bỏ bookmark trang hiện tại'
+            : 'Bookmark trang hiện tại',
+        enabled: pageActionsEnabled,
+      ),
+    ];
+
+    if (pageActionsEnabled) {
+      items.add(const PopupMenuDivider());
+      items.add(_menuItem(
+        context,
+        'pinArticle',
+        Icons.push_pin_outlined,
+        ctrl.isArticlePinned(ctrl.currentUrl)
+            ? 'Bỏ ghim bài này'
+            : 'Ghim bài này',
+      ));
+      items.add(_menuItem(
+        context,
+        'toggleCompleted',
+        Icons.check_circle_outline,
+        ctrl.isArticleCompleted(ctrl.currentUrl)
+            ? 'Đánh dấu chưa đọc xong'
+            : 'Đánh dấu đọc xong',
+      ));
+      items.add(_menuItem(
+        context,
+        'editNote',
+        Icons.sticky_note_2_outlined,
+        ctrl.hasArticleNote(ctrl.currentUrl)
+            ? 'Sửa ghi chú bài này'
+            : 'Thêm ghi chú bài này',
+      ));
+      items.add(_menuItem(
+        context,
+        'batchPage',
+        Icons.playlist_add_check,
+        'Tạo batch WordList từ bài này',
+      ));
+      items.add(_menuItem(
+        context,
+        'saveAudio',
+        Icons.audio_file_outlined,
+        'Lưu bài đọc thành âm thanh',
+      ));
+    }
+    return items;
+  }
+
+  PopupMenuItem<String> _menuItem(
+    BuildContext context,
+    String value,
+    IconData icon,
+    String label, {
+    bool enabled = true,
+  }) {
+    final itemWidth =
+        (MediaQuery.sizeOf(context).width - 64).clamp(180.0, 280.0).toDouble();
+    return PopupMenuItem<String>(
+      value: value,
+      enabled: enabled,
+      child: SizedBox(
+        width: itemWidth,
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: enabled ? Colors.white70 : Colors.grey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.uiText(label),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: enabled ? Colors.white : Colors.grey,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleMenuAction(String value) {
+    switch (value) {
+      case '__home__':
+        widget.onNavigate('');
+        break;
+      case '__forward__':
+        widget.onNavigate('__forward__');
+        break;
+      case '__refresh__':
+        widget.onRefresh();
+        break;
+      case '__recall__':
+        HapticFeedback.selectionClick();
+        widget.controller.toggleRecallMarkers();
+        break;
+      case '__grammar__':
+        widget.onOpenGrammarSettings();
+        break;
+      case '__listen__':
+        widget.onListenArticle();
+        break;
+      case '__extract__':
+        widget.onExtractText();
+        break;
+      case '__collection__':
+        widget.onSavePageToCollection();
+        break;
+      case '__bookmark__':
+        widget.controller.toggleBookmark();
+        break;
+      default:
+        widget.onPageAction(value);
+        break;
+    }
+  }
 }
 
 class _ColorModeButton extends StatelessWidget {
@@ -292,8 +435,9 @@ class _ColorModeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isActive = enabled && controller.colorMode != ColorMode.none;
     final showLabel = isActive && MediaQuery.of(context).size.width >= 430;
-    final showGrammarBadge =
-        isActive && controller.colorMode == ColorMode.wordType && controller.grammarSettings.enabled;
+    final showGrammarBadge = isActive &&
+        controller.colorMode == ColorMode.wordType &&
+        controller.grammarSettings.enabled;
     return GestureDetector(
       onTap: enabled
           ? () {

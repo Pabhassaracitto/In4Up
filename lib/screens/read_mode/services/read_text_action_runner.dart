@@ -171,6 +171,7 @@ class ReadTextActionRunner {
           lineText: lineText,
           anchorStart: anchorStart,
           anchorEnd: anchorStart + target.text.length,
+          palette: tp.activeGrammarPalette,
         );
         return;
 

@@ -14,8 +14,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
 import '../../features/grammar/grammar.dart';
-import '../../features/translation/translation_service.dart';
 import '../../features/writing/models/writing_source_request.dart';
+import '../../screens/read_mode/sheets/read_selection_sheets.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
 import '../../providers/player_provider.dart';
@@ -24,6 +24,7 @@ import '../../widgets/selection_save_sheet.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
 import 'widgets/web_extraction_batch_sheet.dart';
+import 'widgets/web_page_translate_sheet.dart';
 import 'widgets/web_reader_home_view.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
@@ -444,6 +445,58 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       debugPrint('WebReaderScreen: extract error: $e');
       return null;
     }
+  }
+
+  Future<String?> _extractPageText() async {
+    try {
+      final raw = await _runJSReturning(WebReaderJS.extractPageTextScript);
+      if (raw == null) return null;
+
+      var text = raw.toString();
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is String) text = decoded;
+      } catch (_) {
+        // Some WebView implementations return an already-unquoted string.
+      }
+      final paragraphs = text
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .split(RegExp(r'\n\s*\n+'))
+          .map((paragraph) => paragraph
+              .replaceAll(RegExp(r'\n+'), ' ')
+              .replaceAll(RegExp(r' +'), ' ')
+              .trim())
+          .where((paragraph) => paragraph.isNotEmpty)
+          .toList();
+      text = paragraphs.join('\n\n');
+      return text.isEmpty ? null : text;
+    } catch (e) {
+      debugPrint('WebReaderScreen: page text extract error: $e');
+      return null;
+    }
+  }
+
+  Future<void> _translatePage() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+
+    final text = await _extractPageText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack(context.uiText('Không tìm thấy văn bản trong trang.'));
+      return;
+    }
+
+    final textProvider = context.read<TextProvider>();
+    await WebPageTranslateSheet.show(
+      context,
+      text: text,
+      targetCode: textProvider.translationTargetLanguage.translationCode,
+      sourceCode: textProvider.translationSourceIsPinned
+          ? textProvider.translationSourceLanguage.translationCode
+          : null,
+      sourceTitle: _controller.pageTitle,
+    );
   }
 
   Future<void> _listenToArticle() async {
@@ -1010,42 +1063,19 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
-  /// Dịch đoạn đang chọn bằng TranslationService (đa engine, có cache).
-  /// Đích dịch theo ngôn ngữ UI của app (vi → Việt, còn lại → English).
+  /// Dịch cụm đang bôi chọn, dùng chung cặp ngôn ngữ và sheet dịch của tab Đọc.
   Future<void> _translateSelection() async {
     final selection = _selectionText.trim();
     if (selection.isEmpty || _showDashboard) return;
-    _showSnack(context.uiText('⏳ Đang dịch đoạn chọn…'), duration: 1);
-    final target =
-        Localizations.localeOf(context).languageCode == 'vi' ? 'vi' : 'en';
-    final ts = TranslationService();
-    ts.configure(sourceLang: 'AUTO', targetLang: target);
-    final result = await ts.translateText(selection);
-    if (!mounted) return;
-    final translated = result.translatedText.trim();
-    if (!result.isSuccess || translated.isEmpty) {
-      _showSnack(context.uiText('❌ Không dịch được đoạn chọn'));
-      return;
-    }
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2235),
-        title: Text(context.uiText('Bản dịch'),
-            style: const TextStyle(color: Colors.white, fontSize: 14)),
-        content: SelectableText(
-          translated,
-          style: const TextStyle(
-              color: Colors.white70, fontSize: 13, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.uiText('Đóng'),
-                style: TextStyle(color: Colors.grey[500])),
-          ),
-        ],
-      ),
+
+    final textProvider = context.read<TextProvider>();
+    await ReadSelectionTranslateSheet.show(
+      context,
+      text: selection,
+      targetCode: textProvider.translationTargetLanguage.translationCode,
+      sourceCode: textProvider.translationSourceIsPinned
+          ? textProvider.translationSourceLanguage.translationCode
+          : null,
     );
   }
 
@@ -1144,6 +1174,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _extractTextToStudio();
         }
         break;
+      case 'saveAudio':
+        _saveArticleAsAudio();
+        break;
     }
   }
 
@@ -1178,107 +1211,24 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Colors.white, size: 18),
-          onPressed: () => Navigator.pop(context),
-          tooltip: context.uiText('Quay lại'),
-        ),
-        titleSpacing: 0,
-        title: !_showDashboard && _controller.state == WebReaderState.loading
-            ? LinearProgressIndicator(
-                value: _controller.loadingProgress < 1.0
-                    ? _controller.loadingProgress
-                    : null,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF2196F3)),
-                minHeight: 2,
-              )
-            : widget.writingMode
-                ? const _WritingModeTitle()
-                : null,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
-            onPressed: _showDashboard || _controller.currentUrl.isEmpty
-                ? null
-                : () {
-                    final url = _controller.currentUrl;
-                    if (url.isNotEmpty) {
-                      _navigate(url);
-                    }
-                  },
-          ),
-          if (!_showDashboard && _controller.currentUrl.isNotEmpty)
-            PopupMenuButton<String>(
-              color: const Color(0xFF151B26),
-              tooltip: context.uiText('Tác vụ bài đọc'),
-              onSelected: _handlePageAction,
-              itemBuilder: (context) {
-                final isPinned =
-                    _controller.isArticlePinned(_controller.currentUrl);
-                final isCompleted =
-                    _controller.isArticleCompleted(_controller.currentUrl);
-                return [
-                  PopupMenuItem(
-                    value: 'pinArticle',
-                    child: Text(isPinned ? 'Bỏ ghim bài này' : 'Ghim bài này'),
-                  ),
-                  PopupMenuItem(
-                    value: 'toggleCompleted',
-                    child: Text(
-                      isCompleted
-                          ? 'Đánh dấu chưa đọc xong'
-                          : 'Đánh dấu đọc xong',
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'editNote',
-                    child: Text(
-                      _controller.hasArticleNote(_controller.currentUrl)
-                          ? 'Sửa ghi chú bài này'
-                          : 'Thêm ghi chú bài này',
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'batchPage',
-                    child: Text('Tạo batch WordList từ bài này'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'saveToCollection',
-                    child: Text('Lưu vào nhóm'),
-                  ),
-                  PopupMenuItem(
-                    value: 'extractText',
-                    child: Text(
-                      widget.writingMode
-                          ? 'Dùng cả bài để luyện Viết'
-                          : 'Mở trong Text Studio',
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'saveAudio',
-                    child: Text(context.uiText('Lưu bài đọc thành âm thanh')),
-                  ),
-                ];
-              },
-            ),
-        ],
-      ),
       body: Column(
         children: [
           WebReaderToolbar(
             controller: _controller,
+            onExit: () => Navigator.pop(context),
             onNavigate: _navigate,
+            onRefresh: () {
+              final url = _controller.currentUrl;
+              if (url.isNotEmpty) _navigate(url);
+            },
+            onTranslatePage: _translatePage,
             onExtractText: widget.writingMode
                 ? _sendArticleToWriting
                 : _extractTextToStudio,
             onSavePageToCollection: _saveCurrentPageToCollection,
             onOpenGrammarSettings: _openGrammarSettings,
             onListenArticle: _listenToArticle,
+            onPageAction: _handlePageAction,
             showingDashboard: _showDashboard,
             writingMode: widget.writingMode,
           ),
@@ -1486,6 +1436,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             onTap: () => _controller.speakText(_selectionText),
           ),
           const SizedBox(width: 6),
+          _SelectionActionButton(
+            icon: Icons.translate_rounded,
+            tooltip: context.uiText('Dịch đoạn đang chọn'),
+            onTap: _translateSelection,
+          ),
+          const SizedBox(width: 6),
           _SelectionMoreButton(
             onSaveToWordList: _saveSelectionToWordList,
             onSaveToMemory: _saveSelectionToMemory,
@@ -1504,44 +1460,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _WritingModeTitle extends StatelessWidget {
-  const _WritingModeTitle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: const Color(0xFF26C6DA).withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: const Color(0xFF26C6DA).withValues(alpha: 0.32),
-            ),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.edit_square, color: Color(0xFF80DEEA), size: 14),
-              SizedBox(width: 6),
-              Text(
-                'Nguồn cho Viết',
-                style: TextStyle(
-                  color: Color(0xFF80DEEA),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

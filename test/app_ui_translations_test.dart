@@ -156,6 +156,45 @@ void main() {
       expect(find.text('10 minutes'), findsOneWidget);
     });
 
+    test('localizes I4U 1.13.1 Web Reader and compact Read controls', () {
+      const cases = {
+        'Dịch trang': 'Translate page',
+        'Dừng dịch': 'Stop translation',
+        'Đang dừng dịch…': 'Stopping translation…',
+        'Đã dừng dịch': 'Translation stopped',
+        'Đang dịch trang…': 'Translating page…',
+        'Đã dịch xong': 'Translation complete',
+        'Một số đoạn chưa dịch được.': 'Some segments could not be translated.',
+        'Không tìm thấy văn bản trong trang.': 'No text was found on this page.',
+        'Dịch từ': 'Translate word',
+        'Mở công cụ đọc': 'Show reading controls',
+        'Công cụ đọc': 'Reading tools',
+        'Thoát Focus': 'Exit focus',
+        'Tải lại trang': 'Reload page',
+        'Đánh dấu từ đã lưu (bật/tắt marker: xanh = đã lưu, vàng = có ghi chú, đỏ = đến kỳ ôn)':
+            'Show saved-word markers (green = saved, yellow = notes, red = due for review)',
+        'Mở điều khiển nghe bài': 'Open article audio controls',
+        'Nghe bài web': 'Listen to web article',
+        'Bỏ bookmark trang hiện tại': 'Remove bookmark from current page',
+        'Bật lại tất cả': 'Re-enable all',
+        'Dịch lại': 'Retranslate',
+        'Trang sau': 'Next page',
+        'Chưa dịch được đoạn này. Kiểm tra engine dịch hoặc kết nối mạng.':
+            'Could not translate this text. Check the translation engine or your connection.',
+      };
+
+      for (final entry in cases.entries) {
+        expect(AppUITranslations.translate(entry.key, 'en'), entry.value);
+        for (final locale in ['hi', 'zh', 'zh_TW', 'si']) {
+          expect(
+            AppUITranslations.translate(entry.key, locale),
+            isNot(entry.key),
+            reason: '${entry.key} should have a reviewed $locale translation',
+          );
+        }
+      }
+    });
+
     test('keeps Vietnamese unchanged when Vietnamese is selected', () {
       expect(AppUITranslations.translate('Lưu', 'vi-VN'), 'Lưu');
       expect(AppUITranslations.translate('Dòng 2/14', 'vi'), 'Dòng 2/14');

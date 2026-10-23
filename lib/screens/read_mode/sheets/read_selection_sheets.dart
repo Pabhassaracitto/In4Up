@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/language/app_language.dart';
 import '../../../features/grammar/models/grammar_category.dart';
+import '../../../features/grammar/models/grammar_palette.dart';
 import '../../../features/grammar/services/grammar_analysis_service.dart';
 import '../../../features/grammar/widgets/structure_section.dart';
 import '../../../features/translation/engines/translation_engine.dart';
@@ -78,9 +79,11 @@ class ReadSelectionTranslateSheet extends StatefulWidget {
     required this.targetCode,
     this.sourceCode,
     this.service,
+    this.titleText = 'Dịch đoạn đang chọn',
   });
 
   final String text;
+  final String titleText;
 
   /// Mã ngôn ngữ đích (`VI`, `EN`…) — lấy từ TextProvider để đúng lựa chọn
   /// của người dùng trong toolbar dịch.
@@ -97,6 +100,7 @@ class ReadSelectionTranslateSheet extends StatefulWidget {
     required String text,
     required String targetCode,
     String? sourceCode,
+    String titleText = 'Dịch đoạn đang chọn',
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -109,6 +113,7 @@ class ReadSelectionTranslateSheet extends StatefulWidget {
         text: text,
         targetCode: targetCode,
         sourceCode: sourceCode,
+        titleText: titleText,
       ),
     );
   }
@@ -173,7 +178,7 @@ class _ReadSelectionTranslateSheetState
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${context.uiText('Dịch đoạn đang chọn')} · ${target.flag} ${target.nativeName}',
+                  '${context.uiText(widget.titleText)} · ${target.flag} ${target.nativeName}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -284,9 +289,11 @@ class ReadSelectionGrammarSheet extends StatelessWidget {
     required this.lineText,
     required this.anchorStart,
     required this.anchorEnd,
+    required this.palette,
   });
 
   final String text;
+  final GrammarPalette palette;
 
   /// Dòng chứa đoạn đã chọn (để phân tích cấu trúc câu quanh đoạn đó).
   final String lineText;
@@ -299,6 +306,7 @@ class ReadSelectionGrammarSheet extends StatelessWidget {
     required String lineText,
     required int anchorStart,
     required int anchorEnd,
+    required GrammarPalette palette,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -312,6 +320,7 @@ class ReadSelectionGrammarSheet extends StatelessWidget {
         lineText: lineText,
         anchorStart: anchorStart,
         anchorEnd: anchorEnd,
+        palette: palette,
       ),
     );
   }
@@ -379,17 +388,22 @@ class ReadSelectionGrammarSheet extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7E57C2).withValues(alpha: 0.12),
+                        color: palette
+                            .styleFor(entry.key)
+                            .color
+                            .withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color:
-                              const Color(0xFF7E57C2).withValues(alpha: 0.25),
+                          color: palette
+                              .styleFor(entry.key)
+                              .color
+                              .withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(
                         '${context.uiText(entry.key.labelVi)} · ${entry.value}',
-                        style: const TextStyle(
-                          color: Color(0xFFD1C4E9),
+                        style: TextStyle(
+                          color: palette.styleFor(entry.key).color,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
                         ),

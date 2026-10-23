@@ -100,8 +100,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   Timer? _readingHeartbeat;
   String? _readingSessionFileId;
 
-  // Smart-hide bottom controls
-  bool _bottomControlsVisible = true;
+  // Smart-hide all reader chrome together; start compact and keep a reveal affordance.
+  bool _readerChromeVisible = false;
 
   /// IN4-30 (READ-FOCUS-002): vị trí phần TIÊU ĐỀ khi ở chế độ Focus —
   /// 'hidden' (mặc định) | 'top' | 'bottom'.
@@ -333,7 +333,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
             children: [
               Column(
                 children: [
-                  if (!isFocusMode) const ReadTopBar(),
+                  if (!isFocusMode && _readerChromeVisible) const ReadTopBar(),
                   // IN4-30 (READ-FOCUS-002): ở chế độ Focus, người dùng có
                   // thể chọn "chỉ giữ phần tiêu đề" — TRÊN hoặc DƯỚI vùng
                   // đọc (mặc định: ẩn hẳn, hành vi cũ).
@@ -344,17 +344,18 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                     ),
                   // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
                   // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
-                  if (!isFocusMode && widget.showSourcePicker)
+                  if (!isFocusMode && _readerChromeVisible && widget.showSourcePicker)
                     ReadSourcePicker(
                       selectedSource: _source,
                       onSourceChanged: _handleSourceChanged,
                       callbacks: widget.sourceCallbacks,
                     ),
-                  if (!isFocusMode && showIpaLegend)
+                  if (!isFocusMode && _readerChromeVisible && showIpaLegend)
                     IpaLegendStrip(tp: textProvider),
-                  if (!isFocusMode && showGrammarLegend)
+                  if (!isFocusMode && _readerChromeVisible && showGrammarLegend)
                     _GrammarLegendStrip(textProvider: textProvider),
                   if (!isFocusMode &&
+                      _readerChromeVisible &&
                       (textProvider.showTranslation || hasTranslation))
                     const TranslationToolbar(),
                   Expanded(
@@ -364,14 +365,20 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                             onTap: () {
                               if (isFocusMode) {
                                 _controller.setFocusMode(false);
-                                setState(() => _bottomControlsVisible = true);
+                                setState(() => _readerChromeVisible = true);
                               } else {
                                 // READ-SELECT-002: đang chọn nhiều từ ở ô chữ
                                 // ⇒ chạm ra vùng trống cũng là BỎ CHỌN.
                                 if (WordSelectionState.isActive) {
                                   textProvider.clearSelection();
+                                  _controller.removeFloatingMenu();
+                                  return;
                                 }
                                 _controller.removeFloatingMenu();
+                                // Giống PDF Reader: chạm nền bật/tắt chrome;
+                                // khi ẩn, FAB nhỏ ở góc dưới luôn là lối gọi lại.
+                                setState(() => _readerChromeVisible =
+                                    !_readerChromeVisible);
                               }
                             },
                             onDoubleTap: () {
@@ -380,23 +387,18 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                               // ⇒ thanh dưới bị hiện/ẩn ngược).
                               _controller.toggleFocusMode();
                               setState(
-                                () => _bottomControlsVisible =
+                                () => _readerChromeVisible =
                                     !_controller.isFocusMode,
                               );
                             },
                             child: _buildTextList(textProvider, isFocusMode),
                           ),
                   ),
-                  // Bottom controls with smart hide (v2: bỏ toàn bộ animation widget).
-                  // FOCUS MODE: gập CHIỀU CAO về 0 (trả không gian cho
-                  // vùng đọc) — build điều kiện SizedBox(height: 0).
-                  // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi: Opacity 0 +
-                  // IgnorePointer, không gập — tránh văn bản nhảy khi đọc.)
-                  // READ-TOOLBAR-001 (v2): wrapper không còn AnimatedSize,
-                  // AnimatedSlide, AnimatedOpacity, hay ClipRect để triệt tiêu
-                  // khối đen GPU Mali/Adreno.
+                  // Bottom controls share the smart-chrome visibility state.
+                  // Hidden chrome collapses completely so the reading area gets
+                  // the space back; focus mode always keeps this section closed.
                   CollapsibleBottomControls(
-                    visible: _bottomControlsVisible,
+                    visible: _readerChromeVisible,
                     collapsed: isFocusMode,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -432,7 +434,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                   child: GestureDetector(
                     onTap: () {
                       _controller.setFocusMode(false);
-                      setState(() => _bottomControlsVisible = true);
+                      setState(() => _readerChromeVisible = true);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -457,7 +459,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                               size: 16, color: Color(0xFF6C63FF)),
                           const SizedBox(width: 6),
                           Text(
-                            'Thoát Focus',
+                            context.uiText('Thoát Focus'),
                             style: TextStyle(
                                 color: const Color(0xFF6C63FF)
                                     .withValues(alpha: 0.9),
@@ -469,42 +471,71 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                     ),
                   ),
                 ),
-              // Re-show bottom button when hidden
-              if (!_bottomControlsVisible && !isFocusMode)
+              // Smart chrome is collapsed by default; this compact affordance
+              // is the persistent, no-guesswork way to bring the controls back.
+              if (!_readerChromeVisible && !isFocusMode)
                 Positioned(
-                  bottom: 12,
+                  bottom: MediaQuery.of(context).padding.bottom + 12,
                   right: 12,
-                  child: GestureDetector(
-                    onTap: () =>
-                        setState(() => _bottomControlsVisible = true),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A2235),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 8,
-                          )
-                        ],
+                  child: Tooltip(
+                    message: context.uiText('Mở công cụ đọc'),
+                    child: Material(
+                      color: const Color(0xFF1A2235),
+                      borderRadius: BorderRadius.circular(22),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                        onTap: () =>
+                            setState(() => _readerChromeVisible = true),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.tune_rounded,
+                                size: 17,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                context.uiText('Công cụ đọc'),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: const Icon(Icons.keyboard_arrow_up_rounded,
-                          size: 20, color: Colors.white70),
                     ),
                   ),
                 ),
               // Focus entry pill for small screens
-              if (isSmallScreen && !isFocusMode && _bottomControlsVisible)
+              if (isSmallScreen && !isFocusMode && _readerChromeVisible)
                 Positioned(
                   bottom: 98,
                   right: 16,
                   child: GestureDetector(
                     onTap: () {
                       _controller.setFocusMode(true);
-                      setState(() => _bottomControlsVisible = false);
+                      setState(() => _readerChromeVisible = false);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -566,13 +597,13 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           _controller.setScrolling(true);
           _lastScrollOffset = notification.metrics.pixels;
         } else if (notification is ScrollUpdateNotification) {
-          // Smart hide: scroll down hides bottom, scroll up shows
+          // Smart hide: scroll down hides reader chrome, scroll up restores it.
           if (!isFocusMode) {
             final diff = notification.metrics.pixels - _lastScrollOffset;
-            if (diff > 12 && _bottomControlsVisible) {
-              setState(() => _bottomControlsVisible = false);
-            } else if (diff < -12 && !_bottomControlsVisible) {
-              setState(() => _bottomControlsVisible = true);
+            if (diff > 12 && _readerChromeVisible) {
+              setState(() => _readerChromeVisible = false);
+            } else if (diff < -12 && !_readerChromeVisible) {
+              setState(() => _readerChromeVisible = true);
             }
             _lastScrollOffset = notification.metrics.pixels;
           }
@@ -627,176 +658,127 @@ class _GrammarLegendStrip extends StatelessWidget {
         : previousPreset.name;
     final grammarTitle = settings.isCustomPreset
         ? context.uiText('Grammar Highlight · Tùy chỉnh')
-        : 'Grammar Highlight · $activePresetName';
-    final canCollapse = visibleCategories.length > 2;
-    final isSmall = MediaQuery.of(context).size.height < 700;
-    final collapsedCount = isSmall ? 2 : 4;
-    final displaySettings = settings.legendCollapsed && canCollapse
-        ? settings.copyWith(
-            visibleCategories: visibleCategories.take(collapsedCount).toSet(),
-          )
-        : settings;
+        : settings.legendCollapsed
+            ? activePresetName
+            : 'Grammar Highlight · $activePresetName';
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
-        final actionButtons = Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: compact ? WrapAlignment.start : WrapAlignment.end,
-          children: [
-            if (settings.isCustomPreset)
-              OutlinedButton.icon(
-                onPressed: textProvider.restorePreviousGrammarPreset,
-                icon: const Icon(Icons.undo_rounded, size: 16),
-                label: Text(context.uiText('Khôi phục $previousPresetName')),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFB8B5FF),
-                  side: BorderSide(
-                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+    void handleMenuAction(String value) {
+      if (value == 'restore') {
+        textProvider.restorePreviousGrammarPreset();
+      } else if (value == 'showAll') {
+        textProvider.showAllGrammarCategories();
+      }
+    }
+
+    Widget overflowMenu() {
+      if (!settings.isCustomPreset && hiddenCount <= 0) {
+        return const SizedBox.shrink();
+      }
+      return PopupMenuButton<String>(
+        tooltip: context.uiText('Cài đặt từ loại chuyên sâu'),
+        color: const Color(0xFF151B26),
+        padding: EdgeInsets.zero,
+        child: const SizedBox(
+          width: 30,
+          height: 30,
+          child: Icon(Icons.more_horiz_rounded, color: Colors.white70, size: 19),
+        ),
+        onSelected: handleMenuAction,
+        itemBuilder: (context) => [
+          if (settings.isCustomPreset)
+            PopupMenuItem<String>(
+              value: 'restore',
+              child: Text(context.uiText('Khôi phục $previousPresetName')),
+            ),
+          if (hiddenCount > 0)
+            PopupMenuItem<String>(
+              value: 'showAll',
+              child: Text(context.uiText('Bật lại tất cả')),
+            ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_motion,
+                size: 14,
+                color: Color(0xFF8E83FF),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  grammarTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
                   ),
-                  visualDensity: VisualDensity.compact,
                 ),
               ),
-            if (hiddenCount > 0)
-              OutlinedButton.icon(
-                onPressed: textProvider.showAllGrammarCategories,
-                icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: const Text('Bật lại tất cả'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFB8B5FF),
-                  side: BorderSide(
-                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+              if (settings.legendCollapsed && visibleCategories.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                for (final category in visibleCategories.take(6))
+                  Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.only(left: 3),
+                    decoration: BoxDecoration(
+                      color: palette.styleFor(category).color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                  visualDensity: VisualDensity.compact,
+              ],
+              overflowMenu(),
+              IconButton(
+                tooltip: context.uiText(
+                  settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn',
                 ),
-              ),
-            if (canCollapse)
-              TextButton.icon(
                 onPressed: () => textProvider.setGrammarLegendCollapsed(
                   !settings.legendCollapsed,
                 ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                 icon: Icon(
                   settings.legendCollapsed
-                      ? Icons.unfold_more_rounded
-                      : Icons.unfold_less_rounded,
-                  size: 16,
+                      ? Icons.expand_more_rounded
+                      : Icons.expand_less_rounded,
+                  size: 20,
+                  color: const Color(0xFFB8B5FF),
                 ),
-                label: Text(settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF9FA8DA),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-          ],
-        );
-
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (compact) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome_motion,
-                      size: 14,
-                      color: Color(0xFF6C63FF),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            grammarTitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (hiddenCount > 0) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              context.uiText(settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về $previousPresetName.'
-                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.'),
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                actionButtons,
-              ] else ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome_motion,
-                      size: 14,
-                      color: Color(0xFF6C63FF),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            grammarTitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (hiddenCount > 0) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              context.uiText(settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về $previousPresetName.'
-                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.'),
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(child: actionButtons),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 6),
-              GrammarLegendBar(
-                settings: displaySettings,
-                palette: palette,
-                toolbarStyle: true,
-                compact: settings.legendCollapsed || compact,
-                horizontalScroll: settings.legendCollapsed || compact,
-                showHandle: true,
-                onToggleCategory: (category) =>
-                    textProvider.toggleGrammarCategory(category),
               ),
             ],
           ),
-        );
-      },
+          if (!settings.legendCollapsed) ...[
+            const SizedBox(height: 4),
+            GrammarLegendBar(
+              settings: settings,
+              palette: palette,
+              toolbarStyle: true,
+              compact: false,
+              horizontalScroll: false,
+              showHandle: false,
+              onToggleCategory: textProvider.toggleGrammarCategory,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

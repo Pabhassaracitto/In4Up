@@ -39,7 +39,8 @@ class GrammarHighlightSettings {
       highlightStyle: GrammarHighlightStyle.mixed,
       visibleCategories: Set<GrammarCategory>.from(preset.visibleCategories),
       showLegend: preset.showLegend,
-      legendCollapsed: false,
+      // Keep the Read tab minimal by default; users can expand the legend on demand.
+      legendCollapsed: true,
       emphasizeContentWords: preset.emphasizeContentWords,
       dimHiddenCategories: true,
       showAdvancedControls: false,

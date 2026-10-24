@@ -20,10 +20,19 @@
 // TUYỆT ĐỐI KHÔNG tải model ở đây (luật vàng): chỉ mở Hive cho glossary và
 // gắn handler. Thiếu model dịch offline → trả `missingModel` cho native hiện
 // thông báo, user tự vào Cài đặt bấm "Tải về".
+//
+// XLAT-SCR-005 (owner 24/10) — hai việc thêm ở đây:
+//  1. Nối `onProgress` của controller vào `reportProgress` để native đổi bong
+//     bóng/thông báo theo từng chặng (đang OCR / đang dịch 3/12 khối).
+//  2. `warmUp()` pipeline ngay khi engine nền dựng xong (không chờ) để lượt
+//     bấm bong bóng ĐẦU TIÊN không phải gánh chi phí mở cache/glossary.
+
+import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../translation/translation_service.dart';
 import 'screen_translate_channel.dart';
 import 'screen_translate_controller.dart';
 
@@ -52,13 +61,31 @@ Future<void> prepareScreenTranslateWorker({
     debugPrint('⚠️ screen translate worker: Hive.initFlutter lỗi: $e');
   }
 
-  final ctrl = controller ?? ScreenTranslateController();
+  ScreenTranslateWorkerBinding? bind;
+
+  late final ScreenTranslateController ctrl;
+  ctrl = controller ??
+      ScreenTranslateController(
+        // Báo tiến trình KHÔNG được chặn OCR/dịch: `reportProgress` là
+        // fire-and-forget, lỗi channel bị nuốt trong binding.
+        onProgress: (stage, done, total) {
+          final message = ctrl.progressText(stage, done: done, total: total);
+          final target = bind;
+          if (target == null) return;
+          unawaited(target.reportProgress(message));
+        },
+      );
   screenTranslateWorkerController = ctrl;
-  final bind = binding ??
+
+  bind = binding ??
       ScreenTranslateWorkerBinding(
         onFrame: ctrl.handleFrame,
         onStopped: () => debugPrint('ℹ️ screen translate worker: service dừng'),
       );
   screenTranslateWorkerBinding = bind;
   await bind.attach();
+
+  // Làm ấm pipeline SAU khi đã attach: dù lần đầu chậm vài trăm ms thì
+  // native vẫn gửi frame được, và lượt bấm kế tiếp đã nhanh.
+  unawaited(TranslationService().warmUp());
 }

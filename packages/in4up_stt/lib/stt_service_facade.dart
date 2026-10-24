@@ -666,6 +666,18 @@ class SttServiceFacade extends ChangeNotifier {
       );
     }
 
+    // WHISPER-VARIANT-001 — model English-only (.en) KHÔNG hiểu tiếng Việt
+    // hay ngôn ngữ khác. Chặn SỚM với thông điệp rõ thay vì để whisper.cpp
+    // ép tiếng Anh và trả về chữ Anh cho audio VI/ZH.
+    if (config.whisperModel.isEnglishOnly &&
+        WhisperLanguage.code(config.language) != 'en') {
+      throw StateError(
+        'Model ${config.whisperModel.displayLabel} chỉ nhận tiếng Anh — '
+        'hãy chọn ngôn ngữ English hoặc đổi sang model Whisper đa ngữ '
+        '(TINY/BASE/SMALL/MEDIUM/LARGE).',
+      );
+    }
+
     // Rule 3: Local Verification — existsSync + size >1_000_000
     final modelFile = File(modelPath);
     if (!modelFile.existsSync()) {

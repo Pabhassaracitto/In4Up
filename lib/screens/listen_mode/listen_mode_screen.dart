@@ -3063,6 +3063,21 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
   SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
   String _language = 'auto';
 
+  Widget _buildLevelChip(WhisperModelLevel level) {
+    final info = context.read<PlayerProvider>().getSttModelInfo(level);
+    final isSelected = _selectedLevel == level;
+    return FilterChip(
+      label: Text(
+        '${level.displayLabel} (${level.sizeInMB}MB)'
+        '${info.isReady ? ' ✓' : ''}',
+      ),
+      selected: isSelected,
+      onSelected: widget.isProcessing
+          ? null
+          : (_) => setState(() => _selectedLevel = isSelected ? null : level),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -3076,22 +3091,38 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                 ? null
                 : (_) => setState(() => _selectedLevel = null),
           ),
-          ...WhisperModelLevel.values.map((level) {
-            final info = context.read<PlayerProvider>().getSttModelInfo(level);
-            final isSelected = _selectedLevel == level;
-            return FilterChip(
-              label: Text(
-                '${level.name.toUpperCase()} (${level.sizeInMB}MB)'
-                '${info.isReady ? ' ✓' : ''}',
-              ),
-              selected: isSelected,
-              onSelected: widget.isProcessing
-                  ? null
-                  : (_) => setState(
-                      () => _selectedLevel = isSelected ? null : level),
-            );
-          }),
+          // WHISPER-VARIANT-001 — luôn hiện dòng đa ngữ; dòng English-only
+          // (.en) chỉ hiện khi đã cài (audio tiếng Anh), tránh 9 chip gây rối.
+          ...kWhisperMultilingualLevels.map(_buildLevelChip),
+          ...kWhisperEnglishOnlyLevels
+              .where((level) =>
+                  context.read<PlayerProvider>().getSttModelInfo(level).isReady)
+              .map(_buildLevelChip),
         ]),
+        if (_selectedLevel?.isEnglishOnly == true &&
+            _language != 'auto' &&
+            _language != 'en') ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  size: 14, color: Colors.orangeAccent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText(
+                    'Model English-only chỉ nhận tiếng Anh — hãy chọn English '
+                    'hoặc Tự động, hay đổi sang model đa ngữ.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.orangeAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 8),
         // Ngôn ngữ STT — mặc định 'Tự động' (Whisper tự nhận diện đa ngữ).
         Wrap(spacing: 8, runSpacing: 8, children: [

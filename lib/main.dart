@@ -67,6 +67,12 @@ final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
   WhisperModelLevel.small: [],
   WhisperModelLevel.medium: [],
   WhisperModelLevel.large: [],
+  // WHISPER-VARIANT-001 — dòng English-only (.en) dùng URL mặc định của
+  // từng level (HuggingFace ggerganov/whisper.cpp) nên để rỗng ở đây.
+  WhisperModelLevel.tinyEn: [],
+  WhisperModelLevel.baseEn: [],
+  WhisperModelLevel.smallEn: [],
+  WhisperModelLevel.mediumEn: [],
 };
 
 /// Tên file được chấp nhận khi:
@@ -87,6 +93,18 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
   ],
   WhisperModelLevel.large: [
     'ggml-large-v2.bin',
+  ],
+  WhisperModelLevel.tinyEn: [
+    'ggml-tiny.en.bin',
+  ],
+  WhisperModelLevel.baseEn: [
+    'ggml-base.en.bin',
+  ],
+  WhisperModelLevel.smallEn: [
+    'ggml-small.en.bin',
+  ],
+  WhisperModelLevel.mediumEn: [
+    'ggml-medium.en.bin',
   ],
 };
 

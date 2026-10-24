@@ -2070,4 +2070,15 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Dịch lại': 'Retranslate',
   'Chưa dịch được đoạn này. Kiểm tra engine dịch hoặc kết nối mạng.': 'Could not translate this text. Check the translation engine or your connection.',
   'Thoát Focus': 'Exit focus',
+  // WORD-INSIGHT-001 / DICT-CLEAN-001 (2026-10-24) — reviewed English fallbacks.
+  // Thêm tay: generator vẫn bị chặn bởi debt catalog cũ (xem AGENTS.md).
+  'Mạng': 'Online',
+  'Ngoại tuyến': 'Offline',
+  'Chưa có nội dung cho từ này': 'No dictionary content for this word',
+  'Xem từ điển đầy đủ': 'Open full dictionary',
+  '+{value0} nghĩa khác': '+{value0} more senses',
+  'Đang tra phiên âm…': 'Looking up IPA…',
+  'Đang tra nghĩa & phiên âm…': 'Looking up meaning and IPA…',
+  'Chưa tra được nghĩa cho từ này': 'No meaning found for this word yet',
+  'Mở từ điển': 'Open dictionary',
 };

@@ -116,7 +116,7 @@ class _VocabQuickSaveSheetState extends State<VocabQuickSaveSheet> {
         try {
           final entries = await DictionaryService.instance.lookup(widget.word);
           for (final entry in entries) {
-            final definition = entry.plainDefinition.trim();
+            final definition = entry.compactDefinition.trim();
             if (definition.isEmpty) continue;
             meaning = definition.length > 240
                 ? '${definition.substring(0, 237).trimRight()}…'

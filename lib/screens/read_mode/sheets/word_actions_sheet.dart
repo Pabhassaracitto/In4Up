@@ -187,7 +187,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
 
     String? bestMeaning = widget.word.meaning;
     if (_dictEntries.isNotEmpty) {
-      bestMeaning = _dictEntries.first.plainDefinition;
+      bestMeaning = _dictEntries.first.compactDefinition;
     }
     final ownIpa = _ownIpa;
     final dictIpa = ownIpa == null ? _dictIpa : null;
@@ -342,7 +342,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                   ...(_dictEntries.take(3).map((e) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          e.plainDefinition,
+                          e.compactDefinition,
                           style: TextStyle(
                             color: Colors.grey[300],
                             fontSize: 13,

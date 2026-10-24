@@ -7,7 +7,12 @@ import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../dictionary/services/dict_text_cleaner.dart';
+import '../../dictionary/widgets/dict_definition_view.dart';
+import '../../dictionary/widgets/dict_entry_detail_sheet.dart';
 import '../../vocab_image/vocab_image_quick_add.dart';
+import '../../word_lookup/services/word_insight_service.dart';
+import '../../../widgets/ipa_source_chip.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../../../widgets/vocab_entry_meta.dart';
 import '../../../widgets/vocab_quick_save_sheet.dart';
@@ -33,27 +38,137 @@ class PdfWordTapSheet {
   }
 }
 
-class _WordSheet extends StatelessWidget {
+class _WordSheet extends StatefulWidget {
   final PdfWordInfo wordInfo;
   final PdfReaderController controller;
 
   const _WordSheet({required this.wordInfo, required this.controller});
 
   @override
+  State<_WordSheet> createState() => _WordSheetState();
+}
+
+class _WordSheetState extends State<_WordSheet> {
+  /// WORD-INSIGHT-001: nghĩa + IPA lấy NGAY khi mở sheet (mạng → từ điển →
+  /// offline), không bắt người dùng tự điền rồi mới thấy.
+  WordInsight? _insight;
+  DictMergedEntry? _merged;
+  bool _loading = true;
+
+  PdfWordInfo get _wordInfo => widget.wordInfo;
+  PdfReaderController get _controller => widget.controller;
+
+  String get _displayWord =>
+      _wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+
+  String get _lookupWord => _displayWord.toLowerCase();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInsight();
+  }
+
+  Future<void> _loadInsight() async {
+    final word = _lookupWord;
+    if (word.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final service = WordInsightService();
+
+    // Bước 1: nguồn cục bộ (MDX → offline) — hiện ngay, không chờ mạng.
+    final local = await service.resolveLocal(word);
+    if (!mounted) return;
+    setState(() {
+      _insight = local;
+      _merged = local.hasDictionary ? local.mergedDictionary : _merged;
+      if (local.hasAny) _loading = false;
+    });
+
+    // Bước 2: nâng cấp bằng nguồn mạng (ưu tiên mạng theo yêu cầu).
+    final online = await service.resolve(word);
+    if (!mounted) return;
+    setState(() {
+      _insight = online;
+      _merged = online.hasDictionary ? online.mergedDictionary : _merged;
+      _loading = false;
+    });
+
+    // Từ ĐÃ lưu nhưng còn trống nghĩa/IPA → bổ sung bằng smart-fill của
+    // VocabularyProvider (CHỈ điền chỗ trống, không ghi đè dữ liệu người dùng).
+    final provider = context.read<VocabularyProvider>();
+    if (provider.findByWord(word) == null) return;
+    final best = (online.hasMeaning || online.hasIpa) ? online : local;
+    if (!best.hasMeaning && !best.hasIpa) return;
+    provider.addWithAutoClassify(
+      text: word,
+      meaning: best.meaning ?? '',
+      phonetic: best.ipa,
+      phoneticSource: best.ipaSource,
+    );
+  }
+
+  void _openFullDictionary(BuildContext context, String? meaning) {
+    final insight = _insight;
+    DictEntryDetailSheet.show(
+      context,
+      word: _displayWord,
+      entries: insight?.entries ?? const [],
+      ipa: insight?.ipa,
+      meaning: meaning,
+      partOfSpeech: insight?.partOfSpeech,
+      originLabel: insight?.origin == null
+          ? null
+          : _originLabel(context, insight!.origin!),
+      onSpeak: () => _controller.speakText(_displayWord),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final analyzed = wordInfo.analyzed;
-    final displayWord = wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
-    final lookupWord = displayWord.toLowerCase();
+    final analyzed = _wordInfo.analyzed;
+    final insight = _insight;
 
     return Consumer<VocabularyProvider>(
       builder: (context, provider, _) {
-        final existing = provider.findByWord(lookupWord);
-        final meaning = (existing?.meaning.trim().isNotEmpty ?? false)
-            ? existing!.meaning.trim()
-            : analyzed?.meaning;
-        final phonetic = (existing?.phonetic?.trim().isNotEmpty ?? false)
-            ? existing!.phonetic
-            : analyzed?.phonetic;
+        final existing = provider.findByWord(_lookupWord);
+
+        final savedMeaning = (existing?.meaning ?? '').trim();
+        final insightMeaning = (insight?.meaning ?? '').trim();
+        final analyzedMeaning = (analyzed?.meaning ?? '').trim();
+        final meaning = savedMeaning.isNotEmpty
+            ? savedMeaning
+            : insightMeaning.isNotEmpty
+                ? insightMeaning
+                : analyzedMeaning;
+
+        final savedPhonetic = (existing?.phonetic ?? '').trim();
+        final insightPhonetic = (insight?.ipa ?? '').trim();
+        final analyzedPhonetic = (analyzed?.phonetic ?? '').trim();
+        final phonetic = savedPhonetic.isNotEmpty
+            ? savedPhonetic
+            : insightPhonetic.isNotEmpty
+                ? insightPhonetic
+                : analyzedPhonetic;
+
+        final phoneticSource = savedPhonetic.isNotEmpty
+            ? existing?.phoneticSource
+            : insightPhonetic.isNotEmpty
+                ? insight?.ipaSource
+                : null;
+
+        final origin = insight?.origin;
+        final showLookupSpinner = _loading && meaning.isEmpty;
+        final merged = _merged;
+        final exampleText = (analyzed?.example ?? '').trim();
+        final surroundingText =
+            (_wordInfo.contextSnippet ?? '').trim().isNotEmpty
+                ? _wordInfo.contextSnippet!.trim()
+                : exampleText.isNotEmpty
+                    ? exampleText
+                    : _displayWord;
 
         return Padding(
           padding: EdgeInsets.only(
@@ -62,288 +177,480 @@ class _WordSheet extends StatelessWidget {
             top: 16,
             bottom: MediaQuery.of(context).padding.bottom + 16,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[700],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
 
-          // ── Word header ──────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
+                // ── Word header ──────────────────────────────────
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      displayWord,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (phonetic != null && phonetic.trim().isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        phonetic,
-                        style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 14,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    // Tags: CEFR + WordType
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        if (analyzed != null) ...[
-                          _Tag(
-                            label: analyzed.cefrLevel.shortLabel,
-                            color: analyzed.cefrLevel.color,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _displayWord,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          _Tag(
-                            label: analyzed.wordType.labelVi,
-                            color: analyzed.wordType.color,
+                          if (phonetic.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    phonetic,
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
+                                      fontSize: 14,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                                if ((phoneticSource ?? '').isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  IpaSourceChip(source: phoneticSource!),
+                                ],
+                              ],
+                            ),
+                          ] else if (_loading) ...[
+                            const SizedBox(height: 4),
+                            _LookupPlaceholder(
+                              label: context.uiText('Đang tra phiên âm…'),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          // Tags: CEFR + WordType
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              if (analyzed != null) ...[
+                                _Tag(
+                                  label: analyzed.cefrLevel.shortLabel,
+                                  color: analyzed.cefrLevel.color,
+                                ),
+                                _Tag(
+                                  label: analyzed.wordType.labelVi,
+                                  color: analyzed.wordType.color,
+                                ),
+                              ],
+                              if (origin != null)
+                                _OriginChip(
+                                  label: _originLabel(context, origin),
+                                  origin: origin,
+                                ),
+                            ],
                           ),
                         ],
-                      ],
+                      ),
+                    ),
+
+                    // Speak button
+                    _CircleBtn(
+                      icon: Icons.volume_up_rounded,
+                      color: const Color(0xFF2196F3),
+                      onTap: () => _controller.speakText(_displayWord),
                     ),
                   ],
                 ),
-              ),
 
-              // Speak button
-              _CircleBtn(
-                icon: Icons.volume_up_rounded,
-                color: const Color(0xFF2196F3),
-                onTap: () => controller.speakText(displayWord),
-              ),
-            ],
-          ),
+                // Meaning
+                if (meaning.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('💡 ', style: TextStyle(fontSize: 16)),
+                        Expanded(
+                          child: Text(
+                            meaning,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (showLookupSpinner) ...[
+                  const SizedBox(height: 12),
+                  _LookupPlaceholder(
+                    label: context.uiText('Đang tra nghĩa & phiên âm…'),
+                  ),
+                ] else if (!_loading) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    context.uiText('Chưa tra được nghĩa cho từ này'),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
 
-          // Meaning
-          if (meaning != null && meaning.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Text('💡 ', style: TextStyle(fontSize: 16)),
-                  Expanded(
-                    child: Text(
-                      meaning,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        height: 1.4,
+                // ── Từ điển (cô đọng, có nút mở trang đầy đủ) ─────
+                if (merged != null && !merged.isEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF64B5F6).withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF64B5F6).withValues(alpha: 0.18),
                       ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.menu_book,
+                              size: 14,
+                              color: Color(0xFF64B5F6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              context.uiText('Từ điển'),
+                              style: const TextStyle(
+                                color: Color(0xFF64B5F6),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        DictDefinitionView(
+                          groups: merged.groups,
+                          maxSenses: 3,
+                          compact: true,
+                          accentColor: const Color(0xFF64B5F6),
+                          sourceLabel: merged.sourceLabel,
+                          onOpenFull: () =>
+                              _openFullDictionary(context, meaning),
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            ),
-          ],
 
-          if (existing != null) ...[
-            const SizedBox(height: 12),
-            _SavedRecallCard(
-              entry: existing,
-              // `controller.fileName` = basename đa nền tảng: phải KHỚP với
-              // `VocabContext.fileName` đã lưu, nếu không thẻ "từ đã lưu của
-              // file này" không tìm ra nhau trên Windows.
-              pdfFileName: controller.fileName,
-              pageIndex: wordInfo.pageIndex,
-              onAddContext: () {
-                provider.addContextToWord(
-                  existing.id,
-                  controller.buildWordContext(
-                    wordInfo,
-                    surroundingText:
-                        (wordInfo.contextSnippet ?? '').trim().isNotEmpty
-                            ? wordInfo.contextSnippet!.trim()
-                            : (analyzed?.example?.trim().isNotEmpty ?? false)
-                                ? analyzed!.example!.trim()
-                                : displayWord,
-                    anchorText: displayWord,
-                  ),
-                );
-                controller.refreshVocabularySignals();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã thêm ngữ cảnh PDF mới cho từ này'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              onEditNotes: () => _showEditSavedNotesDialog(
-                context,
-                provider,
-                controller,
-                existing,
-              ),
-            ),
-          ],
-
-          const SizedBox(height: 16),
-
-          // ── Actions ──────────────────────────────────────
-          Row(
-            children: [
-              // Save to Memory
-              Expanded(
-                child: _ActionBtn(
-                  icon: Icons.psychology,
-                  label: 'Lưu vào Vườn Nhớ',
-                  color: const Color(0xFF6C63FF),
-                  onTap: () {
-                    controller.saveWordToMemory(wordInfo);
-                    HapticFeedback.mediumImpact();
-                    final message = context.uiText(
-                      '✅ Đã lưu "$displayWord" vào Vườn Nhớ',
-                    );
-                    final messenger = ScaffoldMessenger.of(context);
-                    Navigator.pop(context);
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(message),
-                        backgroundColor: const Color(0xFF6C63FF),
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                if (existing != null) ...[
+                  const SizedBox(height: 12),
+                  _SavedRecallCard(
+                    entry: existing,
+                    // `controller.fileName` = basename đa nền tảng: phải KHỚP
+                    // với `VocabContext.fileName` đã lưu, nếu không thẻ "từ đã
+                    // lưu của file này" không tìm ra nhau trên Windows.
+                    pdfFileName: _controller.fileName,
+                    pageIndex: _wordInfo.pageIndex,
+                    onAddContext: () {
+                      provider.addContextToWord(
+                        existing.id,
+                        _controller.buildWordContext(
+                          _wordInfo,
+                          surroundingText: surroundingText,
+                          anchorText: _displayWord,
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Tra từ điển online
-              _IconActionBtn(
-                icon: Icons.open_in_new,
-                tooltip: context.uiText('Tra từ điển'),
-                onTap: () {
-                  final url =
-                      'https://www.oxfordlearnersdictionaries.com/definition/english/$displayWord';
-                  launchUrl(Uri.parse(url),
-                      mode: LaunchMode.externalApplication);
-                },
-              ),
-
-              const SizedBox(width: 8),
-
-              // Copy
-              _IconActionBtn(
-                icon: Icons.copy,
-                tooltip: 'Copy',
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: displayWord));
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-
-          // Difficulty markers
-          const SizedBox(height: 12),
-          const Text(
-            'Đánh dấu độ khó:',
-            style: TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: DifficultyLevel.values.map((d) {
-              final isSelected = analyzed?.userDifficulty == d;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: GestureDetector(
-                    onTap: () {
-                      controller.markWordDifficulty(wordInfo, d);
-                      HapticFeedback.selectionClick();
-                      final message = context.uiText(
-                        '"$displayWord" → ${context.uiText(d.label)}',
                       );
-                      final messenger = ScaffoldMessenger.of(context);
-                      Navigator.pop(context);
-                      messenger.showSnackBar(
+                      _controller.refreshVocabularySignals();
+                      ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(message),
+                          content: Text(context.uiText(
+                              'Đã thêm ngữ cảnh PDF mới cho từ này')),
                           behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 2),
                         ),
                       );
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: d.color.withValues(alpha: isSelected ? 0.24 : 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? d.color
-                              : d.color.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(_difficultyIcon(d), color: d.color, size: 16),
-                          const SizedBox(height: 2),
-                          Text(
-                            d.label,
-                            style: TextStyle(color: d.color, fontSize: 9),
-                          ),
-                        ],
-                      ),
+                    onEditNotes: () => _showEditSavedNotesDialog(
+                      context,
+                      provider,
+                      _controller,
+                      existing,
                     ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
+                ],
 
-          // ── Lưu vào Wordlist ─────────────────────────────
-          PdfWordSaveSection(
-            controller: controller,
-            wordInfo: wordInfo,
-            word: lookupWord,
-            surroundingText: (wordInfo.contextSnippet ?? '').trim().isNotEmpty
-                ? wordInfo.contextSnippet!.trim()
-                : (analyzed?.example?.trim().isNotEmpty ?? false)
-                    ? analyzed!.example!.trim()
-                    : displayWord,
-            // `controller.fileName` = basename đa nền tảng: phải KHỚP với
-              // `VocabContext.fileName` đã lưu, nếu không thẻ "từ đã lưu của
-              // file này" không tìm ra nhau trên Windows.
-              pdfFileName: controller.fileName,
-            pageIndex: wordInfo.pageIndex,
-          ),
-            ],
+                const SizedBox(height: 16),
+
+                // ── Actions ──────────────────────────────────────
+                Row(
+                  children: [
+                    // Save to Memory
+                    Expanded(
+                      child: _ActionBtn(
+                        icon: Icons.psychology,
+                        label: 'Lưu vào Vườn Nhớ',
+                        color: const Color(0xFF6C63FF),
+                        onTap: () {
+                          _controller.saveWordToMemory(
+                            _wordInfo,
+                            meaning: meaning.isEmpty ? null : meaning,
+                            phonetic: phonetic.isEmpty ? null : phonetic,
+                            phoneticSource:
+                                phonetic.isEmpty ? null : phoneticSource,
+                          );
+                          HapticFeedback.mediumImpact();
+                          final message = context.uiText(
+                            '✅ Đã lưu "$_displayWord" vào Vườn Nhớ',
+                          );
+                          final messenger = ScaffoldMessenger.of(context);
+                          Navigator.pop(context);
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(message),
+                              backgroundColor: const Color(0xFF6C63FF),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Trang từ điển đầy đủ (MDX đã import + nguồn mạng)
+                    _IconActionBtn(
+                      icon: Icons.menu_book,
+                      tooltip: context.uiText('Mở từ điển'),
+                      onTap: () => _openFullDictionary(context, meaning),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Tra từ điển online
+                    _IconActionBtn(
+                      icon: Icons.open_in_new,
+                      tooltip: context.uiText('Tra từ điển'),
+                      onTap: () {
+                        final url =
+                            'https://www.oxfordlearnersdictionaries.com/definition/english/$_displayWord';
+                        launchUrl(Uri.parse(url),
+                            mode: LaunchMode.externalApplication);
+                      },
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Copy
+                    _IconActionBtn(
+                      icon: Icons.copy,
+                      tooltip: context.uiText('Sao chép'),
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: _displayWord));
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                ),
+
+                // Difficulty markers
+                const SizedBox(height: 12),
+                Text(
+                  context.uiText('Đánh dấu độ khó:'),
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: DifficultyLevel.values.map((d) {
+                    final isSelected = analyzed?.userDifficulty == d;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: GestureDetector(
+                          onTap: () {
+                            _controller.markWordDifficulty(_wordInfo, d);
+                            HapticFeedback.selectionClick();
+                            final message = context.uiText(
+                              '"$_displayWord" → ${context.uiText(d.label)}',
+                            );
+                            final messenger = ScaffoldMessenger.of(context);
+                            Navigator.pop(context);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(message),
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: d.color.withValues(
+                                  alpha: isSelected ? 0.24 : 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? d.color
+                                    : d.color.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(_difficultyIcon(d),
+                                    color: d.color, size: 16),
+                                const SizedBox(height: 2),
+                                Text(
+                                  d.label,
+                                  style:
+                                      TextStyle(color: d.color, fontSize: 9),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                // ── Lưu vào Wordlist ─────────────────────────────
+                PdfWordSaveSection(
+                  controller: _controller,
+                  wordInfo: _wordInfo,
+                  word: _lookupWord,
+                  surroundingText: surroundingText,
+                  // `controller.fileName` = basename đa nền tảng: phải KHỚP với
+                  // `VocabContext.fileName` đã lưu, nếu không thẻ "từ đã lưu của
+                  // file này" không tìm ra nhau trên Windows.
+                  pdfFileName: _controller.fileName,
+                  pageIndex: _wordInfo.pageIndex,
+                  resolvedMeaning: meaning.isEmpty ? null : meaning,
+                  resolvedPhonetic: phonetic.isEmpty ? null : phonetic,
+                  phoneticSource: phonetic.isEmpty ? null : phoneticSource,
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// Nhãn nguồn dữ liệu — literal nằm trong file presentation để pipeline i18n
+/// (rule #5) bắt được, thay vì chuỗi runtime nằm trong service.
+String _originLabel(BuildContext context, WordInsightOrigin origin) {
+  switch (origin) {
+    case WordInsightOrigin.network:
+      return context.uiText('Mạng');
+    case WordInsightOrigin.dictionary:
+      return context.uiText('Từ điển');
+    case WordInsightOrigin.offline:
+      return context.uiText('Ngoại tuyến');
+  }
+}
+
+/// Dòng chờ nhỏ khi đang tra mạng/từ điển.
+class _LookupPlaceholder extends StatelessWidget {
+  final String label;
+
+  const _LookupPlaceholder({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.6,
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF64B5F6)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Chip nguồn dữ liệu (Mạng / Từ điển / Ngoại tuyến).
+class _OriginChip extends StatelessWidget {
+  final String label;
+  final WordInsightOrigin origin;
+
+  const _OriginChip({required this.label, required this.origin});
+
+  Color get _color {
+    switch (origin) {
+      case WordInsightOrigin.network:
+        return const Color(0xFF4CAF50);
+      case WordInsightOrigin.dictionary:
+        return const Color(0xFF64B5F6);
+      case WordInsightOrigin.offline:
+        return const Color(0xFFFFB74D);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            origin == WordInsightOrigin.network
+                ? Icons.wifi
+                : origin == WordInsightOrigin.dictionary
+                    ? Icons.menu_book
+                    : Icons.offline_bolt_outlined,
+            size: 10,
+            color: _color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: _color,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -599,6 +906,16 @@ class PdfWordSaveSection extends StatefulWidget {
   final String pdfFileName;
   final int pageIndex;
 
+  /// Nghĩa đã tra được (mạng → từ điển → offline) — ưu tiên hơn nghĩa
+  /// lexicon nội bộ, để lưu nhanh KHÔNG ghi thẻ trống nghĩa.
+  final String? resolvedMeaning;
+
+  /// IPA đã tra được.
+  final String? resolvedPhonetic;
+
+  /// Provenance của IPA (`online` | `mdx` | `cmu` | `g2p`).
+  final String? phoneticSource;
+
   const PdfWordSaveSection({
     super.key,
     required this.controller,
@@ -607,6 +924,9 @@ class PdfWordSaveSection extends StatefulWidget {
     required this.surroundingText,
     required this.pdfFileName,
     required this.pageIndex,
+    this.resolvedMeaning,
+    this.resolvedPhonetic,
+    this.phoneticSource,
   });
 
   @override
@@ -677,12 +997,35 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
     );
   }
 
+  /// Nghĩa tốt nhất hiện có: đã tra (mạng/từ điển) → lexicon nội bộ → rỗng.
+  String get _meaning {
+    final resolved = (widget.resolvedMeaning ?? '').trim();
+    if (resolved.isNotEmpty) return resolved;
+    return (widget.wordInfo?.analyzed?.meaning ?? '').trim();
+  }
+
+  /// IPA tốt nhất hiện có + provenance tương ứng.
+  String? get _phonetic {
+    final resolved = (widget.resolvedPhonetic ?? '').trim();
+    if (resolved.isNotEmpty) return resolved;
+    final analyzed = (widget.wordInfo?.analyzed?.phonetic ?? '').trim();
+    return analyzed.isEmpty ? null : analyzed;
+  }
+
+  String? get _phoneticSource {
+    if ((widget.resolvedPhonetic ?? '').trim().isNotEmpty) {
+      return widget.phoneticSource;
+    }
+    return null;
+  }
+
   void _saveQuick(VocabularyProvider provider) {
     final analysis = widget.wordInfo?.analyzed;
     final entry = provider.addWithAutoClassify(
       text: widget.word,
-      meaning: analysis?.meaning ?? '',
-      phonetic: analysis?.phonetic,
+      meaning: _meaning,
+      phonetic: _phonetic,
+      phoneticSource: _phoneticSource,
       context: _context,
     );
     final example = widget.surroundingText.trim().isNotEmpty
@@ -704,8 +1047,8 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
     final details = await VocabQuickSaveSheet.show(
       context,
       word: widget.word,
-      meaning: analysis?.meaning ?? '',
-      phonetic: analysis?.phonetic ?? '',
+      meaning: _meaning,
+      phonetic: _phonetic ?? '',
       example: sourceContext,
       sourceContext: sourceContext,
     );
@@ -715,6 +1058,7 @@ class _PdfWordSaveSectionState extends State<PdfWordSaveSection> {
       text: widget.word,
       meaning: details.meaning,
       phonetic: details.phonetic.trim().isEmpty ? null : details.phonetic.trim(),
+      phoneticSource: details.phonetic.trim().isEmpty ? null : _phoneticSource,
       context: _context,
     );
     if (details.example.trim().isNotEmpty &&

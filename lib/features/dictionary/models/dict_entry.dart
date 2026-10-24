@@ -1,3 +1,5 @@
+import '../services/dict_text_cleaner.dart';
+
 /// Model cho 1 entry trong từ điển MDX
 class DictEntry {
   final String headword;
@@ -16,12 +18,24 @@ class DictEntry {
     required this.dictId,
   });
 
-  String get plainDefinition {
-    return definition
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
+  /// Text nghĩa đã làm sạch HTML/CSS/script/entity + dòng lặp headword.
+  ///
+  /// DICT-CLEAN-001: thay pipeline `replaceAll('<[^>]*>')` cũ (vẫn để lại
+  /// `{color:…}`, `&nbsp;`, script, URL, tiêu đề lặp). Vẫn GIỮ chuỗi IPA
+  /// trong text để `IpaDefinitionExtractor` trích được (ADR-0005).
+  String get plainDefinition =>
+      DictTextCleaner.plain(definition, headword: headword);
+
+  /// Nội dung có cấu trúc (IPA + nhóm loại từ + nghĩa đánh số + ví dụ).
+  ///
+  /// Dùng cho hiển thị từ điển thật; `plainDefinition` chỉ là chuỗi phẳng.
+  DictDefinition get definitionView =>
+      DictTextCleaner.parse(definition, headword: headword);
+
+  /// Nghĩa cô đọng (2 nghĩa đầu, tối đa ~200 ký tự) cho auto-fill, popup,
+  /// preview — KHÔNG đổ cả entry dài vào ô "nghĩa" của thẻ từ.
+  String get compactDefinition =>
+      definitionView.compactMeaning(maxSenses: 2, maxChars: 200);
 
   bool get hasAudio => audioPath != null && audioPath!.isNotEmpty;
 

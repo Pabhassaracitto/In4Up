@@ -1,8 +1,19 @@
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/dict_entry.dart';
+import '../services/dict_text_cleaner.dart';
+import '../services/dictionary_service.dart';
+import 'dict_definition_view.dart';
 
-/// Bottom sheet hiển thị kết quả tra từ điển
+/// Bottom sheet hiển thị kết quả tra từ điển — "trang từ điển" đầy đủ.
+///
+/// DICT-CLEAN-001: trước đây mỗi entry MDX được in thành một khối
+/// `plainDefinition` (dài, lặp giữa các bộ từ điển, không IPA/loại từ). Nay:
+/// - nội dung được [DictTextCleaner] làm sạch + cấu trúc;
+/// - nhiều bộ từ điển cho cùng một từ được GỘP và KHỬ nghĩa trùng;
+/// - trình bày như từ điển thật: headword, IPA, nhóm loại từ, nghĩa đánh số,
+///   ví dụ, nhãn nguồn.
 class DictResultSheet extends StatelessWidget {
   final String word;
   final List<DictEntry> entries;
@@ -16,22 +27,59 @@ class DictResultSheet extends StatelessWidget {
   static void show(BuildContext context, String word, List<DictEntry> entries) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF141A28),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => FractionallySizedBox(
-        heightFactor: 0.6,
+        heightFactor: 0.86,
         child: DictResultSheet(word: word, entries: entries),
       ),
     );
   }
 
+  Map<String, String> _dictionaryNames() {
+    try {
+      final names = <String, String>{};
+      for (final info in DictionaryService.instance.dictionaries) {
+        names[info.id] = info.name;
+      }
+      return names;
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
+  DictMergedEntry _merged() {
+    final names = _dictionaryNames();
+    return DictTextCleaner.merge(<DictSourceText>[
+      for (final entry in entries)
+        DictSourceText(
+          headword: entry.headword,
+          definition: entry.definition,
+          phonetic: entry.phonetic,
+          sourceLabel: names[entry.dictId] ?? entry.dictId,
+        ),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final merged = _merged();
+    final headword = merged.headword.trim().isEmpty ? word : merged.headword;
+    final sources = merged.sourceLabel;
+    // Loại từ có thể nằm ở cột riêng của entry (không nằm trong HTML) — vẫn
+    // hiển thị để trang từ điển đủ thông tin như từ điển thật.
+    final entryPoses = <String>{
+      for (final entry in entries)
+        if ((entry.partOfSpeech ?? '').trim().isNotEmpty)
+          entry.partOfSpeech!.trim(),
+    }.toList();
+
     return Column(
-      children: [
+      children: <Widget>[
         // Handle
         Container(
           width: 40,
@@ -43,24 +91,46 @@ class DictResultSheet extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
           child: Row(
-            children: [
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
               const Icon(Icons.menu_book,
                   color: Color(0xFF2196F3), size: 20),
               const SizedBox(width: 8),
-              Text(
-                context.uiText('Từ điển: $word'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      context.uiText('Từ điển: $word'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.uiText('${entries.length} kết quả'),
+                      style:
+                          TextStyle(color: Colors.grey[500], fontSize: 11.5),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              Text(
-                context.uiText('${entries.length} kết quả'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              IconButton(
+                tooltip: context.uiText('Sao chép'),
+                icon: const Icon(Icons.copy, color: Colors.white54, size: 18),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: headword));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      content: Text(context.uiText('Đã sao chép')),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -69,95 +139,96 @@ class DictResultSheet extends StatelessWidget {
         Expanded(
           child: entries.isEmpty
               ? Center(
-                  child: Text(
-                    context.uiText('Không tìm thấy "$word"'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      context.uiText('Không tìm thấy "$word"'),
+                      textAlign: TextAlign.center,
+                      style:
+                          TextStyle(color: Colors.grey[500], fontSize: 14),
+                    ),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    return _EntryCard(entry: entry);
-                  },
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+                  children: <Widget>[
+                    Text(
+                      headword,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                    ),
+                    if ((merged.ipa ?? '').trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          merged.ipa!.trim(),
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 15,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
+                    if (entryPoses.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: <Widget>[
+                            for (final pos in entryPoses)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF9C27B0)
+                                      .withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  pos,
+                                  style: const TextStyle(
+                                    color: Color(0xFFCE93D8),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 6),
+                    DictDefinitionView(
+                      groups: merged.groups,
+                      compact: false,
+                      accentColor: const Color(0xFF64B5F6),
+                    ),
+                    if (merged.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          context.uiText('Chưa có nội dung cho từ này'),
+                          style: TextStyle(
+                              color: Colors.grey[500], fontSize: 13),
+                        ),
+                      ),
+                    if (sources.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: Text(
+                          context.uiText('Nguồn: $sources'),
+                          style: TextStyle(
+                              color: Colors.grey[600], fontSize: 11),
+                        ),
+                      ),
+                  ],
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _EntryCard extends StatelessWidget {
-  final DictEntry entry;
-
-  const _EntryCard({required this.entry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  entry.headword,
-                  style: const TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (entry.partOfSpeech != null)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF9C27B0).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    entry.partOfSpeech!,
-                    style: const TextStyle(
-                      color: Color(0xFF9C27B0),
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          if (entry.phonetic != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              entry.phonetic!,
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            entry.plainDefinition,
-            style: TextStyle(
-              color: Colors.grey[300],
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -145,7 +145,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
   }
 
   String? get _meaning {
-    if (_dictEntries.isNotEmpty) return _dictEntries.first.plainDefinition;
+    if (_dictEntries.isNotEmpty) return _dictEntries.first.compactDefinition;
     final m = widget.word.meaning;
     return (m == null || m.isEmpty) ? null : m;
   }

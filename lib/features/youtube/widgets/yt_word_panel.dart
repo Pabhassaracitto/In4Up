@@ -633,7 +633,7 @@ class _YtWordPanelState extends State<YtWordPanel>
                 (e) => Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    e.plainDefinition,
+                    e.compactDefinition,
                     style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,

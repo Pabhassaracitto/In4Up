@@ -7,7 +7,7 @@
 // trong panel dịch). Khác ReaderDisplaySettings: extend ChangeNotifier để
 // ghép được vào Listenable.merge với IconizeService.
 //
-// Ba cài đặt (ADR-0013 quyết định #4 + Khối B):
+// Ba cài đặt (ADR-0014 quyết định #4 + Khối B):
 //  - enabled: toggle "Icon hóa" per-surface (v1: panel dịch Tab Đọc).
 //  - density: 3 nấc low/medium/high ≈ 18/32/48% từ đủ điều kiện.
 //  - iconizeTranslation: sub-toggle "Icon hóa cả bản dịch" — TẮT mặc định

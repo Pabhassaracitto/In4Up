@@ -1,6 +1,6 @@
 // lib/features/iconize/engine/iconize_engine.dart
 //
-// ICONIZE-001b/001c — Iconize Engine core (ADR-0013, blueprint Khối A).
+// ICONIZE-001b/001c — Iconize Engine core (ADR-0014, blueprint Khối A).
 //
 // Pure function: (plainText, lang, density) → IconizeResult. Không state
 // giữa 2 lần gọi, không side-effect, KHÔNG ghi vào TranslationCache
@@ -25,7 +25,7 @@ import 'iconize_bridge.dart';
 import 'iconize_icon_source.dart';
 import 'iconize_lemmatizer.dart';
 
-/// Ngưỡng concreteness theo từ loại (ADR-0013 / chốt câu hỏi mở #2).
+/// Ngưỡng concreteness theo từ loại (ADR-0014 / chốt câu hỏi mở #2).
 /// Đã lọc từ tầng build; engine kiểm lại lần nữa — defense in depth.
 const double iconizeNounMinConcreteness = 4.0;
 const double iconizeAdjMinConcreteness = 4.5;

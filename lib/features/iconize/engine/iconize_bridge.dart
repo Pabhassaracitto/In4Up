@@ -1,6 +1,6 @@
 // lib/features/iconize/engine/iconize_bridge.dart
 //
-// ICONIZE-001c — Bridge-to-English (blueprint mục 3.5, ADR-0013 #3):
+// ICONIZE-001c — Bridge-to-English (blueprint mục 3.5, ADR-0014 #3):
 // token tiếng đích (v1: tiếng Việt) → ứng viên lemma tiếng Anh qua bảng
 // đảo của từ điển offline sẵn có. Engine sau đó resolve TỪNG ứng viên;
 // chỉ icon hóa khi MỌI ứng viên resolve được đồng thuận đúng 1 icon —

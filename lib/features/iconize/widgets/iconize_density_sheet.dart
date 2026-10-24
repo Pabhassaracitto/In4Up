@@ -2,7 +2,7 @@
 //
 // ICONIZE-001d — bottom sheet cài đặt Iconize (mở bằng NHẤN GIỮ nút
 // "Icon hóa" trong panel dịch — blueprint Khối B):
-//  - 3 nấc mật độ (≈18/32/48% từ đủ điều kiện — ADR-0013 quyết định #4);
+//  - 3 nấc mật độ (≈18/32/48% từ đủ điều kiện — ADR-0014 quyết định #4);
 //  - sub-toggle "Icon hóa cả bản dịch" (mặc định TẮT);
 //  - chú thích nguyên tắc giữ chữ khi không chắc.
 //

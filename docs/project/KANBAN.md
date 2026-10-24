@@ -8284,3 +8284,26 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     full app + 6 file test ICONIZE + rule 5 locale đều pass). CÒN:
     nghiệm thu máy thật (toggle, mật độ, ảnh user, badge lỗi, a11y
     TalkBack) — đây là lane ĐẦU TIÊN có UI nên cần build APK thử.
+  - 2026-10-25: **rebase lên 251e tip `3f8197a`** (105 commit mới) + gộp
+    12 commit lane thành 5 commit chính + commit owner (file_selector)
+    — lịch sử tuyến tính, tiện rebase & merge về sau. **ĐỔI SỐ ADR
+    0013→0014** (`docs/adr/0014-iconize-visual-context.md`): số 0013 đã
+    bị VOCAB-MEDIA-003 chiếm trên 251e (lần đụng số thứ 2 sau vụ 0012)
+    — đổi đồng bộ blueprint/KANBAN/code comment. Xung đột đã xử: KANBAN
+    (2 card cùng append), priority_ui_overrides + legacy json (cùng
+    append — giữ cả hai phía), app_analyze.yml, pubspec (mlkit
+    segmentation giữ ^0.1.0 theo 251e). CI XANH sau rebase: run
+    40123472813 (3m42s — analyze full app trên nền 251e mới + 6 file
+    test ICONIZE + rule 5 locale đều pass).
+  - 2026-10-28: **rebase #2 lên 251e tip `81ac646`** (81 commit mới:
+    i18n wave 8–9 + release 1.18.0 + loạt fix YT/dictionary). Giữ
+    nguyên 7 commit tuyến tính; xung đột lặp mẫu cũ (KANBAN 2 card
+    cùng append; priority_ui_overrides + legacy json cùng append —
+    ghép bằng stage :2/:3, brace-check depth 0, json 3866 key parse
+    OK); pubspec/lock auto-merge (version 1.18.0+18 theo 251e, lock đã
+    có flutter_svg 2.3.0 do owner chạy pub get). Diff đối chứng tập
+    file ICONIZE vs tip cũ: RỖNG — zero trôi nội dung. CI XANH sau
+    rebase: run 40585380308 (5m4s — lâu hơn thường lệ vì wave 9 thêm
+    ~34k dòng catalog generated vào analyze). Workflow mới của 251e
+    "Deploy Flutter web to GitHub Pages" bị cancelled trên nhánh arena
+    do concurrency github-pages — noise đã biết, không phải lỗi.

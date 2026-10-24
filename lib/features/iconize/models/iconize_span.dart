@@ -1,6 +1,6 @@
 // lib/features/iconize/models/iconize_span.dart
 //
-// ICONIZE-001b — data classes của Iconize Engine (ADR-0013, blueprint Khối A,
+// ICONIZE-001b — data classes của Iconize Engine (ADR-0014, blueprint Khối A,
 // docs/iconize_visual_context_blueprint.md mục 3.1).
 //
 // Nguyên tắc #1: Iconize là tầng render ephemeral — các class này KHÔNG được
@@ -10,7 +10,7 @@
 /// Nguồn icon đã chọn cho một span (fallback 4 tầng — blueprint mục 3.6).
 enum IconizeSource { userVocabImage, localTwemoji, cdnFallback, none }
 
-/// Mật độ icon — 3 nấc ngân sách % từ được icon hóa (ADR-0013 quyết định #5).
+/// Mật độ icon — 3 nấc ngân sách % từ được icon hóa (ADR-0014 quyết định #5).
 enum IconizeDensity { low, medium, high }
 
 /// Ngân sách % từ tối đa được thay icon theo từng nấc density.

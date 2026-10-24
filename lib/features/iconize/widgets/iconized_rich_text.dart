@@ -5,7 +5,7 @@
 //
 // Nguyên tắc:
 //  - EPHEMERAL: widget chỉ vẽ, không ghi gì — plain text gốc luôn là
-//    nguồn sự thật (nguyên tắc #1 của ADR-0013).
+//    nguồn sự thật (nguyên tắc #1 của ADR-0014).
 //  - KEEP-TEXT: bất kỳ lỗi nào ở tầng icon (tên không có trong bundle,
 //    file ảnh user đã bị xóa, SVG hỏng) → render LẠI CHỮ, không ô vuông
 //    trống, không throw.

@@ -1,6 +1,6 @@
 # tool/iconize — Build tool asset cho ICONIZE-001 (lane 001a)
 
-Sinh core bundle `assets/iconize/` cho Iconize Engine (ADR-0013, blueprint
+Sinh core bundle `assets/iconize/` cho Iconize Engine (ADR-0014, blueprint
 `docs/iconize_visual_context_blueprint.md`). Loader Dart (lane ICONIZE-001b)
 **phải đọc đúng đặc tả dưới đây** — file này là hợp đồng format.
 
@@ -25,7 +25,7 @@ python3 tool/iconize/build_icon_assets.py \
 Tool tự `verify()` sau khi ghi (đọc lại, binary-search "cat", kiểm SVG payload).
 Chạy lại cho output **tất định** (sort ổn định mọi bước) — diff git sạch.
 
-## Luật chọn từ (khớp ADR-0013 + blueprint mục 10)
+## Luật chọn từ (khớp ADR-0014 + blueprint mục 10)
 
 - Danh từ `Dom_Pos=Noun` với `Conc.M ≥ 4.0`; tính từ `Adjective` với `≥ 4.5`.
 - Động từ KHÔNG vào index v1 (chốt #1 — default giữ chữ).

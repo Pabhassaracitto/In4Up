@@ -16,7 +16,7 @@ Nguồn dữ liệu (tải thủ công / git sparse clone — KHÔNG commit vào
                (unicode-org/cldr-json)
   --twemoji    thư mục assets/svg của github.com/jdecked/twemoji
 
-Luật chọn từ (ADR-0013, blueprint mục 10):
+Luật chọn từ (ADR-0014, blueprint mục 10):
   - Danh từ (Dom_Pos=Noun)      : Conc.M >= 4.0
   - Tính từ (Dom_Pos=Adjective) : Conc.M >= 4.5
   - Động từ: KHÔNG vào index v1 (chốt #1 — default giữ chữ; Action Pack = v2)

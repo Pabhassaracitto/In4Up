@@ -111,6 +111,7 @@
 | READ-LINEEDIT-001 | (IN4-36) Tab Đọc: chạm giữ sửa dòng ít hữu ích + nút Xóa sát nút X (đóng) dễ XÓA NHẦM dòng | 🔄 doing (code + test pin + CI 🟢 `38970096071`, chờ máy) | chạm giữ → `LineActionsSheet` (hữu ích, như chạm 2 lần); "Sửa dòng…" vào TỪ TRONG sheet (chủ động); bảng sửa: Xóa xuống **góc trái** hàng nút dưới (thoát header), dialog xác nhận "không thể hoàn tác" + nút "Giữ lại" mặc định; 5 chuỗi i18n rule #5; test source-scan `test/read_mode/line_edit_gesture_test.dart` vào read-act-tests |
 | READ-HAPTIC-CRASH-001 | Windows `.exe`: giữ chữ trong tab Đọc làm crash | 🔨 doing (haptics desktop-safe + tests; chưa tái hiện/log Windows) | 63 direct haptics calls đã đi qua `SafeHaptics`; Windows/Linux/macOS/web skip, mobile plugin failure is non-fatal; `test/safe_haptics_test.dart` được nối read-action batch |
 | VOCAB-MEDIA-003 | Worklist: 1 hoặc 2 ảnh mỗi từ + duyệt/xem trước thư viện animation | 🔨 doing (code + test thuần + CI 🟢 `37667414865`; chờ nghiệm thu máy) | audit mục 2 (phần còn lại) — ADR-0013: `imageUrl2` additive (không migration) + `mediaPaths`/`setMediaSlot` promote + `swapMediaSlots`; sheet thêm nguồn thứ 4 "Hoạt ảnh" (endpoint cấu hình được + fallback Wikimedia Commons, chỉ ô đang hiện mới chạy); ô 2 khung trong sửa từ/chi tiết. Prompt: `PROMPT_AGENT_VOCAB_TWO_IMAGES.md` |
+| ICONIZE-001 | Iconize Visual Context: học từ vựng qua câu ví dụ/bản dịch chèn icon (Direct Visual Anchoring Loop) — engine render ephemeral + toggle "Icon hóa" panel dịch + câu ví dụ thị giác + Smart Cloze scaffolding, 9 lane a–h + d2 (rollout: Tab Đọc v1 → toolbar chung + Tab Hiểu v1.1) | 📋 proposed (blueprint hội đồng 94.2/100 đã audit repo; CHỜ owner duyệt ADR-0014) | agent arena/3ad55219-in4up 2026-10-07 — `docs/iconize_visual_context_blueprint.md` + `docs/adr/0014-iconize-visual-context.md` (Proposed) + prompt gốc `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md` |
 | HYMT-001 | Hy-MT "native không load được" dù đã có model — handshake dối + file cắt + lỗi chung chung | ✅ done + CI xanh | 1677da3; _LoadResult sau create thật + minPlausible 481MB + modelIssue cụ thể + _headIsGguf bằng openRead (CI xanh 33697490397, chờ nghiệm thu máy) |
 | AI-CHAT-02 | Chat "cứ xoay vòng" — engine queue đúng (đợi request cũ ≤90s) thay vì "not ready" ngay + state không kẹt processing | ✅ done + CI xanh | 5134f06; _inFlight counter + bỏ busy-wait facade (CI xanh 33697490397, chờ nghiệm thu máy) |
 | YT-LR-001 | YouTube học ngôn ngữ kiểu Language Reactor (nối nốt, local-first; không server yt-dlp) | ✅ done | thâu hoạch 01a01580 19f6c3a → a8d6170 + fix a3c8a1a (thiếu _fetchTimedtextTranslated — bug nhánh nguồn); CI xanh 33355331358 (chờ nghiệm thu thiết bị) |
@@ -8173,3 +8174,38 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm:** cài đè trên máy thật (Android từ 1.17.0 → 1.18.0, dữ liệu còn nguyên), iOS sideload trên iPhone, `in4up.exe` trên Windows, bundle Linux.
 - **Lịch sử:**
   - 2026-10-27 | created→done | agent arena/01a0251e-in4up | chờ CI tip 🟢 → bump 1.18.0+18 → tag → build 4 nền tảng 🟢 → 4 asset published
+
+
+### ICONIZE-001 — Iconize Visual Context: học từ vựng qua ngữ cảnh thị giác (blueprint hội đồng → chờ ADR-0014)
+- **Trạng thái:** 📋 proposed — blueprint hội đồng đa AI (5 vòng, 94.2/100)
+  đã qua audit đối chiếu repo; CHỜ owner duyệt `docs/adr/0014-iconize-visual-context.md`
+  trước khi mở lane code nào.
+- **Nguồn:** owner 2026-10-07 — ý tưởng "Visual Context / câu ví dụ Iconized"
+  (trao đổi với Gemini) + yêu cầu nút "Icon hóa" trong panel dịch; prompt hội
+  đồng `PROMPT_HOIDONG_ICONIZE_VISUAL_CONTEXT.md`; kết quả chốt qua agent
+  arena/3ad55219-in4up.
+- **Tài liệu:** `docs/iconize_visual_context_blueprint.md` (bản đầy đủ A–F,
+  gồm mục 0 "Hiệu đính repo-audit": ADR số 0012 chứ không phải 027; SM-2 nhận
+  `quality` int 0..5 chứ không có enum ReviewGrade; `visibility_detector` chưa
+  có trong pubspec — chốt ở lane d; "CEFR tự khai" là setting mới additive).
+- **Tóm tắt thiết kế:** IconizeEngine pure function tầng render (ephemeral,
+  không ghi `TranslationCache`); tra `(lemma,POS)`, không chắc → giữ chữ;
+  fallback 4 tầng (vocab_image user > core bundle 2.000 Twemoji > CDN Material
+  Symbols > giữ chữ); density 18/32/48%; scaffolding rút theo kết quả ôn thật
+  đổ về SM-2/FSRS sẵn có; per-document override box Hive riêng prefix
+  `icon_override_<documentHash>`; core bundle ~2.1MB, pack Model Centre
+  ~8.5–9.5MB; giấy phép Twemoji/Material/Brysbaert/Tatoeba (loại OpenMoji).
+- **9 lane (mỗi PR ≤ 500 dòng, thứ tự phụ thuộc trong blueprint mục 12):**
+  001a asset build tool → 001b engine core → 001c guard/fallback/bridge →
+  001d UI toggle+density **Tab Đọc (v1: panel dịch PDF + Web reader)** →
+  001e câu ví dụ thị giác → 001f Smart Cloze + scaffolding →
+  001g override/blacklist → 001h test hiệu năng toàn diện;
+  001d2 **toolbar chung + Tab Hiểu (v1.1)** — chỉ mở sau nghiệm thu v1.
+- **Lịch sử:**
+  - 2026-10-07: tạo card từ blueprint hội đồng v2.1-FINAL + audit repo
+    (agent arena/3ad55219-in4up). Chưa có lane nào được code.
+  - 2026-10-07 (b): owner chốt rollout "Tab Đọc trước, Tab Hiểu sau" — tách
+    lane 001d thành 001d (Tab Đọc, v1) + 001d2 (toolbar chung + Tab Hiểu,
+    v1.1, chờ nghiệm thu v1); blueprint mục 4.0 + ADR-0014 quyết định #11.
+    Rebase lên 251e tip `9700212`; đổi số ADR 0012→0013 vì 0012 đã bị chiếm
+    2 lần trên 251e (dictionary-SAF, ocr-crash).

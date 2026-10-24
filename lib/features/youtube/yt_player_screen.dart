@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../features/translation/translation_service.dart';
+import '../../features/tts/tts_service.dart';
 import '../../models/vocab_context.dart';
 import '../../models/word_analysis.dart';
 import '../../providers/player_provider.dart';
@@ -31,9 +32,13 @@ import 'models/yt_subtitle.dart';
 import 'models/yt_video.dart';
 import 'services/yt_downloader.dart';
 import 'services/yt_learning_settings_service.dart';
+import 'services/yt_read_aloud_controller.dart';
+import 'services/yt_read_aloud_sequence.dart';
 import 'services/yt_sentence_segmenter.dart';
 import 'services/yt_service.dart';
 import 'widgets/yt_lexa_chat_tab.dart';
+import 'widgets/yt_media_library_sheet.dart';
+import 'widgets/yt_read_aloud_sheet.dart';
 import 'widgets/yt_subtitle_settings_sheet.dart';
 import 'widgets/yt_word_panel.dart';
 import 'youtube_explorer_screen.dart';
@@ -224,6 +229,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   /// Cài đặt phụ đề/bố cục/ngưỡng tần suất — lưu toàn cục, áp dụng mọi video.
   YtLearningSettings _settings = const YtLearningSettings();
 
+  /// YT-TTS-READ-001: bộ đọc phụ đề/bản dịch thành tiếng (chạy độc lập với
+  /// video — xem chú thích đầu `yt_read_aloud_controller.dart`).
+  YtReadAloudController? _readAloud;
+
+  /// Ngôn ngữ ĐÍCH đã resolve cho video này (dùng cho giọng đọc bản dịch).
+  String _resolvedTargetLang = 'vi';
+
   /// Chế độ `Làm mờ bản dịch`: người dùng bấm để hiện tạm rồi mờ lại.
   bool _translationRevealed = false;
 
@@ -243,6 +255,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       if (_tabCtrl.index == 0) _followActiveLine();
     });
     _initWebView();
+    // TTS dùng chung provider toàn app (cùng engine/giọng với tab Đọc).
+    _readAloud = YtReadAloudController(context.read<TtsService>())
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
     unawaited(_loadWordStates());
     unawaited(_loadSettings());
     unawaited(_loadRealSubtitles());
@@ -301,6 +318,77 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     } catch (e) {
       debugPrint('[in4up-yt] available langs failed: $e');
     }
+  }
+
+  // ─── YT-TTS-READ-001 / YT-MEDIA-STORE-001 ────────────────────────
+
+  /// Có bản dịch để đọc không (bản dịch do YT có sẵn hoặc do AI dịch).
+  bool get _hasTranslation =>
+      _lines.any((l) => (l.translation ?? '').trim().isNotEmpty);
+
+  /// Mở bảng "Đọc bản dịch"; nếu người dùng bấm "Đọc ngay" thì chạy luôn.
+  Future<void> _openReadAloud() async {
+    final ctrl = _readAloud;
+    if (ctrl == null) return;
+    if (ctrl.isRunning) {
+      await ctrl.stop();
+      return;
+    }
+    if (_lines.isEmpty) {
+      _snack('Chưa có phụ đề để đọc — tải phụ đề trước');
+      return;
+    }
+
+    final result = await showYtReadAloudSheet(
+      context,
+      _settings,
+      context.read<TtsService>(),
+      hasTranslation: _hasTranslation,
+    );
+    if (result == null || !mounted) return;
+
+    setState(() => _settings = result.settings);
+    await YtLearningSettingsService.save(result.settings);
+    if (!result.start) return;
+
+    // Dừng video: hai nguồn âm thanh cùng lúc thì không nghe được gì.
+    _pauseVideo();
+
+    // `a.en` (auto-generated) là MÃ của YouTube, không phải mã BCP-47 ⇒ bỏ
+    // tiền tố trước khi đưa cho TTS, nếu không giọng đọc sẽ rớt về mặc định.
+    final subLang = _settings.subtitleLang;
+    final sourceLang =
+        subLang.startsWith('a.') ? subLang.substring(2) : subLang;
+
+    await ctrl.start(
+      lines: [
+        for (final l in _lines)
+          YtReadAloudLine(source: l.text, target: l.translation),
+      ],
+      sourceLangCode: sourceLang,
+      targetLangCode: _resolvedTargetLang,
+      settings: result.settings,
+      startIndex: result.fromCurrentLine ? _currentLineIdx : 0,
+    );
+  }
+
+  /// Mở "Thư viện đã tải": xem dung lượng, xoá, nạp lại vào tab Đọc.
+  Future<void> _openMediaLibrary() async {
+    await showYtMediaLibrarySheet(context);
+    if (!mounted) return;
+    // Dung lượng/nơi lưu có thể vừa đổi trong sheet ⇒ đọc lại cài đặt.
+    await _loadSettings();
+  }
+
+  void _snack(String msg, {Color? color}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.uiText(msg)),
+      backgroundColor: color ?? const Color(0xFF1A237E),
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 
   Future<void> _openSubtitleSettings() async {
@@ -373,6 +461,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _dlWatchdog?.cancel();
     _dlSub?.cancel();
     _tabCtrl.dispose();
+    _readAloud?.dispose();
     super.dispose();
   }
 
@@ -852,6 +941,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       homeTargetLang: TranslationService().targetLang,
     );
     final lang2 = resolved.lang;
+    _resolvedTargetLang = lang2;
     if (resolved.fellBack) {
       debugPrint(
         '[in4up-yt] ngon ngu dich trung phu de goc ($subLang) -> '
@@ -1120,6 +1210,29 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                     color: Colors.white70, size: 20),
                 onPressed: _openSubtitleSettings,
               ),
+              // YT-TTS-READ-001: đọc phụ đề/bản dịch thành tiếng.
+              IconButton(
+                tooltip: _readAloud?.isRunning == true
+                    ? context.uiText('Dừng đọc')
+                    : context.uiText('Đọc bản dịch thành tiếng'),
+                icon: Icon(
+                  _readAloud?.isRunning == true
+                      ? Icons.stop_circle
+                      : Icons.record_voice_over,
+                  color: _readAloud?.isRunning == true
+                      ? const Color(0xFF53D6BD)
+                      : Colors.white70,
+                  size: 20,
+                ),
+                onPressed: _openReadAloud,
+              ),
+              // YT-MEDIA-STORE-001: thư viện phụ đề + âm thanh đã tải.
+              IconButton(
+                tooltip: context.uiText('Thư viện đã tải'),
+                icon: const Icon(Icons.folder_special_outlined,
+                    color: Colors.white70, size: 20),
+                onPressed: _openMediaLibrary,
+              ),
               IconButton(
                 tooltip: 'Học trong tab Nghe',
                 icon: Icon(
@@ -1177,6 +1290,27 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 icon: const Icon(Icons.subtitles_outlined,
                     color: Colors.white70, size: 18),
                 onPressed: _openSubtitleSettings,
+              ),
+              IconButton(
+                tooltip: _readAloud?.isRunning == true
+                    ? context.uiText('Dừng đọc')
+                    : context.uiText('Đọc bản dịch thành tiếng'),
+                icon: Icon(
+                  _readAloud?.isRunning == true
+                      ? Icons.stop_circle
+                      : Icons.record_voice_over,
+                  color: _readAloud?.isRunning == true
+                      ? const Color(0xFF53D6BD)
+                      : Colors.white70,
+                  size: 18,
+                ),
+                onPressed: _openReadAloud,
+              ),
+              IconButton(
+                tooltip: context.uiText('Thư viện đã tải'),
+                icon: const Icon(Icons.folder_special_outlined,
+                    color: Colors.white70, size: 18),
+                onPressed: _openMediaLibrary,
               ),
             ],
           ),

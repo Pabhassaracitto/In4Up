@@ -68,17 +68,23 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
 
 ## Trạng thái (wave 2, 2026-10-24)
 
-- Pack: **314 entry × 8 locale**.
-- Chrome vẫn còn tiếng Việt ở locale ưu tiên (zh): **181** chuỗi / 2 616 chuỗi
-  được quét — trước wave này là ~380. Trong 7 khu vực người dùng nêu (Home,
-  Settings, Listen, Video library, YouTube, Read, Understand) **đã về 0** khi
-  quét theo call site `Text(...)`/`uiText(...)`:
-  Home 0 · Settings 0 · Read 0 · Listen 0 (sau pack 314) · Video 0 ·
-  YouTube 0 · Understand 0.
-- Việc còn lại tập trung ở các module chưa được quét đợt này — xem
-  `docs/language/PRIORITY_LOCALE_LEAK_REPORT.md`:
-  Tipiṭaka (~73), Learn by heart (~65), Tools/WordList (~18), Cabin (~13),
-  Web Reader, PDF Reader, TTS, shared widgets.
+- Pack: **505 entry × 8 locale**.
+- **Rò rỉ tiếng Việt ở cả 7 locale ưu tiên: 0** trên 2 577 chuỗi chrome được
+  quét (193 file) — đầu wave 2 là 181/2 616 (zh).
+  Home 0 · Settings 0 · Listen 0 · Library/YouTube 0 · Video 0 · Read 0 ·
+  Understand 0 · Tipiṭaka 0 · Learn by heart 0 · Tools/WordList 0 · Cabin 0 ·
+  Web Reader 0 · PDF Reader 0 · TTS 0.
+- Việc còn lại của wave sau là **tiếng Anh** (chưa dịch) — xem
+  `docs/language/PRIORITY_LOCALE_LEAK_REPORT.md`: zh 988 · zh_TW 988 · hi 989 ·
+  si 989 · th 1 479 · ja 1 478 · my 1 529. Số này đã tính cả trường hợp *fallback
+  sang English* (trước đây tool bỏ sót đúng nhóm đó nên chỉ báo ~150), nên phải
+  chia thành nhiều wave nhỏ theo khu vực — xem hướng dẫn trong
+  `docs/language/HOW_TO_ADD_TRANSLATIONS.md`.
+- Tool điều tra đã được sửa trong wave này: chuỗi bị **cắt ngang** (cửa sổ 400
+  ký tự) và chuỗi **nối nhiều literal** của Dart từng tạo ra “nguồn ma” không tồn
+  tại ở runtime; comment (`//`, `/* */`) từng bị tính là chrome. Nay tool:
+  ghép literal liền kề, bỏ comment, chỉ nhận literal đã đóng → số liệu khớp với
+  chuỗi người dùng thực thấy.
 - Lỗi cấu trúc đã sửa trong wave này: 8 file UI từng import
   `material.dart show Text` (bỏ qua shim, nên **không bao giờ** dịch) nay dùng
   `localized_material`; ~20 chuỗi nội suy được đưa qua `uiText` để template bắt

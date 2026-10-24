@@ -194,10 +194,152 @@ def _named_chrome_values(text: str) -> set[str]:
     values: set[str] = set()
     for match in NAMED_CHROME_RE.finditer(text):
         window = text[match.end(): match.end() + 400]
-        for value in scan_strings(window, include_unaccented=True):
+        literal = _first_complete_literal(window)
+        if literal is None:
+            continue
+        for value in scan_strings(literal, include_unaccented=True):
             if value.strip():
                 values.add(value)
             break
+    return values
+
+
+LITERAL_SCAN_RE = re.compile(
+    r"'((?:[^'\\\n]|\\.)*)'"
+    r"|"
+    r'"((?:[^"\\\n]|\\.)*)"'
+)
+
+
+def _unescape_single(inner: str) -> str:
+    return inner.replace(r"\'", "'")
+
+
+def _escape_single(inner: str) -> str:
+    return inner.replace(r"\'", "'").replace("'", r"\'")
+
+
+def _comment_spans(text: str) -> list[tuple[int, int]]:
+    """`//` and `/* */` ranges, ignoring comment markers inside literals."""
+    spans: list[tuple[int, int]] = []
+    starts = {match.start(): match for match in LITERAL_SCAN_RE.finditer(text)}
+    index = 0
+    length = len(text)
+    while index < length:
+        literal = starts.get(index)
+        if literal is not None:
+            index = literal.end()
+            continue
+        if text.startswith("//", index):
+            end = text.find("\n", index)
+            end = length if end < 0 else end
+            spans.append((index, end))
+            index = end
+            continue
+        if text.startswith("/*", index):
+            end = text.find("*/", index)
+            end = length if end < 0 else end + 2
+            spans.append((index, end))
+            index = end
+            continue
+        index += 1
+    return spans
+
+
+def _strip_comments(text: str) -> str:
+    """Blank out comments so doc text never counts as chrome."""
+    spans = _comment_spans(text)
+    if not spans:
+        return text
+    chars = list(text)
+    for start, end in spans:
+        for index in range(start, end):
+            if chars[index] != "\n":
+                chars[index] = " "
+    return "".join(chars)
+
+
+def _adjacent_literal_chains(text: str) -> list[tuple[list[str], str]]:
+    """Dart joins adjacent string literals; one segment alone is just a fragment."""
+    chains: list[tuple[list[str], str]] = []
+    current: list[str] = []
+    quote = "'"
+    merged = ""
+    previous_end: int | None = None
+    comments = _comment_spans(text)
+    for match in LITERAL_SCAN_RE.finditer(text):
+        if any(start <= match.start() < end for start, end in comments):
+            previous_end = None
+            continue
+        raw = match.group(0)
+        single = match.group(1) is not None
+        this_quote = "'" if single else '"'
+        inner = match.group(1) if single else _unescape_single(match.group(2))
+        joined = (
+            previous_end is not None
+            and not text[previous_end:match.start()].strip()
+        )
+        if current and joined and this_quote == quote:
+            current.append(raw)
+            merged += inner
+        else:
+            if len(current) > 1:
+                chains.append((list(current), quote + _escape_single(merged) + quote))
+            current = [raw]
+            quote = this_quote
+            merged = inner
+        previous_end = match.end()
+    if len(current) > 1:
+        chains.append((list(current), quote + _escape_single(merged) + quote))
+    return chains
+
+
+def _first_complete_literal(window: str) -> str | None:
+    """First *terminated* Dart string literal (quotes included) in `window`."""
+    index = 0
+    length = len(window)
+    while index < length:
+        quote = window[index]
+        if quote in "'\"":
+            cursor = index + 1
+            while cursor < length:
+                char = window[cursor]
+                if char == "\\":
+                    cursor += 2
+                    continue
+                if char == "\n":
+                    break
+                if char == quote:
+                    return window[index:cursor + 1]
+                cursor += 1
+        index += 1
+    return None
+
+
+def _append_literal_chain_values(text: str, values: set[str]) -> set[str]:
+    """Replace adjacent-literal fragments with the joined string users see."""
+    from generate_legacy_ui_fallbacks import scan_strings  # type: ignore
+
+    for segments, merged in _adjacent_literal_chains(text):
+        decoded = []
+        for segment in segments:
+            for value in scan_strings(segment, include_unaccented=True):
+                if value.strip():
+                    decoded.append((segment, value))
+                    break
+        # Chains split inside `${...}` interpolation start with a closing
+        # bracket; joining them yields garbage, so leave those alone.
+        if any(value[:1] in (")", "}", "]") for _raw, value in decoded):
+            continue
+        if not any(value in values for _raw, value in decoded):
+            continue
+        for value in scan_strings(merged, include_unaccented=True):
+            if value.strip():
+                values.add(value)
+                break
+        for raw, value in decoded:
+            if text.count(raw) == 1:
+                values.discard(value)
     return values
 
 
@@ -213,13 +355,14 @@ def collect_sources() -> dict[str, set[str]]:
     for path in sorted(LIB.rglob("*.dart")):
         if LANGUAGE_DIR in path.parents:
             continue
-        text = path.read_text(encoding="utf-8")
+        text = _strip_comments(path.read_text(encoding="utf-8"))
         strings = extract_first_argument_strings(text, TEXT_CALL_RE)
         strings |= extract_first_argument_strings(text, UI_TEXT_CALL_RE)
         if is_presentation_file(path):
             # `label:` / `tooltip:` / `hintText:` values are rendered as chrome
             # too, even when they are not the first argument of Text().
             strings |= _named_chrome_values(text)
+        strings = _append_literal_chain_values(text, strings)
         strings = {
             value
             for value in strings
@@ -345,20 +488,13 @@ def main() -> int:
         for locale in locales:
             resolved = resolve(source, locale, pack, overrides, arb, legacy, templates)
             area = area_by_source.get(source, "Other")
-            if resolved is None:
-                kind = (
-                    "vietnamese"
-                    if VIETNAMESE_SOURCE_RE.search(source)
-                    else "english"
-                )
-                leaks[locale][area].append((source, source, kind))
-                totals[locale][kind] += 1
-            elif VIETNAMESE_RE.search(resolved):
-                leaks[locale][area].append((source, resolved, "vietnamese"))
+            value = source if resolved is None else resolved
+            if VIETNAMESE_RE.search(value) or VIETNAMESE_SOURCE_RE.search(value):
+                leaks[locale][area].append((source, value, "vietnamese"))
                 totals[locale]["vietnamese"] += 1
-            elif resolved.strip() == source.strip() and source.strip():
-                # English source text that nobody translated.
-                leaks[locale][area].append((source, resolved, "english"))
+            elif ENGLISH_CHROME_RE.search(value):
+                # Includes "fallback to English": still English on screen.
+                leaks[locale][area].append((source, value, "english"))
                 totals[locale]["english"] += 1
 
     print(f"Chrome strings scanned: {len(sources)} (from {len(by_file)} files)\n")
@@ -413,8 +549,8 @@ def write_report(locales, sources, leaks, totals, by_file) -> None:
         f"- Chrome strings quét được: **{len(sources)}** trong "
         f"**{len(by_file)}** file presentation.",
         "- `vietnamese`: chuỗi vẫn hiện tiếng Việt ở locale đó (vi phạm rule #5).",
-        "- `english`: chuỗi vẫn hiện English (fallback hợp lệ, nhưng là việc còn lại"
-        " của wave bản địa hoá).",
+        "- `english`: chuỗi vẫn hiện English trên màn hình (kể cả khi fallback sang"
+        " English) — đây là việc còn lại của các wave bản địa hoá tiếp theo.",
         "",
         "| locale | vietnamese | english |",
         "| --- | ---: | ---: |",

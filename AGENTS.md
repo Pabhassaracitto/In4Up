@@ -62,7 +62,8 @@
      trong `AppUITranslations`). Điều tra phần còn rò rỉ bằng
      `python3 tool/lang_ui_inventory.py [--list|--write-report]`; test máy bắt:
      `test/language/priority_native_pack_test.dart`. Quy trình + trạng thái:
-     `docs/language/PRIORITY_NATIVE_PACK.md`.
+     `docs/language/PRIORITY_NATIVE_PACK.md`. Hướng dẫn từng bước cho người
+     không chuyên: `docs/language/HOW_TO_ADD_TRANSLATIONS.md`.
    - File UI phải import `core/language/localized_material.dart` (shim `Text` +
      `uiText`). Import `flutter/material.dart` kèm `show Text`/`hide Text` là
      **tắt** shim → chuỗi không bao giờ được dịch (đã có 8 file như vậy).

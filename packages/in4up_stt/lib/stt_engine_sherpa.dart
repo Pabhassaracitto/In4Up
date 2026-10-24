@@ -17,6 +17,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
+import 'asr_model_routing.dart';
 import 'models/content_id.dart';
 import 'models/stt_config.dart';
 import 'models/stt_result.dart';
@@ -34,6 +35,12 @@ class SherpaModelPaths {
   final int numThreads;
   final bool isStreaming;
 
+  /// Họ model — quyết định `modelType` truyền cho sherpa-onnx.
+  ///
+  /// PARAKEET-001: Parakeet TDT là transducer NeMo, sherpa-onnx phải nhận
+  /// `modelType: 'nemo_transducer'`; Zipformer để trống (tự nhận).
+  final SherpaAsrFamily family;
+
   const SherpaModelPaths({
     required this.encoder,
     required this.decoder,
@@ -41,7 +48,23 @@ class SherpaModelPaths {
     required this.tokens,
     this.numThreads = 2,
     this.isStreaming = false,
+    this.family = SherpaAsrFamily.zipformer,
   });
+
+  /// Bản sao có cùng đường dẫn nhưng gắn đúng họ model.
+  SherpaModelPaths withFamily(SherpaAsrFamily newFamily) => SherpaModelPaths(
+        encoder: encoder,
+        decoder: decoder,
+        joiner: joiner,
+        tokens: tokens,
+        numThreads: numThreads,
+        isStreaming: isStreaming,
+        family: newFamily,
+      );
+
+  /// `modelType` cho `OfflineModelConfig` (rỗng = sherpa tự nhận diện).
+  String get offlineModelType =>
+      family == SherpaAsrFamily.parakeet ? 'nemo_transducer' : '';
 
   /// Tạo từ Map (truyền trong options['sherpaModels'] hoặc options).
   static SherpaModelPaths? fromOptions(Map<String, dynamic>? options) {
@@ -57,6 +80,7 @@ class SherpaModelPaths {
     if (encoder == null || decoder == null || joiner == null || tokens == null) {
       return null;
     }
+    final familyName = map['family'] as String?;
     return SherpaModelPaths(
       encoder: encoder,
       decoder: decoder,
@@ -64,6 +88,9 @@ class SherpaModelPaths {
       tokens: tokens,
       numThreads: (map['numThreads'] as int?) ?? 2,
       isStreaming: (map['isStreaming'] as bool?) ?? false,
+      family: familyName == SherpaAsrFamily.parakeet.name
+          ? SherpaAsrFamily.parakeet
+          : SherpaAsrFamily.zipformer,
     );
   }
 }
@@ -84,6 +111,11 @@ Float32List pcm16ToFloat32(List<int> bytes) {
 
 class SherpaSttEngine implements SttEngine {
   sherpa.OfflineRecognizer? _offline;
+
+  /// Encoder + họ model đang nạp trong [_offline] — dùng để biết khi user đổi
+  /// model (VI ↔ Parakeet) mà KHÔNG cần khởi động lại app: recognizer cũ phải
+  /// được free rồi tạo lại, nếu không Parakeet sẽ decode bằng model Zipformer.
+  String? _offlineModelKey;
   sherpa.OnlineRecognizer? _online;
   sherpa.OnlineStream? _onlineStream;
   sherpa.VoiceActivityDetector? _vad;
@@ -132,7 +164,22 @@ class SherpaSttEngine implements SttEngine {
   /// KHÔNG BẮT ĐƯỢC crash native → phải chặn Ở ĐÂY, trước khi tạo recognizer,
   /// và trả lỗi rõ để UI hiển thị thay vì app chết.
   Future<void> _initOffline(SherpaModelPaths paths) async {
-    if (_offline != null) return;
+    final modelKey = '${paths.family.name}|${paths.encoder}';
+    if (_offline != null && _offlineModelKey == modelKey) return;
+    if (_offline != null) {
+      // Đổi model (vd VI Zipformer → Parakeet): phải free recognizer cũ, nếu
+      // không tiến trình vẫn decode bằng model trước đó (native giữ encoder
+      // trong RAM) và kết quả ra sai ngôn ngữ.
+      debugPrint('♻️ SherpaSttEngine: đổi model offline '
+          '($_offlineModelKey → $modelKey) — free recognizer cũ');
+      try {
+        _offline!.free();
+      } catch (e) {
+        debugPrint('⚠️ Free OfflineRecognizer cũ lỗi: $e');
+      }
+      _offline = null;
+      _offlineModelKey = null;
+    }
     // Re-check kép: trust flag `isStreaming` + dò lại từ tên/metadata
     // (options truyền tay có thể thiếu flag — default false = nguy hiểm).
     final isStreaming =
@@ -157,9 +204,13 @@ class SherpaSttEngine implements SttEngine {
         ),
         tokens: paths.tokens,
         numThreads: paths.numThreads,
+        // PARAKEET-001: `nemo_transducer` cho Parakeet TDT; Zipformer để rỗng
+        // (sherpa-onnx tự nhận từ metadata ONNX như trước).
+        modelType: paths.offlineModelType,
       ),
     );
     _offline = sherpa.OfflineRecognizer(config);
+    _offlineModelKey = modelKey;
   }
 
   /// Khởi tạo online (streaming) recognizer từ model paths.
@@ -222,10 +273,10 @@ class SherpaSttEngine implements SttEngine {
       final profile = AsrModelRouter.profileForIdOrLanguage(lang);
       return SttFileResult.failure(
         profile == null
-            ? 'App chưa có model Zipformer cho ngôn ngữ này (chỉ có '
-                'Tiếng Việt offline + English streaming) — hãy chọn ngôn ngữ '
-                'khác trong Quản lý Model AI.'
-            : 'Chưa cài model Zipformer ${profile.name}. Mở Quản lý Model AI '
+            ? 'App chưa có model STT cho ngôn ngữ này (chỉ có Tiếng Việt '
+                'offline, English streaming và Parakeet 25 ngôn ngữ châu Âu) '
+                '— hãy chọn ngôn ngữ khác trong Quản lý Model AI.'
+            : 'Chưa cài model ${profile.name}. Mở Quản lý Model AI '
                 'để tải/import model (encoder/decoder/joiner + tokens.txt).',
       ).result;
     }
@@ -672,6 +723,7 @@ class SherpaSttEngine implements SttEngine {
       _offline?.free();
     } catch (_) {}
     _offline = null;
+    _offlineModelKey = null;
 
     try {
       _online?.free();

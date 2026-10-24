@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'models/stt_model_info.dart';
+import 'utils/free_space.dart';
 import 'utils/whisper_language.dart';
 
 class SttModelManager {
@@ -115,7 +116,6 @@ class SttModelManager {
 
   String get modelDirectoryPath => _modelDirectory ?? 'Chưa khởi tạo';
 
-  Future<int> getFreeSpaceMB() => _getFreeSpaceMB();
 
   Future<void> rescan() async {
     _ensureInitialized();
@@ -196,7 +196,8 @@ class SttModelManager {
       _emitState(
         level,
         ModelStatus.insufficientSpace,
-        errorMessage: 'Cần ${level.requiredFreeSpaceMB}MB, còn $freeMB MB',
+        errorMessage:
+            'Cần ${level.requiredFreeSpaceMB}MB, còn ${freeMB ?? '?'} MB',
       );
       return false;
     }
@@ -913,15 +914,20 @@ class SttModelManager {
 
   Future<bool> _checkFreeSpace(WhisperModelLevel level) async {
     final freeMB = await _getFreeSpaceMB();
+    // Không đo được dung lượng (nền tảng không có statvfs qua FFI) ⇒ KHÔNG
+    // chặn: để tầng tải báo lỗi thật. Trước đây hàm này trả hằng số 2048MB
+    // nên máy chỉ còn 300MB vẫn cho tải model 670MB rồi chết giữa đường.
+    if (freeMB == null) return true;
     return freeMB >= level.requiredFreeSpaceMB;
   }
 
-  Future<int> _getFreeSpaceMB() async {
-    try {
-      return 2048;
-    } catch (_) {
-      return 512;
-    }
+  /// Dung lượng trống (MB) — `null` khi không đo được.
+  Future<int?> getFreeSpaceMB() => _getFreeSpaceMB();
+
+  Future<int?> _getFreeSpaceMB() async {
+    final dir = _modelDirectory;
+    if (dir == null) return null;
+    return probeFreeSpaceMB(dir);
   }
 
   Future<void> _writePinnedLevel(

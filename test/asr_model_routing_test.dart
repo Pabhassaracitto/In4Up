@@ -22,15 +22,43 @@ bool Function(String) installedOnly(Set<String> profileIds) =>
 
 void main() {
   group('AsrModelRouter — mapping ngôn ngữ ↔ profile', () {
-    test('chỉ có 2 profile đã verify (VI offline + EN streaming)', () {
-      expect(kSherpaAsrProfiles.length, 2);
+    test('3 profile đã verify (VI offline + EN streaming + Parakeet đa ngữ)', () {
+      expect(kSherpaAsrProfiles.length, 3);
       final vi = AsrModelRouter.profileForLanguage('vi')!;
       expect(vi.id, 'asr-vi-30M-int8');
       expect(vi.isStreaming, isFalse);
 
+      // Profile chuyên EN vẫn thắng model đa ngữ (hành vi cũ không đổi).
       final en = AsrModelRouter.profileForLanguage('en')!;
       expect(en.id, 'asr-en-20M-streaming-int8');
       expect(en.isStreaming, isTrue);
+
+      final parakeet = AsrModelRouter.parakeetProfile!;
+      expect(parakeet.id, kParakeetProfileId);
+      expect(parakeet.family, SherpaAsrFamily.parakeet);
+      expect(parakeet.isStreaming, isFalse);
+      expect(parakeet.languages.length, 25);
+      expect(parakeet.isMultilingual, isTrue);
+      // Parakeet offline-only: live STT đi đường OfflineRecognizer + VAD.
+      expect(parakeet.isOffline, isTrue);
+    });
+
+    test('ngôn ngữ châu Âu chưa có profile riêng → Parakeet', () {
+      for (final lang in ['fr', 'de', 'es', 'it', 'pl', 'uk']) {
+        expect(AsrModelRouter.profileForLanguage(lang)?.id, kParakeetProfileId,
+            reason: 'ngôn ngữ $lang phải route về Parakeet');
+        expect(AsrModelRouter.isMultilingualOnly(lang), isTrue);
+      }
+      // EN có profile chuyên dụng ⇒ KHÔNG phải "chỉ model đa ngữ".
+      expect(AsrModelRouter.isMultilingualOnly('en'), isFalse);
+    });
+
+    test('profileForIdOrLanguage: id có dấu "-" vẫn khớp chính xác', () {
+      expect(AsrModelRouter.profileForIdOrLanguage('asr-vi-30M-int8')?.id,
+          'asr-vi-30M-int8');
+      expect(AsrModelRouter.profileForIdOrLanguage(kParakeetProfileId)?.id,
+          kParakeetProfileId);
+      expect(AsrModelRouter.profileForIdOrLanguage('fr')?.id, kParakeetProfileId);
     });
 
     test('normalize mã ngôn ngữ có vùng/hoa thường', () {
@@ -41,12 +69,16 @@ void main() {
     });
 
     test('ngôn ngữ không có profile → null (KHÔNG bịa về profile đầu tiên)', () {
+      // zh/ja/th không nằm trong 25 ngôn ngữ châu Âu của Parakeet.
       expect(AsrModelRouter.profileForLanguage('zh'), isNull);
-      expect(AsrModelRouter.profileForLanguage('fr'), isNull);
       expect(AsrModelRouter.profileForLanguage('ja-JP'), isNull);
       expect(AsrModelRouter.supportsLanguage('vi'), isTrue);
+      expect(AsrModelRouter.supportsLanguage('fr'), isTrue);
       expect(AsrModelRouter.supportsLanguage('th'), isFalse);
-      expect(AsrModelRouter.supportedLanguages, ['vi', 'en']);
+      // 2 ngôn ngữ Zipformer + 24 ngôn ngữ Parakeet chưa có profile riêng.
+      expect(AsrModelRouter.supportedLanguages.length, 26);
+      expect(AsrModelRouter.supportedLanguages.take(2), ['vi', 'en']);
+      expect(AsrModelRouter.supportedLanguages, containsAll(['fr', 'de', 'es']));
     });
 
     test('cabin KHÔNG còn hardcode EN: máy đã cài VI → mặc định VI', () {
@@ -88,6 +120,27 @@ void main() {
       // Model VI không phải là "fallback" cho zh — phải dùng engine Hệ thống.
       expect(selection.hasInstalledFallback, isFalse);
       expect(selection.fallbackLanguage, isNull);
+    });
+
+    test('máy chỉ cài Parakeet + chọn DE → ready (dùng model đa ngữ)', () {
+      final installed = installedOnly({kParakeetProfileId});
+      final selection = AsrModelRouter.resolve('de', isInstalled: installed);
+      expect(selection.isReady, isTrue);
+      expect(selection.issue, AsrModelIssue.none);
+      expect(selection.profile?.id, kParakeetProfileId);
+      expect(selection.liveRoute, AsrLiveRoute.simulatedOffline);
+      // Cabin vẫn cho bóc băng file/LRC vì Parakeet là model offline.
+      expect(selection.profile?.isOffline, isTrue);
+    });
+
+    test('chưa cài Parakeet + chọn FR → profileNotInstalled, không mượn VI', () {
+      final installed = installedOnly({'asr-vi-30M-int8'});
+      final selection = AsrModelRouter.resolve('fr', isInstalled: installed);
+      expect(selection.isReady, isFalse);
+      expect(selection.issue, AsrModelIssue.profileNotInstalled);
+      expect(selection.profile?.id, kParakeetProfileId);
+      expect(selection.hasInstalledFallback, isTrue);
+      expect(selection.fallbackLanguage, 'vi');
     });
 
     test('máy có EN streaming + chọn EN → route OnlineRecognizer', () {
@@ -337,6 +390,33 @@ void main() {
       } finally {
         dir.deleteSync(recursive: true);
       }
+    });
+
+    test('matchAsrProfile: bundle Parakeet (tên archive) → profile Parakeet', () {
+      final parakeet = SherpaModelManager.matchAsrProfile(
+        isStreaming: false,
+        encoderPath:
+            '/models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/encoder.int8.onnx',
+        folderName: 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8',
+      );
+      expect(parakeet?.id, kParakeetProfileId);
+    });
+
+    test('matchAsrProfile: tên file trung tính + ngôn ngữ châu Âu → Parakeet',
+        () {
+      final parakeet = SherpaModelManager.matchAsrProfile(
+        isStreaming: false,
+        encoderPath: '/data/user/0/in4up/cache/encoder.int8.onnx',
+        folderName: '/storage/emulated/0/Download/parakeet-fr-int8',
+      );
+      expect(parakeet?.id, kParakeetProfileId);
+      // "/data/…" không được khớp token "da" (Đan Mạch) khi tên lá trung tính.
+      final unknown = SherpaModelManager.matchAsrProfile(
+        isStreaming: false,
+        encoderPath: '/data/user/0/in4up/cache/picked/encoder.int8.onnx',
+        folderName: '/data/user/0/in4up/cache/picked',
+      );
+      expect(unknown, isNull);
     });
 
     test('SherpaAsrInfo: liệt kê ngôn ngữ đã cài (ưu tiên VI)', () {

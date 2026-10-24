@@ -1,18 +1,24 @@
 // packages/in4up_stt/lib/asr_model_routing.dart
 //
-// Chọn model Zipformer ASR + route engine live STT — LOGIC THUẦN (không I/O,
-// không plugin) nên test được trên máy không có thiết bị.
+// Chọn model ASR (Zipformer / Parakeet / …) + route engine live STT — LOGIC
+// THUẦN (không I/O, không plugin) nên test được trên máy không có thiết bị.
 //
-// Ràng buộc (SHERPA-WP4-01 / CABIN-ASR-002 / SHERPA-STREAM-001):
-// - App chỉ có 2 profile: **VI offline** (`OfflineRecognizer` + Silero VAD =
-//   “simulated streaming”) và **EN streaming** (`OnlineRecognizer` =
-//   token-by-token). KHÔNG bịa thêm profile ngôn ngữ nào khác: ngôn ngữ
-//   không có profile phải được báo RÕ, không map mò về profile đầu tiên.
+// Ràng buộc (SHERPA-WP4-01 / CABIN-ASR-002 / SHERPA-STREAM-001 /
+// PARAKEET-001):
+// - 3 profile đã verify: **VI offline** (Zipformer, `OfflineRecognizer` +
+//   Silero VAD = “simulated streaming”), **EN streaming** (Zipformer,
+//   `OnlineRecognizer` token-by-token) và **Parakeet TDT 0.6B v3 int8**
+//   (offline, 25 ngôn ngữ châu Âu — `OfflineRecognizer` + VAD).
+//   KHÔNG bịa thêm profile ngôn ngữ nào khác: ngôn ngữ không có profile phải
+//   được báo RÕ, không map mò về profile đầu tiên.
 // - KHÔNG tự đổi ngôn ngữ nhận diện sau lưng user: chọn EN mà máy chỉ cài VI
 //   thì DỪNG + báo thiếu model (kèm gợi ý fallback để user tự xác nhận),
 //   tuyệt đối không nhận tiếng Anh bằng model tiếng Việt.
 // - Model streaming KHÔNG BAO GIỜ đi vào `OfflineRecognizer` (SIGABRT
 //   “Got N Expected 39”); model offline không đi vào `OnlineRecognizer`.
+// - Model đa ngữ (Parakeet) KHÔNG được “chiếm chỗ” của profile chuyên một
+//   ngôn ngữ: `profileForLanguage('en')` vẫn trả Zipformer EN streaming;
+//   Parakeet chỉ là profile cho ngôn ngữ chưa có model riêng (de/fr/…).
 
 /// Ngôn ngữ mặc định của app (người Việt) — dùng khi máy chưa cài model nào.
 const String kDefaultAsrLanguage = 'vi';
@@ -20,7 +26,22 @@ const String kDefaultAsrLanguage = 'vi';
 /// Thứ tự ưu tiên khi nhiều profile đã cài (VI trước — theo WP4).
 const List<String> kAsrLanguagePriority = ['vi', 'en'];
 
-/// Định nghĩa profile của model Zipformer ASR.
+/// Họ model (quyết định nhãn UI + engine chạy).
+enum SherpaAsrFamily {
+  /// Zipformer (k2-fsa) — VI offline 30M, EN streaming 20M.
+  zipformer,
+
+  /// NeMo Parakeet TDT (encoder–decoder–joiner) — đa ngữ, offline.
+  parakeet,
+}
+
+/// Id profile Parakeet TDT 0.6B v3 int8 (25 ngôn ngữ châu Âu).
+///
+/// Nguồn: `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2`
+/// (k2-fsa export từ `nvidia/parakeet-tdt-0.6b-v3`, license CC-BY-4.0).
+const String kParakeetProfileId = 'asr-parakeet-tdt-0.6b-v3-int8';
+
+/// Định nghĩa profile của model ASR (Zipformer / Parakeet).
 ///
 /// `isStreaming == true` ⇒ model chỉ chạy được với `OnlineRecognizer`
 /// (live token-by-token). `false` ⇒ model offline, live phải đi đường
@@ -28,36 +49,63 @@ const List<String> kAsrLanguagePriority = ['vi', 'en'];
 class SherpaAsrProfile {
   final String id;
   final String name;
-  final String language;
+
+  /// Các ngôn ngữ model nhận diện được (phần tử ĐẦU là ngôn ngữ đại diện —
+  /// dùng cho `resolveDefaultLanguage` / nhãn ngắn). Model một ngôn ngữ chỉ
+  /// có 1 phần tử; Parakeet có 25.
+  final List<String> languages;
+
   final bool isStreaming;
   final int approxSizeMB;
   final String downloadUrl;
   final String archiveName;
+  final SherpaAsrFamily family;
 
   const SherpaAsrProfile({
     required this.id,
     required this.name,
-    required this.language,
+    required this.languages,
     required this.isStreaming,
     required this.approxSizeMB,
     required this.downloadUrl,
     required this.archiveName,
+    this.family = SherpaAsrFamily.zipformer,
   });
+  // KHÔNG đặt `assert(languages.length > 0)` trong constructor `const`: đọc
+  // `.length` của const list không phải biểu thức hằng hợp lệ (analyzer:
+  // `const_eval_property_access`) ⇒ hỏng cả `kSherpaAsrProfiles`.
+  // Bất biến "có ít nhất 1 ngôn ngữ" được `languages` bắt buộc + test gác.
+
+  /// Ngôn ngữ đại diện (giữ API cũ `profile.language`).
+  String get language => languages.first;
+
+  /// Model nhiều ngôn ngữ (Parakeet) hay chuyên 1 ngôn ngữ.
+  bool get isMultilingual => languages.length > 1;
 
   /// Model offline dùng được cho file/LRC (streaming thì KHÔNG — xem
   /// `SherpaModelManager.isStreamingEncoderOnnx`).
   bool get isOffline => !isStreaming;
+
+  /// Nhãn ngắn cho chip/status: `VI`, `EN` hoặc `25 ngôn ngữ`.
+  String get languageLabel {
+    if (!isMultilingual) return language.toUpperCase();
+    return '${languages.length} ngôn ngữ';
+  }
+
+  /// Model lớn (≥300MB) — UI phải hỏi xác nhận trước khi tải.
+  bool get isLargeDownload => approxSizeMB >= 300;
 }
 
-/// Danh sách profile Zipformer ASR được hỗ trợ sẵn.
+/// Danh sách profile ASR được hỗ trợ sẵn (3 profile đã verify).
 ///
-/// URL/size lấy từ danh sách đã verify với docs k2-fsa trong
-/// `docs/Bangiao/bangiao_sherpa_wp4_live_stt.md` — không thêm URL mới.
+/// URL/size lấy từ docs k2-fsa (`docs/Bangiao/bangiao_sherpa_wp4_live_stt.md`
+/// + trang `offline-transducer/nemo-transducer-models`) — không thêm URL mới
+/// khi chưa verify tên archive.
 const List<SherpaAsrProfile> kSherpaAsrProfiles = [
   SherpaAsrProfile(
     id: 'asr-vi-30M-int8',
     name: 'Tiếng Việt (Zipformer 30M int8)',
-    language: 'vi',
+    languages: ['vi'],
     isStreaming: false,
     approxSizeMB: 32,
     downloadUrl:
@@ -68,7 +116,7 @@ const List<SherpaAsrProfile> kSherpaAsrProfiles = [
   SherpaAsrProfile(
     id: 'asr-en-20M-streaming-int8',
     name: 'English (Zipformer 20M int8 streaming)',
-    language: 'en',
+    languages: ['en'],
     isStreaming: true,
     approxSizeMB: 20,
     downloadUrl:
@@ -76,7 +124,57 @@ const List<SherpaAsrProfile> kSherpaAsrProfiles = [
         'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2',
     archiveName: 'sherpa-onnx-streaming-zipformer-en-20M-2023-02-17.tar.bz2',
   ),
+  // PARAKEET-001 — model đa ngữ (25 ngôn ngữ châu Âu) của NVIDIA, export
+  // int8 bởi k2-fsa. Offline-only: sherpa-onnx KHÔNG có bản streaming cho
+  // parakeet-tdt-0.6b-v3 (issue k2-fsa/sherpa-onnx#2918) ⇒ live STT đi đường
+  // simulated streaming (OfflineRecognizer + Silero VAD) như profile VI.
+  // Bộ file: encoder.int8.onnx (~624MB) + decoder.int8.onnx + joiner.int8.onnx
+  // + tokens.txt ⇒ ~670MB, cần ~1GB RAM trống khi nạp.
+  SherpaAsrProfile(
+    id: kParakeetProfileId,
+    name: 'Parakeet TDT 0.6B v3 (NVIDIA, int8)',
+    languages: [
+      'en',
+      'bg',
+      'hr',
+      'cs',
+      'da',
+      'nl',
+      'et',
+      'fi',
+      'fr',
+      'de',
+      'el',
+      'hu',
+      'it',
+      'lv',
+      'lt',
+      'mt',
+      'pl',
+      'pt',
+      'ro',
+      'sk',
+      'sl',
+      'es',
+      'sv',
+      'ru',
+      'uk',
+    ],
+    isStreaming: false,
+    approxSizeMB: 670,
+    downloadUrl:
+        'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/'
+        'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2',
+    archiveName: 'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2',
+    family: SherpaAsrFamily.parakeet,
+  ),
 ];
+
+/// Các profile ASR đa ngữ (ngôn ngữ chưa có model chuyên dụng dùng chung).
+List<SherpaAsrProfile> get kMultilingualAsrProfiles => [
+      for (final profile in kSherpaAsrProfiles)
+        if (profile.isMultilingual) profile,
+    ];
 
 /// Lý do model chưa dùng được cho ngôn ngữ đang chọn.
 enum AsrModelIssue {
@@ -168,28 +266,85 @@ class AsrModelRouter {
     return dash > 0 ? trimmed.substring(0, dash) : trimmed;
   }
 
-  /// Profile cho một ngôn ngữ — CHỈ khớp đúng ngôn ngữ (không fallback mò).
-  static SherpaAsrProfile? profileForLanguage(String language) {
+  /// TẤT CẢ profile nhận diện được [language], theo thứ tự ưu tiên:
+  /// 1. profile chuyên đúng 1 ngôn ngữ đó (Zipformer VI/EN) — nhỏ, nhanh;
+  /// 2. profile đa ngữ có chứa ngôn ngữ đó (Parakeet).
+  ///
+  /// Model đa ngữ KHÔNG được chen ngang profile chuyên ngôn ngữ: chọn EN mà
+  /// máy có Zipformer EN streaming thì vẫn dùng Zipformer (hành vi cũ).
+  static List<SherpaAsrProfile> profilesForLanguage(String language) {
     final norm = normalizeLanguage(language);
-    if (norm.isEmpty) return null;
+    if (norm.isEmpty) return const [];
+    final dedicated = <SherpaAsrProfile>[];
+    final multilingual = <SherpaAsrProfile>[];
     for (final profile in kSherpaAsrProfiles) {
-      if (profile.language == norm) return profile;
+      if (!profile.languages.contains(norm)) continue;
+      if (profile.isMultilingual) {
+        multilingual.add(profile);
+      } else {
+        dedicated.add(profile);
+      }
+    }
+    return [...dedicated, ...multilingual];
+  }
+
+  /// Profile tốt nhất cho một ngôn ngữ — CHỈ khớp ngôn ngữ model hỗ trợ
+  /// (không fallback mò sang ngôn ngữ khác).
+  static SherpaAsrProfile? profileForLanguage(String language) {
+    final matches = profilesForLanguage(language);
+    return matches.isEmpty ? null : matches.first;
+  }
+
+  /// Profile theo id chính xác (null nếu không có).
+  static SherpaAsrProfile? profileById(String id) {
+    for (final profile in kSherpaAsrProfiles) {
+      if (profile.id == id) return profile;
     }
     return null;
   }
 
-  /// Profile theo id (khớp `language` cũng được — tương thích API cũ).
-  static SherpaAsrProfile? profileForIdOrLanguage(String idOrLanguage) {
-    final norm = normalizeLanguage(idOrLanguage);
-    for (final profile in kSherpaAsrProfiles) {
-      if (profile.id.toLowerCase() == norm) return profile;
-    }
-    return profileForLanguage(idOrLanguage);
+  /// Profile Parakeet đa ngữ (null nếu bản build không kèm).
+  static SherpaAsrProfile? get parakeetProfile => profileById(kParakeetProfileId);
+
+  /// Profile Zipformer đang có (theo họ model).
+  static List<SherpaAsrProfile> get zipformerProfiles => [
+        for (final profile in kSherpaAsrProfiles)
+          if (profile.family == SherpaAsrFamily.zipformer) profile,
+      ];
+
+  /// Ngôn ngữ CHỈ có model đa ngữ (chưa có model chuyên dụng) — UI dùng để
+  /// ghi chú "dùng Parakeet" thay vì báo "chưa hỗ trợ offline".
+  static bool isMultilingualOnly(String language) {
+    final matches = profilesForLanguage(language);
+    return matches.isNotEmpty && matches.every((p) => p.isMultilingual);
   }
 
-  /// Các ngôn ngữ app CÓ model offline (Zipformer).
-  static List<String> get supportedLanguages =>
-      [for (final profile in kSherpaAsrProfiles) profile.language];
+  /// Profile theo id (khớp `language` cũng được — tương thích API cũ).
+  ///
+  /// FIX PARAKEET-001: bản cũ normalize TRƯỚC khi so id ⇒ `asr-vi-30M-int8`
+  /// bị cắt thành `asr` (normalizeLanguage cắt ở dấu '-') nên KHÔNG BAO GIỜ
+  /// khớp id nào; UI import theo thẻ model vì thế mất `targetProfileId`.
+  /// Giờ so id nguyên chuỗi trước, rồi mới thử như mã ngôn ngữ.
+  static SherpaAsrProfile? profileForIdOrLanguage(String idOrLanguage) {
+    final raw = idOrLanguage.trim().toLowerCase();
+    if (raw.isEmpty) return null;
+    for (final profile in kSherpaAsrProfiles) {
+      if (profile.id.toLowerCase() == raw) return profile;
+    }
+    return profileForLanguage(raw);
+  }
+
+  /// Các ngôn ngữ app CÓ model offline (Zipformer + Parakeet), không trùng.
+  static List<String> get supportedLanguages {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final profile in kSherpaAsrProfiles) {
+      for (final language in profile.languages) {
+        if (seen.add(language)) out.add(language);
+      }
+    }
+    return out;
+  }
 
   /// App có profile Zipformer cho ngôn ngữ này không.
   static bool supportsLanguage(String language) =>
@@ -202,7 +357,19 @@ class AsrModelRouter {
     required bool Function(String profileId) isInstalled,
   }) {
     final norm = normalizeLanguage(language);
-    final profile = profileForLanguage(norm);
+
+    // Ưu tiên profile chuyên ngôn ngữ; nếu profile đó chưa cài mà model ĐA
+    // NGỮ đã cài VÀ có ngôn ngữ này thì dùng luôn model đa ngữ (vẫn đúng
+    // ngôn ngữ, không phải "đoán mò").
+    SherpaAsrProfile? profile = profileForLanguage(norm);
+    if (profile != null && !isInstalled(profile.id)) {
+      for (final candidate in profilesForLanguage(norm)) {
+        if (candidate.isMultilingual && isInstalled(candidate.id)) {
+          profile = candidate;
+          break;
+        }
+      }
+    }
     final installed = profile != null && isInstalled(profile.id);
 
     SherpaAsrProfile? alternative;

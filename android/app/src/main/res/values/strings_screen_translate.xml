@@ -18,6 +18,10 @@
     <string name="screen_translate_bubble_label">文A</string>
     <!-- Bong bóng ở trạng thái "cần thiết lập" (chưa có quyền chụp màn hình). -->
     <string name="screen_translate_bubble_setup_label">⚙</string>
+    <!-- XLAT-SCR-005: bong bóng tự đổi nhãn để người dùng biết đã bấm trúng. -->
+    <string name="screen_translate_bubble_working_label">…</string>
+    <string name="screen_translate_bubble_done_label">✓</string>
+    <string name="screen_translate_bubble_error_label">!</string>
     <string name="screen_translate_idle">Tap the bubble to translate this screen</string>
     <string name="screen_translate_idle_consent">Tap the bubble, then allow screen capture</string>
     <string name="screen_translate_consent">Waiting for screen capture permission…</string>
@@ -33,4 +37,10 @@
     <string name="screen_translate_done_engine">Translated with %1$s — tap the bubble to hide</string>
     <string name="screen_translate_error">Could not translate this screen</string>
     <string name="screen_translate_stop">Turn off</string>
+    <!-- XLAT-SCR-005: kéo chọn vùng dịch. -->
+    <string name="screen_translate_region_hint">Drag to select the area to translate</string>
+    <string name="screen_translate_region_selecting">Drag over the text you want translated</string>
+    <string name="screen_translate_region_capturing">Translating the selected area…</string>
+    <string name="screen_translate_region_too_small">Selection too small — drag a larger box</string>
+    <string name="screen_translate_region_cancelled">Area selection cancelled</string>
 </resources>

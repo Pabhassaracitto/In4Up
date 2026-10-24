@@ -1,5 +1,6 @@
 package com.in4up.screentranslate
 
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.ActivityOptions
 import android.app.Notification
@@ -12,6 +13,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
@@ -89,6 +91,14 @@ class ScreenTranslateService : Service() {
         const val ACTION_SET_TARGET = "com.in4up.screentranslate.SET_TARGET"
 
         /**
+         * XLAT-SCR-005 — đổi chế độ "bấm bong bóng = kéo chọn vùng" khi
+         * service đang chạy (công tắc trong thẻ cài đặt đổi là có hiệu lực
+         * ngay, không cần tắt/bật bong bóng).
+         */
+        const val ACTION_SET_CAPTURE_MODE =
+            "com.in4up.screentranslate.SET_CAPTURE_MODE"
+
+        /**
          * [ScreenCaptureRequestActivity] báo "ta ĐÃ lên foreground thật"
          * (chống chặn background activity start bị nuốt im lặng).
          */
@@ -99,6 +109,16 @@ class ScreenTranslateService : Service() {
             "com.in4up.screentranslate.OPEN_OVERLAY_SETTINGS"
 
         const val EXTRA_TARGET_LANGUAGE = "targetLanguage"
+
+        /**
+         * Ngôn ngữ NGUỒN ('AUTO' = engine tự nhận diện). Owner 24/10: trước
+         * đây chỉ đổi được đích vì service chỉ nhận `targetLanguage`.
+         */
+        const val EXTRA_SOURCE_LANGUAGE = "sourceLanguage"
+
+        /** Bấm bong bóng ⇒ mở khung kéo chọn vùng (thay vì chụp cả màn hình). */
+        const val EXTRA_SELECT_REGION = "selectRegion"
+
         const val EXTRA_LOCALE = "locale"
         const val EXTRA_RESULT_CODE = "resultCode"
         const val EXTRA_RESULT_DATA = "resultData"
@@ -118,6 +138,19 @@ class ScreenTranslateService : Service() {
 
         /** Ảnh đầu tiên sau khi tạo VirtualDisplay chưa kịp có ⇒ thử lại một nhịp. */
         private const val FIRST_FRAME_RETRY_MS = 350L
+
+        /**
+         * Chờ một nhịp SAU khi gỡ khung kéo chọn rồi mới chụp.
+         *
+         * Không chờ thì ảnh chụp sẽ dính chính lớp phủ tối + viền xanh của
+         * khung chọn (WindowManager gỡ view không đồng nghĩa frame đã được
+         * tổng hợp lại). 180ms đủ trên máy phổ thông, vẫn dưới ngưỡng người
+         * dùng cảm thấy chậm.
+         */
+        private const val REGION_CLEAR_DELAY_MS = 180L
+
+        /** Giữ trạng thái ✓/! trên bong bóng bao lâu trước khi về trạng thái sẵn sàng. */
+        private const val BUBBLE_RESULT_HOLD_MS = 1400L
 
         /** Cạnh dài nhất của ảnh chụp — OCR không cần full 1440p. */
         private const val MAX_CAPTURE_EDGE = 1920
@@ -183,12 +216,35 @@ class ScreenTranslateService : Service() {
     /** Hành động phục hồi gắn vào notification khi bong bóng bị chặn. */
     private enum class Recovery { NONE, CONSENT, OVERLAY_SETTINGS }
 
+    /**
+     * Trạng thái HIỂN THỊ của bong bóng (XLAT-SCR-005).
+     *
+     * Vì sao cần: owner báo "bấm bong bóng mà không biết đã bấm trúng chưa,
+     * phải bấm thêm". Vòng tròn 52dp đổi màu + nhấp nháy + chấm "…" là phản
+     * hồi tức thì, không phụ thuộc thông báo hệ thống (có máy tắt thông báo).
+     */
+    private enum class BubbleState { READY, SETUP, WORKING, DONE, ERROR }
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var windowManager: WindowManager? = null
     private var bubbleView: TextView? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var overlayView: TranslationOverlayView? = null
+
+    // ── Phản hồi khi bấm bong bóng (XLAT-SCR-005) ────────────────────
+    private var bubbleState: BubbleState = BubbleState.SETUP
+    private var bubblePulse: ValueAnimator? = null
+
+    /** Nhãn nhỏ ngay dưới bong bóng: "Đang nhận dạng chữ…", "Đang dịch 3/12…". */
+    private var statusChip: TextView? = null
+    private var statusChipParams: WindowManager.LayoutParams? = null
+
+    /** Khung kéo chọn vùng đang hiển thị (null = không ở chế độ chọn vùng). */
+    private var regionView: RegionSelectView? = null
+
+    /** Vùng người dùng vừa chọn (pixel MÀN HÌNH) — dùng cho ĐÚNG một lượt chụp. */
+    private var pendingRegion: Rect? = null
 
     private var engine: FlutterEngine? = null
     private var workerChannel: MethodChannel? = null
@@ -204,9 +260,19 @@ class ScreenTranslateService : Service() {
     private var captureHeight = 0
 
     private var targetLanguage: String = "VI"
+
+    /** 'AUTO' = engine tự nhận diện; hoặc mã như 'EN'/'JA' (XLAT-SCR-005). */
+    private var sourceLanguage: String = "AUTO"
+
+    /** Bấm bong bóng ⇒ mở khung kéo chọn vùng thay vì dịch cả màn hình. */
+    private var selectRegionMode: Boolean = false
+
     private var localeCode: String = "vi"
     private var capturing = false
     private var pendingCaptureAfterConsent = false
+
+    /** Sau khi có consent thì mở luôn khung kéo chọn vùng (giữ lâu bong bóng). */
+    private var pendingRegionSelectAfterConsent = false
     private var isStopping = false
     private var awaitingConsentUi = false
     private var pendingRecovery: Recovery = Recovery.NONE
@@ -296,6 +362,14 @@ class ScreenTranslateService : Service() {
 
             ACTION_SET_TARGET -> {
                 intent.getStringExtra(EXTRA_TARGET_LANGUAGE)?.let { targetLanguage = it }
+                intent.getStringExtra(EXTRA_SOURCE_LANGUAGE)?.let { sourceLanguage = it }
+                return START_STICKY
+            }
+
+            ACTION_SET_CAPTURE_MODE -> {
+                selectRegionMode = intent.getBooleanExtra(EXTRA_SELECT_REGION, false)
+                if (!selectRegionMode) endRegionSelect()
+                refreshBubbleLook()
                 return START_STICKY
             }
 
@@ -318,7 +392,14 @@ class ScreenTranslateService : Service() {
 
             else -> {
                 intent?.getStringExtra(EXTRA_TARGET_LANGUAGE)?.let { targetLanguage = it }
+                intent?.getStringExtra(EXTRA_SOURCE_LANGUAGE)?.let { sourceLanguage = it }
                 intent?.getStringExtra(EXTRA_LOCALE)?.let { localeCode = it }
+                // Dùng safe-call + giá trị mặc định thay vì smart-cast: service
+                // có thể được hệ thống khởi lại với intent null.
+                if (intent?.hasExtra(EXTRA_SELECT_REGION) == true) {
+                    selectRegionMode =
+                        intent?.getBooleanExtra(EXTRA_SELECT_REGION, false) ?: false
+                }
                 startBubbleSession()
                 return START_STICKY
             }
@@ -357,6 +438,9 @@ class ScreenTranslateService : Service() {
         awaitingConsentUi = false
         releaseProjection()
         hideOverlay()
+        endRegionSelect()
+        hideStatusChip()
+        stopBubblePulse()
         removeBubble()
         destroyEngine()
         resetSessionFlags()
@@ -376,6 +460,9 @@ class ScreenTranslateService : Service() {
         mainHandler.removeCallbacks(consentWatchdog)
         releaseProjection()
         hideOverlay()
+        endRegionSelect()
+        hideStatusChip()
+        stopBubblePulse()
         removeBubble()
         destroyEngine()
         super.onDestroy()
@@ -432,7 +519,12 @@ class ScreenTranslateService : Service() {
 
             "reportProgress" -> {
                 val stage = call.argument<String>("stage").orEmpty()
-                if (stage.isNotEmpty()) updateNotification(stage)
+                if (stage.isNotEmpty()) {
+                    updateNotification(stage)
+                    // Chỉ đổi nhãn khi đang chạy — tránh nhãn cũ bám lại sau
+                    // khi đã có kết quả.
+                    if (bubbleState == BubbleState.WORKING) showStatusChip(stage)
+                }
                 result.success(null)
             }
 
@@ -476,7 +568,14 @@ class ScreenTranslateService : Service() {
             y = dp(160)
         }
 
-        bubble.setOnTouchListener(BubbleTouchListener(wm, params) { onBubbleTapped() })
+        bubble.setOnTouchListener(
+            BubbleTouchListener(
+                wm,
+                params,
+                onTap = { onBubbleTapped() },
+                onLongPress = { onBubbleLongPressed() },
+            ),
+        )
         bubble.addOnAttachStateChangeListener(overlayDetachListener)
 
         try {
@@ -493,6 +592,7 @@ class ScreenTranslateService : Service() {
     }
 
     private fun removeBubble() {
+        hideStatusChip()
         val view = bubbleView ?: return
         try {
             view.removeOnAttachStateChangeListener(overlayDetachListener)
@@ -510,25 +610,251 @@ class ScreenTranslateService : Service() {
 
     /** Bong bóng xanh = sẵn sàng; cam + ⚙ = "cần thiết lập" (chưa có consent). */
     private fun refreshBubbleLook() {
-        val bubble = bubbleView ?: return
         val ready = captureConsented && projection != null
-        bubble.text = getString(
-            if (ready) {
-                R.string.screen_translate_bubble_label
+        setBubbleState(if (ready) BubbleState.READY else BubbleState.SETUP)
+    }
+
+    /**
+     * Đổi trạng thái bong bóng — PHẢN HỒI TỨC THÌ cho cú bấm (XLAT-SCR-005).
+     *
+     * Màu + nhãn + nhấp nháy khi đang chạy; ✓ xanh khi xong; ! đỏ khi lỗi.
+     * Không phụ thuộc notification (Android 13+ có thể chưa cấp
+     * POST_NOTIFICATIONS ⇒ người dùng không thấy gì — đó chính là triệu chứng
+     * owner báo).
+     */
+    private fun setBubbleState(state: BubbleState, holdMs: Long = 0L) {
+        bubbleState = state
+        mainHandler.removeCallbacks(resetBubbleRunnable)
+        val bubble = bubbleView
+        if (bubble != null) {
+            bubble.text = when (state) {
+                BubbleState.READY -> getString(R.string.screen_translate_bubble_label)
+                BubbleState.SETUP -> getString(R.string.screen_translate_bubble_setup_label)
+                BubbleState.WORKING -> getString(R.string.screen_translate_bubble_working_label)
+                BubbleState.DONE -> getString(R.string.screen_translate_bubble_done_label)
+                BubbleState.ERROR -> getString(R.string.screen_translate_bubble_error_label)
+            }
+            bubble.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(bubbleColor(state))
+                setStroke(dp(2), Color.argb(200, 255, 255, 255))
+            }
+            if (state == BubbleState.WORKING) {
+                startBubblePulse(bubble)
             } else {
-                R.string.screen_translate_bubble_setup_label
+                stopBubblePulse(bubble)
+            }
+        }
+        if (holdMs > 0L) {
+            mainHandler.postDelayed(resetBubbleRunnable, holdMs)
+        }
+    }
+
+    /** Sau khi hiện ✓/! một nhịp thì trở lại trạng thái theo quyền hiện tại. */
+    private val resetBubbleRunnable = Runnable { refreshBubbleLook() }
+
+    private fun bubbleColor(state: BubbleState): Int = when (state) {
+        BubbleState.READY -> Color.argb(235, 20, 110, 160)
+        BubbleState.SETUP -> Color.argb(235, 190, 120, 20)
+        BubbleState.WORKING -> Color.argb(235, 112, 66, 200)
+        BubbleState.DONE -> Color.argb(235, 22, 140, 92)
+        BubbleState.ERROR -> Color.argb(235, 180, 44, 44)
+    }
+
+    private fun startBubblePulse(view: View) {
+        stopBubblePulse(view)
+        try {
+            val animator = ValueAnimator.ofFloat(1f, 0.45f).apply {
+                duration = 420L
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                addUpdateListener { view.alpha = it.animatedValue as Float }
+            }
+            bubblePulse = animator
+            animator.start()
+        } catch (e: Exception) {
+            // Nhấp nháy là trang trí — hỏng animation không được làm hỏng lượt dịch.
+            e.printStackTrace()
+            view.alpha = 1f
+        }
+    }
+
+    private fun stopBubblePulse(view: View? = bubbleView) {
+        try {
+            bubblePulse?.cancel()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        bubblePulse = null
+        view?.alpha = 1f
+    }
+
+    // ── Nhãn trạng thái dưới bong bóng ────────────────────────────────
+
+    /**
+     * Hiện/ cập nhật nhãn nhỏ ngay dưới bong bóng ("Đang nhận dạng chữ…",
+     * "Đang dịch 3/12 khối chữ…").
+     *
+     * Dùng window overlay riêng thay vì canvas của bong bóng: bong bóng chỉ
+     * 52dp, nhồi chữ vào đó sẽ không đọc được. Nhãn KHÔNG nhận chạm
+     * (`FLAG_NOT_TOUCHABLE`) nên không cản app bên dưới.
+     */
+    private fun showStatusChip(text: String) {
+        if (text.isEmpty()) return
+        if (!hasOverlayPermission(this)) return
+        val wm = windowManager ?: return
+        val chip = statusChip ?: TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 12.5f
+            maxLines = 3
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(18).toFloat()
+                setColor(Color.argb(228, 16, 20, 32))
+                setStroke(dp(1), Color.argb(170, 41, 182, 246))
+            }
+        }
+        val params = statusChipParams ?: WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            overlayWindowType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+        }
+        chip.text = text
+        val bubble = bubbleParams
+        if (bubble != null) {
+            params.x = max(0, bubble.x)
+            params.y = bubble.y + dp(58)
+        } else {
+            params.x = dp(12)
+            params.y = dp(220)
+        }
+        if (statusChip == null) {
+            try {
+                wm.addView(chip, params)
+                statusChip = chip
+                statusChipParams = params
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else {
+            try {
+                wm.updateViewLayout(chip, params)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun hideStatusChip() {
+        val chip = statusChip ?: return
+        statusChip = null
+        statusChipParams = null
+        try {
+            windowManager?.removeView(chip)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    // ── Kéo chọn vùng (XLAT-SCR-005) ──────────────────────────────────
+
+    /**
+     * Mở lớp phủ kéo chọn vùng.
+     *
+     * An toàn: view mới chỉ vẽ hình chữ nhật (không giữ ảnh); service gỡ nó
+     * TRƯỚC khi chụp; mọi ngoại lệ đều quay về trạng thái bong bóng sẵn sàng
+     * + thông báo, KHÔNG im lặng và KHÔNG để view mắc kẹt trên màn hình.
+     */
+    private fun beginRegionSelect() {
+        if (regionView != null) return
+        if (!hasOverlayPermission(this)) {
+            onOverlayRevoked()
+            return
+        }
+        val wm = windowManager ?: return
+        if (overlayView != null) hideOverlay()
+        setBubbleState(BubbleState.WORKING)
+        showStatusChip(getString(R.string.screen_translate_region_selecting))
+        val view = RegionSelectView(
+            this,
+            getString(R.string.screen_translate_region_hint),
+            onRegionSelected = { rect -> onRegionChosen(rect) },
+            onCancelled = { tooSmall ->
+                mainHandler.post {
+                    endRegionSelect()
+                    hideStatusChip()
+                    refreshBubbleLook()
+                    tellUser(
+                        getString(
+                            if (tooSmall) {
+                                R.string.screen_translate_region_too_small
+                            } else {
+                                R.string.screen_translate_region_cancelled
+                            },
+                        ),
+                        haptic = false,
+                    )
+                }
             },
         )
-        bubble.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(
-                if (ready) {
-                    Color.argb(235, 20, 110, 160)
-                } else {
-                    Color.argb(235, 190, 120, 20)
-                },
-            )
-            setStroke(dp(2), Color.argb(200, 255, 255, 255))
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            overlayWindowType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+        }
+        try {
+            wm.addView(view, params)
+            regionView = view
+        } catch (e: Exception) {
+            // ROM chặn overlay hoặc mất quyền giữa chừng.
+            e.printStackTrace()
+            hideStatusChip()
+            refreshBubbleLook()
+            onOverlayRevoked()
+        }
+    }
+
+    private fun endRegionSelect() {
+        val view = regionView ?: return
+        regionView = null
+        try {
+            windowManager?.removeView(view)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Người dùng đã kéo xong: gỡ khung → chờ frame tổng hợp lại → chụp.
+     *
+     * Thà chậm 180ms còn hơn ảnh chụp dính lớp phủ tối (bản dịch sẽ sai vị trí
+     * hoặc OCR ra rác).
+     */
+    private fun onRegionChosen(region: Rect) {
+        mainHandler.post {
+            if (capturing) {
+                endRegionSelect()
+                hideStatusChip()
+                refreshBubbleLook()
+                tellUser(getString(R.string.screen_translate_busy), haptic = false)
+                return@post
+            }
+            endRegionSelect()
+            pendingRegion = Rect(region)
+            setBubbleState(BubbleState.WORKING)
+            showStatusChip(getString(R.string.screen_translate_region_capturing))
+            mainHandler.postDelayed({ captureOnce() }, REGION_CLEAR_DELAY_MS)
         }
     }
 
@@ -538,6 +864,17 @@ class ScreenTranslateService : Service() {
         if (!hasOverlayPermission(this)) {
             setBlockReason("overlay")
             openOverlaySettings()
+            return
+        }
+        // Đang kéo chọn vùng ⇒ chạm bong bóng = HUỶ (không bao giờ im lặng).
+        if (regionView != null) {
+            endRegionSelect()
+            hideStatusChip()
+            refreshBubbleLook()
+            tellUser(
+                getString(R.string.screen_translate_region_cancelled),
+                haptic = false,
+            )
             return
         }
         if (overlayView != null) {
@@ -552,50 +889,114 @@ class ScreenTranslateService : Service() {
         }
         if (projection == null || imageReader == null) {
             pendingCaptureAfterConsent = true
+            pendingRegionSelectAfterConsent = selectRegionMode
             requestConsent()
             return
         }
+        if (selectRegionMode) {
+            // Cấu hình "mỗi lần bấm: kéo chọn vùng".
+            beginRegionSelect()
+            return
+        }
         captureOnce()
+    }
+
+    /**
+     * Giữ lâu bong bóng ⇒ LUÔN mở chế độ kéo chọn vùng, bất kể công tắc trong
+     * Cài đặt. Đây là đường tắt cho người dùng thỉnh thoảng mới cần dịch một
+     * khung (không phải bật/tắt cấu hình).
+     */
+    private fun onBubbleLongPressed() {
+        vibrate()
+        if (!hasOverlayPermission(this)) {
+            setBlockReason("overlay")
+            openOverlaySettings()
+            return
+        }
+        if (regionView != null) {
+            endRegionSelect()
+            hideStatusChip()
+            refreshBubbleLook()
+            tellUser(
+                getString(R.string.screen_translate_region_cancelled),
+                haptic = false,
+            )
+            return
+        }
+        if (capturing) {
+            tellUser(getString(R.string.screen_translate_busy), haptic = false)
+            return
+        }
+        if (projection == null || imageReader == null) {
+            pendingCaptureAfterConsent = true
+            pendingRegionSelectAfterConsent = true
+            requestConsent()
+            return
+        }
+        beginRegionSelect()
     }
 
     private class BubbleTouchListener(
         private val wm: WindowManager,
         private val params: WindowManager.LayoutParams,
         private val onTap: () -> Unit,
+        private val onLongPress: () -> Unit,
     ) : View.OnTouchListener {
         private var startX = 0
         private var startY = 0
         private var touchX = 0f
         private var touchY = 0f
         private var moved = false
+        private var longPressFired = false
+
+        /**
+         * Giữ bong bóng [LONG_PRESS_MS] ⇒ mở khung kéo chọn vùng.
+         *
+         * Dùng `postDelayed` trên chính view (không phải Handler tĩnh) để khi
+         * bong bóng bị gỡ, callback tự không còn cơ hội chạy sai ngữ cảnh.
+         */
+        private val longPress = Runnable {
+            if (!moved && !longPressFired) {
+                longPressFired = true
+                onLongPress()
+            }
+        }
 
         override fun onTouch(view: View, event: MotionEvent): Boolean {
-            when (event.action) {
+            when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = params.x
                     startY = params.y
                     touchX = event.rawX
                     touchY = event.rawY
                     moved = false
+                    longPressFired = false
+                    view.postDelayed(longPress, LONG_PRESS_MS)
                     return true
                 }
 
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - touchX
                     val dy = event.rawY - touchY
-                    if (abs(dx) > 12 || abs(dy) > 12) moved = true
+                    if (abs(dx) > 12 || abs(dy) > 12) {
+                        // Đã kéo ⇒ không phải giữ lâu, huỷ hẹn giờ.
+                        if (!moved) view.removeCallbacks(longPress)
+                        moved = true
+                    }
                     params.x = startX + dx.toInt()
                     params.y = startY + dy.toInt()
                     try {
                         wm.updateViewLayout(view, params)
                     } catch (e: Exception) {
+                        // Bong bóng có thể đã bị hệ thống gỡ (đổi user/ROM).
                         e.printStackTrace()
                     }
                     return true
                 }
 
-                MotionEvent.ACTION_UP -> {
-                    if (!moved) {
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    view.removeCallbacks(longPress)
+                    if (!moved && !longPressFired) {
                         view.performClick()
                         onTap()
                     }
@@ -603,6 +1004,11 @@ class ScreenTranslateService : Service() {
                 }
             }
             return false
+        }
+
+        companion object {
+            /** Thời gian giữ để mở chế độ kéo chọn vùng (ms). */
+            const val LONG_PRESS_MS = 450L
         }
     }
 
@@ -655,6 +1061,7 @@ class ScreenTranslateService : Service() {
     private fun onConsentBlocked() {
         awaitingConsentUi = false
         pendingCaptureAfterConsent = false
+        pendingRegionSelectAfterConsent = false
         setBlockReason("consent_blocked")
         pendingRecovery = Recovery.CONSENT
         tellUser(getString(R.string.screen_translate_consent_blocked), alert = true)
@@ -745,6 +1152,7 @@ class ScreenTranslateService : Service() {
             // Từ chối / hủy: bubble vẫn sống (không crash), nói rõ cách thử lại.
             markConsentDenied()
             pendingCaptureAfterConsent = false
+            pendingRegionSelectAfterConsent = false
             setBlockReason("consent_denied")
             pendingRecovery = Recovery.CONSENT
             refreshBubbleLook()
@@ -768,7 +1176,12 @@ class ScreenTranslateService : Service() {
         pendingRecovery = Recovery.NONE
         if (pendingCaptureAfterConsent) {
             pendingCaptureAfterConsent = false
-            captureOnce()
+            if (pendingRegionSelectAfterConsent) {
+                pendingRegionSelectAfterConsent = false
+                beginRegionSelect()
+            } else {
+                captureOnce()
+            }
         } else {
             updateNotification(notificationStatusText())
         }
@@ -876,6 +1289,11 @@ class ScreenTranslateService : Service() {
             return
         }
         capturing = true
+        // Phản hồi TỨC THÌ (XLAT-SCR-005): bong bóng tím nhấp nháy + nhãn
+        // "Đang nhận dạng chữ…" ngay dưới bong bóng. Owner báo trước đây bấm
+        // xong không biết đã bấm trúng chưa nên phải bấm thêm.
+        setBubbleState(BubbleState.WORKING)
+        showStatusChip(getString(R.string.screen_translate_working))
         updateNotification(getString(R.string.screen_translate_working))
 
         val image = acquire(reader)
@@ -886,8 +1304,13 @@ class ScreenTranslateService : Service() {
                     val retry = acquire(reader)
                     if (retry == null) {
                         capturing = false
+                        // Bỏ vùng chọn đã dùng: không được để nó áp nhầm cho
+                        // lượt chụp SAU (người dùng đã thấy lỗi).
+                        pendingRegion = null
                         setBlockReason("capture_error")
-                        tellUser(getString(R.string.screen_translate_error))
+                        val message = getString(R.string.screen_translate_error)
+                        reportFailureToBubble(message)
+                        tellUser(message)
                     } else {
                         deliverImage(retry)
                     }
@@ -933,8 +1356,11 @@ class ScreenTranslateService : Service() {
         val metrics = captureMetrics
         if (payload == null || metrics == null) {
             capturing = false
+            pendingRegion = null
             setBlockReason("capture_error")
-            tellUser(getString(R.string.screen_translate_error))
+            val message = getString(R.string.screen_translate_error)
+            reportFailureToBubble(message)
+            tellUser(message)
             return
         }
         sendFrameToDart(
@@ -1015,10 +1441,12 @@ class ScreenTranslateService : Service() {
         if (channel == null) {
             capturing = false
             setBlockReason("engine")
-            tellUser(getString(R.string.screen_translate_error))
+            val message = getString(R.string.screen_translate_error)
+            reportFailureToBubble(message)
+            tellUser(message)
             return
         }
-        val args = mapOf(
+        val args = mutableMapOf<String, Any>(
             "pixels" to bytes,
             "width" to width,
             "height" to height,
@@ -1030,8 +1458,20 @@ class ScreenTranslateService : Service() {
             "screenHeight" to screenHeight,
             "devicePixelRatio" to density,
             "targetLanguage" to targetLanguage,
+            // XLAT-SCR-005: ngôn ngữ NGUỒN + vùng kéo chọn (nếu có).
+            "sourceLanguage" to sourceLanguage,
             "locale" to localeCode,
         )
+        // Vùng chọn chỉ dùng cho ĐÚNG một lượt chụp — không để dính sang lượt
+        // sau (người dùng bấm lần nữa mà vẫn bị cắt theo vùng cũ).
+        val region = pendingRegion
+        pendingRegion = null
+        if (region != null && !region.isEmpty()) {
+            args["regionLeft"] = region.left
+            args["regionTop"] = region.top
+            args["regionRight"] = region.right
+            args["regionBottom"] = region.bottom
+        }
         channel.invokeMethod(
             "onFrame",
             args,
@@ -1044,13 +1484,17 @@ class ScreenTranslateService : Service() {
                 override fun error(code: String, message: String?, details: Any?) {
                     capturing = false
                     setBlockReason("capture_error")
-                    tellUser(message ?: getString(R.string.screen_translate_error))
+                    val text = message ?: getString(R.string.screen_translate_error)
+                    reportFailureToBubble(text)
+                    tellUser(text)
                 }
 
                 override fun notImplemented() {
                     capturing = false
                     setBlockReason("engine")
-                    tellUser(getString(R.string.screen_translate_error))
+                    val message = getString(R.string.screen_translate_error)
+                    reportFailureToBubble(message)
+                    tellUser(message)
                 }
             },
         )
@@ -1059,20 +1503,27 @@ class ScreenTranslateService : Service() {
     private fun handleResult(result: Map<*, *>?) {
         if (result == null) {
             setBlockReason("capture_error")
-            tellUser(getString(R.string.screen_translate_error))
+            val message = getString(R.string.screen_translate_error)
+            reportFailureToBubble(message)
+            tellUser(message)
             return
         }
         val status = result["status"] as? String ?: "error"
         val message = result["message"] as? String ?: ""
         if (status != "ok") {
             // noText / missingModel / error / skipped: nói rõ thay vì im lặng.
+            val text = message.ifEmpty { getString(R.string.screen_translate_idle) }
+            reportFailureToBubble(text)
             tellUser(
-                message.ifEmpty { getString(R.string.screen_translate_idle) },
+                text,
                 alert = status == "missingModel",
                 haptic = false,
             )
             return
         }
+        // Thành công: ✓ xanh trên bong bóng + nhãn biến mất.
+        hideStatusChip()
+        setBubbleState(BubbleState.DONE, BUBBLE_RESULT_HOLD_MS)
 
         val raw = result["blocks"] as? List<*> ?: emptyList<Any>()
         val blocks = raw.mapNotNull { item ->
@@ -1183,6 +1634,20 @@ class ScreenTranslateService : Service() {
      * (khi đó notification bị ẩn mà không ai báo) — toast chữ thuần vẫn hiện
      * được từ nền trên Android 11+ (chỉ toast custom bị chặn).
      */
+    /**
+     * Lỗi hiển thị NGAY TRÊN BONG BÓNG + nhãn: "!" đỏ trong 1.4s rồi trở lại
+     * trạng thái sẵn sàng. Toast/notification vẫn do [tellUser] lo — ba kênh
+     * phản hồi vì máy có thể tắt thông báo hoặc che toast.
+     */
+    private fun reportFailureToBubble(message: String) {
+        setBubbleState(BubbleState.ERROR, BUBBLE_RESULT_HOLD_MS)
+        showStatusChip(message)
+        mainHandler.postDelayed({
+            // Không ẩn nhãn của lượt MỚI vừa bắt đầu.
+            if (bubbleState != BubbleState.WORKING) hideStatusChip()
+        }, BUBBLE_RESULT_HOLD_MS)
+    }
+
     private fun tellUser(text: String, alert: Boolean = false, haptic: Boolean = true) {
         updateNotification(text)
         toast(text)

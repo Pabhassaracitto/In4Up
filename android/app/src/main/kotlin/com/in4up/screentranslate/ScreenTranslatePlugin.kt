@@ -83,10 +83,14 @@ class ScreenTranslatePlugin(
                     return
                 }
                 val target = call.argument<String>("targetLanguage") ?: "VI"
+                val source = call.argument<String>("sourceLanguage") ?: "AUTO"
+                val selectRegion = call.argument<Boolean>("selectRegion") ?: false
                 val locale = call.argument<String>("locale") ?: "vi"
                 val intent = Intent(activity, ScreenTranslateService::class.java).apply {
                     action = ScreenTranslateService.ACTION_START
                     putExtra(ScreenTranslateService.EXTRA_TARGET_LANGUAGE, target)
+                    putExtra(ScreenTranslateService.EXTRA_SOURCE_LANGUAGE, source)
+                    putExtra(ScreenTranslateService.EXTRA_SELECT_REGION, selectRegion)
                     putExtra(ScreenTranslateService.EXTRA_LOCALE, locale)
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -127,6 +131,48 @@ class ScreenTranslatePlugin(
                     activity.startService(intent)
                 } catch (e: Exception) {
                     e.printStackTrace()
+                }
+                result.success(true)
+            }
+
+            /**
+             * XLAT-SCR-005 — đổi CẢ ngôn ngữ nguồn và đích khi bong bóng đang
+             * chạy. Trước đây chỉ có `setTargetLanguage` vì nguồn luôn do
+             * engine tự nhận diện.
+             */
+            "setLanguages" -> {
+                val intent = Intent(activity, ScreenTranslateService::class.java).apply {
+                    action = ScreenTranslateService.ACTION_SET_TARGET
+                    call.argument<String>("targetLanguage")?.let {
+                        putExtra(ScreenTranslateService.EXTRA_TARGET_LANGUAGE, it)
+                    }
+                    call.argument<String>("sourceLanguage")?.let {
+                        putExtra(ScreenTranslateService.EXTRA_SOURCE_LANGUAGE, it)
+                    }
+                }
+                try {
+                    activity.startService(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    result.success(false)
+                    return
+                }
+                result.success(true)
+            }
+
+            /** XLAT-SCR-005 — công tắc "kéo chọn vùng" có hiệu lực ngay. */
+            "setCaptureMode" -> {
+                val selectRegion = call.argument<Boolean>("selectRegion") ?: false
+                val intent = Intent(activity, ScreenTranslateService::class.java).apply {
+                    action = ScreenTranslateService.ACTION_SET_CAPTURE_MODE
+                    putExtra(ScreenTranslateService.EXTRA_SELECT_REGION, selectRegion)
+                }
+                try {
+                    activity.startService(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    result.success(false)
+                    return
                 }
                 result.success(true)
             }

@@ -5,6 +5,9 @@
     <string name="screen_translate_alert_channel">Dịch màn hình — cần bạn thao tác</string>
     <string name="screen_translate_bubble_label">文A</string>
     <string name="screen_translate_bubble_setup_label">⚙</string>
+    <string name="screen_translate_bubble_working_label">…</string>
+    <string name="screen_translate_bubble_done_label">✓</string>
+    <string name="screen_translate_bubble_error_label">!</string>
     <string name="screen_translate_idle">Bấm bong bóng để dịch màn hình này</string>
     <string name="screen_translate_idle_consent">Bấm bong bóng rồi cho phép chụp màn hình</string>
     <string name="screen_translate_consent">Đang chờ bạn cho phép chụp màn hình…</string>
@@ -20,4 +23,9 @@
     <string name="screen_translate_done_engine">Đã dịch bằng %1$s — bấm bong bóng để tắt</string>
     <string name="screen_translate_error">Không dịch được màn hình này</string>
     <string name="screen_translate_stop">Tắt</string>
+    <string name="screen_translate_region_hint">Kéo chọn vùng cần dịch</string>
+    <string name="screen_translate_region_selecting">Kéo trên phần chữ bạn muốn dịch</string>
+    <string name="screen_translate_region_capturing">Đang dịch vùng đã chọn…</string>
+    <string name="screen_translate_region_too_small">Vùng chọn quá nhỏ — hãy kéo khung lớn hơn</string>
+    <string name="screen_translate_region_cancelled">Đã huỷ chọn vùng</string>
 </resources>

@@ -14,11 +14,11 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/yt_video.dart';
 import 'yt_dlp_sidecar.dart';
+import 'yt_media_store.dart';
 
 // ─── Audio Quality ────────────────────────────────────────
 
@@ -166,13 +166,19 @@ class YtDownloader {
           0.10, 'Chuẩn bị · ${kbps}kbps · ${_sizeLabel(totalBytes)}'));
 
       // ── Step 4: Chuẩn bị file ─────────────────────────
-      final dir = await getApplicationDocumentsDirectory();
-      final folder = Directory('${dir.path}/youtube_downloads');
-      if (!await folder.exists()) await folder.create(recursive: true);
-
-      final safeTitle = _sanitize(videoObj.title);
-      final filePath = '${folder.path}/$safeTitle.$ext';
+      // YT-MEDIA-STORE-001: ghi vào CÙNG kho với phụ đề, tên theo video ID
+      // (`yt_<id>.<ext>`) để luôn ghép được cặp phụ đề ↔ âm thanh và để
+      // người dùng thấy/xoá được trong "Thư viện đã tải".
+      //
+      // `_sanitize` vẫn được giữ cho đường tải cũ/sidecar và cho an toàn,
+      // nhưng tên file KHÔNG còn dùng tựa đề ⇒ hết hẳn lớp lỗi
+      // RangeError khi tựa đề có ký tự bị loại bỏ.
+      final folder = await YtMediaStore.folder();
+      final fileBase = YtMediaStore.fileBaseFor(video.id);
+      final filePath = '${folder.path}/$fileBase.$ext';
       final partPath = '$filePath.part';
+      debugPrint('⬇️ [in4up-yt] tải vào ${folder.path} · '
+          '${sanitizeFileName(videoObj.title)}');
       final part = File(partPath);
 
       // Xoá file đích cũ để `rename` không vấp (file .part là file tạm).
@@ -442,7 +448,12 @@ class YtDownloader {
         if (ev is YtDlpProgress) {
           ctrl.add(YtDownloadProgress(ev.progress, ev.text));
         } else if (ev is YtDlpDone) {
-          ctrl.add(YtDownloadDone(ev.filePath, quality: 'yt-dlp'));
+          // yt-dlp ghi ra ngoài kho ⇒ đưa vào kho để cùng một danh sách.
+          final adopted = await YtMediaStore.adoptAudio(
+            sourcePath: ev.filePath,
+            videoId: video.id,
+          );
+          ctrl.add(YtDownloadDone(adopted ?? ev.filePath, quality: 'yt-dlp'));
           if (!ctrl.isClosed) ctrl.close();
           return true;
         } else if (ev is YtDlpFailed) {
@@ -494,11 +505,25 @@ class YtDownloader {
     return '${(bytes / 1024).toStringAsFixed(0)} KB';
   }
 
-  String _sanitize(String name) => name
-      .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim()
-      .substring(0, name.length.clamp(0, 80));
+  /// Bỏ ký tự cấm trong tên file + cắt còn tối đa 80 ký tự.
+  ///
+  /// YT-DL-RANGE-001 (bug "RangeError (end): Invalid value: Not in inclusive
+  /// range 0..70: 74"): bản cũ `.substring(0, name.length.clamp(0, 80))` cắt
+  /// theo độ dài của tên **GỐC** trong khi chuỗi đã bị `replaceAll` làm NGẮN
+  /// đi ⇒ `end` vượt quá độ dài thật. Ví dụ tên 74 ký tự có 3 ký tự bị bỏ ⇒
+  /// chuỗi còn 71 ⇒ `substring(0, 74)` ném RangeError (0..70). Vì đây là
+  /// bước dựng TÊN FILE nên lỗi ném ra giữa luồng tải và người dùng chỉ thấy
+  /// "Tải thất bại" — không liên quan gì tới mạng.
+  ///
+  /// Cắt trên chuỗi ĐÃ chuẩn hoá, và tự bảo vệ khi chuỗi ngắn hơn giới hạn.
+  static String sanitizeFileName(String name) {
+    final cleaned = name
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.length <= 80) return cleaned;
+    return cleaned.substring(0, 80);
+  }
 
   String _friendlyError(String raw) {
     if (raw.contains('unplayable') || raw.contains('Unplayable')) {

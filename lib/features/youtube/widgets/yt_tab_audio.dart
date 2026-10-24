@@ -13,6 +13,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart' show AudioOnlySt
 import '../../../providers/player_provider.dart';
 import '../models/yt_video.dart';
 import '../services/yt_downloader.dart';
+import 'yt_media_library_sheet.dart';
 import 'yt_video_card.dart';
 
 enum _DlState { idle, fetchingQualities, fetching, downloading, done, failed }
@@ -468,11 +469,21 @@ class _YtTabAudioState extends State<YtTabAudio>
                           Text(context.uiText('Chất lượng: $_savedQuality'),
                               style: const TextStyle(
                                   color: Colors.white54, fontSize: 11)),
-                        if (_savedPath != null)
+                        if (_savedPath != null) ...[
                           Text(_savedPath!.split('/').last,
                               style: const TextStyle(
                                   color: Colors.white54, fontSize: 10),
                               overflow: TextOverflow.ellipsis),
+                          // YT-MEDIA-STORE-001: đường dẫn ĐẦY ĐỦ để người dùng
+                          // tìm lại được bằng trình quản lý file.
+                          Text(
+                            _folderOf(_savedPath!),
+                            style: const TextStyle(
+                                color: Colors.white38, fontSize: 9),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -494,7 +505,11 @@ class _YtTabAudioState extends State<YtTabAudio>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                     ),
+                    // Ba nút chia đều một hàng ⇒ chữ dài nhất phải cắt đuôi,
+                    // nếu không sẽ tràn (RenderFlex overflow) trên máy hẹp.
                     child: const Text('Tải video khác',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: Colors.grey, fontSize: 12)),
                   ),
                 ),
@@ -510,11 +525,35 @@ class _YtTabAudioState extends State<YtTabAudio>
                     child: const Text('Đóng'),
                   ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => showYtMediaLibrarySheet(context),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF53D6BD)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Thư viện',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: Color(0xFF53D6BD), fontSize: 12)),
+                  ),
+                ),
               ],
             ),
           ],
         );
     }
+  }
+
+  /// Thư mục chứa [path] — KHÔNG dùng `lastIndexOf` trực tiếp: nếu path không
+  /// có dấu '/' thì index = -1 và `substring(0, -1)` sẽ ném RangeError (đúng
+  /// loại lỗi vừa sửa ở `yt_downloader`).
+  String _folderOf(String path) {
+    final i = path.lastIndexOf('/');
+    return i > 0 ? path.substring(0, i) : path;
   }
 
   Widget _buildLoading() => const Padding(

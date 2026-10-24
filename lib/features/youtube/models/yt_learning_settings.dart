@@ -38,6 +38,33 @@ enum YtSubtitleLayout {
   stacked,
 }
 
+/// YT-TTS-READ-001: đọc thành tiếng phần **bản dịch** của phụ đề.
+///
+/// Cùng ý tưởng với "đọc song ngữ" ở tab Đọc, nhưng ở đây nguồn chữ là phụ đề
+/// YouTube chứ không phải file văn bản.
+enum YtReadAloudMode {
+  /// Chỉ đọc phụ đề **gốc** (luyện nghe/đọc bản gốc).
+  sourceOnly,
+
+  /// Chỉ đọc **bản dịch** — đúng yêu cầu "nghe âm thanh đã dịch".
+  targetOnly,
+
+  /// Xen kẽ: gốc → dịch (số lần mỗi bên theo [YtLearningSettings]).
+  interleaved,
+}
+
+/// YT-MEDIA-STORE-001: nơi lưu phụ đề `.lrc` và file âm thanh đã tải.
+enum YtSaveLocation {
+  /// Bộ nhớ riêng của app (`.../app_flutter/youtube_media`) — luôn ghi được,
+  /// không cần quyền, nhưng người dùng không thấy trong trình quản lý file.
+  appPrivate,
+
+  /// Thư mục công khai của máy (Android: `Download/In4Up`). Tiện tìm lại và
+  /// sao chép ra ngoài, nhưng Android 11+ có thể từ chối ghi ⇒ phải có
+  /// đường lùi về [appPrivate] và **báo thật** cho người dùng biết.
+  externalDownloads,
+}
+
 /// Cài đặt học tập của chế độ YouTube.
 ///
 /// Lưu **toàn cục** (không theo từng video) — người dùng chọn một lần, áp dụng
@@ -85,6 +112,29 @@ class YtLearningSettings {
   /// này cộng lại, không thay thế nhau.
   final double audioLeadMs;
 
+  // ─── YT-TTS-READ-001: đọc phần bản dịch thành tiếng ───────────────
+  /// Chế độ đọc (gốc / dịch / xen kẽ).
+  final YtReadAloudMode readAloudMode;
+
+  /// Số lần đọc **mỗi dòng gốc** trong một lượt (0 = bỏ qua bên gốc).
+  final int readAloudSourceRepeats;
+
+  /// Số lần đọc **mỗi dòng dịch** trong một lượt (0 = bỏ qua bên dịch).
+  ///
+  /// `sourceRepeats = 2, targetRepeats = 1` chính là kiểu "bên nhiều bên ít"
+  /// owner yêu cầu; `1/1` là xen kẽ đều.
+  final int readAloudTargetRepeats;
+
+  /// Khoảng nghỉ giữa hai lượt đọc (ms) — để kịp ngẫm nghĩa.
+  final int readAloudGapMs;
+
+  /// Tốc độ đọc 0.5–2.0.
+  final double readAloudSpeed;
+
+  // ─── YT-MEDIA-STORE-001: nơi lưu ──────────────────────────────────
+  /// Nơi lưu phụ đề `.lrc` + file âm thanh đã tải.
+  final YtSaveLocation saveLocation;
+
   const YtLearningSettings({
     this.translationMode = YtTranslationMode.withTranslation,
     this.subtitleLayout = YtSubtitleLayout.stacked,
@@ -93,6 +143,12 @@ class YtLearningSettings {
     this.subtitleLang = 'en',
     this.targetLang,
     this.audioLeadMs = 0,
+    this.readAloudMode = YtReadAloudMode.interleaved,
+    this.readAloudSourceRepeats = 1,
+    this.readAloudTargetRepeats = 1,
+    this.readAloudGapMs = 500,
+    this.readAloudSpeed = 1.0,
+    this.saveLocation = YtSaveLocation.appPrivate,
   });
 
   /// YT-AUDIT-04 (IN4-103) — ngôn ngữ dịch THỰC TẾ + có đang phải "rớt về
@@ -196,6 +252,12 @@ class YtLearningSettings {
     String? subtitleLang,
     Object? targetLang = _kNoChange,
     double? audioLeadMs,
+    YtReadAloudMode? readAloudMode,
+    int? readAloudSourceRepeats,
+    int? readAloudTargetRepeats,
+    int? readAloudGapMs,
+    double? readAloudSpeed,
+    YtSaveLocation? saveLocation,
   }) {
     return YtLearningSettings(
       translationMode: translationMode ?? this.translationMode,
@@ -213,6 +275,22 @@ class YtLearningSettings {
       audioLeadMs: audioLeadMs == null
           ? this.audioLeadMs
           : clampAudioLead(audioLeadMs),
+      readAloudMode: readAloudMode ?? this.readAloudMode,
+      // `.clamp()` trả `num` ⇒ phải `.toInt()` / `.toDouble()` trước khi gán
+      // vào field có kiểu cụ thể (analyzer báo lỗi nếu bỏ qua).
+      readAloudSourceRepeats: readAloudSourceRepeats == null
+          ? this.readAloudSourceRepeats
+          : readAloudSourceRepeats.clamp(0, 5).toInt(),
+      readAloudTargetRepeats: readAloudTargetRepeats == null
+          ? this.readAloudTargetRepeats
+          : readAloudTargetRepeats.clamp(0, 5).toInt(),
+      readAloudGapMs: readAloudGapMs == null
+          ? this.readAloudGapMs
+          : readAloudGapMs.clamp(0, 5000).toInt(),
+      readAloudSpeed: readAloudSpeed == null
+          ? this.readAloudSpeed
+          : readAloudSpeed.clamp(0.5, 2.0).toDouble(),
+      saveLocation: saveLocation ?? this.saveLocation,
     );
   }
 
@@ -227,6 +305,12 @@ class YtLearningSettings {
         'subtitleLang': subtitleLang,
         'targetLang': targetLang,
         'audioLeadMs': audioLeadMs,
+        'readAloudMode': readAloudMode.name,
+        'readAloudSourceRepeats': readAloudSourceRepeats,
+        'readAloudTargetRepeats': readAloudTargetRepeats,
+        'readAloudGapMs': readAloudGapMs,
+        'readAloudSpeed': readAloudSpeed,
+        'saveLocation': saveLocation.name,
       };
 
   factory YtLearningSettings.fromJson(Map<String, dynamic> json) {
@@ -249,6 +333,22 @@ class YtLearningSettings {
       targetLang: json['targetLang'] as String?,
       // Dữ liệu cũ không có khoá này ⇒ 0 (không bù).
       audioLeadMs: (json['audioLeadMs'] as num?)?.toDouble() ?? 0,
+      // Dữ liệu cũ không có các khoá dưới ⇒ mặc định = hành vi mới an toàn
+      // (xen kẽ 1/1, nghỉ 500ms, tốc độ 1.0, lưu trong bộ nhớ riêng của app).
+      readAloudMode: YtReadAloudMode.values.firstWhere(
+        (e) => e.name == json['readAloudMode'],
+        orElse: () => YtReadAloudMode.interleaved,
+      ),
+      readAloudSourceRepeats:
+          (json['readAloudSourceRepeats'] as num?)?.toInt() ?? 1,
+      readAloudTargetRepeats:
+          (json['readAloudTargetRepeats'] as num?)?.toInt() ?? 1,
+      readAloudGapMs: (json['readAloudGapMs'] as num?)?.toInt() ?? 500,
+      readAloudSpeed: (json['readAloudSpeed'] as num?)?.toDouble() ?? 1.0,
+      saveLocation: YtSaveLocation.values.firstWhere(
+        (e) => e.name == json['saveLocation'],
+        orElse: () => YtSaveLocation.appPrivate,
+      ),
     );
   }
 }

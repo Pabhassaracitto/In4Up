@@ -6,15 +6,14 @@
 //  3. Fallback cuối: parse từ page HTML
 // Giữ nguyên fetchInfo và saveLrc từ bản cũ
 
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_exp;
 import '../../translation/translation_service.dart';
 
 import '../models/yt_video.dart';
 import 'yt_dlp_sidecar.dart';
+import 'yt_media_store.dart';
 
 class YtService {
   YtService._();
@@ -499,15 +498,15 @@ class YtService {
     return buf.toString();
   }
 
+  /// YT-MEDIA-STORE-001: phụ đề lưu vào CÙNG kho với âm thanh
+  /// (`youtube_media/yt_<videoId>.lrc`) thay vì thư mục riêng, để hai thứ
+  /// luôn ghép được cặp và người dùng tìm/xoá được từ "Thư viện đã tải".
   Future<String?> saveLrc(List<YtCaptionLine> captions, YtVideo video) async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final folder = Directory('${dir.path}/youtube_captions');
-      if (!await folder.exists()) await folder.create(recursive: true);
-      final id = video.id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
-      final path = '${folder.path}/yt_${id.isEmpty ? 'clip' : id}.lrc';
-      await File(path).writeAsString(captionsToLrc(captions, video));
-      return path;
+      return await YtMediaStore.saveLrc(
+        videoId: video.id,
+        content: captionsToLrc(captions, video),
+      );
     } catch (e) {
       debugPrint('YtService.saveLrc: $e');
       return null;

@@ -576,7 +576,7 @@ jobs:
 
       # YT-AUDIT (IN4-97..104) — Chế độ YouTube: pin logic THUẦN để máy bắt
       # các fix đã bàn giao không bị regress (không cần thiết bị / network).
-      - name: "YouTube audit tests — Đợt 1 + 2 + 3 + 4 (logic thuần)"
+      - name: "YouTube audit tests — Đợt 1 + 2 + 3 + 4 + media/TTS (logic thuần)"
         id: yt-audit-tests
         # `always()` để bước này vẫn chạy khi một bước test KHÁC ở trên đỏ —
         # cần biết kết quả độc lập, không bị "skipped" che mất.
@@ -594,7 +594,10 @@ jobs:
                    test/yt_sentence_segment_test.dart \
                    test/yt_sync_offset_test.dart \
                    test/yt_word_analysis_fallback_test.dart \
-                   test/yt_ai_word_prompt_test.dart; do
+                   test/yt_ai_word_prompt_test.dart \
+                   test/yt_read_aloud_sequence_test.dart \
+                   test/yt_media_store_test.dart \
+                   test/yt_download_filename_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

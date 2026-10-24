@@ -104,6 +104,10 @@ class _YtWordPanelState extends State<YtWordPanel>
   String? _aiError;
   bool _aiDictOnly = false;
   int _waitedSec = 0;
+
+  /// AI-WORD-RETRY-001: nguồn của kết quả lần này (`remote`, `local_model`,
+  /// `local_dict`, `remote_failed`…) để nói THẬT là đã hỏi mạng hay chưa.
+  String? _lastSource;
   int _aiTab = 0;
   Timer? _aiTicker;
 
@@ -271,15 +275,26 @@ class _YtWordPanelState extends State<YtWordPanel>
 
   /// Gọi AI, TỰ GIỮ kết quả. Có timeout 90s (facade bên trong đã có 30s local
   /// + 45s remote) để không bao giờ treo mãi như bản cũ.
-  Future<void> _triggerAnalysis() async {
+  Future<void> _triggerAnalysis({bool userInitiated = false}) async {
     if (_aiWaiting) return;
     final facade = context.read<AiServiceFacade>();
     if (!mounted) return;
+
+    // AI-WORD-RETRY-001: người dùng bấm nút thì PHẢI là một lần thử MỚI:
+    // bỏ qua cache của từ này, và nếu đã cấu hình nhà cung cấp online thì
+    // ưu tiên hỏi mạng — đúng yêu cầu "chạy online AI nếu muốn nếu cấu hình
+    // thay vì chỉ phụ thuộc một mình offline".
+    final wantRemote = userInitiated &&
+        facade.isRemoteChatConfigured &&
+        facade.chatRouteAllowsRemote;
+    if (userInitiated) facade.invalidateCacheFor(widget.word.text);
+
     setState(() {
       _aiWaiting = true;
       _aiError = null;
       _aiResult = null;
       _aiDictOnly = false;
+      _lastSource = null;
       _waitedSec = 0;
     });
     _aiTicker?.cancel();
@@ -293,14 +308,20 @@ class _YtWordPanelState extends State<YtWordPanel>
             widget.word.text,
             sentenceContext: widget.sentenceContext,
             localDictEntry: _localDictEntry(),
+            forceRefresh: userInitiated,
+            preferRemote: wantRemote,
           )
           .timeout(const Duration(seconds: 90));
       if (!mounted) return;
       setState(() {
         _aiResult = result;
         _aiDictOnly = _isDictionaryOnly(result);
+        _lastSource = facade.lastWordSource;
         _aiWaiting = false;
       });
+      // Phản hồi RÕ RÀNG cho thao tác chủ động: nếu vẫn chỉ có nghĩa từ điển
+      // thì nói vì sao, đừng im lặng để người dùng tưởng nút hỏng.
+      if (userInitiated) _reportManualResult(result);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -310,6 +331,51 @@ class _YtWordPanelState extends State<YtWordPanel>
     } finally {
       _aiTicker?.cancel();
     }
+  }
+
+  /// Nói RÕ kết quả của một lần bấm nút — chống đúng triệu chứng "bấm mà
+  /// không thấy gì xảy ra".
+  ///
+  /// Ba trường hợp, ba câu khác nhau (không gộp thành một câu chung):
+  ///   • đã có nội dung AI thật ⇒ báo nguồn (API hay model trên máy);
+  ///   • vẫn chỉ có nghĩa từ điển ⇒ nói vì sao (chưa cấu hình API / API lỗi);
+  ///   • lỗi hẳn ⇒ đã có thẻ lỗi ở trên, chỉ cần nhắc.
+  void _reportManualResult(AiAnalysis result) {
+    if (!mounted) return;
+    final facade = context.read<AiServiceFacade>();
+    final remoteConfigured = facade.isRemoteChatConfigured;
+    final remoteAllowed = facade.chatRouteAllowsRemote;
+
+    String msg;
+    Color color;
+    if (result.success && !_isDictionaryOnly(result)) {
+      msg = _lastSource == 'remote'
+          ? 'Đã phân tích bằng AI online'
+          : 'Đã phân tích bằng AI trên máy';
+      color = const Color(0xFF2E7D32);
+    } else if (!remoteAllowed) {
+      msg = remoteConfigured
+          ? 'Đang để "chỉ offline" nên không gọi mạng — bật Online trong cài đặt AI để dùng API'
+          : 'Chưa cấu hình nhà cung cấp AI online — vào Cài đặt AI để thêm';
+      color = Colors.orange.shade800;
+    } else if (_lastSource == 'remote_failed') {
+      msg = 'API không trả về kết quả — kiểm tra kết nối hoặc khoá API';
+      color = Colors.red.shade700;
+    } else if (result.success) {
+      msg = 'AI chỉ trả về nghĩa từ điển lần này. Bấm lại để thử tiếp.';
+      color = Colors.orange.shade800;
+    } else {
+      msg = 'AI chưa trả lời được. Xem thẻ lỗi ở trên.';
+      color = Colors.red.shade700;
+    }
+
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+      content: Text(context.uiText(msg)),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
   }
 
   /// Bỏ chờ: giữ kết quả từ điển, tắt vòng xoay (future cũ tự bỏ qua).
@@ -698,7 +764,7 @@ class _YtWordPanelState extends State<YtWordPanel>
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF9C27B0),
                 ),
-                onPressed: _triggerAnalysis,
+                onPressed: () => _triggerAnalysis(userInitiated: true),
                 icon: const Icon(Icons.refresh, size: 16),
                 label: Text(context.uiText('Thử lại bằng AI')),
               ),
@@ -721,7 +787,7 @@ class _YtWordPanelState extends State<YtWordPanel>
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF9C27B0),
                 ),
-                onPressed: _triggerAnalysis,
+                onPressed: () => _triggerAnalysis(userInitiated: true),
                 icon: const Icon(Icons.refresh, size: 16),
                 label: Text(context.uiText('Thử lại bằng AI')),
               ),
@@ -778,7 +844,7 @@ class _YtWordPanelState extends State<YtWordPanel>
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF9C27B0),
             ),
-            onPressed: _triggerAnalysis,
+            onPressed: () => _triggerAnalysis(userInitiated: true),
             icon: const Icon(Icons.auto_awesome, size: 16),
             label: Text(context.uiText('Phân tích bằng AI')),
           ),
@@ -849,7 +915,7 @@ class _YtWordPanelState extends State<YtWordPanel>
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF9C27B0),
           ),
-          onPressed: _triggerAnalysis,
+          onPressed: () => _triggerAnalysis(userInitiated: true),
           icon: const Icon(Icons.auto_awesome, size: 16),
           label: Text(context.uiText('Phân tích bằng AI')),
         ),

@@ -23,6 +23,14 @@ List<TtsEngineInfo> orderTtsCandidates({
         ...enabled.where((engine) => engine.isOnline),
         ...enabled.where((engine) => !engine.isOnline),
       ],
+    // `auto` đã được `TtsService` RESOLVE thành onlineFirst/offlineFirst theo
+    // loại mạng TRƯỚC khi tới đây (xem `_resolveAutoPriority`). Rớt tới nhánh
+    // này nghĩa là caller quên resolve ⇒ xử như `offlineFirst` (an toàn: không
+    // đốt data di động) nhưng VẪN giữ online ở cuối làm dự phòng.
+    TtsPriority.auto => [
+        ...enabled.where((engine) => !engine.isOnline),
+        ...enabled.where((engine) => engine.isOnline),
+      ],
     TtsPriority.offlineOnly =>
       enabled.where((engine) => !engine.isOnline).toList(),
   };

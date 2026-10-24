@@ -395,14 +395,18 @@ class TtsService extends ChangeNotifier {
     // 2. Chạy qua danh sách engine theo thứ tự ưu tiên. Chọn một giọng Edge
     // cụ thể là lựa chọn engine tường minh: thử Edge trước rồi mới fallback.
     // `offlineOnly` và công tắc tắt Edge vẫn được tôn trọng.
+    // YT-TTS-READ-001: `auto` phải được RESOLVE theo loại mạng NGAY TẠI ĐÂY
+    // (mỗi câu, có cache ngắn) rồi mới dùng cho cả chuỗi engine bên dưới.
+    final effectivePriority = await _effectivePriority();
     final edgeEnabled = _engineOrder.any(
       (engine) => engine.id == 'edge_tts' && engine.isEnabled,
     );
-    final edgeVoice = edgeEnabled && _priority != TtsPriority.offlineOnly
-        ? await _resolveEdgeVoice(lang)
-        : null;
+    final edgeVoice =
+        edgeEnabled && effectivePriority != TtsPriority.offlineOnly
+            ? await _resolveEdgeVoice(lang)
+            : null;
     final candidates = _getCandidateEngines(
-      _priority,
+      effectivePriority,
       preferredEngineId: edgeVoice == null ? null : 'edge_tts',
     );
     var played = false;
@@ -473,8 +477,9 @@ class TtsService extends ChangeNotifier {
       }
 
       if (played) {
-        // Nếu dùng offline và chế độ offlineFirst, kích hoạt prefetch online nền
-        if (_priority == TtsPriority.offlineFirst) {
+        // Nếu dùng offline và chế độ offlineFirst (kể cả `auto` đã resolve
+        // thành offlineFirst vì đang dùng mạng di động), prefetch online nền.
+        if (effectivePriority == TtsPriority.offlineFirst) {
           _prefetchOnline(text, lang);
         }
         return;
@@ -1165,6 +1170,54 @@ class TtsService extends ChangeNotifier {
               s.processingState == ProcessingState.idle)
           .timeout(const Duration(seconds: 60));
     } catch (_) {}
+  }
+
+  /// YT-TTS-READ-001 — `TtsPriority.auto`: chọn ưu tiên theo **loại mạng**.
+  ///
+  /// * WiFi / Ethernet / VPN / desktop ⇒ `onlineFirst` (giọng tự nhiên, không
+  ///   tốn data di động) — vẫn rớt về offline khi online lỗi.
+  /// * Mạng di động ⇒ `offlineFirst` (phát ngay, không đốt data) — vẫn thử
+  ///   online ở cuối chuỗi nếu offline không phát được.
+  /// * Không có mạng ⇒ `offlineOnly` (khỏi chờ timeout 15s cho mỗi câu).
+  ///
+  /// Không phải `auto` thì trả nguyên `_priority`. Kết quả được cache 5 giây
+  /// để đọc liên tiếp nhiều dòng không phải hỏi hệ thống từng câu — nhưng đủ
+  /// ngắn để bật/tắt WiFi giữa phiên vẫn được nhận ra.
+  TtsPriority? _autoCache;
+  DateTime? _autoCachedAt;
+
+  Future<TtsPriority> _effectivePriority() async {
+    if (_priority != TtsPriority.auto) return _priority;
+    final now = DateTime.now();
+    final cachedAt = _autoCachedAt;
+    if (_autoCache != null &&
+        cachedAt != null &&
+        now.difference(cachedAt) < const Duration(seconds: 5)) {
+      return _autoCache!;
+    }
+
+    TtsPriority resolved;
+    try {
+      final result = await Connectivity().checkConnectivity();
+      final noNetwork = result.isEmpty ||
+          (result.length == 1 && result.contains(ConnectivityResult.none));
+      if (noNetwork) {
+        resolved = TtsPriority.offlineOnly;
+      } else if (result.contains(ConnectivityResult.mobile)) {
+        // Mạng di động (kể cả khi song song WiFi — ưu tiên tiết kiệm data).
+        resolved = TtsPriority.offlineFirst;
+      } else {
+        resolved = TtsPriority.onlineFirst;
+      }
+    } catch (_) {
+      // Không đọc được loại mạng (một số bản desktop): chọn offline trước và
+      // vẫn giữ online ở cuối chuỗi — an toàn hơn là treo chờ mạng.
+      resolved = TtsPriority.offlineFirst;
+    }
+    _autoCache = resolved;
+    _autoCachedAt = now;
+    debugPrint('🔊 [in4up-tts] auto → ${resolved.name}');
+    return resolved;
   }
 
   Future<bool> _checkNetwork() async {

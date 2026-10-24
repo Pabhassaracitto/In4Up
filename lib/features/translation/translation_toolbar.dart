@@ -360,6 +360,14 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   // MỘT lần trong initState (FutureBuilder trong build không tạo lại).
   Future<(AiProviderConfig?, AiRouteMode)>? _llmInfo;
 
+  // XLAT-SCR-005 (owner 24/10) — "engine nào đang THỰC SỰ chạy?".
+  // Trước đây màn này chỉ có nút tải model + công tắc; người dùng không có
+  // cách nào biết lượt dịch kế tiếp sẽ đi qua engine nào (online? Hy-MT? ML
+  // Kit?) nên tưởng tính năng hỏng khi bản dịch chậm/missing model.
+  bool _probing = false;
+  bool _probeOk = false;
+  String? _probeMessage;
+
   @override
   void initState() {
     super.initState();
@@ -491,6 +499,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
+            _buildLiveEngineStatus(),
             const SizedBox(height: 16),
             TextField(
               controller: _urlController,
@@ -814,6 +824,186 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final value = (text ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
     if (value.isEmpty) return '—';
     return value.length > 160 ? '${value.substring(0, 160)}…' : value;
+  }
+
+  /// Dịch thử MỘT câu (bỏ cache) để trả lời chính xác "engine nào đang chạy".
+  ///
+  /// Vì sao không suy luận từ cấu hình: chuỗi engine có fallback (online lỗi →
+  /// Hy-MT → ML Kit → từ điển), nên chỉ có một lượt dịch thật mới biết engine
+  /// nào trả lời. Probe KHÔNG ghi "Nhịp điệu học tập" và KHÔNG lưu cache.
+  Future<void> _probeEngine() async {
+    if (_probing) return;
+    setState(() {
+      _probing = true;
+      _probeMessage = null;
+    });
+    final stopwatch = Stopwatch()..start();
+    try {
+      final result = await widget.service.translateText(
+        'Good morning, how are you today?',
+        sourceLang: 'EN',
+        targetLang: widget.service.targetLang,
+        skipCache: true,
+        recordActivity: false,
+      );
+      stopwatch.stop();
+      if (!mounted) return;
+      setState(() {
+        _probing = false;
+        _probeOk = result.isSuccess &&
+            result.translatedText.trim().isNotEmpty;
+        if (_probeOk) {
+          final engine = result.engineName.trim();
+          _probeMessage = engine.isEmpty
+              ? context.uiText('Đã dịch được — không rõ engine')
+              : '${context.uiText('Đã dịch bằng')} $engine · '
+                  '${stopwatch.elapsedMilliseconds} ms';
+        } else {
+          final reason = (result.error ?? '').trim();
+          _probeMessage = reason.isEmpty
+              ? context.uiText('Không engine nào trả được bản dịch')
+              : '${context.uiText('Không engine nào trả được bản dịch')}: $reason';
+        }
+      });
+    } catch (e) {
+      stopwatch.stop();
+      if (!mounted) return;
+      setState(() {
+        _probing = false;
+        _probeOk = false;
+        _probeMessage =
+            '${context.uiText('Không engine nào trả được bản dịch')}: $e';
+      });
+    }
+  }
+
+  /// Khối "engine đang hiện hành" — CHỈ đọc trạng thái thật của service.
+  Widget _buildLiveEngineStatus() {
+    final service = widget.service;
+    final online = !service.offlineOnly;
+    final routing = service.routingOrder;
+    final active = service.activeEngineName?.trim() ?? '';
+    final lastUsed = service.lastUsedEngineLabel.trim();
+    final mlkitReady = _modelDownloaded.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    final grey = TextStyle(color: Colors.grey[500], fontSize: 11);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.accentColor.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bolt, size: 16, color: widget.accentColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText('Engine đang hiện hành'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Chip(
+                label: Text(
+                  online ? context.uiText('Online') : context.uiText('Chỉ offline'),
+                  style: const TextStyle(fontSize: 10),
+                ),
+                visualDensity: VisualDensity.compact,
+                backgroundColor:
+                    (online ? Colors.green : Colors.orange).withValues(
+                  alpha: 0.18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.uiText('Thứ tự ưu tiên'),
+            style: grey,
+          ),
+          Text(
+            routing.join(' → '),
+            style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (active.isNotEmpty)
+                _StatusPill(
+                  text: '${context.uiText('Đang dịch bằng')}: $active',
+                  color: Colors.lightBlueAccent,
+                ),
+              _StatusPill(
+                text: lastUsed.isEmpty
+                    ? context.uiText('Chưa dịch gì trong phiên này')
+                    : '${context.uiText('Lần trước')}: $lastUsed',
+                color: Colors.tealAccent,
+              ),
+              // Model offline: nói RÕ có hay chưa — "không dịch được" phần lớn
+              // là do thiếu gói, không phải app hỏng.
+              if (service.hymt != null)
+                _StatusPill(
+                  text: _hymtHas
+                      ? 'Hy-MT · ${context.uiText('Đã tải')}'
+                      : 'Hy-MT · ${context.uiText('Chưa tải')}',
+                  color: Colors.deepPurpleAccent,
+                ),
+              if (MlKitEngine.platformSupported)
+                _StatusPill(
+                  text: mlkitReady.isEmpty
+                      ? 'ML Kit · ${context.uiText('Chưa tải')}'
+                      : 'ML Kit · ${mlkitReady.join(', ')}',
+                  color: Colors.amberAccent,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: _probing ? null : _probeEngine,
+                icon: _probing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.science_outlined, size: 16),
+                label: Text(context.uiText('Kiểm tra engine ngay')),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _probeMessage ??
+                      context.uiText(
+                        'Dịch thử một câu để biết engine nào thực sự trả lời.',
+                      ),
+                  style: TextStyle(
+                    color: _probeMessage == null
+                        ? Colors.grey[600]
+                        : (_probeOk ? Colors.greenAccent : Colors.redAccent),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _importHymt() async {
@@ -1206,6 +1396,32 @@ class _TranslationText extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// Nhãn nhỏ trong khối "Engine đang hiện hành" (trạng thái thật, không phải
+/// nút bấm) — tách ra để ba dòng trạng thái không phải lặp code trang trí.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 10.5),
       ),
     );
   }

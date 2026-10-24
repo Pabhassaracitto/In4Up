@@ -207,6 +207,32 @@ class TranslationService {
         _offlineEngine.name,
       ];
 
+  /// THỨ TỰ engine thực tế sẽ chạy cho lượt dịch kế tiếp — khác
+  /// [activeEngines] (danh sách "có sẵn", không theo thứ tự ưu tiên).
+  ///
+  /// UI Cài đặt dịch dùng đúng hàm này để trả lời câu owner hỏi 24/10: "người
+  /// dùng không biết chính xác engine đang là online hay offline, Hy-MT hay ML
+  /// Kit". Không đoán: sao chép đúng điều kiện của [_runEngineChain].
+  List<String> get routingOrder {
+    final order = <String>[];
+    if (!_offlineOnly) {
+      order.addAll(_engines.map((engine) => engine.name));
+    }
+    final hymt = _hymt;
+    if (hymt != null && _offlineEnginePref != HyMtOfflinePreference.mlkit) {
+      order.add('Hy-MT ${_offlineOnly ? '· offline' : '· offline (dự phòng)'}');
+    }
+    if (_offlineEnginePref != HyMtOfflinePreference.hymt) {
+      order.add(_mlkit.name);
+    }
+    order.add(_offlineEngine.name);
+    return order;
+  }
+
+  /// Engine đã thực sự trả bản dịch gần nhất ('💾 Cache', 'Google Translate',
+  /// 'ML Kit'…). Rỗng khi chưa dịch gì trong phiên.
+  String get lastUsedEngineLabel => _lastUsedEngine;
+
   /// Danh sách engine đã in lần cuối — để chỉ log khi danh sách THAY ĐỔI.
   ///
   /// IN4-17 (log 18/10): dịch màn hình gọi `configure()` nhiều lần ⇒ dòng
@@ -275,6 +301,27 @@ class TranslationService {
   AppLanguage detectSourceLanguage(String text) =>
       LanguageDetector.detectLanguage(text);
 
+  /// Làm ấm pipeline trước lượt dịch ĐẦU TIÊN của bong bóng dịch.
+  ///
+  /// Vì sao cần (XLAT-SCR-005 — "bấm bong bóng phải chờ rất lâu"): engine nền
+  /// là một Flutter engine riêng, lần dịch đầu tiên phải mở SharedPreferences
+  /// (cache), Hive (glossary) và hỏi Connectivity — mỗi thứ vài chục đến vài
+  /// trăm ms, cộng dồn vào đúng lượt người dùng đang chờ. Gọi hàm này ngay khi
+  /// engine nền khởi động (KHÔNG chặn attach) để lượt bấm đầu tiên chỉ còn
+  /// OCR + dịch.
+  ///
+  /// Không tải model, không gọi mạng — đúng luật vàng.
+  Future<void> warmUp() async {
+    try {
+      await _cache.init();
+      await _ensureGlossary();
+      if (_persistPrefs) await _loadOfflineOnlyPref();
+      await _checkNetwork();
+    } catch (e) {
+      debugPrint('⚠️ TranslationService.warmUp: $e');
+    }
+  }
+
   bool isAlreadyInTargetLanguage(String text, {String? targetLang}) {
     if (text.trim().isEmpty) return false;
     final source = detectSourceLanguage(text);
@@ -295,6 +342,7 @@ class TranslationService {
     String? sourceLang,
     String? targetLang,
     bool skipCache = false,
+    bool recordActivity = true,
   }) async {
     final result = await _translateTextInternal(
       text,
@@ -302,7 +350,11 @@ class TranslationService {
       targetLang: targetLang,
       skipCache: skipCache,
     );
-    _recordLearningActivity(text, result, sourceLang, targetLang);
+    // Bản dịch thử trong Cài đặt (probe engine) không phải hoạt động học của
+    // người dùng ⇒ không được cộng vào "Nhịp điệu học tập".
+    if (recordActivity) {
+      _recordLearningActivity(text, result, sourceLang, targetLang);
+    }
     return result;
   }
 
@@ -572,7 +624,37 @@ class TranslationService {
   /// HI ↔ VI không dịch trực tiếp trong ML Kit → pivot qua EN (2 lần +
   /// glossary hai đầu). Chỉ pivot khi model ML Kit đủ cho CẢ tuyến;
   /// ngược lại giữ cặp trực tiếp (online engines tự xử lý).
+  /// Kế hoạch bước dịch được CACHE ngắn hạn (XLAT-SCR-005).
+  ///
+  /// [_planSteps] hỏi `hymt.hasModel` (đọc filesystem) và `mlkit.isAvailable`
+  /// — trước đây chạy lại cho TỪNG khối: dịch màn hình 32 khối = 32 lần kiểm
+  /// tra file vô ích (hàng trăm ms cộng dồn vào đúng lúc người dùng đang chờ).
+  /// Cache 10 giây vẫn đủ nhạy với thay đổi cấu hình (đổi engine offline, vừa
+  /// import model) mà không phải đoán.
+  final Map<String, List<(String, String)>> _stepPlanCache =
+      <String, List<(String, String)>>{};
+  final Map<String, DateTime> _stepPlanCachedAt = <String, DateTime>{};
+  static const Duration _stepPlanTtl = Duration(seconds: 10);
+
   Future<List<(String, String)>> _planSteps(
+    String sourceCode,
+    String targetCode,
+  ) async {
+    final cacheKey = '$sourceCode>$targetCode|${_offlineEnginePref.name}';
+    final cached = _stepPlanCache[cacheKey];
+    final cachedAt = _stepPlanCachedAt[cacheKey];
+    if (cached != null &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) < _stepPlanTtl) {
+      return cached;
+    }
+    final plan = await _planStepsUncached(sourceCode, targetCode);
+    _stepPlanCache[cacheKey] = plan;
+    _stepPlanCachedAt[cacheKey] = DateTime.now();
+    return plan;
+  }
+
+  Future<List<(String, String)>> _planStepsUncached(
     String sourceCode,
     String targetCode,
   ) async {
@@ -1027,17 +1109,37 @@ class TranslationService {
     return budget > cap ? cap : budget;
   }
 
+  /// Kết quả kiểm tra mạng được CACHE ngắn hạn.
+  ///
+  /// XLAT-SCR-005: dịch màn hình gọi [_checkNetwork] cho TỪNG khối (32 khối =
+  /// 32 lần gọi platform channel trên cùng một lượt). Mạng không đổi trong
+  /// 5 giây, nên cache lại là đủ và tiết kiệm hàng trăm ms mỗi lượt.
+  bool? _cachedNetwork;
+  DateTime? _networkCheckedAt;
+  static const Duration _networkCacheTtl = Duration(seconds: 5);
+
   Future<bool> _checkNetwork() async {
     final injected = _injectedNetwork;
     if (injected != null) return injected;
+
+    final cached = _cachedNetwork;
+    final checkedAt = _networkCheckedAt;
+    if (cached != null &&
+        checkedAt != null &&
+        DateTime.now().difference(checkedAt) < _networkCacheTtl) {
+      return cached;
+    }
     try {
       final result = await Connectivity().checkConnectivity();
-      return result.any(
+      final online = result.any(
         (entry) =>
             entry == ConnectivityResult.wifi ||
             entry == ConnectivityResult.mobile ||
             entry == ConnectivityResult.ethernet,
       );
+      _cachedNetwork = online;
+      _networkCheckedAt = DateTime.now();
+      return online;
     } catch (_) {
       return false;
     }

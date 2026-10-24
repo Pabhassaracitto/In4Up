@@ -1,6 +1,8 @@
 // lib/screens/read_mode/widgets/text_line_widget.dart
 // ★ FIX: Thêm guard index trong Selector2 để tránh RangeError khi lines thay đổi
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
@@ -29,8 +31,89 @@ import '../controllers/read_mode_controller.dart';
 import '../services/word_range_selection.dart';
 import '../sheets/line_actions_sheet.dart';
 import '../sheets/word_actions_sheet.dart';
+import '../../../models/reader_contextual_panel_state.dart';
+import '../../../widgets/reader/reader_contextual_actions_panel.dart';
+import '../services/read_text_action_runner.dart';
+import 'read_text_action_hooks.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
+
+Future<void> _showConnectedReaderActions(
+  BuildContext context, {
+  required int lineIndex,
+  required String text,
+}) async {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return;
+
+  final selection = I4uReaderSelectionContext(
+    text: trimmed,
+    sourceId: 'reader-line-$lineIndex',
+    blockId: '$lineIndex',
+  );
+  final state = I4uReaderContextualPanelState(
+    mode: MediaQuery.sizeOf(context).width >= 700
+        ? I4uReaderContextPanelMode.desktopPanel
+        : I4uReaderContextPanelMode.mobileSheet,
+    selection: selection,
+  );
+
+  Future<void> runAction(I4uReaderContextAction action) async {
+    Navigator.of(context).pop();
+    switch (action) {
+      case I4uReaderContextAction.dictionary:
+        await ReadTextActionRunner.run(
+          context,
+          ReadTextAction.dictionary,
+          selectedText: trimmed,
+        );
+      case I4uReaderContextAction.explain:
+        await ReadTextActionRunner.run(
+          context,
+          ReadTextAction.grammar,
+          selectedText: trimmed,
+        );
+      case I4uReaderContextAction.playAudio:
+        await ReadTextActionRunner.run(
+          context,
+          ReadTextAction.pronounce,
+          selectedText: trimmed,
+        );
+      case I4uReaderContextAction.bookmark:
+        context.read<ReadModeController>().bookmarkLine(lineIndex);
+        SafeHaptics.lightImpact();
+      case I4uReaderContextAction.note:
+      case I4uReaderContextAction.remember:
+        // Existing note/remember owners remain available from the established
+        // line action sheet; the new panel is the connected discovery path.
+        LineActionsSheet.show(context, lineIndex);
+    }
+  }
+
+  final panel = I4uReaderContextualActionsPanel(
+    state: state,
+    onAction: (action) => unawaited(runAction(action)),
+    onClose: () => Navigator.of(context).pop(),
+  );
+
+  if (state.mode == I4uReaderContextPanelMode.desktopPanel) {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        alignment: Alignment.centerRight,
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(width: 320, child: panel),
+      ),
+    );
+  } else {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => panel,
+    );
+  }
+}
 
 class TextLineWidget extends StatelessWidget {
   final int index;
@@ -207,7 +290,11 @@ class TextLineWidget extends StatelessWidget {
       // "Sửa dòng…" vẫn vào được TỪ TRONG sheet đó (chủ động hơn).
       onLongPress: () {
         SafeHaptics.mediumImpact();
-        LineActionsSheet.show(context, index);
+        _showConnectedReaderActions(
+          context,
+          lineIndex: index,
+          text: data.content,
+        );
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

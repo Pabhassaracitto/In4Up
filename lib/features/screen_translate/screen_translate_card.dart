@@ -210,15 +210,35 @@ class _ScreenTranslateCardState extends State<ScreenTranslateCard>
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              context.uiText(
-                'Bong bóng nổi trên mọi ứng dụng: bấm để chụp màn hình, nhận dạng chữ rồi hiện bản dịch đè đúng vị trí. Dùng đúng engine dịch bạn đang chọn.',
-              ),
-              style: Theme.of(context).textTheme.bodySmall,
+            // SETTINGS-UI-COMPACT-001: đoạn mô tả dài → 1 dòng có icon để
+            // mắt bắt nhanh "cái này làm gì", phần chi tiết vẫn đọc được.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.touch_app_outlined,
+                    size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.uiText(
+                      'Bong bóng nổi trên mọi ứng dụng: bấm để chụp màn hình, '
+                      'nhận dạng chữ rồi hiện bản dịch đè đúng vị trí. Dùng '
+                      'đúng engine dịch bạn đang chọn.',
+                    ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontSize: 11),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
+                const Icon(Icons.subtitles_outlined,
+                    size: 16, color: Colors.lightBlueAccent),
+                const SizedBox(width: 6),
                 Text(
                   context.uiText('Ngôn ngữ đích'),
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -236,9 +256,19 @@ class _ScreenTranslateCardState extends State<ScreenTranslateCard>
             if (message.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  context.uiText(message),
-                  style: orange,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 14, color: Colors.orangeAccent),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        context.uiText(message),
+                        style: orange,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             SizedBox(
@@ -292,11 +322,25 @@ class _ScreenTranslateCardState extends State<ScreenTranslateCard>
                 ),
               ),
             const SizedBox(height: 8),
-            Text(
-              context.uiText(
-                'Android hỏi bạn cho phép chụp màn hình mỗi lần bật — đó là quy định của hệ thống, không phải lỗi.',
-              ),
-              style: Theme.of(context).textTheme.bodySmall,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.security_outlined,
+                    size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.uiText(
+                      'Android hỏi bạn cho phép chụp màn hình mỗi lần bật — '
+                      'đó là quy định của hệ thống, không phải lỗi.',
+                    ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontSize: 11),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

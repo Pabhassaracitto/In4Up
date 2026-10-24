@@ -39,20 +39,21 @@ class SttModelSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ FIX: Không dùng subtitle, dùng Column trong title
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Quản lý Model AI',
+              context.uiText('Quản lý Model AI'),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
-              'STT · VAD · TTS offline — models 1 chỗ, tinh chỉnh ở tab chức năng',
+              context.uiText(
+                'STT · VAD · TTS offline — models 1 chỗ, tinh chỉnh ở tab chức năng',
+              ),
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -60,21 +61,25 @@ class SttModelSettingsScreen extends StatelessWidget {
             ),
           ],
         ),
+        // SETTINGS-UI-COMPACT-001: 2 ghi chú chỉ-để-đọc (tải khi bấm / pin)
+        // không còn chiếm 2 thẻ lớn giữa danh sách — gom vào 1 sheet sau nút
+        // "!" ở góc. Pin vẫn hiện icon trạng thái (cam = chưa cấp quyền).
+        actions: const [
+          _BatteryStatusAction(),
+          _InfoSheetButton(),
+        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
           _LanguageSettingCard(),
-          const SizedBox(height: 16),
-          _SourceInfoCard(),
-          const SizedBox(height: 16),
-          // BATTERY-OPT-001: models chạy ngầm cần miễn tối ưu pin.
-          const _BatteryOptimizationCard(),
-          const SizedBox(height: 16),
-          // WP0 (API-001): entry tới màn Server & API (cloud / LAN) —
-          // tầng API tuỳ chọn BYOK, tắt mặc định, offline-first giữ nguyên.
+          const SizedBox(height: 8),
+          // WP0 (API-001): entry tới màn Server & API (cloud / LAN) — tầng
+          // API tuỳ chọn BYOK, tắt mặc định, offline-first giữ nguyên.
           Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
+              dense: true,
               leading: const Icon(Icons.dns_outlined,
                   color: Colors.deepPurpleAccent),
               title: Text(
@@ -91,38 +96,306 @@ class SttModelSettingsScreen extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 16),
-          const _SectionLabel('1. STT — Whisper (bóc băng audio thành chữ)'),
-          ...WhisperModelLevel.values.map(
-            (level) => _ModelCard(level: level),
+          const SizedBox(height: 8),
+          // ── 1. Whisper ─────────────────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.graphic_eq_rounded,
+            color: Colors.deepPurpleAccent,
+            title: context.uiText('Whisper — bóc băng audio thành chữ'),
+            subtitle: context.uiText(
+              '2 dòng model: đa ngôn ngữ (99 ngôn ngữ) và English-only (.en)',
+            ),
+            initiallyExpanded: true,
+            children: const [_WhisperSectionBody()],
+          ),
+          // ── 2. Parakeet ───────────────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.bolt_rounded,
+            color: Colors.amberAccent,
+            title: context.uiText('Parakeet — 25 ngôn ngữ châu Âu'),
+            subtitle: context.uiText(
+              'TDT 0.6B v3 int8 · ~670MB · offline (không có tiếng Việt)',
+            ),
+            children: const [
+              _SherpaAsrCard(profileIds: [kParakeetProfileId]),
+            ],
+          ),
+          // ── 3. Zipformer (live STT) ────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.sensors_rounded,
+            color: Colors.tealAccent,
+            title: context.uiText('Zipformer — nhận diện trực tiếp'),
+            subtitle: context.uiText(
+              'Tiếng Việt (offline + VAD) · English (streaming)',
+            ),
+            children: const [
+              _SherpaAsrCard(profileIds: [
+                'asr-vi-30M-int8',
+                'asr-en-20M-streaming-int8',
+              ]),
+            ],
+          ),
+          // ── 4. VAD ─────────────────────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.hearing_rounded,
+            color: Colors.lightGreenAccent,
+            title: context.uiText('Silero VAD — lọc khoảng lặng'),
+            subtitle: context.uiText('Tạo lời file dài nhanh, không đơ UI'),
+            children: const [_SileroVadCard()],
+          ),
+          // ── 5. Piper TTS ───────────────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.record_voice_over_rounded,
+            color: Colors.cyanAccent,
+            title: context.uiText('Piper TTS — đọc chữ offline'),
+            subtitle: context.uiText('Giọng neural cho cabin & tab Đọc'),
+            children: const [_PiperModelCard()],
+          ),
+          // ── 6. Gemma ───────────────────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.smart_toy_outlined,
+            color: Colors.lightBlueAccent,
+            title: context.uiText('Gemma — AI Chat offline'),
+            subtitle: context.uiText('File .gguf, chạy trên máy'),
+            children: const [_GemmaChatModelCard()],
+          ),
+          // ── 7. Dịch offline/online ─────────────────────────────────────
+          _SettingsSection(
+            icon: Icons.translate_rounded,
+            color: Colors.teal,
+            title: context.uiText('Dịch offline & online — Hy-MT & ML Kit'),
+            subtitle: context.uiText('Dùng chung cho tab Đọc, Dịch Cabin, PDF'),
+            children: const [_TranslationModelSettingsCard()],
+          ),
+          // ── 8. Dịch màn hình (Android) ─────────────────────────────────
+          _SettingsSection(
+            icon: Icons.bubble_chart_outlined,
+            color: Colors.lightBlue,
+            title: context.uiText('Dịch màn hình — bong bóng nổi'),
+            subtitle: context.uiText('Chỉ Android · cần quyền chụp màn hình'),
+            children: const [ScreenTranslateCard()],
           ),
           const SizedBox(height: 16),
-          const _SectionLabel(
-              '2. VAD — Silero (loại khoảng lặng, tạo lời file dài nhanh)'),
-          const _SileroVadCard(),
-          const SizedBox(height: 16),
-          const _SectionLabel(
-              '3. TTS — Piper (đọc chữ offline, giọng neural — cabin)'),
-          const _PiperModelCard(),
-          const SizedBox(height: 16),
-          const _SectionLabel(
-              '4. Chat — Gemma (LLM trả lời cho AI Chat — file .gguf)'),
-          const _GemmaChatModelCard(),
-          const SizedBox(height: 16),
-          const _SectionLabel(
-              '5. STT Offline — Zipformer (nhận diện trực tiếp không cần mạng)'),
-          const _SherpaAsrCard(),
-          const SizedBox(height: 16),
-          const _SectionLabel(
-              '6. Dịch Offline & Online — Hy-MT & ML Kit'),
-          const _TranslationModelSettingsCard(),
-          const SizedBox(height: 16),
-          // XLAT-SCR-002: lane native (bong bóng + MediaProjection) nằm
-          // cạnh lane dịch trong app, dùng chung TranslationService.
-          const _SectionLabel(
-              '7. Dịch màn hình toàn hệ thống — bong bóng nổi (Android)'),
-          const ScreenTranslateCard(),
         ],
+      ),
+    );
+  }
+}
+
+/// Nút "!" ở góc: mở sheet chứa các ghi chú chỉ-để-đọc (tải model khi bấm,
+/// quyền pin, nơi lưu model) — không chiếm chỗ trong danh sách chính.
+class _InfoSheetButton extends StatelessWidget {
+  const _InfoSheetButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.info_outline),
+      tooltip: context.uiText('Thông tin & lưu ý'),
+      onPressed: () => showModelInfoSheet(context),
+    );
+  }
+}
+
+/// Icon trạng thái quyền "Dừng tối ưu pin" ngay trên AppBar.
+///
+/// Xanh = đã cấp (chỉ còn là thông tin), cam = chưa cấp → bấm mở đúng sheet
+/// để cấp quyền. Không còn thẻ pin chiếm chỗ khi mọi thứ đã ổn.
+class _BatteryStatusAction extends StatefulWidget {
+  const _BatteryStatusAction();
+
+  @override
+  State<_BatteryStatusAction> createState() => _BatteryStatusActionState();
+}
+
+class _BatteryStatusActionState extends State<_BatteryStatusAction> {
+  bool? _granted;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (!BatteryOptimizationService.isSupported) return;
+    final ok = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+    if (mounted) setState(() => _granted = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!BatteryOptimizationService.isSupported || _granted == null) {
+      return const SizedBox.shrink();
+    }
+    final granted = _granted!;
+    return IconButton(
+      icon: Icon(
+        granted ? Icons.battery_full_rounded : Icons.battery_alert_rounded,
+      ),
+      color: granted ? Colors.greenAccent : Colors.orangeAccent,
+      tooltip: context.uiText(
+        granted
+            ? 'Pin: đã bỏ giới hạn tối ưu pin'
+            : 'Pin: chưa bỏ giới hạn tối ưu pin — có thể dừng model khi chạy ngầm',
+      ),
+      onPressed: () => showModelInfoSheet(context),
+    );
+  }
+}
+
+/// Mở sheet thông tin/lưu ý dùng chung cho nút "!" và icon pin.
+Future<void> showModelInfoSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (_) => const _ModelInfoSheet(),
+  );
+}
+
+class _ModelInfoSheet extends StatelessWidget {
+  const _ModelInfoSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.55,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      builder: (context, scroll) {
+        return ListView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.teal),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.uiText('Thông tin & lưu ý'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _InfoNote(
+              icon: Icons.cloud_download_outlined,
+              title: context.uiText('Chỉ tải khi bạn bấm'),
+              body: context.uiText(
+                'Bấm Tải về để lấy model từ mạng (HuggingFace). '
+                'App KHÔNG tự tải khi khởi động — tránh lỗi "Connection closed" '
+                'trên tablet. Đã có file thì dùng Import.',
+              ),
+            ),
+            const SizedBox(height: 8),
+            const _BatteryOptimizationCard(dense: true),
+            const SizedBox(height: 8),
+            _InfoNote(
+              icon: Icons.folder_outlined,
+              title: context.uiText('Model nằm trong bộ nhớ riêng của app'),
+              body: context.uiText(
+                'Xoá app là mất model đã tải/import. Model không gửi dữ liệu '
+                'âm thanh ra ngoài — mọi thứ chạy trên máy.',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _InfoNote extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  const _InfoNote({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.tealAccent),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 2),
+              Text(body, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Một nhóm cài đặt gập/mở được — thay cho các dòng tiêu đề toàn chữ.
+class _SettingsSection extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+  final bool initiallyExpanded;
+
+  const _SettingsSection({
+    required this.icon,
+    required this.color,
+    required this.title,
+    this.subtitle,
+    required this.children,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: PageStorageKey<String>('model-settings-$title'),
+        initiallyExpanded: initiallyExpanded,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        leading: CircleAvatar(
+          radius: 16,
+          backgroundColor: color.withValues(alpha: 0.18),
+          child: Icon(icon, size: 18, color: color),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                    ),
+              ),
+        children: children,
       ),
     );
   }
@@ -131,7 +404,11 @@ class SttModelSettingsScreen extends StatelessWidget {
 /// BATTERY-OPT-001 — Thẻ cho phép người dùng bật/kiểm tra quyền
 /// "Dừng tối ưu mức sử dụng pin" bất cứ lúc nào.
 class _BatteryOptimizationCard extends StatefulWidget {
-  const _BatteryOptimizationCard();
+  /// true = bản gọn dùng trong sheet "Thông tin & lưu ý" (không chiếm chỗ
+  /// trong danh sách chính khi quyền đã được cấp).
+  final bool dense;
+
+  const _BatteryOptimizationCard({this.dense = false});
 
   @override
   State<_BatteryOptimizationCard> createState() =>
@@ -159,20 +436,29 @@ class _BatteryOptimizationCardState extends State<_BatteryOptimizationCard> {
     }
     final granted = _granted ?? false;
     return Card(
+      margin: widget.dense ? EdgeInsets.zero : const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
+        dense: widget.dense,
+        contentPadding:
+            widget.dense ? const EdgeInsets.symmetric(horizontal: 4) : null,
         leading: Icon(
           granted
               ? Icons.battery_charging_full_rounded
               : Icons.battery_alert_rounded,
           color: granted ? Colors.green : Colors.orangeAccent,
         ),
-        title: const Text('Dừng tối ưu mức sử dụng pin'),
+        title: Text(
+          context.uiText('Dừng tối ưu mức sử dụng pin'),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
         subtitle: Text(
-          granted
-              ? 'Đã cho phép — In4up sec có thể chạy ngầm, mức sử dụng pin '
-                  'không bị hạn chế.'
-              : 'Chưa cho phép — hệ thống có thể tạm dừng model STT/AI khi '
-                  'app chạy ngầm.',
+          context.uiText(
+            granted
+                ? 'Đã cho phép — In4Up có thể chạy ngầm, pin không bị hạn chế.'
+                : 'Chưa cho phép — hệ thống có thể tạm dừng model STT/AI khi '
+                    'app chạy ngầm.',
+          ),
+          style: const TextStyle(fontSize: 11),
         ),
         trailing: granted
             ? const Icon(Icons.check_circle, color: Colors.green)
@@ -181,60 +467,87 @@ class _BatteryOptimizationCardState extends State<_BatteryOptimizationCard> {
                   await BatteryOptimizationService.requestWithDialog(context);
                   await _refresh();
                 },
-                child: const Text('Cho phép'),
+                child: Text(context.uiText('Cho phép')),
               ),
       ),
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+/// Bộ chọn dòng model Whisper: đa ngôn ngữ ↔ English-only.
+///
+/// WHISPER-VARIANT-001 — cùng một kích thước có 2 bản (`ggml-base.bin` đa ngữ
+/// và `ggml-base.en.bin` chỉ tiếng Anh). Người dùng chọn dòng trước, rồi mới
+/// chọn kích thước ⇒ danh sách gọn, không phải cuộn 9 thẻ cùng lúc.
+class _WhisperSectionBody extends StatefulWidget {
+  const _WhisperSectionBody();
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-      ),
-    );
-  }
+  State<_WhisperSectionBody> createState() => _WhisperSectionBodyState();
 }
 
-class _SourceInfoCard extends StatelessWidget {
+class _WhisperSectionBodyState extends State<_WhisperSectionBody> {
+  bool _englishOnly = false;
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Colors.teal.shade900.withValues(alpha: 0.3),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+    final levels = _englishOnly
+        ? kWhisperEnglishOnlyLevels
+        : kWhisperMultilingualLevels;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<bool>(
+          style: const ButtonStyle(visualDensity: VisualDensity.compact),
+          segments: [
+            ButtonSegment<bool>(
+              value: false,
+              icon: const Icon(Icons.public, size: 16),
+              label: Text(context.uiText('Đa ngôn ngữ')),
+            ),
+            ButtonSegment<bool>(
+              value: true,
+              icon: const Icon(Icons.text_fields_rounded, size: 16),
+              label: Text(context.uiText('Chỉ tiếng Anh')),
+            ),
+          ],
+          selected: {_englishOnly},
+          onSelectionChanged: (selection) =>
+              setState(() => _englishOnly = selection.first),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.cloud_download, color: Colors.teal),
-            const SizedBox(width: 12),
+            Icon(
+              _englishOnly
+                  ? Icons.info_outline_rounded
+                  : Icons.language_rounded,
+              size: 14,
+              color: Colors.grey,
+            ),
+            const SizedBox(width: 6),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Tải khi bạn bấm — không tự tải lúc mở app',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Bấm Tải về để lấy model từ mạng (HuggingFace, rồi GitHub). '
-                    'App không tự tải khi khởi động — tránh lỗi Connection closed '
-                    'trên tablet. Import file .bin nếu bạn đã có sẵn.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              child: Text(
+                context.uiText(
+                  _englishOnly
+                      ? 'English-only (.en): chính xác hơn cho audio tiếng Anh, '
+                          'cùng dung lượng với bản đa ngữ. KHÔNG nhận tiếng Việt '
+                          'hay ngôn ngữ khác.'
+                      : 'Đa ngôn ngữ: nhận diện 99 ngôn ngữ (kể cả tiếng Việt) '
+                          'bằng cùng một file model.',
+                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                    ),
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        ...levels.map((level) => _ModelCard(level: level)),
+      ],
     );
   }
 }
@@ -269,12 +582,38 @@ class _ModelCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Whisper ${level.name.toUpperCase()}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                'Whisper ${level.displayLabel}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              if (level.isEnglishOnly) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.lightBlue.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    context.uiText('English-only'),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.lightBlueAccent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           Text(
                             context.uiText(level.description),
@@ -395,15 +734,41 @@ class _ModelCard extends StatelessWidget {
         context: context,
         builder: (_) => AlertDialog(
           title: Text(
-            context.uiText('Tải Whisper ${level.name.toUpperCase()}?'),
+            context.uiText('Tải Whisper ${level.displayLabel}?'),
           ),
-          content: Text(
-            context.uiText(
-              'Dung lượng khoảng ${level.sizeInMB}MB.\n\n'
-              'Nên dùng Wi-Fi và giữ app mở trong lúc tải. '
-              'Nếu mạng đứt, bấm Tải về lại — app thử HuggingFace rồi GitHub.\n\n'
-              'Hoặc Import nếu bạn đã có file ${level.fileName}.',
-            ),
+          // Ghép từ các câu ĐỘC LẬP (không nội suy nhiều tầng) để mỗi câu
+          // khớp đúng 1 key dịch — trước đây cả khối là 1 chuỗi nội suy nên
+          // locale ≠ vi không tra được bản dịch nào.
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.uiText('Dung lượng khoảng ${level.sizeInMB}MB.'),
+              ),
+              const SizedBox(height: 8),
+              if (level.isEnglishOnly) ...[
+                Text(
+                  context.uiText(
+                    'Bản English-only CHỈ nhận tiếng Anh — audio tiếng Việt/'
+                    'ngôn ngữ khác sẽ ra sai.',
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                context.uiText(
+                  'Nên dùng Wi-Fi và giữ app mở trong lúc tải. Nếu mạng đứt, '
+                  'bấm Tải về lại — app thử lại từ HuggingFace.',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.uiText(
+                  'Hoặc Import nếu bạn đã có file ${level.fileName}.',
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -463,9 +828,11 @@ class _ModelCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(context.uiText('Xoá model ${level.name.toUpperCase()}?')),
+        title: Text(context.uiText('Xoá model ${level.displayLabel}?')),
         content: Text(
-          context.uiText('Sẽ giải phóng ${level.sizeInMB}MB. Bạn cần tải lại để dùng tính năng này.'),
+          context.uiText(
+            'Sẽ giải phóng ${level.sizeInMB}MB. Bạn cần tải lại để dùng tính năng này.',
+          ),
         ),
         actions: [
           TextButton(
@@ -1600,7 +1967,11 @@ class _GemmaChatModelCard extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _SherpaAsrCard extends StatefulWidget {
-  const _SherpaAsrCard();
+  /// Chỉ hiện các profile này (null = tất cả). Nhờ vậy 1 manager dùng chung
+  /// vẫn tách được "Parakeet" và "Zipformer" thành 2 nhóm gập/mở riêng.
+  final List<String>? profileIds;
+
+  const _SherpaAsrCard({this.profileIds});
 
   @override
   State<_SherpaAsrCard> createState() => _SherpaAsrCardState();
@@ -1608,6 +1979,7 @@ class _SherpaAsrCard extends StatefulWidget {
 
 class _SherpaAsrCardState extends State<_SherpaAsrCard> {
   final _manager = SherpaModelManager();
+  bool _showAllLanguages = false;
 
   @override
   void initState() {
@@ -1617,6 +1989,12 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
 
   @override
   Widget build(BuildContext context) {
+    final profiles = SherpaModelManager.predefinedAsrProfiles
+        .where((profile) =>
+            widget.profileIds == null ||
+            widget.profileIds!.contains(profile.id))
+        .toList();
+
     return StreamBuilder<SherpaAsrInfo>(
       stream: _manager.watchAsr(),
       initialData: _manager.asrInfo,
@@ -1624,13 +2002,14 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
         final asrInfo = snapshot.data!;
 
         return Column(
-          children: SherpaModelManager.predefinedAsrProfiles.map((profile) {
+          children: profiles.map((profile) {
             final info = asrInfo.stateFor(profile.id);
+            final isParakeet = profile.family == SherpaAsrFamily.parakeet;
 
             return Card(
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: 8),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1642,12 +2021,18 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                               ? Icons.check_circle
                               : info.isDownloading
                                   ? Icons.sync
-                                  : Icons.keyboard_voice,
+                                  : isParakeet
+                                      ? Icons.bolt_rounded
+                                      : profile.isStreaming
+                                          ? Icons.sensors_rounded
+                                          : Icons.keyboard_voice_rounded,
                           color: info.isReady
                               ? Colors.green
                               : info.isDownloading
                                   ? Colors.blue
-                                  : Colors.teal,
+                                  : isParakeet
+                                      ? Colors.amberAccent
+                                      : Colors.teal,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -1655,17 +2040,19 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${profile.name}  ·  ${profile.language.toUpperCase()}',
+                                '${profile.name}  ·  ${profile.languageLabel}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                 ),
                               ),
                               Text(
                                 context.uiText(
-                                  profile.isStreaming
-                                      ? 'Nhận diện trực tiếp (streaming) — Zipformer 20M int8'
-                                      : 'Nhận diện offline kèm VAD — Zipformer 30M int8',
+                                  isParakeet
+                                      ? 'Offline đa ngữ — Parakeet TDT 0.6B v3 int8 (NVIDIA)'
+                                      : profile.isStreaming
+                                          ? 'Nhận diện trực tiếp (streaming) — Zipformer 20M int8'
+                                          : 'Nhận diện offline kèm VAD — Zipformer 30M int8',
                                 ),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
@@ -1676,22 +2063,115 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
 
                     // ── Model này dùng ở đâu (mapping rõ cho Cabin) ─────
-                    Text(
-                      context.uiText(
-                        profile.isStreaming
-                            ? 'Cabin (live, token-by-token). KHÔNG dùng cho file/LRC — model streaming chỉ chạy OnlineRecognizer.'
-                            : 'Cabin (offline + VAD) và bóc băng file/LRC.',
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          isParakeet
+                              ? Icons.public_rounded
+                              : profile.isStreaming
+                                  ? Icons.wifi_tethering_rounded
+                                  : Icons.offline_bolt_outlined,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            context.uiText(
+                              isParakeet
+                                  ? 'Cabin (offline + VAD) và bóc băng file/LRC. '
+                                      'Bao 25 ngôn ngữ châu Âu (Anh, Pháp, Đức, Tây Ban Nha…), '
+                                      'KHÔNG có tiếng Việt — tiếng Việt dùng Zipformer VI.'
+                                  : profile.isStreaming
+                                      ? 'Cabin (live, token-by-token). KHÔNG dùng cho file/LRC — model streaming chỉ chạy OnlineRecognizer.'
+                                      : 'Cabin (offline + VAD) và bóc băng file/LRC.',
+                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontSize: 11),
+                          ),
+                        ),
+                      ],
                     ),
+
+                    // ── Cảnh báo model lớn (Parakeet ~670MB) ────────────
+                    if (profile.isLargeDownload) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded,
+                              size: 14, color: Colors.orangeAccent),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '~${profile.approxSizeMB}MB · '
+                              '${context.uiText('nên tải bằng Wi-Fi · cần ~1GB RAM trống khi nạp')}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.orangeAccent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // ── Ngôn ngữ model hỗ trợ (sổ ra khi cần) ────────────
+                    if (profile.isMultilingual) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: [
+                          for (final language in (_showAllLanguages
+                              ? profile.languages
+                              : profile.languages.take(5)))
+                            Chip(
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              avatar: const Icon(Icons.language, size: 12),
+                              label: Text(
+                                language.toUpperCase(),
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ),
+                          if (profile.languages.length > 5)
+                            ActionChip(
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              avatar: Icon(
+                                _showAllLanguages
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 14,
+                              ),
+                              label: Text(
+                                _showAllLanguages
+                                    ? context.uiText('Thu gọn')
+                                    : '+${profile.languages.length - 5}',
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                              onPressed: () => setState(
+                                  () => _showAllLanguages = !_showAllLanguages),
+                            ),
+                        ],
+                      ),
+                    ],
+
                     if (!info.isReady) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         context.uiText(
-                          'Chưa cài model — Cabin chọn ngôn ngữ này sẽ báo thiếu model (không tự nhận bằng model ngôn ngữ khác).',
+                          isParakeet
+                              ? 'Chưa cài model — Cabin chọn ngôn ngữ Pháp/Đức/… sẽ báo thiếu model (không tự nhận bằng model khác).'
+                              : 'Chưa cài model — Cabin chọn ngôn ngữ này sẽ báo thiếu model (không tự nhận bằng model ngôn ngữ khác).',
                         ),
                         style: TextStyle(
                           fontSize: 11,
@@ -1821,14 +2301,35 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(
-          context.uiText('Tải model Zipformer ${profile.name}?'),
+          context.uiText('Tải model ${profile.name}?'),
         ),
-        content: Text(
-          context.uiText(
-            'Dung lượng khoảng ${profile.approxSizeMB}MB.\n\n'
-            'App tự động tải archive tar.bz2, giải nén và cấu hình model.\n\n'
-            'Nên dùng Wi-Fi trong khi tải.',
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText(
+                'Dung lượng khoảng ${profile.approxSizeMB}MB (archive tar.bz2).',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(
+                'App tự động tải archive, giải nén và cấu hình model.',
+              ),
+            ),
+            if (profile.isLargeDownload) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.uiText(
+                  'Model lớn: nên dùng Wi-Fi, giữ app mở, và cần ~1GB RAM '
+                  'trống khi nạp.',
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text(context.uiText('Nên dùng Wi-Fi trong khi tải.')),
+          ],
         ),
         actions: [
           TextButton(
@@ -1888,13 +2389,14 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
   ) {
     final message = switch (result.status) {
       SherpaAsrImportStatus.imported =>
-        context.uiText('✅ Đã import model Zipformer ASR: ${profile.name}'),
+        context.uiText('✅ Đã import model ASR: ${profile.name}'),
       SherpaAsrImportStatus.unknownProfile => context.uiText(
           'Không nhận diện được model này — hãy bấm Import ở đúng thẻ model '
-          '(VI offline hoặc EN streaming).'),
+          '(Parakeet, VI offline hoặc EN streaming).'),
       SherpaAsrImportStatus.profileMismatch => context.uiText(
-          'Model không khớp profile đã chọn: model streaming chỉ dùng cho EN, '
-          'model offline chỉ dùng cho VI.'),
+          'Model không khớp profile đã chọn: Zipformer VI là offline, '
+          'Zipformer EN là streaming, Parakeet là offline đa ngữ — '
+          'không trộn được.'),
       SherpaAsrImportStatus.incompleteFiles => result.missingRoles.isNotEmpty
           // I4U18-MODEL-IMPORT-001 — nêu ĐÚNG file cần bổ sung.
           ? '${context.uiText('Thiếu file model:')} '

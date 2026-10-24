@@ -174,6 +174,10 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
+| PRON-001 | Gom YouGlish về MỘT nguồn sự thật (`YouGlishView` + URL builder + prefs chung) — không đổi hành vi, sửa 3 chuỗi i18n hard-code | 📋 proposed (kế hoạch + AT đã ghi, chưa code) | PLAN-038 §1 + ADR-0014 D5; điểm vào thật: youglish_widget.dart / youglish_mini_sheet.dart / youglish_screen.dart |
+| PRON-002 | Tab Đọc: một hàng "Phát âm" (TTS · audio từ điển · YouGlish) trong `word_actions_sheet` + 1 icon trong `word_mini_pop`; WebView lazy, pause & restore playback | 📋 proposed | PLAN-038 §2; KHÔNG dùng `word_detail_sheet.dart` (không thuộc tab Đọc) và KHÔNG thêm TabBar |
+| PRON-003 | Hàng "Phát âm" cho các mặt còn lại: Vườn nhớ · PDF Reader · YouTube panel · WordList (đối xứng hoá 3 điểm vào cũ, tắt autoplay mặc định) | 📋 proposed | PLAN-038 §3; từ đã lưu = word_list_screen.dart:2102 (đã có YouGlish) + memory_mode/sheets/word_detail_sheet.dart (chưa có) |
+| PRON-004 | Widget YouGlish chính thức (`public/emb/widget.js` + wrapper HTML) + Điều khoản/Privacy theo Developer Policy | 🚫 blocked (chờ owner xin phép YouGlish) | youglish.com/api/doc/widget mục 2/3/5/6/7; tiền lệ wrapper: web/yt_embed.html; PLAN-038 §4 |
 
 
 ## Card chi tiết
@@ -7514,3 +7518,119 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-22 | reported→doing | owner báo \"vẫn trắng, vẫn lỗi -1\" sau deploy 202931b
   - 2026-10-22 | doing | agent arena/01a0251e-in4up | tìm ra thiếu `home:` là root cause trắng + thêm loader/.nojekyll/yt_embed v2; CI xanh nhưng loader che app → xoay mãi
   - 2026-10-22 | doing→doing | agent arena/01a0251e-in4up | fix loader xoay mãi (5c6cbd1) — ẩn khi `flutter-first-frame`, deploy 839d258 OK; chờ owner hard-reload
+
+### PRON-001 — Gom YouGlish về một nguồn sự thật (`YouGlishView`)
+- **Trạng thái:** 📋 proposed — kế hoạch + tiêu chí nghiệm thu đã ghi ở
+  `docs/plans/PLAN-038-nguon-phat-am-youglish.md` §1; **chưa có code**.
+- **Nguồn:** chủ dự án (2026-10-24, "I4U · different voice video") qua bảng câu
+  hỏi chốt khung; agent Arena phản biện đề bài Gemini (2026-10-24).
+- **Nội dung:** `lib/screens/tools/youglish/` hiện có **ba** bản copy YouGlish
+  song song: `youglish_widget.dart` (WebView + nhánh `webview_win_floating`,
+  `_buildUrl()` riêng) · `word_list/youglish_mini_sheet.dart` (tự tạo
+  `WebViewController`, **tự copy** `_buildUrl()`, không có nhánh Windows, chip
+  ngôn ngữ bị `YouGlishLanguage.values.take(5)`) · `youglish_screen.dart`
+  (toolbar + quick chips, không nhận `initialWord`). Gom về `YouGlishView`
+  + `YouGlishUrl.build` + `YouGlishPrefs` (`youglish.lang`/`youglish.accent`/
+  `youglish.enabled`/`youglish.autoplay`, mẫu `cabin_session_settings.dart`),
+  thêm `setMediaPlaybackRequiresUserGesture(false)` cho inline playback iOS,
+  thêm `YouGlishScreen({String? initialWord})`. Sửa i18n: `'Đang tải YouGlish...'`,
+  `'Đã copy'` và nhãn accent English-only → ARB (rule #5).
+- **Ràng buộc:** PRON-001 **không đổi hành vi quan sát được** ở `YouGlishScreen`
+  và hàng YouGlish trong WordList; URL phải byte-identical với `_buildUrl()` cũ
+  (golden test). Không import file chứa `dart:io` vào cây `lib/main_web.dart`.
+- **AT:** (1) `test/youglish/youglish_url_test.dart` chốt 4 URL (EN+US, EN+UK,
+  ngôn ngữ không-EN, từ có khoảng trắng/ký tự đặc biệt); (2) `grep -rn
+  "youglish.com/pronounce" lib` → đúng **một** nơi; (3) `flutter analyze` 0 lỗi +
+  `test/locale_chrome_no_vietnamese_test.dart` xanh; (4) mở tool YouGlish và bấm
+  nút YouGlish ở một dòng WordList: giao diện + hành vi như trước khi gom;
+  (5) iOS thật: video phát inline mà không cần chạm (chờ thiết bị).
+- **Lịch sử:**
+  - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | kiểm code +
+    ADR-0014 + PLAN-038; chưa sửa dòng code nào (chờ owner duyệt khung).
+
+### PRON-002 — Hàng "Phát âm" trong Tab Đọc (một nút, lazy)
+- **Trạng thái:** 📋 proposed — PLAN-038 §2; chưa code; phụ thuộc PRON-001.
+- **Nguồn:** chủ dự án (2026-10-24) — yêu cầu gốc "khi chạm từ ở Tab Đọc, cho
+  nghe giọng người thật trong ngữ cảnh ngay trong bảng tra".
+- **Hiện trạng đã xác minh (để người sau khỏi dò lại):** Tab Đọc **không** dùng
+  `word_detail_sheet.dart`. Chuỗi thật: chạm từ → `WordActionsSheet.show`
+  (`text_line_widget.dart:614`, `colored_text_widget.dart:242`;
+  `read_mode/sheets/word_actions_sheet.dart` 1179 dòng, **không có**
+  `TabBar`/`DefaultTabController`, chỉ có một nút loa TTS ở `:278` →
+  `tp.speak`); chạm-nhanh → `read_mode/widgets/word_mini_pop.dart` (599 dòng,
+  pop GỌN + "kéo rèm" theo AUDIT-2026-10-20 mục 4). `word_detail_sheet.dart` có
+  hai file, đều ngoài tab Đọc: `memory_mode/sheets/` (vườn nhớ) và `widgets/`
+  (map/venn/triangle).
+- **Nội dung:** widget dùng chung `WordPronunciationRow`
+  (`lib/features/word_lookup/widgets/`) = `[▶] [nguồn: TTS · Từ điển · YouGlish]
+  [accent] [⧉ mở ngoài]`; một dòng trong `word_actions_sheet` (thay đúng chỗ nút
+  loa cũ, không để hai nút loa cạnh nhau) + một icon
+  `wordMiniPopYouGlishKey` trong `word_mini_pop`. WebView **chỉ** dựng khi bấm
+  nguồn YouGlish, dispose khi đóng (owner chốt `button_lazy` — bác "tab" và bác
+  "hiện video ngay khi mở sheet"). Pause & restore playback qua bộ đếm
+  `_openPronunciationSheets` (owner chốt `pause_restore`), không đụng `lib/ffi/`.
+  Bậc thoái lui: lỗi/8 s chưa `onPageFinished` → TTS + snack "đã dùng giọng máy".
+  Điểm vào "Mở YouGlish" điều hướng qua `main_shell._handleTool('youglish')`
+  kèm `initialWord`.
+- **AT:** (1) widget test với factory WebView giả — chạm từ ⇒ **0** lần dựng
+  WebView, bấm nguồn YouGlish ⇒ **1** lần, đóng ⇒ dispose; (2) bật playback rồi
+  mở/đóng sheet ⇒ tiếp tục **đúng dòng đang đọc**; (3) `youglish.enabled=false`
+  ⇒ điểm vào YouGlish biến mất, chỉ còn "Mở trong trình duyệt"; (4) locale `hi`
+  và `zh` ⇒ hàng "Phát âm" không còn ký tự Việt; (5) QA máy Android + iOS: video
+  100% nhìn thấy, ≥200×200 px, kéo sheet không đơ, không ám đen; (6) `pop` vẫn
+  GỌN — không thêm section nào ngoài một icon.
+- **Lịch sử:**
+  - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | phản biện đề bài
+    Gemini (sai file, đòi tab, giả định có 1 service), chốt lazy-button +
+    pause/restore; ADR-0014 D1/D3/D4.
+
+### PRON-003 — Hàng "Phát âm" cho các chỗ tra từ còn lại (từ đã lưu · PDF · YouTube)
+- **Trạng thái:** 📋 proposed — PLAN-038 §3; chưa code; phụ thuộc PRON-002.
+- **Nguồn:** chủ dự án (2026-10-24) — chọn phạm vi "mọi nơi tra từ"; phạm vi
+  trong đề bài Gemini chỉ nói Tab Đọc + `word_detail_sheet`.
+- **Nội dung:** cùng `WordPronunciationRow` cho `memory_mode/sheets/word_detail_sheet.dart`
+  ("từ đã lưu" trong vườn nhớ — sheet đã có tham số `onPlayAudio`, cấy cạnh),
+  `features/pdf_reader/widgets/pdf_wordlist_panel.dart` (hiện chỉ TTS ở `:272`),
+  `features/youtube/widgets/yt_word_panel.dart` + `word_analysis_sheet.dart`
+  (chưa có nút nghe), và đối xứng hoá `word_list_screen.dart:2102` (đã có nút
+  YouGlish riêng + nút TTS riêng → một hàng). Đổi **có chủ đích và có ghi rõ**:
+  `autoplay` mặc định **tắt** cho mọi điểm vào (lưu `youglish.autoplay` để owner
+  bật lại), vì `&autoplay=1` không có trong tài liệu YouGlish và mỗi chạm-từ-một-request
+  là rủi ro chặn captcha. Nối luôn nguồn **audio từ điển offline**
+  (`DictEntry.audioPath`/`hasAudio` — đã parse, đã lưu, **không UI nào tiêu thụ**)
+  thành nguồn thứ hai, nếu bật được trong cùng PR mà không phình scope.
+- **AT:** `grep -rn "WordPronunciationRow" lib` ≥5 điểm vào và
+  `grep -rn "WebViewController()" lib/screens/tools` = 0 ngoài `youglish_view.dart`;
+  Known/Learning + phụ đề của YT-LR-002 không hồi quy; WordList giữ đủ 6 icon
+  hành vi cũ; mỗi locale render nhãn nguồn đúng rule #5.
+- **Lịch sử:**
+  - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | owner chốt phạm
+    vi rộng nhất; tách khỏi PRON-002 để PR nhỏ, dễ nghiệm thu máy.
+
+### PRON-004 — Widget YouGlish chính thức + điều khoản (blocked)
+- **Trạng thái:** 🚫 **blocked — chờ người sở hữu** xin phép YouGlish, chưa được
+  agent tự áp.
+- **Nguồn:** ràng buộc ngoài code, phát hiện khi đối chiếu
+  `youglish.com/api/doc/widget` (2026-10-24): mục 6 — dùng API/widget *trong
+  mobile app* phải xin phép; mục 5 — mục đích thương mại phải xin phép; mục 7 —
+  "powered by YouGlish.com" phải luôn thấy; mục 3 — Điều khoản app phải dẫn link
+  YouTube ToS + Google Privacy Policy và player ≥200×200 px; mục 2 — consent
+  cookie; mục 1 — lượng impression lớn/ngày phải báo trước.
+- **Nội dung:** nếu được phép — wrapper HTML (`web/youglish_embed.html` theo tiền
+  lệ `web/yt_embed.html`, hoặc `assets/html/` cho Android/iOS) nạp
+  `youglish.com/public/emb/widget.js` với `data-query`/`data-lang`/
+  `data-components`, `Auto. start = No`, `Video quality = Low`, `Restricted Mode`
+  theo cài đặt; WebView chỉ load wrapper → hết cảnh nạp nguyên site (menu, upsell,
+  banner cookie) trong bottom sheet. Nếu bị từ chối/im lặng quá hạn — bật mặc định
+  `youglish.enabled=false`, chỉ giữ "Mở trong trình duyệt", và PRON-001..003 vẫn
+  còn giá trị (nền cho audio từ điển + TTS).
+- **Ghi chú kỹ thuật:** code hiện tại dựng
+  `youglish.com/pronounce/<word>/<lang>/<accent>?embed=1&autoplay=1`; **`embed`
+  và `autoplay` không có trong tài liệu** ⇒ nhiều khả năng đang là nguyên trang
+  website chứ không phải widget. PRON-001 cố tình GIỮ nguyên URL (không âm thầm
+  đổi) và chỉ chốt bằng golden test; việc đổi sang widget là của card này, cần
+  ADR bổ sung.
+- **Lịch sử:**
+  - 2026-10-24 | proposed→blocked | agent Arena `arena/06e5aef5-in4up` | owner
+    chốt hướng "vẫn làm WebView như hiện tại, xin phép song song"; agent không
+    chặn PRON-001/002/003 bằng card này.

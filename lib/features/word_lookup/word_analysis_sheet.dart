@@ -1,7 +1,11 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
-import '../../features/dictionary/services/dictionary_service.dart';
+import '../dictionary/models/dict_entry.dart';
+import '../dictionary/services/dict_text_cleaner.dart';
+import '../dictionary/services/dictionary_service.dart';
+import '../dictionary/widgets/dict_definition_view.dart';
+import '../dictionary/widgets/dict_entry_detail_sheet.dart';
 import '../../features/translation/data/offline_dictionary.dart';
 import '../shadowing/services/cmu_dictionary_service.dart';
 
@@ -21,7 +25,7 @@ class WordAnalysisSheet extends StatefulWidget {
 
 class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
   final _dict = OfflineDictionary();
-  List<dynamic> _mdxEntries = [];
+  List<DictEntry> _mdxEntries = const <DictEntry>[];
   bool _mdxLoading = true;
 
   @override
@@ -209,6 +213,17 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
   }
 
   Widget _buildMdxCard() {
+    // DICT-CLEAN-001: gộp các bộ từ điển + khử nghĩa trùng, chỉ hiện nghĩa
+    // cốt lõi; nội dung đầy đủ nằm sau nút "Xem từ điển đầy đủ".
+    final merged = DictTextCleaner.merge(<DictSourceText>[
+      for (final entry in _mdxEntries)
+        DictSourceText(
+          headword: entry.headword,
+          definition: entry.definition,
+          phonetic: entry.phonetic,
+          sourceLabel: entry.dictId,
+        ),
+    ]);
     return Card(
       color: const Color(0xFF2196F3).withValues(alpha: 0.08),
       child: Padding(
@@ -221,26 +236,42 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                 const Icon(Icons.menu_book,
                     size: 16, color: Color(0xFF2196F3)),
                 const SizedBox(width: 6),
-                Text(
-                  context.uiText('Từ điển MDX (${_mdxEntries.length})'),
-                  style: const TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                Expanded(
+                  child: Text(
+                    context.uiText('Từ điển MDX (${_mdxEntries.length})'),
+                    style: const TextStyle(
+                      color: Color(0xFF2196F3),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
+                if ((merged.ipa ?? '').trim().isNotEmpty)
+                  Text(
+                    merged.ipa!.trim(),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
-            ...(_mdxEntries.take(3).map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    e.plainDefinition,
-                    style: const TextStyle(fontSize: 14),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ))),
+            DictDefinitionView(
+              groups: merged.groups,
+              compact: true,
+              maxSenses: 3,
+              light: true,
+              onOpenFull: () => DictEntryDetailSheet.show(
+                context,
+                word: widget.selectedWord,
+                entries: _mdxEntries,
+                ipa: merged.ipa,
+                meaning: merged.compactMeaning(maxSenses: 3),
+                onSpeak: null,
+              ),
+            ),
           ],
         ),
       ),

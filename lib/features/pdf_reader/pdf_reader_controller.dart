@@ -1372,14 +1372,34 @@ class PdfReaderController extends ChangeNotifier {
     );
   }
 
-  void saveWordToMemory(PdfWordInfo wordInfo) {
+  /// Lưu từ vào Vườn Nhớ.
+  ///
+  /// WORD-INSIGHT-001: [meaning]/[phonetic]/[phoneticSource] là dữ liệu đã tra
+  /// (mạng → từ điển → offline) ở sheet tap; ưu tiên hơn lexicon nội bộ để thẻ
+  /// lưu không bị trống nghĩa/IPA.
+  void saveWordToMemory(
+    PdfWordInfo wordInfo, {
+    String? meaning,
+    String? phonetic,
+    String? phoneticSource,
+  }) {
     final word = wordInfo.text.replaceAll(RegExp(r'[^\w]'), '').toLowerCase();
     if (word.isEmpty) return;
 
+    final resolvedMeaning = (meaning ?? '').trim().isNotEmpty
+        ? meaning!.trim()
+        : wordInfo.analyzed?.meaning;
+    final resolvedPhonetic = (phonetic ?? '').trim().isNotEmpty
+        ? phonetic!.trim()
+        : wordInfo.analyzed?.phonetic;
+
     VocabularyBridge.addFromAnalyzed(
       word: word,
-      meaning: wordInfo.analyzed?.meaning,
-      phonetic: wordInfo.analyzed?.phonetic,
+      meaning: resolvedMeaning,
+      phonetic: resolvedPhonetic,
+      phoneticSource: (phonetic ?? '').trim().isNotEmpty
+          ? phoneticSource
+          : null,
       wordTypeName: wordInfo.analyzed?.wordType.name,
       cefrLevelName: wordInfo.analyzed?.cefrLevel.name,
       sourceFile: fileName,
@@ -1392,8 +1412,8 @@ class PdfReaderController extends ChangeNotifier {
       word: word,
       wordType: wordInfo.analyzed?.wordType.name,
       cefrLevel: wordInfo.analyzed?.cefrLevel.name,
-      meaning: wordInfo.analyzed?.meaning,
-      phonetic: wordInfo.analyzed?.phonetic,
+      meaning: resolvedMeaning,
+      phonetic: resolvedPhonetic,
       sourceFile: fileName,
       sourceLine: wordInfo.pageIndex,
       context: memoryContext,

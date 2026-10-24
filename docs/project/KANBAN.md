@@ -35,6 +35,8 @@
 | READ-630-02 | Tap sheet: hiện đủ IPA + loại + topic + language, thêm/bớt không mất dữ liệu | ✅ done | VocabEntryEditSheet (chờ nghiệm thu build) |
 | READ-630-03 | Marker "từ đã lưu": tắt mặc định, bật khi cần + legend | ✅ done | toggle toolbar PDF+Web (chờ nghiệm thu build) |
 | READ-630-04 | Lưu hàng loạt thông minh (từ/cụm/câu → topic + language) PDF + Web | ✅ done | extractor dùng chung + language (chờ nghiệm thu) |
+| DICT-CLEAN-001 | Từ điển: nội dung trích xuất dư thừa (HTML/CSS/script/entity, nghĩa lặp giữa nhiều bộ) — cô đọng khi dùng nhúng, đầy đủ/đẹp khi tra riêng | 🔨 doing (code + test; chờ CI + nghiệm thu máy) | `dict_text_cleaner.dart` (plain/parse/merge) + `DictDefinitionView` (compact/full) + `DictEntryDetailSheet` + `DictResultSheet` viết lại; `DictEntry.plainDefinition`/`compactDefinition`; ADR-0014 |
+| WORD-INSIGHT-001 | PDF Reader: chạm từ phải thấy NGAY nghĩa + IPA (ưu tiên mạng → từ điển MDX → offline) thay vì bắt người dùng tự điền | 🔨 doing (code + test; chờ CI + nghiệm thu máy) | `word_insight_service.dart` (waterfall + cache + seam) + `online_dictionary_source.dart` (dictionaryapi.dev) + `PdfWordTapSheet` stateful (skeleton, chip nguồn, mở trang từ điển) + truyền nghĩa/IPA vào lưu (`phoneticSource='online'`) |
 | WEB-LOAD-001 | Web Reader: spinner/load "kẹt" — trang đã load xong mà vẫn xoay + load (kể cả khi bấm icon "eye" đánh dấu từ đã lưu) | 🔄 doing (code xong, chờ CI + nghiệm thu máy) | WEB-LOAD-001 watchdog: `onPageFinished` vắng mặt >10s ⇒ tự `state→ready` (ẩn spinner); sửa `web_reader_controller.dart` — owner báo 2026-10-06 (build cũ) |
 | WEB-TTS-PAUSE-001 | Web Reader: bấm nút Pause bài đọc vẫn tiếp tục đọc (icon đã đổi sang ▶ tam giác) | ✅ done + CI xanh (trong tip) — chờ owner build lại + nghiệm thu máy | fix PAUSE F3 đã ở tip `72b1e85` (2026-10-01): `pause()` dừng CẢ AudioPlayer + giọng máy + `speakLines` ĐỨNG YÊN khi pause (không auto-skip câu kế); build cũ `1d58b78` (09-15) KHÔNG có fix này → "bấm Pause xong vẫn nghe" |
 | WEB-RDR-001 | Web Reader: dịch đoạn chọn (TranslationService) + lưu bài đọc thành file âm thanh (TTS → file, mở trong tab Nghe) | 🔨 doing (code xong, chờ CI + nghiệm thu máy) | nút Dịch trên thanh selection + menu "Lưu bài đọc thành âm thanh" (`web_reader_screen.dart`); `TtsService.synthesizeToFile` (Piper offline → Edge online) + `WebReaderController.synthesizeTextToFile`; 15 chuỗi chrome mới đăng ký i18n rule #5 |
@@ -7514,3 +7516,47 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-22 | reported→doing | owner báo \"vẫn trắng, vẫn lỗi -1\" sau deploy 202931b
   - 2026-10-22 | doing | agent arena/01a0251e-in4up | tìm ra thiếu `home:` là root cause trắng + thêm loader/.nojekyll/yt_embed v2; CI xanh nhưng loader che app → xoay mãi
   - 2026-10-22 | doing→doing | agent arena/01a0251e-in4up | fix loader xoay mãi (5c6cbd1) — ẩn khi `flutter-first-frame`, deploy 839d258 OK; chờ owner hard-reload
+
+### DICT-CLEAN-001 / WORD-INSIGHT-001 — Từ điển hết dư thừa + PDF hiện nghĩa/IPA ngay
+
+- **Yêu cầu (owner, 2026-10-24):** (1) PDF Reader tap từ phải hiện ngay nghĩa
+  và IPA, cơ chế lấy ưu tiên mạng → từ điển → AI/offline; (2) nội dung từ điển
+  trích ra bị dư thừa — khi dùng phải cô đọng/phù hợp, khi tra riêng phải đầy
+  đủ và đẹp như từ điển thật.
+- **Kế hoạch:** `docs/plans/PDF_DICT_INSIGHT_PLAN.md` — **ADR:** `docs/adr/0014-word-insight-va-lam-sach-tu-dien.md`.
+- **Code:**
+  - `lib/features/dictionary/services/dict_text_cleaner.dart` — bỏ
+    script/style/head/svg/iframe/audio, comment, thẻ rỗng; block → xuống dòng;
+    giải mã entity; bỏ dòng CSS/URL/ký hiệu/headword lặp; bóc IPA (validate
+    ADR-0005), nhóm loại từ (`n.`/`danh từ`…), nghĩa đánh số, ví dụ; khử nghĩa
+    trùng; `merge()` gộp nhiều bộ từ điển + nhãn nguồn.
+  - `lib/features/word_lookup/services/word_insight_service.dart` — waterfall
+    mạng → MDX → offline, cache phiên, seam test, không bao giờ ném.
+  - `lib/features/word_lookup/services/online_dictionary_source.dart` —
+    dictionaryapi.dev (không key), timeout 4s, parse JSON phòng thủ.
+  - `lib/features/dictionary/widgets/dict_definition_view.dart` (compact/full),
+    `dict_entry_detail_sheet.dart` (trang từ điển đầy đủ),
+    `dict_result_sheet.dart` (viết lại: gộp + khử trùng + IPA/POS/nghĩa/ví dụ).
+  - `PdfWordTapSheet` → StatefulWidget: tra ngay khi mở, skeleton, chip nguồn
+    (Mạng/Từ điển/Ngoại tuyến), IPA + chip nguồn IPA (WEB), khối từ điển cô
+    đọng + nút "Xem từ điển đầy đủ"; nghĩa/IPA truyền vào lưu
+    (`PdfWordSaveSection.resolvedMeaning/…`, `saveWordToMemory(meaning, phonetic,
+    phoneticSource)`).
+  - `DictEntry.plainDefinition` dùng cleaner (vẫn GIỮ IPA cho
+    `IpaDefinitionExtractor`); thêm `definitionView` + `compactDefinition`;
+    auto-fill/popup/YouTube dùng bản cô đọng.
+  - `IpaSourceChip` thêm nguồn `online` (WEB, xanh lá); `VocabularyBridge`
+    truyền `phoneticSource`.
+  - i18n: 10 nhãn mới vào `tool/legacy_ui_english_overrides.json` +
+    `generated_legacy_ui_fallbacks.dart` (Thêm tay — generator vẫn bị chặn bởi
+    84 key stale có từ trước, ghi nhận debt, KHÔNG xoá).
+- **Test:** `test/dictionary/dict_text_cleaner_test.dart`,
+  `test/word_lookup/word_insight_service_test.dart`,
+  `test/dictionary/dict_result_sheet_test.dart` (cập nhật theo UI gộp).
+- **Nghiệm thu tay:** PDF, từ hiếm: (a) có mạng → nghĩa tiếng Việt + IPA ngay,
+  chip "Mạng"; (b) chặn mạng → nghĩa từ MDX + chip "Từ điển", IPA chip
+  MDX/CMU; (c) không có MDX → offline; (d) mở "Xem từ điển đầy đủ" → trang từ
+  điển có loại từ/nghĩa đánh số/ví dụ/nguồn, không còn CSS/script.
+- **Lịch sử:**
+  - 2026-10-24 | proposed→doing | agent arena/65ccbb37-in4up | kế hoạch + ADR-0014
+    + code + test; chờ CI và nghiệm thu thiết bị.

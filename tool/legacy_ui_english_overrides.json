@@ -2029,5 +2029,14 @@
   "Đã dừng dịch": "Translation stopped",
   "Dịch trang": "Translate page",
   "Đang dịch trang…": "Translating page…",
-  "Không tìm thấy văn bản trong trang.": "No text was found on this page."
+  "Không tìm thấy văn bản trong trang.": "No text was found on this page.",
+  "Mạng": "Online",
+  "Ngoại tuyến": "Offline",
+  "Chưa có nội dung cho từ này": "No dictionary content for this word",
+  "Xem từ điển đầy đủ": "Open full dictionary",
+  "+{value0} nghĩa khác": "+{value0} more senses",
+  "Đang tra phiên âm…": "Looking up IPA…",
+  "Đang tra nghĩa & phiên âm…": "Looking up meaning and IPA…",
+  "Chưa tra được nghĩa cho từ này": "No meaning found for this word yet",
+  "Mở từ điển": "Open dictionary"
 }

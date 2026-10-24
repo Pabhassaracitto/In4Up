@@ -1,4 +1,7 @@
 // DICT-001 §8 — Widget test: DictResultSheet (hiển thị kết quả tra từ).
+//
+// DICT-CLEAN-001: sheet nay là một "trang từ điển" — nhiều bộ từ điển cho cùng
+// một từ được GỘP, nghĩa trùng bị khử, nội dung đã làm sạch HTML.
 
 import 'package:flutter/material.dart' as material;
 import 'package:flutter_test/flutter_test.dart';
@@ -9,12 +12,13 @@ DictEntry entry({
   required String word,
   String definition = '<b>xin chào</b>',
   String? pos,
+  String dictId = 'test-dict',
 }) =>
     DictEntry(
       headword: word,
       definition: definition,
       partOfSpeech: pos,
-      dictId: 'test-dict',
+      dictId: dictId,
     );
 
 Future<void> pumpSheet(
@@ -39,7 +43,7 @@ Future<void> pumpSheet(
 }
 
 void main() {
-  testWidgets('hiển thị headword + plain definition + số kết quả',
+  testWidgets('hiển thị headword + nghĩa đã làm sạch + số kết quả',
       (tester) async {
     await pumpSheet(
       tester,
@@ -50,7 +54,8 @@ void main() {
       ],
     );
 
-    expect(find.text('hello'), findsNWidgets(2)); // 2 entry card cùng headword
+    // Một headword duy nhất (gộp nhiều bộ từ điển), không lặp khối nghĩa.
+    expect(find.text('hello'), findsOneWidget);
     // plainDefinition đã strip HTML.
     expect(find.textContaining('xin chào'), findsOneWidget);
     expect(find.textContaining('chào hỏi'), findsOneWidget);
@@ -58,6 +63,22 @@ void main() {
     // thành 'Dictionary: hello' (rule #5: không fallback tiếng Việt).
     expect(find.text('Dictionary: hello'), findsOneWidget);
     expect(find.text('2 results'), findsOneWidget);
+  });
+
+  testWidgets('nghĩa trùng giữa nhiều từ điển chỉ hiện một lần',
+      (tester) async {
+    await pumpSheet(
+      tester,
+      word: 'book',
+      entries: [
+        entry(word: 'book', definition: 'quyển sách', dictId: 'a'),
+        entry(word: 'book', definition: '<div>quyển sách</div>', dictId: 'b'),
+        entry(word: 'book', definition: 'đặt vé', dictId: 'b'),
+      ],
+    );
+
+    expect(find.text('quyển sách'), findsOneWidget);
+    expect(find.text('đặt vé'), findsOneWidget);
   });
 
   testWidgets('part of speech hiển thị dạng chip khi có', (tester) async {

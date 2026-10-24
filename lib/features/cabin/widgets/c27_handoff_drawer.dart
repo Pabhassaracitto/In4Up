@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../controllers/c27_cabin_live_controller.dart';
@@ -15,6 +17,39 @@ Future<void> showC27HandoffDrawer(
 }) async {
   final scope = C27CabinLiveScope.instance;
   final controller = scope.controller;
+  final size = MediaQuery.sizeOf(context);
+  final isDesktop = size.width >= 700;
+
+  void send(BuildContext drawerContext, C27SourceType target) {
+    controller.openHandoff(target: target, speakerTag: 'Cabin');
+    final handoff = controller.activeHandoff;
+    if (handoff != null) {
+      scope.setHandoff(target, handoff);
+    }
+    Navigator.of(drawerContext).pop();
+    Navigator.of(hostContext).pop();
+  }
+
+  if (isDesktop) {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        alignment: Alignment.centerRight,
+        insetPadding: const EdgeInsets.all(16),
+        backgroundColor: const Color(0xFF101B2B),
+        child: SizedBox(
+          width: math.min(380, size.width * 0.42),
+          child: _C27HandoffDrawerSheet(
+            controller: controller,
+            onSend: (target) => send(dialogContext, target),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -24,15 +59,7 @@ Future<void> showC27HandoffDrawer(
     ),
     builder: (sheetContext) => _C27HandoffDrawerSheet(
       controller: controller,
-      onSend: (C27SourceType target) {
-        controller.openHandoff(target: target, speakerTag: 'Cabin');
-        final handoff = controller.activeHandoff;
-        if (handoff != null) {
-          scope.setHandoff(target, handoff);
-        }
-        Navigator.of(sheetContext).pop(); // đóng drawer
-        Navigator.of(hostContext).pop(); // về shell — shell tự chuyển tab
-      },
+      onSend: (target) => send(sheetContext, target),
     ),
   );
 }

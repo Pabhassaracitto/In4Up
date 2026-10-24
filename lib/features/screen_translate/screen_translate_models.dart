@@ -195,6 +195,12 @@ class ScreenTranslateProtocol {
   static const String methodIsRunning = 'isRunning';
   static const String methodSetTargetLanguage = 'setTargetLanguage';
 
+  // XLAT-SCR-005 — đổi CẢ HAI đầu ngôn ngữ khi bong bóng đang chạy.
+  static const String methodSetLanguages = 'setLanguages';
+
+  /// Bật/tắt "mỗi lần bấm bong bóng = kéo chọn vùng" khi service đang chạy.
+  static const String methodSetCaptureMode = 'setCaptureMode';
+
   // XLAT-SCR-003 — tự kiểm tra quyền trước khi hiện bong bóng.
   /// Trả Map trạng thái quyền (khoá xem [ScreenTranslateNativeStatus]).
   static const String methodStatus = 'status';
@@ -209,4 +215,13 @@ class ScreenTranslateProtocol {
   // Dart (engine nền) → native
   static const String methodWorkerReady = 'workerReady';
   static const String methodReportProgress = 'reportProgress';
+
+  // Khoá payload frame (native → Dart). Khoá vùng kéo chọn phải KHỚP
+  // `ScreenRegion.fromMap` — lệch tên là "kéo chọn vùng" im lặng thành
+  // "dịch cả màn hình".
+  static const String frameRegionLeft = 'regionLeft';
+  static const String frameRegionTop = 'regionTop';
+  static const String frameRegionRight = 'regionRight';
+  static const String frameRegionBottom = 'regionBottom';
+  static const String frameSourceLanguage = 'sourceLanguage';
 }

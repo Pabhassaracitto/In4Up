@@ -6,18 +6,36 @@
 // File này KHÔNG biết gì về MediaProjection/WindowManager; nó chỉ nhận một
 // frame pixel + hình học màn hình rồi trả về danh sách khối đã dịch.
 //
-// Nhờ vậy toàn bộ logic quyết định (debounce, cắt bớt khối, gom lỗi thiếu
-// model, thông điệp i18n) test được trên host VM — sandbox không có Android.
+// Nhờ vậy toàn bộ logic quyết định (debounce, cắt vùng, cắt bớt khối, gom lỗi
+// thiếu model, thông điệp i18n) test được trên host VM — sandbox không có
+// Android.
 //
 // Tái dùng 100%:
 //  - OCR: `OcrService.recognizeBitmapBlocks` (ML Kit Latin, cùng timeout/cancel).
 //  - Dịch: `TranslationService.translateText` → cache → engine đang chọn.
 //    KHÔNG có engine dịch thứ hai, KHÔNG tự tải model (luật vàng).
+//
+// XLAT-SCR-005 (owner 24/10) — ba thay đổi hành vi, đều xuất phát từ phản hồi
+// "bấm bong bóng lâu quá mà không biết nó đang làm gì":
+//  1. **Vùng kéo chọn**: native gửi `regionLeft/Top/Right/Bottom` (toạ độ màn
+//     hình); ảnh được CẮT trước khi OCR ⇒ ít chữ, ít request, nhanh hơn hẳn.
+//  2. **Dịch song song có giới hạn** (`kScreenTranslateConcurrency`) + gộp
+//     khối trùng nội dung: trước đây mỗi khối là một request TUẦN TỰ (32 khối
+//     × 300–900ms = 10–30 giây). Đây là nguyên nhân chính của độ trễ.
+//  3. **Báo tiến trình**: `onProgress` để native đổi bong bóng/thông báo ngay
+//     từ giây đầu, thay vì đứng im rồi bất ngờ có kết quả.
+//
+// Ngôn ngữ: `sourceLanguage` đi kèm mỗi frame (AUTO = để engine tự nhận diện).
+// Trước đây chỉ có ngôn ngữ đích vì pipeline luôn tự nhận diện nguồn — owner
+// yêu cầu mở ra để dịch được mọi cặp (kể cả đảo chiều, kể cả hai ngôn ngữ
+// khác tiếng Anh).
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../../core/language/app_language.dart';
 import '../../core/language/app_ui_translations.dart';
 import '../ocr/ocr_block.dart';
 import '../ocr/ocr_service.dart';
@@ -37,6 +55,28 @@ typedef ScreenOcrRunner = Future<OcrBlocksResult> Function({
 typedef ScreenBlockTranslator = Future<TranslationResult> Function(
   String text,
   String targetLanguage,
+);
+
+/// Chặng của một lượt dịch — native dùng để đổi bong bóng/thông báo.
+enum ScreenTranslateStage {
+  /// Đang cắt ảnh theo vùng người dùng kéo.
+  cropping,
+
+  /// Đang OCR.
+  ocr,
+
+  /// Đang dịch từng khối (có thể nhiều request song song).
+  translating,
+
+  /// Đã dịch xong, đang chuẩn bị kết quả.
+  finishing,
+}
+
+/// Báo tiến trình ra ngoài (native → bong bóng + notification).
+typedef ScreenProgressReporter = void Function(
+  ScreenTranslateStage stage,
+  int done,
+  int total,
 );
 
 /// Cổng chống spam: mỗi lần bấm bong bóng mới chụp một lần, và hai lần bấm
@@ -91,25 +131,48 @@ class CaptureGate {
 /// khối TO nhất (chữ chính), phần còn lại giữ nguyên bản gốc.
 const int kScreenTranslateMaxBlocks = 32;
 
+/// Số request dịch chạy SONG SONG trong một lượt.
+///
+/// 3 là điểm cân bằng: 32 khối chia 3 luồng ⇒ nhanh hơn ~3 lần so với tuần
+/// tự, nhưng vẫn đủ thấp để Google Free/MyMemory không trả 429 (các engine
+/// này giới hạn theo IP). Đừng nâng lên "cho nhanh" mà không thử rate limit.
+const int kScreenTranslateConcurrency = 3;
+
+/// Ngôn ngữ nguồn mặc định: để engine tự nhận diện.
+const String kScreenTranslateAutoSource = 'AUTO';
+
 /// Bộ điều phối một lượt dịch màn hình.
 class ScreenTranslateController {
   ScreenTranslateController({
     ScreenOcrRunner? ocrRunner,
     ScreenBlockTranslator? translator,
     CaptureGate? gate,
+    ScreenProgressReporter? onProgress,
     int maxBlocks = kScreenTranslateMaxBlocks,
+    int concurrency = kScreenTranslateConcurrency,
     String localeCode = 'vi',
+    String sourceLanguage = kScreenTranslateAutoSource,
   })  : _ocrRunner = ocrRunner ?? _defaultOcrRunner,
-        _translator = translator ?? _defaultTranslator,
+        _translator = translator,
         _gate = gate ?? CaptureGate(),
+        _onProgress = onProgress,
         _maxBlocks = maxBlocks,
-        _localeCode = localeCode;
+        _concurrency = concurrency,
+        _localeCode = localeCode,
+        _sourceLanguage = sourceLanguage;
 
   final ScreenOcrRunner _ocrRunner;
-  final ScreenBlockTranslator _translator;
+
+  /// Engine dịch BƠM VÀO (test). null = dùng pipeline thật của app
+  /// ([TranslationService]) với đúng ngôn ngữ nguồn/đích của lượt này.
+  final ScreenBlockTranslator? _translator;
+
   final CaptureGate _gate;
+  final ScreenProgressReporter? _onProgress;
   final int _maxBlocks;
+  final int _concurrency;
   String _localeCode;
+  String _sourceLanguage;
 
   /// Locale chrome hiện hành (UI engine gửi xuống khi bật service) — thông
   /// điệp overlay/notification phải theo locale đó, KHÔNG fallback `vi`
@@ -119,6 +182,15 @@ class ScreenTranslateController {
   }
 
   String get localeCode => _localeCode;
+
+  /// Ngôn ngữ nguồn hiện hành ('AUTO' hoặc mã dịch như 'EN').
+  String get sourceLanguage => _sourceLanguage;
+
+  /// Mốc báo tiến trình gần nhất — chặn spam (mỗi khối xong mà đẩy
+  /// notification + vẽ lại bong bóng 32 lần thì chính việc báo tiến trình lại
+  /// làm chậm lượt dịch).
+  DateTime? _lastProgressAt;
+  static const Duration _progressMinInterval = Duration(milliseconds: 250);
 
   String _t(String source) => AppUITranslations.translate(source, _localeCode);
 
@@ -134,21 +206,84 @@ class ScreenTranslateController {
     );
   }
 
-  static Future<TranslationResult> _defaultTranslator(
+  /// Dịch một khối bằng pipeline thật (hoặc engine bơm vào khi test).
+  ///
+  /// `sourceLanguage` là tham số của LƯỢT (native gửi xuống), không phải
+  /// biến toàn cục: đổi ngôn ngữ trong Cài đặt khi bong bóng đang chạy phải
+  /// có hiệu lực ngay ở lượt kế tiếp.
+  Future<TranslationResult> _translateBlock(
     String text,
     String targetLanguage,
+    String sourceLanguage,
   ) {
-    return TranslationService().translateText(text, targetLang: targetLanguage);
+    final injected = _translator;
+    if (injected != null) return injected(text, targetLanguage);
+    return TranslationService().translateText(
+      text,
+      sourceLang:
+          sourceLanguage == kScreenTranslateAutoSource ? null : sourceLanguage,
+      targetLang: targetLanguage,
+    );
+  }
+
+  void _report(
+    ScreenTranslateStage stage, {
+    int done = 0,
+    int total = 0,
+    bool force = true,
+  }) {
+    final reporter = _onProgress;
+    if (reporter == null) return;
+    if (!force && stage == ScreenTranslateStage.translating && done < total) {
+      final now = DateTime.now();
+      final last = _lastProgressAt;
+      if (last != null && now.difference(last) < _progressMinInterval) {
+        return;
+      }
+      _lastProgressAt = now;
+    }
+    try {
+      reporter(stage, done, total);
+    } catch (e) {
+      // Tiến trình là trang trí — không được làm hỏng lượt dịch.
+      debugPrint('⚠️ screen translate onProgress: $e');
+    }
+  }
+
+  /// Câu mô tả chặng, đã i18n theo locale chrome — worker gửi thẳng sang
+  /// native để hiện trên bong bóng/thông báo.
+  String progressText(
+    ScreenTranslateStage stage, {
+    int done = 0,
+    int total = 0,
+  }) {
+    switch (stage) {
+      case ScreenTranslateStage.cropping:
+        return _t('Đang cắt vùng đã chọn…');
+      case ScreenTranslateStage.ocr:
+        return _t('Đang nhận dạng chữ…');
+      case ScreenTranslateStage.translating:
+        if (total <= 0) return _t('Đang dịch màn hình…');
+        return _t('Đang dịch $done/$total khối chữ…');
+      case ScreenTranslateStage.finishing:
+        return _t('Sắp xong…');
+    }
   }
 
   /// Xử lý một frame thô từ native.
   ///
   /// Map bắt buộc có: `pixels` (Uint8List), `width`, `height`.
   /// Tuỳ chọn: `rowStride`, `alreadyBgra`, `screenWidth`, `screenHeight`,
-  /// `devicePixelRatio`, `targetLanguage`, `locale`.
+  /// `devicePixelRatio`, `targetLanguage`, `sourceLanguage`, `locale`,
+  /// `regionLeft/regionTop/regionRight/regionBottom` (vùng kéo chọn, pixel
+  /// màn hình).
   Future<ScreenTranslateResult> handleFrame(Map<Object?, Object?> frame) async {
     final locale = frame['locale'];
     if (locale is String) localeCode = locale;
+    final sourceRaw = frame['sourceLanguage'];
+    if (sourceRaw is String && sourceRaw.trim().isNotEmpty) {
+      _sourceLanguage = _normalizeSource(sourceRaw);
+    }
 
     if (!_gate.tryAcquire()) {
       return ScreenTranslateResult.skipped(_t('Đang dịch màn hình, chờ chút…'));
@@ -166,6 +301,16 @@ class ScreenTranslateController {
     } finally {
       _gate.complete();
     }
+  }
+
+  /// Chuẩn hoá mã ngôn ngữ nguồn. Lạ/không hỗ trợ ⇒ AUTO (không đoán bừa).
+  static String _normalizeSource(String raw) {
+    final value = raw.trim().replaceAll('_', '-').toUpperCase();
+    if (value.isEmpty || value == 'AUTO' || value == 'SYSTEM') {
+      return kScreenTranslateAutoSource;
+    }
+    final resolved = AppLanguageCatalog.maybeFromCode(value);
+    return resolved?.translationCode ?? kScreenTranslateAutoSource;
   }
 
   Future<ScreenTranslateResult> _run(
@@ -214,10 +359,49 @@ class ScreenTranslateController {
       );
     }
 
+    // ── Vùng kéo chọn (tuỳ chọn) ──────────────────────────────────────
+    // Lỗi cắt KHÔNG được làm hỏng lượt dịch: rơi về "cả màn hình" và ghi log
+    // — native đang chờ kết quả, im lặng bỏ qua sẽ thành "bấm không ra gì".
+    final requestedRegion = ScreenRegion.fromMap(frame);
+    final captureRegion = screenRegionToCapture(requestedRegion, geometry);
+    var workPixels = normalized;
+    var workWidth = geometry.captureWidth;
+    var workHeight = geometry.captureHeight;
+    var offsetX = 0;
+    var offsetY = 0;
+    if (captureRegion != null) {
+      _report(ScreenTranslateStage.cropping);
+      try {
+        workPixels = cropPackedFrame(
+          normalized,
+          width: geometry.captureWidth,
+          height: geometry.captureHeight,
+          region: captureRegion,
+        );
+        workWidth = captureRegion.width;
+        workHeight = captureRegion.height;
+        offsetX = captureRegion.left;
+        offsetY = captureRegion.top;
+      } on ArgumentError catch (e) {
+        debugPrint('⚠️ screen translate cắt vùng lỗi, dùng cả màn hình: $e');
+        workPixels = normalized;
+        workWidth = geometry.captureWidth;
+        workHeight = geometry.captureHeight;
+        offsetX = 0;
+        offsetY = 0;
+      }
+    } else if (requestedRegion != null) {
+      debugPrint(
+        'ℹ️ screen translate: vùng chọn $requestedRegion quá bé/ngoài màn '
+        'hình ⇒ dịch cả màn hình',
+      );
+    }
+
+    _report(ScreenTranslateStage.ocr);
     final ocr = await _ocrRunner(
-      pixels: normalized,
-      width: geometry.captureWidth,
-      height: geometry.captureHeight,
+      pixels: workPixels,
+      width: workWidth,
+      height: workHeight,
     );
     if (!ocr.isSuccess) {
       return ScreenTranslateResult(
@@ -238,40 +422,134 @@ class ScreenTranslateController {
 
     final targetRaw = frame['targetLanguage'];
     final target = (targetRaw is String && targetRaw.trim().isNotEmpty)
-        ? targetRaw.trim().toUpperCase()
+        ? AppLanguageCatalog.normalizeTranslationCode(targetRaw, fallback: 'VI')
         : 'VI';
 
     final selected = selectBlocksToTranslate(ocr.blocks, _maxBlocks);
-    final out = <ScreenBlock>[];
-    final missing = <String>{};
-    var engine = '';
-    var anyTranslated = false;
-
-    for (final block in selected) {
-      final rect = mapCaptureRectToOverlay(block.rect, geometry);
-      String translation = '';
-      try {
-        final result = await _translator(block.text, target);
-        if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
-          translation = result.translatedText.trim();
-          anyTranslated = true;
-          if (engine.isEmpty) engine = result.engineName;
-        } else {
-          final codes = result.missingModelCodes;
-          if (codes != null) missing.addAll(codes);
-        }
-      } catch (e) {
-        debugPrint('❌ screen translate khối "${block.text}": $e');
-      }
-      out.add(
-        ScreenBlock(
-          rect: rect,
-          original: block.text,
-          translation: translation,
-          textSizeSp: suggestedTextSizeSp(rect, geometry.devicePixelRatio),
-        ),
+    final translatable = <int>[
+      for (var i = 0; i < selected.length; i++)
+        if (hasTranslatableLetters(selected[i].text)) i,
+    ];
+    if (translatable.isEmpty) {
+      // Có khung chữ nhưng toàn số/ký hiệu ⇒ không có gì để dịch. Nói rõ
+      // thay vì trả `ok` với màn hình trống.
+      return ScreenTranslateResult(
+        status: ScreenTranslateStatus.noText,
+        message: _t('Không thấy chữ nào cần dịch trên màn hình'),
+        elapsed: stopwatch.elapsed,
       );
     }
+
+    final out = List<ScreenBlock?>.filled(selected.length, null);
+
+    // Khối KHÔNG có chữ cái (giờ, số, icon, ký hiệu) vẫn phải có mặt trong
+    // kết quả với bản dịch rỗng: native bỏ qua khối rỗng khi vẽ (không tạo ô
+    // trống) nhưng nhờ vậy bên gọi biết ĐỦ vị trí các khối đã nhận dạng thay
+    // vì tưởng chúng biến mất. Trước đây các khối này bị loại khỏi danh sách
+    // ⇒ test "khối chỉ có số/ký hiệu" bắt được (1 khối thay vì 2).
+    final translatableSet = translatable.toSet();
+    for (var i = 0; i < selected.length; i++) {
+      if (translatableSet.contains(i)) continue;
+      final block = selected[i];
+      final rect = mapCaptureRectToOverlay(
+        offsetOcrRect(block.rect, dx: offsetX, dy: offsetY),
+        geometry,
+      );
+      out[i] = ScreenBlock(
+        rect: rect,
+        original: block.text,
+        translation: '',
+        textSizeSp: suggestedTextSizeSp(rect, geometry.devicePixelRatio),
+      );
+    }
+
+    final missing = <String>{};
+    final engines = <String>[];
+    var anyTranslated = false;
+    var doneCount = 0;
+
+    // Gộp khối TRÙNG nội dung: một màn hình hay lặp nhãn ("Settings", "OK",
+    // tên menu) — dịch 1 lần rồi dùng lại. Không chỉ nhanh hơn mà còn tránh
+    // bị engine online rate-limit vì gửi cùng một câu 5 lần.
+    final inflight = <String, Future<TranslationResult>>{};
+    Future<TranslationResult> translateOnce(String text) {
+      final key = text.trim();
+      return inflight.putIfAbsent(
+        key,
+        () => _translateBlock(key, target, _sourceLanguage),
+      );
+    }
+
+    Future<void> runOne(int index) async {
+      final block = selected[index];
+      final rect = mapCaptureRectToOverlay(
+        offsetOcrRect(block.rect, dx: offsetX, dy: offsetY),
+        geometry,
+      );
+      final text = block.text.trim();
+      var translation = '';
+      if (hasTranslatableLetters(text)) {
+        try {
+          final result = await translateOnce(text);
+          if (result.isSuccess && result.translatedText.trim().isNotEmpty) {
+            translation = result.translatedText.trim();
+            anyTranslated = true;
+            if (engines.isEmpty) engines.add(result.engineName);
+          } else {
+            final codes = result.missingModelCodes;
+            if (codes != null) missing.addAll(codes);
+          }
+        } catch (e) {
+          debugPrint('❌ screen translate khối "$text": $e');
+        }
+      }
+      out[index] = ScreenBlock(
+        rect: rect,
+        original: block.text,
+        translation: translation,
+        textSizeSp: suggestedTextSizeSp(rect, geometry.devicePixelRatio),
+      );
+      doneCount++;
+      _report(
+        ScreenTranslateStage.translating,
+        done: doneCount,
+        total: translatable.length,
+        force: doneCount >= translatable.length,
+      );
+    }
+
+    _report(
+      ScreenTranslateStage.translating,
+      done: 0,
+      total: translatable.length,
+    );
+
+    // Hàng đợi có giới hạn: mỗi luồng lấy index kế tiếp rồi `await` — giữa
+    // lúc đọc và tăng `next` không có `await` nên không thể trùng index.
+    var next = 0;
+    final workerCount = math.max(
+      1,
+      math.min(_concurrency, translatable.length),
+    );
+    Future<void> worker() async {
+      while (true) {
+        final slot = next;
+        if (slot >= translatable.length) return;
+        next = slot + 1;
+        await runOne(translatable[slot]);
+      }
+    }
+
+    await Future.wait(
+      List<Future<void>>.generate(workerCount, (_) => worker()),
+    );
+
+    _report(ScreenTranslateStage.finishing);
+
+    final blocks = <ScreenBlock>[
+      for (final block in out)
+        if (block != null) block,
+    ];
 
     stopwatch.stop();
 
@@ -280,7 +558,7 @@ class ScreenTranslateController {
       // dịch bấm "Tải về".
       return ScreenTranslateResult(
         status: ScreenTranslateStatus.missingModel,
-        blocks: out,
+        blocks: blocks,
         message: _t('Chưa tải gói dịch ngoại tuyến cho ngôn ngữ này'),
         missingModelCodes: missing.toList(growable: false),
         elapsed: stopwatch.elapsed,
@@ -289,7 +567,7 @@ class ScreenTranslateController {
     if (!anyTranslated) {
       return ScreenTranslateResult(
         status: ScreenTranslateStatus.error,
-        blocks: out,
+        blocks: blocks,
         message: _t('Dịch màn hình thất bại'),
         elapsed: stopwatch.elapsed,
       );
@@ -297,14 +575,22 @@ class ScreenTranslateController {
 
     return ScreenTranslateResult(
       status: ScreenTranslateStatus.ok,
-      blocks: out,
-      engine: engine,
+      blocks: blocks,
+      engine: engines.isEmpty ? '' : engines.first,
       message: '',
       missingModelCodes: missing.toList(growable: false),
       elapsed: stopwatch.elapsed,
     );
   }
 }
+
+/// Khối chữ có gì để dịch không?
+///
+/// ML Kit trả cả khối chỉ có số/ký hiệu ("12:30", "▸", "--"). Dịch những khối
+/// đó vừa vô nghĩa vừa tốn một request ⇒ bỏ qua. Dùng `\p{L}` (Unicode) để
+/// chữ Hán/Cyrillic/Devanagari vẫn được tính.
+bool hasTranslatableLetters(String text) =>
+    text.trim().isNotEmpty && RegExp(r'\p{L}', unicode: true).hasMatch(text);
 
 /// Chọn tối đa [maxBlocks] khối ĐÁNG dịch nhất, GIỮ thứ tự đọc.
 ///

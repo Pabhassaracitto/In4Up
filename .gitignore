@@ -106,6 +106,9 @@ yarn-error.log*
 *.keystore
 *.jks
 *.bin
+# ICONIZE-001a: core asset Iconize (Magic Header ICNB0001, sinh bởi
+# tool/iconize/build_icon_assets.py) phải vào git — ngoại lệ của *.bin
+!assets/iconize/*.bin
 *.exe
 *.dll
 *.so

@@ -83,9 +83,27 @@ class ScreenTranslateChannel {
 
   /// Bật bong bóng. Native sẽ tự xin consent MediaProjection khi user BẤM
   /// bong bóng lần đầu của phiên (Android 14+ bắt buộc hỏi lại mỗi phiên).
-  Future<bool> start({required String targetLanguage}) => _boolCall(
+  ///
+  /// [sourceLanguage] = 'AUTO' (engine tự nhận diện) hoặc mã như 'EN'/'JA'.
+  /// [selectRegion] = mỗi lần bấm bong bóng thì hiện khung kéo chọn vùng
+  /// (long-press bong bóng luôn bật chế độ này, bất kể cấu hình).
+  Future<bool> start({
+    required String targetLanguage,
+    String sourceLanguage = 'AUTO',
+    bool selectRegion = false,
+    String? locale,
+  }) =>
+      _boolCall(
         ScreenTranslateProtocol.methodStart,
-        <String, Object?>{'targetLanguage': targetLanguage},
+        <String, Object?>{
+          'targetLanguage': targetLanguage,
+          'sourceLanguage': sourceLanguage,
+          'selectRegion': selectRegion,
+          // Locale chrome của app: engine nền dùng để i18n nhãn tiến trình
+          // ("Đang nhận dạng chữ…") và thông điệp lỗi. Thiếu khoá này thì
+          // service rơi về `vi` và UI tiếng Anh sẽ hiện tiếng Việt.
+          if (locale != null && locale.trim().isNotEmpty) 'locale': locale,
+        },
       );
 
   Future<bool> stop() => _boolCall(ScreenTranslateProtocol.methodStop);
@@ -94,6 +112,25 @@ class ScreenTranslateChannel {
   Future<bool> setTargetLanguage(String targetLanguage) => _boolCall(
         ScreenTranslateProtocol.methodSetTargetLanguage,
         <String, Object?>{'targetLanguage': targetLanguage},
+      );
+
+  /// Đổi CẢ ngôn ngữ nguồn và đích khi service đang chạy (XLAT-SCR-005).
+  Future<bool> setLanguages({
+    required String sourceLanguage,
+    required String targetLanguage,
+  }) =>
+      _boolCall(
+        ScreenTranslateProtocol.methodSetLanguages,
+        <String, Object?>{
+          'sourceLanguage': sourceLanguage,
+          'targetLanguage': targetLanguage,
+        },
+      );
+
+  /// Bật/tắt chế độ "bấm bong bóng = kéo chọn vùng" ngay khi service chạy.
+  Future<bool> setCaptureMode({required bool selectRegion}) => _boolCall(
+        ScreenTranslateProtocol.methodSetCaptureMode,
+        <String, Object?>{'selectRegion': selectRegion},
       );
 
   Future<bool> _boolCall(String method, [Map<String, Object?>? args]) async {

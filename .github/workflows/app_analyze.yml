@@ -113,7 +113,13 @@ jobs:
         id: locale-test
         run: |
           set +e
-          flutter test test/locale_chrome_no_vietnamese_test.dart > locale_test.log 2>&1
+          files="test/locale_chrome_no_vietnamese_test.dart"
+          # SETTINGS-UI-COMPACT-001 / WHISPER-VARIANT-001 / PARAKEET-001:
+          # nhãn mới trong màn Quản lý Model AI phải có key dịch (rule #5).
+          if [ -f test/stt_model_settings_i18n_coverage_test.dart ]; then
+            files="$files test/stt_model_settings_i18n_coverage_test.dart"
+          fi
+          flutter test $files > locale_test.log 2>&1
           code=$?
           cat locale_test.log
           exit $code
@@ -504,7 +510,12 @@ jobs:
             echo "Không có file test ASR routing trên nhánh này — bỏ qua."
             exit 0
           fi
-          flutter test test/asr_model_routing_test.dart > asr_test.log 2>&1
+          files="test/asr_model_routing_test.dart"
+          # WHISPER-VARIANT-001: 2 dòng model Whisper (đa ngữ / English-only).
+          if [ -f test/whisper_model_variants_test.dart ]; then
+            files="$files test/whisper_model_variants_test.dart"
+          fi
+          flutter test $files > asr_test.log 2>&1
           code=$?
           cat asr_test.log
           exit $code

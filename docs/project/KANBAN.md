@@ -7039,6 +7039,27 @@
   `SherpaModelManager`/model manager.
 - **Nghiệm thu:** tải/import Parakeet → chạy STT được → xóa được.
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục PARAKEET).
+- **Trạng thái:** 🔨 doing — code đủ 3 đường (mạng / import Android / build),
+  **chưa có CI + chưa nghiệm thu máy** (sandbox không có Flutter).
+- **Đã làm (nhánh `arena/bdf2b201-in4up`):**
+  - Profile `asr-parakeet-tdt-0.6b-v3-int8` (`kParakeetProfileId`) trong
+    `packages/in4up_stt/lib/asr_model_routing.dart`: 25 ngôn ngữ châu Âu,
+    offline (TDT **không** streaming), archive ~487MB / ~670MB sau giải nén,
+    `family: SherpaAsrFamily.parakeet`.
+  - **Tải:** `SherpaModelManager.downloadAsrModel` giữ nguyên đường archive +
+    **kiểm tra dung lượng trống thật** trước khi tải (statvfs qua FFI,
+    `utils/free_space.dart`) — cần ~1.6× kích thước model.
+  - **Import:** `matchAsrProfile` nhận bundle Parakeet theo tên lá
+    (`parakeet`/`nemo`/`tdt`/token ngôn ngữ châu Âu), không đoán sang VI/EN;
+    import sai thẻ → `profileMismatch` với thông điệp nêu rõ 3 profile.
+  - **Chạy:** `SherpaModelPaths.family` → `OfflineModelConfig.modelType =
+    'nemo_transducer'`; `detectAsrModels`/`getAsrModelPaths` gắn đúng family;
+    `SherpaSttEngine` **free + tạo lại** recognizer khi đổi model (trước đây
+    đổi VI → Parakeet trong cùng phiên vẫn decode bằng model cũ).
+  - **UI:** thẻ riêng trong mục "Parakeet" của Quản lý Model AI (chip 5 ngôn
+    ngữ + `+N`), cảnh báo model lớn, Import thư mục/file, Xoá.
+- **Còn lại:** `flutter analyze` + test + nghiệm thu thiết bị; xem
+  `PARAKEET-002` (giải nén archive trong RAM).
 
 ### 20. SRS-GARDEN-001 — (P1) Vườn nhớ SRS: chạm từ không phản ứng → long-press chấm điểm
 - **Triệu chứng:** Mở vườn nhớ (SRS) → các từ chỉ **hiện**, chạm vô **không
@@ -7060,6 +7081,62 @@
   `TTS-EDGE-VOICE-002` — picker đã gập theo ngôn ngữ, áp dụng tương tự).
 - **Nghiệm thu:** hiện ngôn ngữ phổ biến + "thêm" sổ ra ngôn ngữ khác.
 - **Prompt:** `PROMPT_AGENT_EDGE_VOICE_FIX.md` (mục COLLAPSE).
+
+### 22. WHISPER-VARIANT-001 — (P2) Whisper: cho chọn bản đa ngữ hay English-only
+- **Triệu chứng:** App chỉ có dòng Whisper đa ngữ (99 ngôn ngữ). Người dùng
+  toàn tiếng Anh không có lựa chọn `.en` (cùng kích thước nhưng chính xác hơn).
+- **Kỳ vọng:** Chọn được **2 dòng** model: đa ngữ và English-only (`.en`).
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `packages/in4up_stt/lib/models/stt_model_info.dart`,
+  `stt_model_manager.dart`, `stt_engine_whisper.dart`, thẻ Whisper trong
+  `lib/screens/settings/stt_model_settings_screen.dart`.
+- **Nghiệm thu:** SegmentedButton đa ngữ ⇄ English-only; tải/import/xoá được
+  từng bản; chọn bản `.en` thì STT ra chữ Anh và có cảnh báo khi ngôn ngữ ≠ EN.
+- **Trạng thái:** 🔨 doing — code + test thuần, chưa analyze/nghiệm thu máy.
+- **Đã làm:**
+  - Enum thêm `tinyEn/baseEn/smallEn/mediumEn` + `kWhisperMultilingualLevels`/
+    `kWhisperEnglishOnlyLevels`; `fileName` `ggml-<size>.en.bin`.
+  - **Chống nhận nhầm 2 dòng:** `_matchScore` loại file `.en` khỏi level đa ngữ
+    (và ngược lại) — trước đây import `ggml-tiny.en.bin` làm app tưởng có
+    `ggml-tiny.bin`.
+  - **Nạp được model `.en`:** plugin `whisper_flutter_new` hard-code
+    `<modelDir>/ggml-<enum>.bin` và **không có enum `.en`** ⇒ file `.en` được
+    link/copy sang `<modelDir>/plugin_alias/<level>/ggml-<size>.bin`
+    (`SttEngineWhisper.pluginModelDir`), tránh đè bản đa ngữ cùng tên và tránh
+    vòng quét model nhìn thấy (quét cấp 1).
+  - Chọn model: `.en` chỉ được xét khi `WhisperLanguage.code(lang) == 'en'`;
+    `auto`/VI/ZH luôn dùng bản đa ngữ.
+  - UI: switcher trong thẻ Whisper, badge `English-only`, chip LRC thêm bản
+    `.en` khi đã cài + cảnh báo ngôn ngữ.
+- **Lưu ý:** `mirrorUrl` để rỗng — release `ggerganov/whisper.cpp` **không**
+  đính kèm `ggml-*.bin` (đã kiểm tra API), nên chỉ còn nguồn HuggingFace.
+
+### 23. SETTINGS-UI-COMPACT-001 — (P2) Màn Quản lý Model AI quá dài, toàn chữ
+- **Triệu chứng:** Danh sách model dài lê thê, nhiều đoạn chỉ để đọc, tiêu đề
+  mục là chữ thuần nên khó quét mắt.
+- **Kỳ vọng:** Nhóm **gập/mở**; ghi chú chỉ-để-đọc chuyển vào icon `!`; mỗi
+  mục có **icon đại diện**.
+- **Ưu tiên:** P2.
+- **Nơi đọc:** `lib/screens/settings/stt_model_settings_screen.dart`,
+  `lib/features/screen_translate/screen_translate_card.dart`.
+- **Nghiệm thu:** mở màn chỉ thấy 8 nhóm gập + icon; ghi chú "tải khi bấm" và
+  "dừng tối ưu pin" nằm trong sheet `!`; mọi chuỗi mới có bản dịch en/hi/zh/….
+- **Trạng thái:** 🔨 doing — code + test i18n, chưa analyze/nghiệm thu máy.
+- **Đã làm:** 8 `_SettingsSection` (ExpansionTile + CircleAvatar icon);
+  AppBar có `_InfoSheetButton` (`!`) gom 2 ghi chú + trạng thái pin, icon pin
+  đổi màu theo quyền; xoá `_SourceInfoCard`/`_SectionLabel`; thẻ Whisper tách
+  dòng model; mục Dịch màn hình đổi sang các dòng icon + chữ.
+  Chuỗi mới: `lib/core/language/priority_ui_overrides.dart` (+58 entry
+  en/hi/zh/zh_TW/si) + `test/stt_model_settings_i18n_coverage_test.dart`.
+
+### 24. PARAKEET-002 — (P2) Giải nén archive model lớn đang nằm trong RAM
+- **Triệu chứng (dự báo):** `_extractTarBz2` đọc cả archive vào `Uint8List`
+  rồi `BZip2Decoder().decodeBytes` → với Parakeet (~487MB nén / ~670MB sau
+  giải nén) cần >1.1GB RAM tạm, dễ bị Android kill trên máy 4GB.
+- **Kỳ vọng:** giải nén **streaming** hoặc tải thẳng từng file từ HF.
+- **Ưu tiên:** P2 (chặn nghiệm thu Parakeet trên máy RAM thấp).
+- **Nghiệm thu:** tải Parakeet trên máy 4GB không crash.
+- **Trạng thái:** 📋 proposed.
 
 ### 📄 Prompt giao việc (file ở gốc repo) — BATCH AUDIT v1.10.4
 | File | Mục bao phủ |
@@ -7106,6 +7183,9 @@ agent → agent PR vào `251e` → đóng issue ở Linear khi nghiệm thu xong
 | 19 | PARAKEET-001 | P2 | [IN4-34](https://linear.app/in4up/issue/IN4-34) |
 | 20 | SRS-GARDEN-001 | P1 | [IN4-22](https://linear.app/in4up/issue/IN4-22) |
 | 21 | READ-SET-VOICE-COLLAPSE-001 | P2 | [IN4-35](https://linear.app/in4up/issue/IN4-35) |
+| 22 | WHISPER-VARIANT-001 | P2 | — (phát sinh từ yêu cầu chủ dự án 2026-10-24) |
+| 23 | SETTINGS-UI-COMPACT-001 | P2 | — (phát sinh từ yêu cầu chủ dự án 2026-10-24) |
+| 24 | PARAKEET-002 | P2 | — (follow-up của IN4-34) |
 
 ### TTS-EDGE-VOICE-002 — nghiệm thu "chọn giọng nam mà giọng nữ đọc" (máy thật)
 

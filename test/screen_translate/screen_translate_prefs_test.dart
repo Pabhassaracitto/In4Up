@@ -27,4 +27,48 @@ void main() {
       expect(kScreenTranslateDefaultTarget, 'VI');
     });
   });
+
+  // XLAT-SCR-005 — ngôn ngữ NGUỒN + chế độ kéo chọn vùng.
+  group('normalizeScreenTranslateSource', () {
+    test('rỗng / null ⇒ AUTO', () {
+      expect(normalizeScreenTranslateSource(null), 'AUTO');
+      expect(normalizeScreenTranslateSource('  '), 'AUTO');
+    });
+
+    test('mã hợp lệ được chuẩn hoá hoa/thường', () {
+      expect(normalizeScreenTranslateSource(' en '), 'EN');
+      expect(normalizeScreenTranslateSource('ja'), 'JA');
+      expect(normalizeScreenTranslateSource('zh-tw'), 'ZH-TW');
+    });
+
+    test('AUTO/SYSTEM giữ nguyên nghĩa tự nhận diện', () {
+      expect(normalizeScreenTranslateSource('auto'), 'AUTO');
+      expect(normalizeScreenTranslateSource('system'), 'AUTO');
+    });
+
+    test('mã lạ ⇒ AUTO (KHÔNG đoán bừa sang EN)', () {
+      expect(normalizeScreenTranslateSource('klingon'), 'AUTO');
+    });
+
+    test('khoá lưu là hằng số ổn định', () {
+      expect(kScreenTranslateSourcePrefKey, 'screen_translate_source_lang');
+      expect(
+        kScreenTranslateSelectRegionPrefKey,
+        'screen_translate_select_region',
+      );
+    });
+  });
+
+  group('defaultScreenTranslateTargetForLocale', () {
+    test('locale ứng dụng ⇒ đúng ngôn ngữ đích gợi ý', () {
+      expect(defaultScreenTranslateTargetForLocale('vi'), 'VI');
+      expect(defaultScreenTranslateTargetForLocale('ja'), 'JA');
+      expect(defaultScreenTranslateTargetForLocale('zh-TW'), 'ZH-TW');
+    });
+
+    test('locale lạ / null ⇒ VI (mặc định lịch sử)', () {
+      expect(defaultScreenTranslateTargetForLocale('xx'), 'VI');
+      expect(defaultScreenTranslateTargetForLocale(null), 'VI');
+    });
+  });
 }

@@ -7643,3 +7643,42 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-24 | doing | CI 🟢 run 40123407509 (`ad4b29d`..`1000bc8`) —
     `app_analyze` xanh (analyzer 0 error) + step mới
     "DICT-CLEAN-001 / WORD-INSIGHT-001 tests" xanh; chờ nghiệm thu thiết bị.
+
+---
+
+## XLAT-SCR-005 — (2026-10-24) Bong bóng dịch: chậm, không phản hồi, dịch cả màn hình, chỉ đổi đích, không biết engine nào
+- **Trạng thái:** 🔨 **doing (code + test thuần đã viết; CHỜ CI + nghiệm thu máy thật)** — sandbox không có Flutter SDK/Android SDK/thiết bị
+- **Nguồn:** chủ dự án hỏi 6 điểm qua chat 2026-10-24.
+- **Điều tra (đọc code, không đoán):**
+  1. **Chậm** = `ScreenTranslateController._run` dịch **TUẦN TỰ** từng khối (tối đa 32) + mỗi khối gọi lại `Connectivity()` và `hymt.hasModel` + OCR cả màn hình. 32 khối × 0,25–0,7 s ⇒ 8–25 s.
+  2. Không có plan nào cho kéo-chọn-vùng Android / đổi nguồn / trạng thái engine / thu thập từ vựng.
+  3. Bấm bong bóng không đổi trạng thái; `reportProgress` có trong giao thức nhưng Dart **chưa bao giờ gọi**.
+  4. Không có code `crop/region` (cả Dart lẫn Kotlin) ⇒ chưa từng có vùng chọn.
+  5. Nguồn luôn `AUTO` do pipeline; UI chỉ có 1 picker, native chỉ nhận `targetLanguage`.
+  6. Sheet Cài đặt dịch không hiện `activeEngine`/`lastUsedEngine` (service đã có sẵn).
+- **Đã làm (chi tiết + nghiệm thu: `docs/screen_translate_bubble_audit_2026-10-24.md`):**
+  - Song song 3 luồng (`kScreenTranslateConcurrency`) + gộp khối trùng + bỏ khối không có chữ cái.
+  - Cache kiểm tra mạng 5 s + cache kế hoạch bước dịch 10 s + `TranslationService.warmUp()` khi engine nền dựng.
+  - Bong bóng đổi trạng thái: tím nhấp nháy "…" khi chạy, ✓ xanh khi xong, ! đỏ khi lỗi; nhãn tiến trình dưới bong bóng; nối `onProgress` → `reportProgress`.
+  - `RegionSelectView.kt` + `cropPackedFrame`/`offsetOcrRect`: kéo chọn vùng (công tắc trong thẻ, hoặc giữ lâu bong bóng), cắt ảnh trước OCR, one-shot `pendingRegion`.
+  - Ngôn ngữ nguồn (Tự nhận diện + 26 ngôn ngữ) + hoán đổi + mặc định đích theo ngôn ngữ app; `setLanguages` khi đang chạy.
+  - Khối "Engine đang hiện hành" trong sheet Cài đặt dịch + nút "Kiểm tra engine ngay" (dịch thử 1 câu, bỏ cache, không ghi Nhật ký học).
+- **Test:** `test/screen_translate/screen_translate_selection_test.dart` (mới) + bổ sung prefs test.
+- **Nghiệm thu:** 10 mục ở mục 9 của tài liệu điều tra.
+- **Lịch sử:**
+  - 2026-10-24 | created→doing | agent arena/7550b302-in4up | điều tra 6 điểm + code Q1/Q3/Q4/Q5/Q6; chờ CI + máy thật.
+  - 2026-10-24 | doing | agent arena/7550b302-in4up | rà soát tĩnh lượt 2: sửa 2 lỗi biên dịch Kotlin (`Rect.isEmpty`), smart-cast `intent`, truyền `locale` xuống engine nền (trước đó UI tiếng Việt/Anh lẫn nhãn), chặn hoán đổi ra cặp trùng; thêm mục "Trạng thái kiểm chứng" vào tài liệu điều tra (analyze/test/máy thật vẫn CHƯA chạy).
+  - 2026-10-24 | doing | agent arena/7550b302-in4up | **rebase lên 251e mới nhất (3ba9e68)** thành 6 commit tuyến tính; hợp nhất tay 3 xung đột (card theo SETTINGS-UI-COMPACT-001 + vẫn đủ 2 đầu ngôn ngữ; i18n 79+27=106 khoá; KANBAN nối card). Xem mục 8.1 tài liệu điều tra.
+
+## XLAT-SCR-006 — (2026-10-24) ĐỀ XUẤT: bong bóng dịch kiêm "nhà sưu tầm từ vựng"
+- **Trạng thái:** 📋 proposed (cần chủ dự án chốt + ADR trước khi code)
+- **Vì sao:** người dùng đang đọc tài liệu trên app khác, gặp từ mới; hiện phải dịch màn hình → đọc → mở In4Up → gõ lại → lưu. Ma sát quá cao nên không ai lưu. `ScreenBlock.original` đã có sẵn chữ gốc của từng khối ⇒ nguyên liệu đã nằm trong tay.
+- **KHÔNG làm:** tự động lưu mọi khối OCR (phần lớn là nhãn UI/số) — sẽ đầu độc Wordlist và phá SRS.
+- **Thiết kế 3 giai đoạn:**
+  - **G1** — giữ lâu bong bóng khi overlay đang hiện ⇒ "chế độ thu hoạch": overlay **nhận chạm**, chạm một khối ⇒ sheet `original` + bản dịch + nút "Lưu vào Wordlist" (`WordListController` sẵn có). Không tự lưu.
+  - **G2** — tách token trong khối, đối chiếu Wordlist (đã biết/chưa biết), gợi ý 1–3 từ đáng lưu.
+  - **G3** — "tình báo": đếm tần suất từ gặp lại qua nhiều phiên (lưu cục bộ, không gửi đi đâu), gợi ý lưu; có công tắc tắt.
+- **Ràng buộc kỹ thuật:** overlay hiện `FLAG_NOT_TOUCHABLE` (để người dùng vẫn dùng app bên dưới) ⇒ G1 đổi hợp đồng overlay ⇒ **bắt buộc ADR** + chỉ bật chạm khi người dùng yêu cầu.
+- **Điều kiện tiên quyết:** XLAT-SCR-005 phải ổn định trên máy thật (cùng đụng lớp phủ).
+- **Lịch sử:**
+  - 2026-10-24 | proposed | agent arena/7550b302-in4up | chủ dự án hỏi "có nên cho nó kiêm vai trò nhà sưu tầm từ vựng"; trả lời: CÓ nhưng theo hướng thu hoạch có chủ đích, không tự động.

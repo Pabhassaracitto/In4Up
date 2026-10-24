@@ -12,6 +12,7 @@
 //   <documents>/sherpa_asr_models/
 //     asr-vi-30M-int8/ (tokens.txt, encoder.int8.onnx, decoder.onnx, joiner.int8.onnx)
 //     asr-en-20M-streaming-int8/ (tokens.txt, encoder*.onnx, decoder*.onnx, joiner*.onnx)
+//     asr-parakeet-tdt-0.6b-v3-int8/ (tokens.txt + encoder/decoder/joiner.int8.onnx)
 
 import 'dart:async';
 import 'dart:convert';
@@ -31,6 +32,7 @@ import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
 import 'tts/piper_voice_catalog.dart';
 import 'tts/sherpa_piper_tts_core.dart';
+import 'utils/free_space.dart';
 
 // Profile ASR + logic mapping ngôn ngữ ↔ profile nằm ở `asr_model_routing.dart`
 // (thuần, test được không cần thiết bị). Re-export để code cũ giữ nguyên.
@@ -40,9 +42,12 @@ export 'asr_model_routing.dart'
         AsrModelIssue,
         AsrModelRouter,
         AsrModelSelection,
+        SherpaAsrFamily,
         SherpaAsrProfile,
         kAsrLanguagePriority,
         kDefaultAsrLanguage,
+        kMultilingualAsrProfiles,
+        kParakeetProfileId,
         kSherpaAsrProfiles;
 
 enum SherpaModelStatus { notInstalled, downloading, ready, error }
@@ -299,10 +304,10 @@ class SherpaModelManager {
         'espeak-ng-data.tar.bz2',
   ];
 
-  /// Danh sách các profile Zipformer ASR được hỗ trợ sẵn.
+  /// Danh sách các profile ASR được hỗ trợ sẵn (Zipformer + Parakeet).
   ///
   /// Nguồn sự thật nằm ở `asr_model_routing.dart` (`kSherpaAsrProfiles`) —
-  /// KHÔNG bịa thêm profile ngôn ngữ ngoài 2 profile đã verify.
+  /// KHÔNG bịa thêm profile ngoài 3 profile đã verify.
   static const List<SherpaAsrProfile> predefinedAsrProfiles = kSherpaAsrProfiles;
 
   static const String safEmptyPrefix = 'SAF_EMPTY:';
@@ -379,9 +384,82 @@ class SherpaModelManager {
   Future<void> _initializeInternal() async {
     if (!_initialized) {
       await _documents();
+      await _seedAsrFromDevModels();
       _initialized = true;
     }
     await rescan();
+  }
+
+  /// PARAKEET-001 — seeding cho build DEV (giống `dev_models/whisper` của
+  /// Whisper): copy sẵn model ASR từ `dev_models/sherpa_asr/<tên-thư-mục>/`
+  /// vào documents để test Parakeet (~670MB) mà không phải tải lại mỗi lần.
+  ///
+  /// Chỉ chạy ở debug, chỉ khi profile CHƯA có model, và nhận diện profile
+  /// bằng đúng [matchAsrProfile] như đường Import (không đoán bừa).
+  Future<void> _seedAsrFromDevModels() async {
+    if (!kDebugMode) return;
+    final docs = _documentsDir;
+    if (docs == null) return;
+    try {
+      String? root;
+      final env = Platform.environment['IN4UP_MODELS_DIR'];
+      if (env != null && env.isNotEmpty) {
+        final candidate = Directory(p.join(env, 'sherpa_asr'));
+        if (candidate.existsSync()) root = candidate.path;
+      }
+      if (root == null) {
+        var dir = Directory.current;
+        for (var i = 0; i < 6; i++) {
+          for (final name in const ['sherpa_asr', 'sherpa']) {
+            final candidate = Directory(p.join(dir.path, 'dev_models', name));
+            if (candidate.existsSync()) {
+              root = candidate.path;
+              break;
+            }
+          }
+          if (root != null) break;
+          final parent = dir.parent;
+          if (parent.path == dir.path) break;
+          dir = parent;
+        }
+      }
+      if (root == null) return;
+
+      for (final entity in Directory(root).listSync()) {
+        if (entity is! Directory) continue;
+        final name = p.basename(entity.path);
+        final paths = _findAsrModelInDirSync(entity.path);
+        if (paths == null) continue;
+        final profile = matchAsrProfile(
+          isStreaming: paths.isStreaming,
+          encoderPath: paths.encoder,
+          tokensPath: paths.tokens,
+          folderName: name,
+        );
+        if (profile == null) continue;
+        final destDir = Directory(p.join(docs, asrFolderName, profile.id));
+        if (_findAsrModelInDirSync(destDir.path) != null) continue;
+        await _copyDirContents(entity, destDir);
+        debugPrint('🌱 seed ASR ${profile.id} ← ${entity.path}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Seed ASR từ dev_models lỗi: $e');
+    }
+  }
+
+  Future<void> _copyDirContents(Directory src, Directory dest) async {
+    await dest.create(recursive: true);
+    for (final entity in src.listSync(recursive: true)) {
+      if (entity is! File) continue;
+      final rel = p.relative(entity.path, from: src.path);
+      final target = File(p.join(dest.path, rel));
+      if (await target.exists() &&
+          await target.length() == await entity.length()) {
+        continue;
+      }
+      await target.parent.create(recursive: true);
+      await entity.copy(target.path);
+    }
   }
 
   /// Bảo đảm state model còn “tươi” trước khi quyết định start live STT
@@ -613,7 +691,10 @@ class SherpaModelManager {
     return lower.contains('streaming');
   }
 
-  SherpaModelPaths? _findAsrModelInDirSync(String dirPath) {
+  SherpaModelPaths? _findAsrModelInDirSync(
+    String dirPath, {
+    SherpaAsrFamily family = SherpaAsrFamily.zipformer,
+  }) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) return null;
 
@@ -660,6 +741,7 @@ class SherpaModelManager {
         joiner: joiner,
         tokens: tokens,
         isStreaming: isStreamingEncoderOnnx(encoder),
+        family: family,
       );
     }
     return null;
@@ -680,6 +762,7 @@ class SherpaModelManager {
     for (final profile in predefinedAsrProfiles) {
       final paths = _findAsrModelInDirSync(
         p.join(documentsDir, asrFolderName, profile.id),
+        family: profile.family,
       );
       if (paths != null) {
         result[profile.id] = paths;
@@ -707,7 +790,7 @@ class SherpaModelManager {
             folderName: p.basename(root.path),
           );
           if (profile != null && !result.containsKey(profile.id)) {
-            result[profile.id] = rootPaths;
+            result[profile.id] = rootPaths.withFamily(profile.family);
           }
         }
       }
@@ -721,7 +804,7 @@ class SherpaModelManager {
         if (paths == null) continue;
         final profile = _matchProfileForPaths(paths, folderName: name);
         if (profile != null && !result.containsKey(profile.id)) {
-          result[profile.id] = paths;
+          result[profile.id] = paths.withFamily(profile.family);
           debugPrint('ℹ️ ASR model ngoài folder chuẩn → profile '
               '${profile.id}: ${dir.path}');
         }
@@ -745,11 +828,16 @@ class SherpaModelManager {
     );
   }
 
-  /// Nhận diện profile Zipformer cho một bộ file model.
+  /// Nhận diện profile ASR (Zipformer / Parakeet) cho một bộ file model.
   ///
   /// Trả `null` khi không đủ căn cứ — KHÔNG map bừa sang profile ngôn ngữ
   /// khác (CABIN-ASR-002: model lạ từng bị nhét vào folder EN streaming, rồi
   /// chính tên folder “streaming” làm sai guard Online/Offline).
+  ///
+  /// PARAKEET-001: Parakeet TDT 0.6B v3 là model OFFLINE đa ngữ. Nhận diện
+  /// theo tên archive/thư mục (`parakeet`, `nemo`, `tdt`) hoặc token ngôn ngữ
+  /// châu Âu (de/fr/es…). Chỉ xét TÊN FILE/THƯ MỤC LÁ — không xét cả đường
+  /// dẫn (`/data/…` khớp token `da` của tiếng Đan Mạch → nhận nhầm).
   static SherpaAsrProfile? matchAsrProfile({
     required bool isStreaming,
     String? encoderPath,
@@ -760,6 +848,10 @@ class SherpaModelManager {
       if (encoderPath != null) encoderPath,
       if (folderName != null) folderName,
     ].join(' ');
+    final leafHaystack = [
+      if (encoderPath != null) p.basename(encoderPath),
+      if (folderName != null) _leafName(folderName),
+    ].join(' ').toLowerCase();
     final looksVi = asrTokensLookVietnamese(tokensPath) ||
         _nameLooksLanguage(nameHaystack, 'vi');
     final looksEn = _nameLooksLanguage(nameHaystack, 'en');
@@ -771,9 +863,42 @@ class SherpaModelManager {
       return AsrModelRouter.profileForLanguage('en');
     }
 
-    // Nhánh offline: chỉ nhận VI (profile offline duy nhất của app).
-    if (!looksVi) return null;
-    return AsrModelRouter.profileForLanguage('vi');
+    final parakeet = AsrModelRouter.parakeetProfile;
+    if (looksVi) {
+      // Model VI 30M nhỏ hơn nhiều — nhận diện trước để import đúng thẻ VI.
+      return AsrModelRouter.profileForLanguage('vi');
+    }
+    if (parakeet != null && _leafLooksParakeet(leafHaystack, parakeet)) {
+      return parakeet;
+    }
+    return null;
+  }
+
+  /// Tên lá của thư mục nguồn (bỏ đường dẫn, chấp nhận cả `\` của Windows).
+  static String _leafName(String folder) {
+    final normalized = folder.replaceAll('\\', '/');
+    final trimmed = normalized.endsWith('/')
+        ? normalized.substring(0, normalized.length - 1)
+        : normalized;
+    final slash = trimmed.lastIndexOf('/');
+    return slash < 0 ? trimmed : trimmed.substring(slash + 1);
+  }
+
+  /// Tên file/thư mục có dấu hiệu bundle Parakeet (NeMo TDT) — hoặc token
+  /// ngôn ngữ châu Âu mà CHỈ Parakeet phục vụ (bỏ `en`/`vi` vì Zipformer đã
+  /// có profile riêng).
+  static bool _leafLooksParakeet(String leafHaystack, SherpaAsrProfile parakeet) {
+    if (leafHaystack.isEmpty) return false;
+    if (leafHaystack.contains('parakeet') ||
+        leafHaystack.contains('nemo') ||
+        leafHaystack.contains('tdt')) {
+      return true;
+    }
+    for (final language in parakeet.languages) {
+      if (language == 'en' || language == 'vi') continue;
+      if (_nameLooksLanguage(leafHaystack, language)) return true;
+    }
+    return false;
   }
 
   /// tokens.txt có ký tự đặc trưng tiếng Việt (BPE VI chứa âm tiết có dấu).
@@ -835,6 +960,7 @@ class SherpaModelManager {
     // Thư mục chuẩn trước…
     final canonical = _findAsrModelInDirSync(
       p.join(docs, asrFolderName, profile.id),
+      family: profile.family,
     );
     if (canonical != null) return canonical;
 
@@ -855,6 +981,24 @@ class SherpaModelManager {
 
     final currentInfo = asrInfo.stateFor(profileId);
     if (currentInfo.isDownloading) return null;
+
+    // Kiểm tra dung lượng THẬT trước khi tải model lớn (Parakeet ~487MB
+    // archive + ~670MB sau giải nén). Không đo được ⇒ bỏ qua, để lỗi tải báo
+    // thật thay vì chặn oan.
+    final docsForSpace = _documentsDir;
+    final freeMB =
+        docsForSpace == null ? null : probeFreeSpaceMB(docsForSpace);
+    final needMB = (profile.approxSizeMB * 1.6).ceil();
+    if (freeMB != null && freeMB < needMB) {
+      final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+      cur[profileId] = SherpaModelInfo(
+        status: SherpaModelStatus.error,
+        errorMessage: 'Cần ~${needMB}MB trống (archive + giải nén), '
+            'máy chỉ còn ${freeMB}MB. Hãy xoá bớt model khác rồi thử lại.',
+      );
+      _asrState.add(_asrState.value.copyWith(profileStates: cur));
+      return null;
+    }
 
     final token = CancelToken();
     _asrTokens[profileId] = token;
@@ -1045,7 +1189,7 @@ class SherpaModelManager {
     final name = result.profile?.name ?? '';
     switch (result.status) {
       case SherpaAsrImportStatus.imported:
-        return '✅ Đã import model Zipformer ASR: $name';
+        return '✅ Đã import model ASR: $name';
       case SherpaAsrImportStatus.sourceMissing:
         return 'Thư mục không tồn tại';
       case SherpaAsrImportStatus.sourceEmpty:
@@ -1058,8 +1202,8 @@ class SherpaModelManager {
         return 'Import thất bại: cần đủ 4 file (encoder, decoder, joiner .onnx + tokens.txt)';
       case SherpaAsrImportStatus.unknownProfile:
         return 'Import thất bại: không nhận diện được model này là '
-            'Tiếng Việt (offline) hay English (streaming) — '
-            'hãy bấm Import ở đúng thẻ model.';
+            'Tiếng Việt (offline), English (streaming) hay Parakeet (offline '
+            'đa ngữ) — hãy bấm Import ở đúng thẻ model.';
       case SherpaAsrImportStatus.profileMismatch:
         return 'Import thất bại: model không khớp profile đã chọn'
             '${result.detectedProfile == null ? '' : ' (nhận diện: ${result.detectedProfile!.name})'}.';

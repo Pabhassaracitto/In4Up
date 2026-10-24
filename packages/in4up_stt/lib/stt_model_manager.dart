@@ -293,6 +293,19 @@ class SttModelManager {
       }
     }
 
+    // WHISPER-VARIANT-001: model `.en` có bản sao/link cho plugin trong
+    // `plugin_alias/<level>/` — xoá luôn để không "mồ côi" vài trăm MB.
+    if (level.pluginAliasSubdir.isNotEmpty) {
+      try {
+        final alias = Directory(
+          p.join(_modelDirectory!, level.pluginAliasSubdir),
+        );
+        if (await alias.exists()) await alias.delete(recursive: true);
+      } catch (e) {
+        debugPrint('⚠️ Không xoá được alias plugin của ${level.name}: $e');
+      }
+    }
+
     _emitState(level, ModelStatus.notDownloaded);
   }
 
@@ -523,7 +536,7 @@ class SttModelManager {
     final defaults = <String>[
       '${level.downloadUrl}?download=true',
       level.mirrorUrl,
-    ];
+    ].where((url) => url.trim().isNotEmpty).toList();
     final override = _urlOverrides[level];
     if (override == null || override.isEmpty) return defaults;
 
@@ -615,6 +628,15 @@ class SttModelManager {
     return _matchScore(name, level) > 0;
   }
 
+  /// File tên có dấu hiệu model English-only (`.en`) — `ggml-tiny.en.bin`,
+  /// `ggml-base.en-q5_1.bin`, `ggml-tiny_en.bin`…
+  static bool _fileNameLooksEnglishOnly(String lowerName) {
+    if (!lowerName.endsWith('.bin')) return false;
+    return lowerName.contains('.en') ||
+        lowerName.contains('-en.') ||
+        lowerName.contains('_en.');
+  }
+
   int _matchScore(String fileName, WhisperModelLevel level) {
     final lower = fileName.toLowerCase();
     if (!lower.endsWith('.bin')) return 0;
@@ -622,15 +644,28 @@ class SttModelManager {
     final accepted = _acceptedFileNamesFor(level);
     if (accepted.contains(lower)) return 1000;
 
-    final levelName = level.name.toLowerCase();
-
-    if (lower.contains('ggml-$levelName')) return 900;
-    if (lower.contains('whisper-$levelName')) return 850;
-    if (_containsToken(lower, levelName)) return 800;
+    // WHISPER-VARIANT-001: `ggml-tiny.en.bin` KHÔNG phải model đa ngữ `tiny`
+    // (và ngược lại). Trước đây fuzzy `ggml-tiny` khớp cả hai ⇒ import file
+    // .en xong app tưởng đã có model đa ngữ.
+    if (_fileNameLooksEnglishOnly(lower) != level.isEnglishOnly) return 0;
 
     if (level == WhisperModelLevel.large && lower.contains('large-v3')) {
       return 880;
     }
+
+    // So khớp FUZZY theo KÍCH THƯỚC, sau khi bỏ marker `.en` và hậu tố lượng
+    // tử hoá — nhờ vậy `ggml-small.en-q5_1.bin` vẫn ra `smallEn` (tên enum
+    // `smallen` không bao giờ xuất hiện trong tên file thật), còn
+    // `ggml-base-q5_1.bin` ra `base`. Dòng model đã được chặn ở guard phía
+    // trên nên bước này KHÔNG thể trộn đa ngữ ↔ `.en`.
+    final size = level.multilingualTwin.keyName;
+    final stripped = lower
+        .replaceAll(RegExp(r'[-_.]en(?=$|[-_.])'), '')
+        .replaceAll(RegExp(r'[-_](?:q[0-9]_[0-9]|f16|f32)(?=$|\.)'), '');
+
+    if (stripped.contains('ggml-$size')) return 900;
+    if (stripped.contains('whisper-$size')) return 850;
+    if (_containsToken(stripped, size)) return 800;
 
     return 0;
   }
@@ -646,7 +681,13 @@ class SttModelManager {
     // Ưu tiên file pinned chính xác
     for (final file in files) {
       final pinned = await _readPinnedLevel(file.path);
-      if (pinned == level && await _verifyFile(file.path, level)) {
+      // WHISPER-VARIANT-001: sidecar `.level` do bản cũ ghi có thể pin file
+      // `.en` cho level đa ngữ (lúc đó app chưa phân biệt 2 dòng) ⇒ bỏ qua
+      // pin sai dòng, nếu không audio VI sẽ được bóc bằng model chỉ-tiếng-Anh.
+      if (pinned == level &&
+          _fileNameLooksEnglishOnly(p.basename(file.path).toLowerCase()) ==
+              level.isEnglishOnly &&
+          await _verifyFile(file.path, level)) {
         return file;
       }
     }
@@ -938,6 +979,12 @@ class SttModelManager {
           WhisperModelLevel.small,
           WhisperModelLevel.medium,
           WhisperModelLevel.large,
+          // Chỉ dùng khi KHÔNG có model đa ngữ nào (xem
+          // getBestModelLevelForLanguage: ngôn ngữ ≠ EN sẽ loại các model này).
+          WhisperModelLevel.tinyEn,
+          WhisperModelLevel.baseEn,
+          WhisperModelLevel.smallEn,
+          WhisperModelLevel.mediumEn,
         ];
 
     for (final level in order) {
@@ -956,16 +1003,29 @@ class SttModelManager {
   /// kết quả — audio Hindi in ra "main bahut khush" thay vì "मैं खुश".
   /// Ngôn ngữ Latin giữ chính sách tiny-first (fix OOM Android).
   WhisperModelLevel? getBestModelLevelForLanguage(String language) {
+    // WHISPER-VARIANT-001 — model `.en` chỉ nhận tiếng Anh: với ngôn ngữ
+    // khác (kể cả 'auto') KHÔNG được chọn nó, nếu không audio VI/ZH sẽ ra
+    // chữ tiếng Anh. Chỉ khi người dùng chọn rõ tiếng Anh mới xét `.en`
+    // (sau các model đa ngữ — auto vẫn an toàn hơn).
+    final code = WhisperLanguage.code(language);
+    final allowEnglishOnly = code == 'en';
+    final englishOnly = allowEnglishOnly
+        ? kWhisperEnglishOnlyLevels
+        : const <WhisperModelLevel>[];
+
     if (!WhisperLanguage.prefersStrongModel(language)) {
-      return getBestAvailableLocalModel();
+      return getBestAvailableLocalModel(
+        preferredOrder: [...kWhisperMultilingualLevels, ...englishOnly],
+      );
     }
     return getBestAvailableLocalModel(
-      preferredOrder: const [
+      preferredOrder: [
         WhisperModelLevel.base,
         WhisperModelLevel.small,
         WhisperModelLevel.medium,
         WhisperModelLevel.large,
         WhisperModelLevel.tiny,
+        ...englishOnly,
       ],
     );
   }

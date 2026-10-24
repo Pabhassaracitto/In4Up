@@ -623,8 +623,10 @@ class SttEngineWhisper {
     String? verifiedModelPath,
   }) {
     try {
+      // Model `.en` được "dịch" sang tên plugin trong thư mục alias riêng.
+      final targetDir = pluginModelDir(modelDir, level);
       final pluginName = 'ggml-${_mapToPluginModel(level).modelName}.bin';
-      final pluginFile = File(path.join(modelDir, pluginName));
+      final pluginFile = File(path.join(targetDir, pluginName));
 
       File? preferred;
       if (verifiedModelPath != null && verifiedModelPath.isNotEmpty) {
@@ -635,9 +637,14 @@ class SttEngineWhisper {
         // Fallback: quét candidates (f32 trước, rồi quantized variants),
         // chọn file hợp lệ đầu tiên.
         final base = 'ggml-${_mapToPluginModel(level).modelName}';
+        // Model `.en` có tên file khác tên plugin (`ggml-tiny.en.bin` vs
+        // `ggml-tiny.bin`) — quét đúng tên của level, nếu không sẽ "nhặt"
+        // nhầm file đa ngữ cùng kích thước trong thư mục model.
         final candidates = <String>[
-          pluginName,
-          ...['q5_1', 'q4_0', 'q5_0', 'q8_0'].map((q) => '$base-$q.bin'),
+          if (level.isEnglishOnly) ...level.candidateFileNames else pluginName,
+          ...['q5_1', 'q4_0', 'q5_0', 'q8_0'].map(
+            (q) => level.isEnglishOnly ? '$base.en-$q.bin' : '$base-$q.bin',
+          ),
         ];
         for (final name in candidates) {
           final f = File(path.join(modelDir, name));
@@ -661,9 +668,20 @@ class SttEngineWhisper {
         debugPrint(
             '[Whisper] File plugin $pluginName thiếu — copy từ ${preferred.path}');
       }
-      preferred.copySync(pluginFile.path);
+      // Symlink khi hệ thống cho phép (tiết kiệm dung lượng cho model .en
+      // nặng), fallback copy — plugin chỉ cần đọc được file tại path này.
+      var linked = false;
+      try {
+        if (pluginFile.existsSync()) pluginFile.deleteSync();
+        Link(pluginFile.path).createSync(preferred.path);
+        linked = true;
+      } catch (_) {
+        linked = false;
+      }
+      if (!linked) preferred.copySync(pluginFile.path);
       debugPrint(
-          '[Whisper] ✅ Model cho plugin: ${pluginFile.path} (size=${pluginFile.lengthSync()})');
+          '[Whisper] ✅ Model cho plugin: ${pluginFile.path} '
+          '(size=${pluginFile.lengthSync()}, link=$linked)');
     } catch (e) {
       debugPrint('[Whisper] ⚠️ Không align được model cho plugin: $e');
     }
@@ -689,7 +707,7 @@ class SttEngineWhisper {
 
     final whisper = Whisper(
       model: _mapToPluginModel(level),
-      modelDir: modelDir,
+      modelDir: pluginModelDir(modelDir, level),
     );
 
     debugPrint('🎙️ Whisper (mobile plugin) đang transcribe: $wavPath');
@@ -827,9 +845,14 @@ class SttEngineWhisper {
 
     debugPrint('[Whisper] File dai ~${totalChunks * effectiveChunkDuration}s, chia $effectiveTotal chunks x ${effectiveChunkDuration}s - isLongFile=$isLongFile level=$effectiveLevel origLevel=$level');
 
+    // Model hạ cấp (effectiveLevel) có thể khác model user chọn → align lại
+    // file plugin cho ĐÚNG level sẽ nạp (idempotent, chỉ stat khi đã khớp).
+    ensurePluginModelFile(modelDir: modelDir, level: effectiveLevel);
+    // Thư mục plugin thật sự đọc (model `.en` nằm trong plugin_alias/…).
+    final pluginDir = pluginModelDir(modelDir, effectiveLevel);
     final whisper = Whisper(
       model: _mapToPluginModel(effectiveLevel),
-      modelDir: modelDir,
+      modelDir: pluginDir,
     );
 
     final allSegments = <SttSegment>[];
@@ -883,7 +906,7 @@ class SttEngineWhisper {
         //     Fail sớm bên Dart với lỗi rõ ràng.
         final modelBin = File(
           path.join(
-            modelDir,
+            pluginDir,
             'ggml-${_mapToPluginModel(effectiveLevel).modelName}.bin',
           ),
         );
@@ -1156,16 +1179,42 @@ class SttEngineWhisper {
   static WhisperModel _mapToPluginModel(WhisperModelLevel level) {
     switch (level) {
       case WhisperModelLevel.tiny:
+      // WHISPER-VARIANT-001: plugin `whisper_flutter_new` KHÔNG có enum cho
+      // model `.en` (chỉ tiny/base/small/medium/large-v1/large-v2). ggml `.en`
+      // có cùng kiến trúc với bản đa ngữ cùng kích thước ⇒ nạp bằng đúng enum
+      // kích thước đó từ thư mục alias riêng (xem [pluginModelDir]).
+      case WhisperModelLevel.tinyEn:
         return WhisperModel.tiny;
       case WhisperModelLevel.base:
+      case WhisperModelLevel.baseEn:
         return WhisperModel.base;
       case WhisperModelLevel.small:
+      case WhisperModelLevel.smallEn:
         return WhisperModel.small;
       case WhisperModelLevel.medium:
+      case WhisperModelLevel.mediumEn:
         return WhisperModel.medium;
       case WhisperModelLevel.large:
         return WhisperModel.largeV2;
     }
+  }
+
+  /// Thư mục model mà plugin sẽ đọc.
+  ///
+  /// - Model đa ngữ: chính `<modelDir>` (như cũ).
+  /// - Model `.en`: `<modelDir>/plugin_alias/<level>/` chứa bản sao tên
+  ///   `ggml-<kích thước>.bin` — tránh đè file đa ngữ cùng tên và tránh
+  ///   plugin tự tải bản đa ngữ khi thiếu file.
+  static String pluginModelDir(String modelDir, WhisperModelLevel level) {
+    final subdir = level.pluginAliasSubdir;
+    if (subdir.isEmpty) return modelDir;
+    final dir = Directory(path.join(modelDir, subdir));
+    try {
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+    } catch (e) {
+      debugPrint('[Whisper] ⚠️ Không tạo được thư mục alias: $e');
+    }
+    return dir.path;
   }
 
   Future<SttResult> transcribe(

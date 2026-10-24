@@ -126,6 +126,37 @@ jobs:
           path: locale_test.log
           if-no-files-found: ignore
 
+      # DICT-CLEAN-001 / WORD-INSIGHT-001: làm sạch nội dung từ điển (bỏ
+      # CSS/script/entity, khử nghĩa trùng) + waterfall tra nghĩa/IPA
+      # (mạng → MDX → offline). Bỏ qua nếu nhánh chưa có file.
+      - name: "DICT-CLEAN-001 / WORD-INSIGHT-001 tests"
+        id: dict-word-insight-tests
+        run: |
+          set +e
+          files=""
+          for f in test/dictionary/dict_text_cleaner_test.dart \
+                   test/dictionary/dict_result_sheet_test.dart \
+                   test/word_lookup/word_insight_service_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test DICT-CLEAN-001/WORD-INSIGHT-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > dict_word_insight_test.log 2>&1
+          code=$?
+          cat dict_word_insight_test.log
+          exit $code
+
+      - name: Upload DICT-CLEAN-001 / WORD-INSIGHT-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dict-word-insight-test-log
+          path: dict_word_insight_test.log
+          if-no-files-found: ignore
+
       - name: "READ-GRAM-001 tests — sentence structure"
         id: sentence-structure-tests
         run: |

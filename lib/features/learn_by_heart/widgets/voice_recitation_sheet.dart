@@ -1,6 +1,6 @@
 // lib/features/learn_by_heart/widgets/voice_recitation_sheet.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import '../i18n/learn_by_heart_l10n.dart';
 import '../models/fsrs_models.dart';

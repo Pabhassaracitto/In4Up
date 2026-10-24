@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
@@ -28,8 +28,10 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
         title: const Text('Đã có lời thoại'),
         content: Text(
           hit.lineCount > 0
-              ? 'File này đã có ${hit.lineCount} dòng lời đã lưu. Dùng lại hay tạo mới?'
-              : 'File này đã có lời thoại đã lưu. Dùng lại hay tạo mới?',
+              ? context.uiText(
+                  'File này đã có ${hit.lineCount} dòng lời đã lưu. Dùng lại hay tạo mới?')
+              : context.uiText(
+                  'File này đã có lời thoại đã lưu. Dùng lại hay tạo mới?'),
         ),
         actions: [
           TextButton(

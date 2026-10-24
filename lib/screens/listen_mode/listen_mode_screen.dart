@@ -162,22 +162,24 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       messenger.hideCurrentSnackBar();
       if (err != null) {
         messenger.showSnackBar(SnackBar(
-          content: Text('⚠️ Không tạo được mục lục: $err'),
+          content: Text(context.uiText('⚠️ Không tạo được mục lục: $err')),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFFEF5350),
         ));
       } else if (result != null && result.chapters.isNotEmpty) {
         messenger.showSnackBar(SnackBar(
-          content: Text('✅ Đã tạo ${result.chapters.length} mục lục'
-              '${result.usedWhisper ? ' (Whisper tự đặt tên)' : ''}'),
+          content: Text(context.uiText(
+              '✅ Đã tạo ${result.chapters.length} mục lục'
+              '${result.usedWhisper ? ' (Whisper tự đặt tên)' : ''}')),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF26C6DA),
         ));
       } else {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('⚠️ Không tạo được mục lục (không rõ nguyên nhân)'),
+        messenger.showSnackBar(SnackBar(
+          content: Text(context.uiText(
+              '⚠️ Không tạo được mục lục (không rõ nguyên nhân)')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Color(0xFFEF5350),
         ));
@@ -2624,7 +2626,8 @@ class _SmartActionBarState extends State<_SmartActionBar>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('📌 Đã đánh dấu ${_fmt(player.state.position)}'),
+          content: Text(
+              context.uiText('📌 Đã đánh dấu ${_fmt(player.state.position)}')),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFFFFB300),
@@ -3156,9 +3159,9 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
                 widget.onGenerate(_selectedLevel, _grouping, _language),
             icon: const Icon(Icons.subtitles_outlined),
             label: Text(
-              _language == 'auto'
+              context.uiText(_language == 'auto'
                   ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
-                  : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})',
+                  : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})'),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade700,

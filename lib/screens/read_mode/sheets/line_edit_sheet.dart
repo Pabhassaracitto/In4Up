@@ -130,7 +130,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
             const Icon(Icons.check_circle, color: Colors.green, size: 16),
             const SizedBox(width: 8),
             Text(context.uiText(contentLines.length > 1
-                ? 'Đã tách thành ${contentLines.length} dòng'
+                ? context.uiText('Đã tách thành ${contentLines.length} dòng')
                 : 'Đã lưu chỉnh sửa')),
           ],
         ),

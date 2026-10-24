@@ -7,8 +7,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:in4up/core/language/localized_material.dart' hide Text;
-import 'package:flutter/material.dart' show Text;
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../models/video_info.dart';

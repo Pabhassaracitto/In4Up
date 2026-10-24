@@ -11,8 +11,7 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:provider/provider.dart';
 

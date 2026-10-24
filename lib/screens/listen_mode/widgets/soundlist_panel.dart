@@ -325,7 +325,8 @@ class _SoundlistPanelState extends State<SoundlistPanel>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('📖 Đã thêm chương "$title" tại ${SoundMark.formatTime(player.state.position)}'),
+          content: Text(context.uiText(
+              '📖 Đã thêm chương "$title" tại ${SoundMark.formatTime(player.state.position)}')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF26C6DA),
         ),
@@ -676,7 +677,8 @@ class _ChapterTile extends StatelessWidget {
             backgroundColor: const Color(0xFF232841),
             title: const Text('Xóa mục này?', style: TextStyle(color: Colors.white, fontSize: 15)),
             content: Text(
-              '"${chapter.title}" và toàn bộ mục con sẽ bị xóa.',
+              context.uiText(
+                  '"${chapter.title}" và toàn bộ mục con sẽ bị xóa.'),
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             actions: [
@@ -882,8 +884,9 @@ class _SegmentTab extends StatelessWidget {
                           style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          '${SoundMark.formatTime(segment.startTime)} → ${SoundMark.formatTime(segment.endTime)}'
-                          ' · ${segment.difficulty.name} · lặp ×${segment.repeatCount}',
+                          context.uiText(
+                              '${SoundMark.formatTime(segment.startTime)} → ${SoundMark.formatTime(segment.endTime)}'
+                              ' · ${segment.difficulty.name} · lặp ×${segment.repeatCount}'),
                           style: const TextStyle(color: Colors.white38, fontSize: 11.5),
                         ),
                         if (segment.note != null)
@@ -966,7 +969,8 @@ class _SuggestionChip extends StatelessWidget {
             ListTile(
               dense: true,
               title: Text(
-                '💡 Bạn đã lặp đoạn ${stat.timeLabel} ${stat.count} lần',
+                context.uiText(
+                    '💡 Bạn đã lặp đoạn ${stat.timeLabel} ${stat.count} lần'),
                 style: const TextStyle(color: Colors.white70, fontSize: 12.5),
               ),
             ),
@@ -1000,7 +1004,7 @@ class _SuggestionChip extends StatelessWidget {
           audioPath: audioPath,
           position: stat.start,
           kind: SoundMarkKind.hard,
-          label: 'Khó – lặp ${stat.count} lần',
+          label: context.uiText('Khó – lặp ${stat.count} lần'),
           note: 'Vùng ${stat.timeLabel} bị lặp ${stat.count} lần.',
         );
         if (context.mounted) {

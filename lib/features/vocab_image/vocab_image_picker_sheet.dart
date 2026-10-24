@@ -1521,7 +1521,9 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
                   DropdownMenuItem(
                     value: p,
                     child: Text(
-                      p.needsKey ? p.label : '${p.label} · không cần key',
+                      p.needsKey
+                          ? p.label
+                          : context.uiText('${p.label} · không cần key'),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),

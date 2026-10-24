@@ -104,7 +104,7 @@ class _CloudPickerSheetState extends State<CloudPickerSheet> {
       if (!mounted) return;
       // Tránh black screen: vẫn pop nhưng báo lỗi
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi mở tài liệu: $e')),
+        SnackBar(content: Text(context.uiText('Lỗi mở tài liệu: $e'))),
       );
       Navigator.pop(context, false);
     }

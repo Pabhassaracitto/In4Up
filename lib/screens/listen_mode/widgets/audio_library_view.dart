@@ -381,7 +381,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            '⚠️ Lỗi quét: ${provider.error}',
+            context.uiText('⚠️ Lỗi quét: ${provider.error}'),
             textAlign: TextAlign.center,
             style: const TextStyle(color: Color(0xFFEF5350), fontSize: 13),
           ),

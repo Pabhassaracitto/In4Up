@@ -13,8 +13,7 @@
 // trả lời trong lịch sử của facade, nên "Cuộc trò chuyện mới" chỉ đổi góc nhìn
 // cục bộ — không xoá lịch sử AI chung của app.
 
-import 'package:flutter/material.dart';
-import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:provider/provider.dart';
 

@@ -14,6 +14,9 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
+import '../../iconize/widgets/iconize_sentence_text.dart';
+import '../../iconize/widgets/iconize_toggle_button.dart';
+import '../../translation/translation_service.dart';
 import '../models/pdf_page_translation.dart';
 import '../pdf_reader_controller.dart';
 
@@ -167,6 +170,9 @@ class PdfPageTranslatePanel extends StatelessWidget {
                 style: TextStyle(color: Colors.grey[500], fontSize: 10),
               ),
             ),
+          // ICONIZE-001d: toggle "Icon hóa" — tap bật/tắt, nhấn giữ chỉnh
+          // mật độ. Per-surface theo blueprint Khối B.
+          const IconizeToggleButton(),
           _HeaderBtn(
             icon: Icons.refresh_rounded,
             tooltip: context.uiText('Dịch lại'),
@@ -258,8 +264,11 @@ class PdfPageTranslatePanel extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              item.original,
+            // ICONIZE-001d: câu GỐC đi qua IconizeSentenceText — khi toggle
+            // tắt / engine chưa sẵn sàng thì render Text thường y như cũ.
+            IconizeSentenceText(
+              text: item.original,
+              declaredLang: TranslationService().sourceLang,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -270,8 +279,12 @@ class PdfPageTranslatePanel extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             if (item.hasTranslation)
-              Text(
-                item.translation!,
+              // Bản dịch chỉ icon hóa khi sub-toggle "Icon hóa cả bản
+              // dịch" bật (mặc định tắt — blueprint Khối B).
+              IconizeSentenceText(
+                text: item.translation!,
+                declaredLang: TranslationService().targetLang,
+                isTranslation: true,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12.5,

@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
 import '../models/yt_video.dart';
+import '../services/yt_media_store.dart';
+import '../services/yt_read_bridge.dart';
+import 'yt_media_library_sheet.dart';
 import '../services/yt_service.dart';
 import '../youtube_explorer_screen.dart';
 import '../yt_player_screen.dart';
@@ -108,8 +111,20 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
   Future<String?> _ensureLrcSaved() async {
     if (_savedLrcPath != null) return _savedLrcPath;
     final path = await YtService.instance.saveLrc(_captions, widget.video!);
-    if (path != null) setState(() => _savedLrcPath = path);
+    if (path != null) {
+      setState(() => _savedLrcPath = path);
+      // YT-MEDIA-STORE-001: nói RÕ file nằm ở đâu — trước đây người dùng chỉ
+      // thấy "đã lưu" mà không biết tìm lại ở đâu.
+      final folder = await YtMediaStore.displayFolder();
+      _snack('Đã lưu phụ đề vào: $folder');
+    }
     return path;
+  }
+
+  /// Mở "Thư viện đã tải" (xem dung lượng, xoá, nạp lại vào tab Đọc).
+  Future<void> _openLibrary() async {
+    await showYtMediaLibrarySheet(context);
+    if (mounted) setState(() {});
   }
 
   void _snack(String msg) {
@@ -347,15 +362,34 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
             const SizedBox(width: 8),
             Expanded(
               child: YtActionBtn(
-                icon: Icons.sync,
-                label: 'Sync Mode',
+                icon: Icons.menu_book_rounded,
+                label: 'Nạp vào tab Đọc',
                 color: const Color(0xFF4CAF50),
                 onTap: () async {
+                  // YT-MEDIA-STORE-001: đi qua cầu nối chung thay vì tự gọi
+                  // `loadTextFile` — nhờ vậy phụ đề VÀ âm thanh (nếu đã tải)
+                  // vào tab Đọc cùng lúc, và có mặt trong "Gần đây" lần sau.
                   final path = await _ensureLrcSaved();
-                  if (path != null && context.mounted) {
-                    await context.read<TextProvider>().loadTextFile(path);
-                    Navigator.pop(context);
-                    _snack('✅ LRC loaded → Understand Mode');
+                  if (path == null || !context.mounted) return;
+                  final result = await YtReadBridge.openInRead(
+                    context,
+                    YtMediaItem(
+                      videoId: widget.video!.id,
+                      title: widget.video!.title,
+                      lrcPath: path,
+                      audioPath: widget.downloadedAudioPath,
+                      bytes: 0,
+                      updatedAt: DateTime.now(),
+                    ),
+                  );
+                  if (!result.ok) {
+                    _snack('Không nạp được phụ đề vào tab Đọc');
+                  } else if (result.loadedAudio) {
+                    _snack('Đã nạp phụ đề + âm thanh vào tab Đọc');
+                  } else if (widget.downloadedAudioPath != null) {
+                    _snack('Đã nạp phụ đề; âm thanh không mở được');
+                  } else {
+                    _snack('Đã nạp phụ đề vào tab Đọc');
                   }
                 },
               ),
@@ -365,6 +399,15 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
         const SizedBox(height: 8),
         Row(
           children: [
+            Expanded(
+              child: YtActionBtn(
+                icon: Icons.folder_special_outlined,
+                label: 'Thư viện đã tải',
+                color: const Color(0xFF9C27B0),
+                onTap: _openLibrary,
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: YtActionBtn(
                 icon: Icons.school,

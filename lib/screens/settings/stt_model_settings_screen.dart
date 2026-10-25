@@ -3,9 +3,11 @@
 // ensurePluginModelFile align ggml-<level>.bin với model manager đã verify
 // (packages/in4up_stt — ngoài paths của app_analyze.yml).
 
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart' as fp; // cho FilePicker
+import 'package:path_provider/path_provider.dart';
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
 // nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
 // localized_material đã export material (hide Text) + Text localized.
@@ -2408,6 +2410,11 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
         context.uiText('Không đọc được thư mục đã chọn.'),
       SherpaAsrImportStatus.sourceEmpty =>
         context.uiText('Chưa chọn file/thư mục nào.'),
+      // PARAKEET-002: file model quá lớn cho đường đọc-bytes (encoder
+      // Parakeet ~624MB) — nếu cố nạp thì Android kill app.
+      SherpaAsrImportStatus.fileTooLarge => context.uiText(
+          'File model quá lớn để đọc trực tiếp. Hãy dùng "Import thư mục" '
+          'hoặc chọn file có đường dẫn thật (không qua SAF).'),
       SherpaAsrImportStatus.failed => context.uiText(
           'Import thất bại. Hãy kiểm tra file model rồi thử lại.'),
     };
@@ -2420,51 +2427,111 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     );
   }
 
+  /// Import nhiều FILE model — PARAKEET-002.
+  ///
+  /// Bản cũ dùng `withData: true` (IN4-16) vì trên Android SAF `f.path` có
+  /// thể là URI `content://` mà `dart:io` không đọc được. Nhưng `withData`
+  /// nạp bytes của TOÀN BỘ file đã chọn vào RAM trước khi trả về — với
+  /// Parakeet (`encoder.int8.onnx` ~624MB) cộng thêm archive `.tar.bz2`
+  /// 487MB đang được giải nén thì đỉnh bộ nhớ vượt 1GB ⇒ Android kill tiến
+  /// trình: đúng hiện tượng "import Parakeet một chặng thì app văng".
+  ///
+  /// Nay dùng `withReadStream: true` (cùng cách từ điển MDX đã dùng):
+  /// - có `path` thật → để manager copy theo luồng;
+  /// - chỉ có stream → ghi từng khối ra file tạm rồi cũng đi đường path;
+  /// - không có cả hai → báo lỗi, TUYỆT ĐỐI không nạp cả model vào RAM.
   Future<void> _importFiles(
     BuildContext context,
     SherpaAsrProfile profile,
   ) async {
-    // IN4-16 (MODELIMPORT-001) — `withData: true` là CHÌA KHÓA: trên
-    // Android SAF, `f.path` là URI `content://` (dart:io KHÔNG đọc được)
-    // nên copy file cũ THẤT BẠI HẾT → báo "thiếu file" SAI dù file đủ.
-    // Đọc thẳng bytes rồi dùng importAsrNamedBytesResult (đường TTS file
-    // dùng cùng cách — owner xác nhận TTS file OK).
     final picked = await fp.FilePicker.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['onnx', 'txt', 'bz2', 'zip', 'vocab', 'json'],
+      allowedExtensions: const ['onnx', 'txt', 'bz2', 'zip', 'vocab', 'json'],
       allowMultiple: true,
-      withData: true,
+      withData: false,
+      withReadStream: true,
     );
     if (picked == null || picked.files.isEmpty) return;
-    final named = <String, Uint8List>{};
+
     final paths = <String>[];
+    final skipped = <String>[];
+    // File nào không có path thật (SAF content://) mới phải ghi tạm theo
+    // stream — bản tạm bị xoá trong `finally`.
+    final streamOnly = <fp.PlatformFile>[];
     for (final f in picked.files) {
-      final b = f.bytes;
-      if (b != null && b.isNotEmpty) {
-        named[f.name] = b;
-      } else if (f.path != null && f.path!.isNotEmpty) {
-        paths.add(f.path!);
+      final path = f.path;
+      if (path != null && path.isNotEmpty && !path.startsWith('content://')) {
+        paths.add(path);
+      } else if (f.readStream != null) {
+        streamOnly.add(f);
+      } else {
+        skipped.add(f.name);
       }
     }
-    final SherpaAsrImportResult result;
-    if (named.isNotEmpty) {
-      result = await _manager
-          .importAsrNamedBytesResult(named, targetProfileId: profile.id);
-    } else if (paths.isNotEmpty) {
-      result =
-          await _manager.importAsrFilesResult(paths, targetProfileId: profile.id);
-    } else {
+    Directory? staging;
+    try {
+      if (streamOnly.isNotEmpty) {
+        final stagingDir = await Directory(
+          '${(await getTemporaryDirectory()).path}/in4up_asr_import_'
+          '${DateTime.now().microsecondsSinceEpoch}',
+        ).create(recursive: true);
+        staging = stagingDir;
+        for (final f in streamOnly) {
+          final target = File('${stagingDir.path}/${_pickedLeafName(f.name)}');
+          final sink = target.openWrite();
+          try {
+            await for (final chunk in f.readStream!) {
+              sink.add(chunk);
+            }
+            await sink.flush();
+            await sink.close();
+            paths.add(target.path);
+          } catch (e) {
+            await sink.close();
+            skipped.add(f.name);
+            debugPrint('⚠️ ASR stream stage ${f.name}: $e');
+          }
+        }
+      }
+      if (skipped.isNotEmpty) {
+        debugPrint('⚠️ ASR import bỏ qua file không đọc được: ${skipped.join(', ')}');
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.uiText(
-              'Không đọc được file (SAF). Vui lòng chọn lại các file model.')),
-        ),
+      if (paths.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.uiText(
+                'Không đọc được file (SAF). Vui lòng chọn lại các file model.')),
+          ),
+        );
+        return;
+      }
+      final result = await _manager.importAsrFilesResult(
+        paths,
+        targetProfileId: profile.id,
       );
-      return;
+      if (!mounted) return;
+      _showAsrImportResult(context, profile, result);
+    } finally {
+      // Giải phóng bản sao tạm (có thể là ~624MB encoder) ngay sau khi copy.
+      if (staging != null) {
+        try {
+          if (await staging.exists()) await staging.delete(recursive: true);
+        } catch (_) {
+          // Dọn cache là best-effort.
+        }
+      }
     }
-    if (!mounted) return;
-    _showAsrImportResult(context, profile, result);
+  }
+
+  /// Tên file an toàn cho bản sao tạm (bỏ mọi thành phần đường dẫn).
+  static String _pickedLeafName(String name) {
+    final leaf = name.replaceAll('\\', '/').split('/').last.trim();
+    if (leaf.isEmpty || leaf == '.' || leaf == '..') {
+      return 'picked_${DateTime.now().microsecondsSinceEpoch}';
+    }
+    return leaf;
   }
 
   Future<void> _confirmDelete(

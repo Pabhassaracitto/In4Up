@@ -1,4 +1,4 @@
-# PLAN-038 — Nguồn phát âm thống nhất + nối YouGlish vào luồng tra từ (PRON-001…004)
+# PLAN-038 — Nguồn phát âm thống nhất + nối YouGlish vào luồng tra từ (PRON-001…005)
 
 - Nguồn: người sở hữu (2026-10-24) — "chức năng nghe âm thanh từ vựng đang chọn,
   từ đã lưu"; bản gợi ý ban đầu từ Gemini (tích hợp YouGlish vào Tab Đọc).
@@ -10,15 +10,16 @@
   **một nút, lazy**; xung đột âm = **pause & restore**.
 - Kiến trúc: `docs/adr/0015-nguon-phat-am-va-ban-tin-youglish.md` (bắt buộc đọc
   trước khi code — mục "Quyết định" D1…D7 và "Loại bỏ").
-- Card: PRON-001 (gom), PRON-002 (tab Đọc), PRON-003 (các mặt còn lại + autoplay),
-  PRON-004 (widget chính thức + pháp lý — blocked chờ owner).
+- Card: PRON-001 (gom, ✅ đã merge #107), PRON-002 (tab Đọc — phần user thấy),
+  PRON-003 (các mặt còn lại + autoplay), PRON-004 (widget chính thức + pháp lý —
+  blocked chờ owner), PRON-005 (nguồn audio từ điển, nay khả thi nhờ DICT-PACK-001).
 
 ## 0. Bảng điểm vào tra từ (kiểm chứng 2026-10-24)
 
 | # | Bề mặt | Điểm vào thật | Nguồn phát âm hiện có |
 |---|---|---|---|
 | 1 | Tab Đọc — chạm 1 từ | `read_mode/widgets/text_line_widget.dart:614`, `read_mode/widgets/colored_text_widget.dart:242` → `read_mode/sheets/word_actions_sheet.dart` | TTS `tp.speak` (`word_actions_sheet.dart:282`) |
-| 2 | Tab Đọc — pop gọn (giữ/kéo rèm) | `read_mode/widgets/word_mini_pop.dart` (key `wordMiniPopSpeakKey`) | TTS |
+| 2 | Tab Đọc — pop gọn (**đổi kiến trúc 2026-10-25**) | `read_mode/widgets/word_mini_pop.dart` — **787 dòng**, `OverlayEntry` KHÔNG barrier + `Listener` translucent (ADR-0016), API tĩnh `WordMiniPop.show({word, lineIndex, wordIndex, anchorRect, onSelectMore})` / `isShowing` / `dismiss()`; 7 key `wordMiniPop*` (`:42`–`:60`) | TTS qua `_MiniIconButton` ở `:515`–`:527` (nút loa `wordMiniPopSpeakKey` + nút đóng) |
 | 3 | Từ đã lưu — WordList | `tools/word_list/word_list_screen.dart:2102` | **ĐÃ có YouGlish** (`youglish_mini_sheet.dart`) + TTS |
 | 4 | Từ đã lưu — Vườn nhớ | `memory_mode/sheets/word_detail_sheet.dart` (đã có tham số `onPlayAudio`) | callback phát audio từ ngoài |
 | 5 | PDF Reader | `features/pdf_reader/widgets/pdf_wordlist_panel.dart:272` | TTS |
@@ -26,7 +27,21 @@
 | 7 | Sheet chi tiết từ điển (251e `b220b78`) | `features/dictionary/widgets/dict_entry_detail_sheet.dart` | `onSpeak` (VoidCallback?, `:30/:198`) — **chỗ cài hàng "Phát âm" có sẵn**, chưa nối nguồn nào |
 | 8 | Web Reader chạm từ (**đã có từ base** `3f8197a`) | `features/web_reader/widgets/web_word_tap_sheet.dart` (697 dòng) | `controller.speakWord(cleanWord)` ở `:189` |
 
-> **Đối chiếu lại sau rebase lên `3986433` (2026-10-24):** mọi nhận định trong
+> **Đối chiếu LẦN 2 — sau 12 commit nữa của 251e (tip `0706d8f`, 2026-10-26).**
+> Thay đổi va vào phạm vi: `961fb26 READ-POP-003` (ADR-0016) viết lại pop tra từ
+> sang `OverlayEntry` không barrier; `18a0647 DICT-CLEAN-002/DICT-VIEW-002`;
+> `6672b57 DICT-PACK-001` (ADR-0017) tải bộ từ điển trong app —
+> `dict_pack_service.dart:351` cho phép **`wav/mp3/ogg/m4a`** trong pack ⇒ nguồn
+> "audio từ điển offline" của ADR D1 **bắt đầu có dữ liệu**, trong khi
+> `DictEntry.audioPath` **vẫn không UI nào tiêu thụ** (mới kiểm lại 2026-10-26).
+> Các số dòng khác **không đổi**: `word_actions_sheet.dart` 1179 dòng /
+> `tp.speak :282`, `word_list_screen.dart:2102`, `pdf_wordlist_panel.dart:272`,
+> `web_word_tap_sheet.dart:189`, `dict_entry_detail_sheet.onSpeak :30`.
+> **ADR-0016 và 0017 đã bị chiếm** ⇒ ADR tiếp theo của dự án là **0018**.
+> **Cổng CI mới (bài học `4b4965f`):** test widget+plugin **treo >8 phút** trên
+> runner ⇒ chỉ nhận test THUẦN DART làm cổng (kèm `timeout`). Xem §5.
+>
+> Đối chiếu lần 1 — rebase lên `3986433` (2026-10-24): mọi nhận định trong
 > bảng trên vẫn đúng. `word_actions_sheet.dart` vẫn 1179 dòng, vẫn **không** có
 > `TabBar`/`DefaultTabController`, nút loa TTS tụt từ `:278` xuống **`:282`**;
 > `text_line_widget.dart:614` và `colored_text_widget.dart:242` giữ nguyên;
@@ -105,14 +120,23 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
 2. Cấy vào `word_actions_sheet.dart`: một dòng `WordPronunciationRow` đặt **dưới
    cụm nghĩa**, thay đúng chỗ nút loa đơn hiện tại (`:282`) để không có hai nút
    loa cạnh nhau. Giữ nguyên hành vi chạm loa = TTS ngay.
-3. Cấy vào `word_mini_pop.dart`: giữ pop GỌN — chỉ **thêm một icon**
-   `wordMiniPopYouGlishKey` (🎧 `record_voice_over`) bên cạnh `wordMiniPopSpeakKey`,
-   mở thẳng sheet YouGlish. Không thêm section nào khác vào pop (đúng
-   AUDIT-2026-10-20).
+3. Cấy vào `word_mini_pop.dart` (theo KIẾN TRÚC MỚI của ADR-0016): thêm đúng
+   **một `_MiniIconButton`** `wordMiniPopYouGlishKey` (🎧 `record_voice_over`) vào
+   hàng nút `:515`–`:527` cạnh `wordMiniPopSpeakKey` — KHÔNG thêm section, KHÔNG
+   làm phình card (pop phải GỌN theo AUDIT-2026-10-20). Ba ràng buộc của pop mới:
+   - pop là `OverlayEntry` **không barrier** ⇒ khi mở sheet YouGlish (route modal
+     đè trên) phải gọi `WordMiniPop.dismiss()` TRƯỚC, nếu không pop cũ treo dưới
+     và `isShowing` nói dối;
+   - "chạm từ khác ⇒ thay pop" ⇒ sheet YouGlish phải **khóa `word` của nó** lúc
+     mở (không đọc lại state pop khi build), tránh video của từ A hiện khi pop đã
+     nhảy sang từ B;
+   - `Listener` translucent nhận pointer-down để tự ẩn ⇒ không được giả định pop
+     còn sống lúc sheet đóng; restore playback (mục 4) không phụ thuộc `isShowing`.
 4. Pause/restore (D4): `WordPronunciationRow` gọi qua một helper đếm
    `_openPronunciationSheets`; khi về 0 → `resume` nếu trước đó đang phát.
    **Không** đụng `lib/ffi/`.
-5. `main_shell.dart`: `_handleTool('youglish')` nhận `initialWord` để nút
+5. `main_shell.dart`: `_handleTool('youglish')` nhận `initialWord` (API
+   `YouGlishScreen({initialWord})` đã có từ PRON-001) để nút
    "Mở YouGlish" (khi WebView lỗi) điều hướng sang tool với đúng từ.
 6. **iOS inline playback** (chuyển từ PRON-001): `webview_flutter_wkwebview` vào
    `pubspec.yaml` (`^3.25.1`) + `YouGlishView._initMobile()` dựng controller qua
@@ -121,7 +145,15 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
    — chỉ khi `WebViewPlatform.instance is WKWebViewPlatform`. Bắt buộc test trên
    iPhone thật (video phải hiện trong sheet, không fullscreen cưỡng bức).
 
-**Nghiệm thu PRON-002:** widget test với WebView được inject qua factory giả —
+**Nghiệm thu PRON-002** (⚠️ chỉnh sau `4b4965f`: **widget test không được làm
+cổng CI** — widget+plugin treo >8 phút trên runner): cổng CI = **test thuần Dart**
+`test/youglish/pronunciation_source_test.dart` cho hàm chọn nguồn
+`PronunciationSource.resolve({enabled, hasNetwork, dictHasAudio, prefers})`
+(không plugin, `timeout` 60s) + source-scan "mọi điểm vào tra từ gọi
+`WordPronunciationRow`, không chỗ nào tự dựng WebView". Widget test dựng
+`YouGlishView` qua factory giả: **chạy tay** trên máy dev, ghi kết quả vào card,
+không nối vào `app_analyze` cho tới khi chứng minh không treo. Nghiệm thu máy:
+chạm từ → sheet hiện `WordPronunciationRow` →
 chạm từ → sheet hiện `WordPronunciationRow` → **chưa** có WebView cho tới khi bấm
 nguồn YouGlish (đếm số lần factory được gọi = 0 → 1); đổi nguồn không dựng lại
 sheet; đóng sheet → playback tiếp tục đúng dòng cũ; QA máy: Android + iOS (inline
@@ -166,6 +198,11 @@ tự dựng `WebViewController` cho YouGlish ngoài `youglish_view.dart`; QA tr�
 
 ## 5. Ràng buộc chung mọi PR
 
+- **Cổng CI chỉ nhận test thuần Dart** (bài học `4b4965f`, run 40229976121:
+  widget+Hive treo >8 phút) ⇒ mọi test nối vào `app_analyze` phải không plugin,
+  không mạng, có `timeout`. Test có plugin → chạy tay + ghi bằng chứng vào card.
+- Nếu cần ADR mới cho PRON-002/003: đánh số **0018** (0016 = pop không modal,
+  0017 = tải từ điển trong app — đã bị chiếm ngày 2026-10-25).
 - Rule #5: key ARB mới → đủ **26** locale, `hi`/`zh`/`zh_TW`/`si` dịch trong
   cùng PR; chrome không được còn tiếng Việt ở locale khác `vi`.
 - Không import `dart:io`-touching file vào cây reachable từ `lib/main_web.dart`

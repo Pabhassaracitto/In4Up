@@ -142,6 +142,9 @@ jobs:
           files=""
           for f in test/dictionary/dict_text_cleaner_test.dart \
                    test/dictionary/dict_result_sheet_test.dart \
+                   test/dictionary/dict_cleaner_noise_test.dart \
+                   test/dictionary/dict_pack_test.dart \
+                   test/i18n/dict_pack_and_word_pop_i18n_test.dart \
                    test/word_lookup/word_insight_service_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
@@ -413,6 +416,8 @@ jobs:
                    test/read_mode/focus_title_and_scroll_test.dart \
                    test/read_mode/line_edit_gesture_test.dart \
                    test/read_mode/audit_2026_10_20_ui_compact_test.dart \
+                   test/read_mode/word_pop_layout_test.dart \
+                   test/read_mode/read_word_style_align_test.dart \
                    test/safe_haptics_test.dart \
                    test/translation/mixed_language_test.dart; do
             [ -f "$f" ] && files="$files $f"

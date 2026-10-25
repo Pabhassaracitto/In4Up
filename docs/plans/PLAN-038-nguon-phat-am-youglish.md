@@ -68,8 +68,15 @@
    `youglish.lang`, `youglish.accent`, `youglish.enabled` — mẫu
    `features/cabin/services/cabin_session_settings.dart`). Cả 3 điểm vào đọc/ghi
    qua nó.
-5. `setMediaPlaybackRequiresUserGesture(false)` trên controller (iOS inline
-   playback) — thêm ngay trong `YouGlishView`, kèm comment vì sao.
+5. ~~iOS inline playback ở PRON-001~~ **đã thử, KHÔNG áp dụng được**: CI
+   `app_analyze` báo `undefined_method` — `WebViewController` (webview_flutter
+   4.14.1) không có `setMediaPlaybackRequiresUserGesture`; đúng là
+   `WKWebViewParams.fromPlatformCreationParams(..)..allowsInlineMediaPlayback =
+   true..mediaPlaybackRequiresUserGesture = false` (tham số **lúc tạo**, cần thêm
+   `webview_flutter_wkwebview` vào pubspec). Đây là **đổi hành vi iOS của 2 điểm
+   vào cũ** ⇒ chuyển sang PRON-002 §6; recipe nằm trong comment `_initMobile()`.
+6. **Đính chính i18n:** hai chuỗi Việt trong mini sheet đã được catalog shim lo
+   (`generated_legacy_ui_fallbacks.dart:1352`/`:1392`) ⇒ PRON-001 không đụng ARB.
 6. ~~i18n PRON-001~~ — **đã kiểm và KHÔNG cần**: hai chuỗi Việt trong mini sheet
    đã nằm trong catalog shim (`generated_legacy_ui_fallbacks.dart:1352`/`:1392`)
    nên locale ≠ vi tự hiện English. PRON-001 chỉ đổi `Text('Đã copy')` →
@@ -105,6 +112,12 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
    **Không** đụng `lib/ffi/`.
 5. `main_shell.dart`: `_handleTool('youglish')` nhận `initialWord` để nút
    "Mở YouGlish" (khi WebView lỗi) điều hướng sang tool với đúng từ.
+6. **iOS inline playback** (chuyển từ PRON-001): `webview_flutter_wkwebview` vào
+   `pubspec.yaml` (`^3.25.1`) + `YouGlishView._initMobile()` dựng controller qua
+   `WebViewController.fromPlatformCreationParams(WKWebViewParams(
+   allowsInlineMediaPlayback: true, mediaPlaybackRequiresUserGesture: false))`
+   — chỉ khi `WebViewPlatform.instance is WKWebViewPlatform`. Bắt buộc test trên
+   iPhone thật (video phải hiện trong sheet, không fullscreen cưỡng bức).
 
 **Nghiệm thu PRON-002:** widget test với WebView được inject qua factory giả —
 chạm từ → sheet hiện `WordPronunciationRow` → **chưa** có WebView cho tới khi bấm

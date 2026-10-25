@@ -147,8 +147,15 @@ xóa 3 chuỗi Việt hard-code đang vi phạm trong `youglish_mini_sheet.dart`
   hiện một dòng nhẹ "Không mở được YouGlish — đã chuyển sang giọng máy", không
   dialog chặn.
 - **Chất lượng hiển thị trên iOS/Windows/Linux chưa được chứng minh.** Bắt buộc
-  nghiệm thu thiết bị cho: inline playback iOS (sau khi thêm
-  `setMediaPlaybackRequiresUserGesture(false)`), size ≥200×200 px trong
+  nghiệm thu thiết bị cho: inline playback iOS — **không** bật được ở PRON-001:
+  `setMediaPlaybackRequiresUserGesture` **không tồn tại** trên `WebViewController`
+  của `webview_flutter` 4.14.1 (CI `app_analyze` bắt được 2026-10-24); khóa thật là
+  tham số khởi tạo `WKWebViewParams.allowsInlineMediaPlayback` +
+  `.mediaPlaybackRequiresUserGesture` (package `webview_flutter_wkwebview` 3.25.1,
+  hiện chỉ là transitive ⇒ phải thêm vào `pubspec.yaml`), và nó **đổi hành vi iOS**
+  của cả 2 điểm vào cũ ⇒ dời sang PRON-002 kèm nghiệm thu iPhone.
+  Recipe đã ghi ngay trong comment ở `_initMobile()` của `youglish_view.dart`.
+  Còn lại: size ≥200×200 px trong
   `DraggableScrollableSheet`, kéo không đơ, không ám đen. Build **Linux** vẫn đỏ
   sẵn vì `CI-LINUX-01` (thiếu `libwebkit2gtk-4.1-dev`) — không chặn Android/iOS/
   Windows nhưng đừng đổ lỗi cho PRON-001.

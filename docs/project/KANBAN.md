@@ -7708,12 +7708,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Ràng buộc:** PRON-001 **không đổi hành vi quan sát được** ở `YouGlishScreen`
   và hàng YouGlish trong WordList; URL phải byte-identical với `_buildUrl()` cũ
   (golden test). Không import file chứa `dart:io` vào cây `lib/main_web.dart`.
-- **AT:** (1) `test/youglish/youglish_url_test.dart` chốt 4 URL (EN+US, EN+UK,
-  ngôn ngữ không-EN, từ có khoảng trắng/ký tự đặc biệt); (2) `grep -rn
+- **AT:** (1) `test/youglish/youglish_url_test.dart` (ma trận từ × ngôn ngữ ×
+  accent đối chiếu NGUYÊN VĂN 2 hàm `_buildUrl()` cũ; bước CI "PRON-001 tests"
+  chỉ chạy được khi analyze xanh — run 40161123267 step đó `skipped` vì analyze đỏ); (2) `grep -rn
   "youglish.com/pronounce" lib` → đúng **một** nơi; (3) `flutter analyze` 0 lỗi +
   `test/locale_chrome_no_vietnamese_test.dart` xanh; (4) mở tool YouGlish và bấm
   nút YouGlish ở một dòng WordList: giao diện + hành vi như trước khi gom;
-  (5) iOS thật: video phát inline mà không cần chạm (chờ thiết bị).
+  (5) ~~iOS inline~~ → **chuyển sang PRON-002** (xem lịch sử): PRON-001 không
+  đổi hành vi iOS vì API là tham số khởi tạo, không phải method.
 - **Lịch sử:**
   - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | kiểm code +
     ADR-0014 + PLAN-038; chưa sửa dòng code nào (chờ owner duyệt khung).
@@ -7737,6 +7739,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     CI mới trong `app_analyze.yml`.
     Hai đổi có chủ đích (ngoài "không đổi hành vi"): prefs nhớ lang/accent
     (mặc định vẫn EN/US ⇒ máy mới = y hệt cũ) và inline playback iOS.
+  - 2026-10-24 | doing | agent Arena `arena/06e5aef5-in4up` | **CI
+    `app_analyze` run 40161123267 ĐỎ — 7 error, 2 root cause thật**: (a)
+    `YouGlishPrefs` khai trùng constructor `_()` (đã xóa bản rỗng); (b)
+    `setMediaPlaybackRequiresUserGesture` **không tồn tại** trên
+    `WebViewController` của webview_flutter 4.14.1 ⇒ PRON-001 KHÔNG sửa hành vi
+    iOS, chuyển inline playback sang PRON-002 (công thức `WKWebViewParams` đã ghi
+    trong comment `_initMobile()` + plan §2.6). Sandbox không có Flutter SDK nên
+    chỉ CI mới bắt được — đúng lý do repo giữ oracle `app_analyze`.
   - 2026-10-24 | doing | agent Arena | đính chính ADR-0015 D7: 2 chuỗi Việt
     trong mini sheet KHÔNG vi phạm rule #5 (đã có trong
     `generated_legacy_ui_fallbacks.dart:1352`/`:1392`) ⇒ PRON-001 không cần ARB;

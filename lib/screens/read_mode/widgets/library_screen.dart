@@ -1159,7 +1159,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       debugPrint('❌ _loadCloudEntry error: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi mở Cloud: $e')),
+        SnackBar(content: Text(context.uiText('Lỗi mở Cloud: $e'))),
       );
     }
   }
@@ -1469,7 +1469,8 @@ class _DeviceTabState extends State<_DeviceTab> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Thư mục đang quét: ${_provider.folderLabel}',
+                      context.uiText(
+                          'Thư mục đang quét: ${_provider.folderLabel}'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -1648,9 +1649,9 @@ class _DeviceTabState extends State<_DeviceTab> {
                     const SizedBox(height: 2),
                     Text(
                       provider.isScanning
-                          ? 'Đang quét…'
-                          : '${provider.count} tài liệu · '
-                              '.txt .md .docx .pdf .lrc .srt .json',
+                          ? context.uiText('Đang quét…')
+                          : context.uiText('${provider.count} tài liệu · '
+                              '.txt .md .docx .pdf .lrc .srt .json'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1691,7 +1692,7 @@ class _DeviceTabState extends State<_DeviceTab> {
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
-              '⚠️ Lỗi quét: ${provider.error}',
+              context.uiText('⚠️ Lỗi quét: ${provider.error}'),
               style: const TextStyle(color: Color(0xFFEF5350), fontSize: 12),
             ),
           ),
@@ -1719,9 +1720,10 @@ class _DeviceTabState extends State<_DeviceTab> {
                 const SizedBox(height: 12),
                 Text(
                   widget.searchQuery.isNotEmpty
-                      ? 'Không có tài liệu nào khớp '
-                          '"${widget.searchQuery}"'
-                      : 'Không tìm thấy file văn bản/PDF\ntrong thư mục này',
+                      ? context.uiText('Không có tài liệu nào khớp '
+                          '"${widget.searchQuery}"')
+                      : context.uiText(
+                          'Không tìm thấy file văn bản/PDF\ntrong thư mục này'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white38,

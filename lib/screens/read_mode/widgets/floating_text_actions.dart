@@ -416,8 +416,9 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
             Expanded(
               child: Text(
                 existed
-                    ? '"$shortText" đã có — bổ sung ngữ cảnh + tag'
-                    : '"$shortText" đã lưu đầy đủ',
+                    ? context.uiText(
+                        '"$shortText" đã có — bổ sung ngữ cảnh + tag')
+                    : context.uiText('"$shortText" đã lưu đầy đủ'),
               ),
             ),
           ],

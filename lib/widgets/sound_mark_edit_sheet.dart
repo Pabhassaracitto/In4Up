@@ -167,7 +167,9 @@ class _SoundMarkEditSheetState extends State<_SoundMarkEditSheet> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _isEditing ? 'Sửa điểm · ${SoundMark.formatTime(pos)}' : 'Đánh dấu · ${SoundMark.formatTime(pos)}',
+                    context.uiText(_isEditing
+                        ? 'Sửa điểm · ${SoundMark.formatTime(pos)}'
+                        : 'Đánh dấu · ${SoundMark.formatTime(pos)}'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,

@@ -4,7 +4,8 @@
   từ đã lưu"; bản gợi ý ban đầu từ Gemini (tích hợp YouGlish vào Tab Đọc).
 - Trạng thái: **PRON-001 = code xong + CI 🟢** (run `40161328540`: analyze +
   Rule 5 + golden test PRON-001; `deploy-web` 🟢) → PR #107 vào
-  `arena/01a0251e-in4up`; **còn nghiệm thu máy**. PRON-002/003/004 chưa code.
+  `arena/01a0251e-in4up`; **còn nghiệm thu máy**. PRON-002 đã code 2026-10-26
+  (xem §2.1) — chờ CI + QA máy; PRON-003/004/005 chưa code.
   Khung đã chốt với owner (2026-10-24): chính sách = WebView như hiện tại + xin
   phép song song + kill-switch; phạm vi = **mọi** nơi tra từ; kích hoạt =
   **một nút, lazy**; xung đột âm = **pause & restore**.
@@ -145,6 +146,38 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
    — chỉ khi `WebViewPlatform.instance is WKWebViewPlatform`. Bắt buộc test trên
    iPhone thật (video phải hiện trong sheet, không fullscreen cưỡng bức).
 
+### 2.1 Trạng thái thi công (2026-10-26, `arena/508531fd-in4up`)
+
+Đã code đúng §2 với các tên thật sau (người sau khỏi dò):
+
+| Mục §2 | File thật | Ghi chú |
+|---|---|---|
+| 1 policy nguồn | `lib/features/word_lookup/pronunciation_source.dart` | `PronunciationSourcePolicy.resolve({remembered, availability})` + `nextFallback` — **thuần Dart**, đây là cổng CI |
+| 1 hàng phát âm | `lib/features/word_lookup/widgets/word_pronunciation_row.dart` | `WordPronunciationRowMode.{youglishIconOnly, compact, full}`; `full` chưa ai dùng (PRON-003) |
+| 2 sheet | `word_actions_sheet.dart` header `Row` | **thay** `GestureDetector` loa cũ; TTS vẫn `tp.speak(word)` không `lineIndex` ⇒ highlight không đổi |
+| 3 pop | `word_mini_pop.dart` | +`wordMiniPopYouGlishKey` = `Key('word_mini_pop_youglish')`; `onBeforeOpen: WordMiniPop.dismiss`; `word` khóa tại lúc bấm |
+| 4 pause/restore | `services/pronunciation_session.dart` | `PronunciationSession.wrapRead(ctx, open)` + bộ đếm `_depth` |
+| 5 điều hướng tool | — | **hoãn sang PRON-003**; banner đã có "Mở trình duyệt" (= đúng tiêu chí nghiệm thu) |
+| 6 iOS inline | `youglish_view.dart` `_initMobile` + `pubspec.yaml` | `WKWebViewParams.fromPlatformCreationParams(...)..allowsInlineMediaPlayback..mediaPlaybackRequiresUserGesture`; dep mới `webview_flutter_wkwebview: ^3.25.1` |
+| — prefs | `services/pronunciation_prefs.dart` | MỘT key `pronunciation.source`; `youglish.*` vẫn thuộc `YouGlishPrefs` |
+| — sheet dùng chung | `git mv` → `lib/screens/tools/youglish/youglish_mini_sheet.dart` | watchdog 8 s (`loadBudget`) + banner; `word_list_screen.dart` đổi import |
+
+**Ba chệch có chủ đích** so với chữ trong §2 (owner duyệt lại được):
+1. Bậc thoái lui **không auto-pop** sheet: sheet ở lại, hiện banner
+   "Không mở được YouGlish — đã dùng giọng máy" + `Thử lại` + `Mở trình duyệt`,
+   và **tự phát TTS một lần**. Lý do: popup biến mất giữa luồng đọc khó chịu hơn
+   một banner 1 chạm; hành vi "đóng" vẫn tới được bằng đúng 1 chạm.
+2. `dictionary` **luôn false** ở PRON-002 ⇒ policy không bao giờ chọn nó (không
+   có "nút ma"); nối `DictEntry.hasAudio` + `just_audio` là PRON-005.
+3. Restore **chỉ áp dụng đọc cả bài** (`speakAllLines(startIndex:)`); segment /
+   AB-loop bị dừng để nhường tiếng nhưng **không** tự chạy lại, và nếu người dùng
+   đã tự bấm TTS trong sheet thì không restore đè (`!tp.isSpeaking` guard).
+
+Cổng CI: bước **"PRON-002 tests"** chạy `test/youglish/pronunciation_source_test.dart`
+(policy matrix + scan nguồn: row không dựng WebView, pop dismiss trước khi mở,
+mini sheet có watchdog, pubspec có dep iOS, mọi chuỗi Việt mới phải có catalog).
+Widget test với factory WebView giả: **chạy tay** khi nào có máy, không nối CI.
+
 **Nghiệm thu PRON-002** (⚠️ chỉnh sau `4b4965f`: **widget test không được làm
 cổng CI** — widget+plugin treo >8 phút trên runner): cổng CI = **test thuần Dart**
 `test/youglish/pronunciation_source_test.dart` cho hàm chọn nguồn
@@ -153,7 +186,6 @@ cổng CI** — widget+plugin treo >8 phút trên runner): cổng CI = **test th
 `WordPronunciationRow`, không chỗ nào tự dựng WebView". Widget test dựng
 `YouGlishView` qua factory giả: **chạy tay** trên máy dev, ghi kết quả vào card,
 không nối vào `app_analyze` cho tới khi chứng minh không treo. Nghiệm thu máy:
-chạm từ → sheet hiện `WordPronunciationRow` →
 chạm từ → sheet hiện `WordPronunciationRow` → **chưa** có WebView cho tới khi bấm
 nguồn YouGlish (đếm số lần factory được gọi = 0 → 1); đổi nguồn không dựng lại
 sheet; đóng sheet → playback tiếp tục đúng dòng cũ; QA máy: Android + iOS (inline

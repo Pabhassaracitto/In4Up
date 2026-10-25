@@ -85,23 +85,22 @@ void main() {
     });
 
     test('lựa chọn đã nhớ THẮNG, nhưng chỉ khi còn khả dụng', () {
-      const p = PronunciationSourcePolicy.resolve;
+      // (gọi thẳng, không gán `const p = ...resolve` — const function tear-off
+      // không phải constant expression trong Dart.)
       expect(
-        p(remembered: PronunciationSource.tts, availability: _kAlways),
+        PronunciationSourcePolicy.resolve(
+            remembered: PronunciationSource.tts, availability: _kAlways),
         PronunciationSource.tts,
       );
       expect(
-        p(
-          remembered: PronunciationSource.youglish,
-          availability: _kOffline,
-        ),
+        PronunciationSourcePolicy.resolve(
+            remembered: PronunciationSource.youglish, availability: _kOffline),
         PronunciationSource.tts,
       );
       expect(
-        p(
-          remembered: PronunciationSource.dictionary,
-          availability: _kAlways,
-        ),
+        PronunciationSourcePolicy.resolve(
+            remembered: PronunciationSource.dictionary,
+            availability: _kAlways),
         PronunciationSource.youglish,
       );
     });

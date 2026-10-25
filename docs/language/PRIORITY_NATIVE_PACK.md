@@ -66,25 +66,28 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
    chạy test `test/language/priority_native_pack_test.dart` (+ group rule #5
    trong `test/locale_chrome_no_vietnamese_test.dart`).
 
-## Trạng thái (wave 5, 2026-10-25 — rebase lên nhánh 251e)
+## Trạng thái (wave 7, 2026-10-25 — hoàn tất: 0 tiếng Việt, 0 tiếng Anh)
 
-- Pack: **1155 entry × 8 locale** (1037 gốc wave 2–4 + 62 chuỗi Settings/model
-  config + engine dịch mới xuất hiện sau khi rebase 251e + 39 chuỗi YouTube mới
-  + 18 chuỗi nhỏ ở TTS/OCR/Read/Listen/Settings/Dictionary/Video library/
-  Web Reader/Learn by heart/Other).
-- **Rò rỉ tiếng Việt ở cả 7 locale ưu tiên: 0** trên **2675** chuỗi
-  chrome được quét (197 file).
-- Các khu vực đã **hết tiếng Anh**: `Home` · `YouTube` · `Read` · `Listen` ·
-  `Settings` · `Web Reader` · `Video library` · `Dictionary` · `TTS` · `OCR` ·
-  `Learn by heart` · `Other`.
-- Bảy tên thương hiệu/định dạng thuần kỹ thuật (`In4Up`, `In4Up logo`,
-  `YouGlish`, `Oxford`, `TXT · LRC · SRT`, `web_batch`,
-  `en_US-lessac-medium`) được khai báo trong `ENGLISH_STOPWORDS` của
-  `tool/lang_ui_inventory.py` — chúng *không* bị tính là rò rỉ.
-- Việc còn lại (zh, **442 chuỗi**): Tools / WordList 99 · Other screens 69 · Shared widgets 55 · Memory 44 · Tipiṭaka 37 · Other features 30 · PDF Reader 27 · Understand 27 · Grammar / Understand 22 · Translation 20 · AI Chat 12.
-  Mỗi khu vực là một wave nhỏ — xem `docs/language/HOW_TO_ADD_TRANSLATIONS.md`.
-- Tổng English còn lại theo locale: zh/zh_TW 442 · hi 446 · si 447 · th 935 ·
-  ja 934 · my 987 (th/ja/my cao vì tầng ARB sinh tự động của các locale này mỏng).
+- Pack: **2116 entry × 8 locale**.
+- **Rò rỉ tiếng Việt: 0** và **English còn lại: 0** ở **cả 7 locale ưu tiên**
+  (`zh`, `zh_TW`, `hi`, `si`, `my`, `th`, `ja`) trên **2648 chuỗi chrome**
+  (196 file presentation).
+- Lịch sử wave: 1037 (wave 2–4) → 1155 (sau rebase 251e) → 1575 (wave 6:
+  425 chuỗi còn lại, đưa `zh`/`zh_TW`/`hi`/`si` về 0) → 2116 (wave 7:
+  491 chuỗi mà tầng ARB chỉ có bản dịch cho `zh`/`zh_TW`/`hi`/`si`, bổ sung
+  `th`/`ja`/`my`, rồi vá 50 chuỗi chỉ thiếu `my`).
+- Chuỗi giữ English theo chính sách (không tính là rò rỉ, khai báo trong
+  `ENGLISH_STOPWORDS` của `tool/lang_ui_inventory.py`): `AI`, `PDF`, `URL`,
+  `TTS`, `OCR`, `IPA`, `YouTube`, `Whisper`, `In4Up`, `YouGlish`, `Oxford`,
+  `web_batch`, `en_US-lessac-medium`, `TXT · LRC · SRT`, `MP3, M4A, WAV, FLAC...`
+  (danh sách định dạng file).
+- Máy dò nay loại thêm **id công cụ / widget key / JSON field / storage name**
+  (`word_list`, `pdf_jump_page_field`, `showLegend`, `vi`, `content`, `save`…)
+  để số liệu chỉ còn chuỗi người dùng thực thấy.
+- Cách hoàn tất phần `th`/`ja`/`my`: mỗi chuỗi còn thiếu được thêm vào pack với
+  4 cột `hi`/`zh`/`zh_TW`/`si` **lấy nguyên từ tầng ARB đang chạy** (đã đúng,
+  không dịch lại) và chỉ viết tay 3 cột `th`/`ja`/`my` — tránh dịch trùng và
+  tránh lệch thuật ngữ giữa hai tầng.
 
 ## Lưu ý
 

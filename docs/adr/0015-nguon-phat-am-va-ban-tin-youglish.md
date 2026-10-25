@@ -14,6 +14,28 @@
   (3 skill SM-2 tách biệt). Audio focus chỉ được xử lý ở tầng Flutter
   (`TtsService`/`TextProvider.speak`), không sửa engine realtime.
 
+## Cập nhật 2026-10-26 (đối chiếu lại sau 12 commit của `arena/01a0251e-in4up`, tip `0706d8f`)
+
+Ba điều ADR này cần ghi lại, **không đổi quyết định D1–D7**:
+
+1. **D3 càng đúng hơn:** `961fb26 READ-POP-003` + **ADR-0016** đổi pop tra từ sang
+   `OverlayEntry` **không barrier** (pop không còn chặn màn hình). Vì pop giờ
+   không modal, nếu ta dựng sẵn WebView thì chi phí nhân lên mọi cú chạm; còn
+   "một nút, lazy" chỉ tốn khi user thật sự muốn nghe. Điểm cấy icon: hàng
+   `_MiniIconButton` `word_mini_pop.dart:515`–`:527`; bắt buộc `WordMiniPop.dismiss()`
+   trước khi mở sheet YouGlish và **khóa `word`** lúc mở (pop có thể nhảy sang từ
+   khác khi sheet còn sống).
+2. **Ràng buộc cổng CI mới:** `4b4965f` (run 40229976121 — widget+Hive treo >8')
+   ⇒ test của PRON-002/003/005 phải là **test thuần Dart**; test có plugin chỉ
+   chạy tay + ghi bằng chứng vào card.
+3. **D1 có thêm dữ liệu thật:** `6672b57 DICT-PACK-001` + **ADR-0017** cho tải bộ
+   từ điển trong app, `dict_pack_service.dart:351` chấp nhận `wav/mp3/ogg/m4a`
+   ⇒ nguồn "audio từ điển" không còn là ý tưởng trên giấy. `DictEntry.audioPath`
+   vẫn chưa UI nào dùng ⇒ lập **PRON-005**.
+
+Số ADR: **0016** (pop không modal) và **0017** (tải từ điển trong app) đã bị
+nhánh khác chiếm ngày 2026-10-25 ⇒ ADR tiếp theo của dự án là **0018**.
+
 ## Bối cảnh
 
 Đề bài ban đầu (người sở hữu, 2026-10-24, nội dung do Gemini gợi ý) yêu cầu

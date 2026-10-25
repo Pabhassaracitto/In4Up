@@ -185,10 +185,11 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
-| PRON-001 | Gom YouGlish về MỘT nguồn sự thật (`YouGlishView` + `YouGlishUrl` + `YouGlishPrefs`) — không đổi hành vi, URL byte-identical | 🔨 code xong, chờ CI `app_analyze` + nghiệm thu máy (sandbox không có Flutter SDK) | PLAN-038 §1 + ADR-0015 D5; `youglish_view.dart`/`youglish_prefs.dart` mới, 3 điểm vào cũ → shell; test `test/youglish/youglish_url_test.dart` + bước CI `PRON-001 tests`. **Đính chính:** 2 chuỗi Việt trong mini sheet đã được shim lo ⇒ không cần ARB |
-| PRON-002 | Tab Đọc: một hàng "Phát âm" (TTS · audio từ điển · YouGlish) trong `word_actions_sheet` + 1 icon trong `word_mini_pop`; WebView lazy, pause & restore playback | 📋 proposed | PLAN-038 §2; KHÔNG dùng `word_detail_sheet.dart` (không thuộc tab Đọc) và KHÔNG thêm TabBar |
-| PRON-003 | Hàng "Phát âm" cho các mặt còn lại: Vườn nhớ · PDF Reader · YouTube panel · WordList (đối xứng hoá 3 điểm vào cũ, tắt autoplay mặc định) | 📋 proposed | PLAN-038 §3; từ đã lưu = word_list_screen.dart:2102 (đã có YouGlish) + memory_mode/sheets/word_detail_sheet.dart (chưa có) |
+| PRON-001 | Gom YouGlish về MỘT nguồn sự thật (`YouGlishView` + `YouGlishUrl` + `YouGlishPrefs`) — không đổi hành vi, URL byte-identical | ✅ done (code + CI 🟢 + **đã merge PR #107** vào 251e; còn **nghiệm thu máy** Android/iOS/Windows) | run 40161591892 (analyze + Rule 5 + test golden PRON-001 xanh), deploy-web 🟢; `youglish_view.dart`/`youglish_prefs.dart` mới, 3 điểm vào cũ → shell; `test/youglish/youglish_url_test.dart` + bước CI "PRON-001 tests". iOS inline playback **chuyển sang PRON-002** (API là tham số khởi tạo `WKWebViewParams`, không phải method) |
+| PRON-002 | Tab Đọc: một hàng "Phát âm" (TTS · audio từ điển · YouGlish) trong `word_actions_sheet` + 1 icon trong `word_mini_pop`; WebView lazy, pause & restore playback | 📋 proposed — **chưa code; đây mới là phần user nhìn thấy** | PLAN-038 §2 (đã đối chiếu lại 2026-10-26). ⚠️ `961fb26 READ-POP-003`/ADR-0016 đổi pop sang `OverlayEntry` 787 dòng ⇒ icon mới cấy vào hàng `_MiniIconButton` `:515`–`:527`, phải `WordMiniPop.dismiss()` trước khi mở sheet. ⚠️ Cổng CI chỉ nhận test THUẦN DART (bài học `4b4965f`). KHÔNG dùng `word_detail_sheet.dart`, KHÔNG thêm TabBar |
+| PRON-003 | Hàng "Phát âm" cho các mặt còn lại: Vườn nhớ · PDF Reader · **Web Reader** · YouTube panel · sheet từ điển · WordList (đối xứng hoá, tắt autoplay mặc định) | 📋 proposed | PLAN-038 §3; 8 điểm vào tra từ đã kiểm `file:line` trên tip 251e `0706d8f` (WordList `:2102` đã có YouGlish, Vườn nhớ `word_detail_sheet.dart` chưa, `web_word_tap_sheet.dart:189` `speakWord`, `dict_entry_detail_sheet.onSpeak :30`) |
 | PRON-004 | Widget YouGlish chính thức (`public/emb/widget.js` + wrapper HTML) + Điều khoản/Privacy theo Developer Policy | 🚫 blocked (chờ owner xin phép YouGlish) | youglish.com/api/doc/widget mục 2/3/5/6/7; tiền lệ wrapper: web/yt_embed.html; PLAN-038 §4 |
+| PRON-005 | Nguồn "audio từ điển offline" trong hàng Phát âm — nối `DictEntry.audioPath` đang bị bỏ quên (nay có dữ liệu thật nhờ DICT-PACK-001) | 📋 proposed | PLAN-038 §0 + ADR-0015 D1; `dict_entry.dart:40` chưa UI nào dùng; `dict_pack_service.dart:351` cho phép wav/mp3/ogg/m4a |
 
 
 ## Card chi tiết
@@ -7923,6 +7924,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     chặn PRON-001/002/003 bằng card này.
   - 2026-10-24 | blocked | agent Arena `arena/06e5aef5-in4up` | rebase
     `3986433` không đổi kết luận; ADR đánh số 0015.
+  - 2026-10-26 | doing→**done (code + CI 🟢, đã merge)** | agent Arena
+    `arena/508531fd-in4up` | owner merge **PR #107** vào `arena/01a0251e-in4up`
+    (2026-10-25 04:55 UTC). Head checks 🟢 `40161591892`: analyze 0 error + Rule 5
+    + "PRON-001 tests" (golden URL == nguyên văn 2 hàm cũ, 2 source-scan) +
+    `deploy-web` 🟢. Bắt kịp 12 commit của 251e (ff `d3573a2`→`0706d8f`) và kiểm
+    lại: `youglish.com/pronounce` vẫn đúng 1 file, `YouGlishView` vẫn được 2 điểm
+    vào dùng ⇒ PRON-001 không bị các commit sau làm hỏng. **Còn:** owner nghiệm thu
+    máy (Android/iOS/Windows) — chưa ai xác nhận trên thiết bị.
   - 2026-10-24 | doing→doing (CI 🟢) | agent Arena `arena/06e5aef5-in4up` | fix
     `c70c428`..`4416484` làm đỏ run 40161123267 (ctor trùng + API iOS
     không tồn tại) → run 40161328540 XANH: analyze + Rule 5 + test golden
@@ -7983,3 +7992,27 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm:** cài đè trên máy thật (Android cần bản 1.16.0 đang cài sẵn để thử `adb install -r`), iOS sideload trên iPhone, Windows chạy `in4up.exe`, Linux chạy bundle.
 - **Lịch sử:**
   - 2026-10-26 | created→done | agent arena/01a0251e-in4up | bump 1.17.0+17 → tag → build 4 nền tảng 🟢 → 4 asset published
+
+### PRON-005 — Nguồn "audio từ điển offline" trong hàng Phát âm (nối `DictEntry.audioPath`)
+- **Trạng thái:** 📋 proposed (tạo 2026-10-26) — **chưa code**; nên đi sau
+  PRON-002 vì dùng đúng widget `WordPronunciationRow`.
+- **Vì sao bây giờ mới có:** `DictEntry.audioPath`/`hasAudio`
+  (`lib/features/dictionary/models/dict_entry.dart:40`) đã được parse + lưu từ
+  lâu nhưng **không UI nào tiêu thụ** (kiểm lại 2026-10-26 trên tip `0706d8f`:
+  `grep` trong `lib/features/dictionary` = 0 điểm dùng). Từ `6672b57
+  DICT-PACK-001` (ADR-0017), người dùng tải bộ từ điển **ngay trong app** và
+  `dict_pack_service.dart:351` cho phép `wav/mp3/ogg/m4a` trong pack ⇒ audio
+  người thật **bắt đầu có đường vào máy người dùng**, nếu không ai phát thì vẫn
+  chết.
+- **Nội dung:** trong `WordPronunciationRow`, nguồn "Từ điển" = phát
+  `audioPath` của `DictEntry` hiện có (file trong thư mục pack/bundle đã import),
+  ưu tiên `Từ điển → YouGlish → TTS` khi `youglish.enabled=false` hoặc mất mạng;
+  fallback im lặng về TTS nếu file thiếu.
+- **AT:** (1) test THUẦN DART cho hàm resolve nguồn (không plugin — ràng buộc
+  CI `4b4965f`); (2) một bộ từ điển có file `.mp3` thật trên máy dev ⇒ bấm loa
+  nghe đúng file đó, không qua mạng; (3) locale ≠ vi: nhãn nguồn không còn
+  tiếng Việt; (4) không đổi hành vi khi máy chưa import từ điển nào (vẫn TTS).
+- **Lịch sử:**
+  - 2026-10-26 | created→proposed | agent Arena `arena/508531fd-in4up` | phát
+    hiện khi đối chiếu 12 commit mới của 251e cho PLAN-038: DICT-PACK-001 làm
+    nguồn audio từ điển thành khả thi, ADR-0015 D1 đã dự phòng chỗ này.

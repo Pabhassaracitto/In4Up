@@ -1206,15 +1206,15 @@ Package: `video_player: ^2.8.0` (Flutter official)
     kế hoạch Windows có WGC/Win32 spike, full-screen + drag-region flow,
     multi-monitor/DPI, OCR seam, privacy, CI và nghiệm thu máy thật.
 
-### PLAN-038 — Nguồn phát âm thống nhất (TTS · từ điển · YouGlish) + nối vào mọi chỗ tra từ (PRON-001..004)
+### PLAN-038 — Nguồn phát âm thống nhất (TTS · từ điển · YouGlish) + nối vào mọi chỗ tra từ (PRON-001..005)
 - Nguồn: người sở hữu (2026-10-24) — "I4U · different voice video": nghe giọng
   người thật cho **từ đang chọn** và **từ đã lưu**; đề bài ban đầu do Gemini gợi ý
   (thêm tab YouGlish vào `word_detail_sheet` ở Tab Đọc) — đã phản biện và sửa
   hiện trạng trong ADR-0015 (Tab Đọc không dùng file đó, sheet không có tab,
   YouGlish đang có 3 bản copy chứ không phải 1 service).
-- Trạng thái: **PRON-001 code xong + CI 🟢** (run 40161328540) → PR #107 vào
-  `arena/01a0251e-in4up`; còn nghiệm thu máy. PRON-002/003/004: proposed —
-  khung + 4 quyết định đã chốt:
+- Trạng thái: **PRON-001 ✅ done** (code + CI 🟢 run 40161591892 + **đã merge
+  PR #107** vào `arena/01a0251e-in4up`; còn owner nghiệm thu máy). PRON-002 (phần
+  user thấy) / 003 / 004 / 005: proposed — khung + 4 quyết định đã chốt:
   (1) giữ cách nạp trang youglish.com trong WebView như hiện tại, owner xin phép
   YouGlish song song, có kill-switch `youglish.enabled`; (2) phạm vi = **mọi**
   điểm vào tra từ (Đọc · Vườn nhớ · WordList · PDF · YouTube); (3) kích hoạt =

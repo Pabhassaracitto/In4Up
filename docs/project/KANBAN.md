@@ -7835,9 +7835,11 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     trong sheet).
 
 ### PRON-002 — Hàng "Phát âm" trong Tab Đọc (một nút, lazy)
-- **Trạng thái:** 🟡 code xong 2026-10-26 trên `arena/508531fd-in4up` (chờ CI
-  `app_analyze` + owner QA máy) — PLAN-038 §2.1; đã trả luôn nợ iOS của PRON-001;
-  PRON-005 (âm thanh từ điển) vẫn chưa nối.
+- **Trạng thái:** 🟡 code + **CI 🟢** (run 40235361999: `flutter analyze` 0
+  error · bước mới "PRON-002 tests" xanh · PRON-001 golden test vẫn xanh · Rule 5
+  xanh · `Deploy Flutter web` 40235358902 🟢) — **còn owner QA máy**, chưa merge
+  (PR #112 → `arena/01a0251e-in4up`). PLAN-038 §2.1; đã trả luôn nợ iOS của
+  PRON-001; PRON-005 (âm thanh từ điển) vẫn chưa nối.
 - **Nguồn:** chủ dự án (2026-10-24) — yêu cầu gốc "khi chạm từ ở Tab Đọc, cho
   nghe giọng người thật trong ngữ cảnh ngay trong bảng tra".
 - **Hiện trạng đã xác minh (để người sau khỏi dò lại):** Tab Đọc **không** dùng
@@ -7911,6 +7913,13 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     Nút "Mở trình duyệt" chỉ tồn tại ở (a) `mode.full` mà PRON-003 sẽ cấy và
     (b) banner lỗi của mini sheet (bối cảnh user đã tự bấm YouGlish khi đang bật).
     PLAN-038 §2.1 đã ghi thành mục chệch thứ 4.
+  - 2026-10-26 | doing→review | agent Arena `arena/508531fd-in4up` | **CI 🟢**
+    run 40235361999 (push 40235358889) trên `b3843ed`: analyze 0 error +
+    "PRON-002 tests" xanh + PRON-001/Rule-5/DICT-CLEAN/READ-GRAM không hồi quy;
+    web deploy 40235358902 🟢 ⇒ row mới không kéo `dart:io` vào cây
+    `main_web.dart`. Đã comment bằng chứng + script QA 3 phút trong PR #112.
+    **Còn:** owner nghiệm thu Android + iPhone (inline playback), `hi`/`zh`
+    chrome, airline-mode banner.
   - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **CI ĐỎ run
     40234606043 (step "Analyze full app", 2 ERROR)** — đọc annotations qua
     `gh api /check-runs/<job>/annotations` (artifact log KHÔNG tải được từ

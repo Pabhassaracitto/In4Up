@@ -627,7 +627,8 @@ jobs:
                    test/yt_ai_word_prompt_test.dart \
                    test/yt_read_aloud_sequence_test.dart \
                    test/yt_media_store_test.dart \
-                   test/yt_download_filename_test.dart; do
+                   test/yt_download_filename_test.dart \
+                   test/yt_tts_provider_collision_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

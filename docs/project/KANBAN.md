@@ -7903,6 +7903,34 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     `main_shell._handleTool('youglish', initialWord)`) **chuyển sang PRON-003**
     vì tiêu chí nghiệm thu chỉ yêu cầu "Mở trình duyệt", đã có trong banner.
     Sandbox không có Flutter SDK ⇒ mọi kết luận đỏ/xanh lấy từ run CI.
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **đính chính AT(3)**
+    của card: khi `youglish.enabled=false` thì app **ẩn hẳn** mọi điểm vào
+    YouGlish (pop: icon 🎧 biến mất; hàng compact: chỉ còn ▶ TTS), KHÔNG chèn
+    "Mở trong trình duyệt" vào hàng compact. Lý do: D2 (ADR-0015) là
+    kill-switch **pháp lý** — tắt là tắt hẳn, không dẫn user ra browser hộ owner.
+    Nút "Mở trình duyệt" chỉ tồn tại ở (a) `mode.full` mà PRON-003 sẽ cấy và
+    (b) banner lỗi của mini sheet (bối cảnh user đã tự bấm YouGlish khi đang bật).
+    PLAN-038 §2.1 đã ghi thành mục chệch thứ 4.
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **CI ĐỎ run
+    40234606043 (step "Analyze full app", 2 ERROR)** — đọc annotations qua
+    `gh api /check-runs/<job>/annotations` (artifact log KHÔNG tải được từ
+    sandbox: `*.blob.core.windows.net` nằm ngoài egress allowlist ⇒ workflow
+    đã phải phát `::error::` cho lý do này). Root cause: khối iOS
+    PRON-002 chép theo công thức của **webview_flutter_wkwebview 4.x**
+    (`WKWebViewParams` + cascade `mediaPlaybackRequiresUserGesture`) trong khi
+    repo lock ở **3.25.1** ⇒ `undefined_identifier` +
+    `type_test_with_undefined_name`. Đã đối chiếu source thật của 3.25.1
+    (`git clone --filter=blob:none --sparse` tag
+    `webview_flutter_wkwebview-v3.25.1` trên github.com) và sửa thành:
+    `WebKitWebViewPlatform` +
+    `WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(params,
+    allowsInlineMediaPlayback: true,
+    mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{})` —
+    **bản 3.x không có** `mediaPlaybackRequiresUserGesture` (kẻ thay thế là set
+    rỗng của `mediaTypesRequiringUserAction`), pubspec giữ `^3.25.1` để KHÔNG
+    trôi lên 4.x (4.x đổi tên class ⇒ phải sửa `_initMobile` cùng lúc).
+    Bài học cho agent sau: **mọi API plugin phải kiểm theo version đã lock
+    trong `pubspec.lock`, không kiểm theo tài liệu mới nhất**.
 
 ### PRON-003 — Hàng "Phát âm" cho các chỗ tra từ còn lại (từ đã lưu · PDF · YouTube)
 - **Trạng thái:** 📋 proposed — PLAN-038 §3; chưa code; phụ thuộc PRON-002.

@@ -218,10 +218,12 @@ Ghi lại 4 điều chỉ thấy khi code xong:
   xóa `currentLineIndex` ⇒ "pause" = capture index trước khi stop, restore bằng
   `speakAllLines(startIndex:)` (`PronunciationSession.wrapRead`). KHÔNG đụng
   `lib/ffi/` ✓. Segment/AB-loop: dừng nhưng không tự chạy lại.
-- **Nợ PRON-001 đã trả**: `webview_flutter_wkwebview` thành direct dep và
-  `allowsInlineMediaPlayback`/`mediaPlaybackRequiresUserGesture` đặt trong
-  `WKWebViewParams.fromPlatformCreationParams` (KHÔNG có setter trên
-  `WebViewController` — CI PRON-001 đã chứng minh). **Điều kiện nghiệm thu**:
+- **Nợ PRON-001 đã trả**: `webview_flutter_wkwebview` thành direct dep; hai khóa
+  media đặt ở **tham số khởi tạo** (không có setter trên `WebViewController` —
+  CI PRON-001 đã chứng minh). Chi tiết API phải đọc theo version đã lock:
+  3.25.1 = `WebKitWebViewControllerCreationParams(allowsInlineMediaPlayback: true,
+  mediaTypesRequiringUserAction: {})`, còn `WKWebViewParams` +
+  `mediaPlaybackRequiresUserGesture` chỉ đúng từ 4.x. **Điều kiện nghiệm thu**:
   chỉ iPhone thật mới kết luận được video chạy nội tiếp hay không.
 - Hệ quả cho PRON-005: `dictionary` có trong enum + policy nhưng
   `PronunciationAvailability.dictionaryHasAudio` luôn `false` cho tới khi nối

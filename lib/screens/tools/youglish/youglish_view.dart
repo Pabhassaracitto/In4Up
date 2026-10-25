@@ -152,31 +152,40 @@ class YouGlishViewState extends State<YouGlishView> {
 
   // ── Mobile (Android / iOS) ───────────────────────────────────────
   void _initMobile() {
-    // PRON-002 (ADR-0015 D2, nợ kỹ thuật PRON-001 ghi lại ở comment dưới):
-    // trên iOS, video YouTube trong YouGlish chỉ phát NỘI TIẾP khi
-    // `allowsInlineMediaPlayback = true`, và hai khóa này phải đặt lúc KHỞI
-    // TẠO controller (webview_flutter 4.x không có setter). Android nhận
-    // `PlatformWebViewControllerCreationParams` gốc ⇒ hành vi không đổi.
+    // PRON-002 — TRẢ NỢ PRON-001 (iOS inline playback). Khóa media là THAM SỐ
+    // KHỞI TẠO, không phải setter: `WebViewController` của webview_flutter 4.x
+    // KHÔNG có `setMediaPlaybackRequiresUserGesture` (CI PRON-001 đã báo ERROR
+    // vì dòng đó). API dưới đây ĐÃ ĐỐI CHIẾU thẳng vào source đã publish của
+    // `webview_flutter_wkwebview 3.25.1`
+    // (`lib/src/webkit_webview_controller.dart`):
+    //   • class tham số: `WebKitWebViewControllerCreationParams`
+    //     (KHÔNG phải `WKWebViewParams` — tên đó thuộc bản 4.x trở lên);
+    //   • `allowsInlineMediaPlayback` (bool, mặc định false);
+    //   • KHÔNG còn `mediaPlaybackRequiresUserGesture` ở bản này — tương đương
+    //     là `mediaTypesRequiringUserAction: <PlaybackMediaTypes>{}` (set rỗng
+    //     = audio+video không cần thao tác người dùng trước).
+    // Android nhận `PlatformWebViewControllerCreationParams` gốc ⇒ hành vi cũ
+    // không đổi. ⚠️ Nếu sau này nâng `webview_flutter_wkwebview` lên 4.x: đổi
+    // sang `WKWebViewConfiguration` (khi đó `WKWebViewParams` mới tồn tại).
     PlatformWebViewControllerCreationParams params =
         const PlatformWebViewControllerCreationParams();
-    if (WebViewPlatform.instance is WKWebViewPlatform) {
-      params = WKWebViewParams.fromPlatformCreationParams(params)
-        ..allowsInlineMediaPlayback = true
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      params =
+          WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(
+        params,
+        allowsInlineMediaPlayback: true,
         // autoplay vẫn do YouTube chặn (cần mute) — PRON-003 mới đổi mặc định
         // `youglish.autoplay` thành false một cách có chủ đích.
-        ..mediaPlaybackRequiresUserGesture = false;
+        mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{},
+      );
     }
     _mobileCtrl = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(widget.webBackgroundColor)
-      // ⚠️ iOS inline playback đã được ĐẶT ĐÚNG CHỖ ở PRON-002: hai khóa
-      // `allowsInlineMediaPlayback` / `mediaPlaybackRequiresUserGesture` KHÔNG
-      // phải method của `WebViewController` (webview_flutter 4.x không có setter
-      // — CI PRON-001 từng báo ERROR khi tôi gọi
-      // `setMediaPlaybackRequiresUserGesture`), mà là THAM SỐ KHỞI TẠO của
-      // `WKWebViewParams`. ⇒ Muốn đổi hành vi media, phải sửa khối `params` ở
-      // ĐẦU `_initMobile()`, thêm `webview_flutter_wkwebview` vào pubspec, và
-      // NGHIỆM THU TRÊN IPHONE (không có bằng chứng nào khác là đủ).
+      // ⚠️ iOS media: mọi khóa liên quan PLAYBACK đều nằm ở khối `params` ĐẦU
+      // `_initMobile()` (xem comment ở đó) — `WebViewController` không có setter
+      // nào cho chúng. Muốn đổi: sửa `WebKitWebViewControllerCreationParams`,
+      // và NGHIỆM THU TRÊN IPHONE THẬT (không có bằng chứng nào khác là đủ).
       // Lưu ý: PRON-001 cố tình KHÔNG đổi hành vi iOS của 2 điểm vào cũ
       // (`youglish_widget`, `youglish_screen`); PRON-002 chấp nhận đổi vì đây
       // là lần đầu YouGlish vào luồng đọc — xem ADR-0015 D2 + KANBAN PRON-002.

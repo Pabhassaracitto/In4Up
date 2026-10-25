@@ -72,11 +72,19 @@ class DictResultSheet extends StatelessWidget {
     final sources = merged.sourceLabel;
     // Loại từ có thể nằm ở cột riêng của entry (không nằm trong HTML) — vẫn
     // hiển thị để trang từ điển đủ thông tin như từ điển thật.
+    //
+    // DICT-VIEW-002: KHÔNG lặp nhãn đã có trong nội dung — bản cũ vừa hiện
+    // chip loại từ ở đầu trang, vừa hiện nhãn nhóm loại từ trong phần nghĩa
+    // ⇒ đúng kiểu "nhiều phần dư" owner phàn nàn.
+    final groupPoses = <String>{
+      for (final group in merged.groups)
+        if ((group.pos ?? '').trim().isNotEmpty) group.pos!.trim(),
+    };
     final entryPoses = <String>{
       for (final entry in entries)
         if ((entry.partOfSpeech ?? '').trim().isNotEmpty)
           entry.partOfSpeech!.trim(),
-    }.toList();
+    }.where((pos) => !groupPoses.contains(pos)).toList();
 
     return Column(
       children: <Widget>[

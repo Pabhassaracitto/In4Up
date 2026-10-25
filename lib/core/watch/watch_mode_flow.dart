@@ -9,6 +9,15 @@ class I4uWatchHandoff {
   final I4uSourceFingerprint source;
   final int timestampMs;
   final String? selectedSubtitle;
+
+  bool get isValid =>
+      source.sourceId.trim().isNotEmpty && timestampMs >= 0;
+
+  Map<String, Object?> toJson() => {
+        'source': source.toJson(),
+        'timestampMs': timestampMs,
+        'selectedSubtitle': selectedSubtitle,
+      };
 }
 
 class I4uWatchModeFlowController extends ValueNotifier<I4uWatchModeState> {

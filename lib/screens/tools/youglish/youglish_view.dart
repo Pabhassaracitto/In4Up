@@ -5,7 +5,8 @@
 // Trước PRON-001 tồn tại song song:
 //   • `youglish_widget.dart`  — tự tạo WebViewController + tự viết `_buildUrl()`
 //     (có nhánh Windows `webview_win_floating`)
-//   • `word_list/youglish_mini_sheet.dart` — tự tạo WebViewController + COPY
+//   • `word_list/youglish_mini_sheet.dart` (nay là
+//     `tools/youglish/youglish_mini_sheet.dart`) — tự tạo WebViewController + COPY
 //     `_buildUrl()` (KHÔNG có nhánh Windows, chip ngôn ngữ bị `.take(5)`)
 // ⇒ PRON-001 gom cả hai về đây; hai file kia còn là shell gọi `YouGlishView`,
 //   để `youglish_screen` và WordList giữ nguyên giao diện + hành vi cũ.
@@ -31,6 +32,9 @@ import 'package:flutter/gestures.dart';
 import 'package:in4up/core/language/localized_material.dart';
 // Mobile: webview_flutter. Windows: webview_win_floating (cùng API, khác tên class).
 import 'package:webview_flutter/webview_flutter.dart';
+// PRON-002: `WKWebViewPlatform` + `WKWebViewParams` (inline playback iOS).
+// Chỉ dùng trong `YouGlishView` — file này vốn đã nằm NGOÀI cây web.
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
 import 'youglish_config.dart';
@@ -50,6 +54,7 @@ class YouGlishView extends StatefulWidget {
     this.claimGestures = false,
     this.reloadToken = 0,
     this.onLoadError,
+    this.onLoaded,
   });
 
   final String word;
@@ -83,6 +88,11 @@ class YouGlishView extends StatefulWidget {
 
   /// Hook cho bậc thoái lui (PRON-002: tự hạ về audio từ điển → TTS).
   final VoidCallback? onLoadError;
+
+  /// PRON-002: báo trang đã nạp XONG — dùng để tắt đồng hồ chờ 8 s của
+  /// `YouGlishMiniSheet`. Cộng tính, mặc định `null` ⇒ `YouGlishWidget` /
+  /// `youglish_screen` giữ nguyên hành vi.
+  final VoidCallback? onLoaded;
 
   @override
   State<YouGlishView> createState() => YouGlishViewState();
@@ -130,6 +140,7 @@ class YouGlishViewState extends State<YouGlishView> {
         },
         onPageFinished: (_) {
           if (mounted) setState(() => _isLoading = false);
+          widget.onLoaded?.call();
         },
         onWebResourceError: (_) {
           if (mounted) setState(() => _isLoading = false);
@@ -141,30 +152,41 @@ class YouGlishViewState extends State<YouGlishView> {
 
   // ── Mobile (Android / iOS) ───────────────────────────────────────
   void _initMobile() {
-    _mobileCtrl = WebViewController()
+    // PRON-002 (ADR-0015 D2, nợ kỹ thuật PRON-001 ghi lại ở comment dưới):
+    // trên iOS, video YouTube trong YouGlish chỉ phát NỘI TIẾP khi
+    // `allowsInlineMediaPlayback = true`, và hai khóa này phải đặt lúc KHỞI
+    // TẠO controller (webview_flutter 4.x không có setter). Android nhận
+    // `PlatformWebViewControllerCreationParams` gốc ⇒ hành vi không đổi.
+    PlatformWebViewControllerCreationParams params =
+        const PlatformWebViewControllerCreationParams();
+    if (WebViewPlatform.instance is WKWebViewPlatform) {
+      params = WKWebViewParams.fromPlatformCreationParams(params)
+        ..allowsInlineMediaPlayback = true
+        // autoplay vẫn do YouTube chặn (cần mute) — PRON-003 mới đổi mặc định
+        // `youglish.autoplay` thành false một cách có chủ đích.
+        ..mediaPlaybackRequiresUserGesture = false;
+    }
+    _mobileCtrl = WebViewController.fromPlatformCreationParams(params)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(widget.webBackgroundColor)
-      // ⚠️ iOS inline playback — CỐ TÌNH KHÔNG sửa ở PRON-001 (CI bắt được và
-      // tụi tôi kiểm lại: `WebViewController` của webview_flutter 4.14.1 KHÔNG
-      // có `setMediaPlaybackRequiresUserGesture`; khóa này là THAM SỐ KHỞI TẠO:
-      //   import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-      //   PlatformWebViewControllerCreationParams params =
-      //       const PlatformWebViewControllerCreationParams();
-      //   if (WebViewPlatform.instance is WKWebViewPlatform) {
-      //     params = WKWebViewParams.fromPlatformCreationParams(params)
-      //       ..allowsInlineMediaPlayback = true
-      //       ..mediaPlaybackRequiresUserGesture = false;
-      //   }
-      //   WebViewController.fromPlatformCreationParams(params)
-      // Đặt ở đây = đổi hành vi iOS của 2 điểm vào cũ + cần nghiệm thu iPhone
-      // ⇒ chuyển sang PRON-002 (nơi YouGlish lần đầu vào luồng đọc), kèm thêm
-      // `webview_flutter_wkwebview` vào pubspec (hiện mới là transitive 3.25.1).
+      // ⚠️ iOS inline playback đã được ĐẶT ĐÚNG CHỖ ở PRON-002: hai khóa
+      // `allowsInlineMediaPlayback` / `mediaPlaybackRequiresUserGesture` KHÔNG
+      // phải method của `WebViewController` (webview_flutter 4.x không có setter
+      // — CI PRON-001 từng báo ERROR khi tôi gọi
+      // `setMediaPlaybackRequiresUserGesture`), mà là THAM SỐ KHỞI TẠO của
+      // `WKWebViewParams`. ⇒ Muốn đổi hành vi media, phải sửa khối `params` ở
+      // ĐẦU `_initMobile()`, thêm `webview_flutter_wkwebview` vào pubspec, và
+      // NGHIỆM THU TRÊN IPHONE (không có bằng chứng nào khác là đủ).
+      // Lưu ý: PRON-001 cố tình KHÔNG đổi hành vi iOS của 2 điểm vào cũ
+      // (`youglish_widget`, `youglish_screen`); PRON-002 chấp nhận đổi vì đây
+      // là lần đầu YouGlish vào luồng đọc — xem ADR-0015 D2 + KANBAN PRON-002.
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) {
           if (mounted) setState(() => _isLoading = true);
         },
         onPageFinished: (_) {
           if (mounted) setState(() => _isLoading = false);
+          widget.onLoaded?.call();
         },
         onWebResourceError: (_) {
           if (mounted) setState(() => _isLoading = false);

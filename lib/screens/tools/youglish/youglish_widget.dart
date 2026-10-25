@@ -6,7 +6,7 @@
 // thẳng `YouGlishView`.
 //
 // Trước PRON-001 file này tự tạo WebViewController + tự viết `_buildUrl()`,
-// trùng với bản copy trong `word_list/youglish_mini_sheet.dart`.
+// trùng với bản copy trong mini sheet cũ.
 
 // localized_material = flutter/material (hide Text) + `context.uiText`.
 import 'package:in4up/core/language/localized_material.dart';

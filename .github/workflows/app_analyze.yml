@@ -208,6 +208,34 @@ jobs:
           cat youglish_pron_test.log
           exit $code
 
+      # PRON-002: cùng nguyên tắc — CHỈ logic thuần + scan nguồn, không widget
+      # test (plugin webview/Hive treo >8 phút trên runner, xem 4b4965f).
+      - name: "PRON-002 tests — chính sách nguồn phát âm + ràng buộc surface"
+        id: pron-002-tests
+        run: |
+          set +e
+          files=""
+          for f in test/youglish/pronunciation_source_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test PRON-002 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          timeout 10m flutter test $files -r expanded > pron_002_test.log 2>&1
+          code=$?
+          cat pron_002_test.log
+          exit $code
+
+      - name: Upload PRON-002 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-pron-002-test-log
+          path: pron_002_test.log
+          if-no-files-found: ignore
+
       - name: Upload PRON-001 test log
         if: always()
         uses: actions/upload-artifact@v4

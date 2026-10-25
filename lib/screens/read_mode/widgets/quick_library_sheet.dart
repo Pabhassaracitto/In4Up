@@ -133,7 +133,7 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
           debugPrint('❌ QuickLibrarySheet cloud open error: $e\n$st');
           if (nav.mounted) {
             ScaffoldMessenger.maybeOf(nav.context)?.showSnackBar(
-              SnackBar(content: Text('Lỗi mở Cloud: $e')),
+              SnackBar(content: Text(context.uiText('Lỗi mở Cloud: $e'))),
             );
           }
         }

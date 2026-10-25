@@ -768,7 +768,7 @@ class _CloudTabState extends State<_CloudTab> {
       debugPrint('❌ _loadEntry error: $e\n$st');
       try {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi mở Cloud: $e')),
+          SnackBar(content: Text(context.uiText('Lỗi mở Cloud: $e'))),
         );
       } catch (_) {}
       widget.onClose();

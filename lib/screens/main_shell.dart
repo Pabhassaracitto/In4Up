@@ -10,6 +10,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/dictionary/widgets/dict_pack_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
@@ -630,6 +631,15 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.auto_stories_rounded,
         color: const Color(0xFF2196F3),
       ),
+      // DICT-PACK-001 (owner 2026-10-25): tải bộ từ điển có sẵn ngay từ
+      // "setting home" — không bắt người dùng tự tìm file .mdx/.mdd.
+      'dict_packs': tools.ToolItem(
+        id: 'dict_packs',
+        title: context.uiText('Tải bộ từ điển'),
+        subtitle: context.uiText('Cài từ điển có sẵn bằng một chạm (offline)'),
+        icon: Icons.cloud_download_outlined,
+        color: const Color(0xFF4DD0E1),
+      ),
       'speak_mode': tools.ToolItem(
         id: 'speak_mode',
         title: context.uiText('Nói'),
@@ -753,6 +763,7 @@ class _MainShellState extends State<MainShell> {
           'video_library',
           'dictionary',
           'dict_manager',
+          'dict_packs',
         ]),
       _PrimaryTab.listen => take([
           'youtube_downloader',
@@ -765,6 +776,7 @@ class _MainShellState extends State<MainShell> {
           'pdf_reader',
           'tipitaka',
           'dict_manager',
+          'dict_packs',
           'shell_ui_settings',
         ]),
       _PrimaryTab.understand => take([
@@ -916,6 +928,7 @@ class _MainShellState extends State<MainShell> {
       'youtube_downloader': 90,
       'web_reader': 88,
       'pdf_reader': 87,
+      'dict_packs': 87,
       'review': 86,
       'word_list': 85,
     };
@@ -935,6 +948,7 @@ class _MainShellState extends State<MainShell> {
       'pdf_reader': 97,
       'tipitaka': 96,
       'dict_manager': 94,
+      'dict_packs': 93,
       'understand_ai_coach': 92,
       'word_list': 90,
       'shell_ui_settings': 88,
@@ -1119,6 +1133,11 @@ class _MainShellState extends State<MainShell> {
       case 'dict_manager':
         nav.push(
           MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+        );
+        return;
+      case 'dict_packs':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const DictPackScreen()),
         );
         return;
       case 'video_library':

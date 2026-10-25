@@ -4,6 +4,7 @@ import '../models/dict_info.dart';
 import '../services/dict_device_channel.dart';
 import '../services/dict_import_service.dart';
 import '../services/dictionary_service.dart';
+import 'dict_pack_screen.dart';
 
 /// Màn hình quản lý từ điển đã import (I4U18-DICT-001):
 /// - Import THƯ MỤC hoặc NHIỀU FILE (set .mdx + .mdd + .css/asset).
@@ -256,6 +257,21 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF2196F3)),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // DICT-PACK-001: tải bộ từ điển có sẵn (một chạm) thay vì bắt
+          // người dùng tự tìm file .mdx/.mdd trên mạng.
+          IconButton(
+            tooltip: context.uiText('Tải bộ từ điển'),
+            icon: const Icon(Icons.cloud_download_outlined,
+                color: Color(0xFF2196F3)),
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DictPackScreen()),
+              );
+              await _loadDicts();
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

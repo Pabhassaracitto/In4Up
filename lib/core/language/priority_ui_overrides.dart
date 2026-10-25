@@ -6655,4 +6655,129 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     "zh_TW": "螢幕上沒有需要翻譯的文字",
     "si": "තිරයේ පරිවර්තනය කළ යුතු පෙළක් නැත",
   },
+
+  // ── DICT-PACK-001 / READ-WORDSTYLE-001 (owner 2026-10-25) ──────────────
+  // Màn "Tải bộ từ điển", kiểu hiển thị từ ở tab Đọc + thông điệp tiến
+  // trình khi tải. Chỉ có `en`: `_valueForLocale` rơi về `en` cho mọi
+  // locale khác — KHÔNG bao giờ rơi về tiếng Việt (quy tắc vàng #5).
+  'Không đọc được danh mục từ nguồn này. Kiểm tra URL và định dạng JSON.': {
+    'en': 'Could not read the dictionary catalog from this source. Check the URL and the JSON format.',
+  },
+  'Bắt đầu…': {
+    'en': 'Starting…',
+  },
+  'Đã cài:': {
+    'en': 'Installed:',
+  },
+  'Cài thất bại': {
+    'en': 'Install failed',
+  },
+  'Tải bộ từ điển': {
+    'en': 'Download dictionary packs',
+  },
+  'Tải lại danh mục': {
+    'en': 'Reload catalog',
+  },
+  'Tải từ điển có sẵn — một chạm': {
+    'en': 'Ready-made dictionaries — one tap',
+  },
+  'Chọn một bộ bên dưới: app tải về, giải nén và lập chỉ mục ngay. Bộ đã cài hiện trong "Quản lý từ điển" và dùng được offline. Chỉ tải khi bạn bấm — không tự tải lúc mở app.': {
+    'en': 'Pick a pack below: the app downloads it, unzips it and indexes it right away. Installed packs show up in "Manage dictionaries" and work offline. Downloads start only when you tap — never at app launch.',
+  },
+  'Danh mục đang trống': {
+    'en': 'The catalog is empty',
+  },
+  'Chưa tải được danh mục (mạng?) hoặc danh mục chưa có bộ nào. Bạn vẫn dán được link ZIP/MDX trực tiếp ở ô bên dưới.': {
+    'en': 'The catalog could not be loaded (offline?) or it has no packs yet. You can still paste a direct ZIP/MDX link below.',
+  },
+  'Bộ từ điển có sẵn': {
+    'en': 'Available dictionaries',
+  },
+  'Đã cài': {
+    'en': 'Installed',
+  },
+  'Cài lại / cập nhật': {
+    'en': 'Reinstall / update',
+  },
+  'Tải & cài': {
+    'en': 'Download & install',
+  },
+  'Trang nguồn': {
+    'en': 'Source page',
+  },
+  'Đã sao chép link nguồn — mở bằng trình duyệt để xem giấy phép.': {
+    'en': 'Source link copied — open it in a browser to read the license.',
+  },
+  'Tải từ link trực tiếp': {
+    'en': 'Download from a direct link',
+  },
+  'Dán link ZIP (chứa .mdx + .mdd + .css) hoặc link .mdx trực tiếp.': {
+    'en': 'Paste a ZIP link (with .mdx + .mdd + .css) or a direct .mdx link.',
+  },
+  'Nguồn danh mục (catalog JSON)': {
+    'en': 'Catalog source (JSON)',
+  },
+  'Owner/người dùng có thể host file packs.json (GitHub raw, HuggingFace…) rồi dán URL vào đây. Định dạng: {"packs":[{"id","name","downloadUrl"}, …]}.': {
+    'en': 'You can host packs.json yourself (GitHub raw, HuggingFace…) and paste the URL here. Format: {"packs":[{"id","name","downloadUrl"}, …]}.',
+  },
+  'Dùng mặc định': {
+    'en': 'Use default',
+  },
+  'Tải danh mục': {
+    'en': 'Load catalog',
+  },
+  'Kiểu hiển thị từ': {
+    'en': 'Word display style',
+  },
+  'Nền màu': {
+    'en': 'Filled',
+  },
+  'Chỉ màu chữ': {
+    'en': 'Text colour only',
+  },
+  'Gạch chân': {
+    'en': 'Underline',
+  },
+  'Mỗi từ một ô nền màu — dễ thấy nhất khi lướt nhanh.': {
+    'en': 'A coloured background behind every word — easiest to spot while skimming.',
+  },
+  'Không nền, chỉ đổi màu chữ — dịu mắt khi đọc lâu.': {
+    'en': 'No background, only the text colour changes — easier on the eyes for long reads.',
+  },
+  'Chữ giữ màu gốc, gạch chân màu — nhẹ nhất, ít phân tâm.': {
+    'en': 'Original text colour with a coloured underline — the lightest, least distracting option.',
+  },
+  'Đang kết nối…': {
+    'en': 'Connecting…',
+  },
+  'Đang kiểm tra file…': {
+    'en': 'Verifying file…',
+  },
+  'Đang giải nén…': {
+    'en': 'Extracting…',
+  },
+  'Đang lập chỉ mục từ điển…': {
+    'en': 'Indexing the dictionary…',
+  },
+  'Đã cài xong': {
+    'en': 'Installation complete',
+  },
+  'Bộ từ điển này chưa có link tải.': {
+    'en': 'This dictionary pack has no download link yet.',
+  },
+  'Link tải không hợp lệ.': {
+    'en': 'Invalid download link.',
+  },
+  'File tải về rỗng.': {
+    'en': 'The downloaded file is empty.',
+  },
+  'Bộ từ điển này không có file .mdx/.mdd nào.': {
+    'en': 'This pack contains no .mdx/.mdd files.',
+  },
+  'Từ điển tải trực tiếp': {
+    'en': 'Directly downloaded dictionary',
+  },
+  '{value0} nghĩa': {
+    'en': '{value0} senses',
+  },
 };

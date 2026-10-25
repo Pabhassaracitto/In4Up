@@ -1205,3 +1205,35 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-10-20 | proposed | agent Arena | chuyển yêu cầu “Chỉ Android” thành
     kế hoạch Windows có WGC/Win32 spike, full-screen + drag-region flow,
     multi-monitor/DPI, OCR seam, privacy, CI và nghiệm thu máy thật.
+
+### PLAN-038 — Nguồn phát âm thống nhất (TTS · từ điển · YouGlish) + nối vào mọi chỗ tra từ (PRON-001..004)
+- Nguồn: người sở hữu (2026-10-24) — "I4U · different voice video": nghe giọng
+  người thật cho **từ đang chọn** và **từ đã lưu**; đề bài ban đầu do Gemini gợi ý
+  (thêm tab YouGlish vào `word_detail_sheet` ở Tab Đọc) — đã phản biện và sửa
+  hiện trạng trong ADR-0014 (Tab Đọc không dùng file đó, sheet không có tab,
+  YouGlish đang có 3 bản copy chứ không phải 1 service).
+- Trạng thái: proposed — **chưa code**; khung + 4 quyết định đã chốt:
+  (1) giữ cách nạp trang youglish.com trong WebView như hiện tại, owner xin phép
+  YouGlish song song, có kill-switch `youglish.enabled`; (2) phạm vi = **mọi**
+  điểm vào tra từ (Đọc · Vườn nhớ · WordList · PDF · YouTube); (3) kích hoạt =
+  **một nút, lazy** (WebView chỉ dựng khi bấm), không tab, không preload;
+  (4) mở sheet phát âm thì **pause & restore** playback/TTS.
+- Kiến trúc: `docs/adr/0015-nguon-phat-am-va-ban-tin-youglish.md`.
+- Chi tiết thi công + tiêu chí nghiệm thu từng PR: `docs/plans/PLAN-038-nguon-phat-am-youglish.md`.
+- Milestone đề xuất: M2 (PRON-001/002) → M3 (PRON-003); PRON-004 blocked chờ
+  trả lời của YouGlish + sửa Điều khoản/Privacy (link YouTube ToS, Google Privacy
+  Policy, "powered by YouGlish.com" luôn thấy, player ≥200×200).
+- Lịch sử:
+  - 2026-10-24 | proposed | agent Arena | kiểm code (word_actions_sheet 1179 dòng
+    không có TabBar; youglish_mini_sheet tự copy _buildUrl và bị `.take(5)`;
+    YouGlishScreen không nhận initialWord; DictEntry.audioPath không UI nào dùng;
+    chưa có setMediaPlaybackRequiresUserGesture) → ra ADR-0014 + plan 4 PR,
+    chưa sửa dòng code nào.
+  - 2026-10-24 | proposed→doing | agent Arena `arena/06e5aef5-in4up` | PRON-001
+    thi công xong (gom `YouGlishView`/`YouGlishUrl`/`YouGlishPrefs`, 3 điểm vào
+    thành shell, golden test + bước CI); PRON-002..004 chờ duyệt PR này.
+  - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | owner duyệt
+    khung → rebase lên tip 251e `3986433` (12 commit: DICT-CLEAN-001/
+    WORD-INSIGHT-001, screen-translate, STT); đối chiếu lại từng nhận định, sửa
+    ADR thành số 0015 (0014 đã bị nhánh 251e dùng), thêm điểm vào #7
+    `dict_entry_detail_sheet.onSpeak` vào bảng phạm vi.

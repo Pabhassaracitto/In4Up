@@ -1210,9 +1210,11 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Nguồn: người sở hữu (2026-10-24) — "I4U · different voice video": nghe giọng
   người thật cho **từ đang chọn** và **từ đã lưu**; đề bài ban đầu do Gemini gợi ý
   (thêm tab YouGlish vào `word_detail_sheet` ở Tab Đọc) — đã phản biện và sửa
-  hiện trạng trong ADR-0014 (Tab Đọc không dùng file đó, sheet không có tab,
+  hiện trạng trong ADR-0015 (Tab Đọc không dùng file đó, sheet không có tab,
   YouGlish đang có 3 bản copy chứ không phải 1 service).
-- Trạng thái: proposed — **chưa code**; khung + 4 quyết định đã chốt:
+- Trạng thái: **PRON-001 code xong + CI 🟢** (run 40161328540) → PR #107 vào
+  `arena/01a0251e-in4up`; còn nghiệm thu máy. PRON-002/003/004: proposed —
+  khung + 4 quyết định đã chốt:
   (1) giữ cách nạp trang youglish.com trong WebView như hiện tại, owner xin phép
   YouGlish song song, có kill-switch `youglish.enabled`; (2) phạm vi = **mọi**
   điểm vào tra từ (Đọc · Vườn nhớ · WordList · PDF · YouTube); (3) kích hoạt =
@@ -1227,7 +1229,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-10-24 | proposed | agent Arena | kiểm code (word_actions_sheet 1179 dòng
     không có TabBar; youglish_mini_sheet tự copy _buildUrl và bị `.take(5)`;
     YouGlishScreen không nhận initialWord; DictEntry.audioPath không UI nào dùng;
-    chưa có setMediaPlaybackRequiresUserGesture) → ra ADR-0014 + plan 4 PR,
+    chưa có setMediaPlaybackRequiresUserGesture) → ra ADR-0015 + plan 4 PR,
     chưa sửa dòng code nào.
   - 2026-10-24 | proposed→doing | agent Arena `arena/06e5aef5-in4up` | PRON-001
     thi công xong (gom `YouGlishView`/`YouGlishUrl`/`YouGlishPrefs`, 3 điểm vào

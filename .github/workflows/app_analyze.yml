@@ -665,6 +665,7 @@ jobs:
       # BƯỚC GATE: chỉ file test THUẦN DART (không Hive/widget) ⇒ an toàn làm cổng.
       - name: "Shell order test — UI-ORDER-001 (Đọc trước Nghe, logic thuần)"
         id: shell-order-test
+        timeout-minutes: 6
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |
           set +e
@@ -692,35 +693,10 @@ jobs:
           path: shell_order_test.log
           if-no-files-found: ignore
 
-      # Máy bắt CHO PHẦN MIGRATE (cần Hive + widget) — ADVISORY: lần đầu nối
-      # CI nên chỉ BÁO (annotation + artifact), KHÔNG chặn merge; khi owner xác
-      # nhận xanh trên máy thì đổi `continue-on-error` thành false.
-      - name: "Shell integration tests — migrate 1 lần + tab đáy (advisory)"
-        id: shell-integration-tests
-        continue-on-error: true
-        if: always() && steps.analyze.outcome != 'cancelled'
-        run: |
-          set +e
-          f=test/workspace_shell_integration_test.dart
-          if [ ! -f "$f" ]; then
-            echo "Không có $f trên nhánh này — bỏ qua."
-            exit 0
-          fi
-          flutter test "$f" -r expanded > shell_integration_test.log 2>&1
-          code=$?
-          cat shell_integration_test.log
-          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' shell_integration_test.log > shell_integration_clean.log || true
-          fails=$(grep -c "\[E\]" shell_integration_clean.log 2>/dev/null || echo 0)
-          echo "### UI-ORDER-001 — shell integration (advisory): exit=$code, lỗi=$fails" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$code" != "0" ]; then
-            echo "::warning title=shell integration (advisory)::exit=$code lỗi=$fails — xem artifact app-shell-integration-test-log"
-          fi
-          exit 0
-
-      - name: Upload shell integration test log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-shell-integration-test-log
-          path: shell_integration_test.log
-          if-no-files-found: ignore
+      # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
+      # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
+      # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân
+      # sách job (25 phút) mà không cho tín hiệu dùng được. Bộ test này giữ để
+      # chạy TAY trên máy dev; cổng CI cho quy tắc thứ tự là file thuần Dart ở
+      # trên. Muốn nối lại: chạy `flutter test test/workspace_shell_integration_test.dart`
+      # ở máy trước, sửa chỗ treo, rồi thêm bước gate.

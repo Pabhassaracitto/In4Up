@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "updated": "2026-10-25",
+  "note": "Danh mục bộ từ điển tải trong app In4Up (DICT-PACK-001). Sửa file này rồi push lên main là mọi máy nhận danh mục mới. Trường bắt buộc: id + downloadUrl. downloadUrl có thể là ZIP (mdx+mdd+css) hoặc file .mdx trực tiếp. sha256 là tuỳ chọn (khuyến nghị cho file lớn).",
+  "packs": [
+    {
+      "id": "en-vi-ovdp",
+      "name": "Anh → Việt (Open Vietnamese Dictionary)",
+      "description": "386.600 mục từ, gồm cả dạng biến đổi (inflected forms). Nguồn mở CC0 — dùng offline sau khi cài.",
+      "sourceLang": "en",
+      "targetLang": "vi",
+      "sizeMb": 11.4,
+      "entryCount": 386600,
+      "version": "1.1",
+      "downloadUrl": "https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/star_anhviet.mdx",
+      "license": "CC0-1.0 (Open Vietnamese Dictionary Project — github.com/catusf/tudien)",
+      "homepage": "https://github.com/catusf/tudien"
+    },
+    {
+      "id": "en-en-simple-wiktionary",
+      "name": "Anh → Anh (Simple English Wiktionary)",
+      "description": "Định nghĩa tiếng Anh đơn giản, dễ hiểu — hợp để đọc song song với bộ Anh–Việt.",
+      "sourceLang": "en",
+      "targetLang": "en",
+      "sizeMb": 2.2,
+      "version": "2026.10",
+      "downloadUrl": "https://raw.githubusercontent.com/quocanh38/dual-dictionary/main/simple-en.mdx",
+      "license": "CC BY-SA 3.0+/4.0 & GFDL (Simple English Wiktionary)",
+      "homepage": "https://simple.wiktionary.org"
+    }
+  ]
+}

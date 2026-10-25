@@ -1213,8 +1213,12 @@ Package: `video_player: ^2.8.0` (Flutter official)
   hiện trạng trong ADR-0015 (Tab Đọc không dùng file đó, sheet không có tab,
   YouGlish đang có 3 bản copy chứ không phải 1 service).
 - Trạng thái: **PRON-001 ✅ done** (code + CI 🟢 run 40161591892 + **đã merge
-  PR #107** vào `arena/01a0251e-in4up`; còn owner nghiệm thu máy). PRON-002 (phần
-  user thấy) / 003 / 004 / 005: proposed — khung + 4 quyết định đã chốt:
+  PR #107** vào `arena/01a0251e-in4up`; còn owner nghiệm thu máy). **PRON-002 🟡
+  code xong 2026-10-26** trên `arena/508531fd-in4up` (hàng Phát âm dùng chung ở
+  tab Đọc: policy nguồn thuần Dart + `WordPronunciationRow` 3 mode +
+  pause/restore + watchdog 8 s + nợ iOS inline playback của PRON-001 đã trả —
+  chi tiết PLAN-038 §2.1) ⇒ chờ CI + owner QA máy. PRON-003 / 004 / 005:
+  proposed — khung + 4 quyết định đã chốt:
   (1) giữ cách nạp trang youglish.com trong WebView như hiện tại, owner xin phép
   YouGlish song song, có kill-switch `youglish.enabled`; (2) phạm vi = **mọi**
   điểm vào tra từ (Đọc · Vườn nhớ · WordList · PDF · YouTube); (3) kích hoạt =
@@ -1239,3 +1243,9 @@ Package: `video_player: ^2.8.0` (Flutter official)
     WORD-INSIGHT-001, screen-translate, STT); đối chiếu lại từng nhận định, sửa
     ADR thành số 0015 (0014 đã bị nhánh 251e dùng), thêm điểm vào #7
     `dict_entry_detail_sheet.onSpeak` vào bảng phạm vi.
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | docs đối chiếu 12
+    commit mới (PR #112) rồi **thi công PRON-002**: 4 file mới trong
+    `features/word_lookup/` (policy · row · session · prefs), `git mv` mini sheet
+    về `screens/tools/youglish/`, cấy vào `word_actions_sheet` + `word_mini_pop`,
+    `YouGlishView.onLoaded` + `WKWebViewParams` (pubspec + lock), 7 chuỗi vào
+    `priority_ui_overrides`, test thuần Dart + bước CI "PRON-002 tests".

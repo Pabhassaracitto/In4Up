@@ -7828,9 +7828,16 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     `generated_legacy_ui_fallbacks.dart:1352`/`:1392`) ⇒ PRON-001 không cần ARB;
     thêm điểm vào #8 `web_reader/widgets/web_word_tap_sheet.dart:189`
     (`speakWord`) vào phạm vi PRON-003.
+  - 2026-10-26 | done | agent Arena `arena/508531fd-in4up` | nợ "iOS inline
+    playback" của card này ĐÃ trả ở PRON-002 (`WKWebViewParams` trong
+    `_initMobile` + direct dep `webview_flutter_wkwebview`) ⇒ nghiệm thu máy của
+    PRON-001 giờ gộp vào nghiệm thu PRON-002 (iPhone: video phải chạy NỘI TIẾP
+    trong sheet).
 
 ### PRON-002 — Hàng "Phát âm" trong Tab Đọc (một nút, lazy)
-- **Trạng thái:** 📋 proposed — PLAN-038 §2; chưa code; phụ thuộc PRON-001.
+- **Trạng thái:** 🟡 code xong 2026-10-26 trên `arena/508531fd-in4up` (chờ CI
+  `app_analyze` + owner QA máy) — PLAN-038 §2.1; đã trả luôn nợ iOS của PRON-001;
+  PRON-005 (âm thanh từ điển) vẫn chưa nối.
 - **Nguồn:** chủ dự án (2026-10-24) — yêu cầu gốc "khi chạm từ ở Tab Đọc, cho
   nghe giọng người thật trong ngữ cảnh ngay trong bảng tra".
 - **Hiện trạng đã xác minh (để người sau khỏi dò lại):** Tab Đọc **không** dùng
@@ -7867,6 +7874,35 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | rebase 251e
     `3986433`: nút loa TTS trong `word_actions_sheet.dart` dời `:278`→`:282`,
     sheet vẫn không có TabBar; thêm điểm vào #7 `dict_entry_detail_sheet.onSpeak`.
+  - 2026-10-26 | proposed→doing | agent Arena `arena/508531fd-in4up` | đối
+    chiếu lần 2 trên tip `0706d8f`: `word_mini_pop.dart` đã là **787 dòng
+    OverlayEntry** (ADR-0016, `961fb26`) ⇒ hàng nút dời `:515`–`:527`;
+    `4b4965f` cấm widget test làm cổng CI ⇒ cổng = `pronunciation_source_test`
+    (policy thuần Dart + scan nguồn).
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **thi công xong**:
+    ① `lib/features/word_lookup/pronunciation_source.dart` — enum
+    `PronunciationSource{tts,youglish,dictionary}` + `PronunciationAvailability`
+    + `PronunciationSourcePolicy.resolve/nextFallback` (thuần Dart, không plugin);
+    ② `widgets/word_pronunciation_row.dart` — 3 mode `youglishIconOnly` (pop) /
+    `compact` (header sheet) / `full` (PRON-003: play + chip nguồn + mở trình
+    duyệt); ③ `services/pronunciation_session.dart` `wrapRead` (đếm lồng nhau,
+    capture `currentLineIndex` TRƯỚC `stopSpeaking()`, restore
+    `speakAllLines(startIndex:)`, KHÔNG restore segment/AB-loop — có chủ đích);
+    ④ `services/pronunciation_prefs.dart` key `pronunciation.source` (chỉ 1 key,
+    không 7 key như đề bài Gemini); ⑤ `git mv` `youglish_mini_sheet.dart` từ
+    `tools/word_list/` → `tools/youglish/` + watchdog 8 s + banner 3 hành động
+    (TTS tự phát 1 lần · Thử lại · Mở trình duyệt) + nút mở trình duyệt ở header;
+    ⑥ `YouGlishView`: thêm `onLoaded`, **trả nợ PRON-001** — `WKWebViewParams`
+    (inline playback iOS) + `webview_flutter_wkwebview: ^3.25.1` vào pubspec
+    (lock chỉ đổi classification); ⑦ i18n: 7 chuỗi vào `priority_ui_overrides`
+    (en/hi/zh/zh_TW/si) — trong đó `Đã copy`/`Đang tải YouGlish...` trước chỉ có
+    English ở legacy fallbacks; ⑧ bước CI "PRON-002 tests" (`timeout 10m`).
+    **Chệch có chủ đích so với plan §2.1:** khi WebView lỗi/quá 8 s thì sheet
+    KHÔNG tự pop — nó hiện banner và tự phát TTS (tự đóng làm mất phương hướng
+    giữa luồng đọc); **§2.5** (nút "Mở YouGlish" điều hướng
+    `main_shell._handleTool('youglish', initialWord)`) **chuyển sang PRON-003**
+    vì tiêu chí nghiệm thu chỉ yêu cầu "Mở trình duyệt", đã có trong banner.
+    Sandbox không có Flutter SDK ⇒ mọi kết luận đỏ/xanh lấy từ run CI.
 
 ### PRON-003 — Hàng "Phát âm" cho các chỗ tra từ còn lại (từ đã lưu · PDF · YouTube)
 - **Trạng thái:** 📋 proposed — PLAN-038 §3; chưa code; phụ thuộc PRON-002.

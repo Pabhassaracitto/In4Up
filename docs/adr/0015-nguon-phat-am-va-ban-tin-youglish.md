@@ -198,3 +198,32 @@ xóa 3 chuỗi Việt hard-code đang vi phạm trong `youglish_mini_sheet.dart`
 | Copy `youglish_mini_sheet` sang Read tab | bản duplicate thứ 4, không có nhánh Windows, lỗi URL nhân bản |
 | Thêm Bloc/Provider layer cho state YouGlish | state chỉ là word+lang+accent trong một sheet; `ChangeNotifier`/`SharedPreferences` là đủ |
 | Bỏ luôn YouGlish, chỉ TTS | mất đúng giá trị owner cần: nhiều giọng người thật trong ngữ cảnh |
+
+## Cập nhật 2026-10-26 — PRON-002 đã code: ADR này sống đúng như thiết kế
+
+Không cần ADR mới (quyết định kiến trúc không đổi; đây là bằng chứng thực thi).
+Ghi lại 4 điều chỉ thấy khi code xong:
+
+- **D1 thành hiện thực theo chiều ngược lại**: khi code, thứ cần tách khỏi
+  YouGlish không phải UI mà là **chính sách chọn nguồn** — nó nằm ở
+  `lib/features/word_lookup/pronunciation_source.dart`, THUẦN DART, và là cổng
+  CI duy nhất (`4b4965f`: widget test + plugin treo >8 phút trên runner). Mọi
+  surface chỉ còn gọi `WordPronunciationRow`.
+- **D3 (một nút, lazy) có thêm một hệ quả không dự trước**: vì WebView chỉ dựng
+  khi bấm, MỌI lỗi mạng đều nằm trên tay sheet ⇒ sheet phải tự chứa bậc thoái
+  lui (watchdog `loadBudget` 8 s + banner 3 hành động + auto-TTS). Chọn banner
+  thay vì auto-pop: pop sheet tự động giữa luồng đọc là một regression UX.
+- **D4 (pause & restore) xác nhận `TextProvider` không có pause**:
+  `speak()` đã giết đọc bài qua `_startExclusiveTtsSession`, `stopSpeaking()`
+  xóa `currentLineIndex` ⇒ "pause" = capture index trước khi stop, restore bằng
+  `speakAllLines(startIndex:)` (`PronunciationSession.wrapRead`). KHÔNG đụng
+  `lib/ffi/` ✓. Segment/AB-loop: dừng nhưng không tự chạy lại.
+- **Nợ PRON-001 đã trả**: `webview_flutter_wkwebview` thành direct dep và
+  `allowsInlineMediaPlayback`/`mediaPlaybackRequiresUserGesture` đặt trong
+  `WKWebViewParams.fromPlatformCreationParams` (KHÔNG có setter trên
+  `WebViewController` — CI PRON-001 đã chứng minh). **Điều kiện nghiệm thu**:
+  chỉ iPhone thật mới kết luận được video chạy nội tiếp hay không.
+- Hệ quả cho PRON-005: `dictionary` có trong enum + policy nhưng
+  `PronunciationAvailability.dictionaryHasAudio` luôn `false` cho tới khi nối
+  `DictEntry.audioPath` (DICT-PACK-001 đã cho phép `wav/mp3/ogg/m4a` trong pack,
+  `just_audio` đã là dep ⇒ việc nhỏ). ADR mới cho PRON tiếp theo: **0018**.

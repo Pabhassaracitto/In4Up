@@ -25,6 +25,7 @@ import 'package:in4up/widgets/karaoke_lyrics_line.dart';
 import 'package:in4up/widgets/karaoke_settings_sheet.dart';
 import 'package:in4up/widgets/lrc_editor_panel.dart';
 
+import '../../core/navigation/shell_navigation_request.dart';
 import '../../models/waveform_data.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/player_provider.dart';
@@ -823,6 +824,58 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (mounted) setState(() => _voiceListening = false);
   }
 
+  Future<void> _handoffAudioToUnderstand() async {
+    final player = _playerProvider ?? context.read<PlayerProvider>();
+    final path = player.currentSongPath;
+    final understand = _understandProvider;
+    if (path == null || path.trim().isEmpty || understand == null) return;
+    final index = understand.currentLineIndex;
+    final line = index >= 0 && index < understand.lrcLines.length
+        ? understand.lrcLines[index]
+        : null;
+    final positionMs = player.state.position.inMilliseconds;
+    final send = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.uiText('Hiểu đoạn audio này'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text('${context.uiText('Vị trí')}: ${_fmtDuration(player.state.position)}'),
+              if (line != null) ...[
+                const SizedBox(height: 8),
+                Text(line.text, maxLines: 4, overflow: TextOverflow.ellipsis),
+              ],
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(sheetContext).pop(true),
+                icon: const Icon(Icons.psychology_outlined),
+                label: Text(context.uiText('Mở trong Hiểu')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (send != true || !mounted) return;
+    ShellNavigationRequest.openUnderstand();
+    Navigator.of(context).pop({
+      'sourceType': 'audio',
+      'sourceId': path,
+      'timestampMs': positionMs,
+      'selectedSubtitle': line?.text,
+      'returnPath': '/listen',
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Selector<PlayerProvider, String?>(
@@ -1125,6 +1178,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                       ),
                                     ),
                                     const SizedBox(width: 4),
+                                    _LrcIconBtn(
+                                      icon: Icons.psychology_outlined,
+                                      tooltip: context.uiText('Hiểu đoạn đang nghe'),
+                                      onTap: _handoffAudioToUnderstand,
+                                    ),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
                                       tooltip: context.uiText('Tuỳ chỉnh'),

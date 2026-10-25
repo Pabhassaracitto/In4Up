@@ -24,6 +24,8 @@ on:
     paths:
       - 'lib/**'
       - 'packages/in4up_ai/**'
+      # PARAKEET-002: giải nén .tar.bz2 theo luồng nằm trong packages/in4up_stt.
+      - 'packages/in4up_stt/**'
       - 'windows/**'
       - 'scripts/import_tipitaka.py'
       - '.gitmodules'
@@ -37,6 +39,8 @@ on:
     paths:
       - 'lib/**'
       - 'packages/in4up_ai/**'
+      # PARAKEET-002: giải nén .tar.bz2 theo luồng nằm trong packages/in4up_stt.
+      - 'packages/in4up_stt/**'
       - 'windows/**'
       - 'scripts/import_tipitaka.py'
       - '.gitmodules'
@@ -130,6 +134,30 @@ jobs:
         with:
           name: app-locale-test-log
           path: locale_test.log
+          if-no-files-found: ignore
+
+      # PARAKEET-002 — bộ giải nén .tar.bz2 theo luồng (thay `decodeBytes` nạp
+      # cả archive vào RAM: import Parakeet ~487MB làm Android kill app).
+      # Bỏ qua nếu nhánh chưa có file test.
+      - name: "PARAKEET-002 tests — tar.bz2 stream extractor"
+        id: tarbz2-stream-tests
+        run: |
+          set +e
+          if [ ! -f test/tar_bz2_stream_extractor_test.dart ]; then
+            echo "Không có test PARAKEET-002 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/tar_bz2_stream_extractor_test.dart > tarbz2_stream_test.log 2>&1
+          code=$?
+          cat tarbz2_stream_test.log
+          exit $code
+
+      - name: Upload PARAKEET-002 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-tarbz2-stream-test-log
+          path: tarbz2_stream_test.log
           if-no-files-found: ignore
 
       # DICT-CLEAN-001 / WORD-INSIGHT-001: làm sạch nội dung từ điển (bỏ

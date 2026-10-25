@@ -7142,13 +7142,43 @@
   en/hi/zh/zh_TW/si) + `test/stt_model_settings_i18n_coverage_test.dart`.
 
 ### 24. PARAKEET-002 — (P2) Giải nén archive model lớn đang nằm trong RAM
-- **Triệu chứng (dự báo):** `_extractTarBz2` đọc cả archive vào `Uint8List`
-  rồi `BZip2Decoder().decodeBytes` → với Parakeet (~487MB nén / ~670MB sau
-  giải nén) cần >1.1GB RAM tạm, dễ bị Android kill trên máy 4GB.
-- **Kỳ vọng:** giải nén **streaming** hoặc tải thẳng từng file từ HF.
+- **Triệu chứng (ĐÃ XẢY RA trên máy chủ dự án):** "Tôi đã build nhưng khi
+  import parakeet thì một chặng app bị văng". `_extractTarBz2` cũ đọc cả
+  archive vào `Uint8List` rồi `BZip2Decoder().decodeBytes` → với Parakeet
+  (~487MB nén / ~670MB sau giải nén) cần >1.1GB RAM tạm ⇒ Android LMK kill
+  tiến trình (không có exception, chỉ là app biến mất).
+- **Đã sửa (2026-10-26, nhánh `arena/bf1b274b-in4up`):**
+  - `packages/in4up_stt/lib/import/tar_bz2_stream_extractor.dart` —
+    `extractTarBz2ToDirectorySync()`: `InputFileStream` (buffer 64KB) +
+    `OutputStream` tự viết, parse header tar 512 byte và **ghi từng file
+    thẳng ra đĩa**. Đỉnh RAM ≈ 1 khối bz2 (≲1MB) thay vì >1.1GB. Xử lý
+    USTAR prefix, GNU `././@LongLink` (cắt NUL), PAX `path=`, thư mục,
+    symlink/hardlink, chặn `../` + đường dẫn tuyệt đối.
+  - `SherpaModelManager._extractTarBz2` → gọi bộ giải nén trên, archive
+    >48MB chạy trong `Isolate.run` (UI không đứng hình/ANR). Dùng chung cho
+    mọi call site: Parakeet, Whisper, Piper (8 chỗ).
+  - `_extractZip` **chặn** archive >48MB (ZipDecoder vẫn giải nén trong RAM)
+    — báo lỗi hướng dẫn giải nén trên máy tính rồi Import thư mục.
+  - Màn Model AI, `_importFiles`: bỏ `withData: true` (nạp bytes cả
+    `encoder.int8.onnx` ~624MB), chuyển sang `withReadStream: true` + ghi
+    tạm theo luồng rồi copy theo path (mẫu có sẵn ở `dict_import_service`)
+    — xoá bản tạm trong `finally`. Thêm `SherpaAsrImportStatus.fileTooLarge`
+    + trần `kMaxNamedBytesFileBytes = 32MB` cho đường bytes (SAF).
+  - `_importAsrListing`: archive được giải nén cả khi user chọn kèm file lẻ
+    (trước đây `copied == 0` làm archive bị bỏ qua → báo thiếu file oan).
+  - Test: `test/tar_bz2_stream_extractor_test.dart` (padding 512, file 0
+    byte, bội 512, >64KB, GNU longname, PAX, traversal, archive hỏng/rỗng,
+    + fixture thật `test/fixtures/asr_model_sample.tar.bz2` do GNU tar tạo).
+    CI: bước "PARAKEET-002 tests" trong `app_analyze.yml`.
 - **Ưu tiên:** P2 (chặn nghiệm thu Parakeet trên máy RAM thấp).
-- **Nghiệm thu:** tải Parakeet trên máy 4GB không crash.
-- **Trạng thái:** 📋 proposed.
+- **Nghiệm thu:** import Parakeet trên máy thật → giải nén xong, model chạy,
+  app không văng; xoá model vẫn giải phóng đủ dung lượng.
+- **Trạng thái:** 🔨 doing — code + test xong, chờ CI 🟢 và nghiệm thu máy.
+- **Bài học:** không có `flutter analyze`/`dart test` trong sandbox ⇒ thuật
+  toán tar được **mô phỏng lại bằng Python** trên archive do GNU tar sinh ra
+  (pax/gnu/default, file 0 byte, bội 512, >64KB, traversal). Mô phỏng bắt
+  được 2 lỗi thật trước khi lên CI: quên `_padRemaining` sau khi mở file
+  (lệch 507 byte ⇒ mọi header sau đó rác) và tên GNU longname còn NUL.
 
 ### 📄 Prompt giao việc (file ở gốc repo) — BATCH AUDIT v1.10.4
 | File | Mục bao phủ |

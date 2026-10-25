@@ -6780,4 +6780,16 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   '{value0} nghĩa': {
     'en': '{value0} senses',
   },
+  // PARAKEET-002 — import model quá lớn cho đường đọc-bytes (SAF).
+  'File model quá lớn để đọc trực tiếp. Hãy dùng "Import thư mục" hoặc chọn file có đường dẫn thật (không qua SAF).':
+      {
+    'en':
+        'This model file is too large to read directly. Use "Import folder" or pick a file with a real file path (not via SAF).',
+    'hi':
+        'यह मॉडल फ़ाइल सीधे पढ़ने के लिए बहुत बड़ी है। "फ़ोल्डर आयात करें" चुनें या वास्तविक पथ वाली फ़ाइल चुनें (SAF से नहीं)।',
+    'zh': '该模型文件过大，无法直接读取。请使用“导入文件夹”，或选择具有真实路径的文件（不要通过 SAF）。',
+    'zh_TW': '該模型檔案過大，無法直接讀取。請使用「匯入資料夾」，或選擇具有真實路徑的檔案（不要透過 SAF）。',
+    'si':
+        'මෙම ආකෘති ගොනුව කෙලින්ම කියවීමට විශාල වැඩිය. "ෆෝල්ඩරය ආයාත කරන්න" භාවිත කරන්න හෝ සැබෑ මාර්ගයක් ඇති ගොනුවක් තෝරන්න.',
+  },
 };

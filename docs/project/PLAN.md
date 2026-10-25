@@ -1217,8 +1217,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
   code xong 2026-10-26** trên `arena/508531fd-in4up` (hàng Phát âm dùng chung ở
   tab Đọc: policy nguồn thuần Dart + `WordPronunciationRow` 3 mode +
   pause/restore + watchdog 8 s + nợ iOS inline playback của PRON-001 đã trả —
-  chi tiết PLAN-038 §2.1) ⇒ chờ CI + owner QA máy. PRON-003 / 004 / 005:
-  proposed — khung + 4 quyết định đã chốt:
+  chi tiết PLAN-038 §2.1) ⇒ **CI 🟢 run 40235361999**, còn owner QA máy, chờ merge
+  qua PR #112. PRON-003 / 004 / 005: proposed — khung + 4 quyết định đã chốt:
   (1) giữ cách nạp trang youglish.com trong WebView như hiện tại, owner xin phép
   YouGlish song song, có kill-switch `youglish.enabled`; (2) phạm vi = **mọi**
   điểm vào tra từ (Đọc · Vườn nhớ · WordList · PDF · YouTube); (3) kích hoạt =

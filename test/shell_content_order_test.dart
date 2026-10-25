@@ -3,7 +3,7 @@ import 'package:in4up/models/shell_content_order.dart';
 
 void main() {
   group('ShellContentOrder', () {
-    test('defaults to Listen then Read and keeps library sides aligned', () {
+    test('Listen then Read keeps library sides aligned (non-default)', () {
       const order = ShellContentOrder.listenRead;
 
       expect(order.isListenFirst, isTrue);
@@ -23,22 +23,28 @@ void main() {
       expect(order.storageValue, 'readListen');
     });
 
+    // Owner 2026-10-25: mặc định ĐỔI sang Đọc-trước-Nghe. Giá trị lạ/thiếu
+    // phải rơi về mặc định MỚI (Read first), không phải mặc định cũ.
     test('unknown persisted values fail safe to the default order', () {
       expect(
         shellContentOrderFromStorage(null),
-        ShellContentOrder.listenRead,
+        ShellContentOrder.readListen,
       );
       expect(
         shellContentOrderFromStorage('old-or-corrupt-value'),
-        ShellContentOrder.listenRead,
+        ShellContentOrder.readListen,
       );
       expect(
         shellContentOrderFromStorage(42),
-        ShellContentOrder.listenRead,
+        ShellContentOrder.readListen,
       );
       expect(
         shellContentOrderFromStorage('readListen'),
         ShellContentOrder.readListen,
+      );
+      expect(
+        shellContentOrderFromStorage('listenRead'),
+        ShellContentOrder.listenRead,
       );
     });
   });

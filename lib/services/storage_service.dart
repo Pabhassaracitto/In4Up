@@ -1,4 +1,5 @@
 // lib/services/storage_service.dart
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -346,6 +347,10 @@ class StorageService {
         true;
   }
 
+  /// Cờ "đã migrate sang Đọc-trước-Nghe" (chỉ chạy 1 lần / thiết bị).
+  static const String _contentOrderReadFirstMigrationKey =
+      'shell_content_order_read_first_v1';
+
   /// Persist the order of the two primary content workspaces.
   ///
   /// The same value is consumed by bottom navigation and by the Scaffold
@@ -353,9 +358,24 @@ class StorageService {
   /// crossing the Listen and Read libraries.
   Future<void> saveShellContentOrder(ShellContentOrder order) async {
     await saveSetting('shell_content_order_v1', order.storageValue);
+    // Người dùng đã tự chọn ⇒ đánh dấu đã migrate để không bị ép lại.
+    await saveSetting(_contentOrderReadFirstMigrationKey, true);
   }
 
   ShellContentOrder getShellContentOrder() {
+    // MIGRATION 1 LẦN (owner 2026-10-25: "chuyển tab Đọc ra trước tab Nghe").
+    //
+    // Máy đã cài bản cũ ĐÃ LƯU 'listenRead' ⇒ chỉ đổi default trong
+    // `shellContentOrderFromStorage` là KHÔNG đủ: thiết bị đó vẫn Nghe-trước.
+    // Lần đầu chạy bản này, ép về `readListen` rồi ghi cờ; từ lần sau lựa chọn
+    // của người dùng (đổi trong Cài đặt → Giao diện shell) được tôn trọng
+    // tuyệt đối, không bị migrate đè nữa.
+    final migrated = _settings.get(_contentOrderReadFirstMigrationKey);
+    if (migrated != true) {
+      // Ghi bền (fire-and-forget) để lần mở app sau không migrate lại.
+      unawaited(saveShellContentOrder(ShellContentOrder.readListen));
+      return ShellContentOrder.readListen;
+    }
     final raw = _settings.get('shell_content_order_v1');
     return shellContentOrderFromStorage(raw);
   }

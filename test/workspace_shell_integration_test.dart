@@ -77,10 +77,28 @@ void main() {
       expect(ShellContentOrder.listenRead.readOnLeft, isFalse);
       expect(ShellContentOrder.readListen.readOnLeft, isTrue);
       expect(ShellContentOrder.readListen.listenOnLeft, isFalse);
+      // Mặc định mới (owner 2026-10-25): Đọc trước Nghe ⇒ giá trị lạ rơi về
+      // readListen, và Read chiếm drawer TRÁI.
       expect(
         shellContentOrderFromStorage('old-or-corrupt'),
-        ShellContentOrder.listenRead,
+        ShellContentOrder.readListen,
       );
+    });
+
+    test('first run migrates a legacy install to Read-then-Listen once', () async {
+      // Máy cài từ bản cũ: đã lưu 'listenRead' nhưng CHƯA có cờ migrate.
+      await Hive.box('settings').put('shell_content_order_v1', 'listenRead');
+      expect(storage.getShellContentOrder(), ShellContentOrder.readListen);
+      // Cho fire-and-forget ghi xong.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        Hive.box('settings').get('shell_content_order_v1'),
+        'readListen',
+      );
+
+      // Người dùng tự đổi lại ⇒ lần sau KHÔNG bị migrate đè.
+      await storage.saveShellContentOrder(ShellContentOrder.listenRead);
+      expect(storage.getShellContentOrder(), ShellContentOrder.listenRead);
     });
   });
 

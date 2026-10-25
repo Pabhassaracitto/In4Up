@@ -44,6 +44,7 @@
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | WEB-BUILD-001 | `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages | ✅ done (đã deploy `gh-pages`, chờ owner kiểm) | entrypoint `lib/main_web.dart` web-safe + `web/flutter_bootstrap.js` canvasKit cục bộ + `web/yt_embed.html` fix -1 (origin/enablejsapi) — IN4-109 |
 | WEB-BUILD-002 | Web VẪN TRẮNG + YouTube -1 tái phát sau fix 001 — thiếu `home:` + thiếu loader/.nojekyll | 🔨 doing (đã fix, chờ CI + hard-reload) | `home:` rỗng ⇒ trắng; thêm loader + `.nojekyll` + yt_embed v2 validate ID — IN4-109 tiếp nối |
+| UI-ORDER-001 | (2026-10-25) Đổi thứ tự tab **Đọc trước Nghe** (đồng bộ thư viện/drawer + Studio ở Home) + Home bỏ 1 trong 2 icon robot, trả chỗ cho **thư viện Đọc** | 🔨 doing (code + test xong, chờ CI + nghiệm thu máy) | `ShellContentOrder` mặc định `readListen` + migrate 1 lần cho máy đã lưu `listenRead`; `home_screen.dart` bỏ robot ở header → `menu_book_rounded` mở đúng drawer Đọc |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
 | LISTEN-630-01 | Tab Nghe: AB loop bottom overflow 24px + nút "lặp câu tiếp theo" | ✅ done | LRC budget + onPanelChanged (chờ nghiệm thu) |
 | LISTEN-823-01 | Tab Nghe: rèm LRC + AI sheet + dịch Hiểu + transcript đúng audio | ✅ done | 1d05ce9; CI run 32660616256 xanh (chờ QA đổi file nhanh) |
@@ -7856,3 +7857,18 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     PRON-001 (URL mới == nguyên văn 2 hàm cũ trên ma trận 10 từ × 24 ngôn ngữ ×
     7 accent, và 2 source-scan "1 chỗ dựng URL / không còn WebViewController(
     ngoài view") đều đạt. Nghiệm thu máy vẫn chờ owner.
+
+### UI-ORDER-001 — (2026-10-25) Đọc trước Nghe (đồng bộ thư viện) + Home bớt 1 icon robot, trả chỗ cho thư viện Đọc
+- **Trạng thái:** 🔨 doing (code + test xong; chờ CI `app_analyze` + nghiệm thu máy)
+- **Nguồn:** owner 2026-10-25 — *"Chuyển tab đọc ra trước tab nghe. Lưu ý đồng bộ luôn thư viện. Cho chúng tương ứng với hướng."* + *"Home đang có 2 icon robot cài đặt, hãy bỏ bớt 1. trả nó lại cho icon thư viện đọc."*
+- **Vấn đề:** (1) tab đáy đang `Nghe | Đọc`, drawer thư viện canh theo `ShellContentOrder.listenRead` ⇒ muốn Đọc-trước thì phải đổi CẢ tab, CẢ drawer, CẢ thứ tự card Studio, không được lệch nhau. (2) Home có **2 icon robot** cùng mở "Quản lý Model AI" (1 ở AppBar shell, 1 ở header Home) trong khi **thư viện Đọc không có icon** trên Home.
+- **Đã làm:**
+  1. `lib/models/shell_content_order.dart` — `shellContentOrderFromStorage()` mặc định **`readListen`** (trước là `listenRead`); giá trị lạ/thiếu rơi về Read-first.
+  2. `lib/screens/main_shell.dart` — `_contentOrder` khởi tạo `readListen`; truyền `onOpenTextLibrary: _openTextLibrary` xuống Home.
+  3. `lib/services/storage_service.dart` — **migrate 1 lần** (`shell_content_order_read_first_v1`): máy đã cài bản cũ ĐÃ lưu `listenRead` sẽ được đổi sang `readListen` đúng một lần; sau đó lựa chọn của người dùng trong *Cài đặt → Giao diện shell* được tôn trọng tuyệt đối (vì `saveShellContentOrder` cũng bật cờ).
+  4. `lib/screens/home/home_screen.dart` — bỏ icon robot ở header Home, thay bằng **`Icons.menu_book_rounded`** (tooltip `readLibrary`, màu Đọc `#2196F3`) gọi `_openTextLibrary()` ⇒ mở đúng drawer mà `ShellContentOrder` gán cho Đọc (trái khi Read-first). Robot vẫn còn ở AppBar shell nên **không mất lối vào Quản lý Model AI**. Đồng thời **xếp lại 7 card Studio** theo đúng thứ tự tab mới: ĐỌC · VIẾT · NGHE · NÓI · XEM · HIỂU · NHỚ.
+- **Đồng bộ "hướng" (1 nguồn sự thật):** `ShellContentOrder` vẫn là nguồn duy nhất cho cả 4 chỗ — tab đáy (`_buildBottomNav`), `drawer`/`endDrawer` (`TextLibraryDrawer` ↔ `AudioLibraryDrawer`), `_leftLibraryIsAudio` (icon/tooltip 2 nút thư viện trên AppBar) và `_openTextLibrary`/`_openAudioLibrary`. Đổi thứ tự ở một chỗ ⇒ cả 4 chỗ đi cùng hướng, không thể "tab Đọc đi với thư viện âm thanh".
+- **Máy bắt:** `test/shell_content_order_test.dart` (mặc định Read-first + giá trị lạ rơi đúng) và `test/workspace_shell_integration_test.dart` (thêm test *"first run migrates a legacy install to Read-then-Listen once"*: máy lưu `listenRead` + chưa có cờ ⇒ lần đầu trả `readListen` và ghi bền; người dùng đổi lại ⇒ không bị migrate đè) + test tab đáy `Đọc` nằm bên trái `Nghe`.
+- **Chưa kiểm:** máy thật (thứ tự tab sau khi cập nhật đè, drawer trái = thư viện văn bản, icon sách trên Home mở đúng thư viện, robot còn 1 cái). Sandbox không có Flutter SDK.
+- **Lịch sử:**
+  - 2026-10-25 | created→doing | agent arena/01a0251e-in4up | đổi default + migrate 1 lần + Home trả chỗ cho thư viện Đọc + xếp lại Studio; sửa 2 file test theo mặc định mới

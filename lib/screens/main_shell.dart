@@ -87,7 +87,8 @@ class _MainShellState extends State<MainShell> {
   _PrimaryTab _currentTab = _PrimaryTab.home;
   int _listenModeIndex = 0;
   int _readModeIndex = 0;
-  ShellContentOrder _contentOrder = ShellContentOrder.listenRead;
+  // Mặc định: Đọc trước Nghe (yêu cầu 2026-10-25) — đồng bộ với shell_content_order.dart
+  ShellContentOrder _contentOrder = ShellContentOrder.readListen;
   ReadContentSource _readSource = ReadContentSource.document;
   ListenContentSource _listenSource = ListenContentSource.audioLibrary;
   UnderstandWorkspaceMode _understandMode = UnderstandWorkspaceMode.sync;
@@ -1144,6 +1145,7 @@ class _MainShellState extends State<MainShell> {
               MaterialPageRoute(builder: (_) => const AiChatScreen()),
             );
           },
+          onOpenTextLibrary: _openTextLibrary,
         );
       case _PrimaryTab.listen:
         return IndexedStack(

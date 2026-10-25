@@ -12,8 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'youglish_config.dart';
 
 class YouGlishPrefs {
-  YouGlishPrefs._();
-
   /// Khóa PRON-001/002. `true` = mọi điểm vào YouGlish hiện; `false` = ẩn toàn
   /// bộ điểm vào trong hàng "Phát âm" (owner dùng khi YouGlish từ chối cấp
   /// quyền — ADR-0015 D2). Đọc ở PRON-002 (nơi đầu tiên có hàng "Phát âm").

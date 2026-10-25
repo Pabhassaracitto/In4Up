@@ -144,9 +144,21 @@ class YouGlishViewState extends State<YouGlishView> {
     _mobileCtrl = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(widget.webBackgroundColor)
-      // YouGlish nhúng player YouTube: iOS KHÔNG phát inline nếu thiếu dòng
-      // này (PRON-001 bổ sung vì 2 điểm vào cũ đều quên — ADR-0015 mục "Hệ quả").
-      ..setMediaPlaybackRequiresUserGesture(false)
+      // ⚠️ iOS inline playback — CỐ TÌNH KHÔNG sửa ở PRON-001 (CI bắt được và
+      // tụi tôi kiểm lại: `WebViewController` của webview_flutter 4.14.1 KHÔNG
+      // có `setMediaPlaybackRequiresUserGesture`; khóa này là THAM SỐ KHỞI TẠO:
+      //   import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+      //   PlatformWebViewControllerCreationParams params =
+      //       const PlatformWebViewControllerCreationParams();
+      //   if (WebViewPlatform.instance is WKWebViewPlatform) {
+      //     params = WKWebViewParams.fromPlatformCreationParams(params)
+      //       ..allowsInlineMediaPlayback = true
+      //       ..mediaPlaybackRequiresUserGesture = false;
+      //   }
+      //   WebViewController.fromPlatformCreationParams(params)
+      // Đặt ở đây = đổi hành vi iOS của 2 điểm vào cũ + cần nghiệm thu iPhone
+      // ⇒ chuyển sang PRON-002 (nơi YouGlish lần đầu vào luồng đọc), kèm thêm
+      // `webview_flutter_wkwebview` vào pubspec (hiện mới là transitive 3.25.1).
       ..setNavigationDelegate(NavigationDelegate(
         onPageStarted: (_) {
           if (mounted) setState(() => _isLoading = true);

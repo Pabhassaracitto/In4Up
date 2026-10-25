@@ -11,6 +11,9 @@ import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:flutter/material.dart' show Text;
 import 'package:video_player/video_player.dart';
 
+import '../../../core/navigation/shell_navigation_request.dart';
+import '../../../core/watch/watch_mode_flow.dart';
+import '../../../models/i4u_shell_contracts.dart';
 import '../models/video_info.dart';
 import '../services/subtitle_parser.dart';
 import '../services/video_device_channel.dart';
@@ -33,6 +36,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double _speed = 1.0;
   List<SubtitleCue> _cues = const [];
   SubtitleCue? _currentCue;
+  final I4uWatchModeFlowController _watchFlow = I4uWatchModeFlowController();
   bool _resumed = false;
   Timer? _saveTimer;
 
@@ -58,6 +62,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
       controller.addListener(_onTick);
       setState(() => _controller = controller);
+      _watchFlow.ready(
+        source: I4uSourceFingerprint(
+          sourceType: I4uSourceType.video,
+          sourceId: widget.video.id,
+          sourceRevision: widget.video.filePath,
+          returnPath: '/watch/${widget.video.id}',
+        ),
+        transcriptAvailable: _cues.isNotEmpty,
+      );
 
       // Reopen đúng vị trí: seek tới vị trí phát gần nhất (nếu đáng kể).
       final resumeMs = widget.video.lastPositionMs;
@@ -97,6 +110,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _onTick() {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
+    _watchFlow.setTimestamp(c.value.position.inMilliseconds);
     if (_cues.isNotEmpty) {
       final cue = SubtitleParser.cueAt(_cues, c.value.position);
       if (cue != _currentCue) {
@@ -165,6 +179,55 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return '${m}:${s.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _handoffToUnderstand() async {
+    final handoff = _watchFlow.handoffToUnderstand(
+      selectedSubtitle: _currentCue?.text,
+    );
+    if (handoff == null || !handoff.isValid) return;
+
+    final send = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                context.uiText('Hiểu đoạn video này'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${context.uiText('Thời điểm')}: ${_fmt(Duration(milliseconds: handoff.timestampMs))}',
+              ),
+              if ((handoff.selectedSubtitle ?? '').trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  handoff.selectedSubtitle!,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(sheetContext).pop(true),
+                icon: const Icon(Icons.psychology_outlined),
+                label: Text(context.uiText('Mở trong Hiểu')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (send != true || !mounted) return;
+    ShellNavigationRequest.openUnderstand();
+    Navigator.of(context).pop(handoff);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = _controller;
@@ -184,6 +247,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          if (ready && (_currentCue != null || _watchFlow.value.currentTimestampMs > 0))
+            IconButton(
+              tooltip: context.uiText('Hiểu đoạn này'),
+              icon: const Icon(Icons.psychology_outlined, color: Colors.white),
+              onPressed: _handoffToUnderstand,
+            ),
           if (ready)
             PopupMenuButton<double>(
               icon: const Icon(Icons.speed, color: Colors.white),

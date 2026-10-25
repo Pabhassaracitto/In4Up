@@ -17,6 +17,8 @@ void main() {
     expect(handoff?.source.sourceId, 'video-1');
     expect(handoff?.timestampMs, 42000);
     expect(handoff?.selectedSubtitle, 'tri giác');
+    expect(handoff?.isValid, isTrue);
+    expect(handoff?.toJson()['timestampMs'], 42000);
   });
 
   test('timestamp is clamped to a safe non-negative range', () {

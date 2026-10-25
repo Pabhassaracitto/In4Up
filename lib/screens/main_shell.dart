@@ -446,6 +446,8 @@ class _MainShellState extends State<MainShell> {
     switch (target) {
       case ShellNavigationTarget.read:
         _setReadMode(0);
+      case ShellNavigationTarget.understand:
+        _setPrimaryTab(_PrimaryTab.understand);
     }
   }
 

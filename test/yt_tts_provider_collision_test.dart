@@ -75,7 +75,8 @@ void main() {
         final lines = f
             .readAsStringSync()
             .split('\n')
-            .map((l) => l.replaceFirst(RegExp(r'//.*$'), ''));
+            .map((l) => l.replaceFirst(RegExp(r'//.*$'), ''))
+            .toList();
         for (var i = 0; i < lines.length; i++) {
           if (pattern.hasMatch(lines[i])) {
             violations.add('${f.path}:${i + 1} — ${lines[i].trim()}');

@@ -187,6 +187,51 @@ void main() {
     });
   });
 
+  group('isAdjacentToWordRange — chọn nhiều từ THÔNG MINH (owner 2026-10-25)',
+      () {
+    test('từ ngay trước/sau vùng chọn ⇒ liền kề (mở rộng được)', () {
+      final range = resolveWordRange(
+        anchorIndex: 3,
+        focusIndex: 5,
+        wordCount: 10,
+      )!;
+      expect(isAdjacentToWordRange(range, 2), isTrue);
+      expect(isAdjacentToWordRange(range, 6), isTrue);
+    });
+
+    test('từ cách xa vùng chọn ⇒ KHÔNG liền kề (thoát chế độ chọn)', () {
+      final range = resolveWordRange(
+        anchorIndex: 3,
+        focusIndex: 5,
+        wordCount: 10,
+      )!;
+      expect(isAdjacentToWordRange(range, 0), isFalse);
+      expect(isAdjacentToWordRange(range, 8), isFalse);
+    });
+
+    test('từ NẰM TRONG vùng chọn không phải "liền kề" (không mở rộng)', () {
+      final range = resolveWordRange(
+        anchorIndex: 3,
+        focusIndex: 5,
+        wordCount: 10,
+      )!;
+      expect(isAdjacentToWordRange(range, 3), isFalse);
+      expect(isAdjacentToWordRange(range, 4), isFalse);
+      expect(isAdjacentToWordRange(range, 5), isFalse);
+    });
+
+    test('vùng chọn một từ: hai bên đều liền kề, mép dòng thì không', () {
+      final range = resolveWordRange(
+        anchorIndex: 0,
+        focusIndex: null,
+        wordCount: 5,
+      )!;
+      expect(isAdjacentToWordRange(range, 1), isTrue);
+      expect(isAdjacentToWordRange(range, -1), isFalse,
+          reason: 'không có từ trước từ đầu dòng');
+    });
+  });
+
   group('WordSelectionState — chạm ra ngoài biết phải bỏ chọn', () {
     test('bật/tắt cờ dòng đang chọn', () {
       WordSelectionState.deactivate();

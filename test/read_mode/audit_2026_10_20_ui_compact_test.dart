@@ -149,9 +149,16 @@ void main() {
       expect(miniPop.contains('VocabImagePicker('), isTrue);
     });
 
-    test('chạm đúp và nhấn giữ đều mở pop nhỏ', () {
+    // READ-POP-003 (owner 2026-10-25) ĐỔI HÀNH VI: chạm một từ = phát âm +
+    // pop nhanh; nhấn giữ = vào chế độ chọn nhiều từ (không còn mở pop).
+    test('chạm MỘT từ mở pop nhỏ; nhấn giữ KHÔNG mở pop', () {
       expect(coloredText.contains('WordMiniPop.show('), isTrue);
       expect(coloredText.contains('_openMiniPop'), isTrue);
+      expect(coloredText.contains('onLongPressStart: () => _startSelection'),
+          isTrue,
+          reason: 'nhấn giữ phải vào chế độ chọn nhiều từ, không mở pop');
+      expect(coloredText.contains('onDoubleTap'), isFalse,
+          reason: 'chạm đúp bị bỏ để chạm một lần là phản hồi ngay');
     });
 
     test('pop có nút quay lại chế độ bôi nhiều chữ (READ-SELECT-002)', () {

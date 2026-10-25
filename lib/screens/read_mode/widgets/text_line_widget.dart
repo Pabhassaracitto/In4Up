@@ -16,6 +16,7 @@ import '../../../models/color_mode.dart';
 import '../../../models/ipa_color_visibility.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_color_style.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
@@ -86,6 +87,9 @@ class TextLineWidget extends StatelessWidget {
                   isPlaying: _checkIsPlaying(tp, pp, index),
                   isFocusCue: index == tp.focusCueLineIndex,
                   colorMode: tp.colorMode,
+                  // READ-WORDSTYLE-001: kiểu hiển thị từ (nền / chỉ màu chữ /
+                  // gạch chân) — đổi ở Cài đặt là dòng vẽ lại ngay.
+                  wordColorStyle: tp.wordColorStyle,
                   wordTapBoxes: tp.wordTapBoxes,
                   showLineNumbers: tp.showLineNumbers,
                   textAlign: tp.textAlign,
@@ -648,14 +652,30 @@ class TextLineWidget extends StatelessWidget {
             )
           : null;
 
+      // READ-WORDSTYLE-001 — cùng một luật với ColoredTextWidget:
+      //   fill      → nền màu + chữ màu
+      //   textOnly  → chỉ chữ màu (không nền)
+      //   underline → chữ màu + gạch chân màu
+      final fillBackground = data.wordColorStyle == WordColorStyle.fill;
+      final underlineColor = grammarResolved?.underline ??
+          (data.wordColorStyle == WordColorStyle.underline
+              ? (grammarResolved?.foreground ??
+                  word.getColor(data.colorMode))
+              : null);
       spans.add(
         TextSpan(
           text: word.word,
           style: TextStyle(
             color: grammarResolved?.foreground ?? word.getColor(data.colorMode),
-            backgroundColor: grammarResolved?.background ??
-                word.getBackgroundColor(data.colorMode),
+            backgroundColor: fillBackground
+                ? (grammarResolved?.background ??
+                    word.getBackgroundColor(data.colorMode))
+                : null,
             fontWeight: grammarResolved?.fontWeight,
+            decoration:
+                underlineColor != null ? TextDecoration.underline : null,
+            decorationColor: underlineColor,
+            decorationThickness: underlineColor != null ? 1.6 : null,
           ),
         ),
       );
@@ -769,6 +789,9 @@ class _LineData {
   final bool isPlaying;
   final bool isFocusCue;
   final ColorMode colorMode;
+
+  /// READ-WORDSTYLE-001 — nền màu / chỉ màu chữ / gạch chân.
+  final WordColorStyle wordColorStyle;
   final bool wordTapBoxes;
   final bool showLineNumbers;
   final TextAlign textAlign;
@@ -800,6 +823,7 @@ class _LineData {
     required this.isPlaying,
     required this.isFocusCue,
     required this.colorMode,
+    this.wordColorStyle = WordColorStyle.fill,
     this.wordTapBoxes = false,
     required this.showLineNumbers,
     required this.textAlign,
@@ -826,9 +850,11 @@ class _LineData {
         isPlaying = false,
         isFocusCue = false,
         colorMode = ColorMode.none,
+        wordColorStyle = WordColorStyle.fill,
         wordTapBoxes = false,
         showLineNumbers = true,
-        textAlign = TextAlign.left,
+        // READ-ALIGN-001: mặc định căn GIỮA (trước đây trái).
+        textAlign = TextAlign.center,
         fontSize = 18,
         displayMode = TranslationDisplayMode.hidden,
         isSpeaking = false,
@@ -857,6 +883,7 @@ class _LineData {
         isPlaying == other.isPlaying &&
         isFocusCue == other.isFocusCue &&
         colorMode == other.colorMode &&
+        wordColorStyle == other.wordColorStyle &&
         wordTapBoxes == other.wordTapBoxes &&
         showLineNumbers == other.showLineNumbers &&
         textAlign == other.textAlign &&
@@ -893,6 +920,7 @@ class _LineData {
           isPlaying,
           isFocusCue,
           colorMode,
+          wordColorStyle,
           showLineNumbers,
           textAlign,
           fontSize,

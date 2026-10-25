@@ -33,6 +33,7 @@ import 'widgets/read_text_action_hooks.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/smart_playback_bar.dart';
 import 'widgets/text_line_widget.dart';
+import 'widgets/word_mini_pop.dart';
 
 class ReadModeScreen extends StatefulWidget {
   final RecentFile? currentFile;
@@ -270,6 +271,9 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   @override
   void dispose() {
+    // READ-POP-003: pop tra từ nhanh là OVERLAY (không tự đóng cùng màn hình)
+    // ⇒ phải dọn tay, nếu không nó sẽ nổi trên màn khác sau khi rời tab Đọc.
+    WordMiniPop.dismiss();
     if (_playerListener != null && _playerProviderRef != null) {
       _playerProviderRef!.removeListener(_playerListener!);
     }

@@ -1081,6 +1081,18 @@ class StorageService {
     await saveSetting('read_focus_title_position', value);
   }
 
+  // ── READ-ALIGN-001: căn lề văn bản tab Đọc (mặc định GIỮA) ─────────────
+  static const String readTextAlignCenter = 'center';
+  static const String readTextAlignLeft = 'left';
+
+  /// Giá trị đã lưu; rỗng ⇒ '' để provider tự dùng mặc định (giữa).
+  String getReadTextAlign() =>
+      getSetting<String>('read_text_align', defaultValue: '') ?? '';
+
+  Future<void> saveReadTextAlign(String value) async {
+    await saveSetting('read_text_align', value);
+  }
+
   /// Debug: in thông tin storage
   void debugInfo() {
     debugPrint('=== StorageService Debug ===');

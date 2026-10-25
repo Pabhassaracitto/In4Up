@@ -27,6 +27,7 @@ import '../models/text_segment.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
+import '../models/word_color_style.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/ipa_stress_annotator.dart';
 import '../services/ipa_styling.dart';
@@ -212,7 +213,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool _showLineNumbers = true;
   bool _useAutoSplit = true; // Mặc định bật tách dòng thông minh
   ReadSubMode _subMode = ReadSubMode.reading;
-  TextAlign _textAlign = TextAlign.left; // Mặc định căn lề trái
+  // READ-ALIGN-001 (owner 2026-10-25): mặc định CĂN GIỮA. Trước đây mặc định
+  // trái và lựa chọn còn KHÔNG được lưu (xem `_restoreFromStorage`), nên mở
+  // app lại là mất. Nay: mặc định giữa + lưu bền theo phiên bản đọc.
+  TextAlign _textAlign = TextAlign.center;
 
   // ==================== GETTERS ====================
   TextDocument? get currentDocument => _currentDocument;
@@ -309,6 +313,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     await ReaderDisplaySettings().setWordTapBoxes(value);
     notifyListeners();
   }
+
+  /// READ-WORDSTYLE-001 — kiểu hiển thị từ: nền màu / chỉ màu chữ / gạch chân.
+  /// Người dùng đọc lâu chọn "chỉ màu chữ" để không bị phân tâm bởi nền màu.
+  WordColorStyle get wordColorStyle => ReaderDisplaySettings().wordColorStyle;
+
+  Future<void> setWordColorStyle(WordColorStyle style) async {
+    await ReaderDisplaySettings().setWordColorStyle(style);
+    notifyListeners();
+  }
   bool get useAutoSplit => _useAutoSplit;
   ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;
@@ -370,9 +383,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         _ensurePhonemeEngine();
       }
 
-      // Restore alignment
-      // final savedAlign = _storage.getTextAlign(); // Tạm thời bỏ qua nếu StorageService chưa có
-      // _textAlign = savedAlign == 'center' ? TextAlign.center : TextAlign.left;
+      // Restore alignment (READ-ALIGN-001): lựa chọn căn lề phải sống qua lần
+      // mở app sau. Chưa có lựa chọn đã lưu ⇒ mặc định GIỮA.
+      _textAlign = _textAlignFromStored(_storage.getReadTextAlign());
 
       // Restore text segments
       final savedSegments = _storage.getAllTextSegments();
@@ -1783,9 +1796,21 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void setTextAlign(TextAlign align) {
     _textAlign = align;
-    // _storage.saveTextAlign(align == TextAlign.center ? 'center' : 'left'); // Tạm thời bỏ qua
+    // READ-ALIGN-001: lưu lựa chọn (trước đây bị "tạm thời bỏ qua" ⇒ mở lại
+    // app là về mặc định).
+    unawaited(_storage.saveReadTextAlign(
+      align == TextAlign.center
+          ? StorageService.readTextAlignCenter
+          : StorageService.readTextAlignLeft,
+    ));
     notifyListeners();
   }
+
+  /// Đổi chuỗi đã lưu → [TextAlign]; giá trị lạ/rỗng ⇒ mặc định GIỮA.
+  static TextAlign _textAlignFromStored(String value) =>
+      value == StorageService.readTextAlignLeft
+          ? TextAlign.left
+          : TextAlign.center;
 
   void toggleAutoSplit(bool value) {
     _useAutoSplit = value;

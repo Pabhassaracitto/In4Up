@@ -7720,7 +7720,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   đổi hành vi iOS vì API là tham số khởi tạo, không phải method.
 - **Lịch sử:**
   - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | kiểm code +
-    ADR-0014 + PLAN-038; chưa sửa dòng code nào (chờ owner duyệt khung).
+    ADR-0015 + PLAN-038; chưa sửa dòng code nào (chờ owner duyệt khung).
   - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | rebase lên
     251e `3986433`: `git diff --name-only 3f8197a..3986433 -- lib/screens/tools/youglish
     lib/screens/tools/word_list` = 0 file ⇒ không chồng lấn, không mất tính năng 251e.

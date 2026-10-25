@@ -2,10 +2,12 @@
 
 - Nguồn: người sở hữu (2026-10-24) — "chức năng nghe âm thanh từ vựng đang chọn,
   từ đã lưu"; bản gợi ý ban đầu từ Gemini (tích hợp YouGlish vào Tab Đọc).
-- Trạng thái: **chưa code** — khung đã chốt, 4 quyết định của owner
-  (2026-10-24): chính sách = WebView như hiện tại + xin phép song song +
-  kill-switch; phạm vi = **mọi** nơi tra từ; kích hoạt = **một nút, lazy**;
-  xung đột âm = **pause & restore**.
+- Trạng thái: **PRON-001 = code xong + CI 🟢** (run `40161328540`: analyze +
+  Rule 5 + golden test PRON-001; `deploy-web` 🟢) → PR #107 vào
+  `arena/01a0251e-in4up`; **còn nghiệm thu máy**. PRON-002/003/004 chưa code.
+  Khung đã chốt với owner (2026-10-24): chính sách = WebView như hiện tại + xin
+  phép song song + kill-switch; phạm vi = **mọi** nơi tra từ; kích hoạt =
+  **một nút, lazy**; xung đột âm = **pause & restore**.
 - Kiến trúc: `docs/adr/0015-nguon-phat-am-va-ban-tin-youglish.md` (bắt buộc đọc
   trước khi code — mục "Quyết định" D1…D7 và "Loại bỏ").
 - Card: PRON-001 (gom), PRON-002 (tab Đọc), PRON-003 (các mặt còn lại + autoplay),
@@ -171,7 +173,7 @@ tự dựng `WebViewController` cho YouGlish ngoài `youglish_view.dart`; QA tr�
 - Commit nhỏ, push ngay. CI: `app_analyze` phải xanh; `CI-LINUX-01` đỏ sẵn
   (thiếu `libwebkit2gtk-4.1-dev`) — không phải hồi quy của PRON.
 - Không sửa `lib/ffi/`, không gộp 3 skill SM-2 (quy tắc vàng 1 & 2).
-- Một ADR bổ sung nếu PRON-004 đổi hẳn cách nhúng (hiện ADR-0014 chốt WebView-nạp-trang).
+- Một ADR bổ sung nếu PRON-004 đổi hẳn cách nhúng (hiện ADR-0015 chốt WebView-nạp-trang).
 
 ## 6. Những gì đã loại (để người sau khỏi làm lại)
 

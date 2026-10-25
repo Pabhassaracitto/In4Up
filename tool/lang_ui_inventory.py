@@ -343,6 +343,18 @@ def _append_literal_chain_values(text: str, values: set[str]) -> set[str]:
     return values
 
 
+def _used_as_identifier(text: str, value: str) -> bool:
+    """`id: 'triangle'` / `'word_map': ToolItem(` — id công cụ hoặc key map, không
+    phải chữ hiện trên màn hình."""
+    quoted = re.escape(value)
+    return bool(
+        re.search(r"id:\s*['\"]" + quoted + r"['\"]", text)
+        or re.search(
+            r"['\"]" + quoted + r"['\"]\s*:\s*(?:[A-Za-z_]+\.)?ToolItem\(", text
+        )
+    )
+
+
 def collect_sources() -> dict[str, set[str]]:
     sys.path.insert(0, str(ROOT / "tool"))
     from generate_legacy_ui_fallbacks import (  # type: ignore
@@ -369,6 +381,8 @@ def collect_sources() -> dict[str, set[str]]:
             if value.strip()
             and value.strip() not in ENGLISH_STOPWORDS
             and not ESCAPE_ARTIFACT_RE.search(value)
+            and not IDENTIFIER_RE.match(value.strip())
+            and not _used_as_identifier(text, value.strip())
         }
         if strings:
             by_file[path.relative_to(LIB).as_posix()] = strings
@@ -376,6 +390,15 @@ def collect_sources() -> dict[str, set[str]]:
 
 
 ENGLISH_CHROME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 ·:→←&/.,!?'’()%+#\-–_]*$")
+# Tool id / widget key / JSON field / storage name — không bao giờ hiện trên màn
+# hình. Chúng là string literal trong file UI nên lọt vào bộ quét; loại ra để số
+# liệu chỉ còn chuỗi người dùng thực thấy.
+IDENTIFIER_RE = re.compile(
+    r"^(?:[a-z][a-z0-9]*(?:[_-][a-z0-9]+)+"  # word_list, mode-switch-hidden
+    r"|[a-z]+[A-Z][A-Za-z0-9]*"  # showLegend
+    r"|[a-z]{2})$"  # vi, en
+)
+
 ENGLISH_STOPWORDS = {
     "AI",
     "AUTO",
@@ -402,6 +425,12 @@ ENGLISH_STOPWORDS = {
     "Captions",
     "LEXA",
     "AB Loop",
+    "A",
+    "B",
+    "A-Z",
+    "content",  # JSON field name của lyric_line, không hiện trên màn hình
+    "save",
+    "MP3, M4A, WAV, FLAC...",  # danh sách định dạng file, giữ English theo chính sách  # giá trị trả về của dialog (Navigator.pop), không hiện trên màn hình
     # Brand / model / file-format identifiers: giữ English ở mọi locale theo
     # chính sách (xem docs/language/PRIORITY_NATIVE_PACK.md — "giữ English").
     "In4Up",

@@ -256,7 +256,10 @@ void main() {
           reason: 'phải là tham số khởi tạo, không phải setter');
       expect(init.contains('allowsInlineMediaPlayback = true'), isTrue);
       expect(init.contains('mediaPlaybackRequiresUserGesture = false'), isTrue);
-      expect(view.contains('WebViewController()'), isFalse,
+      // `WinWebViewController()` (nhánh Windows) vẫn hợp lệ ⇒ chỉ soi khối
+      // `_initMobile`, kẻo bắt sai bằng chứng.
+      expect(init.contains('WebViewController.fromPlatformCreationParams'), isTrue);
+      expect(init.contains('WebViewController()'), isFalse,
           reason: 'không được dựng controller trần — mất params iOS');
       expect(_read('pubspec.yaml').contains('webview_flutter_wkwebview:'), isTrue,
           reason: 'cần direct dep thì mới import được WKWebViewParams');

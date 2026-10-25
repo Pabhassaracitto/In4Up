@@ -55,6 +55,18 @@
    - Chuỗi UI mới: ARB **hoặc** `uiText('…')` + English trong
      `tool/legacy_ui_english_overrides.json`. KHÔNG hard-code tiếng Việt ra `Text`
      rồi hy vọng shim bắt hết (shim chỉ exact, không template).
+   - **Pack bản địa cho ngôn ngữ ưu tiên (wave 2):** chrome legacy được dịch
+     thật cho `zh`/`zh_TW`/`hi`/`si`/`my`/`th`/`ja` trong
+     `tool/priority_native_pack.json` → `tool/generate_priority_native_pack.py`
+     → `lib/core/language/generated_priority_native_pack.dart` (đứng trước ARB
+     trong `AppUITranslations`). Điều tra phần còn rò rỉ bằng
+     `python3 tool/lang_ui_inventory.py [--list|--write-report]`; test máy bắt:
+     `test/language/priority_native_pack_test.dart`. Quy trình + trạng thái:
+     `docs/language/PRIORITY_NATIVE_PACK.md`. Hướng dẫn từng bước cho người
+     không chuyên: `docs/language/HOW_TO_ADD_TRANSLATIONS.md`.
+   - File UI phải import `core/language/localized_material.dart` (shim `Text` +
+     `uiText`). Import `flutter/material.dart` kèm `show Text`/`hide Text` là
+     **tắt** shim → chuỗi không bao giờ được dịch (đã có 8 file như vậy).
    - **Đừng chỉ có chữ trên giấy** — cần máy bắt (rule văn xuôi agent vẫn quên):
      1. Generator `tool/generate_legacy_ui_fallbacks.py` (`unused_overrides` /
         unclassified — fail nếu có literal chrome chưa phân loại) — giữ nguyên.

@@ -190,7 +190,55 @@ class DictTextCleaner {
     caseSensitive: false,
   );
 
+  /// Khối mà CHÍNH CSS CỦA TỪ ĐIỂN ẩn đi (`span.meta{display:none}`,
+  /// `span.domClass`, `span.semClass`, `span.encClass`, `span.morphSet`,
+  /// `span.construction`, `span.cdf`, `div.entry-headword`, `div.tocTitle`… —
+  /// xem `lad.css` của bộ Lạc Việt). Bóc thẻ mà giữ chữ của khối ẩn ⇒ chữ
+  /// "rác" (mã bản ghi, nhãn kỹ thuật) lọt vào nghĩa: đúng lỗi owner báo
+  /// "hiện nhiều phần dư mà không thấy nghĩa" (DICT-CLEAN-002).
+  static final RegExp _hiddenClassBlockRe = RegExp(
+    "<(span|div|p|sup|sub|td|li|a|font)\\b[^>]*\\bclass\\s*=\\s*"
+    "[\"'][^\"']*\\b(?:meta|domClass|semClass|encClass|morphSet|"
+    "construction|cdf|entry-headword|hidden|tocTitle|tocText)"
+    "\\b[^\"']*[\"'][^>]*>[\\s\\S]*?</\\1\\s*>",
+    caseSensitive: false,
+  );
+
   static final RegExp _tagRe = RegExp(r'<[a-zA-Z/!][^>]{0,4000}>');
+
+  /// Mã bản ghi ở ĐẦU dòng do một số bộ từ điển (bản export wordlist) chèn
+  /// vào nội dung entry: `0000015105 reading n. …` (DICT-CLEAN-002).
+  static final RegExp _recordIdRe =
+      RegExp(r'^(?:\d{6,}|\d{3,}[-_.]\d{2,})[\s.:\-–—|]*');
+
+  /// Nhãn metadata (không phải nghĩa) đứng trước dấu hai chấm.
+  static final RegExp _metaLabelRe = RegExp(
+    r'^(?:reading|pronunciation|pron|phonetic|ipa|transcription|pinyin|romaji|romanization|word forms?|forms?|inflections?|variants?|etymology|usage note|note|synonyms?|antonyms?|see also|related(?: words?)?|compare|frequency|cefr|part of speech|pos)\s*[:：]\s*',
+    caseSensitive: false,
+  );
+
+  /// Chữ cái thật (Latin có dấu, Cyrillic, Hán, Thái, Ả-rập, Devanagari…).
+  static final RegExp _letterRe = RegExp(
+    '[A-Za-zÀ-ɏĀ-ſ\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF'
+    '\u0900-\u097F\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]',
+  );
+
+  /// Metadata KHÔNG có dấu hai chấm ở đầu dòng (`reading …`).
+  static final RegExp _metaWordPrefixRe = RegExp(
+    r'^(?:reading|pronunciation|pron|phonetic|ipa|transcription|pinyin|romaji|'
+    r'romanization|part of speech|pos|cefr)\s+',
+    caseSensitive: false,
+  );
+
+  /// Nhãn metadata trơ (chỉ có nhãn, không có nội dung) ⇒ không phải nghĩa.
+  static final RegExp _bareMetaRe = RegExp(
+    r'^(?:reading|pronunciation|pron|phonetic|ipa|transcription|pinyin|romaji|'
+    r'romanization|forms?|word forms?|variant|inflection|etymology|usage|'
+    r'note|pos|part of speech|frequency|level)$',
+    caseSensitive: false,
+  );
+
+  static final RegExp _bareRecordIdRe = RegExp(r'^\d{5,}$');
 
   static final RegExp _spacesRe = RegExp(r'[ \t\u00a0]+');
 
@@ -333,7 +381,7 @@ class DictTextCleaner {
     final head = (headword ?? '').trim();
     final lines = <String>[
       for (final line in _cleanLines(raw))
-        if (!_isHeadwordOnly(line, head)) line,
+        if (!_isHeadwordOnly(line, head) && !_isJunkSense(line)) line,
     ];
     return _collapse(lines.join(' '));
   }
@@ -349,7 +397,7 @@ class DictTextCleaner {
     final groups = _groupLines(lines, headword: head);
     final plainLines = <String>[
       for (final line in lines)
-        if (!_isHeadwordOnly(line, head)) line,
+        if (!_isHeadwordOnly(line, head) && !_isJunkSense(line)) line,
     ];
     return DictDefinition(
       headword: head,
@@ -447,6 +495,7 @@ class DictTextCleaner {
   static String _stripMarkup(String raw) {
     var text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
     text = text.replaceAll(_commentRe, ' ');
+    text = text.replaceAll(_hiddenClassBlockRe, ' ');
     text = text.replaceAll(_scriptBlockRe, ' ');
     text = text.replaceAll(_scriptOpenRe, ' ');
     text = text.replaceAll(_voidTagRe, ' ');
@@ -473,12 +522,65 @@ class DictTextCleaner {
 
     final lines = <String>[];
     for (final rawLine in text.split('\n')) {
-      final line = _collapse(rawLine);
+      var line = _collapse(rawLine);
+      if (line.isEmpty) continue;
+      // `0000015105 reading n. …` → bỏ mã bản ghi + nhãn metadata.
+      line = _stripRecordIdAndMetaLabel(line);
       if (line.isEmpty) continue;
       if (_isNoise(line)) continue;
+      if (_isJunkSense(line)) continue;
       lines.add(line);
     }
     return lines;
+  }
+
+  /// Bỏ mã bản ghi dài + nhãn metadata ở đầu dòng (DICT-CLEAN-002).
+  ///
+  /// `0000015105 reading: /ˈriːdɪŋ/` ⇒ `/ˈriːdɪŋ/` (vẫn giữ để trích IPA),
+  /// `0000015105 reading n. việc đọc` ⇒ `n. việc đọc`.
+  static String _stripRecordIdAndMetaLabel(String line) {
+    var value = line;
+    for (var i = 0; i < 2; i++) {
+      final withoutId = value.replaceFirst(_recordIdRe, '');
+      if (withoutId == value) break;
+      value = _collapse(withoutId);
+      if (value.isEmpty) return '';
+    }
+    value = _collapse(value.replaceFirst(_metaLabelRe, ''));
+    value = _stripMetaWordPrefix(value);
+    return value;
+  }
+
+  /// Metadata KHÔNG có dấu hai chấm: `reading n. việc đọc`, `ipa /ˈriːdɪŋ/`.
+  ///
+  /// Chỉ bỏ chữ metadata khi phần còn lại CHẮC CHẮN là dữ liệu từ điển (bắt
+  /// đầu bằng loại từ, IPA…). Nếu không, một nghĩa thật mở đầu bằng chữ
+  /// "reading" sẽ bị cắt mất chữ đầu — cái giá quá đắt.
+  static String _stripMetaWordPrefix(String line) {
+    final match = _metaWordPrefixRe.firstMatch(line);
+    if (match == null) return line;
+    final rest = _collapse(line.substring(match.end));
+    if (rest.isEmpty) return '';
+    final looksLikeData = _asPosHeader(rest) != null ||
+        _inlinePosPrefix(rest) != null ||
+        rest.startsWith('/') ||
+        rest.startsWith('[') ||
+        RegExp(r'^\(?\d{1,2}[.)]\s').hasMatch(rest);
+    return looksLikeData ? rest : line;
+  }
+
+  /// Dòng không thể là NGHĨA: không có chữ cái, chỉ là nhãn metadata trơ,
+  /// hoặc chỉ là mã bản ghi số. (DICT-CLEAN-002)
+  static bool _isJunkSense(String text) {
+    final value = text.trim();
+    if (value.isEmpty) return true;
+    // Dòng IPA (`/ˈriːdɪŋ/`, `[həˈloʊ]`) KHÔNG phải rác: phải giữ để
+    // `extractIpa` trích được (hợp đồng ADR-0005).
+    if (_ipaSignalRe.hasMatch(value)) return false;
+    if (!_letterRe.hasMatch(value)) return true;
+    if (_bareMetaRe.hasMatch(value)) return true;
+    if (_bareRecordIdRe.hasMatch(value)) return true;
+    return false;
   }
 
   static String _decodeEntities(String text) {
@@ -572,6 +674,15 @@ class DictTextCleaner {
       current = <DictSense>[];
     }
 
+    /// Thêm (các) nghĩa của một dòng — tách số hiệu `1.`/`2.` nếu có.
+    void addSenses(String source) {
+      for (final piece in _splitNumbered(source)) {
+        if (current.length >= _maxSensesPerPos) break;
+        if (_isJunkSense(piece)) continue;
+        current.add(DictSense(piece));
+      }
+    }
+
     for (final line in lines) {
       if (_isHeadwordOnly(line, headword)) continue;
       if (_isIpaOnly(line)) continue;
@@ -583,8 +694,21 @@ class DictTextCleaner {
         continue;
       }
 
+      // DICT-CLEAN-002: nhiều bộ MDX ghi loại từ NGAY ĐẦU nghĩa thay vì
+      // một dòng riêng: `n. quyển sách`, `v. đọc`. Trước đây cả dòng thành
+      // một "nghĩa" kèm nhãn `n.` ⇒ hiển thị rối. Nay tách nhãn ra làm
+      // nhóm loại từ, phần còn lại là nghĩa.
+      final inlinePos = _inlinePosPrefix(line);
+      if (inlinePos != null) {
+        pushGroup();
+        currentPos = inlinePos.pos;
+        addSenses(inlinePos.rest);
+        continue;
+      }
+
       if (_isExampleLine(line)) {
         final cleaned = _stripExampleMarkers(line);
+        if (_isJunkSense(cleaned)) continue;
         if (current.isNotEmpty) {
           final last = current.removeLast();
           current.add(last.withExample(cleaned));
@@ -595,13 +719,30 @@ class DictTextCleaner {
         continue;
       }
 
-      for (final piece in _splitNumbered(line)) {
-        if (current.length >= _maxSensesPerPos) break;
-        current.add(DictSense(piece));
-      }
+      addSenses(line);
     }
     pushGroup();
     return _dedupeGroups(groups);
+  }
+
+  /// Loại từ ghi NGAY ĐẦU dòng nghĩa (`n. quyển sách`, `phr v to give up`).
+  /// Trả null nếu dòng không bắt đầu bằng một nhãn loại từ đã biết.
+  static _InlinePos? _inlinePosPrefix(String line) {
+    final lower = line.toLowerCase();
+    for (final entry in _posTokens.entries) {
+      final token = entry.key;
+      if (!lower.startsWith(token)) continue;
+      final rest = line.substring(token.length);
+      if (rest.isEmpty) continue;
+      // Sau nhãn phải là dấu chấm hoặc khoảng trắng, nếu không thì đó chỉ là
+      // một từ bắt đầu giống nhãn (vd "detail …" vs "det").
+      if (!rest.startsWith('.') && !rest.startsWith(' ')) continue;
+      final cleaned = rest.replaceFirst(RegExp(r'^\.?\s+'), '').trim();
+      if (cleaned.length < 2) continue;
+      if (_isJunkSense(cleaned)) continue;
+      return _InlinePos(entry.value, cleaned);
+    }
+    return null;
   }
 
   static String? _asPosHeader(String line) {
@@ -703,4 +844,12 @@ class DictTextCleaner {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
+}
+
+/// Loại từ tách từ đầu dòng nghĩa (DICT-CLEAN-002).
+class _InlinePos {
+  final String pos;
+  final String rest;
+
+  const _InlinePos(this.pos, this.rest);
 }

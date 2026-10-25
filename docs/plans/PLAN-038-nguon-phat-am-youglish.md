@@ -139,6 +139,14 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
 5. `main_shell.dart`: `_handleTool('youglish')` nhận `initialWord` (API
    `YouGlishScreen({initialWord})` đã có từ PRON-001) để nút
    "Mở YouGlish" (khi WebView lỗi) điều hướng sang tool với đúng từ.
+> **Đính chính §2.6 (2026-10-26, sau CI run 40234606043):** công thức
+> `WKWebViewParams` + `mediaPlaybackRequiresUserGesture` là của
+> `webview_flutter_wkwebview` **4.x**. Repo đang lock **3.25.1** ⇒ API đúng là
+> `WebKitWebViewPlatform` / `WebKitWebViewControllerCreationParams`
+> (`allowsInlineMediaPlayback: true` + `mediaTypesRequiringUserAction: {}`).
+> Kiểm chứng bằng cách đọc source theo TAG (`git clone --filter=blob:none
+> --sparse github.com/flutter/packages`), không kiểm chứng bằng doc mới nhất.
+
 6. **iOS inline playback** (chuyển từ PRON-001): `webview_flutter_wkwebview` vào
    `pubspec.yaml` (`^3.25.1`) + `YouGlishView._initMobile()` dựng controller qua
    `WebViewController.fromPlatformCreationParams(WKWebViewParams(
@@ -158,18 +166,21 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
 | 3 pop | `word_mini_pop.dart` | +`wordMiniPopYouGlishKey` = `Key('word_mini_pop_youglish')`; `onBeforeOpen: WordMiniPop.dismiss`; `word` khóa tại lúc bấm |
 | 4 pause/restore | `services/pronunciation_session.dart` | `PronunciationSession.wrapRead(ctx, open)` + bộ đếm `_depth` |
 | 5 điều hướng tool | — | **hoãn sang PRON-003**; banner đã có "Mở trình duyệt" (= đúng tiêu chí nghiệm thu) |
-| 6 iOS inline | `youglish_view.dart` `_initMobile` + `pubspec.yaml` | `WKWebViewParams.fromPlatformCreationParams(...)..allowsInlineMediaPlayback..mediaPlaybackRequiresUserGesture`; dep mới `webview_flutter_wkwebview: ^3.25.1` |
+| 6 iOS inline | `youglish_view.dart` `_initMobile` + `pubspec.yaml` | dep mới `webview_flutter_wkwebview: ^3.25.1`. ⚠️ §2.6 ghi `WKWebViewParams(...mediaPlaybackRequiresUserGesture: false)` = API của **4.x**; repo lock **3.25.1** nên bản thi công là `WebKitWebViewPlatform` + `WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(params, allowsInlineMediaPlayback: true, mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{})` (3.x không có `mediaPlaybackRequiresUserGesture`) |
 | — prefs | `services/pronunciation_prefs.dart` | MỘT key `pronunciation.source`; `youglish.*` vẫn thuộc `YouGlishPrefs` |
 | — sheet dùng chung | `git mv` → `lib/screens/tools/youglish/youglish_mini_sheet.dart` | watchdog 8 s (`loadBudget`) + banner; `word_list_screen.dart` đổi import |
 
-**Ba chệch có chủ đích** so với chữ trong §2 (owner duyệt lại được):
+**Bốn chệch có chủ đích** so với chữ trong §2 (owner duyệt lại được):
 1. Bậc thoái lui **không auto-pop** sheet: sheet ở lại, hiện banner
    "Không mở được YouGlish — đã dùng giọng máy" + `Thử lại` + `Mở trình duyệt`,
    và **tự phát TTS một lần**. Lý do: popup biến mất giữa luồng đọc khó chịu hơn
    một banner 1 chạm; hành vi "đóng" vẫn tới được bằng đúng 1 chạm.
 2. `dictionary` **luôn false** ở PRON-002 ⇒ policy không bao giờ chọn nó (không
    có "nút ma"); nối `DictEntry.hasAudio` + `just_audio` là PRON-005.
-3. Restore **chỉ áp dụng đọc cả bài** (`speakAllLines(startIndex:)`); segment /
+3. **Kill-switch là ẩn hẳn**, không phải "chỉ còn nút Mở trong trình duyệt"
+   như AT(3) từng viết: hàng compact khi `youglish.enabled=false` chỉ còn ▶ TTS
+   (D2 = tắt pháp lý thì không dẫn user ra browser hộ owner).
+4. Restore **chỉ áp dụng đọc cả bài** (`speakAllLines(startIndex:)`); segment /
    AB-loop bị dừng để nhường tiếng nhưng **không** tự chạy lại, và nếu người dùng
    đã tự bấm TTS trong sheet thì không restore đè (`!tp.isSpeaking` guard).
 

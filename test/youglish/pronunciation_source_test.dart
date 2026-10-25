@@ -252,10 +252,22 @@ void main() {
           view.indexOf('void _initMobile()'),
           view.indexOf('..setNavigationDelegate(NavigationDelegate(',
               view.indexOf('void _initMobile()')));
-      expect(init.contains('WKWebViewParams.fromPlatformCreationParams'), isTrue,
+      // Tên API đã đối chiếu source `webview_flutter_wkwebview 3.25.1`:
+      // tham số khởi tạo TÊN LÀ `WebKitWebViewControllerCreationParams` (bản
+      // 4.x mới đổi thành `WKWebViewParams`), và bản 3.x KHÔNG có
+      // `mediaPlaybackRequiresUserGesture` — thay bằng set rỗng của
+      // `mediaTypesRequiringUserAction`.
+      expect(
+          init.contains(
+              'WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams'),
+          isTrue,
           reason: 'phải là tham số khởi tạo, không phải setter');
-      expect(init.contains('allowsInlineMediaPlayback = true'), isTrue);
-      expect(init.contains('mediaPlaybackRequiresUserGesture = false'), isTrue);
+      expect(init.contains('allowsInlineMediaPlayback: true'), isTrue);
+      expect(init.contains('mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{}'),
+          isTrue);
+      expect(init.contains('..mediaPlaybackRequiresUserGesture'), isFalse,
+          reason: 'không được cascade cái này: API không tồn tại ở 3.25.1 — '
+              'CI PRON-001 từng đỏ vì `setMediaPlaybackRequiresUserGesture`');
       // `WinWebViewController()` (nhánh Windows) vẫn hợp lệ ⇒ chỉ soi khối
       // `_initMobile`, kẻo bắt sai bằng chứng.
       expect(init.contains('WebViewController.fromPlatformCreationParams'), isTrue);

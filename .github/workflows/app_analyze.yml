@@ -155,6 +155,36 @@ jobs:
           cat dict_word_insight_test.log
           exit $code
 
+      # PRON-001 (ADR-0015 D5) — gom 2 bản `_buildUrl()` YouGlish về
+      # `YouGlishUrl.build` mà KHÔNG đổi hành vi: golden test sao chép nguyên văn
+      # 2 hàm cũ và bắt chuỗi mới giống hệt trên ma trận từ × ngôn ngữ × accent,
+      # + scan đảm bảo URL chỉ còn ở MỘT file. Thuần Dart (không plugin/mạng).
+      - name: "PRON-001 tests — YouGlish URL golden + một nguồn sự thật"
+        id: youglish-pron-tests
+        run: |
+          set +e
+          files=""
+          for f in test/youglish/youglish_url_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test PRON-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > youglish_pron_test.log 2>&1
+          code=$?
+          cat youglish_pron_test.log
+          exit $code
+
+      - name: Upload PRON-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-pron-youglish-test-log
+          path: youglish_pron_test.log
+          if-no-files-found: ignore
+
       - name: Upload DICT-CLEAN-001 / WORD-INSIGHT-001 test log
         if: always()
         uses: actions/upload-artifact@v4

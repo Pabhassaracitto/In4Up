@@ -1,29 +1,52 @@
 //
 // Mini bottom sheet hiển thị YouGlish trực tiếp từ Word List row
 // Mở nhanh, không cần navigate sang màn hình riêng
+//
+// PRON-001 (ADR-0015 D5): sheet này KHÔNG còn tự dựng WebViewController và
+// KHÔNG còn copy `_buildUrl()` — phần WebView + URL đã về `youglish_view.dart`.
+// Hai thay đổi có chủ đích, được ghi trong card PRON-001:
+//   • ngôn ngữ/accent khởi tạo từ `YouGlishPrefs` (trước: luôn English-US,
+//     mỗi điểm vào nhớ riêng);
+//   • danh sách ngôn ngữ bỏ cắt `.take(5)` → đủ `YouGlishLanguage.values`,
+//     accent đủ 7 mục (trước: hiện 5 ngôn ngữ, 3 accent).
+// Giao diện, kích thước DraggableScrollableSheet, header và màu giữ nguyên.
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../youglish/youglish_config.dart';
+import '../youglish/youglish_prefs.dart';
+import '../youglish/youglish_view.dart';
 
 class YouGlishMiniSheet extends StatefulWidget {
+  const YouGlishMiniSheet({
+    super.key,
+    required this.word,
+    this.language = YouGlishLanguage.english,
+    this.accent = YouGlishAccent.us,
+  });
+
   final String word;
+  final YouGlishLanguage language;
+  final YouGlishAccent accent;
 
-  const YouGlishMiniSheet({super.key, required this.word});
-
-  static Future<void> show(BuildContext context, String word) {
+  static Future<void> show(BuildContext context, String word) async {
     HapticFeedback.selectionClick();
+    // Đọc pref TRƯỚC khi dựng sheet để WebView chỉ nạp 1 lần (không đổi URL
+    // ngay sau frame đầu).
+    final prefs = await YouGlishPrefs.load();
+    if (!context.mounted) return;
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       isDismissible: true,
       enableDrag: true,
-      builder: (_) => YouGlishMiniSheet(word: word),
+      builder: (_) => YouGlishMiniSheet(
+        word: word,
+        language: prefs.language,
+        accent: prefs.accent,
+      ),
     );
   }
 
@@ -32,56 +55,34 @@ class YouGlishMiniSheet extends StatefulWidget {
 }
 
 class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
-  YouGlishLanguage _lang = YouGlishLanguage.english;
-  YouGlishAccent _accent = YouGlishAccent.us;
-  bool _isLoading = true;
-  WebViewController? _ctrl;
+  late YouGlishLanguage _lang = widget.language;
+  late YouGlishAccent _accent = widget.accent;
 
-  static const _accentOptions = [
-    YouGlishAccent.us,
-    YouGlishAccent.uk,
-    YouGlishAccent.aus,
-  ];
+  /// Tăng lên ⇒ `YouGlishView` nạp lại cùng URL (nút reload ở header).
+  int _reloadToken = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _initWebView();
+  bool get _isEnglish => _lang == YouGlishLanguage.english;
+
+  /// Ghi xuống `YouGlishPrefs` để các điểm vào khác (tab Đọc ở PRON-002, tool
+  /// YouGlish) mở ra đúng ngôn ngữ/accent người dùng vừa chọn.
+  Future<void> _persist() async {
+    final prefs = await YouGlishPrefs.load();
+    await prefs.setLanguage(_lang);
+    await prefs.setAccent(_accent);
   }
 
-  void _initWebView() {
-    _ctrl = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF1A1A2E))
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) {
-          if (mounted) setState(() => _isLoading = true);
-        },
-        onPageFinished: (_) {
-          if (mounted) setState(() => _isLoading = false);
-        },
-        onWebResourceError: (_) {
-          if (mounted) setState(() => _isLoading = false);
-        },
-      ))
-      ..loadRequest(Uri.parse(_buildUrl()));
+  void _setLang(YouGlishLanguage value) {
+    HapticFeedback.selectionClick();
+    if (_lang == value) return;
+    setState(() => _lang = value);
+    _persist();
   }
 
-  String _buildUrl() {
-    var url =
-        'https://youglish.com/pronounce/${Uri.encodeComponent(widget.word)}';
-    if (_lang == YouGlishLanguage.english) {
-      url += '/${_lang.code}/${_accent.code}';
-    } else {
-      url += '/${_lang.code}';
-    }
-    url += '?embed=1&autoplay=1';
-    return url;
-  }
-
-  void _reload() {
-    if (mounted) setState(() => _isLoading = true);
-    _ctrl?.loadRequest(Uri.parse(_buildUrl()));
+  void _setAccent(YouGlishAccent value) {
+    HapticFeedback.selectionClick();
+    if (_accent == value) return;
+    setState(() => _accent = value);
+    _persist();
   }
 
   @override
@@ -149,7 +150,7 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                     IconButton(
                       icon: const Icon(Icons.refresh,
                           size: 18, color: Colors.grey),
-                      onPressed: _reload,
+                      onPressed: () => setState(() => _reloadToken++),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -159,9 +160,9 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: widget.word));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Đã copy'),
-                            duration: Duration(seconds: 1),
+                          SnackBar(
+                            content: Text(context.uiText('Đã copy')),
+                            duration: const Duration(seconds: 1),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -172,8 +173,8 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
                     const SizedBox(width: 12),
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child:
-                          Icon(Icons.close, color: Colors.grey[600], size: 20),
+                      child: Icon(Icons.close,
+                          color: Colors.grey[600], size: 20),
                     ),
                   ],
                 ),
@@ -184,52 +185,20 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
 
               const SizedBox(height: 8),
 
-              // WebView
+              // WebView (YouGlishView — một nguồn sự thật, PRON-001)
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Stack(
-                      children: [
-                        if (_ctrl != null)
-                          WebViewWidget(
-                            controller: _ctrl!,
-                            gestureRecognizers: {
-                              Factory<VerticalDragGestureRecognizer>(
-                                  () => VerticalDragGestureRecognizer()),
-                              Factory<HorizontalDragGestureRecognizer>(
-                                  () => HorizontalDragGestureRecognizer()),
-                              Factory<ScaleGestureRecognizer>(
-                                  () => ScaleGestureRecognizer()),
-                              Factory<TapGestureRecognizer>(
-                                  () => TapGestureRecognizer()),
-                            },
-                          ),
-                        if (_isLoading)
-                          Container(
-                            color: const Color(0xFF1A1A2E),
-                            child: const Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation(
-                                        Color(0xFF00BCD4)),
-                                    strokeWidth: 2,
-                                  ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    'Đang tải YouGlish...',
-                                    style: TextStyle(
-                                        color: Colors.grey, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: YouGlishView(
+                    word: widget.word,
+                    language: _lang,
+                    accent: _isEnglish ? _accent : null,
+                    radius: 12,
+                    webBackgroundColor: const Color(0xFF1A1A2E),
+                    indicatorColor: const Color(0xFF00BCD4),
+                    loadingMessage: 'Đang tải YouGlish...',
+                    claimGestures: true,
+                    reloadToken: _reloadToken,
                   ),
                 ),
               ),
@@ -248,16 +217,13 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Language chips
-          ...YouGlishLanguage.values.take(5).map((lang) {
+          // Language chips — đủ danh sách (bỏ `.take(5)` — PRON-001)
+          ...YouGlishLanguage.values.map((lang) {
             final sel = _lang == lang;
             return Padding(
               padding: const EdgeInsets.only(right: 6),
               child: GestureDetector(
-                onTap: () {
-                  setState(() => _lang = lang);
-                  _reload();
-                },
+                onTap: () => _setLang(lang),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   padding:
@@ -281,23 +247,19 @@ class _YouGlishMiniSheetState extends State<YouGlishMiniSheet> {
             );
           }),
 
-          // Divider
-          if (_lang == YouGlishLanguage.english) ...[
+          // Divider + accent chips — chỉ khi English (YouGlish chỉ nhận accent English)
+          if (_isEnglish) ...[
             Container(
                 width: 1,
                 height: 20,
                 color: Colors.white.withValues(alpha: 0.12),
                 margin: const EdgeInsets.symmetric(horizontal: 6)),
-            // Accent chips
-            ..._accentOptions.map((acc) {
+            ...YouGlishAccent.values.map((acc) {
               final sel = _accent == acc;
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: GestureDetector(
-                  onTap: () {
-                    setState(() => _accent = acc);
-                    _reload();
-                  },
+                  onTap: () => _setAccent(acc),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     padding:

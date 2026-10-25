@@ -7688,10 +7688,12 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-24 | proposed | agent arena/7550b302-in4up | chủ dự án hỏi "có nên cho nó kiêm vai trò nhà sưu tầm từ vựng"; trả lời: CÓ nhưng theo hướng thu hoạch có chủ đích, không tự động.
 
 ### PRON-001 — Gom YouGlish về một nguồn sự thật (`YouGlishView`)
-- **Trạng thái:** 🔨 **code xong — chờ CI `app_analyze` + nghiệm thu máy
-  (Android/iOS/Windows)**; sandbox không có Flutter SDK ⇒ chưa chạy
-  `flutter analyze`/`flutter test` nội bộ. Kế hoạch:
-  `docs/plans/PLAN-038-nguon-phat-am-youglish.md` §1, kiến trúc ADR-0015.
+- **Trạng thái:** 🔨 **code xong + CI 🟢** — `app_analyze` run `40161328540`:
+  `Analyze full app` ✅, `Rule 5 (locale)` ✅, bước mới **"PRON-001 tests —
+  YouGlish URL golden + một nguồn sự thật"** ✅; `deploy-web` ✅ (xác nhận file
+  `dart:io` mới không lọt vào cây `lib/main_web.dart`). PR #107 →
+  `arena/01a0251e-in4up`. **Còn:** nghiệm thu máy Android/iOS/Windows (owner).
+  Kế hoạch: `docs/plans/PLAN-038-nguon-phat-am-youglish.md` §1, kiến trúc ADR-0015.
 - **Nguồn:** chủ dự án (2026-10-24, "I4U · different voice video") qua bảng câu
   hỏi chốt khung; agent Arena phản biện đề bài Gemini (2026-10-24).
 - **Nội dung:** `lib/screens/tools/youglish/` hiện có **ba** bản copy YouGlish
@@ -7848,3 +7850,9 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     chặn PRON-001/002/003 bằng card này.
   - 2026-10-24 | blocked | agent Arena `arena/06e5aef5-in4up` | rebase
     `3986433` không đổi kết luận; ADR đánh số 0015.
+  - 2026-10-24 | doing→doing (CI 🟢) | agent Arena `arena/06e5aef5-in4up` | fix
+    `c70c428`..`4416484` làm đỏ run 40161123267 (ctor trùng + API iOS
+    không tồn tại) → run 40161328540 XANH: analyze + Rule 5 + test golden
+    PRON-001 (URL mới == nguyên văn 2 hàm cũ trên ma trận 10 từ × 24 ngôn ngữ ×
+    7 accent, và 2 source-scan "1 chỗ dựng URL / không còn WebViewController(
+    ngoài view") đều đạt. Nghiệm thu máy vẫn chờ owner.

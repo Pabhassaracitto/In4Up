@@ -127,6 +127,15 @@ WordSelectionText? buildWordSelectionText({
   );
 }
 
+/// Chạm vào một từ khi đang ở chế độ chọn: từ đó có **liền kề** vùng chọn
+/// (mở rộng được) hay ở **chỗ khác** (phải thoát chế độ chọn — owner
+/// 2026-10-25: "chế độ chọn nhiều từ thông minh chỉ ra khi người dùng chọn các
+/// từ liền kề nhau, còn nếu chọn chỗ khác thì trở lại bình thường").
+bool isAdjacentToWordRange(WordRange range, int index) {
+  if (index < 0) return false;
+  return index == range.start - 1 || index == range.end + 1;
+}
+
 /// Từ nào đang nằm dưới một điểm chạm/kéo?
 ///
 /// Thuần hình học (không cần widget tree): [boxes] là hình chữ nhật của từng

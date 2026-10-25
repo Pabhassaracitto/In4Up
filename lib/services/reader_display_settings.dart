@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/word_color_style.dart';
+
 /// ═══════════════════════════════════════════════════════════════
 /// READER DISPLAY SETTINGS — hiển thị tab Đọc (PDF + Web)
 ///
@@ -11,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ReaderDisplaySettings {
   static const String _keyRecallMarkers = 'reader_show_recall_markers';
   static const String _keyWordTapBoxes = 'reader_word_tap_boxes';
+  static const String _keyWordColorStyle = 'reader_word_color_style';
 
   static final ReaderDisplaySettings _instance = ReaderDisplaySettings._();
 
@@ -21,6 +24,7 @@ class ReaderDisplaySettings {
 
   bool _showRecallMarkers = false;
   bool _wordTapBoxes = false;
+  WordColorStyle _wordColorStyle = WordColorStyle.fill;
 
   /// true = hiện marker bao quanh từ đã lưu (green = đã lưu,
   /// amber = có ghi chú, red = đến kỳ ôn).
@@ -29,6 +33,10 @@ class ReaderDisplaySettings {
   /// false (mặc định) = bôi nhiều chữ như chế độ không màu.
   /// true = mỗi từ một box, tap/long-press lưu từng từ (nền hàng loạt).
   bool get wordTapBoxes => _wordTapBoxes;
+
+  /// READ-WORDSTYLE-001: kiểu hiển thị từ khi tô màu (nền / chỉ màu chữ /
+  /// gạch chân) — người đọc lâu chọn "chỉ màu chữ" để đỡ phân tâm.
+  WordColorStyle get wordColorStyle => _wordColorStyle;
 
   final List<void Function()> _listeners = [];
 
@@ -47,6 +55,8 @@ class ReaderDisplaySettings {
       final prefs = await SharedPreferences.getInstance();
       _showRecallMarkers = prefs.getBool(_keyRecallMarkers) ?? false;
       _wordTapBoxes = prefs.getBool(_keyWordTapBoxes) ?? false;
+      _wordColorStyle =
+          WordColorStyle.fromStorage(prefs.getString(_keyWordColorStyle));
     } catch (e) {
       debugPrint('ReaderDisplaySettings.init error: $e');
     }
@@ -73,6 +83,20 @@ class ReaderDisplaySettings {
       await prefs.setBool(_keyWordTapBoxes, value);
     } catch (e) {
       debugPrint('ReaderDisplaySettings.save wordTapBoxes error: $e');
+    }
+  }
+
+  /// READ-WORDSTYLE-001 — đổi kiểu hiển thị từ (nền màu / chỉ màu chữ /
+  /// gạch chân). Người nghe (TextProvider) tự notify để tab Đọc vẽ lại.
+  Future<void> setWordColorStyle(WordColorStyle style) async {
+    if (_wordColorStyle == style) return;
+    _wordColorStyle = style;
+    _notify();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyWordColorStyle, style.storageKey);
+    } catch (e) {
+      debugPrint('ReaderDisplaySettings.save wordColorStyle error: $e');
     }
   }
 }

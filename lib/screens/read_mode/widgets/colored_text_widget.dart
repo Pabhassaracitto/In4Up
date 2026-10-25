@@ -1,6 +1,7 @@
 // lib/screens/read_mode/widgets/colored_text_widget.dart
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
@@ -11,6 +12,7 @@ import '../../../features/grammar/models/grammar_palette.dart';
 import '../../../features/grammar/services/grammar_style_mapper.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_color_style.dart';
 import '../../../providers/text_provider.dart';
 import '../services/read_text_action_runner.dart';
 import '../services/word_range_selection.dart';
@@ -133,6 +135,12 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       });
     }
 
+    // READ-WORDSTYLE-001: đọc MỘT lần cho cả dòng (không select trong vòng
+    // lặp từng từ).
+    final colorStyle = context.select<TextProvider, WordColorStyle>(
+      (tp) => tp.wordColorStyle,
+    );
+
     final wrap = Wrap(
       // IN4: Wrap mặc định `WrapAlignment.start` ⇒ MỖI hàng (kể cả hàng
       // rớt xuống khi dòng quá dài) đều canh TRÁI, trong khi hàng đầu
@@ -145,7 +153,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       runSpacing: 4,
       children: [
         for (var i = 0; i < widget.words.length; i++)
-          _buildWord(context, i, range),
+          _buildWord(context, i, range, colorStyle),
       ],
     );
 
@@ -171,7 +179,12 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
     );
   }
 
-  Widget _buildWord(BuildContext context, int index, WordRange? range) {
+  Widget _buildWord(
+    BuildContext context,
+    int index,
+    WordRange? range,
+    WordColorStyle colorStyle,
+  ) {
     final selected = range != null && range.contains(index);
     final isAnchor = range != null && range.anchorIndex == index;
 
@@ -180,18 +193,19 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       word: widget.words[index],
       fontSize: widget.fontSize,
       colorMode: widget.colorMode,
+      // READ-WORDSTYLE-001: nền màu / chỉ màu chữ / gạch chân.
+      colorStyle: colorStyle,
       selected: selected,
       isAnchor: isAnchor,
       selectionActive: range != null,
-      onTap: () => _selecting ? _extendTo(index) : _speak(index),
-      // AUDIT-2026-10-20 (mục 4): chạm đúp và nhấn giữ đều mở POP NHỎ
-      // (gọn, đủ thông tin cơ bản + nút "Bôi nhiều chữ"); kéo "rèm" ở đầu
-      // pop lên ⇒ bung thông tin đầy đủ. Trước đây chạm đúp chỉ hiện
-      // snackbar nghĩa nhanh, còn nhấn giữ vào thẳng chế độ bôi chữ.
-      onDoubleTap: _selecting
-          ? null
-          : () => _openMiniPop(context, index),
-      onLongPressStart: () => _openMiniPop(context, index),
+      // READ-POP-003 (owner 2026-10-25): chạm một từ ⇒ phát âm + pop nhanh
+      // trồi lên (không modal). Đang chọn nhiều từ ⇒ chạm từ LIỀN KỀ là mở
+      // rộng vùng chọn; chạm chỗ khác là thoát chế độ chọn rồi xử lý như
+      // chạm thường.
+      onTap: () => _onWordTap(context, index),
+      // GIỮ một từ ⇒ vào chế độ chọn nhiều từ (kéo/quẹt để chọn nhanh các
+      // từ liền kề). Không còn mở pop bằng nhấn giữ như bản 2026-10-20.
+      onLongPressStart: () => _startSelection(index),
       onLongPressMoveUpdate: (position) => _dragTo(position),
     );
   }
@@ -262,6 +276,28 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
 
   // ── Thao tác ────────────────────────────────────────────────────────────
 
+  /// Chạm một từ.
+  ///
+  /// READ-SELECT-002 + READ-POP-003: "chế độ chọn nhiều từ THÔNG MINH — chỉ
+  /// mở khi người dùng chọn các từ LIỀN KỀ nhau; chọn chỗ khác thì trở lại
+  /// bình thường":
+  ///   • đang chọn + chạm từ liền kề (trước/sau vùng chọn) ⇒ mở rộng;
+  ///   • đang chọn + chạm từ đã nằm trong vùng ⇒ giữ nguyên (không phá);
+  ///   • đang chọn + chạm từ CÁCH XA ⇒ thoát chọn rồi chạm thường.
+  void _onWordTap(BuildContext context, int index) {
+    final range = _range;
+    if (range != null) {
+      if (range.contains(index)) return;
+      if (isAdjacentToWordRange(range, index)) {
+        _extendTo(index);
+        return;
+      }
+      _exitSelection(clearProvider: true);
+    }
+    _speak(index);
+    _openMiniPop(context, index);
+  }
+
   void _speak(int index) {
     SafeHaptics.selectionClick();
     final tp = context.read<TextProvider>();
@@ -271,15 +307,25 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
     tp.speak(widget.words[index].word);
   }
 
-  /// Mở pop nhỏ cho từ (mục 4) — kèm nút quay lại chế độ bôi nhiều chữ.
+  /// Mở pop nhỏ cho từ — OVERLAY không barrier, đặt cạnh đúng từ vừa chạm
+  /// (owner: "cứ trồi lên như cung cấp thông tin nhanh").
   void _openMiniPop(BuildContext context, int index) {
     WordMiniPop.show(
       context,
       word: widget.words[index],
       lineIndex: widget.lineIndex,
       wordIndex: index,
+      anchorRect: _wordRect(index),
       onSelectMore: () => _startSelection(index),
     );
+  }
+
+  /// Hình chữ nhật (toạ độ toàn cục) của ô từ — để pop đặt cạnh từ.
+  Rect? _wordRect(int index) {
+    if (index < 0 || index >= _wordKeys.length) return null;
+    final renderObject = _wordKeys[index].currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
   void _startSelection(int index) {
@@ -289,6 +335,8 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       wordCount: widget.words.length,
     );
     if (range == null) return;
+    // Pop nhanh và chế độ chọn không sống cùng lúc (pop che chữ đang bôi).
+    WordMiniPop.dismiss();
     SafeHaptics.selectionClick();
     final tp = context.read<TextProvider>();
     if (tp.currentLineIndex != widget.lineIndex) {
@@ -337,6 +385,7 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
       WordSelectionState.deactivate();
     }
     if (_range == null) return;
+    WordMiniPop.dismiss();
     if (mounted) {
       setState(() => _range = null);
     } else {
@@ -419,13 +468,15 @@ class _ColoredWord extends StatelessWidget {
   final double fontSize;
   final ColorMode colorMode;
 
+  /// READ-WORDSTYLE-001 — kiểu hiển thị màu của từ.
+  final WordColorStyle colorStyle;
+
   /// READ-SELECT-002 — trạng thái vùng chọn nhiều từ.
   final bool selected;
   final bool isAnchor;
   final bool selectionActive;
 
   final VoidCallback onTap;
-  final VoidCallback? onDoubleTap;
   final VoidCallback onLongPressStart;
   final void Function(Offset globalPosition) onLongPressMoveUpdate;
 
@@ -434,11 +485,11 @@ class _ColoredWord extends StatelessWidget {
     required this.word,
     required this.fontSize,
     required this.colorMode,
+    this.colorStyle = WordColorStyle.fill,
     required this.selected,
     required this.isAnchor,
     required this.selectionActive,
     required this.onTap,
-    required this.onDoubleTap,
     required this.onLongPressStart,
     required this.onLongPressMoveUpdate,
   });
@@ -471,12 +522,26 @@ class _ColoredWord extends StatelessWidget {
         grammarResolved?.background ?? word.getBackgroundColor(colorMode);
     final baseForeground = grammarResolved?.foreground ?? word.getColor(colorMode);
 
+    // READ-WORDSTYLE-001: kiểu hiển thị do người dùng chọn ở Cài đặt.
+    //  • fill      = nền màu (mặc định cũ)
+    //  • textOnly  = KHÔNG nền, chỉ đổi màu chữ (dịu mắt khi đọc lâu)
+    //  • underline = KHÔNG nền, chữ màu + gạch chân màu (nhẹ nhất)
+    final filled = colorStyle == WordColorStyle.fill;
+    final underlined = colorStyle == WordColorStyle.underline;
+    final hasNestedUnderline = grammarResolved?.underline != null;
+
     // Nền vùng chọn phải rõ hơn hẳn nền tô màu từ loại (người dùng đang
     // "giữ" để chọn, không phải đang đọc màu ngữ pháp).
     final bgColor = selected
         ? const Color(0xFF2196F3).withValues(alpha: isAnchor ? 0.45 : 0.30)
-        : baseBackground;
+        : (filled ? baseBackground : Colors.transparent);
     final textColor = selected ? Colors.white : baseForeground;
+    final decoration = !selected && (underlined || hasNestedUnderline)
+        ? TextDecoration.underline
+        : null;
+    final decorationColor = hasNestedUnderline
+        ? grammarResolved?.underline
+        : (underlined ? baseForeground : null);
 
     final borderColor = hasDifficulty
         ? word.userDifficulty!.color.withValues(alpha: 0.5)
@@ -500,13 +565,17 @@ class _ColoredWord extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      onDoubleTap: onDoubleTap,
       onLongPressStart: (_) => onLongPressStart(),
       onLongPressMoveUpdate: (details) =>
           onLongPressMoveUpdate(details.globalPosition),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        // Khi tắt nền, thu padding ngang để dòng chữ chảy như văn bản thường
+        // (vẫn giữ vùng chạm đủ lớn nhờ GestureDetector opaque).
+        padding: EdgeInsets.symmetric(
+          horizontal: filled ? 4 : 2,
+          vertical: 2,
+        ),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(4),
@@ -524,11 +593,10 @@ class _ColoredWord extends StatelessWidget {
                     (hasDifficulty || word.isSaved
                         ? FontWeight.bold
                         : FontWeight.normal),
-                decoration: grammarResolved?.underline != null
-                    ? TextDecoration.underline
-                    : null,
-                decorationColor: grammarResolved?.underline,
-                decorationThickness: grammarResolved?.underline != null ? 2 : null,
+                decoration: decoration,
+                decorationColor: decorationColor,
+                decorationThickness:
+                    decoration != null ? (underlined ? 1.6 : 2) : null,
                 height: 1.6,
               ),
             ),

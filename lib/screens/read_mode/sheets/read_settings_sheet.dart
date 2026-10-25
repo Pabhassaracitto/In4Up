@@ -11,6 +11,7 @@ import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_color_style.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../services/storage_service.dart';
@@ -148,7 +149,12 @@ class _SettingsContent extends StatelessWidget {
                   const SizedBox(height: 12),
                   _ColorModeSelector(tp: tp),
 
+                  // READ-WORDSTYLE-001: kiểu hiển thị từ (nền màu / chỉ màu
+                  // chữ / gạch chân) — tách khỏi "chọn màu gì" để người đọc
+                  // lâu chọn kiểu nhẹ mắt mà vẫn giữ tô màu.
                   if (tp.colorMode != ColorMode.none) ...[
+                    const SizedBox(height: 16),
+                    _WordColorStyleSelector(tp: tp),
                     const SizedBox(height: 16),
                     _LegendPanel(colorMode: tp.colorMode),
                   ],
@@ -618,6 +624,143 @@ class _ColorModeSelector extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// READ-WORDSTYLE-001 — chọn kiểu hiển thị từ khi tô màu.
+///
+/// Owner 2026-10-25: "có người chỉ muốn đổi màu chữ thôi thay vì có màu nền…
+/// khi đọc hay xem không bị phân tâm bởi màu sắc quá". Ba lựa chọn áp cho cả
+/// chế độ ô chữ (`ColoredTextWidget`) lẫn chế độ bôi chữ (`SelectableText.rich`).
+class _WordColorStyleSelector extends StatelessWidget {
+  final TextProvider tp;
+  const _WordColorStyleSelector({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    final current = tp.wordColorStyle;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.format_paint, size: 14, color: Colors.white54),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText('Kiểu hiển thị từ'),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final style in WordColorStyle.values) ...[
+                Expanded(
+                  child: _WordColorStyleChip(
+                    style: style,
+                    selected: current == style,
+                    onTap: () => tp.setWordColorStyle(style),
+                  ),
+                ),
+                if (style != WordColorStyle.values.last)
+                  const SizedBox(width: 8),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.uiText(current.description),
+            style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WordColorStyleChip extends StatelessWidget {
+  final WordColorStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _WordColorStyleChip({
+    required this.style,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = const Color(0xFF2196F3);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? accent.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Xem trước ngay trong chip: nền / chữ màu / gạch chân.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: style == WordColorStyle.fill
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.22)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Aa',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF81C784),
+                  decoration: style == WordColorStyle.underline
+                      ? TextDecoration.underline
+                      : null,
+                  decorationColor: const Color(0xFF81C784),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.uiText(style.label),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: selected ? Colors.white : Colors.grey[500],
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

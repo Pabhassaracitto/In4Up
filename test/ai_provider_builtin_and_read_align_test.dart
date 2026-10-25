@@ -146,8 +146,23 @@ void main() {
       expect(textLine, contains('textAlign: data.textAlign'));
     });
 
-    test('căn lề trái vẫn giữ nguyên (không đổi hành vi cũ)', () {
-      expect(coloredText, contains('TextAlign.left'));
+    // READ-ALIGN-001 (owner 2026-10-25, mục 5): mặc định phải là CĂN GIỮA
+    // (trước đây trái) và lựa chọn phải được LƯU qua lần mở app sau (trước
+    // đây bị "tạm thời bỏ qua" nên mở lại là mất).
+    test('mặc định là căn GIỮA và có lưu/khôi phục lựa chọn', () {
+      final provider =
+          File('lib/providers/text_provider.dart').readAsStringSync();
+      expect(provider, contains('TextAlign _textAlign = TextAlign.center;'));
+      expect(provider, isNot(contains('TextAlign _textAlign = TextAlign.left;')));
+      expect(provider, contains('saveReadTextAlign('));
+      expect(provider, contains('getReadTextAlign('));
+      expect(provider, isNot(contains('Tạm thời bỏ qua')));
+
+      final storage = File('lib/services/storage_service.dart').readAsStringSync();
+      expect(storage, contains('read_text_align'));
+
+      // Tab Đọc vẫn phải vẽ được cả hai lựa chọn (giữa + trái).
+      expect(coloredText, contains('TextAlign.center'));
     });
   });
 }

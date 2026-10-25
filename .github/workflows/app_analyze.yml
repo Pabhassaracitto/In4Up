@@ -660,3 +660,67 @@ jobs:
           name: app-yt-audit-test-log
           path: yt_audit_test.log
           if-no-files-found: ignore
+
+      # UI-ORDER-001 (owner 2026-10-25) — mặc định Đọc-trước-Nghe + migrate 1 lần.
+      # BƯỚC GATE: chỉ file test THUẦN DART (không Hive/widget) ⇒ an toàn làm cổng.
+      - name: "Shell order test — UI-ORDER-001 (Đọc trước Nghe, logic thuần)"
+        id: shell-order-test
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          f=test/shell_content_order_test.dart
+          if [ ! -f "$f" ]; then
+            echo "Không có $f trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test "$f" -r expanded > shell_order_test.log 2>&1
+          code=$?
+          cat shell_order_test.log
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' shell_order_test.log > shell_order_clean.log || true
+          grep -n "\[E\]" shell_order_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" shell_order_clean.log \
+              | head -c 900 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::TEST FAILED: $msg"
+          done || true
+          exit $code
+
+      - name: Upload shell order test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shell-order-test-log
+          path: shell_order_test.log
+          if-no-files-found: ignore
+
+      # Máy bắt CHO PHẦN MIGRATE (cần Hive + widget) — ADVISORY: lần đầu nối
+      # CI nên chỉ BÁO (annotation + artifact), KHÔNG chặn merge; khi owner xác
+      # nhận xanh trên máy thì đổi `continue-on-error` thành false.
+      - name: "Shell integration tests — migrate 1 lần + tab đáy (advisory)"
+        id: shell-integration-tests
+        continue-on-error: true
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          f=test/workspace_shell_integration_test.dart
+          if [ ! -f "$f" ]; then
+            echo "Không có $f trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test "$f" -r expanded > shell_integration_test.log 2>&1
+          code=$?
+          cat shell_integration_test.log
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' shell_integration_test.log > shell_integration_clean.log || true
+          fails=$(grep -c "\[E\]" shell_integration_clean.log 2>/dev/null || echo 0)
+          echo "### UI-ORDER-001 — shell integration (advisory): exit=$code, lỗi=$fails" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" != "0" ]; then
+            echo "::warning title=shell integration (advisory)::exit=$code lỗi=$fails — xem artifact app-shell-integration-test-log"
+          fi
+          exit 0
+
+      - name: Upload shell integration test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shell-integration-test-log
+          path: shell_integration_test.log
+          if-no-files-found: ignore

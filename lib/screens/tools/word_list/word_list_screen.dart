@@ -27,7 +27,7 @@ import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
-import 'youglish_mini_sheet.dart';
+import '../youglish/youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN

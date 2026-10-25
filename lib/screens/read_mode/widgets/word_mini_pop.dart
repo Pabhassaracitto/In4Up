@@ -30,6 +30,7 @@ import '../../../features/dictionary/services/dict_text_cleaner.dart';
 import '../../../features/dictionary/widgets/dict_definition_view.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../features/word_lookup/services/word_insight_service.dart';
+import '../../../features/word_lookup/widgets/word_pronunciation_row.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
 import '../../../providers/text_provider.dart';
@@ -55,6 +56,10 @@ const Key wordMiniPopSpeakKey = Key('word_mini_pop_speak');
 
 /// Key của nút "Bôi nhiều chữ" trong pop.
 const Key wordMiniPopSelectMoreKey = Key('word_mini_pop_select_more');
+
+/// Key của nút 🎧 YouGlish trong pop (PRON-002 — affordance phát âm thứ hai,
+/// dense, dựng WebView CHỈ khi bấm).
+const Key wordMiniPopYouGlishKey = Key('word_mini_pop_youglish');
 
 /// Key của cả thẻ pop (dùng cho test + để biết vùng "trong pop").
 const Key wordMiniPopCardKey = Key('word_mini_pop_card');
@@ -521,6 +526,18 @@ class _WordMiniPopState extends State<WordMiniPop> {
             final tp = context.read<TextProvider>();
             tp.speak(widget.word.word, lineIndex: widget.lineIndex);
           },
+        ),
+        const SizedBox(width: 4),
+        // PRON-002: một affordance YouGlish DUY NHẤT, dense. Row tự lo
+        // kill-switch (`youglish.enabled` → ẩn hẳn), khả dụng mạng, nguồn nhớ
+        // được, dismiss-before-open và pause/restore đọc bài.
+        WordPronunciationRow(
+          // Từ ĐỌC tại lúc bấm (pop có thể nhảy sang từ khác) — sheet sẽ khoá
+          // giá trị này, không đổi theo pop sau khi đã mở.
+          word: widget.word.word,
+          mode: WordPronunciationRowMode.youglishIconOnly,
+          buttonKey: wordMiniPopYouGlishKey,
+          onBeforeOpen: WordMiniPop.dismiss,
         ),
         const SizedBox(width: 4),
         _MiniIconButton(

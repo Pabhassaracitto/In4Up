@@ -110,6 +110,11 @@ dependencies:
 
   # Youglish Android & iOS
   webview_flutter: ^4.9.0
+  # PRON-002: inline playback trên iOS — `allowsInlineMediaPlayback` +
+  # `mediaPlaybackRequiresUserGesture` là THAM SỐ KHỞI TẠO của WKWebViewParams,
+  # không phải method của `WebViewController` (CI PRON-001 đã bắt được lỗi đó).
+  # Package này chỉ khai báo platform iOS ⇒ không đụng Gradle/Android/web.
+  webview_flutter_wkwebview: ^3.25.1
   # Video player cho video local (MP4, MKV, WebM...)
   video_player: ^2.8.0
   # Youglish Win

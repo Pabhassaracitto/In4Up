@@ -17,6 +17,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -28,6 +29,7 @@ import 'package:rxdart/rxdart.dart';
 
 import 'asr_model_routing.dart';
 import 'import/model_bundle_scanner.dart';
+import 'import/tar_bz2_stream_extractor.dart';
 import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
 import 'tts/piper_voice_catalog.dart';
@@ -92,6 +94,11 @@ enum SherpaAsrImportStatus {
 
   /// Lỗi khác (giải nén, copy…).
   failed,
+
+  /// File quá lớn để đọc qua đường BYTES (Android SAF) — nếu cứ nạp thì
+  /// Android kill tiến trình (Parakeet encoder ~624MB). UI phải hướng user
+  /// sang Import thư mục / chọn file có đường dẫn thật.
+  fileTooLarge,
 }
 
 /// Kết quả import model ASR — cho UI map sang chuỗi đã bản địa hoá.
@@ -311,6 +318,11 @@ class SherpaModelManager {
   static const List<SherpaAsrProfile> predefinedAsrProfiles = kSherpaAsrProfiles;
 
   static const String safEmptyPrefix = 'SAF_EMPTY:';
+
+  /// Trần kích thước cho đường import BYTES (Android SAF đọc bằng
+  /// `withData: true`). Lớn hơn ngưỡng này thì bắt buộc dùng đường PATH
+  /// (copy theo luồng) — tránh OOM khi import encoder Parakeet (~624MB).
+  static const int kMaxNamedBytesFileBytes = 32 * 1024 * 1024;
 
   final Dio _dio = Dio(
     BaseOptions(
@@ -1162,6 +1174,23 @@ class SherpaModelManager {
         detail: 'Chưa chọn file nào',
       );
     }
+    // PARAKEET-002: chặn TRƯỚC khi giữ/ghi bytes. Model Parakeet có
+    // `encoder.int8.onnx` ~624MB — nạp cả file vào RAM (và copy thêm 1 lần)
+    // là nguyên nhân app bị kill giữa lúc import.
+    for (final entry in files.entries) {
+      if (entry.value.length > kMaxNamedBytesFileBytes) {
+        return SherpaAsrImportResult(
+          status: SherpaAsrImportStatus.fileTooLarge,
+          detectedProfile: targetProfileId == null
+              ? null
+              : AsrModelRouter.profileForIdOrLanguage(targetProfileId),
+          sourceFileCount: files.length,
+          detail: '${entry.key}: '
+              '${(entry.value.length / (1024 * 1024)).toStringAsFixed(0)}MB '
+              '> ${kMaxNamedBytesFileBytes ~/ (1024 * 1024)}MB (đường bytes)',
+        );
+      }
+    }
     final listing = [for (final key in files.keys) _toScanPath(key)];
     return _importAsrListing(
       listing,
@@ -1207,6 +1236,10 @@ class SherpaModelManager {
       case SherpaAsrImportStatus.profileMismatch:
         return 'Import thất bại: model không khớp profile đã chọn'
             '${result.detectedProfile == null ? '' : ' (nhận diện: ${result.detectedProfile!.name})'}.';
+      case SherpaAsrImportStatus.fileTooLarge:
+        return 'Import thất bại: file quá lớn để đọc trực tiếp '
+            '(giới hạn ${kMaxNamedBytesFileBytes ~/ (1024 * 1024)}MB mỗi file). '
+            'Hãy dùng Import thư mục hoặc chọn file có đường dẫn thật.';
       case SherpaAsrImportStatus.failed:
         return 'Import thất bại: ${result.detail ?? 'lỗi không xác định'}';
     }
@@ -1406,7 +1439,10 @@ class SherpaModelManager {
       }
     }
 
-    if (copied == 0 && archivePath.isNotEmpty) {
+    // Giải nén khi KHÔNG có nhóm model đầy đủ từ file lẻ. Trước đây điều kiện
+    // là `copied == 0`, nên chọn kèm 1 file lẻ (vd `tokens.txt` cạnh archive)
+    // làm archive bị bỏ qua → báo thiếu file oan.
+    if (zip == null && archivePath.isNotEmpty) {
       // IN4-16: đường bytes (SAF) — ghi archive ra file tạm rồi giải nén.
       String archiveOnDisk = archivePath;
       File? tmpArchive;
@@ -1716,6 +1752,16 @@ class SherpaModelManager {
   /// Giải nén .zip (archive package) — cửa vào cho model ZIP user nén tay
   /// (k2-fsa chính thức dùng tar.bz2; zip chỉ hỗ trợ import thủ công).
   Future<void> _extractZip(String zipPath, String destDir) async {
+    // ZipDecoder vẫn giải nén trong RAM: chặn archive lớn để không lặp lại
+    // đúng lỗi OOM của tar.bz2 (Parakeet/Whisper large dùng tar.bz2, zip chỉ
+    // là đường import thủ công của user).
+    final size = await File(zipPath).length();
+    if (size > kBigArchiveBytes) {
+      throw const TarBz2ExtractException(
+        'File zip quá lớn để giải nén trong bộ nhớ — hãy giải nén trên máy tính '
+        'rồi dùng Import thư mục.',
+      );
+    }
     final raw = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(raw);
     for (final file in archive) {
@@ -2460,27 +2506,36 @@ class SherpaModelManager {
     }
   }
 
+  /// Archive lớn hơn ngưỡng này giải nén trong ISOLATE, để UI không đứng
+  /// hình vài chục giây (Android ANR) khi bung Parakeet/Whisper large.
+  static const int kBigArchiveBytes = 48 * 1024 * 1024;
+
+  /// Giải nén `.tar.bz2` — PARAKEET-002.
+  ///
+  /// Bản cũ nạp CẢ archive vào RAM rồi giải nén ra thêm một buffer nữa
+  /// (`readAsBytes` + `decodeBytes` + `TarDecoder.decodeBytes`): với Parakeet
+  /// (~487MB nén / ~670MB sau giải nén) đỉnh >1.1GB ⇒ Android kill tiến trình
+  /// giữa lúc import — đúng hiện tượng "import một chặng thì app văng".
+  ///
+  /// Giờ dùng [extractTarBz2ToDirectorySync]: đọc file theo buffer, giải nén
+  /// từng khối bz2 rồi ghi thẳng từng entry ra đĩa (xem
+  /// `import/tar_bz2_stream_extractor.dart`), bộ nhớ ~ vài MB.
   Future<void> _extractTarBz2(String tarBz2Path, String destDir) async {
-    final raw = await File(tarBz2Path).readAsBytes();
-    final tarBytes = BZip2Decoder().decodeBytes(raw);
-    final archive = TarDecoder().decodeBytes(tarBytes);
-    for (final file in archive) {
-      final name = PiperImportPaths.posixRel(file.name);
-      if (name.isEmpty || name == '.' || name == './') continue;
-      final outPath = p.join(destDir, name);
-      if (file.isDirectory || name.endsWith('/')) {
-        await Directory(outPath).create(recursive: true);
-        continue;
-      }
-      final out = File(outPath);
-      await out.parent.create(recursive: true);
-      final content = file.content;
-      if (content is List<int>) {
-        await out.writeAsBytes(content, flush: true);
-      } else if (content is Uint8List) {
-        await out.writeAsBytes(content, flush: true);
-      }
+    final archive = File(tarBz2Path);
+    if (!await archive.exists()) {
+      throw const TarBz2ExtractException('Không tìm thấy archive để giải nén');
     }
+    final length = await archive.length();
+    if (length > kBigArchiveBytes) {
+      // Isolate riêng: chỉ truyền 2 chuỗi đường dẫn, không truyền bytes.
+      await Isolate.run(
+        () => extractTarBz2ToDirectorySync(tarBz2Path, destDir),
+      );
+      debugPrint('📦 Giải nén ${(length / (1024 * 1024)).toStringAsFixed(0)}MB '
+          'trong isolate → $destDir');
+      return;
+    }
+    extractTarBz2ToDirectorySync(tarBz2Path, destDir);
   }
 
   void cancelPiperDownload() {

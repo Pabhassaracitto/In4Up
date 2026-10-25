@@ -233,6 +233,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   /// video — xem chú thích đầu `yt_read_aloud_controller.dart`).
   YtReadAloudController? _readAloud;
 
+  /// Bộ máy TTS của app (features/tts) — singleton, dùng chung với tab Đọc.
+  /// Xem chú thích ở `initState` về việc KHÔNG lấy qua Provider.
+  late final TtsService _tts = TtsService();
+
   /// Ngôn ngữ ĐÍCH đã resolve cho video này (dùng cho giọng đọc bản dịch).
   String _resolvedTargetLang = 'vi';
 
@@ -255,8 +259,23 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       if (_tabCtrl.index == 0) _followActiveLine();
     });
     _initWebView();
-    // TTS dùng chung provider toàn app (cùng engine/giọng với tab Đọc).
-    _readAloud = YtReadAloudController(context.read<TtsService>())
+    // YT-TTS-PROVIDER-001 (bug "màn hình trắng khi mở video"): KHÔNG dùng
+    // `context.read<TtsService>()` ở đây.
+    //
+    // App có HAI class trùng tên `TtsService`:
+    //   • `features/tts/tts_service.dart`      → class ChangeNotifier (singleton
+    //     `TtsService()`), bộ máy TTS thật của app — file này đang dùng.
+    //   • `screens/read_mode/services/tts_service.dart` → abstract interface,
+    //     và `main.dart` đăng ký CHÍNH type đó:
+    //         Provider<TtsService>(create: (_) => FlutterTtsServiceImpl())
+    //     ⇒ `read<TtsService>()` với type của features/tts KHÔNG khớp type đã
+    //     đăng ký ⇒ ném `ProviderNotFoundException` NGAY TRONG `initState()`
+    //     ⇒ cả màn player không dựng được ⇒ người dùng thấy màn hình trắng.
+    //
+    // `TtsService()` là singleton (`factory TtsService() => _instance`) và
+    // `FlutterTtsServiceImpl` cũng bọc đúng singleton đó (`app_tts.TtsService()`)
+    // ⇒ vẫn dùng CHUNG giọng/engine/cài đặt với tab Đọc.
+    _readAloud = YtReadAloudController(_tts)
       ..addListener(() {
         if (mounted) setState(() {});
       });
@@ -342,7 +361,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     final result = await showYtReadAloudSheet(
       context,
       _settings,
-      context.read<TtsService>(),
+      _tts,
       hasTranslation: _hasTranslation,
     );
     if (result == null || !mounted) return;

@@ -114,8 +114,11 @@ class YtReadAloudController extends ChangeNotifier {
     // `notifyListeners()` trên object đã chết ở bước kế tiếp.
     _disposed = true;
     _epoch++;
+    final wasRunning = _running;
     _running = false;
-    unawaited(_tts.stop());
+    // Chỉ dừng TTS khi CHÍNH mình đang đọc. `_tts` là singleton dùng chung với
+    // tab Đọc ⇒ dừng vô điều kiện sẽ cắt ngang việc đọc của tab khác.
+    if (wasRunning) unawaited(_tts.stop());
     super.dispose();
   }
 

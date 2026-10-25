@@ -26,6 +26,8 @@ import 'package:in4up/widgets/karaoke_settings_sheet.dart';
 import 'package:in4up/widgets/lrc_editor_panel.dart';
 
 import '../../core/navigation/shell_navigation_request.dart';
+import '../../core/navigation/workspace_handoff_inbox.dart';
+import '../../models/i4u_shell_contracts.dart';
 import '../../models/waveform_data.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/player_provider.dart';
@@ -866,6 +868,15 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       ),
     );
     if (send != true || !mounted) return;
+    I4uWorkspaceHandoffInbox.instance.publish(
+      I4uSourceFingerprint(
+        sourceType: I4uSourceType.audio,
+        sourceId: path,
+        timestampMs: positionMs,
+        selectedText: line?.text,
+        returnPath: '/listen',
+      ),
+    );
     ShellNavigationRequest.openUnderstand();
     Navigator.of(context).pop({
       'sourceType': 'audio',

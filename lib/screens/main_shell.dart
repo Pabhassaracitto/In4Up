@@ -13,6 +13,7 @@ import '../features/dictionary/widgets/dict_manager_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
+import '../core/navigation/workspace_handoff_inbox.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/cabin/controllers/c27_cabin_live_scope.dart';
 import '../features/cabin/models/c27_cabin_live_state.dart';
@@ -22,6 +23,7 @@ import '../features/tipitaka/tipitaka.dart';
 import '../features/understand_ai/understand_ai_context.dart';
 import '../features/youtube/youtube_sheet.dart';
 import '../models/read_content_source.dart';
+import '../models/i4u_shell_contracts.dart';
 import '../models/shell_content_order.dart';
 import '../providers/player_provider.dart';
 import '../providers/text_provider.dart';
@@ -1401,6 +1403,55 @@ class _MainShellState extends State<MainShell> {
                   return const SizedBox.shrink();
                 }
                 return const LiveCaptionBubble();
+              },
+            ),
+            // Connected source handoff chip for Watch/Listen → Understand.
+            ListenableBuilder(
+              listenable: I4uWorkspaceHandoffInbox.instance,
+              builder: (context, _) {
+                final source = I4uWorkspaceHandoffInbox.instance.current;
+                if (source == null || _currentTab != _PrimaryTab.understand) {
+                  return const SizedBox.shrink();
+                }
+                final isVideo = source.sourceType == I4uSourceType.video;
+                final timestamp = source.timestampMs == null
+                    ? ''
+                    : ' · ${Duration(milliseconds: source.timestampMs!).toString().split('.').first}';
+                return Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 88,
+                  child: Material(
+                    color: const Color(0xFF101B2B),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isVideo ? Icons.ondemand_video_outlined : Icons.headphones_outlined,
+                            color: const Color(0xFF8B83FF),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.uiText('Nguồn')} ${isVideo ? context.uiText('Video') : context.uiText('Audio')}$timestamp',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: context.uiText('Đóng ngữ cảnh'),
+                            onPressed: I4uWorkspaceHandoffInbox.instance.clear,
+                            icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
               },
             ),
             // C-27: chip ngữ cảnh handoff — hiện ở tab Hiểu/Nhớ sau khi gửi

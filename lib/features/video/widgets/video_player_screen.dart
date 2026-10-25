@@ -12,6 +12,7 @@ import 'package:flutter/material.dart' show Text;
 import 'package:video_player/video_player.dart';
 
 import '../../../core/navigation/shell_navigation_request.dart';
+import '../../../core/navigation/workspace_handoff_inbox.dart';
 import '../../../core/watch/watch_mode_flow.dart';
 import '../../../models/i4u_shell_contracts.dart';
 import '../models/video_info.dart';
@@ -224,6 +225,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ),
     );
     if (send != true || !mounted) return;
+    I4uWorkspaceHandoffInbox.instance.publish(handoff.source);
     ShellNavigationRequest.openUnderstand();
     Navigator.of(context).pop(handoff);
   }

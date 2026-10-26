@@ -51,6 +51,7 @@ import 'stt_engine.dart';
 import 'stt_engine_native.dart';
 import 'stt_engine_registry.dart';
 import 'stt_engine_sherpa.dart';
+import 'sherpa_model_manager.dart';
 import 'stt_engine_whisper.dart';
 import 'stt_engine_remote.dart';
 import 'stt_lrc_converter.dart';

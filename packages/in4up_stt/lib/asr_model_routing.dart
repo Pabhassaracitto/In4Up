@@ -170,6 +170,42 @@ const List<SherpaAsrProfile> kSherpaAsrProfiles = [
   ),
 ];
 
+/// Tên hiển thị của MỌI ngôn ngữ có model offline (VI/EN + 24 ngôn ngữ còn
+/// lại của Parakeet).
+///
+/// PARAKEET-002 — trước đây mỗi màn tự giữ danh sách riêng: dropdown của Cabin
+/// chỉ có 12 ngôn ngữ (en/vi/zh/fr/de/ja/ko/th/hi/si/my/pi) nên 22 ngôn ngữ
+/// Parakeet (es, it, pt, nl, pl, ru, uk, sv, …) KHÔNG chọn được — import
+/// Parakeet xong vẫn không dùng được. Danh sách này là nguồn sự thật duy nhất.
+const Map<String, String> kAsrLanguageDisplayNames = {
+  'vi': 'Tiếng Việt',
+  'en': 'English',
+  'bg': 'Български (Bulgarian)',
+  'hr': 'Hrvatski (Croatian)',
+  'cs': 'Čeština (Czech)',
+  'da': 'Dansk (Danish)',
+  'nl': 'Nederlands (Dutch)',
+  'et': 'Eesti (Estonian)',
+  'fi': 'Suomi (Finnish)',
+  'fr': 'Français (French)',
+  'de': 'Deutsch (German)',
+  'el': 'Ελληνικά (Greek)',
+  'hu': 'Magyar (Hungarian)',
+  'it': 'Italiano (Italian)',
+  'lv': 'Latviešu (Latvian)',
+  'lt': 'Lietuvių (Lithuanian)',
+  'mt': 'Malti (Maltese)',
+  'pl': 'Polski (Polish)',
+  'pt': 'Português (Portuguese)',
+  'ro': 'Română (Romanian)',
+  'ru': 'Русский (Russian)',
+  'sk': 'Slovenčina (Slovak)',
+  'sl': 'Slovenščina (Slovenian)',
+  'es': 'Español (Spanish)',
+  'sv': 'Svenska (Swedish)',
+  'uk': 'Українська (Ukrainian)',
+};
+
 /// Các profile ASR đa ngữ (ngôn ngữ chưa có model chuyên dụng dùng chung).
 List<SherpaAsrProfile> get kMultilingualAsrProfiles => [
       for (final profile in kSherpaAsrProfiles)
@@ -408,6 +444,49 @@ class AsrModelRouter {
     required bool Function(String profileId) isInstalled,
   }) =>
       kSherpaAsrProfiles.any((profile) => isInstalled(profile.id));
+
+  /// MỌI ngôn ngữ của các profile ĐÃ CÀI (không trùng, giữ thứ tự profile).
+  ///
+  /// Dùng cho quick capture + gợi ý ngôn ngữ: bản cũ chỉ lấy
+  /// `profile.language` (phần tử ĐẦU) nên máy cài Parakeet chỉ được coi là
+  /// "có tiếng Anh", 24 ngôn ngữ còn lại bị bỏ qua.
+  static List<String> installedLanguages({
+    required bool Function(String profileId) isInstalled,
+  }) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final profile in kSherpaAsrProfiles) {
+      if (!isInstalled(profile.id)) continue;
+      for (final language in profile.languages) {
+        if (seen.add(language)) out.add(language);
+      }
+    }
+    return out;
+  }
+
+  /// Profile ĐÃ CÀI dùng được cho FILE/LRC của [language] — tức profile
+  /// offline (`!isStreaming`).
+  ///
+  /// Model streaming (Zipformer EN 20M) KHÔNG dùng được với
+  /// `OfflineRecognizer` (SIGABRT — SHERPA-STREAM-001), nên nó không bao giờ
+  /// được chọn ở đây: máy chỉ có EN streaming thì trả `null` để caller rơi về
+  /// Whisper/API thay vì crash.
+  static SherpaAsrProfile? offlineFileProfile(
+    String language, {
+    required bool Function(String profileId) isInstalled,
+  }) {
+    for (final profile in profilesForLanguage(language)) {
+      if (profile.isStreaming) continue;
+      if (isInstalled(profile.id)) return profile;
+    }
+    return null;
+  }
+
+  /// Tên hiển thị của mã ngôn ngữ (fallback: mã viết hoa).
+  static String languageDisplayName(String language) {
+    final norm = normalizeLanguage(language);
+    return kAsrLanguageDisplayNames[norm] ?? norm.toUpperCase();
+  }
 
   static Iterable<SherpaAsrProfile> _priorityOrder([
     String preferred = kDefaultAsrLanguage,

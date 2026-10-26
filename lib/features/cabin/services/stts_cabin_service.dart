@@ -166,6 +166,11 @@ class SttsCabinService extends ChangeNotifier {
   bool get missingModelHasOfflineProfile =>
       hasModelBlocker && _modelPlan!.profile != null;
 
+  /// Profile đang thiếu là model ĐA NGỮ (Parakeet) — UI dùng để nói đúng tên
+  /// model cần tải thay vì luôn nói "Zipformer" (PARAKEET-002).
+  bool get missingModelIsMultilingual =>
+      hasModelBlocker && (_modelPlan!.profile?.isMultilingual ?? false);
+
   /// Ngôn ngữ đã cài model có thể dùng thay — chỉ GỢI Ý, user phải xác nhận
   /// qua [confirmFallbackToInstalledLanguage] (không tự đổi sau lưng user).
   String? get suggestedFallbackLanguage =>
@@ -309,10 +314,16 @@ class SttsCabinService extends ChangeNotifier {
         // Chuỗi này chỉ để log/chẩn đoán — UI hiện message đã bản địa hoá từ
         // `modelPlan` (xem `_errorBannerText` trong live_cabin_screen.dart).
         final fallbackTag = plan.fallbackLanguage?.toUpperCase();
+        // PARAKEET-002: nêu đúng họ model (Parakeet đa ngữ vs Zipformer) —
+        // chuỗi này chỉ để log/chẩn đoán, UI hiện message từ `modelPlan`.
+        final family = plan.profile?.family == SherpaAsrFamily.parakeet
+            ? 'Parakeet'
+            : 'Zipformer';
         _lastError = plan.issue == AsrModelIssue.noProfileForLanguage
-            ? 'Chưa có model Zipformer offline cho ${plan.requestedLanguage} '
-                '(app chỉ có VI offline + EN streaming).'
-            : 'Chưa cài model Zipformer cho ${plan.requestedLanguage.toUpperCase()}'
+            ? 'Chưa có model offline cho ${plan.requestedLanguage} '
+                '(app có VI offline, EN streaming và Parakeet 25 ngôn ngữ '
+                'châu Âu).'
+            : 'Chưa cài model $family cho ${plan.requestedLanguage.toUpperCase()}'
                 '${fallbackTag == null ? '' : ' — máy có $fallbackTag, cần user xác nhận'}.';
         notifyListeners();
         debugPrint('⛔ SttsCabinService: $plan');
@@ -341,7 +352,8 @@ class SttsCabinService extends ChangeNotifier {
         if (!ok) {
           _state = CabinState.error;
           _lastError = _sherpaStt.lastError ??
-              'Không khởi động được Zipformer ASR cho ${plan.requestedLanguage}.';
+              'Không khởi động được model offline cho '
+                  '${plan.requestedLanguage}.';
           try {
             await recorder.stop();
             await recorder.dispose();
@@ -367,8 +379,9 @@ class SttsCabinService extends ChangeNotifier {
         _recorder?.resumeClock();
         _startKeepAlive();
         notifyListeners();
-        debugPrint(
-            '🎙️ SttsCabinService started with Sherpa Zipformer ($sourceLanguage ➔ $_targetLanguage)');
+        debugPrint('🎙️ SttsCabinService started with Sherpa '
+            '${plan.profile?.family.name ?? 'zipformer'} '
+            '($sourceLanguage ➔ $_targetLanguage)');
         return true;
       } catch (e) {
         _state = CabinState.error;

@@ -47,6 +47,7 @@ export 'asr_model_routing.dart'
         SherpaAsrFamily,
         SherpaAsrProfile,
         kAsrLanguagePriority,
+        kAsrLanguageDisplayNames,
         kDefaultAsrLanguage,
         kMultilingualAsrProfiles,
         kParakeetProfileId,

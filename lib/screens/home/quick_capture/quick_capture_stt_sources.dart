@@ -131,7 +131,8 @@ class SherpaQuickCaptureSource implements QuickCaptureSttSource {
 
   @override
   String? get unavailableReason =>
-      'Sherpa ${language.toUpperCase()}: chưa import model Zipformer';
+      'Sherpa ${language.toUpperCase()}: chưa import model offline '
+      '(Zipformer/Parakeet)';
 
   @override
   Stream<SttResult> get results => _engine.liveResultStream;
@@ -303,13 +304,28 @@ List<QuickCaptureSttSource> buildQuickCaptureSources({
 }) {
   final models = modelManager ?? SherpaModelManager();
 
+  // PARAKEET-002 — lấy MỌI ngôn ngữ của model đã cài (Parakeet phủ 25 ngôn
+  // ngữ). Bản cũ chỉ lấy `profile.language` (phần tử ĐẦU) nên máy cài Parakeet
+  // chỉ được coi là "có tiếng Anh" — app tiếng Đức/Pháp không dùng được.
   final installed = <String>[];
-  for (final profile in SherpaModelManager.predefinedAsrProfiles) {
-    if (installed.contains(profile.language)) continue;
-    try {
-      if (models.hasAsrModel(profile.id)) installed.add(profile.language);
-    } catch (e) {
-      debugPrint('⚠️ buildQuickCaptureSources: hasAsrModel error: $e');
+  try {
+    for (final language in AsrModelRouter.installedLanguages(
+      isInstalled: models.isAsrProfileInstalled,
+    )) {
+      if (!installed.contains(language)) installed.add(language);
+    }
+  } catch (e) {
+    debugPrint('⚠️ buildQuickCaptureSources: đọc model ASR lỗi: $e');
+  }
+  if (installed.isEmpty) {
+    // State chưa quét (manager mới tạo) — fallback cách cũ để không mất engine.
+    for (final profile in SherpaModelManager.predefinedAsrProfiles) {
+      if (installed.contains(profile.language)) continue;
+      try {
+        if (models.hasAsrModel(profile.id)) installed.add(profile.language);
+      } catch (e) {
+        debugPrint('⚠️ buildQuickCaptureSources: hasAsrModel error: $e');
+      }
     }
   }
 

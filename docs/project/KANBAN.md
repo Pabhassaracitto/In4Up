@@ -7171,9 +7171,43 @@
     byte, bội 512, >64KB, GNU longname, PAX, traversal, archive hỏng/rỗng,
     + fixture thật `test/fixtures/asr_model_sample.tar.bz2` do GNU tar tạo).
     CI: bước "PARAKEET-002 tests" trong `app_analyze.yml`.
+- **Đã sửa phần 2 — "import xong nhưng KHÔNG dùng được Parakeet"**
+  (2026-10-26, nhánh `arena/a5209625-in4up`): chủ dự án yêu cầu *"đảm bảo sau
+  khi thêm parakeet có thể dùng nó ở live dịch cabin, tab nghe STT, …"*. Rà
+  ra 5 lỗi chặn thật:
+  - **Cabin**: dropdown ngôn ngữ hardcode 12 ngôn ngữ ⇒ **22/25 ngôn ngữ
+    Parakeet không chọn được** (es/it/pt/nl/pl/ru/uk/sv/…). Nay
+    `cabinLanguageOptions()` = 12 ngôn ngữ nền + mọi ngôn ngữ có profile
+    offline (34 mục), giữ nguyên thứ tự cũ; nhãn dùng
+    `kAsrLanguageDisplayNames` (nguồn sự thật duy nhất).
+  - **Tab Nghe (LRC)**: chip model chỉ có Whisper, và
+    `SttEngineType.sherpa` **không có nhánh** trong `transcribeFile` (chọn
+    sherpa thì rơi vào `native` = speech_to_text, vốn không transcribe file).
+    Nay: `_runSherpaEngine()` (convert WAV 16k → `OfflineRecognizer`, chặn
+    model streaming, chặn file >30 phút vì sherpa nạp cả file vào RAM) + chip
+    "Offline (Parakeet/sherpa)" trong `_LrcModelSelector` (chỉ hiện khi đã cài
+    model offline; ngôn ngữ chọn từ model thật đã cài) + `transcribeAuto`
+    fallback sang sherpa khi chưa có Whisper.
+  - **Quick capture**: chỉ lấy `profile.language` (phần tử ĐẦU của Parakeet =
+    en) ⇒ app tiếng Đức/Pháp không bao giờ chạy Parakeet. Nay dùng
+    `AsrModelRouter.installedLanguages` (đủ 25 ngôn ngữ).
+  - **Live STT đổi model**: `startLive()` nhánh offline không dọn recognizer
+    online ⇒ sau khi dùng EN streaming, chuyển sang Parakeet/VI vẫn decode
+    bằng model EN cũ (`acceptPcmSamples` ưu tiên `_online`) → **chọn tiếng
+    Đức mà ra chữ tiếng Anh**, và Parakeet (~670MB) không được free khi đổi
+    sang streaming. Nay `_releaseOnline()`/`_releaseOffline()` dọn đúng nhánh.
+  - **Nhãn/chuỗi**: "Chưa cài model Zipformer" → nay nêu đúng họ model
+    (Parakeet vs Zipformer) ở banner, dialog và dropdown; chuỗi mới đã đăng
+    ký `priority_ui_overrides` (rule #5).
+  - Test: `test/parakeet_usage_surfaces_test.dart` (dropdown đủ 25 ngôn ngữ,
+    `installedLanguages`, `offlineFileProfile` KHÔNG trả model streaming,
+    `planCabinAsr` với Parakeet, quick capture theo ngôn ngữ Parakeet).
 - **Ưu tiên:** P2 (chặn nghiệm thu Parakeet trên máy RAM thấp).
-- **Nghiệm thu:** import Parakeet trên máy thật → giải nén xong, model chạy,
-  app không văng; xoá model vẫn giải phóng đủ dung lượng.
+- **Nghiệm thu:** import Parakeet trên máy thật → giải nén xong, app không
+  văng; **chọn tiếng Đức/Pháp/Tây Ban Nha trong Cabin + bật Engine Offline →
+  nhận đúng tiếng, không ra chữ Anh**; tab Nghe → chip "Offline
+  (Parakeet/sherpa)" → tạo lời thoại đúng ngôn ngữ; quick capture theo ngôn
+  ngữ app; xoá model vẫn giải phóng đủ dung lượng.
 - **Trạng thái:** 🔨 doing — code + test xong, chờ CI 🟢 và nghiệm thu máy.
 - **Bài học:** không có `flutter analyze`/`dart test` trong sandbox ⇒ thuật
   toán tar được **mô phỏng lại bằng Python** trên archive do GNU tar sinh ra

@@ -578,6 +578,11 @@ jobs:
           if [ -f test/whisper_model_variants_test.dart ]; then
             files="$files test/whisper_model_variants_test.dart"
           fi
+          # PARAKEET-002: Parakeet phải dùng được ở Cabin/tab Nghe/quick capture
+          # (dropdown đủ 25 ngôn ngữ, route file không rơi vào model streaming).
+          if [ -f test/parakeet_usage_surfaces_test.dart ]; then
+            files="$files test/parakeet_usage_surfaces_test.dart"
+          fi
           flutter test $files > asr_test.log 2>&1
           code=$?
           cat asr_test.log

@@ -3338,6 +3338,53 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
 
   // CABIN-ASR-002 — model Zipformer cho Cabin (thiếu model / fallback / mở
   // Quản lý Model AI). T2 phải có bản dịch thật, không để English trơ.
+  // PARAKEET-002 — thiếu model đa ngữ (Parakeet) và danh sách ngôn ngữ offline.
+  'Chưa cài model {value0} cho {value1}. Mở Quản lý Model AI để tải/import.': {
+    'en': 'The {value0} model for {value1} is not installed. Open Manage AI Models to download/import.',
+    'hi': '{value1} के लिए {value0} मॉडल इंस्टॉल नहीं है। डाउनलोड/आयात करने के लिए AI मॉडल प्रबंधन खोलें।',
+    'zh': '尚未安装 {value1} 的 {value0} 模型。请打开管理 AI 模型进行下载/导入。',
+    'zh_TW': '尚未安裝 {value1} 的 {value0} 模型。請開啟管理 AI 模型進行下載/匯入。',
+    'si': '{value1} සඳහා {value0} ආකෘතිය ස්ථාපනය කර නැත. බාගැනීමට/ආයාත කිරීමට AI ආකෘති කළමනාකරණය විවෘත කරන්න.',
+  },
+  'Chưa cài model Parakeet cho {value0}': {
+    'en': 'Parakeet model for {value0} is not installed',
+    'hi': '{value0} के लिए Parakeet मॉडल इंस्टॉल नहीं है',
+    'zh': '尚未安装 {value0} 的 Parakeet 模型',
+    'zh_TW': '尚未安裝 {value0} 的 Parakeet 模型',
+    'si': '{value0} සඳහා Parakeet ආකෘතිය ස්ථාපනය කර නැත',
+  },
+  'Chưa cài model Parakeet (đa ngữ) — mở Quản lý Model AI': {
+    'en': 'Parakeet (multilingual) model is not installed — open Manage AI Models',
+    'hi': 'Parakeet (बहुभाषी) मॉडल इंस्टॉल नहीं है — AI मॉडल प्रबंधन खोलें',
+    'zh': '尚未安装 Parakeet（多语言）模型 — 请打开管理 AI 模型',
+    'zh_TW': '尚未安裝 Parakeet（多語言）模型 — 請開啟管理 AI 模型',
+    'si': 'Parakeet (බහුභාෂා) ආකෘතිය ස්ථාපනය කර නැත — AI ආකෘති කළමනාකරණය විවෘත කරන්න',
+  },
+  'Offline chỉ có Tiếng Việt, English (streaming) và Parakeet (25 ngôn ngữ châu Âu). Hãy chọn ngôn ngữ trong danh sách đó hoặc dùng Engine "Hệ thống".':
+      {
+    'en':
+        'Offline models cover Vietnamese, English (streaming) and Parakeet (25 European languages). Pick one of those languages or use the "System" engine.',
+    'hi':
+        'ऑफ़लाइन में वियतनामी, अंग्रेज़ी (स्ट्रीमिंग) और Parakeet (25 यूरोपीय भाषाएँ) हैं। इनमें से कोई भाषा चुनें या "सिस्टम" इंजन चुनें।',
+    'zh': '离线仅支持越南语、英语（流式）和 Parakeet（25 种欧洲语言）。请选择其中之一，或使用“系统”引擎。',
+    'zh_TW': '離線僅支援越南語、英語（串流）和 Parakeet（25 種歐洲語言）。請選擇其中之一，或使用「系統」引擎。',
+    'si':
+        'නොබැඳි ලෙස ඇත්තේ වියට්නාම්, ඉංග්‍රීසි (ස්ට්‍රීමිං) සහ Parakeet (යුරෝපීය භාෂා 25) පමණි. ඉන් එකක් තෝරන්න හෝ "පද්ධති" එන්ජිම භාවිත කරන්න.',
+  },
+  'Offline (Parakeet/sherpa)': {
+    'en': 'Offline (Parakeet/sherpa)',
+    'hi': 'ऑफ़लाइन (Parakeet/sherpa)',
+    'zh': '离线（Parakeet/sherpa）',
+    'zh_TW': '離線（Parakeet/sherpa）',
+    'si': 'නොබැඳි (Parakeet/sherpa)',
+  },
+  'Tạo lời thoại (LRC — offline, {value0})': {
+    'en': 'Create lyrics (LRC — offline, {value0})',
+    'hi': 'गीत बनाएँ (LRC — ऑफ़लाइन, {value0})',
+    'zh': '生成歌词（LRC — 离线，{value0}）',
+    'zh_TW': '產生歌詞（LRC — 離線，{value0}）',
+    'si': 'ගී පද සාදන්න (LRC — නොබැඳි, {value0})',
+  },
   'Chưa cài model Zipformer cho {value0}': {
     'en': 'Zipformer model for {value0} is not installed',
     'hi': '{value0} के लिए Zipformer मॉडल इंस्टॉल नहीं है',

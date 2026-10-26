@@ -254,11 +254,15 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// nhận diện ngôn ngữ (đa ngữ: vi/en/zh/ja/ko/pi...); hoặc gán cụ thể
   /// ('vi', 'en'...) khi muốn ép ngôn ngữ. Trước đây hardcode 'en' —
   /// file tiếng Việt bị transcribe sai ngôn ngữ.
+  /// [preferSherpa]: dùng model sherpa OFFLINE (Parakeet đa ngữ / Zipformer VI)
+  /// thay cho Whisper — PARAKEET-002. Trước đây tab Nghe chỉ biết Whisper nên
+  /// import Parakeet xong không có cách nào dùng để tạo lời thoại.
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     bool forceRegenerate = false,
     String language = 'auto',
+    bool preferSherpa = false,
   }) async {
     final path = currentSongPath;
     if (path == null) {
@@ -280,9 +284,11 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
 
     // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
+    // (chỉ cho Whisper: VAD pipeline tự chọn model Whisper — chế độ sherpa đi
+    // thẳng đường sherpa bên dưới).
     try {
       final file = File(path);
-      if (await file.exists()) {
+      if (!preferSherpa && await file.exists()) {
         // Nếu file >60s, tự động dùng VAD pipeline tối ưu
         // Probe duration đơn giản qua file size hoặc dùng AudioConverter
         // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
@@ -343,7 +349,29 @@ mixin PlayerSttMixin on ChangeNotifier {
 
       try {
         final SttTranscribeOutput output;
-        if (level == null) {
+        if (preferSherpa) {
+          // Ngôn ngữ cụ thể cho sherpa: 'auto' → ngôn ngữ đã cài model
+          // (ưu tiên VI). Không có profile offline ⇒ engine báo lỗi rõ ràng.
+          var sherpaLanguage = language;
+          if (sherpaLanguage.trim().isEmpty ||
+              sherpaLanguage.trim().toLowerCase() == 'auto') {
+            final manager = SherpaModelManager();
+            try {
+              await manager.ensureFresh();
+            } catch (_) {}
+            sherpaLanguage = manager.defaultCabinSourceLanguageSync();
+          }
+          output = await stt.transcribeFile(
+            path,
+            config: SttConfig.deepLearning.copyWith(
+              preferredEngine: SttEngineType.sherpa,
+              language: sherpaLanguage,
+              generateLrc: true,
+              grouping: grouping,
+            ),
+            generateLrc: true,
+          );
+        } else if (level == null) {
           output = await stt.transcribeAuto(
             path,
             language: language,

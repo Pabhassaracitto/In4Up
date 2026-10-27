@@ -1264,13 +1264,13 @@ Package: `video_player: ^2.8.0` (Flutter official)
     251e `0556f82`, khảo sát các điểm vào và lập phương án; chưa thay đổi code.
   - 2026-10-28 | 2026-10-27 19:41 UTC | proposed→doing | agent
     `arena/bf95d3ae-in4up` | owner duyệt mặc định; code, test dự thảo,
-    ADR-0018 và hồ sơ review; chưa chạy Flutter/CI hay nghiệm thu thiết bị.
+    ADR-0019 và hồ sơ review; chưa chạy Flutter/CI hay nghiệm thu thiết bị.
 
 
 ### PLAN-040 — Karaoke đồng bộ trên Nghe và Hiểu
 - Nguồn: người sở hữu (2026-10-28, qua agent `arena/bf95d3ae-in4up`).
-- Trạng thái: doing — code và matrix CI xanh; chờ review độc lập, build
-  Android đầy đủ và nghiệm thu thiết bị.
+- Trạng thái: doing — CI code tích hợp xanh; rebase Kanban 251e `de52915`,
+  chờ CI PR, review độc lập, build Android và nghiệm thu thiết bị.
 - Milestone đề xuất: M2, card KARAOKE-001.
 - Chi tiết: theo thời gian phát/seek kể cả khi LRC vừa tạo xong lúc tạm dừng;
   đưa dòng vào vùng nhìn dựa trên vị trí thật với dòng cao thấp khác nhau;

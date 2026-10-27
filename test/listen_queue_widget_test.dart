@@ -5,6 +5,7 @@ import 'package:in4up/models/audio_playlist.dart';
 import 'package:in4up/models/audio_queue_item.dart';
 import 'package:in4up/providers/audio_library_provider.dart';
 import 'package:in4up/providers/player_provider.dart';
+import 'package:in4up/screens/listen_mode/widgets/audio_library_drawer.dart';
 import 'package:in4up/screens/listen_mode/widgets/audio_library_view.dart';
 import 'package:in4up/screens/listen_mode/widgets/audio_playlists_sheet.dart';
 import 'package:in4up/screens/listen_mode/widgets/mini_player.dart';
@@ -144,6 +145,44 @@ void main() {
     expect(player.queueFailedIndices, {0});
     expect(player.queueIndex, 1);
     expect(library.marked, ['c']);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('compact drawer keeps responsive tabs and the shared queue', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final started = player.startQueue([
+      const AudioQueueItem(source: 'https://example.test/a', title: 'Bài trước'),
+      const AudioQueueItem(source: 'https://example.test/b', title: 'Second'),
+    ]);
+    await pumpQueue(tester);
+    expect(await started, isTrue);
+    await tester.pumpWidget(wrap(const Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(width: 262.4, child: AudioLibraryDrawer()),
+    )));
+    await tester.pump();
+
+    // The upstream narrow-layout tabs and the feature queue must coexist.
+    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
+    // Do not translate a user's title even when it matches a known UI label.
+    expect(find.text('Bài trước'), findsOneWidget);
+    // Off-screen ListView children are lazy. Scroll the preview itself until
+    // the second item is built and visible, rather than assuming it exists.
+    final preview = find.byKey(const ValueKey('drawer-queue-preview'));
+    await tester.scrollUntilVisible(
+      find.text('Second'),
+      100,
+      scrollable: find.descendant(of: preview, matching: find.byType(Scrollable)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Second').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Second'));
+    await pumpQueue(tester);
+    await tester.pump();
+    expect(player.queueIndex, 1);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   });

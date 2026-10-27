@@ -6955,6 +6955,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '无法朗读该单词。',
     'zh_TW': '無法朗讀該單詞。',
     'si': 'මෙම වචනය උච්ඡාරණය කළ නොහැක.',
+  },
   'Đã copy': {
     'en': 'Copied',
     'hi': 'कॉपी हो गया',

@@ -44,6 +44,7 @@
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | WEB-BUILD-001 | `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages | ✅ done (đã deploy `gh-pages`, chờ owner kiểm) | entrypoint `lib/main_web.dart` web-safe + `web/flutter_bootstrap.js` canvasKit cục bộ + `web/yt_embed.html` fix -1 (origin/enablejsapi) — IN4-109 |
 | WEB-BUILD-002 | Web VẪN TRẮNG + YouTube -1 tái phát sau fix 001 — thiếu `home:` + thiếu loader/.nojekyll | 🔨 doing (đã fix, chờ CI + hard-reload) | `home:` rỗng ⇒ trắng; thêm loader + `.nojekyll` + yt_embed v2 validate ID — IN4-109 tiếp nối |
+| DICT-SQLITE-001 | Import từ điển đuôi `.db`/`.sqlite` (trước chỉ nhận `.mdx`) | ✅ done (code + 17 test + CI 🟢 run 40590731503; chờ nghiệm thu máy) | `dict_sqlite_importer.dart` (đoán bảng/cột thuần + đọc LIMIT/OFFSET read-only) + `_importSqliteSources` trong DictionaryService + picker/quét thư mục nhận db/sqlite/sqlite3 |
 | YT-LRC-LONG-001 | Lấy phụ đề YouTube sang tab Đọc bị lỗi: video ≥ 60 phút ghi SAI mốc giờ + bộ đọc LRC chỉ nhận 2 chữ số phút + lỗi im lặng | ✅ done (code + test + CI 🟢 run 40584513088; chờ nghiệm thu máy) | `toLrc()` ghi phút tuyệt đối; đọc LRC tách sang hàm thuần `lrc_time_parser.dart` (phút 1–3 số, `.`/`,`, `hh:mm:ss`); `YtReadBridge` bọc try/catch + snackbar giữ messenger trước khi pop |
 | REL-1.18.0 | Release **1.18.0** (full 4 nền tảng) từ tip 251e `b3583676` — 34 commit sau 1.17.0 (i18n wave 8+9, PRON-002, API-SERVERSET, PARAKEET-002 dùng được, 7 fix YouTube, fix từ điển) | ✅ done (build 🟢 run 40568716000, 4/4 job; chờ nghiệm thu máy) | bump `1.17.0+17 → 1.18.0+18` (`5a70bf33`); APK arm64 198.4 MB `8e6b90fa…`, IPA 92.7 MB, Linux 49.4 MB, Windows 51.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.18.0 |
 | REL-1.17.0 | Release **1.17.0** (full 4 nền tảng) từ tip 251e — bump `1.16.0+16 → 1.17.0+17` để update đè được | ✅ done (build 🟢 run 40262212277, 4/4 job; chờ nghiệm thu máy) | APK arm64 198 MB `f6f6e2c4…`, IPA 92 MB, Linux tar 49 MB, Windows zip 51.5 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0 |
@@ -8194,3 +8195,27 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Ghi chú `flutter clean` (owner nêu):** build nhiều phiên bản mà không `flutter clean` **không** gây lỗi này (lỗi nằm trong logic Dart + định dạng LRC). Nhưng để loại trừ cache làm lẫn kết quả, nên chạy `flutter clean && flutter pub get` **một lần** khi nâng cấp nhiều phiên bản; KHÔNG cần xoá app trên máy (versionCode đã tăng dần nên cài đè được).
 - **Lịch sử:**
   - 2026-10-28 | created→done | agent arena/01a0251e-in4up | tách parser LRC thành hàm thuần + nới định dạng + sửa `toLrc` video dài + hết im lặng; 14 test nối CI; run `40584513088` 🟢
+
+### DICT-SQLITE-001 — (2026-10-28) "Sao từ điển import đuôi .db mà không được?"
+- **Trạng thái:** ✅ done (code + 17 test + CI 🟢 `run 40590731503`; **chờ nghiệm thu máy**)
+- **Nguồn:** owner 2026-10-28 — *"sao từ điển import đuôi .db mà không được?"*
+- **Trả lời ngắn:** vì **app chưa từng có đường nào cho `.db`**. Ba chốt chặn, đều im lặng:
+  1. `DictImportService` lọc `allowedExtensions: ['mdx','mdd','css']` (và SAF `pickDocuments(extensions: {'mdx','mdd','css'})`) ⇒ bộ chọn của Android lẫn `file_picker` **loại file `.db` ngay từ đầu** — người dùng chỉ thấy "không chọn được file", không có thông báo.
+  2. `DictBundleScanner.scan()` chỉ nhận `.mdx` ⇒ có chọn được (vd chọn cả thư mục) cũng báo *"Không tìm thấy file .mdx nào trong nguồn đã chọn"*.
+  3. Định dạng nội bộ của app là `<id>.dict.sqlite` (schema `dict_entries(headword, definition, phonetic, audio_path, part_of_speech, dict_id)`) ⇒ **kể cả file do chính app sinh ra cũng không import lại được**.
+- **Đã làm:**
+  - `lib/features/dictionary/services/dict_sqlite_importer.dart` (**mới**):
+    - `pickDefinitionMapping()` — hàm **THUẦN** chấm điểm bảng/cột: nhận schema của app, StarDict/Wiktionary (`word`+`definition`), camelCase (`HeadWord`/`MeaningHtml`/`Pos`), viết tắt; bỏ bảng hệ thống (`sqlite_sequence`, `android_metadata`, `room_master_table`); **không bao giờ** lấy cột `id` làm từ khoá; fallback 2 cột vô danh (`c1`,`c2`) nhưng hạ độ tin cậy.
+    - `importSqliteDictionary()` — mở file nguồn **READ-ONLY**, đọc nhỏ giọt `LIMIT 2000 OFFSET n`, chèn vào index nội bộ qua `DictDbService`; BLOB được giải mã UTF-8; **0 dòng ⇒ xoá index rỗng** (không để "từ điển ma").
+    - `detectLangPairFromFileName()` — đoán cặp ngôn ngữ theo **VỊ TRÍ** trong tên file (`Pháp-Việt.db` → FR→VI, không phụ thuộc thứ tự khai báo).
+  - `DictionaryService._importSqliteSources()`: nhánh riêng khi nguồn không có MDX mà có `.db`; nguồn SAF được copy sang thư mục tạm rồi **xoá** sau khi xong; đăng ký `DictInfo` ⇒ phần tra cứu không cần biết nguồn gốc; lỗi báo theo **mã** `read_failed` / `no_table` / `empty`.
+  - `DictBundleScanner.isSqliteName()` (loại `.rebuilding-*` / `.previous-*` của chính app để không tự import rác) và **không** coi `.db` là "asset" của set MDX.
+  - `DictImportService`: `_pickExtensions` (picker) + danh sách quét thư mục có thêm `db/sqlite/sqlite3`.
+  - i18n rule #5: 4 chuỗi mới đủ `en/hi/zh/zh_TW/si` trong `priority_ui_overrides.dart` + `generated_legacy_ui_fallbacks.dart` + `tool/legacy_ui_english_overrides.json`.
+- **Máy bắt:** `test/dictionary/dict_sqlite_import_test.dart` — **17 test thuần Dart**: tên file (kể cả index tạm), 8 ca đoán bảng/cột (schema app, StarDict, camelCase, nhiều bảng, cột vô danh, bảng hệ thống, rỗng, cấm cột ID), và nhận diện cặp ngôn ngữ. Đã nối vào bước DICT của `app_analyze.yml` cùng `test/dict_bundle_scanner_test.dart` (file này trước đó **không được chạy** trên CI).
+- **Chưa làm / giới hạn thẳng thắn:**
+  1. File `.db` **không phải SQLite** (vd **Berkeley DB** của StarDict `stardict.dict.dz`, `dictzip`) vẫn báo *"File .db không phải SQLite hợp lệ"* — cần bộ chuyển đổi riêng, chưa làm.
+  2. Chưa kiểm trên máy thật: chọn `.db` từ SAF, file lớn vài trăm MB, tra từ sau khi import.
+  3. `.db` nằm trong ZIP của "bộ tải sẵn" (`dict_pack_service`) vẫn chỉ bóc `mdx/mdd/css` — muốn bộ pack đóng gói dạng SQLite phải thêm `db/sqlite` vào `_dictExtensions` (chưa làm vì chưa có bộ nào như vậy).
+- **Lịch sử:**
+  - 2026-10-28 | created→done | agent arena/01a0251e-in4up | thêm importer SQLite + nhánh service + picker + i18n + 17 test; CI `40590731503` 🟢

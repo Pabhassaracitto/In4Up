@@ -14,9 +14,13 @@ class AutoScrollButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onToggle,
-      child: Container(
+    return Semantics(
+      button: true,
+      toggled: isActive,
+      label: context.uiText('Tự cuộn lời'),
+      child: GestureDetector(
+        onTap: onToggle,
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
@@ -47,6 +51,7 @@ class AutoScrollButton extends StatelessWidget {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

@@ -14,6 +14,8 @@ on:
       - 'lib/screens/listen_mode/**'
       - 'lib/screens/understand_mode/**'
       - 'lib/widgets/karaoke_*.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
       - 'lib/services/audio_import_service.dart'
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
@@ -34,6 +36,8 @@ on:
       - 'lib/screens/listen_mode/**'
       - 'lib/screens/understand_mode/**'
       - 'lib/widgets/karaoke_*.dart'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
       - 'lib/services/audio_import_service.dart'
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
@@ -64,6 +68,8 @@ jobs:
           - test/listen_source_artifact_test.dart
           - test/audio_import_service_test.dart
           - test/karaoke_timing_test.dart
+          - test/karaoke_view_test.dart
+          - test/karaoke_tabs_integration_test.dart
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -81,6 +87,14 @@ jobs:
           cat listen_test.log
           if [ "$code" -ne 0 ]; then
             sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' listen_test.log > listen_test_clean.log
+            # Surface the *first* rendering/gesture errors, not only the tail
+            # after Flutter has printed multiple long stacks. Logs may be
+            # inaccessible in restricted environments while a run is active.
+            grep -n 'EXCEPTION CAUGHT BY' listen_test_clean.log | head -n 4 | cut -d: -f1 | while read -r ln; do
+              end=$((ln + 24))
+              detail=$(sed -n "${ln},${end}p" listen_test_clean.log | head -c 5000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=${{ matrix.file }} first exception::$detail"
+            done
             grep -n '\[E\]' listen_test_clean.log | cut -d: -f1 | while read -r ln; do
               start=$((ln > 45 ? ln - 45 : 1))
               detail=$(sed -n "${start},${ln}p" listen_test_clean.log | tail -c 5000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')

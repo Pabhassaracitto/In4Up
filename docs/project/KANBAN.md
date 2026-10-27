@@ -8,7 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
-| PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — chờ Flutter CI, review độc lập, build và nghiệm thu thiết bị | `arena/bf95d3ae-in4up`, ADR-0018, [review](PLAN-039-review.md); code/test đã viết, chưa chạy |
+| PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI xanh, chờ review độc lập, build Android và nghiệm thu thiết bị | run rộng `40583408530`; matrix `40583714314`; [review](PLAN-039-review.md) |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing | `arena/bf95d3ae-in4up`, PLAN-040, ADR-0019; đang triển khai và kiểm thử |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |

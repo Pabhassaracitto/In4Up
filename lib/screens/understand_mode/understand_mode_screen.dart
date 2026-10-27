@@ -15,9 +15,8 @@ import '../../models/waveform_data.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
-import '../../utils/safe_set_state.dart';
 import '../../providers/karaoke_settings_provider.dart';
-import '../../widgets/karaoke_lyrics_line.dart';
+import '../../widgets/karaoke_transcript_view.dart';
 import '../../widgets/karaoke_settings_sheet.dart';
 import '../../widgets/lrc_editor_panel.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
@@ -53,16 +52,11 @@ class UnderstandModeScreen extends StatefulWidget {
 }
 
 class _UnderstandModeScreenState extends State<UnderstandModeScreen>
-    with SingleTickerProviderStateMixin, SafeSetStateMixin {
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late RollingWaveformController _waveformController;
-  final ScrollController _textScrollController = ScrollController();
-  PlayerProvider? _playerProvider;
-  // LISTEN-LRC-001: stored ref — the player listener must not resolve
-  // providers through context (stale context after tab switches).
+  // Stored ref for mode changes; lyric following is owned by the shared view.
   UnderstandProvider? _understandProvider;
-  late final VoidCallback _playerListener;
-  final ScrollController _lrcScrollController = ScrollController();
   // Coalesce flags: build() may run every player tick, but each sync below
   // schedules at most one post-frame callback at a time.
   bool _waveformSyncScheduled = false;
@@ -70,9 +64,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   // Auto-scroll to current line
   bool _autoScroll = true;
-
-  /// Người dùng đang tự kéo danh sách lyrics → tạm tắt auto-scroll.
-  bool _userScrollingLrc = false;
 
   @override
   void initState() {
@@ -90,30 +81,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
       _understandProvider =
           Provider.of<UnderstandProvider>(context, listen: false);
       _syncLearningModeToProvider();
-      _playerListener = () {
-        if (!mounted) return;
-
-        final player = _playerProvider;
-        final understand = _understandProvider;
-        if (player == null || understand == null) return;
-        understand.updatePosition(player.state.position);
-
-        final idx = understand.currentLineIndex;
-        // ★ FIX: Gọi _scrollToLine với đúng index (chỉ khi user không tự kéo)
-        if (idx >= 0 && _autoScroll && !_userScrollingLrc) {
-          // LISTEN-LRC-001: animateTo must not run mid-build.
-          if (listenShouldDeferSetState()) {
-            runPostFrame(() => _scrollToLine(idx));
-          } else {
-            _scrollToLine(idx);
-          }
-        }
-      };
-      _playerProvider?.addListener(_playerListener);
     });
   }
 
@@ -139,11 +109,8 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   @override
   void dispose() {
-    _playerProvider?.removeListener(_playerListener);
-    _lrcScrollController.dispose();
     _tabController.dispose();
     _waveformController.dispose();
-    _textScrollController.dispose();
     super.dispose();
   }
 
@@ -158,9 +125,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer4<PlayerProvider, TextProvider, WaveformProvider,
-        ShadowingProvider>(
-      builder: (context, player, textProvider, waveform, shadowing, child) {
+    return Consumer5<PlayerProvider, TextProvider, WaveformProvider,
+        ShadowingProvider, UnderstandProvider>(
+      builder: (context, player, textProvider, waveform, shadowing, understand, child) {
         // Sync waveform data
         if (player.currentSongPath != null &&
             (waveform.waveformData.isEmpty ||
@@ -185,7 +152,9 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
         }
 
         final hasAudio = player.currentSongPath != null;
-        final hasText = textProvider.hasLyrics;
+        // AI-created LRC lives in UnderstandProvider even when the Read tab
+        // has no document. Do not hide those lyrics behind the guide screen.
+        final hasText = textProvider.hasLyrics || understand.lrcLines.isNotEmpty;
 
         if (!hasAudio || !hasText) {
           return _buildGuideState(context, hasAudio, hasText);
@@ -268,33 +237,6 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
       }
       shadowing.setLoopRegion(loopStart, loopEnd);
     });
-  }
-
-  // NEW: Auto-scroll to active line
-  void _scrollToLine(int index) {
-    if (!_lrcScrollController.hasClients || index < 0) return;
-
-    const double estimatedLineHeight = 56.0; // Average height of a line item
-
-    final position = _lrcScrollController.position;
-    final viewportHeight = position.viewportDimension;
-
-    final targetOffset = index * estimatedLineHeight;
-    final centerOffset =
-        targetOffset - (viewportHeight / 2) + (estimatedLineHeight / 2);
-    final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
-
-    // Chỉ scroll khi dòng nằm ngoài vùng nhìn → tránh giật liên tục.
-    final tolerance = 8.0;
-    final inView = targetOffset >= position.pixels - tolerance &&
-        targetOffset <= position.pixels + viewportHeight - tolerance;
-    if (inView) return;
-
-    _lrcScrollController.animateTo(
-      clamped,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
   }
 
   Future<void> _pickAudio(BuildContext context) async {
@@ -528,95 +470,53 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           ),
         ),
         Expanded(
-          child: Stack(
+          child: Column(
             children: [
-              Consumer<UnderstandProvider>(
-                builder: (context, provider, _) {
-                  if (provider!.lrcLines.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        "Chưa có nội dung\nHãy tạo LRC từ Tab Nghe",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    );
-                  }
-
-                  return NotificationListener<ScrollNotification>(
-                    onNotification: (n) {
-                      if (n is ScrollStartNotification) {
-                        _userScrollingLrc = true;
-                      } else if (n is ScrollEndNotification) {
-                        _userScrollingLrc = false;
-                      }
-                      return false;
-                    },
-                    child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    controller: _lrcScrollController,
-                    itemCount: provider!.lrcLines.length,
-                    itemBuilder: (context, index) {
-                      final line = provider!.lrcLines[index];
-                      final isActive = index == provider.currentLineIndex;
-
-                      return GestureDetector(
-                        onTap: () {
-                          context.read<PlayerProvider>().seek(line.timestamp);
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 16,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Consumer<KaraokeSettingsProvider>(
-                            builder: (_, karaoke, __) => KaraokeLyricsLine(
-                              line: line,
-                              isActive: isActive,
-                              words: provider!.wordsForLine(index),
-                              activeWordIndex: isActive
-                                  ? provider.currentWordIndex
-                                  : -1,
-                              style: karaoke.style,
-                              translation: resolveLrcTranslation(
-                                textProvider.lines,
-                                line.text,
-                              ),
-                            ),
-                          ),
+              // Keep controls outside the scrolling viewport so they cannot
+              // cover the first/current lyric on a small screen.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.tune, color: Colors.grey, size: 20),
+                    tooltip: context.uiText('Tuỳ chỉnh karaoke'),
+                    onPressed: () => KaraokeSettingsSheet.show(context),
+                  ),
+                  AutoScrollButton(
+                    isActive: _autoScroll,
+                    onToggle: () => setState(() => _autoScroll = !_autoScroll),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              Expanded(
+                child: Consumer2<UnderstandProvider, KaraokeSettingsProvider>(
+                  builder: (context, provider, karaoke, _) {
+                    if (provider.lrcLines.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'Chưa có nội dung\nHãy tạo LRC từ Tab Nghe',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
                         ),
                       );
-                    },
-                  ),
-                  );
-                },
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.tune,
-                          color: Colors.grey, size: 20),
-                      tooltip: context.uiText('Tuỳ chỉnh karaoke'),
-                      onPressed: () => KaraokeSettingsSheet.show(context),
-                    ),
-                    AutoScrollButton(
-                      isActive: _autoScroll,
-                      onToggle: () {
-                        setState(() => _autoScroll = !_autoScroll);
-                        // _scrollToLine will be called automatically by UnderstandProvider listener
-                      },
-                    ),
-                  ],
+                    }
+                    return KaraokeTranscriptView(
+                      key: const ValueKey('understand-karaoke-view'),
+                      lines: provider.lrcLines,
+                      currentLineIndex: provider.currentLineIndex,
+                      currentWordIndex: provider.currentWordIndex,
+                      wordsForLine: provider.wordsForLine,
+                      style: karaoke.style,
+                      autoFollow: _autoScroll,
+                      translationForLine: (line) => resolveLrcTranslation(
+                        textProvider.lines,
+                        line.text,
+                      ),
+                      onLineTap: (line) =>
+                          context.read<PlayerProvider>().seek(line.timestamp),
+                    );
+                  },
                 ),
               ),
             ],

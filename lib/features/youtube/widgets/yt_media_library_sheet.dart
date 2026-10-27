@@ -11,9 +11,12 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/yt_learning_settings.dart';
+import '../../../core/navigation/shell_navigation_request.dart';
+import '../../../providers/player_provider.dart';
 import '../services/yt_media_store.dart';
 import '../services/yt_read_bridge.dart';
 
@@ -39,6 +42,8 @@ class _YtMediaLibrarySheet extends StatefulWidget {
 class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
   List<YtMediaItem>? _items;
   int _total = 0;
+  int _audioBytes = 0;
+  int _captionBytes = 0;
   String _folder = '';
   YtSaveLocation _location = YtSaveLocation.appPrivate;
   String? _busyId;
@@ -54,10 +59,29 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
     final folder = await YtMediaStore.displayFolder();
     final items = await YtMediaStore.list();
     final total = items.fold<int>(0, (s, i) => s + i.bytes);
+    // Ước lượng theo loại file: `.lrc` thường chỉ vài chục KB, còn lại là
+    // âm thanh. Đây là số ĐO THẬT trên đĩa, không phải hằng số đoán.
+    var audioBytes = 0;
+    var captionBytes = 0;
+    for (final i in items) {
+      // `bytes` là tổng của mục; tách theo file đang có.
+      if (i.lrcPath != null) {
+        try {
+          captionBytes += await File(i.lrcPath!).length();
+        } catch (_) {}
+      }
+      if (i.audioPath != null) {
+        try {
+          audioBytes += await File(i.audioPath!).length();
+        } catch (_) {}
+      }
+    }
     if (!mounted) return;
     setState(() {
       _items = items;
       _total = total;
+      _audioBytes = audioBytes;
+      _captionBytes = captionBytes;
       _folder = folder;
       _location = settings;
     });
@@ -118,6 +142,32 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
     if (!result.loadedAudio && item.audioPath != null) {
       show(msgAudioFail, Colors.orange.shade800);
     }
+  }
+
+  /// YT-MEDIA-LIB-001 (#10): gửi sang tab **Nghe** (chỉ âm thanh).
+  ///
+  /// Khác "Nạp vào tab Đọc" ở chỗ KHÔNG nạp lời: người dùng muốn nghe như file
+  /// nhạc (chạy nền, tua, tốc độ) chứ không phải đọc từng câu.
+  Future<void> _listen(YtMediaItem item) async {
+    final audio = item.audioPath;
+    if (audio == null || !await File(audio).exists()) {
+      _snack('Video này chưa tải âm thanh', color: Colors.orange.shade800);
+      return;
+    }
+    if (!mounted) return;
+    final ok = await context.read<PlayerProvider>().loadSong(
+          path: audio,
+          title: item.title,
+          artist: '',
+          autoPlay: true,
+        );
+    if (!mounted) return;
+    if (!ok) {
+      _snack('Không mở được file âm thanh này', color: Colors.red.shade700);
+      return;
+    }
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    ShellNavigationRequest.openListen();
   }
 
   Future<void> _share(YtMediaItem item) async {
@@ -250,6 +300,14 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                       ' · ${_items?.length ?? 0} ${context.uiText('video')}',
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    // YT-MEDIA-LIB-001: nói rõ phần nào nặng để người dùng
+                    // biết xoá gì trước khi máy đầy (thường là âm thanh).
+                    Text(
+                      '${context.uiText('Âm thanh')}: ${_size(_audioBytes)}'
+                      ' · ${context.uiText('Phụ đề')}: ${_size(_captionBytes)}',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 10),
                     ),
                     const SizedBox(height: 6),
                     Row(
@@ -394,6 +452,13 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                       onPressed:
                           item.hasCaptions ? () => _open(item) : null,
                       icon: const Icon(Icons.menu_book, size: 18),
+                    ),
+                    // YT-MEDIA-LIB-001 (#10): gửi sang tab Nghe.
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: context.uiText('Gửi sang tab Nghe'),
+                      onPressed: item.hasAudio ? () => _listen(item) : null,
+                      icon: const Icon(Icons.headphones, size: 18),
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,

@@ -453,6 +453,10 @@ class _MainShellState extends State<MainShell> {
     switch (target) {
       case ShellNavigationTarget.read:
         _setReadMode(0);
+      case ShellNavigationTarget.listen:
+        // YT-MEDIA-LIB-001: màn "Kho media YouTube" mở tab Nghe (chế độ Nghe
+        // = 0). File âm thanh đã được màn gọi nạp vào `PlayerProvider` trước.
+        _setListenMode(0);
     }
   }
 

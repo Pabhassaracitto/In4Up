@@ -2188,4 +2188,81 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
       'This .db file has no dictionary-like table',
   'File .db không có dòng nào': 'This .db file has no rows',
   'không đọc được file': 'could not read the file',
+  'Kênh của tôi': 'My channels',
+  'Nhập từ file OPML (Takeout)': 'Import from an OPML file (Takeout)',
+  'Không cần đăng nhập Google. Dán @handle hoặc link kênh, app lưu ở máy và lấy video mới bằng đường không cần API key.':
+      'No Google sign-in needed. Paste an @handle or channel link; the app saves it on your device and fetches new videos without an API key.',
+  '@handle hoặc link kênh...': '@handle or channel link…',
+  'Thêm': 'Add',
+  'Đang tìm kênh...': 'Looking up the channel…',
+  'Đang đọc file...': 'Reading the file…',
+  'Đây là link video, không phải kênh — dán link kênh hoặc @handle':
+      'That is a video link, not a channel — paste a channel link or @handle',
+  'Không tìm được kênh này — kiểm tra lại @handle hoặc link':
+      'Could not find this channel — check the @handle or link',
+  'Đã thêm kênh "{value0}"': 'Added channel "{value0}"',
+  'Kênh này đã có trong danh sách': 'This channel is already in the list',
+  'File này không có kênh YouTube nào (cần file OPML xuất từ Takeout)':
+      'This file has no YouTube channels (use an OPML file exported from Takeout)',
+  'Cả {value0} kênh trong file đều đã có trong danh sách':
+      'All {value0} channels in the file are already in the list',
+  'Đã thêm {value0} kênh từ file (mới: {value1})':
+      'Added {value0} channels from the file (new: {value1})',
+  'Không đọc được file: chỉ hỗ trợ .opml/.xml xuất từ Takeout':
+      'Could not read the file: only .opml/.xml exported from Takeout is supported',
+  'Đã bỏ theo dõi': 'Unfollowed',
+  'Bỏ theo dõi': 'Unfollow',
+  'Chưa theo dõi kênh nào. Dán @handle ở trên, hoặc nhập file OPML từ Google Takeout.':
+      'No channels followed yet. Paste an @handle above, or import an OPML file from Google Takeout.',
+  'Không lấy được video của kênh này': 'Could not load this channel’s videos',
+  'Kênh chưa có video công khai, hoặc YouTube đang chặn đọc (thử lại sau).':
+      'This channel has no public videos, or YouTube is blocking the request (try again later).',
+  'Chọn việc cần làm': 'Choose what to do',
+  'App bỏ qua phần đã có trên máy — không tải lại thứ đã tải rồi.':
+      'Items already on this device are skipped — nothing is downloaded twice.',
+  'Tải phụ đề (.lrc)': 'Download captions (.lrc)',
+  'Đã có trên máy': 'Already on this device',
+  'Cần cho đọc / dịch / lưu đám mây':
+      'Needed for reading / translation / cloud copy',
+  'Tải âm thanh': 'Download audio',
+  'Nặng hơn phụ đề — nên dùng Wi-Fi': 'Heavier than captions — prefer Wi-Fi',
+  'Đồng bộ sang tab Đọc': 'Sync to the Read tab',
+  'Nạp phụ đề + âm thanh vào tab Đọc để học từng câu':
+      'Load captions + audio into the Read tab to study line by line',
+  'Lưu bản sao lên đám mây': 'Save a copy to the cloud',
+  'Đưa phụ đề vào Thư viện đọc để mở trên máy khác (cần đăng nhập)':
+      'Put the captions in the reading library to open on another device (requires sign-in)',
+  'Tải & chuẩn bị': 'Download & prepare',
+  'Đã sẵn sàng học offline': 'Ready to study offline',
+  'Chưa đủ để học offline': 'Not ready for offline study yet',
+  'Xem trong Thư viện đã tải': 'Show in the Downloads library',
+  'Học trong tab Đọc': 'Study in the Read tab',
+  'Phụ đề': 'Captions',
+  'Âm thanh': 'Audio',
+  'Đã tải phụ đề': 'Captions downloaded',
+  'Không tải được phụ đề (video có thể không có)':
+      'Could not download captions (the video may not have any)',
+  'Đã tải âm thanh': 'Audio downloaded',
+  'Tải âm thanh thất bại — thử lại khi mạng ổn định':
+      'Audio download failed — try again on a stable connection',
+  'Đã đồng bộ sang tab Đọc': 'Synced to the Read tab',
+  'Chưa đồng bộ được sang tab Đọc': 'Could not sync to the Read tab',
+  'Đã lưu bản sao lên đám mây': 'Copy saved to the cloud',
+  'Chưa đăng nhập — chưa lưu được lên đám mây':
+      'Not signed in — the cloud copy was not saved',
+  'Lưu đám mây thất bại': 'Cloud copy failed',
+  'Phụ đề đã có sẵn — bỏ qua': 'Captions already available — skipped',
+  'Âm thanh đã có sẵn — bỏ qua': 'Audio already available — skipped',
+  'Bản trên đám mây đã là bản mới nhất': 'The cloud copy is already up to date',
+  'Cần tải phụ đề trước khi đồng bộ tab Đọc':
+      'Captions are needed before syncing to the Read tab',
+  'Cần tải phụ đề trước khi lưu đám mây':
+      'Captions are needed before saving to the cloud',
+  'Không có gì cần làm — mọi thứ đã có sẵn':
+      'Nothing to do — everything is already available',
+  'Đăng nhập trong Cài đặt để lưu phụ đề lên Thư viện đọc đám mây.':
+      'Sign in (Settings) to save captions to the cloud reading library.',
+  'Gửi sang tab Nghe': 'Send to the Listen tab',
+  'Video này chưa tải âm thanh': 'This video has no downloaded audio',
+  'Không mở được file âm thanh này': 'Could not open this audio file',
 };

@@ -133,6 +133,7 @@
 | READ-SELECT-003 | Tab Đọc: giữ im một từ ⇒ chọn nhiều từ THÔNG MINH (chỉ từ liền kề, kéo/quẹt chọn nhanh), chạm chỗ khác ⇒ về bình thường | 🔨 doing (code + test thuần, chờ CI 🟢) | `isAdjacentToWordRange` (`word_range_selection.dart`) + `_onWordTap` (`colored_text_widget.dart`), bỏ `onDoubleTap`; `test/read_mode/word_range_selection_test.dart` + audit test 2026-10-20 cập nhật |
 | DICT-CLEAN-002 | Từ điển: chọn từ đã có trong từ điển nhưng hiện nhiều phần dư và KHÔNG có nghĩa ("0000015105 reading …") | 🔨 doing (code + test thuần, chờ CI 🟢 + nghiệm thu máy) | `dict_text_cleaner.dart`: bỏ khối bị CSS ẩn (`span.meta`/`div.entry-headword`… theo `lad.css`), bỏ mã bản ghi dài, bóc nhãn metadata, lọc sense rác, tách loại từ đầu nghĩa; `test/dictionary/dict_cleaner_noise_test.dart` |
 | DICT-VIEW-002 | Từ điển: hiển thị theo thứ bậc trang in (nhóm loại từ + đếm nghĩa, đánh số lại từ 1 mỗi loại từ, ví dụ thụt lề, hết lặp nhãn) | 🔨 doing (code, chờ CI 🟢 + nghiệm thu) | `dict_definition_view.dart` viết lại (compact/full, `_PosLabel`, `_SenseRef`); `dict_result_sheet.dart` không lặp chip loại từ |
+| DICT-SCREEN-001 | ADR-0018 **P1**: màn hình Từ điển riêng (ô tìm + gợi ý theo tiền tố + lịch sử + trang nghĩa đầy đủ) — đích duy nhất của mọi tra cứu | 🔨 doing (code + test thuần + CI 🟢 run 40579433168; P2/P3/P4 chưa làm; chờ nghiệm thu máy) | `widgets/dictionary_screen.dart` (mới, `open(context, {query, source})`) + `services/dict_history.dart` (thuần) + `DictionaryService.suggest()` mới + `lookup(word, {dictId})`; Home ▸ "Từ điển" mở màn tra từ (không còn mở trang cài đặt); 12 chuỗi i18n en/hi/zh/zh_TW/si. Test: `test/dictionary/dict_history_test.dart` + `dict_suggest_test.dart`. ⚠️ KHÔNG có test WIDGET: widget + sqflite/SharedPreferences treo trên runner (run 40575300780 chạm trần 25 phút) — muốn có thì phải thêm seam bơm dữ liệu. |
 | READ-WORDSTYLE-001 | Tab Đọc: chọn kiểu hiển thị từ (nền màu / chỉ màu chữ / gạch chân) trong Cài đặt | 🔨 doing (code + test thuần, chờ CI 🟢) | `models/word_color_style.dart` + `ReaderDisplaySettings.wordColorStyle` (`reader_word_color_style`) + `TextProvider.setWordColorStyle`; áp ở `ColoredTextWidget` và `SelectableText.rich`; `_WordColorStyleSelector`; `test/read_mode/read_word_style_align_test.dart`; ADR-0016 |
 | READ-ALIGN-001 | Tab Đọc: mặc định văn bản căn GIỮA (thay vì trái) + lựa chọn căn lề được lưu bền | 🔨 doing (code + test thuần, chờ CI 🟢) | `TextProvider._textAlign = TextAlign.center` + `getReadTextAlign`/`saveReadTextAlign` (`read_text_align`) + khôi phục trong `_restoreFromStorage`; `test/ai_provider_builtin_and_read_align_test.dart` cập nhật kỳ vọng; ADR-0016 |
 | DICT-PACK-001 | Tải bộ từ điển trong app (setting home): danh mục JSON tự host + link trực tiếp, kiểm sha256, giải nén an toàn, cài vào bộ nhớ app | 🔨 doing (code + test thuần + docs, chờ CI 🟢 + nghiệm thu máy) | `models/dict_pack.dart` + `services/dict_pack_service.dart` + `widgets/dict_pack_screen.dart` + `assets/dictionary/packs.json` (2 bộ CC0 / CC-BY-SA đã kiểm link) + mục Home/Đọc (`dict_packs`) + nút AppBar "Quản lý từ điển"; `docs/dictionary/DICT_PACK_CATALOG.md`; `test/dictionary/dict_pack_test.dart`; ADR-0017 |
@@ -3476,6 +3477,38 @@
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
+
+### DICT-SCREEN-001 — ADR-0018 P1: màn hình Từ điển riêng (`arena/929f549e-in4up`)
+
+- **Nguồn:** owner 2026-10-27 — *"Màn hình từ điển riêng chuyên nghiệp. sau đó tới mở bằng in4up."*
+  ⇒ thứ tự cố định: **(A) màn hình riêng** (card này) rồi mới tới **(B) "Mở bằng In4Up"** (P3).
+- **Vấn đề trước đó:** chỗ duy nhất mở được từ Home là `DictManagerScreen` — **trang cài đặt**
+  (danh sách bộ + import), không có ô tìm, không gợi ý, không lịch sử. `DictionaryService.lookupPrefix()`
+  có sẵn nhưng **không ai gọi**.
+- **Đã làm:**
+  - `lib/features/dictionary/widgets/dictionary_screen.dart` — ô tìm (debounce 220 ms) → gợi ý →
+    Enter để tra; chip lọc bộ (khi > 1 bộ); lịch sử 30 từ (xoá từng dòng / xoá hết); trang nghĩa
+    dùng lại `DictDefinitionView(compact: false)`; TTS + sao chép; trạng thái "chưa có bộ từ điển"
+    là onboarding (tải bộ / import .mdx); "không tìm thấy" có gợi ý *"Có phải bạn muốn:"*.
+  - `DictionaryService.suggest(prefix, {limit = 12, dictId})` — gộp gợi ý từ **mọi** bộ đang bật,
+    khử trùng không phân biệt hoa/thường, giữ thứ tự ưu tiên manifest. (`lookupPrefix()` cũ dừng ở
+    bộ đầu tiên ⇒ người dùng 2 bộ chỉ thấy gợi ý của bộ đứng đầu; bản cũ giữ nguyên cho chỗ đang dùng.)
+  - `DictionaryService.lookup(word, {dictId})` — cho chip lọc bộ.
+  - `services/dict_history.dart` — phần **thuần** của lịch sử (thêm-đầu/khử trùng/giới hạn/lọc);
+    I/O `SharedPreferences` (khoá `dict_screen_history_v1`) nằm ở widget. Chỉ lưu từ **tra được**.
+  - `main_shell.dart`: `case 'dictionary'` → `DictionaryScreen` (trước đây mở `DictManagerScreen`);
+    phụ đề Home đổi thành "Tra từ: ô tìm, gợi ý, lịch sử". `dict_manager` / `dict_packs` giữ nguyên.
+- **CI:** 🟢 run **40579433168** (`32b3adc`). Các lần đỏ trước đó và nguyên nhân:
+  `40570682412` — `ambiguous_import` vì vừa import `package:flutter/material.dart` vừa
+  `localized_material.dart` (`Text` bị định nghĩa hai lần; **quy tắc: file UI chỉ import
+  `localized_material.dart`**); `40575300780` — `testWidgets` + sqflite/SharedPreferences **treo**,
+  chạm trần `timeout-minutes: 25` của job và bị cancel ⇒ đã bỏ test widget, thay bằng test `test()`
+  thuần trên SQLite thật (`dict_suggest_test.dart`), thêm `timeout-minutes: 8` cho bước DICT.
+- **Việc còn lại:** (1) nghiệm thu trên máy thật (bàn phím tiếng Việt, TTS, màn nhỏ);
+  (2) nếu muốn test widget cho màn này: thêm seam bơm dữ liệu cho `DictionaryScreen`
+  (ví dụ tham số `suggestLoader`/`lookupLoader`) để test không cần plugin thật;
+  (3) nối tiếp **(B)**: P2 `ACTION_PROCESS_TEXT` + Share Extension, P3 "Mở bằng In4Up",
+  P4 bong bóng Android — chi tiết ở ADR-0018.
 
 ### DICT-001 — Từ điển MDX/MDD đa ngữ: import, tra từ, quản lý
 - **Trạng thái:** 🔄 doing — WP0 models + DB, đang code

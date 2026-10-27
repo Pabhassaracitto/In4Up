@@ -1,9 +1,12 @@
 # ADR-0018: Một màn hình Từ điển riêng + 4 đường vào từ ngoài app
 
 - **Ngày:** 2026-10-27
-- **Trạng thái:** ĐỀ XUẤT (chưa có mã nguồn — chờ owner chốt thứ tự ưu tiên)
+- **Trạng thái:** ĐÃ CHỐT — **P1 đã có mã nguồn** (2026-10-27). P2/P3/P4 chưa làm.
+  Ghi chú lệch so với bản đề xuất: màn hình đặt ở `widgets/` (không phải
+  `screens/` — xem "Cập nhật khi làm P1" ở cuối), và gợi ý dùng API mới
+  `DictionaryService.suggest()`, không phải `lookupPrefix()`.
 - **Phạm vi dự kiến:**
-  `lib/features/dictionary/screens/dictionary_screen.dart` (mới),
+  `lib/features/dictionary/widgets/dictionary_screen.dart` (mới),
   `lib/features/dictionary/services/dict_deep_link.dart` (mới, thuần Dart),
   `lib/features/dictionary/widgets/*` (tái dùng, không viết lại),
   `lib/screens/main_shell.dart` (`_openTool` thêm `dictionary` → màn mới),
@@ -48,16 +51,21 @@ Một màn hình + một hàm `open(context, word)` biến 4 đường vào thà
 
 ### 1. `DictionaryScreen` là đích duy nhất của mọi tra cứu
 
-Màn hình gồm: ô tìm kiếm (gõ là gợi ý qua `lookupPrefix`, debounce 150 ms),
-chip chọn bộ từ điển đang bật, 20 từ tra gần nhất (lưu `SharedPreferences`,
-3 khoá/1 dòng tuỳ chọn), và **thân trang dùng lại `DictDefinitionView`**
-(`compact: false`, `light: true` khi nền sáng) — không viết lại renderer.
+Màn hình gồm: ô tìm kiếm (gõ là gợi ý qua `DictionaryService.suggest`,
+debounce 220 ms), chip chọn bộ từ điển đang bật, 30 từ tra gần nhất (lưu
+`SharedPreferences`, khoá `dict_screen_history_v1`), và **thân trang dùng lại
+`DictDefinitionView`** (`compact: false`, `light: true` khi nền sáng) — không
+viết lại renderer.
 
 Điểm vào công khai (duy nhất):
 
 ```dart
-// lib/features/dictionary/screens/dictionary_screen.dart
-static Future<void> open(BuildContext context, String query, {String? source});
+// lib/features/dictionary/widgets/dictionary_screen.dart
+static Future<void> open(
+  BuildContext context, {
+  String? query,   // từ cần tra ngay khi mở
+  String? source,  // home | pdf | read | deep_link | file | bubble | unknown
+});
 ```
 
 `source` chỉ để ghi nhật ký/lịch sử ("pdf", "read", "deep_link", "file",
@@ -159,6 +167,33 @@ tái dùng hạ tầng overlay đã có test thực địa.
 3. `app_links` + `MethodChannel in4up/deeplink` cho Android/iOS.
 4. Manifest/Info.plist/`.desktop`/argv như bảng trên.
 5. Chỉ sau khi 1–4 xong mới làm P4 (bong bóng).
+
+
+## Cập nhật khi làm P1 (2026-10-27)
+
+Những chỗ **thực tế khác bản đề xuất** — ghi lại để lần sau không phải dò lại:
+
+| Đề xuất | Thực tế | Vì sao |
+| --- | --- | --- |
+| `features/dictionary/screens/dictionary_screen.dart` | `features/dictionary/widgets/dictionary_screen.dart` | Module từ điển **không có** thư mục `screens/`; mọi màn của module nằm trong `widgets/` (`dict_manager_screen.dart`, `dict_pack_screen.dart`). Thêm thư mục chỉ để khớp ADR là chia đôi quy ước. |
+| Gợi ý qua `lookupPrefix()` | `DictionaryService.suggest(prefix, {limit, dictId})` (mới) | `lookupPrefix()` **dừng ở bộ từ điển đầu tiên có kết quả** (đúng cho autocomplete 1 dòng). Người dùng cài 2 bộ (Anh–Việt + Anh–Anh) sẽ chỉ thấy gợi ý của bộ đứng đầu. Bản mới gộp **mọi** bộ đang bật, khử trùng không phân biệt hoa/thường, giữ thứ tự ưu tiên manifest. `lookupPrefix()` giữ nguyên cho chỗ đang dùng. |
+| Debounce 150 ms | 220 ms | Gõ tiếng Việt có dấu cần thêm thời gian cho tổ hợp phím; 220 ms vẫn dưới ngưỡng cảm nhận ~250 ms. |
+| 20 từ lịch sử, "3 khoá/1 dòng tuỳ chọn" | 30 từ, **một** khoá `dict_screen_history_v1` (`List<String>`) | Ba khoá/1 dòng là dư thừa: lịch sử chỉ là danh sách chuỗi. Thêm `DictHistory` (thuần Dart) để test được phần thứ tự/khử trùng/giới hạn mà không cần plugin. Chỉ lưu từ **tra được** — lịch sử toàn từ không tìm thấy thì vô dụng. |
+| `open(context, word)` tham số vị trí | `open(context, {query, source})` | `word` là **tuỳ chọn**: mở từ Home (không có từ nào) phải dùng cùng một hàm, không cần biến thể thứ hai. |
+| Chip lọc bộ từ điển | có, nhưng chỉ hiện khi **> 1** bộ | Một bộ thì chip "Tất cả" chỉ chiếm chỗ. |
+
+### Nghiệm thu P1 (đã xanh trên CI)
+
+- `test/dictionary/dict_history_test.dart` — thứ tự, khử trùng, giới hạn, lọc, không sửa list gốc.
+- `test/dictionary/dict_suggest_test.dart` — `suggest()` gộp **cả hai** bộ + khử trùng + `limit` + `dictId` + tiền tố rỗng; `lookup(word, dictId:)` lọc đúng một bộ, không truyền thì gộp.
+- `flutter analyze` sạch (chỉ ERROR là fatal).
+
+**Bài học CI (đừng lặp lại):** một `testWidgets` có sqflite/`SharedPreferences`
+thật **treo** trên runner (run 40575300780 chạm trần 25 phút của job và bị
+cancel, đúng lớp sự cố đã ghi cho `workspace_shell_integration_test.dart`).
+Vì vậy màn hình hiện **không** có test widget tự động; muốn có lại thì phải
+thêm seam bơm dữ liệu cho `DictionaryScreen` để test không cần plugin thật
+(ghi ở KANBAN mục "việc còn lại").
 
 ## Phương án đã cân nhắc và loại
 

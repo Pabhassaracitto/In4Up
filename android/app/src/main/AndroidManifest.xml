@@ -89,6 +89,24 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="audio/*" />
             </intent-filter>
+
+            <!-- ADR-0018 P1 — deep link từ điển: in4up://dict?w=… và
+                 in4up://open?path=… (mở tệp, P3).
+                 `BROWSABLE` + `VIEW` là mức tối thiểu để link bấm được từ
+                 trình duyệt/Zalo/Telegram. KHÔNG khai `*/*`: menu "Mở bằng"
+                 của người dùng chỉ được thấy In4Up cho đúng thứ app đọc được.
+                 Việc kiểm tra an toàn (độ dài từ, đuôi tệp, `..`) nằm ở Dart
+                 (`features/dictionary/services/dict_deep_link.dart`) — native
+                 chỉ chuyển tiếp URL thô. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="in4up" android:host="dict" />
+                <data android:scheme="in4up" android:host="open" />
+                <data android:scheme="i4u" android:host="dict" />
+                <data android:scheme="i4u" android:host="open" />
+            </intent-filter>
         </activity>
 
         <!-- XLAT-SCR-002 / XLAT-SCR-003 — Dịch màn hình toàn hệ thống (ADR-0011).

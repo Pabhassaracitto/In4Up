@@ -56,10 +56,15 @@ class DictionaryScreen extends StatefulWidget {
     String? query,
     String? source,
   }) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DictionaryScreen(initialQuery: query, source: source),
-      ),
+    return Navigator.of(context).push(route(query: query, source: source));
+  }
+
+  /// Route dùng chung — cho nơi **không có `BuildContext` bên dưới Navigator**
+  /// (cầu nối link `DictDeepLinkRouter` chỉ có `navigatorKey.currentState`).
+  /// Vẫn là một định nghĩa màn hình duy nhất, không nhân đôi UI.
+  static Route<void> route({String? query, String? source}) {
+    return MaterialPageRoute<void>(
+      builder: (_) => DictionaryScreen(initialQuery: query, source: source),
     );
   }
 

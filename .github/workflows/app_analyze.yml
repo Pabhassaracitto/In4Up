@@ -182,6 +182,7 @@ jobs:
                    test/dictionary/dict_state_and_title_test.dart \
                    test/dictionary/dict_history_test.dart \
                    test/dictionary/dict_suggest_test.dart \
+                   test/dictionary/dict_deep_link_test.dart \
                    test/dictionary/dict_pack_test.dart \
                    test/i18n/dict_pack_and_word_pop_i18n_test.dart \
                    test/word_lookup/word_insight_service_test.dart; do

@@ -139,6 +139,14 @@ xanh; `test/locale_chrome_no_vietnamese_test.dart` xanh.
 5. `main_shell.dart`: `_handleTool('youglish')` nhận `initialWord` (API
    `YouGlishScreen({initialWord})` đã có từ PRON-001) để nút
    "Mở YouGlish" (khi WebView lỗi) điều hướng sang tool với đúng từ.
+> **Đối chiếu lần 3 (2026-10-26, rebase `0fd7a39`):** 5 commit mới của 251e chỉ
+> chạm `packages/in4up_stt`, `listen_mode`, `cabin`, `player_stt_mixin`,
+> `quick_capture`, `priority_ui_overrides` (+47 key), `app_analyze.yml`
+> (+5 dòng PARAKEET), `pubspec.yaml` (bump `1.17.0+17`), KANBAN (+54 dòng).
+> **Không** đụng `text_provider.dart` ⇒ các neo D4 của §2.4 (`speak` :1498 /
+> `stopSpeaking` :1514 / `speakAllLines` :1458 / `currentLineIndex` :225) vẫn
+> đúng; xung đột chỉ ở KANBAN (append cuối file, giữ cả hai).
+
 > **Đính chính §2.6 (2026-10-26, sau CI run 40234606043):** công thức
 > `WKWebViewParams` + `mediaPlaybackRequiresUserGesture` là của
 > `webview_flutter_wkwebview` **4.x**. Repo đang lock **3.25.1** ⇒ API đúng là

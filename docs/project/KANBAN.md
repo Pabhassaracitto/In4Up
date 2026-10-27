@@ -7913,6 +7913,21 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     Nút "Mở trình duyệt" chỉ tồn tại ở (a) `mode.full` mà PRON-003 sẽ cấy và
     (b) banner lỗi của mini sheet (bối cảnh user đã tự bấm YouGlish khi đang bật).
     PLAN-038 §2.1 đã ghi thành mục chệch thứ 4.
+  - 2026-10-26 | review | agent Arena `arena/508531fd-in4up` | **rebase lên tip
+    251e `0fd7a39`** để gỡ xung đột PR #112 (GitHub báo `CONFLICTING` sau khi
+    nhánh 251e có 5 commit mới: PARAKEET-002 Cabin/Nghe/quick-capture, bump
+    1.17.0+17, docs REL-1.17.0). Xung đột duy nhất = `docs/project/KANBAN.md`
+    (cả hai bên đều append ở cuối file) ⇒ **giữ cả hai khối**, thứ tự
+    PRON-001..005 rồi REL-1.17.0; 3 file trùng còn lại
+    (`app_analyze.yml`, `priority_ui_overrides.dart`, `pubspec.yaml`) git
+    tự merge và đã kiểm: version vẫn `1.17.0+17` + dep `webview_flutter_wkwebview`
+    còn, 936 key catalog **không trùng key**, bước "PARAKEET-002 tests" và
+    "PRON-002 tests" cùng tồn tại. Bằng chứng không mất tính năng 251e:
+    `git diff 0fd7a39..HEAD` = đúng 20 file của PRON, **0 file** thuộc
+    `packages/in4up_stt|listen_mode|cabin|player_stt_mixin|quick_capture`.
+    Sandbox bị tạo lại giữa lúc (HEAD lùi về `d3573a2`, repo shallow) ⇒ khôi phục
+    bằng `git fetch` + `git reset --hard a6d1eb8` sau khi xác nhận tree khớp
+    từng file — đó là lý do rule "commit nhỏ, push ngay" tồn tại.
   - 2026-10-26 | doing→review | agent Arena `arena/508531fd-in4up` | **CI 🟢**
     run 40235361999 (push 40235358889) trên `b3843ed`: analyze 0 error +
     "PRON-002 tests" xanh + PRON-001/Rule-5/DICT-CLEAN/READ-GRAM không hồi quy;

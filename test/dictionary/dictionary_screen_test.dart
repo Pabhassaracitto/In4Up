@@ -35,6 +35,11 @@ Future<void> _pumpScreen(
 }
 
 void main() {
+  // `SharedPreferences.setMockInitialValues` chạm tới TestDefaultBinaryMessenger
+  // ⇒ binding phải có trước `setUp` đầu tiên (nếu không: "Binding has not yet
+  // been initialized").
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late Directory tempDir;
   late Directory docsDir;
 
@@ -66,7 +71,9 @@ void main() {
     final outcome = await DictionaryService.instance.importDictionaryBundle(
       absoluteFilePaths: <String>[mdx],
       rootPath: '',
-      mode: DictStorageMode.imported,
+      // `linked` = chỉ đánh index, không copy bundle — nhẹ hơn cho test và
+      // đúng khuôn của `dict_import_lookup_test.dart`.
+      mode: DictStorageMode.linked,
     );
     expect(outcome.isSuccess, isTrue, reason: 'cài từ điển mẫu phải thành công');
   }

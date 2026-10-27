@@ -35,6 +35,9 @@ concurrency:
 
 jobs:
   build:
+    # PLAN-039 is a private feature/validation branch, not a web release.
+    # Its pushes must never replace the published gh-pages site.
+    if: github.ref != 'refs/heads/arena/bf95d3ae-in4up'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

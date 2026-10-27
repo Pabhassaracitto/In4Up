@@ -3565,5 +3565,9 @@
   "OCR timed out": "OCR timed out",
   "Compact mode · Auto-hide · Mode switch": "Compact mode · Auto-hide · Mode switch",
   "English-only": "English only",
-  "Chưa tải được danh mục (mạng?) hoặc danh mục chưa có bộ nào. Bạn vẫn dán được link ZIP/MDX trực tiếp ở ô bên dưới.": "Could not load the catalogue (network?) or it has no packs. You can still paste a ZIP/MDX link in the field below."
+  "Chưa tải được danh mục (mạng?) hoặc danh mục chưa có bộ nào. Bạn vẫn dán được link ZIP/MDX trực tiếp ở ô bên dưới.": "Could not load the catalogue (network?) or it has no packs. You can still paste a ZIP/MDX link in the field below.",
+  "Hy-MT · {value0}": "Hy-MT · {value0}",
+  "không đọc được file ({value0})": "could not read the file ({value0})",
+  "Dịch: {value0}": "Translation: {value0}",
+  "ML Kit · {value0}": "ML Kit · {value0}"
 }

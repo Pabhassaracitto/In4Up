@@ -709,6 +709,7 @@ jobs:
           set +e
           files=""
           for f in test/yt_audit_2026_10_20_batch1_test.dart \
+                   test/yt_lrc_long_video_test.dart \
                    test/yt_learning_settings_test.dart \
                    test/yt_lr_002_fixes_test.dart \
                    test/yt_explorer_entry_test.dart \

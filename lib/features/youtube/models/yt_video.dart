@@ -65,7 +65,11 @@ class YtCaptionLine {
   const YtCaptionLine(this.start, this.end, this.text, {this.translation});
 
   String toLrc() {
-    final mm = start.inMinutes.remainder(60).toString().padLeft(2, '0');
+    // YT-LRC-LONG-001 (2026-10-28): `inMinutes.remainder(60)` làm video ≥ 60
+    // phút bị QUAY VÒNG phút (01:05:00 → "[05:00.00]") ⇒ phụ đề nạp sang tab
+    // Đọc lệch ~1 giờ so với âm thanh. LRC cho phép phút > 59 nên ghi phút
+    // TUYỆT ĐỐI; `_parseLrc` đã được nới để đọc 1–3 chữ số phút.
+    final mm = start.inMinutes.toString().padLeft(2, '0');
     final ss = start.inSeconds.remainder(60).toString().padLeft(2, '0');
     final cs =
         (start.inMilliseconds.remainder(1000) ~/ 10).toString().padLeft(2, '0');

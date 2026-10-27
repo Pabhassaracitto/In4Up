@@ -32,6 +32,7 @@ class YtReadLoadResult {
     required this.loadedCaptions,
     required this.loadedAudio,
     this.reason,
+    this.detail,
   });
 
   final bool ok;
@@ -39,8 +40,11 @@ class YtReadLoadResult {
   final bool loadedAudio;
 
   /// Mã máy (không phải câu tiếng Anh thô) để UI tự dịch: `no_captions`,
-  /// `audio_failed`, `load_failed`.
+  /// `audio_failed`, `load_failed`, `exception`.
   final String? reason;
+
+  /// Chi tiết kỹ thuật của `exception` (để log/hiện cho người dùng khi cần).
+  final String? detail;
 }
 
 class YtReadBridge {
@@ -55,8 +59,33 @@ class YtReadBridge {
     YtMediaItem item, {
     bool openShell = true,
   }) async {
+    // YT-RD-CRASH-001 (2026-10-28): toàn bộ đường nạp bọc trong try/catch.
+    // Trước đây chỉ từng khúc nhỏ được bọc; một lỗi ở `Navigator.popUntil` /
+    // `RecentFilesService` (Hive) / `ShellNavigationRequest` sẽ ném ra ngoài
+    // ⇒ người dùng chỉ thấy "tự nhiên lỗi", không có thông báo nào.
+    try {
+      return await _openInReadUnsafe(context, item, openShell: openShell);
+    } catch (e, st) {
+      debugPrint('[in4up-yt-read] openInRead lỗi: $e\n$st');
+      return YtReadLoadResult(
+        ok: false,
+        loadedCaptions: false,
+        loadedAudio: false,
+        reason: 'exception',
+        detail: e.toString(),
+      );
+    }
+  }
+
+  static Future<YtReadLoadResult> _openInReadUnsafe(
+    BuildContext context,
+    YtMediaItem item, {
+    required bool openShell,
+  }) async {
     final lrcPath = item.lrcPath;
+    debugPrint('[in4up-yt-read] bắt đầu: lrc=$lrcPath audio=${item.audioPath}');
     if (lrcPath == null || !await File(lrcPath).exists()) {
+      debugPrint('[in4up-yt-read] thiếu file .lrc ⇒ no_captions');
       return const YtReadLoadResult(
         ok: false,
         loadedCaptions: false,
@@ -76,6 +105,10 @@ class YtReadBridge {
     final tp = context.read<TextProvider>();
     final okText = await tp.loadTextFile(lrcPath, title: item.title);
     if (!okText) {
+      // Nói RÕ vì sao: file có nhưng không trích được dòng nào (LRC hỏng /
+      // mốc thời gian lạ / chỉ có header). Trước đây im lặng hoàn toàn.
+      debugPrint('[in4up-yt-read] loadTextFile=false (lines=${tp.lines.length}) '
+          '⇒ load_failed');
       return const YtReadLoadResult(
         ok: false,
         loadedCaptions: false,

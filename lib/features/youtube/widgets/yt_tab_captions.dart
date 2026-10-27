@@ -369,8 +369,26 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                   // YT-MEDIA-STORE-001: đi qua cầu nối chung thay vì tự gọi
                   // `loadTextFile` — nhờ vậy phụ đề VÀ âm thanh (nếu đã tải)
                   // vào tab Đọc cùng lúc, và có mặt trong "Gần đây" lần sau.
+                  //
+                  // YT-RD-CRASH-001 (2026-10-28): cầu nối kết thúc bằng
+                  // `popUntil(route.isFirst)` ⇒ widget này bị UNMOUNT. Trước
+                  // đây `_snack()` (có guard `mounted`) vì thế IM LẶNG ⇒ người
+                  // dùng không biết vì sao không thấy gì. Nay giữ lại
+                  // `ScaffoldMessengerState` + chuỗi đã dịch TRƯỚC khi điều
+                  // hướng, để luôn báo được kết quả.
+                  final messenger = ScaffoldMessenger.of(context);
+                  final msgFail = context.uiText('Không nạp được phụ đề vào tab Đọc');
+                  final msgOkAudio = context.uiText('Đã nạp phụ đề + âm thanh vào tab Đọc');
+                  final msgAudioFail = context.uiText('Đã nạp phụ đề; âm thanh không mở được');
+                  final msgOk = context.uiText('Đã nạp phụ đề vào tab Đọc');
+
                   final path = await _ensureLrcSaved();
-                  if (path == null || !context.mounted) return;
+                  if (path == null || !mounted) {
+                    // Dùng lại chuỗi ĐÃ có trong catalog (rule vàng #5: không
+                    // thêm literal mới khi chưa đăng ký đủ 5 locale).
+                    if (path == null) _snack('Không nạp được phụ đề vào tab Đọc');
+                    return;
+                  }
                   final result = await YtReadBridge.openInRead(
                     context,
                     YtMediaItem(
@@ -382,15 +400,32 @@ class _YtTabCaptionsState extends State<YtTabCaptions>
                       updatedAt: DateTime.now(),
                     ),
                   );
+
+                  final String message;
                   if (!result.ok) {
-                    _snack('Không nạp được phụ đề vào tab Đọc');
+                    message = result.reason == 'exception'
+                        ? '$msgFail (${result.detail ?? 'lỗi'})'
+                        : msgFail;
                   } else if (result.loadedAudio) {
-                    _snack('Đã nạp phụ đề + âm thanh vào tab Đọc');
+                    message = msgOkAudio;
                   } else if (widget.downloadedAudioPath != null) {
-                    _snack('Đã nạp phụ đề; âm thanh không mở được');
+                    message = msgAudioFail;
                   } else {
-                    _snack('Đã nạp phụ đề vào tab Đọc');
+                    message = msgOk;
                   }
+                  messenger
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(SnackBar(
+                      content: Text(message),
+                      backgroundColor: result.ok
+                          ? const Color(0xFF1A237E)
+                          : Colors.red.shade700,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ));
                 },
               ),
             ),

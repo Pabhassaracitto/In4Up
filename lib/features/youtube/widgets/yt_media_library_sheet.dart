@@ -83,19 +83,40 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
   }
 
   Future<void> _open(YtMediaItem item) async {
+    // YT-RD-CRASH-001: giữ messenger + chuỗi đã dịch TRƯỚC khi nạp, vì cầu
+    // nối kết thúc bằng `popUntil(route.isFirst)` ⇒ sheet bị unmount và
+    // `_snack()` (guard `mounted`) sẽ im lặng.
+    final messenger = ScaffoldMessenger.of(context);
+    final msgNoCaptions = context.uiText('Video này chưa có phụ đề đã lưu');
+    final msgFail = context.uiText('Không nạp được vào tab Đọc');
+    final msgAudioFail =
+        context.uiText('Đã nạp phụ đề, nhưng file âm thanh không mở được');
+
+    void show(String msg, Color color) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(msg),
+          backgroundColor: color,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+    }
+
     final result = await YtReadBridge.openInRead(context, item);
     if (!result.ok) {
-      _snack(
-        result.reason == 'no_captions'
-            ? 'Video này chưa có phụ đề đã lưu'
-            : 'Không nạp được vào tab Đọc',
-        color: Colors.red.shade700,
+      final base = result.reason == 'no_captions' ? msgNoCaptions : msgFail;
+      show(
+        result.reason == 'exception' && result.detail != null
+            ? '$base (${result.detail})'
+            : base,
+        Colors.red.shade700,
       );
       return;
     }
     if (!result.loadedAudio && item.audioPath != null) {
-      _snack('Đã nạp phụ đề, nhưng file âm thanh không mở được',
-          color: Colors.orange.shade800);
+      show(msgAudioFail, Colors.orange.shade800);
     }
   }
 

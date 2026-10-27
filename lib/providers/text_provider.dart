@@ -34,6 +34,7 @@ import '../services/ipa_styling.dart';
 import '../services/line_ipa_service.dart';
 import '../services/reader_display_settings.dart';
 import '../services/storage_service.dart'; // ★ THÊM
+import '../services/lrc_time_parser.dart';
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_source_loader.dart';
 import '../services/text_splitter_service.dart';
@@ -881,33 +882,17 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   void _parseLrc(String content, {String? title}) {
     _fullText = content;
     _lines = [];
-    final regex = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)');
-    final rawLines = content.split('\n');
-
-    for (final raw in rawLines) {
-      final match = regex.firstMatch(raw);
-      if (match == null) continue;
-
-      final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
-      final seconds = int.tryParse(match.group(2) ?? '') ?? 0;
-      final fraction = match.group(3) ?? '00';
-      // Bỏ inline word timestamps `<mm:ss.cs>` để không lộ ra chữ hiển thị.
-      var text = (match.group(4) ?? '').trim();
-      text = text.replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2,3}>'), '').trim();
-      if (text.isEmpty) continue;
-
-      final ms =
-          fraction.length == 2 ? int.parse(fraction) * 10 : int.parse(fraction);
-      final start = Duration(
-        minutes: minutes,
-        seconds: seconds,
-        milliseconds: ms,
-      );
-
+    // YT-LRC-LONG-001 (2026-10-28): việc đọc mốc thời gian đã tách sang hàm
+    // THUẦN `parseLrcLine()` (`lib/services/lrc_time_parser.dart`) để:
+    //   1. có máy bắt (test host VM) — trước đây lỗi nằm im trong provider;
+    //   2. mọi nơi đọc LRC dùng CÙNG một luật.
+    // Luật nới: phút 1–3 chữ số (`[125:03.45]` — video ≥ 60 phút), phần lẻ
+    // 1–3 số, dấu `.` hoặc `,`, và cả dạng `hh:mm:ss.xx`.
+    for (final parsed in parseLrcContent(content)) {
       _lines.add(TextItem(
         id: 'line_${_lines.length}',
-        content: text,
-        startTime: start,
+        content: parsed.text,
+        startTime: parsed.start,
       ));
     }
 

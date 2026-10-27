@@ -479,9 +479,8 @@ def collect_broad_sources() -> dict[str, set[str]]:
                 continue
             if len(body.strip()) >= 2:
                 strings.add(dart_unescape(body))
-        for match in _STRING_LITERAL_RE.finditer(text):
-            value = match.group(0)
-            value = value[1:] if value[:1] in ("r", "R") else value
+        for lit_start, lit_end in iter_string_literals(text):
+            value = text[lit_start:lit_end]
             value = value[1:-1]
             value = dart_unescape(value)
             if len(value.strip()) < 2:
@@ -489,7 +488,7 @@ def collect_broad_sources() -> dict[str, set[str]]:
             if value in fragments:
                 continue
             if _literal_is_technical(
-                value, text, match.start(), patterns, context_patterns, skip_values
+                value, text, lit_start, patterns, context_patterns, skip_values
             ):
                 continue
             strings.add(value)
@@ -499,6 +498,71 @@ def collect_broad_sources() -> dict[str, set[str]]:
 
 
 _STRING_LITERAL_RE = re.compile(r"[rR]?'(?:[^'\\\n]|\\.)*'|[rR]?\"(?:[^\"\\\n]|\\.)*\"")
+
+
+def dart_string_end(text: str, start: int) -> int | None:
+    """Vị trí kết thúc literal Dart, hiểu đúng `${...}` lồng chuỗi con.
+
+    Regex thường cắt sai ở `'${a == 'x' ? 'A' : 'B'}'`; hàm này đi qua phần
+    nội suy và bỏ qua chuỗi con bên trong.
+    """
+    if start >= len(text) or text[start] not in "'\"":
+        return None
+    quote = text[start]
+    index = start + 1
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char == quote:
+            return index + 1
+        if char == "$" and index + 1 < length and text[index + 1] == "{":
+            index += 2
+            depth = 1
+            while index < length and depth:
+                inner = text[index]
+                if inner in "'\"":
+                    nested_end = dart_string_end(text, index)
+                    if nested_end is None:
+                        index += 1
+                    else:
+                        index = nested_end
+                    continue
+                if inner == "{":
+                    depth += 1
+                elif inner == "}":
+                    depth -= 1
+                elif inner == "\\":
+                    index += 1
+                index += 1
+            continue
+        if char == "\n":
+            return None
+        index += 1
+    return None
+
+
+def iter_string_literals(text: str):
+    """Sinh `(start, end)` của mọi literal Dart, bỏ qua comment."""
+    comments = _comment_spans(text)
+    index = 0
+    length = len(text)
+    while index < length:
+        if any(start <= index < end for start, end in comments):
+            index += 1
+            continue
+        char = text[index]
+        if char in "'\"":
+            end = dart_string_end(text, index)
+            if end is None:
+                index += 1
+                continue
+            yield index, end
+            index = end
+            continue
+        index += 1
 
 
 def _chain_fragment_values(text: str) -> set[str]:
@@ -653,13 +717,19 @@ def _looks_like_chrome(value: str) -> bool:
 _DART_INTERP_RE = re.compile(r"\$\{[^{}]*\}|\$[A-Za-z_]\w*")
 
 
+def _renumber(match: re.Match[str], counter: list[int]) -> str:
+    counter[0] += 1
+    return "{value%d}" % (counter[0] - 1)
+
+
 def normalize_placeholders(text: str) -> str:
     """`"$count phút"` → `"{value0} phút"` — dạng mà pack dùng cho template.
 
     Chuỗi nội suy không bao giờ khớp exact-match, nên chỉ khi được chuẩn hoá về
     dạng `{valueN}` thì mới đo được đúng việc runtime làm (`context.uiText`).
     """
-    return _DART_INTERP_RE.sub("{value0}", text)
+    counter = [0]
+    return _DART_INTERP_RE.sub(lambda m: _renumber(m, counter), text)
 
 
 def resolve(

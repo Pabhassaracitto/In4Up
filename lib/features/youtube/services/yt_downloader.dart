@@ -217,7 +217,7 @@ class YtDownloader {
       }
 
       if (!ok) {
-        final got = await part.length();
+        final got = await _lengthOrZero(part);
         debugPrint(
           '❌ [in4up-yt] tải chưa hoàn tất: $got / $totalBytes bytes '
           'sau $_maxAttempts lần thử.',
@@ -237,7 +237,7 @@ class YtDownloader {
       if (await target.exists()) await target.delete();
       await part.rename(filePath);
 
-      final finalSize = await File(filePath).length();
+      final finalSize = await _lengthOrZero(File(filePath));
       if (finalSize < 1000) {
         await _safeDelete(File(filePath));
         fail('File tải về quá nhỏ, thử lại');
@@ -274,7 +274,7 @@ class YtDownloader {
     for (var attempt = 0; attempt < _maxAttempts; attempt++) {
       if (_cancelled) return false;
 
-      var offset = await part.length();
+      var offset = await _lengthOrZero(part);
       if (knownSize && offset >= totalBytes) {
         debugPrint('✅ [in4up-yt] resume: đã đủ $offset / $totalBytes bytes');
         return true;
@@ -396,8 +396,8 @@ class YtDownloader {
 
     // Hết số lần thử: chấp nhận nếu đã đủ (trường hợp không biết size thì
     // coi là xong khi stream tự kết thúc).
-    if (!knownSize) return await part.length() > 1000;
-    return await part.length() >= totalBytes;
+    if (!knownSize) return await _lengthOrZero(part) > 1000;
+    return await _lengthOrZero(part) >= totalBytes;
   }
 
   /// Backoff đơn giản 400ms → 4s. (Không dùng `Duration.clamp` — toán tử
@@ -411,6 +411,27 @@ class YtDownloader {
     try {
       if (await f.exists()) await f.delete();
     } catch (_) {}
+  }
+
+  /// Độ dài file, **0 nếu file chưa tồn tại**.
+  ///
+  /// YT-DL-PATH-001 (bug owner báo 2026-10-25):
+  /// `PathNotFoundException: Cannot retrieve length of file, path =
+  /// '…/app_flutter/youtube_media/yt_xxx.m4a.part'`.
+  ///
+  /// `File.length()` **ném** `PathNotFoundException` khi file không có — nó
+  /// không trả 0. Lần tải ĐẦU TIÊN luôn chưa có `.part`, nên dòng
+  /// `var offset = await part.length();` ném ngay từ vòng lặp đầu ⇒ rơi vào
+  /// `catch` ngoài ⇒ thử yt-dlp ⇒ thất bại ⇒ hiện nguyên chuỗi lỗi cho người
+  /// dùng. Lỗi này bị che trước đây vì lỗi RangeError (dựng tên file) ném ra
+  /// SỚM HƠN; sửa xong lỗi đó thì lỗi này mới lộ ra.
+  static Future<int> _lengthOrZero(File f) async {
+    try {
+      if (!await f.exists()) return 0;
+      return await f.length();
+    } catch (_) {
+      return 0;
+    }
   }
 
   /// Hủy download đang chạy
@@ -534,6 +555,15 @@ class YtDownloader {
       return 'Lỗi mạng — kiểm tra kết nối';
     }
     if (raw.contains('403')) return 'Truy cập bị từ chối (403)';
+    // YT-DL-PATH-001: không bao giờ đẩy nguyên stack/path ra UI. Đường dẫn
+    // trong thông báo lỗi còn bị cắt giữa chừng nên vô nghĩa với người dùng.
+    if (raw.contains('PathNotFoundException') ||
+        raw.contains('Cannot retrieve length of file') ||
+        raw.contains('FileSystemException') ||
+        raw.contains('No space left')) {
+      return 'Không ghi được file trên máy — kiểm tra dung lượng và nơi lưu '
+          '(Thư viện → nơi lưu)';
+    }
     if (raw.contains('429')) return 'Rate limit, thử lại sau';
     return 'Lỗi: ${raw.substring(0, raw.length.clamp(0, 100))}';
   }

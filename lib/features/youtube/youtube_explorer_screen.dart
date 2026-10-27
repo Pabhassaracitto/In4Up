@@ -120,7 +120,6 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   double _rankMin = 0;
   double _rankMax = 100000;
   final _scrollCtrl = ScrollController();
-  final _urlCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
   bool _openingUrl = false;
@@ -162,7 +161,6 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
-    _urlCtrl.dispose();
     _searchCtrl.dispose();
     _searchFocus.dispose();
     _suggestDebounce?.cancel();
@@ -351,7 +349,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   }
 
   Future<void> _openFromUrl([String? raw]) async {
-    final input = (raw ?? _urlCtrl.text).trim();
+    // YT-ONE-BAR-001: chỉ còn MỘT ô cho cả URL và từ khoá.
+    final input = (raw ?? _searchCtrl.text).trim();
     if (input.isEmpty) return;
     final id = YtVideo.extractId(input);
     if (id == null) {
@@ -513,21 +512,34 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                 focusNode: _searchFocus,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: context.uiText('Tìm kiếm trực tiếp trên YouTube'),
+                  // YT-ONE-BAR-001: nói rõ MỘT ô làm được HAI việc — nếu chỉ
+                  // ghi "Tìm kiếm" thì người dùng vẫn đi tìm ô dán URL như cũ.
+                  hintText: context.uiText(
+                      'Tìm bài, hoặc dán URL/ID YouTube vào đây...'),
                   hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
                   prefixIcon:
                       const Icon(Icons.search, color: Colors.grey, size: 18),
-                  suffixIcon: _searchCtrl.text.isNotEmpty
-                      ? IconButton(
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: context.uiText('Dán từ bộ nhớ tạm'),
+                        icon: const Icon(Icons.content_paste,
+                            color: Colors.grey, size: 16),
+                        onPressed: _pasteAndSubmit,
+                      ),
+                      if (_searchCtrl.text.isNotEmpty)
+                        IconButton(
                           tooltip: context.uiText('Xoá tìm kiếm'),
-                          icon:
-                              const Icon(Icons.close, color: Colors.grey, size: 16),
+                          icon: const Icon(Icons.close,
+                              color: Colors.grey, size: 16),
                           onPressed: () {
                             _searchCtrl.clear();
                             _submitSearch('');
                           },
-                        )
-                      : null,
+                        ),
+                    ],
+                  ),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.07),
                   border: OutlineInputBorder(
@@ -607,13 +619,43 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     setState(() {});
   }
 
+  /// Dán clipboard vào ô duy nhất rồi chạy luôn — dùng cho cả URL và từ khoá
+  /// nên người dùng không phải dán rồi bấm thêm lần nữa.
+  Future<void> _pasteAndSubmit() async {
+    final d = await Clipboard.getData('text/plain');
+    final text = d?.text?.trim();
+    if (!mounted || text == null || text.isEmpty) return;
+    setState(() {
+      _searchCtrl.text = text;
+      _urlError = null;
+    });
+    _submitSearch(text);
+  }
+
+  /// YT-ONE-BAR-001 (#2 owner: "có 2 thanh, 1 tìm kiếm 1 dán URL — có cơ chế
+  /// thông minh nào để dán URL vẫn được mà gõ tìm kiếm vẫn được không?")
+  ///
+  /// Có — và nên gộp thành MỘT ô. Không cần người dùng chọn chế độ trước:
+  ///  • Nội dung nhận ra là URL / ID YouTube ⇒ mở thẳng video đó;
+  ///  • Còn lại ⇒ tìm theo từ khoá như cũ.
+  ///
+  /// Ưu điểm so với 2 thanh: người dùng không phải "nhìn xem mình đang gõ vào
+  /// ô nào"; dán từ clipboard xong Enter là chạy, dù dán URL hay tên bài.
   void _submitSearch([String? query]) {
     _suggestDebounce?.cancel();
     FocusScope.of(context).unfocus();
-    setState(() {
-      _searchQuery = (query ?? _searchCtrl.text).trim();
-      _showSuggestions = false;
-    });
+    final text = (query ?? _searchCtrl.text).trim();
+    setState(() => _showSuggestions = false);
+
+    // URL/ID YouTube ⇒ mở video. Kiểm trước để "youtube.com/..." không bị
+    // đem đi tìm kiếm (kết quả sẽ là rác).
+    final id = ytVideoIdFromSearchInput(text);
+    if (id != null) {
+      unawaited(_openFromUrl(text));
+      return;
+    }
+
+    setState(() => _searchQuery = text);
     _loadVideos();
   }
 
@@ -707,84 +749,6 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             ),
             const SizedBox(height: 8),
             _searchArea(),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _urlError != null
-                            ? Colors.red.withValues(alpha: 0.5)
-                            : Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        const Icon(Icons.link, color: Colors.grey, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: TextField(
-                            controller: _urlCtrl,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                            decoration: InputDecoration(
-                              hintText: context.uiText('Dán URL YouTube...'),
-                              hintStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 10),
-                            ),
-                            onSubmitted: (_) => _openFromUrl(),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.content_paste,
-                              color: Colors.grey, size: 16),
-                          onPressed: () async {
-                            final d = await Clipboard.getData('text/plain');
-                            if (d?.text != null) {
-                              _urlCtrl.text = d!.text!.trim();
-                              if (mounted) _openFromUrl();
-                            }
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                              minWidth: 32, minHeight: 32),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _openingUrl ? null : _openFromUrl,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF9C27B0).withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: _openingUrl
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation(Colors.white)),
-                          )
-                        : const Icon(Icons.school,
-                            color: Colors.white, size: 18),
-                  ),
-                ),
-              ],
-            ),
             if (_urlError != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),

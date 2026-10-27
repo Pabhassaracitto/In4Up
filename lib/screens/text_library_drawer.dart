@@ -15,7 +15,7 @@ import 'package:provider/provider.dart';
 import '../features/ocr/ocr_flow.dart';
 import '../features/ocr/ocr_service.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
-import '../features/youtube/youtube_sheet.dart';
+import '../features/youtube/youtube_explorer_screen.dart';
 import '../providers/text_provider.dart';
 import '../services/text_library_service.dart';
 //news
@@ -264,7 +264,18 @@ class _LocalTab extends StatelessWidget {
                           icon: Icons.play_circle_fill,
                           label: 'YouTube',
                           color: const Color(0xFFFF0000),
-                          onTap: () => YoutubeSheet.show(context, captionsFirst: true),
+                          // YT-LIB-SEARCH-001 (#1 owner: "Thư viện đọc →
+                          // YouTube chỉ cho dán URL, khó cho người dùng"):
+                          // mở thẳng màn TÌM KIẾM (có cả tìm theo từ khoá,
+                          // kênh, lịch sử) thay vì bottom sheet chỉ có ô dán
+                          // URL. Ô tìm kiếm ở đó nhận CẢ URL lẫn từ khoá
+                          // (YT-ONE-BAR-001) nên không mất khả năng dán.
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const YoutubeExplorerScreen(),
+                            ),
+                          ),
                         ),
                         _ActionButton(
                           icon: Icons.picture_as_pdf,

@@ -17,6 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_exp;
 
+import '../models/yt_video.dart' show YtVideo;
 import 'yt_initial_data_parser.dart';
 
 class YtSearchService {
@@ -156,4 +157,29 @@ class YtSearchService {
         viewCount: v.engagement?.viewCount,
         publishedAt: v.uploadDate,
       );
+}
+
+/// YT-ONE-BAR-001 (#2) — nhận diện "người dùng vừa dán một VIDEO" trong ô
+/// tìm kiếm duy nhất.
+///
+/// Trả `videoId` khi chắc chắn, `null` khi nên đi tìm kiếm theo từ khoá.
+///
+/// Ba trường hợp, cố tình KHÔNG nhận tất cả:
+///  • Có `youtu` hoặc bắt đầu bằng `http` ⇒ chắc chắn là link ⇒ lấy ID.
+///  • Chuỗi đúng 11 ký tự ID **và có ít nhất một chữ số** ⇒ coi là ID trần.
+///    Điều kiện "có chữ số" để một từ khoá tiếng Anh đúng 11 ký tự (vd
+///    `learnenglis`) KHÔNG bị biến thành lệnh mở video rác — đây là cái bẫy
+///    dễ gặp nhất khi gộp hai thanh (tìm kiếm + dán URL) làm một.
+///  • Còn lại ⇒ từ khoá, đi tìm kiếm bình thường.
+String? ytVideoIdFromSearchInput(String text) {
+  final t = text.trim();
+  if (t.isEmpty) return null;
+  if (t.contains('youtu') || t.startsWith('http')) {
+    return YtVideo.extractId(t);
+  }
+  if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(t) &&
+      RegExp(r'[0-9]').hasMatch(t)) {
+    return t;
+  }
+  return null;
 }

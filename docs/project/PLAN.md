@@ -1249,3 +1249,19 @@ Package: `video_player: ^2.8.0` (Flutter official)
     về `screens/tools/youglish/`, cấy vào `word_actions_sheet` + `word_mini_pop`,
     `YouGlishView.onLoaded` + `WKWebViewParams` (pubspec + lock), 7 chuỗi vào
     `priority_ui_overrides`, test thuần Dart + bước CI "PRON-002 tests".
+
+### PLAN-039 — Tab Nghe: phát nhiều bài và chuyển bài
+- Nguồn: người sở hữu (2026-10-27, qua agent `arena/bf95d3ae-in4up`).
+- Trạng thái: doing — đã viết code và test; chờ CI, review độc lập và nghiệm thu thiết bị.
+- Milestone đề xuất: M2, mở rộng thư viện Nghe `I4U18-LISTEN-LIB-001`.
+- Chi tiết: [phương án Tab Nghe](../plans/PLAN-039-tab-nghe-danh-sach-phat.md).
+  Tái dùng playlist và bộ phát hiện có; bổ sung queue phiên phát, tự chuyển
+  bài và nút bài trước/bài sau, giữ tua ±10 giây. Phương án gồm chính sách
+  tiếp tục vị trí, lặp A–B, xử lý lỗi/định danh nguồn và nghiệm thu thiết bị;
+  chủ dự án đã duyệt các mặc định trong phương án.
+- Lịch sử:
+  - 2026-10-27 | created→proposed | agent `arena/bf95d3ae-in4up` | fetch/rebase
+    251e `0556f82`, khảo sát các điểm vào và lập phương án; chưa thay đổi code.
+  - 2026-10-28 | 2026-10-27 19:41 UTC | proposed→doing | agent
+    `arena/bf95d3ae-in4up` | owner duyệt mặc định; code, test dự thảo,
+    ADR-0018 và hồ sơ review; chưa chạy Flutter/CI hay nghiệm thu thiết bị.

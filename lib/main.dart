@@ -316,9 +316,12 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
+        // The queue can mark each successfully loaded library item as played.
+        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
         ChangeNotifierProvider(
           create: (context) => PlayerProvider(
             understandProvider: context.read<UnderstandProvider>(),
+            audioLibraryProvider: context.read<AudioLibraryProvider>(),
           ),
         ),
         // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
@@ -327,8 +330,6 @@ class _MyAppState extends State<MyApp> {
             ..load()
             ..attachPlayer(ctx.read<PlayerProvider>()),
         ),
-        // Thư viện âm thanh (P1): quét MediaStore, chỉ mục Hive
-        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
         // Thư viện đọc (tab Thiết bị): quét thư mục trên máy (SAF tree, Android)
         ChangeNotifierProvider(create: (_) => TextDeviceProvider()..init()),
         ChangeNotifierProvider(create: (_) => TextProvider()),

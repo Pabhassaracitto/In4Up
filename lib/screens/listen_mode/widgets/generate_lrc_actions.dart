@@ -1,9 +1,12 @@
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:path/path.dart' as p;
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 
 import '../../../providers/player_provider.dart';
+import '../../../services/source_artifact_store.dart';
 
 /// If this audio already has a saved LRC, ask before running Whisper again.
 ///
@@ -20,7 +23,10 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
   String language = 'auto',
   bool preferSherpa = false,
 }) async {
-  final hit = await provider.peekCachedLrc();
+  final audioPath = provider.currentSongPath;
+  if (audioPath == null) return null;
+  final hit = await provider.peekCachedLrc(path: audioPath);
+  if (!context.mounted || provider.currentSongPath != audioPath) return null;
   var force = false;
   if (hit != null && context.mounted) {
     final choice = await showDialog<String>(
@@ -56,8 +62,68 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
     }
     if (choice != 'redo') return null;
     force = true;
+  } else if (hit == null) {
+    final store = SourceArtifactStore.instance;
+    var candidates = <CachedLrcHit>[];
+    try {
+      candidates = await store.unverifiedLrcCandidates(audioPath);
+    } catch (error) {
+      debugPrint('Could not inspect older LRC files: $error');
+    }
+    if (!context.mounted || provider.currentSongPath != audioPath) return null;
+    if (candidates.isNotEmpty) {
+      final choice = await showDialog<Object>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(ctx.uiText('Dữ liệu cũ chưa xác minh')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(ctx.uiText(
+                    'Dữ liệu cũ cùng tên được giữ nguyên. Chỉ liên kết nếu bạn chắc đây là đúng file âm thanh.')),
+                for (final candidate in candidates)
+                  ListTile(
+                    title: material.Text(
+                      p.basename(candidate.lrcPath),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => Navigator.pop(ctx, candidate),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx),
+                child: Text(ctx.uiText('Hủy'))),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'redo'),
+                child: Text(ctx.uiText('Tạo lại'))),
+          ],
+        ),
+      );
+      if (!context.mounted || provider.currentSongPath != audioPath) return null;
+      if (choice is CachedLrcHit) {
+        var linked = false;
+        try {
+          linked = await store.bindUnverifiedLrc(choice);
+        } catch (error) {
+          debugPrint('Could not link older LRC: $error');
+        }
+        if (linked && provider.currentSongPath == audioPath) {
+          await provider.applyCachedLrc(hit: choice);
+        } else if (!linked && context.mounted && provider.currentSongPath == audioPath) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.uiText('Không thể liên kết dữ liệu cũ')),
+          ));
+        }
+        return null;
+      }
+      if (choice != 'redo') return null;
+      force = true;
+    }
   }
-  if (!context.mounted) return null;
+  if (!context.mounted || provider.currentSongPath != audioPath) return null;
   return provider.generateLrcForCurrentAudio(
     level: level,
     grouping: grouping,

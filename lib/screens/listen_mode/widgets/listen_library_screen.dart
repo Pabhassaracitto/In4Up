@@ -7,10 +7,10 @@ import 'package:provider/provider.dart';
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/audio_import_service.dart';
-import '../../../services/audio_library_service.dart';
 import '../models/recent_audio.dart';
 import '../services/recent_audio_service.dart';
 import 'audio_library_view.dart';
+import 'playback_queue_sheet.dart';
 import 'recent_audio_card.dart';
 
 class ListenLibraryScreen extends StatefulWidget {
@@ -81,16 +81,15 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       case RecentAudioType.local:
         if (audio.localPath == null) return;
 
-        // content:// (từ tab Thư viện) → copy sang cache trước khi phát.
-        final playable = await AudioLibraryService().resolvePlayablePath(
-          audio.localPath!,
-        );
-        if (!mounted) return;
-
+        // Resolve and seek atomically inside the player. This view can be
+        // disposed as soon as the new track is committed.
         final loaded = await player.loadSong(
-          path: playable,
+          path: audio.localPath!,
           title: audio.title,
-          autoPlay: false, // ★ THAY: false để seek trước khi play
+          autoPlay: true,
+          initialPosition: audio.lastPosition.inSeconds > 5
+              ? audio.lastPosition
+              : null,
         );
         if (!mounted) return;
 
@@ -109,22 +108,9 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           return;
         }
 
-        // Path cũ chết nhưng trong audio_imports/ còn bản → đã tự khôi phục.
-        final nowPlaying = player.currentSongPath;
-        if (nowPlaying != null &&
-            nowPlaying != playable.replaceAll(r'\', '/')) {
-          _showSnack(
-            icon: Icons.restore,
-            message: 'Đã khôi phục audio từ bản lưu trong thư viện.',
-            color: const Color(0xFF4CAF50),
-          );
-        }
-
         // Resume vị trí đã nghe
         if (audio.lastPosition > Duration.zero &&
             audio.lastPosition.inSeconds > 5) {
-          await player.seek(audio.lastPosition);
-
           // Thông báo resume
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -157,17 +143,7 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
           );
         }
 
-        // Play sau khi đã seek
-        await player.play();
-
-        if (!mounted) return;
-
-        // Cập nhật recent
-        await _service.addOrUpdate(
-          audio.copyWith(
-            lastOpened: DateTime.now(),
-          ),
-        );
+        // Recent metadata is updated centrally after the queue commits.
         break;
 
       case RecentAudioType.youtube:
@@ -250,15 +226,8 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       return;
     }
 
-    // Lưu vào recent — path persistent (phát lại được sau khi xóa cache).
-    final audio = RecentAudio.fromLocalFile(
-      path: persistentPath,
-      title: file.name,
-      totalDuration: player.state.duration,
-    );
-    await _service.addOrUpdate(audio);
-    if (!mounted) return;
-    await _load();
+    // Recent metadata is written by PlayerProvider after a successful load.
+    if (mounted) await _load();
   }
 
   // ── SHADOW-FILE-001: path cũ (cache) gặp ENOENT → hướng dẫn chọn lại ────
@@ -429,6 +398,26 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
       body: Column(
         children: [
           _buildHeader(),
+          Consumer<PlayerProvider>(builder: (context, player, _) {
+            if (player.queueItems.isEmpty || player.currentSongPath != null) {
+              return const SizedBox.shrink();
+            }
+            return ListTile(
+              dense: true,
+              leading: Icon(
+                player.queueFailedIndices.isEmpty ? Icons.queue_music : Icons.error_outline,
+                color: player.queueFailedIndices.isEmpty ? Colors.white70 : Colors.orangeAccent,
+              ),
+              title: Text(context.uiText('Danh sách đang phát'),
+                  style: const TextStyle(color: Colors.white70)),
+              subtitle: player.queueFailedIndices.isEmpty
+                  ? null
+                  : Text(context.uiText('Không phát được bài này'),
+                      style: const TextStyle(color: Colors.orangeAccent)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+              onTap: () => showPlaybackQueueSheet(context),
+            );
+          }),
           _buildTabBar(),
           Expanded(
             child: TabBarView(

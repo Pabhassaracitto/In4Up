@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
+import 'playback_queue_sheet.dart';
 
 // =============================================================================
 // CONSTANTS & THEME DEFINITIONS
@@ -411,29 +413,38 @@ class _MicroBar extends StatelessWidget {
     return SizedBox(
       height: MiniPlayerDimensions.microHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: MiniPlayerDimensions.paddingHorizontal,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _MicroBtn(
+            Expanded(child: _MicroBtn(
+              icon: Icons.skip_previous,
+              label: context.uiText('Bài trước'),
+              onTap: player.canGoPreviousTrack ? () => player.previousTrack() : null,
+            )),
+            Expanded(child: _MicroBtn(
               icon: Icons.replay_10,
+              label: context.uiText('Lùi 10 giây'),
               onTap: () => player.replay10(),
-            ),
+            )),
             _MicroPlayBtn(
-              isPlaying: player.isPlaying,
+              isPlaying: player.wantsPlayback,
               theme: theme,
               onTap: () => player.togglePlayPause(),
             ),
-            _MicroBtn(
+            Expanded(child: _MicroBtn(
               icon: Icons.forward_10,
+              label: context.uiText('Tiến 10 giây'),
               onTap: () => player.forward10(),
-            ),
-            _CycleButton(
+            )),
+            Expanded(child: _MicroBtn(
+              icon: Icons.skip_next,
+              label: context.uiText('Bài sau'),
+              onTap: player.canGoNextTrack ? () => player.nextTrack() : null,
+            )),
+            Expanded(child: Center(child: _CycleButton(
               state: MiniPlayerState.micro,
               onTap: onCycle,
-            ),
+            ))),
           ],
         ),
       ),
@@ -441,10 +452,8 @@ class _MicroBar extends StatelessWidget {
   }
 }
 
-// =============================================================================
-// ★ MỚI: MEDIUM BAR — State 1 + header của State 2
-// =============================================================================
-
+// Medium/full headers use two rows on narrow screens to keep all five
+// transport actions and a queue button usable without horizontal overflow.
 class _MediumBar extends StatelessWidget {
   final PlayerProvider player;
   final MiniPlayerTheme theme;
@@ -464,15 +473,81 @@ class _MediumBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget previous() => _MicroBtn(
+      icon: Icons.skip_previous,
+      label: context.uiText('Bài trước'),
+      onTap: player.canGoPreviousTrack ? () => player.previousTrack() : null,
+    );
+    Widget next() => _MicroBtn(
+      icon: Icons.skip_next,
+      label: context.uiText('Bài sau'),
+      onTap: player.canGoNextTrack ? () => player.nextTrack() : null,
+    );
+    Widget back() => _MicroBtn(
+      icon: Icons.replay_10,
+      label: context.uiText('Lùi 10 giây'),
+      onTap: () => player.replay10(),
+    );
+    Widget forward() => _MicroBtn(
+      icon: Icons.forward_10,
+      label: context.uiText('Tiến 10 giây'),
+      onTap: () => player.forward10(),
+    );
+    Widget play() => _MicroPlayBtn(
+      isPlaying: player.wantsPlayback,
+      theme: theme,
+      size: 36,
+      onTap: () => player.togglePlayPause(),
+    );
+    Widget queue() => _MicroBtn(
+      icon: Icons.queue_music,
+      label: context.uiText('Danh sách đang phát'),
+      onTap: () => showPlaybackQueueSheet(context),
+    );
+    Widget cycle() => _CycleButton(
+      state: isFull ? MiniPlayerState.full : MiniPlayerState.medium,
+      onTap: onCycle,
+    );
+
     return SizedBox(
       height: MiniPlayerDimensions.mediumHeight,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: MiniPlayerDimensions.paddingHorizontal,
-          vertical: 6,
-        ),
-        child: Row(
-          children: [
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 40,
+                  child: Row(children: [
+                    Expanded(child: material.Text(
+                      player.currentSongTitle ?? 'Unknown',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 13,
+                          fontWeight: FontWeight.w600),
+                    )),
+                    queue(),
+                    cycle(),
+                  ]),
+                ),
+                SizedBox(
+                  height: 48,
+                  child: Row(children: [
+                    Expanded(child: previous()),
+                    Expanded(child: back()),
+                    play(),
+                    Expanded(child: forward()),
+                    Expanded(child: next()),
+                  ]),
+                ),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(children: [
             _SmallAlbumArt(
               theme: theme,
               isPlaying: player.isPlaying,
@@ -481,29 +556,10 @@ class _MediumBar extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(child: _MediumInfo(player: player)),
-            const SizedBox(width: 8),
-            _MicroBtn(
-              icon: Icons.replay_10,
-              onTap: () => player.replay10(),
-            ),
-            _MicroPlayBtn(
-              isPlaying: player.isPlaying,
-              theme: theme,
-              size: 36,
-              onTap: () => player.togglePlayPause(),
-            ),
-            _MicroBtn(
-              icon: Icons.forward_10,
-              onTap: () => player.forward10(),
-            ),
-            const SizedBox(width: 4),
-            _CycleButton(
-              state: isFull ? MiniPlayerState.full : MiniPlayerState.medium,
-              onTap: onCycle,
-            ),
-          ],
-        ),
-      ),
+            previous(), back(), play(), forward(), next(), queue(), cycle(),
+          ]),
+        );
+      }),
     );
   }
 }
@@ -520,10 +576,17 @@ class _CycleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
+    final label = context.uiText(
+        state == MiniPlayerState.full ? 'Thu gọn' : 'Mở rộng');
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
         width: 32,
         height: 32,
         decoration: BoxDecoration(
@@ -543,6 +606,8 @@ class _CycleButton extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.9),
               size: 18,
             ),
+          ),
+        ),
           ),
         ),
       ),
@@ -567,26 +632,24 @@ class _CycleButton extends StatelessWidget {
 
 class _MicroBtn extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final String label;
+  final VoidCallback? onTap;
 
-  const _MicroBtn({required this.icon, required this.onTap});
+  const _MicroBtn({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
+    return IconButton(
+      tooltip: label,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      padding: EdgeInsets.zero,
+      onPressed: onTap == null ? null : () {
         HapticFeedback.lightImpact();
-        onTap();
+        onTap!();
       },
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Icon(
-          icon,
-          size: 22,
-          color: Colors.white.withValues(alpha: 0.88),
-        ),
-      ),
+      icon: Icon(icon, size: 22),
+      color: Colors.white.withValues(alpha: 0.9),
+      disabledColor: Colors.white38,
     );
   }
 }
@@ -606,13 +669,19 @@ class _MicroPlayBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        onTap();
-      },
-      child: Container(
+    final label = context.uiText(isPlaying ? 'Tạm dừng' : 'Phát');
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onTap();
+          },
+          child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
@@ -630,6 +699,8 @@ class _MicroPlayBtn extends StatelessWidget {
           isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           color: theme.primaryColor,
           size: size * 0.55,
+        ),
+          ),
         ),
       ),
     );
@@ -703,7 +774,7 @@ class _MediumInfo extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center, // ★ Căn giữa Column
       children: [
-        Text(
+        material.Text(
           player.currentSongTitle ?? 'Unknown',
           textAlign: TextAlign.center, // ★ Căn giữa text khi xuống dòng
           style: const TextStyle(

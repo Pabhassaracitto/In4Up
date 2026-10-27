@@ -132,6 +132,16 @@ class RecentAudio {
       );
 
   // ── Factory helpers ──────────────────────────────────────────
+
+  /// Keep Unix/Android paths and content URIs case-sensitive; normalize
+  /// Windows drive/UNC paths as case-insensitive without importing dart:io.
+  static String localIdentity(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final isWindowsPath = RegExp(r'^[A-Za-z]:/').hasMatch(normalized) ||
+        normalized.startsWith('//');
+    return isWindowsPath ? normalized.toLowerCase() : normalized;
+  }
+
   factory RecentAudio.fromLocalFile({
     required String path,
     String? title,
@@ -141,8 +151,9 @@ class RecentAudio {
     final name = normalizedPath.split('/').last;
     final nameNoExt =
         name.contains('.') ? name.substring(0, name.lastIndexOf('.')) : name;
+    final identity = localIdentity(normalizedPath);
     return RecentAudio(
-      id: 'local_${md5.convert(utf8.encode(normalizedPath.toLowerCase())).toString().substring(0, 12)}',
+      id: 'local_${md5.convert(utf8.encode(identity)).toString().substring(0, 12)}',
       title: title ?? nameNoExt,
       type: RecentAudioType.local,
       localPath: normalizedPath,

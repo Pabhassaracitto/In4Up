@@ -13,16 +13,16 @@
 // localized_material export material (hide Text) + Text localized + uiText
 // (rule 5: chrome không tiếng Việt khi locale ≠ vi) — KHÔNG import material
 // trực tiếp (conflict tên Text).
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/audio_library_entry.dart';
+import '../../../models/audio_queue_item.dart';
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/audio_library_service.dart';
-import '../models/recent_audio.dart';
-import '../services/recent_audio_service.dart';
 import 'audio_playlists_sheet.dart';
 
 class AudioLibraryView extends StatefulWidget {
@@ -67,28 +67,13 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
     }
   }
 
-  Future<void> _openEntry(AudioLibraryEntry entry) async {
+  Future<void> _openEntry(List<AudioLibraryEntry> visible, int index) async {
     HapticFeedback.selectionClick();
-    final player = context.read<PlayerProvider>();
-    // content:// → copy sang cache trước khi phát (just_audio không phát
-    // content:// ổn định) — Fix "mở bài hát không chạy được".
-    final playable = await AudioLibraryService().resolvePlayablePath(entry.uri);
-    if (!mounted) return;
-    await player.loadSong(
-      path: playable,
-      title: entry.title,
-      artist: entry.artist,
-      autoPlay: true,
-    );
-    if (!mounted) return;
-    // Cập nhật thời gian đã nghe trong chỉ mục + RecentAudio.
-    await context.read<AudioLibraryProvider>().markPlayed(entry);
-    await RecentAudioService().addOrUpdate(
-      RecentAudio.fromLocalFile(
-        path: entry.uri,
-        title: entry.title,
-        totalDuration: Duration(milliseconds: entry.durationMs),
-      ),
+    // Snapshot exactly the order visible at the tap. markPlayed may reorder a
+    // smart playlist later, but the session queue must stay stable.
+    await context.read<PlayerProvider>().startQueue(
+      visible.map(AudioQueueItem.fromLibrary).toList(growable: false),
+      startIndex: index,
     );
   }
 
@@ -448,7 +433,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
             padding: const EdgeInsets.only(bottom: 4),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
-              onTap: () => _openEntry(entry),
+              onTap: () => _openEntry(results, i),
               onLongPress: () => _addToPlaylist(entry),
               child: Container(
                 padding:
@@ -478,7 +463,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          material.Text(
                             entry.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -488,7 +473,7 @@ class _AudioLibraryViewState extends State<AudioLibraryView> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          Text(
+                          material.Text(
                             [
                               if (entry.artist != null) entry.artist!,
                               if (entry.album != null) entry.album!,

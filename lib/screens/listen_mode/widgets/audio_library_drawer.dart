@@ -3,14 +3,17 @@
 // FIX 2: Chọn nhiều file → hiển thị playlist, phát được từng bài
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/youtube/youtube_sheet.dart';
+import '../../../models/audio_queue_item.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/audio_import_service.dart';
 import 'google_drive_browser.dart';
+import 'playback_queue_sheet.dart';
 
 /// Một file đã chọn & đã đảm bảo path persistent (SHADOW-FILE-001):
 /// file_picker trả path trong cache — đã copy sang audio_imports/ trước khi
@@ -18,11 +21,9 @@ import 'google_drive_browser.dart';
 class _ImportedAudioItem {
   final String path;
   final String name;
-  final int size;
   const _ImportedAudioItem({
     required this.path,
     required this.name,
-    required this.size,
   });
 }
 
@@ -209,10 +210,6 @@ class _LocalAudioTab extends StatefulWidget {
 }
 
 class _LocalAudioTabState extends State<_LocalAudioTab> {
-  // FIX: Lưu playlist thay vì chỉ phát 1 file
-  // SHADOW-FILE-001: playlist giữ path PERSISTENT (audio_imports/), không
-  // giữ path cache của file_picker (cache bị hệ thống dọn → ENOENT).
-  List<_ImportedAudioItem> _playlist = [];
   bool _importing = false;
 
   /// Copy file vừa chọn vào audio_imports/ (persistent, dedup an toàn).
@@ -228,7 +225,6 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
       return _ImportedAudioItem(
         path: res.path,
         name: file.name,
-        size: res.sizeBytes,
       );
     } catch (e) {
       debugPrint('[Drawer] Import audio thất bại (${file.name}): $e');
@@ -315,32 +311,21 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
       return;
     }
 
-    // Lưu playlist (path persistent) để hiện danh sách
-    setState(() {
-      _importing = false;
-      _playlist = items;
-    });
-
+    setState(() => _importing = false);
     if (failed > 0) {
       _showSnack('Một số file không lưu được — danh sách phát chỉ gồm các file đã lưu.');
     }
 
-    // Phát file đầu tiên
-    await context.read<PlayerProvider>().loadSong(
-          path: items.first.path,
-          title: items.first.name,
-          autoPlay: true,
-        );
-    // Không đóng drawer - user muốn xem playlist và chọn bài khác
-  }
-
-  Future<void> _playFile(_ImportedAudioItem file) async {
-    if (!context.mounted) return;
-    await context.read<PlayerProvider>().loadSong(
-          path: file.path,
-          title: file.name,
-          autoPlay: true,
-        );
+    final loaded = await context.read<PlayerProvider>().startQueue(
+      items.map((item) => AudioQueueItem(
+        source: item.path,
+        title: item.name,
+      )).toList(growable: false),
+      skipFailures: true,
+    );
+    if (!mounted) return;
+    if (!loaded) _showSnack('Không phát được bài này');
+    // Keep the drawer open so the shared queue remains visible.
   }
 
   @override
@@ -397,7 +382,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
           child: Consumer<PlayerProvider>(
             builder: (context, player, _) {
               final hasContent =
-                  player.currentSongPath != null || _playlist.isNotEmpty;
+                  player.currentSongPath != null || player.queueItems.isNotEmpty;
 
               if (!hasContent) {
                 return Center(
@@ -439,89 +424,73 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                     const SizedBox(height: 16),
                   ],
 
-                  // ── Playlist (FIX: hiện đủ các file đã chọn) ──
-                  if (_playlist.isNotEmpty) ...[
+                  // Compact preview of the shared queue. Its complete list
+                  // is lazily built in the sheet for large selections.
+                  if (player.queueItems.isNotEmpty) ...[
                     Row(
                       children: [
-                        Text(context.uiText('Playlist — ${_playlist.length} bài'),
-                            style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.5)),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () => setState(() => _playlist = []),
-                          child: Text('Xóa',
+                        Expanded(
+                          child: Text(context.uiText('Danh sách đang phát'),
                               style: TextStyle(
-                                  color: Colors.grey[700], fontSize: 11)),
+                                  color: Colors.grey[400],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
                         ),
+                        Text('${player.queueItems.length}',
+                            style: TextStyle(color: Colors.grey[500])),
+                        IconButton(
+                          tooltip: context.uiText('Danh sách đang phát'),
+                          onPressed: () => showPlaybackQueueSheet(context),
+                          icon: const Icon(Icons.queue_music,
+                              color: Colors.white70, size: 20),
+                        ),
+                        if (player.queueItems.length > 1)
+                          IconButton(
+                            tooltip: context.uiText('Chỉ giữ bài hiện tại'),
+                            onPressed: player.isQueueLoading ||
+                                    player.queueIndex < 0
+                                ? null
+                                : player.clearUpcomingQueue,
+                            icon: const Icon(Icons.playlist_remove,
+                                color: Colors.white54, size: 20),
+                          ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    ..._playlist.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final file = entry.value;
-                      final isCurrent = player.currentSongPath == file.path;
-                      return GestureDetector(
-                        onTap: () => _playFile(file),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isCurrent
-                                ? const Color(0xFF6C63FF)
-                                    .withValues(alpha: 0.15)
-                                : Colors.white.withValues(alpha: 0.04),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isCurrent
-                                  ? const Color(0xFF6C63FF)
-                                      .withValues(alpha: 0.4)
-                                  : Colors.white.withValues(alpha: 0.07),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 24,
-                                child: isCurrent
-                                    ? const Icon(Icons.graphic_eq,
-                                        color: Color(0xFF6C63FF), size: 16)
-                                    : Text(context.uiText('${idx + 1}'),
-                                        style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 11)),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  file.name,
-                                  style: TextStyle(
-                                    color: isCurrent
-                                        ? Colors.white
-                                        : Colors.white70,
-                                    fontSize: 12,
-                                    fontWeight: isCurrent
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (file.size > 0)
-                                Text(
-                                  _sizeLabel(file.size),
-                                  style: TextStyle(
-                                      color: Colors.grey[700], fontSize: 10),
-                                ),
-                            ],
-                          ),
+                    ...player.queueItems.take(8).toList().asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      final isCurrent = player.queueIndex == index &&
+                          player.currentSongPath != null;
+                      final isFailed = player.queueFailedIndices.contains(index) ||
+                          item.isMissing;
+                      return ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        selected: isCurrent,
+                        selectedTileColor: const Color(0x266C63FF),
+                        leading: isCurrent
+                            ? const Icon(Icons.graphic_eq, color: Color(0xFF9D96FF))
+                            : isFailed
+                                ? const Icon(Icons.error_outline,
+                                    color: Colors.orangeAccent)
+                                : Text('${index + 1}',
+                                    style: const TextStyle(color: Colors.white54)),
+                        title: material.Text(
+                          item.isMissing
+                              ? context.uiText('Bài không còn trong thư viện')
+                              : item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
+                        onTap: () => player.selectQueueItem(index),
                       );
                     }),
+                    if (player.queueItems.length > 8)
+                      TextButton(
+                        onPressed: () => showPlaybackQueueSheet(context),
+                        child: Text(context.uiText('Xem tất cả')),
+                      ),
                     const SizedBox(height: 16),
                   ],
 
@@ -591,12 +560,6 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
     );
   }
 
-  String _sizeLabel(int bytes) {
-    if (bytes >= 1048576) {
-      return '${(bytes / 1048576).toStringAsFixed(1)}MB';
-    }
-    return '${(bytes / 1024).toStringAsFixed(0)}KB';
-  }
 }
 
 // ─────────────────────────────────────────────────────────

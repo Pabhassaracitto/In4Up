@@ -6895,4 +6895,156 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '無網路連線，已改用語音合成',
     'si': 'සම්බන්ධතාවක් නැත — පෙළ-කථන ශබ්දය භාවිතා කළෙමු',
   },
+  'Model dịch (dùng cho Dịch thuật)': {
+    'en': 'Translation model (used for Translation)',
+    'hi': 'अनुवाद मॉडल (अनुवाद के लिए)',
+    'zh': '翻译模型（用于翻译）',
+    'zh_TW': '翻譯模型（用於翻譯）',
+    'si': 'පරිවර්තන ආකෘතිය (පරිවර්තනය සඳහා)',
+  },
+  'Đồng bộ cấu hình lên Firebase': {
+    'en': 'Sync settings to Firebase',
+    'hi': 'सेटिंग्स Firebase में सिंक करें',
+    'zh': '将设置同步到 Firebase',
+    'zh_TW': '將設定同步到 Firebase',
+    'si': 'සැකසුම් Firebase වෙත සමමුහුර්ත කරන්න',
+  },
+  'Đẩy lên Firebase': {
+    'en': 'Upload to Firebase',
+    'hi': 'Firebase में अपलोड करें',
+    'zh': '上传到 Firebase',
+    'zh_TW': '上傳到 Firebase',
+    'si': 'Firebase වෙත උඩුගත කරන්න',
+  },
+  'Tải từ Firebase': {
+    'en': 'Load from Firebase',
+    'hi': 'Firebase से लोड करें',
+    'zh': '从 Firebase 载入',
+    'zh_TW': '從 Firebase 載入',
+    'si': 'Firebase වෙතින් පූරණය කරන්න',
+  },
+  'AI đang chạy hiện tại': {
+    'en': 'AI currently running',
+    'hi': 'अभी चल रहा AI',
+    'zh': '当前运行的 AI',
+    'zh_TW': '目前執行的 AI',
+    'si': 'දැන් ක්‍රියාත්මක AI',
+  },
+  'Chạy thử tất cả': {
+    'en': 'Test all',
+    'hi': 'सभी जाँचें',
+    'zh': '全部测试',
+    'zh_TW': '全部測試',
+    'si': 'සියල්ල පරීක්ෂා කරන්න',
+  },
+  'Trên máy': {
+    'en': 'On device',
+    'hi': 'डिवाइस पर',
+    'zh': '设备本地',
+    'zh_TW': '裝置本機',
+    'si': 'උපාංගයේ',
+  },
+  'Chưa đồng bộ': {
+    'en': 'Not synced yet',
+    'hi': 'अभी सिंक नहीं हुआ',
+    'zh': '尚未同步',
+    'zh_TW': '尚未同步',
+    'si': 'තවම සමමුහුර්ත නොවීය',
+  },
+  'Đang đồng bộ…': {
+    'en': 'Syncing…',
+    'hi': 'सिंक हो रहा है…',
+    'zh': '正在同步…',
+    'zh_TW': '正在同步…',
+    'si': 'සමමුහුර්ත වෙමින්…',
+  },
+  'Đồng bộ lỗi': {
+    'en': 'Sync failed',
+    'hi': 'सिंक विफल',
+    'zh': '同步失败',
+    'zh_TW': '同步失敗',
+    'si': 'සමමුහුර්ත කිරීම අසාර්ථකයි',
+  },
+  'Đã đồng bộ': {
+    'en': 'Synced',
+    'hi': 'सिंक हो गया',
+    'zh': '已同步',
+    'zh_TW': '已同步',
+    'si': 'සමමුහුර්ත විය',
+  },
+  'Chưa đăng nhập — chỉ lưu trên máy': {
+    'en': 'Not signed in — saved on this device only',
+    'hi': 'साइन इन नहीं — केवल इस डिवाइस पर सहेजा गया',
+    'zh': '未登录 — 仅保存在本设备',
+    'zh_TW': '未登入 — 僅儲存在本裝置',
+    'si': 'පිවිසී නැත — මෙම උපාංගයේ පමණක් සුරකිනු ලැබේ',
+  },
+  'Gõ để tìm nhanh…': {
+    'en': 'Type to search…',
+    'hi': 'खोजने के लिए टाइप करें…',
+    'zh': '输入以搜索…',
+    'zh_TW': '輸入以搜尋…',
+    'si': 'සෙවීමට ටයිප් කරන්න…',
+  },
+  'Dùng chung chat model (chưa chọn riêng)': {
+    'en': 'Use the chat model (no separate pick)',
+  },
+  'Gemma trên máy (chưa có model thì trả lời mẫu)': {
+    'en': 'On-device Gemma (canned reply until a model is installed)',
+  },
+  'Chuỗi engine dịch trên máy (HY-MT / ML Kit…)': {
+    'en': 'On-device translation chain (HY-MT / ML Kit…)',
+  },
+  'Whisper / sherpa (Parakeet) trên máy': {
+    'en': 'On-device Whisper / sherpa (Parakeet)',
+  },
+  'TTS trên máy (Piper / Edge / Zalo / FPT…)': {
+    'en': 'On-device TTS (Piper / Edge / Zalo / FPT…)',
+  },
+  'Đăng nhập là có sẵn cấu hình (provider, key, chế độ định tuyến) ở máy khác — không phải nhập lại. Chỉ lưu trong tài khoản của bạn.': {
+    'en': 'Sign in and your setup (providers, keys, routing) is already there on other devices — no re-entering. Stored only in your own account.',
+  },
+  'Báo cáo theo cấu hình thật đang chạy: năng lực nào đi API (provider + model nào), năng lực nào chạy trên máy. Bấm "Chạy thử" để gửi một request thật, rất nhỏ, tới đúng provider/model đó.': {
+    'en': 'This report follows the live config: which capability goes through the API (which provider and model) and which runs on device. Tap "Test" to send one real, tiny request to exactly that provider/model.',
+  },
+  'Xoá kết quả thử': {
+    'en': 'Clear test results',
+  },
+  'Chưa chọn model dịch riêng ⇒ đang dùng chat model ở trên.': {
+    'en': 'No separate translation model ⇒ the chat model above is used.',
+  },
+  'Chưa có nhà cung cấp nào phục vụ năng lực này ⇒ sẽ chạy trên máy.': {
+    'en': 'No provider serves this capability ⇒ it runs on device.',
+  },
+  'Provider chưa chọn model cho năng lực này ⇒ sẽ chạy trên máy.': {
+    'en': 'Provider has no model for this capability ⇒ it runs on device.',
+  },
+  'Chưa thử: provider chưa chọn model.': {
+    'en': 'Not tested: the provider has no model picked.',
+  },
+  'Chưa thử: không có provider ⇒ chạy trên máy.': {
+    'en': 'Not tested: no provider ⇒ runs on device.',
+  },
+  'LỖI: model chưa có trong danh sách của provider ⇒ bóc băng sẽ lỗi.': {
+    'en': 'FAILED: the model is not in the provider list ⇒ transcription will fail.',
+  },
+  'LỖI': {
+    'en': 'FAILED',
+  },
+  'trả về': {
+    'en': 'returned',
+  },
+  'đang mượn chat model': {
+    'en': 'borrowing the chat model',
+  },
+  'model có trong danh sách; chưa bóc băng file thật': {
+    'en': 'model is in the provider list; real audio not transcribed yet',
+  },
+  'Dùng tên đã gõ': {
+    'en': 'Use the typed name',
+    'hi': 'टाइप किया नाम इस्तेमाल करें',
+    'zh': '使用输入的名称',
+    'zh_TW': '使用輸入的名稱',
+    'si': 'ටයිප් කළ නම භාවිත කරන්න',
+  },
 };

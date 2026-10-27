@@ -54,6 +54,15 @@ export 'src/provider/ai_provider_config.dart';
 export 'src/provider/builtin_ai_providers.dart';
 export 'src/provider/ai_provider_store.dart'
     show AiProviderStore;
+
+// API-SYNC-001 — đồng bộ cấu hình Server & API lên Firebase (phần THUẦN:
+// snapshot + hòa giải LWW + bia mộ; I/O nằm ở app layer).
+export 'src/provider/ai_settings_sync.dart';
+
+// API-DIAG-001 — "AI đang chạy hiện hành là gì": báo cáo route theo năng lực
+// (thuần) + chạy thử THẬT qua provider đang cấu hình (transport inject).
+export 'src/engine/ai_routing_report.dart';
+export 'src/engine/ai_capability_probe.dart';
 export 'src/provider/openai_compat_client.dart'
     show
         OpenAiCompatClient,

@@ -790,7 +790,8 @@ jobs:
                    test/yt_media_store_test.dart \
                    test/yt_download_filename_test.dart \
                    test/yt_tts_provider_collision_test.dart \
-                   test/yt_one_bar_and_loop_test.dart; do
+                   test/yt_one_bar_and_loop_test.dart \
+                   test/yt_channels_and_prepare_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

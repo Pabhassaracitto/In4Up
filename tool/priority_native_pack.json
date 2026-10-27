@@ -29,6 +29,36 @@
     "th": " · 🔥 ทำซ้ำ {value0} ครั้ง",
     "ja": " · 🔥 {value0} 回繰り返し"
   },
+  "\"{value0}\" lỗi: {value1}": {
+    "en": "\"{value0}\" error: {value1}",
+    "hi": "\"{value0}\" त्रुटि: {value1}",
+    "zh": "「{value0}」错误：{value1}",
+    "zh_TW": "「{value0}」錯誤：{value1}",
+    "si": "\"{value0}\" දෝෂය: {value1}",
+    "my": "\"{value0}\" အမှား: {value1}",
+    "th": "\"{value0}\" ผิดพลาด: {value1}",
+    "ja": "「{value0}」エラー: {value1}"
+  },
+  "\"{value0}\" phản hồi quá chậm (timeout)": {
+    "en": "\"{value0}\" responded too slowly (timeout)",
+    "hi": "\"{value0}\" ने बहुत देर से जवाब दिया (timeout)",
+    "zh": "「{value0}」响应过慢（超时）",
+    "zh_TW": "「{value0}」回應過慢（逾時）",
+    "si": "\"{value0}\" ප්‍රතිචාර දැක්වීම මන්දගාමී (timeout)",
+    "my": "\"{value0}\" တုံ့ပြန်မှု နှေးလွန်း (timeout)",
+    "th": "\"{value0}\" ตอบสนองช้าเกินไป (หมดเวลา)",
+    "ja": "「{value0}」の応答が遅すぎます（タイムアウト）"
+  },
+  "\"{value0}\" sẽ bị xoá khỏi thư viện cloud.": {
+    "en": "\"{value0}\" will be removed from the cloud library.",
+    "hi": "\"{value0}\" क्लाउड लाइब्रेरी से हटाया जाएगा।",
+    "zh": "「{value0}」将从云端资料库删除。",
+    "zh_TW": "「{value0}」將從雲端資料庫刪除。",
+    "si": "\"{value0}\" ක්ලවුඩ් පුස්තකාලයෙන් ඉවත් කෙරේ.",
+    "my": "\"{value0}\" ကို cloud စာကြည့်တိုက်မှ ဖယ်ရှားမည်။",
+    "th": "\"{value0}\" จะถูกลบออกจากคลังบนคลาวด์",
+    "ja": "「{value0}」はクラウドライブラリから削除されます。"
+  },
   "\"{value0}\" và toàn bộ mục con sẽ bị xóa.": {
     "en": "\"{value0}\" and all its sub-items will be deleted.",
     "hi": "\"{value0}\" और उसके सभी उप-आइटम हट जाएँगे।",
@@ -38,6 +68,16 @@
     "my": "\"{value0}\" နှင့် ၎င်း၏ ခွဲအရာအားလုံး ဖျက်ခံရမည်။",
     "th": "\"{value0}\" และรายการย่อยทั้งหมดจะถูกลบ",
     "ja": "「{value0}」とその子項目がすべて削除されます。"
+  },
+  "\"{value0}\" đang rate-limit (429) — thử giảm tốc độ gọi": {
+    "en": "\"{value0}\" is rate-limiting (429) — try slowing down the calls",
+    "hi": "\"{value0}\" rate-limit कर रहा है (429) — कॉल की गति घटाएँ",
+    "zh": "「{value0}」正在限流（429）——请降低调用频率",
+    "zh_TW": "「{value0}」正在限流（429）——請降低呼叫頻率",
+    "si": "\"{value0}\" දර සීමා කරමින් (429) — ඇමතුම් වේගය අඩු කරන්න",
+    "my": "\"{value0}\" နှုန်းကန့်သတ်နေသည် (429) — ခေါ်ဆိုမှု အရှိန် လျှော့ပါ",
+    "th": "\"{value0}\" กำลังจำกัดอัตรา (429) — ลองลดความถี่การเรียก",
+    "ja": "「{value0}」がレート制限中（429）。呼び出し頻度を下げてください"
   },
   "\"{value0}\" đã có — bổ sung ngữ cảnh + tag": {
     "en": "\"{value0}\" already exists — context + tags added",
@@ -58,6 +98,16 @@
     "my": "\"{value0}\" အပြည့်အစုံ သိမ်းပြီး",
     "th": "บันทึก \"{value0}\" ครบถ้วนแล้ว",
     "ja": "「{value0}」を詳細つきで保存しました"
+  },
+  "({value0} từ)": {
+    "en": "({value0} words)",
+    "hi": "({value0} शब्द)",
+    "zh": "（{value0} 词）",
+    "zh_TW": "（{value0} 詞）",
+    "si": "(වචන {value0})",
+    "my": "(စကားလုံး {value0})",
+    "th": "({value0} คำ)",
+    "ja": "（{value0} 語）"
   },
   "+ Nghĩa": {
     "en": "+ Meaning",
@@ -348,6 +398,16 @@
     "my": "API key မမှန်ပါ",
     "th": "API key ไม่ถูกต้อง",
     "ja": "APIキーが無効です"
+  },
+  "API key sai/thiếu quyền tại \"{value0}\"": {
+    "en": "Wrong or unauthorised API key at \"{value0}\"",
+    "hi": "\"{value0}\" पर API key गलत/अनधिकृत",
+    "zh": "「{value0}」的 API key 错误或无权限",
+    "zh_TW": "「{value0}」的 API key 錯誤或無權限",
+    "si": "\"{value0}\" හි API key වැරදි/අවසර නැත",
+    "my": "\"{value0}\" တွင် API key မှား/ခွင့်မရှိ",
+    "th": "API key ผิดหรือไม่มีสิทธิ์ที่ \"{value0}\"",
+    "ja": "「{value0}」のAPI keyが誤り／権限なし"
   },
   "API key: đã nhập": {
     "en": "API key: saved",
@@ -1038,6 +1098,16 @@
     "my": "သင်",
     "th": "คุณ",
     "ja": "あなた"
+  },
+  "Bạn bỏ sót một số từ khóa quan trọng: {value0}.": {
+    "en": "You missed some key words: {value0}.",
+    "hi": "आपने कुछ मुख्य शब्द छोड़ दिए: {value0}।",
+    "zh": "你漏掉了一些关键词：{value0}。",
+    "zh_TW": "你漏掉了一些關鍵詞：{value0}。",
+    "si": "ඔබට වැදගත් මූල පද කිහිපයක් මඟහැරුණි: {value0}.",
+    "my": "အရေးကြီးသော သော့ချက်စကားလုံး အချို့ လွတ်သွားသည်: {value0}။",
+    "th": "คุณพลาดคำสำคัญบางคำ: {value0}",
+    "ja": "重要なキーワードをいくつか見逃しました: {value0}。"
   },
   "Bạn có chắc muốn xóa bài học này không? Tiến trình ôn tập sẽ bị mất.": {
     "en": "Are you sure you want to delete this lesson? Review progress will be lost.",
@@ -2589,6 +2659,16 @@
     "th": "ยังไม่มีบันทึกเสียง",
     "ja": "音声メモはまだありません。"
   },
+  "Chưa có giọng Piper cho {value0}": {
+    "en": "No Piper voice for {value0} yet",
+    "hi": "{value0} के लिए Piper आवाज़ नहीं",
+    "zh": "尚无 {value0} 的 Piper 语音",
+    "zh_TW": "尚無 {value0} 的 Piper 語音",
+    "si": "{value0} සඳහා Piper හඬක් නැත",
+    "my": "{value0} အတွက် Piper အသံ မရှိသေးပါ",
+    "th": "ยังไม่มีเสียง Piper สำหรับ {value0}",
+    "ja": "{value0} 用の Piper 音声がありません"
+  },
   "Chưa có giọng Piper. Import trong Quản lý Model AI (Home).": {
     "en": "No Piper voices yet. Import them in Manage AI Models (Home).",
     "hi": "अभी Piper आवाज़ नहीं। होम → एआई मॉडल में आयात करें।",
@@ -2928,6 +3008,16 @@
     "my": "စကားလုံး မရှိသေးပါ",
     "th": "ยังไม่มีคำ",
     "ja": "単語がまだありません"
+  },
+  "Chưa có từ nào ở giai đoạn \"{value0}\"": {
+    "en": "No words at the \"{value0}\" stage yet",
+    "hi": "\"{value0}\" चरण में अभी कोई शब्द नहीं",
+    "zh": "「{value0}」阶段暂无单词",
+    "zh_TW": "「{value0}」階段暫無單字",
+    "si": "\"{value0}\" අවස්ථාවේ තවම වචන නැත",
+    "my": "\"{value0}\" အဆင့်တွင် စကားလုံး မရှိသေးပါ",
+    "th": "ยังไม่มีคำในขั้น \"{value0}\"",
+    "ja": "「{value0}」段階の単語はまだありません"
   },
   "Chưa có từ vựng": {
     "en": "No vocabulary yet",
@@ -4348,6 +4438,16 @@
     "my": "အကြောင်းအရာအလိုက် မှတ်မိမှု စမ်းသပ်ရန် ကွက်လပ်တစ်ခုစီအတွက် မှန်သော စကားလုံး ရွေးပါ။",
     "th": "เลือกคำที่ถูกต้องในแต่ละช่องเพื่อทดสอบความจำตามบริบท",
     "ja": "各空欄に正しい語を選んで文脈記憶を確かめましょう。"
+  },
+  "Chọn từ/cụm muốn lưu riêng từ \"{value0}\"": {
+    "en": "Choose words/phrases to save separately from \"{value0}\"",
+    "hi": "\"{value0}\" से अलग सहेजने के लिए शब्द/वाक्यांश चुनें",
+    "zh": "选择要从「{value0}」单独保存的词／短语",
+    "zh_TW": "選擇要從「{value0}」單獨儲存的詞／短語",
+    "si": "\"{value0}\" වෙන්ව සුරැකීමට වචන/වාක්‍යාංශ තෝරන්න",
+    "my": "\"{value0}\" မှ သီးသန့် သိမ်းရန် စကားလုံး/အသုံးအနှုန်း ရွေးပါ",
+    "th": "เลือกคำ/วลีที่ต้องการบันทึกแยกจาก \"{value0}\"",
+    "ja": "「{value0}」から別に保存する語・句を選択"
   },
   "Chọn văn bản để đọc": {
     "en": "Select text to read",
@@ -6619,6 +6719,16 @@
     "th": "หยุด",
     "ja": "停止"
   },
+  "Dừng ({value0})": {
+    "en": "Stop ({value0})",
+    "hi": "रोकें ({value0})",
+    "zh": "停止（{value0}）",
+    "zh_TW": "停止（{value0}）",
+    "si": "නවත්වන්න ({value0})",
+    "my": "ရပ်မည် ({value0})",
+    "th": "หยุด ({value0})",
+    "ja": "停止（{value0}）"
+  },
   "Dừng dịch": {
     "en": "Stop translation",
     "hi": "अनुवाद रोकें",
@@ -6729,6 +6839,26 @@
     "th": "หยุดอ่าน",
     "ja": "読み上げを停止"
   },
+  "Dữ liệu trả về không phải audio hợp lệ: {value0}": {
+    "en": "The returned data is not valid audio: {value0}",
+    "hi": "लौटाया डेटा मान्य ऑडियो नहीं है: {value0}",
+    "zh": "返回的数据不是有效音频：{value0}",
+    "zh_TW": "回傳的資料不是有效音訊：{value0}",
+    "si": "ලැබුණු දත්ත වලංගු ශ්‍රව්‍ය නොවේ: {value0}",
+    "my": "ပြန်လာသော ဒေတာသည် တရားဝင် အသံ မဟုတ်ပါ: {value0}",
+    "th": "ข้อมูลที่ได้ไม่ใช่เสียงที่ถูกต้อง: {value0}",
+    "ja": "返されたデータは有効な音声ではありません: {value0}"
+  },
+  "Dữ liệu ảnh {value0} byte không khớp {value1}x{value2} BGRA": {
+    "en": "Image data of {value0} bytes does not match {value1}x{value2} BGRA",
+    "hi": "{value0} बाइट छवि डेटा {value1}x{value2} BGRA से मेल नहीं खाता",
+    "zh": "图像数据 {value0} 字节与 {value1}x{value2} BGRA 不匹配",
+    "zh_TW": "影像資料 {value0} 位元組與 {value1}x{value2} BGRA 不符",
+    "si": "රූප දත්ත බයිට {value0} {value1}x{value2} BGRA සමඟ නොගැළපේ",
+    "my": "ပုံဒေတာ {value0} byte သည် {value1}x{value2} BGRA နှင့် မကိုက်ညီပါ",
+    "th": "ข้อมูลภาพ {value0} ไบต์ไม่ตรงกับ {value1}x{value2} BGRA",
+    "ja": "画像データ {value0} バイトが {value1}x{value2} BGRA と一致しません"
+  },
   "Dựa trên thuật toán FSRS & chu kỳ quên tự nhiên.": {
     "en": "Based on the FSRS algorithm and natural forgetting curves.",
     "hi": "FSRS एल्गोरिद्म और स्वाभाविक विस्मरण चक्र पर आधारित।",
@@ -6759,6 +6889,16 @@
     "th": "Edge TTS จบเทิร์นแต่ไม่มีเสียง",
     "ja": "Edge TTS がターンを終えたのに音声がありません"
   },
+  "Edge TTS lỗi: {value0}": {
+    "en": "Edge TTS error: {value0}",
+    "hi": "Edge TTS त्रुटि: {value0}",
+    "zh": "Edge TTS 错误：{value0}",
+    "zh_TW": "Edge TTS 錯誤：{value0}",
+    "si": "Edge TTS දෝෂය: {value0}",
+    "my": "Edge TTS အမှား: {value0}",
+    "th": "ข้อผิดพลาด Edge TTS: {value0}",
+    "ja": "Edge TTS エラー: {value0}"
+  },
   "Edge TTS phản hồi quá chậm (timeout)": {
     "en": "Edge TTS responded too slowly (timeout)",
     "hi": "Edge TTS ने बहुत देर से जवाब दिया (timeout)",
@@ -6768,6 +6908,16 @@
     "my": "Edge TTS တုံ့ပြန်မှု နှေးလွန်း (timeout)",
     "th": "Edge TTS ตอบสนองช้าเกินไป (หมดเวลา)",
     "ja": "Edge TTS の応答が遅すぎます（タイムアウト）"
+  },
+  "Edge TTS từ chối kết nối WebSocket: {value0}": {
+    "en": "Edge TTS refused the WebSocket connection: {value0}",
+    "hi": "Edge TTS ने WebSocket कनेक्शन अस्वीकार किया: {value0}",
+    "zh": "Edge TTS 拒绝 WebSocket 连接：{value0}",
+    "zh_TW": "Edge TTS 拒絕 WebSocket 連線：{value0}",
+    "si": "Edge TTS WebSocket සම්බන්ධතාවය ප්‍රතික්ෂේප කළා: {value0}",
+    "my": "Edge TTS သည် WebSocket ချိတ်ဆက်မှုကို ငြင်းပယ်ခဲ့သည်: {value0}",
+    "th": "Edge TTS ปฏิเสธการเชื่อมต่อ WebSocket: {value0}",
+    "ja": "Edge TTS が WebSocket 接続を拒否しました: {value0}"
   },
   "Elvira (Nữ, TBN)": {
     "en": "Elvira (Female, Spanish)",
@@ -7018,6 +7168,16 @@
     "my": "စက်ပေါ်တွင် အလုပ်လုပ်သော .gguf ဖိုင်",
     "th": "ไฟล์ .gguf ที่ทำงานในเครื่อง",
     "ja": "端末上で動く .gguf ファイル"
+  },
+  "File Hy-MT {value0}: {value1} — bấm \"Tải về\" để tải lại file đầy đủ hoặc chọn đúng model Hy-MT GGUF.": {
+    "en": "Hy-MT file {value0}: {value1} — tap \"Download\" to fetch the full file again or pick the correct Hy-MT GGUF model.",
+    "hi": "Hy-MT फ़ाइल {value0}: {value1} — पूरी फ़ाइल फिर डाउनलोड करने के लिए \"डाउनलोड\" दबाएँ या सही Hy-MT GGUF मॉडल चुनें।",
+    "zh": "Hy-MT 文件 {value0}：{value1}——点按「下载」重新获取完整文件，或选择正确的 Hy-MT GGUF 模型。",
+    "zh_TW": "Hy-MT 檔案 {value0}：{value1}——點按「下載」重新取得完整檔案，或選擇正確的 Hy-MT GGUF 模型。",
+    "si": "Hy-MT ගොනුව {value0}: {value1} — සම්පූර්ණ ගොනුව නැවත බාගැනීමට \"බාගන්න\" තට්ටු කරන්න හෝ නිවැරදි Hy-MT GGUF ආකෘතිය තෝරන්න.",
+    "my": "Hy-MT ဖိုင် {value0}: {value1} — ပြည့်စုံသောဖိုင် ပြန်ယူရန် \"ဒေါင်းလုဒ်\" နှိပ်ပါ သို့မဟုတ် မှန်ကန်သော Hy-MT GGUF မော်ဒယ် ရွေးပါ။",
+    "th": "ไฟล์ Hy-MT {value0}: {value1} — แตะ \"ดาวน์โหลด\" เพื่อดึงไฟล์เต็มอีกครั้ง หรือเลือกโมเดล Hy-MT GGUF ให้ถูกต้อง",
+    "ja": "Hy-MT ファイル {value0}: {value1} — 「ダウンロード」をタップして完全なファイルを取得し直すか、正しい Hy-MT GGUF モデルを選んでください。"
   },
   "File PDF": {
     "en": "PDF file",
@@ -7549,6 +7709,16 @@
     "th": "ปักหมุดบทความทีละเรื่องเพื่อเก็บหน้าที่สำคัญนอกคอลเลกชัน",
     "ja": "重要なページをコレクション外に残すには記事ごとにピン留めします。"
   },
+  "Ghép đoạn (Chunk 1 → {value0})": {
+    "en": "Merge chunks (Chunk 1 → {value0})",
+    "hi": "खंड मिलाएँ (Chunk 1 → {value0})",
+    "zh": "合并分段（Chunk 1 → {value0}）",
+    "zh_TW": "合併分段（Chunk 1 → {value0}）",
+    "si": "කොටස් එකට එකතු කරන්න (Chunk 1 → {value0})",
+    "my": "အပိုင်းများ ပေါင်းမည် (Chunk 1 → {value0})",
+    "th": "รวมช่วง (Chunk 1 → {value0})",
+    "ja": "チャンクを結合（Chunk 1 → {value0}）"
+  },
   "Gia Huy (miền Trung)": {
     "en": "Gia Huy (Central)",
     "hi": "Gia Huy (मध्य)",
@@ -7988,6 +8158,16 @@
     "my": "နောက်ဆုံး",
     "th": "ล่าสุด",
     "ja": "最新"
+  },
+  "Gặp lần {value0}!": {
+    "en": "Encounter #{value0}!",
+    "hi": "{value0}वीं मुलाकात!",
+    "zh": "第 {value0} 次遇见！",
+    "zh_TW": "第 {value0} 次遇見！",
+    "si": "{value0} වන හමුවීම!",
+    "my": "{value0} ကြိမ်မြောက် တွေ့ဆုံမှု!",
+    "th": "พบครั้งที่ {value0}!",
+    "ja": "{value0}回目の出会い！"
   },
   "Gặp nhiều lần": {
     "en": "Seen many times",
@@ -8549,6 +8729,16 @@
     "th": "Hy-MT ยังไม่พร้อม",
     "ja": "Hy-MT の準備ができていません"
   },
+  "Hy-MT không hỗ trợ cặp {value0} → {value1}": {
+    "en": "Hy-MT does not support the pair {value0} → {value1}",
+    "hi": "Hy-MT जोड़ी {value0} → {value1} समर्थित नहीं करता",
+    "zh": "Hy-MT 不支持 {value0} → {value1} 语言对",
+    "zh_TW": "Hy-MT 不支援 {value0} → {value1} 語言對",
+    "si": "Hy-MT {value0} → {value1} යුගලය ආධාර නොකරයි",
+    "my": "Hy-MT သည် {value0} → {value1} အတွဲကို မပံ့ပိုးပါ",
+    "th": "Hy-MT ไม่รองรับคู่ {value0} → {value1}",
+    "ja": "Hy-MT は {value0} → {value1} の組に対応していません"
+  },
   "Hy-MT native không load được": {
     "en": "Hy-MT native failed to load",
     "hi": "Hy-MT native लोड नहीं हो सका",
@@ -8568,6 +8758,26 @@
     "my": "Hy-MT ဗလာ ရလဒ် ပြန်ပေးသည်",
     "th": "Hy-MT ตอบผลลัพธ์ว่างเปล่า",
     "ja": "Hy-MT が空の結果を返しました"
+  },
+  "Hy-MT trả về rỗng cho segment {value0}/{value1}": {
+    "en": "Hy-MT returned empty for segment {value0}/{value1}",
+    "hi": "Hy-MT ने segment {value0}/{value1} के लिए खाली लौटाया",
+    "zh": "Hy-MT 对 segment {value0}/{value1} 返回空",
+    "zh_TW": "Hy-MT 對 segment {value0}/{value1} 回傳空",
+    "si": "Hy-MT segment {value0}/{value1} සඳහා හිස් ලබා දුන්නා",
+    "my": "Hy-MT သည် segment {value0}/{value1} အတွက် ဗလာ ပြန်ပေးသည်",
+    "th": "Hy-MT คืนค่าว่างสำหรับ segment {value0}/{value1}",
+    "ja": "Hy-MT が segment {value0}/{value1} に空を返しました"
+  },
+  "Hy-MT {value0}": {
+    "en": "Hy-MT {value0}",
+    "hi": "Hy-MT {value0}",
+    "zh": "Hy-MT {value0}",
+    "zh_TW": "Hy-MT {value0}",
+    "si": "Hy-MT {value0}",
+    "my": "Hy-MT {value0}",
+    "th": "Hy-MT {value0}",
+    "ja": "Hy-MT {value0}"
   },
   "Hy-MT · {value0}": {
     "en": "Hy-MT · {value0}",
@@ -8959,6 +9169,16 @@
     "th": "เรียนด้วยวิดีโอ (คำบรรยาย + แตะคำ)",
     "ja": "動画で学ぶ（字幕＋単語タップ）"
   },
+  "Học {value0}": {
+    "en": "Learn {value0}",
+    "hi": "{value0} सीखें",
+    "zh": "学习 {value0}",
+    "zh_TW": "學習 {value0}",
+    "si": "{value0} ඉගෙන ගන්න",
+    "my": "{value0} လေ့လာပါ",
+    "th": "เรียน {value0}",
+    "ja": "{value0} を学ぶ"
+  },
   "Hỏi AI": {
     "en": "Ask AI",
     "hi": "AI से पूछें",
@@ -9189,6 +9409,16 @@
     "th": "นำเข้าคำศัพท์",
     "ja": "語彙を取り込む"
   },
+  "Import {value0} từ vào danh sách": {
+    "en": "Import {value0} words into the list",
+    "hi": "सूची में {value0} शब्द आयात करें",
+    "zh": "导入 {value0} 个词到列表",
+    "zh_TW": "匯入 {value0} 個詞到清單",
+    "si": "ලැයිස්තුවට වචන {value0} ආයාත කරන්න",
+    "my": "စာရင်းသို့ စကားလုံး {value0} တင်သွင်းပါ",
+    "th": "นำเข้า {value0} คำเข้าสู่รายการ",
+    "ja": "{value0} 語をリストにインポート"
+  },
   "In4Up đang phát": {
     "en": "In4Up is playing",
     "hi": "In4Up चला रहा है",
@@ -9279,6 +9509,16 @@
     "th": "ไอริช",
     "ja": "アイルランド英語"
   },
+  "Isolate Hy-MT không còn sống: {value0}": {
+    "en": "The Hy-MT isolate is no longer alive: {value0}",
+    "hi": "Hy-MT isolate अब सक्रिय नहीं: {value0}",
+    "zh": "Hy-MT isolate 已停止运行：{value0}",
+    "zh_TW": "Hy-MT isolate 已停止執行：{value0}",
+    "si": "Hy-MT isolate තවදුරටත් ක්‍රියාත්මක නැත: {value0}",
+    "my": "Hy-MT isolate အလုပ်မလုပ်တော့ပါ: {value0}",
+    "th": "Hy-MT isolate หยุดทำงานแล้ว: {value0}",
+    "ja": "Hy-MT isolate が停止しました: {value0}"
+  },
   "Isolate Hy-MT trả về kết quả không hợp lệ": {
     "en": "The Hy-MT isolate returned an invalid result",
     "hi": "Hy-MT isolate ने अमान्य परिणाम दिया",
@@ -9288,6 +9528,16 @@
     "my": "Hy-MT isolate မမှန်သော ရလဒ် ပြန်ပေးသည်",
     "th": "Hy-MT isolate ตอบผลลัพธ์ที่ไม่ถูกต้อง",
     "ja": "Hy-MT isolate が不正な結果を返しました"
+  },
+  "Isolate Hy-MT đã chết: {value0}": {
+    "en": "The Hy-MT isolate died: {value0}",
+    "hi": "Hy-MT isolate बंद हो गया: {value0}",
+    "zh": "Hy-MT isolate 已终止：{value0}",
+    "zh_TW": "Hy-MT isolate 已終止：{value0}",
+    "si": "Hy-MT isolate මිය ගියා: {value0}",
+    "my": "Hy-MT isolate ရပ်သွားသည်: {value0}",
+    "th": "Hy-MT isolate หยุดไปแล้ว: {value0}",
+    "ja": "Hy-MT isolate が停止しました: {value0}"
   },
   "Italian": {
     "en": "Italian",
@@ -9679,6 +9929,16 @@
     "th": "ไม่มีไฟล์เสียงในโฟลเดอร์นี้",
     "ja": "このフォルダーに音声ファイルはありません"
   },
+  "Không có heartbeat trong {value0}s": {
+    "en": "No heartbeat for {value0}s",
+    "hi": "{value0}s तक कोई heartbeat नहीं",
+    "zh": "{value0} 秒内没有心跳",
+    "zh_TW": "{value0} 秒內沒有心跳",
+    "si": "තත්පර {value0} තුළ heartbeat නැත",
+    "my": "စက္ကန့် {value0} အတွင်း heartbeat မရှိ",
+    "th": "ไม่มี heartbeat ใน {value0} วินาที",
+    "ja": "{value0}秒間ハートビートがありません"
+  },
   "Không có kết quả": {
     "en": "No results",
     "hi": "कोई परिणाम नहीं",
@@ -9828,6 +10088,16 @@
     "my": "အမည် မရှိ",
     "th": "ไม่มีชื่อ",
     "ja": "名称なし"
+  },
+  "Không có từ nào cần ôn {value0}!": {
+    "en": "No words due {value0}!",
+    "hi": "{value0} दोहराने को कोई शब्द नहीं!",
+    "zh": "{value0} 没有需要复习的词！",
+    "zh_TW": "{value0} 沒有需要複習的詞！",
+    "si": "{value0} සමාලෝචනයට වචන නැත!",
+    "my": "{value0} ပြန်ကျက်ရန် စကားလုံး မရှိပါ!",
+    "th": "{value0} ไม่มีคำที่ต้องทบทวน!",
+    "ja": "{value0} 復習する単語がありません！"
   },
   "Không có từ trong vùng này": {
     "en": "No words in this area",
@@ -9979,6 +10249,16 @@
     "th": "ระบบรู้จำเสียงเริ่มไม่ได้ ลองอีกครั้ง หรือนำเข้าโมเดล Sherpa แบบออฟไลน์ในจัดการโมเดล AI",
     "ja": "音声認識を開始できませんでした。もう一度試すか、AIモデル管理でオフラインのSherpaモデルを取り込んでください。"
   },
+  "Không kết nối được \"{value0}\" (mất mạng/sai địa chỉ server)": {
+    "en": "Could not connect to \"{value0}\" (offline or wrong server address)",
+    "hi": "\"{value0}\" से कनेक्ट नहीं हो सका (नेटवर्क नहीं/गलत सर्वर पता)",
+    "zh": "无法连接「{value0}」（断网或服务器地址错误）",
+    "zh_TW": "無法連線「{value0}」（斷網或伺服器位址錯誤）",
+    "si": "\"{value0}\" වෙත සම්බන්ධ විය නොහැක (ජාලය නැත/සර්වර් ලිපිනය වැරදි)",
+    "my": "\"{value0}\" သို့ ချိတ်ဆက်၍ မရပါ (အင်တာနက်မရ/ဆာဗာလိပ်စာ မှား)",
+    "th": "เชื่อมต่อ \"{value0}\" ไม่ได้ (เน็ตหลุด/ที่อยู่เซิร์ฟเวอร์ผิด)",
+    "ja": "「{value0}」に接続できません（通信なし／サーバーアドレス誤り）"
+  },
   "Không kết nối được máy chủ Edge TTS (mất mạng / bị chặn)": {
     "en": "Cannot connect to the Edge TTS server (offline / blocked)",
     "hi": "Edge TTS सर्वर से कनेक्ट नहीं हो सका (नेटवर्क नहीं / अवरुद्ध)",
@@ -10078,6 +10358,16 @@
     "my": "Edge TTS မှ အသံ မရပါ",
     "th": "ไม่ได้รับเสียงจาก Edge TTS",
     "ja": "Edge TTS から音声を受信できません"
+  },
+  "Không nạp được giọng Piper {value0} (thiếu espeak-ng-data?)": {
+    "en": "Could not load the Piper voice {value0} (missing espeak-ng-data?)",
+    "hi": "Piper आवाज़ {value0} लोड नहीं हुई (espeak-ng-data नहीं?)",
+    "zh": "无法加载 Piper 语音 {value0}（缺少 espeak-ng-data？）",
+    "zh_TW": "無法載入 Piper 語音 {value0}（缺少 espeak-ng-data？）",
+    "si": "Piper හඬ {value0} පූරණය කළ නොහැක (espeak-ng-data නැතිද?)",
+    "my": "Piper အသံ {value0} တင်၍ မရပါ (espeak-ng-data မရှိဘူးလား?)",
+    "th": "โหลดเสียง Piper {value0} ไม่ได้ (ขาด espeak-ng-data?)",
+    "ja": "Piper 音声 {value0} を読み込めません（espeak-ng-data 不足？）"
   },
   "Không nạp được phụ đề vào tab Đọc": {
     "en": "Could not load the captions into the Read tab",
@@ -10508,6 +10798,26 @@
     "my": "စာမျက်နှာတွင် စာသား မတွေ့ပါ။",
     "th": "ไม่พบข้อความบนหน้า",
     "ja": "ページにテキストが見つかりません。"
+  },
+  "Không tìm thấy ảnh: {value0}": {
+    "en": "Image not found: {value0}",
+    "hi": "छवि नहीं मिली: {value0}",
+    "zh": "找不到图片：{value0}",
+    "zh_TW": "找不到圖片：{value0}",
+    "si": "රූපය සොයාගත නොහැක: {value0}",
+    "my": "ပုံ မတွေ့ပါ: {value0}",
+    "th": "ไม่พบภาพ: {value0}",
+    "ja": "画像が見つかりません: {value0}"
+  },
+  "Không tải được Hy-MT (HTTP {value0}). Wi-Fi rồi thử lại.": {
+    "en": "Could not download Hy-MT (HTTP {value0}). Check Wi-Fi and try again.",
+    "hi": "Hy-MT डाउनलोड नहीं हुआ (HTTP {value0})। Wi-Fi जाँचकर पुनः प्रयास करें।",
+    "zh": "Hy-MT 下载失败（HTTP {value0}）。请检查 Wi-Fi 后重试。",
+    "zh_TW": "Hy-MT 下載失敗（HTTP {value0}）。請檢查 Wi-Fi 後重試。",
+    "si": "Hy-MT බාගත කළ නොහැක (HTTP {value0}). Wi-Fi පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+    "my": "Hy-MT ဒေါင်းလုဒ် မလုပ်နိုင်ပါ (HTTP {value0})။ Wi-Fi စစ်ပြီး ထပ်စမ်းပါ။",
+    "th": "ดาวน์โหลด Hy-MT ไม่ได้ (HTTP {value0}) ตรวจสอบ Wi-Fi แล้วลองใหม่",
+    "ja": "Hy-MT をダウンロードできません（HTTP {value0}）。Wi-Fi を確認して再試行してください。"
   },
   "Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).": {
     "en": "Could not download the file (network error, unsupported format, or animation larger than 2MB).",
@@ -11729,6 +12039,16 @@
     "th": "บันทึกคำแบบเต็ม",
     "ja": "単語をすべて保存"
   },
+  "Lưu từ: \"{value0}\"": {
+    "en": "Save word: \"{value0}\"",
+    "hi": "शब्द सहेजें: \"{value0}\"",
+    "zh": "保存单词：「{value0}」",
+    "zh_TW": "儲存單字：「{value0}」",
+    "si": "වචනය සුරකින්න: \"{value0}\"",
+    "my": "စကားလုံး သိမ်းမည်: \"{value0}\"",
+    "th": "บันทึกคำ: \"{value0}\"",
+    "ja": "単語を保存: 「{value0}」"
+  },
   "Lưu vào Vườn Nhớ": {
     "en": "Save to Memory Garden",
     "hi": "स्मृति उद्यान में सहेजें",
@@ -11898,6 +12218,16 @@
     "my": "နောက်တစ်ကြိမ်",
     "th": "รอบถัดไป",
     "ja": "次の挑戦"
+  },
+  "Lấy captions ({value0})": {
+    "en": "Fetch captions ({value0})",
+    "hi": "captions लाएँ ({value0})",
+    "zh": "获取字幕（{value0}）",
+    "zh_TW": "取得字幕（{value0}）",
+    "si": "captions ගන්න ({value0})",
+    "my": "captions ယူမည် ({value0})",
+    "th": "ดึงคำบรรยาย ({value0})",
+    "ja": "字幕を取得（{value0}）"
   },
   "Lấy thông tin": {
     "en": "Get info",
@@ -12149,6 +12479,16 @@
     "th": "ข้อผิดพลาด API",
     "ja": "APIエラー"
   },
+  "Lỗi ML Kit: {value0}": {
+    "en": "ML Kit error: {value0}",
+    "hi": "ML Kit त्रुटि: {value0}",
+    "zh": "ML Kit 错误：{value0}",
+    "zh_TW": "ML Kit 錯誤：{value0}",
+    "si": "ML Kit දෝෂය: {value0}",
+    "my": "ML Kit အမှား: {value0}",
+    "th": "ข้อผิดพลาด ML Kit: {value0}",
+    "ja": "ML Kit エラー: {value0}"
+  },
   "Lỗi không xác định": {
     "en": "Unknown error",
     "hi": "अज्ञात त्रुटि",
@@ -12158,6 +12498,16 @@
     "my": "မသိသော အမှား",
     "th": "ข้อผิดพลาดที่ไม่ทราบสาเหตุ",
     "ja": "不明なエラー"
+  },
+  "Lỗi khởi động Sherpa STT: {value0}": {
+    "en": "Failed to start Sherpa STT: {value0}",
+    "hi": "Sherpa STT शुरू करने में त्रुटि: {value0}",
+    "zh": "Sherpa STT 启动失败：{value0}",
+    "zh_TW": "Sherpa STT 啟動失敗：{value0}",
+    "si": "Sherpa STT ආරම්භ කිරීමේ දෝෂය: {value0}",
+    "my": "Sherpa STT စတင်ရာတွင် အမှား: {value0}",
+    "th": "เริ่ม Sherpa STT ไม่สำเร็จ: {value0}",
+    "ja": "Sherpa STT の起動エラー: {value0}"
   },
   "Lỗi mạng — kiểm tra kết nối internet": {
     "en": "Network error — check your internet connection",
@@ -12189,6 +12539,16 @@
     "th": "เปิดเอกสารไม่ได้: {value0}",
     "ja": "文書を開けません: {value0}"
   },
+  "Lỗi nhận dạng chữ: {value0}": {
+    "en": "Text recognition failed: {value0}",
+    "hi": "पाठ पहचान विफल: {value0}",
+    "zh": "文字识别失败：{value0}",
+    "zh_TW": "文字辨識失敗：{value0}",
+    "si": "පෙළ හඳුනාගැනීම අසාර්ථකයි: {value0}",
+    "my": "စာသား မှတ်မိမှု မအောင်မြင်ပါ: {value0}",
+    "th": "รู้จำข้อความล้มเหลว: {value0}",
+    "ja": "文字認識エラー: {value0}"
+  },
   "Lỗi tạo LRC": {
     "en": "LRC creation error",
     "hi": "LRC बनाने में त्रुटि",
@@ -12199,6 +12559,16 @@
     "th": "เกิดข้อผิดพลาดในการสร้าง LRC",
     "ja": "LRC の作成エラー"
   },
+  "Lỗi tải Hy-MT: {value0}": {
+    "en": "Hy-MT download error: {value0}",
+    "hi": "Hy-MT डाउनलोड त्रुटि: {value0}",
+    "zh": "Hy-MT 下载出错：{value0}",
+    "zh_TW": "Hy-MT 下載錯誤：{value0}",
+    "si": "Hy-MT බාගැනීමේ දෝෂය: {value0}",
+    "my": "Hy-MT ဒေါင်းလုဒ် အမှား: {value0}",
+    "th": "ข้อผิดพลาดดาวน์โหลด Hy-MT: {value0}",
+    "ja": "Hy-MT のダウンロードエラー: {value0}"
+  },
   "Lỗi tải gói {value0}": {
     "en": "Failed to download pack {value0}",
     "hi": "पैक {value0} डाउनलोड विफल",
@@ -12208,6 +12578,26 @@
     "my": "pack {value0} ဒေါင်းလုဒ် မအောင်မြင်ပါ",
     "th": "ดาวน์โหลดแพ็ก {value0} ไม่สำเร็จ",
     "ja": "パック {value0} のダウンロードに失敗"
+  },
+  "Lỗi tải phụ đề: {value0}": {
+    "en": "Failed to load subtitles: {value0}",
+    "hi": "उपशीर्षक लोड विफल: {value0}",
+    "zh": "字幕加载失败：{value0}",
+    "zh_TW": "字幕載入失敗：{value0}",
+    "si": "උපසිරැසි පූරණය අසාර්ථකයි: {value0}",
+    "my": "စာတန်းထိုး တင်၍ မရပါ: {value0}",
+    "th": "โหลดคำบรรยายล้มเหลว: {value0}",
+    "ja": "字幕の読み込みに失敗: {value0}"
+  },
+  "Lỗi đọc file: {value0}": {
+    "en": "Failed to read the file: {value0}",
+    "hi": "फ़ाइल पढ़ने में त्रुटि: {value0}",
+    "zh": "读取文件出错：{value0}",
+    "zh_TW": "讀取檔案錯誤：{value0}",
+    "si": "ගොනුව කියවීමේ දෝෂය: {value0}",
+    "my": "ဖိုင် ဖတ်ရာတွင် အမှား: {value0}",
+    "th": "อ่านไฟล์ผิดพลาด: {value0}",
+    "ja": "ファイル読み取りエラー: {value0}"
   },
   "Lỗi đồng bộ": {
     "en": "Sync error",
@@ -12278,6 +12668,16 @@
     "my": "ML Kit တွင် မူရင်းဘာသာစကား သတ်မှတ်ရန် လိုသည် (auto မပံ့ပိုးပါ)",
     "th": "ML Kit ต้องระบุภาษาต้นทาง (ไม่รองรับอัตโนมัติ)",
     "ja": "ML Kit は源言語の指定が必要です（自動は非対応）"
+  },
+  "ML Kit không hỗ trợ cặp {value0} → {value1}": {
+    "en": "ML Kit does not support the pair {value0} → {value1}",
+    "hi": "ML Kit जोड़ी {value0} → {value1} समर्थित नहीं करता",
+    "zh": "ML Kit 不支持 {value0} → {value1} 语言对",
+    "zh_TW": "ML Kit 不支援 {value0} → {value1} 語言對",
+    "si": "ML Kit {value0} → {value1} යුගලය ආධාර නොකරයි",
+    "my": "ML Kit သည် {value0} → {value1} အတွဲကို မပံ့ပိုးပါ",
+    "th": "ML Kit ไม่รองรับคู่ {value0} → {value1}",
+    "ja": "ML Kit は {value0} → {value1} の組に対応していません"
   },
   "ML Kit trả về kết quả rỗng": {
     "en": "ML Kit returned an empty result",
@@ -12498,6 +12898,16 @@
     "my": "English-only မော်ဒယ်သည် အင်္ဂလိပ်စာသာ ယူသည် — English သို့မဟုတ် အလိုအလျောက် ရွေးပါ၊ သို့မဟုတ် ဘာသာစကားစုံ မော်ဒယ်သို့ ပြောင်းပါ။",
     "th": "โมเดล English-only รับเฉพาะภาษาอังกฤษ — เลือก English หรืออัตโนมัติ หรือเปลี่ยนไปใช้โมเดลหลายภาษา",
     "ja": "English-only モデルは英語のみ対応です。English か自動を選ぶか、多言語モデルに切り替えてください。"
+  },
+  "Model Hy-MT tải về {value0}": {
+    "en": "Hy-MT model downloaded {value0}",
+    "hi": "Hy-MT मॉडल {value0} डाउनलोड हुआ",
+    "zh": "Hy-MT 模型下载了 {value0}",
+    "zh_TW": "Hy-MT 模型下載了 {value0}",
+    "si": "Hy-MT ආකෘතිය {value0} බාගත විය",
+    "my": "Hy-MT မော်ဒယ် {value0} ဒေါင်းလုဒ်ပြီး",
+    "th": "โมเดล Hy-MT ดาวน์โหลด {value0} แล้ว",
+    "ja": "Hy-MT モデルを {value0} ダウンロードしました"
   },
   "Model không khớp profile đã chọn: Zipformer VI là offline, Zipformer EN là streaming, Parakeet là offline đa ngữ — không trộn được.": {
     "en": "The model does not match the chosen profile: Zipformer VI is offline, Zipformer EN is streaming and Parakeet is multilingual offline — they cannot be mixed.",
@@ -14239,6 +14649,16 @@
     "th": "ภาษา:",
     "ja": "言語:"
   },
+  "Ngôn ngữ: {value0} · ": {
+    "en": "Language: {value0} · ",
+    "hi": "भाषा: {value0} · ",
+    "zh": "语言：{value0} · ",
+    "zh_TW": "語言：{value0} · ",
+    "si": "භාෂාව: {value0} · ",
+    "my": "ဘာသာစကား: {value0} · ",
+    "th": "ภาษา: {value0} · ",
+    "ja": "言語: {value0} · "
+  },
   "Ngôn ngữ: {value0} · {value1}Hz": {
     "en": "Language: {value0} · {value1}Hz",
     "hi": "भाषा: {value0} · {value1}Hz",
@@ -14298,6 +14718,16 @@
     "my": "အကြောင်းအရာ",
     "th": "บริบท",
     "ja": "文脈"
+  },
+  "Ngữ cảnh ({value0})": {
+    "en": "Context ({value0})",
+    "hi": "संदर्भ ({value0})",
+    "zh": "语境（{value0}）",
+    "zh_TW": "語境（{value0}）",
+    "si": "සන්දර්භය ({value0})",
+    "my": "အခြေအနေ ({value0})",
+    "th": "บริบท ({value0})",
+    "ja": "文脈（{value0}）"
   },
   "Ngữ cảnh gần nhất: {value0}": {
     "en": "Closest context: {value0}",
@@ -16439,6 +16869,26 @@
     "th": "คำสรรพนาม",
     "ja": "代名詞"
   },
+  "Provider \"{value0}\" chưa chọn model TTS — cấu hình ở Server & API": {
+    "en": "Provider \"{value0}\" has no TTS model selected — configure it in Server & API",
+    "hi": "provider \"{value0}\" में TTS मॉडल नहीं चुना — Server & API में कॉन्फ़िगर करें",
+    "zh": "provider「{value0}」尚未选择 TTS 模型——请在「服务器与 API」中配置",
+    "zh_TW": "provider「{value0}」尚未選擇 TTS 模型——請在「伺服器與 API」中設定",
+    "si": "provider \"{value0}\" ට TTS ආකෘතියක් තෝරා නැත — Server & API හි වින්‍යාස කරන්න",
+    "my": "provider \"{value0}\" တွင် TTS မော်ဒယ် မရွေးရသေးပါ — Server & API တွင် ပြင်ဆင်ပါ",
+    "th": "provider \"{value0}\" ยังไม่ได้เลือกโมเดล TTS — ตั้งค่าใน Server & API",
+    "ja": "provider「{value0}」はTTSモデル未選択 — 「サーバーとAPI」で設定してください"
+  },
+  "Provider \"{value0}\" thiếu baseUrl": {
+    "en": "Provider \"{value0}\" is missing a baseUrl",
+    "hi": "provider \"{value0}\" में baseUrl नहीं है",
+    "zh": "provider「{value0}」缺少 baseUrl",
+    "zh_TW": "provider「{value0}」缺少 baseUrl",
+    "si": "provider \"{value0}\" ට baseUrl නැත",
+    "my": "provider \"{value0}\" တွင် baseUrl မရှိပါ",
+    "th": "provider \"{value0}\" ไม่มี baseUrl",
+    "ja": "provider「{value0}」に baseUrl がありません"
+  },
   "Punctuation": {
     "en": "Punctuation",
     "hi": "विराम चिह्न",
@@ -16799,6 +17249,16 @@
     "th": "ถูกจำกัดอัตรา ลองใหม่ภายหลัง",
     "ja": "レート制限。後で再試行してください"
   },
+  "Rate limited (429) tại {value0}": {
+    "en": "Rate limited (429) at {value0}",
+    "hi": "{value0} पर दर सीमा (429)",
+    "zh": "{value0} 触发限流（429）",
+    "zh_TW": "{value0} 觸發限流（429）",
+    "si": "{value0} හි දර සීමාව (429)",
+    "my": "{value0} တွင် နှုန်းကန့်သတ် (429)",
+    "th": "ถูกจำกัดอัตรา (429) ที่ {value0}",
+    "ja": "{value0} でレート制限（429）"
+  },
   "Rate limited (429). Thử lại sau 30s.": {
     "en": "Rate limited (429). Try again in 30s.",
     "hi": "दर सीमा (429)। 30 सेकंड बाद पुनः प्रयास करें।",
@@ -17138,6 +17598,16 @@
     "my": "အရန် AI ဆာဗာ (ဒေသတွင်း AI ကို ဦးစားပေး)",
     "th": "เซิร์ฟเวอร์ AI สำรอง (ให้ความสำคัญกับ AI ในเครื่อง)",
     "ja": "予備AIサーバー（ローカルAIを優先）"
+  },
+  "Server {value0} yêu cầu API key": {
+    "en": "Server {value0} requires an API key",
+    "hi": "सर्वर {value0} को API key चाहिए",
+    "zh": "服务器 {value0} 需要 API key",
+    "zh_TW": "伺服器 {value0} 需要 API key",
+    "si": "සර්වරය {value0} ට API key අවශ්‍යයි",
+    "my": "ဆာဗာ {value0} တွင် API key လိုသည်",
+    "th": "เซิร์ฟเวอร์ {value0} ต้องใช้ API key",
+    "ja": "サーバー {value0} には API key が必要です"
   },
   "Shadowing": {
     "en": "Shadowing",
@@ -18499,6 +18969,16 @@
     "th": "ชำนาญ",
     "ja": "習得済み"
   },
+  "Thuần thục: {value0}%": {
+    "en": "Mastery: {value0}%",
+    "hi": "महारत: {value0}%",
+    "zh": "熟练度：{value0}%",
+    "zh_TW": "熟練度：{value0}%",
+    "si": "ප්‍රගුණතාව: {value0}%",
+    "my": "ကျွမ်းကျင်မှု: {value0}%",
+    "th": "ความชำนาญ: {value0}%",
+    "ja": "習熟度: {value0}%"
+  },
   "Thuật ngữ dịch": {
     "en": "Translation terms",
     "hi": "अनुवाद शब्द",
@@ -19469,6 +19949,16 @@
     "th": "ความท้าทายการท่องจำ!",
     "ja": "暗記チャレンジ！"
   },
+  "Thử thách: {value0}": {
+    "en": "Challenge: {value0}",
+    "hi": "चुनौती: {value0}",
+    "zh": "挑战：{value0}",
+    "zh_TW": "挑戰：{value0}",
+    "si": "අභියෝගය: {value0}",
+    "my": "စိန်ခေါ်မှု: {value0}",
+    "th": "ความท้าทาย: {value0}",
+    "ja": "チャレンジ: {value0}"
+  },
   "Thử tên miền, tiêu đề trang, hoặc đổi bộ lọc trạng thái.": {
     "en": "Try a domain, a page title, or change the status filter.",
     "hi": "डोमेन, पृष्ठ शीर्षक आज़माएँ, या स्थिति फ़िल्टर बदलें।",
@@ -20308,6 +20798,16 @@
     "my": "တူရကီ",
     "th": "ตุรกี",
     "ja": "トルコ語"
+  },
+  "Tuyển tập chính văn {value0}": {
+    "en": "Canonical collection {value0}",
+    "hi": "मुख्य संग्रह {value0}",
+    "zh": "正典全集 {value0}",
+    "zh_TW": "正典全集 {value0}",
+    "si": "ප්‍රධාන එකතුව {value0}",
+    "my": "ပိဋကတ် စုစည်းမှု {value0}",
+    "th": "ชุดหลัก {value0}",
+    "ja": "正典コレクション {value0}"
   },
   "Tuyệt vời! Bạn đã hoàn thành toàn bộ bài ôn tập hôm nay.": {
     "en": "Excellent! You finished all of today's reviews.",
@@ -21649,6 +22149,16 @@
     "th": "โหลดตอนเพิ่มเติม",
     "ja": "さらに段落を読み込む"
   },
+  "Tải thất bại: {value0}": {
+    "en": "Download failed: {value0}",
+    "hi": "डाउनलोड विफल: {value0}",
+    "zh": "下载失败：{value0}",
+    "zh_TW": "下載失敗：{value0}",
+    "si": "බාගැනීම අසාර්ථකයි: {value0}",
+    "my": "ဒေါင်းလုဒ် မအောင်မြင်ပါ: {value0}",
+    "th": "ดาวน์โหลดล้มเหลว: {value0}",
+    "ja": "ダウンロード失敗: {value0}"
+  },
   "Tải từ link trực tiếp": {
     "en": "Download from a direct link",
     "hi": "सीधे लिंक से डाउनलोड करें",
@@ -21728,6 +22238,16 @@
     "my": "အားလုံး",
     "th": "ทั้งหมด",
     "ja": "すべて"
+  },
+  "Tất cả ({value0} từ)": {
+    "en": "All ({value0} words)",
+    "hi": "सभी ({value0} शब्द)",
+    "zh": "全部（{value0} 词）",
+    "zh_TW": "全部（{value0} 詞）",
+    "si": "සියල්ල (වචන {value0})",
+    "my": "အားလုံး (စကားလုံး {value0})",
+    "th": "ทั้งหมด ({value0} คำ)",
+    "ja": "すべて（{value0} 語）"
   },
   "Tất cả bài đọc": {
     "en": "All articles",
@@ -22008,6 +22528,16 @@
     "my": "အနည်းဆုံး စာလုံး မည်မျှ?",
     "th": "ต้องมีอย่างน้อยกี่ตัวอักษร?",
     "ja": "最小文字数は？"
+  },
+  "Tối thiểu {value0} ký tự": {
+    "en": "At least {value0} characters",
+    "hi": "कम से कम {value0} अक्षर",
+    "zh": "至少 {value0} 个字符",
+    "zh_TW": "至少 {value0} 個字元",
+    "si": "අවම අකුරු {value0}",
+    "my": "အနည်းဆုံး စာလုံး {value0}",
+    "th": "อย่างน้อย {value0} ตัวอักษร",
+    "ja": "最低 {value0} 文字"
   },
   "Tối thiểu {value0} từ trước khi tách": {
     "en": "At least {value0} words before splitting",
@@ -23309,6 +23839,16 @@
     "th": "ตัวอย่าง",
     "ja": "例"
   },
+  "Ví dụ phức: {value0}": {
+    "en": "Complex example: {value0}",
+    "hi": "जटिल उदाहरण: {value0}",
+    "zh": "复杂例句：{value0}",
+    "zh_TW": "複雜例句：{value0}",
+    "si": "සංකීර්ණ උදාහරණය: {value0}",
+    "my": "ရှုပ်ထွေးသော ဥပမာ: {value0}",
+    "th": "ตัวอย่างซับซ้อน: {value0}",
+    "ja": "複雑な例: {value0}"
+  },
   "Ví dụ trong ngữ cảnh": {
     "en": "Examples in context",
     "hi": "संदर्भ में उदाहरण",
@@ -23318,6 +23858,16 @@
     "my": "အကြောင်းအရာထဲက ဥပမာ",
     "th": "ตัวอย่างในบริบท",
     "ja": "文脈内の例文"
+  },
+  "Ví dụ đơn: {value0}": {
+    "en": "Simple example: {value0}",
+    "hi": "सरल उदाहरण: {value0}",
+    "zh": "简单例句：{value0}",
+    "zh_TW": "簡單例句：{value0}",
+    "si": "සරල උදාහරණය: {value0}",
+    "my": "ရိုးရှင်းသော ဥပမာ: {value0}",
+    "th": "ตัวอย่างง่าย: {value0}",
+    "ja": "簡単な例: {value0}"
   },
   "Ví dụ, ngữ cảnh, mẹo nhớ...": {
     "en": "Example, context, memory tip...",
@@ -23429,6 +23979,16 @@
     "th": "เช่น dharma, english_learning, news",
     "ja": "例: dharma, english_learning, news"
   },
+  "Ví dụ: {value0}": {
+    "en": "Example: {value0}",
+    "hi": "उदाहरण: {value0}",
+    "zh": "示例：{value0}",
+    "zh_TW": "範例：{value0}",
+    "si": "උදාහරණය: {value0}",
+    "my": "ဥပမာ: {value0}",
+    "th": "ตัวอย่าง: {value0}",
+    "ja": "例: {value0}"
+  },
   "Vòng bài": {
     "en": "Article loop",
     "hi": "चक्र",
@@ -23438,6 +23998,26 @@
     "my": "ပတ်လည်",
     "th": "รอบบท",
     "ja": "周回"
+  },
+  "Vòng {value0}/{value1}": {
+    "en": "Round {value0}/{value1}",
+    "hi": "दौर {value0}/{value1}",
+    "zh": "第 {value0}/{value1} 轮",
+    "zh_TW": "第 {value0}/{value1} 輪",
+    "si": "වටය {value0}/{value1}",
+    "my": "အလှည့် {value0}/{value1}",
+    "th": "รอบ {value0}/{value1}",
+    "ja": "{value0}/{value1} 周目"
+  },
+  "Vòng {value0}/∞": {
+    "en": "Round {value0}/∞",
+    "hi": "दौर {value0}/∞",
+    "zh": "第 {value0}/∞ 轮",
+    "zh_TW": "第 {value0}/∞ 輪",
+    "si": "වටය {value0}/∞",
+    "my": "အလှည့် {value0}/∞",
+    "th": "รอบ {value0}/∞",
+    "ja": "{value0}/∞ 周目"
   },
   "Vùng {value0} bị lặp {value1} lần.": {
     "en": "Section {value0} repeats {value1} times.",
@@ -24299,6 +24879,16 @@
     "th": "ลบ",
     "ja": "削除"
   },
+  "Xóa \"{value0}\" khỏi vườn nhớ?\nDữ liệu ôn tập sẽ mất.": {
+    "en": "Delete \"{value0}\" from the memory garden?\nReview data will be lost.",
+    "hi": "\"{value0}\" को स्मृति उद्यान से हटाएँ?\nदोहराव डेटा खो जाएगा।",
+    "zh": "要将「{value0}」从记忆花园删除吗？\n复习数据将丢失。",
+    "zh_TW": "要將「{value0}」從記憶花園刪除嗎？\n複習資料將遺失。",
+    "si": "\"{value0}\" මතක උයනෙන් මකන්නද?\nසමාලෝචන දත්ත නැති වේ.",
+    "my": "\"{value0}\" ကို မှတ်ဉာဏ်ဥယျာဉ်မှ ဖျက်မည်လား?\nပြန်လည်ကျက်မှတ် ဒေတာ ပျောက်မည်။",
+    "th": "ลบ \"{value0}\" ออกจากสวนความจำหรือไม่?\nข้อมูลการทบทวนจะหายไป",
+    "ja": "「{value0}」を記憶の庭から削除しますか？\n復習データは失われます。"
+  },
   "Xóa (cả mục con)": {
     "en": "Delete (including sub-items)",
     "hi": "हटाएँ (उप-आइटम सहित)",
@@ -24539,6 +25129,16 @@
     "th": "ตัวดาวน์โหลด YouTube",
     "ja": "YouTubeダウンローダー"
   },
+  "YouTube từ chối phát video này (lỗi cấu hình trình phát, mã {value0}). Bấm Thử lại, hoặc Mở ngoài để xem trong trình duyệt.": {
+    "en": "YouTube refused to play this video (player configuration error, code {value0}). Tap Retry, or Open externally to watch in a browser.",
+    "hi": "YouTube ने यह वीडियो चलाने से मना किया (प्लेयर कॉन्फ़िगरेशन त्रुटि, कोड {value0})। पुनः प्रयास दबाएँ, या ब्राउज़र में देखने के लिए बाहर खोलें।",
+    "zh": "YouTube 拒绝播放此视频（播放器配置错误，代码 {value0}）。请点按「重试」，或「在外部打开」用浏览器观看。",
+    "zh_TW": "YouTube 拒絕播放此影片（播放器設定錯誤，代碼 {value0}）。請點按「重試」，或「在外部開啟」用瀏覽器觀看。",
+    "si": "YouTube මෙම වීඩියෝව වාදනය කිරීම ප්‍රතික්ෂේප කළා (වාදක වින්‍යාස දෝෂය, කේතය {value0}). නැවත උත්සාහ කරන්න හෝ බ්‍රවුසරයේ බැලීමට බාහිරව විවෘත කරන්න.",
+    "my": "YouTube သည် ဤဗီဒီယိုကို ဖွင့်ရန် ငြင်းပယ်ခဲ့သည် (ဖွင့်စက် ပြင်ဆင်မှု အမှား၊ ကုဒ် {value0})။ ထပ်စမ်းပါ သို့မဟုတ် ဘရောက်ဇာတွင် ကြည့်ရန် ပြင်ပတွင် ဖွင့်ပါ။",
+    "th": "YouTube ปฏิเสธการเล่นวิดีโอนี้ (ข้อผิดพลาดการตั้งค่าเครื่องเล่น รหัส {value0}) แตะลองใหม่ หรือเปิดภายนอกเพื่อดูในเบราว์เซอร์",
+    "ja": "YouTube がこの動画の再生を拒否しました（プレーヤー設定エラー、コード {value0}）。再試行するか、外部で開いてブラウザで視聴してください。"
+  },
   "Yunjian (Nam, Trung)": {
     "en": "Yunjian (Male, Chinese)",
     "hi": "Yunjian (पुरुष, चीनी)",
@@ -24608,6 +25208,16 @@
     "my": "အလိုအလျောက်",
     "th": "อัตโนมัติ",
     "ja": "自動"
+  },
+  "bị cắt ({value0} MB; cần khoảng 601 MB)": {
+    "en": "truncated ({value0} MB; about 601 MB needed)",
+    "hi": "कटा हुआ ({value0} MB; लगभग 601 MB चाहिए)",
+    "zh": "被截断（{value0} MB；约需 601 MB）",
+    "zh_TW": "被截斷（{value0} MB；約需 601 MB）",
+    "si": "කැපී ඇත ({value0} MB; 601 MB පමණ අවශ්‍යයි)",
+    "my": "ဖြတ်ထားသည် ({value0} MB; 601 MB ခန့် လိုသည်)",
+    "th": "ถูกตัด ({value0} MB; ต้องใช้ราว 601 MB)",
+    "ja": "切り詰め（{value0} MB、約601 MB必要）"
   },
   "chép lại câu đầu tiên": {
     "en": "copy the first sentence",
@@ -24879,6 +25489,16 @@
     "th": "ข้อผิดพลาดการตั้งค่าเครื่องเล่น",
     "ja": "プレーヤー設定エラー"
   },
+  "model trả rỗng cho segment {value0}/{value1}": {
+    "en": "the model returned empty for segment {value0}/{value1}",
+    "hi": "मॉडल ने segment {value0}/{value1} के लिए खाली लौटाया",
+    "zh": "模型对 segment {value0}/{value1} 返回空",
+    "zh_TW": "模型對 segment {value0}/{value1} 回傳空",
+    "si": "ආකෘතිය segment {value0}/{value1} සඳහා හිස් ලබා දුන්නා",
+    "my": "မော်ဒယ်သည် segment {value0}/{value1} အတွက် ဗလာ ပြန်ပေးသည်",
+    "th": "โมเดลคืนค่าว่างสำหรับ segment {value0}/{value1}",
+    "ja": "モデルが segment {value0}/{value1} に空を返しました"
+  },
   "mãi": {
     "en": "forever",
     "hi": "हमेशा",
@@ -24888,6 +25508,16 @@
     "my": "အမြဲ",
     "th": "ตลอด",
     "ja": "ずっと"
+  },
+  "mất slot glossary {value0} ở segment {value1}/{value2}": {
+    "en": "lost glossary slot {value0} at segment {value1}/{value2}",
+    "hi": "segment {value1}/{value2} पर glossary slot {value0} खोया",
+    "zh": "在 segment {value1}/{value2} 丢失术语槽 {value0}",
+    "zh_TW": "在 segment {value1}/{value2} 遺失術語槽 {value0}",
+    "si": "segment {value1}/{value2} හි glossary slot {value0} අහිමි විය",
+    "my": "segment {value1}/{value2} တွင် glossary slot {value0} ဆုံးရှုံး",
+    "th": "เสีย glossary slot {value0} ที่ segment {value1}/{value2}",
+    "ja": "segment {value1}/{value2} で用語スロット {value0} を失いました"
   },
   "mặc định": {
     "en": "default",
@@ -25239,6 +25869,16 @@
     "th": "รูปแบบผิด (ไม่มี GGUF magic)",
     "ja": "形式が不正（GGUF マジックなし）"
   },
+  "sau {value0} giờ": {
+    "en": "in {value0} hours",
+    "hi": "{value0} घंटे बाद",
+    "zh": "{value0} 小时后",
+    "zh_TW": "{value0} 小時後",
+    "si": "පැය {value0}කින්",
+    "my": "{value0} နာရီအတွင်း",
+    "th": "อีก {value0} ชั่วโมง",
+    "ja": "{value0}時間後"
+  },
   "subtitle": {
     "en": "subtitle",
     "hi": "उपशीर्षक",
@@ -25489,6 +26129,76 @@
     "th": "yt-dlp ดาวน์โหลดวิดีโอนี้ไม่ได้",
     "ja": "yt-dlp がこの動画をダウンロードできません"
   },
+  "{value0} (HTTP 0)": {
+    "en": "{value0} (HTTP 0)",
+    "hi": "{value0} (HTTP 0)",
+    "zh": "{value0}（HTTP 0）",
+    "zh_TW": "{value0}（HTTP 0）",
+    "si": "{value0} (HTTP 0)",
+    "my": "{value0} (HTTP 0)",
+    "th": "{value0} (HTTP 0)",
+    "ja": "{value0}（HTTP 0）"
+  },
+  "{value0} (HTTP {value1})": {
+    "en": "{value0} (HTTP {value1})",
+    "hi": "{value0} (HTTP {value1})",
+    "zh": "{value0}（HTTP {value1}）",
+    "zh_TW": "{value0}（HTTP {value1}）",
+    "si": "{value0} (HTTP {value1})",
+    "my": "{value0} (HTTP {value1})",
+    "th": "{value0} (HTTP {value1})",
+    "ja": "{value0}（HTTP {value1}）"
+  },
+  "{value0} (cặp nguồn đã chọn)": {
+    "en": "{value0} (chosen source pair)",
+    "hi": "{value0} (चुनी स्रोत जोड़ी)",
+    "zh": "{value0}（已选源语言对）",
+    "zh_TW": "{value0}（已選來源語言對）",
+    "si": "{value0} (තෝරාගත් මූල යුගලය)",
+    "my": "{value0} (ရွေးထားသော မူရင်းအတွဲ)",
+    "th": "{value0} (คู่ต้นทางที่เลือก)",
+    "ja": "{value0}（選択した原文ペア）"
+  },
+  "{value0} (nguồn tự nhận diện — kiểm tra lại ngôn ngữ nguồn)": {
+    "en": "{value0} (auto-detected source — check the source language again)",
+    "hi": "{value0} (स्वतः पहचाना स्रोत — स्रोत भाषा फिर जाँचें)",
+    "zh": "{value0}（自动识别源语言——请再核对源语言）",
+    "zh_TW": "{value0}（自動辨識來源語言——請再核對來源語言）",
+    "si": "{value0} (ස්වයං හඳුනාගත් මූලය — මූල භාෂාව නැවත පරීක්ෂා කරන්න)",
+    "my": "{value0} (အလိုအလျောက် မှတ်မိသော မူရင်း — မူရင်းဘာသာစကား ပြန်စစ်ပါ)",
+    "th": "{value0} (ตรวจจับต้นทางอัตโนมัติ — ตรวจสอบภาษาต้นทางอีกครั้ง)",
+    "ja": "{value0}（原文は自動検出 — 原文言語を再確認してください）"
+  },
+  "{value0} ({value1} dòng)": {
+    "en": "{value0} ({value1} lines)",
+    "hi": "{value0} ({value1} पंक्तियाँ)",
+    "zh": "{value0}（{value1} 行）",
+    "zh_TW": "{value0}（{value1} 行）",
+    "si": "{value0} (පේළි {value1})",
+    "my": "{value0} (စာကြောင်း {value1})",
+    "th": "{value0} ({value1} บรรทัด)",
+    "ja": "{value0}（{value1}行）"
+  },
+  "{value0} (đoạn {value1}/{value2})": {
+    "en": "{value0} (passage {value1}/{value2})",
+    "hi": "{value0} (अंश {value1}/{value2})",
+    "zh": "{value0}（第 {value1}/{value2} 段）",
+    "zh_TW": "{value0}（第 {value1}/{value2} 段）",
+    "si": "{value0} (කොටස {value1}/{value2})",
+    "my": "{value0} (အပိုင်း {value1}/{value2})",
+    "th": "{value0} (ช่วง {value1}/{value2})",
+    "ja": "{value0}（{value1}/{value2} 段落）"
+  },
+  "{value0} / {value1} đúng": {
+    "en": "{value0} / {value1} correct",
+    "hi": "{value0} / {value1} सही",
+    "zh": "{value0} / {value1} 正确",
+    "zh_TW": "{value0} / {value1} 正確",
+    "si": "{value0} / {value1} නිවැරදි",
+    "my": "{value0} / {value1} မှန်",
+    "th": "{value0} / {value1} ถูก",
+    "ja": "{value0} / {value1} 正解"
+  },
   "{value0} batch nháp": {
     "en": "{value0} draft batches",
     "hi": "{value0} ड्राफ़्ट batch",
@@ -25529,6 +26239,16 @@
     "th": "เปิด {value0}",
     "ja": "{value0} オン"
   },
+  "{value0} chưa chắc": {
+    "en": "{value0} uncertain",
+    "hi": "{value0} अनिश्चित",
+    "zh": "{value0} 不确定",
+    "zh_TW": "{value0} 不確定",
+    "si": "{value0} අවිනිශ්චිත",
+    "my": "{value0} မသေချာ",
+    "th": "{value0} ไม่แน่ใจ",
+    "ja": "{value0} は不確か"
+  },
   "{value0} câu đã dịch": {
     "en": "{value0} sentences translated",
     "hi": "{value0} वाक्य अनूदित",
@@ -25568,6 +26288,16 @@
     "my": "စာကြောင်း {value0} ({value1} → {value2})",
     "th": "{value0} บรรทัด ({value1} → {value2})",
     "ja": "{value0}行（{value1} → {value2}）"
+  },
+  "{value0} dòng · Nhấn để mở rộng": {
+    "en": "{value0} lines · Tap to expand",
+    "hi": "{value0} पंक्तियाँ · फैलाने के लिए टैप करें",
+    "zh": "{value0} 行 · 点按展开",
+    "zh_TW": "{value0} 行 · 點按展開",
+    "si": "පේළි {value0} · විවෘත කිරීමට තට්ටු කරන්න",
+    "my": "စာကြောင်း {value0} · ချဲ့ရန် နှိပ်ပါ",
+    "th": "{value0} บรรทัด · แตะเพื่อขยาย",
+    "ja": "{value0}行 · タップで展開"
   },
   "{value0} dòng → {value1} dòng (~{value2} từ/dòng)": {
     "en": "{value0} lines → {value1} lines (~{value2} words/line)",
@@ -25619,6 +26349,16 @@
     "th": "{value0} ชั่วโมงที่แล้ว",
     "ja": "{value0}時間前"
   },
+  "{value0} ký tự": {
+    "en": "{value0} characters",
+    "hi": "{value0} अक्षर",
+    "zh": "{value0} 个字符",
+    "zh_TW": "{value0} 個字元",
+    "si": "අකුරු {value0}",
+    "my": "စာလုံး {value0}",
+    "th": "{value0} ตัวอักษร",
+    "ja": "{value0} 文字"
+  },
   "{value0} liên kết": {
     "en": "{value0} links",
     "hi": "{value0} लिंक",
@@ -25638,6 +26378,16 @@
     "my": "Shadowing အကြိမ် {value0}",
     "th": "แชโดว์ {value0} ครั้ง",
     "ja": "シャドーイング {value0} 回"
+  },
+  "{value0} lượt xem": {
+    "en": "{value0} views",
+    "hi": "{value0} व्यूज",
+    "zh": "{value0} 次观看",
+    "zh_TW": "{value0} 次觀看",
+    "si": "නැරඹුම් {value0}",
+    "my": "ကြည့်ရှုမှု {value0}",
+    "th": "{value0} วิว",
+    "ja": "{value0} 回視聴"
   },
   "{value0} lượt ôn": {
     "en": "{value0} reviews",
@@ -25719,6 +26469,16 @@
     "th": "{value0} วันที่แล้ว",
     "ja": "{value0}日前"
   },
+  "{value0} năm trước": {
+    "en": "{value0} years ago",
+    "hi": "{value0} वर्ष पहले",
+    "zh": "{value0} 年前",
+    "zh_TW": "{value0} 年前",
+    "si": "වසර {value0}කට පෙර",
+    "my": "{value0} နှစ်က",
+    "th": "{value0} ปีที่แล้ว",
+    "ja": "{value0}年前"
+  },
   "{value0} phút": {
     "en": "{value0} min",
     "hi": "{value0} मिनट",
@@ -25778,6 +26538,16 @@
     "my": "ကျွမ်းကျင်ပြီး {value0}",
     "th": "เชี่ยวชาญ {value0}",
     "ja": "習得 {value0}"
+  },
+  "{value0} thành thạo": {
+    "en": "{value0} mastered",
+    "hi": "{value0} में महारत",
+    "zh": "已掌握 {value0}",
+    "zh_TW": "已掌握 {value0}",
+    "si": "{value0} ප්‍රගුණයි",
+    "my": "{value0} ကျွမ်းကျင်",
+    "th": "ชำนาญแล้ว {value0}",
+    "ja": "{value0} 習得済み"
   },
   "{value0} tiếp tục": {
     "en": "{value0} continue",
@@ -25839,6 +26609,16 @@
     "th": "วันนี้มี {value0} คำที่ต้องรดน้ำ",
     "ja": "今日は {value0} 語に水やりが必要です"
   },
+  "{value0} từ tìm thấy · {value1} được chọn": {
+    "en": "{value0} words found · {value1} selected",
+    "hi": "{value0} शब्द मिले · {value1} चयनित",
+    "zh": "找到 {value0} 个词 · 已选 {value1}",
+    "zh_TW": "找到 {value0} 個詞 · 已選 {value1}",
+    "si": "වචන {value0}ක් හමු විය · {value1} තෝරාගෙන ඇත",
+    "my": "စကားလုံး {value0} လုံး တွေ့သည် · {value1} ရွေးထားသည်",
+    "th": "พบ {value0} คำ · เลือกแล้ว {value1}",
+    "ja": "{value0} 語を検出 · {value1} 件選択"
+  },
   "{value0} từ · {value1} dòng": {
     "en": "{value0} words · {value1} lines",
     "hi": "{value0} शब्द · {value1} पंक्तियाँ",
@@ -25889,6 +26669,16 @@
     "th": "{value0} เปลี่ยนคำแปลและเสียงเป็น {value1} แล้ว",
     "ja": "{value0} 翻訳と音声を {value1} に切り替えました"
   },
+  "{value0} điểm mù": {
+    "en": "{value0} blind spots",
+    "hi": "{value0} ब्लाइंड स्पॉट",
+    "zh": "{value0} 个盲点",
+    "zh_TW": "{value0} 個盲點",
+    "si": "අන්ධ ස්ථාන {value0}",
+    "my": "မမြင်နိုင်သော နေရာ {value0}",
+    "th": "จุดบอด {value0}",
+    "ja": "盲点 {value0} 件"
+  },
   "{value0} đoạn đã lưu": {
     "en": "{value0} saved passages",
     "hi": "{value0} सहेजे अंश",
@@ -25918,6 +26708,16 @@
     "my": "{value0} ဖျောက်ထား",
     "th": "ซ่อน {value0}",
     "ja": "{value0} 非表示"
+  },
+  "{value0} ổn": {
+    "en": "{value0} OK",
+    "hi": "{value0} ठीक",
+    "zh": "{value0} 没问题",
+    "zh_TW": "{value0} 沒問題",
+    "si": "{value0} හරි",
+    "my": "{value0} အဆင်ပြေ",
+    "th": "{value0} ใช้ได้",
+    "ja": "{value0} は問題なし"
   },
   "{value0} ứng viên": {
     "en": "{value0} candidates",
@@ -25949,6 +26749,26 @@
     "th": "{value0} → {value1} · {value2} · ทำซ้ำ ×{value3}",
     "ja": "{value0} → {value1} · {value2} · 繰り返し ×{value3}"
   },
+  "{value0}% chính xác": {
+    "en": "{value0}% accuracy",
+    "hi": "{value0}% सटीक",
+    "zh": "{value0}% 准确",
+    "zh_TW": "{value0}% 準確",
+    "si": "{value0}% නිරවද්‍ය",
+    "my": "{value0}% တိကျ",
+    "th": "แม่นยำ {value0}%",
+    "ja": "{value0}% 正確"
+  },
+  "{value0}% đã ôn tập": {
+    "en": "{value0}% reviewed",
+    "hi": "{value0}% दोहराया",
+    "zh": "已复习 {value0}%",
+    "zh_TW": "已複習 {value0}%",
+    "si": "{value0}% සමාලෝචිත",
+    "my": "{value0}% ပြန်ကျက်ပြီး",
+    "th": "ทบทวนแล้ว {value0}%",
+    "ja": "{value0}% 復習済み"
+  },
   "{value0}% độ dài câu gốc": {
     "en": "{value0}% of the original length",
     "hi": "मूल लंबाई का {value0}%",
@@ -25969,6 +26789,16 @@
     "th": "เรียน {value0}/7 วัน",
     "ja": "{value0}/7 日学習"
   },
+  "{value0}/{value1} hôm nay": {
+    "en": "{value0}/{value1} today",
+    "hi": "आज {value0}/{value1}",
+    "zh": "今日 {value0}/{value1}",
+    "zh_TW": "今日 {value0}/{value1}",
+    "si": "අද {value0}/{value1}",
+    "my": "ယနေ့ {value0}/{value1}",
+    "th": "วันนี้ {value0}/{value1}",
+    "ja": "今日 {value0}/{value1}"
+  },
   "{value0}/{value1} từ · {value2}": {
     "en": "{value0}/{value1} words · {value2}",
     "hi": "{value0}/{value1} शब्द · {value2}",
@@ -25988,6 +26818,26 @@
     "my": "{value0}/{value1} မှန်သော စကားလုံး",
     "th": "{value0}/{value1} คำที่ถูก",
     "ja": "{value0}/{value1} 語正解"
+  },
+  "{value0}K lượt xem": {
+    "en": "{value0}K views",
+    "hi": "{value0}K व्यूज",
+    "zh": "{value0}K 次观看",
+    "zh_TW": "{value0}K 次觀看",
+    "si": "{value0}K නැරඹුම්",
+    "my": "{value0}K ကြည့်ရှုမှု",
+    "th": "{value0}K วิว",
+    "ja": "{value0}K 回視聴"
+  },
+  "{value0}M lượt xem": {
+    "en": "{value0}M views",
+    "hi": "{value0}M व्यूज",
+    "zh": "{value0}M 次观看",
+    "zh_TW": "{value0}M 次觀看",
+    "si": "{value0}M නැරඹුම්",
+    "my": "{value0}M ကြည့်ရှုမှု",
+    "th": "{value0}M วิว",
+    "ja": "{value0}M 回視聴"
   },
   "{value0}g trước": {
     "en": "{value0}h ago",
@@ -26018,6 +26868,36 @@
     "my": "{value0} မိနစ်က",
     "th": "{value0} นาทีที่แล้ว",
     "ja": "{value0}分前"
+  },
+  "{value0}x lặp": {
+    "en": "{value0}x repeat",
+    "hi": "{value0}x दोहराव",
+    "zh": "{value0}x 重复",
+    "zh_TW": "{value0}x 重複",
+    "si": "{value0}x පුනරාවර්තන",
+    "my": "{value0}x ထပ်",
+    "th": "{value0}x ซ้ำ",
+    "ja": "{value0}x リピート"
+  },
+  "{value0}x ôn": {
+    "en": "{value0}x reviewed",
+    "hi": "{value0}x दोहराया",
+    "zh": "已复习 {value0} 次",
+    "zh_TW": "已複習 {value0} 次",
+    "si": "{value0}x සමාලෝචිත",
+    "my": "{value0}x ပြန်ကျက်ပြီး",
+    "th": "ทบทวนแล้ว {value0}x",
+    "ja": "{value0}x 復習済み"
+  },
+  "{value0}×3 chậm 0.75x": {
+    "en": "{value0}×3 slow 0.75x",
+    "hi": "{value0}×3 धीमा 0.75x",
+    "zh": "{value0}×3 慢速 0.75x",
+    "zh_TW": "{value0}×3 慢速 0.75x",
+    "si": "{value0}×3 මන්දගාමී 0.75x",
+    "my": "{value0}×3 နှေး 0.75x",
+    "th": "{value0}×3 ช้า 0.75x",
+    "ja": "{value0}×3 低速 0.75x"
   },
   "Áp dụng": {
     "en": "Apply",
@@ -26058,6 +26938,16 @@
     "my": "ဂီတ",
     "th": "เพลง",
     "ja": "音楽"
+  },
+  "Âm cần chú ý: {value0}": {
+    "en": "Sounds to watch: {value0}",
+    "hi": "ध्यान देने योग्य ध्वनियाँ: {value0}",
+    "zh": "需要注意的音：{value0}",
+    "zh_TW": "需要注意的音：{value0}",
+    "si": "අවධානය යොමු කළ යුතු ශබ්ද: {value0}",
+    "my": "သတိထားရမည့် အသံ: {value0}",
+    "th": "เสียงที่ต้องระวัง: {value0}",
+    "ja": "注意すべき音: {value0}"
   },
   "Âm mục": {
     "en": "Audio outline",
@@ -26218,6 +27108,16 @@
     "my": "ပုံမှန် ပြန်လည်ကျက်ပါ၊ စကားလုံး ကြီးထွားမည်",
     "th": "ทบทวนสม่ำเสมอเพื่อให้คำแข็งแรง",
     "ja": "こまめに復習して単語を育てましょう"
+  },
+  "Ôn tập: {value0}": {
+    "en": "Review: {value0}",
+    "hi": "दोहराव: {value0}",
+    "zh": "复习：{value0}",
+    "zh_TW": "複習：{value0}",
+    "si": "සමාලෝචනය: {value0}",
+    "my": "ပြန်လည်ကျက်မှတ်: {value0}",
+    "th": "ทบทวน: {value0}",
+    "ja": "復習: {value0}"
   },
   "Ôn đúng lúc sắp quên = nhớ lâu nhất": {
     "en": "Reviewing just before you forget = longest retention",
@@ -26529,6 +27429,16 @@
     "th": "กำลังปรับด้วยตนเองจาก preset ที่ใกล้ที่สุด: {value0}",
     "ja": "最も近いプリセットから手動調整中: {value0}"
   },
+  "Đang chờ... {value0}s": {
+    "en": "Waiting... {value0}s",
+    "hi": "प्रतीक्षा... {value0}s",
+    "zh": "等待中……{value0} 秒",
+    "zh_TW": "等待中……{value0} 秒",
+    "si": "රැඳී සිටිමින්... {value0}s",
+    "my": "စောင့်နေသည်... {value0}s",
+    "th": "กำลังรอ... {value0} วินาที",
+    "ja": "待機中… {value0}秒"
+  },
   "Đang cắt vùng đã chọn…": {
     "en": "Cropping the selected region...",
     "hi": "चयनित क्षेत्र काटा जा रहा है…",
@@ -26598,6 +27508,16 @@
     "my": "မျက်နှာပြင် ဘာသာပြန်နေသည်…",
     "th": "กำลังแปลหน้าจอ...",
     "ja": "画面を翻訳中…"
+  },
+  "Đang dịch {value0}/{value1} khối chữ…": {
+    "en": "Translating {value0}/{value1} text blocks...",
+    "hi": "{value0}/{value1} पाठ खंड अनूदित हो रहे हैं…",
+    "zh": "正在翻译 {value0}/{value1} 个文本块……",
+    "zh_TW": "正在翻譯 {value0}/{value1} 個文字區塊……",
+    "si": "පෙළ කොටස් {value0}/{value1} පරිවර්තනය වෙමින්…",
+    "my": "စာသားတုံး {value0}/{value1} ဘာသာပြန်နေသည်…",
+    "th": "กำลังแปลบล็อกข้อความ {value0}/{value1}...",
+    "ja": "テキストブロック {value0}/{value1} を翻訳中…"
   },
   "Đang dịch...": {
     "en": "Translating...",
@@ -27619,6 +28539,16 @@
     "th": "ประเมินความยาก:",
     "ja": "難易度を評価:"
   },
+  "Đánh giá: {value0}": {
+    "en": "Rating: {value0}",
+    "hi": "मूल्यांकन: {value0}",
+    "zh": "评估：{value0}",
+    "zh_TW": "評估：{value0}",
+    "si": "ඇගයීම: {value0}",
+    "my": "အကဲဖြတ်: {value0}",
+    "th": "การให้คะแนน: {value0}",
+    "ja": "評価: {value0}"
+  },
   "Đây là nơi ghép audio với text, đồng bộ dòng, phân tích ngữ cảnh và nối sang luyện nói hoặc ôn nhớ.": {
     "en": "This is where audio and text are joined, lines are synced, context is analysed, and you move on to speaking practice or memory review.",
     "hi": "यहीं audio और text जुड़ते हैं, पंक्तियाँ सिंक होती हैं, संदर्भ का विश्लेषण होता है और आगे बोलने के अभ्यास या याद रखने के दोहराव की ओर बढ़ते हैं।",
@@ -27748,6 +28678,16 @@
     "my": "ရွေးထားသည်: {value0}",
     "th": "เลือกแล้ว: {value0}",
     "ja": "選択済み: {value0}"
+  },
+  "Đã chờ {value0}s. AI chạy trên máy nên có thể mất 30–90 giây.": {
+    "en": "Waited {value0}s. On-device AI can take 30–90 seconds.",
+    "hi": "{value0} सेकंड प्रतीक्षा। ऑन-डिवाइस AI में 30–90 सेकंड लग सकते हैं।",
+    "zh": "已等待 {value0} 秒。本机 AI 可能需要 30–90 秒。",
+    "zh_TW": "已等待 {value0} 秒。本機 AI 可能需要 30–90 秒。",
+    "si": "තත්පර {value0}ක් රැඳී සිටියා. උපාංගයේ AI සඳහා තත්පර 30–90ක් ගත විය හැක.",
+    "my": "စက္ကန့် {value0} စောင့်ပြီး။ စက်ပေါ်ရှိ AI သည် 30–90 စက္ကန့် ကြာနိုင်သည်။",
+    "th": "รอ {value0} วินาทีแล้ว AI บนเครื่องอาจใช้เวลา 30–90 วินาที",
+    "ja": "{value0}秒待機しました。オンデバイスAIは30〜90秒かかることがあります。"
   },
   "Đã copy": {
     "en": "Copied",
@@ -27888,6 +28828,36 @@
     "my": "ဘာသာပြန်ပြီး စာကြောင်း {value0} • {value1} ရန် နှိပ်ပါ",
     "th": "มีคำแปลแล้ว {value0} บรรทัด • แตะเพื่อ{value1}",
     "ja": "訳 {value0} 行あり • タップで{value1}"
+  },
+  "Đã cập nhật \"{value0}\" từ văn bản hiện tại": {
+    "en": "Updated \"{value0}\" from the current text",
+    "hi": "\"{value0}\" वर्तमान पाठ से अद्यतन हुआ",
+    "zh": "已用当前文本更新「{value0}」",
+    "zh_TW": "已用目前文字更新「{value0}」",
+    "si": "\"{value0}\" වත්මන් පෙළින් යාවත්කාලීන විය",
+    "my": "\"{value0}\" ကို လက်ရှိ စာသားမှ အပ်ဒိတ်ပြီး",
+    "th": "อัปเดต \"{value0}\" จากข้อความปัจจุบันแล้ว",
+    "ja": "「{value0}」を現在のテキストで更新しました"
+  },
+  "Đã cập nhật file cloud \"{value0}\"": {
+    "en": "Updated the cloud file \"{value0}\"",
+    "hi": "क्लाउड फ़ाइल \"{value0}\" अद्यतन हुई",
+    "zh": "已更新云端文件「{value0}」",
+    "zh_TW": "已更新雲端檔案「{value0}」",
+    "si": "ක්ලවුඩ් ගොනුව \"{value0}\" යාවත්කාලීන විය",
+    "my": "cloud ဖိုင် \"{value0}\" အပ်ဒိတ်ပြီး",
+    "th": "อัปเดตไฟล์คลาวด์ \"{value0}\" แล้ว",
+    "ja": "クラウドファイル「{value0}」を更新しました"
+  },
+  "Đã cập nhật trực tiếp file cloud \"{value0}\"": {
+    "en": "Updated the cloud file \"{value0}\" directly",
+    "hi": "क्लाउड फ़ाइल \"{value0}\" सीधे अद्यतन हुई",
+    "zh": "已直接更新云端文件「{value0}」",
+    "zh_TW": "已直接更新雲端檔案「{value0}」",
+    "si": "ක්ලවුඩ් ගොනුව \"{value0}\" සෘජුව යාවත්කාලීන විය",
+    "my": "cloud ဖိုင် \"{value0}\" ကို တိုက်ရိုက် အပ်ဒိတ်ပြီး",
+    "th": "อัปเดตไฟล์คลาวด์ \"{value0}\" โดยตรงแล้ว",
+    "ja": "クラウドファイル「{value0}」を直接更新しました"
   },
   "Đã dịch bằng": {
     "en": "Translated with",
@@ -28229,6 +29199,26 @@
     "th": "บันทึกแล้ว",
     "ja": "保存済み"
   },
+  "Đã lưu \"{value0}\" lên cloud": {
+    "en": "Saved \"{value0}\" to the cloud",
+    "hi": "\"{value0}\" क्लाउड पर सहेजा",
+    "zh": "已将「{value0}」保存到云端",
+    "zh_TW": "已將「{value0}」儲存到雲端",
+    "si": "\"{value0}\" ක්ලවුඩ් වෙත සුරැකිණි",
+    "my": "\"{value0}\" ကို cloud သို့ သိမ်းပြီး",
+    "th": "บันทึก \"{value0}\" ขึ้นคลาวด์แล้ว",
+    "ja": "「{value0}」をクラウドに保存しました"
+  },
+  "Đã lưu \"{value0}\" vào Tools": {
+    "en": "Saved \"{value0}\" to Tools",
+    "hi": "\"{value0}\" Tools में सहेजा",
+    "zh": "已将「{value0}」保存到 Tools",
+    "zh_TW": "已將「{value0}」儲存到 Tools",
+    "si": "\"{value0}\" Tools වෙත සුරැකිණි",
+    "my": "\"{value0}\" ကို Tools သို့ သိမ်းပြီး",
+    "th": "บันทึก \"{value0}\" ลง Tools แล้ว",
+    "ja": "「{value0}」を Tools に保存しました"
+  },
   "Đã lưu chỉnh sửa": {
     "en": "Changes saved",
     "hi": "बदलाव सहेजे गए",
@@ -28309,6 +29299,16 @@
     "th": "บันทึกเซสชัน Cabin แล้ว",
     "ja": "Cabinセッションを保存しました"
   },
+  "Đã lưu phụ đề ({value0} dòng): {value1}": {
+    "en": "Saved subtitles ({value0} lines): {value1}",
+    "hi": "उपशीर्षक सहेजे ({value0} पंक्तियाँ): {value1}",
+    "zh": "已保存字幕（{value0} 行）：{value1}",
+    "zh_TW": "已儲存字幕（{value0} 行）：{value1}",
+    "si": "උපසිරැසි සුරැකිණි (පේළි {value0}): {value1}",
+    "my": "စာတန်းထိုး သိမ်းပြီး (စာကြောင်း {value0}): {value1}",
+    "th": "บันทึกคำบรรยายแล้ว ({value0} บรรทัด): {value1}",
+    "ja": "字幕を保存しました（{value0}行）: {value1}"
+  },
   "Đã lưu phụ đề vào: {value0}": {
     "en": "Saved subtitles to: {value0}",
     "hi": "उपशीर्षक यहाँ सहेजे: {value0}",
@@ -28378,6 +29378,36 @@
     "my": "Worklist သို့ သိမ်းပြီး။",
     "th": "บันทึกลง Worklist แล้ว",
     "ja": "Worklist に保存しました。"
+  },
+  "Đã lưu {value0}": {
+    "en": "Saved {value0}",
+    "hi": "{value0} सहेजा",
+    "zh": "已保存 {value0}",
+    "zh_TW": "已儲存 {value0}",
+    "si": "{value0} සුරැකිණි",
+    "my": "{value0} သိမ်းပြီး",
+    "th": "บันทึก {value0} แล้ว",
+    "ja": "{value0} を保存しました"
+  },
+  "Đã lưu {value0}: {value1}": {
+    "en": "Saved {value0}: {value1}",
+    "hi": "{value0} सहेजा: {value1}",
+    "zh": "已保存 {value0}：{value1}",
+    "zh_TW": "已儲存 {value0}：{value1}",
+    "si": "{value0} සුරැකිණි: {value1}",
+    "my": "{value0} သိမ်းပြီး: {value1}",
+    "th": "บันทึก {value0} แล้ว: {value1}",
+    "ja": "{value0} を保存: {value1}"
+  },
+  "Đã lưu: {value0}": {
+    "en": "Saved: {value0}",
+    "hi": "सहेजा: {value0}",
+    "zh": "已保存：{value0}",
+    "zh_TW": "已儲存：{value0}",
+    "si": "සුරැකිණි: {value0}",
+    "my": "သိမ်းပြီး: {value0}",
+    "th": "บันทึกแล้ว: {value0}",
+    "ja": "保存済み: {value0}"
   },
   "Đã mở ghi chú trong Text Studio": {
     "en": "Note opened in Text Studio",
@@ -28739,6 +29769,16 @@
     "th": "ดาวน์โหลด {value0} และนำเข้าคลัง Tipiṭaka โดยตรงแล้ว",
     "ja": "{value0} をダウンロードし、Tipiṭaka ライブラリに直接インポートしました。"
   },
+  "Đã tải xong ({value0})": {
+    "en": "Download complete ({value0})",
+    "hi": "डाउनलोड पूर्ण ({value0})",
+    "zh": "下载完成（{value0}）",
+    "zh_TW": "下載完成（{value0}）",
+    "si": "බාගැනීම අවසන් ({value0})",
+    "my": "ဒေါင်းလုဒ် ပြီးစီး ({value0})",
+    "th": "ดาวน์โหลดเสร็จ ({value0})",
+    "ja": "ダウンロード完了（{value0}）"
+  },
   "Đã tắt tự ẩn thanh chế độ": {
     "en": "Auto-hide for the mode bar is off",
     "hi": "मोड बार का स्वतः छिपना बंद हो गया",
@@ -28848,6 +29888,16 @@
     "my": "{value0} ကြိမ် ပြန်လေ့ကျင့်ပြီး",
     "th": "ทบทวนแล้ว {value0} ครั้ง",
     "ja": "{value0} 回復習済み"
+  },
+  "Đã ôn {value0} từ\nĐúng {value1}/{value2}": {
+    "en": "Reviewed {value0} words\nCorrect {value1}/{value2}",
+    "hi": "{value0} शब्द दोहराए\nसही {value1}/{value2}",
+    "zh": "已复习 {value0} 个词\n正确 {value1}/{value2}",
+    "zh_TW": "已複習 {value0} 個詞\n正確 {value1}/{value2}",
+    "si": "වචන {value0}ක් සමාලෝචනය කළා\nනිවැරදි {value1}/{value2}",
+    "my": "စကားလုံး {value0} လုံး ပြန်ကျက်ပြီး\nမှန် {value1}/{value2}",
+    "th": "ทบทวน {value0} คำแล้ว\nถูก {value1}/{value2}",
+    "ja": "{value0} 語を復習しました\n正解 {value1}/{value2}"
   },
   "Đã đánh dấu bài hiện tại là đọc xong": {
     "en": "Current article marked as finished",
@@ -29208,6 +30258,16 @@
     "my": "အချိန်ပြန်ရေတွက်",
     "th": "นับถอยหลัง",
     "ja": "カウントダウン"
+  },
+  "Đếm: {value0}": {
+    "en": "Count: {value0}",
+    "hi": "गणना: {value0}",
+    "zh": "计数：{value0}",
+    "zh_TW": "計數：{value0}",
+    "si": "ගණන: {value0}",
+    "my": "အရေအတွက်: {value0}",
+    "th": "นับ: {value0}",
+    "ja": "カウント: {value0}"
   },
   "Đến dòng": {
     "en": "To line",
@@ -30249,6 +31309,16 @@
     "th": "… และอีก {value0} บรรทัด — ใช้ \"ค้นหา\" ใน Listen Mode เพื่อค้นทั้งเนื้อหา",
     "ja": "…ほか {value0} 行 — 全体を検索するには Listen Mode の「検索」を使ってください。"
   },
+  "ℹ️ screen translate: vùng chọn {value0} quá bé/ngoài màn hình ⇒ dịch cả màn hình": {
+    "en": "ℹ️ screen translate: the selection {value0} is too small/off-screen ⇒ translating the whole screen",
+    "hi": "ℹ️ screen translate: चयन {value0} बहुत छोटा/स्क्रीन से बाहर ⇒ पूरी स्क्रीन अनूदित",
+    "zh": "ℹ️ 屏幕翻译：所选区域 {value0} 过小／在屏幕外 ⇒ 翻译整个屏幕",
+    "zh_TW": "ℹ️ 螢幕翻譯：所選區域 {value0} 過小／在螢幕外 ⇒ 翻譯整個螢幕",
+    "si": "ℹ️ screen translate: තෝරාගැනීම {value0} කුඩා/තිරයෙන් පිටත ⇒ මුළු තිරයම පරිවර්තනය",
+    "my": "ℹ️ screen translate: ရွေးချယ်မှု {value0} သေးလွန်း/မျက်နှာပြင်ပြင်ပ ⇒ မျက်နှာပြင်တစ်ခုလုံး ဘာသာပြန်",
+    "th": "ℹ️ แปลหน้าจอ: พื้นที่ที่เลือก {value0} เล็กเกินไป/นอกจอ ⇒ แปลทั้งหน้าจอ",
+    "ja": "ℹ️ 画面翻訳: 選択範囲 {value0} が小さすぎる／画面外 ⇒ 画面全体を翻訳"
+  },
   "↔️ Cùng ngôn ngữ": {
     "en": "↔️ Same language",
     "hi": "↔️ समान भाषा",
@@ -30339,6 +31409,16 @@
     "th": "⚠️ สแกนผิดพลาด: {value0}",
     "ja": "⚠️ スキャンエラー: {value0}"
   },
+  "⚡ {value0} token vào · {value1} token ra": {
+    "en": "⚡ {value0} input tokens · {value1} output tokens",
+    "hi": "⚡ {value0} इनपुट token · {value1} आउटपुट token",
+    "zh": "⚡ 输入 {value0} token · 输出 {value1} token",
+    "zh_TW": "⚡ 輸入 {value0} token · 輸出 {value1} token",
+    "si": "⚡ ආදාන token {value0} · ප්‍රතිදාන token {value1}",
+    "my": "⚡ ထည့်သွင်း token {value0} · ထုတ် token {value1}",
+    "th": "⚡ token ขาเข้า {value0} · ขาออก {value1}",
+    "ja": "⚡ 入力 {value0} token · 出力 {value1} token"
+  },
   "✅ DeepLX hoạt động — dịch thử: “{value0}” ({value1} ms)": {
     "en": "✅ DeepLX works — test translation: “{value0}” ({value1} ms)",
     "hi": "✅ DeepLX काम करता है — परीक्षण अनुवाद: “{value0}” ({value1} ms)",
@@ -30348,6 +31428,46 @@
     "my": "✅ DeepLX အလုပ်လုပ်သည် — စမ်းသပ်ဘာသာပြန်: “{value0}” ({value1} ms)",
     "th": "✅ DeepLX ทำงานได้ — ทดลองแปล: “{value0}” ({value1} ms)",
     "ja": "✅ DeepLX は動作しています — テスト翻訳:「{value0}」（{value1} ms）"
+  },
+  "✅ LHB sync (REST): kéo {value0} doc, áp dụng {value1} thay đổi": {
+    "en": "✅ LHB sync (REST): pulled {value0} docs, applied {value1} changes",
+    "hi": "✅ LHB sync (REST): {value0} doc खींचे, {value1} बदलाव लागू",
+    "zh": "✅ LHB 同步（REST）：拉取 {value0} 个 doc，应用 {value1} 项更改",
+    "zh_TW": "✅ LHB 同步（REST）：拉取 {value0} 個 doc，套用 {value1} 項變更",
+    "si": "✅ LHB sync (REST): doc {value0}ක් ඇද, වෙනස්කම් {value1}ක් යොදන ලදි",
+    "my": "✅ LHB sync (REST): doc {value0} ခု ဆွဲပြီး၊ အပြောင်းအလဲ {value1} ခု သုံးပြီး",
+    "th": "✅ LHB sync (REST): ดึง {value0} doc ใช้การเปลี่ยนแปลง {value1} รายการ",
+    "ja": "✅ LHB 同期（REST）: {value0} 件の doc を取得し、{value1} 件の変更を適用しました"
+  },
+  "✅ LHB sync (REST): đẩy {value0} thay đổi": {
+    "en": "✅ LHB sync (REST): pushed {value0} changes",
+    "hi": "✅ LHB sync (REST): {value0} बदलाव भेजे",
+    "zh": "✅ LHB 同步（REST）：已推送 {value0} 项更改",
+    "zh_TW": "✅ LHB 同步（REST）：已推送 {value0} 項變更",
+    "si": "✅ LHB sync (REST): වෙනස්කම් {value0}ක් යවන ලදි",
+    "my": "✅ LHB sync (REST): အပြောင်းအလဲ {value0} ခု ပို့ပြီး",
+    "th": "✅ LHB sync (REST): ส่งการเปลี่ยนแปลง {value0} รายการแล้ว",
+    "ja": "✅ LHB 同期（REST）: {value0} 件の変更を送信しました"
+  },
+  "✅ LHB sync: kéo {value0} doc, áp dụng {value1} thay đổi": {
+    "en": "✅ LHB sync: pulled {value0} docs, applied {value1} changes",
+    "hi": "✅ LHB sync: {value0} doc खींचे, {value1} बदलाव लागू",
+    "zh": "✅ LHB 同步：拉取 {value0} 个 doc，应用 {value1} 项更改",
+    "zh_TW": "✅ LHB 同步：拉取 {value0} 個 doc，套用 {value1} 項變更",
+    "si": "✅ LHB sync: doc {value0}ක් ඇද, වෙනස්කම් {value1}ක් යොදන ලදි",
+    "my": "✅ LHB sync: doc {value0} ခု ဆွဲပြီး၊ အပြောင်းအလဲ {value1} ခု သုံးပြီး",
+    "th": "✅ LHB sync: ดึง {value0} doc ใช้การเปลี่ยนแปลง {value1} รายการ",
+    "ja": "✅ LHB 同期: {value0} 件の doc を取得し、{value1} 件の変更を適用しました"
+  },
+  "✅ LHB sync: đẩy {value0} thay đổi": {
+    "en": "✅ LHB sync: pushed {value0} changes",
+    "hi": "✅ LHB sync: {value0} बदलाव भेजे",
+    "zh": "✅ LHB 同步：已推送 {value0} 项更改",
+    "zh_TW": "✅ LHB 同步：已推送 {value0} 項變更",
+    "si": "✅ LHB sync: වෙනස්කම් {value0}ක් යවන ලදි",
+    "my": "✅ LHB sync: အပြောင်းအလဲ {value0} ခု ပို့ပြီး",
+    "th": "✅ LHB sync: ส่งการเปลี่ยนแปลง {value0} รายการแล้ว",
+    "ja": "✅ LHB 同期: {value0} 件の変更を送信しました"
   },
   "✅ Đang phát: {value0}": {
     "en": "✅ Playing: {value0}",
@@ -30458,6 +31578,16 @@
     "my": "✅ \"{value0}\" အုပ်စုသို့ သိမ်းပြီး",
     "th": "✅ บันทึกลงกลุ่ม \"{value0}\" แล้ว",
     "ja": "✅「{value0}」グループに保存しました"
+  },
+  "✅ Đã tạo {value0} entry con": {
+    "en": "✅ Created {value0} child entries",
+    "hi": "✅ {value0} चाइल्ड entry बनाए",
+    "zh": "✅ 已创建 {value0} 条子条目",
+    "zh_TW": "✅ 已建立 {value0} 條子項目",
+    "si": "✅ උප entry {value0}ක් සාදන ලදි",
+    "my": "✅ ခွဲ entry {value0} ခု ဖန်တီးပြီး",
+    "th": "✅ สร้าง entry ย่อย {value0} รายการแล้ว",
+    "ja": "✅ 子エントリ {value0} 件を作成しました"
   },
   "✅ Đã tạo {value0} mục lục": {
     "en": "✅ Created {value0} chapters",
@@ -30719,6 +31849,26 @@
     "th": "🌐 อื่น ๆ / กำหนดเอง",
     "ja": "🌐 その他／カスタム"
   },
+  "🌱 \"{value0}\" đã được gieo trong vườn nhớ rồi!": {
+    "en": "🌱 \"{value0}\" is already planted in the memory garden!",
+    "hi": "🌱 \"{value0}\" पहले ही स्मृति उद्यान में बोया जा चुका है!",
+    "zh": "🌱「{value0}」已种在记忆花园中！",
+    "zh_TW": "🌱「{value0}」已種在記憶花園中！",
+    "si": "🌱 \"{value0}\" දැනටමත් මතක උයනේ රෝපණය කර ඇත!",
+    "my": "🌱 \"{value0}\" ကို မှတ်ဉာဏ်ဥယျာဉ်တွင် စိုက်ပြီးဖြစ်သည်!",
+    "th": "🌱 \"{value0}\" ถูกปลูกในสวนความจำแล้ว!",
+    "ja": "🌱「{value0}」は既に記憶の庭に植えられています！"
+  },
+  "🌱 Đã gieo mầm \"{value0}\" vào vườn trí nhớ!": {
+    "en": "🌱 Planted \"{value0}\" in the memory garden!",
+    "hi": "🌱 \"{value0}\" स्मृति उद्यान में बोया!",
+    "zh": "🌱 已将「{value0}」种入记忆花园！",
+    "zh_TW": "🌱 已將「{value0}」種入記憶花園！",
+    "si": "🌱 \"{value0}\" මතක උයනේ රෝපණය කළා!",
+    "my": "🌱 \"{value0}\" ကို မှတ်ဉာဏ်ဥယျာဉ်တွင် စိုက်ပြီး!",
+    "th": "🌱 ปลูก \"{value0}\" ลงสวนความจำแล้ว!",
+    "ja": "🌱「{value0}」を記憶の庭に植えました！"
+  },
   "🎙️ Sherpa Piper (lưu file)": {
     "en": "🎙️ Sherpa Piper (saves file)",
     "hi": "🎙️ Sherpa Piper (फ़ाइल सहेजता है)",
@@ -30798,6 +31948,26 @@
     "my": "💬 ကောင်းသော ဝါကျ",
     "th": "💬 ประโยคดี",
     "ja": "💬 良い文"
+  },
+  "📅 Lần tới: {value0} ngày nữa": {
+    "en": "📅 Next: in {value0} days",
+    "hi": "📅 अगला: {value0} दिन में",
+    "zh": "📅 下次：{value0} 天后",
+    "zh_TW": "📅 下次：{value0} 天後",
+    "si": "📅 ඊළඟ: දින {value0}කින්",
+    "my": "📅 နောက်တစ်ကြိမ်: {value0} ရက်အတွင်း",
+    "th": "📅 ครั้งต่อไป: อีก {value0} วัน",
+    "ja": "📅 次回: {value0} 日後"
+  },
+  "📌 Gặp nhiều lần ({value0})": {
+    "en": "📌 Seen many times ({value0})",
+    "hi": "📌 कई बार मिला ({value0})",
+    "zh": "📌 多次遇见（{value0}）",
+    "zh_TW": "📌 多次遇見（{value0}）",
+    "si": "📌 බොහෝ වර ගැටුණි ({value0})",
+    "my": "📌 အကြိမ်များစွာ တွေ့ပြီး ({value0})",
+    "th": "📌 พบบ่อยครั้ง ({value0})",
+    "ja": "📌 何度も出会った（{value0}）"
   },
   "📌 Đã đánh dấu {value0}": {
     "en": "📌 Bookmarked {value0}",
@@ -30918,6 +32088,16 @@
     "my": "🛠️ အရာ {value0} ခုအတွက် bulk fields သုံးပြီး",
     "th": "🛠️ ใช้ bulk fields กับ {value0} รายการแล้ว",
     "ja": "🛠️ {value0} 件に一括フィールドを適用しました"
+  },
+  "🧩 Hỗn hợp ngôn ngữ · {value0}": {
+    "en": "🧩 Mixed languages · {value0}",
+    "hi": "🧩 मिश्रित भाषाएँ · {value0}",
+    "zh": "🧩 多语言混合 · {value0}",
+    "zh_TW": "🧩 多語言混合 · {value0}",
+    "si": "🧩 මිශ්‍ර භාෂා · {value0}",
+    "my": "🧩 ဘာသာစကား ရောစပ် · {value0}",
+    "th": "🧩 หลายภาษาผสม · {value0}",
+    "ja": "🧩 言語ミックス · {value0}"
   },
   "🪷 Tiếng Pali (pi)": {
     "en": "🪷 Pali (pi)",

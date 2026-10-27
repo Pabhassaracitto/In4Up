@@ -81,7 +81,8 @@
       "với",
       "đang",
       "đó",
-      "được"
+      "được",
+      "ZH-TW"
     ],
     "features/tts/engines/edge_tts_engine.dart": [
       "Accept-Language",
@@ -97,7 +98,9 @@
       "UTF-8",
       "Neural",
       "Microsoft Edge",
-      "Microsoft Edge TTS"
+      "Microsoft Edge TTS",
+      "Content-Type",
+      "User-Agent"
     ],
     "features/tts/engines/openai_compat_tts_engine.dart": [
       "Alloy",
@@ -114,16 +117,19 @@
       "FPT.AI TTS",
       "Ban Mai",
       "Linh San",
-      "Lê Minh"
+      "Lê Minh",
+      "Content-Type"
     ],
     "features/tts/engines/zalo_tts_engine.dart": [
       "Zalo AI",
-      "Zalo AI TTS"
+      "Zalo AI TTS",
+      "Content-Type"
     ],
     "features/tts/engines/google_tts_engine.dart": [
       "Google TTS",
       "Referer",
-      "UTF-8"
+      "UTF-8",
+      "User-Agent"
     ],
     "features/tts/engines/offline_tts_engine.dart": [
       "Offline TTS"
@@ -192,11 +198,15 @@
       "YOUR_KEY"
     ],
     "features/youtube/services/yt_downloader.dart": [
-      "SocketException"
+      "SocketException",
+      "✅ [in4up-yt] tải xong $received / $totalBytes bytes (số lần nối: $attempt)",
+      "❌ [in4up-yt] tải chưa hoàn tất: $got / $totalBytes bytes sau $_maxAttempts lần thử."
     ],
     "features/youtube/services/yt_search_service.dart": [
       "Accept-Language",
-      "${resp.body.contains('ytInitialData') ? 'có' : 'KHÔNG'} "
+      "${resp.body.contains('ytInitialData') ? 'có' : 'KHÔNG'} ",
+      "KHÔNG",
+      "có"
     ],
     "features/youtube/youtube_explorer_screen.dart": [
       "English Addict with Mr Steve",
@@ -237,7 +247,10 @@
       "HyMtIsolate",
       "Chọn Hy-MT1.5-1.8B-2bit.gguf",
       "Cần file .gguf (Hy-MT1.5-1.8B-2bit.gguf)",
-      "User-Agent"
+      "User-Agent",
+      "${backend.lastLoadError ?? 'không rõ lý do'}. ",
+      "}. Thử \\\"Tải về\\\" lại model rồi dịch lại.",
+      "}. Thử \"Tải về\" lại model rồi dịch lại."
     ],
     "features/translation/engines/libre_engine.dart": [
       "LibreTranslate",
@@ -255,7 +268,9 @@
     "features/translation/engines/mymemory_engine.dart": [
       "MYMEMORY WARNING",
       "MyMemory",
-      "PLEASE CONTACT"
+      "PLEASE CONTACT",
+      "ZH-CN",
+      "ZH-TW"
     ],
     "features/translation/engines/offline_engine.dart": [
       "Offline Dictionary"
@@ -337,7 +352,8 @@
     "services/firestore_rest_client.dart": [
       "ASCENDING",
       "GREATER_THAN",
-      "REQUEST_TIME"
+      "REQUEST_TIME",
+      "Authorization"
     ],
     "services/google_drive_service.dart": [
       "My Drive"
@@ -405,7 +421,10 @@
       " (dòng ${context.focusLineIndex! + 1})",
       "Câu mình đang hỏi$lineLabel:\n",
       "Mình đang học ở tab Hiểu (${parts.join(', ')}).\n",
-      "bài: « ${context.sourceTitle} »"
+      "bài: « ${context.sourceTitle} »",
+      "(dòng ${context.focusLineIndex! + 1})",
+      "Câu mình đang hỏi$lineLabel:",
+      "Mình đang học ở tab Hiểu (${parts.join(', ')})."
     ],
     "features/vocab_image/vocab_animation_library.dart": [
       "Artist",
@@ -413,7 +432,8 @@
       "File:",
       "LicenseShortName",
       "Wikimedia Commons",
-      "Lottie"
+      "Lottie",
+      "User-Agent"
     ],
     "features/vocab_image/vocab_image_api_config.dart": [
       "VOCAB_IMAGE_API_KEY",
@@ -484,7 +504,8 @@
       "Space"
     ],
     "features/pdf_reader/services/pdf_xfdf_export.dart": [
-      "    <!-- không có highlight/ghi chú nào để xuất -->\n"
+      "    <!-- không có highlight/ghi chú nào để xuất -->\n",
+      "<!-- không có highlight/ghi chú nào để xuất -->"
     ],
     "features/pdf_reader/widgets/pdf_export_row.dart": [
       "JSON",
@@ -505,7 +526,11 @@
     ],
     "features/cabin/screens/live_cabin_screen.dart": [
       "Parakeet",
-      "Zipformer"
+      "Zipformer",
+      "Hoặc dùng $fallback (đã cài) sau khi xác nhận.",
+      "Hy-MT",
+      "ML Kit",
+      "Offline"
     ],
     "features/cabin/services/cabin_wav_writer.dart": [
       "RIFF",
@@ -521,7 +546,8 @@
       "yỳýỷỹỵ"
     ],
     "features/translation/glossary/glossary_store.dart": [
-      "[đĐơƠưƯạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹýàáảãạèéẻẽẹ"
+      "[đĐơƠưƯạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹýàáảãạèéẻẽẹ",
+      "ìíỉĩịòóỏõọùúủũụ]"
     ],
     "features/grammar/models/grammar_highlight_preset.dart": [
       "^Preset cá nhân gồm \\d+ nhóm từ loại được chọn thủ công\\.$",
@@ -531,11 +557,15 @@
       "việt"
     ],
     "features/translation/translation_service.dart": [
-      "MIXED"
+      "MIXED",
+      "ℹ️ LLM API: chưa cấu hình provider cho dịch LLM (màn Server & API) hoặc routing \"Dịch\" đang \"Chỉ offline\" — bỏ qua lớp LLM, dùng engine khác. (thông báo này chỉ in 1 lần)"
     ],
     "features/cabin/services/stts_cabin_service.dart": [
       "Parakeet",
-      "Zipformer"
+      "Zipformer",
+      "— máy có $fallbackTag, cần user xác nhận",
+      "${fallbackTag == null ? '' : ' — máy có $fallbackTag, cần user xác nhận'}.",
+      "}.Máy có thể KHÔNG có sẵn dịch vụ Speech Recognition. Bạn có thể chuyển sang Engine \"Offline (sherpa)\" để nhận diện không cần dịch vụ hệ thống."
     ],
     "features/grammar/services/sentence_typer.dart": [
       "IT-CLEFT",
@@ -566,7 +596,8 @@
       "PERMISSION_LOST"
     ],
     "features/vocab_image/vocab_image_picker_sheet.dart": [
-      "Lottie"
+      "Lottie",
+      "Wikimedia Commons"
     ],
     "features/word_lookup/services/online_dictionary_source.dart": [
       "Accept"
@@ -578,11 +609,14 @@
     "firebase_options_dev.dart": [
       "AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig",
       "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk",
-      "G-N72C4S87J8"
+      "G-N72C4S87J8",
+      "DefaultFirebaseOptions have not been configured for linux - you can reconfigure this by running the FlutterFire CLI again.",
+      "DefaultFirebaseOptions have not been configured for macos - you can reconfigure this by running the FlutterFire CLI again."
     ],
     "screens/ai_chat/ai_chat_screen.dart": [
       "I4U AI Chat",
-      "Import AI model"
+      "Import AI model",
+      "Không có"
     ],
     "screens/settings/ai_providers_screen.dart": [
       "Gemini",
@@ -595,6 +629,53 @@
     "screens/tools/venn_tab.dart": [
       "H+Đ",
       "N+Đ"
+    ],
+    "features/grammar/widgets/structure_section.dart": [
+      "IT-CLEFT",
+      "There+V+S"
+    ],
+    "features/learn_by_heart/widgets/audio_control_bar.dart": [
+      "Pali"
+    ],
+    "features/vocab_image/vocab_media_slots_editor.dart": [
+      "Lottie"
+    ],
+    "firebase_options_prod.dart": [
+      "AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig",
+      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk",
+      "G-N72C4S87J8",
+      "DefaultFirebaseOptions have not been configured for linux - you can reconfigure this by running the FlutterFire CLI again.",
+      "DefaultFirebaseOptions have not been configured for macos - you can reconfigure this by running the FlutterFire CLI again."
+    ],
+    "providers/text_provider.dart": [
+      "STT Result"
+    ],
+    "screens/home/home_screen.dart": [
+      "I4U AI Chat"
+    ],
+    "screens/listen_mode/widgets/google_drive_browser.dart": [
+      "Authorization",
+      "Bearer"
+    ],
+    "screens/tools/word_list/word_import_sheet.dart": [
+      "hình",
+      "hình ảnh",
+      "minh họa",
+      "ảnh",
+      "ảnh minh họa"
+    ],
+    "services/text_device_channel.dart": [
+      "BAD_URI",
+      "PERMISSION_LOST"
+    ],
+    "features/translation/glossary/glossary_sheet.dart": [
+      "Pali"
+    ],
+    "services/firebase_rest_auth.dart": [
+      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk"
+    ],
+    "screens/listen_mode/listen_mode_screen.dart": [
+      "Pali"
     ]
   }
 }

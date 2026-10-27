@@ -28,6 +28,13 @@ class YtReadAloudStep {
   String toString() => 'step(line=$line, ${isTarget ? 'T' : 'S'}: $text)';
 }
 
+/// YT-READ-LOOP-LESSON-001 (#8) — số lượt đọc CẢ BÀI.
+///
+/// `passes == 0` ⇒ `null` = đọc mãi mãi (vòng tròn) tới khi bị `stop()`.
+/// Trả `null` thay vì một số rất lớn để chỗ gọi biểu diễn được ý "vô hạn"
+/// mà không phải đoán một trần tuỳ tiện.
+int? ytPassCount(int passes) => passes == 0 ? null : (passes < 1 ? 1 : passes);
+
 /// Một dòng phụ đề đã chuẩn bị để đọc.
 class YtReadAloudLine {
   const YtReadAloudLine({required this.source, this.target});

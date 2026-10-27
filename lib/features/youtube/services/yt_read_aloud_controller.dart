@@ -36,6 +36,13 @@ class YtReadAloudController extends ChangeNotifier {
   String _activeSide = 'source';
   String get activeSide => _activeSide;
 
+  /// Đang ở lượt thứ mấy của cả bài (1-based) và tổng số lượt.
+  /// `_passTotal == null` ⇒ đọc mãi mãi.
+  int _pass = 0;
+  int? _passTotal;
+  int get pass => _pass;
+  int? get passTotal => _passTotal;
+
   int _epoch = 0;
 
   /// Đã huỷ controller chưa. KHÔNG được `notifyListeners()` sau khi dispose
@@ -63,30 +70,52 @@ class YtReadAloudController extends ChangeNotifier {
     _activeLine = -1;
     _notify();
 
-    final steps = buildYtReadAloudSequence(
-      lines: lines,
-      settings: settings,
-      startIndex: startIndex,
-    );
+    // YT-READ-LOOP-LESSON-001 (#8): đọc lại CẢ BÀI theo `readAloudPasses`.
+    // `0` = mãi mãi ⇒ `passTotal == null` (không có trần).
+    final passTotal = ytPassCount(settings.readAloudPasses);
     final gap = Duration(milliseconds: settings.readAloudGapMs);
     final speed = settings.readAloudSpeed;
 
-    for (var i = 0; i < steps.length; i++) {
-      if (_isStale(epoch)) return;
-      final step = steps[i];
-      _activeLine = step.line;
-      _activeSide = step.isTarget ? 'target' : 'source';
+    var pass = 0;
+    while (passTotal == null || pass < passTotal) {
+      // Lượt đầu bắt đầu từ `startIndex`; các lượt sau đọc LẠI TỪ ĐẦU bài
+      // (người dùng chọn "lặp bài" nghĩa là nghe trọn bài, không phải lặp
+      // phần đuôi từ chỗ đang đứng).
+      final steps = buildYtReadAloudSequence(
+        lines: lines,
+        settings: settings,
+        startIndex: pass == 0 ? startIndex : 0,
+      );
+      if (steps.isEmpty) break;
+
+      _pass = pass + 1;
+      _passTotal = passTotal;
       _notify();
 
-      if (!await _speak(
-        step.text,
-        step.isTarget ? targetLangCode : sourceLangCode,
-        speed,
-        epoch,
-      )) {
-        return;
+      for (var i = 0; i < steps.length; i++) {
+        if (_isStale(epoch)) return;
+        final step = steps[i];
+        _activeLine = step.line;
+        _activeSide = step.isTarget ? 'target' : 'source';
+        _notify();
+
+        if (!await _speak(
+          step.text,
+          step.isTarget ? targetLangCode : sourceLangCode,
+          speed,
+          epoch,
+        )) {
+          return;
+        }
+        if (i < steps.length - 1) await _gap(gap, epoch);
       }
-      if (i < steps.length - 1) await _gap(gap, epoch);
+
+      pass++;
+      // Nghỉ giữa hai lượt bài lâu hơn giữa hai dòng để người dùng kịp
+      // chuyển sang việc khác / bấm dừng trước khi bài đọc lại.
+      if (passTotal == null || pass < passTotal) {
+        await _gap(gap * 3, epoch);
+      }
     }
 
     if (!_isStale(epoch)) {
@@ -100,6 +129,8 @@ class YtReadAloudController extends ChangeNotifier {
     _epoch++;
     _running = false;
     _activeLine = -1;
+    _pass = 0;
+    _passTotal = null;
     _notify();
     await _tts.stop();
   }

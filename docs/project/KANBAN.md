@@ -7935,6 +7935,13 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     `main_web.dart`. Đã comment bằng chứng + script QA 3 phút trong PR #112.
     **Còn:** owner nghiệm thu Android + iPhone (inline playback), `hi`/`zh`
     chrome, airline-mode banner.
+  - 2026-10-26 | review | agent Arena `arena/508531fd-in4up` | **CI 🟢 trên tip
+    đã rebase `b04a37a`** — app_analyze run **40442992784** (push 40442988499):
+    `flutter analyze` 0 error; `success` lần lượt Rule 5 · PARAKEET-002 ·
+    DICT-CLEAN-001/WORD-INSIGHT-001 · **PRON-001 golden** · **PRON-002** ·
+    READ-GRAM-001 · shell order; `Deploy Flutter web` **40442988469** 🟢.
+    ⇒ rebase không làm đỏ cổng nào của 251e và 251e không làm đỏ cổng PRON.
+    Trạng thái PR #112: `MERGEABLE / CLEAN` (đã hết `CONFLICTING`).
   - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **CI ĐỎ run
     40234606043 (step "Analyze full app", 2 ERROR)** — đọc annotations qua
     `gh api /check-runs/<job>/annotations` (artifact log KHÔNG tải được từ

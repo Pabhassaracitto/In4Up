@@ -192,6 +192,24 @@ jobs:
           cat dict_word_insight_test.log
           exit $code
 
+      # Log của bước trên KHÔNG đọc được qua API (GitHub chỉ trả log qua blob
+      # storage) ⇒ khi đỏ, đẩy phần đuôi log lên thành *annotation* của check-run
+      # để còn đọc được bằng `gh api .../check-runs/<id>/annotations`.
+      - name: "DICT tests — đưa lỗi lên annotation khi đỏ"
+        if: failure()
+        run: |
+          python3 - <<'PYEOF'
+          import os, pathlib
+          log = pathlib.Path('dict_word_insight_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          text = log.read_text(encoding='utf-8', errors='replace')[-6000:]
+          escaped = (text.replace('%', '%25')
+                         .replace('\r', '')
+                         .replace('\n', '%0A'))
+          print('::error title=dict-tests::' + escaped)
+          PYEOF
+
       # PRON-001 (ADR-0015 D5) — gom 2 bản `_buildUrl()` YouGlish về
       # `YouGlishUrl.build` mà KHÔNG đổi hành vi: golden test sao chép nguyên văn
       # 2 hàm cũ và bắt chuỗi mới giống hệt trên ma trận từ × ngôn ngữ × accent,

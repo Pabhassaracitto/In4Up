@@ -24,7 +24,7 @@ import 'package:in4up_stt/models/content_id.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
-import 'package:in4up/widgets/karaoke_lyrics_line.dart';
+import 'package:in4up/widgets/karaoke_transcript_view.dart';
 import 'package:in4up/widgets/karaoke_settings_sheet.dart';
 import 'package:in4up/widgets/lrc_editor_panel.dart';
 
@@ -99,6 +99,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   // ★ LRC state - curtain style
   bool _showLrcOnMain = false;
+  bool _lrcHiddenByUser = false;
   Map<String, int> _speakerColorMap = const {};
   double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
   static const double _lrcMinHeight = 64.0; // when collapsed, show handle
@@ -108,13 +109,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // rèm LRC phải nhường chỗ để không bottom overflow che thanh điều hướng
   bool _inlinePanelOpen = false;
 
-  // LRC ScrollController for sophisticated LRC display
-  late ScrollController _lrcScrollController;
+  // The shared transcript view owns its item scrolling and user-drag grace.
   bool _autoScroll = true;
-
-  /// Khi người dùng đang tự kéo danh sách → tạm tắt auto-scroll để không
-  /// giật ngược vị trí (issue: kéo thủ công không được).
-  bool _userScrollingLrc = false;
 
   bool _sheetOpen = false;
   bool _aiSheetOpen = false;
@@ -127,8 +123,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     WidgetsBinding.instance.addObserver(this);
     _waveformController = RollingWaveformController();
     _voiceCommandService = VoiceCommandService();
-    _lrcScrollController =
-        ScrollController(); // Initialize LRC scroll controller
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _setupListeners();
@@ -213,13 +207,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     _listenersSetup = true;
 
-    // Load LRC nếu đã có
+    // Lyrics may already be in memory (including a partial AI result) even
+    // before an LRC path is persisted and while the player is paused.
+    if (understand.lrcLines.isNotEmpty) _showLrcOnMain = true;
     if (player.lastGeneratedLrcPath != null) {
       _loadLrcFile(player.lastGeneratedLrcPath!);
-      final understandProvider = context.read<UnderstandProvider>();
-      if (understandProvider.lrcLines.isNotEmpty) {
-        _showLrcOnMain = true;
-      }
     }
 
     _forceReloadWaveformIfNeeded();
@@ -303,46 +295,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     // AnimatedBuilder còn sống gọi setState during build → màn đỏ vài giây.
     _waveformController.dispose();
     _voiceCommandService.dispose();
-    _lrcScrollController.dispose(); // Cleanup LRC scroll controller
     _sheetController.dispose();
     _aiSheetController.dispose();
     _listenersSetup = false;
     super.dispose();
-  }
-
-  // Auto-scroll to active LRC line - improved, không trật màn hình
-  void _scrollToLine(int index) {
-    if (!_lrcScrollController.hasClients || index < 0) return;
-    if (_lrcHeight < _lrcMinHeight) return; // panel đang ẩn hoặc quá nhỏ
-
-    try {
-      final position = _lrcScrollController.position;
-      if (!position.hasContentDimensions) return;
-
-      final viewportHeight = position.viewportDimension;
-      if (viewportHeight <= 0) return;
-
-      const estimatedLineHeight = 52.0;
-      final targetOffset = index * estimatedLineHeight;
-      // Karaoke centered in middle for best visibility (was 0.35 top, hidden above)
-      final desiredCenter = viewportHeight * 0.5;
-      final centerOffset =
-          targetOffset - desiredCenter + (estimatedLineHeight / 2);
-
-      if (position.maxScrollExtent <= 0) return;
-      final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
-
-      // Luôn scroll để dòng karaoke ở giữa, không skip khi inView (fix ẩn trên nhiều)
-      if ((position.pixels - clamped).abs() > 8) {
-        _lrcScrollController.animateTo(
-          clamped,
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    } catch (e) {
-      debugPrint('[LRC] scrollToLine error: $e');
-    }
   }
 
   String _normalizePath(String path) {
@@ -373,6 +329,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       // LISTEN-LRC-001: deferred when this tick lands mid-build.
       safeSetState(() {
         _showLrcOnMain = false;
+        _lrcHiddenByUser = false;
         _lrcHeight = _lrcDefaultHeight;
         _inlinePanelOpen = false;
         _aiSheetOpen = false;
@@ -406,11 +363,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     }
     _syncLoopRegions(player);
 
-    // ★ Update UnderstandProvider position cho synced lyrics
-    if (_showLrcOnMain) {
-      // LISTEN-LRC-001: stored ref — no context.read inside a listener.
-      _understandProvider?.updatePosition(player.state.position);
-    }
   }
 
   void _syncLoopRegions(PlayerProvider player) {
@@ -460,8 +412,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       if (!mounted) return;
       final hasLrcLines = understand.lrcLines.isNotEmpty;
 
-      // Tự động hiển thị LRC panel khi có lyrics mới
-      if (hasLrcLines && !_showLrcOnMain) {
+      // A new transcript opens automatically, but ordinary word/position
+      // updates must not reopen a panel that the user deliberately hid.
+      if (!hasLrcLines) _lrcHiddenByUser = false;
+      if (hasLrcLines && !_showLrcOnMain && !_lrcHiddenByUser) {
         safeSetState(() {
           _showLrcOnMain = true;
         });
@@ -472,12 +426,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         });
       }
 
-      // Auto-scroll to current line (from UnderstandModeScreen logic)
-      final idx = understand.currentLineIndex;
-      // Chỉ auto-scroll khi user KHÔNG đang tự kéo danh sách.
-      if (idx >= 0 && _autoScroll && !_userScrollingLrc && hasLrcLines) {
-        _scrollToLine(idx);
-      }
     }
 
     if (listenShouldDeferSetState()) {
@@ -489,6 +437,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   // ★ Load LRC file và parse thành danh sách dòng text
   Future<void> _loadLrcFile(String lrcPath) async {
+    final sourceAtStart = _playerProvider?.currentSongPath;
     try {
       final file = File(lrcPath);
       if (!await file.exists()) return;
@@ -503,9 +452,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
         // Parse LRC format: [mm:ss.xx] text
         final match =
-            RegExp(r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$').firstMatch(trimmed);
+            RegExp(r'^\[(\d+):(\d{2})\.(\d{2,3})\](.*)$').firstMatch(trimmed);
         if (match != null) {
-          final text = match.group(4)?.trim() ?? '';
+          final text = (match.group(4) ?? '')
+              .replaceAll(RegExp(r'<\d+:\d{2}\.\d{2,3}>'), '')
+              .trim();
           if (text.isNotEmpty) {
             lines.add(text);
             final min = int.parse(match.group(1)!);
@@ -527,10 +478,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       }
 
       final speakerMap = await SpeakerSidecar.loadSpeakerMap(lrcPath);
-      if (mounted && lines.isNotEmpty) {
+      if (mounted && lines.isNotEmpty &&
+          sourceAtStart == _playerProvider?.currentSongPath &&
+          lrcPath == _playerProvider?.lastGeneratedLrcPath) {
         setState(() {
           _speakerColorMap = speakerMap;
-          _showLrcOnMain = true;
+          if (!_lrcHiddenByUser) _showLrcOnMain = true;
         });
         final data = _waveformController.waveformData;
         if (data != null && segments.isNotEmpty) {
@@ -666,6 +619,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (!mounted) return;
     setState(() {
       _showLrcOnMain = true;
+      _lrcHiddenByUser = false;
       // Builder clamps this sentinel to the exact local maximum, so the LRC
       // curtain touches the waveform regardless of device/shell height.
       _lrcHeight = double.maxFinite;
@@ -817,7 +771,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           case VoiceCommandType.faster: await player.increaseSpeed(); break;
           case VoiceCommandType.slower: await player.decreaseSpeed(); break;
           case VoiceCommandType.toggleLyrics:
-            if (mounted) setState(() => _showLrcOnMain = !_showLrcOnMain); break;
+            if (mounted) setState(() {
+              _showLrcOnMain = !_showLrcOnMain;
+              _lrcHiddenByUser = !_showLrcOnMain;
+            });
+            break;
           case VoiceCommandType.translate: break;
         }
       },
@@ -927,6 +885,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                             }
                           });
                         }
+                        final compactCurtain = displayHeight < 150;
                         final dragAction = context.uiText(
                           displayHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
                         );
@@ -992,6 +951,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                   if (velocity > 700) {
                                     setState(() {
                                       _showLrcOnMain = false;
+                                      _lrcHiddenByUser = true;
                                       _lrcHeight = _lrcDefaultHeight;
                                     });
                                     HapticFeedback.mediumImpact();
@@ -999,6 +959,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     // Kéo thấp quá -> ẩn
                                     setState(() {
                                       _showLrcOnMain = false;
+                                      _lrcHiddenByUser = true;
                                       _lrcHeight = _lrcDefaultHeight;
                                     });
                                     HapticFeedback.lightImpact();
@@ -1021,8 +982,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                   });
                                 },
                                 child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: compactCurtain ? 3 : 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white
                                         .withValues(alpha: 0.03),
@@ -1040,8 +1002,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                               BorderRadius.circular(3),
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      Row(
+                                      if (!compactCurtain) const SizedBox(height: 6),
+                                      if (!compactCurtain) Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
@@ -1073,8 +1035,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                               ),
                               // Header với title + actions
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: compactCurtain ? 1 : 5,
+                                ),
                                 decoration: BoxDecoration(
                                   border: Border(
                                     bottom: BorderSide(
@@ -1101,7 +1065,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     ),
                                     const Spacer(),
                                     // Auto-scroll toggle compact
-                                    GestureDetector(
+                                    Semantics(
+                                      button: true,
+                                      toggled: _autoScroll,
+                                      label: context.uiText('Tự cuộn lời'),
+                                      child: GestureDetector(
                                       onTap: () {
                                         setState(() {
                                           _autoScroll = !_autoScroll;
@@ -1148,6 +1116,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                         ),
                                       ),
                                     ),
+                                    ),
                                     const SizedBox(width: 4),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
@@ -1164,6 +1133,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                             _lrcHeight = 140;
                                           } else {
                                             _showLrcOnMain = false;
+                                            _lrcHiddenByUser = true;
                                             _lrcHeight = _lrcDefaultHeight;
                                           }
                                         });
@@ -1174,122 +1144,48 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                       tooltip: context.uiText('Ẩn'),
                                       onTap: () => setState(() {
                                         _showLrcOnMain = false;
+                                        _lrcHiddenByUser = true;
                                         _lrcHeight = _lrcDefaultHeight;
                                       }),
                                     ),
                                   ],
                                 ),
                               ),
-                              // LRC List
+                              // Same measured, virtualized transcript as tab Hiểu.
                               Expanded(
-                                child: NotificationListener<ScrollNotification>(
-                                  onNotification: (n) {
-                                    if (n is ScrollStartNotification) {
-                                      _userScrollingLrc = true;
-                                    } else if (n is ScrollEndNotification) {
-                                      _userScrollingLrc = false;
-                                      // Sau 2.5s không kéo thì bật lại auto-scroll
-                                      Future.delayed(
-                                          const Duration(milliseconds: 2500),
-                                          () {
-                                        if (mounted &&
-                                            !_userScrollingLrc) {
-                                          // không làm gì, chỉ reset cờ cho lần sau
-                                        }
-                                      });
-                                    }
-                                    return false;
-                                  },
-                                  child: ListView.builder(
-                                    controller: _lrcScrollController,
-                                    physics:
-                                        const AlwaysScrollableScrollPhysics(),
-                                    padding:
-                                        const EdgeInsets.only(bottom: 72),
-                                    itemCount: understand.lrcLines.length,
-                                    itemBuilder: (context, index) {
-                                      final line =
-                                          understand.lrcLines[index];
-                                      final isActive = index ==
-                                          understand.currentLineIndex;
-
-                                      // Dùng cùng resolver với tab Hiểu để bản
-                                      // dịch đã tạo ở tab Đọc hiển thị nhất quán.
-                                      final lrcTranslation =
-                                          resolveLrcTranslation(
-                                        context.read<TextProvider>().lines,
-                                        line.text,
-                                      );
-
-                                      return GestureDetector(
-                                        onTap: () {
-                                          context
-                                              .read<PlayerProvider>()
-                                              .seek(line.timestamp);
-                                          HapticFeedback.selectionClick();
-                                        },
-                                        onLongPress: () {
-                                          // Copy text
-                                          Clipboard.setData(ClipboardData(
-                                              text: line.text));
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    "Đã copy lời thoại"),
-                                                duration:
-                                                    Duration(seconds: 1)),
-                                          );
-                                        },
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                              milliseconds: 220),
-                                          margin: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                            horizontal: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isActive
-                                                ? const Color(0xFF6C63FF)
-                                                    .withValues(alpha: 0.14)
-                                                : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            border: isActive
-                                                ? Border.all(
-                                                    color:
-                                                        const Color(0xFF6C63FF)
-                                                            .withValues(
-                                                                alpha: 0.25),
-                                                    width: 1)
-                                                : null,
-                                          ),
-                                          child: Consumer<
-                                              KaraokeSettingsProvider>(
-                                            builder: (_, karaoke, __) =>
-                                                KaraokeLyricsLine(
-                                              line: line,
-                                              isActive: isActive,
-                                              words: understand
-                                                  .wordsForLine(index),
-                                              activeWordIndex: isActive
-                                                  ? understand
-                                                      .currentWordIndex
-                                                  : -1,
-                                              style: karaoke.style,
-                                              translation: lrcTranslation,
-                                            ),
-                                          ),
+                                child: Consumer<KaraokeSettingsProvider>(
+                                  builder: (context, karaoke, _) =>
+                                      KaraokeTranscriptView(
+                                    key: const ValueKey('listen-karaoke-view'),
+                                    lines: understand.lrcLines,
+                                    currentLineIndex: understand.currentLineIndex,
+                                    currentWordIndex: understand.currentWordIndex,
+                                    wordsForLine: understand.wordsForLine,
+                                    style: karaoke.style,
+                                    autoFollow: _autoScroll,
+                                    compact: true,
+                                    translationForLine: (line) => resolveLrcTranslation(
+                                      context.read<TextProvider>().lines,
+                                      line.text,
+                                    ),
+                                    onLineTap: (line) {
+                                      context.read<PlayerProvider>().seek(line.timestamp);
+                                      HapticFeedback.selectionClick();
+                                    },
+                                    onLineLongPress: (line) {
+                                      Clipboard.setData(ClipboardData(text: line.text));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Đã copy lời thoại'),
+                                          duration: Duration(seconds: 1),
                                         ),
                                       );
                                     },
                                   ),
                                 ),
                               ),
-                              // Bottom hint to drag down to close
-                              Container(
+                              // Leave the short panel's space to the lyric.
+                              if (!compactCurtain) Container(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 4),
                                 child: Text(
@@ -1318,6 +1214,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         child: GestureDetector(
                           onTap: () => setState(() {
                             _showLrcOnMain = true;
+                            _lrcHiddenByUser = false;
                             _lrcHeight = _lrcDefaultHeight;
                           }),
                           onVerticalDragUpdate: (d) {
@@ -1325,6 +1222,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                               // kéo lên
                               setState(() {
                                 _showLrcOnMain = true;
+                                _lrcHiddenByUser = false;
                               });
                             }
                           },
@@ -1345,12 +1243,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                 const Icon(Icons.lyrics,
                                     size: 16, color: Color(0xFF8B83FF)),
                                 const SizedBox(width: 8),
-                                Text(
-                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
-                                  style: const TextStyle(
-                                    color: Color(0xFF8B83FF),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                Flexible(
+                                  child: Text(
+                                    context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8B83FF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1459,7 +1362,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         player: player,
                         onClose: _closeSheet,
                         onLrcApplied: () {
-                          setState(() => _showLrcOnMain = true);
+                          setState(() {
+                            _showLrcOnMain = true;
+                            _lrcHiddenByUser = false;
+                          });
                           _closeSheet();
                         },
                       ),
@@ -1749,16 +1655,23 @@ class _LrcIconBtn extends StatelessWidget {
   const _LrcIconBtn({required this.icon, required this.tooltip, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(left: 4),
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(6),
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 14, color: Colors.grey),
+          ),
         ),
-        child: Icon(icon, size: 14, color: Colors.grey),
       ),
     );
   }
@@ -2406,16 +2319,20 @@ class _SmartActionBarState extends State<_SmartActionBar>
     // Flags are consumed synchronously (no notify involved); every UI effect
     // below touches parent State, so it runs post-frame — never inside the
     // notify/build window (LISTEN-LRC-001).
+    final hasNewLrc = widget.player.lrcJustGenerated;
     var openAi = false;
     if (widget.player.shouldOpenAiPanel) {
       widget.player.consumeShouldOpenAiPanel();
-      openAi = true;
+      // Prefer the available lyrics if both signals arrive together.
+      openAi = !hasNewLrc;
     }
 
-    if (widget.player.lrcJustGenerated) {
+    if (hasNewLrc) {
       widget.player.consumeLrcJustGenerated();
       runPostFrame(() => widget.onLrcGenerated());
-      openAi = true;
+      // Do not reopen the AI sheet over the lyrics after the user closed it
+      // during generation. An already-open editor remains open so unsaved
+      // edits are not discarded; the user can close it when ready.
     }
 
     if (openAi) {

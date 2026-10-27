@@ -6,7 +6,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Shared by Listen and Understand; the existing contextual list remains the
+/// default for installations without a stored preference.
+enum KaraokeDisplayMode { context, currentLineOnly }
+
 class KaraokeStyle {
+  final KaraokeDisplayMode displayMode;
   final double fontSize;
   final double inactiveFontSize;
   final Color activeColor;
@@ -16,6 +21,7 @@ class KaraokeStyle {
   final bool showTranslation;
 
   const KaraokeStyle({
+    this.displayMode = KaraokeDisplayMode.context,
     this.fontSize = 17,
     this.inactiveFontSize = 13.5,
     this.activeColor = Colors.white,
@@ -26,6 +32,7 @@ class KaraokeStyle {
   });
 
   KaraokeStyle copyWith({
+    KaraokeDisplayMode? displayMode,
     double? fontSize,
     double? inactiveFontSize,
     Color? activeColor,
@@ -35,6 +42,7 @@ class KaraokeStyle {
     bool? showTranslation,
   }) {
     return KaraokeStyle(
+      displayMode: displayMode ?? this.displayMode,
       fontSize: fontSize ?? this.fontSize,
       inactiveFontSize: inactiveFontSize ?? this.inactiveFontSize,
       activeColor: activeColor ?? this.activeColor,
@@ -47,6 +55,7 @@ class KaraokeStyle {
 }
 
 class KaraokeSettingsProvider extends ChangeNotifier {
+  static const _kDisplayMode = 'karaoke_display_mode';
   static const _kFontSize = 'karaoke_font_size';
   static const _kInactiveFontSize = 'karaoke_inactive_font_size';
   static const _kActiveColor = 'karaoke_active_color';
@@ -58,12 +67,19 @@ class KaraokeSettingsProvider extends ChangeNotifier {
   KaraokeStyle get style => _style;
 
   bool _loaded = false;
+  int _revision = 0;
+  Future<void> _saveTail = Future<void>.value();
 
   Future<void> load() async {
     if (_loaded) return;
+    final revision = _revision;
     try {
       final prefs = await SharedPreferences.getInstance();
+      // A choice made while preferences were loading must win.
+      if (revision != _revision) return;
       _style = KaraokeStyle(
+        displayMode: _displayModeFromString(prefs.getString(_kDisplayMode)) ??
+            _style.displayMode,
         fontSize: prefs.getDouble(_kFontSize) ?? _style.fontSize,
         inactiveFontSize:
             prefs.getDouble(_kInactiveFontSize) ?? _style.inactiveFontSize,
@@ -82,18 +98,33 @@ class KaraokeSettingsProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> update(KaraokeStyle style) async {
+  Future<void> update(KaraokeStyle style) {
+    _revision++;
+    _loaded = true;
     _style = style;
     notifyListeners();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble(_kFontSize, style.fontSize);
-      await prefs.setDouble(_kInactiveFontSize, style.inactiveFontSize);
-      await prefs.setInt(_kActiveColor, style.activeColor.toARGB32());
-      await prefs.setInt(_kHighlight, style.highlightBackground.toARGB32());
-      await prefs.setString(_kAlign, style.textAlign.name);
-      await prefs.setBool(_kShowTranslation, style.showTranslation);
-    } catch (_) {}
+    // Preserve the order of quick successive saves across async preference IO.
+    final save = _saveTail.then((_) async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kDisplayMode, style.displayMode.name);
+        await prefs.setDouble(_kFontSize, style.fontSize);
+        await prefs.setDouble(_kInactiveFontSize, style.inactiveFontSize);
+        await prefs.setInt(_kActiveColor, style.activeColor.toARGB32());
+        await prefs.setInt(_kHighlight, style.highlightBackground.toARGB32());
+        await prefs.setString(_kAlign, style.textAlign.name);
+        await prefs.setBool(_kShowTranslation, style.showTranslation);
+      } catch (_) {}
+    });
+    _saveTail = save;
+    return save;
+  }
+
+  static KaraokeDisplayMode? _displayModeFromString(String? value) {
+    for (final mode in KaraokeDisplayMode.values) {
+      if (mode.name == value) return mode;
+    }
+    return null;
   }
 
   static Color? _colorFromInt(int? v) => v == null ? null : Color(v);

@@ -103,3 +103,9 @@ cao đó. Đã hoàn nguyên thay đổi chiều cao, giữ test kích thước/
 Run rộng `40574822791` còn phát hiện `isInsideImports` tạo thư mục dù file
 đã ở vị trí bền; đổi phép kiểm tra thành không tạo thư mục, vẫn giữ test cũ.
 Cần xác nhận CI mới trước khi kết luận.
+
+Run `40583408652` tại `cea9978` đạt toàn bộ sáu nhóm queue và Kotlin resolver;
+run rộng `40583408530` cũng kết thúc thành công. Sau phần timing karaoke,
+run `40583714314` tại `3320658` đạt lại các nhóm queue, audio import,
+timing karaoke và compile resolver. Đây không phải build APK, nghiệm thu máy
+hay review độc lập.

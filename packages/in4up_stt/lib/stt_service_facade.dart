@@ -1306,7 +1306,12 @@ class SttServiceFacade extends ChangeNotifier {
     );
   }
 
-  Future<void> stopListening() async => _nativeEngine.stopListening();
+  Future<void> stopListening() async {
+    // Closing a Listen screen that never started voice commands must not
+    // touch a late native engine that has not been constructed yet.
+    if (!_nativeEngineCreated || _disposed) return;
+    await _nativeEngine.stopListening();
+  }
 
   Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
 

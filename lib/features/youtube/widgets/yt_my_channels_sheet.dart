@@ -124,12 +124,16 @@ class _YtMyChannelsSheetState extends State<_YtMyChannelsSheet> {
   Future<void> _importOpml() async {
     if (_busy) return;
     try {
-      final picked = await FilePicker.platform.pickFiles(
+      // file_picker 11: gọi static `FilePicker.pickFiles` (`.platform` đã bị
+      // bỏ) — giống mọi chỗ khác trong app.
+      final picked = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['opml', 'xml', 'txt'],
-        withData: false,
       );
-      final path = picked?.files.single.path;
+      // `.single` sẽ NÉM nếu người dùng chọn 0 file (huỷ hộp thoại ở một số
+      // máy trả về danh sách rỗng) — kiểm số lượng trước.
+      if (picked == null || picked.files.isEmpty) return;
+      final path = picked.files.first.path;
       if (path == null) return;
       setState(() {
         _busy = true;

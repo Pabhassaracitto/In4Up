@@ -19,7 +19,11 @@
     "^\\[?in4up",
     "^[a-z0-9_.-]+\\.(dart|json|onnx|gguf|txt|wav|mp3|m4a|flac|png|jpg|jpeg|webp|srt|lrc|arb|yaml)$",
     "^[A-Za-z0-9+/=]{24,}$",
-    "^[^A-Za-zÀ-ỹ]*$"
+    "^[^A-Za-zÀ-ỹ]*$",
+    "^User-Agent$",
+    "^Content-Type$",
+    "^Authorization$",
+    "^Bearer\\s*$"
   ],
   "skipValueContextPatterns": [
     "['\"]vi['\"]\\s*:\\s*$",
@@ -206,7 +210,8 @@
       "Accept-Language",
       "${resp.body.contains('ytInitialData') ? 'có' : 'KHÔNG'} ",
       "KHÔNG",
-      "có"
+      "có",
+      "User-Agent"
     ],
     "features/youtube/youtube_explorer_screen.dart": [
       "English Addict with Mr Steve",
@@ -347,13 +352,15 @@
       "Không lấy được ID token từ Google. Kiểm tra:\\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\\n3. serverClientId=$_webClientId có đúng Web client không?",
       "Chưa cấu hình GOOGLE_DESKTOP_CLIENT_SECRET.\nLấy secret từ Google Cloud Console và truyền qua --dart-define hoặc env.\nVí dụ: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=GOCSPX-...",
       "Chưa cấu hình Google Sign In cho Desktop.\nTạo OAuth client ID loại Desktop app trong Google Cloud Console > APIs & Services > Credentials.\nTruyền qua --dart-define=GOOGLE_DESKTOP_CLIENT_ID=xxx --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=yyy hoặc đặt env var GOOGLE_DESKTOP_CLIENT_ID/SECRET.",
-      "Không lấy được ID token từ Google. Kiểm tra:\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\n3. serverClientId=$_webClientId có đúng Web client không?"
+      "Không lấy được ID token từ Google. Kiểm tra:\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\n3. serverClientId=$_webClientId có đúng Web client không?",
+      "Content-Type"
     ],
     "services/firestore_rest_client.dart": [
       "ASCENDING",
       "GREATER_THAN",
       "REQUEST_TIME",
-      "Authorization"
+      "Authorization",
+      "Content-Type"
     ],
     "services/google_drive_service.dart": [
       "My Drive"
@@ -441,7 +448,9 @@
       "Openverse",
       "Pexels",
       "Unsplash",
-      "Wikimedia Commons"
+      "Wikimedia Commons",
+      "API key (header Authorization)",
+      "Access Key (Client-ID)"
     ],
     "features/vocab_image/vocab_image_web_service.dart": [
       "Pexels License",
@@ -449,7 +458,8 @@
       "Artist",
       "Authorization",
       "File:",
-      "LicenseShortName"
+      "LicenseShortName",
+      "User-Agent"
     ],
     "features/vocab_image/widgets/vocab_image_picker_sheet.dart": [
       "Lottie"
@@ -600,7 +610,8 @@
       "Wikimedia Commons"
     ],
     "features/word_lookup/services/online_dictionary_source.dart": [
-      "Accept"
+      "Accept",
+      "User-Agent"
     ],
     "features/youtube/services/yt_service.dart": [
       "Accept-Language",
@@ -655,7 +666,8 @@
     ],
     "screens/listen_mode/widgets/google_drive_browser.dart": [
       "Authorization",
-      "Bearer"
+      "Bearer",
+      "Google Drive"
     ],
     "screens/tools/word_list/word_import_sheet.dart": [
       "hình",
@@ -672,10 +684,23 @@
       "Pali"
     ],
     "services/firebase_rest_auth.dart": [
-      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk"
+      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk",
+      "Content-Type"
     ],
     "screens/listen_mode/listen_mode_screen.dart": [
       "Pali"
+    ],
+    "features/screen_translate/screen_translate_controller.dart": [
+      "SYSTEM"
+    ],
+    "features/vocab_image/online_dictionary_source.dart": [
+      "User-Agent"
+    ],
+    "features/screen_translate/screen_translate_prefs.dart": [
+      "SYSTEM"
+    ],
+    "screens/listen_mode/widgets/audio_library_drawer.dart": [
+      "Drive"
     ]
   }
 }

@@ -3794,5 +3794,18 @@
   "Priority: Vietnamese, English, Chinese, Hindi. More languages below. Source: HuggingFace rhasspy/piper-voices (k2-fsa bundle first). Sinhala is not in this catalog yet.": "Priority: Vietnamese, English, Chinese, Hindi. More languages below. Source: HuggingFace rhasspy/piper-voices (k2-fsa bundle first). Sinhala is not in this catalog yet.",
   "Show more languages": "Show more languages",
   "Nội dung": "Content",
-  "Phật Pháp": "Dhamma"
+  "Phật Pháp": "Dhamma",
+  "Pitch": "Pitch",
+  "Rhythm": "Rhythm",
+  "Speed": "Speed",
+  "Score": "Score",
+  "Manual": "Manual",
+  "Read Mode": "Read Mode",
+  "Listening": "Listening",
+  "Pronunciation": "Pronunciation",
+  "Offline (sherpa)": "Offline (sherpa)",
+  "Offline (Parakeet/sherpa)": "Offline (Parakeet/sherpa)",
+  "Piper TTS (offline neural)": "Piper TTS (offline neural)",
+  "Silero VAD (Silero Voice Activity)": "Silero VAD (Silero Voice Activity)",
+  "Pali": "Pali"
 }

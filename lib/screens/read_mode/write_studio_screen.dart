@@ -2227,16 +2227,19 @@ Hãy trả về JSON hợp lệ với:
               children: [
                 _MetricRow(
                   label: 'Độ dài',
+                  localizeValue: true,
                   value:
                       '${signals.draftWordCount}/${signals.sourceWordCount} từ · ${signals.compressionLabel}',
                 ),
                 _MetricRow(
                   label: 'Cụm trùng',
                   value: signals.copiedPhraseLabel,
+                  localizeValue: true,
                 ),
                 _MetricRow(
                   label: 'Từ khóa',
                   value: signals.keywordPresenceLabel,
+                  localizeValue: true,
                 ),
                 _MetricRow(
                   label: 'Đã xuất hiện',

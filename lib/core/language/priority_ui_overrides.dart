@@ -6899,4 +6899,14 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '量词',
     'zh_TW': '量詞',
   },
+  // DICT-VIEW-003: nút loa ở trang từ điển khi TTS lỗi (mất mạng + chưa có
+  // giọng offline). Phải nằm ở catalog tay-viết: `generated_legacy_ui_fallbacks`
+  // chỉ sinh lại khi chạy generator, mà quy tắc repo là KHÔNG chạy nó.
+  'Không phát âm được từ này.': {
+    'en': 'Could not pronounce this word.',
+    'hi': 'इस शब्द का उच्चारण नहीं हो सका।',
+    'zh': '无法朗读该单词。',
+    'zh_TW': '無法朗讀該單詞。',
+    'si': 'මෙම වචනය උච්ඡාරණය කළ නොහැක.',
+  },
 };

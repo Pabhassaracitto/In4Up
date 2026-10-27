@@ -3624,5 +3624,13 @@
   "{value0} (đoạn {value1}/{value2})": "{value0} (passage {value1}/{value2})",
   "Provider \"{value0}\" thiếu baseUrl": "Provider \"{value0}\" is missing a baseUrl",
   "Không nạp được giọng Piper {value0} (thiếu espeak-ng-data?)": "Could not load the Piper voice {value0} (missing espeak-ng-data?)",
-  "Chưa có giọng Piper cho {value0}": "No Piper voice for {value0} yet"
+  "Chưa có giọng Piper cho {value0}": "No Piper voice for {value0} yet",
+  "Cài từ điển có sẵn bằng một chạm (offline)": "Install a ready-made dictionary in one tap (offline)",
+  "cuộn $scroll%": "scrolled ${scroll}%",
+  "Đang bóc tăng qua API (whisper-large-v3)…\nFile dài sẽ tự chia chunk — có thể tắt mạng giữa chừng để dừng.": "Transcribing via the API (whisper-large-v3)...\nLong files are split into chunks — you can go offline mid-way to stop.",
+  "Đang nhận diện giọng nói (Whisper)…\nFile dài có thể mất vài phút.": "Recognising speech (Whisper)...\nLong files can take a few minutes.",
+  "Không khởi tạo được Google Sign-In ($e). Khởi động lại app rồi thử lại.": "Could not initialise Google Sign-In ({err}). Restart the app and try again.",
+  "Lỗi tải danh sách: $e": "Failed to load the list: $e",
+  "Lỗi đăng nhập: $e": "Sign-in error: $e",
+  "Chương ${i}": "Chapter ${i}"
 }

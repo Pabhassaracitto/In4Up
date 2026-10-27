@@ -1013,12 +1013,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                             color: Colors.grey[600],
                                           ),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w500,
+                                          Flexible(
+                                            child: Text(
+                                              context.uiText('Kéo để $dragAction • chạm để $tapAction'),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(width: 4),

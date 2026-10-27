@@ -9,7 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI xanh, chờ review độc lập, build Android và nghiệm thu thiết bị | run rộng `40583408530`; matrix `40583714314`; [review](PLAN-039-review.md) |
-| KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing | `arena/bf95d3ae-in4up`, PLAN-040, ADR-0019; đang triển khai và kiểm thử |
+| KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI xanh, chờ review độc lập và nghiệm thu thiết bị | matrix `40586662698`, run rộng `40586662734`, [review](PLAN-040-review.md) |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
@@ -8308,10 +8308,13 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   khuất; thêm lựa chọn chỉ dòng hiện hành hoặc có dòng khác nhỏ/mờ hơn.
 - **Thiết kế:** PLAN-040 và ADR-0019; giữ file LRC, transcript, vị trí, chức
   năng chọn dòng/seek, cài đặt, quyền tự tắt auto-scroll và kéo thủ công.
-- **Bằng chứng:** đang viết logic/timing, giao diện và test; chưa có CI hay
-  nghiệm thu thiết bị cho yêu cầu này. Timestamp theo từ chỉ chính xác nếu
-  nguồn có timestamp; lời không có timestamp từ chỉ ước lượng.
+- **Bằng chứng:** matrix `40586662698` tại `7c8901f` qua 11 nhóm test Dart
+  và compile resolver Kotlin; run rộng `40586662734` cũng qua. Còn review độc lập,
+  build Android đầy đủ và nghiệm thu thiết bị. Timestamp theo từ chỉ chính xác
+  nếu nguồn có timestamp; lời không có timestamp từ chỉ ước lượng.
 - **Lịch sử:**
   - 2026-10-28 | 2026-10-27 21:04 UTC | created→doing | agent
     `arena/bf95d3ae-in4up` | owner yêu cầu trực tiếp; rà ra ước lượng chiều
     cao để cuộn và parser timestamp của từ giữa dòng bị lệch.
+  - 2026-10-28 | doing→doing | agent `arena/bf95d3ae-in4up` | code và
+    matrix CI xanh; chưa review độc lập/build Android/nghiệm thu thiết bị.

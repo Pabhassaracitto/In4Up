@@ -211,25 +211,20 @@ class SttLrcConverter {
     buf.writeln('');
 
     for (final seg in result.segments) {
-      final ts = _fmtDuration(seg.startMs);
-      final text = seg.text.trim();
-
-      if (seg.words.isNotEmpty) {
-        // Enhanced-LRC: dòng + inline word timestamps
-        final parts = <String>[];
-        for (var i = 0; i < seg.words.length; i++) {
-          final w = seg.words[i];
-          final wordMs = (w.startSeconds * 1000).round();
-          if (i == 0 && wordMs == seg.startMs) {
-            parts.add(w.word);
-          } else {
-            parts.add('<${_fmtDuration(wordMs)}>${w.word}');
-          }
-        }
-        buf.writeln('[$ts]${parts.join(' ')}');
-      } else {
-        buf.writeln('[$ts]$text');
-      }
+      // Segment text is authoritative. Joining STT tokens with spaces can
+      // alter punctuation, CJK text and user content. Only embed word markers
+      // where those tokens can be matched to the original text in order.
+      final text = seg.text.trim().isNotEmpty
+          ? seg.text.trim()
+          : seg.words.map((word) => word.word.trim()).where((word) => word.isNotEmpty).join(' ');
+      buf.writeln(serializeLine(LrcLine(
+        timestamp: Duration(milliseconds: seg.startMs),
+        text: text,
+        words: seg.words.map((word) => LrcWord(
+          word: word.word,
+          start: Duration(milliseconds: (word.startSeconds * 1000).round()),
+        )).toList(),
+      )));
     }
 
     return buf.toString();
@@ -238,29 +233,56 @@ class SttLrcConverter {
   static String _fmtDuration(int ms) {
     final mm = (ms ~/ 60000).toString().padLeft(2, '0');
     final ss = ((ms % 60000) ~/ 1000).toString().padLeft(2, '0');
-    final cs = ((ms % 1000) ~/ 10).toString().padLeft(2, '0');
-    return '$mm:$ss.$cs';
+    final fraction = ms % 1000;
+    // Preserve imported millisecond precision; use customary centiseconds
+    // only when that representation is exact.
+    final digits = fraction % 10 == 0
+        ? (fraction ~/ 10).toString().padLeft(2, '0')
+        : fraction.toString().padLeft(3, '0');
+    return '$mm:$ss.$digits';
   }
 
-  /// Serialize một LrcLine thành chuỗi dòng LRC.
-  /// Nếu line có `words` (từ + timestamp) → nhúng inline `<mm:ss.cs>`.
+  /// Whether all timed tokens can be placed in the supplied text without
+  /// guessing their positions. An editor can ask before discarding markers if
+  /// the user has changed words, rather than silently overwriting that text.
+  static bool wordTimingsMatchText(LrcLine line) {
+    var cursor = 0;
+    for (final word in line.words) {
+      final token = word.word.trim();
+      if (token.isEmpty) continue;
+      final offset = line.text.indexOf(token, cursor);
+      if (offset < 0) return false;
+      cursor = offset + token.length;
+    }
+    return true;
+  }
+
+  /// Preserve the original text and punctuation while embedding word markers.
+  /// If tokens cannot be aligned, retain the text and line time rather than
+  /// inventing words. Callers editing an existing LRC should warn first.
   static String serializeLine(LrcLine line) {
     final ts = _fmtDuration(line.timestamp.inMilliseconds);
+    final text = line.text.trim();
+    if (line.words.isEmpty || !wordTimingsMatchText(line)) return '[$ts]$text';
 
-    if (line.words.isNotEmpty) {
-      final parts = <String>[];
-      for (var i = 0; i < line.words.length; i++) {
-        final w = line.words[i];
-        if (i == 0 && w.start == line.timestamp) {
-          parts.add(w.word);
-        } else {
-          parts.add('<${_fmtDuration(w.start.inMilliseconds)}>${w.word}');
-        }
+    final out = StringBuffer('[$ts]');
+    var cursor = 0;
+    for (final word in line.words) {
+      final token = word.word.trim();
+      if (token.isEmpty) continue;
+      final offset = text.indexOf(token, cursor);
+      // `text` is trimmed above; timings were checked against the untrimmed
+      // source, so a token can still be located in the trimmed source.
+      if (offset < 0) return '[$ts]$text';
+      out.write(text.substring(cursor, offset));
+      if (word.start != line.timestamp || cursor != 0) {
+        out.write('<${_fmtDuration(word.start.inMilliseconds)}>');
       }
-      return '[$ts]${parts.join(' ')}';
+      out.write(text.substring(offset, offset + token.length));
+      cursor = offset + token.length;
     }
-
-    return '[$ts]${line.text.trim()}';
+    out.write(text.substring(cursor));
+    return out.toString();
   }
 
   /// Lưu LRC file → trả về đường dẫn hoặc null nếu lỗi

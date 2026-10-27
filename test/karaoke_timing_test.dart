@@ -59,6 +59,56 @@ void main() {
         const Duration(minutes: 1, seconds: 2));
   });
 
+  test('word markers preserve source punctuation, spacing and edited text', () {
+    final original = LrcLine(
+      timestamp: const Duration(seconds: 2),
+      text: '你好，世界  foo!',
+      words: const [
+        LrcWord(word: '你好', start: Duration(seconds: 2)),
+        LrcWord(word: '世界', start: Duration(milliseconds: 3007)),
+        LrcWord(word: 'foo', start: Duration(milliseconds: 4003)),
+      ],
+    );
+    expect(SttLrcConverter.wordTimingsMatchText(original), isTrue);
+    final saved = SttLrcConverter().parseLrcContent(
+      SttLrcConverter.serializeLine(original),
+    ).single;
+    expect(saved.text, original.text);
+    expect(saved.words.map((word) => word.start), original.words.map((word) => word.start));
+
+    final edited = LrcLine(
+      timestamp: original.timestamp,
+      text: '再见，世界  foo!',
+      words: original.words,
+    );
+    expect(SttLrcConverter.wordTimingsMatchText(edited), isFalse);
+    final safeText = SttLrcConverter().parseLrcContent(
+      SttLrcConverter.serializeLine(edited),
+    ).single;
+    expect(safeText.text, edited.text);
+    expect(safeText.words, isEmpty);
+
+    final result = SttResult(
+      fullText: original.text,
+      segments: [SttSegment(
+        id: 0, uid: 'cjk', startSeconds: 2, endSeconds: 5,
+        text: original.text, avgConfidence: 1,
+        words: const [
+          SttWord(word: '你好', startSeconds: 2, endSeconds: 3),
+          SttWord(word: '世界', startSeconds: 3.007, endSeconds: 4),
+          SttWord(word: 'foo', startSeconds: 4.003, endSeconds: 5),
+        ],
+      )],
+      engineUsed: SttEngineType.whisper, language: 'zh',
+      processingTime: Duration.zero, audioFingerprint: 'source', hasWordTimestamps: true,
+    );
+    final generated = SttLrcConverter().parseLrcContent(
+      SttLrcConverter().generateLrcContent(result),
+    ).single;
+    expect(generated.text, original.text);
+    expect(generated.words.map((word) => word.start), original.words.map((word) => word.start));
+  });
+
   test('loading or replacing lyrics uses the last clock even while paused', () {
     final understand = UnderstandProvider();
     understand.updatePosition(const Duration(seconds: 5));

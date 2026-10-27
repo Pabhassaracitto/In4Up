@@ -66,41 +66,54 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
    chạy test `test/language/priority_native_pack_test.dart` (+ group rule #5
    trong `test/locale_chrome_no_vietnamese_test.dart`).
 
-## Trạng thái (wave 8, 2026-10-27 — đang dở, số liệu đo lại)
+## Trạng thái (wave 9, 2026-10-27 — 7 locale ưu tiên sạch)
 
-- Pack: **3005 entry × 8 locale**.
-- **Máy dò đã được viết lại cho trung thực hơn** (`collect_broad_sources()` trong
-  `tool/lang_ui_inventory.py`): quét **mọi literal hiển thị** (không chỉ đối số
-  đầu tiên của `Text`/`uiText`), nên con số “0 rò rỉ” của wave 7 là **thiếu
-  thực tế** — wave 7 chỉ nhìn 2648 chuỗi ở 196 file, còn thực tế có ~4600 chuỗi
-  ở 332 file, gồm cả chuỗi trong service/provider và widget tự viết.
-- Sau wave 8 (`zh`, đo trên 4391 chuỗi chrome / 325 file):
+- Pack: **3437 entry × 8 locale**.
+- Máy dò đã được làm **trung thực hơn nữa** trong wave 9:
+  - lexer literal Dart thật (`dart_string_end` / `iter_string_literals`) — không
+    còn cắt sai ở `'${lang == 'en' ? ...}'`;
+  - đệ quy vào `${...}` để bắt cả literal lồng bên trong template;
+  - bỏ qua “vỏ ghép chuỗi” (literal mà phần tĩnh rỗng, runtime chỉ toàn nội suy);
+  - `skipValuesByPath` nay áp cho **mọi** đường quét (trước đây chỉ đường quét
+    rộng, nên chuỗi kỹ thuật vẫn quay lại báo cáo);
+  - chuỗi mà phần tĩnh chỉ còn `${ui('…')}` được coi là đã dịch tại chỗ.
+- Kết quả đo lại cuối wave 9 — **4303 chuỗi chrome / 306 file**:
 
   | locale | còn tiếng Việt | còn English |
   | --- | ---: | ---: |
-  | `zh`, `zh_TW` | 339 | 87 |
-  | `hi` | 341 | 95 |
-  | `si` | 339 | 96 |
-  | `my` | 339 | 218 |
-  | `th` | 339 | 210 |
-  | `ja` | 339 | 207 |
+  | `zh`, `zh_TW` | **0** | **0** |
+  | `hi` | **0** | **0** |
+  | `si` | **0** | **0** |
+  | `my` | **0** | **0** |
+  | `th` | **0** | **0** |
+  | `ja` | **0** | **0** |
 
-- Việc còn lại chủ yếu là **chuỗi nội suy** (`"$count phút"`, `"${x} dòng"`):
-  `Text` shim chỉ dịch *exact match* nên các chuỗi này vẫn hiện tiếng Việt ở
-  runtime dù pack có mẫu `{value0} …`. Cần quyết định: bật template trong shim
-  (kèm chốt chặn nội dung người dùng) hay bọc `context.uiText(...)` tại chỗ render.
-- Lịch sử: 1037 (wave 2–4) → 1155 → 1575 → 2116 (wave 7) → 2375/2448/2559/2677/
-  2750/2830/2880/3005 (wave 8: TTS, Thuộc Lòng, Ngữ pháp, WordList, YouGlish,
-  YouTube, dịch, Web Reader, Tipiṭaka, shadowing, widget dùng chung, Nghe,
-  Vườn nhớ, từ điển, Cabin, OCR, cài đặt).
-- `learn_by_heart_l10n.dart` nay có đủ **vi/en/hi/zh/zh_TW/si/my/th/ja** cho cả
-  74 nhóm; `locale_map_gaps()` trong tool sẽ cảnh báo nếu một bảng `_get({...})`
-  thiếu locale ưu tiên.
-- Chuỗi được **loại khỏi phép quét** (khai báo trong
-  `tool/lang_ui_scan_exclusions.json`, có ghi lý do): nội dung dữ liệu
-  (stopword tiếng Việt cho thuật toán cloze/tóm tắt, regex dấu tiếng Việt, tên
-  font, câu SQL), prompt gửi cho LLM, khoá JSON/HTTP, tên thương hiệu
-  (`OpenAI`, `Gemini`, `Pexels`, `LibreTranslate`…), tên file model, tên phím.
+  `python3 tool/lang_ui_inventory.py --locale zh --fail-on-leak` → exit 0;
+  `tool/lang_rollout_report.py` → mọi locale đạt sàn, 7 locale ưu tiên 392/392
+  ở T2.
+- Vì sao lần này khác các lần trước: con số trên **không** đến từ việc nới bộ
+  lọc. Bộ lọc chỉ loại chuỗi kỹ thuật có ghi lý do trong
+  `tool/lang_ui_scan_exclusions.json` (SQL, header HTTP, tên model/thương hiệu,
+  regex bảng dấu, prompt LLM, khoá JSON, phím tắt hệ thống); mọi chuỗi hiển thị
+  còn lại đều có bản dịch thật trong pack.
+- Phần lớn công việc của wave 9 là **chuỗi nội suy**: chúng chỉ dịch được khi
+  call site gọi `context.uiText(...)` (shim `Text` cố ý không bật template để
+  không dịch nhầm nội dung người dùng). Các điểm đã rà và bọc: thông báo tiến
+  trình VAD/Whisper (qua `autoTocStatus`), tiến trình tải YouTube, lỗi TTS,
+  `_MetricRow` của Viết (độ dài/cụm trùng/từ khoá), tiêu đề chương tự sinh
+  (`Chương {value0}`), "Đáp án: …" của bài tập điền từ, "… → Đã lưu nhanh" của
+  tab Đọc, "Âm cần chú ý: …" của tab Nói.
+- Lịch sử: 1037 (wave 2–4) → 1155 → 1575 → 2116 (wave 7) → 3005 (wave 8) →
+  **3437** (wave 9: 300+ mẫu nội suy, Ngữ pháp/PDF/OCR/dịch màn hình, Learn by
+  heart, Piper, YouTube, Memory, engine dịch, từ điển, cabin).
+- `learn_by_heart_l10n.dart` có đủ **vi/en/hi/zh/zh_TW/si/my/th/ja** cho cả 74
+  nhóm; `locale_map_gaps()` sẽ cảnh báo nếu một bảng `_get({...})` thiếu locale
+  ưu tiên.
+- Thuật ngữ **giữ nguyên English** (đúng yêu cầu): AI, PDF, TTS, STT, VAD, OCR,
+  LRC, YouTube, Whisper, Hy-MT, ML Kit, Piper, Silero, Parakeet, Zipformer,
+  Sherpa, GGUF, FSRS, Google Play services, Google Drive, `User-Agent`,
+  `Content-Type`, `Authorization`, khoá API, tên model/thương hiệu, định dạng
+  file.
 
 ## Lưu ý
 

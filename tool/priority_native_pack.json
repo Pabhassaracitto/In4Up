@@ -2271,11 +2271,11 @@
   },
   "Chinese (Simplified)": {
     "en": "Chinese (Simplified)",
-    "hi": "Chinese (Simplified)",
+    "hi": "चीनी (सरलीकृत)",
     "zh": "简体中文",
     "zh_TW": "簡體中文",
-    "si": "Chinese (Simplified)",
-    "my": "Chinese (Simplified)",
+    "si": "චීන (සරල)",
+    "my": "တရုတ် (ရိုးရှင်း)",
     "th": "จีนตัวย่อ",
     "ja": "中国語（簡体字）"
   },
@@ -6626,7 +6626,7 @@
     "zh_TW": "雲端硬碟",
     "si": "Drive",
     "my": "Drive",
-    "th": "ไดรฟ์",
+    "th": "Drive",
     "ja": "ドライブ"
   },
   "Dung lượng khoảng {value0}MB (archive tar.bz2).": {
@@ -12349,6 +12349,16 @@
     "th": "ลิงก์นี้อยู่ในกลุ่มแล้ว",
     "ja": "このリンクはすでにグループにあります"
   },
+  "Listening": {
+    "en": "Listening",
+    "hi": "सुनना",
+    "zh": "聆听",
+    "zh_TW": "聆聽",
+    "si": "ශ්‍රවණය",
+    "my": "နားထောင်ခြင်း",
+    "th": "การฟัง",
+    "ja": "聞き取り"
+  },
   "Live": {
     "en": "Live",
     "hi": "लाइव",
@@ -13798,6 +13808,16 @@
     "my": "MP3, M4A, WAV, FLAC...",
     "th": "MP3, M4A, WAV, FLAC...",
     "ja": "MP3, M4A, WAV, FLAC..."
+  },
+  "Manual": {
+    "en": "Manual",
+    "hi": "मैन्युअल",
+    "zh": "手动",
+    "zh_TW": "手動",
+    "si": "අතින්",
+    "my": "ကိုယ်တိုင်",
+    "th": "ด้วยตนเอง",
+    "ja": "手動"
   },
   "Marathi": {
     "en": "Marathi",
@@ -17119,6 +17139,26 @@
     "th": "ออฟไลน์ (เครื่อง)",
     "ja": "オフライン（端末）"
   },
+  "Offline (Parakeet/sherpa)": {
+    "en": "Offline (Parakeet/sherpa)",
+    "hi": "ऑफ़लाइन (Parakeet/sherpa)",
+    "zh": "离线（Parakeet/sherpa）",
+    "zh_TW": "離線（Parakeet/sherpa）",
+    "si": "නොබැඳි (Parakeet/sherpa)",
+    "my": "အော့ဖ်လိုင်း (Parakeet/sherpa)",
+    "th": "ออฟไลน์ (Parakeet/sherpa)",
+    "ja": "オフライン（Parakeet/sherpa）"
+  },
+  "Offline (sherpa)": {
+    "en": "Offline (sherpa)",
+    "hi": "ऑफ़लाइन (sherpa)",
+    "zh": "离线（sherpa）",
+    "zh_TW": "離線（sherpa）",
+    "si": "නොබැඳි (sherpa)",
+    "my": "အော့ဖ်လိုင်း (sherpa)",
+    "th": "ออฟไลน์ (sherpa)",
+    "ja": "オフライン（sherpa）"
+  },
   "Offline trước (nhanh)": {
     "en": "Offline first (fast)",
     "hi": "पहले ऑफ़लाइन (तेज़)",
@@ -17154,7 +17194,7 @@
     "hi": "ऑनलाइन",
     "zh": "在线",
     "zh_TW": "線上",
-    "si": "online",
+    "si": "සබැඳි",
     "my": "အွန်လိုင်း",
     "th": "ออนไลน์",
     "ja": "オンライン"
@@ -17238,6 +17278,16 @@
     "my": "ပုံ PDF",
     "th": "PDF รูปภาพ",
     "ja": "画像PDF"
+  },
+  "Pali": {
+    "en": "Pali",
+    "hi": "पालि",
+    "zh": "巴利语",
+    "zh_TW": "巴利語",
+    "si": "පාලි",
+    "my": "ပါဠိ",
+    "th": "บาลี",
+    "ja": "パーリ語"
   },
   "Panel này đã được làm lại theo hướng control panel: preset đẹp hơn, so sánh palette trực quan hơn, có mini/advanced và cho phép lưu preset cá nhân.": {
     "en": "This panel is now a control center with improved presets, visual palette comparisons, Mini and Advanced modes, and custom preset saving.",
@@ -17801,13 +17851,23 @@
   },
   "Piper (neural / Sherpa)": {
     "en": "Piper (neural / Sherpa)",
-    "hi": "Piper (neural / Sherpa)",
-    "zh": "Piper（神经／Sherpa）",
-    "zh_TW": "Piper（神經／Sherpa）",
-    "si": "Piper (neural / Sherpa)",
-    "my": "Piper (neural / Sherpa)",
-    "th": "Piper (neural / Sherpa)",
+    "hi": "Piper (न्यूरल / Sherpa)",
+    "zh": "Piper（神经网络／Sherpa）",
+    "zh_TW": "Piper（神經網路／Sherpa）",
+    "si": "Piper (නියුරල් / Sherpa)",
+    "my": "Piper (နယူရယ် / Sherpa)",
+    "th": "Piper (นิวรัล / Sherpa)",
     "ja": "Piper（ニューラル／Sherpa）"
+  },
+  "Piper TTS (offline neural)": {
+    "en": "Piper TTS (offline neural)",
+    "hi": "Piper TTS (ऑफ़लाइन न्यूरल)",
+    "zh": "Piper TTS（离线神经网络）",
+    "zh_TW": "Piper TTS（離線神經網路）",
+    "si": "Piper TTS (නොබැඳි neural)",
+    "my": "Piper TTS (အော့ဖ်လိုင်း neural)",
+    "th": "Piper TTS (ออฟไลน์นิวรัล)",
+    "ja": "Piper TTS（オフライン・ニューラル）"
   },
   "Piper TTS — đọc chữ offline": {
     "en": "Piper TTS — offline text reading",
@@ -17838,6 +17898,16 @@
     "my": "Piper × : အသံ မရှိသေးပါ သို့မဟုတ် phonemizer (espeak-ng-data) မရှိပါ — TTS → မော်ဒယ် စီမံခန့်ခွဲမှုတွင် တပ်ဆင်ပါ",
     "th": "Piper × : ยังไม่มีเสียง หรือขาด phonemizer (espeak-ng-data) — ติดตั้งที่ TTS → จัดการโมเดล",
     "ja": "Piper × ：音声が未導入、または phonemizer（espeak-ng-data）が不足 — TTS → モデル管理でインストールしてください"
+  },
+  "Pitch": {
+    "en": "Pitch",
+    "hi": "पिच",
+    "zh": "音高",
+    "zh_TW": "音高",
+    "si": "තාරතාව",
+    "my": "အသံအနိမ့်အမြင့်",
+    "th": "ระดับเสียง",
+    "ja": "ピッチ"
   },
   "Play Recording": {
     "en": "Play recording",
@@ -18158,6 +18228,16 @@
     "my": "နာမ်စား",
     "th": "คำสรรพนาม",
     "ja": "代名詞"
+  },
+  "Pronunciation": {
+    "en": "Pronunciation",
+    "hi": "उच्चारण",
+    "zh": "发音",
+    "zh_TW": "發音",
+    "si": "උච්චාරණය",
+    "my": "အသံထွက်",
+    "th": "การออกเสียง",
+    "ja": "発音"
   },
   "Provider \"{value0}\" chưa chọn model TTS — cấu hình ở Server & API": {
     "en": "Provider \"{value0}\" has no TTS model selected — configure it in Server & API",
@@ -18589,6 +18669,16 @@
     "th": "ถูกจำกัดอัตรา (429) โปรดลองใหม่ภายหลัง",
     "ja": "レート制限（429）。後で再試行してください。"
   },
+  "Read Mode": {
+    "en": "Read Mode",
+    "hi": "रीड मोड",
+    "zh": "阅读模式",
+    "zh_TW": "閱讀模式",
+    "si": "කියවීම් ප්‍රකාරය",
+    "my": "ဖတ်မုဒ်",
+    "th": "โหมดอ่าน",
+    "ja": "読むモード"
+  },
   "Ready": {
     "en": "Ready",
     "hi": "तैयार",
@@ -18648,6 +18738,16 @@
     "my": "ထပ်ခြင်း",
     "th": "ครั้งที่ทบทวน",
     "ja": "復習回数"
+  },
+  "Rhythm": {
+    "en": "Rhythm",
+    "hi": "लय",
+    "zh": "节奏",
+    "zh_TW": "節奏",
+    "si": "රිද්මය",
+    "my": "ရစ်သမ်",
+    "th": "จังหวะ",
+    "ja": "リズム"
   },
   "Romanian": {
     "en": "Romanian",
@@ -18869,6 +18969,16 @@
     "th": "ภายหลัง",
     "ja": "後"
   },
+  "Score": {
+    "en": "Score",
+    "hi": "स्कोर",
+    "zh": "得分",
+    "zh_TW": "得分",
+    "si": "ලකුණු",
+    "my": "အမှတ်",
+    "th": "คะแนน",
+    "ja": "スコア"
+  },
   "Scottish": {
     "en": "Scottish",
     "hi": "स्कॉटिश",
@@ -18891,12 +19001,12 @@
   },
   "Segments": {
     "en": "Segments",
-    "hi": "Segments",
+    "hi": "खंड",
     "zh": "分段",
     "zh_TW": "分段",
-    "si": "Segments",
-    "my": "Segments",
-    "th": "Segments",
+    "si": "කොටස්",
+    "my": "အပိုင်းများ",
+    "th": "ช่วง",
     "ja": "セグメント"
   },
   "Select Mode": {
@@ -18931,11 +19041,11 @@
   },
   "Server TTS (API)": {
     "en": "Server TTS (API)",
-    "hi": "Server TTS (API)",
+    "hi": "सर्वर TTS (API)",
     "zh": "服务器 TTS（API）",
     "zh_TW": "伺服器 TTS（API）",
-    "si": "Server TTS (API)",
-    "my": "Server TTS (API)",
+    "si": "සර්වර් TTS (API)",
+    "my": "ဆာဗာ TTS (API)",
     "th": "TTS เซิร์ฟเวอร์ (API)",
     "ja": "サーバーTTS（API）"
   },
@@ -18988,6 +19098,16 @@
     "my": "ဘာသာစကား ပိုပြပါ",
     "th": "แสดงภาษาเพิ่มเติม",
     "ja": "言語をさらに表示"
+  },
+  "Silero VAD (Silero Voice Activity)": {
+    "en": "Silero VAD (Silero Voice Activity)",
+    "hi": "Silero VAD (Silero वॉइस एक्टिविटी)",
+    "zh": "Silero VAD（Silero 语音活动检测）",
+    "zh_TW": "Silero VAD（Silero 語音活動偵測）",
+    "si": "Silero VAD (Silero හඬ ක්‍රියාකාරිත්වය)",
+    "my": "Silero VAD (Silero အသံ လှုပ်ရှားမှု)",
+    "th": "Silero VAD (ตรวจกิจกรรมเสียง Silero)",
+    "ja": "Silero VAD（Silero音声アクティビティ）"
   },
   "Silero VAD — lọc khoảng lặng": {
     "en": "Silero VAD — filters out silence",
@@ -19228,6 +19348,16 @@
     "my": "စနစ် အသံမှတ်မိမှု မရနိုင်ပါ",
     "th": "ระบบรู้จำเสียงไม่พร้อมใช้งาน",
     "ja": "システム音声認識が利用できません"
+  },
+  "Speed": {
+    "en": "Speed",
+    "hi": "गति",
+    "zh": "速度",
+    "zh_TW": "速度",
+    "si": "වේගය",
+    "my": "အမြန်နှုန်း",
+    "th": "ความเร็ว",
+    "ja": "速度"
   },
   "Stop Loop": {
     "en": "Stop Loop",
@@ -32177,7 +32307,7 @@
     "si": "හරි",
     "my": "အဆင်ပြေ",
     "th": "ใช้ได้",
-    "ja": "OK"
+    "ja": "よし"
   },
   "Đại từ": {
     "en": "Pronoun",

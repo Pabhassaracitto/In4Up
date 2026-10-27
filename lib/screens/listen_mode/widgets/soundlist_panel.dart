@@ -501,7 +501,7 @@ class _ChapterTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      chapter.title,
+                      context.uiText(chapter.title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),

@@ -10,8 +10,8 @@ Ngày 2026-10-28 · nhánh `arena/bf95d3ae-in4up` · ADR-0018.
   không tự gán metadata cũ theo tên; không xóa playlist/file cũ.
 - [x] Rà soát guards thế hệ cho nạp bài, stop/pause, completion, A–B và kết
   quả STT/LRC; đã viết fake và test tình huống tương ứng.
-- [ ] Chạy `flutter analyze`, test queue/widget/locale và regression trên CI;
-  sửa mọi lỗi thật, ghi run và commit. Sandbox không có Flutter/Dart.
+- [x] Chạy `flutter analyze`, test queue/widget/locale và regression trên CI;
+  run rộng `40586662734` và matrix `40586662698` qua. Sandbox không có Flutter/Dart.
 - [ ] Review code độc lập (không coi tự rà soát là review độc lập).
 - [ ] Build Android để kiểm Kotlin/method channel, rồi thử thiết bị Android:
   URI trùng tên/case, di chuyển, mất quyền/dọn cache, dữ liệu cũ, file lớn,
@@ -26,8 +26,8 @@ Ngày 2026-10-28 · nhánh `arena/bf95d3ae-in4up` · ADR-0018.
 3. Generator legacy English báo 328 override dư; đối chiếu chạy riêng trên
    commit nền `0556f82` cũng báo đúng cùng 328 mục. Priority native pack mới
    đã kiểm `--check`; không tự xóa 328 override lịch sử.
-4. Code/test chưa được Flutter analyzer hoặc thiết bị xác thực. Không đóng card
-   hoặc phát hành chỉ dựa trên hồ sơ tự rà soát này.
+4. Code/test đã qua Flutter analyzer và test trên CI, chưa qua build Android
+   đầy đủ hoặc thiết bị. Không đóng card chỉ dựa trên tự rà soát này.
 
 ### Cập nhật kiểm tra 2026-10-28
 
@@ -109,3 +109,7 @@ run rộng `40583408530` cũng kết thúc thành công. Sau phần timing karao
 run `40583714314` tại `3320658` đạt lại các nhóm queue, audio import,
 timing karaoke và compile resolver. Đây không phải build APK, nghiệm thu máy
 hay review độc lập.
+
+Run rộng `40584783001` tại `b6ee188` (bao gồm thay đổi giao diện karaoke) đã
+hoàn tất thành công. Các run sau thêm test thực tế hai tab và đang xử lý lỗi
+bố cục hẹp; review độc lập, build Android và nghiệm thu thiết bị vẫn chưa xong.

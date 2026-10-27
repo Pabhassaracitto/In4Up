@@ -1269,7 +1269,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
 
 ### PLAN-040 — Karaoke đồng bộ trên Nghe và Hiểu
 - Nguồn: người sở hữu (2026-10-28, qua agent `arena/bf95d3ae-in4up`).
-- Trạng thái: doing — đang triển khai và kiểm thử.
+- Trạng thái: doing — code và matrix CI xanh; chờ review độc lập, build
+  Android đầy đủ và nghiệm thu thiết bị.
 - Milestone đề xuất: M2, card KARAOKE-001.
 - Chi tiết: theo thời gian phát/seek kể cả khi LRC vừa tạo xong lúc tạm dừng;
   đưa dòng vào vùng nhìn dựa trên vị trí thật với dòng cao thấp khác nhau;

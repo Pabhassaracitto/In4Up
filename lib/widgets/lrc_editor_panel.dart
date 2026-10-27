@@ -31,6 +31,9 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
   List<LrcLine>? _lines;
   final Map<int, TextEditingController> _controllers = {};
   String? _lastLrcPath;
+  String? _loadedLrcContent;
+  String? _loadingLrcPath;
+  int _loadGeneration = 0;
   late bool _expanded;
 
   @override
@@ -143,8 +146,8 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
         _ensureLoaded(lrcPath);
 
         if (_lines == null || _lines!.isEmpty) {
-          // Đang load async, hiện loading nhẹ thay vì shrink để tránh nhảy layout
-          if (_lastLrcPath != lrcPath) {
+          // A null list means the current path is still being loaded.
+          if (_lines == null) {
             return Container(
               margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.all(12),
@@ -267,9 +270,9 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                       ),
                     ),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        _useThisLrc();
-                        widget.onLrcApplied?.call();
+                      onPressed: () async {
+                        final applied = await _useThisLrc();
+                        if (applied && mounted) widget.onLrcApplied?.call();
                       },
                       icon: const Icon(Icons.check_circle_outline, size: 16),
                       label: const Text('Nạp vào Đọc & Hiểu'),
@@ -298,11 +301,20 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
   }
 
   Future<void> _ensureLoaded(String lrcPath) async {
-    if (lrcPath == _lastLrcPath && _lines != null) return;
+    if (lrcPath == _lastLrcPath &&
+        (_lines != null || _loadingLrcPath == lrcPath)) return;
 
+    final generation = ++_loadGeneration;
     try {
+      // A file read can take time. Never expose the previous source's lines
+      // under a newly selected path while the new file is loading.
+      if (_lastLrcPath != lrcPath) _lines = null;
       _lastLrcPath = lrcPath;
+      _loadingLrcPath = lrcPath;
+      _loadedLrcContent = null;
       final lrcContent = await File(lrcPath).readAsString();
+      if (!mounted || _lastLrcPath != lrcPath || generation != _loadGeneration) return;
+      _loadedLrcContent = lrcContent;
       final parsed = SttLrcConverter().parseLrcContent(lrcContent);
 
       // Filter dòng rỗng
@@ -323,25 +335,55 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
       if (mounted) setState(() {}); // Trigger rebuild
     } catch (e) {
       debugPrint('❌ LrcEditorPanel load error: $e');
-      _lines = null;
+      if (mounted && _lastLrcPath == lrcPath && generation == _loadGeneration) {
+        setState(() => _lines = []);
+      }
+    } finally {
+      if (generation == _loadGeneration) _loadingLrcPath = null;
     }
   }
 
   Future<void> _saveEdits() async {
     if (_lines == null || _lastLrcPath == null) return;
 
-    final updatedLines = _buildUpdatedLines();
+    final lrcPath = _lastLrcPath!;
+    final audioPath = context.read<PlayerProvider>().currentSongPath;
+    final updatedLines = await _validatedEdits();
+    if (!mounted || updatedLines == null || _lastLrcPath != lrcPath ||
+        context.read<PlayerProvider>().currentSongPath != audioPath) return;
 
-    // Ghi lại file LRC (giữ inline word timestamps nếu có để karaoke)
-    final buffer = StringBuffer();
-    for (final line in updatedLines) {
-      buffer.writeln(SttLrcConverter.serializeLine(line));
+    // Retain header, comments, unknown lines, ordering and newline style. Only
+    // rows that were actually loaded into the editor are replaced.
+    final original = _loadedLrcContent;
+    if (original == null) return;
+    var lyricIndex = 0;
+    final converter = SttLrcConverter();
+    final saved = original.split('\n').map((raw) {
+      final parsed = converter.parseLrcContent(raw);
+      final isLyric = parsed.any((line) => line.text.trim().isNotEmpty);
+      if (!isLyric || lyricIndex >= updatedLines.length) return raw;
+      final replacement = SttLrcConverter.serializeLine(updatedLines[lyricIndex++]);
+      return raw.endsWith('\r') ? '$replacement\r' : replacement;
+    }).join('\n');
+    // Do not rewrite the file if the source changed externally while the
+    // editor was open; a later reload can reconcile those edits safely.
+    if (lyricIndex != updatedLines.length ||
+        await File(lrcPath).readAsString() != original) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text(
+          'LRC đã thay đổi ở nơi khác. Chưa lưu để tránh ghi đè; hãy sao chép chỉnh sửa rồi mở lại trình sửa.',
+        )));
+      }
+      return;
     }
+    if (!mounted || _lastLrcPath != lrcPath ||
+        context.read<PlayerProvider>().currentSongPath != audioPath) return;
+    await File(lrcPath).writeAsString(saved, flush: true);
 
-    await File(_lastLrcPath!).writeAsString(buffer.toString(), flush: true);
-
-    if (!mounted) return;
-
+    if (!mounted || _lastLrcPath != lrcPath ||
+        context.read<PlayerProvider>().currentSongPath != audioPath) return;
+    _loadedLrcContent = saved;
+    _lines = updatedLines;
     // Cập nhật UnderstandProvider
     context.read<UnderstandProvider>().loadLrcLines(updatedLines);
 
@@ -354,10 +396,14 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
     );
   }
 
-  void _useThisLrc() {
-    if (_lines == null || _lines!.isEmpty) return;
+  Future<bool> _useThisLrc() async {
+    if (_lines == null || _lines!.isEmpty) return false;
 
-    final updatedLines = _buildUpdatedLines();
+    final lrcPath = _lastLrcPath;
+    final audioPath = context.read<PlayerProvider>().currentSongPath;
+    final updatedLines = await _validatedEdits();
+    if (!mounted || updatedLines == null || _lastLrcPath != lrcPath ||
+        context.read<PlayerProvider>().currentSongPath != audioPath) return false;
 
     // Clean text cho Tab Đọc
     final cleanText = updatedLines
@@ -381,6 +427,32 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
         duration: Duration(seconds: 2),
       ),
     );
+    return true;
+  }
+
+  Future<List<LrcLine>?> _validatedEdits() async {
+    final lines = _buildUpdatedLines();
+    if (lines.every(SttLrcConverter.wordTimingsMatchText)) return lines;
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mốc thời gian từng từ không còn khớp'),
+        content: const Text(
+          'Một số dòng đã đổi chữ. Nếu tiếp tục, các dòng đó chỉ giữ thời gian bắt đầu dòng và tô từng từ sẽ được ước lượng. Tệp gốc chỉ thay đổi khi bạn lưu.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy')),
+          FilledButton(onPressed: () => Navigator.pop(context, true),
+              child: const Text('Tiếp tục')),
+        ],
+      ),
+    );
+    if (!mounted || proceed != true) return null;
+    return lines.map((line) => SttLrcConverter.wordTimingsMatchText(line)
+        ? line
+        : LrcLine(timestamp: line.timestamp, text: line.text)).toList();
   }
 
   List<LrcLine> _buildUpdatedLines() {

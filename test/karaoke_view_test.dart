@@ -228,6 +228,9 @@ void main() {
       'Chưa đến dòng đầu tiên',
       'Tự cuộn lời',
       'Cỡ chữ (dòng đang phát)',
+      'Mốc thời gian từng từ không còn khớp',
+      'Một số dòng đã đổi chữ. Nếu tiếp tục, các dòng đó chỉ giữ thời gian bắt đầu dòng và tô từng từ sẽ được ước lượng. Tệp gốc chỉ thay đổi khi bạn lưu.',
+      'LRC đã thay đổi ở nơi khác. Chưa lưu để tránh ghi đè; hãy sao chép chỉnh sửa rồi mở lại trình sửa.',
     ];
     for (final label in labels) {
       final en = AppUITranslations.translate(label, 'en');

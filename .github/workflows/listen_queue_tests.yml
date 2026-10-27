@@ -23,6 +23,7 @@ on:
       - 'packages/in4up_stt/**'
       - 'test/listen_*'
       - 'test/karaoke_*'
+      - 'test/lrc_editor_timing_test.dart'
       - 'test/audio_import_service_test.dart'
       - 'test/support/fake_queue_player.dart'
       - '.github/workflows/listen_queue_tests.yml'
@@ -45,6 +46,7 @@ on:
       - 'packages/in4up_stt/**'
       - 'test/listen_*'
       - 'test/karaoke_*'
+      - 'test/lrc_editor_timing_test.dart'
       - 'test/audio_import_service_test.dart'
       - 'test/support/fake_queue_player.dart'
       - '.github/workflows/listen_queue_tests.yml'
@@ -70,6 +72,7 @@ jobs:
           - test/karaoke_timing_test.dart
           - test/karaoke_view_test.dart
           - test/karaoke_tabs_integration_test.dart
+          - test/lrc_editor_timing_test.dart
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

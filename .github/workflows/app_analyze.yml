@@ -125,7 +125,7 @@ jobs:
             test/listen_queue_i18n_test.dart test/listen_source_artifact_test.dart \
             test/audio_import_service_test.dart test/listen_lifecycle_guards_test.dart \
             test/karaoke_timing_test.dart test/karaoke_view_test.dart \
-            test/karaoke_tabs_integration_test.dart \
+            test/karaoke_tabs_integration_test.dart test/lrc_editor_timing_test.dart \
             -r expanded > listen_queue_test.log 2>&1
           code=$?
           cat listen_queue_test.log

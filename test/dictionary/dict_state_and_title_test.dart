@@ -109,6 +109,30 @@ void main() {
       );
     });
 
+    test('bản cài CŨ (không có packId) nhận ra qua tên file đã tải', () {
+      // Đây đúng là tình huống máy owner: cài bằng 1.17.0 ⇒ manifest không có
+      // `pack_id`, tên từ điển lấy từ header .mdx nên không khớp tên bộ.
+      final pack = DictPack(
+        id: 'en-en-simple-wiktionary',
+        name: 'Anh → Anh (Simple English Wiktionary)',
+        downloadUrl:
+            'https://raw.githubusercontent.com/x/y/main/simple-en.mdx',
+      );
+      final installed = <DictInfo>[
+        _dict('d1', name: 'SImple English Dictionary(EN-EN)')
+            .copyWith(sourceFileName: 'simple-en.mdx'),
+      ];
+      expect(isPackInstalled(pack, installed), isTrue);
+    });
+
+    test('packSourceFileName lấy đúng basename, bỏ query/hash', () {
+      expect(
+        packSourceFileName('https://h/a/b/star_anhviet.mdx?raw=1#x'),
+        'star_anhviet.mdx',
+      );
+      expect(packSourceFileName(''), '');
+    });
+
     test('đường lùi cho bộ cài bằng bản cũ (manifest chưa có packId)', () {
       // Tên từ điển chứa id bộ ⇒ coi như đã cài.
       expect(

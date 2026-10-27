@@ -26,6 +26,18 @@ bool isPackInstalled(DictPack pack, List<DictInfo> installed) {
   for (final dict in installed) {
     if ((dict.packId ?? '').trim() == pack.id) return true;
   }
+  // Đường lùi mạnh nhất cho bản cài CŨ: so tên file nguồn. Bộ trong danh mục
+  // tải về đúng tên file trong `downloadUrl` (`simple-en.mdx`) và
+  // `DictInfo.sourceFileName` đang giữ chính tên đó ⇒ khớp dù tiêu đề .mdx
+  // đặt tên gì đi nữa.
+  final fileName = packSourceFileName(pack.downloadUrl);
+  if (fileName.isNotEmpty) {
+    for (final dict in installed) {
+      final existing = dict.sourceFileName;
+      if (existing == null) continue;
+      if (existing.toLowerCase().trim() == fileName) return true;
+    }
+  }
   final name = pack.name.toLowerCase().trim();
   final id = pack.id.toLowerCase().trim();
   for (final dict in installed) {
@@ -38,6 +50,20 @@ bool isPackInstalled(DictPack pack, List<DictInfo> installed) {
     }
   }
   return false;
+}
+
+/// Basename chữ thường của file mà `downloadUrl` trỏ tới (`simple-en.mdx`);
+/// rỗng khi URL không có phần tên file.
+String packSourceFileName(String downloadUrl) {
+  var path = downloadUrl.trim();
+  if (path.isEmpty) return '';
+  final cut = path.indexOf('?');
+  if (cut >= 0) path = path.substring(0, cut);
+  final hash = path.indexOf('#');
+  if (hash >= 0) path = path.substring(0, hash);
+  final slash = path.lastIndexOf('/');
+  final base = slash >= 0 ? path.substring(slash + 1) : path;
+  return base.toLowerCase().trim();
 }
 
 /// Dịch một thao tác kéo-thả của `ReorderableListView` thành chỉ số mới.

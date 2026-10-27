@@ -8143,3 +8143,15 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Còn hở (chưa làm, xem ADR-0018):** màn hình Từ điển riêng · deep link · `ACTION_PROCESS_TEXT` · bong bóng nổi · "Mở bằng In4Up"
 - **Lịch sử:**
   - 2026-10-27 | created→doing | agent arena/188b4bbe-in4up | 2 commit (DICT-I18N-001, DICT-VIEW-003) + ADR-0018 (đề xuất)
+
+## DICT-TITLE-001 / DICT-STATE-001 / DICT-ORDER-001 — (2026-10-27) Tên bộ từ điển, nút "đã cài", kéo thả thứ tự ưu tiên
+- **Trạng thái:** 🔨 doing (code + test; **CI 🟢 run 40566439588**; chờ nghiệm thu máy)
+- **Nguồn:** owner 2026-10-27 (4 việc) — *"đã tải về báo thành công nhưng nút 'Tải & cài' vẫn xanh"* · *"cho phép thay đổi thứ tự ưu tiên bằng kéo thả"* · *"EN-EN hiện `<html><b>SImple English Dictionary(EN-EN)</b></html>`"* · *"Anh–Việt hiện `Từ\điẻn\ Anh -\ Việt\ v1.1`"*
+- **Gốc lỗi tên (2 việc cuối):** cả hai chuỗi là trường `Title=` trong header `.mdx`, được lấy nguyên văn và in thẳng ra UI. `services/dict_title_cleaner.dart` (mới) bóc HTML + giải entity (kể cả escape 2 lớp) + đổi `\` MDX thành khoảng trắng + cắt dấu phân cách mồ côi. Áp ở `MdxParser.detectLanguageFromSource` **và** `DictionaryService._loadManifest` (máy đã cài từ 1.17.0 có tên bẩn trong manifest — không sửa lúc nạp thì vẫn thấy bẩn).
+- **Gốc lỗi "nút vẫn xanh":** `_isInstalled()` so TÊN bộ trong `packs.json` với tên từ điển — tên từ điển do người dựng `.mdx` đặt trong header nên gần như không bao giờ trùng. Nay: `DictInfo.packId` (lưu manifest) + `tagPackId()` sau khi cài; `isPackInstalled()` ưu tiên `packId`, lùi về **tên file nguồn** (`simple-en.mdx`) rồi mới tới tên/id — nhờ vậy bộ đã cài bằng 1.17.0 (manifest chưa có `pack_id`) cũng được nhận ra ngay, không phải cài lại.
+- **UI đã cài:** banner xanh *"Đã cài trên máy — dùng được khi không có mạng."* + nút **viền xanh lá "Đã cài — cài lại"** thay cho nút xanh dương "Tải & cài" (bỏ chip "Đã cài" trùng lặp).
+- **Kéo thả:** `DictManagerScreen` → `ReorderableListView.builder`, tay nắm ≡ riêng (Switch/nút xoá vẫn bấm được), `DictionaryService.reorderDicts()` ghi manifest; thứ tự manifest = thứ tự tra/gộp nghĩa. `applyReorder`/`applyDictOrder`/`reorderTargetIndex` là hàm thuần.
+- **Test:** `test/dictionary/dict_state_and_title_test.dart` (19 ca) — 2 chuỗi owner gửi, `packId` + manifest cũ, tên file nguồn, toán học kéo thả. Đã nối vào cổng CI.
+- **Còn hở:** tên từ điển **đã nhập tay trước đây** không có packId + file nguồn đã bị đổi tên ⇒ vẫn có thể hiện "chưa cài" (hiếm); muốn chắc thì cài lại một lần.
+- **Lịch sử:**
+  - 2026-10-27 | created→doing | agent arena/188b4bbe-in4up | title cleaner + packId + UI trạng thái + kéo thả; CI 🟢 40566439588

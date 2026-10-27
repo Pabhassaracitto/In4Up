@@ -6792,4 +6792,111 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si':
         'මෙම ආකෘති ගොනුව කෙලින්ම කියවීමට විශාල වැඩිය. "ෆෝල්ඩරය ආයාත කරන්න" භාවිත කරන්න හෝ සැබෑ මාර්ගයක් ඇති ගොනුවක් තෝරන්න.',
   },
+
+  // ── DICT-I18N-001: tên loại từ hiển thị (owner 2026-10-27) ─────────────
+  // Mã loại từ (`noun`…) là KHOÁ GỘP giữa các bộ từ điển (xem
+  // `DictTextCleaner.posDisplaySource`); người dùng đọc TÊN đã dịch, nên
+  // mọi tên đều phải có ở đây — thiếu thì `uiText()` rơi về tiếng Anh
+  // (đúng quy tắc không rơi về `vi`) nhưng kém hơn bản đã dịch.
+  // `si` chỉ điền những thuật ngữ ngữ pháp đã có trong dữ liệu từ điển
+  // hoặc chuẩn phổ thông; chỗ còn nghi ngờ thì để trống (rơi về `en`)
+  // thay vì đoán bừa.
+  'Danh từ': {
+    'en': 'Noun',
+    'hi': 'संज्ञा',
+    'zh': '名词',
+    'zh_TW': '名詞',
+    'si': 'නාම පදය',
+  },
+  'Động từ': {
+    'en': 'Verb',
+    'hi': 'क्रिया',
+    'zh': '动词',
+    'zh_TW': '動詞',
+    'si': 'ක්‍රියා පදය',
+  },
+  'Tính từ': {
+    'en': 'Adjective',
+    'hi': 'विशेषण',
+    'zh': '形容词',
+    'zh_TW': '形容詞',
+    'si': 'විශේෂණය',
+  },
+  'Trạng từ': {
+    'en': 'Adverb',
+    'hi': 'क्रिया-विशेषण',
+    'zh': '副词',
+    'zh_TW': '副詞',
+    'si': 'ක්‍රියා විශේෂණය',
+  },
+  'Giới từ': {
+    'en': 'Preposition',
+    'hi': 'पूर्वसर्ग',
+    'zh': '介词',
+    'zh_TW': '介詞',
+  },
+  'Liên từ': {
+    'en': 'Conjunction',
+    'hi': 'संयोजक',
+    'zh': '连词',
+    'zh_TW': '連詞',
+  },
+  'Đại từ': {
+    'en': 'Pronoun',
+    'hi': 'सर्वनाम',
+    'zh': '代词',
+    'zh_TW': '代詞',
+    'si': 'සර්වනාමය',
+  },
+  'Mạo từ': {
+    'en': 'Article',
+    'hi': 'उपपद',
+    'zh': '冠词',
+    'zh_TW': '冠詞',
+  },
+  'Thán từ': {
+    'en': 'Interjection',
+    'hi': 'विस्मयादिबोधक',
+    'zh': '感叹词',
+    'zh_TW': '感嘆詞',
+  },
+  'Số từ': {
+    'en': 'Numeral',
+    'hi': 'संख्यावाचक',
+    'zh': '数词',
+    'zh_TW': '數詞',
+    'si': 'සංඛ්‍යා පදය',
+  },
+  'Viết tắt': {
+    'en': 'Abbreviation',
+    'hi': 'संक्षिप्त रूप',
+    'zh': '缩写',
+    'zh_TW': '縮寫',
+  },
+  'Trợ động từ': {
+    'en': 'Auxiliary verb',
+    'hi': 'सहायक क्रिया',
+    'zh': '助动词',
+    'zh_TW': '助動詞',
+  },
+  'Thành ngữ': {
+    'en': 'Idiom',
+    'hi': 'मुहावरा',
+    'zh': '成语',
+    'zh_TW': '成語',
+    'si': 'ඉඩියම්',
+  },
+  'Trợ từ': {
+    'en': 'Particle',
+    'hi': 'निपात',
+    'zh': '助词',
+    'zh_TW': '助詞',
+    'si': 'අව්‍යය',
+  },
+  'Lượng từ': {
+    'en': 'Measure word',
+    'hi': 'मात्रा-सूचक शब्द',
+    'zh': '量词',
+    'zh_TW': '量詞',
+  },
 };

@@ -37,6 +37,7 @@ import 'screens/read_mode/services/playback_controller.dart';
 import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
+import 'services/ai_settings_cloud_sync.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_rest_auth.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
@@ -145,6 +146,13 @@ Future<void> main() async {
     (_) => authService.logAuthState('change'),
     onError: (Object e) => authService.logAuthState('change-error', e),
   );
+
+  // API-SYNC-001 (owner 2026-10-26): cấu hình "Server & API" (provider + key
+  // + routing) đồng bộ lên `users/{uid}/ai_settings/current`. Gắn ở đây để
+  // phiên đăng nhập nào cũng pull về trước khi user mở cài đặt — máy mới
+  // không phải nhập lại key. Không block startup (chạy nền).
+  unawaited(AiProviderStore.instance.ensureLoaded());
+  AiSettingsCloudSync.instance.attach(store: AiProviderStore.instance);
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();

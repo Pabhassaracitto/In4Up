@@ -307,6 +307,32 @@ jobs:
           flutter test
           test/ai_provider_builtin_and_read_align_test.dart
 
+      # API-TRANS-MODEL-001 / MODEL-PICKER-001 / API-SYNC-001 / API-DIAG-001:
+      # model dịch riêng, hòa giải cấu hình cloud (LWW + bia mộ), báo cáo
+      # "AI đang chạy" theo loại mạng, và chạy thử THẬT qua transport giả.
+      # Thuần logic (không mạng, không plugin) nên chạy được trên CI.
+      - name: "API settings tests — model dịch + đồng bộ + AI đang chạy (2026-10-26)"
+        id: api-settings-tests
+        run: |
+          set +e
+          if [ ! -f test/ai_translation_model_and_sync_test.dart ]; then
+            echo "Không có test API settings trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/ai_translation_model_and_sync_test.dart \
+            > api_settings_test.log 2>&1
+          code=$?
+          cat api_settings_test.log
+          exit $code
+
+      - name: Upload API settings test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-api-settings-test-log
+          path: api_settings_test.log
+          if-no-files-found: ignore
+
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
       # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch

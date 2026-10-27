@@ -236,15 +236,23 @@ class DictTextCleaner {
   //   Myanmar 1000-109F · Georgian 10A0-10FF · Ethiopic 1200-137F
   //   Khmer 1780-17FF · Hiragana/Katakana 3040-30FF · Hán 4E00-9FFF + 3400-4DBF
   //   + F900-FAFF · Hangul AC00-D7AF
-  static final RegExp _letterRe = RegExp(
-    '[A-Za-zÀ-ɏĀ-ſ\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF'
-    '\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF'
-    '\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F'
-    '\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u1000-\u109F'
-    '\u10A0-\u10FF\u1200-\u137F\u1780-\u17FF'
-    '\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF'
-    '\uF900-\uFAFF]',
-  );
+  /// NGUỒN DUY NHẤT của dải "chữ cái thật". Ba chỗ dùng chung:
+  /// `_letterRe` (dòng có chữ?), `_nonLetterRe` (bỏ ký tự lạ để so khớp /
+  /// khử trùng) và `_isHeadwordOnly`. Trước đây mỗi chỗ tự viết dải riêng ⇒
+  /// sửa một chỗ, hai chỗ kia vẫn xoá mất chữ Sinhala/Tamil…
+  static const String _letterRanges =
+      'A-Za-zÀ-ɏĀ-ſ\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF'
+      '\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF'
+      '\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F'
+      '\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u1000-\u109F'
+      '\u10A0-\u10FF\u1200-\u137F\u1780-\u17FF'
+      '\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF'
+      '\uF900-\uFAFF';
+
+  static final RegExp _letterRe = RegExp('[$_letterRanges]');
+
+  /// Mọi thứ KHÔNG phải chữ cái/số/khoảng trắng — dùng khi chuẩn hoá chuỗi.
+  static final RegExp _nonLetterRe = RegExp('[^$_letterRanges0-9\\s]');
 
   /// Metadata KHÔNG có dấu hai chấm ở đầu dòng (`reading …`).
   static final RegExp _metaWordPrefixRe = RegExp(
@@ -801,14 +809,11 @@ class DictTextCleaner {
     if (rawLine.isNotEmpty && rawLine == headword.trim().toLowerCase()) {
       return true;
     }
-    final normalizedLine = line
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s\u00c0-\u024f]'), '')
-        .trim();
-    final normalizedHead = headword
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s\u00c0-\u024f]'), '')
-        .trim();
+    // Dùng chung `_letterRanges`: bản cũ chỉ giữ `a-z0-9` + Latin có dấu.
+    final normalizedLine =
+        _collapse(line.toLowerCase().replaceAll(_nonLetterRe, ' '));
+    final normalizedHead =
+        _collapse(headword.toLowerCase().replaceAll(_nonLetterRe, ' '));
     if (normalizedLine.isEmpty || normalizedHead.isEmpty) return false;
     return normalizedLine == normalizedHead;
   }
@@ -1049,13 +1054,16 @@ class DictTextCleaner {
     return result;
   }
 
-  static String _senseKey(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\u00c0-\u024f\s]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
+  /// Khoá so sánh để KHỬ NGHĨA TRÙNG giữa các bộ từ điển.
+  ///
+  /// DICT-I18N-001: bản trước dùng `[^\w\u00c0-\u024f\s]`, mà `\w` của
+  /// RegExp Dart (không bật unicode) chỉ là `[A-Za-z0-9_]` ⇒ với chữ Hán,
+  /// Devanagari, Sinhala, Tamil… **mọi ký tự bị xoá**, khoá thành rỗng, và
+  /// `_dedupeGroups` bỏ luôn nghĩa vì `normalized.isEmpty`. Nghĩa là: dù
+  /// `_letterRe` đã cho qua, các script này VẪN ra trang trống. Nay dùng
+  /// chung `_letterRanges`.
+  static String _senseKey(String text) =>
+      _collapse(text.toLowerCase().replaceAll(_nonLetterRe, ' '));
 }
 
 /// Loại từ tách từ đầu dòng nghĩa (DICT-CLEAN-002).

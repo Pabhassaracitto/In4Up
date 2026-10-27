@@ -6839,6 +6839,123 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si':
         'මෙම ආකෘති ගොනුව කෙලින්ම කියවීමට විශාල වැඩිය. "ෆෝල්ඩරය ආයාත කරන්න" භාවිත කරන්න හෝ සැබෑ මාර්ගයක් ඇති ගොනුවක් තෝරන්න.',
   },
+
+  // ── DICT-I18N-001: tên loại từ hiển thị (owner 2026-10-27) ─────────────
+  // Mã loại từ (`noun`…) là KHOÁ GỘP giữa các bộ từ điển (xem
+  // `DictTextCleaner.posDisplaySource`); người dùng đọc TÊN đã dịch, nên
+  // mọi tên đều phải có ở đây — thiếu thì `uiText()` rơi về tiếng Anh
+  // (đúng quy tắc không rơi về `vi`) nhưng kém hơn bản đã dịch.
+  // `si` chỉ điền những thuật ngữ ngữ pháp đã có trong dữ liệu từ điển
+  // hoặc chuẩn phổ thông; chỗ còn nghi ngờ thì để trống (rơi về `en`)
+  // thay vì đoán bừa.
+  'Danh từ': {
+    'en': 'Noun',
+    'hi': 'संज्ञा',
+    'zh': '名词',
+    'zh_TW': '名詞',
+    'si': 'නාම පදය',
+  },
+  'Động từ': {
+    'en': 'Verb',
+    'hi': 'क्रिया',
+    'zh': '动词',
+    'zh_TW': '動詞',
+    'si': 'ක්‍රියා පදය',
+  },
+  'Tính từ': {
+    'en': 'Adjective',
+    'hi': 'विशेषण',
+    'zh': '形容词',
+    'zh_TW': '形容詞',
+    'si': 'විශේෂණය',
+  },
+  'Trạng từ': {
+    'en': 'Adverb',
+    'hi': 'क्रिया-विशेषण',
+    'zh': '副词',
+    'zh_TW': '副詞',
+    'si': 'ක්‍රියා විශේෂණය',
+  },
+  'Giới từ': {
+    'en': 'Preposition',
+    'hi': 'पूर्वसर्ग',
+    'zh': '介词',
+    'zh_TW': '介詞',
+  },
+  'Liên từ': {
+    'en': 'Conjunction',
+    'hi': 'संयोजक',
+    'zh': '连词',
+    'zh_TW': '連詞',
+  },
+  'Đại từ': {
+    'en': 'Pronoun',
+    'hi': 'सर्वनाम',
+    'zh': '代词',
+    'zh_TW': '代詞',
+    'si': 'සර්වනාමය',
+  },
+  'Mạo từ': {
+    'en': 'Article',
+    'hi': 'उपपद',
+    'zh': '冠词',
+    'zh_TW': '冠詞',
+  },
+  'Thán từ': {
+    'en': 'Interjection',
+    'hi': 'विस्मयादिबोधक',
+    'zh': '感叹词',
+    'zh_TW': '感嘆詞',
+  },
+  'Số từ': {
+    'en': 'Numeral',
+    'hi': 'संख्यावाचक',
+    'zh': '数词',
+    'zh_TW': '數詞',
+    'si': 'සංඛ්‍යා පදය',
+  },
+  'Viết tắt': {
+    'en': 'Abbreviation',
+    'hi': 'संक्षिप्त रूप',
+    'zh': '缩写',
+    'zh_TW': '縮寫',
+  },
+  'Trợ động từ': {
+    'en': 'Auxiliary verb',
+    'hi': 'सहायक क्रिया',
+    'zh': '助动词',
+    'zh_TW': '助動詞',
+  },
+  'Thành ngữ': {
+    'en': 'Idiom',
+    'hi': 'मुहावरा',
+    'zh': '成语',
+    'zh_TW': '成語',
+    'si': 'ඉඩියම්',
+  },
+  'Trợ từ': {
+    'en': 'Particle',
+    'hi': 'निपात',
+    'zh': '助词',
+    'zh_TW': '助詞',
+    'si': 'අව්‍යය',
+  },
+  'Lượng từ': {
+    'en': 'Measure word',
+    'hi': 'मात्रा-सूचक शब्द',
+    'zh': '量词',
+    'zh_TW': '量詞',
+  },
+  // DICT-VIEW-003: nút loa ở trang từ điển khi TTS lỗi (mất mạng + chưa có
+  // giọng offline). Phải nằm ở catalog tay-viết: `generated_legacy_ui_fallbacks`
+  // chỉ sinh lại khi chạy generator, mà quy tắc repo là KHÔNG chạy nó.
+  'Không phát âm được từ này.': {
+    'en': 'Could not pronounce this word.',
+    'hi': 'इस शब्द का उच्चारण नहीं हो सका।',
+    'zh': '无法朗读该单词。',
+    'zh_TW': '無法朗讀該單詞。',
+    'si': 'මෙම වචනය උච්ඡාරණය කළ නොහැක.',
+  },
   'Đã copy': {
     'en': 'Copied',
     'hi': 'कॉपी हो गया',
@@ -7046,5 +7163,43 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '使用输入的名称',
     'zh_TW': '使用輸入的名稱',
     'si': 'ටයිප් කළ නම භාවිත කරන්න',
+  },
+
+  // ── DICT-STATE-001 / DICT-ORDER-001 (owner 2026-10-27) ────────────────
+  // "Đã tải về báo thành công nhưng nút vẫn xanh" + kéo thả thứ tự ưu tiên.
+  'Đã cài trên máy — dùng được khi không có mạng.': {
+    'en': 'Installed on this device — works offline.',
+    'hi': 'इस डिवाइस पर इंस्टॉल है — ऑफ़लाइन काम करेगा।',
+    'zh': '已安装到本机——离线可用。',
+    'zh_TW': '已安裝到本機——離線可用。',
+    'si': 'මෙම උපාංගයේ ස්ථාපිතයි — අන්තර්ජාලය නොමැතිව ක්‍රියා කරයි.',
+  },
+  'Đã cài — cài lại': {
+    'en': 'Installed — reinstall',
+    'hi': 'इंस्टॉल है — फिर से इंस्टॉल करें',
+    'zh': '已安装——重新安装',
+    'zh_TW': '已安裝——重新安裝',
+    'si': 'ස්ථාපිතයි — නැවත ස්ථාපනය',
+  },
+  'Đã lưu thứ tự ưu tiên từ điển.': {
+    'en': 'Dictionary priority order saved.',
+    'hi': 'शब्दकोश प्राथमिकता क्रम सहेजा गया।',
+    'zh': '已保存词典优先顺序。',
+    'zh_TW': '已儲存詞典優先順序。',
+    'si': 'ශබ්දකෝෂ ප්‍රමුඛතා අනුපිළිවෙල සුරකින ලදි.',
+  },
+  'Kéo để đổi thứ tự ưu tiên': {
+    'en': 'Drag to change priority order',
+    'hi': 'प्राथमिकता बदलने के लिए खींचें',
+    'zh': '拖动以更改优先顺序',
+    'zh_TW': '拖曳以更改優先順序',
+    'si': 'ප්‍රමුඛතාව වෙනස් කිරීමට අදින්න',
+  },
+  'Kéo biểu tượng ≡ để đổi thứ tự ưu tiên — bộ ở trên được ưu tiên khi một từ có ở nhiều bộ.': {
+    'en': 'Drag the ≡ handle to change priority order — the dictionary on top is preferred when a word exists in several.',
+    'hi': 'प्राथमिकता बदलने के लिए ≡ हैंडल खींचें — एक शब्द कई शब्दकोशों में हो तो ऊपर वाला पहले दिखेगा।',
+    'zh': '拖动 ≡ 手柄更改优先顺序——同一个词在多部词典中时优先显示上面的。',
+    'zh_TW': '拖曳 ≡ 手柄更改優先順序——同一個詞在多部詞典中時優先顯示上面的。',
+    'si': 'ප්‍රමුඛතාව වෙනස් කිරීමට ≡ හැඬලය අදින්න — වචනයක් ශබ්දකෝෂ කිහිපයක ඇත්නම් ඉහළ ඇති එක ඉස්මතු වේ.',
   },
 };

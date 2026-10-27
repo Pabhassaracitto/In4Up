@@ -158,7 +158,7 @@ class DictTextCleaner {
   DictTextCleaner._();
 
   static const int _maxSensesPerPos = 12;
-  static const int _maxPosGroups = 6;
+  static const int _maxPosGroups = 12;
 
   // ── Regex dọn HTML ───────────────────────────────────────────────────────
 
@@ -218,10 +218,41 @@ class DictTextCleaner {
   );
 
   /// Chữ cái thật (Latin có dấu, Cyrillic, Hán, Thái, Ả-rập, Devanagari…).
-  static final RegExp _letterRe = RegExp(
-    '[A-Za-zÀ-ɏĀ-ſ\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF'
-    '\u0900-\u097F\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]',
-  );
+  /// MỌI script mà app cần hiển thị — KHÔNG chỉ Latin/CJK.
+  ///
+  /// DICT-I18N-001 (owner 2026-10-27: "cách hiển thị từ điển đã ok chưa?"):
+  /// bản trước chỉ có Latin/Cyrillic/Ả-rập/Devanagari/Thái/Nhật/Hán/Hàn nên
+  /// **tiếng Sinhala (`si` — một trong 5 ngôn ngữ ưu tiên của app) không có
+  /// một ký tự nào khớp** ⇒ mọi dòng nghĩa Sinhala bị `_isJunkSense` coi là
+  /// rác và XOÁ SẠCH (kết quả: tra từ tiếng Sinhala ra trang trống). Cùng lỗi
+  /// với Tamil/Bengali/Telugu/Kannada/Malayalam/Khmer/Myanmar/Lào.
+  //
+  // Danh sách script (dạng \uXXXX, KHÔNG viết thẳng ký tự để diff an toàn):
+  //   Latin (A-Z a-z À-ɏ Ā-ſ) · Cyrillic 0400-04FF · Hebrew 0590-05FF
+  //   Arabic 0600-06FF · Devanagari 0900-097F (hi/mr/ne) · Bengali 0980-09FF
+  //   Gurmukhi 0A00-0A7F · Gujarati 0A80-0AFF · Tamil 0B80-0BFF
+  //   Telugu 0C00-0C7F · Kannada 0C80-0CFF · Malayalam 0D00-0D7F
+  //   Sinhala 0D80-0DFF (si) · Thai 0E00-0E7F · Lao 0E80-0EFF
+  //   Myanmar 1000-109F · Georgian 10A0-10FF · Ethiopic 1200-137F
+  //   Khmer 1780-17FF · Hiragana/Katakana 3040-30FF · Hán 4E00-9FFF + 3400-4DBF
+  //   + F900-FAFF · Hangul AC00-D7AF
+  /// NGUỒN DUY NHẤT của dải "chữ cái thật". Ba chỗ dùng chung:
+  /// `_letterRe` (dòng có chữ?), `_nonLetterRe` (bỏ ký tự lạ để so khớp /
+  /// khử trùng) và `_isHeadwordOnly`. Trước đây mỗi chỗ tự viết dải riêng ⇒
+  /// sửa một chỗ, hai chỗ kia vẫn xoá mất chữ Sinhala/Tamil…
+  static const String _letterRanges =
+      'A-Za-zÀ-ɏĀ-ſ\u0400-\u04FF\u0590-\u05FF\u0600-\u06FF'
+      '\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF'
+      '\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F'
+      '\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u1000-\u109F'
+      '\u10A0-\u10FF\u1200-\u137F\u1780-\u17FF'
+      '\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF'
+      '\uF900-\uFAFF';
+
+  static final RegExp _letterRe = RegExp('[${_letterRanges}]');
+
+  /// Mọi thứ KHÔNG phải chữ cái/số/khoảng trắng — dùng khi chuẩn hoá chuỗi.
+  static final RegExp _nonLetterRe = RegExp('[^${_letterRanges}0-9\\s]');
 
   /// Metadata KHÔNG có dấu hai chấm ở đầu dòng (`reading …`).
   static final RegExp _metaWordPrefixRe = RegExp(
@@ -360,7 +391,164 @@ class DictTextCleaner {
     'cụm từ': 'phrase',
     'idiom': 'idiom',
     'thành ngữ': 'idiom',
+
+    // ── DICT-I18N-001: nhãn loại từ của các ngôn ngữ ưu tiên còn lại ──────
+    // Trước đây chỉ có tiếng Anh + tiếng Việt. Với từ điển Trung/Nhật/Hàn/
+    // Hindi/Sinhala, dòng `名詞` / `संज्ञा` / `නාම පදය` KHÔNG khớp bảng ⇒
+    // được coi là một *nghĩa* ⇒ trang từ điển hiện một bullet vô nghĩa
+    // "名詞" thay vì nhóm loại từ. Nay chúng thành nhóm như mọi loại từ khác.
+    // Trung (giản thể + phồn thể, có/không có ngoặc 〔〕【】)
+    '名词': 'noun',
+    '名詞': 'noun',
+    '动词': 'verb',
+    '動詞': 'verb',
+    '形容词': 'adj',
+    '形容詞': 'adj',
+    '副词': 'adv',
+    '副詞': 'adv',
+    '代词': 'pron',
+    '代詞': 'pron',
+    '介词': 'prep',
+    '介詞': 'prep',
+    '连词': 'conj',
+    '連詞': 'conj',
+    '助词': 'particle',
+    '助詞': 'particle',
+    '叹词': 'interj',
+    '嘆詞': 'interj',
+    '感叹词': 'interj',
+    '感嘆詞': 'interj',
+    '量词': 'measure',
+    '量詞': 'measure',
+    '数词': 'num',
+    '數詞': 'num',
+    '缩写': 'abbr',
+    '縮寫': 'abbr',
+    '成语': 'idiom',
+    '成語': 'idiom',
+    '惯用语': 'phrase',
+    '慣用語': 'phrase',
+    // Nhật — `動詞`/`形容詞`/`形容動詞`/`副詞`/`助詞` đã có ở khối phồn thể
+    // phía trên (cùng chữ Hán); ở đây chỉ thêm những nhãn riêng của tiếng Nhật.
+    '代名詞': 'pron',
+    '助動詞': 'aux',
+    '接続詞': 'conj',
+    '感動詞': 'interj',
+    '連体詞': 'det',
+    // Hàn
+    '명사': 'noun',
+    '동사': 'verb',
+    '형용사': 'adj',
+    '부사': 'adv',
+    '대명사': 'pron',
+    // Hindi (Devanagari)
+    'संज्ञा': 'noun',
+    'क्रिया': 'verb',
+    'विशेषण': 'adj',
+    'क्रिया विशेषण': 'adv',
+    'सर्वनाम': 'pron',
+    'संबंधबोधक': 'prep',
+    'संयोजक': 'conj',
+    'विस्मयादिबोधक': 'interj',
+    // Viết tắt tiếng Việt hay gặp ở từ điển Việt–Việt (Hồ Ngọc Đức, VNTQ…):
+    // `dt. 1. …`, `đt. …`, `tt. …`. Trước đây không có trong bảng ⇒ dòng
+    // "dt." bị coi là một NGHĨA (hiện bullet "dt." vô nghĩa). DICT-I18N-001.
+    'dt': 'noun',
+    'đt': 'verb',
+    'đgt': 'verb',
+    'đtừ': 'verb',
+    'tt': 'adj',
+    'ttừ': 'adj',
+    'trt': 'adv',
+    'pht': 'adv',
+    'gt': 'prep',
+    'gtừ': 'prep',
+    'lt': 'conj',
+    'ltừ': 'conj',
+    'tht': 'interj',
+    'st': 'num',
+    'đtn': 'pron',
+    'trtừ': 'adv',
+    // Trung/Nhật hay ghi loại từ bằng MỘT chữ Hán trong ngoặc: `〔名〕`,
+    // `【动】`. Sau khi bóc ngoặc còn đúng một chữ ⇒ phải nhận ra.
+    '名': 'noun',
+    '动': 'verb',
+    '動': 'verb',
+    '形': 'adj',
+    '副': 'adv',
+    '代': 'pron',
+    '介': 'prep',
+    '连': 'conj',
+    '連': 'conj',
+    '助': 'particle',
+    '叹': 'interj',
+    '嘆': 'interj',
+    '量': 'measure',
+    '数': 'num',
+    '數': 'num',
+    // Sinhala
+    'නාම පදය': 'noun',
+    'නාමපදය': 'noun',
+    'ක්‍රියා පදය': 'verb',
+    'ක්‍රියාපදය': 'verb',
+    'විශේෂණ පදය': 'adj',
+    'විශේෂණය': 'adj',
+    'ක්‍රියා විශේෂණය': 'adv',
+    'සර්වනාමය': 'pron',
   };
+
+  /// Nhãn TIẾNG VIỆT để hiển thị cho một mã loại từ (DICT-I18N-001).
+  ///
+  /// `DictPosGroup.pos` cố tình là **mã ngắn, không phụ thuộc ngôn ngữ**
+  /// (`noun`, `verb`…) để gộp được nhiều bộ từ điển khác nhau vào cùng một
+  /// nhóm. Nhưng người dùng thì cần đọc "Danh từ" chứ không phải "noun".
+  /// UI gọi `context.uiText(DictTextCleaner.posDisplaySource(pos))` để ra
+  /// đúng ngôn ngữ giao diện (quy tắc vàng #5).
+  static String? posDisplaySource(String? pos) {
+    final raw = (pos ?? '').trim();
+    if (raw.isEmpty) return null;
+    // Cột `partOfSpeech` của nhiều bộ MDX ghi dạng viết tắt `n.` / `(adj)` /
+    // `đt.` chứ không phải mã chuẩn. Chuẩn hoá trước rồi mới tra nhãn.
+    final code = _asPosHeader(raw) ?? raw.toLowerCase();
+    switch (code) {
+      case 'noun':
+        return 'Danh từ';
+      case 'verb':
+        return 'Động từ';
+      case 'adj':
+        return 'Tính từ';
+      case 'adv':
+        return 'Trạng từ';
+      case 'prep':
+        return 'Giới từ';
+      case 'conj':
+        return 'Liên từ';
+      case 'pron':
+        return 'Đại từ';
+      case 'det':
+        return 'Mạo từ';
+      case 'interj':
+        return 'Thán từ';
+      case 'num':
+        return 'Số từ';
+      case 'abbr':
+        return 'Viết tắt';
+      case 'aux':
+        return 'Trợ động từ';
+      case 'phr. verb':
+        return 'Cụm động từ';
+      case 'phrase':
+        return 'Cụm từ';
+      case 'idiom':
+        return 'Thành ngữ';
+      case 'particle':
+        return 'Trợ từ';
+      case 'measure':
+        return 'Lượng từ';
+      default:
+        return null;
+    }
+  }
 
   static final RegExp _numberMarkerRe = RegExp(r'(?:^|\s)\d{1,2}[.)]\s');
   static final RegExp _leadingMarkersRe =
@@ -613,14 +801,19 @@ class DictTextCleaner {
 
   static bool _isHeadwordOnly(String line, String headword) {
     if (headword.isEmpty) return false;
-    final normalizedLine = line
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s\u00c0-\u024f]'), '')
-        .trim();
-    final normalizedHead = headword
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s\u00c0-\u024f]'), '')
-        .trim();
+    // DICT-I18N-001: so khớp TRỰC TIẾP trước. Bản dưới chỉ giữ `a-z0-9` +
+    // Latin có dấu, nên với headword không phải Latin (Sinhala `ගස`, Hindi
+    // `पेड़`, Hán `树`) cả hai vế đều rỗng ⇒ hàm trả false ⇒ **dòng lặp lại
+    // chính headword bị hiện thành một "nghĩa"** (kiểu "ගස: ගස").
+    final rawLine = line.trim().toLowerCase();
+    if (rawLine.isNotEmpty && rawLine == headword.trim().toLowerCase()) {
+      return true;
+    }
+    // Dùng chung `_letterRanges`: bản cũ chỉ giữ `a-z0-9` + Latin có dấu.
+    final normalizedLine =
+        _collapse(line.toLowerCase().replaceAll(_nonLetterRe, ' '));
+    final normalizedHead =
+        _collapse(headword.toLowerCase().replaceAll(_nonLetterRe, ' '));
     if (normalizedLine.isEmpty || normalizedHead.isEmpty) return false;
     return normalizedLine == normalizedHead;
   }
@@ -745,14 +938,38 @@ class DictTextCleaner {
     return null;
   }
 
+  /// Tra nhãn loại từ có chuẩn hoá — DICT-I18N-001.
+  ///
+  /// Vì sao không tra thẳng `_posTokens[value]`: các nhãn Ấn Độ/Sinhala trong
+  /// dữ liệu thật có/không có ZWJ (`ක්‍රියා පදය` vs `ක්‍රියාපදය`) và có/không
+  /// có dấu cách giữa các chữ, tuỳ bộ từ điển. Chuẩn hoá (bỏ ký tự vô hình,
+  /// bỏ mọi khoảng trắng) để cả hai dạng cùng về một nhãn, thay vì phải liệt
+  /// kê từng biến thể bằng tay.
+  static String? _posLookup(String value) {
+    final direct = _posTokens[value];
+    if (direct != null) return direct;
+    return _posIndex[_posKey(value)];
+  }
+
+  static String _posKey(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp('[\u200b-\u200d\ufeff]'), '')
+      .replaceAll(RegExp(r'\s+'), '');
+
+  static final Map<String, String> _posIndex = <String, String>{
+    for (final entry in _posTokens.entries) _posKey(entry.key): entry.value,
+  };
+
   static String? _asPosHeader(String line) {
     var value = line.toLowerCase().trim();
     if (value.isEmpty || value.length > 24) return null;
-    value = value.replaceAll(RegExp(r'^[\(\[]+'), '');
-    value = value.replaceAll(RegExp(r'[\)\]]+$'), '');
+    // Ngoặc có thể là nửa độ rộng `(n)` hoặc toàn độ rộng `〔名〕`/`【名】`
+    // (từ điển Trung/Nhật dùng rất phổ biến — DICT-I18N-001).
+    value = value.replaceAll(RegExp(r'^[\(\[〔【〈《「『]+'), '');
+    value = value.replaceAll(RegExp(r'[\)\]〕】〉》」』]+$'), '');
     value = value.replaceAll(RegExp(r'[.:;,\-–—]+$'), '').trim();
     if (value.isEmpty) return null;
-    return _posTokens[value];
+    return _posLookup(value);
   }
 
   static bool _isExampleLine(String line) {
@@ -837,13 +1054,16 @@ class DictTextCleaner {
     return result;
   }
 
-  static String _senseKey(String text) {
-    return text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\u00c0-\u024f\s]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
+  /// Khoá so sánh để KHỬ NGHĨA TRÙNG giữa các bộ từ điển.
+  ///
+  /// DICT-I18N-001: bản trước dùng `[^\w\u00c0-\u024f\s]`, mà `\w` của
+  /// RegExp Dart (không bật unicode) chỉ là `[A-Za-z0-9_]` ⇒ với chữ Hán,
+  /// Devanagari, Sinhala, Tamil… **mọi ký tự bị xoá**, khoá thành rỗng, và
+  /// `_dedupeGroups` bỏ luôn nghĩa vì `normalized.isEmpty`. Nghĩa là: dù
+  /// `_letterRe` đã cho qua, các script này VẪN ra trang trống. Nay dùng
+  /// chung `_letterRanges`.
+  static String _senseKey(String text) =>
+      _collapse(text.toLowerCase().replaceAll(_nonLetterRe, ' '));
 }
 
 /// Loại từ tách từ đầu dòng nghĩa (DICT-CLEAN-002).

@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import '../models/dict_info.dart';
 import '../models/dict_pack.dart';
 import '../services/dict_pack_service.dart';
+import '../services/dict_list_order.dart';
 import '../services/dictionary_service.dart';
 
 class DictPackScreen extends StatefulWidget {
@@ -98,16 +99,9 @@ class _DictPackScreenState extends State<DictPackScreen> {
     }
   }
 
-  bool _isInstalled(DictPack pack) {
-    final needle = pack.name.toLowerCase();
-    final idNeedle = pack.id.toLowerCase();
-    for (final dict in _installed) {
-      final name = dict.name.toLowerCase();
-      if (name == needle) return true;
-      if (name.contains(idNeedle)) return true;
-    }
-    return false;
-  }
+  /// DICT-STATE-001: dùng `packId` đóng dấu lúc cài (chuẩn) + đường lùi theo
+  /// tên cho bộ đã cài bằng bản ≤ 1.17.0.
+  bool _isInstalled(DictPack pack) => isPackInstalled(pack, _installed);
 
   Future<void> _install(DictPack pack) async {
     if (_progress.containsKey(pack.id)) return;
@@ -408,13 +402,30 @@ class _DictPackScreenState extends State<DictPackScreen> {
                             label: 'v${pack.version}',
                             color: const Color(0xFF90CAF9),
                           ),
-                        if (installed)
-                          _MetaChip(
-                            label: context.uiText('Đã cài'),
-                            color: const Color(0xFF81C784),
-                          ),
                       ],
                     ),
+                    if (installed) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              color: Color(0xFF81C784), size: 14),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              context.uiText(
+                                'Đã cài trên máy — dùng được khi không có mạng.',
+                              ),
+                              style: const TextStyle(
+                                color: Color(0xFF81C784),
+                                fontSize: 11,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (pack.description.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
@@ -453,24 +464,41 @@ class _DictPackScreenState extends State<DictPackScreen> {
           else
             Row(
               children: [
+                // DICT-STATE-001: nút phải NÓI RÕ trạng thái. Trước đây bộ đã
+                // cài vẫn hiện nút XANH "Tải & cài" (chỉ đổi chữ nhỏ) ⇒ người
+                // dùng tưởng chưa cài và bấm tải lại.
                 Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2196F3),
-                    ),
-                    onPressed: () => _install(pack),
-                    icon: Icon(
-                      installed ? Icons.refresh : Icons.download,
-                      size: 17,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      installed
-                          ? context.uiText('Cài lại / cập nhật')
-                          : context.uiText('Tải & cài'),
-                      style: const TextStyle(color: Colors.white, fontSize: 12.5),
-                    ),
-                  ),
+                  child: installed
+                      ? OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF4CAF50)),
+                          ),
+                          onPressed: () => _install(pack),
+                          icon: const Icon(Icons.refresh,
+                              size: 17, color: Color(0xFF81C784)),
+                          label: Text(
+                            context.uiText('Đã cài — cài lại'),
+                            style: const TextStyle(
+                              color: Color(0xFF81C784),
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        )
+                      : FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF2196F3),
+                          ),
+                          onPressed: () => _install(pack),
+                          icon: const Icon(Icons.download,
+                              size: 17, color: Colors.white),
+                          label: Text(
+                            context.uiText('Tải & cài'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ),
                 ),
                 if (pack.homepage != null) ...[
                   const SizedBox(width: 8),

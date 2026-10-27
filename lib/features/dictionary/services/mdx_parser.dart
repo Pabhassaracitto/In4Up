@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import '../models/dict_entry.dart';
+import 'dict_title_cleaner.dart';
 import 'random_access_source.dart';
 
 /// Lỗi parse MDX có lý do rõ ràng — AT #6 (file .mdx hỏng/lạ → báo lỗi rõ,
@@ -213,7 +214,10 @@ class MdxParser {
       final match = RegExp(r'^(\w{2})_(\w{2})', caseSensitive: false)
           .firstMatch(fileName.split(Platform.pathSeparator).last);
       return {
-        'name': (name == null || name.isEmpty) ? null : name,
+        // DICT-TITLE-001: `Title=` trong header .mdx thường là HTML thô và
+        // còn dấu `\` của định dạng MDX. Không làm sạch thì tên bộ từ điển
+        // trong "Quản lý từ điển" hiện nguyên `<html><b>…</b></html>`.
+        'name': DictTitleCleaner.clean(name),
         'source_lang': match?.group(1),
         'target_lang': match?.group(2),
       };

@@ -163,7 +163,12 @@ class DictEntryDetailSheet extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  partOfSpeech!.trim(),
+                                  context.uiText(
+                                    DictTextCleaner.posDisplaySource(
+                                          partOfSpeech,
+                                        ) ??
+                                        partOfSpeech!.trim(),
+                                  ),
                                   style: const TextStyle(
                                     color: Color(0xFFCE93D8),
                                     fontSize: 11,

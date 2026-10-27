@@ -423,10 +423,6 @@ def _literal_is_technical(
             return True
     if stripped in skip_values:
         return True
-    # Chuỗi đã tự bọc `context.uiText(...)` bên trong thì phần tĩnh đã được dịch
-    # tại chỗ render — không tính là rò rỉ.
-    if "uiText(" in value:
-        return True
     # Bối cảnh 2 dòng phía trước: nếu literal là đối số của log/throw thì bỏ.
     context = text[max(0, start - 200) : start]
     tail = "\n".join(context.split("\n")[-2:])
@@ -440,6 +436,28 @@ def _literal_is_technical(
             if pattern.search(head):
                 return True
     return False
+
+
+_INTERP_SPAN_RE = re.compile(r"\$\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}")
+_TRANSLATED_CALL_RE = re.compile(r"\b(?:uiText|ui|tr|translate)\s*\(")
+
+
+def _only_translated_parts(value: str) -> bool:
+    """True khi phần chữ tĩnh còn lại sau khi bỏ các `${ui('…')}` không còn nguồn.
+
+    Chuỗi kiểu `'${ui('Lỗi')}: $detail'` đã được dịch ngay bên trong phép nội
+    suy, nên không phải rò rỉ dù không có trong pack.
+    """
+    if "uiText(" not in value and "ui(" not in value and "tr(" not in value:
+        return False
+    stripped = _INTERP_SPAN_RE.sub(
+        lambda m: " " if _TRANSLATED_CALL_RE.search(m.group(0)) else m.group(0),
+        value,
+    )
+    stripped = _INTERP_SPAN_RE.sub(" ", stripped)
+    if VIETNAMESE_SOURCE_RE.search(stripped):
+        return False
+    return not _looks_like_english_chrome(stripped)
 
 
 def collect_broad_sources() -> dict[str, set[str]]:
@@ -490,6 +508,8 @@ def collect_broad_sources() -> dict[str, set[str]]:
             if len(value.strip()) < 2:
                 continue
             if value in fragments:
+                continue
+            if _only_translated_parts(value):
                 continue
             if _literal_is_technical(
                 value, text, lit_start, patterns, context_patterns, skip_values

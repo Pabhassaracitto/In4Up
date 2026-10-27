@@ -52,7 +52,9 @@
       "để"
     ],
     "features/learn_by_heart/models/recitation_language.dart": [
-      "[ăâđêôơưĂÂĐÊÔƠƯ]|[ạảấầẩẫậắằẳẵặẹẻếềểễệịỉọỏốồổỗộớờởỡợụủứừửữựỵỷỹ]"
+      "[ăâđêôơưĂÂĐÊÔƠƯ]|[ạảấầẩẫậắằẳẵặẹẻếềểễệịỉọỏốồổỗộớờởỡợụủứừửữựỵỷỹ]",
+      "Pali",
+      "Sanskrit"
     ],
     "features/tts/language_detector.dart": [
       "[ãõ]",
@@ -104,7 +106,8 @@
       "Nova",
       "Onyx",
       "Shimmer",
-      "OpenAI"
+      "OpenAI",
+      "Server TTS (API)"
     ],
     "features/tts/engines/fpt_tts_engine.dart": [
       "FPT.AI",
@@ -126,10 +129,16 @@
       "Offline TTS"
     ],
     "features/tts/engines/piper_tts_engine.dart": [
-      "Piper"
+      "Piper",
+      "Piper (offline neural)"
     ],
     "features/tts/tts_service.dart": [
-      "Piper"
+      "Piper",
+      "FPT.AI",
+      "Google TTS",
+      "Microsoft Edge TTS",
+      "Neural",
+      "Zalo AI"
     ],
     "features/tts/widgets/tts_settings_section.dart": [
       "Piper"
@@ -186,7 +195,8 @@
       "SocketException"
     ],
     "features/youtube/services/yt_search_service.dart": [
-      "Accept-Language"
+      "Accept-Language",
+      "${resp.body.contains('ytInitialData') ? 'có' : 'KHÔNG'} "
     ],
     "features/youtube/youtube_explorer_screen.dart": [
       "English Addict with Mr Steve",
@@ -198,7 +208,8 @@
       "UCHaHD477h-FeBbVh9Sh7syA",
       "UCVHFbw7woebKtfvug_Nzpig",
       "UCoHNRmS7dRNgkfY9m3R_GGQ",
-      "Data API"
+      "Data API",
+      "BBC Learning English"
     ],
     "features/youtube/yt_player_screen.dart": [
       "YtSync"
@@ -225,10 +236,14 @@
       "Hy-MT1.5-1.8B-2bit.gguf",
       "HyMtIsolate",
       "Chọn Hy-MT1.5-1.8B-2bit.gguf",
-      "Cần file .gguf (Hy-MT1.5-1.8B-2bit.gguf)"
+      "Cần file .gguf (Hy-MT1.5-1.8B-2bit.gguf)",
+      "User-Agent"
     ],
     "features/translation/engines/libre_engine.dart": [
-      "LibreTranslate"
+      "LibreTranslate",
+      "Content-Type",
+      "ZH-CN",
+      "ZH-TW"
     ],
     "features/translation/engines/llm_mt_engine.dart": [
       "LLM API"
@@ -314,7 +329,10 @@
       "FLAVOR",
       "Chưa cấu hình GOOGLE_DESKTOP_CLIENT_SECRET.\\nLấy secret từ Google Cloud Console và truyền qua --dart-define hoặc env.\\nVí dụ: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=xxx",
       "Chưa cấu hình Google Sign In cho Desktop.\\nTạo OAuth client ID loại Desktop app trong Google Cloud Console > APIs & Services > Credentials.\\nTruyền qua --dart-define hoặc env.",
-      "Không lấy được ID token từ Google. Kiểm tra:\\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\\n3. serverClientId=$_webClientId có đúng Web client không?"
+      "Không lấy được ID token từ Google. Kiểm tra:\\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\\n3. serverClientId=$_webClientId có đúng Web client không?",
+      "Chưa cấu hình GOOGLE_DESKTOP_CLIENT_SECRET.\nLấy secret từ Google Cloud Console và truyền qua --dart-define hoặc env.\nVí dụ: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=GOCSPX-...",
+      "Chưa cấu hình Google Sign In cho Desktop.\nTạo OAuth client ID loại Desktop app trong Google Cloud Console > APIs & Services > Credentials.\nTruyền qua --dart-define=GOOGLE_DESKTOP_CLIENT_ID=xxx --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=yyy hoặc đặt env var GOOGLE_DESKTOP_CLIENT_ID/SECRET.",
+      "Không lấy được ID token từ Google. Kiểm tra:\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\n3. serverClientId=$_webClientId có đúng Web client không?"
     ],
     "services/firestore_rest_client.dart": [
       "ASCENDING",
@@ -357,7 +375,9 @@
       "PRAGMA table_info(tipitaka_segments)",
       "TEXT NOT NULL DEFAULT ''",
       "TEXT NOT NULL DEFAULT 'paragraph'",
-      "TEXT NOT NULL DEFAULT 'yellow'"
+      "TEXT NOT NULL DEFAULT 'yellow'",
+      "diệu",
+      "luật"
     ],
     "features/tipitaka/services/tipitaka_markup.dart": [
       "Charis SIL",
@@ -381,7 +401,11 @@
       "Kiểm tra hiểu bài của mình về đoạn vừa rồi: đặt 3 câu hỏi từ dễ đến khó, đợi mình tự trả lời, rồi mới đưa đáp án ngắn ở cuối.",
       "Tóm tắt đoạn trong « Đoạn vừa nghe » bằng 3–5 câu tiếng Việt: nêu ý chính và 3–5 từ vựng đáng nhớ kèm nghĩa ngắn.",
       "mình đang học theo chế độ Đồng bộ",
-      "mình đang luyện Shadowing"
+      "mình đang luyện Shadowing",
+      " (dòng ${context.focusLineIndex! + 1})",
+      "Câu mình đang hỏi$lineLabel:\n",
+      "Mình đang học ở tab Hiểu (${parts.join(', ')}).\n",
+      "bài: « ${context.sourceTitle} »"
     ],
     "features/vocab_image/vocab_animation_library.dart": [
       "Artist",
@@ -396,11 +420,16 @@
       "VOCAB_IMAGE_PROVIDER",
       "Openverse",
       "Pexels",
-      "Unsplash"
+      "Unsplash",
+      "Wikimedia Commons"
     ],
     "features/vocab_image/vocab_image_web_service.dart": [
       "Pexels License",
-      "Unsplash License"
+      "Unsplash License",
+      "Artist",
+      "Authorization",
+      "File:",
+      "LicenseShortName"
     ],
     "features/vocab_image/widgets/vocab_image_picker_sheet.dart": [
       "Lottie"
@@ -481,6 +510,91 @@
     "features/cabin/services/cabin_wav_writer.dart": [
       "RIFF",
       "WAVE"
+    ],
+    "features/pdf_reader/services/pdf_search_query.dart": [
+      "aàáảãạăằắẳẵặâầấẩẫậ",
+      "dđ",
+      "eèéẻẽẹêềếểễệ",
+      "iìíỉĩị",
+      "oòóỏõọôồốổỗộơờớởỡợ",
+      "uùúủũụưừứửữự",
+      "yỳýỷỹỵ"
+    ],
+    "features/translation/glossary/glossary_store.dart": [
+      "[đĐơƠưƯạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹýàáảãạèéẻẽẹ"
+    ],
+    "features/grammar/models/grammar_highlight_preset.dart": [
+      "^Preset cá nhân gồm \\d+ nhóm từ loại được chọn thủ công\\.$",
+      "Noun · Verb · Adj · Adv"
+    ],
+    "features/translation/glossary/translation_glossary.dart": [
+      "việt"
+    ],
+    "features/translation/translation_service.dart": [
+      "MIXED"
+    ],
+    "features/cabin/services/stts_cabin_service.dart": [
+      "Parakeet",
+      "Zipformer"
+    ],
+    "features/grammar/services/sentence_typer.dart": [
+      "IT-CLEFT",
+      "SVOA",
+      "SVOC",
+      "SVOO",
+      "There+V+S"
+    ],
+    "features/learn_by_heart/models/chunk.dart": [
+      "Chunk"
+    ],
+    "features/pdf_reader/services/pdf_shortcuts.dart": [
+      "PageDown",
+      "PageUp",
+      "Space"
+    ],
+    "features/translation/translation_toolbar.dart": [
+      "Hello",
+      "Hy-MT",
+      "Import .gguf",
+      "ML Kit"
+    ],
+    "features/video/services/subtitle_parser.dart": [
+      "Dialogue:"
+    ],
+    "features/video/services/video_device_channel.dart": [
+      "BAD_URI",
+      "PERMISSION_LOST"
+    ],
+    "features/vocab_image/vocab_image_picker_sheet.dart": [
+      "Lottie"
+    ],
+    "features/word_lookup/services/online_dictionary_source.dart": [
+      "Accept"
+    ],
+    "features/youtube/services/yt_service.dart": [
+      "Accept-Language",
+      "Chinese (Simplified)"
+    ],
+    "firebase_options_dev.dart": [
+      "AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig",
+      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk",
+      "G-N72C4S87J8"
+    ],
+    "screens/ai_chat/ai_chat_screen.dart": [
+      "I4U AI Chat",
+      "Import AI model"
+    ],
+    "screens/settings/ai_providers_screen.dart": [
+      "Gemini",
+      "Groq",
+      "LM Studio (LAN)",
+      "Ollama (LAN)",
+      "OpenAI",
+      "OpenRouter"
+    ],
+    "screens/tools/venn_tab.dart": [
+      "H+Đ",
+      "N+Đ"
     ]
   }
 }

@@ -501,7 +501,28 @@ def collect_broad_sources() -> dict[str, set[str]]:
                 continue
             if len(body.strip()) >= 2:
                 strings.add(dart_unescape(body))
-        for lit_start, lit_end in iter_string_literals(text):
+        literals = list(iter_string_literals(text))
+        seen_spans = set(literals)
+        queue = list(literals)
+        while queue:
+            start, end = queue.pop()
+            for span in _INTERP_SPAN_RE.finditer(text[start:end]):
+                inner_start = start + span.start()
+                for nested in iter_string_literals(span.group(0)):
+                    nested_span = (inner_start + nested[0], inner_start + nested[1])
+                    if nested_span in seen_spans:
+                        continue
+                    seen_spans.add(nested_span)
+                    queue.append(nested_span)
+                    literals.append(nested_span)
+        literals.sort()
+        for lit_start, lit_end in literals:
+            raw_body = text[lit_start + 1:lit_end - 1]
+            static = _INTERP_SPAN_RE.sub(" ", raw_body).strip()
+            if not static and "$" in raw_body:
+                # Vỏ ghép chuỗi: runtime chỉ toàn nội suy, các mảnh bên trong đã
+                # được quét riêng ở trên.
+                continue
             value = text[lit_start:lit_end]
             value = value[1:-1]
             value = dart_unescape(value)
@@ -638,8 +659,12 @@ def collect_sources() -> dict[str, set[str]]:
             and not IDENTIFIER_RE.match(value.strip())
             and not _used_as_identifier(text, value.strip())
         }
+        relative = path.relative_to(LIB).as_posix()
+        skip_values = _load_scan_exclusions().get("skipValuesByPath", {}).get(relative)
+        if skip_values:
+            strings -= {value.strip() for value in skip_values}
         if strings:
-            by_file[path.relative_to(LIB).as_posix()] = strings
+            by_file[relative] = strings
 
     # Hợp nhất phép quét rộng. Chỉ nhận literal **có dấu tiếng Việt** hoặc literal
     # English "trông giống chrome" — quét rộng thô sẽ kéo theo mã kỹ thuật
@@ -652,6 +677,19 @@ def collect_sources() -> dict[str, set[str]]:
         }
         if extra:
             by_file.setdefault(relative, set()).update(extra)
+
+    # Bộ lọc cuối: mọi đường quét (hẹp hay rộng) đều phải tôn trọng
+    # `skipValuesByPath`, nếu không thì chuỗi kỹ thuật sẽ quay lại báo cáo.
+    skip_by_path = _load_scan_exclusions().get("skipValuesByPath", {})
+    for relative, values in list(by_file.items()):
+        skip = {value.strip() for value in skip_by_path.get(relative, ())}
+        if not skip:
+            continue
+        kept = {value for value in values if value.strip() not in skip}
+        if kept:
+            by_file[relative] = kept
+        else:
+            by_file.pop(relative)
     return by_file
 
 

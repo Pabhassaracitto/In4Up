@@ -348,8 +348,11 @@ class _PosLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(dense ? 5 : 6),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
+      // DICT-I18N-001: `pos` là MÃ (`noun`, `verb`…) để gộp được nhiều bộ từ
+      // điển; người dùng phải đọc "Danh từ". Mã lạ (từ điển tự do) thì hiện
+      // nguyên văn nhãn gốc thay vì đoán.
       child: Text(
-        pos,
+        context.uiText(DictTextCleaner.posDisplaySource(pos) ?? pos),
         style: TextStyle(
           color: color,
           fontSize: dense ? 10 : 11,

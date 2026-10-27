@@ -1,6 +1,8 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
+import '../../tts/tts_service.dart';
+
 import '../models/dict_entry.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
@@ -127,6 +129,29 @@ class DictResultSheet extends StatelessWidget {
                   ],
                 ),
               ),
+              // DICT-VIEW-003: trang từ điển phải ĐỌC ĐƯỢC từ. Trước đây
+              // sheet này chỉ hiện IPA mà không có nút phát âm, dù app đã có
+              // sẵn TtsService cho PDF/Read.
+              IconButton(
+                tooltip: context.uiText('Phát âm'),
+                icon: const Icon(Icons.volume_up_rounded,
+                    color: Color(0xFF2196F3), size: 20),
+                onPressed: () async {
+                  try {
+                    await TtsService().speak(headword);
+                  } catch (_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        behavior: SnackBarBehavior.floating,
+                        content: Text(
+                          context.uiText('Không phát âm được từ này.'),
+                        ),
+                      ),
+                    );
+                  }
+                },
+              ),
               IconButton(
                 tooltip: context.uiText('Sao chép'),
                 icon: const Icon(Icons.copy, color: Colors.white54, size: 18),
@@ -198,7 +223,10 @@ class DictResultSheet extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  pos,
+                                  context.uiText(
+                                    DictTextCleaner.posDisplaySource(pos) ??
+                                        pos,
+                                  ),
                                   style: const TextStyle(
                                     color: Color(0xFFCE93D8),
                                     fontSize: 11,

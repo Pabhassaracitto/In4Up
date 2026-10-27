@@ -8051,21 +8051,6 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 | READ-ALIGN-001 | Tab Đọc: mặc định căn GIỮA + lựa chọn căn lề được lưu (trước đây "tạm thời bỏ qua") | 🔨 doing (code + test; CI 🟢 run 40198430172; chờ nghiệm thu máy) | `TextProvider._textAlign = TextAlign.center` + `getReadTextAlign`/`saveReadTextAlign` (`read_text_align`) + khôi phục trong `_restoreFromStorage` |
 | DICT-PACK-001 | Tải bộ từ điển ngay trong app (setting home) — danh mục JSON + link trực tiếp, kiểm sha256, giải nén an toàn | 🔨 doing (code + test + docs; CI 🟢 run 40198430172; chờ nghiệm thu máy) | `models/dict_pack.dart` + `services/dict_pack_service.dart` + `widgets/dict_pack_screen.dart` + `assets/dictionary/packs.json` (2 bộ CC0/CC-BY-SA đã kiểm tra link) + mục Home/Read + nút ở "Quản lý từ điển"; `docs/dictionary/DICT_PACK_CATALOG.md`; `test/dictionary/dict_pack_test.dart` |
 
-### REL-1.17.0 — (2026-10-26) Release 1.17.0 full 4 nền tảng từ tip nhánh 251e
-- **Trạng thái:** ✅ done (build 🟢; chờ nghiệm thu máy)
-- **Nguồn:** owner 2026-10-26 — *"chạy action tạo bản release mới với version phù hợp full thiết bị nhánh 251e"*.
-- **Tag/commit:** `1.17.0` → `979da09` (*build: bump version 1.16.0+16 → 1.17.0+17*), trên tip `0706d8f` + 1 commit bump.
-- **Vì sao phải bump:** `pubspec.yaml` vẫn ghi `1.16.0+16` trong khi tag đã đi trước (1.16.0) ⇒ nếu tag 1.17.0 mà KHÔNG bump thì APK vẫn `versionCode 16` ⇒ Android **từ chối cài đè** bản 1.16.0 (phải xoá app). Nay `1.17.0+17` ⇒ `versionCode = flutter.versionCode = 17 > 16` ⇒ update đè bình thường, giữ dữ liệu.
-- **Nội dung 14 commit trong bản này:** UI-ORDER-001 (Đọc trước Nghe + đồng bộ thư viện/drawer + Home bớt 1 robot, trả chỗ thư viện Đọc) · YT-TTS-PROVIDER-001 (hết màn trắng khi mở video) · READ-POP-003/READ-SELECT-003/READ-WORDSTYLE-001/READ-ALIGN-001 · DICT-CLEAN-002/DICT-VIEW-002 · DICT-PACK-001 (tải bộ từ điển trong app) · PARAKEET-002 (giải nén `.tar.bz2` theo luồng + import qua readStream) · CI: nối 5 test mới + cổng test thứ tự shell.
-- **Bằng chứng:** workflow `build_final_complete.yml` run **40262212277** — **4/4 job success** (Android arm64 / iOS sideload / Windows / Linux). Release: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0
-  - `in4up-Android-arm64-v8a-1.17.0-979da.apk` — 198.051.782 B — sha256 `f6f6e2c4812ca6dfbf3ab320caba4d3e47d19488c1b8bd7687df9ef27751870a`
-  - `in4up-iOS-1.17.0.ipa` — 92.205.731 B — sha256 `06349058657cb200ac4a36d2ba324b58493422d158b1e0c9c4df56b2e69bc25a`
-  - `in4up-Linux-1.17.0.tar.gz` — 48.994.353 B — sha256 `cd6660cf55ca0739f7e984eade2977564206815412795b8607487b138a82442c`
-  - `in4up-Windows-1.17.0.zip` — 51.505.783 B — sha256 `57e703367df4333a2fbbc3ac4e296db8421c472980cd18f5a8e8e103886370cb` (zip >10 MB ⇒ gate chống bundle rỗng đã qua)
-- **Chưa kiểm:** cài đè trên máy thật (Android cần bản 1.16.0 đang cài sẵn để thử `adb install -r`), iOS sideload trên iPhone, Windows chạy `in4up.exe`, Linux chạy bundle.
-- **Lịch sử:**
-  - 2026-10-26 | created→done | agent arena/01a0251e-in4up | bump 1.17.0+17 → tag → build 4 nền tảng 🟢 → 4 asset published
-
 ### PRON-005 — Nguồn "audio từ điển offline" trong hàng Phát âm (nối `DictEntry.audioPath`)
 - **Trạng thái:** 📋 proposed (tạo 2026-10-26) — **chưa code**; nên đi sau
   PRON-002 vì dùng đúng widget `WordPronunciationRow`.
@@ -8089,3 +8074,18 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-26 | created→proposed | agent Arena `arena/508531fd-in4up` | phát
     hiện khi đối chiếu 12 commit mới của 251e cho PLAN-038: DICT-PACK-001 làm
     nguồn audio từ điển thành khả thi, ADR-0015 D1 đã dự phòng chỗ này.
+
+### REL-1.17.0 — (2026-10-26) Release 1.17.0 full 4 nền tảng từ tip nhánh 251e
+- **Trạng thái:** ✅ done (build 🟢; chờ nghiệm thu máy)
+- **Nguồn:** owner 2026-10-26 — *"chạy action tạo bản release mới với version phù hợp full thiết bị nhánh 251e"*.
+- **Tag/commit:** `1.17.0` → `979da09` (*build: bump version 1.16.0+16 → 1.17.0+17*), trên tip `0706d8f` + 1 commit bump.
+- **Vì sao phải bump:** `pubspec.yaml` vẫn ghi `1.16.0+16` trong khi tag đã đi trước (1.16.0) ⇒ nếu tag 1.17.0 mà KHÔNG bump thì APK vẫn `versionCode 16` ⇒ Android **từ chối cài đè** bản 1.16.0 (phải xoá app). Nay `1.17.0+17` ⇒ `versionCode = flutter.versionCode = 17 > 16` ⇒ update đè bình thường, giữ dữ liệu.
+- **Nội dung 14 commit trong bản này:** UI-ORDER-001 (Đọc trước Nghe + đồng bộ thư viện/drawer + Home bớt 1 robot, trả chỗ thư viện Đọc) · YT-TTS-PROVIDER-001 (hết màn trắng khi mở video) · READ-POP-003/READ-SELECT-003/READ-WORDSTYLE-001/READ-ALIGN-001 · DICT-CLEAN-002/DICT-VIEW-002 · DICT-PACK-001 (tải bộ từ điển trong app) · PARAKEET-002 (giải nén `.tar.bz2` theo luồng + import qua readStream) · CI: nối 5 test mới + cổng test thứ tự shell.
+- **Bằng chứng:** workflow `build_final_complete.yml` run **40262212277** — **4/4 job success** (Android arm64 / iOS sideload / Windows / Linux). Release: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0
+  - `in4up-Android-arm64-v8a-1.17.0-979da.apk` — 198.051.782 B — sha256 `f6f6e2c4812ca6dfbf3ab320caba4d3e47d19488c1b8bd7687df9ef27751870a`
+  - `in4up-iOS-1.17.0.ipa` — 92.205.731 B — sha256 `06349058657cb200ac4a36d2ba324b58493422d158b1e0c9c4df56b2e69bc25a`
+  - `in4up-Linux-1.17.0.tar.gz` — 48.994.353 B — sha256 `cd6660cf55ca0739f7e984eade2977564206815412795b8607487b138a82442c`
+  - `in4up-Windows-1.17.0.zip` — 51.505.783 B — sha256 `57e703367df4333a2fbbc3ac4e296db8421c472980cd18f5a8e8e103886370cb` (zip >10 MB ⇒ gate chống bundle rỗng đã qua)
+- **Chưa kiểm:** cài đè trên máy thật (Android cần bản 1.16.0 đang cài sẵn để thử `adb install -r`), iOS sideload trên iPhone, Windows chạy `in4up.exe`, Linux chạy bundle.
+- **Lịch sử:**
+  - 2026-10-26 | created→done | agent arena/01a0251e-in4up | bump 1.17.0+17 → tag → build 4 nền tảng 🟢 → 4 asset published

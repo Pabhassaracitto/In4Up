@@ -78,9 +78,12 @@ void main() {
     });
 
     test('phần lẻ 1 / 2 / 3 chữ số', () {
-      expect(parseLrcLine('[00:01.5]x')!.start.inMilliseconds, 500);
-      expect(parseLrcLine('[00:01.05]x')!.start.inMilliseconds, 50);
-      expect(parseLrcLine('[00:01.005]x')!.start.inMilliseconds, 5);
+      // Dùng giây 0 để chỉ đo PHẦN LẺ (nếu dùng [00:01.x] thì tổng là 1000+x).
+      expect(parseLrcLine('[00:00.5]x')!.start.inMilliseconds, 500);
+      expect(parseLrcLine('[00:00.05]x')!.start.inMilliseconds, 50);
+      expect(parseLrcLine('[00:00.005]x')!.start.inMilliseconds, 5);
+      // Và kiểm cả tổng khi đã có giây (bắt lỗi cộng dồn sai).
+      expect(parseLrcLine('[00:01.5]x')!.start.inMilliseconds, 1500);
     });
 
     test('bỏ inline word timestamp karaoke', () {

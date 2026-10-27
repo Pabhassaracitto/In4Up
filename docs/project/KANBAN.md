@@ -7958,6 +7958,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **UI:** `DictResultSheet` + `DictEntryDetailSheet` + `DictDefinitionView` hiện tên loại từ đã dịch; `DictResultSheet` có thêm nút 🔊 (`TtsService`) — trước đây chỉ có IPA mà không nghe được
 - **i18n:** 17 tên loại từ trong `priorityUiOverrides` (en/hi/zh/zh_TW; `si` chỉ điền thuật ngữ chắc chắn); chuỗi mới "Không phát âm được từ này." có bản `en`
 - **Test:** `test/dictionary/dict_multilang_pos_test.dart` (13 ca)
+- **Lỗi thứ hai cùng gốc (CI bắt được, đã sửa):** `_dedupeGroups` khử trùng bằng `_senseKey` = `[^\w\u00c0-\u024f\s]`; `\w` của RegExp Dart chỉ là `[A-Za-z0-9_]` ⇒ chữ Hán/Devanagari/Sinhala/Tamil bị xoá hết, khoá rỗng ⇒ `_dedupeGroups` **bỏ luôn nghĩa**. Nghĩa là sửa `_letterRe` một mình thì vẫn ra trang trống. Nay tách `_letterRanges` dùng chung cho `_letterRe` + `_nonLetterRe` (`_senseKey`) + `_isHeadwordOnly`.
+- **CI:** 🟢 run **40551223158** (`analyze` + toàn bộ cổng test, gồm `dict_multilang_pos_test.dart` đã nối vào `.github/workflows/app_analyze.yml`)
 - **Còn hở (chưa làm, xem ADR-0018):** màn hình Từ điển riêng · deep link · `ACTION_PROCESS_TEXT` · bong bóng nổi · "Mở bằng In4Up"
 - **Lịch sử:**
   - 2026-10-27 | created→doing | agent arena/188b4bbe-in4up | 2 commit (DICT-I18N-001, DICT-VIEW-003) + ADR-0018 (đề xuất)

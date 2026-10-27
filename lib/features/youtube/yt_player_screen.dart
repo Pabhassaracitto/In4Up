@@ -275,10 +275,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     // `TtsService()` là singleton (`factory TtsService() => _instance`) và
     // `FlutterTtsServiceImpl` cũng bọc đúng singleton đó (`app_tts.TtsService()`)
     // ⇒ vẫn dùng CHUNG giọng/engine/cài đặt với tab Đọc.
-    _readAloud = YtReadAloudController(_tts)
-      ..addListener(() {
-        if (mounted) setState(() {});
-      });
+    _readAloud = YtReadAloudController(_tts)..addListener(_onReadAloudChanged);
     unawaited(_loadWordStates());
     unawaited(_loadSettings());
     unawaited(_loadRealSubtitles());
@@ -480,7 +477,9 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _dlWatchdog?.cancel();
     _dlSub?.cancel();
     _tabCtrl.dispose();
-    _readAloud?.dispose();
+    _readAloud
+      ?..removeListener(_onReadAloudChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -1481,32 +1480,23 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 icon: Icons.check,
                 label: 'Biết hết',
                 color: const Color(0xFF4CAF50),
-                onTap: () {
-                  for (final w in line.words) {
-                    _setWordState(w.text, WordState.known);
-                  }
-                },
+                onTap: () => _markWholeLine(line, WordState.known),
               ),
               const SizedBox(width: 8),
               _ActionBtn(
                 icon: Icons.menu_book,
                 label: 'Học cả câu',
                 color: const Color(0xFF9C27B0),
-                onTap: () {
-                  for (final w in line.words) {
-                    if (w.state == WordState.unknown) {
-                      _setWordState(w.text, WordState.learning);
-                    }
-                  }
-                },
+                onTap: () => _markWholeLine(line, WordState.learning),
               ),
               const SizedBox(width: 8),
               _ActionBtn(
                 icon: _looping ? Icons.repeat_on : Icons.repeat,
-                label: _looping ? 'Lặp câu' : 'Lặp câu',
+                label: _looping ? 'Bỏ lặp câu' : 'Lặp câu',
                 color: _looping
                     ? const Color(0xFFFF9800)
                     : const Color(0xFF607D8B),
+                active: _looping,
                 onTap: () {
                   setState(() => _looping = !_looping);
                   if (_looping) {
@@ -1514,7 +1504,24 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   }
                 },
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
+              // YT-PAINT-001 (#6): mở "khay màu" để tô từng từ.
+              _ActionBtn(
+                icon: Icons.palette_outlined,
+                label: _paintTrayOpen ? 'Đóng khay màu' : 'Khay màu',
+                color: _paintTrayOpen
+                    ? const Color(0xFF53D6BD)
+                    : const Color(0xFF607D8B),
+                active: _paintTrayOpen,
+                onTap: () => setState(() {
+                  _paintTrayOpen = !_paintTrayOpen;
+                  if (!_paintTrayOpen) _paintState = null;
+                }),
+              ),
+              // `Spacer` KHÔNG dùng được trong Row của SingleChildScrollView
+              // ngang: chiều rộng vô hạn ⇒ RenderFlex ném lỗi layout. Khoảng
+              // đệm cố định là đủ và đúng ý (nhóm điều hướng nằm sau nút).
+              const SizedBox(width: 16),
               // Navigation
               Row(children: [
                 _navBtn(
@@ -1545,6 +1552,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             ],
           ),
           ),
+          if (_paintTrayOpen) ...[
+            const SizedBox(height: 10),
+            _buildPaintTray(line),
+          ],
           const SizedBox(height: 12),
           // Colored words subtitle (YT-LR-002: ẩn khi chế độ `Ẩn phụ đề`).
           if (_settings.hidesSubtitle)
@@ -1556,7 +1567,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
               children: line.words
                   .map((w) => _WordChip(
                         word: w,
-                        onTap: () => _showWordPopup(w),
+                        paintMode: _paintState != null,
+                        // YT-PAINT-001: đang cầm cọ thì bấm là tô, không mở
+                        // bảng tra từ (nếu mở bảng thì "tô nhanh" thành vô
+                        // nghĩa vì mỗi từ vẫn tốn 2 lần bấm).
+                        onTap: _paintState != null
+                            ? () => _paintWord(w)
+                            : () => _showWordPopup(w),
                       ))
                   .toList(),
             ),
@@ -1594,6 +1611,59 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   /// YT-LR-002 (IN4-88) — chế độ `Ẩn phụ đề`: giữ chỗ trống cùng chiều cao để
   /// đổi chế độ không làm giật player, và vẫn cho biết cách hiện lại.
+  /// Dải "khay màu": chọn màu để tô + nút tô cả dòng + nút thoát.
+  Widget _buildPaintTray(SubtitleLine line) {
+    Widget chip(WordState st, IconData icon, String label, Color color) {
+      return _ActionBtn(
+        icon: icon,
+        label: label,
+        color: color,
+        active: _paintState == st,
+        onTap: () => setState(() => _paintState = st),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161B22),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF53D6BD).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _paintState == null
+                ? context.uiText('Chọn màu, rồi bấm vào từ để tô')
+                : context.uiText('Đang tô — bấm vào từ để tô màu này'),
+            style: TextStyle(color: Colors.grey[400], fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              chip(WordState.known, Icons.check_circle_outline,
+                  'Đã biết', const Color(0xFF4CAF50)),
+              chip(WordState.learning, Icons.menu_book_outlined, 'Đang học',
+                  const Color(0xFF9C27B0)),
+              chip(WordState.ignored, Icons.visibility_off_outlined,
+                  'Bỏ qua', const Color(0xFF607D8B)),
+              _ActionBtn(
+                icon: Icons.done_all,
+                label: 'Tô cả dòng',
+                color: const Color(0xFF29B6F6),
+                onTap: _paintState == null ? () {} : () => _paintLine(line),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHiddenSubtitleHint() {
     return SizedBox(
       height: 44,
@@ -1762,15 +1832,83 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   ///
   /// Vẫn **pause video** khi mở (giữ nguyên hành vi cũ) và ghi nhớ từ đang mở
   /// để tab Lexa dùng làm ngữ cảnh.
-  void _showWordPopup(LrWord word) {
-    _pauseVideo();
+  /// YT-BATCH-LINE-001 (#5 owner: "nút Học cả câu nhấn vô chưa có phản hồi")
+  ///
+  /// Ba nguyên nhân, sửa cả ba:
+  ///  1. Bản cũ chỉ đổi từ có state `unknown`; nếu cả câu đã `known`/`learning`
+  ///     thì **không có gì xảy ra** và cũng không có thông báo.
+  ///  2. `learning` và `unknown` được VẼ GIỐNG HỆT NHAU trong `_WordChip`
+  ///     (chỉ `known` mới gạch chân) ⇒ đổi state xong người dùng vẫn không thấy
+  ///     gì đổi ⇒ tưởng nút hỏng. Nay `learning` có gạch chân chấm màu tím.
+  ///  3. Không có phản hồi bằng lời. Nay luôn có snackbar nói ĐÚNG số từ đã
+  ///     đổi và số từ bỏ qua.
+  void _markWholeLine(SubtitleLine line, WordState target) {
+    // Gom theo chữ THƯỜNG và bỏ trùng: một câu có thể lặp cùng một từ nhiều
+    // lần ⇒ chỉ đếm/ghi một lần (tránh "đã thêm 9 từ" cho câu có 5 từ).
+    final words = <String, LrWord>{};
+    for (final w in line.words) {
+      final key = w.text.toLowerCase().trim();
+      if (key.isEmpty) continue;
+      words.putIfAbsent(key, () => w);
+    }
+
+    var changed = 0;
+    var skipped = 0;
+    for (final entry in words.entries) {
+      final current = _wordStates[entry.key] ?? entry.value.state;
+      if (current == target) {
+        skipped++;
+        continue;
+      }
+      // "Biết hết" được phép ghi đè cả từ đang học; "Học cả câu" KHÔNG được
+      // biến từ đã biết thành đang học (người dùng đã xác nhận biết từ đó).
+      if (target == WordState.learning && current == WordState.known) {
+        skipped++;
+        continue;
+      }
+      _setWordState(entry.value.text, target);
+      changed++;
+    }
+
+    final total = words.length;
+    // Câu báo KHÔNG nhúng từ trạng thái tiếng Việt vào giữa (kiểu "… là
+    // \"biết\""): chuỗi có nội suy vẫn dịch được qua template `{valueN}`,
+    // nhưng chữ tiếng Việt nằm TRONG câu sẽ ở lại tiếng Việt khi đổi locale.
+    final msg = changed == 0
+        ? (total == 0
+            ? 'Câu này không có từ nào để đánh dấu'
+            : 'Cả {value0} từ trong câu đã ở trạng thái này')
+        : 'Đã đánh dấu {value0}/{value1} từ trong câu'
+            '${skipped > 0 ? ' · bỏ qua {value2} từ' : ''}';
+    // Thay số thật vào chuỗi rồi mới đưa cho `uiText` — template của
+    // `AppUITranslations` khớp trên chuỗi ĐÃ có số.
+    final filled = msg
+        .replaceAll('{value0}', '$changed')
+        .replaceAll('{value1}', '$total')
+        .replaceAll('{value2}', '$skipped');
+    _snack(
+      filled,
+      color: target == WordState.known
+          ? const Color(0xFF2E7D32)
+          : const Color(0xFF6A1B9A),
+    );
+  }
+
+  Future<void> _showWordPopup(LrWord word) async {
+    // YT-RESUME-AFTER-LOOKUP-001: chỉ phát tiếp nếu CHÍNH ta làm video dừng.
+    // Nếu người dùng đã tự bấm dừng từ trước thì đóng bảng ra KHÔNG được tự
+    // chạy — như vậy mới đúng ý người dùng.
+    final wasPlaying = await _isVideoPlaying();
+    if (wasPlaying) _pauseVideo();
+
     String? contextSentence;
     if (_lines.isNotEmpty && _currentLineIdx < _lines.length) {
       contextSentence = _lines[_currentLineIdx].text;
     }
+    if (!mounted) return;
     setState(() => _selectedWord = word.text);
 
-    showYtWordPanel(
+    await showYtWordPanel(
       context,
       word: word,
       sentenceContext: contextSentence,
@@ -1778,6 +1916,117 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       onFrequencyChanged: _onFrequencyChanged,
       onStateChanged: (state) => _setWordState(word.text, state),
     );
+
+    // Đóng bảng tra từ ⇒ chạy tiếp đúng chỗ đang dừng.
+    if (wasPlaying && mounted && !_readAloudRunning) _resumeVideo();
+  }
+
+  /// Video (thẻ <video> trong wrapper/iframe) có đang phát không.
+  ///
+  /// `runJavaScriptReturningResult` trả `true`/`false` (bool thật) trên
+  /// Android và `"true"`/`"false"` (chuỗi có nháy kép) trên iOS ⇒ phải chấp
+  /// nhận cả hai. Lỗi/không đọc được ⇒ `false` (an toàn: không tự phát).
+  Future<bool> _isVideoPlaying() async {
+    try {
+      final r = await _ytCtrl.runJavaScriptReturningResult(
+        '(function(){try{'
+        'var v=document.querySelector("video");'
+        'if(v) return (!v.paused && !v.ended) ? "1" : "0";'
+        '}catch(e){}'
+        'return "0";})()',
+      );
+      return r.toString().replaceAll('"', '').trim() == '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _resumeVideo() {
+    _ytCtrl.runJavaScript('window._in4upPlay && window._in4upPlay();');
+  }
+
+  /// Đang đọc bản dịch bằng TTS ⇒ không được tự phát video (hai nguồn tiếng).
+  bool get _readAloudRunning => _readAloud?.isRunning == true;
+
+  /// YT-PAINT-001 (#6): "khay màu" — chọn một trạng thái rồi bấm từng từ để
+  /// tô, KHÔNG phải mở popup cho từng từ.
+  ///
+  /// `null` = đang tắt. Khi bật, bấm vào từ là tô ngay, nên đánh dấu 20 từ
+  /// trong một câu chỉ mất 20 lần bấm chứ không phải 20 lần mở/đóng bảng.
+  WordState? _paintState;
+
+  /// Đang mở khay màu (dải nút chọn màu) hay chưa.
+  bool _paintTrayOpen = false;
+
+  /// Tô một từ bằng màu đang chọn trong khay.
+  void _paintWord(LrWord word) {
+    final state = _paintState;
+    if (state == null) return;
+    if (word.state == state) {
+      _snack('Từ "{value0}" đã ở trạng thái này'.replaceAll('{value0}', word.text));
+      return;
+    }
+    _setWordState(word.text, state);
+  }
+
+  /// Tô TOÀN BỘ từ của dòng hiện tại bằng màu đang chọn (nút "Cả dòng").
+  void _paintLine(SubtitleLine line) {
+    final state = _paintState;
+    if (state == null) return;
+    var n = 0;
+    for (final w in line.words) {
+      if (w.state == state) continue;
+      _setWordState(w.text, state);
+      n++;
+    }
+    _snack(n == 0
+        ? 'Cả dòng đã ở trạng thái này'
+        : 'Đã tô {value0} từ trong dòng'.replaceAll('{value0}', '$n'));
+  }
+
+  /// Dòng/bên đã đồng bộ video lần trước — chỉ tua khi ĐỔI dòng, không tua lại
+  /// mỗi lần controller `notifyListeners()` (mỗi bước đọc đều notify).
+  int _syncedLine = -1;
+  String _syncedSide = '';
+
+  /// YT-READ-SYNC-VIDEO-001 (#9): người dùng có thể chọn "đọc bản dịch nhưng
+  /// VẪN phát video ở đúng thời điểm của dòng đó".
+  ///
+  /// Hai mức, do cài đặt quyết định:
+  ///  • `readAloudSyncVideo` — tua video tới đầu dòng đang đọc;
+  ///  • `readAloudPlayVideoAudio` — phát luôn âm thanh gốc khi đang đọc phía
+  ///    GỐC, tạm dừng khi đọc phía DỊCH (để giọng TTS không chồng lên video).
+  void _onReadAloudChanged() {
+    if (!mounted) return;
+    final ctrl = _readAloud;
+    final settings = _settings;
+    if (ctrl != null &&
+        ctrl.isRunning &&
+        settings.readAloudSyncVideo &&
+        _lines.isNotEmpty) {
+      final idx = ctrl.activeLine;
+      if (idx >= 0 && idx < _lines.length) {
+        final changed =
+            idx != _syncedLine || ctrl.activeSide != _syncedSide;
+        if (changed) {
+          _syncedLine = idx;
+          _syncedSide = ctrl.activeSide;
+          _seekTo(_lines[idx].start.inMilliseconds / 1000.0);
+          if (settings.readAloudPlayVideoAudio) {
+            // Gốc ⇒ nghe tiếng thật của video; Dịch ⇒ tắt để nghe TTS.
+            if (ctrl.activeSide == 'source') {
+              _resumeVideo();
+            } else {
+              _pauseVideo();
+            }
+          }
+        }
+      }
+    } else if (!settings.readAloudSyncVideo) {
+      _syncedLine = -1;
+      _syncedSide = '';
+    }
+    setState(() {});
   }
 
   // ── Tab bar ───────────────────────────────────────────────
@@ -2561,7 +2810,15 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 class _WordChip extends StatelessWidget {
   final LrWord word;
   final VoidCallback onTap;
-  const _WordChip({required this.word, required this.onTap});
+
+  /// Đang bật khay màu ⇒ vẽ gạch chấm dưới từ để thấy chỗ bấm được.
+  final bool paintMode;
+
+  const _WordChip({
+    required this.word,
+    required this.onTap,
+    this.paintMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2574,13 +2831,31 @@ class _WordChip extends StatelessWidget {
       child: Text(
         context.uiText('${word.text} '),
         style: TextStyle(
-          color: color,
+          // YT-BATCH-LINE-001: "đang học" phải TRÔNG KHÁC "chưa biết", nếu
+          // không thì bấm "Học cả câu" xong người dùng không thấy gì đổi.
+          color: word.state == WordState.learning
+              ? const Color(0xFFCE93D8)
+              : color,
           fontSize: 18,
           fontWeight: FontWeight.w600,
           height: 1.4,
-          decoration:
-              word.state == WordState.known ? TextDecoration.underline : null,
-          decorationColor: Color(0xFF4CAF50).withValues(alpha: 0.5),
+          decoration: switch (word.state) {
+            WordState.known => TextDecoration.underline,
+            WordState.learning => TextDecoration.underline,
+            // Từ "chưa đánh dấu" chỉ có gạch chấm khi đang cầm cọ — để thấy
+            // ngay vùng bấm được mà không làm rối câu khi đọc bình thường.
+            _ => paintMode ? TextDecoration.underline : null,
+          },
+          decorationStyle: switch (word.state) {
+            WordState.learning => TextDecorationStyle.dotted,
+            WordState.known => TextDecorationStyle.solid,
+            _ => TextDecorationStyle.dashed,
+          },
+          decorationColor: switch (word.state) {
+            WordState.learning => const Color(0xFF9C27B0),
+            WordState.known => const Color(0xFF4CAF50).withValues(alpha: 0.6),
+            _ => const Color(0xFF53D6BD).withValues(alpha: 0.5),
+          },
         ),
       ),
     );
@@ -2698,11 +2973,16 @@ class _ActionBtn extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
+  /// Đang ở trạng thái bật (khay màu / lặp câu) ⇒ nền đậm + viền rõ để người
+  /// dùng thấy ngay "tôi đang cầm cọ" chứ không đoán qua chữ.
+  final bool active;
+
   const _ActionBtn({
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.active = false,
   });
 
   @override
@@ -2712,9 +2992,12 @@ class _ActionBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
+          color: color.withValues(alpha: active ? 0.35 : 0.15),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withValues(alpha: 0.4)),
+          border: Border.all(
+            color: color.withValues(alpha: active ? 1 : 0.4),
+            width: active ? 1.4 : 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

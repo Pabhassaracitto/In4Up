@@ -34,6 +34,12 @@ class I4uRememberFlowController extends ValueNotifier<I4uRememberWorkspaceState>
         totalCount: value.totalCount,
       );
 
+  /// Nạp source từ Watch/Listen/Cabin handoff mà không reset phiên review.
+  /// Host có thể gọi sau khi consume `I4uWorkspaceHandoffInbox`.
+  void loadFromHandoff(I4uSourceFingerprint source) {
+    loadSource(source);
+  }
+
   /// Nạp hàng đợi mới: phiên mới ⇒ thẻ/điểm/rating cũ được trả về mặc định,
   /// nhưng `source` vẫn giữ nếu host đã gắn nguồn trước đó.
   void load({required int totalCount}) => value = I4uRememberWorkspaceState(

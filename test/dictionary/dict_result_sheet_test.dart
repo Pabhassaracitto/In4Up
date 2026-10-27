@@ -81,13 +81,27 @@ void main() {
     expect(find.text('đặt vé'), findsOneWidget);
   });
 
+  // DICT-VIEW-003: chip hiện TÊN loại từ đã dịch, không in mã `noun`.
   testWidgets('part of speech hiển thị dạng chip khi có', (tester) async {
     await pumpSheet(
       tester,
       word: 'book',
       entries: [entry(word: 'book', definition: 'quyển sách', pos: 'noun')],
     );
-    expect(find.text('noun'), findsOneWidget);
+    // Locale mặc định trong test = en → 'Danh từ' → 'Noun'.
+    expect(find.text('Noun'), findsOneWidget);
+    expect(find.text('noun'), findsNothing);
+  });
+
+  // DICT-VIEW-003: `partOfSpeech` của nhiều bộ MDX là viết tắt `n.`/`(adj)`.
+  testWidgets('part of speech viết tắt cũng ra tên loại từ', (tester) async {
+    await pumpSheet(
+      tester,
+      word: 'quick',
+      entries: [entry(word: 'quick', definition: 'nhanh', pos: 'adj.')],
+    );
+    expect(find.text('Adjective'), findsOneWidget);
+    expect(find.text('adj.'), findsNothing);
   });
 
   testWidgets('không có kết quả → empty state với từ đã tra', (tester) async {

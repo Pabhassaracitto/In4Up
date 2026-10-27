@@ -133,7 +133,7 @@ class PdfToolbar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${controller.currentPage + 1} / ${controller.totalPages}',
+                    context.uiText('${controller.currentPage + 1} / ${controller.totalPages}'),
                     style: const TextStyle(
                       fontSize: 11,
                       color: Colors.white60,
@@ -843,7 +843,7 @@ class _TtsSpeedSlider extends StatelessWidget {
           ),
         ),
         Text(
-          '${controller.ttsSpeed.toStringAsFixed(1)}x',
+          context.uiText('${controller.ttsSpeed.toStringAsFixed(1)}x'),
           style: const TextStyle(color: Colors.white60, fontSize: 11),
         ),
       ],

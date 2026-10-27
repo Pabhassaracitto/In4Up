@@ -106,7 +106,7 @@ class ElaborativeCard extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    '#$kw',
+                    context.uiText('#$kw'),
                     style: const TextStyle(
                       color: Color(0xFFB388FF),
                       fontSize: 11,
@@ -139,7 +139,7 @@ class ElaborativeCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${l10n.lifeConnection}: $lifeConnection',
+                      context.uiText('${l10n.lifeConnection}: $lifeConnection'),
                       style: TextStyle(
                         color: Colors.grey[300],
                         fontSize: 12,

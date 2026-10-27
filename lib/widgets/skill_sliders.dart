@@ -143,7 +143,7 @@ class _SkillSlidersState extends State<SkillSliders> {
         SizedBox(
           width: 45,
           child: Text(
-            '${(value * 100).toInt()}%',
+            context.uiText('${(value * 100).toInt()}%'),
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: color,
@@ -166,7 +166,7 @@ class _SkillSlidersState extends State<SkillSliders> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '${(value * 100).toInt()}%',
+            context.uiText('${(value * 100).toInt()}%'),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,

@@ -279,7 +279,7 @@ class AddToPlaylistSheet extends StatelessWidget {
                     ),
                     title: Text(pl.name,
                         style: const TextStyle(color: Colors.white)),
-                    subtitle: Text('${pl.length}',
+                    subtitle: Text(context.uiText('${pl.length}'),
                         style: const TextStyle(
                             color: Colors.white38, fontSize: 12)),
                     onTap: () async {

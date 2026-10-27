@@ -1064,7 +1064,7 @@ class ABLoopControlsCompact extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: player.isLooping
                     ? Text(
-                        '${player.loopCount}x',
+                        context.uiText('${player.loopCount}x'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,

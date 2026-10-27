@@ -558,7 +558,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 color: kSpeakerColors[id], shape: BoxShape.circle,
               )),
               const SizedBox(width: 4),
-              Text('Người $id', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              Text(context.uiText('Người $id'), style: const TextStyle(color: Colors.white, fontSize: 10)),
             ]),
           )).toList(),
         ),
@@ -584,7 +584,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         if (_lastVoiceText.isNotEmpty) ...[
           const SizedBox(width: 6),
           Text(
-            '${voiceCommandLabel(locale, 'received')}: $_lastVoiceText',
+            context.uiText('${voiceCommandLabel(locale, 'received')}: $_lastVoiceText'),
             style: const TextStyle(color: Colors.white, fontSize: 10),
           ),
         ],
@@ -1701,7 +1701,7 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
                     child: GestureDetector(
                       onTap: () => _setZoom(1.0),
                       child: Text(
-                        '${_zoom.toStringAsFixed(1)}×',
+                        context.uiText('${_zoom.toStringAsFixed(1)}×'),
                         style: TextStyle(
                           color: _zoom == 1.0 ? Colors.grey[500] : Colors.white,
                           fontSize: 10,
@@ -1848,7 +1848,7 @@ class _SongInfoBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
-              child: Text('${player.state.speed}×',
+              child: Text(context.uiText('${player.state.speed}×'),
                   style: const TextStyle(
                       color: Colors.orange,
                       fontSize: 11,
@@ -2866,7 +2866,7 @@ class GenerateLrcButton extends StatelessWidget {
                           const SizedBox(width: 8),
                           if (hasChunkInfo)
                             Text(
-                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              context.uiText('${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%'),
                               style: TextStyle(
                                 color: Colors.blue.shade300,
                                 fontSize: 12,
@@ -3115,8 +3115,8 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
     final isSelected = _selectedLevel == level;
     return FilterChip(
       label: Text(
-        '${level.displayLabel} (${level.sizeInMB}MB)'
-        '${info.isReady ? ' ✓' : ''}',
+        context.uiText('${level.displayLabel} (${level.sizeInMB}MB)'
+        '${info.isReady ? ' ✓' : ''}'),
       ),
       selected: isSelected,
       onSelected: widget.isProcessing
@@ -3527,7 +3527,7 @@ class _AutoTocBubble extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '⚡ $status',
+                      context.uiText('⚡ $status'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -3537,7 +3537,7 @@ class _AutoTocBubble extends StatelessWidget {
                     if (progress > 0) ...[
                       const SizedBox(width: 6),
                       Text(
-                        '${(progress * 100).round()}%',
+                        context.uiText('${(progress * 100).round()}%'),
                         style: const TextStyle(
                           color: Color(0xFF26C6DA),
                           fontSize: 12,

@@ -236,7 +236,7 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
                                   : Icons.sync,
                         ),
                         title: Text(
-                          '${task.label} · ${_taskPhaseLabel(context, task.phase)}',
+                          context.uiText('${task.label} · ${_taskPhaseLabel(context, task.phase)}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

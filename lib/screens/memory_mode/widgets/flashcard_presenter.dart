@@ -862,7 +862,7 @@ class _BackFace extends StatelessWidget {
           if (item.example != null) ...[
             const SizedBox(height: 16),
             Text(
-              '"${item.example!}"',
+              context.uiText('"${item.example!}"'),
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[400],
@@ -875,7 +875,7 @@ class _BackFace extends StatelessWidget {
           if (item.context != null) ...[
             const SizedBox(height: 12),
             Text(
-              '📖 ${item.context!}',
+              context.uiText('📖 ${item.context!}'),
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -1071,7 +1071,7 @@ class _PresenterHeader extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  '$current / $total',
+                  context.uiText('$current / $total'),
                   style: TextStyle(
                     color: stage.primaryColor,
                     fontWeight: FontWeight.bold,

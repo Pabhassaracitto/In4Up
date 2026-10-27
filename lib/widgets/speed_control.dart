@@ -69,7 +69,7 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${currentSpeed.toStringAsFixed(2)}x',
+                          context.uiText('${currentSpeed.toStringAsFixed(2)}x'),
                           style: TextStyle(
                             fontSize: compact ? 16 : 18,
                             fontWeight: FontWeight.bold,
@@ -258,7 +258,7 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
           border: isSelected ? null : Border.all(color: Colors.white24),
         ),
         child: Text(
-          '${speed}x',
+          context.uiText('${speed}x'),
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             color: isSelected ? Colors.white : Colors.grey,
@@ -308,7 +308,7 @@ class _SpeedControlWidgetState extends State<SpeedControlWidget> {
                   ),
                 ),
                 child: Text(
-                  '${speed}x',
+                  context.uiText('${speed}x'),
                   style: TextStyle(
                     color: isSelected ? Colors.white : color,
                     fontWeight:

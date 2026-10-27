@@ -75,7 +75,7 @@ class PdfThumbnailGrid extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${index + 1}',
+                context.uiText('${index + 1}'),
                 style: TextStyle(
                   fontSize: 11,
                   color: isCurrent

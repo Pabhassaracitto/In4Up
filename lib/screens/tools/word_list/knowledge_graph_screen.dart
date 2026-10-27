@@ -175,7 +175,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              '${_graph.nodeCount()} nodes',
+              context.uiText('${_graph.nodeCount()} nodes'),
               style: const TextStyle(
                 color: Color(0xFF9C8FFF),
                 fontSize: 11,
@@ -695,7 +695,7 @@ class _WordDetailSheet extends StatelessWidget {
                     children: [
                       if (c.surroundingText.isNotEmpty)
                         Text(
-                          '"${c.surroundingText}"',
+                          context.uiText('"${c.surroundingText}"'),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

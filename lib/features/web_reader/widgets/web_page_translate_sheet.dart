@@ -286,7 +286,7 @@ class _WebPageTranslateSheetState extends State<WebPageTranslateSheet> {
                       ),
                     ),
                     Text(
-                      '$_completed/$_total',
+                      context.uiText('$_completed/$_total'),
                       style: TextStyle(color: Colors.grey[500], fontSize: 11),
                     ),
                   ],

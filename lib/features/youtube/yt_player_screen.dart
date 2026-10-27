@@ -2250,7 +2250,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              '$head$value',
+              context.uiText('$head$value'),
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),
@@ -2407,7 +2407,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           .map((w) => GestureDetector(
                 onTap: () => _showWordPopup(w),
                 child: Text(
-                  '${w.text} ',
+                  context.uiText('${w.text} '),
                   style: TextStyle(
                     color: w.type == 'other' ? Colors.white : w.typeColor,
                     fontSize: 13,
@@ -2511,7 +2511,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                       color: Colors.grey[800],
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text('${e.key}',
+                    child: Text(context.uiText('${e.key}'),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -2572,7 +2572,7 @@ class _WordChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Text(
-        '${word.text} ',
+        context.uiText('${word.text} '),
         style: TextStyle(
           color: color,
           fontSize: 18,
@@ -2633,7 +2633,7 @@ class _WordStatsRowState extends State<_WordStatsRow> {
                   () => _tooltip = _tooltip == 'ignored' ? null : 'ignored'),
             ),
             const SizedBox(width: 8),
-            Text('/ ${widget.total}',
+            Text(context.uiText('/ ${widget.total}'),
                 style: TextStyle(color: Colors.grey[600], fontSize: 11)),
           ],
         ),

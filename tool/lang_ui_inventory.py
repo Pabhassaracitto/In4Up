@@ -355,6 +355,171 @@ def _used_as_identifier(text: str, value: str) -> bool:
     )
 
 
+# --- Quét rộng: mọi string literal người dùng có thể đọc -------------------
+# Bản quét hẹp ở trên chỉ thấy literal nằm trực tiếp trong `Text(...)` hoặc các
+# tham số `label:`/`tooltip:`/`hintText:`. Thực tế còn nhiều kênh khác:
+#   • literal gán vào biến rồi mới đưa vào Text(var);
+#   • nhãn truyền vào widget tự viết (`_Tile(label: '...')`);
+#   • thông điệp tiến trình/`SnackBar` do service/provider sinh ra;
+#   • `Text("... ${x}")` (nội suy) — shim cố tình không dịch để tránh khớp nhầm.
+# Bỏ sót các kênh này khiến báo cáo "0 leak" trong khi người dùng vẫn thấy tiếng
+# Việt. Quét rộng bắt hết, và loại trừ những gì KHÔNG hiển thị (xem
+# `tool/lang_ui_scan_exclusions.json`).
+SCAN_EXCLUSIONS_JSON = ROOT / "tool" / "lang_ui_scan_exclusions.json"
+
+DEFAULT_SCAN_EXCLUSIONS = {
+    "_comment": "Đường dẫn/danh sách loại khỏi phép quét rộng (không hiển thị cho người dùng).",
+    "skipPathPrefixes": [
+        "core/language/",
+        "l10n/",
+        "features/translation/data/",
+        "features/dictionary/",
+        "features/learn_by_heart/data/",
+        "features/tipitaka/data/",
+        "features/web_reader/js/",
+        "knowledge/",
+    ],
+    "skipValuePatterns": [
+        "^assets/",
+        "://",
+        "^\\[?in4up",
+        "^[a-z0-9_.-]+\\.(dart|json|onnx|gguf|txt|wav|mp3|m4a|flac|png|jpg|jpeg|webp|srt|lrc|arb|yaml)$",
+        "^[A-Za-z0-9+/=]{24,}$",
+        "^[^A-Za-zÀ-ỹ]*$",
+    ],
+}
+
+# Literal ở ngay trong lời gọi log/throw là thông điệp kỹ thuật, không hiển thị.
+NON_DISPLAY_CALL_RE = re.compile(
+    r"(?:\b(?:debugPrint|print|log|logger|_log\w*)|\bthrow|\b(?:Exception|StateError|ArgumentError|FormatException|UnsupportedError)\b|\bassert)\s*\(?[^;]*$"
+)
+
+
+def _load_scan_exclusions() -> dict:
+    if SCAN_EXCLUSIONS_JSON.exists():
+        data = json.loads(SCAN_EXCLUSIONS_JSON.read_text(encoding="utf-8"))
+    else:
+        data = dict(DEFAULT_SCAN_EXCLUSIONS)
+    return data
+
+
+def _literal_is_technical(
+    value: str,
+    text: str,
+    start: int,
+    patterns: list[re.Pattern[str]],
+    context_patterns: tuple[re.Pattern[str], ...] = (),
+    skip_values: frozenset[str] = frozenset(),
+) -> bool:
+    stripped = value.strip()
+    if not stripped or ESCAPE_ARTIFACT_RE.search(stripped):
+        return True
+    if IDENTIFIER_RE.match(stripped) or _used_as_identifier(text, stripped):
+        return True
+    if stripped.upper() in ENGLISH_STOPWORDS or stripped in ENGLISH_STOPWORDS:
+        return True
+    for pattern in patterns:
+        if pattern.search(stripped):
+            return True
+    if stripped in skip_values:
+        return True
+    # Bối cảnh 2 dòng phía trước: nếu literal là đối số của log/throw thì bỏ.
+    context = text[max(0, start - 200) : start]
+    tail = "\n".join(context.split("\n")[-2:])
+    if NON_DISPLAY_CALL_RE.search(tail):
+        return True
+    # Ô của bảng bản địa hoá (`'vi': '…'`, `'en': '…',`): chuỗi này chỉ hiển thị
+    # cho chính ngôn ngữ đó nên không thể rò rỉ sang locale khác.
+    if context_patterns:
+        head = context[max(0, len(context) - 80) :]
+        for pattern in context_patterns:
+            if pattern.search(head):
+                return True
+    return False
+
+
+def collect_broad_sources() -> dict[str, set[str]]:
+    """Mọi literal có khả năng hiển thị, kể cả ngoài `Text(...)`."""
+    exclusions = _load_scan_exclusions()
+    skip_prefixes = tuple(exclusions.get("skipPathPrefixes", []))
+    patterns = [re.compile(p) for p in exclusions.get("skipValuePatterns", [])]
+    context_patterns = tuple(
+        re.compile(p) for p in exclusions.get("skipValueContextPatterns", [])
+    )
+    skip_values_by_path = {
+        key: frozenset(values)
+        for key, values in exclusions.get("skipValuesByPath", {}).items()
+    }
+    by_file: dict[str, set[str]] = {}
+    for path in sorted(LIB.rglob("*.dart")):
+        relative = path.relative_to(LIB).as_posix()
+        if any(relative.startswith(prefix) for prefix in skip_prefixes):
+            continue
+        # Thư mục `i18n/` tự chứa bảng bản địa hoá đủ 7 locale (xem
+        # `locale_map_gaps()`), nên chuỗi ở đó không thể rò rỉ.
+        if "/i18n/" in f"/{relative}":
+            continue
+        skip_values = skip_values_by_path.get(relative, frozenset())
+        text = _strip_comments(path.read_text(encoding="utf-8"))
+        strings: set[str] = set()
+        # Mảnh của một literal bị ngắt dòng (`'a ' 'b'`) không phải chuỗi runtime:
+        # Dart nối chúng ngay khi biên dịch. Chỉ giữ chuỗi đã nối.
+        fragments: set[str] = set()
+        for segments, merged in _adjacent_literal_chains(text):
+            raws = set()
+            for segment in segments:
+                quoted = segment.strip()
+                inner = quoted[1:-1] if quoted[:1] in ("'", '"') else quoted
+                raws.add(dart_unescape(inner))
+            body = merged[1:-1] if merged[:1] in ("'", '"') else merged
+            fragments.update(raws)
+            if "${" in body:
+                # Template nội suy: chỉ có nghĩa ở nơi gọi `uiText`, không phải
+                # một chuỗi nguồn độc lập.
+                continue
+            if len(body.strip()) >= 2:
+                strings.add(dart_unescape(body))
+        for match in _STRING_LITERAL_RE.finditer(text):
+            value = match.group(0)
+            value = value[1:] if value[:1] in ("r", "R") else value
+            value = value[1:-1]
+            value = dart_unescape(value)
+            if len(value.strip()) < 2:
+                continue
+            if value in fragments:
+                continue
+            if _literal_is_technical(
+                value, text, match.start(), patterns, context_patterns, skip_values
+            ):
+                continue
+            strings.add(value)
+        if strings:
+            by_file[relative] = strings
+    return by_file
+
+
+_STRING_LITERAL_RE = re.compile(r"[rR]?'(?:[^'\\\n]|\\.)*'|[rR]?\"(?:[^\"\\\n]|\\.)*\"")
+
+
+def _chain_fragment_values(text: str) -> set[str]:
+    """Giá trị của các mảnh literal đã được Dart nối lại — không phải chuỗi runtime.
+
+    Chỉ loại mảnh xuất hiện đúng một lần trong file (tức là chỉ tồn tại như một
+    phần của chuỗi bị ngắt dòng), để không vô tình bỏ một nhãn ngắn có thật.
+    """
+    fragments: set[str] = set()
+    for segments, _merged in _adjacent_literal_chains(text):
+        for segment in segments:
+            raw = segment.strip()
+            if text.count(raw) != 1:
+                continue
+            body = raw[1:-1] if raw[:1] in ("'", '"') else raw
+            decoded = dart_unescape(body)
+            if len(decoded.strip()) >= 2:
+                fragments.add(decoded)
+    return fragments
+
+
 def collect_sources() -> dict[str, set[str]]:
     sys.path.insert(0, str(ROOT / "tool"))
     from generate_legacy_ui_fallbacks import (  # type: ignore
@@ -375,6 +540,7 @@ def collect_sources() -> dict[str, set[str]]:
             # too, even when they are not the first argument of Text().
             strings |= _named_chrome_values(text)
         strings = _append_literal_chain_values(text, strings)
+        strings -= _chain_fragment_values(text)
         strings = {
             value
             for value in strings
@@ -386,7 +552,39 @@ def collect_sources() -> dict[str, set[str]]:
         }
         if strings:
             by_file[path.relative_to(LIB).as_posix()] = strings
+
+    # Hợp nhất phép quét rộng. Chỉ nhận literal **có dấu tiếng Việt** hoặc literal
+    # English "trông giống chrome" — quét rộng thô sẽ kéo theo mã kỹ thuật
+    # (tên package, SQL, mime type…) làm số liệu méo.
+    for relative, values in collect_broad_sources().items():
+        extra = {
+            value
+            for value in values
+            if VIETNAMESE_SOURCE_RE.search(value) or _looks_like_english_chrome(value)
+        }
+        if extra:
+            by_file.setdefault(relative, set()).update(extra)
     return by_file
+
+
+def _looks_like_english_chrome(value: str) -> bool:
+    """English literal trông giống nhãn UI (không phải mã kỹ thuật)."""
+    stripped = value.strip()
+    if len(stripped) < 4 or not ENGLISH_CHROME_RE.match(stripped):
+        return False
+    if " " not in stripped:
+        # Một từ đơn: chỉ nhận nếu viết hoa đầu và không phải thuật ngữ mã nguồn.
+        return stripped[:1].isupper() and stripped.lower() not in _CODE_TOKENS
+    if stripped[0].islower():
+        return False
+    return True
+
+
+_CODE_TOKENS = {
+    "text", "content", "error", "count", "styles", "texts", "next", "simple",
+    "abandon", "against", "judge", "energy", "audio", "video", "image", "file",
+    "title", "label", "value", "message", "true", "false", "null", "none",
+}
 
 
 ENGLISH_CHROME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 ·:→←&/.,!?'’()%+#\-–_]*$")
@@ -452,6 +650,18 @@ def _looks_like_chrome(value: str) -> bool:
     return bool(ENGLISH_CHROME_RE.match(stripped))
 
 
+_DART_INTERP_RE = re.compile(r"\$\{[^{}]*\}|\$[A-Za-z_]\w*")
+
+
+def normalize_placeholders(text: str) -> str:
+    """`"$count phút"` → `"{value0} phút"` — dạng mà pack dùng cho template.
+
+    Chuỗi nội suy không bao giờ khớp exact-match, nên chỉ khi được chuẩn hoá về
+    dạng `{valueN}` thì mới đo được đúng việc runtime làm (`context.uiText`).
+    """
+    return _DART_INTERP_RE.sub("{value0}", text)
+
+
 def resolve(
     source: str,
     locale: str,
@@ -471,6 +681,8 @@ def resolve(
                 return value
     if source in legacy:
         return legacy[source]
+    if "$" in source:
+        source = normalize_placeholders(source)
     for pattern, entry in templates:
         if pattern.match(source):
             value = entry.get(locale) or entry.get("en")
@@ -492,6 +704,25 @@ def build_templates(*catalogs: dict[str, dict[str, str]]):
     return templates
 
 
+LOCALE_MAP_RE = re.compile(r"_get\(\{(.*?)\}\)", re.S)
+LOCALE_KEY_RE = re.compile(r"['\"](\w+)['\"]\s*:")
+
+
+def locale_map_gaps() -> list[tuple[str, str]]:
+    """Bảng `_get({'vi': …, 'en': …})` nào còn thiếu locale ưu tiên."""
+    gaps: list[tuple[str, str]] = []
+    for path in sorted(LIB.rglob("*.dart")):
+        if "/i18n/" not in f"/{path.relative_to(LIB).as_posix()}":
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in LOCALE_MAP_RE.finditer(text):
+            keys = set(LOCALE_KEY_RE.findall(match.group(1)))
+            missing = [locale for locale in PRIORITY_LOCALES if locale not in keys]
+            if missing and "en" in keys:
+                gaps.append((path.relative_to(LIB).as_posix(), ",".join(missing)))
+    return gaps
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--locale", action="append", default=[])
@@ -508,6 +739,12 @@ def main() -> int:
     overrides = load_priority_overrides()
     legacy = load_legacy_english()
     templates = build_templates(pack, overrides, arb)
+
+    gaps = locale_map_gaps()
+    if gaps:
+        print(f"⚠️  Bảng i18n thiếu locale: {len(gaps)}")
+        for path, missing in gaps[:20]:
+            print(f"   {path}: {missing}")
 
     by_file = collect_sources()
     sources = {value for values in by_file.values() for value in values}

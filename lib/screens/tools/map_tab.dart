@@ -320,7 +320,7 @@ class _MapTabState extends State<MapTab> {
           ),
         ),
         const SizedBox(width: 2),
-        Text('${(value * 100).toInt()}%',
+        Text(context.uiText('${(value * 100).toInt()}%'),
             style: TextStyle(fontSize: 9, color: color)),
       ],
     );

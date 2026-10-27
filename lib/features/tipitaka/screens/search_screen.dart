@@ -272,7 +272,7 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
                                 Chip(
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
-                                  label: Text('${results.length}'),
+                                  label: Text(context.uiText('${results.length}')),
                                 ),
                                 const Spacer(),
                                 Text(

@@ -212,7 +212,7 @@ class _PdfSearchPanelState extends State<PdfSearchPanel> {
                           SizedBox(
                             width: 52,
                             child: Text(
-                              '${match.pageNumber}',
+                              context.uiText('${match.pageNumber}'),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontFamily: 'monospace',

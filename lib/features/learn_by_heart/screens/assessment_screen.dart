@@ -237,7 +237,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
 
                             if (item.sourceText.isNotEmpty) ...[
                               Text(
-                                'Nguyên văn (${item.sourceLanguage.displayName('vi')}):',
+                                context.uiText('Nguyên văn (${item.sourceLanguage.displayName('vi')}):'),
                                 style: TextStyle(
                                   color: const Color(0xFFFFD54F),
                                   fontSize: 12,
@@ -267,7 +267,7 @@ class _AssessmentScreenState extends State<AssessmentScreen> {
 
                             if (item.targetText.isNotEmpty) ...[
                             Text(
-                              'Bản dịch (${item.targetLanguage.displayName('vi')}):',
+                              context.uiText('Bản dịch (${item.targetLanguage.displayName('vi')}):'),
                               style: TextStyle(
                                 color: const Color(0xFF81C784),
                                 fontSize: 12,

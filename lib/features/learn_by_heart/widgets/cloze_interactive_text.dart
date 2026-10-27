@@ -197,7 +197,7 @@ class _ClozeInteractiveTextState extends State<ClozeInteractiveText> {
               ),
               if (!isFullLevel && totalMasked > 0) ...[
                 Text(
-                  '$revealed/$totalMasked',
+                  context.uiText('$revealed/$totalMasked'),
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,

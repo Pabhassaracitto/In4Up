@@ -331,7 +331,7 @@ class _FontSizeControl extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  '${tp.fontSize.toInt()}',
+                  context.uiText('${tp.fontSize.toInt()}'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -404,7 +404,7 @@ class _TtsControls extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${tp.ttsSpeed.toStringAsFixed(2)}x',
+                  context.uiText('${tp.ttsSpeed.toStringAsFixed(2)}x'),
                   style: const TextStyle(
                     color: Color(0xFF2196F3),
                     fontWeight: FontWeight.bold,

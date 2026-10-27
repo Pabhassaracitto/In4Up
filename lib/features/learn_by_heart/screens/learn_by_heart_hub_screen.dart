@@ -850,14 +850,14 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                   Icon(Icons.layers_rounded, size: 14, color: Colors.grey[400]),
                   const SizedBox(width: 4),
                   Text(
-                    '${item.chunkList.length} đoạn',
+                    context.uiText('${item.chunkList.length} đoạn'),
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const SizedBox(width: 12),
                   Icon(Icons.repeat_rounded, size: 14, color: Colors.grey[400]),
                   const SizedBox(width: 4),
                   Text(
-                    'Đã ôn ${item.totalReviews} lần',
+                    context.uiText('Đã ôn ${item.totalReviews} lần'),
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ),
                   const Spacer(),
@@ -872,7 +872,7 @@ class _LearnByHeartHubScreenState extends State<LearnByHeartHubScreen> {
                     )
                   else if (item.nextReviewDate != null)
                     Text(
-                      'Ôn sau ${_formatDaysUntil(item.nextReviewDate!)}',
+                      context.uiText('Ôn sau ${_formatDaysUntil(item.nextReviewDate!)}'),
                       style: TextStyle(fontSize: 10.5, color: Colors.grey[400]),
                     ),
                 ],
@@ -986,7 +986,7 @@ class _MiniStatPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '$label: $value',
+        context.uiText('$label: $value'),
         style: TextStyle(
           color: color,
           fontSize: 10.5,

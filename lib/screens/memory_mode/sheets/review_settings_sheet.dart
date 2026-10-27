@@ -156,7 +156,7 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                     ),
                     const Spacer(),
                     Text(
-                      '$_maxCards',
+                      context.uiText('$_maxCards'),
                       style: const TextStyle(
                         color: Color(0xFF4CAF50),
                         fontWeight: FontWeight.bold,

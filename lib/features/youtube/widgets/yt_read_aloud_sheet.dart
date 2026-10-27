@@ -440,7 +440,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
           SizedBox(
             width: 24,
             child: Text(
-              '$value',
+              context.uiText('$value'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                   fontSize: 14, fontWeight: FontWeight.bold),

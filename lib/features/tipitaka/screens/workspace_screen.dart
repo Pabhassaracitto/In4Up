@@ -295,7 +295,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
               const Divider(),
               for (var index = 0; index < outline.length; index++)
                 ListTile(
-                  leading: Text('${index + 1}'),
+                  leading: Text(context.uiText('${index + 1}')),
                   title: Text(_outlineTitle(outline[index], language, index)),
                   onTap: () => Navigator.pop(context, outline[index].id),
                 ),

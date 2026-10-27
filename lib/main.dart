@@ -565,7 +565,7 @@ class _AppErrorScreen extends StatelessWidget {
                   const Icon(Icons.error, color: Colors.red, size: 64),
                   const SizedBox(height: 20),
                   Text(
-                    'Initialization Error:\n$error',
+                    context.uiText('Initialization Error:\n$error'),
                     style: const TextStyle(color: Colors.white),
                     textAlign: TextAlign.center,
                   ),

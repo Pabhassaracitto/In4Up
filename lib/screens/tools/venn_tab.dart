@@ -215,7 +215,7 @@ class _VennTabState extends State<VennTab> {
                     ),
                   ),
                   Text(
-                    '${counts[zone] ?? 0}',
+                    context.uiText('${counts[zone] ?? 0}'),
                     style: TextStyle(
                       color: color,
                       fontSize: 18,
@@ -277,7 +277,7 @@ class _VennTabState extends State<VennTab> {
                         color: Colors.white,
                         fontSize: 9,
                         fontWeight: FontWeight.bold)),
-                Text('$count',
+                Text(context.uiText('$count'),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -335,7 +335,7 @@ class _VennTabState extends State<VennTab> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text('⭐', style: TextStyle(fontSize: 14)),
-                Text('$count',
+                Text(context.uiText('$count'),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -379,7 +379,7 @@ class _VennTabState extends State<VennTab> {
               const Icon(Icons.visibility_off, color: Colors.white, size: 16),
               const Text('Điểm mù',
                   style: TextStyle(color: Colors.white, fontSize: 9)),
-              Text('$count',
+              Text(context.uiText('$count'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,

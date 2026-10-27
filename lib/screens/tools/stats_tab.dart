@@ -93,7 +93,7 @@ class _ProgressCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '${(prov.progress * 100).toInt()}%',
+                  context.uiText('${(prov.progress * 100).toInt()}%'),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF6C63FF),

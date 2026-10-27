@@ -209,9 +209,9 @@ class _GlossarySheetState extends State<GlossarySheet> {
                     ),
                   ),
                   Text(
-                    '${entry.sourceLang.toUpperCase()} → '
+                    context.uiText('${entry.sourceLang.toUpperCase()} → '
                     '${entry.targetLang.toUpperCase()} · '
-                    '${_domainLabel(context, entry.domain)}',
+                    '${_domainLabel(context, entry.domain)}'),
                     style: TextStyle(color: Colors.grey[600], fontSize: 10),
                   ),
                 ],
@@ -454,7 +454,7 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
                         DropdownMenuItem(
                           value: code,
                           child: Text(
-                            '${_langLabel(code)} ($code)',
+                            context.uiText('${_langLabel(code)} ($code)'),
                             style: const TextStyle(color: Colors.white),
                           ),
                         ),
@@ -485,7 +485,7 @@ class _GlossaryEditorSheetState extends State<_GlossaryEditorSheet> {
                         DropdownMenuItem(
                           value: code,
                           child: Text(
-                            '${_langLabel(code)} ($code)',
+                            context.uiText('${_langLabel(code)} ($code)'),
                             style: const TextStyle(color: Colors.white),
                           ),
                         ),

@@ -14,6 +14,7 @@ import 'widgets/yt_video_card.dart' show YtHistoryItem;
 import 'services/yt_initial_data_parser.dart';
 import 'services/yt_search_service.dart';
 import 'services/yt_service.dart';
+import 'widgets/yt_my_channels_sheet.dart';
 import 'yt_player_screen.dart';
 
 const _kYtApi = 'https://www.googleapis.com/youtube/v3';
@@ -720,6 +721,18 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         fontSize: 15,
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
+                // YT-MY-CHANNELS-001 (#1 owner 2026-10-28): "Kênh của tôi" —
+                // theo dõi kênh bằng @handle/link hoặc import OPML, KHÔNG cần
+                // đăng nhập Google. Đặt cạnh Lịch sử vì cùng là "chỗ quay lại".
+                IconButton(
+                  tooltip: context.uiText('Kênh của tôi'),
+                  icon: const Icon(Icons.subscriptions_outlined,
+                      color: Colors.grey, size: 18),
+                  onPressed: () => showYtMyChannelsSheet(context),
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
                 // YT-LR-004: Lịch sử xem — việc của tab Lịch sử ở tầng 1 cũ.
                 IconButton(
                   tooltip: context.uiText('Lịch sử'),

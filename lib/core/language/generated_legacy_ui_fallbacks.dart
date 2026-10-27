@@ -2181,4 +2181,11 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Bỏ lặp câu': 'Stop repeating',
   'Biết hết': 'Mark all known',
   'Học cả câu': 'Study whole line',
+  // DICT-SQLITE-001 (2026-10-28) — thêm tay (generator đang lỗi sẵn ở baseline).
+  'File .db không phải SQLite hợp lệ':
+      'This .db file is not a valid SQLite database',
+  'File .db không có bảng từ điển phù hợp':
+      'This .db file has no dictionary-like table',
+  'File .db không có dòng nào': 'This .db file has no rows',
+  'không đọc được file': 'could not read the file',
 };

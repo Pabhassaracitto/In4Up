@@ -72,10 +72,28 @@ class DictImportService {
     );
   }
 
+  /// DICT-SQLITE-001: đuôi file người dùng được CHỌN (picker).
+  ///
+  /// `.db/.sqlite/.sqlite3` là nguồn SQLite — trước đây không có trong danh
+  /// sách nên bộ chọn của Android (SAF) và của file_picker **lọc bỏ ngay**,
+  /// người dùng chỉ thấy "không chọn được file .db".
+  static const Set<String> _pickExtensions = {
+    'mdx',
+    'mdd',
+    'css',
+    'db',
+    'sqlite',
+    'sqlite3',
+  };
+
   static const Set<String> _androidDictionaryExtensions = {
     'mdx',
     'mdd',
     'css',
+    // DICT-SQLITE-001: quét thư mục cũng phải thấy nguồn SQLite.
+    'db',
+    'sqlite',
+    'sqlite3',
     'png',
     'jpg',
     'jpeg',
@@ -223,7 +241,7 @@ class DictImportService {
     if (Platform.isAndroid && mode == DictStorageMode.linked) {
       try {
         final files = await DictDeviceChannel.pickDocuments(
-          extensions: const {'mdx', 'mdd', 'css'},
+          extensions: _pickExtensions,
         );
         if (files == null || files.isEmpty) {
           return const DictImportOutcome(error: 'Chưa chọn file nào');
@@ -249,7 +267,10 @@ class DictImportService {
 
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['mdx', 'mdd', 'css'],
+      // DICT-SQLITE-001 (2026-10-28): nhận cả file SQLite. Trước đây CHỈ
+      // mdx/mdd/css nên file .db bị bộ chọn lọc bỏ ngay — người dùng chỉ
+      // thấy "không chọn được file", không hiểu vì sao.
+      allowedExtensions: _pickExtensions.toList(),
       allowMultiple: true,
       // Android providers may return a content URI without a usable path.
       // Keep a stream available as a fallback without loading a large MDX

@@ -148,6 +148,22 @@ class DictBundleScanner {
   static bool isCssName(String name) =>
       name.toLowerCase().endsWith('.css');
 
+  /// DICT-SQLITE-001 (2026-10-28): file SQLite (`.db` / `.sqlite` /
+  /// `.sqlite3`) — nguồn từ điển KHÔNG phải MDict nhưng vẫn import được
+  /// (xem `dict_sqlite_importer.dart`).
+  ///
+  /// `*.dict.sqlite.rebuilding-*` / `.previous-*` (index tạm của app) bị loại
+  /// để không tự import lại rác của chính mình.
+  static bool isSqliteName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('.rebuilding-') || lower.contains('.previous-')) {
+      return false;
+    }
+    return lower.endsWith('.db') ||
+        lower.endsWith('.sqlite') ||
+        lower.endsWith('.sqlite3');
+  }
+
   /// Stem ghép MDD: `Dict.2.mdd` → `dict`, `Dict.mdd` → `dict`.
   static String mddStem(String name) {
     var lower = name.toLowerCase();
@@ -223,6 +239,7 @@ class DictBundleScanner {
           if (!isMdxName(f.name) &&
               !isMddName(f.name) &&
               !isCssName(f.name) &&
+              !isSqliteName(f.name) &&
               !usedPaths.contains(f.path))
             f,
       ];

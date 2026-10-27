@@ -4286,6 +4286,35 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'තෝරාගත් ප්\u200dරභවයේ .mdx ගොනුවක් හමු නොවීය '
         '(තනි ගොනු: {value0})',
   },
+  // DICT-SQLITE-001 (2026-10-28) — import từ điển dạng file SQLite (.db).
+  'File .db không phải SQLite hợp lệ': {
+    'en': 'This .db file is not a valid SQLite database',
+    'hi': 'यह .db फ़ाइल मान्य SQLite डेटाबेस नहीं है',
+    'zh': '该 .db 文件不是有效的 SQLite 数据库',
+    'zh_TW': '該 .db 檔案不是有效的 SQLite 資料庫',
+    'si': 'මෙම .db ගොනුව වලංගු SQLite දත්ත සමුදායක් නොවේ',
+  },
+  'File .db không có bảng từ điển phù hợp': {
+    'en': 'This .db file has no dictionary-like table',
+    'hi': 'इस .db फ़ाइल में शब्दकोश जैसी कोई तालिका नहीं है',
+    'zh': '该 .db 文件中没有词典数据表',
+    'zh_TW': '該 .db 檔案中沒有詞典資料表',
+    'si': 'මෙම .db ගොනුවේ ශබ්දකෝෂ වගුවක් නොමැත',
+  },
+  'File .db không có dòng nào': {
+    'en': 'This .db file has no rows',
+    'hi': 'इस .db फ़ाइल में कोई पंक्ति नहीं है',
+    'zh': '该 .db 文件没有任何数据行',
+    'zh_TW': '該 .db 檔案沒有任何資料列',
+    'si': 'මෙම .db ගොනුවේ පේළි නොමැත',
+  },
+  'không đọc được file': {
+    'en': 'could not read the file',
+    'hi': 'फ़ाइल पढ़ी नहीं जा सकी',
+    'zh': '无法读取文件',
+    'zh_TW': '無法讀取檔案',
+    'si': 'ගොනුව කියවිය නොහැක',
+  },
   'Không import được từ điển nào': {
     'en': 'No dictionary could be imported',
     'hi': 'कोई शब्दकोश इम्पोर्ट नहीं हो सका',

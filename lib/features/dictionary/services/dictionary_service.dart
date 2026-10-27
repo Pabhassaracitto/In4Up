@@ -10,6 +10,7 @@ import '../models/dict_info.dart';
 import 'dict_bundle_scanner.dart';
 import 'dict_db_service.dart';
 import 'dict_list_order.dart';
+import 'dict_sqlite_importer.dart';
 import 'dict_title_cleaner.dart';
 import 'dict_device_channel.dart';
 import 'mdx_parser.dart';
@@ -230,11 +231,18 @@ class DictionaryService {
     }
     final report = DictBundleScanner.scan(scanned);
 
-    if (!report.hasSets) {
+    // DICT-SQLITE-001 (2026-10-28): nguồn là file SQLite (`.db`/`.sqlite`).
+    // Không có `.mdx` là ĐÚNG với loại nguồn này — trước đây rơi vào nhánh
+    // "Không tìm thấy file .mdx nào" ⇒ người dùng tưởng app không hỗ trợ.
+    final sqliteFiles = scanned
+        .where((f) => DictBundleScanner.isSqliteName(f.name))
+        .toList(growable: false);
+
+    if (!report.hasSets && sqliteFiles.isEmpty) {
       final stray = report.strayCompanions.map((f) => f.name).join(', ');
       return DictImportOutcome(
-        error: 'Không tìm thấy file .mdx nào trong nguồn đã chọn'
-            '${stray.isEmpty ? '' : ' (có file lẻ: $stray)'}',
+        error: 'Không tìm thấy file .mdx hoặc .db/.sqlite nào trong nguồn '
+            'đã chọn${stray.isEmpty ? '' : ' (có file lẻ: $stray)'}',
         strayCompanions: [
           for (final f in report.strayCompanions) f.name,
         ],
@@ -245,6 +253,17 @@ class DictionaryService {
     final dictDir = Directory('${appDir.path}/dictionaries');
     if (!dictDir.existsSync()) {
       dictDir.createSync(recursive: true);
+    }
+
+    // Nguồn SQLite: nạp thẳng vào index nội bộ rồi trả về (không đi qua MDX).
+    if (!report.hasSets && sqliteFiles.isNotEmpty) {
+      return _importSqliteSources(
+        sqliteFiles,
+        relToAbs: relToAbs,
+        dictDir: dictDir.path,
+        sourceUris: sourceUris,
+        onProgress: onProgress,
+      );
     }
 
     final imported = <DictInfo>[];
@@ -308,6 +327,146 @@ class DictionaryService {
       ],
       needsReselect: needsReselect,
     );
+  }
+
+  /// DICT-SQLITE-001 — import từng file SQLite (`.db`/`.sqlite`) thành một
+  /// từ điển riêng.
+  ///
+  /// Vì sao không dùng lại `_importSet`: nguồn không có MDX header, không có
+  /// MDD/CSS, và không cần copy file nguồn (dữ liệu đã được chép sang index
+  /// nội bộ). Dùng chung `DictDbService` + `DictInfo` để phần tra cứu không
+  /// phải biết nguồn gốc.
+  Future<DictImportOutcome> _importSqliteSources(
+    List<DictScannedFile> files, {
+    required Map<String, String> relToAbs,
+    required String dictDir,
+    required Map<String, String> sourceUris,
+    void Function(double progress, String message)? onProgress,
+  }) async {
+    final imported = <DictInfo>[];
+    final problems = <String>[];
+    Directory? tempRoot;
+
+    try {
+      var index = 0;
+      for (final file in files) {
+        index++;
+        final progressBase = 0.05 + 0.9 * (index - 1) / files.length;
+        onProgress?.call(progressBase, 'Đang import từ điển…');
+
+        String? sourcePath;
+        try {
+          final uri = sourceUris[file.path];
+          if (uri != null && uri.isNotEmpty && DictDeviceChannel.isSupported) {
+            // SAF: bộ đọc SQLite cần PATH thật ⇒ copy sang thư mục tạm rồi mở.
+            final temp = tempRoot ??= await _sqliteTempDir();
+            final dest = '${temp.path}/${DateTime.now().microsecondsSinceEpoch}'
+                '_${file.name.replaceAll('/', '_')}';
+            final copied =
+                await DictDeviceChannel.copyDocumentToPath(uri, dest);
+            if (copied) sourcePath = dest;
+          }
+          sourcePath ??= relToAbs[file.path];
+          if (sourcePath == null || !File(sourcePath).existsSync()) {
+            problems.add('${file.name}: không đọc được file');
+            continue;
+          }
+
+          final dictId = md5
+              .convert(utf8.encode('sqlite:${file.name}'))
+              .toString()
+              .substring(0, 12);
+          final dbPath = '$dictDir/$dictId.dict.sqlite';
+
+          final result = await importSqliteDictionary(
+            sourcePath: sourcePath,
+            targetDbPath: dbPath,
+            dictId: dictId,
+            onProgress: (p, message) =>
+                onProgress?.call(progressBase + 0.09 * p, message),
+          );
+          if (!result.isSuccess) {
+            problems.add('${file.name}: ${_sqliteWarningText(result.warning)}');
+            continue;
+          }
+
+          final langs = detectLangPairFromFileName(file.name);
+          final info = DictInfo(
+            id: dictId,
+            name: _sqliteDisplayName(file.name),
+            sourceLang: langs.source,
+            targetLang: langs.target,
+            entryCount: result.entryCount,
+            dbPath: dbPath,
+            enabled: true,
+            importedAt: DateTime.now(),
+            storageMode: DictStorageMode.imported,
+            sourceFileName: file.name,
+            sourceWasFolder: false,
+          );
+          _dicts.removeWhere((d) => d.id == info.id);
+          _dicts.add(info);
+          imported.add(info);
+        } catch (e) {
+          problems.add('${file.name}: $e');
+        }
+      }
+    } finally {
+      if (tempRoot != null) {
+        try {
+          if (tempRoot.existsSync()) tempRoot.deleteSync(recursive: true);
+        } catch (_) {
+          // Dọn tạm là best effort.
+        }
+      }
+    }
+
+    await _saveManifest();
+    onProgress?.call(
+      1.0,
+      imported.isEmpty
+          ? 'Không import được từ điển nào'
+          : 'Đã đăng ký ${imported.length} từ điển',
+    );
+    return DictImportOutcome(
+      imported: imported,
+      missingParts: problems,
+      error: imported.isEmpty
+          ? (problems.isEmpty
+              ? 'Không import được từ điển nào'
+              : 'Không import được từ điển nào: ${problems.first}')
+          : null,
+    );
+  }
+
+  Future<Directory> _sqliteTempDir() async {
+    final temp = await getTemporaryDirectory();
+    final dir = Directory(
+      '${temp.path}/in4up_dict_sqlite_'
+      '${DateTime.now().microsecondsSinceEpoch}',
+    );
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// Mã lỗi máy → câu chrome (đã đăng ký catalog rule #5).
+  String _sqliteWarningText(String? warning) {
+    switch (warning) {
+      case 'no_table':
+        return 'File .db không có bảng từ điển phù hợp';
+      case 'empty':
+        return 'File .db không có dòng nào';
+      case 'read_failed':
+      default:
+        return 'File .db không phải SQLite hợp lệ';
+    }
+  }
+
+  /// Tên hiển thị: bỏ đuôi file, giữ nguyên chữ user đặt.
+  String _sqliteDisplayName(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    final stem = dot > 0 ? fileName.substring(0, dot) : fileName;
+    return stem.trim().isEmpty ? fileName : stem;
   }
 
   /// Import 1 set (copy hoặc link) → DictInfo; null khi MDX rỗng/đọc lỗi.

@@ -167,10 +167,43 @@ class AuthService {
 
   // ─── Google Sign In (cross-platform) ─────────────────────
   Future<AppUser?> signInWithGoogle() async {
+    // Firebase's redirect flow depends on sessionStorage state. In browsers
+    // that partition/clear storage (privacy mode, embedded webviews), the
+    // hosted /_auth/handler fails with "missing initial state". Use a popup
+    // flow on Flutter Web; it never relies on redirect session state.
+    if (kIsWeb) return _signInWithGoogleWeb();
     if (_isDesktop) {
       return _signInWithGoogleDesktop();
     }
     return _signInWithGoogleMobile();
+  }
+
+  // ─── Web: Firebase popup (không dùng signInWithRedirect) ─────────
+  Future<AppUser?> _signInWithGoogleWeb() async {
+    try {
+      final auth = _auth;
+      // Start the popup directly from the user gesture. Firebase's default
+      // persistence is retained; unlike redirect auth, this flow does not
+      // need a sessionStorage redirect-state round trip.
+      final provider = GoogleAuthProvider()
+        ..addScope('email')
+        ..setCustomParameters({'prompt': 'select_account'});
+      final UserCredential result;
+      if (auth.currentUser?.isAnonymous == true) {
+        result = await auth.currentUser!.linkWithProvider(provider);
+      } else {
+        result = await auth.signInWithPopup(provider);
+      }
+      final user = result.user;
+      return user == null ? null : _appUserFromFirebase(user);
+    } on FirebaseAuthException catch (e, st) {
+      debugPrint('[in4up-auth] Web popup FirebaseAuthException ${e.code}: ${e.message}\n$st');
+      throw AuthException('Đăng nhập Google trên web thất bại (${e.code}): ${e.message}');
+    } catch (e, st) {
+      debugPrint('[in4up-auth] Web popup error: $e\n$st');
+      if (e is AuthException) rethrow;
+      throw AuthException('Không mở được cửa sổ đăng nhập Google: $e');
+    }
   }
 
   // ─── Mobile: dùng google_sign_in package ─────────────────

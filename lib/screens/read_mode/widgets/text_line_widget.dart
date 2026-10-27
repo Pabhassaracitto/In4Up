@@ -823,7 +823,7 @@ class _LineData {
     required this.isPlaying,
     required this.isFocusCue,
     required this.colorMode,
-    this.wordColorStyle = WordColorStyle.fill,
+    this.wordColorStyle = WordColorStyle.textOnly,
     this.wordTapBoxes = false,
     required this.showLineNumbers,
     required this.textAlign,
@@ -850,7 +850,7 @@ class _LineData {
         isPlaying = false,
         isFocusCue = false,
         colorMode = ColorMode.none,
-        wordColorStyle = WordColorStyle.fill,
+        wordColorStyle = WordColorStyle.textOnly,
         wordTapBoxes = false,
         showLineNumbers = true,
         // READ-ALIGN-001: mặc định căn GIỮA (trước đây trái).

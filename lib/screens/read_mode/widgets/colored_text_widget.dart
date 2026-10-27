@@ -285,15 +285,9 @@ class _ColoredTextWidgetState extends State<ColoredTextWidget> {
   ///   • đang chọn + chạm từ đã nằm trong vùng ⇒ giữ nguyên (không phá);
   ///   • đang chọn + chạm từ CÁCH XA ⇒ thoát chọn rồi chạm thường.
   void _onWordTap(BuildContext context, int index) {
-    final range = _range;
-    if (range != null) {
-      if (range.contains(index)) return;
-      if (isAdjacentToWordRange(range, index)) {
-        _extendTo(index);
-        return;
-      }
-      _exitSelection(clearProvider: true);
-    }
+    // Tap nhanh luôn là thao tác đọc/tra từ, kể cả khi đang ở trạng thái
+    // chọn nhiều từ. Chỉ nhấn giữ + kéo mới duy trì/mở rộng vùng chọn.
+    if (_range != null) _exitSelection(clearProvider: true);
     _speak(index);
     _openMiniPop(context, index);
   }
@@ -485,7 +479,7 @@ class _ColoredWord extends StatelessWidget {
     required this.word,
     required this.fontSize,
     required this.colorMode,
-    this.colorStyle = WordColorStyle.fill,
+    this.colorStyle = WordColorStyle.textOnly,
     required this.selected,
     required this.isAnchor,
     required this.selectionActive,
@@ -494,8 +488,24 @@ class _ColoredWord extends StatelessWidget {
     required this.onLongPressMoveUpdate,
   });
 
+  String _colorModeDetailLabel(AnalyzedWord word, ColorMode mode) {
+    switch (mode) {
+      case ColorMode.none:
+        return '';
+      case ColorMode.wordType:
+        return word.wordType.abbreviation;
+      case ColorMode.cefrLevel:
+        return word.cefrLevel.shortLabel;
+      case ColorMode.difficulty:
+        return word.userDifficulty?.label ?? '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final showModeDetails = context.select<TextProvider, bool>(
+      (tp) => tp.showColorModeDetails,
+    );
     final grammarSettings =
         context.select<TextProvider, GrammarHighlightSettings>(
       (tp) => tp.grammarSettings,
@@ -535,7 +545,9 @@ class _ColoredWord extends StatelessWidget {
     final bgColor = selected
         ? const Color(0xFF2196F3).withValues(alpha: isAnchor ? 0.45 : 0.30)
         : (filled ? baseBackground : Colors.transparent);
-    final textColor = selected ? Colors.white : baseForeground;
+    final textColor = selected && grammarResolved == null
+        ? Colors.white
+        : baseForeground;
     final decoration = !selected && (underlined || hasNestedUnderline)
         ? TextDecoration.underline
         : null;
@@ -600,6 +612,23 @@ class _ColoredWord extends StatelessWidget {
                 height: 1.6,
               ),
             ),
+            if (showModeDetails &&
+                colorMode != ColorMode.none &&
+                _colorModeDetailLabel(word, colorMode).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Text(
+                  _colorModeDetailLabel(word, colorMode),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    fontSize: fontSize * 0.48,
+                    height: 1,
+                    color: baseForeground.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             if (hasDifficulty || hasRecall)
               Wrap(
                 spacing: 3,

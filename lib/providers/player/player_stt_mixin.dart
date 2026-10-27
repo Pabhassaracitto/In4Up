@@ -193,6 +193,13 @@ mixin PlayerSttMixin on ChangeNotifier {
               .map((s) => LrcLine(
                     timestamp: Duration(milliseconds: s.startMs),
                     text: s.text,
+                    words: s.words
+                        .where((word) => word.word.trim().isNotEmpty)
+                        .map((word) => LrcWord(
+                              word: word.word.trim(),
+                              start: word.startDuration,
+                            ))
+                        .toList(),
                   ))
               .where((l) => l.text.trim().isNotEmpty)
               .toList();
@@ -221,6 +228,13 @@ mixin PlayerSttMixin on ChangeNotifier {
             .map((s) => LrcLine(
                   timestamp: Duration(milliseconds: s.startMs),
                   text: s.text,
+                  words: s.words
+                      .where((word) => word.word.trim().isNotEmpty)
+                      .map((word) => LrcWord(
+                            word: word.word.trim(),
+                            start: word.startDuration,
+                          ))
+                      .toList(),
                 ))
             .where((l) => l.text.trim().isNotEmpty)
             .toList();
@@ -348,6 +362,13 @@ mixin PlayerSttMixin on ChangeNotifier {
             .map((s) => LrcLine(
                   timestamp: Duration(milliseconds: s.startMs),
                   text: s.text,
+                  words: s.words
+                      .where((word) => word.word.trim().isNotEmpty)
+                      .map((word) => LrcWord(
+                            word: word.word.trim(),
+                            start: word.startDuration,
+                          ))
+                      .toList(),
                 ))
             .where((l) => l.text.trim().isNotEmpty)
             .toList();

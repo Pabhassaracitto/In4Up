@@ -10,12 +10,18 @@ on:
       - 'lib/models/audio_queue_item.dart'
       - 'lib/providers/player/**'
       - 'lib/providers/player_provider.dart'
+      - 'lib/providers/karaoke_settings_provider.dart'
       - 'lib/screens/listen_mode/**'
+      - 'lib/screens/understand_mode/**'
+      - 'lib/widgets/karaoke_*.dart'
+      - 'lib/services/audio_import_service.dart'
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
       - 'android/app/src/main/kotlin/com/in4up/MainActivity.kt'
       - 'packages/in4up_stt/**'
       - 'test/listen_*'
+      - 'test/karaoke_*'
+      - 'test/audio_import_service_test.dart'
       - 'test/support/fake_queue_player.dart'
       - '.github/workflows/listen_queue_tests.yml'
   pull_request:
@@ -24,12 +30,18 @@ on:
       - 'lib/models/audio_queue_item.dart'
       - 'lib/providers/player/**'
       - 'lib/providers/player_provider.dart'
+      - 'lib/providers/karaoke_settings_provider.dart'
       - 'lib/screens/listen_mode/**'
+      - 'lib/screens/understand_mode/**'
+      - 'lib/widgets/karaoke_*.dart'
+      - 'lib/services/audio_import_service.dart'
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
       - 'android/app/src/main/kotlin/com/in4up/MainActivity.kt'
       - 'packages/in4up_stt/**'
       - 'test/listen_*'
+      - 'test/karaoke_*'
+      - 'test/audio_import_service_test.dart'
       - 'test/support/fake_queue_player.dart'
       - '.github/workflows/listen_queue_tests.yml'
 
@@ -50,6 +62,8 @@ jobs:
           - test/listen_recent_queue_test.dart
           - test/listen_queue_i18n_test.dart
           - test/listen_source_artifact_test.dart
+          - test/audio_import_service_test.dart
+          - test/karaoke_timing_test.dart
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

@@ -291,6 +291,7 @@ class PlayerProvider extends ChangeNotifier
   // NEW: Setter to assign UnderstandProvider
   void setUnderstandProvider(UnderstandProvider understandProvider) {
     _understandProvider = understandProvider;
+    understandProvider.updatePosition(_state.position);
   }
 
   Future<void> _restoreFromStorage() async {
@@ -339,6 +340,9 @@ class PlayerProvider extends ChangeNotifier
         (state.position.inMilliseconds - _state.position.inMilliseconds).abs() >
             16;
     _state = state;
+    // One playback clock drives lyrics even when neither tab is mounted or
+    // the user opens LRC while paused. The provider remembers this position.
+    _understandProvider?.updatePosition(state.position);
 
     // Complete an A–B/segment loop before considering whole-track completion.
     if (_wantsPlayback && isLooping && loopEnd != null && !isWaitingGap &&

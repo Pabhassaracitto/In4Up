@@ -68,7 +68,7 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
 
 ## Trạng thái (wave 9, 2026-10-27 — 7 locale ưu tiên sạch)
 
-- Pack: **3437 entry × 8 locale**.
+- Pack: **3459 entry × 8 locale**.
 - Máy dò đã được làm **trung thực hơn nữa** trong wave 9:
   - lexer literal Dart thật (`dart_string_end` / `iter_string_literals`) — không
     còn cắt sai ở `'${lang == 'en' ? ...}'`;
@@ -77,7 +77,7 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
   - `skipValuesByPath` nay áp cho **mọi** đường quét (trước đây chỉ đường quét
     rộng, nên chuỗi kỹ thuật vẫn quay lại báo cáo);
   - chuỗi mà phần tĩnh chỉ còn `${ui('…')}` được coi là đã dịch tại chỗ.
-- Kết quả đo lại cuối wave 9 — **4303 chuỗi chrome / 306 file**:
+- Kết quả đo lại cuối wave 9 — **4340 chuỗi chrome / 308 file**:
 
   | locale | còn tiếng Việt | còn English |
   | --- | ---: | ---: |
@@ -104,7 +104,7 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
   (`Chương {value0}`), "Đáp án: …" của bài tập điền từ, "… → Đã lưu nhanh" của
   tab Đọc, "Âm cần chú ý: …" của tab Nói.
 - Lịch sử: 1037 (wave 2–4) → 1155 → 1575 → 2116 (wave 7) → 3005 (wave 8) →
-  **3437** (wave 9: 300+ mẫu nội suy, Ngữ pháp/PDF/OCR/dịch màn hình, Learn by
+  **3459** (wave 9: 300+ mẫu nội suy, Ngữ pháp/PDF/OCR/dịch màn hình, Learn by
   heart, Piper, YouTube, Memory, engine dịch, từ điển, cabin).
 - `learn_by_heart_l10n.dart` có đủ **vi/en/hi/zh/zh_TW/si/my/th/ja** cho cả 74
   nhóm; `locale_map_gaps()` sẽ cảnh báo nếu một bảng `_get({...})` thiếu locale

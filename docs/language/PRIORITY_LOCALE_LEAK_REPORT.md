@@ -3,7 +3,7 @@
 Sinh tự động bởi `python3 tool/lang_ui_inventory.py --write-report`.
 Đừng sửa tay — chạy lại tool sau mỗi wave bản dịch.
 
-- Chrome strings quét được: **4303** trong **306** file presentation.
+- Chrome strings quét được: **4340** trong **308** file presentation.
 - `vietnamese`: chuỗi vẫn hiện tiếng Việt ở locale đó (vi phạm rule #5).
 - `english`: chuỗi vẫn hiện English trên màn hình (kể cả khi fallback sang English) — đây là việc còn lại của các wave bản địa hoá tiếp theo.
 

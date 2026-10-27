@@ -369,6 +369,16 @@
     "th": "AI ใช้เวลานานเกินไปจึงเลิก ลองใหม่เพื่อให้ได้ผล",
     "ja": "AI の処理が長すぎて断念しました。再試行してください。"
   },
+  "AI đang chạy hiện tại": {
+    "en": "AI currently running",
+    "hi": "अभी चल रहा AI",
+    "zh": "当前运行的 AI",
+    "zh_TW": "目前執行的 AI",
+    "si": "දැන් ක්‍රියාත්මක AI",
+    "my": "လက်ရှိ အလုပ်လုပ်နေသော AI",
+    "th": "AI ที่กำลังใช้งาน",
+    "ja": "現在稼働中のAI"
+  },
   "API Keys (tùy chọn, miễn phí)": {
     "en": "API Keys (optional, free)",
     "hi": "API कुंजियां (वैकल्पिक, मुफ़्त)",
@@ -3519,6 +3529,16 @@
     "th": "อุปกรณ์นี้ยังลบพื้นหลังไม่ได้ ภาพต้นฉบับยังคงเดิม",
     "ja": "この端末ではまだ背景を削除できません。元の画像はそのまま保持されます。"
   },
+  "Chưa thử: provider chưa chọn model.": {
+    "en": "Not tested: the provider has no model selected.",
+    "hi": "परीक्षण नहीं: provider में कोई मॉडल नहीं चुना।",
+    "zh": "未测试：该 provider 尚未选择模型。",
+    "zh_TW": "未測試：該 provider 尚未選擇模型。",
+    "si": "පරීක්ෂා නොකළ: provider සඳහා ආකෘතියක් තෝරා නැත.",
+    "my": "မစမ်းရသေး − provider တွင် မော်ဒယ် မရွေးရသေးပါ။",
+    "th": "ยังไม่ทดสอบ: provider ยังไม่ได้เลือกโมเดล",
+    "ja": "未テスト: providerにモデルが未選択です。"
+  },
   "Chưa tra được nghĩa cho từ này": {
     "en": "Could not look up the meaning of this word",
     "hi": "इस शब्द का अर्थ नहीं देखा जा सका",
@@ -3618,6 +3638,16 @@
     "my": "မဖတ်ရသေး",
     "th": "ยังไม่ได้อ่าน",
     "ja": "未読"
+  },
+  "Chưa đồng bộ": {
+    "en": "Not synced yet",
+    "hi": "अभी सिंक नहीं",
+    "zh": "尚未同步",
+    "zh_TW": "尚未同步",
+    "si": "තවම සමමුහුර්ත නැත",
+    "my": "မစင့်ခ်ရသေး",
+    "th": "ยังไม่ซิงก์",
+    "ja": "未同期"
   },
   "Chưa đủ tin cậy để phân tích": {
     "en": "Not confident enough to analyse",
@@ -3798,6 +3828,16 @@
     "my": "ဖျောက်ရန် နှိပ်ပါ",
     "th": "แตะเพื่อซ่อน",
     "ja": "タップで非表示"
+  },
+  "Chạy thử tất cả": {
+    "en": "Test all",
+    "hi": "सभी परखें",
+    "zh": "全部测试",
+    "zh_TW": "全部測試",
+    "si": "සියල්ල පරීක්ෂා කරන්න",
+    "my": "အားလုံး စမ်းမည်",
+    "th": "ทดสอบทั้งหมด",
+    "ja": "すべてテスト"
   },
   "Chấm nhanh": {
     "en": "Quick assessment",
@@ -6939,6 +6979,16 @@
     "th": "ใช้เวอร์ชันที่บันทึกไว้",
     "ja": "保存済みを使う"
   },
+  "Dùng chung chat model (chưa chọn riêng)": {
+    "en": "Shares the chat model (no separate choice)",
+    "hi": "चैट मॉडल साझा (अलग चयन नहीं)",
+    "zh": "共用聊天模型（未单独选择）",
+    "zh_TW": "共用聊天模型（未單獨選擇）",
+    "si": "chat ආකෘතිය හවුලේ (වෙන්ව තෝරා නැත)",
+    "my": "chat မော်ဒယ် မျှဝေ (သီးသန့် မရွေး)",
+    "th": "ใช้โมเดลแชทร่วม (ยังไม่เลือกแยก)",
+    "ja": "チャットモデルを共用（個別選択なし）"
+  },
   "Dùng chung cho tab Đọc, Dịch Cabin, PDF": {
     "en": "Shared by the Read tab, Cabin translation and PDF",
     "hi": "पढ़ें टैब, Cabin अनुवाद और PDF में साझा",
@@ -7028,6 +7078,16 @@
     "my": "ကွက်လပ်ဖြစ်နေလျှင် နမူနာ အကြောင်းအရာကို ဥပမာအဖြစ် သုံးပါ",
     "th": "ถ้าตัวอย่างยังว่างให้ใช้บริบทตัวอย่าง",
     "ja": "例文が空ならサンプル文脈を例文に使う"
+  },
+  "Dùng tên đã gõ": {
+    "en": "Use the typed name",
+    "hi": "टाइप किया नाम रखें",
+    "zh": "使用已输入的名称",
+    "zh_TW": "使用已輸入的名稱",
+    "si": "ටයිප් කළ නම භාවිත කරන්න",
+    "my": "ရိုက်ထားသော အမည် သုံးမည်",
+    "th": "ใช้ชื่อที่พิมพ์",
+    "ja": "入力した名前を使用"
   },
   "Dùng đoạn này cho bài Viết lại ý": {
     "en": "Use this passage for the Rewrite exercise",
@@ -7999,6 +8059,16 @@
     "th": "ช่องว่างช่วยให้คุณพิจารณาธรรม",
     "ja": "間隔が教えを味わう時間になります"
   },
+  "Gemma trên máy (chưa có model thì trả lời mẫu)": {
+    "en": "Gemma on device (sample reply if no model)",
+    "hi": "डिवाइस पर Gemma (मॉडल न हो तो नमूना उत्तर)",
+    "zh": "本机 Gemma（无模型时返回示例回答）",
+    "zh_TW": "本機 Gemma（無模型時回傳範例回答）",
+    "si": "උපාංගයේ Gemma (ආකෘතිය නැත්නම් නියැදි පිළිතුර)",
+    "my": "စက်ပေါ် Gemma (မော်ဒယ် မရှိလျှင် နမူနာ ဖြေ)",
+    "th": "Gemma บนเครื่อง (ถ้าไม่มีโมเดลจะตอบตัวอย่าง)",
+    "ja": "オンデバイスGemma（モデル未導入時はサンプル応答）"
+  },
   "German": {
     "en": "German",
     "hi": "जर्मन",
@@ -8418,6 +8488,16 @@
     "my": "ဘာသာစကားအလိုက် Piper အသံ",
     "th": "เสียง Piper ตามภาษา",
     "ja": "言語ごとのPiper音声"
+  },
+  "Giọng máy": {
+    "en": "Device voice",
+    "hi": "डिवाइस आवाज़",
+    "zh": "本机语音",
+    "zh_TW": "本機語音",
+    "si": "උපාංග හඬ",
+    "my": "စက် အသံ",
+    "th": "เสียงในเครื่อง",
+    "ja": "端末の音声"
   },
   "Giọng mặc định": {
     "en": "Default voice",
@@ -13499,6 +13579,16 @@
     "th": "กรองตามเอนทิตี สถานะ ภาษา...",
     "ja": "実体・状態・言語で絞り込み…"
   },
+  "LỖI": {
+    "en": "ERROR",
+    "hi": "त्रुटि",
+    "zh": "错误",
+    "zh_TW": "錯誤",
+    "si": "දෝෂය",
+    "my": "အမှား",
+    "th": "ข้อผิดพลาด",
+    "ja": "エラー"
+  },
   "Lỗi": {
     "en": "Error",
     "hi": "त्रुटि",
@@ -14018,6 +14108,16 @@
     "my": "Hy-MT မော်ဒယ် {value0} ဒေါင်းလုဒ်ပြီး",
     "th": "โมเดล Hy-MT ดาวน์โหลด {value0} แล้ว",
     "ja": "Hy-MT モデルを {value0} ダウンロードしました"
+  },
+  "Model dịch (dùng cho Dịch thuật)": {
+    "en": "Translation model (used for Translation)",
+    "hi": "अनुवाद मॉडल (अनुवाद के लिए)",
+    "zh": "翻译模型（用于翻译功能）",
+    "zh_TW": "翻譯模型（用於翻譯功能）",
+    "si": "පරිවර්තන ආකෘතිය (පරිවර්තනයට)",
+    "my": "ဘာသာပြန် မော်ဒယ် (ဘာသာပြန်ရန်)",
+    "th": "โมเดลแปล (ใช้กับการแปล)",
+    "ja": "翻訳モデル（翻訳機能用）"
   },
   "Model không khớp profile đã chọn: Zipformer VI là offline, Zipformer EN là streaming, Parakeet là offline đa ngữ — không trộn được.": {
     "en": "The model does not match the chosen profile: Zipformer VI is offline, Zipformer EN is streaming and Parakeet is multilingual offline — they cannot be mixed.",
@@ -14949,6 +15049,16 @@
     "th": "เปิดในแท็บฟัง",
     "ja": "「聴く」タブで開く"
   },
+  "Mở trình duyệt": {
+    "en": "Open the browser",
+    "hi": "ब्राउज़र खोलें",
+    "zh": "打开浏览器",
+    "zh_TW": "開啟瀏覽器",
+    "si": "බ්‍රවුසරය විවෘත කරන්න",
+    "my": "ဘရောက်ဇာ ဖွင့်ပါ",
+    "th": "เปิดเบราว์เซอร์",
+    "ja": "ブラウザを開く"
+  },
   "Mở trình phát YouTube": {
     "en": "Open YouTube player",
     "hi": "YouTube प्लेयर खोलें",
@@ -15338,6 +15448,16 @@
     "my": "အသံထွက် နားထောင်မည်",
     "th": "ฟังการออกเสียง",
     "ja": "発音を聞く"
+  },
+  "Nghe trên YouGlish": {
+    "en": "Listen on YouGlish",
+    "hi": "YouGlish पर सुनें",
+    "zh": "在 YouGlish 上收听",
+    "zh_TW": "在 YouGlish 上收聽",
+    "si": "YouGlish හි අසන්න",
+    "my": "YouGlish တွင် နားထောင်ပါ",
+    "th": "ฟังบน YouGlish",
+    "ja": "YouGlishで聴く"
   },
   "Nghe âm ổn": {
     "en": "Good listening",
@@ -22279,6 +22399,16 @@
     "th": "บน",
     "ja": "上"
   },
+  "Trên máy": {
+    "en": "On device",
+    "hi": "डिवाइस पर",
+    "zh": "本机",
+    "zh_TW": "本機",
+    "si": "උපාංගයේ",
+    "my": "စက်ပေါ်",
+    "th": "บนเครื่อง",
+    "ja": "オンデバイス"
+  },
   "Trên mạng": {
     "en": "Online",
     "hi": "नेट पर",
@@ -23828,6 +23958,16 @@
     "my": "ဒေါင်းလုဒ် မအောင်မြင်ပါ: {value0}",
     "th": "ดาวน์โหลดล้มเหลว: {value0}",
     "ja": "ダウンロード失敗: {value0}"
+  },
+  "Tải từ Firebase": {
+    "en": "Download from Firebase",
+    "hi": "Firebase से डाउनलोड",
+    "zh": "从 Firebase 下载",
+    "zh_TW": "從 Firebase 下載",
+    "si": "Firebase වෙතින් බාගන්න",
+    "my": "Firebase မှ ဒေါင်းလုဒ်",
+    "th": "ดาวน์โหลดจาก Firebase",
+    "ja": "Firebaseからダウンロード"
   },
   "Tải từ link trực tiếp": {
     "en": "Download from a direct link",
@@ -26059,6 +26199,16 @@
     "th": "ชุดจากเว็บ",
     "ja": "ウェブバッチ"
   },
+  "Whisper / sherpa (Parakeet) trên máy": {
+    "en": "Whisper / sherpa (Parakeet) on device",
+    "hi": "डिवाइस पर Whisper / sherpa (Parakeet)",
+    "zh": "本机 Whisper／sherpa（Parakeet）",
+    "zh_TW": "本機 Whisper／sherpa（Parakeet）",
+    "si": "උපාංගයේ Whisper / sherpa (Parakeet)",
+    "my": "စက်ပေါ် Whisper / sherpa (Parakeet)",
+    "th": "Whisper / sherpa (Parakeet) บนเครื่อง",
+    "ja": "オンデバイス Whisper／sherpa（Parakeet）"
+  },
   "Whisper không nhận diện được — kiểm tra model trong Cài đặt → AI Model": {
     "en": "Whisper could not recognise — check the model under Settings → AI Model",
     "hi": "Whisper पहचान नहीं सका — सेटिंग → AI Model में मॉडल जाँचें",
@@ -26448,6 +26598,16 @@
     "my": "အားလုံးဖျက်မည်",
     "th": "ลบทั้งหมด",
     "ja": "すべて削除"
+  },
+  "Xoá kết quả thử": {
+    "en": "Clear test result",
+    "hi": "परीक्षण परिणाम हटाएँ",
+    "zh": "清除测试结果",
+    "zh_TW": "清除測試結果",
+    "si": "පරීක්ෂණ ප්‍රතිඵලය මකන්න",
+    "my": "စမ်းသပ်ရလဒ် ဖျက်မည်",
+    "th": "ล้างผลการทดสอบ",
+    "ja": "テスト結果を消去"
   },
   "Xoá link": {
     "en": "Delete link",
@@ -27899,6 +28059,16 @@
     "th": "คำวิเศษณ์",
     "ja": "副詞"
   },
+  "trả về": {
+    "en": "returned",
+    "hi": "लौटाया",
+    "zh": "返回",
+    "zh_TW": "回傳",
+    "si": "ලබා දුන්නේ",
+    "my": "ပြန်ပေးသည်",
+    "th": "ตอบกลับ",
+    "ja": "返却"
+  },
   "tên riêng": {
     "en": "proper noun",
     "hi": "व्यक्तिवाचक संज्ञा",
@@ -28978,6 +29148,16 @@
     "my": "အသံက စာသားထက် ရှေ့ရောက်နေသည်",
     "th": "เสียงเร็วกว่าข้อความ",
     "ja": "音声が文字より先行"
+  },
+  "Âm thanh từ điển": {
+    "en": "Dictionary audio",
+    "hi": "शब्दकोश ऑडियो",
+    "zh": "词典音频",
+    "zh_TW": "詞典音訊",
+    "si": "ශබ්දකෝෂ ශ්‍රව්‍ය",
+    "my": "အဘိဓာန် အသံ",
+    "th": "เสียงพจนานุกรม",
+    "ja": "辞書の音声"
   },
   "Ô {value0}": {
     "en": "Blank {value0}",
@@ -32339,6 +32519,16 @@
     "th": "การกลับสีจะกลับสีรูปในหน้าด้วย",
     "ja": "反転するとページ内の画像も反転します。"
   },
+  "Đẩy lên Firebase": {
+    "en": "Push to Firebase",
+    "hi": "Firebase पर भेजें",
+    "zh": "推送到 Firebase",
+    "zh_TW": "推送到 Firebase",
+    "si": "Firebase වෙත යවන්න",
+    "my": "Firebase သို့ ပို့မည်",
+    "th": "อัปโหลดขึ้น Firebase",
+    "ja": "Firebaseへアップロード"
+  },
   "Đậm": {
     "en": "Bold",
     "hi": "बोल्ड",
@@ -32919,6 +33109,16 @@
     "th": "ซิงก์การเลื่อนของทั้งสองฉบับ",
     "ja": "2つの版のスクロールを同期"
   },
+  "Đồng bộ cấu hình lên Firebase": {
+    "en": "Sync the configuration to Firebase",
+    "hi": "कॉन्फ़िगरेशन Firebase पर सिंक करें",
+    "zh": "将配置同步到 Firebase",
+    "zh_TW": "將設定同步到 Firebase",
+    "si": "වින්‍යාසය Firebase වෙත සමමුහුර්ත කරන්න",
+    "my": "ပြင်ဆင်မှုကို Firebase သို့ စင့်ခ်လုပ်မည်",
+    "th": "ซิงก์การตั้งค่าขึ้น Firebase",
+    "ja": "設定をFirebaseに同期"
+  },
   "Đồng bộ dữ liệu": {
     "en": "Sync data",
     "hi": "डेटा सिंक करें",
@@ -32928,6 +33128,16 @@
     "my": "ဒေတာ ထပ်တူပြု",
     "th": "ซิงก์ข้อมูล",
     "ja": "データを同期"
+  },
+  "Đồng bộ lỗi": {
+    "en": "Sync failed",
+    "hi": "सिंक विफल",
+    "zh": "同步失败",
+    "zh_TW": "同步失敗",
+    "si": "සමමුහුර්තකරණ දෝෂය",
+    "my": "စင့်ခ် မအောင်မြင်ပါ",
+    "th": "ซิงก์ล้มเหลว",
+    "ja": "同期に失敗"
   },
   "Đồng bộ ngay bây giờ": {
     "en": "Sync now",
@@ -33228,6 +33438,16 @@
     "my": "ထပ်မပြပါနှင့်",
     "th": "ไม่ต้องแสดงอีก",
     "ja": "今後表示しない"
+  },
+  "đang mượn chat model": {
+    "en": "borrowing the chat model",
+    "hi": "चैट मॉडल उधार ले रहा है",
+    "zh": "正在借用聊天模型",
+    "zh_TW": "正在借用聊天模型",
+    "si": "chat ආකෘතිය ණයට ගනිමින්",
+    "my": "chat မော်ဒယ် ချေးယူနေသည်",
+    "th": "กำลังยืมโมเดลแชท",
+    "ja": "チャットモデルを借用中"
   },
   "điểm": {
     "en": "marks",

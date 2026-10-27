@@ -85,22 +85,25 @@ in4up://dict?w=h%E1%BB%8Dc%20sinh    # có dấu cách → bắt buộc percent-
 in4up://open?path=/sdcard/x.mdx      # mở một tệp (mục 4)
 ```
 
-`DictDeepLink.parse(Uri)` trả về `({String? word, String? path, String? source})`,
-có test riêng, **không** phụ thuộc `BuildContext`. Nhờ vậy đường vào từ
+`DictDeepLink.parse(String raw, {String source})` trả về
+`DictDeepLinkRequest?` (`kind: word|file`, `value`, `source`) — **thuần Dart**,
+không phụ thuộc `BuildContext` và **không bao giờ ném**. Nhờ vậy link từ
 web/desktop/Android/iOS dùng chung một chỗ kiểm tra an toàn.
+`DictDeepLink.parseArguments(argv)` làm việc đó cho `argv` của Windows/Linux.
 
-Bảo mật: chỉ chấp nhận `w` ≤ 64 ký tự, cắt bỏ ký tự điều khiển; với
-`path` chỉ chấp nhận tệp do chính app mở được (`.mdx`, `.mdd`, `.pdf`,
-`.txt`, `.md`, `.epub`) và **luôn** qua `DictImportService`/luồng mở tài
-liệu hiện có — deep link **không** được ghi đè đường dẫn tuỳ ý.
+Bảo mật: chỉ chấp nhận `w` ≤ **64** ký tự (đếm theo rune để không cắt giữa ký
+tự Unicode), bỏ ký tự điều khiển; với `path` chỉ chấp nhận tệp do chính app mở
+được (`.mdx`, `.mdd`, `.pdf`, `.txt`, `.md`, `.markdown`, `.epub`), từ chối mọi
+đường dẫn có `..`. Không nhận `*/*`.
 
 Không chọn `go_router`: app dùng `Navigator` trần ở `lib/main.dart`
 (3 `MaterialApp`), thêm router là đổi kiến trúc điều hướng toàn app — quá
 đắt cho một nhu cầu "mở đúng một màn". Không chọn `uni_links` (không còn
-được bảo trì tích cực, không hỗ trợ Windows/Linux). Chọn **`app_links`**
-(một phụ thuộc, hỗ trợ Android/iOS/Windows/Linux/macOS, có API
-`getInitialLink()` + `uriLinkStream`) — đúng tinh thần "tránh thư viện
-native cấp thấp" đã ghi trong ADR-0017.
+được bảo trì tích cực, không hỗ trợ Windows/Linux).
+
+**Đã đổi so với bản đề xuất: KHÔNG dùng `app_links`** (xem "Cập nhật P1 phần 2"
+ở cuối) — dùng khuôn MethodChannel sẵn có của repo (`in4up/deeplink`), zero phụ
+thuộc mới.
 
 ### 3. Bốn giai đoạn (mỗi giai đoạn tự đứng được)
 
@@ -194,6 +197,35 @@ cancel, đúng lớp sự cố đã ghi cho `workspace_shell_integration_test.da
 Vì vậy màn hình hiện **không** có test widget tự động; muốn có lại thì phải
 thêm seam bơm dữ liệu cho `DictionaryScreen` để test không cần plugin thật
 (ghi ở KANBAN mục "việc còn lại").
+
+
+## Cập nhật P1 phần 2 — deep link (2026-10-27)
+
+Đã làm (`arena/929f549e-in4up`): `DictDeepLink` + `DictDeepLinkRouter` + native
+Android/iOS + đọc `argv` trên desktop. CI 🟢 run **40590420956** /
+**40590413726** (+ web build **40590413795**).
+
+| Đề xuất | Thực tế | Vì sao |
+| --- | --- | --- |
+| Dùng plugin `app_links` | **Không thêm phụ thuộc nào** — MethodChannel `in4up/deeplink` | Repo đã có khuôn MethodChannel cho 4 kênh (`in4up/audiolib`, `in4up/textlib`, `in4up/dictionary`, `in4up/ocr`) ⇒ phần native chỉ ~40 dòng. Thêm một phụ thuộc nghĩa là thêm một version phải giải trên CI mỗi lần build, cộng rủi ro plugin chậm cập nhật khi Flutter đổi API nhúng. |
+| `DictDeepLink.parse(Uri)` trả record `(word, path, source)` | `DictDeepLink.parse(String, {source})` trả `DictDeepLinkRequest?` | Đầu vào thật là **chuỗi** (`intent.dataString`, `url.absoluteString`, `argv[i]`); nhận `String` để một chỗ xử lý được cả `C:\x.mdx` (thứ `Uri.parse` hiểu nhầm thành scheme `c`) và `file://`. |
+| `open(context, word)` cho mọi nơi | thêm `DictionaryScreen.route({query, source})` | Cầu nối chỉ có `navigatorKey.currentState` — `Navigator.of(navigator.context)` không tìm thấy chính nó. `open()` nay dùng chung `route()` ⇒ vẫn **một** định nghĩa màn hình. |
+| iOS `CFBundleDocumentTypes` cho mdx/mdd | **chưa** (thuộc P3) | P1 chỉ cần nhận URL scheme; khai kiểu tài liệu mà chưa xử lý tệp sẽ làm In4Up xuất hiện trong "Mở bằng" rồi không làm gì. |
+| Mở tệp (P3) | `DictDeepLinkRouter.deferredFiles` giữ yêu cầu | Bóc link tệp đã an toàn nhưng luồng mở tệp chưa có ⇒ giữ lại thay vì nuốt lặng. |
+
+**Nghiệm thu P1 phần 2**
+
+- `test/dictionary/dict_deep_link_test.dart` — 25 ca thuần Dart: link tốt, 4 tên
+  khoá (`w`/`word`/`q`/`text`), percent-encode tiếng Việt, host rỗng, scheme
+  `i4u`, `https://in4up.app/dict`; ca xấu (thiếu `w`, host/scheme lạ, từ > 64,
+  ký tự điều khiển, chuỗi rỗng, `..`, đuôi `.apk`/`.mkv`), `argv`, `file://`,
+  đường dẫn Windows.
+- Máy thật: `adb shell am start -a android.intent.action.VIEW -d "in4up://dict?w=ubiquitous"`
+  → mở đúng từ; Windows: `in4up.exe "in4up://dict?w=ubiquitous"`.
+
+**Chưa kiểm được trong sandbox:** biên dịch Kotlin/Swift (CI chỉ chạy analyze +
+`flutter test` + build web) ⇒ phần native cần một lần build thật (Android/iOS)
+trước khi phát hành.
 
 ## Phương án đã cân nhắc và loại
 

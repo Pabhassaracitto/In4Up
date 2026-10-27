@@ -133,7 +133,7 @@
 | READ-SELECT-003 | Tab Đọc: giữ im một từ ⇒ chọn nhiều từ THÔNG MINH (chỉ từ liền kề, kéo/quẹt chọn nhanh), chạm chỗ khác ⇒ về bình thường | 🔨 doing (code + test thuần, chờ CI 🟢) | `isAdjacentToWordRange` (`word_range_selection.dart`) + `_onWordTap` (`colored_text_widget.dart`), bỏ `onDoubleTap`; `test/read_mode/word_range_selection_test.dart` + audit test 2026-10-20 cập nhật |
 | DICT-CLEAN-002 | Từ điển: chọn từ đã có trong từ điển nhưng hiện nhiều phần dư và KHÔNG có nghĩa ("0000015105 reading …") | 🔨 doing (code + test thuần, chờ CI 🟢 + nghiệm thu máy) | `dict_text_cleaner.dart`: bỏ khối bị CSS ẩn (`span.meta`/`div.entry-headword`… theo `lad.css`), bỏ mã bản ghi dài, bóc nhãn metadata, lọc sense rác, tách loại từ đầu nghĩa; `test/dictionary/dict_cleaner_noise_test.dart` |
 | DICT-VIEW-002 | Từ điển: hiển thị theo thứ bậc trang in (nhóm loại từ + đếm nghĩa, đánh số lại từ 1 mỗi loại từ, ví dụ thụt lề, hết lặp nhãn) | 🔨 doing (code, chờ CI 🟢 + nghiệm thu) | `dict_definition_view.dart` viết lại (compact/full, `_PosLabel`, `_SenseRef`); `dict_result_sheet.dart` không lặp chip loại từ |
-| DICT-SCREEN-001 | ADR-0018 **P1**: màn hình Từ điển riêng (ô tìm + gợi ý theo tiền tố + lịch sử + trang nghĩa đầy đủ) — đích duy nhất của mọi tra cứu | 🔨 doing (code + test thuần + CI 🟢 run 40579433168; P2/P3/P4 chưa làm; chờ nghiệm thu máy) | `widgets/dictionary_screen.dart` (mới, `open(context, {query, source})`) + `services/dict_history.dart` (thuần) + `DictionaryService.suggest()` mới + `lookup(word, {dictId})`; Home ▸ "Từ điển" mở màn tra từ (không còn mở trang cài đặt); 12 chuỗi i18n en/hi/zh/zh_TW/si. Test: `test/dictionary/dict_history_test.dart` + `dict_suggest_test.dart`. ⚠️ KHÔNG có test WIDGET: widget + sqflite/SharedPreferences treo trên runner (run 40575300780 chạm trần 25 phút) — muốn có thì phải thêm seam bơm dữ liệu. |
+| DICT-SCREEN-001 | ADR-0018 **P1**: màn hình Từ điển riêng (ô tìm + gợi ý theo tiền tố + lịch sử + trang nghĩa đầy đủ) — đích duy nhất của mọi tra cứu | 🔨 doing (code + test thuần + CI 🟢 run 40579433168 **và** 40590420956 cho phần deep link; P2/P3/P4 chưa làm; chờ nghiệm thu máy) | `widgets/dictionary_screen.dart` (mới, `open(context, {query, source})`) + `services/dict_history.dart` (thuần) + `DictionaryService.suggest()` mới + `lookup(word, {dictId})`; Home ▸ "Từ điển" mở màn tra từ (không còn mở trang cài đặt); 12 chuỗi i18n en/hi/zh/zh_TW/si. Test: `test/dictionary/dict_history_test.dart` + `dict_suggest_test.dart`. ⚠️ KHÔNG có test WIDGET: widget + sqflite/SharedPreferences treo trên runner (run 40575300780 chạm trần 25 phút) — muốn có thì phải thêm seam bơm dữ liệu. |
 | READ-WORDSTYLE-001 | Tab Đọc: chọn kiểu hiển thị từ (nền màu / chỉ màu chữ / gạch chân) trong Cài đặt | 🔨 doing (code + test thuần, chờ CI 🟢) | `models/word_color_style.dart` + `ReaderDisplaySettings.wordColorStyle` (`reader_word_color_style`) + `TextProvider.setWordColorStyle`; áp ở `ColoredTextWidget` và `SelectableText.rich`; `_WordColorStyleSelector`; `test/read_mode/read_word_style_align_test.dart`; ADR-0016 |
 | READ-ALIGN-001 | Tab Đọc: mặc định văn bản căn GIỮA (thay vì trái) + lựa chọn căn lề được lưu bền | 🔨 doing (code + test thuần, chờ CI 🟢) | `TextProvider._textAlign = TextAlign.center` + `getReadTextAlign`/`saveReadTextAlign` (`read_text_align`) + khôi phục trong `_restoreFromStorage`; `test/ai_provider_builtin_and_read_align_test.dart` cập nhật kỳ vọng; ADR-0016 |
 | DICT-PACK-001 | Tải bộ từ điển trong app (setting home): danh mục JSON tự host + link trực tiếp, kiểm sha256, giải nén an toàn, cài vào bộ nhớ app | 🔨 doing (code + test thuần + docs, chờ CI 🟢 + nghiệm thu máy) | `models/dict_pack.dart` + `services/dict_pack_service.dart` + `widgets/dict_pack_screen.dart` + `assets/dictionary/packs.json` (2 bộ CC0 / CC-BY-SA đã kiểm link) + mục Home/Đọc (`dict_packs`) + nút AppBar "Quản lý từ điển"; `docs/dictionary/DICT_PACK_CATALOG.md`; `test/dictionary/dict_pack_test.dart`; ADR-0017 |
@@ -3477,6 +3477,40 @@
   - 2026-09-05 | created | agent arena/01a0251e-in4up (leader DEV) —
     prompt bàn giao + PLAN-023; chờ owner mở nhánh sherpa
   - 2026-09-05 | proposed→done | agent arena/01a0692a-in4up | hoàn thành N1-N4 (SherpaSttEngine simulated streaming VI + streaming EN, SherpaModelManager 2 Zipformer profiles, UI Quản lý Model AI, Cabin engine toggle, priority i18n, test unit).
+
+### DICT-DEEPLINK-001 — ADR-0018 P1 phần 2: `in4up://dict?w=…` (đường ống cho "Mở bằng In4Up")
+
+- **Nguồn:** cùng yêu cầu của owner — *"sau đó tới mở bằng in4up"*. P3 (mở tệp
+  bằng In4Up) và P4 (bong bóng) đều cần đúng một đường ống: "hệ điều hành đưa
+  chuỗi/tệp vào app". Phần này làm đường ống đó, dùng luôn cho link tra từ.
+- **Đã làm**
+  - `services/dict_deep_link.dart` (thuần Dart): `parse(raw, {source})` →
+    `DictDeepLinkRequest(kind: word|file, value, source)`; nhận `in4up://` /
+    `i4u://` / `https://in4up.app/dict?w=` / `in4up://open?path=` / `file://` /
+    đường dẫn trần (`C:\x.mdx`). Từ ≤ 64 ký tự (đếm rune), bỏ ký tự điều khiển;
+    tệp chỉ mdx/mdd/pdf/txt/md/markdown/epub, từ chối `..`; **không bao giờ ném**.
+    `parseArguments(argv)` cho Windows/Linux.
+  - `services/dict_deep_link_router.dart`: `navigatorKey` + hàng đợi; nguồn =
+    MethodChannel `in4up/deeplink` (`getInitialLink` lúc khởi động, `onLink` khi
+    app đã chạy) hoặc `argv`; mở màn qua `DictionaryScreen.route(...)`.
+    Yêu cầu mở TỆP nằm ở `deferredFiles` cho P3 (không nuốt lặng).
+  - `main.dart`: `main(List<String> args)` + gắn `navigatorKey` vào `MaterialApp`.
+  - Android: intent-filter VIEW/BROWSABLE cho `in4up://dict|open` (không `*/*`);
+    `MainActivity` thêm kênh + `getInitialLink` (chỉ nhận đúng scheme/host ⇒
+    intent `VIEW audio/*` sẵn có không bị hiểu nhầm) + `onNewIntent` → `onLink`.
+  - iOS: `CFBundleURLSchemes` thêm `in4up`; `AppDelegate` cùng kênh, nhận URL
+    lúc chạy + `launchOptions[.url]`, vẫn gọi `super` để OAuth/url_launcher
+    không mất URL của chúng.
+- **Quyết định:** KHÔNG dùng `app_links` như ADR-0018 dự phóng — repo đã có khuôn
+  MethodChannel cho 4 kênh khác, native chỉ ~40 dòng, không thêm phụ thuộc.
+- **CI:** 🟢 run 40590420956 / 40590413726 (+ web build 40590413795).
+  Test: `test/dictionary/dict_deep_link_test.dart` (25 ca thuần Dart).
+- **Chưa kiểm được:** biên dịch Kotlin/Swift — CI không build Android/iOS ⇒ cần
+  một lần build thật trước khi phát hành. Linux cần đọc `argv` khi đóng gói
+  `.desktop` (`Exec=in4up %f`).
+- **Việc còn lại (P2 → P4):** `ACTION_PROCESS_TEXT` (Android) + Share Extension
+  (iOS) → "Mở bằng In4Up" cho `.mdx/.pdf` (dùng `deferredFiles` có sẵn) → bong
+  bóng Android.
 
 ### DICT-SCREEN-001 — ADR-0018 P1: màn hình Từ điển riêng (`arena/929f549e-in4up`)
 

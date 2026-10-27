@@ -9,6 +9,7 @@
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — chờ Flutter CI, review độc lập, build và nghiệm thu thiết bị | `arena/bf95d3ae-in4up`, ADR-0018, [review](PLAN-039-review.md); code/test đã viết, chưa chạy |
+| KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing | `arena/bf95d3ae-in4up`, PLAN-040, ADR-0019; đang triển khai và kiểm thử |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
@@ -8232,3 +8233,18 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-10-28 | 2026-10-27 19:41 UTC | created→doing | agent
     `arena/bf95d3ae-in4up` | owner duyệt và triển khai; CI và thiết bị chờ kiểm.
+
+
+### KARAOKE-001 — Đồng bộ và giữ lời karaoke trong vùng nhìn
+- **Trạng thái:** 🔨 doing.
+- **Nguồn:** owner 2026-10-28 — lời AI trên Tab Nghe/Hiểu chưa khớp và bị
+  khuất; thêm lựa chọn chỉ dòng hiện hành hoặc có dòng khác nhỏ/mờ hơn.
+- **Thiết kế:** PLAN-040 và ADR-0019; giữ file LRC, transcript, vị trí, chức
+  năng chọn dòng/seek, cài đặt, quyền tự tắt auto-scroll và kéo thủ công.
+- **Bằng chứng:** đang viết logic/timing, giao diện và test; chưa có CI hay
+  nghiệm thu thiết bị cho yêu cầu này. Timestamp theo từ chỉ chính xác nếu
+  nguồn có timestamp; lời không có timestamp từ chỉ ước lượng.
+- **Lịch sử:**
+  - 2026-10-28 | 2026-10-27 21:04 UTC | created→doing | agent
+    `arena/bf95d3ae-in4up` | owner yêu cầu trực tiếp; rà ra ước lượng chiều
+    cao để cuộn và parser timestamp của từ giữa dòng bị lệch.

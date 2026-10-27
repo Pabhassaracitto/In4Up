@@ -32,8 +32,10 @@ class LrcWord {
     final parts = text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     if (parts.isEmpty) return const [];
     final result = <LrcWord>[];
-    // Chia đều, trừ 200ms dư ở cuối để chừa khoảng lặng
-    final totalMs = (lineDuration.inMilliseconds - 200).clamp(400, 10000);
+    // This is only an estimate, not an AI word alignment. Do not place words
+    // after the next line when that line starts sooner than 400 ms.
+    final durationMs = lineDuration.inMilliseconds.clamp(0, 10000);
+    final totalMs = durationMs > 200 ? durationMs - 200 : durationMs;
     final perWord = totalMs ~/ parts.length;
     var cursor = lineStart;
     for (var i = 0; i < parts.length; i++) {
@@ -85,10 +87,12 @@ class LrcLine {
 // ─── SttLrcConverter ─────────────────────────────────────────────────────────
 
 class SttLrcConverter {
-  static final _lineRegex = RegExp(r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$');
+  // Minutes may exceed 99 for long recordings (and may have one digit in
+  // imported LRC). Seconds and fractions remain the normal LRC format.
+  static final _lineRegex = RegExp(r'^\[(\d+):(\d{2})\.(\d{2,3})\](.*)$');
 
   /// Inline word timestamp trong enhanced-LRC: `<mm:ss.cs>` (2 hoặc 3 chữ số).
-  static final _wordRegex = RegExp(r'<(\d{2}):(\d{2})\.(\d{2,3})>');
+  static final _wordRegex = RegExp(r'<(\d+):(\d{2})\.(\d{2,3})>');
 
   /// Parse LRC content string → List<LrcLine>
   List<LrcLine> parseLrcContent(String content) {
@@ -148,28 +152,26 @@ class SttLrcConverter {
     final matches = _wordRegex.allMatches(lineText).toList();
     if (matches.isEmpty) return words;
 
-    // Text trước tag đầu tiên → thuộc timestamp của dòng
+    // A timestamp belongs to the text *after* it, until the next tag. Using
+    // the next tag's timestamp here makes every middle word light up too late.
     var cursorStart = 0;
-    for (var i = 0; i < matches.length; i++) {
-      final m = matches[i];
-      final before = lineText.substring(cursorStart, m.start).trim();
-      final tagTime = _parseTime(
-        m.group(1)!,
-        m.group(2)!,
-        m.group(3)!,
-      );
+    var currentStart = lineStart;
+    for (final match in matches) {
+      final before = lineText.substring(cursorStart, match.start).trim();
       if (before.isNotEmpty) {
-        words.add(LrcWord(word: before, start: i == 0 ? lineStart : tagTime));
+        words.add(LrcWord(word: before, start: currentStart));
       }
-      cursorStart = m.end;
+      currentStart = _parseTime(
+        match.group(1)!,
+        match.group(2)!,
+        match.group(3)!,
+      );
+      cursorStart = match.end;
     }
 
-    // Text sau tag cuối cùng
     final after = lineText.substring(cursorStart).trim();
     if (after.isNotEmpty) {
-      final lastTime =
-          _parseTime(matches.last.group(1)!, matches.last.group(2)!, matches.last.group(3)!);
-      words.add(LrcWord(word: after, start: lastTime));
+      words.add(LrcWord(word: after, start: currentStart));
     }
 
     return words;
@@ -217,10 +219,11 @@ class SttLrcConverter {
         final parts = <String>[];
         for (var i = 0; i < seg.words.length; i++) {
           final w = seg.words[i];
-          if (i == 0) {
+          final wordMs = (w.startSeconds * 1000).round();
+          if (i == 0 && wordMs == seg.startMs) {
             parts.add(w.word);
           } else {
-            parts.add('<${_fmtDuration((w.startSeconds * 1000).round())}>${w.word}');
+            parts.add('<${_fmtDuration(wordMs)}>${w.word}');
           }
         }
         buf.writeln('[$ts]${parts.join(' ')}');
@@ -248,7 +251,7 @@ class SttLrcConverter {
       final parts = <String>[];
       for (var i = 0; i < line.words.length; i++) {
         final w = line.words[i];
-        if (i == 0) {
+        if (i == 0 && w.start == line.timestamp) {
           parts.add(w.word);
         } else {
           parts.add('<${_fmtDuration(w.start.inMilliseconds)}>${w.word}');

@@ -78,9 +78,9 @@ void main() {
     });
 
     test('phần lẻ 1 / 2 / 3 chữ số', () {
-      expect(parseLrcLine('[00:01.5]x')!.start.milliseconds, 500);
-      expect(parseLrcLine('[00:01.05]x')!.start.milliseconds, 50);
-      expect(parseLrcLine('[00:01.005]x')!.start.milliseconds, 5);
+      expect(parseLrcLine('[00:01.5]x')!.start.inMilliseconds, 500);
+      expect(parseLrcLine('[00:01.05]x')!.start.inMilliseconds, 50);
+      expect(parseLrcLine('[00:01.005]x')!.start.inMilliseconds, 5);
     });
 
     test('bỏ inline word timestamp karaoke', () {

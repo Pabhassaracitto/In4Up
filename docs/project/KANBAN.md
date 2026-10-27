@@ -7949,3 +7949,15 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm:** cài đè trên máy thật (Android cần bản 1.16.0 đang cài sẵn để thử `adb install -r`), iOS sideload trên iPhone, Windows chạy `in4up.exe`, Linux chạy bundle.
 - **Lịch sử:**
   - 2026-10-26 | created→done | agent arena/01a0251e-in4up | bump 1.17.0+17 → tag → build 4 nền tảng 🟢 → 4 asset published
+
+## DICT-I18N-001 / DICT-VIEW-003 — (2026-10-27) Từ điển: script ưu tiên không bị xoá, hiện TÊN loại từ + nghe được
+- **Trạng thái:** 🔨 doing (code + test; **chưa chạy được analyzer/test** — sandbox không có Flutter SDK ⇒ chờ CI; chờ nghiệm thu máy)
+- **Nguồn:** owner 2026-10-27 — *"cách hiển thị từ điển đã ok chưa?"* + *"có nên có màn hình Từ điển riêng / bong bóng tra từ / file mở bằng In4Up?"*
+- **Lỗi nặng nhất (mới phát hiện):** `_letterRe` của `DictTextCleaner` chỉ khai báo Latin/Cyrillic/Ả-rập/Devanagari/Thái/Nhật/Hán/Hàn ⇒ **mọi dòng nghĩa tiếng Sinhala** (U+0D80–0DFF — một trong 5 ngôn ngữ ưu tiên) bị `_isJunkSense` coi là "không có chữ" và **XOÁ SẠCH**: tra từ tiếng Sinhala ra trang trống. Cùng lỗi: Tamil, Bengali, Telugu, Kannada, Malayalam, Khmer, Myanmar, Lào.
+- **Đã sửa:** `_letterRe` +~15 dải script · `_posTokens` thêm nhãn Trung/Nhật/Hàn/Hindi/Sinhala + viết tắt Việt–Việt (`dt.`/`đt.`/`tt.`) · bóc ngoặc toàn độ rộng `〔名〕`/`【名】` · `_posLookup` chuẩn hoá ZWJ + khoảng trắng · `_isHeadwordOnly` so trực tiếp (headword `ගස`/`पेड़`/`树` không lặp thành "nghĩa") · `posDisplaySource()` (mã → tên) · `_maxPosGroups` 6→12
+- **UI:** `DictResultSheet` + `DictEntryDetailSheet` + `DictDefinitionView` hiện tên loại từ đã dịch; `DictResultSheet` có thêm nút 🔊 (`TtsService`) — trước đây chỉ có IPA mà không nghe được
+- **i18n:** 17 tên loại từ trong `priorityUiOverrides` (en/hi/zh/zh_TW; `si` chỉ điền thuật ngữ chắc chắn); chuỗi mới "Không phát âm được từ này." có bản `en`
+- **Test:** `test/dictionary/dict_multilang_pos_test.dart` (13 ca)
+- **Còn hở (chưa làm, xem ADR-0018):** màn hình Từ điển riêng · deep link · `ACTION_PROCESS_TEXT` · bong bóng nổi · "Mở bằng In4Up"
+- **Lịch sử:**
+  - 2026-10-27 | created→doing | agent arena/188b4bbe-in4up | 2 commit (DICT-I18N-001, DICT-VIEW-003) + ADR-0018 (đề xuất)

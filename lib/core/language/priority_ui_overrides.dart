@@ -7163,4 +7163,42 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '使用輸入的名稱',
     'si': 'ටයිප් කළ නම භාවිත කරන්න',
   },
+
+  // ── DICT-STATE-001 / DICT-ORDER-001 (owner 2026-10-27) ────────────────
+  // "Đã tải về báo thành công nhưng nút vẫn xanh" + kéo thả thứ tự ưu tiên.
+  'Đã cài trên máy — dùng được khi không có mạng.': {
+    'en': 'Installed on this device — works offline.',
+    'hi': 'इस डिवाइस पर इंस्टॉल है — ऑफ़लाइन काम करेगा।',
+    'zh': '已安装到本机——离线可用。',
+    'zh_TW': '已安裝到本機——離線可用。',
+    'si': 'මෙම උපාංගයේ ස්ථාපිතයි — අන්තර්ජාලය නොමැතිව ක්‍රියා කරයි.',
+  },
+  'Đã cài — cài lại': {
+    'en': 'Installed — reinstall',
+    'hi': 'इंस्टॉल है — फिर से इंस्टॉल करें',
+    'zh': '已安装——重新安装',
+    'zh_TW': '已安裝——重新安裝',
+    'si': 'ස්ථාපිතයි — නැවත ස්ථාපනය',
+  },
+  'Đã lưu thứ tự ưu tiên từ điển.': {
+    'en': 'Dictionary priority order saved.',
+    'hi': 'शब्दकोश प्राथमिकता क्रम सहेजा गया।',
+    'zh': '已保存词典优先顺序。',
+    'zh_TW': '已儲存詞典優先順序。',
+    'si': 'ශබ්දකෝෂ ප්‍රමුඛතා අනුපිළිවෙල සුරකින ලදි.',
+  },
+  'Kéo để đổi thứ tự ưu tiên': {
+    'en': 'Drag to change priority order',
+    'hi': 'प्राथमिकता बदलने के लिए खींचें',
+    'zh': '拖动以更改优先顺序',
+    'zh_TW': '拖曳以更改優先順序',
+    'si': 'ප්‍රමුඛතාව වෙනස් කිරීමට අදින්න',
+  },
+  'Kéo biểu tượng ≡ để đổi thứ tự ưu tiên — bộ ở trên được ưu tiên khi một từ có ở nhiều bộ.': {
+    'en': 'Drag the ≡ handle to change priority order — the dictionary on top is preferred when a word exists in several.',
+    'hi': 'प्राथमिकता बदलने के लिए ≡ हैंडल खींचें — एक शब्द कई शब्दकोशों में हो तो ऊपर वाला पहले दिखेगा।',
+    'zh': '拖动 ≡ 手柄更改优先顺序——同一个词在多部词典中时优先显示上面的。',
+    'zh_TW': '拖曳 ≡ 手柄更改優先順序——同一個詞在多部詞典中時優先顯示上面的。',
+    'si': 'ප්‍රමුඛතාව වෙනස් කිරීමට ≡ හැඬලය අදින්න — වචනයක් ශබ්දකෝෂ කිහිපයක ඇත්නම් ඉහළ ඇති එක ඉස්මතු වේ.',
+  },
 };

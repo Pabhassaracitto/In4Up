@@ -9,6 +9,8 @@ import '../models/dict_entry.dart';
 import '../models/dict_info.dart';
 import 'dict_bundle_scanner.dart';
 import 'dict_db_service.dart';
+import 'dict_list_order.dart';
+import 'dict_title_cleaner.dart';
 import 'dict_device_channel.dart';
 import 'mdx_parser.dart';
 import 'random_access_source.dart';
@@ -641,6 +643,49 @@ class DictionaryService {
     return true;
   }
 
+  /// DICT-STATE-001: ghi dấu bộ danh mục (`packs.json`) đã sinh ra các từ điển
+  /// này. Nhờ đó lần sau mở màn "Tải bộ từ điển" biết ngay là **đã cài**, thay
+  /// vì so tên (tên từ điển do người dựng bộ đặt trong header .mdx nên gần như
+  /// không bao giờ trùng tên bộ trong danh mục).
+  Future<void> tagPackId(Iterable<String> dictIds, String packId) async {
+    final wanted = dictIds.toSet();
+    if (wanted.isEmpty || packId.isEmpty) return;
+    var changed = false;
+    for (var i = 0; i < _dicts.length; i++) {
+      final dict = _dicts[i];
+      if (!wanted.contains(dict.id)) continue;
+      if (dict.packId == packId) continue;
+      _dicts[i] = dict.copyWith(packId: packId);
+      changed = true;
+    }
+    if (changed) await _saveManifest();
+  }
+
+  /// DICT-STATE-001: đổi THỨ TỰ ƯU TIÊN của từ điển (kéo thả ở màn quản lý).
+  ///
+  /// Thứ tự trong manifest chính là thứ tự tra/gộp nghĩa: bộ đứng trước được
+  /// ưu tiên khi cùng một từ có ở nhiều bộ (xem [lookup] duyệt
+  /// `enabledDictionaries` theo đúng thứ tự này).
+  Future<void> reorderDicts(List<String> orderedIds) async {
+    await ensureInitialized();
+    if (orderedIds.isEmpty || _dicts.isEmpty) return;
+    final next = applyDictOrder(_dicts, orderedIds);
+    var same = next.length == _dicts.length;
+    if (same) {
+      for (var i = 0; i < next.length; i++) {
+        if (next[i].id != _dicts[i].id) {
+          same = false;
+          break;
+        }
+      }
+    }
+    if (same) return;
+    _dicts
+      ..clear()
+      ..addAll(next);
+    await _saveManifest();
+  }
+
   Future<void> toggleDict(String dictId, bool enabled) async {
     final idx = _dicts.indexWhere((d) => d.id == dictId);
     if (idx < 0) return;
@@ -747,6 +792,19 @@ class DictionaryService {
         _dicts.add(DictInfo.fromJson(item as Map<String, dynamic>));
       }
       _dicts.removeWhere((d) => !File(d.dbPath).existsSync());
+      // DICT-TITLE-001: manifest của bản cũ (≤1.17.0) đã lưu tên lấy nguyên
+      // văn từ header .mdx (`<html><b>…</b></html>`, `Từ\điẻn\ Anh -\ Việt`).
+      // Máy đang cài không cài lại từ điển ⇒ phải sửa NGAY khi nạp manifest.
+      var renamed = false;
+      for (var i = 0; i < _dicts.length; i++) {
+        final dict = _dicts[i];
+        if (!DictTitleCleaner.needsClean(dict.name)) continue;
+        final clean = DictTitleCleaner.clean(dict.name);
+        if (clean == null || clean.isEmpty) continue;
+        _dicts[i] = dict.copyWith(name: clean);
+        renamed = true;
+      }
+      if (renamed) await _saveManifest();
     } catch (e) {
       _dicts.clear();
     }

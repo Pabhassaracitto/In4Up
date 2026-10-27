@@ -44,6 +44,15 @@ class DictInfo {
   /// từ điển vẫn tra được ở chế độ giảm cấp — UI hiện badge cảnh báo.
   final List<String> missingResources;
 
+  /// DICT-STATE-001: id của BỘ trong danh mục `packs.json` đã sinh ra từ điển
+  /// này (null = người dùng tự import file/thư mục).
+  ///
+  /// Vì sao cần: màn "Tải bộ từ điển" phải biết một bộ đã cài chưa. So theo
+  /// TÊN không được — tên từ điển lấy từ header `.mdx` (người dựng bộ tự đặt),
+  /// khác hẳn tên bộ trong danh mục ⇒ không khớp ⇒ nút "Tải & cài" vẫn xanh
+  /// sau khi cài xong, người dùng tưởng chưa cài rồi tải lại.
+  final String? packId;
+
   const DictInfo({
     required this.id,
     required this.name,
@@ -54,6 +63,7 @@ class DictInfo {
     this.resourcePath,
     this.enabled = true,
     required this.importedAt,
+    this.packId,
     this.storageMode = DictStorageMode.imported,
     this.sourceFolder,
     this.cssPaths = const [],
@@ -93,6 +103,7 @@ class DictInfo {
     bool? sourceWasFolder,
     bool? needsReselect,
     List<String>? missingResources,
+    String? packId,
   }) =>
       DictInfo(
         id: id,
@@ -104,6 +115,7 @@ class DictInfo {
         resourcePath: resourcePath ?? this.resourcePath,
         enabled: enabled ?? this.enabled,
         importedAt: importedAt,
+        packId: packId ?? this.packId,
         storageMode: storageMode ?? this.storageMode,
         sourceFolder: sourceFolder ?? this.sourceFolder,
         cssPaths: cssPaths ?? this.cssPaths,
@@ -126,6 +138,7 @@ class DictInfo {
         'enabled': enabled,
         'imported_at': importedAt.toIso8601String(),
         'storage_mode': storageMode.name,
+        'pack_id': packId,
         'source_folder': sourceFolder,
         'css_paths': cssPaths,
         'source_mdx_uri': sourceMdxUri,
@@ -148,6 +161,7 @@ class DictInfo {
       resourcePath: json['resource_path'] as String?,
       enabled: json['enabled'] as bool? ?? true,
       importedAt: DateTime.parse(json['imported_at'] as String),
+      packId: json['pack_id'] as String?,
       storageMode: json['storage_mode'] == 'linked'
           ? DictStorageMode.linked
           : DictStorageMode.imported,

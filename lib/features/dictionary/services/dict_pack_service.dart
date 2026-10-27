@@ -211,6 +211,14 @@ class DictPackService {
         onProgress: (progress, message) =>
             onProgress?.call(0.8 + progress * 0.2, message),
       );
+      if (outcome.isSuccess) {
+        // DICT-STATE-001: đóng dấu bộ danh mục vào manifest để màn này (và lần
+        // mở sau) biết chắc là ĐÃ CÀI — không dựa vào so tên nữa.
+        await DictionaryService.instance.tagPackId(
+          outcome.imported.map((dict) => dict.id),
+          pack.id,
+        );
+      }
       onProgress?.call(1.0, outcome.isSuccess ? 'Đã cài xong' : 'Cài thất bại');
       return DictPackInstallResult(
         imported: outcome.imported,

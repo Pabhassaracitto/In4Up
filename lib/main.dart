@@ -54,6 +54,9 @@ import 'services/whisper_service.dart';
 // ignore: unused_import
 import 'features/screen_translate/screen_translate_entrypoint.dart';
 
+// ADR-0018 (P1) — link/tệp từ ngoài app (in4up://dict?w=…, "Mở bằng In4Up").
+import 'features/dictionary/services/dict_deep_link_router.dart';
+
 bool isFirebaseAvailable = false;
 
 /// Handover SECTION 1 — Fix HttpException: Connection closed
@@ -109,7 +112,7 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
   ],
 };
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ★ Chỉ Firebase là bắt buộc trước runApp
@@ -133,6 +136,12 @@ Future<void> main() async {
 
   // ★ runApp ngay - không block
   runApp(const MyApp());
+
+  // ADR-0018 P1 — link/tệp từ ngoài app. KHÔNG await: link đến muộn (app đã
+  // chạy) đi qua `onLink` của MethodChannel, còn link khởi động chỉ xếp hàng
+  // tới khi `navigatorKey` có Navigator. `args` là `argv` trên Windows/Linux
+  // (`in4up.exe "C:\a.mdx"`); Android/iOS để trống.
+  unawaited(DictDeepLinkRouter.instance.start(args));
 
   // IN4-15 (LOGIN-CRASH-002): chẩn đoán lúc khởi động — logcat trả lời
   // ngay: bản nào đang chạy (flavor), phiên đã khôi phục được chưa, và
@@ -415,6 +424,8 @@ class _MyAppState extends State<MyApp> {
           return MaterialApp(
             title: 'In4Up',
             debugShowCheckedModeBanner: false,
+            // ADR-0018 P1: mở màn Từ điển từ ngoài widget tree (deep link).
+            navigatorKey: DictDeepLinkRouter.instance.navigatorKey,
             locale: localeProvider.locale,
             localizationsDelegates: const [
               AppLocalizations.delegate,

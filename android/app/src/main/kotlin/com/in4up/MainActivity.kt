@@ -73,6 +73,15 @@ class MainActivity : FlutterActivity() {
     private val textChannelName = "in4up/textlib"
     private val dictionaryChannelName = "in4up/dictionary"
 
+    // ADR-0018 P1 — deep link từ điển (`in4up://dict?w=…`, `in4up://open?path=…`).
+    // Native CHỈ chuyển tiếp URL thô; toàn bộ kiểm tra an toàn (độ dài từ, đuôi
+    // tệp, `..`) nằm ở Dart: features/dictionary/services/dict_deep_link.dart.
+    // Link lúc app chưa chạy được giữ ở `pendingDeepLink` cho tới khi Dart hỏi
+    // `getInitialLink` (Dart gọi ngay sau runApp).
+    private val deepLinkChannelName = "in4up/deeplink"
+    private var deepLinkChannel: MethodChannel? = null
+    private var pendingDeepLink: String? = null
+
     // XLAT-SCR-002 — channel điều khiển "Dịch màn hình toàn hệ thống".
     // Service + capture + overlay nằm ở package screentranslate; activity này
     // chỉ là nơi đăng ký channel (createScreenCaptureIntent cần Activity nên
@@ -137,6 +146,46 @@ class MainActivity : FlutterActivity() {
         installOcrCrashShield()
     }
 
+    /**
+     * ADR-0018 P1 — app ĐANG CHẠY và người dùng bấm một link `in4up://…`
+     * (Activity là `singleTop` nên Android gọi `onNewIntent`, không tạo
+     * instance mới). Chuyển thẳng sang Dart qua `onLink`.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val link = intent.dataString
+        if (link.isNullOrEmpty()) return
+        val channel = deepLinkChannel
+        if (channel == null) {
+            // Engine chưa sẵn (rất hiếm) ⇒ để Dart lấy qua getInitialLink.
+            pendingDeepLink = link
+            return
+        }
+        channel.invokeMethod("onLink", link)
+    }
+
+    /**
+     * URL của intent khởi động, CHỈ khi đúng scheme/host của app.
+     *
+     * Kiểm tra ở đây để intent `VIEW audio/*` (tính năng có sẵn) không bị hiểu
+     * nhầm thành link từ điển.
+     */
+    private fun consumeInitialDeepLink(): String? {
+        val queued = pendingDeepLink
+        pendingDeepLink = null
+        if (queued != null) return queued
+        val data = intent?.data ?: return null
+        val scheme = data.scheme?.lowercase()
+        val host = data.host?.lowercase()
+        val isAppLink = (scheme == "in4up" || scheme == "i4u") &&
+            (host == "dict" || host == "open")
+        val isWebLink = (scheme == "https" || scheme == "http") &&
+            (host == "in4up.app" || host == "www.in4up.app")
+        if (!isAppLink && !isWebLink) return null
+        return data.toString()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         // Chỉ lưu khi thật sự có phiên quét đang chờ: instance mới đọc cờ này
@@ -148,6 +197,20 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // ADR-0018 P1 — kênh nhận link. Đăng ký TRƯỚC mọi thứ khác để link
+        // khởi động không bị mất nếu một plugin phía sau ném lỗi.
+        deepLinkChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            deepLinkChannelName,
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // App vừa được mở bằng link ⇒ trả URL một lần rồi xoá.
+                    "getInitialLink" -> result.success(consumeInitialDeepLink())
+                    else -> result.notImplemented()
+                }
+            }
+        }
         ScreenTranslatePlugin(this).also {
             it.attach(flutterEngine.dartExecutor.binaryMessenger)
             screenTranslatePlugin = it

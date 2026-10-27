@@ -182,6 +182,7 @@ jobs:
                    test/dictionary/dict_state_and_title_test.dart \
                    test/dictionary/dict_history_test.dart \
                    test/dictionary/dict_suggest_test.dart \
+                   test/dictionary/dict_deep_link_test.dart \
                    test/dictionary/dict_pack_test.dart \
                    test/dictionary/dict_sqlite_import_test.dart \
                    test/dict_bundle_scanner_test.dart \

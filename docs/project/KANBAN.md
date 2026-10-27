@@ -8,8 +8,8 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
-| PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI xanh, chờ review độc lập, build Android và nghiệm thu thiết bị | run rộng `40583408530`; matrix `40583714314`; [review](PLAN-039-review.md) |
-| KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI xanh, chờ review độc lập và nghiệm thu thiết bị | matrix `40586662698`, run rộng `40586662734`, [review](PLAN-040-review.md) |
+| PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
+| KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
@@ -8290,23 +8290,29 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-28 | created→done | agent arena/01a0251e-in4up | thêm importer SQLite + nhánh service + picker + i18n + 17 test; CI `40590731503` 🟢
 
 ### PLAN-039 — Tab Nghe: queue phiên và chuyển bài
-- **Trạng thái:** 🔨 doing — chưa có Flutter analyze/test CI, build Android,
-  review độc lập hoặc nghiệm thu máy.
+- **Trạng thái:** 🔨 doing — CI code tích hợp xanh; chờ CI PR sau rebase
+  tài liệu, review độc lập, build Android và nghiệm thu máy.
 - **Nguồn:** owner duyệt phương án `docs/plans/PLAN-039-tab-nghe-danh-sach-phat.md`.
-- **Thiết kế:** ADR-0018; hàng đợi theo phiên, snapshot thư viện/playlist,
+- **Thiết kế:** ADR-0019; hàng đợi theo phiên, snapshot thư viện/playlist,
   giữ ±10 giây, ưu tiên repeat/A–B và liên kết dữ liệu cũ có xác nhận.
-- **Bằng chứng hiện có:** code + test đã viết; `git diff --check`, kiểm tra
-  priority catalog và test Python importer; không tuyên bố Flutter test xanh.
+- **Bằng chứng hiện có:** CI `40590995365`/`40590995423` xanh tại `3277088`;
+  rebase lên `de52915` chỉ thêm tài liệu Kanban, code và test không đổi.
 - **Lịch sử:**
   - 2026-10-28 | 2026-10-27 19:41 UTC | created→doing | agent
     `arena/bf95d3ae-in4up` | owner duyệt và triển khai; CI và thiết bị chờ kiểm.
+  - 2026-10-28 | 2026-10-27 21:48 UTC | doing→doing | agent
+    `arena/bf95d3ae-in4up` | rebase nền 251e `e83355d`; chờ CI lại và thiết bị.
+  - 2026-10-28 | 2026-10-27 21:57 UTC | doing→doing | agent
+    `arena/bf95d3ae-in4up` | rebase tiếp lên 251e `82e813d`; chờ CI lại.
+  - 2026-10-28 | 2026-10-27 22:01 UTC | doing→doing | agent
+    `arena/bf95d3ae-in4up` | CI code tích hợp xanh; rebase Kanban `de52915`.
 
 
 ### KARAOKE-001 — Đồng bộ và giữ lời karaoke trong vùng nhìn
 - **Trạng thái:** 🔨 doing.
 - **Nguồn:** owner 2026-10-28 — lời AI trên Tab Nghe/Hiểu chưa khớp và bị
   khuất; thêm lựa chọn chỉ dòng hiện hành hoặc có dòng khác nhỏ/mờ hơn.
-- **Thiết kế:** PLAN-040 và ADR-0019; giữ file LRC, transcript, vị trí, chức
+- **Thiết kế:** PLAN-040 và ADR-0020; giữ file LRC, transcript, vị trí, chức
   năng chọn dòng/seek, cài đặt, quyền tự tắt auto-scroll và kéo thủ công.
 - **Bằng chứng:** matrix `40586662698` tại `7c8901f` qua 11 nhóm test Dart
   và compile resolver Kotlin; run rộng `40586662734` cũng qua. Còn review độc lập,
@@ -8318,3 +8324,9 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     cao để cuộn và parser timestamp của từ giữa dòng bị lệch.
   - 2026-10-28 | doing→doing | agent `arena/bf95d3ae-in4up` | code và
     matrix CI xanh; chưa review độc lập/build Android/nghiệm thu thiết bị.
+  - 2026-10-28 | 2026-10-27 21:48 UTC | doing→doing | agent
+    `arena/bf95d3ae-in4up` | rebase nền 251e `e83355d`; chờ CI lại và thiết bị.
+  - 2026-10-28 | 2026-10-27 21:57 UTC | doing→doing | agent
+    `arena/bf95d3ae-in4up` | rebase tiếp lên 251e `82e813d`; chờ CI lại.
+  - 2026-10-28 | 2026-10-27 22:01 UTC | doing→doing | agent
+    `arena/bf95d3ae-in4up` | CI code tích hợp xanh; rebase Kanban `de52915`.

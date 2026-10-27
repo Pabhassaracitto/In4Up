@@ -1,6 +1,6 @@
 # PLAN-039 — hồ sơ rà soát và nghiệm thu
 
-Ngày 2026-10-28 · nhánh `arena/bf95d3ae-in4up` · ADR-0018.
+Ngày 2026-10-28 · nhánh `arena/bf95d3ae-in4up` · ADR-0019.
 
 ## Rà soát đang tiến hành
 
@@ -26,8 +26,9 @@ Ngày 2026-10-28 · nhánh `arena/bf95d3ae-in4up` · ADR-0018.
 3. Generator legacy English báo 328 override dư; đối chiếu chạy riêng trên
    commit nền `0556f82` cũng báo đúng cùng 328 mục. Priority native pack mới
    đã kiểm `--check`; không tự xóa 328 override lịch sử.
-4. Code/test đã qua Flutter analyzer và test trên CI, chưa qua build Android
-   đầy đủ hoặc thiết bị. Không đóng card chỉ dựa trên tự rà soát này.
+4. Code/test đã qua Flutter analyzer và CI trên nền cũ; cần chạy lại sau
+   rebase. Chưa có build Android đầy đủ hoặc thiết bị, không đóng card chỉ dựa
+   trên tự rà soát này.
 
 ### Cập nhật kiểm tra 2026-10-28
 
@@ -113,3 +114,37 @@ hay review độc lập.
 Run rộng `40584783001` tại `b6ee188` (bao gồm thay đổi giao diện karaoke) đã
 hoàn tất thành công. Các run sau thêm test thực tế hai tab và đang xử lý lỗi
 bố cục hẹp; review độc lập, build Android và nghiệm thu thiết bị vẫn chưa xong.
+
+## Rebase 251e (2026-10-28)
+
+Nền mới `e83355d` thay đổi catalog locale, giao diện thư viện và KANBAN;
+giữ cả thay đổi 251e lẫn hàng đợi, tái tạo priority pack 3.488 mục. ADR
+hàng đợi chuyển sang 0019 để không trùng ADR-0018 của 251e; karaoke là 0020.
+Trên nền mới generator legacy báo 798 override dư, đúng cùng tập với bản
+251e `e83355d` (không thêm override dư); không xóa dữ liệu catalog.
+Các run CI cũ không xác nhận tổ hợp sau rebase; cần CI mới và review độc lập.
+
+Lượt matrix sau rebase `40589993637` tại `985241c` đạt mọi nhóm khác và
+compile Kotlin, nhưng test drawer mới phát hiện chữ hướng dẫn tràn ngang ở
+màn hình hẹp. Đã giới hạn/wrap nội dung và sửa test để cuộn bài đích vào
+vùng nhìn; cần chạy lại. Lượt rộng `40589993614` cũng đỏ do cùng test này.
+
+Lượt `40590404001`/`40590403804` xác nhận hết tràn, nhưng test mới giả định
+hai bản sao title đã dựng dù `ListView` dựng lười ở màn hẹp. Đang sửa test
+cuộn đúng danh sách trước khi chọn bài; các nhóm khác lại đạt, cần chạy lại.
+
+### Nền 251e tiến thêm trong lúc kiểm thử
+
+Đã rebase tiếp lên `82e813d` (nhập từ điển SQLite), giữ nguyên code và test
+upstream. Catalog English 3.888 mục gồm cả bốn mục upstream mới. Generator
+legacy báo 802 override dư, chính xác cùng tập với `82e813d` khi kiểm độc lập;
+không xóa hay sửa các mục lịch sử. Cần CI lại trên tổ hợp mới.
+
+### Kết quả CI và cập nhật tài liệu upstream
+
+Matrix `40590995365` và CI rộng `40590995423` tại `3277088` đều xanh, gồm
+13 nhóm Dart, compile Kotlin resolver độc lập, analyzer và các test dictionary
+SQLite/upstream. Lượt PR `40591001412`/`40591001410` cũng xanh. 251e sau đó
+đến `de52915` chỉ thêm card Kanban; đã rebase và so sánh xác nhận code, test,
+catalog, cấu hình CI giống `3277088`. Chờ CI PR trên commit cuối; Kotlin riêng
+không phải build Android Gradle, review độc lập và nghiệm thu máy vẫn chờ.

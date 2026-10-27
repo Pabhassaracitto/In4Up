@@ -11,11 +11,13 @@ on:
       - 'lib/providers/player/**'
       - 'lib/providers/player_provider.dart'
       - 'lib/providers/karaoke_settings_provider.dart'
+      - 'lib/screens/main_shell.dart'
       - 'lib/screens/listen_mode/**'
       - 'lib/screens/understand_mode/**'
       - 'lib/widgets/karaoke_*.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
+      - 'lib/services/lrc_time_parser.dart'
       - 'lib/services/audio_import_service.dart'
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
@@ -24,6 +26,8 @@ on:
       - 'test/listen_*'
       - 'test/karaoke_*'
       - 'test/lrc_editor_timing_test.dart'
+      - 'test/read_mode/read_listen_understand_owner_requests_test.dart'
+      - 'test/yt_lrc_long_video_test.dart'
       - 'test/audio_import_service_test.dart'
       - 'test/support/fake_queue_player.dart'
       - '.github/workflows/listen_queue_tests.yml'
@@ -34,11 +38,13 @@ on:
       - 'lib/providers/player/**'
       - 'lib/providers/player_provider.dart'
       - 'lib/providers/karaoke_settings_provider.dart'
+      - 'lib/screens/main_shell.dart'
       - 'lib/screens/listen_mode/**'
       - 'lib/screens/understand_mode/**'
       - 'lib/widgets/karaoke_*.dart'
       - 'pubspec.yaml'
       - 'pubspec.lock'
+      - 'lib/services/lrc_time_parser.dart'
       - 'lib/services/audio_import_service.dart'
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
@@ -47,6 +53,8 @@ on:
       - 'test/listen_*'
       - 'test/karaoke_*'
       - 'test/lrc_editor_timing_test.dart'
+      - 'test/read_mode/read_listen_understand_owner_requests_test.dart'
+      - 'test/yt_lrc_long_video_test.dart'
       - 'test/audio_import_service_test.dart'
       - 'test/support/fake_queue_player.dart'
       - '.github/workflows/listen_queue_tests.yml'
@@ -73,6 +81,8 @@ jobs:
           - test/karaoke_view_test.dart
           - test/karaoke_tabs_integration_test.dart
           - test/lrc_editor_timing_test.dart
+          - test/read_mode/read_listen_understand_owner_requests_test.dart
+          - test/yt_lrc_long_video_test.dart
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

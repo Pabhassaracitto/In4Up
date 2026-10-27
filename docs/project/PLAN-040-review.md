@@ -31,9 +31,22 @@ seek, ẩn/hiện và không mở overlay AI) đã qua; timing mới và widget 
 qua. Riêng test editor thất bại khi đọc file bất đồng bộ trong fake clock, đang
 chuyển phần I/O test sang real-async và chạy lại; không coi toàn matrix đã đạt.
 
-## Kết quả mới nhất
+## Kết quả trước rebase
 
 Matrix `40586662698` tại `7c8901f` thành công: 11 nhóm test Dart, gồm cả
 editor với file LRC thật, hai tab và hai chế độ, cùng compile Kotlin resolver.
 Run rộng `40586662734` tại cùng commit cũng thành công, gồm analyzer và các
 regression app. Đây không phải build Android Gradle hoặc nghiệm thu thiết bị thật.
+
+## Rebase 251e (2026-10-28)
+
+Tích hợp với 251e `e83355d`, giữ các thay đổi giao diện Đọc/Nghe/Hiểu và
+locale upstream. Run trước rebase không chứng minh tổ hợp mới; đang chạy lại
+matrix, analyzer và các test nguồn 251e. Chưa build Android hoặc thử thiết bị.
+
+Nền 251e tiếp tục tiến tới `82e813d` (dictionary SQLite); đã rebase tiếp và
+giữ cả bốn khóa catalog upstream. Các test vẫn cần chạy lại trên nền này.
+
+CI matrix `40590995365` và run rộng `40590995423` trên `3277088` đều đạt.
+Sau đó 251e `de52915` chỉ thêm Kanban; code/test/catalog/workflow không đổi.
+Chờ CI PR commit cuối, review độc lập và build/nghiệm thu thiết bị.

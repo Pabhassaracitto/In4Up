@@ -1,4 +1,4 @@
-# ADR-0018: Hàng đợi phát theo phiên cho tab Nghe
+# ADR-0019: Hàng đợi phát theo phiên cho tab Nghe
 
 - **Ngày:** 2026-10-28
 - **Trạng thái:** Đang triển khai trên `arena/bf95d3ae-in4up`; chờ analyzer,

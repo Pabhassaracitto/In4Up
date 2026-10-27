@@ -404,6 +404,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
               }
 
               return ListView(
+                key: const ValueKey('drawer-queue-preview'),
                 padding: const EdgeInsets.all(12),
                 children: [
                   // ── Đang phát ──
@@ -547,11 +548,15 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
             children: [
               Icon(Icons.info_outline, size: 12, color: Colors.grey[700]),
               const SizedBox(width: 6),
-              Text(
-                widget.isLeft
-                    ? 'Vuốt từ cạnh trái để mở'
-                    : 'Vuốt từ cạnh phải để mở',
-                style: TextStyle(color: Colors.grey[700], fontSize: 11),
+              Expanded(
+                child: Text(
+                  widget.isLeft
+                      ? 'Vuốt từ cạnh trái để mở'
+                      : 'Vuốt từ cạnh phải để mở',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[700], fontSize: 11),
+                ),
               ),
             ],
           ),
@@ -818,7 +823,8 @@ class _CurrentTrackCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  // Song titles are user content, not translatable UI labels.
+                  material.Text(
                     title,
                     style: const TextStyle(
                         color: Colors.white,

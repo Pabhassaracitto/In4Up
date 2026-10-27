@@ -1,7 +1,7 @@
-# ADR-0019 — Đồng hồ và vùng nhìn karaoke dùng chung
+# ADR-0020 — Đồng hồ và vùng nhìn karaoke dùng chung
 
-- Trạng thái: đã triển khai trên nhánh làm việc, CI matrix xanh; cần review
-  độc lập, build Android đầy đủ và nghiệm thu thiết bị.
+- Trạng thái: đã triển khai trên nhánh làm việc; CI trước rebase xanh, chờ
+  chạy lại sau rebase, review độc lập, build Android và nghiệm thu thiết bị.
 - Bối cảnh: hai tab ước lượng chiều cao dòng không theo layout thật, khiến lời
   dài/dịch/font lớn bị lệch; parser enhanced-LRC gán nhầm mốc cho từ giữa dòng.
 

@@ -131,6 +131,24 @@ class YtLearningSettings {
   /// Tốc độ đọc 0.5–2.0.
   final double readAloudSpeed;
 
+  /// YT-READ-LOOP-LESSON-001 (#8): số lần đọc **cả bài**, không chỉ lặp từng
+  /// dòng. `0` = **mãi mãi** (đọc vòng tròn tới khi người dùng bấm Dừng) —
+  /// đúng ý owner "có mãi mãi". `1` = đọc một lượt rồi dừng (hành vi cũ).
+  final int readAloudPasses;
+
+  /// YT-READ-SYNC-VIDEO-001 (#9): khi đọc, có tua video tới đúng dòng đang
+  /// đọc hay không. `false` = chỉ đọc tiếng (hành vi cũ).
+  ///
+  /// Tách khỏi [readAloudPasses] vì hai thứ độc lập: người dùng có thể muốn
+  /// nghe TTS nhưng KHÔNG muốn video nhảy lung tung (dữ liệu 4G, hoặc đang
+  /// xem ở chỗ đông người).
+  final bool readAloudSyncVideo;
+
+  /// YT-READ-SYNC-VIDEO-001: nếu [readAloudSyncVideo], có phát luôn **âm
+  /// thanh gốc của video** trong lúc đọc không (lồng tiếng thô: video đọc câu
+  /// gốc, TTS đọc bản dịch).
+  final bool readAloudPlayVideoAudio;
+
   // ─── YT-MEDIA-STORE-001: nơi lưu ──────────────────────────────────
   /// Nơi lưu phụ đề `.lrc` + file âm thanh đã tải.
   final YtSaveLocation saveLocation;
@@ -148,6 +166,9 @@ class YtLearningSettings {
     this.readAloudTargetRepeats = 1,
     this.readAloudGapMs = 500,
     this.readAloudSpeed = 1.0,
+    this.readAloudPasses = 1,
+    this.readAloudSyncVideo = false,
+    this.readAloudPlayVideoAudio = false,
     this.saveLocation = YtSaveLocation.appPrivate,
   });
 
@@ -257,6 +278,9 @@ class YtLearningSettings {
     int? readAloudTargetRepeats,
     int? readAloudGapMs,
     double? readAloudSpeed,
+    int? readAloudPasses,
+    bool? readAloudSyncVideo,
+    bool? readAloudPlayVideoAudio,
     YtSaveLocation? saveLocation,
   }) {
     return YtLearningSettings(
@@ -290,6 +314,13 @@ class YtLearningSettings {
       readAloudSpeed: readAloudSpeed == null
           ? this.readAloudSpeed
           : readAloudSpeed.clamp(0.5, 2.0).toDouble(),
+      // `0` = mãi mãi (giữ nguyên); còn lại kẹp 1..20 để không gõ số vô lý.
+      readAloudPasses: readAloudPasses == null
+          ? this.readAloudPasses
+          : (readAloudPasses == 0 ? 0 : readAloudPasses.clamp(1, 20).toInt()),
+      readAloudSyncVideo: readAloudSyncVideo ?? this.readAloudSyncVideo,
+      readAloudPlayVideoAudio:
+          readAloudPlayVideoAudio ?? this.readAloudPlayVideoAudio,
       saveLocation: saveLocation ?? this.saveLocation,
     );
   }
@@ -310,6 +341,9 @@ class YtLearningSettings {
         'readAloudTargetRepeats': readAloudTargetRepeats,
         'readAloudGapMs': readAloudGapMs,
         'readAloudSpeed': readAloudSpeed,
+        'readAloudPasses': readAloudPasses,
+        'readAloudSyncVideo': readAloudSyncVideo,
+        'readAloudPlayVideoAudio': readAloudPlayVideoAudio,
         'saveLocation': saveLocation.name,
       };
 
@@ -345,6 +379,11 @@ class YtLearningSettings {
           (json['readAloudTargetRepeats'] as num?)?.toInt() ?? 1,
       readAloudGapMs: (json['readAloudGapMs'] as num?)?.toInt() ?? 500,
       readAloudSpeed: (json['readAloudSpeed'] as num?)?.toDouble() ?? 1.0,
+      // Dữ liệu cũ (chưa có 3 khoá này) ⇒ hành vi cũ: 1 lượt, không tua video.
+      readAloudPasses: (json['readAloudPasses'] as num?)?.toInt() ?? 1,
+      readAloudSyncVideo: json['readAloudSyncVideo'] as bool? ?? false,
+      readAloudPlayVideoAudio:
+          json['readAloudPlayVideoAudio'] as bool? ?? false,
       saveLocation: YtSaveLocation.values.firstWhere(
         (e) => e.name == json['saveLocation'],
         orElse: () => YtSaveLocation.appPrivate,

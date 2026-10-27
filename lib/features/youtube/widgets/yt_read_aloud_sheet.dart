@@ -76,6 +76,9 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
   late int _gapMs;
   late double _speed;
   late bool _fromCurrent;
+  late int _passes;
+  late bool _syncVideo;
+  late bool _playVideoAudio;
 
   @override
   void initState() {
@@ -85,6 +88,9 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
     _tgtRepeats = widget.initial.readAloudTargetRepeats;
     _gapMs = widget.initial.readAloudGapMs;
     _speed = widget.initial.readAloudSpeed;
+    _passes = widget.initial.readAloudPasses;
+    _syncVideo = widget.initial.readAloudSyncVideo;
+    _playVideoAudio = widget.initial.readAloudPlayVideoAudio;
     _fromCurrent = true;
 
     // Chưa có bản dịch ⇒ mặc định đọc bản gốc, đừng để người dùng bấm rồi
@@ -103,6 +109,9 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
         readAloudTargetRepeats: _tgtRepeats,
         readAloudGapMs: _gapMs,
         readAloudSpeed: _speed,
+        readAloudPasses: _passes,
+        readAloudSyncVideo: _syncVideo,
+        readAloudPlayVideoAudio: _playVideoAudio,
       );
 
   /// Chế độ đọc hiện tại có thật sự đọc bản dịch không — dùng để cảnh báo.
@@ -240,6 +249,59 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
               label: '${_speed.toStringAsFixed(1)}x',
               activeColor: const Color(0xFF53D6BD),
               onChanged: (v) => setState(() => _speed = v),
+            ),
+
+            const SizedBox(height: 16),
+            // ── YT-READ-LOOP-LESSON-001 (#8): lặp CẢ BÀI ──────────
+            _label(context.uiText('Số lần đọc cả bài')),
+            const SizedBox(height: 8),
+            _passesRow(context),
+            const SizedBox(height: 6),
+            Text(
+              _passes == 0
+                  ? context.uiText(
+                      'Đọc mãi mãi — lặp lại cả bài cho tới khi bấm Dừng.')
+                  : context.uiText('Đọc $(_passes) lượt cả bài rồi tự dừng.'),
+              style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+            ),
+
+            const SizedBox(height: 16),
+            // ── YT-READ-SYNC-VIDEO-001 (#9): video chạy theo dòng ──
+            _label(context.uiText('Video trong lúc đọc')),
+            SwitchListTile(
+              value: _syncVideo,
+              contentPadding: EdgeInsets.zero,
+              activeColor: const Color(0xFF53D6BD),
+              title: Text(
+                context.uiText('Tua video tới đúng dòng đang đọc'),
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                    'Tắt: chỉ nghe giọng đọc, video đứng yên ở chỗ cũ'),
+                style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+              ),
+              onChanged: (v) => setState(() => _syncVideo = v),
+            ),
+            SwitchListTile(
+              value: _playVideoAudio && _syncVideo,
+              contentPadding: EdgeInsets.zero,
+              activeColor: const Color(0xFF53D6BD),
+              title: Opacity(
+                opacity: _syncVideo ? 1 : 0.4,
+                child: Text(
+                  context.uiText('Phát tiếng gốc của video khi đọc câu gốc'),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              subtitle: Text(
+                context.uiText(
+                    'Bật: nghe giọng thật của video cho câu gốc, tắt khi đọc bản dịch'),
+                style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+              ),
+              onChanged: _syncVideo
+                  ? (v) => setState(() => _playVideoAudio = v)
+                  : null,
             ),
 
             const SizedBox(height: 8),
@@ -453,6 +515,31 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Bộ chọn số lượt đọc cả bài: 1 → 20, và **∞ (mãi mãi)** ở cuối.
+  ///
+  /// Dùng chip thay vì stepper vì hai lý do thực tế: (a) "mãi mãi" không phải
+  /// một con số nên không vừa mô hình +/−; (b) người dùng thường chỉ chọn 1,
+  /// 2, 3 hoặc ∞ — không cần bấm 15 lần.
+  Widget _passesRow(BuildContext context) {
+    const options = <int>[1, 2, 3, 5, 10, 0];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        for (final p in options)
+          ChoiceChip(
+            label: Text(
+              p == 0 ? context.uiText('∞ Mãi mãi') : '$p',
+              style: const TextStyle(fontSize: 11),
+            ),
+            selected: _passes == p,
+            selectedColor: const Color(0xFF53D6BD).withValues(alpha: 0.2),
+            onSelected: (_) => setState(() => _passes = p),
+          ),
+      ],
     );
   }
 

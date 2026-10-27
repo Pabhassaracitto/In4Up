@@ -261,7 +261,7 @@ class _YtReadAloudSheetState extends State<_YtReadAloudSheet> {
               _passes == 0
                   ? context.uiText(
                       'Đọc mãi mãi — lặp lại cả bài cho tới khi bấm Dừng.')
-                  : context.uiText('Đọc $(_passes) lượt cả bài rồi tự dừng.'),
+                  : context.uiText('Đọc $_passes lượt cả bài rồi tự dừng.'),
               style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
             ),
 

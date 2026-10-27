@@ -5,8 +5,8 @@
 // Lý do: tầng 1 cũ là bottom sheet `YoutubeSheet` với 3 tab
 // (Audio / Captions / Lịch sử) và ĐẦU TRANG là ô "Dán URL YouTube..." — muốn
 // tìm video phải bấm thêm nút "Khám phá kênh" mới sang được tầng 2. Tầng 2 đã
-// có sẵn cả ô tìm kiếm (chạy keyless) LẪN ô dán URL, nên tầng 1 trở thành một
-// bước thừa.
+// có sẵn ô tìm kiếm (chạy keyless) — và từ đợt 6 ô đó nhận CẢ URL nên tầng 1
+// trở thành một bước thừa.
 //
 // Test thuần này pin các ràng buộc cấu trúc (không cần máy thật).
 import 'dart:io';
@@ -46,16 +46,25 @@ void main() {
       );
     });
 
-    test('tầng 2 có CẢ ô tìm kiếm lẫn ô dán URL (không mất tính năng)', () {
+    // IN4-94 yêu cầu "không mất tính năng dán URL". Từ đợt 6 (YT-ONE-BAR-001)
+    // tính năng đó KHÔNG còn là ô thứ hai mà nằm ngay trong ô tìm kiếm duy
+    // nhất ⇒ nghiệm thu đổi sang: ô tìm kiếm phải TỰ NHẬN URL/ID, và không
+    // còn thanh dán URL riêng (hai thanh là thứ owner kêu khó dùng).
+    test('một ô duy nhất vừa tìm kiếm vừa nhận URL (YT-ONE-BAR-001)', () {
       // Ô tìm kiếm (keyless, có focus ngay khi mở — IN4-77).
       expect(explorer.contains('_searchCtrl'), isTrue,
           reason: 'Tầng 2 phải có ô tìm kiếm.');
       expect(explorer.contains('_searchFocus.requestFocus();'), isTrue,
           reason: 'Mở lên phải thẳng vào ô tìm kiếm.');
-      // Ô dán URL (việc duy nhất mà tầng 1 cũ làm được).
-      expect(explorer.contains('_urlCtrl'), isTrue,
-          reason: 'Vẫn phải dán được URL như tầng 1 cũ.');
-      expect(explorer.contains("context.uiText('Dán URL YouTube...')"), isTrue);
+      // Vẫn dán được URL như tầng 1 cũ — nhưng qua CHÍNH ô tìm kiếm.
+      expect(explorer.contains('_urlCtrl'), isFalse,
+          reason: 'Đợt 6 đã bỏ thanh dán URL thứ hai.');
+      expect(explorer.contains("context.uiText('Dán URL YouTube...')"), isFalse,
+          reason: 'Thanh dán URL riêng không còn.');
+      expect(explorer.contains('ytVideoIdFromSearchInput('), isTrue,
+          reason: '_submitSearch phải nhận diện URL/ID để mở video.');
+      expect(explorer.contains('_pasteAndSubmit'), isTrue,
+          reason: 'Vẫn phải dán được từ clipboard, ngay trong ô duy nhất.');
     });
 
     test('tầng 2 responsive: sidebar chỉ hiện khi đủ rộng', () {

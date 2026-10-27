@@ -74,6 +74,30 @@ class UnderstandAiContext {
       (selectedText != null && selectedText!.isNotEmpty) ||
       (recentText != null && recentText!.isNotEmpty);
 
+  UnderstandAiContext copyWith({
+    String? selectedText,
+    String? surroundingText,
+    String? recentText,
+    int? currentLineIndex,
+    int? focusLineIndex,
+    String? sourceTitle,
+    UnderstandLearningMode? learningMode,
+    String? targetLanguage,
+    String? learnerLevel,
+  }) {
+    return UnderstandAiContext(
+      selectedText: selectedText ?? this.selectedText,
+      surroundingText: surroundingText ?? this.surroundingText,
+      recentText: recentText ?? this.recentText,
+      currentLineIndex: currentLineIndex ?? this.currentLineIndex,
+      focusLineIndex: focusLineIndex ?? this.focusLineIndex,
+      sourceTitle: sourceTitle ?? this.sourceTitle,
+      learningMode: learningMode ?? this.learningMode,
+      targetLanguage: targetLanguage ?? this.targetLanguage,
+      learnerLevel: learnerLevel ?? this.learnerLevel,
+    );
+  }
+
   /// Ngân sách ký tự — chống gửi cả tài liệu xuống AI.
   static const int selectedTextMaxLength = 600;
   static const int surroundingTextMaxLength = 1200;

@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../../../features/understand_ai/understand_ai_context.dart';
 import '../../../features/understand_ai/understand_ai_coach_sheet.dart';
+import '../../../core/navigation/workspace_handoff_inbox.dart';
 import '../../../providers/text_provider.dart';
 import '../understand_provider.dart';
 
@@ -37,10 +38,19 @@ UnderstandAiContext buildUnderstandAiContextFromProviders({
 Future<void> openUnderstandAiCoach(BuildContext context) async {
   final understand = context.read<UnderstandProvider>();
   final text = context.read<TextProvider>();
-  final aiContext = buildUnderstandAiContextFromProviders(
+  var aiContext = buildUnderstandAiContextFromProviders(
     understand: understand,
     text: text,
   );
+  final incoming = I4uWorkspaceHandoffInbox.instance.current;
+  if (incoming != null &&
+      (aiContext.selectedText == null || aiContext.selectedText!.isEmpty) &&
+      (incoming.selectedText ?? '').trim().isNotEmpty) {
+    aiContext = aiContext.copyWith(
+      selectedText: incoming.selectedText!.trim(),
+      sourceTitle: aiContext.sourceTitle ?? incoming.sourceId,
+    );
+  }
   await showUnderstandAiCoachSheet(
     context: context,
     aiContext: aiContext,

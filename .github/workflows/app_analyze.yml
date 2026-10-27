@@ -165,6 +165,13 @@ jobs:
       # (mạng → MDX → offline). Bỏ qua nếu nhánh chưa có file.
       - name: "DICT-CLEAN-001 / WORD-INSIGHT-001 tests"
         id: dict-word-insight-tests
+        # ⚠ KHÔNG nối test WIDGET dùng plugin thật vào đây (run 40575300780:
+        # `flutter test` của một testWidgets + sqflite/SharedPreferences TREO
+        # tới hết ngân sách job 25 phút, giết cả run). Cùng lý do với
+        # `workspace_shell_integration_test.dart` ở cuối file này. Hành vi của
+        # màn Từ điển được phủ bằng test THUẦN (history) + test sqflite kiểu
+        # `test()` (suggest/lookup) — hai loại này chạy ổn trên CI.
+        timeout-minutes: 8
         run: |
           set +e
           files=""
@@ -174,7 +181,7 @@ jobs:
                    test/dictionary/dict_multilang_pos_test.dart \
                    test/dictionary/dict_state_and_title_test.dart \
                    test/dictionary/dict_history_test.dart \
-                   test/dictionary/dictionary_screen_test.dart \
+                   test/dictionary/dict_suggest_test.dart \
                    test/dictionary/dict_pack_test.dart \
                    test/i18n/dict_pack_and_word_pop_i18n_test.dart \
                    test/word_lookup/word_insight_service_test.dart; do
@@ -194,7 +201,7 @@ jobs:
       # storage) ⇒ khi đỏ, đẩy phần đuôi log lên thành *annotation* của check-run
       # để còn đọc được bằng `gh api .../check-runs/<id>/annotations`.
       - name: "DICT tests — đưa lỗi lên annotation khi đỏ"
-        if: failure()
+        if: always() && steps.dict-word-insight-tests.outcome != 'success'
         run: |
           python3 - <<'PYEOF'
           import os, pathlib

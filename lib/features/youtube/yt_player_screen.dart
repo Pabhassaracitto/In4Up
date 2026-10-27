@@ -8,6 +8,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 // YT-AUDIT-02 (IN4-98): chế độ "Làm mờ bản dịch" KHÔNG còn dùng
 // `dart:ui` (MaskFilter / ImageFilter). Cả hai cách đó đều hỏng trên máy thật
 // (xem chú thích tại `_buildTranslationLine`); giờ làm mờ bằng
@@ -30,8 +31,12 @@ import '../../services/syntax_highlighter_service.dart';
 import 'models/yt_learning_settings.dart';
 import 'models/yt_subtitle.dart';
 import 'models/yt_video.dart';
+import 'services/yt_cloud_copy_service.dart';
 import 'services/yt_downloader.dart';
 import 'services/yt_learning_settings_service.dart';
+import 'services/yt_media_store.dart';
+import 'services/yt_read_bridge.dart';
+import 'services/yt_prepare_plan.dart';
 import 'services/yt_read_aloud_controller.dart';
 import 'services/yt_read_aloud_sequence.dart';
 import 'services/yt_sentence_segmenter.dart';
@@ -1767,8 +1772,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   /// Mở audio ĐÃ TẢI (tab TẢI) trong tab Nghe — dùng chung đường LRC.
   Future<void> _openInListenTab() async {
-    final audio = _downloadedAudioPath;
-    if (audio == null || audio.isEmpty) {
+    // YT-PREPARE-001: `_downloadedAudioPath` chỉ có khi vừa tải trong phiên
+    // này. Video đã tải từ lần trước vẫn phải mở được ⇒ rơi về kho.
+    final audio = (_downloadedAudioPath ?? _mediaItem?.audioPath) ?? '';
+    if (audio.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1778,6 +1785,22 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       return;
     }
     await _openAudioInListen(audio);
+  }
+
+  /// Nạp video đã có sẵn trong kho vào tab Đọc (có điều hướng sang tab).
+  Future<void> _openPreparedInRead() async {
+    final item = _mediaItem;
+    if (item == null) return;
+    final result = await YtReadBridge.openInRead(context, item);
+    if (!mounted) return;
+    if (!result.ok) {
+      _snack(
+        result.reason == 'no_captions'
+            ? 'Video này chưa có phụ đề đã lưu'
+            : 'Không nạp được vào tab Đọc',
+        color: Colors.red.shade700,
+      );
+    }
   }
 
   Future<void> _openInListen() async {
@@ -2075,7 +2098,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       children: [
         _buildTranscriptTab(),
         _buildWordTab(),
-        _buildDownloadTab(),
+        _buildPrepareTab(),
         _buildLexaTab(),
       ],
     );
@@ -2099,6 +2122,23 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
 
   /// Đường dẫn audio đã tải (để mở trong tab Nghe).
   String? _downloadedAudioPath;
+
+  // ── YT-PREPARE-001 (#4): lựa chọn của người dùng trong tab Tải ──────
+  bool _wantCaptions = true;
+  bool _wantAudio = true;
+  bool _wantSyncRead = false;
+  bool _wantCloudCopy = false;
+
+  /// Video này đã có gì trong kho (`null` = chưa có gì).
+  YtMediaItem? _mediaItem;
+  bool _mediaLoaded = false;
+
+  /// Nhật ký các bước đã chạy (mã, không phải câu) — UI dịch khi vẽ.
+  final List<String> _prepareLog = [];
+  bool _preparing = false;
+
+  /// Lý do bước lưu đám mây thất bại (mã máy).
+  String? _cloudReason;
   String? _downloadStatus;
   double? _downloadProgress;
   bool _downloading = false;
@@ -2130,8 +2170,10 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   /// ở "Đang tải…" mãi mãi. Ở đây đổi sang `listen(...)` để giữ
   /// [StreamSubscription], cộng thêm bộ canh 45 giây không có tiến triển →
   /// hiện cảnh báo + nút Dừng.
-  Future<void> _downloadAudio() async {
-    if (_downloading) return;
+  /// Trả `true` khi tải xong thật (dùng cho kế hoạch "Tải & chuẩn bị").
+  Future<bool> _downloadAudio() async {
+    if (_downloading) return false;
+    final done = Completer<bool>();
     await _dlSub?.cancel();
     _dlWatchdog?.cancel();
     setState(() {
@@ -2184,12 +2226,14 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             _downloadProgress = 1;
             _downloadStatus = 'Đã tải xong (${event.quality})';
           });
+          if (!done.isCompleted) done.complete(true);
         } else if (event is YtDownloadFailed) {
           _stopDownloadWatchdog();
           setState(() {
             _downloading = false;
             _downloadStatus = 'Tải thất bại: ${event.message}';
           });
+          if (!done.isCompleted) done.complete(false);
         }
       },
       onError: (Object e) {
@@ -2200,6 +2244,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             _downloadStatus = 'Lỗi: $e';
           });
         }
+        if (!done.isCompleted) done.complete(false);
       },
       onDone: () {
         // Luồng đóng mà chưa emit Done/Failed (bị huỷ) → chốt trạng thái.
@@ -2210,9 +2255,11 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             _downloadStatus ??= 'Đã dừng tải.';
           });
         }
+        if (!done.isCompleted) done.complete(false);
       },
       cancelOnError: false,
     );
+    return done.future;
   }
 
   void _stopDownloadWatchdog() {
@@ -2238,9 +2285,12 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     debugPrint('[in4up-yt] audio download stopped by user ${widget.video.id}');
   }
 
-  /// Tải phụ đề (caption) của video hiện tại về máy (file .srt).
-  Future<void> _downloadCaptions() async {
-    setState(() => _downloadStatus = 'Đang tải phụ đề...');
+  /// Tải phụ đề của video hiện tại về kho (`youtube_media/yt_<id>.lrc`).
+  ///
+  /// Trả danh sách dòng khi thành công, `null` khi video không có phụ đề hoặc
+  /// lỗi — `_runPrepare` cần biết kết quả thật để báo đúng, không đoán.
+  Future<List<YtCaptionLine>?> _downloadCaptions() async {
+    if (mounted) setState(() => _downloadStatus = 'Đang tải phụ đề...');
     try {
       final lines = await YtService.instance
           .fetchCaptions(widget.video.id, lang: 'en');
@@ -2248,57 +2298,257 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         if (mounted) {
           setState(() => _downloadStatus = 'Video không có phụ đề (en)');
         }
-        return;
+        return null;
       }
-      final path = await YtService.instance
-          .saveLrc(lines, YtVideo(
-            id: widget.video.id,
-            title: widget.video.title,
-            channel: widget.video.channelTitle,
-            thumb: widget.video.thumb,
-          ));
+      final path = await YtService.instance.saveLrc(
+        lines,
+        YtVideo(
+          id: widget.video.id,
+          title: widget.video.title,
+          channel: widget.video.channelTitle,
+          thumb: widget.video.thumb,
+        ),
+      );
       if (mounted) {
         setState(() => _downloadStatus =
             'Đã lưu phụ đề (${lines.length} dòng): ${path ?? "?"}');
       }
+      return lines;
     } catch (e) {
       if (mounted) setState(() => _downloadStatus = 'Lỗi tải phụ đề: $e');
+      return null;
     }
   }
 
-  Widget _buildDownloadTab() {
+  // ── Tab TẢI = "Tải & chuẩn bị" (YT-PREPARE-001, #4 owner 2026-10-28) ──
+  //
+  // Owner: *"Không nạp sẵn, mà do người dùng nhấn vô tab tải có lựa chọn tải
+  // về, đồng bộ tab đọc, lưu luôn đám mây hay không. Nói chung bạn làm sao đó
+  // cho tinh tế, thông minh."*
+  //
+  // Nên tab này không còn là hai nút mù ("Tải audio", "Tải phụ đề") mà là:
+  //   1. thẻ TRẠNG THÁI (máy đã có gì, nặng bao nhiêu, ở đâu);
+  //   2. các LỰA CHỌN (phụ đề / âm thanh / đồng bộ tab Đọc / lưu đám mây);
+  //   3. MỘT nút chạy cả kế hoạch, bỏ qua việc đã xong;
+  //   4. báo cáo từng bước đúng như đã xảy ra (kể cả phần thất bại).
+
+  Future<void> _loadMediaItem() async {
+    final items = await YtMediaStore.list();
+    final mine = items.where((i) => i.videoId == widget.video.id).toList();
+    if (!mounted) return;
+    setState(() {
+      _mediaItem = mine.isEmpty ? null : mine.first;
+      _mediaLoaded = true;
+    });
+  }
+
+  String _humanSize(int bytes) {
+    if (bytes >= 1048576) {
+      return '${(bytes / 1048576).toStringAsFixed(1)} MB';
+    }
+    if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return '$bytes B';
+  }
+
+  /// Chạy kế hoạch "Tải & chuẩn bị".
+  Future<void> _runPrepare() async {
+    if (_preparing) return;
+    final item = _mediaItem;
+    final hasCaptions = item?.hasCaptions ?? false;
+    final hasAudio = item?.hasAudio ?? false;
+
+    // Kiểm "đã lưu đám mây đúng bản này chưa" TRƯỚC khi lập kế hoạch, để
+    // không đẩy bản trùng lên Firestore mỗi lần người dùng bấm lại.
+    var cloudUpToDate = false;
+    if (_wantCloudCopy) {
+      final lrcPath = item?.lrcPath;
+      if (lrcPath != null) {
+        try {
+          final content = await File(lrcPath).readAsString();
+          cloudUpToDate = await YtCloudCopyService.instance
+              .isUpToDate(widget.video.id, content);
+        } catch (_) {
+          cloudUpToDate = false;
+        }
+      }
+    }
+
+    final plan = buildYtPreparePlan(
+      hasCaptions: hasCaptions,
+      hasAudio: hasAudio,
+      wantCaptions: _wantCaptions,
+      wantAudio: _wantAudio,
+      wantSyncRead: _wantSyncRead,
+      wantCloudCopy: _wantCloudCopy,
+      cloudUpToDate: cloudUpToDate,
+    );
+
+    setState(() {
+      _preparing = true;
+      _prepareLog.clear();
+      _cloudReason = null;
+    });
+
+    void log(String code) {
+      if (!mounted) return;
+      setState(() => _prepareLog.add(code));
+    }
+
+    if (plan.nothingToDo) {
+      if (mounted) {
+        setState(() {
+          _preparing = false;
+          _prepareLog.addAll(plan.notes);
+          if (plan.notes.isEmpty) _prepareLog.add('nothing_to_do');
+        });
+      }
+      return;
+    }
+
+    for (final step in plan.steps) {
+      if (!mounted) return;
+      switch (step) {
+        case YtPrepareStep.downloadCaptions:
+          final lines = await _downloadCaptions();
+          log(lines == null ? 'captions_failed' : 'captions_ok');
+          if (!mounted) return;
+          await _loadMediaItem();
+
+        case YtPrepareStep.downloadAudio:
+          final ok = await _downloadAudio();
+          log(ok ? 'audio_ok' : 'audio_failed');
+          if (!mounted) return;
+          await _loadMediaItem();
+
+        case YtPrepareStep.syncRead:
+          final current = _mediaItem;
+          if (current == null) {
+            log('sync_failed');
+            break;
+          }
+          // Chỉ nạp vào tab Đọc, KHÔNG tự chuyển tab: người dùng có thể đang
+          // muốn chuẩn bị trước rồi xem tiếp video này.
+          final result =
+              await YtReadBridge.openInRead(context, current, openShell: false);
+          log(result.ok ? 'sync_ok' : 'sync_failed');
+
+        case YtPrepareStep.cloudCopy:
+          final lrcPath = _mediaItem?.lrcPath;
+          if (lrcPath == null) {
+            log('cloud_failed');
+            break;
+          }
+          String content;
+          try {
+            content = ytPlainTextFromLrc(await File(lrcPath).readAsString());
+          } catch (_) {
+            log('cloud_failed');
+            break;
+          }
+          final res = await YtCloudCopyService.instance.save(
+            videoId: widget.video.id,
+            title: 'YouTube · ${widget.video.title}',
+            content: content,
+          );
+          if (res.ok) {
+            log('cloud_ok');
+          } else {
+            if (mounted) setState(() => _cloudReason = res.reason);
+            log(res.reason == 'not_signed_in'
+                ? 'cloud_not_signed_in'
+                : 'cloud_failed');
+          }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _preparing = false;
+      _prepareLog.addAll(plan.notes);
+    });
+    await _loadMediaItem();
+  }
+
+  Widget _buildPrepareTab() {
     if (!_historyLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadHistory());
     }
+    if (!_mediaLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadMediaItem());
+    }
+    final item = _mediaItem;
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        // ── Audio ──
+        _buildMediaStatusCard(item),
+        const SizedBox(height: 14),
         Text(
-          context.uiText('Tải audio'),
+          context.uiText('Chọn việc cần làm'),
           style: const TextStyle(
               color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 4),
+        Text(
+          context.uiText(
+              'App bỏ qua phần đã có trên máy — không tải lại thứ đã tải rồi.'),
+          style: TextStyle(color: Colors.grey[600], fontSize: 10.5, height: 1.35),
+        ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _downloading ? null : _downloadAudio,
-                icon: const Icon(Icons.download, size: 16),
-                label: Text(context.uiText(
-                    _downloading ? 'Đang tải...' : 'Tải audio')),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _downloading ? null : _downloadCaptions,
-                icon: const Icon(Icons.subtitles, size: 16),
-                label: Text(context.uiText('Tải phụ đề')),
-              ),
-            ),
-          ],
+        _prepareSwitch(
+          icon: Icons.subtitles_outlined,
+          label: 'Tải phụ đề (.lrc)',
+          hint: item?.hasCaptions == true
+              ? 'Đã có trên máy'
+              : 'Cần cho đọc / dịch / lưu đám mây',
+          value: _wantCaptions,
+          onChanged: (v) => setState(() => _wantCaptions = v),
+        ),
+        _prepareSwitch(
+          icon: Icons.audiotrack,
+          label: 'Tải âm thanh',
+          // Câu gợi ý phải là chuỗi TĨNH: chuỗi có nội suy không khớp catalog
+          // nên sẽ hiện tiếng Việt ở locale khác. Dung lượng đã nằm ở thẻ
+          // trạng thái phía trên.
+          hint: item?.hasAudio == true
+              ? 'Đã có trên máy'
+              : 'Nặng hơn phụ đề — nên dùng Wi-Fi',
+          value: _wantAudio,
+          onChanged: (v) => setState(() => _wantAudio = v),
+        ),
+        _prepareSwitch(
+          icon: Icons.menu_book,
+          label: 'Đồng bộ sang tab Đọc',
+          hint: 'Nạp phụ đề + âm thanh vào tab Đọc để học từng câu',
+          value: _wantSyncRead,
+          onChanged: (v) => setState(() => _wantSyncRead = v),
+        ),
+        _prepareSwitch(
+          icon: Icons.cloud_upload_outlined,
+          label: 'Lưu bản sao lên đám mây',
+          hint: 'Đưa phụ đề vào Thư viện đọc để mở trên máy khác '
+              '(cần đăng nhập)',
+          value: _wantCloudCopy,
+          onChanged: (v) => setState(() => _wantCloudCopy = v),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: _preparing ? null : _runPrepare,
+          icon: _preparing
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.download_done, size: 17),
+          label: Text(context.uiText(
+              _preparing ? 'Đang chuẩn bị...' : 'Tải & chuẩn bị')),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF6C63FF),
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
         ),
         if (_downloading) ...[
           const SizedBox(height: 8),
@@ -2312,7 +2562,6 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              // YT-LR-002: nút Dừng — tab Tải trước đây không có cách huỷ.
               SizedBox(
                 height: 28,
                 child: OutlinedButton.icon(
@@ -2334,18 +2583,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (_dlStalled) ...[
+              if (_dlStalled)
                 const Padding(
                   padding: EdgeInsets.only(top: 1, right: 5),
                   child: Icon(Icons.hourglass_disabled,
                       size: 13, color: Colors.orangeAccent),
                 ),
-              ],
               Expanded(
-                // YT-LR-002: đưa qua `uiText` để các chuỗi CỐ ĐỊNH
-                // ("Đã dừng tải audio.", "Không thấy tiến triển…") có bản
-                // tiếng Anh; chuỗi động (ví dụ "128 / 45.2 MB") không khớp
-                // catalog nên được trả nguyên — không đổi hành vi.
                 child: Text(
                   context.uiText(_downloadStatus!),
                   style: TextStyle(
@@ -2357,15 +2601,35 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             ],
           ),
         ],
-        if (_downloadedAudioPath != null) ...[
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _openInListenTab,
-            icon: const Icon(Icons.headphones, size: 16),
-            label: Text(context.uiText('Mở trong tab Nghe')),
-          ),
+        if (_prepareLog.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _buildPrepareReport(),
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed:
+                    (_mediaItem?.hasAudio ?? false) ? _openInListenTab : null,
+                icon: const Icon(Icons.headphones, size: 15),
+                label: Text(context.uiText('Mở trong tab Nghe'),
+                    style: const TextStyle(fontSize: 12)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed:
+                    (_mediaItem?.hasCaptions ?? false) ? _openPreparedInRead : null,
+                icon: const Icon(Icons.menu_book, size: 15),
+                label: Text(context.uiText('Học trong tab Đọc'),
+                    style: const TextStyle(fontSize: 12)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         // ── Lịch sử ──
         Text(
           context.uiText('Lịch sử xem'),
@@ -2379,58 +2643,255 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             style: const TextStyle(color: Colors.white38, fontSize: 12),
           )
         else
-          ..._history.take(30).map((v) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: v.thumb == null
-                    ? const Icon(Icons.play_circle_outline,
-                        color: Colors.white38, size: 20)
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.network(
-                          v.thumb!,
-                          width: 44,
-                          height: 26,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                              Icons.play_circle_outline,
-                              color: Colors.white38,
-                              size: 20),
-                        ),
-                      ),
-                title: Text(
-                  v.shortTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-                subtitle: Text(
-                  v.channel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white38, fontSize: 10),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => YtPlayerScreen(
-                        video: YtExVideo(
-                          id: v.id,
-                          title: v.title,
-                          channelId: '',
-                          channelTitle: v.channel,
-                          thumb: v.thumb,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              )),
+          ..._history.take(30).map(_historyTile),
       ],
     );
   }
+
+  /// Thẻ trạng thái: máy đã có gì cho video này (+ nơi lưu, dung lượng).
+  Widget _buildMediaStatusCard(YtMediaItem? item) {
+    final hasCaptions = item?.hasCaptions ?? false;
+    final hasAudio = item?.hasAudio ?? false;
+    final complete = hasCaptions && hasAudio;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: complete
+            ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: complete
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+              : Colors.white12,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                complete ? Icons.offline_pin : Icons.cloud_download_outlined,
+                size: 16,
+                color: complete ? const Color(0xFF4CAF50) : Colors.grey,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  complete
+                      ? context.uiText('Đã sẵn sàng học offline')
+                      : context.uiText('Chưa đủ để học offline'),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: complete ? const Color(0xFF4CAF50) : Colors.white70,
+                  ),
+                ),
+              ),
+              if (item != null)
+                Text(
+                  _humanSize(item.bytes),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: [
+              _statusChip(context.uiText('Phụ đề'), hasCaptions),
+              _statusChip(context.uiText('Âm thanh'), hasAudio),
+            ],
+          ),
+          if (item != null) ...[
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: _openMediaLibrary,
+              child: Text(
+                context.uiText('Xem trong Thư viện đã tải'),
+                style: const TextStyle(
+                    fontSize: 10.5, color: Color(0xFF53D6BD)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _statusChip(String label, bool ok) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            ok ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 11,
+            color: ok ? const Color(0xFF4CAF50) : Colors.grey[600],
+          ),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              color: ok ? Colors.white70 : Colors.grey[600],
+            ),
+          ),
+        ],
+      );
+
+  Widget _prepareSwitch({
+    required IconData icon,
+    required String label,
+    required String hint,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile(
+      value: value,
+      onChanged: _preparing ? null : onChanged,
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      activeColor: const Color(0xFF53D6BD),
+      secondary: Icon(icon, size: 18, color: Colors.grey[400]),
+      title: Text(label,
+          style: const TextStyle(fontSize: 12.5, color: Colors.white70)),
+      subtitle: Text(hint,
+          style: TextStyle(fontSize: 10, color: Colors.grey[600], height: 1.3)),
+    );
+  }
+
+  /// Báo cáo từng bước. Mã bước (`captions_ok`…) → câu người đọc được, để
+  /// không phải đoán "nó chạy xong chưa".
+  Widget _buildPrepareReport() {
+    const labels = <String, String>{
+      'captions_ok': 'Đã tải phụ đề',
+      'captions_failed': 'Không tải được phụ đề (video có thể không có)',
+      'audio_ok': 'Đã tải âm thanh',
+      'audio_failed': 'Tải âm thanh thất bại — thử lại khi mạng ổn định',
+      'sync_ok': 'Đã đồng bộ sang tab Đọc',
+      'sync_failed': 'Chưa đồng bộ được sang tab Đọc',
+      'cloud_ok': 'Đã lưu bản sao lên đám mây',
+      'cloud_not_signed_in': 'Chưa đăng nhập — chưa lưu được lên đám mây',
+      'cloud_failed': 'Lưu đám mây thất bại',
+      'captions_already_saved': 'Phụ đề đã có sẵn — bỏ qua',
+      'audio_already_saved': 'Âm thanh đã có sẵn — bỏ qua',
+      'cloud_up_to_date': 'Bản trên đám mây đã là bản mới nhất',
+      'sync_needs_captions': 'Cần tải phụ đề trước khi đồng bộ tab Đọc',
+      'cloud_needs_captions': 'Cần tải phụ đề trước khi lưu đám mây',
+      'nothing_to_do': 'Không có gì cần làm — mọi thứ đã có sẵn',
+    };
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final code in _prepareLog)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1.5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    code.endsWith('_ok')
+                        ? Icons.check_circle_outline
+                        : (code.contains('already') ||
+                                code.contains('up_to_date') ||
+                                code == 'nothing_to_do'
+                            ? Icons.remove_circle_outline
+                            : Icons.error_outline),
+                    size: 12,
+                    color: code.endsWith('_ok')
+                        ? const Color(0xFF4CAF50)
+                        : (code.contains('already') ||
+                                code.contains('up_to_date') ||
+                                code == 'nothing_to_do'
+                            ? Colors.grey
+                            : Colors.orangeAccent),
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      context.uiText(labels[code] ?? code),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        height: 1.3,
+                        color: code.endsWith('_ok')
+                            ? Colors.white70
+                            : Colors.grey[400],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_cloudReason == 'not_signed_in')
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                context.uiText(
+                    'Đăng nhập trong Cài đặt để lưu phụ đề lên Thư viện đọc đám mây.'),
+                style: TextStyle(fontSize: 10, color: Colors.grey[600], height: 1.3),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyTile(YtVideo v) => ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        leading: v.thumb == null
+            ? const Icon(Icons.play_circle_outline,
+                color: Colors.white38, size: 20)
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  v.thumb!,
+                  width: 44,
+                  height: 26,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                      Icons.play_circle_outline,
+                      color: Colors.white38,
+                      size: 20),
+                ),
+              ),
+        title: Text(
+          v.shortTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        subtitle: Text(
+          v.channel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => YtPlayerScreen(
+                video: YtExVideo(
+                  id: v.id,
+                  title: v.title,
+                  channelId: '',
+                  channelTitle: v.channel,
+                  thumb: v.thumb,
+                ),
+              ),
+            ),
+          );
+        },
+      );
 
   // ── Transcript tab ────────────────────────────────────────
   /// YT-AUDIT-10 (IN4-102): hàng công tắc "Tự động theo dòng hiện tại"

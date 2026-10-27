@@ -10,7 +10,7 @@
 // và phân tán. Nay có 3 kiểu, độc lập với việc chọn *màu gì* (loại từ / CEFR /
 // độ khó):
 //
-//   • [fill]      — NỀN màu + chữ màu (mặc định cũ, giữ nguyên trải nghiệm).
+//   • [fill]      — NỀN màu + chữ màu.
 //   • [textOnly]  — CHỈ đổi màu chữ, không nền, không viền.
 //   • [underline] — chữ thường + GẠCH CHÂN màu (nhẹ nhất, kiểu sách giấy).
 //
@@ -54,6 +54,6 @@ enum WordColorStyle {
     for (final style in WordColorStyle.values) {
       if (style.name == value) return style;
     }
-    return WordColorStyle.fill;
+    return WordColorStyle.textOnly;
   }
 }

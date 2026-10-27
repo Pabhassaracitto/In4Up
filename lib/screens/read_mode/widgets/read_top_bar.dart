@@ -69,6 +69,18 @@ class ReadTopBar extends StatelessWidget {
               tp.cycleColorMode();
             },
           ),
+          // Hiện/ẩn nhãn A1, N/V hoặc độ khó dưới từng từ để cân bằng
+          // độ chi tiết và không gian đọc.
+          CollapsibleAction(
+            label: context.uiText('Thông tin màu'),
+            icon: tp.showColorModeDetails
+                ? Icons.label_rounded
+                : Icons.label_off_rounded,
+            active: tp.showColorModeDetails,
+            activeColor: const Color(0xFF64B5F6),
+            onPressed: () =>
+                tp.setShowColorModeDetails(!tp.showColorModeDetails),
+          ),
           // 2) Box từng từ ⇄ bôi nhiều chữ
           CollapsibleAction(
             label: context.uiText('Box từng từ'),

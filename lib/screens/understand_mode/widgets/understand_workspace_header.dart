@@ -19,6 +19,8 @@ class UnderstandWorkspaceHeader extends StatelessWidget {
 
   /// Action "Hỏi AI" — mở sheet Trợ lý hiểu bài (AI Coach).
   final VoidCallback onOpenAiCoach;
+  final bool expanded;
+  final VoidCallback? onToggleExpanded;
 
   const UnderstandWorkspaceHeader({
     super.key,
@@ -27,6 +29,8 @@ class UnderstandWorkspaceHeader extends StatelessWidget {
     required this.onOpenReview,
     required this.onOpenQuickActions,
     required this.onOpenAiCoach,
+    this.expanded = true,
+    this.onToggleExpanded,
   });
 
   @override
@@ -43,6 +47,23 @@ class UnderstandWorkspaceHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.uiText('Công cụ hiểu'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+              IconButton(
+                tooltip: context.uiText(expanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
+                visualDensity: VisualDensity.compact,
+                onPressed: onToggleExpanded,
+                icon: Icon(expanded ? Icons.expand_less : Icons.expand_more, color: Colors.white70),
+              ),
+            ],
+          ),
+          if (expanded) ...[
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -126,6 +147,7 @@ class UnderstandWorkspaceHeader extends StatelessWidget {
               ],
             ),
           ),
+          ],
         ],
       ),
     );

@@ -167,7 +167,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
-  ColorMode _colorMode = ColorMode.none;
+  ColorMode _colorMode = ColorMode.difficulty;
   IpaDisplayMode _ipaDisplayMode = IpaDisplayMode.hidden;
   bool _ipaColorByType = false; // READ-IPA-004: tô màu phoneme (default OFF)
   bool _ipaFadeKnown = false; // READ-IPA-004: mờ IPA từ đã thuộc (OFF)
@@ -322,6 +322,14 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     await ReaderDisplaySettings().setWordColorStyle(style);
     notifyListeners();
   }
+
+  /// Hiện nhãn mức độ (POS / CEFR / độ khó) ngay dưới mỗi từ có màu.
+  bool get showColorModeDetails => ReaderDisplaySettings().showColorModeDetails;
+
+  Future<void> setShowColorModeDetails(bool value) async {
+    await ReaderDisplaySettings().setShowColorModeDetails(value);
+    notifyListeners();
+  }
   bool get useAutoSplit => _useAutoSplit;
   ReadSubMode get subMode => _subMode;
   TextAlign get textAlign => _textAlign;
@@ -364,7 +372,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       final savedColorMode = _storage.getColorMode();
       _colorMode = ColorMode.values.firstWhere(
         (m) => m.name == savedColorMode,
-        orElse: () => ColorMode.none,
+        orElse: () => ColorMode.difficulty,
       );
 
       // Restore IPA display mode (READ-IPA-001) + options (READ-IPA-004)

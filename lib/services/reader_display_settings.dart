@@ -14,6 +14,7 @@ class ReaderDisplaySettings {
   static const String _keyRecallMarkers = 'reader_show_recall_markers';
   static const String _keyWordTapBoxes = 'reader_word_tap_boxes';
   static const String _keyWordColorStyle = 'reader_word_color_style';
+  static const String _keyColorModeDetails = 'reader_show_color_mode_details';
 
   static final ReaderDisplaySettings _instance = ReaderDisplaySettings._();
 
@@ -24,7 +25,8 @@ class ReaderDisplaySettings {
 
   bool _showRecallMarkers = false;
   bool _wordTapBoxes = false;
-  WordColorStyle _wordColorStyle = WordColorStyle.fill;
+  WordColorStyle _wordColorStyle = WordColorStyle.textOnly;
+  bool _showColorModeDetails = true;
 
   /// true = hiện marker bao quanh từ đã lưu (green = đã lưu,
   /// amber = có ghi chú, red = đến kỳ ôn).
@@ -37,6 +39,8 @@ class ReaderDisplaySettings {
   /// READ-WORDSTYLE-001: kiểu hiển thị từ khi tô màu (nền / chỉ màu chữ /
   /// gạch chân) — người đọc lâu chọn "chỉ màu chữ" để đỡ phân tâm.
   WordColorStyle get wordColorStyle => _wordColorStyle;
+
+  bool get showColorModeDetails => _showColorModeDetails;
 
   final List<void Function()> _listeners = [];
 
@@ -57,6 +61,7 @@ class ReaderDisplaySettings {
       _wordTapBoxes = prefs.getBool(_keyWordTapBoxes) ?? false;
       _wordColorStyle =
           WordColorStyle.fromStorage(prefs.getString(_keyWordColorStyle));
+      _showColorModeDetails = prefs.getBool(_keyColorModeDetails) ?? true;
     } catch (e) {
       debugPrint('ReaderDisplaySettings.init error: $e');
     }
@@ -83,6 +88,18 @@ class ReaderDisplaySettings {
       await prefs.setBool(_keyWordTapBoxes, value);
     } catch (e) {
       debugPrint('ReaderDisplaySettings.save wordTapBoxes error: $e');
+    }
+  }
+
+  Future<void> setShowColorModeDetails(bool value) async {
+    if (_showColorModeDetails == value) return;
+    _showColorModeDetails = value;
+    _notify();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyColorModeDetails, value);
+    } catch (e) {
+      debugPrint('ReaderDisplaySettings.save color mode details error: $e');
     }
   }
 

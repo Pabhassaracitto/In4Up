@@ -24,6 +24,22 @@ void main() {
       expect(AppUITranslations.translate('Ôn tập · SRS', 'zh'), '复习 · SRS');
     });
 
+    test('localizes persistent workspace tool controls', () {
+      const controls = {
+        'Công cụ hiểu': 'Understanding tools',
+        'Công cụ nghe': 'Listening tools',
+        'Thu gọn công cụ': 'Collapse tools',
+        'Mở công cụ': 'Expand tools',
+        'Thông tin màu': 'Color details',
+      };
+      for (final entry in controls.entries) {
+        expect(AppUITranslations.translate(entry.key, 'en'), entry.value);
+        for (final locale in ['hi', 'zh', 'zh_TW', 'si']) {
+          expect(AppUITranslations.translate(entry.key, locale), isNot(entry.key));
+        }
+      }
+    });
+
     test('uses real locale translations when the catalog has one', () {
       expect(AppUITranslations.translate('Lưu', 'de-DE'), 'Speichern');
       expect(AppUITranslations.translate('Lưu', 'fr-FR'), 'Enregistrer');

@@ -31,10 +31,10 @@ void main() {
       }
     });
 
-    test('fromStorage: giá trị lạ / rỗng ⇒ mặc định nền màu (giữ UX cũ)', () {
-      expect(WordColorStyle.fromStorage(null), WordColorStyle.fill);
-      expect(WordColorStyle.fromStorage(''), WordColorStyle.fill);
-      expect(WordColorStyle.fromStorage('khong_ton_tai'), WordColorStyle.fill);
+    test('fromStorage: giá trị lạ / rỗng ⇒ mặc định chỉ màu chữ', () {
+      expect(WordColorStyle.fromStorage(null), WordColorStyle.textOnly);
+      expect(WordColorStyle.fromStorage(''), WordColorStyle.textOnly);
+      expect(WordColorStyle.fromStorage('khong_ton_tai'), WordColorStyle.textOnly);
       expect(WordColorStyle.fromStorage('textOnly'), WordColorStyle.textOnly);
       expect(WordColorStyle.fromStorage('underline'), WordColorStyle.underline);
     });

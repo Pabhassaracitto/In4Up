@@ -98,6 +98,7 @@ class _MainShellState extends State<MainShell> {
   bool _autoHideModeSwitch = false;
   bool _enableLongPressModeSwitch = false;
   bool _rememberLastSubMode = true;
+  bool _listenToolsExpanded = true;
   bool _modeSwitchExpanded = false;
   Timer? _modeSwitchHideTimer;
   Timer? _shellHintTimer;
@@ -167,6 +168,8 @@ class _MainShellState extends State<MainShell> {
     _enableLongPressModeSwitch = _storage.getShellLongPressModeSwitch();
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
     _contentOrder = _storage.getShellContentOrder();
+    _listenToolsExpanded =
+        _storage.getSetting<bool>('listen_workspace_tools_expanded_v1', defaultValue: true) ?? true;
 
     if (!preserveWorkspaceState) {
       _listenModeIndex =
@@ -1518,6 +1521,15 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildWorkspaceHeader(BuildContext context) {
     final children = <Widget>[];
+    // Full-screen library states need their vertical space for content. Keep
+    // the mode switch, but suppress the source/action chrome while no item is
+    // open in the Listen or Read workspace.
+    final listenLibraryFull = _currentTab == _PrimaryTab.listen &&
+        _listenModeIndex == 0 &&
+        context.watch<PlayerProvider>().currentSongPath == null;
+    final readLibraryFull = _currentTab == _PrimaryTab.read &&
+        _readModeIndex == 0 &&
+        context.watch<TextProvider>().lines.isEmpty;
 
     if (_hasSecondaryModes) {
       children.add(_buildAnimatedModeSwitch(context));
@@ -1525,10 +1537,10 @@ class _MainShellState extends State<MainShell> {
 
     switch (_currentTab) {
       case _PrimaryTab.listen:
-        children.add(_buildListenContextHeader(context));
+        if (!listenLibraryFull) children.add(_buildListenContextHeader(context));
         break;
       case _PrimaryTab.read:
-        children.add(_buildReadContextHeader(context));
+        if (!readLibraryFull) children.add(_buildReadContextHeader(context));
         break;
       case _PrimaryTab.understand:
         children.add(_buildUnderstandContextHeader(context));
@@ -1587,6 +1599,26 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(context.uiText('Công cụ nghe'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: context.uiText(_listenToolsExpanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  final next = !_listenToolsExpanded;
+                  setState(() => _listenToolsExpanded = next);
+                  unawaited(_storage.saveSetting('listen_workspace_tools_expanded_v1', next));
+                },
+                icon: Icon(_listenToolsExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.white70),
+              ),
+            ],
+          ),
+          if (_listenToolsExpanded) ...[
           // AUDIT-2026-10-20 (mục 5): nhãn + nguồn CHUNG MỘT HÀNG (chips
           // cuộn ngang) ⇒ header gọn hơn, vẫn đồng bộ 3 tab.
           Row(
@@ -1610,6 +1642,7 @@ class _MainShellState extends State<MainShell> {
           ),
           const SizedBox(height: 6),
           _WorkspaceHeaderActions(actions: actions),
+          ],
         ],
       ),
     );

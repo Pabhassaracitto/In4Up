@@ -2,6 +2,41 @@
 /// Merged first in [AppUITranslations.translate] so Home/settings labels
 /// do not stay Vietnamese when the catalog is incomplete.
 const Map<String, Map<String, String>> priorityUiOverrides = {
+  'Công cụ hiểu': {
+    'en': 'Understanding tools',
+    'hi': 'समझने के टूल',
+    'zh': '理解工具',
+    'zh_TW': '理解工具',
+    'si': 'අවබෝධ මෙවලම්',
+  },
+  'Thu gọn công cụ': {
+    'en': 'Collapse tools',
+    'hi': 'टूल संक्षिप्त करें',
+    'zh': '收起工具',
+    'zh_TW': '收合工具',
+    'si': 'මෙවලම් හකුළන්න',
+  },
+  'Mở công cụ': {
+    'en': 'Expand tools',
+    'hi': 'टूल खोलें',
+    'zh': '展开工具',
+    'zh_TW': '展開工具',
+    'si': 'මෙවලම් විහිදුවන්න',
+  },
+  'Công cụ nghe': {
+    'en': 'Listening tools',
+    'hi': 'सुनने के टूल',
+    'zh': '听力工具',
+    'zh_TW': '聆聽工具',
+    'si': 'සවන් දීමේ මෙවලම්',
+  },
+  'Thông tin màu': {
+    'en': 'Color details',
+    'hi': 'रंग की जानकारी',
+    'zh': '颜色信息',
+    'zh_TW': '顏色資訊',
+    'si': 'වර්ණ විස්තර',
+  },
   'Home là trung tâm điều phối: tiếp tục học, theo dõi tiến độ và truy cập nhanh hệ thống.':
       {
     'en':

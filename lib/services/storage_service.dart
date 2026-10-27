@@ -136,7 +136,7 @@ class StorageService {
   }
 
   String getColorMode() {
-    return getSetting<String>('color_mode', defaultValue: 'none') ?? 'none';
+    return getSetting<String>('color_mode', defaultValue: 'difficulty') ?? 'difficulty';
   }
 
   Future<void> saveIpaDisplayMode(String mode) async {

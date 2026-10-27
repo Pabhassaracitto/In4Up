@@ -2568,7 +2568,7 @@ class _SmartGroupsSheet extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8)),
-                  child: Text(context.uiText('$count'),
+                  child: Text('$count',
                       style: TextStyle(
                           color: color,
                           fontSize: 11,

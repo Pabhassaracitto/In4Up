@@ -2,7 +2,7 @@
 // Floating round bubble that shows wordlist TTS status across tabs
 // Features: draggable, auto-hide after seconds, tap to mute, hide when back to wordlist
 
-import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

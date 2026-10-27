@@ -44,6 +44,7 @@
 | PDF-W1 | Wave 1+2 PDF Reader (đợt A+B+C): mục lục + tìm trong file + thumbnail + nhảy trang + phím tắt + chủ đề đọc + xuất/nhập chú thích (JSON/XFDF/bản chụp PDF) | 🔨 doing | code + CI 🟢 06-09-2026 (đợt A `032f321` run 34012087643; đợt B 1.5 run 34042635098; đợt C = wave 2 mục 2.6 B1+B2, run xanh cuối `34058736214` sau 3 run đỏ vì API Dart — chi tiết docs §4.3) trên `arena/01a07250-in4up`; ADR-0004; docs §4.1+§4.2+§4.3; CÒN nghiệm thu thiết bị + `flutter test test/pdf_reader` (14 file / 134 test, chưa chạy lần nào) + một lượt round-trip share sheet thật + 1.4/1.7/1.8 + phần 2.6 còn lại (Markdown/CSV, in, stamp thật vào tệp) |
 | WEB-BUILD-001 | `flutter build web` ĐỎ: app chưa web-compatible + xung đột nguồn Pages | ✅ done (đã deploy `gh-pages`, chờ owner kiểm) | entrypoint `lib/main_web.dart` web-safe + `web/flutter_bootstrap.js` canvasKit cục bộ + `web/yt_embed.html` fix -1 (origin/enablejsapi) — IN4-109 |
 | WEB-BUILD-002 | Web VẪN TRẮNG + YouTube -1 tái phát sau fix 001 — thiếu `home:` + thiếu loader/.nojekyll | 🔨 doing (đã fix, chờ CI + hard-reload) | `home:` rỗng ⇒ trắng; thêm loader + `.nojekyll` + yt_embed v2 validate ID — IN4-109 tiếp nối |
+| REL-1.18.0 | Release **1.18.0** (full 4 nền tảng) từ tip 251e `b3583676` — 34 commit sau 1.17.0 (i18n wave 8+9, PRON-002, API-SERVERSET, PARAKEET-002 dùng được, 7 fix YouTube, fix từ điển) | ✅ done (build 🟢 run 40568716000, 4/4 job; chờ nghiệm thu máy) | bump `1.17.0+17 → 1.18.0+18` (`5a70bf33`); APK arm64 198.4 MB `8e6b90fa…`, IPA 92.7 MB, Linux 49.4 MB, Windows 51.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.18.0 |
 | REL-1.17.0 | Release **1.17.0** (full 4 nền tảng) từ tip 251e — bump `1.16.0+16 → 1.17.0+17` để update đè được | ✅ done (build 🟢 run 40262212277, 4/4 job; chờ nghiệm thu máy) | APK arm64 198 MB `f6f6e2c4…`, IPA 92 MB, Linux tar 49 MB, Windows zip 51.5 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0 |
 | UI-ORDER-001 | (2026-10-25) Đổi thứ tự tab **Đọc trước Nghe** (đồng bộ thư viện/drawer + Studio ở Home) + Home bỏ 1 trong 2 icon robot, trả chỗ cho **thư viện Đọc** | 🔨 doing (code + test + CI gate xong, chờ nghiệm thu máy) | `ShellContentOrder` mặc định `readListen` + migrate 1 lần cho máy đã lưu `listenRead`; `home_screen.dart` bỏ robot ở header → `menu_book_rounded` mở đúng drawer Đọc |
 | READ-630-05 | Nhận diện text ĐÃ LƯU khi lưu nhiều text + gợi ý hành động (thêm ngữ cảnh/cập nhật/bỏ qua) | 📋 proposed | nền: badge đã-có + smart-fill đã có (PLAN-015) |
@@ -8155,3 +8156,20 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Còn hở:** tên từ điển **đã nhập tay trước đây** không có packId + file nguồn đã bị đổi tên ⇒ vẫn có thể hiện "chưa cài" (hiếm); muốn chắc thì cài lại một lần.
 - **Lịch sử:**
   - 2026-10-27 | created→doing | agent arena/188b4bbe-in4up | title cleaner + packId + UI trạng thái + kéo thả; CI 🟢 40566439588
+
+### REL-1.18.0 — (2026-10-27) Release 1.18.0 full 4 nền tảng từ tip nhánh 251e
+- **Trạng thái:** ✅ done (build 🟢; chờ nghiệm thu máy)
+- **Nguồn:** owner 2026-10-27 — *"Đã có nhiều thay đổi, hãy tạo bản tag-release mới phù hợp cho đa nền tảng."*
+- **Tag/commit:** `1.18.0` → `5a70bf33` (*build: bump 1.17.0+17 → 1.18.0+18*), trên tip `b3583676` (*fix(dictionary): hết trang trống Sinhala/Tamil/CJK…*, PR #116).
+- **Vì sao 1.18.0 (không phải 1.17.1):** 34 commit sau `1.17.0` gồm **6 tính năng mới** (i18n wave 8+9, PRON-002 hàng Phát âm, API-SERVERSET-001, PARAKEET-002 dùng được ở 3 nơi, YouTube gộp ô tìm kiếm, đọc lặp cả bài + tua theo dòng) ⇒ bump minor theo semver, không phải patch.
+- **versionCode 17 → 18** ⇒ Android **cài đè được** bản 1.17.0, không phải xoá app; dữ liệu người dùng giữ nguyên.
+- **Nội dung 34 commit:** i18n wave 8 + 9 (3005 → **3459 entry × 8 locale**, 7 locale ưu tiên 0 tiếng Việt / 0 tiếng Anh) · **PRON-002** (chính sách nguồn phát âm + hàng "Phát âm" trong tab Đọc, ADR-0015) · **API-SERVERSET-001** (model dịch riêng + picker tìm kiếm + đồng bộ Firebase + báo cáo "AI đang chạy") · **PARAKEET-002** (giải nén `.tar.bz2` theo luồng + import qua readStream + dùng được ở Cabin live / tab Nghe / quick capture) · **7 fix YouTube** (gộp tìm kiếm + dán URL vào MỘT ô, đọc lặp cả bài có "mãi mãi", tua/phát video theo dòng đang đọc, tra từ không tự phát video + khay màu tô từ, YT-DL-PATH-001) · **fix từ điển** (hết trang trống Sinhala/Tamil/CJK, tên bộ đọc được, nút biết "đã cài", kéo thả thứ tự) · fix analyzer (`Text` ambiguous import).
+- **Bằng chứng:** `build_final_complete.yml` run **40568716000** — **4/4 job success** (Android arm64 / iOS sideload / Windows / Linux). Release: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.18.0
+  - `in4up-Android-arm64-v8a-1.18.0-5a70b.apk` — 198.409.074 B — sha256 `8e6b90fa23efc2d53270e68ecad9d03d89caff483cf25ac0b711a1194b306ece`
+  - `in4up-iOS-1.18.0.ipa` — 92.663.492 B — sha256 `676cb89d36f2c77c313b195d67c4e1918ba3385f70d4cef1fcf68ab3c3900e45`
+  - `in4up-Linux-1.18.0.tar.gz` — 49.437.092 B — sha256 `23a70c57d1fe1c8aaa0e46b2c1beb5bd2af67efe093d69c97a8e880102bd1988`
+  - `in4up-Windows-1.18.0.zip` — 51.947.559 B — sha256 `33d4489e4ee63f71c568cfd75069cf55879ce7e241925f4fdfc720af488ba1b6` (zip >10 MB ⇒ gate chống bundle rỗng đã qua)
+- **CI trước khi tag:** run **40568061189** trên tip `b3583676` 🟢 (analyze 0 error + toàn bộ bước test) ⇒ tag đúng commit đã xanh, không tag mù.
+- **Chưa kiểm:** cài đè trên máy thật (Android từ 1.17.0 → 1.18.0, dữ liệu còn nguyên), iOS sideload trên iPhone, `in4up.exe` trên Windows, bundle Linux.
+- **Lịch sử:**
+  - 2026-10-27 | created→done | agent arena/01a0251e-in4up | chờ CI tip 🟢 → bump 1.18.0+18 → tag → build 4 nền tảng 🟢 → 4 asset published

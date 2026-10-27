@@ -1,0 +1,478 @@
+{
+  "_comment": "Đường dẫn/mẫu chuỗi loại khỏi phép quét rộng của tool/lang_ui_inventory.py — đây là nội dung dữ liệu hoặc mã kỹ thuật, không phải chrome hiển thị.",
+  "skipPathPrefixes": [
+    "core/language/",
+    "l10n/",
+    "features/translation/data/",
+    "features/dictionary/",
+    "features/learn_by_heart/data/",
+    "features/tipitaka/data/",
+    "features/web_reader/js/",
+    "knowledge/",
+    "features/translation/engines/hymt_prompts.dart",
+    "features/translation/engines/llm_mt_prompts.dart",
+    "ffi/"
+  ],
+  "skipValuePatterns": [
+    "^assets/",
+    "://",
+    "^\\[?in4up",
+    "^[a-z0-9_.-]+\\.(dart|json|onnx|gguf|txt|wav|mp3|m4a|flac|png|jpg|jpeg|webp|srt|lrc|arb|yaml)$",
+    "^[A-Za-z0-9+/=]{24,}$",
+    "^[^A-Za-zÀ-ỹ]*$"
+  ],
+  "skipValueContextPatterns": [
+    "['\"]vi['\"]\\s*:\\s*$",
+    "['\"]en['\"]\\s*:\\s*['\"][^'\"]*['\"]\\s*,\\s*$"
+  ],
+  "skipValuesByPath": {
+    "features/learn_by_heart/services/cloze_generator.dart": [
+      "bởi",
+      "các",
+      "có",
+      "của",
+      "hoặc",
+      "không",
+      "là",
+      "một",
+      "như",
+      "những",
+      "này",
+      "nếu",
+      "sẽ",
+      "thì",
+      "trên",
+      "và",
+      "vì",
+      "về",
+      "với",
+      "đã",
+      "đó",
+      "được",
+      "để"
+    ],
+    "features/learn_by_heart/models/recitation_language.dart": [
+      "[ăâđêôơưĂÂĐÊÔƠƯ]|[ạảấầẩẫậắằẳẵặẹẻếềểễệịỉọỏốồổỗộớờởỡợụủứừửữựỵỷỹ]"
+    ],
+    "features/tts/language_detector.dart": [
+      "[ãõ]",
+      "[ăâđêôơưĂÂĐÊÔƠƯ]|[ạảấầẩẫậắằẳẵặẹẻếềểễệịỉọỏốồổỗộớờởỡợụủứừửữựỵỷỹ]",
+      "bạn",
+      "chào",
+      "chúng",
+      "các",
+      "có",
+      "của",
+      "không",
+      "là",
+      "một",
+      "những",
+      "này",
+      "não",
+      "nós",
+      "olá",
+      "são",
+      "sẽ",
+      "tôi",
+      "você",
+      "và",
+      "với",
+      "đang",
+      "đó",
+      "được"
+    ],
+    "features/tts/engines/edge_tts_engine.dart": [
+      "Accept-Language",
+      "Cache-Control",
+      "Cookie",
+      "Gender",
+      "Locale",
+      "Origin",
+      "Path",
+      "Pragma",
+      "Referer",
+      "ShortName",
+      "UTF-8",
+      "Neural",
+      "Microsoft Edge",
+      "Microsoft Edge TTS"
+    ],
+    "features/tts/engines/openai_compat_tts_engine.dart": [
+      "Alloy",
+      "Echo",
+      "Fable",
+      "Nova",
+      "Onyx",
+      "Shimmer",
+      "OpenAI"
+    ],
+    "features/tts/engines/fpt_tts_engine.dart": [
+      "FPT.AI",
+      "FPT.AI TTS",
+      "Ban Mai",
+      "Linh San",
+      "Lê Minh"
+    ],
+    "features/tts/engines/zalo_tts_engine.dart": [
+      "Zalo AI",
+      "Zalo AI TTS"
+    ],
+    "features/tts/engines/google_tts_engine.dart": [
+      "Google TTS",
+      "Referer",
+      "UTF-8"
+    ],
+    "features/tts/engines/offline_tts_engine.dart": [
+      "Offline TTS"
+    ],
+    "features/tts/engines/piper_tts_engine.dart": [
+      "Piper"
+    ],
+    "features/tts/tts_service.dart": [
+      "Piper"
+    ],
+    "features/tts/widgets/tts_settings_section.dart": [
+      "Piper"
+    ],
+    "features/grammar/models/grammar_category.dart": [
+      "Conj",
+      "Prep",
+      "Punc",
+      "Part"
+    ],
+    "features/grammar/models/phrase_info.dart": [
+      "ADJP",
+      "ADVP",
+      "CLAUSE",
+      "COORD",
+      "GerP",
+      "InfP",
+      "PHRASAL_V",
+      "PartP"
+    ],
+    "features/grammar/models/sentence_typer.dart": [
+      "IT-CLEFT",
+      "SVOA",
+      "SVOC",
+      "SVOO",
+      "There+V+S"
+    ],
+    "features/grammar/services/sentence_structure_service.dart": [
+      "[àảãáạăằắẳẵặâầấẩẫậèẻẽéẹêềếểễệìỉĩíịòọỏõóôồốổỗộơờớởỡợùủũúụừứửữựỳỷỹỵđ]",
+      "Không"
+    ],
+    "screens/tools/word_list/widgets/word_import_sheet.dart": [
+      "hình",
+      "hình ảnh",
+      "minh họa",
+      "ảnh",
+      "ảnh minh họa"
+    ],
+    "screens/tools/word_list/word_list_models.dart": [
+      "A → Z",
+      "Z → A"
+    ],
+    "screens/tools/venn/venn_tab.dart": [
+      "H+Đ",
+      "N+Đ"
+    ],
+    "screens/tools/tools_overlay.dart": [
+      "SOON"
+    ],
+    "features/youtube/models/yt_video.dart": [
+      "YOUR_KEY"
+    ],
+    "features/youtube/services/yt_downloader.dart": [
+      "SocketException"
+    ],
+    "features/youtube/services/yt_search_service.dart": [
+      "Accept-Language"
+    ],
+    "features/youtube/youtube_explorer_screen.dart": [
+      "English Addict with Mr Steve",
+      "English with Lucy",
+      "Rachel's English",
+      "Speak English With Vanessa",
+      "Steve Kaufmann",
+      "The Real Daytime",
+      "UCHaHD477h-FeBbVh9Sh7syA",
+      "UCVHFbw7woebKtfvug_Nzpig",
+      "UCoHNRmS7dRNgkfY9m3R_GGQ",
+      "Data API"
+    ],
+    "features/youtube/yt_player_screen.dart": [
+      "YtSync"
+    ],
+    "features/youtube/widgets/yt_lexa_chat_tab.dart": [
+      "The user is watching this YouTube video:",
+      "You are Lexa, an offline language-learning assistant inside the In4Up app."
+    ],
+    "features/translation/engines/deeplx_engine.dart": [
+      "Content-Type",
+      "DeepLX",
+      "Hello"
+    ],
+    "features/translation/engines/google_free_engine.dart": [
+      "Google Translate",
+      "User-Agent",
+      "ZH-CN",
+      "ZH-TW"
+    ],
+    "features/translation/engines/hymt_engine.dart": [
+      "Accept",
+      "HYMT_PONG",
+      "Hy-MT 1.5 (GGUF)",
+      "Hy-MT1.5-1.8B-2bit.gguf",
+      "HyMtIsolate",
+      "Chọn Hy-MT1.5-1.8B-2bit.gguf",
+      "Cần file .gguf (Hy-MT1.5-1.8B-2bit.gguf)"
+    ],
+    "features/translation/engines/libre_engine.dart": [
+      "LibreTranslate"
+    ],
+    "features/translation/engines/llm_mt_engine.dart": [
+      "LLM API"
+    ],
+    "features/translation/engines/mlkit_engine.dart": [
+      "ML Kit On-Device",
+      "ML Kit"
+    ],
+    "features/translation/engines/mymemory_engine.dart": [
+      "MYMEMORY WARNING",
+      "MyMemory",
+      "PLEASE CONTACT"
+    ],
+    "features/translation/engines/offline_engine.dart": [
+      "Offline Dictionary"
+    ],
+    "features/translation/data/glossary_store.dart": [
+      "[đĐơƠưƯạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹýàáảãạèéẻẽẹ",
+      "ìíỉĩịòóỏõọùúủũụ]"
+    ],
+    "features/translation/models/translation_glossary.dart": [
+      "việt"
+    ],
+    "features/translation/services/translation_service.dart": [
+      "MIXED",
+      "Timeout sau 12 giây",
+      "Timeout ML Kit sau 30 giây"
+    ],
+    "features/translation/widgets/translation_toolbar.dart": [
+      "Hy-MT",
+      "Import .gguf",
+      "ML Kit"
+    ],
+    "features/web_reader/web_reader_controller.dart": [
+      "Access to Insight",
+      "BBC Learning English",
+      "BBC News",
+      "British Council",
+      "Dhammatalks",
+      "Reuters",
+      "Simple English Wikipedia",
+      "SuttaCentral",
+      "The Guardian",
+      "Tricycle",
+      "VOA Learning English",
+      "Wikipedia"
+    ],
+    "features/web_reader/web_reader_screen.dart": [
+      "CEFR: A1 A2 B1 B2 C1 C2"
+    ],
+    "firebase_options.dart": [
+      "AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig",
+      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk",
+      "FLAVOR",
+      "G-CMJ1PMPHPX",
+      "G-N72C4S87J8"
+    ],
+    "firebase_options_beta.dart": [
+      "DefaultFirebaseOptions have not been configured for linux - you can reconfigure this by running the FlutterFire CLI again.",
+      "DefaultFirebaseOptions have not been configured for macos - you can reconfigure this by running the FlutterFire CLI again."
+    ],
+    "main_web.dart": [
+      "In4Up · Web",
+      "Mozilla/5.0 (In4Up web)"
+    ],
+    "models/color_mode.dart": [
+      "CEFR"
+    ],
+    "models/word_analysis.dart": [
+      "Conj",
+      "Prep",
+      "Punc"
+    ],
+    "services/auth_service.dart": [
+      "ERROR_INVALID_CREDENTIAL",
+      "GOOGLE_DESKTOP_CLIENT_ID",
+      "GOOGLE_DESKTOP_CLIENT_SECRET",
+      "GOOGLE_WEB_CLIENT_ID",
+      "YOUR_"
+    ],
+    "services/firestore_rest_client.dart": [
+      "ASCENDING",
+      "GREATER_THAN",
+      "REQUEST_TIME"
+    ],
+    "services/google_drive_service.dart": [
+      "My Drive"
+    ],
+    "services/ipa_resolver.dart": [
+      "[đĐăâêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]"
+    ],
+    "services/syntax_highlighter_service.dart": [
+      "là/thì",
+      "là/thì (số nhiều)",
+      "làm",
+      "mạo từ xác định",
+      "nghĩ",
+      "đi"
+    ],
+    "services/text_source_loader.dart": [
+      "[A-Za-zÀ-ỹ]"
+    ],
+    "services/youtube_download_service.dart": [
+      "NetworkException",
+      "SocketException"
+    ],
+    "services/text_provider.dart": [
+      "STT Result"
+    ],
+    "features/tipitaka/services/db_service.dart": [
+      "CREATE INDEX IF NOT EXISTS idx_segments_book ON tipitaka_segments(book_id)",
+      "CREATE INDEX IF NOT EXISTS idx_segments_ref ON tipitaka_segments(reference)",
+      "CREATE INDEX IF NOT EXISTS idx_segments_source ON tipitaka_segments(source_table, source_row_key)",
+      "CREATE INDEX IF NOT EXISTS idx_translation_language ON tipitaka_translations(language_code)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_tipitaka_highlight_segment ON tipitaka_highlights(book_id, segment_id)",
+      "INTEGER",
+      "INTEGER NOT NULL DEFAULT 0",
+      "PRAGMA table_info(tipitaka_segments)",
+      "TEXT NOT NULL DEFAULT ''",
+      "TEXT NOT NULL DEFAULT 'paragraph'",
+      "TEXT NOT NULL DEFAULT 'yellow'"
+    ],
+    "features/tipitaka/services/tipitaka_markup.dart": [
+      "Charis SIL",
+      "Gentium Plus",
+      "Georgia",
+      "Noto Serif",
+      "NotoSerifTipitaka",
+      "Source Serif 4",
+      "Source Serif Pro",
+      "Times",
+      "Times New Roman"
+    ],
+    "features/tipitaka/screens/library_screen.dart": [
+      "diệu",
+      "luật"
+    ],
+    "features/understand_ai/understand_ai_prompts.dart": [
+      "Cho mình MỘT gợi ý ngắn giúp hiểu tốt hơn đoạn này: chỉ gợi ý mở (từ khoá, cấu trúc cần chú ý), chưa giải thích trọn vẹn, để mình tự suy ra.",
+      "Chưa có câu nào đang phát. Cho mình một gợi ý luyện tập tiếp theo phù hợp với chế độ mình đang chọn nhé.",
+      "Giải thích câu trong dấu « » giúp mình: dịch nghĩa tiếng Việt, chỉ ra các từ/cụm từ khó và cấu trúc ngữ pháp đáng chú ý. Viết ngắn gọn, dễ hiểu.",
+      "Kiểm tra hiểu bài của mình về đoạn vừa rồi: đặt 3 câu hỏi từ dễ đến khó, đợi mình tự trả lời, rồi mới đưa đáp án ngắn ở cuối.",
+      "Tóm tắt đoạn trong « Đoạn vừa nghe » bằng 3–5 câu tiếng Việt: nêu ý chính và 3–5 từ vựng đáng nhớ kèm nghĩa ngắn.",
+      "mình đang học theo chế độ Đồng bộ",
+      "mình đang luyện Shadowing"
+    ],
+    "features/vocab_image/vocab_animation_library.dart": [
+      "Artist",
+      "Authorization",
+      "File:",
+      "LicenseShortName",
+      "Wikimedia Commons",
+      "Lottie"
+    ],
+    "features/vocab_image/vocab_image_api_config.dart": [
+      "VOCAB_IMAGE_API_KEY",
+      "VOCAB_IMAGE_PROVIDER",
+      "Openverse",
+      "Pexels",
+      "Unsplash"
+    ],
+    "features/vocab_image/vocab_image_web_service.dart": [
+      "Pexels License",
+      "Unsplash License"
+    ],
+    "features/vocab_image/widgets/vocab_image_picker_sheet.dart": [
+      "Lottie"
+    ],
+    "features/voice_command/voice_command_parser.dart": [
+      "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ"
+    ],
+    "features/online_dictionary/online_dictionary_source.dart": [
+      "Accept"
+    ],
+    "features/writing/services/document_summary_signal_service.dart": [
+      "các",
+      "có",
+      "của",
+      "là",
+      "mà",
+      "một",
+      "như",
+      "những",
+      "này",
+      "sẽ",
+      "thì",
+      "và",
+      "với",
+      "đang",
+      "đã",
+      "đó",
+      "được"
+    ],
+    "screens/memory_mode/controllers/memory_controller.dart": [
+      "khoa học",
+      "kiến thức",
+      "ngôn ngữ",
+      "nhớ",
+      "thế giới",
+      "thực hành",
+      "xin chào",
+      "đẹp"
+    ],
+    "features/pdf_reader/models/pdf_search_query.dart": [
+      "aàáảãạăằắẳẵặâầấẩẫậ",
+      "dđ",
+      "eèéẻẽẹêềếểễệ",
+      "iìíỉĩị",
+      "oòóỏõọôồốổỗộơờớởỡợ",
+      "uùúủũụưừứửữự",
+      "yỳýỷỹỵ"
+    ],
+    "features/pdf_reader/widgets/pdf_shortcuts.dart": [
+      "PageDown",
+      "PageUp",
+      "Space"
+    ],
+    "features/pdf_reader/services/pdf_xfdf_export.dart": [
+      "    <!-- không có highlight/ghi chú nào để xuất -->\n"
+    ],
+    "features/pdf_reader/widgets/pdf_export_row.dart": [
+      "JSON",
+      "XFDF"
+    ],
+    "features/ocr/ocr_scan_guard.dart": [
+      "DocumentScanner",
+      "MissingPluginException",
+      "PlatformException"
+    ],
+    "features/settings/screens/ai_providers_screen.dart": [
+      "Gemini",
+      "Groq",
+      "LM Studio (LAN)",
+      "Ollama (LAN)",
+      "OpenAI",
+      "OpenRouter"
+    ],
+    "features/cabin/screens/live_cabin_screen.dart": [
+      "Parakeet",
+      "Zipformer"
+    ],
+    "features/cabin/services/cabin_wav_writer.dart": [
+      "RIFF",
+      "WAVE"
+    ]
+  }
+}

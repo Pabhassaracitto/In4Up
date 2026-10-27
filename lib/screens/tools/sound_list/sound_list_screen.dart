@@ -270,7 +270,7 @@ class _StatChip extends StatelessWidget {
           Icon(icon, size: 14, color: const Color(0xFF6C63FF)),
           const SizedBox(width: 4),
           Text(
-            '$count',
+            context.uiText('$count'),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
@@ -357,9 +357,9 @@ class _FileCardState extends State<_FileCard> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${file.contentKindLabel}'
+                          context.uiText('${file.contentKindLabel}'
                           ' · ${file.markCount} điểm · ${file.segmentCount} đoạn · ${file.chapterCount} mục'
-                          '${file.hotRangeCount > 0 ? ' · 🔥 ${file.hotRangeCount} lặp nhiều' : ''}',
+                          '${file.hotRangeCount > 0 ? ' · 🔥 ${file.hotRangeCount} lặp nhiều' : ''}'),
                           style: const TextStyle(color: Colors.white38, fontSize: 11.5),
                         ),
                       ],
@@ -498,7 +498,7 @@ class _FileContents extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  '… và ${file.transcriptLines.length - 5} dòng nữa — dùng "Tìm kiếm" trong Listen Mode để tìm trong toàn bộ nội dung.',
+                  context.uiText('… và ${file.transcriptLines.length - 5} dòng nữa — dùng "Tìm kiếm" trong Listen Mode để tìm trong toàn bộ nội dung.'),
                   style: const TextStyle(color: Colors.white30, fontSize: 11),
                 ),
               ),
@@ -542,7 +542,7 @@ class _FileContents extends StatelessWidget {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('▶️ Đang phát: ${file.title}'),
+          content: Text(context.uiText('▶️ Đang phát: ${file.title}')),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(milliseconds: 1400),
         ),
@@ -813,7 +813,7 @@ class _LibrarySegmentTile extends StatelessWidget {
             backgroundColor: const Color(0xFF232841),
             title: const Text('Xóa đoạn?', style: TextStyle(color: Colors.white, fontSize: 15)),
             content: Text(
-              '"${segment.title}"',
+              context.uiText('"${segment.title}"'),
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             actions: [
@@ -849,7 +849,7 @@ class _LibrarySegmentTile extends StatelessWidget {
               ),
             ),
             Text(
-              '${SoundMark.formatTime(segment.startTime)} → ${SoundMark.formatTime(segment.endTime)}',
+              context.uiText('${SoundMark.formatTime(segment.startTime)} → ${SoundMark.formatTime(segment.endTime)}'),
               style: const TextStyle(color: Colors.white30, fontSize: 11),
             ),
           ],

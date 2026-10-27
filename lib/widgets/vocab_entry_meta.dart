@@ -637,7 +637,7 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
           for (final value in suggestions)
             ChoiceChip(
               label: Text(
-                '+ ${labelFor(value)}',
+                context.uiText('+ ${labelFor(value)}'),
                 style: TextStyle(color: Colors.white54, fontSize: 11),
               ),
               selected: false,

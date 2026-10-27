@@ -587,7 +587,7 @@ class _ModelCard extends StatelessWidget {
                           Row(
                             children: [
                               Text(
-                                'Whisper ${level.displayLabel}',
+                                context.uiText('Whisper ${level.displayLabel}'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
@@ -638,9 +638,9 @@ class _ModelCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% '
+                    context.uiText('${(info.downloadProgress * 100).toStringAsFixed(1)}% '
                     '· ${(info.downloadProgress * level.sizeInMB).toStringAsFixed(0)}'
-                    '/${level.sizeInMB}MB',
+                    '/${level.sizeInMB}MB'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -705,7 +705,7 @@ class _ModelCard extends StatelessWidget {
                       ),
                       // Size label + Nút Tải
                       Text(
-                        '${level.sizeInMB}MB',
+                        context.uiText('${level.sizeInMB}MB'),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(width: 8),
@@ -954,8 +954,8 @@ class _LanguageSettingCard extends StatelessWidget {
                   (language) => DropdownMenuItem(
                     value: language.appLocaleCode,
                     child: Text(
-                      '${language.flag} ${language.nativeName} '
-                      '(${language.englishName})',
+                      context.uiText('${language.flag} ${language.nativeName} '
+                      '(${language.englishName})'),
                     ),
                   ),
                 ),
@@ -964,7 +964,7 @@ class _LanguageSettingCard extends StatelessWidget {
                 const Text('🌐 Auto'),
                 ...AppLanguageCatalog.languages.map(
                   (language) => Text(
-                    '${language.flag} ${language.translationCode}',
+                    context.uiText('${language.flag} ${language.translationCode}'),
                   ),
                 ),
               ],
@@ -1056,7 +1056,7 @@ class _SileroVadCardState extends State<_SileroVadCard> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~629KB',
+                    context.uiText('${(info.downloadProgress * 100).toStringAsFixed(1)}% · ~629KB'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -1565,7 +1565,7 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
         Padding(
           padding: const EdgeInsets.only(top: 10, bottom: 4),
           child: Text(
-            '${entry.value.first.languageLabelEn} (${entry.key})',
+            context.uiText('${entry.value.first.languageLabelEn} (${entry.key})'),
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -1581,7 +1581,7 @@ class _PiperVoiceDownloadSheetState extends State<_PiperVoiceDownloadSheet> {
             contentPadding: EdgeInsets.zero,
             title: Text(v.id, style: const TextStyle(fontSize: 13)),
             subtitle: Text(
-              '${v.speaker} · ${v.quality} · ~${v.approxSizeMB}MB',
+              context.uiText('${v.speaker} · ${v.quality} · ~${v.approxSizeMB}MB'),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
             trailing: const Icon(Icons.download, size: 18),
@@ -1684,8 +1684,8 @@ class _PiperVoiceRow extends StatelessWidget {
                 Text(voice.name,
                     style: const TextStyle(fontWeight: FontWeight.w600)),
                 Text(
-                  'Ngôn ngữ: ${lang.isEmpty ? 'Tự do / Mặc định' : lang} · '
-                  '${voice.sampleRate}Hz',
+                  context.uiText('Ngôn ngữ: ${lang.isEmpty ? 'Tự do / Mặc định' : lang} · '
+                  '${voice.sampleRate}Hz'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -2042,7 +2042,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${profile.name}  ·  ${profile.languageLabel}',
+                                context.uiText('${profile.name}  ·  ${profile.languageLabel}'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -2194,8 +2194,8 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${(info.downloadProgress * 100).toStringAsFixed(1)}% · '
-                        '${(info.downloadProgress * profile.approxSizeMB).toStringAsFixed(0)}/${profile.approxSizeMB}MB',
+                        context.uiText('${(info.downloadProgress * 100).toStringAsFixed(1)}% · '
+                        '${(info.downloadProgress * profile.approxSizeMB).toStringAsFixed(0)}/${profile.approxSizeMB}MB'),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
@@ -2272,7 +2272,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
                                 _importFiles(context, profile),
                           ),
                           Text(
-                            '${profile.approxSizeMB}MB',
+                            context.uiText('${profile.approxSizeMB}MB'),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(width: 8),

@@ -201,7 +201,7 @@ class RememberWorkspaceHeader extends StatelessWidget {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      '$dueCount',
+                      context.uiText('$dueCount'),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,

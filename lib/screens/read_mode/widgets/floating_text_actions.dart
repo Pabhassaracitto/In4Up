@@ -88,7 +88,7 @@ class _FloatingBar extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '\"${selectedText.length > 20 ? '${selectedText.substring(0, 20)}...' : selectedText}\" → Đã lưu nhanh',
+                context.uiText('\"${selectedText.length > 20 ? '${selectedText.substring(0, 20)}...' : selectedText}\" → Đã lưu nhanh'),
               ),
             ),
           ],
@@ -490,7 +490,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                         ),
                       ),
                       Text(
-                        '\"${widget.selectedText}\"',
+                        context.uiText('\"${widget.selectedText}\"'),
                         style: TextStyle(color: Colors.grey[400], fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -757,7 +757,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                   const Icon(Icons.hub_outlined, size: 16, color: Color(0xFF4CAF50)),
                   const SizedBox(width: 6),
                   Text(
-                    'Cụm/từ liên đới (${_related.length})',
+                    context.uiText('Cụm/từ liên đới (${_related.length})'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,

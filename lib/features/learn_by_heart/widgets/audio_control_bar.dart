@@ -213,21 +213,21 @@ class AudioControlBar extends StatelessWidget {
                     PopupMenuItem(
                       value: PlaybackLanguageMode.bilingual,
                       child: Text(
-                        'Song ngữ ($source + $target)',
+                        context.uiText('Song ngữ ($source + $target)'),
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
                     PopupMenuItem(
                       value: PlaybackLanguageMode.source,
                       child: Text(
-                        'Chỉ $source',
+                        context.uiText('Chỉ $source'),
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
                     PopupMenuItem(
                       value: PlaybackLanguageMode.target,
                       child: Text(
-                        'Chỉ $target',
+                        context.uiText('Chỉ $target'),
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
@@ -321,7 +321,7 @@ class _RepeatChip extends StatelessWidget {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
             Text(
-              '$prefix $label',
+              context.uiText('$prefix $label'),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,

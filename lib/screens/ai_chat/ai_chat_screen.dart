@@ -284,7 +284,7 @@ class _ModelStatusBanner extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text('${ui('Đang copy model…')} $pct%',
+              child: Text(context.uiText('${ui('Đang copy model…')} $pct%'),
                   style: const TextStyle(fontSize: 12)),
             ),
             LinearProgressIndicator(
@@ -306,7 +306,7 @@ class _ModelStatusBanner extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text('${ui('Đang tải model…')} $pct%',
+              child: Text(context.uiText('${ui('Đang tải model…')} $pct%'),
                   style: const TextStyle(fontSize: 12)),
             ),
             LinearProgressIndicator(
@@ -335,7 +335,7 @@ class _ModelStatusBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${ui('Lỗi')}: ${facade.engineError ?? ''}',
+                  context.uiText('${ui('Lỗi')}: ${facade.engineError ?? ''}'),
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFFFFC2CE)),
                 ),
@@ -391,7 +391,7 @@ class _ModelStatusBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${ui('Lỗi')}: ${facade.importError ?? ''}',
+                  context.uiText('${ui('Lỗi')}: ${facade.importError ?? ''}'),
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFFFFC2CE)),
                 ),
@@ -705,7 +705,7 @@ class _RemoteRouteBanner extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 22),
               child: Text(
-                '${ui('Lỗi API')} (${apiError.code.name}): ${apiError.message}',
+                context.uiText('${ui('Lỗi API')} (${apiError.code.name}): ${apiError.message}'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 10, color: Color(0xFFFFC2CE)),

@@ -267,7 +267,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${accuracy.toStringAsFixed(0)}% CHUẨN XÁC',
+                  context.uiText('${accuracy.toStringAsFixed(0)}% CHUẨN XÁC'),
                   style: TextStyle(
                     color: isGood ? const Color(0xFF81C784) : const Color(0xFFFFD54F),
                     fontSize: 12,
@@ -339,7 +339,7 @@ class _VoiceRecitationSheetState extends State<VoiceRecitationSheet> {
                 widget.onRated(result.suggestedRating);
               },
               icon: const Icon(Icons.check_circle_rounded, size: 18),
-              label: Text('Ghi nhận kết quả (${result.suggestedRating.label}) vào FSRS'),
+              label: Text(context.uiText('Ghi nhận kết quả (${result.suggestedRating.label}) vào FSRS')),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isGood ? const Color(0xFF4CAF50) : const Color(0xFF6C63FF),
                 foregroundColor: Colors.white,

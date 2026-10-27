@@ -346,7 +346,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '"${preview.isEmpty ? '…' : preview.substring(0, preview.length.clamp(0, 80))}${preview.length > 80 ? '…' : ''}"',
+              context.uiText('"${preview.isEmpty ? '…' : preview.substring(0, preview.length.clamp(0, 80))}${preview.length > 80 ? '…' : ''}"'),
               style: TextStyle(color: Colors.grey[400], fontSize: 13),
             ),
             const SizedBox(height: 10),

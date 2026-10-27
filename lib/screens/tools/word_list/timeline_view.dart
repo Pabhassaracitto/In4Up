@@ -178,7 +178,7 @@ class _DateGroup extends StatelessWidget {
                         color: Color(0xFF6C63FF).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('+${entries.length}',
+                      child: Text(context.uiText('+${entries.length}'),
                           style: const TextStyle(
                               color: Color(0xFF9C8FFF),
                               fontSize: 11,
@@ -268,14 +268,14 @@ class _TimelineEntry extends StatelessWidget {
                             fontWeight: FontWeight.w600)),
                     if (entry.vocabType != VocabularyType.word) ...[
                       const SizedBox(width: 4),
-                      Text('(${entry.vocabType.label(context)})',
+                      Text(context.uiText('(${entry.vocabType.label(context)})'),
                           style: TextStyle(
                               color: typeColor.withValues(alpha: 0.6),
                               fontSize: 9)),
                     ],
                   ],
                 ),
-                Text('— ${entry.meaning}',
+                Text(context.uiText('— ${entry.meaning}'),
                     style: TextStyle(color: Colors.grey[500], fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),

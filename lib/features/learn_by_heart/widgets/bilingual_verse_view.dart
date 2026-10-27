@@ -72,7 +72,7 @@ class BilingualVerseView extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    '${ts.line}',
+                    context.uiText('${ts.line}'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,

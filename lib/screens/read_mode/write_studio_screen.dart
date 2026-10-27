@@ -3095,7 +3095,7 @@ class _ScorePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '${(score * 100).round()}%',
+        context.uiText('${(score * 100).round()}%'),
         style: TextStyle(
           color: accent,
           fontSize: 11,

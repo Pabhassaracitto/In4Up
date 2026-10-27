@@ -77,7 +77,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                   const Icon(Icons.link_rounded, color: Color(0xFFFFD54F), size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Mối nối liên hoàn (Xích kệ ngôn ${stepIdx + 1}/$total)',
+                    context.uiText('Mối nối liên hoàn (Xích kệ ngôn ${stepIdx + 1}/$total)'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -86,7 +86,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                   ),
                   const Spacer(),
                   Text(
-                    '${((stepIdx + 1) / total * 100).round()}%',
+                    context.uiText('${((stepIdx + 1) / total * 100).round()}%'),
                     style: const TextStyle(
                       color: Color(0xFFFFD54F),
                       fontSize: 12,
@@ -119,7 +119,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'CÂU MỒI DẪN DẮT (DÒNG ${stepIdx + 1})',
+                          context.uiText('CÂU MỒI DẪN DẮT (DÒNG ${stepIdx + 1})'),
                           style: const TextStyle(
                             color: Color(0xFFB388FF),
                             fontSize: 9.5,
@@ -178,7 +178,7 @@ class _ChainRecitationViewState extends State<ChainRecitationView> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'CÂU CẦN ĐỌC TIẾP (DÒNG ${stepIdx + 2})',
+                          context.uiText('CÂU CẦN ĐỌC TIẾP (DÒNG ${stepIdx + 2})'),
                           style: TextStyle(
                             color: isRevealed ? const Color(0xFF81C784) : const Color(0xFFFFB74D),
                             fontSize: 9.5,

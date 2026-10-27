@@ -200,7 +200,7 @@ class _AutoSplitSectionState extends State<AutoSplitSection> {
                             SizedBox(
                               width: 24,
                               child: Text(
-                                '${i + 1}',
+                                context.uiText('${i + 1}'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: widget.primaryColor

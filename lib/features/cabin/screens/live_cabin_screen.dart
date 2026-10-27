@@ -1105,7 +1105,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '#${index + 1} · ${_fmtTime(caption.timestamp)}',
+                context.uiText('#${index + 1} · ${_fmtTime(caption.timestamp)}'),
                 style: const TextStyle(color: Colors.grey, fontSize: 11),
               ),
               Row(

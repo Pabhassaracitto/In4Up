@@ -451,7 +451,7 @@ class _AlreadySavedChip extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              '${(entry.mastery * 100).toInt()}%',
+              context.uiText('${(entry.mastery * 100).toInt()}%'),
               style: TextStyle(
                 fontSize: 11,
                 color: entry.zone.color.withAlpha(180),

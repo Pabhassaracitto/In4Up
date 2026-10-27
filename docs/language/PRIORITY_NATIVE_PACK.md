@@ -66,28 +66,41 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
    chạy test `test/language/priority_native_pack_test.dart` (+ group rule #5
    trong `test/locale_chrome_no_vietnamese_test.dart`).
 
-## Trạng thái (wave 7, 2026-10-25 — hoàn tất: 0 tiếng Việt, 0 tiếng Anh)
+## Trạng thái (wave 8, 2026-10-27 — đang dở, số liệu đo lại)
 
-- Pack: **2116 entry × 8 locale**.
-- **Rò rỉ tiếng Việt: 0** và **English còn lại: 0** ở **cả 7 locale ưu tiên**
-  (`zh`, `zh_TW`, `hi`, `si`, `my`, `th`, `ja`) trên **2648 chuỗi chrome**
-  (196 file presentation).
-- Lịch sử wave: 1037 (wave 2–4) → 1155 (sau rebase 251e) → 1575 (wave 6:
-  425 chuỗi còn lại, đưa `zh`/`zh_TW`/`hi`/`si` về 0) → 2116 (wave 7:
-  491 chuỗi mà tầng ARB chỉ có bản dịch cho `zh`/`zh_TW`/`hi`/`si`, bổ sung
-  `th`/`ja`/`my`, rồi vá 50 chuỗi chỉ thiếu `my`).
-- Chuỗi giữ English theo chính sách (không tính là rò rỉ, khai báo trong
-  `ENGLISH_STOPWORDS` của `tool/lang_ui_inventory.py`): `AI`, `PDF`, `URL`,
-  `TTS`, `OCR`, `IPA`, `YouTube`, `Whisper`, `In4Up`, `YouGlish`, `Oxford`,
-  `web_batch`, `en_US-lessac-medium`, `TXT · LRC · SRT`, `MP3, M4A, WAV, FLAC...`
-  (danh sách định dạng file).
-- Máy dò nay loại thêm **id công cụ / widget key / JSON field / storage name**
-  (`word_list`, `pdf_jump_page_field`, `showLegend`, `vi`, `content`, `save`…)
-  để số liệu chỉ còn chuỗi người dùng thực thấy.
-- Cách hoàn tất phần `th`/`ja`/`my`: mỗi chuỗi còn thiếu được thêm vào pack với
-  4 cột `hi`/`zh`/`zh_TW`/`si` **lấy nguyên từ tầng ARB đang chạy** (đã đúng,
-  không dịch lại) và chỉ viết tay 3 cột `th`/`ja`/`my` — tránh dịch trùng và
-  tránh lệch thuật ngữ giữa hai tầng.
+- Pack: **3005 entry × 8 locale**.
+- **Máy dò đã được viết lại cho trung thực hơn** (`collect_broad_sources()` trong
+  `tool/lang_ui_inventory.py`): quét **mọi literal hiển thị** (không chỉ đối số
+  đầu tiên của `Text`/`uiText`), nên con số “0 rò rỉ” của wave 7 là **thiếu
+  thực tế** — wave 7 chỉ nhìn 2648 chuỗi ở 196 file, còn thực tế có ~4600 chuỗi
+  ở 332 file, gồm cả chuỗi trong service/provider và widget tự viết.
+- Sau wave 8 (`zh`, đo trên 4391 chuỗi chrome / 325 file):
+
+  | locale | còn tiếng Việt | còn English |
+  | --- | ---: | ---: |
+  | `zh`, `zh_TW` | 339 | 87 |
+  | `hi` | 341 | 95 |
+  | `si` | 339 | 96 |
+  | `my` | 339 | 218 |
+  | `th` | 339 | 210 |
+  | `ja` | 339 | 207 |
+
+- Việc còn lại chủ yếu là **chuỗi nội suy** (`"$count phút"`, `"${x} dòng"`):
+  `Text` shim chỉ dịch *exact match* nên các chuỗi này vẫn hiện tiếng Việt ở
+  runtime dù pack có mẫu `{value0} …`. Cần quyết định: bật template trong shim
+  (kèm chốt chặn nội dung người dùng) hay bọc `context.uiText(...)` tại chỗ render.
+- Lịch sử: 1037 (wave 2–4) → 1155 → 1575 → 2116 (wave 7) → 2375/2448/2559/2677/
+  2750/2830/2880/3005 (wave 8: TTS, Thuộc Lòng, Ngữ pháp, WordList, YouGlish,
+  YouTube, dịch, Web Reader, Tipiṭaka, shadowing, widget dùng chung, Nghe,
+  Vườn nhớ, từ điển, Cabin, OCR, cài đặt).
+- `learn_by_heart_l10n.dart` nay có đủ **vi/en/hi/zh/zh_TW/si/my/th/ja** cho cả
+  74 nhóm; `locale_map_gaps()` trong tool sẽ cảnh báo nếu một bảng `_get({...})`
+  thiếu locale ưu tiên.
+- Chuỗi được **loại khỏi phép quét** (khai báo trong
+  `tool/lang_ui_scan_exclusions.json`, có ghi lý do): nội dung dữ liệu
+  (stopword tiếng Việt cho thuật toán cloze/tóm tắt, regex dấu tiếng Việt, tên
+  font, câu SQL), prompt gửi cho LLM, khoá JSON/HTTP, tên thương hiệu
+  (`OpenAI`, `Gemini`, `Pexels`, `LibreTranslate`…), tên file model, tên phím.
 
 ## Lưu ý
 

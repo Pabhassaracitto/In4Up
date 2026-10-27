@@ -255,7 +255,7 @@ class DictDefinitionView extends StatelessWidget {
           SizedBox(
             width: 24,
             child: Text(
-              '$number.',
+              context.uiText('$number.'),
               style: TextStyle(
                 color: accentColor.withValues(alpha: 0.9),
                 fontSize: 12.5,

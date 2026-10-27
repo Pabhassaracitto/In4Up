@@ -213,7 +213,7 @@ class PdfTtsBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '${controller.ttsSpeed.toStringAsFixed(1)}x',
+                context.uiText('${controller.ttsSpeed.toStringAsFixed(1)}x'),
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
@@ -366,7 +366,7 @@ class TtsSpeedPickerSheet {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${speed}x',
+                        context.uiText('${speed}x'),
                         style: TextStyle(
                           color: selected ? Colors.white : Colors.grey,
                           fontWeight:

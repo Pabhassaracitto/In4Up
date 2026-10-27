@@ -193,7 +193,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   PopupMenuItem(
                     value: s,
                     child: Text(
-                      '${s}×${s == _speed ? '  ✓' : ''}',
+                      context.uiText('${s}×${s == _speed ? '  ✓' : ''}'),
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),

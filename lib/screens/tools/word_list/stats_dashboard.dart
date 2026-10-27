@@ -202,7 +202,7 @@ class _ActivitySection extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text('+$thisWeekAdded',
+                  Text(context.uiText('+$thisWeekAdded'),
                       style: const TextStyle(
                           color: Color(0xFF4CAF50),
                           fontSize: 20,
@@ -223,7 +223,7 @@ class _ActivitySection extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text('$thisWeekReviewed',
+                  Text(context.uiText('$thisWeekReviewed'),
                       style: const TextStyle(
                           color: Color(0xFF2196F3),
                           fontSize: 20,
@@ -244,7 +244,7 @@ class _ActivitySection extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text('${(provider.avgAccuracy * 100).toInt()}%',
+                  Text(context.uiText('${(provider.avgAccuracy * 100).toInt()}%'),
                       style: const TextStyle(
                           color: Color(0xFFFF9800),
                           fontSize: 20,
@@ -317,7 +317,7 @@ class _SkillGauge extends StatelessWidget {
                   backgroundColor: Colors.white.withValues(alpha: 0.06),
                   valueColor: AlwaysStoppedAnimation(color),
                 ),
-                Text('$pct%',
+                Text(context.uiText('$pct%'),
                     style: TextStyle(
                         color: color,
                         fontSize: 14,
@@ -367,7 +367,7 @@ class _MostForgotten extends StatelessWidget {
                     color: Color(0xFFEF5350).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text('${i + 1}',
+                  child: Text(context.uiText('${i + 1}'),
                       style: const TextStyle(
                           color: Color(0xFFEF5350),
                           fontSize: 11,
@@ -419,7 +419,7 @@ class _FrequentSection extends StatelessWidget {
                           color: Color(0xFFFFB300).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text('${w.encounterCount}×',
+                        child: Text(context.uiText('${w.encounterCount}×'),
                             style: const TextStyle(
                                 color: Color(0xFFFFB300),
                                 fontSize: 9,

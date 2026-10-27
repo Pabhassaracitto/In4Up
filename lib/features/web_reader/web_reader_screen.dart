@@ -1372,7 +1372,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text('${_controller.ttsSpeed.toStringAsFixed(1)}x', style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          Text(context.uiText('${_controller.ttsSpeed.toStringAsFixed(1)}x'), style: const TextStyle(color: Colors.white60, fontSize: 11)),
           IconButton(
             tooltip: paused ? 'Tiếp tục' : 'Tạm dừng',
             icon: Icon(paused ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 21),
@@ -1407,7 +1407,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         children: [
           Expanded(
             child: Text(
-              '"$_selectionText"',
+              context.uiText('"$_selectionText"'),
               style: const TextStyle(color: Colors.white, fontSize: 13),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

@@ -205,15 +205,15 @@ class _ProviderCardState extends State<_ProviderCard> {
     final theme = Theme.of(context);
     final modelChips = <Widget>[
       if (_config.chatModel != null)
-        Chip(label: Text('${l10n.aiProviderChatModel}: ${_config.chatModel}')),
+        Chip(label: Text(context.uiText('${l10n.aiProviderChatModel}: ${_config.chatModel}'))),
       // API-DIAG-001: model dịch RIÊNG (nếu chưa chọn thì dịch dùng chat
       // model — chip bên dưới nói rõ để không tưởng là đã cấu hình).
       if (_config.translationModel != null)
-        Chip(label: Text('${l10n.aiRoutingTranslation}: ${_config.translationModel}')),
+        Chip(label: Text(context.uiText('${l10n.aiRoutingTranslation}: ${_config.translationModel}'))),
       if (_config.sttModel != null)
-        Chip(label: Text('${l10n.aiProviderSttModel}: ${_config.sttModel}')),
+        Chip(label: Text(context.uiText('${l10n.aiProviderSttModel}: ${_config.sttModel}'))),
       if (_config.ttsModel != null)
-        Chip(label: Text('${l10n.aiProviderTtsModel}: ${_config.ttsModel}')),
+        Chip(label: Text(context.uiText('${l10n.aiProviderTtsModel}: ${_config.ttsModel}'))),
     ];
     return Card(
       child: Padding(

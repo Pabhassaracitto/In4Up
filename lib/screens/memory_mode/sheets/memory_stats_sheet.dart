@@ -170,7 +170,7 @@ class MemoryStatsSheet extends StatelessWidget {
                           SizedBox(
                             width: 40,
                             child: Text(
-                              '$count',
+                              context.uiText('$count'),
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 color: stage.primaryColor,
@@ -344,7 +344,7 @@ class _CompletionCircle extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '${(rate * 100).round()}%',
+                      context.uiText('${(rate * 100).round()}%'),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -354,7 +354,7 @@ class _CompletionCircle extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '$reviewedToday/$dueToday',
+                      context.uiText('$reviewedToday/$dueToday'),
                       style: TextStyle(color: Colors.grey[600], fontSize: 10),
                     ),
                   ],

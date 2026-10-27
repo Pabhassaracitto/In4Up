@@ -219,7 +219,7 @@ class _LrcEditorPanelState extends State<LrcEditorPanel> {
                           Padding(
                             padding: const EdgeInsets.only(top: 12),
                             child: Text(
-                              '[${_formatDuration(_lines![index].timestamp)}] ',
+                              context.uiText('[${_formatDuration(_lines![index].timestamp)}] '),
                               style: TextStyle(
                                 color: Colors.grey[400],
                                 fontSize: 10,

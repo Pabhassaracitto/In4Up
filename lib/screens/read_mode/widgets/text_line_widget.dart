@@ -734,7 +734,7 @@ class _LineHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              '${index + 1}',
+              context.uiText('${index + 1}'),
               style: TextStyle(
                 color: data.isCurrentLine
                     ? const Color(0xFF2196F3)

@@ -904,7 +904,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                         if (w.frequency > 1) ...[
                           const SizedBox(width: 4),
                           Text(
-                            '×${w.frequency}',
+                            context.uiText('×${w.frequency}'),
                             style:
                                 TextStyle(color: Colors.grey[600], fontSize: 9),
                           ),

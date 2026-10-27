@@ -882,7 +882,7 @@ class _LiveStatusBar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      '${speed.toStringAsFixed(2)}x',
+                      context.uiText('${speed.toStringAsFixed(2)}x'),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -1252,7 +1252,7 @@ class _SpeedChip extends StatelessWidget {
           ),
         ),
         child: Text(
-          '${speed.toStringAsFixed(2)}x',
+          context.uiText('${speed.toStringAsFixed(2)}x'),
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -1403,7 +1403,7 @@ class _Stepper extends StatelessWidget {
         SizedBox(
           width: 28,
           child: Text(
-            '$value',
+            context.uiText('$value'),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,

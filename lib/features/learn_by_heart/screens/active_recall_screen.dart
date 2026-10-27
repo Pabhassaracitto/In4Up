@@ -342,7 +342,7 @@ class _ActiveRecallScreenState extends State<ActiveRecallScreen> {
               if (item.lifeConnection.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
-                  '${l10n.lifeConnection}: ${item.lifeConnection}',
+                  context.uiText('${l10n.lifeConnection}: ${item.lifeConnection}'),
                   style: TextStyle(color: Colors.grey[300], fontSize: 12, fontStyle: FontStyle.italic),
                 ),
               ],

@@ -108,7 +108,7 @@ class _TaskToastState extends State<_TaskToast> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${status.label} · $phase',
+                            context.uiText('${status.label} · $phase'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w700),

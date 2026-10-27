@@ -279,7 +279,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          '${i + 1}. ${tp.lines[i].content}',
+                          context.uiText('${i + 1}. ${tp.lines[i].content}'),
                           style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 12,
@@ -438,7 +438,7 @@ class _CreateSegmentContentState extends State<_CreateSegmentContent> {
           ),
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('$value',
+              child: Text(context.uiText('$value'),
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,

@@ -498,7 +498,7 @@ class _CircularProgress extends StatelessWidget {
             valueColor: AlwaysStoppedAnimation<Color>(_progressColor),
           ),
           Text(
-            '${(value * 100).round()}%',
+            context.uiText('${(value * 100).round()}%'),
             style: TextStyle(
               color: _progressColor,
               fontSize: 7,

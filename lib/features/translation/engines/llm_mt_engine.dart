@@ -309,12 +309,15 @@ class LlmMtEngine extends TranslationEngine {
         targetLang,
       );
     }
-    final model = provider.chatModel;
+    // API-DIAG-001 (owner 2026-10-26): dịch dùng model DỊCH riêng nếu người
+    // dùng đã chọn (`translationModel`), ngược lại mới rơi về chatModel —
+    // giữ nguyên hành vi cũ cho cấu hình chưa có model dịch.
+    final model = provider.effectiveTranslationModel;
     if (model == null || model.isEmpty) {
       return _fail(
         text,
-        'Provider "${provider.label}" chưa chọn chat model — mở màn '
-        'Server & API để chọn từ danh sách model.',
+        'Provider "${provider.label}" chưa chọn model dịch (cũng chưa có '
+        'chat model) — mở màn Server & API để chọn từ danh sách model.',
         LlmMtErrorCode.noProvider,
         sourceLang,
         targetLang,

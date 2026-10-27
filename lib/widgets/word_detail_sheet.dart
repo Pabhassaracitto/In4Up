@@ -228,7 +228,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
           ),
           const SizedBox(width: 8),
           Text(
-            '${(value * 100).toInt()}%',
+            context.uiText('${(value * 100).toInt()}%'),
             style: TextStyle(
               fontSize: 12,
               color: color,
@@ -405,7 +405,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
     showDialog(
       context: ctx,
       builder: (context) => AlertDialog(
-        title: Text('${word.word} - ${_skillName(skill)}'),
+        title: Text(context.uiText('${word.word} - ${_skillName(skill)}')),
         content: Text(_skillQuestion(skill)),
         actions: [
           TextButton(

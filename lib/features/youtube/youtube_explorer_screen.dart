@@ -1008,7 +1008,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     overflow: TextOverflow.ellipsis),
               ),
               if (videoCount != null)
-                Text('$videoCount',
+                Text(context.uiText('$videoCount'),
                     style: TextStyle(color: Colors.grey[600], fontSize: 10)),
               if (onPin != null) ...[
                 const SizedBox(width: 4),
@@ -1212,7 +1212,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
           ),
         ),
         const SizedBox(width: 5),
-        Text('#$rank', style: TextStyle(color: Colors.grey[600], fontSize: 9)),
+        Text(context.uiText('#$rank'), style: TextStyle(color: Colors.grey[600], fontSize: 9)),
       ]);
 
   Widget _empty() => Center(

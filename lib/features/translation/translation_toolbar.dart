@@ -693,7 +693,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                         // Label/model là dữ liệu user nhập — không dịch.
                         Expanded(
                           child: Text(
-                            '${provider.label} · ${provider.chatModel ?? ''}',
+                            context.uiText('${provider.label} · ${provider.chatModel ?? ''}'),
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 12),
                             overflow: TextOverflow.ellipsis,
@@ -1079,7 +1079,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_modelLabel(code)} ($code)',
+                  context.uiText('${_modelLabel(code)} ($code)'),
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
                 Text(

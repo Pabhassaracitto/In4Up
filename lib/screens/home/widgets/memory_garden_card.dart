@@ -155,7 +155,7 @@ class _StageIcon extends StatelessWidget {
       children: [
         Icon(icon, color: color.withValues(alpha: 0.8), size: 18),
         Text(
-          '$count',
+          context.uiText('$count'),
           style: const TextStyle(
               fontSize: 10, color: Colors.white70, fontWeight: FontWeight.bold),
         ),

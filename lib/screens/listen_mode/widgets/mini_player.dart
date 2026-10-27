@@ -728,7 +728,7 @@ class _MediumInfo extends StatelessWidget {
               ),
             ),
             Text(
-              ' / ${_fmt(player.state.duration)}',
+              context.uiText(' / ${_fmt(player.state.duration)}'),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 11,
@@ -982,7 +982,7 @@ class _ProgressBarWidget extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Loop: ${_formatDuration(loopEnd! - loopStart!)}',
+                  context.uiText('Loop: ${_formatDuration(loopEnd! - loopStart!)}'),
                   style: const TextStyle(
                     color: Color(0xFF4CAF50),
                     fontSize: 10,
@@ -1083,7 +1083,7 @@ class _SpeedControlWidget extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${speed.toStringAsFixed(2)}x',
+                context.uiText('${speed.toStringAsFixed(2)}x'),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -1120,7 +1120,7 @@ class _SpeedControlWidget extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  '${preset}x',
+                  context.uiText('${preset}x'),
                   style: TextStyle(
                     color: isActive
                         ? Colors.white

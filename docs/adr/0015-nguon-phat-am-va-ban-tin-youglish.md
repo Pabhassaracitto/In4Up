@@ -14,6 +14,28 @@
   (3 skill SM-2 tách biệt). Audio focus chỉ được xử lý ở tầng Flutter
   (`TtsService`/`TextProvider.speak`), không sửa engine realtime.
 
+## Cập nhật 2026-10-26 (đối chiếu lại sau 12 commit của `arena/01a0251e-in4up`, tip `0706d8f`)
+
+Ba điều ADR này cần ghi lại, **không đổi quyết định D1–D7**:
+
+1. **D3 càng đúng hơn:** `961fb26 READ-POP-003` + **ADR-0016** đổi pop tra từ sang
+   `OverlayEntry` **không barrier** (pop không còn chặn màn hình). Vì pop giờ
+   không modal, nếu ta dựng sẵn WebView thì chi phí nhân lên mọi cú chạm; còn
+   "một nút, lazy" chỉ tốn khi user thật sự muốn nghe. Điểm cấy icon: hàng
+   `_MiniIconButton` `word_mini_pop.dart:515`–`:527`; bắt buộc `WordMiniPop.dismiss()`
+   trước khi mở sheet YouGlish và **khóa `word`** lúc mở (pop có thể nhảy sang từ
+   khác khi sheet còn sống).
+2. **Ràng buộc cổng CI mới:** `4b4965f` (run 40229976121 — widget+Hive treo >8')
+   ⇒ test của PRON-002/003/005 phải là **test thuần Dart**; test có plugin chỉ
+   chạy tay + ghi bằng chứng vào card.
+3. **D1 có thêm dữ liệu thật:** `6672b57 DICT-PACK-001` + **ADR-0017** cho tải bộ
+   từ điển trong app, `dict_pack_service.dart:351` chấp nhận `wav/mp3/ogg/m4a`
+   ⇒ nguồn "audio từ điển" không còn là ý tưởng trên giấy. `DictEntry.audioPath`
+   vẫn chưa UI nào dùng ⇒ lập **PRON-005**.
+
+Số ADR: **0016** (pop không modal) và **0017** (tải từ điển trong app) đã bị
+nhánh khác chiếm ngày 2026-10-25 ⇒ ADR tiếp theo của dự án là **0018**.
+
 ## Bối cảnh
 
 Đề bài ban đầu (người sở hữu, 2026-10-24, nội dung do Gemini gợi ý) yêu cầu
@@ -176,3 +198,34 @@ xóa 3 chuỗi Việt hard-code đang vi phạm trong `youglish_mini_sheet.dart`
 | Copy `youglish_mini_sheet` sang Read tab | bản duplicate thứ 4, không có nhánh Windows, lỗi URL nhân bản |
 | Thêm Bloc/Provider layer cho state YouGlish | state chỉ là word+lang+accent trong một sheet; `ChangeNotifier`/`SharedPreferences` là đủ |
 | Bỏ luôn YouGlish, chỉ TTS | mất đúng giá trị owner cần: nhiều giọng người thật trong ngữ cảnh |
+
+## Cập nhật 2026-10-26 — PRON-002 đã code: ADR này sống đúng như thiết kế
+
+Không cần ADR mới (quyết định kiến trúc không đổi; đây là bằng chứng thực thi).
+Ghi lại 4 điều chỉ thấy khi code xong:
+
+- **D1 thành hiện thực theo chiều ngược lại**: khi code, thứ cần tách khỏi
+  YouGlish không phải UI mà là **chính sách chọn nguồn** — nó nằm ở
+  `lib/features/word_lookup/pronunciation_source.dart`, THUẦN DART, và là cổng
+  CI duy nhất (`4b4965f`: widget test + plugin treo >8 phút trên runner). Mọi
+  surface chỉ còn gọi `WordPronunciationRow`.
+- **D3 (một nút, lazy) có thêm một hệ quả không dự trước**: vì WebView chỉ dựng
+  khi bấm, MỌI lỗi mạng đều nằm trên tay sheet ⇒ sheet phải tự chứa bậc thoái
+  lui (watchdog `loadBudget` 8 s + banner 3 hành động + auto-TTS). Chọn banner
+  thay vì auto-pop: pop sheet tự động giữa luồng đọc là một regression UX.
+- **D4 (pause & restore) xác nhận `TextProvider` không có pause**:
+  `speak()` đã giết đọc bài qua `_startExclusiveTtsSession`, `stopSpeaking()`
+  xóa `currentLineIndex` ⇒ "pause" = capture index trước khi stop, restore bằng
+  `speakAllLines(startIndex:)` (`PronunciationSession.wrapRead`). KHÔNG đụng
+  `lib/ffi/` ✓. Segment/AB-loop: dừng nhưng không tự chạy lại.
+- **Nợ PRON-001 đã trả**: `webview_flutter_wkwebview` thành direct dep; hai khóa
+  media đặt ở **tham số khởi tạo** (không có setter trên `WebViewController` —
+  CI PRON-001 đã chứng minh). Chi tiết API phải đọc theo version đã lock:
+  3.25.1 = `WebKitWebViewControllerCreationParams(allowsInlineMediaPlayback: true,
+  mediaTypesRequiringUserAction: {})`, còn `WKWebViewParams` +
+  `mediaPlaybackRequiresUserGesture` chỉ đúng từ 4.x. **Điều kiện nghiệm thu**:
+  chỉ iPhone thật mới kết luận được video chạy nội tiếp hay không.
+- Hệ quả cho PRON-005: `dictionary` có trong enum + policy nhưng
+  `PronunciationAvailability.dictionaryHasAudio` luôn `false` cho tới khi nối
+  `DictEntry.audioPath` (DICT-PACK-001 đã cho phép `wav/mp3/ogg/m4a` trong pack,
+  `just_audio` đã là dep ⇒ việc nhỏ). ADR mới cho PRON tiếp theo: **0018**.

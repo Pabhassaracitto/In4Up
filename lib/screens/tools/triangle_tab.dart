@@ -337,7 +337,7 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withAlpha(100)),
       ),
-      child: Text('$label: ${(value * 100).toInt()}%',
+      child: Text(context.uiText('$label: ${(value * 100).toInt()}%'),
           style: TextStyle(
               fontSize: 11, color: color, fontWeight: FontWeight.w500)),
     );
@@ -443,7 +443,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    Text('${_currentIndex + 1} / ${_queue.length}',
+                    Text(context.uiText('${_currentIndex + 1} / ${_queue.length}'),
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(width: 12),
                     Expanded(
@@ -647,7 +647,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                       : '📚',
               style: const TextStyle(fontSize: 64)),
           const SizedBox(height: 16),
-          Text('$pct%',
+          Text(context.uiText('$pct%'),
               style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,

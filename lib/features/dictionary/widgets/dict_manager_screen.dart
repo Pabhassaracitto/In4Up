@@ -486,7 +486,7 @@ class _DictCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${dict.entryCount} entries · ${dict.langPairLabel} · $modeLabel',
+                      context.uiText('${dict.entryCount} entries · ${dict.langPairLabel} · $modeLabel'),
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],

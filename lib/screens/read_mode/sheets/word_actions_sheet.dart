@@ -9,6 +9,7 @@ import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
 import '../../../features/grammar/services/grammar_analysis_service.dart';
 import '../../../features/grammar/widgets/structure_section.dart';
+import '../../../features/word_lookup/widgets/word_pronunciation_row.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
@@ -275,24 +276,14 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                   ],
                 ),
               ),
-              // Speak button
-              GestureDetector(
-                onTap: () {
-                  SafeHaptics.lightImpact();
-                  tp.speak(widget.word.word);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.volume_up,
-                    color: Color(0xFF2196F3),
-                    size: 24,
-                  ),
-                ),
+              // PRON-002: thay "ngôn" một nút loa TTS bằng MỘT affordance phát
+              // âm dùng chung — [▶ nguồn theo policy] + [🎧 YouGlish] (WebView
+              // chỉ được dựng khi bấm 🎧 / khi policy ra YouGlish). Hành vi TTS
+              // cũ giữ nguyên: `tp.speak(word)` không lineIndex.
+              WordPronunciationRow(
+                word: widget.word.word,
+                mode: WordPronunciationRowMode.compact,
+                buttonKey: const Key('word_actions_pronunciation_row'),
               ),
             ],
           ),

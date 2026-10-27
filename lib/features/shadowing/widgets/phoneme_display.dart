@@ -67,7 +67,7 @@ class PhonemeDisplay extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${phonemeScores.length} phonemes',
+                      context.uiText('${phonemeScores.length} phonemes'),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey[500],
@@ -185,7 +185,7 @@ class PhonemeDisplay extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    '/${ps.phoneme}/',
+                    context.uiText('/${ps.phoneme}/'),
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
@@ -212,7 +212,7 @@ class PhonemeDisplay extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Score: ${ps.scorePercent}% (${ps.grade})',
+                        context.uiText('Score: ${ps.scorePercent}% (${ps.grade})'),
                         style: TextStyle(
                           fontSize: 16,
                           color: ps.scoreColor,
@@ -313,7 +313,7 @@ class _PhonemeCard extends StatelessWidget {
 
             // IPA Symbol
             Text(
-              '/${phonemeScore.phoneme}/',
+              context.uiText('/${phonemeScore.phoneme}/'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -326,7 +326,7 @@ class _PhonemeCard extends StatelessWidget {
 
             // Score
             Text(
-              '${phonemeScore.scorePercent}%',
+              context.uiText('${phonemeScore.scorePercent}%'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

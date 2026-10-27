@@ -419,7 +419,7 @@ class _YtTabAudioState extends State<YtTabAudio>
                 Text(context.uiText(_dlProgressText),
                     style:
                         const TextStyle(color: Colors.grey, fontSize: 12)),
-                Text('${(_dlProgress * 100).toStringAsFixed(0)}%',
+                Text(context.uiText('${(_dlProgress * 100).toStringAsFixed(0)}%'),
                     style: const TextStyle(
                         color: Color(0xFF6C63FF),
                         fontSize: 12,
@@ -799,7 +799,7 @@ class _QualitySheet extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      '$ext · ${kbps}kbps$sizeLabel',
+                      context.uiText('$ext · ${kbps}kbps$sizeLabel'),
                       style: TextStyle(
                           color: isSelected
                               ? const Color(0xFF9C8FFF)

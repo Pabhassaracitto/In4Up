@@ -565,7 +565,7 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
           leading: const Icon(Icons.data_object),
           title: Text(context.uiText('Chi tiết kỹ thuật')),
           subtitle: Text(
-            '${index.normalizedCode}\n${index.sourceTable}\n${widget.book.metadataJson ?? ''}',
+            context.uiText('${index.normalizedCode}\n${index.sourceTable}\n${widget.book.metadataJson ?? ''}'),
           ),
         ),
       ),

@@ -3338,6 +3338,53 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
 
   // CABIN-ASR-002 — model Zipformer cho Cabin (thiếu model / fallback / mở
   // Quản lý Model AI). T2 phải có bản dịch thật, không để English trơ.
+  // PARAKEET-002 — thiếu model đa ngữ (Parakeet) và danh sách ngôn ngữ offline.
+  'Chưa cài model {value0} cho {value1}. Mở Quản lý Model AI để tải/import.': {
+    'en': 'The {value0} model for {value1} is not installed. Open Manage AI Models to download/import.',
+    'hi': '{value1} के लिए {value0} मॉडल इंस्टॉल नहीं है। डाउनलोड/आयात करने के लिए AI मॉडल प्रबंधन खोलें।',
+    'zh': '尚未安装 {value1} 的 {value0} 模型。请打开管理 AI 模型进行下载/导入。',
+    'zh_TW': '尚未安裝 {value1} 的 {value0} 模型。請開啟管理 AI 模型進行下載/匯入。',
+    'si': '{value1} සඳහා {value0} ආකෘතිය ස්ථාපනය කර නැත. බාගැනීමට/ආයාත කිරීමට AI ආකෘති කළමනාකරණය විවෘත කරන්න.',
+  },
+  'Chưa cài model Parakeet cho {value0}': {
+    'en': 'Parakeet model for {value0} is not installed',
+    'hi': '{value0} के लिए Parakeet मॉडल इंस्टॉल नहीं है',
+    'zh': '尚未安装 {value0} 的 Parakeet 模型',
+    'zh_TW': '尚未安裝 {value0} 的 Parakeet 模型',
+    'si': '{value0} සඳහා Parakeet ආකෘතිය ස්ථාපනය කර නැත',
+  },
+  'Chưa cài model Parakeet (đa ngữ) — mở Quản lý Model AI': {
+    'en': 'Parakeet (multilingual) model is not installed — open Manage AI Models',
+    'hi': 'Parakeet (बहुभाषी) मॉडल इंस्टॉल नहीं है — AI मॉडल प्रबंधन खोलें',
+    'zh': '尚未安装 Parakeet（多语言）模型 — 请打开管理 AI 模型',
+    'zh_TW': '尚未安裝 Parakeet（多語言）模型 — 請開啟管理 AI 模型',
+    'si': 'Parakeet (බහුභාෂා) ආකෘතිය ස්ථාපනය කර නැත — AI ආකෘති කළමනාකරණය විවෘත කරන්න',
+  },
+  'Offline chỉ có Tiếng Việt, English (streaming) và Parakeet (25 ngôn ngữ châu Âu). Hãy chọn ngôn ngữ trong danh sách đó hoặc dùng Engine "Hệ thống".':
+      {
+    'en':
+        'Offline models cover Vietnamese, English (streaming) and Parakeet (25 European languages). Pick one of those languages or use the "System" engine.',
+    'hi':
+        'ऑफ़लाइन में वियतनामी, अंग्रेज़ी (स्ट्रीमिंग) और Parakeet (25 यूरोपीय भाषाएँ) हैं। इनमें से कोई भाषा चुनें या "सिस्टम" इंजन चुनें।',
+    'zh': '离线仅支持越南语、英语（流式）和 Parakeet（25 种欧洲语言）。请选择其中之一，或使用“系统”引擎。',
+    'zh_TW': '離線僅支援越南語、英語（串流）和 Parakeet（25 種歐洲語言）。請選擇其中之一，或使用「系統」引擎。',
+    'si':
+        'නොබැඳි ලෙස ඇත්තේ වියට්නාම්, ඉංග්‍රීසි (ස්ට්‍රීමිං) සහ Parakeet (යුරෝපීය භාෂා 25) පමණි. ඉන් එකක් තෝරන්න හෝ "පද්ධති" එන්ජිම භාවිත කරන්න.',
+  },
+  'Offline (Parakeet/sherpa)': {
+    'en': 'Offline (Parakeet/sherpa)',
+    'hi': 'ऑफ़लाइन (Parakeet/sherpa)',
+    'zh': '离线（Parakeet/sherpa）',
+    'zh_TW': '離線（Parakeet/sherpa）',
+    'si': 'නොබැඳි (Parakeet/sherpa)',
+  },
+  'Tạo lời thoại (LRC — offline, {value0})': {
+    'en': 'Create lyrics (LRC — offline, {value0})',
+    'hi': 'गीत बनाएँ (LRC — ऑफ़लाइन, {value0})',
+    'zh': '生成歌词（LRC — 离线，{value0}）',
+    'zh_TW': '產生歌詞（LRC — 離線，{value0}）',
+    'si': 'ගී පද සාදන්න (LRC — නොබැඳි, {value0})',
+  },
   'Chưa cài model Zipformer cho {value0}': {
     'en': 'Zipformer model for {value0} is not installed',
     'hi': '{value0} के लिए Zipformer मॉडल इंस्टॉल नहीं है',
@@ -6908,5 +6955,212 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '无法朗读该单词。',
     'zh_TW': '無法朗讀該單詞。',
     'si': 'මෙම වචනය උච්ඡාරණය කළ නොහැක.',
+  'Đã copy': {
+    'en': 'Copied',
+    'hi': 'कॉपी हो गया',
+    'zh': '已复制',
+    'zh_TW': '已複製',
+    'si': 'පිටපත් කළෙමු',
+  },
+  'Đang tải YouGlish...': {
+    'en': 'Loading YouGlish...',
+    'hi': 'YouGlish लोड हो रहा है...',
+    'zh': '正在加载 YouGlish...',
+    'zh_TW': '正在載入 YouGlish...',
+    'si': 'YouGlish පූරණය වෙමින්...',
+  },
+  'Nghe trên YouGlish': {
+    'en': 'Listen on YouGlish',
+    'hi': 'YouGlish पर सुनें',
+    'zh': '在 YouGlish 上听',
+    'zh_TW': '在 YouGlish 上聽',
+    'si': 'YouGlish හරහා අසන්න',
+  },
+  'Mở trình duyệt': {
+    'en': 'Open in browser',
+    'hi': 'ब्राउज़र में खोलें',
+    'zh': '在浏览器中打开',
+    'zh_TW': '在瀏覽器中開啟',
+    'si': 'බ්‍රව්සරයේ විවෘත කරන්න',
+  },
+  'Âm thanh từ điển': {
+    'en': 'Dictionary audio',
+    'hi': 'शब्दकोश ऑडियो',
+    'zh': '词典音频',
+    'zh_TW': '詞典音訊',
+    'si': 'ශබ්දකෝෂ ශබ්දය',
+  },
+  'Giọng máy': {
+    'en': 'Text to speech',
+    'hi': 'टेक्स्ट-टू-स्पीच',
+    'zh': '语音合成',
+    'zh_TW': '語音合成',
+    'si': 'පෙළ-කථන ශබ්දය',
+  },
+  'Không mở được YouGlish — đã dùng giọng máy': {
+    'en': 'Could not open YouGlish — using text to speech',
+    'hi': 'YouGlish नहीं खुल सका — टेक्स्ट-टू-स्पीच चल रहा है',
+    'zh': '无法打开 YouGlish，已改用语音合成',
+    'zh_TW': '無法開啟 YouGlish，已改用語音合成',
+    'si': 'YouGlish විවෘත කළ නොහැකි විය — පෙළ-කථන ශබ්දය භාවිතා කළෙමු',
+  },
+  'Không có mạng — đã dùng giọng máy': {
+    'en': 'No connection — using text to speech',
+    'hi': 'कोई नेटवर्क नहीं — टेक्स्ट-टू-स्पीच चल रहा है',
+    'zh': '无网络连接，已改用语音合成',
+    'zh_TW': '無網路連線，已改用語音合成',
+    'si': 'සම්බන්ධතාවක් නැත — පෙළ-කථන ශබ්දය භාවිතා කළෙමු',
+  },
+  'Model dịch (dùng cho Dịch thuật)': {
+    'en': 'Translation model (used for Translation)',
+    'hi': 'अनुवाद मॉडल (अनुवाद के लिए)',
+    'zh': '翻译模型（用于翻译）',
+    'zh_TW': '翻譯模型（用於翻譯）',
+    'si': 'පරිවර්තන ආකෘතිය (පරිවර්තනය සඳහා)',
+  },
+  'Đồng bộ cấu hình lên Firebase': {
+    'en': 'Sync settings to Firebase',
+    'hi': 'सेटिंग्स Firebase में सिंक करें',
+    'zh': '将设置同步到 Firebase',
+    'zh_TW': '將設定同步到 Firebase',
+    'si': 'සැකසුම් Firebase වෙත සමමුහුර්ත කරන්න',
+  },
+  'Đẩy lên Firebase': {
+    'en': 'Upload to Firebase',
+    'hi': 'Firebase में अपलोड करें',
+    'zh': '上传到 Firebase',
+    'zh_TW': '上傳到 Firebase',
+    'si': 'Firebase වෙත උඩුගත කරන්න',
+  },
+  'Tải từ Firebase': {
+    'en': 'Load from Firebase',
+    'hi': 'Firebase से लोड करें',
+    'zh': '从 Firebase 载入',
+    'zh_TW': '從 Firebase 載入',
+    'si': 'Firebase වෙතින් පූරණය කරන්න',
+  },
+  'AI đang chạy hiện tại': {
+    'en': 'AI currently running',
+    'hi': 'अभी चल रहा AI',
+    'zh': '当前运行的 AI',
+    'zh_TW': '目前執行的 AI',
+    'si': 'දැන් ක්‍රියාත්මක AI',
+  },
+  'Chạy thử tất cả': {
+    'en': 'Test all',
+    'hi': 'सभी जाँचें',
+    'zh': '全部测试',
+    'zh_TW': '全部測試',
+    'si': 'සියල්ල පරීක්ෂා කරන්න',
+  },
+  'Trên máy': {
+    'en': 'On device',
+    'hi': 'डिवाइस पर',
+    'zh': '设备本地',
+    'zh_TW': '裝置本機',
+    'si': 'උපාංගයේ',
+  },
+  'Chưa đồng bộ': {
+    'en': 'Not synced yet',
+    'hi': 'अभी सिंक नहीं हुआ',
+    'zh': '尚未同步',
+    'zh_TW': '尚未同步',
+    'si': 'තවම සමමුහුර්ත නොවීය',
+  },
+  'Đang đồng bộ…': {
+    'en': 'Syncing…',
+    'hi': 'सिंक हो रहा है…',
+    'zh': '正在同步…',
+    'zh_TW': '正在同步…',
+    'si': 'සමමුහුර්ත වෙමින්…',
+  },
+  'Đồng bộ lỗi': {
+    'en': 'Sync failed',
+    'hi': 'सिंक विफल',
+    'zh': '同步失败',
+    'zh_TW': '同步失敗',
+    'si': 'සමමුහුර්ත කිරීම අසාර්ථකයි',
+  },
+  'Đã đồng bộ': {
+    'en': 'Synced',
+    'hi': 'सिंक हो गया',
+    'zh': '已同步',
+    'zh_TW': '已同步',
+    'si': 'සමමුහුර්ත විය',
+  },
+  'Chưa đăng nhập — chỉ lưu trên máy': {
+    'en': 'Not signed in — saved on this device only',
+    'hi': 'साइन इन नहीं — केवल इस डिवाइस पर सहेजा गया',
+    'zh': '未登录 — 仅保存在本设备',
+    'zh_TW': '未登入 — 僅儲存在本裝置',
+    'si': 'පිවිසී නැත — මෙම උපාංගයේ පමණක් සුරකිනු ලැබේ',
+  },
+  'Gõ để tìm nhanh…': {
+    'en': 'Type to search…',
+    'hi': 'खोजने के लिए टाइप करें…',
+    'zh': '输入以搜索…',
+    'zh_TW': '輸入以搜尋…',
+    'si': 'සෙවීමට ටයිප් කරන්න…',
+  },
+  'Dùng chung chat model (chưa chọn riêng)': {
+    'en': 'Use the chat model (no separate pick)',
+  },
+  'Gemma trên máy (chưa có model thì trả lời mẫu)': {
+    'en': 'On-device Gemma (canned reply until a model is installed)',
+  },
+  'Chuỗi engine dịch trên máy (HY-MT / ML Kit…)': {
+    'en': 'On-device translation chain (HY-MT / ML Kit…)',
+  },
+  'Whisper / sherpa (Parakeet) trên máy': {
+    'en': 'On-device Whisper / sherpa (Parakeet)',
+  },
+  'TTS trên máy (Piper / Edge / Zalo / FPT…)': {
+    'en': 'On-device TTS (Piper / Edge / Zalo / FPT…)',
+  },
+  'Đăng nhập là có sẵn cấu hình (provider, key, chế độ định tuyến) ở máy khác — không phải nhập lại. Chỉ lưu trong tài khoản của bạn.': {
+    'en': 'Sign in and your setup (providers, keys, routing) is already there on other devices — no re-entering. Stored only in your own account.',
+  },
+  'Báo cáo theo cấu hình thật đang chạy: năng lực nào đi API (provider + model nào), năng lực nào chạy trên máy. Bấm "Chạy thử" để gửi một request thật, rất nhỏ, tới đúng provider/model đó.': {
+    'en': 'This report follows the live config: which capability goes through the API (which provider and model) and which runs on device. Tap "Test" to send one real, tiny request to exactly that provider/model.',
+  },
+  'Xoá kết quả thử': {
+    'en': 'Clear test results',
+  },
+  'Chưa chọn model dịch riêng ⇒ đang dùng chat model ở trên.': {
+    'en': 'No separate translation model ⇒ the chat model above is used.',
+  },
+  'Chưa có nhà cung cấp nào phục vụ năng lực này ⇒ sẽ chạy trên máy.': {
+    'en': 'No provider serves this capability ⇒ it runs on device.',
+  },
+  'Provider chưa chọn model cho năng lực này ⇒ sẽ chạy trên máy.': {
+    'en': 'Provider has no model for this capability ⇒ it runs on device.',
+  },
+  'Chưa thử: provider chưa chọn model.': {
+    'en': 'Not tested: the provider has no model picked.',
+  },
+  'Chưa thử: không có provider ⇒ chạy trên máy.': {
+    'en': 'Not tested: no provider ⇒ runs on device.',
+  },
+  'LỖI: model chưa có trong danh sách của provider ⇒ bóc băng sẽ lỗi.': {
+    'en': 'FAILED: the model is not in the provider list ⇒ transcription will fail.',
+  },
+  'LỖI': {
+    'en': 'FAILED',
+  },
+  'trả về': {
+    'en': 'returned',
+  },
+  'đang mượn chat model': {
+    'en': 'borrowing the chat model',
+  },
+  'model có trong danh sách; chưa bóc băng file thật': {
+    'en': 'model is in the provider list; real audio not transcribed yet',
+  },
+  'Dùng tên đã gõ': {
+    'en': 'Use the typed name',
+    'hi': 'टाइप किया नाम इस्तेमाल करें',
+    'zh': '使用输入的名称',
+    'zh_TW': '使用輸入的名稱',
+    'si': 'ටයිප් කළ නම භාවිත කරන්න',
   },
 };

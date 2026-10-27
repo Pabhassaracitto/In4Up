@@ -25,23 +25,38 @@ void main() {
       .readAsStringSync();
 
   group('1 — hết vạch vàng-đen (overflow) ở màn nhà cung cấp', () {
-    test('dropdown model dùng isExpanded (không tràn ngang)', () {
-      final idx = providersScreen.indexOf('class _ModelDropdown');
-      expect(idx, greaterThan(0));
+    // MODEL-PICKER-001 (2026-10-26): owner yêu cầu *"danh sách dài, kéo tìm
+    // lâu — cho gõ tìm"* ⇒ dropdown được thay bằng Ô CHỌN CÓ TÌM KIẾM. Máy
+    // bắt đổi theo: vẫn phải (a) không tràn ngang với tên model dài và
+    // (b) thật sự có ô lọc — mất một trong hai là hồi quy.
+    test('ô chọn model: có tìm kiếm + ellipsis (không tràn ngang)', () {
+      final idx = providersScreen.indexOf('class _ModelPickerField');
+      expect(idx, greaterThan(0),
+          reason: 'Ô chọn model phải là _ModelPickerField (có ô tìm kiếm) — '
+              'quay lại DropdownButton là mất tính năng gõ tìm.');
       final body = providersScreen.substring(idx, providersScreen.length);
-      expect(body, contains('isExpanded: true'),
-          reason: 'Tên model dài (vd minimax/minimax-m3.1-flash:free) gây TRÀN '
-              'NGANG khi DropdownButton không isExpanded ⇒ vạch vàng-đen.');
-      expect(body, contains('TextOverflow.ellipsis'));
+      expect(body, contains('_SearchPickerDialog'),
+          reason: 'Phải mở dialog có ô lọc, không bắt cuộn tay danh sách dài.');
+      expect(body, contains('TextOverflow.ellipsis'),
+          reason: 'Tên model dài (vd minimax/minimax-m3.1-flash:free) không '
+              'được tràn ngang (vạch vàng-đen).');
+      // Dialog lọc theo query (gõ tới đâu lọc tới đó) + đếm kết quả.
+      final dialogIdx = providersScreen.indexOf('class _SearchPickerDialogState');
+      expect(dialogIdx, greaterThan(0));
+      final dialog = providersScreen.substring(dialogIdx);
+      expect(dialog, contains('toLowerCase().contains(q)'));
+      expect(dialog, contains('OutlineInputBorder'));
     });
 
-    test('dropdown provider ở mục routing: Expanded + isExpanded', () {
+    test('provider ưu tiên ở mục routing: Expanded + picker có tìm kiếm', () {
       final idx = providersScreen.indexOf('class _RoutingTile');
       expect(idx, greaterThan(0));
       final body = providersScreen.substring(idx, providersScreen.length);
-      expect(body, contains('isExpanded: true'));
+      expect(body, contains('_ProviderPickerField'),
+          reason: 'Danh sách provider cũng dài (cloud + LAN + server nhà) ⇒ '
+              'phải chọn bằng picker có tìm kiếm.');
       expect(body, contains('Expanded('),
-          reason: 'Dropdown provider phải nằm trong Expanded để không tràn.');
+          reason: 'Ô chọn provider phải nằm trong Expanded để không tràn.');
     });
   });
 
@@ -117,10 +132,17 @@ void main() {
       final seedIdx = store.indexOf('Future<void> _seedBuiltinProviders');
       expect(seedIdx, greaterThan(0));
       final body = store.substring(seedIdx);
-      final persistIdx = body.indexOf('await _persist();');
+      final persistIdx = body.indexOf('await _persist(');
       final flagIdx = body.indexOf('await prefs.setBool(_kBuiltinSeeded, true);');
       expect(persistIdx, greaterThan(0));
       expect(flagIdx, greaterThan(0));
+      // API-SYNC-001: seed KHÔNG phải thao tác của user ⇒ không bump mốc sửa
+      // và không đánh thức cloud sync (nếu bump, máy mới cài sẽ "mới hơn"
+      // cloud và ghi đè cấu hình + key của user).
+      expect(body, contains('touch: false'),
+          reason: 'Seed không được bump updatedAtMs (LWW sẽ sai).');
+      expect(body, contains('notifySync: false'),
+          reason: 'Seed không được kích hoạt push cloud.');
       expect(flagIdx, greaterThan(persistIdx),
           reason: 'Nếu cờ "đã seed" bật TRƯỚC khi _persist() lỗi ⇒ provider '
               'có sẵn không bao giờ được thêm lại ở lần mở app sau.');

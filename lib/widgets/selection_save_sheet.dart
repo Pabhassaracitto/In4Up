@@ -235,10 +235,10 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          '${isNew ? '✅ Đã lưu' : '✅ Đã bổ sung ngữ cảnh + tag'} '
+          context.uiText('${isNew ? '✅ Đã lưu' : '✅ Đã bổ sung ngữ cảnh + tag'} '
           '"${text.length > 40 ? '${text.substring(0, 40)}…' : text}" '
           '${_selectedTopic != null ? '· #$_selectedTopic ' : ''}'
-          '· ${labelForLanguage(_selectedLanguage)}',
+          '· ${labelForLanguage(_selectedLanguage)}'),
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E5F3A),
@@ -325,10 +325,10 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          '📚 WordList: thêm mới ${result.addedCount}, '
+          context.uiText('📚 WordList: thêm mới ${result.addedCount}, '
           'bổ sung ngữ cảnh ${result.updatedCount}, '
           'bỏ qua ${result.skippedCount}'
-          '${_selectedTopic != null ? ' · #$_selectedTopic' : ''}',
+          '${_selectedTopic != null ? ' · #$_selectedTopic' : ''}'),
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E5F3A),
@@ -402,7 +402,7 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
               ],
             ),
             Text(
-              '${widget.sourceLabel}${widget.sourceDetail != null ? ' · ${widget.sourceDetail!}' : ''}',
+              context.uiText('${widget.sourceLabel}${widget.sourceDetail != null ? ' · ${widget.sourceDetail!}' : ''}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white38, fontSize: 12),

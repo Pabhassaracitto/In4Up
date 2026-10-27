@@ -155,6 +155,41 @@ class SherpaSttEngine implements SttEngine {
     ensureSherpaBindings();
   }
 
+  /// Giải phóng recognizer STREAMING (OnlineRecognizer + stream + state).
+  ///
+  /// Bắt buộc khi chuyển sang model offline: `acceptPcmSamples()` ưu tiên
+  /// `_online` nếu nó còn sống, nên không dọn thì Parakeet/VI sẽ decode bằng
+  /// model streaming cũ (sai ngôn ngữ) và ngốn thêm RAM.
+  void _releaseOnline() {
+    try {
+      _onlineStream?.free();
+    } catch (e) {
+      debugPrint('⚠️ Free OnlineStream lỗi: $e');
+    }
+    _onlineStream = null;
+    _lastEnPartialText = '';
+  }
+
+  /// Giải phóng recognizer OFFLINE (OfflineRecognizer — model lớn, Parakeet
+  /// ~670MB) trước khi nạp model streaming/khác.
+  void _releaseOffline() {
+    final offline = _offline;
+    if (offline == null) return;
+    try {
+      offline.free();
+    } catch (e) {
+      debugPrint('⚠️ Free OfflineRecognizer lỗi: $e');
+    }
+    _offline = null;
+    _offlineModelKey = null;
+    _viSpeechSamples.clear();
+    _vadRemainderSamples.clear();
+    _lastViPartialSamplesCount = 0;
+    try {
+      _vad?.clear();
+    } catch (_) {}
+  }
+
   /// Khởi tạo offline recognizer từ model paths.
   ///
   /// ★ HARD GUARD (SHERPA-STREAM-001): model ZIPFORMER STREAMING không thể
@@ -373,6 +408,9 @@ class SherpaSttEngine implements SttEngine {
 
     if (useOnlineStreaming) {
       // True live streaming token-by-token via OnlineRecognizer
+      // PARAKEET-002: đổi từ model offline (Parakeet ~670MB) sang streaming thì
+      // PHẢI free offline trước — nếu không cả 2 recognizer cùng nằm trong RAM.
+      _releaseOffline();
       try {
         await _initOnline(paths);
         if (_online == null) {
@@ -410,6 +448,12 @@ class SherpaSttEngine implements SttEngine {
         return false;
       }
 
+      // ★ PARAKEET-002: nhánh offline phải DỌN nhánh online. Bản cũ chỉ free
+      // `_onlineStream` bên trong nhánh streaming, nên sau khi dùng EN
+      // streaming (Zipformer 20M) mà chuyển sang model offline (Parakeet/VI),
+      // `acceptPcmSamples()` vẫn thấy `_online != null && _onlineStream != null`
+      // ⇒ decode bằng model EN cũ: chọn tiếng Đức mà ra chữ tiếng Anh.
+      _releaseOnline();
       try {
         await _initOffline(paths);
         if (_offline == null) {

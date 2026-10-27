@@ -42,20 +42,12 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   Timer? _recTicker;
   bool _handlingPending = false;
 
-  static const _supportedLanguages = <String, String>{
-    'en': 'English',
-    'vi': 'Tiếng Việt',
-    'zh': '中文 (Chinese)',
-    'fr': 'Français (French)',
-    'de': 'Deutsch (German)',
-    'ja': '日本語 (Japanese)',
-    'ko': '한국어 (Korean)',
-    'th': 'ไทย (Thai)',
-    'hi': 'हिन्दी (Hindi)',
-    'si': 'සිංහල (Sinhala)',
-    'my': 'မြန်မာ (Burmese)',
-    'pi': 'Pāli',
-  };
+  /// Danh sách ngôn ngữ của dropdown (nguồn dịch + đích dịch).
+  ///
+  /// PARAKEET-002: KHÔNG hardcode nữa — `cabinLanguageOptions()` cộng thêm mọi
+  /// ngôn ngữ có model offline (25 ngôn ngữ của Parakeet), nếu không thì import
+  /// Parakeet xong user vẫn không chọn được es/it/pt/ru/uk/…
+  final Map<String, String> _supportedLanguages = cabinLanguageOptions();
 
   @override
   void initState() {
@@ -308,7 +300,11 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
       return 'Chưa hỗ trợ offline — chỉ Engine Hệ thống';
     }
     if (!_asrInfo.isReady(profile.id)) {
-      return 'Chưa cài model Zipformer — mở Quản lý Model AI';
+      // PARAKEET-002: nêu ĐÚNG tên model cần tải (Zipformer hay Parakeet) —
+      // bản cũ luôn nói "Zipformer" nên user đi tìm sai model.
+      return profile.isMultilingual
+          ? 'Chưa cài model Parakeet (đa ngữ) — mở Quản lý Model AI'
+          : 'Chưa cài model Zipformer — mở Quản lý Model AI';
     }
     return null;
   }
@@ -542,6 +538,16 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     await _service.setSttEngineType(type);
   }
 
+  /// Tiêu đề dialog thiếu model — nêu ĐÚNG họ model cần tải (Zipformer hay
+  /// Parakeet), thay vì luôn nói "Zipformer" như bản cũ (PARAKEET-002).
+  String _missingModelTitle(AsrModelSelection selection) {
+    final language = selection.requestedLanguage.toUpperCase();
+    final profile = selection.profile;
+    return profile != null && profile.isMultilingual
+        ? 'Chưa cài model Parakeet cho $language'
+        : 'Chưa cài model Zipformer cho $language';
+  }
+
   /// Dialog thiếu model Zipformer: mở Quản lý Model AI, hoặc xác nhận dùng
   /// ngôn ngữ đã cài (KHÔNG tự đổi sau lưng user).
   Future<void> _showMissingModelDialog(AsrModelSelection selection) async {
@@ -555,7 +561,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           dialogContext.uiText(
             selection.issue == AsrModelIssue.noProfileForLanguage
                 ? 'Chưa hỗ trợ nhận diện offline cho $language'
-                : 'Chưa cài model Zipformer cho $language',
+                : _missingModelTitle(selection),
           ),
         ),
         content: Column(
@@ -565,7 +571,9 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
             Text(
               dialogContext.uiText(
                 selection.issue == AsrModelIssue.noProfileForLanguage
-                    ? 'App chỉ có model offline cho Tiếng Việt và English (streaming). Hãy chọn Tiếng Việt/English hoặc dùng Engine "Hệ thống".'
+                    // PARAKEET-002: nói rõ Parakeet phủ 25 ngôn ngữ châu Âu —
+                    // bản cũ chỉ nói VI/EN nên user tưởng import Parakeet vô ích.
+                    ? 'Offline chỉ có Tiếng Việt, English (streaming) và Parakeet (25 ngôn ngữ châu Âu). Hãy chọn ngôn ngữ trong danh sách đó hoặc dùng Engine "Hệ thống".'
                     : 'Cabin chỉ nhận diện $language khi model đã có trên máy. Thiếu model, app KHÔNG tự nhận $language bằng model ngôn ngữ khác.',
               ),
             ),
@@ -833,8 +841,11 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           'App chưa hỗ trợ nhận diện offline cho $language — chọn Tiếng Việt/English hoặc dùng Engine "Hệ thống".',
         );
       }
+      // PARAKEET-002: tiêu đề đúng họ model (Parakeet đa ngữ vs Zipformer).
+      final modelName =
+          _service.missingModelIsMultilingual ? 'Parakeet' : 'Zipformer';
       final base = context.uiText(
-        'Chưa cài model Zipformer cho $language. Mở Quản lý Model AI để tải/import.',
+        'Chưa cài model $modelName cho $language. Mở Quản lý Model AI để tải/import.',
       );
       if (fallback == null) return base;
       return '$base ${context.uiText('Hoặc dùng $fallback (đã cài) sau khi xác nhận.')}';
@@ -1094,7 +1105,7 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '#${index + 1} · ${_fmtTime(caption.timestamp)}',
+                context.uiText('#${index + 1} · ${_fmtTime(caption.timestamp)}'),
                 style: const TextStyle(color: Colors.grey, fontSize: 11),
               ),
               Row(

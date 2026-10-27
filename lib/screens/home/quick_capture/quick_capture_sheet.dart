@@ -559,7 +559,7 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
             ),
             const SizedBox(width: 6),
             Text(
-              '${_notes.length}',
+              context.uiText('${_notes.length}'),
               style: TextStyle(color: Colors.grey[600], fontSize: 11),
             ),
           ],

@@ -393,7 +393,7 @@ class _SpeakingPresetCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$activePresetLabel · ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                  context.uiText('$activePresetLabel · ${shadowing.repeatCount}x · ${shadowing.playbackSpeed.toStringAsFixed(1)}x'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -434,7 +434,7 @@ class _SpeakingPresetCard extends StatelessWidget {
               ),
               if (shadowing.customPresets.isNotEmpty)
                 Text(
-                  '${shadowing.customPresets.length} preset',
+                  context.uiText('${shadowing.customPresets.length} preset'),
                   style: const TextStyle(color: Colors.white60, fontSize: 11),
                 ),
             ],
@@ -982,7 +982,7 @@ class _HistoryTile extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '${word.expectedWord} → ${word.recognizedWord ?? '∅'}',
+                                    context.uiText('${word.expectedWord} → ${word.recognizedWord ?? '∅'}'),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,

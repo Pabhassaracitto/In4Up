@@ -327,7 +327,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             ...paoSuggestions.asMap().entries.map((entry) => ListTile(
-                  leading: CircleAvatar(child: Text('${entry.key + 1}')),
+                  leading: CircleAvatar(child: Text(context.uiText('${entry.key + 1}'))),
                   title: Text(entry.value),
                   onTap: () {
                     // User chọn PAO story → lưu vào vocab
@@ -351,7 +351,7 @@ class _WordAnalysisSheetState extends State<WordAnalysisSheet> {
             const SizedBox(height: 8),
             ...examples.map((e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text('• $e'),
+                  child: Text(context.uiText('• $e')),
                 )),
           ],
         ),

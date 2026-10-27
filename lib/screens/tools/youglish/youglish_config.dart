@@ -2,7 +2,8 @@
 //
 // PRON-001 (ADR-0015) — MỘT nguồn sự thật cho cấu trúc URL YouGlish.
 // Trước PRON-001 có HAI bản `_buildUrl()` trùng nhau (youglish_widget.dart và
-// word_list/youglish_mini_sheet.dart) — xem test/youglish/youglish_url_test.dart
+// youglish_mini_sheet.dart, PRON-002 dọn về cùng thư mục) — xem
+// test/youglish/youglish_url_test.dart
 // để biết vì sao URL phải giữ nguyên từng byte.
 //
 // File này THUẦN DART (không import flutter/dart:io/plugin) để golden test chạy

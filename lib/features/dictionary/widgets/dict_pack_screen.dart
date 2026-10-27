@@ -334,7 +334,7 @@ class _DictPackScreenState extends State<DictPackScreen> {
             ),
             const SizedBox(width: 8),
             Text(
-              '(${_catalog.packs.length})',
+              context.uiText('(${_catalog.packs.length})'),
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ],

@@ -975,7 +975,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                               children: [
                                 if (candidate.meaning.trim().isNotEmpty)
                                   Text(
-                                    '💡 ${candidate.meaning.trim()}',
+                                    context.uiText('💡 ${candidate.meaning.trim()}'),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -997,7 +997,7 @@ class _WebExtractionBatchSheetState extends State<WebExtractionBatchSheet> {
                                 if ((candidate.topic ?? '').trim().isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    '🏷️ ${candidate.topic!.trim()}',
+                                    context.uiText('🏷️ ${candidate.topic!.trim()}'),
                                     style: TextStyle(
                                       color: Colors.orange[200],
                                       fontSize: 12,

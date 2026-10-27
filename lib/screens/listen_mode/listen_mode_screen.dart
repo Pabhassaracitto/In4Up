@@ -17,6 +17,8 @@ import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:in4up_stt/diarization/speaker_sidecar.dart';
+// PARAKEET-002 — chip "Offline (sherpa)" cần danh sách model offline đã cài.
+import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/models/content_id.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
@@ -556,7 +558,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 color: kSpeakerColors[id], shape: BoxShape.circle,
               )),
               const SizedBox(width: 4),
-              Text('Người $id', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              Text(context.uiText('Người $id'), style: const TextStyle(color: Colors.white, fontSize: 10)),
             ]),
           )).toList(),
         ),
@@ -582,7 +584,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         if (_lastVoiceText.isNotEmpty) ...[
           const SizedBox(width: 6),
           Text(
-            '${voiceCommandLabel(locale, 'received')}: $_lastVoiceText',
+            context.uiText('${voiceCommandLabel(locale, 'received')}: $_lastVoiceText'),
             style: const TextStyle(color: Colors.white, fontSize: 10),
           ),
         ],
@@ -1699,7 +1701,7 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
                     child: GestureDetector(
                       onTap: () => _setZoom(1.0),
                       child: Text(
-                        '${_zoom.toStringAsFixed(1)}×',
+                        context.uiText('${_zoom.toStringAsFixed(1)}×'),
                         style: TextStyle(
                           color: _zoom == 1.0 ? Colors.grey[500] : Colors.white,
                           fontSize: 10,
@@ -1846,7 +1848,7 @@ class _SongInfoBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
-              child: Text('${player.state.speed}×',
+              child: Text(context.uiText('${player.state.speed}×'),
                   style: const TextStyle(
                       color: Colors.orange,
                       fontSize: 11,
@@ -2864,7 +2866,7 @@ class GenerateLrcButton extends StatelessWidget {
                           const SizedBox(width: 8),
                           if (hasChunkInfo)
                             Text(
-                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              context.uiText('${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%'),
                               style: TextStyle(
                                 color: Colors.blue.shade300,
                                 fontSize: 12,
@@ -2973,13 +2975,14 @@ class GenerateLrcButton extends StatelessWidget {
                   // Tạo lại, không auto chạy Whisper nữa.
                   // Ngôn ngữ: 'auto' (mặc định) = Whisper tự nhận diện
                   // đa ngữ; hoặc ép cụ thể (vi/en/zh/ja/ko/pi...).
-                  onGenerate: (level, grouping, language) =>
+                  onGenerate: (level, grouping, language, useSherpa) =>
                       confirmAndGenerateLrc(
                         context,
                         provider,
                         level,
                         grouping,
                         language: language,
+                        preferSherpa: useSherpa,
                       ),
                 ),
                 const SizedBox(height: 12),
@@ -3031,9 +3034,11 @@ class GenerateLrcButton extends StatelessWidget {
 
 class _LrcModelSelector extends StatefulWidget {
   final bool isProcessing;
-  /// (level, grouping, language) — 'auto' = Whisper tự nhận diện ngôn ngữ.
+  /// (level, grouping, language, useSherpa) — 'auto' = Whisper tự nhận diện
+  /// ngôn ngữ; `useSherpa == true` = dùng model sherpa OFFLINE (Parakeet /
+  /// Zipformer VI) thay cho Whisper (PARAKEET-002).
   final Future<SttTranscribeOutput?> Function(
-      WhisperModelLevel?, SttSegmentGrouping, String) onGenerate;
+      WhisperModelLevel?, SttSegmentGrouping, String, bool) onGenerate;
 
   const _LrcModelSelector(
       {required this.isProcessing, required this.onGenerate});
@@ -3066,13 +3071,52 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
   SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
   String _language = 'auto';
 
+  /// PARAKEET-002 — dùng model sherpa OFFLINE (Parakeet đa ngữ / Zipformer VI)
+  /// thay cho Whisper. Chỉ bật được khi máy đã cài ít nhất 1 model offline
+  /// (model streaming không dùng cho file được — SHERPA-STREAM-001).
+  bool _useSherpa = false;
+
+  StreamSubscription<SherpaAsrInfo>? _asrSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // State model ASR có thể chưa được quét (màn Nghe vào trực tiếp) ⇒ quét
+    // một lần rồi nghe tiếp thay đổi (user vừa import/tải model xong).
+    final manager = SherpaModelManager();
+    manager.ensureFresh().catchError((Object e) {
+      debugPrint('⚠️ _LrcModelSelector: quét model ASR lỗi: $e');
+    });
+    _asrSub = manager.watchAsr().listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _asrSub?.cancel();
+    super.dispose();
+  }
+
+  /// Ngôn ngữ của các model sherpa offline đã cài — chỉ những ngôn ngữ này
+  /// Parakeet/Zipformer nhận được (khác danh sách Whisper ở `_lrcSttLanguages`).
+  List<String> _sherpaLanguages() =>
+      AsrModelRouter.installedLanguages(
+        isInstalled: (profileId) {
+          final profile = AsrModelRouter.profileById(profileId);
+          // Model streaming không dùng được cho file (SHERPA-STREAM-001).
+          if (profile == null || profile.isStreaming) return false;
+          return SherpaModelManager().isAsrProfileInstalled(profileId);
+        },
+      );
+
   Widget _buildLevelChip(WhisperModelLevel level) {
     final info = context.read<PlayerProvider>().getSttModelInfo(level);
     final isSelected = _selectedLevel == level;
     return FilterChip(
       label: Text(
-        '${level.displayLabel} (${level.sizeInMB}MB)'
-        '${info.isReady ? ' ✓' : ''}',
+        context.uiText('${level.displayLabel} (${level.sizeInMB}MB)'
+        '${info.isReady ? ' ✓' : ''}'),
       ),
       selected: isSelected,
       onSelected: widget.isProcessing
@@ -3086,22 +3130,58 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
     return Material(
       color: Colors.transparent,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          ChoiceChip(
-            label: const Text('AUTO'),
-            selected: _selectedLevel == null,
-            onSelected: widget.isProcessing
-                ? null
-                : (_) => setState(() => _selectedLevel = null),
-          ),
-          // WHISPER-VARIANT-001 — luôn hiện dòng đa ngữ; dòng English-only
-          // (.en) chỉ hiện khi đã cài (audio tiếng Anh), tránh 9 chip gây rối.
-          ...kWhisperMultilingualLevels.map(_buildLevelChip),
-          ...kWhisperEnglishOnlyLevels
-              .where((level) =>
-                  context.read<PlayerProvider>().getSttModelInfo(level).isReady)
-              .map(_buildLevelChip),
-        ]),
+        // PARAKEET-002 — có model sherpa OFFLINE đã cài thì cho chọn nó thay
+        // Whisper (trước đây tab Nghe chỉ có chip Whisper: import Parakeet
+        // xong không có cách nào dùng).
+        Builder(builder: (context) {
+          final sherpaLanguages = _sherpaLanguages();
+          if (sherpaLanguages.isEmpty) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [
+              ChoiceChip(
+                avatar: const Icon(Icons.offline_bolt_rounded, size: 16),
+                label: Text(
+                  context.uiText('Offline (Parakeet/sherpa)'),
+                ),
+                selected: _useSherpa,
+                onSelected: widget.isProcessing
+                    ? null
+                    : (selected) => setState(() {
+                          _useSherpa = selected;
+                          if (selected) {
+                            // Sherpa không có chế độ 'auto': chọn ngôn ngữ
+                            // đang dùng nếu nó nằm trong model đã cài, ngược
+                            // lại lấy ngôn ngữ đầu tiên của model offline.
+                            final current = _language;
+                            if (!sherpaLanguages.contains(current)) {
+                              _language = sherpaLanguages.first;
+                            }
+                          } else {
+                            _language = 'auto';
+                          }
+                        }),
+              ),
+            ]),
+          );
+        }),
+        if (!_useSherpa)
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            ChoiceChip(
+              label: const Text('AUTO'),
+              selected: _selectedLevel == null,
+              onSelected: widget.isProcessing
+                  ? null
+                  : (_) => setState(() => _selectedLevel = null),
+            ),
+            // WHISPER-VARIANT-001 — luôn hiện dòng đa ngữ; dòng English-only
+            // (.en) chỉ hiện khi đã cài (audio tiếng Anh), tránh 9 chip gây rối.
+            ...kWhisperMultilingualLevels.map(_buildLevelChip),
+            ...kWhisperEnglishOnlyLevels
+                .where((level) =>
+                    context.read<PlayerProvider>().getSttModelInfo(level).isReady)
+                .map(_buildLevelChip),
+          ]),
         if (_selectedLevel?.isEnglishOnly == true &&
             _language != 'auto' &&
             _language != 'en') ...[
@@ -3128,16 +3208,30 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
         ],
         const SizedBox(height: 8),
         // Ngôn ngữ STT — mặc định 'Tự động' (Whisper tự nhận diện đa ngữ).
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final entry in _lrcSttLanguages.entries)
-            ChoiceChip(
-              label: Text(entry.value),
-              selected: _language == entry.key,
-              onSelected: widget.isProcessing
-                  ? null
-                  : (_) => setState(() => _language = entry.key),
-            ),
-        ]),
+        // Ở chế độ sherpa chỉ hiện ngôn ngữ model offline ĐÃ CÀI thật (chọn
+        // ngôn ngữ Parakeet không hỗ trợ sẽ báo lỗi ngay khi bấm tạo).
+        if (_useSherpa)
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final language in _sherpaLanguages())
+              ChoiceChip(
+                label: Text(AsrModelRouter.languageDisplayName(language)),
+                selected: _language == language,
+                onSelected: widget.isProcessing
+                    ? null
+                    : (_) => setState(() => _language = language),
+              ),
+          ])
+        else
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final entry in _lrcSttLanguages.entries)
+              ChoiceChip(
+                label: Text(entry.value),
+                selected: _language == entry.key,
+                onSelected: widget.isProcessing
+                    ? null
+                    : (_) => setState(() => _language = entry.key),
+              ),
+          ]),
         const SizedBox(height: 12),
         if (!widget.isProcessing)
           SegmentedButton<SttSegmentGrouping>(
@@ -3186,13 +3280,20 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
           )
         else
           ElevatedButton.icon(
-            onPressed: () =>
-                widget.onGenerate(_selectedLevel, _grouping, _language),
+            onPressed: () => widget.onGenerate(
+              _useSherpa ? null : _selectedLevel,
+              _grouping,
+              _language,
+              _useSherpa,
+            ),
             icon: const Icon(Icons.subtitles_outlined),
             label: Text(
-              context.uiText(_language == 'auto'
-                  ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
-                  : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})'),
+              context.uiText(_useSherpa
+                  ? 'Tạo lời thoại (LRC — offline, '
+                      '${AsrModelRouter.languageDisplayName(_language)})'
+                  : _language == 'auto'
+                      ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
+                      : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})'),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade700,
@@ -3426,7 +3527,7 @@ class _AutoTocBubble extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '⚡ $status',
+                      context.uiText('⚡ $status'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -3436,7 +3537,7 @@ class _AutoTocBubble extends StatelessWidget {
                     if (progress > 0) ...[
                       const SizedBox(width: 6),
                       Text(
-                        '${(progress * 100).round()}%',
+                        context.uiText('${(progress * 100).round()}%'),
                         style: const TextStyle(
                           color: Color(0xFF26C6DA),
                           fontSize: 12,

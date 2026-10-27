@@ -121,7 +121,7 @@ class _PdfWordlistPanelState extends State<PdfWordlistPanel> {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  '$count',
+                  context.uiText('$count'),
                   style: const TextStyle(
                     color: Color(0xFF9C8FFF),
                     fontSize: 10,

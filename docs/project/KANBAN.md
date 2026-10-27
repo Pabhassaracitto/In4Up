@@ -185,10 +185,11 @@
 | PDF-OCR-002 | PDF Reader: Batch OCR — chọn quét trang hiện tại / khoảng trang / toàn bộ tài liệu (bỏ qua trang đã có lớp chữ), sửa "chế độ Text với PDF scan là ngõ cụt" (PLAN-035, mở rộng ADR-0009) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị Android/iOS) | agent arena/01a10b7e-in4up — `pdf_batch_ocr.dart` + `pdf_ocr_sheet.dart` + 3 điểm vào (nút TTS bar / menu ⋮ / Text Mode); OCR camera có sẵn của OCR-001 được tái dùng, 0 dependency mới |
 | XLAT-SCR-001 | Dịch màn hình IN-APP cho PDF Reader: nút 🌐 trên toolbar → dịch trang hiện tại (câu từ lớp chữ; trang scan tự OCR 1 trang) → panel song ngữ + progress + "Mở trong Read Mode" (ADR-0010) | 🔨 doing (code + test thuần; chờ CI + nghiệm thu thiết bị) | agent arena/01a10b7e-in4up — `pdf_page_translate.dart` + `pdf_page_translate_panel.dart` + controller state (cache 6 trang, runId cancel); tái dùng TranslationService + TranslationCache + glossary |
 | XLAT-SCR-002 | Dịch màn hình TOÀN HỆ THỐNG Android (MediaProjection + bubble overlay + OCR ML Kit + TranslationService) — Google Lens style | 🔨 doing (P1 code xong + CI 🟢 run 37337092117 trên nền 251e; chờ nghiệm thu thiết bị + build APK) | agent arena/01a10bdd-in4up — ADR-0011 (lane native, cạnh ADR-0010 in-app); `lib/features/screen_translate/` + `com/in4up/screentranslate/` + 5 file test thuần; Kotlin chưa có CI biên dịch |
-| PRON-001 | Gom YouGlish về MỘT nguồn sự thật (`YouGlishView` + `YouGlishUrl` + `YouGlishPrefs`) — không đổi hành vi, URL byte-identical | 🔨 code xong, chờ CI `app_analyze` + nghiệm thu máy (sandbox không có Flutter SDK) | PLAN-038 §1 + ADR-0015 D5; `youglish_view.dart`/`youglish_prefs.dart` mới, 3 điểm vào cũ → shell; test `test/youglish/youglish_url_test.dart` + bước CI `PRON-001 tests`. **Đính chính:** 2 chuỗi Việt trong mini sheet đã được shim lo ⇒ không cần ARB |
-| PRON-002 | Tab Đọc: một hàng "Phát âm" (TTS · audio từ điển · YouGlish) trong `word_actions_sheet` + 1 icon trong `word_mini_pop`; WebView lazy, pause & restore playback | 📋 proposed | PLAN-038 §2; KHÔNG dùng `word_detail_sheet.dart` (không thuộc tab Đọc) và KHÔNG thêm TabBar |
-| PRON-003 | Hàng "Phát âm" cho các mặt còn lại: Vườn nhớ · PDF Reader · YouTube panel · WordList (đối xứng hoá 3 điểm vào cũ, tắt autoplay mặc định) | 📋 proposed | PLAN-038 §3; từ đã lưu = word_list_screen.dart:2102 (đã có YouGlish) + memory_mode/sheets/word_detail_sheet.dart (chưa có) |
+| PRON-001 | Gom YouGlish về MỘT nguồn sự thật (`YouGlishView` + `YouGlishUrl` + `YouGlishPrefs`) — không đổi hành vi, URL byte-identical | ✅ done (code + CI 🟢 + **đã merge PR #107** vào 251e; còn **nghiệm thu máy** Android/iOS/Windows) | run 40161591892 (analyze + Rule 5 + test golden PRON-001 xanh), deploy-web 🟢; `youglish_view.dart`/`youglish_prefs.dart` mới, 3 điểm vào cũ → shell; `test/youglish/youglish_url_test.dart` + bước CI "PRON-001 tests". iOS inline playback **chuyển sang PRON-002** (API là tham số khởi tạo `WKWebViewParams`, không phải method) |
+| PRON-002 | Tab Đọc: một hàng "Phát âm" (TTS · audio từ điển · YouGlish) trong `word_actions_sheet` + 1 icon trong `word_mini_pop`; WebView lazy, pause & restore playback | 📋 proposed — **chưa code; đây mới là phần user nhìn thấy** | PLAN-038 §2 (đã đối chiếu lại 2026-10-26). ⚠️ `961fb26 READ-POP-003`/ADR-0016 đổi pop sang `OverlayEntry` 787 dòng ⇒ icon mới cấy vào hàng `_MiniIconButton` `:515`–`:527`, phải `WordMiniPop.dismiss()` trước khi mở sheet. ⚠️ Cổng CI chỉ nhận test THUẦN DART (bài học `4b4965f`). KHÔNG dùng `word_detail_sheet.dart`, KHÔNG thêm TabBar |
+| PRON-003 | Hàng "Phát âm" cho các mặt còn lại: Vườn nhớ · PDF Reader · **Web Reader** · YouTube panel · sheet từ điển · WordList (đối xứng hoá, tắt autoplay mặc định) | 📋 proposed | PLAN-038 §3; 8 điểm vào tra từ đã kiểm `file:line` trên tip 251e `0706d8f` (WordList `:2102` đã có YouGlish, Vườn nhớ `word_detail_sheet.dart` chưa, `web_word_tap_sheet.dart:189` `speakWord`, `dict_entry_detail_sheet.onSpeak :30`) |
 | PRON-004 | Widget YouGlish chính thức (`public/emb/widget.js` + wrapper HTML) + Điều khoản/Privacy theo Developer Policy | 🚫 blocked (chờ owner xin phép YouGlish) | youglish.com/api/doc/widget mục 2/3/5/6/7; tiền lệ wrapper: web/yt_embed.html; PLAN-038 §4 |
+| PRON-005 | Nguồn "audio từ điển offline" trong hàng Phát âm — nối `DictEntry.audioPath` đang bị bỏ quên (nay có dữ liệu thật nhờ DICT-PACK-001) | 📋 proposed | PLAN-038 §0 + ADR-0015 D1; `dict_entry.dart:40` chưa UI nào dùng; `dict_pack_service.dart:351` cho phép wav/mp3/ogg/m4a |
 
 
 ## Card chi tiết
@@ -7171,9 +7172,43 @@
     byte, bội 512, >64KB, GNU longname, PAX, traversal, archive hỏng/rỗng,
     + fixture thật `test/fixtures/asr_model_sample.tar.bz2` do GNU tar tạo).
     CI: bước "PARAKEET-002 tests" trong `app_analyze.yml`.
+- **Đã sửa phần 2 — "import xong nhưng KHÔNG dùng được Parakeet"**
+  (2026-10-26, nhánh `arena/a5209625-in4up`): chủ dự án yêu cầu *"đảm bảo sau
+  khi thêm parakeet có thể dùng nó ở live dịch cabin, tab nghe STT, …"*. Rà
+  ra 5 lỗi chặn thật:
+  - **Cabin**: dropdown ngôn ngữ hardcode 12 ngôn ngữ ⇒ **22/25 ngôn ngữ
+    Parakeet không chọn được** (es/it/pt/nl/pl/ru/uk/sv/…). Nay
+    `cabinLanguageOptions()` = 12 ngôn ngữ nền + mọi ngôn ngữ có profile
+    offline (34 mục), giữ nguyên thứ tự cũ; nhãn dùng
+    `kAsrLanguageDisplayNames` (nguồn sự thật duy nhất).
+  - **Tab Nghe (LRC)**: chip model chỉ có Whisper, và
+    `SttEngineType.sherpa` **không có nhánh** trong `transcribeFile` (chọn
+    sherpa thì rơi vào `native` = speech_to_text, vốn không transcribe file).
+    Nay: `_runSherpaEngine()` (convert WAV 16k → `OfflineRecognizer`, chặn
+    model streaming, chặn file >30 phút vì sherpa nạp cả file vào RAM) + chip
+    "Offline (Parakeet/sherpa)" trong `_LrcModelSelector` (chỉ hiện khi đã cài
+    model offline; ngôn ngữ chọn từ model thật đã cài) + `transcribeAuto`
+    fallback sang sherpa khi chưa có Whisper.
+  - **Quick capture**: chỉ lấy `profile.language` (phần tử ĐẦU của Parakeet =
+    en) ⇒ app tiếng Đức/Pháp không bao giờ chạy Parakeet. Nay dùng
+    `AsrModelRouter.installedLanguages` (đủ 25 ngôn ngữ).
+  - **Live STT đổi model**: `startLive()` nhánh offline không dọn recognizer
+    online ⇒ sau khi dùng EN streaming, chuyển sang Parakeet/VI vẫn decode
+    bằng model EN cũ (`acceptPcmSamples` ưu tiên `_online`) → **chọn tiếng
+    Đức mà ra chữ tiếng Anh**, và Parakeet (~670MB) không được free khi đổi
+    sang streaming. Nay `_releaseOnline()`/`_releaseOffline()` dọn đúng nhánh.
+  - **Nhãn/chuỗi**: "Chưa cài model Zipformer" → nay nêu đúng họ model
+    (Parakeet vs Zipformer) ở banner, dialog và dropdown; chuỗi mới đã đăng
+    ký `priority_ui_overrides` (rule #5).
+  - Test: `test/parakeet_usage_surfaces_test.dart` (dropdown đủ 25 ngôn ngữ,
+    `installedLanguages`, `offlineFileProfile` KHÔNG trả model streaming,
+    `planCabinAsr` với Parakeet, quick capture theo ngôn ngữ Parakeet).
 - **Ưu tiên:** P2 (chặn nghiệm thu Parakeet trên máy RAM thấp).
-- **Nghiệm thu:** import Parakeet trên máy thật → giải nén xong, model chạy,
-  app không văng; xoá model vẫn giải phóng đủ dung lượng.
+- **Nghiệm thu:** import Parakeet trên máy thật → giải nén xong, app không
+  văng; **chọn tiếng Đức/Pháp/Tây Ban Nha trong Cabin + bật Engine Offline →
+  nhận đúng tiếng, không ra chữ Anh**; tab Nghe → chip "Offline
+  (Parakeet/sherpa)" → tạo lời thoại đúng ngôn ngữ; quick capture theo ngôn
+  ngữ app; xoá model vẫn giải phóng đủ dung lượng.
 - **Trạng thái:** 🔨 doing — code + test xong, chờ CI 🟢 và nghiệm thu máy.
 - **Bài học:** không có `flutter analyze`/`dart test` trong sandbox ⇒ thuật
   toán tar được **mô phỏng lại bằng Python** trên archive do GNU tar sinh ra
@@ -7793,9 +7828,18 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     `generated_legacy_ui_fallbacks.dart:1352`/`:1392`) ⇒ PRON-001 không cần ARB;
     thêm điểm vào #8 `web_reader/widgets/web_word_tap_sheet.dart:189`
     (`speakWord`) vào phạm vi PRON-003.
+  - 2026-10-26 | done | agent Arena `arena/508531fd-in4up` | nợ "iOS inline
+    playback" của card này ĐÃ trả ở PRON-002 (`WKWebViewParams` trong
+    `_initMobile` + direct dep `webview_flutter_wkwebview`) ⇒ nghiệm thu máy của
+    PRON-001 giờ gộp vào nghiệm thu PRON-002 (iPhone: video phải chạy NỘI TIẾP
+    trong sheet).
 
 ### PRON-002 — Hàng "Phát âm" trong Tab Đọc (một nút, lazy)
-- **Trạng thái:** 📋 proposed — PLAN-038 §2; chưa code; phụ thuộc PRON-001.
+- **Trạng thái:** 🟡 code + **CI 🟢** (run 40235361999: `flutter analyze` 0
+  error · bước mới "PRON-002 tests" xanh · PRON-001 golden test vẫn xanh · Rule 5
+  xanh · `Deploy Flutter web` 40235358902 🟢) — **còn owner QA máy**, chưa merge
+  (PR #112 → `arena/01a0251e-in4up`). PLAN-038 §2.1; đã trả luôn nợ iOS của
+  PRON-001; PRON-005 (âm thanh từ điển) vẫn chưa nối.
 - **Nguồn:** chủ dự án (2026-10-24) — yêu cầu gốc "khi chạm từ ở Tab Đọc, cho
   nghe giọng người thật trong ngữ cảnh ngay trong bảng tra".
 - **Hiện trạng đã xác minh (để người sau khỏi dò lại):** Tab Đọc **không** dùng
@@ -7832,6 +7876,92 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | rebase 251e
     `3986433`: nút loa TTS trong `word_actions_sheet.dart` dời `:278`→`:282`,
     sheet vẫn không có TabBar; thêm điểm vào #7 `dict_entry_detail_sheet.onSpeak`.
+  - 2026-10-26 | proposed→doing | agent Arena `arena/508531fd-in4up` | đối
+    chiếu lần 2 trên tip `0706d8f`: `word_mini_pop.dart` đã là **787 dòng
+    OverlayEntry** (ADR-0016, `961fb26`) ⇒ hàng nút dời `:515`–`:527`;
+    `4b4965f` cấm widget test làm cổng CI ⇒ cổng = `pronunciation_source_test`
+    (policy thuần Dart + scan nguồn).
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **thi công xong**:
+    ① `lib/features/word_lookup/pronunciation_source.dart` — enum
+    `PronunciationSource{tts,youglish,dictionary}` + `PronunciationAvailability`
+    + `PronunciationSourcePolicy.resolve/nextFallback` (thuần Dart, không plugin);
+    ② `widgets/word_pronunciation_row.dart` — 3 mode `youglishIconOnly` (pop) /
+    `compact` (header sheet) / `full` (PRON-003: play + chip nguồn + mở trình
+    duyệt); ③ `services/pronunciation_session.dart` `wrapRead` (đếm lồng nhau,
+    capture `currentLineIndex` TRƯỚC `stopSpeaking()`, restore
+    `speakAllLines(startIndex:)`, KHÔNG restore segment/AB-loop — có chủ đích);
+    ④ `services/pronunciation_prefs.dart` key `pronunciation.source` (chỉ 1 key,
+    không 7 key như đề bài Gemini); ⑤ `git mv` `youglish_mini_sheet.dart` từ
+    `tools/word_list/` → `tools/youglish/` + watchdog 8 s + banner 3 hành động
+    (TTS tự phát 1 lần · Thử lại · Mở trình duyệt) + nút mở trình duyệt ở header;
+    ⑥ `YouGlishView`: thêm `onLoaded`, **trả nợ PRON-001** — `WKWebViewParams`
+    (inline playback iOS) + `webview_flutter_wkwebview: ^3.25.1` vào pubspec
+    (lock chỉ đổi classification); ⑦ i18n: 7 chuỗi vào `priority_ui_overrides`
+    (en/hi/zh/zh_TW/si) — trong đó `Đã copy`/`Đang tải YouGlish...` trước chỉ có
+    English ở legacy fallbacks; ⑧ bước CI "PRON-002 tests" (`timeout 10m`).
+    **Chệch có chủ đích so với plan §2.1:** khi WebView lỗi/quá 8 s thì sheet
+    KHÔNG tự pop — nó hiện banner và tự phát TTS (tự đóng làm mất phương hướng
+    giữa luồng đọc); **§2.5** (nút "Mở YouGlish" điều hướng
+    `main_shell._handleTool('youglish', initialWord)`) **chuyển sang PRON-003**
+    vì tiêu chí nghiệm thu chỉ yêu cầu "Mở trình duyệt", đã có trong banner.
+    Sandbox không có Flutter SDK ⇒ mọi kết luận đỏ/xanh lấy từ run CI.
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **đính chính AT(3)**
+    của card: khi `youglish.enabled=false` thì app **ẩn hẳn** mọi điểm vào
+    YouGlish (pop: icon 🎧 biến mất; hàng compact: chỉ còn ▶ TTS), KHÔNG chèn
+    "Mở trong trình duyệt" vào hàng compact. Lý do: D2 (ADR-0015) là
+    kill-switch **pháp lý** — tắt là tắt hẳn, không dẫn user ra browser hộ owner.
+    Nút "Mở trình duyệt" chỉ tồn tại ở (a) `mode.full` mà PRON-003 sẽ cấy và
+    (b) banner lỗi của mini sheet (bối cảnh user đã tự bấm YouGlish khi đang bật).
+    PLAN-038 §2.1 đã ghi thành mục chệch thứ 4.
+  - 2026-10-26 | review | agent Arena `arena/508531fd-in4up` | **rebase lên tip
+    251e `0fd7a39`** để gỡ xung đột PR #112 (GitHub báo `CONFLICTING` sau khi
+    nhánh 251e có 5 commit mới: PARAKEET-002 Cabin/Nghe/quick-capture, bump
+    1.17.0+17, docs REL-1.17.0). Xung đột duy nhất = `docs/project/KANBAN.md`
+    (cả hai bên đều append ở cuối file) ⇒ **giữ cả hai khối**, thứ tự
+    PRON-001..005 rồi REL-1.17.0; 3 file trùng còn lại
+    (`app_analyze.yml`, `priority_ui_overrides.dart`, `pubspec.yaml`) git
+    tự merge và đã kiểm: version vẫn `1.17.0+17` + dep `webview_flutter_wkwebview`
+    còn, 936 key catalog **không trùng key**, bước "PARAKEET-002 tests" và
+    "PRON-002 tests" cùng tồn tại. Bằng chứng không mất tính năng 251e:
+    `git diff 0fd7a39..HEAD` = đúng 20 file của PRON, **0 file** thuộc
+    `packages/in4up_stt|listen_mode|cabin|player_stt_mixin|quick_capture`.
+    Sandbox bị tạo lại giữa lúc (HEAD lùi về `d3573a2`, repo shallow) ⇒ khôi phục
+    bằng `git fetch` + `git reset --hard a6d1eb8` sau khi xác nhận tree khớp
+    từng file — đó là lý do rule "commit nhỏ, push ngay" tồn tại.
+  - 2026-10-26 | doing→review | agent Arena `arena/508531fd-in4up` | **CI 🟢**
+    run 40235361999 (push 40235358889) trên `b3843ed`: analyze 0 error +
+    "PRON-002 tests" xanh + PRON-001/Rule-5/DICT-CLEAN/READ-GRAM không hồi quy;
+    web deploy 40235358902 🟢 ⇒ row mới không kéo `dart:io` vào cây
+    `main_web.dart`. Đã comment bằng chứng + script QA 3 phút trong PR #112.
+    **Còn:** owner nghiệm thu Android + iPhone (inline playback), `hi`/`zh`
+    chrome, airline-mode banner.
+  - 2026-10-26 | review | agent Arena `arena/508531fd-in4up` | **CI 🟢 trên tip
+    đã rebase `b04a37a`** — app_analyze run **40442992784** (push 40442988499):
+    `flutter analyze` 0 error; `success` lần lượt Rule 5 · PARAKEET-002 ·
+    DICT-CLEAN-001/WORD-INSIGHT-001 · **PRON-001 golden** · **PRON-002** ·
+    READ-GRAM-001 · shell order; `Deploy Flutter web` **40442988469** 🟢.
+    ⇒ rebase không làm đỏ cổng nào của 251e và 251e không làm đỏ cổng PRON.
+    Trạng thái PR #112: `MERGEABLE / CLEAN` (đã hết `CONFLICTING`).
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | **CI ĐỎ run
+    40234606043 (step "Analyze full app", 2 ERROR)** — đọc annotations qua
+    `gh api /check-runs/<job>/annotations` (artifact log KHÔNG tải được từ
+    sandbox: `*.blob.core.windows.net` nằm ngoài egress allowlist ⇒ workflow
+    đã phải phát `::error::` cho lý do này). Root cause: khối iOS
+    PRON-002 chép theo công thức của **webview_flutter_wkwebview 4.x**
+    (`WKWebViewParams` + cascade `mediaPlaybackRequiresUserGesture`) trong khi
+    repo lock ở **3.25.1** ⇒ `undefined_identifier` +
+    `type_test_with_undefined_name`. Đã đối chiếu source thật của 3.25.1
+    (`git clone --filter=blob:none --sparse` tag
+    `webview_flutter_wkwebview-v3.25.1` trên github.com) và sửa thành:
+    `WebKitWebViewPlatform` +
+    `WebKitWebViewControllerCreationParams.fromPlatformWebViewControllerCreationParams(params,
+    allowsInlineMediaPlayback: true,
+    mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{})` —
+    **bản 3.x không có** `mediaPlaybackRequiresUserGesture` (kẻ thay thế là set
+    rỗng của `mediaTypesRequiringUserAction`), pubspec giữ `^3.25.1` để KHÔNG
+    trôi lên 4.x (4.x đổi tên class ⇒ phải sửa `_initMobile` cùng lúc).
+    Bài học cho agent sau: **mọi API plugin phải kiểm theo version đã lock
+    trong `pubspec.lock`, không kiểm theo tài liệu mới nhất**.
 
 ### PRON-003 — Hàng "Phát âm" cho các chỗ tra từ còn lại (từ đã lưu · PDF · YouTube)
 - **Trạng thái:** 📋 proposed — PLAN-038 §3; chưa code; phụ thuộc PRON-002.
@@ -7889,6 +8019,14 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     chặn PRON-001/002/003 bằng card này.
   - 2026-10-24 | blocked | agent Arena `arena/06e5aef5-in4up` | rebase
     `3986433` không đổi kết luận; ADR đánh số 0015.
+  - 2026-10-26 | doing→**done (code + CI 🟢, đã merge)** | agent Arena
+    `arena/508531fd-in4up` | owner merge **PR #107** vào `arena/01a0251e-in4up`
+    (2026-10-25 04:55 UTC). Head checks 🟢 `40161591892`: analyze 0 error + Rule 5
+    + "PRON-001 tests" (golden URL == nguyên văn 2 hàm cũ, 2 source-scan) +
+    `deploy-web` 🟢. Bắt kịp 12 commit của 251e (ff `d3573a2`→`0706d8f`) và kiểm
+    lại: `youglish.com/pronounce` vẫn đúng 1 file, `YouGlishView` vẫn được 2 điểm
+    vào dùng ⇒ PRON-001 không bị các commit sau làm hỏng. **Còn:** owner nghiệm thu
+    máy (Android/iOS/Windows) — chưa ai xác nhận trên thiết bị.
   - 2026-10-24 | doing→doing (CI 🟢) | agent Arena `arena/06e5aef5-in4up` | fix
     `c70c428`..`4416484` làm đỏ run 40161123267 (ctor trùng + API iOS
     không tồn tại) → run 40161328540 XANH: analyze + Rule 5 + test golden
@@ -7935,6 +8073,30 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 | READ-ALIGN-001 | Tab Đọc: mặc định căn GIỮA + lựa chọn căn lề được lưu (trước đây "tạm thời bỏ qua") | 🔨 doing (code + test; CI 🟢 run 40198430172; chờ nghiệm thu máy) | `TextProvider._textAlign = TextAlign.center` + `getReadTextAlign`/`saveReadTextAlign` (`read_text_align`) + khôi phục trong `_restoreFromStorage` |
 | DICT-PACK-001 | Tải bộ từ điển ngay trong app (setting home) — danh mục JSON + link trực tiếp, kiểm sha256, giải nén an toàn | 🔨 doing (code + test + docs; CI 🟢 run 40198430172; chờ nghiệm thu máy) | `models/dict_pack.dart` + `services/dict_pack_service.dart` + `widgets/dict_pack_screen.dart` + `assets/dictionary/packs.json` (2 bộ CC0/CC-BY-SA đã kiểm tra link) + mục Home/Read + nút ở "Quản lý từ điển"; `docs/dictionary/DICT_PACK_CATALOG.md`; `test/dictionary/dict_pack_test.dart` |
 
+### PRON-005 — Nguồn "audio từ điển offline" trong hàng Phát âm (nối `DictEntry.audioPath`)
+- **Trạng thái:** 📋 proposed (tạo 2026-10-26) — **chưa code**; nên đi sau
+  PRON-002 vì dùng đúng widget `WordPronunciationRow`.
+- **Vì sao bây giờ mới có:** `DictEntry.audioPath`/`hasAudio`
+  (`lib/features/dictionary/models/dict_entry.dart:40`) đã được parse + lưu từ
+  lâu nhưng **không UI nào tiêu thụ** (kiểm lại 2026-10-26 trên tip `0706d8f`:
+  `grep` trong `lib/features/dictionary` = 0 điểm dùng). Từ `6672b57
+  DICT-PACK-001` (ADR-0017), người dùng tải bộ từ điển **ngay trong app** và
+  `dict_pack_service.dart:351` cho phép `wav/mp3/ogg/m4a` trong pack ⇒ audio
+  người thật **bắt đầu có đường vào máy người dùng**, nếu không ai phát thì vẫn
+  chết.
+- **Nội dung:** trong `WordPronunciationRow`, nguồn "Từ điển" = phát
+  `audioPath` của `DictEntry` hiện có (file trong thư mục pack/bundle đã import),
+  ưu tiên `Từ điển → YouGlish → TTS` khi `youglish.enabled=false` hoặc mất mạng;
+  fallback im lặng về TTS nếu file thiếu.
+- **AT:** (1) test THUẦN DART cho hàm resolve nguồn (không plugin — ràng buộc
+  CI `4b4965f`); (2) một bộ từ điển có file `.mp3` thật trên máy dev ⇒ bấm loa
+  nghe đúng file đó, không qua mạng; (3) locale ≠ vi: nhãn nguồn không còn
+  tiếng Việt; (4) không đổi hành vi khi máy chưa import từ điển nào (vẫn TTS).
+- **Lịch sử:**
+  - 2026-10-26 | created→proposed | agent Arena `arena/508531fd-in4up` | phát
+    hiện khi đối chiếu 12 commit mới của 251e cho PLAN-038: DICT-PACK-001 làm
+    nguồn audio từ điển thành khả thi, ADR-0015 D1 đã dự phòng chỗ này.
+
 ### REL-1.17.0 — (2026-10-26) Release 1.17.0 full 4 nền tảng từ tip nhánh 251e
 - **Trạng thái:** ✅ done (build 🟢; chờ nghiệm thu máy)
 - **Nguồn:** owner 2026-10-26 — *"chạy action tạo bản release mới với version phù hợp full thiết bị nhánh 251e"*.
@@ -7949,6 +8111,24 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm:** cài đè trên máy thật (Android cần bản 1.16.0 đang cài sẵn để thử `adb install -r`), iOS sideload trên iPhone, Windows chạy `in4up.exe`, Linux chạy bundle.
 - **Lịch sử:**
   - 2026-10-26 | created→done | agent arena/01a0251e-in4up | bump 1.17.0+17 → tag → build 4 nền tảng 🟢 → 4 asset published
+
+### API-SERVERSET-001 — (2026-10-26) Server & API: model DỊCH riêng · tìm kiếm thay vì cuộn · đồng bộ Firebase · báo cáo "AI đang chạy"
+- **Trạng thái:** 🔨 doing (code + test xong; CI `app_analyze` phải 🟢; chờ nghiệm thu máy)
+- **Nguồn:** owner 2026-10-26 (4 việc) — *"phần cài đặt API server không có chỗ nào để sửa provider, model cho phần DỊCH cả"* · *"danh sách dài kéo tìm lâu, cho gõ tìm"* · *"thiết lập 1 chỗ sync cấu hình API lên Firebase để đăng nhập máy khác là có luôn, không phải nhập lại key"* · *"thiết lập hệ thống test thực tế xem các AI nó chạy hiện hành là gì"*. Owner cũng chốt: *"cài đặt dịch thuật đã làm rất tốt"* ⇒ KHÔNG đụng màn Cài đặt dịch thuật.
+- **Vấn đề:** (1) `AiRouteCapability.translation` chỉ mượn `chatModel`, form provider chỉ có 3 ô (chat/STT/TTS) ⇒ dịch không chọn được model riêng. (2) Model list của OpenRouter/Gemini vài trăm dòng, `DropdownButtonFormField` bắt cuộn tay. (3) Cấu hình provider + key + routing chỉ nằm trong `SharedPreferences` của 1 máy ⇒ đăng nhập máy khác phải nhập lại toàn bộ key. (4) Chip "Tự động (theo mạng)" chỉ nói *chính sách*, không nói **thực tế** app đang gọi provider/model nào.
+- **Đã làm:**
+  1. `packages/in4up_ai/lib/src/provider/ai_provider_config.dart` — thêm `translationModel`; `effectiveTranslationModel` (= `translationModel ?? chatModel`, tương thích cấu hình cũ); `modelFor(AiRouteCapability)` là **một nguồn sự thật** cho UI + báo cáo; `supports()` suy từ `modelFor`. `toJson/fromJson/copyWith(clearTranslationModel)`.
+  2. `lib/features/translation/engines/llm_mt_engine.dart` — dịch dùng `provider.effectiveTranslationModel` (trước là `chatModel`).
+  3. `lib/screens/settings/ai_providers_screen.dart` — **ô chọn model thứ 4 "Model dịch"** (ghi vào `translationModel`); chip model dịch trên card provider; `_ModelDropdown` → `_ModelPickerField`/`_ProviderPickerField` = **dialog chọn CÓ Ô TÌM KIẾM** (lọc theo tên + subtitle, đếm `kết quả/tổng`, cho **gõ tay tên model** không có trong `/v1/models`); dropdown provider ưu tiên của từng năng lực cũng thành picker có tìm kiếm; ô chọn model hiện **cả khi chưa tải được danh sách** (trước đây danh sách rỗng thì không chọn được gì).
+  4. **Đồng bộ Firebase** — `packages/in4up_ai/lib/src/provider/ai_settings_sync.dart` (thuần): `AiSettingsSnapshot` (providers + routing + bia mộ + `updatedAtMs`), `mergeAiSettings(local, remote, now)` = **newest-wins theo TỪNG provider** (2 máy sửa 2 provider khác nhau vẫn giữ cả hai) + **bia mộ** chặn provider đã xoá "sống lại" + routing lấy từ bên mới hơn + `fromJson` bỏ qua entry hỏng. `AiProviderStore` lưu thêm `ai_settings_updated_at_ms_v1` / `ai_settings_tombstones_v1`, có `snapshot()`, `applySnapshot(touch:)` và hook `onChanged` (không tự gọi Firebase trong package). `lib/services/ai_settings_cloud_sync.dart`: doc `users/{uid}/ai_settings/current`, field `payload` = JSON string (cùng quy ước LHB/Vocab); auto **pull+merge khi đăng nhập** → push debounce 3 s khi cấu hình đổi; plugin `cloud_firestore` trên mobile/desktop, **Firestore REST** trên Linux (đúng pattern LHB). Nối ở `lib/main.dart` sau `runApp()` (không block khởi động).
+  5. **"AI đang chạy hiện tại"** — `packages/in4up_ai/lib/src/engine/ai_routing_report.dart`: `buildAiRoutingReport(store, network)` cho cả 4 năng lực → mode đã resolve theo loại mạng, provider, **model từng năng lực** (dịch = model dịch), engine cục bộ dự phòng, cảnh báo cấu hình (enum, không phải chuỗi). `ai_capability_probe.dart`: `probeAiCapability` gửi **request THẬT rất nhỏ** tới đúng provider/model (chat 1 từ; dịch 1 câu; TTS 1 từ → đếm byte; STT chỉ kiểm `/v1/models` và **nói rõ chưa bóc băng file thật**), trả về mã lỗi cấu trúc `AiApiErrorCode` + độ trễ; transport inject được nên test 100 % offline.
+  6. UI: card **"Đồng bộ cấu hình lên Firebase"** (trạng thái + `Đẩy lên`/`Tải từ`) và card **"AI đang chạy hiện tại"** (bảng 4 năng lực + nút `Chạy thử tất cả` cập nhật kết quả từng dòng).
+- **Bảo mật:** không log/hiện `apiKey`; payload chứa key nên chỉ ghi vào `users/{uid}/...` (rules chặn chéo user) — ghi rõ trong docstring. Không đổi chỗ lưu key cục bộ (vẫn `SharedPreferences` như ADR-0008).
+- **Máy bắt:** `test/ai_translation_model_and_sync_test.dart` (31 test thuần logic: model dịch + fallback, snapshot round-trip, LWW 2 máy, bia mộ, routing theo bên mới hơn, báo cáo theo wifi/4G/không mạng, chạy thử ok/lỗi mã/skip/STT chỉ kiểm model list) → **cổng CI** `app_analyze.yml` step *"API settings tests — model dịch + đồng bộ + AI đang chạy (2026-10-26)"*. Rule #5: mọi chuỗi mới đi qua `context.uiText(...)` + entry trong `lib/core/language/priority_ui_overrides.dart` (12 chuỗi có bản dịch hi/zh/zh_TW/si, phần còn lại English fallback) — **không thêm khoá ARB** nên không phải sửa 26 file `app_*.arb`.
+- **Chưa kiểm:** máy thật (đăng nhập 2 máy xem key có tự sang; bấm "Chạy thử tất cả" với Groq/Gemini thật; OpenRouter vài trăm model gõ tìm). Sandbox không có Flutter SDK ⇒ kiểm chứng tĩnh (analyzer chờ CI).
+- **Nợ kỹ thuật:** nếu 2 máy cùng sửa **cùng một** provider mà lệch giờ hệ thống thì LWW chọn theo `updatedAtMs` của máy — sai lệch lớn (máy đặt giờ tay) có thể làm bản cũ thắng; đã giới hạn bằng cách chỉ so mốc của chính document/provider, không so `serverTimestamp`.
+- **Lịch sử:**
+  - 2026-10-26 | created→doing | agent arena/1ff82d23-in4up | model dịch riêng + picker tìm kiếm + sync Firebase (LWW/bia mộ) + báo cáo "AI đang chạy" + chạy thử thật
 
 ## DICT-I18N-001 / DICT-VIEW-003 — (2026-10-27) Từ điển: script ưu tiên không bị xoá, hiện TÊN loại từ + nghe được
 - **Trạng thái:** 🔨 doing (code + test; **chưa chạy được analyzer/test** — sandbox không có Flutter SDK ⇒ chờ CI; chờ nghiệm thu máy)

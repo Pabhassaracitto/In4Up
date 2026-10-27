@@ -1076,7 +1076,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '"$selectedText"',
+                  context.uiText('"$selectedText"'),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1513,7 +1513,7 @@ class _SelectionBar extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              '"${controller.selectedText}"',
+              context.uiText('"${controller.selectedText}"'),
               style: const TextStyle(color: Colors.white70, fontSize: 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

@@ -489,7 +489,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                                 child: isCurrent
                                     ? const Icon(Icons.graphic_eq,
                                         color: Color(0xFF6C63FF), size: 16)
-                                    : Text('${idx + 1}',
+                                    : Text(context.uiText('${idx + 1}'),
                                         style: TextStyle(
                                             color: Colors.grey[600],
                                             fontSize: 11)),
@@ -545,7 +545,7 @@ class _LocalAudioTabState extends State<_LocalAudioTab> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '${player.getSegmentsForCurrentSong().length}',
+                            context.uiText('${player.getSegmentsForCurrentSong().length}'),
                             style: const TextStyle(
                                 color: Color(0xFF9C8FFF),
                                 fontSize: 10,
@@ -920,7 +920,7 @@ class _SegmentTile extends StatelessWidget {
                     style:
                         const TextStyle(color: Colors.white70, fontSize: 12)),
                 Text(
-                  '${_fmt(segment.startTime)} → ${_fmt(segment.endTime)}',
+                  context.uiText('${_fmt(segment.startTime)} → ${_fmt(segment.endTime)}'),
                   style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ],

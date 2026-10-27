@@ -108,7 +108,7 @@ class _PdfReaderExportRowState extends State<PdfReaderExportRow> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '${sidecar.annotationCount}',
+                    context.uiText('${sidecar.annotationCount}'),
                     style: const TextStyle(
                       color: Color(0xFF9CCC65),
                       fontSize: 13,

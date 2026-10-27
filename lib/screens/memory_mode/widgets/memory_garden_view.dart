@@ -249,7 +249,7 @@ class _FilterChip extends StatelessWidget {
             Text(emoji, style: const TextStyle(fontSize: 14)),
             const SizedBox(width: 4),
             Text(
-              '$count',
+              context.uiText('$count'),
               style: TextStyle(
                 color: isSelected ? color : Colors.grey,
                 fontWeight: FontWeight.bold,

@@ -501,7 +501,7 @@ class _ChapterTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      chapter.title,
+                      context.uiText(chapter.title),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
@@ -525,7 +525,7 @@ class _ChapterTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: Text(
-                    '$childCount',
+                    context.uiText('$childCount'),
                     style: const TextStyle(color: Color(0xFF26C6DA), fontSize: 11.5, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -842,7 +842,7 @@ class _SegmentTab extends StatelessWidget {
                   backgroundColor: const Color(0xFF232841),
                   title: const Text('Xóa đoạn?', style: TextStyle(color: Colors.white, fontSize: 15)),
                   content: Text(
-                    '"${segment.title}" (${SoundMark.formatTime(segment.startTime)} – ${SoundMark.formatTime(segment.endTime)})',
+                    context.uiText('"${segment.title}" (${SoundMark.formatTime(segment.startTime)} – ${SoundMark.formatTime(segment.endTime)})'),
                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                   actions: [
@@ -942,7 +942,7 @@ class _SuggestionChip extends StatelessWidget {
             const Icon(Icons.lightbulb_outline, size: 13, color: Color(0xFFFFB300)),
             const SizedBox(width: 5),
             Text(
-              '💪 Lặp ${stat.count}× · ${stat.timeLabel}',
+              context.uiText('💪 Lặp ${stat.count}× · ${stat.timeLabel}'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,

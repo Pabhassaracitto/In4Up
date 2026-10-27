@@ -209,6 +209,34 @@ jobs:
           cat youglish_pron_test.log
           exit $code
 
+      # PRON-002: cùng nguyên tắc — CHỈ logic thuần + scan nguồn, không widget
+      # test (plugin webview/Hive treo >8 phút trên runner, xem 4b4965f).
+      - name: "PRON-002 tests — chính sách nguồn phát âm + ràng buộc surface"
+        id: pron-002-tests
+        run: |
+          set +e
+          files=""
+          for f in test/youglish/pronunciation_source_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test PRON-002 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          timeout 10m flutter test $files -r expanded > pron_002_test.log 2>&1
+          code=$?
+          cat pron_002_test.log
+          exit $code
+
+      - name: Upload PRON-002 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-pron-002-test-log
+          path: pron_002_test.log
+          if-no-files-found: ignore
+
       - name: Upload PRON-001 test log
         if: always()
         uses: actions/upload-artifact@v4
@@ -279,6 +307,32 @@ jobs:
         run: >-
           flutter test
           test/ai_provider_builtin_and_read_align_test.dart
+
+      # API-TRANS-MODEL-001 / MODEL-PICKER-001 / API-SYNC-001 / API-DIAG-001:
+      # model dịch riêng, hòa giải cấu hình cloud (LWW + bia mộ), báo cáo
+      # "AI đang chạy" theo loại mạng, và chạy thử THẬT qua transport giả.
+      # Thuần logic (không mạng, không plugin) nên chạy được trên CI.
+      - name: "API settings tests — model dịch + đồng bộ + AI đang chạy (2026-10-26)"
+        id: api-settings-tests
+        run: |
+          set +e
+          if [ ! -f test/ai_translation_model_and_sync_test.dart ]; then
+            echo "Không có test API settings trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/ai_translation_model_and_sync_test.dart \
+            > api_settings_test.log 2>&1
+          code=$?
+          cat api_settings_test.log
+          exit $code
+
+      - name: Upload API settings test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-api-settings-test-log
+          path: api_settings_test.log
+          if-no-files-found: ignore
 
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
@@ -578,6 +632,11 @@ jobs:
           # WHISPER-VARIANT-001: 2 dòng model Whisper (đa ngữ / English-only).
           if [ -f test/whisper_model_variants_test.dart ]; then
             files="$files test/whisper_model_variants_test.dart"
+          fi
+          # PARAKEET-002: Parakeet phải dùng được ở Cabin/tab Nghe/quick capture
+          # (dropdown đủ 25 ngôn ngữ, route file không rơi vào model streaming).
+          if [ -f test/parakeet_usage_surfaces_test.dart ]; then
+            files="$files test/parakeet_usage_surfaces_test.dart"
           fi
           flutter test $files > asr_test.log 2>&1
           code=$?

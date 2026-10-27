@@ -27,7 +27,7 @@ import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
-import 'youglish_mini_sheet.dart';
+import '../youglish/youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -866,7 +866,7 @@ class _WordListScreenState extends State<WordListScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Text('${(p.progress * 100).toInt()}%',
+          Text(context.uiText('${(p.progress * 100).toInt()}%'),
               style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 10,
@@ -1702,7 +1702,7 @@ class _WordListScreenState extends State<WordListScreen> {
                             .toList()
                               ..sort())
                           ChoiceChip(
-                            label: Text('+ $t',
+                            label: Text(context.uiText('+ $t'),
                                 style: const TextStyle(
                                     color: Colors.white54, fontSize: 11)),
                             selected: false,
@@ -1751,7 +1751,7 @@ class _WordListScreenState extends State<WordListScreen> {
                         for (final lang in List<String>.of(allLangOptions)..sort())
                           ChoiceChip(
                             label: Text(
-                              '${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}',
+                              context.uiText('${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}'),
                               style: TextStyle(color: selectedLangs.contains(lang) ? Colors.white : Colors.grey, fontSize: 11),
                             ),
                             selected: selectedLangs.contains(lang),
@@ -2007,7 +2007,7 @@ class _CompactListItem extends StatelessWidget {
                                           .zone.color
                                           .withValues(alpha: 0.7))))),
                           const SizedBox(width: 3),
-                          Text('${(entry.mastery * 100).toInt()}%',
+                          Text(context.uiText('${(entry.mastery * 100).toInt()}%'),
                               style: TextStyle(
                                   color: Colors.grey[600], fontSize: 9)),
                         ]),
@@ -2023,7 +2023,7 @@ class _CompactListItem extends StatelessWidget {
                     decoration: BoxDecoration(
                         color: Color(0xFFFFB300).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4)),
-                    child: Text('📌${entry.encounterCount}',
+                    child: Text(context.uiText('📌${entry.encounterCount}'),
                         style: const TextStyle(fontSize: 9))),
 
               // Per-word repeat

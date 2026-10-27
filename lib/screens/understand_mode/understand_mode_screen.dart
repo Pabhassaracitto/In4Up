@@ -691,7 +691,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       const Icon(Icons.loop, size: 14, color: Color(0xFF4CAF50)),
                       const SizedBox(width: 3),
                       Text(
-                        '${player.loopCount}x',
+                        context.uiText('${player.loopCount}x'),
                         style: const TextStyle(
                           color: Color(0xFF4CAF50),
                           fontWeight: FontWeight.bold,
@@ -1161,7 +1161,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '$count',
+                      context.uiText('$count'),
                       style: TextStyle(
                         color: shadowing.repeatCount == count
                             ? Colors.white
@@ -1198,7 +1198,7 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${shadowing.playbackSpeed.toStringAsFixed(1)}x',
+                  context.uiText('${shadowing.playbackSpeed.toStringAsFixed(1)}x'),
                   style: const TextStyle(
                     color: Colors.orange,
                     fontWeight: FontWeight.bold,

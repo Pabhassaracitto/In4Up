@@ -243,7 +243,7 @@ class _SoundMarkEditSheetState extends State<_SoundMarkEditSheet> {
                     runSpacing: 6,
                     children: _tags.map((t) {
                       return Chip(
-                        label: Text('#$t', style: const TextStyle(fontSize: 12)),
+                        label: Text(context.uiText('#$t'), style: const TextStyle(fontSize: 12)),
                         labelStyle: const TextStyle(color: Colors.white),
                         backgroundColor: const Color(0xFF6C63FF),
                         deleteIconColor: Colors.white70,

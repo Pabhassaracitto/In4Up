@@ -18,6 +18,7 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
   WhisperModelLevel? level,
   SttSegmentGrouping grouping, {
   String language = 'auto',
+  bool preferSherpa = false,
 }) async {
   final hit = await provider.peekCachedLrc();
   var force = false;
@@ -62,5 +63,7 @@ Future<SttTranscribeOutput?> confirmAndGenerateLrc(
     grouping: grouping,
     forceRegenerate: force,
     language: language,
+    // PARAKEET-002: chip "Offline (sherpa)" trong tab Nghe.
+    preferSherpa: preferSherpa,
   );
 }

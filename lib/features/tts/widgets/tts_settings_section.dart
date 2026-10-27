@@ -275,7 +275,7 @@ class _EngineOrderSection extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${index + 1}',
+                      context.uiText('${index + 1}'),
                       style: TextStyle(
                         fontSize: 12,
                         color: color,
@@ -597,7 +597,7 @@ class _CacheSection extends StatelessWidget {
             Icon(Icons.storage, size: 14, color: Colors.grey[500]),
             const SizedBox(width: 6),
             Text(
-              'Cache: $count files (${sizeMB.toStringAsFixed(1)} MB)',
+              context.uiText('Cache: $count files (${sizeMB.toStringAsFixed(1)} MB)'),
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
             const Spacer(),
@@ -1033,8 +1033,8 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
                         DropdownMenuItem<String>(
                           value: v.id,
                           child: Text(
-                            '${v.name} ${v.gender == 'male' ? '♂' : '♀'} · '
-                            '${EdgeVoicePrefs.normalizeLang(v.language)}',
+                            context.uiText('${v.name} ${v.gender == 'male' ? '♂' : '♀'} · '
+                            '${EdgeVoicePrefs.normalizeLang(v.language)}'),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1149,7 +1149,7 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
               ),
             ),
             Text(
-              '${voices.length}',
+              context.uiText('${voices.length}'),
               style: const TextStyle(fontSize: 10, color: Colors.white30),
             ),
           ],

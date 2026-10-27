@@ -614,7 +614,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                         SizedBox(
                           width: 52,
                           child: Text(
-                            '${(_appearance.fontScale * 100).round()}%',
+                            context.uiText('${(_appearance.fontScale * 100).round()}%'),
                             textAlign: TextAlign.end,
                           ),
                         ),
@@ -640,7 +640,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                         SizedBox(
                           width: 52,
                           child: Text(
-                            '${_ttsSpeed.toStringAsFixed(2)}x',
+                            context.uiText('${_ttsSpeed.toStringAsFixed(2)}x'),
                             textAlign: TextAlign.end,
                           ),
                         ),
@@ -1126,7 +1126,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       trailing: Text(
-                        '${items.length}/${outline.length}',
+                        context.uiText('${items.length}/${outline.length}'),
                         style: Theme.of(context).textTheme.labelMedium,
                       ),
                     ),
@@ -1162,7 +1162,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                                 return ListTile(
                                   dense: true,
                                   leading: Text(
-                                    '${outline.indexOf(segment) + 1}',
+                                    context.uiText('${outline.indexOf(segment) + 1}'),
                                   ),
                                   title: Text(
                                     _outlineTitle(segment),
@@ -1199,7 +1199,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         child: ListTile(
           leading: const Icon(Icons.data_object),
           title: Text(context.uiText('Chi tiết kỹ thuật')),
-          subtitle: Text('${index.normalizedCode}\n${index.sourceTable}'),
+          subtitle: Text(context.uiText('${index.normalizedCode}\n${index.sourceTable}')),
         ),
       ),
     );
@@ -2053,7 +2053,7 @@ class _SegmentMetaBar extends StatelessWidget {
             ],
             if (!compact)
               Text(
-                '#$number',
+                context.uiText('#$number'),
                 style: Theme.of(context).textTheme.labelSmall,
               ),
           ],

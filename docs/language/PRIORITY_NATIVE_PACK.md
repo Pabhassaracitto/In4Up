@@ -66,28 +66,64 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
    chạy test `test/language/priority_native_pack_test.dart` (+ group rule #5
    trong `test/locale_chrome_no_vietnamese_test.dart`).
 
-## Trạng thái (wave 7, 2026-10-25 — hoàn tất: 0 tiếng Việt, 0 tiếng Anh)
+## Trạng thái (wave 9, 2026-10-27 — 7 locale ưu tiên sạch)
 
-- Pack: **2116 entry × 8 locale**.
-- **Rò rỉ tiếng Việt: 0** và **English còn lại: 0** ở **cả 7 locale ưu tiên**
-  (`zh`, `zh_TW`, `hi`, `si`, `my`, `th`, `ja`) trên **2648 chuỗi chrome**
-  (196 file presentation).
-- Lịch sử wave: 1037 (wave 2–4) → 1155 (sau rebase 251e) → 1575 (wave 6:
-  425 chuỗi còn lại, đưa `zh`/`zh_TW`/`hi`/`si` về 0) → 2116 (wave 7:
-  491 chuỗi mà tầng ARB chỉ có bản dịch cho `zh`/`zh_TW`/`hi`/`si`, bổ sung
-  `th`/`ja`/`my`, rồi vá 50 chuỗi chỉ thiếu `my`).
-- Chuỗi giữ English theo chính sách (không tính là rò rỉ, khai báo trong
-  `ENGLISH_STOPWORDS` của `tool/lang_ui_inventory.py`): `AI`, `PDF`, `URL`,
-  `TTS`, `OCR`, `IPA`, `YouTube`, `Whisper`, `In4Up`, `YouGlish`, `Oxford`,
-  `web_batch`, `en_US-lessac-medium`, `TXT · LRC · SRT`, `MP3, M4A, WAV, FLAC...`
-  (danh sách định dạng file).
-- Máy dò nay loại thêm **id công cụ / widget key / JSON field / storage name**
-  (`word_list`, `pdf_jump_page_field`, `showLegend`, `vi`, `content`, `save`…)
-  để số liệu chỉ còn chuỗi người dùng thực thấy.
-- Cách hoàn tất phần `th`/`ja`/`my`: mỗi chuỗi còn thiếu được thêm vào pack với
-  4 cột `hi`/`zh`/`zh_TW`/`si` **lấy nguyên từ tầng ARB đang chạy** (đã đúng,
-  không dịch lại) và chỉ viết tay 3 cột `th`/`ja`/`my` — tránh dịch trùng và
-  tránh lệch thuật ngữ giữa hai tầng.
+- Pack: **3459 entry × 8 locale**.
+- Máy dò đã được làm **trung thực hơn nữa** trong wave 9:
+  - lexer literal Dart thật (`dart_string_end` / `iter_string_literals`) — không
+    còn cắt sai ở `'${lang == 'en' ? ...}'`;
+  - đệ quy vào `${...}` để bắt cả literal lồng bên trong template;
+  - bỏ qua “vỏ ghép chuỗi” (literal mà phần tĩnh rỗng, runtime chỉ toàn nội suy);
+  - `skipValuesByPath` nay áp cho **mọi** đường quét (trước đây chỉ đường quét
+    rộng, nên chuỗi kỹ thuật vẫn quay lại báo cáo);
+  - chuỗi mà phần tĩnh chỉ còn `${ui('…')}` được coi là đã dịch tại chỗ.
+- Kết quả đo lại cuối wave 9 — **4340 chuỗi chrome / 308 file**:
+
+  | locale | còn tiếng Việt | còn English |
+  | --- | ---: | ---: |
+  | `zh`, `zh_TW` | **0** | **0** |
+  | `hi` | **0** | **0** |
+  | `si` | **0** | **0** |
+  | `my` | **0** | **0** |
+  | `th` | **0** | **0** |
+  | `ja` | **0** | **0** |
+
+  `python3 tool/lang_ui_inventory.py --locale zh --fail-on-leak` → exit 0;
+  `tool/lang_rollout_report.py` → mọi locale đạt sàn, 7 locale ưu tiên 392/392
+  ở T2.
+- Vì sao lần này khác các lần trước: con số trên **không** đến từ việc nới bộ
+  lọc. Bộ lọc chỉ loại chuỗi kỹ thuật có ghi lý do trong
+  `tool/lang_ui_scan_exclusions.json` (SQL, header HTTP, tên model/thương hiệu,
+  regex bảng dấu, prompt LLM, khoá JSON, phím tắt hệ thống); mọi chuỗi hiển thị
+  còn lại đều có bản dịch thật trong pack.
+- Phần lớn công việc của wave 9 là **chuỗi nội suy**: chúng chỉ dịch được khi
+  call site gọi `context.uiText(...)` (shim `Text` cố ý không bật template để
+  không dịch nhầm nội dung người dùng). Các điểm đã rà và bọc: thông báo tiến
+  trình VAD/Whisper (qua `autoTocStatus`), tiến trình tải YouTube, lỗi TTS,
+  `_MetricRow` của Viết (độ dài/cụm trùng/từ khoá), tiêu đề chương tự sinh
+  (`Chương {value0}`), "Đáp án: …" của bài tập điền từ, "… → Đã lưu nhanh" của
+  tab Đọc, "Âm cần chú ý: …" của tab Nói.
+- Lịch sử: 1037 (wave 2–4) → 1155 → 1575 → 2116 (wave 7) → 3005 (wave 8) →
+  **3459** (wave 9: 300+ mẫu nội suy, Ngữ pháp/PDF/OCR/dịch màn hình, Learn by
+  heart, Piper, YouTube, Memory, engine dịch, từ điển, cabin).
+- `learn_by_heart_l10n.dart` có đủ **vi/en/hi/zh/zh_TW/si/my/th/ja** cho cả 74
+  nhóm; `locale_map_gaps()` sẽ cảnh báo nếu một bảng `_get({...})` thiếu locale
+  ưu tiên.
+- **Ngoại lệ có chủ đích** (không phải chrome, có ghi lý do trong code):
+  - `lib/features/understand_ai/understand_ai_prompts.dart` — *nội dung prompt*
+    gửi cho AI, hiện nguyên văn trong ô nhập của AI Chat để người dùng sửa
+    trước khi gửi (đã ghi rõ ở đầu file);
+  - stopword tiếng Việt cho thuật toán cloze/tóm tắt, bảng dấu tiếng Việt dùng
+    cho tìm kiếm PDF/glossary, regex nhận diện ngôn ngữ;
+  - comment XML trong tệp XFDF xuất ra (người dùng cuối không thấy);
+  - thông báo cấu hình dành cho lập trình viên (`auth_service`,
+    `firebase_options_*`).
+
+- Thuật ngữ **giữ nguyên English** (đúng yêu cầu): AI, PDF, TTS, STT, VAD, OCR,
+  LRC, YouTube, Whisper, Hy-MT, ML Kit, Piper, Silero, Parakeet, Zipformer,
+  Sherpa, GGUF, FSRS, Google Play services, Google Drive, `User-Agent`,
+  `Content-Type`, `Authorization`, khoá API, tên model/thương hiệu, định dạng
+  file.
 
 ## Lưu ý
 

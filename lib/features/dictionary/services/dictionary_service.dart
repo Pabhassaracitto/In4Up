@@ -85,11 +85,18 @@ class DictionaryService {
     await _loadManifest();
   }
 
-  /// Tra từ trên TẤT CẢ từ điển đang bật
-  Future<List<DictEntry>> lookup(String word) async {
+  /// Tra từ trên TẤT CẢ từ điển đang bật (hoặc chỉ một bộ khi truyền
+  /// [dictId] — màn Từ điển có chip chọn bộ).
+  ///
+  /// Kết quả giữ đúng THỨ TỰ ƯU TIÊN của manifest: bộ đứng trước lên trước,
+  /// nên `DictTextCleaner.merge(...)` gộp theo đúng thứ tự người dùng đã sắp.
+  Future<List<DictEntry>> lookup(String word, {String? dictId}) async {
     await ensureInitialized();
     final results = <DictEntry>[];
-    for (final dict in enabledDictionaries) {
+    final sources = dictId == null
+        ? enabledDictionaries
+        : enabledDictionaries.where((d) => d.id == dictId).toList();
+    for (final dict in sources) {
       try {
         final entries = await DictDbService.lookup(dict.dbPath, word);
         results.addAll(entries);
@@ -98,6 +105,47 @@ class DictionaryService {
       }
     }
     return results;
+  }
+
+  /// Gợi ý headword theo tiền tố cho ô tìm của MÀN TỪ ĐIỂN (ADR-0018).
+  ///
+  /// Khác [lookupPrefix]: bản cũ DỪNG ở bộ đầu tiên có kết quả (đúng cho
+  /// autocomplete một dòng), còn ở đây gộp từ **mọi bộ đang bật** và khử trùng
+  /// — nếu không, người dùng có 2 bộ sẽ chỉ thấy gợi ý của bộ đứng đầu.
+  /// Thứ tự ưu tiên manifest được giữ: từ của bộ đứng trước lên trước.
+  Future<List<String>> suggest(
+    String prefix, {
+    int limit = 12,
+    String? dictId,
+  }) async {
+    await ensureInitialized();
+    final needle = prefix.trim();
+    if (needle.isEmpty || limit <= 0) return const <String>[];
+    final sources = dictId == null
+        ? enabledDictionaries
+        : enabledDictionaries.where((d) => d.id == dictId).toList();
+    final seen = <String>{};
+    final out = <String>[];
+    for (final dict in sources) {
+      if (out.length >= limit) break;
+      try {
+        final entries = await DictDbService.lookupPrefix(
+          dict.dbPath,
+          needle,
+          limit: limit,
+        );
+        for (final entry in entries) {
+          final head = entry.headword.trim();
+          if (head.isEmpty) continue;
+          if (!seen.add(head.toLowerCase())) continue;
+          out.add(head);
+          if (out.length >= limit) break;
+        }
+      } catch (e) {
+        // Bộ hỏng thì bỏ qua, các bộ khác vẫn gợi ý được.
+      }
+    }
+    return out;
   }
 
   /// Tra prefix (autocomplete)

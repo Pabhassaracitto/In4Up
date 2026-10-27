@@ -10,6 +10,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/dictionary/widgets/dictionary_screen.dart';
 import '../features/dictionary/widgets/dict_pack_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
@@ -627,10 +628,13 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.auto_stories,
         color: const Color(0xFF7E57C2),
       ),
+      // ADR-0018 (P1): `dictionary` = MÀN TRA TỪ (ô tìm + gợi ý + lịch sử);
+      // `dict_manager` = trang cài đặt/quản lý bộ. Trước đây cả hai cùng mở
+      // trang quản lý nên người dùng không có chỗ nào để tra từ.
       'dictionary': tools.ToolItem(
         id: 'dictionary',
         title: context.uiText('Từ điển'),
-        subtitle: context.uiText('Quản lý từ điển MDX đa ngữ'),
+        subtitle: context.uiText('Tra từ: ô tìm, gợi ý, lịch sử'),
         icon: Icons.auto_stories_rounded,
         color: const Color(0xFF2196F3),
       ),
@@ -1127,7 +1131,7 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'dictionary':
         nav.push(
-          MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+          MaterialPageRoute(builder: (_) => const DictionaryScreen()),
         );
         return;
       case 'shell_ui_settings':

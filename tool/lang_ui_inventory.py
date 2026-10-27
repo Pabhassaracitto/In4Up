@@ -423,6 +423,10 @@ def _literal_is_technical(
             return True
     if stripped in skip_values:
         return True
+    # Chuỗi đã tự bọc `context.uiText(...)` bên trong thì phần tĩnh đã được dịch
+    # tại chỗ render — không tính là rò rỉ.
+    if "uiText(" in value:
+        return True
     # Bối cảnh 2 dòng phía trước: nếu literal là đối số của log/throw thì bỏ.
     context = text[max(0, start - 200) : start]
     tail = "\n".join(context.split("\n")[-2:])

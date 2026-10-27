@@ -287,6 +287,9 @@
       "G-N72C4S87J8"
     ],
     "firebase_options_beta.dart": [
+      "AIzaSyBpNh1jlG74XV_VplhSSqL--jFYvVOrRig",
+      "AIzaSyD-xDY8nduuCp8-G_S1CPfyoyYdgWvCJCk",
+      "G-N72C4S87J8",
       "DefaultFirebaseOptions have not been configured for linux - you can reconfigure this by running the FlutterFire CLI again.",
       "DefaultFirebaseOptions have not been configured for macos - you can reconfigure this by running the FlutterFire CLI again."
     ],
@@ -307,7 +310,11 @@
       "GOOGLE_DESKTOP_CLIENT_ID",
       "GOOGLE_DESKTOP_CLIENT_SECRET",
       "GOOGLE_WEB_CLIENT_ID",
-      "YOUR_"
+      "YOUR_",
+      "FLAVOR",
+      "Chưa cấu hình GOOGLE_DESKTOP_CLIENT_SECRET.\\nLấy secret từ Google Cloud Console và truyền qua --dart-define hoặc env.\\nVí dụ: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=xxx",
+      "Chưa cấu hình Google Sign In cho Desktop.\\nTạo OAuth client ID loại Desktop app trong Google Cloud Console > APIs & Services > Credentials.\\nTruyền qua --dart-define hoặc env.",
+      "Không lấy được ID token từ Google. Kiểm tra:\\n1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? (Project Settings > Your apps > SHA certificate fingerprints)\\n2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\\n3. serverClientId=$_webClientId có đúng Web client không?"
     ],
     "services/firestore_rest_client.dart": [
       "ASCENDING",
@@ -326,7 +333,8 @@
       "làm",
       "mạo từ xác định",
       "nghĩ",
-      "đi"
+      "đi",
+      "có"
     ],
     "services/text_source_loader.dart": [
       "[A-Za-zÀ-ỹ]"

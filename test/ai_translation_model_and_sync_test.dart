@@ -329,7 +329,7 @@ void main() {
       );
       final remote = AiSettingsSnapshot(
         providers: [_provider(id: 'user-made', chatModel: 'm')],
-        updatedAtMs: 5_000,
+        updatedAtMs: 5000,
       );
       final merged = mergeAiSettings(local: local, remote: remote);
       final ids = merged.merged.providers.map((p) => p.id).toSet();

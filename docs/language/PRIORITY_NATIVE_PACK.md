@@ -109,6 +109,16 @@ Locale ngoài danh sách ưu tiên vẫn đi theo thứ tự cũ (ARB → Englis
 - `learn_by_heart_l10n.dart` có đủ **vi/en/hi/zh/zh_TW/si/my/th/ja** cho cả 74
   nhóm; `locale_map_gaps()` sẽ cảnh báo nếu một bảng `_get({...})` thiếu locale
   ưu tiên.
+- **Ngoại lệ có chủ đích** (không phải chrome, có ghi lý do trong code):
+  - `lib/features/understand_ai/understand_ai_prompts.dart` — *nội dung prompt*
+    gửi cho AI, hiện nguyên văn trong ô nhập của AI Chat để người dùng sửa
+    trước khi gửi (đã ghi rõ ở đầu file);
+  - stopword tiếng Việt cho thuật toán cloze/tóm tắt, bảng dấu tiếng Việt dùng
+    cho tìm kiếm PDF/glossary, regex nhận diện ngôn ngữ;
+  - comment XML trong tệp XFDF xuất ra (người dùng cuối không thấy);
+  - thông báo cấu hình dành cho lập trình viên (`auth_service`,
+    `firebase_options_*`).
+
 - Thuật ngữ **giữ nguyên English** (đúng yêu cầu): AI, PDF, TTS, STT, VAD, OCR,
   LRC, YouTube, Whisper, Hy-MT, ML Kit, Piper, Silero, Parakeet, Zipformer,
   Sherpa, GGUF, FSRS, Google Play services, Google Drive, `User-Agent`,

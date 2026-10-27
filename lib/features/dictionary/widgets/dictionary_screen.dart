@@ -19,7 +19,10 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+// LƯU Ý: KHÔNG import `package:flutter/material.dart` ở file có UI — file này
+// dùng `localized_material.dart`, nó đã `export material hide Text` và cung cấp
+// `Text` tự dịch + `context.uiText`. Import cả hai ⇒ `Text` mơ hồ
+// (ambiguous_import) — lỗi CI đã gặp (run 40570682412).
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:shared_preferences/shared_preferences.dart';

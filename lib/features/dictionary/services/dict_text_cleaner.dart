@@ -249,10 +249,10 @@ class DictTextCleaner {
       '\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF'
       '\uF900-\uFAFF';
 
-  static final RegExp _letterRe = RegExp('[$_letterRanges]');
+  static final RegExp _letterRe = RegExp('[${_letterRanges}]');
 
   /// Mọi thứ KHÔNG phải chữ cái/số/khoảng trắng — dùng khi chuẩn hoá chuỗi.
-  static final RegExp _nonLetterRe = RegExp('[^$_letterRanges0-9\\s]');
+  static final RegExp _nonLetterRe = RegExp('[^${_letterRanges}0-9\\s]');
 
   /// Metadata KHÔNG có dấu hai chấm ở đầu dòng (`reading …`).
   static final RegExp _metaWordPrefixRe = RegExp(

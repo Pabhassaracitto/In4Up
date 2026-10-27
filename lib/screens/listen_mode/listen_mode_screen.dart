@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -42,7 +43,9 @@ import '../listen_mode/widgets/rolling_waveform_view.dart';
 import '../listen_mode/widgets/rolling_waveform_painter.dart';
 import '../understand_mode/services/lrc_translation_resolver.dart';
 import 'widgets/generate_lrc_actions.dart';
+import 'widgets/legacy_audio_data_button.dart';
 import 'widgets/listen_library_screen.dart';
+import 'widgets/playback_queue_sheet.dart';
 import 'widgets/quick_audio_sheet.dart';
 import 'widgets/soundlist_panel.dart';
 import '../../features/voice_command/voice_command_service.dart';
@@ -833,8 +836,25 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       selector: (_, p) => p.currentSongPath,
       builder: (context, currentPath, _) {
         final player = context.read<PlayerProvider>();
-        if (player.currentSongPath == null) {
-          return const ListenLibraryScreen();
+        if (currentPath == null) {
+          return Stack(
+            children: [
+              const ListenLibraryScreen(),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Consumer<PlayerProvider>(builder: (context, player, _) {
+                  if (!player.isQueueLoading) return const SizedBox.shrink();
+                  return Semantics(
+                    label: context.uiText('Đang tải bài'),
+                    liveRegion: true,
+                    child: const LinearProgressIndicator(),
+                  );
+                }),
+              ),
+            ],
+          );
         }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1813,7 +1833,7 @@ class _SongInfoBar extends StatelessWidget {
                     children: [
                       Row(children: [
                         Flexible(
-                          child: Text(
+                          child: material.Text(
                             player.currentSongTitle ?? 'Unknown',
                             style: const TextStyle(
                                 fontSize: 14,
@@ -1828,8 +1848,8 @@ class _SongInfoBar extends StatelessWidget {
                             size: 16, color: Color(0xFF6C63FF)),
                       ]),
                       const SizedBox(height: 2),
-                      Text(
-                        player.currentSongArtist ?? 'Nhấn để đổi audio',
+                      material.Text(
+                        player.currentSongArtist ?? context.uiText('Nhấn để đổi audio'),
                         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1839,6 +1859,12 @@ class _SongInfoBar extends StatelessWidget {
                 ),
               ]),
             ),
+          ),
+          LegacyAudioDataButton(player: player),
+          IconButton(
+            tooltip: context.uiText('Danh sách đang phát'),
+            onPressed: () => showPlaybackQueueSheet(context),
+            icon: const Icon(Icons.queue_music, color: Colors.white70),
           ),
           if (player.state.speed != 1.0)
             Container(
@@ -2742,32 +2768,51 @@ class _SeekAndPlayRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _SeekBtn(icon: Icons.replay_10, onTap: () => _seek(-10)),
-        const SizedBox(width: 16),
+        _TransportButton(
+          icon: Icons.skip_previous,
+          label: context.uiText('Bài trước'),
+          onTap: player.canGoPreviousTrack ? () => player.previousTrack() : null,
+        ),
+        _TransportButton(
+          icon: Icons.replay_10,
+          label: context.uiText('Lùi 10 giây'),
+          onTap: () => player.replay10(),
+        ),
         _PlayButton(player: player),
-        const SizedBox(width: 16),
-        _SeekBtn(icon: Icons.forward_10, onTap: () => _seek(10)),
+        _TransportButton(
+          icon: Icons.forward_10,
+          label: context.uiText('Tiến 10 giây'),
+          onTap: () => player.forward10(),
+        ),
+        _TransportButton(
+          icon: Icons.skip_next,
+          label: context.uiText('Bài sau'),
+          onTap: player.canGoNextTrack ? () => player.nextTrack() : null,
+        ),
       ],
     );
   }
-
-  void _seek(int sec) {
-    HapticFeedback.lightImpact();
-    final target = player.state.position + Duration(seconds: sec);
-    player.seek(target.isNegative ? Duration.zero : target);
-  }
 }
 
-class _SeekBtn extends StatelessWidget {
+class _TransportButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
-  const _SeekBtn({required this.icon, required this.onTap});
+  final String label;
+  final VoidCallback? onTap;
+  const _TransportButton({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Icon(icon, color: Colors.white70, size: 26),
+    return IconButton(
+      tooltip: label,
+      onPressed: onTap == null
+          ? null
+          : () {
+              HapticFeedback.lightImpact();
+              onTap!();
+            },
+      icon: Icon(icon, size: 26),
+      color: Colors.white70,
+      disabledColor: Colors.white24,
     );
   }
 }
@@ -2778,30 +2823,38 @@ class _PlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        player.togglePlayPause();
-      },
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-              colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)]),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+    final label = context.uiText(player.wantsPlayback ? 'Tạm dừng' : 'Phát');
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            player.togglePlayPause();
+          },
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)]),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Icon(
-          player.isPlaying ? Icons.pause : Icons.play_arrow,
-          color: Colors.white,
-          size: 28,
+            child: Icon(
+              player.wantsPlayback ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
         ),
       ),
     );

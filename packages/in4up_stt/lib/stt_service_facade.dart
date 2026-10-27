@@ -167,6 +167,8 @@ class SttServiceFacade extends ChangeNotifier {
   late final SttModelManager _modelManager;
   late final SttLrcConverter _lrcConverter;
   late final DiarizationService _diarizationService;
+  bool _nativeEngineCreated = false;
+  bool _modelManagerCreated = false;
 
   bool _initialized = false;
   bool _disposed = false;
@@ -243,7 +245,9 @@ class SttServiceFacade extends ChangeNotifier {
 
       _config = config ?? const SttConfig();
       _nativeEngine = SttEngineNative();
+      _nativeEngineCreated = true;
       _modelManager = SttModelManager();
+      _modelManagerCreated = true;
       _lrcConverter = SttLrcConverter();
       _diarizationService = const HeuristicDiarizationService();
 
@@ -253,6 +257,7 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
       await _modelManager.initialize();
+      if (_disposed) return;
       // Cấu hình model dir cho WhisperSttEngine (registry).
       SttEngineRegistry.configureWhisperModelDir(
         _modelManager.modelDirectoryPath,
@@ -268,6 +273,7 @@ class SttServiceFacade extends ChangeNotifier {
         debugPrint('⚠️ Native STT init failed (non-fatal): $e');
       }
 
+      if (_disposed) return;
       _initialized = true;
       _emitProgress(SttFacadeStatus.ready, 1.0, 'Sẵn sàng');
       debugPrint('✅ SttServiceFacade initialized');
@@ -1333,8 +1339,8 @@ class SttServiceFacade extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _nativeEngine.dispose();
-    _modelManager.dispose();
+    if (_nativeEngineCreated) _nativeEngine.dispose();
+    if (_modelManagerCreated) _modelManager.dispose();
     _progressSubject.close();
     _partialSubject.close();
     _instance = null;

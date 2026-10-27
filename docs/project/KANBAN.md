@@ -8,6 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — chờ Flutter CI, review độc lập, build và nghiệm thu thiết bị | `arena/bf95d3ae-in4up`, ADR-0018, [review](PLAN-039-review.md); code/test đã viết, chưa chạy |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
@@ -8219,3 +8220,15 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   3. `.db` nằm trong ZIP của "bộ tải sẵn" (`dict_pack_service`) vẫn chỉ bóc `mdx/mdd/css` — muốn bộ pack đóng gói dạng SQLite phải thêm `db/sqlite` vào `_dictExtensions` (chưa làm vì chưa có bộ nào như vậy).
 - **Lịch sử:**
   - 2026-10-28 | created→done | agent arena/01a0251e-in4up | thêm importer SQLite + nhánh service + picker + i18n + 17 test; CI `40590731503` 🟢
+
+### PLAN-039 — Tab Nghe: queue phiên và chuyển bài
+- **Trạng thái:** 🔨 doing — chưa có Flutter analyze/test CI, build Android,
+  review độc lập hoặc nghiệm thu máy.
+- **Nguồn:** owner duyệt phương án `docs/plans/PLAN-039-tab-nghe-danh-sach-phat.md`.
+- **Thiết kế:** ADR-0018; hàng đợi theo phiên, snapshot thư viện/playlist,
+  giữ ±10 giây, ưu tiên repeat/A–B và liên kết dữ liệu cũ có xác nhận.
+- **Bằng chứng hiện có:** code + test đã viết; `git diff --check`, kiểm tra
+  priority catalog và test Python importer; không tuyên bố Flutter test xanh.
+- **Lịch sử:**
+  - 2026-10-28 | 2026-10-27 19:41 UTC | created→doing | agent
+    `arena/bf95d3ae-in4up` | owner duyệt và triển khai; CI và thiết bị chờ kiểm.

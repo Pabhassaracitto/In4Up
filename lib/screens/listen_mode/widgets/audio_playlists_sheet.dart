@@ -8,42 +8,18 @@
 // markPlayed + RecentAudio) như tab Thư viện.
 
 // ignore_for_file: use_build_context_synchronously
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/audio_library_entry.dart';
 import '../../../models/audio_playlist.dart';
+import '../../../models/audio_queue_item.dart';
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
-import '../../../services/audio_library_service.dart';
-import '../models/recent_audio.dart';
-import '../services/recent_audio_service.dart';
 
 const _accent = Color(0xFF6C63FF);
-
-/// Phát một entry (dùng chung giữa các sheet).
-Future<void> playLibraryEntry(BuildContext context, AudioLibraryEntry entry) async {
-  HapticFeedback.selectionClick();
-  final player = context.read<PlayerProvider>();
-  final playable = await AudioLibraryService().resolvePlayablePath(entry.uri);
-  if (!context.mounted) return;
-  await player.loadSong(
-    path: playable,
-    title: entry.title,
-    artist: entry.artist,
-    autoPlay: true,
-  );
-  if (!context.mounted) return;
-  await context.read<AudioLibraryProvider>().markPlayed(entry);
-  await RecentAudioService().addOrUpdate(
-    RecentAudio.fromLocalFile(
-      path: entry.uri,
-      title: entry.title,
-      totalDuration: Duration(milliseconds: entry.durationMs),
-    ),
-  );
-}
 
 Future<String?> _promptName(BuildContext context, {String initial = ''}) {
   final ctrl = TextEditingController(text: initial);
@@ -156,7 +132,7 @@ class AudioPlaylistsSheet extends StatelessWidget {
                     return ListTile(
                       leading: const Icon(Icons.playlist_play,
                           color: _accent),
-                      title: Text(pl.name,
+                      title: material.Text(pl.name,
                           style: const TextStyle(color: Colors.white)),
                       subtitle: Text(
                         context.uiText('${pl.length} bài'),
@@ -277,7 +253,7 @@ class AddToPlaylistSheet extends StatelessWidget {
                           ? _accent
                           : Colors.white54,
                     ),
-                    title: Text(pl.name,
+                    title: material.Text(pl.name,
                         style: const TextStyle(color: Colors.white)),
                     subtitle: Text(context.uiText('${pl.length}'),
                         style: const TextStyle(
@@ -304,20 +280,39 @@ class PlaylistDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AudioLibraryProvider>();
-    final AudioPlaylist? pl = provider.playlists
+    final AudioPlaylist? playlist = provider.playlists
         .cast<AudioPlaylist?>()
         .firstWhere((p) => p?.id == playlistId, orElse: () => null);
-    final tracks = provider.playlistTracks(playlistId);
+    final items = playlist == null
+        ? const <AudioQueueItem>[]
+        : AudioQueueItem.fromPlaylist(playlist, provider.entries);
+    final entries = {for (final entry in provider.entries) entry.libraryId: entry};
+
+    Future<void> playAt(int index, {bool skipFailures = false}) async {
+      HapticFeedback.selectionClick();
+      await context.read<PlayerProvider>().startQueue(
+        items,
+        startIndex: index,
+        skipFailures: skipFailures,
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1520),
       appBar: AppBar(
         backgroundColor: const Color(0xFF141D2E),
-        title: Text(pl?.name ?? context.uiText('Playlist'),
+        title: material.Text(playlist?.name ?? context.uiText('Playlist'),
             style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            tooltip: context.uiText('Phát tất cả'),
+            onPressed: items.isEmpty ? null : () => playAt(0, skipFailures: true),
+            icon: const Icon(Icons.playlist_play),
+          ),
+        ],
       ),
-      body: tracks.isEmpty
+      body: items.isEmpty
           ? Center(
               child: Text(
                 context.uiText('Playlist trống — giữ một bài trong Thư viện để thêm.'),
@@ -327,37 +322,48 @@ class PlaylistDetailScreen extends StatelessWidget {
             )
           : ReorderableListView.builder(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 30),
-              itemCount: tracks.length,
+              itemCount: items.length,
               onReorder: (oldI, newI) =>
                   provider.reorderPlaylist(playlistId, oldI, newI),
               itemBuilder: (context, i) {
-                final t = tracks[i];
-                return Container(
-                  key: ValueKey(t.libraryId),
-                  margin: const EdgeInsets.only(bottom: 4),
-                  decoration: BoxDecoration(
+                final item = items[i];
+                final entry = entries[item.libraryId];
+                return Padding(
+                  key: ValueKey(item.libraryId),
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Material(
                     color: const Color(0xFF1A2235),
                     borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: ListTile(
-                    leading: const Icon(Icons.music_note, color: _accent),
-                    title: Text(t.title,
+                    child: ListTile(
+                      leading: Icon(
+                        item.isMissing ? Icons.error_outline : Icons.music_note,
+                        color: item.isMissing ? Colors.orangeAccent : _accent,
+                      ),
+                      title: material.Text(
+                        item.isMissing
+                            ? context.uiText('Bài không còn trong thư viện')
+                            : item.title,
                         style: const TextStyle(color: Colors.white),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                    subtitle: Text(
-                      [
-                        if (t.artist != null) t.artist!,
-                        t.durationLabel,
-                      ].where((s) => s.isNotEmpty).join(' · '),
-                      style: const TextStyle(color: Colors.white38, fontSize: 12),
-                    ),
-                    onTap: () => playLibraryEntry(context, t),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
-                          color: Colors.white38, size: 20),
-                      onPressed: () =>
-                          provider.removeFromPlaylist(playlistId, t.libraryId),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: entry == null
+                          ? null
+                          : material.Text(
+                              [
+                                if (entry.artist != null) entry.artist!,
+                                entry.durationLabel,
+                              ].where((s) => s.isNotEmpty).join(' · '),
+                              style: const TextStyle(
+                                  color: Colors.white38, fontSize: 12),
+                            ),
+                      onTap: item.isMissing ? null : () => playAt(i),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.remove_circle_outline,
+                            color: Colors.white38, size: 20),
+                        onPressed: () => provider.removeFromPlaylist(
+                            playlistId, item.libraryId!),
+                      ),
                     ),
                   ),
                 );

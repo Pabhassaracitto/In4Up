@@ -7,11 +7,14 @@ import '../../models/playback_state.dart';
 import '../../services/storage_service.dart';
 import '../player_provider.dart'; // For ModeSettings
 
+enum TrackRepeatResult { repeated, completed, cancelled }
+
 mixin PlayerLoopMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
-  AudioPlayerService get audioService;
+  AudioPlaybackPort get audioService;
   StorageService get storage;
   String? get currentSongPath;
+  bool get wantsPlayback;
   ModeSettings get modeSettings;
   int get currentSegmentIndex;
   PlaybackState get state;
@@ -31,10 +34,12 @@ mixin PlayerLoopMixin on ChangeNotifier {
   int _maxLoopCount = 0;
   bool _repeatTrack = false;
   bool _hasHandledCompletion = false;
+  int _repeatGeneration = 0;
 
   double _gapDuration = 0.0;
   bool _isWaitingGap = false;
   Timer? _gapTimer;
+  bool _loopTransitioning = false;
   Duration _silenceDuration = Duration.zero;
 
   // Getters
@@ -115,6 +120,7 @@ mixin PlayerLoopMixin on ChangeNotifier {
 
     if (_loopStart == null) {
       _repeatTrack = (count != 0);
+      if (!_repeatTrack) cancelRepeatWait();
     }
     debugPrint('🔁 setLoopCount: max=$_maxLoopCount '
         'repeatTrack=$_repeatTrack loopStart=$_loopStart');
@@ -149,8 +155,18 @@ mixin PlayerLoopMixin on ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> handleRepeatTrack() async {
-    if (currentSongPath == null) return;
+  /// Returns whether to repeat, advance the queue, or ignore a cancelled
+  /// callback. A delayed gap must never restart a different song or undo pause.
+  Future<TrackRepeatResult> handleRepeatTrack() async {
+    final source = currentSongPath;
+    final generation = _repeatGeneration;
+    bool stillCurrent() => source != null &&
+        source == currentSongPath &&
+        generation == _repeatGeneration &&
+        _repeatTrack &&
+        wantsPlayback;
+
+    if (!stillCurrent()) return TrackRepeatResult.cancelled;
 
     totalLoopsToday++;
     storage.incrementLoopCount();
@@ -161,9 +177,8 @@ mixin PlayerLoopMixin on ChangeNotifier {
         _repeatTrack = false;
         _loopCount = 0;
         _maxLoopCount = 0;
-        _hasHandledCompletion = false;
         notifyListeners();
-        return;
+        return TrackRepeatResult.completed;
       }
     }
 
@@ -172,22 +187,25 @@ mixin PlayerLoopMixin on ChangeNotifier {
         !_gapDuration.isInfinite) {
       _isWaitingGap = true;
       notifyListeners();
-
       await audioService.pause();
+      if (!stillCurrent()) return TrackRepeatResult.cancelled;
 
       final gapMs = (_gapDuration * 1000).clamp(0.0, 30000.0).toInt();
       await Future.delayed(Duration(milliseconds: gapMs));
-
-      if (!_repeatTrack) return;
+      if (!stillCurrent()) return TrackRepeatResult.cancelled;
       _isWaitingGap = false;
     }
 
     await audioService.seek(Duration.zero);
+    if (!stillCurrent()) return TrackRepeatResult.cancelled;
     await Future.delayed(const Duration(milliseconds: 150));
+    if (!stillCurrent()) return TrackRepeatResult.cancelled;
     await audioService.play();
+    if (!stillCurrent()) return TrackRepeatResult.cancelled;
 
     _hasHandledCompletion = false;
     notifyListeners();
+    return TrackRepeatResult.repeated;
   }
 
   void setLoop(
@@ -233,7 +251,8 @@ mixin PlayerLoopMixin on ChangeNotifier {
   }
 
   void checkLoopPosition(Duration currentPosition, Duration previousPosition) {
-    if (!_isLooping || _loopEnd == null || _loopStart == null) return;
+    if (!_isLooping || _loopEnd == null || _loopStart == null ||
+        _loopTransitioning) return;
 
     if (currentPosition >= _loopEnd!) {
       _loopCount++;
@@ -248,29 +267,45 @@ mixin PlayerLoopMixin on ChangeNotifier {
       if (_gapDuration > 0) {
         _startGapWait();
       } else {
-        seek(_loopStart!);
+        final source = currentSongPath;
+        final generation = _repeatGeneration;
+        final start = _loopStart!;
+        _loopTransitioning = true;
+        unawaited(seek(start).whenComplete(() {
+          if (generation == _repeatGeneration && source == currentSongPath) {
+            _loopTransitioning = false;
+          }
+        }));
       }
     }
   }
 
   void _startGapWait() {
     _isWaitingGap = true;
-    audioService.pause();
+    unawaited(audioService.pause());
     notifyListeners();
 
     _gapTimer?.cancel();
+    final generation = _repeatGeneration;
+    final source = currentSongPath;
     _gapTimer = Timer(
       Duration(milliseconds: (_gapDuration * 1000).round()),
-      _onGapEnded,
+      () => unawaited(_onGapEnded(generation, source)),
     );
   }
 
-  void _onGapEnded() {
-    if (!_isLooping) return;
+  Future<void> _onGapEnded(int generation, String? source) async {
+    bool stillCurrent() => _isLooping && wantsPlayback && source != null &&
+        source == currentSongPath && generation == _repeatGeneration;
+    if (!stillCurrent() || _loopStart == null) return;
+    _gapTimer = null;
     _isWaitingGap = false;
-    seek(_loopStart!);
-    audioService.play();
-    notifyListeners();
+    _loopTransitioning = true;
+    await seek(_loopStart!);
+    if (!stillCurrent()) return;
+    _loopTransitioning = false;
+    await audioService.play();
+    if (stillCurrent()) notifyListeners();
   }
 
   void _onLoopCompleted() {
@@ -284,6 +319,8 @@ mixin PlayerLoopMixin on ChangeNotifier {
   void clearLoop() {
     _gapTimer?.cancel();
     _gapTimer = null;
+    cancelRepeatWait();
+    _pendingLoopA = null;
     _loopStart = null;
     _loopEnd = null;
     _isLooping = false;
@@ -298,7 +335,7 @@ mixin PlayerLoopMixin on ChangeNotifier {
   void toggleLoopPause() {
     if (_isWaitingGap) {
       _gapTimer?.cancel();
-      _onGapEnded();
+      unawaited(_onGapEnded(_repeatGeneration, currentSongPath));
     }
   }
 
@@ -314,8 +351,19 @@ mixin PlayerLoopMixin on ChangeNotifier {
     }
   }
 
+  /// Invalidate the asynchronous whole-track repeat delay without clearing
+  /// the user's repeat setting (for example, when they press Pause).
+  void cancelRepeatWait() {
+    _repeatGeneration++;
+    _gapTimer?.cancel();
+    _gapTimer = null;
+    _loopTransitioning = false;
+    _isWaitingGap = false;
+  }
+
   void cancelGapTimer() {
     _gapTimer?.cancel();
     _gapTimer = null;
+    cancelRepeatWait();
   }
 }

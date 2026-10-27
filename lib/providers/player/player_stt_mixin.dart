@@ -8,7 +8,6 @@ import 'package:in4up_stt/in4up_stt.dart';
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
 import '../../services/source_artifact_store.dart';
-import '../../utils/audio_source_identity.dart';
 
 mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
@@ -26,6 +25,8 @@ mixin PlayerSttMixin on ChangeNotifier {
   // The in-memory STT fallback is valid only for the audio that produced it.
   // Without this binding, opening audio B could reuse audio A's last .lrc.
   String? _lastSttAudioPath;
+  int _sttSourceGeneration = 0;
+  bool _sttDisposed = false;
 
   bool _lrcJustGenerated = false;
   bool get lrcJustGenerated => _lrcJustGenerated;
@@ -40,6 +41,7 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// Late callbacks are additionally guarded by [_isCurrentAudio] before they
   /// are allowed to publish lyrics.
   void resetLrcStateForAudioChange() {
+    _sttSourceGeneration++;
     _lrcJustGenerated = false;
     _shouldOpenAiPanel = false;
     _lastSttError = null;
@@ -66,16 +68,14 @@ mixin PlayerSttMixin on ChangeNotifier {
   Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
   SttProgress get sttProgress => _sttService.currentProgress;
 
-  bool _isCurrentAudio(String expectedPath) {
-    final current = currentSongPath;
-    return current != null && AudioSourceIdentity.matches(current, expectedPath);
+  bool _isCurrentAudio(String expectedPath, [int? generation]) {
+    return !_sttDisposed &&
+        currentSongPath == expectedPath &&
+        (generation == null || generation == _sttSourceGeneration);
   }
 
-  bool _isLastSttFor(String requestedPath) {
-    final source = _lastSttAudioPath;
-    return source != null &&
-        AudioSourceIdentity.matches(source, requestedPath);
-  }
+  bool _isLastSttFor(String requestedPath) =>
+      _lastSttAudioPath == requestedPath;
 
   Future<CachedLrcHit?> peekCachedLrc({String? path}) async {
     final audioPath = path ?? currentSongPath;
@@ -90,7 +90,10 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (_isLastSttFor(audioPath) && outputFromStt?.lrcFilePath != null) {
         final lrcFile = File(outputFromStt!.lrcFilePath!);
         if (await lrcFile.exists()) {
-          return CachedLrcHit(lrcPath: outputFromStt.lrcFilePath!);
+          return CachedLrcHit(
+            lrcPath: outputFromStt.lrcFilePath!,
+            audioPath: audioPath,
+          );
         }
       }
     } catch (e) {
@@ -136,6 +139,7 @@ mixin PlayerSttMixin on ChangeNotifier {
     bool skipSilence = true,
   }) async {
     final path = currentSongPath;
+    final generation = _sttSourceGeneration;
     if (path == null) {
       _lastSttError = 'Chưa có file audio đang phát';
       notifyListeners();
@@ -152,7 +156,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 1000));
     } catch (_) {}
 
-    if (!_isCurrentAudio(path)) return null;
+    if (!_isCurrentAudio(path, generation)) return null;
     understandProvider?.clear();
     notifyListeners();
 
@@ -180,7 +184,7 @@ mixin PlayerSttMixin on ChangeNotifier {
           // Có thể emit progress ra UI qua _sttService hoặc notifyListeners
         },
         onPartialResult: (partial) async {
-          if (!_isCurrentAudio(path) ||
+          if (!_isCurrentAudio(path, generation) ||
               partial.segments.isEmpty ||
               understandProvider == null) {
             return;
@@ -198,7 +202,7 @@ mixin PlayerSttMixin on ChangeNotifier {
         },
       );
 
-      if (!_isCurrentAudio(path)) {
+      if (!_isCurrentAudio(path, generation)) {
         debugPrint('⏭️ Discard VAD result from previous audio: $path');
         return null;
       }
@@ -241,12 +245,14 @@ mixin PlayerSttMixin on ChangeNotifier {
 
       return output;
     } catch (e) {
-      _lastSttError = e.toString();
+      if (_isCurrentAudio(path, generation)) _lastSttError = e.toString();
       debugPrint('❌ VAD Pipeline error: $e');
       return null;
     } finally {
-      _isGeneratingLrc = false;
-      notifyListeners();
+      if (generation == _sttSourceGeneration && !_sttDisposed) {
+        _isGeneratingLrc = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -265,6 +271,7 @@ mixin PlayerSttMixin on ChangeNotifier {
     bool preferSherpa = false,
   }) async {
     final path = currentSongPath;
+    final generation = _sttSourceGeneration;
     if (path == null) {
       _lastSttError = 'Chưa có file audio đang phát';
       notifyListeners();
@@ -276,7 +283,7 @@ mixin PlayerSttMixin on ChangeNotifier {
     //   khi forceRegenerate: true (user bấm "Tạo lại" ở hộp thoại hỏi).
     if (!forceRegenerate) {
       final hit = await peekCachedLrc(path: path);
-      if (!_isCurrentAudio(path)) return null;
+      if (!_isCurrentAudio(path, generation)) return null;
       if (hit != null) {
         await applyCachedLrc(hit: hit);
         return null;
@@ -293,6 +300,7 @@ mixin PlayerSttMixin on ChangeNotifier {
         // Probe duration đơn giản qua file size hoặc dùng AudioConverter
         // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
         final size = await file.length();
+        if (!_isCurrentAudio(path, generation)) return null;
         if (size > 5 * 1024 * 1024) {
           debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
           return await generateLrcWithVadPipeline(
@@ -305,6 +313,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       }
     } catch (_) {}
 
+    if (!_isCurrentAudio(path, generation)) return null;
     _isGeneratingLrc = true;
     _lastSttError = null;
     _lastSttScriptWarning = null;
@@ -317,7 +326,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 1000));
     } catch (_) {}
 
-    if (!_isCurrentAudio(path)) return null;
+    if (!_isCurrentAudio(path, generation)) return null;
     // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
     //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").
     understandProvider?.clear();
@@ -329,7 +338,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       // ★ Stream kết quả từng phần: hiện dần lyrics mỗi khi xong 1 chunk,
       //   thay vì đợi hết cả file mới hiện.
       final partialSub = stt.partialResultStream.listen((partial) {
-        if (!_isCurrentAudio(path) ||
+        if (!_isCurrentAudio(path, generation) ||
             partial.segments.isEmpty ||
             understandProvider == null) {
           return;
@@ -394,7 +403,7 @@ mixin PlayerSttMixin on ChangeNotifier {
           );
         }
 
-        if (!_isCurrentAudio(path)) {
+        if (!_isCurrentAudio(path, generation)) {
           debugPrint('⏭️ Discard STT result from previous audio: $path');
           return null;
         }
@@ -416,7 +425,7 @@ mixin PlayerSttMixin on ChangeNotifier {
             output.lrcFilePath != null &&
             understandProvider != null) {
           final lrcLines = await parseLrcFile(output.lrcFilePath!);
-          if (!_isCurrentAudio(path)) {
+          if (!_isCurrentAudio(path, generation)) {
             debugPrint('⏭️ Discard parsed STT LRC from previous audio: $path');
             return null;
           }
@@ -435,11 +444,13 @@ mixin PlayerSttMixin on ChangeNotifier {
         partialSub.cancel();
       }
     } catch (e) {
-      _lastSttError = e.toString();
+      if (_isCurrentAudio(path, generation)) _lastSttError = e.toString();
       return null;
     } finally {
-      _isGeneratingLrc = false;
-      notifyListeners();
+      if (generation == _sttSourceGeneration && !_sttDisposed) {
+        _isGeneratingLrc = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -470,9 +481,10 @@ mixin PlayerSttMixin on ChangeNotifier {
       _sttService.getModelInfo(level);
 
   Future<void> autoLoadCachedLrc(String normalizedPath) async {
+    final generation = _sttSourceGeneration;
     try {
       final cachedLrcPath = await findCachedLrcPath(normalizedPath);
-      if (!_isCurrentAudio(normalizedPath)) {
+      if (!_isCurrentAudio(normalizedPath, generation)) {
         debugPrint('⏭️ Ignore stale LRC lookup for: $normalizedPath');
         return;
       }
@@ -480,7 +492,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (cachedLrcPath != null) {
         final lrcLines = await parseLrcFile(cachedLrcPath);
         // The user may switch audio while the cache file is being parsed.
-        if (!_isCurrentAudio(normalizedPath)) {
+        if (!_isCurrentAudio(normalizedPath, generation)) {
           debugPrint('⏭️ Ignore stale parsed LRC for: $normalizedPath');
           return;
         }
@@ -508,11 +520,12 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// hoặc khi nút Tạo lời phát hiện cache sẵn (reopen fix).
   Future<void> applyCachedLrc({required CachedLrcHit hit}) async {
     final audioPath = currentSongPath;
-    if (audioPath == null) return;
+    if (audioPath == null || hit.audioPath != audioPath) return;
+    final generation = _sttSourceGeneration;
 
     try {
       final lrcLines = await parseLrcFile(hit.lrcPath);
-      if (!_isCurrentAudio(audioPath)) {
+      if (!_isCurrentAudio(audioPath, generation)) {
         debugPrint('⏭️ Ignore cached LRC selected for previous audio: $audioPath');
         return;
       }
@@ -568,6 +581,8 @@ mixin PlayerSttMixin on ChangeNotifier {
   }
 
   void disposeStt() {
+    _sttDisposed = true;
+    _sttSourceGeneration++;
     _sttService.dispose();
   }
 

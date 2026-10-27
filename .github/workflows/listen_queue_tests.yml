@@ -1,0 +1,102 @@
+name: Listen queue regression tests
+
+# Independent, bounded jobs make async/widget hangs visible even if the wide
+# app workflow has another unrelated failure. No build or release is published.
+on:
+  push:
+    branches: ['arena/**', 'main']
+    paths:
+      - 'lib/audio/**'
+      - 'lib/models/audio_queue_item.dart'
+      - 'lib/providers/player/**'
+      - 'lib/providers/player_provider.dart'
+      - 'lib/screens/listen_mode/**'
+      - 'lib/services/source_artifact_store.dart'
+      - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
+      - 'android/app/src/main/kotlin/com/in4up/MainActivity.kt'
+      - 'packages/in4up_stt/**'
+      - 'test/listen_*'
+      - 'test/support/fake_queue_player.dart'
+      - '.github/workflows/listen_queue_tests.yml'
+  pull_request:
+    paths:
+      - 'lib/audio/**'
+      - 'lib/models/audio_queue_item.dart'
+      - 'lib/providers/player/**'
+      - 'lib/providers/player_provider.dart'
+      - 'lib/screens/listen_mode/**'
+      - 'lib/services/source_artifact_store.dart'
+      - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
+      - 'android/app/src/main/kotlin/com/in4up/MainActivity.kt'
+      - 'packages/in4up_stt/**'
+      - 'test/listen_*'
+      - 'test/support/fake_queue_player.dart'
+      - '.github/workflows/listen_queue_tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - test/listen_playback_queue_test.dart
+          - test/listen_player_queue_integration_test.dart
+          - test/listen_queue_widget_test.dart
+          - test/listen_recent_queue_test.dart
+          - test/listen_queue_i18n_test.dart
+          - test/listen_source_artifact_test.dart
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Run ${{ matrix.file }}
+        run: |
+          set +e
+          timeout -k 5s 75s flutter test '${{ matrix.file }}' --timeout 45s -r expanded > listen_test.log 2>&1
+          code=$?
+          cat listen_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' listen_test.log > listen_test_clean.log
+            grep -n '\[E\]' listen_test_clean.log | cut -d: -f1 | while read -r ln; do
+              start=$((ln > 45 ? ln - 45 : 1))
+              detail=$(sed -n "${start},${ln}p" listen_test_clean.log | tail -c 5000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=${{ matrix.file }} test failure::$detail"
+            done
+            msg=$(tail -n 45 listen_test_clean.log | head -c 5000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=${{ matrix.file }} (exit $code)::${msg:-No test output}"
+          fi
+          exit $code
+
+  android-resolver-compile:
+    # Compile the resolver against Android's API, without building or shipping
+    # an APK. The full Gradle/bridge integration still needs an Android build.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile Android content-cache resolver
+        run: |
+          set -e
+          kotlinc -version
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+          set +e
+          kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
+            android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt \
+            -d "$RUNNER_TEMP/in4up-audio-resolver.jar" > kotlin_compile.log 2>&1
+          code=$?
+          cat kotlin_compile.log
+          if [ "$code" -ne 0 ]; then
+            msg=$(head -c 5000 kotlin_compile.log | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Android resolver compile::$msg"
+          fi
+          exit $code

@@ -1276,11 +1276,11 @@ class _MainShellState extends State<MainShell> {
                 if (_shouldShowShellMiniPlayer)
                   Consumer<PlayerProvider>(
                     builder: (context, player, _) {
-                      if (player.currentSongPath == null) {
+                      if (player.currentSongPath == null && !player.isQueueLoading) {
                         return const SizedBox.shrink();
                       }
                       return Dismissible(
-                        key: ValueKey('mini_${player.currentSongPath}'),
+                        key: const ValueKey('session-mini-player'),
                         direction: DismissDirection.horizontal,
                         background: Container(
                           margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),

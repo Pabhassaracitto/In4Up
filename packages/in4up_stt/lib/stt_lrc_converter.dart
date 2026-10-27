@@ -1,8 +1,10 @@
 // ignore_for_file: unintended_html_in_doc_comment
 // in4up v11.0 — LrcLine với Content-Anchored UID + joinKey
 
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import 'models/content_id.dart';
@@ -268,13 +270,11 @@ class SttLrcConverter {
       final dir = Directory(outputDirectory);
       if (!await dir.exists()) await dir.create(recursive: true);
 
-      final base = audioPath
-          .replaceAll("\\", "/")
-          .split('/')
-          .last
-          .replaceAll(RegExp(r'\.[^.]+$'), '');
-
-      final lrcPath = '$outputDirectory/$base.lrc';
+      // Two different sources may share the same display name. Preserve old
+      // basename-only LRC files and write new output under a stable source key.
+      final source = audioPath.replaceAll('\\', '/');
+      final sourceKey = sha256.convert(utf8.encode(source)).toString().substring(0, 32);
+      final lrcPath = '$outputDirectory/in4up_$sourceKey.lrc';
       await File(lrcPath).writeAsString(generateLrcContent(result));
 
       debugPrint('[SttLrcConverter] Saved LRC: $lrcPath');

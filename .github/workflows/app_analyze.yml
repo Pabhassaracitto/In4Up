@@ -113,6 +113,39 @@ jobs:
           path: i4u18_lib_test.log
           if-no-files-found: ignore
 
+      - name: "PLAN-039 — listen queue, playback races, data and controls"
+        id: listen-queue-tests
+        if: always() && steps.analyze.outcome != 'cancelled' && steps.analyze.outcome != 'skipped'
+        timeout-minutes: 8
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/listen_playback_queue_test.dart \
+            test/listen_player_queue_integration_test.dart \
+            test/listen_queue_widget_test.dart test/listen_recent_queue_test.dart \
+            test/listen_queue_i18n_test.dart test/listen_source_artifact_test.dart \
+            test/audio_import_service_test.dart test/listen_lifecycle_guards_test.dart \
+            -r expanded > listen_queue_test.log 2>&1
+          code=$?
+          cat listen_queue_test.log
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' listen_queue_test.log > listen_queue_clean.log || true
+          grep -n "\[E\]" listen_queue_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" listen_queue_clean.log | head -c 1000 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::PLAN-039 TEST FAILED: $msg"
+          done || true
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 listen_queue_clean.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=PLAN-039 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload listen queue test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: listen-queue-test-log
+          path: listen_queue_test.log
+          if-no-files-found: ignore
+
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
         id: locale-test
         run: |

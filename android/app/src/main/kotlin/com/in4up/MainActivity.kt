@@ -11,6 +11,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -28,6 +29,7 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,6 +72,9 @@ import java.util.Locale
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
+    private val audioCacheExecutor = Executors.newSingleThreadExecutor()
+    private val audioCacheResolver by lazy { AudioContentCacheResolver(applicationContext) }
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val textChannelName = "in4up/textlib"
     private val dictionaryChannelName = "in4up/dictionary"
 
@@ -172,9 +177,26 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "scanMediaStore" -> result.success(scanMediaStore())
-                    "copyContentToCache" -> {
+                    "copyContentToCache", "resolveContentToCache", "claimLegacyCache" -> {
                         val uri = call.argument<String>("uri")
-                        result.success(uri?.let { copyContentToCache(it) })
+                        if (uri == null) {
+                            result.success(null)
+                        } else {
+                            val method = call.method
+                            // Copy/hash large files off the Flutter platform thread.
+                            audioCacheExecutor.execute {
+                                val resolution = audioCacheResolver.resolve(
+                                    uri, claimLegacy = method == "claimLegacyCache"
+                                )
+                                mainHandler.post {
+                                    if (method == "copyContentToCache") {
+                                        result.success(resolution?.get("path") as? String)
+                                    } else {
+                                        result.success(resolution)
+                                    }
+                                }
+                            }
+                        }
                     }
                     "readAudioDurationMs" -> {
                         val uri = call.argument<String>("uri")
@@ -941,6 +963,7 @@ class MainActivity : FlutterActivity() {
         screenTranslatePlugin = null
         openDictionaryDocuments.keys.toList().forEach(::closeDictionaryDocument)
         ocrChannel = null
+        audioCacheExecutor.shutdown()
         super.onDestroy()
     }
 

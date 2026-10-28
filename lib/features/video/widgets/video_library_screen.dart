@@ -42,6 +42,8 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   String _query = '';
   VideoFilter _filter = VideoFilter.all;
   VideoSort _sort = VideoSort.dateNewest;
+  bool _showFolders = false;
+  String? _selectedFolder;
 
   @override
   void initState() {
@@ -106,6 +108,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
       setState(() {
         _videos = VideoLibraryService.instance.videos;
         _scanning = false;
+        if (picked) _selectedFolder = null;
       });
       if (picked) {
         _snack(context.uiText('Đã quét thư mục: ${VideoLibraryService.instance.folderLabel}'));
@@ -215,11 +218,40 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  List<VideoInfo> get _visible => _videos.query(
-        search: _query,
-        filter: _filter,
-        sort: _sort,
-      );
+  List<VideoInfo> get _visible {
+    final result = _videos.query(search: _query, filter: _filter, sort: _sort);
+    if (_selectedFolder == null) return result;
+    return result.where((v) =>
+        VideoLibraryLogic.folderIdentity(v.filePath) == _selectedFolder).toList();
+  }
+
+  Widget _buildFolders() {
+    final groups = <String, List<VideoInfo>>{};
+    for (final video in _visible) {
+      final key = VideoLibraryLogic.folderIdentity(video.filePath);
+      if (key.isNotEmpty) (groups[key] ??= []).add(video);
+    }
+    final keys = groups.keys.toList()..sort();
+    if (keys.isEmpty) {
+      return Center(child: Text(context.uiText('Không có video khớp bộ lọc'),
+          style: const TextStyle(color: Colors.white38)));
+    }
+    return ListView.builder(
+      itemCount: keys.length,
+      itemBuilder: (context, index) {
+        final key = keys[index];
+        final videos = groups[key]!;
+        return ListTile(
+          leading: const Icon(Icons.folder_outlined, color: _accent),
+          title: Text(videos.first.folder.isEmpty
+              ? key.split('/').last : videos.first.folder),
+          subtitle: Text(key, maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: Text('${videos.length}'),
+          onTap: () => setState(() => _selectedFolder = key),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +259,10 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
       backgroundColor: const Color(0xFF080B1A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text('Video', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: widget.showBackButton
+            ? const Text('Video', style: TextStyle(fontWeight: FontWeight.bold))
+            : null,
+        toolbarHeight: widget.showBackButton ? kToolbarHeight : 40,
         leading: widget.showBackButton
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: _accent),
@@ -256,11 +291,29 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                   children: [
                     _buildSearchBar(),
                     _buildFilterChips(),
+                    Row(children: [
+                      TextButton.icon(
+                        onPressed: () => setState(() {
+                          _showFolders = !_showFolders;
+                          _selectedFolder = null;
+                        }),
+                        icon: Icon(_showFolders ? Icons.grid_view : Icons.folder_outlined),
+                        label: Text(context.uiText(_showFolders ? 'Tất cả' : 'Thư mục')),
+                      ),
+                      if (_selectedFolder != null)
+                        Expanded(child: TextButton.icon(
+                          onPressed: () => setState(() => _selectedFolder = null),
+                          icon: const Icon(Icons.arrow_back),
+                          label: Text(_selectedFolder!, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        )),
+                    ]),
                     if (_scanError != null) _buildScanError(),
                     Expanded(
                       child: _videos.isEmpty
                           ? _buildEmptyState()
-                          : _buildVideoList(),
+                          : _showFolders && _selectedFolder == null
+                              ? _buildFolders()
+                              : _buildVideoList(),
                     ),
                   ],
                 ),
@@ -270,8 +323,20 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (VideoLibraryService.instance.hasFolder &&
+                    VideoLibraryService.instance.folderScanSupported) ...[
+                  FloatingActionButton.small(
+                    heroTag: 'video_choose_folder',
+                    tooltip: context.uiText('Chọn thư mục khác'),
+                    onPressed: _scanning ? null : _pickFolder,
+                    backgroundColor: const Color(0xFF2A2A40),
+                    child: const Icon(Icons.folder_open, color: Colors.white),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 FloatingActionButton.small(
                   heroTag: 'video_add_file',
+                  tooltip: context.uiText('Thêm video'),
                   onPressed: _addVideo,
                   backgroundColor: const Color(0xFF2A2A40),
                   child: const Icon(Icons.add, color: Colors.white),

@@ -42,6 +42,15 @@ void main() {
       expect(VideoLibraryLogic.folderLabel(uri), 'sub');
     });
 
+    test('folder identity distinguishes same names and SAF providers', () {
+      expect(VideoLibraryLogic.folderIdentity('/a/Movies/a.mp4'),
+          isNot(VideoLibraryLogic.folderIdentity('/b/Movies/b.mp4')));
+      const first = 'content://one/tree/root/document/root%2FMovies%2Fa.mp4';
+      const second = 'content://two/tree/root/document/root%2FMovies%2Fb.mp4';
+      expect(VideoLibraryLogic.folderIdentity(first),
+          isNot(VideoLibraryLogic.folderIdentity(second)));
+    });
+
     test('stableId ổn định (không phụ thuộc mtime) + không phân biệt hoa/thường',
         () {
       final a = VideoLibraryLogic.stableId('/x/Movie.MP4');

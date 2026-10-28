@@ -60,12 +60,19 @@ class VideoLibraryService {
     final canonical = await VideoDeviceChannel.normalizeTreeUri(uri);
     if (canonical != null && canonical.isNotEmpty) uri = canonical;
     await VideoDeviceChannel.keepTreePermission(uri);
+    // Do not replace the current root or index if the new scan fails.
+    final items = await VideoDeviceChannel.scanTree(uri);
+    final merged = VideoLibraryLogic.mergeScanned(
+      VideoLibraryLogic.buildFromScan(items), _videos);
     _treeUri = uri;
+    _videos
+      ..clear()
+      ..addAll(merged);
+    await _saveManifest();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_treeUriKey, uri);
     } catch (_) {}
-    await scanFolder();
     return true;
   }
 

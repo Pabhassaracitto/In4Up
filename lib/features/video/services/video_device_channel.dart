@@ -82,13 +82,13 @@ class VideoDeviceChannel {
           'extensions': videoScanExtensions,
         },
       );
-      if (raw == null) return const [];
+      if (raw == null) throw const VideoScanException('Không tải được thư viện video');
       return raw
           .whereType<Map>()
           .map((e) => VideoScanItem.fromMap(Map<String, dynamic>.from(e)))
           .toList();
     } on MissingPluginException {
-      return const [];
+      throw const VideoScanException('Không tải được thư viện video');
     } on PlatformException catch (e) {
       if (e.code == 'PERMISSION_LOST') {
         throw const VideoScanException(
@@ -102,10 +102,12 @@ class VideoDeviceChannel {
         );
       }
       debugPrint('[VideoDevice] scanTree error: ${e.code} ${e.message}');
-      return const [];
+      throw const VideoScanException('Không tải được thư viện video');
+    } on VideoScanException {
+      rethrow;
     } catch (e) {
       debugPrint('[VideoDevice] scanTree error: $e');
-      return const [];
+      throw const VideoScanException('Không tải được thư viện video');
     }
   }
 

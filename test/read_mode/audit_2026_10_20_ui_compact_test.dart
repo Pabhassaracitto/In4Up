@@ -21,8 +21,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/widgets/collapsible_action_bar.dart';
+import 'translation_blur_test.dart' as translation_blur;
 
 void main() {
+  translation_blur.main();
   final readScreen =
       File('lib/screens/read_mode/read_mode_screen.dart').readAsStringSync();
   final topBar = File('lib/screens/read_mode/widgets/read_top_bar.dart')

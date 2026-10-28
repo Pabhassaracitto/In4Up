@@ -1309,6 +1309,7 @@ class TranslationLineDisplay extends StatelessWidget {
   final TextStyle? translationStyle;
   final TextAlign? textAlign;
   final bool blurTranslation;
+  final AppLanguage? targetLanguage;
 
   const TranslationLineDisplay({
     super.key,
@@ -1319,12 +1320,13 @@ class TranslationLineDisplay extends StatelessWidget {
     this.translationStyle,
     this.textAlign,
     this.blurTranslation = false,
+    this.targetLanguage,
   });
 
   @override
   Widget build(BuildContext context) {
     final hasTranslation = translatedText != null && translatedText!.isNotEmpty;
-    final targetLanguage = TranslationService().targetLanguage;
+    final targetLanguage = this.targetLanguage ?? TranslationService().targetLanguage;
 
     if (displayMode == TranslationDisplayMode.hidden) return originalWidget;
 

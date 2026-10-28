@@ -46,11 +46,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initPlayer() async {
     try {
-      final path = widget.video.filePath;
-      final controller = path.startsWith('content://')
-          ? VideoPlayerController.contentUri(Uri.parse(path))
-          : VideoPlayerController.file(File(path));
-      await controller.initialize();
+      // A physical video can be indexed through both SAF and MediaStore.
+      // If one permission was revoked, try its other known URI without
+      // changing the stable library id or saved playback position.
+      VideoPlayerController? selected;
+      final candidates = <String>{
+        widget.video.filePath,
+        ...widget.video.effectiveSourceUris.values,
+      };
+      for (final path in candidates) {
+        final candidate = path.startsWith('content://')
+            ? VideoPlayerController.contentUri(Uri.parse(path))
+            : VideoPlayerController.file(File(path));
+        try {
+          await candidate.initialize();
+          selected = candidate;
+          break;
+        } catch (_) {
+          await candidate.dispose();
+        }
+      }
+      if (selected == null) throw StateError('No accessible video source');
+      final controller = selected;
       if (!mounted) {
         await controller.dispose();
         return;

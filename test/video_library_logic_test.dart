@@ -5,6 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/video/models/video_info.dart';
 import 'package:in4up/features/video/services/video_library_logic.dart';
+import 'video_scan_failure_test.dart' as scan_failure;
 
 VideoScanItem _item(String uri, {int size = 100, int mtime = 0}) {
   final name = uri.contains('/document/')
@@ -20,6 +21,7 @@ VideoScanItem _item(String uri, {int size = 100, int mtime = 0}) {
 }
 
 void main() {
+  scan_failure.main();
   group('extension + folder helpers', () {
     test('extensionOf / stripExtension', () {
       expect(VideoLibraryLogic.extensionOf('movie.MP4'), 'mp4');

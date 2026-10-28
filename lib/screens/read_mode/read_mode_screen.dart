@@ -85,6 +85,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   bool _controllerInitialized = false;
   int _lastHandledFocusCueVersion = 0;
   VoidCallback? _playerListener;
+  PlaybackController? _playbackRef;
+  VoidCallback? _playbackLineListener;
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false;
 
@@ -156,6 +158,16 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       // notifyListeners() nhưng KHÔNG ai nghe ⇒ bấm nút Focus (và chọn
       // Ẩn/Trên/Dưới trong Cài đặt) không hề thay đổi gì trên màn.
       _controller.addListener(_onControllerChanged);
+      final playback = context.read<PlaybackController>();
+      _playbackRef = playback;
+      _playbackLineListener = () {
+        final index = playback.activeLineNotifier.value;
+        if (mounted && _controller.singleLineMode && _controller.autoSyncEnabled &&
+            index >= 0 && index < tp.lines.length && index != tp.currentLineIndex) {
+          tp.setCurrentLine(index);
+        }
+      };
+      playback.activeLineNotifier.addListener(_playbackLineListener!);
       _playerListener = () {
         if (!mounted) return;
         final pos = pp.state.position;
@@ -283,6 +295,9 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     _scrollController.dispose();
     // AUDIT-2026-10-20 (mục 1): bỏ listener trước khi dispose controller.
     _controller.removeListener(_onControllerChanged);
+    if (_playbackRef != null && _playbackLineListener != null) {
+      _playbackRef!.activeLineNotifier.removeListener(_playbackLineListener!);
+    }
     _controller.dispose();
     super.dispose();
   }

@@ -3,7 +3,7 @@ description: In4Up - Read, remember, learn, and listen with the UltraTimeStretch
 
 publish_to: 'none'
 
-version: 1.18.0+18
+version: 1.19.0+19
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

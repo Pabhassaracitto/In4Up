@@ -264,9 +264,11 @@ class TextLineWidget extends StatelessWidget {
             _LineHeader(index: index, data: data),
             const SizedBox(height: 6),
             TranslationLineDisplay(
+              key: ValueKey(context.watch<TextProvider>().translationDocumentRevision),
               originalText: data.content,
               translatedText: data.translation,
               displayMode: data.displayMode,
+              blurTranslation: context.watch<TextProvider>().blurTranslations,
               originalWidget: _buildOriginalWithIpa(context, data, index),
               textAlign: data.textAlign,
               // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được

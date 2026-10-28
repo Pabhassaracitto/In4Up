@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../models/color_mode.dart';
+import '../../../features/translation/translation_display_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/ipa_styling.dart';
@@ -124,6 +125,11 @@ class ReadTopBar extends StatelessWidget {
             icon: Icons.help_outline,
             onPressed: () => ReadLineHint.showSheet(context),
           ),
+          CollapsibleAction(
+            label: context.uiText('Hiển thị'),
+            icon: Icons.view_quilt_outlined,
+            onPressed: () => _showDisplaySheet(context, tp, controller),
+          ),
           // 6) Cài đặt đọc
           CollapsibleAction(
             label: context.uiText('Cài đặt'),
@@ -182,6 +188,68 @@ class ReadTopBar extends StatelessWidget {
                 ),
         );
       },
+    );
+  }
+
+  void _showDisplaySheet(BuildContext context, TextProvider tp,
+      ReadModeController controller) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      isScrollControlled: true,
+      builder: (sheetContext) => AnimatedBuilder(
+        animation: Listenable.merge([tp, controller]),
+        builder: (context, _) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.uiText('Hiển thị'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Text(context.uiText('Bản dịch')),
+                Wrap(spacing: 8, children: [
+                  for (final entry in {
+                    TranslationDisplayMode.hidden: 'Ẩn',
+                    TranslationDisplayMode.stackedBelow: 'Dưới',
+                    TranslationDisplayMode.sideBySide: 'Cột',
+                  }.entries)
+                    ChoiceChip(
+                      label: Text(context.uiText(entry.value)),
+                      selected: tp.translationDisplayMode == entry.key,
+                      onSelected: (_) => tp.setTranslationDisplayMode(entry.key),
+                    ),
+                ]),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.uiText('Làm mờ bản dịch')),
+                  value: tp.blurTranslations,
+                  onChanged: tp.translationDisplayMode == TranslationDisplayMode.hidden
+                      ? null : tp.setBlurTranslations,
+                ),
+                const SizedBox(height: 8),
+                Text(context.uiText('Phiên âm / IPA')),
+                Wrap(spacing: 8, children: [
+                  for (final mode in IpaDisplayMode.values)
+                    ChoiceChip(
+                      label: Text(context.uiText(mode.label)),
+                      selected: tp.ipaDisplayMode == mode,
+                      onSelected: (_) => tp.setIpaDisplayMode(mode),
+                    ),
+                ]),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.uiText('Đồng bộ tự động')),
+                  value: controller.autoSyncEnabled,
+                  onChanged: (_) => controller.toggleAutoSync(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

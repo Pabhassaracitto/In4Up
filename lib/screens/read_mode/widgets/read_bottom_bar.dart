@@ -89,6 +89,8 @@ class ReadBottomBar extends StatelessWidget {
                   // Icons.abc đã dùng trong repo (phoneme_display) — an toàn.
                   _BarAction(
                     icon: Icons.abc,
+                    textIcon: 'IPA',
+                    tooltip: context.uiText('Phiên âm / IPA'),
                     isActive: tp.ipaDisplayMode != IpaDisplayMode.hidden,
                     activeThumbColor: const Color(0xFF4DD0E1),
                     compact: isSmall,
@@ -210,6 +212,7 @@ class _ReadingProgressBar extends StatelessWidget {
 
 class _BarAction extends StatelessWidget {
   final IconData icon;
+  final String? textIcon;
   final VoidCallback onTap;
   final bool isActive;
   final Color? activeThumbColor;
@@ -224,6 +227,7 @@ class _BarAction extends StatelessWidget {
 
   const _BarAction({
     required this.icon,
+    this.textIcon,
     required this.onTap,
     this.isActive = false,
     this.activeThumbColor,
@@ -255,7 +259,9 @@ class _BarAction extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   )
                 : null,
-            child: PulsingIcon(
+            child: textIcon != null
+                ? Text(textIcon!, style: TextStyle(color: color, fontSize: compact ? 12 : 14, fontWeight: FontWeight.bold))
+                : PulsingIcon(
               icon: icon,
               color: color,
               size: compact ? 18 : 22,

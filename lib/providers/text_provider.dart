@@ -272,6 +272,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   double get ttsSpeed => _ttsSpeed;
   double get ttsPitch => _ttsPitch;
   String get ttsLanguage => _ttsLanguage;
+  String? get ttsError => _ttsService.error;
   bool get isSpeaking => _isSpeaking;
 
   /// Đang có phiên TTS nào chạy — **mọi loại**: đọc cả bài (allLines),
@@ -349,6 +350,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     try {
       _fontSize = _storage.getFontSize();
+      restoreBlurTranslations();
 
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
       final savedSpeed = _storage.getTtsSpeed();
@@ -1488,7 +1490,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   ///
   /// [lineIndex] (tuỳ chọn) = dòng đang đọc, để tầng dòng highlight — dùng
   /// cho "đọc dòng hiện tại" và đọc 1 từ từ pop nhỏ.
-  Future<void> speak(String text, {int? lineIndex}) async {
+  Future<void> speak(String text, {int? lineIndex, String? language}) async {
     if (text.trim().isEmpty) return;
 
     final sessionId = await _startExclusiveTtsSession(TtsPlaybackOwner.preview);
@@ -1499,7 +1501,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _ttsSpokenLineIndex = lineIndex ?? -1;
     notifyListeners();
 
-    await _ttsService.speak(text);
+    await _ttsService.speak(text, language: language);
 
     _finishTtsSession(sessionId, TtsPlaybackOwner.preview);
   }

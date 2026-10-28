@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import '../../../core/language/app_language.dart';
 import '../../../features/grammar/models/grammar_category.dart';
 import '../../../features/grammar/models/grammar_palette.dart';
+import '../../../features/grammar/models/grammar_token.dart';
 import '../../../features/grammar/services/grammar_analysis_service.dart';
 import '../../../features/grammar/widgets/structure_section.dart';
 import '../../../features/translation/engines/translation_engine.dart';
@@ -55,7 +56,28 @@ Widget _grabber() => Center(
       ),
     );
 
-Widget _sourceBlock(BuildContext context, String text) {
+Widget _sourceBlock(BuildContext context, String text, {
+  List<GrammarToken>? tokens, GrammarPalette? palette,
+}) {
+  final spans = <TextSpan>[];
+  var offset = 0;
+  if (tokens != null && palette != null) {
+    for (final token in tokens) {
+      final start = token.startOffset;
+      final end = token.endOffset;
+      if (start < offset || start < 0 || end <= start || end > text.length) continue;
+      if (start > offset) spans.add(TextSpan(text: text.substring(offset, start)));
+      spans.add(TextSpan(
+        text: text.substring(start, end),
+        style: token.category == GrammarCategory.unknown ||
+                token.category == GrammarCategory.punctuation
+            ? null
+            : TextStyle(color: palette.styleFor(token.category).color),
+      ));
+      offset = end;
+    }
+  }
+  if (offset < text.length) spans.add(TextSpan(text: text.substring(offset)));
   return Container(
     width: double.infinity,
     padding: const EdgeInsets.all(12),
@@ -64,9 +86,8 @@ Widget _sourceBlock(BuildContext context, String text) {
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
     ),
-    child: SelectableText(
-      text,
-      style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+    child: SelectableText.rich(
+      TextSpan(children: spans, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45)),
     ),
   );
 }
@@ -360,7 +381,7 @@ class ReadSelectionGrammarSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _sourceBlock(context, text),
+            _sourceBlock(context, text, tokens: tokens, palette: palette),
             const SizedBox(height: 12),
             if (tokens.isEmpty)
               Text(

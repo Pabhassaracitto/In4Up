@@ -368,7 +368,7 @@ class TtsService extends ChangeNotifier {
         preferredEngineId: preferredEngineId,
       );
 
-  Future<void> speak(String text) async {
+  Future<void> speak(String text, {String? language}) async {
     if (text.trim().isEmpty) return;
     // Dừng âm đang phát nhưng KHÔNG tăng thế hệ: một câu mới trong cùng
     // phiên đọc không được vô hiệu hoá chính phiên đó.
@@ -382,7 +382,11 @@ class TtsService extends ChangeNotifier {
     _usingOfflineEngine = false;
     final epoch = _playbackEpoch;
 
-    final lang = _resolveLanguage(text);
+    final lang = language == null
+        ? _resolveLanguage(text)
+        : language.toLowerCase() == 'auto'
+            ? LanguageDetector.detect(text)
+            : AppLanguageCatalog.fromCode(language).ttsLocale;
     _detectedLanguage = lang;
 
     // 1. Cache: KHÔNG dò bằng engineId 'any' nữa.

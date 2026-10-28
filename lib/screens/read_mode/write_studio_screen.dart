@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:in4up/core/language/localized_material.dart';
+import '../../features/tts/language_detector.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import '../../core/responsive/app_responsive.dart';
@@ -411,7 +412,22 @@ class _WriteStudioScreenState extends State<WriteStudioScreen> {
   Future<void> _speakCurrentLine(TextProvider textProvider) async {
     final assignment = _assignment;
     if (assignment == null || assignment.sourceText.trim().isEmpty) return;
-    await textProvider.speak(assignment.sourceText);
+    // Prefer the source line's language metadata; otherwise detect the full
+    // assignment context (more reliable than a very short sentence).
+    final index = assignment.lineIndex;
+    final sourceCode = index != null && index >= 0 && index < textProvider.lines.length
+        ? textProvider.lines[index].sourceLanguageCode
+        : null;
+    final language = sourceCode != null && sourceCode.trim().isNotEmpty
+        ? sourceCode
+        : LanguageDetector.detect(assignment.contextText);
+    await textProvider.speak(assignment.sourceText, language: language);
+    final error = textProvider.ttsError;
+    if (mounted && error != null && error.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText(error))),
+      );
+    }
   }
 
   void _scoreDictation() {

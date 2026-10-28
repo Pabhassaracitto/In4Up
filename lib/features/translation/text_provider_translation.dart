@@ -16,6 +16,29 @@ import 'translation_service.dart';
 mixin TranslationMixin on ChangeNotifier {
   TranslationDisplayMode _translationDisplayMode =
       TranslationDisplayMode.hidden;
+  int _translationDocumentRevision = 0;
+  int get translationDocumentRevision => _translationDocumentRevision;
+  bool _blurTranslations = false;
+  bool get blurTranslations => _blurTranslations;
+
+  void setBlurTranslations(bool value) {
+    if (_blurTranslations == value) return;
+    _blurTranslations = value;
+    final storage = StorageService();
+    if (storage.isInitialized) {
+      unawaited(storage.saveSetting('read_blur_translations', value));
+    }
+    notifyListeners();
+  }
+
+  void restoreBlurTranslations() {
+    final storage = StorageService();
+    if (storage.isInitialized) {
+      _blurTranslations = storage.getSetting<bool>('read_blur_translations',
+              defaultValue: false) ?? false;
+    }
+  }
+
   bool _isTranslating = false;
   double _translationProgress = 0.0;
   String? _translationError;
@@ -538,6 +561,7 @@ mixin TranslationMixin on ChangeNotifier {
   /// translation state để tránh black screen do runId cũ còn chạy, và để chuẩn bị
   /// lưu translations mới.
   void resetTranslationForNewDocument() {
+    _translationDocumentRevision++;
     _translationRunId++;
     _isTranslating = false;
     _translationProgress = 0;

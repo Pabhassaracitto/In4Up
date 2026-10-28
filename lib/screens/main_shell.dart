@@ -1402,6 +1402,8 @@ class _MainShellState extends State<MainShell> {
         _currentTab != _PrimaryTab.remember;
     final rightLibraryIsAudio =
         hasMappedLibraryPair ? !_leftLibraryIsAudio : true;
+    final isWatch = _currentTab == _PrimaryTab.listen && _listenModeIndex == 2;
+    final isReader = _currentTab == _PrimaryTab.read && _readModeIndex == 0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
@@ -1417,12 +1419,15 @@ class _MainShellState extends State<MainShell> {
       ),
       child: Row(
         children: [
+          if (!isWatch || !_leftLibraryIsAudio)
           _ShellActionButton(
-            icon: _leadingIcon,
-            color: _leadingColor,
-            tooltip: _leadingTooltip,
+            icon: isReader ? Icons.menu_book_rounded : _leadingIcon,
+            color: isReader ? const Color(0xFF2196F3) : _leadingColor,
+            tooltip: isReader ? context.uiText('Thư viện văn bản') : _leadingTooltip,
             onTap: () {
-              if (_currentTab == _PrimaryTab.home) {
+              if (isReader) {
+                _openTextLibrary();
+              } else if (_currentTab == _PrimaryTab.home) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1438,6 +1443,20 @@ class _MainShellState extends State<MainShell> {
               }
             },
           ),
+          if (isReader) ...[
+            _ShellActionButton(
+              icon: Icons.public,
+              color: const Color(0xFF2196F3),
+              tooltip: context.uiText('Web'),
+              onTap: () => _setReadSource(ReadContentSource.web, openSource: true),
+            ),
+            _ShellActionButton(
+              icon: Icons.temple_buddhist_outlined,
+              color: const Color(0xFFDAAD67),
+              tooltip: context.uiText('Tam tạng'),
+              onTap: () => _setReadSource(ReadContentSource.tipitaka, openSource: true),
+            ),
+          ],
           const SizedBox(width: 8),
           Expanded(child: _buildTitleSection()),
           const SizedBox(width: 8),
@@ -1448,6 +1467,7 @@ class _MainShellState extends State<MainShell> {
             onTap: _openQuickActions,
           ),
           const SizedBox(width: 8),
+          if (!isReader && (!isWatch || !rightLibraryIsAudio))
           _ShellActionButton(
             icon: hasMappedLibraryPair
                 ? _rightLibraryIcon
@@ -1548,7 +1568,9 @@ class _MainShellState extends State<MainShell> {
         if (!listenLibraryFull) children.add(_buildListenContextHeader(context));
         break;
       case _PrimaryTab.read:
-        if (!readLibraryFull) children.add(_buildReadContextHeader(context));
+        if (!readLibraryFull && _readModeIndex == 0) {
+          children.add(_buildReadContextHeader(context));
+        }
         break;
       case _PrimaryTab.understand:
         children.add(_buildUnderstandContextHeader(context));
@@ -1563,6 +1585,22 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildListenContextHeader(BuildContext context) {
+    if (_listenModeIndex == 2) {
+      return _WorkspaceHeaderSurface(
+        accent: _currentAccent,
+        child: Row(children: [
+          Expanded(child: Text(context.uiText('Video thiết bị'),
+              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600))),
+          _WorkspaceHeaderActionButton(
+            action: _WorkspaceHeaderAction(
+              label: 'YouTube', icon: Icons.play_circle_filled,
+              onPressed: () => _handleTool('youtube_downloader'),
+            ),
+            compact: true,
+          ),
+        ]),
+      );
+    }
     final actions = switch (_listenModeIndex) {
       0 => <_WorkspaceHeaderAction>[
           _WorkspaceHeaderAction(
@@ -1684,29 +1722,6 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // AUDIT-2026-10-20 (mục 5): nhãn + nguồn chung một hàng.
-          Row(
-            children: [
-              _WorkspaceHeaderLabel(
-                icon: Icons.source_outlined,
-                label: context.uiText('Nguồn'),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ReadSourcePicker(
-                  selectedSource: _readSource,
-                  onSourceChanged: (source) => _setReadSource(source),
-                  callbacks: ReadSourceCallbacks(
-                    onOpenDocumentLibrary: _openTextLibrary,
-                    onOpenWebReader: () => _handleTool('web_reader'),
-                    onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
-                  ),
-                  presentation: WorkspaceNavigationPresentation.chips,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
           // READ-ACT-001: cho biết 4 nút dưới đây đang áp dụng lên đoạn nào,
           // thay cho snackbar "Bạn cần bôi chọn một đoạn trước".
           Consumer<TextProvider>(

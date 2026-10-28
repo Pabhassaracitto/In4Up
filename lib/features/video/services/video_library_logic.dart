@@ -109,6 +109,16 @@ class VideoLibraryLogic {
     return slash > 0 ? u.substring(0, slash) : '';
   }
 
+  /// Identity for browsing folders: include the provider authority so two
+  /// unrelated SAF providers with the same document ID never get merged.
+  static String folderIdentity(String uri) {
+    final key = folderKey(uri);
+    if (key.isEmpty) return '';
+    if (!uri.startsWith('content://')) return key;
+    final authority = Uri.tryParse(uri)?.authority ?? '';
+    return '$authority/$key';
+  }
+
   /// Tên thư mục hiển thị (segment cuối của folderKey, sau dấu ':').
   static String folderLabel(String uri) {
     final key = folderKey(uri);

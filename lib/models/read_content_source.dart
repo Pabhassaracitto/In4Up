@@ -43,7 +43,7 @@ enum ReadContentSource {
       case ReadContentSource.web:
         return Icons.public;
       case ReadContentSource.tipitaka:
-        return Icons.menu_book_outlined;
+        return Icons.temple_buddhist_outlined;
     }
   }
 }

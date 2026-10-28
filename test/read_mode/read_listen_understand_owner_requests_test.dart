@@ -32,7 +32,7 @@ void main() {
 
   test('Read full library ẩn header nguồn, nhưng giữ affordance Công cụ đọc', () {
     expect(shell, contains('readLibraryFull'));
-    expect(shell, contains('if (!readLibraryFull)'));
+    expect(shell, contains('if (!readLibraryFull && _readModeIndex == 0)'));
     expect(read, contains("context.uiText('Công cụ đọc')"));
   });
 

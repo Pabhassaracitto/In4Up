@@ -21,6 +21,7 @@ import '../../services/storage_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/read_line_hint_service.dart';
+import 'services/playback_controller.dart';
 import 'services/recent_files_service.dart';
 import 'services/word_range_selection.dart';
 import 'widgets/read_line_hint.dart';
@@ -161,7 +162,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
         if (pos == _lastPos) return;
         _lastPos = pos;
         final targetLine = _controller.checkAudioSync(pos);
-        if (targetLine >= 0) {
+        if (targetLine >= 0 && !_controller.singleLineMode) {
           _controller.scrollToLine(_scrollController, targetLine);
         }
       };
@@ -245,7 +246,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   }
 
   void _onScrollEnd(TextProvider tp) {
-    if (widget.currentFile == null) return;
+    if (widget.currentFile == null || _controller.singleLineMode) return;
     if (tp.lines.isEmpty) return;
 
     final offset = _scrollController.offset;
@@ -296,7 +297,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               textProvider.focusCueLineIndex != null) {
             _lastHandledFocusCueVersion = textProvider.focusCueVersion;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted || !_scrollController.hasClients) return;
+              if (!mounted || !_scrollController.hasClients || _controller.singleLineMode) return;
               _controller.scrollToLine(
                 _scrollController,
                 textProvider.focusCueLineIndex!,
@@ -595,6 +596,48 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   }
 
   Widget _buildTextList(TextProvider textProvider, bool isFocusMode) {
+    if (_controller.singleLineMode) {
+      final playback = context.read<PlaybackController>();
+      return ValueListenableBuilder<int>(
+        valueListenable: playback.activeLineNotifier,
+        builder: (context, activeLine, _) {
+          final followPlayback = _controller.autoSyncEnabled && playback.isRunning &&
+              activeLine >= 0 && activeLine < textProvider.lines.length;
+          final index = followPlayback ? activeLine :
+              textProvider.currentLineIndex.clamp(0, textProvider.lines.length - 1).toInt();
+          void move(int delta) {
+            if (followPlayback) {
+              unawaited(playback.skip(delta));
+            } else {
+              textProvider.setCurrentLine(index + delta);
+            }
+          }
+          return Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              IconButton(
+                tooltip: context.uiText('Trước'),
+                onPressed: index > 0 ? () => move(-1) : null,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Text('${index + 1} / ${textProvider.lines.length}'),
+              IconButton(
+                tooltip: context.uiText('Sau'),
+                onPressed: index + 1 < textProvider.lines.length ? () => move(1) : null,
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ]),
+            Expanded(child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: TextLineWidget(
+                key: ValueKey('single_line_$index'),
+                index: index,
+                scrollController: _scrollController,
+              ),
+            )),
+          ]);
+        },
+      );
+    }
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollStartNotification) {

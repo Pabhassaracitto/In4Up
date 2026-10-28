@@ -66,18 +66,27 @@ class MemoryModeScreen extends StatelessWidget {
   }
 
   void _syncConnectedReview(MemoryController controller) {
-    final currentCard = controller.currentCard;
-    if (!controller.isReviewing || currentCard == null) return;
-
     final coordinator = I4uRememberHandoffCoordinator.instance;
     final flow = coordinator.flow;
-    if (flow.value.currentCardId == currentCard.id &&
-        flow.value.totalCount == controller.reviewQueue.length) {
+    final currentCard = controller.currentCard;
+
+    if (!controller.isReviewing || currentCard == null) {
+      if (flow.value.currentCardId != null && flow.value.isComplete == false) {
+        flow.nextCard('completed');
+      }
       return;
     }
 
-    flow.load(totalCount: controller.reviewQueue.length);
-    flow.startReview(currentCard.id);
+    if (flow.value.totalCount != controller.reviewQueue.length ||
+        flow.value.currentCardId == null) {
+      flow.load(totalCount: controller.reviewQueue.length);
+      flow.startReview(currentCard.id);
+      return;
+    }
+
+    if (flow.value.currentCardId != currentCard.id) {
+      flow.nextCard(currentCard.id);
+    }
   }
 
   Widget _buildContent(MemoryController controller) {

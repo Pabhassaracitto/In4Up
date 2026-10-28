@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/translation/translation_display_mode.dart';
+import 'package:in4up/core/language/app_language.dart';
 import 'package:in4up/features/translation/translation_toolbar.dart';
 
 void main() {
@@ -13,6 +14,7 @@ void main() {
                 translatedText: text,
                 displayMode: mode,
                 blurTranslation: blur,
+                targetLanguage: AppLanguageCatalog.vietnamese,
                 originalWidget: const Text('Original'),
               ),
             ),

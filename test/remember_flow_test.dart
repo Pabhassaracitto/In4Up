@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/core/remember/remember_flow.dart';
+import 'package:in4up/core/remember/remember_handoff_coordinator.dart';
+import 'package:in4up/core/navigation/workspace_handoff_inbox.dart';
 import 'package:in4up/models/i4u_shell_contracts.dart';
 import 'package:in4up/models/remember_workspace_state.dart';
 
@@ -55,6 +57,21 @@ void main() {
     expect(flow.value.currentCardId, 'card-2');
     expect(flow.value.stage, I4uMemorizationStage.recite);
     expect(flow.value.rating, isNull);
+  });
+
+  test('handoff coordinator nạp source vào controller thật', () {
+    final inbox = I4uWorkspaceHandoffInbox.instance;
+    final coordinator = I4uRememberHandoffCoordinator.instance;
+    inbox.publish(const I4uSourceFingerprint(
+      sourceType: I4uSourceType.audio,
+      sourceId: 'audio-coordinator',
+      timestampMs: 12000,
+      returnPath: '/listen',
+    ));
+
+    expect(coordinator.flow.value.source?.sourceId, 'audio-coordinator');
+    expect(coordinator.flow.value.source?.timestampMs, 12000);
+    coordinator.clear();
   });
 
   test('handoff Watch/Listen nạp đúng source vào Remember flow', () {

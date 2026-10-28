@@ -2,7 +2,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/vocabulary_provider.dart';
-import '../../core/navigation/workspace_handoff_inbox.dart';
+import '../../core/remember/remember_handoff_coordinator.dart';
 import '../../models/i4u_shell_contracts.dart';
 import 'memory_tab_connector.dart';
 import 'widgets/remember_workspace_header.dart';
@@ -37,9 +37,9 @@ class RememberWorkspaceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: I4uWorkspaceHandoffInbox.instance,
+      listenable: I4uRememberHandoffCoordinator.instance,
       builder: (context, _) {
-        final source = I4uWorkspaceHandoffInbox.instance.current;
+        final source = I4uRememberHandoffCoordinator.instance.flow.value.source;
         return Column(
           children: [
             if (source != null) _buildIncomingSourceCard(context, source),
@@ -121,7 +121,7 @@ class RememberWorkspaceScreen extends StatelessWidget {
             ),
             IconButton(
               tooltip: context.uiText('Đóng ngữ cảnh'),
-              onPressed: I4uWorkspaceHandoffInbox.instance.clear,
+              onPressed: I4uRememberHandoffCoordinator.instance.clear,
               icon: const Icon(Icons.close, color: Colors.white54, size: 18),
             ),
           ],

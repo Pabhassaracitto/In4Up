@@ -267,13 +267,35 @@ jobs:
           else
             echo "[in4up-or] Đã có secret OPENROUTER_API_KEY (provider có sẵn dùng key này)."
           fi
+          # BẮT LỖI RA ANNOTATION (bài học CI: log GitHub nằm ở blob storage mà
+          # API/tác nhân bị chặn ⇒ không đọc được; annotation thì đọc được qua
+          # `check-runs/{id}/annotations`). Bọc `set +e` để KHÔNG bị `-e` cắt
+          # ngang trước khi kịp phát annotation.
+          set +e
           flutter build apk --release --flavor stable --target-platform android-arm64 --android-skip-build-dependency-validation \
             "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_ID=${{ secrets.GOOGLE_DESKTOP_CLIENT_ID }}" \
             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
             "--dart-define=OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}" \
-            "--dart-define=FLAVOR=stable"
+            "--dart-define=FLAVOR=stable" 2>&1 | tee /tmp/apk_build.log
+          code=${PIPESTATUS[0]}
+          if [ "$code" != "0" ]; then
+            echo "### flutter build apk — exit $code" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -60 /tmp/apk_build.log >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            # Đưa NGUYÊN VĂN các dòng lỗi lên annotation (đọc được qua API).
+            grep -nE "FAILURE|error:|Error:|e: |Execution failed|Caused by|What went wrong|> Task .* FAILED|Unresolved|not found|Unsupported|Exception" /tmp/apk_build.log \
+              | tail -25 \
+              | cut -c1-700 \
+              | sed 's/%/%25/g' \
+              | while IFS= read -r line; do
+                  echo "::error title=APK build error::${line}"
+                done || true
+            echo "::error title=flutter build apk failed::exit=$code — xem Step Summary / apk_build.log"
+            exit 1
+          fi
 
       # Đổi tên bản Universal (CI-ANDROID-04): tên do Flutter 3.44.1 sinh
       # (FlutterPlugin.kt) = app-stable-release.apk. Script xử lý cả thứ tự tên

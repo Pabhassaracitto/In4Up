@@ -116,6 +116,21 @@ class RememberWorkspaceScreen extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
+                  TextButton(
+                    onPressed: () {
+                      I4uRememberHandoffCoordinator.instance.flow.loadFromHandoff(source);
+                      onOpenReview();
+                    },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 24),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      context.uiText('Ôn nguồn này'),
+                      style: const TextStyle(color: Color(0xFFB8B2FF), fontSize: 11),
+                    ),
+                  ),
                 ],
               ),
             ),

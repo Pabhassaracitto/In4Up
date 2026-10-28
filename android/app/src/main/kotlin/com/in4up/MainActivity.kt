@@ -173,8 +173,16 @@ class MainActivity : FlutterActivity() {
     /**
      * URL của intent khởi động, CHỈ khi đúng scheme/host của app.
      *
-     * Kiểm tra ở đây để intent `VIEW audio/*` (tính năng có sẵn) không bị hiểu
-     * nhầm thành link từ điển.
+     * Kiểm tra ở đây để intent `VIEW audio/<mime>` (tính năng có sẵn) không bị
+     * hiểu nhầm thành link từ điển.
+     *
+     * ⚠ ĐỪNG viết liền "slash rồi dấu sao" trong BẤT KỲ comment nào của file
+     * này (ví dụ mime dạng audio + '/' + '*'): Kotlin cho phép block comment
+     * LỒNG NHAU, nên cặp "slash-sao" nằm trong comment sẽ MỞ thêm một tầng
+     * comment, còn comment doc chỉ đóng 1 tầng ⇒ toàn bộ code phía sau bị coi
+     * là comment cho tới cặp "sao-slash" kế tiếp (rơi vào mime SAF picker) ⇒
+     * CI đỏ với "Expecting member declaration" ở dòng KHÔNG liên quan (đã xảy
+     * ra: run 40628219927 / 40629835587 / 40631471443 / 40633324522).
      */
     private fun consumeInitialDeepLink(): String? {
         val queued = pendingDeepLink
@@ -467,10 +475,7 @@ class MainActivity : FlutterActivity() {
             result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
-        // KHÔNG dùng `apply { type = "*/*" }`: Kotlin báo
-        // "Expecting member declaration" tại chính dòng `type = "*/*"` trên CI
-        // (xem run 40631471443 — lỗi dây chuyền làm cả file không biên dịch).
-        // Viết tuần tự cho chắc chắn.
+        // Viết tuần tự (không dùng apply) cho rõ ràng; mime SAF đặt ở dưới.
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
         intent.addCategory(Intent.CATEGORY_OPENABLE)
         intent.type = "*/*"

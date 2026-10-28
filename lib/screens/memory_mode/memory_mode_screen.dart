@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../tools/word_list/word_list_screen.dart';
 import 'controllers/memory_controller.dart';
+import '../../core/remember/remember_handoff_coordinator.dart';
 import 'memory_provider.dart';
 import 'widgets/memory_garden_view.dart';
 import 'widgets/memory_top_bar.dart';
@@ -23,6 +24,7 @@ class MemoryModeScreen extends StatelessWidget {
       value: MemoryProvider.controller, // <--- CHÌA KHÓA LÀ ĐÂY
       child: Consumer<MemoryController>(
         builder: (context, controller, _) {
+          _syncConnectedReview(controller);
           // Loading
           if (!controller.isLoaded) {
             return const Center(
@@ -61,6 +63,21 @@ class MemoryModeScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _syncConnectedReview(MemoryController controller) {
+    final currentCard = controller.currentCard;
+    if (!controller.isReviewing || currentCard == null) return;
+
+    final coordinator = I4uRememberHandoffCoordinator.instance;
+    final flow = coordinator.flow;
+    if (flow.value.currentCardId == currentCard.id &&
+        flow.value.totalCount == controller.reviewQueue.length) {
+      return;
+    }
+
+    flow.load(totalCount: controller.reviewQueue.length);
+    flow.startReview(currentCard.id);
   }
 
   Widget _buildContent(MemoryController controller) {

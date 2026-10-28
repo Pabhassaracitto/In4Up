@@ -57,6 +57,22 @@ void main() {
     expect(flow.value.rating, isNull);
   });
 
+  test('handoff Watch/Listen nạp đúng source vào Remember flow', () {
+    final flow = I4uRememberFlowController();
+    flow.loadFromHandoff(const I4uSourceFingerprint(
+      sourceType: I4uSourceType.video,
+      sourceId: 'video-7',
+      timestampMs: 42000,
+      selectedText: 'selected subtitle',
+      returnPath: '/watch/video-7',
+    ));
+
+    expect(flow.value.source?.sourceType, I4uSourceType.video);
+    expect(flow.value.source?.timestampMs, 42000);
+    expect(flow.value.source?.selectedText, 'selected subtitle');
+    expect(flow.value.source?.returnPath, '/watch/video-7');
+  });
+
   test('nguồn đang ôn sống suốt phiên kể cả khi hoàn thành', () {
     final flow = I4uRememberFlowController();
     flow.loadSource(const I4uSourceFingerprint(

@@ -130,7 +130,18 @@ tests" của `app_analyze.yml`): 30 test logic thuần
 
 ## i18n
 
-Thêm **55 chuỗi** mới vào `tool/legacy_ui_english_overrides.json` (3911 khoá)
-và `lib/core/language/generated_legacy_ui_fallbacks.dart` (2223 khoá). Đã kiểm:
-**0 giá trị English chứa ký tự tiếng Việt**, mọi chuỗi UI mới đều có bản tiếng
-Anh ⇒ locale ≠ `vi` không rớt tiếng Việt (quy tắc vàng #5).
+Thêm **57 khoá** (55 chuỗi + 2 template có `{valueN}`) vào
+`tool/legacy_ui_english_overrides.json` và
+`lib/core/language/generated_legacy_ui_fallbacks.dart`.
+
+Sau khi rebase lên `251e` mới nhất (có thêm wave i18n + tính năng karaoke/listen):
+* JSON **3945 khoá**, Dart **2227 khoá**;
+* **0 giá trị English chứa ký tự tiếng Việt**;
+* mọi chuỗi UI mới trong đợt 7 đều có bản tiếng Anh ⇒ locale ≠ `vi` không rớt
+  tiếng Việt (quy tắc vàng #5).
+
+Hai file catalog này xung đột mỗi lần rebase vì **cả hai nhánh đều ghi vào cuối
+file**. Cách xử lý (đã dùng 3 lần): đọc bản `:2:` (base) và `:3:` (của ta) bằng
+`json`/regex rồi **hợp (union) theo khoá**, giữ base làm thứ tự gốc; kiểm tra
+`0 khoá trùng mà khác giá trị` trước khi ghi. KHÔNG chọn một bên, KHÔNG chạy
+lại generator (bị chặn bởi debt catalog).

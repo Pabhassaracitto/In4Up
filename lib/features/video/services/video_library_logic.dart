@@ -119,6 +119,50 @@ class VideoLibraryLogic {
     return '$authority/$key';
   }
 
+  /// Canonical physical key is only derived for known local providers.
+  /// Unknown providers stay URI-keyed rather than risking a false match.
+  static String? physicalKeyFromUri(String uri) {
+    if (uri.startsWith('content://')) {
+      final parsed = Uri.tryParse(uri);
+      if (parsed?.authority != 'com.android.externalstorage.documents') return null;
+      final id = _safDocId(uri);
+      if (!id.contains(':') || id.endsWith(':')) return null;
+      final colon = id.indexOf(':');
+      return '${id.substring(0, colon).toLowerCase()}:${id.substring(colon + 1)}';
+    }
+    const primary = '/storage/emulated/0/';
+    if (uri.startsWith(primary)) return 'primary:${uri.substring(primary.length)}';
+    final match = RegExp(r'^/storage/([^/]+)/(.+)$').firstMatch(uri);
+    if (match != null) return '${match.group(1)!.toLowerCase()}:${match.group(2)}';
+    return null;
+  }
+
+  static String folderGroupKey(VideoInfo video) {
+    final key = video.physicalKey ?? physicalKeyFromUri(video.filePath);
+    if (key != null) {
+      if (key.contains('/')) return key.substring(0, key.lastIndexOf('/'));
+      if (key.contains(':')) return key.substring(0, key.indexOf(':') + 1);
+    }
+    if (video.folderPath != null && video.folderPath!.isNotEmpty) return video.folderPath!;
+    return folderIdentity(video.filePath);
+  }
+
+  static VideoInfo mediaVideoFromMap(Map<String, dynamic> item) {
+    final uri = item['uri'] as String;
+    final name = (item['name'] as String?) ?? '';
+    final key = item['physicalKey'] as String?;
+    final folderPath = item['folderPath'] as String?;
+    final modified = (item['dateModifiedMs'] as num?)?.toInt() ?? 0;
+    return VideoInfo(
+      id: stableId(uri), title: stripExtension(name), filePath: uri,
+      duration: Duration(milliseconds: (item['durationMs'] as num?)?.toInt() ?? 0),
+      addedAt: DateTime.now(), sizeBytes: (item['sizeBytes'] as num?)?.toInt() ?? 0,
+      dateModified: modified > 0 ? DateTime.fromMillisecondsSinceEpoch(modified) : null,
+      folder: (folderPath ?? '').split('/').where((part) => part.isNotEmpty).lastOrNull ?? '',
+      physicalKey: key, folderPath: folderPath, source: VideoSource.media,
+    );
+  }
+
   /// Tên thư mục hiển thị (segment cuối của folderKey, sau dấu ':').
   static String folderLabel(String uri) {
     final key = folderKey(uri);
@@ -234,6 +278,7 @@ class VideoLibraryLogic {
           ? DateTime.fromMillisecondsSinceEpoch(item.dateModifiedMs)
           : null,
       folder: folderLabel(uri),
+      physicalKey: physicalKeyFromUri(uri),
       source: VideoSource.folder,
       subtitlePath: subtitleUri,
     );
@@ -275,45 +320,64 @@ class VideoLibraryLogic {
   /// - Entry cũ nguồn `folder` biến mất khỏi lần quét mới → bỏ (file đã xoá).
   static List<VideoInfo> mergeScanned(
     List<VideoInfo> scanned,
-    List<VideoInfo> existing,
-  ) {
-    final byUri = <String, VideoInfo>{
-      for (final e in existing) normalizeUri(e.filePath): e,
-    };
-
-    final merged = <VideoInfo>[];
+    List<VideoInfo> existing, {
+    VideoSource scanSource = VideoSource.folder,
+    bool removeMissing = true,
+  }) {
+    final entries = <String, VideoInfo>{for (final video in existing) video.id: video};
+    final byUri = <String, String>{};
+    final byPhysical = <String, String>{};
+    for (final video in existing) {
+      for (final uri in video.effectiveSourceUris.values) {
+        byUri[normalizeUri(uri)] = video.id;
+      }
+      final key = video.physicalKey ?? physicalKeyFromUri(video.filePath);
+      if (key != null) byPhysical[key] = video.id;
+    }
     final seen = <String>{};
-
     for (final entry in scanned) {
-      final key = normalizeUri(entry.filePath);
-      if (seen.contains(key)) continue;
-      seen.add(key);
-      final old = byUri[key];
-      if (old != null) {
-        merged.add(old.copyWith(
-          title: entry.title,
-          duration: old.duration.inMilliseconds > 0 ? old.duration : entry.duration,
-          sizeBytes: entry.sizeBytes,
-          dateModified: entry.dateModified,
-          folder: entry.folder,
-          source: entry.source,
-          subtitlePath: entry.subtitlePath ?? old.subtitlePath,
-        ));
-        byUri.remove(key);
-      } else {
-        merged.add(entry);
+      final uri = normalizeUri(entry.filePath);
+      final key = entry.physicalKey ?? physicalKeyFromUri(uri);
+      final oldId = byUri[uri] ?? (key == null ? null : byPhysical[key]);
+      final old = oldId == null ? null : entries[oldId];
+      final id = old?.id ?? entry.id;
+      final sources = <String, String>{...?old?.effectiveSourceUris, scanSource.name2: uri};
+      final updated = old == null
+          ? entry.copyWith(sourceUris: sources)
+          : old.copyWith(
+              title: entry.title,
+              duration: old.duration.inMilliseconds > 0 ? old.duration : entry.duration,
+              sizeBytes: entry.sizeBytes, dateModified: entry.dateModified,
+              folder: entry.folder.isEmpty ? old.folder : entry.folder,
+              folderPath: entry.folderPath, physicalKey: key,
+              sourceUris: sources, subtitlePath: entry.subtitlePath ?? old.subtitlePath,
+            );
+      entries[id] = updated;
+      seen.add(id);
+      byUri[uri] = id;
+      if (key != null) byPhysical[key] = id;
+    }
+    if (removeMissing) {
+      for (final old in existing) {
+        if (seen.contains(old.id)) continue;
+        final sources = Map<String, String>.of(old.effectiveSourceUris);
+        if (!sources.containsKey(scanSource.name2)) continue;
+        final removed = sources.remove(scanSource.name2);
+        if (sources.isEmpty) {
+          entries.remove(old.id);
+        } else {
+          final replacement = sources.entries.first;
+          entries[old.id] = old.copyWith(
+            filePath: old.filePath == removed ? replacement.value : old.filePath,
+            source: old.filePath == removed ? VideoSourceX.parse(replacement.key) : old.source,
+            sourceUris: sources,
+          );
+        }
       }
     }
-
-    // Giữ các entry import thủ công (picked) dù không còn trong thư mục quét.
-    for (final old in byUri.values) {
-      if (old.source == VideoSource.picked && !seen.contains(normalizeUri(old.filePath))) {
-        merged.add(old);
-      }
-    }
-
-    return merged;
+    return entries.values.toList();
   }
+
 }
 
 /// Tiêu chí sắp xếp thư viện video.

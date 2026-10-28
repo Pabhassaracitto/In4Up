@@ -3,6 +3,7 @@ package com.in4up
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.res.AssetFileDescriptor
@@ -280,6 +281,17 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "pickFolder" -> launchFolderPicker(result)
+                    "videoSdkVersion" -> result.success(Build.VERSION.SDK_INT)
+                    "scanDeviceVideos" -> {
+                        audioCacheExecutor.execute {
+                            try {
+                                val videos = scanDeviceVideos()
+                                mainHandler.post { result.success(videos) }
+                            } catch (e: Exception) {
+                                mainHandler.post { result.error("SCAN_FAILED", e.message, null) }
+                            }
+                        }
+                    }
                     "normalizeTreeUri" -> {
                         val treeUri = call.argument<String>("treeUri")
                         result.success(treeUri?.let { normalizeTreeUri(it) })
@@ -1182,6 +1194,58 @@ class MainActivity : FlutterActivity() {
             }
             return mapOf("signal" to "none")
         }
+    }
+
+    /** Query MediaStore off the platform thread. Fail the entire scan on any
+     * provider error, so Dart never mistakes a partial result for an empty library. */
+    private fun scanDeviceVideos(): List<Map<String, Any?>> {
+        val output = mutableListOf<Map<String, Any?>>()
+        val modern = Build.VERSION.SDK_INT >= 29
+        val volumes = if (modern) MediaStore.getExternalVolumeNames(this).toList()
+            else listOf("external")
+        for (volume in volumes) {
+            val collection = if (modern) MediaStore.Video.Media.getContentUri(volume)
+                else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            val columns = mutableListOf(
+                MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME,
+                MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DATE_MODIFIED,
+                MediaStore.Video.Media.DURATION,
+            )
+            if (modern) columns.add(MediaStore.Video.Media.RELATIVE_PATH)
+            else columns.add(MediaStore.Video.Media.DATA)
+            val cursor = contentResolver.query(collection, columns.toTypedArray(), null, null, null)
+                ?: throw IllegalStateException("MediaStore returned no cursor")
+            cursor.use {
+                val idIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                val nameIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                val sizeIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+                val modifiedIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+                val durationIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+                val pathIndex = it.getColumnIndexOrThrow(
+                    if (modern) MediaStore.Video.Media.RELATIVE_PATH else MediaStore.Video.Media.DATA)
+                while (it.moveToNext()) {
+                    val id = it.getLong(idIndex)
+                    val name = it.getString(nameIndex) ?: ""
+                    val rawPath = it.getString(pathIndex) ?: ""
+                    val normalizedVolume = if (volume == "external_primary") "primary" else volume.lowercase(Locale.ROOT)
+                    val relative = rawPath.trim('/')
+                    val key = if (modern && name.isNotEmpty())
+                        "$normalizedVolume:${if (relative.isEmpty()) "" else "$relative/"}$name"
+                    else if (!modern && rawPath.startsWith("/storage/emulated/0/"))
+                        "primary:" + rawPath.removePrefix("/storage/emulated/0/")
+                    else null
+                    val folder = if (modern) relative else rawPath.substringBeforeLast('/', "")
+                    output.add(mapOf(
+                        "uri" to ContentUris.withAppendedId(collection, id).toString(),
+                        "name" to name, "sizeBytes" to it.getLong(sizeIndex),
+                        "dateModifiedMs" to it.getLong(modifiedIndex) * 1000L,
+                        "durationMs" to it.getLong(durationIndex),
+                        "physicalKey" to key, "folderPath" to folder,
+                    ))
+                }
+            }
+        }
+        return output
     }
 
     private fun scanMediaStore(): List<Map<String, Any?>> {

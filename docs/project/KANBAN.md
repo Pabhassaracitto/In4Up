@@ -48,6 +48,7 @@
 | WEB-BUILD-002 | Web VẪN TRẮNG + YouTube -1 tái phát sau fix 001 — thiếu `home:` + thiếu loader/.nojekyll | 🔨 doing (đã fix, chờ CI + hard-reload) | `home:` rỗng ⇒ trắng; thêm loader + `.nojekyll` + yt_embed v2 validate ID — IN4-109 tiếp nối |
 | DICT-SQLITE-001 | Import từ điển đuôi `.db`/`.sqlite` (trước chỉ nhận `.mdx`) | ✅ done (code + 17 test + CI 🟢 run 40590731503; chờ nghiệm thu máy) | `dict_sqlite_importer.dart` (đoán bảng/cột thuần + đọc LIMIT/OFFSET read-only) + `_importSqliteSources` trong DictionaryService + picker/quét thư mục nhận db/sqlite/sqlite3 |
 | YT-LRC-LONG-001 | Lấy phụ đề YouTube sang tab Đọc bị lỗi: video ≥ 60 phút ghi SAI mốc giờ + bộ đọc LRC chỉ nhận 2 chữ số phút + lỗi im lặng | ✅ done (code + test + CI 🟢 run 40584513088; chờ nghiệm thu máy) | `toLrc()` ghi phút tuyệt đối; đọc LRC tách sang hàm thuần `lrc_time_parser.dart` (phút 1–3 số, `.`/`,`, `hh:mm:ss`); `YtReadBridge` bọc try/catch + snackbar giữ messenger trước khi pop |
+| REL-1.19.1 | Release **1.19.1** (đủ 4 nền tảng) — sửa lỗi Kotlin comment lồng nhau làm Android đỏ 4 run liên tiếp | ✅ done (build 🟢 run 40635280501, 4/4 job; chờ nghiệm thu máy) | APK arm64 198.5 MB `f7c4f33d…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.19.1 |
 | REL-1.18.0 | Release **1.18.0** (full 4 nền tảng) từ tip 251e `b3583676` — 34 commit sau 1.17.0 (i18n wave 8+9, PRON-002, API-SERVERSET, PARAKEET-002 dùng được, 7 fix YouTube, fix từ điển) | ✅ done (build 🟢 run 40568716000, 4/4 job; chờ nghiệm thu máy) | bump `1.17.0+17 → 1.18.0+18` (`5a70bf33`); APK arm64 198.4 MB `8e6b90fa…`, IPA 92.7 MB, Linux 49.4 MB, Windows 51.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.18.0 |
 | REL-1.17.0 | Release **1.17.0** (full 4 nền tảng) từ tip 251e — bump `1.16.0+16 → 1.17.0+17` để update đè được | ✅ done (build 🟢 run 40262212277, 4/4 job; chờ nghiệm thu máy) | APK arm64 198 MB `f6f6e2c4…`, IPA 92 MB, Linux tar 49 MB, Windows zip 51.5 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0 |
 | UI-ORDER-001 | (2026-10-25) Đổi thứ tự tab **Đọc trước Nghe** (đồng bộ thư viện/drawer + Studio ở Home) + Home bỏ 1 trong 2 icon robot, trả chỗ cho **thư viện Đọc** | 🔨 doing (code + test + CI gate xong, chờ nghiệm thu máy) | `ShellContentOrder` mặc định `readListen` + migrate 1 lần cho máy đã lưu `listenRead`; `home_screen.dart` bỏ robot ở header → `menu_book_rounded` mở đúng drawer Đọc |
@@ -8330,3 +8331,21 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     `arena/bf95d3ae-in4up` | rebase tiếp lên 251e `82e813d`; chờ CI lại.
   - 2026-10-28 | 2026-10-27 22:01 UTC | doing→doing | agent
     `arena/bf95d3ae-in4up` | CI code tích hợp xanh; rebase Kanban `de52915`.
+
+### REL-1.19.1 — (2026-10-28) Release 1.19.1 + ROOT CAUSE: Kotlin comment lồng nhau làm Android đỏ 4 run
+- **Trạng thái:** ✅ done (build 🟢 `run 40635280501`, 4/4 job; **chờ nghiệm thu máy**)
+- **Bối cảnh:** owner yêu cầu tag-release đa nền tảng. Tag `1.19.0` (27 commit sau 1.18.0) chạy xong nhưng **Android đỏ** ⇒ release 1.19.0 chỉ có 3/4 asset (iOS/Linux/Windows), **thiếu APK**.
+- **Chẩn đoán (không đọc được log GitHub — blob storage bị chặn):**
+  1. Thêm bước phát lỗi build ra **annotation** trong `build_final_complete.yml` (bọc `set +e` + `tee`), rồi đọc bằng `gh api .../check-runs/{id}/annotations`. Lần đầu chỉ thấy **10 dòng cuối** ⇒ gộp mọi dòng lỗi vào MỘT annotation (`%0A`), thêm nhánh tag `-diag` chỉ build Android cho nhanh.
+  2. Kết quả đọc được: `MainActivity.kt:472` "Syntax error: Expecting member declaration" + `appContext` / `installOcrCrashShield` "Unresolved reference" (companion object ở cuối file) + `getColumnIndexOrThrow` unresolved.
+- **ROOT CAUSE thật:** doc comment của `consumeInitialDeepLink` có câu *"intent `VIEW audio/*`"*. **Kotlin cho phép block comment LỒNG NHAU** ⇒ cặp "slash-sao" trong comment **mở thêm một tầng** comment, còn `*/` của doc comment chỉ đóng 1 tầng ⇒ toàn bộ code phía sau bị coi là comment **cho tới cặp "sao-slash" kế tiếp** — rơi đúng vào chuỗi `"*/*"` của SAF picker. Vì thế lỗi báo ở dòng **không liên quan** và di chuyển theo mỗi lần sửa (472 → 470).
+- **Sửa:** comment ghi `audio/<mime>` + cảnh báo cấm viết liền "slash rồi dấu sao" trong comment của file này. Giữ 2 thay đổi phòng thủ (bỏ `apply` khi set mime; `sanitizeFileComponent()` thay `Regex` có escape `\x`). Quét toàn bộ `android/app/src/main/kotlin/**/*.kt`: **0 comment lồng nhau**, ngoặc cân bằng.
+- **Bằng chứng:** `build_final_complete.yml` run **40635280501** — **4/4 job success**. Release 1.19.1: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.19.1
+  - `in4up-Android-arm64-v8a-1.19.1-84510.apk` — 198.539.878 B — sha256 `f7c4f33d5f8308c8c88bc910793921db1d3eecb33dd6a5dcbc202e581bbbc27f`
+  - `in4up-iOS-1.19.1.ipa` — 92.794.892 B — sha256 `e5bfd57feff6e8e190ee7232dc558889f8cd5e1bf75e14c442aacc047862add8`
+  - `in4up-Linux-1.19.1.tar.gz` — 49.573.528 B — sha256 `2dc0923db1c863966ab7512a78f43053657f0b76c330ba60be88ae35af94fa92`
+  - `in4up-Windows-1.19.1.zip` — 52.085.840 B — sha256 `7bc341ff8215bb86a1a45a1c427346dea679825e4e68ff6f1b78e4045551ef6c`
+- **Dọn dẹp:** đã xoá 3 tag + release chẩn đoán (`1.19.1-diag`, `1.19.2-diag`, `1.19.3-diag`). **Release 1.19.0 (thiếu APK) vẫn còn** để đối chiếu — owner có thể xoá nếu không muốn người dùng tải bản thiếu APK.
+- **Bài học CI (ghi lại):** (1) `gh api .../jobs/{id}/logs` không dùng được trong môi trường này ⇒ **luôn phát lỗi ra annotation**; (2) GitHub chỉ lưu/đọc được một số annotation ⇒ **gộp** thay vì phát từng dòng; (3) Kotlin **cho phép comment lồng** nên `/*` trong comment là bẫy thật, và thông báo lỗi sẽ trỏ sai dòng.
+- **Lịch sử:**
+  - 2026-10-28 | created→done | agent arena/01a0251e-in4up | 4 run chẩn đoán (40628219927 đỏ, 40629835587/40631471443/40633324522 vẫn đỏ với annotation), tìm ra comment lồng, sửa ở 845107d9, build 40635280501 🟢

@@ -22,6 +22,7 @@ class RememberWorkspaceScreen extends StatelessWidget {
   final VoidCallback onOpenMap;
   final VoidCallback onOpenQuickActions;
   final VoidCallback? onOpenLearnByHeart;
+  final VoidCallback? onReturnToSource;
 
   const RememberWorkspaceScreen({
     super.key,
@@ -32,6 +33,7 @@ class RememberWorkspaceScreen extends StatelessWidget {
     required this.onOpenMap,
     required this.onOpenQuickActions,
     this.onOpenLearnByHeart,
+    this.onReturnToSource,
   });
 
   @override
@@ -131,6 +133,19 @@ class RememberWorkspaceScreen extends StatelessWidget {
                       style: const TextStyle(color: Color(0xFFB8B2FF), fontSize: 11),
                     ),
                   ),
+                  if (onReturnToSource != null)
+                    TextButton(
+                      onPressed: onReturnToSource,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 24),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        context.uiText('Quay lại nguồn'),
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
+                    ),
                 ],
               ),
             ),

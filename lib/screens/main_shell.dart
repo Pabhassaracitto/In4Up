@@ -14,6 +14,7 @@ import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
 import '../core/navigation/workspace_handoff_inbox.dart';
+import '../core/remember/remember_handoff_coordinator.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/cabin/controllers/c27_cabin_live_scope.dart';
 import '../features/cabin/models/c27_cabin_live_state.dart';
@@ -1213,7 +1214,18 @@ class _MainShellState extends State<MainShell> {
             _handleTool('word_map');
           },
           onOpenQuickActions: _openQuickActions,
+          onReturnToSource: _returnToRememberSource,
         );
+    }
+  }
+
+  void _returnToRememberSource() {
+    final source = I4uRememberHandoffCoordinator.instance.flow.value.source;
+    if (source == null) return;
+    if (source.sourceType == I4uSourceType.audio) {
+      _setListenMode(0);
+    } else {
+      _setReadMode(0);
     }
   }
 

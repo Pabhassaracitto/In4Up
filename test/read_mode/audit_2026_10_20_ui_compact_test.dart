@@ -216,7 +216,7 @@ void main() {
     test('dòng đang đọc PHẢI được highlight (kể cả đọc 1 dòng)', () {
       expect(textProvider.contains('int get ttsSpokenLineIndex'), isTrue);
       expect(textProvider.contains('bool isLineBeingSpoken(int index)'), isTrue);
-      expect(textProvider.contains('Future<void> speak(String text, {int? lineIndex})'),
+      expect(textProvider.contains('Future<void> speak(String text, {int? lineIndex, String? language})'),
           isTrue,
           reason: 'speak() phải nhận lineIndex để biết dòng nào đang đọc.');
       // Tầng dòng dùng isLineBeingSpoken (KHÔNG chỉ allLines).

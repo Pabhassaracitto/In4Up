@@ -1,4 +1,8 @@
 {
+  "Tạo lời": "Create transcript",
+  "Tạo tự động": "Create automatically",
+  "Chọn model": "Choose model",
+  "Video thiết bị": "Device videos",
   "  Âm cần chú ý: {value0}": "  Sounds to focus on: {value0}",
   " (Whisper tự đặt tên)": " (Whisper named them)",
   " · lần {value0}": " · repeat {value0}",

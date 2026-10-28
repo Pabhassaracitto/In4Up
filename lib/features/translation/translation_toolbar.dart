@@ -113,6 +113,19 @@ class TranslationToolbar extends StatelessWidget {
                       padding: EdgeInsets.zero,
                     ),
                   );
+                  final blurButton = IconButton(
+                    tooltip: context.uiText('Làm mờ bản dịch'),
+                    isSelected: textProvider.blurTranslations,
+                    onPressed: displayMode == TranslationDisplayMode.hidden
+                        ? null
+                        : () => textProvider.setBlurTranslations(
+                            !textProvider.blurTranslations),
+                    icon: Icon(textProvider.blurTranslations
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined),
+                    color: textProvider.blurTranslations ? primaryColor : Colors.grey,
+                    visualDensity: VisualDensity.compact,
+                  );
                   final layoutSelector = _LayoutSelector(
                     displayMode: displayMode,
                     primaryColor: primaryColor,
@@ -135,7 +148,10 @@ class TranslationToolbar extends StatelessWidget {
                           const SizedBox(height: 7),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: layoutSelector,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [layoutSelector, blurButton],
+                            ),
                           ),
                         ],
                       ],
@@ -150,6 +166,7 @@ class TranslationToolbar extends StatelessWidget {
                       if (hasTranslations) ...[
                         const Spacer(),
                         layoutSelector,
+                        blurButton,
                       ] else
                         const Spacer(),
                       const SizedBox(width: 4),
@@ -1291,6 +1308,7 @@ class TranslationLineDisplay extends StatelessWidget {
   final Widget originalWidget;
   final TextStyle? translationStyle;
   final TextAlign? textAlign;
+  final bool blurTranslation;
 
   const TranslationLineDisplay({
     super.key,
@@ -1300,6 +1318,7 @@ class TranslationLineDisplay extends StatelessWidget {
     required this.originalWidget,
     this.translationStyle,
     this.textAlign,
+    this.blurTranslation = false,
   });
 
   @override
@@ -1318,6 +1337,7 @@ class TranslationLineDisplay extends StatelessWidget {
             const SizedBox(height: 6),
             _TranslationText(
               text: translatedText!,
+              blurred: blurTranslation,
               language: targetLanguage,
               style: translationStyle,
               textAlign: textAlign,
@@ -1341,6 +1361,7 @@ class TranslationLineDisplay extends StatelessWidget {
             child: hasTranslation
                 ? _TranslationText(
                     text: translatedText!,
+                    blurred: blurTranslation,
                     language: targetLanguage,
                     style: translationStyle,
                     textAlign: textAlign,
@@ -1353,23 +1374,41 @@ class TranslationLineDisplay extends StatelessWidget {
   }
 }
 
-class _TranslationText extends StatelessWidget {
+class _TranslationText extends StatefulWidget {
   final String text;
+  final bool blurred;
   final AppLanguage language;
   final TextStyle? style;
   final TextAlign? textAlign;
 
   const _TranslationText({
     required this.text,
+    this.blurred = false,
     required this.language,
     this.style,
     this.textAlign,
   });
 
   @override
+  State<_TranslationText> createState() => _TranslationTextState();
+}
+
+class _TranslationTextState extends State<_TranslationText> {
+  bool _revealed = false;
+
+  @override
+  void didUpdateWidget(covariant _TranslationText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text || oldWidget.blurred != widget.blurred) {
+      _revealed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isRtl = language.translationCode == 'AR';
-    return Container(
+    final isRtl = widget.language.translationCode == 'AR';
+    final hidden = widget.blurred && !_revealed;
+    final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
@@ -1379,14 +1418,20 @@ class _TranslationText extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(language.flag, style: const TextStyle(fontSize: 13)),
+          Text(widget.language.flag, style: const TextStyle(fontSize: 13)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              text,
+              widget.text,
               textDirection: isRtl ? TextDirection.rtl : null,
-              textAlign: isRtl ? TextAlign.right : textAlign,
-              style: style ??
+              textAlign: isRtl ? TextAlign.right : widget.textAlign,
+              style: hidden
+                  ? (widget.style ?? const TextStyle(fontSize: 13)).copyWith(
+                      color: const Color(0x33FFFFFF),
+                      shadows: const [Shadow(color: Colors.white70, blurRadius: 7),
+                        Shadow(color: Colors.white70, blurRadius: 7)],
+                    )
+                  : widget.style ??
                   TextStyle(
                     fontSize: 13,
                     color: Colors.grey[400],
@@ -1396,6 +1441,25 @@ class _TranslationText extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (!widget.blurred) return content;
+    return Semantics(
+      button: true,
+      label: context.uiText(hidden
+          ? 'Bấm để hiện bản dịch.' : 'Bấm để làm mờ bản dịch.'),
+      child: InkWell(
+        onTap: () => setState(() => _revealed = !_revealed),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            hidden ? ExcludeSemantics(child: content) : content,
+            Text(context.uiText(hidden
+                ? 'Bấm để hiện bản dịch.' : 'Bấm để làm mờ bản dịch.'),
+                style: const TextStyle(color: Colors.white38, fontSize: 10)),
+          ],
+        ),
       ),
     );
   }

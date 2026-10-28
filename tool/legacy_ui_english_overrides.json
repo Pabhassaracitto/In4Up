@@ -1,4 +1,11 @@
 {
+  "Quét video": "Scan videos",
+  "Chưa được cấp quyền đọc video.": "Video access has not been granted.",
+  "Đã quét {value0} video.": "Scanned {value0} videos.",
+  "Một dòng": "One line",
+  "Đọc song ngữ": "Bilingual reading",
+  "Luyện nghe": "Listening practice",
+  "Khôi phục mặc định": "Restore defaults",
   "Tạo lời": "Create transcript",
   "Tạo tự động": "Create automatically",
   "Chọn model": "Choose model",

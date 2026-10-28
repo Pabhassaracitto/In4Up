@@ -208,6 +208,35 @@ class ReadTopBar extends StatelessWidget {
               children: [
                 Text(context.uiText('Hiển thị'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  ActionChip(
+                    label: Text(context.uiText('Đọc song ngữ')),
+                    onPressed: () {
+                      tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+                      tp.setBlurTranslations(false);
+                      controller.setSingleLineMode(false);
+                    },
+                  ),
+                  ActionChip(
+                    label: Text(context.uiText('Luyện nghe')),
+                    onPressed: () {
+                      tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+                      tp.setBlurTranslations(true);
+                      if (!controller.autoSyncEnabled) controller.toggleAutoSync();
+                    },
+                  ),
+                  ActionChip(
+                    label: Text(context.uiText('Khôi phục mặc định')),
+                    onPressed: () {
+                      tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+                      tp.setBlurTranslations(false);
+                      tp.setIpaDisplayMode(IpaDisplayMode.hidden);
+                      controller.setSingleLineMode(false);
+                      if (!controller.autoSyncEnabled) controller.toggleAutoSync();
+                    },
+                  ),
+                ]),
                 const SizedBox(height: 16),
                 Text(context.uiText('Bản dịch')),
                 Wrap(spacing: 8, children: [
@@ -239,6 +268,12 @@ class ReadTopBar extends StatelessWidget {
                       onSelected: (_) => tp.setIpaDisplayMode(mode),
                     ),
                 ]),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.uiText('Một dòng')),
+                  value: controller.singleLineMode,
+                  onChanged: controller.setSingleLineMode,
+                ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(context.uiText('Đồng bộ tự động')),

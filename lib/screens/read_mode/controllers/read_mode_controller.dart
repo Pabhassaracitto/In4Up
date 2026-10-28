@@ -6,6 +6,7 @@ import 'package:in4up/core/platform/safe_haptics.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
+import '../../../services/storage_service.dart';
 
 /// Controller quản lý business logic cho Read Mode
 /// Tách khỏi UI để dễ test và maintain
@@ -17,12 +18,27 @@ class ReadModeController extends ChangeNotifier {
     required this.textProvider,
     required this.playerProvider,
   }) {
+    final storage = StorageService();
+    if (storage.isInitialized) {
+      _singleLineMode = storage.getSetting<bool>('read_single_line', defaultValue: false) ?? false;
+      _autoSyncEnabled = storage.getSetting<bool>('read_auto_sync', defaultValue: true) ?? true;
+    }
     _init();
   }
 
   // ===== STATE =====
   bool _autoSyncEnabled = true;
   bool get autoSyncEnabled => _autoSyncEnabled;
+  bool _singleLineMode = false;
+  bool get singleLineMode => _singleLineMode;
+
+  void setSingleLineMode(bool value) {
+    if (_singleLineMode == value) return;
+    _singleLineMode = value;
+    final storage = StorageService();
+    if (storage.isInitialized) unawaited(storage.saveSetting('read_single_line', value));
+    notifyListeners();
+  }
 
   int _lastSyncedLine = -1;
   bool _isScrolling = false;
@@ -86,6 +102,8 @@ class ReadModeController extends ChangeNotifier {
   // ===== AUTO-SCROLL SYNC =====
   void toggleAutoSync() {
     _autoSyncEnabled = !_autoSyncEnabled;
+    final storage = StorageService();
+    if (storage.isInitialized) unawaited(storage.saveSetting('read_auto_sync', _autoSyncEnabled));
     SafeHaptics.selectionClick();
     notifyListeners();
   }

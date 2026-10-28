@@ -285,14 +285,15 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             tail -60 /tmp/apk_build.log >> "$GITHUB_STEP_SUMMARY" || true
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            # Đưa NGUYÊN VĂN các dòng lỗi lên annotation (đọc được qua API).
-            grep -nE "FAILURE|error:|Error:|e: |Execution failed|Caused by|What went wrong|> Task .* FAILED|Unresolved|not found|Unsupported|Exception" /tmp/apk_build.log \
-              | tail -25 \
-              | cut -c1-700 \
+            # Đưa NGUYÊN VĂN dòng lỗi lên annotation (đọc được qua API).
+            # Gộp MỘT annotation để KHÔNG bị giới hạn 10 annotation/check-run
+            # (lần trước chỉ thấy 10 dòng cuối ⇒ mất lỗi GỐC).
+            errs=$(grep -E "^e: |^w: .*error|FAILURE:|What went wrong|Caused by:|Execution failed|> Task .* FAILED|Unresolved|error: " /tmp/apk_build.log \
+              | head -80 \
+              | cut -c1-400 \
               | sed 's/%/%25/g' \
-              | while IFS= read -r line; do
-                  echo "::error title=APK build error::${line}"
-                done || true
+              | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=APK build errors::${errs:-exit=$code}" || true
             echo "::error title=flutter build apk failed::exit=$code — xem Step Summary / apk_build.log"
             exit 1
           fi
@@ -331,7 +332,8 @@ jobs:
   # =============================================================================
   build-linux:
     name: Build Linux App
-    if: ${{ github.event_name == 'push' || inputs.build_linux == true }}
+    # Chẩn đoán: tag '-diag' chỉ build Android (đỡ tốn ~17 phút).
+    if: ${{ !contains(github.ref_name, '-diag') && (github.event_name == 'push' || inputs.build_linux == true) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -418,7 +420,8 @@ jobs:
   # =============================================================================
   build-windows:
     name: Build Windows App
-    if: ${{ github.event_name == 'push' || inputs.build_windows == true }}
+    # Chẩn đoán: tag '-diag' chỉ build Android (đỡ tốn ~17 phút).
+    if: ${{ !contains(github.ref_name, '-diag') && (github.event_name == 'push' || inputs.build_windows == true) }}
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -554,7 +557,8 @@ jobs:
   # =============================================================================
   build-ios:
     name: Build iOS IPA (sideload)
-    if: ${{ github.event_name == 'push' || inputs.build_ios == true }}
+    # Chẩn đoán: tag '-diag' chỉ build Android (đỡ tốn ~17 phút).
+    if: ${{ !contains(github.ref_name, '-diag') && (github.event_name == 'push' || inputs.build_ios == true) }}
     runs-on: macos-15
     steps:
       - name: Checkout code

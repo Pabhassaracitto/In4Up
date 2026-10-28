@@ -9,6 +9,7 @@ import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../models/video_info.dart';
 import '../services/video_device_channel.dart';
@@ -157,6 +158,44 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     }
   }
 
+  Future<void> _scanDeviceVideos() async {
+    if (!VideoLibraryService.instance.folderScanSupported) {
+      _snack(context.uiText('Nền tảng này chưa hỗ trợ quét thư mục — hãy dùng "Thêm video".'));
+      return;
+    }
+    setState(() { _scanning = true; _scanError = null; });
+    try {
+      final sdk = await VideoDeviceChannel.androidSdkVersion();
+      final permission = sdk >= 33 ? Permission.videos : Permission.storage;
+      var status = await permission.status;
+      if (!status.isGranted && !status.isLimited) status = await permission.request();
+      if (!mounted) return;
+      if (!status.isGranted && !status.isLimited) {
+        setState(() => _scanning = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.uiText('Chưa được cấp quyền đọc video.')),
+          action: SnackBarAction(label: context.uiText('Cài đặt'),
+              onPressed: () => openAppSettings()),
+        ));
+        return;
+      }
+      final count = await VideoLibraryService.instance.scanDeviceVideos();
+      if (!mounted) return;
+      setState(() {
+        _videos = VideoLibraryService.instance.videos;
+        _scanning = false;
+        _selectedFolder = null;
+      });
+      _snack(context.uiText('Đã quét $count video.'));
+    } on VideoScanException catch (e) {
+      if (!mounted) return;
+      setState(() { _scanning = false; _scanError = e.message; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() { _scanning = false; _scanError = 'Không tải được thư viện video'; });
+    }
+  }
+
   Future<void> _addVideo() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
@@ -222,13 +261,13 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
     final result = _videos.query(search: _query, filter: _filter, sort: _sort);
     if (_selectedFolder == null) return result;
     return result.where((v) =>
-        VideoLibraryLogic.folderIdentity(v.filePath) == _selectedFolder).toList();
+        VideoLibraryLogic.folderGroupKey(v) == _selectedFolder).toList();
   }
 
   Widget _buildFolders() {
     final groups = <String, List<VideoInfo>>{};
     for (final video in _visible) {
-      final key = VideoLibraryLogic.folderIdentity(video.filePath);
+      final key = VideoLibraryLogic.folderGroupKey(video);
       if (key.isNotEmpty) (groups[key] ??= []).add(video);
     }
     final keys = groups.keys.toList()..sort();
@@ -342,6 +381,16 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
                   child: const Icon(Icons.add, color: Colors.white),
                 ),
                 const SizedBox(height: 10),
+                if (VideoLibraryService.instance.folderScanSupported) ...[
+                  FloatingActionButton.extended(
+                    heroTag: 'video_scan_device',
+                    onPressed: _scanning ? null : _scanDeviceVideos,
+                    backgroundColor: _accent,
+                    icon: const Icon(Icons.video_library_outlined),
+                    label: Text(context.uiText('Quét video')),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 FloatingActionButton.extended(
                   heroTag: 'video_scan_folder',
                   onPressed: _scanning ? null : _scanFolder,

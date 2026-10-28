@@ -467,13 +467,16 @@ class MainActivity : FlutterActivity() {
             result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-        }
+        // KHÔNG dùng `apply { type = "*/*" }`: Kotlin báo
+        // "Expecting member declaration" tại chính dòng `type = "*/*"` trên CI
+        // (xem run 40631471443 — lỗi dây chuyền làm cả file không biên dịch).
+        // Viết tuần tự cho chắc chắn.
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "*/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         pendingDictionaryDocumentsPicker = result
         try {
             @Suppress("DEPRECATION")

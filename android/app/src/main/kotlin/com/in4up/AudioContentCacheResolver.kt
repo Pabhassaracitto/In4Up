@@ -31,7 +31,7 @@ internal class AudioContentCacheResolver(private val context: Context) {
                 val uri = Uri.parse(contentUri)
                 if (uri.scheme != "content") return@synchronized null
                 val sourceKey = sha256(contentUri.toByteArray(Charsets.UTF_8))
-                val name = (try { displayName(uri) } catch (_: Exception) { null })?.replace(Regex("[/\\\\\\x00-\\x1f]"), "_")
+                val name = (try { displayName(uri) } catch (_: Exception) { null })?.let { sanitizeFileComponent(it) }?.takeIf { it.isNotBlank() }
                     ?.takeIf { it.isNotBlank() }
                 val extension = name?.substringAfterLast('.', "")
                     ?.lowercase()?.takeIf { it.matches(Regex("[a-z0-9]{1,8}")) }
@@ -96,6 +96,25 @@ internal class AudioContentCacheResolver(private val context: Context) {
                 temporary?.delete()
             }
         }
+
+    /**
+     * Thay ký tự KHÔNG an toàn cho tên tệp bằng `_`.
+     *
+     * Viết thủ công thay vì `Regex("[/\\x00-\x1f]")`: escape `\x` trong chuỗi
+     * Kotlin rất dễ sai (và CI đã đỏ ở đúng vùng này), còn so sánh mã ký tự thì
+     * không thể nhập nhằng.
+     */
+    private fun sanitizeFileComponent(raw: String): String {
+        val out = StringBuilder(raw.length)
+        for (ch in raw) {
+            val code = ch.code
+            out.append(
+                if (ch == '/' || ch == '\\' || code in 0..0x1F || code == 0x7F) '_'
+                else ch
+            )
+        }
+        return out.toString()
+    }
 
     private fun displayName(uri: Uri): String? {
         return context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)

@@ -27,6 +27,10 @@ void main() {
       expect(generatedUiTranslations['Tạng Kinh']?['en'], 'Sutta Piṭaka');
       expect(generatedUiTranslations['Tạng → nhóm/bộ → bài kinh']?['en'],
           'Basket → collection → book');
+      expect(generatedUiTranslations['Tạng Luật']?['hi'], 'विनय पिटक');
+      expect(generatedUiTranslations['Tạng Kinh']?['zh'], '经藏');
+      expect(generatedUiTranslations['Tạng Kinh']?['zh_TW'], '經藏');
+      expect(generatedUiTranslations['Tạng Kinh']?['si'], 'සූත්‍ර පිටකය');
     });
 
     test('edition codes route Mūla, Aṭṭhakathā and Ṭīkā to separate branches', () {

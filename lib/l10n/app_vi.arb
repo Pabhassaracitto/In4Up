@@ -1,4 +1,15 @@
 {
+  "tipitakaCommentaries": "Chú Giải",
+  "tipitakaSubcommentaries": "Phụ Chú",
+  "tipitakaExtraCanonical": "Tạng Ngoại",
+  "tipitakaSriLanka": "Tuyển Tập Sách Tích Lan",
+  "tipitakaAbhidhammaBasket": "Tạng Vi Diệu Pháp",
+  "tipitakaBookGroup": "Nhóm sách",
+  "tipitakaEdition": "ấn bản",
+  "tipitakaDiscourse": "Bài kinh",
+  "tipitakaCanonicalBasket": "Tam Tạng Chính Văn",
+  "tipitakaVinayaBasket": "Tạng Luật",
+  "tipitakaSuttaBasket": "Tạng Kinh",
   "@@locale": "vi",
   "commandCenter": "COMMAND CENTER",
   "knowledgeOS": "Hệ điều hành Tri thức",
@@ -518,5 +529,6 @@
   "ocrEmptyResult": "Không tìm thấy chữ trong ảnh. Thử ảnh rõ hơn, đủ sáng.",
   "ocrLoadedFromImage": "Đã nạp văn bản từ ảnh",
   "ocrScanPageText": "Quét chữ trang này",
-  "ocrUnsupported": "OCR chỉ chạy trên Android/iOS"
+  "ocrUnsupported": "OCR chỉ chạy trên Android/iOS",
+  "tipitakaCatalogPath": "Tạng → nhóm/bộ → bài kinh"
 }

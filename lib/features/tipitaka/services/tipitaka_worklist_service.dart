@@ -73,7 +73,7 @@ class TipitakaWorklistService {
     );
     final translatedText = segment.translationFor(translationLanguage).trim();
     final snapshot = TipitakaContextSnapshot(
-      paliText: segment.paliText,
+      paliText: segment.canonicalPaliText,
       translationText: translatedText.isNotEmpty
           ? translatedText
           : segment.firstTranslation?.value ?? '',
@@ -123,7 +123,7 @@ class TipitakaWorklistService {
     );
     final anchor = studyCapture.anchor;
     final snapshot = studyCapture.snapshot;
-    final hasPali = segment.paliText.trim().isNotEmpty;
+    final hasPali = segment.canonicalPaliText.trim().isNotEmpty;
     final context = VocabContext(
       id: 'tipitaka:${anchor.stableKey}',
       sourceType: 'tipitaka',
@@ -134,7 +134,7 @@ class TipitakaWorklistService {
       sourceRef: anchor.stableKey,
       sourceRefType: 'tipitaka',
       surroundingText:
-          hasPali ? segment.paliText : snapshot.translationText,
+          hasPali ? segment.canonicalPaliText : snapshot.translationText,
       encounteredAt: snapshot.capturedAt,
       anchorText: selected,
       textStartOffset: startOffset,

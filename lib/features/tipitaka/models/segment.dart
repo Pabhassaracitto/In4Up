@@ -55,6 +55,17 @@ class TipitakaSegment extends Equatable {
         orderIndex: m['order_index'] ?? m['orderIndex'] ?? 0,
       );
 
+  /// Canonical Pāli may be stored in the fixed column or in the generic
+  /// multilingual table of a normalized user database.
+  String get canonicalPaliText {
+    if (paliText.trim().isNotEmpty) return paliText;
+    for (final entry in translations.entries) {
+      final language = entry.key.trim().toLowerCase().replaceAll('_', '-');
+      if (language == 'pi' || language.startsWith('pi-')) return entry.value;
+    }
+    return '';
+  }
+
   String translationFor(String languageCode) {
     final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
     final fixedTranslation = switch (language) {
@@ -67,7 +78,9 @@ class TipitakaSegment extends Equatable {
     if ((fixedTranslation ?? '').isNotEmpty) return fixedTranslation!;
 
     for (final entry in translations.entries) {
-      if (entry.key.trim().toLowerCase().replaceAll('_', '-') == language) {
+      final candidate = entry.key.trim().toLowerCase().replaceAll('_', '-');
+      if (candidate == language ||
+          (!language.contains('-') && candidate.startsWith('$language-'))) {
         return entry.value;
       }
     }

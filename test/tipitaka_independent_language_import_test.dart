@@ -208,6 +208,97 @@ void main() {
     );
   });
 
+  test('normalized one-book DB merges transactionally and repeated import is idempotent', () async {
+    final basePath = await createSource(
+      filename: 'tipitaka_base_en.sqlite',
+      textColumn: 'english',
+      texts: const ['<p rend="book">Base book</p>', 'Base paragraph.'],
+    );
+    await TipitakaDb.importSourceDatabase(
+      basePath,
+      languageCode: 'en',
+      destinationPath: targetPath,
+    );
+
+    final personalPath = '${temporaryDirectory.path}/personal-book.sqlite';
+    final personal = await databaseFactoryFfi.openDatabase(personalPath);
+    await personal.execute('''
+      CREATE TABLE tipitaka_collections (
+        id INTEGER PRIMARY KEY, name_pali TEXT, name_en TEXT, name_vi TEXT,
+        order_index INTEGER
+      )
+    ''');
+    await personal.execute('''
+      CREATE TABLE tipitaka_books (
+        id INTEGER PRIMARY KEY, collection_id INTEGER, code TEXT, name_pali TEXT,
+        name_en TEXT, name_vi TEXT, order_index INTEGER, metadata_json TEXT
+      )
+    ''');
+    await personal.execute('''
+      CREATE TABLE tipitaka_segments (
+        id INTEGER PRIMARY KEY, book_id INTEGER, section_id INTEGER,
+        reference TEXT, paragraph_no INTEGER, block_type TEXT, pali_text TEXT,
+        translation_en TEXT, translation_vi TEXT, translation_my TEXT,
+        translation_th TEXT, source_table TEXT, source_row_key TEXT,
+        order_index INTEGER
+      )
+    ''');
+    await personal.execute('''
+      CREATE TABLE tipitaka_translations (
+        segment_id INTEGER, language_code TEXT, text TEXT,
+        PRIMARY KEY(segment_id, language_code)
+      )
+    ''');
+    await personal.insert('tipitaka_collections', {
+      'id': 7, 'name_pali': 'Sutta', 'name_en': 'Sutta Piṭaka',
+      'name_vi': 'Tạng Kinh', 'order_index': 1,
+    });
+    await personal.insert('tipitaka_books', {
+      'id': 70, 'collection_id': 7, 'code': 'SN99M_MUL',
+      'name_pali': 'Personal Pāḷi book', 'name_en': 'Personal English book',
+      'name_vi': 'Sách riêng', 'order_index': 1,
+      'metadata_json': '{"source_table":"sn99m_mul"}',
+    });
+    await personal.insert('tipitaka_segments', {
+      'id': 700, 'book_id': 70, 'reference': 'SN 99',
+      'paragraph_no': 1, 'block_type': 'paragraph',
+      'pali_text': 'Evaṃ me sutaṃ.', 'translation_en': '',
+      'translation_vi': '', 'translation_my': '', 'translation_th': '',
+      'source_table': 'sn99m_mul', 'source_row_key': '0001', 'order_index': 0,
+    });
+    await personal.insert('tipitaka_translations', {
+      'segment_id': 700, 'language_code': 'zh_TW', 'text': '繁體中文段落',
+    });
+    await personal.insert('tipitaka_translations', {
+      'segment_id': 700, 'language_code': 'pi', 'text': 'Evaṃ me sutaṃ.',
+    });
+    await personal.close();
+
+    await TipitakaDb.installDatabaseFile(personalPath, destinationPath: targetPath);
+    final afterFirstImport = await TipitakaDb.openAt(targetPath);
+    final firstInfo = await TipitakaDb.info(afterFirstImport);
+    expect(firstInfo.bookCount, 2);
+    expect(firstInfo.segmentCount, 3);
+    expect(firstInfo.availableLanguages, containsAll(['zh-tw', 'pi']));
+    final personalBook = (await TipitakaDb.getCatalogIndexBooks(afterFirstImport))
+        .singleWhere((book) => book.code == 'SN99M_MUL');
+    final personalSegments = await TipitakaDb.getSegmentsByBook(
+      afterFirstImport,
+      personalBook.id,
+    );
+    expect(personalSegments.single.translationFor('zh-TW'), '繁體中文段落');
+    expect(personalSegments.single.canonicalPaliText, 'Evaṃ me sutaṃ.');
+
+    final revision = TipitakaDb.importRevision.value;
+    await TipitakaDb.close();
+    await TipitakaDb.installDatabaseFile(personalPath, destinationPath: targetPath);
+    final afterSecondImport = await TipitakaDb.openAt(targetPath);
+    final secondInfo = await TipitakaDb.info(afterSecondImport);
+    expect(secondInfo.bookCount, firstInfo.bookCount);
+    expect(secondInfo.segmentCount, firstInfo.segmentCount);
+    expect(TipitakaDb.importRevision.value, revision);
+  });
+
   test('markup cleaner handles literal and escaped CSCD block tags', () {
     expect(cleanTipitakaText('<p rend="book">Mahavamsapali</p>'), 'Mahavamsapali');
     expect(

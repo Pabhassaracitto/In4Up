@@ -43,7 +43,7 @@ def main() -> None:
     lines = [
         "// GENERATED CODE - DO NOT EDIT BY HAND.",
         "// Run: python3 tool/generate_ui_translation_map.py",
-        "// English values are the canonical fallback for every non-Vietnamese locale.",
+        "// Reviewed locale values are used where present; English is the fallback when absent.",
         "",
         "const Map<String, Map<String, String>> generatedUiTranslations = {",
     ]

@@ -52,17 +52,19 @@ void main() {
     });
 
     test('cả 2 nhánh import (Pāli + bản dịch) dùng đường dẫn tạm riêng', () {
-      // Tìm phần KHAI BÁO (chỗ gọi hàm nằm trước trong file).
+      // Tìm phần KHAI BÁO (chỗ gọi hàm nằm trước trong file), then bound
+      // each body by the next method declaration (named-parameter braces are
+      // part of the signature and are not the end of the function body).
       final pali = dbService.indexOf('static Future<String> _importPaliSource(');
       final translation =
           dbService.indexOf('static Future<String> _importTranslationSource(');
+      final deduplicate = dbService.indexOf('static Future<void> _deduplicateCatalog(');
       expect(pali, greaterThan(0));
-      expect(translation, greaterThan(0));
+      expect(translation, greaterThan(pali));
+      expect(deduplicate, greaterThan(translation));
       // Mỗi nhánh phải gọi helper (không tự chế đường dẫn tạm).
-      final paliBody =
-          dbService.substring(pali, dbService.indexOf('}', pali));
-      final translationBody = dbService.substring(
-          translation, dbService.indexOf('}', translation));
+      final paliBody = dbService.substring(pali, translation);
+      final translationBody = dbService.substring(translation, deduplicate);
       expect(paliBody, contains('_importTemporaryPath'));
       expect(translationBody, contains('_importTemporaryPath'));
     });
@@ -95,7 +97,7 @@ void main() {
       // Trong phần thân các hàm đang giữ khoá, không được gọi lại bản công
       // khai (bản công khai sẽ chờ khoá ⇒ treo).
       expect(
-        dbService.contains('return _importSourceDatabaseLocked(sourcePath);'),
+        dbService.contains('return _importSourceDatabaseLocked('),
         isTrue,
         reason: 'Phần thân đang giữ khoá phải gọi bản KHÔNG khóa.',
       );
@@ -124,14 +126,17 @@ void main() {
       expect(dbService.contains('_backupInstalledDatabase'), isTrue);
       expect(dbService.contains('.bak'), isTrue,
           reason: 'Phải giữ 1 bản sao lưu để khôi phục được.');
-      // Hàm sao lưu phải được gọi TRƯỚC khi xoá/rename file đích.
-      final backupIdx = dbService.indexOf('await _backupInstalledDatabase(');
-      final deleteIdx = dbService.indexOf('if (await destination.exists()) '
-          'await destination.delete();');
+      // Atomic replacement first preserves the target as `.swap`; the `.bak`
+      // copy must complete before that rename begins.
+      final installIdx = dbService.indexOf('static Future<String> _installImportTarget(');
+      expect(installIdx, greaterThan(0));
+      final installBody = dbService.substring(installIdx);
+      final backupIdx = installBody.indexOf('await _backupInstalledDatabase(');
+      final swapIdx = installBody.indexOf('await destination.rename(swapBackup.path)');
       expect(backupIdx, greaterThan(0));
-      expect(deleteIdx, greaterThan(0));
-      expect(backupIdx, lessThan(deleteIdx),
-          reason: 'Sao lưu phải TRƯỚC khi xoá file đích.');
+      expect(swapIdx, greaterThan(0));
+      expect(backupIdx, lessThan(swapIdx),
+          reason: 'Sao lưu phải hoàn tất trước khi thay file đích.');
     });
   });
 

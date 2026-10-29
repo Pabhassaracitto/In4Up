@@ -70,6 +70,7 @@ class SttsCabinService extends ChangeNotifier {
   CabinCaption? _activeCaption;
   final List<CabinCaption> _history = [];
   String _lastFinalizedText = '';
+  final List<Future<void>> _pendingFinalizations = [];
 
   final _captionStreamController = StreamController<CabinCaption>.broadcast();
 
@@ -547,9 +548,9 @@ class SttsCabinService extends ChangeNotifier {
     _stopKeepAlive();
     _consecutiveStartFails = 0;
     _lastFinalizedText = '';
-    await _sttSubscription?.cancel();
-    _sttSubscription = null;
-
+    // Keep the STT listener alive until stopListening flushes the current
+    // Sherpa VAD / streaming endpoint. Cancelling it first silently discarded
+    // the last in-progress sentence whenever the user stopped Cabin mid-pause.
     if (_audioRecorder != null) {
       try {
         if (await _audioRecorder!.isRecording()) {
@@ -567,6 +568,12 @@ class SttsCabinService extends ChangeNotifier {
     try {
       await _stt.stopListening();
     } catch (_) {}
+
+    // Stream callbacks are synchronous with the Sherpa flush; translation and
+    // journal persistence are async, so wait before closing the session.
+    await _drainPendingFinalizations();
+    await _sttSubscription?.cancel();
+    _sttSubscription = null;
 
     // CABIN-SAVE-001: đóng phiên ghi → UI hỏi lưu / tự lưu.
     await _endSession();
@@ -601,6 +608,7 @@ class SttsCabinService extends ChangeNotifier {
         } catch (_) {}
       }
 
+      await _drainPendingFinalizations();
       _recorder?.pauseClock();
       _state = CabinState.paused;
       notifyListeners();
@@ -740,13 +748,41 @@ class SttsCabinService extends ChangeNotifier {
 
     _silenceTimer?.cancel();
     if (sttResult.isFinal) {
-      _finalizeCurrentChunk(rawText);
+      _trackFinalization(rawText);
     } else {
-      // Reset silence timer for chunk finalization
+      // Reset silence timer for chunk finalization. Keep every async save in a
+      // queue so stop/pause waits for all pending translated captions.
       _silenceTimer = Timer(const Duration(milliseconds: 1400), () {
-        _finalizeCurrentChunk(rawText);
+        _trackFinalization(rawText);
       });
     }
+  }
+
+  Future<void> _drainPendingFinalizations() async {
+    while (_pendingFinalizations.isNotEmpty) {
+      final pending = List<Future<void>>.of(_pendingFinalizations);
+      try {
+        // Future.wait waits for all futures by default, even if one fails.
+        await Future.wait(pending);
+      } catch (error) {
+        debugPrint('⚠️ Cabin final transcript flush failed: $error');
+      }
+      _pendingFinalizations.removeWhere(pending.contains);
+    }
+  }
+
+  void _trackFinalization(String text) {
+    final future = _finalizeCurrentChunk(text);
+    _pendingFinalizations.add(future);
+    future.then<void>(
+      (_) {
+        _pendingFinalizations.remove(future);
+      },
+      onError: (Object error, StackTrace stack) {
+        _pendingFinalizations.remove(future);
+        debugPrint('⚠️ Cabin transcript finalization failed: $error');
+      },
+    );
   }
 
   Future<void> _finalizeCurrentChunk(String text) async {

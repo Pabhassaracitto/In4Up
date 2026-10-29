@@ -1,0 +1,1354 @@
+// packages/in4up_stt/lib/stt_service_facade.dart
+//
+// in4up v11.0 — STT Service Facade (Isolate-safe Architecture)
+//
+// LUỒNG HOÀN CHỈNH:
+//
+//   Main Thread                          Isolate
+//   ─────────────────────────────        ──────────────────────────────────
+//   transcribeFile()
+//     ↓ (cache miss)
+//   _runWhisperViaIsolate()
+//     ├─ A. resolve modelPath            (không thể làm trong Isolate)
+//     ├─ B. resolve lrcDirectory         (path_provider = platform channel)
+//     ├─ C. compute fingerprint          (AudioFingerprintUtil)
+//     ├─ D. build SttIsolatePayload
+//     └─ compute(_isolateEntryPoint) ──▶ SttEngineWhisper.runInIsolate()
+//                                          ├─ validate paths
+//                                          ├─ load PCM (thuần Dart)
+//                                          ├─ load Whisper FFI
+//                                          ├─ init context
+//                                          ├─ whisper_full()
+//                                          ├─ parse segments + UID
+//                                          └─ write LRC (optional)
+//   receive SttIsolateResult ◀──────────
+//     ├─ E. toSttResult()
+//     ├─ F. cache result
+//     └─ G. _generateLrcAndDiarization()
+//              ├─ DiarizationService
+//              └─ SpeakerSidecar.save()
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:in4up_ai/in4up_ai.dart' show AiProviderStore, AiRouteCapability;
+import 'package:in4up_core/heavy_task_monitor.dart';
+import 'package:path/path.dart' as p;
+import 'package:speech_to_text/speech_to_text.dart' show ListenMode;
+import 'package:path_provider/path_provider.dart';
+import 'package:rxdart/rxdart.dart';
+
+import 'asr_model_routing.dart';
+import 'diarization/diarization_service.dart';
+import 'diarization/speaker_annotation.dart';
+import 'diarization/speaker_sidecar.dart';
+import 'models/stt_config.dart';
+import 'models/stt_isolate_payload.dart';
+import 'models/stt_model_info.dart';
+import 'models/stt_result.dart';
+import 'stt_engine.dart';
+import 'stt_engine_native.dart';
+import 'stt_engine_registry.dart';
+import 'stt_engine_sherpa.dart';
+import 'sherpa_model_manager.dart';
+import 'stt_engine_whisper.dart';
+import 'stt_engine_remote.dart';
+import 'stt_lrc_converter.dart';
+import 'stt_model_manager.dart';
+import 'utils/async_mutex.dart';
+import 'utils/audio_converter.dart';
+import 'utils/whisper_language.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHẦN 1: PROGRESS & OUTPUT TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum SttFacadeStatus {
+  idle,
+  initializing,
+  ready,
+  processingNative,
+  processingWhisper,
+  processingRemote,
+  generatingLrc,
+  error,
+}
+
+class SttProgress {
+  final SttFacadeStatus status;
+  final double progress; // [0.0, 1.0]
+  final String message;
+  final SttEngineType? activeEngine;
+
+  /// Tiến độ chunk (nếu có bật chunking).
+  final int chunkIndex; // 0-based, chunk đang xử lý
+  final int chunkCount; // tổng số chunk
+
+  const SttProgress({
+    required this.status,
+    required this.progress,
+    required this.message,
+    this.activeEngine,
+    this.chunkIndex = 0,
+    this.chunkCount = 0,
+  });
+
+  /// Tạo bản sao với thông tin chunk mới (giữ nguyên các trường khác).
+  SttProgress withChunk({required int index, required int count}) {
+    return SttProgress(
+      status: status,
+      progress: progress,
+      message: message,
+      activeEngine: activeEngine,
+      chunkIndex: index,
+      chunkCount: count,
+    );
+  }
+
+  static const idle = SttProgress(
+    status: SttFacadeStatus.idle,
+    progress: 0.0,
+    message: '',
+  );
+
+  bool get isActive => switch (status) {
+        SttFacadeStatus.initializing ||
+        SttFacadeStatus.processingNative ||
+        SttFacadeStatus.processingWhisper ||
+        SttFacadeStatus.processingRemote ||
+        SttFacadeStatus.generatingLrc =>
+          true,
+        _ => false,
+      };
+}
+
+class SttTranscribeOutput {
+  final SttResult result;
+  final List<SpeakerAnnotation> speakers;
+  final String? lrcFilePath;
+  final String? spkFilePath;
+  final bool wasLrcGenerated;
+  final String? errorMessage;
+  final bool success;
+
+  const SttTranscribeOutput({
+    required this.result,
+    this.speakers = const [],
+    this.lrcFilePath,
+    this.spkFilePath,
+    this.wasLrcGenerated = false,
+    this.errorMessage,
+    required this.success,
+  });
+
+  factory SttTranscribeOutput.failure(String error) => SttTranscribeOutput(
+        result: SttResult.empty(SttEngineType.native),
+        errorMessage: error,
+        success: false,
+      );
+
+  bool get hasDiarization => speakers.any((s) => s.speakerId > 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHẦN 2: FACADE CLASS
+// ═══════════════════════════════════════════════════════════════════════════
+
+class SttServiceFacade extends ChangeNotifier {
+  static SttServiceFacade? _instance;
+
+  factory SttServiceFacade() => _instance ??= SttServiceFacade._internal();
+
+  SttServiceFacade._internal();
+
+  // ── Fields ────────────────────────────────────────────────────────────────
+  late final SttEngineNative _nativeEngine;
+  late final SttModelManager _modelManager;
+  late final SttLrcConverter _lrcConverter;
+  late final DiarizationService _diarizationService;
+  bool _nativeEngineCreated = false;
+  bool _modelManagerCreated = false;
+
+  bool _initialized = false;
+  bool _disposed = false;
+  SttConfig _config = const SttConfig();
+  Future<void>? _initFuture;
+
+  // Cờ hủy: người dùng có thể dừng transcribe giữa chừng (giữa các chunk).
+  bool _cancelRequested = false;
+
+  // QA-PERF-001 — Whisper on-device là CPU/pin nặng nhất của module STT
+  // (FFI blocking + nhiều luồng + model trăm MB trong RAM). AiServiceFacade
+  // đã tuần tự hoá chat bằng hàng đợi riêng; ở đây dùng AsyncMutex để
+  // transcribeFile() gọi liên tiếp từ nhiều nơi (vd auto-TOC chạy nền +
+  // người dùng bấm bóc băng tay) KHÔNG spawn 2 Isolate Whisper độc lập cùng
+  // lúc — tránh cộng dồn CPU/RAM gây nóng máy hoặc OOM. Engine remote/native
+  // KHÔNG đi qua khoá này (không tốn CPU cục bộ nhiều như Whisper).
+  final AsyncMutex _whisperMutex = AsyncMutex();
+
+  final _progressSubject =
+      BehaviorSubject<SttProgress>.seeded(SttProgress.idle);
+
+  Stream<SttProgress> get progressStream => _progressSubject.stream;
+  SttProgress get currentProgress => _progressSubject.value;
+
+  // Stream kết quả từng phần khi transcribe theo chunk — UI có thể hiện
+  // dần lời thoại thay vì đợi hết file.
+  final _partialSubject = BehaviorSubject<SttResult>.seeded(
+    SttResult.empty(SttEngineType.whisper),
+  );
+  Stream<SttResult> get partialResultStream => _partialSubject.stream;
+
+  /// Yêu cầu hủy transcribe đang chạy (dừng giữa các chunk, giữ kết quả
+  /// đã hoàn thành). Cờ được reset khi bắt đầu transcribe mới.
+  void cancelTranscription() {
+    _cancelRequested = true;
+    debugPrint('⏹️ SttServiceFacade: cancelTranscription() được gọi');
+  }
+
+  /// Đặt lại trạng thái cho lần transcribe mới: bỏ cờ hủy + làm rỗng
+  /// partial (tránh giữ nội dung bài cũ).
+  void resetForNewTranscription() {
+    _cancelRequested = false;
+    if (!_disposed) {
+      _partialSubject.add(SttResult.empty(SttEngineType.whisper));
+    }
+    debugPrint('🔄 SttServiceFacade: resetForNewTranscription()');
+  }
+
+  // Cache key: "${audioPath}_${engine}_${modelLevel}_${language}"
+  final _resultCache = <String, SttResult>{};
+
+  // ── Initialization ────────────────────────────────────────────────────────
+
+  Future<void> initialize({
+    SttConfig? config,
+    Map<WhisperModelLevel, List<String>>? modelUrls,
+    Map<WhisperModelLevel, List<String>>? acceptedModelNames,
+  }) {
+    if (_initialized) return Future.value();
+    return _initFuture ??= _initializeInternal(
+      config: config,
+      modelUrls: modelUrls,
+      acceptedModelNames: acceptedModelNames,
+    );
+  }
+
+  Future<void> _initializeInternal({
+    SttConfig? config,
+    Map<WhisperModelLevel, List<String>>? modelUrls,
+    Map<WhisperModelLevel, List<String>>? acceptedModelNames,
+  }) async {
+    try {
+      _emitProgress(SttFacadeStatus.initializing, 0.0, 'Đang khởi tạo...');
+
+      _config = config ?? const SttConfig();
+      _nativeEngine = SttEngineNative();
+      _nativeEngineCreated = true;
+      _modelManager = SttModelManager();
+      _modelManagerCreated = true;
+      _lrcConverter = SttLrcConverter();
+      _diarizationService = const HeuristicDiarizationService();
+
+      _modelManager.configureSources(
+        urls: modelUrls,
+        acceptedFileNames: acceptedModelNames,
+      );
+
+      await _modelManager.initialize();
+      if (_disposed) return;
+      // Cấu hình model dir cho WhisperSttEngine (registry).
+      SttEngineRegistry.configureWhisperModelDir(
+        _modelManager.modelDirectoryPath,
+      );
+      _emitProgress(SttFacadeStatus.initializing, 0.5, 'Kiểm tra model...');
+
+      // Native STT init is non-fatal: nếu thất bại, app vẫn chạy và fallback
+      // sang Whisper. Dùng try/catch thay vì .catchError để tránh lỗi type
+      // (onError phải trả về giá trị assignable cho kiểu Future).
+      try {
+        await _nativeEngine.initialize();
+      } catch (e) {
+        debugPrint('⚠️ Native STT init failed (non-fatal): $e');
+      }
+
+      if (_disposed) return;
+      _initialized = true;
+      _emitProgress(SttFacadeStatus.ready, 1.0, 'Sẵn sàng');
+      debugPrint('✅ SttServiceFacade initialized');
+
+      if (!_disposed) notifyListeners();
+    } finally {
+      _initFuture = null;
+    }
+  }
+
+  // ── Public API (signature không thay đổi) ─────────────────────────────────
+
+  /// Transcribe với Isolate thực thụ — UI thread KHÔNG bị block.
+  ///
+  /// **Luồng xử lý:**
+  /// 1. Check cache
+  /// 2. Resolve platform-dependent resources (Main Thread)
+  /// 3. Spawn Isolate qua [compute()]
+  /// 4. Nhận kết quả, chạy Diarization (Main Thread)
+  Future<SttTranscribeOutput> transcribeFile(
+    String audioPath, {
+    SttConfig? config,
+    String? lrcOutputPath,
+    bool generateLrc = false,
+    String audioFingerprint = '',
+  }) async {
+    _ensureInitialized();
+
+    // Reset cờ hủy + partial từ lần trước khi bắt đầu lần mới.
+    resetForNewTranscription();
+
+    final cfg = config ?? _config;
+    final shouldGenerateLrc = generateLrc || cfg.generateLrc;
+    final cacheKey = _buildCacheKey(audioPath, cfg);
+
+    // ── Cache check ───────────────────────────────────────────────────────
+    if (cfg.cacheResults && _resultCache.containsKey(cacheKey)) {
+      debugPrint('💾 STT cache hit: $cacheKey');
+      final cached = _resultCache[cacheKey]!;
+
+      if (shouldGenerateLrc && cached.segments.isNotEmpty) {
+        final gen = await _generateLrcAndDiarization(
+          cached,
+          audioPath,
+          lrcOutputPath,
+        );
+        return SttTranscribeOutput(
+          result: cached,
+          speakers: gen.speakers,
+          lrcFilePath: gen.lrcPath,
+          spkFilePath: gen.spkPath,
+          wasLrcGenerated: gen.lrcPath != null,
+          success: true,
+        );
+      }
+      return SttTranscribeOutput(result: cached, success: true);
+    }
+
+    // ── Route theo engine ─────────────────────────────────────────────────
+    try {
+      final SttResult result;
+
+      if (cfg.preferredEngine == SttEngineType.whisper) {
+        result = await _runWhisperExclusive(
+          audioPath: audioPath,
+          config: cfg,
+          lrcOutputPath: lrcOutputPath,
+          shouldGenerateLrc: shouldGenerateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      } else if (cfg.preferredEngine == SttEngineType.sherpa) {
+        // PARAKEET-002 — STT file/LRC bằng model sherpa offline (Parakeet đa
+        // ngữ, Zipformer VI). Trước đây `SttEngineType.sherpa` KHÔNG có nhánh
+        // nào trong `transcribeFile`: chọn sherpa thì rơi vào `native`, nên
+        // Parakeet không bao giờ được dùng cho tab Nghe/tạo lời thoại.
+        result = await _runSherpaEngine(
+          audioPath: audioPath,
+          config: cfg,
+          audioFingerprint: audioFingerprint,
+        );
+      } else if (cfg.preferredEngine == SttEngineType.remote) {
+        // WP2 (API-003) — file STT qua API. Engine tự resolve provider MỖI
+        // LẦN gọi (offlineOnly / chưa cấu hình ⇒ fail sạch với mã
+        // noProvider, không fake success). Offline-only KHÔNG bao giờ đi
+        // vào nhánh này (resolveProvider trả null).
+        result = await _runRemoteEngine(
+          audioPath: audioPath,
+          config: cfg,
+          audioFingerprint: audioFingerprint,
+        );
+      } else {
+        // Native engine: nhanh, chạy trực tiếp trên Main (không cần Isolate)
+        var nativeResult = await _runNativeEngine(audioPath, cfg);
+
+        if (cfg.autoFallback && nativeResult.fullText.isEmpty) {
+          debugPrint('⚠️ Native STT empty → fallback Whisper Isolate');
+          nativeResult = await _runWhisperExclusive(
+            audioPath: audioPath,
+            config: cfg,
+            lrcOutputPath: lrcOutputPath,
+            shouldGenerateLrc: shouldGenerateLrc,
+            audioFingerprint: audioFingerprint,
+          );
+        }
+        result = nativeResult;
+      }
+
+      // ── Đảm bảo fingerprint được gán ─────────────────────────────────
+      final finalResult =
+          (audioFingerprint.isNotEmpty && result.audioFingerprint.isEmpty)
+              ? _withFingerprint(result, audioFingerprint)
+              : result;
+
+      // ── Cache ─────────────────────────────────────────────────────────
+      if (cfg.cacheResults) _resultCache[cacheKey] = finalResult;
+
+      // ── LRC + Diarization pipeline ────────────────────────────────────
+      if (shouldGenerateLrc && finalResult.segments.isNotEmpty) {
+        final gen = await _generateLrcAndDiarization(
+          finalResult,
+          audioPath,
+          lrcOutputPath,
+        );
+        _emitProgress(SttFacadeStatus.ready, 1.0, 'Hoàn tất!');
+        return SttTranscribeOutput(
+          result: finalResult,
+          speakers: gen.speakers,
+          lrcFilePath: gen.lrcPath,
+          spkFilePath: gen.spkPath,
+          wasLrcGenerated: gen.lrcPath != null,
+          success: true,
+        );
+      }
+
+      _emitProgress(SttFacadeStatus.ready, 1.0, 'Hoàn tất!');
+      return SttTranscribeOutput(result: finalResult, success: true);
+    } catch (e, stack) {
+      debugPrint('❌ transcribeFile error: $e\n$stack');
+      _emitProgress(SttFacadeStatus.error, 0.0, 'Lỗi: $e');
+      return SttTranscribeOutput.failure(e.toString());
+    }
+  }
+
+  /// Deep transcribe — Whisper Small, có LRC.
+  /// API không đổi — PlayerSttMixin không cần chỉnh sửa.
+  /// [language] mặc định 'auto' (Whisper tự nhận diện) — trước là 'en' nên
+  /// audio không tiếng Anh bị ép ra chữ Latin.
+  Future<SttTranscribeOutput> transcribeDeep(
+    String audioPath, {
+    String? lrcSavePath,
+    WhisperModelLevel level = WhisperModelLevel.small,
+    String language = WhisperLanguage.auto,
+    String audioFingerprint = '',
+  }) =>
+      transcribeFile(
+        audioPath,
+        config: SttConfig.deepLearning.copyWith(
+          whisperModel: level,
+          language: language,
+          generateLrc: true,
+        ),
+        lrcOutputPath: lrcSavePath,
+        generateLrc: true,
+        audioFingerprint: audioFingerprint,
+      );
+
+  /// Quick transcribe — Native engine, không cần LRC.
+  /// API không đổi. [language] được chuyển xuống config (trước đây tham số
+  /// này bị bỏ qua im lặng → native/whisper fallback luôn dùng default).
+  Future<SttTranscribeOutput> transcribeQuick(
+    String audioPath, {
+    String language = 'en-US',
+  }) =>
+      transcribeFile(
+        audioPath,
+        config: SttConfig.quickNote.copyWith(language: language),
+        generateLrc: false,
+      );
+
+  /// Model Whisper tốt nhất đang có trên máy cho [language].
+  ///
+  /// Trả null khi chưa có model nào. Gọi từ UI (màn Tạo lời) để AUTO không
+  /// còn cứng về tiny — tiny là lý do chính khiến Hindi/Trung/Hàn ra chữ
+  /// Latin thay vì đúng bảng chữ cái.
+  WhisperModelLevel? bestWhisperLevel({String language = WhisperLanguage.auto}) {
+    try {
+      _ensureInitialized();
+      return _modelManager.getBestModelLevelForLanguage(language);
+    } catch (e) {
+      debugPrint('⚠️ bestWhisperLevel error: $e');
+      return null;
+    }
+  }
+
+  /// Auto transcribe — chọn model tốt nhất đang có offline.
+  Future<SttTranscribeOutput> transcribeAuto(
+    String audioPath, {
+    String language = WhisperLanguage.auto,
+    String? lrcOutputPath,
+    bool generateLrc = true,
+    String audioFingerprint = '',
+    SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
+  }) async {
+    _ensureInitialized();
+
+    // Script-aware: ngôn ngữ ngoài Latin cần ≥ base mới ra đúng bảng chữ.
+    final localLevel =
+        _modelManager.getBestModelLevelForLanguage(language);
+
+    if (localLevel == null) {
+      // PARAKEET-002 — chưa có model Whisper nhưng ĐÃ có model sherpa offline
+      // (Parakeet đa ngữ / Zipformer VI) ⇒ dùng nó thay vì báo "không có model".
+      // Trước đây Parakeet không bao giờ được dùng ở tab Nghe vì đường auto chỉ
+      // biết Whisper.
+      final sherpaLanguage = await _resolveSherpaFileLanguage(language);
+      if (sherpaLanguage != null) {
+        debugPrint('🎯 transcribeAuto: dùng model sherpa offline cho '
+            '$sherpaLanguage (không có Whisper phù hợp)');
+        return transcribeFile(
+          audioPath,
+          config: _config.copyWith(
+            preferredEngine: SttEngineType.sherpa,
+            language: sherpaLanguage,
+            generateLrc: generateLrc,
+            grouping: grouping,
+          ),
+          lrcOutputPath: lrcOutputPath,
+          generateLrc: generateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      }
+
+      // WP2 (API-003): hết model local → thử API nếu routing cho phép.
+      // Ngược lại (offlineOnly / chưa cấu hình) giữ ĐÚNG hành vi cũ.
+      final store = AiProviderStore.instance;
+      if (store.isLoaded && store.apiAllowed(AiRouteCapability.sttFile)) {
+        return transcribeFile(
+          audioPath,
+          config: _config.copyWith(
+            preferredEngine: SttEngineType.remote,
+            language: language,
+            generateLrc: generateLrc,
+            grouping: grouping,
+          ),
+          lrcOutputPath: lrcOutputPath,
+          generateLrc: generateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      }
+      _emitProgress(SttFacadeStatus.ready, 0.0, 'Không có model offline.');
+      return SttTranscribeOutput.failure(
+        'Không có model Whisper nào được tải về. '
+        'Mở Home → Quản lý Model AI rồi bấm Tải về.',
+      );
+    }
+
+    return transcribeFile(
+      audioPath,
+      config: _config.copyWith(
+        preferredEngine: SttEngineType.whisper,
+        whisperModel: localLevel,
+        language: language,
+        generateLrc: generateLrc,
+        grouping: grouping,
+      ),
+      lrcOutputPath: lrcOutputPath,
+      generateLrc: generateLrc,
+      audioFingerprint: audioFingerprint,
+    );
+  }
+
+  // ── Remote Engine Orchestrator (WP2 / API-003) ─────────────────────────────
+  //
+  // Mirror progress/cancel của _runWhisperViaIsolate: fingerprint tính trên
+  // Main, progress 0.10 → 0.95 theo chunk, partial đẩy vào _partialSubject.
+  // Chunking/offset-stitch/backoff nằm trong SttEngineRemote — facade chỉ
+  // điều phối. Kết quả đi tiếp qua CÙNG pipeline cache + LRC + diarization
+  // như Whisper on-device (remote chỉ là nguồn segment).
+
+  Future<SttResult> _runRemoteEngine({
+    required String audioPath,
+    required SttConfig config,
+    required String audioFingerprint,
+  }) async {
+    _emitProgress(
+      SttFacadeStatus.processingRemote,
+      0.05,
+      'Đang chuẩn bị upload…',
+      engine: SttEngineType.remote,
+    );
+
+    // Fingerprint tính trên Main Thread (như branch Whisper).
+    final fingerprint = audioFingerprint.isNotEmpty
+        ? audioFingerprint
+        : await _computeAudioFingerprint(audioPath);
+
+    final engine = SttEngineRemote();
+
+    _emitProgress(
+      SttFacadeStatus.processingRemote,
+      0.10,
+      'Đang bóc băng qua API…',
+      engine: SttEngineType.remote,
+    );
+
+    return engine.transcribeFile(
+      audioPath,
+      options: {
+        'language': config.language,
+        'audioFingerprint': fingerprint,
+        'onProgress': (int chunk, int count, SttResult partial) {
+          _emitProgress(
+            SttFacadeStatus.processingRemote,
+            0.10 + 0.85 * ((chunk + 1) / count),
+            'Đang nhận diện chunk ${chunk + 1}/$count qua API…',
+            engine: SttEngineType.remote,
+            chunkIndex: chunk,
+            chunkCount: count,
+          );
+          if (!_disposed) _partialSubject.add(partial);
+        },
+        'shouldCancel': () => _disposed || _cancelRequested,
+      },
+    );
+  }
+
+  // ── QA-PERF-001: cổng vào DUY NHẤT của Whisper on-device ─────────────────
+  //
+  // Mọi lời gọi Whisper (trực tiếp hoặc fallback từ native) phải đi qua đây
+  // thay vì gọi thẳng `_runWhisperViaIsolate` — [_whisperMutex] đảm bảo
+  // KHÔNG BAO GIỜ có 2 Isolate Whisper cùng chạy (xếp hàng tuần tự, không
+  // đổi kết quả/API của từng lượt), [HeavyTaskMonitor] ghi nhận khoảng thời
+  // gian engine thật sự bận để UI/telemetry biết có tác vụ nặng khác (AI
+  // chat, Hy-MT dịch) đang chồng lên không.
+  Future<SttResult> _runWhisperExclusive({
+    required String audioPath,
+    required SttConfig config,
+    required String? lrcOutputPath,
+    required bool shouldGenerateLrc,
+    required String audioFingerprint,
+  }) {
+    if (_whisperMutex.isBusy) {
+      debugPrint(
+        '⏳ SttServiceFacade: Whisper khác đang chạy — xếp hàng chờ tới lượt',
+      );
+    }
+    return _whisperMutex.run(
+      () => HeavyTaskMonitor.instance.track(
+        HeavyTaskKind.sttWhisper,
+        () => _runWhisperViaIsolate(
+          audioPath: audioPath,
+          config: config,
+          lrcOutputPath: lrcOutputPath,
+          shouldGenerateLrc: shouldGenerateLrc,
+          audioFingerprint: audioFingerprint,
+        ),
+      ),
+    );
+  }
+
+  // ── Isolate Orchestrator ──────────────────────────────────────────────────
+  //
+  // Tất cả platform-dependent operations phải hoàn thành TẠI ĐÂY,
+  // trước khi spawn Isolate. Isolate chỉ nhận plain data.
+
+  Future<SttResult> _runWhisperViaIsolate({
+    required String audioPath,
+    required SttConfig config,
+    required String? lrcOutputPath,
+    required bool shouldGenerateLrc,
+    required String audioFingerprint,
+  }) async {
+    _emitProgress(
+      SttFacadeStatus.processingWhisper,
+      0.05,
+      'Đang chuẩn bị...',
+      engine: SttEngineType.whisper,
+    );
+
+    // ── A1. Pre-convert audio if needed (Main Thread) ─────────────────────
+    // FIX OOM v3: tren mobile, file >60s thi KHONG pre-convert full WAV 16k
+    // de tranh 2 lan FFmpeg (full + chunk) gay ton RAM. De engine cat truc tiep tu goc.
+    // UPDATE v6: Android gio dung FFI isolate nen van can check Platform.isAndroid
+    String? convertedPath;
+    try {
+      final dur = await AudioConverter.probeDurationMs(audioPath);
+      final isLongForMobile = (SttEngineWhisper.isMobilePluginSupported || Platform.isAndroid) &&
+          dur != null &&
+          dur > 60 * 1000;
+      if (isLongForMobile) {
+        debugPrint('[Facade] File dai ${dur ~/ 1000}s >60s tren mobile, SKIP pre-convert de tiet kiem RAM');
+        convertedPath = null;
+      } else {
+        convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+      }
+    } catch (_) {
+      // neu probe fail thi van convert nhu cu
+      convertedPath = await AudioConverter.convertToWhisperCompatible(audioPath);
+    }
+
+    // ── A2. Resolve modelPath (cần SttModelManager Singleton — Main only) ──
+    // Handover Rule 1 & 3: absolute path via path_provider + verification >1MB
+    String? modelPath = _modelManager.getModelPath(config.whisperModel);
+
+    if (modelPath == null || modelPath.isEmpty) {
+      // Thử tìm trực tiếp tại documents/in4up_whisper_models/ggml-*.bin (Rule1)
+      try {
+        final docDir = await getApplicationDocumentsDirectory();
+        final fallbackNames = [
+          'ggml-tiny-q4_0.bin',
+          'ggml-tiny.bin',
+          config.whisperModel.fileName,
+        ];
+        for (final n in fallbackNames) {
+          final cand = p.join(docDir.path, 'in4up_whisper_models', n);
+          final f = File(cand);
+          if (f.existsSync() && f.lengthSync() > 1000000) {
+            modelPath = cand;
+            debugPrint('🔎 Fallback found model at absolute path: $cand');
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (modelPath == null || modelPath.isEmpty) {
+      throw StateError(
+        'Chưa có model Whisper ${config.whisperModel.name}. '
+        'Mở Home → Quản lý Model AI rồi bấm Tải về, hoặc Import file '
+        '${config.whisperModel.fileName}.',
+      );
+    }
+
+    // WHISPER-VARIANT-001 — model English-only (.en) KHÔNG hiểu tiếng Việt
+    // hay ngôn ngữ khác. Chặn SỚM với thông điệp rõ thay vì để whisper.cpp
+    // ép tiếng Anh và trả về chữ Anh cho audio VI/ZH.
+    if (config.whisperModel.isEnglishOnly &&
+        WhisperLanguage.code(config.language) != 'en') {
+      throw StateError(
+        'Model ${config.whisperModel.displayLabel} chỉ nhận tiếng Anh — '
+        'hãy chọn ngôn ngữ English hoặc đổi sang model Whisper đa ngữ '
+        '(TINY/BASE/SMALL/MEDIUM/LARGE).',
+      );
+    }
+
+    // Rule 3: Local Verification — existsSync + size >1_000_000
+    final modelFile = File(modelPath);
+    if (!modelFile.existsSync()) {
+      throw StateError(
+        'File model không tồn tại (existsSync false): $modelPath. '
+        'Kiểm tra Rule1 absolute path và chép file thủ công.',
+      );
+    }
+    final sizeBytes = modelFile.lengthSync();
+    if (sizeBytes <= 1000000) {
+      throw StateError(
+        'File model quá nhỏ ($sizeBytes bytes) — yêu cầu >1_000_000: $modelPath. '
+        'File có thể bị corrupt/hardcode sai path.',
+      );
+    }
+    debugPrint('✅ Rule3 verification OK: $modelPath size=${sizeBytes}bytes');
+
+    // ── B. Resolve LRC directory (cần path_provider — Main only) ──────────
+    final lrcDirectory = await _resolveLrcDirectory(lrcOutputPath);
+
+    // ── C. Compute audio fingerprint ───────────────────────────────────────
+    //
+    // Tính sẵn trên Main Thread để Isolate không cần File stat.
+    // Dùng AudioFingerprintUtil nếu caller không cung cấp fingerprint.
+    final fingerprint = audioFingerprint.isNotEmpty
+        ? audioFingerprint
+        : await _computeAudioFingerprint(audioPath);
+
+    // ── C2. Mobile (Android/iOS) → chạy plugin trên Main Thread ────────────
+    //
+    // whisper_flutter_new dùng MethodChannel + native lib bundle riêng cho
+    // mobile, PHẢI chạy trên Main Thread (không được đưa vào Isolate).
+    // Đây là "known-good path" trước refactor v11. FFI-in-isolate chỉ hợp
+    // cho desktop.
+    if (SttEngineWhisper.isMobilePluginSupported) {
+      try {
+        // Align model file cho plugin (STT-CRASH-001): plugin hard-code
+        // ggml-<level>.bin, manager có thể verify quantized variant —
+        // file cũ từ phiên bản app trước (chưa xóa app) có thể hỏng →
+        // whisper_init_from_file NULL → SIGSEGV.
+        SttEngineWhisper.ensurePluginModelFile(
+          modelDir: _modelManager.modelDirectoryPath,
+          level: config.whisperModel,
+          verifiedModelPath: modelPath,
+        );
+        return await SttEngineWhisper.transcribeMobileChunked(
+          audioPath: convertedPath ?? audioPath,
+          modelDir: _modelManager.modelDirectoryPath,
+          level: config.whisperModel,
+          language: config.language,
+          wordTimestamps: true,
+          audioFingerprint: fingerprint,
+          chunkDurationSeconds: config.chunkDurationSeconds,
+          maxChunks: config.maxChunks,
+          grouping: config.grouping,
+          // User chọn model tay (chip BASE/SMALL) → không tự hạ về tiny.
+          allowModelDowngrade: !config.honorWhisperModel,
+          onChunkDone: (chunk, count, partial) {
+            _emitProgress(
+              SttFacadeStatus.processingWhisper,
+              0.10 + 0.85 * ((chunk + 1) / count),
+              'Đang nhận diện chunk ${chunk + 1}/$count…',
+              engine: SttEngineType.whisper,
+              chunkIndex: chunk,
+              chunkCount: count,
+            );
+            if (!_disposed) _partialSubject.add(partial);
+          },
+          shouldCancel: () => _disposed || _cancelRequested,
+        );
+      } finally {
+        // Dọn file tạm của converter (đường mobile không qua isolate).
+        if (convertedPath != null) {
+          await AudioConverter.cleanupConvertedFile(convertedPath);
+        }
+      }
+    }
+
+    // ── D. Build SttIsolatePayload — CHỈ plain data ────────────────────────
+    final payload = SttIsolatePayload(
+      audioPath: convertedPath ?? audioPath,
+      modelPath: modelPath, // ← đã resolved
+      language: config.language,
+      wordTimestamps: true,
+      modelLevelName: config.whisperModel.name,
+      audioFingerprint: fingerprint, // ← đã computed
+      generateLrc: shouldGenerateLrc,
+      lrcOutputDirectory: shouldGenerateLrc ? lrcDirectory : null,
+    );
+
+    _emitProgress(
+      SttFacadeStatus.processingWhisper,
+      0.10,
+      'Transcribing with Whisper ${config.whisperModel.name}...',
+      engine: SttEngineType.whisper,
+    );
+
+    // ── E. Spawn Isolate — UI thread hoàn toàn tự do ──────────────────────
+    //
+    // compute() tự động:
+    //   1. Spawn Isolate mới
+    //   2. Serialize payload qua SendPort
+    //   3. Gọi _isolateEntryPoint(payload) trong Isolate
+    //   4. Serialize kết quả về Main
+    //   5. Đóng Isolate
+    final isolateResult = await compute(
+      _isolateEntryPoint, // static method — serialize được
+      payload,
+    );
+
+    // ── E2. Cleanup converted file (Main Thread) ─────────────────────────
+    if (convertedPath != null) {
+      await AudioConverter.cleanupConvertedFile(convertedPath);
+    }
+
+    _emitProgress(
+      SttFacadeStatus.processingWhisper,
+      0.90,
+      'Whisper hoàn tất!',
+      engine: SttEngineType.whisper,
+    );
+
+    // ── F. Xử lý kết quả từ Isolate ──────────────────────────────────────
+    if (!isolateResult.success) {
+      final err = isolateResult.errorMessage ?? 'Lỗi không xác định từ Isolate';
+      debugPrint('❌ Isolate returned failure: $err');
+      throw Exception(err);
+    }
+
+    debugPrint(
+      '✅ Whisper hoàn tất: ${isolateResult.segmentsJson.length} segments, '
+      '${isolateResult.processingTimeMs}ms',
+    );
+
+    // ── G. Reconstruct SttResult trên Main Thread ─────────────────────────
+    //
+    // isolateResult.toSttResult() gọi SttSegment.fromJson() cho từng segment.
+    // UID trong JSON đã được tính đúng bởi Isolate (ContentId.segmentUid).
+    return isolateResult.toSttResult();
+  }
+
+  // ── Isolate Entry Point ───────────────────────────────────────────────────
+  //
+  // ★ PHẢI là static method hoặc top-level function.
+  // ★ Lambda / closure KHÔNG hoạt động với compute() — Dart serialize
+  //   function reference, không serialize closure state.
+  // ★ KHÔNG được truy cập bất kỳ instance nào của Main Thread:
+  //   - Không: SttServiceFacade._instance
+  //   - Không: SttModelManager._instance
+  //   - Không: Platform channels (path_provider, etc.)
+
+  static Future<SttIsolateResult> _isolateEntryPoint(
+    SttIsolatePayload payload,
+  ) {
+    // 100% delegate cho stateless engine — không có gì khác ở đây.
+    // SttEngineWhisper.runInIsolate() không truy cập bất kỳ Singleton nào.
+    return SttEngineWhisper.runInIsolate(payload);
+  }
+
+  // ── LRC + Diarization Pipeline (Main Thread) ──────────────────────────────
+  //
+  // Chạy trên Main Thread vì:
+  // - DiarizationService có thể cần các service của Main Thread
+  // - SpeakerSidecar cần path resolved từ path_provider
+  // - Đây là bước nhẹ (heuristic) — không cần Isolate
+
+  Future<
+      ({
+        String? lrcPath,
+        String? spkPath,
+        List<SpeakerAnnotation> speakers,
+      })> _generateLrcAndDiarization(
+    SttResult result,
+    String audioPath,
+    String? outputPath,
+  ) async {
+    const empty = (
+      lrcPath: null,
+      spkPath: null,
+      speakers: <SpeakerAnnotation>[],
+    );
+
+    if (result.segments.isEmpty) return empty;
+
+    try {
+      _emitProgress(
+        SttFacadeStatus.generatingLrc,
+        0.88,
+        'Đang tạo file LRC...',
+      );
+
+      final lrcDir = await _resolveLrcDirectory(outputPath);
+
+      // ── 1. Tạo LRC file (Main Thread) ─────────────────────────────────
+      final lrcPath = await _lrcConverter.saveLrcFile(
+        result,
+        audioPath,
+        outputDirectory: lrcDir,
+      );
+
+      if (lrcPath == null) {
+        debugPrint('⚠️ LrcConverter.saveLrcFile() trả về null');
+        return empty;
+      }
+
+      _emitProgress(
+        SttFacadeStatus.generatingLrc,
+        0.93,
+        'Phân tách người nói...',
+      );
+
+      // ── 2. Diarization (phân tách người nói) ──────────────────────────
+      final speakers = await _diarizationService.diarize(result);
+
+      // ── 3. Speaker sidecar .spk.json ───────────────────────────────────
+      String? spkPath;
+      if (speakers.isNotEmpty) {
+        await SpeakerSidecar.save(
+          lrcPath: lrcPath,
+          audioFingerprint: result.audioFingerprint,
+          annotations: speakers,
+        );
+        spkPath = SpeakerSidecar.getSidecarPath(lrcPath);
+        debugPrint('💾 Speaker sidecar: $spkPath');
+      }
+
+      _emitProgress(SttFacadeStatus.generatingLrc, 0.98, 'Hoàn tất!');
+
+      return (lrcPath: lrcPath, spkPath: spkPath, speakers: speakers);
+    } catch (e, stack) {
+      debugPrint('❌ _generateLrcAndDiarization error: $e\n$stack');
+      return empty;
+    }
+  }
+
+  /// Ngôn ngữ có model sherpa OFFLINE đã cài dùng được cho file/LRC.
+  ///
+  /// `null` khi máy chưa cài model offline nào (hoặc chỉ có model streaming —
+  /// không dùng được cho file). 'auto'/rỗng ⇒ ngôn ngữ đã cài (ưu tiên VI).
+  Future<String?> _resolveSherpaFileLanguage(String language) async {
+    try {
+      final manager = SherpaModelManager();
+      await manager.ensureFresh();
+      final raw = AsrModelRouter.normalizeLanguage(language);
+      final candidates = (raw.isEmpty || raw == 'auto')
+          ? <String>[
+              manager.defaultCabinSourceLanguageSync(),
+              ...AsrModelRouter.installedLanguages(
+                isInstalled: manager.isAsrProfileInstalled,
+              ),
+            ]
+          : <String>[raw];
+      for (final candidate in candidates) {
+        final profile = AsrModelRouter.offlineFileProfile(
+          candidate,
+          isInstalled: manager.isAsrProfileInstalled,
+        );
+        if (profile != null) return candidate;
+      }
+    } catch (e) {
+      debugPrint('⚠️ _resolveSherpaFileLanguage error: $e');
+    }
+    return null;
+  }
+
+  // ── Sherpa Offline Engine Runner (PARAKEET-002) ───────────────────────────
+  //
+  // `SttEngineType.sherpa` trước đây KHÔNG có nhánh trong `transcribeFile`
+  // nên nó rơi vào `native` (speech_to_text — không transcribe file): import
+  // Parakeet xong vẫn không dùng được cho tab Nghe / tạo lời thoại. Đây là
+  // đường chạy THẬT cho Parakeet (và Zipformer VI offline) ở mọi call-site
+  // dùng `SttConfig(preferredEngine: SttEngineType.sherpa, language: ...)`.
+
+  /// Transcribe 1 file audio bằng model sherpa offline (Parakeet / Zipformer).
+  ///
+  /// Ném [StateError] với thông điệp đọc được khi: chưa cài model, model chỉ có
+  /// bản streaming (SHERPA-STREAM-001 — `OfflineRecognizer` + encoder streaming
+  /// = SIGABRT), hoặc không chuyển được audio sang WAV 16kHz.
+  Future<SttResult> _runSherpaEngine({
+    required String audioPath,
+    required SttConfig config,
+    required String audioFingerprint,
+  }) async {
+    _emitProgress(
+      SttFacadeStatus.processingNative,
+      0.05,
+      'Đang chuẩn bị model nhận diện offline...',
+      engine: SttEngineType.sherpa,
+    );
+
+    final manager = SherpaModelManager();
+    // Model có thể vừa được import/tải ⇒ không kết luận thiếu bằng state cũ.
+    await manager.ensureFresh();
+
+    // 'auto' (mặc định của Whisper) không phải mã ngôn ngữ của sherpa: sherpa
+    // cần đúng profile. Chưa chỉ định ⇒ dùng ngôn ngữ đã cài model (ưu tiên VI).
+    final raw = AsrModelRouter.normalizeLanguage(config.language);
+    final language = (raw.isEmpty || raw == 'auto')
+        ? manager.defaultCabinSourceLanguageSync()
+        : raw;
+
+    final profile = AsrModelRouter.profileForIdOrLanguage(language);
+    if (profile == null) {
+      throw StateError(
+        'App chưa có model nhận diện OFFLINE cho ngôn ngữ ${language.toUpperCase()}. '
+        'Offline hiện có: Tiếng Việt, English (streaming) và Parakeet '
+        '(25 ngôn ngữ châu Âu). Hãy chọn ngôn ngữ khác trong Quản lý Model AI.',
+      );
+    }
+    // Model streaming chỉ chạy được với OnlineRecognizer — đưa vào
+    // OfflineRecognizer là SIGABRT (native abort, không bắt được bằng catch).
+    if (profile.isStreaming) {
+      throw StateError(
+        'Model ${profile.name} là bản STREAMING (live) — không dùng được để '
+        'nhận diện file/tạo lời thoại. Hãy chọn model OFFLINE (Parakeet đa ngữ '
+        'hoặc Zipformer VI) trong Quản lý Model AI.',
+      );
+    }
+    if (manager.getAsrModelPaths(profile.id) == null) {
+      throw StateError(
+        'Chưa cài model ${profile.name}. Mở Quản lý Model AI để tải/import '
+        '(encoder/decoder/joiner + tokens.txt).',
+      );
+    }
+
+    // Sherpa đọc CẢ file thành Float32 trong RAM (`readWave`), cộng model
+    // Parakeet ~670MB. File 1 giờ ≈ 230MB float + 670MB model ⇒ lại là OOM
+    // (đúng lớp lỗi PARAKEET-002). Chặn sớm với thông điệp rõ thay vì để
+    // Android kill tiến trình giữa chừng.
+    const maxSherpaFileMs = 30 * 60 * 1000;
+    int? durationMs;
+    try {
+      durationMs = await AudioConverter.probeDurationMs(audioPath);
+    } catch (e) {
+      // Probe lỗi KHÔNG phải lý do chặn — file ngắn vẫn chạy bình thường.
+      debugPrint('⚠️ Không đọc được thời lượng audio: $e');
+    }
+    if (durationMs != null && durationMs > maxSherpaFileMs) {
+      throw StateError(
+        'File dài ${(durationMs / 60000).round()} phút — model offline '
+        '(Parakeet/Zipformer) nạp cả file vào RAM nên dễ bị hệ thống kill. '
+        'Hãy tách thành đoạn dưới 30 phút, hoặc dùng Whisper cho file dài.',
+      );
+    }
+
+    // sherpa đọc WAV 16kHz mono — chuyển đổi (FFmpeg) rồi xoá bản tạm.
+    final converted = await AudioConverter.convertToWhisperCompatible(audioPath);
+    if (converted == null) {
+      throw StateError('Không chuyển được audio sang WAV 16kHz: $audioPath');
+    }
+
+    final engine = SherpaSttEngine();
+    try {
+      _emitProgress(
+        SttFacadeStatus.processingNative,
+        0.25,
+        'Đang nhận diện bằng ${profile.name}...',
+        engine: SttEngineType.sherpa,
+      );
+
+      final result = await engine.transcribeFile(
+        converted == audioPath ? audioPath : converted,
+        options: <String, dynamic>{'language': profile.id},
+      );
+
+      if (result.fullText.trim().isEmpty) {
+        throw StateError(
+          'Model ${profile.name} không nhận được nội dung nào'
+          '${(engine.lastError ?? '').isEmpty ? '' : ' — ${engine.lastError}'}.',
+        );
+      }
+
+      _emitProgress(
+        SttFacadeStatus.processingNative,
+        0.85,
+        'Đã nhận diện xong...',
+        engine: SttEngineType.sherpa,
+      );
+
+      return audioFingerprint.isEmpty
+          ? result
+          : _withFingerprint(result, audioFingerprint);
+    } finally {
+      try {
+        await engine.dispose();
+      } catch (e) {
+        debugPrint('⚠️ Sherpa engine dispose error: $e');
+      }
+      if (converted != audioPath) {
+        await AudioConverter.cleanupConvertedFile(converted);
+      }
+    }
+  }
+
+  // ── Native Engine Runner ──────────────────────────────────────────────────
+
+  Future<SttResult> _runNativeEngine(
+    String audioPath,
+    SttConfig config,
+  ) async {
+    _emitProgress(
+      SttFacadeStatus.processingNative,
+      0.10,
+      'Đang nhận diện giọng nói...',
+      engine: SttEngineType.native,
+    );
+
+    final result = await _nativeEngine.transcribeFile(
+      audioPath,
+      language: config.language,
+    );
+
+    _emitProgress(
+      SttFacadeStatus.processingNative,
+      0.90,
+      'Native STT hoàn tất',
+    );
+
+    return result;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  Future<String> _resolveLrcDirectory(String? override) async {
+    if (override != null && override.isNotEmpty) return override;
+    final appDir = await getApplicationDocumentsDirectory();
+    return p.join(appDir.path, '.in4up_lrc');
+  }
+
+  /// Tính audio fingerprint đúng chuẩn ContentId.
+  ///
+  /// Dùng file size + duration + basename → MD5[:16].
+  /// Khớp với [AudioFingerprintUtil.compute()] nếu durationMs đã biết.
+  ///
+  /// Vì Facade không có durationMs (cần audio player cung cấp),
+  /// ta dùng file size + basename làm fingerprint nhanh.
+  /// Caller (PlayerSttMixin) nên truyền audioFingerprint đúng chuẩn.
+  Future<String> _computeAudioFingerprint(String audioPath) async {
+    try {
+      final file = File(audioPath);
+      if (!await file.exists()) {
+        return _hashPath(audioPath);
+      }
+
+      // Đọc 64KB đầu để tạo content-based fingerprint nhanh
+      const sampleSize = 64 * 1024; // 64KB
+      final raf = await file.open();
+      final bytes = await raf.read(sampleSize);
+      await raf.close();
+
+      // FNV-1a hash — nhanh, phân tán tốt
+      var hash = 0xcbf29ce484222325;
+      for (final byte in bytes) {
+        hash ^= byte;
+        // Dart int là 64-bit signed — dùng & để giữ trong phạm vi
+        hash = (hash * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+      }
+
+      return 'fp_${hash.toRadixString(16).substring(0, 16)}';
+    } catch (e) {
+      debugPrint('⚠️ _computeAudioFingerprint fallback: $e');
+      return _hashPath(audioPath);
+    }
+  }
+
+  String _hashPath(String audioPath) =>
+      'fp_${audioPath.hashCode.abs().toRadixString(16)}';
+
+  /// Tạo SttResult mới với fingerprint được gán — immutable pattern.
+  SttResult _withFingerprint(SttResult result, String fingerprint) {
+    return SttResult(
+      fullText: result.fullText,
+      segments: result.segments,
+      engineUsed: result.engineUsed,
+      language: result.language,
+      processingTime: result.processingTime,
+      audioFingerprint: fingerprint,
+      hasWordTimestamps: result.hasWordTimestamps,
+    );
+  }
+
+  String _buildCacheKey(String audioPath, SttConfig config) =>
+      '${audioPath}_${config.preferredEngine.name}_'
+      '${config.whisperModel.name}${config.honorWhisperModel ? '!' : ''}_'
+      '${WhisperLanguage.code(config.language)}';
+
+  void _emitProgress(
+    SttFacadeStatus status,
+    double progress,
+    String message, {
+    SttEngineType? engine,
+    int chunkIndex = 0,
+    int chunkCount = 0,
+  }) {
+    if (_disposed) return;
+    _progressSubject.add(SttProgress(
+      status: status,
+      progress: progress.clamp(0.0, 1.0),
+      message: message,
+      activeEngine: engine,
+      chunkIndex: chunkIndex,
+      chunkCount: chunkCount,
+    ));
+  }
+
+  void _ensureInitialized() {
+    if (!_initialized) {
+      throw StateError(
+        'SttServiceFacade chưa được khởi tạo. '
+        'Gọi await sttService.initialize() trước.',
+      );
+    }
+  }
+
+  // ── Engine API (Strategy Pattern) ─────────────────────────────────────────
+
+  /// Lấy engine theo type qua registry. Trả null nếu chưa đăng ký.
+  static SttEngine? getEngine(SttEngineType type) =>
+      SttEngineRegistry.create(type);
+
+  /// Danh sách engine đã đăng ký (để UI chọn backend nếu muốn).
+  static List<SttEngineType> get availableEngineTypes =>
+      SttEngineRegistry.registeredTypes;
+
+  // ── Model Management API (không thay đổi) ────────────────────────────────
+
+  SttModelInfo getModelInfo(WhisperModelLevel level) =>
+      _modelManager.getModelInfo(level);
+
+  Stream<SttModelInfo> watchModel(WhisperModelLevel level) =>
+      _modelManager.watchModel(level);
+
+  Future<void> deleteModel(WhisperModelLevel level) =>
+      _modelManager.deleteModel(level);
+
+  Future<bool> importModelFromPath(
+    String sourcePath, {
+    WhisperModelLevel? level,
+  }) {
+    _ensureInitialized();
+    return _modelManager.importModelFromPath(sourcePath, level: level);
+  }
+
+  bool get hasAnyModel => _modelManager.hasAnyLocalModel;
+
+  /// QA-PERF-001: có lượt Whisper nào khác đang giữ/chờ khoá không — UI có
+  /// thể dùng để báo "đang chờ tác vụ bóc băng khác xong" thay vì im lặng.
+  bool get isWhisperBusy => _whisperMutex.isBusy;
+
+  // ── Live STT ──────────────────────────────────────────────────────────────
+
+  Future<bool> startListening({
+    String language = 'en-US',
+    Duration? listenFor,
+    Duration? pauseFor,
+    ListenMode listenMode = ListenMode.confirmation,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    return _nativeEngine.startListening(
+      language: language,
+      listenTimeout: listenFor,
+      pauseTimeout: pauseFor ?? const Duration(seconds: 3),
+      listenMode: listenMode,
+    );
+  }
+
+  /// Khởi tạo phiên nghe LIÊN TỤC cho hội thoại (cabin STS / shadowing):
+  /// `listenFor = null` (không auto-stop 2 phút) + `ListenMode.dictation`
+  /// (nội dung dài, câu/đoạn — khác `confirmation` cho lệnh ngắn).
+  /// Hệ thống vẫn tự pause sau im lặng ≥ [pauseFor].
+  Future<bool> startConversation({
+    String language = 'en-US',
+    Duration pauseFor = const Duration(seconds: 4),
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    return _nativeEngine.startListening(
+      language: language,
+      listenTimeout: null,
+      pauseTimeout: pauseFor,
+      listenMode: ListenMode.dictation,
+    );
+  }
+
+  Future<void> stopListening() async {
+    // Closing a Listen screen that never started voice commands must not
+    // touch a late native engine that has not been constructed yet.
+    if (!_nativeEngineCreated || _disposed) return;
+    await _nativeEngine.stopListening();
+  }
+
+  Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
+
+  /// Phiên live mic có đang chạy ở engine native không (kể cả khi app
+  /// không biết — dùng để phát hiện "mic bị chiếm" bởi flow khác).
+  bool get isLiveListening => _nativeEngine.isListening;
+
+  /// Lý do gần nhất live STT thất bại (null = chưa có lỗi gần nhất).
+  String? get liveLastError => _nativeEngine.lastError;
+
+  /// Micro có quyền chưa (permission RECORD_AUDIO ở cấp hệ thống).
+  Future<bool> checkLiveMicPermission() =>
+      _nativeEngine.checkAvailability();
+
+  // ── Config & Cache ────────────────────────────────────────────────────────
+
+  void updateConfig(SttConfig config) {
+    _config = config;
+    if (!_disposed) notifyListeners();
+  }
+
+  void clearCache() {
+    _resultCache.clear();
+    debugPrint('🗑️ STT result cache cleared');
+  }
+
+  // ── Dispose ───────────────────────────────────────────────────────────────
+
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    if (_nativeEngineCreated) _nativeEngine.dispose();
+    if (_modelManagerCreated) _modelManager.dispose();
+    _progressSubject.close();
+    _partialSubject.close();
+    _instance = null;
+    super.dispose();
+  }
+}

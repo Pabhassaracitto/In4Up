@@ -1,0 +1,177 @@
+name: in4up
+description: In4Up - Read, remember, learn, and listen with the UltraTimeStretch Engine
+
+publish_to: 'none'
+
+version: 1.20.0+20
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  in4up_stt:
+    path: ./packages/in4up_stt
+  in4up_core:
+    path: ./packages/in4up_core
+  in4up_ai:
+    path: ./packages/in4up_ai
+  # Tipitaka integration
+  sqflite: ^2.3.3
+  sqflite_common_ffi: ^2.4.0+3 # SQLite implementation for Windows/Linux tests
+  archive: ^4.0.9 # unpack downloadable SQLite language packs
+  # UI
+  flutter_localizations:
+    sdk: flutter
+  intl: 0.20.2 # change from ^0.18.0 (flutter_localizations của Flutter 3.44.1 ghim đúng 0.20.2)
+
+  # State Management
+  provider: ^6.1.2
+  # Index-based, virtualized scrolling for variable-height karaoke lines.
+  scrollable_positioned_list: 0.3.8
+
+  # Audio Playback
+  just_audio_platform_interface: ^4.0.0
+  just_audio: ^0.10.5
+  just_audio_windows: ^0.2.3 #0.2.1   # ← THÊM DÒNG NÀY!
+  audio_session: ^0.2.2
+
+  # FFI for Native C++ Engine
+  ffi: ^2.1.3
+
+  # File & Storage
+  file_picker: ^11.0.2 # change from 8.1.2
+  image_picker: ^1.2.1 # Camera capture; gallery still uses file_picker on desktop
+  image: ^4.8.0 # Decode/re-encode ML Kit's transparent PNG output
+  path: ^1.9.0
+  path_provider: ^2.1.4
+  permission_handler: ^12.0.1
+
+  # Utilities
+  rxdart: ^0.28.0  # Stream utilities
+  equatable: ^2.0.5
+
+  cupertino_icons: ^1.0.8
+
+  # NEW
+  hive: ^2.2.3                    # Local database
+  hive_flutter: ^1.1.0            # Hive cho Flutter
+  audio_service: ^0.18.17         # Background playback
+
+  uuid: ^4.2.1                    # Generate unique IDs
+  share_plus: ^12.0.2              # Share segments
+  shared_preferences: ^2.3.5  # THÊM DÒNG NÀY
+  flutter_tts: ^4.2.0  # THÊM DÒNG NÀY
+  just_waveform: ^0.0.7  # Đọc waveform từ audio file
+  record: ^6.1.2 # ghi âm
+  record_windows: ^1.0.1 # ★ BẮT BUỘC cho Windows
+  oauth2: ^2.0.2
+  url_launcher: ^6.2.5               # cho word_actions_sheet tra từ online
+
+  http: ^1.2.2
+  connectivity_plus: ^6.1.4 #7.1.0    # Check network
+  crypto: ^3.0.6                 # MD5 hash cho cache key
+
+  # Dịch offline on-device (Android/iOS) — model CHỈ tải khi user bấm
+  # (màn Cài đặt engine dịch), không auto-download lúc mở app.
+  # PIN 0.14.x: bản 0.15.1 yêu cầu Dart SDK ^3.12.0 — CI + máy chủ là
+  # Flutter 3.44.1 (Dart 3.11.5) → version solving fail. API 0.14.0 ==
+  # 0.15.1 (đã đối chiếu source flutter-ml/google_ml_kit_flutter).
+  google_mlkit_translation: ^0.14.0
+
+  # OCR — nhận dạng chữ từ ảnh (ADR-0009, KANBAN OCR-001): sách scan, ảnh
+  # chụp trang sách, PDF image-only → văn bản nạp vào Text Studio.
+  # Model ship kèm Google Play services (Android) / SDK (iOS) → KHÔNG có
+  # bước "Tải về", không tải gì lúc bootstrap (khác Translation).
+  # PIN 0.16.x: bản 0.17.x yêu cầu Dart SDK ^3.12.0 — CI + máy chủ là
+  # Flutter 3.44.1 (Dart 3.11.5) → version solving fail. 0.16.0 cần
+  # google_mlkit_commons ^0.12.0 = ĐÚNG bản translation 0.14.0 đang kéo
+  # (không xung đột). API 0.16 == 0.17 (đã đối chiếu source).
+  # Chỉ Android + iOS: desktop/web isAvailable()==false, ẩn nút (rule mlkit_engine).
+  google_mlkit_text_recognition: ^0.16.0
+  # Document Scanner: crop/thẳng trang trước khi OCR. PIN 0.5.x (0.6.x đòi
+  # Dart ^3.12). CHỈ Android (Google Beta) — không cần quyền camera vì dùng
+  # camera của Play services. iOS: chọn ảnh qua file_picker, không scanner.
+  google_mlkit_document_scanner: ^0.5.0
+
+  # Background removal — Phase 1. Android-only beta; no ONNX model is bundled.
+  google_mlkit_subject_segmentation: ^0.1.0 #0.2.0
+  # Phase 2 is intentionally not enabled here: add the selected ONNX runtime
+  # only to a Phase 2 build profile (see docs/background_removal_phase2.md).
+# Firebase core (bắt buộc)
+  firebase_core: ^3.15.2 #4.7.0 #change from 4.0.0
+  
+  # Firebase Auth (đăng nhập anonymous)
+  firebase_auth: ^5.7.0 #6.4.0
+  
+  # Cloud Firestore (database)
+  cloud_firestore: ^5.6.12 #6.0.0
+  google_sign_in: ^6.2.1 #7.2.0 Giữ nguyên hoặc nâng lên mới nhất
+  googleapis: ^16.0.0
+
+  # Youglish Android & iOS
+  webview_flutter: ^4.9.0
+  # PRON-002: inline playback trên iOS — `allowsInlineMediaPlayback` +
+  # `mediaPlaybackRequiresUserGesture` là THAM SỐ KHỞI TẠO của WKWebViewParams,
+  # không phải method của `WebViewController` (CI PRON-001 đã bắt được lỗi đó).
+  # Package này chỉ khai báo platform iOS ⇒ không đụng Gradle/Android/web.
+  webview_flutter_wkwebview: ^3.25.1
+  # Video player cho video local (MP4, MKV, WebM...)
+  video_player: ^2.8.0
+  # Youglish Win
+  webview_win_floating: ^3.0.0
+  webview_windows: ^0.4.0   # Chỉ cho Windows
+  # Youtube
+  youtube_explode_dart: ^3.0.5
+  pdfrx: ^2.2.1 #Hạ từ ^2.2.20   # Hạ từ 2.2.24 xuống bản ổn định thấp hơn một chút
+  graphview: ^1.2.0  
+  animations: ^2.1.2
+  flutter_animate: ^4.5.2
+  flutter_gen: ^5.9.0
+  device_preview: ^1.2.0
+  # LOTTIE-001 — minh họa flashcard bằng Lottie (.json/.lottie siêu nhẹ
+  # 20-100KB, render thuần Dart/Skia → chạy cả Android/iOS/Windows/Linux/Web).
+  # PIN ^3.6.1: bản 3.6.x yêu cầu Dart ^3.11.0 + Flutter >=3.41.0 — khớp CI +
+  # máy chủ (Flutter 3.44.1, Dart 3.11.5). Deps dùng chung archive ^4 + http
+  # ^1 (đã có sẵn trong dự án) → không kéo thêm cây dependency mới.
+  lottie: ^3.6.1
+dependency_overrides:
+  pdfium_flutter:
+    path: third_party/pdfium_flutter
+  pdfium_dart: 0.1.2     # <--- THÊM DÒNG NÀY VÀO ĐÂY
+  just_audio_platform_interface: 4.6.0  # KHÔNG dùng ^
+  just_audio_web: 0.4.16                # KHÔNG dùng ^
+  audio_session: 0.2.2                  # KHÔNG dùng ^
+  #pdfrx_engine: ^0.6.1                  # ← THÊM DÒNG NÀY VÀO ĐÂY
+  meta: ^1.18.0   # <-- Thêm dòng này vào cùng
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  hive_generator: ^2.0.1          # Generate Hive adapters
+  build_runner: ^2.4.13            # Code generation
+  flutter_launcher_icons: ^0.14.4
+ffigen: ^9.1.3
+  
+flutter:
+  generate: true
+  uses-material-design: true
+  fonts:
+    - family: NotoSerifTipitaka
+      fonts:
+        - asset: assets/fonts/noto_serif/NotoSerif-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/noto_serif/NotoSerif-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/noto_serif/NotoSerif-Bold.ttf
+          weight: 700
+  assets:
+    - assets/dictionary/ 
+    - assets/icons/   
+    - assets/whisper_models/
+    - assets/glossary/
+    # Optional small/demo normalized Tipiṭaka DB. Production builds may omit
+    # it and install a DB into the app documents directory instead.
+    - assets/db/tipitaka.sqlite

@@ -1,0 +1,79 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 153b6fc..ab64ef7 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -107,16 +107,10 @@ jobs:
+           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+         run: bash scripts/ci/android_prepare_signing.sh
+ 
+-      # BƯỚC 1: Build 3 bản phân tách — CHỈ flavor stable (com.in4up).
+-      # Không --flavor ⇒ Gradle build cả dev/beta: chậm gấp 3 (llama.cpp × 3 flavor × 3 ABI)
+-      # và chết ở processBetaReleaseGoogleServices khi secret thiếu client com.in4up.beta.
+-      - name: Build Split APKs
+-        run: |
+-          flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
+-            "--dart-define=FLAVOR=stable" \
+-            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
+-
+-      # BƯỚC 2: Build thêm 1 bản GỘP TẤT CẢ (Universal APK)
++      # CI-ANDROID-04: CHỈ build Universal APK (1 bản "chip phổ thông" cài được
++      # trên mọi chip) — bỏ 3 bản tách theo chip (tốn llama.cpp × 3 ABI mà
++      # release giờ không ship). Luôn --flavor stable: không --flavor ⇒ Gradle
++      # build cả dev/beta (chậm ×3 + chết processBetaReleaseGoogleServices).
+       - name: Build Universal APK
+         run: |
+           flutter build apk --release --flavor stable --android-skip-build-dependency-validation \
+@@ -126,10 +120,9 @@ jobs:
+             "--dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}" \
+             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}"
+ 
+-      # BƯỚC 3: Đổi tên cho cả bản tách và bản gộp.
+-      # Tên do Flutter 3.44.1 sinh (FlutterPlugin.kt): app<-abi>?<-flavor>?-<mode>.apk
+-      # ⇒ split: app-<abi>-stable-release.apk (ABI TRƯỚC, flavor SAU); universal: app-stable-release.apk.
+-      # Script thử cả thứ tự khác để không gãy khi đổi Flutter; THIẾU APK nào ⇒ job đỏ, không ship thiếu.
++      # Đổi tên bản Universal (CI-ANDROID-04). Tên do Flutter 3.44.1 sinh
++      # (FlutterPlugin.kt): universal = app-stable-release.apk. Script xử lý cả
++      # thứ tự tên khác để không gãy khi đổi Flutter; THIẾU APK ⇒ job đỏ.
+       - name: Rename All APKs
+         run: bash scripts/ci/android_rename_apks.sh "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
+ 
+diff --git a/.github/workflows/build_final_complete.yml b/.github/workflows/build_final_complete.yml
+index f0dbf55..614c645 100644
+--- a/.github/workflows/build_final_complete.yml
++++ b/.github/workflows/build_final_complete.yml
+@@ -216,18 +216,10 @@ jobs:
+       - name: Get dependencies
+         run: flutter pub get
+ 
+-      # Không còn `|| fallback` im lặng: split đỏ thì job phải đỏ để còn thấy log,
+-      # thay vì âm thầm build fat rồi ship thiếu 3 APK split (CI-ANDROID-01).
+-      - name: Build Split APKs (stable flavor - side-by-side installable via applicationIdSuffix)
+-        shell: bash
+-        run: |
+-          echo "Building split APKs for stable..."
+-          flutter build apk --release --flavor stable --split-per-abi --android-skip-build-dependency-validation \
+-            "--dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" \
+-            "--dart-define=FLAVOR=stable"
+-
+-      # Luôn --flavor stable: không --flavor ⇒ Gradle build cả dev/beta (chậm ×3, cần
+-      # client google-services cho com.in4up.dev/.beta).
++      # CI-ANDROID-04: CHỈ build Universal APK (1 bản "chip phổ thông" cho mọi
++      # chip) — bỏ 3 bản tách theo chip (llama.cpp × 3 ABI tốn CI mà release
++      # giờ không ship). Luôn --flavor stable: không --flavor ⇒ Gradle build
++      # cả dev/beta (chậm ×3, cần client google-services cho com.in4up.dev/.beta).
+       - name: Build Universal APK
+         shell: bash
+         run: |
+@@ -239,9 +231,9 @@ jobs:
+             "--dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}" \
+             "--dart-define=FLAVOR=stable"
+ 
+-      # Tên do Flutter 3.44.1 sinh (FlutterPlugin.kt): app<-abi>?<-flavor>?-<mode>.apk
+-      # ⇒ split: app-<abi>-stable-release.apk (ABI TRƯỚC, flavor SAU); universal: app-stable-release.apk.
+-      # Script thử cả thứ tự khác để không gãy khi đổi Flutter; THIẾU APK nào ⇒ job đỏ (hết `|| true`).
++      # Đổi tên bản Universal (CI-ANDROID-04): tên do Flutter 3.44.1 sinh
++      # (FlutterPlugin.kt) = app-stable-release.apk. Script xử lý cả thứ tự tên
++      # khác để không gãy khi đổi Flutter; THIẾU APK ⇒ job đỏ (hết `|| true`).
+       - name: Rename All APKs
+         shell: bash
+         run: bash scripts/ci/android_rename_apks.sh "${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"

@@ -1,0 +1,1190 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// lib/features/tts/widgets/tts_settings_section.dart
+
+import 'package:in4up/core/language/localized_material.dart';
+
+import 'package:in4up_stt/sherpa_model_manager.dart';
+import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+
+import '../edge_voice_prefs.dart';
+import '../engines/edge_tts_engine.dart';
+import '../engines/tts_engine.dart';
+import '../piper_voice_prefs.dart';
+import '../tts_service.dart';
+import '../tts_settings.dart';
+
+/// Widget cài đặt TTS - nhúng vào Settings sheet hiện có
+class TtsSettingsSection extends StatefulWidget {
+  final Color primaryColor;
+
+  const TtsSettingsSection({
+    super.key,
+    this.primaryColor = const Color(0xFF6C63FF),
+  });
+
+  @override
+  State<TtsSettingsSection> createState() => _TtsSettingsSectionState();
+}
+
+class _TtsSettingsSectionState extends State<TtsSettingsSection> {
+  final _ttsService = TtsService();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _ttsService,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── HEADER ──
+            _SectionHeader(
+              icon: Icons.record_voice_over,
+              title: 'Text-to-Speech',
+              color: widget.primaryColor,
+            ),
+            const SizedBox(height: 12),
+
+            // ── PRIORITY MODE ──
+            _PrioritySelector(
+              current: _ttsService.priority,
+              color: widget.primaryColor,
+              onChanged: (p) {
+                _ttsService.setPriority(p);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            const _PiperVoicePicker(),
+            const SizedBox(height: 16),
+
+            // ── EDGE NEURAL VOICE (TTS-EDGE-VOICE-001) ──
+            const _EdgeVoicePicker(),
+            const SizedBox(height: 16),
+
+            // ── ENGINE ORDER ──
+            _EngineOrderSection(
+              engines: _ttsService.engineOrder,
+              color: widget.primaryColor,
+              onReorder: (engines) {
+                _ttsService.reorderEngines(engines);
+              },
+              onToggle: (id, enabled) {
+                _ttsService.toggleEngine(id, enabled);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // ── API KEYS ──
+            _ApiKeySection(
+              fptKey: _ttsService.fptApiKey,
+              zaloKey: _ttsService.zaloApiKey,
+              color: widget.primaryColor,
+              onFptKeyChanged: (key) {
+                _ttsService.configure(fptApiKey: key);
+              },
+              onZaloKeyChanged: (key) {
+                _ttsService.configure(zaloApiKey: key);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // ── ENGINE STATUS ──
+            _EngineStatusSection(color: widget.primaryColor),
+            const SizedBox(height: 16),
+
+            // ── CACHE INFO ──
+            _CacheSection(color: widget.primaryColor),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// PRIORITY SELECTOR
+// ═══════════════════════════════════════════
+
+class _PrioritySelector extends StatelessWidget {
+  final TtsPriority current;
+  final Color color;
+  final ValueChanged<TtsPriority> onChanged;
+
+  const _PrioritySelector({
+    required this.current,
+    required this.color,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Chế độ phát',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[400],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: TtsPriority.values.map((p) {
+            final isSelected = p == current;
+            return GestureDetector(
+              onTap: () => onChanged(p),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? color.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color:
+                        isSelected ? color : Colors.grey.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          p.icon,
+                          size: 14,
+                          color: isSelected ? color : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          p.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isSelected ? color : Colors.grey[300],
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      p.description,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// ENGINE ORDER (kéo thả)
+// ═══════════════════════════════════════════
+
+class _EngineOrderSection extends StatelessWidget {
+  final List<TtsEngineInfo> engines;
+  final Color color;
+  final ValueChanged<List<TtsEngineInfo>> onReorder;
+  final void Function(String id, bool enabled) onToggle;
+
+  const _EngineOrderSection({
+    required this.engines,
+    required this.color,
+    required this.onReorder,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Thứ tự nguồn phát',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Kéo để sắp xếp',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: engines.length,
+          onReorder: (oldIndex, newIndex) {
+            final list = List<TtsEngineInfo>.from(engines);
+            if (newIndex > oldIndex) newIndex--;
+            final item = list.removeAt(oldIndex);
+            list.insert(newIndex, item);
+            onReorder(list);
+          },
+          itemBuilder: (context, index) {
+            final engine = engines[index];
+            return Container(
+              key: ValueKey(engine.id),
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: engine.isEnabled
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.white.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: engine.isEnabled
+                      ? color.withValues(alpha: 0.3)
+                      : Colors.grey.withValues(alpha: 0.1),
+                ),
+              ),
+              child: ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.drag_handle,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      context.uiText('${index + 1}'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                title: Text(
+                  engine.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: engine.isEnabled ? Colors.white : Colors.grey[600],
+                  ),
+                ),
+                subtitle: Row(
+                  children: [
+                    Text(
+                      engine.description,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    if (engine.needsApiKey) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.key,
+                        size: 10,
+                        color: Colors.orange[300],
+                      ),
+                    ],
+                    if (!engine.isOnline) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.cloud_off,
+                        size: 10,
+                        color: Colors.grey[500],
+                      ),
+                    ],
+                  ],
+                ),
+                trailing: Switch(
+                  value: engine.isEnabled,
+                  onChanged: (v) => onToggle(engine.id, v),
+                  activeThumbColor: color,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// API KEYS
+// ═══════════════════════════════════════════
+
+class _ApiKeySection extends StatelessWidget {
+  final String? fptKey;
+  final String? zaloKey;
+  final Color color;
+  final ValueChanged<String> onFptKeyChanged;
+  final ValueChanged<String> onZaloKeyChanged;
+
+  const _ApiKeySection({
+    required this.fptKey,
+    required this.zaloKey,
+    required this.color,
+    required this.onFptKeyChanged,
+    required this.onZaloKeyChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'API Keys (tùy chọn, miễn phí)',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[400],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _ApiKeyField(
+          label: 'FPT.AI API Key',
+          hint: 'Đăng ký miễn phí tại fpt.ai',
+          value: fptKey,
+          onChanged: onFptKeyChanged,
+          color: color,
+        ),
+        const SizedBox(height: 8),
+        _ApiKeyField(
+          label: 'Zalo AI API Key',
+          hint: 'Đăng ký miễn phí tại zalo.ai',
+          value: zaloKey,
+          onChanged: onZaloKeyChanged,
+          color: color,
+        ),
+      ],
+    );
+  }
+}
+
+class _ApiKeyField extends StatefulWidget {
+  final String label;
+  final String hint;
+  final String? value;
+  final ValueChanged<String> onChanged;
+  final Color color;
+
+  const _ApiKeyField({
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+    required this.color,
+  });
+
+  @override
+  State<_ApiKeyField> createState() => _ApiKeyFieldState();
+}
+
+class _ApiKeyFieldState extends State<_ApiKeyField> {
+  late TextEditingController _controller;
+  bool _obscure = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant _ApiKeyField old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value) {
+      _controller.text = widget.value ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasKey = widget.value != null && widget.value!.isNotEmpty;
+
+    return TextField(
+      controller: _controller,
+      obscureText: _obscure,
+      style: const TextStyle(color: Colors.white, fontSize: 12),
+      onSubmitted: widget.onChanged,
+      onChanged: (v) {
+        if (v.trim().length > 10 || v.isEmpty) {
+          widget.onChanged(v.trim());
+        }
+      },
+      decoration: InputDecoration(
+        labelText: context.uiText(widget.label),
+        labelStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
+        hintText: context.uiText(widget.hint),
+        hintStyle: TextStyle(color: Colors.grey[700], fontSize: 10),
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        prefixIcon: Icon(
+          hasKey ? Icons.check_circle : Icons.key,
+          size: 16,
+          color: hasKey ? Colors.green : Colors.grey,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscure ? Icons.visibility_off : Icons.visibility,
+            size: 16,
+            color: Colors.grey,
+          ),
+          onPressed: () => setState(() => _obscure = !_obscure),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// ENGINE STATUS
+// ═══════════════════════════════════════════
+
+class _EngineStatusSection extends StatelessWidget {
+  final Color color;
+  const _EngineStatusSection({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, bool>>(
+      future: TtsService().checkEngineStatus(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const SizedBox(
+            height: 30,
+            child: Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        return Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            ...snap.data!.entries.map((e) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (e.value ? Colors.green : Colors.red)
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      e.value ? Icons.check_circle : Icons.cancel,
+                      size: 12,
+                      color: e.value ? Colors.green : Colors.red,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      e.key,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: e.value ? Colors.green[200] : Colors.red[200],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            // Piper × = có thể đã có giọng neural nhưng THIẾU phonemizer
+            // (espeak-ng-data) — giải thích ngay tại đây để không hiểu
+            // nhầm là model hỏng (regression TTS-PIPER-001).
+            if (snap.data!.entries
+                .any((e) => e.key.contains('Piper') && !e.value))
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 11, color: Colors.orange),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Piper × : chưa có giọng HOẶC thiếu phonemizer '
+                      '(espeak-ng-data) — cài tại TTS → Quản lý model',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.orange[200],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// CACHE
+// ═══════════════════════════════════════════
+
+class _CacheSection extends StatelessWidget {
+  final Color color;
+  const _CacheSection({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = TtsService();
+
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        service.getCacheSizeMB(),
+        service.getCacheCount(),
+      ]),
+      builder: (context, snap) {
+        final sizeMB = snap.data?[0] as double? ?? 0;
+        final count = snap.data?[1] as int? ?? 0;
+
+        return Row(
+          children: [
+            Icon(Icons.storage, size: 14, color: Colors.grey[500]),
+            const SizedBox(width: 6),
+            Text(
+              context.uiText('Cache: $count files (${sizeMB.toStringAsFixed(1)} MB)'),
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+            const Spacer(),
+            if (count > 0)
+              GestureDetector(
+                onTap: () async {
+                  await service.clearCache();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã xóa cache TTS!')),
+                  );
+                },
+                child: Text(
+                  'Xóa',
+                  style: TextStyle(fontSize: 11, color: Colors.red[300]),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════
+// HEADER
+// ═══════════════════════════════════════════
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            color: color,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PiperVoicePicker extends StatefulWidget {
+  const _PiperVoicePicker();
+
+  @override
+  State<_PiperVoicePicker> createState() => _PiperVoicePickerState();
+}
+
+class _PiperVoicePickerState extends State<_PiperVoicePicker> {
+  Map<String, String> _selected = {};
+
+  @override
+  void initState() {
+    super.initState();
+    SherpaModelManager().initialize();
+    PiperVoicePrefs.instance.all().then((v) {
+      if (mounted) setState(() => _selected = v);
+    });
+  }
+
+  String _langLabel(String code) {
+    switch (code.toLowerCase()) {
+      case 'vi-vn':
+      case 'vi':
+        return '🇻🇳 Tiếng Việt (vi-VN)';
+      case 'en-us':
+      case 'en':
+        return '🇺🇸 Tiếng Anh (en-US)';
+      case 'en-gb':
+        return '🇬🇧 Tiếng Anh Anh (en-GB)';
+      case 'zh-cn':
+      case 'zh':
+        return '🇨🇳 Tiếng Trung (zh-CN)';
+      case 'fr-fr':
+      case 'fr':
+        return '🇫🇷 Tiếng Pháp (fr-FR)';
+      case 'de-de':
+      case 'de':
+        return '🇩🇪 Tiếng Đức (de-DE)';
+      case 'es-es':
+      case 'es':
+        return '🇪🇸 Tiếng Tây Ban Nha (es-ES)';
+      case 'hi-in':
+      case 'hi':
+        return '🇮🇳 Tiếng Hindi (hi-IN)';
+      case 'ja-jp':
+      case 'ja':
+        return '🇯🇵 Tiếng Nhật (ja-JP)';
+      case 'ko-kr':
+      case 'ko':
+        return '🇰🇷 Tiếng Hàn (ko-KR)';
+      case 'th-th':
+      case 'th':
+        return '🇹🇭 Tiếng Thái (th-TH)';
+      case 'pi-in':
+      case 'pi':
+        return '🪷 Tiếng Pali (pi)';
+      case 'sa-in':
+      case 'sa':
+        return '🕉️ Tiếng Sanskrit (sa)';
+      case 'other':
+        return '🌐 Khác / Tự do';
+      default:
+        return '🌐 $code';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<SherpaPiperInfo>(
+      stream: SherpaModelManager().watchPiper(),
+      initialData: SherpaModelManager().piperInfo,
+      builder: (context, snap) {
+        final voices = snap.data?.voices ?? const <PiperTtsVoice>[];
+        if (voices.isEmpty) {
+          return Text(
+            context.uiText(
+              'Chưa có giọng Piper. Import trong Quản lý Model AI (Home).',
+            ),
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          );
+        }
+        final byLang = <String, List<PiperTtsVoice>>{};
+        for (final v in voices) {
+          var lang = SherpaPiperTtsCore.langFromVoiceName(v.name);
+          if (lang.isEmpty) {
+            lang = 'other';
+          } else {
+            lang = PiperVoicePrefs.normalizeLang(lang);
+          }
+          byLang.putIfAbsent(lang, () => []).add(v);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('Giọng Piper theo ngôn ngữ'),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.uiText(
+                'Mỗi ngôn ngữ chọn 1 giọng đã import. Tự động ưu tiên phát khi dùng Sherpa TTS.',
+              ),
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            for (final entry in byLang.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _langLabel(entry.key),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF80CBC4),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    for (final v in entry.value)
+                      RadioListTile<String>(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: v.name,
+                        groupValue: _selected[entry.key] ??
+                            (entry.value.length == 1 ? v.name : null),
+                        activeColor: const Color(0xFF80CBC4),
+                        title: Text(
+                          v.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        onChanged: (name) async {
+                          if (name == null) return;
+                          await PiperVoicePrefs.instance
+                              .setVoiceForLang(entry.key, name);
+                          TtsService().configure(voiceId: name);
+                          setState(() => _selected[entry.key] = name);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// TTS-EDGE-VOICE-001 — bộ chọn giọng Microsoft Edge Neural theo ngôn ngữ.
+///
+/// Trước đây Edge luôn dùng giọng mặc định (vi-VN → HoaiMy, nữ) vì app chỉ có
+/// picker cho Piper. Widget này dùng CATALOG OFFLINE đồng bộ
+/// ([EdgeTtsEngine.catalogVoices]) — KHÔNG chờ mạng — nhóm theo ngôn ngữ,
+/// radio từng giọng. Lưu vào [EdgeVoicePrefs] (TtsService đọc khi phát bằng
+/// Edge). KHÔNG set `_selectedVoiceId` chung để không làm bẩn playback Piper/
+/// Zalo/FPT (mỗi engine một kho giọng riêng).
+class _EdgeVoicePicker extends StatefulWidget {
+  const _EdgeVoicePicker();
+
+  @override
+  State<_EdgeVoicePicker> createState() => _EdgeVoicePickerState();
+}
+
+class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
+  Map<String, String> _selected = {};
+
+  /// TTS-EDGE-VOICE-003 — trạng thái GHIM (xem [EdgeVoicePrefs]).
+  bool _pinAll = false;
+  String? _pinnedVoice;
+
+  /// Giọng tường minh gần nhất người dùng vừa chạm — dùng làm giá trị mặc
+  /// định khi bật ghim (bật ghim rồi mà ghim giọng nữ mặc định thì lại đúng
+  /// triệu chứng đang sửa).
+  String? _lastExplicitVoice;
+
+  @override
+  void initState() {
+    super.initState();
+    EdgeVoicePrefs.instance.all().then((v) {
+      if (mounted) setState(() => _selected = v);
+    });
+    EdgeVoicePrefs.instance.pinAllLanguages.then((v) {
+      if (mounted) setState(() => _pinAll = v);
+    });
+    EdgeVoicePrefs.instance.pinnedVoice.then((v) {
+      if (mounted) setState(() => _pinnedVoice = v);
+    });
+  }
+
+  /// Giọng sẽ ghim: giọng vừa chạm → giọng tiếng Việt đã chọn → giọng đầu
+  /// danh mục (cùng giọng mặc định của app khi chưa chọn gì).
+  String _voiceToPin() {
+    final recent = _lastExplicitVoice;
+    if (recent != null && recent.isNotEmpty) return recent;
+    for (final key in const ['vi-VN', 'vi']) {
+      final stored = _selected[key];
+      if (stored != null && stored.isNotEmpty) return stored;
+    }
+    return EdgeTtsEngine.catalogVoices.first.id;
+  }
+
+  Future<void> _togglePin(bool value) async {
+    final voice = _voiceToPin();
+    await EdgeVoicePrefs.instance.setPinAllLanguages(value, voiceId: voice);
+    if (!mounted) return;
+    setState(() {
+      _pinAll = value;
+      _pinnedVoice = voice;
+    });
+  }
+
+  Future<void> _setPinnedVoice(String voiceId) async {
+    await EdgeVoicePrefs.instance.setPinnedVoice(voiceId);
+    if (!mounted) return;
+    setState(() => _pinnedVoice = voiceId);
+  }
+
+  String _langLabel(String code) {
+    switch (code.toLowerCase()) {
+      case 'vi-vn':
+      case 'vi':
+        return '🇻🇳 Tiếng Việt (vi-VN)';
+      case 'en-us':
+      case 'en':
+        return '🇺🇸 Tiếng Anh (en-US)';
+      case 'en-gb':
+        return '🇬🇧 Tiếng Anh Anh (en-GB)';
+      case 'zh-cn':
+      case 'zh':
+        return '🇨🇳 Tiếng Trung (zh-CN)';
+      case 'zh-tw':
+        return '🇨🇳 Tiếng Trung Đài Loan (zh-TW)';
+      case 'ja-jp':
+      case 'ja':
+        return '🇯🇵 Tiếng Nhật (ja-JP)';
+      case 'ko-kr':
+      case 'ko':
+        return '🇰🇷 Tiếng Hàn (ko-KR)';
+      case 'th-th':
+      case 'th':
+        return '🇹🇭 Tiếng Thái (th-TH)';
+      case 'fr-fr':
+      case 'fr':
+        return '🇫🇷 Tiếng Pháp (fr-FR)';
+      case 'de-de':
+      case 'de':
+        return '🇩🇪 Tiếng Đức (de-DE)';
+      case 'es-es':
+      case 'es':
+        return '🇪🇸 Tiếng Tây Ban Nha (es-ES)';
+      case 'ru-ru':
+      case 'ru':
+        return '🇷🇺 Tiếng Nga (ru-RU)';
+      case 'pt-br':
+      case 'pt':
+        return '🇧🇷 Tiếng Bồ Đào Nha (pt-BR)';
+      case 'id-id':
+      case 'id':
+        return '🇮🇩 Tiếng Indonesia (id-ID)';
+      case 'hi-in':
+      case 'hi':
+        return '🇮🇳 Tiếng Hindi (hi-IN)';
+      default:
+        return '🌐 $code';
+    }
+  }
+
+  /// Giọng đang chọn của nhóm [lang]: ưu tiên giọng user đã chọn; chưa chọn
+  /// thì highlight giọng MẶC ĐỊNH của ngôn ngữ (vd vi-VN → HoaiMy); nhóm chỉ
+  /// 1 giọng → highlight giọng đó. Trả về null nếu không có mặc định hợp lệ.
+  String? _groupValueFor(String lang, List<TtsVoice> voices) {
+    final sel = _selected[lang];
+    if (sel != null && voices.any((v) => v.id == sel)) return sel;
+    if (voices.length == 1) return voices.first.id;
+    final def = EdgeTtsEngine.defaultVoiceForLanguage(lang);
+    return voices.any((v) => v.id == def) ? def : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final voices = EdgeTtsEngine.catalogVoices;
+    if (voices.isEmpty) return const SizedBox.shrink();
+
+    TtsVoice? pinnedInCatalog;
+    for (final v in voices) {
+      if (v.id == _pinnedVoice) {
+        pinnedInCatalog = v;
+        break;
+      }
+    }
+
+    // Nhóm theo ngôn ngữ (khoá chuẩn hoá), giữ thứ tự ưu tiên của catalog.
+    final byLang = <String, List<TtsVoice>>{};
+    final order = <String>[];
+    for (final v in voices) {
+      final lang =
+          EdgeVoicePrefs.normalizeLang(v.language).isEmpty ? 'other'
+              : EdgeVoicePrefs.normalizeLang(v.language);
+      if (!byLang.containsKey(lang)) order.add(lang);
+      byLang.putIfAbsent(lang, () => []).add(v);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.uiText('Giọng Microsoft Edge Neural theo ngôn ngữ'),
+          style: TextStyle(fontSize: 13, color: Colors.grey[400], fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          context.uiText(
+            'Mỗi ngôn ngữ chọn 1 giọng Edge. Tự động áp dụng khi phát bằng '
+            'engine Microsoft Edge TTS (không ảnh hưởng Piper/giọng máy).',
+          ),
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 4),
+        // TTS-EDGE-VOICE-003 (nghiệm thu 1.g trên máy thật): tài liệu tiếng
+        // Việt có câu tiếng Anh → câu đó nhận diện `en-US`, chưa được cấu
+        // hình giọng ⇒ Edge đọc bằng Aria (nữ) dù người dùng đã chọn Nam
+        // Minh. Công tắc này cho phép ghim một giọng dùng cho mọi ngôn ngữ
+        // CHƯA chọn giọng riêng; mặc định TẮT.
+        SwitchListTile(
+          key: const Key('edge-voice-pin-switch'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          activeColor: const Color(0xFF64B5F6),
+          value: _pinAll,
+          onChanged: (v) => _togglePin(v),
+          title: Text(
+            context.uiText('Ghim một giọng cho mọi ngôn ngữ'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text(
+            context.uiText(
+              'Câu ngoại ngữ trong tài liệu (ví dụ dòng tiếng Anh) sẽ đọc '
+              'bằng giọng ghim. Giọng riêng của từng ngôn ngữ vẫn được ưu '
+              'tiên.',
+            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          ),
+        ),
+        if (_pinAll)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButton<String>(
+                    key: const Key('edge-voice-pin-dropdown'),
+                    isExpanded: true,
+                    // DropdownButton ném assertion nếu `value` không có trong
+                    // `items` — giọng ghim có thể đến từ danh mục LIVE (đã
+                    // fetch mạng) mà catalog offline không có.
+                    value: pinnedInCatalog == null ? null : _pinnedVoice,
+                    dropdownColor: const Color(0xFF1A1A2E),
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(fontSize: 11.5, color: Colors.white),
+                    items: [
+                      for (final v in voices)
+                        DropdownMenuItem<String>(
+                          value: v.id,
+                          child: Text(
+                            context.uiText('${v.name} ${v.gender == 'male' ? '♂' : '♀'} · '
+                            '${EdgeVoicePrefs.normalizeLang(v.language)}'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (id) {
+                      if (id != null) _setPinnedVoice(id);
+                    },
+                  ),
+                ),
+                if (pinnedInCatalog == null && _pinnedVoice != null) ...[
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '${context.uiText('Đang ghim')}: ${_pinnedVoice!}',
+                      style:
+                          const TextStyle(fontSize: 10, color: Colors.white54),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 8),
+        // TTS-EDGE-VOICE-002 (audit 1.f): trước đây đổ THẲNG toàn bộ danh
+        // mục (~16 ngôn ngữ × nhiều giọng) thành một rừng RadioListTile —
+        // phải cuộn rất lâu mới tới ngôn ngữ của mình. Giờ mỗi ngôn ngữ là
+        // MỘT dòng gập lại, hiện đúng giọng đang chọn; bung ra mới thấy
+        // danh sách giọng của riêng ngôn ngữ đó.
+        for (final lang in order)
+          _EdgeVoiceLanguageTile(
+            languageLabel: _langLabel(lang),
+            voices: byLang[lang]!,
+            selectedVoiceId: _groupValueFor(lang, byLang[lang]!),
+            isExplicit: _selected.containsKey(lang),
+            onSelected: (id) async {
+              await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
+              if (!mounted) return;
+              setState(() {
+                _selected[lang] = id;
+                _lastExplicitVoice = id;
+                // Nhóm "ngôn ngữ khác" chính là ô ghim (xem EdgeVoicePrefs):
+                // chọn giọng ở đây = ghim cho mọi ngôn ngữ chưa cấu hình.
+                if (lang == 'other') {
+                  _pinAll = true;
+                  _pinnedVoice = id;
+                }
+              });
+            },
+          ),
+      ],
+    );
+  }
+}
+
+/// Một ngôn ngữ = một dòng gập (TTS-EDGE-VOICE-002).
+class _EdgeVoiceLanguageTile extends StatelessWidget {
+  const _EdgeVoiceLanguageTile({
+    required this.languageLabel,
+    required this.voices,
+    required this.selectedVoiceId,
+    required this.isExplicit,
+    required this.onSelected,
+  });
+
+  final String languageLabel;
+  final List<TtsVoice> voices;
+  final String? selectedVoiceId;
+
+  /// true = người dùng đã tự chọn; false = đang là giọng mặc định.
+  final bool isExplicit;
+
+  final Future<void> Function(String voiceId) onSelected;
+
+  static String _genderMark(TtsVoice voice) =>
+      voice.gender == 'male' ? '♂' : '♀';
+
+  @override
+  Widget build(BuildContext context) {
+    TtsVoice? current;
+    for (final voice in voices) {
+      if (voice.id == selectedVoiceId) {
+        current = voice;
+        break;
+      }
+    }
+
+    final summary = current == null
+        ? context.uiText('Giọng mặc định')
+        : '${current.name} ${_genderMark(current)}'
+            '${isExplicit ? '' : ' · ${context.uiText('mặc định')}'}';
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        iconColor: const Color(0xFF64B5F6),
+        collapsedIconColor: Colors.white38,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                languageLabel,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64B5F6),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              context.uiText('${voices.length}'),
+              style: const TextStyle(fontSize: 10, color: Colors.white30),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          summary,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, color: Colors.white60),
+        ),
+        children: [
+          for (final v in voices)
+            RadioListTile<String>(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              value: v.id,
+              // groupValue PHẢI như nhau cho mọi tile trong cùng nhóm
+              // (đúng ngữ nghĩa RadioListTile) — tính 1 lần theo ngôn ngữ.
+              groupValue: selectedVoiceId,
+              activeColor: const Color(0xFF64B5F6),
+              title: Text(
+                v.name,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              secondary: Text(
+                _genderMark(v),
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              onChanged: (id) async {
+                if (id == null) return;
+                await onSelected(id);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,0 +1,15 @@
+# Các thư mục build và cache của Flutter
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Các thư mục rác của Android/C++ Gradle
+android/.gradle/
+android/app/build/
+android/.cxx/
+**/.cxx/
+*.lock
+
+# Các file nhật ký lỗi
+*.log

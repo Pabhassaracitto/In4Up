@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up Hidden Gift — Mirror Bloom</title>
+  <desc id="desc">Mirrored n and U curves bloom around the revealed I4U monogram.</desc>
+  <defs>
+    <linearGradient id="bg" x1="65" y1="40" x2="455" y2="474" gradientUnits="userSpaceOnUse"><stop stop-color="#352B4B"/><stop offset="0.5" stop-color="#171D31"/><stop offset="1" stop-color="#081820"/></linearGradient>
+    <linearGradient id="rise" x1="213" y1="350" x2="277" y2="111" gradientUnits="userSpaceOnUse"><stop stop-color="#56D9C0"/><stop offset="1" stop-color="#F6CB62"/></linearGradient>
+    <linearGradient id="bloom" x1="116" y1="118" x2="402" y2="397" gradientUnits="userSpaceOnUse"><stop stop-color="#F6CB62"/><stop offset="0.5" stop-color="#987FE4"/><stop offset="1" stop-color="#56D9C0"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#050711" flood-opacity="0.5"/></filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- n and U are rotational mirrors; together they suggest a bloom -->
+  <path d="M104 306V224C104 158 149 119 209 119C256 119 292 143 311 181" fill="none" stroke="url(#bloom)" stroke-opacity="0.20" stroke-width="25" stroke-linecap="round"/>
+  <path d="M408 206V288C408 354 363 393 303 393C256 393 220 369 201 331" fill="none" stroke="url(#bloom)" stroke-opacity="0.25" stroke-width="25" stroke-linecap="round"/>
+  <path d="M257 101C220 124 205 150 208 180C237 178 257 157 257 101Z" fill="#F6CB62" fill-opacity="0.18"/>
+  <path d="M257 411C294 388 309 362 306 332C277 334 257 355 257 411Z" fill="#56D9C0" fill-opacity="0.20"/>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M66 203H104M85 203V324M66 324H104" stroke="#F8F3E9" stroke-width="19"/>
+    <path d="M126 324V242C126 219 140 205 159 205C180 205 193 220 193 243V324" stroke="#77DCCC" stroke-opacity="0.34" stroke-width="20"/>
+    <path d="M250 328V185L205 269H282" stroke="url(#rise)" stroke-width="23"/>
+    <path d="M301 205V272C301 308 316 326 341 326C366 326 381 308 381 272V205" stroke="#F8F3E9" stroke-width="22"/>
+    <path d="M408 365V207M408 211H433C453 211 465 225 465 244C465 264 452 278 433 278H408" stroke="#77DCCC" stroke-opacity="0.34" stroke-width="19"/>
+  </g>
+  <path d="M250 133L222 186H278L250 133Z" fill="#F6CB62"/>
+  <path d="M184 348C221 370 292 371 329 349" fill="none" stroke="url(#bloom)" stroke-width="7" stroke-linecap="round"/>
+</svg>

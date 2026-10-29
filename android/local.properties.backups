@@ -1,0 +1,8 @@
+#Merged from environment \u2014 see android/settings.gradle.kts
+#Thu May 14 22:07:30 IST 2026
+sdk.dir=E\:/LIBRARY/ANDROID/Sdk
+flutter.buildMode=debug
+flutter.versionCode=2
+ndk.dir=/home/pabahassara/Android/Sdk/ndk/27.3.13750724
+flutter.sdk=E\:/LIBRARY/FLUTTER
+flutter.versionName=1.0.0

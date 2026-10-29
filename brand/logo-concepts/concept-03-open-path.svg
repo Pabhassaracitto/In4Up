@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up — Open Path</title>
+  <desc id="desc">An open book forms a U while a central four rises into an arrow.</desc>
+  <defs>
+    <linearGradient id="bg" x1="60" y1="35" x2="460" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#30306B"/>
+      <stop offset="0.46" stop-color="#171C3B"/>
+      <stop offset="1" stop-color="#0A1328"/>
+    </linearGradient>
+    <linearGradient id="page" x1="88" y1="167" x2="424" y2="398" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B92FF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#3CAFE9" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="rise" x1="255" y1="365" x2="255" y2="105" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#59D6C0"/>
+      <stop offset="1" stop-color="#FFD36A"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#050818" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)" filter="url(#shadow)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- Open book; its lower contour is also a broad U -->
+  <path d="M70 178C132 151 196 162 256 207C316 162 380 151 442 178V348C375 344 314 362 256 405C198 362 137 344 70 348V178Z" fill="url(#page)" stroke="#F8F4EA" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M256 207V405" fill="none" stroke="#F8F4EA" stroke-width="16" stroke-linecap="round"/>
+  <path d="M91 207C146 187 199 199 238 226M421 207C366 187 313 199 274 226" fill="none" stroke="#BFC7FF" stroke-opacity="0.56" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Language / audio marks on the pages -->
+  <g fill="none" stroke="#74D9D0" stroke-width="10" stroke-linecap="round">
+    <path d="M130 246V277" opacity="0.55"/>
+    <path d="M153 230V294" opacity="0.8"/>
+    <path d="M176 250V276" opacity="0.55"/>
+    <path d="M336 250V276" opacity="0.55"/>
+    <path d="M359 230V294" opacity="0.8"/>
+    <path d="M382 246V277" opacity="0.55"/>
+  </g>
+
+  <!-- Central 4 rises beyond the book -->
+  <path d="M256 362V151L193 260H317" fill="none" stroke="url(#rise)" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M256 96L218 153H294L256 96Z" fill="#FFD36A"/>
+</svg>

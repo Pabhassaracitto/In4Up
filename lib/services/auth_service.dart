@@ -1,0 +1,585 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+
+import 'firebase_rest_auth.dart';
+
+export 'firebase_rest_auth.dart' show AppUser, FirebaseRestAuthException;
+
+class AuthService {
+  static final AuthService _instance = AuthService._();
+  factory AuthService() => _instance;
+  AuthService._();
+
+  FirebaseAuth? _authInstance;
+  FirebaseAuth get _auth {
+    try {
+      _authInstance ??= FirebaseAuth.instance;
+      return _authInstance!;
+    } catch (e) {
+      debugPrint('⚠️ AuthService: FirebaseAuth not available (Linux offline): $e');
+      // Return a dummy that will throw later but we guard usages
+      throw StateError('Firebase not initialized');
+    }
+  }
+
+  GoogleSignIn? _googleSignIn;
+
+  // ─── Getters ──────────────────────────────────────────────
+  /// True khi FlutterFire plugin khả dụng (Android/iOS/macOS/Windows/Web).
+  /// False trên Linux (firebase_auth không có implementation native)
+  /// → mọi API auth đi qua REST fallback (FirebaseRestAuth).
+  bool get isPluginAuthAvailable {
+    try {
+      return FirebaseAuth.instance.app.name.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  User? get currentUser {
+    try {
+      return _auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// User hiện tại thống nhất (plugin hoặc REST) — dùng cho UI và sync.
+  AppUser? get currentUserInfo {
+    if (isPluginAuthAvailable) {
+      final u = currentUser;
+      if (u == null) return null;
+      return _appUserFromFirebase(u);
+    }
+    return FirebaseRestAuth().currentUser;
+  }
+
+  bool get isSignedIn => currentUserInfo != null;
+  bool get isAnonymous => currentUser?.isAnonymous ?? true;
+  String? get userId => currentUserInfo?.uid;
+  String? get displayName => currentUserInfo?.displayName;
+  String? get email => currentUserInfo?.email;
+  String? get photoUrl => currentUserInfo?.photoUrl;
+
+  Stream<AppUser?>? _unifiedAuthState;
+
+  /// Stream đăng nhập thống nhất: plugin nếu có, REST nếu không (Linux).
+  /// Mỗi subscriber nhận trạng thái hiện tại ngay khi đăng ký.
+  Stream<AppUser?> get authStateChanges {
+    if (_unifiedAuthState != null) return _unifiedAuthState!;
+    if (isPluginAuthAvailable) {
+      _unifiedAuthState = _auth
+          .authStateChanges()
+          .map<AppUser?>((u) => u == null ? null : _appUserFromFirebase(u));
+    } else {
+      _unifiedAuthState = FirebaseRestAuth().authStateChanges;
+    }
+    return _unifiedAuthState!;
+  }
+
+  /// ID token hiện hành (plugin hoặc REST backend) — dùng cho REST calls.
+  Future<String?> getIdToken() async {
+    if (isPluginAuthAvailable) {
+      try {
+        return await _auth.currentUser?.getIdToken();
+      } catch (e) {
+        debugPrint('⚠️ Auth: getIdToken error: $e');
+        return null;
+      }
+    }
+    try {
+      return await FirebaseRestAuth().getIdToken();
+    } catch (e) {
+      debugPrint('⚠️ Auth: REST getIdToken error: $e');
+      return null;
+    }
+  }
+
+  AppUser _appUserFromFirebase(User u) => AppUser(
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName,
+        photoUrl: u.photoURL,
+      );
+
+  // ─── Flavor & Platform detection ──────────────────────────
+  bool get _isDesktop =>
+      !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+  String get _flavor {
+    const flavor = String.fromEnvironment('FLAVOR', defaultValue: 'stable');
+    return flavor;
+  }
+
+  // ─── OAuth Client IDs (vipsound-df903 project) ─────────────
+  static const String _envWebClientId =
+      '342774597309-7nqkge1vl8mljh6dcd5g3t1qbfi4g618.apps.googleusercontent.com';
+
+  static const String _desktopClientId =
+      '342774597309-tjmq927kqhh510vjfsqv9vcmcu947rpn.apps.googleusercontent.com';
+  // IMPORTANT: Do not hardcode real secret! Use --dart-define.
+  static const String _desktopClientSecretPlaceholder = '';
+
+  String get _webClientId {
+    const fromEnv = String.fromEnvironment('GOOGLE_WEB_CLIENT_ID');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    final envVar = Platform.environment['GOOGLE_WEB_CLIENT_ID'];
+    if (envVar != null && envVar.isNotEmpty) return envVar;
+    return _envWebClientId;
+  }
+
+  String get _desktopClientIdEnv {
+    const fromEnv = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_ID');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    final envVar = Platform.environment['GOOGLE_DESKTOP_CLIENT_ID'];
+    if (envVar != null && envVar.isNotEmpty) return envVar;
+    return _desktopClientId;
+  }
+
+  String get _desktopClientSecretEnv {
+    const fromEnv = String.fromEnvironment('GOOGLE_DESKTOP_CLIENT_SECRET');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    final envVar = Platform.environment['GOOGLE_DESKTOP_CLIENT_SECRET'];
+    if (envVar != null && envVar.isNotEmpty) return envVar;
+    return _desktopClientSecretPlaceholder;
+  }
+
+  // ─── Anonymous ────────────────────────────────────────────
+  Future<User?> signInAnonymously() async {
+    try {
+      if (isSignedIn) return currentUser;
+      final result = await _auth.signInAnonymously();
+      debugPrint('✅ Auth: anonymous → ${result.user?.uid}');
+      return result.user;
+    } catch (e, st) {
+      debugPrint('❌ Auth: anonymous error: $e\n$st');
+      return null;
+    }
+  }
+
+  // ─── Google Sign In (cross-platform) ─────────────────────
+  Future<AppUser?> signInWithGoogle() async {
+    // Firebase's redirect flow depends on sessionStorage state. In browsers
+    // that partition/clear storage (privacy mode, embedded webviews), the
+    // hosted /_auth/handler fails with "missing initial state". Use a popup
+    // flow on Flutter Web; it never relies on redirect session state.
+    if (kIsWeb) return _signInWithGoogleWeb();
+    if (_isDesktop) {
+      return _signInWithGoogleDesktop();
+    }
+    return _signInWithGoogleMobile();
+  }
+
+  // ─── Web: Firebase popup (không dùng signInWithRedirect) ─────────
+  Future<AppUser?> _signInWithGoogleWeb() async {
+    try {
+      final auth = _auth;
+      // Start the popup directly from the user gesture. Firebase's default
+      // persistence is retained; unlike redirect auth, this flow does not
+      // need a sessionStorage redirect-state round trip.
+      final provider = GoogleAuthProvider()
+        ..addScope('email')
+        ..setCustomParameters({'prompt': 'select_account'});
+      final UserCredential result;
+      if (auth.currentUser?.isAnonymous == true) {
+        result = await auth.currentUser!.linkWithProvider(provider);
+      } else {
+        result = await auth.signInWithPopup(provider);
+      }
+      final user = result.user;
+      return user == null ? null : _appUserFromFirebase(user);
+    } on FirebaseAuthException catch (e, st) {
+      debugPrint('[in4up-auth] Web popup FirebaseAuthException ${e.code}: ${e.message}\n$st');
+      throw AuthException('Đăng nhập Google trên web thất bại (${e.code}): ${e.message}');
+    } catch (e, st) {
+      debugPrint('[in4up-auth] Web popup error: $e\n$st');
+      if (e is AuthException) rethrow;
+      throw AuthException('Không mở được cửa sổ đăng nhập Google: $e');
+    }
+  }
+
+  // ─── Mobile: dùng google_sign_in package ─────────────────
+  /// Trạng thái đăng nhập + ngữ cảnh build — để logcat trả lời NGAY 3 câu
+  /// hỏi khi điều tra IN4-15:
+  ///  1. app đang chạy bản nào (applicationId = com.in4up | .dev | .beta)?
+  ///  2. phiên đăng nhập đã được KHÔI PHỤC chưa (avatar có hiện)?
+  ///  3. auth lỗi ở bước nào (đăng nhập mới vs khôi phục phiên)?
+  ///
+  /// Gọi 1 lần lúc app khởi động + mỗi lần trạng thái auth đổi.
+  Future<void> logAuthState(String phase, [Object? error]) async {
+    try {
+      final info = currentUserInfo;
+      debugPrint(
+        '[in4up-auth] STATE[$phase] '
+        'flavor=$_flavor signedIn=${info != null} '
+        'uid=${info?.uid ?? "-"} email=${info?.email ?? "-"} '
+        'plugin=${isPluginAuthAvailable}'
+        '${error == null ? '' : ' error=$error'}',
+      );
+    } catch (e) {
+      debugPrint('[in4up-auth] STATE[$phase] lỗi khi đọc trạng thái: $e');
+    }
+  }
+
+  /// IN4-79/LOGIN-CRASH-002: tách 4 bước rõ ràng, mỗi bước có log tag
+  /// `[in4up-auth]` để logcat (`adb logcat | grep in4up-auth`) chỉ đúng bước
+  /// chết — không còn "văng app" mà không biết lỗi ở đâu. Mọi lỗi Dart
+  /// được bọc thành AuthException kèm hành động, không để crash trần.
+  Future<AppUser?> _signInWithGoogleMobile() async {
+    final sw = Stopwatch()..start();
+    debugPrint(
+        '[in4up-auth] ===== BEGIN Google sign-in (mobile) flavor=$_flavor =====');
+    debugPrint(
+        '[in4up-auth] env: serverClientId=$_webClientId pluginAuth=${isPluginAuthAvailable}');
+    try {
+      // [1/4] Khởi tạo GoogleSignIn
+      GoogleSignIn gs;
+      try {
+        gs = GoogleSignIn(
+          scopes: ['email', 'profile', 'openid'],
+          serverClientId: _webClientId,
+        );
+        _googleSignIn = gs;
+        debugPrint('[in4up-auth] [1/4] GoogleSignIn tạo OK');
+      } catch (e, st) {
+        debugPrint('[in4up-auth] [1/4] TẠO GoogleSignIn LỖI: $e\n$st');
+        throw AuthException(
+          'Không khởi tạo được Google Sign-In ($e). '
+          'Khởi động lại app rồi thử lại.',
+        );
+      }
+
+      // [2/4] Màn chọn tài khoản Google
+      final GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await gs.signIn();
+        debugPrint('[in4up-auth] [2/4] signIn() trả về: '
+            '${googleUser == null ? "bỏ qua" : googleUser.email}');
+      } on PlatformException catch (e, st) {
+        debugPrint('[in4up-auth] [2/4] signIn() PlatformException '
+            'code=${e.code} message=${e.message} details=${e.details}\n$st');
+        if (e.code == 'canceled' || e.code == 'sign_in_canceled') {
+          return null; // người dùng tự đóng màn Google
+        }
+        throw AuthException(
+          'Google Sign-In lỗi trên thiết bị (code ${e.code}): ${e.message}\n'
+          '• Kiểm tra Google Play Services có đủ mới không (Cửa hàng → Play Services).\n'
+          '• Chi tiết: ${e.details ?? e}',
+        );
+      } catch (e, st) {
+        debugPrint('[in4up-auth] [2/4] signIn() LỖI: $e\n$st');
+        if (e is AuthException) rethrow;
+        throw AuthException('Không mở được đăng nhập Google: $e');
+      }
+      if (googleUser == null) return null;
+
+      // [3/4] Lấy ID token (chơi vơi bước này nếu SHA-1/OAuth client sai)
+      final GoogleSignInAuthentication googleAuth;
+      try {
+        googleAuth = await googleUser.authentication;
+      } catch (e, st) {
+        debugPrint('[in4up-auth] [3/4] authentication LỖI: $e\n$st');
+        if (e is AuthException) rethrow;
+        throw AuthException('Lấy credential từ Google thất bại: $e');
+      }
+      debugPrint(
+          '[in4up-auth] [3/4] idToken present=${googleAuth.idToken != null}, accessToken present=${googleAuth.accessToken != null}');
+
+      if (googleAuth.idToken == null) {
+        debugPrint('❌ Auth Mobile: idToken is null! Check SHA1/SHA256 in Firebase Console and serverClientId');
+        throw AuthException(
+          'Không lấy được ID token từ Google. '
+          'Kiểm tra:\n'
+          '1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? '
+          '(Project Settings > Your apps > SHA certificate fingerprints)\n'
+          '2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\n'
+          '3. serverClientId=$_webClientId có đúng Web client không?',
+        );
+      }
+
+      // [4/4] Đăng nhập Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      final user = await _signInToFirebase(credential);
+      debugPrint(
+          '[in4up-auth] ===== DONE OK after ${sw.elapsedMilliseconds}ms =====');
+      return user == null ? null : _appUserFromFirebase(user);
+    } on FirebaseAuthException catch (e, st) {
+      debugPrint('❌ Auth Mobile: FirebaseAuthException ${e.code} ${e.message}\n$st');
+      if (e.code == 'account-exists-with-different-credential') {
+        throw AuthException(
+          'Email này đã được đăng ký bằng phương thức khác. '
+          'Hãy đăng nhập bằng phương thức cũ trước, rồi liên kết Google.',
+        );
+      }
+      if (e.code == 'invalid-credential' || e.code == 'ERROR_INVALID_CREDENTIAL') {
+        throw AuthException(
+          'Credential không hợp lệ. Có thể do SHA-1 chưa khớp hoặc OAuth client sai.\n'
+          'Chi tiết: ${e.message}',
+        );
+      }
+      throw AuthException('Lỗi Firebase Auth (${e.code}): ${e.message}');
+    } catch (e, st) {
+      debugPrint(
+          '[in4up-auth] ===== FAILED after ${sw.elapsedMilliseconds}ms: $e\n$st');
+      if (e is AuthException) rethrow;
+      throw AuthException('Lỗi đăng nhập Google: $e');
+    }
+  }
+
+  // ─── Desktop: OAuth2 qua localhost + browser ─────────────
+  Future<AppUser?> _signInWithGoogleDesktop() async {
+    final clientId = _desktopClientIdEnv;
+    final clientSecret = _desktopClientSecretEnv;
+
+    if (clientId.isEmpty || clientId.startsWith('YOUR_')) {
+      debugPrint('❌ Auth: Chưa cấu hình Desktop OAuth Client ID');
+      throw AuthException(
+        'Chưa cấu hình Google Sign In cho Desktop.\n'
+        'Tạo OAuth client ID loại Desktop app trong Google Cloud Console > APIs & Services > Credentials.\n'
+        'Truyền qua --dart-define=GOOGLE_DESKTOP_CLIENT_ID=xxx --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=yyy '
+        'hoặc đặt env var GOOGLE_DESKTOP_CLIENT_ID/SECRET.',
+      );
+    }
+
+    if (clientSecret.isEmpty) {
+      debugPrint('❌ Auth: Chưa cấu hình Desktop OAuth Client Secret');
+      throw AuthException(
+        'Chưa cấu hình GOOGLE_DESKTOP_CLIENT_SECRET.\n'
+        'Lấy secret từ Google Cloud Console và truyền qua --dart-define hoặc env.\n'
+        'Ví dụ: flutter run -d windows --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET=GOCSPX-...',
+      );
+    }
+
+    debugPrint('🔥 Auth Desktop: clientId=$clientId, flavor=$_flavor');
+
+    HttpServer? server;
+    try {
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final port = server.port;
+      final redirectUri = 'http://localhost:$port';
+
+      debugPrint('🔥 Auth Desktop: localhost server on port $port');
+
+      final authUrl = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
+        'client_id': clientId,
+        'redirect_uri': redirectUri,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'access_type': 'offline',
+        'prompt': 'select_account',
+      });
+
+      debugPrint('🔥 Auth Desktop: opening browser $authUrl');
+      if (!await launchUrl(authUrl, mode: LaunchMode.externalApplication)) {
+        throw AuthException('Không thể mở trình duyệt. Hãy thử copy URL: $authUrl');
+      }
+
+      debugPrint('🔥 Auth Desktop: waiting for redirect (3 min timeout)...');
+      final code = await _waitForCode(server).timeout(
+        const Duration(minutes: 3),
+        onTimeout: () => throw AuthException('Hết giờ đăng nhập (3 phút) - bạn chưa hoàn tất trong browser'),
+      );
+
+      if (code == null) {
+        throw AuthException('Không nhận được authorization code từ Google. Bạn có bấm Deny không?');
+      }
+
+      debugPrint('🔥 Auth Desktop: got code, exchanging for token...');
+
+      final tokenResponse = await http.post(
+        Uri.https('oauth2.googleapis.com', '/token'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'client_id': clientId,
+          'client_secret': clientSecret,
+          'code': code,
+          'grant_type': 'authorization_code',
+          'redirect_uri': redirectUri,
+        },
+      );
+
+      debugPrint('🔥 Auth Desktop: token response ${tokenResponse.statusCode} ${tokenResponse.body}');
+
+      if (tokenResponse.statusCode != 200) {
+        throw AuthException(
+            'Token exchange thất bại (${tokenResponse.statusCode}): ${tokenResponse.body}\n'
+            'Kiểm tra clientSecret và redirectUri.');
+      }
+
+      final tokenData = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
+      final idToken = tokenData['id_token'] as String?;
+      final accessToken = tokenData['access_token'] as String?;
+
+      if (idToken == null) {
+        throw AuthException('Không nhận được ID token từ Google. Response: ${tokenResponse.body}');
+      }
+
+      if (isPluginAuthAvailable) {
+        final credential = GoogleAuthProvider.credential(
+          idToken: idToken,
+          accessToken: accessToken,
+        );
+
+        final user = await _signInToFirebase(credential);
+        return user == null ? null : _appUserFromFirebase(user);
+      }
+
+      // Linux (firebase_auth không có plugin native): đăng nhập Firebase qua
+      // REST. OAuth browser flow phía trên dùng chung với Windows — chỉ khác
+      // bước trao đổi credential cuối cùng.
+      debugPrint('🔥 Auth Desktop: Firebase plugin không khả dụng → REST signInWithIdp');
+      try {
+        return await FirebaseRestAuth().signInWithGoogleIdToken(
+          googleIdToken: idToken,
+          requestUri: redirectUri,
+        );
+      } on FirebaseRestAuthException catch (e) {
+        throw AuthException('Đăng nhập Firebase (REST) thất bại: ${e.message}');
+      }
+    } on AuthException {
+      rethrow;
+    } catch (e, st) {
+      debugPrint('❌ Auth Desktop: error: $e\n$st');
+      throw AuthException('Lỗi đăng nhập Desktop: $e');
+    } finally {
+      await server?.close(force: true);
+    }
+  }
+
+  Future<String?> _waitForCode(HttpServer server) async {
+    await for (final request in server) {
+      final code = request.uri.queryParameters['code'];
+      final error = request.uri.queryParameters['error'];
+
+      final html = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VipSound - Đăng nhập</title>
+  <style>
+    body { font-family: sans-serif; display: flex; justify-content: center;
+           align-items: center; height: 100vh; margin: 0;
+           background: #0F0F23; color: white; flex-direction: column; gap: 16px; }
+    .icon { font-size: 48px; }
+    h2 { margin: 0; }
+    p { margin: 0; color: #aaa; text-align: center; padding: 0 20px; }
+  </style>
+</head>
+<body>
+  ${error != null ? '''
+    <div class="icon">❌</div>
+    <h2>Đăng nhập thất bại</h2>
+    <p>$error</p>
+  ''' : '''
+    <div class="icon">✅</div>
+    <h2>Đăng nhập thành công!</h2>
+    <p>Bạn có thể đóng tab này và quay lại VipSound.</p>
+    <script>setTimeout(() => window.close(), 2000);</script>
+  '''}
+</body>
+</html>''';
+
+      request.response
+        ..statusCode = 200
+        ..headers.set('Content-Type', 'text/html; charset=utf-8')
+        ..write(html);
+      await request.response.close();
+
+      if (error != null) {
+        debugPrint('⚠️ Auth Desktop: OAuth error: $error');
+        return null;
+      }
+
+      return code;
+    }
+    return null;
+  }
+
+  // ─── Firebase sign in (shared) ────────────────────────────
+  Future<User?> _signInToFirebase(OAuthCredential credential) async {
+    try {
+      if (_auth.currentUser?.isAnonymous == true) {
+        try {
+          final result =
+              await _auth.currentUser!.linkWithCredential(credential);
+          final user = result.user;
+          debugPrint('✅ Auth: anonymous linked → ${user?.email} ${user?.uid}');
+          return result.user;
+        } on FirebaseAuthException catch (e) {
+          debugPrint('⚠️ Auth: link failed ${e.code}, try signIn: ${e.message}');
+          if (e.code == 'credential-already-in-use' ||
+              e.code == 'email-already-in-use') {
+            final result = await _auth.signInWithCredential(credential);
+            final user = result.user;
+            debugPrint('✅ Auth: existing account → ${user?.email} ${user?.uid}');
+            return result.user;
+          }
+          rethrow;
+        }
+      }
+
+      final result = await _auth.signInWithCredential(credential);
+      final user = result.user;
+      debugPrint('✅ Auth: signed in → ${user?.email} ${user?.uid} flavor=$_flavor');
+      return result.user;
+    } on FirebaseAuthException catch (e, st) {
+      debugPrint('❌ Auth _signInToFirebase FirebaseException ${e.code}: ${e.message}\n$st');
+      if (e.code == 'unknown' || e.code == 'unknown-error') {
+        throw AuthException(
+          'Firebase Auth lỗi không xác định (unknown-error).\n'
+          'Nguyên nhân thường gặp:\n'
+          '1. FirebaseOptions sai project (gen-lang vs vipsound-df903) - ĐÃ FIX bằng firebase_options.dart mới\n'
+          '2. google-services.json thiếu SHA-1/SHA-256 cho flavor $_flavor\n'
+          '   → Vào Firebase Console > Project Settings > Your apps > SHA certificate fingerprints > thêm SHA-1 và SHA-256 từ keystore\n'
+          '   Debug keystore SHA-1 hiện tại thường là: lấy bằng `gradlew signingReport`\n'
+          '3. Google provider chưa bật: Firebase Console > Authentication > Sign-in method > Google > Enable\n'
+          '4. API key bị hạn chế: Google Cloud Console > APIs & Services > Credentials > API key > Application restrictions\n'
+          'Chi tiết gốc: ${e.message}',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  // ─── Sign Out ─────────────────────────────────────────────
+  Future<void> signOut() async {
+    try {
+      if (!_isDesktop) {
+        await _googleSignIn?.signOut();
+      }
+    } catch (e) {
+      debugPrint('❌ Auth: Google sign out error: $e');
+    }
+    if (isPluginAuthAvailable) {
+      try {
+        await _auth.signOut();
+      } catch (e) {
+        debugPrint('❌ Auth: Firebase sign out error: $e');
+      }
+    } else {
+      // Linux: kết thúc phiên REST
+      await FirebaseRestAuth().signOut();
+    }
+    debugPrint('✅ Auth: signed out flavor=$_flavor');
+  }
+}
+
+class AuthException implements Exception {
+  final String message;
+  AuthException(this.message);
+
+  @override
+  String toString() => message;
+}

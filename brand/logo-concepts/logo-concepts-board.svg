@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1800 1400" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up — Four logo directions</title>
+  <desc id="desc">A comparison board showing Inner Rise, Ensō Signal, Open Path and Hidden Gift logo concepts.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1800" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071A2A"/>
+      <stop offset="0.58" stop-color="#102B43"/>
+      <stop offset="1" stop-color="#17283B"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#F4C95D"/>
+      <stop offset="1" stop-color="#53D6BD"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#172033" flood-opacity="0.12"/>
+    </filter>
+    <style>
+      .font { font-family: 'DejaVu Sans', Arial, sans-serif; }
+      .eyebrow { font-size: 18px; font-weight: 700; letter-spacing: 4px; }
+      .title { font-size: 52px; font-weight: 700; letter-spacing: -2px; }
+      .body { font-size: 21px; font-weight: 400; }
+      .small { font-size: 17px; font-weight: 400; }
+      .concept { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+      .wordmark { font-size: 65px; font-weight: 700; letter-spacing: -4px; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1400" fill="#F3F1EB"/>
+  <path d="M0 0H1800V283C1490 340 1240 249 908 294C583 338 318 347 0 273V0Z" fill="url(#header)"/>
+  <circle cx="1605" cy="74" r="180" fill="#53D6BD" opacity="0.05"/>
+  <circle cx="1710" cy="180" r="120" fill="#F4C95D" opacity="0.06"/>
+
+  <g class="font">
+    <text x="80" y="72" class="eyebrow" fill="#7BE0CE">IN4UP · BRAND EXPLORATION / 01</text>
+    <text x="80" y="146" class="title" fill="#F8F4EA">Bốn hướng logo — một tinh thần hướng thượng</text>
+    <text x="82" y="199" class="body" fill="#B9C7D4">Học ngôn ngữ · Nghe Pháp · Chiều sâu tri thức · Chuyển hóa nội tâm · I For You</text>
+    <rect x="80" y="231" width="118" height="8" rx="4" fill="#F4C95D"/>
+    <rect x="205" y="231" width="72" height="8" rx="4" fill="#53D6BD"/>
+  </g>
+
+  <!-- Card 01 -->
+  <g filter="url(#cardShadow)">
+    <rect x="70" y="325" width="805" height="455" rx="36" fill="#FFFFFF"/>
+  </g>
+  <image href="concept-01-inner-rise.svg" xlink:href="concept-01-inner-rise.svg" x="100" y="360" width="350" height="350"/>
+  <g class="font">
+    <rect x="480" y="365" width="106" height="34" rx="17" fill="#E9F8F4"/>
+    <text x="533" y="388" text-anchor="middle" font-size="14" font-weight="700" letter-spacing="1.5" fill="#188875">ĐỀ XUẤT</text>
+    <text x="480" y="444" class="concept" fill="#10243A">01 · INNER RISE</text>
+    <text x="480" y="528" class="wordmark" fill="#10243A">In<tspan fill="#D9A62D">4</tspan><tspan fill="#188875">Up</tspan></text>
+    <text x="482" y="568" class="eyebrow" fill="#688093" font-size="14">TRI THỨC HƯỚNG THƯỢNG</text>
+    <text x="482" y="620" class="small" fill="#40566A">I4U rõ nhất · số 4 thành mũi tên đi lên.</text>
+    <text x="482" y="651" class="small" fill="#40566A">Gọn, hiện đại, dễ nhớ ở kích thước app icon.</text>
+    <text x="482" y="704" font-size="15" font-weight="700" fill="#9B7A29">THƯƠNG HIỆU</text>
+    <text x="612" y="704" font-size="15" font-weight="700" fill="#188875">CÔNG NGHỆ</text>
+    <text x="725" y="704" font-size="15" font-weight="700" fill="#40566A">I4U</text>
+  </g>
+
+  <!-- Card 02 -->
+  <g filter="url(#cardShadow)">
+    <rect x="925" y="325" width="805" height="455" rx="36" fill="#FFFFFF"/>
+  </g>
+  <image href="concept-02-enso-signal.svg" xlink:href="concept-02-enso-signal.svg" x="955" y="360" width="350" height="350"/>
+  <g class="font">
+    <text x="1335" y="406" class="concept" fill="#10243A">02 · ENSŌ SIGNAL</text>
+    <text x="1335" y="500" class="wordmark" fill="#10243A">In<tspan fill="#C6952B">4</tspan><tspan fill="#188875">Up</tspan></text>
+    <text x="1337" y="540" class="eyebrow" fill="#688093" font-size="14">LẮNG NGHE ĐỂ CHUYỂN HÓA</text>
+    <text x="1337" y="592" class="small" fill="#40566A">Ensō mở · sóng âm · chữ U như chiếc bát</text>
+    <text x="1337" y="623" class="small" fill="#40566A">lắng nghe. Tĩnh và sâu, hợp nhất với</text>
+    <text x="1337" y="654" class="small" fill="#40566A">mảng nghe Pháp.</text>
+    <text x="1337" y="708" font-size="15" font-weight="700" fill="#9B7A29">TĨNH LẶNG</text>
+    <text x="1454" y="708" font-size="15" font-weight="700" fill="#188875">ÂM THANH</text>
+    <text x="1560" y="708" font-size="15" font-weight="700" fill="#40566A">PHÁP HỌC</text>
+  </g>
+
+  <!-- Card 03 -->
+  <g filter="url(#cardShadow)">
+    <rect x="70" y="830" width="805" height="455" rx="36" fill="#FFFFFF"/>
+  </g>
+  <image href="concept-03-open-path.svg" xlink:href="concept-03-open-path.svg" x="100" y="865" width="350" height="350"/>
+  <g class="font">
+    <text x="480" y="911" class="concept" fill="#10243A">03 · OPEN PATH</text>
+    <text x="480" y="1005" class="wordmark" fill="#10243A">In<tspan fill="#D9A62D">4</tspan><tspan fill="#6257CA">Up</tspan></text>
+    <text x="482" y="1045" class="eyebrow" fill="#688093" font-size="14">NGHE · ĐỌC · HIỂU · NHỚ</text>
+    <text x="482" y="1097" class="small" fill="#40566A">Sách mở thành chữ U; sóng âm nằm trên trang.</text>
+    <text x="482" y="1128" class="small" fill="#40566A">Dễ hiểu ngay: một sản phẩm EdTech</text>
+    <text x="482" y="1159" class="small" fill="#40566A">đa phương thức.</text>
+    <text x="482" y="1200" font-size="15" font-weight="700" fill="#6257CA">GIÁO DỤC</text>
+    <text x="587" y="1200" font-size="15" font-weight="700" fill="#188875">NGÔN NGỮ</text>
+    <text x="704" y="1200" font-size="15" font-weight="700" fill="#40566A">RÕ NGÀNH</text>
+  </g>
+
+  <!-- Card 04 -->
+  <g filter="url(#cardShadow)">
+    <rect x="925" y="830" width="805" height="455" rx="36" fill="#FFFFFF"/>
+  </g>
+  <image href="concept-04-hidden-gift.svg" xlink:href="concept-04-hidden-gift.svg" x="955" y="865" width="350" height="350"/>
+  <g class="font">
+    <text x="1335" y="911" class="concept" fill="#10243A">04 · HIDDEN GIFT</text>
+    <text x="1335" y="1005" class="wordmark" fill="#10243A">I<tspan fill="#85A5A2" fill-opacity="0.45">n</tspan><tspan fill="#D9A62D">4</tspan>U<tspan fill="#85A5A2" fill-opacity="0.45">p</tspan></text>
+    <text x="1337" y="1045" font-size="13" font-weight="700" letter-spacing="1.35" fill="#688093">I FOR YOU · TRI THỨC ĐỂ PHỤNG SỰ</text>
+    <text x="1337" y="1097" class="small" fill="#40566A">Cho n và p lùi nhẹ để I4U hiện ra</text>
+    <text x="1337" y="1128" class="small" fill="#40566A">bên trong In4Up. Câu chuyện thương hiệu</text>
+    <text x="1337" y="1159" class="small" fill="#40566A">ấm áp và khác biệt nhất.</text>
+    <text x="1337" y="1200" font-size="15" font-weight="700" fill="#9B7A29">PHỤNG SỰ</text>
+    <text x="1457" y="1200" font-size="15" font-weight="700" fill="#188875">CẢM XÚC</text>
+    <text x="1566" y="1200" font-size="15" font-weight="700" fill="#40566A">STORY</text>
+  </g>
+
+  <g class="font">
+    <rect x="70" y="1326" width="1660" height="1" fill="#CBD2D6"/>
+    <text x="70" y="1364" class="small" fill="#5C6C77">Khuyến nghị: dùng 01 làm logo chính · mượn nét Ensō của 02 cho nội dung Pháp · dùng 04 như “easter egg” trong câu chuyện thương hiệu.</text>
+    <text x="1730" y="1364" text-anchor="end" class="eyebrow" fill="#9A7B32" font-size="12">VECTOR DRAFT · 2026</text>
+  </g>
+</svg>

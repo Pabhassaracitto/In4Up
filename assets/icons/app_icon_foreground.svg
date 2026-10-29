@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">In4Up Quiet Reveal — adaptive foreground</title>
+  <desc id="desc">Safe-zone foreground for adaptive and maskable app icons.</desc>
+  <defs>
+    <linearGradient id="rise" x1="207" y1="344" x2="268" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#53D6BD"/>
+      <stop offset="1" stop-color="#F4C95D"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(87.04 87.04) scale(0.66)">
+    <path d="M117 159C157 107 222 84 284 95C334 104 376 132 402 172" fill="none" stroke="#F4C95D" stroke-opacity="0.18" stroke-width="8" stroke-linecap="round"/>
+    <path d="M395 350C358 402 294 426 231 417C179 410 135 381 107 341" fill="none" stroke="#53D6BD" stroke-opacity="0.20" stroke-width="8" stroke-linecap="round"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M47 192H91M69 192V330M47 330H91" stroke="#F8F4EA" stroke-width="21"/>
+      <path d="M112 330V237C112 210 129 194 151 194C175 194 190 211 190 238V330" stroke="#73D8C7" stroke-opacity="0.34" stroke-width="22"/>
+      <path d="M247 334V178L197 269H279" stroke="url(#rise)" stroke-width="25"/>
+      <path d="M300 198V273C300 313 316 333 343 333C370 333 386 313 386 273V198" stroke="#F8F4EA" stroke-width="24"/>
+      <path d="M414 377V199M414 203H440C461 203 473 218 473 239C473 260 460 275 440 275H414" stroke="#73D8C7" stroke-opacity="0.34" stroke-width="21"/>
+    </g>
+    <path d="M247 119L216 180H278L247 119Z" fill="#F4C95D"/>
+    <path d="M156 359H356" stroke="#D8EFEA" stroke-opacity="0.24" stroke-width="3" stroke-linecap="round"/>
+    <g fill="#53D6BD">
+      <circle cx="222" cy="389" r="4" opacity="0.45"/>
+      <circle cx="245" cy="389" r="4" opacity="0.65"/>
+      <circle cx="268" cy="389" r="4" opacity="0.82"/>
+      <circle cx="291" cy="389" r="4"/>
+    </g>
+  </g>
+</svg>

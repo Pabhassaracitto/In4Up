@@ -1,0 +1,28 @@
+# PATCH NGOÀI LANE B3 (courtesy cho owner) — fix CI đang chặn MỌI build
+# ---------------------------------------------------------------------
+# Triệu chứng: workflow `.github/workflows/build.yml` báo "This run likely failed
+# because of a workflow file issue" (không có job nào chạy) trên MỌI branch push —
+# kể cả nhánh tích hợp arena/01a0251e-in4up — từ commit 403658a (2026-09-23,
+# "Update APK renaming and Windows build process"). Vì vậy tag `v*` và
+# workflow_dispatch cũng không build được APK/Windows/iOS nữa.
+#
+# Nguyên nhân: dòng 265 nằm trong block scalar `run: |` (nội dung thụt 10 space)
+# nhưng chỉ thụt 9 space ⇒ block scalar kết thúc sớm, YAML không parse được.
+#
+# Áp patch (1 dòng, 1 space):
+#   git apply docs/project/CI-BUILD-YML-INDENT-FIX.patch
+# Hoặc sửa tay trên GitHub web: dòng 265 thêm 1 space cho khớp các dòng trên/dưới.
+#
+# (Agent Arena không tự push được file .github/workflows/** — GitHub App token
+#  thiếu quyền `workflows`; push chứa file workflow bị từ chối.)
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -262,7 +262,7 @@
+             Write-Host "##[error]Zip chi $sizeMB MB (< 10 MB) — bundle Release khong day du!"
+             exit 1
+           }
+-         Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
++          Get-ChildItem $RELEASE_DIR | Select-Object Name, Length
+ 
+       - name: Upload Windows artifact
+         uses: actions/upload-artifact@v4

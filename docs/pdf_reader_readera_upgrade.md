@@ -1,0 +1,582 @@
+# PDF Reader — phân tích hiện trạng & đề xuất nâng cấp (tham chiếu ReadEra)
+
+> Bản thảo luận (chưa phải kế hoạch đã chốt). Mọi nhận định đều kèm `file:dòng`
+> để kiểm chứng. Ngày phân tích: 05-09-2026, branch `arena/01a07250-in4up`.
+>
+> **CẬP NHẬT 05-09-2026 — WAVE 0 + WAVE 1 (đợt A: mục lục/tìm kiếm/thumbnail) ĐÃ CODE, CI 🟢**
+> (mục 4.0 và 4.1). P0-1…P0-4,
+> P0-6…P0-18 được xử lý ở tầng mã; P0-5 có migration; P0-11/12 còn mở (xem 4.0.3).
+> Máy dev không có Flutter SDK ⇒ nghiệm thu static dựa vào CI: workflow
+> `App analyze (wide oracle)` chạy `flutter analyze` (chỉ ERROR mới fatal) +
+> `test/locale_chrome_no_vietnamese_test.dart` — **xanh ở `370ff91`**
+> (run 33984585516, cả hai step). Còn lại: **nghiệm thu trên thiết bị** (mục 7).
+> Đối chiếu: ReadEra (Play Store `org.readera`, iOS `id1669188337`, changelog
+> 1.1.0 → 1.2.2 + Android 26.05.20) và tài liệu `pdfrx` (pub.dev, 2.6.1).
+
+---
+
+## 0. TL;DR — 12 dòng
+
+1. **Phần "não" của tool này đã ở mức rất tốt** (tap từ → CEFR/từ loại/ghi nhớ,
+   recall markers, lưu theo topic+language, mở lại đúng ngữ cảnh, nguồn cho Viết).
+   Đó là thứ ReadEra **không có**. Đừng từ bỏ để đuổi theo ReadEra.
+2. **Phần "cơ thể" (reader mechanics) thì chưa đạt mức chuyên nghiệp**: thiếu
+   search trong tài liệu, thiếu TOC/outline, thiếu thumbnail, thiếu bookmark thật,
+   thiếu theme ngày/đêm/sepia, thiếu layout hai trang/cắt lề, thiếu progress %
+   ở thư viện.
+3. Có **3 lỗi làm hỏng đúng tính năng đinh**, và chúng cheap to fix:
+   (a) **không bôi đen được chữ ở chế độ PDF** → toàn bộ SelectionBar (6 hành động)
+   không bao giờ hiện; (b) **nút prev/next trên thanh TTS là nút giả** (no-op);
+   (c) **TTS trong PDF không highlight từ/câu** dù overlay đã có sẵn tham số.
+4. ReadEra dạy ta một nguyên tắc thiết kế: **chrome tối giản + một nút chạm ở góc
+   trên-phải để bookmark**, mọi thứ khác ẩn vào "About document". Hiện tại
+   toolbar PDF của ta có 5 chip chữ + FAB + bottom bar → quá tải khi đọc.
+5. ReadEra **không copy file vào app** và **giữ bookmark/progress ngay cả khi file
+   bị xoá/di chuyển**. Ta thì khoá toàn bộ ghi chú theo `pdfPath.hashCode`
+   (32-bit, va chạm được, mất sạch khi file đổi đường dẫn) — đây là lỗ hổng
+   niềm tin lớn nhất của một tool đọc tài liệu.
+6. Kiến trúc overlay hiện tại (GestureDetector phủ kín từng trang + `setState`
+   toàn màn hình mỗi khi viewer báo hiệu) vừa **chống lại gesture của pdfrx**
+   (pan/zoom/selection) vừa **tốn frame** khi cuộn. pdfrx 2.4.0 thêm
+   `PdfOverlayInteractionRegion` đúng vì issue #376 này.
+7. Ràng buộc nâng cấp pdfrx: repo pin `pdfrx: ^2.2.24` (pubspec.yaml:96), CI
+   Flutter **3.44.1 / Dart 3.11.5**. pdfrx **2.5.0 trở lên yêu cầu Flutter 3.47**
+   → trần khả dụng ngay bây giờ là **2.4.8** (vẫn có `PdfOverlayInteractionRegion`,
+   fix selection/tiến trình tải trang, fix `PdfPageView` rò ảnh). Muốn 2.6.x thì
+   phải nâng toolchain — quyết định riêng, tầm ảnh hưởng lớn hơn PDF.
+8. Text extraction đang **bỏ qua cấu trúc fragment/block/line** → PDF 2 cột đọc
+   nhầm thứ tự, TTS đọc lẫn chân trang/số trang. Cần `PdfLayoutEngine` nếu muốn
+   "chuyên nghiệp" thật sự.
+9. Text Mode extract **cả tài liệu trong một vòng lặp trên UI isolate**
+   (pdf_text_extractor.dart:53-60) → treo với file vài trăm trang, không % tiến độ.
+10. `Song ngữ EN → VN` hiện **chỉ đọc tiếng Anh** (controller:452-470, code comment
+    nhận "bỏ qua phần dịch"). UI đang hứa một thứ không tồn tại.
+11. **Chưa có test nào** cho `pdf_reader` (`grep -rl PdfReader test/` = 0) + **vi phạm
+    quy tắc vàng #5** ở ~12 chuỗi chrome hardcode tiếng Việt (không có trong ARB,
+    overrides lẫn generated catalog).
+12. Đề xuất: **Wave 0 sửa đúng-đã (2–3 ngày) → Wave 1 reader fundamentals
+    (ReadEra parity) → Wave 2 thư viện/continuity → Wave 3 chất riêng
+    (learning brain) → Wave 4 perf/a11y/keyboard**. Chi tiết mục 4.
+
+---
+
+## 1. Hiện trạng
+
+### 1.1 Bản đồ code (`lib/features/pdf_reader/`, 5.605 dòng)
+
+| File | Dòng | Vai trò |
+|---|---|---|
+| `pdf_reader_screen.dart` | 1402 | Scaffold, chrome auto-hide, PdfViewer + overlays, Text Mode, SelectionBar, AnnotationManager, tap→word sheet |
+| `pdf_reader_controller.dart` | 715 | Document, ColorMode, grammar presets, words cache, TTS, annotations, VocabContext |
+| `widgets/pdf_word_tap_sheet.dart` | 1037 | Sheet tra từ/lưu từ/hồ sơ tri thức |
+| `widgets/pdf_toolbar.dart` | 598 | Top chrome + Options sheet |
+| `widgets/pdf_annotation_sheet.dart` | 429 | Xem/sửa/xoá ghi chú |
+| `widgets/pdf_wordlist_panel.dart` | 345 | Panel từ đã lưu (split view) |
+| `widgets/pdf_word_overlay.dart` | 311 | CustomPaint highlight từ / focus cue / recall |
+| `widgets/pdf_tts_bar.dart` | 256 | Bottom chrome TTS |
+| `services/pdf_text_extractor.dart` | 200 | `loadText()` → fullText + charRects, cache |
+| `services/pdf_annotation_storage.dart` | 103 | Hive JSON, key theo path |
+| `models/*`, `pdf_annotation_layer.dart` | 213 | PdfWordInfo, PdfAnnotation, layer |
+
+### 1.2 Điểm mạnh thật sự (giữ nguyên, đừng đụng)
+
+- **Ba chế độ tô màu** (`ColorMode`: wordType / cefrLevel / difficulty) + grammar
+  preset/palette dùng chung với Web Reader → đây là "đặc sản" không reader phổ thông nào có.
+- **Mỗi từ mang theo ngữ cảnh** (`PdfWordInfo.contextSnippet`, `startOffset/endOffset`,
+  `rectHint`, `pageIndexHint`) → reopened đúng chỗ theo quy tắc vàng #3.
+- **Ba ngả lưu** (WordList + Vườn Nhớ/SM-2 + Unified Knowledge) và **batch save từ trang**
+  (`SelectionSaveSheet`) → flow học từ liền mạch, không rời màn hình đọc.
+- **Text Mode** → đẩy toàn bộ chữ vào Read Mode / Writing Studio (rewrite/summary).
+- **Đã có 8 điểm vào** (`PdfReaderScreen(` tại main_shell:716, empty_state:194, library:228/293/392, quick_library:85, text_library_drawer:355, unified_knowledge_sheet:724) (main_shell tool, library, quick library, empty state,
+  text_library_drawer, unified_knowledge_sheet…) → không phải tool mồ côi.
+
+### 1.3 Những gì ReadEra có mà ta chưa có (mục 3 chi tiết)
+
+Search trong file · TOC/outline + tiến chương · thumbnail/page grid · bookmark ·
+theme (day/night/sepia/console) · fit width/page + crop margin + hai trang ·
+single-column cho trang scan · progress line kéo được · % tiến độ + cover trong
+thư viện · multi-document · keyboard shortcuts · TTS chạy nền có notification ·
+**và điểm mấu chốt: toàn bộ trạng thái đọc sống sót khi file bị di chuyển/xoá.**
+
+---
+
+## 2. Lỗi & đứt gãy trải nghiệm (P0) — có bằng chứng
+
+| # | Vấn đề | Bằng chứng | Hệ quả với người dùng |
+|---|---|---|---|
+| P0-1 | **Chế độ PDF không bôi đen được text.** `setSelection()` chỉ được gọi từ `SelectableText` của Text Mode. Không có dòng nào nối `PdfViewerController` selection → controller, dù comment ở `pdf_reader_screen.dart:73` nói "Đồng bộ vùng chọn từ PDF Viewer vào controller" | `pdf_reader_screen.dart:549` (chỗ duy nhất gọi), `:73-78` | SelectionBar với 6 hành động (note, save wordlist, Text Studio, TTS, Vườn Nhớ, reopen-recall) **vô dụng ở chế độ PDF** — tính năng đinh bị chôn |
+| P0-2 | **Nút prev/next trang trên thanh TTS là no-op**: `onTap` chỉ gọi callback + haptic, comment thừa nhận "Signal via a callback if needed" | `pdf_tts_bar.dart:64-75`, `:122-137` | Nút hiện ra, bấm không có gì → mất niềm tin vào cả app |
+| P0-3 | **TTS không highlight khi đọc trong PDF**: `_currentSpeakingWord` không bao giờ được gán (chỉ bị reset) → `PdfWordOverlay.speakingWord` luôn null | `pdf_reader_controller.dart:96-97, 425, 478` | "Karaoke reading" — lý do tồn tại của nút Play — không hoạt động |
+| P0-4 | `Song ngữ EN → VN` **chỉ đọc EN**, phần dịch bị stub | `pdf_reader_controller.dart:452-470`; label ở `pdf_tts_bar.dart:180-186`, `pdf_toolbar.dart:539` | tuỳ chọn gây hiểu lầm; nên ẩn hoặc làm thật |
+| P0-5 | **Ghi chú khoá theo `pdfPath.hashCode` (32-bit)**; `last_page_` cũng vậy. RecentFile thì lại định danh bằng `md5(path)[0:12]` → hai hệ thống khác nhau cho cùng một file | `pdf_annotation_storage.dart:31-32, 96, 100` vs `read_mode/models/recent_file.dart:160` | Đổi tên/di chuyển file = mất highlight, mất trang đọc, **và** có nguy cơ va chạm key giữa 2 file |
+| P0-6 | **Toạ độ highlight không đáng tin ở Text Mode**: `setSelection(text, Rect.zero)` → annotation lưu `Rect.zero` | `pdf_reader_screen.dart:549` → `pdf_reader_controller.dart:528-536` | Mở lại ghi chú không nhảy đúng chỗ → **vi phạm quy tắc vàng #3** |
+| P0-7 | `id` annotation = `millisecondsSinceEpoch` → trùng khi lưu 2 cái liền | `pdf_reader_controller.dart:528` | Xoá/sửa nhằm (`indexWhere((a) => a.id == id)`) |
+| P0-8 | **Overlay chặn gesture của viewer**: `GestureDetector(behavior: translucent)` phủ `SizedBox.expand` trên **mọi** trang + `_pdfViewerController.addListener(() => setState(...))` rebuild cả màn hình theo mỗi tick pan/zoom/scroll | `pdf_reader_screen.dart:830-905` (đặc biệt `:899 child: const SizedBox.expand()`), `:76-79` | Cuộn/zoom bị "nặng tay", selection khó, jank trên máy yếu. pdfrx sinh `PdfOverlayInteractionRegion` (2.4.0) đúng cho ca này (issue #376) |
+| P0-9 | Hit-test từ theo **bán kính 20 đơn vị PDF** + `Rect.contains`, không theo scale, không có magnifier; `dist < 20` tính bằng khoảng cách tâm | `pdf_reader_screen.dart:872-890` | Chạm hụt khi zoom xa / chữ nhỏ; trên scan (charRects rỗng) thì **không tap được từ nào** |
+| P0-10 | **Chrome tự ẩn sau 3 s**, kể cả khi đang đọc; vị trí SelectionBar hard-code `92 : 20` | `pdf_reader_screen.dart:52, 96, 114` | Mất toolbar lúc đang cần; selection bar đè/không khớp bottom bar ở một số màn hình |
+| P0-11 | **Text Mode extract toàn bộ file, đồng bộ, trên UI isolate, không tiến độ** | `pdf_reader/services/pdf_text_extractor.dart:53-60`; gọi ở `pdf_reader_controller.dart:380` | File 200–800 trang: app đứng hình, Android ANR risk |
+| P0-12 | **Thứ tự đọc sai với PDF đa cột**: extractor lấy `fullText` tuyến tính, bỏ qua `fragments` (code còn để nguyên block comment thử fragments) | `pdf_text_extractor.dart:26-42` | TTS đọc lẫn nhau giữa 2 cột, đọc cả số trang/chân trang; snippet ngữ cảnh lộn xộn |
+| P0-13 | `refreshVocabularySignals()` **clear toàn bộ cache trang** mỗi lần lưu 1 từ rồi re-extract | `pdf_reader_controller.dart:701-706` | Giật mỗi lần bấm "Lưu" khi đang bật ColorMode |
+| P0-14 | TTS đọc **cả trang một khối**: không câu, không chunk, không auto-advance page, không resume/pause, không notification nền (Read Mode có sẵn `tts_notification_service`), không cache theo trang | `pdf_reader_controller.dart:392-431` | Chờ lâu, không kiểm soát, không nghe lúc tắt màn hình; chuỗi dài có thể bị engine cắt |
+| P0-15 | **i18n quy tắc vàng #5**: hàng loạt chuỗi chrome hardcode tiếng Việt, không có trong `tool/legacy_ui_english_overrides.json` **và** không có trong `generated_legacy_ui_fallbacks.dart` (đã kiểm tra từng chuỗi): `Đang mở PDF...`, `Không thể mở PDF`, `Đang trích xuất văn bản...`, `Giọng đọc`, `Tốc độ đọc`, `Lưu ghi chú`, `Thêm ghi chú`, `Đánh dấu: BẬT/TẮT`, `Không thể trích xuất text từ PDF này…`, `Mở trong Read Mode →`, `Chế độ văn bản — toàn bộ tính năng highlight & TTS`; cộng chuỗi template `✅ Đã load "$_title" vào Text Studio` mà shim exact-match không bao giờ bắt được | `pdf_reader_screen.dart:318, 465, 473, 841, 528-532, 783-789`; `pdf_toolbar.dart:437, 447, 496`; `pdf_word_tap_sheet.dart:380, 528` | Locale EN/hi/zh/si **vẫn hiện tiếng Việt** — bug đã bị "cấm" bằng văn bản ở AGENTS.md |
+| P0-16 | **Không có test** cho pdf_reader; không có golden test cho coordinate mapping | `test/` không file nào import `pdf_reader` | Mọi refactor reader (Wave 1) sẽ không có lưới an toàn |
+| P0-17 | Tựa file cắt 30 ký tự theo `Platform.pathSeparator`; controller thì lại `split('/')` | `pdf_reader_screen.dart:153, 290, 733` (dùng `Platform.pathSeparator`) vs `pdf_reader_controller.dart:571, 586, 606, 618, 651` (hard-code `split('/')`) | Trên Windows, `fileName` trong `VocabContext` **sai** → panel "từ đã lưu của file này" lọc theo `sourceName == pdfFileName` (`pdf_wordlist_panel.dart:30-35`) **liệt** |
+| P0-18 | **Lệch hệ toạ độ (nguyên nhân gốc của "tap hụt" + "highlight sai/lật ngược")**: `PdfRect` của pdfrx được chép nguyên vào `Rect`, mà PDF có gốc dưới-trái nên rect lưu ra có `top > bottom`. Hệ quả: `rect.height` ÂM và `Rect.contains(p)` **luôn false**. `PdfAnnotationLayer` đưa `bounds.height` âm vào `Positioned(height:)`; `_WordTapDetector` gọi `bounds.contains()` rồi luôn rơi vào nhánh "tìm từ gần nhất" với dung sai 20 đơn vị PDF. | `_pdfRectToRect` trong `services/pdf_text_extractor.dart`, `widgets/pdf_annotation_layer.dart` (cũ), `pdf_reader_screen.dart:872-890` (cũ) | Không thể "sửa bằng cách đổi chiều lúc lưu": `PdfAnnotation.bounds`, `VocabContext.rectHint`, `Evidence.locator` đã nằm trên máy người dùng theo quy ước này. **Chốt**: giữ nguyên quy ước lưu, mọi consumer đi qua `services/pdf_geometry.dart` (xem ADR-0003) |
+| P0-19 | **Hai loại offset cùng tên, khác nguồn**: `PdfWordInfo.startOffset` tính trên `loadText()` (`PdfPageText.fullText` thô), còn `PdfPageTextRange.start` từ selection tính trên `PdfPageText` (structured). Đem offset selection gán vào `VocabContext.textStartOffset` rồi highlight bằng word-list có thể lệch vài ký tự | `pdfrx_engine/lib/src/pdf_text.dart` (`PdfPageTextRange`), `services/pdf_text_extractor.dart` | Annotation/bookmark không bị hại (reopen theo `bounds`), nhưng **cue báo "đang đọc/đang tìm"** có thể tô lệch. Wave 1: đổi `extractSentences` sang `loadStructuredText()` + `getRangeFromAB` để hợp nhất hệ offset |
+
+> **Đọc bảng trên, có một mẫu số chung:** tính năng đã được *xây*, nhưng *đường nối*
+> (viewer ↔ controller ↔ storage) thì hở. Wave 0 chỉ vá chỗ nối, không viết tính
+> năng mới.
+
+---
+
+## 3. Benchmark ReadEra — học gì, không học gì
+
+### 3.1 ReadEra: các quyết định UX đáng học (nguồn: mô tả Play Store / App Store + changelog 1.1.0–1.2.2 + review của CodeYarns)
+
+| Cơ chế ReadEra | Mô tả | Áp dụng cho In4Up |
+|---|---|---|
+| **Không copy file vào app** | App chỉ đánh dấu metadata + trạng thái; nhận diện file trùng | Giữ "mở từ thiết bị" nhưng tách *định danh file* khỏi *đường dẫn* (md5 + size + mtime, và fallback theo tên+size khi di chuyển) |
+| **Progress + bookmark sống sót khi file bị xoá/tải lại** | Lưu vị trí theo file identity | Chìa khoá để người dùng dám dùng app làm thư viện chính |
+| **Tap góc trên-phải = bookmark** | Một gesture, không menu | Cho In4Up: tap góc trên-trái = đổi ColorMode (đặc sản), góc trên-phải = đánh dấu trang/từ |
+| **Progress line + page pointer ở đáy** | Kéo để tua, hiển thị cả % chương | Thay `LinearProgressIndicator` vô dụng hiện tại (`pdf_tts_bar.dart:47-57`) bằng thanh kéo được |
+| **About document** gom toàn bộ: TOC, bookmarks, quotes, notes, abstract, review | Một bảng, mở từ ⋮ | In4Up đã có AnnotationManager + Wordlist panel — nên **gom thành một "Hồ sơ tài liệu"** (notes + quotes + từ đã lưu + ôn tập đến hạn + tiến độ) |
+| **Smart TOC đa cấp, gập/mở; đếm số trang của chương** | | Bắt buộc với sách giáo khoa/tài liệu học thuật — nguồn chính của người học ngoại ngữ |
+| **Search trong tài liệu + next/prev + lịch sử search** | | Ta **chưa có gì**; đây là lỗ hổng số 1 về "chuyên nghiệp" |
+| **Color modes: day / night / sepia / console; margin; brightness; orientation** | | Ta **chỉ có nền tối #0D1117**; nền PDF gốc vẫn trắng → loá mắt ban đêm |
+| **Reflow font/size/spacing/hyphenation cho EPUB/DOCX/TXT; với PDF chỉ zoom + crop margin + single-column cho trang scan** | | In4Up Text Mode chính là "reflow thô" — nâng cấp nó (font, size, line-height, theme) rẻ hơn làm lại PDF layer |
+| **Highlight ↔ từ điển: từ đã tra được gạch chân, và mọi từ đã tra vào mục Dictionary để ôn** | | **Gần như chính xác thứ In4Up đang làm** (recall markers) → xác nhận hướng đi, và ta có SM-2, ReadEra không có |
+| **TTS: chọn giọng, tốc độ, lặp lại đoạn/từ/câu đã chọn; thao tác khi đang đọc không dừng TTS** | changelog 1.2.1 |In4Up cần đúng hai thứ: (1) highlight đồng bộ, (2) cho phép tap/lưu từ **mà không ngắt** dòng đọc |
+| **Multi-document / split-screen** | | Ta **đã có split view** PDF + Wordlist panel (`pdf_reader_screen.dart:287-305`) → chỉ cần thêm "mở 2 file" nếu cần |
+| **Keyboard shortcuts** (mũi tên, PageUp/Down, Space ẩn/hiện chrome, Home/End, Esc) | changelog 1.1.0 | Windows/Linux là target thật của repo (build.yml) → thêm `Shortcuts/Actions`, rẻ, "chuyên nghiệp" thấy ngay |
+| **Không ads, không account** | | In4Up đã không ads — nhấn mạnh trong UI "dữ liệu của bạn nằm trên máy bạn" |
+
+### 3.2 ReadEra **không** có — chính là hào của In4Up (đừng trade away)
+
+- Không có CEFR/word-type grammar highlighting, không preset palette.
+- Không có SRS/SM-2, không "đến kỳ ôn", không hồ sơ tri thức hợp nhất.
+- Không có batch-save từ trang theo topic + ngôn ngữ.
+- Không có "đoạn văn này thành bài tập Viết lại ý / tóm tắt".
+- Không có luyện phát âm/STT, UltraTimeStretch, shadowing.
+- TTS của họ là TTS hệ thống, không có chọn engine/cache/piper/zalo/fpt như `tts_service.dart` của ta.
+
+> **Kết luận chiến lược:** "ReadEra-class *mechanics* + In4Up *brain*". Mục tiêu
+> không phải trở thành PDF viewer tốt nhất, mà là **công cụ đọc-để-học-ngoại-ngữ
+> có cơ chế đọc đạt chuẩn ngành**. ReadEra là *thước đo UX*, không phải *sản phẩm mẫu*.
+
+---
+
+## 4. Lộ trình đề xuất (5 wave, mỗi wave tự đóng gói & có nghiệm thu)
+
+### 4.0 KẾT QUẢ WAVE 0 (đã code 05-09-2026)
+
+#### 4.0.1 Đã làm — map sang kế hoạch
+
+| ID | Kế hoạch | Thực tế đã code |
+|---|---|---|
+| 0.1 | Nối selection pdfrx → controller | `PdfViewerParams.textSelectionParams = PdfTextSelectionParams(onTextSelectionChange:)`. `PdfTextSelection` (chính là viewer state, `pdf_viewer.dart:1234`) → `getSelectedText()` + `getSelectedTextRanges()` → `PdfReaderController.applyViewerSelection()`. Mảnh chọn được giữ **theo từng trang** (`PdfSelectionFragment{pageIndex,startOffset,endOffset,bounds}`) → union là `bounds`, mỗi mảnh là một `lineRects`. Không dùng `buildContextMenu` của pdfrx: SelectionBar riêng của app giàu hành động hơn và đã có sẵn; menu pdfrx bị `showContextMenuAutomatically: false` nhường cho nó |
+| 0.2 | Bỏ overlay chặn gesture | `PdfOverlayInteractionRegion` **không tồn tại ở 2.2.24** (mới có từ 2.4.0) → thay bằng cách cắt gốc: **xoá hẳn `_WordTapDetector`** (GestureDetector `SizedBox.expand` phủ mọi trang). Tap giờ đi qua `PdfViewerParams.onGeneralTap` — viewer không bị chặn arena, pan/zoom/handles trở lại bình thường |
+| 0.3 | Hit-test theo px | `services/pdf_word_hit_test.dart` mới: quy đổi PDF→px qua `pdfRectToViewerRect`, dung sai **theo cao độ chữ** (0.45×H dọc, 0.3×W ngang, fallback 0.9×H) → ổn định ở mọi zoom. Có test bất biến theo zoom |
+| 0.4 | TTS thật | `extractSentences()` + `PdfSentenceCue` (rect **từng dòng**), `_tts.speakLines(texts, pauseBetween:, onLineChanged:)`; highlight karaoke theo câu trong `PdfWordOverlay._drawTtsCue`; prev/next **trang** + prev/next **câu** + play/pause/stop + auto-advance + speed chip (`TtsSpeedPickerSheet`) đều gọi controller thật. `startReading(fromCue:)` tự cắt danh sách vì `speakLines` không có `startLine` |
+| 0.5 | Bỏ hứa suông bilingual | `isBilingualTtsAvailable = false` → selector **ẩn** tuỳ chọn "Song ngữ"; mapping `bilingual` → `en-US` tạm thời cho tới khi dịch từng câu được nối (Wave 3). Không còn menu báo "EN → VN" nhưng chỉ đọc EN |
+| 0.6 | `FileIdentity` | `services/pdf_file_identity.dart`: `primaryKey = md5(size\|mtime)` (sống khi đổi tên/chuyển thư mục), `pathKey = md5(AudioSourceIdentity.normalize(path))` (percent-decode + `/` + lowercase) khi không stat được, `legacyKey = hashCode` chỉ để migrate. `PdfAnnotationStorage` đổi key sang `ann_<idKey>` / `page_<idKey>` và tự dời dữ liệu qua **3 thế hệ key** một lần |
+| 0.7 | id + rect Text-Mode | `Uuid()` cho annotation id (đã có dependency); Text-Mode selection được resolve **ngược về trang + offset** (`resolveTextModeSelectionToPage`) rồi mới tạo annotation → không còn `Rect.zero`; model thêm `canReopenToPosition` (rect **hoặc** offset) |
+| 0.8 | Chrome | **Bỏ hẳn timer auto-hide**; tap nền = tắt chrome (hoặc tắt selection trước); SelectionBar neo `padding.bottom + (bottom bar ? 84 : 16)`; `_showChrome()`/`_toggleChromeVisibility()` thay cho `_showChrome(autoHide:)`; `viewerCommands` là cầu nối controller→`PdfViewerController` (controller không import widget tree) |
+| 0.9 | i18n | Không chạy `generate_arbs.py`/`generate_legacy_ui_fallbacks.py` (báo 6 mismatch có sẵn từ trước). 51 key mới vào **`lib/core/language/priority_ui_overrides.dart`** (en/hi/zh/zh_TW/si). Nguyên tắc: **nối key đúng** thay vì `uiText('...${x}...')` — shim exact-match không bao giờ bắt chuỗi nội suy. Chuỗi trạng thái TTS giờ ghép từ 3 key (`Đang đọc` · `3/12` · `Trang 5`). **Test gác mới**: `test/pdf_reader/pdf_reader_i18n_coverage_test.dart` quét source của feature và bắt mọi nhãn Việt phải có key |
+| 0.10 | Test sàn | `test/pdf_reader/`: geometry + hit-test (5 nhóm), annotation model (round-trip/dữ liệu cũ/rect list), file identity (basename 2 nền tảng, migrate key, bền khi di chuyển file — dùng temp file thật), cleaning text, i18n coverage |
+| 0.16 | Bookmark chết | `AnnotationType.bookmark` giờ có chỗ dùng: toggle trong sheet Tuỳ chọn + ★ vẽ ở mép phải trang + dòng "Đánh dấu trang" trong danh sách, tap = `revealAnnotation` |
+| 0.17 | basename Windows | `pdfBaseName()` chấp nhận cả `\` và `/`; controller exposes `fileName`; word-list panel so khớp bằng `pdfSourceMatches` thay vì `==`; `pdf_word_tap_sheet` cũng dùng `controller.fileName` |
+| 0.18 | Toạ độ | `services/pdf_geometry.dart` là **nơi duy nhất** định nghĩa quy đổi; painter, hit-test, annotation layer cùng gọi. `pdfRectToViewerRect` dùng min/max nên rect cũ bị đảo chiều vẫn vẽ được; rect degenerate → `Rect.zero` (không bao giờ đẩy chiều âm vào `Positioned`) |
+
+#### 4.0.2 Hành vi đã đổi mà người dùng sẽ thấy
+
+1. Chạm 1 lần vào từ → sheet từ (không còn "phải rình"); chạm vào vùng đã bôi →
+   không làm gì; chạm nền → tắt selection, chạm tiếp → tắt chrome.
+2. Bôi đen: **long-press để chọn từ**, kéo handle để mở rộng — thay vì kéo giữa
+   trang (trước đây overlay ăn mất gesture).
+3. Nút ★ Tô sáng trên selection bar = highlight 1 chạm (snackbar có "Ghi chú"
+   cho ai muốn viết thêm); ghi chú vẫn vào sheet 4 màu.
+4. Thanh TTS: câu đang đọc sáng theo từng dòng, tự lật trang (tắt được), chỉnh
+   tốc độ 0.5–1.75×, trang chỉ-có-ảnh báo rõ thay vì im lặng.
+5. Recall markers thành icon 30×30 (trước là chip chữ chiếm chỗ toolbar).
+
+#### 4.0.3 CHƯA làm / còn nợ (ý thức, không phải tai nạn)
+
+- **P0-11** (extract toàn file đồng bộ): đã có `extractFullText(onProgress:)` +
+  flag `_isExtractingText`, nhưng **vẫn chạy trên UI isolate**; bước kế tiếp là
+  `compute()`/isolate + cache theo `identity.primaryKey`. Trang > ~200 vẫn có thể
+  khựng khi bật Text Mode.
+- **P0-12** (đa cột): `extractSentences` tách câu bằng khoảng cách dòng (line-gap)
+  — đúng hơn cho file 1 cột, **chưa** giải quyết 2 cột; cần `fragments` +
+  `loadStructuredText()` (hợp nhất luôn với P0-19).
+- **OCR cho trang scan**: chưa động (chỉ báo "file có thể chỉ chứa ảnh scan").
+- **Chọn màu highlight ngay trên selection bar** (hiện fast-path dùng màu vàng
+  định sẵn; đổi màu phải qua sheet).
+- `PdfAnnotationSheet.showAdd` gần như bị cô lập (fast-path 1 chạm đã thay) —
+  Wave 1 hoặc xoá, hoặc dùng làm sheet màu cho highlight.
+- **Chưa có vàng test toạ độ** (golden) — cần máy có Flutter SDK; test hiện tại
+  là unit thuần, chạy được bằng `flutter test test/pdf_reader`.
+- ~~Chưa `flutter analyze`~~ → **đã đỏ rồi đã xanh**: CI bắt 6 error (xem 4.0.4).
+  Bài học lớn nhất: `flutter analyze` in ra `tail -n 300 analyze.log` nên lỗi
+  `lib/**` bị cuộn mất dưới ~300 dòng `info • Unused import` của `packages/**`.
+  Phải tạm tắt lint (`include: package:flutter_lints/flutter.yaml`) trong một commit
+  có sửa `lib/**` thì lỗi thật mới hiện; cách đọc chi tiết ở
+  `docs/skills/ci-red-debugging/SKILL.md` §6.1. **Không để probe đó sống** — đã revert
+  ngay trong commit sửa lỗi.
+- `flutter test test/pdf_reader` (5 file) **chưa từng chạy** — sandbox không có SDK và
+  CI của workflow này chỉ chạy đúng một file test rule #5. Chạy hộ ở máy dev:
+  `flutter test test/pdf_reader test/locale_chrome_no_vietnamese_test.dart`.
+
+#### 4.0.4 6 lỗi CI bắt được (đã sửa, `f02854c` + `c62e8bf`)
+
+| # | Chỗ | Lỗi | Because |
+|---|---|---|---|
+| 1 | `pdf_text_extractor.dart:168` | `RegExp(r'[.!?…]["\'”’)\]]*$')` → chuỗi raw một nháy **không thoát** được `\'`: literal cụt sau `\`, phần còn lại bị parser đọc thành mã nguồn ⇒ ~20 error dây chuyền (`expected_token`, `illegal_character`, `undefined_identifier`, `non_bool_operand`) | Sửa thành raw string 3 nháy `r'''…'''`, đưa pattern ra `PdfTextExtractor.sentenceEndPattern` + test khóa. **Không có `\'` trong `r'...'`** — dùng `r"…\'…"` hoặc `r'''…'''` |
+| 2 | `pdf_wordlist_panel.dart:36` | `argument_type_not_assignable`: `VocabContext.sourceName` là `String?` còn `pdfSourceMatches(String, …)` bắt `String` | Nới tham số thành `String?` (null = không khớp) thay vì `?? ''` ở caller — ai gọi sau cũng gặp lại đúng câu "null thì sao" |
+| 3 | `pdf_annotation_model_test.dart:135` | `const cue = PdfSentenceCue(speakText: 'a' * 100)` → `'a' * 100` không phải biểu thức hằng (`const_eval_type_num`) | Bỏ `const` |
+| 4-5 | `priority_ui_overrides.dart:1415, 1604` | `equal_keys_in_const_map`: khi append mảng key PDF đã ghi lại `'Huỷ'` và `'🇻🇳 Tiếng Việt'` mà map đã có sẵn (dòng 149, 1196) | Xoá bản trùng. Label vẫn resolve qua mục cũ, giá trị en/hi/zh của mục cũ sạch tiếng Việt nên test phủ i18n vẫn xanh |
+| 6 | `pdf_reader_screen.dart:1393` | `duplicate_named_argument`: `ListTile` có `leading:` hai lần (thêm icon bookmark mà quên bỏ ô màu cũ) | Bỏ `leading` đầu |
+
+Còn 1 `info • unnecessary_import` (`dart:ui show Rect` trong controller) cũng được dọn.
+
+
+### 4.1 KẾT QUẢ WAVE 1 — đợt A: điều hướng & tìm kiếm (đã code 05-09-2026, CI 🟢)
+
+| ID | Kế hoạch | Thực tế đã code | Còn nợ |
+|---|---|---|---|
+| 1.1 | TOC drawer đa cấp, nhảy trang, % trong chương | `services/pdf_outline_index.dart` (làm phẳng DFS + `findActiveOutlineIndex` + `describeActiveOutline`) → `widgets/pdf_toc_panel.dart` đọc `PdfDocument.loadOutline()` ngay trong `onViewerReady`; nhảy bằng `PdfViewerController.goToDest(dest)` (dùng đúng destination của PDF, không tự quy đổi); panel tự cuộn tới chương hiện tại **một lần khi mở** | Chưa gập/mở từng nhánh (danh sách thụt lề), chưa có **% tiến độ trong chương**, và **chưa** heuristic "tự sinh mục lục từ font-size" cho file scan/sách không outline — hiện chỉ hiện "Tài liệu này không có mục lục" |
+| 1.2 | Tìm trong tài liệu: input, kết quả theo trang, prev/next, highlight | **Dùng `PdfTextSearcher` có sẵn của pdfrx 2.2.24** thay vì tự viết index: nó quét **dần theo từng trang** (không chặn UI — tức P0-11 không còn là điều kiện của tính năng này), cache `loadStructuredText`, có `searchProgress`, và `pageTextMatchPaintCallback` vẽ tô sáng qua `PdfViewerParams.pagePaintCallbacks` (không cần overlay riêng). `widgets/pdf_search_panel.dart` bám searcher như `Listenable` nên kết quả lớn dần khi quét. Chính sách tìm tiếng Việt ở `services/pdf_search_query.dart` | Chưa có **lịch sử tìm kiếm**; chưa "match entire word"; chưa thay thế (không cần cho reader) |
+| 1.3 | Thumbnail strip/grid `PdfPageView` | `widgets/pdf_thumbnail_grid.dart` trong tab "Trang" của cùng một sheet, `maximumDpi: 96`, `GridView.builder` dựng lười, viền sáng theo trang hiện tại, chạm = `goToPage` | Chưa "vuốt từ cạnh dưới"; chưa `RepaintBoundary` (pdfrx đã dựng ảnh theo ô, nhưng thêm sẽ tốt hơn cho máy yếu) |
+| — | Nhảy nhanh tới trang | Nhãn "37 / 512" trên toolbar thành nút → dialog TextField số + Slider (`_showJumpToPageDialog`) | Chưa "đi tới %"/dòng nhập "12.5%" |
+| 1.6 | Bookmark thật | Đã xong từ Wave 0 (`AnnotationType.bookmark` + ★ + reopen) | — |
+| 1.9 | Phím tắt Windows/Linux | `services/pdf_shortcuts.dart` = **bảng ưu tiên** thuần (không phải widget) + `Focus(onKeyEvent:)` bọc `Stack` của màn đọc: `→ ← PageUp/Down` lật trang, `Home/End` đầu/cuối, `Space` ẩn/hiện chrome, `F` tìm, `T` mục lục, `B` bookmark, `+ -` zoom, `Esc` đóng. Ctrl/Cmd/Alt nhường trình duyệt, **ngoại trừ** `+`/`-`. Menu "More" có hộp **Phím tắt** dựng từ đúng bảng đó ⇒ tài liệu không lệch code | Chưa có `Alt+←/→` lịch sử, chưa cấu hình lại phím, chưa phím cho TTS (Play/Pause/M/N) |
+
+**Quyết định kiến trúc** (chi tiết ở `docs/adr/0004-...`): không nâng pdfrx (giữ
+`^2.2.24`, không đụng `pubspec.yaml`/`third_party/pdfium_flutter`); không tự build
+search index; gộp dấu khi tìm theo họ **1:1** để offset khớp với charRects.
+
+**Đã kiểm chứng bằng CI** (`c4f62c5`, run 34011472325): `flutter analyze` 0 error với
+lint BẬT, và `test/locale_chrome_no_vietnamese_test.dart` xanh trên cây **đã merge
+`arena/01a0251e-in4up`** (Sherpa STT live + LRC đa ngữ) — tức hai hướng code không
+giẫm nhau; 13 nhãn mới đăng ký ở `priority_ui_overrides.dart`, test độ phủ i18n của
+feature (`test/pdf_reader/pdf_reader_i18n_coverage_test.dart`) quét cả 3 file widget mới
+vì nó đi thư mục, không hard-code danh sách file.
+
+**Chưa làm ở Wave 1 (có ý):** 1.4 layout/zoom + crop + facing pages, 1.5 theme đọc
+(Day/Night/Sepia/Paper), 1.7 progress line kéo được, 1.8 gesture zones, 1.9 phím tắt
+Windows. Lý do: chúng đổi cảm giác đọc toàn màn hình và nên chốt sau khi owner đi
+qua nghiệm thu thiết bị của đợt A.
+
+#### 4.1.1 CI đã đỏ một lần ở đợt A, và đó là bài học về API bàn phím
+
+`bca3bd3` xanh; trước đó `251c935` đỏ vì **`LogicalKeyboardKey.plus` không tồn tại**
+(numpad là `add`; `+` ở hàng phím thường là Shift+`=` nên chỉ cần `equal`). Lỗi này
+grep code không ra và `tail -n 300 analyze.log` của workflow **cuộn mất** (noise
+`lib/**` + `packages/**` khi lint bật) ⇒ phải dùng probe tắt lint một commit, đọc
+`analyze.log` qua job-log URL, rồi **revert probe ở commit kế** — mô tả đầy đủ ở
+`docs/skills/ci-red-debugging/SKILL.md` §6.1–6.2. Với lint tắt, 123 issue lọt hết
+vào 300 dòng, nên danh sách lỗi đợt đó là **đủ**: chỉ 2 error, `test/pdf_reader/**`
+sạch.
+
+
+**Checklist nghiệm thu thiết bị — đợt A:**
+
+- [ ] Sách có outline: mở nút ★Mục lục → thấy cây, chương đang đọc được sáng, bấm 3
+      mục khác nhau → nhảy đúng trang **và** đúng vùng trong trang (dest `XYZ` có toạ độ).
+- [ ] File không có outline (scan/ truyện tự chế): hiện "Tài liệu này không có mục lục",
+      **không** crash, tab "Trang" vẫn dùng được.
+- [ ] Tìm `thanh` với chip "Không phân biệt dấu" BẬT → khớp cả "thành/thanh"; TẮT →
+      chỉ khớp đúng dấu. Tìm `a.b` → không được khớp "axb" (escape).
+- [ ] Tìm trong file 300+ trang: UI vẫn cuộn được trong khi % tăng; kết quả tô sáng
+      trên trang; prev/next nhảy giữa các khớp; đóng ô tìm → sạch tô sáng.
+- [ ] Thu nhỏ: lướt grid 300 trang không khựng > 1 frame mỗi ô; bấm ô → tới trang đó.
+- [ ] Nhãn trang → dialog số + slider → tới trang 187 trong 1 cú.
+- [ ] Locale `en`/`hi`: chrome của panel tìm/mục lục không còn chữ Việt.
+- [ ] Cắm bàn phím (Windows): `→ ←` lật trang, `Space` ẩn/hiện chrome, `F` mở ô tìm,
+      `T` mở mục lục, `B` đóng/mở bookmark, `+`/`-` zoom, `Esc` đóng ô tìm (lần 2 mới
+      rời màn đọc); gõ chữ trong ô tìm **không** bị `F/T/B/Space` nuốt.
+- [ ] Menu ⋮ → "Phím tắt": bảng phím hiện đúng hành vi đang chạy.
+- [ ] Menu ⋮ → "Chủ đề đọc": 4 ô xem trước, chọn `Sáng`/`Giấy (sepia)` → nền quanh
+      trang đổi tức thì, kéo thanh trượt độ sáng → trang tối/sáng dần mà chữ vẫn đọc
+      được; thoát vào file khác rồi quay lại → **còn nhớ** theme đã chọn.
+- [ ] Ở chế độ `Đêm`: highlight tìm kiếm vẫn vàng/cam đúng màu (không bị đảo theo),
+      highlight ghi chú vẫn thấy; ảnh trong trang bị đảo (có cảnh báo trong sheet).
+
+
+### 4.2 KẾT QUẢ WAVE 1 — đợt B: chủ đề đọc (đã code 06-09-2026, CI 🟢 `arena/01a07250-in4up`)
+
+Run 34042635098 xanh **ngay lần đầu** (analyze 0 error với lint BẬT + test rule #5),
+đúng một lý do: mọi tên API pdfrx đều được đối chiếu trong tag `pdfrx-v2.2.24`
+trước khi gõ, thay vì đoán như vụ `LogicalKeyboardKey.plus` (§4.1.1).
+
+| ID | Đã code | Cơ chế thật |
+|---|---|---|
+| 1.5 | 4 chủ đề đọc: `Tối (mặc định)` / `Sáng` / `Giấy (sepia)` / `Đêm (đảo màu)` + **thanh trượt độ sáng trang −100%…+100%** | `services/pdf_reader_theme.dart` (thuần, 290 dòng, 223 dòng test) sinh `List<PdfPageVeil>` → `widgets/pdf_page_veils.dart` dịch sang `pagePaintCallbacks` (vẽ lên **trên** ảnh trang đã render); nền quanh trang = `PdfViewerParams.backgroundColor`. Chọn trong `⋮ → Chủ đề đọc` (`widgets/pdf_reader_theme_sheet.dart`), lưu `prefs` toàn cục (`pdf_reader.theme_v1`, `pdf_reader.page_brightness_v1`) |
+
+**Ba quyết định phạm vi, nói rõ để không bị hiểu là "theme xịn như ReadEra":**
+
+1. **Không reflow, không đổi font.** ReadEra đổi được font/cỡ chữ vì EPUB reflow được;
+   PDF là ảnh trang. Nên ở đây "theme" = biến đổi màu trên ảnh trang. Ai dùng
+   ReadEra trên EPUB so sánh sẽ thấy khác — đó là giới hạn của định dạng, không phải
+   của app.
+2. **Đêm = đảo màu bằng `difference(trắng, α=1.0)`**, chấp nhận **ảnh trong trang bị
+   đảo theo** (đánh đổi y hệt ReadEra, và app bạn cũng thấy vậy). Đã báo cho người
+   dùng bằng một dòng trong sheet, không dấu. Vì PDF là nội dung cố định nên không
+   có bản "chữ trắng nền đen thật sự" — muốn vậy phải reflow, tức bỏ luôn layout
+   gốc. `Tối (mặc định)` tồn tại chính là để người không thích đảo màu có lối khác.
+3. **Không đổi chrome** (AppBar, toolbar, panel vẫn nền tối như cũ). Đây là điểm khác
+   biệt có ý thức với ReadEra: full-chrome theme nghĩa là viết lại tương phản cho
+   từng widget trong màn đọc, mà CI của repo **không có widget test** ⇒ không thể xác
+   minh trong sandbox. Để sau nghiệm thu thiết bị (mục Nợ).
+
+**Bốn chi tiết kỹ thuật nếu ai đó bảo trì phần này (đều đã verify, không phải suy):**
+* Chữ ký callback của 2.2.24 là `void Function(Canvas, Rect, PdfPage)`
+  (`PdfViewerPagePaintCallback`) — **không phải** `PdfPageRenderedImageContext` như
+  các bản 2.4+; viết theo bản mới là lỗi biên dịch.
+* `pagePaintCallbacks` **không** nằm trong `doChangesRequireReload` của
+  `PdfViewerParams` ⇒ đổi theme một mình KHÔNG làm viewer vẽ lại trang đã render.
+  Phải gọi `PdfViewerController.invalidate()` (public, "gần giống setState nhưng gọi
+  được ngoài State"), có guard `isReady`.
+* **Thứ tự trong `pagePaintCallbacks` là thứ tự vẽ.** Veil phải đứng TRƯỚC
+  `pageTextMatchPaintCallback`, nếu không highlight tìm kiếm bị sepia/đảo màu theo
+  trang. Mặc định (`dark`, brightness 0) trả về `null` ⇒ không thêm lớp composite nào.
+* Bottom sheet nằm ở overlay riêng: `setState` của màn đọc **không** rebuild nó, nên
+  sheet bọc `StatefulBuilder` để ô đang chọn + % cập nhật khi tinh chỉnh.
+
+**Nợ có ý thức sau đợt B:** (a) full-chrome theme + `Day` đổi màu cả panel — cần thiết
+bị; (b) độ sáng trang chỉ là veil, **không** đổi độ sáng màn hình thiết bị (cần plugin
+`screen_brightness`, chưa có trong pubspec — không tự ý thêm); (c) theme chưa áp dụng
+cho `Text Mode` (chỉ màn đọc PDF); (d) 1.4 vẫn chờ quyết định nâng pdfrx; (e) 1.7/1.8
+chờ owner chốt sau nghiệm thu.
+
+
+### 4.3 KẾT QUẢ WAVE 2 — đợt C: xuất/nhập dữ liệu (mục 2.6, bậc B1+B2) — đã code 06-09-2026, CI 🟢
+
+Owner chốt phân bậc: **B1 = xuất JSON/XFDF sidecar**, **B2 = "in bản chụp"
+(render → PDF-ảnh qua share sheet)**; chỉ khi nào cần **text vector** mới phải thêm
+package `pdf`. Vì vậy đợt này **không thêm dependency nào** — đối chiếu pubspec rồi
+mới kết luận: `share_plus ^12.0.2` (lần đầu app dùng), `file_picker ^11.0.2`,
+`path_provider ^2.1.4` đã có sẵn; `pdfrx_engine` trả `PdfImage.pixels` = **BGRA8888
+thô** nên burn + viết PDF làm thuần Dart được.
+
+| Bậc | Đã code | Cơ chế thật |
+|---|---|---|
+| B1a | **Sidecar `.in4up.json`** — tệp chú thích có version, nhập lại được, merge chứ không đè | `services/pdf_annotation_sidecar.dart` (283 dòng): `format: "in4up-pdf-annotations"`, `version: 1`; header mang **định danh file** (`fileName`/`fileSize`/`fileModifiedMs`/`pageCount`/`lastPageIndex`/`exportedAt`/`producer`). `decodePdfAnnotationSidecar` **không bao giờ ném** — dòng hỏng bị bỏ qua, còn lại bao nhiêu nhập bấy nhiêu. `compareSidecarToFile()` trả `sameFile / contentChanged / pageChanged / unknown`; **định danh là size + mtime, tuyệt đối không phải đường dẫn** (đường dẫn đổi là mất hết như lỗ hổng §0.5). `mergeSidecarAnnotations`: `createdAt` mới hơn thắng, hoà thì giữ note dài hơn, sắp lại theo trang. Thêm `PdfReaderController.importAnnotations()` — cấp id `uuid` MỚI cho dòng nhập (không được đụng id của dòng cục bộ), luôn persist + `notifyListeners()` |
+| B1b | **Xuất XFDF** để app PDF khác (Acrobat/Foxit/Xodo) đọc được highlight thật | `services/pdf_xfdf_export.dart` (177 dòng): `xmlns="http://ns.adobe.com/XFDF/1.0"`, mỗi annot `action="annotReplace"`, highlight có `rect="l b r t"` + `quadpoints`, `color="#RRGGBB"`, `opacity="0.40"`, `<contents>`; ghi chú → `<text icon="Comment">`; mỗi `lineRects` là một `<highlight>` riêng; bookmark **bị bỏ qua** vì XFDF không có loại đó. **Chỉ xuất, không nhập XFDF** — nhập liệu chỉ nhận JSON của ta, để không bao giờ âm thầm làm bẩn kho Hive |
+| B2 | **Bản chụp PDF**: burn highlight + marker ghi chú lên ảnh trang, tự viết tệp PDF, chia sẻ qua share sheet | `services/pdf_snapshot_burn.dart` (207 dòng) composite tay trên `Uint8List`: `pdfAnnotationPixelRect` lật trục Y theo toạ độ PDF (origin góc dưới-trái), `fillBgraRect` src*a+dst*(1-a) với alpha highlight 0.35, ép A=255, `pdfSnapshotRenderSize(dpi: 150, maxLongEdge: 1800)`; `services/pdf_snapshot_pdf_writer.dart` (241 dòng) dựng PDF từ số 0: 1 image XObject/trang, hàng RGB + byte lọc PNG 0, zlib, `/DecodeParms << /Predictor 15 ... >>`, xref 20 byte/entry, `/Title` UTF-16BE, `/CreationDate (D:…+00'00')`. **Không** phải "stamp" thật: tệp PDF gốc không bị sửa |
+| glue | `services/pdf_export_service.dart` (366 dòng) + `widgets/pdf_export_row.dart` (224 dòng) | Service là **chỗ duy nhất** đụng `dart:io`/plugin; mọi lỗi trả về `messageKey` chứ không ném. Ảnh render → `getTemporaryDirectory()` → `SharePlus.instance.share(ShareParams(files: [XFile(path)]))` (chú ý: v12 **không còn** `shareXFiles`). Snapshot chỉ lấy các trang **có** chú thích, sắp xếp theo trang, cắt ở `kPdfSnapshotMaxPages = 24` và báo "Đã giới hạn số trang xuất". UI = 4 nút (JSON / XFDF / PDF ảnh / Nhập JSON) đặt trong `⋮ → Quản lý ghi chú`, kết quả in **inline dưới nút** (SnackBar bị sheet cao 0.88 che) |
+
+**Bốn điều nên biết khi bảo trì:**
+
+1. **Import không bao giờ âm thầm ghi đè.** Luồng là: `FilePicker.pickFiles(withData: true)`
+   → decode → **dialog xác nhận** đếm số annotation + cho biết tệp PDF có trùng không
+   ("Cùng một tệp PDF" / "Tệp PDF đã thay đổi sau khi xuất" / "Số trang khác với lúc xuất")
+   → "Highlight đang có sẽ được giữ nguyên." → mới merge. Người dùng được cảnh báo
+   trước khi dữ liệu của họ đổi, kể cả khi chọn nhầm tệp.
+2. **Giới hạn nói thẳng, không tô hồng:** B2 là ảnh nên **không copy được chữ** từ bản
+   chụp, không search được trong nó, và **chữ của ghi chú không rasterized** (app không
+   có font rasterizer trong tiến trình này) — nên ghi chú đi kèm marker xanh
+   `0xFF1E88E5` + tệp JSON. Muốn vector-text hoặc stamp thật vào file gốc thì phải
+   `package:pdf` hoặc đường pdfium-native (`native/pdfium_file_write.dart` của engine),
+   tức là một quyết định khác, để sau.
+3. **i18n route:** 23 key mới vào `lib/core/language/priority_ui_overrides.dart`
+   (5 ngôn ngữ `en,hi,zh,zh_TW,si`, `vi` = chính key), **không** chạy `generate_arbs.py`
+   /`generate_legacy_ui_fallbacks.py` (generator đang kẹt ở 6 mismatch có trước).
+   Chuỗi lỗi đặt **ngay trong service** (`PdfSidecarProblem.problemLabelKey`) để test
+   `pdf_export_i18n_test.dart` kiểm được từng cái. `JSON` và `XFDF` cố ý không đăng ký:
+   không có dấu nên không nằm trong diện rule #5.
+4. **51 test mới** (`pdf_annotation_sidecar_test` 13, `pdf_xfdf_export_test` 10,
+   `pdf_snapshot_burn_test` 11, `pdf_snapshot_pdf_writer_test` 10,
+   `pdf_export_i18n_test` 7) — nâng `test/pdf_reader` lên **14 file / 134 test**. Tất cả
+   chạy trong `flutter test` thường, **không cần thiết bị**, vì 4 module lõi là số học
+   thuần trên bytes. Test PDF-writer không so ảnh: nó tự parse lại tệp vừa sinh và
+   **đo `/Length` bằng khoảng cách thật** giữa `\nstream\n` và `\nendstream` — đó là chỗ
+   PDF tự viết hay chết.
+
+**CI đã đỏ 3 run liên tiếp — 5 nhóm lỗi, đều là lỗi kiểu "không có SDK trong sandbox":**
+`math.min/math.max` bị suy luận ra `num` làm vỡ 7 chỗ index `Uint8List[int]` (⇒ bỏ hẳn
+`dart:math` trong file burn, ternary + khai báo kiểu tường minh); `const ZLibEncoder()`
+(vừa không có `encode()`, vừa không const) ⇒ `ZLibCodec(level: 6).encode()`;
+`ZLibCodec` có ctor `factory` nên **cũng không** bọc `const` được;
+`latin1.decode(x, allowMalformed: true)` — `allowMalformed` chỉ tồn tại trên
+`Utf8Decoder.decode`, không phải `Codec.decode`; test dùng `Color(...)`/`Rect(...)` mà chỉ
+`import 'dart:ui' show Rect`; và `const PdfSidecarDecoding.failure(p)` với `p` là biến vòng
+lặp. Run xanh: **34058736214**. Mẹo khi `analyze.log` bị artifact che: lấy
+`gh api repos/<owner>/<repo>/actions/jobs/<job-id>/logs` (job id = `.databaseId`, không phải
+`.id`) rồi đọc URL SAS bằng `fetch_page` theo `chunkIndex`; `--no-fatal-infos
+--no-fatal-warnings` nghĩa là **chỉ ERROR mới làm đỏ CI**, warning/info phải tự đọc log.
+Để thấy HẾT output trong một lần, có thể tạm comment `include: package:flutter_lints/…`
+rồi revert ngay ở commit sau (commit chỉ đụng yaml/docs thì workflow bỏ qua ⇒ phải kèm
+một thay đổi trong `lib/**`).
+
+**Lỗ hổng kiểm chứng lớn nhất của đợt này — và cách đóng.** 134 test trong
+`test/pdf_reader` **chưa từng được chạy ở đâu cả**: sandbox không có Flutter SDK, còn
+CI (`app_analyze.yml`) chỉ analyze ở chế độ "chỉ ERROR mới fatal" + đúng 1 file test
+rule #5. Chủ nhật 06-09 owner chạy `flutter test test/pdf_reader` trong worktree DEV
+cũng không thấy gì — `test/pdf_reader/` chỉ tồn tại trên `arena/01a07250-in4up`
+(`main`/`arena/01a0251e-in4up` trả 404 khi đối chiếu Contents API). Hai đường đóng:
+(a) bật job module `docs/ci/pdf_reader_tests.yml` — copy vào `.github/workflows/` rồi
+push bằng credential của owner, vì **agent không được phép đụng `.github/workflows/**`**
+(GitHub từ chối: GitHub App thiếu quyền `workflows`); (b) chạy local trên đúng branch:
+
+```powershell
+git -C E:\PROJECTS\in4up fetch origin arena/01a07250-in4up
+git -C E:\PROJECTS\in4up worktree add --detach E:\PROJECTS\in4up.worktree\PDF FETCH_HEAD
+cd E:\PROJECTS\in4up.worktree\PDF ; flutter pub get ; flutter test test/pdf_reader
+# xong: git -C E:\PROJECTS\in4up worktree remove E:\PROJECTS\in4up.worktree\PDF
+```
+
+**Chưa làm trong mục 2.6 (cố ý để lại):** xuất Markdown/CSV cho quotes+notes+từ đã lưu,
+in qua `printing`, và "stamp highlight thành PDF" thật (sửa tệp gốc bằng pdfium) — cả ba
+đều cần quyết định về dependency chữ ký số/chỉnh sửa tệp, nằm ngoài B1+B2. **Nợ cũ vẫn còn:**
+nghiệm thu thiết bị cho §4.1/§4.2, `flutter test test/pdf_reader` trên máy owner, và một
+lượt round-trip thật qua share sheet (xuất JSON → nhập lại trên thiết bị khác) vì
+`share_plus`/`file_picker` không có test tự động trong repo.
+
+### WAVE 0 — "Sửa cho đúng cái đã có" (2–3 ngày dev) — **P0**
+Không thêm tính năng mới. Đây là wave rẻ nhất và tác động UX lớn nhất.
+
+| ID | Việc | Chốt |
+|---|---|---|
+| 0.1 | Nối selection của pdfrx vào controller: bật `textSelectionParams`, custom `buildContextMenu` để **chính menu đó** chứa Ghi chú / Lưu WordList / TTS / Text Studio / Vườn Nhớ; xoá `_SelectionBar` floating cũ (hoặc giữ làm fallback desktop) | Bỏ được 1 class + selection hoạt động ở PDF mode |
+| 0.2 | Thay `_WordTapDetector` full-page bằng `PdfOverlayInteractionRegion` (yêu cầu pdfrx ≥ 2.4.0 — xem mục 5) | Gesture viewer mượt, tap vẫn ra sheet — **đã làm bằng cách xoá overlay**, không cần nâng pdfrx |
+| 0.3 | Hit-test từ theo **screen px** (nhân scale + clamp theo `MediaQuery.textScaleFactor`), thêm fallback "từ gần nhất trong 1.2× chiều cao dòng" | Không còn tap hụt; sửa được cho trang chữ nhỏ |
+| 0.4 | TTS bar: prev/next thật (`PdfViewerController.goToPage`), pause/resume, tự lật trang khi đọc xong trang, highlight **theo câu** bằng `speakLines(...)` đã có sẵn trong `tts_service.dart:673-701` + set `_currentSpeakingWord`/`focusRectCue` | Karaoke hoạt động thật; 2 nút giả biến mất |
+| 0.5 | Song ngữ: hoặc làm thật (dịch từng câu qua `TranslationService`/ML Kit đã có trong app) hoặc **ẩn tuỳ chọn** cho tới khi làm | Không hứa suông |
+| 0.6 | `FileIdentity`: `md5(lowercasedPath)` → **md5(path + size + first 64KB)**?; migration đọc key cũ theo hashCode rồi rekey một lần; dùng chung 1 helper cho `RecentFile` + `PdfAnnotationStorage` | Ghi chú sống sót khi file di chuyển; không va chạm key — **đã chốt `md5(size\|mtime)`**, chưa dùng chung với `RecentFile` (nợ) |
+| 0.7 | `id`: dùng `uuid` (đã có trong pubspec); rect Text-Mode → suy rect thật từ charRects theo `startOffset/endOffset` (extractor đã có `_rectFromCharRects`) | Reopen đúng vị trí (quy tắc vàng #3) |
+| 0.8 | Chrome: bỏ auto-hide 3 s; hide bằng tap; `AnimatedSize` cho SelectionBar theo `padding.bottom` thật; không `setState` toàn màn hình theo viewer listener (chuyển sang `ValueListenableBuilder` quanh phần cần) | Ẩn/hiện dự đoán được, bớt jank |
+| 0.9 | i18n: chuyển 12+ chuỗi vào `app_*.arb` (đủ `en/hi/zh/zh_TW/si` trong cùng PR) + chạy generator legacy overrides; chuỗi template → ARB có placeholder | Pass QA rule #5 (`test/locale_chrome_no_vietnamese_test.dart`) |
+| 0.10 | Test sàn: `test/pdf_reader/` — extractor (de-hyphen, reading order), `FileIdentity` migration, annotation CRUD + id unique, `VocabContext` rect khi selection ở Text Mode | Lưới an toàn cho Wave 1 |
+
+**Nghiệm thu Wave 0:** mở 1 PDF 300 trang: chọn được chữ → menu 5 hành động chạy;
+bấm Play thấy sáng theo câu + tự lật trang; copy file sang tên khác rồi mở lại vẫn
+còn highlight + đúng trang; UI locale `en` không còn một chữ Việt nào.
+
+### WAVE 1 — Reader fundamentals (bằng tầm ReadEra) — 1,5–2 tuần
+| ID | Việc | Ghi chú kỹ thuật |
+|---|---|---|
+| 1.1 | **TOC / outline** drawer: cây đa cấp, gập/mở, nhảy tới trang, **tiến độ % trong chương hiện tại** | pdfrx có doc "Document Outline (a.k.a Bookmarks)"; với file không có outline → suy ra từ font-size/bold (heuristic, chạy trong isolate, cache vào file identity) |
+| 1.2 | **Tìm kiếm trong tài liệu**: input ở top chrome, kết quả theo trang, prev/next, highlight match, lịch sử search | Doc "Text Search" của pdfrx; nếu API 2.4.8 chưa đủ nhanh cho 800 trang → tự build index trong isolate + cache |
+| 1.3 | **Lược đồ trang** (thumbnail strip / grid) dùng `PdfDocumentViewBuilder` + `PdfPageView` (example `thumbnails_view.dart`), mở bằng cách vuốt từ cạnh dưới | `PdfViewerController.goToPage` đã dùng ở `screen:348`; `startPageNumber` chỉ có trên pdfrx mới → kiểm chứng khi nâng; nhớ `RepaintBoundary` |
+| 1.4 | **Layout & zoom**: Fit width / Fit page / Actual; single ↔ continuous ↔ facing-pages; 2 trang cho ngang; **crop margins**; rotate; **single-column split** cho scan đôi | `PdfViewerParams.layoutPages` + `PdfPageLayout` (ta đang override thủ công ở `pdf_reader_screen.dart:428-447` → thay bằng builder chọn được) |
+| 1.5 | **Theme đọc**: Day / Night(invert) / Sepia / Paper + brightness slider per-file; night qua doc "Dark/Night Mode Support" (colour map trong `pagePaintCallbacks`) | Không còn nền trắng loá ban đêm; lưu theo `ReaderDisplaySettings` (file đã có 2 khoá — mở rộng thêm) |
+| 1.6 | **Bookmark** thật + "tap góc trên-phải = bookmark" + ★ trên toolbar khi trang đã bookmark | `AnnotationType.bookmark` **đã tồn tại trong enum** (`models/pdf_annotation.dart:3`) nhưng chưa ai dùng — rẻ |
+| 1.7 | **Progress line kéo được** ở đáy (thay `LinearProgressIndicator`), % + "trang x/y · chương Z · còn N phút" | tính WPM theo cấu hình người dùng |
+| 1.8 | **Gesture zones** cấu hình được: trái/phải/giữa (tap để lật/tắt chrome); vuốt để lật khi ở chế độ single page | Tuân thủ "chrome tối giản" của ReadEra |
+| 1.9 | **Keyboard (Windows/Linux)**: ←→↑↓ PageUp/Down, Space toggle chrome, F tìm, T TOC, B bookmark, Esc đóng, +/- zoom | `CallbackShortcuts` |
+
+### WAVE 2 — Thư viện & liên-tục-đọc — 1–1,5 tuần
+| ID | Việc | Ghi chú |
+|---|---|---|
+| 2.1 | **Shelf cho PDF**: cover render từ trang 1 (`PdfPageView` → ảnh), % tiến độ, "đọc 12 phút trước", số highlight/từ đã lưu, ngôn ngữ tài liệu | Nối vào `library_screen.dart` (đã có `RecentFileType.localPdf` ở `:219-228` nhưng hiện chỉ là một dòng text) |
+| 2.2 | **Collections**: Đang đọc / Muốn đọc / Đã đọc / ★ Yêu thích + collections tuỳ ý, **dùng được cho cả text/cloud/pdf** | ReadEra: 1 file nằm được ở nhiều collection |
+| 2.3 | **Auto-scan thư mục** để PDF tự xuất hiện (Android đã có `TextDeviceChannel.scanTree` — `lib/services/text_device_channel.dart:16`; cần iOS/Windows/Linux path hoặc dùng `file_picker` + persist URI) | ReadEra "auto-detection" |
+| 2.4 | **Đa tài liệu**: hàng đợi "đang mở" (tab/trình chuyển đổi nhanh) + tiếp tục đúng nơi rời đi | pdfrx dùng lại `PdfDocumentRef` để không nhân đôi bộ nhớ |
+| 2.5 | **Hồ sơ tài liệu** (bản "About document" của ta): TOC + bookmark + quotes + notes + từ đã lưu + **đến kỳ ôn của riêng file này** + xuất | Gom `AnnotationManager` + `PdfWordlistPanel` về 1 chỗ |
+| 2.6 | **Xuất**: Markdown/CSV (quotes+notes+words), in, chia sẻ; cân nhắc **stamp highlight thành PDF** (pdfrx có editing/`encodePdf`) hoặc xuất file `.annotations.json` cạnh file để không khoá dữ liệu trong Hive | "Không sở hữu dữ liệu của user" là lý do người ta chọn ReadEra |
+
+### WAVE 3 — Hào ngôn ngữ (khác biệt hoá, không phải parity) — 2 tuần
+| ID | Việc |
+|---|---|
+| 3.1 | Đọc **theo câu** với lặp lại câu (×1/×3), speed giảm dần, shadowing mode (dùng engine UltraTimeStretch sẵn có — *không đụng FFI*, gọi qua API hiện tại) |
+| 3.2 | Tap từ **không ngắt dòng đọc** (ReadEra đã làm ở 1.2.1) — tách TTS session khỏi word sheet |
+| 3.3 | "Chỉ tô những từ **≥ B1 chưa lưu**" (lọc theo threshold, thay vì tô hết) + **tự động gợi ý** 5–12 từ nên học của trang đang đọc → 1 chạm lưu cả cụm |
+| 3.4 | Phrase-book: highlight → thẻ Anki/CSV (mặt trước cụm, mặt sau nghĩa + IPA + audio TTS đã cache + link về `page/rect`) |
+| 3.5 | OCR cho PDF scan (Android ML Kit Text Recognition; desktop: tuỳ chọn) → bật tap-từ/TTS/search cho file ảnh; hiện "trang này là ảnh, bật OCR?" |
+| 3.6 | Song ngữ thật: EN câu → VN nghĩa câu (ML Kit translation đang có trong app), đọc xen kẽ, và **cả hai bản hiện song song trong Text Mode** |
+
+### WAVE 4 — Perf & chất lượng (làm song song, đừng để nợ)
+- **Vẽ highlight bằng `pagePaintCallbacks` thay widget overlay**: 1 canvas/trang,
+  không widget tree, không `LayoutBuilder` per page; giữ widget overlay cho phần tương tác.
+- Text extraction vào **isolate riêng + stream tiến độ** (`compute`/`Isolate.run`, cache theo trang vào file cache).
+- Cache từ theo trang có **LRU + invalidation theo trang** (bỏ `_pageWords.clear()` toàn phần — `controller:701-706`).
+- `Semantics` cho từ (label = word + nghĩa + trạng thái đã lưu) → TalkBack/VoiceOver.
+- Test: unit (extractor, identity, controller), golden (coordinate mapping ở 3 mức zoom), widget (selection→menu), 1 harness mở 3 file chuẩn: `hello.pdf` / 500-trang / 2-cột / scan.
+- Đo và ghi vào docs: time-to-first-page, page/second khi scroll nhanh, tỉ lệ tap trúng từ, độ trễ Play→có tiếng, % reopen đúng trang.
+
+---
+
+## 5. Năm quyết định cần chốt trước khi code
+
+**Q1 — Nâng pdfrx tới đâu?** (ảnh hưởng mọi thứ khác)
+- Hiện tại: `pdfrx: ^2.2.24` (pubspec.yaml:96) + `dependency_overrides: pdfium_flutter → third_party/pdfium_flutter 0.1.9`.
+- Trần **không nâng Flutter**: `2.4.8` (2.5.0+ yêu cầu Flutter 3.47; CI đang 3.44.1 / Dart 3.11.5). 2.4.x cho: `PdfOverlayInteractionRegion` (2.4.0), fix selection khi tải tiến trình + `selectAllText` crash + free-drag selection (2.4.4/2.4.5), fix `PdfPageView` rò ảnh (2.4.8) — **đúng các vùng ta đang đau**.
+- Cái giá: phải bump `third_party/pdfium_flutter` (0.1.9 → 0.2.2/0.2.3), Windows cần Developer Mode (README pdfrx), kích thước binary, và `flutter analyze` CI có thể lòi lint mới.
+- Phương án B: nâng toolchain 3.47 → lấy 2.6.1 (WASM web, progressive load, `startPageNumber`, text-search fix) nhưng **blast radius cả app** (llama.cpp/webview/CI 4 file workflow).
+
+**Q2 — Ai sở hữu việc vẽ highlight?** overlay-widget (linh hoạt, tốn frame) ↔ `pagePaintCallbacks` (nhanh, khó tương tác). Đề xuất: **paint cho vẽ, `PdfOverlayInteractionRegion` cho chạm, bỏ full-page GestureDetector**.
+
+**Q3 — Annotation sống ở đâu?** (a) Hive như hiện tại (nhanh, khoá theo path); (b) file JSON cạnh PDF (portable, dùng được với app khác — ReadEra-philosophy); (c) trở thành **`Evidence` trong `lib/knowledge/`** theo schema MVA (nhất quán kiến trúc, có merge/split, có reopen-locator — **đúng quy tắc vàng #2/#3**, nhưng cần **ADR**). Đề xuất: (c) + export (b).
+
+**Q4 — "Chuyên nghiệp" tới mức nào về chỉnh sửa file?** Ta chỉ *siêu dữ liệu ghi chú trong app* (như ReadEra) hay in/stamp highlight ra file PDF mới (pdfrx có editing + `encodePdf`)? Câu hỏi này quyết định có cần `PdfEditing` + tests binary.
+
+**Q5 — Ưu tiên nền tảng nào?** Android-first (đa số), hay Windows-first (vì người dùng học chủ yếu trên máy tính, và keyboard/split-screen toả sáng)? Quyết định thứ tự Wave 1 (touch gestures vs shortcuts) và có làm Web/WASM hay không.
+
+---
+
+## 6. Câu hỏi mở cho bạn (owner)
+
+1. Người dùng chính của PDF Reader là ai: (a) người học từ sách báo nước ngoài, (b) người luyện đề/thi, (c) đọc tài liệu kỹ thuật/truyện? → quyết định TOC/search có phải ưu tiên số 1 hay OCR mới là số 1.
+2. Trong 3 lỗ hổng P0 (selection / TTS-sync / file-identity), bạn muốn **vá cả Wave 0** trước hay **chọn 1** để đo phản ứng người dùng?
+3. Có cho phép nâng pdfrx → 2.4.8 (+ bump `third_party/pdfium_flutter`) trong PR này không? Nếu đồng ý, cho phép đụng `pubspec.yaml`/CI không?
+4. Annotation: di sản Hive hiện có **bao nhiêu người dùng thật**? Nếu ≈0 thì làm lại sạch theo `Evidence` (không cần migration); nếu >0 thì tôi viết migrator + test.
+5. Thiết kế thị giác: giữ **một theme tối kỹ thuật** (`#0D1117`) như hiện tại, hay đầu tư 4 theme đọc (day/night/sepia/paper) ngay từ Wave 1? Điều này quyết định có cần `pagePaintCallbacks` colour-map (hơi art-y) không.
+
+---
+
+## 7. Phụ lục A — checklist QA thủ công (mỗi wave chạy lại)
+
+- [ ] Mở PDF 500 trang: thời gian tới trang 1 < 1,5 s; không ANR; cuộn nhanh không trang trắng.
+- [ ] PDF 2 cột (2-column article): TTS đọc đúng thứ tự từng cột; snippet ngữ cảnh không lẫn cột.
+- [ ] PDF scan (chỉ ảnh): app nói rõ "trang này không có lớp chữ" + (Wave 3) gợi ý OCR — **không** im lặng trả về rỗng.
+- [ ] PDF có outline: nhảy 5 chương, % chương đúng; PDF không outline: heuristic sinh TOC, không crash.
+- [ ] Chọn 1 cụm 3 dòng → menu: Ghi chú / WordList / TTS / Text Studio / Vườn Nhớ **chạy hết**, mỗi cái reopen đúng trang+rect.
+- [ ] Tắt màn hình khi đang TTS: vẫn phát + có notification; mở lại resume đúng câu.
+- [ ] Copy file sang `/sdcard/Download/x2.pdf`, mở lại: còn highlight, còn trang, còn bookmark (Wave 0.6).
+- [ ] Xoá file, mở lại từ danh bạ thư viện: trạng thái đọc còn (ReadEra parity).
+- [ ] Locale `en` và `hi`: không còn một chuỗi Việt nào ở chrome PDF; nội dung file Việt vẫn Việt.
+- [ ] Zoom 400% rồi tap 20 từ ngẫu nhiên: ≥ 19/20 ra đúng từ.
+- [ ] Windows: phím ←→/PageUp/PageDown/Space/F/T/B/Esc hoạt động.
+- [ ] TalkBack: mỗi từ đọc được nhãn "word — nghĩa — đã lưu".
+
+## 8. Phụ lục B — những thứ nên *bỏ* (đừng bảo tồn đồ hỏng)
+
+| Bỏ | Lý do |
+|---|---|
+| `_WordTapDetector` full-page translucent | Chống gesture (P0-8). Thay bằng overlay-region |
+| `_SelectionBar` nổi đặt theo số đo cứng | pdfrx context menu + bottom sheet tự đẩy lên an toàn hơn |
+| `PdfViewMode.textMode` dùng `SelectableText` cho cả file | O(n) memory, mất layout, Rect.zero. Thay = pipeline text có tiến độ trong isolate, render theo trang/thoại |
+| Chip trạng thái dạng chữ trong toolbar (`Đánh dấu: BẬT`, `ColorMode.label`) | Chiếm 60% ngang toolbar trên phone; đổi thành icon + tooltip + 1 label ngắn |
+| `LinearProgressIndicator` vô nghĩa trong TTS bar | Thay bằng progress line kéo được (1.7) |
+| `_pageWords.clear()` toàn cục | Invalidation theo trang |
+
+---
+
+## 9. Phụ lục C — nguồn tham chiếu đã đối chiếu
+
+- **pdfrx** (engine đang dùng): README + changelog pub.dev —
+  https://pub.dev/packages/pdfrx , https://pub.dev/packages/pdfrx/changelog
+  → các mục xác nhận dùng được cho Wave 0/1: *Text Selection* (mặc định bật,
+  custom qua `PdfViewerParams.buildContextMenu` + `PdfTextSelectionParams.magnifier`),
+  *PDF Link Handling*, *Document Outline (a.k.a Bookmarks)*, *Text Search*,
+  *Page Layout (Horizontal Scroll/Facing Pages)*, *Showing Scroll Thumbs*,
+  *Dark/Night Mode Support*, *pagePaintCallbacks*, `PdfOverlayInteractionRegion`
+  (thêm ở **2.4.0**, giải đúng issue #376 "overlay chặn gesture"),
+  `underflowAnchor`, `scrollPhysics`, *PasswordProvider*,
+  `PdfDocumentViewBuilder` + `PdfPageView` (example `thumbnails_view.dart`),
+  `startPageNumber` + progressive loading (2.6.0, PR #706).
+  Yêu cầu bản mới: **2.6.0 BREAKING — Dart 3.13 / Flutter 3.47**; 2.5.0 cũng đã
+  nâng min Flutter 3.47 → trên CI 3.44.1 thì **trần là 2.4.8**.
+- **ReadEra**: mô tả Google Play (`org.readera`) — không copy file vào app, giữ
+  bookmark/trang đọc ngay khi file bị xoá hoặc tải lại, colour modes day/night/
+  sepia/console, crop margin, single-column cho trang scan đôi, multi-document,
+  footnote, TOC. App Store (`id1669188337`) changelog 1.1.0→1.2.2 — keyboard
+  shortcuts, tap góc trên-phải để bookmark, Quotes/Notes gom vào "About document",
+  TTS chọn giọng + lặp lại đoạn/từ/câu đã chọn, thao tác khi đang TTS không ngắt
+  đọc, search nhanh + next/prev + lịch sử, Smart TOC đa cấp. Review kỹ trên
+  CodeYarns (2023-01-12) — từ đã tra được gạch chân + mọi từ đã tra vào mục
+  Dictionary để ôn (≈ recall markers + Vườn Nhớ của ta).
+- **Trong repo**: `AGENTS.md` (quy tắc vàng #2 #3 #5), `docs/project/KANBAN.md`
+  (READ-630-01…05 đã done → Wave 0/3 không được làm hỏng), `docs/HANDOFF_MVA_v2.md`
+  (schema Evidence — lựa chọn Q3), `docs/adr/` (cần ADR nếu đổi storage).

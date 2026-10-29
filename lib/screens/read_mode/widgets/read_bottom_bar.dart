@@ -1,0 +1,298 @@
+// lib/screens/read_mode/widgets/read_bottom_bar.dart
+
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
+
+import '../../../features/translation/translation_display_mode.dart';
+import '../../../models/ipa_display_mode.dart';
+import '../../../providers/player_provider.dart';
+import '../../../providers/text_provider.dart';
+import '../../../widgets/pulsing_icon.dart';
+import '../controllers/read_mode_controller.dart';
+import '../sheets/segments_list_sheet.dart';
+
+class ReadBottomBar extends StatelessWidget {
+  final VoidCallback? onToggleWordlist; // ← MỚI
+  final bool showWordlistPanel; // ← MỚI
+
+  const ReadBottomBar({
+    super.key,
+    this.onToggleWordlist,
+    this.showWordlistPanel = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tp = context.watch<TextProvider>();
+    context.watch<PlayerProvider>();
+    final controller = context.watch<ReadModeController>();
+    final isSmall = MediaQuery.of(context).size.height < 700;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Reading Progress Bar
+            _ReadingProgressBar(progress: controller.readingProgress),
+
+            // Action Buttons - make horizontally scrollable to avoid Bottom overflow on small screens
+            // On small screens, reduce padding and icon size
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: isSmall ? 2 : 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Font Size
+                  _BarAction(
+                    icon: Icons.text_decrease,
+                    onTap: () => tp.setFontSize(tp.fontSize - 2),
+                    compact: isSmall,
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+                  _BarAction(
+                    icon: Icons.text_increase,
+                    onTap: () => tp.setFontSize(tp.fontSize + 2),
+                    compact: isSmall,
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+
+                  // Translation toggle — fix: explicit set stackedBelow/hidden
+                  _BarAction(
+                    icon: Icons.translate,
+                    isActive: tp.showTranslation,
+                    activeThumbColor: const Color(0xFF4CAF50),
+                    compact: isSmall,
+                    onTap: () {
+                      if (tp.showTranslation) {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.hidden);
+                      } else {
+                        tp.setTranslationDisplayMode(
+                            TranslationDisplayMode.stackedBelow);
+                      }
+                    },
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+
+                  // IPA stacked line — cycle: Tắt → Dòng hiện tại → Toàn văn
+                  // Icons.abc đã dùng trong repo (phoneme_display) — an toàn.
+                  _BarAction(
+                    icon: Icons.abc,
+                    textIcon: 'IPA',
+                    tooltip: context.uiText('Phiên âm / IPA'),
+                    isActive: tp.ipaDisplayMode != IpaDisplayMode.hidden,
+                    activeThumbColor: const Color(0xFF4DD0E1),
+                    compact: isSmall,
+                    onTap: () {
+                      tp.cycleIpaDisplayMode();
+                      _showIpaModeHint(context, tp.ipaDisplayMode);
+                    },
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+
+                  // TTS current line — AUDIT-2026-10-20 (mục 6):
+                  // dùng `isTtsActive` (MỌI phiên TTS) chứ không phải
+                  // `isSpeaking` (chỉ TRUE khi đọc CẢ BÀI) ⇒ trước đây bấm
+                  // "đọc dòng hiện tại" thì icon KHÔNG báo gì (vì owner =
+                  // preview) và chạm lần 2 lại phát tiếp thay vì dừng.
+                  // Nay: đang phát ⇒ icon đổi màu + NHẤP NHÁY, chạm lần 2
+                  // ⇒ DỪNG thật sự.
+                  _BarAction(
+                    icon: tp.isTtsActive
+                        ? Icons.stop_circle_outlined
+                        : Icons.record_voice_over,
+                    isActive: tp.isTtsActive,
+                    activeThumbColor: const Color(0xFF6C63FF),
+                    compact: isSmall,
+                    animate: tp.isTtsActive,
+                    // SỐ DÒNG đang đọc hiện thành badge ngay trên icon ⇒
+                    // user biết chính xác app đang đọc ở đâu (mục 6:
+                    // "chưa thấy chỗ để cho dùng").
+                    badge: (tp.isTtsActive && tp.ttsSpokenLineIndex >= 0)
+                        ? '${tp.ttsSpokenLineIndex + 1}'
+                        : null,
+                    tooltip: tp.isTtsActive
+                        ? context.uiText('Đang đọc — chạm để dừng')
+                        : context.uiText('Đọc dòng hiện tại'),
+                    onTap: () {
+                      if (tp.isTtsActive) {
+                        tp.stopSpeaking();
+                      } else {
+                        tp.speakCurrentLine();
+                      }
+                    },
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+
+                  // Segments (Bookmarks)
+                  _BarAction(
+                    icon: Icons.bookmark,
+                    isActive: tp.segments.isNotEmpty,
+                    activeThumbColor: Colors.amber,
+                    compact: isSmall,
+                    badge:
+                        tp.segments.isNotEmpty ? '${tp.segments.length}' : null,
+                    onTap: () => SegmentsListSheet.show(context),
+                  ),
+                  SizedBox(width: isSmall ? 6 : 12),
+                  _BarAction(
+                    icon: showWordlistPanel
+                        ? Icons.view_sidebar
+                        : Icons.view_sidebar_outlined,
+                    isActive: showWordlistPanel,
+                    activeThumbColor: const Color(0xFF6C63FF),
+                    compact: isSmall,
+                    onTap: () => onToggleWordlist?.call(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showIpaModeHint(BuildContext context, IpaDisplayMode mode) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.abc, color: Color(0xFF4DD0E1), size: 18),
+            const SizedBox(width: 8),
+            Text('IPA · ${context.uiText(mode.label)}'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2A2A3E),
+        duration: const Duration(milliseconds: 1400),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 72),
+      ),
+    );
+  }
+}
+
+class _ReadingProgressBar extends StatelessWidget {
+  final double progress;
+  const _ReadingProgressBar({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      child: LinearProgressIndicator(
+        value: progress,
+        backgroundColor: Colors.white.withValues(alpha: 0.05),
+        valueColor: AlwaysStoppedAnimation(
+          Color.lerp(
+            const Color(0xFF2196F3),
+            const Color(0xFF4CAF50),
+            progress,
+          )!,
+        ),
+        minHeight: 3,
+      ),
+    );
+  }
+}
+
+class _BarAction extends StatelessWidget {
+  final IconData icon;
+  final String? textIcon;
+  final VoidCallback onTap;
+  final bool isActive;
+  final Color? activeThumbColor;
+  final String? badge;
+  final bool compact;
+
+  /// Icon nhấp nháy khi [isActive] (trạng thái "đang phát").
+  final bool animate;
+
+  /// Tooltip giải thích nút làm gì (quan trọng với icon chỉ có hình).
+  final String? tooltip;
+
+  const _BarAction({
+    required this.icon,
+    this.textIcon,
+    required this.onTap,
+    this.isActive = false,
+    this.activeThumbColor,
+    this.badge,
+    this.compact = false,
+    this.animate = false,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        isActive ? (activeThumbColor ?? const Color(0xFF2196F3)) : Colors.grey;
+
+    final button = GestureDetector(
+      onTap: () {
+        SafeHaptics.selectionClick();
+        onTap();
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: EdgeInsets.all(compact ? 6 : 10),
+            decoration: isActive
+                ? BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  )
+                : null,
+            child: textIcon != null
+                ? Text(textIcon!, style: TextStyle(color: color, fontSize: compact ? 12 : 14, fontWeight: FontWeight.bold))
+                : PulsingIcon(
+              icon: icon,
+              color: color,
+              size: compact ? 18 : 22,
+              active: animate,
+            ),
+          ),
+          if (badge != null)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: activeThumbColor ?? Colors.amber,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (tooltip == null || tooltip!.isEmpty) return button;
+    return Tooltip(message: tooltip!, child: button);
+  }
+}

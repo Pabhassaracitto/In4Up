@@ -1,0 +1,312 @@
+// ignore_for_file: unintended_html_in_doc_comment
+// in4up v11.0 — LrcLine với Content-Anchored UID + joinKey
+
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
+
+import 'models/content_id.dart';
+import 'models/stt_result.dart';
+
+// ─── LrcWord ──────────────────────────────────────────────────────────────────
+
+/// Một từ với timestamp bắt đầu — dùng cho karaoke word-level highlight.
+class LrcWord {
+  final String word;
+  final Duration start;
+
+  const LrcWord({required this.word, required this.start});
+
+  /// Phân tách text thành các từ theo khoảng trắng (fallback khi LRC không có
+  /// inline timestamp): gán timestamp đều trên cả dòng.
+  static List<LrcWord> estimateFrom(String text, Duration lineStart) {
+    return estimateFromWithDuration(text, lineStart, const Duration(seconds: 4));
+  }
+
+  /// Phiên bản cải tiến: chia đều duration của dòng cho các từ
+  /// để karaoke nhảy chính xác hơn (fix lỗi không thấy chữ hiện hành).
+  static List<LrcWord> estimateFromWithDuration(
+      String text, Duration lineStart, Duration lineDuration) {
+    final parts = text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (parts.isEmpty) return const [];
+    final result = <LrcWord>[];
+    // This is only an estimate, not an AI word alignment. Do not place words
+    // after the next line when that line starts sooner than 400 ms.
+    final durationMs = lineDuration.inMilliseconds.clamp(0, 10000);
+    final totalMs = durationMs > 200 ? durationMs - 200 : durationMs;
+    final perWord = totalMs ~/ parts.length;
+    var cursor = lineStart;
+    for (var i = 0; i < parts.length; i++) {
+      result.add(LrcWord(word: parts[i], start: cursor));
+      cursor += Duration(milliseconds: perWord);
+    }
+    return result;
+  }
+}
+
+// ─── LrcLine ──────────────────────────────────────────────────────────────────
+
+class LrcLine {
+  final Duration timestamp;
+  final String text;
+
+  /// Danh sách từ kèm timestamp (cho karaoke). Rỗng nếu LRC không có inline
+  /// `<mm:ss.cs>` timestamps (khi đó UI có thể ước lượng bằng [LrcWord.estimateFrom]).
+  final List<LrcWord> words;
+
+  /// Content-Anchored UID: md5(startMs|textNorm)[0:12]
+  /// Scope: single-file (không cần audioFingerprint)
+  final String uid;
+
+  LrcLine({
+    required this.timestamp,
+    required this.text,
+    List<LrcWord>? words,
+    String? uid,
+  })  : words = words ?? const [],
+        uid = uid ?? _computeUid(timestamp, text);
+
+  // ── Static helpers ─────────────────────────────────────────
+
+  static String _textNorm(String text) =>
+      text.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+  static String _computeUid(Duration timestamp, String text) =>
+      ContentId.joinKey(startMs: timestamp.inMilliseconds, text: text);
+
+  /// Join key — đồng bộ với ContentId.joinKey() và SpeakerAnnotation.joinKey
+  String get joinKey => '${timestamp.inMilliseconds}|${_textNorm(text)}';
+
+  @override
+  String toString() => 'LrcLine(uid=$uid, ts=${timestamp.inMilliseconds}ms, '
+      '"${text.length > 40 ? '${text.substring(0, 40)}…' : text}")';
+}
+
+// ─── SttLrcConverter ─────────────────────────────────────────────────────────
+
+class SttLrcConverter {
+  // Minutes may exceed 99 for long recordings (and may have one digit in
+  // imported LRC). Seconds and fractions remain the normal LRC format.
+  static final _lineRegex = RegExp(r'^\[(\d+):(\d{2})\.(\d{2,3})\](.*)$');
+
+  /// Inline word timestamp trong enhanced-LRC: `<mm:ss.cs>` (2 hoặc 3 chữ số).
+  static final _wordRegex = RegExp(r'<(\d+):(\d{2})\.(\d{2,3})>');
+
+  /// Parse LRC content string → List<LrcLine>
+  List<LrcLine> parseLrcContent(String content) {
+    final lines = <LrcLine>[];
+
+    for (final raw in content.split('\n')) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty ||
+          trimmed.startsWith('[ti:') ||
+          trimmed.startsWith('[by:') ||
+          trimmed.startsWith('[ve:')) {
+        continue;
+      }
+
+      final match = _lineRegex.firstMatch(trimmed);
+      if (match == null) continue;
+
+      final minutes = int.parse(match.group(1)!);
+      final seconds = int.parse(match.group(2)!);
+      final centisStr = match.group(3)!;
+
+      // Chuẩn hóa 2 hoặc 3 chữ số
+      final ms = centisStr.length == 2
+          ? int.parse(centisStr) * 10
+          : int.parse(centisStr);
+
+      final timestamp = Duration(
+        minutes: minutes,
+        seconds: seconds,
+        milliseconds: ms,
+      );
+
+      final text = match.group(4)?.trim() ?? '';
+      if (text.isEmpty) continue;
+
+      // Tách inline word timestamps `<mm:ss.cs>` → words (karaoke)
+      final words = _parseInlineWords(text, timestamp);
+
+      // text thuần (bỏ inline tags) để hiển thị / edit
+      final cleanText = text.replaceAll(_wordRegex, '').trim();
+
+      lines.add(LrcLine(
+        timestamp: timestamp,
+        text: cleanText,
+        words: words,
+      ));
+    }
+
+    return lines;
+  }
+
+  /// Trích danh sách từ + timestamp từ inline `<mm:ss.cs>` tags.
+  /// Nếu không có tag nào, trả về rỗng (UI sẽ ước lượng bằng [LrcWord.estimateFrom]).
+  static List<LrcWord> _parseInlineWords(String lineText, Duration lineStart) {
+    final words = <LrcWord>[];
+
+    final matches = _wordRegex.allMatches(lineText).toList();
+    if (matches.isEmpty) return words;
+
+    // A timestamp belongs to the text *after* it, until the next tag. Using
+    // the next tag's timestamp here makes every middle word light up too late.
+    var cursorStart = 0;
+    var currentStart = lineStart;
+    for (final match in matches) {
+      final before = lineText.substring(cursorStart, match.start).trim();
+      if (before.isNotEmpty) {
+        words.add(LrcWord(word: before, start: currentStart));
+      }
+      currentStart = _parseTime(
+        match.group(1)!,
+        match.group(2)!,
+        match.group(3)!,
+      );
+      cursorStart = match.end;
+    }
+
+    final after = lineText.substring(cursorStart).trim();
+    if (after.isNotEmpty) {
+      words.add(LrcWord(word: after, start: currentStart));
+    }
+
+    return words;
+  }
+
+  static Duration _parseTime(String m, String s, String c) {
+    final centis = c.length == 2 ? int.parse(c) * 10 : int.parse(c);
+    return Duration(
+      minutes: int.parse(m),
+      seconds: int.parse(s),
+      milliseconds: centis,
+    );
+  }
+
+  /// Parse LRC file → List<LrcLine>
+  Future<List<LrcLine>> parseLrcFile(String lrcPath) async {
+    try {
+      final file = File(lrcPath);
+      if (!await file.exists()) return [];
+      final content = await file.readAsString();
+      return parseLrcContent(content);
+    } catch (e) {
+      debugPrint('[SttLrcConverter] parseLrcFile error: $e');
+      return [];
+    }
+  }
+
+  /// Tạo LRC string từ SttResult
+  /// Format chuẩn — KHÔNG nhúng [Sn] speaker tag.
+  /// Nếu segment có word-timestamps, nhúng inline `<mm:ss.cs>` để karaoke.
+  String generateLrcContent(SttResult result) {
+    final buf = StringBuffer();
+
+    buf.writeln('[ti:in4up Transcript]');
+    buf.writeln('[by:in4up AI]');
+    buf.writeln('[ve:1.0]');
+    buf.writeln('');
+
+    for (final seg in result.segments) {
+      // Segment text is authoritative. Joining STT tokens with spaces can
+      // alter punctuation, CJK text and user content. Only embed word markers
+      // where those tokens can be matched to the original text in order.
+      final text = seg.text.trim().isNotEmpty
+          ? seg.text.trim()
+          : seg.words.map((word) => word.word.trim()).where((word) => word.isNotEmpty).join(' ');
+      buf.writeln(serializeLine(LrcLine(
+        timestamp: Duration(milliseconds: seg.startMs),
+        text: text,
+        words: seg.words.map((word) => LrcWord(
+          word: word.word,
+          start: Duration(milliseconds: (word.startSeconds * 1000).round()),
+        )).toList(),
+      )));
+    }
+
+    return buf.toString();
+  }
+
+  static String _fmtDuration(int ms) {
+    final mm = (ms ~/ 60000).toString().padLeft(2, '0');
+    final ss = ((ms % 60000) ~/ 1000).toString().padLeft(2, '0');
+    final fraction = ms % 1000;
+    // Preserve imported millisecond precision; use customary centiseconds
+    // only when that representation is exact.
+    final digits = fraction % 10 == 0
+        ? (fraction ~/ 10).toString().padLeft(2, '0')
+        : fraction.toString().padLeft(3, '0');
+    return '$mm:$ss.$digits';
+  }
+
+  /// Whether all timed tokens can be placed in the supplied text without
+  /// guessing their positions. An editor can ask before discarding markers if
+  /// the user has changed words, rather than silently overwriting that text.
+  static bool wordTimingsMatchText(LrcLine line) {
+    var cursor = 0;
+    for (final word in line.words) {
+      final token = word.word.trim();
+      if (token.isEmpty) continue;
+      final offset = line.text.indexOf(token, cursor);
+      if (offset < 0) return false;
+      cursor = offset + token.length;
+    }
+    return true;
+  }
+
+  /// Preserve the original text and punctuation while embedding word markers.
+  /// If tokens cannot be aligned, retain the text and line time rather than
+  /// inventing words. Callers editing an existing LRC should warn first.
+  static String serializeLine(LrcLine line) {
+    final ts = _fmtDuration(line.timestamp.inMilliseconds);
+    final text = line.text.trim();
+    if (line.words.isEmpty || !wordTimingsMatchText(line)) return '[$ts]$text';
+
+    final out = StringBuffer('[$ts]');
+    var cursor = 0;
+    for (final word in line.words) {
+      final token = word.word.trim();
+      if (token.isEmpty) continue;
+      final offset = text.indexOf(token, cursor);
+      // `text` is trimmed above; timings were checked against the untrimmed
+      // source, so a token can still be located in the trimmed source.
+      if (offset < 0) return '[$ts]$text';
+      out.write(text.substring(cursor, offset));
+      if (word.start != line.timestamp || cursor != 0) {
+        out.write('<${_fmtDuration(word.start.inMilliseconds)}>');
+      }
+      out.write(text.substring(offset, offset + token.length));
+      cursor = offset + token.length;
+    }
+    out.write(text.substring(cursor));
+    return out.toString();
+  }
+
+  /// Lưu LRC file → trả về đường dẫn hoặc null nếu lỗi
+  Future<String?> saveLrcFile(
+    SttResult result,
+    String audioPath, {
+    required String outputDirectory,
+  }) async {
+    try {
+      final dir = Directory(outputDirectory);
+      if (!await dir.exists()) await dir.create(recursive: true);
+
+      // Two different sources may share the same display name. Preserve old
+      // basename-only LRC files and write new output under a stable source key.
+      final source = audioPath.replaceAll('\\', '/');
+      final sourceKey = sha256.convert(utf8.encode(source)).toString().substring(0, 32);
+      final lrcPath = '$outputDirectory/in4up_$sourceKey.lrc';
+      await File(lrcPath).writeAsString(generateLrcContent(result));
+
+      debugPrint('[SttLrcConverter] Saved LRC: $lrcPath');
+      return lrcPath;
+    } catch (e) {
+      debugPrint('[SttLrcConverter] saveLrcFile error: $e');
+      return null;
+    }
+  }
+}

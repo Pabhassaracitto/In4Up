@@ -1,0 +1,929 @@
+//
+// FIX 1: Thêm tab YouTube (3 tabs: Thiết bị / Drive / YouTube)
+// FIX 2: Chọn nhiều file → hiển thị playlist, phát được từng bài
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart' as material;
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../../features/youtube/youtube_sheet.dart';
+import '../../../models/audio_queue_item.dart';
+import '../../../providers/player_provider.dart';
+import '../../../services/audio_import_service.dart';
+import 'google_drive_browser.dart';
+import 'playback_queue_sheet.dart';
+
+/// Một file đã chọn & đã đảm bảo path persistent (SHADOW-FILE-001):
+/// file_picker trả path trong cache — đã copy sang audio_imports/ trước khi
+/// đưa vào playlist, nên item này không chết khi hệ thống dọn cache.
+class _ImportedAudioItem {
+  final String path;
+  final String name;
+  const _ImportedAudioItem({
+    required this.path,
+    required this.name,
+  });
+}
+
+class AudioLibraryDrawer extends StatefulWidget {
+  /// True when this drawer is attached to Scaffold.drawer (left edge).
+  final bool isLeft;
+
+  const AudioLibraryDrawer({super.key, this.isLeft = false});
+
+  @override
+  State<AudioLibraryDrawer> createState() => _AudioLibraryDrawerState();
+}
+
+class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 3, vsync: this); // ← 3 tabs
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: const Color(0xFF0D1520),
+      width: MediaQuery.of(context).size.width * 0.82,
+      child: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildTabBar(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  _LocalAudioTab(
+                    isLeft: widget.isLeft,
+                    onClose: () => Navigator.pop(context),
+                  ),
+                  const GoogleDriveBrowser(),
+                  _YouTubeTab(onClose: () => Navigator.pop(context)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF6C63FF).withValues(alpha: 0.15),
+            Colors.transparent,
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Color(0xFF6C63FF).withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.library_music,
+                color: Color(0xFF6C63FF), size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thư viện âm thanh',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Thiết bị · Drive · YouTube',
+                  style: TextStyle(color: Colors.grey, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+            onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 330;
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TabBar(
+            controller: _tabCtrl,
+            isScrollable: compact,
+            tabAlignment: compact ? TabAlignment.start : TabAlignment.fill,
+            indicator: BoxDecoration(
+              color: const Color(0xFF6C63FF).withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.4)),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: const Color(0xFF6C63FF),
+            unselectedLabelColor: Colors.grey,
+            labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontSize: 11),
+            labelPadding: EdgeInsets.symmetric(horizontal: compact ? 8 : 0),
+            tabs: [
+              _drawerTab(compact, const Icon(Icons.phone_android, size: 13), 'Thiết bị'),
+              _drawerTab(compact, const Text('📂', style: TextStyle(fontSize: 13)), 'Drive'),
+              _drawerTab(compact, const Text('▶️', style: TextStyle(fontSize: 13)), 'YouTube'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Tab _drawerTab(bool compact, Widget icon, String label) {
+    return Tab(
+      height: compact ? 34 : 38,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            icon,
+            const SizedBox(width: 4),
+            Text(label),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Tab 0: Thiết bị
+// ─────────────────────────────────────────────────────────
+class _LocalAudioTab extends StatefulWidget {
+  final bool isLeft;
+  final VoidCallback onClose;
+
+  const _LocalAudioTab({
+    required this.isLeft,
+    required this.onClose,
+  });
+
+  @override
+  State<_LocalAudioTab> createState() => _LocalAudioTabState();
+}
+
+class _LocalAudioTabState extends State<_LocalAudioTab> {
+  bool _importing = false;
+
+  /// Copy file vừa chọn vào audio_imports/ (persistent, dedup an toàn).
+  /// Trả null khi không đọc được nguồn — caller hiện thông báo, không crash.
+  Future<_ImportedAudioItem?> _importOne(PlatformFile file) async {
+    final path = file.path;
+    if (path == null) return null;
+    try {
+      final res = await AudioImportService.instance.ensurePersistent(
+        sourcePath: path,
+        displayName: file.name,
+      );
+      return _ImportedAudioItem(
+        path: res.path,
+        name: file.name,
+      );
+    } catch (e) {
+      debugPrint('[Drawer] Import audio thất bại (${file.name}): $e');
+      return null;
+    }
+  }
+
+  void _showSnack(String message, {Color color = Colors.orange}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(message)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _pickSingleFile() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.audio,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    final file = result.files.single;
+    setState(() => _importing = true);
+    final item = await _importOne(file);
+    if (!mounted) return;
+    setState(() => _importing = false);
+    if (item == null) {
+      _showSnack(
+          'Không lưu được file audio vào thư viện — vui lòng thử lại.');
+      return;
+    }
+
+    await context.read<PlayerProvider>().loadSong(
+          path: item.path,
+          title: item.name,
+          autoPlay: true,
+        );
+    if (!mounted) return;
+    final player = context.read<PlayerProvider>();
+    // Path cache cũ (nếu file đã bị dọn trước khi import kịp) → hướng dẫn,
+    // không crash.
+    if (player.lastLoadError == AudioLoadErrorKind.missingFile) {
+      _showSnack(
+          'File đã bị hệ thống dọn cache — hãy chọn lại file để lưu vào thư viện.');
+      return;
+    }
+    widget.onClose();
+  }
+
+  Future<void> _pickMultipleFiles() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.audio,
+      allowMultiple: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    // Lọc file có path hợp lệ
+    final valid = result.files.where((f) => f.path != null).toList();
+    if (valid.isEmpty) return;
+
+    // Import từng file vào thư mục persistent (dedup nếu đã import trước).
+    setState(() => _importing = true);
+    final items = <_ImportedAudioItem>[];
+    var failed = 0;
+    for (final f in valid) {
+      final item = await _importOne(f);
+      if (item != null) {
+        items.add(item);
+      } else {
+        failed++;
+      }
+    }
+    if (!mounted) return;
+    if (items.isEmpty) {
+      setState(() => _importing = false);
+      _showSnack(
+          'Không lưu được file audio vào thư viện — vui lòng thử lại.');
+      return;
+    }
+
+    setState(() => _importing = false);
+    if (failed > 0) {
+      _showSnack('Một số file không lưu được — danh sách phát chỉ gồm các file đã lưu.');
+    }
+
+    final loaded = await context.read<PlayerProvider>().startQueue(
+      items.map((item) => AudioQueueItem(
+        source: item.path,
+        title: item.name,
+      )).toList(growable: false),
+      skipFailures: true,
+    );
+    if (!mounted) return;
+    if (!loaded) _showSnack('Không phát được bài này');
+    // Keep the drawer open so the shared queue remains visible.
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Buttons chọn file
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+          child: Column(
+            children: [
+              _ActionTile(
+                icon: Icons.audio_file_outlined,
+                label: 'Chọn file âm thanh',
+                subtitle: 'MP3, M4A, WAV, FLAC...',
+                color: const Color(0xFF6C63FF),
+                onTap: _importing ? () {} : _pickSingleFile,
+              ),
+              const SizedBox(height: 8),
+              _ActionTile(
+                icon: Icons.playlist_add,
+                label: 'Chọn nhiều file',
+                subtitle: 'Tạo playlist từ nhiều file',
+                color: const Color(0xFF4CAF50),
+                onTap: _importing ? () {} : _pickMultipleFiles,
+              ),
+            ],
+          ),
+        ),
+
+        // Đang copy vào audio_imports/ (persistent) — bug ENOENT cache.
+        if (_importing)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Column(
+              children: [
+                const LinearProgressIndicator(
+                  color: Color(0xFF6C63FF),
+                  backgroundColor: Colors.white12,
+                  minHeight: 2,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.uiText('Đang lưu audio vào thư viện của app…'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+
+        Divider(color: Colors.white.withValues(alpha: 0.07), height: 1),
+
+        Expanded(
+          child: Consumer<PlayerProvider>(
+            builder: (context, player, _) {
+              final hasContent =
+                  player.currentSongPath != null || player.queueItems.isNotEmpty;
+
+              if (!hasContent) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.music_off, size: 44, color: Colors.grey[700]),
+                      const SizedBox(height: 12),
+                      Text('Chưa có bài nào đang phát',
+                          style:
+                              TextStyle(color: Colors.grey[500], fontSize: 13)),
+                      const SizedBox(height: 6),
+                      Text('Chọn file để bắt đầu',
+                          style:
+                              TextStyle(color: Colors.grey[700], fontSize: 11)),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView(
+                key: const ValueKey('drawer-queue-preview'),
+                padding: const EdgeInsets.all(12),
+                children: [
+                  // ── Đang phát ──
+                  if (player.currentSongPath != null) ...[
+                    Text('Đang phát',
+                        style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5)),
+                    const SizedBox(height: 8),
+                    _CurrentTrackCard(
+                      title: player.currentSongTitle ??
+                          player.currentSongPath!.split('/').last,
+                      isPlaying: player.isPlaying,
+                      onTap: widget.onClose,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Compact preview of the shared queue. Its complete list
+                  // is lazily built in the sheet for large selections.
+                  if (player.queueItems.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(context.uiText('Danh sách đang phát'),
+                              style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                        Text('${player.queueItems.length}',
+                            style: TextStyle(color: Colors.grey[500])),
+                        IconButton(
+                          tooltip: context.uiText('Danh sách đang phát'),
+                          onPressed: () => showPlaybackQueueSheet(context),
+                          icon: const Icon(Icons.queue_music,
+                              color: Colors.white70, size: 20),
+                        ),
+                        if (player.queueItems.length > 1)
+                          IconButton(
+                            tooltip: context.uiText('Chỉ giữ bài hiện tại'),
+                            onPressed: player.isQueueLoading ||
+                                    player.queueIndex < 0
+                                ? null
+                                : player.clearUpcomingQueue,
+                            icon: const Icon(Icons.playlist_remove,
+                                color: Colors.white54, size: 20),
+                          ),
+                      ],
+                    ),
+                    ...player.queueItems.take(8).toList().asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      final isCurrent = player.queueIndex == index &&
+                          player.currentSongPath != null;
+                      final isFailed = player.queueFailedIndices.contains(index) ||
+                          item.isMissing;
+                      return ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        selected: isCurrent,
+                        selectedTileColor: const Color(0x266C63FF),
+                        leading: isCurrent
+                            ? const Icon(Icons.graphic_eq, color: Color(0xFF9D96FF))
+                            : isFailed
+                                ? const Icon(Icons.error_outline,
+                                    color: Colors.orangeAccent)
+                                : Text('${index + 1}',
+                                    style: const TextStyle(color: Colors.white54)),
+                        title: material.Text(
+                          item.isMissing
+                              ? context.uiText('Bài không còn trong thư viện')
+                              : item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        onTap: () => player.selectQueueItem(index),
+                      );
+                    }),
+                    if (player.queueItems.length > 8)
+                      TextButton(
+                        onPressed: () => showPlaybackQueueSheet(context),
+                        child: Text(context.uiText('Xem tất cả')),
+                      ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Segments của bài hiện tại ──
+                  if (player.currentSongPath != null &&
+                      player.getSegmentsForCurrentSong().isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Text('Đoạn đã lưu',
+                            style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5)),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: Color(0xFF6C63FF).withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            context.uiText('${player.getSegmentsForCurrentSong().length}'),
+                            style: const TextStyle(
+                                color: Color(0xFF9C8FFF),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...player.getSegmentsForCurrentSong().asMap().entries.map(
+                          (e) => _SegmentTile(
+                            segment: e.value,
+                            onPlay: () {
+                              player.playSegment(e.value, index: e.key);
+                              widget.onClose();
+                            },
+                            onDelete: () => player.deleteSegment(e.value.id),
+                          ),
+                        ),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 12, color: Colors.grey[700]),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  widget.isLeft
+                      ? 'Vuốt từ cạnh trái để mở'
+                      : 'Vuốt từ cạnh phải để mở',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[700], fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+}
+
+// ─────────────────────────────────────────────────────────
+// Tab 1: Google Drive — không thay đổi, dùng GoogleDriveBrowser
+// ─────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────
+// Tab 2: YouTube
+// ─────────────────────────────────────────────────────────
+class _YouTubeTab extends StatelessWidget {
+  final VoidCallback onClose;
+  const _YouTubeTab({required this.onClose});
+
+  void _openYoutube(BuildContext context, {bool captionsFirst = false}) {
+    // Đóng drawer trước, sau đó mở sheet
+    Navigator.pop(context);
+    Future.microtask(() {
+      if (context.mounted) {
+        YoutubeSheet.show(context, captionsFirst: captionsFirst);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Banner
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Color(0xFFFF0000).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border:
+                  Border.all(color: Color(0xFFFF0000).withValues(alpha: 0.2)),
+            ),
+            child: const Row(
+              children: [
+                Text('▶️', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('YouTube',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                      SizedBox(height: 2),
+                      Text(
+                        'Tải audio · Captions · Khám phá kênh',
+                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          ElevatedButton.icon(
+            onPressed: () => _openYoutube(context, captionsFirst: true),
+            icon: const Icon(Icons.school, size: 18),
+            label: const Text('Học video (phụ đề + bấm từ)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9C27B0),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Nút tải audio
+          ElevatedButton.icon(
+            onPressed: () => _openYoutube(context),
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('Tải Audio từ YouTube'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF0000),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Nút tải captions
+          OutlinedButton.icon(
+            onPressed: () => _openYoutube(context, captionsFirst: true),
+            icon: const Icon(Icons.subtitles_outlined, size: 18),
+            label: const Text('Tải Lyrics / Captions'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF4CAF50),
+              side: BorderSide(color: Color(0xFF4CAF50).withValues(alpha: 0.5)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Tips
+          const _TipRow(
+            icon: Icons.school,
+            text: 'Dán URL → Học video: iframe + phụ đề, bấm câu, lặp câu',
+          ),
+          const SizedBox(height: 8),
+          const _TipRow(
+            icon: Icons.music_note,
+            text: 'Tải audio M4A nếu muốn học offline trong tab Nghe',
+          ),
+          const SizedBox(height: 8),
+          const _TipRow(
+            icon: Icons.subtitles,
+            text: 'Captions → LRC; không cần YouTube Data API key',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _TipRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text,
+              style: TextStyle(
+                  color: Colors.grey[600], fontSize: 11, height: 1.4)),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Shared widgets ───────────────────────────────────────
+
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
+                  Text(subtitle,
+                      style: TextStyle(
+                          color: color.withValues(alpha: 0.7), fontSize: 11)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: color, size: 13),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentTrackCard extends StatelessWidget {
+  final String title;
+  final bool isPlaying;
+  final VoidCallback onTap;
+
+  const _CurrentTrackCard({
+    required this.title,
+    required this.isPlaying,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Color(0xFF6C63FF).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Color(0xFF6C63FF).withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isPlaying
+                    ? const Color(0xFF6C63FF)
+                    : Color(0xFF6C63FF).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                isPlaying ? Icons.pause : Icons.play_arrow,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Song titles are user content, not translatable UI labels.
+                  material.Text(
+                    title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isPlaying ? '▶ Đang phát' : 'Đã tải',
+                    style: TextStyle(
+                        color: isPlaying
+                            ? const Color(0xFF6C63FF)
+                            : Colors.grey[600],
+                        fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SegmentTile extends StatelessWidget {
+  final dynamic segment;
+  final VoidCallback onPlay;
+  final VoidCallback onDelete;
+
+  const _SegmentTile({
+    required this.segment,
+    required this.onPlay,
+    required this.onDelete,
+  });
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(segment.title ?? 'Đoạn',
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(
+                  context.uiText('${_fmt(segment.startTime)} → ${_fmt(segment.endTime)}'),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onPlay,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: Color(0xFF4CAF50).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.play_arrow,
+                  color: Color(0xFF4CAF50), size: 16),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: onDelete,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child:
+                  const Icon(Icons.delete_outline, color: Colors.red, size: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -48,6 +48,7 @@
 | WEB-BUILD-002 | Web VẪN TRẮNG + YouTube -1 tái phát sau fix 001 — thiếu `home:` + thiếu loader/.nojekyll | 🔨 doing (đã fix, chờ CI + hard-reload) | `home:` rỗng ⇒ trắng; thêm loader + `.nojekyll` + yt_embed v2 validate ID — IN4-109 tiếp nối |
 | DICT-SQLITE-001 | Import từ điển đuôi `.db`/`.sqlite` (trước chỉ nhận `.mdx`) | ✅ done (code + 17 test + CI 🟢 run 40590731503; chờ nghiệm thu máy) | `dict_sqlite_importer.dart` (đoán bảng/cột thuần + đọc LIMIT/OFFSET read-only) + `_importSqliteSources` trong DictionaryService + picker/quét thư mục nhận db/sqlite/sqlite3 |
 | YT-LRC-LONG-001 | Lấy phụ đề YouTube sang tab Đọc bị lỗi: video ≥ 60 phút ghi SAI mốc giờ + bộ đọc LRC chỉ nhận 2 chữ số phút + lỗi im lặng | ✅ done (code + test + CI 🟢 run 40584513088; chờ nghiệm thu máy) | `toLrc()` ghi phút tuyệt đối; đọc LRC tách sang hàm thuần `lrc_time_parser.dart` (phút 1–3 số, `.`/`,`, `hh:mm:ss`); `YtReadBridge` bọc try/catch + snackbar giữ messenger trước khi pop |
+| REL-1.20.0 | Release **1.20.0** (đủ 4 nền tảng) từ tip 251e — 12 commit sau 1.19.1 (bố cục đọc tập trung, quét video thiết bị, Tipiṭaka gói ngôn ngữ, Cabin giữ utterance cuối, dịch sạch Markdown) | ✅ done (build 🟢 run 40815857856, 4/4 job; chờ nghiệm thu máy) | bump `1.19.0+19 → 1.20.0+20` (`e82b3621`); APK arm64 198.6 MB `6cfe6a20…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.20.0 |
 | REL-1.19.1 | Release **1.19.1** (đủ 4 nền tảng) — sửa lỗi Kotlin comment lồng nhau làm Android đỏ 4 run liên tiếp | ✅ done (build 🟢 run 40635280501, 4/4 job; chờ nghiệm thu máy) | APK arm64 198.5 MB `f7c4f33d…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.19.1 |
 | REL-1.18.0 | Release **1.18.0** (full 4 nền tảng) từ tip 251e `b3583676` — 34 commit sau 1.17.0 (i18n wave 8+9, PRON-002, API-SERVERSET, PARAKEET-002 dùng được, 7 fix YouTube, fix từ điển) | ✅ done (build 🟢 run 40568716000, 4/4 job; chờ nghiệm thu máy) | bump `1.17.0+17 → 1.18.0+18` (`5a70bf33`); APK arm64 198.4 MB `8e6b90fa…`, IPA 92.7 MB, Linux 49.4 MB, Windows 51.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.18.0 |
 | REL-1.17.0 | Release **1.17.0** (full 4 nền tảng) từ tip 251e — bump `1.16.0+16 → 1.17.0+17` để update đè được | ✅ done (build 🟢 run 40262212277, 4/4 job; chờ nghiệm thu máy) | APK arm64 198 MB `f6f6e2c4…`, IPA 92 MB, Linux tar 49 MB, Windows zip 51.5 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0 |
@@ -8349,3 +8350,20 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Bài học CI (ghi lại):** (1) `gh api .../jobs/{id}/logs` không dùng được trong môi trường này ⇒ **luôn phát lỗi ra annotation**; (2) GitHub chỉ lưu/đọc được một số annotation ⇒ **gộp** thay vì phát từng dòng; (3) Kotlin **cho phép comment lồng** nên `/*` trong comment là bẫy thật, và thông báo lỗi sẽ trỏ sai dòng.
 - **Lịch sử:**
   - 2026-10-28 | created→done | agent arena/01a0251e-in4up | 4 run chẩn đoán (40628219927 đỏ, 40629835587/40631471443/40633324522 vẫn đỏ với annotation), tìm ra comment lồng, sửa ở 845107d9, build 40635280501 🟢
+
+### REL-1.20.0 — (2026-10-29) Release 1.20.0 đủ 4 nền tảng từ tip 251e
+- **Trạng thái:** ✅ done (build 🟢 `run 40815857856` 4/4 job; **chờ nghiệm thu máy**)
+- **Nguồn:** owner 2026-10-29 — *"Hiện đã có thêm commit mới, hãy tạo tag release mới phù hợp ở nhánh này."*
+- **Tag/commit:** `1.20.0` → `e82b3621` (*build: bump 1.19.0+19 → 1.20.0+20*), trên tip `37666848` (*fix(translation): strip leaked analysis and Markdown*).
+- **Vì sao bump minor:** 12 commit sau `1.19.1` có **4 tính năng** (bố cục đọc tập trung + preset; quét video trên thiết bị; đơn giản hoá transcript/luyện đọc; gọn hoá workspace Đọc/Xem).
+- **Sửa nợ version:** tag `1.19.1` trước đó **chưa bump pubspec** (vẫn `1.19.0+19`) ⇒ nay bump một lần cho cả hai bản: **`versionCode 19 → 20`** ⇒ Android cài đè được bản 1.19.1 và 1.19.0, dữ liệu giữ nguyên.
+- **Nội dung 12 commit:** bố cục đọc tập trung + preset (READ) · gọn hoá workspace Đọc/Xem · quét video thiết bị song song với thư mục đã chọn + fallback nguồn video khả dụng · đơn giản hoá transcript & luyện đọc · PDF: tinh chỉnh highlight + sheet lưu từ gọn · Tipiṭaka: nhận diện gói ngôn ngữ + làm sạch tiêu đề mục lục · Cabin: giữ utterance Sherpa cuối khi bấm dừng · Dịch: bỏ phần phân tích/Markdown rò rỉ · CI: 3 nhóm test mới (chế độ hiện bản dịch, quét video lỗi, giữ vị trí đọc).
+- **CI trước khi tag:** run **40815373142** trên tip `37666848` 🟢 (analyze 0 error + toàn bộ bước test) ⇒ tag đúng commit đã xanh.
+- **Bằng chứng:** `build_final_complete.yml` run **40815857856** — **4/4 job success**. Release: https://github.com/Pabhassaracitto/In4Up/releases/tag/1.20.0
+  - `in4up-Android-arm64-v8a-1.20.0-e82b3.apk` — 198.579.958 B — sha256 `6cfe6a20515a45c51109ee84a8d809ed9bb980f1507f711960288c2272eab081`
+  - `in4up-iOS-1.20.0.ipa` — 92.808.203 B — sha256 `e949b4db02eb551d5a826ca817e7e299ec9bf2e99844ad759d342d77cd4dc51b`
+  - `in4up-Linux-1.20.0.tar.gz` — 49.576.190 B — sha256 `9db65b887586c77a47583092b55c0da64e83b97e60ba0c6bebeb94920c24fc50`
+  - `in4up-Windows-1.20.0.zip` — 52.113.245 B — sha256 `b494f3be05d89b626e3ce507aa6e675de0c2bf1191e12d882de42e5bb40001da`
+- **Chưa kiểm (máy thật):** cài đè 1.19.1 → 1.20.0; bố cục đọc tập trung; quét video thiết bị; karaoke/transcript; Tipiṭaka gói ngôn ngữ; Cabin dừng giữ câu cuối; bản dịch không còn Markdown rò rỉ.
+- **Lịch sử:**
+  - 2026-10-29 | created→done | agent arena/01a0251e-in4up | chờ CI tip 🟢 (40815373142) → bump 1.20.0+20 → tag → build 4 nền tảng 🟢 (40815857856) → 4 asset published

@@ -27,6 +27,8 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   List<({TipitakaReadingPosition position, TipitakaBook book})>
       _recentPositions = const [];
   String _language = 'en';
+  String _catalogLanguage = 'en';
+  bool _catalogLanguageChosen = false;
   bool _loading = true;
   String? _error;
 
@@ -62,6 +64,18 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
         _collections = collections;
         _booksByCollection = const {};
         _languages = info.availableLanguages;
+        if (!_catalogLanguageChosen || !info.availableLanguages.contains(_catalogLanguage)) {
+          _catalogLanguage = info.availableLanguages.contains(_language)
+              ? _language
+              : info.availableLanguages.contains('vi')
+                  ? 'vi'
+                  : info.availableLanguages.contains('en')
+                      ? 'en'
+                      : info.availableLanguages.isEmpty
+                          ? 'pi'
+                          : (info.availableLanguages.toList()..sort()).first;
+          _catalogLanguageChosen = false;
+        }
         _loading = false;
       });
       _loadRecentPositions();
@@ -214,6 +228,38 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                         const SizedBox(height: 10),
                       ],
                       _LibraryStatusCard(languages: _languages),
+                      if (_languages.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: DropdownButtonFormField<String>(
+                              value: _languages.contains(_catalogLanguage)
+                                  ? _catalogLanguage
+                                  : _languages.first,
+                              decoration: InputDecoration(
+                                labelText: context.uiText('Ngôn ngữ bản dịch'),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              items: (_languages.toList()..sort()).map((code) {
+                                return DropdownMenuItem<String>(
+                                  value: code,
+                                  child: Text(tipitakaLanguageLabel(code)),
+                                );
+                              }).toList(),
+                              onChanged: (code) {
+                                if (code == null) return;
+                                setState(() {
+                                  _catalogLanguage = code;
+                                  _catalogLanguageChosen = true;
+                                  _booksByCollection = const {};
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       Card(
                         clipBehavior: Clip.antiAlias,
@@ -230,12 +276,14 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                           children: [
                             for (final collection in _collections)
                               _CollectionTreeNode(
+                                key: ValueKey('$_catalogLanguage-${collection.id}'),
                                 collection: collection,
                                 books: _booksByCollection[collection.id] ?? const [],
                                 onLoadBooks: () async {
                                   final db = await TipitakaDb.openReady();
                                   final loaded = await TipitakaDb.getBooksByCollection(
-                                    db, collection.id, languageCode: _language);
+                                    db, collection.id,
+                                    languageCode: _catalogLanguage);
                                   if (mounted) setState(() => _booksByCollection = {
                                     ..._booksByCollection, collection.id: loaded});
                                 },
@@ -435,6 +483,7 @@ class _CollectionTreeNode extends StatefulWidget {
   }) onOpen;
 
   const _CollectionTreeNode({
+    super.key,
     required this.collection,
     required this.books,
     required this.onLoadBooks,
@@ -452,16 +501,23 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
   /// Piṭaka identity: title, icon and accent colour per basket, so the three
   /// Tipiṭaka divisions are visually distinct like on OpenTipitaka.
   ({String title, IconData icon, Color color}) _style(String language) {
-    final names = '${widget.collection.namePali} ${widget.collection.nameEn} ${widget.collection.nameVi}'
-        .toLowerCase();
-    if (names.contains('vin') || names.contains('luật')) {
+    final names = (
+      '${widget.collection.namePali} ${widget.collection.nameEn} '
+      '${widget.collection.nameVi} '
+      '${widget.books.map((book) => '${book.code} ${book.catalogIndex.sourceTable}').join(' ')}'
+    ).toLowerCase();
+    if (names.contains('vin') ||
+        names.contains('discipline') ||
+        names.contains('luật')) {
       return (
         title: language == 'vi' ? 'Tạng Luật' : 'Vinaya Piṭaka',
         icon: Icons.balance_outlined,
         color: Colors.deepPurple,
       );
     }
-    if (names.contains('abh') || names.contains('diệu')) {
+    if (names.contains('abh') ||
+        names.contains('higher dhamma') ||
+        names.contains('diệu')) {
       return (
         title: language == 'vi' ? 'Tạng Luận' : 'Abhidhamma Piṭaka',
         icon: Icons.psychology_outlined,

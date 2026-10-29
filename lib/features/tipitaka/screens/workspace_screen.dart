@@ -6,6 +6,7 @@ import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/reader_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 
 class TipitakaWorkspaceTab {
   final TipitakaBook book;
@@ -328,10 +329,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     var text = segment.translationFor(language).trim();
     if (text.isEmpty) text = segment.paliText.trim();
     if (text.isEmpty) text = segment.firstTranslation?.value.trim() ?? '';
-    text = text
-        .replaceAll(RegExp(r'<[^>]*>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    text = cleanTipitakaText(text).replaceAll(RegExp(r'\s+'), ' ').trim();
     return text.isEmpty ? '${index + 1}. ${context.uiText('Mục chưa có tiêu đề')}' : text;
   }
 

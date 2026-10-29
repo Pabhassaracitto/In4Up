@@ -76,7 +76,7 @@ class TipitakaBook extends Equatable {
             nameVi,
           ];
     for (final value in candidates) {
-      final title = value.trim();
+      final title = _cleanTipitakaTitle(value);
       if (title.isNotEmpty && !_looksTechnical(title)) return title;
     }
     return languageCode == 'vi'
@@ -204,3 +204,18 @@ class TipitakaBookIndex {
       ? canonicalCode
       : '$canonicalCode · $editionCode';
 }
+
+/// Database titles can come from raw CSCD HTML/XML (`<p rend="book">…`).
+/// Keep rendering safe and readable even when an older importer did not
+/// normalize the title column.
+String _cleanTipitakaTitle(String value) => value
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&nbsp;', ' ')
+    .replaceAll('&quot;', '"')
+    .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), ' ')
+    .replaceAll(RegExp(r'<[^>]*>'), ' ')
+    .replaceAll('&#39;', "'")
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();

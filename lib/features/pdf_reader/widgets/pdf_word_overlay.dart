@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../../features/grammar/models/grammar_category.dart';
@@ -148,6 +149,21 @@ class _WordHighlightPainter extends CustomPainter {
         Color? outlineColor;
         Color? underlineColor;
         double underlineThickness = 0;
+
+        // CEFR and difficulty use a light tint plus a restrained hue edge,
+        // rather than a flat translucent block that can obscure small PDF text.
+        if (word.analyzed != null && colorMode == ColorMode.cefrLevel) {
+          final hue = word.analyzed!.cefrLevel.color;
+          outlineColor = hue.withValues(alpha: 0.62);
+          underlineColor = hue.withValues(alpha: 0.78);
+          underlineThickness = 1.25;
+        } else if (word.analyzed?.userDifficulty != null &&
+            colorMode == ColorMode.difficulty) {
+          final hue = word.analyzed!.userDifficulty!.color;
+          outlineColor = hue.withValues(alpha: 0.58);
+          underlineColor = hue.withValues(alpha: 0.76);
+          underlineThickness = 1.35;
+        }
 
         if (colorMode == ColorMode.wordType && grammarSettings.enabled) {
           final analyzed = word.analyzed;

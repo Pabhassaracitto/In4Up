@@ -12,6 +12,7 @@ import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_learn_by_heart_service.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_tts.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_worklist_service.dart';
 import 'package:in4up/models/vocabulary_type.dart';
 import 'package:in4up/providers/vocabulary_provider.dart';
@@ -97,14 +98,17 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   DateTime _lastPositionSavedAt =
       DateTime.fromMillisecondsSinceEpoch(0);
 
-  bool get _showPali =>
-      _hasPali &&
-      _appearance.displayMode != TipitakaDisplayMode.translationOnly;
+  TipitakaDisplayVisibility get _displayVisibility =>
+      TipitakaDisplayVisibility.resolve(
+        mode: _appearance.displayMode,
+        hasPali: _hasPali,
+      );
+
+  bool get _showPali => _displayVisibility.showPali;
 
   // Databases without an imported Pāli pack make "Pali only" meaningless;
   // fall through to translations so the reader is never blank.
-  bool get _showPrimaryTranslation =>
-      _appearance.displayMode != TipitakaDisplayMode.paliOnly || !_hasPali;
+  bool get _showPrimaryTranslation => _displayVisibility.showTranslation;
 
   bool get _showEnglishSecondary =>
       _showPrimaryTranslation &&
@@ -706,7 +710,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
 
   void _onPaliSelection(TipitakaSegment segment, TextSelection selection) {
     if (_selectionSheetOpen || selection.isCollapsed) return;
-    final text = cleanTipitakaText(segment.paliText);
+    final text = cleanTipitakaText(segment.canonicalPaliText);
     final start = selection.start.clamp(0, text.length).toInt();
     final end = selection.end.clamp(0, text.length).toInt();
     if (start >= end) return;
@@ -784,7 +788,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   }
 
   String _shareText(TipitakaSegment segment) {
-    final pali = parseTipitakaText(segment.paliText).text;
+    final pali = parseTipitakaText(segment.canonicalPaliText).text;
     final translation = _resolveTranslation(
       segment,
       _appearance.primaryLanguage,
@@ -963,7 +967,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   }
 
   String _segmentStudyText(TipitakaSegment segment) {
-    final pali = cleanTipitakaText(segment.paliText);
+    final pali = cleanTipitakaText(segment.canonicalPaliText);
     if (pali.isNotEmpty) return pali;
     final translation = segment.firstTranslation;
     return cleanTipitakaText(translation?.value ?? '');
@@ -977,22 +981,6 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     return segment.firstTranslation?.key ?? primary;
   }
 
-  String _segmentReadingText(TipitakaSegment segment) {
-    if (_showPrimaryTranslation) {
-      final primary =
-          cleanTipitakaText(segment.translationFor(_appearance.primaryLanguage));
-      if (primary.isNotEmpty) return primary;
-      for (final code in const ['vi', 'en', 'my', 'th']) {
-        final text = cleanTipitakaText(segment.translationFor(code));
-        if (text.isNotEmpty) return text;
-      }
-      final other = segment.firstTranslation;
-      if (other != null && other.value.trim().isNotEmpty) {
-        return cleanTipitakaText(other.value);
-      }
-    }
-    return cleanTipitakaText(segment.paliText);
-  }
 
   Future<void> _stopTts() async {
     _globalTtsGeneration++;
@@ -1005,6 +993,26 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     }
   }
 
+  List<TipitakaSpeechChunk> _speechChunks(TipitakaSegment segment) =>
+      tipitakaSpeechChunks(
+        segment: segment,
+        mode: _hasPali
+            ? _appearance.displayMode
+            : TipitakaDisplayMode.translationOnly,
+        translationLanguage: _appearance.primaryLanguage,
+        includeEnglish: _appearance.englishSecondary,
+      );
+
+  Future<void> _speakSegmentChunks(
+    TipitakaSegment segment,
+    int generation,
+  ) async {
+    for (final chunk in _speechChunks(segment)) {
+      if (generation != _globalTtsGeneration) return;
+      await _tts.speak(chunk.text, language: chunk.languageCode);
+    }
+  }
+
   Future<void> _toggleSegmentTts(
     TipitakaSegment segment,
     int absoluteIndex,
@@ -1013,8 +1021,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       await _stopTts();
       return;
     }
-    final text = _segmentReadingText(segment);
-    if (text.isEmpty) return;
+    if (_speechChunks(segment).isEmpty) return;
     final generation = ++_globalTtsGeneration;
     await _tts.stop();
     if (!mounted) return;
@@ -1023,7 +1030,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       _speakingSegmentId = segment.id;
       _ttsCursor = absoluteIndex;
     });
-    await _tts.speak(text);
+    await _speakSegmentChunks(segment, generation);
     if (!mounted || generation != _globalTtsGeneration) return;
     setState(() {
       _speakingSegmentId = null;
@@ -1054,12 +1061,12 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
         if (page.isEmpty) break;
         for (final segment in page) {
           if (generation != _globalTtsGeneration) return;
-          final text = _segmentReadingText(segment);
           setState(() {
             _speakingSegmentId = segment.id;
             _ttsCursor = offset;
           });
-          if (text.isNotEmpty) await _tts.speak(text);
+          await _speakSegmentChunks(segment, generation);
+          if (generation != _globalTtsGeneration) return;
           offset++;
           _ttsCursor = offset;
         }
@@ -1088,8 +1095,8 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
           );
     final text = secondary.isNotEmpty
         ? secondary
-        : cleanTipitakaText(segment.paliText).isNotEmpty
-            ? cleanTipitakaText(segment.paliText)
+        : cleanTipitakaText(segment.canonicalPaliText).isNotEmpty
+            ? cleanTipitakaText(segment.canonicalPaliText)
             : cleanTipitakaText(segment.firstTranslation?.value ?? '');
     return text.isEmpty ? context.uiText('Mục chưa có tiêu đề') : text;
   }
@@ -1696,7 +1703,7 @@ class _SectionBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parsedPali = parseTipitakaText(
-      segment.paliText,
+      segment.canonicalPaliText,
       apparatusInline: apparatusInline,
     );
     final paliText = parsedPali.text;
@@ -1964,7 +1971,7 @@ class _SegmentMetaBar extends StatelessWidget {
             ),
             if (!compact)
               for (final marker
-                  in tipitakaPageMarkers(segment.paliText).take(2))
+                  in tipitakaPageMarkers(segment.canonicalPaliText).take(2))
                 Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: Container(

@@ -356,6 +356,7 @@ jobs:
           test/tipitaka_dictionary_i18n_coverage_test.dart
           test/tipitaka_display_phase2_test.dart
           test/tipitaka_import_concurrency_test.dart
+          test/tipitaka_catalog_tts_test.dart
 
       # IN4-15 (LOGIN-CRASH-002): đăng nhập release — guard cấu trúc cho
       # CI gate SHA-1 ↔ google-services.json + log trạng thái auth.

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/learn_by_heart/models/learn_by_heart_item.dart';
 import 'package:in4up/features/tipitaka/models/book.dart';
+import 'package:in4up/features/tipitaka/models/segment.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/models/tipitaka_source_anchor.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -54,6 +56,29 @@ void main() {
     await db.close();
     return path;
   }
+
+  test('detects Vietnamese from the source schema when the DB was renamed',
+      () async {
+    final path = await createSource(
+      filename: 'renamed-download.db',
+      textColumn: 'vietnamese',
+      texts: const [
+        '<p rend="book">Bài kinh tiếng Việt</p>',
+        'Nội dung đọc được.',
+      ],
+    );
+    await TipitakaDb.importSourceDatabase(path, destinationPath: targetPath);
+    final db = await TipitakaDb.openAt(targetPath);
+    final info = await TipitakaDb.info(db);
+    expect(info.availableLanguages, contains('vi'));
+    final collections = await TipitakaDb.getCollections(db);
+    final books = await TipitakaDb.getBooksByCollection(
+      db,
+      collections.single.id,
+      languageCode: 'vi',
+    );
+    expect(books.single.displayTitle('vi'), 'Bài kinh tiếng Việt');
+  });
 
   test('Vietnamese imports and reads before Pāli, then Pāli enriches it',
       () async {
@@ -181,6 +206,40 @@ void main() {
       segments.single.translationFor('vi'),
       'Nội dung tiếng Việt đã khớp.',
     );
+  });
+
+  test('markup cleaner handles literal and escaped CSCD block tags', () {
+    expect(cleanTipitakaText('<p rend="book">Mahavamsapali</p>'), 'Mahavamsapali');
+    expect(
+      cleanTipitakaText('&lt;p rend="book"&gt;Mahavamsapali&lt;/p&gt;'),
+      'Mahavamsapali',
+    );
+  });
+
+  test('raw book title markup is stripped before it reaches the catalogue', () {
+    const book = TipitakaBook(
+      id: 9,
+      collectionId: 1,
+      code: 'MAHAVAMSA',
+      namePali: '<p rend="book">Mahavamsapali</p>',
+      nameEn: '',
+      nameVi: '',
+      orderIndex: 0,
+    );
+    expect(book.displayTitle('en'), 'Mahavamsapali');
+  });
+
+  test('dynamic language translations are case-insensitive and flexible', () {
+    final segment = TipitakaSegment(
+      id: 1,
+      bookId: 1,
+      reference: 'MN 1',
+      paliText: '',
+      orderIndex: 0,
+      translations: const {'vi': 'Bản dịch', 'zh_TW': '繁體中文'},
+    );
+    expect(segment.translationFor('VI'), 'Bản dịch');
+    expect(segment.translationFor('zh-TW'), '繁體中文');
   });
 
   test('technical identifiers are never primary book titles', () {

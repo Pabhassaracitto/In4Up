@@ -56,18 +56,22 @@ class TipitakaSegment extends Equatable {
       );
 
   String translationFor(String languageCode) {
-    switch (languageCode) {
-      case 'vi':
-        return translationVi ?? '';
-      case 'en':
-        return translationEn ?? '';
-      case 'my':
-        return translationMy ?? '';
-      case 'th':
-        return translationTh ?? '';
-      default:
-        return translations[languageCode] ?? '';
+    final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
+    final fixedTranslation = switch (language) {
+      'vi' => translationVi,
+      'en' => translationEn,
+      'my' => translationMy,
+      'th' => translationTh,
+      _ => null,
+    };
+    if ((fixedTranslation ?? '').isNotEmpty) return fixedTranslation!;
+
+    for (final entry in translations.entries) {
+      if (entry.key.trim().toLowerCase().replaceAll('_', '-') == language) {
+        return entry.value;
+      }
     }
+    return '';
   }
 
   MapEntry<String, String>? get firstTranslation {

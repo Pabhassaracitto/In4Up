@@ -72,6 +72,30 @@ String tipitakaLanguageLabel(String code) {
       return 'සිංහල';
     case 'hi':
       return 'हिन्दी';
+    case 'bn':
+      return 'বাংলা';
+    case 'fr':
+      return 'Français';
+    case 'de':
+      return 'Deutsch';
+    case 'id':
+      return 'Bahasa Indonesia';
+    case 'ja':
+      return '日本語';
+    case 'km':
+      return 'ខ្មែរ';
+    case 'ko':
+      return '한국어';
+    case 'lo':
+      return 'ລາວ';
+    case 'mr':
+      return 'मराठी';
+    case 'pt':
+      return 'Português';
+    case 'es':
+      return 'Español';
+    case 'bo':
+      return 'བོད་སྐད';
     default:
       return code.toUpperCase();
   }
@@ -158,15 +182,17 @@ String cleanTipitakaText(String value) => parseTipitakaText(value).text;
 
 String _cleanTipitakaMarkup(String value) {
   return value
-      .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n')
-      .replaceAll(RegExp(r'</\s*p\s*>', caseSensitive: false), '\n')
-      .replaceAll(RegExp(r'<[^>]*>'), ' ')
-      .replaceAll('&nbsp;', ' ')
+      // Some importers escaped the original XML tags before storing them.
+      // Decode markup entities first so those legacy rows render as text too.
       .replaceAll('&amp;', '&')
       .replaceAll('&lt;', '<')
       .replaceAll('&gt;', '>')
+      .replaceAll('&nbsp;', ' ')
       .replaceAll('&#39;', "'")
       .replaceAll('&quot;', '"')
+      .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'</\s*p\s*>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
       .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .replaceAll(RegExp(r'[ \t]+'), ' ')
       .trim();

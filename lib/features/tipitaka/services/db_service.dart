@@ -330,7 +330,6 @@ class TipitakaDb {
       throw const TipitakaDatabaseException('Không tìm thấy file nguồn.');
     }
 
-    final language = languageCode ?? _languageFromFilename(sourcePath);
     final targetPath = destinationPath ?? await installedDatabasePath();
     if (_openPath == targetPath) await close();
     Database? source;
@@ -340,9 +339,15 @@ class TipitakaDb {
         readOnly: true,
         singleInstance: false,
       );
+      final language = (languageCode?.trim().isNotEmpty == true
+              ? languageCode!.trim()
+              : await _languageFromSourceSchema(source) ??
+                  _languageFromFilename(sourcePath))
+          .toLowerCase()
+          .replaceAll('_', '-');
       return language == 'pi'
-          ? await _importPaliSource(source, targetPath)
-          : await _importTranslationSource(source, language, targetPath);
+        ? await _importPaliSource(source, targetPath)
+        : await _importTranslationSource(source, language, targetPath);
     } on DatabaseException catch (error) {
       throw TipitakaDatabaseException(
         'File không phải SQLite hợp lệ hoặc không thể đọc: $error',
@@ -1078,6 +1083,48 @@ class TipitakaDb {
     return ('sutta', 'Sutta', 'Kinh tạng');
   }
 
+  /// Detects language packs even when a user renamed the downloaded `.db`.
+  /// Prefer explicit language names/codes in source tables or columns; use the
+  /// filename only when the schema contains generic text columns.
+  static Future<String?> _languageFromSourceSchema(Database source) async {
+    const hints = <String, List<String>>{
+      'vi': ['vietnamese', 'vietnam', 'viet', 'translationvi'],
+      'en': ['english', 'translationen'],
+      'my': ['myanmar', 'burmese', 'translationmy'],
+      'th': ['thai', 'translationth'],
+      'si': ['sinhala'],
+      'zh': ['chinese'],
+      'ja': ['japanese'],
+      'ko': ['korean'],
+      'km': ['khmer'],
+      'lo': ['lao'],
+      'fr': ['french'],
+      'de': ['german'],
+      'es': ['spanish'],
+      'id': ['indonesian'],
+      'pt': ['portuguese'],
+      'hi': ['hindi'],
+      'bn': ['bengali'],
+      'mr': ['marathi'],
+      'bo': ['tibetan'],
+      'pi': ['pali', 'roman'],
+    };
+    final tables = await _sourceTables(source);
+    for (final table in tables) {
+      final tableName = _normalizeName(table);
+      for (final entry in hints.entries) {
+        if (entry.value.any((hint) => tableName.contains(hint))) return entry.key;
+      }
+      for (final column in await _sourceColumns(source, table)) {
+        final columnName = _normalizeName(column);
+        for (final entry in hints.entries) {
+          if (entry.value.any((hint) => columnName.contains(hint))) return entry.key;
+        }
+      }
+    }
+    return null;
+  }
+
   static String _languageFromFilename(String path) {
     final name = p.basename(path).toLowerCase();
     const hints = <String, List<String>>{
@@ -1422,7 +1469,9 @@ class TipitakaDb {
       'WHERE text <> \'\'',
     );
     languages.addAll(
-      extraLanguages.map((row) => row['language_code'] as String),
+      extraLanguages
+          .map((row) => '${row['language_code'] ?? ''}'.trim().toLowerCase())
+          .where((code) => code.isNotEmpty),
     );
     var fileLength = 0;
     final path = _openPath;

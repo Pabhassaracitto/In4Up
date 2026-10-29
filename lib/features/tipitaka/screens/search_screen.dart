@@ -69,7 +69,7 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
       segment.translationVi ?? '',
       segment.translationEn ?? '',
       segment.firstTranslation?.value ?? '',
-      segment.paliText,
+      segment.canonicalPaliText,
     ];
     for (final candidate in candidates) {
       final clean = cleanTipitakaText(candidate);
@@ -85,7 +85,11 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
     setState(() => _openingId = segment.id);
     try {
       final db = await TipitakaDb.openReady();
-      final book = await TipitakaDb.getBookById(db, segment.bookId);
+      final book = await TipitakaDb.getBookById(
+        db,
+        segment.bookId,
+        languageCode: Localizations.localeOf(context).languageCode,
+      );
       if (!mounted) return;
       if (book == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,7 +135,7 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
       segment.translationVi ?? '',
       segment.translationEn ?? '',
       segment.firstTranslation?.value ?? '',
-      segment.paliText,
+      segment.canonicalPaliText,
     ].map(cleanTipitakaText).where((text) => text.isNotEmpty).toList();
     if (candidates.isEmpty) return '';
     final needle = _query.toLowerCase();

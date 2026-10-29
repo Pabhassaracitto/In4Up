@@ -11,6 +11,7 @@
 /// These helpers give both shapes one consistent, book-like presentation.
 library;
 
+import '../../../core/language/app_language.dart';
 import '../models/segment.dart';
 
 /// Semantic block kinds the layout pipeline understands.
@@ -53,52 +54,13 @@ const tipitakaSerifFallback = <String>[
   'serif',
 ];
 
-/// Human label for a content language code (`vi` → `Tiếng Việt`).
+/// Human label for a content language code, shared with the app's 26-language
+/// catalog so Tipiṭaka labels do not silently fall back to a Vietnamese list.
 String tipitakaLanguageLabel(String code) {
-  switch (code.toLowerCase()) {
-    case 'pi':
-      return 'Pāḷi';
-    case 'vi':
-      return 'Tiếng Việt';
-    case 'en':
-      return 'English';
-    case 'my':
-      return 'Myanmar (မြန်မာ)';
-    case 'th':
-      return 'Thai (ไทย)';
-    case 'zh':
-      return '中文';
-    case 'si':
-      return 'සිංහල';
-    case 'hi':
-      return 'हिन्दी';
-    case 'bn':
-      return 'বাংলা';
-    case 'fr':
-      return 'Français';
-    case 'de':
-      return 'Deutsch';
-    case 'id':
-      return 'Bahasa Indonesia';
-    case 'ja':
-      return '日本語';
-    case 'km':
-      return 'ខ្មែរ';
-    case 'ko':
-      return '한국어';
-    case 'lo':
-      return 'ລາວ';
-    case 'mr':
-      return 'मराठी';
-    case 'pt':
-      return 'Português';
-    case 'es':
-      return 'Español';
-    case 'bo':
-      return 'བོད་སྐད';
-    default:
-      return code.toUpperCase();
-  }
+  final normalized = code.trim().replaceAll('_', '-');
+  if (normalized.toLowerCase() == 'pi') return 'Pāḷi';
+  return AppLanguageCatalog.maybeFromCode(normalized)?.nativeName ??
+      normalized.toUpperCase();
 }
 
 /// Classifies a segment into a [TipitakaBlockKind], honouring both the stored
@@ -118,7 +80,7 @@ TipitakaBlockKind tipitakaBlockKind(TipitakaSegment segment) {
     case 'hangnum':
       return TipitakaBlockKind.hangnum;
   }
-  final raw = segment.paliText.toLowerCase();
+  final raw = segment.canonicalPaliText.toLowerCase();
   if (raw.contains('rend="book"') || raw.contains("rend='book'")) {
     return TipitakaBlockKind.book;
   }
@@ -146,7 +108,7 @@ TipitakaBlockKind tipitakaBlockKind(TipitakaSegment segment) {
   // Imported databases strip tags, so a "hangnum" row survives only as its
   // bare number (e.g. `1 .`) with no translation attached.
   if (segment.blockType == 'paragraph') {
-    final plain = cleanTipitakaText(segment.paliText);
+    final plain = cleanTipitakaText(segment.canonicalPaliText);
     final hasTranslation = segment.firstTranslation != null;
     if (!hasTranslation && RegExp(r'^\d{1,5}\s*[.)]?$').hasMatch(plain)) {
       return TipitakaBlockKind.hangnum;
@@ -220,7 +182,7 @@ List<String> tipitakaPageMarkers(String raw) {
 /// Label for a `hangnum` paragraph-number row (`<hi rend="paranum">1</hi>`).
 /// Falls back to the bare digits left after tag stripping in imported DBs.
 String tipitakaParagraphNumber(TipitakaSegment segment) {
-  final raw = segment.paliText;
+  final raw = segment.canonicalPaliText;
   final match = RegExp(r'paranum[^>]*>\s*([^<]+)', caseSensitive: false)
       .firstMatch(raw);
   final fromMarkup = match?.group(1)?.trim() ?? '';

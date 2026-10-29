@@ -18,6 +18,27 @@ enum TipitakaDisplayMode {
 /// reader subtree, like the sepia/night modes of professional e-readers.
 enum TipitakaReadingTheme { system, light, sepia, dark }
 
+/// Resolved text visibility for the selected reader mode. In bilingual mode,
+/// both canonical Pāli and the selected translation are visible together.
+class TipitakaDisplayVisibility {
+  final bool showPali;
+  final bool showTranslation;
+
+  const TipitakaDisplayVisibility({
+    required this.showPali,
+    required this.showTranslation,
+  });
+
+  factory TipitakaDisplayVisibility.resolve({
+    required TipitakaDisplayMode mode,
+    required bool hasPali,
+  }) =>
+      TipitakaDisplayVisibility(
+        showPali: hasPali && mode != TipitakaDisplayMode.translationOnly,
+        showTranslation: mode != TipitakaDisplayMode.paliOnly || !hasPali,
+      );
+}
+
 /// Persistent display settings for the Tipiṭaka reader.
 ///
 /// The singleton survives screen rebuilds and restores itself from

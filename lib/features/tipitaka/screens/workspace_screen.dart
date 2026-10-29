@@ -327,19 +327,14 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     int index,
   ) {
     var text = segment.translationFor(language).trim();
-    if (text.isEmpty) text = segment.paliText.trim();
+    if (text.isEmpty) text = segment.canonicalPaliText.trim();
     if (text.isEmpty) text = segment.firstTranslation?.value.trim() ?? '';
     text = cleanTipitakaText(text).replaceAll(RegExp(r'\s+'), ' ').trim();
     return text.isEmpty ? '${index + 1}. ${context.uiText('Mục chưa có tiêu đề')}' : text;
   }
 
-  String _collectionTitle(TipitakaCollection collection, String language) {
-    if (language == 'vi' && collection.nameVi.trim().isNotEmpty) {
-      return collection.nameVi;
-    }
-    if (collection.nameEn.trim().isNotEmpty) return collection.nameEn;
-    return collection.namePali;
-  }
+  String _collectionTitle(TipitakaCollection collection, String language) =>
+      collection.displayTitle(language);
 
   @override
   Widget build(BuildContext context) {

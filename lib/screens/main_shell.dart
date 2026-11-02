@@ -21,6 +21,7 @@ import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
 import '../features/understand_ai/understand_ai_context.dart';
 import '../features/youtube/youtube_explorer_screen.dart';
+import '../models/read_chrome_layout.dart';
 import '../models/read_content_source.dart';
 import '../models/shell_content_order.dart';
 import '../providers/player_provider.dart';
@@ -28,6 +29,7 @@ import '../providers/text_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/battery_optimization_service.dart';
+import '../services/read_chrome_layout_store.dart';
 import '../services/storage_service.dart';
 import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
@@ -37,7 +39,9 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/sheets/read_settings_sheet.dart';
 import 'read_mode/services/read_text_action_runner.dart';
+import 'read_mode/widgets/read_top_bar.dart';
 import 'read_mode/widgets/read_source_picker.dart';
 import 'read_mode/widgets/read_text_action_hooks.dart';
 import 'read_mode/write_studio_screen.dart';
@@ -108,6 +112,11 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _loadShellUiSettings();
+    // READ-UI-120: cùng một nguồn cấu hình cho app bar, workspace header và
+    // dock đáy. Đổi trong «Giao diện shell» ⇒ setState tức thì, không cần
+    // restart app.
+    ReadChromeLayoutStore.instance.load();
+    ReadChromeLayoutStore.instance.layout.addListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
@@ -118,13 +127,23 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _onReadChromeLayoutChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    ReadChromeLayoutStore.instance.layout
+        .removeListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
     _modeSwitchHideTimer?.cancel();
     _shellHintTimer?.cancel();
     super.dispose();
   }
+
+  /// READ-UI-120: đọc giá trị hiện tại của cấu hình chrome tab Đọc.
+  ReadChromeLayout get _readChromeLayout =>
+      ReadChromeLayoutStore.instance.layout.value;
 
   bool get _isHome => _currentTab == _PrimaryTab.home;
   bool get _listenFirst => _contentOrder.isListenFirst;
@@ -1205,7 +1224,11 @@ class _MainShellState extends State<MainShell> {
                 onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
               ),
               textActionCallbacks: _readTextActionCallbacks,
-              showSourcePicker: false,
+              // READ-UI-120: picker chỉ dựng khi nhóm Nguồn được bung trong
+              // «Giao diện shell». Mặc định gộp ⇒ vẫn chỉ 2 icon ở app bar.
+              showSourcePicker: true,
+              chromeLayout: _readChromeLayout,
+              showTopBar: false,
             ),
             WriteStudioScreen(
               onOpenWebReader: () => _handleTool('web_reader'),
@@ -1466,6 +1489,32 @@ class _MainShellState extends State<MainShell> {
             tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
+          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Hiển thị» +
+          // «Cài đặt». Không thêm 2 icon rời rạc (app bar reader đã có 4
+          // icon + tiêu đề ⇒ 320px không đủ chỗ).
+          if (isReader &&
+              _readChromeLayout.useBottomDock &&
+              !_readChromeLayout.displayHidden)
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.tune_rounded,
+                  color: Color(0xFF26C6DA), size: 20),
+              tooltip: context.uiText('Hiển thị'),
+              onSelected: (value) {
+                if (value == 'display') showReadDisplaySheet(context);
+                if (value == 'settings') ReadSettingsSheet.show(context);
+              },
+              itemBuilder: (menuContext) => [
+                PopupMenuItem<String>(
+                  value: 'display',
+                  child: Text(menuContext.uiText('Hiển thị')),
+                ),
+                PopupMenuItem<String>(
+                  value: 'settings',
+                  child: Text(menuContext.uiText('Cài đặt')),
+                ),
+              ],
+            ),
           const SizedBox(width: 8),
           if (!isReader && (!isWatch || !rightLibraryIsAudio))
           _ShellActionButton(
@@ -1568,8 +1617,15 @@ class _MainShellState extends State<MainShell> {
         if (!listenLibraryFull) children.add(_buildListenContextHeader(context));
         break;
       case _PrimaryTab.read:
+        // READ-UI-120: với bố cục dock đáy, 5 nút Công cụ nằm trong panel
+        // «Công cụ đọc» của dock (kèm dòng «Áp dụng cho»). Chỉ giữ header
+        // cũ khi người dùng chọn «Vị trí công cụ: Trên».
+        // Giữ nguyên biểu thức `if (!readLibraryFull && _readModeIndex == 0)`
+        // (pin của test owner); điều kiện bố cục dock được lồng bên trong.
         if (!readLibraryFull && _readModeIndex == 0) {
-          children.add(_buildReadContextHeader(context));
+          if (!_readChromeLayout.useBottomDock) {
+            children.add(_buildReadContextHeader(context));
+          }
         }
         break;
       case _PrimaryTab.understand:

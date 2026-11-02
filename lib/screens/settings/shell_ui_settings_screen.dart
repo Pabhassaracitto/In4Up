@@ -1,8 +1,10 @@
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../../features/youtube/services/yt_dlp_sidecar.dart';
+import '../../models/read_chrome_layout.dart';
 import '../../models/read_content_source.dart';
 import '../../models/shell_content_order.dart';
+import '../../services/read_chrome_layout_store.dart';
 import '../../services/storage_service.dart';
 
 class ShellUiSettingsScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
   late ReadContentSource _defaultReadSource;
   late ListenContentSource _defaultListenSource;
   late UnderstandWorkspaceMode _defaultUnderstandMode;
+  late ReadChromeLayout _readChromeLayout;
 
   @override
   void initState() {
@@ -35,6 +38,13 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
     _defaultReadSource = _storage.getDefaultReadContentSource();
     _defaultListenSource = _storage.getDefaultListenContentSource();
     _defaultUnderstandMode = _storage.getDefaultUnderstandWorkspaceMode();
+    ReadChromeLayoutStore.instance.load();
+    _readChromeLayout = ReadChromeLayoutStore.instance.layout.value;
+  }
+
+  Future<void> _updateReadChrome(ReadChromeLayout value) async {
+    setState(() => _readChromeLayout = value);
+    await ReadChromeLayoutStore.instance.update(value);
   }
 
   Future<void> _updateCompactMode(bool value) async {
@@ -136,6 +146,11 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
             onChanged: _updateDefaultUnderstandMode,
           ),
           const SizedBox(height: 12),
+          _ReadChromeCard(
+            value: _readChromeLayout,
+            onChanged: _updateReadChrome,
+          ),
+          const SizedBox(height: 12),
           _ToggleCard(
             title: 'Compact mode cho switch mode',
             subtitle:
@@ -188,6 +203,165 @@ class _ShellUiSettingsScreenState extends State<ShellUiSettingsScreen> {
           const _YtDlpInfoCard(),
         ],
       ),
+    );
+  }
+}
+
+// ── READ-UI-120: tinh chỉnh chrome tab Đọc theo NHÓM ────────────────
+class _ReadChromeCard extends StatelessWidget {
+  const _ReadChromeCard({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final ReadChromeLayout value;
+  final ValueChanged<ReadChromeLayout> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: context.uiText('Công cụ đọc'),
+      subtitle: context.uiText(
+        'Mở tab Đọc chỉ còn nguồn ở trên và một hàng công cụ ở dưới; bung từng nhóm khi cần.',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 3 nhóm × 3 trạng thái. Nguồn là nhóm thứ nhất: giữ ở trên cùng,
+          // bung được (hiện đủ 3 nguồn) nhưng KHÔNG cho ẩn (allowHide=false)
+          // để người dùng không mất đường vào nội dung.
+          _GroupStateRow(
+            group: ReadChromeGroupId.source,
+            label: context.uiText('Nguồn'),
+            value: value.sourceState,
+            onChanged: (state) => onChanged(
+              ReadChromeGroupId.source.withState(value, state),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _GroupStateRow(
+            group: ReadChromeGroupId.tools,
+            label: context.uiText('Công cụ đọc'),
+            value: value.toolsState,
+            onChanged: (state) => onChanged(
+              ReadChromeGroupId.tools.withState(value, state),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _GroupStateRow(
+            group: ReadChromeGroupId.display,
+            label: context.uiText('Thông tin & Hiển thị'),
+            value: value.displayState,
+            onChanged: (state) => onChanged(
+              ReadChromeGroupId.display.withState(value, state),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(context.uiText('Vị trí công cụ'),
+              style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            children: [
+              ChoiceChip(
+                label: Text(context.uiText('Dưới')),
+                selected: value.useBottomDock,
+                onSelected: (_) => onChanged(
+                  value.copyWith(
+                    toolsPlacement: ReadToolsPlacement.bottom,
+                  ),
+                ),
+              ),
+              ChoiceChip(
+                label: Text(context.uiText('Trên')),
+                selected: !value.useBottomDock,
+                onSelected: (_) => onChanged(
+                  value.copyWith(
+                    toolsPlacement: ReadToolsPlacement.top,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              context.uiText('Tự động dịch khi phát song ngữ'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            value: value.autoTranslateOnBilingual,
+            onChanged: (v) =>
+                onChanged(value.copyWith(autoTranslateOnBilingual: v)),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              context.uiText('Nhớ trạng thái bung'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            value: value.rememberExpanded,
+            onChanged: (v) =>
+                onChanged(value.copyWith(rememberExpanded: v)),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => onChanged(ReadChromeLayout.defaults),
+              icon: const Icon(Icons.restore, size: 15),
+              label: Text(context.uiText('Khôi phục mặc định')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupStateRow extends StatelessWidget {
+  const _GroupStateRow({
+    required this.group,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final ReadChromeGroupId group;
+  final String label;
+  final ReadChromeGroupState value;
+  final ValueChanged<ReadChromeGroupState> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const states = <(ReadChromeGroupState, String)>[
+      (ReadChromeGroupState.collapsed, 'Thu gọn'),
+      (ReadChromeGroupState.expanded, 'Mở rộng'),
+      (ReadChromeGroupState.hidden, 'Ẩn'),
+    ];
+    // allowHide: nhóm Nguồn không có chip «Ẩn».
+    final allowed = states
+        .where((entry) => group.allowHide ||
+            entry.$1 != ReadChromeGroupState.hidden)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(color: Colors.white54, fontSize: 11)),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final entry in allowed)
+              ChoiceChip(
+                label: Text(context.uiText(entry.$2)),
+                selected: value == entry.$1,
+                onSelected: (_) => onChanged(entry.$1),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

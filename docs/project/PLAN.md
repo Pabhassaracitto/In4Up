@@ -1280,3 +1280,28 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Lịch sử:
   - 2026-10-28 | created→doing | agent `arena/bf95d3ae-in4up` | owner yêu cầu
     trực tiếp; đang sửa timing và xây widget dùng chung.
+
+
+### PLAN-041 — Tab Đọc: chrome theo nhóm và một cửa vào TTS (READ-UI-120)
+- Nguồn: người sở hữu (2026-11-02, qua agent `arena/bada56c3-in4up`) — duyệt
+  toàn bộ điều chỉnh sau biên bản audit `docs/read_tab_audio_ui_audit_1_20_0.md`.
+- Trạng thái: doing — code + ADR-0021 + test pin + QA checklist đã có; PR
+  #126 CI 16/16 xanh (`flutter analyze` + locale test + build + 13 job test),
+  `mergeable = CLEAN`; còn nghiệm thu thiết bị 360×640.
+- Card: `READ-UI-120` (KANBAN). Milestone đề xuất: M2.
+- Phạm vi: gộp UI/state TTS nhưng **KHÔNG gộp 2 engine**; bỏ lệ thuộc bản dịch
+  trước khi phát; dời toàn bộ chrome công cụ xuống một dock đáy như tab Nghe;
+  gom «Hiển thị»/«Cài đặt» vào overflow cạnh ⚡; 3 nhóm × 3 trạng thái với
+  mặc định gộp. Nguồn giữ nguyên ở trên cùng theo ý owner.
+- Không làm: drag-drop nhóm, ẩn từng icon, auto-hide theo thời gian, đưa action
+  cấp từ (`word_mini_pop` / `word_actions_sheet` / PRON-002) vào dock.
+- Nghiệm thu: `docs/shell_manual_qa_checklist.md` mục 4.3 / 8.1 / 11.1;
+  `test/read_chrome_layout_test.dart`, `test/read_ui_120_contract_test.dart`.
+- Lịch sử:
+  - 2026-11-02 | created→doing | agent | owner duyệt điều chỉnh, triển khai
+    P0 (TTS) → P1 (dock) → P2 (nhóm/state/i18n/docs/test); sandbox không có
+    Flutter SDK nên analyze/test chạy trên CI.
+  - 2026-11-02 | doing | agent | PR #126; giải quyết xung đột KANBAN.md với
+    base bằng merge giữ cả 2 card; CI 16/16 xanh sau khi sửa 1 pin nguồn;
+    rút gọn nhánh thành 1 commit tuyến tính để mở lại lựa chọn *Rebase and
+    merge* trên GitHub.

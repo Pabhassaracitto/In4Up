@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../core/language/app_language.dart';
+import '../../../models/read_chrome_layout.dart';
 import '../../../providers/text_provider.dart';
 import '../../../widgets/pulsing_icon.dart';
 import '../models/playback_anchor.dart';
@@ -15,11 +16,178 @@ import '../models/playback_snapshot.dart';
 import '../services/playback_controller.dart';
 
 // ══════════════════════════════════════════════════════════════
+// READ-UI-120 — API công khai cho dock đáy tab Đọc (audit v1.20.0)
+// ══════════════════════════════════════════════════════════════
+//
+// Trước đây `_MainRow` tự giữ `_startPlayback` + `_showPresetSheet` ⇒ dock
+// mới không gọi được, và tốc độ có HAI nguồn (`tts_speed` của TextProvider
+// và `playback_recipe.speed` của PlaybackController). Từ nay mọi lối vào
+// (thanh cũ lẫn dock) đi qua 4 hàm dưới đây.
+
+double clampReadSpeed(double value) => value.clamp(0.5, 2.0).toDouble();
+
+/// Một nguồn sự thật duy nhất về tốc độ: `TextProvider.ttsSpeed`
+/// (Hive key `tts_speed`). Controller chỉ giữ bản phản chiếu trong phiên phát.
+Future<void> setReadSpeed(BuildContext context, double value) async {
+  final tp = context.read<TextProvider>();
+  final controller = context.read<PlaybackController>();
+  final next = clampReadSpeed(value);
+  await tp.setTtsSpeed(next);
+  await controller.syncSpeed(next);
+}
+
+Future<void> adjustReadSpeed(BuildContext context, double delta) async {
+  final tp = context.read<TextProvider>();
+  await setReadSpeed(context, tp.ttsSpeed + delta);
+}
+
+void _readSnack(BuildContext context, String message) {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      duration: const Duration(seconds: 2),
+      content: Text(context.uiText(message)),
+    ),
+  );
+}
+
+/// Bấm nút «Đọc» duy nhất: đang phát ⇒ dừng MỌI phiên TTS; chưa phát ⇒ phát
+/// ngay (không chờ bản dịch).
+Future<void> toggleReadPlayback(
+  BuildContext context, {
+  required ReadChromeLayout layout,
+}) async {
+  SafeHaptics.mediumImpact();
+  final controller = context.read<PlaybackController>();
+  final tp = context.read<TextProvider>();
+  if (controller.isRunning || tp.isTtsActive) {
+    if (controller.isRunning) {
+      controller.stop(fileId: tp.currentDocument?.id ?? 'unknown');
+    }
+    await tp.stopSpeaking();
+    return;
+  }
+  await startReadPlayback(context, layout: layout);
+}
+
+/// Phát cả bài. READ-UI-120 P0: **KHÔNG chặn Play vì chưa dịch xong**.
+///
+/// `PlaybackEngine` đã có sẵn cờ `hasCurrentTarget` — khi dòng chưa có bản
+/// dịch nó tự bỏ qua lượt đích và chỉ đọc nguồn. Vì `tp.lines` là danh sách
+/// trực tiếp, bản dịch hoàn tất trong lúc phát sẽ được đọc ở những dòng sau.
+Future<void> startReadPlayback(
+  BuildContext context, {
+  required ReadChromeLayout layout,
+}) async {
+  final controller = context.read<PlaybackController>();
+  final tp = context.read<TextProvider>();
+  final recipe = controller.recipe;
+  final sourceLanguage = tp.detectedSourceLanguage;
+  final targetLanguage = tp.translationTargetLanguage;
+  final fileId = tp.currentDocument?.id ?? 'unknown';
+
+  final needsTarget = recipe.mode != PlaybackMode.enOnly;
+  final hasTranslations = tp.translatedLineCount > 0;
+  PlaybackRecipe? recipeOverride;
+
+  if (needsTarget && !hasTranslations) {
+    // `translateAll()` đã có guard `if (_isTranslating) return;` ⇒ không
+    // chạy chéo với nút Dịch của TranslationToolbar. KHÔNG await: đây là bản
+    // dịch nền, không phải điều kiện tiên quyết của nút Play.
+    final autoTranslate = layout.autoTranslateOnBilingual;
+    if (recipe.mode == PlaybackMode.viOnly) {
+      // `viOnly` mà chưa có bản dịch ⇒ engine im lặng hoàn toàn. Đọc nguồn
+      // cho riêng phiên này, KHÔNG ghi đè recipe bền vững của người dùng.
+      recipeOverride = recipe.copyWith(
+        mode: PlaybackMode.enOnly,
+        enRepeats: recipe.enRepeats > 0 ? recipe.enRepeats : 1,
+      );
+      if (autoTranslate) unawaited(tp.translateAll());
+      _readSnack(context, 'Chưa có bản dịch, đang đọc nguồn');
+    } else if (autoTranslate) {
+      unawaited(tp.translateAll());
+      _readSnack(context, 'Đang dịch, sẽ đọc bản dịch khi có');
+    }
+  }
+
+  void startFrom({PlaybackAnchor? anchor}) {
+    unawaited(controller.start(
+      tp.lines,
+      fileId: fileId,
+      sourceLanguageCode: sourceLanguage.translationCode,
+      targetLanguageCode: targetLanguage.translationCode,
+      anchor: anchor,
+      // Nguồn tốc độ duy nhất — không còn đọc từ recipe.speed.
+      speed: tp.ttsSpeed,
+      recipeOverride: recipeOverride,
+    ));
+  }
+
+  final anchor = controller.loadAnchor(fileId);
+  if (anchor != null) {
+    if (!context.mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => _ResumeDialog(
+        anchor: anchor,
+        onFromStart: () {
+          controller.clearAnchor(fileId);
+          startFrom();
+        },
+        onResume: () => startFrom(anchor: anchor),
+      ),
+    );
+    return;
+  }
+  startFrom();
+}
+
+/// Mở sheet chọn preset — dùng chung cho thanh cũ (long-press ▶) và dock.
+void showPlaybackPresetSheet(BuildContext context) {
+  SafeHaptics.mediumImpact();
+  final controller = context.read<PlaybackController>();
+  final tp = context.read<TextProvider>();
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: const Color(0xFF0D1520),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => ChangeNotifierProvider.value(
+      value: controller,
+      child: _PresetSheet(
+        currentRecipe: controller.recipe,
+        sourceLanguage: tp.detectedSourceLanguage,
+        targetLanguage: tp.translationTargetLanguage,
+        onApplySpeed: (speed) => unawaited(setReadSpeed(context, speed)),
+      ),
+    ),
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
 // SMART PLAYBACK BAR — Entry point
 // ══════════════════════════════════════════════════════════════
 
 class SmartPlaybackBar extends StatelessWidget {
-  const SmartPlaybackBar({super.key});
+  const SmartPlaybackBar({
+    super.key,
+    this.showMainRow = true,
+    this.forceExpanded = false,
+    this.layout = ReadChromeLayout.defaults,
+  });
+
+  /// `false` khi nhúng vào panel «Đọc» của dock: dock sở hữu hàng nút chính,
+  /// widget này chỉ vẽ LiveStatus + thanh tốc độ + pattern builder.
+  final bool showMainRow;
+
+  /// Bung sẵn pattern builder (dùng khi panel audio đang mở).
+  final bool forceExpanded;
+
+  final ReadChromeLayout layout;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +195,11 @@ class SmartPlaybackBar extends StatelessWidget {
     final tp = context.watch<TextProvider>();
     if (!tp.hasLyrics) return const SizedBox.shrink();
 
-    return const _SmartPlaybackBarContent();
+    return _SmartPlaybackBarContent(
+      showMainRow: showMainRow,
+      forceExpanded: forceExpanded,
+      layout: layout,
+    );
   }
 }
 
@@ -36,7 +208,15 @@ class SmartPlaybackBar extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════
 
 class _SmartPlaybackBarContent extends StatefulWidget {
-  const _SmartPlaybackBarContent();
+  const _SmartPlaybackBarContent({
+    required this.showMainRow,
+    required this.forceExpanded,
+    required this.layout,
+  });
+
+  final bool showMainRow;
+  final bool forceExpanded;
+  final ReadChromeLayout layout;
 
   @override
   State<_SmartPlaybackBarContent> createState() =>
@@ -44,8 +224,8 @@ class _SmartPlaybackBarContent extends StatefulWidget {
 }
 
 class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
-  bool _expanded = false;
-  bool _showSpeedSlider = false;
+  late bool _expanded = widget.forceExpanded;
+  late bool _showSpeedSlider = !widget.showMainRow;
 
   // ★ FIX 1: Dùng helper để gọi controller + setState cùng lúc
   void _setExpanded(bool v) => setState(() => _expanded = v);
@@ -57,8 +237,11 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
     final controller = context.watch<PlaybackController>();
     final tp = context.watch<TextProvider>();
     final recipe = controller.recipe;
+    // READ-UI-120 P0: tốc độ lấy từ MỘT nguồn (TextProvider / `tts_speed`).
+    final speed = tp.ttsSpeed;
     final sourceLanguage = tp.detectedSourceLanguage;
     final targetLanguage = tp.translationTargetLanguage;
+    final expanded = widget.forceExpanded || _expanded;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -67,7 +250,7 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
         if (controller.isRunning && controller.snapshot != null)
           _LiveStatusBar(
             snapshot: controller.snapshot!,
-            speed: recipe.speed,
+            speed: speed,
             controller: controller,
           ),
         if (controller.lastError != null)
@@ -105,39 +288,43 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
 
         Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
 
-        // ── Main bar ─────────────────────────────────────────
+        // ── Main bar / panel nhúng trong dock ─────────────────
         Container(
           color: const Color(0xFF0D1520),
           padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Row chính
-              _MainRow(
-                controller: controller,
-                tp: tp,
-                recipe: recipe,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: targetLanguage,
-                expanded: _expanded,
-                showSpeedSlider: _showSpeedSlider,
-                onToggleExpand: () => _setExpanded(!_expanded),
-                onToggleSlider: () => _setShowSlider(!_showSpeedSlider),
-              ),
+              if (widget.showMainRow)
+                _MainRow(
+                  controller: controller,
+                  tp: tp,
+                  recipe: recipe,
+                  sourceLanguage: sourceLanguage,
+                  targetLanguage: targetLanguage,
+                  expanded: expanded,
+                  showSpeedSlider: _showSpeedSlider,
+                  onToggleExpand: () => _setExpanded(!_expanded),
+                  onToggleSlider: () => _setShowSlider(!_showSpeedSlider),
+                  layout: widget.layout,
+                ),
+              if (!widget.showMainRow)
+                _DockHeader(
+                  speed: speed,
+                  sliderVisible: _showSpeedSlider,
+                  onToggleSlider: () => _setShowSlider(!_showSpeedSlider),
+                ),
 
               // Speed slider
               if (_showSpeedSlider)
                 _SpeedSliderRow(
-                  speed: recipe.speed,
-                  onChanged: (v) {
-                    final delta = v - recipe.speed;
-                    controller.adjustSpeed(delta);
-                  },
+                  speed: speed,
+                  onChanged: (v) => unawaited(setReadSpeed(context, v)),
                   onClose: () => _setShowSlider(false),
                 ),
 
               // Expanded: pattern builder
-              if (_expanded)
+              if (expanded)
                 _PatternBuilder(
                   controller: controller,
                   recipe: recipe,
@@ -145,6 +332,63 @@ class _SmartPlaybackBarContentState extends State<_SmartPlaybackBarContent> {
                   targetLanguage: targetLanguage,
                 ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Hàng điều khiển khi [SmartPlaybackBar] được nhúng vào panel «Đọc» của
+/// dock: dock đã có nút Play nên ở đây chỉ còn tốc độ + lối vào preset.
+/// Không dùng AnimatedSize/AnimatedOpacity (READ-TOOLBAR-001 v2).
+class _DockHeader extends StatelessWidget {
+  const _DockHeader({
+    required this.speed,
+    required this.sliderVisible,
+    required this.onToggleSlider,
+  });
+
+  final double speed;
+  final bool sliderVisible;
+  final VoidCallback onToggleSlider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          context.uiText('Tốc độ'),
+          style: const TextStyle(color: Colors.white54, fontSize: 11),
+        ),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: onToggleSlider,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: sliderVisible
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '${speed.toStringAsFixed(2)}x',
+              style: const TextStyle(
+                color: Color(0xFFB8B5FF),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: () => showPlaybackPresetSheet(context),
+          icon: const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFB8B5FF)),
+          label: Text(
+            context.uiText('Chọn chế độ học'),
+            style: const TextStyle(color: Color(0xFFB8B5FF), fontSize: 11),
           ),
         ),
       ],
@@ -166,6 +410,7 @@ class _MainRow extends StatelessWidget {
   final bool showSpeedSlider;
   final VoidCallback onToggleExpand;
   final VoidCallback onToggleSlider;
+  final ReadChromeLayout layout;
 
   const _MainRow({
     required this.controller,
@@ -177,6 +422,7 @@ class _MainRow extends StatelessWidget {
     required this.showSpeedSlider,
     required this.onToggleExpand,
     required this.onToggleSlider,
+    required this.layout,
   });
 
   @override
@@ -274,8 +520,10 @@ class _MainRow extends StatelessWidget {
                       ),
                       _PlayBtn(
                         isRunning: controller.isRunning,
-                        onTap: () => _onPlayTap(context),
-                        onLongPress: () => _showPresetSheet(context),
+                        onTap: () => unawaited(
+                          toggleReadPlayback(context, layout: layout),
+                        ),
+                        onLongPress: () => showPlaybackPresetSheet(context),
                       ),
                       _SmallIconBtn(
                         icon: Icons.skip_next_rounded,
@@ -291,9 +539,10 @@ class _MainRow extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _SpeedChip(
-                    speed: recipe.speed,
+                    speed: tp.ttsSpeed,
                     onTap: onToggleSlider,
-                    onSwipe: (delta) => controller.adjustSpeed(delta),
+                    onSwipe: (delta) =>
+                        unawaited(adjustReadSpeed(context, delta)),
                   ),
                   _SmallIconBtn(
                     icon: expanded
@@ -399,8 +648,10 @@ class _MainRow extends StatelessWidget {
                 // PLAY BUTTON
                 _PlayBtn(
                   isRunning: controller.isRunning,
-                  onTap: () => _onPlayTap(context),
-                  onLongPress: () => _showPresetSheet(context),
+                  onTap: () => unawaited(
+                    toggleReadPlayback(context, layout: layout),
+                  ),
+                  onLongPress: () => showPlaybackPresetSheet(context),
                 ),
 
                 SizedBox(width: isSmall ? 2 : 6),
@@ -420,9 +671,10 @@ class _MainRow extends StatelessWidget {
               children: [
                 // Speed chip (tap = slider, swipe = ±0.25x)
                 _SpeedChip(
-                  speed: recipe.speed,
+                  speed: tp.ttsSpeed,
                   onTap: onToggleSlider,
-                  onSwipe: (delta) => controller.adjustSpeed(delta),
+                  onSwipe: (delta) =>
+                      unawaited(adjustReadSpeed(context, delta)),
                 ),
                 const SizedBox(width: 6),
 
@@ -442,108 +694,6 @@ class _MainRow extends StatelessWidget {
     );
   }
 
-  // ── Handlers ────────────────────────────────────────────────
-
-  void _onPlayTap(BuildContext context) {
-    SafeHaptics.mediumImpact();
-    if (controller.isRunning) {
-      controller.stop(fileId: tp.currentDocument?.id ?? 'unknown');
-    } else {
-      unawaited(_startPlayback(context));
-    }
-  }
-
-  Future<void> _startPlayback(BuildContext context) async {
-    final needsTranslation = recipe.mode != PlaybackMode.enOnly;
-    if (needsTranslation && tp.translationPairUsesSameLanguage) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Hãy chọn ngôn ngữ đích khác nguồn trước khi phát.'),
-        ),
-      );
-      return;
-    }
-    if (needsTranslation && tp.isTranslating) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đang dịch, vui lòng chờ hoàn tất…')),
-      );
-      return;
-    }
-    if (needsTranslation && tp.translatedLineCount == 0) {
-      await tp.translateAll();
-      if (tp.translatedLineCount == 0) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                context.uiText(
-                  tp.translationError ?? 'Chưa có bản dịch để đọc song ngữ.',
-                ),
-              ),
-            ),
-          );
-        }
-        return;
-      }
-    }
-    if (!context.mounted) return;
-
-    final fileId = tp.currentDocument?.id ?? 'unknown';
-    final anchor = controller.loadAnchor(fileId);
-
-    if (anchor != null) {
-      showDialog(
-        context: context,
-        builder: (_) => _ResumeDialog(
-          anchor: anchor,
-          onFromStart: () {
-            controller.clearAnchor(fileId);
-            controller.start(
-              tp.lines,
-              fileId: fileId,
-              sourceLanguageCode: sourceLanguage.translationCode,
-              targetLanguageCode: targetLanguage.translationCode,
-            );
-          },
-          onResume: () {
-            controller.start(
-              tp.lines,
-              fileId: fileId,
-              sourceLanguageCode: sourceLanguage.translationCode,
-              targetLanguageCode: targetLanguage.translationCode,
-              anchor: anchor,
-            );
-          },
-        ),
-      );
-    } else {
-      controller.start(
-        tp.lines,
-        fileId: fileId,
-        sourceLanguageCode: sourceLanguage.translationCode,
-        targetLanguageCode: targetLanguage.translationCode,
-      );
-    }
-  }
-
-  void _showPresetSheet(BuildContext context) {
-    SafeHaptics.mediumImpact();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0D1520),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => ChangeNotifierProvider.value(
-        value: controller,
-        child: _PresetSheet(
-          currentRecipe: recipe,
-          sourceLanguage: sourceLanguage,
-          targetLanguage: targetLanguage,
-        ),
-      ),
-    );
-  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -823,8 +973,8 @@ class _LiveStatusBar extends StatelessWidget {
     return GestureDetector(
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
-        if (v < -300) controller.adjustSpeed(0.25);
-        if (v > 300) controller.adjustSpeed(-0.25);
+        if (v < -300) unawaited(adjustReadSpeed(context, 0.25));
+        if (v > 300) unawaited(adjustReadSpeed(context, -0.25));
       },
       child: Container(
         width: double.infinity,
@@ -869,7 +1019,7 @@ class _LiveStatusBar extends StatelessWidget {
                 GestureDetector(
                   onTap: () {
                     if ((speed - 1.0).abs() > 0.01) {
-                      controller.adjustSpeed(1.0 - speed);
+                      unawaited(adjustReadSpeed(context, 1.0 - speed));
                     }
                   },
                   child: Container(
@@ -922,10 +1072,15 @@ class _PresetSheet extends StatelessWidget {
   final AppLanguage sourceLanguage;
   final AppLanguage targetLanguage;
 
+  /// READ-UI-120 P0: preset có tốc độ riêng (quiz/shadowing 0.75x) ⇒ áp
+  /// luôn vào nguồn tốc độ duy nhất, không để `recipe.speed` tách ra lần nữa.
+  final ValueChanged<double>? onApplySpeed;
+
   const _PresetSheet({
     required this.currentRecipe,
     required this.sourceLanguage,
     required this.targetLanguage,
+    this.onApplySpeed,
   });
 
   List<({String icon, String label, String sub, PlaybackRecipe recipe})>
@@ -1012,7 +1167,10 @@ class _PresetSheet extends StatelessWidget {
             return GestureDetector(
               onTap: () {
                 SafeHaptics.selectionClick();
-                controller.updateRecipe(p.recipe);
+                onApplySpeed?.call(p.recipe.speed);
+                unawaited(controller.updateRecipe(
+                  p.recipe.copyWith(speed: p.recipe.speed),
+                ));
                 Navigator.pop(context);
               },
               child: Container(

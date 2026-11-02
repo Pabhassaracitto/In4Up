@@ -14,6 +14,7 @@ import '../models/sound_loop_stat.dart';
 import '../models/sound_mark.dart';
 import '../models/shell_content_order.dart';
 import '../models/read_content_source.dart';
+import '../models/read_chrome_layout.dart';
 import '../models/sound_transcript.dart';
 import '../models/text_segment.dart';
 import '../models/vad_settings.dart';
@@ -345,6 +346,58 @@ class StorageService {
   bool getShellRememberLastSubMode() {
     return getSetting<bool>('shell_remember_last_sub_mode', defaultValue: true) ??
         true;
+  }
+
+  // ── READ-UI-120: chrome tab Đọc theo NHÓM (audit v1.20.0) ───────────
+  // Một JSON string là nguồn sự thật duy nhất; 3 key riêng theo nhóm là bản
+  // chiếu để debug / migrate từng nhóm mà không phải giải mã cả blob. Mọi
+  // lần ghi đều đi qua [saveReadChromeLayout] nên hai bên không thể lệch.
+  static const String readChromeLayoutKey = 'read_chrome_layout_v1';
+
+  static String readChromeGroupKey(String groupId) =>
+      'read_chrome_group_${groupId}_v1';
+
+  Future<void> saveReadChromeLayout(ReadChromeLayout layout) async {
+    await saveSetting(readChromeLayoutKey, layout.encode());
+    for (final group in ReadChromeGroupId.values) {
+      await saveSetting(group.storageKey, group.stateOf(layout).name);
+    }
+  }
+
+  ReadChromeLayout getReadChromeLayout() {
+    if (!isInitialized) return ReadChromeLayout.defaults;
+    var layout = ReadChromeLayout.decode(
+      getSetting<Object?>(readChromeLayoutKey),
+    );
+    for (final group in ReadChromeGroupId.values) {
+      final raw = getSetting<Object?>(group.storageKey);
+      if (raw is! String || raw.isEmpty) continue;
+      final state = readEnumFromName(
+        ReadChromeGroupState.values,
+        raw,
+        group.stateOf(layout),
+        nameOf: (v) => v.name,
+      );
+      layout = group.withState(layout, state);
+    }
+    return layout;
+  }
+
+  /// READ-UI-120 P0: migrate tốc độ TTS cũ (lưu trong `playback_recipe` của
+  /// SharedPreferences) sang nguồn sự thật duy nhất `tts_speed` của Hive.
+  /// Chỉ chạy 1 lần; người dùng đã chỉnh tốc độ ở màn Cài đặt thì giữ nguyên.
+  Future<void> migrateLegacyPlaybackSpeed(double legacySpeed) async {
+    if (!isInitialized) return;
+    final migrated =
+        getSetting<bool>('read_legacy_playback_speed_migrated_v1',
+            defaultValue: false) ??
+            false;
+    if (migrated) return;
+    final current = getSetting<double>('tts_speed', defaultValue: 1.0) ?? 1.0;
+    if ((current - 1.0).abs() < 0.01 && (legacySpeed - 1.0).abs() >= 0.01) {
+      await saveSetting('tts_speed', legacySpeed.clamp(0.25, 2.0).toDouble());
+    }
+    await saveSetting('read_legacy_playback_speed_migrated_v1', true);
   }
 
   /// Cờ "đã migrate sang Đọc-trước-Nghe" (chỉ chạy 1 lần / thiết bị).

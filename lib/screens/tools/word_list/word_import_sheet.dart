@@ -6,11 +6,15 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/vocab_image/vocab_media_import.dart';
 import '../../../features/vocab_image/vocab_media_type.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../utils/text_parser.dart';
+import '../../settings/ai_providers_screen.dart';
+import 'vocab_bulk_ai.dart';
+import 'vocab_bulk_ai_service.dart';
 
 class WordImportSheet extends StatefulWidget {
   const WordImportSheet({super.key});
@@ -56,6 +60,21 @@ class _WordImportSheetState extends State<WordImportSheet>
   String _fileContent = '';
   List<_ImportCandidate> _fileWords = [];
   bool _isLoadingFile = false;
+
+  // PLAN-041 mục 3 — tab AI (copy-prompt cho AI ngoài + sinh bằng AI
+  // trong app qua Server API). Kết quả hai đường đều đổ vào _pasteCtrl
+  // rồi qua _parsePasted → cùng màn xem trước/smart-fill như dán tay.
+  final _aiInputCtrl = TextEditingController();
+  final _aiTopicCtrl = TextEditingController();
+  final _aiPromptCtrl = TextEditingController();
+  VocabBulkAiScenario _aiScenario = VocabBulkAiScenario.byTopic;
+  String _aiWordLanguage = 'en';
+  String _aiMeaningLanguage = 'vi';
+  String _aiLevel = 'B1';
+  int _aiCount = 20;
+  bool _aiBusy = false;
+  String _aiProgress = '';
+  bool _aiLocaleInitDone = false;
 
   VocabularyProvider get _provider => context.read<VocabularyProvider>();
 
@@ -1474,6 +1493,82 @@ class _OptionChip extends StatelessWidget {
 
 class WordTableParser {
   WordTableParser._();
+
+  /// PLAN-041 mục 3 — làm sạch đầu vào kiểu AI-trả-về trước khi parse:
+  /// AI (kể cả khi prompt cấm) vẫn hay bọc CSV trong code fence
+  /// (```csv … ```) hoặc trả BẢNG Markdown (`| word | meaning |` + hàng
+  /// `|---|---|`). Parser cũ đòi dòng đầu = header nên cả khối bị rơi
+  /// xuống đường "đếm tần suất từ" và ra danh sách rác. Hàm THUẦN này:
+  /// bỏ dòng fence, bỏ hàng phân cách Markdown, gỡ cặp `|` ở hai đầu mỗi
+  /// hàng bảng (giữ `|` ở giữa làm delimiter như cũ).
+  static String sanitizeStructuredText(String content) {
+    final out = <String>[];
+    for (final rawLine in content.split(RegExp(r'\r?\n'))) {
+      var line = rawLine.trim();
+      if (line.startsWith('```')) continue; // fence mở (```csv) lẫn đóng
+      // Hàng phân cách bảng Markdown: chỉ gồm | - : khoảng trắng.
+      if (line.contains('-') &&
+          line.replaceAll(RegExp(r'[|\s:\-]'), '').isEmpty) {
+        continue;
+      }
+      // Hàng bảng Markdown | a | b | → a | b (delimiter | ở giữa giữ nguyên).
+      if (line.length >= 2 && line.startsWith('|') && line.endsWith('|')) {
+        line = line.substring(1, line.length - 1).trim();
+      }
+      out.add(line);
+    }
+    return out.join('\n');
+  }
+
+  /// Dòng [line] có phải header dùng được không (map ra ≥2 trường khác
+  /// nhau và có cột 'word') — tiêu chí như `_parseStructuredContent` cũ.
+  static bool isHeaderLine(String line) {
+    final mapped = mapHeader(line);
+    return mapped.contains('word') &&
+        mapped.whereType<String>().toSet().length >= 2;
+  }
+
+  /// Tìm dòng header trong [lines] (quét tối đa [maxScan] dòng đầu để chịu
+  /// được lời dẫn ngắn của AI kiểu "Đây là danh sách:" trước bảng).
+  /// Trả -1 nếu không thấy.
+  static int findHeaderLineIndex(List<String> lines, {int maxScan = 12}) {
+    final limit = lines.length < maxScan ? lines.length : maxScan;
+    for (var i = 0; i < limit; i++) {
+      if (isHeaderLine(lines[i])) return i;
+    }
+    return -1;
+  }
+
+  /// Ghép nhiều khối CSV (AI trong app gọi theo lô) thành MỘT khối: giữ
+  /// header của khối đầu có header, bỏ header lặp + lời dẫn của các khối
+  /// sau. Khối nào không có header thì giữ nguyên dòng của nó ở cuối
+  /// (parser sẽ tự bỏ qua dòng không căn được) — thà thừa còn hơn mất từ.
+  static String mergeCsvOutputs(List<String> outputs) {
+    final merged = <String>[];
+    var headerWritten = false;
+    for (final output in outputs) {
+      final lines = sanitizeStructuredText(output)
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
+      if (lines.isEmpty) continue;
+      final headerIdx = findHeaderLineIndex(lines);
+      if (headerIdx < 0) {
+        merged.addAll(lines);
+        continue;
+      }
+      if (!headerWritten) {
+        merged.add(lines[headerIdx]);
+        headerWritten = true;
+      }
+      for (final line in lines.skip(headerIdx + 1)) {
+        if (isHeaderLine(line)) continue; // header lặp giữa khối
+        merged.add(line);
+      }
+    }
+    return merged.join('\n');
+  }
 
   static const Map<String, String> fieldAliases = {
     'word': 'word',

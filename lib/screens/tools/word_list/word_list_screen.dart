@@ -27,6 +27,7 @@ import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
+import 'wordlist_read_settings_sheet.dart';
 import '../youglish/youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -1278,6 +1279,18 @@ class _WordListScreenState extends State<WordListScreen> {
 
   Future<void> _stopPlayback() async {
     await _playbackService.stopPlayback();
+  }
+
+  Future<void> _showReadSettings() async {
+    await _playbackService.ensureReadSettingsLoaded();
+    if (!mounted) return;
+    final next = await WordlistReadSettingsSheet.show(
+      context,
+      _playbackService.readSettings,
+    );
+    if (next != null) {
+      await _playbackService.updateReadSettings(next);
+    }
   }
 
   // ═══════════════════════════════════════════════════════

@@ -3,11 +3,15 @@
 // Singleton ChangeNotifier + floating bubble support
 
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../features/tts/tts_service.dart';
 import '../../../models/word_entry.dart';
+import 'wordlist_read_sequence.dart';
 
 class WordlistPlaybackService extends ChangeNotifier {
   static final WordlistPlaybackService _instance =

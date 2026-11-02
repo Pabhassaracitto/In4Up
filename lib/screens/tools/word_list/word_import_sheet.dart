@@ -62,13 +62,27 @@ class _WordImportSheetState extends State<WordImportSheet>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_aiLocaleInitDone) return;
+    _aiLocaleInitDone = true;
+    // Nghĩa mặc định viết bằng ngôn ngữ giao diện hiện tại (nếu catalog có).
+    final uiCode = Localizations.localeOf(context).languageCode;
+    final lang = AppLanguageCatalog.maybeFromCode(uiCode);
+    if (lang != null) _aiMeaningLanguage = lang.appLocaleCode;
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
     _pasteCtrl.dispose();
+    _aiInputCtrl.dispose();
+    _aiTopicCtrl.dispose();
+    _aiPromptCtrl.dispose();
     super.dispose();
   }
 
@@ -123,20 +137,25 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   List<_ImportCandidate> _parseStructuredContent(String content) {
-    final lines = content
+    // PLAN-041 mục 3 — bóc fence/bảng Markdown + cho phép vài dòng lời dẫn
+    // trước header (AI bên ngoài/trong app trả về), thay vì đòi dòng đầu
+    // tiên phải là header như cũ.
+    final lines = WordTableParser.sanitizeStructuredText(content)
         .split(RegExp(r'\r?\n'))
         .map((l) => l.trim())
         .where((l) => l.isNotEmpty)
         .toList();
     if (lines.length < 2) return const [];
 
-    final mapped = WordTableParser.mapHeader(lines.first);
-    if (!mapped.contains('word')) return const [];
-    if (mapped.whereType<String>().toSet().length < 2) return const [];
-    final delimiter = WordTableParser.detectDelimiter(lines.first);
+    final headerIdx = WordTableParser.findHeaderLineIndex(lines);
+    if (headerIdx < 0) return const [];
+    final mapped = WordTableParser.mapHeader(lines[headerIdx]);
+    final delimiter = WordTableParser.detectDelimiter(lines[headerIdx]);
 
     final candidates = <_ImportCandidate>[];
-    for (final line in lines.skip(1)) {
+    for (final line in lines.skip(headerIdx + 1)) {
+      // Header lặp lại giữa khối (AI chia lô / dán hai bảng nối nhau).
+      if (WordTableParser.isHeaderLine(line)) continue;
       final parts = WordTableParser.splitCsvLine(line, delimiter);
       if (parts.isEmpty) continue;
       final data = WordTableParser.alignRow(parts, mapped);
@@ -625,6 +644,335 @@ class _WordImportSheetState extends State<WordImportSheet>
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  // ── PLAN-041 mục 3: tab AI ──────────────────────────────────────────────
+  String _aiLanguageName(String code) =>
+      AppLanguageCatalog.fromCode(code).englishName;
+
+  String _buildAiPromptForCopy() => buildVocabBulkPrompt(
+        scenario: _aiScenario,
+        wordLanguageName: _aiLanguageName(_aiWordLanguage),
+        meaningLanguageName: _aiLanguageName(_aiMeaningLanguage),
+        wordLanguageCode: _aiWordLanguage,
+        inputText: _aiScenario == VocabBulkAiScenario.byTopic
+            ? _aiTopicCtrl.text
+            : _aiInputCtrl.text,
+        topic: _aiTopicCtrl.text,
+        level: _aiLevel,
+        count: _aiCount,
+      );
+
+  void _aiShowSnack(String message, {VoidCallback? onOpenAiSettings}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: onOpenAiSettings == null
+            ? null
+            : SnackBarAction(
+                label: context.uiText('Mở Server & API'),
+                onPressed: onOpenAiSettings,
+              ),
+      ),
+    );
+  }
+
+  Future<void> _runInAppAi() async {
+    if (_aiBusy) return;
+    final prompts = buildVocabBulkPromptsForRun(
+      scenario: _aiScenario,
+      wordLanguageName: _aiLanguageName(_aiWordLanguage),
+      meaningLanguageName: _aiLanguageName(_aiMeaningLanguage),
+      wordLanguageCode: _aiWordLanguage,
+      inputText: _aiScenario == VocabBulkAiScenario.byTopic
+          ? _aiTopicCtrl.text
+          : _aiInputCtrl.text,
+      topic: _aiTopicCtrl.text,
+      level: _aiLevel,
+      count: _aiCount,
+      editedPrompt: _aiPromptCtrl.text,
+    );
+    if (prompts.isEmpty) {
+      _aiShowSnack(context.uiText('Hãy nhập chủ đề / danh sách từ / đoạn văn trước.'));
+      return;
+    }
+    setState(() {
+      _aiBusy = true;
+      _aiProgress = '';
+    });
+    try {
+      final outputs = await VocabBulkAiService.instance.generateRawOutputs(
+        prompts,
+        onProgress: (done, total) {
+          if (!mounted) return;
+          setState(() => _aiProgress =
+              total > 1 ? '${context.uiText('Đã xong lô')} $done/$total…' : '');
+        },
+      );
+      if (!mounted) return;
+      final merged = WordTableParser.mergeCsvOutputs(outputs);
+      _pasteCtrl.text = merged;
+      _parsePasted();
+      setState(() => _aiBusy = false);
+      _tabCtrl.animateTo(0);
+      _aiShowSnack(_parsedWords.isNotEmpty
+          ? '${context.uiText('Số mục AI đã sinh:')} ${_parsedWords.length}'
+          : context.uiText('AI đã trả kết quả nhưng không đọc được dòng nào — xem lại ở tab Clipboard.'));
+    } on VocabBulkAiException catch (e) {
+      if (!mounted) return;
+      setState(() => _aiBusy = false);
+      switch (e.code) {
+        case VocabBulkAiErrorCode.noProvider:
+        case VocabBulkAiErrorCode.noModel:
+          _aiShowSnack(
+            context.uiText('Chưa cấu hình AI (Server & API). Hãy thêm nhà cung cấp + chọn model chat, hoặc dùng nút Copy prompt.'),
+            onOpenAiSettings: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiProvidersScreen()),
+            ),
+          );
+          break;
+        case VocabBulkAiErrorCode.emptyInput:
+          _aiShowSnack(context.uiText('Hãy nhập chủ đề / danh sách từ / đoạn văn trước.'));
+          break;
+        case VocabBulkAiErrorCode.emptyOutput:
+          _aiShowSnack(context.uiText('AI trả về rỗng — thử lại hoặc đổi model.'));
+          break;
+        case VocabBulkAiErrorCode.requestFailed:
+          _aiShowSnack('${context.uiText('Gọi AI thất bại')} (${e.detail ?? 'requestFailed'})');
+          break;
+      }
+    }
+  }
+
+  Widget _aiLanguageDropdown({
+    required String label,
+    required String value,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+        DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF16202F),
+          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+          items: [
+            for (final lang in AppLanguageCatalog.languages)
+              DropdownMenuItem(
+                value: lang.appLocaleCode,
+                child: Text('${lang.flag} ${lang.nativeName}'),
+              ),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAiTab(ScrollController scroll) {
+    final scenarioLabel = <VocabBulkAiScenario, String>{
+      VocabBulkAiScenario.byTopic: context.uiText('Theo chủ đề'),
+      VocabBulkAiScenario.enrichList: context.uiText('Làm giàu danh sách từ'),
+      VocabBulkAiScenario.extractFromText:
+          context.uiText('Trích từ đoạn văn'),
+    };
+    final inputHint = switch (_aiScenario) {
+      VocabBulkAiScenario.byTopic => '',
+      VocabBulkAiScenario.enrichList => context.uiText(
+          'Mỗi dòng một từ/cụm từ cần bổ sung nghĩa, IPA, ví dụ…'),
+      VocabBulkAiScenario.extractFromText =>
+        context.uiText('Dán đoạn văn để AI trích từ đáng học…'),
+    };
+    return ListView(
+      controller: scroll,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      children: [
+        Text(
+          context.uiText(
+              'Sinh từ vựng hàng loạt bằng AI. Kết quả luôn qua màn xem trước ở tab Clipboard — tick chọn rồi mới Import, từ đã có chỉ được bổ sung chỗ trống.'),
+          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final s in VocabBulkAiScenario.values)
+              ChoiceChip(
+                label: Text(scenarioLabel[s]!),
+                selected: _aiScenario == s,
+                onSelected: _aiBusy
+                    ? null
+                    : (_) => setState(() {
+                          _aiScenario = s;
+                          _aiPromptCtrl.clear();
+                        }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_aiScenario == VocabBulkAiScenario.byTopic)
+          TextField(
+            controller: _aiTopicCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              labelText: context.uiText('Chủ đề'),
+              hintText: context.uiText('vd: du lịch, nấu ăn, công nghệ…'),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          )
+        else
+          TextField(
+            controller: _aiInputCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: inputHint,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        if (_aiScenario != VocabBulkAiScenario.byTopic) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _aiTopicCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              labelText: context.uiText('Chủ đề (không bắt buộc)'),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _aiLanguageDropdown(
+                label: context.uiText('Ngôn ngữ của TỪ'),
+                value: _aiWordLanguage,
+                onChanged: (v) => setState(() => _aiWordLanguage = v),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _aiLanguageDropdown(
+                label: context.uiText('Nghĩa viết bằng'),
+                value: _aiMeaningLanguage,
+                onChanged: (v) => setState(() => _aiMeaningLanguage = v),
+              ),
+            ),
+          ],
+        ),
+        if (_aiScenario != VocabBulkAiScenario.enrichList) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(context.uiText('Trình độ'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              const SizedBox(width: 8),
+              for (final lv in const ['A2', 'B1', 'B2', 'C1'])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(lv),
+                    selected: _aiLevel == lv,
+                    onSelected:
+                        _aiBusy ? null : (_) => setState(() => _aiLevel = lv),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(context.uiText('Số từ'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              const SizedBox(width: 8),
+              for (final n in const [10, 20, 30, 50])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text('$n'),
+                    selected: _aiCount == n,
+                    onSelected:
+                        _aiBusy ? null : (_) => setState(() => _aiCount = n),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _aiBusy
+                  ? null
+                  : () => setState(
+                      () => _aiPromptCtrl.text = _buildAiPromptForCopy()),
+              icon: const Icon(Icons.description_outlined, size: 16),
+              label: Text(context.uiText('Tạo prompt')),
+            ),
+            OutlinedButton.icon(
+              onPressed: _aiBusy
+                  ? null
+                  : () async {
+                      if (_aiPromptCtrl.text.trim().isEmpty) {
+                        _aiPromptCtrl.text = _buildAiPromptForCopy();
+                      }
+                      await Clipboard.setData(
+                          ClipboardData(text: _aiPromptCtrl.text));
+                      _aiShowSnack(context.uiText(
+                          'Đã copy prompt — dán vào ChatGPT/Claude/Gemini rồi dán kết quả vào tab Clipboard.'));
+                    },
+              icon: const Icon(Icons.copy_all_outlined, size: 16),
+              label: Text(context.uiText('Copy prompt cho AI ngoài')),
+            ),
+            FilledButton.icon(
+              onPressed: _aiBusy ? null : _runInAppAi,
+              icon: _aiBusy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 16),
+              label: Text(context.uiText('Sinh bằng AI trong app')),
+            ),
+          ],
+        ),
+        if (_aiBusy) ...[
+          const SizedBox(height: 10),
+          Text(
+            _aiProgress.isNotEmpty
+                ? _aiProgress
+                : context.uiText('Đang gọi AI…'),
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          ),
+        ],
+        const SizedBox(height: 12),
+        TextField(
+          controller: _aiPromptCtrl,
+          style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+          maxLines: 8,
+          decoration: InputDecoration(
+            labelText: context.uiText('Prompt (sửa được trước khi copy/gửi)'),
+            hintText: context.uiText('Bấm "Tạo prompt" để xem…'),
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
       ],
     );
   }

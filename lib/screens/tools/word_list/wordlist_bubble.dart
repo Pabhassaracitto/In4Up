@@ -226,7 +226,9 @@ class _WordlistBubbleState extends State<WordlistBubble>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  current?.word ?? '...',
+                  // PLAN-041 mục 2 — bubble hiện đúng nội dung đang nghe
+                  // (đang đọc phía nghĩa thì hiện nghĩa, không chỉ từ).
+                  _service.currentStepText ?? current?.word ?? '...',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

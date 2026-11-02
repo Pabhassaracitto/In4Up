@@ -95,6 +95,31 @@ jobs:
           path: analyze.log
           if-no-files-found: ignore
 
+      # LINUX-AUTH-001 — Home phải render được khi logger/sync/UI cùng
+      # subscribe auth, và các primary tab phải đổi cả nội dung lẫn selected.
+      # Chạy sớm, có timeout để lỗi plugin/provider không treo toàn bộ oracle.
+      - name: "Linux shell tests — auth stream, Home và primary navigation"
+        id: linux-shell-tests
+        run: |
+          set +e
+          if [ ! -f test/linux_shell_regression_test.dart ]; then
+            echo "Không có test Linux shell trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart \
+            -r expanded > linux_shell_regression_test.log 2>&1
+          code=$?
+          cat linux_shell_regression_test.log
+          exit $code
+
+      - name: Upload Linux shell test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-shell-regression-test-log
+          path: linux_shell_regression_test.log
+          if-no-files-found: ignore
+
       - name: "I4U18 tests — Video/Listen Library (logic thuần)"
         id: i4u18-lib-tests
         run: |

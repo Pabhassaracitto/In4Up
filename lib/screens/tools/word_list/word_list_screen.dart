@@ -770,6 +770,14 @@ class _WordListScreenState extends State<WordListScreen> {
             onTap: () => _showSortSheet(),
           ),
           const Spacer(),
+          // PLAN-041 mục 2 — cài đặt đọc từ + nghĩa (thứ tự/lần lặp/ngôn ngữ).
+          IconButton(
+            tooltip: context.uiText('Đọc từ + nghĩa'),
+            icon: const Icon(Icons.tune_rounded,
+                size: 18, color: Color(0xFF9C8FFF)),
+            visualDensity: VisualDensity.compact,
+            onPressed: _showReadSettings,
+          ),
           _ListRepeatButton(
             count: _playbackService.listRepeatCount,
             current: _playbackService.listRepeatCurrent,

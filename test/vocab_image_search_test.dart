@@ -243,6 +243,7 @@ void main() {
       "alt": "A butterfly on a flower",
       "src": {
         "original": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg",
+        "large": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
         "large2x": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
         "medium": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&h=350",
         "thumbnail": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=200&w=280"
@@ -257,12 +258,14 @@ void main() {
   ]
 }''';
 
-    test('map src.large2x → ảnh đầy đủ, medium → thumbnail', () {
+    test('map src.large (≈940px, PLAN-041 nhẹ) → ảnh đầy đủ, medium → thumbnail', () {
       final items = VocabImageWebService.parsePexels(pexelsBody);
       expect(items.length, 1); // item không có src bị bỏ
       final image = items.single;
       expect(image.title, 'A butterfly on a flower');
-      expect(image.imageUrl, contains('dpr=2')); // src.large2x
+      // src.large được ưu tiên hơn large2x (nhẹ hơn, đủ nét cho thẻ học).
+      expect(image.imageUrl, contains('w=940'));
+      expect(image.imageUrl, isNot(contains('dpr=2')));
       expect(image.thumbUrl, contains('h=350'));
       expect(image.pageUrl, contains('/photo/a-butterfly-123/'));
       expect(image.creator, 'Jane Photographer');
@@ -310,7 +313,8 @@ void main() {
       final image = items.single;
       expect(image.title, 'Butterfly wings');
       expect(image.thumbUrl, contains('w=400'));
-      expect(image.imageUrl, contains('w=1980'));
+      // PLAN-041 mục 4: dùng regular 1080px, không tải full 1980px nữa.
+      expect(image.imageUrl, contains('w=1080'));
       expect(image.pageUrl, 'https://unsplash.com/photos/abc');
       expect(image.creator, 'John Shooter');
       expect(image.license, 'Unsplash License');

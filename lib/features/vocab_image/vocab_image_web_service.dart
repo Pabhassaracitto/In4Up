@@ -379,10 +379,14 @@ class VocabImageWebService {
         if (out.length >= limit) break;
         if (item is! Map) continue;
         final src = item['src'];
+        // PLAN-041 mục 4 — tải bản VỪA ĐỦ cho thẻ học (large ≈940px /
+        // medium) thay vì large2x/original: nhẹ mạng + nhẹ máy; khi lưu
+        // còn một bước chuẩn hoá ≤1024px nữa (vocab_image_normalize).
         final full = src is Map
-            ? (_url(src['large2x']) ??
-                _url(src['original']) ??
-                _url(src['medium']))
+            ? (_url(src['large']) ??
+                _url(src['medium']) ??
+                _url(src['large2x']) ??
+                _url(src['original']))
             : null;
         if (full == null) continue;
         final thumb = src is Map ? (_url(src['medium']) ?? full) : full;
@@ -421,7 +425,9 @@ class VocabImageWebService {
         if (full == null) continue;
         final links = item['links'];
         out.add(VocabWebImage(
-          imageUrl: _url(urls['full']) ?? full,
+          // PLAN-041 mục 4 — `regular` (1080px) là đủ cho thẻ học; không
+          // tải bản `full` gốc (thường vài MB) nữa.
+          imageUrl: full,
           thumbUrl: _url(urls['small']) ?? full,
           pageUrl: (links is Map ? _url(links['html']) : null) ?? full,
           title: _str(item['alt_description']) ?? _str(item['description']) ?? '',

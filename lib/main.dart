@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
@@ -10,6 +11,7 @@ import 'package:in4up/l10n/app_localizations.dart';
 import 'package:in4up/screens/memory_mode/controllers/memory_controller.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import 'package:in4up/services/storage_service.dart';
+import 'package:in4up/services/read_chrome_layout_store.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
@@ -307,7 +309,30 @@ class _MyAppState extends State<MyApp> {
   Future<_AppLocalServices> _initializeLocalServices() async {
     final prefs = await SharedPreferences.getInstance();
 
+    // READ-UI-120 (audit v1.20.0):
+    //  * nạp cấu hình chrome tab Đọc TRƯỚC khi dựng widget tree;
+    //  * migrate tốc độ từ `playback_recipe` (SharedPreferences) sang
+    //    `tts_speed` (Hive) — từ nay chỉ còn MỘT nguồn sự thật về tốc độ TTS.
+    //    Chạy trước khi TextProvider._restoreFromStorage() đọc `tts_speed`.
+    ReadChromeLayoutStore.instance.load();
+    await _migrateLegacyPlaybackSpeed(prefs);
+
     return _AppLocalServices(prefs: prefs);
+  }
+
+  Future<void> _migrateLegacyPlaybackSpeed(SharedPreferences prefs) async {
+    final raw = prefs.getString('playback_recipe');
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['speed'] is num) {
+        await StorageService().migrateLegacyPlaybackSpeed(
+          (decoded['speed'] as num).toDouble(),
+        );
+      }
+    } catch (_) {
+      // Preference hỏng ⇒ bỏ qua, giữ tốc độ hiện tại.
+    }
   }
 
   Widget _buildApp(_AppLocalServices localServices) {

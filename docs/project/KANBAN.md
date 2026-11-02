@@ -50,6 +50,7 @@
 | YT-LRC-LONG-001 | Lấy phụ đề YouTube sang tab Đọc bị lỗi: video ≥ 60 phút ghi SAI mốc giờ + bộ đọc LRC chỉ nhận 2 chữ số phút + lỗi im lặng | ✅ done (code + test + CI 🟢 run 40584513088; chờ nghiệm thu máy) | `toLrc()` ghi phút tuyệt đối; đọc LRC tách sang hàm thuần `lrc_time_parser.dart` (phút 1–3 số, `.`/`,`, `hh:mm:ss`); `YtReadBridge` bọc try/catch + snackbar giữ messenger trước khi pop |
 | LINUX-AUTH-001 | Linux 1.20.0: Home tối/khung xám; kiểm tra các tab Home/ĐỌC/NGHE/HIỂU không chuyển | ✅ done (fix + 3 regression tests + CI 🟢 run 41476037909; chờ nghiệm thu bundle Linux) | `AuthService.authStateChanges` không cache single-subscription stream; `test/linux_shell_regression_test.dart` kiểm tra Home và chuỗi chuyển tab; fix `06661ae`, gate `dc2f789` |
 | REL-1.20.0 | Release **1.20.0** (đủ 4 nền tảng) từ tip 251e — 12 commit sau 1.19.1 (bố cục đọc tập trung, quét video thiết bị, Tipiṭaka gói ngôn ngữ, Cabin giữ utterance cuối, dịch sạch Markdown) | ✅ done (build 🟢 run 40815857856, 4/4 job; chờ nghiệm thu máy) | bump `1.19.0+19 → 1.20.0+20` (`e82b3621`); APK arm64 198.6 MB `6cfe6a20…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.20.0 |
+| READ-UI-120 | Tab Đọc: gộp chrome theo 3 nhóm + một cửa vào TTS, bỏ chặn "dịch xong mới phát" | 🔨 doing (code + docs + test pin trên nhánh; chờ Flutter CI và nghiệm thu máy 360×640) | ADR-0021, `docs/read_tab_audio_ui_audit_1_20_0.md`, `docs/shell_manual_qa_checklist.md` mục 4.3/8.1 |
 | REL-1.19.1 | Release **1.19.1** (đủ 4 nền tảng) — sửa lỗi Kotlin comment lồng nhau làm Android đỏ 4 run liên tiếp | ✅ done (build 🟢 run 40635280501, 4/4 job; chờ nghiệm thu máy) | APK arm64 198.5 MB `f7c4f33d…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.19.1 |
 | REL-1.18.0 | Release **1.18.0** (full 4 nền tảng) từ tip 251e `b3583676` — 34 commit sau 1.17.0 (i18n wave 8+9, PRON-002, API-SERVERSET, PARAKEET-002 dùng được, 7 fix YouTube, fix từ điển) | ✅ done (build 🟢 run 40568716000, 4/4 job; chờ nghiệm thu máy) | bump `1.17.0+17 → 1.18.0+18` (`5a70bf33`); APK arm64 198.4 MB `8e6b90fa…`, IPA 92.7 MB, Linux 49.4 MB, Windows 51.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.18.0 |
 | REL-1.17.0 | Release **1.17.0** (full 4 nền tảng) từ tip 251e — bump `1.16.0+16 → 1.17.0+17` để update đè được | ✅ done (build 🟢 run 40262212277, 4/4 job; chờ nghiệm thu máy) | APK arm64 198 MB `f6f6e2c4…`, IPA 92 MB, Linux tar 49 MB, Windows zip 51.5 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.17.0 |
@@ -8379,3 +8380,49 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Bằng chứng:** App Analyze + Locale Test run **41476037909** 🟢 toàn bộ job, gồm bước Linux shell mới và analyze toàn app. Chưa tạo release/bundle mới và chưa nghiệm thu thao tác chuột trên máy Linux của owner.
 - **Lịch sử:**
   - 2026-11-02 | created→done | agent `arena/f28c390d-in4up` | widget test tái hiện single-subscription auth exception + overflow; sửa AuthService; 3 test và full gate `41476037909` xanh; chờ nghiệm thu bundle Linux.
+
+### READ-UI-120 — (2026-11-02) Tab Đọc v1.20.x: tối giản mặc định, mở rộng khi cần
+- **Trạng thái:** 🔨 doing — code, ADR, QA checklist và test pin đã có trên
+  `arena/bada56c3-in4up`; PR **#126** `mergeable = CLEAN` và **CI 16/16 xanh**
+  (`flutter analyze` + locale test + build + 13 job test). Sandbox không có
+  Flutter/Dart SDK nên mọi kiểm chứng biên dịch chạy trên CI. Còn nghiệm thu máy.
+- **Nguồn:** owner yêu cầu audit "Audio và hiển thị tab Đọc" rồi duyệt toàn bộ
+  điều chỉnh: *"Tôi đồng ý các điều chỉnh của bạn. Hãy tiến hành điều chỉnh."*
+  và chốt riêng *"Nguồn => để ở trên cùng như hiện thời (web)(tipitaka) đã khá
+  là gọn."*
+- **Quyết định:** xem [ADR-0021](../adr/0021-doc-tab-chrome-va-tts.md) và
+  [biên bản audit](../read_tab_audio_ui_audit_1_20_0.md). Tóm tắt:
+  - P0: một pill «Đọc» (2 phạm vi: dòng hiện tại / cả bài), một nguồn tốc độ
+    `tts_speed` có migrate từ `playback_recipe.speed`; bỏ `await translateAll()`
+    chặn Play; bản dịch là lớp bổ sung, `enOnly` là mặc định.
+  - P1: `ReadBottomDock` 1 hàng luôn hiện + đúng 1 panel inline; `ReadTopBar`,
+    `TranslationToolbar`, 5 action context và `SmartPlaybackBar`/`ReadBottomBar`
+    dời về panel; một `PopupMenuButton` «Hiển thị»/«Cài đặt» cạnh ⚡.
+  - P2: `ReadChromeLayout` 3 nhóm × 3 trạng thái (Nguồn `allowHide=false`),
+    `read_chrome_group_<id>_v1`, «Vị trí công cụ: Dưới/Trên» để giữ đường cũ,
+    ghi nhớ trạng thái bung, tự dịch nền, khôi phục mặc định.
+  - Không `AnimatedSize`/`AnimatedSlide`/`AnimatedOpacity`/`ClipRect` trên cụm
+    đáy (READ-TOOLBAR-001 v2); không drag-drop / ẩn từng icon / tự ẩn theo giờ.
+- **Bằng chứng có thể kiểm:** `python3 tool/generate_priority_native_pack.py
+  --check` → `OK — 3506 entry`; 7 chuỗi mới có `en` + `zh/zh_TW/hi/si/my/th/ja`;
+  test pin `test/read_chrome_layout_test.dart`,
+  `test/read_ui_120_contract_test.dart`. Generator legacy fallback đã lệch
+  sẵn trên base **từ trước đợt này**; 3 override của thông báo chặn cũ được
+  dọn nên số override lệch giảm 3 so với base (không tăng).
+- **Chưa kiểm (máy thật):** 360×640 text scale 1.0/1.3 (vùng đọc ≥70%, ≤2 hàng
+  chrome), Play <1s khi chưa dịch, tốc độ sống sót qua restart, Focus /
+  tap-nền / resume anchor / `TtsPlaybackOwner`, không `RenderFlex overflow` hay
+  khối đen → `docs/shell_manual_qa_checklist.md`.
+- **Lịch sử:**
+  - 2026-11-02 | created→proposed | agent `arena/bada56c3-in4up` | audit
+    `docs/read_tab_audio_ui_audit_1_20_0.md`, chưa sửa code.
+  - 2026-11-02 | proposed→doing | agent | owner duyệt; triển khai P0→P1→P2,
+    ADR-0021, PLAN-041, i18n 7 chuỗi, 2 file test pin, cập nhật QA checklist.
+  - 2026-11-02 | doing | agent | mở PR #126; merge base `2883b8c` (card
+    LINUX-AUTH-001 cùng sửa KANBAN.md) ⇒ giữ cả 2 card, không xoá gì; CI lần
+    1 đỏ 1 pin nguồn `readLibraryFull` ⇒ lồng điều kiện dock vào trong;
+    CI 16/16 xanh, `mergeStateStatus = CLEAN`.
+  - 2026-11-02 | doing | agent | GitHub báo "This branch cannot be rebased due
+    to conflicts" (`rebaseable = false`) do head chứa merge commit ⇒ rút gọn
+    5 commit thành 1 commit tuyến tính, parent = base tip `2883b8c`, nội dung
+    giữ nguyên ⇒ *Rebase and merge* khả dụng lại.

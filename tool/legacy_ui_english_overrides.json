@@ -317,7 +317,6 @@
   "Chưa có bài trong danh sách phát": "The queue is empty",
   "Chưa có bản dịch cho trang này": "No translation for this page yet",
   "Chưa có bản dịch cho video này nên chỉ đọc được bản gốc.": "This video has no translation yet, so only the original can be read.",
-  "Chưa có bản dịch để đọc song ngữ.": "No translation is available for bilingual reading.",
   "Chưa có bản ghi nội dung (transcript).\n\nChạy \"⚡ Tự tạo mục lục\" (VAD + Whisper)\nhoặc tạo LRC trong tab AI —\nsau đó tìm chữ là nhảy tới đúng chỗ.": "No transcript yet.\n\nRun \"⚡ Auto chapter list\" (VAD + Whisper)\nor create an LRC in the AI tab —\nthen searching text jumps to the right spot.",
   "Chưa có câu nào đang phát": "No line is playing yet",
   "Chưa có cơ sở dữ liệu Tipiṭaka hợp lệ. Hãy chọn file .db/.sqlite hoặc tải một gói ngôn ngữ để ứng dụng tự import.": "No valid Tipiṭaka database yet. Pick a .db/.sqlite file or download a language pack so the app can import it.",
@@ -1069,7 +1068,6 @@
   "Hành động này sẽ nạp lại toàn bộ 10 Kệ Pháp Cú và các bài kinh tụng chuẩn mẫu ban đầu. Bạn có muốn tiếp tục không?": "This reloads all 10 Dhammapada verses and the standard recitation texts. Continue?",
   "Hành động từ tâm ô nhiễm đem lại khổ đau.": "Actions from a defiled mind bring suffering.",
   "Hành động và tâm ý tạo tác quả báo.": "Actions and intentions shape results.",
-  "Hãy chọn ngôn ngữ đích khác nguồn trước khi phát.": "Select a target language different from the source before playback.",
   "Hãy chọn ngôn ngữ đích khác nguồn.": "Select a target language different from the source.",
   "Hãy chọn ngôn ngữ đích khác ngôn ngữ nguồn.": "Select a target language different from the source language.",
   "Hãy import DB Pa-Auk hoặc tải gói ngôn ngữ.": "Import a Pa-Auk DB or download a language pack.",
@@ -3254,7 +3252,6 @@
   "Đang dịch màn hình…": "Translating the screen...",
   "Đang dịch trang…": "Translating page…",
   "Đang dịch {value0}/{value1} khối chữ…": "Translating {value0}/{value1} text blocks...",
-  "Đang dịch, vui lòng chờ hoàn tất…": "Translating, please wait for completion…",
   "Đang dịch...": "Translating...",
   "Đang dừng dịch…": "Stopping translation…",
   "Đang dừng…": "Stopping…",
@@ -3954,5 +3951,12 @@
   "Đăng nhập trong Cài đặt để lưu phụ đề lên Thư viện đọc đám mây.": "Sign in (Settings) to save captions to the cloud reading library.",
   "Gửi sang tab Nghe": "Send to the Listen tab",
   "Video này chưa tải âm thanh": "This video has no downloaded audio",
-  "Không mở được file âm thanh này": "Could not open this audio file"
+  "Không mở được file âm thanh này": "Could not open this audio file",
+  "Đang dịch, sẽ đọc bản dịch khi có": "Translating — the translation will be read when ready",
+  "Chưa có bản dịch, đang đọc nguồn": "No translation yet — reading the source text",
+  "Tự động dịch khi phát song ngữ": "Auto-translate during bilingual playback",
+  "Vị trí công cụ": "Tool position",
+  "Nhớ trạng thái bung": "Remember expanded state",
+  "Mở tab Đọc chỉ còn nguồn ở trên và một hàng công cụ ở dưới; bung từng nhóm khi cần.": "The Read tab now shows only sources at the top and one tool row at the bottom; expand each group when needed.",
+  "Thông tin & Hiển thị": "Info & Display"
 }

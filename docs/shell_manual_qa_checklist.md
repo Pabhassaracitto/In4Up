@@ -169,6 +169,24 @@ Thực hiện cho từng toggle:
 - [ ] Auto-hide switch mode
 - [ ] Long-press tab chính để vào mode phụ
 - [ ] Nhớ mode phụ gần nhất
+- [ ] Nguồn: Thu gọn / Mở rộng (KHÔNG có tuỳ chọn Ẩn)
+- [ ] Công cụ đọc: Thu gọn / Mở rộng / Ẩn
+- [ ] Thông tin & Hiển thị: Thu gọn / Mở rộng / Ẩn
+- [ ] Vị trí công cụ: Dưới / Trên
+- [ ] Tự động dịch khi phát song ngữ
+- [ ] Nhớ trạng thái bung
+
+## 4.3 READ-UI-120 — chrome tab Đọc theo nhóm (v1.20.0)
+- [ ] Mở tab Đọc lần đầu: chỉ thấy app bar (Nguồn + ⚡ + ⋯) và 1 hàng dock đáy
+- [ ] Mũi tên bung vẫn thấy rõ ở 360×640, không bị trôi ra ngoài vùng cuộn
+- [ ] Bung panel: đúng 1 panel/lần (Đọc / Công cụ đọc / Hiển thị), không overflow
+- [ ] Cuộn chữ lên/xuống: dock KHÔNG biến mất (nút «Đọc» luôn có)
+- [ ] Nút ⋯ cạnh ⚡ mở được «Hiển thị» và «Cài đặt»
+- [ ] Panel Công cụ đọc có dòng «Áp dụng cho …» đúng đoạn đang chọn / dòng đang đọc
+- [ ] Đổi «Vị trí công cụ: Trên» ⇒ header 5 nút + 2 thanh đáy cũ hiện lại đúng
+- [ ] Bung nhóm Nguồn ⇒ hiện đủ Tài liệu / Web / Tam tạng; gộp ⇒ chỉ 2 icon app bar
+- [ ] «Khôi phục mặc định» đưa về dock gộp ở đáy
+- [ ] Đổi trạng thái nhóm, kill app / mở lại: cả 3 nhóm giữ nguyên (key riêng từng nhóm)
 
 ---
 
@@ -236,6 +254,12 @@ Thực hiện cho từng toggle:
 ## 8.1 Đọc
 - [ ] Read mode mở bình thường
 - [ ] Không overflow với text dài
+- [ ] Mở tài liệu CHƯA DỊCH → bấm «Đọc» phát ngay (< 1 s), không snackbar chặn
+- [ ] Chọn «Cả bài» rồi phát song ngữ khi đang dịch: bản dịch tự vào lượt đích
+- [ ] Đổi tốc độ trong panel → đọc dòng hiện tại và đọc cả bài cùng giá trị
+- [ ] Kill app / mở lại: tốc độ và trạng thái bung còn giữ
+- [ ] Đang phát mà bung panel: không khối đen, không vỡ layout
+- [ ] Focus mode: dock ẩn, thoát Focus hiện lại đúng
 
 ## 8.2 Viết
 - [ ] Mở được `Viết`
@@ -283,9 +307,11 @@ Thực hiện cho từng toggle:
 
 ## 11.1 Mobile nhỏ
 - [ ] Bottom nav không tràn
-- [ ] App bar không tràn
+- [ ] App bar không tràn (kể cả khi có thêm nút ⋯ cạnh ⚡)
 - [ ] Chip mode không tràn
 - [ ] Settings shell không tràn
+- [ ] 360×640: vùng đọc ≥ 70% chiều cao thân shell khi dock gộp; ≤ 2 hàng chrome
+- [ ] 320×568 + text scale 1.3: pill «Đọc» và mũi tên bung vẫn bấm được
 
 ## 11.2 Font lớn hệ thống
 - [ ] Label tab không vỡ nặng

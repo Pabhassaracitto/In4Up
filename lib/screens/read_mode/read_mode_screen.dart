@@ -12,11 +12,13 @@ import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
 import '../../models/ipa_display_mode.dart';
 import '../../models/learning_activity.dart';
+import '../../models/read_chrome_layout.dart';
 import '../../models/read_content_source.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../services/learning_activity_service.dart';
+import '../../services/read_chrome_layout_store.dart';
 import '../../services/storage_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
@@ -29,6 +31,7 @@ import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/ipa_legend_strip.dart';
 import 'widgets/read_bottom_bar.dart';
+import 'widgets/read_bottom_dock.dart';
 import 'widgets/read_source_picker.dart';
 import 'widgets/read_text_action_hooks.dart';
 import 'widgets/read_top_bar.dart';
@@ -65,6 +68,18 @@ class ReadModeScreen extends StatefulWidget {
   /// để caller cũ giữ nguyên hành vi.
   final bool showSourcePicker;
 
+  /// READ-UI-120: cấu hình chrome theo NHÓM. Mặc định `defaults` (dock đáy,
+  /// gộp 1 hàng). `main_shell` truyền giá trị từ [ReadChromeLayoutStore] để
+  /// đổi trong «Giao diện shell» có hiệu lực ngay.
+  final ReadChromeLayout chromeLayout;
+
+  /// Seam test: nếu có, dock gọi callback này thay vì ghi thẳng vào store.
+  final ValueChanged<ReadChromeLayout>? onChromeLayoutChanged;
+
+  /// `false` trong luồng shell (Hiển thị / Cài đặt chuyển lên cạnh nút ⚡).
+  /// Caller standalone giữ `true` để không mất chức năng.
+  final bool showTopBar;
+
   const ReadModeScreen({
     super.key,
     this.currentFile,
@@ -73,6 +88,9 @@ class ReadModeScreen extends StatefulWidget {
     this.sourceCallbacks = const ReadSourceCallbacks(),
     this.textActionCallbacks = const ReadTextActionCallbacks(),
     this.showSourcePicker = true,
+    this.chromeLayout = ReadChromeLayout.defaults,
+    this.onChromeLayoutChanged,
+    this.showTopBar = true,
   });
 
   @override
@@ -128,6 +146,31 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
     if (_source == source) return;
     setState(() => _source = source);
     widget.onSourceChanged?.call(source);
+  }
+
+  /// READ-UI-120: một điểm ghi cấu hình chrome. Có seam test riêng để test
+  /// không phải dựng Hive; production ghi qua [ReadChromeLayoutStore] ⇒
+  /// app bar shell và dock cùng rebuild tức thì.
+  void _updateChromeLayout(ReadChromeLayout next) {
+    final callback = widget.onChromeLayoutChanged;
+    if (callback != null) {
+      callback(next);
+      return;
+    }
+    unawaited(ReadChromeLayoutStore.instance.update(next));
+  }
+
+  void _toggleWordlist() {
+    setState(() => _showWordlistPanel = !_showWordlistPanel);
+    SafeHaptics.lightImpact();
+  }
+
+  /// «Mở nguồn» trong panel Công cụ dùng chung hợp đồng điều hướng đã có
+  /// của source picker — không tạo lối vào nguồn thứ hai.
+  VoidCallback? get _openSourceCallback {
+    final open = widget.sourceCallbacks.forSource(_source);
+    if (open == null) return null;
+    return () => open.call();
   }
 
   /// AUDIT-2026-10-20 (mục 1): controller đổi ⇒ màn rebuild + đọc lại cấu
@@ -334,6 +377,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           final isFocusMode = _controller.isFocusMode;
           final isSmallScreen = MediaQuery.of(context).size.height < 700 ||
               MediaQuery.of(context).size.width < 380;
+          // READ-UI-120: bố cục mặc định = dock đáy 1 hàng. `top` giữ nguyên
+          // toàn bộ chrome cũ cho người dùng đã quen (opt-in trong Cài đặt).
+          final layout = widget.chromeLayout;
+          final useDock = layout.useBottomDock;
 
           // READ-IPA-006: panel màu IPA — dải thông tin tương tác ngay dưới
           // TopBar, ẩn được (yêu cầu mục 2). Chỉ có nghĩa khi có IPA + tô màu.
@@ -353,7 +400,12 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
             children: [
               Column(
                 children: [
-                  if (!isFocusMode && _readerChromeVisible) const ReadTopBar(),
+                  // Giữ nguyên biểu thức `if (!isFocusMode &&
+                  // _readerChromeVisible)` của AUDIT-2026-10-20 (mục 1) —
+                  // điều kiện showTopBar được lồng bên trong.
+                  if (!isFocusMode && _readerChromeVisible) ...[
+                    if (widget.showTopBar) const ReadTopBar(),
+                  ],
                   // IN4-30 (READ-FOCUS-002): ở chế độ Focus, người dùng có
                   // thể chọn "chỉ giữ phần tiêu đề" — TRÊN hoặc DƯỚI vùng
                   // đọc (mặc định: ẩn hẳn, hành vi cũ).
@@ -364,17 +416,29 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                     ),
                   // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
                   // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
-                  if (!isFocusMode && _readerChromeVisible && widget.showSourcePicker)
+                  // READ-UI-120: nhóm Nguồn bung ⇒ hiện đủ 3 nguồn
+                  // (Tài liệu / Web / Tam tạng). Gộp ⇒ chỉ 2 icon web /
+                  // tipitaka ở app bar shell như owner đã chốt.
+                  if (!isFocusMode &&
+                      widget.showSourcePicker &&
+                      layout.sourceExpanded)
                     ReadSourcePicker(
                       selectedSource: _source,
                       onSourceChanged: _handleSourceChanged,
                       callbacks: widget.sourceCallbacks,
                     ),
-                  if (!isFocusMode && _readerChromeVisible && showIpaLegend)
-                    IpaLegendStrip(tp: textProvider),
-                  if (!isFocusMode && _readerChromeVisible && showGrammarLegend)
-                    _GrammarLegendStrip(textProvider: textProvider),
                   if (!isFocusMode &&
+                      _readerChromeVisible &&
+                      !layout.displayHidden &&
+                      showIpaLegend)
+                    IpaLegendStrip(tp: textProvider),
+                  if (!isFocusMode &&
+                      _readerChromeVisible &&
+                      !layout.displayHidden &&
+                      showGrammarLegend)
+                    _GrammarLegendStrip(textProvider: textProvider),
+                  if (!useDock &&
+                      !isFocusMode &&
                       _readerChromeVisible &&
                       (textProvider.showTranslation || hasTranslation))
                     const TranslationToolbar(),
@@ -414,27 +478,35 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                             child: _buildTextList(textProvider, isFocusMode),
                           ),
                   ),
-                  // Bottom controls share the smart-chrome visibility state.
-                  // Hidden chrome collapses completely so the reading area gets
-                  // the space back; focus mode always keeps this section closed.
-                  CollapsibleBottomControls(
-                    visible: _readerChromeVisible,
-                    collapsed: isFocusMode,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SmartPlaybackBar(),
-                        ReadBottomBar(
-                          showWordlistPanel: _showWordlistPanel,
-                          onToggleWordlist: () {
-                            setState(() =>
-                                _showWordlistPanel = !_showWordlistPanel);
-                            SafeHaptics.lightImpact();
-                          },
-                        ),
-                      ],
+                  // READ-UI-120: dock đáy LUÔN có 1 hàng (kể cả lúc cuộn).
+                  // Đường cũ vẫn được giữ nguyên cho lựa chọn «Công cụ ở
+                  // trên», nên `visible: _readerChromeVisible` và
+                  // `CollapsibleBottomControls` không mất đi (test pin).
+                  if (useDock) ...[
+                    if (!isFocusMode)
+                      ReadBottomDock(
+                        layout: layout,
+                        onLayoutChanged: _updateChromeLayout,
+                        textActionCallbacks: widget.textActionCallbacks,
+                        showWordlistPanel: _showWordlistPanel,
+                        onToggleWordlist: _toggleWordlist,
+                        onOpenSource: _openSourceCallback,
+                      ),
+                  ] else
+                    CollapsibleBottomControls(
+                      visible: _readerChromeVisible,
+                      collapsed: isFocusMode,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SmartPlaybackBar(layout: layout),
+                          ReadBottomBar(
+                            showWordlistPanel: _showWordlistPanel,
+                            onToggleWordlist: _toggleWordlist,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   // IN4-30: thanh tiêu đề tối giản đặt DƯỚI vùng đọc.
                   if (isFocusMode && _focusTitlePosition == 'bottom')
                     ReadFocusTitleBar(
@@ -493,7 +565,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                 ),
               // Smart chrome is collapsed by default; this compact affordance
               // is the persistent, no-guesswork way to bring the controls back.
-              if (!_readerChromeVisible && !isFocusMode)
+              if (((!useDock && !_readerChromeVisible) || layout.toolsHidden) &&
+                  !isFocusMode)
                 Positioned(
                   bottom: MediaQuery.of(context).padding.bottom + 12,
                   right: 12,
@@ -504,8 +577,16 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                       borderRadius: BorderRadius.circular(22),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(22),
-                        onTap: () =>
-                            setState(() => _readerChromeVisible = true),
+                      onTap: () {
+                        // Nhóm Công cụ đang ẨN ⇒ FAB phải mở lại chính nhóm
+                        // đó, không chỉ đổi cờ chrome phía trên.
+                        if (layout.toolsHidden) {
+                          _updateChromeLayout(layout.copyWith(
+                            toolsState: ReadChromeGroupState.collapsed,
+                          ));
+                        }
+                        setState(() => _readerChromeVisible = true);
+                      },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -660,15 +741,17 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           _lastScrollOffset = notification.metrics.pixels;
         } else if (notification is ScrollUpdateNotification) {
           // Smart hide: scroll down hides reader chrome, scroll up restores it.
-          if (!isFocusMode) {
+          // READ-UI-120: dock đáy KHÔNG chịu smart-hide. Khi dùng bố cục
+          // mới, bỏ qua hoàn toàn để không rebuild vô ích mỗi cú cuộn.
+          if (!isFocusMode && !widget.chromeLayout.useBottomDock) {
             final diff = notification.metrics.pixels - _lastScrollOffset;
             if (diff > 12 && _readerChromeVisible) {
               setState(() => _readerChromeVisible = false);
             } else if (diff < -12 && !_readerChromeVisible) {
               setState(() => _readerChromeVisible = true);
             }
-            _lastScrollOffset = notification.metrics.pixels;
           }
+          _lastScrollOffset = notification.metrics.pixels;
         } else if (notification is ScrollEndNotification) {
           _controller.setScrolling(false);
           _onScrollEnd(textProvider);

@@ -128,7 +128,7 @@ class ReadTopBar extends StatelessWidget {
           CollapsibleAction(
             label: context.uiText('Hiển thị'),
             icon: Icons.view_quilt_outlined,
-            onPressed: () => _showDisplaySheet(context, tp, controller),
+            onPressed: () => showReadDisplaySheet(context, controller: controller),
           ),
           // 6) Cài đặt đọc
           CollapsibleAction(
@@ -191,14 +191,25 @@ class ReadTopBar extends StatelessWidget {
     );
   }
 
-  void _showDisplaySheet(BuildContext context, TextProvider tp,
-      ReadModeController controller) {
+  /// READ-UI-120: `public` để nút overflow cạnh ⚡ và panel Hiển thị của
+  /// dock cùng mở một sheet. [controller] optional — khi gọi từ app bar
+  /// shell (không có ReadModeController) chỉ ẩn 2 switch phụ thuộc.
+  static void showDisplaySheet(
+    BuildContext context, {
+    ReadModeController? controller,
+  }) {
+    final tp = context.read<TextProvider>();
+    // Local `final` tránh phụ thuộc vào promotion của parameter bên trong
+    // closure (an toàn trên mọi phiên bản analyzer).
+    final readController = controller;
+    final listenables = <Listenable>[tp];
+    if (readController != null) listenables.add(readController);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
       isScrollControlled: true,
       builder: (sheetContext) => AnimatedBuilder(
-        animation: Listenable.merge([tp, controller]),
+        animation: Listenable.merge(listenables),
         builder: (context, _) => SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -215,7 +226,7 @@ class ReadTopBar extends StatelessWidget {
                     onPressed: () {
                       tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
                       tp.setBlurTranslations(false);
-                      controller.setSingleLineMode(false);
+                      readController?.setSingleLineMode(false);
                     },
                   ),
                   ActionChip(
@@ -223,7 +234,10 @@ class ReadTopBar extends StatelessWidget {
                     onPressed: () {
                       tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
                       tp.setBlurTranslations(true);
-                      if (!controller.autoSyncEnabled) controller.toggleAutoSync();
+                      if (readController != null &&
+                          !readController.autoSyncEnabled) {
+                        readController.toggleAutoSync();
+                      }
                     },
                   ),
                   ActionChip(
@@ -232,8 +246,11 @@ class ReadTopBar extends StatelessWidget {
                       tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
                       tp.setBlurTranslations(false);
                       tp.setIpaDisplayMode(IpaDisplayMode.hidden);
-                      controller.setSingleLineMode(false);
-                      if (!controller.autoSyncEnabled) controller.toggleAutoSync();
+                      readController?.setSingleLineMode(false);
+                      if (readController != null &&
+                          !readController.autoSyncEnabled) {
+                        readController.toggleAutoSync();
+                      }
                     },
                   ),
                 ]),
@@ -268,18 +285,20 @@ class ReadTopBar extends StatelessWidget {
                       onSelected: (_) => tp.setIpaDisplayMode(mode),
                     ),
                 ]),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(context.uiText('Một dòng')),
-                  value: controller.singleLineMode,
-                  onChanged: controller.setSingleLineMode,
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(context.uiText('Đồng bộ tự động')),
-                  value: controller.autoSyncEnabled,
-                  onChanged: (_) => controller.toggleAutoSync(),
-                ),
+                if (readController != null) ...[
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(context.uiText('Một dòng')),
+                    value: readController.singleLineMode,
+                    onChanged: (v) => readController.setSingleLineMode(v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(context.uiText('Đồng bộ tự động')),
+                    value: readController.autoSyncEnabled,
+                    onChanged: (_) => readController.toggleAutoSync(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -288,6 +307,13 @@ class ReadTopBar extends StatelessWidget {
     );
   }
 }
+
+/// READ-UI-120 — lối vào dùng chung cho app bar shell, ReadTopBar và dock.
+void showReadDisplaySheet(
+  BuildContext context, {
+  ReadModeController? controller,
+}) =>
+    ReadTopBar.showDisplaySheet(context, controller: controller);
 
 // ── Title Button ──────────────────────────────────────────────
 // Bấm → mở QuickLibrarySheet để đổi tài liệu nhanh

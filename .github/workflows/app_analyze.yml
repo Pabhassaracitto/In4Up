@@ -691,6 +691,41 @@ jobs:
           path: vocab_media_test.log
           if-no-files-found: ignore
 
+
+      - name: "PLAN-041 tests — doc Tu+Nghia, nhap AI, anh nhe (logic thuan)"
+        id: plan-041-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/wordlist_read_sequence_test.dart \
+                   test/vocab_bulk_ai_test.dart \
+                   test/vocab_image_normalize_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Khong co file test PLAN-041 tren nhanh nay — bo qua."
+            exit 0
+          fi
+          echo "Chay:$files"
+          flutter test $files -r expanded > plan_041_test.log 2>&1
+          code=$?
+          cat plan_041_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:|Unhandled exception' plan_041_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=PLAN-041 test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload PLAN-041 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-plan-041-test-log
+          path: plan_041_test.log
+          if-no-files-found: ignore
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

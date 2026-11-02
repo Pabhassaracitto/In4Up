@@ -367,10 +367,31 @@ Mọi đợt: tuân thủ hạt nhân dự án — chuỗi UI mới đủ `en/hi
 (skill i18n), test thuần nối `app_analyze.yml`, dữ liệu thay đổi theo lối
 additive, commit nhỏ + push ngay.
 
-## 7. Lịch sử
+## 7. Quyết định của owner (2026-11-02)
+
+| Câu hỏi | Chốt |
+|---|---|
+| Q1 — độ sâu Nút Khái niệm | **Chỉ Pha A trước** (nối + xem), nghiệm thu rồi mới tính Pha B/C. |
+| Q2 — mặc định đọc Worklist | **Từ ×2 → Nghĩa ×1**. |
+| Q3 — thứ tự nhập hàng loạt AI | **Cả hai trong một đợt**: copy-prompt cho AI ngoài + AI ngay trong app. |
+| Q4 — đợt code đầu tiên | **Gói thắng nhanh**: mục 3 (cả hai tầng theo Q3) + mục 2 + mục 4 phần dung lượng ảnh. |
+
+Ghi chú thi công (lệch có chủ đích so với mục 3.1, ghi lại để không mất dấu):
+đường AI trong app ở bản đầu dùng **cùng định dạng CSV + cùng màn xem trước**
+như đường copy-prompt (thay vì JSON riêng) — vì parser CSV hiện tại đã rất
+chắc (căn cột bằng mỏ neo, chịu hàng lệch) và một đường xem trước duy nhất
+giữ bảo đảm "người duyệt trước khi nhập" cho cả hai. Nguồn AI = tầng Server
+API sẵn có (`AiProviderStore` năng lực `chat` + `OpenAiCompatClient`, đúng
+khuôn `LlmMtEngine`); chưa cấu hình provider thì báo rõ và chỉ đường vào
+màn Server & API — app hành xử như chưa có tính năng, không gọi mù.
+
+## 8. Lịch sử
 
 - 2026-11-02 | created→proposed | agent `arena/d2aeb948-in4up` | rà soát
   code thật 5 vùng (WordEntry/KnowledgeUnit, playback service, import
   sheet, image service+sheet, animation library) + kiểm chứng ngoài
   (LottieFiles không có public API; Pixabay API miễn phí kèm điều kiện
   cache/ghi nguồn) → viết bản thảo luận này; chưa sửa dòng code nào.
+- 2026-11-02 | proposed→doing | agent `arena/d2aeb948-in4up` | owner chốt
+  Q1–Q4 (mục 7) → thi công gói thắng nhanh: mục 2, mục 3 hai tầng, mục 4
+  phần dung lượng.

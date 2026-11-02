@@ -69,20 +69,20 @@ class AuthService {
   String? get email => currentUserInfo?.email;
   String? get photoUrl => currentUserInfo?.photoUrl;
 
-  Stream<AppUser?>? _unifiedAuthState;
-
   /// Stream đăng nhập thống nhất: plugin nếu có, REST nếu không (Linux).
   /// Mỗi subscriber nhận trạng thái hiện tại ngay khi đăng ký.
+  ///
+  /// Không cache stream trả về: REST fallback tạo một single-subscription
+  /// controller cho mỗi subscriber. Cache một instance rồi để Home, sync và
+  /// logger cùng listen sẽ ném `Stream has already been listened to`; ngay cả
+  /// khi Home được mount lại sau khi đổi tab cũng có thể gặp lỗi tương tự.
   Stream<AppUser?> get authStateChanges {
-    if (_unifiedAuthState != null) return _unifiedAuthState!;
     if (isPluginAuthAvailable) {
-      _unifiedAuthState = _auth
+      return _auth
           .authStateChanges()
           .map<AppUser?>((u) => u == null ? null : _appUserFromFirebase(u));
-    } else {
-      _unifiedAuthState = FirebaseRestAuth().authStateChanges;
     }
-    return _unifiedAuthState!;
+    return FirebaseRestAuth().authStateChanges;
   }
 
   /// ID token hiện hành (plugin hoặc REST backend) — dùng cho REST calls.

@@ -1,6 +1,7 @@
 // lib/screens/understand_mode/understand_workspace_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
 
 import '../../features/understand_ai/understand_ai_context.dart';
 import '../../core/navigation/workspace_handoff_inbox.dart';

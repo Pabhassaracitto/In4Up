@@ -19,6 +19,7 @@ import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/core/language/generated_legacy_ui_fallbacks.dart';
 import 'package:in4up/core/language/priority_ui_overrides.dart';
 import 'package:in4up_stt/import/model_bundle_scanner.dart';
+import 'package:in4up_stt/tts/piper_import_paths.dart';
 
 ScannedFile _f(String path, [int size = 10 * 1024 * 1024]) =>
     ScannedFile(path, sizeBytes: size);
@@ -131,6 +132,47 @@ void main() {
       expect(ModelBundleScanner.isAsrTokensName('vocab.txt'), isTrue);
       expect(ModelBundleScanner.isAsrTokensName('tokens.txt'), isTrue);
       expect(ModelBundleScanner.isAsrTokensName('readme.txt'), isFalse);
+    });
+  });
+
+  group('M4U-IMPORT-002 — Piper layout mới: CHỈ có .onnx + .onnx.json', () {
+    // Bộ Piper đời mới (piper 1.0.0, ví dụ rhasspy/piper-voices) KHÔNG có
+    // tokens.txt — bảng phoneme nằm trong `phoneme_id_map` của config.
+    const config = '''
+{
+  "audio": {"sample_rate": 22050},
+  "phoneme_id_map": {"_": [0], "^": [1], " ": [2], "a": [3]},
+  "num_symbols": 256
+}
+''';
+
+    test('sinh được tokens.txt (format sherpa: "<symbol> <id>")', () {
+      final out = PiperImportPaths.tokensFromPiperConfigJson(config);
+      expect(out, isNotNull,
+          reason: 'phải sinh được tokens từ config thay vì báo "thiếu tokens"');
+      expect(out, '_ 0\n^ 1\n  2\na 3\n',
+          reason: 'đúng format tokens.txt của k2-fsa (symbol cách nhau 1 space)');
+    });
+
+    test('map dạng số (không phải mảng) cũng sinh được', () {
+      final out = PiperImportPaths.tokensFromPiperConfigJson(
+        '{"phoneme_id_map": {"a": 1, "b": 0}}',
+      );
+      expect(out, 'b 0\na 1\n', reason: 'sắp theo id tăng dần');
+    });
+
+    test('config hỏng / không có map → null (giữ đường tải fallback)', () {
+      expect(
+        PiperImportPaths.tokensFromPiperConfigJson('{"audio": {"sample_rate": 1}}'),
+        isNull,
+      );
+      expect(PiperImportPaths.tokensFromPiperConfigJson('not json'), isNull);
+    });
+
+    test('ngưỡng tokens Piper phải THẤP (file hợp lệ chỉ ~900 byte)', () {
+      // Bảng phoneme Piper VITS chỉ ~154 dòng ⇒ tokens.txt ~900 byte.
+      // Ngưỡng cao sẽ loại nhầm giọng hợp lệ ⇒ app báo "chưa cài".
+      expect(kMinPiperTokensBytes, lessThanOrEqualTo(1024));
     });
   });
 

@@ -2393,11 +2393,22 @@ class SherpaModelManager {
         final stem = name.substring(0, name.length - '.onnx'.length);
         final named = File(p.join(destDir, '${stem}_tokens.txt'));
         final shared = File(p.join(destDir, 'tokens.txt'));
-        final hasTokens = (named.existsSync() && named.lengthSync() >= 128) ||
-            (shared.existsSync() && shared.lengthSync() >= 128);
+        // M4U-IMPORT-002 — bộ Piper MỚI (piper 1.0.0) CHỈ có `<voice>.onnx`
+        // + `<voice>.onnx.json`, KHÔNG có tokens.txt: bảng phoneme nằm trong
+        // `phoneme_id_map` của config ⇒ sinh tokens.txt luôn (không cần tải
+        // file ngoài, không báo "thiếu tokens.txt" oan).
+        await _generatePiperTokensFromConfig(destDir, stem);
+        // Ngưỡng CHUNG với `discoverVoices` (kMinPiperTokensBytes): tokens rỗng
+        // / cắt ⇒ coi như THIẾU để lấy lại, đừng để app báo "import OK" rồi
+        // phát ra tiếng rỗng.
+        final hasTokens =
+            (named.existsSync() && named.lengthSync() >= kMinPiperTokensBytes) ||
+                (shared.existsSync() &&
+                    shared.lengthSync() >= kMinPiperTokensBytes);
         if (!hasTokens) {
           await _ensurePiperTokens(destDir, stem);
-          if (!(named.existsSync() && named.lengthSync() >= 128)) {
+          if (!(named.existsSync() &&
+              named.lengthSync() >= kMinPiperTokensBytes)) {
             missingTokens.add(stem);
           }
         }
@@ -2620,6 +2631,42 @@ class SherpaModelManager {
       return destDir;
     }
     return destDir;
+  }
+
+  /// Sinh `<stem>_tokens.txt` từ `phoneme_id_map` trong config `<stem>.onnx.json`.
+  ///
+  /// M4U-IMPORT-002 — bộ Piper đời mới (piper 1.0.0, ví dụ
+  /// `rhasspy/piper-voices`) chỉ có `<voice>.onnx` + `<voice>.onnx.json`:
+  /// KHÔNG có `tokens.txt` (bảng phoneme nằm trong JSON). Format tokens.txt
+  /// của sherpa-onnx là `<symbol> <id>` mỗi dòng ⇒ sinh lại từ
+  /// `phoneme_id_map` (giá trị có thể là số hoặc mảng `[id]`) ⇒ giọng dùng
+  /// được ngay, KHÔNG cần tải tokens.txt từ mạng.
+  ///
+  /// Trả null nếu không có config / không có map ⇒ caller giữ đường tải
+  /// fallback như cũ.
+  Future<void> _generatePiperTokensFromConfig(
+    String destDir,
+    String stem,
+  ) async {
+    final named = File(p.join(destDir, '${stem}_tokens.txt'));
+    try {
+      // Đã có tokens hợp lệ → giữ nguyên (bundle có sẵn tokens.txt).
+      if (named.existsSync() && named.lengthSync() >= kMinPiperTokensBytes) {
+        return;
+      }
+      final config = File(p.join(destDir, '$stem.onnx.json'));
+      if (!config.existsSync()) return;
+      final body =
+          PiperImportPaths.tokensFromPiperConfigJson(config.readAsStringSync());
+      if (body == null) return;
+      await named.writeAsString(body);
+      debugPrint(
+        '✅ Sinh tokens.txt từ phoneme_id_map của $stem.onnx.json '
+        '(${body.trim().split('\n').length} ký hiệu)',
+      );
+    } catch (e) {
+      debugPrint('⚠️ Sinh tokens.txt từ config "$stem" lỗi: $e');
+    }
   }
 
   Future<void> _ensurePiperTokens(String destDir, String voiceId) async {

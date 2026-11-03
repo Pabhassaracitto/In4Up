@@ -1,13 +1,19 @@
+import 'dart:convert';
+
 /// Kích thước tối thiểu (byte) của bảng tokens Piper HỢP LỆ.
 ///
-/// Bảng phoneme espeak của Piper VITS có vài chục KB (bản k2-fsa ~90KB).
-/// File nhỏ hơn 1KB là file cắt/hỏng (log native "tokens=0KB") ⇒ KHÔNG được
-/// coi là giọng "chạy được" (phát ra tiếng rỗng).
+/// ⚠️ Ngưỡng phải THẤP: bảng phoneme Piper VITS chỉ có ~154 dòng
+/// (`<symbol> <id>`) ⇒ file tokens.txt của k2-fsa chỉ ~900 byte (không
+/// phải hàng trăm KB như tokens của ASR). Ngưỡng cao sẽ loại nhầm giọng
+/// hợp lệ ⇒ app báo "chưa cài" dù model nguyên vẹn.
+///
+/// File nhỏ hơn ngưỡng = file rỗng/cắt ⇒ KHÔNG dùng (native sẽ khởi tạo
+/// với tokens rỗng ⇒ phát ra tiếng rỗng).
 ///
 /// Dùng chung cho manager (import) + core (discover) để 2 nơi KHÔNG lệch
 /// ngưỡng ⇒ 1 giọng không bị "import OK" ở nơi này rồi "không có tokens" ở
 /// nơi kia.
-const int kMinPiperTokensBytes = 1024;
+const int kMinPiperTokensBytes = 128;
 
 /// Pure helpers for Piper import (folder + file). Tested without Flutter IO.
 class PiperImportPaths {
@@ -31,6 +37,44 @@ class PiperImportPaths {
 
   static bool isOnnxJsonName(String name) =>
       name.toLowerCase().endsWith('.onnx.json');
+
+  /// Sinh nội dung `tokens.txt` (format sherpa-onnx: `<symbol> <id>` mỗi
+  /// dòng) từ config Piper `.onnx.json`.
+  ///
+  /// Bộ Piper đời mới (piper 1.0.0, ví dụ `rhasspy/piper-voices`) chỉ có
+  /// `<voice>.onnx` + `<voice>.onnx.json` — KHÔNG có `tokens.txt`: bảng
+  /// phoneme nằm trong `phoneme_id_map` của JSON (giá trị là số hoặc
+  /// mảng `[id]`). Sinh lại từ map ⇒ giọng dùng được ngay.
+  ///
+  /// Trả null nếu JSON hỏng / không có `phoneme_id_map` ⇒ caller giữ đường
+  /// tải fallback như cũ.
+  static String? tokensFromPiperConfigJson(String raw) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return null;
+    }
+    if (decoded is! Map) return null;
+    final ids = decoded['phoneme_id_map'];
+    if (ids is! Map || ids.isEmpty) return null;
+    final pairs = <MapEntry<String, int>>[];
+    ids.forEach((symbol, value) {
+      int? id;
+      if (value is int) {
+        id = value;
+      } else if (value is List && value.isNotEmpty && value.first is int) {
+        id = value.first as int;
+      }
+      if (id == null) return;
+      pairs.add(MapEntry(symbol.toString(), id));
+    });
+    if (pairs.isEmpty) return null;
+    pairs.sort((a, b) => a.value.compareTo(b.value));
+    // Symbol có thể là khoảng trắng (" ") ⇒ giữ nguyên (đúng format file
+    // tokens.txt của k2-fsa: dòng "  3" = symbol " " + id 3).
+    return '${pairs.map((e) => '${e.key} ${e.value}').join('\n')}\n';
+  }
 
   static bool isPiperArchiveName(String name) {
     final lower = name.toLowerCase();

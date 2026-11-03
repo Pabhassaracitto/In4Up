@@ -97,7 +97,6 @@ Quyết định trên giữ nguyên sau khi va code thật; ba điểm cần ghi
 3. **Sửa tay phải thắng parser nhưng không phá danh tính**: override tên vị Thầy
    đổi `speakerDisplay`/`speakerKey` (nhóm hiển thị) mà **không** đổi
    `seriesKey`/`episodeKey` — tiến độ đã có vẫn còn.
-
 ## Việc tiếp theo
 
 `PLAN-042` §11: P1a (model + parser + test từ fixture thật) → P1b (danh mục trên

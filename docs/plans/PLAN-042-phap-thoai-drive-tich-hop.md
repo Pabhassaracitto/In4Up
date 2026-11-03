@@ -577,4 +577,3 @@ provider), `lib/screens/listen_mode/widgets/audio_library_drawer.dart` (tab th�
 | P1-R2 | Provider đọc vị trí mỗi 10 s khi đang phát | Chỉ ghi khi `_playingEpisodeKey != null` và `duration > 0`; tần suất bằng `saved_positions` hiện có |
 | P1-R3 | Người dùng chọn NHẦM thư mục cha (quét cả ổ đĩa) | Giới hạn `maxFiles` 5000 (native cũng có), hiện `error=empty` rõ ràng, cho "quên nguồn" |
 | P1-R4 | Buổi đã import thủ công (không qua quét) không có trong catalog | P1 chấp nhận: chỉ hiện gì quét được; nhập tay từng file vẫn dùng tab Thiết bị |
-

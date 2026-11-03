@@ -104,7 +104,9 @@ class SafModelFolderService {
       return const SafModelFolderPick.unsupported();
     } catch (e) {
       debugPrint('[SafModelFolder] pickFolder error: $e');
-      return const SafModelFolderPick.failed(error: '$e');
+      // KHÔNG dùng `const`: '$e' là nội suy runtime ⇒ không phải
+      // constant expression.
+      return SafModelFolderPick.failed(error: '$e');
     }
     if (uri == null || uri.isEmpty) {
       return const SafModelFolderPick.cancelled();
@@ -120,7 +122,9 @@ class SafModelFolderService {
       return SafModelFolderPick.failed(error: e.message);
     } catch (e) {
       debugPrint('[SafModelFolder] scanTree error: $e');
-      return const SafModelFolderPick.failed(error: '$e');
+      // KHÔNG dùng `const`: '$e' là nội suy runtime ⇒ không phải
+      // constant expression.
+      return SafModelFolderPick.failed(error: '$e');
     }
     if (entries.isEmpty) {
       return const SafModelFolderPick.failed(error: 'no-model-files');

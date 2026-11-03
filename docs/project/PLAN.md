@@ -1305,3 +1305,47 @@ Package: `video_player: ^2.8.0` (Flutter official)
     base bằng merge giữ cả 2 card; CI 16/16 xanh sau khi sửa 1 pin nguồn;
     rút gọn nhánh thành 1 commit tuyến tính để mở lại lựa chọn *Rebase and
     merge* trên GitHub.
+
+### PLAN-042 — Pháp thoại từ Drive: nguồn nội dung + tiến độ nghe (DHRM-001..004)
+- Nguồn: người sở hữu (2026-11-03, qua agent `arena/c61e07dd-in4up`) — thư mục
+  Drive công khai "12. PHÁP THOẠI CÁC NGÀI THIỀN SƯ HỆ THỐNG PA AUK - TIẾNG VIỆT"
+  + bản nháp đặc tả `DharmaTalk`; kèm yêu cầu "lên kế hoạch tích hợp".
+- Trạng thái: doing — P1 (DHRM-001) đã có code + test + i18n; P2–P5 proposed.
+- Milestone đề xuất: M2 (mở rộng tab Nghe), tiếp sau PLAN-039.
+- Chi tiết: [phương án](plans/PLAN-042-phap-thoai-drive-tich-hop.md), ADR-0022.
+  - Đính chính 3 điểm của bản nháp: (a) khoá phải là **danh tính nội dung**
+    (`episodeKey = drive:<fileId>`), không phải `driveFileId` gắn với path cache
+    tạm; (b) `lastPosition`/`isCompleted` phải ở **store tiến độ riêng** để sync
+    Drive không xoá trạng thái người dùng; (c) STT là hành động có chủ đích cho
+    đoạn đang nghe, không tự chạy cả file 60–90 phút (pin/nhiệt).
+  - Taxonomy thật (đọc công khai 2026-11-03): 7 collection A–G — không chỉ pháp
+    thoại mà còn kinh tụng, sách nói, ebook, biểu đồ. Trọng tâm: 39 series pháp
+    thoại ở C + 1 series đang giảng ở D.
+  - Metadata: vị Thầy ở **tên thư mục series**, chủ đề ở **tên file**; cùng vị
+    Thầy có nhiều cách viết (Revata/Reveta, Kumārābhivaṃsa/Kumurabhivamsa,
+    SU Kovida/Ngài U Kovida) ⇒ cần `speakerKey` chuẩn hoá + bảng alias + sửa tay.
+  - Bộ phân tích tên là **hàm thuần có test trên 44 tên thật**
+    (`test/fixtures/dharma_drive_names.csv`, probe `tool/dharma_name_probe.py`);
+    đã phát hiện 8 bẫy (B1..B13 không khớp `^\d+[.)]` và bị Drive sắp sai thứ tự
+    `B10 < B2`; ngày `ddMMyy` không phân cách; một file chứa 2 buổi `05-06`;
+    `(54 phút)`; `- end sound`; `En-Vi` bị nhận sai là `vi`…).
+  - Nguồn phát theo thứ tự **đã-tải → tải-bền-vững (`audio_imports/dharma/`) →
+    stream**; không lưu nội dung nghe dài ở `getTemporaryDirectory()/drive_cache`
+    (bị dọn ⇒ mất vị trí). Stream phải dùng **header** `Authorization`, không
+    nhét token vào query string.
+  - Tái dùng: `AudioQueueItem`/queue PLAN-039, `SoundMark(kind: quote)` +
+    `MemoryItem` cho "lời vàng" (P4), `AudioImportService`, i18n rule #5.
+  - Sóng: P1a model+parser → P1b danh mục trên audio đã import → P2 import bền
+    vững + sửa 13 chuỗi hard-code trong `google_drive_browser.dart` → P3 stream
+    bằng header → P4 lời vàng → P5 STT theo đoạn. 9 acceptance test + bước CI
+    mới `flutter test test/dharma/`.
+  - Chờ chủ dự án chốt 6 mặc định (Q1–Q6, mục 13 của phương án).
+- Không làm: ebook/PDF của Drive (thuộc tab Đọc), tóm tắt bằng LLM, đổi khoá dữ
+  liệu cũ sang `episodeKey`, Drive trên Windows/Linux (không có plugin
+  `google_sign_in` cho desktop).
+- Lịch sử:
+  - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | đọc mã
+    (`google_drive_service.dart`, `google_drive_browser.dart`,
+    `player_provider.dart`, `player_stats_mixin.dart`), đọc taxonomy thật của
+    thư mục Drive (7 collection), viết probe + fixture 44 tên thật, ADR-0022;
+    chưa sửa code, chưa chạy Flutter (sandbox không có SDK).

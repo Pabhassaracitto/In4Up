@@ -1,0 +1,59 @@
+# Tên THẬT lấy từ Drive công khai (2026-11-03) — dùng làm fixture cho
+# bộ phân tích tên thư mục/tên file pháp thoại (PLAN-042 / DHRM-001).
+# Cột: scope,name
+#   scope=collection → tên 7 thư mục gốc (A..G)
+#   scope=series     → tên thư mục series (cấp 2)
+#   scope=file       → tên file trong series
+scope,name
+collection,A. Kinh tụng truyền thống Pa Auk
+collection,B. Sách nói các Ngài Thiền Sư
+collection,C. Bài giảng - Pháp thoại các Ngài Thiền Sư - Đã giảng xong
+collection,D. Pháp thoại đang giảng
+collection,E. Sách - Ebook
+collection,F. Biểu Đồ Tu Tập
+collection,G. Tài liệu quán bất tịnh
+series,01. Pa Auk Sayadawgyi Chanting
+series,03. Paritta Sayadaw U Kumārābhivaṃsa tụng
+series,05. Sayadaw U Reveta Chanting
+series,01. Sách nói Niệm hơi thở Pa Auk Sayadawgyi
+series,11. Sách nói Những Yếu Tố Cần Thiết Cho Việc Hành Thiền Sayadaw U Kumārābhivaṃsa
+series,01. Pa-Auk Sayadawgyi giảng Da Lat 2014
+series,02. Sayadaw U Revata giảng Đà Lạt 2014
+series,04. Sayadaw U Janakābhivaṃsa giảng Ba Vì 2017
+series,07. Sayadaw U Kovida Huong Dan Hanh Thien 2008
+series,12. Sayalay Dipankara
+series,13. Sayadaw U Jāneyyācāra - Paṭhamanātha Sutta - Kinh Vị Hộ Tr 2021 - 2022
+series,14. Sayadaw U Janakābhivaṃsa - Puttamaṃsūpama Sutta - Bài Kinh Ví Như Thịt Người Con Trai - 2021
+series,17. Vinaya - Luat tap yeu En-Vi - Sayadaw U Kuṇḍadhāna 2022
+series,28. Sayadaw U Janakābhivaṃsa Khoá thiền Hàn Quốc
+series,30. Sayadaw U Janakābhivaṃsa - Ba La Mat - Parami 2022-2023
+series,33. Sayadaw U Kovida Khoá thiền Phước Sơn 2024 - Song ngữ
+series,34. Sayadaw U Kovida Khoá thiền PS 2024 - Tiếng Việt
+series,36. KT Niệm Hơi Thở - Tukpok 2024
+series,37. Cẩm Nang Cho Thiền Sinh - SU Kovida Nepal 25
+series,39. TÓM TẮT CÁC ĐIỀU PHƯỚC LÀNH TRONG KINH MANGALA SUTTA
+series,02. Sayadaw U Kovida - Thanh tịnh đạo - Phân tích đạo 22-23-24-25
+file,B1 180324 Hướng dẫn Thiền Niệm Hơi Thở .mp3
+file,B2 Bojjhaṅga Sutta - Kinh Thất Giác Chi P1 - 190324.mp3
+file,B3 Bojjhaṅga Sutta - Kinh Thất Giác Chi P2 - 200324.mp3
+file,B10 Hỷ giác chi Ân Đức Tăng Bảo - Bojjhaṅga Sutta - Kinh Thất Giác Chi P9 270324.mp3
+file,B12 Khinh an và Định(P1) giác chi - Bojjhaṅga Sutta - Kinh Thất Giác Chi P11 .mp3
+file,B13 Định giác chi P2- Xả giác chi - Bojjhaṅga Sutta - Kinh Thất Giác Chi P12.mp3
+file,01.Satisambhojjhanga Niệm Giác Chi 150919.mp3
+file,05.Hỷ Giác Chi 1 Ân Đức Phật 121019.mp3
+file,07.Hỷ Giác Chi 3 Ân Đức Phật 281019.mp3
+file,09.Hỷ Giác Chi 5-Ân Đức Pháp 011119.mp3
+file,10.Hỷ Giác Chi-Ân Đức Tăng Bảo 201119.mp3
+file,12.Hỷ Giác Chi-Niệm Thiên,Niết Bàn.mp3
+file,13.An Tịnh Giác Chi 011219.mp3
+file,01. A-01. Hướng dẫn Niệm hơi thở căn bản.mp3
+file,02. A-02. Hướng dẫn Niệm hơi thở nâng cao.mp3
+file,03. 5 Quyền Tín - Tấn - Niệm - Định - Tuệ Phần 1 (54 phút) - end sound.mp3
+file,04. 5 Quyền - Phần 2 (72 phút).mp3
+file,05-06. 5 Quyền - Phần 3-4 (52).mp3
+file,07. 5 Quyền - Phần 5 (58).mp3
+file,10. 5 quyền - phần cuối(60).mp3
+file,15. Buddhanusati - Thiền Niệm Ân Đức Phật (tiếp theo).mp3
+file,19. Buddhānussati - Thiền Niệm Ân Đức Phật.mp3
+file,desktop.ini
+file,Phu luc 14-Dec-2024.csv

@@ -58,6 +58,7 @@ import 'features/screen_translate/screen_translate_entrypoint.dart';
 
 // ADR-0018 (P1) — link/tệp từ ngoài app (in4up://dict?w=…, "Mở bằng In4Up").
 import 'features/dictionary/services/dict_deep_link_router.dart';
+import 'features/dharma/services/dharma_provider.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -354,6 +355,13 @@ class _MyAppState extends State<MyApp> {
           create: (ctx) => SoundlistProvider()
             ..load()
             ..attachPlayer(ctx.read<PlayerProvider>()),
+        ),
+        // Pháp thoại (PLAN-042 / DHRM-001): catalog + tiến độ nghe theo
+        // `episodeKey`. Attach SAU PlayerProvider để bắt được vị trí phát.
+        ChangeNotifierProvider(
+          create: (ctx) => DharmaProvider()
+            ..attachPlayer(ctx.read<PlayerProvider>())
+            ..load(),
         ),
         // Thư viện đọc (tab Thiết bị): quét thư mục trên máy (SAF tree, Android)
         ChangeNotifierProvider(create: (_) => TextDeviceProvider()..init()),

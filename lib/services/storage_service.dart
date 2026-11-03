@@ -53,6 +53,11 @@ class StorageService {
   static const String _soundLoopStatsBox = 'sound_loop_stats';
   static const String _audioLibraryBox = 'audio_library';
   static const String _audioPlaylistsBox = 'audio_playlists';
+  // PLAN-042 (ADR-0022) — pháp thoại: catalog (metadata) và progress (tiến độ
+  // nghe) TÁCH RIÊNG để quét lại Drive/thư mục không bao giờ xoá tiến độ.
+  static const String _dharmaCatalogBox = 'dharma_catalog';
+  static const String _dharmaProgressBox = 'dharma_progress';
+  static const String _dharmaOverridesBox = 'dharma_overrides';
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -83,6 +88,9 @@ class StorageService {
         Hive.openBox<String>(_soundLoopStatsBox),
         Hive.openBox<String>(_audioLibraryBox),
         Hive.openBox<String>(_audioPlaylistsBox),
+        Hive.openBox<String>(_dharmaCatalogBox),
+        Hive.openBox<String>(_dharmaProgressBox),
+        Hive.openBox<String>(_dharmaOverridesBox),
       ]);
 
       _initialized = true;

@@ -831,6 +831,10 @@ class MainActivity : FlutterActivity() {
                             "uri" to docUri.toString(),
                             "name" to name,
                             "relativePath" to "$relativeDir$name",
+                            // Thư mục chứa file (PLAN-042): Dart cần tên thư mục
+                            // để dựng lại series/vị Thầy khi quét THƯ MỤC GỐC.
+                            // Rỗng = file nằm ngay thư mục gốc.
+                            "relativeDir" to relativeDir,
                             "sizeBytes" to c.getLong(sizeCol),
                             "dateModifiedMs" to c.getLong(modCol),
                             "ext" to ext,

@@ -32,6 +32,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../sherpa_bindings.dart';
+import 'piper_import_paths.dart';
 
 /// Một giọng Piper phát hiện được trong thư mục model.
 class PiperTtsVoice {
@@ -289,10 +290,11 @@ class SherpaPiperTtsCore {
       // tokens.txt dùng chung có thể áp dụng cho mọi file onnx chưa có tokens riêng
       // (hoặc tự nhân bản ra <name>_tokens.txt)
       final sharedTokens = File(p.join(dir.path, 'tokens.txt'));
-      // M4U-IMPORT-002: tokens rỗng/hỏng (<128B) KHÔNG phải bảng token —
-      // để nó qua là giọng "chạy được" nhưng phát ra tiếng rỗng.
-      final sharedTokensUsable =
-          sharedTokens.existsSync() && sharedTokens.lengthSync() >= 128;
+      // M4U-IMPORT-002: tokens rỗng/hỏng KHÔNG phải bảng token — để nó qua
+      // là giọng "chạy được" nhưng phát ra tiếng rỗng (log native
+      // "tokens=0KB"). Ngưỡng dùng CHUNG với manager (kMinPiperTokensBytes).
+      final sharedTokensUsable = sharedTokens.existsSync() &&
+          sharedTokens.lengthSync() >= kMinPiperTokensBytes;
 
       final voices = <PiperTtsVoice>[];
       for (final file in onnxFiles) {
@@ -303,7 +305,8 @@ class SherpaPiperTtsCore {
         String? tokensPath;
         final perNameTokens = p.join(dir.path, '${name}_tokens.txt');
         final perNameFile = File(perNameTokens);
-        if (perNameFile.existsSync() && perNameFile.lengthSync() >= 128) {
+        if (perNameFile.existsSync() &&
+            perNameFile.lengthSync() >= kMinPiperTokensBytes) {
           tokensPath = perNameTokens;
         } else if (sharedTokensUsable) {
           tokensPath = sharedTokens.path;

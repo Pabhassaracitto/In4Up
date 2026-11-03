@@ -227,12 +227,18 @@ void main() {
       final e2 = _episode(2);
       final e3 = _episode(3);
       store.series = [_series(episodes: [e1, e2, e3])];
-      // Buổi 1 xong, buổi 3 đang dở ⇒ nên đề xuất buổi 3 (đang nghe dở).
+      // Buổi 1 ĐÃ XONG (59:45/60:00 ⇒ còn 15 s ≤ 30 s), nên phải bỏ qua dù vị
+      // trí > 0; buổi 2 chưa nghe; buổi 3 đang nghe dở ⇒ đề xuất buổi 3 (đang
+      // dở thắng "chưa nghe"). Thứ tự duyệt là từ đầu series, nên nếu buổi 1
+      // không được coi là xong thì test này bắt đúng lỗi "đề xuất bài đã xong".
       store.progress[e1.episodeKey] = const DharmaProgress(
         episodeKey: 'local:s1:ep1',
-        lastPosition: Duration(minutes: 58),
+        lastPosition: Duration(minutes: 59, seconds: 45),
         duration: Duration(minutes: 60),
       );
+      expect(store.progress[e1.episodeKey]!.isCompleted, isTrue,
+          reason: 'còn ≤30 s cuối ⇒ xong (bài dài)');
+      expect(store.progress[e1.episodeKey]!.isInProgress, isFalse);
       store.progress[e3.episodeKey] = const DharmaProgress(
         episodeKey: 'local:s1:ep3',
         lastPosition: Duration(minutes: 10),

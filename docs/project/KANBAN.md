@@ -187,7 +187,7 @@
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
 | I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `docxXmlToPlainText` xuống dòng cứng + `ReadLineHint` + nút Trợ giúp; test `test/read_mode/` |
 | I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
-| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (code xong, CI run 36898178031 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; kiểm tra onnx/txt/espeak-ng-data/ASR model bằng validator thống nhất |
+| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (M4U-IMPORT-002: đọc đúng thư mục SAF + multi-file; CI run 41646109015 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; validator thống nhất; thêm nhận diện layout export NeMo (báo đúng, không báo "thiếu file" oan) + TTS không sập sau khi phát |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `pdf_text_layer_probe.dart` + `ocr_cancel_token.dart` + `pdf_tts_machine.dart` + playback epoch; test OCR/PDF xanh |
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 | TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
@@ -6060,6 +6060,41 @@
     36897541200). CI run **36898178031 SUCCESS** toàn bộ job, gồm bước
     "I4U18 scanner tests — MODEL-IMPORT-001 + DICT-001" (28 test thuần).
     Đã mở PR #67 (base arena/01a0251e-in4up): chờ merge + nghiệm thu.
+  - 2026-11-03 | doing (giữ nguyên) | agent arena/990bc85f-in4up |
+    **M4U-IMPORT-002 — sửa lỗi import trên máy thật (logcat 2026-11)**, tiếp
+    nối MODELIMPORT-001 (PR #67 đã merge). Ba nguyên nhân gốc đã xác minh:
+    (1) **multi-select file** bị scanner GROUP THEO THƯ MỤC CHA — file_picker
+    Android đặt file đã chọn vào cache dir riêng ⇒ mỗi file 1 nhóm ⇒ chỉ giữ
+    1 role ⇒ báo "thiếu encoder/joiner/tokens" oan → `ModelBundleScanner.scan(
+    ..., groupByDirectory: false)` cho đường multi-select + thư mục đích.
+    (2) **import thư mục** dùng `FilePicker.getDirectoryPath()` ⇒ URI/RAW path
+    không list được bằng `dart:io` ⇒ "Thư mục rỗng" → dùng lại SAF native
+    (`in4up/textlib`: pickFolder → scanTree → copyDocumentToPath MỚI) qua
+    `SafModelFolderService` (stage giữ cấu trúc con + tên thư mục gốc làm
+    bằng chứng nhận diện); thêm status `sourceUnreadable` để phân biệt
+    "thư mục rỗng thật" với "app không đọc được".
+    (3) **layout export NVIDIA NeMo** (`encoder-model` + `decoder_joint-model`
+    + `nemo128.onnx` + `vocab.txt`) không nạp được bằng sherpa-onnx (cần
+    decoder/joiner tách riêng) → nhận diện `isNeMoExport` + status
+    `unsupportedLayout` (nói rõ cần bộ nào, KHÔNG báo "thiếu file" oan),
+    `vocab.txt` làm tokens dự phòng, `nemo128.onnx` không còn bị coi là
+    giọng Piper.
+    Kèm: **TTS không sập sau khi phát** — `TtsNotificationService` chỉ bắt
+    `PlatformException` nên `MissingPluginException` (channel
+    `in4up/tts_notification` chưa đăng ký) nổi lên ⇒ "Lost connection to
+    device" ⇒ bắt `MissingPluginException` + catch-all; Piper layout mới chỉ
+    có `.onnx.json` (tokens rỗng ⇒ giọng "chạy được" nhưng phát tiếng rỗng)
+    ⇒ chỉ nhận tokens ≥128B + xoá tokens hỏng.
+    i18n 4 chuỗi mới đủ 5 locale (`en/hi/zh/zh_TW/si`) trong
+    `priority_ui_overrides.dart` + `tool/legacy_ui_english_overrides.json`.
+    Test thuần mới `test/model_import_multi_bundle_test.dart` (multi-select 4
+    thư mục khác nhau ⇒ complete; pin hành vi cũ; layout sherpa; NeMo
+    detect; i18n 5 locale) + CI chạy thêm file này.
+    CI run **41646109015 SUCCESS** (analyze 0 error + "I4U18 scanner tests"
+    xanh). Còn lại: **nghiệm thu thiết bị** (import thư mục trên Android,
+    import N file, bộ NeMo, phát TTS xong app không sập). Edge TTS 403 +
+    `speech.platform.bing.com:0` là lỗi dịch vụ ngoài (token endpoint đổi),
+    chưa sửa trong lane này.
 
 ### I4U18-PDF-OCR-TTS-001 — PDF/OCR Reader: spinner OCR và TTS controls không dừng
 - **Trạng thái:** doing — code + CI 🟢 run `36771164011`; chờ nghiệm thu thiết bị.
@@ -6972,6 +7007,25 @@
   đúng role, int8 ưu tiên, Piper không lẫn, i18n SAF đủ 5 locale) nối
   i4u18-scanner-tests. **Chờ CI + nghiệm thu máy** (import 4 file Zipformer
   + import thư mục trên Android).
+- **Tiến triển 2026-11-03 (agent 990bc85f-in4up, lane M4U-IMPORT-002):** đi
+  tiếp từ root cause SAF ở trên — thêm 2 nguyên nhân gốc đã xác minh trên
+  máy thật (logcat 2026-11) và sửa:
+  - **Multi-select bị tách nhóm theo thư mục cha** (file_picker Android copy
+    file đã chọn vào cache dir riêng) ⇒ báo "thiếu file" oan dù user đã chọn
+    đủ ⇒ scanner có tham số `groupByDirectory` (đường multi-select = MỘT bộ
+    model).
+  - **Import thư mục**: SAF native (`in4up/textlib`) + stage giữ cấu trúc con
+    (`SafModelFolderService`) + `copyDocumentToPath` native mới; status mới
+    `sourceUnreadable` phân biệt "thư mục rỗng thật" với "app không đọc được
+    thư mục" (trước đây cả hai đều thành "Thư mục rỗng").
+  - **Layout export NVIDIA NeMo** (`decoder_joint` + `nemo128` + `vocab.txt`)
+    không nạp được bằng sherpa-onnx ⇒ status `unsupportedLayout` nói rõ cần
+    bộ nào (KHÔNG báo "thiếu joiner" oan); `vocab.txt` làm tokens dự phòng.
+  - **TTS sập sau khi phát**: `MissingPluginException` (channel
+    `in4up/tts_notification` chưa đăng ký) không được catch ⇒ app chết.
+  CI run **41646109015 SUCCESS** (analyze 0 error + test mới xanh).
+  **Chờ nghiệm thu máy**: import thư mục (SAF) + import N file + bộ NeMo +
+  phát TTS xong app không mất kết nối.
 
 ### 6. XLAT-OFFLINE-LANG-001 — (P2) Dịch offline ML Kit: thêm ngôn ngữ (ẩn, sổ ra)
 - **Triệu chứng:** Gói dịch offline (ML Kit) hiện chỉ 3 ngôn ngữ.

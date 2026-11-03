@@ -1904,13 +1904,19 @@ class SherpaModelManager {
   /// bị báo sai, không biết phải làm gì.
   static Future<bool> _directoryReadable(String path) async {
     try {
-      // Chạm iterator 1 lần: stream của `Directory.list()` ném lỗi khi
-      // thư mục không đọc được (SAF content://, quyền, URI hỏng).
-      final iterator = Directory(path).list(followLinks: true).iterator;
-      await iterator.moveNext();
-      return true; // rỗng cũng là "đọc được" (không có lỗi nào ném ra)
+      // `Directory.list()` ném lỗi NGAY khi thư mục không đọc được
+      // (SAF `content://`, quyền, URI hỏng) — `Stream.first` dừng sau phần
+      // tử đầu tiên nên không quét hết thư mục.
+      await Directory(path)
+          .list(followLinks: true)
+          .first
+          .timeout(const Duration(seconds: 15));
+      return true; // có phần tử → đọc được
+    } on StateError {
+      // Stream hết mà KHÔNG lỗi ⇒ thư mục RỖNG (vẫn là "đọc được").
+      return true;
     } catch (_) {
-      return false; // lỗi quyền/URI → không đọc được
+      return false; // lỗi quyền/URI/timeout → không đọc được
     }
   }
 

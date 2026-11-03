@@ -10,6 +10,10 @@
 |---|---|---|---|
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
+| DHRM-001 | Pháp thoại Drive (P1): danh mục theo Thầy/khoá + nghe tiếp theo **danh tính nội dung** (`episodeKey`) trên audio đã import | 🔨 doing — code + test + i18n đã có; chờ CI và nghiệm thu thiết bị | [PLAN-042](../plans/PLAN-042-phap-thoai-drive-tich-hop.md) §11/§15, ADR-0022 — parser test trên tên thật (`test/dharma/`) |
+| DHRM-002 | Pháp thoại Drive (P2/P3): tải **bền vững** (`audio_imports/dharma/`) + sync chỉ mục + stream bằng header, dọn 13 chuỗi hard-code | 📋 proposed | PLAN-042 §6/§9 — cache tạm + token trong query hiện tại là 2 nợ phải trả |
+| DHRM-003 | Pháp thoại Drive (P4): "lời vàng" → `SoundMark(quote)` + `MemoryItem` (mở lại đúng timestamp) | 📋 proposed | PLAN-042 §8 — additive, không đổi schema Vườn |
+| DHRM-004 | Pháp thoại Drive (P5): trích lục STT **theo đoạn đang nghe** (không tự chạy cả file) | 📋 proposed | PLAN-042 §12 — tác vụ nặng pin/nhiệt, cần cảnh báo |
 | API-001 | WP0: nền tảng Server API (ADR-0008) — provider store + client OpenAI-compat + màn Server & API | ✅ done (code+CI 🟢, chờ nghiệm thu thiết bị) | run 36268246588 (`e962557`..`3ea1716`, arena/01a0ddd1-in4up) |
 | API-002 | WP1: LLM chat/analysis qua API + SSE streaming (AiEngineRemote cắm vào AiEngine) | 🔨 doing (code + CI 🟢 run 36346119791, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — chatStream + AiEngineRemote + routing facade + màn chat streaming/nút Dừng |
 | API-003 | WP2: STT file qua API (SttEngineRemote — whisper-large-v3, chunk + LRC chung) | 🔨 doing (code + CI 🟢 run 36348644820, chờ nghiệm thu thiết bị AT) | agent arena/01a0df5b-in4up — transcribeAudio multipart + SttEngineRemote + facade remote + UI auto-TOC engine API |
@@ -8502,3 +8506,92 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** 3 tình huống owner nêu — Stop giữa câu; Stop ngay sau khi vừa có final; Save phiên rồi mở lại trong tab Đọc.
 - **Lịch sử:**
   - 2026-10-29 | created→done | agent arena/01a0251e-in4up | xác minh 5 commit đề xuất đã có → port badge c26 → vá 2 lỗ mất câu → test source-scan; CI `41652229913` 🟢
+
+### DHRM-001 — Tab Nghe: danh mục pháp thoại + nghe tiếp đúng vị trí (PLAN-042 P1)
+- **Trạng thái:** 🔨 doing — code + test + i18n xong trên `arena/c61e07dd-in4up`;
+  chờ CI (analyze + `test/dharma/`) và nghiệm thu thiết bị. P2–P5 chưa làm.
+- **Nguồn:** owner (2026-11-03) qua agent `arena/c61e07dd-in4up`; phương án
+  `docs/plans/PLAN-042-phap-thoai-drive-tich-hop.md`, ADR-0022.
+- **Vấn đề đã chuẩn hoá:** người dùng nghe pháp thoại dài (`B1 180324…`,
+  `05-06. 5 Quyền…`) nhưng app không có danh mục theo Thầy/khoá thiền và không
+  bảo đảm "nghe tiếp". Vị trí hiện lưu **theo path** (`saveCurrentPosition`), còn
+  luồng Drive tải vào `getTemporaryDirectory()/drive_cache` — thư mục hệ điều
+  hành được phép dọn ⇒ mất vị trí.
+- **Phạm vi (P1a+P1b):** model `DharmaSeries/DharmaEpisode/DharmaProgress`;
+  `DharmaNameParser` (hàm thuần, test trên 44 tên thật); `naturalCompare`;
+  box `dharma_catalog`/`dharma_progress`; màn danh mục 3 nhóm (Nghe tiếp / Theo
+  Thầy / Theo khoá) + danh sách buổi; nút "Đã nghe xong"; nhớ tốc độ theo
+  series; resume theo `episodeKey`. **Nguồn phát P1 = audio đã có trên máy**
+  (import qua `AudioImportService`).
+- **Không làm:** Drive/stream (DHRM-002), lời vàng (DHRM-003), STT (DHRM-004).
+- **AT/DoD:** AT-1 (parser 44 tên: `B10 < B11 < B2` sai nếu sort lexicographic,
+  `05-06` ra 2 buổi, `Phần cuối`), AT-2 (kill app giữa bài → mở lại đúng vị trí),
+  AT-7 (360×640 không overflow), AT-8 (EN/JA chrome không tiếng Việt, tên bài
+  giữ nguyên), AT-9 (`listen_queue_tests.yml` xanh). CI: bước
+  `flutter test test/dharma/`.
+- **Lịch sử:**
+  - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | tạo từ kế
+    hoạch PLAN-042; chưa có code.
+  - 2026-11-03 | proposed→doing | agent `arena/c61e07dd-in4up` | owner duyệt
+    "làm theo đề xuất"; thêm `lib/features/dharma/` (model · parser · scanner ·
+    store · provider · screen), 3 box Hive, tab thứ 4 trong drawer (3 tab cũ
+    giữ nguyên index), `TextDeviceChannel(extensions:)`, `relativeDir` từ native
+    `scanTree`, 32 chuỗi chrome × 5 locale, bước CI `test/dharma/`, +paths cho
+    `listen_queue_tests.yml`. Chưa chạy Flutter (sandbox không có SDK) ⇒
+    analyze/test chờ CI; logic parser đã đối chiếu bằng mô phỏng Python trên 9
+    tên thật khó nhất (PLAN-042 §15.2/§15.3).
+
+### DHRM-002 — Tab Nghe: pháp thoại từ Google Drive (tải bền vững + stream an toàn)
+- **Trạng thái:** 📋 proposed.
+- **Nguồn:** owner (2026-11-03) qua agent `arena/c61e07dd-in4up`; PLAN-042 §6.
+- **Vấn đề đã chuẩn hoá:** tab Drive hiện có chỉ duyệt/phát rời từng file:
+  `player.loadSong()` tạo queue 1 bài (mất thứ tự series), tải vào cache tạm,
+  nhét access token vào **query string** (`&access_token=`), và 13 chuỗi chrome
+  tiếng Việt hard-code (vi phạm AGENTS.md rule #5). `google_sign_in` không có
+  bản Windows/Linux ⇒ desktop sẽ lỗi runtime nếu không chặn.
+- **Phạm vi:** `listItems` trả thêm `md5Checksum`, `modifiedTime`,
+  `audioMediaMetadata.durationMillis`; tải về **bền vững**
+  `getApplicationDocumentsDirectory()/audio_imports/dharma/<fileId>.<ext>`; sync
+  chỉ mục vào `dharma_catalog` (1 request/folder, `pageSize` lớn, cache 7 ngày);
+  stream bằng **header** `Authorization` (nếu phải dùng token trong URL ⇒ chuyển
+  sang tải-rồi-phát, không hạ cấp bảo mật); hiện dung lượng trước khi tải + xoá
+  theo series; refresh token + retry 1 lần; phát hiện "nguồn đã thay đổi"
+  (`md5Checksum`/`modifiedTime` lệch).
+- **AT/DoD:** AT-3 (stream ⇄ đã tải không mất tiến độ), AT-4 (mở màn < 1 s với
+  39 series), AT-5 (mất mạng giữa bài: báo lỗi có kiểu, giữ vị trí), AT-6 (xoá
+  audio → tiến độ còn, hiện "Cần tải lại"), AT-8. Desktop hiện thông điệp thay
+  vì crash.
+- **Lịch sử:**
+  - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | tách từ
+    PLAN-042 §11 (sóng P2+P3).
+
+### DHRM-003 — Tab Nghe: "lời vàng" từ pháp thoại vào Vườn Trí Nhớ
+- **Trạng thái:** 📋 proposed.
+- **Nguồn:** owner (2026-11-03) qua agent `arena/c61e07dd-in4up`; PLAN-042 §8.
+- **Vấn đề đã chuẩn hoá:** bản nháp đề xuất lưu "lời vàng" như hạt giống trong
+  Vườn, nhưng chưa nói lưu bằng model nào; Vườn hiện chỉ có từ vựng.
+- **Phạm vi:** nút "Lưu lời vàng" khi đang nghe → `SoundMark(kind: quote)` tại
+  `position` + text; `MemoryItem.fromDharmaQuote(...)` (additive, dùng các trường
+  đã có `audioPath/audioStart/audioEnd/tags`) để thẻ ôn tập mở lại đúng
+  `episodeKey` + timestamp; **không** đẩy transcript vào Vườn. Khi INTEGRATE-1
+  xong thì ánh xạ sang `KnowledgeUnit` + `EvidenceLocator(timestampStart)`.
+- **AT/DoD:** AT-2/AT-3 (mở lại đúng vị trí sau khi đổi nguồn), không hồi quy
+  Âm mục hiện có, i18n đủ 4 locale T2.
+- **Lịch sử:**
+  - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | tách từ
+    PLAN-042 §11 (sóng P4).
+
+### DHRM-004 — Tab Nghe: trích lục (STT) theo đoạn đang nghe cho pháp thoại
+- **Trạng thái:** 📋 proposed.
+- **Nguồn:** owner (2026-11-03) qua agent `arena/c61e07dd-in4up`; PLAN-042 §6/§12.
+- **Vấn đề đã chuẩn hoá:** bản nháp ghi "không tự động gọi STT" — đúng, nhưng
+  cần lý do cụ thể: bài 60–90 phút × whisper là tác vụ nặng (pin/nhiệt) và đã có
+  cảnh báo trong `docs/qa_heavy_task_thermal_audit.md`.
+- **Phạm vi:** chỉ trích lục **khoảng đang nghe** (VAD + `SttServiceFacade` có
+  sẵn), lưu LRC cạnh `episodeKey` trong `.in4up_lrc/`; cảnh báo trước khi chạy
+  tác vụ dài; không tự chạy khi mở bài.
+- **AT/DoD:** trích lục 5 phút quanh vị trí hiện tại trong thời gian hợp lý trên
+  máy thật; không làm giật phát lại (đo trên thiết bị); không hồi quy LRC hiện có.
+- **Lịch sử:**
+  - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | tách từ
+    PLAN-042 §11 (sóng P5).

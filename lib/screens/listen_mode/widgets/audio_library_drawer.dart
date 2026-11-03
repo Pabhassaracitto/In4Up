@@ -8,6 +8,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/dharma/screens/dharma_library_screen.dart';
 import '../../../features/youtube/youtube_sheet.dart';
 import '../../../models/audio_queue_item.dart';
 import '../../../providers/player_provider.dart';
@@ -44,7 +45,9 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this); // ← 3 tabs
+    // DHRM-001 (PLAN-042): thêm tab "Pháp thoại" ở CUỐI. Ba tab cũ giữ nguyên
+    // vị trí + index để mọi test/CTA hiện có không lệch.
+    _tabCtrl = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -73,6 +76,7 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
                   ),
                   const GoogleDriveBrowser(),
                   _YouTubeTab(onClose: () => Navigator.pop(context)),
+                  const DharmaLibraryScreen(),
                 ],
               ),
             ),
@@ -167,6 +171,9 @@ class _AudioLibraryDrawerState extends State<AudioLibraryDrawer>
               _drawerTab(compact, const Icon(Icons.phone_android, size: 13), 'Thiết bị'),
               _drawerTab(compact, const Text('📂', style: TextStyle(fontSize: 13)), 'Drive'),
               _drawerTab(compact, const Text('▶️', style: TextStyle(fontSize: 13)), 'YouTube'),
+              // DHRM-001: 'Pháp thoại' đã có bản dịch 4 locale T2 trong
+              // priority_ui_overrides (xem test/locale_chrome_no_vietnamese_test).
+              _drawerTab(compact, const Icon(Icons.self_improvement, size: 13), 'Pháp thoại'),
             ],
           ),
         );

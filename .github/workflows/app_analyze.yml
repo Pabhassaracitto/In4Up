@@ -120,6 +120,32 @@ jobs:
           path: linux_shell_regression_test.log
           if-no-files-found: ignore
 
+      - name: "DHRM-001 tests — pháp thoại: parser tên thật + catalog + tiến độ"
+        id: dharma-tests
+        timeout-minutes: 5
+        run: |
+          set +e
+          if [ ! -f test/dharma/dharma_name_parser_test.dart ]; then
+            echo "Không có test pháp thoại trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/dharma/ -r expanded > dharma_test.log 2>&1
+          code=$?
+          cat dharma_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 dharma_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=DHRM-001 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload dharma test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dharma-test-log
+          path: dharma_test.log
+          if-no-files-found: ignore
+
       - name: "I4U18 tests — Video/Listen Library (logic thuần)"
         id: i4u18-lib-tests
         run: |

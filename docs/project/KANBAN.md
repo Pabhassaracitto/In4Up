@@ -10,7 +10,7 @@
 |---|---|---|---|
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
-| DHRM-001 | Pháp thoại Drive (P1): danh mục theo Thầy/khoá + nghe tiếp theo **danh tính nội dung** (`episodeKey`) trên audio đã import | 🔨 doing — code + test + i18n đã có; chờ CI và nghiệm thu thiết bị | [PLAN-042](../plans/PLAN-042-phap-thoai-drive-tich-hop.md) §11/§15, ADR-0022 — parser test trên tên thật (`test/dharma/`) |
+| DHRM-001 | Pháp thoại Drive (P1): danh mục theo Thầy/khoá + nghe tiếp theo **danh tính nội dung** (`episodeKey`) trên audio đã import | 🔨 doing — code + test + i18n; **CI xanh** (analyze + `test/dharma/` + queue cũ); còn nghiệm thu thiết bị | [PLAN-042](../plans/PLAN-042-phap-thoai-drive-tich-hop.md) §11/§15, ADR-0022 — parser test trên tên thật (`test/dharma/`) |
 | DHRM-002 | Pháp thoại Drive (P2/P3): tải **bền vững** (`audio_imports/dharma/`) + sync chỉ mục + stream bằng header, dọn 13 chuỗi hard-code | 📋 proposed | PLAN-042 §6/§9 — cache tạm + token trong query hiện tại là 2 nợ phải trả |
 | DHRM-003 | Pháp thoại Drive (P4): "lời vàng" → `SoundMark(quote)` + `MemoryItem` (mở lại đúng timestamp) | 📋 proposed | PLAN-042 §8 — additive, không đổi schema Vườn |
 | DHRM-004 | Pháp thoại Drive (P5): trích lục STT **theo đoạn đang nghe** (không tự chạy cả file) | 📋 proposed | PLAN-042 §12 — tác vụ nặng pin/nhiệt, cần cảnh báo |
@@ -8509,7 +8509,9 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 ### DHRM-001 — Tab Nghe: danh mục pháp thoại + nghe tiếp đúng vị trí (PLAN-042 P1)
 - **Trạng thái:** 🔨 doing — code + test + i18n xong trên `arena/c61e07dd-in4up`;
-  chờ CI (analyze + `test/dharma/`) và nghiệm thu thiết bị. P2–P5 chưa làm.
+  **CI đã xanh** (analyze 0 error, bước `DHRM-001 tests`, toàn bộ test queue cũ)
+  lúc commit `7e3be6b`. Còn lại: nghiệm thu trên máy thật (AT-4 mở màn < 1 s với
+  39 series, AT-6 xoá file audio, AT-7 360×640). P2–P5 chưa làm.
 - **Nguồn:** owner (2026-11-03) qua agent `arena/c61e07dd-in4up`; phương án
   `docs/plans/PLAN-042-phap-thoai-drive-tich-hop.md`, ADR-0022.
 - **Vấn đề đã chuẩn hoá:** người dùng nghe pháp thoại dài (`B1 180324…`,
@@ -8540,6 +8542,12 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     `listen_queue_tests.yml`. Chưa chạy Flutter (sandbox không có SDK) ⇒
     analyze/test chờ CI; logic parser đã đối chiếu bằng mô phỏng Python trên 9
     tên thật khó nhất (PLAN-042 §15.2/§15.3).
+  - 2026-11-03 | doing (CI xanh) | agent `arena/c61e07dd-in4up` | 4 vòng CI:
+    4 lỗi biên dịch (const DateTime, `Set` chứa map, `scanTree` static→instance)
+    + 2 kỳ vọng test sai do tôi viết → sửa hết. Run `41667985507`: analyze ✅,
+    `DHRM-001 tests` ✅ (parser · catalog · provider), PLAN-039 ✅;
+    `41667985422`: android-resolver-compile + `listen_queue_*` ✅. Bằng chứng chi
+    tiết: PLAN-042 §15.5/§15.6.
 
 ### DHRM-002 — Tab Nghe: pháp thoại từ Google Drive (tải bền vững + stream an toàn)
 - **Trạng thái:** 📋 proposed.

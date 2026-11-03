@@ -1,9 +1,10 @@
 # PLAN-042 — Pháp thoại từ Drive: nguồn nội dung + tiến độ nghe
 
-> **Trạng thái:** doing — **sóng P1 (DHRM-001) đã có code + test + i18n** trên
-> `arena/c61e07dd-in4up`; chờ CI và nghiệm thu thiết bị. P2–P5 vẫn proposed.
-> **Sandbox không có Flutter SDK** ⇒ `flutter analyze`/`flutter test` phải chạy
-> trên CI; phần logic đã được đối chiếu bằng bản mô phỏng Python (xem §15).
+> **Trạng thái:** doing — **sóng P1 (DHRM-001) đã có code + test + i18n VÀ ĐÃ
+> XANH TRÊN CI** (`2d2cdaa`→`7e3be6b`: analyze 0 error, bước `DHRM-001 tests`,
+> toàn bộ suite queue cũ). Còn lại: nghiệm thu thiết bị (AT-4/AT-7 thật) và
+> P2–P5 vẫn proposed. Sandbox không có Flutter SDK ⇒ mọi kết luận "chạy được"
+> dưới đây đều kèm số run CI (xem §15.5).
 > **Nguồn:** người sở hữu (2026-11-03, qua agent `arena/c61e07dd-in4up`) — thư mục
 > Drive công khai
 > [12. PHÁP THOẠI CÁC NGÀI THIỀN SƯ HỆ THỐNG PA AUK — TIẾNG VIỆT](https://drive.google.com/drive/folders/1naMj6Gr4nWUDqkWpuHV-iq-0d-KZb7k5)
@@ -558,16 +559,18 @@ provider), `lib/screens/listen_mode/widgets/audio_library_drawer.dart` (tab th�
    `extensions` qua constructor nhỏ thay vì đổi chữ ký static (không phá
    Thư viện đọc/Video).
 
-### 15.3 Cách kiểm chứng khi không có Flutter SDK
+### 15.3 Cách kiểm chứng khi không có Flutter SDK (bổ sung bằng CI thật, xem 15.5)
 
 - Logic parser được **viết lại bằng Python** (`/tmp`, không commit) và chạy trên
   9 tên file thật khó nhất ⇒ tất cả khớp sau khi sửa (15.2 #1). Bản Dart giữ
   đúng thứ tự luật; test `test/dharma/` là máy bắt chính thức.
 - Đã kiểm: mọi `import` tương đối của module mới trỏ tới file **có thật**;
   không import thừa; YAML của 2 workflow đúng thụt lề theo mẫu bước liền kề.
-- **CHƯA kiểm (cần CI/máy thật):** `flutter analyze`, `flutter test test/dharma/`,
-  build Android với `relativeDir`, hành vi SAF thật, 360×640, và việc
-  `priority_ui_overrides` 32 khoá mới có phá test i18n nào không.
+- **ĐÃ kiểm trên CI** (không phải suy đoán): `flutter analyze` 0 error,
+  `flutter test test/dharma/` xanh, i18n/locale test xanh, toàn bộ 12 nhóm test
+  queue cũ xanh — xem §15.5.
+- **CHƯA kiểm (cần máy thật):** build Android với `relativeDir`, hành vi SAF
+  thật, 360×640/AT-7, mở màn < 1 s với 39 series (AT-4).
 
 ### 15.4 Rủi ro còn mở của P1
 
@@ -577,3 +580,66 @@ provider), `lib/screens/listen_mode/widgets/audio_library_drawer.dart` (tab th�
 | P1-R2 | Provider đọc vị trí mỗi 10 s khi đang phát | Chỉ ghi khi `_playingEpisodeKey != null` và `duration > 0`; tần suất bằng `saved_positions` hiện có |
 | P1-R3 | Người dùng chọn NHẦM thư mục cha (quét cả ổ đĩa) | Giới hạn `maxFiles` 5000 (native cũng có), hiện `error=empty` rõ ràng, cho "quên nguồn" |
 | P1-R4 | Buổi đã import thủ công (không qua quét) không có trong catalog | P1 chấp nhận: chỉ hiện gì quét được; nhập tay từng file vẫn dùng tab Thiết bị |
+
+### 15.5 Kết quả CI (bằng chứng, không phải tự khai)
+
+| Run | Commit | Kết quả |
+|---|---|---|
+| `41645680480` | `1a089e4` (lần đầu) | ❌ **4 lỗi biên dịch thật** — xem 15.6 #1–#4 |
+| `41646948044` | `7365f35` | ✅ analyze · ✅ bước `DHRM-001 tests` · ✅ PLAN-039 (`test/listen_queue_widget_test.dart` xanh lại) · ✅ 12 nhóm queue |
+| `41667985507` | `7e3be6b` | ✅ analyze · ✅ `DHRM-001 tests` (3 file: parser · catalog · provider) · ✅ PLAN-039 |
+| `41667985422` | `7e3be6b` | ✅ android-resolver-compile + toàn bộ `listen_queue_*` |
+
+Bước CI mới (`app_analyze.yml`, id `dharma-tests`) chạy `flutter test test/dharma/`
+và **tự bỏ qua** nếu nhánh không có file test (để nhánh cũ không đỏ oan).
+
+### 15.6 Lỗi thật do CI bắt (đã sửa — giữ lại vì dễ tái phát)
+
+1. `DateTime` không có constructor `const` ⇒ **không thể** dùng `kNeverPlayed`
+   (`static final`) làm giá trị mặc định của tham số tuỳ chọn. Chọn
+   `lastPlayedAt` kiểu `DateTime?` (`null` = chưa từng phát) để giữ `const
+   DharmaProgress` cho test.
+2. `const Set<String> _venues = {'da lat': 'Đà Lạt', …}` — viết `Set` nhưng nội
+   dung là `Map` ⇒ 2 lỗi (gán sai kiểu + `.entries` không tồn tại). Đúng phải là
+   `const Map<String, String>`; **và** không được trùng khoá (`'đà lạt'`/`'da
+   lat'` phải chọn một — `searchKey` đã bỏ dấu nên chỉ cần bản không dấu).
+3. Đổi `TextDeviceChannel.scanTree` từ `static` → instance là **thay đổi phá vỡ
+   hợp đồng**: `lib/providers/text_device_provider.dart` còn gọi kiểu static ⇒
+   `static_access_to_instance_member`. Đã sửa call site; bài học: khi đổi
+   static→instance phải `grep` hết call site TRƯỚC khi push.
+4. Hai test AT-1 do **tôi viết sai kỳ vọng**, không phải code sai:
+   (a) đòi `searchKey('Reveta') == searchKey('Revata')` — bỏ dấu không đổi được
+   phụ âm, việc đó là của bảng alias; (b) coi `58/60 phút` là "đã xong" trong
+   khi ngưỡng là ≥95% **hoặc** còn ≤30 s ⇒ phải dùng `59:45/60:00`.
+   ⇒ Test cũng là code: kỳ vọng sai làm đỏ CI y như bug thật.
+
+### 15.7 Vì sao "check xanh" mà GitHub vẫn báo xung đột khi *Rebase and merge*
+
+Ba nguyên nhân khác nhau, đã gặp lần lượt — đừng nhầm cái này với cái kia:
+
+1. **Sai base.** Nhánh này xếp trên `arena/01a0251e-in4up`, **không** phải
+   `main`. Mở PR với base `main` ⇒ diff 1192 file + `CONFLICTING` ngay, dù code
+   không sai. Đúng: `--base arena/01a0251e-in4up` (như PR #128, #96).
+2. **Commit merge trong PR.** *Rebase and merge* từ chối (`rebaseable = false`)
+   nếu head chứa merge commit. Lần đầu tôi `git merge` base vào nhánh ⇒ phải
+   thay bằng `git rebase`; hiện `git log --merges base..HEAD` = **0**.
+3. **Base trôi sau khi đã rebase.** Đây là cái khó thấy nhất: base nhận thêm
+   commit (`6907250` → `5a1613f2`, 7 commit) nên 3 file base cũng sửa bị lệch
+   lại ⇒ GitHub tính conflict **tại thời điểm bạn bấm nút**, không phải lúc bạn
+   rebase. Checks vẫn xanh vì chúng chạy trên **merge ref cũ**, hoàn toàn không
+   chứng minh rebase được.
+
+   ⇒ Trước khi bấm: `git fetch && git merge-tree --write-tree --name-only HEAD origin/<base>`
+   — liệt kê đúng file sẽ xung đột, khỏi đoán.
+
+**Xung đột thật ở vòng này (đã giải, giữ cả hai phía):**
+
+| File | Base làm gì | Tôi làm gì | Cách giải |
+|---|---|---|---|
+| `lib/services/text_device_channel.dart` | Thêm `extensions` vào **static** `scanTree` | Đổi `scanTree` thành **instance** + field `extensions` | **Bỏ cách của tôi**, dùng static của base — ít xâm lấn hơn, không phá call site nào |
+| `lib/core/language/priority_ui_overrides.dart` | Thêm khoá M4U-IMPORT-002 (model import) | Thêm 30 khoá pháp thoại | Ghép cả hai; kiểm 1050 khoá, 0 trùng, ngoặc cân |
+
+Bài học: khi mình sửa một hàm **dùng chung** (`TextDeviceChannel` phục vụ cả Thư
+viện đọc và Video) mà base cũng vừa sửa, ưu tiên **cách ít xâm lấn hơn** — kể cả
+khi cách của mình "sạch" hơn về mặt thiết kế. Ở đây cách của base thắng vì nó
+không đổi chữ ký static nào, nên `text_device_provider.dart` không phải sửa.

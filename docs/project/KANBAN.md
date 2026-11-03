@@ -6082,16 +6082,22 @@
     Kèm: **TTS không sập sau khi phát** — `TtsNotificationService` chỉ bắt
     `PlatformException` nên `MissingPluginException` (channel
     `in4up/tts_notification` chưa đăng ký) nổi lên ⇒ "Lost connection to
-    device" ⇒ bắt `MissingPluginException` + catch-all; Piper layout mới chỉ
-    có `.onnx.json` (tokens rỗng ⇒ giọng "chạy được" nhưng phát tiếng rỗng)
-    ⇒ chỉ nhận tokens ≥128B + xoá tokens hỏng.
+    device" ⇒ bắt `MissingPluginException` + catch-all. **Piper đời mới**
+    (piper 1.0.0, `rhasspy/piper-voices`) chỉ có `<voice>.onnx` +
+    `<voice>.onnx.json`, KHÔNG có `tokens.txt` — bảng phoneme nằm trong
+    `phoneme_id_map` của config ⇒ **sinh `tokens.txt` ngay từ config**
+    (`PiperImportPaths.tokensFromPiperConfigJson`) ⇒ import được, không cần
+    tải file ngoài; ngưỡng tokens dùng chung `kMinPiperTokensBytes` (128B —
+    file tokens hợp lệ chỉ ~900 byte, ngưỡng cao sẽ loại nhầm giọng tốt).
     i18n 4 chuỗi mới đủ 5 locale (`en/hi/zh/zh_TW/si`) trong
     `priority_ui_overrides.dart` + `tool/legacy_ui_english_overrides.json`.
     Test thuần mới `test/model_import_multi_bundle_test.dart` (multi-select 4
     thư mục khác nhau ⇒ complete; pin hành vi cũ; layout sherpa; NeMo
-    detect; i18n 5 locale) + CI chạy thêm file này.
-    CI run **41646109015 SUCCESS** (analyze 0 error + "I4U18 scanner tests"
-    xanh). Còn lại: **nghiệm thu thiết bị** (import thư mục trên Android,
+    detect; Piper layout mới sinh tokens từ `phoneme_id_map`; i18n 5 locale)
+    + CI chạy thêm file này.
+    CI run **41649050019 SUCCESS** (analyze 0 error + "I4U18 scanner tests"
+    xanh). PR #128 (head arena/990bc85f-in4up → base arena/01a0251e-in4up).
+    Còn lại: **nghiệm thu thiết bị** (import thư mục trên Android,
     import N file, bộ NeMo, phát TTS xong app không sập). Edge TTS 403 +
     `speech.platform.bing.com:0` là lỗi dịch vụ ngoài (token endpoint đổi),
     chưa sửa trong lane này.
@@ -7023,7 +7029,7 @@
     bộ nào (KHÔNG báo "thiếu joiner" oan); `vocab.txt` làm tokens dự phòng.
   - **TTS sập sau khi phát**: `MissingPluginException` (channel
     `in4up/tts_notification` chưa đăng ký) không được catch ⇒ app chết.
-  CI run **41646109015 SUCCESS** (analyze 0 error + test mới xanh).
+  CI run **41649050019 SUCCESS** (analyze 0 error + test mới xanh); PR #128.
   **Chờ nghiệm thu máy**: import thư mục (SAF) + import N file + bộ NeMo +
   phát TTS xong app không mất kết nối.
 

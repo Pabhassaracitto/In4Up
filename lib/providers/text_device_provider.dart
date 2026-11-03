@@ -187,7 +187,7 @@ class TextDeviceProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
-      final raw = await const TextDeviceChannel().scanTree(uri);
+      final raw = await TextDeviceChannel.scanTree(uri);
       _entries = raw
           .where((m) => (m['uri'] ?? '').toString().isNotEmpty)
           .map(TextDeviceEntry.fromMap)

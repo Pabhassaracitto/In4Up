@@ -1310,7 +1310,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
 - Nguồn: người sở hữu (2026-11-03, qua agent `arena/c61e07dd-in4up`) — thư mục
   Drive công khai "12. PHÁP THOẠI CÁC NGÀI THIỀN SƯ HỆ THỐNG PA AUK - TIẾNG VIỆT"
   + bản nháp đặc tả `DharmaTalk`; kèm yêu cầu "lên kế hoạch tích hợp".
-- Trạng thái: doing — P1 (DHRM-001) đã có code + test + i18n; P2–P5 proposed.
+- Trạng thái: doing — P1 (DHRM-001) có code + test + i18n, **CI xanh**
+  (`7e3be6b`); còn nghiệm thu thiết bị. P2–P5 proposed.
 - Milestone đề xuất: M2 (mở rộng tab Nghe), tiếp sau PLAN-039.
 - Chi tiết: [phương án](plans/PLAN-042-phap-thoai-drive-tich-hop.md), ADR-0022.
   - Đính chính 3 điểm của bản nháp: (a) khoá phải là **danh tính nội dung**

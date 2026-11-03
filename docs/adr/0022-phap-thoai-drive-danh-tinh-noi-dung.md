@@ -1,8 +1,9 @@
 # ADR-0022: Pháp thoại từ Drive — danh tính nội dung tách khỏi tiến độ nghe
 
 - **Ngày:** 2026-11-03
-- **Trạng thái:** Đang triển khai — P1 (`DHRM-001`) đã có code + test + i18n
-  trên `arena/c61e07dd-in4up` (chờ CI và nghiệm thu thiết bị); P2–P5 còn proposed.
+- **Trạng thái:** Đang triển khai — P1 (`DHRM-001`) đã có code + test + i18n và
+  **CI xanh** trên `arena/c61e07dd-in4up` (analyze 0 error, `test/dharma/` xanh,
+  commit `7e3be6b`); còn nghiệm thu thiết bị. P2–P5 còn proposed.
 - **Phạm vi:** Nguồn nội dung "pháp thoại/sách nói/kinh tụng" từ Google Drive và
   cách lưu vị trí nghe. Không đổi schema các box Hive cũ, không đụng
   `lib/ffi/`/`UltraTimeStretch`, không đổi `PlaybackQueueController`.

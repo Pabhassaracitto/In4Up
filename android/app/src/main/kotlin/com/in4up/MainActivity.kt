@@ -331,6 +331,21 @@ class MainActivity : FlutterActivity() {
                         val treeUri = call.argument<String>("treeUri")
                         result.success(treeUri?.let { keepTreePermission(it) } ?: false)
                     }
+                    // M4U-IMPORT-002 — copy 1 file SAF (content://) ra đường dẫn
+                    // thật (model .onnx nặng hàng trăm MB ⇒ copy nền, KHÔNG
+                    // chạy trên luồng chính để tránh ANR).
+                    "copyDocumentToPath" -> {
+                        val uri = call.argument<String>("uri")
+                        val destination = call.argument<String>("destination")
+                        if (uri.isNullOrBlank() || destination.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            Thread {
+                                val copied = copyContentToPath(uri, destination)
+                                runOnUiThread { result.success(copied) }
+                            }.start()
+                        }
+                    }
                     "copyContentToCache" -> {
                         val uri = call.argument<String>("uri")
                         result.success(uri?.let { copyContentToCache(it) })

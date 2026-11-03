@@ -7395,4 +7395,33 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '最近上下文',
     'si': 'අවශ්‍ය පිළිබඳ සංඛ්‍යාත්මක අනුවරය',
   },
+  // M4U-IMPORT-002 — import model (STT/Piper) qua SAF + bộ export NeMo.
+  'Không đọc được thư mục đã chọn. Hãy thử lại, hoặc chọn trực tiếp các file model trong thư mục.': {
+    'en': 'Could not read the selected folder. Try again, or pick the model files inside it directly.',
+    'hi': 'चयनित फ़ोल्डर पढ़ा नहीं जा सका। फिर कोशिश करें, या उसमें मौजूद मॉडल फ़ाइलें सीधे चुनें।',
+    'zh': '无法读取所选文件夹。请重试，或直接选择其中的模型文件。',
+    'zh_TW': '無法讀取所選資料夾。請重試，或直接選擇其中的模型檔案。',
+    'si': 'තෝරාගත් පොලඩරය කියවිය නොහැක. නැවත උත්සාහ කරන්න, හෝ එහි ඇති මොඩල් ගොනු සෘජුව තෝරන්න.',
+  },
+  'Không đọc được thư mục đã chọn. Hãy thử lại, hoặc chọn trực tiếp các file .onnx trong thư mục.': {
+    'en': 'Could not read the selected folder. Try again, or pick the .onnx files inside it directly.',
+    'hi': 'चयनित फ़ोल्डर पढ़ा नहीं जा सका। फिर कोशिश करें, या उसमें मौजूद .onnx फ़ाइलें सीधे चुनें।',
+    'zh': '无法读取所选文件夹。请重试，或直接选择其中的 .onnx 文件。',
+    'zh_TW': '無法讀取所選資料夾。請重試，或直接選擇其中的 .onnx 檔案。',
+    'si': 'තෝරාගත් පොලඩරය කියවිය නොහැක. නැවත උත්සාහ කරන්න, හෝ එහි ඇති .onnx ගොනු සෘජුව තෝරන්න.',
+  },
+  'Không đọc được thư mục đã chọn (SAF/thẻ nhớ ngoài). Hãy chọn trực tiếp các file model trong thư mục.': {
+    'en': 'Could not read the selected folder (SAF/external storage). Pick the model files inside it directly.',
+    'hi': 'चयनित फ़ोल्डर पढ़ा नहीं जा सका (SAF/बाहरी स्टोरेज)। उसमें मौजूद मॉडल फ़ाइलें सीधे चुनें।',
+    'zh': '无法读取所选文件夹（SAF/外部存储）。请直接选择其中的模型文件。',
+    'zh_TW': '無法讀取所選資料夾（SAF/外部儲存）。請直接選擇其中的模型檔案。',
+    'si': 'තෝරාගත් පොලඩරය කියවිය නොහැක (SAF/පිටත ගබඩාව). එහි ඇති මොඩල් ගොනු සෘජුව තෝරන්න.',
+  },
+  'Bộ model này là bản export NVIDIA NeMo (decoder gộp joint) — app cần bộ sherpa-onnx gồm encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt. Bấm "Tải về" ở thẻ Parakeet để lấy đúng bộ.': {
+    'en': 'This model set is the NVIDIA NeMo export (decoder with fused joint) — the app needs the sherpa-onnx set: encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt. Tap "Download" on the Parakeet card to get the correct set.',
+    'hi': 'यह मॉडल सेट NVIDIA NeMo एक्सपोर्ट है (जुड़ा हुआ joint वाला decoder) — ऐप को sherpa-onnx सेट चाहिए: encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt. सही सेट के लिए Parakeet कार्ड पर "डाउनलोड" दबाएँ।',
+    'zh': '这组模型是 NVIDIA NeMo 导出版（decoder 与 joint 合并）——应用需要 sherpa-onnx 版本：encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt。请在 Parakeet 卡片上点"下载"获取正确版本。',
+    'zh_TW': '這組模型是 NVIDIA NeMo 匯出版（decoder 與 joint 合併）——應用程式需要 sherpa-onnx 版本：encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt。請在 Parakeet 卡片上按「下載」取得正確版本。',
+    'si': 'මෙම මොඩල් කට්තුව NVIDIA NeMo අපයෝර්ටයයි (joint එකට යාම් කළ decoder) — ඇපය ට sherpa-onnx කට්තුව අවශ්‍යයි: encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt. නිවැරදි කට්තුව ගැන Parakeet කාඩ් එකේ "බාගන්න" ඔබන්න.',
+  },
 };

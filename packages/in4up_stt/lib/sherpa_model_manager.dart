@@ -93,6 +93,17 @@ enum SherpaAsrImportStatus {
   sourceMissing,
   sourceEmpty,
 
+  /// Nguồn CÓ THẬT nhưng app không đọc được (Android SAF trả `content://`,
+  /// thẻ nhớ ngoài bị scoped storage chặn). KHÁC với [sourceEmpty]: user
+  /// KHÔNG cần bổ sung file, chỉ cần app đọc được nguồn.
+  sourceUnreadable,
+
+  /// Bộ model ĐÚNG layout của app nhưng KHÔNG phải layout sherpa-onnx
+  /// (vd export NVIDIA NeMo: `decoder_joint-model*.onnx` + `nemo128.onnx` +
+  /// `vocab.txt` — decoder gộp joint nên không nạp được). UI phải nói rõ
+  /// cần bộ nào, KHÔNG báo "thiếu file" oan.
+  unsupportedLayout,
+
   /// Lỗi khác (giải nén, copy…).
   failed,
 
@@ -856,6 +867,7 @@ class SherpaModelManager {
     String? encoderPath,
     String? tokensPath,
     String? folderName,
+    String? bundleDir,
   }) {
     final nameHaystack = [
       if (encoderPath != null) encoderPath,
@@ -864,6 +876,10 @@ class SherpaModelManager {
     final leafHaystack = [
       if (encoderPath != null) p.basename(encoderPath),
       if (folderName != null) _leafName(folderName),
+      // M4U-IMPORT-002: tên thư mục con chứa bộ model (đường import thư mục
+      // SAF/giải nén) — cũng là bằng chứng loại model (vd thư mục
+      // `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`).
+      if (bundleDir != null) _leafName(bundleDir),
     ].join(' ').toLowerCase();
     final looksVi = asrTokensLookVietnamese(tokensPath) ||
         _nameLooksLanguage(nameHaystack, 'vi');
@@ -1132,9 +1148,15 @@ class SherpaModelManager {
     }
     final listing = await _walkPaths(dir.path);
     if (listing.isEmpty) {
-      return const SherpaAsrImportResult(
-        status: SherpaAsrImportStatus.sourceEmpty,
-        detail: 'Thư mục rỗng',
+      // Phân biệt "thật sự rỗng" với "KHÔNG ĐỌC ĐƯỢC" (Android SAF trả
+      // `content://…` — `Directory.list()` ném lỗi ⇒ user có file thật
+      // nhưng app báo "thư mục rỗng" ⇒ sai, và không ai biết phải làm gì).
+      final readable = await _directoryReadable(dir.path);
+      return SherpaAsrImportResult(
+        status: readable
+            ? SherpaAsrImportStatus.sourceEmpty
+            : SherpaAsrImportStatus.sourceUnreadable,
+        detail: readable ? 'Thư mục rỗng' : 'Không đọc được thư mục (SAF)',
       );
     }
     return _importAsrListing(
@@ -1144,6 +1166,39 @@ class SherpaModelManager {
     );
   }
 
+  /// Import từ DANH SÁCH file thuộc MỘT thư mục (thư mục SAF đã được stage
+  /// về cache với cấu trúc con được giữ nguyên).
+  ///
+  /// Khác với [importAsrFilesResult]: ở đây user chọn THƯ MỤC nên bộ model
+  /// có thể nằm trong thư mục con ⇒ vẫn group theo thư mục cha để chọn đúng
+  /// bộ "đủ nhất" khi thư mục có nhiều bundle.
+  Future<SherpaAsrImportResult> importAsrFolderListingResult(
+    List<String> filePaths, {
+    String? sourceLabel,
+    String? targetProfileId,
+  }) async {
+    if (filePaths.isEmpty) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceEmpty,
+        detail: 'Thư mục không có file model',
+      );
+    }
+    return _importAsrListing(
+      filePaths,
+      sourceLabel: sourceLabel ?? filePaths.first,
+      targetProfileId: targetProfileId,
+      groupByDirectory: true,
+    );
+  }
+
+  /// Import nhiều FILE do user CHỌN TAY (multi-select).
+  ///
+  /// M4U-IMPORT-002: các file này là MỘT bộ model ⇒ KHÔNG group theo thư
+  /// mục cha. Lý do: file_picker trên Android copy file đã chọn vào cache
+  /// (`cache/file_picker/<timestamp>/…`) và các file có thể nằm ở thư mục
+  /// KHÁC NHAU — nếu group theo thư mục cha thì mỗi file là 1 nhóm riêng,
+  /// chỉ 1 role được giữ lại ⇒ báo "thiếu encoder/joiner/tokens" oan dù
+  /// user đã chọn đủ file.
   Future<SherpaAsrImportResult> importAsrFilesResult(
     List<String> filePaths, {
     String? targetProfileId,
@@ -1158,6 +1213,7 @@ class SherpaModelManager {
       filePaths,
       sourceLabel: filePaths.first,
       targetProfileId: targetProfileId,
+      groupByDirectory: false,
     );
   }
 
@@ -1198,6 +1254,8 @@ class SherpaModelManager {
       sourceLabel: files.keys.join(', '),
       targetProfileId: targetProfileId,
       namedBytes: files,
+      // Bytes đến từ multi-select ⇒ MỘT bộ model (không group theo thư mục).
+      groupByDirectory: false,
     );
   }
 
@@ -1224,6 +1282,13 @@ class SherpaModelManager {
         return 'Thư mục không tồn tại';
       case SherpaAsrImportStatus.sourceEmpty:
         return 'Chưa chọn file/thư mục nào';
+      case SherpaAsrImportStatus.sourceUnreadable:
+        return 'App không đọc được thư mục đã chọn (SAF/thẻ nhớ ngoài). '
+            'Hãy dùng Import thư mục trên Android hoặc chọn nhiều file.';
+      case SherpaAsrImportStatus.unsupportedLayout:
+        return 'Import thất bại: bộ model này không đúng layout sherpa-onnx '
+            '(export NVIDIA NeMo gộp joint). Cần bộ '
+            'encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt.';
       case SherpaAsrImportStatus.incompleteFiles:
         if (result.missingRoles.isNotEmpty) {
           return 'Import thất bại — thiếu: ${result.missingRoles.join(', ')}. '
@@ -1260,14 +1325,25 @@ class SherpaModelManager {
     required String sourceLabel,
     String? targetProfileId,
     Map<String, Uint8List>? namedBytes,
+    bool groupByDirectory = true,
   }) async {
     // Quét thống nhất (I4U18-MODEL-IMPORT-001): group theo thư mục cha +
     // alias tên file — thay cho việc lấy encoder/tokens ĐẦU TIÊN trong walk
     // order (nguồn gốc lỗi "chọn đúng folder vẫn báo không nhận dạng").
-    final report = ModelBundleScanner.scan([
-      for (final path in listing)
-        ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path, namedBytes: namedBytes)),
-    ]);
+    //
+    // M4U-IMPORT-002: đường multi-select (user chọn N file) KHÔNG group theo
+    // thư mục cha — file_picker Android đặt mỗi file vào thư mục cache riêng
+    // nên grouping sẽ chỉ giữ 1 role ⇒ báo "thiếu file" oan.
+    final report = ModelBundleScanner.scan(
+      [
+        for (final path in listing)
+          ScannedFile(
+            _toScanPath(path),
+            sizeBytes: _safeLength(path, namedBytes: namedBytes),
+          ),
+      ],
+      groupByDirectory: groupByDirectory,
+    );
 
     // IN4-16: log chi tiết từng file (tên + kích thước + nguồn) để chẩn đoán
     // "không đọc được" vs "thiếu file" vs "sai định dạng".
@@ -1325,11 +1401,39 @@ class SherpaModelManager {
       encoderPath: encoderPath,
       tokensPath: tokensPath,
       folderName: sourceLabel,
+      bundleDir: report.zipformerDir,
     );
 
     final explicit = targetProfileId == null
         ? null
         : AsrModelRouter.profileForIdOrLanguage(targetProfileId);
+
+    // M4U-IMPORT-002 — bộ export NVIDIA NeMo (Parakeet TDT) có layout
+    // `encoder-model*.onnx` + `decoder_joint-model*.onnx` + `nemo128.onnx` +
+    // `vocab.txt`: decoder GỘP sẵn joint, mel-filter nằm riêng. sherpa-onnx
+    // cần decoder + joiner TÁCH RIÊNG ⇒ bộ này KHÔNG nạp được.
+    //
+    // KHÔNG báo "thiếu joiner/tokens" oan (file user có ĐỦ, chỉ là layout
+    // khác) — báo rõ cần bộ nào + đường tải. Check TRƯỚC mọi nhánh
+    // profile (kể cả "không nhận diện được") vì layout này không map được
+    // profile nào một cách chắc chắn.
+    if (zip?.isNeMoExport ?? false) {
+      debugPrint(
+        '⚠️ ASR import: bộ export NVIDIA NeMo (decoder_joint/nemo128) — '
+        'sherpa-onnx cần encoder+decoder+joiner+tokens tách riêng.',
+      );
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.unsupportedLayout,
+        profile: explicit,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: true,
+        detectedKinds: report.kinds,
+        sourceFileCount: listing.length,
+        missingRoles: const [],
+        detail: 'nemo-export:${zip?.decoder?.name ?? ''}',
+      );
+    }
 
     // Sai lệch chặn cứng: kind ONNX nói ngược lại profile đích.
     SherpaAsrProfile? target = explicit ?? detected;
@@ -1394,6 +1498,9 @@ class SherpaModelManager {
       }
     }
 
+    // M4U-IMPORT-002 — bộ export NVIDIA NeMo (Parakeet TDT) đã được chặn ở
+    // trên (ngay sau khi resolve profile) — tới đây là layout chuẩn
+    // sherpa-onnx.
     final docs = await _documents();
     final destDir = p.join(docs, asrFolderName, target.id);
     await Directory(destDir).create(recursive: true);
@@ -1496,10 +1603,17 @@ class SherpaModelManager {
     if (installed == null) {
       // Báo thiếu CHÍNH XÁC: quét lại thư mục đích — role nào chưa có thì
       // nêu tên role + tên file mẫu (I4U18-MODEL-IMPORT-001).
-      final destScan = ModelBundleScanner.scan([
-        for (final path in await _walkPaths(destDir))
-          ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
-      ]);
+      //
+      // M4U-IMPORT-002: mọi file trong thư mục đích là CÙNG một bộ model
+      // (do ta vừa copy) ⇒ KHÔNG group theo thư mục con, nếu không sẽ mất
+      // role và báo thiếu oan.
+      final destScan = ModelBundleScanner.scan(
+        [
+          for (final path in await _walkPaths(destDir))
+            ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
+        ],
+        groupByDirectory: false,
+      );
       final missing = destScan.zipformer?.missingRoles ??
           zip?.missingRoles ??
           const [
@@ -1779,6 +1893,24 @@ class SherpaModelManager {
       if (content is List<int>) {
         await out.writeAsBytes(content, flush: true);
       }
+    }
+  }
+
+  /// Thư mục có ĐỌC ĐƯỢC không (list được).
+  ///
+  /// M4U-IMPORT-002: phân biệt "thư mục rỗng thật" với "app không đọc được
+  /// thư mục" (Android SAF trả `content://…` ⇒ `Directory.list()` ném lỗi).
+  /// Trước đây cả hai đều thành "Thư mục rỗng" ⇒ user có file thật vẫn
+  /// bị báo sai, không biết phải làm gì.
+  static Future<bool> _directoryReadable(String path) async {
+    try {
+      // Chạm iterator 1 lần: stream của `Directory.list()` ném lỗi khi
+      // thư mục không đọc được (SAF content://, quyền, URI hỏng).
+      final iterator = Directory(path).list(followLinks: true).iterator;
+      await iterator.moveNext();
+      return true; // rỗng cũng là "đọc được" (không có lỗi nào ném ra)
+    } catch (_) {
+      return false; // lỗi quyền/URI → không đọc được
     }
   }
 
@@ -2208,6 +2340,11 @@ class SherpaModelManager {
   String? _wrongBundleHint(ModelBundleReport report) {
     final kinds = report.kinds;
     if (kinds.contains(ModelBundleKind.zipformerAsr)) {
+      if (report.zipformer?.isNeMoExport ?? false) {
+        return 'Đây là bộ STT Parakeet/NeMo (encoder + decoder_joint + nemo128 + '
+            'vocab.txt) — không phải giọng Piper. Hãy bấm Import ở mục STT '
+            '(Parakeet).';
+      }
       return 'Đây là bộ STT Zipformer (encoder/decoder/joiner + tokens.txt) '
           '— không phải giọng Piper. Hãy bấm Import ở mục "5. STT Offline — '
           'Zipformer".';
@@ -2501,9 +2638,30 @@ class SherpaModelManager {
       if (await f.exists() && f.lengthSync() > 1024) {
         await _replaceFile(tmp, named.path);
         if (!shared.existsSync()) await named.copy(shared.path);
+      } else {
+        // File tải về quá nhỏ (vd trang lỗi HTML) — KHÔNG để lại file rác.
+        try {
+          if (await f.exists()) await f.delete();
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('⚠️ Piper tokens fallback: $e');
+    }
+    // M4U-IMPORT-002 — bộ Piper chỉ có `.onnx` + `.onnx.json` (KHÔNG có
+    // tokens.txt) là bộ KHÔNG chạy được: tokens của Piper VITS là bảng
+    // phoneme espeak (~100KB, DÙNG CHUNG mọi giọng). File tokens quá nhỏ
+    // (<1KB) là file cắt/hỏng ⇒ xoá để app KHÔNG liệt kê giọng "chạy được"
+    // rồi phát ra tiếng rỗng (tokens=0KB trong log init native).
+    try {
+      if (named.existsSync() && named.lengthSync() < 1024) {
+        await named.delete();
+        debugPrint(
+          '⚠️ Piper: xoá tokens.txt hỏng của "$voiceId" (<1KB) — cần '
+          'tokens.txt hợp lệ (bảng phoneme espeak, dùng chung mọi giọng).',
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Piper tokens cleanup: $e');
     }
   }
 

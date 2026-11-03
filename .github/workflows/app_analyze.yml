@@ -692,7 +692,7 @@ jobs:
           if-no-files-found: ignore
 
 
-      - name: "PLAN-041 tests — doc Tu+Nghia, nhap AI, anh nhe (logic thuan)"
+      - name: "PLAN-041 tests — doc Tu+Nghia, nhap AI, anh nhe, khai niem (logic thuan)"
         id: plan-041-tests
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |
@@ -700,7 +700,8 @@ jobs:
           files=""
           for f in test/wordlist_read_sequence_test.dart \
                    test/vocab_bulk_ai_test.dart \
-                   test/vocab_image_normalize_test.dart; do
+                   test/vocab_image_normalize_test.dart \
+                   test/concept_phase_a_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

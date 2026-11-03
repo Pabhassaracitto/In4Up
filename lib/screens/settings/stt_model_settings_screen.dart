@@ -30,6 +30,7 @@ import '../../features/translation/translation_toolbar.dart';
 import '../../features/translation/translation_service.dart';
 
 import '../../services/battery_optimization_service.dart';
+import '../../services/saf_model_folder_service.dart';
 
 import 'ai_providers_screen.dart';
 
@@ -1357,9 +1358,47 @@ class _PiperModelCardState extends State<_PiperModelCard> {
   }
 
   Future<void> _importFolder(BuildContext context) async {
-    final path = await fp.FilePicker.getDirectoryPath();
-    if (path == null || path.isEmpty) return;
-    final msg = await _manager.importPiperFolder(path);
+    // M4U-IMPORT-002 — Android SAF: thư mục `content://` không đọc được bằng
+    // dart:io ⇒ bản cũ báo "thư mục rỗng". Stage bằng native SAF (giữ cấu
+    // trúc con, kể cả espeak-ng-data) rồi import như thư mục thật.
+    final saf = await SafModelFolderService.pickAndStage(
+      // '' = file KHÔNG có đuôi (phontab/phonindex… của espeak-ng-data).
+      extensions: const [
+        '',
+        'onnx',
+        'txt',
+        'json',
+        'vocab',
+        'bz2',
+        'gz',
+        'tgz',
+      ],
+    );
+    if (saf.outcome == SafModelFolderOutcome.cancelled) return;
+
+    String? msg;
+    if (saf.isStaged) {
+      try {
+        msg = await _manager.importPiperFolder(saf.stagingDir!.path);
+      } finally {
+        await SafModelFolderService.deleteStaging(saf.stagingDir);
+      }
+    } else if (saf.outcome == SafModelFolderOutcome.failed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(
+              'Không đọc được thư mục đã chọn. Hãy thử lại, hoặc chọn trực tiếp các file .onnx trong thư mục.')),
+        ),
+      );
+      return;
+    } else {
+      // Không có SAF native (iOS/Desktop) → picker thường.
+      final path = await fp.FilePicker.getDirectoryPath();
+      if (path == null || path.isEmpty) return;
+      msg = await _manager.importPiperFolder(path);
+    }
+    if (msg == null) return;
     if (!mounted) return;
     if (msg.startsWith(SherpaModelManager.safEmptyPrefix)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2354,6 +2393,48 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     BuildContext context,
     SherpaAsrProfile profile,
   ) async {
+    // M4U-IMPORT-002 — Android: SAF tree URI (content://) KHÔNG đọc được bằng
+    // dart:io ⇒ "Import thư mục" cũ báo "Thư mục rỗng" dù thư mục CÓ file.
+    // Dùng native SAF (pickFolder + scanTree + copy) rồi import bằng path thật.
+    final saf = await SafModelFolderService.pickAndStage(
+      extensions: const ['onnx', 'txt', 'vocab', 'model', 'json', 'zip', 'bz2',
+        'gz', 'tgz'],
+    );
+    if (saf.outcome == SafModelFolderOutcome.cancelled) return;
+
+    if (saf.isStaged) {
+      try {
+        // Giữ lại TÊN thư mục gốc trong nhãn nguồn: tên đó là bằng chứng
+        // nhận diện loại model (vd `…-nemo-parakeet-…`) mà đường stage về
+        // cache đã làm mất.
+        final label = saf.folderName != null
+            ? '${saf.stagingDir!.path}/${saf.folderName}'
+            : saf.stagingDir!.path;
+        final result = await _manager.importAsrFolderListingResult(
+          saf.paths,
+          sourceLabel: label,
+          targetProfileId: profile.id,
+        );
+        if (!mounted) return;
+        _showAsrImportResult(context, profile, result);
+      } finally {
+        await SafModelFolderService.deleteStaging(saf.stagingDir);
+      }
+      return;
+    }
+
+    if (saf.outcome == SafModelFolderOutcome.failed) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText(
+              'Không đọc được thư mục đã chọn. Hãy thử lại, hoặc chọn trực tiếp các file model trong thư mục.')),
+        ),
+      );
+      return;
+    }
+
+    // Không có SAF native (iOS/Desktop) → picker thường (trả path thật).
     final path = await fp.FilePicker.getDirectoryPath();
     if (path == null || path.isEmpty) return;
     final result =
@@ -2367,6 +2448,7 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     //     đọc được trên Android.
     final unreadableFolder =
         result.status == SherpaAsrImportStatus.sourceMissing ||
+            result.status == SherpaAsrImportStatus.sourceUnreadable ||
             (result.sourceFileCount == 0 &&
                 result.status != SherpaAsrImportStatus.sourceEmpty);
     if (unreadableFolder) {
@@ -2406,8 +2488,14 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
               '${context.uiText('Bổ sung file rồi bấm Import lại.')}'
           : context.uiText(
               'Thiếu file model: cần encoder, decoder, joiner (.onnx) và tokens.txt.'),
+      // M4U-IMPORT-002 — bộ export NVIDIA NeMo (decoder GỘP joint) không nạp
+      // được bằng sherpa-onnx: nói rõ cần bộ nào, KHÔNG báo "thiếu file" oan.
+      SherpaAsrImportStatus.unsupportedLayout => context.uiText(
+          'Bộ model này là bản export NVIDIA NeMo (decoder gộp joint) — app cần bộ sherpa-onnx gồm encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt. Bấm "Tải về" ở thẻ Parakeet để lấy đúng bộ.'),
       SherpaAsrImportStatus.sourceMissing =>
         context.uiText('Không đọc được thư mục đã chọn.'),
+      SherpaAsrImportStatus.sourceUnreadable => context.uiText(
+          'Không đọc được thư mục đã chọn (SAF/thẻ nhớ ngoài). Hãy chọn trực tiếp các file model trong thư mục.'),
       SherpaAsrImportStatus.sourceEmpty =>
         context.uiText('Chưa chọn file/thư mục nào.'),
       // PARAKEET-002: file model quá lớn cho đường đọc-bytes (encoder

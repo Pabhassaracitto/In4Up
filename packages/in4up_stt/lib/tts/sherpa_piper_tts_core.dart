@@ -289,7 +289,10 @@ class SherpaPiperTtsCore {
       // tokens.txt dùng chung có thể áp dụng cho mọi file onnx chưa có tokens riêng
       // (hoặc tự nhân bản ra <name>_tokens.txt)
       final sharedTokens = File(p.join(dir.path, 'tokens.txt'));
-      final sharedTokensUsable = sharedTokens.existsSync();
+      // M4U-IMPORT-002: tokens rỗng/hỏng (<128B) KHÔNG phải bảng token —
+      // để nó qua là giọng "chạy được" nhưng phát ra tiếng rỗng.
+      final sharedTokensUsable =
+          sharedTokens.existsSync() && sharedTokens.lengthSync() >= 128;
 
       final voices = <PiperTtsVoice>[];
       for (final file in onnxFiles) {
@@ -299,7 +302,8 @@ class SherpaPiperTtsCore {
 
         String? tokensPath;
         final perNameTokens = p.join(dir.path, '${name}_tokens.txt');
-        if (File(perNameTokens).existsSync()) {
+        final perNameFile = File(perNameTokens);
+        if (perNameFile.existsSync() && perNameFile.lengthSync() >= 128) {
           tokensPath = perNameTokens;
         } else if (sharedTokensUsable) {
           tokensPath = sharedTokens.path;

@@ -395,3 +395,11 @@ màn Server & API — app hành xử như chưa có tính năng, không gọi m�
 - 2026-11-02 | proposed→doing | agent `arena/d2aeb948-in4up` | owner chốt
   Q1–Q4 (mục 7) → thi công gói thắng nhanh: mục 2, mục 3 hai tầng, mục 4
   phần dung lượng.
+- 2026-11-03 | doing→doing | agent `arena/d2aeb948-in4up` | owner duyệt
+  bản trực quan `PLAN-041-visual.html` → đợt 2: ADR-0021 + **Pha A mục 1**
+  (ConceptNode/conceptId/gợi ý nối/UI, test thuần + CI); mục 4 hoàn tất
+  phần còn lại (Pixabay, phân trang, gộp nguồn, sheet 92% + xem trước
+  lớn + tải thêm + mật độ + chip truy vấn); mục 5 Pha 1 (hướng dẫn
+  LottieFiles + nhập file) + soạn danh mục 100 khái niệm cốt lõi
+  (`PLAN-041-animation-core-concepts.md`) chờ duyệt cho Pha 2. Toàn cây
+  CI 🟢 run `41594791234`; còn lại là nghiệm thu trên máy thật.

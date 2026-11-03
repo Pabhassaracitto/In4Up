@@ -1,3 +1,14 @@
+/// Kích thước tối thiểu (byte) của bảng tokens Piper HỢP LỆ.
+///
+/// Bảng phoneme espeak của Piper VITS có vài chục KB (bản k2-fsa ~90KB).
+/// File nhỏ hơn 1KB là file cắt/hỏng (log native "tokens=0KB") ⇒ KHÔNG được
+/// coi là giọng "chạy được" (phát ra tiếng rỗng).
+///
+/// Dùng chung cho manager (import) + core (discover) để 2 nơi KHÔNG lệch
+/// ngưỡng ⇒ 1 giọng không bị "import OK" ở nơi này rồi "không có tokens" ở
+/// nơi kia.
+const int kMinPiperTokensBytes = 1024;
+
 /// Pure helpers for Piper import (folder + file). Tested without Flutter IO.
 class PiperImportPaths {
   static const espeakFolder = 'espeak-ng-data';

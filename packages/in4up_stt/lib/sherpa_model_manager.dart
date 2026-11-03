@@ -2625,14 +2625,15 @@ class SherpaModelManager {
   Future<void> _ensurePiperTokens(String destDir, String voiceId) async {
     final named = File(p.join(destDir, '${voiceId}_tokens.txt'));
     final shared = File(p.join(destDir, 'tokens.txt'));
-    if (named.existsSync() && named.lengthSync() > 1024) return;
-    if (shared.existsSync() && shared.lengthSync() > 1024) {
+    if (named.existsSync() && named.lengthSync() > kMinPiperTokensBytes) return;
+    if (shared.existsSync() && shared.lengthSync() > kMinPiperTokensBytes) {
       await shared.copy(named.path);
       return;
     }
     for (final entity in Directory(destDir).listSync()) {
       final n = p.basename(entity.path);
-      if (n.endsWith('_tokens.txt') && File(entity.path).lengthSync() > 1024) {
+      if (n.endsWith('_tokens.txt') &&
+          File(entity.path).lengthSync() > kMinPiperTokensBytes) {
         await File(entity.path).copy(named.path);
         return;
       }
@@ -2641,9 +2642,13 @@ class SherpaModelManager {
       final tmp = p.join(destDir, 'tokens.txt.tmp');
       await _dio.download(piperTokensFallbackUrl, tmp, deleteOnError: true);
       final f = File(tmp);
-      if (await f.exists() && f.lengthSync() > 1024) {
+      if (await f.exists() && f.lengthSync() > kMinPiperTokensBytes) {
         await _replaceFile(tmp, named.path);
-        if (!shared.existsSync()) await named.copy(shared.path);
+        // Tokens dùng chung: ghi đè file hỏng, không giữ file rác.
+        if (!shared.existsSync() ||
+            shared.lengthSync() < kMinPiperTokensBytes) {
+          await named.copy(shared.path);
+        }
       } else {
         // File tải về quá nhỏ (vd trang lỗi HTML) — KHÔNG để lại file rác.
         try {
@@ -2659,12 +2664,16 @@ class SherpaModelManager {
     // (<1KB) là file cắt/hỏng ⇒ xoá để app KHÔNG liệt kê giọng "chạy được"
     // rồi phát ra tiếng rỗng (tokens=0KB trong log init native).
     try {
-      if (named.existsSync() && named.lengthSync() < 1024) {
+      if (named.existsSync() && named.lengthSync() < kMinPiperTokensBytes) {
         await named.delete();
         debugPrint(
           '⚠️ Piper: xoá tokens.txt hỏng của "$voiceId" (<1KB) — cần '
           'tokens.txt hợp lệ (bảng phoneme espeak, dùng chung mọi giọng).',
         );
+      }
+      if (shared.existsSync() && shared.lengthSync() < kMinPiperTokensBytes) {
+        await shared.delete();
+        debugPrint('⚠️ Piper: xoá tokens.txt dùng chung hỏng (<1KB).');
       }
     } catch (e) {
       debugPrint('⚠️ Piper tokens cleanup: $e');

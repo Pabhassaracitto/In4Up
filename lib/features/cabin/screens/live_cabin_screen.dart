@@ -1088,6 +1088,21 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
   }
 
   Widget _buildTranscriptCard(CabinCaption caption, int index) {
+    // CABIN-STAGE-001 (port từ nhánh c26 `fb3c1261`): badge giai đoạn xử lý.
+    // Đây là "cơ chế xác nhận" owner thấy chuyên nghiệp hơn: nhìn 1 cái là biết
+    // câu đang ĐANG NHẬN (partial) / ĐÃ CHỐT (final, chưa có bản dịch) /
+    // ĐÃ DỊCH — thay vì chỉ phân biệt bằng màu viền mờ.
+    final stageLabel = caption.translatedText.trim().isNotEmpty
+        ? context.uiText('ĐÃ DỊCH')
+        : caption.isFinal
+            ? context.uiText('ĐÃ CHỐT')
+            : context.uiText('ĐANG NHẬN');
+    final stageColor = caption.translatedText.trim().isNotEmpty
+        ? const Color(0xFF00E676)
+        : caption.isFinal
+            ? const Color(0xFF64B5F6)
+            : const Color(0xFFFFC107);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -1104,9 +1119,34 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                context.uiText('#${index + 1} · ${_fmtTime(caption.timestamp)}'),
-                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: stageColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: stageColor.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: Text(
+                      stageLabel,
+                      style: TextStyle(
+                        color: stageColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.uiText('#${index + 1} · ${_fmtTime(caption.timestamp)}'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
+                ],
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,

@@ -569,6 +569,10 @@ class SttsCabinService extends ChangeNotifier {
       await _stt.stopListening();
     } catch (_) {}
 
+    // CABIN-FLUSH-001: engine có thể KHÔNG kịp phát `isFinal` cho câu đang nói
+    // ⇒ chốt tay câu partial rồi mới đợi hàng đợi, nếu không sẽ mất câu cuối.
+    await _flushActivePartialBeforeClose();
+
     // Stream callbacks are synchronous with the Sherpa flush; translation and
     // journal persistence are async, so wait before closing the session.
     await _drainPendingFinalizations();
@@ -608,6 +612,9 @@ class SttsCabinService extends ChangeNotifier {
         } catch (_) {}
       }
 
+      // CABIN-FLUSH-001: tạm dừng cũng phải chốt câu đang nhận (nếu không,
+      // câu đó biến mất và người dùng thấy "nói xong mà không có chữ").
+      await _flushActivePartialBeforeClose();
       await _drainPendingFinalizations();
       _recorder?.pauseClock();
       _state = CabinState.paused;
@@ -758,6 +765,28 @@ class SttsCabinService extends ChangeNotifier {
     }
   }
 
+  /// CABIN-FLUSH-001 (2026-10-29) — chốt nốt câu **ĐANG NHẬN** (partial)
+  /// trước khi đóng hoặc tạm dừng phiên.
+  ///
+  /// Vì sao cần: engine STT (nhất là Engine Hệ thống / speech_to_text) chỉ phát
+  /// `isFinal` khi nó TỰ kết thúc câu. Bấm Stop đúng lúc đang nói ⇒
+  /// `_silenceTimer` bị huỷ ở đầu `stopCabin()` và engine không kịp phát final
+  /// ⇒ câu cuối **mất hoàn toàn** (không caption, không dòng LRC, không bản
+  /// dịch). Đây đúng là hiện tượng "nhận diện thiếu" khi so hai bản.
+  ///
+  /// Chỉ chốt khi: có text, câu CHƯA final, và text khác câu vừa chốt (dedup).
+  Future<void> _flushActivePartialBeforeClose() async {
+    final active = _activeCaption;
+    if (active == null) return;
+    final text = active.sourceText.trim();
+    if (text.isEmpty) return;
+    if (active.isFinal) return; // đã đi qua đường final bình thường
+    if (text == _lastFinalizedText) return;
+    debugPrint('🧹 Cabin: chốt nốt câu đang nhận trước khi đóng phiên '
+        '(${text.length} ký tự)');
+    _trackFinalization(text);
+  }
+
   Future<void> _drainPendingFinalizations() async {
     while (_pendingFinalizations.isNotEmpty) {
       final pending = List<Future<void>>.of(_pendingFinalizations);
@@ -832,7 +861,20 @@ class SttsCabinService extends ChangeNotifier {
       isFinal: true,
     );
 
-    _activeCaption = finalizedCaption;
+    // CABIN-KEEP-PARTIAL-001 (2026-10-29): KHÔNG đè câu đang nhận mới hơn.
+    //
+    // Dịch là async (có thể mất vài giây). Trong lúc chờ, người dùng đã nói
+    // tiếp ⇒ `_activeCaption` đã là câu MỚI. Nếu gán đè bằng câu vừa dịch xong
+    // thì câu mới **biến mất** (không caption, không kịp chốt) — đúng kiểu
+    // "nhận diện thiếu". Chỉ gán khi chưa có gì mới hơn.
+    final current = _activeCaption;
+    final hasNewerPartial = current != null &&
+        !current.isFinal &&
+        current.sourceText.trim().isNotEmpty &&
+        current.sourceText.trim() != trimmed;
+    if (!hasNewerPartial) {
+      _activeCaption = finalizedCaption;
+    }
     _history.add(finalizedCaption);
     _captionStreamController.add(finalizedCaption);
 

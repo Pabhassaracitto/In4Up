@@ -2265,4 +2265,8 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'Gửi sang tab Nghe': 'Send to the Listen tab',
   'Video này chưa tải âm thanh': 'This video has no downloaded audio',
   'Không mở được file âm thanh này': 'Could not open this audio file',
+  // CABIN-STAGE-001 (2026-10-29)
+  'ĐANG NHẬN': 'LISTENING',
+  'ĐÃ CHỐT': 'CONFIRMED',
+  'ĐÃ DỊCH': 'TRANSLATED',
 };

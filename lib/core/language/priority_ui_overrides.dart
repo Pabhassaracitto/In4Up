@@ -4286,6 +4286,28 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'තෝරාගත් ප්\u200dරභවයේ .mdx ගොනුවක් හමු නොවීය '
         '(තනි ගොනු: {value0})',
   },
+  // CABIN-STAGE-001 (2026-10-29, port từ nhánh c26) — badge giai đoạn caption.
+  'ĐANG NHẬN': {
+    'en': 'LISTENING',
+    'hi': 'सुन रहा है',
+    'zh': '识别中',
+    'zh_TW': '辨識中',
+    'si': 'හඳුනා ගනිමින්',
+  },
+  'ĐÃ CHỐT': {
+    'en': 'CONFIRMED',
+    'hi': 'पुष्ट',
+    'zh': '已确认',
+    'zh_TW': '已確認',
+    'si': 'තහවුරු කළා',
+  },
+  'ĐÃ DỊCH': {
+    'en': 'TRANSLATED',
+    'hi': 'अनूदित',
+    'zh': '已翻译',
+    'zh_TW': '已翻譯',
+    'si': 'පරිවර්තිතයි',
+  },
   // DICT-SQLITE-001 (2026-10-28) — import từ điển dạng file SQLite (.db).
   'File .db không phải SQLite hợp lệ': {
     'en': 'This .db file is not a valid SQLite database',

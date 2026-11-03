@@ -1022,6 +1022,75 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               style: TextStyle(
                   color: scheme.onSurfaceVariant, fontSize: 11.5, height: 1.5),
             ),
+            // PLAN-041 mục 5 (LOTTIE-LIB-001 pha 1) — LottieFiles KHÔNG có
+            // API công khai cho animation miễn phí, nên đường chính là:
+            // mở trình duyệt tại trang tìm kiếm (điền sẵn từ khóa) → tải
+            // file .json/.lottie → nhập file từ máy. Không scrape.
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.uiText(
+                        'Không cần dán link: ① mở LottieFiles tìm animation cho từ này ② tải file .json/.lottie về máy ③ chọn file ở đây — ứng dụng xem trước rồi lưu.'),
+                    style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 11,
+                        height: 1.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.open_in_new, size: 14),
+                        label: Text(
+                          context.uiText('Mở LottieFiles tìm từ này'),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () async {
+                          final kw = (widget.word ?? '').trim().isNotEmpty
+                              ? (widget.word ?? '').trim()
+                              : _query.text.trim();
+                          final uri = Uri.https(
+                            'lottiefiles.com',
+                            '/search',
+                            {if (kw.isNotEmpty) 'q': kw},
+                          );
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        },
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.folder_open, size: 14),
+                        label: Text(
+                          context.uiText('Chọn file animation từ máy'),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () {
+                                setState(() {
+                                  _source = VocabImageSourceKind.device;
+                                });
+                                _pickDeviceImage(camera: false);
+                              },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _urlCtrl,

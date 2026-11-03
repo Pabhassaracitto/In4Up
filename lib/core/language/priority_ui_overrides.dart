@@ -8331,4 +8331,27 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'මෙම රූපය භාවිත කරන්න',
   },
 
+  // PLAN-041 muc 5 — huong dan lay animation khong dan link
+  'Không cần dán link: ① mở LottieFiles tìm animation cho từ này ② tải file .json/.lottie về máy ③ chọn file ở đây — ứng dụng xem trước rồi lưu.': {
+    'en': 'No link needed: ① open LottieFiles to find an animation for this word ② download the .json/.lottie file ③ pick the file here — the app previews it, then saves it.',
+    'hi': 'लिंक चिपकाने की ज़रूरत नहीं: ① इस शब्द के लिए LottieFiles खोलें ② .json/.lottie फ़ाइल डाउनलोड करें ③ यहाँ फ़ाइल चुनें — ऐप पहले दिखाएगा, फिर सहेजेगा।',
+    'zh': '无需粘贴链接：①打开 LottieFiles 为该词找动画 ②下载 .json/.lottie 文件 ③在此选择文件——应用先预览再保存。',
+    'zh_TW': '無需貼上連結：①開啟 LottieFiles 為該詞找動畫 ②下載 .json/.lottie 檔 ③在此選檔——應用先預覽再存檔。',
+    'si': 'සබැඳියක් ඇලවීම අනවශ්‍යයි: ① මෙම වචනයට LottieFiles විවෘත කරන්න ② .json/.lottie ගොනුව බාගන්න ③ මෙහි ගොනුව තෝරන්න — යෙදුම පෙරදසුන් කර පසුව සුරකී.',
+  },
+  'Mở LottieFiles tìm từ này': {
+    'en': 'Open LottieFiles for this word',
+    'hi': 'इस शब्द के लिए LottieFiles खोलें',
+    'zh': '为该词打开 LottieFiles',
+    'zh_TW': '為該詞開啟 LottieFiles',
+    'si': 'මෙම වචනයට LottieFiles අරින්න',
+  },
+  'Chọn file animation từ máy': {
+    'en': 'Pick an animation file from device',
+    'hi': 'डिवाइस से एनिमेशन फ़ाइल चुनें',
+    'zh': '从设备选动画文件',
+    'zh_TW': '從裝置選動畫檔',
+    'si': 'උපකරණයෙන් සජීවිකරණ ගොනුවක් තෝරන්න',
+  },
+
 };

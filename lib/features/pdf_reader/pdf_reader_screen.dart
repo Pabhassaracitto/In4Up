@@ -50,6 +50,7 @@ import 'widgets/pdf_tts_bar.dart';
 import 'widgets/pdf_word_overlay.dart';
 import 'widgets/pdf_word_tap_sheet.dart';
 import 'widgets/pdf_wordlist_panel.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../../widgets/ipa_source_chip.dart';
 
 class PdfReaderScreen extends StatefulWidget {
@@ -1687,7 +1688,7 @@ class _SavedWordRecallSheetState extends State<_SavedWordRecallSheet> {
                         children: [
                           Text(
                             phonetic,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.grey[400],
                               fontSize: 14,
                               fontStyle: FontStyle.italic,

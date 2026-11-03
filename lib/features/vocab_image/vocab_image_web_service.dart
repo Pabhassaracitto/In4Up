@@ -42,8 +42,8 @@ class VocabWebImage {
   final String? creator;
   final String? license;
 
-  /// 'pexels' | 'unsplash' | 'openverse' | 'wikimedia' (hoặc tên nguồn con
-  /// mà Openverse trả về, vd 'flickr').
+  /// 'pexels' | 'unsplash' | 'pixabay' | 'openverse' | 'wikimedia' (hoặc
+  /// tên nguồn con mà Openverse trả về, vd 'flickr').
   final String source;
 
   const VocabWebImage({
@@ -107,6 +107,7 @@ class VocabImageWebService {
       'https://api.pexels.com/v1/search';
   static const String unsplashSearchEndpoint =
       'https://api.unsplash.com/search/photos';
+  static const String pixabaySearchEndpoint = 'https://pixabay.com/api/';
 
   /// MediaWiki + Openverse đều từ chối UA rỗng.
   static const String userAgent =
@@ -126,9 +127,18 @@ class VocabImageWebService {
   /// Tìm ảnh cho [rawQuery]. Không bao giờ ném:
   /// kết quả rỗng + [lastError] / [missingKeyProvider] để UI báo đúng nguyên
   /// nhân (thiếu key KHÁC với hết mạng KHÁC với không có kết quả).
+  ///
+  /// PLAN-041 mục 4 (IMG-WEB-002):
+  /// • [page] = trang kết quả (1-based) — nút "Tải thêm" của UI.
+  /// • [mergeAll] = true → hỏi LẦN LƯỢT các nguồn dùng được và GỘP kết
+  ///   quả (mỗi nguồn đóng góp tới khi đủ [limit]) thay vì dừng ở nguồn
+  ///   đầu tiên trả về — lưới chọn ảnh đa dạng hơn, có nhãn nguồn để
+  ///   phân biệt. Mặc định false giữ nguyên hành vi IMG-WEB-001.
   Future<List<VocabWebImage>> search(
     String rawQuery, {
     int limit = 24,
+    int page = 1,
+    bool mergeAll = false,
     VocabImageApiSettings? settings,
   }) async {
     final query = rawQuery.trim();
@@ -139,16 +149,28 @@ class VocabImageWebService {
     }
     final cfg = settings ?? await VocabImageApiConfig.instance.load();
     final cap = limit < 1 ? 1 : (limit > 40 ? 40 : limit);
-    final cacheKey = '${query.toLowerCase()}|${cfg.provider.name}|$cap';
+    final pageNo = page < 1 ? 1 : page;
+    final cacheKey =
+        '${query.toLowerCase()}|${cfg.provider.name}|$cap|$pageNo|${mergeAll ? 'm' : 's'}';
     final cached = _cache[cacheKey];
     if (cached != null) {
       lastError = null;
       return cached;
     }
 
-    List<VocabWebImage> results = const [];
+    final collected = <VocabWebImage>[];
+    final seenUrls = <String>{};
     String? error;
-    for (final provider in cfg.searchOrder()) {
+    // Gộp: mỗi nguồn chỉ cần đóng góp một phần trần, tránh gọi 40 ảnh cho
+    // mọi nguồn. Đơn nguồn: nguyên trần như cũ.
+    final order = cfg.searchOrder();
+    final usable = order
+        .where((p) => !p.needsKey || (cfg.keyFor(p) ?? '').isNotEmpty)
+        .toList();
+    final perProvider = mergeAll
+        ? (cap / (usable.isEmpty ? 1 : usable.length)).ceil().clamp(8, cap)
+        : cap;
+    for (final provider in order) {
       final key = cfg.keyFor(provider);
       if (provider.needsKey && (key == null || key.isEmpty)) {
         // Nguồn có key là yêu cầu của chủ dự án — ghi lại provider đầu tiên
@@ -157,19 +179,23 @@ class VocabImageWebService {
         continue;
       }
       try {
-        results = await _searchWith(provider, query, cap, key);
+        final part =
+            await _searchWith(provider, query, perProvider, key, pageNo);
+        for (final img in part) {
+          if (seenUrls.add(img.imageUrl)) collected.add(img);
+        }
       } catch (e) {
         error = e.toString();
         debugPrint('[VocabImageWeb] ${provider.label} lỗi: $e');
-        results = const [];
         continue;
       }
-      if (results.isNotEmpty) {
-        error = null;
-        break;
-      }
+      if (collected.isNotEmpty) error = null;
+      if (!mergeAll && collected.isNotEmpty) break;
+      if (collected.length >= cap) break;
     }
 
+    final results =
+        collected.length > cap ? collected.sublist(0, cap) : collected;
     lastError = results.isEmpty ? (error ?? 'empty') : null;
 
     if (results.isNotEmpty) {
@@ -184,24 +210,28 @@ class VocabImageWebService {
     String query,
     int limit,
     String? key,
+    int page,
   ) {
     switch (provider) {
       case VocabImageProvider.pexels:
-        return _searchPexels(query, limit, key ?? '');
+        return _searchPexels(query, limit, key ?? '', page);
       case VocabImageProvider.unsplash:
-        return _searchUnsplash(query, limit, key ?? '');
+        return _searchUnsplash(query, limit, key ?? '', page);
+      case VocabImageProvider.pixabay:
+        return _searchPixabay(query, limit, key ?? '', page);
       case VocabImageProvider.openverse:
-        return _searchOpenverse(query, limit, key);
+        return _searchOpenverse(query, limit, key, page);
       case VocabImageProvider.wikimedia:
-        return _searchCommons(query, limit);
+        return _searchCommons(query, limit, page);
     }
   }
 
   Future<List<VocabWebImage>> _searchPexels(
-      String query, int limit, String apiKey) async {
+      String query, int limit, String apiKey, int page) async {
     final uri = Uri.parse(pexelsSearchEndpoint).replace(queryParameters: {
       'query': query,
       'per_page': '$limit',
+      'page': '$page',
       'size': 'medium',
       'locale': 'en-US',
       'safe_search': 'true',
@@ -211,10 +241,11 @@ class VocabImageWebService {
   }
 
   Future<List<VocabWebImage>> _searchUnsplash(
-      String query, int limit, String accessKey) async {
+      String query, int limit, String accessKey, int page) async {
     final uri = Uri.parse(unsplashSearchEndpoint).replace(queryParameters: {
       'query': query,
       'per_page': '$limit',
+      'page': '$page',
       'orientation': 'square',
       'content_filter': 'low',
     });
@@ -225,11 +256,29 @@ class VocabImageWebService {
     return parseUnsplash(body, limit: limit);
   }
 
+  Future<List<VocabWebImage>> _searchPixabay(
+      String query, int limit, String apiKey, int page) async {
+    final uri = Uri.parse(pixabaySearchEndpoint).replace(queryParameters: {
+      'key': apiKey,
+      'q': query,
+      // Minh hoạ từ vựng: ảnh + tranh đều có giá trị (động vật, đồ vật…).
+      'image_type': 'all',
+      'safesearch': 'true',
+      // Pixabay đòi per_page trong [3, 200].
+      'per_page': '${limit < 3 ? 3 : limit}',
+      'page': '$page',
+      'lang': 'en',
+    });
+    final body = await _get(uri);
+    return parsePixabay(body, limit: limit);
+  }
+
   Future<List<VocabWebImage>> _searchOpenverse(
-      String query, int limit, String? token) async {
+      String query, int limit, String? token, int page) async {
     final uri = Uri.parse(openverseEndpoint).replace(queryParameters: {
       'q': query,
       'page_size': '$limit',
+      'page': '$page',
       // Ảnh minh họa từ vựng: ưu tiên ảnh "đẹp" + có giấy phép mở.
       'license_type': 'all',
       'mature': 'false',
@@ -241,7 +290,8 @@ class VocabImageWebService {
     return parseOpenverse(body, limit: limit);
   }
 
-  Future<List<VocabWebImage>> _searchCommons(String query, int limit) async {
+  Future<List<VocabWebImage>> _searchCommons(
+      String query, int limit, int page) async {
     final uri = Uri.parse(commonsEndpoint).replace(queryParameters: {
       'action': 'query',
       'format': 'json',
@@ -250,6 +300,8 @@ class VocabImageWebService {
       'gsrsearch': 'filetype:bitmap $query',
       'gsrnamespace': '6', // File:
       'gsrlimit': '$limit',
+      // MediaWiki phân trang bằng offset, không có tham số page.
+      'gsroffset': '${(page - 1) * limit}',
       'prop': 'imageinfo',
       'iiprop': 'url|extmetadata',
       'iiurlwidth': '480',
@@ -434,6 +486,44 @@ class VocabImageWebService {
           creator: item['user'] is Map ? _str((item['user'] as Map)['name']) : null,
           license: 'Unsplash License',
           source: 'unsplash',
+        ));
+      }
+    } catch (_) {
+      return const [];
+    }
+    return out;
+  }
+
+  /// Pixabay `/api/` → `{"totalHits": n, "hits": [ {pageURL, largeImageURL,
+  /// webformatURL, previewURL, user, tags, type} ]}`.
+  ///
+  /// Ảnh chính lấy `largeImageURL` (tối đa ~1280px) rồi tới `webformatURL`
+  /// (640px) — cỡ vừa cho thẻ học, bước lưu còn chuẩn hoá ≤1024px nữa.
+  /// Điều khoản Pixabay: nguồn hiển thị là "Pixabay", ảnh chọn xong tải
+  /// về máy (không hotlink vĩnh viễn).
+  static List<VocabWebImage> parsePixabay(String body, {int limit = 24}) {
+    final out = <VocabWebImage>[];
+    try {
+      final json = jsonDecode(body);
+      if (json is! Map) return const [];
+      final hits = json['hits'];
+      if (hits is! List) return const [];
+      for (final item in hits) {
+        if (out.length >= limit) break;
+        if (item is! Map) continue;
+        final full =
+            _url(item['largeImageURL']) ?? _url(item['webformatURL']);
+        if (full == null) continue;
+        out.add(VocabWebImage(
+          imageUrl: full,
+          thumbUrl: _url(item['previewURL']) ??
+              _url(item['webformatURL']) ??
+              full,
+          pageUrl: _url(item['pageURL']) ?? full,
+          title: _str(item['tags']) ?? '',
+          creator: _str(item['user']),
+          license: 'Pixabay Content License',
+          source: 'pixabay',
         ));
       }
     } catch (_) {

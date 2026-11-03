@@ -469,4 +469,48 @@ void main() {
       expect(VocabImageWebService.looksLikeLottieContent(bytes([])), isFalse);
     });
   });
+
+  group('parsePixabay — PLAN-041 mục 4', () {
+    const body = '''
+{
+  "totalHits": 2,
+  "hits": [
+    {
+      "pageURL": "https://pixabay.com/photos/1",
+      "largeImageURL": "https://cdn.pixabay.com/photo/1_1280.jpg",
+      "webformatURL": "https://cdn.pixabay.com/photo/1_640.jpg",
+      "previewURL": "https://cdn.pixabay.com/photo/1_150.jpg",
+      "user": "Jacek",
+      "tags": "dog, animal, pet",
+      "type": "photo"
+    },
+    {
+      "pageURL": "https://pixabay.com/illustrations/2",
+      "webformatURL": "https://cdn.pixabay.com/illustration/2_640.png",
+      "previewURL": "https://cdn.pixabay.com/illustration/2_150.png",
+      "user": "Anna",
+      "tags": "cat",
+      "type": "illustration"
+    },
+    {"pageURL": "https://pixabay.com/photos/3", "tags": "no file"}
+  ]
+}
+''';
+
+    test('ưu tiên largeImageURL, fallback webformat; nguồn là pixabay', () {
+      final out = VocabImageWebService.parsePixabay(body);
+      expect(out.length, 2, reason: 'hit không có URL file thì bỏ');
+      expect(out.first.imageUrl, contains('_1280'));
+      expect(out.first.thumbUrl, contains('_150'));
+      expect(out.first.source, 'pixabay');
+      expect(out.first.license, contains('Pixabay'));
+      expect(out[1].imageUrl, contains('_640'));
+    });
+
+    test('JSON rác → rỗng, không ném; limit được tôn trọng', () {
+      expect(VocabImageWebService.parsePixabay('{}'), isEmpty);
+      expect(VocabImageWebService.parsePixabay('<html>'), isEmpty);
+      expect(VocabImageWebService.parsePixabay(body, limit: 1).length, 1);
+    });
+  });
 }

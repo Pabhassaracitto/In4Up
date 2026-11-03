@@ -206,9 +206,16 @@ DharmaCatalog buildDharmaCatalog({
     if (byCollection != 0) return byCollection;
     final oa = a.orderIndex;
     final ob = b.orderIndex;
-    if (oa != null && ob != null && oa != ob) return oa.compareTo(ob);
-    if (oa != null && ob == null) return -1;
-    if (oa == null && ob != null) return 1;
+    if (oa != null && ob != null) {
+      final byOrder = oa.compareTo(ob);
+      if (byOrder != 0) return byOrder;
+    } else if (oa != null) {
+      return -1;
+    } else if (ob != null) {
+      return 1;
+    }
+    // Hai series cùng số thứ tự (hoặc cùng không có) phải có thứ tự ỔN ĐỊNH,
+    // nếu không mỗi lần quét lại danh sách nhảy loạn.
     return naturalCompare(a.title, b.title);
   });
 

@@ -361,19 +361,18 @@ class DharmaProgress {
   /// Người dùng bấm "Đã nghe xong" — thắng mọi suy luận tự động.
   final bool completedManually;
 
-  final DateTime lastPlayedAt;
+  /// `null` = chưa từng phát. Kiểu nullable (không phải `kNeverPlayed` dạng
+  /// hằng) vì `DateTime` không có constructor `const` ⇒ không dùng được làm
+  /// giá trị mặc định, mà `DharmaProgress` cần giữ `const` cho test.
+  final DateTime? lastPlayedAt;
 
-  /// Cho phép `const` trong test/preview: mốc "chưa từng phát" thay vì
-  /// `DateTime.now()` (không phải hằng).
   const DharmaProgress({
     required this.episodeKey,
     this.lastPosition = Duration.zero,
     this.duration = Duration.zero,
     this.completedManually = false,
-    this.lastPlayedAt = kNeverPlayed,
+    this.lastPlayedAt,
   });
-
-  static final DateTime kNeverPlayed = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Ngưỡng hoàn thành: ≥95% hoặc còn ≤ 30 s.
   static bool isFinished({
@@ -426,7 +425,7 @@ class DharmaProgress {
         'last_position_ms': lastPosition.inMilliseconds,
         'duration_ms': duration.inMilliseconds,
         'completed_manually': completedManually,
-        'last_played_at': lastPlayedAt.toIso8601String(),
+        'last_played_at': lastPlayedAt?.toIso8601String(),
       };
 
   factory DharmaProgress.fromJson(Map<String, dynamic> json) {
@@ -435,8 +434,7 @@ class DharmaProgress {
       lastPosition: Duration(milliseconds: json['last_position_ms'] as int? ?? 0),
       duration: Duration(milliseconds: json['duration_ms'] as int? ?? 0),
       completedManually: json['completed_manually'] as bool? ?? false,
-      lastPlayedAt: DateTime.tryParse(json['last_played_at'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      lastPlayedAt: DateTime.tryParse(json['last_played_at'] as String? ?? ''),
     );
   }
 }

@@ -106,9 +106,14 @@ class DharmaProvider extends ChangeNotifier {
         out.add(DharmaListEntry(series: s, episode: e, progress: progress));
       }
     }
+    // `compareTo` trên `DateTime?`: null (chưa từng phát) phải xếp SAU, nên
+    // đảo thứ tự tham số thay vì so trực tiếp.
     out.sort((a, b) {
-      final ta = a.progress?.lastPlayedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final tb = b.progress?.lastPlayedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final ta = a.progress?.lastPlayedAt;
+      final tb = b.progress?.lastPlayedAt;
+      if (ta == null && tb == null) return 0;
+      if (ta == null) return 1;
+      if (tb == null) return -1;
       return tb.compareTo(ta);
     });
     return out.take(limit).toList(growable: false);

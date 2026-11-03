@@ -106,7 +106,7 @@ const Map<String, String> dharmaSpeakerAliases = {
   'ngai_u_kovida_': 'Sayadaw U Kovida',
 };
 
-const Set<String> _venues = {
+const Map<String, String> _venues = {
   'da lat': 'Đà Lạt',
   'đà lạt': 'Đà Lạt',
   'ba vi': 'Ba Vì',
@@ -392,15 +392,22 @@ class DharmaNameParser {
   }
 
   /// Sắp xếp buổi theo số buổi (natural), rồi tới tên.
+  ///
+  /// `episodeStart` BẰNG NHAU (thường gặp: hai buổi cùng 'P…' khác `Phần`,
+  /// hoặc file ghép `05-06`) phải rơi xuống `naturalCompare`, nếu chỉ so
+  /// `!=` rồi trả 0 thì thứ tự phụ thuộc thứ tự quét ⇒ mở app lại thấy đổi.
   static void sortEpisodes(List<DharmaEpisode> episodes) {
     episodes.sort((a, b) {
       final startA = a.episodeStart;
       final startB = b.episodeStart;
-      if (startA != null && startB != null && startA != startB) {
-        return startA.compareTo(startB);
+      if (startA != null && startB != null) {
+        final byNumber = startA.compareTo(startB);
+        if (byNumber != 0) return byNumber;
+      } else if (startA != null) {
+        return -1;
+      } else if (startB != null) {
+        return 1;
       }
-      if (startA != null && startB == null) return -1;
-      if (startA == null && startB != null) return 1;
       return naturalCompare(a.rawName, b.rawName);
     });
   }

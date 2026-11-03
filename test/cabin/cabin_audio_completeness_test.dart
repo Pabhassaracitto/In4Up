@@ -25,9 +25,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+/// Đọc file nguồn. KHÔNG dùng `expect()` ở đây: hàm này được gọi ở thân
+/// `main()` (ngoài `test()`), mà `expect` ngoài test sẽ làm cả file test
+/// KHÔNG LOAD được (CI báo "1 failed" thay vì chỉ đúng assertion).
 String _read(String path) {
   final file = File(path);
-  expect(file.existsSync(), isTrue, reason: 'Không thấy file: $path');
+  if (!file.existsSync()) {
+    throw StateError('Không thấy file nguồn để pin: $path');
+  }
   return file.readAsStringSync();
 }
 

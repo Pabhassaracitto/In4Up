@@ -58,8 +58,10 @@ class _WordSheetState extends State<_WordSheet> {
   PdfWordInfo get _wordInfo => widget.wordInfo;
   PdfReaderController get _controller => widget.controller;
 
-  String get _displayWord =>
-      _wordInfo.text.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+  String get _displayWord => _wordInfo.text
+      .replaceAll(RegExp(r'[^\p{L}\p{N}\s-]+', unicode: true), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 
   String get _lookupWord => _displayWord.toLowerCase();
 
@@ -87,12 +89,19 @@ class _WordSheetState extends State<_WordSheet> {
       if (local.hasAny) _loading = false;
     });
 
-    // Bước 2: nâng cấp bằng nguồn mạng (ưu tiên mạng theo yêu cầu).
+    // Bước 2: nâng cấp bằng nguồn mạng — CHỈ khi mạng trả về dữ liệu thực
+    // (có nghĩa hoặc IPA hoặc từ điển). Nếu mạng lỗi/trống, giữ nguyên nguồn
+    // cục bộ để không trùng hai khung nghĩa / không hiện khung trống.
     final online = await service.resolve(word);
     if (!mounted) return;
+    final onlineHasRealData =
+        online.origin == WordInsightOrigin.network &&
+        (online.hasMeaning || online.hasIpa || online.hasDictionary);
     setState(() {
-      _insight = online;
-      _merged = online.hasDictionary ? online.mergedDictionary : _merged;
+      if (onlineHasRealData) {
+        _insight = online;
+        _merged = online.hasDictionary ? online.mergedDictionary : _merged;
+      }
       _loading = false;
     });
 
@@ -162,6 +171,11 @@ class _WordSheetState extends State<_WordSheet> {
         final origin = insight?.origin;
         final showLookupSpinner = _loading && meaning.isEmpty;
         final merged = _merged;
+        // Chỉ hiển thị ô nghĩa nhanh khi: có nghĩa đã lưu, KHÔNG có khung từ điển
+        // (tránh trùng hai khung), hoặc ý nghĩa từ insight có nội dung thực.
+        final hasDictionaryData = merged != null && !merged.isEmpty;
+        final showMeaningBox = savedMeaning.isNotEmpty ||
+            (!hasDictionaryData && meaning.isNotEmpty);
         final exampleText = (analyzed?.example ?? '').trim();
         final surroundingText =
             (_wordInfo.contextSnippet ?? '').trim().isNotEmpty
@@ -274,7 +288,7 @@ class _WordSheetState extends State<_WordSheet> {
                 ),
 
                 // Meaning
-                if (meaning.isNotEmpty) ...[
+                if (showMeaningBox) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(12),

@@ -19,11 +19,15 @@ import 'pdf_ocr_sheet.dart';
 class PdfTtsBar extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback? onUserInteraction;
+  final bool showWordlistPanel;
+  final VoidCallback? onToggleWordlist;
 
   const PdfTtsBar({
     super.key,
     required this.controller,
     this.onUserInteraction,
+    this.showWordlistPanel = false,
+    this.onToggleWordlist,
   });
 
   @override
@@ -48,6 +52,24 @@ class PdfTtsBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Nút mở/bấm bảng từ vựng — đặt ở đầu hàng để không chồng chéo
+          // với nút tốc độ đọc ở cuối thanh (issue UI Overlap).
+          if (showWordlistPanel && onToggleWordlist != null) ...[
+            _BarBtn(
+              icon: showWordlistPanel
+                  ? Icons.view_sidebar_rounded
+                  : Icons.view_sidebar_outlined_rounded,
+              tooltip: context.uiText(
+                showWordlistPanel ? 'Ẩn bảng từ vựng' : 'Hiện bảng từ vựng',
+              ),
+              onTap: () {
+                onUserInteraction?.call();
+                HapticFeedback.lightImpact();
+                onToggleWordlist!.call();
+              },
+            ),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

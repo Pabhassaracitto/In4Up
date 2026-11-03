@@ -39,6 +39,7 @@ class SelectionSaveSheet {
     required String sourceLabel,
     String? sourceDetail,
     VocabContext Function(String sampleText)? contextBuilder,
+    bool batchMode = false,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -53,6 +54,7 @@ class SelectionSaveSheet {
         sourceLabel: sourceLabel,
         sourceDetail: sourceDetail,
         contextBuilder: contextBuilder,
+        batchMode: batchMode,
       ),
     );
   }
@@ -63,6 +65,7 @@ class SelectionSaveSheetView extends StatefulWidget {
   final String sourceLabel;
   final String? sourceDetail;
   final VocabContext Function(String sampleText)? contextBuilder;
+  final bool batchMode;
 
   const SelectionSaveSheetView({
     super.key,
@@ -70,6 +73,7 @@ class SelectionSaveSheetView extends StatefulWidget {
     required this.sourceLabel,
     this.sourceDetail,
     this.contextBuilder,
+    this.batchMode = false,
   });
 
   @override
@@ -95,6 +99,16 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    // Chế độ lưu hàng loạt: mở ngay chế độ thông minh và chọn toàn bộ mục
+    // mà không cần bấm nút thứ hai.
+    if (widget.batchMode) {
+      _enterBatchMode(selectAll: true);
+    }
+  }
+
   void _submitCustomLanguage() {
     final raw = _newLangCtrl.text;
     final err = validateCustomLanguageCode(raw);
@@ -113,7 +127,7 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     });
   }
 
-  void _enterBatchMode() {
+  void _enterBatchMode({bool selectAll = false}) {
     final candidates = VocabBatchExtractor.extract(
       widget.text,
       minLength: 3,
@@ -128,6 +142,12 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
         c,
         pageTitle: widget.sourceLabel,
       );
+    }
+    // Chế độ hàng loạt một-tap: chọn toàn bộ mục ngay khi mở.
+    if (selectAll) {
+      for (final c in candidates) {
+        c.selected = true;
+      }
     }
     setState(() {
       _batchMode = true;

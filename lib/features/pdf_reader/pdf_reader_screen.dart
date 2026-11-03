@@ -50,6 +50,7 @@ import 'widgets/pdf_tts_bar.dart';
 import 'widgets/pdf_word_overlay.dart';
 import 'widgets/pdf_word_tap_sheet.dart';
 import 'widgets/pdf_wordlist_panel.dart';
+import '../../widgets/ipa_source_chip.dart';
 
 class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
@@ -532,9 +533,6 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final showWordlistFab =
-        _controller.viewMode == PdfViewMode.pdfView && (_chromeVisible || _showWordlistPanel);
-
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
       body: Focus(
@@ -626,6 +624,11 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                         PdfTtsBar(
                           controller: _controller,
                           onUserInteraction: () => _showChrome(),
+                          showWordlistPanel: _showWordlistPanel,
+                          onToggleWordlist: () {
+                            _showChrome();
+                            setState(() => _showWordlistPanel = !_showWordlistPanel);
+                          },
                         ),
                       ],
                     ),
@@ -678,29 +681,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         )
       ),
 
-      floatingActionButton: AnimatedScale(
-        duration: const Duration(milliseconds: 180),
-        scale: showWordlistFab ? 1 : 0,
-        child: IgnorePointer(
-          ignoring: !showWordlistFab,
-          child: FloatingActionButton.small(
-            heroTag: 'wordlist_panel',
-            backgroundColor: _showWordlistPanel
-                ? const Color(0xFF6C63FF)
-                : const Color(0xFF1A2235),
-            onPressed: () {
-              _showChrome();
-              setState(() => _showWordlistPanel = !_showWordlistPanel);
-              HapticFeedback.lightImpact();
-            },
-            child: Icon(
-              _showWordlistPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-        ),
-      ),
+      floatingActionButton: null,
     );
   }
 
@@ -1525,7 +1506,17 @@ class _SelectionBar extends StatelessWidget {
               icon: Icons.history_edu_outlined,
               color: const Color(0xFFB9F6CA),
               tooltip: context.uiText('Xem ghi chú đã lưu trước đó'),
-              onTap: () => _showSelectionRecallSheet(context, existing),
+              onTap: () => showModalBottomSheet<void>(
+                    context: context,
+                    backgroundColor: const Color(0xFF1A1A2E),
+                    // isScrollControlled = TẮT: sheet tự co theo nội dung,
+                    // không trôi lấp toàn màn hình và không che nội dung sách.
+                    isScrollControlled: false,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (_) => _SavedWordRecallSheet(entry: existing),
+                  ),
             ),
           if (existing != null) const SizedBox(width: 2),
           _SelectionIconButton(
@@ -1627,15 +1618,30 @@ class _SelectionIconButton extends StatelessWidget {
   }
 }
 
-void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
-  final latestContext = entry.latestContext;
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: const Color(0xFF1A1A2E),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (_) => Padding(
+class _SavedWordRecallSheet extends StatefulWidget {
+  final WordEntry entry;
+
+  const _SavedWordRecallSheet({required this.entry});
+
+  @override
+  State<_SavedWordRecallSheet> createState() => _SavedWordRecallSheetState();
+}
+
+class _SavedWordRecallSheetState extends State<_SavedWordRecallSheet> {
+  bool _expanded = false;
+
+  DifficultyLevel? get _difficulty => widget.entry.userDifficulty;
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final latestContext = entry.latestContext;
+    final phonetic = (entry.phonetic ?? '').trim();
+    final meaning = (entry.meaning ?? '').trim();
+    final note = (entry.personalNotes ?? '').trim();
+    final hasDetail = note.isNotEmpty || latestContext != null;
+
+    return Padding(
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
@@ -1657,76 +1663,150 @@ void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            entry.word,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+
+          // ── Header: từ + phát âm ────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _MiniRecallBadge(label: '${entry.encounterCount} lần gặp'),
-              _MiniRecallBadge(label: '${entry.sourceFiles.length} nguồn'),
-              _MiniRecallBadge(label: entry.vocabType.label(context)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.word,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (phonetic.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            phonetic,
+                            style: const TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                          if ((entry.phoneticSource ?? '').isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            IpaSourceChip(source: entry.phoneticSource!),
+                          ],
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    // Tags: loại từ + độ khó
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _RecallTag(
+                          label: entry.vocabType.label(context),
+                          color: entry.vocabType.color,
+                        ),
+                        if (_difficulty != null)
+                          _RecallTag(
+                            label: _difficulty!.label,
+                            color: _difficulty!.color,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          if (entry.meaning.trim().isNotEmpty) ...[
+
+          // ── Nghĩa (compact, maxLines 2, expand/collapse) ───
+          if (meaning.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(
-              entry.meaning,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                height: 1.45,
+            GestureDetector(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Text(
+                meaning,
+                maxLines: _expanded ? null : 2,
+                overflow: _expanded ? null : TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.45,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                child: Text(
+                  context.uiText(_expanded ? 'Thu gọn' : 'Xem thêm'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: const Color(0xFF64B5F6),
+                  ),
+                ),
               ),
             ),
           ],
-          if ((entry.personalNotes ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
+
+          // ── Ghi chú (collapse) ──────────────────────────────
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Text(
-              entry.personalNotes!.trim(),
-              style: const TextStyle(
+              note,
+              maxLines: _expanded ? null : 2,
+              overflow: _expanded ? null : TextOverflow.ellipsis,
+              style: TextStyle(
                 color: Color(0xFFB9F6CA),
                 height: 1.45,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
+
+          // ── Ngữ cảnh gần nhất (collapse) ────────────────────
           if (latestContext != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              context.uiText(
-                'Ngữ cảnh gần nhất: ${latestContext.composeDisplaySource(
-                  latestContext.hasGeneratedPositionLabel &&
-                          latestContext.pageOrPosition != null
-                      ? context.uiText(latestContext.pageOrPosition!)
-                      : latestContext.pageOrPosition,
-                )}',
-              ),
-              style: TextStyle(
-                color: Colors.grey[300],
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(Icons.history_edu_outlined,
+                    size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.uiText('Ngữ cảnh gần nhất'),
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               latestContext.surroundingText,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+              maxLines: _expanded ? null : 3,
+              overflow: _expanded ? null : TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.grey[400],
                 fontStyle: FontStyle.italic,
+                fontSize: 12,
                 height: 1.45,
               ),
             ),
           ],
-          const SizedBox(height: 14),
+
+          const SizedBox(height: 16),
+
+          // ── Hành động ───────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -1747,8 +1827,36 @@ void _showSelectionRecallSheet(BuildContext context, WordEntry entry) {
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
+}
+
+/// Chip nhỏ cho thẻ recall (loại từ / độ khó).
+class _RecallTag extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _RecallTag({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 class _MiniRecallBadge extends StatelessWidget {

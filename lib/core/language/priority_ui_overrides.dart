@@ -7374,4 +7374,25 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '查詢：搜尋框、建議、歷史',
     'si': 'සොයන්න: සෙවුම් කොටුව, යෝජනා, ඉතිහාසය',
   },
+  'Danh sách từ vựng': {
+    'en': 'Vocabulary list',
+    'hi': 'शब्दावली सूची',
+    'zh': '词汇列表',
+    'zh_TW': '詞彙列表',
+    'si': 'සබඳ සබඳ ලැයිස්තුව',
+  },
+  'Xem thêm': {
+    'en': 'See more',
+    'hi': 'और देखें',
+    'zh': '查看更多',
+    'zh_TW': '查看更多',
+    'si': 'තවත් බලන්න',
+  },
+  'Ngữ cảnh gần nhất': {
+    'en': 'Latest context',
+    'hi': 'नवीनतम संदर्भ',
+    'zh': '最近上下文',
+    'zh_TW': '最近上下文',
+    'si': 'අවශ්‍ය පිළිබඳ සංඛ්‍යාත්මක අනුවරය',
+  },
 };

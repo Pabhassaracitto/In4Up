@@ -23,6 +23,7 @@ import '../../../features/vocab_image/vocab_image_quick_add.dart';
 import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 import '../../../features/vocab_image/vocab_media_slots_editor.dart';
 import 'knowledge_graph_screen.dart';
+import 'concept_screens.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
@@ -275,6 +276,18 @@ class _WordListScreenState extends State<WordListScreen> {
                   ),
                 ),
                 tooltip: 'Knowledge Graph',
+              ),
+              // PLAN-041 Pha A (ADR-0021) — vào kho khái niệm đa ngữ.
+              IconButton(
+                icon: const Icon(Icons.psychology_alt_outlined,
+                    color: Color(0xFF9C8FFF), size: 20),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ConceptsScreen(),
+                  ),
+                ),
+                tooltip: context.uiText('Khái niệm đa ngữ'),
               ),
               _buildOverflowMenu(p),
             ],

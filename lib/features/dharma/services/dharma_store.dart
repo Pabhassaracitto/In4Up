@@ -22,6 +22,12 @@ import '../models/dharma_talk.dart';
 
 class DharmaStore {
   DharmaStore._();
+
+  /// Dành cho test: tạo instance KHÔNG dùng chung singleton, để bản fake trong
+  /// test có thể `extends DharmaStore` mà không chạm Hive của app thật.
+  @visibleForTesting
+  DharmaStore.forTest();
+
   static final DharmaStore instance = DharmaStore._();
 
   static const String catalogBox = 'dharma_catalog';

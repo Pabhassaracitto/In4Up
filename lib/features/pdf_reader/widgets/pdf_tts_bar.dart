@@ -58,7 +58,7 @@ class PdfTtsBar extends StatelessWidget {
             _BarBtn(
               icon: showWordlistPanel
                   ? Icons.view_sidebar_rounded
-                  : Icons.view_sidebar_outlined_rounded,
+                  : Icons.view_sidebar_outlined,
               tooltip: context.uiText(
                 showWordlistPanel ? 'Ẩn bảng từ vựng' : 'Hiện bảng từ vựng',
               ),

@@ -26,14 +26,20 @@ void main() {
       expect(isDharmaAudioFile('.hidden.mp3'), isFalse);
     });
 
-    test('foldDiacritics giữ cùng một vị Thầy về cùng khoá (F5)', () {
+    test('foldDiacritics gộp khác biệt HOA/thường và DẤU về cùng khoá', () {
+      // Lưu ý phạm vi: bỏ dấu KHÔNG thể biến 'Reveta' thành 'Revata' — đó là
+      // việc của bảng alias (`dharmaSpeakerAliases`, test ở nhóm parseSeries).
+      // Ở đây chỉ khoá lại hợp đồng của `searchKey`.
       final variants = [
         'Sayadaw U Revata',
-        'Sayadaw U Reveta',
         'sayadaw u revata',
+        'SAYADAW U REVATA',
+        'Sayadaw U Revatā',
       ];
       final keys = variants.map(searchKey).toSet();
-      expect(keys.length, 1, reason: 'Cùng vị Thầy phải cùng khoá: $keys');
+      expect(keys.length, 1, reason: 'Cùng chữ, khác hoa/thường/dấu: $keys');
+      expect(searchKey('Sayadaw U Reveta'), 'sayadaw_u_reveta',
+          reason: 'khác chữ ⇒ khác khoá; alias bảng mới gộp được');
 
       expect(searchKey('Sayadaw U Kumārābhivaṃsa'), 'sayadaw_u_kumarabhivamsa');
       expect(searchKey('Pa Auk Sayadawgyi'), 'pa_auk_sayadawgyi');

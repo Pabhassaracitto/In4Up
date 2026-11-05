@@ -8,6 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| READ-UI-121 | Tab Đọc: khôi phục 5 nút cũ + tự cuộn theo dòng đọc + ABC→IPA | 🔨 doing (code + ADR-0024 + test pin; chờ CI + nghiệm thu máy 360×640) | [ADR-0024](../adr/0024-doc-tab-khoi-phuc-thanh-cong-cu-va-tu-cuon.md), PLAN-044, rebase 251e `95f9e2f` |
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
 | CONCEPT-001 | Nút Khái niệm đa ngữ (PLAN-043 mục 1, ADR-0023) | 🔨 doing (Pha A code xong; CI 🟢 run `42092342813`; chờ nghiệm thu máy) | `arena/d2aeb948-in4up` — nối user xác nhận + ConceptNode additive; Pha B–E chưa làm |
@@ -8552,6 +8553,72 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     to conflicts" (`rebaseable = false`) do head chứa merge commit ⇒ rút gọn
     5 commit thành 1 commit tuyến tính, parent = base tip `2883b8c`, nội dung
     giữ nguyên ⇒ *Rebase and merge* khả dụng lại.
+  - 2026-11-06 | doing | agent `arena/0f9bbb45-in4up` | follow-up sau
+    khi PR #126 đã merge: owner báo mất 5 nút tùy biến chữ + nhãn ABC +
+    thiếu tự cuộn ⇒ xử lý ở card `READ-UI-121` / ADR-0024, giữ nguyên
+    các quyết định của ADR-0021.
+
+### READ-UI-121 — (2026-11-06) Tab Đọc: khôi phục nút cũ, tự cuộn, nhãn IPA
+- **Trạng thái:** 🔨 doing — code + ADR-0024 + PLAN-044 + test pin trên
+  `arena/0f9bbb45-in4up` (rebase lên tip 251e `95f9e2f`, giải xung đột
+  `PLAN.md` + `legacy_ui_english_overrides.json`, đổi ID tránh trùng với
+  agent `arena/d2aeb948-in4up`); chờ CI và nghiệm thu máy 360×640.
+- **Nguồn:** owner 2026-11-06 gửi 12 issue sau bản 1.21.0, yêu cầu «issue nào là
+  issue cũ thì xem xét và giải quyết, còn lại các issue không liên quan thì để
+  lại, tôi sẽ gửi cho AI khác». 3 issue thuộc ngữ cảnh PR #126 / ADR-0021.
+- **Đã giải quyết (3):**
+  1. «Không màu / Bôi nhiều chữ / Đồng bộ tự động / ? / focus không còn thấy ở
+     đâu nữa ... sắp đặt vị trí thông minh, linh hoạt, phù hợp ngữ cảnh» ⇒
+     `ReadDisplayControls` là MỘT cụm dùng chung cho panel «Hiển thị» của dock,
+     sheet Hiển thị và `ReadTopBar`; dock có icon 1 chạm
+     `Key('read-bottom-dock-display')` (ngoài vùng cuộn), overflow cạnh ⚡ mở
+     đúng panel, «Vị trí công cụ: Trên» lấy lại `ReadTopBar` cũ. Panel «Đọc»
+     khi đang phát hiện thêm công tắc auto-sync đúng ngữ cảnh. Công dụng của
+     «Đồng bộ tự động» được giải thích trong ADR-0024 phần Bối cảnh.
+  2. «Bổ sung cơ chế auto để màn hình ứng với chữ thay vì kéo tay ... Có thể
+     tắt» ⇒ `read_auto_scroll_policy.dart` (hàm thuần, 5 case test) + listener
+     `activeLineNotifier` tự cuộn cả danh sách thường; nhường 5 giây sau mỗi cú
+     kéo tay; tắt hoàn toàn bằng công tắc «Đồng bộ tự động» đã có
+     (`read_auto_sync`).
+  3. «Tab đọc: ABC => nên chuyển thành IPA» ⇒ `_DockIcon.textIcon = 'IPA'`
+     đồng bộ với `ReadBottomBar`, không đổi chiều cao hàng dock.
+- **Để lại cho AI khác (9 — KHÔNG đụng trong branch này):**
+  1. Bong bóng dịch nhiều khối: chữ chồng lên nhau (screen translate / XLAT-SCR).
+  2. Tab đọc: ưu tiên phát TTS bằng sherpa, bấm Đọc ⇒ văng app (cần logcat;
+     cùng cụm model/offline với issue 7 và 9).
+  3. Dịch Cabin: đang dịch mà nói thêm ⇒ 2 dòng trùng thay vì nối tiếp.
+  4. Thư viện «Gần đây»: `PdfException: Failed to load PDF document
+     (FPDF_ER_FILE:2)` + gợi ý `errorBannerBuilder`.
+  5. Bấm từ vựng chỉ đọc ⇒ muốn pop từ vựng + 4 mức Dễ / Vừa / Khó / Rất khó.
+  6. Bản dịch ra `https://linux.do/t/topic/111737` dù có model, nghi kẹt «Thử
+     kết nối DeepLX».
+  7. Offline Parakeet/sherpa chưa nạp model vẫn chọn được ⇒ văng app khi «Tạo
+     lời thoại».
+  8. «Không thấy thông tin thay đổi về vietnew (`arena/9a813aad-in4up`), worlist
+     (`arena/d2aeb948-in4up`)».
+  9. Import Parakeet báo bản export NVIDIA NeMo (decoder gộp joint) cần bộ
+     sherpa-onnx encoder/decoder/joiner/tokens.
+- **Bằng chứng có thể kiểm:** `python3 tool/generate_priority_native_pack.py
+  --check` → `OK — 3508 entry × 8 locale` (2 chuỗi mới có `en` +
+  `zh/zh_TW/hi/si/my/th/ja`); `test/read_ui_121_contract_test.dart`;
+  `test/read_ui_120_contract_test.dart` cập nhật pin `showTopBar`;
+  `git diff --check`. Sandbox không có Flutter/Dart SDK ⇒ `flutter analyze` /
+  `flutter test` chạy trên CI (`app_analyze.yml`).
+- **Chưa kiểm (máy thật):** 360×640 text scale 1.0/1.3 — 1 chạm thấy đủ 5 nút,
+  dock ≤2 hàng / vùng đọc ≥70%; phát cả bài bám dòng, kéo tay đứng yên 5s rồi
+  tự nối lại; locale EN/JA không rò tiếng Việt ở 2 chuỗi mới.
+- **Lịch sử:**
+  - 2026-11-06 | created→doing | agent `arena/0f9bbb45-in4up` | rebase newest
+    251e `c9135d2` (up-to-date), audit 12 issue, tách 3 issue cũ; ADR-0024,
+    PLAN-044, QA 4.4, `ReadDisplayControls`, chính sách tự cuộn, i18n 2 chuỗi,
+    test pin; nối test vào bước `read-act-tests` của CI; chờ CI.
+  - 2026-11-06 | doing→doing (rebase + giải xung đột) | agent | 251e tiến tới
+    `95f9e2f` (M4U-IMPORT-003 + PLAN-043 Worklist) ⇒ PR #135 `DIRTY`; một merge
+    trung gian chèn 4 entry JSON SAU dấu `}` gây `JSONDecodeError: Extra data`
+    và làm đỏ test Rule #5 `legacy_ui_english_overrides.json`. Đã hợp nhất
+    `PLAN.md` append-only, sửa JSON hợp lệ (3973 entry: 4 Parakeet + 2
+    READ-UI-121), đổi ID sang PLAN-044/ADR-0024, rút gọn lịch sử thành 1 commit
+    tuyến tính trên tip 251e; chờ CI xanh.
 
 ### CABIN-FLUSH-001 / CABIN-KEEP-PARTIAL-001 / CABIN-STAGE-001 — (2026-10-29) Cabin Live: không mất câu khi Stop/Tạm dừng
 - **Trạng thái:** ✅ done (code + máy bắt + CI 🟢 `run 41652229913`; **chờ nghiệm thu máy**)

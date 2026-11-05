@@ -164,12 +164,12 @@ mastery    = mastery + alphaE * (scoreNor - mastery)
 - Prototype giấy 2 màn (Word, Collection), thử 3 người.
 - **DoD:** báo cáo path + symbol + line. Nếu 1 điểm không xác minh được → **DỪNG**, không viết code.
 
-**P1 — Schema + ADR (~3 ngày):**
+**P1 — Schema + ADR (~3 ngày):** ✅ **HOÀN TẤT** (commit 5cc96f5)
 - Viết ADR 0015–0021 (trừ phần visual chờ D9).
 - Thêm `SkillKind` append-only; `EvidenceMetadata`; field additive cho LearningState.
 - **DoD:** unit test migration old→new zero loss; CI xanh; ADR merge.
 
-**P2 — Engine (~3 ngày):**
+**P2 — Engine (~3 ngày):** ✅ **HOÀN TẤT** (commit 591b1c1)
 - EMA patch A′ + 3 unit test chống hồi quy.
 - Mastery con cho Dùng; archetype classifier (threshold [P0 calibrate]); `NetworkPolicy.decide` thuần.
 - Session Bundler.

@@ -3982,6 +3982,13 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   'Không gian đọc Tipiṭaka': {'en': 'Tipiṭaka reading workspace'},
   'Chia đôi màn hình': {'en': 'Split view'},
   'Đóng tab': {'en': 'Close tab'},
+  'Nhân đôi tab': {
+    'en': 'Duplicate tab',
+    'hi': 'टैब की प्रतिलिपि बनाएँ',
+    'zh': '复制标签页',
+    'zh_TW': '複製分頁',
+    'si': 'ටැබය පිටපත් කරන්න',
+  },
   'Không tìm thấy lại nguồn Tipiṭaka.': {'en': 'The Tipiṭaka source could not be found.'},
   'Mở nguồn Tipiṭaka': {'en': 'Open Tipiṭaka source'},
   'Mở nguồn': {'en': 'Open source'},

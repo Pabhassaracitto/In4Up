@@ -32,14 +32,24 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Nhân đôi tab'));
+    await tester.tap(
+      find.byKey(ValueKey('tipitaka-duplicate-tab-${first.id}')),
+    );
     await tester.pumpAndSettle();
-    expect(find.byType(_ReaderProbe), findsNWidgets(2));
+    expect(find.byType(_ReaderProbe, skipOffstage: false), findsNWidgets(2));
     // Repeated duplication remains possible regardless of the selected tab.
-    await tester.tap(find.byTooltip('Nhân đôi tab').last);
+    await tester.tap(
+      find.byKey(ValueKey('tipitaka-duplicate-tab-${first.id}:copy-1')),
+    );
     await tester.pumpAndSettle();
-    expect(find.byType(_ReaderProbe), findsNWidgets(3));
-    expect(find.text('Kinh Thứ Nhất'), findsNWidgets(3));
+    expect(find.byType(_ReaderProbe, skipOffstage: false), findsNWidgets(3));
+    expect(
+      find.byKey(
+        ValueKey('probe-${first.id}:copy-2'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('two discourse tabs retain reader state through tabs and split',

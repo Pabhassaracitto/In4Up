@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/language/app_language.dart';
@@ -20,6 +22,7 @@ import 'engines/offline_tts_engine.dart';
 import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'engines/vieneu_tts_engine.dart';
+import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'language_detector.dart';
 import 'tts_candidate_router.dart';
 import 'tts_settings.dart';
@@ -654,6 +657,35 @@ class TtsService extends ChangeNotifier {
       _safeNotify();
       return false;
     }
+  }
+
+  /// TTS-VIENEU-IMPORT-001 — sao chép file .gguf người dùng chọn vào
+  /// `documents/vieneu_tts/vieneu-v3-turbo-q8_0.gguf` để engine có thể nạp.
+  /// Trả về đường dẫn file đã import, hoặc ném exception nếu thất bại.
+  ///
+  /// Sau khi import thành công, gọi [VieneuTtsEngine.instance.init] để
+  /// engine nạp model vào native worker isolate.
+  Future<String> importVieneuModel(File file) async {
+    if (!await file.exists()) {
+      throw FileSystemException('File không tồn tại', file.path);
+    }
+
+    final ext = p.extension(file.path).toLowerCase();
+    if (ext != '.gguf') {
+      throw FileSystemException('File phải có định dạng .gguf', file.path);
+    }
+
+    final dir = await getApplicationDocumentsDirectory();
+    final vieneuDir = Directory(p.join(dir.path, 'vieneu_tts'));
+    if (!await vieneuDir.exists()) {
+      await vieneuDir.create(recursive: true);
+    }
+
+    final target = File(p.join(vieneuDir.path, VieneuTtsCore.modelFileName));
+    await file.copy(target.path);
+
+    _safeNotify();
+    return target.path;
   }
 
   /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)

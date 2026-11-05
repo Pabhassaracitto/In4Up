@@ -1,13 +1,20 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 // lib/features/tts/widgets/tts_settings_section.dart
 
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
+import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 
 import '../edge_voice_prefs.dart';
+import '../engines/vieneu_tts_engine.dart';
 import '../engines/edge_tts_engine.dart';
 import '../engines/tts_engine.dart';
 import '../piper_voice_prefs.dart';
@@ -57,6 +64,14 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
             const SizedBox(height: 16),
 
             const _PiperVoicePicker(),
+            const SizedBox(height: 16),
+
+            // ── VIENEU MODEL IMPORT (TTS-VIENEU-IMPORT-001) ──
+            const _VieneuModelImportSection(),
+            const SizedBox(height: 16),
+
+            // ── VIENEU VOICE PICKER (TTS-VIENEU-VOICE-001) ──
+            const _VieneuVoicePicker(),
             const SizedBox(height: 16),
 
             // ── EDGE NEURAL VOICE (TTS-EDGE-VOICE-001) ──
@@ -1190,6 +1205,426 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════
+// VIENEU MODEL IMPORT (TTS-VIENEU-IMPORT-001)
+// ════════════════════════════════════════════
+
+class _VieneuModelImportSection extends StatefulWidget {
+  const _VieneuModelImportSection();
+
+  @override
+  State<_VieneuModelImportSection> createState() =>
+      _VieneuModelImportSectionState();
+}
+
+class _VieneuModelImportSectionState
+    extends State<_VieneuModelImportSection> {
+  String? _modelPath;
+  bool _importing = false;
+  String? _statusMessage;
+  bool _statusIsError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkModel();
+  }
+
+  Future<void> _checkModel() async {
+    final path = await VieneuTtsCore.modelPath();
+    if (!mounted) return;
+    setState(() => _modelPath = path);
+  }
+
+  Future<void> _pickAndImport() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['gguf'],
+      dialogTitle: 'Chọn file model VieNeu-TTS .gguf (~170 MB)',
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    setState(() {
+      _importing = true;
+      _statusMessage = null;
+    });
+
+    try {
+      final imported = await TtsService()
+          .importVieneuModel(File(result.files.single.path!));
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _modelPath = imported;
+        _statusMessage = 'Đã import model: ${p.basename(imported)}';
+        _statusIsError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _statusMessage = 'Lỗi import: $e';
+        _statusIsError = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasModel = _modelPath != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Model VieNeu-TTS (.gguf)',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: (hasModel ? Colors.green : Colors.orange)
+                    .withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (hasModel ? Colors.green : Colors.orange)
+                      .withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    hasModel ? Icons.check_circle : Icons.cloud_download,
+                    size: 12,
+                    color: hasModel ? Colors.green : Colors.orange,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    hasModel
+                        ? 'Đã có model'
+                        : 'Chưa có model — import để kích hoạt',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: hasModel ? Colors.green[200] : Colors.orange[200],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Tải về `vieneu-v3-turbo-q8_0.gguf` (~170 MB) từ HuggingFace, '
+          'luego chọn file dưới đây để import vào app.',
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _importing ? null : _pickAndImport,
+                icon: _importing
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.file_upload, size: 16),
+                label: Text(
+                  _importing ? 'Đang import...' : 'Chọn file .gguf',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.grey[600]!),
+                ),
+              ),
+            ),
+            if (hasModel) ...[
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final engine = VieneuTtsEngine.instance;
+                  await engine.init();
+                  if (!mounted) return;
+                  setState(() {
+                    _statusMessage = 'Đã khởi tạo engine VieNeu-TTS';
+                    _statusIsError = false;
+                  });
+                },
+                icon: const Icon(Icons.play_circle, size: 16),
+                label: const Text('Khởi tạo engine', style: TextStyle(fontSize: 11)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.green,
+                  side: BorderSide(color: Colors.green[700]!),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (_statusMessage != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: (_statusIsError ? Colors.red : Colors.green)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: (_statusIsError ? Colors.red : Colors.green)
+                    .withValues(alpha: 0.35),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _statusIsError ? Icons.error : Icons.info,
+                  size: 14,
+                  color: _statusIsError ? Colors.red[300] : Colors.green[300],
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _statusMessage!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: _statusIsError ? Colors.red[200] : Colors.green[200],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (hasModel && _modelPath != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Đường dẫn: $_modelPath',
+            style: TextStyle(fontSize: 9, color: Colors.white38),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════
+// VIENEU VOICE PICKER (TTS-VIENEU-VOICE-001)
+// ════════════════════════════════════════════
+
+class _VieneuVoicePicker extends StatefulWidget {
+  const _VieneuVoicePicker();
+
+  @override
+  State<_VieneuVoicePicker> createState() => _VieneuVoicePickerState();
+}
+
+class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
+  List<VieneuTtsVoice> _voices = [];
+  String? _selectedVoiceId;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVoices();
+  }
+
+  Future<void> _loadVoices() async {
+    try {
+      final engine = VieneuTtsEngine.instance;
+      // Đảm bảo model đã được import trước khi liệt kê giọng
+      final modelPath = await VieneuTtsCore.modelPath();
+      if (modelPath == null) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _error = 'Chưa import model .gguf — hãy import ở mục trên';
+        });
+        return;
+      }
+      await engine.init();
+      final voices = await engine.getAvailableVoices('vi-VN');
+      if (!mounted) return;
+      setState(() {
+        _voices = voices;
+        _loading = false;
+        // Chọn giọng mặc định nếu có
+        if (voices.isNotEmpty && _selectedVoiceId == null) {
+          _selectedVoiceId = voices.first.id;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Lỗi tải giọng: $e';
+      });
+    }
+  }
+
+  Future<void> _selectVoice(String voiceId) async {
+    try {
+      await VieneuTtsEngine.instance.selectVoice(voiceId);
+      if (!mounted) return;
+      setState(() => _selectedVoiceId = voiceId);
+      TtsService().configure(voiceId: voiceId);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Lỗi chọn giọng: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Giọng đọc VieNeu-TTS',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[400],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const SizedBox(
+            height: 20,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+        ],
+      );
+    }
+
+    if (_error != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Giọng đọc VieNeu-TTS',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[400],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error, size: 14, color: Colors.red[300]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: TextStyle(fontSize: 10, color: Colors.red[200]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_voices.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Giọng đọc VieNeu-TTS',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[400],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Chưa có giọng nào. Import model .gguf và khởi tạo engine ở mục trên.',
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Giọng đọc VieNeu-TTS',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[400],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButton<String>(
+          isExpanded: true,
+          value: _selectedVoiceId,
+          dropdownColor: const Color(0xFF1A1A2E),
+          underline: const SizedBox.shrink(),
+          style: const TextStyle(fontSize: 11.5, color: Colors.white),
+          hint: Text(
+            'Chọn giọng đọc',
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+          items: [
+            for (final v in _voices)
+              DropdownMenuItem<String>(
+                value: v.id,
+                child: Row(
+                  children: [
+                    Text(
+                      v.name,
+                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Mặc định',
+                        style: TextStyle(fontSize: 8, color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          onChanged: (id) {
+            if (id != null) _selectVoice(id);
+          },
+        ),
+      ],
     );
   }
 }

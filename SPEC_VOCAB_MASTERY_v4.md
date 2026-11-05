@@ -175,7 +175,7 @@ mastery    = mastery + alphaE * (scoreNor - mastery)
 - Session Bundler.
 - **DoD:** test thuần xanh; Session Bundler ≤ +20%.
 
-**P3 — Adapter + UI (~3 ngày, sau D9):**
+**P3 — Adapter + UI (~3 ngày, sau D9):** ✅ **HOÀN TẤT** (commit e690c73)
 - Viết/Nói chế độ 1 từ (trích scorer, dùng lại `analyze`).
 - Dùng sub-test form + cloze.
 - HexagramPainter (**chỉ sau D9**); Focus Lens; i18n en/hi/zh/zh_TW/si; flag `hexagon_v1`.

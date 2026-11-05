@@ -22,6 +22,7 @@
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| TTS-VIENEU-001 | Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp C ABI) làm engine đọc Tiếng Việt on-device (Tipiṭaka, tab đọc, học thuộc lòng...), có tùy chọn | 🔨 doing (code + ADR, chờ Flutter CI + build NDK + nghiệm thu máy thật) | `native/tts_vieneu/` (wrapper C trên audio.cpp C ABI), `android/app/src/main/cpp/ai/CMakeLists.txt` (CPU-only, arm64-v8a), `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + worker isolate, `lib/features/tts/engines/vieneu_tts_engine.dart`, đăng ký `vieneu_tts` trong `TtsService` (priority 0, fallback an toàn), i18n 2 key (en/vi/hi/zh/zh_TW/si), ADR-0022, license credit Apache-2.0 trong Settings |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -8603,3 +8604,60 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | tách từ
     PLAN-042 §11 (sóng P5).
+### TTS-VIENEU-001 — Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp) làm engine đọc Tiếng Việt on-device
+
+- **Trạng thái:** 🔨 doing — code + ADR đã có trên `arena/5f49ec81-in4up`; đang áp lên
+  `arena/01a0251e-in4up` (251e); chờ Flutter CI + build NDK + nghiệm thu máy thật.
+- **Bối cảnh:** TTS hiện tại phụ thuộc platform (Windows TTS / Edge voice) — không
+  có giọng Việt chất lượng cao, ổn định, offline trên Android/Linux cho module
+  Tipiṭaka. Tiền lệ kiến trúc: GGUF + native C++ + FFI (UltraTimeStretch V2,
+  Gemma-IT PR #23, Hy-MT import .gguf thủ công).
+- **Quyết định kỹ thuật chính:**
+  - Engine: audio.cpp (`github.com/0xShug0/audio.cpp`, commit be1286e0,
+    Apache-2.0) — đã có C ABI ổn định (`include/audiocpp.h`), không cần viết
+    lớp C API từ-zero; model VieNeu-TTS v3 Turbo
+    (`pnnbao-ump/VieNeu-TTS-v3-Turbo-GGUF`, Apache-2.0) mặc định
+    `vieneu-v3-turbo-q8_0.gguf` (~170 MB).
+  - **Tại sao Q8_0:** gấp gần 2 lần nhỏ hơn bf16 (292 MB), đủ chất đọc văn bản
+    Tipiṭaka, ít RAM/OOM hơn trên thiết bị Android midpoint. bf16 giữ làm
+    tùy chọn sau.
+  - **Không bundle model vào APK:** người dùng import .gguf thủ công vào
+    `documents/vieneu_tts/` (giống Hy-MT).
+  - Chỉ đọc **bản dịch tiếng Việt** (lọc theo `languageCode` của đoạn
+    Tipiṭaka; Pali 'hi' và Anh 'en' fallback qua engine khác). Không đọc Pali/
+    mūla gốc bằng engine này.
+  - Chỉ CPU backend ban đầu (tắt CUDA/Vulkan/Metal/RKNN, `NATIVE_CPU=OFF`
+    do cross-compile NDK, `LLAMAFILE=OFF` tránh lỗi fp16 NEON). GPU giữ ticket
+    riêng sau.
+  - **Worker isolate riêng:** toàn bộ nạp model + synthesize chạy trong isolate
+    qua `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` — không block UI
+    thread khi đọc đoạn dài (tương tự Gemma-IT generate, PR #23).
+- **File chính:**
+  - `native/tts_vieneu/vieneu_tts.h` / `.cpp` — wrapper C trên audio.cpp C ABI
+    (`init`, `select_voice`, `synthesize` → PCM float32, `destroy`, `last_error`).
+  - `android/app/src/main/cpp/ai/CMakeLists.txt` — thêm target `vieneu_tts`
+    (audio.cpp submodule, auto-init nếu thiếu; nếu thiếu ⇒ chỉ WARNING, app
+    vẫn build, Dart fallback về TTS cũ, không crash).
+  - `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + worker isolate
+    — FFI binding + worker isolate; WAV 16-bit encode ở Dart.
+  - `lib/features/tts/engines/vieneu_tts_engine.dart` — `TtsEngine` (`id =
+    vieneu_tts`, offline, `vi-VN`, neural).
+  - `lib/features/tts/tts_service.dart` — đăng ký priority 0 trong
+    `_buildDefaultEngineOrder`, lọc ngôn ngữ `_engineSupportsLanguage`,
+    `checkEngineStatus`/`activeEngines`/`dispose`.
+  - `lib/features/tts/widgets/tts_settings_section.dart` — engine xuất hiện
+    tự động trong engine order + `_LicenseSection` (credit Apache-2.0:
+    audio.cpp + VieNeu-TTS).
+  - `lib/l10n/app_{en,vi,hi,zh,zh_TW,si}.arb` + `generated_ui_translations.dart`
+    — 2 key mới + `ttsLicenseSection`, rule #5 (4 locale ưu tiên đã có `en`,
+    không ký Việt ở locale ≠ vi).
+  - `docs/adr/0022-tts-vieneu-native-audio-cpp.md`.
+- **Acceptance criteria (chờ máy thật):**
+  - Build thành công; `App Analyze + Locale Test` xanh.
+  - Đọc thử ≥ 3 đoạn Tipiṭaka Tiếng Việt bằng giọng VieNeu trên Android thật;
+    đính kèm log/benchmark (thời gian load model + tổng hợp mỗi đoạn) vào PR.
+  - Fallback an toàn: gỡ model ⇒ vẫn đọc bằng Piper/Offline/Edge, không crash.
+- **Lịch sử:**
+  - 2026-11-05 | created→doing | agent `arena/9a813aad-in4up` | code +
+    ADR-0022 + KANBAN + i18n; áp lên 251e (6907250); chờ CI/NĐK build +
+    nghiệm thu thiết bị.

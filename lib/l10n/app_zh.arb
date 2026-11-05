@@ -530,5 +530,8 @@
   "ocrEmptyResult": "未在图片中找到文字。请尝试更清晰、光线更好的照片。",
   "ocrLoadedFromImage": "已从图片载入文字",
   "ocrScanPageText": "扫描本页文字",
-  "ocrUnsupported": "OCR 仅在 Android/iOS 上运行"
+  "ocrUnsupported": "OCR 仅在 Android/iOS 上运行",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

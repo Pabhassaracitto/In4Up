@@ -188,6 +188,31 @@ Thực hiện cho từng toggle:
 - [ ] «Khôi phục mặc định» đưa về dock gộp ở đáy
 - [ ] Đổi trạng thái nhóm, kill app / mở lại: cả 3 nhóm giữ nguyên (key riêng từng nhóm)
 
+
+## 4.4 READ-UI-121 — khôi phục nút cũ, tự cuộn, nhãn IPA (v1.21.x)
+- [ ] Mở tab Đọc: hàng dock có nút chữ **IPA** (không còn chữ "ABC"), vẫn 1 hàng
+  ~44px, mũi tên bung và icon «Tùy biến chữ» đều thấy rõ ở 360×640
+- [ ] Bấm 1 lần icon «Tùy biến chữ» ⇒ panel «Hiển thị» mở ngay (không phải bung
+  rồi mới chọn tab); bấm lần 2 ⇒ thu gọn
+- [ ] Panel Hiển thị có đủ: «Không màu» (đổi Loại từ / CEFR / Độ khó), «Thông
+  tin màu», «Box từng từ ↔ Bôi nhiều chữ», «?», «Chế độ Focus», công tắc «Đồng
+  bộ tự động» kèm 1 dòng giải thích công dụng
+- [ ] Bật IPA ⇒ panel Hiển thị xuất hiện thêm «Màu IPA»; tắt IPA ⇒ chip biến mất
+- [ ] Nút ⋯ cạnh ⚡ → «Hiển thị» cũng mở đúng panel Hiển thị của dock; «Cài đặt»
+  vẫn mở sheet Cài đặt
+- [ ] Đổi «Vị trí công cụ: Trên» ⇒ `ReadTopBar` cũ hiện lại đúng chỗ quen tay
+- [ ] Phát CẢ BÀI: panel «Đọc» khi đang phát có công tắc «Đồng bộ tự động»;
+  màn hình tự cuộn bám dòng đang đọc và dòng đó được highlight
+- [ ] Kéo tay lúc đang phát ⇒ màn hình ĐỨNG YÊN ~5 giây (không bị kéo ngược),
+  sau đó tự nối lại dòng đọc
+- [ ] Tắt «Đồng bộ tự động» ⇒ phát cả bài KHÔNG tự cuộn; kill app / mở lại vẫn
+  giữ lựa chọn tắt
+- [ ] Chế độ «Một dòng» không bị cuộn chồng (vẫn đổi dòng đúng)
+- [ ] 360×640 text scale 1.0 / 1.3: vùng đọc ≥70%, ≤2 hàng chrome cố định,
+  không `RenderFlex overflow` / khối đen
+- [ ] Locale EN + JA: 2 chuỗi mới «Tùy biến chữ» và dòng giải thích auto-cuộn
+  không còn tiếng Việt
+
 ---
 
 # 5. Quick Actions Adaptive Ranking

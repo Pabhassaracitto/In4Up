@@ -12,6 +12,7 @@ import '../../../services/ipa_styling.dart';
 import '../../../widgets/collapsible_action_bar.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
+import 'read_display_controls.dart';
 import 'read_line_hint.dart';
 import 'quick_library_sheet.dart'; // ← THÊM
 
@@ -285,20 +286,19 @@ class ReadTopBar extends StatelessWidget {
                       onSelected: (_) => tp.setIpaDisplayMode(mode),
                     ),
                 ]),
-                if (readController != null) ...[
+                if (readController != null)
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(context.uiText('Một dòng')),
                     value: readController.singleLineMode,
                     onChanged: (v) => readController.setSingleLineMode(v),
                   ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(context.uiText('Đồng bộ tự động')),
-                    value: readController.autoSyncEnabled,
-                    onChanged: (_) => readController.toggleAutoSync(),
-                  ),
-                ],
+                const SizedBox(height: 8),
+                // READ-UI-121: «Không màu / Bôi nhiều chữ / Đồng bộ tự động /
+                // ? / Focus» cũng có mặt trong sheet Hiển thị (app bar ⚡,
+                // ReadTopBar legacy, caller standalone). Cùng 1 widget với
+                // panel dock ⇒ không có 2 nguồn state, không có nút bị sót.
+                ReadDisplayControls(controller: readController),
               ],
             ),
           ),

@@ -24,6 +24,7 @@ import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/read_line_hint_service.dart';
 import 'services/playback_controller.dart';
+import 'services/read_auto_scroll_policy.dart';
 import 'services/recent_files_service.dart';
 import 'services/word_range_selection.dart';
 import 'widgets/read_line_hint.dart';
@@ -130,6 +131,11 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   String _focusTitlePosition = StorageService.readFocusTitleHidden;
   double _lastScrollOffset = 0;
 
+  /// READ-UI-121: sau một cú kéo tay, nhường quyền cuộn cho người dùng trong
+  /// [readAutoScrollManualPause] rồi tự nối lại dòng đang đọc. `null` = không
+  /// có cú kéo tay nào đang hiệu lực.
+  DateTime? _manualScrollUntil;
+
   // I4U18-READ-IPA-001 (F1.2) — chống lên lịch gợi ý nhiều lần trong khi
   // đang chờ đọc cờ prefs (build có thể chạy lại vài lần liên tiếp).
   bool _lineHintScheduled = false;
@@ -204,10 +210,27 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       final playback = context.read<PlaybackController>();
       _playbackRef = playback;
       _playbackLineListener = () {
+        if (!mounted) return;
         final index = playback.activeLineNotifier.value;
-        if (mounted && _controller.singleLineMode && _controller.autoSyncEnabled &&
-            index >= 0 && index < tp.lines.length && index != tp.currentLineIndex) {
-          tp.setCurrentLine(index);
+        if (index < 0 || index >= tp.lines.length) return;
+        if (!_controller.autoSyncEnabled || !playback.isRunning) return;
+        // 1) Highlight dòng đang đọc ở CẢ HAI chế độ (trước đây chỉ có ở
+        //    «Một dòng» ⇒ danh sách thường đọc mà không báo dòng nào).
+        if (index != tp.currentLineIndex) tp.setCurrentLine(index);
+        // 2) READ-UI-121: tự cuộn màn hình theo dòng TTS, có thể tắt bằng
+        //    «Đồng bộ tự động» và tự nhường 5s sau mỗi cú kéo tay.
+        final manualScrollActive = _manualScrollUntil != null &&
+            DateTime.now().isBefore(_manualScrollUntil!);
+        final follow = shouldAutoFollowPlayback(
+          autoSyncEnabled: _controller.autoSyncEnabled,
+          isRunning: playback.isRunning,
+          singleLineMode: _controller.singleLineMode,
+          manualScrollActive: manualScrollActive,
+          lineIndex: index,
+          lineCount: tp.lines.length,
+        );
+        if (follow && _scrollController.hasClients) {
+          _controller.scrollToLine(_scrollController, index);
         }
       };
       playback.activeLineNotifier.addListener(_playbackLineListener!);
@@ -738,8 +761,19 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       onNotification: (notification) {
         if (notification is ScrollStartNotification) {
           _controller.setScrolling(true);
+          // READ-UI-121: `dragDetails != null` = cú kéo TAY (cuộn chương
+          // trình do auto-follow không có dragDetails). Nhường quyền 5s để
+          // người dùng đọc lén các dòng khác mà không bị kéo ngược lại.
+          if (notification.dragDetails != null) {
+            _manualScrollUntil =
+                DateTime.now().add(readAutoScrollManualPause);
+          }
           _lastScrollOffset = notification.metrics.pixels;
         } else if (notification is ScrollUpdateNotification) {
+          if (notification.dragDetails != null) {
+            _manualScrollUntil =
+                DateTime.now().add(readAutoScrollManualPause);
+          }
           // Smart hide: scroll down hides reader chrome, scroll up restores it.
           // READ-UI-120: dock đáy KHÔNG chịu smart-hide. Khi dùng bố cục
           // mới, bỏ qua hoàn toàn để không rebuild vô ích mỗi cú cuộn.

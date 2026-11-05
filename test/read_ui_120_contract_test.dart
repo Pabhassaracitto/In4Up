@@ -127,7 +127,11 @@ void main() {
       // Nhóm Hiển thị ở trạng thái Ẩn ⇒ lối vào cạnh ⚡ cũng biến mất.
       expect(shell.contains('!_readChromeLayout.displayHidden'), isTrue);
       expect(shell.contains('chromeLayout: _readChromeLayout,'), isTrue);
-      expect(shell.contains('showTopBar: false,'), isTrue);
+      // READ-UI-121: mặc định dock đáy vẫn KHÔNG vẽ ReadTopBar; chỉ khôi phục
+      // thanh cũ khi owner chọn «Vị trí công cụ: Trên».
+      expect(shell.contains('showTopBar: !_readChromeLayout.useBottomDock,'),
+          isTrue);
+      expect(shell.contains('showTopBar: false,'), isFalse);
     });
 
     test('5 nút context chỉ còn 1 chỗ (dock) khi dùng bố cục đáy', () {

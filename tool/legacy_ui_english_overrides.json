@@ -3969,5 +3969,7 @@
   "Ghi âm offline (Parakeet)": "Offline mic (Parakeet)",
   "Dừng ghi offline": "Stop offline recording",
   "Chưa có model nhận diện offline — hãy tải hoặc import Parakeet / Zipformer VI trong Quản lý Model AI.": "No offline speech model yet — download or import Parakeet / Zipformer VI in AI Model Management.",
-  "Không khởi động được nhận diện offline.": "Could not start offline speech recognition."
+  "Không khởi động được nhận diện offline.": "Could not start offline speech recognition.",
+  "Tùy biến chữ": "Text & display",
+  "Tự cuộn theo dòng đang đọc; tắt để cuộn tay.": "Auto-scroll to the line being read; turn off to scroll manually."
 }

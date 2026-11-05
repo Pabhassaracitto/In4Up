@@ -604,8 +604,9 @@ jobs:
           path: screen_translate_test.log
           if-no-files-found: ignore
 
-      # READ-ACT-001 + XLAT-MIX-001 (audit bản 0.10.3): luật chọn đoạn cho 4
-      # hành động của tab Đọc và bộ tách đoạn hỗn hợp ngôn ngữ. Thuần Dart,
+      # READ-ACT-001 + XLAT-MIX-001 (audit bản 0.10.3) + READ-UI-121 (source-pin
+      # khôi phục nút tab Đọc / tự cuộn): luật chọn đoạn cho 4 hành động của tab
+      # Đọc và bộ tách đoạn hỗn hợp ngôn ngữ. Thuần Dart,
       # không plugin/mạng. Tự bỏ qua nếu nhánh chưa có file.
       - name: "Read actions + mixed-language tests (logic thuần)"
         id: read-act-tests
@@ -621,6 +622,7 @@ jobs:
                    test/read_mode/read_word_style_align_test.dart \
                    test/read_mode/read_listen_understand_owner_requests_test.dart \
                    test/safe_haptics_test.dart \
+                   test/read_ui_121_contract_test.dart \
                    test/translation/mixed_language_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done

@@ -95,6 +95,10 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
 
             // ── CACHE INFO ──
             _CacheSection(color: widget.primaryColor),
+            const SizedBox(height: 16),
+
+            // ── LICENSES ──
+            _LicenseSection(color: widget.primaryColor),
           ],
         );
       },
@@ -1184,6 +1188,65 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
               },
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// audio.cpp + VieNeu-TTS đều Apache-2.0 → tương thích với giấy phép
+/// in4up Source-Available Non-Commercial License; credit trong Settings.
+class _LicenseSection extends StatelessWidget {
+  final Color color;
+
+  const _LicenseSection({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      title: Text(
+        context.uiText('ttsLicenseSection'),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+      ),
+      children: const [
+        _LicenseTile(
+          title: 'audio.cpp',
+          subtitle: 'Runtime TTS GGUF (CPU), github.com/0xShug0/audio.cpp',
+          license: 'Apache License 2.0',
+        ),
+        _LicenseTile(
+          title: 'VieNeu-TTS v3 Turbo',
+          subtitle:
+              'Giọng đọc Tiếng Việt (GGUF), pnnbao-ump/VieNeu-TTS-v3-Turbo',
+          license: 'Apache License 2.0',
+        ),
+      ],
+    );
+  }
+}
+
+class _LicenseTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String license;
+
+  const _LicenseTile({
+    required this.title,
+    required this.subtitle,
+    required this.license,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      title: Text(title, style: const TextStyle(fontSize: 12)),
+      subtitle: Text(
+        '$subtitle · $license',
+        style: const TextStyle(fontSize: 10, color: Colors.white60),
       ),
     );
   }

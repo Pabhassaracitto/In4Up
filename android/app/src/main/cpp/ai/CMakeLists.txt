@@ -73,3 +73,79 @@ target_include_directories(in4up_ai_native PRIVATE
 )
 # link `llama` kéo theo transitively ggml-base/ggml-cpu/… (CMake tự xử lý)
 target_link_libraries(in4up_ai_native PRIVATE llama)
+
+# ═════════════════════════════════════════════════════════════════════════════
+# VieNeu-TTS native engine (ticket TTS-VIENEU-001)
+# audio.cpp (github.com/0xShug0/audio.cpp) làm runtime GGUF,
+# VieNeu-TTS v3 Turbo (pnnbao-ump/VieNeu-TTS-v3-Turbo-GGUF, Apache-2.0).
+#
+# Chỉ build CPU backend, chỉ mô hình vieneu_v3_turbo (custom model set) để
+# giữ thời gian build + dung lượng APK hợp lý. CUDA/Vulkan/Metal/RKNN tắt hết
+# (ticket: chỉ CPU cho bản đầu).
+#
+# Nếu submodule third_party/audio.cpp chưa init → chỉ WARNING, app vẫn build
+# và Dart engine tự báo engine không sẵn sàng → fallback sang TTS cũ, không
+# crash. Cách kích hoạt: `git submodule update --init --depth 1`.
+# ═════════════════════════════════════════════════════════════════════════════
+
+set(AUDIOCPP_ROOT "${REPO_ROOT}/third_party/audio.cpp")
+
+if(NOT EXISTS "${AUDIOCPP_ROOT}/CMakeLists.txt")
+    find_program(GIT_EXECUTABLE git)
+    if(GIT_EXECUTABLE AND EXISTS "${REPO_ROOT}/.git")
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" submodule update --init --depth 1
+                    -- third_party/audio.cpp
+            WORKING_DIRECTORY "${REPO_ROOT}"
+            RESULT_VARIABLE _IN4UP_AUDIOCPP_GIT_RC
+            OUTPUT_QUIET ERROR_QUIET)
+    endif()
+endif()
+
+set(IN4UP_BUILD_VIENEU_TTS ON CACHE BOOL "Build VieNeu-TTS native engine (audio.cpp C API)")
+
+if(IN4UP_BUILD_VIENEU_TTS AND EXISTS "${AUDIOCPP_ROOT}/CMakeLists.txt")
+    set(AUDIOCPP_BUILD_C_API         ON   CACHE BOOL "" FORCE)
+    set(AUDIOCPP_MODEL_SET           custom CACHE STRING "" FORCE)
+    set(AUDIOCPP_MODELS              "vieneu_v3_turbo" CACHE STRING "" FORCE)
+    set(ENGINE_ENABLE_CUDA           OFF  CACHE BOOL "" FORCE)
+    set(ENGINE_ENABLE_HIP            OFF  CACHE BOOL "" FORCE)
+    set(ENGINE_ENABLE_VULKAN         OFF  CACHE BOOL "" FORCE)
+    set(ENGINE_ENABLE_METAL          OFF  CACHE BOOL "" FORCE)
+    set(ENGINE_ENABLE_WEBGPU         OFF  CACHE BOOL "" FORCE)
+    set(ENGINE_ENABLE_LLAMAFILE      OFF  CACHE BOOL "" FORCE)   // tránh lỗi fp16 NEON trên armeabi-v7a
+    set(ENGINE_ENABLE_NATIVE_CPU     OFF  CACHE BOOL "" FORCE)   // -march=native không hợp lệ khi cross-compile NDK
+    set(ENGINE_ENABLE_OPENMP         OFF  CACHE BOOL "" FORCE)   // NDK không ship OpenMP_host mặc định
+    set(ENGINE_ENABLE_RKNN           OFF  CACHE BOOL "" FORCE)
+    set(AUDIOCPP_BUILD_NATIVE_MODEL_MANAGER OFF CACHE BOOL "" FORCE)
+    set(ENGINE_BUILD_EXAMPLES        OFF  CACHE BOOL "" FORCE)
+    set(ENGINE_BUILD_TESTS           OFF  CACHE BOOL "" FORCE)
+    set(GGML_LLAMAFILE               OFF  CACHE BOOL "" FORCE)
+
+    message(STATUS "[in4up-tts] Building audio.cpp C API (vieneu_v3_turbo, CPU only)")
+    add_subdirectory(${AUDIOCPP_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/audio.cpp EXCLUDE_FROM_ALL)
+
+    add_library(vieneu_tts SHARED
+        ${REPO_ROOT}/native/tts_vieneu/vieneu_tts.cpp
+    )
+    target_include_directories(vieneu_tts PRIVATE
+        ${AUDIOCPP_ROOT}/include
+        ${REPO_ROOT}/native/tts_vieneu
+    )
+    target_link_libraries(vieneu_tts PRIVATE audiocpp)
+
+    set_target_properties(vieneu_tts PROPERTIES
+        OUTPUT_NAME "vieneu_tts"
+        C_VISIBILITY_PRESET hidden
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+    )
+
+    message(STATUS "[in4up-tts] target: libvieneu_tts.so (links libaudiocpp.so)")
+else()
+    message(STATUS
+        "[in4up-tts] vieneu_tts BỎ QUA: chưa có third_party/audio.cpp "
+        "(chạy: git submodule update --init --depth 1) hoặc "
+        "IN4UP_BUILD_VIENEU_TTS=OFF. Dart engine sẽ báo chưa sẵn sàng "
+        "và fallback về TTS cũ — không crash.")
+endif()

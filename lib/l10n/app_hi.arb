@@ -530,5 +530,8 @@
   "ocrEmptyResult": "छवि में कोई पाठ नहीं मिला। अधिक स्पष्ट और उज्ज्वल फ़ोटो आज़माएँ।",
   "ocrLoadedFromImage": "छवि से पाठ लोड हुआ",
   "ocrScanPageText": "इस पृष्ठ का पाठ स्कैन करें",
-  "ocrUnsupported": "OCR केवल Android/iOS पर चलता है"
+  "ocrUnsupported": "OCR केवल Android/iOS पर चलता है",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

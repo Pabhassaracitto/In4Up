@@ -530,5 +530,8 @@
   "ocrLoadedFromImage": "Đã nạp văn bản từ ảnh",
   "ocrScanPageText": "Quét chữ trang này",
   "ocrUnsupported": "OCR chỉ chạy trên Android/iOS",
-  "tipitakaCatalogPath": "Tạng → nhóm/bộ → bài kinh"
+  "tipitakaCatalogPath": "Tạng → nhóm/bộ → bài kinh",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Giọng đọc Việt neural — ngoại tuyến, chạy trên thiết bị (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Giấy phép âm thanh"
 }

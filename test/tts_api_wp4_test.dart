@@ -516,6 +516,7 @@ void main() {
           .toList();
 
       expect(ids, [
+        'vieneu_tts', // TTS-VIENEU-001 — VieNeu-TTS GGUF đọc tiếng Việt, priority 0
         'piper_tts',
         'offline_tts',
         'edge_tts', // TTS-EDGE-001 — online đầu tiên cho CÀI ĐẶT MỚI

@@ -530,5 +530,8 @@
   "ocrEmptyResult": "රූපයේ පෙළක් හමු නොවීය. පැහැදිලි, හොඳ ආලෝකය ඇති ඡායාරූපයක් උත්සාහ කරන්න.",
   "ocrLoadedFromImage": "රූපයෙන් පෙළ පූරණය විය",
   "ocrScanPageText": "මෙම පිටුවේ පෙළ ස්කෑන් කරන්න",
-  "ocrUnsupported": "OCR ක්‍රියාත්මක වන්නේ Android/iOS හි පමණි"
+  "ocrUnsupported": "OCR ක්‍රියාත්මක වන්නේ Android/iOS හි පමණි",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

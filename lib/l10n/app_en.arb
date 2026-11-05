@@ -530,5 +530,8 @@
   "ocrEmptyResult": "No text found in the image. Try a clearer, better-lit photo.",
   "ocrLoadedFromImage": "Loaded text from image",
   "ocrScanPageText": "Scan this page",
-  "ocrUnsupported": "OCR runs on Android/iOS only"
+  "ocrUnsupported": "OCR runs on Android/iOS only",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Giấy phép âm thanh"
 }

@@ -456,6 +456,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
                         ),
                       ),
                       IconButton(
+                        key: ValueKey('tipitaka-duplicate-tab-${_tabs[index].id}'),
                         visualDensity: VisualDensity.compact,
                         tooltip: context.uiText('Nhân đôi tab'),
                         onPressed: () => _duplicateTab(_tabs[index]),

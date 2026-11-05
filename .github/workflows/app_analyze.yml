@@ -933,6 +933,14 @@ jobs:
           flutter test $files -r expanded > audit_1210_test.log 2>&1
           code=$?
           cat audit_1210_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              audit_1210_test.log > audit_1210_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              audit_1210_clean.log | head -200 | while IFS= read -r line; do
+              echo "::error title=AUDIT-1.21.0 test fail::$line"
+            done || true
+          fi
           exit $code
 
       - name: Upload AUDIT-1.21.0 test log

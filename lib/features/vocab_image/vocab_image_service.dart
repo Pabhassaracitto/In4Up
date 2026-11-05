@@ -194,7 +194,7 @@ class VocabImageService {
 
   /// Lưu bytes vào app storage, trả về relative path
   Future<String> _saveBytesToAppStorage(Uint8List inputBytes) async {
-    // PLAN-041 mục 4 — chuẩn hoá dung lượng TRƯỚC khi lưu (thu ≤1024px +
+    // PLAN-043 mục 4 — chuẩn hoá dung lượng TRƯỚC khi lưu (thu ≤1024px +
     // JPEG q80/PNG-alpha; Lottie/GIF giữ nguyên) ở isolate để không khựng
     // UI. Mọi đường lưu (web/gallery/camera) đều qua phễu này. Ảnh cũ đã
     // lưu không bị đụng; ảnh mới có hash theo bytes ĐÃ chuẩn hoá.

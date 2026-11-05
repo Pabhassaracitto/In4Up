@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""PLAN-041 / LOTTIE-LIB-001 Pha 2 — sinh gói animation khái niệm.
+"""PLAN-043 / LOTTIE-LIB-001 Pha 2 — sinh gói animation khái niệm.
 
 Chạy:  python3 tool/generate_concept_animations.py
 
 Sinh ra:
   * assets/animations/concept_animation_pack.json — chỉ mục 100 khái niệm
     cốt lõi (đã được owner duyệt 2026-11-05, xem
-    docs/plans/PLAN-041-animation-core-concepts.md).
+    docs/plans/PLAN-043-animation-core-concepts.md).
   * assets/animations/files/<slug>.json — animation Lottie PICTOGRAM GỐC
     tự vẽ bằng hình học tham số cho các khái niệm hợp (thiên nhiên, thời
     tiết, cảm xúc đơn giản…). Đây là tác phẩm gốc cho In4Up (CC0) nên
@@ -961,7 +961,7 @@ def main():
         "schema": "in4up.concept_animation_pack/1",
         "version": 1,
         "note": "Danh sach 100 khai niem duoc owner duyet 2026-11-05 "
-                "(docs/plans/PLAN-041-animation-core-concepts.md). Cac "
+                "(docs/plans/PLAN-043-animation-core-concepts.md). Cac "
                 "animation deu la pictogram hinh hoc goc In4Up, CC0; khong "
                 "chua tai nguyen/thumbnail cua ben thu ba.",
         "groups": GROUPS,

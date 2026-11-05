@@ -1,4 +1,4 @@
-// PLAN-041 Pha A (ADR-0021) — gợi ý NỐI các WordEntry sẵn có vào cùng
+// PLAN-043 Pha A (ADR-0023) — gợi ý NỐI các WordEntry sẵn có vào cùng
 // một Nút Khái niệm. File THUẦN (không import Flutter/provider): nhận vào
 // các bản rút gọn của entry, trả ra cặp đề xuất kèm lý do + điểm tin cậy.
 //

@@ -277,7 +277,7 @@ class _WordListScreenState extends State<WordListScreen> {
                 ),
                 tooltip: 'Knowledge Graph',
               ),
-              // PLAN-041 Pha A (ADR-0021) — vào kho khái niệm đa ngữ.
+              // PLAN-043 Pha A (ADR-0023) — vào kho khái niệm đa ngữ.
               IconButton(
                 icon: const Icon(Icons.psychology_alt_outlined,
                     color: Color(0xFF9C8FFF), size: 20),
@@ -784,7 +784,7 @@ class _WordListScreenState extends State<WordListScreen> {
             onTap: () => _showSortSheet(),
           ),
           const Spacer(),
-          // PLAN-041 mục 2 — cài đặt đọc từ + nghĩa (thứ tự/lần lặp/ngôn ngữ).
+          // PLAN-043 mục 2 — cài đặt đọc từ + nghĩa (thứ tự/lần lặp/ngôn ngữ).
           IconButton(
             tooltip: context.uiText('Đọc từ + nghĩa'),
             icon: const Icon(Icons.tune_rounded,

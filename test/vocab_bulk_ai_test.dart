@@ -1,4 +1,4 @@
-// PLAN-041 mục 3 — Nhập hàng loạt bằng AI: pin (1) prompt sinh ra nhúng
+// PLAN-043 mục 3 — Nhập hàng loạt bằng AI: pin (1) prompt sinh ra nhúng
 // đúng header CSV parser hiểu + đủ ngữ cảnh kịch bản; (2) parser bóc được
 // code-fence/bảng Markdown/lời dẫn của AI; (3) ghép output nhiều lô giữ 1
 // header. Đây là các điểm gãy thật khi dán kết quả AI vào import.

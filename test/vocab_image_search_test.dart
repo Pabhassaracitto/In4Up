@@ -258,7 +258,7 @@ void main() {
   ]
 }''';
 
-    test('map src.large (≈940px, PLAN-041 nhẹ) → ảnh đầy đủ, medium → thumbnail', () {
+    test('map src.large (≈940px, PLAN-043 nhẹ) → ảnh đầy đủ, medium → thumbnail', () {
       final items = VocabImageWebService.parsePexels(pexelsBody);
       expect(items.length, 1); // item không có src bị bỏ
       final image = items.single;
@@ -313,7 +313,7 @@ void main() {
       final image = items.single;
       expect(image.title, 'Butterfly wings');
       expect(image.thumbUrl, contains('w=400'));
-      // PLAN-041 mục 4: dùng regular 1080px, không tải full 1980px nữa.
+      // PLAN-043 mục 4: dùng regular 1080px, không tải full 1980px nữa.
       expect(image.imageUrl, contains('w=1080'));
       expect(image.pageUrl, 'https://unsplash.com/photos/abc');
       expect(image.creator, 'John Shooter');
@@ -470,7 +470,7 @@ void main() {
     });
   });
 
-  group('parsePixabay — PLAN-041 mục 4', () {
+  group('parsePixabay — PLAN-043 mục 4', () {
     const body = '''
 {
   "totalHits": 2,

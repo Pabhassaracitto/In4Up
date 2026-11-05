@@ -1,4 +1,4 @@
-// PLAN-041 mục 3 Tầng 1 — sinh từ vựng hàng loạt bằng AI NGAY TRONG APP.
+// PLAN-043 mục 3 Tầng 1 — sinh từ vựng hàng loạt bằng AI NGAY TRONG APP.
 //
 // Nguồn AI = tầng Server API sẵn có (ADR-0008): `AiProviderStore` năng lực
 // `chat` + `OpenAiCompatClient` — ĐÚNG khuôn `LlmMtEngine`, không tạo

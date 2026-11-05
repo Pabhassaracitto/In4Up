@@ -1,4 +1,4 @@
-// PLAN-041 Pha A (ADR-0021) — UI Nút Khái niệm đa ngữ:
+// PLAN-043 Pha A (ADR-0023) — UI Nút Khái niệm đa ngữ:
 //  * [ConceptsScreen]: danh sách khái niệm + tạo mới + vào duyệt gợi ý.
 //  * [ConceptDetailScreen]: ảnh/animation chung ở giữa, các cánh ngôn ngữ
 //    (từ · IPA · nghĩa · nghe từng cánh · điểm SM-2 riêng), thêm/tháo cánh.

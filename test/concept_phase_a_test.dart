@@ -1,4 +1,4 @@
-// PLAN-041 Pha A (ADR-0021) — pin ba bất biến bằng test thuần:
+// PLAN-043 Pha A (ADR-0023) — pin ba bất biến bằng test thuần:
 //  1) ConceptNode JSON round-trip + chịu thiếu trường; id thiếu thì ném.
 //  2) WordEntry.conceptId additive: JSON cũ (không key) đọc null; ghi chỉ
 //     khi có giá trị; copyWith không đánh rơi móc nối.

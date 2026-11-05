@@ -1,4 +1,4 @@
-// PLAN-041 mục 3 (WORDLIST-AI-IMPORT-001) — sinh PROMPT tạo từ vựng hàng
+// PLAN-043 mục 3 (WORDLIST-AI-IMPORT-001) — sinh PROMPT tạo từ vựng hàng
 // loạt. File THUẦN (không import Flutter/service): cả hai đường dùng chung
 //   (1) Tầng 0: người dùng copy prompt mang sang AI bên ngoài bất kỳ;
 //   (2) Tầng 1: app gửi đúng prompt này qua tầng Server API.

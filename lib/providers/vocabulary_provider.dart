@@ -23,7 +23,7 @@ class VocabularyProvider extends ChangeNotifier {
   static const String _boxName = 'vocabulary_v2';
   static const String _metaBoxName = 'vocabulary_meta';
 
-  /// PLAN-041 (ADR-0021) — kho Nút Khái niệm, box RIÊNG additive.
+  /// PLAN-043 (ADR-0023) — kho Nút Khái niệm, box RIÊNG additive.
   /// Pha A chưa sync box này (chỉ `conceptId` đi theo JSON của từ).
   static const String _conceptBoxName = 'concept_nodes_v1';
   static const String _customLanguagesKey = 'custom_languages';
@@ -31,7 +31,7 @@ class VocabularyProvider extends ChangeNotifier {
 
   final List<WordEntry> _words = [];
 
-  /// Danh sách Nút Khái niệm (ADR-0021) — rỗng với dữ liệu cũ.
+  /// Danh sách Nút Khái niệm (ADR-0023) — rỗng với dữ liệu cũ.
   final List<ConceptNode> _concepts = [];
   MasteryZone? _filterZone;
   VocabularyType? _filterType;
@@ -56,7 +56,7 @@ class VocabularyProvider extends ChangeNotifier {
   // ─── Getters ─────────────────────────────────────────────
   List<WordEntry> get allWords => _words;
 
-  // ─── Nút Khái niệm (PLAN-041, ADR-0021) ──────────────────
+  // ─── Nút Khái niệm (PLAN-043, ADR-0023) ──────────────────
   List<ConceptNode> get concepts => List.unmodifiable(_concepts);
 
   ConceptNode? conceptById(String? id) {
@@ -431,7 +431,7 @@ class VocabularyProvider extends ChangeNotifier {
           return null;
         }
       }).whereType<WordEntry>());
-      // PLAN-041 (ADR-0021) — tải kho khái niệm cùng nhịp; bản ghi hỏng
+      // PLAN-043 (ADR-0023) — tải kho khái niệm cùng nhịp; bản ghi hỏng
       // bỏ qua đúng một bản như từ vựng. Box rỗng (dữ liệu cũ) là bình thường.
       _concepts.clear();
       _concepts.addAll(_conceptBox.values.map((json) {
@@ -465,7 +465,7 @@ class VocabularyProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════
-  // NÚT KHÁI NIỆM — thao tác (PLAN-041 Pha A, ADR-0021)
+  // NÚT KHÁI NIỆM — thao tác (PLAN-043 Pha A, ADR-0023)
   // Kỷ luật: nối/tháo chỉ đổi `conceptId` của entry rồi lưu qua
   // `_saveWord` (sync theo từ như thường); xoá khái niệm = tháo mọi
   // thành viên + bỏ node, KHÔNG xoá entry/ảnh của người dùng.

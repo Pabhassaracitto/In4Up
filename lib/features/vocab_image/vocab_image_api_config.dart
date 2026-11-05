@@ -30,7 +30,7 @@ enum VocabImageProvider {
     keyHeaderHint: 'Access Key (Client-ID)',
     howTo: 'https://unsplash.com/developers',
   ),
-  // PLAN-041 mục 4 (IMG-WEB-002) — Pixabay: kho 4M+ ảnh & minh hoạ.
+  // PLAN-043 mục 4 (IMG-WEB-002) — Pixabay: kho 4M+ ảnh & minh hoạ.
   // Điều khoản API: hiển thị nguồn "Pixabay" cho ảnh tìm được (UI có
   // nhãn nguồn trên từng ô), không hotlink vĩnh viễn (ảnh được tải về
   // máy khi người dùng chọn — đúng luồng `_saveBytesToAppStorage`).

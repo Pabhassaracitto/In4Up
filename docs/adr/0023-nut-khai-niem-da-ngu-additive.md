@@ -1,18 +1,18 @@
-# ADR-0021: Nút Khái niệm đa ngữ (ConceptNode) — kho mới additive + `conceptId` tuỳ chọn trên `WordEntry`
+# ADR-0023: Nút Khái niệm đa ngữ (ConceptNode) — kho mới additive + `conceptId` tuỳ chọn trên `WordEntry`
 
 - **Ngày:** 2026-11-03
-- **Trạng thái:** ĐÃ QUYẾT ĐỊNH (owner duyệt hướng qua bản trực quan `docs/plans/PLAN-041-visual.html`; triển khai Pha A ở card `CONCEPT-001`)
+- **Trạng thái:** ĐÃ QUYẾT ĐỊNH (owner duyệt hướng qua bản trực quan `docs/plans/PLAN-043-visual.html`; triển khai Pha A ở card `CONCEPT-001`)
 - **Phạm vi Pha A:** model `ConceptNode` + kho `concept_nodes_v1`, `WordEntry.conceptId`, gợi ý nối có người duyệt, màn Khái niệm (list/detail). Các pha B–E (thêm ngôn ngữ từ khái niệm, ôn theo khái niệm, mã ngoài, quan hệ mở rộng) ngoài phạm vi ADR này — mở ADR tiếp khi làm.
 
 ## Bối cảnh
 
-PLAN-041 mục 1 (yêu cầu owner 2026-11-02): học đa ngữ theo trục
+PLAN-043 mục 1 (yêu cầu owner 2026-11-02): học đa ngữ theo trục
 **ý nghĩa → âm thanh/IPA → chữ viết**. Hiện trạng: mỗi `WordEntry` là một đảo
 (`word` + `meaning` chuỗi tự do + tag `languages[]`); "dog (EN)" và "chó (VI)"
 không biết nhau là cùng một khái niệm, ảnh phải tìm lặp lại cho từng ngôn ngữ,
 và không có đường học "nhìn khái niệm → bật ra từ ở ngôn ngữ đích".
 
-Tham vấn ngôn ngữ học + thiết kế Pha A–E: `docs/plans/PLAN-041-worklist-da-ngu-khai-niem-trung-tam.md` mục 1.
+Tham vấn ngôn ngữ học + thiết kế Pha A–E: `docs/plans/PLAN-043-worklist-da-ngu-khai-niem-trung-tam.md` mục 1.
 Owner chốt: **chỉ Pha A trước** (nối + xem), nghiệm thu trên máy rồi mới tính tiếp.
 
 ## Quyết định

@@ -1,4 +1,4 @@
-# PLAN-041 — Worklist đa ngữ theo "khái niệm trung tâm": tham vấn ngôn ngữ học + kế hoạch 5 mục
+# PLAN-043 — Worklist đa ngữ theo "khái niệm trung tâm": tham vấn ngôn ngữ học + kế hoạch 5 mục
 
 - **Nguồn:** người sở hữu (2026-11-02, qua agent `arena/d2aeb948-in4up`) — 5 mục
   Worklist: (1) hệ thống đa ngữ từ ý nghĩa → âm thanh → chữ viết; (2) Worklist
@@ -9,7 +9,7 @@
 - **Card liên quan:** `CONCEPT-001` (mới), `WORDLIST-TTS-001` (đã có,
   Linear PSRC-33), `WORDLIST-AI-IMPORT-001` (mới), `IMG-WEB-002` (mới),
   `LOTTIE-LIB-001` (mới).
-- **ADR cần có trước khi code mục 1:** ADR-0021 (đặt chỗ — chỉ viết khi owner
+- **ADR cần có trước khi code mục 1:** ADR-0023 (đặt chỗ — chỉ viết khi owner
   chốt hướng, theo quy tắc vàng #4).
 
 ---
@@ -360,7 +360,7 @@ mới chạy, trong danh sách thì đứng hình (`animate: false`).
 | 3 | **Mục 4 phần dung lượng**: tải bản vừa + chuẩn hoá khi lưu + hiện KB ở xem lớn | Nhỏ–vừa | không |
 | 4 | **Mục 4 phần giao diện/kết quả**: trang full + xem lớn + tải thêm/phân trang + trộn nguồn + Pixabay | Vừa–lớn | đợt 3 |
 | 5 | **Mục 5 Pha 1 (A)** + định dạng chỉ mục gói tuyển chọn (B) | Nhỏ (A) | không |
-| 6 | **ADR-0021 + Mục 1 Pha A** (ConceptNode additive, gợi ý nối, màn khái niệm) | Lớn | owner duyệt ADR |
+| 6 | **ADR-0023 + Mục 1 Pha A** (ConceptNode additive, gợi ý nối, màn khái niệm) | Lớn | owner duyệt ADR |
 | 7 | Mục 1 Pha B/C · Mục 3 Tầng 1 (AI trong app) · Mục 5 gói B mở rộng | Lớn | đợt 6 |
 
 Mọi đợt: tuân thủ hạt nhân dự án — chuỗi UI mới đủ `en/hi/zh/zh_TW/si`
@@ -396,17 +396,18 @@ màn Server & API — app hành xử như chưa có tính năng, không gọi m�
   Q1–Q4 (mục 7) → thi công gói thắng nhanh: mục 2, mục 3 hai tầng, mục 4
   phần dung lượng.
 - 2026-11-03 | doing→doing | agent `arena/d2aeb948-in4up` | owner duyệt
-  bản trực quan `PLAN-041-visual.html` → đợt 2: ADR-0021 + **Pha A mục 1**
+  bản trực quan `PLAN-043-visual.html` → đợt 2: ADR-0023 + **Pha A mục 1**
   (ConceptNode/conceptId/gợi ý nối/UI, test thuần + CI); mục 4 hoàn tất
   phần còn lại (Pixabay, phân trang, gộp nguồn, sheet 92% + xem trước
   lớn + tải thêm + mật độ + chip truy vấn); mục 5 Pha 1 (hướng dẫn
   LottieFiles + nhập file) + soạn danh mục 100 khái niệm cốt lõi
-  (`PLAN-041-animation-core-concepts.md`) chờ duyệt cho Pha 2. Toàn cây
+  (`PLAN-043-animation-core-concepts.md`) chờ duyệt cho Pha 2. Toàn cây
   CI 🟢 run `41594791234`; còn lại là nghiệm thu trên máy thật.
 - 2026-11-05 | doing→doing (LOTTIE-LIB-001 Pha 2 xong code) | agent
   `arena/d2aeb948-in4up` | owner duyệt danh sách 100 concept → sinh 100
   pictogram Lottie hình học gốc In4Up CC0 (tổng ~289KB) + catalog offline;
   tìm theo EN/VI bỏ dấu, gắn vào tab Animation trong picker, xem trước rồi
   lưu qua chung media funnel (hỗ trợ `ConceptNode.imageRef`). Thêm parser
-  test vào PLAN-041 CI. Analyze + PLAN-041 tests 🟢 run `41964276729`;
+  test vào PLAN-043 CI. Analyze + PLAN-043 tests 🟢 run `41964276729`;
   còn nghiệm thu máy thật. Pha 3 không thuộc phạm vi đã duyệt.
+- 2026-11-06 | doing→doing (định danh sau rebase) | agent `arena/d2aeb948-in4up` | tip 251e đã dùng PLAN-041 cho READ-UI-120 và ADR-0021 cho Tab Đọc; đổi worklist này sang PLAN-043 + ADR-0023 để tránh trùng ID, không đổi scope hay nội dung đã duyệt.

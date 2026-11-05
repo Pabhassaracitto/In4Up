@@ -1,4 +1,4 @@
-// PLAN-041 mục 2 (WORDLIST-TTS-001 mở rộng) — THỨ TỰ đọc "từ + nghĩa"
+// PLAN-043 mục 2 (WORDLIST-TTS-001 mở rộng) — THỨ TỰ đọc "từ + nghĩa"
 // của Worklist, tách THUẦN khỏi `wordlist_playback_service.dart` (file đó
 // kéo TtsService/flutter) để phần logic dễ sai nhất (thứ tự, số lần lặp
 // từng phía, khoảng lặng gợi nhớ, từ thiếu nghĩa) test được không plugin.
@@ -8,7 +8,7 @@
 
 /// Chế độ đọc một mục từ vựng.
 enum WordlistReadMode {
-  /// Chỉ đọc TỪ (hành vi cũ trước PLAN-041).
+  /// Chỉ đọc TỪ (hành vi cũ trước PLAN-043).
   wordOnly,
 
   /// Chỉ đọc NGHĨA; mục nào không có nghĩa thì đọc từ thay (không im lặng).
@@ -28,7 +28,7 @@ enum WordlistReadMode {
 
 /// Cài đặt đọc Worklist (persist bởi [WordlistPlaybackService]).
 ///
-/// Mặc định theo chốt của owner 2026-11-02 (PLAN-041 Q2): Từ ×2 → Nghĩa ×1.
+/// Mặc định theo chốt của owner 2026-11-02 (PLAN-043 Q2): Từ ×2 → Nghĩa ×1.
 class WordlistReadSettings {
   final WordlistReadMode mode;
 

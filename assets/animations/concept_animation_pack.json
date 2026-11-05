@@ -1,7 +1,7 @@
 {
  "schema": "in4up.concept_animation_pack/1",
  "version": 1,
- "note": "Danh sach 100 khai niem duoc owner duyet 2026-11-05 (docs/plans/PLAN-041-animation-core-concepts.md). Cac animation deu la pictogram hinh hoc goc In4Up, CC0; khong chua tai nguyen/thumbnail cua ben thu ba.",
+ "note": "Danh sach 100 khai niem duoc owner duyet 2026-11-05 (docs/plans/PLAN-043-animation-core-concepts.md). Cac animation deu la pictogram hinh hoc goc In4Up, CC0; khong chua tai nguyen/thumbnail cua ben thu ba.",
  "groups": {
   "A": "Hành động cơ thể",
   "B": "Cảm xúc & trạng thái",

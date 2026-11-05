@@ -1241,7 +1241,7 @@ class _VieneuModelImportSectionState
   }
 
   Future<void> _pickAndImport() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['gguf'],
       dialogTitle: 'Chọn file model VieNeu-TTS .gguf (~170 MB)',
@@ -1434,7 +1434,7 @@ class _VieneuVoicePicker extends StatefulWidget {
 }
 
 class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
-  List<VieneuTtsVoice> _voices = [];
+  List<TtsVoice> _voices = [];
   String? _selectedVoiceId;
   bool _loading = true;
   String? _error;
@@ -1535,7 +1535,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.error, size: 14, color: Colors.red[300]),
+                const Icon(Icons.error, size: 14, color: Colors.redAccent),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

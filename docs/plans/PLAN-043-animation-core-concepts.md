@@ -1,6 +1,6 @@
 # PLAN-043 (phụ) — Nháp 100 khái niệm cốt lõi cho gói animation tuyển chọn (LOTTIE-LIB-001 Pha 2)
 
-- **Trạng thái:** ✅ Owner duyệt 2026-11-05; Pha 2 đã code: 100 concept, 100 animation Lottie gốc In4Up CC0 (~289KB), catalog offline tìm VI/EN. Analyze + PLAN-043 tests CI 🟢 run `41964276729`; còn nghiệm thu trên máy. Không kéo theo Pha 3/provider bên thứ ba.
+- **Trạng thái:** ✅ Owner duyệt 2026-11-05; Pha 2 đã code: 100 concept, 100 animation Lottie gốc In4Up CC0 (~289KB), catalog offline tìm VI/EN. Analyze + PLAN-043 tests CI 🟢 run `42092342813`; listen queue `42092342832` + web build `42092329815` cũng xanh; còn nghiệm thu trên máy. Không kéo theo Pha 3/provider bên thứ ba.
 - **Mục đích:** danh sách khái niệm sẽ được tuyển animation Lottie giấy phép
   mở, gắn vào **Nút Khái niệm** (CONCEPT-001) để mọi ngôn ngữ dùng chung.
   Cột "Từ khoá tìm (EN)" là từ khoá dùng khi săn/tuyển trên kho Lottie và

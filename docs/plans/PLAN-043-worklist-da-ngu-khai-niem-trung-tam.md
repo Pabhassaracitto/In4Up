@@ -410,4 +410,4 @@ màn Server & API — app hành xử như chưa có tính năng, không gọi m�
   lưu qua chung media funnel (hỗ trợ `ConceptNode.imageRef`). Thêm parser
   test vào PLAN-043 CI. Analyze + PLAN-043 tests 🟢 run `41964276729`;
   còn nghiệm thu máy thật. Pha 3 không thuộc phạm vi đã duyệt.
-- 2026-11-06 | doing→doing (định danh sau rebase) | agent `arena/d2aeb948-in4up` | tip 251e đã dùng PLAN-041 cho READ-UI-120 và ADR-0021 cho Tab Đọc; đổi worklist này sang PLAN-043 + ADR-0023 để tránh trùng ID, không đổi scope hay nội dung đã duyệt.
+- 2026-11-06 | doing→doing (định danh sau rebase) | agent `arena/d2aeb948-in4up` | tip 251e đã dùng PLAN-041 cho READ-UI-120 và ADR-0021 cho Tab Đọc; đổi worklist này sang PLAN-043 + ADR-0023 để tránh trùng ID, không đổi scope hay nội dung đã duyệt. Analyze + PLAN-043 tests `42092342813` 🟢.

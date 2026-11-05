@@ -1030,16 +1030,34 @@ class SttServiceFacade extends ChangeNotifier {
     }
     // Model streaming chỉ chạy được với OnlineRecognizer — đưa vào
     // OfflineRecognizer là SIGABRT (native abort, không bắt được bằng catch).
-    if (profile.isStreaming) {
-      throw StateError(
-        'Model ${profile.name} là bản STREAMING (live) — không dùng được để '
-        'nhận diện file/tạo lời thoại. Hãy chọn model OFFLINE (Parakeet đa ngữ '
-        'hoặc Zipformer VI) trong Quản lý Model AI.',
-      );
-    }
-    if (manager.getAsrModelPaths(profile.id) == null) {
+    //
+    // M4U-IMPORT-003: chọn profile OFFLINE **đã cài** cho ngôn ngữ — ưu tiên
+    // profile chuyên ngôn ngữ (Zipformer VI) rồi tới model đa ngữ (Parakeet
+    // 25 ngôn ngữ châu Âu). Trước đây chỉ tra profile CHUYÊN ngôn ngữ ⇒
+    // máy chỉ cài Parakeet thì file tiếng Anh bị báo "chưa cài model" dù
+    // Parakeet phục vụ được tiếng Anh.
+    final offlineProfile = AsrModelRouter.offlineFileProfile(
+      language,
+      isInstalled: manager.isAsrProfileInstalled,
+    );
+    if (offlineProfile == null) {
+      if (profile.isStreaming) {
+        throw StateError(
+          'Model ${profile.name} là bản STREAMING (live) — không dùng được để '
+          'nhận diện file/tạo lời thoại. Hãy chọn model OFFLINE (Parakeet đa ngữ '
+          'hoặc Zipformer VI) trong Quản lý Model AI.',
+        );
+      }
       throw StateError(
         'Chưa cài model ${profile.name}. Mở Quản lý Model AI để tải/import '
+        '(encoder/decoder/joiner + tokens.txt).',
+      );
+    }
+    // `offlineProfile` đã null-check ở trên ⇒ dùng trực tiếp biến đã được
+    // flow-analysis promote (không alias để khỏi mất promote).
+    if (manager.getAsrModelPaths(offlineProfile.id) == null) {
+      throw StateError(
+        'Chưa cài model ${offlineProfile.name}. Mở Quản lý Model AI để tải/import '
         '(encoder/decoder/joiner + tokens.txt).',
       );
     }
@@ -1075,18 +1093,18 @@ class SttServiceFacade extends ChangeNotifier {
       _emitProgress(
         SttFacadeStatus.processingNative,
         0.25,
-        'Đang nhận diện bằng ${profile.name}...',
+        'Đang nhận diện bằng ${offlineProfile.name}...',
         engine: SttEngineType.sherpa,
       );
 
       final result = await engine.transcribeFile(
         converted == audioPath ? audioPath : converted,
-        options: <String, dynamic>{'language': profile.id},
+        options: <String, dynamic>{'language': offlineProfile.id},
       );
 
       if (result.fullText.trim().isEmpty) {
         throw StateError(
-          'Model ${profile.name} không nhận được nội dung nào'
+          'Model ${offlineProfile.name} không nhận được nội dung nào'
           '${(engine.lastError ?? '').isEmpty ? '' : ' — ${engine.lastError}'}.',
         );
       }

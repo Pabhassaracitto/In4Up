@@ -45,6 +45,7 @@ import '../understand_mode/services/lrc_translation_resolver.dart';
 import 'widgets/generate_lrc_actions.dart';
 import 'widgets/legacy_audio_data_button.dart';
 import 'widgets/listen_library_screen.dart';
+import 'widgets/listen_live_offline_mic.dart';
 import 'widgets/playback_queue_sheet.dart';
 import 'widgets/quick_audio_sheet.dart';
 import 'widgets/soundlist_panel.dart';
@@ -2999,6 +3000,10 @@ class GenerateLrcButton extends StatelessWidget {
                         );
                       },
                     ),
+                    // M4U-IMPORT-003 — mic OFFLINE (sherpa-onnx): Parakeet TDT
+                    // (25 ngôn ngữ châu Âu) hoặc Zipformer VI. Chỉ hiện khi máy
+                    // đã cài ít nhất 1 model offline.
+                    const ListenLiveOfflineMic(),
                   ],
                 ),
               ],

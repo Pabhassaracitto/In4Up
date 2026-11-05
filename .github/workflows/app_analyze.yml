@@ -757,6 +757,11 @@ jobs:
           if [ -f test/parakeet_usage_surfaces_test.dart ]; then
             files="$files test/parakeet_usage_surfaces_test.dart"
           fi
+          # M4U-IMPORT-003: import bộ Parakeet đúng (heuristic vocab đa ngôn
+          # ngữ) + live offline ở tab Nghe/Cabin.
+          if [ -f test/m4u_import_003_parakeet_live_test.dart ]; then
+            files="$files test/m4u_import_003_parakeet_live_test.dart"
+          fi
           flutter test $files > asr_test.log 2>&1
           code=$?
           cat asr_test.log

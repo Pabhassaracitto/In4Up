@@ -113,9 +113,9 @@ if(IN4UP_BUILD_VIENEU_TTS AND EXISTS "${AUDIOCPP_ROOT}/CMakeLists.txt")
     set(ENGINE_ENABLE_VULKAN         OFF  CACHE BOOL "" FORCE)
     set(ENGINE_ENABLE_METAL          OFF  CACHE BOOL "" FORCE)
     set(ENGINE_ENABLE_WEBGPU         OFF  CACHE BOOL "" FORCE)
-    set(ENGINE_ENABLE_LLAMAFILE      OFF  CACHE BOOL "" FORCE)   // tránh lỗi fp16 NEON trên armeabi-v7a
-    set(ENGINE_ENABLE_NATIVE_CPU     OFF  CACHE BOOL "" FORCE)   // -march=native không hợp lệ khi cross-compile NDK
-    set(ENGINE_ENABLE_OPENMP         OFF  CACHE BOOL "" FORCE)   // NDK không ship OpenMP_host mặc định
+    set(ENGINE_ENABLE_LLAMAFILE      OFF  CACHE BOOL "" FORCE)  # tránh lỗi fp16 NEON trên armeabi-v7a
+    set(ENGINE_ENABLE_NATIVE_CPU     OFF  CACHE BOOL "" FORCE)  # -march=native không hợp lệ khi cross-compile NDK
+    set(ENGINE_ENABLE_OPENMP         OFF  CACHE BOOL "" FORCE)  # NDK không ship OpenMP_host mặc định
     set(ENGINE_ENABLE_RKNN           OFF  CACHE BOOL "" FORCE)
     set(AUDIOCPP_BUILD_NATIVE_MODEL_MANAGER OFF CACHE BOOL "" FORCE)
     set(ENGINE_BUILD_EXAMPLES        OFF  CACHE BOOL "" FORCE)

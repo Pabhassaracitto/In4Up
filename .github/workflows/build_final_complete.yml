@@ -63,6 +63,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # TTS-VIENEU-001: native `tts_vieneu` cần submodule third_party/audio.cpp.
+      # CMakeLists có tự `git submodule update` khi thiếu, nhưng trong runner
+      # bước đó chạy trong lúc Gradle configure ⇒ dễ nhiễu/không rõ ràng. Init
+      # sớm ở đây; lỗi mạng thì `|| true` để CMake rơi về chế độ "chỉ WARNING,
+      # engine báo chưa sẵn sàng và fallback" (app vẫn build được).
+      - name: Init submodules (llama.cpp + audio.cpp cho VieNeu-TTS)
+        shell: bash
+        run: |
+          git submodule update --init --depth 1 -- third_party/llama.cpp || true
+          git submodule update --init --depth 1 -- third_party/audio.cpp || true
+          echo "llama.cpp: $(test -f third_party/llama.cpp/CMakeLists.txt && echo có || echo THIẾU)"
+          echo "audio.cpp: $(test -f third_party/audio.cpp/CMakeLists.txt && echo có || echo THIẾU)"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

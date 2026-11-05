@@ -7978,55 +7978,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
   },
 
   // PLAN-043 muc 4 — chon anh lon hon
-  'Ô ảnh lớn': [
-    'Large tiles',
-    'बड़े टाइल',
-    '大图块',
-    '大圖塊',
-    'විශාල අඩු',
-  ],
-  'Ô ảnh vừa': [
-    'Compact tiles',
-    'सघन टाइल',
-    '小图块',
-    '小圖塊',
-    'කුඩා අඩු',
-  ],
-  'Từ + nghĩa': [
-    'Word + meaning',
-    'शब्द + अर्थ',
-    '词＋义',
-    '詞＋義',
-    'වචනය + අරුත',
-  ],
-  'Tải thêm ảnh': [
-    'Load more images',
-    'और छवियाँ लोड करें',
-    '加载更多图片',
-    '載入更多圖片',
-    'තව රූප පූරනය කරන්න',
-  ],
-  'Xem trước ảnh': [
-    'Image preview',
-    'छवि पूर्वावलोकन',
-    '图片预览',
-    '圖片預覽',
-    'රූප පෙරදසුන',
-  ],
-  'Xem nguồn': [
-    'View source',
-    'स्रोत देखें',
-    '查看来源',
-    '查看來源',
-    'මූලාශ්‍රය බලන්න',
-  ],
-  'Dùng ảnh này': [
-    'Use this image',
-    'यह छवि इस्तेमाल करें',
-    '用这张图',
-    '用這張圖',
-    'මෙම රූපය භාවිත කරන්න',
-  ],
 
   // PLAN-043 concept/image picker translations merged onto 251e map.
   'Khái niệm đa ngữ': {

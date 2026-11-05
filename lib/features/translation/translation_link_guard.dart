@@ -24,16 +24,20 @@
 const String kLinkOnlyTranslationMessage =
     'Only a link was provided — there is no text to translate.';
 
+// LƯU Ý: KHÔNG dùng raw string (`r'…'`) cho các pattern có dấu nháy đơn —
+// trong raw string `\'` KHÔNG phải escape (dấu `\` là ký tự thường) nên chuỗi
+// bị cắt đúng chỗ `'` ⇒ `Unterminated string literal` (CI run 42130562066).
+// Dùng chuỗi thường với escape kép: `\\s` → `\s`, `\"` → `"`, `'` viết thẳng.
 final RegExp _schemeUrl = RegExp(
-  r'^(?:https?|ftp)://[^\s<>"\']+$',
+  "^(?:https?|ftp)://[^\\s<>\"']+$",
   caseSensitive: false,
 );
 final RegExp _wwwUrl = RegExp(
-  r'^www\.[a-z0-9\-]+(?:\.[a-z0-9\-]+)+[^\s<>"\']*$',
+  "^www\\.[a-z0-9\\-]+(?:\\.[a-z0-9\\-]+)+[^\\s<>\"']*$",
   caseSensitive: false,
 );
 final RegExp _bareDomain = RegExp(
-  r'^[a-z0-9\-]+(?:\.[a-z0-9\-]+){1,}(?:/[^\s<>"\']*)?$',
+  "^[a-z0-9\\-]+(?:\\.[a-z0-9\\-]+){1,}(?:/[^\\s<>\"']*)?$",
   caseSensitive: false,
 );
 final RegExp _punctuationOnly = RegExp(r'^[\p{P}\p{S}]+$', unicode: true);

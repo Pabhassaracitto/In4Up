@@ -10,7 +10,7 @@
 // `FPDF_ER_FILE:2` ("file not found or could not be opened"), hiện nguyên
 // stack lỗi đỏ thay vì hướng dẫn chọn lại file.
 //
-/// Hàm này là preflight THUẦN Dart (chỉ `dart:io`), chạy được trên host VM:
+// Hàm này là preflight THUẦN Dart (chỉ `dart:io`), chạy được trên host VM:
 //  • trước khi điều hướng (library/quick sheet/empty state/device scan);
 //  • VÀ ngay trong `PdfReaderScreen.initState` để mọi cửa vào đều được che.
 //

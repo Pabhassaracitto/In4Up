@@ -141,7 +141,9 @@ class PiperTtsEngine implements TtsEngine {
     if (!await isAvailable()) {
       return TtsResult.failure(
         error: 'Piper is not ready (missing .onnx model / espeak-ng-data)',
-        engine: name,
+        // `name` là BIẾN CỤC BỘ khai báo ở dòng dưới ⇒ phải dùng `this.name`
+        // (getter engine id), nếu không CFE báo "referenced before declared".
+        engine: this.name,
       );
     }
     final name = await _resolveVoiceName(language, voiceId);

@@ -21,7 +21,27 @@ export 'package:in4up/models/sm2_algorithm.dart'
 import 'package:in4up/models/sm2_algorithm.dart' show kSm2AlgorithmVersion;
 
 /// 3 chiều kỹ năng — TÁCH BIỆT, không gộp (mục 0).
-enum SkillDimension { understanding, listening, reading }
+/// ADR-0015: mở rộng append-only → 6 trục / 2 nhóm.
+enum SkillDimension {
+  understanding,
+  listening,
+  reading,
+  // Output (productive) — append-only, ADR-0015.
+  use,
+  speak,
+  write,
+}
+
+/// Input-only dimensions (understanding/listening/reading) — ADR-0015.
+/// SRS scheduling, attention ranking, chat grounding, memory lifecycle
+/// CHỈ xét input. Output (use/speak/write) KHÔNG ảnh hưởng logic hiện tại
+/// (data điểm đầu = initial, interval 0). Thêm output vào logic này là
+/// P3-P4, không phải P1.
+const List<SkillDimension> inputDimensions = [
+  SkillDimension.understanding,
+  SkillDimension.listening,
+  SkillDimension.reading,
+];
 
 class SM2Snapshot {
   final double easeFactor;
@@ -101,10 +121,16 @@ class SM2Snapshot {
 class LearningState {
   final String unitId;
 
-  /// 3 skill TÁCH BIỆT — vùng bảo vệ mục 0.
+  /// Input (receptive) — 3 skill TÁCH BIỆT — vùng bảo vệ mục 0.
   final SM2Snapshot understanding;
   final SM2Snapshot listening;
   final SM2Snapshot reading;
+
+  /// Output (productive) — ADR-0015, additive.
+  /// Dùng nghĩa = form + sentence. Nói = phát âm từ đơn. Viết = chính tả từ đơn.
+  final SM2Snapshot use;
+  final SM2Snapshot speak;
+  final SM2Snapshot write;
 
   /// Event cuối cùng đã được tính vào state — để audit/replay từ log.
   final String lastReviewEventId;
@@ -114,6 +140,9 @@ class LearningState {
     required this.understanding,
     required this.listening,
     required this.reading,
+    required this.use,
+    required this.speak,
+    required this.write,
     this.lastReviewEventId = '',
   });
 
@@ -123,6 +152,9 @@ class LearningState {
       understanding: SM2Snapshot.initial(now: now),
       listening: SM2Snapshot.initial(now: now),
       reading: SM2Snapshot.initial(now: now),
+      use: SM2Snapshot.initial(now: now),
+      speak: SM2Snapshot.initial(now: now),
+      write: SM2Snapshot.initial(now: now),
     );
   }
 
@@ -135,10 +167,16 @@ class LearningState {
         return listening;
       case SkillDimension.reading:
         return reading;
+      case SkillDimension.use:
+        return use;
+      case SkillDimension.speak:
+        return speak;
+      case SkillDimension.write:
+        return write;
     }
   }
 
-  /// Trả về state mới: đúng 1 skill được thay, 2 skill còn lại GIỮ NGUYÊN.
+  /// Trả về state mới: đúng 1 skill được thay, các skill còn lại GIỮ NGUYÊN.
   LearningState withSkill(
     SkillDimension dimension,
     SM2Snapshot snapshot, {
@@ -151,6 +189,9 @@ class LearningState {
           understanding: snapshot,
           listening: listening,
           reading: reading,
+          use: use,
+          speak: speak,
+          write: write,
           lastReviewEventId: lastReviewEventId,
         );
       case SkillDimension.listening:
@@ -159,6 +200,9 @@ class LearningState {
           understanding: understanding,
           listening: snapshot,
           reading: reading,
+          use: use,
+          speak: speak,
+          write: write,
           lastReviewEventId: lastReviewEventId,
         );
       case SkillDimension.reading:
@@ -167,6 +211,42 @@ class LearningState {
           understanding: understanding,
           listening: listening,
           reading: snapshot,
+          use: use,
+          speak: speak,
+          write: write,
+          lastReviewEventId: lastReviewEventId,
+        );
+      case SkillDimension.use:
+        return LearningState(
+          unitId: unitId,
+          understanding: understanding,
+          listening: listening,
+          reading: reading,
+          use: snapshot,
+          speak: speak,
+          write: write,
+          lastReviewEventId: lastReviewEventId,
+        );
+      case SkillDimension.speak:
+        return LearningState(
+          unitId: unitId,
+          understanding: understanding,
+          listening: listening,
+          reading: reading,
+          use: use,
+          speak: snapshot,
+          write: write,
+          lastReviewEventId: lastReviewEventId,
+        );
+      case SkillDimension.write:
+        return LearningState(
+          unitId: unitId,
+          understanding: understanding,
+          listening: listening,
+          reading: reading,
+          use: use,
+          speak: speak,
+          write: snapshot,
           lastReviewEventId: lastReviewEventId,
         );
     }
@@ -179,6 +259,9 @@ class LearningState {
         other.understanding == understanding &&
         other.listening == listening &&
         other.reading == reading &&
+        other.use == use &&
+        other.speak == speak &&
+        other.write == write &&
         other.lastReviewEventId == lastReviewEventId;
   }
 
@@ -188,6 +271,9 @@ class LearningState {
         understanding,
         listening,
         reading,
+        use,
+        speak,
+        write,
         lastReviewEventId,
       );
 
@@ -197,18 +283,30 @@ class LearningState {
           'understanding': understanding.toJson(),
           'listening': listening.toJson(),
           'reading': reading.toJson(),
+          // Output — additive (ADR-0015). Luôn ghi đủ 6; fromJson handle
+          // dữ liệu cũ không có key output → initial.
+          'use': use.toJson(),
+          'speak': speak.toJson(),
+          'write': write.toJson(),
         },
         'lastReviewEventId': lastReviewEventId,
       };
 
   factory LearningState.fromJson(Map<String, dynamic> json) {
     final skills = json['skills'] as Map<String, dynamic>;
+    // Backward compat: dữ liệu cũ không có use/speak/write → initial.
+    SM2Snapshot readSnapshot(String key) {
+      final raw = skills[key] as Map<String, dynamic>?;
+      return raw == null ? SM2Snapshot.initial() : SM2Snapshot.fromJson(raw);
+    }
     return LearningState(
       unitId: json['unitId'] as String,
-      understanding:
-          SM2Snapshot.fromJson(skills['understanding'] as Map<String, dynamic>),
-      listening: SM2Snapshot.fromJson(skills['listening'] as Map<String, dynamic>),
-      reading: SM2Snapshot.fromJson(skills['reading'] as Map<String, dynamic>),
+      understanding: readSnapshot('understanding'),
+      listening: readSnapshot('listening'),
+      reading: readSnapshot('reading'),
+      use: readSnapshot('use'),
+      speak: readSnapshot('speak'),
+      write: readSnapshot('write'),
       lastReviewEventId: json['lastReviewEventId'] as String? ?? '',
     );
   }

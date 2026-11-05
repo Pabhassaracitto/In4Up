@@ -30,6 +30,9 @@ LearningState _state({
     understanding: _snap(interval: interval, repetitions: repetitions, due: due),
     listening: _snap(interval: interval, repetitions: repetitions, due: due),
     reading: _snap(interval: interval, repetitions: repetitions, due: due),
+    use: SM2Snapshot.initial(now: due),
+    speak: SM2Snapshot.initial(now: due),
+    write: SM2Snapshot.initial(now: due),
   );
 }
 
@@ -129,6 +132,9 @@ void main() {
         understanding: _snap(due: now.add(const Duration(days: 30))),
         listening: _snap(interval: 2, repetitions: 1, due: now.add(const Duration(days: 30))),
         reading: _snap(due: now.add(const Duration(days: 30))),
+        use: SM2Snapshot.initial(now: now),
+        speak: SM2Snapshot.initial(now: now),
+        write: SM2Snapshot.initial(now: now),
       );
       final asListen = AttentionRanker.score(
         AttentionInput(unitId: 'u', state: state, goalSkill: SkillDimension.listening),

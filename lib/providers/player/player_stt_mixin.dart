@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
+import '../../services/offline_model_gate.dart';
 import '../../services/source_artifact_store.dart';
 
 mixin PlayerSttMixin on ChangeNotifier {
@@ -274,6 +275,42 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// nhận diện ngôn ngữ (đa ngữ: vi/en/zh/ja/ko/pi...); hoặc gán cụ thể
   /// ('vi', 'en'...) khi muốn ép ngôn ngữ. Trước đây hardcode 'en' —
   /// file tiếng Việt bị transcribe sai ngôn ngữ.
+  /// AUDIT-1.21.0 #7 — preflight model sherpa TRƯỚC khi `transcribeFile`
+  /// xuống `OfflineRecognizer`. `isAsrProfileInstalled` chỉ cần file >1KB nên
+  /// bản import dở vẫn "sẵn sàng" ⇒ SIGSEGV C++ không catch được ở Dart.
+  Future<OfflineModelVerdict> _sherpaLrcPreflight(String language) async {
+    final manager = SherpaModelManager();
+    try {
+      await manager.ensureFresh();
+    } catch (_) {}
+    var lang = language.trim();
+    if (lang.isEmpty || lang.toLowerCase() == 'auto') {
+      lang = manager.defaultCabinSourceLanguageSync();
+    }
+    // `getAsrModelPaths` đã lo fallback sang model đa ngữ (Parakeet) và
+    // tự đọc `isStreaming` từ metadata ONNX — không tự nhận diện lại ở đây.
+    final paths = manager.getAsrModelPaths(lang);
+    var filesPlausible = false;
+    if (paths != null) {
+      try {
+        filesPlausible = asrFilesPlausible(
+          encoderBytes: File(paths.encoder).lengthSync(),
+          decoderBytes: File(paths.decoder).lengthSync(),
+          joinerBytes: File(paths.joiner).lengthSync(),
+          tokensBytes: File(paths.tokens).lengthSync(),
+        );
+      } catch (_) {
+        filesPlausible = false;
+      }
+    }
+    return assessOfflineModel(
+      installed: paths != null,
+      filesPlausible: filesPlausible,
+      isStreaming: paths?.isStreaming ?? false,
+      needsOffline: true,
+    );
+  }
+
   /// [preferSherpa]: dùng model sherpa OFFLINE (Parakeet đa ngữ / Zipformer VI)
   /// thay cho Whisper — PARAKEET-002. Trước đây tab Nghe chỉ biết Whisper nên
   /// import Parakeet xong không có cách nào dùng để tạo lời thoại.
@@ -301,6 +338,33 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (hit != null) {
         await applyCachedLrc(hit: hit);
         return null;
+      }
+    }
+
+    // AUDIT-1.21.0 #7: CHẶN sớm, trước cả `pause()` + delay 1s + tạo
+    // `SttServiceFacade`. Khi model chưa nạp/chưa nguyên vẹn, đường cũ vẫn
+    // gọi `OfflineRecognizer` ⇒ văng app ở tầng C++ (PR #128 chỉ chặn được
+    // MissingPluginException ở notification, không chặn được SIGSEGV này).
+    if (preferSherpa) {
+      final verdict = await _sherpaLrcPreflight(language);
+      if (!_isCurrentAudio(path, generation)) return null;
+      if (!verdict.canUse) {
+        final message = switch (verdict.issue) {
+          OfflineModelIssue.incompleteFiles => 'Chưa có engine nhận diện giọng '
+              'nói sẵn sàng. Import model Sherpa trong Quản lý Model AI, '
+              'hoặc kiểm tra dịch vụ nhận diện giọng nói của hệ thống.',
+          OfflineModelIssue.streamingOnly => 'Model không khớp profile đã '
+              'chọn: model streaming chỉ dùng cho EN, model offline chỉ dùng '
+              'cho VI.',
+          _ => 'Chưa có model nhận diện offline — hãy tải hoặc import '
+              'Parakeet / Zipformer VI trong Quản lý Model AI.',
+        };
+        _lastSttError = message;
+        _isGeneratingLrc = false;
+        notifyListeners();
+        debugPrint('⛔ [SttMixin] sherpa LRC blocked: '
+            '${verdict.issue.name} — ${verdict.technicalMessage}');
+        return SttTranscribeOutput.failure(message);
       }
     }
 

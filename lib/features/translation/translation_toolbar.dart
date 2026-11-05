@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/deeplx_endpoint.dart';
 import 'engines/deeplx_engine.dart';
 import 'engines/hymt_engine.dart';
 import 'engines/mlkit_engine.dart';
@@ -392,6 +393,13 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     _enginePref = widget.service.offlineEnginePref;
     _llmInfo = _loadLlmInfo();
     _loadModels();
+    // AUDIT-1.21.0 #6: URL DeepLX đã lưu từ bản cũ là link bài hướng dẫn ⇒
+    // báo ngay khi mở sheet thay vì để user bấm "Thử kết nối" rồi kẹt.
+    final rejected = widget.service.deeplxConfigError;
+    if (rejected != null) {
+      _deeplxTestOk = false;
+      _deeplxTestMessage = '❌ $rejected';
+    }
   }
 
   Future<(AiProviderConfig?, AiRouteMode)> _loadLlmInfo() async {
@@ -781,9 +789,22 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    widget.service.configure(
-                      deeplxUrl: _urlController.text.trim(),
-                    );
+                    final raw = _urlController.text.trim();
+                    final verdict = assessDeepLXEndpoint(raw);
+                    // AUDIT-1.21.0 #6: đừng lưu link bài hướng dẫn/forum làm
+                    // endpoint. Nói rõ ngay trong sheet (không pop im lặng).
+                    if (!verdict.isValid &&
+                        verdict.issue !=
+                            DeepLXEndpointIssue.notConfigured) {
+                      setState(() {
+                        _deeplxTestOk = false;
+                        // verdict.message đã là English canonical (rule #5),
+                        // không cần uiText cho một template chỉ có 1 placeholder.
+                        _deeplxTestMessage = '❌ ${verdict.message}';
+                      });
+                      return;
+                    }
+                    widget.service.configure(deeplxUrl: raw);
                     Navigator.pop(context);
                   },
                   style:
@@ -814,12 +835,21 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       _testingDeeplx = true;
       _deeplxTestMessage = null;
     });
-    // Engine tự chuẩn hoá URL (host trần → /translate).
-    final engine = DeepLXEngine(serverUrl: raw);
-    final probe = await engine.probe(text: 'Hello', targetLang: 'VI');
+    // AUDIT-1.21.0 #6: link bài hướng dẫn/forum (vd linux.do/t/topic/…) bị
+    // từ chối NGAY ở tầng thuần ⇒ không POST lên HTML, không quay 20s.
+    // Mọi ngoại lệ được gom thành một `DeepLXProbeResult` thất bại, rồi cờ
+    // `_testingDeeplx` được hạ trong CÙNG setState cuối ⇒ nút "Thử kết nối"
+    // KHÔNG BAO GIỜ kẹt ở trạng thái đang thử dù probe ném lỗi bất ngờ.
+    DeepLXProbeResult probe;
+    try {
+      // Engine tự chuẩn hoá URL (host trần → /translate).
+      final engine = DeepLXEngine(serverUrl: raw);
+      probe = await engine.probe(text: 'Hello', targetLang: 'VI');
+    } catch (error) {
+      probe = DeepLXProbeResult(ok: false, error: error.toString());
+    }
     if (!mounted) return;
     setState(() {
-      _testingDeeplx = false;
       _deeplxTestOk = probe.ok;
       if (probe.ok) {
         _deeplxTestMessage = context.uiText(
@@ -834,6 +864,9 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
           '❌ Không kết nối được server: ${_shortError(probe.error)} — kiểm tra Space/serve đang chạy (HF Space ngủ sau ~48h không dùng).',
         );
       }
+      // Hạ cờ trong CÙNG setState với thông báo: không có nhánh nào (kể cả
+      // lỗi format ở trên) có thể bỏ qua và làm nút kẹt "đang thử" mãi.
+      _testingDeeplx = false;
     });
   }
 

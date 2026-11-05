@@ -8,6 +8,7 @@ import android.graphics.RectF
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.View
 
@@ -20,8 +21,14 @@ import android.view.View
  *
  * Chiến lược vẽ: nền tối mờ phủ đúng khung chữ gốc (để chữ bên dưới không
  * lẫn vào), rồi vẽ bản dịch bằng [StaticLayout] (tự xuống dòng). Chữ không
- * vừa khung thì GIẢM cỡ dần tới 9sp; vẫn không vừa thì cho tràn xuống dưới
- * khung — thà đọc được còn hơn bị cắt mất chữ.
+ * vừa khung thì GIẢM cỡ dần tới 9sp; vẫn không vừa thì rút gọn bằng dấu ba
+ * chấm, KHÔNG BAO GIỜ phình khung xuống dưới.
+ *
+ * AUDIT-1.21.0 #1 / XLAT-SCR-005: trước đây `boxHeight =
+ * max(height, layout.height + padding)` cho ô của khối TRÊN phình xuống đè
+ * lên khối DƯỚI ⇒ nhiều khối dịch bị chữ chồng lên nhau. Giờ Dart
+ * (`layoutTranslatedBlocks`) đã xếp/cắt khung sẵn; native chỉ vẽ ĐÚNG khung
+ * nhận được. Một công thức, một chỗ — không scale/phình ở đây nữa.
  */
 class TranslationOverlayView(context: Context) : View(context) {
 
@@ -75,24 +82,38 @@ class TranslationOverlayView(context: Context) : View(context) {
             val height = (block.bottom - block.top).coerceAtLeast(1)
             val padding = 4f
 
-            val layout = buildLayout(
-                text = text,
-                maxWidth = (width - padding * 2).toInt().coerceAtLeast(8),
-                maxHeight = height,
-                startSizeSp = block.textSizeSp,
-            )
-
-            val boxHeight = maxOf(height.toFloat(), layout.height + padding * 2)
+            // AUDIT-1.21.0 #1: KHUNG CỐ ĐỊNH. Dart đã cắt khung trên đúng
+            // mép khung dưới; nếu vẫn phình ở đây sẽ đè chữ khối kế tiếp.
             val rect = RectF(
                 block.left.toFloat(),
                 block.top.toFloat(),
                 block.right.toFloat(),
-                block.top + boxHeight,
+                block.bottom.toFloat(),
             )
+            val availableHeight = (height - padding * 2).toInt()
+            // Khung quá mỏng (bị cắt bởi layout Dart) ⇒ bỏ hẳn, để lộ chữ
+            // gốc bên dưới thay vì nghiền 9sp đè lên dòng khác.
+            if (availableHeight < 8) continue
+
+            val layout = buildLayout(
+                text = text,
+                maxWidth = (width - padding * 2).toInt().coerceAtLeast(8),
+                maxHeight = availableHeight,
+                startSizeSp = block.textSizeSp,
+            )
+
+            // Chữ vẫn dài hơn khung ⇒ cắt số dòng + ellipsize. Không vẽ ra
+            // ngoài `rect` (canvas.clipRect là hàng rào cuối cùng).
             canvas.drawRoundRect(rect, 6f, 6f, boxPaint)
             canvas.drawRoundRect(rect, 6f, 6f, edgePaint)
 
             canvas.save()
+            canvas.clipRect(
+                rect.left + padding,
+                rect.top + padding,
+                rect.right - padding,
+                rect.bottom - padding,
+            )
             canvas.translate(block.left + padding, block.top + padding)
             layout.draw(canvas)
             canvas.restore()
@@ -115,6 +136,20 @@ class TranslationOverlayView(context: Context) : View(context) {
             layout = layoutAt(text, maxWidth, sizeSp)
             attempts++
         }
+        // AUDIT-1.21.0 #1: vẫn không vừa ⇒ giới hạn số dòng + "…" thay vì
+        // tràn xuống khung dưới (nguyên nhân chữ chồng nhau).
+        if (layout.height > maxHeight) {
+            val lineHeight = (layout.getLineBottom(0) - layout.getLineTop(0))
+                .coerceAtLeast(1)
+            val maxLines = (maxHeight / lineHeight).coerceAtLeast(1)
+            layout = layoutAt(
+                text,
+                maxWidth,
+                sizeSp,
+                maxLines = maxLines,
+                ellipsize = true,
+            )
+        }
         return layout
     }
 
@@ -122,6 +157,8 @@ class TranslationOverlayView(context: Context) : View(context) {
         text: String,
         maxWidth: Int,
         sizeSp: Float,
+        maxLines: Int? = null,
+        ellipsize: Boolean = false,
     ): StaticLayout {
         // TypedValue thay cho displayMetrics.scaledDensity (deprecated API 34)
         // và tôn trọng cỡ chữ hệ thống của người dùng.
@@ -130,11 +167,18 @@ class TranslationOverlayView(context: Context) : View(context) {
             sizeSp,
             resources.displayMetrics,
         )
-        return StaticLayout.Builder
+        val builder = StaticLayout.Builder
             .obtain(text, 0, text.length, textPaint, maxWidth)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setLineSpacing(0f, 1.0f)
             .setIncludePad(false)
-            .build()
+        if (maxLines != null) {
+            builder.setMaxLines(maxLines)
+            if (ellipsize) {
+                builder.setEllipsize(TextUtils.TruncateAt.END)
+                builder.setEllipsizedWidth(maxWidth)
+            }
+        }
+        return builder.build()
     }
 }

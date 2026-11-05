@@ -23,6 +23,7 @@
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
 | REL-1.21.0 | Release **1.21.0** (đủ 4 nền tảng) từ tip 251e — 32 commit sau 1.20.0 | ✅ done (build 🟢 run 41995136804, 4/4 job; chờ nghiệm thu máy) | bump `1.20.0+20 → 1.21.0+21` (`3aff8fda`); sửa CMake `//`→`#` (`8a3826df`); APK arm64 198.7 MB `5e65f298…`, IPA 93.0 MB, Linux 49.7 MB, Windows 52.3 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.21.0 |
+| AUDIT-1.21.0-01 | **I4U - Audit v1.21.0** (owner 2026-11-06): 8 mục — overlay chồng chữ, TTS sherpa văng app, Cabin 2 dòng trùng, PDF «Gần đây» FPDF_ER_FILE:2, pop từ vựng 4 mức, link-only/DeepLX, model offline chưa nạp, A-B trùng ∞ | 🔨 doing (code + 8 file test thuần + KANBAN/PLAN/docs; **chờ CI + nghiệm thu máy/logcat**) | `docs/project/AUDIT_1_21_0.md`; #2/#7 BẮT BUỘC `adb logcat`, #3 chờ AI ngữ cảnh Cabin recheck |
 | TTS-VIENEU-001 | Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp C ABI) làm engine đọc Tiếng Việt on-device (Tipiṭaka, tab đọc, học thuộc lòng...), có tùy chọn | 🔨 doing (code + ADR, chờ Flutter CI + build NDK + nghiệm thu máy thật) | `native/tts_vieneu/` (wrapper C trên audio.cpp C ABI), `android/app/src/main/cpp/ai/CMakeLists.txt` (CPU-only, arm64-v8a), `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + worker isolate, `lib/features/tts/engines/vieneu_tts_engine.dart`, đăng ký `vieneu_tts` trong `TtsService` (priority 0, fallback an toàn), i18n 2 key (en/vi/hi/zh/zh_TW/si), ADR-0022, license credit Apache-2.0 trong Settings |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
@@ -8747,3 +8748,25 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Bài học CI:** `//` không phải comment của CMake — analyzer/build Dart xanh hoàn toàn không bảo đảm được điều này; chỉ `configureCMakeRelease` mới bắt.
 - **Lịch sử:**
   - 2026-11-05 | created→done | agent arena/01a0251e-in4up | bump 1.21.0+21 → tag → build đỏ (CMake `//`) → sửa → xoá release/tag dở → tag lại → build **41995136804** 🟢 4/4
+
+### AUDIT-1.21.0-01 — (2026-11-06) I4U - Audit v1.21.0: 8 phản hồi nghiệm thu
+- **Trạng thái:** 🔨 doing (code + test thuần + docs xong; **chờ CI + nghiệm thu thiết bị / `adb logcat`**)
+- **Nguồn:** owner 2026-11-06 — danh sách `I4U - Audit v1.21.0` (8 mục, tiếng Việt); owner chọn phạm vi `fix_all`, surface #5 = `Pop từ trong tab Đọc (WordMiniPop)`, #8 = "chỉ để 1 cái icon vô cực" (`∞ ∞ 1× 3× 5× 7× … 20×`), #6 = "Tôi không biết … lấy link dán vô, dịch chỉ ra dòng https://linux.do/t/topic …".
+- **Chi tiết đầy đủ:** [`docs/project/AUDIT_1_21_0.md`](AUDIT_1_21_0.md) — bảng 8 mục, root cause, test, i18n, đối chiếu PR #106/#128/#129/#136 + `57ad5a7`, và danh sách việc CÒN LẠI.
+- **Đã làm (code):**
+  - #1 `layoutTranslatedBlocks()` (Dart thuần) + native `TranslationOverlayView.kt` bỏ `boxHeight = maxOf(...)` ⇒ thêm `clipRect` + ellipsize.
+  - #2/#7 **một cụm model/offline**: `lib/services/offline_model_gate.dart`; `PiperTtsEngine` marker `[TTS-NATIVE]`, `_LrcModelSelector._sherpaVerdict()`, `PlayerSttMixin._sherpaLrcPreflight()`.
+  - #3 `CabinFinalizationDeduper` nối vào `SttsCabinService`, xoá `Future.delayed(3s)` (recheck theo yêu cầu "AI ngữ cảnh Cabin").
+  - #4 `pdf_open_preflight.dart` + `pdf_open_messages.dart` nối vào `ReadLibraryScreen`, `QuickLibrarySheet`, `PdfReaderScreen`.
+  - #5 `WordMiniPop`: 4 chip `Dễ / Vừa / Khó / Rất khó` → `markWordDifficulty` (KHÔNG mở rộng `WordlistBubble`).
+  - #6 `translation_link_guard.dart` + `deeplx_endpoint.dart` dùng chung ở engine/service/toolbar/controller; không lưu URL bài hướng dẫn; nút "Thử kết nối" không kẹt.
+  - #8 `LoopPresets.dropdownValues` bỏ `-1` ⇒ chỉ 1 `∞`; `LoopCountChips` ngay popup A-B bên ngoài.
+- **Test thuần mới (8 file):** `test/screen_translate/overlay_layout_audit_test.dart`, `test/cabin/cabin_finalization_dedup_test.dart`, `test/pdf_reader/pdf_open_preflight_test.dart`, `test/translation/translation_link_guard_test.dart`, `test/translation/deeplx_endpoint_audit_test.dart`, `test/services/offline_model_gate_test.dart`, `test/models/loop_presets_audit_test.dart`, `test/audit_1_21_0_wiring_test.dart`.
+- **i18n:** 10 key mới (5 PDF + 5 difficulty) vào `legacy_ui_english_overrides.json` / `generated_legacy_ui_fallbacks.dart` / `priority_native_pack.json` + generated (đủ 8 locale, `--check` ✅). Generator legacy fallbacks **đỏ sẵn ở HEAD** (814 unused + 231 unclassified — đã verify bằng `git archive HEAD`; card `I18N-001` trên main cũng ghi rõ) ⇒ chỉ thêm 10 key, KHÔNG regenerate toàn bộ.
+- **CÒN LẠI (không được gọi là đã fix):**
+  - `adb logcat` #2 (ưu tiên TTS sherpa → bấm Đọc) và #7 (import model dở → «Tạo lời thoại»): crash C++ không catch được ở Dart.
+  - #3: AI có ngữ cảnh Cabin recheck luồng STT thật khi dịch >3s.
+  - QA máy #1 (≥3 khối), #4 (xoá file «Gần đây»), #5 (bật `wordTapBoxes`), #6 (endpoint Termux thật), #8 (1 `∞` + chip A-B).
+  - CI `app_analyze.yml` (sandbox không có Flutter/Dart SDK) — run id sẽ append ở dòng lịch sử tiếp theo.
+- **Lịch sử:**
+  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + 8 file test thuần + i18n + `docs/project/AUDIT_1_21_0.md` + PLAN-043; đối chiếu PR #106/#128/#129/#136 và `57ad5a7`; chưa có logcat/CI ⇒ giữ `doing`.

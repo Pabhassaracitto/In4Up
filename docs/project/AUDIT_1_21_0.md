@@ -1,0 +1,61 @@
+# I4U — Audit v1.21.0 (8 mục) — báo cáo triển khai
+
+- **Ngày:** 2026-11-06 (giờ owner Asia/Colombo) / 2026-11-05 UTC.
+- **Nhánh:** `arena/4e91ed51-in4up` (base `d32fc1e`, lineage 251e, version `1.21.0+21`).
+- **Phạm vi owner chọn:** `fix_all` — sửa code cả 8 mục + test thuần + cập nhật KANBAN/PLAN/docs.
+- **Nguyên tắc:** KHÔNG tuyên bố "đã xong" với lỗi chỉ kiểm được trên máy thật. Mục #2/#7 **bắt buộc `adb logcat`**; #3 owner yêu cầu **AI có ngữ cảnh Cabin recheck**; commit `57ad5a7` chỉ "có vẻ đã xử lý".
+
+> Tài liệu này là bản ghi TRUNG THỰC: cột "Đã làm" là thay đổi code/test trong
+> repo; cột "CÒN LẠI" là nghiệm thu thiết bị / runtime chưa chạy. Sandbox không
+> có Flutter/Dart SDK nên `flutter analyze` / `flutter test` được xác minh qua
+> CI GitHub Actions (xem mục Cuối).
+
+## Bảng 8 mục
+
+| # | Triệu chứng owner | Đã làm (code + test thuần) | CÒN LẠI (thiết bị / runtime) |
+|---|---|---|---|
+| 1 | `Bong bóng dịch nhiều khối, chữ chồng lên nhau` (history `XLAT-SCR-005` / PR #106) | `layoutTranslatedBlocks()` (Dart thuần) xếp/gộp/cắt khung + tính lại `textSizeSp`; `ScreenTranslateController.handleFrame()` gọi trước khi trả kết quả; native `TranslationOverlayView.kt` **không còn phình khung** (`boxHeight = maxOf` bị xoá), dùng `clipRect` + `StaticLayout` ellipsize `TextUtils.TruncateAt.END`. Test: `test/screen_translate/overlay_layout_audit_test.dart` + pin trong `test/audit_1_21_0_wiring_test.dart`. | Chụp màn hình thật với ≥3 khối dịch dài để xác nhận không còn chữ đè; `logcat` nếu vẫn lệch khung (native vẽ là device-only). |
+| 2 | Tab Đọc: `ưu tiên TTS sherpa rồi bấm Đọc ⇒ văng app` | `PiperTtsEngine.isAvailable()`/`synthesize()` đi qua `assessOfflineModel()` (cùng cụm #7), chặn gọi native khi thiếu `.onnx`/`espeak-ng-data`; thêm marker `[TTS-NATIVE] selectVoice=…` ghi kích thước file để đối chiếu logcat. PR #128 đã chặn `MissingPluginException` ở `TtsNotificationService` — phần còn lại nằm ở native/model. Test: `test/services/offline_model_gate_test.dart` + pin. | **BẮT BUỘC `adb logcat`** trên máy thật: chạy đúng thứ tự ưu tiên TTS sherpa → bấm Đọc, lấy stack `SIGSEGV`/`SIGABRT`/`Fatal signal`. Code Dart KHÔNG catch được crash C++; chưa có log ⇒ chưa được phép gọi "đã fix". |
+| 3 | Cabin: `đang dịch mà nói thêm ⇒ 2 dòng trùng` | `CabinFinalizationDeduper` (thuần, nhớ in-flight + cửa sổ 8s, normalize dấu câu/hoa thường) được nối vào `_onLiveSttResult` / `_flushActivePartialBeforeClose` / `_trackFinalization`; **xoá `Future.delayed(3s)`** vốn tắt cửa sổ chống trùng đúng lúc bản dịch còn bay; `whenComplete` bảo đảm đóng in-flight kể cả khi dịch lỗi. Test: `test/cabin/cabin_finalization_dedup_test.dart` + pin. | Owner yêu cầu **AI ngữ cảnh Cabin recheck**: chạy Cabin thật, nói thêm câu mới trong lúc dịch LLM/offline chậm >3s, so caption/LRC/journal không có 2 dòng trùng. Test thuần chỉ chứng minh logic, chưa thay thế nghiệm thu luồng STT thật. |
+| 4 | Thư viện `«Gần đây»` ⇒ `PdfException ... FPDF_ER_FILE:2` | `inspectPdfForOpen()` (thuần `dart:io`) kiểm tra tồn tại / dung lượng / header `%PDF-` **trước** `PdfViewer.file`; nối vào `ReadLibraryScreen._openFile()` (nhánh `localPdf` trước đó KHÔNG có `existsSync()`, trong khi `localText` có), `QuickLibrarySheet` và `PdfReaderScreen.initState` (che mọi cửa vào); mục chết tự bị gỡ; `FPDF_ER_FILE:2` được đổi thành thông báo thân thiện. PR #129 sửa 6 lỗi PDF Reader nhưng **không chạm** `recent_files_service`/library. Test: `test/pdf_reader/pdf_open_preflight_test.dart` + pin. | Repro trên máy: xoá/cache-dọn một PDF trong «Gần đây» rồi bấm mở ⇒ phải hiện thông báo + gỡ mục, không màn đỏ. Quyền SAF trên Android 11+ cũng cần 1 lượt thử. |
+| 5 | `Bấm từ vựng chỉ đọc` | `WordMiniPop` (đúng surface owner chọn: **pop trong tab Đọc**) có thêm 4 chip `Dễ / Vừa / Khó / Rất khó`; bấm chip ⇒ `TextProvider.markWordDifficulty()` + đồng bộ `VocabularyProvider.updateDifficulty()`, badge cập nhật tại chỗ. Dùng nhãn `Vừa` theo lời owner (core enum vẫn `Trung bình`). Test: pin `test/audit_1_21_0_wiring_test.dart`. Không mở rộng sang `WordlistBubble`/review/knowledge graph. | Bấm từ thật trong tab Đọc (cần bật `wordTapBoxes`): pop hiện, 4 chip bấm được, mức độ lưu lại khi mở lại văn bản. |
+| 6 | `Bản dịch ra https://linux.do/t/topic/111737 dù có model / kẹt «Thử kết nối DeepLX»` | Xử lý **CẢ HAI** khả năng (owner nói "Tôi không biết"): (a) `isLinkOnlyText()` chặn URL thuần ở `TranslationService._translateTextInternal`, ở `_looksUntranslated` (engine trả nguyên link) và ở OCR screen-translate; (b) `assessDeepLXEndpoint()` từ chối link bài/forum (`/t/topic/...`), host nội dung (`linux.do`, GitHub…), scheme sai, URL rác; `DeepLXEngine`/`TranslationService`/`TranslationToolbar` dùng chung verdict ⇒ không POST lên HTML, không quay 20s, không lưu URL sai, `deeplxConfigError` nói rõ lý do, nút "Thử kết nối" luôn hạ cờ. `linux.do` **không có trong source** (đã grep) ⇒ đây là dữ liệu runtime, không phải literal. Test: `test/translation/translation_link_guard_test.dart`, `test/translation/deeplx_endpoint_audit_test.dart` + pin. | Chạy DeepLX server thật trong Termux/permux, dán **đúng endpoint** `http://127.0.0.1:1188/translate` ⇒ "Thử kết nối" xanh; dán link bài `linux.do` ⇒ báo lỗi ngay. Chưa có runtime này nên KHÔNG khẳng định nguyên nhân gốc duy nhất. |
+| 7 | Offline Parakeet/sherpa chưa có model vẫn chọn được ⇒ crash khi `«Tạo lời thoại»` | Cùng cụm #2: `offline_model_gate.dart` kiểm tra kích thước thật 4 file ASR (`encoder/decoder/joiner/tokens`) thay vì chỉ >1KB của `SherpaModelManager._findAsrModelInDirSync()`; `_LrcModelSelector._sherpaLanguages()` + `_sherpaBlockMessage()` chặn chip/nút; `PlayerSttMixin._sherpaLrcPreflight()` chặn trước `pause()`/native; chip tự tắt khi model biến mất. Test: `test/services/offline_model_gate_test.dart` + pin. | **BẮT BUỘC `adb logcat`** với bản import model DỞ (cắt giữa file) và bản import đúng: xác nhận UI không cho chọn và không còn `SIGSEGV` ở `OfflineRecognizer`. PR #136 đã mở đường Parakeet đa ngữ; gate mới là preflight bổ sung, cần AT máy. |
+| 8 | Tab Nghe: popup A-B bên ngoài thiếu chỉnh số lần lặp; `∞ ∞ 1× 3× 5× 7× … 20×` bị trùng | Root cause chính xác: `LoopPresets.dropdownValues = [-1, 0, 1, 3, 5, 7, 10, 15, 20]` + `labelFor(count <= 0) == '∞'` ⇒ **hai mục ∞ đứng đầu**. Sửa thành `[0, 1, 3, 5, 7, 10, 15, 20]`; `safeDropdownValue(-1) → 0` cho cài đặt cũ; `badgeModes` (lặp bài, chỉ 1 ∞) giữ nguyên. Thêm `LoopCountChips` ngay trong `_ABLoopWithSilencePanel` (popup A-B bên ngoài), dùng chung một nguồn `dropdownValues`. Test: `test/models/loop_presets_audit_test.dart` + pin. | Mở tab Nghe → giữ ô A-B → xác nhận dãy còn đúng **1** `∞` và chip chọn được số lần lặp; kiểm `player.setMaxLoopCount` thực sự đổi behaviour lặp. |
+
+## Test thuần mới (chạy trên host VM, không cần thiết bị)
+
+```
+test/screen_translate/overlay_layout_audit_test.dart
+test/cabin/cabin_finalization_dedup_test.dart
+test/pdf_reader/pdf_open_preflight_test.dart
+test/translation/translation_link_guard_test.dart
+test/translation/deeplx_endpoint_audit_test.dart
+test/services/offline_model_gate_test.dart
+test/models/loop_presets_audit_test.dart
+test/audit_1_21_0_wiring_test.dart   (source-scan pin cho native/provider/UI)
+```
+
+## i18n (quy tắc vàng #5)
+
+- 10 chuỗi chrome mới (5 thông báo PDF + `Dễ / Vừa / Khó / Mức độ khó / Đã lưu mức độ khó`) được đăng ký ở `tool/legacy_ui_english_overrides.json`, `lib/core/language/generated_legacy_ui_fallbacks.dart` và `tool/priority_native_pack.json` → `lib/core/language/generated_priority_native_pack.dart` (đủ `en + zh, zh_TW, hi, si, my, th, ja`; `python3 tool/generate_priority_native_pack.py --check` ✅).
+- `Rất khó`, `Lặp lại`, `Chưa có model nhận diện offline — …`, `Chưa có engine nhận diện …`, `Model không khớp profile …` đã có catalog ⇒ tái dùng, không thêm key.
+- Thông báo lỗi tầng service dùng English canonical (`kLinkOnlyTranslationMessage`, `DeepLXEndpointVerdict.message`, `OfflineModelVerdict.technicalMessage`) ⇒ không hard-code tiếng Việt mới ở tầng không có `BuildContext`.
+- **Baseline đã đỏ sẵn:** `python3 tool/generate_legacy_ui_fallbacks.py` trên `HEAD` gốc fail `814 unused overrides` + `231 unclassified accented literals` (đã kiểm bằng `git archive HEAD` ra `/tmp`); card `I18N-001` trên `origin/main` cũng ghi "KHÔNG chạy generator này (đang đỏ sẵn)". Vì vậy file generated được cập nhật **có chủ đích, chỉ thêm 10 key mới** (không regenerate toàn bộ 3981 key), và `generate_priority_native_pack.py` (generator còn xanh) được chạy đầy đủ.
+
+## PR/lịch sử đã đối chiếu
+
+| PR | Kết luận rút ra |
+|---|---|
+| #106 `XLAT-SCR-005` (MERGED 2026-10-24) | Đưa `mapCaptureRectToOverlay` + concurrency 3 + dedupe block; **không** xử lý nhiều khối phình khung ⇒ #1 là hồi quy còn lại. |
+| #128 `M4U-IMPORT-002` (MERGED 2026-11-05) | Đã bắt `MissingPluginException` của `in4up/tts_notification`; crash #2 còn lại nằm ở native/model ⇒ vẫn cần logcat. |
+| #129 PDF Reader (MERGED 2026-11-03) | Chỉ chạm `pdf_reader_screen.dart` / `pdf_tts_bar` / `pdf_word_tap_sheet` / `selection_save_sheet`; **không** chạm `recent_files_service` / library ⇒ #4 chưa được che. |
+| #136 `M4U-IMPORT-003` (MERGED 2026-11-05 19:38 UTC) | Mở Parakeet đa ngữ + `getAsrModelPaths` fallback; `_LrcModelSelector` dùng `isAsrProfileInstalled` (chỉ >1KB/file) ⇒ #7 gate bổ sung. |
+| `57ad5a7` (251e, CABIN-FLUSH-001) | `_flushActivePartialBeforeClose`, `_drainPendingFinalizations`, `_lastFinalizedText` + delayed 3s — đúng là "có vẻ đã xử lý", chưa chặn replay final khi dịch >3s ⇒ #3. |
+
+## CÒN LẠI (tóm tắt cho owner)
+
+1. **`adb logcat` #2 + #7** — chưa có log thiết bị, không được gọi là đã fix.
+2. **AI ngữ cảnh Cabin recheck #3** — test thuần xong, luồng STT thật chưa.
+3. QA máy: #1 nhiều khối, #4 stale path, #5 pop 4 chip, #6 endpoint DeepLX thật trong Termux, #8 một `∞` + chip A-B.
+4. CI `app_analyze.yml` (analyze 0 error + rule #5 + test thuần) — sandbox không có Flutter SDK; kết quả run được ghi vào KANBAN sau khi có.

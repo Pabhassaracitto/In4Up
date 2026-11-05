@@ -10,6 +10,7 @@ import '../../models/learning_activity.dart';
 import '../../services/learning_activity_service.dart';
 import '../tts/language_detector.dart';
 import 'cache/translation_cache.dart';
+import 'engines/deeplx_endpoint.dart';
 import 'engines/deeplx_engine.dart';
 import 'engines/google_free_engine.dart';
 import 'engines/libre_engine.dart';
@@ -25,6 +26,7 @@ import 'glossary/glossary_store.dart';
 import 'glossary/protect_tokens.dart';
 import 'glossary/translation_glossary.dart';
 import 'mixed_language_segmenter.dart';
+import 'translation_link_guard.dart';
 
 /// Translation orchestration with automatic source detection and engine
 /// fallback. Language metadata comes from the same 26-language catalog used
@@ -128,6 +130,10 @@ class TranslationService {
   /// khởi động lại app không còn mất cấu hình như trước (trước đây chỉ RAM).
   String? _deeplxUrl;
 
+  /// URL user vừa dán mà bộ lọc từ chối (chỉ để UI báo lý do, KHÔNG dùng để
+  /// gọi mạng và KHÔNG lưu qua SharedPreferences).
+  String? _deeplxRejectedUrl;
+
   String _lastUsedEngine = '';
   int _cacheHits = 0;
   int _totalRequests = 0;
@@ -150,6 +156,20 @@ class TranslationService {
   String get sourceLang => _sourceLang;
   String get targetLang => _targetLang;
   String? get deeplxUrl => _deeplxUrl;
+
+  /// Lý do URL DeepLX hiện tại bị từ chối (null = hợp lệ hoặc chưa cấu hình).
+  /// UI sheet đọc để nói rõ thay vì im lặng rơi về Google Free.
+  String? get deeplxConfigError {
+    final rejected = _deeplxRejectedUrl;
+    if (rejected != null) {
+      return assessDeepLXEndpoint(rejected).message;
+    }
+    final url = _deeplxUrl;
+    if (url == null || url.isEmpty) return null;
+    final verdict = assessDeepLXEndpoint(url);
+    return verdict.isValid ? null : verdict.message;
+  }
+
   String get lastUsedEngine => _lastUsedEngine;
   int get cacheHits => _cacheHits;
   int get totalRequests => _totalRequests;
@@ -242,8 +262,14 @@ class TranslationService {
 
   void _initEngines() {
     _engines.clear();
-    if (_deeplxUrl != null && _deeplxUrl!.isNotEmpty) {
-      _engines.add(DeepLXEngine(serverUrl: _deeplxUrl!));
+    // AUDIT-1.21.0 #6: URL dán nhầm (bài hướng dẫn/forum thay vì endpoint)
+    // KHÔNG được đưa vào chuỗi engine. Nếu không, mỗi lượt dịch tốn 12s POST
+    // lên trang HTML rồi mới rớt xuống model offline dù máy đã có model.
+    final deeplx = _deeplxUrl;
+    if (deeplx != null &&
+        deeplx.isNotEmpty &&
+        assessDeepLXEndpoint(deeplx).isValid) {
+      _engines.add(DeepLXEngine(serverUrl: deeplx));
     }
     _engines
       ..add(GoogleFreeEngine())
@@ -283,12 +309,21 @@ class TranslationService {
     if (deeplxUrl != null) {
       // XLAT-DEEPLX-001: chuẩn hoá (host trần → tự nối /translate) + lưu lại
       // để khởi động lần sau vẫn còn.
-      final normalizedUrl = deeplxUrl.trim().isEmpty
-          ? null
-          : DeepLXEngine.normalizeUrl(deeplxUrl.trim());
+      // AUDIT-1.21.0 #6: link bài hướng dẫn/forum bị TỪ CHỐI (không lưu,
+      // không đưa vào chuỗi engine). User vẫn dịch được bằng engine khác /
+      // model offline, và `deeplxConfigError` nói rõ lý do.
+      final verdict = assessDeepLXEndpoint(deeplxUrl);
+      final normalizedUrl =
+          verdict.isValid ? verdict.normalizedUrl : null;
       rebuildEngines = normalizedUrl != _deeplxUrl;
       _deeplxUrl = normalizedUrl;
       if (_persistPrefs) _persistDeeplxUrl(normalizedUrl);
+      if (!verdict.isValid &&
+          verdict.issue != DeepLXEndpointIssue.notConfigured) {
+        _deeplxRejectedUrl = deeplxUrl.trim();
+      } else {
+        _deeplxRejectedUrl = null;
+      }
     }
     if (rebuildEngines) _initEngines();
 
@@ -389,6 +424,20 @@ class TranslationService {
         original: text,
         translated: '',
         engine: 'skip',
+      );
+    }
+
+    // AUDIT-1.21.0 #6: URL thuần (thanh địa chỉ / link bài hướng dẫn dán
+    // nhầm vào ô dịch) KHÔNG phải nội dung cần dịch. Trước đây nhánh
+    // `source == target` trả NGUYÊN link và UI hiện nó như "bản dịch" dù máy
+    // có model offline. Trả lỗi rõ ràng, KHÔNG đốt request, KHÔNG ghi cache.
+    if (isLinkOnlyText(trimmed)) {
+      _lastUsedEngine = '🔗 Link only';
+      return TranslationResult.failure(
+        original: text,
+        error: kLinkOnlyTranslationMessage,
+        engine: 'link-only',
+        errorCode: 'link_only',
       );
     }
 
@@ -606,6 +655,11 @@ class TranslationService {
     // Trùng với nguồn (chỉ khác hoa/thường, dấu câu, khoảng trắng) ⇒
     // engine chưa làm gì cả.
     if (_normalizeForCompare(out) == _normalizeForCompare(src)) return true;
+
+    // AUDIT-1.21.0 #6: engine "dịch" ra đúng một dòng URL (vd link bài
+    // hướng dẫn DeepLX) ⇒ đó KHÔNG phải bản dịch. Đi tiếp engine kế / model
+    // offline thay vì hiện link cho user.
+    if (isLinkOnlyText(out) && !isLinkOnlyText(src)) return true;
 
     // Khác nhưng VẪN LÀ NGÔN NGỮ NGUỒN ⇒ engine trả lại bản gốc đã bị
     // "làm sạch". Chỉ xét khi đủ dài để nhận diện có ý nghĩa.
@@ -1157,8 +1211,16 @@ class TranslationService {
       if (_deeplxUrl == null &&
           savedDeeplxUrl != null &&
           savedDeeplxUrl.trim().isNotEmpty) {
-        _deeplxUrl = DeepLXEngine.normalizeUrl(savedDeeplxUrl);
-        _initEngines();
+        // AUDIT-1.21.0 #6: máy đã từng lưu link bài hướng dẫn ⇒ KHÔNG phục
+        // hồi lại (nếu không mỗi lần mở app lại kẹt "Thử kết nối DeepLX").
+        final verdict = assessDeepLXEndpoint(savedDeeplxUrl);
+        if (verdict.isValid) {
+          _deeplxUrl = verdict.normalizedUrl;
+          _initEngines();
+        } else {
+          await prefs.remove(_deeplxUrlPrefKey);
+          _deeplxRejectedUrl = savedDeeplxUrl.trim();
+        }
       }
     } catch (_) {}
   }

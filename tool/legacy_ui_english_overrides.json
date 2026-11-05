@@ -3969,5 +3969,15 @@
   "Ghi âm offline (Parakeet)": "Offline mic (Parakeet)",
   "Dừng ghi offline": "Stop offline recording",
   "Chưa có model nhận diện offline — hãy tải hoặc import Parakeet / Zipformer VI trong Quản lý Model AI.": "No offline speech model yet — download or import Parakeet / Zipformer VI in AI Model Management.",
-  "Không khởi động được nhận diện offline.": "Could not start offline speech recognition."
+  "Không khởi động được nhận diện offline.": "Could not start offline speech recognition.",
+  "Không còn file PDF trên máy. Thêm lại từ Thiết bị.": "This PDF is no longer on the device. Add it again from Device.",
+  "File PDF rỗng hoặc tải dở. Chọn lại file khác.": "This PDF is empty or incomplete. Choose another file.",
+  "Đây không phải file PDF hợp lệ. Chọn lại file .pdf.": "This is not a valid PDF. Choose a .pdf file.",
+  "Không đọc được file PDF. Kiểm tra lại quyền truy cập.": "Cannot read this PDF. Check the file access permission.",
+  "File PDF không còn hoặc bị hỏng (FPDF_ER_FILE:2). Thêm lại từ Thiết bị.": "The PDF is missing or corrupted (FPDF_ER_FILE:2). Add it again from Device.",
+  "Dễ": "Easy",
+  "Vừa": "Medium",
+  "Khó": "Hard",
+  "Mức độ khó": "Difficulty",
+  "Đã lưu mức độ khó": "Difficulty saved"
 }

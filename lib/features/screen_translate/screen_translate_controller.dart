@@ -40,9 +40,11 @@ import '../../core/language/app_ui_translations.dart';
 import '../ocr/ocr_block.dart';
 import '../ocr/ocr_service.dart';
 import '../translation/engines/translation_engine.dart';
+import '../translation/translation_link_guard.dart';
 import '../translation/translation_service.dart';
 import 'screen_translate_geometry.dart';
 import 'screen_translate_models.dart';
+import 'screen_translate_overlay_layout.dart';
 
 /// Chạy OCR trên một frame đã chuẩn hoá (BGRA đặc).
 typedef ScreenOcrRunner = Future<OcrBlocksResult> Function({
@@ -428,7 +430,12 @@ class ScreenTranslateController {
     final selected = selectBlocksToTranslate(ocr.blocks, _maxBlocks);
     final translatable = <int>[
       for (var i = 0; i < selected.length; i++)
-        if (hasTranslatableLetters(selected[i].text)) i,
+        if (hasTranslatableLetters(selected[i].text) &&
+            // AUDIT-1.21.0 #6: thanh địa chỉ / link trong trang không phải
+            // nội dung cần dịch (trước đây overlay hiện nguyên URL như "bản
+            // dịch" và đốt 1 request engine cho mỗi link).
+            !isLinkOnlyText(selected[i].text))
+          i,
     ];
     if (translatable.isEmpty) {
       // Có khung chữ nhưng toàn số/ký hiệu ⇒ không có gì để dịch. Nói rõ
@@ -546,10 +553,21 @@ class ScreenTranslateController {
 
     _report(ScreenTranslateStage.finishing);
 
-    final blocks = <ScreenBlock>[
+    final rawBlocks = <ScreenBlock>[
       for (final block in out)
         if (block != null) block,
     ];
+
+    // AUDIT-1.21.0 #1 (XLAT-SCR-005 hồi quy): bản dịch dài hơn chữ gốc ⇒
+    // native trước đây phình ô xuống dưới, đè lên khối kế tiếp ⇒ chữ chồng
+    // lên nhau khi dịch nhiều khối. Xếp chỗ ở Dart (thuần, có test) rồi native
+    // chỉ vẽ ĐÚNG khung được cấp — không tự phình nữa.
+    final blocks = layoutTranslatedBlocks(
+      rawBlocks,
+      screenWidth: geometry.screenWidth,
+      screenHeight: geometry.screenHeight,
+      devicePixelRatio: geometry.devicePixelRatio,
+    );
 
     stopwatch.stop();
 

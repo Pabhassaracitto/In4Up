@@ -1,0 +1,1696 @@
+{
+ "schema": "in4up.concept_animation_pack/1",
+ "version": 1,
+ "note": "Danh sach 100 khai niem duoc owner duyet 2026-11-05 (docs/plans/PLAN-041-animation-core-concepts.md). Cac animation deu la pictogram hinh hoc goc In4Up, CC0; khong chua tai nguyen/thumbnail cua ben thu ba.",
+ "groups": {
+  "A": "Hành động cơ thể",
+  "B": "Cảm xúc & trạng thái",
+  "C": "Động vật",
+  "D": "Thiên nhiên & thời tiết",
+  "E": "Đồ vật & nhà cửa",
+  "F": "Đi lại & nơi chốn",
+  "G": "Ăn uống",
+  "H": "Con người & cơ thể",
+  "I": "Chuyển động đặc trưng"
+ },
+ "concepts": [
+  {
+   "id": "run",
+   "group": "A",
+   "glossVi": "chạy",
+   "keywords": [
+    "run",
+    "running"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/run.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "walk",
+   "group": "A",
+   "glossVi": "đi bộ",
+   "keywords": [
+    "walk",
+    "walking"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/walk.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "jump",
+   "group": "A",
+   "glossVi": "nhảy",
+   "keywords": [
+    "jump",
+    "jumping"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/jump.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "swim",
+   "group": "A",
+   "glossVi": "bơi",
+   "keywords": [
+    "swim",
+    "swimming"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/swim.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "climb",
+   "group": "A",
+   "glossVi": "leo, trèo",
+   "keywords": [
+    "climb",
+    "climbing"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/climb.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "dance",
+   "group": "A",
+   "glossVi": "nhảy múa",
+   "keywords": [
+    "dance",
+    "dancing"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/dance.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "sit",
+   "group": "A",
+   "glossVi": "ngồi",
+   "keywords": [
+    "sit",
+    "sitting"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/sit.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "stand",
+   "group": "A",
+   "glossVi": "đứng",
+   "keywords": [
+    "stand",
+    "standing"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/stand.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "sleep",
+   "group": "A",
+   "glossVi": "ngủ",
+   "keywords": [
+    "sleep",
+    "sleeping"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/sleep.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "wake-up",
+   "group": "A",
+   "glossVi": "thức dậy",
+   "keywords": [
+    "wake up",
+    "alarm clock"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/wake-up.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "eat",
+   "group": "A",
+   "glossVi": "ăn",
+   "keywords": [
+    "eat",
+    "eating"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/eat.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "drink",
+   "group": "A",
+   "glossVi": "uống",
+   "keywords": [
+    "drink",
+    "drinking"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/drink.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cook",
+   "group": "A",
+   "glossVi": "nấu ăn",
+   "keywords": [
+    "cook",
+    "cooking",
+    "chef"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cook.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "read",
+   "group": "A",
+   "glossVi": "đọc",
+   "keywords": [
+    "read",
+    "reading book"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/read.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "write",
+   "group": "A",
+   "glossVi": "viết",
+   "keywords": [
+    "write",
+    "writing",
+    "pencil"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/write.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "speak",
+   "group": "A",
+   "glossVi": "nói",
+   "keywords": [
+    "speak",
+    "talking"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/speak.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "listen",
+   "group": "A",
+   "glossVi": "nghe",
+   "keywords": [
+    "listen",
+    "headphones"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/listen.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "think",
+   "group": "A",
+   "glossVi": "suy nghĩ",
+   "keywords": [
+    "think",
+    "thinking",
+    "idea"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/think.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "happy",
+   "group": "B",
+   "glossVi": "vui, hạnh phúc",
+   "keywords": [
+    "happy",
+    "smile"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/happy.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "sad",
+   "group": "B",
+   "glossVi": "buồn",
+   "keywords": [
+    "sad"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/sad.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "angry",
+   "group": "B",
+   "glossVi": "giận",
+   "keywords": [
+    "angry"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/angry.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "surprised",
+   "group": "B",
+   "glossVi": "ngạc nhiên",
+   "keywords": [
+    "surprised",
+    "wow"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/surprised.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "afraid",
+   "group": "B",
+   "glossVi": "sợ",
+   "keywords": [
+    "afraid",
+    "scared"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/afraid.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "love-heart",
+   "group": "B",
+   "glossVi": "yêu, trái tim",
+   "keywords": [
+    "love",
+    "heart"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/love-heart.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "laugh",
+   "group": "B",
+   "glossVi": "cười lớn",
+   "keywords": [
+    "laugh",
+    "laughing"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/laugh.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cry",
+   "group": "B",
+   "glossVi": "khóc",
+   "keywords": [
+    "cry",
+    "crying"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cry.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "tired",
+   "group": "B",
+   "glossVi": "mệt",
+   "keywords": [
+    "tired",
+    "sleepy"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/tired.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "sick",
+   "group": "B",
+   "glossVi": "ốm, bệnh",
+   "keywords": [
+    "sick",
+    "ill"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/sick.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "dog",
+   "group": "C",
+   "glossVi": "con chó",
+   "keywords": [
+    "dog",
+    "puppy"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/dog.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cat",
+   "group": "C",
+   "glossVi": "con mèo",
+   "keywords": [
+    "cat",
+    "kitten"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cat.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "bird",
+   "group": "C",
+   "glossVi": "con chim",
+   "keywords": [
+    "bird",
+    "flying bird"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/bird.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "fish",
+   "group": "C",
+   "glossVi": "con cá",
+   "keywords": [
+    "fish",
+    "swimming fish"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/fish.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "butterfly",
+   "group": "C",
+   "glossVi": "con bướm",
+   "keywords": [
+    "butterfly"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/butterfly.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "bee",
+   "group": "C",
+   "glossVi": "con ong",
+   "keywords": [
+    "bee"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/bee.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "horse",
+   "group": "C",
+   "glossVi": "con ngựa",
+   "keywords": [
+    "horse",
+    "running horse"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/horse.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cow",
+   "group": "C",
+   "glossVi": "con bò",
+   "keywords": [
+    "cow"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cow.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "pig",
+   "group": "C",
+   "glossVi": "con lợn, heo",
+   "keywords": [
+    "pig"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/pig.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "chicken",
+   "group": "C",
+   "glossVi": "con gà",
+   "keywords": [
+    "chicken",
+    "hen"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/chicken.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "snake",
+   "group": "C",
+   "glossVi": "con rắn",
+   "keywords": [
+    "snake"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/snake.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "elephant",
+   "group": "C",
+   "glossVi": "con voi",
+   "keywords": [
+    "elephant"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/elephant.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "sun",
+   "group": "D",
+   "glossVi": "mặt trời",
+   "keywords": [
+    "sun",
+    "sunshine"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/sun.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "moon",
+   "group": "D",
+   "glossVi": "mặt trăng",
+   "keywords": [
+    "moon",
+    "night"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/moon.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "star",
+   "group": "D",
+   "glossVi": "ngôi sao",
+   "keywords": [
+    "star",
+    "twinkle"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/star.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "rain",
+   "group": "D",
+   "glossVi": "mưa",
+   "keywords": [
+    "rain",
+    "rainy"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/rain.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "snow",
+   "group": "D",
+   "glossVi": "tuyết",
+   "keywords": [
+    "snow",
+    "snowflake"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/snow.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "wind",
+   "group": "D",
+   "glossVi": "gió",
+   "keywords": [
+    "wind",
+    "windy"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/wind.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cloud",
+   "group": "D",
+   "glossVi": "mây",
+   "keywords": [
+    "cloud"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cloud.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "lightning",
+   "group": "D",
+   "glossVi": "sét",
+   "keywords": [
+    "lightning",
+    "thunder"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/lightning.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "fire",
+   "group": "D",
+   "glossVi": "lửa",
+   "keywords": [
+    "fire",
+    "flame"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/fire.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "water-wave",
+   "group": "D",
+   "glossVi": "nước, sóng",
+   "keywords": [
+    "water",
+    "wave",
+    "sea"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/water-wave.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "tree",
+   "group": "D",
+   "glossVi": "cây",
+   "keywords": [
+    "tree"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/tree.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "flower",
+   "group": "D",
+   "glossVi": "hoa",
+   "keywords": [
+    "flower",
+    "bloom"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/flower.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "house",
+   "group": "E",
+   "glossVi": "ngôi nhà",
+   "keywords": [
+    "house",
+    "home"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/house.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "door",
+   "group": "E",
+   "glossVi": "cửa",
+   "keywords": [
+    "door",
+    "open door"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/door.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "key",
+   "group": "E",
+   "glossVi": "chìa khoá",
+   "keywords": [
+    "key"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/key.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "book",
+   "group": "E",
+   "glossVi": "sách",
+   "keywords": [
+    "book",
+    "open book"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/book.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "phone",
+   "group": "E",
+   "glossVi": "điện thoại",
+   "keywords": [
+    "phone",
+    "smartphone"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/phone.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "computer",
+   "group": "E",
+   "glossVi": "máy tính",
+   "keywords": [
+    "computer",
+    "laptop"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/computer.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "light-lamp",
+   "group": "E",
+   "glossVi": "đèn, ánh sáng",
+   "keywords": [
+    "light bulb",
+    "lamp"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/light-lamp.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "clock",
+   "group": "E",
+   "glossVi": "đồng hồ",
+   "keywords": [
+    "clock",
+    "time"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/clock.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "chair",
+   "group": "E",
+   "glossVi": "ghế",
+   "keywords": [
+    "chair"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/chair.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "bed",
+   "group": "E",
+   "glossVi": "giường",
+   "keywords": [
+    "bed"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/bed.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cup",
+   "group": "E",
+   "glossVi": "cốc, tách",
+   "keywords": [
+    "cup",
+    "mug"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cup.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "car",
+   "group": "E",
+   "glossVi": "ô tô, xe hơi",
+   "keywords": [
+    "car",
+    "driving"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/car.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "bicycle",
+   "group": "F",
+   "glossVi": "xe đạp",
+   "keywords": [
+    "bicycle",
+    "cycling"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/bicycle.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "bus",
+   "group": "F",
+   "glossVi": "xe buýt",
+   "keywords": [
+    "bus"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/bus.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "train",
+   "group": "F",
+   "glossVi": "tàu hoả",
+   "keywords": [
+    "train"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/train.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "airplane",
+   "group": "F",
+   "glossVi": "máy bay",
+   "keywords": [
+    "airplane",
+    "plane flying"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/airplane.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "boat",
+   "group": "F",
+   "glossVi": "thuyền, tàu",
+   "keywords": [
+    "boat",
+    "ship"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/boat.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "school",
+   "group": "F",
+   "glossVi": "trường học",
+   "keywords": [
+    "school"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/school.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "hospital",
+   "group": "F",
+   "glossVi": "bệnh viện",
+   "keywords": [
+    "hospital"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/hospital.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "market-shop",
+   "group": "F",
+   "glossVi": "chợ, cửa hàng",
+   "keywords": [
+    "market",
+    "shop",
+    "store"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/market-shop.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "apple",
+   "group": "G",
+   "glossVi": "quả táo",
+   "keywords": [
+    "apple"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/apple.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "banana",
+   "group": "G",
+   "glossVi": "quả chuối",
+   "keywords": [
+    "banana"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/banana.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "bread",
+   "group": "G",
+   "glossVi": "bánh mì",
+   "keywords": [
+    "bread"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/bread.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "egg",
+   "group": "G",
+   "glossVi": "trứng",
+   "keywords": [
+    "egg",
+    "fried egg"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/egg.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "milk",
+   "group": "G",
+   "glossVi": "sữa",
+   "keywords": [
+    "milk"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/milk.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "coffee",
+   "group": "G",
+   "glossVi": "cà phê",
+   "keywords": [
+    "coffee"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/coffee.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "rice",
+   "group": "G",
+   "glossVi": "cơm, gạo",
+   "keywords": [
+    "rice",
+    "rice bowl"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/rice.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "cake",
+   "group": "G",
+   "glossVi": "bánh ngọt",
+   "keywords": [
+    "cake",
+    "birthday cake"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/cake.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "hand",
+   "group": "H",
+   "glossVi": "bàn tay",
+   "keywords": [
+    "hand",
+    "waving hand"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/hand.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "eye",
+   "group": "H",
+   "glossVi": "mắt",
+   "keywords": [
+    "eye",
+    "blinking eye"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/eye.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "ear",
+   "group": "H",
+   "glossVi": "tai",
+   "keywords": [
+    "ear"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/ear.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "mouth",
+   "group": "H",
+   "glossVi": "miệng",
+   "keywords": [
+    "mouth"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/mouth.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "head",
+   "group": "H",
+   "glossVi": "đầu",
+   "keywords": [
+    "head"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/head.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "baby",
+   "group": "H",
+   "glossVi": "em bé",
+   "keywords": [
+    "baby"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/baby.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "man",
+   "group": "H",
+   "glossVi": "người đàn ông",
+   "keywords": [
+    "man"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/man.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "woman",
+   "group": "H",
+   "glossVi": "người phụ nữ",
+   "keywords": [
+    "woman"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/woman.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "grow",
+   "group": "I",
+   "glossVi": "lớn lên, mọc",
+   "keywords": [
+    "grow",
+    "growing plant",
+    "sprout"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/grow.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "fall",
+   "group": "I",
+   "glossVi": "rơi",
+   "keywords": [
+    "falling leaf",
+    "fall"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/fall.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "fly",
+   "group": "I",
+   "glossVi": "bay",
+   "keywords": [
+    "fly",
+    "flying"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/fly.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "open-close",
+   "group": "I",
+   "glossVi": "mở, đóng",
+   "keywords": [
+    "open close",
+    "door open"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/open-close.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "up-down",
+   "group": "I",
+   "glossVi": "lên, xuống",
+   "keywords": [
+    "up down",
+    "arrows"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/up-down.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "hot-cold",
+   "group": "I",
+   "glossVi": "nóng, lạnh",
+   "keywords": [
+    "hot cold",
+    "thermometer"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/hot-cold.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "day-night",
+   "group": "I",
+   "glossVi": "ngày, đêm",
+   "keywords": [
+    "day night",
+    "sun moon"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/day-night.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "music",
+   "group": "I",
+   "glossVi": "âm nhạc",
+   "keywords": [
+    "music",
+    "music note"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/music.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "money",
+   "group": "I",
+   "glossVi": "tiền",
+   "keywords": [
+    "money",
+    "coins"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/money.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "gift",
+   "group": "I",
+   "glossVi": "quà",
+   "keywords": [
+    "gift",
+    "present box"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/gift.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "question",
+   "group": "I",
+   "glossVi": "câu hỏi (dấu ?)",
+   "keywords": [
+    "question mark",
+    "question"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/question.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  },
+  {
+   "id": "check-yes-no",
+   "group": "I",
+   "glossVi": "đúng, sai (✓/✗)",
+   "keywords": [
+    "check mark",
+    "yes no"
+   ],
+   "animations": [
+    {
+     "type": "asset",
+     "path": "assets/animations/files/check-yes-no.json",
+     "license": "In4Up original · CC0",
+     "author": "In4Up (tool/generate_concept_animations.py)"
+    }
+   ]
+  }
+ ]
+}

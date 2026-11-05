@@ -530,5 +530,8 @@
   "ocrEmptyResult": "చిత్రంలో వచనం కనబడలేదు. స్పష్టమైన, మంచి వెలుతురు ఉన్న ఫోటోను ప్రయత్నించండి.",
   "ocrLoadedFromImage": "చిత్రం నుండి వచనం లోడ్ అయింది",
   "ocrScanPageText": "ఈ పేజీ వచనాన్ని స్కాన్ చేయండి",
-  "ocrUnsupported": "OCR Android/iOS లో మాత్రమే పనిచేస్తుంది"
+  "ocrUnsupported": "OCR Android/iOS లో మాత్రమే పనిచేస్తుంది",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

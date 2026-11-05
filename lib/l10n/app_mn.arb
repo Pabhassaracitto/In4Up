@@ -530,5 +530,8 @@
   "ocrEmptyResult": "Зургаас текст олдсонгүй. Илүү тод, гэрэлтэй зураг оролдоно уу.",
   "ocrLoadedFromImage": "Зургаас текст орууллаа",
   "ocrScanPageText": "Энэ хуудасны текстийг сканнердах",
-  "ocrUnsupported": "OCR зөвхөн Android/iOS дээр ажиллана"
+  "ocrUnsupported": "OCR зөвхөн Android/iOS дээр ажиллана",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

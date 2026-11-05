@@ -532,6 +532,6 @@
   "ocrScanPageText": "इस पृष्ठ का पाठ स्कैन करें",
   "ocrUnsupported": "OCR केवल Android/iOS पर चलता है",
   "ttsEngineVieneuName": "VieNeu-TTS (native)",
-  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
-  "ttsLicenseSection": "Audio licenses"
+  "ttsEngineVieneuDesc": "वियतनामी न्यूरल TTS — ऑफ़लाइन, डिवाइस पर (GGUF + audio.cpp)",
+  "ttsLicenseSection": "ऑडियो लाइसेंस"
 }

@@ -530,5 +530,8 @@
   "ocrEmptyResult": "प्रतिमेत मजकूर सापडला नाही. अधिक स्पष्ट आणि उजळ फोटो वापरून पहा.",
   "ocrLoadedFromImage": "प्रतिमेवरून मजकूर लोड झाला",
   "ocrScanPageText": "या पानाचा मजकूर स्कॅन करा",
-  "ocrUnsupported": "OCR फक्त Android/iOS वर चालते"
+  "ocrUnsupported": "OCR फक्त Android/iOS वर चालते",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

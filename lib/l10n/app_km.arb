@@ -530,5 +530,8 @@
   "ocrEmptyResult": "រកមិនឃើញអត្ថបទក្នុងរូបភាព។ សូមព្យាយាមជាមួយរូបភាពច្បាស់ និងភ្លឺជាង។",
   "ocrLoadedFromImage": "បានបញ្ចូលអត្ថបទពីរូបភាព",
   "ocrScanPageText": "ស្កេនអត្ថបទទំព័រនេះ",
-  "ocrUnsupported": "OCR ដំណើរការតែលើ Android/iOS"
+  "ocrUnsupported": "OCR ដំណើរការតែលើ Android/iOS",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

@@ -2,6 +2,7 @@
 // lib/features/tts/widgets/tts_settings_section.dart
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up/l10n/app_localizations.dart';
 
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
@@ -1204,7 +1205,10 @@ class _LicenseSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExpansionTile(
       title: Text(
-        context.uiText('ttsLicenseSection'),
+        // Dùng ĐÚNG key ARB: bản PR #133 gọi `uiText('ttsLicenseSection')` —
+        // uiText() nhận câu tiếng Việt nguồn, nên nó sẽ hiện nguyên văn chuỗi
+        // "ttsLicenseSection" trên UI ở mọi ngôn ngữ.
+        AppLocalizations.of(context).ttsLicenseSection,
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.w600,

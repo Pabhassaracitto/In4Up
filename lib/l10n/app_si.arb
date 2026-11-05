@@ -532,6 +532,6 @@
   "ocrScanPageText": "මෙම පිටුවේ පෙළ ස්කෑන් කරන්න",
   "ocrUnsupported": "OCR ක්‍රියාත්මක වන්නේ Android/iOS හි පමණි",
   "ttsEngineVieneuName": "VieNeu-TTS (native)",
-  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
-  "ttsLicenseSection": "Audio licenses"
+  "ttsEngineVieneuDesc": "වියට්නාම ස්නායුක TTS — අන්තර්ජාලය නොමැතිව, උපාංගයේ (GGUF + audio.cpp)",
+  "ttsLicenseSection": "ශ්‍රව්‍ය බලපත්‍ර"
 }

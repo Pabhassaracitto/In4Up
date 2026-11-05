@@ -530,5 +530,8 @@
   "ocrEmptyResult": "படத்தில் உரை எதுவும் இல்லை. தெளிவான, நன்கு ஒளியுள்ள படத்தை முயற்சிக்கவும்.",
   "ocrLoadedFromImage": "படத்திலிருந்து உரை ஏற்றப்பட்டது",
   "ocrScanPageText": "இந்தப் பக்க உரையை ஸ்கேன் செய்",
-  "ocrUnsupported": "OCR Android/iOS இல் மட்டுமே இயங்கும்"
+  "ocrUnsupported": "OCR Android/iOS இல் மட்டுமே இயங்கும்",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

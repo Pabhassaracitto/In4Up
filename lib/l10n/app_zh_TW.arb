@@ -532,6 +532,6 @@
   "ocrScanPageText": "掃描本頁文字",
   "ocrUnsupported": "OCR 僅在 Android/iOS 上執行",
   "ttsEngineVieneuName": "VieNeu-TTS (native)",
-  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
-  "ttsLicenseSection": "Audio licenses"
+  "ttsEngineVieneuDesc": "越南語神經 TTS — 離線、裝置端（GGUF + audio.cpp）",
+  "ttsLicenseSection": "音訊授權"
 }

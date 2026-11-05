@@ -530,5 +530,8 @@
   "ocrEmptyResult": "ບໍ່ພົບຂໍ້ຄວາມໃນຮູບ. ລອງຮູບທີ່ຄົມແລະສະຫວ່າງກວ່າ.",
   "ocrLoadedFromImage": "ໂຫລດຂໍ້ຄວາມຈາກຮູບແລ້ວ",
   "ocrScanPageText": "ສະແກນຂໍ້ຄວາມໜ້ານີ້",
-  "ocrUnsupported": "OCR ເຮັດວຽກສະເພາະ Android/iOS"
+  "ocrUnsupported": "OCR ເຮັດວຽກສະເພາະ Android/iOS",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

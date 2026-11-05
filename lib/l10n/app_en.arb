@@ -533,5 +533,5 @@
   "ocrUnsupported": "OCR runs on Android/iOS only",
   "ttsEngineVieneuName": "VieNeu-TTS (native)",
   "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
-  "ttsLicenseSection": "Giấy phép âm thanh"
+  "ttsLicenseSection": "Audio licenses"
 }

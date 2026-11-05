@@ -530,5 +530,8 @@
   "ocrEmptyResult": "ছবিতে কোনো লেখা পাওয়া যায়নি। আরও স্পষ্ট ও আলোকিত ছবি চেষ্টা করুন।",
   "ocrLoadedFromImage": "ছবি থেকে লেখা লোড হয়েছে",
   "ocrScanPageText": "এই পাতার লেখা স্ক্যান",
-  "ocrUnsupported": "OCR শুধু অ্যান্ড্রয়েড/iOS-এ চলে"
+  "ocrUnsupported": "OCR শুধু অ্যান্ড্রয়েড/iOS-এ চলে",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

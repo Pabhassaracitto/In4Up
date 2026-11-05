@@ -530,5 +530,8 @@
   "ocrEmptyResult": "لم يُعثر على نص في الصورة. جرّب صورة أوضح وإضاءة أفضل.",
   "ocrLoadedFromImage": "تم تحميل النص من الصورة",
   "ocrScanPageText": "مسح نص هذه الصفحة",
-  "ocrUnsupported": "التعرف الضوئي يعمل على أندرويد وiOS فقط"
+  "ocrUnsupported": "التعرف الضوئي يعمل على أندرويد وiOS فقط",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

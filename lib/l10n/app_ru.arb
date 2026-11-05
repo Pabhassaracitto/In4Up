@@ -530,5 +530,8 @@
   "ocrEmptyResult": "Текст на изображении не найден. Попробуйте более чёткий и освещённый снимок.",
   "ocrLoadedFromImage": "Текст загружен из изображения",
   "ocrScanPageText": "Распознать текст этой страницы",
-  "ocrUnsupported": "OCR работает только на Android/iOS"
+  "ocrUnsupported": "OCR работает только на Android/iOS",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

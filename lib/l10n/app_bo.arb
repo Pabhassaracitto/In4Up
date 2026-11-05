@@ -530,5 +530,8 @@
   "ocrEmptyResult": "པར་རིས་ནང་ཡིག་རིས་མ་རྙེད། གསལ་ཞིང་འོད་ལྡན་པའི་པར་རིས་ཚོད་ལྟ་བྱོས།",
   "ocrLoadedFromImage": "པར་རིས་ནས་ཡིག་རིས་བཅུག་ཟིན",
   "ocrScanPageText": "ཤོག་ལྷེ་འདིའི་ཡིག་རིས་བཤེར་བ",
-  "ocrUnsupported": "OCR ནི Android དང iOS ཐོག་ཁོ་ནར་འཁོར"
+  "ocrUnsupported": "OCR ནི Android དང iOS ཐོག་ཁོ་ནར་འཁོར",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

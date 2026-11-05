@@ -530,5 +530,8 @@
   "ocrEmptyResult": "이미지에서 텍스트를 찾지 못했습니다. 더 선명하고 밝은 사진으로 시도하세요.",
   "ocrLoadedFromImage": "이미지에서 텍스트를 불러왔습니다",
   "ocrScanPageText": "이 페이지 텍스트 스캔",
-  "ocrUnsupported": "OCR은 Android/iOS에서만 작동합니다"
+  "ocrUnsupported": "OCR은 Android/iOS에서만 작동합니다",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

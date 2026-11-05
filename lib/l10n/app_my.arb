@@ -530,5 +530,8 @@
   "ocrEmptyResult": "ပုံထဲတွင် စာသား မတွေ့ပါ။ ပိုကြည်လင်ပြီး အလင်းကောင်းသော ပုံဖြင့် ထပ်ကြိုးစားပါ။",
   "ocrLoadedFromImage": "ပုံမှ စာသား ထည့်ပြီးပါပြီ",
   "ocrScanPageText": "ဤစာမျက်နှာ၏ စာသားကို စကင်န်",
-  "ocrUnsupported": "OCR သည် Android/iOS တွင်သာ အလုပ်လုပ်သည်"
+  "ocrUnsupported": "OCR သည် Android/iOS တွင်သာ အလုပ်လုပ်သည်",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
+  "ttsLicenseSection": "Audio licenses"
 }

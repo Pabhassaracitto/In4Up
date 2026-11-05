@@ -1311,6 +1311,17 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              context.uiText(
+                  'Gói 100 khái niệm có sẵn offline · animation gốc In4Up CC0'),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 10.5),
+            ),
+          ),
+        ),
         if (_animError != null) ...[
           const SizedBox(height: 4),
           Padding(
@@ -1526,8 +1537,22 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   Future<void> _previewAnimation(VocabWebImage item) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final bytes = await VocabImageService.instance
-        .fetchPreviewBytes(item.imageUrl, client: _web);
+    final Uint8List? bytes;
+    if (item.source == 'In4Up CC0') {
+      try {
+        final data = await rootBundle.load(item.imageUrl);
+        bytes = Uint8List.fromList(data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        ));
+      } catch (e) {
+        debugPrint('Không đọc được animation gói offline: $e');
+        bytes = null;
+      }
+    } else {
+      bytes = await VocabImageService.instance
+          .fetchPreviewBytes(item.imageUrl, client: _web);
+    }
     if (!mounted) return;
     setState(() => _busy = false);
     if (bytes == null) {
@@ -1971,17 +1996,29 @@ class _AnimationTileBodyState extends State<_AnimationTileBody> {
               )
             // Đã hiện ít nhất 1 lần: Lottie.network — animate chỉ khi đang
             // trong khung nhìn; ngoài khung nhìn đứng frame đầu (0 ticker).
-            : Lottie.network(
-                widget.item.imageUrl,
-                key: ValueKey('anim-tile:${widget.item.imageUrl}'),
-                fit: BoxFit.cover,
-                animate: _visible,
-                repeat: true,
-                errorBuilder: (_, __, ___) => Center(
-                  child: Icon(Icons.broken_image_outlined,
-                      size: 22, color: scheme.onSurfaceVariant),
-                ),
-              ),
+            : widget.item.source == 'In4Up CC0'
+                ? Lottie.asset(
+                    widget.item.imageUrl,
+                    key: ValueKey('anim-tile:${widget.item.imageUrl}'),
+                    fit: BoxFit.cover,
+                    animate: _visible,
+                    repeat: true,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 22, color: scheme.onSurfaceVariant),
+                    ),
+                  )
+                : Lottie.network(
+                    widget.item.imageUrl,
+                    key: ValueKey('anim-tile:${widget.item.imageUrl}'),
+                    fit: BoxFit.cover,
+                    animate: _visible,
+                    repeat: true,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 22, color: scheme.onSurfaceVariant),
+                    ),
+                  ),
       ),
     );
   }

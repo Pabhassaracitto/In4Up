@@ -224,4 +224,42 @@ void main() {
       expect(cfg.sourceLabel, 'my-server/anim');
     });
   });
+
+  group('concept animation pack — tìm offline', () {
+    const pack = '''
+    {"schema":"in4up.concept_animation_pack/1","concepts":[
+      {"id":"sun","glossVi":"mặt trời","keywords":["sun","sunshine"],
+       "animations":[{"type":"asset","path":"assets/animations/files/sun.json"}]},
+      {"id":"butterfly","glossVi":"con bướm","keywords":["butterfly"],
+       "animations":[{"type":"asset","path":"assets/animations/files/butterfly.json"}]},
+      {"id":"run","glossVi":"chạy","keywords":["run"],"animations":[]},
+      {"id":"unsafe","glossVi":"không hợp lệ","keywords":["unsafe"],
+       "animations":[{"type":"asset","path":"https://example.com/a.json"}]}
+    ]}
+    ''';
+
+    test('tìm tiếng Việt có dấu, path là bundled asset và license là CC0', () {
+      final out = VocabAnimationLibraryService.parseBundledConceptSearch(
+        pack, 'MẶT TRỜI');
+      expect(out, hasLength(1));
+      expect(out.single.imageUrl, 'assets/animations/files/sun.json');
+      expect(out.single.source, 'In4Up CC0');
+      expect(out.single.license, 'CC0');
+    });
+
+    test('tìm từ khoá tiếng Anh; bỏ concept chưa có animation và path ngoài', () {
+      final out = VocabAnimationLibraryService.parseBundledConceptSearch(
+        pack, 'butterfly');
+      expect(out, hasLength(1));
+      expect(out.single.title, contains('butterfly'));
+      expect(out.single.pageUrl, isEmpty);
+    });
+
+    test('tôn trọng limit, cap an toàn và chuỗi rỗng', () {
+      expect(VocabAnimationLibraryService.parseBundledConceptSearch(
+        pack, 'sun butterfly', limit: 1), hasLength(1));
+      expect(VocabAnimationLibraryService.parseBundledConceptSearch(
+        pack, '', limit: 10), isEmpty);
+    });
+  });
 }

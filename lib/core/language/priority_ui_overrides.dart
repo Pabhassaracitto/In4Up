@@ -8354,4 +8354,12 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'උපකරණයෙන් සජීවිකරණ ගොනුවක් තෝරන්න',
   },
 
+  'Gói 100 khái niệm có sẵn offline · animation gốc In4Up CC0': {
+    'en': '100 concepts available offline · original In4Up CC0 animations',
+    'hi': '100 अवधारणाएँ ऑफ़लाइन उपलब्ध · In4Up के मौलिक CC0 एनिमेशन',
+    'zh': '100 个概念可离线使用 · In4Up 原创 CC0 动画',
+    'zh_TW': '100 個概念可離線使用 · In4Up 原創 CC0 動畫',
+    'si': 'සංකල්ප 100ක් නොබැඳිව ඇත · In4Up මුල් CC0 සජීවිකරණ',
+  },
+
 };

@@ -18,6 +18,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -116,14 +117,87 @@ class VocabAnimationLibraryService {
       <String, List<VocabWebImage>>{};
   static const int _cacheMax = 40;
 
+  /// Index 100 khái niệm đóng gói offline; đọc JSON một lần trong phiên.
+  static Future<String>? _conceptPackFuture;
+
   /// Lỗi gần nhất (chuỗi ngắn để log/debug — UI tự chọn câu hiển thị).
   String? lastError;
 
-  /// Tìm animation cho [rawQuery]. Không bao giờ ném: kết quả rỗng +
-  /// [lastError] để UI báo đúng nguyên nhân.
-  ///
-  /// Ưu tiên endpoint cấu hình được; rỗng/lỗi thì rơi về Commons (mặc định,
-  /// không cần key) để app không chết khi user chưa cấu hình gì.
+  /// Pure parser/search cho catalog gốc; dùng chung giữa asset runtime và test.
+  static List<VocabWebImage> parseBundledConceptSearch(
+    String rawPack,
+    String rawQuery, {
+    int limit = 24,
+  }) {
+    final query = _normalizeSearchText(rawQuery);
+    if (query.isEmpty) return const [];
+    final decoded = jsonDecode(rawPack) as Map<String, dynamic>;
+    final concepts = decoded['concepts'];
+    if (concepts is! List) return const [];
+    final tokens = query.split(RegExp(r'\s+')).where((s) => s.length > 1).toList();
+    final ranked = <({int score, VocabWebImage item})>[];
+    for (final rawConcept in concepts) {
+      if (rawConcept is! Map<String, dynamic>) continue;
+      final concept = rawConcept;
+      final animations = concept['animations'];
+      if (animations is! List || animations.isEmpty) continue;
+      final animation = animations.first;
+      if (animation is! Map<String, dynamic> || animation['type'] != 'asset') {
+        continue;
+      }
+      final keywords = (concept['keywords'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .join(' ');
+      final text = _normalizeSearchText(
+        '${concept['id'] ?? ''} ${concept['glossVi'] ?? ''} $keywords',
+      );
+      var score = text == query ? 100 : (text.contains(query) ? 50 : 0);
+      for (final token in tokens) {
+        if (text.contains(token)) score += 5;
+      }
+      if (score == 0) continue;
+      final id = (concept['id'] ?? '').toString();
+      final gloss = (concept['glossVi'] ?? id).toString();
+      final path = (animation['path'] ?? '').toString();
+      if (!path.startsWith('assets/animations/files/') || !path.endsWith('.json')) {
+        continue;
+      }
+      ranked.add((
+        score: score,
+        item: VocabWebImage(
+          imageUrl: path,
+          thumbUrl: path,
+          pageUrl: '',
+          title: '$gloss · $id',
+          creator: 'In4Up',
+          license: 'CC0',
+          source: 'In4Up CC0',
+        ),
+      ));
+    }
+    ranked.sort((a, b) => b.score.compareTo(a.score));
+    final cap = limit < 1 ? 1 : (limit > 40 ? 40 : limit);
+    return ranked.take(cap).map((r) => r.item).toList(growable: false);
+  }
+
+  /// Chỉ mục offline đã chọn. Catalog và animation được đọc một lần trong phiên.
+  Future<List<VocabWebImage>> searchBundledConcepts(
+    String rawQuery, {
+    int limit = 24,
+  }) async {
+    if (_normalizeSearchText(rawQuery).isEmpty) return const [];
+    try {
+      final raw = await (_conceptPackFuture ??= rootBundle
+          .loadString('assets/animations/concept_animation_pack.json'));
+      return parseBundledConceptSearch(raw, rawQuery, limit: limit);
+    } catch (e) {
+      debugPrint('[VocabAnimationLibrary] gói offline lỗi: $e');
+      return const [];
+    }
+  }
+
+  /// Tìm trong gói offline trước, rồi gộp kết quả nguồn mạng. Không có mạng
+  /// vẫn trả animation gốc; chỉ báo lỗi khi cả hai nguồn đều trống.
   Future<List<VocabWebImage>> search(
     String rawQuery, {
     int limit = 24,
@@ -143,36 +217,67 @@ class VocabAnimationLibraryService {
       return cached;
     }
 
-    List<VocabWebImage> results = const [];
+    final bundled = await searchBundledConcepts(query, limit: cap);
+    if (bundled.isNotEmpty) {
+      // Matched concepts are served immediately and entirely offline. Keep
+      // network calls for terms that have no curated asset yet.
+      lastError = null;
+      if (_cache.length >= _cacheMax) _cache.clear();
+      _cache[cacheKey] = bundled;
+      return bundled;
+    }
+    List<VocabWebImage> online = const [];
     String? error;
     if (cfg.hasCustomEndpoint) {
       try {
-        results = await _searchEndpoint(cfg, query, cap);
+        online = await _searchEndpoint(cfg, query, cap);
       } catch (e) {
         error = e.toString();
         debugPrint('[VocabAnimationLibrary] endpoint lỗi: $e');
-        results = const [];
       }
     }
-    if (results.isEmpty) {
-      // Fallback mặc định: Commons (không cần key).
+    if (online.isEmpty) {
       try {
-        results = await _searchCommons(query, cap);
+        online = await _searchCommons(query, cap);
         error = null;
       } catch (e) {
         error ??= e.toString();
         debugPrint('[VocabAnimationLibrary] commons lỗi: $e');
-        results = const [];
       }
     }
-
+    final seen = <String>{};
+    final results = <VocabWebImage>[];
+    for (final item in [...bundled, ...online]) {
+      if (seen.add(item.imageUrl)) results.add(item);
+    }
     lastError = results.isEmpty ? (error ?? 'empty') : null;
-
     if (results.isNotEmpty) {
       if (_cache.length >= _cacheMax) _cache.clear();
       _cache[cacheKey] = results;
     }
     return results;
+  }
+
+  /// Lowercase + bỏ dấu Latin để tìm catalog offline bằng tiếng Việt/Anh.
+  static String _normalizeSearchText(String value) {
+    const replacements = <String, String>{
+      'àáạảãâầấậẩẫăằắặẳẵ': 'a',
+      'èéẹẻẽêềếệểễ': 'e',
+      'ìíịỉĩ': 'i',
+      'òóọỏõôồốộổỗơờớợởỡ': 'o',
+      'ùúụủũưừứựửữ': 'u',
+      'ỳýỵỷỹ': 'y',
+      'đ': 'd',
+    };
+    var out = value.toLowerCase();
+    for (final entry in replacements.entries) {
+      for (final char in entry.key.split('')) {
+        out = out.replaceAll(char, entry.value);
+      }
+    }
+    return out.replaceAll(RegExp(r'[^a-z0-9\s-]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Endpoint tùy chỉnh: GET `{endpoint}?q=<query>&limit=<n>` (+ Bearer nếu

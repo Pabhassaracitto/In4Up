@@ -1555,12 +1555,13 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     }
     if (!mounted) return;
     setState(() => _busy = false);
-    if (bytes == null) {
+    final validBytes = bytes;
+    if (validBytes == null) {
       setState(() => _animError = context.uiText(
           'Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).'));
       return;
     }
-    if (!_isLottieBytes(bytes)) {
+    if (!_isLottieBytes(validBytes)) {
       setState(() =>
           _animError = context.uiText('Không đọc được animation này.'));
       return;
@@ -1568,11 +1569,11 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     final useIt = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) =>
-          _AnimationPreviewDialog(item: item, bytes: bytes),
+          _AnimationPreviewDialog(item: item, bytes: validBytes),
     );
     if (useIt != true || !mounted) return;
     setState(() => _busy = true);
-    final path = await VocabImageService.instance.saveFromBytes(bytes);
+    final path = await VocabImageService.instance.saveFromBytes(validBytes);
     if (!mounted) return;
     setState(() => _busy = false);
     if (path == null || path.isEmpty) {

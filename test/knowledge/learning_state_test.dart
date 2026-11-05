@@ -52,6 +52,110 @@ void main() {
       expect(state.skill(SkillDimension.reading), equals(state.reading));
     });
 
+    group('Output skills (ADR-0015) — use/speak/write', () {
+      test('skill() truy vấn đúng chiều output', () {
+        final state = LearningState.initial(unitId: 'u1');
+        expect(state.skill(SkillDimension.use), equals(state.use));
+        expect(state.skill(SkillDimension.speak), equals(state.speak));
+        expect(state.skill(SkillDimension.write), equals(state.write));
+      });
+
+      test('withSkill() đổi output — input GIỮ NGUYÊN (vùng bảo vệ mục 0)', () {
+        final state = LearningState.initial(unitId: 'u1');
+
+        final newSpeak = SM2Snapshot(
+          easeFactor: 2.5,
+          interval: 5,
+          repetitions: 2,
+          dueDate: DateTime.utc(2026, 2, 1),
+          lastReviewedAt: DateTime.utc(2026, 1, 27),
+        );
+
+        final updated = state.withSkill(
+          SkillDimension.speak,
+          newSpeak,
+          lastReviewEventId: 'ev-out-1',
+        );
+
+        expect(updated.speak, equals(newSpeak));
+        // Input không đổi.
+        expect(updated.understanding, equals(state.understanding));
+        expect(updated.listening, equals(state.listening));
+        expect(updated.reading, equals(state.reading));
+        // Output còn lại không đổi.
+        expect(updated.use, equals(state.use));
+        expect(updated.write, equals(state.write));
+      });
+
+      test('JSON round-trip có output skills', () {
+        final state = LearningState.initial(unitId: 'u1', now: DateTime.utc(2026, 1, 1));
+        final evolved = state.withSkill(
+          SkillDimension.use,
+          SM2Snapshot(
+            easeFactor: 2.7,
+            interval: 8,
+            repetitions: 3,
+            dueDate: DateTime.utc(2026, 2, 1),
+            lastReviewedAt: DateTime.utc(2026, 1, 24),
+          ),
+          lastReviewEventId: 'ev-out-2',
+        );
+
+        final clone = LearningState.fromJson(evolved.toJson());
+
+        expect(clone.toJson(), equals(evolved.toJson()));
+        expect(clone, equals(evolved));
+        expect(clone.use.interval, 8);
+        expect(clone.use.repetitions, 3);
+      });
+
+      test('Backward compat: JSON cũ không có output → initial', () {
+        // Schema cũ chỉ có 3 input skill.
+        final oldJson = <String, dynamic>{
+          'unitId': 'u1',
+          'skills': <String, dynamic>{
+            'understanding': <String, dynamic>{
+              'easeFactor': 2.5,
+              'interval': 30,
+              'repetitions': 5,
+              'dueDate': '2026-01-01T00:00:00.000',
+              'lastReviewedAt': null,
+              'algorithmVersion': kSm2AlgorithmVersion,
+            },
+            'listening': <String, dynamic>{
+              'easeFactor': 2.5,
+              'interval': 30,
+              'repetitions': 5,
+              'dueDate': '2026-01-01T00:00:00.000',
+              'lastReviewedAt': null,
+              'algorithmVersion': kSm2AlgorithmVersion,
+            },
+            'reading': <String, dynamic>{
+              'easeFactor': 2.5,
+              'interval': 30,
+              'repetitions': 5,
+              'dueDate': '2026-01-01T00:00:00.000',
+              'lastReviewedAt': null,
+              'algorithmVersion': kSm2AlgorithmVersion,
+            },
+          },
+          'lastReviewEventId': '',
+        };
+
+        final restored = LearningState.fromJson(oldJson);
+
+        // Input được restore đúng.
+        expect(restored.understanding.interval, 30);
+        expect(restored.listening.interval, 30);
+        expect(restored.reading.interval, 30);
+        // Output = initial (do JSON cũ không có).
+        expect(restored.use.interval, 0);
+        expect(restored.speak.interval, 0);
+        expect(restored.write.interval, 0);
+        expect(restored.use.repetitions, 0);
+      });
+    });
+
     test('JSON round-trip đầy đủ (3 skill + lastReviewEventId)', () {
       final state = LearningState.initial(unitId: 'u1', now: DateTime.utc(2026, 1, 1));
       final evolved = state

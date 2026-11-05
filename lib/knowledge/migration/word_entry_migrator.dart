@@ -191,6 +191,11 @@ class WordEntryMigrator {
           entryLastReviewed: entry.lastReviewed,
           at: at,
         ),
+        // Output (ADR-0015) — WordEntry cũ không có dữ liệu output.
+        // Dùng/Nói/Viết khởi điểm = initial (due ngay, chưa đánh giá).
+        use: SM2Snapshot.initial(now: at),
+        speak: SM2Snapshot.initial(now: at),
+        write: SM2Snapshot.initial(now: at),
       ));
     }
 

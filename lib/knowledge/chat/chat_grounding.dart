@@ -127,7 +127,7 @@ class GroundingContextBuilder {
   bool _isLowMastery(String unitId) {
     final state = learningStates[unitId];
     if (state == null) return true; // chưa promote ⇒ mastery thấp
-    return SkillDimension.values
+    return inputDimensions
         .any((d) => state.skill(d).interval < 7 || state.skill(d).repetitions < 2);
   }
 

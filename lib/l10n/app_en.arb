@@ -278,6 +278,8 @@
   "ttsApiKeys": "API Keys (optional, free)",
   "ttsClearCache": "Clear TTS cache!",
   "ttsClear": "Clear",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
   "shadowingReady": "Ready for shadowing practice",
   "shadowingSelectSegment": "Select an A-B Loop segment to start",
   "shadowingStartPractice": "Start Practice",

@@ -18,6 +18,7 @@
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| TTS-VIENEU-001 | Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp C ABI) làm engine đọc Tiếng Việt on-device (Tipiṭaka, tab đọc, học thuộc lòng...), có tùy chọn | 🔨 doing (code + ADR, chờ Flutter CI + build NDK + nghiệm thu máy thật) | `native/tts_vieneu/` (wrapper C trên audio.cpp C ABI), `android/app/src/main/cpp/ai/CMakeLists.txt` (CPU-only, arm64-v8a), `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + worker isolate, `lib/features/tts/engines/vieneu_tts_engine.dart`, đăng ký `vieneu_tts` trong `TtsService` (priority 0, fallback an toàn), i18n 2 key (en/vi/hi/zh/zh_TW/si), ADR-0022, license credit Apache-2.0 trong Settings |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
 | MVA-T2 | 1 hàm SM-2 duy nhất (ADR-0001) | ✅ done | run 32293474036 |
@@ -49,7 +50,6 @@
 | DICT-SQLITE-001 | Import từ điển đuôi `.db`/`.sqlite` (trước chỉ nhận `.mdx`) | ✅ done (code + 17 test + CI 🟢 run 40590731503; chờ nghiệm thu máy) | `dict_sqlite_importer.dart` (đoán bảng/cột thuần + đọc LIMIT/OFFSET read-only) + `_importSqliteSources` trong DictionaryService + picker/quét thư mục nhận db/sqlite/sqlite3 |
 | YT-LRC-LONG-001 | Lấy phụ đề YouTube sang tab Đọc bị lỗi: video ≥ 60 phút ghi SAI mốc giờ + bộ đọc LRC chỉ nhận 2 chữ số phút + lỗi im lặng | ✅ done (code + test + CI 🟢 run 40584513088; chờ nghiệm thu máy) | `toLrc()` ghi phút tuyệt đối; đọc LRC tách sang hàm thuần `lrc_time_parser.dart` (phút 1–3 số, `.`/`,`, `hh:mm:ss`); `YtReadBridge` bọc try/catch + snackbar giữ messenger trước khi pop |
 | LINUX-AUTH-001 | Linux 1.20.0: Home tối/khung xám; kiểm tra các tab Home/ĐỌC/NGHE/HIỂU không chuyển | ✅ done (fix + 3 regression tests + CI 🟢 run 41476037909; chờ nghiệm thu bundle Linux) | `AuthService.authStateChanges` không cache single-subscription stream; `test/linux_shell_regression_test.dart` kiểm tra Home và chuỗi chuyển tab; fix `06661ae`, gate `dc2f789` |
-| CABIN-FLUSH-001 | Cabin Live: bấm Stop/Tạm dừng đúng lúc engine CHƯA phát `isFinal` ⇒ MẤT câu đang nói (không caption/LRC/bản dịch); đang dịch mà nói tiếp thì câu mới bị đè; thêm badge giai đoạn ĐANG NHẬN/ĐÃ CHỐT/ĐÃ DỊCH | ✅ done (code + test source-scan + CI 🟢 run 41652229913; chờ nghiệm thu máy) | `_flushActivePartialBeforeClose()` trong stopCabin+togglePause; guard `hasNewerPartial`; port badge từ c26 `fb3c1261`; `test/cabin/cabin_audio_completeness_test.dart` |
 | REL-1.20.0 | Release **1.20.0** (đủ 4 nền tảng) từ tip 251e — 12 commit sau 1.19.1 (bố cục đọc tập trung, quét video thiết bị, Tipiṭaka gói ngôn ngữ, Cabin giữ utterance cuối, dịch sạch Markdown) | ✅ done (build 🟢 run 40815857856, 4/4 job; chờ nghiệm thu máy) | bump `1.19.0+19 → 1.20.0+20` (`e82b3621`); APK arm64 198.6 MB `6cfe6a20…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.20.0 |
 | READ-UI-120 | Tab Đọc: gộp chrome theo 3 nhóm + một cửa vào TTS, bỏ chặn "dịch xong mới phát" | 🔨 doing (code + docs + test pin trên nhánh; chờ Flutter CI và nghiệm thu máy 360×640) | ADR-0021, `docs/read_tab_audio_ui_audit_1_20_0.md`, `docs/shell_manual_qa_checklist.md` mục 4.3/8.1 |
 | REL-1.19.1 | Release **1.19.1** (đủ 4 nền tảng) — sửa lỗi Kotlin comment lồng nhau làm Android đỏ 4 run liên tiếp | ✅ done (build 🟢 run 40635280501, 4/4 job; chờ nghiệm thu máy) | APK arm64 198.5 MB `f7c4f33d…`, IPA 92.8 MB, Linux 49.6 MB, Windows 52.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.19.1 |
@@ -8428,7 +8428,9 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     5 commit thành 1 commit tuyến tính, parent = base tip `2883b8c`, nội dung
     giữ nguyên ⇒ *Rebase and merge* khả dụng lại.
 
+
 ### CABIN-FLUSH-001 / CABIN-KEEP-PARTIAL-001 / CABIN-STAGE-001 — (2026-10-29) Cabin Live: không mất câu khi Stop/Tạm dừng
+
 - **Trạng thái:** ✅ done (code + máy bắt + CI 🟢 `run 41652229913`; **chờ nghiệm thu máy**)
 - **Nguồn:** owner 2026-10-29 — so Cabin bản 1.20.0 (251e) với nhánh `c26bed2c`, thấy bên c26 "nhận diện tốt hơn + cơ chế xác nhận chuyên nghiệp", yêu cầu tích hợp **"đảm bảo âm thanh được nhận diện và chuyển đổi một cách triệt để, tránh bị mất, thiếu"**.
 - **Đối chiếu trước khi cherry-pick (quan trọng):** agent kia đề xuất 5 commit (`f45672c8`, `800e4fbd`, `4beb5534`, `b4c45707`, `f54d58d3`) — **CẢ 5 ĐÃ LÀ TỔ TIÊN CỦA HEAD** (`git merge-base --is-ancestor` = true). Cherry-pick lại chỉ sinh commit rỗng/trùng. Ngược lại, `stts_cabin_service.dart` bên **c26 CŨ HƠN**: nó huỷ `_sttSubscription` **ngay đầu** `stopCabin()` (đúng bug mà `f45672c8` đã sửa) và **không có** hàng đợi `_pendingFinalizations`. ⇒ Không port phần service của c26.
@@ -8442,3 +8444,61 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** 3 tình huống owner nêu — Stop giữa câu; Stop ngay sau khi vừa có final; Save phiên rồi mở lại trong tab Đọc.
 - **Lịch sử:**
   - 2026-10-29 | created→done | agent arena/01a0251e-in4up | xác minh 5 commit đề xuất đã có → port badge c26 → vá 2 lỗ mất câu → test source-scan; CI `41652229913` 🟢
+### TTS-VIENEU-001 — Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp) làm engine đọc Tiếng Việt on-device
+
+- **Trạng thái:** 🔨 doing — code + ADR đã có trên `arena/5f49ec81-in4up`; **chưa**
+  build được APK trong sandbox (không có Flutter SDK + Android NDK ⇒ mọi kiểm
+  chứng biên dịch chạy trên CI/máy dev của owner, theo quy ước các card trước
+  như READ-UI-120/LINUX-AUTH-001).
+- **Bối cảnh:** TTS hiện tại phụ thuộc platform (Windows TTS / Edge voice, PR
+  #98) — không giọng Việt chất lượng cao, ổn định, offline trên Android/Linux
+  cho module Tipiṭaka. Tiền lệ kiến trúc: GGUF + native C++ + FFI
+  (UltraTimeStretch V2, Gemma-IT PR #23, Hy-MT import .gguf thủ công).
+- **Quyết định kỹ thuật chính:**
+  - Engine: audio.cpp (`github.com/0xShug0/audio.cpp`, commit be1286e0,
+    Apache-2.0) — **đã có C ABI ổn định** (`include/audiocpp.h`), không cần
+    viết lớp C API từ-zero; model VieNeu-TTS v3 Turbo
+    (`pnnbao-ump/VieNeu-TTS-v3-Turbo-GGUF`, Apache-2.0) mặc định
+    `vieneu-v3-turbo-q8_0.gguf` (~170 MB).
+  - **Tại sao Q8_0:** gấp gần 2 lần nhỏ hơn bf16 (292 MB), đủ chất đọc văn bản
+    Tipiṭaka, ít RAM/OOM hơn trên thiết bị Android midpoint. bf16 giữ làm
+    tùy chọn sau.
+  - **Không bundle model vào APK:** người dùng import .gguf thủ công vào
+    `documents/vieneu_tts/` (giống Hy-MT).
+  - Chỉ đọc **bản dịch tiếng Việt** (lọc theo `languageCode` của đoạn
+    Tipiṭaka; Pali 'hi' và Anh 'en' fallback qua engine khác). Không đọc Pali/
+    mūla gốc bằng engine này.
+  - Chỉ CPU backend ban đầu (tắt CUDA/Vulkan/Metal/RKNN, `NATIVE_CPU=OFF`
+    do cross-compile NDK, `LLAMAFILE=OFF` tránh lỗi fp16 NEON). GPU giữ ticket
+    riêng sau.
+  - **Worker isolate riêng:** toàn bộ nạp model + synthesize chạy trong isolate
+    qua `packages/in4up_stt/lib/tts/vieneu_tts_worker.dart` — không block UI
+    thread khi đọc đoạn dài (tương tự Gemma-IT generate, PR #23).
+- **File chính:**
+  - `native/tts_vieneu/vieneu_tts.h` / `.cpp` — wrapper C trên audio.cpp C ABI
+    (`init`, `select_voice`, `synthesize` → PCM float32, `destroy`, `last_error`).
+  - `android/app/src/main/cpp/ai/CMakeLists.txt` — thêm target `vieneu_tts`
+    (audio.cpp submodule, auto-init nếu thiếu; nếu thiếu ⇒ chỉ WARNING, app
+    vẫn build, Dart fallback về TTS cũ, không crash).
+  - `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + `vieneu_tts_worker.dart`
+    — FFI binding + worker isolate; WAV 16-bit encode ở Dart.
+  - `lib/features/tts/engines/vieneu_tts_engine.dart` — `TtsEngine` (`id =
+    vieneu_tts`, offline, `vi-VN`, neural).
+  - `lib/features/tts/tts_service.dart` — đăng ký priority 0 trong
+    `_buildDefaultEngineOrder`, lọc ngôn ngữ `_engineSupportsLanguage`,
+    `checkEngineStatus`/`activeEngines`/`dispose`.
+  - `lib/features/tts/widgets/tts_settings_section.dart` — engine xuất hiện
+    tự động trong engine order + `_LicenseSection` (credit Apache-2.0:
+    audio.cpp + VieNeu-TTS).
+  - `lib/l10n/app_{en,vi,hi,zh,zh_TW,si}.arb` + `generated_ui_translations.dart`
+    — 2 key mới, rule #5 (4 locale ưu tiên đã có `en`, không ký Việt ở locale
+    ≠ vi).
+  - `docs/adr/0022-tts-vieneu-native-audio-cpp.md`.
+- **Acceptance criteria (chờ máy thật):**
+  - Build thành công; `App Analyze + Locale Test` xanh.
+  - Đọc thử ≥ 3 đoạn Tipiṭaka Tiếng Việt bằng giọng VieNeu trên Android thật;
+    đính kèm log/benchmark (thời gian load model + tổng hợp mỗi đoạn) vào PR.
+  - Fallback an toàn: gỡ model ⇒ vẫn đọc bằng Piper/Offline/Edge, không crash.
+- **Lịch sử:**
+  - 2026-11-03 | created→doing | agent `arena/5f49ec81-in4up` | code +
+    ADR-0022 + KANBAN + i18n; chờ CI/NĐK build + nghiệm thu thiết bị.

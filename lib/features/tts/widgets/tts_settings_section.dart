@@ -95,6 +95,10 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
 
             // ── CACHE INFO ──
             _CacheSection(color: widget.primaryColor),
+            const SizedBox(height: 16),
+
+            // ── LICENSE / CREDITS ──
+            _LicenseSection(color: widget.primaryColor),
           ],
         );
       },
@@ -601,22 +605,122 @@ class _CacheSection extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
             const Spacer(),
-            if (count > 0)
-              GestureDetector(
-                onTap: () async {
-                  await service.clearCache();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã xóa cache TTS!')),
-                  );
-                },
-                child: Text(
-                  'Xóa',
-                  style: TextStyle(fontSize: 11, color: Colors.red[300]),
-                ),
-              ),
+                if (count > 0)
+                  GestureDetector(
+                    onTap: () async {
+                      await service.clearCache();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã xóa cache TTS!')),
+                      );
+                    },
+                    child: Text(
+                      'Xóa',
+                      style: TextStyle(fontSize: 11, color: Colors.red[300]),
+                    ),
+                  ),
           ],
         );
       },
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LICENSE / CREDITS (TTS-VIENEU-001)
+// audio.cpp + VieNeu-TTS đều Apache-2.0 → tương thích với giấy phép
+// Source-Available Non-Commercial của in4up; ghi credit tại Settings theo
+// yêu cầu acceptance criteria.
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _LicenseSection extends StatelessWidget {
+  final Color color;
+  const _LicenseSection({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Giấy phép phần mềm bên thứ ba',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[400],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _LicenseTile(
+          title: 'audio.cpp',
+          subtitle: 'Runtime TTS GGUF (CPU), github.com/0xShug0/audio.cpp',
+          license: 'Apache License 2.0',
+          color: color,
+        ),
+        const SizedBox(height: 6),
+        _LicenseTile(
+          title: 'VieNeu-TTS v3 Turbo',
+          subtitle: 'Giọng đọc Tiếng Việt (GGUF), pnnbao-ump/VieNeu-TTS-v3-Turbo',
+          license: 'Apache License 2.0',
+          color: color,
+        ),
+      ],
+    );
+  }
+}
+
+class _LicenseTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String license;
+  final Color color;
+
+  const _LicenseTile({
+    required this.title,
+    required this.subtitle,
+    required this.license,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Text(
+                license,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+          ),
+        ],
+      ),
     );
   }
 }

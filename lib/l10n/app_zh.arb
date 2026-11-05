@@ -278,6 +278,8 @@
   "ttsApiKeys": "API 密钥（可选，免费）",
   "ttsClearCache": "清除 TTS 缓存！",
   "ttsClear": "清除",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
   "shadowingReady": "跟读练习已就绪",
   "shadowingSelectSegment": "选择 A-B 循环段落开始",
   "shadowingStartPractice": "开始练习",

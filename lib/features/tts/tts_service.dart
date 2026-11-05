@@ -19,6 +19,7 @@ import 'engines/google_tts_engine.dart';
 import 'engines/offline_tts_engine.dart';
 import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
+import 'engines/vieneu_tts_engine.dart';
 import 'language_detector.dart';
 import 'tts_candidate_router.dart';
 import 'tts_settings.dart';
@@ -138,18 +139,26 @@ class TtsService extends ChangeNotifier {
   void _buildDefaultEngineOrder() {
     _engineOrder = [
       const TtsEngineInfo(
+        id: 'vieneu_tts',
+        name: 'VieNeu-TTS (native)',
+        description:
+            'Giọng Việt neural, ngoại tuyến (audio.cpp GGUF, on-device)',
+        isOnline: false,
+        priority: 0,
+      ),
+      const TtsEngineInfo(
         id: 'piper_tts',
         name: 'Piper (neural / Sherpa)',
         description: 'Offline, giọng neural đã import',
         isOnline: false,
-        priority: 0,
+        priority: 1,
       ),
       const TtsEngineInfo(
         id: 'offline_tts',
         name: 'Offline (Máy)',
         description: 'Phát ngay, giọng máy hệ thống',
         isOnline: false,
-        priority: 1,
+        priority: 2,
       ),
       // TTS-EDGE-001 — Microsoft Edge Read Aloud (giao thức edge-tts):
       // giọng Neural cực tự nhiên, KHÔNG cần API key, miễn phí ⇒ làm
@@ -412,13 +421,21 @@ class TtsService extends ChangeNotifier {
     final candidates = _getCandidateEngines(
       effectivePriority,
       preferredEngineId: edgeVoice == null ? null : 'edge_tts',
-    );
+    )
+        .where((engine) => _engineSupportsLanguage(engine.id, lang))
+        .toList();
     var played = false;
 
     for (final engineInfo in candidates) {
       if (_stopRequested || isStaleEpoch(epoch)) break;
 
       switch (engineInfo.id) {
+        case 'vieneu_tts':
+          // TTS-VIENEU-001 — VieNeu-TTS native (GGUF, audio.cpp, on-device,
+          // chỉ tiếng Việt; _engineSupportsLanguage đã lọc lang ở trên).
+          played = await _trySpeakVieneu(text, lang);
+          break;
+
         case 'piper_tts':
           played = await _trySpeakPiper(text, lang);
           break;
@@ -572,6 +589,75 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  /// Thử phát bằng VieNeu-TTS native (audio.cpp GGUF, on-device, chỉ tiếng Việt).
+  /// Trả về true nếu thành công, false nếu model chưa import / lỗi native
+  /// để TtsService tự fallback qua engine kế tiếp (không crash app).
+  Future<bool> _trySpeakVieneu(String text, String lang) async {
+    try {
+      final vieneu = VieneuTtsEngine.instance;
+      if (!await vieneu.isAvailable()) return false;
+
+      // Cache theo đúng danh tính — TTS-VOICE-CACHE-001.
+      final cached = await _cache.get(
+        text: text,
+        language: lang,
+        engineId: vieneu.id,
+        voiceId: _selectedVoiceId,
+        speed: _speed,
+        pitch: _pitch,
+      );
+      if (cached != null) {
+        _lastUsedEngine = '💾 Cache · VieNeu-TTS';
+        _safeNotify();
+        await _playFile(cached);
+        return true;
+      }
+
+      _usingOfflineEngine = false;
+      _isLoading = true;
+      _safeNotify();
+
+      final result = await vieneu.synthesize(
+        text: text,
+        language: lang,
+        speed: _speed,
+        pitch: _pitch,
+        voiceId: _selectedVoiceId,
+      );
+
+      _isLoading = false;
+
+      if (!result.isSuccess ||
+          result.audioData == null ||
+          result.audioData!.isEmpty) {
+        debugPrint(
+            'ℹ️ VieNeu-TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
+        _safeNotify();
+        return false;
+      }
+
+      final filePath = await _cache.put(
+        text: text,
+        language: lang,
+        engineId: vieneu.id,
+        audioData: result.audioData!,
+        voiceId: _selectedVoiceId,
+        speed: _speed,
+        pitch: _pitch,
+      );
+
+      _lastUsedEngine = '🇻🇳 VieNeu-TTS';
+      _safeNotify();
+      await _playFile(filePath);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ VieNeu-TTS error: $e, fallback tiếp');
+      _isLoading = false;
+      _safeNotify();
+      return false;
+    }
+  }
+
   /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)
   Future<bool> _trySpeakOffline(String text, String lang) async {
     _usingOfflineEngine = true;
@@ -595,6 +681,13 @@ class TtsService extends ChangeNotifier {
       _isSpeaking = false;
       _safeNotify();
     }
+  }
+
+  /// VieNeu-TTS chỉ đọc tiếng Việt (không đọc Pali/mūla gốc) — lọc theo
+  /// trường ngôn ngữ của từng đoạn Tipiṭaka trước khi đưa vào engine này.
+  bool _engineSupportsLanguage(String engineId, String lang) {
+    if (engineId == 'vieneu_tts') return lang.startsWith('vi');
+    return true;
   }
 
   /// Nhãn ngắn của giọng để hiện cạnh tên engine: `vi-VN-NamMinhNeural`
@@ -1114,6 +1207,12 @@ class TtsService extends ChangeNotifier {
     } catch (_) {
       status[PiperTtsEngine.instance.name] = false;
     }
+    try {
+      status[VieneuTtsEngine.instance.name] =
+          await VieneuTtsEngine.instance.isAvailable();
+    } catch (_) {
+      status[VieneuTtsEngine.instance.name] = false;
+    }
     return status;
   }
 
@@ -1122,6 +1221,8 @@ class TtsService extends ChangeNotifier {
     return [
       ...(await _getOnlineEngines(lang)).map((e) => e.name),
       _offlineEngine.name,
+      if (await VieneuTtsEngine.instance.isAvailable())
+        VieneuTtsEngine.instance.name,
     ];
   }
 
@@ -1257,6 +1358,7 @@ class TtsService extends ChangeNotifier {
     _disposed = true; // ★ FIX: Đánh dấu đã dispose trước khi cleanup
     _audioPlayer.dispose();
     _offlineEngine.dispose();
+    VieneuTtsEngine.instance.dispose();
     super.dispose();
   }
 }

@@ -278,6 +278,8 @@
   "ttsApiKeys": "API යතුරු (විකල්ප, නොමිලේ)",
   "ttsClearCache": "TTS කෑෂ් මකන්න!",
   "ttsClear": "පිරිසිදු කරන්න",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Vietnamese neural TTS — offline, on-device (GGUF + audio.cpp)",
   "shadowingReady": "සෙවනැලි පුහුණුවට සූදානම්",
   "shadowingSelectSegment": "ආරම්භ කිරීමට A-B ලූප් කොටසක් තෝරන්න",
   "shadowingStartPractice": "පුහුණුව ආරම්භ කරන්න",

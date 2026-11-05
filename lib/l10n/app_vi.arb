@@ -277,6 +277,8 @@
   "ttsApiKeys": "API Keys (tùy chọn, miễn phí)",
   "ttsClearCache": "Đã xóa cache TTS!",
   "ttsClear": "Xóa",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "Giọng đọc Việt neural — ngoại tuyến, chạy trên thiết bị (GGUF + audio.cpp)",
   "shadowingReady": "Sẵn sàng luyện shadowing",
   "shadowingSelectSegment": "Chọn một đoạn A-B Loop để bắt đầu",
   "shadowingStartPractice": "Bắt đầu Luyện tập",

@@ -181,7 +181,7 @@ mastery    = mastery + alphaE * (scoreNor - mastery)
 - HexagramPainter (**chỉ sau D9**); Focus Lens; i18n en/hi/zh/zh_TW/si; flag `hexagon_v1`.
 - **DoD:** chrome không tiếng Việt khi locale ≠ vi; golden test; Venn/Triangle vẫn chạy.
 
-**P4 — Verify + launch (~1–2 ngày):**
+**P4 — Verify + launch (~1–2 ngày):** ✅ **HOÀN TẤT** (commit b662b0e)
 - Integration event → mastery → repaint.
 - Hiệu năng 1000 từ ≤60ms.
 - Bật flag, theo dõi calibration Dùng sau 2 tuần.

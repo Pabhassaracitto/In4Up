@@ -403,3 +403,10 @@ màn Server & API — app hành xử như chưa có tính năng, không gọi m�
   LottieFiles + nhập file) + soạn danh mục 100 khái niệm cốt lõi
   (`PLAN-041-animation-core-concepts.md`) chờ duyệt cho Pha 2. Toàn cây
   CI 🟢 run `41594791234`; còn lại là nghiệm thu trên máy thật.
+- 2026-11-05 | doing→doing (LOTTIE-LIB-001 Pha 2 xong code) | agent
+  `arena/d2aeb948-in4up` | owner duyệt danh sách 100 concept → sinh 100
+  pictogram Lottie hình học gốc In4Up CC0 (tổng ~289KB) + catalog offline;
+  tìm theo EN/VI bỏ dấu, gắn vào tab Animation trong picker, xem trước rồi
+  lưu qua chung media funnel (hỗ trợ `ConceptNode.imageRef`). Thêm parser
+  test vào PLAN-041 CI. Analyze + PLAN-041 tests 🟢 run `41964276729`;
+  còn nghiệm thu máy thật. Pha 3 không thuộc phạm vi đã duyệt.

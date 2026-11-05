@@ -238,7 +238,7 @@ void main() {
     ]}
     ''';
 
-    test('tìm tiếng Việt có dấu, path là bundled asset và license là CC0', () {
+    test('PLAN-043 tìm tiếng Việt có dấu, path là bundled asset và license là CC0', () {
       final out = VocabAnimationLibraryService.parseBundledConceptSearch(
         pack, 'MẶT TRỜI');
       expect(out, hasLength(1));

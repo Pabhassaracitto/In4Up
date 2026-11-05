@@ -2,6 +2,7 @@
 // Test THUẦN trên host VM (không cần thiết bị / MediaProjection).
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/features/screen_translate/screen_translate_geometry.dart';
 import 'package:in4up/features/screen_translate/screen_translate_models.dart';
 import 'package:in4up/features/screen_translate/screen_translate_overlay_layout.dart';
 

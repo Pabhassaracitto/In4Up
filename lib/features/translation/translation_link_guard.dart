@@ -24,20 +24,21 @@
 const String kLinkOnlyTranslationMessage =
     'Only a link was provided — there is no text to translate.';
 
-// LƯU Ý: KHÔNG dùng raw string (`r'…'`) cho các pattern có dấu nháy đơn —
-// trong raw string `\'` KHÔNG phải escape (dấu `\` là ký tự thường) nên chuỗi
-// bị cắt đúng chỗ `'` ⇒ `Unterminated string literal` (CI run 42130562066).
-// Dùng chuỗi thường với escape kép: `\\s` → `\s`, `\"` → `"`, `'` viết thẳng.
+// LƯU Ý (CI run 42130562066 / 42131063345): raw string `r'…'` KHÔNG escape
+// được dấu nháy đơn (`\'` là 2 ký tự thường ⇒ cắt chuỗi), còn chuỗi thường
+// thì `$` (anchor regex) lại bị coi là bắt đầu interpolation. Giải pháp: giữ
+// raw string và BỎ 2 dấu nháy khỏi lớp ký tự — `_stripWrappers()` đã xử lý
+// ngoặc/quotes bao quanh link, nên `[^\s<>]` là đủ.
 final RegExp _schemeUrl = RegExp(
-  "^(?:https?|ftp)://[^\\s<>\"']+$",
+  r'^(?:https?|ftp)://[^\s<>]+$',
   caseSensitive: false,
 );
 final RegExp _wwwUrl = RegExp(
-  "^www\\.[a-z0-9\\-]+(?:\\.[a-z0-9\\-]+)+[^\\s<>\"']*$",
+  r'^www\.[a-z0-9\-]+(?:\.[a-z0-9\-]+)+[^\s<>]*$',
   caseSensitive: false,
 );
 final RegExp _bareDomain = RegExp(
-  "^[a-z0-9\\-]+(?:\\.[a-z0-9\\-]+){1,}(?:/[^\\s<>\"']*)?$",
+  r'^[a-z0-9\-]+(?:\.[a-z0-9\-]+){1,}(?:/[^\s<>]*)?$',
   caseSensitive: false,
 );
 final RegExp _punctuationOnly = RegExp(r'^[\p{P}\p{S}]+$', unicode: true);

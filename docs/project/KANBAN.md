@@ -22,6 +22,7 @@
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| REL-1.21.0 | Release **1.21.0** (đủ 4 nền tảng) từ tip 251e — 32 commit sau 1.20.0 | ✅ done (build 🟢 run 41995136804, 4/4 job; chờ nghiệm thu máy) | bump `1.20.0+20 → 1.21.0+21` (`3aff8fda`); sửa CMake `//`→`#` (`8a3826df`); APK arm64 198.7 MB `5e65f298…`, IPA 93.0 MB, Linux 49.7 MB, Windows 52.3 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.21.0 |
 | TTS-VIENEU-001 | Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp C ABI) làm engine đọc Tiếng Việt on-device (Tipiṭaka, tab đọc, học thuộc lòng...), có tùy chọn | 🔨 doing (code + ADR, chờ Flutter CI + build NDK + nghiệm thu máy thật) | `native/tts_vieneu/` (wrapper C trên audio.cpp C ABI), `android/app/src/main/cpp/ai/CMakeLists.txt` (CPU-only, arm64-v8a), `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + worker isolate, `lib/features/tts/engines/vieneu_tts_engine.dart`, đăng ký `vieneu_tts` trong `TtsService` (priority 0, fallback an toàn), i18n 2 key (en/vi/hi/zh/zh_TW/si), ADR-0022, license credit Apache-2.0 trong Settings |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
@@ -8680,3 +8681,25 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** import model `vieneu-v3-turbo-q8_0.gguf` + voices, chọn engine VieNeu-TTS, đọc câu tiếng Việt; kiểm fallback khi thiếu model; build APK arm64 (native `tts_vieneu` CMake mới chỉ có trên CI build release, chưa chạy lần nào).
 - **Lịch sử:**
   - 2026-11-05 | created→done | agent arena/01a0251e-in4up | sửa FFI prefix + i18n 24 locale → `app_analyze` 41990927374 🟢, `listen_queue_tests` 41990352200 🟢; đóng PR #133
+
+### REL-1.21.0 — (2026-11-05) Release 1.21.0 đủ 4 nền tảng + sửa CMake làm Android đỏ
+- **Trạng thái:** ✅ done (build 🟢 `run 41995136804` 4/4 job; **chờ nghiệm thu máy**)
+- **Nguồn:** owner 2026-11-05 — *"Với các commit mới hãy tạo tag và rebase cho nhánh 251e với version phù hợp."*
+- **Về "rebase":** nhánh **đã tuyến tính sẵn** — `git log --merges 1.20.0..HEAD` = **0**, mọi lần publish đều fast-forward. Không có gì để rebase (rebase nhánh lên chính nó là no-op); rủi ro duy nhất là lịch sử phân nhánh, đã kiểm = không có.
+- **Tag/commit:** `1.21.0` → `8a3826df`, gồm `3aff8fda` (*bump 1.20.0+20 → 1.21.0+21*) + `8a3826df` (*fix CMake `//`→`#`*).
+- **Vì sao bump minor:** 31–32 commit sau `1.20.0` có **6 tính năng**: VieNeu-TTS v3 Turbo on-device · Pháp thoại DHRM-001 P1 · tab Đọc chrome theo nhóm + một cửa vào TTS · Tipiṭaka bản địa hoá mục lục lồng nhau + TTS song ngữ · Piper bộ chỉ có `.onnx.json` · model-import M4U-IMPORT-002.
+- **Lần build ĐẦU của tag 1.21.0 ĐỎ (run `41993161050`)** — chỉ Android:
+  `Execution failed for task ':app:configureCMakeRelease[arm64-v8a]'` → `cmake … non-zero exit 1`.
+  **Root cause:** PR #133 thêm 3 dòng vào `android/app/src/main/cpp/ai/CMakeLists.txt` dùng comment kiểu C/Dart (`set(...)  // tránh lỗi fp16…`). **CMake chỉ hiểu `#`** ⇒ `//` bị coi là tham số của `set()` ⇒ parse error ngay ở configure.
+  **Sửa:** đổi 3 dòng sang `#`; quét toàn repo không còn `//` trong file CMake (URL `https://` giữ nguyên).
+  **Kèm:** thêm bước *Init submodules (llama.cpp + audio.cpp)* trong job Android — trước đó `actions/checkout` không init submodule và CMake phải tự `git submodule update` GIỮA lúc Gradle configure; vẫn `|| true` + in "có/THIẾU" để lỗi mạng chỉ làm engine báo chưa sẵn sàng (fallback), app vẫn build.
+- **Dọn release dở:** release `1.21.0` đầu tiên chỉ có 3 asset (iOS/Linux/Windows, **thiếu APK**) ⇒ đã **xoá release + tag**, rồi tag lại trên commit đã sửa và build lại. Người dùng không bao giờ thấy bản 1.21.0 thiếu APK.
+- **Bằng chứng:** `build_final_complete.yml` run **41995136804** — **4/4 job success**. https://github.com/Pabhassaracitto/In4Up/releases/tag/1.21.0
+  - `in4up-Android-arm64-v8a-1.21.0-8a382.apk` — 198.716.378 B — sha256 `5e65f298d2070c4fc7bf7d266e385e9413b7743332e084bbf5ae5c1e578b5b2f`
+  - `in4up-iOS-1.21.0.ipa` — 92.952.481 B — sha256 `4f79d23a824d01ca8d3e8142249be3604efee4335b112f066ec01361330d3492`
+  - `in4up-Linux-1.21.0.tar.gz` — 49.721.056 B — sha256 `9a0f09676e1fa37f12a1c99262e134205c296ce42af361f12e7a4dea4846cb91`
+  - `in4up-Windows-1.21.0.zip` — 52.257.248 B — sha256 `212b6614db9660ed6973875c787dea584b6277447b1b86dea15d369af1892d78`
+- **Chưa kiểm (máy thật):** cài đè 1.20.0 → 1.21.0 (versionCode 20 → **21**); engine VieNeu-TTS import GGUF + voices; pháp thoại DHRM-001; tab Đọc chrome mới; Tipiṭaka song ngữ; Cabin không mất câu khi Stop.
+- **Bài học CI:** `//` không phải comment của CMake — analyzer/build Dart xanh hoàn toàn không bảo đảm được điều này; chỉ `configureCMakeRelease` mới bắt.
+- **Lịch sử:**
+  - 2026-11-05 | created→done | agent arena/01a0251e-in4up | bump 1.21.0+21 → tag → build đỏ (CMake `//`) → sửa → xoá release/tag dở → tag lại → build **41995136804** 🟢 4/4

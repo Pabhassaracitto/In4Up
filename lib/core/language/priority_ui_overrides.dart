@@ -3413,6 +3413,35 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '離線（Parakeet/sherpa）',
     'si': 'නොබැඳි (Parakeet/sherpa)',
   },
+  // M4U-IMPORT-003 — mic offline (sherpa) ở tab Nghe.
+  'Ghi âm offline (Parakeet)': {
+    'en': 'Offline mic (Parakeet)',
+    'hi': 'ऑफ़लाइन माइक (Parakeet)',
+    'zh': '离线麦克风（Parakeet）',
+    'zh_TW': '離線麥克風（Parakeet）',
+    'si': 'ඔෆ්ලයින් මයික් (Parakeet)',
+  },
+  'Dừng ghi offline': {
+    'en': 'Stop offline recording',
+    'hi': 'ऑफ़लाइन रिकॉर्डिंग रोकें',
+    'zh': '停止离线录音',
+    'zh_TW': '停止離線錄音',
+    'si': 'ඔෆ්ලයින් පටිගත කිරීම නවත්වන්න',
+  },
+  'Chưa có model nhận diện offline — hãy tải hoặc import Parakeet / Zipformer VI trong Quản lý Model AI.': {
+    'en': 'No offline speech model yet — download or import Parakeet / Zipformer VI in AI Model Management.',
+    'hi': 'अभी कोई ऑफ़लाइन स्पीच मॉडल नहीं — AI मॉडल प्रबंधन में Parakeet / Zipformer VI डाउनलोड या इम्पोर्ट करें।',
+    'zh': '尚无离线语音模型 — 请在 AI 模型管理中下载或导入 Parakeet / Zipformer VI。',
+    'zh_TW': '尚無離線語音模型 — 請在 AI 模型管理中下載或匯入 Parakeet / Zipformer VI。',
+    'si': 'තවම ඔෆ්ලයින් ස්පරච්ච මොඩලයක් නොමැත — AI මොඩල කළමනයේ Parakeet / Zipformer VI බාගන්න හෝ ආයතනය කරන්න.',
+  },
+  'Không khởi động được nhận diện offline.': {
+    'en': 'Could not start offline speech recognition.',
+    'hi': 'ऑफ़लाइन स्पीच पहचान शुरू नहीं हो सकी।',
+    'zh': '无法启动离线语音识别。',
+    'zh_TW': '無法啟動離線語音辨識。',
+    'si': 'ඔෆ්ලයින් ස්පරච්ක පිළිගැනීම ආරම්භ කළ නොහැකි විය.',
+  },
   'Tạo lời thoại (LRC — offline, {value0})': {
     'en': 'Create lyrics (LRC — offline, {value0})',
     'hi': 'गीत बनाएँ (LRC — ऑफ़लाइन, {value0})',

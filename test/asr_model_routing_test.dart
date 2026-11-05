@@ -433,4 +433,132 @@ void main() {
       expect(info.isReady('asr-vi-30M-int8'), isFalse);
     });
   });
+
+  // M4U-IMPORT-003 — import bộ Parakeet ĐÚNG (bundle chính thức của k2-fsa)
+  // bị app báo "model không khớp profile đã chọn" vì heuristic "tokens.txt có
+  // dấu tiếng Việt" khớp vocab Unicode đa ngôn ngữ của tokenizer NVIDIA.
+  group('M4U-IMPORT-003 — nhận diện họ NeMo/Parakeet', () {
+    /// Vocab tokenizer đa ngôn ngữ (như `tokens.txt` chính thức của
+    /// `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`): ~180 tag ngôn ngữ
+    /// `<|xx|>` + bảng chữ Latin mở rộng (`â ê ô ă đ é ý ù ò ì á è à`).
+    const multilingualTokens = '<|unk|> 0\n<|vi|> 196\n<|zh|> 52\n<|hi|> 87\n'
+        '<|si|> 164\n<|de|> 78\n<|fr|> 71\nâ 8024\nê 8027\nđ 8059\n'
+        'ù 8067\nÉ 8070\nò 8075\nì 8076\nÁ 8099\nÈ 8100\nû 8113\n'
+        'À 8131\nÝ 8176\nĂ 8164\nÔ 8178\nÂ 8180\nÃ 8181\n';
+
+    test('asrTokensLookVietnamese: vocab đa ngôn ngữ (tag <|xx|>) → false', () {
+      final dir = Directory.systemTemp.createTempSync('asr_tokens_multi_');
+      try {
+        final tokens = File('${dir.path}/tokens.txt')
+          ..writeAsStringSync(multilingualTokens);
+        expect(
+          SherpaModelManager.asrTokensLookVietnamese(tokens.path),
+          isFalse,
+          reason: 'vocab tokenizer đa ngôn ngữ KHÔNG phải bằng chứng VI',
+        );
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('asrTokensLookVietnamese: chữ có dấu dùng chung (é ý đ â ê ô) → false',
+        () {
+      final dir = Directory.systemTemp.createTempSync('asr_tokens_shared_');
+      try {
+        final tokens = File('${dir.path}/tokens.txt')
+          ..writeAsStringSync('café 10\nživa 11\nüber 12\nmalo 13\n');
+        expect(
+          SherpaModelManager.asrTokensLookVietnamese(tokens.path),
+          isFalse,
+          reason: 'dấu dùng chung với ngôn ngữ khác không đủ bằng chứng VI',
+        );
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('matchAsrProfile: bundle Parakeet + tokens đa ngôn ngữ → Parakeet',
+        () {
+      final dir = Directory.systemTemp.createTempSync('asr_parakeet_bundle_');
+      try {
+        final bundle = Directory('${dir.path}/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8')
+          ..createSync();
+        final tokens = File('${bundle.path}/tokens.txt')
+          ..writeAsStringSync(multilingualTokens);
+        final encoder = File('${bundle.path}/encoder.int8.onnx')
+          ..writeAsBytesSync(List<int>.filled(2048, 32));
+
+        final profile = SherpaModelManager.matchAsrProfile(
+          isStreaming: false,
+          encoderPath: encoder.path,
+          tokensPath: tokens.path,
+          folderName: bundle.path,
+        );
+        expect(
+          profile?.id,
+          kParakeetProfileId,
+          reason: 'bộ Parakeet đúng phải nhận diện là Parakeet, KHÔNG phải VI',
+        );
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('isNeMoTransducerEncoder: metadata ở CUỐI file ONNX → true', () {
+      final dir = Directory.systemTemp.createTempSync('asr_nemo_meta_');
+      try {
+        // Metadata_props của ONNX nằm ở cuối file (protobuf field 14 sau
+        // graph) — mô phỏng đúng bố cục: header + metadata ở cuối.
+        final encoder = File('${dir.path}/encoder.int8.onnx');
+        final head = List<int>.filled(4096, 32);
+        const meta = 'model_type EncDecRNNTBPEModel model_author NeMo '
+            'feat_dim 128 comment Only the transducer branch is exported';
+        encoder.writeAsBytesSync([...head, ...meta.codeUnits]);
+
+        expect(SherpaModelManager.isNeMoTransducerEncoder(encoder.path), isTrue);
+        expect(
+          SherpaModelManager.detectEncoderKind(encoder.path),
+          SherpaAsrEncoderKind.nonStreaming,
+          reason: 'transducer NeMo là OFFLINE-only',
+        );
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('isNeMoTransducerEncoder: file ONNX thường → false', () {
+      final dir = Directory.systemTemp.createTempSync('asr_plain_meta_');
+      try {
+        final encoder = File('${dir.path}/encoder.int8.onnx')
+          ..writeAsBytesSync(List<int>.filled(4096, 32));
+        expect(SherpaModelManager.isNeMoTransducerEncoder(encoder.path), isFalse);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+
+    test('matchAsrProfile: bundle ĐÃ ĐỔI TÊN + metadata NeMo → Parakeet', () {
+      final dir = Directory.systemTemp.createTempSync('asr_nemo_renamed_');
+      try {
+        final bundle = Directory('${dir.path}/model')..createSync();
+        final encoder = File('${bundle.path}/encoder.int8.onnx');
+        final head = List<int>.filled(4096, 32);
+        const meta = 'model_type EncDecRNNTBPEModel model_author NeMo';
+        encoder.writeAsBytesSync([...head, ...meta.codeUnits]);
+        // tokens.txt của vocab đa ngôn ngữ (có dấu tiếng Việt "theo tên")
+        final tokens = File('${bundle.path}/tokens.txt')
+          ..writeAsStringSync(multilingualTokens);
+
+        final profile = SherpaModelManager.matchAsrProfile(
+          isStreaming: false,
+          encoderPath: encoder.path,
+          tokensPath: tokens.path,
+          folderName: bundle.path,
+        );
+        expect(profile?.id, kParakeetProfileId);
+      } finally {
+        dir.deleteSync(recursive: true);
+      }
+    });
+  });
 }

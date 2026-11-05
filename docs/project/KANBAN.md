@@ -194,7 +194,7 @@
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
 | I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `docxXmlToPlainText` xuống dòng cứng + `ReadLineHint` + nút Trợ giúp; test `test/read_mode/` |
 | I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
-| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (M4U-IMPORT-002: đọc đúng thư mục SAF + multi-file; CI run 41646109015 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; validator thống nhất; thêm nhận diện layout export NeMo (báo đúng, không báo "thiếu file" oan) + TTS không sập sau khi phát |
+| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (M4U-IMPORT-002 **đã merge PR #128** rebase tuyến tính, CI run 41964386557 xanh; M4U-IMPORT-003: Parakeet import đúng + dùng live được ở Cabin và tab Nghe) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; validator thống nhất; nhận diện layout export NeMo (báo đúng, không báo "thiếu file" oan) + TTS không sập sau khi phát; nhận diện họ model theo metadata ONNX (không theo tên file) |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `pdf_text_layer_probe.dart` + `ocr_cancel_token.dart` + `pdf_tts_machine.dart` + playback epoch; test OCR/PDF xanh |
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 | TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
@@ -6108,6 +6108,50 @@
     import N file, bộ NeMo, phát TTS xong app không sập). Edge TTS 403 +
     `speech.platform.bing.com:0` là lỗi dịch vụ ngoài (token endpoint đổi),
     chưa sửa trong lane này.
+  - 2026-11-05 | doing | agent arena/843d8be8-in4up (lane M4U-IMPORT-003)
+    **PR #128 đã merge** (rebase & merge, base `arena/01a0251e-in4up`, 0 merge
+    commit) ⇒ CI run **41964386557 SUCCESS** trên base sau merge. Lane này sửa
+    tiếp lỗi user thật còn lại: **import bộ Parakeet đúng chuẩn k2-fsa bị báo
+    `profileMismatch`** ("model không khớp profile đã chọn") và **Parakeet
+    chưa dùng được cho live STT**.
+    - **Nguyên nhân gốc (đã xác minh):** `asrTokensLookVietnamese(tokens.txt)`
+      trả TRUE vì vocab của tokenizer ĐA NGÔN NGỮ NVIDIA (Parakeet/Canary)
+      chứa bảng chữ Latin mở rộng (`â ê ô ă đ é ý ù ò ì`) ⇒ nhánh "VI" đứng
+      TRƯỚC nhánh Parakeet trong `matchAsrProfile` ⇒ app nhận nhầm bộ Parakeet
+      là Zipformer VI. (Không phải lỗi "streaming".)
+    - **Sửa:** `asrTokensLookVietnamese` siết lại — ≥5 tag `<|xx|>` ⇒ KHÔNG
+      phải VI; chỉ tính ký tự CHỈ-Ở-VIỆT (Latin Extended Additional
+      U+1EA0–U+1EF9: ạ ả ấ ầ … ỵ) mới là bằng chứng VI ⇒ dấu dùng chung với
+      ngôn ngữ khác (é ý đ â ê ô) không còn nhận nhầm.
+    - **Nhận diện họ model theo NỘI DUNG file (không theo tên file):**
+      `isNeMoTransducerEncoder` đọc 64KB CUỐI encoder ONNX (nơi ONNX ghi
+      `metadata_props`: `model_type=EncDecRNNTBPEModel`, `model_author=NeMo`) +
+      cache theo size/mtime; `matchAsrProfile` nhận diện HỌ MODEL TRƯỚC
+      (family-first) rồi mới tới heuristic ngôn ngữ; `detectEncoderKind` coi
+      NeMo là `nonStreaming` (offline-only, không được route OnlineRecognizer).
+    - **Parakeet dùng được cho CẢ 2 luồng live** (yêu cầu owner): (1) Cabin
+      live STT truyền `modelPaths` đúng profile đã plan; (2) tab Nghe có nút
+      mic offline mới `ListenLiveOfflineMic` (widget tự quản lý) +
+      `ListenLiveOfflineStt` (AudioRecorder PCM 16kHz → `SherpaSttEngine
+      .startLive` ⇒ `OfflineRecognizer` + Silero VAD, đúng đường simulated
+      streaming của Parakeet) + panel transcript live + chọn ngôn ngữ trong
+      bottom sheet; chỉ hiện khi máy đã cài ≥1 model offline
+      (`AsrModelRouter.installedOfflineLanguages`).
+    - **Ngoài ra:** `getAsrModelPaths` fallback sang model đa ngữ đã cài khi
+      profile chuyên ngôn ngữ chưa cài; đường nhận diện FILE của
+      `SttServiceFacade` dùng `offlineFileProfile` (chọn profile offline ĐÃ
+      cài) thay vì profile chuyên ngôn ngữ.
+    - **Parakeet = 25 ngôn ngữ châu Âu** (bg hr cs da nl et fi fr de el hu it
+      lv lt mt pl pt ro sk sl es sv ru uk) — KHÔNG có tiếng Việt, KHÔNG thay
+      thế được Zipformer VI 30M.
+    - **Test:** `test/asr_model_routing_test.dart` (+6 case M4U-IMPORT-003) và
+      `test/m4u_import_003_parakeet_live_test.dart` (mới: heuristic VI, metadata
+      NeMo, `installedOfflineLanguages`, source-scan service/widget/Cabin +
+      i18n 5 locale + English JSON) — đã nối vào `.github/workflows/app_analyze.yml`.
+    - i18n 4 chuỗi UI mới đủ 5 locale (`en/hi/zh/zh_TW/si`) trong
+      `priority_ui_overrides.dart` + `tool/legacy_ui_english_overrides.json`.
+    - Còn lại: CI xanh + **nghiệm thu máy thật** (import bộ Parakeet chính
+      thức, bấm mic offline ở tab Nghe, live STT trong Cabin).
 
 ### I4U18-PDF-OCR-TTS-001 — PDF/OCR Reader: spinner OCR và TTS controls không dừng
 - **Trạng thái:** doing — code + CI 🟢 run `36771164011`; chờ nghiệm thu thiết bị.

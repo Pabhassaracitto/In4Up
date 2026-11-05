@@ -345,9 +345,19 @@ class SttsCabinService extends ChangeNotifier {
         // CABIN-SAVE-001: tee PCM → WAV (cùng luồng mic, không mở mic lần 2).
         final pcmStream = _recorder?.tapPcm(rawPcm) ?? rawPcm;
 
+        // M4U-IMPORT-003: dùng ĐÚNG model đã plan (Parakeet đa ngữ khi
+        // profile chuyên ngôn ngữ chưa cài) — không để engine tự tra theo
+        // ngôn ngữ rồi rơi về "chưa có model".
+        //
+        // `plan.profile` là getter ⇒ không promote được ⇒ gán vào biến cục
+        // bộ trước (biến cục bộ final mới promote được).
+        final planProfile = plan.profile;
         final ok = await _sherpaStt.startLive(
           language: plan.requestedLanguage,
           pcmStream: pcmStream,
+          modelPaths: planProfile == null
+              ? null
+              : _modelManager.getAsrModelPaths(planProfile.id),
         );
 
         if (!ok) {

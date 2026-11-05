@@ -74,6 +74,18 @@ class _EncoderKindCacheEntry {
   const _EncoderKindCacheEntry(this.kind, this.signature);
 }
 
+/// Cache riêng cho cờ "encoder là transducer NVIDIA NeMo (Parakeet TDT)".
+///
+/// Tách khỏi cache `kind` vì `kind` có thể là `unknown` (đoán theo profile)
+/// trong khi cờ NeMo vẫn đúng ⇒ nếu dùng chung cache thì lần đọc sau sẽ trả
+/// `unknown` và mất thông tin NeMo.
+class _NeMoEncoderCacheEntry {
+  final bool isNeMo;
+  final String? signature;
+
+  const _NeMoEncoderCacheEntry(this.isNeMo, this.signature);
+}
+
 /// Trạng thái import model Zipformer ASR.
 enum SherpaAsrImportStatus {
   /// Đã copy + nhận diện model vào đúng profile.
@@ -365,6 +377,9 @@ class SherpaModelManager {
   DateTime? _lastRescanAt;
   static final Map<String, _EncoderKindCacheEntry> _encoderKindCache = {};
 
+  /// Cache cờ NeMo (đọc metadata_props ở CUỐI file ONNX).
+  static final Map<String, _NeMoEncoderCacheEntry> _neMoEncoderCache = {};
+
   Future<String> _documents() async {
     if (_documentsDir != null) return _documentsDir!;
     Directory base;
@@ -652,29 +667,38 @@ class SherpaModelManager {
 
     // 1. Metadata ONNX (nội dung file là bằng chứng mạnh nhất — kể cả khi
     //    file bị đặt trong thư mục/profile có tên "streaming").
+    //
+    // M4U-IMPORT-003: transducer NVIDIA NeMo (Parakeet TDT) được kiểm TRƯỚC
+    // (metadata `EncDecRNNTBPEModel` nằm ở CUỐI file) ⇒ OFFLINE-only. Nếu
+    // không, chuỗi "streaming" bất kỳ trong graph sẽ khiến model bị route
+    // sang OnlineRecognizer ⇒ SIGABRT native.
     var kind = SherpaAsrEncoderKind.unknown;
     try {
-      final length = stat?.size ?? file.lengthSync();
-      final readLen = length < 256 * 1024 ? length : 256 * 1024;
-      if (readLen > 0) {
-        final raf = file.openSync();
-        try {
-          final bytes = raf.readSync(readLen);
-          final text = String.fromCharCodes(
-            bytes.where((b) => b >= 32 && b < 127),
-          ).toLowerCase();
-          // CHỈ nhận bằng chứng MẠNH. `encoder_dims`/`query_head_dims`
-          // KHÔNG đủ tin (có thể xuất hiện ở cả model offline — bản int8 của
-          // model streaming còn không có chuỗi này, xem SHERPA-STREAM-001),
-          // nên khi chỉ có dims thì trả `unknown` để route theo profile
-          // (VI = offline+VAD, EN = streaming) thay vì đoán sai.
-          if (text.contains('non-streaming')) {
-            kind = SherpaAsrEncoderKind.nonStreaming;
-          } else if (text.contains('streaming')) {
-            kind = SherpaAsrEncoderKind.streaming;
+      if (isNeMoTransducerEncoder(encoderPath)) {
+        kind = SherpaAsrEncoderKind.nonStreaming;
+      } else {
+        final length = stat?.size ?? file.lengthSync();
+        final readLen = length < 256 * 1024 ? length : 256 * 1024;
+        if (readLen > 0) {
+          final raf = file.openSync();
+          try {
+            final bytes = raf.readSync(readLen);
+            final text = String.fromCharCodes(
+              bytes.where((b) => b >= 32 && b < 127),
+            ).toLowerCase();
+            // CHỈ nhận bằng chứng MẠNH. `encoder_dims`/`query_head_dims`
+            // KHÔNG đủ tin (có thể xuất hiện ở cả model offline — bản int8 của
+            // model streaming còn không có chuỗi này, xem SHERPA-STREAM-001),
+            // nên khi chỉ có dims thì trả `unknown` để route theo profile
+            // (VI = offline+VAD, EN = streaming) thay vì đoán sai.
+            if (text.contains('non-streaming')) {
+              kind = SherpaAsrEncoderKind.nonStreaming;
+            } else if (text.contains('streaming')) {
+              kind = SherpaAsrEncoderKind.streaming;
+            }
+          } finally {
+            raf.closeSync();
           }
-        } finally {
-          raf.closeSync();
         }
       }
     } catch (_) {
@@ -694,6 +718,81 @@ class SherpaModelManager {
 
     _encoderKindCache[encoderPath] = _EncoderKindCacheEntry(kind, signature);
     return kind;
+  }
+
+  /// Encoder có phải transducer NVIDIA NeMo (Parakeet TDT) không?
+  ///
+  /// M4U-IMPORT-003 — bằng chứng MẠNH, đọc metadata_props ở **cuối** file
+  /// ONNX: ONNX protobuf serialize theo số field ⇒ `metadata_props` (field
+  /// 14) nằm SAU `graph` (field 7) ⇒ nằm ở cuối file (đầu file chỉ có
+  /// header + graph node ⇒ dò "streaming" ở 256KB đầu không thấy metadata).
+  ///
+  /// Script export chính thức của k2-fsa (`scripts/nemo/parakeet-tdt-0.6b-v3/
+  /// export_onnx.py`) ghi vào `encoder.int8.onnx`:
+  ///   `model_type=EncDecRNNTBPEModel`, `model_author=NeMo`,
+  ///   `comment=Only the transducer branch is exported`, `feat_dim=128`.
+  ///
+  /// ⇒ Nhận diện họ model KHÔNG phụ thuộc tên file/thư mục (đúng yêu cầu
+  /// "không dựa vào tên file cố định") và không bị heuristic "streaming" /
+  /// "có dấu tiếng Việt" đánh lừa.
+  static bool isNeMoTransducerEncoder(String encoderPath) {
+    final file = File(encoderPath);
+    if (!file.existsSync()) return false;
+
+    FileStat? stat;
+    try {
+      stat = file.statSync();
+    } catch (_) {}
+    final signature = stat == null
+        ? null
+        : '${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    final cached = _neMoEncoderCache[encoderPath];
+    if (cached != null &&
+        cached.signature != null &&
+        cached.signature == signature) {
+      return cached.isNeMo;
+    }
+
+    final tail = _readOnnxTailText(
+      encoderPath,
+      stat?.size ?? 0,
+    );
+    final isNeMo = tail.contains('encdecrnntbpemodel') ||
+        tail.contains('nemo_transducer') ||
+        // `model_author` + `NeMo` phải ĐỨNG GẦN NHAU (protobuf metadata_props
+        // ghi key rồi value) — tránh false-positive khi chuỗi "nemo" vô tình
+        // xuất hiện trong graph của model KHÔNG phải NeMo (vd Zipformer k2-fsa
+        // ghi `model_author=k2-fsa`).
+        RegExp(r'model_author[\s\S]{0,64}nemo').hasMatch(tail);
+    if (cached == null || cached.signature != signature) {
+      _neMoEncoderCache[encoderPath] = _NeMoEncoderCacheEntry(isNeMo, signature);
+    }
+    return isNeMo;
+  }
+
+  /// Đọc phần CUỐI file ONNX (text ASCII) — nơi chứa `metadata_props`.
+  ///
+  /// Chỉ đọc tối đa 64KB cuối: metadata_props luôn nằm sát cuối file nên
+  /// đọc nhiều hơn là lãng phí I/O trên file 650MB (encoder Parakeet).
+  static String _readOnnxTailText(String path, int fileLength) {
+    try {
+      const maxTailBytes = 64 * 1024;
+      final length = fileLength > 0 ? fileLength : File(path).lengthSync();
+      final readLen = length < maxTailBytes ? length : maxTailBytes;
+      if (readLen <= 0) return '';
+      final raf = File(path).openSync();
+      try {
+        raf.setPositionSync(length - readLen);
+        final bytes = raf.readSync(readLen);
+        return String.fromCharCodes(
+          bytes.where((b) => b >= 32 && b < 127),
+        ).toLowerCase();
+      } finally {
+        raf.closeSync();
+      }
+    } catch (_) {
+      return '';
+    }
   }
 
   /// Kiểm tra model có phải bản STREAMING hay không (2 lớp: metadata ONNX
@@ -885,6 +984,29 @@ class SherpaModelManager {
         _nameLooksLanguage(nameHaystack, 'vi');
     final looksEn = _nameLooksLanguage(nameHaystack, 'en');
 
+    final parakeet = AsrModelRouter.parakeetProfile;
+
+    // M4U-IMPORT-003 — NHẬN DIỆN HỌ MODEL TRƯỚC, heuristic ngôn ngữ SAU.
+    //
+    // Bộ NeMo/Parakeet là transducer OFFLINE đa ngữ (25 ngôn ngữ châu Âu):
+    // vocab `tokens.txt` của nó là bảng chữ Unicode rộng (Latin mở rộng +
+    // Cyrillic + Greek + ~180 tag ngôn ngữ `<|vi|>`) nên heuristic "tokens có
+    // dấu tiếng Việt" KHÔNG phải bằng chứng VI. Trước đây nhánh VI được
+    // kiểm TRƯỚC nhánh Parakeet ⇒ import đúng bộ Parakeet bị coi là
+    // "Zipformer VI" ⇒ báo lỗi "model không khớp profile đã chọn".
+    //
+    // Bằng chứng họ model theo thứ tự mạnh → yếu:
+    //  1. metadata ONNX ở cuối file (`EncDecRNNTBPEModel` / `model_author=NeMo`)
+    //     — không phụ thuộc tên file/thư mục;
+    //  2. tên lá bundle có `parakeet`/`nemo`/`tdt`.
+    final neMoFamily = encoderPath != null &&
+        !nameLooksStreamingModel(nameHaystack) &&
+        isNeMoTransducerEncoder(encoderPath);
+    if (parakeet != null &&
+        (neMoFamily || _leafHasStrongParakeetMarker(leafHaystack))) {
+      return parakeet;
+    }
+
     if (isStreaming) {
       // App chỉ có 1 profile streaming (EN) và KHÔNG có VI streaming — nếu
       // tên nói tiếng Việt thì đây không phải profile nào của app.
@@ -892,7 +1014,6 @@ class SherpaModelManager {
       return AsrModelRouter.profileForLanguage('en');
     }
 
-    final parakeet = AsrModelRouter.parakeetProfile;
     if (looksVi) {
       // Model VI 30M nhỏ hơn nhiều — nhận diện trước để import đúng thẻ VI.
       return AsrModelRouter.profileForLanguage('vi');
@@ -918,9 +1039,7 @@ class SherpaModelManager {
   /// có profile riêng).
   static bool _leafLooksParakeet(String leafHaystack, SherpaAsrProfile parakeet) {
     if (leafHaystack.isEmpty) return false;
-    if (leafHaystack.contains('parakeet') ||
-        leafHaystack.contains('nemo') ||
-        leafHaystack.contains('tdt')) {
+    if (_leafHasStrongParakeetMarker(leafHaystack)) {
       return true;
     }
     for (final language in parakeet.languages) {
@@ -928,6 +1047,19 @@ class SherpaModelManager {
       if (_nameLooksLanguage(leafHaystack, language)) return true;
     }
     return false;
+  }
+
+  /// Dấu hiệu MẠNH về họ Parakeet/NeMo trong tên lá (tên thư mục con / tên
+  /// file bundle).
+  ///
+  /// Mạnh hơn `_leafLooksParakeet` (vốn còn xét token ngôn ngữ châu Âu như
+  /// `de`/`fr`/`ro`): chỉ nhận khi tên có `parakeet` / `nemo` / `tdt` — đây là
+  /// dấu hiệu đặc trưng HỌ MODEL, không phải ngôn ngữ.
+  static bool _leafHasStrongParakeetMarker(String leafHaystack) {
+    if (leafHaystack.isEmpty) return false;
+    return leafHaystack.contains('parakeet') ||
+        leafHaystack.contains('nemo') ||
+        leafHaystack.contains('tdt');
   }
 
   /// tokens.txt có ký tự đặc trưng tiếng Việt (BPE VI chứa âm tiết có dấu).
@@ -938,6 +1070,19 @@ class SherpaModelManager {
   /// tiếng Việt ⇒ import trả unknownProfile ("Không nhận diện được model").
   /// Giờ lower-case nội dung file trước khi so khớp (Dart toLowerCase()
   /// map đúng Unicode: Ồ→ồ, Đ→đ…).
+  ///
+  /// M4U-IMPORT-003 — bản sửa: "có 1 ký tự có dấu" là bằng chứng QUÁ YẾU.
+  /// Vocab của tokenizer ĐA NGÔN NGỮ (Parakeet/Canary của NVIDIA) chứa
+  /// bảng chữ Latin mở rộng + Cyrillic + Greek ⇒ có `â ê ô ă đ é ý ù ò ì á è à`
+  /// ⇒ bị nhận nhầm là model VI ⇒ import bộ Parakeet đúng bị chặn
+  /// ("model không khớp profile"). Nay:
+  ///  1. tokens chứa nhiều tag ngôn ngữ `<|vi|>`, `<|zh|>`, `<|hi|>`… ⇒ là
+  ///     vocab tokenizer đa ngôn ngữ ⇒ KHÔNG phải bằng chứng tiếng Việt;
+  ///  2. chỉ tính ký tự CHỈ TIẾNG VIỆT (Latin Extended Additional
+  ///     U+1EA0–U+1EF9: ạ ả ấ ầ ẩ ẫ ậ ắ ằ ẳ ẵ ặ ẹ ẻ ẽ ế ề ể ễ ệ ỉ ị ọ ỏ
+  ///     ố ồ ổ ỗ ộ ớ ờ ở ỡ ợ ụ ủ ứ ừ ử ữ ự ỳ ỷ ỹ ỵ) — các chữ có dấu
+  ///     dùng chung với ngôn ngữ khác (é ý đ â ê ô ă à á è ì ò ù) KHÔNG đủ
+  ///     bằng chứng.
   static bool asrTokensLookVietnamese(String? tokensPath) {
     if (tokensPath == null) return false;
     try {
@@ -950,16 +1095,40 @@ class SherpaModelManager {
       try {
         final bytes = raf.readSync(readLen);
         final text = utf8.decode(bytes, allowMalformed: true).toLowerCase();
-        return RegExp(
-          r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ'
-          r'ùúủũụưừứửữựỳýỷỹỵđ]',
-        ).hasMatch(text);
+        // Tokenizer đa ngôn ngữ (NVIDIA dùng chung cho Parakeet/Canary):
+        // vocab có hàng trăm tag `<|xx|>` ⇒ không phải BPE tiếng Việt.
+        if (_countLanguageTags(text) >= 5) return false;
+        final hits = <String>{
+          for (final ch in kVietnameseOnlyChars.split(''))
+            if (text.contains(ch)) ch,
+        };
+        return hits.isNotEmpty;
       } finally {
         raf.closeSync();
       }
     } catch (_) {
       return false;
     }
+  }
+
+  /// Ký tự CHỈ tiếng Việt dùng (Latin Extended Additional U+1EA0–U+1EF9:
+  /// Ạ ạ Ả ả Ấ ấ … Ỵ ỵ) — KHÔNG ngôn ngữ Latin nào khác dùng (Romania có
+  /// `ă â î û`, Bồ Đào Nha có `ã õ`, Pháp có `é è`… ⇒ không tính).
+  ///
+  /// Đây là tín hiệu ĐỦ MẠNH cho "từ vựng tiếng Việt" mà KHÔNG trùng với
+  /// bảng chữ Latin mở rộng của vocab tokenizer đa ngôn ngữ.
+  static const String kVietnameseOnlyChars =
+      'ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỷỹỵ';
+
+  /// Đếm số tag ngôn ngữ `<|xx|>` trong vocab (dấu hiệu tokenizer đa ngôn
+  /// ngữ của NVIDIA — Parakeet/Canary có ~180 tag).
+  static int _countLanguageTags(String lowerText) {
+    var count = 0;
+    for (final match in RegExp(r'<\|[a-z]{2,3}\|>').allMatches(lowerText)) {
+      count++;
+      if (count >= 5) return count;
+    }
+    return count;
   }
 
   /// Tên file/thư mục có nhắc tới mã ngôn ngữ (vi/en) như một token riêng.
@@ -994,7 +1163,35 @@ class SherpaModelManager {
     if (canonical != null) return canonical;
 
     // …rồi tới model đã import với tên thư mục khác nhưng nhận diện được.
-    return detectAsrModels(docs)[profile.id];
+    final detected = detectAsrModels(docs);
+    final byProfile = detected[profile.id];
+    if (byProfile != null) return byProfile;
+
+    // M4U-IMPORT-003 — ngôn ngữ có thể được phục vụ bởi model ĐA NGỮ đã cài
+    // (Parakeet 25 ngôn ngữ châu Âu) khi profile CHUYÊN ngôn ngữ đó chưa
+    // cài. Trước đây chỉ tra đúng profile chuyên ngôn ngữ ⇒ Cabin live STT
+    // (và Quick capture) báo "chưa có model" dù máy ĐÃ cài Parakeet đúng
+    // ngôn ngữ. Ưu tiên profile chuyên ngôn ngữ (nếu có), rồi mới tới
+    // model đa ngữ — cùng thứ tự với `AsrModelRouter.profilesForLanguage`.
+    //
+    // `languageOrProfileId` có thể là MÃ NGÔN NGỮ ('en') hoặc PROFILE ID
+    // ('asr-parakeet-tdt-0.6b-v3-int8') ⇒ dùng `profile.languages` (đã phân
+    // giải ở trên) làm danh sách ngôn ngữ cần tra.
+    final languages = profile.languages.isNotEmpty
+        ? profile.languages
+        : <String>[languageOrProfileId];
+    for (final language in languages) {
+      for (final candidate in AsrModelRouter.profilesForLanguage(language)) {
+        if (candidate.id == profile.id) continue;
+        final paths = detected[candidate.id] ??
+            _findAsrModelInDirSync(
+              p.join(docs, asrFolderName, candidate.id),
+              family: candidate.family,
+            );
+        if (paths != null) return paths;
+      }
+    }
+    return null;
   }
 
   /// Kiểm tra xem đã có model Zipformer ASR cho ngôn ngữ/profile này chưa.
@@ -1394,8 +1591,18 @@ class SherpaModelManager {
     // Bằng chứng streaming = metadata ONNX HOẶC tên file/thư mục nguồn.
     final haystack =
         '$sourceLabel ${encoderPath ?? ''} ${report.zipformerDir}';
-    final streamingEvidence = encoderKind == SherpaAsrEncoderKind.streaming ||
-        nameLooksStreamingModel(haystack);
+    // M4U-IMPORT-003: bộ NeMo/Parakeet là transducer OFFLINE (metadata
+    // `EncDecRNNTBPEModel` nằm ở CUỐI file ONNX) ⇒ KHÔNG được coi là
+    // streaming chỉ vì heuristic "streaming" trong nội dung/tên. Tên nói rõ
+    // "streaming" vẫn thắng (bản NeMo streaming của NVIDIA vẫn mang chữ
+    // "streaming" trong tên bundle).
+    final namedStreaming = nameLooksStreamingModel(haystack);
+    final neMoOffline = !namedStreaming &&
+        encoderPath != null &&
+        isNeMoTransducerEncoder(encoderPath);
+    final streamingEvidence = namedStreaming ||
+        (!neMoOffline &&
+            encoderKind == SherpaAsrEncoderKind.streaming);
     final detected = matchAsrProfile(
       isStreaming: streamingEvidence,
       encoderPath: encoderPath,
@@ -1481,10 +1688,20 @@ class SherpaModelManager {
     // thì tôn trọng profile mà user đã chỉ định, không từ chối vì thiếu keyword tên/tokens.
     if (encoderKind == SherpaAsrEncoderKind.unknown) {
       final nameHaystack = '$sourceLabel ${encoderPath ?? ''}';
+      // M4U-IMPORT-003: bộ NeMo/Parakeet có bằng chứng HỌ MODEL riêng
+      // (metadata ONNX ở cuối file + tên bundle) ⇒ không cần heuristic
+      // "tokens có dấu tiếng Việt" để chứng minh bundle thuộc profile này.
+      final familyEvidence = (encoderPath != null &&
+              isNeMoTransducerEncoder(encoderPath)) ||
+          _leafHasStrongParakeetMarker([
+            if (report.zipformerDir != null) _leafName(report.zipformerDir!),
+            if (sourceLabel.isNotEmpty) _leafName(sourceLabel),
+          ].join(' ').toLowerCase());
       final evidenceForTarget = target.isStreaming
           ? nameLooksStreamingModel(nameHaystack)
           : (asrTokensLookVietnamese(tokensPath) ||
-              _nameLooksLanguage(nameHaystack, 'vi'));
+              _nameLooksLanguage(nameHaystack, 'vi') ||
+              familyEvidence);
       if (!evidenceForTarget && explicit == null) {
         return SherpaAsrImportResult(
           status: SherpaAsrImportStatus.unknownProfile,

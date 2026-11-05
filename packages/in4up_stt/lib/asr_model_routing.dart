@@ -464,6 +464,26 @@ class AsrModelRouter {
     return out;
   }
 
+  /// MọI ngôn ngữ của các profile OFFLINE ĐÃ CÀI (bỏ model streaming —
+  /// không dùng được cho OfflineRecognizer / file / live offline).
+  ///
+  /// M4U-IMPORT-003: dùng cho tab Nghe (chọn ngôn ngữ cho mic offline) —
+  /// Parakeet cài ⇒ 25 ngôn ngữ châu Âu; Zipformer VI cài ⇒ thêm `vi`.
+  static List<String> installedOfflineLanguages({
+    required bool Function(String profileId) isInstalled,
+  }) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final profile in kSherpaAsrProfiles) {
+      if (profile.isStreaming) continue;
+      if (!isInstalled(profile.id)) continue;
+      for (final language in profile.languages) {
+        if (seen.add(language)) out.add(language);
+      }
+    }
+    return out;
+  }
+
   /// Profile ĐÃ CÀI dùng được cho FILE/LRC của [language] — tức profile
   /// offline (`!isStreaming`).
   ///

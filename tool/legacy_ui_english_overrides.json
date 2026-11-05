@@ -3965,5 +3965,9 @@
   "🧠 Nhớ": "🧠 Remember",
   "🧠 Đã lưu đoạn chọn vào Vườn Nhớ": "🧠 Selection saved to Memory Garden",
   "🧩 Hỗn hợp ngôn ngữ · {value0}": "🧩 Mixed languages · {value0}",
-  "🪷 Tiếng Pali (pi)": "🪷 Pali (pi)"
+  "🪷 Tiếng Pali (pi)": "🪷 Pali (pi)",
+  "Ghi âm offline (Parakeet)": "Offline mic (Parakeet)",
+  "Dừng ghi offline": "Stop offline recording",
+  "Chưa có model nhận diện offline — hãy tải hoặc import Parakeet / Zipformer VI trong Quản lý Model AI.": "No offline speech model yet — download or import Parakeet / Zipformer VI in AI Model Management.",
+  "Không khởi động được nhận diện offline.": "Could not start offline speech recognition."
 }

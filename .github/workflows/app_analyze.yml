@@ -692,8 +692,8 @@ jobs:
           if-no-files-found: ignore
 
 
-      - name: "PLAN-041 tests — doc Tu+Nghia, nhap AI, anh nhe, khai niem (logic thuan)"
-        id: plan-041-tests
+      - name: "PLAN-043 tests — doc Tu+Nghia, nhap AI, anh nhe, khai niem (logic thuan)"
+        id: plan-043-tests
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |
           set +e
@@ -706,27 +706,27 @@ jobs:
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
-            echo "Khong co file test PLAN-041 tren nhanh nay — bo qua."
+            echo "Khong co file test PLAN-043 tren nhanh nay — bo qua."
             exit 0
           fi
           echo "Chay:$files"
-          flutter test $files -r expanded > plan_041_test.log 2>&1
+          flutter test $files -r expanded > plan_043_test.log 2>&1
           code=$?
-          cat plan_041_test.log
+          cat plan_043_test.log
           if [ "$code" -ne 0 ]; then
-            grep -nE -B4 -A6 'Expected:|Unhandled exception' plan_041_test.log \
+            grep -nE -B4 -A6 'Expected:|Unhandled exception' plan_043_test.log \
               | head -120 | while IFS= read -r line; do
-              echo "::error title=PLAN-041 test fail::$line"
+              echo "::error title=PLAN-043 test fail::$line"
             done
           fi
           exit $code
 
-      - name: Upload PLAN-041 test log
+      - name: Upload PLAN-043 test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: app-plan-041-test-log
-          path: plan_041_test.log
+          name: app-plan-043-test-log
+          path: plan_043_test.log
           if-no-files-found: ignore
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests

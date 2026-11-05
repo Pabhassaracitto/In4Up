@@ -128,7 +128,7 @@ class VocabImageWebService {
   /// kết quả rỗng + [lastError] / [missingKeyProvider] để UI báo đúng nguyên
   /// nhân (thiếu key KHÁC với hết mạng KHÁC với không có kết quả).
   ///
-  /// PLAN-041 mục 4 (IMG-WEB-002):
+  /// PLAN-043 mục 4 (IMG-WEB-002):
   /// • [page] = trang kết quả (1-based) — nút "Tải thêm" của UI.
   /// • [mergeAll] = true → hỏi LẦN LƯỢT các nguồn dùng được và GỘP kết
   ///   quả (mỗi nguồn đóng góp tới khi đủ [limit]) thay vì dừng ở nguồn
@@ -431,7 +431,7 @@ class VocabImageWebService {
         if (out.length >= limit) break;
         if (item is! Map) continue;
         final src = item['src'];
-        // PLAN-041 mục 4 — tải bản VỪA ĐỦ cho thẻ học (large ≈940px /
+        // PLAN-043 mục 4 — tải bản VỪA ĐỦ cho thẻ học (large ≈940px /
         // medium) thay vì large2x/original: nhẹ mạng + nhẹ máy; khi lưu
         // còn một bước chuẩn hoá ≤1024px nữa (vocab_image_normalize).
         final full = src is Map
@@ -477,7 +477,7 @@ class VocabImageWebService {
         if (full == null) continue;
         final links = item['links'];
         out.add(VocabWebImage(
-          // PLAN-041 mục 4 — `regular` (1080px) là đủ cho thẻ học; không
+          // PLAN-043 mục 4 — `regular` (1080px) là đủ cho thẻ học; không
           // tải bản `full` gốc (thường vài MB) nữa.
           imageUrl: full,
           thumbUrl: _url(urls['small']) ?? full,

@@ -140,7 +140,7 @@ class WordEntry {
   /// `imageUrl` (slot 1 = ảnh chính) vẫn hoạt động nguyên như cũ.
   String? imageUrl2;
 
-  /// PLAN-041 (ADR-0021) — móc nối tới Nút Khái niệm đa ngữ
+  /// PLAN-043 (ADR-0023) — móc nối tới Nút Khái niệm đa ngữ
   /// (`ConceptNode.id`). Additive: dữ liệu cũ không có key ⇒ null và entry
   /// hành xử nguyên như trước; chỉ ghi vào JSON khi khác null/rỗng.
   /// SM-2 vẫn nằm ở entry này — khái niệm không giữ điểm.
@@ -677,7 +677,7 @@ class WordEntry {
         // tương thích ngược (dữ liệu cũ không có key này đọc vẫn null).
         if (imageUrl2 != null && imageUrl2!.trim().isNotEmpty)
           'imageUrl2': imageUrl2,
-        // PLAN-041 (ADR-0021) — cùng kỷ luật ghi-khi-có như imageUrl2.
+        // PLAN-043 (ADR-0023) — cùng kỷ luật ghi-khi-có như imageUrl2.
         if (conceptId != null && conceptId!.trim().isNotEmpty)
           'conceptId': conceptId,
         'tags': tags,
@@ -778,7 +778,7 @@ class WordEntry {
         imageUrl: json['imageUrl'] as String?,
         // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0013).
         imageUrl2: json['imageUrl2'] as String?,
-        // Additive (ADR-0021) — dữ liệu cũ không có key này ⇒ null.
+        // Additive (ADR-0023) — dữ liệu cũ không có key này ⇒ null.
         conceptId: (json['conceptId'] as String?)?.trim(),
         tags: (json['tags'] as List?)?.cast<String>() ?? [],
         understand: (json['understand'] as num?)?.toDouble() ?? 0.0,
@@ -823,7 +823,7 @@ class WordEntry {
       imageUrl: json['imageUrl'] as String?,
       // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0013).
       imageUrl2: json['imageUrl2'] as String?,
-      // Additive (ADR-0021) — dữ liệu cũ không có key này ⇒ null.
+      // Additive (ADR-0023) — dữ liệu cũ không có key này ⇒ null.
       conceptId: (json['conceptId'] as String?)?.trim(),
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
       understandData: json['understandData'] != null
@@ -886,7 +886,7 @@ class WordEntry {
         example: example ?? this.example,
         imageUrl: imageUrl,
         imageUrl2: imageUrl2 ?? this.imageUrl2,
-        // ADR-0021 — copyWith không được đánh rơi móc nối khái niệm.
+        // ADR-0023 — copyWith không được đánh rơi móc nối khái niệm.
         conceptId: conceptId,
         tags: tags,
         understandData: understandData,

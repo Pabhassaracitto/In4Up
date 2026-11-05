@@ -1,9 +1,9 @@
 /// ═══════════════════════════════════════════════════════════════
-/// CONCEPT NODE — Nút Khái niệm đa ngữ (PLAN-041 mục 1, ADR-0021)
+/// CONCEPT NODE — Nút Khái niệm đa ngữ (PLAN-043 mục 1, ADR-0023)
 ///
 /// Một khái niệm KHÔNG thuộc ngôn ngữ nào (neo bằng định nghĩa trục +
 /// ảnh/animation dùng chung); mỗi `WordEntry` của từng ngôn ngữ nối vào
-/// bằng `WordEntry.conceptId`. Bất biến (đọc ADR-0021 trước khi sửa):
+/// bằng `WordEntry.conceptId`. Bất biến (đọc ADR-0023 trước khi sửa):
 ///  * `id` UUID v4 bất biến, KHÔNG dẫn xuất từ nội dung.
 ///  * KHÔNG chứa điểm SM-2 — điểm nằm ở từng WordEntry (quy tắc vàng #2).
 ///  * JSON đọc chịu thiếu trường; ghi bỏ qua trường rỗng (additive).
@@ -52,7 +52,7 @@ class ConceptNode {
 
   /// Ảnh/animation DÙNG CHUNG của khái niệm (relative path local hoặc URL,
   /// cùng ngữ nghĩa `WordEntry.imageUrl`). Entry có ảnh riêng vẫn thắng
-  /// khi hiển thị entry đó (ADR-0021 mục 2.3).
+  /// khi hiển thị entry đó (ADR-0023 mục 2.3).
   String? imageRef;
 
   List<ConceptRelation> relations;

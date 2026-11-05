@@ -1,4 +1,4 @@
-// PLAN-041 mục 2 — Sheet cài đặt "Đọc từ + nghĩa" của Worklist.
+// PLAN-043 mục 2 — Sheet cài đặt "Đọc từ + nghĩa" của Worklist.
 // Chỉ sửa [WordlistReadSettings] (model thuần); việc lưu + phát nằm ở
 // `WordlistPlaybackService`. Mặc định: Từ ×2 → Nghĩa ×1 (chốt owner).
 

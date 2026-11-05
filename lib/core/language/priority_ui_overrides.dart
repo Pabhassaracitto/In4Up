@@ -7636,7 +7636,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '僅 Android 支援選擇資料夾。桌面端請輸入資料夾路徑。',
     'si': 'ෆෝල්ඩර තේරීම Android සඳහා පමණි. ඩෙස්ක්ටොප් එකේ පථය ඇතුළත් කරන්න.',
   },
-  // PLAN-041 read-sequence strings retained while rebasing onto latest 251e.
+  // PLAN-043 read-sequence strings retained while rebasing onto latest 251e.
   'Đọc từ + nghĩa': {
     'en': 'Read word + meaning',
     'hi': 'शब्द + अर्थ पढ़ें',
@@ -7757,7 +7757,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'ස්වයංක්‍රීය (අන්තර්ගතය අනුව)',
   },
 
-  // PLAN-041 AI-import strings merged onto latest 251e locale map.
+  // PLAN-043 AI-import strings merged onto latest 251e locale map.
   'AI trả về rỗng — thử lại hoặc đổi model.': {
     'en': 'AI returned nothing — try again or switch model.',
     'hi': 'AI ने कुछ नहीं लौटाया — फिर से कोशिश करें या मॉडल बदलें।',
@@ -7948,7 +7948,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'Prompt පිටපත් විය — ChatGPT/Claude/Gemini වෙත අලවා, ප්‍රතිඵලය Clipboard පටිත්තට අලවන්න.',
   },
 
-  // PLAN-041 muc 4 — chon anh lon hon
+  // PLAN-043 muc 4 — chon anh lon hon
   'Ô ảnh lớn': [
     'Large tiles',
     'बड़े टाइल',
@@ -7999,7 +7999,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'මෙම රූපය භාවිත කරන්න',
   ],
 
-  // PLAN-041 concept/image picker translations merged onto 251e map.
+  // PLAN-043 concept/image picker translations merged onto 251e map.
   'Khái niệm đa ngữ': {
     'en': 'Multilingual concepts',
     'hi': 'बहुभाषी अवधारणाएँ',
@@ -8302,7 +8302,7 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'මෙම රූපය භාවිත කරන්න',
   },
 
-  // PLAN-041 muc 5 — huong dan lay animation khong dan link
+  // PLAN-043 muc 5 — huong dan lay animation khong dan link
   'Không cần dán link: ① mở LottieFiles tìm animation cho từ này ② tải file .json/.lottie về máy ③ chọn file ở đây — ứng dụng xem trước rồi lưu.': {
     'en': 'No link needed: ① open LottieFiles to find an animation for this word ② download the .json/.lottie file ③ pick the file here — the app previews it, then saves it.',
     'hi': 'लिंक चिपकाने की ज़रूरत नहीं: ① इस शब्द के लिए LottieFiles खोलें ② .json/.lottie फ़ाइल डाउनलोड करें ③ यहाँ फ़ाइल चुनें — ऐप पहले दिखाएगा, फिर सहेजेगा।',

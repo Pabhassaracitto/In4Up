@@ -1350,3 +1350,13 @@ Package: `video_player: ^2.8.0` (Flutter official)
     `player_provider.dart`, `player_stats_mixin.dart`), đọc taxonomy thật của
     thư mục Drive (7 collection), viết probe + fixture 44 tên thật, ADR-0022;
     chưa sửa code, chưa chạy Flutter (sandbox không có SDK).
+
+### PLAN-043 — Worklist đa ngữ theo khái niệm trung tâm + 4 nâng cấp
+- Nguồn: người sở hữu (2026-11-02); phạm vi được duyệt qua bản trực quan ngày 2026-11-03 và danh mục animation ngày 2026-11-05.
+- Trạng thái: doing — code các mục 1 Pha A, 2, 3, 4 và 5 Pha 1–2 đã có; CI sau rebase lên tip `arena/01a0251e-in4up` cần xác nhận lại; còn nghiệm thu trên thiết bị.
+- Milestone đề xuất: M2.
+- Chi tiết: [kế hoạch Worklist](../plans/PLAN-043-worklist-da-ngu-khai-niem-trung-tam.md), [bản trực quan](../plans/PLAN-043-visual.html), [gói 100 concept](../plans/PLAN-043-animation-core-concepts.md), [ADR-0023](../adr/0023-nut-khai-niem-da-ngu-additive.md).
+- Phạm vi: (1) ConceptNode additive, Pha A, nối chỉ khi user xác nhận; (2) đọc Từ + Nghĩa tuỳ chỉnh; (3) import hàng loạt qua prompt + AI trong app; (4) ảnh Pixabay/gộp nguồn/phân trang/normalize; (5) LottieFiles hướng dẫn + gói offline 100 pictogram CC0. Không bao gồm Concept phases B–E hay provider IconScout.
+- Định danh: bản thảo ở nhánh feature ban đầu mang số PLAN-041/ADR-0021; sau rebase, 251e đã dùng PLAN-041 cho READ-UI-120 và ADR-0021 cho Tab Đọc, nên đổi sang PLAN-043/ADR-0023 để tránh trùng, không đổi nội dung/phạm vi.
+- Lịch sử:
+  - 2026-11-06 | proposed→doing | agent `arena/d2aeb948-in4up` | đăng ký lại trên tip 251e `c9135d2` sau rebase; CI pending.

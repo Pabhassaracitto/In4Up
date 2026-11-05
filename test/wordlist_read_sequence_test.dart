@@ -1,4 +1,4 @@
-// PLAN-041 mục 2 — test LOGIC THUẦN của "Worklist đọc từ + nghĩa".
+// PLAN-043 mục 2 — test LOGIC THUẦN của "Worklist đọc từ + nghĩa".
 // `WordlistPlaybackService` chỉ phát theo chuỗi bước hàm thuần dựng, nên
 // test ở đây pin hành vi nghe được: thứ tự, số lần lặp từng phía, khoảng
 // lặng gợi nhớ, mục thiếu nghĩa, và persist cài đặt.

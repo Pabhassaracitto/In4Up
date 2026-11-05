@@ -61,7 +61,7 @@ class _WordImportSheetState extends State<WordImportSheet>
   List<_ImportCandidate> _fileWords = [];
   bool _isLoadingFile = false;
 
-  // PLAN-041 mục 3 — tab AI (copy-prompt cho AI ngoài + sinh bằng AI
+  // PLAN-043 mục 3 — tab AI (copy-prompt cho AI ngoài + sinh bằng AI
   // trong app qua Server API). Kết quả hai đường đều đổ vào _pasteCtrl
   // rồi qua _parsePasted → cùng màn xem trước/smart-fill như dán tay.
   final _aiInputCtrl = TextEditingController();
@@ -156,7 +156,7 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   List<_ImportCandidate> _parseStructuredContent(String content) {
-    // PLAN-041 mục 3 — bóc fence/bảng Markdown + cho phép vài dòng lời dẫn
+    // PLAN-043 mục 3 — bóc fence/bảng Markdown + cho phép vài dòng lời dẫn
     // trước header (AI bên ngoài/trong app trả về), thay vì đòi dòng đầu
     // tiên phải là header như cũ.
     final lines = WordTableParser.sanitizeStructuredText(content)
@@ -667,7 +667,7 @@ class _WordImportSheetState extends State<WordImportSheet>
     );
   }
 
-  // ── PLAN-041 mục 3: tab AI ──────────────────────────────────────────────
+  // ── PLAN-043 mục 3: tab AI ──────────────────────────────────────────────
   String _aiLanguageName(String code) =>
       AppLanguageCatalog.fromCode(code).englishName;
 
@@ -1494,7 +1494,7 @@ class _OptionChip extends StatelessWidget {
 class WordTableParser {
   WordTableParser._();
 
-  /// PLAN-041 mục 3 — làm sạch đầu vào kiểu AI-trả-về trước khi parse:
+  /// PLAN-043 mục 3 — làm sạch đầu vào kiểu AI-trả-về trước khi parse:
   /// AI (kể cả khi prompt cấm) vẫn hay bọc CSV trong code fence
   /// (```csv … ```) hoặc trả BẢNG Markdown (`| word | meaning |` + hàng
   /// `|---|---|`). Parser cũ đòi dòng đầu = header nên cả khối bị rơi

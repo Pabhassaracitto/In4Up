@@ -44,7 +44,7 @@ class WordlistPlaybackService extends ChangeNotifier {
   final Map<String, int> _repeatOverrides = {};
   Map<String, int> get repeatOverrides => Map.unmodifiable(_repeatOverrides);
 
-  // PLAN-041 mục 2 — cài đặt đọc "từ + nghĩa" (thứ tự/số lần từng phía,
+  // PLAN-043 mục 2 — cài đặt đọc "từ + nghĩa" (thứ tự/số lần từng phía,
   // khoảng lặng, ngôn ngữ phía nghĩa). Persist SharedPreferences; mặc định
   // Từ ×2 → Nghĩa ×1 (chốt owner 2026-11-02). Thứ tự bước do hàm thuần
   // `buildWordlistReadStepsForLine` dựng — service chỉ phát + truyền

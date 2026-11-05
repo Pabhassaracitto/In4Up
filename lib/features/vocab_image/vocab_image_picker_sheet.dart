@@ -112,7 +112,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   List<VocabWebImage> _results = const [];
   bool _loading = false;
 
-  /// PLAN-041 mục 4 — phân trang ("Tải thêm") + mật độ lưới (ô to/vừa).
+  /// PLAN-043 mục 4 — phân trang ("Tải thêm") + mật độ lưới (ô to/vừa).
   int _page = 1;
   bool _loadingMore = false;
   bool _canLoadMore = false;
@@ -192,7 +192,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     super.dispose();
   }
 
-  /// PLAN-041 mục 4 — tìm GỘP mọi nguồn dùng được; [append] = tải trang
+  /// PLAN-043 mục 4 — tìm GỘP mọi nguồn dùng được; [append] = tải trang
   /// kế tiếp và nối vào lưới (khử trùng theo URL ảnh chính).
   Future<void> _search({bool append = false}) async {
     final q = _query.text.trim();
@@ -246,7 +246,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     });
   }
 
-  /// PLAN-041 mục 4 — xem trước ảnh LỚN: bản đầy đủ + ghi nguồn + mở
+  /// PLAN-043 mục 4 — xem trước ảnh LỚN: bản đầy đủ + ghi nguồn + mở
   /// trang nguồn khi cần kiểm giấy phép. Chỉ "Dùng ảnh này" mới tải về.
   Future<void> _previewWebImage(VocabWebImage image, int index) async {
     final useIt = await showDialog<bool>(
@@ -489,14 +489,14 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     var columns = (width / 150).floor();
     if (columns < 2) columns = 2;
     if (columns > 5) columns = 5;
-    // PLAN-041 mục 4 — mật độ lưới: ô to dễ so sánh (mặc định) / ô vừa.
+    // PLAN-043 mục 4 — mật độ lưới: ô to dễ so sánh (mặc định) / ô vừa.
     final webColumns = _cozy ? columns : (columns - 1).clamp(2, 5);
     // VOCAB-MEDIA-003 — hàng chuyển nguồn giờ có 4 mục; máy hẹp (<450dp)
     // chỉ hiện ICON để không tràn ngang (nhãn vẫn đủ ở máy rộng).
     final showSourceLabels = columns >= 3;
 
     return ConstrainedBox(
-      // PLAN-041 mục 4 — sheet cao gần trọn màn hình để xem/so sánh ảnh.
+      // PLAN-043 mục 4 — sheet cao gần trọn màn hình để xem/so sánh ảnh.
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.92,
       ),
@@ -713,7 +713,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                 onPressed: _loading ? null : _search,
                 child: Text(context.uiText('Tìm')),
               ),
-              // PLAN-041 mục 4 — đổi mật độ lưới (ô to ⇄ ô vừa).
+              // PLAN-043 mục 4 — đổi mật độ lưới (ô to ⇄ ô vừa).
               IconButton(
                 tooltip: _cozy
                     ? context.uiText('Ô ảnh lớn')
@@ -728,7 +728,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
             ],
           ),
         ),
-        // PLAN-041 mục 4 — chip truy vấn sẵn: từ · nghĩa · cả hai.
+        // PLAN-043 mục 4 — chip truy vấn sẵn: từ · nghĩa · cả hai.
         if ((widget.word ?? '').trim().isNotEmpty ||
             (widget.meaning ?? '').trim().isNotEmpty)
           Padding(
@@ -856,7 +856,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                     itemBuilder: (context, index) =>
                         _buildResultTile(_results[index], index),
                   ),
-                  // PLAN-041 mục 4 — tải thêm trang kết quả.
+                  // PLAN-043 mục 4 — tải thêm trang kết quả.
                   if (_canLoadMore)
                     Padding(
                       padding: const EdgeInsets.only(top: 10, bottom: 6),
@@ -892,7 +892,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     final busy = _busyIndex == index;
     return InkWell(
       borderRadius: BorderRadius.circular(10),
-      // PLAN-041 mục 4 — chạm = XEM LỚN trước (so sánh cho chắc), nút
+      // PLAN-043 mục 4 — chạm = XEM LỚN trước (so sánh cho chắc), nút
       // "Dùng ảnh này" trong xem trước mới lưu (thay cho lưu ngay).
       onTap: _busy ? null : () => _previewWebImage(image, index),
       child: Container(
@@ -930,7 +930,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                           size: 22, color: scheme.onSurfaceVariant),
                     ),
                   ),
-                  // PLAN-041 mục 4 — nhãn NGUỒN trên ô (nhận biết nguồn
+                  // PLAN-043 mục 4 — nhãn NGUỒN trên ô (nhận biết nguồn
                   // gộp + điều khoản ghi nguồn của Pixabay & Co.).
                   Positioned(
                     top: 4,
@@ -1022,7 +1022,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               style: TextStyle(
                   color: scheme.onSurfaceVariant, fontSize: 11.5, height: 1.5),
             ),
-            // PLAN-041 mục 5 (LOTTIE-LIB-001 pha 1) — LottieFiles KHÔNG có
+            // PLAN-043 mục 5 (LOTTIE-LIB-001 pha 1) — LottieFiles KHÔNG có
             // API công khai cho animation miễn phí, nên đường chính là:
             // mở trình duyệt tại trang tìm kiếm (điền sẵn từ khóa) → tải
             // file .json/.lottie → nhập file từ máy. Không scrape.

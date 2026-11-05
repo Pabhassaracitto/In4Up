@@ -1,4 +1,4 @@
-// PLAN-041 mục 4 — chuẩn hoá dung lượng ảnh minh hoạ khi lưu: thu cạnh
+// PLAN-043 mục 4 — chuẩn hoá dung lượng ảnh minh hoạ khi lưu: thu cạnh
 // dài nhất ≤1024px, JPEG q80 (PNG khi có alpha), Lottie/GIF/bytes lạ giữ
 // nguyên. Pin bằng ảnh sinh tại chỗ bằng chính gói `image`.
 

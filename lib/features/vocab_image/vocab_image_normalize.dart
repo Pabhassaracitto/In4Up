@@ -1,4 +1,4 @@
-// PLAN-041 mục 4 (IMG-WEB-002, phần dung lượng) — chuẩn hoá ảnh minh hoạ
+// PLAN-043 mục 4 (IMG-WEB-002, phần dung lượng) — chuẩn hoá ảnh minh hoạ
 // TRƯỚC khi lưu vào app storage: thu cạnh dài nhất về [kVocabImageMaxEdge]
 // và mã hoá lại (JPEG q80 cho ảnh thường, PNG khi có kênh alpha).
 //

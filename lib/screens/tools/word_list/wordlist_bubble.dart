@@ -226,7 +226,7 @@ class _WordlistBubbleState extends State<WordlistBubble>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  // PLAN-041 mục 2 — bubble hiện đúng nội dung đang nghe
+                  // PLAN-043 mục 2 — bubble hiện đúng nội dung đang nghe
                   // (đang đọc phía nghĩa thì hiện nghĩa, không chỉ từ).
                   _service.currentStepText ?? current?.word ?? '...',
                   maxLines: 1,

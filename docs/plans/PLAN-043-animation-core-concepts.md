@@ -1,6 +1,6 @@
-# PLAN-041 (phụ) — Nháp 100 khái niệm cốt lõi cho gói animation tuyển chọn (LOTTIE-LIB-001 Pha 2)
+# PLAN-043 (phụ) — Nháp 100 khái niệm cốt lõi cho gói animation tuyển chọn (LOTTIE-LIB-001 Pha 2)
 
-- **Trạng thái:** ✅ Owner duyệt 2026-11-05; Pha 2 đã code: 100 concept, 100 animation Lottie gốc In4Up CC0 (~289KB), catalog offline tìm VI/EN. Analyze + PLAN-041 tests CI 🟢 run `41964276729`; còn nghiệm thu trên máy. Không kéo theo Pha 3/provider bên thứ ba.
+- **Trạng thái:** ✅ Owner duyệt 2026-11-05; Pha 2 đã code: 100 concept, 100 animation Lottie gốc In4Up CC0 (~289KB), catalog offline tìm VI/EN. Analyze + PLAN-043 tests CI 🟢 run `41964276729`; còn nghiệm thu trên máy. Không kéo theo Pha 3/provider bên thứ ba.
 - **Mục đích:** danh sách khái niệm sẽ được tuyển animation Lottie giấy phép
   mở, gắn vào **Nút Khái niệm** (CONCEPT-001) để mọi ngôn ngữ dùng chung.
   Cột "Từ khoá tìm (EN)" là từ khoá dùng khi săn/tuyển trên kho Lottie và
@@ -50,4 +50,5 @@ money (xu rơi) · gift (hộp mở) · question (?) · check/yes-no (✓/✗)
 
 ## Lịch sử
 - 2026-11-03 | created (nháp) | agent `arena/d2aeb948-in4up` | soạn theo tiêu chí trên, chờ owner duyệt/cắt.
-- 2026-11-05 | proposed→approved→implemented (Pha 2) | agent `arena/d2aeb948-in4up` | owner duyệt nguyên danh mục 100 mục; dùng script `tool/generate_concept_animations.py` sinh 100 Lottie JSON gốc hình học CC0 + catalog `assets/animations/concept_animation_pack.json`; toàn bộ assets ~289KB, ≤200KB từng file. App tìm offline bằng EN/VI (bỏ dấu), hiển thị animation ở lưới chỉ khi hiện, chạm → xem trước lớn → lưu bytes offline; cùng picker có thể gắn vào `ConceptNode.imageRef`. Tile hiển thị chính frame Lottie (không tách PNG thumbnail riêng). Tests `vocab_animation_library_test.dart` được thêm vào PLAN-041 CI; Analyze + PLAN-041 tests 🟢 run `41964276729` (commit `663838d`). Còn nghiệm thu máy; Pha 3 chưa được duyệt.
+- 2026-11-05 | proposed→approved→implemented (Pha 2) | agent `arena/d2aeb948-in4up` | owner duyệt nguyên danh mục 100 mục; dùng script `tool/generate_concept_animations.py` sinh 100 Lottie JSON gốc hình học CC0 + catalog `assets/animations/concept_animation_pack.json`; toàn bộ assets ~289KB, ≤200KB từng file. App tìm offline bằng EN/VI (bỏ dấu), hiển thị animation ở lưới chỉ khi hiện, chạm → xem trước lớn → lưu bytes offline; cùng picker có thể gắn vào `ConceptNode.imageRef`. Tile hiển thị chính frame Lottie (không tách PNG thumbnail riêng). Tests `vocab_animation_library_test.dart` được thêm vào PLAN-043 CI; Analyze + PLAN-043 tests 🟢 run `41964276729` (commit `663838d`). Còn nghiệm thu máy; Pha 3 chưa được duyệt.
+- 2026-11-06 | approved→approved (định danh sau rebase) | agent `arena/d2aeb948-in4up` | đổi PLAN-041 thành PLAN-043 để tránh trùng với READ-UI-120 đã có trên tip 251e.

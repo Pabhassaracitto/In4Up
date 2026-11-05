@@ -62,3 +62,6 @@ Worklist entries can additionally carry `TipitakaSourceAnchor` and
 source-row key and selected-text offsets; the snapshot stores the full Pāli
 paragraph, translation and adjacent context. `TipitakaSourceResolver` uses
 those fields to reopen the current DB after an import or replacement.
+
+For contributors integrating new books or editions, see the
+[Tipiṭaka book integration guide](../../../../docs/tipitaka-book-integration.md).

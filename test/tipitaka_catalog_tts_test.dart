@@ -39,13 +39,46 @@ void main() {
       expect(book('MN01T_TIK').catalogSection, TipitakaCatalogSection.subcommentary);
     });
 
-    test('metadata and known chronicle titles expose extra/Sri Lankan branches', () {
+    test('metadata and known titles expose extra/Sri Lankan branches', () {
       expect(
         book('PARITTA', metadata: '{"catalog_section":"extra-canonical"}')
             .catalogSection,
         TipitakaCatalogSection.extraCanonical,
       );
+      expect(book('VISUDDHIMAGGA').catalogSection,
+          TipitakaCatalogSection.extraCanonical);
+      expect(
+        TipitakaBook(
+          id: 2,
+          collectionId: 1,
+          code: 'EXTRA01',
+          namePali: '',
+          nameEn: '',
+          nameVi: 'Thanh Tịnh Đạo',
+          orderIndex: 0,
+        ).catalogSection,
+        TipitakaCatalogSection.extraCanonical,
+      );
+      expect(
+        TipitakaBook(
+          id: 3,
+          collectionId: 1,
+          code: 'EXTRA02',
+          namePali: '',
+          nameEn: '',
+          nameVi: 'Vấn Đáp Kết Tập Kinh Điển',
+          orderIndex: 1,
+        ).catalogSection,
+        TipitakaCatalogSection.extraCanonical,
+      );
+      expect(book('LEDISAYADAW').catalogSection,
+          TipitakaCatalogSection.extraCanonical);
       expect(book('MAHAVAMSA').catalogSection, TipitakaCatalogSection.sriLanka);
+    });
+
+    test('demo fallback is recognizable by the model', () {
+      expect(book('DEMO').isDemo, isTrue);
+      expect(book('MN01M_MUL').isDemo, isFalse);
     });
 
     test('bilingual reader mode resolves both text layers on one page', () {

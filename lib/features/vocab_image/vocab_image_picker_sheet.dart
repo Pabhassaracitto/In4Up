@@ -1537,7 +1537,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   Future<void> _previewAnimation(VocabWebImage item) async {
     if (_busy) return;
     setState(() => _busy = true);
-    final Uint8List? bytes;
+    Uint8List? bytes;
     if (item.source == 'In4Up CC0') {
       try {
         final data = await rootBundle.load(item.imageUrl);

@@ -46,6 +46,9 @@ LearningState _mastery(int interval) => LearningState(
       understanding: _snap(interval),
       listening: _snap(interval),
       reading: _snap(interval),
+      use: SM2Snapshot.initial(),
+      speak: SM2Snapshot.initial(),
+      write: SM2Snapshot.initial(),
     );
 
 /// Model bịa citation — để test cờ unverified qua service end-to-end.

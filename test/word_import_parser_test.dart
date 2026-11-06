@@ -10,11 +10,11 @@
 //  4) Hàng thiếu cột (thiếu IPA, thiếu cột cuối) vẫn nạp đúng chỗ.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/screens/tools/word_list/vocab_bulk_ai.dart';
 import 'package:in4up/screens/tools/word_list/word_import_sheet.dart';
 
 void main() {
-  const header =
-      'word, meaning, ipa, topic, example, example_simple, example_complex, language';
+  const header = WordTableParser.canonicalHeader;
   final fields = WordTableParser.mapHeader(header);
 
   Map<String, String> parse(String row) =>
@@ -33,6 +33,29 @@ void main() {
         'exampleSimple',
         'exampleComplex',
         'language',
+      ]);
+    });
+
+    test(
+        'header chuẩn dùng chung với prompt; image_url chỉ là cột đuôi tùy chọn',
+        () {
+      expect(WordTableParser.canonicalHeader, kVocabCsvHeader);
+      expect(
+        WordTableParser.canonicalHeaderWithImage,
+        kVocabCsvHeaderWithImage,
+      );
+      expect(
+        WordTableParser.mapHeader(WordTableParser.canonicalHeaderWithImage),
+        [
+        'word',
+        'meaning',
+        'phonetic',
+        'topic',
+        'example',
+        'exampleSimple',
+        'exampleComplex',
+        'language',
+        'imageUrl',
       ]);
     });
 

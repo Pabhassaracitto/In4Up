@@ -126,6 +126,18 @@ class _WordImportSheetState extends State<WordImportSheet>
       ..sort((a, b) => b.frequency.compareTo(a.frequency));
   }
 
+  Future<void> _copyCanonicalCsvHeader() async {
+    await Clipboard.setData(
+      const ClipboardData(text: WordTableParser.canonicalHeader),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Đã sao chép header CSV chuẩn.')),
+      ),
+    );
+  }
+
   void _parsePasted() {
     final text = _pasteCtrl.text.trim();
     if (text.isEmpty) {
@@ -602,8 +614,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText: context.uiText(
-                      'Dán bảng có header: word, meaning, ipa, topic, example, language, image_url (tùy chọn — link ảnh/Lottie .json)\n(tab hoặc dấu phẩy; meaning có dấu phẩy thì bọc "nét nháy")\nHoặc text thường / một từ mỗi dòng...'),
+                  hintText:
+                      '${context.uiText('Dán bảng CSV theo thứ tự cột chuẩn:')}\n${WordTableParser.canonicalHeader}',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(14),
@@ -611,6 +623,25 @@ class _WordImportSheetState extends State<WordImportSheet>
                 onChanged: (_) {
                   if (_pasteCtrl.text.length > 20) _parsePasted();
                 },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    context.uiText(
+                        'Có thể thêm image_url ở cuối; ngăn cột bằng tab/phẩy/chấm phẩy/|. Giá trị có dấu phẩy đặt trong dấu nháy kép; cũng có thể dán văn bản thường, mỗi dòng một từ.'),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _copyCanonicalCsvHeader,
+                  icon: const Icon(Icons.copy_all_outlined, size: 15),
+                  label: Text(context.uiText('Sao chép header CSV')),
+                ),
               ),
               Row(
                 children: [
@@ -1098,7 +1129,7 @@ class _WordImportSheetState extends State<WordImportSheet>
               const SizedBox(height: 6),
               Text(
                 '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
-                '.csv/.txt bảng cột (cần dòng header): word, meaning, ipa, topic, example, example_simple, example_complex, language, image_url (tùy chọn — link ảnh .png/.webp hoặc animation Lottie .json; tải về máy để học offline)\n'
+                '.csv/.txt bảng cột (cần dòng header): $kVocabCsvHeader (có thể thêm image_url ở cuối — link ảnh .png/.webp hoặc animation Lottie .json; tải về máy để học offline)\n'
                 'Ngăn cột: tab, phẩy, chấm phẩy hoặc | — ý nghĩa có dấu phẩy thì bọc "nét nháy"\n'
                 'Từ/cụm ĐÃ CÓ trong WordList vẫn hiện (badge "đã có") — import chỉ bổ sung nghĩa/IPA/ví dụ/minh họa CHỖ TRỐNG + tag, không ghi đè',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
@@ -1475,10 +1506,10 @@ class _OptionChip extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 // PURE PARSER — bảng có header (test được, không phụ thuộc widget)
 //
-// Định dạng chuẩn (như hướng dẫn trong UI):
-//   word, meaning, ipa, topic, example, example_simple, example_complex, language
-//   + image_url (LOTTIE-001, tùy chọn, đặt CUỐI — parser có nhánh căn riêng
-//   cho đuôi `language, image_url`, xem _mediaTail).
+// Định dạng chuẩn được dùng chung với prompt AI và UI:
+//   [canonicalHeader]
+// Biến thể media [canonicalHeaderWithImage] nối image_url CUỐI header;
+// parser có nhánh căn riêng cho đuôi `language, image_url`, xem _mediaTail.
 //
 // Robust 3 điểm:
 //  - Header alias được chuẩn hóa (bỏ gạch dưới/dấu) nên `example_simple`
@@ -1493,6 +1524,11 @@ class _OptionChip extends StatelessWidget {
 
 class WordTableParser {
   WordTableParser._();
+
+  /// Canonical order shared with AI prompts and the Clipboard copy action.
+  /// The optional media-column variant is accepted by this parser too.
+  static const String canonicalHeader = kVocabCsvHeader;
+  static const String canonicalHeaderWithImage = kVocabCsvHeaderWithImage;
 
   /// PLAN-043 mục 3 — làm sạch đầu vào kiểu AI-trả-về trước khi parse:
   /// AI (kể cả khi prompt cấm) vẫn hay bọc CSV trong code fence

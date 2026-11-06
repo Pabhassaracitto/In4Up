@@ -23,6 +23,11 @@ enum VocabBulkAiScenario {
 const String kVocabCsvHeader =
     'word, meaning, ipa, topic, example, example_simple, example_complex, language';
 
+/// Optional media extension understood by WordTableParser. AI prompts use the
+/// core header above so they never invent image URLs; users may append this
+/// column when importing a hand-authored CSV.
+const String kVocabCsvHeaderWithImage = '$kVocabCsvHeader, image_url';
+
 /// System prompt cho đường AI trong app (đường copy dùng user prompt là đủ).
 const String kVocabBulkAiSystemPrompt =
     'You are a precise vocabulary dataset generator for language learners. '

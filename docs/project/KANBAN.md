@@ -8750,7 +8750,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-05 | created→done | agent arena/01a0251e-in4up | bump 1.21.0+21 → tag → build đỏ (CMake `//`) → sửa → xoá release/tag dở → tag lại → build **41995136804** 🟢 4/4
 
 ### AUDIT-1.21.0-01 — (2026-11-06) I4U - Audit v1.21.0: 8 phản hồi nghiệm thu
-- **Trạng thái:** 🔨 doing (code + test thuần + docs xong; **chờ CI + nghiệm thu thiết bị / `adb logcat`**)
+- **Trạng thái:** 🔨 doing (code + test thuần + docs + **CI xanh** xong; **chờ nghiệm thu thiết bị / `adb logcat`**)
 - **Nguồn:** owner 2026-11-06 — danh sách `I4U - Audit v1.21.0` (8 mục, tiếng Việt); owner chọn phạm vi `fix_all`, surface #5 = `Pop từ trong tab Đọc (WordMiniPop)`, #8 = "chỉ để 1 cái icon vô cực" (`∞ ∞ 1× 3× 5× 7× … 20×`), #6 = "Tôi không biết … lấy link dán vô, dịch chỉ ra dòng https://linux.do/t/topic …".
 - **Chi tiết đầy đủ:** [`docs/project/AUDIT_1_21_0.md`](AUDIT_1_21_0.md) — bảng 8 mục, root cause, test, i18n, đối chiếu PR #106/#128/#129/#136 + `57ad5a7`, và danh sách việc CÒN LẠI.
 - **Đã làm (code):**
@@ -8767,6 +8767,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - `adb logcat` #2 (ưu tiên TTS sherpa → bấm Đọc) và #7 (import model dở → «Tạo lời thoại»): crash C++ không catch được ở Dart.
   - #3: AI có ngữ cảnh Cabin recheck luồng STT thật khi dịch >3s.
   - QA máy #1 (≥3 khối), #4 (xoá file «Gần đây»), #5 (bật `wordTapBoxes`), #6 (endpoint Termux thật), #8 (1 `∞` + chip A-B).
-  - CI `app_analyze.yml` (sandbox không có Flutter/Dart SDK) — run id sẽ append ở dòng lịch sử tiếp theo.
+  - ~~CI `app_analyze.yml`~~ ✅ **run 42133600485 🟢** (analyze 0 error, rule #5, toàn bộ suite cũ + 8 file test mới). Sandbox không có Flutter/Dart SDK nên mọi compile/test chạy qua CI; 3 lỗi (4 run đỏ) đã sửa: raw-string RegExp/`this.name` (42130562066), anchor `$` + import `OverlayRect` (42131063345), path thư mục PDF ⇒ `unreadable` (42132184287 / 42132971120). Đã nối thêm step riêng cho 6 file test thuần còn lại.
 - **Lịch sử:**
-  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + 8 file test thuần + i18n + `docs/project/AUDIT_1_21_0.md` + PLAN-043; đối chiếu PR #106/#128/#129/#136 và `57ad5a7`; chưa có logcat/CI ⇒ giữ `doing`.
+  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + 8 file test thuần + i18n + `docs/project/AUDIT_1_21_0.md` + PLAN-043; đối chiếu PR #106/#128/#129/#136 và `57ad5a7`.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | push 6 commit lên `arena/4e91ed51-in4up` (`12e10c4` → `67d1d3f`); CI `app_analyze.yml` **42133600485 🟢** (analyze 0 error + rule #5 + 8 test mới, sau 3 vòng sửa compile/test đỏ); `python3 tool/generate_priority_native_pack.py --check` ✅ 3516 entry; `git diff --check` ✅. Vẫn giữ `doing` vì chưa có `adb logcat` #2/#7 và QA máy #1/#3/#4/#5/#6/#8.

@@ -8,7 +8,8 @@
 > Tài liệu này là bản ghi TRUNG THỰC: cột "Đã làm" là thay đổi code/test trong
 > repo; cột "CÒN LẠI" là nghiệm thu thiết bị / runtime chưa chạy. Sandbox không
 > có Flutter/Dart SDK nên `flutter analyze` / `flutter test` được xác minh qua
-> CI GitHub Actions (xem mục Cuối).
+> CI GitHub Actions (xem mục Cuối): **run 42133600485 🟢** — analyze 0 error,
+> rule #5, toàn bộ suite cũ và 8 file test mới đều xanh.
 
 ## Bảng 8 mục
 
@@ -58,4 +59,4 @@ test/audit_1_21_0_wiring_test.dart   (source-scan pin cho native/provider/UI)
 1. **`adb logcat` #2 + #7** — chưa có log thiết bị, không được gọi là đã fix.
 2. **AI ngữ cảnh Cabin recheck #3** — test thuần xong, luồng STT thật chưa.
 3. QA máy: #1 nhiều khối, #4 stale path, #5 pop 4 chip, #6 endpoint DeepLX thật trong Termux, #8 một `∞` + chip A-B.
-4. CI `app_analyze.yml` (analyze 0 error + rule #5 + test thuần) — sandbox không có Flutter SDK; kết quả run được ghi vào KANBAN sau khi có.
+4. ~~CI `app_analyze.yml`~~ ✅ **xong**: run [42133600485](https://github.com/Pabhassaracitto/In4Up/actions/runs/42133600485) 🟢 trên commit `67d1d3f` — `Analyze full app (chỉ ERROR là fatal)`, rule #5, `test/screen_translate/`, `test/cabin/` và step mới `AUDIT-1.21.0 — 6 file pure test + source-scan wiring pins` đều xanh. Các run đỏ trung gian (3 lỗi / 4 run) đã sửa: 42130562066 (raw-string RegExp chứa `'`; `PiperTtsEngine` dùng `name` trước khai báo), 42131063345 (`$` anchor trong chuỗi thường; thiếu import `OverlayRect`), 42132184287 + 42132971120 (`inspectPdfForOpen` trả `missing` cho thư mục ⇒ sửa thành `unreadable`). `python3 tool/generate_priority_native_pack.py --check` ✅ 3516 entry; `git diff --check` ✅.

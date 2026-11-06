@@ -1353,7 +1353,7 @@ Package: `video_player: ^2.8.0` (Flutter official)
 
 ### PLAN-043 — I4U - Audit v1.21.0: 8 phản hồi nghiệm thu sau release 1.21.0
 - Nguồn: người sở hữu (2026-11-06, qua agent `arena/4e91ed51-in4up`).
-- Trạng thái: doing — code + 8 file test thuần + KANBAN/docs đã có; **chờ CI + nghiệm thu máy/`adb logcat`**.
+- Trạng thái: doing — code + 8 file test thuần + KANBAN/docs + **CI 42133600485 🟢** đã có; **chờ nghiệm thu máy/`adb logcat`**.
 - Milestone đề xuất: M2 (ổn định sau release 1.21.0), card `AUDIT-1.21.0-01`.
 - Chi tiết: [`AUDIT_1_21_0.md`](AUDIT_1_21_0.md).
   - Cụm overlay/đọc: #1 khung dịch nhiều khối, #4 PDF «Gần đây» stale path, #5 pop từ vựng 4 mức độ khó.
@@ -1363,4 +1363,5 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - Quyết định của owner giữ nguyên: #2/#7 cần `adb logcat`; #3 cần AI ngữ cảnh Cabin recheck; #5 chỉ `WordMiniPop` trong tab Đọc; #8 chỉ để 1 `∞`; #6 xử lý cả hai khả năng (link-only + bad endpoint), không đoán nguyên nhân duy nhất.
 - Không làm: mở rộng #5 sang `WordlistBubble`/review/knowledge graph; tự nhận "đã fix" crash native khi chưa có log thiết bị; regenerate toàn bộ catalog i18n (generator legacy đỏ sẵn — `I18N-001`).
 - Lịch sử:
-  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + test thuần + KANBAN `AUDIT-1.21.0-01` + `docs/project/AUDIT_1_21_0.md`; chờ CI/logcat.
+  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + test thuần + KANBAN `AUDIT-1.21.0-01` + `docs/project/AUDIT_1_21_0.md`.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | CI `app_analyze.yml` run **42133600485 🟢** (analyze 0 error, rule #5, 8 file test mới; 3 vòng đỏ đã sửa compile/test); vẫn chờ logcat/QA máy.

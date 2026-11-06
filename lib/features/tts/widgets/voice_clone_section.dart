@@ -34,12 +34,6 @@ const int _maxSampleSeconds = 60;
 /// Số mẫu tối đa cho một giọng.
 const int _maxSamplesPerVoice = 5;
 
-/// Thư mục lưu các mẫu giọng đã clone.
-final String _clonedVoicesDir =
-    '${(Platform.isAndroid || Platform.isIOS)
-        ? (getApplicationDocumentsDirectory().then((d) => d.path))
-        : Directory.current.path}/vieneu_tts/cloned_voices';
-
 /// Widget clone giọng VieNeu-TTS.
 class VoiceCloneSection extends StatefulWidget {
   final Color primaryColor;
@@ -52,6 +46,9 @@ class VoiceCloneSection extends StatefulWidget {
 
 class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   final _ttsCore = VieneuTtsCore.instance;
+
+  // Thư mục lưu các mẫu giọng đã clone (khởi tạo trong _init vì cần path_provider async).
+  late String _clonedVoicesDir;
 
   // Trạng thái thu âm.
   final AudioRecorder _audioRecorder = AudioRecorder();
@@ -78,6 +75,10 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   }
 
   Future<void> _init() async {
+    _clonedVoicesDir = (Platform.isAndroid || Platform.isIOS)
+        ? (await getApplicationDocumentsDirectory()).path
+        : Directory.current.path;
+    _clonedVoicesDir = '$_clonedVoicesDir/vieneu_tts/cloned_voices';
     await _requestPermissions();
     await _loadClonedVoices();
   }
@@ -127,9 +128,9 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
   // THU ÂM MẪU
-  // ═══════════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════════════
 
   Future<void> _startRecording() async {
     if (_isRecording) return;
@@ -145,7 +146,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     }
     final path = p.join(samplesDir.path, 'sample_${DateTime.now().millisecondsSinceEpoch}.wav');
 
-    final config = RecordConfig(
+    final config = AudioRecorderConfig(
       encoder: AudioEncoder.wav,
       sampleRate: 16000,
       numChannels: 1,
@@ -231,7 +232,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
   // ════════════════════════════════════════════════════════════════════════
   // TẠO GIỌNG
-  // ════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
 
   Future<void> _createClonedVoice() async {
     if (_newVoiceId.trim().isEmpty) {
@@ -285,9 +286,9 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     }
   }
 
-  // ════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
   // XÓA GIỌNG
-  // ════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
 
   Future<void> _deleteClonedVoice(_ClonedVoice voice) async {
     final dir = Directory(p.join(_clonedVoicesDir, voice.id));
@@ -297,9 +298,9 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     await _loadClonedVoices();
   }
 
-  // ════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
   // BUILD
-  // ════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -421,7 +422,8 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                 onPressed: _isCloning ? null : _createClonedVoice,
                 icon: _isCloning
                     ? const SizedBox(
-                        width: 16, height: 16,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.auto_awesome, size: 16),
@@ -454,12 +456,10 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: (_cloneIsError ? Colors.red : Colors.green)
-                    .withValues(alpha: 0.1),
+                color: (_cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (_cloneIsError ? Colors.red : Colors.green)
-                      .withValues(alpha: 0.35),
+                  color: (_cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.35),
                 ),
               ),
               child: Row(

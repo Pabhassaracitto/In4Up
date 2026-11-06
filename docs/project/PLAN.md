@@ -1425,4 +1425,5 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + test thuần + KANBAN `AUDIT-1.21.0-01` + `docs/project/AUDIT_1_21_0.md`.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | CI `app_analyze.yml` run **42133600485 🟢** (analyze 0 error, rule #5, 8 file test mới; 3 vòng đỏ đã sửa compile/test); vẫn chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo (DeepLX query token, setter A-B, deduper Cabin): 1 lỗi mất câu sửa + 7 test/pin mới; CI **42135090013 🟢**. Chờ logcat/QA máy.
-  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢, chưa merge). Chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢) → **MERGED** `8a76573`. Chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | PR #140 merge thành công (`gh pr merge --merge`, merge commit `8a76573`); lỗi UI "không thể merge" là transient status-check, không phải conflict. CI post-merge 🟢. Vẫn chờ nghiệm thu thiết bị.

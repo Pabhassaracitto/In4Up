@@ -21,7 +21,10 @@ enum MediaExportPreset {
 
   /// M4A sao chép luồng (AAC) — KHÔNG mã hoá lại, nhanh nhất, giữ nguyên chất
   /// lượng gốc. Chỉ hợp lệ khi nguồn đã là AAC/MP4.
-  m4aCopy('m4a', ['-c:a', 'copy'], null, true, false),
+  // `lossless: false` — KHÔNG phải PCM; nhưng `isLossyEncode: false` ⇒ `isCopy`
+  // = true. (Trước đây khai `true` ⇒ `isCopy` = false ⇒ mọi lần xuất "copy"
+  // lại bị `MediaProbeParser.adjustPreset` coi là phải mã hoá lại.)
+  m4aCopy('m4a', ['-c:a', 'copy'], null, false, false),
 
   /// M4A/AAC 96 kbps — dùng khi phải mã hoá lại (nguồn không phải AAC, hoặc
   /// cắt/nối cần mốc chính xác).

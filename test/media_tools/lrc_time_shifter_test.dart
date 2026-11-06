@@ -175,8 +175,13 @@ void main() {
         '[125:03.45]phút dài\n[00:01,50]dấu phẩy\nkhông phải mốc',
       );
       expect(lines, hasLength(2));
-      expect(lines.first.start, const Duration(hours: 2, minutes: 5, seconds: 3, milliseconds: 450));
-      expect(lines.last.start, const Duration(milliseconds: 1500));
+      // `parse` sắp xếp theo mốc ⇒ [00:01,50] (1.5 s) đứng trước [125:03.45]
+      // (125 phút = 2 h 05). Mốc > 59 phút KHÔNG được hiểu thành giờ:125.
+      expect(lines.first.start, const Duration(milliseconds: 1500));
+      expect(
+        lines.last.start,
+        const Duration(hours: 2, minutes: 5, seconds: 3, milliseconds: 450),
+      );
     });
   });
 }

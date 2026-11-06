@@ -212,7 +212,7 @@ void main() {
     });
 
     test('scatterGap: cân bằng (input=output) → 0', () {
-      final gap = scatterGap({
+      final gap = scatterGap(masteryMap: {
         SkillDimension.understanding: 0.6,
         SkillDimension.listening: 0.6,
         SkillDimension.reading: 0.6,
@@ -224,7 +224,7 @@ void main() {
     });
 
     test('scatterGap: mất cân bằng → > 0', () {
-      final gap = scatterGap({
+      final gap = scatterGap(masteryMap: {
         SkillDimension.understanding: 0.8,
         SkillDimension.listening: 0.8,
         SkillDimension.reading: 0.8,
@@ -237,7 +237,7 @@ void main() {
     });
 
     test('scatterGap: thiếu output → null', () {
-      final gap = scatterGap({
+      final gap = scatterGap(masteryMap: {
         SkillDimension.understanding: 0.8,
         SkillDimension.listening: 0.6,
         SkillDimension.reading: 0.4,

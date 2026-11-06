@@ -4,7 +4,7 @@ import 'package:in4up/knowledge/models/learning_state.dart'
     show LearningState, SM2Snapshot, SkillDimension;
 
 void main() {
-  const now = DateTime.utc(2026, 6, 1);
+  final now = DateTime.utc(2026, 6, 1);
 
   group('Session Bundler — ADR-0020', () {
     final future = now.add(const Duration(days: 30));

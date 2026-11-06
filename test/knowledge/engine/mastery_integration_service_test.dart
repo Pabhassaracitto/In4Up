@@ -11,7 +11,7 @@ import 'package:in4up/knowledge/visual/mastery_geometry.dart'
     show scatterPosition;
 
 void main() {
-  const at = DateTime.utc(2026, 6, 1);
+  final at = DateTime.utc(2026, 6, 1);
   const evidence = EvidenceMetadata(
     assistance: 0.0, confidence: 1.0, gradedBy: 'local-cloze/v1',
   );

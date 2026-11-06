@@ -18,7 +18,7 @@ library;
 
 import 'package:in4up/knowledge/models/evidence_metadata.dart';
 import 'package:in4up/knowledge/models/learning_state.dart' show SkillDimension;
-import 'package:in4up/knowledge/models/use_sub_test.dart' show UseSubTestType;
+import 'package:in4up/knowledge/models/use_sub_test.dart' show UseSubTestType, UseSubTestTypeInfo;
 
 /// Alpha EMA mặc định — [P0 calibrate bằng dữ liệu thật].
 /// Giá trị placeholder; không phải ngưỡng "đúng" — P4 calibrate.

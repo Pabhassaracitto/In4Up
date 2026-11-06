@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/knowledge/engine/ema_engine.dart';
 import 'package:in4up/knowledge/models/evidence_metadata.dart';
 import 'package:in4up/knowledge/models/learning_state.dart' show SkillDimension;
-import 'package:in4up/knowledge/models/use_sub_test.dart' show UseSubTestType;
+import 'package:in4up/knowledge/models/use_sub_test.dart' show UseSubTestType, UseSubTestTypeInfo;
 
 void main() {
   const alpha = 0.2;

@@ -25,6 +25,7 @@
 library;
 
 import 'dart:math' as math;
+import 'dart:ui' show Offset;
 
 import 'package:in4up/knowledge/models/learning_state.dart' show SkillDimension;
 

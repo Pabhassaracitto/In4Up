@@ -26,6 +26,11 @@ void main() {
       expect(WriteScorer.normalizeWord('Áp-ple'), 'apple');
     });
 
+    test('empty or unsupported expected text cannot be marked correct', () {
+      expect(WriteScorer.score(expected: '', actual: '').isCorrect, isFalse);
+      expect(WriteScorer.score(expected: '猫', actual: '猫').isCorrect, isFalse);
+    });
+
     test('missingWords + extraWords', () {
       final r = WriteScorer.score(expected: 'the cat sat', actual: 'cat sat');
       expect(r.missingWords, contains('the'));

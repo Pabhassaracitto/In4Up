@@ -139,6 +139,13 @@ class WordEntry {
   /// migration. Không bao giờ nhồi 2 path vào một chuỗi: mọi nơi đọc
   /// `imageUrl` (slot 1 = ảnh chính) vẫn hoạt động nguyên như cũ.
   String? imageUrl2;
+
+  /// PLAN-043 (ADR-0023) — móc nối tới Nút Khái niệm đa ngữ
+  /// (`ConceptNode.id`). Additive: dữ liệu cũ không có key ⇒ null và entry
+  /// hành xử nguyên như trước; chỉ ghi vào JSON khi khác null/rỗng.
+  /// SM-2 vẫn nằm ở entry này — khái niệm không giữ điểm.
+  String? conceptId;
+
   List<String> tags;
 
   // ── 3 chiều kỹ năng với SM-2 riêng ──
@@ -244,6 +251,7 @@ class WordEntry {
     this.example,
     this.imageUrl,
     this.imageUrl2,
+    this.conceptId,
     List<String>? tags,
     double understand = 0.0,
     double listen = 0.0,
@@ -669,6 +677,9 @@ class WordEntry {
         // tương thích ngược (dữ liệu cũ không có key này đọc vẫn null).
         if (imageUrl2 != null && imageUrl2!.trim().isNotEmpty)
           'imageUrl2': imageUrl2,
+        // PLAN-043 (ADR-0023) — cùng kỷ luật ghi-khi-có như imageUrl2.
+        if (conceptId != null && conceptId!.trim().isNotEmpty)
+          'conceptId': conceptId,
         'tags': tags,
         'understandData': understandData.toJson(),
         'listenData': listenData.toJson(),
@@ -767,6 +778,8 @@ class WordEntry {
         imageUrl: json['imageUrl'] as String?,
         // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0013).
         imageUrl2: json['imageUrl2'] as String?,
+        // Additive (ADR-0023) — dữ liệu cũ không có key này ⇒ null.
+        conceptId: (json['conceptId'] as String?)?.trim(),
         tags: (json['tags'] as List?)?.cast<String>() ?? [],
         understand: (json['understand'] as num?)?.toDouble() ?? 0.0,
         listen: (json['listen'] as num?)?.toDouble() ?? 0.0,
@@ -810,6 +823,8 @@ class WordEntry {
       imageUrl: json['imageUrl'] as String?,
       // Additive — dữ liệu cũ không có key này ⇒ null (ADR-0013).
       imageUrl2: json['imageUrl2'] as String?,
+      // Additive (ADR-0023) — dữ liệu cũ không có key này ⇒ null.
+      conceptId: (json['conceptId'] as String?)?.trim(),
       tags: (json['tags'] as List?)?.cast<String>() ?? [],
       understandData: json['understandData'] != null
           ? SkillReviewData.fromJson(json['understandData'])
@@ -871,6 +886,8 @@ class WordEntry {
         example: example ?? this.example,
         imageUrl: imageUrl,
         imageUrl2: imageUrl2 ?? this.imageUrl2,
+        // ADR-0023 — copyWith không được đánh rơi móc nối khái niệm.
+        conceptId: conceptId,
         tags: tags,
         understandData: understandData,
         listenData: listenData,

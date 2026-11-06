@@ -1228,7 +1228,11 @@ class _MainShellState extends State<MainShell> {
               // «Giao diện shell». Mặc định gộp ⇒ vẫn chỉ 2 icon ở app bar.
               showSourcePicker: true,
               chromeLayout: _readChromeLayout,
-              showTopBar: false,
+              // READ-UI-121: mặc định dock đáy vẫn KHÔNG vẽ ReadTopBar (đúng
+              // hợp đồng READ-UI-120, ≤2 hàng chrome). Người dùng chọn
+              // «Vị trí công cụ: Trên» thì khôi phục luôn thanh cũ để các
+              // nút tùy biến chữ trở về đúng chỗ quen tay.
+              showTopBar: !_readChromeLayout.useBottomDock,
             ),
             WriteStudioScreen(
               onOpenWebReader: () => _handleTool('web_reader'),
@@ -1501,7 +1505,21 @@ class _MainShellState extends State<MainShell> {
                   color: Color(0xFF26C6DA), size: 20),
               tooltip: context.uiText('Hiển thị'),
               onSelected: (value) {
-                if (value == 'display') showReadDisplaySheet(context);
+                if (value == 'display') {
+                  if (_readChromeLayout.useBottomDock) {
+                    // READ-UI-121: 1 chạm mở đúng panel «Hiển thị» của dock
+                    // (có ReadModeController ⇒ đủ auto-sync + Focus). Vẫn là
+                    // MỘT nguồn sự thật `ReadChromeLayoutStore`.
+                    final store = ReadChromeLayoutStore.instance;
+                    unawaited(store.update(store.layout.value.copyWith(
+                      toolsState: ReadChromeGroupState.expanded,
+                      lastPanel: ReadDockPanel.display,
+                    )));
+                  } else {
+                    // Đường «Công cụ ở trên» đã có ReadTopBar ⇒ dùng sheet.
+                    showReadDisplaySheet(context);
+                  }
+                }
                 if (value == 'settings') ReadSettingsSheet.show(context);
               },
               itemBuilder: (menuContext) => [

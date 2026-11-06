@@ -23,6 +23,10 @@ class TipitakaCollection extends Equatable {
         orderIndex: m['order_index'] ?? m['orderIndex'] ?? 0,
       );
 
+  bool get isDemo =>
+      RegExp(r'\bdemo\b|bản\s+demo|sample\s+import')
+          .hasMatch('$namePali $nameEn $nameVi'.toLowerCase());
+
   String displayTitle(String languageCode) {
     final language = languageCode.toLowerCase().replaceAll('_', '-');
     final preferred = switch (language) {

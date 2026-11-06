@@ -23,10 +23,12 @@ import '../../../features/vocab_image/vocab_image_quick_add.dart';
 import '../../../features/vocab_image/vocab_image_thumbnail.dart';
 import '../../../features/vocab_image/vocab_media_slots_editor.dart';
 import 'knowledge_graph_screen.dart';
+import 'concept_screens.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
+import 'wordlist_read_settings_sheet.dart';
 import '../youglish/youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
@@ -274,6 +276,18 @@ class _WordListScreenState extends State<WordListScreen> {
                   ),
                 ),
                 tooltip: 'Knowledge Graph',
+              ),
+              // PLAN-043 Pha A (ADR-0023) — vào kho khái niệm đa ngữ.
+              IconButton(
+                icon: const Icon(Icons.psychology_alt_outlined,
+                    color: Color(0xFF9C8FFF), size: 20),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ConceptsScreen(),
+                  ),
+                ),
+                tooltip: context.uiText('Khái niệm đa ngữ'),
               ),
               _buildOverflowMenu(p),
             ],
@@ -770,6 +784,14 @@ class _WordListScreenState extends State<WordListScreen> {
             onTap: () => _showSortSheet(),
           ),
           const Spacer(),
+          // PLAN-043 mục 2 — cài đặt đọc từ + nghĩa (thứ tự/lần lặp/ngôn ngữ).
+          IconButton(
+            tooltip: context.uiText('Đọc từ + nghĩa'),
+            icon: const Icon(Icons.tune_rounded,
+                size: 18, color: Color(0xFF9C8FFF)),
+            visualDensity: VisualDensity.compact,
+            onPressed: _showReadSettings,
+          ),
           _ListRepeatButton(
             count: _playbackService.listRepeatCount,
             current: _playbackService.listRepeatCurrent,
@@ -1270,6 +1292,18 @@ class _WordListScreenState extends State<WordListScreen> {
 
   Future<void> _stopPlayback() async {
     await _playbackService.stopPlayback();
+  }
+
+  Future<void> _showReadSettings() async {
+    await _playbackService.ensureReadSettingsLoaded();
+    if (!mounted) return;
+    final next = await WordlistReadSettingsSheet.show(
+      context,
+      _playbackService.readSettings,
+    );
+    if (next != null) {
+      await _playbackService.updateReadSettings(next);
+    }
   }
 
   // ═══════════════════════════════════════════════════════

@@ -3,11 +3,15 @@
 // Singleton ChangeNotifier + floating bubble support
 
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../features/tts/tts_service.dart';
 import '../../../models/word_entry.dart';
+import 'wordlist_read_sequence.dart';
 
 class WordlistPlaybackService extends ChangeNotifier {
   static final WordlistPlaybackService _instance =
@@ -39,6 +43,100 @@ class WordlistPlaybackService extends ChangeNotifier {
 
   final Map<String, int> _repeatOverrides = {};
   Map<String, int> get repeatOverrides => Map.unmodifiable(_repeatOverrides);
+
+  // PLAN-043 mục 2 — cài đặt đọc "từ + nghĩa" (thứ tự/số lần từng phía,
+  // khoảng lặng, ngôn ngữ phía nghĩa). Persist SharedPreferences; mặc định
+  // Từ ×2 → Nghĩa ×1 (chốt owner 2026-11-02). Thứ tự bước do hàm thuần
+  // `buildWordlistReadStepsForLine` dựng — service chỉ phát + truyền
+  // `language:` từng bước xuống TtsService.
+  static const String _kReadSettingsKey = 'wordlist_read_settings_v1';
+  WordlistReadSettings _readSettings = const WordlistReadSettings();
+  WordlistReadSettings get readSettings => _readSettings;
+  bool _readSettingsLoaded = false;
+
+  /// Phía đang đọc của bước hiện tại (UI/bubble hiện "đang đọc nghĩa").
+  bool _currentIsMeaning = false;
+  bool get currentIsMeaning => _currentIsMeaning;
+
+  /// Nội dung bước đang đọc (từ hoặc nghĩa) — bubble hiện đúng thứ đang nghe.
+  String? _currentStepText;
+  String? get currentStepText => _currentStepText;
+
+  Future<void> ensureReadSettingsLoaded() async {
+    if (_readSettingsLoaded) return;
+    _readSettingsLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kReadSettingsKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          _readSettings = WordlistReadSettings.fromJson(decoded);
+        }
+      }
+    } catch (e) {
+      debugPrint('[WordlistPlayback] load read settings lỗi: $e');
+    }
+  }
+
+  Future<void> updateReadSettings(WordlistReadSettings next) async {
+    _readSettings = next;
+    _readSettingsLoaded = true;
+    _safeNotify();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kReadSettingsKey, jsonEncode(next.toJson()));
+    } catch (e) {
+      debugPrint('[WordlistPlayback] save read settings lỗi: $e');
+    }
+  }
+
+  /// Nghỉ có thể ngắt bằng Stop (khoảng lặng gợi nhớ có thể dài vài giây —
+  /// không bắt người dùng chờ hết mới dừng được).
+  Future<void> _delayInterruptible(int ms) async {
+    var remaining = ms;
+    while (remaining > 0 && !_stopRequested && !_isDisposed) {
+      final slice = remaining > 100 ? 100 : remaining;
+      await Future.delayed(Duration(milliseconds: slice));
+      remaining -= slice;
+    }
+  }
+
+  String? _languageForStep(WordEntry entry, WordlistReadStep step) {
+    if (!step.isMeaning) {
+      final lang = entry.language.trim();
+      return lang.isEmpty ? null : lang;
+    }
+    final lang = _readSettings.meaningLanguage.trim();
+    return (lang.isEmpty || lang == 'auto') ? null : lang;
+  }
+
+  /// Phát toàn bộ bước của MỘT entry, lặp [rounds] vòng pattern
+  /// (vòng = số lần phát theo từng từ như cơ chế cũ — mặc định 1).
+  Future<void> _speakEntrySteps(
+    WordEntry entry,
+    List<WordlistReadStep> steps,
+    int rounds,
+  ) async {
+    for (var round = 0; round < rounds; round++) {
+      if (_stopRequested || _isDisposed) return;
+      _playingRepeatCurrent = round + 1;
+      if (round > 0) {
+        await _delayInterruptible(_readSettings.gapBetweenRepeatsMs);
+      }
+      for (final step in steps) {
+        if (_stopRequested || _isDisposed) return;
+        if (step.pauseBeforeMs > 0) {
+          await _delayInterruptible(step.pauseBeforeMs);
+          if (_stopRequested || _isDisposed) return;
+        }
+        _currentIsMeaning = step.isMeaning;
+        _currentStepText = step.text;
+        _safeNotify();
+        await _tts.speak(step.text, language: _languageForStep(entry, step));
+      }
+    }
+  }
 
   List<WordEntry> _queue = [];
   List<WordEntry> get queue => List.unmodifiable(_queue);
@@ -96,6 +194,7 @@ class WordlistPlaybackService extends ChangeNotifier {
       return;
     }
 
+    await ensureReadSettingsLoaded();
     HapticFeedback.mediumImpact();
     _stopRequested = false;
     _queue = List.from(items);
@@ -157,6 +256,8 @@ class WordlistPlaybackService extends ChangeNotifier {
         _playingIndex = -1;
         _playingRepeatCurrent = 0;
         _listRepeatCurrent = 0;
+        _currentIsMeaning = false;
+        _currentStepText = null;
         _stopRequested = false;
         _safeNotify();
       }
@@ -192,6 +293,8 @@ class WordlistPlaybackService extends ChangeNotifier {
       _isPlaying = false;
       _playingIndex = -1;
       _playingRepeatCurrent = 0;
+      _currentIsMeaning = false;
+      _currentStepText = null;
       _safeNotify();
     }
   }
@@ -203,6 +306,8 @@ class WordlistPlaybackService extends ChangeNotifier {
     _playingIndex = -1;
     _playingRepeatCurrent = 0;
     _listRepeatCurrent = 0;
+    _currentIsMeaning = false;
+    _currentStepText = null;
     _safeNotify();
   }
 

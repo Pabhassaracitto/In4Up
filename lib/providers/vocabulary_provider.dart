@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 
 import '../features/translation/glossary/glossary_store.dart';
+import '../models/concept_node.dart';
 import '../models/learning_activity.dart';
 import '../models/tipitaka_source_anchor.dart';
 import '../models/vocab_context.dart';
@@ -21,10 +22,17 @@ import '../services/vocab_sync_service.dart';
 class VocabularyProvider extends ChangeNotifier {
   static const String _boxName = 'vocabulary_v2';
   static const String _metaBoxName = 'vocabulary_meta';
+
+  /// PLAN-043 (ADR-0023) — kho Nút Khái niệm, box RIÊNG additive.
+  /// Pha A chưa sync box này (chỉ `conceptId` đi theo JSON của từ).
+  static const String _conceptBoxName = 'concept_nodes_v1';
   static const String _customLanguagesKey = 'custom_languages';
   static const String _customTopicsKey = 'custom_topics';
 
   final List<WordEntry> _words = [];
+
+  /// Danh sách Nút Khái niệm (ADR-0023) — rỗng với dữ liệu cũ.
+  final List<ConceptNode> _concepts = [];
   MasteryZone? _filterZone;
   VocabularyType? _filterType;
   String? _filterSource;
@@ -47,6 +55,29 @@ class VocabularyProvider extends ChangeNotifier {
 
   // ─── Getters ─────────────────────────────────────────────
   List<WordEntry> get allWords => _words;
+
+  // ─── Nút Khái niệm (PLAN-043, ADR-0023) ──────────────────
+  List<ConceptNode> get concepts => List.unmodifiable(_concepts);
+
+  ConceptNode? conceptById(String? id) {
+    if (id == null || id.isEmpty) return null;
+    for (final c in _concepts) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  ConceptNode? conceptForEntry(WordEntry entry) => conceptById(entry.conceptId);
+
+  /// Các entry thành viên của một khái niệm (thứ tự kho).
+  List<WordEntry> membersOfConcept(String conceptId) =>
+      _words.where((w) => w.conceptId == conceptId).toList();
+
+  /// Tập ngôn ngữ một khái niệm đã phủ (theo các thành viên hiện có).
+  Set<String> languagesOfConcept(String conceptId) => {
+        for (final w in membersOfConcept(conceptId))
+          if (w.language.trim().isNotEmpty) w.language.trim(),
+      };
   bool get isLoading => _isLoading;
   bool get isSyncEnabled => _isSyncEnabled;
   VocabularyType? get filterType => _filterType;
@@ -298,10 +329,14 @@ class VocabularyProvider extends ChangeNotifier {
   static Future<void> ensureBoxOpen() async {
     if (!Hive.isBoxOpen(_boxName)) await Hive.openBox<String>(_boxName);
     if (!Hive.isBoxOpen(_metaBoxName)) await Hive.openBox<String>(_metaBoxName);
+    if (!Hive.isBoxOpen(_conceptBoxName)) {
+      await Hive.openBox<String>(_conceptBoxName);
+    }
   }
 
   Box<String> get _box => Hive.box<String>(_boxName);
   Box<String> get _metaBox => Hive.box<String>(_metaBoxName);
+  Box<String> get _conceptBox => Hive.box<String>(_conceptBoxName);
 
   Future<void> enableSync(String uid) async {
     if (_isEnablingSync) return;
@@ -396,6 +431,18 @@ class VocabularyProvider extends ChangeNotifier {
           return null;
         }
       }).whereType<WordEntry>());
+      // PLAN-043 (ADR-0023) — tải kho khái niệm cùng nhịp; bản ghi hỏng
+      // bỏ qua đúng một bản như từ vựng. Box rỗng (dữ liệu cũ) là bình thường.
+      _concepts.clear();
+      _concepts.addAll(_conceptBox.values.map((json) {
+        try {
+          return ConceptNode.fromJson(
+              jsonDecode(json) as Map<String, dynamic>);
+        } catch (e) {
+          debugPrint('⚠️ VocabularyProvider: corrupt concept skipped: $e');
+          return null;
+        }
+      }).whereType<ConceptNode>());
       debugPrint('VocabularyProvider: loaded ${_words.length} words');
     } catch (e) {
       debugPrint('VocabularyProvider._reloadFromHive error: $e');
@@ -415,6 +462,111 @@ class VocabularyProvider extends ChangeNotifier {
 
   Future<void> _saveMetaSet(String key, Set<String> values) async {
     await _metaBox.put(key, jsonEncode(values.toList()..sort()));
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // NÚT KHÁI NIỆM — thao tác (PLAN-043 Pha A, ADR-0023)
+  // Kỷ luật: nối/tháo chỉ đổi `conceptId` của entry rồi lưu qua
+  // `_saveWord` (sync theo từ như thường); xoá khái niệm = tháo mọi
+  // thành viên + bỏ node, KHÔNG xoá entry/ảnh của người dùng.
+  // ═══════════════════════════════════════════════════════
+
+  Future<void> _saveConcept(ConceptNode node) async {
+    try {
+      node.touch();
+      await _conceptBox.put(node.id, jsonEncode(node.toJson()));
+    } catch (e) {
+      debugPrint('VocabularyProvider._saveConcept error: $e');
+    }
+  }
+
+  Future<ConceptNode> createConcept({
+    String gloss = '',
+    String? domain,
+    String? imageRef,
+  }) async {
+    final node = ConceptNode.create(
+      gloss: gloss,
+      domain: domain,
+      imageRef: imageRef,
+    );
+    _concepts.add(node);
+    await _saveConcept(node);
+    notifyListeners();
+    return node;
+  }
+
+  Future<void> updateConcept(ConceptNode node) async {
+    await _saveConcept(node);
+    notifyListeners();
+  }
+
+  WordEntry? _wordById(String id) {
+    for (final w in _words) {
+      if (w.id == id) return w;
+    }
+    return null;
+  }
+
+  /// Nối một entry vào khái niệm (ghi đè móc nối cũ nếu có).
+  Future<void> linkEntryToConcept(String entryId, String conceptId) async {
+    final entry = _wordById(entryId);
+    if (entry == null || conceptById(conceptId) == null) return;
+    if (entry.conceptId == conceptId) return;
+    entry.conceptId = conceptId;
+    await _saveWord(entry);
+    notifyListeners();
+  }
+
+  /// Tháo entry khỏi khái niệm của nó (entry giữ nguyên mọi thứ khác).
+  Future<void> unlinkEntryFromConcept(String entryId) async {
+    final entry = _wordById(entryId);
+    if (entry == null || entry.conceptId == null) return;
+    entry.conceptId = null;
+    await _saveWord(entry);
+    notifyListeners();
+  }
+
+  /// Tạo khái niệm mới từ một nhóm entry (luồng "duyệt gợi ý nối") —
+  /// gloss mặc định lấy nghĩa chính của entry đầu tiên nếu không truyền.
+  Future<ConceptNode?> linkEntriesAsConcept(
+    List<String> entryIds, {
+    String? gloss,
+  }) async {
+    final entries = entryIds.map(_wordById).whereType<WordEntry>().toList();
+    if (entries.length < 2) return null;
+    final node = await createConcept(
+      gloss: (gloss ?? '').trim().isNotEmpty
+          ? gloss!.trim()
+          : entries.first.meaning.trim(),
+      // Ảnh chung khởi điểm: ảnh riêng đầu tiên có trong nhóm (chỉ là
+      // giá trị khởi tạo của node — không đụng ảnh của entry nào).
+      imageRef: entries
+          .map((e) => (e.imageUrl ?? '').trim())
+          .firstWhere((u) => u.isNotEmpty, orElse: () => ''),
+    );
+    if ((node.imageRef ?? '').isEmpty) node.imageRef = null;
+    for (final e in entries) {
+      e.conceptId = node.id;
+      await _saveWord(e);
+    }
+    notifyListeners();
+    return node;
+  }
+
+  /// Xoá khái niệm: tháo nối mọi thành viên trước, rồi bỏ node.
+  Future<void> deleteConcept(String conceptId) async {
+    for (final member in membersOfConcept(conceptId)) {
+      member.conceptId = null;
+      await _saveWord(member);
+    }
+    _concepts.removeWhere((c) => c.id == conceptId);
+    try {
+      await _conceptBox.delete(conceptId);
+    } catch (e) {
+      debugPrint('VocabularyProvider.deleteConcept error: $e');
+    }
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════

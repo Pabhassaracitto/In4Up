@@ -2163,18 +2163,74 @@ class TipitakaDb {
     return rows.isNotEmpty;
   }
 
+  static String _bookNotDemoSql(String alias) => '''
+    UPPER(TRIM(COALESCE($alias.code, ''))) <> 'DEMO'
+    AND LOWER(COALESCE($alias.metadata_json, '')) NOT LIKE '%demo%'
+    AND LOWER(COALESCE($alias.name_pali, '')) NOT LIKE '%demo%'
+    AND LOWER(COALESCE($alias.name_en, '')) NOT LIKE '%demo%'
+    AND LOWER(COALESCE($alias.name_vi, '')) NOT LIKE '%demo%'
+    AND NOT EXISTS (
+      SELECT 1 FROM tipitaka_collections demo_collection
+       WHERE demo_collection.id = $alias.collection_id
+         AND LOWER(COALESCE(demo_collection.name_pali, '') || ' ' ||
+                   COALESCE(demo_collection.name_en, '') || ' ' ||
+                   COALESCE(demo_collection.name_vi, '')) LIKE '%demo%'
+    )
+  ''';
+
+  /// Once any real content has been imported, the checked-in sample is a
+  /// fallback only. Determine this from populated non-demo books rather than
+  /// from collection counts, which also include the bundled demo collection.
+  static Future<bool> _hasOfficialCatalog(DatabaseExecutor db) async {
+    final rows = await db.rawQuery('''
+      SELECT 1 FROM tipitaka_books b
+       WHERE ${_bookNotDemoSql('b')}
+         AND EXISTS (
+           SELECT 1 FROM tipitaka_segments s
+            WHERE s.book_id = b.id
+              AND (COALESCE(s.pali_text, '') <> '' OR
+                   COALESCE(s.translation_en, '') <> '' OR
+                   COALESCE(s.translation_vi, '') <> '' OR
+                   COALESCE(s.translation_my, '') <> '' OR
+                   COALESCE(s.translation_th, '') <> '' OR
+                   EXISTS (SELECT 1 FROM tipitaka_translations t
+                            WHERE t.segment_id = s.id
+                              AND COALESCE(t.text, '') <> ''))
+         )
+       LIMIT 1
+    ''');
+    return rows.isNotEmpty;
+  }
+
   static Future<List<TipitakaCollection>> getCollections(Database db) async {
-    final rows = await db.query(
-      'tipitaka_collections',
-      orderBy: 'order_index ASC, id ASC',
-    );
+    final hasOfficial = await _hasOfficialCatalog(db);
+    final rows = hasOfficial
+        ? await db.rawQuery('''
+            SELECT DISTINCT c.*
+              FROM tipitaka_collections c
+              JOIN tipitaka_books b ON b.collection_id = c.id
+             WHERE ${_bookNotDemoSql('b')}
+             ORDER BY c.order_index ASC, c.id ASC
+          ''')
+        : await db.query(
+            'tipitaka_collections',
+            orderBy: 'order_index ASC, id ASC',
+          );
     return rows.map((r) => TipitakaCollection.fromMap(r)).toList();
   }
 
   /// Small, title-free index used to decide which catalogue branches exist.
-  /// Full content-derived titles remain lazily loaded when a branch is opened.
+  /// Full content-derived titles stay lazy; demo-only rows disappear once real
+  /// imported books are available.
   static Future<List<TipitakaBook>> getCatalogIndexBooks(Database db) async {
-    final rows = await db.query('tipitaka_books', orderBy: 'order_index, id');
+    final hasOfficial = await _hasOfficialCatalog(db);
+    final rows = hasOfficial
+        ? await db.rawQuery('''
+            SELECT b.* FROM tipitaka_books b
+             WHERE ${_bookNotDemoSql('b')}
+             ORDER BY b.order_index, b.id
+          ''')
+        : await db.query('tipitaka_books', orderBy: 'order_index, id');
     return rows.map(TipitakaBook.fromMap).toList();
   }
 
@@ -2197,7 +2253,8 @@ class TipitakaDb {
          JOIN tipitaka_translations lt ON lt.segment_id = ls.id
         WHERE ls.book_id = b.id
           AND LOWER(REPLACE(lt.language_code, '_', '-')) = ?
-          AND ${_outlineSql('ls')}
+          AND LOWER(lt.text) NOT LIKE '%namo tassa%'
+          AND ${_bookTitleSql('ls')}
         ORDER BY ls.order_index, ls.id LIMIT 1)
     ''';
     final localeTitleSql = localeColumn == null
@@ -2205,32 +2262,53 @@ class TipitakaDb {
         : '''COALESCE(
             (SELECT NULLIF(TRIM(ls.$localeColumn), '')
                FROM tipitaka_segments ls
-              WHERE ls.book_id = b.id AND ${_outlineSql('ls')}
+              WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
               ORDER BY ls.order_index, ls.id LIMIT 1),
             $dynamicTitleSql
           )''';
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
     final arguments = <Object?>[language, collectionId];
     final rows = await db.rawQuery('''
       SELECT b.*,
         (SELECT NULLIF(TRIM(s.pali_text), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_pali,
         (SELECT NULLIF(TRIM(s.translation_en), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_en,
         (SELECT NULLIF(TRIM(s.translation_vi), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi,
         $localeTitleSql AS _content_title_locale
       FROM tipitaka_books b
-      WHERE b.collection_id = ?
+      WHERE b.collection_id = ? $bookFilter
       ORDER BY b.order_index ASC, b.id ASC
     ''', arguments);
     return rows.map(TipitakaBook.fromMap).toList();
   }
+
+  /// Book catalogue titles must not be inferred from centered invocations such
+  /// as the repeated "Namo Tassa" opening. They remain readable in the text,
+  /// but are not book/chapter headings and must not become every book's title.
+  static String _notNamoTassaSql(String alias) =>
+      "LOWER(COALESCE($alias.pali_text, '') || ' ' || "
+      "COALESCE($alias.translation_en, '') || ' ' || "
+      "COALESCE($alias.translation_vi, '')) NOT LIKE '%namo tassa%' AND "
+      "NOT EXISTS (SELECT 1 FROM tipitaka_translations invocation_translation "
+      "WHERE invocation_translation.segment_id = $alias.id "
+      "AND LOWER(COALESCE(invocation_translation.text, '')) LIKE '%namo tassa%')";
+
+  static String _bookTitleSql(String alias) =>
+      "($alias.block_type IN ('book','chapter','heading') OR "
+      "$alias.pali_text LIKE '%rend=\"book\"%' OR "
+      "$alias.pali_text LIKE '%rend=\"chapter\"%' OR "
+      "$alias.pali_text LIKE '%rend=\"subhead\"%' OR "
+      "$alias.pali_text LIKE '%rend=\"heading\"%') AND "
+      "${_notNamoTassaSql(alias)}";
 
   static String _outlineSql(String alias) =>
       "($alias.block_type IN ('book','chapter','heading','center') OR "
@@ -2262,7 +2340,8 @@ class TipitakaDb {
          JOIN tipitaka_translations lt ON lt.segment_id = ls.id
         WHERE ls.book_id = b.id
           AND LOWER(REPLACE(lt.language_code, '_', '-')) = ?
-          AND ${_outlineSql('ls')}
+          AND LOWER(lt.text) NOT LIKE '%namo tassa%'
+          AND ${_bookTitleSql('ls')}
         ORDER BY ls.order_index, ls.id LIMIT 1)
     ''';
     final localeTitle = fixedColumn == null
@@ -2270,27 +2349,29 @@ class TipitakaDb {
         : '''COALESCE(
             (SELECT NULLIF(TRIM(ls.$fixedColumn), '')
                FROM tipitaka_segments ls
-              WHERE ls.book_id = b.id AND ${_outlineSql('ls')}
+              WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
               ORDER BY ls.order_index, ls.id LIMIT 1),
             $dynamicTitle
           )''';
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
     final rows = await db.rawQuery('''
       SELECT b.*,
         (SELECT NULLIF(TRIM(s.pali_text), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_pali,
         (SELECT NULLIF(TRIM(s.translation_en), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_en,
         (SELECT NULLIF(TRIM(s.translation_vi), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi,
         $localeTitle AS _content_title_locale
       FROM tipitaka_books b
-      WHERE b.id = ?
+      WHERE b.id = ? $bookFilter
       LIMIT 1
     ''', [language, bookId]);
     if (rows.isEmpty) return null;
@@ -2353,7 +2434,8 @@ class TipitakaDb {
   ) async {
     var rows = await db.query(
       'tipitaka_segments',
-      where: 'book_id = ? AND ${_outlineSql('tipitaka_segments')}',
+      where: 'book_id = ? AND ${_outlineSql('tipitaka_segments')} '
+          'AND ${_notNamoTassaSql('tipitaka_segments')}',
       whereArgs: [bookId],
       orderBy: 'order_index ASC, paragraph_no ASC, id ASC',
       limit: 600,
@@ -2364,7 +2446,8 @@ class TipitakaDb {
       final sample = await db.query(
         'tipitaka_segments',
         where: "book_id = ? AND (pali_text <> '' OR translation_vi <> '' "
-            "OR translation_en <> '')",
+            "OR translation_en <> '') "
+            "AND ${_notNamoTassaSql('tipitaka_segments')}",
         whereArgs: [bookId],
         orderBy: 'order_index ASC, id ASC',
         limit: 300,
@@ -2384,6 +2467,16 @@ class TipitakaDb {
     Database db, {
     int? bookId,
   }) async {
+    final where = <String>[];
+    final arguments = <Object?>[];
+    if (bookId != null) {
+      where.add('h.book_id = ?');
+      arguments.add(bookId);
+    }
+    if (await _hasOfficialCatalog(db)) {
+      where.add(_bookNotDemoSql('b'));
+    }
+    final whereSql = where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}';
     final rows = await db.rawQuery('''
       SELECT h.*, s.reference,
              COALESCE(NULLIF(s.pali_text, ''),
@@ -2407,9 +2500,9 @@ class TipitakaDb {
         JOIN tipitaka_segments s
           ON s.id = h.segment_id AND s.book_id = h.book_id
         JOIN tipitaka_books b ON b.id = h.book_id
-       ${bookId == null ? '' : 'WHERE h.book_id = ?'}
+       $whereSql
        ORDER BY h.updated_at DESC, h.id DESC
-    ''', bookId == null ? const [] : [bookId]);
+    ''', arguments);
     return rows.map(TipitakaHighlight.fromMap).toList();
   }
 
@@ -2533,13 +2626,17 @@ class TipitakaDb {
     final q = query.trim();
     if (q.isEmpty) return const [];
     final like = '%$q%';
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
     final rows = await db.rawQuery('''
       SELECT DISTINCT s.*
       FROM tipitaka_segments s
+      JOIN tipitaka_books b ON b.id = s.book_id
       LEFT JOIN tipitaka_translations t ON t.segment_id = s.id
-      WHERE s.pali_text LIKE ? OR s.translation_en LIKE ? OR
-            s.translation_vi LIKE ? OR s.translation_my LIKE ? OR
-            s.translation_th LIKE ? OR s.reference LIKE ? OR t.text LIKE ?
+      WHERE (s.pali_text LIKE ? OR s.translation_en LIKE ? OR
+             s.translation_vi LIKE ? OR s.translation_my LIKE ? OR
+             s.translation_th LIKE ? OR s.reference LIKE ? OR t.text LIKE ?)
+            $bookFilter
       ORDER BY s.order_index ASC, s.id ASC
       LIMIT 50
     ''', [like, like, like, like, like, like, like]);

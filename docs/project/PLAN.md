@@ -1351,6 +1351,61 @@ Package: `video_player: ^2.8.0` (Flutter official)
     thư mục Drive (7 collection), viết probe + fixture 44 tên thật, ADR-0022;
     chưa sửa code, chưa chạy Flutter (sandbox không có SDK).
 
+### PLAN-043 — Worklist đa ngữ theo khái niệm trung tâm + 4 nâng cấp
+- Nguồn: người sở hữu (2026-11-02); phạm vi được duyệt qua bản trực quan ngày 2026-11-03 và danh mục animation ngày 2026-11-05.
+- Trạng thái: doing — code các mục 1 Pha A, 2, 3, 4 và 5 Pha 1–2 đã có; Analyze + PLAN-043 tests 🟢 run `42092342813`; `listen_queue_tests` 🟢 `42092342832`; web build 🟢 `42092329815`; còn nghiệm thu trên thiết bị.
+- Milestone đề xuất: M2.
+- Chi tiết: [kế hoạch Worklist](../plans/PLAN-043-worklist-da-ngu-khai-niem-trung-tam.md), [bản trực quan](../plans/PLAN-043-visual.html), [gói 100 concept](../plans/PLAN-043-animation-core-concepts.md), [ADR-0023](../adr/0023-nut-khai-niem-da-ngu-additive.md).
+- Phạm vi: (1) ConceptNode additive, Pha A, nối chỉ khi user xác nhận; (2) đọc Từ + Nghĩa tuỳ chỉnh; (3) import hàng loạt qua prompt + AI trong app; (4) ảnh Pixabay/gộp nguồn/phân trang/normalize; (5) LottieFiles hướng dẫn + gói offline 100 pictogram CC0. Không bao gồm Concept phases B–E hay provider IconScout.
+- Định danh: bản thảo ở nhánh feature ban đầu mang số PLAN-041/ADR-0021; sau rebase, 251e đã dùng PLAN-041 cho READ-UI-120 và ADR-0021 cho Tab Đọc, nên đổi sang PLAN-043/ADR-0023 để tránh trùng, không đổi nội dung/phạm vi.
+- Lịch sử:
+  - 2026-11-06 | proposed→doing | agent `arena/d2aeb948-in4up` | đăng ký lại trên tip 251e `c9135d2` sau rebase; CI pending.
+  - 2026-11-05 | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests `42092342813`, listen_queue `42092342832`, web build `42092329815` đều xanh; chờ nghiệm thu máy.
+
+### PLAN-044 — Tab Đọc: khôi phục thanh công cụ, nhãn IPA, tự cuộn theo dòng đọc (READ-UI-121)
+- Nguồn: người sở hữu (2026-11-06, qua agent `arena/0f9bbb45-in4up`) — gửi 12
+  issue sau bản 1.21.0, yêu cầu «issue cũ thì xem xét và giải quyết, còn lại để
+  gửi AI khác»; kèm yêu cầu rebase newest từ 251e.
+- Trạng thái: doing — đã rebase lên tip 251e `95f9e2f` (251e nhận thêm 25 commit
+  trong lúc PR #135 mở); code + ADR-0024 + test pin + KANBAN `READ-UI-121` +
+  QA 4.4 có trên nhánh; chờ CI và nghiệm thu thiết bị 360×640.
+- Card: `READ-UI-121` (KANBAN). Milestone đề xuất: M2.
+- Định danh: bản thảo dùng PLAN-043 / ADR-0023; sau rebase tip 251e `95f9e2f` đã
+  có PLAN-043 (Worklist đa ngữ) và ADR-0023 (Nút Khái niệm đa ngữ) của agent
+  `arena/d2aeb948-in4up`, nên đổi thành **PLAN-044 / ADR-0024**. Chỉ đổi số,
+  không đụng entry của agent khác, không đổi nội dung/phạm vi (GOVERNANCE 3.3).
+- Phạm vi (3 issue cũ của PR #126 / ADR-0021):
+  1. Khôi phục «Không màu / Thông tin màu / Box từng từ ↔ Bôi nhiều chữ / Màu
+     IPA / Đồng bộ tự động / ? / Chế độ Focus» bằng MỘT `ReadDisplayControls`
+     dùng chung, 3 lối vào theo ngữ cảnh (icon dock 1 chạm, overflow ⚡, sheet
+     Hiển thị); «Vị trí công cụ: Trên» lấy lại `ReadTopBar`.
+  2. «Đồng bộ tự động» mở rộng: tự cuộn danh sách thường theo
+     `PlaybackController.activeLineNotifier`, nhường 5s sau cú kéo tay, vẫn tắt
+     được qua `read_auto_sync`. Giải thích công dụng cho owner trong ADR-0024.
+  3. Dock đổi `Icons.abc` → `textIcon: 'IPA'` như thanh cũ.
+- Không làm (để AI khác có ngữ cảnh tương ứng): bong bóng dịch, crash TTS ưu
+  tiên sherpa, dịch Cabin nhân đôi dòng, PDF «Gần đây», pop từ vựng 4 mức độ,
+  DeepLX/URL rác, offline Parakeet/sherpa chưa nạp model, vietnew/worlist,
+  thông báo import bản NeMo. Danh sách đầy đủ trong card `READ-UI-121`.
+- Không đụng: 2 engine TTS, `PlaybackEngine`/anchor/`TtsPlaybackOwner`, 4 cấm
+  animation trên dock, pin `if (!readLibraryFull && _readModeIndex == 0)`,
+  gate CI (chỉ nối thêm 1 file test thuần vào bước `read-act-tests`),
+  `generated_legacy_ui_fallbacks.dart` (generator lệch sẵn).
+- Nghiệm thu: `docs/shell_manual_qa_checklist.md` mục 4.4;
+  `test/read_ui_121_contract_test.dart`, `test/read_ui_120_contract_test.dart`.
+- Lịch sử:
+  - 2026-11-06 | created→doing | agent `arena/0f9bbb45-in4up` | rebase 251e
+    `c9135d2` (up-to-date), audit 12 issue, tách 3 issue cũ; triển khai
+    D1–D4 của ADR-0024, 2 chuỗi i18n (pack 3508 × 8), 1 file test pin mới,
+    cập nhật 1 pin cũ; nối test vào CI; sandbox không có Flutter SDK.
+  - 2026-11-06 | doing→doing (rebase + giải xung đột) | agent | 251e tiến tới
+    `95f9e2f` (M4U-IMPORT-003 + PLAN-043 Worklist) ⇒ hợp nhất `PLAN.md` theo
+    append-only; sửa `tool/legacy_ui_english_overrides.json` (một merge sai đã
+    chèn 4 entry SAU dấu `}` ⇒ `JSONDecodeError: Extra data` làm đỏ test
+    Rule #5) thành JSON hợp lệ gồm đủ 4 chuỗi Parakeet + 2 chuỗi READ-UI-121;
+    đổi ID như trên; lịch sử PR #135 rút gọn thành 1 commit tuyến tính.
+    Chờ CI xanh trên head mới.
+
 ### PLAN-045 — I4U - Audit v1.21.0: 8 phản hồi nghiệm thu sau release 1.21.0
 - Nguồn: người sở hữu (2026-11-06, qua agent `arena/4e91ed51-in4up`).
 - Định danh: bản thảo trên nhánh `arena/4e91ed51-in4up` mang số **PLAN-043**;

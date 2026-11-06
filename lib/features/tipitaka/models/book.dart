@@ -39,8 +39,14 @@ enum TipitakaCatalogSection {
         .hasMatch(text)) {
       return TipitakaCatalogSection.sriLanka;
     }
-    if (RegExp(r'extra.?canonical|non.?canonical|paritta|grammar|dictionary|history')
-        .hasMatch(text)) {
+    if (RegExp(
+      r'extra.?canonical|non.?canonical|paritta|grammar|dictionary|history|'
+      r'visuddhimagga|path.?of.?purification|thanh.?tinh.?dao|'
+      r'thanh.?tịnh.?đạo|'
+      r'ledi.?sayadaw|\bsayadaw\b|buddhist.?council|council.?questions?|'
+      r'questions?.{0,30}answers?.{0,30}council|sa[ṅn]g[iī]ti|'
+      r'kết.?tập.?kinh.?điển|vấn.?đáp|ket.?tap.?kinh.?dien',
+    ).hasMatch(text)) {
       return TipitakaCatalogSection.extraCanonical;
     }
     if (index.editionCode == 'TIK' ||
@@ -106,6 +112,16 @@ class TipitakaBook extends Equatable {
   TipitakaBookIndex get catalogIndex => TipitakaBookIndex.fromBook(this);
   TipitakaCatalogSection get catalogSection =>
       TipitakaCatalogSection.classify(this);
+
+  /// The bundled sample is retained as a fallback, but must not stay visible
+  /// beside a real imported catalogue.
+  bool get isDemo {
+    final text = [code, namePali, nameEn, nameVi, metadataJson ?? '']
+        .join(' ')
+        .toLowerCase();
+    return code.trim().toUpperCase() == 'DEMO' ||
+        RegExp(r'\bdemo\b|bản\s+demo|sample\s+import').hasMatch(text);
+  }
 
   /// Main catalogue titles must describe content, never expose a Pa-Auk table
   /// identifier such as `ABH01A_ATT`. Technical codes remain available through

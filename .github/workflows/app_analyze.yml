@@ -604,8 +604,9 @@ jobs:
           path: screen_translate_test.log
           if-no-files-found: ignore
 
-      # READ-ACT-001 + XLAT-MIX-001 (audit bản 0.10.3): luật chọn đoạn cho 4
-      # hành động của tab Đọc và bộ tách đoạn hỗn hợp ngôn ngữ. Thuần Dart,
+      # READ-ACT-001 + XLAT-MIX-001 (audit bản 0.10.3) + READ-UI-121 (source-pin
+      # khôi phục nút tab Đọc / tự cuộn): luật chọn đoạn cho 4 hành động của tab
+      # Đọc và bộ tách đoạn hỗn hợp ngôn ngữ. Thuần Dart,
       # không plugin/mạng. Tự bỏ qua nếu nhánh chưa có file.
       - name: "Read actions + mixed-language tests (logic thuần)"
         id: read-act-tests
@@ -621,6 +622,7 @@ jobs:
                    test/read_mode/read_word_style_align_test.dart \
                    test/read_mode/read_listen_understand_owner_requests_test.dart \
                    test/safe_haptics_test.dart \
+                   test/read_ui_121_contract_test.dart \
                    test/translation/mixed_language_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
@@ -691,6 +693,43 @@ jobs:
           path: vocab_media_test.log
           if-no-files-found: ignore
 
+
+      - name: "PLAN-043 tests — doc Tu+Nghia, nhap AI, anh nhe, khai niem (logic thuan)"
+        id: plan-043-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/wordlist_read_sequence_test.dart \
+                   test/vocab_bulk_ai_test.dart \
+                   test/vocab_image_normalize_test.dart \
+                   test/concept_phase_a_test.dart \
+                   test/vocab_animation_library_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Khong co file test PLAN-043 tren nhanh nay — bo qua."
+            exit 0
+          fi
+          echo "Chay:$files"
+          flutter test $files -r expanded > plan_043_test.log 2>&1
+          code=$?
+          cat plan_043_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:|Unhandled exception' plan_043_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=PLAN-043 test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload PLAN-043 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-plan-043-test-log
+          path: plan_043_test.log
+          if-no-files-found: ignore
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |

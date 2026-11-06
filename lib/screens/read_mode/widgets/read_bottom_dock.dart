@@ -31,6 +31,7 @@ import '../services/playback_controller.dart';
 import '../services/read_text_action_runner.dart';
 import '../sheets/read_settings_sheet.dart';
 import '../sheets/segments_list_sheet.dart';
+import 'read_display_controls.dart';
 import 'read_text_action_hooks.dart';
 import 'read_top_bar.dart';
 import 'smart_playback_bar.dart';
@@ -123,8 +124,13 @@ class ReadBottomDock extends StatelessWidget {
                                 : TranslationDisplayMode.stackedBelow,
                           ),
                         ),
+                        // READ-UI-121: `Icons.abc` vẽ đúng 3 chữ "ABC" ⇒
+                        // owner đọc nhầm thành chế độ bảng chữ cái. Thanh cũ
+                        // (`ReadBottomBar`) đã dùng textIcon 'IPA'; dock phải
+                        // cùng một nhãn để 2 bố cục không lệch nhau.
                         _DockIcon(
                           icon: Icons.abc,
+                          textIcon: 'IPA',
                           tooltip: context.uiText('Phiên âm / IPA'),
                           active: tp.ipaDisplayMode != IpaDisplayMode.hidden,
                           onTap: () => tp.cycleIpaDisplayMode(),
@@ -148,6 +154,39 @@ class ReadBottomDock extends StatelessWidget {
                       ],
                     ),
                   ),
+                ),
+                // READ-UI-121: 1 chạm tới đúng panel «Hiển thị» — khôi phục
+                // «Không màu / Bôi nhiều chữ / Đồng bộ tự động / ? / Focus»
+                // mà READ-UI-120 đã giấu sau 2 lớp (bung dock → chọn tab).
+                // Icon nằm NGOÀI vùng cuộn nên máy 320px vẫn thấy đường vào.
+                _DockIcon(
+                  widgetKey: const Key('read-bottom-dock-display'),
+                  icon: Icons.tune_rounded,
+                  tooltip: context.uiText('Tùy biến chữ'),
+                  active: layout.toolsExpanded &&
+                      layout.lastPanel == ReadDockPanel.display,
+                  onTap: () {
+                    SafeHaptics.selectionClick();
+                    if (layout.displayHidden) {
+                      // Nhóm Hiển thị bị Ẩn ⇒ tab của nó cũng mất. Đưa panel
+                      // về «Đọc» (tránh panel trống) rồi mở sheet dùng chung
+                      // (vẫn có controller ⇒ đủ auto-sync/Focus).
+                      if (layout.lastPanel == ReadDockPanel.display) {
+                        onLayoutChanged(
+                            layout.copyWith(lastPanel: ReadDockPanel.audio));
+                      }
+                      showReadDisplaySheet(context, controller: controller);
+                      return;
+                    }
+                    final openDisplay = !(layout.toolsExpanded &&
+                        layout.lastPanel == ReadDockPanel.display);
+                    onLayoutChanged(layout.copyWith(
+                      toolsState: openDisplay
+                          ? ReadChromeGroupState.expanded
+                          : ReadChromeGroupState.collapsed,
+                      lastPanel: ReadDockPanel.display,
+                    ));
+                  },
                 ),
                 // Mũi tên cố định: KHÔNG nằm trong vùng cuộn ⇒ trên máy nhỏ
                 // vẫn thấy rõ lối vào phần tùy biến (fix cảm nhận "chỉ phát
@@ -436,6 +475,8 @@ class _AudioPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final playback = context.watch<PlaybackController>();
+    final controller = context.watch<ReadModeController>();
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,6 +516,24 @@ class _AudioPanel extends StatelessWidget {
             layout.copyWith(autoTranslateOnBilingual: v),
           ),
         ),
+        // READ-UI-121 — theo ngữ cảnh: chỉ khi đang phát CẢ BÀI mới cần
+        // bật/tắt tự cuộn ngay tại panel âm thanh. Lúc rảnh, công tắc vẫn
+        // có trong panel «Hiển thị» / sheet Hiển thị (dùng chung 1 state).
+        if (playback.isRunning)
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              context.uiText('Đồng bộ tự động'),
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+            subtitle: Text(
+              context.uiText('Tự cuộn theo dòng đang đọc; tắt để cuộn tay.'),
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            value: controller.autoSyncEnabled,
+            onChanged: (_) => controller.toggleAutoSync(),
+          ),
         // Thanh cũ, nhưng KHÔNG vẽ hàng nút chính (dock đã có pill «Đọc»)
         // và bung sẵn pattern builder. Tốc độ/ preset/ chế độ đều ở đây.
         SmartPlaybackBar(
@@ -585,19 +644,13 @@ class _DisplayPanel extends StatelessWidget {
               label: Text(context.uiText('Cài đặt')),
               onPressed: () => ReadSettingsSheet.show(context),
             ),
-            ActionChip(
-              avatar: Icon(
-                controller.isFocusMode
-                    ? Icons.fullscreen_exit
-                    : Icons.fullscreen,
-                size: 13,
-                color: Colors.white70,
-              ),
-              label: Text(context.uiText('Chế độ Focus')),
-              onPressed: () => controller.toggleFocusMode(),
-            ),
           ],
         ),
+        const SizedBox(height: 8),
+        // READ-UI-121: các nút tùy biến chữ + «?» + Focus + Đồng bộ tự động
+        // sống ở đúng nhóm «Thông tin & Hiển thị», cùng một cụm với sheet
+        // Hiển thị cạnh ⚡ (không tạo bản sao state).
+        ReadDisplayControls(controller: controller),
         const SizedBox(height: 6),
         Text(
           context.uiText('Vị trí công cụ'),
@@ -653,6 +706,7 @@ class _DockIcon extends StatelessWidget {
     this.active = false,
     this.badge,
     this.widgetKey,
+    this.textIcon,
   });
 
   final IconData icon;
@@ -661,6 +715,10 @@ class _DockIcon extends StatelessWidget {
   final bool active;
   final String? badge;
   final Key? widgetKey;
+
+  /// READ-UI-121: nhãn chữ thay cho icon (ví dụ `IPA` thay `Icons.abc`).
+  /// Giữ nguyên kích thước ô 19px để hàng dock không đổi chiều cao.
+  final String? textIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -684,11 +742,29 @@ class _DockIcon extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Icon(
-                icon,
-                size: 19,
-                color: active ? const Color(0xFFB8B5FF) : Colors.white54,
-              ),
+              if (textIcon != null)
+                SizedBox(
+                  height: 19,
+                  child: Center(
+                    child: Text(
+                      textIcon!,
+                      style: TextStyle(
+                        color: active
+                            ? const Color(0xFFB8B5FF)
+                            : Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Icon(
+                  icon,
+                  size: 19,
+                  color: active ? const Color(0xFFB8B5FF) : Colors.white54,
+                ),
               if (badge != null)
                 Positioned(
                   top: -5,

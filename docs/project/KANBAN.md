@@ -8,8 +8,14 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| READ-UI-121 | Tab Đọc: khôi phục 5 nút cũ + tự cuộn theo dòng đọc + ABC→IPA | 🔨 doing (code + ADR-0024 + test pin; chờ CI + nghiệm thu máy 360×640) | [ADR-0024](../adr/0024-doc-tab-khoi-phuc-thanh-cong-cu-va-tu-cuon.md), PLAN-044, rebase 251e `95f9e2f` |
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
+| CONCEPT-001 | Nút Khái niệm đa ngữ (PLAN-043 mục 1, ADR-0023) | 🔨 doing (Pha A code xong; CI 🟢 run `42092342813`; chờ nghiệm thu máy) | `arena/d2aeb948-in4up` — nối user xác nhận + ConceptNode additive; Pha B–E chưa làm |
+| WORDLIST-TTS-001 | WordList đọc Từ + Nghĩa (PLAN-043 mục 2) | 🔨 doing (code xong; CI 🟢 run `42092342813`; chờ nghiệm thu máy) | mặc định Từ ×2 → Nghĩa ×1; SM-2 không tự chấm |
+| WORDLIST-AI-IMPORT-001 | WordList thêm hàng loạt bằng prompt + AI trong app (PLAN-043 mục 3) | 🔨 doing (code xong; CI 🟢 run `42092342813`; chờ nghiệm thu provider thật) | `arena/d2aeb948-in4up` — 3 kịch bản + parser vào preview/dedupe/smart-fill |
+| IMG-WEB-002 | Hình ghi nhớ: Pixabay + tìm gộp/phân trang + ảnh nhẹ (PLAN-043 mục 4) | 🔨 doing (code xong; CI 🟢 run `42092342813`; chờ nghiệm thu máy với key) | `arena/d2aeb948-in4up` — xem lớn trước khi lưu, tải thêm, normalize |
+| LOTTIE-LIB-001 | Animation không dán link: hướng dẫn + gói offline (PLAN-043 mục 5) | 🔨 doing (Pha 1+2 code xong; CI 🟢 run `42092342813`; chờ nghiệm thu máy) | 100 concept/100 Lottie gốc CC0; tìm offline VI/EN |
 | DHRM-001 | Pháp thoại Drive (P1): danh mục theo Thầy/khoá + nghe tiếp theo **danh tính nội dung** (`episodeKey`) trên audio đã import | 🔨 doing — code + test + i18n; **CI xanh** (analyze + `test/dharma/` + queue cũ); còn nghiệm thu thiết bị | [PLAN-042](../plans/PLAN-042-phap-thoai-drive-tich-hop.md) §11/§15, ADR-0022 — parser test trên tên thật (`test/dharma/`) |
 | DHRM-002 | Pháp thoại Drive (P2/P3): tải **bền vững** (`audio_imports/dharma/`) + sync chỉ mục + stream bằng header, dọn 13 chuỗi hard-code | 📋 proposed | PLAN-042 §6/§9 — cache tạm + token trong query hiện tại là 2 nợ phải trả |
 | DHRM-003 | Pháp thoại Drive (P4): "lời vàng" → `SoundMark(quote)` + `MemoryItem` (mở lại đúng timestamp) | 📋 proposed | PLAN-042 §8 — additive, không đổi schema Vườn |
@@ -22,8 +28,9 @@
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| REL-1.22.0 | Release **1.22.0** (đủ 4 nền tảng) từ tip 251e — 33 commit sau 1.21.0 | ✅ done (build 🟢 run 42134309640, 4/4 job; chờ nghiệm thu máy) | bump `1.21.0+21 → 1.22.0+22` (`1151f1d2`, rebase lên tip `a9c2b32a`); APK arm64 198.8 MB `6c45ef9f…`, IPA 93.5 MB, Linux 50.3 MB, Windows 52.8 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.22.0 |
 | REL-1.21.0 | Release **1.21.0** (đủ 4 nền tảng) từ tip 251e — 32 commit sau 1.20.0 | ✅ done (build 🟢 run 41995136804, 4/4 job; chờ nghiệm thu máy) | bump `1.20.0+20 → 1.21.0+21` (`3aff8fda`); sửa CMake `//`→`#` (`8a3826df`); APK arm64 198.7 MB `5e65f298…`, IPA 93.0 MB, Linux 49.7 MB, Windows 52.3 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.21.0 |
-| AUDIT-1.21.0-01 | **I4U - Audit v1.21.0** (owner 2026-11-06): 8 mục — overlay chồng chữ, TTS sherpa văng app, Cabin 2 dòng trùng, PDF «Gần đây» FPDF_ER_FILE:2, pop từ vựng 4 mức, link-only/DeepLX, model offline chưa nạp, A-B trùng ∞ | 🔨 doing (code + 8 file test thuần + KANBAN/PLAN/docs; **chờ CI + nghiệm thu máy/logcat**) | `docs/project/AUDIT_1_21_0.md`; #2/#7 BẮT BUỘC `adb logcat`, #3 chờ AI ngữ cảnh Cabin recheck |
+| AUDIT-1.21.0-01 | **I4U - Audit v1.21.0** (owner 2026-11-06): 8 mục — overlay chồng chữ, TTS sherpa văng app, Cabin 2 dòng trùng, PDF «Gần đây» FPDF_ER_FILE:2, pop từ vựng 4 mức, link-only/DeepLX, model offline chưa nạp, A-B trùng ∞ | 🔨 doing (code + 8 file test thuần + KANBAN/PLAN-045/docs + **CI 42135090013 🟢**; **chờ nghiệm thu máy/logcat**) | `docs/project/AUDIT_1_21_0.md`; #2/#7 BẮT BUỘC `adb logcat`, #3 chờ AI ngữ cảnh Cabin recheck |
 | TTS-VIENEU-001 | Tích hợp VieNeu-TTS v3 Turbo (GGUF, audio.cpp C ABI) làm engine đọc Tiếng Việt on-device (Tipiṭaka, tab đọc, học thuộc lòng...), có tùy chọn | 🔨 doing (code + ADR, chờ Flutter CI + build NDK + nghiệm thu máy thật) | `native/tts_vieneu/` (wrapper C trên audio.cpp C ABI), `android/app/src/main/cpp/ai/CMakeLists.txt` (CPU-only, arm64-v8a), `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` + worker isolate, `lib/features/tts/engines/vieneu_tts_engine.dart`, đăng ký `vieneu_tts` trong `TtsService` (priority 0, fallback an toàn), i18n 2 key (en/vi/hi/zh/zh_TW/si), ADR-0022, license credit Apache-2.0 trong Settings |
 | API-006 | WP5: In4Up Server Box — Ollama + Speaches + Kokoro bằng Docker Compose (docs-only) | ✅ done (chờ nghiệm thu máy LAN) | thu hoạch 2026-09-28 từ arena/01a0ddd1-in4up (`0a0b912`, PR #52) — `docs/server_box/`: compose CPU 1 lệnh + health-check + hướng dẫn VI |
 | MVA-T1 | 5 model schema mục 2 + merge/split hoàn tác | ✅ done | run 32287539067 |
@@ -195,7 +202,7 @@
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
 | I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `docxXmlToPlainText` xuống dòng cứng + `ReadLineHint` + nút Trợ giúp; test `test/read_mode/` |
 | I4U18-TRANSLATE-001 | Dịch: Hy-MT vẫn chưa chạy ổn; cho phép chọn LLM Server/API làm engine dịch | 🔨 doing (code xong, chờ CI + AT model thật) | Validator lỗi cụ thể + snake_case error; API-004 offline-first; glossary/protect-token giữ nguyên |
-| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (M4U-IMPORT-002 **đã merge PR #128** rebase tuyến tính, CI run 41964386557 xanh; M4U-IMPORT-003: Parakeet import đúng + dùng live được ở Cabin và tab Nghe) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; validator thống nhất; nhận diện layout export NeMo (báo đúng, không báo "thiếu file" oan) + TTS không sập sau khi phát; nhận diện họ model theo metadata ONNX (không theo tên file) |
+| I4U18-MODEL-IMPORT-001 | Settings/Home model import: eSpeak/Piper/STT offline nhận diện sai khi chọn nhiều file hoặc chọn thư mục | 🔨 doing (M4U-IMPORT-002 **đã merge PR #128** rebase tuyến tính, CI run 41964386557 xanh; M4U-IMPORT-003 **đã merge PR #136** rebase tuyến tính, CI run 42095760101 xanh) | Mở rộng IMPORT-MODELS-001/TTS-PIPER-001; validator thống nhất; nhận diện layout export NeMo (báo đúng, không báo "thiếu file" oan) + TTS không sập sau khi phát; nhận diện họ model theo metadata ONNX (không theo tên file) |
 | I4U18-PDF-OCR-TTS-001 | PDF/OCR Reader: spinner OCR khi mở PDF và TTS play/pause/next-line không dừng đúng | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `pdf_text_layer_probe.dart` + `ocr_cancel_token.dart` + `pdf_tts_machine.dart` + playback epoch; test OCR/PDF xanh |
 | I4U18-DOCS-001 | Bổ sung hướng dẫn sử dụng trong app/docs cho import model, dictionary, Tipiṭaka, Server/API, PDF/OCR/TTS | ✅ done (docs-only; chờ owner QA thiết bị) | `docs/USER_GUIDE.md` + `.vi.md`; checklist QA; 51 local links + `git diff --check` sạch |
 | TPI-DISPLAY-01 | Tipiṭaka: reader "trang sách" chuẩn OpenTipitaka (P0–P3) — cột đọc giữa, serif, heading/kệ/hangnum/mốc trang, cài đặt lưu bền (mode+lang+sepia), search deep-link, library 3 Tạng | ✅ done (code + checks tĩnh/i18n 🟢; CÒN `flutter analyze`+full test + nghiệm thu thiết bị) | branch arena/01a10843-in4up (3 commit: c7b7237→79d5a20 sau rebase e93a28e); docs/tipitaka_display_optimization_plan.md |
@@ -6151,8 +6158,12 @@
       i18n 5 locale + English JSON) — đã nối vào `.github/workflows/app_analyze.yml`.
     - i18n 4 chuỗi UI mới đủ 5 locale (`en/hi/zh/zh_TW/si`) trong
       `priority_ui_overrides.dart` + `tool/legacy_ui_english_overrides.json`.
-    - Còn lại: CI xanh + **nghiệm thu máy thật** (import bộ Parakeet chính
-      thức, bấm mic offline ở tab Nghe, live STT trong Cabin).
+    - **PR #136 MERGED** (rebase & merge, base `arena/01a0251e-in4up`, tuyến
+      tính, **0 merge commit**): CI PR run **42094806559 SUCCESS**; CI base
+      sau merge run **42095760101 SUCCESS** (analyze 0 error + Rule 5 + bước
+      "ASR routing + import detection test" có file test mới ⇒ xanh).
+    - Còn lại: **nghiệm thu máy thật** (import bộ Parakeet chính thức, bấm mic
+      offline ở tab Nghe, live STT trong Cabin).
 
 ### I4U18-PDF-OCR-TTS-001 — PDF/OCR Reader: spinner OCR và TTS controls không dừng
 - **Trạng thái:** doing — code + CI 🟢 run `36771164011`; chờ nghiệm thu thiết bị.
@@ -7217,6 +7228,7 @@
 - **Prompt:** `PROMPT_AGENT_PDF_TRANSLATE_MULTI.md` (mục PDF-MULTI).
 
 ### 17. WORDLIST-TTS-001 — (P2) WordList: chọn phát "từ + nghĩa", thứ tự tuỳ
+- **Trạng thái:** 🔨 doing — code đã có; CI sau rebase chờ xác nhận, còn nghiệm thu nghe trên máy.
 - **Triệu chứng:** Chưa có tuỳ chọn phát kèm nghĩa + thứ tự phát.
 - **Kỳ vọng:** Phát **từ vựng + ý nghĩa**, chọn thứ tự: từ→nghĩa **hoặc**
   nghĩa→từ.
@@ -7224,6 +7236,10 @@
 - **Nơi đọc:** `lib/screens/tools/word_list/` (playback service) + TTS.
 - **Nghiệm thu:** bật phát → nghe từ rồi nghĩa (hoặc ngược lại theo chọn).
 - **Prompt:** `PROMPT_AGENT_WORDLIST_TTS_BULK.md` (mục TTS).
+
+- **Lịch sử:**
+  - 2026-11-06 | proposed→doing | agent `arena/d2aeb948-in4up` | PLAN-043 mục 2: tuỳ chỉnh thứ tự/ngôn ngữ/lặp/khoảng nghỉ; default Từ ×2 → Nghĩa ×1; CI cũ `41507136245` xanh, sẽ xác nhận lại sau rebase; không auto-grade SM-2; còn nghiệm thu thiết bị.
+  - 2026-11-05 | 2026-11-05 19:22 UTC | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests run `42092342813` ✅; không auto-grade SM-2; còn nghiệm thu nghe trên máy.
 
 ### 18. WORDLIST-BULK-001 — (P1) WordList: chọn hàng loạt nhưng chưa XÓA hàng loạt
 - **Triệu chứng:** Chọn nhiều từ được nhưng **không xóa hàng loạt**.
@@ -8539,6 +8555,72 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     to conflicts" (`rebaseable = false`) do head chứa merge commit ⇒ rút gọn
     5 commit thành 1 commit tuyến tính, parent = base tip `2883b8c`, nội dung
     giữ nguyên ⇒ *Rebase and merge* khả dụng lại.
+  - 2026-11-06 | doing | agent `arena/0f9bbb45-in4up` | follow-up sau
+    khi PR #126 đã merge: owner báo mất 5 nút tùy biến chữ + nhãn ABC +
+    thiếu tự cuộn ⇒ xử lý ở card `READ-UI-121` / ADR-0024, giữ nguyên
+    các quyết định của ADR-0021.
+
+### READ-UI-121 — (2026-11-06) Tab Đọc: khôi phục nút cũ, tự cuộn, nhãn IPA
+- **Trạng thái:** 🔨 doing — code + ADR-0024 + PLAN-044 + test pin trên
+  `arena/0f9bbb45-in4up` (rebase lên tip 251e `95f9e2f`, giải xung đột
+  `PLAN.md` + `legacy_ui_english_overrides.json`, đổi ID tránh trùng với
+  agent `arena/d2aeb948-in4up`); chờ CI và nghiệm thu máy 360×640.
+- **Nguồn:** owner 2026-11-06 gửi 12 issue sau bản 1.21.0, yêu cầu «issue nào là
+  issue cũ thì xem xét và giải quyết, còn lại các issue không liên quan thì để
+  lại, tôi sẽ gửi cho AI khác». 3 issue thuộc ngữ cảnh PR #126 / ADR-0021.
+- **Đã giải quyết (3):**
+  1. «Không màu / Bôi nhiều chữ / Đồng bộ tự động / ? / focus không còn thấy ở
+     đâu nữa ... sắp đặt vị trí thông minh, linh hoạt, phù hợp ngữ cảnh» ⇒
+     `ReadDisplayControls` là MỘT cụm dùng chung cho panel «Hiển thị» của dock,
+     sheet Hiển thị và `ReadTopBar`; dock có icon 1 chạm
+     `Key('read-bottom-dock-display')` (ngoài vùng cuộn), overflow cạnh ⚡ mở
+     đúng panel, «Vị trí công cụ: Trên» lấy lại `ReadTopBar` cũ. Panel «Đọc»
+     khi đang phát hiện thêm công tắc auto-sync đúng ngữ cảnh. Công dụng của
+     «Đồng bộ tự động» được giải thích trong ADR-0024 phần Bối cảnh.
+  2. «Bổ sung cơ chế auto để màn hình ứng với chữ thay vì kéo tay ... Có thể
+     tắt» ⇒ `read_auto_scroll_policy.dart` (hàm thuần, 5 case test) + listener
+     `activeLineNotifier` tự cuộn cả danh sách thường; nhường 5 giây sau mỗi cú
+     kéo tay; tắt hoàn toàn bằng công tắc «Đồng bộ tự động» đã có
+     (`read_auto_sync`).
+  3. «Tab đọc: ABC => nên chuyển thành IPA» ⇒ `_DockIcon.textIcon = 'IPA'`
+     đồng bộ với `ReadBottomBar`, không đổi chiều cao hàng dock.
+- **Để lại cho AI khác (9 — KHÔNG đụng trong branch này):**
+  1. Bong bóng dịch nhiều khối: chữ chồng lên nhau (screen translate / XLAT-SCR).
+  2. Tab đọc: ưu tiên phát TTS bằng sherpa, bấm Đọc ⇒ văng app (cần logcat;
+     cùng cụm model/offline với issue 7 và 9).
+  3. Dịch Cabin: đang dịch mà nói thêm ⇒ 2 dòng trùng thay vì nối tiếp.
+  4. Thư viện «Gần đây»: `PdfException: Failed to load PDF document
+     (FPDF_ER_FILE:2)` + gợi ý `errorBannerBuilder`.
+  5. Bấm từ vựng chỉ đọc ⇒ muốn pop từ vựng + 4 mức Dễ / Vừa / Khó / Rất khó.
+  6. Bản dịch ra `https://linux.do/t/topic/111737` dù có model, nghi kẹt «Thử
+     kết nối DeepLX».
+  7. Offline Parakeet/sherpa chưa nạp model vẫn chọn được ⇒ văng app khi «Tạo
+     lời thoại».
+  8. «Không thấy thông tin thay đổi về vietnew (`arena/9a813aad-in4up`), worlist
+     (`arena/d2aeb948-in4up`)».
+  9. Import Parakeet báo bản export NVIDIA NeMo (decoder gộp joint) cần bộ
+     sherpa-onnx encoder/decoder/joiner/tokens.
+- **Bằng chứng có thể kiểm:** `python3 tool/generate_priority_native_pack.py
+  --check` → `OK — 3508 entry × 8 locale` (2 chuỗi mới có `en` +
+  `zh/zh_TW/hi/si/my/th/ja`); `test/read_ui_121_contract_test.dart`;
+  `test/read_ui_120_contract_test.dart` cập nhật pin `showTopBar`;
+  `git diff --check`. Sandbox không có Flutter/Dart SDK ⇒ `flutter analyze` /
+  `flutter test` chạy trên CI (`app_analyze.yml`).
+- **Chưa kiểm (máy thật):** 360×640 text scale 1.0/1.3 — 1 chạm thấy đủ 5 nút,
+  dock ≤2 hàng / vùng đọc ≥70%; phát cả bài bám dòng, kéo tay đứng yên 5s rồi
+  tự nối lại; locale EN/JA không rò tiếng Việt ở 2 chuỗi mới.
+- **Lịch sử:**
+  - 2026-11-06 | created→doing | agent `arena/0f9bbb45-in4up` | rebase newest
+    251e `c9135d2` (up-to-date), audit 12 issue, tách 3 issue cũ; ADR-0024,
+    PLAN-044, QA 4.4, `ReadDisplayControls`, chính sách tự cuộn, i18n 2 chuỗi,
+    test pin; nối test vào bước `read-act-tests` của CI; chờ CI.
+  - 2026-11-06 | doing→doing (rebase + giải xung đột) | agent | 251e tiến tới
+    `95f9e2f` (M4U-IMPORT-003 + PLAN-043 Worklist) ⇒ PR #135 `DIRTY`; một merge
+    trung gian chèn 4 entry JSON SAU dấu `}` gây `JSONDecodeError: Extra data`
+    và làm đỏ test Rule #5 `legacy_ui_english_overrides.json`. Đã hợp nhất
+    `PLAN.md` append-only, sửa JSON hợp lệ (3973 entry: 4 Parakeet + 2
+    READ-UI-121), đổi ID sang PLAN-044/ADR-0024, rút gọn lịch sử thành 1 commit
+    tuyến tính trên tip 251e; chờ CI xanh.
 
 ### CABIN-FLUSH-001 / CABIN-KEEP-PARTIAL-001 / CABIN-STAGE-001 — (2026-10-29) Cabin Live: không mất câu khi Stop/Tạm dừng
 - **Trạng thái:** ✅ done (code + máy bắt + CI 🟢 `run 41652229913`; **chờ nghiệm thu máy**)
@@ -8748,6 +8830,77 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Bài học CI:** `//` không phải comment của CMake — analyzer/build Dart xanh hoàn toàn không bảo đảm được điều này; chỉ `configureCMakeRelease` mới bắt.
 - **Lịch sử:**
   - 2026-11-05 | created→done | agent arena/01a0251e-in4up | bump 1.21.0+21 → tag → build đỏ (CMake `//`) → sửa → xoá release/tag dở → tag lại → build **41995136804** 🟢 4/4
+
+---
+
+### CONCEPT-001 — (2026-11-02) Nút Khái niệm đa ngữ (ý nghĩa → âm/IPA → chữ) cho Worklist
+- **Trạng thái:** 🔨 doing — **Pha A đã code xong** (ADR-0023 + model/kho Hive/gợi ý nối/UI) trên `arena/d2aeb948-in4up`, Analyze + PLAN-043 tests 🟢 run `42092342813`; chờ nghiệm thu máy. Pha B–E giữ proposed.
+- **Nguồn:** owner 2026-11-02 — "Ý nghĩa → âm thanh → chữ viết; từ ý nghĩa/hình ảnh hình thành connect như nơ-ron thần kinh… hệ thống đa ngữ".
+- **Thiết kế tóm tắt:** kho `ConceptNode` mới + `conceptId` tuỳ chọn trên `WordEntry` (additive, không migration); SM-2 giữ ở từngbản thể ngôn ngữ (quy tắc vàng #2); máy chỉ *đề xuất nối* — user xác nhận (luật AT2/MVA); ảnh/animation gắn ở khái niệm dùng chung mọi ngôn ngữ. Pha: A nối+xem → B thêm ngôn ngữ qua từ điển/dịch/IPA → C ôn theo khái niệm → D mã ngoài Wikidata/ConceptNet (gợi ý, cache) → E quan hệ nghĩa mở rộng trên Knowledge Graph sẵn có.
+- **Nơi đọc:** `lib/models/word_entry.dart`, `lib/knowledge/models/knowledge_unit.dart` (senseNote/không tự merge), `lib/screens/tools/word_list/knowledge_graph_screen.dart`, `docs/plans/PLAN-043-worklist-da-ngu-khai-niem-trung-tam.md` mục 1.
+- **Nghiệm thu:** dữ liệu cũ (không conceptId) chạy nguyên trạng; nối 1 khái niệm EN+VI+ZH xem được ảnh chung + nghe từng ngôn ngữ; ôn ở 1 ngôn ngữ không đổi lịch SM-2 ngôn ngữ khác.
+- **Lịch sử:**
+  - 2026-11-02 | 2026-11-02 18:25 UTC | created→proposed | agent `arena/d2aeb948-in4up` | tham vấn ngôn ngữ học + thiết kế Pha A–E trong PLAN-043; chưa code theo yêu cầu thảo luận trước.
+  - 2026-11-03 | 2026-11-03 07:17 UTC | proposed→doing | agent `arena/d2aeb948-in4up` | owner duyệt bản trực quan (`PLAN-043-visual.html`) → thi công **Pha A**: ADR-0023; `ConceptNode` (box `concept_nodes_v1`, id UUID, gloss/miền nghĩa/ảnh chung/quan hệ/mã ngoài — JSON khoan dung) + `WordEntry.conceptId` tuỳ chọn (không ghi khi rỗng — dữ liệu cũ nguyên vẹn); máy gợi ý nối thuần (`concept_link_suggestions.dart`: cặp dịch +3 · chung ảnh +2 · cùng nghĩa chính +1; không bao giờ gộp 2 khái niệm khác nhau); UI `concept_screens.dart` (danh sách/chi tiết/duyệt gợi ý + nút vào từ Wordlist, nghe từng cánh, hiển thị SM-2 riêng, chọn hình khái niệm); i18n 36 khoá đủ 5 ngữ. Evidence: commit `6618f4e,2914952,1298993` + CI run `41594791234` 🟢 (bước PLAN-043 tests gồm `concept_phase_a_test.dart` ✅). Còn: nghiệm thu máy (tạo khái niệm EN–VI–ZH, duyệt gợi ý, xoá khái niệm không mất từ); Pha B–E proposed; box khái niệm chưa sync (quyết định ADR-0023).
+  - 2026-11-06 | doing→doing (rebase/đổi ID) | agent `arena/d2aeb948-in4up` | rebase lên tip 251e `c9135d2`; đổi PLAN-041/ADR-0021 thành PLAN-043/ADR-0023 do ID đã được dùng ở 251e.
+  - 2026-11-05 | 2026-11-05 19:22 UTC | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests run `42092342813` ✅; `listen_queue_tests` run `42092342832` ✅; Flutter web build run `42092329815` ✅. Rebased series `git log --merges` = 0; PR #134 targets 251e. Còn nghiệm thu thiết bị.
+
+### WORDLIST-AI-IMPORT-001 — (2026-11-02) Thêm hàng loạt: copy-prompt cho AI + AI trong app
+- **Trạng thái:** 🔨 doing (code xong trên `arena/d2aeb948-in4up`; Analyze + PLAN-043 tests 🟢 run `42092342813`; còn nghiệm thu máy với provider AI thật).
+- **Nguồn:** owner 2026-11-02 — thay vì chỉ hướng dẫn tạo CSV, cho copy prompt gửi AI hoặc dùng AI sẵn có thêm hàng loạt.
+- **Phạm vi:** Tầng 0: nút "Tạo prompt cho AI" (3 kịch bản: theochủ đề / làm giàu danh sách / trích từ đoạn văn) sinh prompt nhúng header CSV parser hiểu + hiện để sửa trước khi copy; parser bóc code-fence + nhận bảng Markdown. Tầng 1 (sau): AI qua Server API (`AiEngineRemote`)/local trả JSON → vẫn qua màn xem trước dùng chung. Tầng 2: thác từ điển→IPA→dịch chạy trước, AI chỉ điền chỗ thiếu.
+- **Nơi đọc:** `lib/screens/tools/word_list/word_import_sheet.dart` (`WordTableParser`, `_parseStructuredContent`, smart-fill), `packages/in4up_ai/lib/src/engine/ai_engine_remote.dart`, PLAN-043 mục 3.
+- **Nghiệm thu:** copy prompt → AI ngoài trả CSV có fence/bảng Markdown → dán vào import vẫn ra đúng candidate; entry đã có chỉ smart-fill chỗ trống.
+- **Lịch sử:**
+  - 2026-11-02 | 2026-11-02 18:25 UTC | created→proposed | agent `arena/d2aeb948-in4up` | kế hoạch 3 tầng trong PLAN-043; khuyến nghị Tầng 0 trước.
+  - 2026-11-02 | 2026-11-02 19:10 UTC | proposed→doing | agent `arena/d2aeb948-in4up` | owner chốt **cả hai tầng trong một đợt** (Q3) → thi công cả hai: `vocab_bulk_ai.dart` (prompt 3 kịch bản, chia lô 20), `vocab_bulk_ai_service.dart` (Server API `chat` + OpenAiCompatClient, mã lỗi cấu trúc), tab AI trong sheet nhập (kết quả đổ về tab Clipboard qua đúng xem trước/smart-fill), parser bóc fence/bảng Markdown/lời dẫn; đường AI trong app dùng CSV cùng định dạng (lệch có chủ đích so với ý JSON ở bản thảo — ghi ở PLAN-043 mục 7). CI run `41508144906` đỏ analyze do mất import/state khi sửa song song cùng file → khôi phục tuần tự, run `41509201102` 🟢 toàn job. Còn: nghiệm thu máy với 1 provider AI thật (sinh theo chủ đề + làm giàu + lỗi chưa cấu hình).
+  - 2026-11-06 | doing→doing (rebase/đổi ID) | agent `arena/d2aeb948-in4up` | rebase lên tip 251e `c9135d2`; giữ nguyên luồng preview/dedupe/smart-fill.
+  - 2026-11-05 | 2026-11-05 19:22 UTC | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests run `42092342813` ✅; provider AI thật còn chờ nghiệm thu.
+
+### IMG-WEB-002 — (2026-11-02) Hình ghi nhớ: hết eo hẹp, tải thêm kết quả, thêm Pixabay, ảnh nhẹ rõ
+- **Trạng thái:** 🔨 doing — **toàn bộ phạm vi đã code** (dung lượng + Pixabay/phân trang/gộp nguồn + sheet lớn/xem trước/tải thêm/mật độ) trên `arena/d2aeb948-in4up`, Analyze + PLAN-043 tests 🟢 run `42092342813`; chờ nghiệm thu máy (cần key thật cho Pixabay/Pexels).
+- **Nguồn:** owner 2026-11-02 — sheet "Hình ảnh ghi nhớ" eo hẹp, muốn nhiều kết quả hơn + thêm nguồn + ảnh rõ đẹp dung lượng thấp.
+- **Hiện trạng (đã kiểm):** đã có 4 nguồn (Pexels/Unsplash cần key, Openverse/Wikimedia) nhưng nguồn nào có kết quả trước là dừng; trần 40 ảnh, không phân trang; chạm ô là dùng ngay (không xem lớn); tải bản lớn (`large2x`/`full`) lưu nguyên tới 8MB, chưa resize/nén.
+- **Phạm vi:** sheet kéo full + chọn mật độ lưới + huy hiệu nguồn đègóc; chạm = xem lớn (kích thước/KB/giấy phép) rồi mới dùng; phân trang "tải thêm" từng nguồn + chế độ trộn nguồn song song + chip truy vấn/loại ảnh; thêm provider **Pixabay** (key user, cache + ghi nguồn theo điều kiện API); tải bản vừa dùng + chuẩn hoá bằng gói `image` (cạnh ≤1024, JPEG ~80) mục tiêu 80–250KB/ảnh.
+- **Nơi đọc:** `lib/features/vocab_image/vocab_image_picker_sheet.dart`, `vocab_image_web_service.dart`, `vocab_image_service.dart`, `vocab_image_api_config.dart`, PLAN-043 mục 4.
+- **Nghiệm thu:** tải thêm ≥3 trang không trùng; trộn nguồn thấy ≥2 nguồn/lưới; lưu 10 ảnh kiểm dung lượng `vocabulary_images` trong mục tiêu; ảnh cũ không bị đụng.
+- **Lịch sử:**
+  - 2026-11-02 | 2026-11-02 18:25 UTC | created→proposed | agent `arena/d2aeb948-in4up` | đối chiếu service 4 nguồn + Pixabay API (miễn phí, điều kiện cache/ghi nguồn/không hot-link lâu dài).
+  - 2026-11-02 | 2026-11-02 19:10 UTC | proposed→doing (phần dung lượng) | agent `arena/d2aeb948-in4up` | gói thắng nhanh Q4: `vocab_image_normalize.dart` (≤1024px, JPEG80/PNG-alpha, Lottie/GIF giữ nguyên, không lợi thì giữ gốc) chạy isolate ở phễu lưu chung; Pexels ưu tiên `large/medium`, Unsplash dùng `regular`; test normalize + cập nhật kỳ vọng parser (bước VOCAB-MEDIA-003 🟢 trong run `41509201102`). Còn lại (sheet full, xem lớn, phân trang, trộn nguồn, Pixabay) giữ proposed chờ đợt sau; nghiệm thu máy: lưu vài ảnh mạng rồi kiểm KB trong `vocabulary_images`.
+  - 2026-11-03 | 2026-11-03 07:17 UTC | doing→doing (hoàn tất phần còn lại) | agent `arena/d2aeb948-in4up` | đợt 2: provider **Pixabay** (key qua query, `safesearch`, ảnh chính `largeImageURL`→`webformatURL`, ghi nguồn "Pixabay" + nhãn nguồn trên ô theo điều khoản); service thêm `page` (Pexels/Unsplash/Pixabay/Openverse `page`, Commons `gsroffset`) + `mergeAll` gộp mọi nguồn dùng được khử trùng URL; sheet cao 92%, chạm ô = **xem trước lớn** (bản đầy đủ + ghi nguồn + "Xem nguồn" mở trang gốc) rồi "Dùng ảnh này" mới lưu; nút **Tải thêm ảnh**; đổi mật độ ô to/vừa; chip truy vấn Chỉ từ/Chỉ nghĩa/Từ+nghĩa. Test `parsePixabay` thêm vào `vocab_image_search_test.dart`. Evidence: commit `3923293,24f1dbc` + CI run `41594791234` 🟢. Còn: nghiệm thu máy — dán key Pixabay, tải thêm ≥2 trang, xem lớn trước khi lưu, kiểm KB thư mục `vocabulary_images`.
+  - 2026-11-06 | doing→doing (rebase/đổi ID) | agent `arena/d2aeb948-in4up` | rebase lên tip 251e `c9135d2`; giữ nguyên normalize/Pixabay/paging/UI.
+  - 2026-11-05 | 2026-11-05 19:22 UTC | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests run `42092342813` ✅; nghiệm thu Pixabay/Pexels cần API key.
+
+### LOTTIE-LIB-001 — (2026-11-02) Hoạt ảnh không phải dán link: mở kho có hướng dẫn + gói tuyển chọn theo khái niệm
+- **Trạng thái:** 🔨 doing — **Pha 1+2 đã code** trên `arena/d2aeb948-in4up`, Analyze + PLAN-043 tests 🟢 run `42092342813`; chờ nghiệm thu máy. Pha 2 gồm catalog 100 khái niệm offline + 100 pictogram Lottie gốc In4Up CC0 (~289KB), tìm VI/EN; bản vẽ xem trước → lưu được vào từ hoặc `ConceptNode.imageRef` dùng chung. Pha 3 (provider IconScout tuỳ chọn) giữ proposed.
+- **Nguồn:** owner 2026-11-02 — "Hoạt ảnh đang phải dán Link, có giải pháp nào tốt không".
+- **Sự thật ngoài:** LottieFiles **không có public API** tìm/tải animation miễn phí (xác nhận chính thức 08-2026, chỉ đường IconScout API thiên trả phí); tab "Hoạt ảnh" hiện dùng Wikimedia Commons nên kết quả gần như trống. Không scraping/WebView chặn tải (điều khoản xám, mong manh).
+- **Phạm vi:** Pha 1: nút "Tìm trên LottieFiles" mở trình duyệt đúng từ khoá + hướng dẫn 3 bước tải→nhập file (luồng nhập file đã có). Pha 2: chỉ mục gói animation giấy phép mở tuyển chọn (~100 khái niệm cốt lõi trước), tìm offline/xem trước/tải-khi-dùng, gắn vào Nút Khái niệm CONCEPT-001. Pha 3 (tuỳ chọn): provider IconScout bằng key user.
+- **Nơi đọc:** `lib/features/vocab_image/vocab_animation_library.dart`, `vocab_image_picker_sheet.dart` (`_buildAnimation`), PLAN-043 mục 5.
+- **Nghiệm thu:** từ sheet tới animation đã lưu ≤3 thao tác hướng dẫn ở Pha 1; gói Pha 2 tìm offline được, ô không hiện không chạy, trần 2MB giữ nguyên.
+- **Lịch sử:**
+  - 2026-11-02 | 2026-11-02 18:25 UTC | created→proposed | agent `arena/d2aeb948-in4up` | bảng phương án A–E trong PLAN-043; khuyến nghị A ngay → B gói tuyển chọn.
+  - 2026-11-03 | 2026-11-03 07:17 UTC | proposed→doing | agent `arena/d2aeb948-in4up` | **Pha 1**: trong tab "Dán URL" của sheet ảnh — khối hướng dẫn 3 bước + nút "Mở LottieFiles tìm từ này" (trình duyệt ngoài, từ khoá từ từ đang gán; LottieFiles không có public API, không scrape) + nút "Chọn file animation từ máy" nối thẳng luồng nhập file `.json/.lottie` đã có (xem trước → lưu). **Chuẩn bị Pha 2**: soạn `PLAN-043-animation-core-concepts.md` — 100 khái niệm cốt lõi theo 9 nhóm kèm từ khoá săn file giấy phép mở, chờ owner cắt duyệt. Evidence: commit `03d6527` + CI run `41594791234` 🟢. Còn: nghiệm thu máy Pha 1 (mở LottieFiles đúng từ khoá, tải 1 file mẫu, nhập + xem trước + lưu); Pha 2/3 proposed.
+  - 2026-11-05 | 2026-11-05 03:57 UTC | doing→doing (Pha 2 code xong) | agent `arena/d2aeb948-in4up` | owner duyệt danh mục 100 concept; sinh 100 file Lottie pictogram hình học gốc In4Up CC0 (tổng ~289KB) + catalog `concept_animation_pack.json`; thêm tìm offline (English keyword + tiếng Việt bỏ dấu), gộp vào tab Animation, xem trước/tải vào app qua cùng preview/save funnel, do đó lưu được ảnh dùng chung `ConceptNode.imageRef` lẫn từng từ; ghi credit CC0. Test thuần parser/search thêm vào `vocab_animation_library_test.dart` và bước PLAN-043 CI. Evidence: commits `015af67,7ecbb02,663838d` + Analyze + PLAN-043 tests success trước rebase `41964276729`; Web build trước cùng code success `41963721411` (lần mới hơn bị cancel do supersession). Còn: nghiệm thu trên máy (bật airplane mode, tìm "mặt trời"/sun, xem trước/lưu vào concept, xác nhận mở lại offline); Pha 3 proposed.
+  - 2026-11-06 | doing→doing (rebase/đổi ID) | agent `arena/d2aeb948-in4up` | rebase lên tip 251e `c9135d2`; định danh kế hoạch đổi sang PLAN-043, không đổi phạm vi đã duyệt.
+  - 2026-11-05 | 2026-11-05 19:22 UTC | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests `42092342813` ✅; listen queue tests `42092342832` ✅; Web build `42092329815` ✅. Còn nghiệm thu máy.
+
+### REL-1.22.0 — (2026-11-06) Release 1.22.0 đủ 4 nền tảng
+- **Trạng thái:** ✅ done (build 🟢 `run 42134309640` 4/4 job; **chờ nghiệm thu máy**)
+- **Nguồn:** owner 2026-11-06 — *"Hãy tạo tag release với version phù hợp ngay thời điểm hiện tại."*
+- **Tag/commit:** `1.22.0` → `1151f1d2` (*bump `1.21.0+21` → `1.22.0+22`*), trên tip `a9c2b32a` (*Fix Tipitaka tab i18n and duplication test*).
+- **Gặp cạnh tranh khi push (ghi lại để lần sau xử đúng):** trong lúc em chuẩn bị, agent khác đẩy thêm 2 commit (`9ec06fdd`, `a9c2b32a`) ⇒ push bị từ chối. Xử lý **rebase** commit bump lên tip mới (1 commit, không xung đột since chỉ chạm `pubspec.yaml`) ⇒ lịch sử vẫn **tuyến tính** (`git log --merges 1.21.0..HEAD` = 0).
+- **Vì sao bump minor:** 33 commit sau `1.21.0` có **6 nhóm tính năng**: VieNeu-TTS UI import + voice picker · PLAN-041 "Khái niệm đa ngữ" (ConceptNode/ADR-0021 + UI Pha A + 100 animation offline + hướng dẫn LottieFiles) · IMG-WEB-002 (Pixabay + phân trang + gộp nguồn + sheet ảnh lớn) + ảnh lưu ≤1024px/JPEG80 · Wordlist (đọc Từ+Nghĩa tuỳ chỉnh, nhập hàng loạt bằng AI) · READ-UI-121 chrome tab Đọc · STT Parakeet import/live (M4U-IMPORT-003).
+- **`versionCode 21 → 22`** ⇒ Android cài đè được bản 1.21.0, dữ liệu giữ nguyên.
+- **CI trước khi tag:** `app_analyze` run **42133681678** trên `1151f1d2` 🟢; `listen_queue_tests` 🟢.
+- **Bằng chứng:** `build_final_complete.yml` run **42134309640** — **4/4 job success**. https://github.com/Pabhassaracitto/In4Up/releases/tag/1.22.0
+  - `in4up-Android-arm64-v8a-1.22.0-1151f.apk` — 198.845.051 B — sha256 `6c45ef9f5fe11bd8bbfe72aa46bb9e9304c6fcd10f4d8c674e9d99d2456b31a6`
+  - `in4up-iOS-1.22.0.ipa` — 93.493.960 B — sha256 `692174bd5c3d84f112d39fef9afe01580b88fc154b59336746167d13bf94b561`
+  - `in4up-Linux-1.22.0.tar.gz` — 50.258.416 B — sha256 `7b6f7450fa46f31590aba6089d7fbec869c25bd3203c466c203a030be2ba7b84`
+  - `in4up-Windows-1.22.0.zip` — 52.798.932 B — sha256 `34316ccc390d270128bf4427e79c463d761db6696c4a16bb4e5b4eb4cf46b8d2`
+- **Chưa kiểm (máy thật):** cài đè 1.21.0 → 1.22.0; VieNeu-TTS (import model + chọn giọng); Khái niệm (ConceptNode) + thư viện animation; tìm ảnh đa nguồn; Wordlist nhập bằng AI; Parakeet ở Cabin/tab Nghe.
+- **Lịch sử:**
+  - 2026-11-06 | created→done | agent arena/01a0251e-in4up | chờ CI tip 🟢 → bump 1.22.0+22 → push bị chặn (agent khác vừa đẩy 2 commit) → rebase lên `a9c2b32a` → CI `42133681678` 🟢 → tag → build `42134309640` 🟢 4/4
 
 ### AUDIT-1.21.0-01 — (2026-11-06) I4U - Audit v1.21.0: 8 phản hồi nghiệm thu
 - **Trạng thái:** 🔨 doing (code + test thuần + docs + **CI xanh** xong; **chờ nghiệm thu thiết bị / `adb logcat`**)

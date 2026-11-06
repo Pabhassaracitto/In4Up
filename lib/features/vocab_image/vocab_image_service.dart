@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'vocab_image_normalize.dart';
 import 'vocab_image_web_service.dart';
 
 /// Service quản lý hình ảnh cho từ vựng
@@ -192,7 +193,19 @@ class VocabImageService {
   }
 
   /// Lưu bytes vào app storage, trả về relative path
-  Future<String> _saveBytesToAppStorage(Uint8List bytes) async {
+  Future<String> _saveBytesToAppStorage(Uint8List inputBytes) async {
+    // PLAN-043 mục 4 — chuẩn hoá dung lượng TRƯỚC khi lưu (thu ≤1024px +
+    // JPEG q80/PNG-alpha; Lottie/GIF giữ nguyên) ở isolate để không khựng
+    // UI. Mọi đường lưu (web/gallery/camera) đều qua phễu này. Ảnh cũ đã
+    // lưu không bị đụng; ảnh mới có hash theo bytes ĐÃ chuẩn hoá.
+    Uint8List bytes;
+    try {
+      bytes = await compute(normalizeVocabImageBytes, inputBytes);
+    } catch (e) {
+      debugPrint('normalizeVocabImageBytes lỗi (giữ nguyên gốc): $e');
+      bytes = inputBytes;
+    }
+
     final appDir = await getApplicationDocumentsDirectory();
     final imageDir = Directory('${appDir.path}/$_imageDir');
     if (!imageDir.existsSync()) {

@@ -219,8 +219,10 @@ jobs:
             # Artifact log KHONG tai duoc trong moi truong agent (blob host
             # ngoai allowlist) ⇒ dua nguyen doan cuoi log len annotation.
             # Message phai 1 dong va escape '%' theo cu phap workflow command.
-            chunk=$(tail -c 3500 media_tools_test.log | tr '\n' '~' | sed 's/%/%25/g')
-            echo "::error title=media_tools tail::$chunk"
+            names=$(grep -E "^\s+/home/.*test/media_tools/.*: " media_tools_test.log | head -10 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools failing names::$names"
+            chunk=$(grep -B1 -A12 "\[E\]" media_tools_test.log | head -c 3500 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools errors::$chunk"
           fi
           exit $code
 

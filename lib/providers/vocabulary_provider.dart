@@ -1144,9 +1144,10 @@ class VocabularyProvider extends ChangeNotifier {
 
   void setWordZone(String id, MasteryZone zone) => setWordsZone([id], zone);
 
-  /// Move a batch in one notification while retaining independent skill data.
-  /// Dropping into the current zone is a no-op: it must not reset existing
-  /// scores to the default values for that zone.
+  /// Move a batch with one notification. As in [WordEntry.setZone], changing
+  /// zones sets all three skill scores to the destination's defaults without
+  /// merging their review histories. The current zone is a no-op, so an
+  /// accidental drop cannot reset its existing scores.
   void setWordsZone(Iterable<String> ids, MasteryZone zone) {
     final wanted = ids.toSet();
     if (wanted.isEmpty) return;

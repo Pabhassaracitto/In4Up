@@ -17,6 +17,7 @@ import 'package:in4up/screens/tools/triangle_tab.dart';
 import 'package:in4up/screens/tools/venn_tab.dart';
 import 'package:in4up/screens/tools/vocabulary_map_clusters.dart';
 import 'package:in4up/screens/tools/word_list/knowledge_graph_screen.dart';
+import 'package:in4up/widgets/word_detail_sheet.dart';
 import 'package:provider/provider.dart';
 
 class _TestVocabularyProvider extends VocabularyProvider {
@@ -199,6 +200,34 @@ void main() {
     provider.dispose();
   });
 
+  testWidgets('Venn word detail keeps dark contrast and does not translate user data', (tester) async {
+    final word = _word('a', text: 'Tất cả', ipa: '/test/')
+      ..meaning = 'Chưa có từ vựng';
+    final provider = _TestVocabularyProvider()..allWords.add(word);
+    await tester.pumpWidget(_host(provider, const VennTab(), locale: const Locale('en')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('venn_word_a')));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(WordDetailSheet);
+    expect(sheet, findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text('Tất cả')), findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.text('Chưa có từ vựng')), findsOneWidget);
+    final phonetic = tester.widget<Text>(find.text('/test/'));
+    expect(phonetic.style?.color, ThemeData.dark().colorScheme.onSurfaceVariant);
+    expect(find.byWidgetPredicate((widget) =>
+      widget is Container &&
+      widget.decoration is BoxDecoration &&
+      (widget.decoration! as BoxDecoration).color == const Color(0xFF3D3019)), findsOneWidget);
+
+    final understandButton = find.byIcon(Icons.lightbulb_outline);
+    await tester.ensureVisible(understandButton);
+    await tester.pumpAndSettle();
+    await tester.tap(understandButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Tất cả - ${AppUITranslations.translate('Hiểu', 'en')}'), findsOneWidget);
+    provider.dispose();
+  });
+
   testWidgets('two fingers add same-zone words to one drag and drop the whole batch', (tester) async {
     tester.view.physicalSize = const Size(430, 900);
     tester.view.devicePixelRatio = 1;
@@ -218,6 +247,10 @@ void main() {
     expect(find.byKey(const Key('venn_drag_badge')), findsOneWidget);
     await tester.tap(find.byKey(const Key('venn_word_b')));
     await tester.pump();
+    expect(find.descendant(of: find.byKey(const Key('venn_drag_badge')), matching: find.text('2')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('venn_word_other')));
+    await tester.pump();
+    expect(find.text('Chỉ gom các từ cùng vùng ban đầu.'), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('venn_drag_badge')), matching: find.text('2')), findsOneWidget);
     await firstFinger.moveTo(tester.getCenter(find.byKey(const Key('venn_target_listenOnly'))));
     await tester.pump();

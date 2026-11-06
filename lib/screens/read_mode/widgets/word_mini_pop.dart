@@ -64,6 +64,20 @@ const Key wordMiniPopYouGlishKey = Key('word_mini_pop_youglish');
 /// Key của cả thẻ pop (dùng cho test + để biết vùng "trong pop").
 const Key wordMiniPopCardKey = Key('word_mini_pop_card');
 
+/// AUDIT-1.21.0 #5 — key của 4 chip mức độ khó trong pop tab Đọc.
+Key wordMiniPopDifficultyKey(DifficultyLevel level) =>
+    ValueKey('word_mini_pop_difficulty_${level.name}');
+
+/// Nhãn 4 mức theo ĐÚNG lời owner: `Dễ / Vừa / Khó / Rất khó`.
+/// `DifficultyLevel.medium.label` ở core là "Trung bình"; riêng pop tab Đọc
+/// dùng "Vừa" (yêu cầu AUDIT-1.21.0 #5) nên không đổi enum dùng chung.
+const Map<DifficultyLevel, String> kWordMiniPopDifficultyLabels = {
+  DifficultyLevel.easy: 'Dễ',
+  DifficultyLevel.medium: 'Vừa',
+  DifficultyLevel.hard: 'Khó',
+  DifficultyLevel.veryHard: 'Rất khó',
+};
+
 /// Pop nhỏ cho 1 từ trong vùng đọc — hiển thị bằng OVERLAY, không modal.
 class WordMiniPop extends StatefulWidget {
   const WordMiniPop({
@@ -198,9 +212,15 @@ class _WordMiniPopState extends State<WordMiniPop> {
   bool _loading = true;
   double _dragDistance = 0;
 
+  /// AUDIT-1.21.0 #5: mức độ khó do user chọn ngay trong pop. Khởi tạo từ
+  /// phân tích từ; cập nhật tại chỗ vì pop là OverlayEntry (không rebuild
+  /// theo `TextProvider` như `ColoredTextWidget`).
+  DifficultyLevel? _difficulty;
+
   @override
   void initState() {
     super.initState();
+    _difficulty = widget.word.userDifficulty;
     _loadInsight();
   }
 
@@ -302,6 +322,74 @@ class _WordMiniPopState extends State<WordMiniPop> {
     );
     tp.saveWord(widget.word);
     _toast(context.uiText('Đã lưu từ'));
+  }
+
+  /// AUDIT-1.21.0 #5: bấm chip ⇒ phân loại NGAY (không chỉ đọc to).
+  /// `TextProvider.markWordDifficulty` đã lo: cập nhật mọi lần xuất hiện của
+  /// từ trong văn bản + upsert vào thư viện qua `VocabularyBridge`.
+  void _setDifficulty(DifficultyLevel level) {
+    final tp = context.read<TextProvider>();
+    final vocab = context.read<VocabularyProvider>();
+    tp.markWordDifficulty(widget.lineIndex, widget.wordIndex, level);
+    // Đồng bộ luôn bản ghi thư viện nếu từ đã được lưu trước đó.
+    final existing = vocab.findByWord(widget.word.word);
+    if (existing != null) {
+      vocab.updateDifficulty(existing.id, level);
+    }
+    if (!mounted) return;
+    setState(() => _difficulty = level);
+    _toast(context.uiText('Đã lưu mức độ khó'));
+  }
+
+  Widget _buildDifficultyChips(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.uiText('Mức độ khó'),
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            for (final level in DifficultyLevel.values)
+              ChoiceChip(
+                key: wordMiniPopDifficultyKey(level),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                selected: _difficulty == level,
+                onSelected: (_) => _setDifficulty(level),
+                backgroundColor: level.color.withValues(alpha: 0.08),
+                selectedColor: level.color.withValues(alpha: 0.28),
+                side: BorderSide(
+                  color: level.color.withValues(
+                    alpha: _difficulty == level ? 0.9 : 0.32,
+                  ),
+                ),
+                label: Text(
+                  context.uiText(kWordMiniPopDifficultyLabels[level]!),
+                  style: TextStyle(
+                    color: _difficulty == level ? level.color : Colors.white70,
+                    fontSize: 11,
+                    fontWeight: _difficulty == level
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 
   VocabContext _buildContext(TextProvider tp) {
@@ -429,6 +517,10 @@ class _WordMiniPopState extends State<WordMiniPop> {
                           const SizedBox(height: 8),
                           _buildBadges(type),
                           const SizedBox(height: 10),
+                          // AUDIT-1.21.0 #5: 4 mức Dễ / Vừa / Khó / Rất khó
+                          // ngay trong pop — không chỉ phát âm khi bấm từ.
+                          _buildDifficultyChips(context),
+                          const SizedBox(height: 10),
                           _buildMeaningBlock(context),
                           const SizedBox(height: 12),
                           _buildActions(context, saved),
@@ -552,6 +644,7 @@ class _WordMiniPopState extends State<WordMiniPop> {
   }
 
   Widget _buildBadges(WordType type) {
+    final difficulty = _difficulty; // promotion rõ ràng (field không final).
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -561,10 +654,11 @@ class _WordMiniPopState extends State<WordMiniPop> {
           label: widget.word.cefrLevel.shortLabel,
           color: widget.word.cefrLevel.color,
         ),
-        if (widget.word.userDifficulty != null)
+        if (difficulty != null)
           _MiniBadge(
-            label: widget.word.userDifficulty!.label,
-            color: widget.word.userDifficulty!.color,
+            label:
+                kWordMiniPopDifficultyLabels[difficulty] ?? difficulty.label,
+            color: difficulty.color,
           ),
       ],
     );

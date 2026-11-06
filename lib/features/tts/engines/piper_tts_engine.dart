@@ -1,5 +1,9 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 
+import '../../../services/offline_model_gate.dart';
 import '../piper_voice_prefs.dart';
 import 'tts_engine.dart';
 
@@ -34,14 +38,20 @@ class PiperTtsEngine implements TtsEngine {
   @override
   Future<bool> isAvailable() async {
     final voices = await SherpaPiperTtsCore.discoverVoices();
-    if (voices.isEmpty) return false;
-    // ★ Có .onnx nhưng THIẾU espeak-ng-data (phonemizer) thì native
-    // OfflineTts có thể SEGFAULT → coi Piper KHÔNG khả dụng để TtsService
-    // fallback ngay sang giọng máy (vẫn đọc được, không crash app).
-    // User vẫn thấy giọng trong "Quản lý model" và cài phonemizer được.
-    if (!await SherpaPiperTtsCore.isEspeakReady()) return false;
-    // Chỉ khả dụng nếu ÍT NHẤT 1 giọng có file model nguyên vẹn.
-    return voices.any(SherpaPiperTtsCore.isVoiceFilesPlausible);
+    final espeakReady = await SherpaPiperTtsCore.isEspeakReady();
+    final plausible = voices.any(SherpaPiperTtsCore.isVoiceFilesPlausible);
+    // AUDIT-1.21.0 #2 (cùng cụm model/offline với #7): một cửa đánh giá
+    // duy nhất, có log để đối chiếu `adb logcat` trên máy thật.
+    final verdict = assessOfflineModel(
+      installed: voices.isNotEmpty && espeakReady,
+      filesPlausible: plausible,
+    );
+    if (!verdict.canUse) {
+      debugPrint('⛔ [TTS-NATIVE] Piper blocked — ${verdict.issue.name}: '
+          'voices=${voices.length}, espeakReady=$espeakReady, '
+          'plausible=$plausible');
+    }
+    return verdict.canUse;
   }
 
   @override
@@ -125,6 +135,17 @@ class PiperTtsEngine implements TtsEngine {
     double pitch = 1.0,
     String? voiceId,
   }) async {
+    // AUDIT-1.21.0 #2: chặn luôn cả đường gọi trực tiếp `synthesize()` (không
+    // chỉ đường `TtsService._trySpeakPiper`). Một lần gọi native với model
+    // chưa nạp là một lần có thể SIGSEGV ở C++ — Dart không catch được.
+    if (!await isAvailable()) {
+      return TtsResult.failure(
+        error: 'Piper is not ready (missing .onnx model / espeak-ng-data)',
+        // `name` là BIẾN CỤC BỘ khai báo ở dòng dưới ⇒ phải dùng `this.name`
+        // (getter engine id), nếu không CFE báo "referenced before declared".
+        engine: this.name,
+      );
+    }
     final name = await _resolveVoiceName(language, voiceId);
     if (name == null) {
       return TtsResult.failure(
@@ -132,6 +153,21 @@ class PiperTtsEngine implements TtsEngine {
         engine: this.name,
       );
     }
+    // Marker cho `adb logcat` (AUDIT #2): nếu app vẫn văng ngay sau dòng này
+    // thì crash nằm ở sherpa-onnx/ORT native, KHÔNG còn là Dart/plugin.
+    try {
+      final voices = await SherpaPiperTtsCore.discoverVoices();
+      for (final v in voices) {
+        if (v.name == name) {
+          debugPrint('[TTS-NATIVE] selectVoice=$name '
+              'onnx=${File(v.modelPath).lengthSync()}B '
+              'tokens=${File(v.tokensPath).lengthSync()}B '
+              'espeak=${await SherpaPiperTtsCore.isEspeakReady()} '
+              'lang=$language');
+          break;
+        }
+      }
+    } catch (_) {}
     final ok = await _core.selectVoice(name);
     if (!ok) {
       return TtsResult.failure(

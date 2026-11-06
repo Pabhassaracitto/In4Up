@@ -1405,3 +1405,24 @@ Package: `video_player: ^2.8.0` (Flutter official)
     Rule #5) thành JSON hợp lệ gồm đủ 4 chuỗi Parakeet + 2 chuỗi READ-UI-121;
     đổi ID như trên; lịch sử PR #135 rút gọn thành 1 commit tuyến tính.
     Chờ CI xanh trên head mới.
+
+### PLAN-045 — I4U - Audit v1.21.0: 8 phản hồi nghiệm thu sau release 1.21.0
+- Nguồn: người sở hữu (2026-11-06, qua agent `arena/4e91ed51-in4up`).
+- Định danh: bản thảo trên nhánh `arena/4e91ed51-in4up` mang số **PLAN-043**;
+  khi mở PR, tip `arena/01a0251e-in4up` (`b2ee8a4`) ĐÃ có PLAN-043 (Worklist đa
+  ngữ) và PLAN-044 (READ-UI-121) ⇒ đổi thành **PLAN-045** để tránh trùng ID.
+  Chỉ đổi số, không đổi nội dung/phạm vi (theo đúng cách xử lý của PLAN-044).
+- Trạng thái: doing — code + 8 file test thuần + KANBAN/docs + **CI 42135090013 🟢** đã có; **chờ nghiệm thu máy/`adb logcat`**.
+- Milestone đề xuất: M2 (ổn định sau release 1.21.0), card `AUDIT-1.21.0-01`.
+- Chi tiết: [`AUDIT_1_21_0.md`](AUDIT_1_21_0.md).
+  - Cụm overlay/đọc: #1 khung dịch nhiều khối, #4 PDF «Gần đây» stale path, #5 pop từ vựng 4 mức độ khó.
+  - Cụm model/offline (giữ chung, KHÔNG tách): #2 TTS sherpa văng app + #7 Parakeet/sherpa chưa nạp model vẫn chọn được.
+  - Cụm dịch: #6 link-only output + endpoint DeepLX dán nhầm link bài hướng dẫn.
+  - Cụm live/nghe: #3 Cabin đang dịch mà nói thêm ⇒ 2 dòng trùng; #8 popup A-B thiếu chỉnh số lần lặp + trùng `∞`.
+  - Quyết định của owner giữ nguyên: #2/#7 cần `adb logcat`; #3 cần AI ngữ cảnh Cabin recheck; #5 chỉ `WordMiniPop` trong tab Đọc; #8 chỉ để 1 `∞`; #6 xử lý cả hai khả năng (link-only + bad endpoint), không đoán nguyên nhân duy nhất.
+- Không làm: mở rộng #5 sang `WordlistBubble`/review/knowledge graph; tự nhận "đã fix" crash native khi chưa có log thiết bị; regenerate toàn bộ catalog i18n (generator legacy đỏ sẵn — `I18N-001`).
+- Lịch sử:
+  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + test thuần + KANBAN `AUDIT-1.21.0-01` + `docs/project/AUDIT_1_21_0.md`.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | CI `app_analyze.yml` run **42133600485 🟢** (analyze 0 error, rule #5, 8 file test mới; 3 vòng đỏ đã sửa compile/test); vẫn chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo (DeepLX query token, setter A-B, deduper Cabin): 1 lỗi mất câu sửa + 7 test/pin mới; CI **42135090013 🟢**. Chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢, chưa merge). Chờ logcat/QA máy.

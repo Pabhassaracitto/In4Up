@@ -11,6 +11,8 @@ import 'package:provider/provider.dart';
 import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
+import '../../../features/pdf_reader/services/pdf_open_preflight.dart';
+import '../../../features/pdf_reader/widgets/pdf_open_messages.dart';
 import '../../../models/text_device_entry.dart';
 import '../../../providers/text_device_provider.dart';
 import '../../../providers/text_provider.dart';
@@ -220,6 +222,17 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       // ── PDF ────────────────────────────────────────────────
       case RecentFileType.localPdf:
         if (file.localPath == null) return;
+        // AUDIT-1.21.0 #4: danh sách "Gần đây" lưu path cache của
+        // file_picker — Android dọn cache/user xoá file ⇒ pdfrx ném
+        // `PdfException ... FPDF_ER_FILE:2`. Kiểm tra TRƯỚC khi push viewer.
+        final check = inspectPdfForOpen(file.localPath!);
+        if (!check.canOpen) {
+          _showOpenError(pdfOpenIssueMessage(context, check.issue));
+          // Gỡ mục chết để user không bấm lại vào cùng lỗi mãi.
+          await _service.remove(file.id);
+          if (mounted) await _load();
+          return;
+        }
         await _service.addOrUpdate(
           file.copyWith(lastOpened: DateTime.now()),
         );

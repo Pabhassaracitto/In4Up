@@ -20,6 +20,9 @@ import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:in4up_stt/diarization/speaker_sidecar.dart';
 // PARAKEET-002 — chip "Offline (sherpa)" cần danh sách model offline đã cài.
 import 'package:in4up_stt/sherpa_model_manager.dart';
+import 'package:in4up_stt/stt_engine_sherpa.dart' show SherpaModelPaths;
+// AUDIT-1.21.0 #7 — preflight model offline trước khi cho «Tạo lời thoại».
+import '../../services/offline_model_gate.dart';
 import 'package:in4up_stt/models/content_id.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
@@ -36,6 +39,7 @@ import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../utils/safe_set_state.dart';
 import '../../widgets/ab_loop_controls.dart';
+import '../../widgets/loop_count_chips.dart';
 import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
@@ -2052,6 +2056,17 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
       children: [
         const ABLoopControls(compact: true),
         const SizedBox(height: 8),
+        // AUDIT-1.21.0 #8: nút chỉnh số lần lặp NGAY trên popup A-B bên
+        // ngoài (không phải vào sheet "Thêm" mới thấy). `safeDropdownValue`
+        // gom -1 → 0 nên chỉ có ĐÚNG MỘT chip `∞`.
+        Consumer<PlayerProvider>(
+          builder: (context, player, _) => LoopCountChips(
+            maxLoopCount: player.maxLoopCount,
+            onChanged: player.setMaxLoopCount,
+            dense: true,
+          ),
+        ),
+        const SizedBox(height: 8),
         GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
@@ -3072,7 +3087,15 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
       debugPrint('⚠️ _LrcModelSelector: quét model ASR lỗi: $e');
     });
     _asrSub = manager.watchAsr().listen((_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {
+        // AUDIT-1.21.0 #7: model bị gỡ / import hỏng ⇒ tự tắt chip offline
+        // thay vì để chip sáng rồi crash lúc bấm «Tạo lời thoại».
+        if (_useSherpa && _sherpaLanguages().isEmpty) {
+          _useSherpa = false;
+          _language = 'auto';
+        }
+      });
     });
   }
 
@@ -3082,17 +3105,86 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
     super.dispose();
   }
 
-  /// Ngôn ngữ của các model sherpa offline đã cài — chỉ những ngôn ngữ này
-  /// Parakeet/Zipformer nhận được (khác danh sách Whisper ở `_lrcSttLanguages`).
+  /// AUDIT-1.21.0 #7 — preflight THẬT của một profile ASR: manager chỉ cần
+  /// file `.onnx` > 1000 byte, nên bản import dở vẫn được coi là "đã cài".
+  /// Đọc kích thước 4 file trước khi cho chip sáng / cho chạy native.
+  OfflineModelVerdict _sherpaVerdict(String profileId) {
+    final profile = AsrModelRouter.profileById(profileId);
+    if (profile == null) {
+      return const OfflineModelVerdict(OfflineModelIssue.unsupportedLanguage);
+    }
+    final manager = SherpaModelManager();
+    final installed = manager.isAsrProfileInstalled(profileId);
+    var filesPlausible = false;
+    if (installed) {
+      try {
+        final SherpaModelPaths? paths = manager.getAsrModelPaths(profileId);
+        if (paths != null) {
+          filesPlausible = asrFilesPlausible(
+            encoderBytes: File(paths.encoder).lengthSync(),
+            decoderBytes: File(paths.decoder).lengthSync(),
+            joinerBytes: File(paths.joiner).lengthSync(),
+            tokensBytes: File(paths.tokens).lengthSync(),
+          );
+        }
+      } catch (_) {
+        // Không đọc được file ⇒ coi là chưa sẵn sàng, TUYỆT ĐỐI không đẩy
+        // path hỏng xuống sherpa-onnx (SIGSEGV ở C++ không catch được).
+        filesPlausible = false;
+      }
+    }
+    return assessOfflineModel(
+      installed: installed,
+      filesPlausible: filesPlausible,
+      isStreaming: profile.isStreaming,
+      needsOffline: true, // transcribe FILE ⇒ OfflineRecognizer
+    );
+  }
+
+  /// Ngôn ngữ của các model sherpa offline **dùng được** — khác danh sách
+  /// Whisper ở `_lrcSttLanguages`. Model streaming và model import dở bị loại.
   List<String> _sherpaLanguages() =>
       AsrModelRouter.installedLanguages(
-        isInstalled: (profileId) {
-          final profile = AsrModelRouter.profileById(profileId);
-          // Model streaming không dùng được cho file (SHERPA-STREAM-001).
-          if (profile == null || profile.isStreaming) return false;
-          return SherpaModelManager().isAsrProfileInstalled(profileId);
-        },
+        isInstalled: (profileId) => _sherpaVerdict(profileId).canUse,
       );
+
+  /// Chặn «Tạo lời thoại» khi chip offline đang bật nhưng model đã biến mất
+  /// (user xoá file, đổi quyền, hoặc model vừa bị dọn giữa lúc mở sheet).
+  String? _sherpaBlockMessage(BuildContext context) {
+    if (!_useSherpa) return null;
+    final languages = _sherpaLanguages();
+    if (!languages.contains(_language)) {
+      return context.uiText(
+        'Chưa có model nhận diện offline — hãy tải hoặc import Parakeet / Zipformer VI trong Quản lý Model AI.',
+      );
+    }
+    final profile = AsrModelRouter.profileForLanguage(_language);
+    if (profile != null) {
+      final verdict = _sherpaVerdict(profile.id);
+      if (!verdict.canUse && verdict.issue == OfflineModelIssue.incompleteFiles) {
+        return context.uiText(
+          'Chưa có engine nhận diện giọng nói sẵn sàng. Import model Sherpa trong Quản lý Model AI, hoặc kiểm tra dịch vụ nhận diện giọng nói của hệ thống.',
+        );
+      }
+    }
+    return null;
+  }
+
+  void _generateLrc() {
+    final block = _sherpaBlockMessage(context);
+    if (block != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(block), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    widget.onGenerate(
+      _useSherpa ? null : _selectedLevel,
+      _grouping,
+      _language,
+      _useSherpa,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3275,12 +3367,8 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
           )
         else if (_advanced)
           ElevatedButton.icon(
-            onPressed: () => widget.onGenerate(
-              _useSherpa ? null : _selectedLevel,
-              _grouping,
-              _language,
-              _useSherpa,
-            ),
+            // AUDIT-1.21.0 #7: preflight model TRƯỚC khi xuống native.
+            onPressed: _generateLrc,
             icon: const Icon(Icons.subtitles_outlined),
             label: Text(
               context.uiText(_useSherpa

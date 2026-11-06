@@ -8,6 +8,7 @@ import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/tts/tts_service.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
 import 'package:in4up/features/cabin/services/cabin_asr_plan.dart';
+import 'package:in4up/features/cabin/services/cabin_finalization_dedup.dart';
 import 'package:in4up/features/cabin/models/cabin_session.dart';
 import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
 import 'package:in4up/features/cabin/services/cabin_session_settings.dart';
@@ -70,6 +71,10 @@ class SttsCabinService extends ChangeNotifier {
   CabinCaption? _activeCaption;
   final List<CabinCaption> _history = [];
   String _lastFinalizedText = '';
+
+  /// AUDIT-1.21.0 #3: chống 2 dòng trùng khi đang dịch mà nói thêm — thay
+  /// cho cửa sổ 3s của `_lastFinalizedText` (xem cabin_finalization_dedup.dart).
+  final CabinFinalizationDeduper _deduper = CabinFinalizationDeduper();
   final List<Future<void>> _pendingFinalizations = [];
 
   final _captionStreamController = StreamController<CabinCaption>.broadcast();
@@ -256,6 +261,7 @@ class SttsCabinService extends ChangeNotifier {
 
     _lastError = null;
     _lastFinalizedText = '';
+    _deduper.reset(); // phiên mới: không mang vân tay câu của phiên cũ.
 
     // 1. Check microphone permission
     try {
@@ -558,6 +564,7 @@ class SttsCabinService extends ChangeNotifier {
     _stopKeepAlive();
     _consecutiveStartFails = 0;
     _lastFinalizedText = '';
+    _deduper.reset();
     // Keep the STT listener alive until stopListening flushes the current
     // Sherpa VAD / streaming endpoint. Cancelling it first silently discarded
     // the last in-progress sentence whenever the user stopped Cabin mid-pause.
@@ -704,6 +711,7 @@ class SttsCabinService extends ChangeNotifier {
     _history.clear();
     _activeCaption = null;
     _lastFinalizedText = '';
+    _deduper.reset();
     notifyListeners();
   }
 
@@ -736,9 +744,12 @@ class SttsCabinService extends ChangeNotifier {
     final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
-    // Dedup: engine vừa callback lại đúng câu đã chốt (bản partial lặp lại
-    // sau final) — bỏ qua để không sinh caption/dòng LRC trùng.
-    if (rawText == _lastFinalizedText) {
+    // AUDIT-1.21.0 #3 — dedup: engine vừa callback lại đúng câu đã chốt
+    // (bản partial lặp sau final) HOẶC câu đó đang được dịch (in-flight) —
+    // bỏ qua để không sinh caption/dòng LRC/journal trùng. Trước đây chỉ có
+    // `_lastFinalizedText` bị xoá sau 3s, trong khi dịch LLM/offline có thể
+    // lâu hơn ⇒ đúng cửa sổ sinh "2 dòng trùng" khi user nói thêm.
+    if (!_deduper.shouldFinalize(rawText)) {
       return;
     }
 
@@ -791,7 +802,7 @@ class SttsCabinService extends ChangeNotifier {
     final text = active.sourceText.trim();
     if (text.isEmpty) return;
     if (active.isFinal) return; // đã đi qua đường final bình thường
-    if (text == _lastFinalizedText) return;
+    if (!_deduper.shouldFinalize(text)) return;
     debugPrint('🧹 Cabin: chốt nốt câu đang nhận trước khi đóng phiên '
         '(${text.length} ký tự)');
     _trackFinalization(text);
@@ -811,7 +822,21 @@ class SttsCabinService extends ChangeNotifier {
   }
 
   void _trackFinalization(String text) {
-    final future = _finalizeCurrentChunk(text);
+    // AUDIT-1.21.0 #3: chốt DUY NHẤT một lần cho mỗi câu, kể cả khi engine
+    // phát lại `isFinal` lúc bản dịch (async) vẫn đang chạy. `begin()` phải
+    // chạy TRƯỚC mọi await, `complete()` chạy ở mọi nhánh (kể cả lỗi dịch).
+    if (!_deduper.shouldFinalize(text)) {
+      debugPrint('⏭️ Cabin: bỏ qua finalization trùng "${text.trim()}"');
+      return;
+    }
+    _deduper.begin(text);
+    final outcome = CabinFinalizationOutcome();
+    final future = _finalizeCurrentChunk(text, outcome: outcome).whenComplete(
+      // AUDIT-1.21.0 #3 (recheck): nếu `_finalizeCurrentChunk` return sớm
+      // (vd đang `speaking`) thì KHÔNG có caption nào ⇒ chỉ cancel, không
+      // `complete()`, kẻo câu bị nhớ 8s rồi replay final bị nuốt ⇒ mất câu.
+      () => _deduper.finish(text, createdCaption: outcome.createdCaption),
+    );
     _pendingFinalizations.add(future);
     future.then<void>(
       (_) {
@@ -824,12 +849,17 @@ class SttsCabinService extends ChangeNotifier {
     );
   }
 
-  Future<void> _finalizeCurrentChunk(String text) async {
+  Future<void> _finalizeCurrentChunk(
+    String text, {
+    CabinFinalizationOutcome? outcome,
+  }) async {
     _silenceTimer?.cancel();
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     if (_state == CabinState.speaking) return;
-    if (trimmed == _lastFinalizedText) return;
+    // AUDIT-1.21.0 #3: KHÔNG dùng `_lastFinalizedText` để chặn ở đây nữa
+    // (nó không bao giờ được xoá trong phiên ⇒ nói lại cùng câu sau 8s sẽ bị
+    // nuốt). `_deduper` đã chốt ở `_trackFinalization` trước khi vào hàm.
     _lastFinalizedText = trimmed;
 
     final recorder = _recorder;
@@ -886,6 +916,9 @@ class SttsCabinService extends ChangeNotifier {
       _activeCaption = finalizedCaption;
     }
     _history.add(finalizedCaption);
+    // AUDIT-1.21.0 #3: điểm "không thể quay lại" — caption ĐÃ được tạo, nên
+    // `finish()` mới được phép `complete()` (nhớ 8s để chống replay final).
+    outcome?.createdCaption = true;
     _captionStreamController.add(finalizedCaption);
 
     // CABIN-SAVE-001: ghi câu đã chốt vào journal phiên (ghi đĩa ngay).
@@ -918,12 +951,11 @@ class SttsCabinService extends ChangeNotifier {
         await _tryStartSystemEngine();
       }
     }
-    // Keep _lastFinalizedText populated for deduplication against immediate duplicate callbacks
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_lastFinalizedText == trimmed) {
-        _lastFinalizedText = '';
-      }
-    });
+    // AUDIT-1.21.0 #3: KHÔNG còn `Future.delayed(3s)` xoá
+    // `_lastFinalizedText`. Chính delayed đó tắt cửa sổ chống trùng khi bản
+    // dịch chậm > 3s ⇒ engine replay final tạo dòng thứ 2. Cửa sổ giờ do
+    // `_deduper` quản lý (in-flight + 8s), `whenComplete` ở `_trackFinalization`
+    // bảo đảm luôn đóng đúng lúc, kể cả khi dịch lỗi.
     notifyListeners();
   }
 

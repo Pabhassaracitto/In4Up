@@ -29,6 +29,7 @@ import 'pdf_reader_controller.dart';
 import 'services/pdf_batch_ocr.dart';
 import 'services/pdf_file_identity.dart';
 import 'services/pdf_geometry.dart';
+import 'services/pdf_open_preflight.dart';
 import 'services/pdf_outline_index.dart';
 import 'services/pdf_reader_theme.dart';
 import 'services/pdf_search_query.dart';
@@ -49,6 +50,7 @@ import 'widgets/pdf_toolbar.dart';
 import 'widgets/pdf_tts_bar.dart';
 import 'widgets/pdf_word_overlay.dart';
 import 'widgets/pdf_word_tap_sheet.dart';
+import 'widgets/pdf_open_messages.dart';
 import 'widgets/pdf_wordlist_panel.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../../widgets/ipa_source_chip.dart';
@@ -81,6 +83,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   bool _showWordlistPanel = false;
   bool _chromeVisible = true;
 
+  /// AUDIT-1.21.0 #4: preflight file TRƯỚC khi `PdfViewer.file` chạm PDFium.
+  /// Che MỌI cửa vào PDF Reader (Gần đây, quick sheet, Thiết bị, empty state).
+  PdfOpenIssue? _preflightIssue;
+
   // ── Wave 1: mục lục + tìm kiếm trong file ─────────────────
   List<PdfOutlineEntry> _outlineEntries = const [];
   bool _outlineLoading = true;
@@ -97,6 +103,8 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   @override
   void initState() {
     super.initState();
+    final check = inspectPdfForOpen(widget.pdfPath);
+    _preflightIssue = check.canOpen ? null : check.issue;
     _controller = PdfReaderController(pdfPath: widget.pdfPath);
     _controller.addListener(_onControllerUpdate);
 
@@ -697,8 +705,15 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
   }
 
   Widget _buildPdfMode() {
-    if (_controller.errorMessage != null) {
-      return _buildError(_controller.errorMessage!);
+    // AUDIT-1.21.0 #4: file mất/hỏng ⇒ nói rõ, KHÔNG dựng viewer để PDFium
+    // ném `FPDF_ER_FILE:2` (màn đỏ / văng app khi mở từ «Gần đây»).
+    final issue = _preflightIssue;
+    if (issue != null && issue != PdfOpenIssue.none) {
+      return _buildError(pdfOpenIssueMessage(context, issue));
+    }
+    final error = _controller.errorMessage;
+    if (error != null) {
+      return _buildError(pdfFriendlyError(context, error));
     }
 
     return PdfViewer.file(

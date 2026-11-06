@@ -953,6 +953,43 @@ jobs:
           path: shell_order_test.log
           if-no-files-found: ignore
 
+      # AUDIT-1.21.0-01 (owner 2026-11-06) — test THUẦN của đợt audit.
+      # 2 file nằm trong test/screen_translate/ + test/cabin/ đã được 2 step cũ
+      # chạy; 6 file còn lại nối riêng để link guard / endpoint / PDF preflight /
+      # offline gate / loop presets / source-scan pin thực sự được CI chạy.
+      - name: "AUDIT-1.21.0 — 6 file pure test + source-scan wiring pins"
+        id: audit-1210-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files="test/audit_1_21_0_wiring_test.dart \
+            test/translation/translation_link_guard_test.dart \
+            test/translation/deeplx_endpoint_audit_test.dart \
+            test/pdf_reader/pdf_open_preflight_test.dart \
+            test/services/offline_model_gate_test.dart \
+            test/models/loop_presets_audit_test.dart"
+          flutter test $files -r expanded > audit_1210_test.log 2>&1
+          code=$?
+          cat audit_1210_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              audit_1210_test.log > audit_1210_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              audit_1210_clean.log | head -200 | while IFS= read -r line; do
+              echo "::error title=AUDIT-1.21.0 test fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload AUDIT-1.21.0 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-audit-1-21-0-test-log
+          path: audit_1210_test.log
+          if-no-files-found: ignore
+
       # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
       # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
       # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân

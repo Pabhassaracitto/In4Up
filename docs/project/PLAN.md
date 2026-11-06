@@ -1431,8 +1431,8 @@ Package: `video_player: ^2.8.0` (Flutter official)
 
 ### PLAN-046 — Hợp nhất Venn ba kỹ năng và view sáu kỹ năng an toàn
 - **Nguồn:** người dùng (2026-11-06), chấp thuận tích hợp nhánh 251e.
-- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; CI baseline xanh,
-  follow-up đang chờ CI, review và nghiệm thu thiết bị. View chỉ đọc; output chưa nối.
+- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; CI xanh,
+  chờ review và nghiệm thu thiết bị. View chỉ đọc; output chưa nối.
 - **Milestone đề xuất:** M2 — công cụ từ vựng và nền Knowledge.
 - **Ranh giới:** giữ ba lịch SM-2, lấy điểm legacy trực tiếp, không giả lập
   EMA hoặc output; feature flag có thể tắt, không tự deploy web khi thử.
@@ -1441,3 +1441,4 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-06 | proposed→doing | agent `arena/075510c6-in4up` | merge, sửa compile/test, thiết kế projection + view theo ADR-0025; chờ xác minh CI.
   - 2026-11-06 | doing | agent `arena/075510c6-in4up` | baseline `0f0112e` [CI 42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh; Knowledge 281 pass/2 skip, tools 21 pass, analyze/regression + web rút gọn pass không deploy. Review, nghiệm thu thiết bị, persistence output chưa xong; follow-up đang chờ CI.
   - 2026-11-07 | doing | agent `arena/075510c6-in4up` | [CI 42299611378](https://github.com/Pabhassaracitto/In4Up/actions/runs/42299611378) phát hiện tràn layout ở 320×640/Hindi 1.25×; sửa cho nhãn xuống dòng, chờ CI xác nhận.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | `ec95a2c` [CI 42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) xanh 4/4, tools 24 pass, Knowledge 281 pass/2 skip, web rút gọn build không deploy. Chờ review độc lập, thiết bị thật và thiết kế lưu output.

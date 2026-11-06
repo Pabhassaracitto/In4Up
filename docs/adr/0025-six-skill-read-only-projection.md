@@ -1,7 +1,7 @@
 # ADR-0025 — Gắn chế độ xem sáu kỹ năng mà không chuyển đổi lịch sử
 
 - **Ngày:** 2026-11-06
-- **Trạng thái:** đề xuất trên `arena/075510c6-in4up`; chờ CI, review độc lập và nghiệm thu thiết bị.
+- **Trạng thái:** đề xuất trên `arena/075510c6-in4up`; [CI 42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) xanh trên `ec95a2c`, chờ review độc lập và nghiệm thu thiết bị.
 - **Phạm vi:** giao diện Venn và bộ đọc dữ liệu trực quan hóa, không phải hệ thống đánh giá sáu kỹ năng hoàn chỉnh.
 
 ## Bối cảnh

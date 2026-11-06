@@ -8,7 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
-| VOCAB-MASTERY-001 | Hợp nhất Knowledge + giữ Venn, view sáu kỹ năng an toàn | 🔨 doing (CI baseline xanh; review/thiết bị và output còn chờ) | ADR-0025, [run 42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) trên `0f0112e` |
+| VOCAB-MASTERY-001 | Hợp nhất Knowledge + giữ Venn, view sáu kỹ năng an toàn | 🔨 doing (CI xanh; review/thiết bị và output còn chờ) | ADR-0025, [run 42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) trên `ec95a2c` |
 | READ-UI-121 | Tab Đọc: khôi phục 5 nút cũ + tự cuộn theo dòng đọc + ABC→IPA | 🔨 doing (code + ADR-0024 + test pin; chờ CI + nghiệm thu máy 360×640) | [ADR-0024](../adr/0024-doc-tab-khoi-phuc-thanh-cong-cu-va-tu-cuon.md), PLAN-044, rebase 251e `95f9e2f` |
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
@@ -8951,8 +8951,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 
 ### VOCAB-MASTERY-001 — Hợp nhất Knowledge, Venn và chế độ xem sáu kỹ năng
-- **Trạng thái:** 🔨 doing — CI baseline `0f0112e` xanh; đang kiểm follow-up,
-  chờ review độc lập và nghiệm thu iPhone/loa; đánh giá/lưu output chưa nối.
+- **Trạng thái:** 🔨 doing — CI `ec95a2c` xanh; chờ review độc lập và
+  nghiệm thu iPhone/loa; đánh giá/lưu output chưa nối.
 - **Nguồn:** người dùng đồng ý hợp nhất 251e vào nhánh hiện tại, giữ Venn ba
   kỹ năng và thêm chế độ sáu kỹ năng có thể tắt; không tự deploy khi thử.
 - **Phạm vi:** ADR-0025; adapter đọc ba điểm legacy theo `WordEntry`, không
@@ -8966,3 +8966,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-06 | 2026-11-06 18:38 UTC | proposed→doing | agent `arena/075510c6-in4up` | merge `541591a`, chặn deploy `106ae9f`, sửa lỗi và bật Knowledge CI `019a63e`/`1f5b51e`; lần kiểm thử tiếp theo đang chờ.
   - 2026-11-06 | doing | agent `arena/075510c6-in4up` | `0f0112e`: CI [42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh 4/4 job: Knowledge 281 pass, 2 isolate skip; tools 21 pass; analyze/wide regression pass; build `main_web.dart` pass không deploy (web rút gọn không chứa kho từ, cảnh báo Wasm từ flutter_tts). Chưa thay thế review hoặc thử iPhone/loa thật. Follow-up làm rõ trung bình scatter, kiểm lỗi lưu và màn hình hẹp; CI follow-up đang chờ.
   - 2026-11-07 | doing | agent `arena/075510c6-in4up` | follow-up [42299611378](https://github.com/Pabhassaracitto/In4Up/actions/runs/42299611378) phát hiện tràn 17px khi giả lập 320×640, chữ Hindi 1.25×; điều chỉnh layout cho nhãn/điểm xuống dòng, đang xác minh lại CI.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | `ec95a2c` CI [42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) xanh 4/4 job; tools 24 pass (có giả lập 320×640/Hindi và lỗi lưu), Knowledge 281 pass/2 skip; analyze/regression + web rút gọn build pass không deploy. Chưa có review độc lập, nghiệm thu iPhone/loa hay lưu output.

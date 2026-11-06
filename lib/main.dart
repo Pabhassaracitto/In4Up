@@ -10,6 +10,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:in4up/screens/memory_mode/controllers/memory_controller.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/features/media_tools/services/ffmpeg_runtime_bootstrap.dart';
 import 'package:in4up/services/storage_service.dart';
 import 'package:in4up/services/read_chrome_layout_store.dart';
 import 'package:in4up_ai/in4up_ai.dart';
@@ -124,6 +125,10 @@ Future<void> main(List<String> args) async {
   // Khởi tạo StorageService quản lý Hive
   final storage = StorageService();
   await storage.initialize();
+
+  // AVTOOL-002 (PLAN-046 P1) — nối FFmpeg tải về (nếu có) vào đường tìm
+  // binary. Không await phần dò (chỉ stat file): khởi động không bị chậm.
+  unawaited(FfmpegRuntimeBootstrap.init());
 
   // Mở box chứa hàng đợi các tác vụ đồng bộ dở dang khi mất mạng
   if (!Hive.isBoxOpen('vocab_sync_pending')) {

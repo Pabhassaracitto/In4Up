@@ -102,11 +102,14 @@ class FfmpegRuntimeInstaller {
   Future<String?> installedExecutable() async {
     final dir = await installDirectory();
     final exe = Platform.isWindows ? 'ffmpeg.exe' : 'ffmpeg';
-    final candidates = [
-      File(p.join(dir.path, exe)),
-      for (final sub in await dir.list().where((e) => e is Directory))
-        File(p.join(sub.path, 'bin', exe)),
-    ];
+    // `Directory.list()` tra STREAM ⇒ phai `await for` (hoac `.toList()`),
+    // khong dung duoc trong collection-for.
+    final candidates = <File>[File(p.join(dir.path, exe))];
+    await for (final entity in dir.list()) {
+      if (entity is Directory) {
+        candidates.add(File(p.join(entity.path, 'bin', exe)));
+      }
+    }
     for (final file in candidates) {
       if (!await file.exists()) continue;
       try {

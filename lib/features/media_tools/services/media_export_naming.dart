@@ -42,7 +42,8 @@ class MediaExportNaming {
     final startPart = _clock(start);
     if (duration == null) return '$base [$startPart]';
     final end = start + duration;
-    return '$base [$startPart-$(_clock(end))]';
+    final endPart = _clock(end);
+    return '$base [$startPart-$endPart]';
   }
 
   /// Tên cho từng chặng khi tách theo chương.

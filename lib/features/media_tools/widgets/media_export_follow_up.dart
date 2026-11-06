@@ -13,12 +13,8 @@
 import 'dart:io';
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/material.dart' show AlertDialog, BorderRadius,
-    BoxDecoration, BuildContext, Colors, Column, Container, CrossAxisAlignment,
-    EdgeInsets, FilledButton, FontWeight, Icon, IconData, Icons, ListTile,
-    MainAxisAlignment, MainAxisSize, Navigator, Padding, Row, RoundedRectangleBorder,
-    SizedBox, Text, TextButton, TextOverflow, TextStyle, VoidCallback, Widget,
-    showDialog;
+// KHÔNG `show Text` từ material — xem ghi chú ở `media_tools_screen.dart`.
+import 'package:flutter/material.dart' hide Text;
 import 'package:share_plus/share_plus.dart';
 
 import '../models/media_export_models.dart';

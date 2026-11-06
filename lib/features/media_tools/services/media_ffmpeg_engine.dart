@@ -12,6 +12,7 @@
 // Điểm quan trọng: `isAvailable()` phải TRẢ FALSE thay vì ném lỗi khi desktop
 // thiếu ffmpeg — UI hiện hướng dẫn thay vì màn hình lỗi.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';

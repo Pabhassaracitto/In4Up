@@ -9,10 +9,12 @@
 import 'dart:io';
 
 import 'package:in4up/core/language/localized_material.dart';
+// `show Text` từ material sẽ che shim `Text` của `localized_material.dart`
+// (luật #5) ⇒ đã bỏ `Text` khỏi danh sách show.
 import 'package:flutter/material.dart' show AlertDialog, BorderRadius,
     BoxDecoration, BuildContext, Colors, Column, Container, CrossAxisAlignment,
     EdgeInsets, FilledButton, FontWeight, Icon, Icons, LinearProgressIndicator,
-    MainAxisSize, Navigator, Row, RoundedRectangleBorder, SizedBox, Text,
+    MainAxisSize, Navigator, Row, RoundedRectangleBorder, SizedBox,
     TextButton, TextStyle, Widget, showDialog, showModalBottomSheet;
 import 'package:in4up_stt/utils/src/ffmpeg_runner.dart';
 

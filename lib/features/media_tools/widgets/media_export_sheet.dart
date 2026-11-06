@@ -16,6 +16,8 @@
 import 'dart:io';
 
 import 'package:in4up/core/language/localized_material.dart';
+// `hide Text`: shim `Text` của `localized_material.dart` là thứ dịch chuỗi
+// (luật #5). `show Text` từ material sẽ che shim ⇒ chuỗi không bao giờ dịch.
 import 'package:flutter/material.dart' show Icons, BorderRadius, BoxDecoration,
     Colors, EdgeInsets, FontWeight, LinearProgressIndicator, LinearGradient,
     Radius, SizedBox, TextStyle, CrossAxisAlignment, MainAxisAlignment,

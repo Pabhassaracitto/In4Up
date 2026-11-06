@@ -9,7 +9,9 @@
 // setter khác nhau ⇒ lệch trạng thái).
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/material.dart' show BuildContext, Duration;
+// `show Text` từ material sẽ che shim `Text` của `localized_material.dart`
+// (luật #5) ⇒ đã bỏ `Text` khỏi danh sách show.
+import 'package:flutter/material.dart' show BuildContext;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 

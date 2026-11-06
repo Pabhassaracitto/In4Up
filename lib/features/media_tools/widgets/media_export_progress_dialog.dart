@@ -9,11 +9,13 @@
 //   3. Không giữ BuildContext sau await (dùng `if (!mounted) return`).
 
 import 'package:in4up/core/language/localized_material.dart';
+// `show Text` từ material sẽ che shim `Text` của `localized_material.dart`
+// (luật #5) ⇒ đã bỏ `Text` khỏi danh sách show.
 import 'package:flutter/material.dart' show AlertDialog, BorderRadius,
     BoxDecoration, Colors, EdgeInsets, FontWeight, LinearProgressIndicator,
     SizedBox, TextStyle, RoundedRectangleBorder, TextButton, Icon, Icons,
     CrossAxisAlignment, MainAxisSize, MainAxisAlignment, Widget, ExpansionTile,
-    PopScope, Container, Text;
+    PopScope, Container;
 
 import 'package:in4up_stt/utils/src/ffmpeg_runner.dart';
 

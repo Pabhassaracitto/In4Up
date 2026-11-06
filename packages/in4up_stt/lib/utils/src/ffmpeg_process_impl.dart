@@ -12,6 +12,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -98,12 +99,9 @@ Future<FfmpegRunResult> runFfmpegProcessWithProgress(
 
   Process process;
   try {
-    process = await Process.start(
-      binary,
-      args,
-      stdoutEncoding: systemEncoding,
-      stderrEncoding: systemEncoding,
-    );
+    // `Process.start` KHONG co tham so `stdoutEncoding` (chi `Process.run` moi
+    // co). Encoding duoc chon o buoc listen ben duoi.
+    process = await Process.start(binary, args);
   } on ProcessException catch (e) {
     throw _ffmpegNotFoundError(binary, originalError: e);
   }
@@ -138,8 +136,15 @@ Future<FfmpegRunResult> runFfmpegProcessWithProgress(
     }
   }
 
-  process.stdout.listen(consume);
-  process.stderr.listen(consume);
+  // Desktop: log FFmpeg la UTF-8 (Windows console co the la CP1258 nhung ten
+  // file nguoi dung van la UTF-8 khi di qua argv) ⇒ decode utf8, sai byte thi
+  // thay bang U+FFFD, KHONG nem loi lam mat tien trinh.
+  process.stdout
+      .transform(const Utf8Decoder(allowMalformed: true))
+      .listen(consume);
+  process.stderr
+      .transform(const Utf8Decoder(allowMalformed: true))
+      .listen(consume);
 
   final exitCode = await process.exitCode;
   if (pending.isNotEmpty) handleLine(pending);

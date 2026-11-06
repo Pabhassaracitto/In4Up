@@ -53,6 +53,10 @@ abstract class MediaExportHost {
   /// `AudioImportService.ensurePersistent` (tự dedupe theo nội dung) rồi mới
   /// chạm tới `adopt`. Tách ra để test bơm được host giả mà không dựng
   /// `AudioImportService` (đòi `path_provider` + kênh native).
+  Future<String> adoptPath({
+    required String tempPath,
+    required String fileName,
+  });
 
   /// Đăng ký "Gần đây" của tab Nghe.
   Future<void> addRecent(RecentAudio audio);
@@ -417,7 +421,7 @@ class MediaExportService {
     );
     final partPath = finalPath.replaceFirst(
       RegExp(r'\.([A-Za-z0-9]+)$'),
-      '.part.$1',
+      r'.part.$1',
     );
 
     final args = MediaCommandBuilder.trimAudio(

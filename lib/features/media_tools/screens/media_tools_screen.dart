@@ -14,12 +14,9 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/material.dart' show BorderRadius, BuildContext, Card,
-    Colors, Column, CrossAxisAlignment, EdgeInsets, Color,
-    ElevatedButton, FontWeight, Icon, Icons, ListTile, OutlinedButton, Row,
-    SafeArea, Scaffold, SingleChildScrollView, SizedBox, Text, TextStyle,
-    Widget, CircularProgressIndicator, Wrap, Divider, TextOverflow, AppBar,
-    IconButton, kToolbarHeight, Padding;
+// KHÔNG `show Text` từ material: shim `Text` của `localized_material.dart` là
+// thứ dịch chuỗi (luật #5). `show Text` ở đây sẽ che shim ⇒ chuỗi không dịch.
+import 'package:flutter/material.dart' hide Text;
 
 import '../models/media_export_models.dart';
 import '../services/media_export_diagnostics.dart';

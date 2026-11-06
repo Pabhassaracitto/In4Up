@@ -22,6 +22,9 @@ on:
       # việc bấm "Run workflow" thủ công). Build lỗi ⇒ KHÔNG publish ⇒
       # Pages giữ nguyên bản tốt gần nhất.
       - 'arena/**'
+      # Private integration/validation: do not publish or cancel another
+      # Pages deployment while testing the six-axis vocabulary changes.
+      - '!arena/075510c6-in4up'
   workflow_dispatch:
 
 permissions:

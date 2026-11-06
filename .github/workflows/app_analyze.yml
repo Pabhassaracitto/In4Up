@@ -701,6 +701,7 @@ jobs:
           set +e
           files=""
           for f in test/wordlist_read_sequence_test.dart \
+                   test/word_import_parser_test.dart \
                    test/vocab_bulk_ai_test.dart \
                    test/vocab_image_normalize_test.dart \
                    test/concept_phase_a_test.dart \

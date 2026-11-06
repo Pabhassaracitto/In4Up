@@ -347,6 +347,15 @@ class StorageService {
         false;
   }
 
+  /// Feature flag hexagon_v1 — bật/tắt view mastery hexagram (P3, ADR-0020 §3).
+  Future<void> saveHexagonV1Flag(bool value) async {
+    await saveSetting('hexagon_v1', value);
+  }
+
+  bool getHexagonV1Flag() {
+    return getSetting<bool>('hexagon_v1', defaultValue: false) ?? false;
+  }
+
   Future<void> saveShellRememberLastSubMode(bool value) async {
     await saveSetting('shell_remember_last_sub_mode', value);
   }

@@ -366,7 +366,7 @@ class MemoryLifecycleEngine {
         unit.stage != MemoryStage.maintained) {
       return;
     }
-    final allLong = SkillDimension.values
+    final allLong = inputDimensions
         .every((d) => state.skill(d).interval > kMaintainedIntervalDays);
     if (allLong && unit.stage == MemoryStage.practicing) {
       _transition(unitId, MemoryStage.maintained,

@@ -1440,3 +1440,4 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-06 | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận hợp nhất an toàn.
   - 2026-11-06 | proposed→doing | agent `arena/075510c6-in4up` | merge, sửa compile/test, thiết kế projection + view theo ADR-0025; chờ xác minh CI.
   - 2026-11-06 | doing | agent `arena/075510c6-in4up` | baseline `0f0112e` [CI 42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh; Knowledge 281 pass/2 skip, tools 21 pass, analyze/regression + web rút gọn pass không deploy. Review, nghiệm thu thiết bị, persistence output chưa xong; follow-up đang chờ CI.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | [CI 42299611378](https://github.com/Pabhassaracitto/In4Up/actions/runs/42299611378) phát hiện tràn layout ở 320×640/Hindi 1.25×; sửa cho nhãn xuống dòng, chờ CI xác nhận.

@@ -155,10 +155,14 @@ class _MasteryViewWidgetState extends State<MasteryViewWidget> {
             child: Text(context.uiText(_names[dim]!),
                 style: const TextStyle(color: Colors.white, fontSize: 13)),
           ),
-          material.Text(
-            display,
-            key: Key('mastery_value_${dim.name}'),
-            style: TextStyle(color: value == null ? Colors.white60 : color, fontSize: 12),
+          const SizedBox(width: 8),
+          Flexible(
+            child: material.Text(
+              display,
+              key: Key('mastery_value_${dim.name}'),
+              textAlign: TextAlign.end,
+              style: TextStyle(color: value == null ? Colors.white60 : color, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -184,12 +188,13 @@ class _MasteryViewWidgetState extends State<MasteryViewWidget> {
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70, fontSize: 11)),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 6,
           children: [
             Text(context.uiText('Từ có đủ dữ liệu'),
                 style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            const SizedBox(width: 6),
             material.Text('$plotted/${widget.collectionPoints.length}',
                 key: const Key('mastery_scatter_count'),
                 style: const TextStyle(color: Colors.white, fontSize: 12)),

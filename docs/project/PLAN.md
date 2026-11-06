@@ -1351,8 +1351,12 @@ Package: `video_player: ^2.8.0` (Flutter official)
     thư mục Drive (7 collection), viết probe + fixture 44 tên thật, ADR-0022;
     chưa sửa code, chưa chạy Flutter (sandbox không có SDK).
 
-### PLAN-043 — I4U - Audit v1.21.0: 8 phản hồi nghiệm thu sau release 1.21.0
+### PLAN-045 — I4U - Audit v1.21.0: 8 phản hồi nghiệm thu sau release 1.21.0
 - Nguồn: người sở hữu (2026-11-06, qua agent `arena/4e91ed51-in4up`).
+- Định danh: bản thảo trên nhánh `arena/4e91ed51-in4up` mang số **PLAN-043**;
+  khi mở PR, tip `arena/01a0251e-in4up` (`b2ee8a4`) ĐÃ có PLAN-043 (Worklist đa
+  ngữ) và PLAN-044 (READ-UI-121) ⇒ đổi thành **PLAN-045** để tránh trùng ID.
+  Chỉ đổi số, không đổi nội dung/phạm vi (theo đúng cách xử lý của PLAN-044).
 - Trạng thái: doing — code + 8 file test thuần + KANBAN/docs + **CI 42135090013 🟢** đã có; **chờ nghiệm thu máy/`adb logcat`**.
 - Milestone đề xuất: M2 (ổn định sau release 1.21.0), card `AUDIT-1.21.0-01`.
 - Chi tiết: [`AUDIT_1_21_0.md`](AUDIT_1_21_0.md).

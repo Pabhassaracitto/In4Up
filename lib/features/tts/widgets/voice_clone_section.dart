@@ -384,7 +384,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                     const SizedBox(height: 4),
                     Text(
                       '${_recordingSeconds}s / ${_maxSampleSeconds}s',
-                      style: const TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF9E9E9E)),
                     ),
                   ],
                 ),

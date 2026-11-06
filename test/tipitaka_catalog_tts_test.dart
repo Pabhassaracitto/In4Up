@@ -47,6 +47,34 @@ void main() {
       );
       expect(book('VISUDDHIMAGGA').catalogSection,
           TipitakaCatalogSection.extraCanonical);
+      expect(book('VSM01').catalogSection,
+          TipitakaCatalogSection.extraCanonical);
+      expect(book('BUDDHIST_COUNCIL_QA').catalogSection,
+          TipitakaCatalogSection.extraCanonical);
+      expect(
+        TipitakaBook(
+          id: 4,
+          collectionId: 1,
+          code: 'LEDITEXT01',
+          namePali: '',
+          nameEn: 'Collected Texts of Ledi Sayadaw',
+          nameVi: 'Tuyển Tập Ledi Sayadaw',
+          orderIndex: 2,
+        ).catalogSection,
+        TipitakaCatalogSection.extraCanonical,
+      );
+      expect(
+        TipitakaBook(
+          id: 5,
+          collectionId: 1,
+          code: 'COUNCIL_QA',
+          namePali: '',
+          nameEn: '',
+          nameVi: 'Vấn Đáp Kết Tập Kinh Điển',
+          orderIndex: 3,
+        ).catalogSection,
+        TipitakaCatalogSection.extraCanonical,
+      );
       expect(
         TipitakaBook(
           id: 2,

@@ -41,10 +41,10 @@ enum TipitakaCatalogSection {
     }
     if (RegExp(
       r'extra.?canonical|non.?canonical|paritta|grammar|dictionary|history|'
-      r'visuddhimagga|path.?of.?purification|thanh.?tinh.?dao|'
+      r'visuddhimagga|vism\w*|\bvsm\w*|path.?of.?purification|thanh.?tinh.?dao|'
       r'thanh.?tịnh.?đạo|'
-      r'ledi.?sayadaw|\bsayadaw\b|buddhist.?council|council.?questions?|'
-      r'questions?.{0,30}answers?.{0,30}council|sa[ṅn]g[iī]ti|'
+      r'ledi.?sayadaw|\bsayadaw\b|\bled\w*\b|buddhist.?council|council.?questions?|'
+      r'questions?.{0,30}answers?.{0,30}council|sa[ṅn]g[iī]ti|sangiti|'
       r'kết.?tập.?kinh.?điển|vấn.?đáp|ket.?tap.?kinh.?dien',
     ).hasMatch(text)) {
       return TipitakaCatalogSection.extraCanonical;

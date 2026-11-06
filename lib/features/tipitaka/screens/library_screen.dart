@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
 
 import 'package:in4up/features/tipitaka/models/book.dart';
@@ -8,6 +10,7 @@ import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/screens/search_screen.dart';
 import 'package:in4up/features/tipitaka/screens/workspace_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/library_state_store.dart';
 import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 
@@ -32,6 +35,80 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   bool _catalogLanguageChosen = false;
   bool _loading = true;
   String? _error;
+  Set<String> _expandedNodeKeys = const {};
+  String? _databaseIdentity;
+  bool _hasPersistedExpansionState = false;
+  int _loadGeneration = 0;
+
+  String _sectionKey(TipitakaCatalogSection section) =>
+      'section:${section.name}';
+
+  bool _isNodeExpanded(String key) => _expandedNodeKeys.contains(key);
+
+  void _setNodeExpanded(String key, bool expanded) {
+    if (!mounted) return;
+    setState(() {
+      final next = Set<String>.from(_expandedNodeKeys);
+      if (!_hasPersistedExpansionState) {
+        // Canonical content is the first-open default. Preserve it when the
+        // user's first persisted action is on a nested collection/book node.
+        next.add(_sectionKey(TipitakaCatalogSection.canonical));
+      }
+      if (expanded) {
+        next.add(key);
+      } else {
+        next.remove(key);
+      }
+      _expandedNodeKeys = next;
+      _hasPersistedExpansionState = true;
+    });
+    final identity = _databaseIdentity;
+    if (identity != null) {
+      unawaited(
+        TipitakaLibraryStateStore.saveExpandedNodes(
+          identity,
+          _expandedNodeKeys,
+        ),
+      );
+    }
+  }
+
+  void _applyCatalogSnapshot(
+    TipitakaLibrarySnapshot snapshot,
+    Set<String>? expandedNodes,
+  ) {
+    final sectionCollections = <TipitakaCatalogSection, Set<int>>{};
+    for (final book in snapshot.books) {
+      sectionCollections
+          .putIfAbsent(book.catalogSection, () => <int>{})
+          .add(book.collectionId);
+    }
+    if (!mounted) return;
+    setState(() {
+      _databaseIdentity = snapshot.databaseIdentity;
+      _collections = snapshot.collections;
+      _sectionCollections = sectionCollections;
+      _booksByCollection = const {};
+      _languages = snapshot.languages;
+      _expandedNodeKeys = expandedNodes ?? const {};
+      _hasPersistedExpansionState = expandedNodes != null;
+      if (!_catalogLanguageChosen ||
+          !snapshot.languages.contains(_catalogLanguage)) {
+        _catalogLanguage = snapshot.languages.contains(_language)
+            ? _language
+            : snapshot.languages.contains('en')
+                ? 'en'
+                : snapshot.languages.contains('pi')
+                    ? 'pi'
+                    : snapshot.languages.isEmpty
+                        ? _language
+                        : (snapshot.languages.toList()..sort()).first;
+        _catalogLanguageChosen = false;
+      }
+      _loading = false;
+      _error = null;
+    });
+  }
 
   @override
   void initState() {
@@ -60,46 +137,42 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final db = await TipitakaDb.openReady();
-      final collections = await TipitakaDb.getCollections(db);
-      // Only read the small normalized book index at startup. Content-derived
-      // titles stay lazy, while empty taxonomy branches are hidden accurately.
-      final indexBooks = await TipitakaDb.getCatalogIndexBooks(db);
-      final sectionCollections = <TipitakaCatalogSection, Set<int>>{};
-      for (final book in indexBooks) {
-        sectionCollections
-            .putIfAbsent(book.catalogSection, () => <int>{})
-            .add(book.collectionId);
+      final identity = await TipitakaDb.sourceIdentity();
+      final cached = await TipitakaLibraryStateStore.loadSnapshot(identity);
+      final expandedNodes =
+          await TipitakaLibraryStateStore.loadExpandedNodes(identity);
+      if (!mounted || generation != _loadGeneration) return;
+      if (cached != null) {
+        // Render the last verified index immediately. Its fingerprint includes
+        // the installed DB's size and modification time, so an imported pack
+        // cannot leave a stale tree on screen.
+        _applyCatalogSnapshot(cached, expandedNodes);
+        unawaited(_loadRecentPositions());
+        return;
       }
+
+      final collections = await TipitakaDb.getCollections(db);
+      final indexBooks = await TipitakaDb.getCatalogIndexBooks(db);
       final info = await TipitakaDb.info(db);
-      if (!mounted) return;
-      setState(() {
-        _collections = collections;
-        _sectionCollections = sectionCollections;
-        _booksByCollection = const {};
-        _languages = info.availableLanguages;
-        if (!_catalogLanguageChosen || !info.availableLanguages.contains(_catalogLanguage)) {
-          _catalogLanguage = info.availableLanguages.contains(_language)
-              ? _language
-              : info.availableLanguages.contains('en')
-                  ? 'en'
-                  : info.availableLanguages.contains('pi')
-                      ? 'pi'
-                      : info.availableLanguages.isEmpty
-                          ? _language
-                          : (info.availableLanguages.toList()..sort()).first;
-          _catalogLanguageChosen = false;
-        }
-        _loading = false;
-      });
-      _loadRecentPositions();
+      if (!mounted || generation != _loadGeneration) return;
+      final snapshot = TipitakaLibrarySnapshot(
+        databaseIdentity: identity,
+        collections: collections,
+        books: indexBooks,
+        languages: info.availableLanguages,
+      );
+      await TipitakaLibraryStateStore.saveSnapshot(snapshot);
+      _applyCatalogSnapshot(snapshot, expandedNodes);
+      unawaited(_loadRecentPositions());
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _collections = const [];
@@ -294,8 +367,11 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                             clipBehavior: Clip.antiAlias,
                             child: ExpansionTile(
                               key: ValueKey('$_catalogLanguage-${section.name}'),
-                              initiallyExpanded:
-                                  section == TipitakaCatalogSection.canonical,
+                              initiallyExpanded: _isNodeExpanded(_sectionKey(section)) ||
+                                  (!_hasPersistedExpansionState &&
+                                      section == TipitakaCatalogSection.canonical),
+                              onExpansionChanged: (expanded) =>
+                                  _setNodeExpanded(_sectionKey(section), expanded),
                               leading: Icon(_catalogSectionIcon(section)),
                               title: Text(
                                 context.uiText(section.labelKey),
@@ -316,6 +392,17 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                                       section: section,
                                       catalogLanguage: _catalogLanguage,
                                       collection: collection,
+                                      expandedKey:
+                                          'collection:${section.name}:${collection.id}',
+                                      initiallyExpanded: _isNodeExpanded(
+                                        'collection:${section.name}:${collection.id}',
+                                      ),
+                                      onExpanded: (expanded) => _setNodeExpanded(
+                                        'collection:${section.name}:${collection.id}',
+                                        expanded,
+                                      ),
+                                      expandedNodeKeys: _expandedNodeKeys,
+                                      onNodeExpanded: _setNodeExpanded,
                                       books: (_booksByCollection[collection.id] ??
                                               const <TipitakaBook>[])
                                           .where((book) =>
@@ -533,6 +620,11 @@ class _CollectionTreeNode extends StatefulWidget {
   final TipitakaCatalogSection section;
   final String catalogLanguage;
   final TipitakaCollection collection;
+  final String expandedKey;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpanded;
+  final Set<String> expandedNodeKeys;
+  final void Function(String key, bool expanded) onNodeExpanded;
   final List<TipitakaBook> books;
   final Future<void> Function() onLoadBooks;
   final void Function(
@@ -546,6 +638,11 @@ class _CollectionTreeNode extends StatefulWidget {
     required this.section,
     required this.catalogLanguage,
     required this.collection,
+    required this.expandedKey,
+    required this.initiallyExpanded,
+    required this.onExpanded,
+    required this.expandedNodeKeys,
+    required this.onNodeExpanded,
     required this.books,
     required this.onLoadBooks,
     required this.onOpen,
@@ -556,8 +653,31 @@ class _CollectionTreeNode extends StatefulWidget {
 }
 
 class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
-  bool _expanded = false;
+  late bool _expanded;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+    if (_expanded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleExpansion(true, persist: false);
+      });
+    }
+  }
+
+  Future<void> _handleExpansion(bool value, {bool persist = true}) async {
+    if (_expanded != value && mounted) setState(() => _expanded = value);
+    if (persist) widget.onExpanded(value);
+    if (!value || widget.books.isNotEmpty || _loading) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onLoadBooks();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   String _divisionTitle(BuildContext context) {
     final source = '${widget.collection.namePali} ${widget.collection.nameEn} '
@@ -589,18 +709,9 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: ExpansionTile(
+        key: PageStorageKey(widget.expandedKey),
         initiallyExpanded: _expanded,
-        onExpansionChanged: (value) async {
-          setState(() => _expanded = value);
-          if (value && widget.books.isEmpty && !_loading) {
-            setState(() => _loading = true);
-            try {
-              await widget.onLoadBooks();
-            } finally {
-              if (mounted) setState(() => _loading = false);
-            }
-          }
-        },
+        onExpansionChanged: _handleExpansion,
         leading: CircleAvatar(
           radius: 17,
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -622,6 +733,13 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
                       key: ValueKey('${widget.catalogLanguage}-${entry.value.single.id}'),
                       book: entry.value.single,
                       catalogLanguage: widget.catalogLanguage,
+                      expandedKey: 'book:${entry.value.single.id}',
+                      initiallyExpanded: widget.expandedNodeKeys
+                          .contains('book:${entry.value.single.id}'),
+                      onExpanded: (expanded) => widget.onNodeExpanded(
+                        'book:${entry.value.single.id}',
+                        expanded,
+                      ),
                       onOpen: widget.onOpen,
                     )
                   else
@@ -630,6 +748,17 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
                       familyCode: entry.key,
                       books: entry.value,
                       catalogLanguage: widget.catalogLanguage,
+                      expandedKey:
+                          'family:${widget.section.name}:${widget.collection.id}:${entry.key}',
+                      initiallyExpanded: widget.expandedNodeKeys.contains(
+                        'family:${widget.section.name}:${widget.collection.id}:${entry.key}',
+                      ),
+                      onExpanded: (expanded) => widget.onNodeExpanded(
+                        'family:${widget.section.name}:${widget.collection.id}:${entry.key}',
+                        expanded,
+                      ),
+                      expandedNodeKeys: widget.expandedNodeKeys,
+                      onNodeExpanded: widget.onNodeExpanded,
                       onOpen: widget.onOpen,
                     ),
               ],
@@ -642,6 +771,11 @@ class _BookFamilyTreeNode extends StatelessWidget {
   final String familyCode;
   final List<TipitakaBook> books;
   final String catalogLanguage;
+  final String expandedKey;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpanded;
+  final Set<String> expandedNodeKeys;
+  final void Function(String key, bool expanded) onNodeExpanded;
   final void Function(
     TipitakaBook book, {
     TipitakaSegment? segment,
@@ -653,6 +787,11 @@ class _BookFamilyTreeNode extends StatelessWidget {
     required this.familyCode,
     required this.books,
     required this.catalogLanguage,
+    required this.expandedKey,
+    required this.initiallyExpanded,
+    required this.onExpanded,
+    required this.expandedNodeKeys,
+    required this.onNodeExpanded,
     required this.onOpen,
   });
 
@@ -673,6 +812,9 @@ class _BookFamilyTreeNode extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(left: 12),
         child: ExpansionTile(
+          key: PageStorageKey(expandedKey),
+          initiallyExpanded: initiallyExpanded,
+          onExpansionChanged: onExpanded,
           leading: const Icon(Icons.folder_open_outlined, size: 20),
           title: Text(_title(context)),
           subtitle: Text('${books.length} ${context.uiText('ấn bản')}'),
@@ -682,6 +824,11 @@ class _BookFamilyTreeNode extends StatelessWidget {
                 key: ValueKey('$catalogLanguage-${book.id}'),
                 book: book,
                 catalogLanguage: catalogLanguage,
+                expandedKey: 'book:${book.id}',
+                initiallyExpanded:
+                    expandedNodeKeys.contains('book:${book.id}'),
+                onExpanded: (expanded) =>
+                    onNodeExpanded('book:${book.id}', expanded),
                 onOpen: onOpen,
               ),
           ],
@@ -692,6 +839,9 @@ class _BookFamilyTreeNode extends StatelessWidget {
 class _BookTreeNode extends StatefulWidget {
   final TipitakaBook book;
   final String catalogLanguage;
+  final String expandedKey;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpanded;
   final void Function(
     TipitakaBook book, {
     TipitakaSegment? segment,
@@ -702,6 +852,9 @@ class _BookTreeNode extends StatefulWidget {
     super.key,
     required this.book,
     required this.catalogLanguage,
+    required this.expandedKey,
+    required this.initiallyExpanded,
+    required this.onExpanded,
     required this.onOpen,
   });
 
@@ -712,6 +865,16 @@ class _BookTreeNode extends StatefulWidget {
 class _BookTreeNodeState extends State<_BookTreeNode> {
   List<TipitakaSegment>? _outline;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initiallyExpanded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadOutline(true);
+      });
+    }
+  }
 
   Future<void> _loadOutline(bool expanded) async {
     if (!expanded || _outline != null || _loading) return;
@@ -768,7 +931,12 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 4),
       child: ExpansionTile(
-        onExpansionChanged: _loadOutline,
+        key: PageStorageKey(widget.expandedKey),
+        initiallyExpanded: widget.initiallyExpanded,
+        onExpansionChanged: (expanded) {
+          widget.onExpanded(expanded);
+          _loadOutline(expanded);
+        },
         leading: const Icon(Icons.library_books_outlined),
         title: Text(widget.book.displayTitle(language)),
         subtitle: edition.isEmpty

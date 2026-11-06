@@ -1427,3 +1427,35 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo (DeepLX query token, setter A-B, deduper Cabin): 1 lỗi mất câu sửa + 7 test/pin mới; CI **42135090013 🟢**. Chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢) → **MERGED** `8a76573`. Chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | PR #140 merge thành công (`gh pr merge --merge`, merge commit `8a76573`); lỗi UI "không thể merge" là transient status-check, không phải conflict. CI post-merge 🟢. Vẫn chờ nghiệm thu thiết bị.
+
+### PLAN-046 — Công cụ Âm thanh/Video: chuyển đổi · cắt · tách · nối (AVTOOL-001..005)
+- Nguồn: người sở hữu (2026-11-06, qua agent `arena/c231303f-in4up`) — gửi 2 phản
+  hồi của Gemini về `ffmpeg_kit_flutter` (MP4/M4A→MP3; cắt/tách/nối audio) + yêu
+  cầu «khảo sát dự án để lên kế hoạch tối ưu phù hợp nhất để tích hợp thông minh
+  các chức năng vào app».
+- Trạng thái: **proposed — kế hoạch, CHƯA code.** Chờ owner duyệt phạm vi (4 câu
+  hỏi ở PLAN-046 §12). Sandbox không có Flutter/Dart SDK ⇒ mọi kết luận là đọc mã.
+- Milestone đề xuất: M2 (sau khi nghiệm thu 1.23.0), card `AVTOOL-001..005`.
+- Chi tiết: [`plans/PLAN-046-cong-cu-am-thanh-video.md`](../plans/PLAN-046-cong-cu-am-thanh-video.md)
+  · **ADR-0025** `adr/0025-cong-cu-media-tren-ffmpeg-co-san.md`.
+- Kết luận khảo sát (ngắn):
+  - **Không thêm thư viện nào.** `ffmpeg_kit_flutter_new ^4.6.2` đã có trong
+    `packages/in4up_stt` (+ `libmp3lame` qua `ffmpeg-kit-full-gpl`) ⇒ 0 MB tăng
+    APK. Gói `ffmpeg_kit_flutter_full` của Gemini đã **archive**.
+  - **Không tái dùng** `AudioConverter` (ép 16 kHz mono PCM — dành cho STT).
+  - Cần lớp mới `lib/features/media_tools/` 4 tầng, tầng đáy THUẦN (bộ dựng lệnh
+    trả `List<String>`, parse progress, dịch mốc LRC, đặt tên) ⇒ test được trên CI.
+  - 5 pha: **P0** vá `runFFmpegKit` (argument + huỷ + clearSessions) · **P1** lớp
+    + màn tự chẩn đoán · **P2** xuất đoạn A–B + video→âm thanh · **P3** tách
+    chương/nối/YouTube/TTS · **P4** `HeavyTaskKind.mediaExport` + i18n 8 locale + QA.
+  - Điểm khác biệt so với app chuyển đổi thông thường: bản xuất đi qua
+    `AudioImportService` + `SourceArtifactStore` + `RecentAudioService` ⇒ **clip
+    xuất ra còn karaoke, mở lại đúng vị trí, lặp A–B được**.
+- Không làm: tab «Media» riêng / trang chủ «Converter»; burn phụ đề vào video;
+  tải YouTube (đã có luồng riêng); đổi `AudioSource` enum (tránh migration);
+  đụng `lib/ffi/` hay 3 skill SM-2.
+- Lịch sử:
+  - 2026-11-06 | created (proposed) | agent `arena/c231303f-in4up` | PLAN-046 +
+    ADR-0025 + 5 card `AVTOOL-*`; đính chính 6 điểm trong tư vấn Gemini (gói đã
+    archive; `-c copy` không luôn đúng; quên `content://`; thiếu huỷ/progress/
+    dung lượng; `WRITE_EXTERNAL_STORAGE` sai với targetSdk 35; thiếu vòng lặp học).

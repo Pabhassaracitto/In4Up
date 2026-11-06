@@ -1076,3 +1076,37 @@ jobs:
           name: knowledge-test-log
           path: knowledge_test.log
           if-no-files-found: ignore
+
+  # Compilation only: never deploy or push gh-pages from this validation job.
+  web-build-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Compile web entrypoint without publishing
+        timeout-minutes: 10
+        run: |
+          set +e
+          flutter build web --release --base-href /In4Up/ -t lib/main_web.dart > web_build_test.log 2>&1
+          code=$?
+          tail -n 150 web_build_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -m 15 -E 'Error|error|not available|Unsupported' web_build_test.log | while IFS= read -r line; do
+              echo "::error title=Web build::$line"
+            done
+          fi
+          exit "$code"
+      - name: Upload web build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build-validation-log
+          path: web_build_test.log
+          if-no-files-found: ignore

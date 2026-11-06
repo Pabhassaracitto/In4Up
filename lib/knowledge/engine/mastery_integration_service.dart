@@ -47,7 +47,9 @@ class MasteryIntegrationService {
   /// [dim] trục kỹ năng đã review.
   /// [quality] q nguyên 0–5.
   /// [evidence] metadata (assistance, confidence, gradedBy).
-  /// [subTest] sub-test type cho trục Dùng (null = không phải Dùng).
+  /// [subTest] bắt buộc cho trục Dùng (không tự suy diễn form).
+  /// [eventId] chỉ dùng khi layer lưu trữ đã gắn event thật; service
+  /// thuần này KHÔNG tự ghi ReviewEvent.
   ///
   /// Trả Result với cả state và mastery đã cập nhật.
   static MasteryIntegrationResult integrate({
@@ -57,10 +59,14 @@ class MasteryIntegrationService {
     required int quality,
     required EvidenceMetadata evidence,
     UseSubTestType? subTest,
+    String? eventId,
     double alpha = kDefaultEmaAlpha,
     DateTime? now,
   }) {
     assert(quality >= 0 && quality <= 5, 'quality phải 0..5');
+    if (dim == SkillDimension.use && subTest == null) {
+      throw ArgumentError('Use review requires a sub-test type');
+    }
     final scoreNor = (quality / 5.0).clamp(0.0, 1.0);
     final at = now ?? DateTime.now();
 
@@ -76,7 +82,7 @@ class MasteryIntegrationService {
     final newState = state.withSkill(
       dim,
       newSnapshot,
-      lastReviewEventId: '', // sẽ gán ở layer cao hơn
+      lastReviewEventId: eventId ?? state.lastReviewEventId,
     );
 
     // ── 2. EMA: cập nhật mastery vector ──
@@ -132,10 +138,9 @@ class MasteryIntegrationService {
     double alpha,
   ) {
     if (dim == SkillDimension.use) {
-      // Trục Dùng — cần subTest type.
-      final st = subTest ?? UseSubTestType.inflection;
+      // Validated before applying either SM-2 or EMA.
       return mastery.updateUse(
-        subTest: st,
+        subTest: subTest!,
         scoreNor: scoreNor,
         evidence: evidence,
         alpha: alpha,
@@ -157,9 +162,13 @@ class MasteryIntegrationService {
     required List<SkillDimension> dims,
     required List<int> qualities,
     required List<EvidenceMetadata> evidences,
+    List<UseSubTestType?>? subTests,
     double alpha = kDefaultEmaAlpha,
     DateTime? now,
   }) {
+    if (subTests != null && subTests.length != states.length) {
+      throw ArgumentError('subTests must match states length');
+    }
     final results = <MasteryIntegrationResult>[];
     final at = now ?? DateTime.now();
     for (var i = 0; i < states.length; i++) {
@@ -169,6 +178,7 @@ class MasteryIntegrationService {
         dim: dims[i],
         quality: qualities[i],
         evidence: evidences[i],
+        subTest: subTests?[i],
         alpha: alpha,
         now: at,
       ));

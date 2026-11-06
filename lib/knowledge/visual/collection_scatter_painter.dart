@@ -37,7 +37,7 @@ class CollectionScatterPainter extends CustomPainter {
   const CollectionScatterPainter({
     required this.points,
     this.dotColor = const Color(0xFF42A5F5),
-    this.diagonalColor = Colors.grey.shade300,
+    this.diagonalColor = const Color(0xFFE0E0E0),
     this.gapColor = const Color(0xFFFFD54F),
   });
 

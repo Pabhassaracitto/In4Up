@@ -1427,3 +1427,15 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo (DeepLX query token, setter A-B, deduper Cabin): 1 lỗi mất câu sửa + 7 test/pin mới; CI **42135090013 🟢**. Chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢) → **MERGED** `8a76573`. Chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | PR #140 merge thành công (`gh pr merge --merge`, merge commit `8a76573`); lỗi UI "không thể merge" là transient status-check, không phải conflict. CI post-merge 🟢. Vẫn chờ nghiệm thu thiết bị.
+
+
+### PLAN-046 — Hợp nhất Venn ba kỹ năng và view sáu kỹ năng an toàn
+- **Nguồn:** người dùng (2026-11-06), chấp thuận tích hợp nhánh 251e.
+- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; chờ CI,
+  review và nghiệm thu thiết bị. View là chỉ đọc; đánh giá/lưu output chưa nối.
+- **Milestone đề xuất:** M2 — công cụ từ vựng và nền Knowledge.
+- **Ranh giới:** giữ ba lịch SM-2, lấy điểm legacy trực tiếp, không giả lập
+  EMA hoặc output; feature flag có thể tắt, không tự deploy web khi thử.
+- **Lịch sử:**
+  - 2026-11-06 | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận hợp nhất an toàn.
+  - 2026-11-06 | proposed→doing | agent `arena/075510c6-in4up` | merge, sửa compile/test, thiết kế projection + view theo ADR-0025; chờ xác minh CI.

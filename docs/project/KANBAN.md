@@ -8,6 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| VOCAB-MASTERY-001 | Hợp nhất Knowledge + giữ Venn, view sáu kỹ năng an toàn | 🔨 doing (projection chỉ đọc; chờ CI/review/thiết bị; output chưa nối) | ADR-0025, nhánh `arena/075510c6-in4up` |
 | READ-UI-121 | Tab Đọc: khôi phục 5 nút cũ + tự cuộn theo dòng đọc + ABC→IPA | 🔨 doing (code + ADR-0024 + test pin; chờ CI + nghiệm thu máy 360×640) | [ADR-0024](../adr/0024-doc-tab-khoi-phuc-thanh-cong-cu-va-tu-cuon.md), PLAN-044, rebase 251e `95f9e2f` |
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
@@ -8947,3 +8948,19 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** cài đè 1.22.0 → 1.23.0; 8 mục audit v1.21.0 (đặc biệt #2/#7 cần `adb logcat` vì crash C++ không catch được ở Dart); Cabin không mất câu khi dịch >3s; PDF «Gần đây» xoá file; DeepLX endpoint thật (Termux); chip A-B + 1 `∞`.
 - **Lịch sử:**
   - 2026-11-06 | created→done | agent `arena/01a0251e-in4up` | tip `f2e77378` (13 commit + 2 merge PR sau 1.22.0) → bump `1.23.0+23` (`1398a5c6`) → push thẳng (không bị chặn) → tag `1.23.0` → build **42159543022** 🟢 4/4 → ghi card + Linear
+
+
+### VOCAB-MASTERY-001 — Hợp nhất Knowledge, Venn và chế độ xem sáu kỹ năng
+- **Trạng thái:** 🔨 doing — đã nối view chỉ đọc, chờ Flutter CI sau thay đổi,
+  review độc lập và nghiệm thu iPhone/loa; đánh giá/lưu output chưa nối.
+- **Nguồn:** người dùng đồng ý hợp nhất 251e vào nhánh hiện tại, giữ Venn ba
+  kỹ năng và thêm chế độ sáu kỹ năng có thể tắt; không tự deploy khi thử.
+- **Phạm vi:** ADR-0025; adapter đọc ba điểm legacy theo `WordEntry`, không
+  migrate/ghi đè SM-2, không biến output thiếu bằng chứng thành 0. Hai view
+  từng từ/kho và cờ cục bộ; bộ test Knowledge + Venn chạy ở CI riêng.
+- **Còn lại:** xác minh CI đầu cuối, review/QA thiết bị; output assessment,
+  event log bền vững và đồng bộ đa thiết bị là công việc tiếp theo, không báo
+  là đã hoàn thành. Nhánh validation không tự deploy Pages.
+- **Lịch sử:**
+  - 2026-11-06 | 2026-11-06 18:38 UTC | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận phương án hợp nhất.
+  - 2026-11-06 | 2026-11-06 18:38 UTC | proposed→doing | agent `arena/075510c6-in4up` | merge `541591a`, chặn deploy `106ae9f`, sửa lỗi và bật Knowledge CI `019a63e`/`1f5b51e`; lần kiểm thử tiếp theo đang chờ.

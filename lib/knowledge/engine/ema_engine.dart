@@ -69,6 +69,15 @@ class MasteryVector {
   final double listening;
   final double reading;
 
+  // A reviewed score can remain exactly zero. Keep evidence separate from
+  // the numeric value; direct nonzero legacy constructors remain compatible.
+  final bool _hasUnderstanding;
+  final bool _hasListening;
+  final bool _hasReading;
+  bool get hasUnderstanding => _hasUnderstanding || understanding > 0;
+  bool get hasListening => _hasListening || listening > 0;
+  bool get hasReading => _hasReading || reading > 0;
+
   // ── Output EMA ──
   /// Nói — phát âm từ đơn.
   final double speak;
@@ -94,6 +103,9 @@ class MasteryVector {
     this.understanding = 0.0,
     this.listening = 0.0,
     this.reading = 0.0,
+    bool hasUnderstanding = false,
+    bool hasListening = false,
+    bool hasReading = false,
     this.speak = 0.0,
     this.hasSpeak = false,
     this.write = 0.0,
@@ -102,7 +114,9 @@ class MasteryVector {
     this.hasUseForm = false,
     this.useSentence = 0.0,
     this.hasUseSentence = false,
-  });
+  })  : _hasUnderstanding = hasUnderstanding,
+        _hasListening = hasListening,
+        _hasReading = hasReading;
 
   /// Trạng thái khởi điểm: mọi trục chưa có bằng chứng.
   static const MasteryVector initial = MasteryVector();
@@ -149,6 +163,9 @@ class MasteryVector {
         understanding: understanding,
         listening: listening,
         reading: reading,
+        hasUnderstanding: hasUnderstanding,
+        hasListening: hasListening,
+        hasReading: hasReading,
         speak: speak,
         hasSpeak: hasSpeak,
         write: write,
@@ -170,6 +187,9 @@ class MasteryVector {
         understanding: understanding,
         listening: listening,
         reading: reading,
+        hasUnderstanding: hasUnderstanding,
+        hasListening: hasListening,
+        hasReading: hasReading,
         speak: speak,
         hasSpeak: hasSpeak,
         write: write,
@@ -203,8 +223,7 @@ class MasteryVector {
   bool get hasOutputEvidence => hasUse || hasSpeak || hasWrite;
 
   /// Có bằng chứng input (understanding/listening/reading)?
-  bool get hasInputEvidence =>
-      understanding > 0 || listening > 0 || reading > 0;
+  bool get hasInputEvidence => hasUnderstanding || hasListening || hasReading;
 
   /// Lấy giá trị EMA theo trục. Với use → useDisplay (hiển thị).
   double valueOf(SkillDimension dim) {
@@ -232,6 +251,9 @@ class MasteryVector {
       understanding: dim == SkillDimension.understanding ? newValue : understanding,
       listening: dim == SkillDimension.listening ? newValue : listening,
       reading: dim == SkillDimension.reading ? newValue : reading,
+      hasUnderstanding: dim == SkillDimension.understanding || hasUnderstanding,
+      hasListening: dim == SkillDimension.listening || hasListening,
+      hasReading: dim == SkillDimension.reading || hasReading,
       speak: dim == SkillDimension.speak ? newValue : speak,
       hasSpeak: dim == SkillDimension.speak ? true : hasSpeak,
       write: dim == SkillDimension.write ? newValue : write,
@@ -249,6 +271,9 @@ class MasteryVector {
       other.understanding == understanding &&
       other.listening == listening &&
       other.reading == reading &&
+      other.hasUnderstanding == hasUnderstanding &&
+      other.hasListening == hasListening &&
+      other.hasReading == hasReading &&
       other.speak == speak &&
       other.hasSpeak == hasSpeak &&
       other.write == write &&
@@ -260,7 +285,8 @@ class MasteryVector {
 
   @override
   int get hashCode => Object.hash(
-        understanding, listening, reading, speak, hasSpeak, write, hasWrite,
+        understanding, listening, reading, hasUnderstanding, hasListening,
+        hasReading, speak, hasSpeak, write, hasWrite,
         useForm, hasUseForm, useSentence, hasUseSentence,
       );
 }

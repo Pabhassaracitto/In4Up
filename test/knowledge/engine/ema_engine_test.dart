@@ -109,6 +109,21 @@ void main() {
       expect(mv.valueOf(SkillDimension.understanding), closeTo(alpha, 1e-10));
     });
 
+    test('a reviewed zero is evidence and survives unrelated updates', () {
+      const evidence = EvidenceMetadata(
+        assistance: 0, confidence: 1, gradedBy: 'local/v1',
+      );
+      final mv = MasteryVector.initial
+          .update(dim: SkillDimension.understanding, scoreNor: 0, evidence: evidence)
+          .updateUse(subTest: UseSubTestType.inflection, scoreNor: 1, evidence: evidence)
+          .update(dim: SkillDimension.speak, scoreNor: 1, evidence: evidence);
+      expect(mv.understanding, 0);
+      expect(mv.hasUnderstanding, isTrue);
+      expect(mv.hasInputEvidence, isTrue);
+      expect(mv.hasListening, isFalse);
+      expect(mv.hasReading, isFalse);
+    });
+
     test('update speak/write — hasSpeak/hasWrite = true', () {
       final evidence = const EvidenceMetadata(
         assistance: 0.0, confidence: 1.0, gradedBy: 'local/v1',

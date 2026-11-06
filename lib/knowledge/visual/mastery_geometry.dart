@@ -11,7 +11,7 @@
 ///     Đọc (30°)    ↔ Viết (210°)   — chéo phải
 ///   Input tam giác trong (Hiểu/Nghe/Đọc), Output tam giác ngoài.
 ///   Khoảng cách từ tâm = mastery × R.
-///   Production gap = khoảng cách giữa 2 đỉnh mirror.
+///   Production gap = chênh lệch độ dài hai bán kính mirror.
 ///
 /// Null-vertex contract:
 ///   Đỉnh chưa có bằng chứng → vị trí null (không tính gap, envelope
@@ -73,9 +73,9 @@ Offset? vertexPosition({
   );
 }
 
-/// Production gap = khoảng cách giữa 2 đỉnh mirror.
+/// Production gap = chênh lệch độ dài hai bán kính của cặp mirror.
 ///
-/// Nếu cả 2 đều có mastery → khoảng cách thực tế.
+/// Nếu cả 2 đều có mastery → |m1 - m2| × radius (bằng nhau → 0).
 /// Nếu 1 null → trả null (envelope không nội suy qua null).
 /// Nếu cả 2 null → null.
 double? productionGap({
@@ -91,7 +91,7 @@ double? productionGap({
     mastery: masteryMap[a],
   );
   final posB = vertexPosition(
-    center: center, radius: radius, dim: b,
+    center: center, radius: radius, dim: a,
     mastery: masteryMap[b],
   );
   if (posA == null || posB == null) return null;

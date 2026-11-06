@@ -8,6 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:in4up/core/language/app_ui_translations.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:in4up/knowledge/models/learning_state.dart' show SkillDimension;
+import 'package:in4up/knowledge/visual/collection_scatter_painter.dart' show ScatterPoint;
+import 'package:in4up/knowledge/visual/mastery_view_widget.dart';
+import 'package:in4up/services/storage_service.dart';
 import 'package:in4up/features/dictionary/models/dict_entry.dart';
 import 'package:in4up/models/word_entry.dart';
 import 'package:in4up/providers/vocabulary_provider.dart';
@@ -68,6 +72,7 @@ void main() {
     directory = await Directory.systemTemp.createTemp('in4up_vocab_tools_test');
     Hive.init(directory.path);
     await VocabularyProvider.ensureBoxOpen();
+    await Hive.openBox('settings');
   });
 
   // Widget tests drive the real provider inside Flutter's fake-async zone.
@@ -362,6 +367,117 @@ void main() {
     provider.dispose();
   });
 
+  test('six-skill preference uses the settings box and defaults off', () async {
+    final storage = StorageService();
+    await Hive.box('settings').delete('hexagon_v1');
+    expect(storage.getHexagonV1Flag(), isFalse);
+    await storage.saveHexagonV1Flag(true);
+    expect(storage.getHexagonV1Flag(), isTrue);
+    await storage.saveHexagonV1Flag(false);
+    expect(storage.getHexagonV1Flag(), isFalse);
+  });
+
+  testWidgets('six-skill toggle is reversible, persisted and never invents scores', (tester) async {
+    var saved = false;
+    final writes = <bool>[];
+    final item = _word('a', understand: 0, listen: 0, read: 0.4)
+      ..understandData.totalReviews = 1;
+    final provider = _TestVocabularyProvider()..allWords.add(item);
+    Widget view() => VennTab(
+      key: UniqueKey(),
+      readSixSkillMode: () => saved,
+      writeSixSkillMode: (value) async { saved = value; writes.add(value); },
+    );
+    await tester.pumpWidget(_host(provider, view()));
+    expect(find.byKey(const Key('venn_diagram_background')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('venn_toggle_six_skills')));
+    await tester.pumpAndSettle();
+    expect(saved, isTrue);
+    expect(find.byKey(const Key('mastery_hexagram')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_understanding'))).data, '0%');
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_listening'))).data, 'Chưa đánh giá');
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_reading'))).data, '40%');
+    for (final dim in ['use', 'speak', 'write']) {
+      expect(tester.widget<Text>(find.byKey(Key('mastery_value_$dim'))).data, 'Chưa đánh giá');
+    }
+    expect(find.byKey(const Key('mastery_output_unavailable')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('mastery_collection_mode')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_scatter_count'))).data, '0/1');
+    expect(find.byKey(const Key('mastery_scatter_empty')), findsOneWidget);
+
+    // A fresh screen reads the saved preference; switching back restores Venn.
+    await tester.pumpWidget(_host(provider, view()));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mastery_hexagram')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('venn_toggle_six_skills')));
+    await tester.pumpAndSettle();
+    expect(saved, isFalse);
+    expect(writes, [true, false]);
+    expect(find.byKey(const Key('venn_diagram_background')), findsOneWidget);
+    provider.dispose();
+  });
+
+  testWidgets('six-skill picker preserves user text and reflects Venn changes', (tester) async {
+    final first = _word('a', text: 'first');
+    final second = WordEntry(id: 'b', word: 'Tất cả', meaning: 'fox', read: 0.1);
+    second.readData
+      ..totalReviews = 4
+      ..interval = 7
+      ..repetitions = 2;
+    final history = Map<String, dynamic>.from(second.readData.toJson())..remove('score');
+    final provider = _TestVocabularyProvider()..allWords.addAll([first, second]);
+    await tester.pumpWidget(_host(provider, VennTab(
+      readSixSkillMode: () => true,
+      writeSixSkillMode: (_) async {},
+    ), locale: const Locale('en')));
+    await tester.tap(find.byKey(const Key('mastery_choose_word')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('mastery_word_search')), 'fox');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mastery_pick_a')), findsNothing);
+    expect(find.text('Tất cả'), findsOneWidget, reason: 'user vocabulary must not be translated');
+    await tester.tap(find.byKey(const Key('mastery_pick_b')));
+    await tester.pumpAndSettle();
+    expect(find.text('Tất cả'), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_reading'))).data, '10%');
+    provider.setWordsZone(['b'], MasteryZone.readOnly);
+    await tester.pump();
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_reading'))).data, '80%');
+    expect(Map<String, dynamic>.from(second.readData.toJson())..remove('score'), history);
+    provider.dispose();
+  });
+
+  testWidgets('partial output, real zero, equal gap and collection count are explicit', (tester) async {
+    final provider = _TestVocabularyProvider();
+    final complete = <SkillDimension, double?>{
+      SkillDimension.understanding: 0.5,
+      SkillDimension.listening: null,
+      SkillDimension.reading: null,
+      SkillDimension.use: 0.5,
+      SkillDimension.speak: null,
+      SkillDimension.write: 0,
+    };
+    await tester.pumpWidget(_host(provider, MasteryViewWidget(
+      mastery: complete,
+      useIsPartial: true,
+      collectionPoints: [
+        ScatterPoint(unitId: 'complete', mastery: complete),
+        const ScatterPoint(unitId: 'no-output', mastery: {SkillDimension.reading: 0.5}),
+        const ScatterPoint(unitId: 'no-input', mastery: {SkillDimension.write: 0}),
+      ],
+    )));
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_use'))).data, '50% · Một phần');
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_value_write'))).data, '0%');
+    expect(find.text('Hiểu ↔ Dùng: 0%'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('mastery_collection_mode')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.byKey(const Key('mastery_scatter_count'))).data, '1/3');
+    expect(find.byKey(const Key('mastery_scatter_empty')), findsNothing);
+    provider.dispose();
+  });
+
   test('new chrome has English fallback and priority-locale translations', () {
     const sources = [
       'Chạm cụm để chọn từng từ',
@@ -371,6 +487,20 @@ void main() {
       'Không phát được âm thanh. Hãy kiểm tra cài đặt giọng đọc.',
       'Liên kết hiện trong trang',
       'Tìm từ hoặc nghĩa',
+      'Sáu kỹ năng',
+      'Venn ba kỹ năng',
+      'Từng từ',
+      'Kho từ',
+      'Chọn từ',
+      'Không tìm thấy từ',
+      'Điểm Hiểu, Nghe, Đọc là điểm hiện đang lưu, không phải EMA.',
+      'Đánh giá và lưu Dùng, Nói, Viết chưa được kết nối.',
+      'Chưa đủ dữ liệu đầu vào và đầu ra để hiển thị từ nào.',
+      'Từ có đủ dữ liệu',
+      'Ngang: Hiểu, Nghe, Đọc. Dọc: Dùng, Nói, Viết.',
+      'Một phần',
+      'Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.',
+      'Chênh lệch',
     ];
     for (final source in sources) {
       expect(AppUITranslations.translate(source, 'bn'), AppUITranslations.translate(source, 'en'));

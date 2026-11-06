@@ -7,10 +7,16 @@ import 'package:provider/provider.dart';
 
 import '../../models/word_entry.dart';
 import '../../providers/vocabulary_provider.dart';
+import '../../services/storage_service.dart';
+import 'vocabulary_six_skill_view.dart';
 import '../../widgets/word_detail_sheet.dart';
 
 class VennTab extends StatefulWidget {
-  const VennTab({super.key});
+  /// Optional seams for testing the persisted view preference.
+  final bool Function()? readSixSkillMode;
+  final Future<void> Function(bool)? writeSixSkillMode;
+
+  const VennTab({super.key, this.readSixSkillMode, this.writeSixSkillMode});
 
   @override
   State<VennTab> createState() => _VennTabState();
@@ -35,6 +41,43 @@ class _VennTabState extends State<VennTab> {
   final GlobalKey _diagramKey = GlobalKey();
   _VennDragBatch? _activeDrag;
   bool _selectionMode = false;
+  bool _sixSkillMode = false;
+  Future<void> _modeWrite = Future<void>.value();
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      final storage = StorageService();
+      _sixSkillMode = widget.readSixSkillMode?.call() ??
+          (storage.isInitialized && storage.getHexagonV1Flag());
+    } catch (error) {
+      debugPrint('Could not read six-skill view preference: $error');
+    }
+  }
+
+  void _setSixSkillMode(bool enabled) {
+    if (_sixSkillMode == enabled || _activeDrag != null) return;
+    setState(() => _sixSkillMode = enabled);
+    final writer = widget.writeSixSkillMode;
+    // Serialize writes so rapid toggles cannot persist an older choice last.
+    _modeWrite = _modeWrite.then((_) async {
+      if (writer != null) {
+        await writer(enabled);
+      } else if (StorageService().isInitialized) {
+        await StorageService().saveHexagonV1Flag(enabled);
+      } else {
+        throw StateError('Settings storage is unavailable');
+      }
+    }).catchError((Object error, StackTrace stack) {
+      debugPrint('Could not save six-skill view preference: $error');
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+          content: Text(context.uiText('Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.')),
+        ));
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -45,11 +88,35 @@ class _VennTabState extends State<VennTab> {
   @override
   Widget build(BuildContext context) {
     return Consumer<VocabularyProvider>(builder: (context, prov, _) {
-      if (prov.total == 0) return _buildEmptyState(context);
-      final zones = prov.wordsByZone;
-      final counts = {for (final zone in MasteryZone.values) zone: zones[zone]?.length ?? 0};
       return Column(
         children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('venn_toggle_six_skills'),
+              onPressed: _activeDrag == null
+                  ? () => _setSixSkillMode(!_sixSkillMode)
+                  : null,
+              icon: Icon(_sixSkillMode ? Icons.bubble_chart_outlined : Icons.hexagon_outlined, size: 18),
+              label: Text(context.uiText(_sixSkillMode ? 'Venn ba kỹ năng' : 'Sáu kỹ năng')),
+            ),
+          ),
+          Expanded(
+            child: _sixSkillMode
+                ? VocabularySixSkillView(words: prov.allWords)
+                : _buildVennBody(context, prov),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildVennBody(BuildContext context, VocabularyProvider prov) {
+    if (prov.total == 0) return _buildEmptyState(context);
+    final zones = prov.wordsByZone;
+    final counts = {for (final zone in MasteryZone.values) zone: zones[zone]?.length ?? 0};
+    return Column(
+      children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Text(
@@ -71,9 +138,8 @@ class _VennTabState extends State<VennTab> {
                 style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 10)),
           ),
           Expanded(flex: 5, child: _buildWordList(prov, zones)),
-        ],
-      );
-    });
+      ],
+    );
   }
 
   Widget _buildEmptyState(BuildContext context) => Center(

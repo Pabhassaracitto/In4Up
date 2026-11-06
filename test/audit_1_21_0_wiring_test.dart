@@ -37,6 +37,7 @@ void main() {
   final sttMixin = _read('lib/providers/player/player_stt_mixin.dart');
   final listen = _read('lib/screens/listen_mode/listen_mode_screen.dart');
   final presets = _read('lib/models/loop_presets.dart');
+  final abControls = _read('lib/widgets/ab_loop_controls.dart');
 
   group('#1 — overlay nhiều khối', () {
     test('native KHÔNG còn phình khung xuống dưới', () {
@@ -73,6 +74,13 @@ void main() {
       expect(cabin.contains('whenComplete('), isTrue);
       expect(cabin.contains('Future.delayed(const Duration(seconds: 3)'),
           isFalse);
+    });
+    test('recheck Cabin: câu bị bỏ qua không bị nhớ ⇒ không mất câu', () {
+      expect(cabin.contains('_deduper.finish('), isTrue);
+      expect(cabin.contains('createdCaption: outcome.createdCaption'), isTrue);
+      expect(cabin.contains('outcome?.createdCaption = true;'), isTrue);
+      expect(cabin.contains('_deduper.complete(text)'), isFalse,
+          reason: 'complete() mù quáng ở whenComplete từng nuốt replay final');
     });
   });
 
@@ -111,6 +119,14 @@ void main() {
       expect(presets.contains('[-1, 0, 1, 3, 5, 7, 10, 15, 20]'), isFalse);
       expect(listen.contains('LoopCountChips('), isTrue);
       expect(listen.contains('_ABLoopWithSilencePanel'), isTrue);
+    });
+    test('chip dùng CÙNG setter với dropdown có sẵn (không lệch repeatTrack)',
+        () {
+      // `setLoopCount()` khác `setMaxLoopCount()` ở chỗ bật/tắt `_repeatTrack`
+      // khi chưa có `loopStart`; đổi riêng chip sẽ làm 2 control lệch nhau.
+      expect(abControls.contains('player.setMaxLoopCount(value)'), isTrue);
+      expect(listen.contains('onChanged: player.setMaxLoopCount'), isTrue);
+      expect(abControls.contains('setLoopCount('), isFalse);
     });
   });
 }

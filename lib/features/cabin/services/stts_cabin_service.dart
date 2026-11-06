@@ -830,8 +830,12 @@ class SttsCabinService extends ChangeNotifier {
       return;
     }
     _deduper.begin(text);
-    final future = _finalizeCurrentChunk(text).whenComplete(
-      () => _deduper.complete(text),
+    final outcome = CabinFinalizationOutcome();
+    final future = _finalizeCurrentChunk(text, outcome: outcome).whenComplete(
+      // AUDIT-1.21.0 #3 (recheck): nếu `_finalizeCurrentChunk` return sớm
+      // (vd đang `speaking`) thì KHÔNG có caption nào ⇒ chỉ cancel, không
+      // `complete()`, kẻo câu bị nhớ 8s rồi replay final bị nuốt ⇒ mất câu.
+      () => _deduper.finish(text, createdCaption: outcome.createdCaption),
     );
     _pendingFinalizations.add(future);
     future.then<void>(
@@ -845,7 +849,10 @@ class SttsCabinService extends ChangeNotifier {
     );
   }
 
-  Future<void> _finalizeCurrentChunk(String text) async {
+  Future<void> _finalizeCurrentChunk(
+    String text, {
+    CabinFinalizationOutcome? outcome,
+  }) async {
     _silenceTimer?.cancel();
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
@@ -909,6 +916,9 @@ class SttsCabinService extends ChangeNotifier {
       _activeCaption = finalizedCaption;
     }
     _history.add(finalizedCaption);
+    // AUDIT-1.21.0 #3: điểm "không thể quay lại" — caption ĐÃ được tạo, nên
+    // `finish()` mới được phép `complete()` (nhớ 8s để chống replay final).
+    outcome?.createdCaption = true;
     _captionStreamController.add(finalizedCaption);
 
     // CABIN-SAVE-001: ghi câu đã chốt vào journal phiên (ghi đĩa ngay).

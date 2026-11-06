@@ -30,6 +30,18 @@
 /// đủ ngắn để user cố ý nói lại cùng câu vẫn được ghi nhận.
 const Duration kCabinDedupWindow = Duration(seconds: 8);
 
+/// Kết quả của MỘT lần chốt: có thực sự tạo caption + ghi journal không.
+///
+/// AUDIT-1.21.0 #3 — recheck ngữ cảnh Cabin: `_finalizeCurrentChunk` có nhánh
+/// `return` sớm (`_state == speaking`, text rỗng). Nếu `whenComplete` vẫn gọi
+/// `complete()` thì câu được đưa vào cửa sổ nhớ 8s dù KHÔNG có caption nào
+/// được tạo ⇒ khi engine replay `isFinal` ngay sau TTS, `shouldFinalize` trả
+/// false ⇒ **MẤT CÂU** (đúng lỗi owner từng báo ở CABIN-FLUSH-001). Phải phân
+/// biệt "đã chốt" với "bị bỏ qua".
+class CabinFinalizationOutcome {
+  bool createdCaption = false;
+}
+
 class CabinFinalizationDeduper {
   CabinFinalizationDeduper({
     this.window = kCabinDedupWindow,
@@ -92,6 +104,19 @@ class CabinFinalizationDeduper {
 
   /// Bỏ đánh dấu in-flight mà KHÔNG nhớ (vd câu bị huỷ do stop/pause).
   void cancel(String text) => _inFlight.remove(normalize(text));
+
+  /// Đóng MỘT lần chốt ở `whenComplete`.
+  ///
+  /// [createdCaption] = false ⇒ chỉ `cancel()` (quên in-flight, KHÔNG đưa vào
+  /// `_recent`), để final replay có cơ hội chốt lại thay vì bị nuốt 8s.
+  /// = true ⇒ `complete()` như bình thường.
+  void finish(String text, {required bool createdCaption}) {
+    if (createdCaption) {
+      complete(text);
+    } else {
+      cancel(text);
+    }
+  }
 
   /// Phiên mới / xoá lịch sử ⇒ quên hết.
   void reset() {

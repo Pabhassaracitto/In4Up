@@ -56,6 +56,34 @@ void main() {
       expect(d.shouldFinalize('A'), isTrue);
     });
 
+    test('finish(false): câu bị bỏ qua KHÔNG được nhớ ⇒ replay vẫn chốt', () {
+      // AUDIT-1.21.0 #3 recheck: final tới đúng lúc `_state == speaking` ⇒
+      // `_finalizeCurrentChunk` return sớm, KHÔNG tạo caption. Nếu vẫn gọi
+      // `complete()` thì replay final trong 8s bị nuốt ⇒ MẤT CÂU.
+      final d = CabinFinalizationDeduper();
+      expect(d.shouldFinalize('Câu bị bỏ qua'), isTrue);
+      d.begin('Câu bị bỏ qua');
+      d.finish('Câu bị bỏ qua', createdCaption: false);
+      expect(d.hasInFlight, isFalse);
+      expect(d.shouldFinalize('Câu bị bỏ qua'), isTrue,
+          reason: 'phải quên in-flight mà KHÔNG đưa vào _recent');
+    });
+
+    test('finish(true) tương đương complete()', () {
+      final d = CabinFinalizationDeduper();
+      d.begin('Câu đã chốt');
+      d.finish('Câu đã chốt', createdCaption: true);
+      expect(d.hasInFlight, isFalse);
+      expect(d.shouldFinalize('câu đã chốt!'), isFalse);
+    });
+
+    test('outcome mặc định false, chỉ bật khi caption thật sự được tạo', () {
+      final o = CabinFinalizationOutcome();
+      expect(o.createdCaption, isFalse);
+      o.createdCaption = true;
+      expect(o.createdCaption, isTrue);
+    });
+
     test('chuỗi text rỗng không bao giờ được chốt', () {
       final d = CabinFinalizationDeduper();
       expect(d.shouldFinalize(''), isFalse);

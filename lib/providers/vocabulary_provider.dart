@@ -1142,13 +1142,22 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void setWordZone(String id, MasteryZone zone) {
-    try {
-      final w = _words.firstWhere((w) => w.id == id);
-      w.setZone(zone);
-      _saveWord(w);
-      notifyListeners();
-    } catch (_) {}
+  void setWordZone(String id, MasteryZone zone) => setWordsZone([id], zone);
+
+  /// Move a batch in one notification while retaining independent skill data.
+  /// Dropping into the current zone is a no-op: it must not reset existing
+  /// scores to the default values for that zone.
+  void setWordsZone(Iterable<String> ids, MasteryZone zone) {
+    final wanted = ids.toSet();
+    if (wanted.isEmpty) return;
+    var changed = false;
+    for (final word in _words) {
+      if (!wanted.contains(word.id) || word.zone == zone) continue;
+      word.setZone(zone);
+      _saveWord(word);
+      changed = true;
+    }
+    if (changed) notifyListeners();
   }
 
   WordEntry? findByWord(String word) {

@@ -148,7 +148,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: const Color(0xFF3D3019),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -157,7 +157,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
                   Expanded(
                     child: Text(
                       context.uiText(word.zone.tip),
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 13, color: Color(0xFFFFE0A3)),
                     ),
                   ),
                 ],

@@ -1,20 +1,16 @@
-// ═══════════════════════════════════════════════════════════════
-//  KNOWLEDGE GRAPH — Visualize từ vựng theo mạng lưới
-//  Package: graphview ^1.2.0 (đã có trong pubspec.yaml)
-//  Nodes: VocabularyType color-coded
-//  Edges: parent-child relationships
-//  Tap node → Expanded detail bottom sheet
-// ═══════════════════════════════════════════════════════════════
+// Knowledge Graph: a paged, collision-free view of vocabulary relationships.
+import 'dart:math' as math;
 
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
-import 'package:graphview/GraphView.dart';
 import 'package:provider/provider.dart';
 
 import '../../../features/tts/tts_service.dart';
 import '../../../models/vocabulary_type.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/vocabulary_provider.dart';
+import 'knowledge_graph_layout.dart';
 
 class KnowledgeGraphScreen extends StatefulWidget {
   const KnowledgeGraphScreen({super.key});
@@ -24,407 +20,360 @@ class KnowledgeGraphScreen extends StatefulWidget {
 }
 
 class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
-  final Graph _graph = Graph()..isTree = false;
-  final BuchheimWalkerConfiguration _config = BuchheimWalkerConfiguration();
-  final _tts = TtsService();
-
-  // Node ID → WordEntry mapping
-  final Map<int, String> _nodeToWordId = {};
-  final Map<String, Node> _wordIdToNode = {};
+  static const _pageSize = 60;
+  late final _tts = TtsService();
+  final _transformCtrl = TransformationController();
+  final _searchCtrl = TextEditingController();
+  late VocabularyProvider _provider;
 
   WordEntry? _selectedWord;
   VocabularyType? _filterType;
-  String _layoutMode = 'tree'; // 'tree' | 'force' | 'layered'
-  Algorithm? _algorithm;
-
-  late VocabularyProvider _provider;
-  final TransformationController _transformCtrl = TransformationController();
-
-  @override
-  void initState() {
-    super.initState();
-    _config
-      ..siblingSeparation = 60
-      ..levelSeparation = 80
-      ..subtreeSeparation = 60
-      ..orientation = BuchheimWalkerConfiguration.ORIENTATION_TOP_BOTTOM;
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _provider = context.read<VocabularyProvider>();
-    _buildGraph();
-  }
+  KnowledgeGraphArrangement _arrangement = KnowledgeGraphArrangement.connected;
+  String _query = '';
+  int _page = 0;
+  String? _fitSignature;
+  Size? _canvasSize;
+  Size? _viewportSize;
 
   @override
   void dispose() {
+    _searchCtrl.dispose();
     _transformCtrl.dispose();
     super.dispose();
   }
 
-  // ── Build Graph từ VocabularyProvider ──────────────────────
-
-  void _buildGraph() {
-    _graph.nodes.clear();
-    _graph.edges.clear();
-    _nodeToWordId.clear();
-    _wordIdToNode.clear();
-
-    final words = _filterType == null
-        ? _provider.allWords
-        : _provider.allWords.where((w) => w.vocabType == _filterType).toList();
-
-    // Giới hạn 80 nodes để tránh lag
-    final limited = words.take(80).toList();
-
-    // Tạo nodes
-    for (final word in limited) {
-      final node = Node.Id(word.id.hashCode);
-      _nodeToWordId[word.id.hashCode] = word.id;
-      _wordIdToNode[word.id] = node;
-      _graph.addNode(node);
-    }
-
-    // Tạo edges từ parent-child relationships
-    for (final word in limited) {
-      final parentNode = _wordIdToNode[word.id];
-      if (parentNode == null) continue;
-
-      for (final childId in word.childIds) {
-        final childNode = _wordIdToNode[childId];
-        if (childNode != null) {
-          _graph.addEdge(
-            parentNode,
-            childNode,
-            paint: Paint()
-              ..color = word.vocabType.color.withValues(alpha: 0.4)
-              ..strokeWidth = 1.5
-              ..style = PaintingStyle.stroke,
-          );
-        }
-      }
-    }
-
-    // Không gọi setState ở đây nếu được gọi từ didChangeDependencies
-    // vì Flutter sẽ tự động build sau đó.
-  }
-
-  // ── Get WordEntry từ Node ───────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    return Selector<VocabularyProvider, int>(
-      selector: (_, prov) => prov.allWords.length,
-      builder: (context, wordCount, child) {
-        _provider = context.read<VocabularyProvider>();
+    return Consumer<VocabularyProvider>(
+      builder: (context, provider, _) {
+        _provider = provider;
+        final query = _query.trim().toLowerCase();
+        final matching = provider.allWords.where((word) {
+          return (_filterType == null || word.vocabType == _filterType) &&
+              (query.isEmpty ||
+                  word.word.toLowerCase().contains(query) ||
+                  word.meaning.toLowerCase().contains(query));
+        }).toList();
+        final ordered = KnowledgeGraphLayout.orderByConnections(matching);
+        final pageCount = math.max(1, (ordered.length / _pageSize).ceil());
+        if (_page >= pageCount) _page = pageCount - 1;
+        final start = _page * _pageSize;
+        final visible = ordered.skip(start).take(_pageSize).toList();
+        final layout = KnowledgeGraphLayout.build(visible, arrangement: _arrangement);
+
         return Scaffold(
           backgroundColor: const Color(0xFF080B1A),
           body: SafeArea(
             child: Column(
               children: [
                 _buildAppBar(),
-                _buildFilterBar(),
+                _buildSearchAndFilters(),
+                _buildPageBar(start, visible.length, ordered.length, pageCount),
                 _buildLegend(),
-                Expanded(child: _buildGraphView()),
+                Expanded(child: _buildGraphView(visible, layout, provider.total)),
               ],
             ),
           ),
-          floatingActionButton: _buildFABs(),
+          floatingActionButton: visible.isEmpty ? null : _buildFABs(),
         );
       },
     );
   }
 
-  // ── App Bar ────────────────────────────────────────────────
-
   Widget _buildAppBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D1520),
-        border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-      ),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      color: const Color(0xFF0D1520),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                color: Colors.white, size: 18),
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
             onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
           ),
-          const SizedBox(width: 8),
           const Icon(Icons.hub_outlined, color: Color(0xFF6C63FF), size: 20),
           const SizedBox(width: 8),
-          const Text(
-            'Knowledge Graph',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
+          const Expanded(
+            child: Text('Knowledge Graph',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
           ),
-          const Spacer(),
-          // Node count badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Color(0xFF6C63FF).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              context.uiText('${_graph.nodeCount()} nodes'),
-              style: const TextStyle(
-                color: Color(0xFF9C8FFF),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+          PopupMenuButton<KnowledgeGraphArrangement>(
+            key: const Key('graph_arrangement'),
+            color: const Color(0xFF1A2235),
+            tooltip: context.uiText('Bố cục'),
+            icon: const Icon(Icons.account_tree_outlined, color: Colors.white70),
+            initialValue: _arrangement,
+            onSelected: (value) => setState(() => _arrangement = value),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: KnowledgeGraphArrangement.connected,
+                child: Text(context.uiText('Theo liên kết')),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Layout toggle
-          _LayoutToggle(
-            current: _layoutMode,
-            onChanged: (mode) {
-              _algorithm = null; // Reset algorithm để tạo lại theo mode mới
-              setState(() => _layoutMode = mode);
-              _buildGraph();
-            },
+              PopupMenuItem(
+                value: KnowledgeGraphArrangement.force,
+                child: Text(context.uiText('Bố cục lực')),
+              ),
+              PopupMenuItem(
+                value: KnowledgeGraphArrangement.layered,
+                child: Text(context.uiText('Theo tầng')),
+              ),
+              PopupMenuItem(
+                value: KnowledgeGraphArrangement.grid,
+                child: Text(context.uiText('Lưới')),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  // ── Filter Bar ─────────────────────────────────────────────
-
-  Widget _buildFilterBar() {
+  Widget _buildSearchAndFilters() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       color: const Color(0xFF0A0F1A),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _FilterChip(
-              label: 'Tất cả',
-              color: const Color(0xFF9E9E9E),
-              isSelected: _filterType == null,
-              onTap: () {
-                setState(() => _filterType = null);
-                _buildGraph();
-              },
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+      child: Column(
+        children: [
+          TextField(
+            key: const Key('graph_search'),
+            controller: _searchCtrl,
+            onChanged: (value) => setState(() {
+              _query = value;
+              _page = 0;
+            }),
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              isDense: true,
+              prefixIcon: const Icon(Icons.search, size: 20),
+              hintText: context.uiText('Tìm từ hoặc nghĩa'),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: context.uiText('Xóa tìm kiếm'),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() {
+                          _query = '';
+                          _page = 0;
+                        });
+                      },
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            const SizedBox(width: 6),
-            ...VocabularyType.values.map((type) => Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: _FilterChip(
-                    label: type.label(context),
-                    color: type.color,
-                    isSelected: _filterType == type,
-                    onTap: () {
-                      setState(() =>
-                          _filterType = _filterType == type ? null : type);
-                      _buildGraph();
-                    },
-                  ),
-                )),
-            const SizedBox(width: 8),
-            // Refresh
-            GestureDetector(
-              onTap: () {
-                _buildGraph();
-                HapticFeedback.lightImpact();
-              },
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: context.uiText('Tất cả'),
+                  color: const Color(0xFFB0BEC5),
+                  isSelected: _filterType == null,
+                  onTap: () => setState(() {
+                    _filterType = null;
+                    _page = 0;
+                  }),
                 ),
-                child:
-                    const Icon(Icons.refresh, size: 16, color: Colors.white54),
-              ),
+                const SizedBox(width: 6),
+                ...VocabularyType.values.map((type) => Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _FilterChip(
+                        label: type.label(context),
+                        color: type.color,
+                        isSelected: _filterType == type,
+                        onTap: () => setState(() {
+                          _filterType = _filterType == type ? null : type;
+                          _page = 0;
+                        }),
+                      ),
+                    )),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // ── Legend ─────────────────────────────────────────────────
-
-  Widget _buildLegend() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      color: const Color(0xFF080B1A),
+  Widget _buildPageBar(int start, int count, int total, int pageCount) {
+    final first = count == 0 ? 0 : start + 1;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          ...VocabularyType.values.map((t) => Padding(
+          Expanded(
+            child: Text(
+              '$first–${start + count} / $total ${context.uiText('nút')}',
+              key: const Key('graph_page_count'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+          if (pageCount > 1) ...[
+            IconButton(
+              key: const Key('graph_previous_page'),
+              tooltip: context.uiText('Trang trước'),
+              onPressed: _page > 0 ? () => setState(() => _page--) : null,
+              icon: const Icon(Icons.chevron_left),
+              visualDensity: VisualDensity.compact,
+            ),
+            Text('${_page + 1} / $pageCount', style: const TextStyle(color: Colors.white70)),
+            IconButton(
+              key: const Key('graph_next_page'),
+              tooltip: context.uiText('Trang sau'),
+              onPressed: _page + 1 < pageCount ? () => setState(() => _page++) : null,
+              icon: const Icon(Icons.chevron_right),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Row(
+        children: [
+          ...VocabularyType.values.map((type) => Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: t.color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                    CircleAvatar(radius: 4, backgroundColor: type.color),
                     const SizedBox(width: 4),
-                    Text(
-                      t.label(context),
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 10,
-                      ),
-                    ),
+                    Text(type.label(context), style: const TextStyle(color: Colors.white70, fontSize: 10)),
                   ],
                 ),
               )),
-          const Spacer(),
-          Text(
-            'Tap node để xem chi tiết',
-            style: TextStyle(color: Colors.grey[700], fontSize: 10),
-          ),
+          Text(context.uiText('Liên kết hiện trong trang'),
+              style: const TextStyle(color: Colors.white54, fontSize: 10)),
         ],
       ),
     );
   }
 
-  // ── Graph View ─────────────────────────────────────────────
-
-  Widget _buildGraphView() {
-    if (_graph.nodeCount() == 0) {
-      return _buildEmptyState();
+  Widget _buildGraphView(List<WordEntry> words, KnowledgeGraphLayout layout, int total) {
+    if (words.isEmpty) {
+      return Center(
+        child: Text(total == 0
+            ? context.uiText('Chưa có từ vựng nào')
+            : context.uiText('Không tìm thấy từ phù hợp'),
+            style: const TextStyle(color: Colors.white70)),
+      );
     }
-
-    return InteractiveViewer(
-      constrained: false,
-      boundaryMargin: const EdgeInsets.all(200),
-      minScale: 0.3,
-      maxScale: 3.0,
-      transformationController: _transformCtrl,
-      child: RepaintBoundary(
-        child: GraphView(
-          graph: _graph,
-          algorithm: _getAlgorithm(),
-          paint: Paint()
-            ..color = Colors.white.withValues(alpha: 0.15)
-            ..strokeWidth = 1.2
-            ..style = PaintingStyle.stroke,
-          builder: (Node node) {
-            final wordId = _nodeToWordId[node.key?.value];
-            if (wordId == null) return const SizedBox.shrink();
-
-            WordEntry? word;
-            try {
-              word = _provider.allWords.firstWhere((w) => w.id == wordId);
-            } catch (_) {
-              return const SizedBox.shrink();
-            }
-
-            return _GraphNode(
-              word: word,
-              isSelected: _selectedWord?.id == word.id,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _selectedWord = word);
-                _showWordDetail(word!);
-              },
-            );
-          },
+    final byId = {for (final word in words) word.id: word};
+    return LayoutBuilder(builder: (context, constraints) {
+      final viewport = constraints.biggest;
+      _canvasSize = layout.size;
+      _viewportSize = viewport;
+      // An actual data/link/viewport change triggers fit; opening a detail sheet
+      // or rebuilding the provider must not reset the user's pan and zoom.
+      final signature = [
+        _arrangement.name,
+        _page,
+        viewport.width,
+        viewport.height,
+        for (final word in words) '${word.id}:${knowledgeGraphNodeSize(word)}',
+        for (final link in layout.links) '${link.from}>${link.to}',
+      ].join('|');
+      if (_fitSignature != signature) {
+        _fitSignature = signature;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _fitSignature == signature) _fitGraph();
+        });
+      }
+      return InteractiveViewer(
+        key: const Key('knowledge_graph_viewer'),
+        constrained: false,
+        boundaryMargin: const EdgeInsets.all(1000),
+        minScale: 0.01,
+        maxScale: 3,
+        transformationController: _transformCtrl,
+        child: SizedBox(
+          width: layout.size.width,
+          height: layout.size.height,
+          child: Stack(
+            children: [
+              Positioned.fill(child: CustomPaint(painter: _GraphEdgePainter(layout, byId))),
+              for (final word in words)
+                Positioned(
+                  left: layout.centers[word.id]!.dx - knowledgeGraphNodeSize(word) / 2,
+                  top: layout.centers[word.id]!.dy - knowledgeGraphNodeSize(word) / 2,
+                  child: _GraphNode(
+                    key: ValueKey('knowledge_graph_node_${word.id}'),
+                    word: word,
+                    isSelected: _selectedWord?.id == word.id,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedWord = word);
+                      _showWordDetail(word);
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
-  Algorithm _getAlgorithm() {
-    if (_algorithm != null) return _algorithm!;
-
-    switch (_layoutMode) {
-      case 'force':
-        _algorithm = FruchtermanReingoldAlgorithm(
-          FruchtermanReingoldConfiguration()..iterations = 300,
-        );
-        break;
-      case 'layered':
-        _algorithm = SugiyamaAlgorithm(
-          SugiyamaConfiguration()
-            ..nodeSeparation = 40
-            ..levelSeparation = 80,
-        );
-        break;
-      default:
-        _algorithm = BuchheimWalkerAlgorithm(
-          _config,
-          TreeEdgeRenderer(_config),
-        );
-    }
-    return _algorithm!;
+  void _fitGraph() {
+    final canvas = _canvasSize;
+    final viewport = _viewportSize;
+    if (canvas == null || viewport == null || canvas.isEmpty || viewport.isEmpty) return;
+    final scale = math.min(1.0, math.min(viewport.width / canvas.width, viewport.height / canvas.height))
+        .clamp(0.01, 3.0);
+    final dx = (viewport.width - canvas.width * scale) / 2;
+    final dy = (viewport.height - canvas.height * scale) / 2;
+    _transformCtrl.value = Matrix4.identity()
+      ..translate(dx, dy)
+      ..scale(scale);
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.hub_outlined, size: 64, color: Colors.grey[800]),
-          const SizedBox(height: 16),
-          Text(
-            'Chưa có từ vựng nào',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Thêm từ vựng và tạo liên kết để xem graph',
-            style: TextStyle(color: Colors.grey[700], fontSize: 12),
-          ),
-        ],
-      ),
-    );
+  void _zoom(double factor) {
+    final viewport = _viewportSize;
+    if (viewport == null || viewport.isEmpty) return;
+    final center = Offset(viewport.width / 2, viewport.height / 2);
+    final sceneCenter = _transformCtrl.toScene(center);
+    final scale = (_transformCtrl.value.getMaxScaleOnAxis() * factor).clamp(0.01, 3.0);
+    _transformCtrl.value = Matrix4.identity()
+      ..translate(center.dx - sceneCenter.dx * scale, center.dy - sceneCenter.dy * scale)
+      ..scale(scale);
   }
-
-  // ── FABs ───────────────────────────────────────────────────
 
   Widget _buildFABs() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Reset zoom
         FloatingActionButton.small(
-          heroTag: 'reset_zoom',
+          heroTag: 'graph_fit',
+          tooltip: context.uiText('Vừa màn hình'),
           backgroundColor: const Color(0xFF1A2235),
-          onPressed: () {
-            _transformCtrl.value = Matrix4.identity();
-            HapticFeedback.lightImpact();
-          },
-          child: const Icon(Icons.fit_screen, color: Colors.white70, size: 18),
+          onPressed: _fitGraph,
+          child: const Icon(Icons.fit_screen, color: Colors.white70),
         ),
-        const SizedBox(height: 8),
-        // Rebuild
         FloatingActionButton.small(
-          heroTag: 'rebuild',
-          backgroundColor: const Color(0xFF6C63FF),
-          onPressed: () {
-            _buildGraph();
-            HapticFeedback.mediumImpact();
-          },
-          child: const Icon(Icons.auto_graph, color: Colors.white, size: 18),
+          heroTag: 'graph_zoom_in',
+          tooltip: context.uiText('Phóng to'),
+          backgroundColor: const Color(0xFF1A2235),
+          onPressed: () => _zoom(1.4),
+          child: const Icon(Icons.add, color: Colors.white70),
+        ),
+        FloatingActionButton.small(
+          heroTag: 'graph_zoom_out',
+          tooltip: context.uiText('Thu nhỏ'),
+          backgroundColor: const Color(0xFF1A2235),
+          onPressed: () => _zoom(1 / 1.4),
+          child: const Icon(Icons.remove, color: Colors.white70),
         ),
       ],
     );
   }
-
-  // ── Word Detail Sheet ──────────────────────────────────────
 
   void _showWordDetail(WordEntry word) {
     showModalBottomSheet(
@@ -441,14 +390,44 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
         onNavigateTo: (targetWord) {
           Navigator.pop(context);
           setState(() => _selectedWord = targetWord);
-          Future.delayed(
-            const Duration(milliseconds: 300),
-            () => _showWordDetail(targetWord),
-          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _showWordDetail(targetWord);
+          });
         },
       ),
     );
   }
+}
+
+class _GraphEdgePainter extends CustomPainter {
+  const _GraphEdgePainter(this.layout, this.words);
+  final KnowledgeGraphLayout layout;
+  final Map<String, WordEntry> words;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final link in layout.links) {
+      final from = layout.centers[link.from]!;
+      final to = layout.centers[link.to]!;
+      final delta = to - from;
+      if (delta.distance == 0) continue;
+      final direction = delta / delta.distance;
+      final start = from + direction * (knowledgeGraphNodeSize(words[link.from]!) / 2);
+      final end = to - direction * (knowledgeGraphNodeSize(words[link.to]!) / 2 + 2);
+      final paint = Paint()
+        ..color = words[link.from]!.vocabType.color.withValues(alpha: 0.55)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(start, end, paint);
+      final perpendicular = Offset(-direction.dy, direction.dx);
+      canvas.drawLine(end, end - direction * 8 + perpendicular * 4, paint);
+      canvas.drawLine(end, end - direction * 8 - perpendicular * 4, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GraphEdgePainter oldDelegate) =>
+      oldDelegate.layout != layout || oldDelegate.words != words;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -461,6 +440,7 @@ class _GraphNode extends StatelessWidget {
   final VoidCallback onTap;
 
   const _GraphNode({
+    super.key,
     required this.word,
     required this.isSelected,
     required this.onTap,
@@ -469,7 +449,7 @@ class _GraphNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = word.vocabType.color;
-    final size = _nodeSize(word);
+    final size = knowledgeGraphNodeSize(word);
 
     return GestureDetector(
       onTap: onTap,
@@ -499,10 +479,8 @@ class _GraphNode extends StatelessWidget {
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(4),
-            child: Text(
-              word.word.length > 10
-                  ? '${word.word.substring(0, 8)}...'
-                  : word.word,
+            child: material.Text(
+              word.word,
               style: TextStyle(
                 color: isSelected ? Colors.white : color,
                 fontSize: _fontSize(word),
@@ -516,18 +494,6 @@ class _GraphNode extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  // Node size phụ thuộc vào type + encounter count
-  double _nodeSize(WordEntry w) {
-    final base = switch (w.vocabType) {
-      VocabularyType.paragraph => 105.0,
-      VocabularyType.sentence => 90.0,
-      VocabularyType.phrase => 75.0,
-      VocabularyType.word => 60.0,
-    };
-    // Từ gặp nhiều lần → node lớn hơn
-    return base + (w.encounterCount * 2).clamp(0, 20);
   }
 
   double _fontSize(WordEntry w) {
@@ -850,54 +816,6 @@ class _FilterChip extends StatelessWidget {
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
-        ),
-      );
-}
-
-class _LayoutToggle extends StatelessWidget {
-  final String current;
-  final ValueChanged<String> onChanged;
-
-  const _LayoutToggle({required this.current, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      color: const Color(0xFF1A2235),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      icon: const Icon(Icons.account_tree, color: Colors.white54, size: 18),
-      onSelected: onChanged,
-      itemBuilder: (_) => [
-        _item('tree', Icons.account_tree_outlined, 'Cây phân cấp'),
-        _item('force', Icons.bubble_chart_outlined, 'Force Layout'),
-        _item('layered', Icons.layers_outlined, 'Layered'),
-      ],
-    );
-  }
-
-  PopupMenuItem<String> _item(String v, IconData icon, String label) =>
-      PopupMenuItem(
-        value: v,
-        child: Row(
-          children: [
-            Icon(icon,
-                size: 16,
-                color:
-                    current == v ? const Color(0xFF6C63FF) : Colors.grey[400]),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: current == v ? Colors.white : Colors.grey[400],
-                fontSize: 13,
-                fontWeight: current == v ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-            if (current == v) ...[
-              const Spacer(),
-              const Icon(Icons.check, color: Color(0xFF6C63FF), size: 14),
-            ],
-          ],
         ),
       );
 }

@@ -55,6 +55,13 @@ import 'widgets/pdf_wordlist_panel.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import '../../widgets/ipa_source_chip.dart';
 
+typedef _PdfWordTapTarget = ({
+  int pageIndex,
+  PdfPage page,
+  Size pageViewSize,
+  Offset localPoint,
+});
+
 class PdfReaderScreen extends StatefulWidget {
   final String pdfPath;
   final int? initialPageIndex;
@@ -819,21 +826,25 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                     _controller.focusRectCue != null ||
                     ttsRects.isNotEmpty))
               Positioned.fill(
-                child: PdfWordOverlay(
-                  words: words,
-                  pageIndex: pageIndex,
-                  colorMode: _controller.colorMode,
-                  grammarSettings: _controller.grammarSettings,
-                  grammarPalette: _controller.activeGrammarPalette,
-                  page: page,
-                  speakingWord: _controller.currentSpeakingWord,
-                  focusWordCue: _controller.focusWordCue,
-                  focusRectCue: _controller.focusRectCue,
-                  focusPageIndexCue: _controller.focusPageIndexCue,
-                  focusTextStartOffsetCue: _controller.focusTextStartOffsetCue,
-                  focusTextEndOffsetCue: _controller.focusTextEndOffsetCue,
-                  showRecallMarkers: _controller.showRecallMarkers,
-                  ttsCueRects: ttsRects,
+                child: IgnorePointer(
+                  child: PdfWordOverlay(
+                    words: words,
+                    pageIndex: pageIndex,
+                    colorMode: _controller.colorMode,
+                    grammarSettings: _controller.grammarSettings,
+                    grammarPalette: _controller.activeGrammarPalette,
+                    page: page,
+                    speakingWord: _controller.currentSpeakingWord,
+                    focusWordCue: _controller.focusWordCue,
+                    focusRectCue: _controller.focusRectCue,
+                    focusPageIndexCue: _controller.focusPageIndexCue,
+                    focusTextStartOffsetCue:
+                        _controller.focusTextStartOffsetCue,
+                    focusTextEndOffsetCue:
+                        _controller.focusTextEndOffsetCue,
+                    showRecallMarkers: _controller.showRecallMarkers,
+                    ttsCueRects: ttsRects,
+                  ),
                 ),
               ),
 
@@ -1355,12 +1366,16 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     }
     if (details.tapOn == PdfViewerPart.selectedText) return true;
 
-    final hit = _wordAtDocumentPoint(details.documentPosition);
-    if (hit != null && hit.word.text.trim().length > 1) {
-      _showChrome();
-      HapticFeedback.selectionClick();
-      PdfWordTapSheet.show(context, hit.word, _controller);
-      return true;
+    final target = _wordTapTargetAt(details.documentPosition);
+    if (target != null) {
+      if (!_controller.hasWordDataForPage(target.pageIndex)) {
+        // Page extraction and a fast tap can race. Queue the tap behind the
+        // word-position load instead of dropping it as a background tap.
+        unawaited(_loadAndOpenWordAt(context, target));
+        return true;
+      }
+      final hit = _hitTestWordAt(target, _controller.getWordsForPage(target.pageIndex));
+      if (_openWordHit(context, hit)) return true;
     }
     if (_controller.hasSelection) {
       _controller.clearSelection();
@@ -1370,9 +1385,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     return true;
   }
 
-  /// Điểm chạm trong không gian tài liệu → không gian nhìn của trang → hit-test
-  /// theo pixel (ổn định ở mọi mức zoom, không còn "20 đơn vị PDF").
-  PdfWordHit? _wordAtDocumentPoint(Offset documentPoint) {
+  /// Converts a document-space tap into the local coordinates used by
+  /// `PdfWordInfo.bounds`. Capture the page-local point before async loading so
+  /// scrolling/zooming cannot redirect the pending tap to a different word.
+  _PdfWordTapTarget? _wordTapTargetAt(Offset documentPoint) {
     final doc = _controller.document;
     if (doc == null || !_pdfViewerController.isReady) return null;
     PdfPageLayout layout;
@@ -1384,19 +1400,49 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     final count = layout.pageLayouts.length < doc.pages.length
         ? layout.pageLayouts.length
         : doc.pages.length;
-    for (int i = 0; i < count; i++) {
-      final pageRect = layout.pageLayouts[i];
+    for (var index = 0; index < count; index++) {
+      final pageRect = layout.pageLayouts[index];
       if (!pageRect.contains(documentPoint)) continue;
-      final page = doc.pages[i];
-      return hitTestWord(
-        _controller.getWordsForPage(i),
-        point: documentPoint - pageRect.topLeft,
-        pageWidth: page.width,
-        pageHeight: page.height,
+      return (
+        pageIndex: index,
+        page: doc.pages[index],
         pageViewSize: pageRect.size,
+        localPoint: documentPoint - pageRect.topLeft,
       );
     }
     return null;
+  }
+
+  PdfWordHit? _hitTestWordAt(
+    _PdfWordTapTarget target,
+    List<PdfWordInfo> words,
+  ) => hitTestWord(
+        words,
+        point: target.localPoint,
+        pageWidth: target.page.width,
+        pageHeight: target.page.height,
+        pageViewSize: target.pageViewSize,
+      );
+
+  Future<void> _loadAndOpenWordAt(
+    BuildContext context,
+    _PdfWordTapTarget target,
+  ) async {
+    final document = _controller.document;
+    final words = await _controller.ensureWordsForPage(target.pageIndex);
+    if (!mounted || !context.mounted ||
+        !identical(document, _controller.document)) {
+      return;
+    }
+    _openWordHit(context, _hitTestWordAt(target, words));
+  }
+
+  bool _openWordHit(BuildContext context, PdfWordHit? hit) {
+    if (hit == null || hit.word.text.trim().length <= 1) return false;
+    _showChrome();
+    HapticFeedback.selectionClick();
+    PdfWordTapSheet.show(context, hit.word, _controller);
+    return true;
   }
 
   void _onViewerTextSelection(PdfTextSelection selection) {

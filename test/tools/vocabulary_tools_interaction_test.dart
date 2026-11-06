@@ -15,6 +15,7 @@ import 'package:in4up/services/ipa_resolver.dart';
 import 'package:in4up/screens/tools/map_tab.dart';
 import 'package:in4up/screens/tools/triangle_tab.dart';
 import 'package:in4up/screens/tools/venn_tab.dart';
+import 'package:in4up/screens/tools/vocabulary_map_clusters.dart';
 import 'package:in4up/screens/tools/word_list/knowledge_graph_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -68,13 +69,13 @@ void main() {
     await VocabularyProvider.ensureBoxOpen();
   });
 
-  tearDownAll(() async {
-    await Hive.close();
+  // Widget tests drive the real provider inside Flutter's fake-async zone.
+  // Its fire-and-forget Hive writes may remain pending there; waiting for
+  // clear()/close() between tests can deadlock (see linux_shell_regression_test).
+  // Each test creates a fresh provider and never loads the previous fixture.
+  // The process closes the boxes when this test file's isolate exits.
+  tearDownAll(() {
     if (directory.existsSync()) directory.deleteSync(recursive: true);
-  });
-
-  setUp(() async {
-    await Hive.box<String>('vocabulary_v2').clear();
   });
 
   test('batch changes persist once, preserve unrelated words, and same-zone is a no-op', () async {
@@ -181,7 +182,8 @@ void main() {
     for (final triangle in [true, false]) {
       await tester.pumpWidget(_host(provider, triangle ? const TriangleTab() : const MapTab()));
       await tester.pumpAndSettle();
-      final cluster = find.byKey(Key(triangle ? 'triangle_cluster_a' : 'word_map_cluster_a'));
+      // A cluster's key is based on its first member, not insertion order.
+      final cluster = find.byType(VocabularyClusterMarker);
       expect(cluster, findsOneWidget);
       await tester.tap(cluster);
       await tester.pumpAndSettle();

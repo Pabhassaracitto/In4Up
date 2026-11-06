@@ -95,29 +95,6 @@ jobs:
           path: analyze.log
           if-no-files-found: ignore
 
-      - name: "Vocabulary tools — graph, triangle and Venn regression tests"
-        id: vocabulary-tools-tests
-        timeout-minutes: 5
-        run: |
-          set +e
-          timeout -k 10s 4m flutter test test/tools/vocabulary_visualization_layout_test.dart \
-            test/tools/vocabulary_tools_interaction_test.dart -r expanded > vocabulary_tools_test.log 2>&1
-          code=$?
-          cat vocabulary_tools_test.log
-          if [ "$code" -ne 0 ]; then
-            tailmsg=$(tail -n 24 vocabulary_tools_test.log | head -c 3500 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
-            echo "::error title=Vocabulary tools tests failed (exit $code)::${tailmsg:-No test output}"
-          fi
-          exit $code
-
-      - name: Upload vocabulary tools test log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vocabulary-tools-test-log
-          path: vocabulary_tools_test.log
-          if-no-files-found: ignore
-
       # LINUX-AUTH-001 — Home phải render được khi logger/sync/UI cùng
       # subscribe auth, và các primary tab phải đổi cả nội dung lẫn selected.
       # Chạy sớm, có timeout để lỗi plugin/provider không treo toàn bộ oracle.
@@ -1020,3 +997,44 @@ jobs:
       # chạy TAY trên máy dev; cổng CI cho quy tắc thứ tự là file thuần Dart ở
       # trên. Muốn nối lại: chạy `flutter test test/workspace_shell_integration_test.dart`
       # ở máy trước, sửa chỗ treo, rồi thêm bước gate.
+
+  # Independent job: a failure or stalled gesture test must not skip the
+  # existing app/locale regression suites above.
+  vocabulary-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: "Vocabulary tools — graph, triangle and Venn regression tests"
+        timeout-minutes: 3
+        run: |
+          set +e
+          timeout -k 10s 150s flutter test \
+            test/tools/vocabulary_visualization_layout_test.dart \
+            test/tools/vocabulary_tools_interaction_test.dart \
+            --timeout 45s -r expanded > vocabulary_tools_test.log 2>&1
+          code=$?
+          cat vocabulary_tools_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B3 -A8 'Expected:|Actual:|\[E\]|Exception|Error:' vocabulary_tools_test.log \
+              | head -100 | while IFS= read -r line; do
+                echo "::error title=Vocabulary tools test::$line"
+              done
+            tailmsg=$(tail -n 20 vocabulary_tools_test.log | head -c 3000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Vocabulary tools tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+      - name: Upload vocabulary tools test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vocabulary-tools-test-log
+          path: vocabulary_tools_test.log
+          if-no-files-found: ignore

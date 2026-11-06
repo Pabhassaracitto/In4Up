@@ -315,13 +315,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '下載音色',
     'si': 'හඬ බාගන්න',
   },
-  'Dùng': {
-    'en': 'Use',
-    'hi': 'उपयोग',
-    'zh': '使用',
-    'zh_TW': '使用',
-    'si': 'භාවිතා කරන්න',
-  },
   'Sẵn sàng': {
     'en': 'Ready',
     'hi': 'तैयार',
@@ -623,34 +616,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '🧠 记忆',
     'zh_TW': '🧠 記憶',
     'si': '🧠 මතකය',
-  },
-  'Nghe': {
-    'en': 'Listen',
-    'hi': 'सुनें',
-    'zh': '听',
-    'zh_TW': '聽',
-    'si': 'අසන්න',
-  },
-  'Nói': {
-    'en': 'Speak',
-    'hi': 'बोलें',
-    'zh': '说',
-    'zh_TW': '說',
-    'si': 'කියන්න',
-  },
-  'Đọc': {
-    'en': 'Read',
-    'hi': 'पढ़ें',
-    'zh': '读',
-    'zh_TW': '讀',
-    'si': 'කියවන්න',
-  },
-  'Viết': {
-    'en': 'Write',
-    'hi': 'लिखें',
-    'zh': '写',
-    'zh_TW': '寫',
-    'si': 'ලියන්න',
   },
   // Phòng Studio (HOME-STUDIO-001): 7 thẻ NGHE · NÓI · XEM · ĐỌC · VIẾT ·
   // HIỂU · NHỚ. Tiêu đề viết hoa khớp `l10n.listen/read/understand/remember`.
@@ -8218,13 +8183,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh': '向概念加词',
     'zh_TW': '向概念加詞',
     'si': 'සංකල්පයට වචනයක් එකතු කරන්න',
-  },
-  'Hiểu': {
-    'en': 'Understand',
-    'hi': 'समझ',
-    'zh': '理解',
-    'zh_TW': '理解',
-    'si': 'තේරුම් ගැනීම',
   },
   'Tháo khỏi khái niệm': {
     'en': 'Unlink from concept',

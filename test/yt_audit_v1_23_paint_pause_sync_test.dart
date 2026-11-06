@@ -105,8 +105,12 @@ void main() {
       final playing = bodyOf(player, 'Future<bool> _isVideoPlaying()');
       expect(playing, isNotEmpty);
       expect(playing.contains('getPlayerState'), isTrue);
-      final apiAt = playing.indexOf('getPlayerState');
-      final videoAt = playing.indexOf('querySelector');
+      // So vị trí của MÃ (không phải chữ trong chú thích — chú thích cũng
+      // nhắc `querySelector` nên phải bám vào câu lệnh thật).
+      final apiAt = playing.indexOf('window.player.getPlayerState');
+      final videoAt = playing.indexOf('var v=document.querySelector');
+      expect(apiAt, greaterThan(-1));
+      expect(videoAt, greaterThan(-1));
       expect(apiAt, lessThan(videoAt),
           reason: 'player API phải được hỏi TRƯỚC (querySelector không thấy '
               'video trong iframe khác origin)');

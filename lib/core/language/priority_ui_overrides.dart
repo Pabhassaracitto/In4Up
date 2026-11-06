@@ -38,48 +38,6 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'වර්ණ විස්තර',
   },
   // ── Mastery hexagram labels (P3) ──
-  'Hiểu': {
-    'en': 'Understand',
-    'hi': 'समझ',
-    'zh': '理解',
-    'zh_TW': '理解',
-    'si': 'අවබෝධ',
-  },
-  'Nghe': {
-    'en': 'Listen',
-    'hi': 'सुनें',
-    'zh': '听',
-    'zh_TW': '聽',
-    'si': 'අසන්න',
-  },
-  'Đọc': {
-    'en': 'Read',
-    'hi': 'पढ़ें',
-    'zh': '读',
-    'zh_TW': '讀',
-    'si': 'කියවන්න',
-  },
-  'Dùng': {
-    'en': 'Use',
-    'hi': 'उपयोग',
-    'zh': '用',
-    'zh_TW': '用',
-    'si': 'භාවිතා',
-  },
-  'Nói': {
-    'en': 'Speak',
-    'hi': 'बोलें',
-    'zh': '说',
-    'zh_TW': '說',
-    'si': 'කියන්න',
-  },
-  'Viết': {
-    'en': 'Write',
-    'hi': 'लिखें',
-    'zh': '写',
-    'zh_TW': '寫',
-    'si': 'ලියන්න',
-  },
   'Mastery': {
     'en': 'Mastery',
     'hi': ' समिति',

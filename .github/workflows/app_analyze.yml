@@ -1039,3 +1039,40 @@ jobs:
           name: vocabulary-tools-test-log
           path: vocabulary_tools_test.log
           if-no-files-found: ignore
+
+  # Covers the six-axis knowledge engine separately from existing app tests.
+  knowledge-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: "Knowledge — independent skills, migration and six-axis tests"
+        timeout-minutes: 6
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/knowledge --timeout 45s -r expanded > knowledge_test.log 2>&1
+          code=$?
+          cat knowledge_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B3 -A10 'Expected:|Actual:|\[E\]|Exception|Error:' knowledge_test.log \
+              | head -120 | while IFS= read -r line; do
+                echo "::error title=Knowledge test::$line"
+              done
+            tailmsg=$(tail -n 20 knowledge_test.log | head -c 3000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Knowledge tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+      - name: Upload knowledge test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-test-log
+          path: knowledge_test.log
+          if-no-files-found: ignore

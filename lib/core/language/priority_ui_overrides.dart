@@ -8412,4 +8412,34 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'සංකල්ප 100ක් නොබැඳිව ඇත · In4Up මුල් CC0 සජීවිකරණ',
   },
 
+  // ── YT-PAINT-002 (#3, 2026-11-06): khay màu trong danh sách phụ đề ──
+  'Khay màu cho cả danh sách': {
+    'en': 'Paint tray for the whole transcript',
+    'hi': 'पूरे ट्रांसक्रिप्ट के लिए रंग पैलेट',
+    'zh': '整份字幕的调色盘',
+    'zh_TW': '整份字幕的調色盤',
+    'si': 'සම්පූර්ණ පිටපත සඳහා වර්ණ තැටිය',
+  },
+  'Chọn màu, rồi bấm vào từ ở bất kỳ dòng nào': {
+    'en': 'Pick a color, then tap a word on any line',
+    'hi': 'रंग चुनें, फिर किसी भी पंक्ति के शब्द पर टैप करें',
+    'zh': '选择颜色，然后点按任意一行的词',
+    'zh_TW': '選擇顏色，然後點按任一行的詞',
+    'si': 'වර්ණයක් තෝරා, ඕනෑම පේළියක වචනයක් ස්පර්ශ කරන්න',
+  },
+  'Chưa chọn màu — bấm Đã biết / Đang học / Bỏ qua trước khi tô': {
+    'en': 'No color picked — tap Known / Learning / Skip first',
+    'hi': 'कोई रंग नहीं चुना — पहले ज्ञात / सीख रहे / छोड़ें पर टैप करें',
+    'zh': '尚未选择颜色 — 请先点按已认识 / 学习中 / 跳过',
+    'zh_TW': '尚未選擇顏色 — 請先點按已認識 / 學習中 / 略過',
+    'si': 'වර්ණයක් තෝරා නැත — පළමුව දන්නා / ඉගෙනුම / මඟහරින්න ස්පර්ශ කරන්න',
+  },
+  'Màu này áp cho cả hệ (Đọc / Web / Từ vựng) — đổi ở đâu cũng đổi chung': {
+    'en': 'This color applies system-wide (Read / Web / Vocabulary) — it changes everywhere',
+    'hi': 'यह रंग पूरे सिस्टम पर लागू होता है (पढ़ें / वेब / शब्दावली) — हर जगह बदलेगा',
+    'zh': '此颜色适用于整个系统（阅读 / 网页 / 词汇）— 处处同步改变',
+    'zh_TW': '此顏色適用於整個系統（閱讀 / 網頁 / 詞彙）— 處處同步改變',
+    'si': 'මෙම වර්ණය මුළු පද්ධතියටම බලපායි (කියවීම / වෙබ් / වචන මාලාව) — සෑම තැනකම වෙනස් වේ',
+  },
+
 };

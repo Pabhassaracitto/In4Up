@@ -888,7 +888,8 @@ jobs:
                    test/yt_download_filename_test.dart \
                    test/yt_tts_provider_collision_test.dart \
                    test/yt_one_bar_and_loop_test.dart \
-                   test/yt_channels_and_prepare_test.dart; do
+                   test/yt_channels_and_prepare_test.dart \
+                   test/yt_audit_v1_23_paint_pause_sync_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

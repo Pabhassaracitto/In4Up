@@ -422,11 +422,12 @@ void main() {
       final host = _FakeHost(Directory('${temp.path}/out'));
       final service = buildService(port, host);
 
-      final result = await service.convertOnly(
+      // `convertOnly` trả `String` (đường dẫn), không phải MediaExportResult.
+      final producedPath = await service.convertOnly(
         inputPath: input.path,
         preset: MediaExportPreset.mp3Voice,
       );
-      expect(File(result.primaryPath).existsSync(), isTrue);
+      expect(File(producedPath).existsSync(), isTrue);
       expect(host.recents, isEmpty);
     });
   });

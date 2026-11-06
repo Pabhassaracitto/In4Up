@@ -139,8 +139,12 @@ class PdfReaderController extends ChangeNotifier {
   // ─── Words overlay ───────────────────────────────────────
   /// Cache: pageIndex → words với positions
   final Map<int, List<PdfWordInfo>> _pageWords = {};
-  bool _isLoadingWords = false;
-  bool get isLoadingWords => _isLoadingWords;
+  final Map<int, Future<List<PdfWordInfo>>> _wordLoads = {};
+  final Map<int, int> _wordLoadGenerations = {};
+  final Set<int> _loadingWordPages = {};
+  bool get isLoadingWords => _loadingWordPages.isNotEmpty;
+
+  bool hasWordDataForPage(int pageIndex) => _pageWords.containsKey(pageIndex);
 
   List<PdfWordInfo> getWordsForPage(int pageIndex) =>
       _pageWords[pageIndex] ?? const [];
@@ -346,7 +350,7 @@ class PdfReaderController extends ChangeNotifier {
 
     await _storageReady.future;
     _clampRestoredPage();
-    _loadWordsForPage(_currentPage);
+    unawaited(_loadWordsForPage(_currentPage));
     unawaited(_probeTextLayer());
   }
 
@@ -433,8 +437,10 @@ class PdfReaderController extends ChangeNotifier {
     }
     notifyListeners();
 
-    _loadWordsForPage(pageIndex);
-    if (pageIndex + 1 < totalPages) _loadWordsForPage(pageIndex + 1);
+    unawaited(_loadWordsForPage(pageIndex));
+    if (pageIndex + 1 < totalPages) {
+      unawaited(_loadWordsForPage(pageIndex + 1));
+    }
 
     // Panel "Dịch màn hình" đang mở → theo kịp trang mới. Trang đã cache thì
     // hiển thị ngay; trang mới thì dịch lại (TranslationCache ăn phần lớn).
@@ -628,39 +634,66 @@ class PdfReaderController extends ChangeNotifier {
     _extractor.invalidatePages(pages);
     for (final p in pages) {
       _pageWords.remove(p);
+      _wordLoadGenerations[p] = (_wordLoadGenerations[p] ?? 0) + 1;
+      _wordLoads.remove(p);
     }
     for (final p in pages) {
-      _loadWordsForPage(p);
+      unawaited(ensureWordsForPage(p));
     }
     notifyListeners();
   }
 
   // ─── Word Loading ────────────────────────────────────────
   Future<void> _loadWordsForPage(int pageIndex) async {
-    final doc = _document;
-    if (doc == null) return;
-    if (pageIndex < 0 || pageIndex >= doc.pages.length) return;
-    final needsAnalysis = _colorMode != ColorMode.none || _showRecallMarkers;
-    if (_pageWords.containsKey(pageIndex)) return;
+    await ensureWordsForPage(pageIndex);
+  }
 
-    _isLoadingWords = true;
+  /// Loads the page's positioned words on demand and coalesces concurrent taps
+  /// with page-change/color-mode extraction. Tap handling uses this to avoid
+  /// treating a word as empty while its overlay data is still being prepared.
+  Future<List<PdfWordInfo>> ensureWordsForPage(int pageIndex) async {
+    final cached = _pageWords[pageIndex];
+    if (cached != null) return cached;
+    final pending = _wordLoads[pageIndex];
+    if (pending != null) return pending;
+
+    final doc = _document;
+    if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.length) {
+      return const <PdfWordInfo>[];
+    }
+    final generation = _wordLoadGenerations[pageIndex] ?? 0;
+    final mode = _colorMode;
+    final needsAnalysis = mode != ColorMode.none || _showRecallMarkers;
+    _loadingWordPages.add(pageIndex);
     notifyListeners();
 
-    try {
-      final page = doc.pages[pageIndex];
-      final words = await _extractor.extractWordsWithPositions(
-        page,
-        pageIndex,
-        _colorMode,
-        needsAnalysis: needsAnalysis,
-      );
-      _pageWords[pageIndex] = words;
-    } catch (e) {
-      debugPrint('PdfReaderController: _loadWordsForPage error: $e');
-    } finally {
-      _isLoadingWords = false;
-      notifyListeners();
-    }
+    late final Future<List<PdfWordInfo>> load;
+    load = () async {
+      try {
+        final words = await _extractor.extractWordsWithPositions(
+          doc.pages[pageIndex],
+          pageIndex,
+          mode,
+          needsAnalysis: needsAnalysis,
+        );
+        if (identical(_document, doc) &&
+            (_wordLoadGenerations[pageIndex] ?? 0) == generation) {
+          _pageWords[pageIndex] = words;
+        }
+        return words;
+      } catch (e) {
+        debugPrint('PdfReaderController: _loadWordsForPage error: $e');
+        return const <PdfWordInfo>[];
+      } finally {
+        if (identical(_wordLoads[pageIndex], load)) {
+          _wordLoads.remove(pageIndex);
+          _loadingWordPages.remove(pageIndex);
+          notifyListeners();
+        }
+      }
+    }();
+    _wordLoads[pageIndex] = load;
+    return load;
   }
 
   // ─── View Mode ───────────────────────────────────────────
@@ -1573,9 +1606,11 @@ class PdfReaderController extends ChangeNotifier {
     _extractor.invalidatePages(pages);
     for (final p in pages) {
       _pageWords.remove(p);
+      _wordLoadGenerations[p] = (_wordLoadGenerations[p] ?? 0) + 1;
+      _wordLoads.remove(p);
     }
     for (final p in pages) {
-      _loadWordsForPage(p);
+      unawaited(ensureWordsForPage(p));
     }
     notifyListeners();
   }

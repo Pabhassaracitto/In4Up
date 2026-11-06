@@ -1,5 +1,6 @@
 // lib/features/tts/tts_service.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -87,8 +88,10 @@ class TtsService extends ChangeNotifier {
   String? _error;
   bool _isPrefetching = false;
 
-  // ★ FIX: Track nguồn âm thanh đang dùng để tránh xung đột state
+  // Track source audio and the offline sentence being replayed after pause.
   bool _usingOfflineEngine = false;
+  bool _pausedOfflineEngine = false;
+  Future<void>? _offlineResumeFuture;
 
   // ★ FIX: Guard chống notify sau khi dispose
   bool _disposed = false;
@@ -389,6 +392,8 @@ class TtsService extends ChangeNotifier {
     _error = null;
     _stopRequested = false;
     _paused = false;
+    _pausedOfflineEngine = false;
+    _offlineResumeFuture = null;
     // Nguồn âm của câu trước đã tắt; cờ engine phải về mặc định để
     // `_awaitLineFinished` không tưởng nhầm là đang dùng giọng máy.
     _usingOfflineEngine = false;
@@ -707,9 +712,13 @@ class TtsService extends ChangeNotifier {
       debugPrint('⚠️ OfflineTTS direct error: $e');
       return false;
     } finally {
-      _usingOfflineEngine = false;
-      _isSpeaking = false;
-      _safeNotify();
+      // A paused offline sentence may have been restarted by resume(); do not
+      // let the interrupted native call clear the replacement's state.
+      if (_offlineResumeFuture == null) {
+        _usingOfflineEngine = false;
+        _isSpeaking = false;
+        _safeNotify();
+      }
     }
   }
 
@@ -972,7 +981,9 @@ class TtsService extends ChangeNotifier {
     _isLoading = false;
     _stopRequested = true;
     _paused = false;
-    _usingOfflineEngine = false; // ★ FIX: Reset cờ khi stop
+    _pausedOfflineEngine = false;
+    _offlineResumeFuture = null;
+    _usingOfflineEngine = false; // Reset the active source when stopping
     await _silenceCurrentAudio();
     _safeNotify();
   }
@@ -996,12 +1007,14 @@ class TtsService extends ChangeNotifier {
   /// vòng `speakLines` lập tức chuyển sang câu kế → bấm Pause xong vẫn nghe.
   Future<void> pause() async {
     if (_paused) return;
+    _pausedOfflineEngine =
+        _usingOfflineEngine || _offlineResumeFuture != null;
     _paused = true;
     try {
       await _audioPlayer.pause();
     } catch (_) {}
     try {
-      await _offlineEngine.pause();
+      if (_pausedOfflineEngine) await _offlineEngine.pause();
     } catch (_) {}
     _isSpeaking = false;
     _safeNotify();
@@ -1010,10 +1023,26 @@ class TtsService extends ChangeNotifier {
   Future<void> resume() async {
     if (!_paused) return;
     _paused = false;
-    try {
-      await _audioPlayer.play();
-    } catch (_) {}
     _isSpeaking = true;
+    if (_pausedOfflineEngine) {
+      _usingOfflineEngine = true;
+      final replay = _offlineEngine.restartPausedSpeech().catchError((error) {
+        debugPrint('OfflineTTS resume error: $error');
+      });
+      _offlineResumeFuture = replay;
+      unawaited(replay.whenComplete(() {
+        if (!identical(_offlineResumeFuture, replay)) return;
+        _offlineResumeFuture = null;
+        _usingOfflineEngine = false;
+        _isSpeaking = false;
+        _safeNotify();
+      }));
+      _pausedOfflineEngine = false;
+    } else {
+      try {
+        await _audioPlayer.play();
+      } catch (_) {}
+    }
     _safeNotify();
   }
 
@@ -1077,13 +1106,21 @@ class TtsService extends ChangeNotifier {
     // pause: nếu không, giọng máy (flutter_tts) vừa bị cắt sẽ bị hiểu là
     // "đọc xong" và vòng lặp nhảy sang dòng kế trong lúc người dùng đang
     // tạm dừng. Đây chính là kiểu tự lướt dòng đã báo.
-    while (_paused) {
+    while (_paused || _offlineResumeFuture != null) {
       if (_stopRequested || isStaleEpoch(epoch)) return;
-      await Future.delayed(tick);
+      if (_paused) {
+        await Future.delayed(tick);
+        continue;
+      }
+      final replay = _offlineResumeFuture;
+      if (replay != null) {
+        try {
+          await replay;
+        } catch (_) {}
+      }
     }
-    // Giọng máy: `speak()` đã await tới khi đọc xong (awaitSpeakCompletion).
-    // Lưu ý: tạm dừng giữa câu của flutter_tts không phát tiếp được từ chỗ
-    // cũ — resume sẽ bắt đầu từ câu KẾ, không phải giữa câu đang dở.
+    // Offline speech futures complete only after the current sentence (or its
+    // restart-after-pause) finishes; don't wait on AudioPlayer for them.
     if (_usingOfflineEngine) return;
     // Trần an toàn cho một dòng (dòng dài nhất của PDF vẫn dưới mức này).
     final deadline = DateTime.now().add(const Duration(minutes: 5));

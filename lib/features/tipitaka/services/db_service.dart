@@ -63,12 +63,40 @@ class TipitakaDb {
 
   static void _notifyImportChanged() {
     importRevision.value++;
+    _clearCatalogCaches();
+  }
+
+  static void _clearCatalogCaches() {
+    _catalogCacheToken = null;
+    _officialCatalogCacheToken = null;
+    _officialCatalogCacheValue = null;
+    _collectionsCache = null;
+    _catalogIndexCache = null;
+    _catalogBooksCache.clear();
+    _outlineCache.clear();
+  }
+
+  static String? _cacheToken(DatabaseExecutor db) {
+    if (_openPath == null || !identical(db, _db)) return null;
+    final token = '$_openPath:${importRevision.value}';
+    if (_catalogCacheToken != token) {
+      _clearCatalogCaches();
+      _catalogCacheToken = token;
+    }
+    return token;
   }
 
   static Database? _db;
   static String? _openPath;
   static TipitakaDatabaseSource _openSource = TipitakaDatabaseSource.installed;
   static bool _databaseFactoryReady = false;
+  static String? _catalogCacheToken;
+  static String? _officialCatalogCacheToken;
+  static bool? _officialCatalogCacheValue;
+  static List<TipitakaCollection>? _collectionsCache;
+  static List<TipitakaBook>? _catalogIndexCache;
+  static final Map<String, List<TipitakaBook>> _catalogBooksCache = {};
+  static final Map<int, List<TipitakaSegment>> _outlineCache = {};
 
   static const String dbName = 'tipitaka.sqlite';
   static const String bundledAssetPath = 'assets/db/tipitaka.sqlite';
@@ -131,7 +159,25 @@ class TipitakaDb {
     final file = File(path);
     if (!await file.exists()) return 'tipitaka:missing';
     final stat = await file.stat();
-    return 'tipitaka:${p.basename(path)}:${stat.size}:${stat.modified.toUtc().millisecondsSinceEpoch}';
+    var latestImportHash = '';
+    final database = _db;
+    if (database != null && _openPath == path) {
+      try {
+        final rows = await database.query(
+          'tipitaka_import_history',
+          columns: const ['source_sha256'],
+          orderBy: 'imported_at DESC',
+          limit: 1,
+        );
+        latestImportHash = rows.isEmpty
+            ? ''
+            : '${rows.first['source_sha256'] ?? ''}';
+      } catch (_) {
+        // Older installed DBs may not yet have import history.
+      }
+    }
+    return 'tipitaka:${p.normalize(path)}:${stat.size}:'
+        '${stat.modified.toUtc().millisecondsSinceEpoch}:$latestImportHash';
   }
 
   /// Files placed here can be discovered by the data manager without using a
@@ -1839,6 +1885,7 @@ class TipitakaDb {
     _db = null;
     _openPath = null;
     _openSource = TipitakaDatabaseSource.installed;
+    _clearCatalogCaches();
   }
 
   static Future<void> _ensureDatabaseFactory() async {
@@ -2164,24 +2211,32 @@ class TipitakaDb {
   }
 
   static String _bookNotDemoSql(String alias) => '''
-    UPPER(TRIM(COALESCE($alias.code, ''))) <> 'DEMO'
-    AND LOWER(COALESCE($alias.metadata_json, '')) NOT LIKE '%demo%'
-    AND LOWER(COALESCE($alias.name_pali, '')) NOT LIKE '%demo%'
-    AND LOWER(COALESCE($alias.name_en, '')) NOT LIKE '%demo%'
-    AND LOWER(COALESCE($alias.name_vi, '')) NOT LIKE '%demo%'
-    AND NOT EXISTS (
-      SELECT 1 FROM tipitaka_collections demo_collection
-       WHERE demo_collection.id = $alias.collection_id
-         AND LOWER(COALESCE(demo_collection.name_pali, '') || ' ' ||
-                   COALESCE(demo_collection.name_en, '') || ' ' ||
-                   COALESCE(demo_collection.name_vi, '')) LIKE '%demo%'
-    )
+    UPPER(TRIM(COALESCE($alias.code, ''))) NOT IN ('DEMO', 'DEMO_BOOK', 'SAMPLE', 'SAMPLE_BOOK')
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"demo":true%'
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"is_demo":true%'
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"sample":true%'
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"is_sample":true%'
+    AND LOWER(TRIM(COALESCE($alias.name_pali, ''))) NOT IN ('demo', 'demo book', 'sample', 'sample book')
+    AND LOWER(TRIM(COALESCE($alias.name_en, ''))) NOT IN ('demo', 'demo book', 'sample', 'sample book')
+    AND LOWER(TRIM(COALESCE($alias.name_vi, ''))) NOT IN ('demo', 'demo book', 'sample', 'sample book')
+    AND LOWER(TRIM(COALESCE($alias.name_pali, ''))) NOT LIKE 'demo %'
+    AND LOWER(TRIM(COALESCE($alias.name_en, ''))) NOT LIKE 'demo %'
+    AND LOWER(TRIM(COALESCE($alias.name_vi, ''))) NOT LIKE 'demo %'
+    AND LOWER(TRIM(COALESCE($alias.name_pali, ''))) NOT LIKE 'sample %'
+    AND LOWER(TRIM(COALESCE($alias.name_en, ''))) NOT LIKE 'sample %'
+    AND LOWER(TRIM(COALESCE($alias.name_vi, ''))) NOT LIKE 'sample %'
   ''';
 
   /// Once any real content has been imported, the checked-in sample is a
   /// fallback only. Determine this from populated non-demo books rather than
   /// from collection counts, which also include the bundled demo collection.
   static Future<bool> _hasOfficialCatalog(DatabaseExecutor db) async {
+    final token = _cacheToken(db);
+    if (token != null &&
+        _officialCatalogCacheToken == token &&
+        _officialCatalogCacheValue != null) {
+      return _officialCatalogCacheValue!;
+    }
     final rows = await db.rawQuery('''
       SELECT 1 FROM tipitaka_books b
        WHERE ${_bookNotDemoSql('b')}
@@ -2199,10 +2254,18 @@ class TipitakaDb {
          )
        LIMIT 1
     ''');
-    return rows.isNotEmpty;
+    final found = rows.isNotEmpty;
+    if (token != null) {
+      _officialCatalogCacheToken = token;
+      _officialCatalogCacheValue = found;
+    }
+    return found;
   }
 
   static Future<List<TipitakaCollection>> getCollections(Database db) async {
+    final token = _cacheToken(db);
+    final cached = _collectionsCache;
+    if (token != null && cached != null) return cached;
     final hasOfficial = await _hasOfficialCatalog(db);
     final rows = hasOfficial
         ? await db.rawQuery('''
@@ -2216,13 +2279,18 @@ class TipitakaDb {
             'tipitaka_collections',
             orderBy: 'order_index ASC, id ASC',
           );
-    return rows.map((r) => TipitakaCollection.fromMap(r)).toList();
+    final collections = rows.map((r) => TipitakaCollection.fromMap(r)).toList();
+    if (token != null) _collectionsCache = collections;
+    return collections;
   }
 
   /// Small, title-free index used to decide which catalogue branches exist.
   /// Full content-derived titles stay lazy; demo-only rows disappear once real
   /// imported books are available.
   static Future<List<TipitakaBook>> getCatalogIndexBooks(Database db) async {
+    final token = _cacheToken(db);
+    final cached = _catalogIndexCache;
+    if (token != null && cached != null) return cached;
     final hasOfficial = await _hasOfficialCatalog(db);
     final rows = hasOfficial
         ? await db.rawQuery('''
@@ -2231,7 +2299,9 @@ class TipitakaDb {
              ORDER BY b.order_index, b.id
           ''')
         : await db.query('tipitaka_books', orderBy: 'order_index, id');
-    return rows.map(TipitakaBook.fromMap).toList();
+    final books = rows.map(TipitakaBook.fromMap).toList();
+    if (token != null) _catalogIndexCache = books;
+    return books;
   }
 
   static Future<List<TipitakaBook>> getBooksByCollection(
@@ -2240,6 +2310,10 @@ class TipitakaDb {
     String languageCode = 'en',
   }) async {
     final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
+    final token = _cacheToken(db);
+    final cacheKey = token == null ? null : '$token:$collectionId:$language';
+    final cachedBooks = cacheKey == null ? null : _catalogBooksCache[cacheKey];
+    if (cachedBooks != null) return cachedBooks;
     final localeColumn = const {
       'pi': 'pali_text',
       'en': 'translation_en',
@@ -2288,7 +2362,9 @@ class TipitakaDb {
       WHERE b.collection_id = ? $bookFilter
       ORDER BY b.order_index ASC, b.id ASC
     ''', arguments);
-    return rows.map(TipitakaBook.fromMap).toList();
+    final books = rows.map(TipitakaBook.fromMap).toList();
+    if (cacheKey != null) _catalogBooksCache[cacheKey] = books;
+    return books;
   }
 
   /// Book catalogue titles must not be inferred from centered invocations such
@@ -2432,6 +2508,9 @@ class TipitakaDb {
     Database db,
     int bookId,
   ) async {
+    final token = _cacheToken(db);
+    final cached = token == null ? null : _outlineCache[bookId];
+    if (cached != null) return cached;
     var rows = await db.query(
       'tipitaka_segments',
       where: 'book_id = ? AND ${_outlineSql('tipitaka_segments')} '
@@ -2458,7 +2537,9 @@ class TipitakaDb {
       ];
     }
     final enriched = await _withTranslations(db, rows);
-    return enriched.map(TipitakaSegment.fromMap).toList();
+    final outline = enriched.map(TipitakaSegment.fromMap).toList();
+    if (token != null) _outlineCache[bookId] = outline;
+    return outline;
   }
 
   /// Returns annotations whose book and segment still exist and agree.

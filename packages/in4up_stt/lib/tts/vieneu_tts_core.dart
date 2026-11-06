@@ -459,7 +459,6 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
             break;
           }
           final status = _native!.cloneVoice(
-            _handle!,
             voiceId,
             samplesDir,
             outputEmbedding,
@@ -640,6 +639,19 @@ class _VieneuTtsNative {
 
   void freeAudio(Pointer<Float> samples) => _freeAudio(samples);
   void destroy(Pointer<Void> handle) => _destroy(handle);
+
+  int cloneVoice(String voiceId, String samplesDir, String outputEmbedding) {
+    final vid = voiceId.toNativeUtf8();
+    final sd = samplesDir.toNativeUtf8();
+    final oe = outputEmbedding.toNativeUtf8();
+    try {
+      return _cloneVoice(vid, sd, oe);
+    } finally {
+      calloc.free(vid.cast<Void>());
+      calloc.free(sd.cast<Void>());
+      calloc.free(oe.cast<Void>());
+    }
+  }
 }
 
 typedef _CreateNative = Pointer<Void> Function(

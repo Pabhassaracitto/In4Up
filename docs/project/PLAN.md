@@ -1431,11 +1431,12 @@ Package: `video_player: ^2.8.0` (Flutter official)
 
 ### PLAN-046 — Hợp nhất Venn ba kỹ năng và view sáu kỹ năng an toàn
 - **Nguồn:** người dùng (2026-11-06), chấp thuận tích hợp nhánh 251e.
-- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; chờ CI,
-  review và nghiệm thu thiết bị. View là chỉ đọc; đánh giá/lưu output chưa nối.
+- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; CI baseline xanh,
+  follow-up đang chờ CI, review và nghiệm thu thiết bị. View chỉ đọc; output chưa nối.
 - **Milestone đề xuất:** M2 — công cụ từ vựng và nền Knowledge.
 - **Ranh giới:** giữ ba lịch SM-2, lấy điểm legacy trực tiếp, không giả lập
   EMA hoặc output; feature flag có thể tắt, không tự deploy web khi thử.
 - **Lịch sử:**
   - 2026-11-06 | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận hợp nhất an toàn.
   - 2026-11-06 | proposed→doing | agent `arena/075510c6-in4up` | merge, sửa compile/test, thiết kế projection + view theo ADR-0025; chờ xác minh CI.
+  - 2026-11-06 | doing | agent `arena/075510c6-in4up` | baseline `0f0112e` [CI 42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh; Knowledge 281 pass/2 skip, tools 21 pass, analyze/regression + web rút gọn pass không deploy. Review, nghiệm thu thiết bị, persistence output chưa xong; follow-up đang chờ CI.

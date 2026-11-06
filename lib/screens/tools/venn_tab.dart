@@ -43,6 +43,7 @@ class _VennTabState extends State<VennTab> {
   bool _selectionMode = false;
   bool _sixSkillMode = false;
   Future<void> _modeWrite = Future<void>.value();
+  int _modeRevision = 0;
 
   @override
   void initState() {
@@ -59,6 +60,7 @@ class _VennTabState extends State<VennTab> {
   void _setSixSkillMode(bool enabled) {
     if (_sixSkillMode == enabled || _activeDrag != null) return;
     setState(() => _sixSkillMode = enabled);
+    final revision = ++_modeRevision;
     final writer = widget.writeSixSkillMode;
     // Serialize writes so rapid toggles cannot persist an older choice last.
     _modeWrite = _modeWrite.then((_) async {
@@ -71,7 +73,9 @@ class _VennTabState extends State<VennTab> {
       }
     }).catchError((Object error, StackTrace stack) {
       debugPrint('Could not save six-skill view preference: $error');
-      if (mounted) {
+      // A later choice is queued and may still save successfully. Do not
+      // claim that the current choice is unsaved for a superseded failure.
+      if (mounted && revision == _modeRevision) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
           content: Text(context.uiText('Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.')),
         ));

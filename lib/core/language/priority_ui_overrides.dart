@@ -101,6 +101,13 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '尚無單詞具備足夠的輸入與輸出資料可供繪圖。',
     'si': 'සටහන් කිරීමට ප්‍රමාණවත් ආදාන සහ ප්‍රතිදාන දත්ත ඇති වචන තවම නැත.',
   },
+  'Chỉ vẽ từ có điểm ở cả hai nhóm; trung bình chỉ tính điểm hiện có.': {
+    'en': 'Only words with scores in both groups are plotted; averages use available scores only.',
+    'hi': 'केवल दोनों समूहों में अंक वाले शब्द दिखते हैं; औसत में केवल उपलब्ध अंक शामिल हैं।',
+    'zh': '仅绘制两个组均有分数的单词；平均值只计算已有分数。',
+    'zh_TW': '僅繪製兩組都有分數的單詞；平均值只計算已有分數。',
+    'si': 'කණ්ඩායම් දෙකේම ලකුණු ඇති වචන පමණක් දක්වයි; සාමාන්‍යයට ඇති ලකුණු පමණක් යොදා ගනී.',
+  },
   'Từ có đủ dữ liệu': {
     'en': 'Words with enough data',
     'hi': 'पर्याप्त डेटा वाले शब्द',

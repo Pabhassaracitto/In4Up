@@ -180,6 +180,10 @@ class _MasteryViewWidgetState extends State<MasteryViewWidget> {
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 8),
+        Text(context.uiText('Chỉ vẽ từ có điểm ở cả hai nhóm; trung bình chỉ tính điểm hiện có.'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

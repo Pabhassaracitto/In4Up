@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -419,6 +420,75 @@ void main() {
     provider.dispose();
   });
 
+  testWidgets('rapid view choices save in order after a superseded failure', (tester) async {
+    var saved = false;
+    final firstWrite = Completer<void>();
+    final writes = <bool>[];
+    final provider = _TestVocabularyProvider()..allWords.add(_word('a'));
+    await tester.pumpWidget(_host(provider, VennTab(
+      readSixSkillMode: () => saved,
+      writeSixSkillMode: (value) async {
+        writes.add(value);
+        if (writes.length == 1) await firstWrite.future;
+        saved = value;
+      },
+    )));
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byKey(const Key('venn_toggle_six_skills')));
+      await tester.pump();
+    }
+    expect(writes, [true]);
+    firstWrite.completeError(StateError('first write failed'));
+    await tester.pumpAndSettle();
+    expect(writes, [true, false, true]);
+    expect(saved, isTrue);
+    expect(find.byKey(const Key('mastery_hexagram')), findsOneWidget);
+    expect(find.text('Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.'), findsNothing);
+    provider.dispose();
+  });
+
+  testWidgets('failed latest preference is reported and remains session-only', (tester) async {
+    final provider = _TestVocabularyProvider()..allWords.add(_word('a'));
+    await tester.pumpWidget(_host(provider, VennTab(
+      readSixSkillMode: () => false,
+      writeSixSkillMode: (_) async => throw StateError('storage offline'),
+    )));
+    await tester.tap(find.byKey(const Key('venn_toggle_six_skills')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mastery_hexagram')), findsOneWidget);
+    expect(find.text('Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.'), findsOneWidget);
+    provider.dispose();
+  });
+
+  testWidgets('six-skill views fit a narrow screen with larger Hindi text', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final provider = _TestVocabularyProvider()
+      ..allWords.add(_word('a', text: 'long user vocabulary text'));
+    await tester.pumpWidget(_host(provider, MediaQuery(
+      data: const MediaQueryData(
+        size: Size(320, 640),
+        textScaler: TextScaler.linear(1.25),
+      ),
+      child: VennTab(
+        readSixSkillMode: () => true,
+        writeSixSkillMode: (_) async {},
+      ),
+    ), locale: const Locale('hi')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mastery_hexagram')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const Key('mastery_collection_mode')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('mastery_scatter_count')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    provider.dispose();
+  });
+
   testWidgets('six-skill picker preserves user text and reflects Venn changes', (tester) async {
     final first = _word('a', text: 'first');
     final second = WordEntry(id: 'b', word: 'Tất cả', meaning: 'fox', read: 0.1);
@@ -497,6 +567,7 @@ void main() {
       'Đánh giá và lưu Dùng, Nói, Viết chưa được kết nối.',
       'Chưa đủ dữ liệu đầu vào và đầu ra để hiển thị từ nào.',
       'Từ có đủ dữ liệu',
+      'Chỉ vẽ từ có điểm ở cả hai nhóm; trung bình chỉ tính điểm hiện có.',
       'Ngang: Hiểu, Nghe, Đọc. Dọc: Dùng, Nói, Viết.',
       'Một phần',
       'Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.',

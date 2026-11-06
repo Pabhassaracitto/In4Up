@@ -2,43 +2,158 @@
 // File nay import ffmpeg_kit_flutter_new, chi duoc goi tren Android/iOS
 // Tren Windows, CMake patch da loai plugin khoi build, nen neu co goi nham
 // se throw, nhung _useFFmpegKit guard dam bao khong goi.
+//
+// AVTOOL-001 (PLAN-046 P0) — ba thay doi, KHONG doi API cu:
+//   1. Chay bang ARGUMENT (`executeWithArguments`) thay vi ghep mot chuoi
+//      lenh. Truoc day `quotePath()` chi boc ngoac kep va escape `"` ⇒ ten
+//      file co dau nhay don `'` lam FFmpegKit tach sai tham so (loi that,
+//      xay ra voi ten file tieng Anh co apostrophe: "Don't stop.mp3").
+//      Gio moi phan tu la 1 argv ⇒ khong con escaping thu cong.
+//   2. GIU `FFmpegSession` ⇒ huy duoc tac vu dang chay (tac vu 90 phut tren
+//      may yeu truoc day khong the dung lai). Callback tien trinh theo
+//      session (khong dung callback global ⇒ khong tranh chap giua 2 tac vu).
+//   3. `FFmpegKitConfig.clearSessions()` thay cho `Future.delayed(50ms)`
+//      (comment cu ghi "giai phong native RAM" nhung delay khong giai phong
+//      gi ca — session van nam trong history cua native).
+//
+// `runFFmpegKit(List<String>)` va `probeFFmpegKit(String)` giu NGUYEN chu ky
+// de moi caller cu (AudioConverter, VAD, Whisper) khong phai sua.
 
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_session.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter/foundation.dart';
 
-import 'ffmpeg_runner.dart';
+import 'ffmpeg_common.dart';
 
-Future<void> runFFmpegKit(List<String> args) async {
-  final command = args.map(FfmpegRunner.quotePath).join(' ');
-  debugPrint('FFmpegKit command: ffmpeg $command');
-  final session = await FFmpegKit.execute(command);
-  final returnCode = await session.getReturnCode();
+/// Ket qua mot lan chay FFmpegKit (mobile).
+class FfmpegKitOutcome {
+  final bool success;
+  final bool cancelled;
 
-  // Giai phong session ngay de tranh tich luy native RAM (Scudo)
-  try {
-    // Clear old sessions to free native memory - important on low-RAM Android
-    // ignore: avoid_dynamic_calls
-    await Future.delayed(const Duration(milliseconds: 50));
-  } catch (_) {}
+  /// Toan bo log cua phien (dung de bao loi cho nguoi dung / chan doan).
+  final String output;
 
-  if (ReturnCode.isSuccess(returnCode)) return;
-  if (ReturnCode.isCancel(returnCode)) {
-    throw Exception('Chuyen doi am thanh bi huy (FFmpegKit).');
+  const FfmpegKitOutcome({
+    required this.success,
+    required this.cancelled,
+    required this.output,
+  });
+}
+
+/// Tach huy (cancel) cho mot lan chay FFmpegKit.
+///
+/// Vi sao khong chi dung `Future` + `Timer`: huy phai xuong native
+/// (`session.cancel()`), va neu nguoi dung bam Huy TRUOC khi session duoc tao
+/// xong thi co phai nho y dinh do (`_cancelRequested`) de huy ngay khi co.
+class FfmpegKitCancelToken {
+  FFmpegSession? _session;
+  bool _cancelRequested = false;
+
+  bool get isCancelled => _cancelRequested;
+
+  /// Gan session khi da tao xong. Neu da yeu cau huy truoc do (nguoi dung bam
+  /// Huy trong luc FFmpegKit dang khoi tao session) thi huy ngay.
+  void attach(FFmpegSession session) {
+    _session = session;
+    if (_cancelRequested) {
+      try {
+        session.cancel();
+      } catch (e) {
+        debugPrint('[FfmpegKit] cancel error: $e');
+      }
+    }
   }
+
+  Future<void> cancel() async {
+    _cancelRequested = true;
+    try {
+      await _session?.cancel();
+    } catch (e) {
+      debugPrint('[FfmpegKit] cancel error: $e');
+    }
+  }
+}
+
+/// Noi [FfmpegCancelToken] dung chung (tang tren) vao duong FFmpegKit.
+///
+/// Nho lop noi nay, `ffmpeg_kit_impl.dart` khong phai biet gi ve desktop va
+/// `ffmpeg_runner.dart` khong phai giu 2 token rieng.
+FfmpegKitCancelToken _adapt(FfmpegCancelToken? shared) {
+  final kit = FfmpegKitCancelToken();
+  shared?.onCancel(() {
+    kit.cancel();
+  });
+  return kit;
+}
+
+/// Chay FFmpegKit bang ARGUMENT, co tien trinh + huy duoc.
+///
+/// [onElapsed] nhan so mili-giay FFmpeg da xu ly (khong phai % — nguoi goi
+/// biet tong thoi luong nen chia lay phan tram; nho vay lop nay khong phai
+/// probe duration).
+Future<FfmpegKitOutcome> runFFmpegKitWithProgress(
+  List<String> args, {
+  void Function(int elapsedMs)? onElapsed,
+  FfmpegCancelToken? token,
+}) async {
+  final kitToken = _adapt(token);
+  debugPrint('FFmpegKit args: ffmpeg ${args.join(' ')}');
+
+  final session = await FFmpegKit.executeWithArgumentsAsync(
+    args,
+    null,
+    null,
+    onElapsed == null
+        ? null
+        : (statistics) {
+            final ms = statistics.getTime();
+            if (ms >= 0) onElapsed(ms);
+          },
+  );
+  kitToken.attach(session);
+
+  final returnCode = await session.getReturnCode();
   final output = (await session.getOutput()) ?? '';
-  final failTrace = (await session.getFailStackTrace()) ?? '';
-  final code = returnCode?.getValue();
-  throw Exception(
-    'Chuyen doi am thanh that bai (FFmpegKit) [code=$code]: $output $failTrace',
+
+  // Giai phong session khoi history native (thay cho Future.delayed gia lap).
+  try {
+    await FFmpegKitConfig.clearSessions();
+  } catch (e) {
+    debugPrint('[FfmpegKit] clearSessions error: $e');
+  }
+
+  if (ReturnCode.isCancel(returnCode) || kitToken.isCancelled) {
+    return FfmpegKitOutcome(success: false, cancelled: true, output: output);
+  }
+  return FfmpegKitOutcome(
+    success: ReturnCode.isSuccess(returnCode),
+    cancelled: false,
+    output: output,
   );
 }
 
+/// Chay FFmpegKit (mobile) — GIU NGUYEN chu ky cu cho caller san co.
+Future<void> runFFmpegKit(List<String> args) async {
+  final outcome = await runFFmpegKitWithProgress(args);
+  if (outcome.success) return;
+  if (outcome.cancelled) {
+    throw Exception('Chuyen doi am thanh bi huy (FFmpegKit).');
+  }
+  throw Exception('Chuyen doi am thanh that bai (FFmpegKit): ${outcome.output}');
+}
+
 Future<String> probeFFmpegKit(String inputPath) async {
-  final cmd = '-i ${FfmpegRunner.quotePath(inputPath)} -f null -';
-  final session = await FFmpegKit.execute(cmd);
-  final out = await session.getOutput() ?? '';
-  // small delay to let native release
-  await Future.delayed(const Duration(milliseconds: 30));
-  return out;
+  final outcome = await runFFmpegKitWithProgress([
+    '-hide_banner',
+    '-i',
+    inputPath,
+    '-f',
+    'null',
+    '-',
+  ]);
+  // `ffmpeg -i` khong co output ⇒ return code khac 0 la BINH THUONG; thong tin
+  // (Duration/Stream) nam trong log. Vi vay khong duoc throw o day.
+  return outcome.output;
 }

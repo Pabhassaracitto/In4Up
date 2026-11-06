@@ -9,6 +9,8 @@
 // localized_material EXPORT material (chỉ hide `Text` để thay bằng shim dịch
 // nhãn) — import thẳng material ở đây sẽ làm `Text` thành ambiguous và còn bỏ
 // qua catalog, nên chỉ import shim.
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 
@@ -184,6 +186,19 @@ class PdfTtsBar extends StatelessWidget {
                     ),
             ),
           ),
+          if (paused) ...[
+            const SizedBox(width: 3),
+            _BarBtn(
+              key: const ValueKey('pdf-tts-stop'),
+              icon: Icons.stop_rounded,
+              tooltip: context.uiText('Dừng'),
+              onTap: () {
+                onUserInteraction?.call();
+                HapticFeedback.selectionClick();
+                unawaited(controller.stopReading());
+              },
+            ),
+          ],
           const SizedBox(width: 6),
           _BarBtn(
             icon: Icons.redo_rounded,
@@ -301,6 +316,7 @@ class _BarBtn extends StatelessWidget {
   final bool active;
 
   const _BarBtn({
+    super.key,
     required this.icon,
     required this.tooltip,
     this.onTap,

@@ -219,10 +219,14 @@ jobs:
             # Artifact log KHONG tai duoc trong moi truong agent (blob host
             # ngoai allowlist) ⇒ dua nguyen doan cuoi log len annotation.
             # Message phai 1 dong va escape '%' theo cu phap workflow command.
-            names=$(grep -E "^\s+/home/.*test/media_tools/.*: " media_tools_test.log | head -10 | tr '\n' '~' | sed 's/%/%25/g')
-            echo "::error title=media_tools failing names::$names"
-            chunk=$(grep -B1 -A12 "\[E\]" media_tools_test.log | head -c 3500 | tr '\n' '~' | sed 's/%/%25/g')
-            echo "::error title=media_tools errors::$chunk"
+            # Log chi tiet: dong co ten file test ma KHONG phai dau ✅ (tuc la
+            # dong that bai / thong bao loi), kem ngu canh Expected/Actual.
+            detail=$(grep -E "test/media_tools/[a-z_/]+\.dart:" media_tools_test.log \
+              | grep -v "✅" | head -12 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools failing::$detail"
+            expect=$(grep -E "Expected:|Actual:|Which:" media_tools_test.log \
+              | head -12 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools detail::$expect"
           fi
           exit $code
 

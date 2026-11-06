@@ -99,7 +99,7 @@ class VieneuTtsEngine implements TtsEngine {
         id: VieneuTtsCore.defaultVoiceId,
         name: VieneuTtsCore.defaultVoiceId.replaceAll('_', ' '),
         region: '',
-        refCodesPath: null,
+        refCodesPath: '',
         speakerEmbeddingPath: null,
       ));
     }

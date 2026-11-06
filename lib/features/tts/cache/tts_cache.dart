@@ -158,7 +158,7 @@ class TtsCache {
     // Tính tổng dung lượng.
     int totalBytes = 0;
     for (final f in files) {
-      totalBytes += await f.length();
+      totalBytes += await (f as File).length();
     }
 
     const maxBytes = maxCacheSizeMB * 1024 * 1024;
@@ -174,8 +174,9 @@ class TtsCache {
     // Xoá từ file cũ nhất cho khi đủ ngưỡng.
     for (final f in files) {
       if (totalBytes <= maxBytes) break;
-      final size = await f.length();
-      await f.delete();
+      final file = f as File;
+      final size = await file.length();
+      await file.delete();
       totalBytes -= size;
     }
   }

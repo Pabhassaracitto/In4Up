@@ -14,6 +14,7 @@
 // native (libspeaker_encoder.so), embedding sẽ là placeholder — giọng sẽ
 // nghe giống giọng mặc định embed trong GGUF.
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -219,7 +220,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     }
 
     final dest = p.join(voiceDir.path, p.basename(_currentRecordingPath!));
-    await File(_currentRecordingPath!).copy(dest.path);
+    await File(_currentRecordingPath!).copy(dest);
     await File(_currentRecordingPath!).delete();
 
     if (!mounted) return;

@@ -1446,13 +1446,23 @@ class _MainShellState extends State<MainShell> {
       ),
       child: Row(
         children: [
-          if (!isWatch || !_leftLibraryIsAudio)
+          // YT-WATCH-QUICK-001 (#5 owner 2026-11-06): tab **Xem** trước đây ẩn
+          // nút thư viện trái khi thư viện trái là âm thanh ⇒ góc trên bên
+          // trái TRỐNG, còn icon YouTube nằm lẻ loi bên phải (trong header
+          // "Video thiết bị"). Nay tab Xem mở đầu bằng 「Thư viện văn bản」
+          // đúng như tab Đọc, rồi tới các lối tắt YouTube / Thư viện video.
           _ShellActionButton(
-            icon: isReader ? Icons.menu_book_rounded : _leadingIcon,
-            color: isReader ? const Color(0xFF2196F3) : _leadingColor,
-            tooltip: isReader ? context.uiText('Thư viện văn bản') : _leadingTooltip,
+            icon: (isReader || isWatch)
+                ? Icons.menu_book_rounded
+                : _leadingIcon,
+            color: (isReader || isWatch)
+                ? const Color(0xFF2196F3)
+                : _leadingColor,
+            tooltip: (isReader || isWatch)
+                ? context.uiText('Thư viện văn bản')
+                : _leadingTooltip,
             onTap: () {
-              if (isReader) {
+              if (isReader || isWatch) {
                 _openTextLibrary();
               } else if (_currentTab == _PrimaryTab.home) {
                 Navigator.push(
@@ -1482,6 +1492,22 @@ class _MainShellState extends State<MainShell> {
               color: const Color(0xFFDAAD67),
               tooltip: context.uiText('Tam tạng'),
               onTap: () => _setReadSource(ReadContentSource.tipitaka, openSource: true),
+            ),
+          ],
+          // YT-WATCH-QUICK-001: hai lối tắt của tab Xem — đặt SÁT nút thư viện
+          // (góc trên trái) thay vì đẩy YouTube sang header bên dưới.
+          if (isWatch) ...[
+            _ShellActionButton(
+              icon: Icons.play_circle_filled,
+              color: const Color(0xFFFF0000),
+              tooltip: context.uiText('YouTube'),
+              onTap: () => _handleTool('youtube_downloader'),
+            ),
+            _ShellActionButton(
+              icon: Icons.video_library_outlined,
+              color: const Color(0xFF53D6BD),
+              tooltip: context.uiText('Thư viện video'),
+              onTap: () => _handleTool('video_library'),
             ),
           ],
           const SizedBox(width: 8),
@@ -1534,23 +1560,25 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
           const SizedBox(width: 8),
-          if (!isReader && (!isWatch || !rightLibraryIsAudio))
-          _ShellActionButton(
-            icon: hasMappedLibraryPair
-                ? _rightLibraryIcon
-                : Icons.library_music_rounded,
-            color: rightLibraryIsAudio
-                ? const Color(0xFF6C63FF)
-                : const Color(0xFF2196F3),
-            tooltip: context.uiText(
-              hasMappedLibraryPair
-                  ? _rightLibraryTooltip
-                  : 'Thư viện âm thanh',
+          // Tab Xem đã có 「Thư viện văn bản」 ở bên trái ⇒ bỏ nút phải để
+          // không có hai nút cùng mở một thư viện (và để tiết kiệm chỗ).
+          if (!isReader && !isWatch)
+            _ShellActionButton(
+              icon: hasMappedLibraryPair
+                  ? _rightLibraryIcon
+                  : Icons.library_music_rounded,
+              color: rightLibraryIsAudio
+                  ? const Color(0xFF6C63FF)
+                  : const Color(0xFF2196F3),
+              tooltip: context.uiText(
+                hasMappedLibraryPair
+                    ? _rightLibraryTooltip
+                    : 'Thư viện âm thanh',
+              ),
+              onTap: hasMappedLibraryPair
+                  ? _openRightLibrary
+                  : _openAudioLibrary,
             ),
-            onTap: hasMappedLibraryPair
-                ? _openRightLibrary
-                : _openAudioLibrary,
-          ),
         ],
       ),
     );
@@ -1660,18 +1688,14 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildListenContextHeader(BuildContext context) {
     if (_listenModeIndex == 2) {
+      // YT-WATCH-QUICK-001 (#5): icon YouTube ĐÃ chuyển lên app bar, sát nút
+      //「Thư viện văn bản」. Header này chỉ còn nhãn — không còn nút lẻ loi
+      // bên phải làm tốn một hàng chiều cao.
       return _WorkspaceHeaderSurface(
         accent: _currentAccent,
         child: Row(children: [
           Expanded(child: Text(context.uiText('Video thiết bị'),
               style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600))),
-          _WorkspaceHeaderActionButton(
-            action: _WorkspaceHeaderAction(
-              label: 'YouTube', icon: Icons.play_circle_filled,
-              onPressed: () => _handleTool('youtube_downloader'),
-            ),
-            compact: true,
-          ),
         ]),
       );
     }
@@ -1700,18 +1724,11 @@ class _MainShellState extends State<MainShell> {
             onPressed: () => _setPrimaryTab(_PrimaryTab.understand),
           ),
         ],
-      _ => <_WorkspaceHeaderAction>[
-          _WorkspaceHeaderAction(
-            label: 'Thư viện video',
-            icon: Icons.video_library_outlined,
-            onPressed: () => _handleTool('video_library'),
-          ),
-          _WorkspaceHeaderAction(
-            label: 'YouTube',
-            icon: Icons.play_circle_filled,
-            onPressed: () => _handleTool('youtube_downloader'),
-          ),
-        ],
+      // Chế độ 2 (Xem) đã `return` ở trên ⇒ nhánh này không còn chạy được.
+      // Trước đây nó giữ bản sao hai nút YouTube / Thư viện video (đã chuyển
+      // lên app bar) — để trống hẳn, tránh có hai nguồn sự thật cho cùng lối
+      // tắt. `_ =>` vẫn cần vì switch trên int là exhaustive.
+      _ => <_WorkspaceHeaderAction>[],
     };
 
     return _WorkspaceHeaderSurface(

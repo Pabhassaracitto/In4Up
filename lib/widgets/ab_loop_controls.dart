@@ -5,6 +5,7 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
+import '../features/media_tools/media_export_actions.dart';
 import '../models/loop_presets.dart';
 import '../providers/player_provider.dart';
 import '../screens/understand_mode/understand_provider.dart';
@@ -622,6 +623,29 @@ class _ExtendedControls extends StatelessWidget {
               backgroundColor: Colors.transparent,
               builder: (context) => const SaveSegmentDialog(),
             );
+          },
+        ),
+
+        // AVTOOL-003 (PLAN-046 P2) — xuất ĐOẠN A–B thành file ngắn để mang đi
+        // (kèm LRC đã dịch mốc ⇒ còn karaoke + lặp A–B sau khi xuất).
+        // Đặt NGAY CẠNH "Lưu" vì cùng một ý định: "giữ câu này lại".
+        _ActionButton(
+          icon: Icons.content_cut,
+          label: 'Xuất đoạn',
+          color: const Color(0xFF26C6DA),
+          onTap: () async {
+            final player = context.read<PlayerProvider>();
+            if (!player.hasCompletedLoop) {
+              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                SnackBar(
+                  content: Text(context.uiText(
+                      'Hãy đặt mốc A và B trước khi xuất đoạn.')),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            await exportClipFromPlayer(context, player);
           },
         ),
 

@@ -14,6 +14,7 @@ import '../features/dictionary/widgets/dictionary_screen.dart';
 import '../features/dictionary/widgets/dict_pack_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
+import '../features/media_tools/screens/media_tools_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
@@ -644,6 +645,15 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.videocam,
         color: const Color(0xFFFFB300),
       ),
+      // AVTOOL-002 (PLAN-046 P1) — công cụ media: chuyển định dạng/cắt/tách,
+      // kèm màn tự chẩn đoán FFmpeg (desktop tải khi cần — không đóng gói sẵn).
+      'media_tools': tools.ToolItem(
+        id: 'media_tools',
+        title: context.uiText('Công cụ media'),
+        subtitle: context.uiText('Chuyển đổi, cắt, tách âm thanh khỏi video'),
+        icon: Icons.content_cut,
+        color: const Color(0xFF26C6DA),
+      ),
       'dict_manager': tools.ToolItem(
         id: 'dict_manager',
         title: context.uiText('Từ điển MDX'),
@@ -791,11 +801,13 @@ class _MainShellState extends State<MainShell> {
           'pdf_reader',
           'video_player',
           'video_library',
+          'media_tools',
           'dictionary',
           'dict_manager',
           'dict_packs',
         ]),
       _PrimaryTab.listen => take([
+          'media_tools',
           'youtube_downloader',
           'video_library',
           'pdf_reader',
@@ -1150,6 +1162,11 @@ class _MainShellState extends State<MainShell> {
       case 'video_player':
         nav.push(
           MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+        );
+        return;
+      case 'media_tools':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const MediaToolsScreen()),
         );
         return;
       case 'dictionary':

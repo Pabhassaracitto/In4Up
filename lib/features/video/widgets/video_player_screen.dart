@@ -10,6 +10,8 @@ import 'dart:io';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../media_tools/media_export_actions.dart';
+
 import '../models/video_info.dart';
 import '../services/subtitle_parser.dart';
 import '../services/video_device_channel.dart';
@@ -200,6 +202,45 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // AVTOOL-003 (PLAN-046 P2) — video → âm thanh (nghe trên đường).
+          if (ready)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              color: const Color(0xFF1A1A2E),
+              onSelected: (value) async {
+                switch (value) {
+                  case 'extract_audio':
+                    await exportAudioFromVideo(context, widget.video);
+                  case 'clip_audio':
+                    final position = c.value.position;
+                    final duration = c.value.duration - position;
+                    await exportAudioFromVideo(
+                      context,
+                      widget.video,
+                      clipStart: position,
+                      clipDuration: duration > const Duration(seconds: 1)
+                          ? duration
+                          : const Duration(seconds: 30),
+                    );
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'extract_audio',
+                  child: Text(
+                    context.uiText('Tách âm thanh (toàn bộ video)'),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'clip_audio',
+                  child: Text(
+                    context.uiText('Tách âm thanh từ vị trí hiện tại'),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
           if (ready)
             PopupMenuButton<double>(
               icon: const Icon(Icons.speed, color: Colors.white),

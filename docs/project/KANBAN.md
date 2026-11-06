@@ -8756,7 +8756,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Đã làm (code):**
   - #1 `layoutTranslatedBlocks()` (Dart thuần) + native `TranslationOverlayView.kt` bỏ `boxHeight = maxOf(...)` ⇒ thêm `clipRect` + ellipsize.
   - #2/#7 **một cụm model/offline**: `lib/services/offline_model_gate.dart`; `PiperTtsEngine` marker `[TTS-NATIVE]`, `_LrcModelSelector._sherpaVerdict()`, `PlayerSttMixin._sherpaLrcPreflight()`.
-  - #3 `CabinFinalizationDeduper` nối vào `SttsCabinService`, xoá `Future.delayed(3s)` (recheck theo yêu cầu "AI ngữ cảnh Cabin").
+  - #3 `CabinFinalizationDeduper` nối vào `SttsCabinService`, xoá `Future.delayed(3s)`; **recheck luồng code** phát hiện nhánh `_state == speaking` return sớm nhưng `whenComplete` vẫn `complete()` ⇒ câu bị nhớ 8s dù không có caption ⇒ replay final bị nuốt (MẤT CÂU). Đã sửa bằng `CabinFinalizationOutcome` + `finish(createdCaption:)`.
   - #4 `pdf_open_preflight.dart` + `pdf_open_messages.dart` nối vào `ReadLibraryScreen`, `QuickLibrarySheet`, `PdfReaderScreen`.
   - #5 `WordMiniPop`: 4 chip `Dễ / Vừa / Khó / Rất khó` → `markWordDifficulty` (KHÔNG mở rộng `WordlistBubble`).
   - #6 `translation_link_guard.dart` + `deeplx_endpoint.dart` dùng chung ở engine/service/toolbar/controller; không lưu URL bài hướng dẫn; nút "Thử kết nối" không kẹt.
@@ -8767,7 +8767,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - `adb logcat` #2 (ưu tiên TTS sherpa → bấm Đọc) và #7 (import model dở → «Tạo lời thoại»): crash C++ không catch được ở Dart.
   - #3: AI có ngữ cảnh Cabin recheck luồng STT thật khi dịch >3s.
   - QA máy #1 (≥3 khối), #4 (xoá file «Gần đây»), #5 (bật `wordTapBoxes`), #6 (endpoint Termux thật), #8 (1 `∞` + chip A-B).
-  - ~~CI `app_analyze.yml`~~ ✅ **run 42133600485 🟢** (analyze 0 error, rule #5, toàn bộ suite cũ + 8 file test mới). Sandbox không có Flutter/Dart SDK nên mọi compile/test chạy qua CI; 3 lỗi (4 run đỏ) đã sửa: raw-string RegExp/`this.name` (42130562066), anchor `$` + import `OverlayRect` (42131063345), path thư mục PDF ⇒ `unreadable` (42132184287 / 42132971120). Đã nối thêm step riêng cho 6 file test thuần còn lại.
+  - ~~CI `app_analyze.yml`~~ ✅ **run mới nhất 42135090013 🟢** (trước đó 42133600485 🟢) (analyze 0 error, rule #5, toàn bộ suite cũ + 8 file test mới). Sandbox không có Flutter/Dart SDK nên mọi compile/test chạy qua CI; 3 lỗi (4 run đỏ) đã sửa: raw-string RegExp/`this.name` (42130562066), anchor `$` + import `OverlayRect` (42131063345), path thư mục PDF ⇒ `unreadable` (42132184287 / 42132971120). Đã nối thêm step riêng cho 6 file test thuần còn lại.
 - **Lịch sử:**
   - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + 8 file test thuần + i18n + `docs/project/AUDIT_1_21_0.md` + PLAN-043; đối chiếu PR #106/#128/#129/#136 và `57ad5a7`.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | push 6 commit lên `arena/4e91ed51-in4up` (`12e10c4` → `67d1d3f`); CI `app_analyze.yml` **42133600485 🟢** (analyze 0 error + rule #5 + 8 test mới, sau 3 vòng sửa compile/test đỏ); `python3 tool/generate_priority_native_pack.py --check` ✅ 3516 entry; `git diff --check` ✅. Vẫn giữ `doing` vì chưa có `adb logcat` #2/#7 và QA máy #1/#3/#4/#5/#6/#8.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo: (a) `Uri.replace(path:"/")` GIỮ `?token=` (đối chiếu `sdk/lib/core/uri.dart`) + 2 test MockClient; (b) chip A-B dùng CÙNG `setMaxLoopCount` như dropdown ⇒ pin đồng nhất, không đổi behaviour; (c) sửa lỗi mất câu ở Cabin bằng `finish(createdCaption:)`. 7 test/pin mới (3 Cabin + 2 DeepLX + 2 source-scan). CI `app_analyze.yml` **42135090013 🟢** trên `1b0fce2`. Vẫn `doing` vì thiếu `adb logcat` #2/#7 và QA máy.

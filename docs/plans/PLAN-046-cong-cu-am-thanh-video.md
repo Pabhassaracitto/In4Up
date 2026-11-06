@@ -306,9 +306,40 @@ String buildConcatList(List<String> paths) => paths
 | Linux | `Process` + `ffmpeg` của hệ thống | ⚠️ như trên (`apt install ffmpeg`) |
 | Web | không hỗ trợ | Ẩn toàn bộ UI (`kIsWeb`) |
 
+<<<<<<< HEAD
 > **Quyết định cần owner duyệt (xem §10):** có đóng gói `ffmpeg.exe` vào bản
 > Windows (+~80 MB) hay chỉ hướng dẫn? Kế hoạch mặc định: **không** đóng gói
 > (giữ dung lượng release), nhưng thêm nút tải/chọn.
+=======
+> **ĐÃ CHỐT (owner, 2026-11-06): không đóng gói `ffmpeg.exe`.** App Windows
+> không kèm binary; khi người dùng thật sự dùng công cụ media, app mới tải
+> **một lần** (~90 MB) từ `github.com/BtbN/FFmpeg-Builds`
+> (`ffmpeg-master-latest-win64-gpl-shared.zip`, cần kèm DLL → dùng bản
+> `-shared`), kiểm `checksums.sha256` rồi giải nén vào
+> `documents/ffmpeg_runtime/`. Đường dẫn được nhớ trong `StorageService`
+> (key `ffmpeg_runtime_path`) và bơm vào `FfmpegRunner` qua
+> `FfmpegBinaryRegistry` ⇒ lần sau không dò lại.
+>
+> Lý do chọn lazy-download thay vì đóng gói: 90 MB là 30–50% dung lượng
+> release, mà phần lớn người dùng Windows **không bao giờ** mở công cụ media
+> (họ dùng Android). Người dùng cần thì tải 1 lần, có thanh tiến trình + SHA
+> check; người không cần thì app vẫn nhẹ như cũ. Xem ADR-0025 (mục "Lazy
+> download").
+>
+> Hệ quả UI: mọi bề mặt phải đi qua `ensureFfmpegReady(context)` — thiếu
+> binary thì hiện sheet "Tải FFmpeg" thay vì báo lỗi kỹ thuật. Ở Linux vẫn
+> khuyên `apt install ffmpeg` (không tự tải: libc/glibc khác nhau giữa distro).
+
+### 5.6.1 Lazy download — chi tiết đã code (P1)
+| Bước | Nơi code | Ghi chú |
+|---|---|---|
+| Kiểm đã cài | `FfmpegRuntimeInstaller.installedExecutable()` | `documents/ffmpeg_runtime/<asset>/bin/ffmpeg.exe` hoặc trực tiếp `.../ffmpeg.exe` |
+| Tải | `_download()` ghi `*.part` rồi rename | huỷ được (`cancelToken`), không để file dở |
+| Xác thực | `_fetchExpectedDigest` + `crypto.sha256` | không lấy được checksum ⇒ **vẫn cảnh báo** trong log nhưng cho cài (mạng lỗi một phần) |
+| Giải nén | `_extract()` chỉ lấy `bin/ffmpeg(.exe)` + `*.dll` | tránh giải nén cả trăm MB tài liệu |
+| Ghi nhớ | `FfmpegRuntimeBootstrap.rememberInstalled()` | `StorageService.saveSetting('ffmpeg_runtime_path', …)` |
+| Khởi động | `main()` → `FfmpegRuntimeBootstrap.init()` (không `await` phần dò) | gợi ý sync cho `findFfmpegBinary()` |
+>>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 
 ### 5.7 Dung lượng APK: có nên đổi sang bản `audio`?
 
@@ -457,6 +488,7 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
 
 ## 12. Câu hỏi cần owner quyết trước khi code
 
+<<<<<<< HEAD
 1. **Phạm vi P2 làm trước hay làm trọn bộ?** (đề xuất: P0+P1+P2 trước, P3/P4 sau)
 2. **Windows:** đóng gói `ffmpeg.exe` (~+80 MB) hay chỉ hiện hướng dẫn/chọn file?
    (đề xuất: **không** đóng gói)
@@ -464,6 +496,37 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
    nhưng không phát được trên vài máy nghe nhạc cũ)? (đề xuất: **MP3 192k**)
 4. **Có cần xuất cả video đã cắt** ở P2, hay chỉ âm thanh? (đề xuất: chỉ âm thanh
    ở P2, video ở P3)
+=======
+### Đã có câu trả lời (2026-11-06)
+
+1. **Phạm vi** — owner để agent tự chọn theo hiệu quả ⇒ chốt **P0 + P1 + P2**
+   trong đợt này, P3/P4 giữ nguyên thứ tự trong §6. Lý do: P0 vá lỗi escaping
+   đang ảnh hưởng STT, P1 là hạ tầng không có UI (rủi ro thấp, test được trên
+   host VM), P2 mới là giá trị người dùng thấy — làm cả ba thì tính năng chạy
+   được thật, dừng ở P1 thì chỉ có code chết.
+2. **Windows: KHÔNG đóng gói** — tải lazy khi dùng (chi tiết §5.6/§5.6.1).
+3. **Định dạng mặc định cho "Xuất đoạn A–B": MP3 192 kbps**
+   (`MediaExportPreset.recommended(isClip: true)`).
+   - Vì sao không M4A copy: clip A–B cần **đúng mốc tới ms**; copy chỉ cắt
+     được ở ranh giới frame AAC (~23 ms mỗi frame) và nhiều máy nghe nhạc ô tô
+     / loa bluetooth cũ không mở `.m4a`. Clip học tập thường 10–60 giây nên
+     chênh dung lượng MP3 192k vs AAC 128k là không đáng kể (~1 MB).
+   - Vì sao không MP3 VBR V2 (`-q:a 2`): VBR cho chất lượng tốt hơn ở cùng
+     dung lượng, nhưng **thời lượng file thực tế khó ước lượng** ⇒ thanh tiến
+     trình và cảnh báo dung lượng kém chính xác; clip ngắn thì lợi ích không bù
+     được. (`mp3Voice` = `-q:a 3` vẫn có trong danh sách cho người muốn file
+     nhỏ.)
+   - **Xuất cả file** (không phải clip): `m4aCopy` khi nguồn đã là
+     `m4a/mp4/m4b/aac` (tức thời, không mất chất), ngược lại MP3 192 kbps.
+4. **P2 có xuất video đã cắt không? → KHÔNG ở P2.** P2 chỉ làm **âm thanh**:
+   - `MediaExportInputKind.video` ⇒ luôn thêm `-vn -sn -dn -map 0:a:0`, tức
+     "tách âm thanh khỏi video" (bề mặt video: menu ⋮ → *Tách âm thanh*).
+   - `MediaCommandBuilder.trimVideo(copyOnly: true)` **đã có sẵn** nhưng chưa
+     nối vào bề mặt nào — đây là phần P3 (`AVTOOL-004`), vì cắt video bằng
+     `-c copy` chỉ đúng khi container/stream khớp, còn nếu phải mã hoá lại
+     (`libx264`) thì thời gian encode + pin trên điện thoại là câu chuyện khác
+     hẳn (cần tiến trình, ước lượng, cảnh báo riêng).
+>>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 
 ---
 
@@ -472,3 +535,9 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
 - 2026-11-06 | created (proposed) | agent `arena/c231303f-in4up` | khảo sát 20+
   điểm chạm trong repo; đính chính 6 điểm trong câu trả lời Gemini; đề xuất 4 tầng
   + 6 bề mặt + 5 pha; **chưa code, chưa chạy CI**.
+<<<<<<< HEAD
+=======
+- 2026-11-06 | §5.6 + §12 chốt | owner trả lời 4 câu hỏi: scope P0+P1+P2, không
+  đóng gói `ffmpeg.exe` (lazy download), clip mặc định MP3 192k, P2 chỉ âm thanh.
+  Thêm §5.6.1 (bảng lazy download) + §12 phần "Đã có câu trả lời".
+>>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)

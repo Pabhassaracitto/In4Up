@@ -76,11 +76,35 @@ Sáu lối vào (tab Nghe A–B, menu file tab Nghe, Âm mục/chương, Video, 
 Web Reader) đều mở **cùng** `MediaExportSheet`; tham số quyết định phạm vi và
 tên gợi ý. Không làm tab "Media" riêng, không làm trang chủ "Converter".
 
+<<<<<<< HEAD
 ### D6 — Nói thật về nền tảng
 
 Windows/Linux **cần** `ffmpeg` bên ngoài; repo hiện **không** kèm `ffmpeg.exe`.
 UI phải hiện trạng thái + nút "Chọn ffmpeg.exe", không được crash và không được
 giả vờ "đã xong". Web ẩn toàn bộ. iOS được kiểm lần đầu ở P2/P3.
+=======
+### D6 — Nói thật về nền tảng, và tải FFmpeg **lazy** (chốt 2026-11-06)
+
+Windows/Linux **cần** `ffmpeg` bên ngoài; repo **không** kèm `ffmpeg.exe`.
+UI phải hiện trạng thái thật, không được crash và không được giả vờ "đã xong".
+Web ẩn toàn bộ. iOS được kiểm lần đầu ở P2/P3.
+
+**Owner đã chọn (2026-11-06): tải lazy, không đóng gói.**
+
+- Bản Windows **không** kèm binary (tiết kiệm ~90 MB cho 100% người dùng, trong
+  khi chỉ một phần nhỏ dùng công cụ media).
+- Người dùng bấm dùng lần đầu → sheet "Tải FFmpeg" (~90 MB,
+  `ffmpeg-master-latest-win64-gpl-shared.zip` từ BtbN/FFmpeg-Builds, kèm
+  `checksums.sha256`) → giải nén `bin/` + `*.dll` vào `documents/ffmpeg_runtime/`.
+- Đường dẫn ghi vào `StorageService` (`ffmpeg_runtime_path`), bơm vào package
+  qua `FfmpegBinaryRegistry` / `FfmpegRunner.setBinaryHintProvider` — vì
+  `in4up_stt` **không** được thêm phụ thuộc `path_provider`.
+- Linux: chỉ hướng dẫn `apt install ffmpeg` (tự tải binary glibc khác distro dễ
+  hỏng hơn là có ích).
+- Phương án bị loại: đóng gói sẵn (+90 MB, owner từ chối); tải ở lần chạy app
+  đầu tiên (người không dùng vẫn tốn 90 MB + thời gian chờ vô nghĩa); dựa vào
+  `ffmpeg` có sẵn của hệ thống (đa số máy Windows không có).
+>>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 
 ### D7 — `-c copy` không phải mặc định
 
@@ -88,6 +112,17 @@ Cắt/nối dùng `-c copy` **chỉ khi** đã kiểm tương thích codec/sampl
 và chấp nhận dung sai frame; đoạn A–B để **học phát âm** thì re-encode để đúng ms.
 Đây là chỗ câu trả lời Gemini sai ("hoạt động hoàn hảo với cả mp3, m4a, wav").
 
+<<<<<<< HEAD
+=======
+### D8 — Hợp đồng `adoptPath`, không trả file `.part`
+
+`MediaExportService` ghi ra `*.part.<ext>` rồi mới đưa qua host
+(`adoptPath` → `AudioImportService.ensurePersistent`). Nhờ seam này:
+(a) không bao giờ có file nửa vời nằm trong thư viện mà player mở được;
+(b) test bơm host giả, chạy trên host VM, không cần Hive/`path_provider`;
+(c) hỏng giữa đường ⇒ chỉ còn `.part` và nó bị xoá trong `catch`.
+
+>>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 ## Hệ quả
 
 **Tích cực:** 0 MB tăng dung lượng; 1 lớp test được; 6 bề mặt dùng chung; clip
@@ -112,3 +147,8 @@ phải do ADR này.
 | Viết native Kotlin/Swift riêng | Trùng lặp với FFmpegKit đang có; 4 nền tảng × 2 ngôn ngữ |
 | Làm server/API chuyển đổi | Trái nguyên tắc offline-first (ADR-0008 chỉ cho AI/TTS qua API) |
 | Trang "Converter" riêng ở Home | Loãng app; người dùng đã có app chuyển đổi ngoài; giá trị In4Up nằm ở vòng lặp học |
+<<<<<<< HEAD
+=======
+| Đóng gói `ffmpeg.exe` vào bản Windows | +~90 MB cho mọi người dùng, trong khi phần lớn không dùng công cụ media (owner từ chối 2026-11-06) |
+| Tải FFmpeg ở lần chạy app đầu tiên | Người không dùng vẫn chờ + tốn 90 MB; tải theo nhu cầu rõ ràng hơn |
+>>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)

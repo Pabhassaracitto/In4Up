@@ -146,7 +146,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     }
     final path = p.join(samplesDir.path, 'sample_${DateTime.now().millisecondsSinceEpoch}.wav');
 
-    final config = AudioRecorderConfig(
+    final config = const RecordConfig(
       encoder: AudioEncoder.wav,
       sampleRate: 16000,
       numChannels: 1,

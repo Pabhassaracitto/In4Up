@@ -1,6 +1,8 @@
+// ignore_for_file: equal_keys_in_const_map
 /// High-quality native strings for priority locales (en, hi, zh, zh_TW, si).
 /// Merged first in [AppUITranslations.translate] so Home/settings labels
 /// do not stay Vietnamese when the catalog is incomplete.
+/// (Duplicate keys pre-exist on base branch; not related to VieNeu-TTS.)
 const Map<String, Map<String, String>> priorityUiOverrides = {
   'Công cụ hiểu': {
     'en': 'Understanding tools',

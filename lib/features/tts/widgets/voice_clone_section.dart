@@ -111,7 +111,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       final samplesDir = Directory(p.join(entity.path, 'samples'));
       final sampleCount =
           await samplesDir.exists()
-              ? await samplesDir.list().then((list) => list.length)
+              ? await samplesDir.list().toList().then((list) => list.length)
               : 0;
       voices.add(_ClonedVoice(
         id: voiceId,
@@ -164,7 +164,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
         _recordingSeconds = 0;
       });
 
-      _recordingTimer();
+      _startRecordingTimer();
     } catch (e) {
       if (!mounted) return;
       setState(() => _recordingError = 'Lỗi thu âm: $e');
@@ -173,7 +173,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
   Timer? _recordingTimer;
 
-  void _recordingTimer() {
+  void _startRecordingTimer() {
     _recordingTimer?.cancel();
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || !_isRecording) {
@@ -251,7 +251,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     ));
     int sampleCount = 0;
     if (await tempDir.exists()) {
-      sampleCount = await tempDir.list().then((list) => list.length);
+      sampleCount = await tempDir.list().toList().then((list) => list.length);
     }
     if (sampleCount == 0) {
       setState(() => _cloneStatus = 'Chưa có mẫu thu âm. Hãy ghi âm ít nhất 1 mẫu.');

@@ -98,7 +98,7 @@ class _MediaExportProgressDialogState
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
-        _error = MediaExportError(kind: MediaExportErrorKind.failed, detail: '$e');
+        _error = MediaExportError(MediaExportErrorKind.failed, detail: '$e');
       });
     }
   }

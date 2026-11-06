@@ -55,9 +55,12 @@ class _FfmpegInstallSheetState extends State<_FfmpegInstallSheet> {
       },
     );
     if (!mounted) return;
-    if (result.success && result.executablePath != null) {
+    final executable = result.executablePath;
+    if (result.success && executable != null) {
       // Đăng ký ngay + ghi nhớ vào settings để lần khởi động sau khỏi dò lại.
-      await FfmpegRuntimeBootstrap.rememberInstalled(result.executablePath);
+      // (Biến cục bộ đã được promote thành non-null ⇒ không dùng
+      // `result.executablePath!` ba lần.)
+      await FfmpegRuntimeBootstrap.rememberInstalled(executable);
       final messenger = ScaffoldMessenger.maybeOf(context);
       final message =
           context.uiText('Đã cài FFmpeg — sẵn sàng xuất file');

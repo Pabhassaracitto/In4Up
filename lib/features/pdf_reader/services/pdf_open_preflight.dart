@@ -55,6 +55,11 @@ PdfOpenCheck inspectPdfForOpen(String path) {
     return const PdfOpenCheck(PdfOpenIssue.missing);
   }
   try {
+    // `File.existsSync()` trả FALSE cho thư mục ⇒ nếu không tách trường hợp
+    // này, path trỏ tới thư mục bị báo nhầm "mất file" (CI run 42132971120).
+    if (Directory(path).existsSync()) {
+      return const PdfOpenCheck(PdfOpenIssue.unreadable);
+    }
     final file = File(path);
     if (!file.existsSync()) {
       return const PdfOpenCheck(PdfOpenIssue.missing);

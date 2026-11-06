@@ -918,7 +918,7 @@ jobs:
       # 2 file nằm trong test/screen_translate/ + test/cabin/ đã được 2 step cũ
       # chạy; 6 file còn lại nối riêng để link guard / endpoint / PDF preflight /
       # offline gate / loop presets / source-scan pin thực sự được CI chạy.
-      - name: "AUDIT-1.21.0 — 8 mục: pure tests + source-scan wiring pins"
+      - name: "AUDIT-1.21.0 — 6 file pure test + source-scan wiring pins"
         id: audit-1210-tests
         timeout-minutes: 8
         if: always() && steps.analyze.outcome != 'cancelled'

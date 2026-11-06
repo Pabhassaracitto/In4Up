@@ -40,7 +40,10 @@ class _Port implements MediaFfmpegPort {
   String? get binaryPath => '/usr/bin/ffmpeg';
 
   @override
-  Future<String> probe(String inputPath) async => probeText;
+  Future<String> probe(String inputPath) async {
+    if (throwing != null) throw throwing!;
+    return probeText;
+  }
 
   @override
   Future<MediaCommandOutcome> run(

@@ -127,9 +127,16 @@ void main() {
         ],
       );
       expect(groups, hasLength(3));
-      expect(groups[0].map((l) => l.text), ['p1']);
-      expect(groups[1].map((l) => l.text), ['p2']);
+      // Dòng nằm ĐÚNG ranh giới thuộc CẢ HAI chặng — so sánh biên là `>`
+      // (không phải `>=`) nên dòng ở 30.00 vừa là câu cuối chặng 1 (hiện ở
+      // 30.00) vừa là câu đầu chặng 2 (hiện ở 0.00). Đây là chủ đích: với
+      // clip học tập, câu nói ngay tại mốc cắt là câu quan trọng nhất, thà
+      // xuất hiện 2 lần còn hơn mất.
+      expect(groups[0].map((l) => l.text), ['p1', 'p2']);
+      expect(groups[1].map((l) => l.text), ['p2', 'p3']);
       expect(groups[2].map((l) => l.text), ['p3']);
+      expect(groups[1].first.start, Duration.zero);
+      expect(groups[2].first.start, Duration.zero);
     });
   });
 

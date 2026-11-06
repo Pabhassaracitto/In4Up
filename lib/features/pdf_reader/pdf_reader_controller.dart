@@ -659,7 +659,7 @@ class PdfReaderController extends ChangeNotifier {
 
     final doc = _document;
     if (doc == null || pageIndex < 0 || pageIndex >= doc.pages.length) {
-      return const [];
+      return const <PdfWordInfo>[];
     }
     final generation = _wordLoadGenerations[pageIndex] ?? 0;
     final mode = _colorMode;
@@ -683,7 +683,7 @@ class PdfReaderController extends ChangeNotifier {
         return words;
       } catch (e) {
         debugPrint('PdfReaderController: _loadWordsForPage error: $e');
-        return const [];
+        return const <PdfWordInfo>[];
       } finally {
         if (identical(_wordLoads[pageIndex], load)) {
           _wordLoads.remove(pageIndex);

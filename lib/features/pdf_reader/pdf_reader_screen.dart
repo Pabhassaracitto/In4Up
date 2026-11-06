@@ -25,6 +25,7 @@ import '../../providers/vocabulary_provider.dart';
 import '../../widgets/selection_save_sheet.dart';
 import '../../widgets/unified_knowledge_sheet.dart';
 import 'models/pdf_annotation.dart';
+import 'models/pdf_word_info.dart';
 import 'pdf_reader_controller.dart';
 import 'services/pdf_batch_ocr.dart';
 import 'services/pdf_file_identity.dart';

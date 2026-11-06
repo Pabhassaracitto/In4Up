@@ -95,6 +95,29 @@ jobs:
           path: analyze.log
           if-no-files-found: ignore
 
+      - name: "Vocabulary tools — graph, triangle and Venn regression tests"
+        id: vocabulary-tools-tests
+        timeout-minutes: 5
+        run: |
+          set +e
+          timeout -k 10s 4m flutter test test/tools/vocabulary_visualization_layout_test.dart \
+            test/tools/vocabulary_tools_interaction_test.dart -r expanded > vocabulary_tools_test.log 2>&1
+          code=$?
+          cat vocabulary_tools_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 24 vocabulary_tools_test.log | head -c 3500 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Vocabulary tools tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload vocabulary tools test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vocabulary-tools-test-log
+          path: vocabulary_tools_test.log
+          if-no-files-found: ignore
+
       # LINUX-AUTH-001 — Home phải render được khi logger/sync/UI cùng
       # subscribe auth, và các primary tab phải đổi cả nội dung lẫn selected.
       # Chạy sớm, có timeout để lỗi plugin/provider không treo toàn bộ oracle.

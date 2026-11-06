@@ -16,6 +16,7 @@ import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import '../edge_voice_prefs.dart';
 import '../engines/vieneu_tts_engine.dart';
 import '../engines/edge_tts_engine.dart';
+import 'voice_clone_section.dart';
 import '../engines/tts_engine.dart';
 import '../piper_voice_prefs.dart';
 import '../tts_service.dart';
@@ -72,6 +73,12 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
 
             // ── VIENEU VOICE PICKER (TTS-VIENEU-VOICE-001) ──
             const _VieneuVoicePicker(),
+            const SizedBox(height: 16),
+
+            // ── VIENEU VOICE CLONE (TTS-CLONE-001) ──
+            VoiceCloneSection(
+              primaryColor: widget.primaryColor,
+            ),
             const SizedBox(height: 16),
 
             // ── EDGE NEURAL VOICE (TTS-EDGE-VOICE-001) ──

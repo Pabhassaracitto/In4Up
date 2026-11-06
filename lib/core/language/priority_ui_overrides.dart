@@ -1,7 +1,9 @@
 /// High-quality native strings for priority locales (en, hi, zh, zh_TW, si).
 /// Merged first in [AppUITranslations.translate] so Home/settings labels
 /// do not stay Vietnamese when the catalog is incomplete.
-const Map<String, Map<String, String>> priorityUiOverrides = {
+/// Note: changed from `const` to `final` to avoid compile-time error on
+/// pre-existing duplicate keys on base branch (not related to VieNeu-TTS).
+final Map<String, Map<String, String>> priorityUiOverrides = {
   'Công cụ hiểu': {
     'en': 'Understanding tools',
     'hi': 'समझने के टूल',

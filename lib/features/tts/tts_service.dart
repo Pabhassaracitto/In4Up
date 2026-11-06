@@ -681,6 +681,26 @@ class TtsService extends ChangeNotifier {
       await vieneuDir.create(recursive: true);
     }
 
+    // ── Tạo thư mục voices/ với preset mặc định nếu chưa có ──
+    // VieNeu-TTS GGUF đã embed sẵn giọng mặc định. Thư mục voices/ chỉ cần
+    // để ghi đè/tùy chọn giọng khác. Nếu không có ref_codes.txt, engine sẽ
+    // dùng giọng mặc định trong model (không crash).
+    final voicesDir = Directory(p.join(vieneuDir.path, 'voices'));
+    if (!await voicesDir.exists()) {
+      await voicesDir.create(recursive: true);
+    }
+
+    final defaultVoiceDir = Directory(p.join(voicesDir.path, VieneuTtsCore.defaultVoiceId));
+    if (!await defaultVoiceDir.exists()) {
+      await defaultVoiceDir.create(recursive: true);
+      // Tạo file placeholder ref_codes.txt rỗng để engine biết đây là voice preset
+      // (audio.cpp chấp nhận nullptr nếu file không tồn tại, dùng giọng default).
+      final refCodes = File(p.join(defaultVoiceDir.path, 'ref_codes.txt'));
+      if (!await refCodes.exists()) {
+        await refCodes.writeAsString('# VieNeu-TTS default voice preset\n');
+      }
+    }
+
     final target = File(p.join(vieneuDir.path, VieneuTtsCore.modelFileName));
     await file.copy(target.path);
 

@@ -45,7 +45,14 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
         final source = I4uWorkspaceHandoffInbox.instance.current;
         return Column(
           children: [
-            if (source != null) _buildIncomingSourceCard(context, source),
+            if (source != null)
+              _buildIncomingSourceCard(context, source)
+            else
+              _buildConnectedHint(
+                context,
+                icon: Icons.link_outlined,
+                text: 'Mở Hiểu từ Nghe hoặc Xem để giữ ngữ cảnh đoạn đang học.',
+              ),
             AutoHideInfoBanner(
           storageKey: 'understand_workspace_header',
           autoHideAfter: const Duration(seconds: 6),
@@ -69,6 +76,30 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
       );
     },
   );
+  }
+
+  Widget _buildConnectedHint(
+    BuildContext context, {
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF0D1427),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white54, size: 17),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              context.uiText(text),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildIncomingSourceCard(

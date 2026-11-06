@@ -44,7 +44,13 @@ class RememberWorkspaceScreen extends StatelessWidget {
         final source = I4uRememberHandoffCoordinator.instance.flow.value.source;
         return Column(
           children: [
-            if (source != null) _buildIncomingSourceCard(context, source),
+            if (source != null)
+              _buildIncomingSourceCard(context, source)
+            else
+              _buildConnectedHint(
+                context,
+                text: 'Mở Nhớ từ Hiểu để ôn lại đúng đoạn và quay về nguồn.',
+              ),
             // AUDIT-2026-10-20 (mục 3): BỎ `AutoHideInfoBanner` (tự ẩn sau 5
         // giây) — người dùng chưa kịp chọn thì cả thanh chức năng biến
         // mất. Thay bằng cơ chế GỘP/BUNG bằng mũi tên (như thanh phát
@@ -70,6 +76,29 @@ class RememberWorkspaceScreen extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildConnectedHint(
+    BuildContext context, {
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF0D1427),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      child: Row(
+        children: [
+          const Icon(Icons.link_outlined, color: Colors.white54, size: 17),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              context.uiText(text),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

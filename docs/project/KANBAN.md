@@ -31,9 +31,9 @@
 | REL-1.23.0 | Release **1.23.0** (đủ 4 nền tảng) từ tip 251e — 13 commit + PR #140/#141 sau 1.22.0 | ✅ done (build 🟢 run 42159543022, 4/4 job; chờ nghiệm thu máy) | bump `1.22.0+22 → 1.23.0+23` (`1398a5c6`); APK arm64 198.9 MB `76a1bbae…`, IPA 93.5 MB, Linux 50.3 MB, Windows 52.8 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.23.0 |
 | REL-1.22.0 | Release **1.22.0** (đủ 4 nền tảng) từ tip 251e — 33 commit sau 1.21.0 | ✅ done (build 🟢 run 42134309640, 4/4 job; chờ nghiệm thu máy) | bump `1.21.0+21 → 1.22.0+22` (`1151f1d2`, rebase lên tip `a9c2b32a`); APK arm64 198.8 MB `6c45ef9f…`, IPA 93.5 MB, Linux 50.3 MB, Windows 52.8 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.22.0 |
 | REL-1.21.0 | Release **1.21.0** (đủ 4 nền tảng) từ tip 251e — 32 commit sau 1.20.0 | ✅ done (build 🟢 run 41995136804, 4/4 job; chờ nghiệm thu máy) | bump `1.20.0+20 → 1.21.0+21` (`3aff8fda`); sửa CMake `//`→`#` (`8a3826df`); APK arm64 198.7 MB `5e65f298…`, IPA 93.0 MB, Linux 49.7 MB, Windows 52.3 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.21.0 |
-| AVTOOL-001 | Media P0: `runFFmpegKit` dùng `executeWithArguments` + giữ `FFmpegSession` (huỷ được) + `clearSessions()` thay `Future.delayed` giả lập | 🔨 doing (code xong; **chưa compile — sandbox không có Flutter SDK**, chờ CI) | [PLAN-046](../plans/PLAN-046-cong-cu-am-thanh-video.md) P0, ADR-0025 — chạm đường STT ⇒ QA "Tạo lời thoại" trên máy trước khi merge |
-| AVTOOL-002 | Media P1: lớp `media_tools` 4 tầng (builder/progress/lrc-shift/naming THUẦN) + engine + màn «Công cụ media» tự chẩn đoán FFmpeg + **tải FFmpeg lazy trên desktop** | 🔨 doing (code xong; chưa compile — chờ CI) | PLAN-046 P1 §3/§5.6.1/§7 — `test/media_tools/` 11 file; owner chốt **không đóng gói** `ffmpeg.exe` |
-| AVTOOL-003 | Media P2: **xuất đoạn A–B** (mp3 + LRC dịch mốc, đăng ký Gần đây) + **video → âm thanh** (+ xuất bản sao từ «Gần đây») | 🔨 doing (code xong; chưa compile — chờ CI; **chưa QA máy**) | PLAN-046 P2 §4 #1/#4 — `MediaExportSheet` dùng chung; cắt **video** nguyên vẹn để P3 (`trimVideo` có sẵn, chưa nối) |
+| AVTOOL-001 | Media P0: `runFFmpegKit` dùng `executeWithArguments` + giữ `FFmpegSession` (huỷ được) + `clearSessions()` thay `Future.delayed` giả lập | 🔨 doing (code + test xong; **CI 🟢** run 42273702318; **chờ QA máy**) | [PLAN-046](../plans/PLAN-046-cong-cu-am-thanh-video.md) P0, ADR-0025 — chạm đường STT ⇒ QA "Tạo lời thoại" trên máy trước khi merge |
+| AVTOOL-002 | Media P1: lớp `media_tools` 4 tầng (builder/progress/lrc-shift/naming THUẦN) + engine + màn «Công cụ media» tự chẩn đoán FFmpeg + **tải FFmpeg lazy trên desktop** | 🔨 doing (code + test xong; **CI 🟢** run 42273702318 — 128 test; **chờ QA máy**) | PLAN-046 P1 §3/§5.6.1/§7 — `test/media_tools/` 11 file; owner chốt **không đóng gói** `ffmpeg.exe` |
+| AVTOOL-003 | Media P2: **xuất đoạn A–B** (mp3 + LRC dịch mốc, đăng ký Gần đây) + **video → âm thanh** (+ xuất bản sao từ «Gần đây») | 🔨 doing (code xong; **CI 🟢** run 42273702318; **chưa QA máy**) | PLAN-046 P2 §4 #1/#4 — `MediaExportSheet` dùng chung; cắt **video** nguyên vẹn để P3 (`trimVideo` có sẵn, chưa nối) |
 | AVTOOL-004 | Media P3: tách theo chương (âm mục) · tách theo khoảng · nối playlist (kiểm tương thích, fallback re-encode) · YouTube→mp3 · TTS→mp3 | 📋 proposed (kế hoạch; **chưa code**) | PLAN-046 P3 — `SoundChapter.position` là nguồn cắt chương |
 | AVTOOL-005 | Media P4: `HeavyTaskKind.mediaExport` + banner, i18n 8 locale, mục Tools overlay, QA 4 nền tảng, đo dung lượng | 📋 proposed (kế hoạch; **chưa code**) | PLAN-046 P4 §9 — 28 chuỗi mới qua `priority_native_pack.json` |
 | AUDIT-1.21.0-01 | **I4U - Audit v1.21.0** (owner 2026-11-06): 8 mục — overlay chồng chữ, TTS sherpa văng app, Cabin 2 dòng trùng, PDF «Gần đây» FPDF_ER_FILE:2, pop từ vựng 4 mức, link-only/DeepLX, model offline chưa nạp, A-B trùng ∞ | 🔨 doing (code + 8 file test thuần + KANBAN/PLAN-045/docs + **CI 42135090013 🟢**; **chờ nghiệm thu máy/logcat**) | `docs/project/AUDIT_1_21_0.md`; #2/#7 BẮT BUỘC `adb logcat`, #3 chờ AI ngữ cảnh Cabin recheck |
@@ -8954,7 +8954,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-06 | created→done | agent `arena/01a0251e-in4up` | tip `f2e77378` (13 commit + 2 merge PR sau 1.22.0) → bump `1.23.0+23` (`1398a5c6`) → push thẳng (không bị chặn) → tag `1.23.0` → build **42159543022** 🟢 4/4 → ghi card + Linear
 
 ### AVTOOL-001 — (2026-11-06) Media P0: FFmpegKit gọi bằng ARGUMENT + huỷ được + dọn session
-- **Trạng thái:** 📋 proposed — **kế hoạch, chưa code** (owner chưa duyệt phạm vi)
+- **Trạng thái:** 🔨 doing — **đã code** (owner chốt P0+P1+P2 ngày 2026-11-06); xem mục tổng hợp bên dưới
 - **Nguồn:** owner 2026-11-06 — gửi 2 phản hồi của Gemini về `ffmpeg_kit_flutter` (MP4/M4A→MP3; cắt/tách/nối audio) + yêu cầu *"khảo sát dự án để lên kế hoạch tối ưu phù hợp nhất để tích hợp thông minh các chức năng vào app"*.
 - **Chi tiết:** [`docs/plans/PLAN-046-cong-cu-am-thanh-video.md`](../plans/PLAN-046-cong-cu-am-thanh-video.md) · **ADR-0025**.
 - **Hiện trạng đã xác minh bằng mã:**
@@ -8965,7 +8965,8 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Việc dự kiến (P0):** `executeWithArguments` (bỏ escaping chuỗi) · giữ session + `cancel()` · `FFmpegKitConfig.clearSessions()` · `-nostdin` cho desktop · chuẩn hoá lỗi thành enum. **Giữ nguyên** chữ ký `List<String>` của mọi caller (`AudioConverter`, VAD, Whisper).
 - **Rủi ro chính:** P0 chạm đường STT đang chạy ⇒ PR riêng + test hồi quy + QA máy "Tạo lời thoại" trước khi merge.
 - **Lịch sử:**
-  - 2026-11-06 | created | agent `arena/c231303f-in4up` | khảo sát 20+ điểm chạm; viết PLAN-046 + ADR-0025 + 5 card AVTOOL; **chưa code, chưa chạy CI**.
+  - 2026-11-06 | created | agent `arena/c231303f-in4up` | khảo sát 20+ điểm chạm; viết PLAN-046 + ADR-0025 + 5 card AVTOOL.
+  - 2026-11-06 | created → doing | agent `arena/c231303f-in4up` | owner chốt phạm vi ⇒ code P0; CI 🟢 42273702318.
 
 ### AVTOOL-001/002/003 — (2026-11-06) Code P0+P1+P2 (chưa compile trong sandbox)
 - **Trạng thái:** 🔨 doing — code + test xong; **CI 🟢 run [42273702318](https://github.com/Pabhassaracitto/In4Up/actions/runs/42273702318)**: Analyze 0 error, step `AVTOOL tests — công cụ media` **128 test 🟢**, Rule 5 🟢. Còn lại: QA máy thật.
@@ -8983,4 +8984,5 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **6 lỗi CI bắt được (đã sửa — đáng ghi nhớ):** (1) `m4aCopy` khai `lossless: true` ⇒ `isCopy` false ⇒ mọi lần "copy" bị hạ xuống AAC 96k — **bug thật do test bắt**; (2) `Process.start` không có `stdoutEncoding`; (3) `process.stdout` là `Stream<List<int>>` ⇒ phải `transform(Utf8Decoder)`; (4) `Directory.list()` trả Stream, không dùng được trong collection-for; (5) `'.part.$1'` phải là raw string; (6) 3 file UI `show Text` từ material ⇒ **che shim `Text`**, chuỗi sẽ không bao giờ được dịch.
 - **Chưa kiểm (cần máy thật):** xuất clip A–B trên Android (file + LRC mở lại đúng, karaoke + lặp A–B còn chạy); "Tạo lời thoại" (đường STT) sau P0; tải FFmpeg trên Windows (zip ~90 MB, SHA, giải nén DLL) rồi xuất lần đầu; huỷ giữa đường trên cả 2 nền tảng.
 - **Lịch sử:**
-  - 2026-11-06 | created (ghi nhận code P0–P2) | agent `arena/c231303f-in4up` | phạm vi do owner chốt (P0+P1+P2) · **chưa commit, chưa CI**
+  - 2026-11-06 | created (ghi nhận code P0–P2) | agent `arena/c231303f-in4up` | phạm vi do owner chốt (P0+P1+P2) · CI đỏ 4 run liên tiếp (42270628020 → 42271242433 → 42272500432 → 42273162589) → 🟢 **42273702318** (128 test, Analyze 0 error, Rule 5 🟢)
+  - 2026-11-06 | docs | agent `arena/c231303f-in4up` | commit docs đầu tiên bị dính dấu xung đột (`<<<<<<<`) do rebase ⇒ đã gỡ ở `81d5955`

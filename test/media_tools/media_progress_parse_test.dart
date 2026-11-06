@@ -37,8 +37,11 @@ void main() {
       );
     });
 
-    test('giá trị âm/không hợp lệ không làm vỡ tiến trình', () {
-      expect(parseProgressElapsedMs('out_time_us=-9223372036854775808'), 0);
+    test('sentinel âm của FFmpeg bị BỎ QUA (không kéo thanh tiến trình về 0)', () {
+      // FFmpeg dùng -9223372036854775808 khi chưa biết mốc ⇒ trả null để UI
+      // giữ nguyên giá trị trước đó thay vì nhảy về 0.
+      expect(parseProgressElapsedMs('out_time_us=-9223372036854775808'), isNull);
+      expect(parseProgressElapsedMs('out_time=00:00:04.00'), 4000);
     });
 
     test('không phải dòng tiến trình ⇒ null', () {

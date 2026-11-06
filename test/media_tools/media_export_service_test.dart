@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/media_tools/models/media_export_models.dart';
 import 'package:in4up/features/media_tools/services/media_export_service.dart';
+import 'package:in4up/features/media_tools/services/lrc_time_shifter.dart';
 import 'package:in4up/features/media_tools/services/media_ffmpeg_engine.dart';
 import 'package:in4up/screens/listen_mode/models/recent_audio.dart';
 import 'package:in4up/services/audio_import_service.dart';
@@ -347,9 +348,13 @@ void main() {
       final lrc = File(result.lrcPaths.single);
       expect(lrc.existsSync(), isTrue);
       final content = await lrc.readAsString();
-      expect(content, contains('[00:00.00]b'));
+      final parsed = LrcTimeShifter.parse(content);
+      expect(parsed.map((l) => l.text), ['b', 'c']);
+      expect(parsed.first.start, Duration.zero);
+      // Dòng nằm ĐÚNG mốc kết thúc vẫn được giữ (dung sai 250 ms — câu nói ngay
+      // tại ranh giới cắt là câu quan trọng nhất với clip học tập).
+      expect(parsed.last.start, const Duration(seconds: 10));
       expect(content, isNot(contains(']a')));
-      expect(content, isNot(contains(']c')));
       expect(
         result.lrcPaths.single.substring(0, result.lrcPaths.single.length - 4),
         result.primaryPath.substring(0, result.primaryPath.length - 4),

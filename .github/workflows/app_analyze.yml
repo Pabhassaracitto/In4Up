@@ -213,6 +213,14 @@ jobs:
           flutter test test/media_tools > media_tools_test.log 2>&1
           code=$?
           cat media_tools_test.log
+          # Dua ten test that bai len ANNOTATION: artifact log hay bi chan tai
+          # trong moi truong agent, con annotation thi luon doc duoc qua API.
+          if [ $code -ne 0 ]; then
+            grep -E "\[E\]|Expected:|Actual:|Which:|^[0-9:]+ \+[0-9]+ -[0-9]+" \
+              media_tools_test.log | head -40 | while IFS= read -r line; do
+              echo "::error title=media_tools test::$line"
+            done
+          fi
           exit $code
 
       - name: Upload media tools test log

@@ -76,13 +76,6 @@ Sáu lối vào (tab Nghe A–B, menu file tab Nghe, Âm mục/chương, Video, 
 Web Reader) đều mở **cùng** `MediaExportSheet`; tham số quyết định phạm vi và
 tên gợi ý. Không làm tab "Media" riêng, không làm trang chủ "Converter".
 
-<<<<<<< HEAD
-### D6 — Nói thật về nền tảng
-
-Windows/Linux **cần** `ffmpeg` bên ngoài; repo hiện **không** kèm `ffmpeg.exe`.
-UI phải hiện trạng thái + nút "Chọn ffmpeg.exe", không được crash và không được
-giả vờ "đã xong". Web ẩn toàn bộ. iOS được kiểm lần đầu ở P2/P3.
-=======
 ### D6 — Nói thật về nền tảng, và tải FFmpeg **lazy** (chốt 2026-11-06)
 
 Windows/Linux **cần** `ffmpeg` bên ngoài; repo **không** kèm `ffmpeg.exe`.
@@ -104,7 +97,6 @@ Web ẩn toàn bộ. iOS được kiểm lần đầu ở P2/P3.
 - Phương án bị loại: đóng gói sẵn (+90 MB, owner từ chối); tải ở lần chạy app
   đầu tiên (người không dùng vẫn tốn 90 MB + thời gian chờ vô nghĩa); dựa vào
   `ffmpeg` có sẵn của hệ thống (đa số máy Windows không có).
->>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 
 ### D7 — `-c copy` không phải mặc định
 
@@ -112,8 +104,6 @@ Cắt/nối dùng `-c copy` **chỉ khi** đã kiểm tương thích codec/sampl
 và chấp nhận dung sai frame; đoạn A–B để **học phát âm** thì re-encode để đúng ms.
 Đây là chỗ câu trả lời Gemini sai ("hoạt động hoàn hảo với cả mp3, m4a, wav").
 
-<<<<<<< HEAD
-=======
 ### D8 — Hợp đồng `adoptPath`, không trả file `.part`
 
 `MediaExportService` ghi ra `*.part.<ext>` rồi mới đưa qua host
@@ -122,7 +112,6 @@ và chấp nhận dung sai frame; đoạn A–B để **học phát âm** thì r
 (b) test bơm host giả, chạy trên host VM, không cần Hive/`path_provider`;
 (c) hỏng giữa đường ⇒ chỉ còn `.part` và nó bị xoá trong `catch`.
 
->>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 ## Hệ quả
 
 **Tích cực:** 0 MB tăng dung lượng; 1 lớp test được; 6 bề mặt dùng chung; clip
@@ -147,8 +136,18 @@ phải do ADR này.
 | Viết native Kotlin/Swift riêng | Trùng lặp với FFmpegKit đang có; 4 nền tảng × 2 ngôn ngữ |
 | Làm server/API chuyển đổi | Trái nguyên tắc offline-first (ADR-0008 chỉ cho AI/TTS qua API) |
 | Trang "Converter" riêng ở Home | Loãng app; người dùng đã có app chuyển đổi ngoài; giá trị In4Up nằm ở vòng lặp học |
-<<<<<<< HEAD
-=======
 | Đóng gói `ffmpeg.exe` vào bản Windows | +~90 MB cho mọi người dùng, trong khi phần lớn không dùng công cụ media (owner từ chối 2026-11-06) |
 | Tải FFmpeg ở lần chạy app đầu tiên | Người không dùng vẫn chờ + tốn 90 MB; tải theo nhu cầu rõ ràng hơn |
->>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
+
+## Trạng thái triển khai (2026-11-06)
+
+- **Đã code P0 + P1 + P2** (commit `5cd8b5e`, `2cc84c4`, `2318d24`, `0ada8bb`
+  trên `arena/c231303f-in4up`).
+- **CI 🟢** `app_analyze` run 42273702318: Analyze 0 error · `test/media_tools`
+  **128 test** 🟢 (step CI riêng) · Rule 5 🟢.
+- **Bug thật do test bắt:** `m4aCopy` khai `lossless: true` ⇒ `isCopy == false`
+  ⇒ mọi lần xuất "copy" bị `adjustPreset` hạ xuống AAC 96 kbps. Đã sửa. Đây là
+  lý do D7 phải có test chứ không chỉ là quy ước trong tài liệu.
+- **Chưa nghiệm thu máy:** clip A–B trên Android (file + LRC mở lại đúng,
+  karaoke/lặp A–B còn chạy); "Tạo lời thoại" sau khi đổi P0; tải FFmpeg trên
+  Windows rồi xuất lần đầu; huỷ giữa đường trên cả hai nền tảng.

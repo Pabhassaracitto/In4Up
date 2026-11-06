@@ -306,11 +306,6 @@ String buildConcatList(List<String> paths) => paths
 | Linux | `Process` + `ffmpeg` của hệ thống | ⚠️ như trên (`apt install ffmpeg`) |
 | Web | không hỗ trợ | Ẩn toàn bộ UI (`kIsWeb`) |
 
-<<<<<<< HEAD
-> **Quyết định cần owner duyệt (xem §10):** có đóng gói `ffmpeg.exe` vào bản
-> Windows (+~80 MB) hay chỉ hướng dẫn? Kế hoạch mặc định: **không** đóng gói
-> (giữ dung lượng release), nhưng thêm nút tải/chọn.
-=======
 > **ĐÃ CHỐT (owner, 2026-11-06): không đóng gói `ffmpeg.exe`.** App Windows
 > không kèm binary; khi người dùng thật sự dùng công cụ media, app mới tải
 > **một lần** (~90 MB) từ `github.com/BtbN/FFmpeg-Builds`
@@ -339,7 +334,6 @@ String buildConcatList(List<String> paths) => paths
 | Giải nén | `_extract()` chỉ lấy `bin/ffmpeg(.exe)` + `*.dll` | tránh giải nén cả trăm MB tài liệu |
 | Ghi nhớ | `FfmpegRuntimeBootstrap.rememberInstalled()` | `StorageService.saveSetting('ffmpeg_runtime_path', …)` |
 | Khởi động | `main()` → `FfmpegRuntimeBootstrap.init()` (không `await` phần dò) | gợi ý sync cho `findFfmpegBinary()` |
->>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 
 ### 5.7 Dung lượng APK: có nên đổi sang bản `audio`?
 
@@ -488,15 +482,6 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
 
 ## 12. Câu hỏi cần owner quyết trước khi code
 
-<<<<<<< HEAD
-1. **Phạm vi P2 làm trước hay làm trọn bộ?** (đề xuất: P0+P1+P2 trước, P3/P4 sau)
-2. **Windows:** đóng gói `ffmpeg.exe` (~+80 MB) hay chỉ hiện hướng dẫn/chọn file?
-   (đề xuất: **không** đóng gói)
-3. **Định dạng mặc định** cho "Xuất đoạn A–B": MP3 VBR V2 hay M4A copy (nhanh,
-   nhưng không phát được trên vài máy nghe nhạc cũ)? (đề xuất: **MP3 192k**)
-4. **Có cần xuất cả video đã cắt** ở P2, hay chỉ âm thanh? (đề xuất: chỉ âm thanh
-   ở P2, video ở P3)
-=======
 ### Đã có câu trả lời (2026-11-06)
 
 1. **Phạm vi** — owner để agent tự chọn theo hiệu quả ⇒ chốt **P0 + P1 + P2**
@@ -526,7 +511,6 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
      `-c copy` chỉ đúng khi container/stream khớp, còn nếu phải mã hoá lại
      (`libx264`) thì thời gian encode + pin trên điện thoại là câu chuyện khác
      hẳn (cần tiến trình, ước lượng, cảnh báo riêng).
->>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
 
 ---
 
@@ -535,9 +519,13 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
 - 2026-11-06 | created (proposed) | agent `arena/c231303f-in4up` | khảo sát 20+
   điểm chạm trong repo; đính chính 6 điểm trong câu trả lời Gemini; đề xuất 4 tầng
   + 6 bề mặt + 5 pha; **chưa code, chưa chạy CI**.
-<<<<<<< HEAD
-=======
 - 2026-11-06 | §5.6 + §12 chốt | owner trả lời 4 câu hỏi: scope P0+P1+P2, không
   đóng gói `ffmpeg.exe` (lazy download), clip mặc định MP3 192k, P2 chỉ âm thanh.
   Thêm §5.6.1 (bảng lazy download) + §12 phần "Đã có câu trả lời".
->>>>>>> cab9206 (docs(media): PLAN-046 §5.6/§5.6.1/§12 + ADR-0025 D6/D8 — chốt 4 câu hỏi của owner)
+- 2026-11-06 | code P0+P1+P2 | agent `arena/c231303f-in4up` | 6 commit: P0
+  (`ffmpeg_common`/`ffmpeg_binary_locator` mới + runner/impl), P1 (10 file
+  service + 11 file test), P2 (sheet/dialog/follow-up/install/màn Công cụ media
+  + nối 4 bề mặt + i18n 67 entry), CI `app_analyze` 🟢 run 42273702318
+  (**128 test** cho `test/media_tools`, Analyze 0 error, Rule 5 🟢). CI bắt 6
+  lỗi compile + 1 **bug thật** (`m4aCopy` khai `lossless: true` ⇒ mọi lần
+  "copy" bị hạ xuống AAC 96k). **Chưa QA máy.**

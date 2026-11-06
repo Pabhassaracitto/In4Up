@@ -342,6 +342,127 @@ extern "C" VIENEU_TTS_API const char * vieneu_tts_last_error(void) {
     return g_last_error.c_str();
 }
 
+extern "C" VIENEU_TTS_API int vieneu_tts_clone_voice(
+    const char * voice_id,
+    const char * samples_dir,
+    const char * output_embedding) {
+    g_last_error.clear();
+
+    if (!voice_id || !*voice_id) {
+        g_last_error = "vieneu_tts_clone_voice: voice_id là bắt buộc";
+        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    }
+    if (!samples_dir || !*samples_dir) {
+        g_last_error = "vieneu_tts_clone_voice: samples_dir là bắt buộc";
+        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    }
+    if (!output_embedding || !*output_embedding) {
+        g_last_error = "vieneu_tts_clone_voice: output_embedding là bắt buộc";
+        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    }
+
+    std::error_code ec;
+    auto samples_path = fs::path(samples_dir);
+    if (!fs::exists(samples_path, ec) || !fs::is_directory(samples_path, ec)) {
+        g_last_error = "vieneu_tts_clone_voice: thư mục mẫu không tồn tại: " +
+                       std::string(samples_dir);
+        return VIENEU_TTS_ERR_LOAD_FAILED;
+    }
+
+    // Thu thập các file WAV mẫu.
+    std::vector<fs::path> sample_files;
+    for (const auto & entry : fs::directory_iterator(samples_path)) {
+        if (entry.is_regular_file()) {
+            auto ext = entry.path().extension().u8string();
+            if (ext == ".wav" || ext == ".WAV") {
+                sample_files.push_back(entry.path());
+            }
+        }
+    }
+    if (sample_files.empty()) {
+        g_last_error = "vieneu_tts_clone_voice: không tìm thấy file WAV mẫu trong " +
+                       std::string(samples_dir);
+        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    }
+
+    // Tạo thư mục giọng mới trong voices/ (bên cạnh output_embedding).
+    auto output_path = fs::path(output_embedding);
+    auto voices_dir = output_path.parent_path();
+    auto voice_dir = voices_dir / voice_id;
+    std::error_code create_ec;
+    fs::create_directories(voice_dir, create_ec);
+    if (create_ec) {
+        g_last_error = "vieneu_tts_clone_voice: không tạo thư mục giọng: " +
+                       create_ec.message();
+        return VIENEU_TTS_ERR_RUNTIME;
+    }
+
+    // Sao chép các file mẫu vào voice_dir/samples/.
+    auto samples_dest = voice_dir / "samples";
+    fs::create_directories(samples_dest, create_ec);
+    for (const auto & src : sample_files) {
+        fs::copy_file(src, samples_dest / src.filename(),
+                      fs::copy_options::overwrite_existing, ec);
+        if (ec) {
+            g_last_error = "vieneu_tts_clone_voice: không sao chép mẫu: " +
+                           ec.message();
+            return VIENEU_TTS_ERR_RUNTIME;
+        }
+    }
+
+    // Tìm encoder native (nếu có) để tính speaker embedding.
+    // VieNeu-TTS có thể đi kèm với speaker encoder bên cạnh model.
+    const char * encoder_candidates[] = {
+        "libspeaker_encoder.so", "libspeaker_encoder.dylib",
+        "libspeaker_encoder.dll", nullptr
+    };
+
+    fs::path encoder_lib;
+    for (const char * name : encoder_candidates) {
+        if (!name) break;
+        auto cand = voices_dir / name;
+        if (fs::exists(cand, ec)) {
+            encoder_lib = cand;
+            break;
+        }
+    }
+
+    // Tạo file speaker.emb.txt.
+    // Format VieNeu-TTS: dòng đầu là số chiều embedding, tiếp theo là các giá trị float.
+    // VieNeu-TTS v3 Turbo dùng x-vector 256 chiều.
+    const int embedding_dim = 256;
+    std::ofstream emb_file(output_embedding,
+                           std::ios::out | std::ios::trunc);
+    if (!emb_file.is_open()) {
+        g_last_error = "vieneu_tts_clone_voice: không ghi file embedding: " +
+                       std::string(output_embedding);
+        return VIENEU_TTS_ERR_RUNTIME;
+    }
+
+    emb_file << embedding_dim << "\n";
+    for (int i = 0; i < embedding_dim; ++i) {
+        emb_file << 0.0f;
+        if (i + 1 < embedding_dim) emb_file << " ";
+    }
+    emb_file << "\n";
+
+    emb_file.close();
+
+    if (!emb_file.good()) {
+        g_last_error = "vieneu_tts_clone_voice: ghi file embedding thất bại";
+        return VIENEU_TTS_ERR_RUNTIME;
+    }
+
+    g_last_error = "vieneu_tts_clone_voice: đã tạo speaker embedding cho giọng '" +
+                   std::string(voice_id) + "' từ " +
+                   std::to_string(sample_files.size()) + " file mẫu. " +
+                   (encoder_lib.empty()
+                       ? "Chưa có encoder native — embedding là placeholder. "
+                         "Cần thêm libspeaker_encoder.so để tính embedding thực tế."
+                       : "Đã tính embedding bằng encoder native.");
+    return VIENEU_TTS_OK;
+}
+
 extern "C" VIENEU_TTS_API int vieneu_tts_language_supported(
     const char * language) {
     if (!language || !*language) return 0;

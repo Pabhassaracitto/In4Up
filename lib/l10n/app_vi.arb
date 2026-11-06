@@ -533,5 +533,77 @@
   "tipitakaCatalogPath": "Tạng → nhóm/bộ → bài kinh",
   "ttsEngineVieneuName": "VieNeu-TTS (native)",
   "ttsEngineVieneuDesc": "Giọng đọc Việt neural — ngoại tuyến, chạy trên thiết bị (GGUF + audio.cpp)",
-  "ttsLicenseSection": "Giấy phép âm thanh"
+  "ttsLicenseSection": "Giấy phép âm thanh",
+  "@ttsCloneVoiceTitle": {
+    "description": "Tiêu đề mục clone giọng VieNeu-TTS"
+  },
+  "ttsCloneVoiceTitle": "Clone giọng VieNeu-TTS",
+  "@ttsCloneVoiceDesc": {
+    "description": "Mô tả tính năng clone giọng"
+  },
+  "ttsCloneVoiceDesc": "Ghi âm mẫu giọng và tạo giọng đọc cá nhân hóa. Giọng mới sẽ xuất hiện trong dropdown giọng VieNeu-TTS.",
+  "@ttsCloneVoiceNewName": {
+    "description": "Nhãn trường nhập tên giọng mới"
+  },
+  "ttsCloneVoiceNewName": "Tên giọng mới",
+  "@ttsCloneVoiceNewHint": {
+    "description": "Văn bản gợi ý cho trường nhập tên giọng"
+  },
+  "ttsCloneVoiceNewHint": "Ví dụ: Giọng tôi, Giọng bà,…",
+  "@ttsCloneVoiceSamples": {
+    "description": "Nhãn mục mẫu âm thanh"
+  },
+  "ttsCloneVoiceSamples": "Mẫu âm thanh",
+  "@ttsCloneVoiceRecord": {
+    "description": "Nhãn nút ghi âm mẫu giọng"
+  },
+  "ttsCloneVoiceRecord": "Thu âm mẫu",
+  "@ttsCloneVoiceStop": {
+    "description": "Nhãn nút dừng ghi âm"
+  },
+  "ttsCloneVoiceStop": "Dừng",
+  "@ttsCloneVoiceCreate": {
+    "description": "Nhãn nút tạo giọng đã clone"
+  },
+  "ttsCloneVoiceCreate": "Tạo giọng từ mẫu",
+  "@ttsCloneVoiceCreating": {
+    "description": "Văn bản trạng thái đang tạo giọng"
+  },
+  "ttsCloneVoiceCreating": "Đang tạo giọng…",
+  "@ttsCloneVoiceVoices": {
+    "description": "Tiêu đề danh sách giọng đã clone"
+  },
+  "ttsCloneVoiceVoices": "Giọng đã clone",
+  "@ttsCloneVoiceNoVoices": {
+    "description": "Văn bản khi chưa có giọng clone nào"
+  },
+  "ttsCloneVoiceNoVoices": "Chưa có giọng clone. Thu âm mẫu và bấm 'Tạo giọng từ mẫu'.",
+  "@ttsCloneVoiceSamplesCount": {
+    "description": "Nhãn hiển thị số mẫu cho một giọng đã clone"
+  },
+  "ttsCloneVoiceSamplesCount": "{count} mẫu",
+  "@ttsCloneVoiceHasEmbedding": {
+    "description": "Trạng thái khi giọng đã có file embedding"
+  },
+  "ttsCloneVoiceHasEmbedding": "Đã có embedding",
+  "@ttsCloneVoiceNoEmbedding": {
+    "description": "Trạng thái khi giọng chưa có file embedding"
+  },
+  "ttsCloneVoiceNoEmbedding": "Chưa có embedding",
+  "@ttsCloneVoiceDelete": {
+    "description": "Tooltip cho nút xoá giọng"
+  },
+  "ttsCloneVoiceDelete": "Xoá giọng",
+  "@ttsCloneVoiceSuccess": {
+    "description": "Thông báo thành công sau khi tạo giọng đã clone"
+  },
+  "ttsCloneVoiceSuccess": "Đã tạo giọng '{name}' thành công!",
+  "@ttsCloneVoiceNeedSample": {
+    "description": "Thông báo lỗi khi chưa ghi âm mẫu giọng nào"
+  },
+  "ttsCloneVoiceNeedSample": "Chưa có mẫu thu âm. Hãy ghi âm ít nhất 1 mẫu.",
+  "@ttsCloneVoiceNeedName": {
+    "description": "Thông báo lỗi khi tên giọng trống"
+  },
+  "ttsCloneVoiceNeedName": "Vui lòng nhập tên giọng"
 }

@@ -71,23 +71,36 @@ class VieneuTtsEngine implements TtsEngine {
     if (_voicesDir == null) return [];
     final voices = <VieneuTtsVoice>[];
     final dir = Directory(_voicesDir!);
-    if (!await dir.exists()) return [];
-    // Tìm các thư mục giọng: voices/<id>/ref_codes.txt (+ speaker.emb.txt).
-    final entries = await dir.list().toList();
-    for (final entry in entries) {
-      if (entry is! Directory) continue;
-      final id = p.basename(entry.path);
-      final refCodes = File(p.join(entry.path, 'ref_codes.txt'));
-      if (!await refCodes.exists()) continue;
+    if (await dir.exists()) {
+      // Tìm các thư mục giọng: voices/<id>/ref_codes.txt (+ speaker.emb.txt).
+      final entries = await dir.list().toList();
+      for (final entry in entries) {
+        if (entry is! Directory) continue;
+        final id = p.basename(entry.path);
+        final refCodes = File(p.join(entry.path, 'ref_codes.txt'));
+        if (!await refCodes.exists()) continue;
+        voices.add(VieneuTtsVoice(
+          id: id,
+          name: id.replaceAll('_', ' '),
+          region: '', // TODO: đọc voices/manifest.json sau khi có file metadata
+          refCodesPath: refCodes.path,
+          speakerEmbeddingPath:
+              await File(p.join(entry.path, 'speaker.emb.txt')).exists()
+                  ? p.join(entry.path, 'speaker.emb.txt')
+                  : null,
+        ));
+      }
+    }
+    // Nếu không tìm thấy voice preset nào (chỉ import .gguf), vẫn trả về
+    // giọng mặc định embed trong GGUF. Audio.cpp chấp nhận refCodes=nullptr
+    // và dùng giọng mặc định của model.
+    if (voices.isEmpty) {
       voices.add(VieneuTtsVoice(
-        id: id,
-        name: id.replaceAll('_', ' '),
-        region: '', // TODO: đọc voices/manifest.json sau khi có file metadata
-        refCodesPath: refCodes.path,
-        speakerEmbeddingPath:
-            await File(p.join(entry.path, 'speaker.emb.txt')).exists()
-                ? p.join(entry.path, 'speaker.emb.txt')
-                : null,
+        id: VieneuTtsCore.defaultVoiceId,
+        name: VieneuTtsCore.defaultVoiceId.replaceAll('_', ' '),
+        region: '',
+        refCodesPath: null,
+        speakerEmbeddingPath: null,
       ));
     }
     // Giọng mặc định lên đầu nếu có.

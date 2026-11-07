@@ -203,7 +203,7 @@ jobs:
         id: locale-test
         run: |
           set +e
-          files="test/locale_chrome_no_vietnamese_test.dart"
+          files="test/locale_chrome_no_vietnamese_test.dart test/voice_clone_localization_test.dart"
           # SETTINGS-UI-COMPACT-001 / WHISPER-VARIANT-001 / PARAKEET-001:
           # nhãn mới trong màn Quản lý Model AI phải có key dịch (rule #5).
           if [ -f test/stt_model_settings_i18n_coverage_test.dart ]; then
@@ -998,3 +998,115 @@ jobs:
       # chạy TAY trên máy dev; cổng CI cho quy tắc thứ tự là file thuần Dart ở
       # trên. Muốn nối lại: chạy `flutter test test/workspace_shell_integration_test.dart`
       # ở máy trước, sửa chỗ treo, rồi thêm bước gate.
+
+  # Independent job: a failure or stalled gesture test must not skip the
+  # existing app/locale regression suites above.
+  vocabulary-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: "Vocabulary tools — graph, triangle and Venn regression tests"
+        timeout-minutes: 3
+        run: |
+          set +e
+          timeout -k 10s 150s flutter test \
+            test/tools/vocabulary_visualization_layout_test.dart \
+            test/tools/vocabulary_tools_interaction_test.dart \
+            --timeout 45s -r expanded > vocabulary_tools_test.log 2>&1
+          code=$?
+          cat vocabulary_tools_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B3 -A8 'Expected:|Actual:|\[E\]|Exception|Error:' vocabulary_tools_test.log \
+              | head -100 | while IFS= read -r line; do
+                echo "::error title=Vocabulary tools test::$line"
+              done
+            tailmsg=$(tail -n 20 vocabulary_tools_test.log | head -c 3000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Vocabulary tools tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+      - name: Upload vocabulary tools test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vocabulary-tools-test-log
+          path: vocabulary_tools_test.log
+          if-no-files-found: ignore
+
+  # Covers the six-axis knowledge engine separately from existing app tests.
+  knowledge-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: "Knowledge — independent skills, migration and six-axis tests"
+        timeout-minutes: 6
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/knowledge --timeout 45s -r expanded > knowledge_test.log 2>&1
+          code=$?
+          cat knowledge_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B3 -A10 'Expected:|Actual:|\[E\]|Exception|Error:' knowledge_test.log \
+              | head -120 | while IFS= read -r line; do
+                echo "::error title=Knowledge test::$line"
+              done
+            tailmsg=$(tail -n 20 knowledge_test.log | head -c 3000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Knowledge tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+      - name: Upload knowledge test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-test-log
+          path: knowledge_test.log
+          if-no-files-found: ignore
+
+  # Compilation only: never deploy or push gh-pages from this validation job.
+  web-build-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Compile web entrypoint without publishing
+        timeout-minutes: 10
+        run: |
+          set +e
+          flutter build web --release --base-href /In4Up/ -t lib/main_web.dart > web_build_test.log 2>&1
+          code=$?
+          tail -n 150 web_build_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -m 15 -E 'Error|error|not available|Unsupported' web_build_test.log | while IFS= read -r line; do
+              echo "::error title=Web build::$line"
+            done
+          fi
+          exit "$code"
+      - name: Upload web build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build-validation-log
+          path: web_build_test.log
+          if-no-files-found: ignore

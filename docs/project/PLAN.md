@@ -1427,3 +1427,21 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo (DeepLX query token, setter A-B, deduper Cabin): 1 lỗi mất câu sửa + 7 test/pin mới; CI **42135090013 🟢**. Chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢) → **MERGED** `8a76573`. Chờ logcat/QA máy.
   - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | PR #140 merge thành công (`gh pr merge --merge`, merge commit `8a76573`); lỗi UI "không thể merge" là transient status-check, không phải conflict. CI post-merge 🟢. Vẫn chờ nghiệm thu thiết bị.
+
+
+### PLAN-046 — Hợp nhất Venn ba kỹ năng và view sáu kỹ năng an toàn
+- **Nguồn:** người dùng (2026-11-06), chấp thuận tích hợp nhánh 251e.
+- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; CI sau rebase
+  xanh trên `fde949a`, chờ review và nghiệm thu thiết bị. Output chưa nối.
+- **Milestone đề xuất:** M2 — công cụ từ vựng và nền Knowledge.
+- **Ranh giới:** giữ ba lịch SM-2, lấy điểm legacy trực tiếp, không giả lập
+  EMA hoặc output; feature flag có thể tắt, không tự deploy web khi thử.
+- **Lịch sử:**
+  - 2026-11-06 | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận hợp nhất an toàn.
+  - 2026-11-06 | proposed→doing | agent `arena/075510c6-in4up` | merge, sửa compile/test, thiết kế projection + view theo ADR-0025; chờ xác minh CI.
+  - 2026-11-06 | doing | agent `arena/075510c6-in4up` | baseline `0f0112e` [CI 42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh; Knowledge 281 pass/2 skip, tools 21 pass, analyze/regression + web rút gọn pass không deploy. Review, nghiệm thu thiết bị, persistence output chưa xong; follow-up đang chờ CI.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | [CI 42299611378](https://github.com/Pabhassaracitto/In4Up/actions/runs/42299611378) phát hiện tràn layout ở 320×640/Hindi 1.25×; sửa cho nhãn xuống dòng, chờ CI xác nhận.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | `ec95a2c` [CI 42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) xanh 4/4, tools 24 pass, Knowledge 281 pass/2 skip, web rút gọn build không deploy. Chờ review độc lập, thiết bị thật và thiết kế lưu output.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | mở [PR #149](https://github.com/Pabhassaracitto/In4Up/pull/149); đồng bộ 251e `6578d88`, giữ bản dịch cả hai phía; ARB voice-clone ở 251e làm tụt sàn locale, CI sau đồng bộ đang chờ.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | sửa locale voice-clone và thêm test đổi ngôn ngữ; báo cáo coverage/parity/placeholder chạy local đạt, chờ CI Flutter sau rebase. Review độc lập, thiết bị và lưu output vẫn chưa hoàn tất.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | CI sau rebase [42413018969](https://github.com/Pabhassaracitto/In4Up/actions/runs/42413018969) xanh 4/4 trên `fde949a`, gồm Rule 5 và build web không deploy. Chỉ cập nhật tài liệu sau run; review, thiết bị và lưu output vẫn chờ.

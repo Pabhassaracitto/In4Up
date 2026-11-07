@@ -478,10 +478,34 @@ jobs:
             exit 0
           fi
           echo "Chạy:$files"
-          flutter test $files > hymt_test.log 2>&1
+          flutter test $files -r expanded > hymt_test.log 2>&1
           code=$?
           cat hymt_test.log
           exit $code
+
+      # Đưa lỗi lên annotation: sandbox/agent không tải được artifact (blob
+      # storage bị chặn) nên nếu chỉ có "N tests failed" thì không biết test
+      # NÀO đỏ. In log vào annotation để đọc được ngay trên PR.
+      - name: "Hy-MT tests — đưa lỗi lên annotation khi đỏ"
+        if: always() && steps.hymt-tests.outcome != 'success'
+        run: |
+          python3 - <<'PYEOF'
+          import pathlib
+          log = pathlib.Path('hymt_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          text = log.read_text(encoding='utf-8', errors='replace')
+          # Chỉ lấy phần tóm tắt lỗi (dòng có [E] hoặc "Expected:") để không
+          # vượt giới hạn 64KB của annotation.
+          keep = [ln for ln in text.splitlines()
+                  if '[E]' in ln or 'Expected:' in ln or 'Actual:' in ln
+                  or 'failed.' in ln or 'HYMT/' in ln]
+          body = '\n'.join(keep)[-8000:] or text[-8000:]
+          escaped = (body.replace('%', '%25')
+                         .replace('\r', '')
+                         .replace('\n', '%0A'))
+          print('::error title=hymt-tests::' + escaped)
+          PYEOF
 
       - name: Upload Hy-MT test log
         if: always()

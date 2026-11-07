@@ -613,8 +613,7 @@
   "ttsCloneVoiceSampleReady": "नमूना रिकॉर्ड हो गया",
   "ttsCloneVoiceStopRecording": "रिकॉर्डिंग रोकें",
   "ttsCloneVoiceRecordingError": "नमूना रिकॉर्ड नहीं हो सका। माइक्रोफ़ोन की अनुमति जाँचकर फिर प्रयास करें।",
-  "ttsCloneVoiceCreateError": "आवाज़ नहीं बनाई जा सकी। TTS मॉडल और नमूने जाँचकर फिर प्रयास करें।"
-}
+  "ttsCloneVoiceCreateError": "आवाज़ नहीं बनाई जा सकी। TTS मॉडल और नमूने जाँचकर फिर प्रयास करें।",
   "ttsModelVariantHeader": "Model variant",
   "ttsModelVariantInfo": "Q8_0 (~170 MB) is the default, balancing quality and size; bf16 (~292 MB) offers higher quality with a larger file."
 }

@@ -27443,7 +27443,6 @@ const Map<String, Map<String, String>> generatedUiTranslations = {
     'zh_TW': '無法建立聲音。請檢查 TTS 模型和樣本後再試。',
     'vi': 'Không thể tạo giọng. Hãy kiểm tra mô hình TTS và mẫu thu âm, rồi thử lại.',
   },
-};
   'Phiên bản mô hình': {
     'en': 'Model variant',
     'ar': 'Model variant',

@@ -108,7 +108,7 @@ class TtsCache {
     final variant = (modelVariant ?? '').trim().isEmpty
         ? 'default'
         : modelVariant!.trim();
-    final input = '${engineId}_${language}_${voice}_$variant_'
+    final input = '${engineId}_${language}_${voice}_${variant}_'
         '${speed.toStringAsFixed(2)}_${pitch.toStringAsFixed(2)}_$text';
     return md5.convert(utf8.encode(input)).toString();
   }

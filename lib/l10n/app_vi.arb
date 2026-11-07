@@ -647,8 +647,7 @@
   "@ttsCloneVoiceCreateError": {
     "description": "Localized actionable message; diagnostic details are logged separately"
   },
-  "ttsCloneVoiceCreateError": "Không thể tạo giọng. Hãy kiểm tra mô hình TTS và mẫu thu âm, rồi thử lại."
-}
+  "ttsCloneVoiceCreateError": "Không thể tạo giọng. Hãy kiểm tra mô hình TTS và mẫu thu âm, rồi thử lại.",
   "ttsModelVariantHeader": "Phiên bản mô hình",
   "ttsModelVariantInfo": "Q8_0 (~170 MB) là mặc định, cân bằng chất lượng và dung lượng; bf16 (~292 MB) chất lượng cao hơn, file lớn hơn."
 }

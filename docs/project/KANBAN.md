@@ -4418,6 +4418,19 @@
     đối chiếu model card/llama.cpp PR (#19357 open, #21395 merged) ⇒ 3 nguyên
     nhân; fix HYMT-003a/003b/004/006 + 2 test file + cập nhật test runtime +
     `docs/translation/hymt_root_cause_2026-11-06.md`; chờ CI + AT máy.
+  - 2026-11-07 | audit sau merge #147 | agent `arena/fe9768a0-in4up` | audit
+    "merge vào 251e có làm mất chức năng sẵn có?" ⇒ **không mất chức năng**,
+    nhưng phát hiện 2 việc phải sửa:
+    (a) **sampler toàn cục đổi hành vi AI chat**: `in4up_ai_generate` dùng
+    chung cho chat (Gemma) nên `top-k 20 / top-p 0.6 / repeat 1.05` làm câu
+    trả lời local cụt ⇒ nay **chỉ áp cho arch `hunyuan`**, nhánh chat giữ
+    sampler v1.23.0; đã xác minh 6 API mới biên dịch sạch với header THẬT của
+    `d7fa69b7` (`-Werror`, exit 0) nên lo ngại "undefined reference" là **sai**;
+    (b) **file 2-bit cũ chiếm 601 MB vô dụng**: thêm `legacyModelFile()`,
+    `deleteLegacyModel()`, `deleteModel()` dọn cả file legacy, UI mời xoá;
+    (c) sửa 2 chuỗi "~600MB" còn sót → "~1,1 GB" (+ i18n 3 key, 8 locale);
+    (d) **thêm step CI chạy 5 test `hymt_*`** — trước đó không workflow nào
+    chạy test Hy-MT nên lỗi không thể bị bắt (lỗ hổng thật của HYMT-002/003).
 
 ### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
 - **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ

@@ -452,6 +452,41 @@ jobs:
           path: api_settings_test.log
           if-no-files-found: ignore
 
+      # HYMT-003/004 (2026-11-06): Hy-MT trả rỗng / không load được đã lọt qua
+      # vì KHÔNG workflow nào chạy test Hy-MT. Bước này là máy bắt cho 3 lỗi
+      # đã sửa: khung lượt <｜hy_User｜>/<｜hy_Assistant｜> (prompt), chẩn đoán
+      # quant 2-bit bị chặn (probe), và phân hoạch chunk khi có khung lượt
+      # (runtime). Thuần logic — không cần native lib, không cần model.
+      - name: "Hy-MT tests — khung lượt + chẩn đoán model + chunk runtime"
+        id: hymt-tests
+        run: |
+          set +e
+          files=""
+          for f in test/hymt_prompt_test.dart \
+                   test/hymt_model_probe_test.dart \
+                   test/hymt_engine_runtime_test.dart \
+                   test/hymt_chunking_test.dart \
+                   test/hymt_slot_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test Hy-MT trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > hymt_test.log 2>&1
+          code=$?
+          cat hymt_test.log
+          exit $code
+
+      - name: Upload Hy-MT test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-hymt-test-log
+          path: hymt_test.log
+          if-no-files-found: ignore
+
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
       # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch

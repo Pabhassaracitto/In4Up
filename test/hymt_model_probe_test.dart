@@ -141,5 +141,32 @@ void main() {
         () {
       expect(HyMtEngine.legacyBlockedFileName, 'Hy-MT1.5-1.8B-2bit.gguf');
     });
+
+    // HYMT-003 hồi quy: đổi tên file mặc định ⇒ file 2-bit cũ phải (a) được
+    // nhận diện để mời xoá và (b) bị dọn khi user bấm Xoá. Trước đây chỉ có
+    // MỘT tên file nên nút Xoá xoá sạch; nay phải xoá cả hai.
+    test('tên file legacy KHÁC tên file mặc định (nếu trùng sẽ mất file đang dùng)',
+        () {
+      expect(HyMtEngine.legacyBlockedFileName, isNot(HyMtEngine.fileName));
+      expect(HyMtEngine.legacyBlockedFileName, contains('2bit'));
+      expect(HyMtEngine.fileName, isNot(contains('2bit')));
+    });
+
+    test('file legacy 601 MB bị chặn bởi chẩn đoán (để UI mời xoá, không im lặng)',
+        () {
+      final d = HyMtModelProbe.diagnose(
+        sizeBytes: 601 * 1024 * 1024,
+        info: info(quant: 'q2_0', supported: false),
+      );
+      expect(d.quantBlocked, isTrue,
+          reason: 'file 2-bit cũ phải bị nhận là quant bị chặn');
+    });
+
+    test('ngưỡng kích thước không coi file 601 MB là "đủ model mới"', () {
+      // expectedBytes là 1,13 GB ⇒ 601 MB rơi dưới ngưỡng cắt của bản mới,
+      // nên dù có magic đúng thì vẫn không được coi là model hoàn chỉnh.
+      expect(HyMtEngine.minPlausibleBytes, lessThan(601 * 1024 * 1024));
+      expect(HyMtEngine.expectedBytes, greaterThan(1024 * 1024 * 1024));
+    });
   });
 }

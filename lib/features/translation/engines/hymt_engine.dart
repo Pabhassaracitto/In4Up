@@ -968,10 +968,19 @@ class HyMtEngine extends TranslationEngine {
         );
         if (out == null) {
           final last = _lastChunkError;
+          // Output rỗng là ca ĐẶC BIỆT: phải nói NGUYÊN NHÂN đã xác minh
+          // (thiếu khung lượt / quant không hỗ trợ) thay vì câu cụt
+          // "Hy-MT trả về rỗng cho segment 1/1" — trước đây user chỉ nhận câu
+          // cụt này và không biết phải làm gì, dù `_emptyOutputMessage()` đã
+          // được viết sẵn (không có đường nào tới nó vì mọi ca rỗng đều rơi
+          // vào nhánh `out == null` ở trên).
+          final isEmptyOutput = last?.code == HyMtErrorCode.emptyOutput;
           return _fail(
             text,
-            'Hy-MT lỗi ở segment ${i + 1}/${chunks.length}: '
-                '${last?.message ?? 'lỗi không xác định'}',
+            isEmptyOutput
+                ? _emptyOutputMessage()
+                : 'Hy-MT lỗi ở segment ${i + 1}/${chunks.length}: '
+                    '${last?.message ?? 'lỗi không xác định'}',
             last?.code ?? HyMtErrorCode.requestFailed,
             src,
             tgt,
@@ -1081,7 +1090,8 @@ class HyMtEngine extends TranslationEngine {
     final buffer = StringBuffer(
       'Hy-MT trả về rỗng. Nguyên nhân thường gặp: model không thấy khung lượt '
       '<｜hy_User｜>…<｜hy_Assistant｜> (phải gửi đúng chat template của '
-      'Hy-MT1.5), hoặc file model là quant llama.cpp trong app không hỗ trợ.',
+      'Hy-MT1.5), hoặc file model là quant llama.cpp trong app không hỗ trợ. '
+      'Kiểm tra lại file model ở Cài đặt dịch (cần bản Q4_K_M ~1,1 GB).',
     );
     final log = (_nativeLog() ?? '').trim();
     if (log.isNotEmpty) buffer.write('\n[llama.cpp] $log');

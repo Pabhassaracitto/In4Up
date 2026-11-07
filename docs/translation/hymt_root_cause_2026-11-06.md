@@ -253,10 +253,22 @@ mỗi lượt dịch.
 * Native `frame_prompt()` **tự thêm** nếu prompt chưa có (idempotent), chỉ với
   arch `hunyuan*` ⇒ mọi caller đều đúng, kể cả caller không đi qua Dart.
 
-### 6.4 Sampling theo khuyến nghị Tencent (nguyên nhân #2, phần "chất lượng")
+### 6.4 Sampling theo khuyến nghị Tencent — CHỈ cho Hunyuan (nguyên nhân #2, phần "chất lượng")
 
-`--temp 0.7 --top-k 20 --top-p 0.6 --repeat-penalty 1.05`. Bản cũ chỉ có
-`temp` + `dist` ⇒ model 2-bit dễ lặp token đầu; nay chuỗi sampler đủ 4 bước.
+`--temp 0.7 --top-k 20 --top-p 0.6 --repeat-penalty 1.05`, nhưng **chỉ áp khi
+`general.architecture` chứa `hunyuan`**. Lý do: `in4up_ai_generate` là API
+**dùng chung** với AI chat (`ai_engine_gemma` + `ai_service_facade` truyền
+`temperature 0.2/0.4`). Áp `top-k 20` + `top-p 0.6` toàn cục sẽ làm câu trả lời
+chat local ngắn/cụt/đơn điệu — một regression không liên quan tới Hy-MT.
+
+Nhánh `else` (model chat) **giữ nguyên** sampler của v1.23.0: `temp` + `dist`.
+
+Cả 6 API mới (`llama_log_set`, `llama_model_meta_val_str`,
+`llama_sampler_init_penalties/top_k/top_p`, `llama_vocab_n_tokens`) đã được
+**xác minh biên dịch** với header **thật** của đúng commit đã pin
+(`d7fa69b7`): `g++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only` → exit 0.
+(`llama_sampler_init_penalties` đúng 5 tham số:
+`n_vocab, penalty_last_n, penalty_repeat, penalty_freq, penalty_present`.)
 
 ### 6.5 Log llama.cpp được giữ lại (nguyên nhân #3)
 
@@ -292,6 +304,14 @@ mỗi lượt dịch.
    chạy được trên thiết bị trong sandbox. Cần nghiệm thu bằng §5.
 4. **Prompt tiếng Trung cho cặp ZH↔XX**: giữ nguyên như model card. Với cặp
    XX↔XX dùng tiếng Anh — đúng.
+6. **Nâng cấp từ bản cũ**: file 2-bit 601 MB **không tự bị xoá** (giữ để không
+   xoá dữ liệu người dùng khi họ lỡ chọn nhầm). Cài đặt dịch phát hiện file
+   này và mời xoá (nút "Xoá" riêng); nút Xoá model chính cũng dọn luôn file
+   legacy. Người chưa tải lại sẽ thấy câu "cần Q4_K_M" thay vì lỗi chung.
+7. **Test Hy-MT giờ nằm trong CI**: trước đây **không workflow nào** chạy
+   `test/hymt_*` ⇒ lỗi Hy-MT không thể bị CI bắt. Đã thêm step
+   "Hy-MT tests — khung lượt + chẩn đoán model + chunk runtime" vào
+   `app_analyze.yml` (chạy 5 file, thuần logic, không cần native/model).
 5. Nhánh này **chưa chạy được `flutter test` trong sandbox** (không có Flutter
    SDK) — CI `app_analyze.yml` là oracle.
 

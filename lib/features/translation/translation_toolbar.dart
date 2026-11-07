@@ -367,6 +367,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   bool _hymtHas = false;
   /// Lý do cụ thể khi model hiện có KHÔNG dùng được (null = không có vấn đề).
   String? _hymtIssue;
+  /// File 2-bit cũ còn chiếm chỗ (~601 MB) và KHÔNG load được — mời xoá.
+  bool _hymtLegacy = false;
   bool _hymtBusy = false;
   double _hymtProgress = 0;
 
@@ -429,6 +431,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     if (hymt != null) {
       _hymtHas = await hymt.hasModel;
       _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+      _hymtLegacy = (await hymt.legacyModelFile()) != null;
     }
     final mlkit = widget.service.mlkit;
     if (MlKitEngine.platformSupported) {
@@ -605,7 +608,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             ],
             const SizedBox(height: 16),
             Text(
-              context.uiText('Hy-MT 1.5 (GGUF ~600MB, 33 ngôn ngữ)'),
+              context.uiText('Hy-MT 1.5 (GGUF ~1,1 GB, 33 ngôn ngữ)'),
               style: const TextStyle(
                 fontSize: 14,
                 color: Colors.white,
@@ -622,6 +625,32 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             // HYMT-003: nêu ĐÚNG lý do model hiện tại không dùng được (quant
             // chưa có kernel / sai kiến trúc / file cắt) — bản 2-bit của
             // AngelSlim cần llama.cpp PR #19357 nên không load được.
+            if (_hymtLegacy)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.uiText(
+                          'Còn file 2-bit cũ (~601 MB) không dùng được — xoá để lấy lại dung lượng.',
+                        ),
+                        style: const TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _hymtBusy ? null : _deleteLegacyHymt,
+                      child: Text(
+                        context.uiText('Xoá'),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             if (!_hymtHas && _hymtIssue != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -1081,6 +1110,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     if (!mounted) return;
     _hymtHas = await hymt.hasModel;
     _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+    _hymtLegacy = (await hymt.legacyModelFile()) != null;
     if (!mounted) return;
     setState(() => _hymtBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -1104,12 +1134,21 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     if (!mounted) return;
     _hymtHas = await hymt.hasModel;
     _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+    _hymtLegacy = (await hymt.legacyModelFile()) != null;
     if (!mounted) return;
     setState(() => _hymtBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(context.uiText(err ?? 'Đã tải Hy-MT')),
       backgroundColor: err == null ? null : Colors.redAccent,
     ));
+  }
+
+  Future<void> _deleteLegacyHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    await hymt.deleteLegacyModel();
+    if (!mounted) return;
+    setState(() => _hymtLegacy = false);
   }
 
   Future<void> _deleteHymt() async {
@@ -1120,6 +1159,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     setState(() {
       _hymtHas = false;
       _hymtIssue = null;
+      _hymtLegacy = false;
     });
   }
 

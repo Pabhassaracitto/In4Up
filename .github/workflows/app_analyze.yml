@@ -452,6 +452,82 @@ jobs:
           path: api_settings_test.log
           if-no-files-found: ignore
 
+      # HYMT-003/004 (2026-11-06): Hy-MT trả rỗng / không load được đã lọt qua
+      # vì KHÔNG workflow nào chạy test Hy-MT. Bước này là máy bắt cho 3 lỗi
+      # đã sửa: khung lượt <｜hy_User｜>/<｜hy_Assistant｜> (prompt), chẩn đoán
+      # quant 2-bit bị chặn (probe), và phân hoạch chunk khi có khung lượt
+      # (runtime). Thuần logic — không cần native lib, không cần model.
+      - name: "Hy-MT tests — khung lượt + chẩn đoán model + chunk runtime"
+        id: hymt-tests
+        # Phải có gate như các bước test khác: thiếu `if:` ⇒ mặc định success()
+        # ⇒ step bị SKIP khi bước analyze đỏ (analyze đỏ vì lỗi CÓ SẴN trên
+        # base, không liên quan Hy-MT) và test Hy-MT không bao giờ chạy.
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/hymt_prompt_test.dart \
+                   test/hymt_model_probe_test.dart \
+                   test/hymt_engine_runtime_test.dart \
+                   test/hymt_chunking_test.dart \
+                   test/hymt_slot_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test Hy-MT trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > hymt_test.log 2>&1
+          code=$?
+          cat hymt_test.log
+          exit $code
+
+      # Đưa lỗi lên annotation: sandbox/agent không tải được artifact (blob
+      # storage bị chặn) nên nếu chỉ có "N tests failed" thì không biết test
+      # NÀO đỏ. In log vào annotation để đọc được ngay trên PR.
+      - name: "Hy-MT tests — đưa lỗi lên annotation khi đỏ"
+        if: always() && steps.hymt-tests.outcome != 'success'
+        run: |
+          python3 - <<'PYEOF'
+          import pathlib
+          log = pathlib.Path('hymt_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          text = log.read_text(encoding='utf-8', errors='replace')
+          # GitHub CẮT annotation ở ~4096 byte, nên ưu tiên dòng BÁO LỖI
+          # (`[E]` + Expected/Actual + dòng tóm tắt cuối) chứ không lấy mọi
+          # dòng tiến trình — lần trước lấy tất cả nên phần cuối (chứa test
+          # đỏ) bị cắt mất, phải suy luận thủ công.
+          lines = text.splitlines()
+          errs, progress = [], []
+          for idx, ln in enumerate(lines):
+              if '[E]' in ln:
+                  errs.append(ln)
+                  # kèm tối đa 3 dòng ngay sau để giữ Expected/Actual
+                  errs.extend(lines[idx + 1: idx + 4])
+              elif 'Some tests failed' in ln or 'failed.' in ln:
+                  errs.append(ln)
+              elif 'HYMT/' in ln:
+                  progress.append(ln)
+          body = '\n'.join(errs)
+          if not body:
+              body = '(không có dòng [E] — lỗi lúc NẠP test)\n' + '\n'.join(progress[-6:])
+          body = body[:3800]
+          escaped = (body.replace('%', '%25')
+                         .replace('\r', '')
+                         .replace('\n', '%0A'))
+          print('::error title=hymt-tests::' + escaped)
+          PYEOF
+
+      - name: Upload Hy-MT test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-hymt-test-log
+          path: hymt_test.log
+          if-no-files-found: ignore
+
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
       # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch

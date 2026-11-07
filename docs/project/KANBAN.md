@@ -4419,6 +4419,37 @@
     đối chiếu model card/llama.cpp PR (#19357 open, #21395 merged) ⇒ 3 nguyên
     nhân; fix HYMT-003a/003b/004/006 + 2 test file + cập nhật test runtime +
     `docs/translation/hymt_root_cause_2026-11-06.md`; chờ CI + AT máy.
+  - 2026-11-07 | audit sau merge #147 | agent `arena/fe9768a0-in4up` | audit
+    "merge vào 251e có làm mất chức năng sẵn có?" ⇒ **không mất chức năng**,
+    nhưng phát hiện 2 việc phải sửa:
+    (a) **sampler toàn cục đổi hành vi AI chat**: `in4up_ai_generate` dùng
+    chung cho chat (Gemma) nên `top-k 20 / top-p 0.6 / repeat 1.05` làm câu
+    trả lời local cụt ⇒ nay **chỉ áp cho arch `hunyuan`**, nhánh chat giữ
+    sampler v1.23.0; đã xác minh 6 API mới biên dịch sạch với header THẬT của
+    `d7fa69b7` (`-Werror`, exit 0) nên lo ngại "undefined reference" là **sai**;
+    (b) **file 2-bit cũ chiếm 601 MB vô dụng**: thêm `legacyModelFile()`,
+    `deleteLegacyModel()`, `deleteModel()` dọn cả file legacy, UI mời xoá;
+    (c) sửa 2 chuỗi "~600MB" còn sót → "~1,1 GB" (+ i18n 3 key, 8 locale);
+    (d) **thêm step CI chạy 5 test `hymt_*`** — trước đó không workflow nào
+    chạy test Hy-MT nên lỗi không thể bị bắt (lỗ hổng thật của HYMT-002/003).
+  - 2026-11-07 | CI xanh Hy-MT lần đầu | agent `arena/fe9768a0-in4up` | bật
+    bước CI Hy-MT ⇒ **57/57 test xanh** và bắt được **4 lỗi thật** chưa từng
+    bị phát hiện (vì workflow cũ không chạy `hymt_*`):
+    (1) `cleanOutput` cắt đuôi bằng `indexOf` TRƯỚC ⇒ token khung ở ĐẦU
+    (`<｜hy_Assistant｜>Xin chào`) làm `substring(0,0)` ⇒ **mất sạch bản dịch**
+    ⇒ engine báo "trả về rỗng" dù model dịch ĐÚNG (đúng kiểu triệu chứng owner
+    báo); nay bỏ token đầu LẶP TỚI KHI ỔN ĐỊNH (model có thể nhả nhiều token
+    liền nhau) rồi mới cắt đuôi;
+    (2) test ngưỡng "file cắt" tự mâu thuẫn (`> 400MB` đồng thời `< 440MB` với
+    hằng số = 400MB) — viết lại theo ý định thật;
+    (3) `_emptyOutputMessage()` (câu nêu nguyên nhân: thiếu khung lượt / quant
+    chưa hỗ trợ) **không có đường nào tới** — mọi ca rỗng rơi vào nhánh
+    `out == null` chỉ in câu cụt "Hy-MT trả về rỗng cho segment 1/1"; nay nhánh
+    đó dùng đúng câu chẩn đoán + chỉ dẫn kiểm tra file model;
+    (4) step CI mới bị SKIP khi `analyze` đỏ (thiếu `if:`) ⇒ thêm gate
+    `always() && steps.analyze.outcome != 'cancelled'` như các bước khác.
+    Thêm bước đưa lỗi test lên annotation (ưu tiên dòng `[E]` + Expected/Actual)
+    vì artifact log bị blob-storage chặn khi tải từ sandbox.
 
 ### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
 - **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ

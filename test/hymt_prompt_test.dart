@@ -54,7 +54,7 @@ void main() {
     });
   });
 
-  group('HyMtPrompts — khung lượt Hy-MT1.5 (HYMT-004)', () {
+  group('HYMT/5 prompt framing', () {
     test('token khung đúng từng ký tự như chat template của Tencent', () {
       expect(HyMtPrompts.bosToken,
           '<${bos}hy_begin${sep}of${sep}sentence$bos>');
@@ -133,6 +133,36 @@ void main() {
       expect(
         HyMtPrompts.cleanOutput('Xin chào<|eos|>', 'Hi there friend'),
         'Xin chào',
+      );
+    });
+
+    // Hồi quy thật: trước khi sửa, token khung ở ĐẦU output bị cắt từ vị trí
+    // của nó tới HẾT chuỗi ⇒ bản dịch thành rỗng ⇒ engine báo "empty_output"
+    // dù model dịch đúng. Đây chính là kiểu "Hy-MT trả về rỗng" owner gặp.
+    test('cleanOutput: token khung ở ĐẦU không được nuốt cả bản dịch', () {
+      const src = 'Hello my friend';
+      // Token mở đầu + bản dịch ⇒ phải còn bản dịch.
+      expect(
+        HyMtPrompts.cleanOutput(
+          '${HyMtPrompts.userToken}${HyMtPrompts.assistantToken}Xin chào bạn.',
+          src,
+        ),
+        'Xin chào bạn.',
+      );
+      expect(
+        HyMtPrompts.cleanOutput(
+          '${HyMtPrompts.bosToken}Xin chào bạn.',
+          src,
+        ),
+        'Xin chào bạn.',
+      );
+      // Không được rỗng — nếu rỗng thì engine coi như model không dịch được.
+      expect(
+        HyMtPrompts.cleanOutput(
+          '${HyMtPrompts.assistantToken}Xin chào',
+          src,
+        ),
+        isNotEmpty,
       );
     });
 

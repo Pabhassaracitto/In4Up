@@ -363,15 +363,23 @@ static std::string generate_text(
         : 0.2f;
     if (safe_temperature <= 0.0001f) {
         llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
-    } else {
-        // Tham số Tencent khuyến nghị cho dịch (Hy-MT1.5 model card):
+    } else if (hunyuan) {
+        // ── Hy-MT / Hunyuan: tham số Tencent khuyến nghị (model card)
         //   --temp 0.7 --top-k 20 --top-p 0.6 --repeat-penalty 1.05
-        // Thiếu top-k/top-p/repeat-penalty ⇒ model quant sâu dễ lặp token đầu
-        // rồi cắt cụt, hoặc nhả lại chính prompt.
+        // Chỉ áp cho dòng model dịch: `in4up_ai_generate` là API DÙNG CHUNG
+        // với AI chat (Gemma/GGUF), mà top-k 20 + top-p 0.6 làm câu trả lời
+        // chat cụt/đơn điệu nếu áp toàn cục.
         llama_sampler_chain_add(sampler, llama_sampler_init_penalties(
             llama_vocab_n_tokens(ai->vocab), 64, 1.05f, 0.0f, 0.0f));
         llama_sampler_chain_add(sampler, llama_sampler_init_top_k(20));
         llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.6f, 1));
+        llama_sampler_chain_add(sampler, llama_sampler_init_temp(safe_temperature));
+        const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+        llama_sampler_chain_add(sampler, llama_sampler_init_dist(static_cast<uint32_t>(ticks)));
+    } else {
+        // ── Model chat (Gemma, Qwen…) — GIỮ NGUYÊN sampler trước HYMT-004:
+        // chỉ temp + dist. Không thêm top-k/top-p/penalty để hành vi AI chat
+        // local không đổi so với v1.23.0.
         llama_sampler_chain_add(sampler, llama_sampler_init_temp(safe_temperature));
         const auto ticks = std::chrono::steady_clock::now().time_since_epoch().count();
         llama_sampler_chain_add(sampler, llama_sampler_init_dist(static_cast<uint32_t>(ticks)));

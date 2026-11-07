@@ -1,6 +1,6 @@
 // ignore_for_file: implementation_imports, depend_on_referenced_packages, unnecessary_brace_in_string_interps
 // Hy-MT 1.5 (Tencent Hunyuan) — engine dịch câu offline qua GGUF + llama.cpp.
-// Model ~600MB. KHÔNG load lúc bootstrap. User bấm Import hoặc Tải về.
+// Model Q4_K_M ~1,1 GB. KHÔNG load lúc bootstrap. User bấm Import hoặc Tải về.
 //
 // HYMT-002 (2026-09-16) — đóng timeout theo lớp, KHÔNG chỉ tăng 2→4 phút:
 //   1. Single-flight: [HyMtSlot] — 1 request tại một thời điểm; request
@@ -86,7 +86,7 @@ class HyMtRuntimeFailure implements Exception {
 ///
 /// [HyMtIsolateBackend] là backend thật (isolate llama.cpp). Test inject
 /// backend giả qua [HyMtEngine.forTest] để kiểm tra logic queue/retry/
-/// chunk MÀ KHÔNG cần native lib, isolate hay model 600MB.
+/// chunk MÀ KHÔNG cần native lib, isolate hay model ~1,1 GB.
 abstract class HyMtBackend {
   /// Runtime đang alive và có thể nhận request ngay (đã load).
   bool get isAlive;
@@ -413,7 +413,7 @@ class HyMtEngine extends TranslationEngine {
   factory HyMtEngine() => instance;
 
   /// Constructor DUY NHẤT cho test — inject backend giả (không isolate,
-  /// không native lib, không model 600MB) để kiểm tra logic
+  /// không native lib, không model ~1,1 GB) để kiểm tra logic
   /// single-flight/retry/chunk/timeout của HYMT-002.
   factory HyMtEngine.forTest({
     required HyMtBackend backend,
@@ -608,6 +608,31 @@ class HyMtEngine extends TranslationEngine {
 
   Future<bool> get hasModel async => (await resolvedModelPath()) != null;
 
+  /// File 2-bit cũ (`Hy-MT1.5-1.8B-2bit.gguf`) còn nằm trong thư mục model.
+  /// Bản đó cần kernel `q2_0c` của llama.cpp PR #19357 (CHƯA merge) nên KHÔNG
+  /// bao giờ load được — nhưng nó chiếm ~601 MB. Trả về path để UI mời xoá.
+  Future<String?> legacyModelFile() async {
+    try {
+      final dir = Directory(p.join(await _docs(), folderName));
+      if (!await dir.exists()) return null;
+      final f = File(p.join(dir.path, legacyBlockedFileName));
+      if (!await f.exists()) return null;
+      return f.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Xoá riêng file 2-bit cũ (không đụng model Q4_K_M đang dùng).
+  Future<void> deleteLegacyModel() async {
+    try {
+      final path = await legacyModelFile();
+      if (path == null) return;
+      await File(path).delete();
+      _diagCache.remove(path);
+    } catch (_) {}
+  }
+
   /// null = model OK; text = lý do cụ thể (cho message lỗi + UI).
   /// Phân biệt "chưa có" với "có file nhưng bị cắt/hỏng" — trường hợp
   /// user hay gặp: đã tải/import model nhưng llama vẫn không load được.
@@ -638,7 +663,7 @@ class HyMtEngine extends TranslationEngine {
       }
     } catch (_) {}
     return 'Chưa có model Hy-MT. Cài đặt dịch → Hy-MT → '
-        'Import .gguf hoặc Tải về (~600MB).';
+        'Import .gguf hoặc Tải về (~1,1 GB).';
   }
 
   @override
@@ -761,7 +786,12 @@ class HyMtEngine extends TranslationEngine {
     // nhưng nút Xóa vẫn phải xóa được chính file hỏng đó.
     final saved = prefs.getString(_prefPath);
     final def = await defaultSavePath();
-    for (final path in <String>{if (saved != null) saved, def}) {
+    // Gồm cả file 2-bit cũ: trước HYMT-003 chỉ có MỘT tên file nên nút Xoá
+    // xoá sạch; sau khi đổi tên, file legacy phải được dọn cùng để không để
+    // lại 601 MB vô dụng.
+    final legacy = await legacyModelFile();
+    for (final path in <String?>{saved, def, legacy}) {
+      if (path == null) continue;
       try {
         final file = File(path);
         if (await file.exists()) await file.delete();
@@ -782,7 +812,7 @@ class HyMtEngine extends TranslationEngine {
     if (current != null && current.modelPath == path) return current;
     if (current != null) {
       unawaited(current.dispose());
-      // Chờ nhẹ cho isolate cũ thoát — model ~600MB, 2 model song song
+      // Chờ nhẹ cho isolate cũ thoát — model ~1,1 GB, 2 model song song
       // = nguy cơ OOM (yêu cầu HYMT-002).
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
@@ -938,10 +968,19 @@ class HyMtEngine extends TranslationEngine {
         );
         if (out == null) {
           final last = _lastChunkError;
+          // Output rỗng là ca ĐẶC BIỆT: phải nói NGUYÊN NHÂN đã xác minh
+          // (thiếu khung lượt / quant không hỗ trợ) thay vì câu cụt
+          // "Hy-MT trả về rỗng cho segment 1/1" — trước đây user chỉ nhận câu
+          // cụt này và không biết phải làm gì, dù `_emptyOutputMessage()` đã
+          // được viết sẵn (không có đường nào tới nó vì mọi ca rỗng đều rơi
+          // vào nhánh `out == null` ở trên).
+          final isEmptyOutput = last?.code == HyMtErrorCode.emptyOutput;
           return _fail(
             text,
-            'Hy-MT lỗi ở segment ${i + 1}/${chunks.length}: '
-                '${last?.message ?? 'lỗi không xác định'}',
+            isEmptyOutput
+                ? _emptyOutputMessage()
+                : 'Hy-MT lỗi ở segment ${i + 1}/${chunks.length}: '
+                    '${last?.message ?? 'lỗi không xác định'}',
             last?.code ?? HyMtErrorCode.requestFailed,
             src,
             tgt,
@@ -1051,7 +1090,8 @@ class HyMtEngine extends TranslationEngine {
     final buffer = StringBuffer(
       'Hy-MT trả về rỗng. Nguyên nhân thường gặp: model không thấy khung lượt '
       '<｜hy_User｜>…<｜hy_Assistant｜> (phải gửi đúng chat template của '
-      'Hy-MT1.5), hoặc file model là quant llama.cpp trong app không hỗ trợ.',
+      'Hy-MT1.5), hoặc file model là quant llama.cpp trong app không hỗ trợ. '
+      'Kiểm tra lại file model ở Cài đặt dịch (cần bản Q4_K_M ~1,1 GB).',
     );
     final log = (_nativeLog() ?? '').trim();
     if (log.isNotEmpty) buffer.write('\n[llama.cpp] $log');

@@ -87,7 +87,7 @@ class _FakeHyMtBackend implements HyMtBackend {
 }
 
 void main() {
-  group('HyMtEngine — model validator (I4U18-TRANSLATE-001)', () {
+  group('HYMT/0 validator', () {
     test('accepts a complete GGUF header and reports precise corruption', () {
       const magic = <int>[0x47, 0x47, 0x55, 0x46];
       expect(
@@ -106,7 +106,7 @@ void main() {
     });
   });
 
-  group('HyMtEngine — single-flight (HYMT-002 mục 1)', () {
+  group('HYMT/1 single-flight', () {
     test('short text: ONE request, no chunking', () async {
       final backend = _FakeHyMtBackend();
       final engine = HyMtEngine.forTest(backend: backend);
@@ -195,7 +195,7 @@ void main() {
     });
   });
 
-  group('HyMtEngine — health + restart + 1 retry (HYMT-002 mục 2)', () {
+  group('HYMT/2 health+restart', () {
     test('isolate dies mid-request: restart + retry 1 lần → success',
         () async {
       final backend = _FakeHyMtBackend();
@@ -265,7 +265,7 @@ void main() {
     });
   });
 
-  group('HyMtEngine — chunking + per-chunk timeout (HYMT-002 mục 3)', () {
+  group('HYMT/3 chunking+timeout', () {
     test('2000+ chars: all chunks returned in exact order, nothing lost',
         () async {
       final backend = _FakeHyMtBackend();
@@ -397,7 +397,7 @@ void main() {
     });
   });
 
-  group('HyMtEngine — validation', () {
+  group('HYMT/4 validation', () {
     test('unsupported language pair fails fast with structured code',
         () async {
       final backend = _FakeHyMtBackend();

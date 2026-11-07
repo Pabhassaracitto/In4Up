@@ -649,3 +649,6 @@
   },
   "ttsCloneVoiceCreateError": "Could not create the voice. Check the TTS model and samples, then try again."
 }
+  "ttsModelVariantHeader": "Model variant",
+  "ttsModelVariantInfo": "Q8_0 (~170 MB) is the default, balancing quality and size; bf16 (~292 MB) offers higher quality with a larger file."
+}

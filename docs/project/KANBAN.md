@@ -4431,6 +4431,24 @@
     (c) sửa 2 chuỗi "~600MB" còn sót → "~1,1 GB" (+ i18n 3 key, 8 locale);
     (d) **thêm step CI chạy 5 test `hymt_*`** — trước đó không workflow nào
     chạy test Hy-MT nên lỗi không thể bị bắt (lỗ hổng thật của HYMT-002/003).
+  - 2026-11-07 | CI xanh Hy-MT lần đầu | agent `arena/fe9768a0-in4up` | bật
+    bước CI Hy-MT ⇒ **57/57 test xanh** và bắt được **4 lỗi thật** chưa từng
+    bị phát hiện (vì workflow cũ không chạy `hymt_*`):
+    (1) `cleanOutput` cắt đuôi bằng `indexOf` TRƯỚC ⇒ token khung ở ĐẦU
+    (`<｜hy_Assistant｜>Xin chào`) làm `substring(0,0)` ⇒ **mất sạch bản dịch**
+    ⇒ engine báo "trả về rỗng" dù model dịch ĐÚNG (đúng kiểu triệu chứng owner
+    báo); nay bỏ token đầu LẶP TỚI KHI ỔN ĐỊNH (model có thể nhả nhiều token
+    liền nhau) rồi mới cắt đuôi;
+    (2) test ngưỡng "file cắt" tự mâu thuẫn (`> 400MB` đồng thời `< 440MB` với
+    hằng số = 400MB) — viết lại theo ý định thật;
+    (3) `_emptyOutputMessage()` (câu nêu nguyên nhân: thiếu khung lượt / quant
+    chưa hỗ trợ) **không có đường nào tới** — mọi ca rỗng rơi vào nhánh
+    `out == null` chỉ in câu cụt "Hy-MT trả về rỗng cho segment 1/1"; nay nhánh
+    đó dùng đúng câu chẩn đoán + chỉ dẫn kiểm tra file model;
+    (4) step CI mới bị SKIP khi `analyze` đỏ (thiếu `if:`) ⇒ thêm gate
+    `always() && steps.analyze.outcome != 'cancelled'` như các bước khác.
+    Thêm bước đưa lỗi test lên annotation (ưu tiên dòng `[E]` + Expected/Actual)
+    vì artifact log bị blob-storage chặn khi tải từ sandbox.
 
 ### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
 - **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ

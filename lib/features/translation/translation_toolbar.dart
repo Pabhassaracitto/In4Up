@@ -365,6 +365,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   bool? _offlineOnly;
   HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
   bool _hymtHas = false;
+  /// Lý do cụ thể khi model hiện có KHÔNG dùng được (null = không có vấn đề).
+  String? _hymtIssue;
   bool _hymtBusy = false;
   double _hymtProgress = 0;
 
@@ -426,6 +428,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final hymt = widget.service.hymt;
     if (hymt != null) {
       _hymtHas = await hymt.hasModel;
+      _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
     }
     final mlkit = widget.service.mlkit;
     if (MlKitEngine.platformSupported) {
@@ -613,9 +616,23 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             Text(
               _hymtHas
                   ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
-                  : context.uiText('Import file .gguf đã tải, hoặc bấm Tải về (~600MB, Wi-Fi). Không tự tải lúc mở app.'),
+                  : context.uiText('Tải bản HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1,1 GB) rồi Import, hoặc bấm Tải về. Không tự tải lúc mở app.'),
               style: TextStyle(color: Colors.grey[600], fontSize: 11),
             ),
+            // HYMT-003: nêu ĐÚNG lý do model hiện tại không dùng được (quant
+            // chưa có kernel / sai kiến trúc / file cắt) — bản 2-bit của
+            // AngelSlim cần llama.cpp PR #19357 nên không load được.
+            if (!_hymtHas && _hymtIssue != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _hymtIssue!,
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -1063,6 +1080,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final err = await hymt.importFromUser();
     if (!mounted) return;
     _hymtHas = await hymt.hasModel;
+    _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+    if (!mounted) return;
     setState(() => _hymtBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(context.uiText(err ?? 'Đã import Hy-MT')),
@@ -1084,6 +1103,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     await timer.cancel();
     if (!mounted) return;
     _hymtHas = await hymt.hasModel;
+    _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+    if (!mounted) return;
     setState(() => _hymtBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(context.uiText(err ?? 'Đã tải Hy-MT')),
@@ -1096,7 +1117,10 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     if (hymt == null) return;
     await hymt.deleteModel();
     if (!mounted) return;
-    setState(() => _hymtHas = false);
+    setState(() {
+      _hymtHas = false;
+      _hymtIssue = null;
+    });
   }
 
   Widget _modelRow(String code) {

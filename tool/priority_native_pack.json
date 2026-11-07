@@ -35178,5 +35178,35 @@
     "my": "အခက်အခဲအဆင့် သိမ်းဆည်းပြီး",
     "th": "บันทึกระดับความยากแล้ว",
     "ja": "難易度を保存しました"
+  },
+  "Chọn HY-MT1.5-1.8B-Q4_K_M.gguf (~1.1 GB)": {
+    "en": "Pick HY-MT1.5-1.8B-Q4_K_M.gguf (~1.1 GB)",
+    "zh": "选择 HY-MT1.5-1.8B-Q4_K_M.gguf（约 1.1 GB）",
+    "zh_TW": "選擇 HY-MT1.5-1.8B-Q4_K_M.gguf（約 1.1 GB）",
+    "hi": "HY-MT1.5-1.8B-Q4_K_M.gguf चुनें (~1.1 GB)",
+    "si": "HY-MT1.5-1.8B-Q4_K_M.gguf තෝරන්න (~1.1 GB)",
+    "my": "HY-MT1.5-1.8B-Q4_K_M.gguf ရွေးပါ (~1.1 GB)",
+    "th": "เลือก HY-MT1.5-1.8B-Q4_K_M.gguf (~1.1 GB)",
+    "ja": "HY-MT1.5-1.8B-Q4_K_M.gguf を選択（約1.1GB）"
+  },
+  "Cần file .gguf (HY-MT1.5-1.8B-Q4_K_M.gguf)": {
+    "en": "Need a .gguf file (HY-MT1.5-1.8B-Q4_K_M.gguf)",
+    "zh": "需要 .gguf 文件（HY-MT1.5-1.8B-Q4_K_M.gguf）",
+    "zh_TW": "需要 .gguf 檔案（HY-MT1.5-1.8B-Q4_K_M.gguf）",
+    "hi": ".gguf फ़ाइल चाहिए (HY-MT1.5-1.8B-Q4_K_M.gguf)",
+    "si": ".gguf ගොනුවක් අවශ්‍යයි (HY-MT1.5-1.8B-Q4_K_M.gguf)",
+    "my": ".gguf ဖိုင် လိုအပ်သည် (HY-MT1.5-1.8B-Q4_K_M.gguf)",
+    "th": "ต้องใช้ไฟล์ .gguf (HY-MT1.5-1.8B-Q4_K_M.gguf)",
+    "ja": ".gguf ファイルが必要です（HY-MT1.5-1.8B-Q4_K_M.gguf）"
+  },
+  "Tải bản HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1,1 GB) rồi Import, hoặc bấm Tải về. Không tự tải lúc mở app.": {
+    "en": "Download HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1.1 GB) then Import, or tap Download. Never downloads on app start.",
+    "zh": "请下载 HY-MT1.5-1.8B-GGUF（Q4_K_M，约 1.1 GB）后导入，或点“下载”。打开应用时不会自动下载。",
+    "zh_TW": "請下載 HY-MT1.5-1.8B-GGUF（Q4_K_M，約 1.1 GB）後匯入，或點「下載」。開啟應用程式時不會自動下載。",
+    "hi": "HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1.1 GB) डाउनलोड करके इम्पोर्ट करें, या डाउनलोड दबाएँ। ऐप खुलने पर स्वतः डाउनलोड नहीं होता।",
+    "si": "HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1.1 GB) බාගෙන Import කරන්න, නැතහොත් බාගන්න ඔබන්න. යෙදුම විවෘත කළ විට ස්වයංක්‍රීයව බාගන්නේ නැත.",
+    "my": "HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1.1 GB) ကို ဒေါင်းလုဒ်လုပ်ပြီး Import လုပ်ပါ၊ သို့မဟုတ် ဒေါင်းလုဒ် နှိပ်ပါ။ အက်ပ်ဖွင့်ချိန်တွင် အလိုအလျောက် ဒေါင်းလုဒ် မလုပ်ပါ။",
+    "th": "ดาวน์โหลด HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1.1 GB) แล้วนำเข้า หรือกดดาวน์โหลด ระบบจะไม่ดาวน์โหลดเองเมื่อเปิดแอป",
+    "ja": "HY-MT1.5-1.8B-GGUF（Q4_K_M、約1.1GB）をダウンロードしてインポートするか、ダウンロードを押してください。アプリ起動時に自動ダウンロードはしません。"
   }
 }

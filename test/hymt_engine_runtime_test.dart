@@ -285,16 +285,24 @@ void main() {
       expect(result.isSuccess, isTrue);
       expect(prompts.length, greaterThan(1));
 
-      // Prompt = template + chunk; join các chunk phải = text gốc (không
-      // lặp/mất đoạn).
-      final template = HyMtPrompts.build(
-        text: '',
-        sourceLang: 'EN',
-        targetLang: 'VI',
-      );
-      final chunks = prompts
-          .map((p) => p.substring(template.length))
-          .toList();
+      // Prompt = khung lượt + chỉ thị + chunk + khung đóng (HYMT-004); join
+      // các chunk phải = text gốc (không lặp/mất đoạn).
+      final instruction =
+          HyMtPrompts.instruction(sourceLang: 'EN', targetLang: 'VI');
+      final chunks = prompts.map((p) {
+        expect(p, startsWith(HyMtPrompts.bosToken + HyMtPrompts.userToken));
+        expect(p, endsWith(HyMtPrompts.assistantToken));
+        final body = p.substring(
+          HyMtPrompts.bosToken.length +
+              HyMtPrompts.userToken.length +
+              instruction.length +
+              2,
+        );
+        return body.substring(
+          0,
+          body.length - HyMtPrompts.assistantToken.length,
+        );
+      }).toList();
       expect(chunks.join(''), text);
 
       // Output ghép đúng thứ tự.
@@ -347,6 +355,10 @@ void main() {
       expect(result.isSuccess, isFalse);
       expect(result.errorCode, 'empty_output');
       expect(backend.generateCalls, 2); // 1 thử + 1 retry
+      // HYMT-004: câu lỗi phải NÊU nguyên nhân đã xác minh, không phải
+      // "Hy-MT trả về rỗng" cụt lủn — người dùng cần biết phải làm gì.
+      expect(result.error, contains('khung lượt'));
+      expect(result.error, contains('Hy-MT1.5'));
     });
 
     test('hung chunk: per-chunk timeout → restart + 1 retry → clear error',

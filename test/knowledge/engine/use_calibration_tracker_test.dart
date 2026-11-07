@@ -6,7 +6,7 @@ import 'package:in4up/knowledge/models/learning_state.dart'
     show LearningState, SkillDimension;
 
 void main() {
-  const at = DateTime.utc(2026, 6, 1);
+  final at = DateTime.utc(2026, 6, 1);
   const evidence = EvidenceMetadata(
     assistance: 0.0, confidence: 1.0, gradedBy: 'local-cloze/v1',
   );

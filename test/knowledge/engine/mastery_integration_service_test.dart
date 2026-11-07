@@ -11,7 +11,7 @@ import 'package:in4up/knowledge/visual/mastery_geometry.dart'
     show scatterPosition;
 
 void main() {
-  const at = DateTime.utc(2026, 6, 1);
+  final at = DateTime.utc(2026, 6, 1);
   const evidence = EvidenceMetadata(
     assistance: 0.0, confidence: 1.0, gradedBy: 'local-cloze/v1',
   );
@@ -102,22 +102,39 @@ void main() {
       expect(result.masteryVector.useForm, closeTo(0.2, 1e-10));
     });
 
-    test('integrate use: default subTest = inflection', () {
+    test('integrate use: missing subTest is rejected, not inferred', () {
       final state = LearningState.initial(unitId: 'u1', now: at);
-      final mastery = MasteryVector.initial;
-
-      // Không truyền subTest → mặc định inflection.
-      final result = MasteryIntegrationService.integrate(
-        state: state,
-        mastery: mastery,
-        dim: SkillDimension.use,
-        quality: 5,
-        evidence: evidence,
-        now: at,
+      expect(
+        () => MasteryIntegrationService.integrate(
+          state: state,
+          mastery: MasteryVector.initial,
+          dim: SkillDimension.use,
+          quality: 5,
+          evidence: evidence,
+          now: at,
+        ),
+        throwsArgumentError,
       );
+    });
 
-      expect(result.masteryVector.hasUseForm, isTrue);
-      expect(result.masteryVector.hasUseSentence, isFalse);
+    test('pure integration preserves the audit pointer until an event is supplied', () {
+      final state = LearningState.initial(unitId: 'u1', now: at).withSkill(
+        SkillDimension.reading,
+        LearningState.initial(unitId: 'u1', now: at).reading,
+        lastReviewEventId: 'old-event',
+      );
+      MasteryIntegrationResult apply({String? eventId}) =>
+          MasteryIntegrationService.integrate(
+            state: state,
+            mastery: MasteryVector.initial,
+            dim: SkillDimension.speak,
+            quality: 4,
+            evidence: evidence,
+            eventId: eventId,
+            now: at,
+          );
+      expect(apply().learningState.lastReviewEventId, 'old-event');
+      expect(apply(eventId: 'new-event').learningState.lastReviewEventId, 'new-event');
     });
 
     test('assistance bất đối xứng: đúng → giảm, sai → không giảm', () {

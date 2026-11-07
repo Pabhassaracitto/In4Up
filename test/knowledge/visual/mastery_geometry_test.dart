@@ -87,8 +87,8 @@ void main() {
   });
 
   group('productionGap', () {
-    test('cả 2 mirror có mastery → khoảng cách thực tế', () {
-      // understanding (90°, m=1) ↔ use (270°, m=1): 2R
+    test('bằng nhau dù nằm ở hai phía → gap bằng 0', () {
+      // Both scores are 1, so there is no production gap.
       final gap = productionGap(
         center: center, radius: r,
         mirrorPair: kMirrorPairs[0],
@@ -97,8 +97,8 @@ void main() {
           SkillDimension.use: 1.0,
         },
       );
-      expect(gap, closeTo(2 * r, 1e-10),
-          reason: 'cả 2 = 1 → gap = 2R');
+      expect(gap, closeTo(0, 1e-10),
+          reason: 'both scores are equal');
     });
 
     test('1 null → null (envelope không nội suy)', () {
@@ -127,17 +127,17 @@ void main() {
     });
 
     test('partial mastery → gap proportional', () {
-      // understanding m=0.5, use m=0.5 → gap = R
+      // Different magnitudes: |0.8 - 0.3| × R = 0.5R.
       final gap = productionGap(
         center: center, radius: r,
         mirrorPair: kMirrorPairs[0],
         masteryMap: {
-          SkillDimension.understanding: 0.5,
-          SkillDimension.use: 0.5,
+          SkillDimension.understanding: 0.8,
+          SkillDimension.use: 0.3,
         },
       );
-      expect(gap, closeTo(r, 1e-10),
-          reason: 'm1=m2=0.5 → gap = R');
+      expect(gap, closeTo(0.5 * r, 1e-10),
+          reason: 'gap represents the score difference');
     });
   });
 
@@ -195,8 +195,8 @@ void main() {
       expect(pos, isNotNull);
       // x = input = 0.6 * 100 = 60
       expect(pos!.dx, closeTo(60.0, 1e-10));
-      // y = output = 0.5 * 100 = 50 (y-down → negative)
-      expect(pos.dy, closeTo(-50.0, 1e-10));
+      // y = output = (0.9 + 0.5 + 0.3) / 3 × 100 (y-down).
+      expect(pos.dy, closeTo(-170.0 / 3, 1e-10));
     });
 
     test('scatterPosition: thiếu output → null', () {
@@ -212,7 +212,7 @@ void main() {
     });
 
     test('scatterGap: cân bằng (input=output) → 0', () {
-      final gap = scatterGap({
+      final gap = scatterGap(masteryMap: {
         SkillDimension.understanding: 0.6,
         SkillDimension.listening: 0.6,
         SkillDimension.reading: 0.6,
@@ -224,7 +224,7 @@ void main() {
     });
 
     test('scatterGap: mất cân bằng → > 0', () {
-      final gap = scatterGap({
+      final gap = scatterGap(masteryMap: {
         SkillDimension.understanding: 0.8,
         SkillDimension.listening: 0.8,
         SkillDimension.reading: 0.8,
@@ -237,7 +237,7 @@ void main() {
     });
 
     test('scatterGap: thiếu output → null', () {
-      final gap = scatterGap({
+      final gap = scatterGap(masteryMap: {
         SkillDimension.understanding: 0.8,
         SkillDimension.listening: 0.6,
         SkillDimension.reading: 0.4,

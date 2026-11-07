@@ -8,6 +8,7 @@
 /// ═══════════════════════════════════════════════════════════════
 library;
 
+import 'package:in4up/features/shadowing/models/phoneme_models.dart' show WordStatus;
 import 'package:in4up/features/shadowing/services/pronunciation_service.dart';
 
 /// Kết quả chấm phát âm 1 từ.

@@ -1,9 +1,7 @@
 /// High-quality native strings for priority locales (en, hi, zh, zh_TW, si).
 /// Merged first in [AppUITranslations.translate] so Home/settings labels
 /// do not stay Vietnamese when the catalog is incomplete.
-/// Note: changed from `const` to `final` to avoid compile-time error on
-/// pre-existing duplicate keys on base branch (not related to VieNeu-TTS).
-final Map<String, Map<String, String>> priorityUiOverrides = {
+const Map<String, Map<String, String>> priorityUiOverrides = {
   'Công cụ hiểu': {
     'en': 'Understanding tools',
     'hi': 'समझने के टूल',
@@ -39,49 +37,113 @@ final Map<String, Map<String, String>> priorityUiOverrides = {
     'zh_TW': '顏色資訊',
     'si': 'වර්ණ විස්තර',
   },
+  // Six-skill view: read-only projection and honest missing-data labels.
+  'Sáu kỹ năng': {
+    'en': 'Six skills',
+    'hi': 'छह कौशल',
+    'zh': '六项技能',
+    'zh_TW': '六項技能',
+    'si': 'කුසලතා හය',
+  },
+  'Venn ba kỹ năng': {
+    'en': 'Three-skill Venn',
+    'hi': 'तीन कौशलों का वेन आरेख',
+    'zh': '三项技能维恩图',
+    'zh_TW': '三項技能文氏圖',
+    'si': 'කුසලතා තුනේ වෙන් රූපය',
+  },
+  'Từng từ': {
+    'en': 'Word view',
+    'hi': 'शब्द दृश्य',
+    'zh': '单词视图',
+    'zh_TW': '單詞視圖',
+    'si': 'වචන දසුන',
+  },
+  'Kho từ': {
+    'en': 'Collection view',
+    'hi': 'संग्रह दृश्य',
+    'zh': '词库视图',
+    'zh_TW': '詞庫檢視',
+    'si': 'වචන එකතුව',
+  },
+  'Chọn từ': {
+    'en': 'Choose a word',
+    'hi': 'शब्द चुनें',
+    'zh': '选择单词',
+    'zh_TW': '選擇單詞',
+    'si': 'වචනයක් තෝරන්න',
+  },
+  'Không tìm thấy từ': {
+    'en': 'No words found',
+    'hi': 'कोई शब्द नहीं मिला',
+    'zh': '未找到单词',
+    'zh_TW': '找不到單詞',
+    'si': 'වචන හමු නොවීය',
+  },
+  'Điểm Hiểu, Nghe, Đọc là điểm hiện đang lưu, không phải EMA.': {
+    'en': 'Understanding, Listening and Reading use the saved scores, not EMA.',
+    'hi': 'समझ, सुनना और पढ़ना के लिए सहेजे गए अंक हैं, EMA नहीं।',
+    'zh': '理解、听力和阅读使用已保存的分数，并非 EMA。',
+    'zh_TW': '理解、聆聽和閱讀使用已儲存的分數，並非 EMA。',
+    'si': 'අවබෝධය, සවන්දීම සහ කියවීම සඳහා සුරැකි ලකුණු භාවිත වේ; ඒවා EMA නොවේ.',
+  },
+  'Đánh giá và lưu Dùng, Nói, Viết chưa được kết nối.': {
+    'en': 'Assessment and storage for Use, Speaking and Writing are not connected yet.',
+    'hi': 'प्रयोग, बोलने और लिखने का मूल्यांकन और भंडारण अभी जुड़ा नहीं है।',
+    'zh': '运用、口语和写作的评估及存储尚未接入。',
+    'zh_TW': '運用、口說與寫作的評估及儲存尚未接入。',
+    'si': 'භාවිතය, කතා කිරීම සහ ලිවීම ඇගයීම හා සුරැකීම තවම සම්බන්ධ කර නැත.',
+  },
+  'Chưa đủ dữ liệu đầu vào và đầu ra để hiển thị từ nào.': {
+    'en': 'No words have enough input and output data to plot yet.',
+    'hi': 'अभी किसी शब्द के लिए पर्याप्त इनपुट और आउटपुट डेटा नहीं है।',
+    'zh': '尚无单词具有足够的输入和输出数据可供绘图。',
+    'zh_TW': '尚無單詞具備足夠的輸入與輸出資料可供繪圖。',
+    'si': 'සටහන් කිරීමට ප්‍රමාණවත් ආදාන සහ ප්‍රතිදාන දත්ත ඇති වචන තවම නැත.',
+  },
+  'Chỉ vẽ từ có điểm ở cả hai nhóm; trung bình chỉ tính điểm hiện có.': {
+    'en': 'Only words with scores in both groups are plotted; averages use available scores only.',
+    'hi': 'केवल दोनों समूहों में अंक वाले शब्द दिखते हैं; औसत में केवल उपलब्ध अंक शामिल हैं।',
+    'zh': '仅绘制两个组均有分数的单词；平均值只计算已有分数。',
+    'zh_TW': '僅繪製兩組都有分數的單詞；平均值只計算已有分數。',
+    'si': 'කණ්ඩායම් දෙකේම ලකුණු ඇති වචන පමණක් දක්වයි; සාමාන්‍යයට ඇති ලකුණු පමණක් යොදා ගනී.',
+  },
+  'Từ có đủ dữ liệu': {
+    'en': 'Words with enough data',
+    'hi': 'पर्याप्त डेटा वाले शब्द',
+    'zh': '数据充足的单词',
+    'zh_TW': '資料充足的單詞',
+    'si': 'ප්‍රමාණවත් දත්ත ඇති වචන',
+  },
+  'Ngang: Hiểu, Nghe, Đọc. Dọc: Dùng, Nói, Viết.': {
+    'en': 'Horizontal: Understanding, Listening, Reading. Vertical: Use, Speaking, Writing.',
+    'hi': 'क्षैतिज: समझ, सुनना, पढ़ना। ऊर्ध्वाधर: प्रयोग, बोलना, लिखना।',
+    'zh': '横轴：理解、听力、阅读。纵轴：运用、口语、写作。',
+    'zh_TW': '橫軸：理解、聆聽、閱讀。縱軸：運用、口說、寫作。',
+    'si': 'තිරස්: අවබෝධය, සවන්දීම, කියවීම. සිරස්: භාවිතය, කතා කිරීම, ලිවීම.',
+  },
+  'Một phần': {
+    'en': 'Partial',
+    'hi': 'आंशिक',
+    'zh': '部分',
+    'zh_TW': '部分',
+    'si': 'අර්ධ',
+  },
+  'Không lưu được chế độ xem; lựa chọn chỉ áp dụng trong phiên này.': {
+    'en': 'Could not save the view; the choice applies only to this session.',
+    'hi': 'दृश्य सहेजा नहीं जा सका; चयन केवल इस सत्र के लिए है।',
+    'zh': '无法保存视图；选择仅在本次会话有效。',
+    'zh_TW': '無法儲存檢視；選擇僅在本次工作階段有效。',
+    'si': 'දසුන සුරැකිය නොහැක; තේරීම මෙම සැසියට පමණක් අදාළ වේ.',
+  },
+  'Chênh lệch': {
+    'en': 'Difference',
+    'hi': 'अंतर',
+    'zh': '差距',
+    'zh_TW': '差距',
+    'si': 'වෙනස',
+  },
   // ── Mastery hexagram labels (P3) ──
-  'Hiểu': {
-    'en': 'Understand',
-    'hi': 'समझ',
-    'zh': '理解',
-    'zh_TW': '理解',
-    'si': 'අවබෝධ',
-  },
-  'Nghe': {
-    'en': 'Listen',
-    'hi': 'सुनें',
-    'zh': '听',
-    'zh_TW': '聽',
-    'si': 'අසන්න',
-  },
-  'Đọc': {
-    'en': 'Read',
-    'hi': 'पढ़ें',
-    'zh': '读',
-    'zh_TW': '讀',
-    'si': 'කියවන්න',
-  },
-  'Dùng': {
-    'en': 'Use',
-    'hi': 'उपयोग',
-    'zh': '用',
-    'zh_TW': '用',
-    'si': 'භාවිතා',
-  },
-  'Nói': {
-    'en': 'Speak',
-    'hi': 'बोलें',
-    'zh': '说',
-    'zh_TW': '說',
-    'si': 'කියන්න',
-  },
-  'Viết': {
-    'en': 'Write',
-    'hi': 'लिखें',
-    'zh': '写',
-    'zh_TW': '寫',
-    'si': 'ලියන්න',
-  },
   'Mastery': {
     'en': 'Mastery',
     'hi': ' समिति',

@@ -26,7 +26,7 @@ library;
 
 import 'package:in4up/knowledge/models/learning_action.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show LearningState, SkillDimension;
+    show LearningState, SkillDimension, inputDimensions;
 
 /// 5 trạng thái mục 6.
 enum MemoryStage { observed, captured, promoted, practicing, maintained }

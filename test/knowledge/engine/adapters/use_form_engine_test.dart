@@ -66,6 +66,18 @@ void main() {
       });
     });
 
+    test('superlative forms do not insert an extra e', () {
+      expect(UseFormEngine.generateForm('big', InflectionForm.superlative), 'biggest');
+      expect(UseFormEngine.generateForm('nice', InflectionForm.superlative), 'nicest');
+      expect(UseFormEngine.generateForm('happy', InflectionForm.superlative), 'happiest');
+    });
+
+    test('CVC doubling excludes vowels before the last vowel and w/x/y', () {
+      expect(UseFormEngine.generateForm('rain', InflectionForm.gerund), 'raining');
+      expect(UseFormEngine.generateForm('snow', InflectionForm.gerund), 'snowing');
+      expect(UseFormEngine.generateForm('fix', InflectionForm.gerund), 'fixing');
+    });
+
     group('check', () {
       test('đúng dạng → isCorrect', () {
         final r = UseFormEngine.check(

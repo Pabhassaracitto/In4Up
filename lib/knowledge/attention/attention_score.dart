@@ -32,7 +32,7 @@
 library;
 
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show LearningState, SkillDimension;
+    show LearningState, SkillDimension, inputDimensions;
 
 /// Trọng số khởi điểm (mục 5).
 const double kAttentionW1 = 0.4;

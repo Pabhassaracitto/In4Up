@@ -4,7 +4,7 @@
 /// Trích các hàm scorer thuần từ `write_studio_screen.dart` thành
 /// module reusable. Chế độ 1 từ: user viết từ, chấm score.
 ///
-/// Score = orderScore × 0.7 + charScore × 0.3.
+/// Single-word score = charScore; phrases use orderScore × 0.7 + charScore × 0.3.
 ///   orderScore = LCS(expected, actual) / |expected|
 ///   charScore  = 1 - Levenshtein / maxLen
 ///
@@ -13,6 +13,9 @@
 library;
 
 import 'dart:math' as math;
+
+import 'package:in4up/features/dharma/services/dharma_text.dart'
+    show foldDiacritics;
 
 /// Kết quả chấm chính tả.
 class WriteScoreResult {
@@ -58,8 +61,16 @@ class WriteScorer {
     final orderScore =
         expectedTokens.isEmpty ? 0.0 : lcs / expectedTokens.length;
     final charScore = stringSimilarity(expectedText, actualText);
-    final score =
-        ((orderScore * 0.7) + (charScore * 0.3)).clamp(0.0, 1.0).toDouble();
+    // Token order has no meaning for a single-word spelling attempt.
+    // Use character similarity instead of penalizing an entire word as missing
+    // for one typo. Do not accept inputs with no supported expected letters.
+    final score = expectedTokens.isEmpty
+        ? 0.0
+        : expectedTokens.length == 1
+            ? charScore
+            : ((orderScore * 0.7) + (charScore * 0.3))
+                .clamp(0.0, 1.0)
+                .toDouble();
 
     final missing = subtractMultiset(expectedTokens, actualTokens);
     final extra = subtractMultiset(actualTokens, expectedTokens);
@@ -76,7 +87,9 @@ class WriteScorer {
 
   /// Normalize từ — lowercase, chỉ [a-z0-9'].
   static String normalizeWord(String input) {
-    return input.toLowerCase().replaceAll(RegExp(r"[^a-z0-9']"), '').trim();
+    return foldDiacritics(input)
+        .replaceAll(RegExp(r"[^a-z0-9']"), '')
+        .trim();
   }
 
   /// Tokenize + normalize.

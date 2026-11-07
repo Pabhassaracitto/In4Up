@@ -109,10 +109,10 @@ class ArchetypeClassifier {
 
     final inputHighCount =
         [SkillDimension.understanding, SkillDimension.listening, SkillDimension.reading]
-            .where((d) => highMap[d]).length;
+            .where((d) => highMap[d]!).length;
     final outputHighCount =
         [SkillDimension.use, SkillDimension.speak, SkillDimension.write]
-            .where((d) => highMap[d]).length;
+            .where((d) => highMap[d]!).length;
 
     final inputLow = mv.understanding < low &&
         mv.listening < low &&
@@ -131,26 +131,26 @@ class ArchetypeClassifier {
     if (inputLow && outputLow) return Archetype.blindSpot;
 
     // 2. passiveListener: chỉ listening cao, input khác thấp, output thấp.
-    if (highMap[SkillDimension.listening] &&
-        !highMap[SkillDimension.understanding] &&
-        !highMap[SkillDimension.reading] &&
+    if (highMap[SkillDimension.listening]! &&
+        !highMap[SkillDimension.understanding]! &&
+        !highMap[SkillDimension.reading]! &&
         outputLow) {
       return Archetype.passiveListener;
     }
 
     // 3. textReader: chỉ reading cao, input khác thấp, output thấp.
-    if (highMap[SkillDimension.reading] &&
-        !highMap[SkillDimension.understanding] &&
-        !highMap[SkillDimension.listening] &&
+    if (highMap[SkillDimension.reading]! &&
+        !highMap[SkillDimension.understanding]! &&
+        !highMap[SkillDimension.listening]! &&
         outputLow) {
       return Archetype.textReader;
     }
 
     // 4. imitativeSpeaker: chỉ speak cao (output ĐỘC LẠC), input thấp.
     //    speak + write/use cao → không phải imitativeSpeaker (→ productive).
-    if (highMap[SkillDimension.speak] &&
-        !highMap[SkillDimension.write] &&
-        !highMap[SkillDimension.use] &&
+    if (highMap[SkillDimension.speak]! &&
+        !highMap[SkillDimension.write]! &&
+        !highMap[SkillDimension.use]! &&
         inputLow) {
       return Archetype.imitativeSpeaker;
     }

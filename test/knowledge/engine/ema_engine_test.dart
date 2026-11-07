@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/knowledge/engine/ema_engine.dart';
 import 'package:in4up/knowledge/models/evidence_metadata.dart';
 import 'package:in4up/knowledge/models/learning_state.dart' show SkillDimension;
-import 'package:in4up/knowledge/models/use_sub_test.dart' show UseSubTestType;
+import 'package:in4up/knowledge/models/use_sub_test.dart' show UseSubTestType, UseSubTestTypeInfo;
 
 void main() {
   const alpha = 0.2;
@@ -107,6 +107,21 @@ void main() {
       expect(mv.listening, 0.0);
       expect(mv.reading, 0.0);
       expect(mv.valueOf(SkillDimension.understanding), closeTo(alpha, 1e-10));
+    });
+
+    test('a reviewed zero is evidence and survives unrelated updates', () {
+      const evidence = EvidenceMetadata(
+        assistance: 0, confidence: 1, gradedBy: 'local/v1',
+      );
+      final mv = MasteryVector.initial
+          .update(dim: SkillDimension.understanding, scoreNor: 0, evidence: evidence)
+          .updateUse(subTest: UseSubTestType.inflection, scoreNor: 1, evidence: evidence)
+          .update(dim: SkillDimension.speak, scoreNor: 1, evidence: evidence);
+      expect(mv.understanding, 0);
+      expect(mv.hasUnderstanding, isTrue);
+      expect(mv.hasInputEvidence, isTrue);
+      expect(mv.hasListening, isFalse);
+      expect(mv.hasReading, isFalse);
     });
 
     test('update speak/write — hasSpeak/hasWrite = true', () {

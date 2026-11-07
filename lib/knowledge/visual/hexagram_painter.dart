@@ -2,7 +2,7 @@
 /// HEXAGRAM PAINTER — Word view (ADR-0019, D9 — cả 2 view + toggle)
 ///
 /// 6 đỉnh trên 3 đường kính xuyên tâm. Input tam giác trong, Output
-/// tam giác ngoài. Production gap = khoảng cách mirror.
+/// tam giác ngoài. Production gap = chênh lệch bán kính mirror.
 ///
 /// Null-vertex contract: đỉnh chưa có bằng chứng → vòng rỗng nét đứt,
 /// không tô. Envelope không nội suy qua null.
@@ -10,7 +10,6 @@
 library;
 
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -30,7 +29,7 @@ class HexagramPainter extends CustomPainter {
   final double dotRadius;
 
   /// Labels cho 6 đỉnh (theo thứ tự SkillDimension.values).
-  /// Mặc định = initials tiếng Việt. Widget cung cấp localized.
+  /// Mặc định là số thứ tự 1–6; legend trong UI cung cấp nhãn bản địa.
   final List<String> labels;
 
   const HexagramPainter({
@@ -41,7 +40,7 @@ class HexagramPainter extends CustomPainter {
     this.outputColor = const Color(0xFF66BB6A),
     this.gapColor = const Color(0xFFFFD54F),
     this.dotRadius = 5.0,
-    this.labels = const ['H', 'N', 'Đ', 'D', 'Ỡ', 'V'],
+    this.labels = const ['1', '2', '3', '4', '5', '6'],
   });
 
   @override
@@ -54,6 +53,20 @@ class HexagramPainter extends CustomPainter {
       ..color = Colors.grey.shade300
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
+
+    // Neutral guides make the six axes and scale visible on a dark surface.
+    framePaint.color = Colors.white24;
+    canvas.drawCircle(center, radius, framePaint);
+    canvas.drawCircle(center, radius * 0.5, framePaint);
+    for (final pair in kMirrorPairs) {
+      final start = vertexPosition(
+        center: center, radius: radius, dim: pair[0], mastery: 1.0,
+      )!;
+      final end = vertexPosition(
+        center: center, radius: radius, dim: pair[1], mastery: 1.0,
+      )!;
+      canvas.drawLine(start, end, framePaint);
+    }
 
     // ── Production gaps (mirror pairs) ──
     if (showGaps) {
@@ -68,7 +81,7 @@ class HexagramPainter extends CustomPainter {
             mastery: mastery[pair[0]],
           )!;
           final posB = vertexPosition(
-            center: center, radius: radius, dim: pair[1],
+            center: center, radius: radius, dim: pair[0],
             mastery: mastery[pair[1]],
           )!;
           canvas.drawLine(posA, posB, Paint()
@@ -90,7 +103,7 @@ class HexagramPainter extends CustomPainter {
       );
       if (pos != null) inputVerts.add(pos);
     }
-    if (inputVerts.length >= 2) {
+    if (inputVerts.length == 3) {
       canvas.drawPath(
         Path()..addPolygon(inputVerts, true),
         Paint()
@@ -118,7 +131,7 @@ class HexagramPainter extends CustomPainter {
       );
       if (pos != null) outputVerts.add(pos);
     }
-    if (outputVerts.length >= 2) {
+    if (outputVerts.length == 3) {
       canvas.drawPath(
         Path()..addPolygon(outputVerts, true),
         Paint()
@@ -137,18 +150,18 @@ class HexagramPainter extends CustomPainter {
     }
 
     // ── Vertices (filled dots + null hollow dashed) ──
-    for (final entry in mastery.entries) {
+    for (final dim in SkillDimension.values) {
       final pos = vertexPosition(
-        center: center, radius: radius, dim: entry.key,
-        mastery: entry.value,
+        center: center, radius: radius, dim: dim,
+        mastery: mastery[dim],
       );
       if (pos == null) {
         // Null vertex: hollow dashed circle at R.
-        _drawNullVertex(canvas, center, radius, entry.key);
+        _drawNullVertex(canvas, center, radius, dim);
       } else {
-        final color = entry.key == SkillDimension.use ||
-                entry.key == SkillDimension.speak ||
-                entry.key == SkillDimension.write
+        final color = dim == SkillDimension.use ||
+                dim == SkillDimension.speak ||
+                dim == SkillDimension.write
             ? outputColor
             : inputColor;
         canvas.drawCircle(pos, dotRadius, Paint()..color = color);
@@ -173,10 +186,11 @@ class HexagramPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
-    // Dashed circle.
-    final path = ui.Path()
-      ..addArc(Rect.fromCircle(center: pos, radius: dotRadius + 2), 0, 2 * math.pi);
-    canvas.drawPath(path, paint);
+    // Six separate arcs, not a solid circle: unknown ≠ an evaluated zero.
+    final rect = Rect.fromCircle(center: pos, radius: dotRadius + 2);
+    for (var i = 0; i < 6; i++) {
+      canvas.drawArc(rect, i * math.pi / 3, math.pi / 6, false, paint);
+    }
   }
 
   void _drawLabels(Canvas canvas, Offset center, double radius) {
@@ -217,6 +231,10 @@ class HexagramPainter extends CustomPainter {
     return old.mastery != mastery ||
         old.showLabels != showLabels ||
         old.showGaps != showGaps ||
+        old.inputColor != inputColor ||
+        old.outputColor != outputColor ||
+        old.gapColor != gapColor ||
+        old.dotRadius != dotRadius ||
         old.labels != labels;
   }
 }

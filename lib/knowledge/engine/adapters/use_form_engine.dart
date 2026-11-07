@@ -170,7 +170,7 @@ class UseFormEngine {
     if (comp == null) return null;
     // big → biggest, nice → nicest
     if (comp.endsWith('er')) {
-      return '${comp.substring(0, comp.length - 1)}est';
+      return '${comp.substring(0, comp.length - 2)}est';
     }
     return null; // fallback: "most ___" not handled in Phase 1
   }
@@ -194,18 +194,19 @@ class UseFormEngine {
   static bool _shouldDouble(String word) {
     if (word.length < 3) return false;
     final last = word[word.length - 1];
-    if (last == 'y') return false; // 'y' special case → +ed/+ing
+    if (last == 'y' || last == 'w' || last == 'x') return false; // 'y' special case → +ed/+ing
     final second = word[word.length - 2];
     if (!_isConsonant(last)) return false;
     if (!_isVowel(second)) return false;
-    return true;
+    return _isConsonant(word[word.length - 3]);
   }
 
   static bool _isVowel(String c) =>
       c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u';
 
   static bool _isConsonant(String c) =>
-      c.isLetter && !_isVowel(c.toLowerCase());
+      RegExp(r'^[a-z]$').hasMatch(c.toLowerCase()) &&
+      !_isVowel(c.toLowerCase());
 
   static String _normalize(String s) =>
       s.toLowerCase().replaceAll(RegExp(r"[^a-z0-9']"), '').trim();

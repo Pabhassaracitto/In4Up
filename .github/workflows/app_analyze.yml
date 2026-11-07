@@ -459,6 +459,10 @@ jobs:
       # (runtime). Thuần logic — không cần native lib, không cần model.
       - name: "Hy-MT tests — khung lượt + chẩn đoán model + chunk runtime"
         id: hymt-tests
+        # Phải có gate như các bước test khác: thiếu `if:` ⇒ mặc định success()
+        # ⇒ step bị SKIP khi bước analyze đỏ (analyze đỏ vì lỗi CÓ SẴN trên
+        # base, không liên quan Hy-MT) và test Hy-MT không bao giờ chạy.
+        if: always() && steps.analyze.outcome != 'cancelled'
         run: |
           set +e
           files=""

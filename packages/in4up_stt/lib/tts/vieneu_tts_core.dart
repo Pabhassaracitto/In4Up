@@ -85,6 +85,60 @@ class VieneuTtsCore {
   /// Giọng mặc định của gói GGUF (xem voices/manifest.json của nhà phát hành).
   static const String defaultVoiceId = 'minh_quan_pro';
 
+  /// =========================================================================
+  // GIAI ĐOẠN 3 — hỗ trợ nhiều phiên bản mô hình GGUF (Q8_0 mặc định, bf16 tùy chọn).
+  /// =========================================================================
+
+  /// Phiên bản mô hình VieNeu-TTS được hỗ trợ.
+  enum VieneuModelVariant {
+    /// Q8_0 (~170 MB) — cân bằng chất lượng / dung lượng, mặc định.
+    q8_0,
+    /// bf16 (~292 MB) — chất lượng cao hơn, dung lượng lớn hơn.
+    bf16,
+  }
+
+  /// Tên file GGUF + nhãn hiển thị cho từng phiên bản.
+  /// Public để các lớp ngoài package (TtsService, settings widget) có thể dùng
+  /// `variant.fileName` / `variant.label`.
+  extension VieneuModelVariantExt on VieneuModelVariant {
+    String get fileName {
+      switch (this) {
+        case VieneuModelVariant.q8_0:
+          return 'vieneu-v3-turbo-q8_0.gguf';
+        case VieneuModelVariant.bf16:
+          return 'vieneu-v3-turbo-bf16.gguf';
+      }
+    }
+
+    String get label {
+      switch (this) {
+        case VieneuModelVariant.q8_0:
+          return 'Q8_0 (~170 MB)';
+        case VieneuModelVariant.bf16:
+          return 'bf16 (~292 MB)';
+      }
+    }
+  }
+
+  /// Đường dẫn file model của [variant] trong documents của app, hoặc null nếu
+  /// chưa import. Persistence của biến thể được chọn lưu ở tầng cao hơn
+  /// (`TtsService`, có `shared_preferences`) — class này chỉ cung cấp path.
+  static Future<String?> modelPathFor(VieneuModelVariant variant) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dir.path, 'vieneu_tts', variant.fileName));
+    return await file.exists() ? file.path : null;
+  }
+
+  /// Kiểm tra phiên bản mô hình nào đã có file trên thiết bị.
+  static Future<List<VieneuModelVariant>> getAvailableVariants() async {
+    final result = <VieneuModelVariant>[];
+    for (final v in VieneuModelVariant.values) {
+      if (await modelPathFor(v) != null) result.add(v);
+    }
+    return result;
+  }
+  /// =========================================================================
+
   SendPort? _workerPort;
   ReceivePort? _commandPort;
   final _pending = <int, Completer<Map<String, dynamic>>>{};

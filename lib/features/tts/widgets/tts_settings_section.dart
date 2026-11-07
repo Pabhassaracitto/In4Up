@@ -1230,51 +1230,76 @@ class _VieneuModelImportSection extends StatefulWidget {
 
 class _VieneuModelImportSectionState
     extends State<_VieneuModelImportSection> {
-  String? _modelPath;
+  VieneuModelVariant _selectedVariant = VieneuModelVariant.q8_0;
   bool _importing = false;
+  VieneuModelVariant? _importingVariant;
   String? _statusMessage;
   bool _statusIsError = false;
+  final Map<VieneuModelVariant, String?> _variantModelPaths = {};
 
   @override
   void initState() {
     super.initState();
-    _checkModel();
+    _checkAllModels();
   }
 
-  Future<void> _checkModel() async {
-    final path = await VieneuTtsCore.modelPath();
+  Future<void> _checkAllModels() async {
+    final paths = <VieneuModelVariant, String?>{};
+    for (final v in VieneuModelVariant.values) {
+      paths[v] = await VieneuTtsCore.modelPathFor(v);
+    }
     if (!mounted) return;
-    setState(() => _modelPath = path);
+    setState(() {
+      _variantModelPaths
+        ..clear()
+        ..addAll(paths);
+      // Mặc định chọn biến thể đã có model; nếu chưa có thì giữ Q8_0.
+      final imported = paths.entries
+          .where((e) => e.value != null)
+          .map((e) => e.key)
+          .toList();
+      if (imported.isNotEmpty &&
+          _variantModelPaths[_selectedVariant] == null) {
+        _selectedVariant = imported.first;
+      }
+    });
   }
 
-  Future<void> _pickAndImport() async {
+  Future<void> _pickAndImport(VieneuModelVariant variant) async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['gguf'],
-      dialogTitle: 'Chọn file model VieNeu-TTS .gguf (~170 MB)',
+      dialogTitle: 'Chọn file model VieNeu-TTS ${variant.label}',
     );
     if (result == null || result.files.single.path == null) return;
 
     setState(() {
       _importing = true;
+      _importingVariant = variant;
       _statusMessage = null;
     });
 
     try {
       final imported = await TtsService()
-          .importVieneuModel(File(result.files.single.path!));
+          .importVieneuModel(File(result.files.single.path!), variant: variant);
+      if (!mounted) return;
+      await _checkAllModels();
+      await TtsService().setSelectedVieneuModelVariant(variant);
       if (!mounted) return;
       setState(() {
         _importing = false;
-        _modelPath = imported;
-        _statusMessage = 'Đã import model: ${p.basename(imported)}';
+        _importingVariant = null;
+        _selectedVariant = variant;
+        _statusMessage =
+            'Đã import ${variant.label}: ${p.basename(imported)}';
         _statusIsError = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _importing = false;
-        _statusMessage = 'Lỗi import: $e';
+        _importingVariant = null;
+        _statusMessage = 'Lỗi import ${variant.label}: $e';
         _statusIsError = true;
       });
     }
@@ -1282,7 +1307,9 @@ class _VieneuModelImportSectionState
 
   @override
   Widget build(BuildContext context) {
-    final hasModel = _modelPath != null;
+    final anyModel = _variantModelPaths.values.any((p) => p != null);
+    final selectedPath = _variantModelPaths[_selectedVariant];
+    final selectedImported = selectedPath != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1301,11 +1328,11 @@ class _VieneuModelImportSectionState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: (hasModel ? Colors.green : Colors.orange)
+                color: (anyModel ? Colors.green : Colors.orange)
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: (hasModel ? Colors.green : Colors.orange)
+                  color: (anyModel ? Colors.green : Colors.orange)
                       .withValues(alpha: 0.35),
                 ),
               ),
@@ -1313,18 +1340,18 @@ class _VieneuModelImportSectionState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    hasModel ? Icons.check_circle : Icons.cloud_download,
+                    anyModel ? Icons.check_circle : Icons.cloud_download,
                     size: 12,
-                    color: hasModel ? Colors.green : Colors.orange,
+                    color: anyModel ? Colors.green : Colors.orange,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    hasModel
+                    anyModel
                         ? 'Đã có model'
                         : 'Chưa có model — import để kích hoạt',
                     style: TextStyle(
                       fontSize: 10,
-                      color: hasModel ? Colors.green[200] : Colors.orange[200],
+                      color: anyModel ? Colors.green[200] : Colors.orange[200],
                     ),
                   ),
                 ],
@@ -1333,25 +1360,131 @@ class _VieneuModelImportSectionState
           ],
         ),
         const SizedBox(height: 8),
+        // ── CHỌN BIẾN THỂ MÔ HÌNH (GIAI ĐOẠN 3) ──
         Text(
-          'Tải về `vieneu-v3-turbo-q8_0.gguf` (~170 MB) từ HuggingFace, '
-          'luego chọn file dưới đây để import vào app.',
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          context.uiText('Phiên bản mô hình'),
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...VieneuModelVariant.values.map((variant) {
+          final imported = _variantModelPaths[variant] != null;
+          final isSelected = _selectedVariant == variant;
+          final isImporting = _importingVariant == variant;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            decoration: BoxDecoration(
+              color: (isSelected && imported)
+                  ? Colors.green.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: (isSelected && imported)
+                    ? Colors.green.withValues(alpha: 0.5)
+                    : Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: ListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 2,
+              ),
+              title: Text(
+                variant.label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.white,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              subtitle: Text(
+                imported
+                    ? 'Đã import · ${_variantModelPaths[variant]!.split('/').last}'
+                    : 'Chưa import',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: imported ? Colors.green[300] : Colors.grey[600],
+                ),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isImporting)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else if (imported)
+                    Icon(
+                      isSelected ? Icons.check : Icons.radio_button_unchecked,
+                      size: 18,
+                      color: isSelected
+                          ? Colors.green
+                          : Colors.grey[600],
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: () => _pickAndImport(variant),
+                      icon: const Icon(Icons.file_upload, size: 14),
+                      label: const Text('Import',
+                          style: TextStyle(fontSize: 9.5)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.grey[600]!),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 4),
+                      ),
+                    ),
+                  const SizedBox(width: 6),
+                  Radio<VieneuModelVariant>(
+                    value: variant,
+                    groupValue: _selectedVariant,
+                    onChanged: imported
+                        ? (v) {
+                            if (v != null) {
+                              setState(() => _selectedVariant = v);
+                              TtsService()
+                                  .setSelectedVieneuModelVariant(v);
+                            }
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 8),
+        Text(
+          context.uiText(
+            'Q8_0 (~170 MB) là mặc định, cân bằng chất lượng và dung lượng; '
+            'bf16 (~292 MB) chất lượng cao hơn, file lớn hơn.',
+          ),
+          style: TextStyle(fontSize: 9.5, color: Colors.grey[600]),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _importing ? null : _pickAndImport,
-                icon: _importing
+                onPressed:
+                    (_importing && _importingVariant == _selectedVariant)
+                        ? null
+                        : () => _pickAndImport(_selectedVariant),
+                icon: _importing && _importingVariant == _selectedVariant
                     ? const SizedBox(
                         width: 16, height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.file_upload, size: 16),
                 label: Text(
-                  _importing ? 'Đang import...' : 'Chọn file .gguf',
+                  _importing && _importingVariant == _selectedVariant
+                      ? 'Đang import ${_selectedVariant.label}...'
+                      : 'Import ${_selectedVariant.label}',
                   style: const TextStyle(fontSize: 11),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -1360,20 +1493,22 @@ class _VieneuModelImportSectionState
                 ),
               ),
             ),
-            if (hasModel) ...[
+            if (selectedImported) ...[
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () async {
                   final engine = VieneuTtsEngine.instance;
-                  await engine.init();
+                  await engine.init(modelVariant: _selectedVariant);
                   if (!mounted) return;
                   setState(() {
-                    _statusMessage = 'Đã khởi tạo engine VieNeu-TTS';
+                    _statusMessage =
+                        'Đã khởi tạo engine VieNeu-TTS (${_selectedVariant.label})';
                     _statusIsError = false;
                   });
                 },
                 icon: const Icon(Icons.play_circle, size: 16),
-                label: const Text('Khởi tạo engine', style: TextStyle(fontSize: 11)),
+                label: const Text('Khởi tạo engine',
+                    style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.green,
                   side: BorderSide(color: Colors.green[700]!),
@@ -1416,10 +1551,10 @@ class _VieneuModelImportSectionState
             ),
           ),
         ],
-        if (hasModel && _modelPath != null) ...[
+        if (selectedImported && selectedPath != null) ...[
           const SizedBox(height: 8),
           Text(
-            'Đường dẫn: $_modelPath',
+            'Đường dẫn: $selectedPath',
             style: TextStyle(fontSize: 9, color: Colors.white38),
             overflow: TextOverflow.ellipsis,
           ),
@@ -1455,17 +1590,19 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
   Future<void> _loadVoices() async {
     try {
       final engine = VieneuTtsEngine.instance;
+      final service = TtsService();
       // Đảm bảo model đã được import trước khi liệt kê giọng
-      final modelPath = await VieneuTtsCore.modelPath();
+      final variant = await service.getSelectedVieneuModelVariant();
+      final modelPath = await VieneuTtsCore.modelPathFor(variant);
       if (modelPath == null) {
         if (!mounted) return;
         setState(() {
           _loading = false;
-          _error = 'Chưa import model .gguf — hãy import ở mục trên';
+          _error = 'Chưa import model ${variant.label} — hãy import ở mục trên';
         });
         return;
       }
-      await engine.init();
+      await engine.init(modelVariant: variant);
       final voices = await engine.getAvailableVoices('vi-VN');
       if (!mounted) return;
       setState(() {

@@ -100,11 +100,15 @@ class TtsCache {
     String language,
     String engineId, {
     String? voiceId,
+    String? modelVariant,
     double speed = 1.0,
     double pitch = 1.0,
   }) {
     final voice = (voiceId ?? '').trim().isEmpty ? 'default' : voiceId!.trim();
-    final input = '${engineId}_${language}_${voice}_'
+    final variant = (modelVariant ?? '').trim().isEmpty
+        ? 'default'
+        : modelVariant!.trim();
+    final input = '${engineId}_${language}_${voice}_$variant_'
         '${speed.toStringAsFixed(2)}_${pitch.toStringAsFixed(2)}_$text';
     return md5.convert(utf8.encode(input)).toString();
   }
@@ -116,6 +120,7 @@ class TtsCache {
     required String engineId,
     required Uint8List audioData,
     String? voiceId,
+    String? modelVariant,
     double speed = 1.0,
     double pitch = 1.0,
   }) async {
@@ -124,6 +129,7 @@ class TtsCache {
       language,
       engineId,
       voiceId: voiceId,
+      modelVariant: modelVariant,
       speed: speed,
       pitch: pitch,
     );
@@ -187,6 +193,7 @@ class TtsCache {
     required String language,
     required String engineId,
     String? voiceId,
+    String? modelVariant,
     double speed = 1.0,
     double pitch = 1.0,
   }) async {
@@ -195,6 +202,7 @@ class TtsCache {
       language,
       engineId,
       voiceId: voiceId,
+      modelVariant: modelVariant,
       speed: speed,
       pitch: pitch,
     );

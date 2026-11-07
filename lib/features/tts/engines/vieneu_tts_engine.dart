@@ -32,6 +32,9 @@ class VieneuTtsEngine implements TtsEngine {
   String? _modelPath;
   String? _voicesDir;
   String? _selectedVoiceId;
+  /// Phiên bản mô hình GGUF đang dùng (mặc định Q8_0 — giữ nguyên Q8_0 nếu
+  /// chưa có lựa chọn đã lưu; bf16 là tùy chọn giai đoạn 3).
+  VieneuModelVariant _modelVariant = VieneuModelVariant.q8_0;
 
   @override
   String get name => 'VieNeu-TTS (native)';
@@ -53,7 +56,7 @@ class VieneuTtsEngine implements TtsEngine {
   Future<bool> isAvailable() async {
     if (!_modelResolved) {
       final libOk = await VieneuTtsCore.isNativeLibraryAvailable();
-      final model = await VieneuTtsCore.modelPath();
+      final model = await VieneuTtsCore.modelPathFor(_modelVariant);
       if (libOk && model != null) {
         _modelPath = model;
         _voicesDir = p.join(p.dirname(model), 'voices');
@@ -124,8 +127,17 @@ class VieneuTtsEngine implements TtsEngine {
   /// Khởi tạo (nạp model vào native worker isolate). Gọi từ TtsService trước
   /// lần synthesize đầu tiên; thất bại thì engine cứ remains unavailable và
   /// TtsService fallback bình thường.
-  Future<void> init({String? voiceId}) async {
-    final model = await VieneuTtsCore.modelPath();
+  Future<void> init({String? voiceId, VieneuModelVariant? modelVariant}) async {
+    final changedVariant = modelVariant != null && modelVariant != _modelVariant;
+    if (modelVariant != null) _modelVariant = modelVariant;
+    if (changedVariant) {
+      // Đổi biến thể ⇒ phải giải quyết lại đường dẫn model + nạp native mới.
+      _modelResolved = false;
+      _initialized = false;
+      _modelPath = null;
+      _voicesDir = null;
+    }
+    final model = await VieneuTtsCore.modelPathFor(_modelVariant);
     if (model == null) return;
     _modelPath = model;
     _voicesDir = p.join(p.dirname(model), 'voices');
@@ -164,7 +176,7 @@ class VieneuTtsEngine implements TtsEngine {
       );
     }
 
-    await init(voiceId: voiceId ?? _selectedVoiceId);
+    await init(voiceId: voiceId ?? _selectedVoiceId, modelVariant: _modelVariant);
     if (!_initialized) {
       return TtsResult.failure(
         error: 'VieNeu-TTS chưa sẵn sàng (chưa import model .gguf)',

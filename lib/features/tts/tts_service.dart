@@ -601,9 +601,13 @@ class TtsService extends ChangeNotifier {
   Future<bool> _trySpeakVieneu(String text, String lang) async {
     try {
       final vieneu = VieneuTtsEngine.instance;
+      // GIAI ĐOẠN 3 — dùng biến thể mô hình người dùng đã chọn (mặc định Q8_0).
+      final selectedVariant = await getSelectedVieneuModelVariant();
+      await vieneu.init(modelVariant: selectedVariant);
       if (!await vieneu.isAvailable()) return false;
 
-      // Cache theo đúng danh tính — TTS-VOICE-CACHE-001.
+      // Cache theo đúng danh tính (text + ngôn ngữ + engine + biến thể +
+      // giọng + tốc độ/cao độ) — TTS-VOICE-CACHE-001.
       final cached = await _cache.get(
         text: text,
         language: lang,
@@ -611,6 +615,7 @@ class TtsService extends ChangeNotifier {
         voiceId: _selectedVoiceId,
         speed: _speed,
         pitch: _pitch,
+        modelVariant: selectedVariant.name,
       );
       if (cached != null) {
         _lastUsedEngine = '💾 Cache · VieNeu-TTS';
@@ -648,6 +653,7 @@ class TtsService extends ChangeNotifier {
         engineId: vieneu.id,
         audioData: result.audioData!,
         voiceId: _selectedVoiceId,
+        modelVariant: selectedVariant.name,
         speed: _speed,
         pitch: _pitch,
       );
@@ -665,12 +671,14 @@ class TtsService extends ChangeNotifier {
   }
 
   /// TTS-VIENEU-IMPORT-001 — sao chép file .gguf người dùng chọn vào
-  /// `documents/vieneu_tts/vieneu-v3-turbo-q8_0.gguf` để engine có thể nạp.
+  /// `documents/vieneu_tts/<tên file của biến thể>` để engine có thể nạp.
+  /// [variant] quy định phiên bản mô hình (Q8_0 mặc định ~170 MB, bf16 ~292 MB).
   /// Trả về đường dẫn file đã import, hoặc ném exception nếu thất bại.
   ///
   /// Sau khi import thành công, gọi [VieneuTtsEngine.instance.init] để
   /// engine nạp model vào native worker isolate.
-  Future<String> importVieneuModel(File file) async {
+  Future<String> importVieneuModel(File file,
+      {VieneuModelVariant variant = VieneuModelVariant.q8_0}) async {
     if (!await file.exists()) {
       throw FileSystemException('File không tồn tại', file.path);
     }
@@ -706,11 +714,35 @@ class TtsService extends ChangeNotifier {
       }
     }
 
-    final target = File(p.join(vieneuDir.path, VieneuTtsCore.modelFileName));
+    final target = File(p.join(vieneuDir.path, variant.fileName));
     await file.copy(target.path);
 
     _safeNotify();
     return target.path;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // GIAI ĐOẠN 3 — persistence lựa chọn biến thể mô hình (SharedPreferences)
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  static const String _vieneuVariantPrefsKey = 'vieneu_tts_model_variant';
+
+  /// Biến thể mô hình người dùng đã chọn (mặc định Q8_0).
+  Future<VieneuModelVariant> getSelectedVieneuModelVariant() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_vieneuVariantPrefsKey);
+    if (raw == null) return VieneuModelVariant.q8_0;
+    return VieneuModelVariant.values.firstWhere(
+      (v) => v.name == raw,
+      orElse: () => VieneuModelVariant.q8_0,
+    );
+  }
+
+  /// Lưu biến thể mô hình người dùng chọn.
+  Future<void> setSelectedVieneuModelVariant(VieneuModelVariant v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_vieneuVariantPrefsKey, v.name);
+    _safeNotify();
   }
 
   /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)

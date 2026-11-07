@@ -116,9 +116,19 @@ void main() {
       expect(HyMtEngine.fileName.contains('2bit'), isFalse);
     });
 
-    test('ngưỡng "file cắt" vẫn chặn file cắt của bản nhỏ nhất (440 MB)', () {
-      expect(HyMtEngine.minPlausibleBytes, greaterThan(400 * 1024 * 1024));
+    // Ngưỡng "file cắt" = 400 MB. Test cũ tự mâu thuẫn:
+    //   expect(minPlausibleBytes, greaterThan(400MB))  ← cùng lúc với
+    //   expect(minPlausibleBytes, lessThan(440MB))
+    // trong khi hằng số CHÍNH XÁC là 400 MB ⇒ greaterThan luôn sai. Ý định
+    // đúng cần kiểm: ngưỡng (a) chặn được file 100–300 MB và (b) KHÔNG chặn
+    // nhầm mọi bản Hy-MT 1.8B đã phát hành (nhỏ nhất ≈ 440 MB).
+    test('ngưỡng "file cắt" chặn file cắt nhưng không chặn bản 440 MB', () {
+      expect(HyMtEngine.minPlausibleBytes, 400 * 1024 * 1024);
+      expect(HyMtEngine.minPlausibleBytes,
+          greaterThanOrEqualTo(400 * 1024 * 1024));
+      // Bản nhỏ nhất từng phát hành (1.25-bit ≈ 440 MB) phải được coi là ĐỦ.
       expect(HyMtEngine.minPlausibleBytes, lessThan(440 * 1024 * 1024));
+      // Model mặc định Q4_K_M ~1,13 GB.
       expect(HyMtEngine.expectedBytes, greaterThan(1024 * 1024 * 1024));
     });
 

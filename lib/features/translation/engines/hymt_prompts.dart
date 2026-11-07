@@ -173,17 +173,28 @@ class HyMtPrompts {
       userToken,
       bosToken,
     ];
-    // Cắt ĐUÔI (token kết thúc model nhả thêm).
+    // THỨ TỰ QUAN TRỌNG: bỏ token ở ĐẦU TRƯỚC, rồi mới cắt ĐUÔI.
+    //   * Token khung ở ĐẦU (`<｜hy_Assistant｜>Xin chào bạn.`) — model nhả lại
+    //     khung lượt. Nếu cắt đuôi bằng `indexOf` trước thì `i = 0` ⇒
+    //     `substring(0,0)` = '' ⇒ MẤT TOÀN BỘ bản dịch ⇒ engine báo
+    //     "trả về rỗng" dù model dịch đúng (lỗi thật, CI bắt được).
+    //   * Sau đó mới cắt đuôi (token kết thúc `<|im_end|>`, `</s>`…).
+    // Lặp tới khi ổn định: model có thể nhả NHIỀU token liền nhau
+    // (`<｜hy_User｜><｜hy_Assistant｜>Xin chào`). Bỏ một lượt rồi thoát sẽ để
+    // token thứ hai ở index 0 ⇒ bước cắt đuôi ngay sau đó xoá sạch bản dịch.
+    var stripped = true;
+    while (stripped) {
+      stripped = false;
+      for (final f in fences) {
+        if (out.startsWith(f)) {
+          out = out.substring(f.length).trim();
+          stripped = true;
+        }
+      }
+    }
     for (final f in fences) {
       final i = out.indexOf(f);
       if (i >= 0) out = out.substring(0, i).trim();
-    }
-    // Token khung nằm ở ĐẦU output (model nhả lại `<｜hy_Assistant｜>`): phải
-    // bỏ phần ĐẦU, không phải cắt từ đó tới hết — nếu không cả bản dịch thành
-    // chuỗi rỗng. Trước đây nhánh này biến mọi output có token mở đầu thành
-    // "trả về rỗng" (lỗi thật, CI bắt được khi chạy `hymt_prompt_test`).
-    for (final f in fences) {
-      if (out.startsWith(f)) out = out.substring(f.length).trim();
     }
     // Nếu model lặp lại prompt, lấy phần sau source.
     final src = sourceText.trim();

@@ -207,6 +207,43 @@ class VieneuTtsCore {
     );
   }
 
+  /// TTS-CLONE-001 — Clone giọng nói từ các file mẫu WAV.
+  ///
+  /// [voiceId] — mã giọng mới (tên thư mục trong voices/).
+  /// [samplesDir] — thư mục chứa các file WAV mẫu (30–60 giây tổng cộng).
+  ///
+  /// Trả về đường dẫn file speaker.emb.txt đã tạo, hoặc ném exception nếu
+  /// thất bại. Sau khi clone thành công, giọng mới sẽ xuất hiện trong
+  /// [getAvailableVoices] và có thể chọn qua [selectVoice].
+  Future<String> cloneVoice({
+    required String voiceId,
+    required String samplesDir,
+  }) async {
+    if (_workerPort == null) {
+      throw StateError('VieNeu worker chưa khởi tạo');
+    }
+
+    final response = await _call(
+      {
+        'cmd': 'clone_voice',
+        'voiceId': voiceId,
+        'samplesDir': samplesDir,
+        'outputEmbedding': p.join(
+          p.dirname(samplesDir), '..', voiceId, 'speaker.emb.txt',
+        ),
+      },
+      timeout: const Duration(minutes: 2),
+    );
+
+    if (response['ok'] != true) {
+      throw StateError(
+          'VieNeu-TTS clone thất bại: ${response['error'] ?? 'lỗi không xác định'}');
+    }
+
+    return response['embeddingPath'] as String? ??
+        p.join(samplesDir, '..', voiceId, 'speaker.emb.txt');
+  }
+
   /// Giải phóng worker isolate + native handle.
   Future<void> dispose() async {
     try {
@@ -406,6 +443,38 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
           }
           break;
 
+        case 'clone_voice':
+          if (!_initialized || _handle == null) {
+            mainPort.sendPort.send(_respond(ok: false, error: 'Chưa init', seq: seq));
+            break;
+          }
+          final voiceId = msg?['voiceId'] as String?;
+          final samplesDir = msg?['samplesDir'] as String?;
+          final outputEmbedding = msg?['outputEmbedding'] as String?;
+          if (voiceId == null || voiceId.isEmpty ||
+              samplesDir == null || samplesDir.isEmpty ||
+              outputEmbedding == null || outputEmbedding.isEmpty) {
+            mainPort.sendPort.send(_respond(
+                ok: false, error: 'Thiếu tham số clone giọng', seq: seq));
+            break;
+          }
+          final status = _native!.cloneVoice(
+            voiceId,
+            samplesDir,
+            outputEmbedding,
+          );
+          if (status != 0) {
+            mainPort.sendPort.send(_respond(
+                ok: false, error: _native!.lastError, seq: seq));
+          } else {
+            mainPort.sendPort.send(_respond(
+              ok: true,
+              seq: seq,
+              extra: {'embeddingPath': outputEmbedding, 'voiceId': voiceId},
+            ));
+          }
+          break;
+
         case 'dispose':
           if (_initialized) {
             _native!.destroy(_handle!);
@@ -517,6 +586,9 @@ class _VieneuTtsNative {
       .lookupFunction<_DestroyNative, _Destroy>('vieneu_tts_destroy');
   late final _LastError _lastError = _library
       .lookupFunction<_LastErrorNative, _LastError>('vieneu_tts_last_error');
+  late final _CloneVoice _cloneVoice = _library
+      .lookupFunction<_CloneVoiceNative, _CloneVoice>(
+          'vieneu_tts_clone_voice');
 
   String get lastError {
     final ptr = _lastError();
@@ -567,6 +639,19 @@ class _VieneuTtsNative {
 
   void freeAudio(Pointer<Float> samples) => _freeAudio(samples);
   void destroy(Pointer<Void> handle) => _destroy(handle);
+
+  int cloneVoice(String voiceId, String samplesDir, String outputEmbedding) {
+    final vid = voiceId.toNativeUtf8();
+    final sd = samplesDir.toNativeUtf8();
+    final oe = outputEmbedding.toNativeUtf8();
+    try {
+      return _cloneVoice(vid, sd, oe);
+    } finally {
+      calloc.free(vid.cast<Void>());
+      calloc.free(sd.cast<Void>());
+      calloc.free(oe.cast<Void>());
+    }
+  }
 }
 
 typedef _CreateNative = Pointer<Void> Function(
@@ -602,3 +687,12 @@ typedef _DestroyNative = Void Function(Pointer<Void>);
 typedef _Destroy = void Function(Pointer<Void>);
 typedef _LastErrorNative = Pointer<Utf8> Function();
 typedef _LastError = Pointer<Utf8> Function();
+
+typedef _CloneVoiceNative = Int32 Function(
+    Pointer<Utf8>,  // voice_id
+    Pointer<Utf8>,  // samples_dir
+    Pointer<Utf8>); // output_embedding
+typedef _CloneVoice = int Function(
+    Pointer<Utf8>,  // voice_id
+    Pointer<Utf8>,  // samples_dir
+    Pointer<Utf8>); // output_embedding

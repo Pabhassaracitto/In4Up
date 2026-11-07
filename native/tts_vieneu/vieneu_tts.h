@@ -101,6 +101,22 @@ VIENEU_TTS_API const char * vieneu_tts_last_error(void);
 /// 1 nếu [language] được hỗ trợ ("vi"/"vi-VN"), ngược lại 0.
 VIENEU_TTS_API int vieneu_tts_language_supported(const char * language);
 
+/// Clone giọng nói từ các file mẫu âm thanh.
+///
+/// [voice_id]        — mã giọng mới (tên thư mục trong voices/, ví dụ
+///                      "giong_toi"). Không được trùng với giọng đã có.
+/// [samples_dir]     — thư mục chứa các file WAV mẫu (khuyên dùng 30–60
+///                      giây tổng cộng, mẫuSpeech 16kHz mono).
+/// [output_embedding]— đường dẫn file speaker.emb.txt đầu ra (sẽ được tạo
+///                      hoặc ghi đè).
+///
+/// Trả về 0 nếu thành công, mã lỗi VIENEU_TTS_ERR_* nếu thất bại.
+/// Chi tiết qua [vieneu_tts_last_error].
+VIENEU_TTS_API int vieneu_tts_clone_voice(
+    const char * voice_id,
+    const char * samples_dir,
+    const char * output_embedding);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

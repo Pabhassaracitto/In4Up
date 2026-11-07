@@ -23,6 +23,10 @@ class TtsCache {
   /// nghe lại giọng sai cho tới khi cache hết hạn theo dung lượng.
   static const int keyVersion = 2;
 
+  /// Giới hạn kích thước cache TTS (MB). Khi vượt ngưỡng, xoá file cũ nhất
+  /// để tránh làm đầy ổ lưu trữ thiết bị.
+  static const int maxCacheSizeMB = 100;
+
   /// Khoá SharedPreferences ghi phiên bản khoá đang dùng trên máy này.
   static const String keyVersionPrefsKey = 'tts_cache_key_version';
 
@@ -130,7 +134,51 @@ class TtsCache {
 
     debugPrint(
         '💾 TTS Cache saved: ${text.substring(0, text.length.clamp(0, 30))}...');
+
+    // Giữ cache trong ngưỡng cho phép để tránh làm đầy disk.
+    await enforceMaxSize();
+
     return path;
+  }
+
+  /// Xoá file cache cũ nhất cho đến khi tổng dung lượng <= [maxCacheSizeMB].
+  /// Chạy sau mỗi lần [put] để tránh disk văng khi người dùng đọc nhiều đoạn
+  /// dài liên tiếp (tiết kiệm ổ lưu trữ thiết bị).
+  Future<void> enforceMaxSize() async {
+    final dir = Directory(await _cachePath);
+    if (!await dir.exists()) return;
+
+    // Thu thập tất cả file kèm thời gian sửa đổi cuối cùng.
+    final files = <FileSystemEntity>[];
+    await for (final entity in dir.list()) {
+      if (entity is File) files.add(entity);
+    }
+    if (files.isEmpty) return;
+
+    // Tính tổng dung lượng.
+    int totalBytes = 0;
+    for (final f in files) {
+      totalBytes += await (f as File).length();
+    }
+
+    const maxBytes = maxCacheSizeMB * 1024 * 1024;
+    if (totalBytes <= maxBytes) return;
+
+    // Sắp xếp theo thời gian sửa đổi: cũ nhất trước (xoá cũ trước).
+    files.sort((a, b) {
+      final ma = a.statSync().modified;
+      final mb = b.statSync().modified;
+      return ma.compareTo(mb);
+    });
+
+    // Xoá từ file cũ nhất cho khi đủ ngưỡng.
+    for (final f in files) {
+      if (totalBytes <= maxBytes) break;
+      final file = f as File;
+      final size = await file.length();
+      await file.delete();
+      totalBytes -= size;
+    }
   }
 
   /// Lấy audio từ cache

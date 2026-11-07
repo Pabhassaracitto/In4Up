@@ -4345,6 +4345,80 @@
   - 2026-09-15 | 21:50 | proposed→doing | agent arena/01a0a6f9-in4up | 949c437 (seam: HyMtChunking ≤500 ký tự/câu + HyMtSlot single-flight + test), 7cba9bd (runtime: heartbeat ping trước request, isolate chết/load hỏng → dispose+spawn+retry tối đa 1 lần + errorCode cấu trúc, mỗi chunk timeout hữu hạn riêng, ghép đúng thứ tự, service budget tỷ lệ theo độ dài trần 8 phút + test runtime), a412f47 (UI "Đang dịch bằng Hy-MT offline, có thể chậm" + EN override); Python 1:1 sim 12/12 green — chờ CI app_analyze + AT máy owner
   - 2026-09-23 | 11:30 | doing→done | agent arena/01a0a6f9-in4up | commit 4bea3a0: hoàn thiện 4 lớp timeout (single-flight slot, isolate heartbeat ping + auto-restart retry 1 lần, sentence-aware chunking ≤500 chars reassembly, UI progress hint "Đang dịch bằng Hy-MT offline, có thể chậm" + fallback EN); unit test + runtime test đầy đủ; mở PR vào target arena/01a0251e-in4up
 
+### HYMT-003 — Dịch bằng Hy-MT vẫn không chạy (không phản hồi / trả về rỗng) dù thử 1.5, 1.8, "2 bản 1 GB"
+- **Trạng thái:** doing (code + test + docs xong, chờ CI `app_analyze.yml` + AT máy)
+- **Báo cáo (owner 2026-11-06):** "Dù đã thử nhiều bản 1.5, 1.8 và 2 bản 1 GB" —
+  Hy-MT không chịu dịch (im lặng hoặc trả về rỗng); kèm nhận định tham khảo của
+  Gemini về 3 nhóm nguyên nhân (engine/định dạng, prompt template, OOM).
+  Nhánh: `arena/12de4993-in4up`. Khảo sát đầy đủ:
+  **`docs/translation/hymt_root_cause_2026-11-06.md`**.
+- **Root cause (xếp theo nhân quả, đã verify code + tài liệu model):**
+  1. **Quant của file mặc định không khớp llama.cpp đã pin.** App tải
+     `Hy-MT1.5-1.8B-2bit.gguf` (601 MB) từ `tencent/Hy-MT1.5-1.8B-2bit-GGUF`;
+     model card của `AngelSlim/Hy-MT1.5-1.8B-2bit-GGUF` ghi rõ: *"This gguf
+     depends on Q2_0c kernel, which is released at PR #19357"* — PR đó **chưa
+     merge** (`state: open`, kiểm 2026-11-06). llama.cpp pinned trong repo
+     (`third_party/llama.cpp` = `d7fa69b7`) có `QK2_0 = 64` (mainline), còn file
+     AngelSlim dùng block 512 + kernel SME2 ⇒ `llama_model_load_from_file()`
+     trả NULL. Magic GGUF đúng + 601 MB đúng ⇒ validator cũ (magic + size) cho
+     qua ⇒ người dùng chỉ thấy "không load được", thử bản khác cũng hỏng.
+  2. **Prompt thiếu khung lượt Hy-MT.** `chat_template.jinja` của
+     `tencent/HY-MT1.5-1.8B` là
+     `<｜hy_begin▁of▁sentence｜><｜hy_User｜>{content}<｜hy_Assistant｜>`
+     (không `<|im_start|>`, không system prompt). `HyMtPrompts.build()` cũ chỉ
+     gửi câu chỉ thị thô ⇒ model không thấy ranh giới lượt ⇒ **nhả rỗng** hoặc
+     nhả lại prompt (HF discussion #6 của chính repo model: template sai ⇒
+     output chỉ là `"onse"`).
+  3. **Chẩn đoán bị nuốt.** 3 loại lỗi khác nhau gộp thành 1 câu; log thật của
+     llama.cpp (`unknown model architecture`, wrong tensor type, OOM) rơi vào
+     stderr/logcat. Không log ⇒ không thể phân biệt ⇒ vòng lặp "thử bản khác".
+- **Đánh giá nhận định Gemini:** (1) engine/định dạng ĐÚNG một phần — engine đã
+  là GGUF + llama.cpp FFI trong `Isolate`, sai ở **quant**; (2) thiếu prompt
+  template ĐÚNG (nhưng là *token khung lượt*, không phải system prompt);
+  (3) OOM là rủi ro thật nhưng KHÔNG phải nguyên nhân chính (đã có
+  `largeHeap`, guard heartbeat/restart của HYMT-002; OOM sẽ hiện `isolate_dead`
+  chứ không im lặng).
+- **Fix:**
+  - **HYMT-003a** — đổi model mặc định sang `HY-MT1.5-1.8B-Q4_K_M.gguf`
+    (1,13 GB, quant mainline của `tencent/HY-MT1.5-1.8B-GGUF`); `expectedBytes`
+    1,13 GB; `minPlausibleBytes` = 400 MB (bản nhỏ nhất từng phát hành 440 MB);
+    giữ `legacyBlockedFileName` để báo đúng khi user còn file 2-bit.
+  - **HYMT-003b** — native `in4up_ai_inspect_gguf()` đọc GGUF header/KV (arch +
+    quant tensor đầu + chat template + số tensor) **không cần load model**;
+    Dart `HyMtModelProbe` (thuần) phân loại `notGguf` / `truncated` /
+    `wrongArchitecture` / `unsupportedQuant`; dùng ở `importFromUser`,
+    `downloadModel`, `modelIssue` + dòng cảnh báo trong Cài đặt dịch. Cache theo
+    `(path, size, mtime)`.
+  - **HYMT-004** — khung lượt Hy-MT **2 lớp**: `HyMtPrompts.build()` (BOS+User+
+    body+Assistant, `withTurnTokens` để tắt) + native `frame_prompt()` tự thêm
+    khi thiếu (chỉ arch `hunyuan*`, idempotent). `cleanOutput` cắt token khung.
+    Sampler theo khuyến nghị Tencent: temp 0.7 / top-k 20 / top-p 0.6 /
+    repeat-penalty 1.05.
+  - **HYMT-006** — ring buffer log llama.cpp (16 KB) + `in4up_ai_last_log()`;
+    lỗi load/generate ở Dart đính kèm log thật; `llama_backend_init/free` đổi
+    sang **đếm tham chiếu** (AI chat và Hy-MT dùng chung `libin4up_ai_native.so`,
+    destroy model này không còn giết backend của model kia); log số token
+    prompt/sinh ra để phát hiện "0 token = thiếu khung lượt".
+- **Test:** `test/hymt_prompt_test.dart` (token khung đúng từng ký tự
+  U+FF5C/U+2581, thứ tự, cleanOutput), `test/hymt_model_probe_test.dart` (file
+  2-bit 601 MB bị chặn, quant lạ, sai arch, file cắt, native cũ không kết luận
+  sai, hằng số model/URL), `test/hymt_engine_runtime_test.dart` (cập nhật phép
+  tách chunk để tính khung lượt — phân hoạch vẫn `join == text`).
+  Native đã compile-check bằng stub `llama.h` (`g++ -fsyntax-only`) và
+  `in4up_ai_inspect_gguf` đã chạy đúng trên 2 file GGUF tổng hợp (q2_0 ⇒
+  `supported=0`, q4_k ⇒ `supported=1`).
+- **AT (máy thật):** Tải về Q4_K_M → dịch 1 câu EN→VI có kết quả; Import lại
+  file 2-bit 601 MB ⇒ phải hiện đúng câu "dùng quant q2_0 … PR #19357 … dùng
+  Q4_K_M" thay vì lỗi chung; sau khi load, log phải có
+  `[in4up-ai] prompt … → N token (arch=hunyuan-dense, framed=1)`.
+- **Chưa kiểm:** chưa đo tốc độ/RAM Q4_K_M trên máy owner (Q4_K_M nặng hơn
+  2-bit ~1,3–1,5 GB RSS); sandbox không có Flutter SDK ⇒ test chạy qua CI.
+- **Lịch sử:**
+  - 2026-11-06 | created→doing | agent `arena/12de4993-in4up` | khảo sát code +
+    đối chiếu model card/llama.cpp PR (#19357 open, #21395 merged) ⇒ 3 nguyên
+    nhân; fix HYMT-003a/003b/004/006 + 2 test file + cập nhật test runtime +
+    `docs/translation/hymt_root_cause_2026-11-06.md`; chờ CI + AT máy.
+
 ### CABIN-ASR-002 — "Chưa có model Zipformer cho EN" dù đã import; cabin offline (sherpa) trước chạy giờ không
 - **Triệu chứng (owner):** "Chưa có model Zipformer cho EL. Vào quản lý từ
   AI để tải về. Trong khi đã import rồi. Và không hiểu sao hồi trước khi

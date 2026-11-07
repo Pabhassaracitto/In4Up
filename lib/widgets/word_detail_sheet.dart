@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 import '../models/word_entry.dart';
@@ -70,7 +71,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
             const SizedBox(height: 16),
 
             // Word + meaning
-            Text(
+            material.Text(
               word.word,
               style: TextStyle(
                 fontSize: 32,
@@ -79,12 +80,15 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
               ),
             ),
             if (word.phonetic != null)
-              Text(
+              material.Text(
                 word.phonetic!,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
               ),
             const SizedBox(height: 4),
-            Text(word.meaning, style: const TextStyle(fontSize: 18)),
+            material.Text(word.meaning, style: const TextStyle(fontSize: 18)),
             const SizedBox(height: 20),
 
             // Triangle + Sliders
@@ -148,7 +152,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: const Color(0xFF3D3019),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -157,7 +161,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
                   Expanded(
                     child: Text(
                       context.uiText(word.zone.tip),
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 13, color: Color(0xFFFFE0A3)),
                     ),
                   ),
                 ],
@@ -405,7 +409,7 @@ class _WordDetailSheetState extends State<WordDetailSheet> {
     showDialog(
       context: ctx,
       builder: (context) => AlertDialog(
-        title: Text(context.uiText('${word.word} - ${_skillName(skill)}')),
+        title: material.Text('${word.word} - ${context.uiText(_skillName(skill))}'),
         content: Text(_skillQuestion(skill)),
         actions: [
           TextButton(

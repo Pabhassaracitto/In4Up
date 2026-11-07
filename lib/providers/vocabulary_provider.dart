@@ -1142,13 +1142,23 @@ class VocabularyProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void setWordZone(String id, MasteryZone zone) {
-    try {
-      final w = _words.firstWhere((w) => w.id == id);
-      w.setZone(zone);
-      _saveWord(w);
-      notifyListeners();
-    } catch (_) {}
+  void setWordZone(String id, MasteryZone zone) => setWordsZone([id], zone);
+
+  /// Move a batch with one notification. As in [WordEntry.setZone], changing
+  /// zones sets all three skill scores to the destination's defaults without
+  /// merging their review histories. The current zone is a no-op, so an
+  /// accidental drop cannot reset its existing scores.
+  void setWordsZone(Iterable<String> ids, MasteryZone zone) {
+    final wanted = ids.toSet();
+    if (wanted.isEmpty) return;
+    var changed = false;
+    for (final word in _words) {
+      if (!wanted.contains(word.id) || word.zone == zone) continue;
+      word.setZone(zone);
+      _saveWord(word);
+      changed = true;
+    }
+    if (changed) notifyListeners();
   }
 
   WordEntry? findByWord(String word) {

@@ -69,6 +69,48 @@ class VieneuTtsResult {
   const VieneuTtsResult({required this.wavBytes, required this.sampleRate});
 }
 
+// ============================================================================
+// GIAI ĐOẠN 3 — nhiều phiên bản model GGUF (Q8_0 mặc định, bf16 tùy chọn).
+//
+// ⚠ PHẢI khai báo ở TOP-LEVEL: Dart KHÔNG cho `enum` / `extension` lồng trong
+// `class` (analyzer: "Enums can't be declared inside classes" /
+// "Extensions can't be declared inside classes"). Bản `eea5ee9` khai báo lồng
+// trong `VieneuTtsCore` ⇒ lỗi compile ⇒ toàn bộ test job đỏ (job listen queue
+// 42425879194) + build web đỏ (42425879182).
+// ============================================================================
+
+/// Phiên bản model VieNeu-TTS được hỗ trợ.
+enum VieneuModelVariant {
+  /// Q8_0 (~170 MB) — cân bằng chất lượng / dung lượng, mặc định.
+  q8_0,
+
+  /// bf16 (~292 MB) — chất lượng cao hơn, dung lượng lớn hơn.
+  bf16,
+}
+
+/// Tên file GGUF + nhãn hiển thị cho từng phiên bản model.
+extension VieneuModelVariantExt on VieneuModelVariant {
+  /// Tên file `.gguf` tương ứng (dùng khi import + khi dò file đã có).
+  String get fileName {
+    switch (this) {
+      case VieneuModelVariant.q8_0:
+        return 'vieneu-v3-turbo-q8_0.gguf';
+      case VieneuModelVariant.bf16:
+        return 'vieneu-v3-turbo-bf16.gguf';
+    }
+  }
+
+  /// Nhãn hiển thị kèm dung lượng ước tính.
+  String get label {
+    switch (this) {
+      case VieneuModelVariant.q8_0:
+        return 'Q8_0 (~170 MB)';
+      case VieneuModelVariant.bf16:
+        return 'bf16 (~292 MB)';
+    }
+  }
+}
+
 /// Bridge FFI + worker isolate dành cho audio.cpp VieNeu-TTS engine.
 ///
 /// Main isolate chỉ nhận lệnh và chuyển tiếp qua port; toàn bộ native
@@ -84,41 +126,6 @@ class VieneuTtsCore {
 
   /// Giọng mặc định của gói GGUF (xem voices/manifest.json của nhà phát hành).
   static const String defaultVoiceId = 'minh_quan_pro';
-
-  /// =========================================================================
-  // GIAI ĐOẠN 3 — hỗ trợ nhiều phiên bản mô hình GGUF (Q8_0 mặc định, bf16 tùy chọn).
-  /// =========================================================================
-
-  /// Phiên bản mô hình VieNeu-TTS được hỗ trợ.
-  enum VieneuModelVariant {
-    /// Q8_0 (~170 MB) — cân bằng chất lượng / dung lượng, mặc định.
-    q8_0,
-    /// bf16 (~292 MB) — chất lượng cao hơn, dung lượng lớn hơn.
-    bf16,
-  }
-
-  /// Tên file GGUF + nhãn hiển thị cho từng phiên bản.
-  /// Public để các lớp ngoài package (TtsService, settings widget) có thể dùng
-  /// `variant.fileName` / `variant.label`.
-  extension VieneuModelVariantExt on VieneuModelVariant {
-    String get fileName {
-      switch (this) {
-        case VieneuModelVariant.q8_0:
-          return 'vieneu-v3-turbo-q8_0.gguf';
-        case VieneuModelVariant.bf16:
-          return 'vieneu-v3-turbo-bf16.gguf';
-      }
-    }
-
-    String get label {
-      switch (this) {
-        case VieneuModelVariant.q8_0:
-          return 'Q8_0 (~170 MB)';
-        case VieneuModelVariant.bf16:
-          return 'bf16 (~292 MB)';
-      }
-    }
-  }
 
   /// Đường dẫn file model của [variant] trong documents của app, hoặc null nếu
   /// chưa import. Persistence của biến thể được chọn lưu ở tầng cao hơn

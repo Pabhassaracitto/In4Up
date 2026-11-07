@@ -614,6 +614,6 @@
   "ttsCloneVoiceStopRecording": "停止錄音",
   "ttsCloneVoiceRecordingError": "無法錄製樣本。請檢查麥克風權限後再試。",
   "ttsCloneVoiceCreateError": "無法建立聲音。請檢查 TTS 模型和樣本後再試。",
-  "ttsModelVariantHeader": "Model variant",
-  "ttsModelVariantInfo": "Q8_0 (~170 MB) is the default, balancing quality and size; bf16 (~292 MB) offers higher quality with a larger file."
+  "ttsModelVariantHeader": "模型版本",
+  "ttsModelVariantInfo": "Q8_0（約 170 MB）為預設，兼顧品質與大小；bf16（約 292 MB）品質更高，檔案更大。"
 }

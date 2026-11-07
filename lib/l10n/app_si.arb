@@ -614,6 +614,6 @@
   "ttsCloneVoiceStopRecording": "පටිගත කිරීම නවත්වන්න",
   "ttsCloneVoiceRecordingError": "සාම්පලය පටිගත කළ නොහැක. මයික්‍රෆෝන අවසරය පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
   "ttsCloneVoiceCreateError": "හඬ සෑදිය නොහැක. TTS ආකෘතිය සහ සාම්පල පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
-  "ttsModelVariantHeader": "Model variant",
-  "ttsModelVariantInfo": "Q8_0 (~170 MB) is the default, balancing quality and size; bf16 (~292 MB) offers higher quality with a larger file."
+  "ttsModelVariantHeader": "ආකෘති ප්‍රභේදය",
+  "ttsModelVariantInfo": "Q8_0 (~170 MB) පෙරනිමියයි — ගුණාත්මකභාවය සහ ගොනු ප්‍රමාණය සමතුලිත කරයි; bf16 (~292 MB) ඉහළ ගුණාත්මකභාවයක් සහිත විශාල ගොනුවකි."
 }

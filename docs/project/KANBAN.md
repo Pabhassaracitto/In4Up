@@ -8,6 +8,7 @@
 
 | ID | Việc | Trạng thái | Bằng chứng gần nhất |
 |---|---|---|---|
+| VOCAB-MASTERY-001 | Hợp nhất Knowledge + giữ Venn, view sáu kỹ năng an toàn | 🔨 doing (CI sau rebase xanh; chờ review/thiết bị và output) | ADR-0025, [PR #149](https://github.com/Pabhassaracitto/In4Up/pull/149), [run 42413018969](https://github.com/Pabhassaracitto/In4Up/actions/runs/42413018969) trên `fde949a` |
 | READ-UI-121 | Tab Đọc: khôi phục 5 nút cũ + tự cuộn theo dòng đọc + ABC→IPA | 🔨 doing (code + ADR-0024 + test pin; chờ CI + nghiệm thu máy 360×640) | [ADR-0024](../adr/0024-doc-tab-khoi-phuc-thanh-cong-cu-va-tu-cuon.md), PLAN-044, rebase 251e `95f9e2f` |
 | PLAN-039 | Tab Nghe: queue phiên, chuyển bài và phát liên tiếp | 🔨 doing — CI code tích hợp xanh, chờ CI PR, review và nghiệm thu thiết bị | [review](PLAN-039-review.md), nền 251e `de52915` |
 | KARAOKE-001 | Nghe/Hiểu: theo dòng hiện hành và hai chế độ karaoke | 🔨 doing — CI code tích hợp xanh, chờ CI PR và nghiệm thu thiết bị | [review](PLAN-040-review.md), nền 251e `de52915` |
@@ -9021,3 +9022,25 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** cài đè 1.22.0 → 1.23.0; 8 mục audit v1.21.0 (đặc biệt #2/#7 cần `adb logcat` vì crash C++ không catch được ở Dart); Cabin không mất câu khi dịch >3s; PDF «Gần đây» xoá file; DeepLX endpoint thật (Termux); chip A-B + 1 `∞`.
 - **Lịch sử:**
   - 2026-11-06 | created→done | agent `arena/01a0251e-in4up` | tip `f2e77378` (13 commit + 2 merge PR sau 1.22.0) → bump `1.23.0+23` (`1398a5c6`) → push thẳng (không bị chặn) → tag `1.23.0` → build **42159543022** 🟢 4/4 → ghi card + Linear
+
+
+### VOCAB-MASTERY-001 — Hợp nhất Knowledge, Venn và chế độ xem sáu kỹ năng
+- **Trạng thái:** 🔨 doing — CI sau rebase trên `fde949a` xanh 4/4 job, gồm
+  Rule 5; chờ review độc lập và nghiệm thu iPhone/loa; output chưa nối.
+- **Nguồn:** người dùng đồng ý hợp nhất 251e vào nhánh hiện tại, giữ Venn ba
+  kỹ năng và thêm chế độ sáu kỹ năng có thể tắt; không tự deploy khi thử.
+- **Phạm vi:** ADR-0025; adapter đọc ba điểm legacy theo `WordEntry`, không
+  migrate/ghi đè SM-2, không biến output thiếu bằng chứng thành 0. Hai view
+  từng từ/kho và cờ cục bộ; bộ test Knowledge + Venn chạy ở CI riêng.
+- **Còn lại:** xác minh CI đầu cuối, review/QA thiết bị; output assessment,
+  event log bền vững và đồng bộ đa thiết bị là công việc tiếp theo, không báo
+  là đã hoàn thành. Nhánh validation không tự deploy Pages.
+- **Lịch sử:**
+  - 2026-11-06 | 2026-11-06 18:38 UTC | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận phương án hợp nhất.
+  - 2026-11-06 | 2026-11-06 18:38 UTC | proposed→doing | agent `arena/075510c6-in4up` | merge `541591a`, chặn deploy `106ae9f`, sửa lỗi và bật Knowledge CI `019a63e`/`1f5b51e`; lần kiểm thử tiếp theo đang chờ.
+  - 2026-11-06 | doing | agent `arena/075510c6-in4up` | `0f0112e`: CI [42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh 4/4 job: Knowledge 281 pass, 2 isolate skip; tools 21 pass; analyze/wide regression pass; build `main_web.dart` pass không deploy (web rút gọn không chứa kho từ, cảnh báo Wasm từ flutter_tts). Chưa thay thế review hoặc thử iPhone/loa thật. Follow-up làm rõ trung bình scatter, kiểm lỗi lưu và màn hình hẹp; CI follow-up đang chờ.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | follow-up [42299611378](https://github.com/Pabhassaracitto/In4Up/actions/runs/42299611378) phát hiện tràn 17px khi giả lập 320×640, chữ Hindi 1.25×; điều chỉnh layout cho nhãn/điểm xuống dòng, đang xác minh lại CI.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | `ec95a2c` CI [42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) xanh 4/4 job; tools 24 pass (có giả lập 320×640/Hindi và lỗi lưu), Knowledge 281 pass/2 skip; analyze/regression + web rút gọn build pass không deploy. Chưa có review độc lập, nghiệm thu iPhone/loa hay lưu output.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | mở [PR #149](https://github.com/Pabhassaracitto/In4Up/pull/149) vào 251e; đồng bộ tip `6578d88`, hợp nhất 33 key bản dịch không mất bên nào. `lang_rollout_report.py` phát hiện sàn ARB tụt từ voice-clone ở tip 251e; chờ CI trên trạng thái tích hợp mới.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | sửa catalog voice-clone, nối nhãn/trạng thái với ARB, bổ sung test đổi locale; kiểm tra Python cho thấy parity, placeholder, T2 100% và mọi sàn đạt. Chờ CI Flutter sau rebase, chưa nghiệm thu thiết bị.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | sau rebase và gom 4 commit, [PR CI 42413018969](https://github.com/Pabhassaracitto/In4Up/actions/runs/42413018969) và [push CI 42413014652](https://github.com/Pabhassaracitto/In4Up/actions/runs/42413014652) xanh 4/4 trên `fde949a`: Rule 5, tools, Knowledge, analyze/regression và build web rút gọn pass; không deploy. Chỉ cập nhật tài liệu sau run; review, thiết bị và output vẫn chờ.

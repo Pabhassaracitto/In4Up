@@ -342,7 +342,7 @@ class HyMtIsolateBackend implements HyMtBackend {
             // ghi lý do vào log — chuyển sang Dart để thấy được (1 lần/lần load).
             if (!emptyLogged) {
               emptyLogged = true;
-              final hint = native.lastLog(maxBytes: 800).trim();
+              final hint = (native?.lastLog(maxBytes: 800) ?? '').trim();
               if (hint.isNotEmpty) debugPrint('[Hy-MT native] $hint');
             }
             msg.reply.send(HyMtReply.ok(''));
@@ -350,7 +350,7 @@ class HyMtIsolateBackend implements HyMtBackend {
           }
           msg.reply.send(HyMtReply.ok(out));
         } catch (e) {
-          final hint = native.lastLog(maxBytes: 600).trim();
+          final hint = (native?.lastLog(maxBytes: 600) ?? '').trim();
           msg.reply.send(HyMtReply.fail(
             'Hy-MT: $e${hint.isEmpty ? '' : '\n[llama.cpp] $hint'}',
           ));

@@ -154,6 +154,42 @@ void main() {
         .toList()
       ..sort();
 
+    test('template English cũng không được chứa tiếng Việt', () {
+      final violations = <String>[];
+      for (final e in en.entries) {
+        final match = _vietnameseOnly.firstMatch(e.value);
+        if (match != null) {
+          violations.add("['${e.key}'] chứa '${match.group(0)}'");
+        }
+      }
+      expect(violations, isEmpty,
+          reason: 'Template English là fallback chuẩn, không thể chứa tiếng '
+              'Việt:\n${violations.join('\n')}');
+    });
+
+    test('voice-clone giữ nguyên placeholder ở mọi locale', () {
+      final placeholder = RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}');
+      List<String> names(String message) => placeholder
+          .allMatches(message)
+          .map((m) => m.group(1)!)
+          .toList()
+        ..sort();
+      final voiceKeys = en.keys.where((key) => key.startsWith('ttsCloneVoice'));
+      final violations = <String>[];
+      for (final loc in ['en', 'vi', ...rolloutLocales]) {
+        final messages = loadArb('lib/l10n/app_$loc.arb');
+        for (final key in voiceKeys) {
+          final actual = messages[key];
+          if (actual == null || names(actual).join(',') != names(en[key]!).join(',')) {
+            violations.add('$loc: $key');
+          }
+        }
+      }
+      expect(violations, isEmpty,
+          reason: 'Thiếu hoặc đổi placeholder của chuỗi clone giọng:\n'
+              '${violations.join('\n')}');
+    });
+
     test('mọi locale ≠ vi có đủ key như app_en.arb', () {
       final violations = <String>[];
       for (final loc in rolloutLocales) {

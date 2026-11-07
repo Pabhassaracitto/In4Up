@@ -537,73 +537,81 @@
   "@ttsCloneVoiceTitle": {
     "description": "Header for VieNeu-TTS voice cloning section"
   },
-  "ttsCloneVoiceTitle": "Clone giọng VieNeu-TTS",
+  "ttsCloneVoiceTitle": "VieNeu-TTS හඬ ක්ලෝන කරන්න",
   "@ttsCloneVoiceDesc": {
     "description": "Description text for voice cloning feature"
   },
-  "ttsCloneVoiceDesc": "Record voice samples and create a personalized voice. The new voice will appear in the VieNeu-TTS voice dropdown.",
+  "ttsCloneVoiceDesc": "හඬ සාම්පල පටිගත කර ඔබට ගැළපෙන හඬක් සාදන්න. නව හඬ VieNeu-TTS හඬ ලැයිස්තුවේ දිස් වේ.",
   "@ttsCloneVoiceNewName": {
     "description": "Label for new voice name input field"
   },
-  "ttsCloneVoiceNewName": "Tên giọng mới",
+  "ttsCloneVoiceNewName": "නව හඬේ නම",
   "@ttsCloneVoiceNewHint": {
     "description": "Placeholder text for new voice name input"
   },
-  "ttsCloneVoiceNewHint": "Ví dụ: Giọng tôi, Giọng bà,…",
+  "ttsCloneVoiceNewHint": "උදාහරණ: මගේ හඬ, ආච්චිගේ හඬ",
   "@ttsCloneVoiceSamples": {
     "description": "Label for voice samples section"
   },
-  "ttsCloneVoiceSamples": "Mẫu âm thanh",
+  "ttsCloneVoiceSamples": "හඬ සාම්පල",
   "@ttsCloneVoiceRecord": {
     "description": "Button label to record voice sample"
   },
-  "ttsCloneVoiceRecord": "Thu âm mẫu",
+  "ttsCloneVoiceRecord": "සාම්පලයක් පටිගත කරන්න",
   "@ttsCloneVoiceStop": {
     "description": "Button label to stop recording"
   },
-  "ttsCloneVoiceStop": "Dừng",
+  "ttsCloneVoiceStop": "නවත්වන්න",
   "@ttsCloneVoiceCreate": {
     "description": "Button label to create cloned voice"
   },
-  "ttsCloneVoiceCreate": "Tạo giọng từ mẫu",
+  "ttsCloneVoiceCreate": "සාම්පලවලින් හඬ සාදන්න",
   "@ttsCloneVoiceCreating": {
     "description": "Status text while creating voice"
   },
-  "ttsCloneVoiceCreating": "Đang tạo giọng…",
+  "ttsCloneVoiceCreating": "හඬ සාදමින්…",
   "@ttsCloneVoiceVoices": {
     "description": "Header for cloned voices list"
   },
-  "ttsCloneVoiceVoices": "Giọng đã clone",
+  "ttsCloneVoiceVoices": "ක්ලෝන කළ හඬවල්",
   "@ttsCloneVoiceNoVoices": {
     "description": "Text when no cloned voices exist"
   },
-  "ttsCloneVoiceNoVoices": "Chưa có giọng clone. Thu âm mẫu và bấm 'Tạo giọng từ mẫu'.",
+  "ttsCloneVoiceNoVoices": "තවම ක්ලෝන කළ හඬක් නැත. සාම්පලයක් පටිගත කර සාම්පලවලින් හඬ සාදන්න තෝරන්න.",
   "@ttsCloneVoiceSamplesCount": {
     "description": "Label showing sample count for a cloned voice"
   },
-  "ttsCloneVoiceSamplesCount": "{count} mẫu",
+  "ttsCloneVoiceSamplesCount": "සාම්පල: {count}",
   "@ttsCloneVoiceHasEmbedding": {
     "description": "Status when voice has embedding file"
   },
-  "ttsCloneVoiceHasEmbedding": "Đã có embedding",
+  "ttsCloneVoiceHasEmbedding": "එම්බෙඩිං ඇත",
   "@ttsCloneVoiceNoEmbedding": {
     "description": "Status when voice has no embedding file"
   },
-  "ttsCloneVoiceNoEmbedding": "Chưa có embedding",
+  "ttsCloneVoiceNoEmbedding": "එම්බෙඩිං නැත",
   "@ttsCloneVoiceDelete": {
     "description": "Tooltip for delete voice button"
   },
-  "ttsCloneVoiceDelete": "Xoá giọng",
+  "ttsCloneVoiceDelete": "හඬ මකන්න",
   "@ttsCloneVoiceSuccess": {
     "description": "Success message after creating cloned voice"
   },
-  "ttsCloneVoiceSuccess": "Đã tạo giọng '{name}' thành công!",
+  "ttsCloneVoiceSuccess": "{name} හඬ සාර්ථකව සාදන ලදී!",
   "@ttsCloneVoiceNeedSample": {
     "description": "Error message when no voice samples recorded"
   },
-  "ttsCloneVoiceNeedSample": "Chưa có mẫu thu âm. Hãy ghi âm ít nhất 1 mẫu.",
+  "ttsCloneVoiceNeedSample": "පටිගත කළ සාම්පල නැත. අවම වශයෙන් එක් සාම්පලයක් පටිගත කරන්න.",
   "@ttsCloneVoiceNeedName": {
     "description": "Error message when voice name is empty"
   },
-  "ttsCloneVoiceNeedName": "Vui lòng nhập tên giọng"
+  "ttsCloneVoiceNeedName": "හඬට නමක් ඇතුළත් කරන්න.",
+  "ttsCloneVoicePermissionRequired": "හඬ සාම්පල පටිගත කිරීමට මයික්‍රෆෝන අවසරය අවශ්‍යයි.",
+  "ttsCloneVoicePermissionDenied": "මයික්‍රෆෝන අවසරය ලබා දී නැත.",
+  "ttsCloneVoiceRecording": "පටිගත කරමින්…",
+  "ttsCloneVoiceNoSample": "තවම සාම්පලයක් නැත",
+  "ttsCloneVoiceSampleReady": "සාම්පලය පටිගත කර ඇත",
+  "ttsCloneVoiceStopRecording": "පටිගත කිරීම නවත්වන්න",
+  "ttsCloneVoiceRecordingError": "සාම්පලය පටිගත කළ නොහැක. මයික්‍රෆෝන අවසරය පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+  "ttsCloneVoiceCreateError": "හඬ සෑදිය නොහැක. TTS ආකෘතිය සහ සාම්පල පරීක්ෂා කර නැවත උත්සාහ කරන්න."
 }

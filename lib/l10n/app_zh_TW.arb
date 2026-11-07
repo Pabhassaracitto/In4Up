@@ -537,73 +537,81 @@
   "@ttsCloneVoiceTitle": {
     "description": "Header for VieNeu-TTS voice cloning section"
   },
-  "ttsCloneVoiceTitle": "Clone giọng VieNeu-TTS",
+  "ttsCloneVoiceTitle": "複製 VieNeu-TTS 聲音",
   "@ttsCloneVoiceDesc": {
     "description": "Description text for voice cloning feature"
   },
-  "ttsCloneVoiceDesc": "Record voice samples and create a personalized voice. The new voice will appear in the VieNeu-TTS voice dropdown.",
+  "ttsCloneVoiceDesc": "錄製聲音樣本並建立個人化聲音。新聲音會出現在 VieNeu-TTS 聲音清單中。",
   "@ttsCloneVoiceNewName": {
     "description": "Label for new voice name input field"
   },
-  "ttsCloneVoiceNewName": "Tên giọng mới",
+  "ttsCloneVoiceNewName": "新聲音名稱",
   "@ttsCloneVoiceNewHint": {
     "description": "Placeholder text for new voice name input"
   },
-  "ttsCloneVoiceNewHint": "Ví dụ: Giọng tôi, Giọng bà,…",
+  "ttsCloneVoiceNewHint": "例如：我的聲音、奶奶的聲音",
   "@ttsCloneVoiceSamples": {
     "description": "Label for voice samples section"
   },
-  "ttsCloneVoiceSamples": "Mẫu âm thanh",
+  "ttsCloneVoiceSamples": "音訊樣本",
   "@ttsCloneVoiceRecord": {
     "description": "Button label to record voice sample"
   },
-  "ttsCloneVoiceRecord": "Thu âm mẫu",
+  "ttsCloneVoiceRecord": "錄製樣本",
   "@ttsCloneVoiceStop": {
     "description": "Button label to stop recording"
   },
-  "ttsCloneVoiceStop": "Dừng",
+  "ttsCloneVoiceStop": "停止",
   "@ttsCloneVoiceCreate": {
     "description": "Button label to create cloned voice"
   },
-  "ttsCloneVoiceCreate": "Tạo giọng từ mẫu",
+  "ttsCloneVoiceCreate": "從樣本建立聲音",
   "@ttsCloneVoiceCreating": {
     "description": "Status text while creating voice"
   },
-  "ttsCloneVoiceCreating": "Đang tạo giọng…",
+  "ttsCloneVoiceCreating": "正在建立聲音…",
   "@ttsCloneVoiceVoices": {
     "description": "Header for cloned voices list"
   },
-  "ttsCloneVoiceVoices": "Giọng đã clone",
+  "ttsCloneVoiceVoices": "已複製的聲音",
   "@ttsCloneVoiceNoVoices": {
     "description": "Text when no cloned voices exist"
   },
-  "ttsCloneVoiceNoVoices": "Chưa có giọng clone. Thu âm mẫu và bấm 'Tạo giọng từ mẫu'.",
+  "ttsCloneVoiceNoVoices": "目前沒有複製的聲音。請錄製樣本並選擇從樣本建立聲音。",
   "@ttsCloneVoiceSamplesCount": {
     "description": "Label showing sample count for a cloned voice"
   },
-  "ttsCloneVoiceSamplesCount": "{count} mẫu",
+  "ttsCloneVoiceSamplesCount": "樣本：{count}",
   "@ttsCloneVoiceHasEmbedding": {
     "description": "Status when voice has embedding file"
   },
-  "ttsCloneVoiceHasEmbedding": "Đã có embedding",
+  "ttsCloneVoiceHasEmbedding": "已有嵌入向量",
   "@ttsCloneVoiceNoEmbedding": {
     "description": "Status when voice has no embedding file"
   },
-  "ttsCloneVoiceNoEmbedding": "Chưa có embedding",
+  "ttsCloneVoiceNoEmbedding": "沒有嵌入向量",
   "@ttsCloneVoiceDelete": {
     "description": "Tooltip for delete voice button"
   },
-  "ttsCloneVoiceDelete": "Xoá giọng",
+  "ttsCloneVoiceDelete": "刪除聲音",
   "@ttsCloneVoiceSuccess": {
     "description": "Success message after creating cloned voice"
   },
-  "ttsCloneVoiceSuccess": "Đã tạo giọng '{name}' thành công!",
+  "ttsCloneVoiceSuccess": "聲音 {name} 已成功建立！",
   "@ttsCloneVoiceNeedSample": {
     "description": "Error message when no voice samples recorded"
   },
-  "ttsCloneVoiceNeedSample": "Chưa có mẫu thu âm. Hãy ghi âm ít nhất 1 mẫu.",
+  "ttsCloneVoiceNeedSample": "找不到錄音。請至少錄製一個樣本。",
   "@ttsCloneVoiceNeedName": {
     "description": "Error message when voice name is empty"
   },
-  "ttsCloneVoiceNeedName": "Vui lòng nhập tên giọng"
+  "ttsCloneVoiceNeedName": "請輸入聲音名稱。",
+  "ttsCloneVoicePermissionRequired": "錄製聲音樣本需要麥克風權限。",
+  "ttsCloneVoicePermissionDenied": "尚未授予麥克風權限。",
+  "ttsCloneVoiceRecording": "正在錄音…",
+  "ttsCloneVoiceNoSample": "尚無樣本",
+  "ttsCloneVoiceSampleReady": "樣本已錄製",
+  "ttsCloneVoiceStopRecording": "停止錄音",
+  "ttsCloneVoiceRecordingError": "無法錄製樣本。請檢查麥克風權限後再試。",
+  "ttsCloneVoiceCreateError": "無法建立聲音。請檢查 TTS 模型和樣本後再試。"
 }

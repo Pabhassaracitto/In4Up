@@ -19,7 +19,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as material;
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -33,6 +34,11 @@ const int _maxSampleSeconds = 60;
 
 /// Số mẫu tối đa cho một giọng.
 const int _maxSamplesPerVoice = 5;
+
+// Keep message kinds instead of translated strings so a locale change also
+// updates any error or status that is already visible.
+enum _RecordingIssue { permissionRequired, permissionDenied, failed }
+enum _CloneNotice { needName, needSample, success, failed }
 
 /// Widget clone giọng VieNeu-TTS.
 class VoiceCloneSection extends StatefulWidget {
@@ -54,7 +60,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   String? _currentRecordingPath;
-  String? _recordingError;
+  _RecordingIssue? _recordingIssue;
   int _recordingSeconds = 0;
 
   // Danh sách giọng đã clone.
@@ -65,8 +71,8 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   // Trạng thái tạo giọng.
   String _newVoiceId = '';
   bool _isCloning = false;
-  String? _cloneStatus;
-  bool _cloneIsError = false;
+  _CloneNotice? _cloneNotice;
+  String? _cloneNoticeDetail;
 
   @override
   void initState() {
@@ -87,7 +93,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
       if (!mounted) return;
-      setState(() => _recordingError = 'Cần quyền microphone để thu âm mẫu giọng');
+      setState(() => _recordingIssue = _RecordingIssue.permissionRequired);
     }
   }
 
@@ -135,7 +141,8 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   Future<void> _startRecording() async {
     if (_isRecording) return;
     if (!await Permission.microphone.isGranted) {
-      setState(() => _recordingError = 'Chưa được cấp quyền microphone');
+      if (!mounted) return;
+      setState(() => _recordingIssue = _RecordingIssue.permissionDenied);
       return;
     }
 
@@ -159,14 +166,17 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       setState(() {
         _isRecording = true;
         _currentRecordingPath = path;
-        _recordingError = null;
+        _recordingIssue = null;
         _recordingSeconds = 0;
       });
 
       _startRecordingTimer();
-    } catch (e) {
+    } catch (e, stack) {
+      // Plugin diagnostics are not localized and can contain Vietnamese.
+      // Keep them in logs while presenting an actionable localized message.
+      debugPrint('Voice sample recording failed: $e\n$stack');
       if (!mounted) return;
-      setState(() => _recordingError = 'Lỗi thu âm: $e');
+      setState(() => _recordingIssue = _RecordingIssue.failed);
     }
   }
 
@@ -236,7 +246,10 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
   Future<void> _createClonedVoice() async {
     if (_newVoiceId.trim().isEmpty) {
-      setState(() => _cloneStatus = 'Vui lòng nhập tên giọng');
+      setState(() {
+        _cloneNotice = _CloneNotice.needName;
+        _cloneNoticeDetail = null;
+      });
       return;
     }
     if (_isCloning) return;
@@ -252,36 +265,43 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     if (await tempDir.exists()) {
       sampleCount = await tempDir.list().toList().then((list) => list.length);
     }
+    if (!mounted) return;
     if (sampleCount == 0) {
-      setState(() => _cloneStatus = 'Chưa có mẫu thu âm. Hãy ghi âm ít nhất 1 mẫu.');
+      setState(() {
+        _cloneNotice = _CloneNotice.needSample;
+        _cloneNoticeDetail = null;
+      });
       return;
     }
 
+    final voiceId = _newVoiceId.trim();
     setState(() {
       _isCloning = true;
-      _cloneStatus = null;
-      _cloneIsError = false;
+      _cloneNotice = null;
+      _cloneNoticeDetail = null;
     });
 
     try {
       await _ttsCore.cloneVoice(
-        voiceId: _newVoiceId.trim(),
+        voiceId: voiceId,
         samplesDir: tempDir.path,
       );
       if (!mounted) return;
       setState(() {
         _isCloning = false;
-        _cloneStatus = 'Đã tạo giọng "$_newVoiceId" thành công!';
-        _cloneIsError = false;
+        _cloneNotice = _CloneNotice.success;
+        _cloneNoticeDetail = voiceId;
         _newVoiceId = '';
       });
       await _loadClonedVoices();
-    } catch (e) {
+    } catch (e, stack) {
+      // Native errors may be Vietnamese even when the app locale is not.
+      debugPrint('Voice creation failed: $e\n$stack');
       if (!mounted) return;
       setState(() {
         _isCloning = false;
-        _cloneStatus = 'Lỗi tạo giọng: $e';
-        _cloneIsError = true;
+        _cloneNotice = _CloneNotice.failed;
+        _cloneNoticeDetail = null;
       });
     }
   }
@@ -304,6 +324,27 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final recordingError = switch (_recordingIssue) {
+      null => null,
+      _RecordingIssue.permissionRequired => l10n.ttsCloneVoicePermissionRequired,
+      _RecordingIssue.permissionDenied => l10n.ttsCloneVoicePermissionDenied,
+      _RecordingIssue.failed => l10n.ttsCloneVoiceRecordingError,
+    };
+    final cloneStatus = switch (_cloneNotice) {
+      null => null,
+      _CloneNotice.needName => l10n.ttsCloneVoiceNeedName,
+      _CloneNotice.needSample => l10n.ttsCloneVoiceNeedSample,
+      _CloneNotice.success => l10n.ttsCloneVoiceSuccess(_cloneNoticeDetail ?? ''),
+      _CloneNotice.failed => l10n.ttsCloneVoiceCreateError,
+    };
+    final cloneIsError = _cloneNotice != _CloneNotice.success;
+    final sampleStatus = _isRecording
+        ? l10n.ttsCloneVoiceRecording
+        : _currentRecordingPath != null
+            ? l10n.ttsCloneVoiceSampleReady
+            : l10n.ttsCloneVoiceNoSample;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -312,12 +353,14 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
           children: [
             Icon(Icons.record_voice_over, size: 18, color: widget.primaryColor),
             const SizedBox(width: 8),
-            Text(
-              'Clone giọng VieNeu-TTS',
-              style: TextStyle(
-                fontSize: 16,
-                color: widget.primaryColor,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                l10n.ttsCloneVoiceTitle,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: widget.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -326,8 +369,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
         // ── MÔ TẢ ──
         Text(
-          'Thu âm mẫu giọng và tạo giọng đọc cá nhân hóa. '
-          'Giọng mới sẽ xuất hiện trong dropdown giọng VieNeu-TTS.',
+          l10n.ttsCloneVoiceDesc,
           style: TextStyle(fontSize: 11, color: Colors.grey[600]),
         ),
         const SizedBox(height: 12),
@@ -335,8 +377,8 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
         // ── NHẬP TÊN GIỌNG ──
         TextField(
           decoration: InputDecoration(
-            labelText: 'Tên giọng mới',
-            hintText: 'Ví dụ: Giọng tôi, Giọng bà,…',
+            labelText: l10n.ttsCloneVoiceNewName,
+            hintText: l10n.ttsCloneVoiceNewHint,
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             filled: true,
@@ -353,9 +395,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
         // ── THU ÂM MẪU ──
         Text(
-          'Mẫu âm thanh (${
-            _currentRecordingPath != null ? 'Đang thu âm…' : 'Chưa có mẫu'
-          })',
+          '${l10n.ttsCloneVoiceSamples} ($sampleStatus)',
           style: TextStyle(fontSize: 11, color: Colors.grey[400], fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
@@ -366,7 +406,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                 child: OutlinedButton.icon(
                   onPressed: _startRecording,
                   icon: const Icon(Icons.mic, size: 16),
-                  label: const Text('Thu âm mẫu', style: TextStyle(fontSize: 11)),
+                  label: Text(l10n.ttsCloneVoiceRecord, style: const TextStyle(fontSize: 11)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: widget.primaryColor,
                     side: BorderSide(color: widget.primaryColor),
@@ -396,19 +436,19 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                   IconButton(
                     icon: const Icon(Icons.stop, color: Colors.red),
                     onPressed: _stopRecording,
-                    tooltip: 'Dừng thu âm',
+                    tooltip: l10n.ttsCloneVoiceStopRecording,
                   ),
                   const SizedBox(height: 4),
-                  Text('Dừng', style: TextStyle(fontSize: 9, color: Colors.red[300])),
+                  Text(l10n.ttsCloneVoiceStop, style: TextStyle(fontSize: 9, color: Colors.red[300])),
                 ],
               ),
           ],
         ),
-        if (_recordingError != null)
+        if (recordingError != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              _recordingError!,
+              recordingError,
               style: TextStyle(fontSize: 10, color: Colors.red[300]),
             ),
           ),
@@ -428,7 +468,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                       )
                     : const Icon(Icons.auto_awesome, size: 16),
                 label: Text(
-                  _isCloning ? 'Đang tạo giọng…' : 'Tạo giọng từ mẫu',
+                  _isCloning ? l10n.ttsCloneVoiceCreating : l10n.ttsCloneVoiceCreate,
                   style: const TextStyle(fontSize: 11),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -442,7 +482,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
               OutlinedButton.icon(
                 onPressed: _cancelRecording,
                 icon: const Icon(Icons.cancel, size: 16),
-                label: const Text('Hủy', style: TextStyle(fontSize: 11)),
+                label: Text(l10n.commonCancel, style: const TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: BorderSide(color: Colors.red[700]!),
@@ -450,32 +490,33 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
               ),
           ],
         ),
-        if (_cloneStatus != null)
+        if (cloneStatus != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: (_cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.1),
+                color: (cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (_cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.35),
+                  color: (cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.35),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    _cloneIsError ? Icons.error : Icons.check_circle,
+                    cloneIsError ? Icons.error : Icons.check_circle,
                     size: 14,
-                    color: _cloneIsError ? Colors.red[300] : Colors.green[300],
+                    color: cloneIsError ? Colors.red[300] : Colors.green[300],
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      _cloneStatus!,
+                    // The success notice contains a user-provided voice name.
+                    child: material.Text(
+                      cloneStatus,
                       style: TextStyle(
                         fontSize: 10,
-                        color: _cloneIsError ? Colors.red[200] : Colors.green[200],
+                        color: cloneIsError ? Colors.red[200] : Colors.green[200],
                       ),
                     ),
                   ),
@@ -487,7 +528,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
         // ── DANH SÁCH GIỌNG ĐÃ CLONE ──
         Text(
-          'Giọng đã clone',
+          l10n.ttsCloneVoiceVoices,
           style: TextStyle(
             fontSize: 13,
             color: Colors.grey[400],
@@ -502,7 +543,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
           )
         else if (_clonedVoices.isEmpty)
           Text(
-            'Chưa có giọng clone. Thu âm mẫu và bấm "Tạo giọng từ mẫu".',
+            l10n.ttsCloneVoiceNoVoices,
             style: TextStyle(fontSize: 11, color: Colors.grey[600]),
           )
         else
@@ -557,6 +598,10 @@ class _ClonedVoiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final embeddingStatus = voice.embeddingPath != null
+        ? l10n.ttsCloneVoiceHasEmbedding
+        : l10n.ttsCloneVoiceNoEmbedding;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
@@ -566,13 +611,13 @@ class _ClonedVoiceTile extends StatelessWidget {
       ),
       child: ListTile(
         dense: true,
-        title: Text(
+        // Voice IDs are user content, not presentation strings.
+        title: material.Text(
           voice.id,
           style: const TextStyle(fontSize: 12, color: Colors.white),
         ),
         subtitle: Text(
-          '${voice.sampleCount} mẫu · '
-          '${voice.embeddingPath != null ? 'Đã có embedding' : 'Chưa có embedding'}',
+          '${l10n.ttsCloneVoiceSamplesCount(voice.sampleCount)} · $embeddingStatus',
           style: TextStyle(fontSize: 10, color: Colors.grey[600]),
         ),
         trailing: Row(
@@ -581,7 +626,7 @@ class _ClonedVoiceTile extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.delete, color: Colors.red[300], size: 18),
               onPressed: () => onDelete(voice),
-              tooltip: 'Xoá giọng',
+              tooltip: l10n.ttsCloneVoiceDelete,
             ),
           ],
         ),

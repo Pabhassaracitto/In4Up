@@ -579,7 +579,12 @@
   },
   "ttsCloneVoiceNoVoices": "Chưa có giọng clone. Thu âm mẫu và bấm 'Tạo giọng từ mẫu'.",
   "@ttsCloneVoiceSamplesCount": {
-    "description": "Nhãn hiển thị số mẫu cho một giọng đã clone"
+    "description": "Nhãn hiển thị số mẫu cho một giọng đã clone",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "ttsCloneVoiceSamplesCount": "{count} mẫu",
   "@ttsCloneVoiceHasEmbedding": {
@@ -595,7 +600,12 @@
   },
   "ttsCloneVoiceDelete": "Xoá giọng",
   "@ttsCloneVoiceSuccess": {
-    "description": "Thông báo thành công sau khi tạo giọng đã clone"
+    "description": "Thông báo thành công sau khi tạo giọng đã clone",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "ttsCloneVoiceSuccess": "Đã tạo giọng '{name}' thành công!",
   "@ttsCloneVoiceNeedSample": {
@@ -605,5 +615,37 @@
   "@ttsCloneVoiceNeedName": {
     "description": "Thông báo lỗi khi tên giọng trống"
   },
-  "ttsCloneVoiceNeedName": "Vui lòng nhập tên giọng"
+  "ttsCloneVoiceNeedName": "Vui lòng nhập tên giọng",
+  "@ttsCloneVoicePermissionRequired": {
+    "description": "Microphone permission is needed for voice samples"
+  },
+  "ttsCloneVoicePermissionRequired": "Cần quyền dùng microphone để thu âm mẫu giọng.",
+  "@ttsCloneVoicePermissionDenied": {
+    "description": "Microphone permission was not granted"
+  },
+  "ttsCloneVoicePermissionDenied": "Chưa được cấp quyền dùng microphone.",
+  "@ttsCloneVoiceRecording": {
+    "description": "A voice sample is currently recording"
+  },
+  "ttsCloneVoiceRecording": "Đang thu âm…",
+  "@ttsCloneVoiceNoSample": {
+    "description": "No voice sample has been recorded yet"
+  },
+  "ttsCloneVoiceNoSample": "Chưa có mẫu",
+  "@ttsCloneVoiceSampleReady": {
+    "description": "A voice sample has been recorded"
+  },
+  "ttsCloneVoiceSampleReady": "Đã thu âm mẫu",
+  "@ttsCloneVoiceStopRecording": {
+    "description": "Tooltip for stopping a voice sample recording"
+  },
+  "ttsCloneVoiceStopRecording": "Dừng thu âm",
+  "@ttsCloneVoiceRecordingError": {
+    "description": "Localized actionable message; diagnostic details are logged separately"
+  },
+  "ttsCloneVoiceRecordingError": "Không thể thu âm mẫu. Hãy kiểm tra quyền microphone và thử lại.",
+  "@ttsCloneVoiceCreateError": {
+    "description": "Localized actionable message; diagnostic details are logged separately"
+  },
+  "ttsCloneVoiceCreateError": "Không thể tạo giọng. Hãy kiểm tra mô hình TTS và mẫu thu âm, rồi thử lại."
 }

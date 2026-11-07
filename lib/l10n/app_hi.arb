@@ -537,73 +537,81 @@
   "@ttsCloneVoiceTitle": {
     "description": "Header for VieNeu-TTS voice cloning section"
   },
-  "ttsCloneVoiceTitle": "Clone giọng VieNeu-TTS",
+  "ttsCloneVoiceTitle": "VieNeu-TTS आवाज़ क्लोन करें",
   "@ttsCloneVoiceDesc": {
     "description": "Description text for voice cloning feature"
   },
-  "ttsCloneVoiceDesc": "Record voice samples and create a personalized voice. The new voice will appear in the VieNeu-TTS voice dropdown.",
+  "ttsCloneVoiceDesc": "आवाज़ के नमूने रिकॉर्ड करके अपनी व्यक्तिगत आवाज़ बनाएँ। नई आवाज़ VieNeu-TTS की आवाज़ सूची में दिखाई देगी।",
   "@ttsCloneVoiceNewName": {
     "description": "Label for new voice name input field"
   },
-  "ttsCloneVoiceNewName": "Tên giọng mới",
+  "ttsCloneVoiceNewName": "नई आवाज़ का नाम",
   "@ttsCloneVoiceNewHint": {
     "description": "Placeholder text for new voice name input"
   },
-  "ttsCloneVoiceNewHint": "Ví dụ: Giọng tôi, Giọng bà,…",
+  "ttsCloneVoiceNewHint": "उदाहरण: मेरी आवाज़, दादी की आवाज़",
   "@ttsCloneVoiceSamples": {
     "description": "Label for voice samples section"
   },
-  "ttsCloneVoiceSamples": "Mẫu âm thanh",
+  "ttsCloneVoiceSamples": "ऑडियो नमूने",
   "@ttsCloneVoiceRecord": {
     "description": "Button label to record voice sample"
   },
-  "ttsCloneVoiceRecord": "Thu âm mẫu",
+  "ttsCloneVoiceRecord": "नमूना रिकॉर्ड करें",
   "@ttsCloneVoiceStop": {
     "description": "Button label to stop recording"
   },
-  "ttsCloneVoiceStop": "Dừng",
+  "ttsCloneVoiceStop": "रोकें",
   "@ttsCloneVoiceCreate": {
     "description": "Button label to create cloned voice"
   },
-  "ttsCloneVoiceCreate": "Tạo giọng từ mẫu",
+  "ttsCloneVoiceCreate": "नमूनों से आवाज़ बनाएँ",
   "@ttsCloneVoiceCreating": {
     "description": "Status text while creating voice"
   },
-  "ttsCloneVoiceCreating": "Đang tạo giọng…",
+  "ttsCloneVoiceCreating": "आवाज़ बनाई जा रही है…",
   "@ttsCloneVoiceVoices": {
     "description": "Header for cloned voices list"
   },
-  "ttsCloneVoiceVoices": "Giọng đã clone",
+  "ttsCloneVoiceVoices": "क्लोन की गई आवाज़ें",
   "@ttsCloneVoiceNoVoices": {
     "description": "Text when no cloned voices exist"
   },
-  "ttsCloneVoiceNoVoices": "Chưa có giọng clone. Thu âm mẫu và bấm 'Tạo giọng từ mẫu'.",
+  "ttsCloneVoiceNoVoices": "अभी कोई क्लोन आवाज़ नहीं है। एक नमूना रिकॉर्ड करें और नमूनों से आवाज़ बनाएँ चुनें।",
   "@ttsCloneVoiceSamplesCount": {
     "description": "Label showing sample count for a cloned voice"
   },
-  "ttsCloneVoiceSamplesCount": "{count} mẫu",
+  "ttsCloneVoiceSamplesCount": "नमूने: {count}",
   "@ttsCloneVoiceHasEmbedding": {
     "description": "Status when voice has embedding file"
   },
-  "ttsCloneVoiceHasEmbedding": "Đã có embedding",
+  "ttsCloneVoiceHasEmbedding": "एम्बेडिंग उपलब्ध है",
   "@ttsCloneVoiceNoEmbedding": {
     "description": "Status when voice has no embedding file"
   },
-  "ttsCloneVoiceNoEmbedding": "Chưa có embedding",
+  "ttsCloneVoiceNoEmbedding": "एम्बेडिंग उपलब्ध नहीं है",
   "@ttsCloneVoiceDelete": {
     "description": "Tooltip for delete voice button"
   },
-  "ttsCloneVoiceDelete": "Xoá giọng",
+  "ttsCloneVoiceDelete": "आवाज़ मिटाएँ",
   "@ttsCloneVoiceSuccess": {
     "description": "Success message after creating cloned voice"
   },
-  "ttsCloneVoiceSuccess": "Đã tạo giọng '{name}' thành công!",
+  "ttsCloneVoiceSuccess": "आवाज़ {name} बन गई!",
   "@ttsCloneVoiceNeedSample": {
     "description": "Error message when no voice samples recorded"
   },
-  "ttsCloneVoiceNeedSample": "Chưa có mẫu thu âm. Hãy ghi âm ít nhất 1 mẫu.",
+  "ttsCloneVoiceNeedSample": "कोई रिकॉर्डिंग नहीं मिली। कम से कम एक नमूना रिकॉर्ड करें।",
   "@ttsCloneVoiceNeedName": {
     "description": "Error message when voice name is empty"
   },
-  "ttsCloneVoiceNeedName": "Vui lòng nhập tên giọng"
+  "ttsCloneVoiceNeedName": "आवाज़ का नाम दर्ज करें।",
+  "ttsCloneVoicePermissionRequired": "आवाज़ का नमूना रिकॉर्ड करने के लिए माइक्रोफ़ोन की अनुमति आवश्यक है।",
+  "ttsCloneVoicePermissionDenied": "माइक्रोफ़ोन की अनुमति नहीं दी गई है।",
+  "ttsCloneVoiceRecording": "रिकॉर्डिंग चल रही है…",
+  "ttsCloneVoiceNoSample": "अभी कोई नमूना नहीं",
+  "ttsCloneVoiceSampleReady": "नमूना रिकॉर्ड हो गया",
+  "ttsCloneVoiceStopRecording": "रिकॉर्डिंग रोकें",
+  "ttsCloneVoiceRecordingError": "नमूना रिकॉर्ड नहीं हो सका। माइक्रोफ़ोन की अनुमति जाँचकर फिर प्रयास करें।",
+  "ttsCloneVoiceCreateError": "आवाज़ नहीं बनाई जा सकी। TTS मॉडल और नमूने जाँचकर फिर प्रयास करें।"
 }

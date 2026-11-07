@@ -112,23 +112,67 @@ class HyMtPrompts {
     return (chinese ? zh : en)[n] ?? n;
   }
 
-  static String build({
-    required String text,
+  // ── HYMT-004 (2026-11-06) — khung lượt của Hy-MT1.5 ────────────────────
+  // chat_template.jinja chính thức của tencent/HY-MT1.5-1.8B là:
+  //   <｜hy_begin▁of▁sentence｜><｜hy_User｜>{nội dung}<｜hy_Assistant｜>
+  // trước khi sinh câu trả lời. KHÔNG có <|im_start|>, không có "user:\n", và
+  // không dùng BOS/EOS thường. Gửi chuỗi thô ⇒ model không thấy ranh giới lượt
+  // ⇒ nhả RỖNG hoặc nhả lại nguyên prompt, đúng triệu chứng "dịch không chạy".
+  // Native `frame_prompt()` trong in4up_ai_native.cpp cũng thêm khung này khi
+  // prompt chưa có (idempotent), nên đây là an toàn 2 lớp.
+  static const String bosToken =
+      '<\uFF5Chy_begin\u2581of\u2581sentence\uFF5C>';
+  static const String userToken = '<\uFF5Chy_User\uFF5C>';
+  static const String assistantToken = '<\uFF5Chy_Assistant\uFF5C>';
+
+  /// Chỉ thị dịch (phần đứng trước văn bản nguồn) — TÁCH RIÊNG khỏi [build]
+  /// để nơi khác đo/kiểm tra được mà không phải cắt chuỗi.
+  static String instruction({
     required String sourceLang,
     required String targetLang,
   }) {
     final chinese = involvesChinese(sourceLang, targetLang);
     final targetName = languageDisplayName(targetLang, chinese: chinese);
     if (chinese) {
-      return '将以下文本翻译为$targetName，注意只需要输出翻译后的结果，不要额外解释：\n\n$text';
+      return '将以下文本翻译为$targetName，注意只需要输出翻译后的结果，不要额外解释：';
     }
-    return 'Translate the following segment into $targetName, without additional explanation.\n\n$text';
+    return 'Translate the following segment into $targetName, '
+        'without additional explanation.';
+  }
+
+  /// Prompt hoàn chỉnh: (khung lượt) + chỉ thị + văn bản nguồn.
+  ///
+  /// [withTurnTokens] (mặc định true) = bọc bằng khung `<｜hy_User｜>` như chat
+  /// template chính thức. Đặt false khi engine/native tự thêm khung.
+  static String build({
+    required String text,
+    required String sourceLang,
+    required String targetLang,
+    bool withTurnTokens = true,
+  }) {
+    final body = '${instruction(sourceLang: sourceLang, targetLang: targetLang)}'
+        '\n\n$text';
+    if (!withTurnTokens) return body;
+    return '$bosToken$userToken$body$assistantToken';
   }
 
   /// Bỏ rác chat-template / lời giải thích nếu model vẫn nhả thêm.
   static String cleanOutput(String raw, String sourceText) {
     var out = raw.trim();
-    const fences = ['</s>', '<|im_end|>', '<|end|>', '<end>'];
+    // Model có thể nhả lại chính khung lượt (<｜hy_Assistant｜>…) hoặc token kết
+    // thúc riêng của Hunyuan. Cắt TRƯỚC khi trim tiếp để bản dịch không bao giờ
+    // hiện token điều khiển.
+    const fences = [
+      '</s>',
+      '<|im_end|>',
+      '<|end|>',
+      '<end>',
+      '<|eos|>',
+      '<|endoftext|>',
+      assistantToken,
+      userToken,
+      bosToken,
+    ];
     for (final f in fences) {
       final i = out.indexOf(f);
       if (i >= 0) out = out.substring(0, i).trim();

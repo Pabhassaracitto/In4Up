@@ -16,6 +16,7 @@ import 'dart:io';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -372,6 +373,19 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     await YtLearningSettingsService.save(result.settings);
     if (!result.start) return;
 
+    await _startReadAloud(
+      fromIndex: result.fromCurrentLine ? _currentLineIdx : 0,
+    );
+  }
+
+  /// Chạy "đọc bản dịch" từ dòng [fromIndex].
+  ///
+  /// Tách riêng để (a) chỗ khác trong màn hình gọi lại được sau khi tạm dừng
+  /// vì tra từ (YT-PAUSE-LOOKUP-001), (b) chỉ có MỘT nơi dựng tham số TTS.
+  Future<void> _startReadAloud({required int fromIndex}) async {
+    final ctrl = _readAloud;
+    if (ctrl == null || _lines.isEmpty) return;
+
     // Dừng video: hai nguồn âm thanh cùng lúc thì không nghe được gì.
     _pauseVideo();
 
@@ -388,8 +402,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       ],
       sourceLangCode: sourceLang,
       targetLangCode: _resolvedTargetLang,
-      settings: result.settings,
-      startIndex: result.fromCurrentLine ? _currentLineIdx : 0,
+      settings: _settings,
+      startIndex: fromIndex.clamp(0, _lines.length - 1),
     );
   }
 
@@ -1153,6 +1167,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       }
     });
     unawaited(_persistWordStates());
+    _syncSharedDifficulty(word, state);
     if (state == WordState.learning) {
       final line = _lines.isEmpty
           ? null
@@ -1173,6 +1188,66 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         language: 'en',
         topic: 'YouTube',
       );
+    }
+  }
+
+  /// YT-DIFF-SYNC-001 (#2 owner 2026-11-06, chốt: **một chiều**):
+  /// màu YouTube ghi sang **hệ độ khó dùng chung** (`DifficultyLevel`).
+  ///
+  /// Hai thang trả lời hai câu khác nhau — `WordState` là *trạng thái ôn tập*
+  /// trong video, `DifficultyLevel` là *bản chất từ* với người học (dùng ở pop
+  /// tab Đọc, Web reader, "Độ khó dùng chung toàn hệ", và cả
+  /// `speakDifficultWordsFirst`). Trước đây YouTube **chỉ** lưu ở Hive
+  /// `yt_lr_word_states` ⇒ cùng một từ, tab Đọc nói "Rất khó", YouTube nói
+  /// "Đã biết", và từ đánh dấu trong video không được tab Đọc ưu tiên đọc trước.
+  ///
+  /// Nay bấm màu trong YouTube là ghi luôn độ khó tương ứng qua **đường sẵn
+  /// có** (`VocabularyBridge.upsertDifficulty`, đúng hàm pop tab Đọc dùng).
+  /// Ánh xạ 3 → 4 nên **có mất mát**, vì vậy KHÔNG đọc ngược về: đổi ở tab Đọc
+  /// không tự đổi màu YouTube.
+  static DifficultyLevel? _difficultyForState(WordState state) {
+    switch (state) {
+      case WordState.known:
+        return DifficultyLevel.easy;
+      case WordState.learning:
+        return DifficultyLevel.hard;
+      case WordState.ignored:
+        return DifficultyLevel.veryHard;
+      case WordState.unknown:
+        // Bỏ đánh dấu KHÔNG xoá độ khó người dùng đã đặt ở tab Đọc.
+        return null;
+    }
+  }
+
+  /// Ghi độ khó dùng chung cho [word] theo màu [state] vừa bấm.
+  ///
+  /// Chạy trong `try/catch`: `VocabularyBridge` chưa `init()` (màn hình mở
+  /// độc lập trong test) thì chỉ là no-op, KHÔNG được làm hỏng thao tác tô màu.
+  void _syncSharedDifficulty(String word, WordState state) {
+    final difficulty = _difficultyForState(state);
+    if (difficulty == null) return;
+    try {
+      final line = _lines.isEmpty
+          ? null
+          : _lines[_currentLineIdx.clamp(0, _lines.length - 1)];
+      VocabularyBridge.upsertDifficulty(
+        text: word,
+        difficulty: difficulty,
+        context: VocabContext.fromStory(
+          storyTitle: widget.video.title,
+          lineIndex: _currentLineIdx,
+          surroundingText: line?.text ?? word,
+          sourceRef: 'youtube:${widget.video.id}',
+          sourceRefType: 'youtube',
+          anchorText: word,
+          textStartOffset: line?.start.inMilliseconds,
+          textEndOffset: line?.end.inMilliseconds,
+        ),
+        language: 'en',
+        topic: 'YouTube',
+      );
+    } catch (e) {
+      debugPrint('[in4up-yt] difficulty sync failed: $e');
     }
   }
 
@@ -1644,6 +1719,14 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                 : context.uiText('Đang tô — bấm vào từ để tô màu này'),
             style: TextStyle(color: Colors.grey[400], fontSize: 11),
           ),
+          const SizedBox(height: 2),
+          // YT-DIFF-SYNC-001: nói rõ màu ở đây ghi vào hệ độ khó dùng chung —
+          // người dùng không phải đoán vì sao tab Đọc cũng đổi.
+          Text(
+            context.uiText(
+                'Màu này áp cho cả hệ (Đọc / Web / Từ vựng) — đổi ở đâu cũng đổi chung'),
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -1766,8 +1849,22 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     _ytCtrl.runJavaScript('window._in4upSeek && window._in4upSeek($seconds);');
   }
 
+  /// YT-PAUSE-LOOKUP-001 (#4 owner 2026-11-06): dừng video ĐÚNG CÁCH.
+  ///
+  /// Bản cũ chỉ gọi `window._in4upPause()` của wrapper GitHub Pages. Nhưng
+  /// player có HAI chế độ: wrapper (có `window.player`) và "seed → /embed/"
+  /// (trang youtube.com nằm thẳng trong WebView, KHÔNG có `window.player`).
+  /// Ở chế độ thứ hai lệnh pause là no-op ⇒ người dùng chạm từ để tra nghĩa
+  /// mà video vẫn đọc tiếp. Nay thử cả hai đường: API của player rồi tới
+  /// thẻ `<video>` của chính tài liệu.
   void _pauseVideo() {
-    _ytCtrl.runJavaScript('window._in4upPause && window._in4upPause();');
+    _ytCtrl.runJavaScript('''
+(function(){
+  try { if (window.player && window.player.pauseVideo) { window.player.pauseVideo(); return; } } catch(e){}
+  try { if (window._in4upPause) { window._in4upPause(); return; } } catch(e){}
+  try { var v = document.querySelector('video'); if (v && !v.paused) v.pause(); } catch(e){}
+})();
+''');
   }
 
   /// Mở audio ĐÃ TẢI (tab TẢI) trong tab Nghe — dùng chung đường LRC.
@@ -1921,8 +2018,26 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
     // YT-RESUME-AFTER-LOOKUP-001: chỉ phát tiếp nếu CHÍNH ta làm video dừng.
     // Nếu người dùng đã tự bấm dừng từ trước thì đóng bảng ra KHÔNG được tự
     // chạy — như vậy mới đúng ý người dùng.
+    //
+    // YT-PAUSE-LOOKUP-001 (#4 owner 2026-11-06): "đang phát mà chạm từ để tra
+    // nghĩa thì âm thanh vẫn đọc bình thường". Nay tạm dừng CẢ HAI nguồn:
+    //   1. video (wrapper hoặc trang embed — xem `_pauseVideo`),
+    //   2. giọng đọc TTS nếu đang đọc bản dịch (đọc tiếp từ đúng dòng sau).
+    // Đóng bảng ⇒ chỉ chạy tiếp đúng thứ mà CHÍNH TA đã dừng.
     final wasPlaying = await _isVideoPlaying();
     if (wasPlaying) _pauseVideo();
+
+    var resumeReadFrom = -1;
+    final ctrl = _readAloud;
+    if (ctrl != null && ctrl.isRunning) {
+      // Dòng đang đọc (có thể -1 nếu vừa chuyển bước) ⇒ lấy dòng hiện tại làm
+      // mốc để không phải nghe lại từ đầu bài.
+      final active = ctrl.activeLine;
+      resumeReadFrom = active >= 0
+          ? active
+          : (_lines.isEmpty ? 0 : _currentLineIdx.clamp(0, _lines.length - 1));
+      await ctrl.stop();
+    }
 
     String? contextSentence;
     if (_lines.isNotEmpty && _currentLineIdx < _lines.length) {
@@ -1940,8 +2055,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       onStateChanged: (state) => _setWordState(word.text, state),
     );
 
-    // Đóng bảng tra từ ⇒ chạy tiếp đúng chỗ đang dừng.
-    if (wasPlaying && mounted && !_readAloudRunning) _resumeVideo();
+    if (!mounted) return;
+    // Ưu tiên chạy tiếp giọng đọc (nếu ta đã dừng nó) — nếu không thì video.
+    if (resumeReadFrom >= 0 && !_readAloudRunning) {
+      await _startReadAloud(fromIndex: resumeReadFrom);
+      return;
+    }
+    if (wasPlaying && !_readAloudRunning) _resumeVideo();
   }
 
   /// Video (thẻ <video> trong wrapper/iframe) có đang phát không.
@@ -1952,11 +2072,23 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   Future<bool> _isVideoPlaying() async {
     try {
       final r = await _ytCtrl.runJavaScriptReturningResult(
-        '(function(){try{'
-        'var v=document.querySelector("video");'
-        'if(v) return (!v.paused && !v.ended) ? "1" : "0";'
+        // YT-PAUSE-LOOKUP-001 (#4): `document.querySelector('video')` KHÔNG
+        // thấy gì khi video nằm trong <iframe> youtube.com (khác origin —
+        // trình duyệt không cho đọc vào). Phải hỏi player qua JS API trước;
+        // chỉ khi không có player (chế độ seed→embed nạp thẳng trang YouTube)
+        // mới dò thẻ <video> của tài liệu hiện tại.
+        '(function(){'
+        'try{'
+        'if(window.player&&window.player.getPlayerState){'
+        'return window.player.getPlayerState()===1?"1":"0";'
+        '}'
         '}catch(e){}'
-        'return "0";})()',
+        'try{'
+        'var v=document.querySelector("video");'
+        'if(v){return (!v.paused&&!v.ended)?"1":"0";}'
+        '}catch(e){}'
+        'return "0";'
+        '})()',
       );
       return r.toString().replaceAll('"', '').trim() == '1';
     } catch (_) {
@@ -1965,7 +2097,13 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   void _resumeVideo() {
-    _ytCtrl.runJavaScript('window._in4upPlay && window._in4upPlay();');
+    _ytCtrl.runJavaScript('''
+(function(){
+  try { if (window.player && window.player.playVideo) { window.player.playVideo(); return; } } catch(e){}
+  try { if (window._in4upPlay) { window._in4upPlay(); return; } } catch(e){}
+  try { var v = document.querySelector('video'); if (v && v.paused) v.play(); } catch(e){}
+})();
+''');
   }
 
   /// Đang đọc bản dịch bằng TTS ⇒ không được tự phát video (hai nguồn tiếng).
@@ -2921,6 +3059,31 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   ),
                 ),
               ),
+              // YT-PAINT-002 (#3 owner 2026-11-06): khay màu NGAY TRONG danh
+              // sách phụ đề. Bản cũ chỉ tô được dòng đang phát ⇒ muốn đánh dấu
+              // một từ ở dòng 40 phải tua video tới đó. Nay chọn màu ở đây rồi
+              // bấm từ ở bất kỳ dòng nào trong danh sách.
+              // Cùng khuôn `_syncTuneButton` (SizedBox + IconButton padding 0)
+              // để không phải lo `minHeight 48` của IconButton đụng trần hàng.
+              SizedBox(
+                width: 30,
+                height: 28,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  color: _tsPaintOpen
+                      ? const Color(0xFF53D6BD)
+                      : Colors.grey,
+                  icon: const Icon(Icons.palette_outlined),
+                  tooltip: _tsPaintOpen
+                      ? context.uiText('Đóng khay màu')
+                      : context.uiText('Khay màu cho cả danh sách'),
+                  onPressed: () => setState(() {
+                    _tsPaintOpen = !_tsPaintOpen;
+                    if (!_tsPaintOpen) _tsPaintState = null;
+                  }),
+                ),
+              ),
               SizedBox(
                 height: 26,
                 child: Switch(
@@ -2932,6 +3095,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
             ],
           ),
         ),
+        if (_tsPaintOpen) _buildTranscriptPaintTray(),
         // YT-AUDIT-11 (IN4-106): căn chỉnh NGAY TẠI tab này — người dùng phải
         // VỪA NGHE VỪA BẤM +/− được. Mở sheet thì không nghe thấy gì để mà chỉnh.
         _buildAudioSyncTuner(),
@@ -3010,6 +3174,111 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
         audioLeadMs: YtLearningSettings.snapAudioLead(v));
     setState(() => _settings = next);
     unawaited(YtLearningSettingsService.save(next));
+  }
+
+  /// YT-PAINT-002 (#3): màu đang cầm để tô trong **danh sách phụ đề**.
+  ///
+  /// Cố ý tách khỏi `_paintState` của dòng đang phát: người dùng có thể vừa tô
+  /// dòng hiện tại vừa tô trong danh sách, hai chỗ không giẫm lên nhau.
+  WordState? _tsPaintState;
+
+  /// Khay màu của danh sách phụ đề đang mở hay chưa.
+  bool _tsPaintOpen = false;
+
+  /// Dải chọn màu cho danh sách phụ đề (gọn: 1 hàng chip + nút đóng).
+  Widget _buildTranscriptPaintTray() {
+    Widget chip(WordState st, IconData icon, String label, Color color) {
+      final active = _tsPaintState == st;
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _tsPaintState = active ? null : st),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? color.withValues(alpha: 0.22) : Colors.white10,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: active ? color : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 5),
+            Text(label,
+                style: TextStyle(
+                    color: active ? color : Colors.white70,
+                    fontSize: 11,
+                    fontWeight:
+                        active ? FontWeight.bold : FontWeight.normal)),
+          ]),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161B22),
+        borderRadius: BorderRadius.circular(10),
+        border:
+            Border.all(color: const Color(0xFF53D6BD).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Text(
+                _tsPaintState == null
+                    ? context.uiText('Chọn màu, rồi bấm vào từ ở bất kỳ dòng nào')
+                    : context.uiText('Đang tô — bấm vào từ để tô màu này'),
+                style: TextStyle(color: Colors.grey[400], fontSize: 10.5),
+              ),
+            ),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() {
+                _tsPaintOpen = false;
+                _tsPaintState = null;
+              }),
+              child: Icon(Icons.close, size: 15, color: Colors.grey[500]),
+            ),
+          ]),
+          Text(
+            context.uiText(
+                'Màu này áp cho cả hệ (Đọc / Web / Từ vựng) — đổi ở đâu cũng đổi chung'),
+            style: const TextStyle(color: Colors.white38, fontSize: 9.5),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              chip(WordState.known, Icons.check_circle_outline, 'Đã biết',
+                  const Color(0xFF4CAF50)),
+              chip(WordState.learning, Icons.menu_book_outlined, 'Đang học',
+                  const Color(0xFF9C27B0)),
+              chip(WordState.ignored, Icons.visibility_off_outlined, 'Bỏ qua',
+                  const Color(0xFF607D8B)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Tô một từ ở danh sách phụ đề bằng màu đang cầm.
+  void _tsPaintWord(LrWord word) {
+    final state = _tsPaintState;
+    if (state == null) {
+      // `_snack` đã tự bọc `uiText`, nên ở đây đưa chuỗi gốc.
+      _snack('Chưa chọn màu — bấm Đã biết / Đang học / Bỏ qua trước khi tô');
+      return;
+    }
+    if (word.state == state) return;
+    _setWordState(word.text, state);
   }
 
   Widget _buildTranscriptList() {
@@ -3110,23 +3379,58 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   Widget _buildTranscriptWords(SubtitleLine line) {
+    // YT-PAINT-002 (#3): mở khay màu ⇒ chạm từ là TÔ (chưa chọn màu thì được
+    // nhắc chọn). Đóng khay ⇒ chạm từ mở bảng tra nghĩa như cũ. Từ đã có
+    // trạng thái luôn hiện màu trạng thái để thấy kết quả ngay tại chỗ, không
+    // phải mở tab "Từ vựng" để kiểm tra.
+    final painting = _tsPaintOpen;
+    final paintColor =
+        _tsPaintState == null ? null : _paintColorOf(_tsPaintState!);
     return Wrap(
       spacing: 3,
       runSpacing: 2,
       children: line.words
           .map((w) => GestureDetector(
-                onTap: () => _showWordPopup(w),
+                onTap: painting
+                    ? () => _tsPaintWord(w)
+                    : () => _showWordPopup(w),
                 child: Text(
                   context.uiText('${w.text} '),
                   style: TextStyle(
-                    color: w.type == 'other' ? Colors.white : w.typeColor,
+                    color: _paintColorOf(w.state) ??
+                        (w.type == 'other' ? Colors.white : w.typeColor),
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: painting || w.state != WordState.unknown
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    decoration: w.state == WordState.ignored
+                        ? TextDecoration.lineThrough
+                        : (painting ? TextDecoration.underline : null),
+                    decorationColor: paintColor,
+                    decorationStyle:
+                        painting ? TextDecorationStyle.dashed : null,
                   ),
                 ),
               ))
           .toList(),
     );
+  }
+
+  /// Màu của một trạng thái từ; `unknown` ⇒ `null` (dùng màu từ loại).
+  ///
+  /// Dùng chung cho chip trong khay màu, chữ trong danh sách phụ đề và tab
+  /// "Từ vựng" để ba nơi không lệch màu nhau.
+  Color? _paintColorOf(WordState state) {
+    switch (state) {
+      case WordState.known:
+        return const Color(0xFF4CAF50);
+      case WordState.learning:
+        return const Color(0xFF9C27B0);
+      case WordState.ignored:
+        return const Color(0xFF607D8B);
+      case WordState.unknown:
+        return null;
+    }
   }
 
   // ── Word tab ──────────────────────────────────────────────

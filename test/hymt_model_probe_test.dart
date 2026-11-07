@@ -28,7 +28,7 @@ void main() {
         tensorCount: tensors,
       );
 
-  group('HyMtModelProbe.diagnose', () {
+  group('HYMT/6 diagnose', () {
     test('Q4_K_M hunyuan-dense: KHÔNG báo lỗi', () {
       final d = HyMtModelProbe.diagnose(
         sizeBytes: 1150 * 1024 * 1024,
@@ -91,7 +91,7 @@ void main() {
     });
   });
 
-  group('HyMtModelProbe — khung lượt', () {
+  group('HYMT/6 framing needs', () {
     test('hunyuan (hoặc chưa đọc được arch) cần khung <｜hy_User｜>', () {
       expect(HyMtModelProbe.needsHunyuanFraming(null), isTrue);
       expect(HyMtModelProbe.needsHunyuanFraming(info()), isTrue);
@@ -106,7 +106,7 @@ void main() {
     });
   });
 
-  group('HyMtEngine — hằng số model đã đổi sang bản load được', () {
+  group('HYMT/6 model constants', () {
     test('tên file + URL mặc định là Q4_K_M của tencent (mainline quant)', () {
       expect(HyMtEngine.fileName, 'HY-MT1.5-1.8B-Q4_K_M.gguf');
       expect(HyMtEngine.downloadUrl, contains('tencent/HY-MT1.5-1.8B-GGUF'));

@@ -173,9 +173,17 @@ class HyMtPrompts {
       userToken,
       bosToken,
     ];
+    // Cắt ĐUÔI (token kết thúc model nhả thêm).
     for (final f in fences) {
       final i = out.indexOf(f);
       if (i >= 0) out = out.substring(0, i).trim();
+    }
+    // Token khung nằm ở ĐẦU output (model nhả lại `<｜hy_Assistant｜>`): phải
+    // bỏ phần ĐẦU, không phải cắt từ đó tới hết — nếu không cả bản dịch thành
+    // chuỗi rỗng. Trước đây nhánh này biến mọi output có token mở đầu thành
+    // "trả về rỗng" (lỗi thật, CI bắt được khi chạy `hymt_prompt_test`).
+    for (final f in fences) {
+      if (out.startsWith(f)) out = out.substring(f.length).trim();
     }
     // Nếu model lặp lại prompt, lấy phần sau source.
     final src = sourceText.trim();

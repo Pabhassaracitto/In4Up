@@ -24,13 +24,14 @@ import 'dart:isolate';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:in4up_ai/src/engine/ai_native_bindings.dart';
+import 'package:in4up_ai/in4up_ai.dart' show AiNativeBindings, GgufInfo;
 import 'package:in4up_core/heavy_task_monitor.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'hymt_chunking.dart';
+import 'hymt_model_probe.dart';
 import 'hymt_prompts.dart';
 import 'hymt_slot.dart';
 import 'translation_engine.dart';
@@ -295,6 +296,8 @@ class HyMtIsolateBackend implements HyMtBackend {
     final native = AiNativeBindings.tryLoad();
     ffi.Pointer<ffi.Void>? handle;
     String? loadError;
+    // Chỉ để log 1 lần/lần load — tránh spam logcat với mọi request.
+    var emptyLogged = false;
     if (native == null) {
       loadError = 'Build chưa có llama.cpp (in4up_ai_native) — cần bản app '
           'có AI native.';
@@ -302,8 +305,13 @@ class HyMtIsolateBackend implements HyMtBackend {
       handle = native.create(init.modelPath, contextSize: 2048, threads: 4);
       if (handle == ffi.nullptr) {
         handle = null;
-        loadError = 'llama_model_load_from_file thất bại: file GGUF '
-            'hỏng/cắt, quant không được llama.cpp hỗ trợ, hoặc thiếu RAM.';
+        // HYMT-006: đính kèm log THẬT của llama.cpp ("unknown model
+        // architecture", "wrong tensor type", OOM…) — trước đây những dòng này
+        // chỉ rơi vào logcat và người dùng chỉ thấy một câu chung.
+        final nativeLog = native.lastLog(maxBytes: 2048).trim();
+        loadError = 'llama_model_load_from_file thất bại — file GGUF hỏng/cắt, '
+            'quant không được llama.cpp hỗ trợ, hoặc thiếu RAM.'
+            '${nativeLog.isEmpty ? '' : '\n[llama.cpp] $nativeLog'}';
       }
     }
     // FIX 2026-09-03 (HYMT-001): báo kết quả create() THẬT cho main side
@@ -328,9 +336,24 @@ class HyMtIsolateBackend implements HyMtBackend {
             maxTokens: 512,
             temperature: 0.3,
           );
-          msg.reply.send(HyMtReply.ok(out ?? ''));
+          if (out == null || out.isEmpty) {
+            // HYMT-004/006: output rỗng thường là thiếu khung
+            // <｜hy_User｜>/<｜hy_Assistant｜>, hoặc token đầu là EOG. Native đã
+            // ghi lý do vào log — chuyển sang Dart để thấy được (1 lần/lần load).
+            if (!emptyLogged) {
+              emptyLogged = true;
+              final hint = (native?.lastLog(maxBytes: 800) ?? '').trim();
+              if (hint.isNotEmpty) debugPrint('[Hy-MT native] $hint');
+            }
+            msg.reply.send(HyMtReply.ok(''));
+            continue;
+          }
+          msg.reply.send(HyMtReply.ok(out));
         } catch (e) {
-          msg.reply.send(HyMtReply.fail('Hy-MT: $e'));
+          final hint = (native?.lastLog(maxBytes: 600) ?? '').trim();
+          msg.reply.send(HyMtReply.fail(
+            'Hy-MT: $e${hint.isEmpty ? '' : '\n[llama.cpp] $hint'}',
+          ));
         }
       }
     }
@@ -406,22 +429,34 @@ class HyMtEngine extends TranslationEngine {
     );
   }
 
-  static const fileName = 'Hy-MT1.5-1.8B-2bit.gguf';
+  // ── HYMT-003 (2026-11-06) — ĐỔI FILE MẶC ĐỊNH ───────────────────────────
+  // Bản cũ tải `Hy-MT1.5-1.8B-2bit.gguf` (601 MB) từ tencent/…-2bit-GGUF.
+  // File đó được quantize bằng PR ggml-org/llama.cpp#19357 (`q2_0c`: block 512
+  // + kernel SME2) — PR CHƯA MERGE, còn llama.cpp đã pin trong repo
+  // (`third_party/llama.cpp` = d7fa69b7) hiểu `q2_0` theo block 64 của
+  // mainline ⇒ sai layout ⇒ `llama_model_load_from_file()` trả NULL.
+  // Đó là lý do "file đúng 601 MB, magic GGUF đúng" mà vẫn không load được —
+  // và cũng là lý do thử 1.5 / 1.8 / "2 bản 1 GB" đều hỏng như nhau.
+  // File mặc định giờ là Q4_K_M của tencent/HY-MT1.5-1.8B-GGUF: ĐÚNG kiến
+  // trúc `hunyuan-dense`, quant mainline, llama.cpp đã pin load được.
+  static const fileName = 'HY-MT1.5-1.8B-Q4_K_M.gguf';
   static const folderName = 'in4up_hymt';
   static const minBytes = 80 * 1024 * 1024; // 80MB — ngưỡng tuyệt đối thấp
-  /// Size file thật trên HF (tencent/Hy-MT1.5-1.8B-2bit-GGUF, xác minh
-  /// 2026-09-03): 601MB. File nhỏ hơn rõ ràng ngưỡng này = download/import
-  /// BỊ CẮT → llama_model_load_from_file fail trả NULL → lỗi
-  /// "Hy-MT native không load được" dù file vẫn nằm đó.
-  static const expectedBytes = 601 * 1024 * 1024;
+  /// Size file Q4_K_M trên HF (tencent/HY-MT1.5-1.8B-GGUF, xác minh
+  /// 2026-11-06): 1,13 GB. Nhỏ hơn rõ ràng ngưỡng này = tải/import bị cắt.
+  static const expectedBytes = 1150 * 1024 * 1024;
 
-  /// File < ~80% expected coi là cắt (chấp nhận file LỚN hơn — có thể là
-  /// quant khác của cùng model). 481MB ≈ 80% × 601MB.
-  static const int minPlausibleBytes = 481 * 1024 * 1024;
+  /// File < 400 MB = file cắt của MỌI bản Hy-MT 1.8B (bản nhỏ nhất từng phát
+  /// hành, 1.25-bit, là ~440 MB). Quant khác hơi nhỏ hơn dự kiến vẫn nhận.
+  static const int minPlausibleBytes = HyMtModelProbe.minPlausibleBytes;
 
   static const downloadUrl =
-      'https://huggingface.co/tencent/Hy-MT1.5-1.8B-2bit-GGUF/resolve/main/'
-      'Hy-MT1.5-1.8B-2bit.gguf?download=true';
+      'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/main/'
+      'HY-MT1.5-1.8B-Q4_K_M.gguf?download=true';
+
+  /// Model 2-bit cũ — vẫn NHẬN khi import, nhưng báo rõ là KHÔNG load được với
+  /// llama.cpp đã pin (thay vì để người dùng đoán).
+  static const legacyBlockedFileName = 'Hy-MT1.5-1.8B-2bit.gguf';
   static const _prefPath = 'hymt_gguf_path';
   static const _prefEngine = 'translation_offline_engine';
 
@@ -491,25 +526,70 @@ class HyMtEngine extends TranslationEngine {
     // File có magic nhưng nhỏ hơn đáng kể model phát hành là download bị cắt.
     if (size < minPlausibleBytes) {
       final mb = (size / 1048576).toStringAsFixed(0);
-      return 'bị cắt ($mb MB; cần khoảng 601 MB)';
+      return 'bị cắt ($mb MB; cần khoảng 1,1 GB)';
     }
     return null;
   }
 
   static Future<String?> _validateModelFile(String path) async {
+    final diagnosis = await diagnoseModelFile(path);
+    return diagnosis.isOk ? null : diagnosis.message;
+  }
+
+  /// Cache chẩn đoán theo (path, size, mtime): `resolvedModelPath()` được gọi
+  /// mỗi lượt dịch, đọc lại 8 MB header mỗi lần là lãng phí (XLAT-SCR-005).
+  static final Map<String, (int, int, HyMtModelDiagnosis)> _diagCache =
+      <String, (int, int, HyMtModelDiagnosis)>{};
+
+  /// Chẩn đoán ĐẦY ĐỦ một file model (HYMT-003): magic + kích thước + header
+  /// GGUF thật (arch/quant) qua native `in4up_ai_inspect_gguf`.
+  ///
+  /// Chỉ đọc 8 MB đầu file ([GgufInfo.prefixBytes]), KHÔNG nạp model 1 GB vào
+  /// RAM. Bản native cũ không có symbol inspect ⇒ `info` null và chỉ kiểm tra
+  /// magic/kích thước (không kết luận sai là hỏng).
+  static Future<HyMtModelDiagnosis> diagnoseModelFile(String path) async {
     final file = File(path);
     try {
-      if (!await file.exists()) return 'không tồn tại';
+      if (!await file.exists()) {
+        return const HyMtModelDiagnosis(
+          kind: HyMtModelIssueKind.unreadable,
+          message: 'không tồn tại',
+        );
+      }
       final size = await file.length();
-      final head = await file.openRead(0, 4).fold<List<int>>(
-        <int>[],
-        (bytes, chunk) => bytes..addAll(chunk),
-      );
-      return validateModelHeader(head, size);
+      final stamp = (await file.lastModified()).millisecondsSinceEpoch;
+      final cached = _diagCache[path];
+      if (cached != null && cached.$1 == size && cached.$2 == stamp) {
+        return cached.$3;
+      }
+      final head = await file.openRead(0, GgufInfo.prefixBytes).fold<List<int>>(
+            <int>[],
+            (bytes, chunk) => bytes..addAll(chunk),
+          );
+      final magicIssue = validateModelHeader(head.take(4).toList(), size);
+      if (magicIssue != null && magicIssue.contains('magic')) {
+        return HyMtModelDiagnosis(
+          kind: HyMtModelIssueKind.notGguf,
+          sizeBytes: size,
+          message: magicIssue,
+        );
+      }
+      // Header thật: arch + quant + chat template.
+      final info = AiNativeBindings.tryLoad()?.inspectGguf(head);
+      final diagnosis = HyMtModelProbe.diagnose(sizeBytes: size, info: info);
+      debugPrint('🔎 Hy-MT model: ${HyMtModelProbe.describe(info, size)}');
+      _diagCache[path] = (size, stamp, diagnosis);
+      return diagnosis;
     } on FileSystemException catch (e) {
-      return 'không đọc được file (${e.osError?.message ?? e.message})';
+      return HyMtModelDiagnosis(
+        kind: HyMtModelIssueKind.unreadable,
+        message: 'không đọc được file (${e.osError?.message ?? e.message})',
+      );
     } catch (e) {
-      return 'không đọc được file ($e)';
+      return HyMtModelDiagnosis(
+        kind: HyMtModelIssueKind.unreadable,
+        message: 'không đọc được file ($e)',
+      );
     }
   }
 
@@ -542,10 +622,17 @@ class HyMtEngine extends TranslationEngine {
         if (path == null) continue;
         final f = File(path);
         if (await f.exists()) {
-          final issue = await _validateModelFile(path);
-          if (issue != null) {
-            return 'File Hy-MT $issue: $path — bấm "Tải về" để tải lại '
-                'file đầy đủ hoặc chọn đúng model Hy-MT GGUF.';
+          final diagnosis = await diagnoseModelFile(path);
+          if (!diagnosis.isOk) {
+            // HYMT-003: nói ĐÚNG vấn đề (quant bị chặn / sai kiến trúc /
+            // file cắt) thay vì gộp thành "không load được".
+            if (diagnosis.quantBlocked) {
+              return 'File ${p.basename(path)} ${diagnosis.message} '
+                  'Bấm "Tải về" để lấy bản Q4_K_M mà app load được.';
+            }
+            return 'File Hy-MT ${diagnosis.message}: ${p.basename(path)} — '
+                'bấm "Tải về" để tải lại file đầy đủ hoặc chọn đúng model '
+                'HY-MT1.5-1.8B-GGUF (Q4_K_M).';
           }
         }
       }
@@ -580,23 +667,29 @@ class HyMtEngine extends TranslationEngine {
   Future<String?> importFromUser() async {
     final result = await FilePicker.pickFiles(
       type: FileType.any,
-      dialogTitle: 'Chọn Hy-MT1.5-1.8B-2bit.gguf',
+      // HYMT-003: Hy-MT thật sự cần quant MAINLINE. File 2-bit/1.25-bit của
+      // AngelSlim/tencent (không có kernel trong llama.cpp đã pin) sẽ bị từ
+      // chối kèm giải thích thay vì import xong rồi "không dịch được".
+      dialogTitle: 'Chọn HY-MT1.5-1.8B-Q4_K_M.gguf (~1.1 GB)',
     );
     final srcPath = result?.files.single.path;
     if (srcPath == null || srcPath.isEmpty) return null;
     final src = File(srcPath);
     if (!await src.exists()) return 'File không tồn tại';
     if (!srcPath.toLowerCase().endsWith('.gguf')) {
-      return 'Cần file .gguf (Hy-MT1.5-1.8B-2bit.gguf)';
+      return 'Cần file .gguf (HY-MT1.5-1.8B-Q4_K_M.gguf)';
     }
-    final issue = await _validateModelFile(srcPath);
-    if (issue != null) return 'Model Hy-MT $issue: $srcPath';
+    final diagnosis = await diagnoseModelFile(srcPath);
+    if (!diagnosis.isOk) {
+      return 'Model Hy-MT ${diagnosis.message}: ${p.basename(srcPath)}';
+    }
     final dest = await defaultSavePath();
     if (p.normalize(src.path) != p.normalize(dest)) {
       await src.copy(dest);
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefPath, dest);
+    _diagCache.clear();
     await disposeRuntime();
     return null; // success
   }
@@ -630,10 +723,10 @@ class HyMtEngine extends TranslationEngine {
       );
       final f = File(tmp);
       if (!await f.exists()) return 'Không ghi được file';
-      final issue = await _validateModelFile(tmp);
-      if (issue != null) {
+      final diagnosis = await diagnoseModelFile(tmp);
+      if (!diagnosis.isOk) {
         await f.delete();
-        return 'Model Hy-MT tải về $issue';
+        return 'Model Hy-MT tải về ${diagnosis.message}';
       }
       final out = File(dest);
       if (await out.exists()) await out.delete();
@@ -645,6 +738,7 @@ class HyMtEngine extends TranslationEngine {
       }
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefPath, dest);
+      _diagCache.clear();
       await disposeRuntime();
       return null;
     } on DioException catch (e) {
@@ -674,6 +768,7 @@ class HyMtEngine extends TranslationEngine {
       } catch (_) {}
     }
     await prefs.remove(_prefPath);
+    _diagCache.clear();
   }
 
   /// Lý do load/create() fail gần nhất (null = chưa load/chưa fail).
@@ -859,7 +954,7 @@ class HyMtEngine extends TranslationEngine {
       if (translated.trim().isEmpty) {
         return _fail(
           text,
-          'Hy-MT trả về rỗng',
+          _emptyOutputMessage(),
           HyMtErrorCode.emptyOutput,
           src,
           tgt,
@@ -948,6 +1043,30 @@ class HyMtEngine extends TranslationEngine {
       }
     }
     return null;
+  }
+
+  /// HYMT-004: "trả về rỗng" KHÔNG còn là câu cụt. Nêu đúng 2 nguyên nhân đã
+  /// xác minh (thiếu khung lượt Hy-MT; quant/sai file) + log native nếu có.
+  String _emptyOutputMessage() {
+    final buffer = StringBuffer(
+      'Hy-MT trả về rỗng. Nguyên nhân thường gặp: model không thấy khung lượt '
+      '<｜hy_User｜>…<｜hy_Assistant｜> (phải gửi đúng chat template của '
+      'Hy-MT1.5), hoặc file model là quant llama.cpp trong app không hỗ trợ.',
+    );
+    final log = (_nativeLog() ?? '').trim();
+    if (log.isNotEmpty) buffer.write('\n[llama.cpp] $log');
+    return buffer.toString();
+  }
+
+  /// Log llama.cpp gần nhất (null khi bản native cũ / chưa có log).
+  String? _nativeLog({int maxBytes = 1200}) {
+    try {
+      final log =
+          AiNativeBindings.tryLoad()?.lastLog(maxBytes: maxBytes).trim();
+      return (log == null || log.isEmpty) ? null : log;
+    } catch (_) {
+      return null;
+    }
   }
 
   TranslationResult _fail(

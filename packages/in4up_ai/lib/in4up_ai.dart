@@ -80,3 +80,8 @@ export 'src/provider/ai_sse.dart';
 
 // WP2 (API-003) — Model + parser kết quả transcribe audio (verbose_json).
 export 'src/provider/ai_transcription.dart';
+
+// HYMT-003 (2026-11-06) — đọc header GGUF (arch/quant/chat template) MÀ KHÔNG
+// load model: dùng để giải thích đúng vì sao một file Hy-MT không chạy, thay vì
+// gộp mọi trường hợp thành "native không load được".
+export 'src/engine/ai_native_bindings.dart' show AiNativeBindings, GgufInfo;

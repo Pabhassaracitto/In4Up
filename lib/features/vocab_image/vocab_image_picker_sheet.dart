@@ -12,6 +12,7 @@
 // URL: ôn tập phải chạy offline và link ngoài mạng chết bất cứ lúc nào.
 
 import 'dart:typed_data';
+import 'package:in4up/services/image_cache_policy.dart';
 
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
@@ -264,6 +265,8 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
                     image.imageUrl,
+                    // PERF-001-A: xem trước trong sheet (cao tối đa 320 px).
+                    cacheWidth: ImageCachePolicy.previewCacheWidth,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stack) => Icon(
                         Icons.broken_image_outlined,
@@ -910,6 +913,8 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                 children: [
                   Image.network(
                     image.thumbUrl,
+                    // PERF-001-A: thumbnail lưới chọn ảnh.
+                    cacheWidth: ImageCachePolicy.thumbCacheWidth,
                     fit: BoxFit.cover,
                     gaplessPlayback: true,
                     loadingBuilder: (context, child, progress) =>
@@ -1210,7 +1215,12 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
         ),
       );
     }
-    return Image.memory(bytes, fit: BoxFit.contain);
+    return Image.memory(
+      bytes,
+      // PERF-001-A: ảnh dán/xem trước — không decode full size.
+      cacheWidth: ImageCachePolicy.previewCacheWidth,
+      fit: BoxFit.contain,
+    );
   }
 
   // ──────────────────────────────────────────────── ANIMATION (VOCAB-MEDIA-003)
@@ -1442,6 +1452,8 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                   if (hasStaticPreview)
                     Image.network(
                       item.thumbUrl,
+                      // PERF-001-A: thumbnail thư viện animation.
+                      cacheWidth: ImageCachePolicy.thumbCacheWidth,
                       fit: BoxFit.cover,
                       gaplessPlayback: true,
                       loadingBuilder: (context, child, progress) =>

@@ -7,6 +7,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:in4up/services/image_cache_policy.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -1204,6 +1205,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   void dispose() {
     _controller.removeListener(_onStateChanged);
     _controller.dispose();
+    // PERF-001-A: rời màn đọc web — nhả ảnh nếu ImageCache đang vượt hạn mức
+    // (xem ImageCachePolicy.trimAfterHeavyScreenExit).
+    ImageCachePolicy.trimAfterHeavyScreenExit();
     super.dispose();
   }
 

@@ -9,6 +9,7 @@
 
 import 'dart:async';
 
+import 'package:in4up/services/image_cache_policy.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart' hide PdfAnnotation;
@@ -213,6 +214,10 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
     _searcher = null;
     _controller.removeListener(_onControllerUpdate);
     _controller.dispose();
+    // PERF-001-A: rời màn PDF = rời nơi tiêu RAM ảnh nhiều nhất. Chỉ xoá khi
+    // ImageCache đang VƯỢT hạn mức (48 MB) — xoá vô điều kiện sẽ làm list ảnh
+    // của màn khác decode lại ⇒ khựng, đúng thứ PERF-001 phải tránh.
+    ImageCachePolicy.trimAfterHeavyScreenExit();
     super.dispose();
   }
 

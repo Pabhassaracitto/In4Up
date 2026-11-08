@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:in4up/services/image_cache_policy.dart';
 
 // localized_material = material.dart (hide Text) + Text/uiText đã locale-hóa.
 // Rule #5 (AGENTS.md): chrome không được để tiếng Việt ở locale ≠ vi.
@@ -153,6 +154,8 @@ class _VocabImagePickerState extends State<VocabImagePicker> {
                     context,
                     child: Image.file(
                       File(_localImagePath!),
+                      // PERF-001-A: ô ảnh ~96–120 px ⇒ decode 160 px là đủ.
+                      cacheWidth: ImageCachePolicy.thumbCacheWidth,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _buildPlaceholder(
                         context,
@@ -167,6 +170,8 @@ class _VocabImagePickerState extends State<VocabImagePicker> {
                         context,
                         child: Image.network(
                           widget.currentImageUrl!,
+                          // PERF-001-A: ảnh web gốc 1280 px — chỉ cần 160 px.
+                          cacheWidth: ImageCachePolicy.thumbCacheWidth,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _buildPlaceholder(
                             context,

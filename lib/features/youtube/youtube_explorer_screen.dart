@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:in4up/services/image_cache_policy.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -967,6 +968,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   borderRadius: BorderRadius.circular(13),
                   child: thumb != null
                       ? Image.network(thumb,
+                          // PERF-001-A: avatar kênh 26 px.
+                          cacheWidth: ImageCachePolicy.thumbCacheWidth,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _av(title, 26))
                       : _av(title, 26),
@@ -1059,6 +1062,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     height: 56,
                     child: c.thumb != null
                         ? Image.network(c.thumb!,
+                            // PERF-001-A: avatar kênh 56 px.
+                            cacheWidth: ImageCachePolicy.thumbCacheWidth,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _av(c.title, 56))
                         : _av(c.title, 56)),
@@ -1119,6 +1124,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     height: 73,
                     child: v.thumb != null
                         ? Image.network(v.thumb!,
+                            // PERF-001-A: thumbnail video 130×73.
+                            cacheWidth: ImageCachePolicy.cardCacheWidth,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _thumbHolder())
                         : _thumbHolder(),

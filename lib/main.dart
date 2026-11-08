@@ -42,6 +42,8 @@ import 'screens/read_mode/services/tts_service.dart';
 import 'services/ai_settings_cloud_sync.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_rest_auth.dart';
+import 'services/image_cache_policy.dart';
+import 'services/model_idle_watchdog.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
@@ -118,6 +120,16 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // PERF-001-A: đặt hạn mức ảnh tường minh (mặc định Flutter = 1000 ảnh /
+  // 100 MB và không tự giảm khi rời màn — xem lib/services/image_cache_policy.dart).
+  ImageCachePolicy.apply();
+
+  // PERF-001-B: watchdog "nhả model khi rảnh". Công tắc ở Settings được đọc
+  // sau (không block startup) nhưng đăng ký AI engine phải có TRƯỚC lượt
+  // analyze đầu tiên.
+  _wireModelIdleWatchdog();
+  unawaited(_restoreModelIdleWatchdogSetting());
+
   // ★ Chỉ Firebase là bắt buộc trước runApp
   await _initializeFirebaseSafely();
 
@@ -168,6 +180,38 @@ Future<void> main(List<String> args) async {
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();
+}
+
+// ── PERF-001-B — watchdog "nhả model khi rảnh" ──────────────────────────────
+//
+// Chỉ ĐĂNG KÝ hàm nhả đã có sẵn của engine (không đổi logic engine):
+//   • Gemma/AI  → `AiEngineGemma.dispose()` (packages/in4up_ai/…:275). Facade
+//     tự dựng lại engine ở lượt sau vì `_ensureEngineReady()` coi state
+//     `disposed` là "cần restart" (ai_service_facade.dart:742-752).
+//   • Hy-MT / VieNeu tự đăng ký trong chính file engine (cùng package).
+//   • STT/Sherpa: KHÔNG nối — xem ghi chú trong docs/project/PERF_001_MEASUREMENT.md
+//     (recognizer đã được free sau MỖI lần transcribe; `SherpaModelManager
+//     .dispose()` là teardown singleton, gọi lúc app đang chạy sẽ làm hỏng
+//     Settings đang subscribe asrState/piperState).
+void _wireModelIdleWatchdog() {
+  final watchdog = ModelIdleWatchdog.instance;
+  AiEngineGemma.onReadyHook = (engine) {
+    watchdog.register('ai_gemma', engine.dispose, isBusy: () => engine.isBusy);
+  };
+  AiEngineGemma.onActivityHook = () => watchdog.touch('ai_gemma');
+}
+
+/// Đọc công tắc "Nhả model khi rảnh" đã lưu (mặc định BẬT) — chạy nền, không
+/// block `runApp`.
+Future<void> _restoreModelIdleWatchdogSetting() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(ModelIdleWatchdog.prefEnabledKey) ??
+        ModelIdleWatchdog.defaultEnabled;
+    ModelIdleWatchdog.instance.setEnabled(enabled);
+  } catch (e) {
+    debugPrint('[in4up-perf] không đọc được công tắc watchdog: $e');
+  }
 }
 
 void _bootstrapSttInBackground() {

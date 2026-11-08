@@ -18,6 +18,7 @@
 //   • Chỉ flashcard/màn chi tiết animate=true; 1 thẻ animate tại 1 thởi điểm.
 
 import 'dart:async';
+import 'package:in4up/services/image_cache_policy.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -152,6 +153,8 @@ class _VocabularyMediaWidgetState extends State<VocabularyMediaWidget> {
             )
           : Image.file(
               File(local),
+              // PERF-001-A: thẻ từ vựng (width ~120–320 px).
+              cacheWidth: ImageCachePolicy.cardCacheWidth,
               fit: widget.fit,
               errorBuilder: _imageBroken,
             );
@@ -170,6 +173,8 @@ class _VocabularyMediaWidgetState extends State<VocabularyMediaWidget> {
             )
           : Image.network(
               raw,
+              // PERF-001-A: không decode ảnh web 1280 px cho ô 320 px.
+              cacheWidth: ImageCachePolicy.cardCacheWidth,
               fit: widget.fit,
               errorBuilder: _imageBroken,
               loadingBuilder: _imageLoading,

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:in4up/services/image_cache_policy.dart';
 
 import 'package:flutter/material.dart';
 
@@ -89,6 +90,8 @@ class _VocabImageThumbnailState extends State<VocabImageThumbnail> {
       child: _resolvedPath != null
           ? Image.file(
               File(_resolvedPath!),
+              // PERF-001-A: thumbnail list từ (size ~56–96 px).
+              cacheWidth: ImageCachePolicy.thumbCacheWidth,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Icon(
                 Icons.broken_image,

@@ -15,6 +15,7 @@ import 'dart:io';
 // `TextStyle.shadows` — thuần Flutter, chạy được trên mọi backend.
 
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:in4up/services/image_cache_policy.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
 import 'package:provider/provider.dart';
@@ -2993,6 +2994,8 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
                   v.thumb!,
                   width: 44,
                   height: 26,
+                  // PERF-001-A: thumbnail 44×26 ⇒ decode 160 px.
+                  cacheWidth: ImageCachePolicy.thumbCacheWidth,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const Icon(
                       Icons.play_circle_outline,

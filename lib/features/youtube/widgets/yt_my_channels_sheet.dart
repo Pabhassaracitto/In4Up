@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:in4up/services/image_cache_policy.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
 
 import '../models/yt_channel.dart';
@@ -506,6 +507,8 @@ class _ChannelVideosSheetState extends State<_ChannelVideosSheet> {
                     h.thumb!,
                     width: 52,
                     height: 30,
+                    // PERF-001-A: thumbnail 52×30 ⇒ decode 160 px.
+                    cacheWidth: ImageCachePolicy.thumbCacheWidth,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Icon(
                         Icons.play_circle_outline,

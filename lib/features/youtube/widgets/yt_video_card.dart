@@ -1,3 +1,4 @@
+import 'package:in4up/services/image_cache_policy.dart';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -32,6 +33,8 @@ class YtVideoCard extends StatelessWidget {
             child: video.thumb != null
                 ? Image.network(video.thumb!,
                     width: 84, height: 58,
+                    // PERF-001-A: thumbnail 84×58 ⇒ decode 160 px.
+                    cacheWidth: ImageCachePolicy.thumbCacheWidth,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _placeholder())
                 : _placeholder(),
@@ -175,7 +178,9 @@ class YtHistoryItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: video.thumb != null
               ? Image.network(video.thumb!,
-                  width: 56, height: 40, fit: BoxFit.cover,
+                  width: 56, height: 40,
+                  cacheWidth: ImageCachePolicy.thumbCacheWidth,
+                  fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _smallPlaceholder())
               : _smallPlaceholder(),
         ),

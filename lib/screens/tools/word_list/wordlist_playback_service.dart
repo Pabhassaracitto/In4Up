@@ -30,7 +30,7 @@ class WordlistPlaybackService extends ChangeNotifier {
   final Future<void> Function(String, String?)? _speakOverride;
   final Future<void> Function()? _stopOverride;
   Future<void> _speak(String text, String? language) => _speakOverride != null
-      ? _speakOverride(text, language)
+      ? _speakOverride!(text, language)
       : _tts!.speak(text, language: language, matchVoiceLanguage: true);
   Future<void> _stopAudio() => _stopOverride?.call() ?? _tts!.stop();
   static const double _kSpeakSpeed = 0.82;

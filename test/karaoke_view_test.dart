@@ -100,6 +100,8 @@ void main() {
 
   testWidgets('automatic alignment is not mistaken for manual scrolling', (tester) async {
     final lines = lyrics();
+    await tester.pumpWidget(host(lines: lines, current: 1));
+    await settleFollowing(tester);
     await tester.pumpWidget(host(lines: lines, current: 70));
     await settleFollowing(tester);
     expectCurrentVisible(tester, 70);

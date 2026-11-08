@@ -26,6 +26,17 @@ A usable database must have at least one collection, book, and segment. The
 app does not create an empty database as a fallback: it shows the data manager
 instead.
 
+## Demo fallback (PSRC-158)
+
+The checked-in asset is only a fallback for a fresh install. Every staged
+import removes its demo books, segments, translations, annotations and
+now-empty collections *before* copying real rows, so imported books never end
+up under the `Tipiṭaka — bản demo` collection and demo paragraphs are never
+returned by search or counted in the data manager. Databases created by older
+builds can be cleaned once with `TipitakaDb.purgeDemoData()`; real books that
+were attached to a demo-named collection are kept and the collection is
+renamed. Cleanup is staged and atomic, exactly like an import.
+
 ## Developer workflow
 
 1. Download one or more Pa-Auk `.db.zip` packages and extract them, or leave

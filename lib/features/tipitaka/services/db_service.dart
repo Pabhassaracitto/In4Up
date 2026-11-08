@@ -57,6 +57,34 @@ class TipitakaDatabaseInfo {
   bool get isReady => collectionCount > 0 && bookCount > 0 && segmentCount > 0;
 }
 
+/// What a destructive maintenance operation actually removed. The data
+/// manager reports this back to the user instead of silently deleting data.
+class TipitakaDataRemovalResult {
+  final int removedBooks;
+  final int removedSegments;
+  final int removedCollections;
+  final int removedTranslations;
+  final int removedFiles;
+  final int removedBytes;
+
+  const TipitakaDataRemovalResult({
+    this.removedBooks = 0,
+    this.removedSegments = 0,
+    this.removedCollections = 0,
+    this.removedTranslations = 0,
+    this.removedFiles = 0,
+    this.removedBytes = 0,
+  });
+
+  bool get isEmpty =>
+      removedBooks == 0 &&
+      removedSegments == 0 &&
+      removedCollections == 0 &&
+      removedTranslations == 0 &&
+      removedFiles == 0 &&
+      removedBytes == 0;
+}
+
 class TipitakaDb {
   /// Notifies active readers after a language/Pāli pack is atomically installed.
   static final ValueNotifier<int> importRevision = ValueNotifier<int>(0);
@@ -236,6 +264,76 @@ class TipitakaDb {
     return target;
   }
 
+  /// True when the installed DB still carries the checked-in demo catalogue.
+  /// The UI uses this to offer an explicit one-off cleanup for databases
+  /// created by older builds (PSRC-158).
+  static Future<bool> hasDemoData(Database db) async {
+    final rows = await db.rawQuery(
+      'SELECT 1 FROM tipitaka_books b '
+      'WHERE NOT (${_bookNotDemoSql('b')}) LIMIT 1',
+    );
+    if (rows.isNotEmpty) return true;
+    final collections = await db.query(
+      'tipitaka_collections',
+      columns: const ['name_pali', 'name_en', 'name_vi'],
+    );
+    for (final row in collections) {
+      final names = '${row['name_pali'] ?? ''} ${row['name_en'] ?? ''} '
+          '${row['name_vi'] ?? ''}';
+      if (_isDemoCatalogName(names)) return true;
+    }
+    return false;
+  }
+
+  /// Physically removes the bundled demo catalogue from an installed DB.
+  ///
+  /// Work happens in a staged copy and is installed atomically, so a failure
+  /// never damages the current library. Real books that older builds attached
+  /// to a demo-named collection are kept; the collection is renamed instead.
+  /// New imports call [_purgeDemoCatalog] directly, before any rows are copied.
+  static Future<TipitakaDataRemovalResult> purgeDemoData({
+    String? destinationPath,
+  }) {
+    return _withImportLock(() => _purgeDemoDataLocked(destinationPath));
+  }
+
+  static Future<TipitakaDataRemovalResult> _purgeDemoDataLocked(
+    String? destinationPath,
+  ) async {
+    await _ensureDatabaseFactory();
+    final targetPath = destinationPath ?? await installedDatabasePath();
+    if (!await _isUsableDatabaseFile(targetPath)) {
+      return const TipitakaDataRemovalResult();
+    }
+    await _recoverInterruptedInstall(targetPath);
+    await _cleanupStaleImportFiles(targetPath);
+    if (_openPath == targetPath) await close();
+    final temporaryPath = _importTemporaryPath(targetPath);
+    Database? staged;
+    try {
+      staged = await _openImportTarget(targetPath, temporaryPath);
+      final removed = await staged.transaction(
+        (transaction) => _purgeDemoCatalog(transaction),
+      );
+      if (removed.isEmpty) {
+        await staged.close();
+        staged = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return removed;
+      }
+      await _installImportTarget(staged, targetPath, temporaryPath);
+      staged = null;
+      _notifyImportChanged();
+      return removed;
+    } catch (_) {
+      await staged?.close();
+      final temporary = File(temporaryPath);
+      if (await temporary.exists()) await temporary.delete();
+      rethrow;
+    }
+  }
+
   /// Installs either a normalized DB or a Pa-Auk source DB selected by the
   /// user/developer. Source databases are normalized in-app, so the user does
   /// not need Python just to import a downloaded language package.
@@ -313,6 +411,8 @@ class TipitakaDb {
         return targetPath;
       }
       await target.transaction((transaction) async {
+        // PSRC-158: the demo fallback must not survive beside imported data.
+        await _purgeDemoCatalog(transaction);
         final count = await _mergeNormalizedRows(source!, transaction);
         if (count == 0) {
           throw const TipitakaDatabaseException(
@@ -907,6 +1007,8 @@ class TipitakaDb {
         return targetPath;
       }
       await target.transaction((transaction) async {
+        // PSRC-158: drop the bundled demo before real Pāli rows are copied.
+        await _purgeDemoCatalog(transaction);
         final count = await _copyPaliTables(source, transaction);
         if (count == 0) {
           throw const TipitakaDatabaseException(
@@ -953,6 +1055,9 @@ class TipitakaDb {
         return targetPath;
       }
       await target.transaction((transaction) async {
+        // PSRC-158: a translation pack replaces the demo fallback; purging
+        // first also stops it from landing in the demo-named collection.
+        await _purgeDemoCatalog(transaction);
         final count = await _mergeTranslationSource(
           transaction,
           source,
@@ -1170,6 +1275,8 @@ class TipitakaDb {
       if (id is! int) continue;
       final names = '${row['name_pali']} ${row['name_en']} ${row['name_vi']}'
           .toLowerCase();
+      // PSRC-158: never attach imported books to a demo-named collection.
+      if (_isDemoCatalogName(names)) continue;
       if (names.contains('vin') || names.contains('luật')) {
         result['vinaya'] = id;
       } else if (names.contains('abh') || names.contains('diệu')) {
@@ -2046,6 +2153,18 @@ class TipitakaDb {
     // These columns let translation packs join rows from the same Pa-Auk
     // source DB without relying on fragile row ordering. ALTER is intentionally
     // best-effort for databases created by older app versions.
+    // Older app builds (and the checked-in demo DB) predate some catalog
+    // columns. Queries such as _bookNotDemoSql and locale titles assume them,
+    // so add them best-effort before any maintenance/import work.
+    await _ensureColumn(db, 'tipitaka_books', 'metadata_json', 'TEXT');
+    for (final column in const [
+      'translation_en',
+      'translation_vi',
+      'translation_my',
+      'translation_th',
+    ]) {
+      await _ensureColumn(db, 'tipitaka_segments', column, 'TEXT');
+    }
     await _ensureColumn(db, 'tipitaka_segments', 'source_table', 'TEXT');
     await _ensureColumn(db, 'tipitaka_segments', 'source_row_key', 'TEXT');
     await _ensureColumn(
@@ -2260,6 +2379,150 @@ class TipitakaDb {
       _officialCatalogCacheValue = found;
     }
     return found;
+  }
+
+  /// Matches the demo wording used by the checked-in fallback DB and by older
+  /// import scripts (`Tipiṭaka — bản demo`, `Demo collection`, `sample import`).
+  static final RegExp _demoCatalogNamePattern = RegExp(
+    r'\bdemo\b|bản\s+demo|\bsample\s+import\b',
+    caseSensitive: false,
+  );
+
+  static bool _isDemoCatalogName(String value) =>
+      _demoCatalogNamePattern.hasMatch(value);
+
+  /// Removes demo wording from a collection that still holds real books
+  /// imported by an older build. We keep the collection id so reading
+  /// positions and book anchors remain valid.
+  static String _stripDemoMarkers(String value) {
+    final cleaned = value
+        .replaceAll(
+          RegExp(r'\b(?:demo|sample)\s+import\b', caseSensitive: false),
+          '',
+        )
+        .replaceAll(RegExp(r'\bbản\s+demo\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bdemo\b|\bsample\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\s—–,:;|-]+'), ' ')
+        .trim();
+    return cleaned.isEmpty ? 'Tipiṭaka' : cleaned;
+  }
+
+  static String _sqlPlaceholders(int count) =>
+      List<String>.filled(count, '?').join(', ');
+
+  /// PSRC-158 — deletes the bundled demo catalogue (books, segments,
+  /// translations, annotations and now-empty collections) once real data is
+  /// present. Called inside every staged import transaction, *before* source
+  /// rows are copied, so newly imported books can never be attached to the
+  /// demo collection and demo paragraphs can never be joined by mistake.
+  static Future<TipitakaDataRemovalResult> _purgeDemoCatalog(
+    DatabaseExecutor db,
+  ) async {
+    final demoRows = await db.rawQuery(
+      'SELECT b.id FROM tipitaka_books b '
+      'WHERE NOT (${_bookNotDemoSql('b')})',
+    );
+    final demoIds = demoRows.map((row) => row['id']).whereType<int>().toList();
+    var removedSegments = 0;
+    var removedTranslations = 0;
+    for (var offset = 0; offset < demoIds.length; offset += 400) {
+      final end = offset + 400 > demoIds.length ? demoIds.length : offset + 400;
+      final chunk = demoIds.sublist(offset, end);
+      final placeholders = _sqlPlaceholders(chunk.length);
+      final segmentIds =
+          'SELECT id FROM tipitaka_segments WHERE book_id IN ($placeholders)';
+      final segmentCounts = await db.rawQuery(
+        'SELECT COUNT(*) AS n FROM tipitaka_segments '
+        'WHERE book_id IN ($placeholders)',
+        chunk,
+      );
+      removedSegments += _asInt(segmentCounts.first['n'], 0);
+      final translationCounts = await db.rawQuery(
+        'SELECT COUNT(*) AS n FROM tipitaka_translations '
+        'WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      removedTranslations += _asInt(translationCounts.first['n'], 0);
+      await db.rawDelete(
+        'DELETE FROM tipitaka_translations WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      await db.rawDelete(
+        'DELETE FROM tipitaka_user_notes WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      await db.rawDelete(
+        'DELETE FROM tipitaka_learning_items WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      // FTS5 is optional on some builds; LIKE search remains canonical.
+      final ftsTables = await db.rawQuery(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+        "AND name = 'tipitaka_fts' LIMIT 1",
+      );
+      if (ftsTables.isNotEmpty) {
+        await db.rawDelete(
+          'DELETE FROM tipitaka_fts WHERE segment_id IN ($segmentIds)',
+          chunk,
+        );
+      }
+      await db.delete(
+        'tipitaka_highlights',
+        where: 'book_id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      await db.rawDelete(
+        'DELETE FROM tipitaka_segments WHERE book_id IN ($placeholders)',
+        chunk,
+      );
+      await db.delete(
+        'tipitaka_books',
+        where: 'id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+    }
+
+    final collections = await db.rawQuery('''
+      SELECT c.*,
+        (SELECT COUNT(*) AS n FROM tipitaka_books b
+          WHERE b.collection_id = c.id) AS _book_count
+      FROM tipitaka_collections c
+    ''');
+    var removedCollections = 0;
+    for (final row in collections) {
+      final id = row['id'];
+      if (id is! int) continue;
+      if (_asInt(row['_book_count'], 0) == 0) {
+        await db.delete(
+          'tipitaka_collections',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        removedCollections++;
+        continue;
+      }
+      final names = <String, String>{
+        for (final column in const ['name_pali', 'name_en', 'name_vi'])
+          column: '${row[column] ?? ''}',
+      };
+      if (names.values.every((value) => !_isDemoCatalogName(value))) continue;
+      await db.update(
+        'tipitaka_collections',
+        {
+          for (final entry in names.entries)
+            entry.key: _stripDemoMarkers(entry.value),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    return TipitakaDataRemovalResult(
+      removedBooks: demoIds.length,
+      removedSegments: removedSegments,
+      removedCollections: removedCollections,
+      removedTranslations: removedTranslations,
+    );
   }
 
   static Future<List<TipitakaCollection>> getCollections(Database db) async {

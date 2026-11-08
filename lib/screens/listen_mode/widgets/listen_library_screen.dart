@@ -4,6 +4,7 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../features/media_tools/media_export_actions.dart';
 import '../../../providers/audio_library_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/audio_import_service.dart';
@@ -341,6 +342,30 @@ class _ListenLibraryScreenState extends State<ListenLibraryScreen>
               onTap: () {
                 Navigator.pop(context);
                 _openAudio(audio);
+              },
+            ),
+            // AVTOOL-003 (PLAN-047 P2) — chuyển định dạng / lấy âm thanh từ
+            // chính file đang có trong "Gần đây" (không cần mở player trước).
+            ListTile(
+              leading: const Icon(Icons.sync_alt_rounded,
+                  color: Color(0xFF26C6DA)),
+              title: Text(context.uiText('Chuyển định dạng / xuất bản sao'),
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: Text(
+                context.uiText('MP3 · M4A · WAV — giữ nguyên file gốc'),
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+              onTap: () async {
+                final path = audio.localPath;
+                Navigator.pop(context);
+                if (path == null || path.isEmpty) return;
+                await exportFullAudio(
+                  context,
+                  audioPath: path,
+                  title: audio.title,
+                  knownDuration:
+                      audio.totalDuration == Duration.zero ? null : audio.totalDuration,
+                );
               },
             ),
             ListTile(

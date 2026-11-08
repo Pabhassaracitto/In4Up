@@ -147,19 +147,30 @@ void main() {
   });
 
   group('PERF-001-D — hàm gửi isolate phải THUẦN (source-scan)', () {
-    /// Cắt phần thân 1 hàm top-level theo tên (đủ dùng cho máy bắt này).
-    String extractFunction(String source, String name) {
-      final start = source.indexOf('$name(');
-      expect(start, greaterThan(-1), reason: 'Không thấy hàm $name');
-      final end = source.indexOf('\n}', start);
-      return source.substring(start, end > 0 ? end : source.length);
+    /// Cắt phần thân 1 hàm top-level theo ĐÚNG chữ ký của nó.
+    ///
+    /// Kết thúc ở dòng chỉ có `}` (kết thúc hàm), không phải mọi `\n}` —
+    /// hàm nhiều dòng tham số có dòng `}) async {` bắt đầu bằng `}`.
+    String extractFunction(String source, String signature) {
+      final start = source.indexOf(signature);
+      expect(start, greaterThan(-1), reason: 'Không thấy hàm $signature');
+      final rest = source.substring(start);
+      final match = RegExp(r'\n\}(\n|$)').firstMatch(rest);
+      if (match == null) return rest;
+      return rest.substring(0, match.start + 2);
     }
 
     test('splitTextOffThreadIfLarge + splitTextLinesSync không đụng plugin/UI',
         () {
       final source = _read('lib/providers/text_provider.dart');
-      for (final name in ['splitTextLinesSync', 'splitTextOffThreadIfLarge']) {
-        final body = extractFunction(source, name);
+      final signatures = <String, String>{
+        'splitTextLinesSync': 'List<String> splitTextLinesSync(',
+        'splitTextOffThreadIfLarge':
+            'Future<List<String>?> splitTextOffThreadIfLarge(',
+      };
+      for (final entry in signatures.entries) {
+        final name = entry.key;
+        final body = extractFunction(source, entry.value);
         for (final forbidden in [
           'SharedPreferences',
           'path_provider',
@@ -180,7 +191,7 @@ void main() {
 
     test('parseLrcContent là hàm THUẦN (không I/O, không state)', () {
       final source = _read('lib/services/lrc_time_parser.dart');
-      final body = extractFunction(source, 'List<LrcLine> parseLrcContent');
+      final body = extractFunction(source, 'List<LrcLine> parseLrcContent(');
       for (final forbidden in [
         'File(',
         'SharedPreferences',
@@ -191,8 +202,10 @@ void main() {
             reason: 'parseLrcContent phải thuần — thấy $forbidden');
       }
       // Và cả file chỉ được gửi đúng nó vào isolate.
-      final offThread =
-          extractFunction(source, 'Future<List<LrcLine>> parseLrcContentOffThread');
+      final offThread = extractFunction(
+        source,
+        'Future<List<LrcLine>> parseLrcContentOffThread(',
+      );
       expect(offThread.contains('parseLrcContent(content)'), isTrue);
     });
 

@@ -125,8 +125,13 @@ void main() {
       expect(policy.contains("[in4up-perf] image-cache trim"), isTrue);
       expect(policy.contains('static int evictionCount'), isTrue);
       // Không được quay lại API không tồn tại (đã làm đỏ CI ở build 835e53a).
-      expect(policy.contains('onEvict'), isFalse,
-          reason: 'Flutter 3.44.1 không có setter onEvict');
+      // Chỉ cấm phép GÁN — tên 'onEvict' được phép xuất hiện trong comment
+      // giải thích lý do không dùng.
+      expect(
+        RegExp(r'\.onEvict\s*=').hasMatch(policy),
+        isFalse,
+        reason: 'Flutter 3.44.1 không có setter onEvict',
+      );
       final settings =
           _read('lib/screens/settings/stt_model_settings_screen.dart');
       expect(settings.contains('ImageCachePolicy.observe()'), isTrue);

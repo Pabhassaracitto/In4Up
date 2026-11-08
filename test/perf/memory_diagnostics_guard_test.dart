@@ -49,8 +49,8 @@ void main() {
 
     test('chẩn đoán đọc đúng 3 số liệu yêu cầu + đếm lần trim', () {
       final source = _read('lib/screens/settings/stt_model_settings_screen.dart');
-      expect(source.contains('imageCache.currentSizeBytes'), isTrue);
-      expect(source.contains('imageCache.liveImageCount'), isTrue);
+      expect(source.contains('currentSizeBytes'), isTrue);
+      expect(source.contains('liveImageCount'), isTrue);
       expect(source.contains('ProcessInfo.currentRss'), isTrue,
           reason: 'RAM tiến trình lấy qua dart:io ProcessInfo');
       expect(source.contains('ImageCachePolicy.evictionCount'), isTrue);

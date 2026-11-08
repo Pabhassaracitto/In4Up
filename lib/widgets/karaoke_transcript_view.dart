@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
 import 'package:in4up_stt/stt_lrc_converter.dart';
@@ -46,7 +45,6 @@ class _KaraokeTranscriptViewState extends State<KaraokeTranscriptView> {
   final ItemPositionsListener _positions = ItemPositionsListener.create();
   Timer? _resumeTimer;
   bool _userScrolling = false;
-  bool _programmaticScroll = false;
   bool _followScheduled = false;
   int _followGeneration = 0;
   Size? _lastViewport;
@@ -127,36 +125,29 @@ class _KaraokeTranscriptViewState extends State<KaraokeTranscriptView> {
 
     final alignment = extent >= 1 ? 0.0 : ((1 - extent) / 2).clamp(.02, .35);
     final generation = ++_followGeneration;
-    // ItemScrollController emits UserScrollNotification for its own animation
-    // too. Do not mistake that notification for a finger/mouse gesture: doing
-    // so enabled the manual-scroll grace period after EVERY automatic move,
-    // leaving the next spoken lines behind until the timer happened to fire.
-    _programmaticScroll = true;
     _items.scrollTo(
       index: index,
       alignment: alignment,
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-    ).whenComplete(() {
-      if (generation == _followGeneration) _programmaticScroll = false;
+    ).then((_) {
       if (mounted && generation == _followGeneration) _scheduleFollow();
     });
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification.depth != 0) return false;
-    final directDrag = notification is ScrollStartNotification &&
+    // Only a real drag proves user intent. UserScrollNotification is also
+    // emitted for ItemScrollController's own alignment animations (and during
+    // initial indexed layout); treating it as manual input disabled follow
+    // after every automatic move and sometimes on the very first frame.
+    final userStarted = notification is ScrollStartNotification &&
             notification.dragDetails != null ||
         notification is ScrollUpdateNotification &&
             notification.dragDetails != null;
-    final userStarted = directDrag ||
-        (!_programmaticScroll &&
-            notification is UserScrollNotification &&
-            notification.direction != ScrollDirection.idle);
     if (userStarted) {
       _resumeTimer?.cancel();
       _followGeneration++;
-      _programmaticScroll = false;
       _userScrolling = true;
     } else if (notification is ScrollEndNotification && _userScrolling) {
       // Do not fight a finger, mouse wheel, keyboard scroll, or fling. Once the

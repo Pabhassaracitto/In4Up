@@ -9102,3 +9102,15 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** cài đè 1.23.0 → 1.24.0; Knowledge 6 trục (hexagram/scatter, calibration, rollback); clone giọng VieNeu (thu mẫu + `vieneu_tts_clone_voice` — embedding hiện là **placeholder** nếu thiếu `libspeaker_encoder.so`); chọn model Q8_0/bf16 + persist; tab Xem gọn; tạm dừng khi tra từ; Hy-MT 2-bit; Tipiṭaka index; PDF word-tap.
 - **Lịch sử:**
   - 2026-11-08 | created→done | agent `arena/01a0251e-in4up` | tip `eea5ee9c` đỏ CI → sửa 4 commit (`6c6af40b`, `e4e61de5`, `8fab3800`, `9018fd67`) → bump `1.24.0+24` (`b914d650`) → tag `1.24.0` → build `42427214182` **Windows đỏ** → xoá release+tag → fix `9018fd67` → tag lại → build **42428615806** 🟢 4/4
+
+### PSRC-18 / TTS-EDGE-VOICE-003 (follow-up) — (2026-11-08) Sửa tận gốc phát giọng nam/nữ Microsoft Edge TTS, gom 8 ngôn ngữ tiêu biểu & hợp nhất API với Home Server & API
+- **Trạng thái:** doing (chờ CI + nghiệm thu máy thật)
+- **Nguồn:** Linear `PSRC-18` (comment `145838af`, 2026-11-08) — (1) Edge TTS vẫn chưa phát được cả giọng nam và nữ; (2) mục Giọng Microsoft Edge Neural chỉ hiện tiêu biểu Tiếng Việt, Tiếng Anh, Anh Anh, Trung Quốc, Hindi, Myanmar, Sri Lanka, Thái + cơ chế mở rộng phần còn lại; (3) xoá API Keys (Zalo AI & FPT.AI) trong Cài đặt Text Studio và đồng bộ tập trung 1 nơi với Server & API ở Home.
+- **Nguyên nhân gốc rễ & khắc phục:**
+  1. **Nâng giao thức `Sec-MS-GEC` lên v2 (`2-143.0.3650.75`)** theo `rany2/edge-tts` `7.3.1` (`<16-hex CS64>-<64-hex custom salted SHA-256>`, toán tử 32-bit an toàn cho cả VM lẫn Web) + tự động bù lệch giờ máy (`clockSkewSeconds`) từ HTTP header `Date` (RFC 2616 UTC) khi gặp 403 trên cả `voices/list` lẫn WebSocket.
+  2. **Chặn rò rỉ `Dart/3.x (dart:io)` trong `User-Agent`** khi bắt tay `WebSocket.connect` bằng `customClient: HttpClient()..userAgent = null`.
+  3. **Sửa chuỗi định tuyến & chọn giọng nam/nữ**: chạm trực tiếp giọng nữ mặc định (`Hoài My`) cũng lưu tường minh vào `EdgeVoicePrefs` (thay `RadioListTile` vốn không gọi `onChanged` khi `value == groupValue`); hỗ trợ đổi phương ngữ `en-US` ↔ `en-GB`; giữ `FlutterTtsServiceImpl` không ghi đè `autoDetect = false` toàn cục; khoá cache theo đúng ID giọng Edge cụ thể và không nhân đôi tốc độ phát trên `AudioPlayer`.
+  4. **UI Cài đặt Text Studio**: hiển thị đúng 8 ngôn ngữ tiêu biểu (`vi-VN`, `en-US`, `en-GB`, `zh-CN`, `hi-IN`, `my-MM`, `si-LK`, `th-TH` — đủ cặp giọng nữ + nam) kèm nút mở rộng/thu gọn các ngôn ngữ còn lại; xoá hẳn ô nhập Zalo AI & FPT.AI API Key, thay bằng `ServerApiSyncSection` đồng bộ trực tiếp với `AiProviderStore` / `AiProvidersScreen` (Home).
+- **Lịch sử:**
+  - 2026-11-08 | doing | agent `arena/4608a354-in4up` | hoàn tất 2 commit chính cho `PSRC-18` (giao thức/định tuyến Edge TTS v2 + UI 8 ngôn ngữ tiêu biểu & đồng bộ Home Server & API + i18n 8 locale + unit/widget test).
+

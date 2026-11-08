@@ -617,7 +617,8 @@ jobs:
                    test/edge_voice_prefs_test.dart \
                    test/tts_candidate_router_test.dart \
                    test/tts_cache_key_test.dart \
-                   test/tts_api_wp4_test.dart; do
+                   test/tts_api_wp4_test.dart \
+                   test/tts_settings_edge_and_api_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

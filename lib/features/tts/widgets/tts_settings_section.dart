@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:in4up/screens/settings/ai_providers_screen.dart';
+import 'package:in4up_ai/in4up_ai.dart';
 
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
@@ -39,10 +41,35 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
   final _ttsService = TtsService();
 
   @override
+  void initState() {
+    super.initState();
+    AiProviderStore.instance.ensureLoaded();
+  }
+
+  bool _isLegacyHiddenEngine(TtsEngineInfo engine) {
+    if (engine.id == 'zalo_tts') {
+      return _ttsService.zaloApiKey == null ||
+          _ttsService.zaloApiKey!.trim().isEmpty;
+    }
+    if (engine.id == 'fpt_tts') {
+      return _ttsService.fptApiKey == null ||
+          _ttsService.fptApiKey!.trim().isEmpty;
+    }
+    return false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: _ttsService,
       builder: (context, _) {
+        final visibleEngines = _ttsService.engineOrder
+            .where((e) => !_isLegacyHiddenEngine(e))
+            .toList(growable: false);
+        final hiddenEngines = _ttsService.engineOrder
+            .where(_isLegacyHiddenEngine)
+            .toList(growable: false);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -81,16 +108,22 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
             ),
             const SizedBox(height: 16),
 
-            // ── EDGE NEURAL VOICE (TTS-EDGE-VOICE-001) ──
-            const _EdgeVoicePicker(),
+            // ── EDGE NEURAL VOICE (TTS-EDGE-VOICE-001 / PSRC-18) ──
+            EdgeVoicePicker(
+              onVoiceChanged: () async {
+                if (_ttsService.isSpeaking) {
+                  await _ttsService.stop();
+                }
+              },
+            ),
             const SizedBox(height: 16),
 
             // ── ENGINE ORDER ──
             _EngineOrderSection(
-              engines: _ttsService.engineOrder,
+              engines: visibleEngines,
               color: widget.primaryColor,
               onReorder: (engines) {
-                _ttsService.reorderEngines(engines);
+                _ttsService.reorderEngines([...engines, ...hiddenEngines]);
               },
               onToggle: (id, enabled) {
                 _ttsService.toggleEngine(id, enabled);
@@ -98,16 +131,11 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
             ),
             const SizedBox(height: 16),
 
-            // ── API KEYS ──
-            _ApiKeySection(
-              fptKey: _ttsService.fptApiKey,
-              zaloKey: _ttsService.zaloApiKey,
+            // ── SERVER & API (PSRC-18: đồng bộ 1 nơi với Home Server & API) ──
+            ServerApiSyncSection(
               color: widget.primaryColor,
-              onFptKeyChanged: (key) {
-                _ttsService.configure(fptApiKey: key);
-              },
-              onZaloKeyChanged: (key) {
-                _ttsService.configure(zaloApiKey: key);
+              onConfiguredChanged: () {
+                if (mounted) setState(() {});
               },
             ),
             const SizedBox(height: 16),
@@ -361,143 +389,112 @@ class _EngineOrderSection extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════
-// API KEYS
+// SERVER & API (PSRC-18: đồng bộ 1 nơi với Home Server & API)
 // ═══════════════════════════════════════════
 
-class _ApiKeySection extends StatelessWidget {
-  final String? fptKey;
-  final String? zaloKey;
+@visibleForTesting
+class ServerApiSyncSection extends StatelessWidget {
   final Color color;
-  final ValueChanged<String> onFptKeyChanged;
-  final ValueChanged<String> onZaloKeyChanged;
+  final VoidCallback onConfiguredChanged;
 
-  const _ApiKeySection({
-    required this.fptKey,
-    required this.zaloKey,
+  const ServerApiSyncSection({
+    super.key,
     required this.color,
-    required this.onFptKeyChanged,
-    required this.onZaloKeyChanged,
+    required this.onConfiguredChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'API Keys (tùy chọn, miễn phí)',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[400],
-            fontWeight: FontWeight.w600,
+    final l10n = AppLocalizations.of(context);
+    return ListenableBuilder(
+      listenable: AiProviderStore.instance,
+      builder: (context, _) {
+        final store = AiProviderStore.instance;
+        final ttsProviders = store.enabledProviders
+            .where((p) => p.supports(AiRouteCapability.tts))
+            .toList(growable: false);
+        final active = store.resolveProvider(AiRouteCapability.tts) ??
+            (ttsProviders.isNotEmpty ? ttsProviders.first : null);
+        final hasTtsApi = active != null;
+        final summary = hasTtsApi
+            ? context.uiText(
+                'Đang đồng bộ TTS: ${active.label}'
+                '${(active.ttsModel != null && active.ttsModel!.trim().isNotEmpty) ? ' · ${active.ttsModel}' : ''}',
+              )
+            : context.uiText(
+                'Đồng bộ chung với Server & API ở Home — quản lý tập trung tại một nơi',
+              );
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const Key('tts-home-api-sync-card'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AiProvidersScreen(),
+                ),
+              );
+              onConfiguredChanged();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hasTtsApi
+                      ? Colors.green.withValues(alpha: 0.4)
+                      : color.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    hasTtsApi
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_sync_outlined,
+                    size: 18,
+                    color: hasTtsApi ? Colors.greenAccent : color,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.aiProvidersEntryTitle,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          summary,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: hasTtsApi
+                                ? Colors.green[200]
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: Colors.grey[500],
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        _ApiKeyField(
-          label: 'FPT.AI API Key',
-          hint: 'Đăng ký miễn phí tại fpt.ai',
-          value: fptKey,
-          onChanged: onFptKeyChanged,
-          color: color,
-        ),
-        const SizedBox(height: 8),
-        _ApiKeyField(
-          label: 'Zalo AI API Key',
-          hint: 'Đăng ký miễn phí tại zalo.ai',
-          value: zaloKey,
-          onChanged: onZaloKeyChanged,
-          color: color,
-        ),
-      ],
-    );
-  }
-}
-
-class _ApiKeyField extends StatefulWidget {
-  final String label;
-  final String hint;
-  final String? value;
-  final ValueChanged<String> onChanged;
-  final Color color;
-
-  const _ApiKeyField({
-    required this.label,
-    required this.hint,
-    required this.value,
-    required this.onChanged,
-    required this.color,
-  });
-
-  @override
-  State<_ApiKeyField> createState() => _ApiKeyFieldState();
-}
-
-class _ApiKeyFieldState extends State<_ApiKeyField> {
-  late TextEditingController _controller;
-  bool _obscure = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.value ?? '');
-  }
-
-  @override
-  void didUpdateWidget(covariant _ApiKeyField old) {
-    super.didUpdateWidget(old);
-    if (old.value != widget.value) {
-      _controller.text = widget.value ?? '';
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hasKey = widget.value != null && widget.value!.isNotEmpty;
-
-    return TextField(
-      controller: _controller,
-      obscureText: _obscure,
-      style: const TextStyle(color: Colors.white, fontSize: 12),
-      onSubmitted: widget.onChanged,
-      onChanged: (v) {
-        if (v.trim().length > 10 || v.isEmpty) {
-          widget.onChanged(v.trim());
-        }
+        );
       },
-      decoration: InputDecoration(
-        labelText: context.uiText(widget.label),
-        labelStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
-        hintText: context.uiText(widget.hint),
-        hintStyle: TextStyle(color: Colors.grey[700], fontSize: 10),
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.05),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-        prefixIcon: Icon(
-          hasKey ? Icons.check_circle : Icons.key,
-          size: 16,
-          color: hasKey ? Colors.green : Colors.grey,
-        ),
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscure ? Icons.visibility_off : Icons.visibility,
-            size: 16,
-            color: Colors.grey,
-          ),
-          onPressed: () => setState(() => _obscure = !_obscure),
-        ),
-      ),
     );
   }
 }
@@ -847,14 +844,22 @@ class _PiperVoicePickerState extends State<_PiperVoicePicker> {
 /// radio từng giọng. Lưu vào [EdgeVoicePrefs] (TtsService đọc khi phát bằng
 /// Edge). KHÔNG set `_selectedVoiceId` chung để không làm bẩn playback Piper/
 /// Zalo/FPT (mỗi engine một kho giọng riêng).
-class _EdgeVoicePicker extends StatefulWidget {
-  const _EdgeVoicePicker();
+@visibleForTesting
+class EdgeVoicePicker extends StatefulWidget {
+  final Future<void> Function()? onVoiceChanged;
+  final bool loadLiveVoicesOnExpand;
+
+  const EdgeVoicePicker({
+    super.key,
+    this.onVoiceChanged,
+    this.loadLiveVoicesOnExpand = true,
+  });
 
   @override
-  State<_EdgeVoicePicker> createState() => _EdgeVoicePickerState();
+  State<EdgeVoicePicker> createState() => _EdgeVoicePickerState();
 }
 
-class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
+class _EdgeVoicePickerState extends State<EdgeVoicePicker> {
   Map<String, String> _selected = {};
 
   /// TTS-EDGE-VOICE-003 — trạng thái GHIM (xem [EdgeVoicePrefs]).
@@ -865,6 +870,12 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
   /// định khi bật ghim (bật ghim rồi mà ghim giọng nữ mặc định thì lại đúng
   /// triệu chứng đang sửa).
   String? _lastExplicitVoice;
+
+  /// PSRC-18: chỉ hiển thị 8 ngôn ngữ tiêu biểu mặc định; phần còn lại nằm
+  /// trong vùng mở rộng khi người dùng bấm xem thêm.
+  bool _showMoreLanguages = false;
+  bool _loadingLiveVoices = false;
+  List<TtsVoice> _voices = EdgeTtsEngine.mergedCatalogVoices;
 
   @override
   void initState() {
@@ -878,6 +889,22 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
     EdgeVoicePrefs.instance.pinnedVoice.then((v) {
       if (mounted) setState(() => _pinnedVoice = v);
     });
+  }
+
+  Future<void> _toggleMoreLanguages() async {
+    final next = !_showMoreLanguages;
+    setState(() => _showMoreLanguages = next);
+    if (next && widget.loadLiveVoicesOnExpand && !_loadingLiveVoices) {
+      _loadingLiveVoices = true;
+      try {
+        final merged = await EdgeTtsEngine().loadMergedCatalogVoices();
+        if (mounted) {
+          setState(() => _voices = merged);
+        }
+      } finally {
+        _loadingLiveVoices = false;
+      }
+    }
   }
 
   /// Giọng sẽ ghim: giọng vừa chạm → giọng tiếng Việt đã chọn → giọng đầu
@@ -953,6 +980,12 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
       case 'hi-in':
       case 'hi':
         return '🇮🇳 Tiếng Hindi (hi-IN)';
+      case 'my-mm':
+      case 'my':
+        return '🇲🇲 Tiếng Myanmar (my-MM)';
+      case 'si-lk':
+      case 'si':
+        return '🇱🇰 Tiếng Sri Lanka (si-LK)';
       default:
         return '🌐 $code';
     }
@@ -969,9 +1002,24 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
     return voices.any((v) => v.id == def) ? def : null;
   }
 
+  Future<void> _handleSelectVoice(String lang, String id) async {
+    await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
+    final freshSelected = await EdgeVoicePrefs.instance.all();
+    await widget.onVoiceChanged?.call();
+    if (!mounted) return;
+    setState(() {
+      _selected = freshSelected;
+      _lastExplicitVoice = id;
+      if (lang == 'other') {
+        _pinAll = true;
+        _pinnedVoice = id;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final voices = EdgeTtsEngine.catalogVoices;
+    final voices = _voices;
     if (voices.isEmpty) return const SizedBox.shrink();
 
     TtsVoice? pinnedInCatalog;
@@ -986,12 +1034,26 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
     final byLang = <String, List<TtsVoice>>{};
     final order = <String>[];
     for (final v in voices) {
-      final lang =
-          EdgeVoicePrefs.normalizeLang(v.language).isEmpty ? 'other'
-              : EdgeVoicePrefs.normalizeLang(v.language);
+      final lang = EdgeVoicePrefs.normalizeLang(v.language).isEmpty
+          ? 'other'
+          : EdgeVoicePrefs.normalizeLang(v.language);
       if (!byLang.containsKey(lang)) order.add(lang);
       byLang.putIfAbsent(lang, () => []).add(v);
     }
+
+    // PSRC-18: chỉ hiển thị 8 ngôn ngữ tiêu biểu mặc định theo đúng thứ tự,
+    // các quốc gia/ngôn ngữ còn lại gập gọn vào nút mở rộng.
+    final featuredOrder = <String>[
+      for (final lang in EdgeTtsEngine.featuredLanguages)
+        if (byLang.containsKey(lang)) lang,
+    ];
+    final featuredSet = featuredOrder.toSet();
+    final remainingOrder = <String>[
+      for (final lang in order)
+        if (!featuredSet.contains(lang)) lang,
+    ];
+    final hasExplicitRemaining =
+        remainingOrder.any((lang) => _selected.containsKey(lang));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1091,35 +1153,89 @@ class _EdgeVoicePickerState extends State<_EdgeVoicePicker> {
         // phải cuộn rất lâu mới tới ngôn ngữ của mình. Giờ mỗi ngôn ngữ là
         // MỘT dòng gập lại, hiện đúng giọng đang chọn; bung ra mới thấy
         // danh sách giọng của riêng ngôn ngữ đó.
-        for (final lang in order)
+        for (final lang in featuredOrder)
           _EdgeVoiceLanguageTile(
+            tileKey: Key('edge-voice-lang-$lang'),
             languageLabel: _langLabel(lang),
             voices: byLang[lang]!,
             selectedVoiceId: _groupValueFor(lang, byLang[lang]!),
             isExplicit: _selected.containsKey(lang),
-            onSelected: (id) async {
-              await EdgeVoicePrefs.instance.setVoiceForLang(lang, id);
-              if (!mounted) return;
-              setState(() {
-                _selected[lang] = id;
-                _lastExplicitVoice = id;
-                // Nhóm "ngôn ngữ khác" chính là ô ghim (xem EdgeVoicePrefs):
-                // chọn giọng ở đây = ghim cho mọi ngôn ngữ chưa cấu hình.
-                if (lang == 'other') {
-                  _pinAll = true;
-                  _pinnedVoice = id;
-                }
-              });
-            },
+            onSelected: (id) => _handleSelectVoice(lang, id),
           ),
+        if (remainingOrder.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          InkWell(
+            key: const Key('edge-voice-more-languages-toggle'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: _toggleMoreLanguages,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: hasExplicitRemaining
+                      ? const Color(0xFF64B5F6).withValues(alpha: 0.45)
+                      : Colors.white12,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _showMoreLanguages ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                    color: const Color(0xFF64B5F6),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _showMoreLanguages
+                          ? context.uiText('Thu gọn ngôn ngữ khác')
+                          : context.uiText(
+                              'Xem thêm ngôn ngữ khác (${remainingOrder.length})',
+                            ),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF64B5F6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (hasExplicitRemaining && !_showMoreLanguages)
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF64B5F6),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (_showMoreLanguages) ...[
+            const SizedBox(height: 4),
+            for (final lang in remainingOrder)
+              _EdgeVoiceLanguageTile(
+                tileKey: Key('edge-voice-lang-$lang'),
+                languageLabel: _langLabel(lang),
+                voices: byLang[lang]!,
+                selectedVoiceId: _groupValueFor(lang, byLang[lang]!),
+                isExplicit: _selected.containsKey(lang),
+                onSelected: (id) => _handleSelectVoice(lang, id),
+              ),
+          ],
+        ],
       ],
     );
   }
 }
 
-/// Một ngôn ngữ = một dòng gập (TTS-EDGE-VOICE-002).
+/// Một ngôn ngữ = một dòng gập (TTS-EDGE-VOICE-002 / PSRC-18).
 class _EdgeVoiceLanguageTile extends StatelessWidget {
   const _EdgeVoiceLanguageTile({
+    this.tileKey,
     required this.languageLabel,
     required this.voices,
     required this.selectedVoiceId,
@@ -1127,6 +1243,7 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
     required this.onSelected,
   });
 
+  final Key? tileKey;
   final String languageLabel;
   final List<TtsVoice> voices;
   final String? selectedVoiceId;
@@ -1151,12 +1268,13 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
 
     final summary = current == null
         ? context.uiText('Giọng mặc định')
-        : '${current.name} ${_genderMark(current)}'
+        : '${context.uiText(current.name)} ${_genderMark(current)}'
             '${isExplicit ? '' : ' · ${context.uiText('mặc định')}'}';
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
+        key: tileKey,
         tilePadding: EdgeInsets.zero,
         childrenPadding: const EdgeInsets.only(left: 8, bottom: 4),
         dense: true,
@@ -1167,7 +1285,7 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                languageLabel,
+                context.uiText(languageLabel),
                 style: const TextStyle(
                   fontSize: 11.5,
                   color: Color(0xFF64B5F6),
@@ -1189,26 +1307,47 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
         ),
         children: [
           for (final v in voices)
-            RadioListTile<String>(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              value: v.id,
-              // groupValue PHẢI như nhau cho mọi tile trong cùng nhóm
-              // (đúng ngữ nghĩa RadioListTile) — tính 1 lần theo ngôn ngữ.
-              groupValue: selectedVoiceId,
-              activeColor: const Color(0xFF64B5F6),
-              title: Text(
-                v.name,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+            InkWell(
+              key: Key('edge-voice-option-${v.id}'),
+              borderRadius: BorderRadius.circular(6),
+              // PSRC-18: cho phép chạm vào CẢ giọng đang mặc định (vd Hoài My)
+              // để ghi nhận lựa chọn tường minh vào EdgeVoicePrefs và kích hoạt
+              // ưu tiên Microsoft Edge TTS ngay cả ở chế độ offlineFirst.
+              onTap: () => onSelected(v.id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      v.id == selectedVoiceId
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      size: 18,
+                      color: v.id == selectedVoiceId
+                          ? const Color(0xFF64B5F6)
+                          : Colors.white38,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        context.uiText(v.name),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _genderMark(v),
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              secondary: Text(
-                _genderMark(v),
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              onChanged: (id) async {
-                if (id == null) return;
-                await onSelected(id);
-              },
             ),
         ],
       ),

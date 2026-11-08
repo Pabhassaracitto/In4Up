@@ -28,6 +28,15 @@ void main() {
     });
   });
 
+  group('YtMediaStore temporary artifacts', () {
+    test('partial audio and stream metadata never appear as downloaded audio', () {
+      expect(YtMediaStore.isTemporaryArtifact('yt_abc.m4a.part'), isTrue);
+      expect(YtMediaStore.isTemporaryArtifact('yt_abc.m4a.part.stream'), isTrue);
+      expect(YtMediaStore.isTemporaryArtifact('yt_abc.m4a'), isFalse);
+      expect(YtMediaStore.isTemporaryArtifact('yt_abc.lrc'), isFalse);
+    });
+  });
+
   group('YtLearningSettings — cài đặt mới (đọc + nơi lưu)', () {
     test('mặc định: xen kẽ, 1/1, nghỉ 500ms, tốc độ 1.0, lưu trong app', () {
       const s = YtLearningSettings();

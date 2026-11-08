@@ -49,4 +49,21 @@ void main() {
       expect(YtDownloader.sanitizeFileName(':::/\\\\'), '');
     });
   });
+
+  group('YtDownloader resume guards', () {
+    test('accepts the exact start offset advertised by Content-Range', () {
+      expect(
+        YtDownloader.parseContentRangeStart('bytes 1024-2047/4096'),
+        1024,
+      );
+      expect(YtDownloader.parseContentRangeStart('bytes 0-99/*'), 0);
+    });
+
+    test('rejects a missing or malformed range instead of appending blindly', () {
+      expect(YtDownloader.parseContentRangeStart(null), isNull);
+      expect(YtDownloader.parseContentRangeStart(''), isNull);
+      expect(YtDownloader.parseContentRangeStart('1024-2047/4096'), isNull);
+      expect(YtDownloader.parseContentRangeStart('bytes x-2047/4096'), isNull);
+    });
+  });
 }

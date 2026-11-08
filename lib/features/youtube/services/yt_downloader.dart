@@ -123,17 +123,9 @@ class YtDownloader {
     }
 
     try {
-      emit(YtDownloadProgress(0.03, 'Đang lấy thông tin video...'));
-
-      // ── Step 1: Video info ──────────────────────────────
-      final videoObj = await yt.videos.get(video.id);
-      if (_cancelled) {
-        yt.close();
-        fail('Đã hủy');
-        return;
-      }
-
-      emit(YtDownloadProgress(0.07, 'Đang phân tích stream...'));
+      // The manifest already contains everything needed for audio. Do not make
+      // the separate video-details endpoint a second point of failure.
+      emit(YtDownloadProgress(0.03, 'Đang phân tích stream...'));
 
       // ── Step 2: Manifest ───────────────────────────────
       final manifest =
@@ -178,8 +170,22 @@ class YtDownloader {
       final filePath = '${folder.path}/$fileBase.$ext';
       final partPath = '$filePath.part';
       debugPrint('⬇️ [in4up-yt] tải vào ${folder.path} · '
-          '${sanitizeFileName(videoObj.title)}');
+          '${sanitizeFileName(video.title)}');
       final part = File(partPath);
+      final partMeta = File('$partPath.stream');
+      final fingerprint = _partFingerprint(itag, totalBytes);
+
+      // A .part file contains bytes of ONE exact stream. Reusing it after the
+      // user changes quality (or YouTube replaces the itag) creates a corrupt
+      // file that can look "successfully downloaded" but cannot be played.
+      if (await part.exists()) {
+        final previous = await _readPartFingerprint(partMeta);
+        if (previous != fingerprint) {
+          await _safeDelete(part);
+          await _safeDelete(partMeta);
+        }
+      }
+      await partMeta.writeAsString(fingerprint, flush: true);
 
       // Xoá file đích cũ để `rename` không vấp (file .part là file tạm).
       final target = File(filePath);
@@ -192,10 +198,12 @@ class YtDownloader {
           ..sort((a, b) =>
               b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
         final same = list.where((s) => s.tag == itag).toList();
-        final picked = same.isNotEmpty
-            ? same.first
-            : (specificStream ?? _selectStream(list, quality));
-        return picked.url;
+        if (same.isEmpty) {
+          // A different itag can have different bytes/length. Never append it
+          // to the existing partial download merely because the preset matches.
+          throw StateError('Audio stream $itag is no longer available');
+        }
+        return same.first.url;
       }
 
       // ── Step 5: Tải CÓ RESUME ─────────────────────────
@@ -212,11 +220,16 @@ class YtDownloader {
       // ── Step 6: Kết quả ───────────────────────────────
       if (_cancelled) {
         await _safeDelete(part);
+        await _safeDelete(partMeta);
         fail('Đã hủy');
         return;
       }
 
       if (!ok) {
+        // Exhausting HTTP retries is also a failure of the primary layer, not
+        // just a thrown exception. Give the desktop sidecar the same fallback
+        // opportunity before reporting failure to the user.
+        if (await _trySidecarDownload(ctrl, video, quality)) return;
         final got = await _lengthOrZero(part);
         debugPrint(
           '❌ [in4up-yt] tải chưa hoàn tất: $got / $totalBytes bytes '
@@ -236,11 +249,13 @@ class YtDownloader {
       // Đủ byte ⇒ mới chuyển .part thành file thật.
       if (await target.exists()) await target.delete();
       await part.rename(filePath);
+      await _safeDelete(partMeta);
 
       final finalSize = await _lengthOrZero(File(filePath));
-      if (finalSize < 1000) {
+      if (finalSize < 1000 ||
+          (totalBytes > 0 && finalSize != totalBytes)) {
         await _safeDelete(File(filePath));
-        fail('File tải về quá nhỏ, thử lại');
+        fail('File tải về không đầy đủ, thử lại');
         return;
       }
 
@@ -275,11 +290,11 @@ class YtDownloader {
       if (_cancelled) return false;
 
       var offset = await _lengthOrZero(part);
-      if (knownSize && offset >= totalBytes) {
+      if (knownSize && offset == totalBytes) {
         debugPrint('✅ [in4up-yt] resume: đã đủ $offset / $totalBytes bytes');
         return true;
       }
-      // File .part còn sót từ một stream KHÁC (đổi chất lượng) ⇒ xoá.
+      // An oversized partial cannot be valid for this exact stream.
       if (knownSize && offset > totalBytes) {
         await _safeDelete(part);
         offset = 0;
@@ -297,9 +312,14 @@ class YtDownloader {
         final resp = await client.send(req);
 
         if (resp.statusCode == 416) {
-          // Range vượt quá kích thước ⇒ thực ra đã tải xong.
-          if (knownSize) return true;
+          // Only accept 416 when the bytes on disk really cover the manifest
+          // size. A premature 416 must never turn a short .part into Done.
+          if (knownSize && offset >= totalBytes) return true;
           client.close();  // http.Client.close() trả void — không await được.
+          if (knownSize) {
+            await _safeDelete(part);
+            offset = 0;
+          }
           await Future<void>.delayed(_retryDelay(attempt));
           continue;
         }
@@ -323,7 +343,17 @@ class YtDownloader {
           continue;
         }
 
-        if (resp.statusCode == 200) {
+        if (resp.statusCode == 206) {
+          final rangeStart = parseContentRangeStart(
+            resp.headers[HttpHeaders.contentRangeHeader],
+          );
+          if (rangeStart != offset) {
+            throw HttpException(
+              'Invalid Content-Range: expected $offset, got $rangeStart',
+              uri: currentUri,
+            );
+          }
+        } else {
           // KHÔNG hỗ trợ Range ⇒ ghi đè từ đầu.
           offset = 0;
           await _safeDelete(part);
@@ -411,6 +441,28 @@ class YtDownloader {
     try {
       if (await f.exists()) await f.delete();
     } catch (_) {}
+  }
+
+  static String _partFingerprint(int itag, int totalBytes) =>
+      '$itag:$totalBytes';
+
+  static Future<String?> _readPartFingerprint(File file) async {
+    try {
+      if (!await file.exists()) return null;
+      return (await file.readAsString()).trim();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Start offset from `Content-Range: bytes <start>-<end>/<total>`.
+  /// Kept public for a no-network regression test of the resume guard.
+  @visibleForTesting
+  static int? parseContentRangeStart(String? header) {
+    if (header == null) return null;
+    final match = RegExp(r'^bytes\s+(\d+)-\d+/(?:\d+|\*)$')
+        .firstMatch(header.trim());
+    return match == null ? null : int.tryParse(match.group(1)!);
   }
 
   /// Độ dài file, **0 nếu file chưa tồn tại**.

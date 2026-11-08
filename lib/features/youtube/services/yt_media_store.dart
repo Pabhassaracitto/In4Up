@@ -195,7 +195,7 @@ class YtMediaStore {
         // Lấy tên file trực tiếp từ path: `uri.pathSegments` đã bị
         // percent-encode nên tên có dấu cách/tiếng Việt sẽ sai.
         final name = entity.path.split(Platform.pathSeparator).last;
-        if (name.startsWith('.')) continue;
+        if (name.startsWith('.') || isTemporaryArtifact(name)) continue;
         // File cũ (di trú từ `youtube_downloads/`) đặt tên theo TỰA ĐỀ, không
         // có tiền tố `yt_` ⇒ vẫn phải hiện để người dùng thấy & xoá được.
         // Khoá nhóm là phần tên không có đuôi file.
@@ -260,6 +260,11 @@ class YtMediaStore {
   /// đúng kho) thay vì ghi chỗ tạm rồi đổi tên — nhờ vậy resume sau khi mạng
   /// đứt vẫn tìm đúng file dở.
   static String fileBaseFor(String videoId) => _fileBase(videoId);
+
+  /// Partial downloads and their stream fingerprints are not playable media.
+  /// Keep them out of the library while a retry is in progress or interrupted.
+  static bool isTemporaryArtifact(String fileName) =>
+      fileName.endsWith('.part') || fileName.endsWith('.part.stream');
 
   static String _fileBase(String videoId) {
     final safe = videoId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');

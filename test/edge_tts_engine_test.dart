@@ -546,7 +546,11 @@ void main() {
       final identityUses =
           RegExp(r'engineId: engine\.id').allMatches(source).length;
       expect(identityUses, greaterThanOrEqualTo(4));
-      expect(source, contains('voiceOverride ?? _selectedVoiceId'));
+      // Wordlist may request a language-matched default rather than reusing
+      // a shared voice; other callers retain the shared-voice fallback.
+      expect(source, contains(
+          'voiceOverride ?? (matchVoiceLanguage ? null : _selectedVoiceId)'));
+      expect(source, contains('voiceId: voiceId,'));
     });
 
     test('speak() và _prefetchOnline đều hỏi _resolveEdgeVoice(lang)', () {

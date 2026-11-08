@@ -30,6 +30,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../services/model_idle_watchdog.dart';
 import 'hymt_chunking.dart';
 import 'hymt_model_probe.dart';
 import 'hymt_prompts.dart';
@@ -822,6 +823,7 @@ class HyMtEngine extends TranslationEngine {
   }
 
   Future<bool> ensureLoaded() async {
+    if (!_testMode) _keepModelAwake();
     if (_testMode) {
       final backend = _injectedBackend!;
       if (backend.isAlive && backend.lastLoadError == null) return true;
@@ -832,6 +834,24 @@ class HyMtEngine extends TranslationEngine {
     final runtime = await _runtimeFor(path);
     if (runtime.isAlive && runtime.lastLoadError == null) return true;
     return runtime.restart();
+  }
+
+  /// PERF-001-B — đăng ký + "chạm" watchdog rảnh.
+  ///
+  /// Chỉ ĐĂNG KÝ hàm nhả đã có ([disposeRuntime]) và reset đồng hồ rảnh; không
+  /// đổi đường dịch. Lần dùng sau tự nạp lại: [translate] gọi
+  /// [_runtimeFor] và `_runtime` đã bị `disposeRuntime()` đặt về null ⇒
+  /// isolate mới được spawn (lazy reload, giống hệt sau khi đổi file model).
+  void _keepModelAwake() {
+    final watchdog = ModelIdleWatchdog.instance;
+    watchdog.register(
+      'hymt',
+      disposeRuntime,
+      // Đang dịch (giữ slot hoặc còn request xếp hàng) ⇒ KHÔNG được nhả:
+      // kill isolate giữa lượt dịch làm request đó lỗi.
+      isBusy: () => slot.isHeld || slot.pendingCount > 0,
+    );
+    watchdog.touch('hymt');
   }
 
   Future<void> disposeRuntime() async {
@@ -848,6 +868,7 @@ class HyMtEngine extends TranslationEngine {
     required String targetLang,
     String sourceLang = 'auto',
   }) async {
+    if (!_testMode) _keepModelAwake();
     final src =
         HyMtPrompts.normalizeCode(sourceLang == 'auto' ? 'EN' : sourceLang);
     final tgt = HyMtPrompts.normalizeCode(targetLang);

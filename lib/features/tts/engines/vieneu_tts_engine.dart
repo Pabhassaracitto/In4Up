@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../services/model_idle_watchdog.dart';
 import './tts_engine.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 
@@ -29,6 +30,13 @@ class VieneuTtsEngine implements TtsEngine {
   bool _modelResolved = false;
   /// Native worker đã init xong (sẵn sàng synthesize).
   bool _initialized = false;
+
+  /// PERF-001-B — watchdog rảnh đã nhả model (file vẫn còn trên máy).
+  ///
+  /// Giữ cờ này để [isAvailable] vẫn báo "có model": TtsService sẽ gọi
+  /// [synthesize] ⇒ [init] nạp lại. Nếu để `isAvailable = false`, TtsService
+  /// rơi sang engine khác và người dùng mất giọng VieNeu tới khi mở lại app.
+  bool _unloadedForIdle = false;
   String? _modelPath;
   String? _voicesDir;
   String? _selectedVoiceId;
@@ -63,7 +71,7 @@ class VieneuTtsEngine implements TtsEngine {
         _modelResolved = true;
       }
     }
-    return _modelResolved && _initialized;
+    return _modelResolved && (_initialized || _unloadedForIdle);
   }
 
   /// Giọng preset đã import (đọc từ voices/ bên cạnh model file).
@@ -146,6 +154,8 @@ class VieneuTtsEngine implements TtsEngine {
       await _core.init(modelPath: model, voiceId: _selectedVoiceId);
       _initialized = true;
       _modelResolved = true;
+      // PERF-001-B: nạp lại xong ⇒ cờ "đã nhả vì rảnh" hết hiệu lực.
+      _unloadedForIdle = false;
     } catch (e) {
       debugPrint('⚠️ VieNeu-TTS init error: $e');
       _initialized = false;
@@ -176,6 +186,17 @@ class VieneuTtsEngine implements TtsEngine {
       );
     }
 
+    // PERF-001-B: đăng ký hàm nhả + reset đồng hồ rảnh TRƯỚC khi nạp model
+    // (nạp 170 MB mất vài giây — không để watchdog nhả giữa lúc nạp).
+    final watchdog = ModelIdleWatchdog.instance;
+    watchdog.register(
+      'vieneu_tts',
+      _unloadForIdle,
+      // Đang synthesize (retain > 0) ⇒ KHÔNG được giải phóng worker native.
+      isBusy: () => watchdog.isRetained('vieneu_tts'),
+    );
+    watchdog.touch('vieneu_tts');
+
     await init(voiceId: voiceId ?? _selectedVoiceId, modelVariant: _modelVariant);
     if (!_initialized) {
       return TtsResult.failure(
@@ -184,6 +205,8 @@ class VieneuTtsEngine implements TtsEngine {
       );
     }
 
+    // Giữ model trong suốt lượt tổng hợp (giải phóng giữa chừng = mất audio).
+    watchdog.retain('vieneu_tts');
     try {
       // Nếu người dùng chọn giọng khác với giọng đang dùng trong worker,
       // chuyển trước khi synthesize.
@@ -215,11 +238,30 @@ class VieneuTtsEngine implements TtsEngine {
         error: 'VieNeu-TTS lỗi: $e',
         engine: name,
       );
+    } finally {
+      watchdog.release('vieneu_tts');
     }
+  }
+
+  /// PERF-001-B — nhả worker native khi rảnh (169–292 MB GGUF tuỳ biến thể).
+  ///
+  /// Chỉ chạy khi không còn tham chiếu ([synthesize] đã retain/release) và
+  /// watchdog gọi. Giữ `_modelResolved = true` + đặt `_unloadedForIdle` để
+  /// lần dùng sau nạp lại được (xem [isAvailable]).
+  Future<void> _unloadForIdle() async {
+    if (!_initialized) return;
+    try {
+      _core.dispose();
+    } catch (e) {
+      debugPrint('⚠️ VieNeu-TTS unload (idle) error: $e');
+    }
+    _initialized = false;
+    _unloadedForIdle = _modelResolved;
   }
 
   void dispose() {
     _core.dispose();
     _initialized = false;
+    _unloadedForIdle = false;
   }
 }

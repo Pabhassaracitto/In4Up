@@ -13,6 +13,18 @@ import 'ai_native_bindings.dart';
 import '../prompts/ai_prompts_library.dart';
 
 class AiEngineGemma implements AiEngine {
+  // ── PERF-001-B — điểm nối cho watchdog "nhả model khi rảnh" ───────────────
+  //
+  // Watchdog sống ở `lib/services/model_idle_watchdog.dart` (package:in4up).
+  // in4up_ai KHÔNG được phụ thuộc ngược vào package:in4up (vòng lặp
+  // dependency), nên app tiêm 2 callback qua `lib/main.dart`:
+  //   • [onReadyHook]    — engine vừa init xong ⇒ app đăng ký hàm nhả model
+  //                        (`AiEngineGemma.dispose()`, có sẵn từ trước).
+  //   • [onActivityHook] — mỗi lượt `analyze()` ⇒ app `touch()` lại đồng hồ.
+  // Không có hook (test/host VM) ⇒ no-op, hành vi y như cũ.
+  static void Function(AiEngineGemma engine)? onReadyHook;
+  static void Function()? onActivityHook;
+
   @override
   AiEngineState get state => _state;
   AiEngineState _state = AiEngineState.uninitialized;
@@ -119,6 +131,12 @@ class AiEngineGemma implements AiEngine {
       _state = AiEngineState.ready;
       _backendLostReason = null;
       debugPrint('[AiEngineGemma] ✅ Ready: $modelPath');
+      // PERF-001-B: báo app đăng ký hàm nhả model (watchdog rảnh).
+      try {
+        AiEngineGemma.onReadyHook?.call(this);
+      } catch (e) {
+        debugPrint('[AiEngineGemma] onReadyHook lỗi (bỏ qua): $e');
+      }
       return true;
     } catch (e) {
       _state = AiEngineState.error;
@@ -142,6 +160,12 @@ class AiEngineGemma implements AiEngine {
     double temperature = 0.1,
     int maxTokens = 256,
   }) async* {
+    // PERF-001-B: có request ⇒ đồng hồ rảnh của watchdog reset.
+    try {
+      AiEngineGemma.onActivityHook?.call();
+    } catch (_) {
+      // Hook chỉ là telemetry cho watchdog — không được ảnh hưởng request.
+    }
     if (_disposed || _sendPort == null) {
       yield AiAnalysis.fallback(
         text,

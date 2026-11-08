@@ -2283,4 +2283,13 @@ const Map<String, String> generatedLegacyUiEnglishFallbacks = {
   'ĐANG NHẬN': 'LISTENING',
   'ĐÃ CHỐT': 'CONFIRMED',
   'ĐÃ DỊCH': 'TRANSLATED',
+  // PERF-001 (2026-11-08) — SỬA TAY (tool/generate_legacy_ui_fallbacks.py hỏng ở baseline).
+  'Hiệu năng & bộ nhớ': 'Performance & memory',
+  'Nhả model khi rảnh (tiết kiệm RAM)': 'Free models when idle (saves RAM)',
+  'Tự giải phóng model AI/dịch/TTS sau 5 phút không dùng. Lần dùng sau sẽ nạp lại (chậm hơn lần đầu).': 'Releases AI/translation/TTS models after 5 minutes of no use. The next use reloads them (slower than the first time).',
+  'Chẩn đoán bộ nhớ': 'Memory diagnostics',
+  'Bộ nhớ ảnh (ImageCache)': 'Image memory (ImageCache)',
+  'Số ảnh đang giữ': 'Images held in cache',
+  'RAM tiến trình': 'Process RAM (RSS)',
+  'Số lần cache bị trim': 'Cache evictions',
 };

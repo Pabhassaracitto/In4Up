@@ -8492,4 +8492,63 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'මෙම වර්ණය මුළු පද්ධතියටම බලපායි (කියවීම / වෙබ් / වචන මාලාව) — සෑම තැනකම වෙනස් වේ',
   },
 
+
+  // PERF-001 (2026-11-08) — mục "Hiệu năng & bộ nhớ" ở Settings và màn
+  // chẩn đoán RAM (chỉ debug). Thêm TAY (tool/generate_*.py hỏng ở baseline).
+  'Hiệu năng & bộ nhớ': {
+    'en': 'Performance & memory',
+    'hi': 'प्रदर्शन और मेमोरी',
+    'zh': '性能与内存',
+    'zh_TW': '效能與記憶體',
+    'si': 'කාර්ය සාධනය සහ මතකය',
+  },
+  'Nhả model khi rảnh (tiết kiệm RAM)': {
+    'en': 'Free models when idle (saves RAM)',
+    'hi': 'निष्क्रिय होने पर मॉडल मुक्त करें (RAM बचाएं)',
+    'zh': '空闲时释放模型（节省内存）',
+    'zh_TW': '閒置時釋放模型（節省記憶體）',
+    'si': 'නිශ්චල විට මාදිලි මුදා හරින්න (RAM ඉතිරි කරයි)',
+  },
+  'Tự giải phóng model AI/dịch/TTS sau 5 phút không dùng. Lần dùng sau sẽ nạp lại (chậm hơn lần đầu).': {
+    'en': 'Releases AI/translation/TTS models after 5 minutes of no use. The next use reloads them (slower than the first time).',
+    'hi': '5 मिनट तक उपयोग न होने पर AI/अनुवाद/TTS मॉडल मुक्त करता है। अगली बार उपयोग पर वे फिर लोड होंगे (पहली बार से धीमा)।',
+    'zh': '5 分钟未使用后释放 AI/翻译/TTS 模型。下次使用时会重新加载（比首次更慢）。',
+    'zh_TW': '5 分鐘未使用後釋放 AI/翻譯/TTS 模型。下次使用時會重新載入（比首次更慢）。',
+    'si': 'මිනිත්තු 5ක් භාවිත නොකළ විට AI/පරිවර්තන/TTS මාදිලි මුදා හරියි. ඊළඟ වතාවේ නැවත පූරණය වේ (පළමු වරට වඩා මන්දගාමී).',
+  },
+  'Chẩn đoán bộ nhớ': {
+    'en': 'Memory diagnostics',
+    'hi': 'मेमोरी निदान',
+    'zh': '内存诊断',
+    'zh_TW': '記憶體診斷',
+    'si': 'මතක රෝග විනිශ්චය',
+  },
+  'Bộ nhớ ảnh (ImageCache)': {
+    'en': 'Image memory (ImageCache)',
+    'hi': 'छवि मेमोरी (ImageCache)',
+    'zh': '图片内存 (ImageCache)',
+    'zh_TW': '圖片記憶體 (ImageCache)',
+    'si': 'රූප මතකය (ImageCache)',
+  },
+  'Số ảnh đang giữ': {
+    'en': 'Images held in cache',
+    'hi': 'कैश में रखी छवियाँ',
+    'zh': '缓存中的图片数',
+    'zh_TW': '快取中的圖片數',
+    'si': 'හැඹිලියේ ඇති රූප ගණන',
+  },
+  'RAM tiến trình': {
+    'en': 'Process RAM (RSS)',
+    'hi': 'प्रक्रिया RAM (RSS)',
+    'zh': '进程 RAM (RSS)',
+    'zh_TW': '行程 RAM (RSS)',
+    'si': 'ක්‍රියාවලි RAM (RSS)',
+  },
+  'Số lần cache bị trim': {
+    'en': 'Cache evictions',
+    'hi': 'कैश निकासी की संख्या',
+    'zh': '缓存清理次数',
+    'zh_TW': '快取清理次數',
+    'si': 'හැඹිලි ඉවත් කිරීම් ගණන',
+  },
 };

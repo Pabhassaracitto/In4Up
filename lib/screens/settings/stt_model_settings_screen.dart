@@ -11,10 +11,11 @@ import 'package:path_provider/path_provider.dart';
 // FIX nghiệm thu 251e (2026-08-25): bỏ import googleapis/analytics (auto-import
 // nhầm — file không dùng symbol nào của googleapis) + material trực tiếp.
 // localized_material đã export material (hide Text) + Text localized.
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in4up/providers/locale_provider.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/sherpa_model_manager.dart';
@@ -30,6 +31,8 @@ import '../../features/translation/translation_toolbar.dart';
 import '../../features/translation/translation_service.dart';
 
 import '../../services/battery_optimization_service.dart';
+import '../../services/image_cache_policy.dart';
+import '../../services/model_idle_watchdog.dart';
 import '../../services/saf_model_folder_service.dart';
 
 import 'ai_providers_screen.dart';
@@ -177,6 +180,15 @@ class SttModelSettingsScreen extends StatelessWidget {
             title: context.uiText('Dịch màn hình — bong bóng nổi'),
             subtitle: context.uiText('Chỉ Android · cần quyền chụp màn hình'),
             children: const [ScreenTranslateCard()],
+          ),
+          // ── 9. Hiệu năng & bộ nhớ (PERF-001) ──────────────────────────
+          // Công tắc "nhả model khi rảnh" (PERF-001-B) + màn chẩn đoán RAM
+          // CHỈ có ở build debug (PERF-001-C — ẩn hoàn toàn ở release).
+          _SettingsSection(
+            icon: Icons.memory_rounded,
+            color: Colors.deepOrangeAccent,
+            title: context.uiText('Hiệu năng & bộ nhớ'),
+            children: const [_PerformanceMemoryCard()],
           ),
           const SizedBox(height: 16),
         ],
@@ -2743,6 +2755,249 @@ class _TranslationModelSettingsCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PERF-001 — Hiệu năng & bộ nhớ
+//
+// A) Công tắc "Nhả model khi rảnh" (mặc định BẬT):
+//    `ModelIdleWatchdog` gọi đúng hàm nhả có sẵn của Hy-MT / VieNeu / Gemma
+//    sau `idleTimeout` (5 phút) rảnh. Tắt ⇒ watchdog huỷ Timer, không nhả gì.
+//    Khoá lưu: `ModelIdleWatchdog.prefEnabledKey` (đọc lại trong `main()`).
+// B) Chẩn đoán bộ nhớ — CHỈ build debug (`kReleaseMode` = false). Ở release
+//    widget này không được TẠO (không phải chỉ ẩn) nên không lộ số liệu nội
+//    bộ và không tốn code path trong bản phát hành.
+// ══════════════════════════════════════════════════════════════════════════
+
+class _PerformanceMemoryCard extends StatefulWidget {
+  const _PerformanceMemoryCard();
+
+  @override
+  State<_PerformanceMemoryCard> createState() => _PerformanceMemoryCardState();
+}
+
+class _PerformanceMemoryCardState extends State<_PerformanceMemoryCard> {
+  bool _enabled = ModelIdleWatchdog.defaultEnabled;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    var value = ModelIdleWatchdog.defaultEnabled;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      value = prefs.getBool(ModelIdleWatchdog.prefEnabledKey) ?? value;
+    } catch (e) {
+      debugPrint('[in4up-perf] đọc công tắc nhả model lỗi: $e');
+    }
+    ModelIdleWatchdog.instance.setEnabled(value);
+    if (!mounted) return;
+    setState(() {
+      _enabled = value;
+      _loaded = true;
+    });
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = value);
+    ModelIdleWatchdog.instance.setEnabled(value);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(ModelIdleWatchdog.prefEnabledKey, value);
+    } catch (e) {
+      debugPrint('[in4up-perf] lưu công tắc nhả model lỗi: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile.adaptive(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          value: _enabled,
+          onChanged: _loaded ? _toggle : null,
+          secondary: const Icon(Icons.eco_rounded, size: 20),
+          title: Text(
+            context.uiText('Nhả model khi rảnh (tiết kiệm RAM)'),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            context.uiText(
+              'Tự giải phóng model AI/dịch/TTS sau 5 phút không dùng. '
+              'Lần dùng sau sẽ nạp lại (chậm hơn lần đầu).',
+            ),
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        // ⚠ Chỉ build debug: `kReleaseMode` là hằng compile-time nên ở release
+        // nhánh này bị tree-shake hoàn toàn.
+        if (!kReleaseMode) ...[
+          const Divider(height: 8),
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.analytics_outlined, size: 20),
+            title: Text(
+              context.uiText('Chẩn đoán bộ nhớ'),
+              style: const TextStyle(fontSize: 13),
+            ),
+            trailing: const Icon(Icons.chevron_right, size: 18),
+            onTap: () {
+              showModalBottomSheet<void>(
+                context: context,
+                backgroundColor: const Color(0xFF1A1A2E),
+                isScrollControlled: true,
+                useSafeArea: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (_) => const _MemoryDiagnosticsSheet(),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// PERF-001-C — màn chẩn đoán bộ nhớ (CHỈ debug).
+///
+/// Đọc số THẬT của tiến trình: `ImageCache` (ảnh) + `ProcessInfo.currentRss`
+/// (RSS toàn tiến trình, gồm cả model native đang nạp). Dùng để quyết định
+/// RAM đang nằm ở ảnh (A1) hay ở model (A2) thay vì đoán.
+class _MemoryDiagnosticsSheet extends StatefulWidget {
+  const _MemoryDiagnosticsSheet();
+
+  @override
+  State<_MemoryDiagnosticsSheet> createState() =>
+      _MemoryDiagnosticsSheetState();
+}
+
+class _MemoryDiagnosticsSheetState extends State<_MemoryDiagnosticsSheet> {
+  int? _imageBytes;
+  int? _imageCount;
+  int? _maxImageBytes;
+  int? _rssBytes;
+  bool _busy = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    final cache = PaintingBinding.instance.imageCache;
+    int? rss;
+    try {
+      rss = ProcessInfo.currentRss;
+    } catch (_) {
+      rss = null; // web/desktop hạn chế — hiện "—"
+    }
+    if (!mounted) return;
+    setState(() {
+      _imageBytes = cache.currentSizeBytes;
+      _imageCount = cache.liveImageCount;
+      _maxImageBytes = cache.maximumSizeBytes;
+      _rssBytes = rss;
+      _busy = false;
+    });
+  }
+
+  String _mb(int? bytes) =>
+      bytes == null ? '—' : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <ListTile>[
+      ListTile(
+        dense: true,
+        title: Text(context.uiText('Bộ nhớ ảnh (ImageCache)')),
+        trailing: Text(
+          '${_mb(_imageBytes)} / ${_mb(_maxImageBytes)}',
+          style: const TextStyle(fontSize: 12),
+        ),
+      ),
+      ListTile(
+        dense: true,
+        title: Text(context.uiText('Số ảnh đang giữ')),
+        trailing: Text(
+          '${_imageCount ?? 0}',
+          style: const TextStyle(fontSize: 12),
+        ),
+      ),
+      ListTile(
+        dense: true,
+        title: Text(context.uiText('RAM tiến trình')),
+        trailing: Text(
+          _mb(_rssBytes),
+          style: const TextStyle(fontSize: 12),
+        ),
+      ),
+      ListTile(
+        dense: true,
+        title: Text(context.uiText('Số lần cache bị trim')),
+        trailing: Text(
+          '${ImageCachePolicy.evictionCount}',
+          style: const TextStyle(fontSize: 12),
+        ),
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.uiText('Chẩn đoán bộ nhớ'),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: context.uiText('Làm mới'),
+                icon: const Icon(Icons.refresh, size: 20),
+                onPressed: _busy
+                    ? null
+                    : () {
+                        setState(() => _busy = true);
+                        _refresh();
+                      },
+              ),
+            ],
+          ),
+          if (_busy)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(child: Text(context.uiText('Đang tải...'))),
+            )
+          else
+            ...rows,
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(context.uiText('Đóng')),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:in4up_stt/models/stt_result.dart';
@@ -610,7 +611,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       }
 
       if (lower.endsWith('.lrc')) {
-        _parseLrc(await file.readAsString(), title: docTitle);
+        // PERF-001-D: file LRC dai (video >= 60 phut) parse NGOAI luong UI.
+        await _parseLrc(await file.readAsString(), title: docTitle);
       } else if (lower.endsWith('.srt')) {
         _parseSrt(await file.readAsString(), title: docTitle);
       } else if (lower.endsWith('.md') ||
@@ -620,13 +622,38 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         // md/json/docx → trích text thuần (giữ chữ thật cho pipeline Đọc)
         final extracted = await TextSourceLoader.extractReadableText(path);
         if (extracted != null && extracted.trim().isNotEmpty) {
-          _parsePlainText(extracted, title: docTitle);
+          _parsePlainText(
+            extracted,
+            title: docTitle,
+            preSplitLines: await splitTextOffThreadIfLarge(
+              extracted,
+              autoSplit: _useAutoSplit,
+            ),
+          );
         } else {
           // Fallback: đọc thô (json hỏng sẽ hiện text gốc)
-          _parsePlainText(await file.readAsString(), title: docTitle);
+          final raw = await file.readAsString();
+          _parsePlainText(
+            raw,
+            title: docTitle,
+            preSplitLines: await splitTextOffThreadIfLarge(
+              raw,
+              autoSplit: _useAutoSplit,
+            ),
+          );
         }
       } else {
-        _parsePlainText(await file.readAsString(), title: docTitle);
+        // PERF-001-D: file text lon (5 MB) — chia dong O ISOLATE roi moi dung
+        // TextItem, de luong UI khong khung.
+        final raw = await file.readAsString();
+        _parsePlainText(
+          raw,
+          title: docTitle,
+          preSplitLines: await splitTextOffThreadIfLarge(
+            raw,
+            autoSplit: _useAutoSplit,
+          ),
+        );
       }
 
       _setSourceMeta(
@@ -724,7 +751,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     return path.split(Platform.pathSeparator).last;
   }
 
-  void _parsePlainText(String content, {String? title}) {
+  void _parsePlainText(
+    String content, {
+    String? title,
+    List<String>? preSplitLines,
+  }) {
     try {
       // Issue1 fix: reset translation state để tránh black screen khi AI doc -> Cloud doc
       try {
@@ -733,8 +764,13 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       
       _fullText = content;
 
+      // PERF-001-D: caller nap FILE co the da chia dong san o isolate
+      // (`splitTextOffThreadIfLarge`); noi dung ngan/nguon khac van chia tai
+      // day y nhu truoc — cung mot ham, cung mot ket qua.
       List<String> lineStrings;
-      if (_useAutoSplit) {
+      if (preSplitLines != null) {
+        lineStrings = preSplitLines;
+      } else if (_useAutoSplit) {
         lineStrings = TextSplitterService.split(content, mode: SplitMode.smart);
       } else {
         lineStrings =
@@ -889,7 +925,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     notifyListeners();
   }
 
-  void _parseLrc(String content, {String? title}) {
+  Future<void> _parseLrc(String content, {String? title}) async {
     _fullText = content;
     _lines = [];
     // YT-LRC-LONG-001 (2026-10-28): việc đọc mốc thời gian đã tách sang hàm
@@ -898,7 +934,11 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     //   2. mọi nơi đọc LRC dùng CÙNG một luật.
     // Luật nới: phút 1–3 chữ số (`[125:03.45]` — video ≥ 60 phút), phần lẻ
     // 1–3 số, dấu `.` hoặc `,`, và cả dạng `hh:mm:ss.xx`.
-    for (final parsed in parseLrcContent(content)) {
+    //
+    // PERF-001-D: `parseLrcContentOffThread` dung DUNG `parseLrcContent()`
+    // (ham thuan) — chi chay o isolate khi noi dung >= 64 KB (duoi nguong thi
+    // parse dong bo cho khoi ton cong spawn). Hanh vi/ket qua khong doi.
+    for (final parsed in await parseLrcContentOffThread(content)) {
       _lines.add(TextItem(
         id: 'line_${_lines.length}',
         content: parsed.text,
@@ -2020,4 +2060,45 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     debugPrint('✂️ Auto-split: ${_lines.length} lines');
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PERF-001-D — chia dòng văn bản NGOÀI luồng UI
+//
+// `_parsePlainText()` là đường nạp mọi file .txt/.md/.json/.docx vào tab Đọc.
+// Với file 5 MB, phần `TextSplitterService.split()` (regex trên toàn bộ chuỗi)
+// chạy trên isolate UI ⇒ khung hình rơi đúng lúc người dùng vừa mở tài liệu.
+//
+// Chỉ ĐƯA DỮ LIỆU THUẦN sang isolate: `String` + `bool` vào, `List<String>`
+// ra — không `SharedPreferences`, không `path_provider`, không
+// `MethodChannel`, không `BuildContext`, không `ChangeNotifier`.
+// `TextSplitterService.split()` là hàm static THUẦN nên gọi được trong isolate.
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Ngưỡng đi isolate. Dưới ngưỡng: trả `null` để caller chia ĐỒNG BỘ như cũ
+/// (spawn isolate đắt hơn việc chia vài nghìn ký tự).
+const int plainTextIsolateThresholdChars = 64 * 1024;
+
+/// Số lần chia dòng thật sự chạy ở isolate — test pin NGƯỠNG bằng counter,
+/// không đo thời gian (không flaky).
+int plainTextOffThreadSplitCount = 0;
+
+/// Hàm THUẦN dùng chung cho cả 2 đường (đồng bộ + isolate) ⇒ kết quả y hệt.
+List<String> splitTextLinesSync(String content, {required bool autoSplit}) {
+  if (autoSplit) {
+    return TextSplitterService.split(content, mode: SplitMode.smart);
+  }
+  return content.split('\n').where((l) => l.trim().isNotEmpty).toList();
+}
+
+/// Trả về danh sách dòng đã chia ở isolate khi [content] ≥ ngưỡng; ngược lại
+/// trả `null` (caller tự chia đồng bộ — hành vi cũ, không đổi).
+Future<List<String>?> splitTextOffThreadIfLarge(
+  String content, {
+  bool autoSplit = true,
+  int thresholdChars = plainTextIsolateThresholdChars,
+}) async {
+  if (content.length < thresholdChars) return null;
+  plainTextOffThreadSplitCount++;
+  return Isolate.run(() => splitTextLinesSync(content, autoSplit: autoSplit));
 }

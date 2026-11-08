@@ -18,6 +18,8 @@
 // viết nhóm tham lam sẽ hiểu thành 12 giờ 5 phút (sai 1 giờ).
 library;
 
+import 'dart:isolate';
+
 /// Một dòng LRC đã tách: mốc bắt đầu + chữ hiển thị (chưa lọc `<...>`).
 class LrcLine {
   const LrcLine({required this.start, required this.text});
@@ -87,4 +89,39 @@ List<LrcLine> parseLrcContent(String content) {
     if (line != null) out.add(line);
   }
   return out;
+}
+
+// ── PERF-001-D — parse ngoài luồng UI ───────────────────────────────────────
+//
+// File LRC 2 giờ (~5.000 dòng) hiện được parse NGAY TRONG `TextProvider
+// ._parseLrc()` trên isolate UI ⇒ khung hình rơi ("Nó cứ xoay hoài"). Cùng
+// thuật toán, chỉ đổi CHỖ chạy: `parseLrcContent()` là hàm THUẦN (không I/O,
+// không state) nên gửi nguyên sang isolate được.
+//
+// ⚠ Không được đưa gì khác vào isolate: `SharedPreferences`, `path_provider`,
+// `MethodChannel`, `ChangeNotifier`, `BuildContext` đều không dùng được ở
+// isolate mới. `LrcLine` chỉ có `Duration` + `String` ⇒ gửi về an toàn.
+
+/// Dưới ngưỡng này thì parse ĐỒNG BỘ: spawn isolate (~1–3 ms + copy dữ liệu)
+/// đắt hơn chính việc parse.
+const int lrcIsolateThresholdChars = 64 * 1024;
+
+/// Số lần thực sự đi đường isolate — test pin NGƯỠNG bằng counter này (không
+/// đo thời gian nên không flaky).
+int lrcOffThreadParseCount = 0;
+
+/// Reset counter (test).
+void resetLrcOffThreadParseCount() => lrcOffThreadParseCount = 0;
+
+/// Như [parseLrcContent] nhưng chạy ở isolate riêng khi nội dung lớn.
+///
+/// Kết quả **giống hệt** đường đồng bộ (golden test
+/// `test/perf/parse_isolate_equivalence_test.dart`).
+Future<List<LrcLine>> parseLrcContentOffThread(
+  String content, {
+  int thresholdChars = lrcIsolateThresholdChars,
+}) async {
+  if (content.length < thresholdChars) return parseLrcContent(content);
+  lrcOffThreadParseCount++;
+  return Isolate.run(() => parseLrcContent(content));
 }

@@ -17,6 +17,8 @@
 //   • 160 ảnh: list từ vựng/explorer YouTube cuộn nhanh vẫn không bị decode
 //     lại liên tục (mặc định 1000 ảnh là quá nhiều so với kích thước màn hình).
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
@@ -69,20 +71,44 @@ class ImageCachePolicy {
     final target = cache ?? PaintingBinding.instance.imageCache;
     target.maximumSizeBytes = maxBytes;
     target.maximumSize = maxImages;
-    // Log 1 dòng khi cache bị trim — yêu cầu PERF-001-A. Chỉ log ở debug để
-    // không làm nhiễu logcat bản phát hành; số đếm vẫn tăng ở mọi build và
-    // đọc được ở màn "Chẩn đoán bộ nhớ" (chỉ có ở build debug).
-    target.onEvict = (Object key) {
-      evictionCount++;
-      if (kDebugMode && evictionCount % 20 == 1) {
-        print('[in4up-perf] image-cache trim #$evictionCount '
-            '(${target.currentSizeBytes ~/ 1024} KB đang giữ, '
-            '${evictionCount} lần evict)');
-      }
-    };
+    _lastObservedBytes = target.currentSizeBytes;
     _applied = true;
     print('[in4up-perf] image-cache: tối đa ${maxBytes ~/ (1024 * 1024)} MB / '
         '$maxImages ảnh');
+
+    // Log 1 dòng khi cache bị trim (yêu cầu PERF-001-A).
+    //
+    // ⚠ Flutter 3.44.1 KHÔNG có `ImageCache.onEvict` (đã thử: analyzer báo
+    // `undefined_setter` ở build `835e53a`). Không có listener công khai nào
+    // cho việc framework tự bỏ ảnh, nên bản này dò bằng CÁCH SO KÍCH THƯỚC
+    // theo nhịp — rẻ và không phụ thuộc API riêng của từng bản Flutter.
+    // Chỉ chạy ở build debug: release không có bộ đếm này (không tốn pin).
+    if (kDebugMode && _sampler == null) {
+      _sampler = Timer.periodic(const Duration(seconds: 10), (_) => observe());
+    }
+  }
+
+  static Timer? _sampler;
+  static int _lastObservedBytes = 0;
+
+  /// So kích thước cache với lần quan sát trước; nếu TỤT thì coi như vừa bị
+  /// trim (framework bỏ ảnh để giữ hạn mức) ⇒ tăng bộ đếm + log 1 dòng.
+  ///
+  /// Gọi từ sampler debug, từ [trimAfterHeavyScreenExit], và từ màn "Chẩn đoán
+  /// bộ nhớ" (mỗi lần mở/refresh).
+  static bool observe({ImageCache? cache, void Function(String message)? log}) {
+    final print = log ?? debugPrint;
+    final target = cache ?? PaintingBinding.instance.imageCache;
+    final now = target.currentSizeBytes;
+    final trimmed = now < _lastObservedBytes;
+    final dropped = trimmed ? _lastObservedBytes - now : 0;
+    _lastObservedBytes = now;
+    if (!trimmed) return false;
+    evictionCount++;
+    print('[in4up-perf] image-cache trim #$evictionCount '
+        '(-${dropped ~/ 1024} KB, đang giữ ${now ~/ 1024} KB / '
+        '${target.currentSize} ảnh)');
+    return true;
   }
 
   /// Gọi khi RỜI một màn nặng ảnh (PDF/Web reader).
@@ -102,6 +128,7 @@ class ImageCachePolicy {
     target.clear();
     print('[in4up-perf] image-cache clear khi rời màn: '
         '${before ~/ (1024 * 1024)} MB → ${target.currentSizeBytes ~/ 1024} KB');
+    _lastObservedBytes = target.currentSizeBytes;
     return true;
   }
 
@@ -110,5 +137,8 @@ class ImageCachePolicy {
   static void resetForTest() {
     _applied = false;
     evictionCount = 0;
+    _lastObservedBytes = 0;
+    _sampler?.cancel();
+    _sampler = null;
   }
 }

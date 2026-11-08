@@ -2899,6 +2899,9 @@ class _MemoryDiagnosticsSheetState extends State<_MemoryDiagnosticsSheet> {
   }
 
   void _refresh() {
+    // Cập nhật bộ đếm "cache bị trim" trước khi đọc số (ImageCache của Flutter
+    // 3.44.1 không có listener evict — xem ImageCachePolicy.observe).
+    ImageCachePolicy.observe();
     final cache = PaintingBinding.instance.imageCache;
     int? rss;
     try {

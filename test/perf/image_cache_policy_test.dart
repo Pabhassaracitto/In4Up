@@ -116,6 +116,23 @@ void main() {
     });
   });
 
+  group('PERF-001-A — log khi cache bị trim (đo được về sau)', () {
+    test('cơ chế dò trim tồn tại + được gọi ở màn chẩn đoán', () {
+      // Flutter 3.44.1 KHÔNG có `ImageCache.onEvict` ⇒ dùng observe() so
+      // kích thước. Pin để lần sau không ai xoá mất phần "đo được".
+      final policy = _read('lib/services/image_cache_policy.dart');
+      expect(policy.contains('static bool observe('), isTrue);
+      expect(policy.contains("[in4up-perf] image-cache trim"), isTrue);
+      expect(policy.contains('static int evictionCount'), isTrue);
+      // Không được quay lại API không tồn tại (đã làm đỏ CI ở build 835e53a).
+      expect(policy.contains('onEvict'), isFalse,
+          reason: 'Flutter 3.44.1 không có setter onEvict');
+      final settings =
+          _read('lib/screens/settings/stt_model_settings_screen.dart');
+      expect(settings.contains('ImageCachePolicy.observe()'), isTrue);
+    });
+  });
+
   group('PERF-001-A — widget ảnh trong list DÀY có cacheWidth', () {
     const dirs = [
       'lib/features/vocab_image',

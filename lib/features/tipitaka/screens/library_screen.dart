@@ -13,6 +13,7 @@ import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/features/tipitaka/services/library_state_store.dart';
 import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 
 /// Canonical-content tree:
 /// Tam Tạng Chính Văn → Tạng → nhóm/bộ → bài kinh.
@@ -94,15 +95,14 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
       _hasPersistedExpansionState = expandedNodes != null;
       if (!_catalogLanguageChosen ||
           !snapshot.languages.contains(_catalogLanguage)) {
-        _catalogLanguage = snapshot.languages.contains(_language)
-            ? _language
-            : snapshot.languages.contains('en')
-                ? 'en'
-                : snapshot.languages.contains('pi')
-                    ? 'pi'
-                    : snapshot.languages.isEmpty
-                        ? _language
-                        : (snapshot.languages.toList()..sort()).first;
+        // PSRC-159: the app UI locale is not necessarily an imported
+        // translation. Never default the catalogue to Pāli while a target
+        // language pack is installed.
+        _catalogLanguage = resolveTipitakaDisplayLanguage(
+          availableLanguages: snapshot.languages,
+          preferredLanguage: _catalogLanguageChosen ? _catalogLanguage : null,
+          uiLanguage: _language,
+        );
         _catalogLanguageChosen = false;
       }
       _loading = false;
@@ -317,6 +317,7 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                       if (_recentPositions.isNotEmpty) ...[
                         _RecentPositionsCard(
                           entries: _recentPositions,
+                          catalogLanguage: _catalogLanguage,
                           onOpen: (entry) => _openReader(entry.book),
                           onRemove: (position) async {
                             await TipitakaReadingPositions.remove(
@@ -514,12 +515,14 @@ class _HighlightsViewState extends State<_HighlightsView> {
 /// "Đọc tiếp" card — resumes books at their saved scroll positions.
 class _RecentPositionsCard extends StatelessWidget {
   final List<({TipitakaReadingPosition position, TipitakaBook book})> entries;
+  final String catalogLanguage;
   final void Function(({TipitakaReadingPosition position, TipitakaBook book})
       entry) onOpen;
   final void Function(TipitakaReadingPosition position) onRemove;
 
   const _RecentPositionsCard({
     required this.entries,
+    required this.catalogLanguage,
     required this.onOpen,
     required this.onRemove,
   });
@@ -532,7 +535,6 @@ class _RecentPositionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final language = Localizations.localeOf(context).languageCode;
     final scheme = Theme.of(context).colorScheme;
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -561,7 +563,7 @@ class _RecentPositionsCard extends StatelessWidget {
               dense: true,
               leading: const Icon(Icons.menu_book_outlined),
               title: Text(
-                entry.book.displayTitle(language),
+                entry.book.displayTitle(catalogLanguage),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

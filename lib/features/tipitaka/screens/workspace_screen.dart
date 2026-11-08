@@ -2,9 +2,11 @@ import 'package:in4up/core/language/localized_material.dart';
 
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/models/reader_appearance.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/reader_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 
@@ -79,6 +81,19 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     super.dispose();
   }
 
+  /// PSRC-159: catalogue/outline titles must use an imported translation,
+  /// not the raw app UI locale (which commonly has no pack installed).
+  Future<String> _catalogLanguage() async {
+    final uiLanguage = Localizations.localeOf(context).languageCode;
+    final db = await TipitakaDb.openReady();
+    final info = await TipitakaDb.info(db);
+    return resolveTipitakaDisplayLanguage(
+      availableLanguages: info.availableLanguages,
+      preferredLanguage: TipitakaReaderAppearance.instance.primaryLanguage,
+      uiLanguage: uiLanguage,
+    );
+  }
+
   bool get _canSyncEditions {
     final secondary = _secondaryIndex;
     if (!_split || secondary == null) return false;
@@ -90,7 +105,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
 
   Future<void> _openParallelEdition(TipitakaWorkspaceTab source) async {
     try {
-      final language = Localizations.localeOf(context).languageCode;
+      final language = await _catalogLanguage();
       final db = await TipitakaDb.openReady();
       final book = await TipitakaDb.getParallelBook(
         db,
@@ -241,7 +256,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
 
   Future<void> _showBookPicker() async {
     try {
-      final language = Localizations.localeOf(context).languageCode;
+      final language = await _catalogLanguage();
       final db = await TipitakaDb.openReady();
       final collections = await TipitakaDb.getCollections(db);
       final groups = <TipitakaCollection, List<TipitakaBook>>{};

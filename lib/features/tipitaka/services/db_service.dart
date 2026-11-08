@@ -2584,25 +2584,7 @@ class TipitakaDb {
       'my': 'translation_my',
       'th': 'translation_th',
     }[language];
-    final dynamicTitleSql = '''
-      (SELECT NULLIF(TRIM(lt.text), '')
-         FROM tipitaka_segments ls
-         JOIN tipitaka_translations lt ON lt.segment_id = ls.id
-        WHERE ls.book_id = b.id
-          AND LOWER(REPLACE(lt.language_code, '_', '-')) = ?
-          AND LOWER(lt.text) NOT LIKE '%namo tassa%'
-          AND ${_bookTitleSql('ls')}
-        ORDER BY ls.order_index, ls.id LIMIT 1)
-    ''';
-    final localeTitleSql = localeColumn == null
-        ? dynamicTitleSql
-        : '''COALESCE(
-            (SELECT NULLIF(TRIM(ls.$localeColumn), '')
-               FROM tipitaka_segments ls
-              WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
-              ORDER BY ls.order_index, ls.id LIMIT 1),
-            $dynamicTitleSql
-          )''';
+    final localeTitleSql = _localeTitleSql(localeColumn);
     final hideDemo = await _hasOfficialCatalog(db);
     final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
     final arguments = <Object?>[language, collectionId];
@@ -2628,6 +2610,58 @@ class TipitakaDb {
     final books = rows.map(TipitakaBook.fromMap).toList();
     if (cacheKey != null) _catalogBooksCache[cacheKey] = books;
     return books;
+  }
+
+  /// PSRC-159 — when the requested language has no title, show *any* imported
+  /// translation instead of falling all the way back to Pāli. Vietnamese and
+  /// English are preferred, then any other imported pack deterministically.
+  static String _anyTranslationTitleSql(String alias) => '''
+    COALESCE(
+      NULLIF(TRIM($alias.translation_vi), ''),
+      NULLIF(TRIM($alias.translation_en), ''),
+      NULLIF(TRIM($alias.translation_my), ''),
+      NULLIF(TRIM($alias.translation_th), ''),
+      (SELECT NULLIF(TRIM(lt.text), '')
+         FROM tipitaka_translations lt
+        WHERE lt.segment_id = $alias.id
+        ORDER BY CASE LOWER(REPLACE(lt.language_code, '_', '-'))
+                   WHEN 'vi' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
+                 lt.language_code
+        LIMIT 1)
+    )
+  ''';
+
+  /// Builds the `_content_title_locale` expression. Exactly one `?` is used
+  /// (the requested language for dynamic translation packs); the fallback to
+  /// any imported translation adds no bind parameter.
+  static String _localeTitleSql(String? localeColumn) {
+    final dynamicTitleSql = '''
+      (SELECT NULLIF(TRIM(lt.text), '')
+         FROM tipitaka_segments ls
+         JOIN tipitaka_translations lt ON lt.segment_id = ls.id
+        WHERE ls.book_id = b.id
+          AND LOWER(REPLACE(lt.language_code, '_', '-')) = ?
+          AND LOWER(lt.text) NOT LIKE '%namo tassa%'
+          AND ${_bookTitleSql('ls')}
+        ORDER BY ls.order_index, ls.id LIMIT 1)
+    ''';
+    final anyTitleSql = '''
+      (SELECT ${_anyTranslationTitleSql('ls')}
+         FROM tipitaka_segments ls
+        WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
+        ORDER BY ls.order_index, ls.id LIMIT 1)
+    ''';
+    if (localeColumn == null) {
+      return 'COALESCE($dynamicTitleSql, $anyTitleSql)';
+    }
+    return '''COALESCE(
+        (SELECT NULLIF(TRIM(ls.$localeColumn), '')
+           FROM tipitaka_segments ls
+          WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
+          ORDER BY ls.order_index, ls.id LIMIT 1),
+        $dynamicTitleSql,
+        $anyTitleSql
+      )''';
   }
 
   /// Book catalogue titles must not be inferred from centered invocations such
@@ -2673,25 +2707,7 @@ class TipitakaDb {
       'my': 'translation_my',
       'th': 'translation_th',
     }[language];
-    final dynamicTitle = '''
-      (SELECT NULLIF(TRIM(lt.text), '')
-         FROM tipitaka_segments ls
-         JOIN tipitaka_translations lt ON lt.segment_id = ls.id
-        WHERE ls.book_id = b.id
-          AND LOWER(REPLACE(lt.language_code, '_', '-')) = ?
-          AND LOWER(lt.text) NOT LIKE '%namo tassa%'
-          AND ${_bookTitleSql('ls')}
-        ORDER BY ls.order_index, ls.id LIMIT 1)
-    ''';
-    final localeTitle = fixedColumn == null
-        ? dynamicTitle
-        : '''COALESCE(
-            (SELECT NULLIF(TRIM(ls.$fixedColumn), '')
-               FROM tipitaka_segments ls
-              WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
-              ORDER BY ls.order_index, ls.id LIMIT 1),
-            $dynamicTitle
-          )''';
+    final localeTitle = _localeTitleSql(fixedColumn);
     final hideDemo = await _hasOfficialCatalog(db);
     final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
     final rows = await db.rawQuery('''

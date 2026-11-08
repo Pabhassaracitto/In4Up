@@ -150,5 +150,51 @@ void main() {
           reason: 'short code được ghi song song');
       expect(all.containsKey('other'), isFalse);
     });
+
+    test('PSRC-18: đổi qua lại en-US ↔ en-GB áp dụng ngay cho câu tiếng Anh',
+        () async {
+      await EdgeVoicePrefs.instance
+          .setVoiceForLang('en-US', 'en-US-GuyNeural');
+      expect(
+        await EdgeVoicePrefs.instance.voiceForLang('en-US'),
+        'en-US-GuyNeural',
+      );
+
+      // Chuyển sang Anh Anh (en-GB): dù LanguageDetector luôn trả `en-US` cho
+      // văn bản tiếng Anh, giọng Anh Anh vừa chọn phải thắng.
+      await EdgeVoicePrefs.instance
+          .setVoiceForLang('en-GB', 'en-GB-RyanNeural');
+      expect(
+        await EdgeVoicePrefs.instance.voiceForLang('en-GB'),
+        'en-GB-RyanNeural',
+      );
+      expect(
+        await EdgeVoicePrefs.instance.voiceForLang('en-US'),
+        'en-GB-RyanNeural',
+      );
+
+      // Đổi ngược về Anh Mỹ (en-US): Aria có hiệu lực ngay.
+      await EdgeVoicePrefs.instance
+          .setVoiceForLang('en-US', 'en-US-AriaNeural');
+      expect(
+        await EdgeVoicePrefs.instance.voiceForLang('en-US'),
+        'en-US-AriaNeural',
+      );
+    });
+
+    test('PSRC-18: zh-CN và zh-TW vẫn độc lập theo hệ chữ Giản/Phồn', () async {
+      await EdgeVoicePrefs.instance
+          .setVoiceForLang('zh-CN', 'zh-CN-YunjianNeural');
+      await EdgeVoicePrefs.instance
+          .setVoiceForLang('zh-TW', 'zh-TW-YunJheNeural');
+      expect(
+        await EdgeVoicePrefs.instance.voiceForLang('zh-CN'),
+        'zh-CN-YunjianNeural',
+      );
+      expect(
+        await EdgeVoicePrefs.instance.voiceForLang('zh-TW'),
+        'zh-TW-YunJheNeural',
+      );
+    });
   });
 }

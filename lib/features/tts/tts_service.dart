@@ -308,6 +308,18 @@ class TtsService extends ChangeNotifier {
   // CONFIGURATION
   // ═══════════════════════════════════════
 
+  static final RegExp _bcp47RegionPattern =
+      RegExp(r'^[a-zA-Z]{2,3}[-_][a-zA-Z]{2}$');
+
+  String _normalizeRequestedLocale(String raw) {
+    final trimmed = raw.trim();
+    if (_bcp47RegionPattern.hasMatch(trimmed)) {
+      final parts = trimmed.replaceAll('_', '-').split('-');
+      return '${parts[0].toLowerCase()}-${parts[1].toUpperCase()}';
+    }
+    return AppLanguageCatalog.fromCode(trimmed).ttsLocale;
+  }
+
   void configure({
     String? language,
     double? speed,
@@ -320,9 +332,7 @@ class TtsService extends ChangeNotifier {
   }) {
     if (language != null) {
       final isAuto = language.toLowerCase() == 'auto';
-      final normalized = isAuto
-          ? 'auto'
-          : AppLanguageCatalog.fromCode(language).ttsLocale;
+      final normalized = isAuto ? 'auto' : _normalizeRequestedLocale(language);
       if (_language != normalized) _selectedVoiceId = null;
       _language = normalized;
     }
@@ -403,7 +413,7 @@ class TtsService extends ChangeNotifier {
         ? _resolveLanguage(text)
         : language.toLowerCase() == 'auto'
             ? LanguageDetector.detect(text)
-            : AppLanguageCatalog.fromCode(language).ttsLocale;
+            : _normalizeRequestedLocale(language);
     _detectedLanguage = lang;
 
     // 1. Cache: KHÔNG dò bằng engineId 'any' nữa.
@@ -823,7 +833,13 @@ class TtsService extends ChangeNotifier {
     String lang, {
     String? voiceOverride,
   }) async {
-    final voiceId = voiceOverride ?? _selectedVoiceId;
+    final rawVoiceId = voiceOverride ?? _selectedVoiceId;
+    final voiceId = engine.id == 'edge_tts'
+        ? EdgeTtsEngine.resolveVoice(voiceId: rawVoiceId, language: lang)
+        : rawVoiceId;
+    // Edge TTS đã nhúng `speed` vào SSML prosody (`rate`) để giữ âm sắc tự
+    // nhiên — không nhân đôi tốc độ lần nữa ở AudioPlayer.
+    final playbackSpeed = engine.id == 'edge_tts' ? 1.0 : _speed;
 
     // Cache theo đúng danh tính giọng — bản ghi của giọng khác KHÔNG được
     // dùng lại (TTS-VOICE-CACHE-001).
@@ -836,10 +852,16 @@ class TtsService extends ChangeNotifier {
       pitch: _pitch,
     );
     if (cached != null) {
-      _lastUsedEngine = '💾 Cache · ${engine.name}';
+      _lastUsedEngine = voiceId == null || voiceId.trim().isEmpty
+          ? '💾 Cache · ${engine.name}'
+          : '💾 Cache · ${engine.name} · ${_shortVoiceLabel(voiceId)}';
       _safeNotify();
-      await _playFile(cached);
-      return true;
+      final ok = await _playFile(cached, playbackSpeed: playbackSpeed);
+      if (ok) return true;
+      // File cache hỏng → xóa để lượt tổng hợp bên dưới tạo lại bản mới.
+      try {
+        await File(cached).delete();
+      } catch (_) {}
     }
 
     final hasNet = await _checkNetwork();
@@ -877,13 +899,11 @@ class TtsService extends ChangeNotifier {
               ? '🌐 ${result.engineName}'
               : '🌐 ${result.engineName} · ${_shortVoiceLabel(voiceId)}';
           _safeNotify();
-          await _playFile(filePath);
-          return true;
+          return await _playFile(filePath, playbackSpeed: playbackSpeed);
         } else if (result.audioUrl != null) {
           _lastUsedEngine = '🌐 ${result.engineName}';
           _safeNotify();
-          await _playUrl(result.audioUrl!);
-          return true;
+          return await _playUrl(result.audioUrl!);
         }
       }
       return false;
@@ -914,7 +934,10 @@ class TtsService extends ChangeNotifier {
             // định (nữ) rồi không bao giờ khớp key — vừa phí mạng vừa là
             // nguồn gốc của "chọn giọng nam mà giọng nữ đọc".
             final voiceId = engine.id == 'edge_tts'
-                ? await _resolveEdgeVoice(lang)
+                ? EdgeTtsEngine.resolveVoice(
+                    voiceId: await _resolveEdgeVoice(lang),
+                    language: lang,
+                  )
                 : _selectedVoiceId;
 
             final existing = await _cache.get(
@@ -1016,7 +1039,7 @@ class TtsService extends ChangeNotifier {
 
   String _resolveLanguage(String text) {
     if (_language != 'auto') {
-      return AppLanguageCatalog.fromCode(_language).ttsLocale;
+      return _normalizeRequestedLocale(_language);
     }
     if (_autoDetectLanguage) return LanguageDetector.detect(text);
     return AppLanguageCatalog.english.ttsLocale;
@@ -1353,22 +1376,25 @@ class TtsService extends ChangeNotifier {
   // HELPERS
   // ═══════════════════════════════════════
 
-  Future<void> _playFile(String filePath) async {
+  Future<bool> _playFile(String filePath, {double? playbackSpeed}) async {
     try {
       _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setFilePath(filePath);
-      await _audioPlayer.setSpeed(_speed);
+      await _audioPlayer.setSpeed(playbackSpeed ?? _speed);
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
+      return true;
     } catch (e) {
       _error = 'Lỗi phát: $e';
+      return false;
+    } finally {
       _isSpeaking = false;
       _safeNotify();
     }
   }
 
-  Future<void> _playUrl(String url) async {
+  Future<bool> _playUrl(String url) async {
     try {
       _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setUrl(url);
@@ -1376,8 +1402,11 @@ class TtsService extends ChangeNotifier {
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
+      return true;
     } catch (e) {
       _error = 'Lỗi stream: $e';
+      return false;
+    } finally {
       _isSpeaking = false;
       _safeNotify();
     }

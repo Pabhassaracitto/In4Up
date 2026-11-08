@@ -104,6 +104,8 @@ List<LrcLine> parseLrcContent(String content) {
 
 /// Dưới ngưỡng này thì parse ĐỒNG BỘ: spawn isolate (~1–3 ms + copy dữ liệu)
 /// đắt hơn chính việc parse.
+///
+/// Theo dõi: KANBAN card `PERF-001` + `docs/project/PERF_001_MEASUREMENT.md`.
 const int lrcIsolateThresholdChars = 64 * 1024;
 
 /// Số lần thực sự đi đường isolate — test pin NGƯỠNG bằng counter này (không

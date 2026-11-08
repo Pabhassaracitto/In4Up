@@ -9130,3 +9130,48 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** sandbox không có Flutter/Android SDK, không adb, không thiết bị ⇒ **chưa nhìn tận mắt** thanh TTS của PDF / phụ đề video nằm trên gesture bar và trên **3-button nav**. Cần owner xác nhận: (1) mở PDF → thanh TTS không bị che; (2) xem video toàn màn hình → phụ đề không bị che; (3) đổi giữa gesture nav ↔ 3-button nav; (4) iOS home indicator.
 - **Lịch sử:**
   - 2026-11-08 | created→done | agent `arena/01a0251e-in4up` | helper + 3 file surface + test 3 lớp + step CI → push `875c86ef` → CI `42555164550` 🟢
+
+| AVTOOL-001 | Media P0: `runFFmpegKit` dùng `executeWithArguments` + giữ `FFmpegSession` (huỷ được) + `clearSessions()` thay `Future.delayed` giả lập | 🔨 doing (code + test xong; **CI 🟢** run 42273702318; **chờ QA máy**) | [PLAN-047](../plans/PLAN-047-cong-cu-am-thanh-video.md) P0, ADR-0026 — chạm đường STT ⇒ QA "Tạo lời thoại" trên máy trước khi merge |
+| AVTOOL-002 | Media P1: lớp `media_tools` 4 tầng (builder/progress/lrc-shift/naming THUẦN) + engine + màn «Công cụ media» tự chẩn đoán FFmpeg + **tải FFmpeg lazy trên desktop** | 🔨 doing (code + test xong; **CI 🟢** run 42273702318 — 128 test; **chờ QA máy**) | PLAN-047 P1 §3/§5.6.1/§7 — `test/media_tools/` 11 file; owner chốt **không đóng gói** `ffmpeg.exe` |
+| AVTOOL-003 | Media P2: **xuất đoạn A–B** (mp3 + LRC dịch mốc, đăng ký Gần đây) + **video → âm thanh** (+ xuất bản sao từ «Gần đây») | 🔨 doing (code xong; **CI 🟢** run 42273702318; **chưa QA máy**) | PLAN-047 P2 §4 #1/#4 — `MediaExportSheet` dùng chung; cắt **video** nguyên vẹn để P3 (`trimVideo` có sẵn, chưa nối) |
+| AVTOOL-004 | Media P3: tách theo chương (âm mục) · tách theo khoảng · nối playlist (kiểm tương thích, fallback re-encode) · YouTube→mp3 · TTS→mp3 | 📋 proposed (kế hoạch; **chưa code**) | PLAN-047 P3 — `SoundChapter.position` là nguồn cắt chương |
+| AVTOOL-005 | Media P4: `HeavyTaskKind.mediaExport` + banner, i18n 8 locale, mục Tools overlay, QA 4 nền tảng, đo dung lượng | 📋 proposed (kế hoạch; **chưa code**) | PLAN-047 P4 §9 — 28 chuỗi mới qua `priority_native_pack.json` |
+
+### AVTOOL-001 — (2026-11-06) Media P0: FFmpegKit gọi bằng ARGUMENT + huỷ được + dọn session
+- **Trạng thái:** 🔨 doing — **đã code** (owner chốt P0+P1+P2 ngày 2026-11-06); xem mục tổng hợp bên dưới
+- **Nguồn:** owner 2026-11-06 — gửi 2 phản hồi của Gemini về `ffmpeg_kit_flutter` (MP4/M4A→MP3; cắt/tách/nối audio) + yêu cầu *"khảo sát dự án để lên kế hoạch tối ưu phù hợp nhất để tích hợp thông minh các chức năng vào app"*.
+- **Chi tiết:** [`docs/plans/PLAN-047-cong-cu-am-thanh-video.md`](../plans/PLAN-047-cong-cu-am-thanh-video.md) · **ADR-0026**.
+- **Hiện trạng đã xác minh bằng mã:**
+  - FFmpeg **đã có**: `ffmpeg_kit_flutter_new: ^4.6.2` (`packages/in4up_stt/pubspec.yaml:31`) → Android kéo `ffmpeg-kit-full-gpl:2.2.3` (**có `libmp3lame`/aac/opus/vorbis**). Gói `ffmpeg_kit_flutter_full` mà Gemini khuyên là của `arthenica` — **đã archive** (2026-07) ⇒ không dùng.
+  - `AudioConverter` phục vụ **STT** (ép `-ar 16000 -ac 1 -c:a pcm_s16le`, `audio_converter.dart:146-180`) ⇒ **không** tái dùng cho bản xuất cho người nghe.
+  - `runFFmpegKit` (`ffmpeg_kit_impl.dart:13-26`): ghép `List<String>` thành **chuỗi lệnh** + `quotePath()` tay ⇒ tên file có `'`/`"` hỏng lệnh; **không giữ `FFmpegSession`** ⇒ không huỷ được; "giải phóng RAM" bằng `Future.delayed(50ms)` (không có tác dụng).
+  - Desktop **không** có sẵn ffmpeg: plugin bị loại khỏi build Windows (`windows/CMakeLists.txt:151-204`), `windows/libs/ffmpeg.exe` **không nằm trong repo** ⇒ phải hiện hướng dẫn, không được crash.
+- **Việc dự kiến (P0):** `executeWithArguments` (bỏ escaping chuỗi) · giữ session + `cancel()` · `FFmpegKitConfig.clearSessions()` · `-nostdin` cho desktop · chuẩn hoá lỗi thành enum. **Giữ nguyên** chữ ký `List<String>` của mọi caller (`AudioConverter`, VAD, Whisper).
+- **Rủi ro chính:** P0 chạm đường STT đang chạy ⇒ PR riêng + test hồi quy + QA máy "Tạo lời thoại" trước khi merge.
+- **Lịch sử:**
+  - 2026-11-06 | created | agent `arena/c231303f-in4up` | khảo sát 20+ điểm chạm; viết PLAN-047 + ADR-0026 + 5 card AVTOOL.
+  - 2026-11-06 | created → doing | agent `arena/c231303f-in4up` | owner chốt phạm vi ⇒ code P0; CI 🟢 42273702318.
+
+### AVTOOL-001/002/003 — (2026-11-06) Code P0+P1+P2 (CI 🟢 128 test)
+- **Trạng thái:** 🔨 doing — code + test xong; **CI 🟢 run [42273702318](https://github.com/Pabhassaracitto/In4Up/actions/runs/42273702318)**: Analyze 0 error, step `AVTOOL tests — công cụ media` **128 test 🟢**, Rule 5 🟢. Còn lại: QA máy thật.
+- **Nguồn:** owner 2026-11-06 trả lời 4 câu hỏi §12 của PLAN-047: (1) phạm vi để agent tự chọn → chốt P0+P1+P2, (2) **không** đóng gói `ffmpeg.exe` → tải lazy, (3) clip mặc định **MP3 192 kbps**, (4) P2 **chỉ âm thanh** (cắt video để P3).
+- **P0 — `packages/in4up_stt` (AVTOOL-001):**
+  - `ffmpeg_kit_impl.dart`: `executeWithArgumentsAsync` (bỏ escaping chuỗi ⇒ hết lỗi tên file có `'`), giữ `FFmpegSession` + `cancel()`, `FFmpegKitConfig.clearSessions()`, `runFFmpegKitWithProgress` (+`FfmpegKitOutcome`).
+  - `ffmpeg_process_impl.dart`: `runFfmpegProcessWithProgress` đọc `-progress pipe:2` / `time=` (`parseProgressElapsedMs`, hàm THUẦN), `FfmpegProcessCancelToken` (kill), `probeFfmpegProcessAvailability` (timeout 6 s).
+  - `ffmpeg_common.dart` (**mới**): `FfmpegRunResult` + `FfmpegCancelToken` kiểu listener ⇒ phá vòng import runner ⇄ process_impl.
+  - `ffmpeg_binary_locator.dart` (**mới**): `resolveFfmpegBinaryPath` + `FfmpegBinaryRegistry` (binary app tự tải thắng mọi nguồn) ⇒ `in4up_stt` không cần `path_provider`.
+  - Giữ nguyên chữ ký `runFFmpegKit(List<String>)` / `probeFFmpegKit(String)` ⇒ `AudioConverter`, VAD, Whisper không phải sửa.
+- **P1 — `lib/features/media_tools/` (AVTOOL-002):** `models/media_export_models.dart`; `services/` `media_command_builder` (argv thuần), `media_estimates`, `media_export_naming`, `media_probe_parser`, `lrc_time_shifter`, `media_ffmpeg_engine` (cổng `MediaFfmpegPort` để test), `media_export_service` (hợp đồng `adoptPath`, `.part` → thư viện), `media_export_diagnostics` (self-test `lavfi sine` → mp3), `ffmpeg_runtime_installer` (tải BtbN + sha256 + giải nén `bin/`+DLL), `ffmpeg_runtime_bootstrap` (nối vào `StorageService` key `ffmpeg_runtime_path`, gọi trong `main()`).
+- **P2 — UI (AVTOOL-003):** `widgets/media_export_sheet.dart` (chọn preset + ước lượng + cảnh báo mã hoá lại + "kèm lời"), `media_export_progress_dialog.dart` (huỷ thật, `PopScope`), `media_export_follow_up.dart` (Mở trong tab Nghe / Chia sẻ), `ffmpeg_install_sheet.dart`, `screens/media_tools_screen.dart`; `media_export_actions.dart` (6 lối vào gọi 1 hàm). Đã nối: **A–B ở `ab_loop_controls`** (nút «Xuất đoạn»), **`listen_library_screen`** (menu file → xuất bản sao), **`video_player_screen`** (menu ⋮ → tách âm thanh), **Tools overlay** (`media_tools`, tab Home + Nghe).
+- **Test:** `test/media_tools/` 11 file, **128 test** — builder, estimates, naming, probe parser, lrc shifter, engine, service, diagnostics, locator, progress parse, classify. Đã thành **step CI riêng** (`AVTOOL tests — công cụ media`) trong `app_analyze.yml`; khi đỏ, step đẩy tên test + `Expected/Actual` lên **annotation** (artifact log bị chặn tải trong môi trường agent).
+- **i18n:** +67 entry `tool/priority_native_pack.json` (en + zh/zh_TW/hi/si/my/th/ja) ⇒ `--check` 3585 × 8 🟢; English song song trong `tool/legacy_ui_english_overrides.json`. Không chạy `generate_arbs.py` / `generate_legacy_ui_fallbacks.py`.
+- **6 lỗi CI bắt được (đã sửa — đáng ghi nhớ):** (1) `m4aCopy` khai `lossless: true` ⇒ `isCopy` false ⇒ mọi lần "copy" bị hạ xuống AAC 96k — **bug thật do test bắt**; (2) `Process.start` không có `stdoutEncoding`; (3) `process.stdout` là `Stream<List<int>>` ⇒ phải `transform(Utf8Decoder)`; (4) `Directory.list()` trả Stream, không dùng được trong collection-for; (5) `'.part.$1'` phải là raw string; (6) 3 file UI `show Text` từ material ⇒ **che shim `Text`**, chuỗi sẽ không bao giờ được dịch.
+- **Chưa kiểm (cần máy thật):** xuất clip A–B trên Android (file + LRC mở lại đúng, karaoke + lặp A–B còn chạy); "Tạo lời thoại" (đường STT) sau P0; tải FFmpeg trên Windows (zip ~90 MB, SHA, giải nén DLL) rồi xuất lần đầu; huỷ giữa đường trên cả 2 nền tảng.
+- **Lịch sử:**
+  - 2026-11-06 | created (ghi nhận code P0–P2) | agent `arena/c231303f-in4up` | phạm vi do owner chốt (P0+P1+P2) · CI đỏ 4 run liên tiếp (42270628020 → 42271242433 → 42272500432 → 42273162589) → 🟢 **42273702318** (128 test, Analyze 0 error, Rule 5 🟢)
+  - 2026-11-06 | docs | agent `arena/c231303f-in4up` | commit docs đầu tiên bị dính dấu xung đột (`<<<<<<<`) do rebase ⇒ đã gỡ ở `81d5955`
+  - 2026-11-06 | rebase lên 251e | agent `arena/c231303f-in4up` | đánh số lại
+    **PLAN-046 → PLAN-047** + **ADR-0025 → ADR-0026** (251e đã dùng hai số đó cho
+    việc khác); i18n hợp nhất theo khoá = 3641 entry × 8; 17 commit gộp còn
+    **3 commit** để rebase/merge tuyến tính.
+

@@ -9153,7 +9153,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-06 | created → doing | agent `arena/c231303f-in4up` | owner chốt phạm vi ⇒ code P0; CI 🟢 42273702318.
 
 ### AVTOOL-001/002/003 — (2026-11-06) Code P0+P1+P2 (CI 🟢 128 test)
-- **Trạng thái:** 🔨 doing — code + test xong; **CI 🟢 run [42273702318](https://github.com/Pabhassaracitto/In4Up/actions/runs/42273702318)**: Analyze 0 error, step `AVTOOL tests — công cụ media` **128 test 🟢**, Rule 5 🟢. Còn lại: QA máy thật.
+- **Trạng thái:** 🔨 doing — code + test xong; **CI 🟢 sau rebase 251e: run [42523491571](https://github.com/Pabhassaracitto/In4Up/actions/runs/42523491571)** (trước rebase: 42273702318) · [PR #153](https://github.com/Pabhassaracitto/In4Up/pull/153): Analyze 0 error, step `AVTOOL tests — công cụ media` **128 test 🟢**, Rule 5 🟢. Còn lại: QA máy thật.
 - **Nguồn:** owner 2026-11-06 trả lời 4 câu hỏi §12 của PLAN-047: (1) phạm vi để agent tự chọn → chốt P0+P1+P2, (2) **không** đóng gói `ffmpeg.exe` → tải lazy, (3) clip mặc định **MP3 192 kbps**, (4) P2 **chỉ âm thanh** (cắt video để P3).
 - **P0 — `packages/in4up_stt` (AVTOOL-001):**
   - `ffmpeg_kit_impl.dart`: `executeWithArgumentsAsync` (bỏ escaping chuỗi ⇒ hết lỗi tên file có `'`), giữ `FFmpegSession` + `cancel()`, `FFmpegKitConfig.clearSessions()`, `runFFmpegKitWithProgress` (+`FfmpegKitOutcome`).

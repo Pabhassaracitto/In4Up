@@ -529,3 +529,7 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
   (**128 test** cho `test/media_tools`, Analyze 0 error, Rule 5 🟢). CI bắt 6
   lỗi compile + 1 **bug thật** (`m4aCopy` khai `lossless: true` ⇒ mọi lần
   "copy" bị hạ xuống AAC 96k). **Chưa QA máy.**
+- 2026-11-06 | rebase + PR | agent `arena/c231303f-in4up` | gộp 17 commit còn
+  **3** (P0 · P1+P2 · docs), rebase lên 251e `dac89e1d`, đánh số lại PLAN-047 /
+  ADR-0026, mở [PR #153](https://github.com/Pabhassaracitto/In4Up/pull/153)
+  (base `arena/01a0251e-in4up`); CI 🟢 run 42523491571 ngay sau rebase.

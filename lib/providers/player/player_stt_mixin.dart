@@ -590,10 +590,11 @@ mixin PlayerSttMixin on ChangeNotifier {
           notifyListeners();
         }
       } else {
-        _shouldOpenAiPanel = true;
-        notifyListeners();
+        // PSRC-157: importing/loading a song must NOT auto-open the "Tạo lời"
+        // AI sheet. Cached lyrics are still loaded silently when they exist;
+        // transcription is an explicit user action via the toolbar button.
         debugPrint(
-          'ℹ️ No cached LRC found for: $normalizedPath → open AI panel',
+          'ℹ️ No cached LRC found for: $normalizedPath — lyrics sheet stays closed (PSRC-157)',
         );
       }
     } catch (e) {
@@ -656,6 +657,9 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
   }
 
+  // PSRC-157: kept as a read-only false signal for callers compiled against
+  // older builds. Nothing raises it anymore — the lyrics sheet is opened only
+  // when the user taps "Tạo lời".
   bool _shouldOpenAiPanel = false;
   bool get shouldOpenAiPanel => _shouldOpenAiPanel;
 

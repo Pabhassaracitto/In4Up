@@ -2337,34 +2337,15 @@ class _SmartActionBarState extends State<_SmartActionBar>
   void _onPlayerStateChange() {
     if (!mounted) return;
 
-    // Flags are consumed synchronously (no notify involved); every UI effect
+    // Flags are consumed synchronously (no notify involved); the UI effect
     // below touches parent State, so it runs post-frame — never inside the
     // notify/build window (LISTEN-LRC-001).
-    final hasNewLrc = widget.player.lrcJustGenerated;
-    var openAi = false;
-    if (widget.player.shouldOpenAiPanel) {
-      widget.player.consumeShouldOpenAiPanel();
-      // Prefer the available lyrics if both signals arrive together.
-      openAi = !hasNewLrc;
-    }
-
-    if (hasNewLrc) {
+    // PSRC-157: loading/importing a song without cached lyrics no longer
+    // raises an automatic "Tạo lời" sheet. The sheet opens only through the
+    // explicit toolbar action (`_toggleAiPanel`).
+    if (widget.player.lrcJustGenerated) {
       widget.player.consumeLrcJustGenerated();
       runPostFrame(() => widget.onLrcGenerated());
-      // Do not reopen the AI sheet over the lyrics after the user closed it
-      // during generation. An already-open editor remains open so unsaved
-      // edits are not discarded; the user can close it when ready.
-    }
-
-    if (openAi) {
-      runPostFrame(() {
-        if (_openPanel != null) {
-          _openPanel = null;
-          widget.onPanelChanged?.call(false);
-          safeSetState(() {});
-        }
-        widget.onAiPanelChanged(true);
-      });
     }
   }
 

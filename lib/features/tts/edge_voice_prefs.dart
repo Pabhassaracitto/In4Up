@@ -1,23 +1,14 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Preferred Microsoft Edge (Neural) voice per language
-/// (`vi-VN` → `vi-VN-NamMinhNeural`).
+/// (`vi-VN` → `vi-VN-NamMinhNeural`, `en-GB` → `en-GB-RyanNeural`…).
 ///
-/// TTS-EDGE-VOICE-001 — bộ chọn giọng RIÊNG cho engine Edge. Trước đây app
-/// chỉ có picker cho Piper, còn Edge luôn dùng giọng mặc định theo ngôn ngữ
-/// (vi-VN → HoaiMy, nữ) vì không có chỗ chọn. File này theo đúng mẫu
-/// [PiperVoicePrefs]: singleton + SharedPreferences, khoá theo ngôn ngữ, KHÔNG
-/// đụng `_selectedVoiceId` chung của TtsService (tránh nuốt nhầm id Piper/
-/// Zalo/FPT — EdgeTtsEngine.resolveVoice vẫn là chốt an toàn cuối).
-///
-/// TTS-EDGE-VOICE-003 (nghiệm thu máy thật, audit 1.g — tài liệu LẪN Việt–Anh):
-/// câu tiếng Anh trong tài liệu tiếng Việt được nhận diện là `en-US`, mà
-/// người dùng mới chỉ cấu hình giọng **tiếng Việt** ⇒ rơi về giọng mặc định
-/// của en-US (Aria, nữ) ⇒ lại đúng triệu chứng "chọn giọng nam mà giọng nữ
-/// đọc", lần này ở dòng ngoại ngữ. Hướng đã chọn (thay vì thêm bộ chọn giọng
-/// ngay trong luồng đọc): cho phép **GHIM** một giọng Edge dùng cho MỌI ngôn
-/// ngữ chưa chọn giọng riêng. Mặc định TẮT ⇒ không đổi hành vi người dùng cũ;
-/// giọng riêng theo ngôn ngữ luôn thắng giọng ghim.
+/// TTS-EDGE-VOICE-001 — bộ chọn giọng RIÊNG cho engine Edge.
+/// TTS-EDGE-VOICE-003 — cho phép GHIM một giọng Edge dùng cho MỌI ngôn ngữ
+/// chưa chọn giọng riêng; giọng riêng theo ngôn ngữ luôn thắng giọng ghim.
+/// PSRC-18 — hỗ trợ chuyển đổi mượt giữa các phương ngữ cùng ngôn ngữ gốc
+/// (ví dụ `en-US` ↔ `en-GB`) khi `LanguageDetector`/`PlaybackEngine` luôn
+/// chuẩn hoá tiếng Anh về `en-US`, đồng thời giữ độc lập `zh-CN` và `zh-TW`.
 class EdgeVoicePrefs {
   EdgeVoicePrefs._();
   static final EdgeVoicePrefs instance = EdgeVoicePrefs._();
@@ -37,7 +28,14 @@ class EdgeVoicePrefs {
   SharedPreferences? _prefs;
 
   Future<SharedPreferences> _ensure() async {
-    return _prefs ??= await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
+    if (!identical(prefs, _prefs)) {
+      _prefs = prefs;
+      _mem.clear();
+      _pinnedVoice = null;
+      _pinAll = null;
+    }
+    return prefs;
   }
 
   /// Chuẩn hoá ngôn ngữ thành khoá nhất quán (`vi-VN` / `en-US` / `vi`).
@@ -57,10 +55,6 @@ class EdgeVoicePrefs {
   ///  1. giọng RIÊNG của ngôn ngữ đó (người dùng đã chọn) — luôn thắng;
   ///  2. giọng GHIM, nhưng chỉ khi công tắc ghim đang bật;
   ///  3. `null` → engine tự dùng giọng mặc định của ngôn ngữ.
-  ///
-  /// Vì sao giọng riêng thắng giọng ghim: ghim là để lấp chỗ TRỐNG (dòng
-  /// ngoại ngữ trong tài liệu lẫn Việt–Anh), không phải để nuốt lựa chọn
-  /// tường minh của người dùng.
   static String? resolveVoiceForLanguage({
     required String? perLanguageVoice,
     required String? pinnedVoice,
@@ -75,22 +69,50 @@ class EdgeVoicePrefs {
 
   Future<void> setVoiceForLang(String language, String voiceId) async {
     final lang = normalizeLang(language);
+    final trimmed = voiceId.trim();
     final prefs = await _ensure();
     if (lang.isEmpty || lang == 'other') {
-      // Nhóm "ngôn ngữ khác" = chọn giọng cho những ngôn ngữ chưa cấu hình
-      // ⇒ ghi vào ô GHIM và bật công tắc ghim luôn (lựa chọn tường minh).
-      await setPinnedVoice(voiceId);
+      await setPinnedVoice(trimmed);
       await setPinAllLanguages(true);
       return;
     }
-    _mem[lang] = voiceId;
-    await prefs.setString('$_prefix$lang', voiceId);
 
-    // Lưu thêm short code (ví dụ `vi` song song với `vi-VN`).
     final short = lang.split('-').first;
+
+    // Với các ngôn ngữ cùng chữ viết mà bộ nhận diện luôn trả về 1 mã chuẩn
+    // duy nhất (vd tiếng Anh luôn ra `en-US`, không phân biệt Mỹ/Anh), khi
+    // người dùng chủ động đổi sang phương ngữ khác (`en-GB` ↔ `en-US`), dọn
+    // khoá vùng cũ cùng họ để lựa chọn mới có hiệu lực ngay lập tức.
+    // Ngoại lệ: `zh` có `zh-CN` (giản thể) và `zh-TW` (phồn thể) được nhận
+    // diện độc lập theo mặt chữ Hán nên giữ riêng cả hai.
+    if (short != lang && short != 'zh') {
+      final staleRegionalKeys = <String>[
+        for (final key in prefs.getKeys())
+          if (key.startsWith(_prefix)) key.substring(_prefix.length),
+      ].where((kLang) =>
+          kLang != lang && kLang != short && kLang.split('-').first == short);
+
+      for (final stale in staleRegionalKeys) {
+        _mem.remove(stale);
+        await prefs.remove('$_prefix$stale');
+      }
+      _mem.removeWhere(
+        (kLang, _) =>
+            kLang != lang && kLang != short && kLang.split('-').first == short,
+      );
+    }
+
+    _mem[lang] = trimmed;
+    await prefs.setString('$_prefix$lang', trimmed);
+
+    // Lưu thêm short code (`vi` song song `vi-VN`, `en` trỏ tới phương ngữ
+    // tiếng Anh vừa chọn). Với `zh`, chỉ ghi short code nếu chưa có để không
+    // làm `zh-TW` ghi đè fallback của `zh-CN` khi cả hai cùng được cấu hình.
     if (short != lang) {
-      _mem[short] = voiceId;
-      await prefs.setString('$_prefix$short', voiceId);
+      if (short != 'zh' || !prefs.containsKey('$_prefix$short')) {
+        _mem[short] = trimmed;
+        await prefs.setString('$_prefix$short', trimmed);
+      }
     }
   }
 
@@ -109,7 +131,8 @@ class EdgeVoicePrefs {
     );
   }
 
-  /// Giọng đã lưu cho đúng [lang] (không tính giọng ghim): `vi-VN` → `vi`.
+  /// Giọng đã lưu cho đúng [lang] (không tính giọng ghim):
+  /// khớp chính xác (`vi-VN` / `zh-TW`) → mã ngắn (`en`) → phương ngữ cùng họ.
   String? _storedVoiceForLang(SharedPreferences prefs, String lang) {
     final cached = _mem[lang];
     if (cached != null && cached.isNotEmpty) return cached;
@@ -121,8 +144,21 @@ class EdgeVoicePrefs {
     }
 
     final short = lang.split('-').first;
-    for (final key in prefs.getKeys()) {
-      if (!key.startsWith(_prefix)) continue;
+    final cachedShort = _mem[short];
+    if (cachedShort != null && cachedShort.isNotEmpty) return cachedShort;
+
+    final directShort = prefs.getString('$_prefix$short');
+    if (directShort != null && directShort.isNotEmpty) {
+      _mem[short] = directShort;
+      return directShort;
+    }
+
+    final siblingKeys = prefs
+        .getKeys()
+        .where((key) => key.startsWith(_prefix))
+        .toList()
+      ..sort();
+    for (final key in siblingKeys) {
       final kLang = key.substring(_prefix.length);
       if (kLang.split('-').first != short) continue;
       final value = prefs.getString(key);
@@ -133,30 +169,34 @@ class EdgeVoicePrefs {
 
   /// Giọng GHIM cho mọi ngôn ngữ chưa chọn giọng riêng (null = chưa ghim).
   Future<String?> get pinnedVoice async {
+    final prefs = await _ensure();
     final cached = _pinnedVoice;
     if (cached != null) return cached.isEmpty ? null : cached;
-    final stored = (await _ensure()).getString(_pinnedVoiceKey);
+    final stored = prefs.getString(_pinnedVoiceKey);
     _pinnedVoice = stored ?? '';
     return stored == null || stored.isEmpty ? null : stored;
   }
 
   Future<void> setPinnedVoice(String voiceId) async {
+    final prefs = await _ensure();
     _pinnedVoice = voiceId.trim();
-    await (await _ensure()).setString(_pinnedVoiceKey, _pinnedVoice!);
+    await prefs.setString(_pinnedVoiceKey, _pinnedVoice!);
   }
 
   /// Công tắc "dùng giọng ghim cho mọi ngôn ngữ" — mặc định TẮT.
   Future<bool> get pinAllLanguages async {
-    _pinAll ??= (await _ensure()).getBool(_pinAllKey) ?? false;
+    final prefs = await _ensure();
+    _pinAll ??= prefs.getBool(_pinAllKey) ?? false;
     return _pinAll!;
   }
 
   Future<void> setPinAllLanguages(bool value, {String? voiceId}) async {
+    final prefs = await _ensure();
     if (voiceId != null && voiceId.trim().isNotEmpty) {
       await setPinnedVoice(voiceId);
     }
     _pinAll = value;
-    await (await _ensure()).setBool(_pinAllKey, value);
+    await prefs.setBool(_pinAllKey, value);
   }
 
   Future<Map<String, String>> all() async {

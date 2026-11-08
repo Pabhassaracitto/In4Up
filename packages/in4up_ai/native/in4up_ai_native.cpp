@@ -42,7 +42,14 @@ void log_append(const char * text, size_t len) {
     }
 }
 
+// ⚠ MSVC KHÔNG hiểu `__attribute__((format(printf,1,2)))` ⇒ build Windows
+// (bản 1.24.0 đầu tiên) đỏ ở step "Build Windows Release". Chỉ bật
+// attribute khi trình biên dịch là GCC/Clang.
+#if defined(__GNUC__) || defined(__clang__)
 void log_note(const char * fmt, ...) __attribute__((format(printf, 1, 2)));
+#else
+void log_note(const char * fmt, ...);
+#endif
 
 void log_note(const char * fmt, ...) {
     char buf[512];

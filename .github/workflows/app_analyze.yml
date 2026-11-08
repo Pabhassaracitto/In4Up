@@ -1068,6 +1068,66 @@ jobs:
           path: audit_1210_test.log
           if-no-files-found: ignore
 
+      # PERF-001 (2026-11-08) — 4 việc "dọn nhà" về RAM/khựng: hạn mức
+      # ImageCache + cacheWidth, watchdog nhả model khi rảnh, màn chẩn đoán
+      # CHỈ debug, và parse LRC/văn bản lớn trong isolate.
+      # TẤT CẢ là test Dart THUẦN + source-scan (không plugin, không mạng,
+      # không thiết bị) nên chạy được trên runner.
+      - name: "PERF-001 — image cache / model idle watchdog / diagnostics / isolate"
+        id: perf-001-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/perf/image_cache_policy_test.dart \
+                   test/perf/model_idle_watchdog_test.dart \
+                   test/perf/memory_diagnostics_guard_test.dart \
+                   test/perf/parse_isolate_equivalence_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test PERF-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          timeout -k 10s 6m flutter test $files -r expanded > perf_001_test.log 2>&1
+          code=$?
+          cat perf_001_test.log
+          if [ "$code" -ne 0 ]; then
+            # GitHub chỉ giữ ~10 annotation/check-run ⇒ GỘP thành 1 annotation
+            # (xuống dòng bằng %0A) thay vì mỗi dòng lỗi 1 annotation.
+            python3 - <<'PYEOF'
+          import pathlib
+          log = pathlib.Path('perf_001_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          text = log.read_text(encoding='utf-8', errors='replace')
+          lines = text.splitlines()
+          errs = []
+          for idx, ln in enumerate(lines):
+              if '[E]' in ln:
+                  errs.append(ln)
+                  errs.extend(lines[idx + 1: idx + 5])
+              elif 'Some tests failed' in ln or 'Failed to load' in ln:
+                  errs.append(ln)
+          body = '\n'.join(errs) or text[-2500:]
+          body = body[:3800]
+          escaped = (body.replace('%', '%25').replace('\r', '')
+                         .replace('\n', '%0A'))
+          print('::error title=PERF-001 tests::' + escaped)
+          PYEOF
+          fi
+          exit $code
+
+      - name: Upload PERF-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-perf-001-test-log
+          path: perf_001_test.log
+          if-no-files-found: ignore
+
       # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
       # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
       # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân

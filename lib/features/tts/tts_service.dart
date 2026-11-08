@@ -383,11 +383,13 @@ class TtsService extends ChangeNotifier {
         preferredEngineId: preferredEngineId,
       );
 
-  Future<void> speak(String text, {String? language}) async {
+  Future<void> speak(String text, {String? language, bool matchVoiceLanguage = false}) async {
     if (text.trim().isEmpty) return;
     // Dừng âm đang phát nhưng KHÔNG tăng thế hệ: một câu mới trong cùng
     // phiên đọc không được vô hiệu hoá chính phiên đó.
+    final epoch = _playbackEpoch;
     await _silenceCurrentAudio();
+    if (isStaleEpoch(epoch)) return;
 
     _error = null;
     _stopRequested = false;
@@ -397,8 +399,6 @@ class TtsService extends ChangeNotifier {
     // Nguồn âm của câu trước đã tắt; cờ engine phải về mặc định để
     // `_awaitLineFinished` không tưởng nhầm là đang dùng giọng máy.
     _usingOfflineEngine = false;
-    final epoch = _playbackEpoch;
-
     final lang = language == null
         ? _resolveLanguage(text)
         : language.toLowerCase() == 'auto'
@@ -424,7 +424,7 @@ class TtsService extends ChangeNotifier {
     );
     final edgeVoice =
         edgeEnabled && effectivePriority != TtsPriority.offlineOnly
-            ? await _resolveEdgeVoice(lang)
+            ? await _resolveEdgeVoice(lang, matchLanguage: matchVoiceLanguage)
             : null;
     final candidates = _getCandidateEngines(
       effectivePriority,
@@ -435,15 +435,16 @@ class TtsService extends ChangeNotifier {
     for (final engineInfo in candidates) {
       if (_stopRequested || isStaleEpoch(epoch)) break;
 
+      if (!_engineSupportsLanguage(engineInfo.id, lang)) continue;
       switch (engineInfo.id) {
         case 'vieneu_tts':
           // TTS-VIENEU-001 — VieNeu-TTS native (GGUF, audio.cpp, on-device,
           // chỉ tiếng Việt; _engineSupportsLanguage đã lọc lang ở trên).
-          played = await _trySpeakVieneu(text, lang);
+          played = await _trySpeakVieneu(text, lang, epoch, matchVoiceLanguage);
           break;
 
         case 'piper_tts':
-          played = await _trySpeakPiper(text, lang);
+          played = await _trySpeakPiper(text, lang, epoch, matchVoiceLanguage);
           break;
 
         case 'offline_tts':
@@ -461,11 +462,12 @@ class TtsService extends ChangeNotifier {
             text,
             lang,
             voiceOverride: edgeVoice,
+            epoch: epoch, matchVoiceLanguage: matchVoiceLanguage,
           );
           break;
 
         case 'google_tts':
-          played = await _trySpeakOnline(GoogleTtsEngine(), text, lang);
+          played = await _trySpeakOnline(GoogleTtsEngine(), text, lang, epoch: epoch, matchVoiceLanguage: matchVoiceLanguage);
           break;
 
         case 'zalo_tts':
@@ -476,6 +478,7 @@ class TtsService extends ChangeNotifier {
               ZaloTtsEngine(apiKey: _zaloApiKey),
               text,
               lang,
+              epoch: epoch, matchVoiceLanguage: matchVoiceLanguage,
             );
           }
           break;
@@ -488,6 +491,7 @@ class TtsService extends ChangeNotifier {
               FptTtsEngine(apiKey: _fptApiKey),
               text,
               lang,
+              epoch: epoch, matchVoiceLanguage: matchVoiceLanguage,
             );
           }
           break;
@@ -498,7 +502,7 @@ class TtsService extends ChangeNotifier {
           // bỏ qua — chuỗi TTS y hệt như trước khi có engine này.
           final apiEngine = await _resolveApiTtsEngine();
           if (apiEngine != null) {
-            played = await _trySpeakOnline(apiEngine, text, lang);
+            played = await _trySpeakOnline(apiEngine, text, lang, epoch: epoch, matchVoiceLanguage: matchVoiceLanguage);
           }
           break;
       }
@@ -529,7 +533,7 @@ class TtsService extends ChangeNotifier {
 
   /// Thử phát bằng Sherpa Piper neural TTS.
   /// Trả về true nếu thành công, false nếu không có model / lỗi để tự động fallback.
-  Future<bool> _trySpeakPiper(String text, String lang) async {
+  Future<bool> _trySpeakPiper(String text, String lang, int epoch, bool matchVoiceLanguage) async {
     try {
       final piper = PiperTtsEngine.instance;
       if (!await piper.isAvailable()) return false;
@@ -540,14 +544,15 @@ class TtsService extends ChangeNotifier {
         text: text,
         language: lang,
         engineId: piper.id,
-        voiceId: _selectedVoiceId,
+        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
         speed: _speed,
         pitch: _pitch,
       );
+      if (isStaleEpoch(epoch)) return false;
       if (cached != null) {
         _lastUsedEngine = '💾 Cache · Sherpa Piper';
         _safeNotify();
-        await _playFile(cached);
+        await _playFile(cached, epoch);
         return true;
       }
 
@@ -560,9 +565,10 @@ class TtsService extends ChangeNotifier {
         language: lang,
         speed: _speed,
         pitch: _pitch,
-        voiceId: _selectedVoiceId,
+        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
       );
 
+      if (isStaleEpoch(epoch)) return false;
       _isLoading = false;
 
       if (!result.isSuccess ||
@@ -578,14 +584,15 @@ class TtsService extends ChangeNotifier {
         language: lang,
         engineId: piper.id,
         audioData: result.audioData!,
-        voiceId: _selectedVoiceId,
+        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
         speed: _speed,
         pitch: _pitch,
       );
 
+      if (isStaleEpoch(epoch)) return false;
       _lastUsedEngine = '🎙️ Sherpa Piper';
       _safeNotify();
-      await _playFile(filePath);
+      await _playFile(filePath, epoch);
       return true;
     } catch (e) {
       debugPrint('⚠️ Piper TTS error: $e, fallback tiếp');
@@ -598,7 +605,7 @@ class TtsService extends ChangeNotifier {
   /// Thử phát bằng VieNeu-TTS native (audio.cpp GGUF, on-device, chỉ tiếng Việt).
   /// Trả về true nếu thành công, false nếu model chưa import / lỗi native
   /// để TtsService tự fallback qua engine kế tiếp (không crash app).
-  Future<bool> _trySpeakVieneu(String text, String lang) async {
+  Future<bool> _trySpeakVieneu(String text, String lang, int epoch, bool matchVoiceLanguage) async {
     try {
       final vieneu = VieneuTtsEngine.instance;
       // GIAI ĐOẠN 3 — dùng biến thể mô hình người dùng đã chọn (mặc định Q8_0).
@@ -612,15 +619,16 @@ class TtsService extends ChangeNotifier {
         text: text,
         language: lang,
         engineId: vieneu.id,
-        voiceId: _selectedVoiceId,
+        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
         speed: _speed,
         pitch: _pitch,
         modelVariant: selectedVariant.name,
       );
+      if (isStaleEpoch(epoch)) return false;
       if (cached != null) {
         _lastUsedEngine = '💾 Cache · VieNeu-TTS';
         _safeNotify();
-        await _playFile(cached);
+        await _playFile(cached, epoch);
         return true;
       }
 
@@ -633,9 +641,10 @@ class TtsService extends ChangeNotifier {
         language: lang,
         speed: _speed,
         pitch: _pitch,
-        voiceId: _selectedVoiceId,
+        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
       );
 
+      if (isStaleEpoch(epoch)) return false;
       _isLoading = false;
 
       if (!result.isSuccess ||
@@ -652,15 +661,16 @@ class TtsService extends ChangeNotifier {
         language: lang,
         engineId: vieneu.id,
         audioData: result.audioData!,
-        voiceId: _selectedVoiceId,
+        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
         modelVariant: selectedVariant.name,
         speed: _speed,
         pitch: _pitch,
       );
 
+      if (isStaleEpoch(epoch)) return false;
       _lastUsedEngine = '🇻🇳 VieNeu-TTS';
       _safeNotify();
-      await _playFile(filePath);
+      await _playFile(filePath, epoch);
       return true;
     } catch (e) {
       debugPrint('⚠️ VieNeu-TTS error: $e, fallback tiếp');
@@ -796,10 +806,11 @@ class TtsService extends ChangeNotifier {
   /// Edge) → giọng chung đang chọn nếu đúng dạng id Edge → null (engine tự
   /// mặc định). Phần ghim nằm TRONG [EdgeVoicePrefs.voiceForLang] nên đường
   /// phát, đường nạp sẵn và nhãn giọng đều đi qua đúng một luật.
-  Future<String?> _resolveEdgeVoice(String lang) async {
+  Future<String?> _resolveEdgeVoice(String lang, {bool matchLanguage = false}) async {
     try {
       final perLanguage = await EdgeVoicePrefs.instance.voiceForLang(lang);
-      if (perLanguage != null && perLanguage.trim().isNotEmpty) {
+      if (perLanguage != null && perLanguage.trim().isNotEmpty &&
+          (!matchLanguage || _voiceMatchesLanguage(perLanguage, lang))) {
         return perLanguage;
       }
     } catch (error) {
@@ -808,8 +819,19 @@ class TtsService extends ChangeNotifier {
       debugPrint('⚠️ Edge voice preferences unavailable: $error');
     }
     final shared = _selectedVoiceId;
-    if (shared != null && EdgeTtsEngine.isEdgeVoiceId(shared)) return shared;
+    if (shared != null && EdgeTtsEngine.isEdgeVoiceId(shared) &&
+        (!matchLanguage || _voiceMatchesLanguage(shared, lang))) return shared;
     return null;
+  }
+
+  @visibleForTesting
+  static bool voiceMatchesLanguage(String voice, String language) =>
+      _voiceMatchesLanguage(voice, language);
+
+  static bool _voiceMatchesLanguage(String voice, String language) {
+    final voicePrefix = voice.toLowerCase().split(RegExp('[-_]')).first;
+    final languagePrefix = language.toLowerCase().split(RegExp('[-_]')).first;
+    return voicePrefix == languagePrefix;
   }
 
   /// Thử phát bằng Online Engine (Google, Zalo, FPT, Edge)
@@ -822,8 +844,10 @@ class TtsService extends ChangeNotifier {
     String text,
     String lang, {
     String? voiceOverride,
+    required int epoch,
+    bool matchVoiceLanguage = false,
   }) async {
-    final voiceId = voiceOverride ?? _selectedVoiceId;
+    final voiceId = voiceOverride ?? (matchVoiceLanguage ? null : _selectedVoiceId);
 
     // Cache theo đúng danh tính giọng — bản ghi của giọng khác KHÔNG được
     // dùng lại (TTS-VOICE-CACHE-001).
@@ -835,15 +859,16 @@ class TtsService extends ChangeNotifier {
       speed: _speed,
       pitch: _pitch,
     );
+    if (isStaleEpoch(epoch)) return false;
     if (cached != null) {
       _lastUsedEngine = '💾 Cache · ${engine.name}';
       _safeNotify();
-      await _playFile(cached);
+      await _playFile(cached, epoch);
       return true;
     }
 
     final hasNet = await _checkNetwork();
-    if (!hasNet) return false;
+    if (!hasNet || isStaleEpoch(epoch)) return false;
 
     _isLoading = true;
     _safeNotify();
@@ -859,6 +884,7 @@ class TtsService extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 15));
 
+      if (isStaleEpoch(epoch)) return false;
       _isLoading = false;
 
       if (result.isSuccess) {
@@ -873,16 +899,17 @@ class TtsService extends ChangeNotifier {
             pitch: _pitch,
           );
 
+          if (isStaleEpoch(epoch)) return false;
           _lastUsedEngine = voiceId == null || voiceId.trim().isEmpty
               ? '🌐 ${result.engineName}'
               : '🌐 ${result.engineName} · ${_shortVoiceLabel(voiceId)}';
           _safeNotify();
-          await _playFile(filePath);
+          await _playFile(filePath, epoch);
           return true;
         } else if (result.audioUrl != null) {
           _lastUsedEngine = '🌐 ${result.engineName}';
           _safeNotify();
-          await _playUrl(result.audioUrl!);
+          await _playUrl(result.audioUrl!, epoch);
           return true;
         }
       }
@@ -1353,11 +1380,13 @@ class TtsService extends ChangeNotifier {
   // HELPERS
   // ═══════════════════════════════════════
 
-  Future<void> _playFile(String filePath) async {
+  Future<void> _playFile(String filePath, int epoch) async {
     try {
       _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setFilePath(filePath);
+      if (isStaleEpoch(epoch)) return;
       await _audioPlayer.setSpeed(_speed);
+      if (isStaleEpoch(epoch)) return;
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
@@ -1368,11 +1397,13 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  Future<void> _playUrl(String url) async {
+  Future<void> _playUrl(String url, int epoch) async {
     try {
       _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setUrl(url);
+      if (isStaleEpoch(epoch)) return;
       await _audioPlayer.setSpeed(_speed);
+      if (isStaleEpoch(epoch)) return;
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();

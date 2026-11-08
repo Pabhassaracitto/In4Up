@@ -825,7 +825,7 @@ class _WordListScreenState extends State<WordListScreen> {
             itemBuilder: (_, i) {
               final entry = items[i];
               final isPlaying = _playbackService.isPlaying &&
-                  _playbackService.playingIndex == i;
+                  _playbackService.currentWord?.id == entry.id;
               final isSelected = _selectedIds.contains(entry.id);
               final isExpanded =
                   _expandedId == entry.id || _settings.definitionsExpanded;

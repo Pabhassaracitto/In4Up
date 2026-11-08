@@ -60,6 +60,7 @@ import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/word_list/wordlist_bubble.dart';
 import '../widgets/collapsible_action_bar.dart';
+import '../widgets/lazy_indexed_stack.dart';
 import '../widgets/workspace_navigation/workspace_navigation.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/services/understand_ai_coach_launcher.dart';
@@ -1197,25 +1198,27 @@ class _MainShellState extends State<MainShell> {
           onOpenTextLibrary: _openTextLibrary,
         );
       case _PrimaryTab.listen:
-        return IndexedStack(
+        return LazyIndexedStack(
+          key: const ValueKey('listen-modes'),
           index: _listenModeIndex,
           children: [
-            const ListenModeScreen(),
-            SpeakModeScreen(
+            (_) => const ListenModeScreen(),
+            (_) => SpeakModeScreen(
               onOpenYouGlish: () => _handleTool('youglish'),
               onOpenQuickActions: _openQuickActions,
               onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
             ),
             // LISTEN-VIEW-001: embedded → no back button (nothing to pop;
             // popping here would pop the root route = black screen).
-            const VideoLibraryScreen(showBackButton: false),
+            (_) => const VideoLibraryScreen(showBackButton: false),
           ],
         );
       case _PrimaryTab.read:
-        return IndexedStack(
+        return LazyIndexedStack(
+          key: const ValueKey('read-modes'),
           index: _readModeIndex,
           children: [
-            ReadModeScreen(
+            (_) => ReadModeScreen(
               initialSource: _readSource,
               onSourceChanged: (source) => _setReadSource(source),
               sourceCallbacks: ReadSourceCallbacks(
@@ -1234,7 +1237,7 @@ class _MainShellState extends State<MainShell> {
               // nút tùy biến chữ trở về đúng chỗ quen tay.
               showTopBar: !_readChromeLayout.useBottomDock,
             ),
-            WriteStudioScreen(
+            (_) => WriteStudioScreen(
               onOpenWebReader: () => _handleTool('web_reader'),
               onOpenPdfReader: () => _handleTool('pdf_reader'),
               onOpenQuickActions: _openQuickActions,

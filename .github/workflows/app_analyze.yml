@@ -112,6 +112,9 @@ jobs:
           cat linux_shell_regression_test.log
           exit $code
 
+      - name: Wordlist playback and lazy tab regression tests
+        run: flutter test test/wordlist_read_sequence_test.dart test/wordlist_playback_service_test.dart test/lazy_indexed_stack_test.dart
+
       - name: Upload Linux shell test log
         if: always()
         uses: actions/upload-artifact@v4

@@ -202,6 +202,45 @@ jobs:
           path: listen_queue_test.log
           if-no-files-found: ignore
 
+      # AVTOOL-002/003 (PLAN-047) — máy bắt cho công cụ media. Toàn bộ logic
+      # nằm ở tầng THUẦN (argv builder, ước lượng dung lượng, đặt tên, dịch mốc
+      # LRC, phân loại lỗi) ⇒ chạy được trên host VM, không cần thiết bị.
+      - name: "AVTOOL tests — công cụ media (argv/cắt/tách/LRC/lỗi)"
+        id: media-tools-tests
+        run: |
+          set +e
+          if [ ! -d test/media_tools ]; then
+            echo "Không có test/media_tools trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/media_tools > media_tools_test.log 2>&1
+          code=$?
+          cat media_tools_test.log
+          # Dua ten test that bai len ANNOTATION: artifact log hay bi chan tai
+          # trong moi truong agent, con annotation thi luon doc duoc qua API.
+          if [ $code -ne 0 ]; then
+            # Artifact log KHONG tai duoc trong moi truong agent (blob host
+            # ngoai allowlist) ⇒ dua nguyen doan cuoi log len annotation.
+            # Message phai 1 dong va escape '%' theo cu phap workflow command.
+            # Log chi tiet: dong co ten file test ma KHONG phai dau ✅ (tuc la
+            # dong that bai / thong bao loi), kem ngu canh Expected/Actual.
+            detail=$(grep -E "test/media_tools/[a-z_/]+\.dart:" media_tools_test.log \
+              | grep -v "✅" | head -12 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools failing::$detail"
+            expect=$(grep -E "Expected:|Actual:|Which:" media_tools_test.log \
+              | head -12 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools detail::$expect"
+          fi
+          exit $code
+
+      - name: Upload media tools test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-media-tools-test-log
+          path: media_tools_test.log
+          if-no-files-found: ignore
+
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
         id: locale-test
         run: |

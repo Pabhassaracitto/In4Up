@@ -10,6 +10,7 @@ import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_learn_by_heart_service.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_tts.dart';
@@ -319,6 +320,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
   }
 
   Future<void> _loadFirstPage() async {
+    final uiLanguage = Localizations.localeOf(context).languageCode;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -332,9 +334,26 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       });
     }
     try {
+      // Persisted reader settings must win before we decide whether the
+      // selected language still exists in the current DB (PSRC-159).
+      await _appearance.ensureLoaded();
       final db = await TipitakaDb.openReady();
       final total = await TipitakaDb.getBookSegmentCount(db, widget.bookId);
       final info = await TipitakaDb.info(db);
+      // PSRC-159: a persisted language/mode from a previous (Pāli-only) DB
+      // must not keep hiding an imported target translation forever.
+      final previousLanguage = _appearance.primaryLanguage;
+      final displayLanguage = resolveTipitakaDisplayLanguage(
+        availableLanguages: info.availableLanguages,
+        preferredLanguage: previousLanguage,
+        uiLanguage: uiLanguage,
+      );
+      if (displayLanguage != previousLanguage && displayLanguage != 'pi') {
+        _appearance.primaryLanguage = displayLanguage;
+        if (_appearance.displayMode == TipitakaDisplayMode.paliOnly) {
+          _appearance.displayMode = TipitakaDisplayMode.bilingual;
+        }
+      }
       final requestedOffset = _requestedSegmentId == null
           ? 0
           : (await TipitakaDb.getSegmentOrderIndex(db, _requestedSegmentId!) ?? 0)
@@ -1088,11 +1107,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     );
     final secondary = translated.isNotEmpty
         ? translated
-        : cleanTipitakaText(
-            Localizations.localeOf(context).languageCode == 'vi'
-                ? segment.translationFor('vi')
-                : segment.translationFor('en'),
-          );
+        : cleanTipitakaText(segment.firstTranslation?.value ?? '');
     final text = secondary.isNotEmpty
         ? secondary
         : cleanTipitakaText(segment.canonicalPaliText).isNotEmpty
@@ -1322,9 +1337,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
     final requestedTitle = widget.bookName.trim();
     final title = requestedTitle.isEmpty ||
             _worklistBook.isTechnicalTitle(requestedTitle)
-        ? _worklistBook.displayTitle(
-            Localizations.localeOf(context).languageCode,
-          )
+        ? _worklistBook.displayTitle(_appearance.primaryLanguage)
         : requestedTitle;
     return Theme(
       data: readerTheme,

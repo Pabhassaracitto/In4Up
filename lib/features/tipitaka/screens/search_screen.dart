@@ -1,9 +1,11 @@
 import 'package:in4up/core/language/localized_material.dart';
 
+import 'package:in4up/features/tipitaka/models/reader_appearance.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/screens/workspace_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 
 /// Full-text search across Pāli and every imported translation.
@@ -84,11 +86,19 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
     if (_openingId != null) return;
     setState(() => _openingId = segment.id);
     try {
+      final uiLanguage = Localizations.localeOf(context).languageCode;
       final db = await TipitakaDb.openReady();
+      final info = await TipitakaDb.info(db);
+      // PSRC-159: search results open in an imported target language.
+      final language = resolveTipitakaDisplayLanguage(
+        availableLanguages: info.availableLanguages,
+        preferredLanguage: TipitakaReaderAppearance.instance.primaryLanguage,
+        uiLanguage: uiLanguage,
+      );
       final book = await TipitakaDb.getBookById(
         db,
         segment.bookId,
-        languageCode: Localizations.localeOf(context).languageCode,
+        languageCode: language,
       );
       if (!mounted) return;
       if (book == null) {
@@ -101,7 +111,6 @@ class _TipitakaSearchScreenState extends State<TipitakaSearchScreen> {
         );
         return;
       }
-      final language = Localizations.localeOf(context).languageCode;
       await Navigator.push(
         context,
         MaterialPageRoute(

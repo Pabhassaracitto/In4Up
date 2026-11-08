@@ -102,24 +102,24 @@ void main() {
     final lines = lyrics();
     await tester.pumpWidget(host(lines: lines, current: 1));
     await settleFollowing(tester);
-    await tester.pumpWidget(host(lines: lines, current: 70));
+    await tester.pumpWidget(host(lines: lines, current: 71));
     await settleFollowing(tester);
-    expectCurrentVisible(tester, 70);
+    expectCurrentVisible(tester, 71);
 
     // Advance exactly as normal playback does, before the 2.5 second manual
     // grace timer could mask the regression. The previous automatic animation
     // must not disable following for the next spoken line.
-    await tester.pumpWidget(host(lines: lines, current: 71));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.pump();
-    expectCurrentVisible(tester, 71);
-
     await tester.pumpWidget(host(lines: lines, current: 72));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pump();
     expectCurrentVisible(tester, 72);
+
+    await tester.pumpWidget(host(lines: lines, current: 73));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    expectCurrentVisible(tester, 73);
     expect(tester.takeException(), isNull);
   });
 

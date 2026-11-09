@@ -100,16 +100,18 @@ internal class AudioContentCacheResolver(private val context: Context) {
     /**
      * Thay ký tự KHÔNG an toàn cho tên tệp bằng `_`.
      *
-     * Viết thủ công thay vì `Regex("[/\\x00-\x1f]")`: escape `\x` trong chuỗi
+     * Viết thủ công thay vì `Regex("[\/\\x00-\x1f]")`: escape `\` trong chuỗi
      * Kotlin rất dễ sai (và CI đã đỏ ở đúng vùng này), còn so sánh mã ký tự thì
      * không thể nhập nhằng.
+     * PSRC-170: Bổ sung các ký tự đặc biệt khác (Windows/Linux/Android) để đảm bảo
+     * hiển thị đầy đủ danh sách giọng đọc (không bị cắt/lỗi tên file GGUF).
      */
     private fun sanitizeFileComponent(raw: String): String {
         val out = StringBuilder(raw.length)
         for (ch in raw) {
             val code = ch.code
             out.append(
-                if (ch == '/' || ch == '\\' || code in 0..0x1F || code == 0x7F) '_'
+                if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|' || code in 0..0x1F || code == 0x7F) '_'
                 else ch
             )
         }

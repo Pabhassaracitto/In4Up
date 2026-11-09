@@ -88,7 +88,7 @@ class AudioImportService {
   // ────────────────────────────────────────────────────────────
 
   static String _norm(String path) =>
-      path.replaceAll(r'\', '/').trim();
+      path.replaceAll(r'\\', '/').trim();
 
   /// Path có nằm trong vùng CACHE/tạm mà OS/app có thể xóa bất kỳ lúc nào
   /// không? (file_picker cache, temp dir, code_cache...).
@@ -114,8 +114,8 @@ class AudioImportService {
   /// nguy hiểm cho FS (separator, control). Giữ nguyên unicode/dấu cách.
   static String sanitizeFileName(String name) {
     final cleaned = name
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[\\\\/:*?\"<>|]'), ' ')
+        .replaceAll(RegExp(r'\\s+'), ' ')
         .trim();
     if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
       return 'audio';

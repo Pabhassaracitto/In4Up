@@ -6,6 +6,8 @@
 // Quyền dùng permission_handler (đã có sẵn trong dự án):
 //  - Android 13+: Permission.audio → READ_MEDIA_AUDIO
 //  - Android ≤12 : Permission.audio → READ_EXTERNAL_STORAGE
+//  - Linux/Desktop: Permission.storage / Permission.audio → kiểm tra tồn tại
+//    thư mục và quyền đọc (PSRC-172, PSRC-173).
 //
 // LƯU Ý: playlist chỉ giữ libraryId — KHÔNG đụng transcript/LRC/reopen
 // timestamp (những dữ liệu đó key bằng audioPath ở lớp khác).
@@ -53,11 +55,25 @@ class AudioLibraryProvider extends ChangeNotifier {
   }
 
   /// Kiểm tra + xin quyền truy cập audio (gọi khi mở tab Thư viện).
+  /// PSRC-172: Trên Linux, kiểm tra thư mục và quyền đọc (fallback Permission.storage)
+  /// để đảm bảo quét thư viện có quyền truy cập nhanh và không bị treo/không phản hồi.
   Future<bool> ensurePermission() async {
     var status = await Permission.audio.status;
-    if (!status.isGranted) {
-      status = await Permission.audio.request();
+    
+    // PSRC-172: Linux fallback nếu Permission.audio không có hiệu lực (thường là Permission.storage)
+    if (Platform.isLinux && !status.isGranted) {
+      final storageStatus = await Permission.storage.status;
+      if (!storageStatus.isGranted) {
+        status = await Permission.storage.request();
+      } else {
+        status = storageStatus;
+      }
+    } else {
+      if (!status.isGranted) {
+        status = await Permission.audio.request();
+      }
     }
+    
     _permissionGranted = status.isGranted;
     if (!_permissionGranted && status.isPermanentlyDenied) {
       await openAppSettings();
@@ -186,6 +202,7 @@ class AudioLibraryProvider extends ChangeNotifier {
     if (pl == null) return;
     if (pl.remove(trackId)) {
       await _storage.saveAudioPlaylist(pl);
+      _resortPlaylists();
       notifyListeners();
     }
   }

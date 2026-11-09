@@ -240,7 +240,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     await _loadClonedVoices();
   }
 
-  // ════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
   // TẠO GIỌNG
   // ═════════════════════════════════════════════════════════════════════════
 
@@ -282,9 +282,17 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     });
 
     try {
+      // PSRC-168, PSRC-171: Lưu mẫu thu âm vào thư mục giọng mới TRƯỚC KHI gọi native clone
+      await _saveSampleToVoiceDir(voiceId);
+
+      final dir = await getApplicationDocumentsDirectory();
+      final outputEmbedding = p.join(dir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'speaker.emb.txt');
+      final samplesDir = p.join(dir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'samples');
+
       await _ttsCore.cloneVoice(
         voiceId: voiceId,
-        samplesDir: tempDir.path,
+        samplesDir: samplesDir,
+        outputEmbedding: outputEmbedding,
       );
       if (!mounted) return;
       setState(() {

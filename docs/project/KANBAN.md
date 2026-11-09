@@ -85,7 +85,7 @@
 | CI-ANDROID-01 | Fix job Android build.yml: `--flavor stable` + rename đúng tên | 🔄 doing (patch workflow ĐÃ ÁP trong nhánh 01a0d013 cùng CI-ANDROID-03 — chờ oracle) | build.yml + build_final_complete.yml: `--flavor stable` cả 2 bước build, rename `app-<abi>-stable-release.apk`, bỏ `\|\| true`; in4up_ci_fixes.gradle giữ lại (no-op) |
 | CI-ANDROID-02 | Build llama.cpp cho Android trong CI | ✅ done | run 32592622383: Android ✅ (GGML_LLAMAFILE OFF c6cc97e + pin CMake 5995183) |
 | CI-ANDROID-03 | APK release KHÔNG CÀI ĐƯỢC (local + Actions): release không có `signingConfig` ⇒ APK unsigned | 🔄 doing (fix xong, chờ oracle tag `v*` + cài máy) | build.gradle.kts: ký key.properties → fallback debug; workflow: prepare-signing + verify-signed + `--flavor stable` + rename đúng tên + fix YAML indent build.yml + setup-android v4 |
-| MAIN-RESTORE-001 | main = snapshot cũ 2026-09-23 (733 file, mất CI mới + 26k dòng) — cần content-sync từ 0251e | 📋 proposed (chờ owner quyết, GOVERNANCE 4b) | KHÔNG merge chéo (2 lineage không tổ tiên chung); content-sync bằng 1 commit thường trên main; giữ LICENSE nếu muốn; chi tiết thủ thuật trong card |
+| MAIN-RESTORE-001 | main = snapshot cũ 2026-09-23 (733 file, mất CI mới + 26k dòng) — cần content-sync từ 0251e | ✅ done (content-sync mốc tag **1.25.0**, PR #160 merge `--rebase`; main Analyze 🟢 42679938106) | main `9f874d2` · tree == `f999d4dd` (byte-for-byte) · `pubspec 1.25.0+25` · 939 file đổi, bỏ 27 file chỉ-main (26 l10n generated + youglish_mini_sheet cũ) · chờ owner nghiệm thu máy |
 | CI-DEPS-001 | `pub get` đỏ trên máy Dart 3.11.5: mlkit_subject_segmentation 0.2.x cần Dart ≥3.12 + lock thiếu entry | 📋 proposed (cần máy có Flutter ≥3.47.6) | owner upgrade Flutter (pub gợi ý 3.47.6) + `pub get` + **commit pubspec.lock mới**; mọi dev: upgrade Flutter trước khi build |
 | CI-ANDROID-04 | APK release = Universal "chip phổ thông" (mọi chip) thay vì 3 bản tách theo chip | ✅ script done + patch workflow chờ owner áp | `android_rename_apks.sh` giờ CHỈ ship `in4up-Android-Universal-All-CPU-<tag>.apk` (xóa bản tách nếu còn); patch bỏ bước "Build Split APKs" ở cả 2 workflow (tiết kiệm llama.cpp × 3 ABI) — owner: `git apply scripts/ci/android_universal_only_workflow.patch` |
 | CI-ANDROID-05 | (IN4-73) Chỉ build APK **arm64-v8a** thay vì Universal 3-ABI — giảm dung lượng tải về | ✅ done (build thật XANH + owner đã cài bản arm64 lên máy) | build `37994985198` (commit `60bff6b`) Android job xanh, artifact arm64-only `in4up-Android-arm64-v8a-1.11.0-60bff.apk` — owner đã cài + dùng bản này (IN4-78/79). `build_final_complete.yml`: `--target-platform android-arm64` (ĐẢM BẢO 1 ABI) + rename "Build APK (arm64-v8a only)"; `android_rename_apks.sh`: chỉ XÓA ABI không-arm64, nhận mọi tên output arm64. `abiFilters arm64-v8a` GIỮ LẠI (kép, an toàn) |
@@ -6544,6 +6544,24 @@
     bị reject (main đã có e524214). Local owner có 1 commit rác trên 0251e.
     Đã gửi owner 2 bước: (1) fix 0251e (apply CI-ANDROID-04 + reset rác),
     (2) content-sync 0251e→main ĐÚNG nhánh.
+  - 2026-11-09 | **✅ DONE** | agent arena/d4e351c8-in4up | PR
+    [#160](https://github.com/Pabhassaracitto/In4Up/pull/160) merged
+    `--rebase` → main `9f874d2` (cha duy nhất `aa218a3b`, 0 merge commit,
+    không force-push). **Chỉ lấy mốc đã chứng minh chạy**: cây commit ==
+    tree của tag `1.25.0` (`f999d4dd`) byte-for-byte — build 4 nền tảng
+    [run 42560732429](https://github.com/Pabhassaracitto/In4Up/actions/runs/42560732429)
+    🟢 (Android/iOS/Windows/Linux) + Analyze/Locale 🟢 42559736232.
+    Các job Android-resolver/knowledge/web của PR 🟢; sau merge chạy lại
+    trên main: Analyze 🟢 42679938106, Listen queue 🟢 42679937757,
+    Deploy web 🟢 42679938329.
+    **KHÔNG lấy** 11 commit sau tag (video A–B, OCR AI refinement, battery,
+    README refresh) và 2 PR chưa xong (#158 PSRC-167..173 — analyze đỏ;
+    #159 YouTube Explorer) — để lại chờ nghiệm thu.
+    Dọn kèm: 26 `lib/l10n/app_localizations*.dart` (generated — `.gitignore`
+    bản 251e đã ignore, build tự sinh) + `word_list/youglish_mini_sheet.dart`
+    (đã refactor sang `tools/youglish/`). `LICENSE` giữ nguyên (blob trùng).
+    Lưu ý kế thừa: `.gitmodules` thêm `third_party/audio.cpp` ⇒ clone mới
+    cần `git submodule update --init --recursive`.
 
 ### TTS-EDGE-001 — Microsoft Edge Read Aloud TTS (edge-tts) vào chuỗi engine TtsService
 - **Trạng thái:** ✅ done (code + 30 test thuần; chờ nghiệm thu thiết bị thật)

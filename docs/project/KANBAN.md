@@ -6560,8 +6560,12 @@
     Dọn kèm: 26 `lib/l10n/app_localizations*.dart` (generated — `.gitignore`
     bản 251e đã ignore, build tự sinh) + `word_list/youglish_mini_sheet.dart`
     (đã refactor sang `tools/youglish/`). `LICENSE` giữ nguyên (blob trùng).
-    Lưu ý kế thừa: `.gitmodules` thêm `third_party/audio.cpp` ⇒ clone mới
-    cần `git submodule update --init --recursive`.
+    Lưu ý kế thừa: `.gitmodules` (mốc 1.25.0) có thêm mục
+    `third_party/audio.cpp` (VieNeu-TTS) nhưng gitlink này **chưa từng được
+    commit** (không có entry `160000` ở bất kỳ mốc nào của 251e) ⇒ CMake tự
+    `git submodule update` lúc configure, thiếu thì chỉ WARNING và engine
+    VieNeu báo "chưa sẵn sàng" (app vẫn build/chạy). Muốn dùng VieNeu
+    on-device: `git submodule update --init third_party/audio.cpp`.
 
 ### TTS-EDGE-001 — Microsoft Edge Read Aloud TTS (edge-tts) vào chuỗi engine TtsService
 - **Trạng thái:** ✅ done (code + 30 test thuần; chờ nghiệm thu thiết bị thật)

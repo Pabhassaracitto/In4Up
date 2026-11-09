@@ -83,10 +83,6 @@ one to drill flashcards. Every switch costs attention, and attention is the scar
 "Shipped" means the code is on the development trunk with green CI; several items additionally await
 on-device acceptance by the owner, which the Kanban card records per item.
 
-**Legend used throughout this document:** ✅ shipped & CI green · 🔄 in progress · 📋 planned · 🚫 blocked.
-"Shipped" means the code is on the development trunk with green CI; several items additionally await
-on-device acceptance by the owner, which the Kanban card records per item.
-
 ---
 
 ## The Studio: seven modes
@@ -101,15 +97,17 @@ The content order is a single shared model ([`lib/models/shell_content_order.dar
 bottom navigation *and* both library drawers read it, so a reorder can never pair the Listen tab with the
 Read library. A pure-Dart CI gate (`test/shell_content_order_test.dart`) pins it.
 
+Rows are listed in the order the Studio grid shows them (**ĐỌC · VIẾT · NGHE · NÓI · XEM · HIỂU · NHỚ**).
+
 | Mode | Where | What you actually do |
 |---|---|---|
-| 🎧 **NGHE / Listen** | Listen tab | Rolling waveform with a fixed playhead, A–B loops with configurable silence gaps, LRC/subtitle curtain, Soundlist index, speed 0.05×–10×. |
-| 🎙️ **NÓI / Speak** | Listen ▸ sub-mode | Shadowing hub: record, align, phoneme-level pronunciation scoring, presets (built-in + personal), speaking history with exportable feedback. |
-| 📺 **XEM / Watch** | Listen ▸ sub-mode | Local video library and player with subtitles, word capture from what you watch. |
-| 📖 **ĐỌC / Read** | Read tab | Interactive reader: IPA layers, CEFR + part-of-speech colouring, tap-to-save vocabulary with context, batch selection save, PDF / Web / Tipiṭaka / dictionary integration. |
+| 📖 **ĐỌC / Read** | Read tab (left of Listen by default) | Interactive reader: IPA layers, CEFR + part-of-speech colouring, tap-to-save vocabulary with context, batch selection save, PDF / Web / Tipiṭaka / dictionary integration, auto-scroll to the spoken line. |
 | ✍️ **VIẾT / Write** | Read ▸ sub-mode | Write Studio: copy, cloze, multiple choice, "rewrite the idea", "short summary" — local heuristic scoring first, optional local-AI second tier. |
+| 🎧 **NGHE / Listen** | Listen tab | Rolling waveform with a fixed playhead, A–B loops with configurable silence gaps, LRC/subtitle curtain, Soundlist index, **cancellable media export**, speed 0.05×–10×. |
+| 🎙️ **NÓI / Speak** | Listen ▸ sub-mode | Shadowing hub: record, align, phoneme-level pronunciation scoring, presets (built-in + personal), speaking history with exportable feedback. |
+| 📺 **XEM / Watch** | Listen ▸ sub-mode | Local video library and player with subtitles, A–B loop clipping, audio extraction and word capture from what you watch. |
 | 💡 **HIỂU / Understand** | Understand tab | Audio↔text synchronisation, bilingual playback, comprehension checks, translation across tabs. |
-| 🌱 **NHỚ / Remember** | Remember tab | Memory Garden (Seed → Sprout → Tree → Branch → Bud → Bloom), SM-2 review queues, word lists, timeline, stats, knowledge map, Learn-by-Heart. |
+| 🌱 **NHỚ / Remember** | Remember tab | Memory Garden (Seed → Sprout → Tree → Branch → Bud → Bloom), six-axis skill view, SM-2 review queues, word lists, timeline, stats, knowledge map, Learn-by-Heart. |
 
 Tools are **not** a sixth tab. They live in a context-aware **quick-actions overlay** (⚡) whose ordering
 adapts to the current tab and recent usage — Cabin, YouTube, PDF, Web Reader, YouGlish, Soundlist,

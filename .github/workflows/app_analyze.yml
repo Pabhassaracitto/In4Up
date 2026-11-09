@@ -1127,6 +1127,39 @@ jobs:
       # edge-to-edge; Flutter chỉ tự chừa cho `Scaffold.bottomNavigationBar`,
       # KHÔNG chừa cho thanh neo đáy tự dựng trong `Stack`/`Positioned`.
       # Test gồm: helper đơn vị + widget `BottomSafeArea` + quét nguồn 4 surface.
+      # BATTERY-PROMPT-001 (owner 2026-11-09): "mở lên gặp 2 thông báo pin, tôi
+      # muốn chỉ 1 và bấm vô là vào chỗ mở pin" + VOICE-CLONE-PERM-001 (chốt
+      # việc 2 chỗ báo lỗi quyền micro phải KHÁC nhau — CI đã đỏ 2 lần vì bị
+      # "sửa cả hai cho giống nhau").
+      - name: "BATTERY-PROMPT + VOICE-CLONE-PERM — pin 1 thông báo & quyền micro tách nhánh"
+        id: battery-voice-perm-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files="test/services/battery_prompt_single_test.dart \
+            test/tts/voice_clone_permission_split_test.dart"
+          flutter test $files -r expanded > battery_voice_perm_test.log 2>&1
+          code=$?
+          cat battery_voice_perm_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              battery_voice_perm_test.log > battery_voice_perm_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              battery_voice_perm_clean.log | head -200 | while IFS= read -r line; do
+              echo "::error title=BATTERY-PROMPT/VOICE-CLONE-PERM fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload BATTERY-PROMPT + VOICE-CLONE-PERM test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-battery-voice-perm-test-log
+          path: battery_voice_perm_test.log
+          if-no-files-found: ignore
+
       - name: "SAFE-INSET-001 — bottom bar không chìm dưới thanh điều hướng"
         id: safe-inset-tests
         timeout-minutes: 8

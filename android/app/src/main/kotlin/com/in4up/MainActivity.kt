@@ -17,6 +17,7 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
@@ -87,6 +88,20 @@ class MainActivity : FlutterActivity() {
     private val deepLinkChannelName = "in4up/deeplink"
     private var deepLinkChannel: MethodChannel? = null
     private var pendingDeepLink: String? = null
+
+    // BATTERY-OPT-001 — mở ĐÚNG màn "Tối ưu pin" của HỆ THỐNG cho app này.
+    //
+    // Vì sao cần native thay vì chỉ `permission_handler`:
+    //   * `Permission.ignoreBatteryOptimizations.request()` trên nhiều ROM
+    //     (MIUI/OneUI/EMUI…) trả `denied` NGAY mà KHÔNG mở màn nào ⇒ user bấm
+    //     mà không thấy gì xảy ra.
+    //   * Yêu cầu của chủ dự án (2026-11-09): "bấm vô là vào chỗ mở pin".
+    //     ⇒ dùng `ACTION_IGNORE_BATTERY_OPTIMIZATIONS` với `package:` của app:
+    //     Android mở thẳng hộp thoại/màn cho phép In4Up, chỉ 1 bước.
+    //   * Không có màn đó (một số máy ẩn) ⇒ lùi về danh sách tối ưu pin
+    //     (`ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`), rồi tới
+    //     `ACTION_BATTERY_SAVER_SETTINGS`, cuối cùng là Settings chung.
+    private val platformChannelName = "in4up/platform"
 
     // XLAT-SCR-002 — channel điều khiển "Dịch màn hình toàn hệ thống".
     // Service + capture + overlay nằm ở package screentranslate; activity này
@@ -209,6 +224,45 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * Mở màn cho phép "Dừng tối ưu mức sử dụng pin" — trả về true nếu đã mở
+     * được một màn nào đó của hệ thống.
+     *
+     * Thứ tự thử (dừng ở cái đầu tiên mở được):
+     *   1. `ACTION_IGNORE_BATTERY_OPTIMIZATIONS` + `package:<appId>` — mở
+     *      THẲNG hộp thoại cho In4Up (1 bước, đúng yêu cầu "bấm là vào chỗ mở pin").
+     *   2. `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` — danh sách app được
+     *      miễn tối ưu pin (máy ẩn hộp thoại bước 1).
+     *   3. `ACTION_BATTERY_SAVER_SETTINGS` — màn tiết kiệm pin chung.
+     *   4. Settings của hệ thống — lưới an toàn cuối.
+     *
+     * Không bao giờ ném ra Dart: mọi lỗi nuốt lại và trả `false` để UI hiện
+     * thông báo hướng dẫn thay vì crash.
+     */
+    private fun openBatteryOptimizationSettings(): Boolean {
+        val candidates = listOf(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+            },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS),
+        )
+        for (intent in candidates) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                Log.i("in4up-battery", "đã mở: ${intent.action}")
+                return true
+            } catch (e: Exception) {
+                // ROM không hỗ trợ action này ⇒ thử action kế tiếp.
+                Log.w("in4up-battery", "không mở được ${intent.action}: ${e.message}")
+            }
+        }
+        Log.e("in4up-battery", "không mở được màn tối ưu pin nào")
+        return false
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // ADR-0018 P1 — kênh nhận link. Đăng ký TRƯỚC mọi thứ khác để link
@@ -225,6 +279,15 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        // BATTERY-OPT-001 — mở màn "Tối ưu pin" của hệ thống cho app này.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, platformChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "openBatteryOptimizationSettings" ->
+                        result.success(openBatteryOptimizationSettings())
+                    else -> result.notImplemented()
+                }
+            }
         ScreenTranslatePlugin(this).also {
             it.attach(flutterEngine.dartExecutor.binaryMessenger)
             screenTranslatePlugin = it

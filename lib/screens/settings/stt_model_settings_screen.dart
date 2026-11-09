@@ -65,10 +65,15 @@ class SttModelSettingsScreen extends StatelessWidget {
           ],
         ),
         // SETTINGS-UI-COMPACT-001: 2 ghi chú chỉ-để-đọc (tải khi bấm / pin)
-        // không còn chiếm 2 thẻ lớn giữa danh sách — gom vào 1 sheet sau nút
-        // "!" ở góc. Pin vẫn hiện icon trạng thái (cam = chưa cấp quyền).
+        // không chiếm 2 thẻ lớn giữa danh sách — gom vào 1 sheet sau nút "!".
+        //
+        // BATTERY-OPT-001 (owner 2026-11-09): BỎ icon pin trên AppBar.
+        // Trước đây màn này có 2 tín hiệu về pin (icon cam trên AppBar + thẻ
+        // pin trong sheet) ⇒ cùng với thông báo lúc mở app, người dùng gặp
+        // nhiều chỗ nói về pin. Nay chỉ còn MỘT chỗ: thẻ pin trong sheet "!"
+        // (xem `_BatteryOptimizationCard`), và nó mở thẳng màn tối ưu pin của
+        // hệ thống.
         actions: const [
-          _BatteryStatusAction(),
           _InfoSheetButton(),
         ],
       ),
@@ -200,54 +205,7 @@ class _InfoSheetButton extends StatelessWidget {
   }
 }
 
-/// Icon trạng thái quyền "Dừng tối ưu pin" ngay trên AppBar.
-///
-/// Xanh = đã cấp (chỉ còn là thông tin), cam = chưa cấp → bấm mở đúng sheet
-/// để cấp quyền. Không còn thẻ pin chiếm chỗ khi mọi thứ đã ổn.
-class _BatteryStatusAction extends StatefulWidget {
-  const _BatteryStatusAction();
-
-  @override
-  State<_BatteryStatusAction> createState() => _BatteryStatusActionState();
-}
-
-class _BatteryStatusActionState extends State<_BatteryStatusAction> {
-  bool? _granted;
-
-  @override
-  void initState() {
-    super.initState();
-    _refresh();
-  }
-
-  Future<void> _refresh() async {
-    if (!BatteryOptimizationService.isSupported) return;
-    final ok = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
-    if (mounted) setState(() => _granted = ok);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!BatteryOptimizationService.isSupported || _granted == null) {
-      return const SizedBox.shrink();
-    }
-    final granted = _granted!;
-    return IconButton(
-      icon: Icon(
-        granted ? Icons.battery_full_rounded : Icons.battery_alert_rounded,
-      ),
-      color: granted ? Colors.greenAccent : Colors.orangeAccent,
-      tooltip: context.uiText(
-        granted
-            ? 'Pin: đã bỏ giới hạn tối ưu pin'
-            : 'Pin: chưa bỏ giới hạn tối ưu pin — có thể dừng model khi chạy ngầm',
-      ),
-      onPressed: () => showModelInfoSheet(context),
-    );
-  }
-}
-
-/// Mở sheet thông tin/lưu ý dùng chung cho nút "!" và icon pin.
+/// Mở sheet thông tin/lưu ý — cửa DUY NHẤT tới phần quyền pin.
 Future<void> showModelInfoSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -418,13 +376,30 @@ class _BatteryOptimizationCard extends StatefulWidget {
       _BatteryOptimizationCardState();
 }
 
-class _BatteryOptimizationCardState extends State<_BatteryOptimizationCard> {
+class _BatteryOptimizationCardState extends State<_BatteryOptimizationCard>
+    with WidgetsBindingObserver {
   bool? _granted;
 
   @override
   void initState() {
     super.initState();
+    // BATTERY-OPT-001: khi user bấm "Cho phép" app mở THẲNG màn tối ưu pin của
+    // hệ thống (không còn dialog riêng), rồi họ tự bật rồi quay lại. Phải
+    // nghe vòng đời để cập nhật trạng thái khi quay lại — nếu không thẻ vẫn
+    // hiện "Chưa cho phép" dù đã bật.
+    WidgetsBinding.instance.addObserver(this);
     _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
   }
 
   Future<void> _refresh() async {

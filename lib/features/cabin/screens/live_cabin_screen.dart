@@ -1227,6 +1227,39 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Visible runtime status: the learner can tell what Cabin is doing
+          // without inferring it from the microphone color alone.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isListening
+                      ? (_service.isPaused ? Icons.pause_circle_outline : Icons.graphic_eq)
+                      : Icons.mic_none_outlined,
+                  size: 16,
+                  color: isListening ? const Color(0xFF00E676) : Colors.white60,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  context.uiText(
+                    isListening
+                        ? (_service.isPaused ? 'Đang tạm dừng' : 'Đang nhận diện')
+                        : 'Sẵn sàng ghi âm',
+                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+
           // Dubbing Switch (Phát âm bản dịch)
           InkWell(
             onTap: _toggleDubbing,

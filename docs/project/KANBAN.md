@@ -7133,6 +7133,11 @@
   `ignoreBattery` trong `lib/` (2 nơi xin quyền pin).
 - **Nghiệm thu:** cài mới → chỉ 1 lần xin quyền pin.
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục BATTERY).
+- **Trạng thái:** 🔨 doing — startup và Settings dùng chung một service/gate;
+  bỏ dialog giải thích thứ hai, chỉ gọi Android permission UI; cần CI + nghiệm
+  thu trên Android.
+- **Lịch sử:**
+  - 2026-11-09 | 2026-11-09 00:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | `BatteryPromptGate` unit tests + app analyze khi chạy CI; UI gọi cùng request path.
 
 ### 3. NETAWARE-001 — (P1) Ưu tiên local/online theo mạng (Wi-Fi→online, 4G→offline)
 - **Triệu chứng:** Hiện ưu tiên local (model phải cài, nhiều khi xung đột làm

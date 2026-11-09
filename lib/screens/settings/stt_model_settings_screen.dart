@@ -467,7 +467,7 @@ class _BatteryOptimizationCardState extends State<_BatteryOptimizationCard> {
             ? const Icon(Icons.check_circle, color: Colors.green)
             : FilledButton(
                 onPressed: () async {
-                  await BatteryOptimizationService.requestWithDialog(context);
+                  await BatteryOptimizationService.requestPermission(context);
                   await _refresh();
                 },
                 child: Text(context.uiText('Cho phép')),

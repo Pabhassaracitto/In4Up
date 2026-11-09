@@ -149,8 +149,6 @@ Future<FfmpegRunResult> runFfmpegProcessWithProgress(
   // ket trong syscall (doc dia mang cham, driver audio tren Windows) thi SIGTERM
   // bi bo qua ⇒ nguoi dung bam Huy ma dialog quay mai. Vi vay sau 3 s chua
   // thoat thi kill(SIGKILL) — khong the bi chan.
-  // `FfmpegCancelToken.onCancel` goi NGAY neu da huy truoc do ⇒ 1 duong duy
-  // nhat cho ca hai truong hop, khong phai lap lai nhanh `alreadyCancelled`.
   Timer? escalate;
   void armWatchdog() {
     escalate = Timer(const Duration(seconds: 3), () {
@@ -160,10 +158,14 @@ Future<FfmpegRunResult> runFfmpegProcessWithProgress(
     });
   }
 
-  if (token.isCancelled) {
+  // `cancelToken` = token DUNG CHUNG do lop goi truyen vao; `token` chi la
+  // token noi bo cua Process. Watchdog phai nghe token dung chung.
+  if (cancelToken == null) {
+    if (token.isCancelled) armWatchdog();
+  } else if (cancelToken.isCancelled) {
     armWatchdog();
   } else {
-    token.onCancel(armWatchdog);
+    cancelToken.onCancel(armWatchdog);
   }
 
   final exitCode = await process.exitCode;

@@ -93,7 +93,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
       if (!mounted) return;
-      setState(() => _recordingIssue = _RecordingIssue.permissionRequired);
+      setState(() => _recordingIssue = _RecordingIssue.permissionDenied);
     }
   }
 
@@ -142,7 +142,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     if (_isRecording) return;
     if (!await Permission.microphone.isGranted) {
       if (!mounted) return;
-      setState(() => _recordingIssue = _RecordingIssue.permissionRequired);
+      setState(() => _recordingIssue = _RecordingIssue.permissionDenied);
       return;
     }
 

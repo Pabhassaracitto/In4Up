@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'model_copy_cancel_token.dart';
+
 /// Kết quả load model
 class ModelLoadResult {
   final bool success;
@@ -228,8 +230,11 @@ class AiModelLoader {
   /// Cho user chọn file .gguf thủ công
   /// Gọi khi user nhấn nút "Import Model"
   /// [onCopyProgress]: 0.0–1.0 trong lúc copy file vào app directory.
-  Future<ModelLoadResult> importModelFromUser(
-      {void Function(double progress)? onCopyProgress}) async {
+  /// [cancelToken]: PSRC-23 — nút Huỷ khi đang copy (kiểm tra giữa các chunk).
+  Future<ModelLoadResult> importModelFromUser({
+    void Function(double progress)? onCopyProgress,
+    ModelCopyCancelToken? cancelToken,
+  }) async {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.any,
@@ -285,6 +290,7 @@ class AiModelLoader {
         src: File(filePath),
         dest: destFile,
         onProgress: onCopyProgress,
+        cancelToken: cancelToken,
       );
 
       // Lưu path để dùng lần sau
@@ -304,6 +310,13 @@ class AiModelLoader {
       await _rememberFileSize();
 
       return loadResult;
+    } on ModelCopyCancelledException {
+      // PSRC-23: user bấm Huỷ — file đích dở dang đã bị copy helper xoá.
+      return const ModelLoadResult(
+        success: false,
+        source: ModelSource.none,
+        errorMessage: 'Đã huỷ copy model',
+      );
     } catch (e) {
       return ModelLoadResult(
         success: false,
@@ -318,11 +331,13 @@ class AiModelLoader {
   /// Download model từ URL trực tiếp (HuggingFace/GitHub release/...).
   /// Dùng cho "Tải về" trong trung tâm model. Chỉ chạy trên WiFi (model lớn).
   /// [expectedMd5] optional — verify sau tải, fail thì xóa file.
+  /// [cancelToken]: PSRC-23 — nút Huỷ khi đang tải (kiểm tra giữa các chunk).
   Future<ModelLoadResult> downloadModel({
     required String url,
     String? fileName,
     String? expectedMd5,
     void Function(double progress)? onProgress,
+    ModelCopyCancelToken? cancelToken,
   }) async {
     try {
       final uri = Uri.tryParse(url.trim());
@@ -372,14 +387,32 @@ class AiModelLoader {
       var downloadedBytes = 0;
 
       final sink = destFile.openWrite();
-      await response.stream.forEach((chunk) {
-        sink.add(chunk);
-        downloadedBytes += chunk.length;
-        if (totalBytes > 0) {
-          onProgress?.call(downloadedBytes / totalBytes);
-        }
-      });
-      await sink.close();
+      var cancelled = false;
+      try {
+        await response.stream.forEach((chunk) {
+          if (cancelToken?.isCancelled == true) {
+            cancelled = true;
+            return;
+          }
+          sink.add(chunk);
+          downloadedBytes += chunk.length;
+          if (totalBytes > 0) {
+            onProgress?.call(downloadedBytes / totalBytes);
+          }
+        });
+      } finally {
+        await sink.close();
+      }
+      if (cancelled || cancelToken?.isCancelled == true) {
+        try {
+          if (await destFile.exists()) await destFile.delete();
+        } catch (_) {}
+        return const ModelLoadResult(
+          success: false,
+          source: ModelSource.none,
+          errorMessage: 'Đã huỷ tải model',
+        );
+      }
 
       // Verify MD5 nếu có
       if (expectedMd5 != null && expectedMd5.isNotEmpty) {
@@ -427,30 +460,27 @@ class AiModelLoader {
     }
   }
 
-  /// Copy file theo chunk (8MB) kèm tiến độ — cho import model lớn.
+  /// Copy file theo chunk kèm tiến độ — cho import model lớn.
+  /// PSRC-23: uỷ thác sang [copyFileWithProgress] thuần (kiểm tra huỷ giữa
+  /// các chunk, xoá file đích dở dang khi huỷ). Giữ wrapper để không đổi
+  /// call-site cũ.
   Future<void> _copyFileWithProgress({
     required File src,
     required File dest,
     void Function(double progress)? onProgress,
+    ModelCopyCancelToken? cancelToken,
   }) async {
-    final total = await src.length();
     // FIX 251e (bisect R3/R4, CI 32788713417 + 32788973887): bản 01a02a4a
     // gọi `rs.read(buffer, ...)` — không tồn tại: `File.openRead()` trả
     // Stream<List<int>> (không phải RandomAccessFile). Copy theo stream —
     // cùng API đã được chứng minh ở downloadModel bên dưới (openRead stream
     // + openWrite IOSink).
-    var copied = 0;
-    final sink = dest.openWrite();
-    try {
-      await for (final chunk in src.openRead()) {
-        sink.add(chunk);
-        copied += chunk.length;
-        if (total > 0) onProgress?.call(copied / total);
-      }
-    } finally {
-      await sink.close();
-    }
-    onProgress?.call(1.0);
+    await copyFileWithProgress(
+      src: src,
+      dest: dest,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
   }
 
   /// Kiểm tra magic header "GGUF" (4 byte đầu) của file model.

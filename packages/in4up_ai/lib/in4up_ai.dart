@@ -17,6 +17,9 @@ export 'src/mapper/ai_model_mapper.dart';
 export 'src/loader/ai_model_loader.dart'
     show AiModelLoader, ModelLoadResult, ModelSource, AiModelConfig;
 
+// PSRC-23 — Token huỷ copy/download model (logic thuần, test được).
+export 'src/loader/model_copy_cancel_token.dart';
+
 // Engine state + interface (interface để test/AT gắn engine giả)
 export 'src/engine/ai_engine.dart' show AiEngine, AiEngineState;
 

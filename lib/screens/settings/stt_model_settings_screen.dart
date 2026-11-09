@@ -1814,17 +1814,35 @@ class _GemmaChatModelCard extends StatelessWidget {
                     backgroundColor: Colors.grey.shade800,
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    context.uiText(
-                      facade.importStage == AiImportStage.copying
-                          ? 'Đang copy model… '
-                              '${(facade.importProgress * 100).toStringAsFixed(0)}%'
-                          : facade.importStage == AiImportStage.downloading
-                              ? 'Đang tải model… '
-                                  '${(facade.importProgress * 100).toStringAsFixed(0)}%'
-                              : 'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút',
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.uiText(
+                            facade.importStage == AiImportStage.copying
+                                ? 'Đang copy model… '
+                                    '${(facade.importProgress * 100).toStringAsFixed(0)}%'
+                                : facade.importStage ==
+                                        AiImportStage.downloading
+                                    ? 'Đang tải model… '
+                                        '${(facade.importProgress * 100).toStringAsFixed(0)}%'
+                                    : 'Đang nạp model vào bộ nhớ — có thể mất 1–2 phút',
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      // PSRC-23: nút Huỷ khi đang copy/tải (không huỷ khi
+                      // loading/nạp vào RAM — giai đoạn đó không an toàn).
+                      if (facade.canCancelImport)
+                        TextButton.icon(
+                          icon: const Icon(Icons.cancel, size: 16),
+                          label: Text(context.uiText('Huỷ')),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          onPressed: facade.cancelImport,
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                 ],

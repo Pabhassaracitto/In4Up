@@ -396,6 +396,33 @@ jobs:
           path: pron_002_test.log
           if-no-files-found: ignore
 
+      # PSRC-23 — nút Huỷ khi đang copy model (logic thuần + temp dir,
+      # không plugin). Bỏ qua nếu file test chưa có trên nhánh.
+      - name: "PSRC-23 tests — huỷ copy model"
+        id: psrc23-tests
+        run: |
+          set +e
+          if [ ! -f test/ai_chat/model_copy_cancel_test.dart ]; then
+            echo "Không có test PSRC-23 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 5m flutter test test/ai_chat/model_copy_cancel_test.dart -r expanded > psrc23_test.log 2>&1
+          code=$?
+          cat psrc23_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 psrc23_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\\n/%0A/g')
+            echo "::error title=PSRC-23 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload PSRC-23 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-psrc23-test-log
+          path: psrc23_test.log
+          if-no-files-found: ignore
+
       - name: Upload PRON-001 test log
         if: always()
         uses: actions/upload-artifact@v4

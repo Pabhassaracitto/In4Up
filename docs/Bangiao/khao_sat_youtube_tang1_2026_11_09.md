@@ -293,3 +293,39 @@ liệu không có thật. Nên sửa ở đợt B (dùng chung `YtCoverageServic
 phân trang keyless (YT1-07), ảnh decode đúng cỡ (YT1-09), nhớ bộ lọc/ghim (YT1-10),
 gợi ý theo ngôn ngữ đích (YT1-11), vùng chạm (YT1-13), kéo-để-làm-mới (YT1-14),
 test hành vi (YT1-15).
+
+## 8. Đợt B — ĐÃ LÀM (2026-11-09)
+
+Owner chốt lại cùng ngày: **bỏ danh sách kênh gợi ý cũ** (kênh cá nhân, chưa duyệt để
+public; owner sẽ đưa danh sách đề xuất sau) và **làm tiếp Đợt B**.
+
+| Mục | Đã làm | File |
+|---|---|---|
+| **YT1-05** | Service trả kết quả **có kiểu**: `ok / empty / network / blocked / parseFailed`. Explorer phân biệt **4 trạng thái** — đang tải · rỗng thật · lỗi thử lại được · bị chặn (kèm lời khuyên *mở youtube.com đồng ý cookie*) — mỗi trạng thái một câu, có nút **Thử lại**; danh sách đang có dữ liệu thì chỉ hiện **dải cảnh báo**, không xoá | `services/yt_search_service.dart`, `youtube_explorer_screen.dart` |
+| **YT1-06** | `YtExplorerCache` (Hive): **stale-while-revalidate** — hiện bản lưu NGAY, làm mới ngầm, dải “Đang hiện bản lưu từ 2 giờ trước” + **Làm mới**. TTL: tìm kiếm **24 h** · kênh **3 ngày**. **Đo dung lượng thật** (`totalBytes`), xoá được | `services/yt_explorer_cache.dart` (mới) |
+| **YT1-07** | Phân trang keyless bằng **continuation token** trong `ytInitialData` → `POST youtubei/v1/browse` (không cần API key người dùng). Nút **Tải thêm** + tự tải khi cuộn; chống lặp token; chế độ có Data API key vẫn dùng `pageToken` như cũ | `yt_initial_data_parser.dart`, `yt_search_service.dart`, `youtube_explorer_screen.dart` |
+| **YT1-08** | Thẻ video có nhãn **Đã tải phụ đề / Đã tải âm thanh** đọc từ `YtMediaStore` ⇒ biết dùng được offline **trước khi** bấm | `youtube_explorer_screen.dart` |
+| **YT1-09** | `cacheWidth` (+`filterQuality: low`) cho **mọi** `Image.network` trong Explorer và thẻ video ⇒ không decode 1280×720 cho ô 130×73 | `youtube_explorer_screen.dart`, `widgets/yt_video_card.dart` |
+| **YT1-10** | `YtExplorerPrefs` (shared_preferences): nhớ **kênh đang chọn · kiểu sắp xếp · bộ lọc cấp độ · từ khoá gần nhất · kênh đã ghim** | `services/yt_explorer_prefs.dart` (mới) |
+| **YT1-11** | **Xoá** `_kDefaultChannels` (7 kênh cá nhân). `kYtRecommendedChannels` để **rỗng**; khối “GỢI Ý” chỉ vẽ khi có dữ liệu. “Kênh của tôi” **luôn hiện**, kèm câu hướng dẫn thêm @handle / link / OPML ⇒ app vẫn dùng được bằng tìm kiếm + kênh của mình | `youtube_explorer_screen.dart` |
+| **YT1-12** | Ô tìm kiếm có `textInputAction: search` (bàn phím hiện “Tìm”, không phải “Xong”) | `youtube_explorer_screen.dart` |
+| **Dung lượng** | `YtLearningSettings.hideMediaSize` (mặc định **hiện**) + `showCacheSize` (mặc định **hiện**) — mục **“Bộ nhớ & dữ liệu”** trong Cài đặt YouTube, kèm **số mục · dung lượng cache** và nút **Xoá bộ nhớ đệm**; thư viện media tôn trọng cờ ẩn (ẩn MB, vẫn hiện **số video**) | `models/yt_learning_settings.dart`, `widgets/yt_subtitle_settings_sheet.dart`, `widgets/yt_media_library_sheet.dart` |
+| **Sửa lỗi reset cài đặt** | Sheet Cài đặt trước đây dựng `YtLearningSettings(...)` **mới** với 7 field ⇒ mỗi lần bấm **Xong** là `readAloud*`/`saveLocation` bị reset về mặc định. Nay dùng `initial.copyWith(...)` | `widgets/yt_subtitle_settings_sheet.dart` |
+| **`langRank` bịa** | Player bỏ `rank = 100; rank += 40` (số đó chỉ là vị trí trong câu, không phải tần suất). Tab Từ vựng nay nhóm theo **trạng thái đã tô** (Đang học / Đã biết / Bỏ qua / Chưa tô màu) — dữ liệu thật của màn này; chip trong bảng tra từ hiện **trạng thái** thay vì “rank N”. **Không** đọc ngược độ khó từ hệ chung (giữ nguyên tắc đồng bộ **một chiều** của đợt 7) | `yt_player_screen.dart`, `models/yt_subtitle.dart`, `widgets/yt_word_panel.dart` |
+
+Test mới: `test/yt_explorer_dot_b_2026_11_09_test.dart` — 20 case (thuần Dart: TTL, JSON
+cache, `YtFetchResult`, continuation token + parse phản hồi InnerTube, `INNERTUBE_API_KEY`,
+mặc định/ghi-đọc `hideMediaSize`/`showCacheSize`) + dây nối UI (không hard-code `UC…`, có
+`cacheWidth` cho mọi ảnh, sheet dùng `copyWith`, media sheet tôn trọng cờ ẩn, i18n đủ khoá).
+Đã thêm vào bước "YouTube audit tests" của CI.
+
+**i18n:** +20 khoá × 5 ngôn ngữ ưu tiên (en/hi/zh/zh_TW/si).
+
+**Chưa làm (đợt C):** vùng chạm ≥44 dp & cỡ chữ sàn 11 px (YT1-13), kéo-để-làm-mới
+(YT1-14), test hành vi cho controller (YT1-15), danh sách kênh gợi ý **theo ngôn ngữ đích**
+(chờ owner duyệt danh sách).
+
+**Nợ đã biết (chưa sửa):** `frequencyRankThreshold` (thanh “ngưỡng tần suất” trong Cài đặt
+phụ đề) chỉ được `isEasy()` đọc mà `isEasy()` **không còn chỗ gọi nào** trong code sản phẩm
+⇒ đây vẫn là điều khiển chưa nối. Muốn nối thì phải định nghĩa lại ngưỡng theo **độ khó/trạng
+thái** (không phải số thứ tự), và phải giữ đồng bộ một chiều.

@@ -17,6 +17,13 @@ enum WordState { unknown, known, learning, ignored }
 class LrWord {
   final String text;
   final String type; // noun, verb, adj, adv, prep, conj, other
+
+  /// Xếp hạng tần suất **thật** trong kho từ vựng (1 = phổ biến nhất).
+  ///
+  /// `0` = chưa biết. Trước đây trường này bị **bịa** bằng `rank = 100` rồi
+  /// cộng 40 cho mỗi từ trong dòng (`100, 140, 180…`) ⇒ từ hiếm và từ phổ
+  /// biến nhận cùng một số, nhóm "1-100 / 101-200" trong tab Từ vựng là rác.
+  /// Nay lấy từ [difficulty] đã lưu của người dùng; không có thì để `0`.
   final int langRank;
   WordState state;
 

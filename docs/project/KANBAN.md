@@ -9296,3 +9296,22 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm:** README không cần CI; không có thay đổi mã nguồn nào nên không cần build lại. Các con số **hiệu năng/RAM** vẫn chưa đo trên máy thật (xem `PERF-001`).
 - **Lịch sử:**
   - 2026-11-09 | created→done | agent `arena/01a0251e-in4up` | khảo sát bằng grep/python → sửa 11 khối → verify link/fence/số liệu → push `3df31e92`, `4dce38b3`
+
+### YT-EXPLORER-DOT-B-001 — (2026-11-09) Tầng 1 YouTube, Đợt B: lỗi vs rỗng, cache, phân trang, nhớ người dùng
+- **Trạng thái:** 🔨 code xong — chờ CI + owner nghiệm thu
+- **Nguồn:** owner 2026-11-09 — *"Bỏ danh sách kênh gợi ý cũ (kênh cá nhân, chưa public; owner sẽ đưa danh sách sau) và làm tiếp Đợt B."*
+- **Đã làm (YT1-05…12 + dung lượng + `langRank`):**
+  - `YtExplorerCache` (Hive) — stale-while-revalidate, TTL tìm kiếm 24 h / kênh 3 ngày, `totalBytes()` đo thật.
+  - `YtExplorerPrefs` (shared_preferences) — nhớ kênh, sắp xếp, bộ lọc cấp độ, từ khoá, kênh ghim.
+  - Phân trang keyless bằng continuation token (`youtubei/v1/browse`), nút **Tải thêm**.
+  - Phân biệt **rỗng / mạng / bị chặn / parser hỏng** với lời khuyên riêng + **Thử lại**.
+  - Thẻ video: nhãn **Đã tải phụ đề / âm thanh**; ảnh có `cacheWidth`.
+  - **Xoá** `_kDefaultChannels` (7 kênh tiếng Anh là kênh cá nhân) — `kYtRecommendedChannels` rỗng, chờ owner duyệt danh sách.
+  - Cài đặt YouTube: mục **Bộ nhớ & dữ liệu** — `hideMediaSize`, `showCacheSize`, dung lượng cache + **Xoá bộ nhớ đệm**.
+  - Sửa lỗi sheet cài đặt **reset** `readAloud*`/`saveLocation` (dựng mới → `copyWith`).
+  - Player: bỏ `rank = 100; rank += 40` (số bịa); tab Từ vựng nhóm theo trạng thái đã tô (Đang học / Đã biết / Bỏ qua / Chưa tô màu), không đọc ngược độ khó từ hệ chung.
+- **Test:** `test/yt_explorer_dot_b_2026_11_09_test.dart` (20 case) + đã thêm vào CI `app_analyze.yml`.
+- **i18n:** +20 khoá × 5 ngôn ngữ ưu tiên.
+- **Chưa kiểm:** chưa có Flutter SDK trên máy agent ⇒ dựa vào CI (`analyze-and-locale-test`, `build`, `knowledge-regressions`, `vocabulary-tools`, `web-build-validation`); phân trang InnerTube cần **máy thật** xác nhận vì YouTube đổi layout theo vùng.
+- **Lịch sử:**
+  - 2026-11-09 | created→wip | agent `arena/e53f6189-in4up` | 3 file service mới + 6 file sửa + 1 test + i18n +20

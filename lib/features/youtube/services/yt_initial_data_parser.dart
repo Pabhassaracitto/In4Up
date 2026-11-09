@@ -292,3 +292,87 @@ DateTime? parsePublished(String? text, {DateTime? now}) {
   };
   return (now ?? DateTime.now()).subtract(delta);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// YT1-11 (đợt B) — PHÂN TRANG bằng continuation token
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Trước đây Explorer chỉ lấy được 30 video đầu của một kênh (hoặc 20 kết quả
+// tìm kiếm) rồi hết; cuộn xuống không có gì thêm và cũng không có nút. Muốn
+// xem video cũ hơn thì bó tay.
+//
+// YouTube không có tham số `?page=2` cho các trang này. Cách đúng là lấy
+// **continuation token** nằm sẵn trong `ytInitialData` rồi POST vào
+// `/youtubei/v1/browse` (InnerTube). Không cần API key riêng của người dùng —
+// key công khai của YouTube lấy từ chính trang HTML.
+
+/// Token "xem thêm" đầu tiên trong cây `ytInitialData`.
+///
+/// Node thật có dạng:
+/// ```json
+/// {"continuationCommand": {"token": "4qmFsgJ...", "request": "CONTINUATION_REQUEST_TYPE_BROWSE"}}
+/// ```
+/// Đi đệ quy vì token nằm sâu trong `contents → ... → continuationItemRenderer`.
+String? extractContinuationToken(dynamic node, {int maxDepth = 48}) {
+  String? found;
+  void walk(dynamic n, int depth) {
+    if (found != null || n == null || depth > maxDepth) return;
+    if (n is Map) {
+      final cmd = n['continuationCommand'];
+      if (cmd is Map) {
+        final t = cmd['token'];
+        if (t is String && t.isNotEmpty) {
+          found = t;
+          return;
+        }
+      }
+      for (final v in n.values) {
+        walk(v, depth + 1);
+      }
+      return;
+    }
+    if (n is List) {
+      for (final v in n) {
+        walk(v, depth + 1);
+      }
+    }
+  }
+
+  walk(node, 0);
+  return found;
+}
+
+/// Token "xem thêm" đọc thẳng từ HTML (trả null nếu trang không có).
+String? extractContinuationTokenFromHtml(String html) {
+  final data = extractYtInitialData(html);
+  if (data == null) return null;
+  return extractContinuationToken(data);
+}
+
+/// `INNERTUBE_API_KEY` công khai nằm trong HTML — cần cho lời gọi InnerTube.
+///
+/// Không hard-code: YouTube đổi key theo thời gian, hard-code là chết lặng.
+String? extractInnertubeApiKey(String html) {
+  final m = RegExp(r'"INNERTUBE_API_KEY":"([^"]+)"').firstMatch(html);
+  final k = m?.group(1);
+  return (k == null || k.isEmpty) ? null : k;
+}
+
+/// Đọc phản hồi `/youtubei/v1/browse` cho một continuation.
+///
+/// Trả kèm token của trang KẾ (null = đã hết).
+({List<YtSearchHit> hits, String? next}) parseContinuationResponse(
+  dynamic json, {
+  DateTime? now,
+}) {
+  final hits = <YtSearchHit>[];
+  if (json is Map) {
+    for (final r in collectVideoRenderers(json)) {
+      final hit = parseVideoRenderer(r, now: now);
+      if (hit != null) hits.add(hit);
+    }
+  }
+  // Token kế tiếp: ưu tiên node continuationItemRenderer trong phản hồi, nếu
+  // không có thì quét cả cây (YouTube đặt ở nhiều chỗ khác nhau tuỳ layout).
+  return (hits: hits, next: extractContinuationToken(json));
+}

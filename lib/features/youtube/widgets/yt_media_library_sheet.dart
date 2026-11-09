@@ -19,6 +19,7 @@ import '../../../core/navigation/shell_navigation_request.dart';
 import '../../../providers/player_provider.dart';
 import '../services/yt_media_store.dart';
 import '../services/yt_read_bridge.dart';
+import '../services/yt_learning_settings_service.dart';
 
 Future<void> showYtMediaLibrarySheet(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -48,6 +49,10 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
   YtSaveLocation _location = YtSaveLocation.appPrivate;
   String? _busyId;
 
+  /// YT1-07: người dùng có muốn thấy số MB không (Cài đặt YouTube).
+  /// Mặc định HIỆN — quy tắc "phải biết file chiếm bao nhiêu".
+  bool _hideSize = false;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +61,7 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
 
   Future<void> _reload() async {
     final settings = YtMediaStore.loadLocationSetting();
+    final hideSize = YtLearningSettingsService.load().hideMediaSize;
     final folder = await YtMediaStore.displayFolder();
     final items = await YtMediaStore.list();
     final total = items.fold<int>(0, (s, i) => s + i.bytes);
@@ -84,10 +90,13 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
       _captionBytes = captionBytes;
       _folder = folder;
       _location = settings;
+      _hideSize = hideSize;
     });
   }
 
+  /// `•••` khi người dùng chọn ẩn dung lượng — vẫn có chỗ để layout không nhảy.
   String _size(int bytes) {
+    if (_hideSize) return '•••';
     if (bytes >= 1048576) {
       return '${(bytes / 1048576).toStringAsFixed(1)} MB';
     }
@@ -296,19 +305,23 @@ class _YtMediaLibrarySheetState extends State<_YtMediaLibrarySheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${context.uiText('Tổng dung lượng')}: ${_size(_total)}'
-                      ' · ${_items?.length ?? 0} ${context.uiText('video')}',
+                      _hideSize
+                          // Ẩn số MB ⇒ vẫn nói được SỐ VIDEO, không bỏ trống.
+                          ? '${_items?.length ?? 0} ${context.uiText('video')}'
+                          : '${context.uiText('Tổng dung lượng')}: ${_size(_total)}'
+                              ' · ${_items?.length ?? 0} ${context.uiText('video')}',
                       style: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     // YT-MEDIA-LIB-001: nói rõ phần nào nặng để người dùng
                     // biết xoá gì trước khi máy đầy (thường là âm thanh).
-                    Text(
-                      '${context.uiText('Âm thanh')}: ${_size(_audioBytes)}'
-                      ' · ${context.uiText('Phụ đề')}: ${_size(_captionBytes)}',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 10),
-                    ),
+                    if (!_hideSize)
+                      Text(
+                        '${context.uiText('Âm thanh')}: ${_size(_audioBytes)}'
+                        ' · ${context.uiText('Phụ đề')}: ${_size(_captionBytes)}',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                      ),
                     const SizedBox(height: 6),
                     Row(
                       children: [

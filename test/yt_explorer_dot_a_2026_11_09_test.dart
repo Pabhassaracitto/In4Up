@@ -88,16 +88,18 @@ void main() {
 
   group('YT1-01 — bộ lọc thật thay thanh trượt giả', () {
     test('Explorer KHÔNG còn RangeSlider rank giả', () {
-      expect(explorer.contains('_rankMin'), isFalse);
-      expect(explorer.contains('_rankMax'), isFalse);
+      // So MÃ, không so chữ trong chú thích (chú thích cũng nhắc `_rankMin`).
+      expect(explorer.contains('_rankMin ='), isFalse);
+      expect(explorer.contains('_rankMax ='), isFalse);
       expect(explorer.contains('RangeSlider('), isFalse);
+      expect(explorer.contains('RangeValues('), isFalse);
     });
 
     test('lọc theo nhóm cấp độ + đo được', () {
       expect(explorer.contains('YtCoverageBand? _bandFilter;'), isTrue);
       expect(explorer.contains('List<YtExVideo> get _visibleVideos'), isTrue);
       expect(explorer.contains('YtCoverageService.instance.of('), isTrue);
-      expect(explorer.contains('void _analyzePage()'), isTrue);
+      expect(explorer.contains('Future<void> _analyzePage() async'), isTrue);
     });
 
     test('hỏi trước khi tải phụ đề cả trang (nói rõ chỉ chữ, không âm thanh)', () {
@@ -118,11 +120,17 @@ void main() {
     });
 
     test('kênh theo dõi nằm SAU danh sách gợi ý (quyết định owner)', () {
-      final recAt = explorer.indexOf("'GỢI Ý: 1 - {value0}'");
-      final mineAt = explorer.indexOf("context.uiText('Kênh của tôi')");
+      // Chỉ so TRONG sidebar: chuỗi "Kênh của tôi" còn xuất hiện ở tooltip
+      // thanh trên cùng (nút mở sheet) nên so toàn file sẽ sai.
+      final side = explorer.indexOf('Widget _sidebarContent()');
+      expect(side, greaterThan(-1));
+      final body = explorer.substring(side);
+      final recAt = body.indexOf("'GỢI Ý: 1 - {value0}'");
+      final mineAt = body.indexOf("uiText('Kênh của tôi')");
       expect(recAt, greaterThan(-1));
       expect(mineAt, greaterThan(-1));
-      expect(recAt, lessThan(mineAt));
+      expect(recAt, lessThan(mineAt),
+          reason: 'gợi ý phải đứng trước "Kênh của tôi" trong sidebar');
     });
 
     test('chọn kênh của tôi không rơi về header kênh đầu tiên', () {
@@ -161,8 +169,25 @@ void main() {
       ]) {
         expect(explorer.contains(needle), isTrue, reason: needle);
       }
-      expect(explorer.contains("Text('Cấp độ từ vựng'"), isFalse);
-      expect(explorer.contains("Text('Thêm kênh'"), isFalse);
+      // `uiText('X')` CŨNG chứa chuỗi `Text('X')` ⇒ phải khử tiền tố "ui",
+      // nếu không assertion luôn sai.
+      final leftovers = <String>[];
+      for (final label in <String>[
+        'Cấp độ từ vựng',
+        'Thêm kênh',
+        'Sắp xếp theo',
+      ]) {
+        var i = explorer.indexOf("Text('$label'");
+        while (i >= 0) {
+          final before = i >= 2 ? explorer.substring(i - 2, i) : '';
+          if (before != 'ui') {
+            leftovers.add(label);
+            break;
+          }
+          i = explorer.indexOf("Text('$label'", i + 1);
+        }
+      }
+      expect(leftovers, isEmpty, reason: 'còn Text() không qua uiText');
     });
 
     test('template có bản dịch (en/hi/zh/zh_TW/si)', () {

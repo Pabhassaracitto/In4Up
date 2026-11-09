@@ -533,3 +533,8 @@ nếu cần fallback tiếng Anh thì thêm **tay** vào `tool/legacy_ui_english
   **3** (P0 · P1+P2 · docs), rebase lên 251e `dac89e1d`, đánh số lại PLAN-047 /
   ADR-0026, mở [PR #153](https://github.com/Pabhassaracitto/In4Up/pull/153)
   (base `arena/01a0251e-in4up`); CI 🟢 run 42523491571 ngay sau rebase.
+- 2026-11-06 | sửa lỗi huỷ | agent `arena/c231303f-in4up` | 3 lỗi thật ở đường
+  huỷ (token không kiểm trước FFmpeg · `finally` dọn sai nên để lại N-1 chương
+  của lần xuất bị huỷ · `cancel()` native có thể treo vô hạn) + cờ tiến trình
+  desktop luôn tắt ⇒ thanh tiến trình đứng 0%. Thêm
+  `test/media_tools/media_cancel_test.dart`; CI 🟢 42558622491.

@@ -9174,4 +9174,37 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
     **PLAN-046 → PLAN-047** + **ADR-0025 → ADR-0026** (251e đã dùng hai số đó cho
     việc khác); i18n hợp nhất theo khoá = 3641 entry × 8; 17 commit gộp còn
     **3 commit** để rebase/merge tuyến tính.
-
+### AVTOOL-CANCEL-001 — (2026-11-06) Bấm Huỷ vài giây sau khi bắt đầu xuất thì không dứt
+- **Trạng thái:** ✅ done (code + 9 test mới; **CI 🟢** run 42558622491) — chờ QA máy thật
+- **Nguồn:** owner 2026-11-06 — *"Hiện còn lỗi cancel sau mấy s chưa merge được"*
+  (PR #153 bị `CONFLICTING` vì 251e đi tiếp 11 commit trong lúc đang sửa).
+- **Ba nguyên nhân độc lập** (cả ba lọt qua 128 test cũ vì test cũ chỉ kiểm nhánh
+  "FFmpeg trả về cancelled"):
+  1. `MediaExportService` chỉ biết token trong `_runSingle` ⇒ huỷ ở bước 1–3
+     (`materialize` `content://`, `probe` file 2 giờ trên máy chậm) bị **bỏ qua**,
+     service vẫn chạy tiếp. → `throwIfCancelled()` ở mọi mốc + trước mỗi chương.
+  2. `finally` dọn dẹp **vô dụng**: `produced.add(await _runSingle(...))` chạy
+     SAU await ⇒ khi lệnh ném lỗi thì `produced` còn rỗng. Tách 40 chương rồi
+     huỷ ở chương 20 để lại **19 file** trong thư viện. → dọn đúng + huỷ THẮNG
+     mọi lỗi khác (FFmpeg bị kill luôn trả exit ≠ 0 kèm log rác, dễ bị phân
+     loại thành "Có lỗi khi xuất file").
+  3. `cancel()` native **không bao giờ trả lời**:
+     - desktop `kill()` = SIGTERM; FFmpeg kẹt trong syscall (ổ mạng, driver
+       audio Windows) thì bị bỏ qua → watchdog 3 s rồi `SIGKILL`.
+     - mobile `session.cancel()` lúc session đang khởi tạo có thể treo →
+       bọc timeout 5 s, `attach()` không `await`.
+     - UI: đặt `cancelRequested` TRƯỚC khi gọi native + lưới an toàn đóng
+       dialog sau 8 s.
+- **Bug kèm theo (làm người dùng bấm Huỷ oan):** `useProgress` luôn `false` ⇒
+  trên **desktop** không có `-progress pipe:2` ⇒ thanh tiến trình đứng ở 0%
+  suốt cả file dài. Nay bật theo nền tảng (`_supportsProgressPipe`).
+- **Test mới:** `test/media_tools/media_cancel_test.dart` (4) + 3 test token
+  (`onCancel` khi đã huỷ / huỷ 2 lần / 1 listener lỗi không chặn listener khác)
+  + 2 test cờ tiến trình ⇒ **137 test** trong `test/media_tools`.
+- **Lỗi compile do chính bản sửa gây ra (CI bắt):** watchdog đăng ký `onCancel`
+  lên `FfmpegProcessCancelToken` (token nội bộ, không có method này) thay vì
+  `FfmpegCancelToken` dùng chung ⇒ đỏ **4 step** (analyze, PLAN-039, ASR routing,
+  YouTube audit) — không phải 4 lỗi riêng, cùng một file. Sửa ở `bba7ae3`.
+- **Lịch sử:**
+  - 2026-11-06 | created→done | agent `arena/c231303f-in4up` | 3 lỗi + 1 lỗi UI,
+    rebase lên 251e `2111953` (CONFLICTING → MERGEABLE), CI 🟢 42558622491.

@@ -794,7 +794,8 @@ void main() {
       final identityUses =
           RegExp(r'engineId: engine\.id').allMatches(source).length;
       expect(identityUses, greaterThanOrEqualTo(4));
-      expect(source, contains('voiceOverride ?? _selectedVoiceId'));
+      expect(source, contains('resolveOnlineVoice('));
+      expect(source, contains('voiceId: voiceId,'));
       expect(source, contains('_shortVoiceLabel(voiceId)'));
       expect(source, contains('🌐 \${result.engineName}'));
     });
@@ -802,7 +803,7 @@ void main() {
     test('speak() và _prefetchOnline đều hỏi _resolveEdgeVoice(lang)', () {
       final source = ttsSource();
       final resolves =
-          RegExp(r'_resolveEdgeVoice\(lang\)').allMatches(source).length;
+          RegExp(r'_resolveEdgeVoice\(lang(?:,|\))').allMatches(source).length;
       expect(resolves, greaterThanOrEqualTo(2));
       expect(source, contains("engine.id == 'edge_tts'"));
     });

@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'deeplx_endpoint.dart';
 import 'translation_engine.dart';
 
 /// Kết quả thử kết nối DeepLX — nút "Thử kết nối" trong sheet cài đặt engine.
@@ -89,13 +90,23 @@ class DeepLXEngine extends TranslationEngine {
     return uri.replace(path: path).toString();
   }
 
+  /// AUDIT-1.21.0 #6: link bài hướng dẫn/forum KHÔNG phải endpoint. Chặn ở
+  /// đây để probe/translate không POST nhầm lên trang HTML (nút "Thử kết nối"
+  /// quay mãi, và mỗi lượt dịch tốn 12s trước khi rớt xuống model offline).
+  DeepLXEndpointVerdict get endpoint => assessDeepLXEndpoint(serverUrl);
+
   @override
   Future<bool> isAvailable() async {
+    final verdict = endpoint;
+    if (!verdict.isValid) return false;
     try {
-      final base =
-          normalizeUrl(serverUrl).replaceAll(RegExp(r'/translate$'), '');
+      // Lấy gốc server từ URI đã chuẩn hoá (bỏ path `/translate`, GIỮ query
+      // token nếu có) thay vì cắt chuỗi — `/translate?token=abc` từng cắt
+      // nhầm ⇒ GET nhầm chính endpoint.
+      final endpointUri = Uri.tryParse(verdict.normalizedUrl ?? '');
+      if (endpointUri == null || endpointUri.host.isEmpty) return false;
       final response = await _client
-          .get(Uri.parse(base))
+          .get(endpointUri.replace(path: '/'))
           .timeout(const Duration(seconds: 3));
       return response.statusCode == 200 || response.statusCode == 404;
     } catch (_) {
@@ -114,6 +125,16 @@ class DeepLXEngine extends TranslationEngine {
         original: text,
         translated: '',
         engine: name,
+      );
+    }
+
+    final verdict = endpoint;
+    if (!verdict.isValid) {
+      return TranslationResult.failure(
+        original: text,
+        error: verdict.message,
+        engine: name,
+        errorCode: 'deeplx_invalid_endpoint',
       );
     }
 
@@ -169,8 +190,12 @@ class DeepLXEngine extends TranslationEngine {
     String text = 'Hello',
     String targetLang = 'VI',
   }) async {
-    final endpoint = normalizeUrl(serverUrl);
-    final uri = Uri.tryParse(endpoint);
+    final verdict = assessDeepLXEndpoint(serverUrl);
+    if (!verdict.isValid) {
+      // Không gọi mạng: link bài hướng dẫn/forum ⇒ báo ngay, nút không quay.
+      return DeepLXProbeResult(ok: false, error: verdict.message);
+    }
+    final uri = Uri.tryParse(verdict.normalizedUrl ?? '');
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
       return const DeepLXProbeResult(
         ok: false,

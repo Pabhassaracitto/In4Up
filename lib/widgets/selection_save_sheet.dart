@@ -39,6 +39,7 @@ class SelectionSaveSheet {
     required String sourceLabel,
     String? sourceDetail,
     VocabContext Function(String sampleText)? contextBuilder,
+    bool batchMode = false,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -53,6 +54,7 @@ class SelectionSaveSheet {
         sourceLabel: sourceLabel,
         sourceDetail: sourceDetail,
         contextBuilder: contextBuilder,
+        batchMode: batchMode,
       ),
     );
   }
@@ -63,6 +65,7 @@ class SelectionSaveSheetView extends StatefulWidget {
   final String sourceLabel;
   final String? sourceDetail;
   final VocabContext Function(String sampleText)? contextBuilder;
+  final bool batchMode;
 
   const SelectionSaveSheetView({
     super.key,
@@ -70,6 +73,7 @@ class SelectionSaveSheetView extends StatefulWidget {
     required this.sourceLabel,
     this.sourceDetail,
     this.contextBuilder,
+    this.batchMode = false,
   });
 
   @override
@@ -95,6 +99,16 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    // Chế độ lưu hàng loạt: mở ngay chế độ thông minh và chọn toàn bộ mục
+    // mà không cần bấm nút thứ hai.
+    if (widget.batchMode) {
+      _enterBatchMode(selectAll: true);
+    }
+  }
+
   void _submitCustomLanguage() {
     final raw = _newLangCtrl.text;
     final err = validateCustomLanguageCode(raw);
@@ -113,7 +127,7 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     });
   }
 
-  void _enterBatchMode() {
+  void _enterBatchMode({bool selectAll = false}) {
     final candidates = VocabBatchExtractor.extract(
       widget.text,
       minLength: 3,
@@ -128,6 +142,12 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
         c,
         pageTitle: widget.sourceLabel,
       );
+    }
+    // Chế độ hàng loạt một-tap: chọn toàn bộ mục ngay khi mở.
+    if (selectAll) {
+      for (final c in candidates) {
+        c.selected = true;
+      }
     }
     setState(() {
       _batchMode = true;
@@ -235,10 +255,10 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          '${isNew ? '✅ Đã lưu' : '✅ Đã bổ sung ngữ cảnh + tag'} '
+          context.uiText('${isNew ? '✅ Đã lưu' : '✅ Đã bổ sung ngữ cảnh + tag'} '
           '"${text.length > 40 ? '${text.substring(0, 40)}…' : text}" '
           '${_selectedTopic != null ? '· #$_selectedTopic ' : ''}'
-          '· ${labelForLanguage(_selectedLanguage)}',
+          '· ${labelForLanguage(_selectedLanguage)}'),
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E5F3A),
@@ -325,10 +345,10 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          '📚 WordList: thêm mới ${result.addedCount}, '
+          context.uiText('📚 WordList: thêm mới ${result.addedCount}, '
           'bổ sung ngữ cảnh ${result.updatedCount}, '
           'bỏ qua ${result.skippedCount}'
-          '${_selectedTopic != null ? ' · #$_selectedTopic' : ''}',
+          '${_selectedTopic != null ? ' · #$_selectedTopic' : ''}'),
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF1E5F3A),
@@ -349,10 +369,11 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
           ..addAll(['en', 'vi', 'pali', 'my']);
     final sortedLangs = languageOptions.toList()..sort();
 
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return FractionallySizedBox(
-      heightFactor: 0.9,
+      heightFactor: 0.96,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+        padding: EdgeInsets.fromLTRB(18, 14, 18, 18 + bottomInset),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -402,7 +423,7 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
               ],
             ),
             Text(
-              '${widget.sourceLabel}${widget.sourceDetail != null ? ' · ${widget.sourceDetail!}' : ''}',
+              context.uiText('${widget.sourceLabel}${widget.sourceDetail != null ? ' · ${widget.sourceDetail!}' : ''}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Colors.white38, fontSize: 12),
@@ -440,152 +461,147 @@ class _SelectionSaveSheetViewState extends State<SelectionSaveSheetView> {
             const SizedBox(height: 10),
 
             // ── Chủ đề (chọn có sẵn / tạo mới) ─────────────
-            const Text(
-              'Chủ đề',
-              style: TextStyle(
+            Text(
+              context.uiText('Chủ đề'),
+              style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final t in topicOptions)
-                  ChoiceChip(
-                    label: Text(
-                      t,
-                      style: TextStyle(
-                        color: _selectedTopic == t
-                            ? Colors.white
-                            : Colors.white54,
-                        fontSize: 11,
-                      ),
-                    ),
-                    selected: _selectedTopic == t,
-                    selectedColor: const Color(0xFFFF9800),
-                    backgroundColor: Colors.white.withValues(alpha: 0.04),
-                    side: BorderSide(
-                      color: _selectedTopic == t
-                          ? const Color(0xFFFF9800)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
-                    onSelected: (value) => setState(() {
-                      _selectedTopic = value ? t : (_selectedTopic == t ? null : _selectedTopic);
-                    }),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _newTopicCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Tạo chủ đề mới… (Enter để chọn)',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        fontSize: 12,
-                      ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 9,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.04),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(9),
-                        borderSide:
-                            BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(9),
-                        borderSide: const BorderSide(color: Color(0xFFFF9800)),
-                      ),
-                    ),
-                    onSubmitted: (value) {
-                      final v = value.trim();
-                      if (v.isEmpty) return;
-                      setState(() => _selectedTopic = v);
-                      _newTopicCtrl.clear();
-                    },
+            if (topicOptions.isNotEmpty)
+              SizedBox(
+                height: 72,
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      for (final t in topicOptions)
+                        ChoiceChip(
+                          label: Text(
+                            t,
+                            style: TextStyle(
+                              color: _selectedTopic == t ? Colors.white : Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                          selected: _selectedTopic == t,
+                          selectedColor: const Color(0xFFFF9800),
+                          backgroundColor: Colors.white.withValues(alpha: 0.04),
+                          side: BorderSide(
+                            color: _selectedTopic == t
+                                ? const Color(0xFFFF9800)
+                                : Colors.white.withValues(alpha: 0.1),
+                          ),
+                          onSelected: (value) => setState(() {
+                            _selectedTopic = value
+                                ? t
+                                : (_selectedTopic == t ? null : _selectedTopic);
+                          }),
+                        ),
+                    ],
                   ),
                 ),
-              ],
+              ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _newTopicCtrl,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: context.uiText('Tạo chủ đề mới… (Enter để chọn)'),
+                hintStyle: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  fontSize: 12,
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.04),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(9),
+                  borderSide: const BorderSide(color: Color(0xFFFF9800)),
+                ),
+              ),
+              onSubmitted: (value) {
+                final v = value.trim();
+                if (v.isEmpty) return;
+                setState(() => _selectedTopic = v);
+                _newTopicCtrl.clear();
+              },
             ),
             const SizedBox(height: 10),
 
             // ── Ngôn ngữ ───────────────────────────────────
-            const Text(
-              'Ngôn ngữ',
-              style: TextStyle(
+            Text(
+              context.uiText('Ngôn ngữ'),
+              style: const TextStyle(
                 color: Colors.white54,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final lang in sortedLangs)
-                  ChoiceChip(
-                    label: Text(
-                      labelForLanguage(lang),
-                      style: TextStyle(
-                        color: _selectedLanguage == lang
-                            ? Colors.white
-                            : Colors.white54,
-                        fontSize: 11,
+            SizedBox(
+              height: 72,
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final lang in sortedLangs)
+                      ChoiceChip(
+                        label: Text(
+                          labelForLanguage(lang),
+                          style: TextStyle(
+                            color: _selectedLanguage == lang ? Colors.white : Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
+                        selected: _selectedLanguage == lang,
+                        selectedColor: const Color(0xFF42A5F5),
+                        backgroundColor: Colors.white.withValues(alpha: 0.04),
+                        side: BorderSide(
+                          color: _selectedLanguage == lang
+                              ? const Color(0xFF42A5F5)
+                              : Colors.white.withValues(alpha: 0.1),
+                        ),
+                        onSelected: (value) {
+                          if (!value) return;
+                          setState(() {
+                            _selectedLanguage = lang;
+                            _showNewLangInput = false;
+                            _langError = null;
+                          });
+                        },
                       ),
+                    ActionChip(
+                      avatar: const Icon(Icons.add, size: 14, color: Color(0xFF42A5F5)),
+                      label: Text(
+                        context.uiText('＋ Thêm ngôn ngữ…'),
+                        style: const TextStyle(
+                          color: Color(0xFF42A5F5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFF42A5F5).withValues(alpha: 0.08),
+                      side: BorderSide(color: const Color(0xFF42A5F5).withValues(alpha: 0.3)),
+                      onPressed: () => setState(() {
+                        _showNewLangInput = !_showNewLangInput;
+                        _langError = null;
+                      }),
                     ),
-                    selected: _selectedLanguage == lang,
-                    selectedColor: const Color(0xFF42A5F5),
-                    backgroundColor: Colors.white.withValues(alpha: 0.04),
-                    side: BorderSide(
-                      color: _selectedLanguage == lang
-                          ? const Color(0xFF42A5F5)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
-                    onSelected: (value) {
-                      if (value) {
-                        setState(() {
-                          _selectedLanguage = lang;
-                          _showNewLangInput = false;
-                          _langError = null;
-                        });
-                      }
-                    },
-                  ),
-                ActionChip(
-                  avatar: const Icon(Icons.add, size: 14, color: Color(0xFF42A5F5)),
-                  label: Text(
-                    context.uiText('＋ Thêm ngôn ngữ…'),
-                    style: const TextStyle(
-                      color: Color(0xFF42A5F5),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  backgroundColor: const Color(0xFF42A5F5).withValues(alpha: 0.08),
-                  side: BorderSide(
-                    color: const Color(0xFF42A5F5).withValues(alpha: 0.3),
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _showNewLangInput = !_showNewLangInput;
-                      _langError = null;
-                    });
-                  },
+                  ],
                 ),
-              ],
+              ),
             ),
+            const SizedBox(height: 12),
             if (_showNewLangInput) ...[
               const SizedBox(height: 6),
               Row(

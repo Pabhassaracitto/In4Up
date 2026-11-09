@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../models/vocab_context.dart';
 import '../../../models/word_entry.dart';
@@ -87,7 +88,7 @@ class _FloatingBar extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '\"${selectedText.length > 20 ? '${selectedText.substring(0, 20)}...' : selectedText}\" → Đã lưu nhanh',
+                context.uiText('\"${selectedText.length > 20 ? '${selectedText.substring(0, 20)}...' : selectedText}\" → Đã lưu nhanh'),
               ),
             ),
           ],
@@ -174,7 +175,7 @@ class _FloatingBar extends StatelessWidget {
                 color: const Color(0xFF2196F3),
                 tooltip: context.uiText('Phát âm'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   context.read<TextProvider>().speakSelected();
                   onDismiss();
                 },
@@ -187,7 +188,7 @@ class _FloatingBar extends StatelessWidget {
                 color: Colors.amber,
                 tooltip: context.uiText('Lưu học'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   onDismiss();
                   CreateSegmentSheet.show(context, lineIndex);
                 },
@@ -200,7 +201,7 @@ class _FloatingBar extends StatelessWidget {
                 color: const Color(0xFF4CAF50),
                 tooltip: context.uiText('Lưu nhanh'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   _saveQuick(context);
                   onDismiss();
                 },
@@ -213,7 +214,7 @@ class _FloatingBar extends StatelessWidget {
                         color: const Color(0xFF9C27B0),
                         tooltip: isPhrase ? 'Lưu đủ (cụm/câu + gợi ý)' : 'Lưu đủ + nghĩa',
                         onTap: () {
-                          HapticFeedback.mediumImpact();
+                          SafeHaptics.mediumImpact();
                           _saveFull(context);
                         },
                       ),
@@ -225,7 +226,7 @@ class _FloatingBar extends StatelessWidget {
                 color: Colors.grey,
                 tooltip: context.uiText('Sao chép'),
                 onTap: () {
-                  HapticFeedback.lightImpact();
+                  SafeHaptics.lightImpact();
                   Clipboard.setData(ClipboardData(text: selectedText));
                   onDismiss();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -415,8 +416,9 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
             Expanded(
               child: Text(
                 existed
-                    ? '"$shortText" đã có — bổ sung ngữ cảnh + tag'
-                    : '"$shortText" đã lưu đầy đủ',
+                    ? context.uiText(
+                        '"$shortText" đã có — bổ sung ngữ cảnh + tag')
+                    : context.uiText('"$shortText" đã lưu đầy đủ'),
               ),
             ),
           ],
@@ -488,7 +490,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                         ),
                       ),
                       Text(
-                        '\"${widget.selectedText}\"',
+                        context.uiText('\"${widget.selectedText}\"'),
                         style: TextStyle(color: Colors.grey[400], fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -755,7 +757,7 @@ class _FullSaveSheetState extends State<_FullSaveSheet> {
                   const Icon(Icons.hub_outlined, size: 16, color: Color(0xFF4CAF50)),
                   const SizedBox(width: 6),
                   Text(
-                    'Cụm/từ liên đới (${_related.length})',
+                    context.uiText('Cụm/từ liên đới (${_related.length})'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,

@@ -120,7 +120,12 @@ class _StoreEnv implements LlmMtEnv {
   @override
   Future<AiRouteMode> routeMode() async {
     final store = await _loadStore();
-    return store.routing.modeOf(AiRouteCapability.translation);
+    final configured = store.routing.modeOf(AiRouteCapability.translation);
+    // YT-AUDIT-06 (IN4-104): trả mode THẬT (đã resolve theo loại mạng), không
+    // phải mode cấu hình. `ensureStarted()` idempotent + lắng nghe thay đổi
+    // mạng ⇒ không đo lại từng lần dịch (tránh 5s timeout mỗi request).
+    await AiConnectivityRouter.instance.ensureStarted();
+    return AiConnectivityRouter.instance.resolve(configured);
   }
 
   @override
@@ -304,12 +309,15 @@ class LlmMtEngine extends TranslationEngine {
         targetLang,
       );
     }
-    final model = provider.chatModel;
+    // API-DIAG-001 (owner 2026-10-26): dịch dùng model DỊCH riêng nếu người
+    // dùng đã chọn (`translationModel`), ngược lại mới rơi về chatModel —
+    // giữ nguyên hành vi cũ cho cấu hình chưa có model dịch.
+    final model = provider.effectiveTranslationModel;
     if (model == null || model.isEmpty) {
       return _fail(
         text,
-        'Provider "${provider.label}" chưa chọn chat model — mở màn '
-        'Server & API để chọn từ danh sách model.',
+        'Provider "${provider.label}" chưa chọn model dịch (cũng chưa có '
+        'chat model) — mở màn Server & API để chọn từ danh sách model.',
         LlmMtErrorCode.noProvider,
         sourceLang,
         targetLang,

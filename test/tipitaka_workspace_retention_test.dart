@@ -4,6 +4,54 @@ import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/screens/workspace_screen.dart';
 
 void main() {
+  testWidgets('a tab can be duplicated repeatedly as independent readers',
+      (tester) async {
+    const book = TipitakaBook(
+      id: 7,
+      collectionId: 1,
+      code: 'MN01M_MUL',
+      namePali: 'Majjhima Nikāya',
+      nameEn: 'Middle Length Discourses',
+      nameVi: 'Trung Bộ Kinh',
+      orderIndex: 0,
+    );
+    const first = TipitakaWorkspaceTab(
+      book: book,
+      title: 'Kinh Thứ Nhất',
+      initialSegmentId: 11,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: TipitakaWorkspaceScreen(
+        initialTab: first,
+        readerBuilder: (context, tab) => _ReaderProbe(
+          key: ValueKey('probe-${tab.id}'),
+          id: tab.id,
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(ValueKey('tipitaka-duplicate-tab-${first.id}')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(_ReaderProbe, skipOffstage: false), findsNWidgets(2));
+    // Repeated duplication remains possible regardless of the selected tab.
+    await tester.tap(
+      find.byKey(ValueKey('tipitaka-duplicate-tab-${first.id}:copy-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(_ReaderProbe, skipOffstage: false), findsNWidgets(3));
+    expect(
+      find.byKey(
+        ValueKey('probe-${first.id}:copy-2'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('two discourse tabs retain reader state through tabs and split',
       (tester) async {
     const book = TipitakaBook(

@@ -1,7 +1,7 @@
 // lib/screens/read_mode/widgets/recent_file_card.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../models/recent_file.dart';
 
@@ -21,11 +21,11 @@ class RecentFileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       onLongPress: () {
-        HapticFeedback.mediumImpact();
+        SafeHaptics.mediumImpact();
         onLongPress?.call();
       },
       child: Container(

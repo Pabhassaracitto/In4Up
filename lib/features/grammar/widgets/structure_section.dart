@@ -222,7 +222,7 @@ class _PhraseRow extends StatelessWidget {
         children: [
           _ChipText(context.uiText(phrase.kind.labelKey)),
           Text(
-            '“$span”',
+            context.uiText('“$span”'),
             style: TextStyle(
               color: Colors.grey[300],
               fontSize: 12,

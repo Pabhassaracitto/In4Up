@@ -52,17 +52,15 @@ class _QuickAudioSheetState extends State<QuickAudioSheet> {
     nav.pop(); // Đóng sheet trước
 
     if (audio.type == RecentAudioType.local && audio.localPath != null) {
+      // The sheet is already closed: seek before playback inside the provider
+      // rather than depending on this widget still being mounted afterward.
       await player.loadSong(
         path: audio.localPath!,
         title: audio.title,
         autoPlay: true,
-      );
-      if (!mounted) return;
-      if (audio.lastPosition > Duration.zero) {
-        await player.seek(audio.lastPosition);
-      }
-      await _service.addOrUpdate(
-        audio.copyWith(lastOpened: DateTime.now()),
+        initialPosition: audio.lastPosition > Duration.zero
+            ? audio.lastPosition
+            : null,
       );
     }
   }

@@ -1,7 +1,7 @@
 // lib/screens/read_mode/sheets/segments_list_sheet.dart
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../models/text_segment.dart';
 import '../../../providers/text_provider.dart';
@@ -11,7 +11,7 @@ class SegmentsListSheet {
   SegmentsListSheet._();
 
   static void show(BuildContext context) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A2E),
@@ -223,7 +223,7 @@ class _SegmentTile extends StatelessWidget {
       key: ValueKey('segment_${segment.id}'),
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
-        HapticFeedback.mediumImpact();
+        SafeHaptics.mediumImpact();
         return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(

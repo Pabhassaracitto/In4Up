@@ -1,15 +1,18 @@
 // lib/screens/read_mode/widgets/read_top_bar.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../models/color_mode.dart';
+import '../../../features/translation/translation_display_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../providers/text_provider.dart';
+import '../../../services/ipa_styling.dart';
+import '../../../widgets/collapsible_action_bar.dart';
 import '../controllers/read_mode_controller.dart';
 import '../sheets/read_settings_sheet.dart';
-import 'ipa_legend_strip.dart';
+import 'read_display_controls.dart';
 import 'read_line_hint.dart';
 import 'quick_library_sheet.dart'; // ← THÊM
 
@@ -25,79 +28,131 @@ class ReadTopBar extends StatelessWidget {
       builder: (context, constraints) {
         final isSmallHeight = MediaQuery.of(context).size.height < 700;
         final compact = constraints.maxWidth < 620 || isSmallHeight;
-        final actionRow = compact
-            ? Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                alignment: WrapAlignment.end,
-                children: [
-                  _ColorModeChip(textProvider: tp, compact: true),
-                  _WordTapChip(textProvider: tp),
-                  _IpaLegendToggleIfRelevant(textProvider: tp),
-                  _AutoSyncChip(controller: controller),
-                  const _ReadHelpButton(),
-                  if (!isSmallHeight)
-                    _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
-                  // Nút Focus mode cho màn hình nhỏ
-                  GestureDetector(
-                    onTap: () => controller.toggleFocusMode(),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: controller.isFocusMode
-                            ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: controller.isFocusMode
-                            ? Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.4))
-                            : null,
-                      ),
-                      child: Icon(
-                        controller.isFocusMode ? Icons.fullscreen_exit : Icons.fullscreen,
-                        size: 16,
-                        color: controller.isFocusMode ? const Color(0xFF6C63FF) : Colors.white70,
+        final screenWidth = MediaQuery.sizeOf(context).width;
+
+        // AUDIT-2026-10-20 (mục 2): thanh chức năng TRÊN chuyển sang
+        // dạng 2 TẦNG (gộp ⇄ bung bằng mũi tên) — giống thanh phát trong
+        // vùng đọc. Trên điện thoại nhỏ, các nút gộp lại chỉ còn ICON ⇒
+        // phần chữ của vùng đọc không bị giới hạn nữa; bấm mũi tên để bung
+        // ra nhãn khi thật sự cần.
+        final showGrammarBadge = screenWidth >= 520 &&
+            tp.colorMode == ColorMode.wordType &&
+            tp.grammarSettings.enabled;
+
+        final actions = <CollapsibleAction>[
+          // 1) Chế độ tô màu (chạm để đổi chế độ)
+          CollapsibleAction(
+            label: context.uiText(tp.colorMode.label),
+            icon: tp.colorMode.icon,
+            active: tp.colorMode != ColorMode.none,
+            activeColor: const Color(0xFF2196F3),
+            badge: showGrammarBadge
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      tp.activeGrammarPreset.name,
+                      style: const TextStyle(
+                        color: Color(0xFFB8B5FF),
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ),
-                ],
-              )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ColorModeChip(textProvider: tp),
-                  const SizedBox(width: 8),
-                  _WordTapChip(textProvider: tp),
-                  const SizedBox(width: 8),
-                  _IpaLegendToggleIfRelevant(textProvider: tp),
-                  const SizedBox(width: 8),
-                  _AutoSyncChip(controller: controller),
-                  const SizedBox(width: 8),
-                  const _ReadHelpButton(),
-                  const SizedBox(width: 8),
-                  _SettingsButton(onTap: () => ReadSettingsSheet.show(context)),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: () => controller.toggleFocusMode(),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: controller.isFocusMode
-                            ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        controller.isFocusMode ? Icons.fullscreen_exit : Icons.fullscreen,
-                        size: 16,
-                        color: controller.isFocusMode ? const Color(0xFF6C63FF) : Colors.white70,
-                      ),
-                    ),
-                  ),
-                ],
-              );
+                  )
+                : null,
+            onPressed: () {
+              SafeHaptics.selectionClick();
+              tp.cycleColorMode();
+            },
+          ),
+          // Hiện/ẩn nhãn A1, N/V hoặc độ khó dưới từng từ để cân bằng
+          // độ chi tiết và không gian đọc.
+          CollapsibleAction(
+            label: context.uiText('Thông tin màu'),
+            icon: tp.showColorModeDetails
+                ? Icons.label_rounded
+                : Icons.label_off_rounded,
+            active: tp.showColorModeDetails,
+            activeColor: const Color(0xFF64B5F6),
+            onPressed: () =>
+                tp.setShowColorModeDetails(!tp.showColorModeDetails),
+          ),
+          // 2) Box từng từ ⇄ bôi nhiều chữ
+          CollapsibleAction(
+            label: context.uiText('Box từng từ'),
+            tooltip: context.uiText(
+              tp.wordTapBoxes
+                  ? 'Box từng từ — chạm để về bôi nhiều chữ'
+                  : 'Bôi nhiều chữ — chạm để box từng từ',
+            ),
+            icon: tp.wordTapBoxes
+                ? Icons.grid_view_rounded
+                : Icons.grid_view_outlined,
+            active: tp.wordTapBoxes,
+            activeColor: const Color(0xFFFF9800),
+            onPressed: () {
+              SafeHaptics.selectionClick();
+              tp.setWordTapBoxes(!tp.wordTapBoxes);
+            },
+          ),
+          // 3) Màu IPA (chỉ khi IPA không ẩn hoàn toàn)
+          if (tp.ipaDisplayMode != IpaDisplayMode.hidden)
+            CollapsibleAction(
+              label: context.uiText('Màu IPA'),
+              icon: Icons.palette_outlined,
+              active: tp.ipaLegendVisible,
+              activeColor: IpaStyling.baseIpaColor,
+              onPressed: () => tp.setIpaLegendVisible(!tp.ipaLegendVisible),
+            ),
+          // 4) Đồng bộ tự động
+          CollapsibleAction(
+            label: context.uiText('Đồng bộ tự động'),
+            icon: controller.autoSyncEnabled
+                ? Icons.sync
+                : Icons.sync_disabled,
+            active: controller.autoSyncEnabled,
+            activeColor: const Color(0xFF4CAF50),
+            onPressed: () => controller.toggleAutoSync(),
+          ),
+          // 5) Hướng dẫn đọc theo dòng
+          CollapsibleAction(
+            label: context.uiText('Hướng dẫn đọc theo dòng'),
+            icon: Icons.help_outline,
+            onPressed: () => ReadLineHint.showSheet(context),
+          ),
+          CollapsibleAction(
+            label: context.uiText('Hiển thị'),
+            icon: Icons.view_quilt_outlined,
+            onPressed: () => showReadDisplaySheet(context, controller: controller),
+          ),
+          // 6) Cài đặt đọc
+          CollapsibleAction(
+            label: context.uiText('Cài đặt'),
+            icon: Icons.tune,
+            onPressed: () => ReadSettingsSheet.show(context),
+          ),
+          // 7) Chế độ Focus (ẩn thanh trên, giao diện tối giản)
+          CollapsibleAction(
+            label: context.uiText('Chế độ Focus'),
+            icon: controller.isFocusMode
+                ? Icons.fullscreen_exit
+                : Icons.fullscreen,
+            active: controller.isFocusMode,
+            onPressed: () => controller.toggleFocusMode(),
+          ),
+        ];
 
         return Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: isSmallHeight ? 4 : 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: isSmallHeight ? 4 : 8,
+          ),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A2E),
             border: Border(
@@ -111,20 +166,11 @@ class ReadTopBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _TitleButton(tp: tp, controller: controller),
-                    if (!isSmallHeight) ...[
-                      const SizedBox(height: 6),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: actionRow,
-                      ),
-                    ] else
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: actionRow,
-                        ),
-                      ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: CollapsibleActionBar(actions: actions),
+                    ),
                   ],
                 )
               : Row(
@@ -136,10 +182,7 @@ class ReadTopBar extends StatelessWidget {
                     Flexible(
                       child: Align(
                         alignment: Alignment.centerRight,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: actionRow,
-                        ),
+                        child: CollapsibleActionBar(actions: actions),
                       ),
                     ),
                   ],
@@ -148,24 +191,129 @@ class ReadTopBar extends StatelessWidget {
       },
     );
   }
-}
 
-// ── IPA Legend Toggle (READ-IPA-006) ─────────────────────────
-// Chỉ hiện khi IPA đang bật (không phải hidden) — panel chỉ có nghĩa
-// khi có dòng IPA để tô màu.
-class _IpaLegendToggleIfRelevant extends StatelessWidget {
-  final TextProvider textProvider;
-
-  const _IpaLegendToggleIfRelevant({required this.textProvider});
-
-  @override
-  Widget build(BuildContext context) {
-    if (textProvider.ipaDisplayMode == IpaDisplayMode.hidden) {
-      return const SizedBox.shrink();
-    }
-    return IpaLegendToggleButton(tp: textProvider);
+  /// READ-UI-120: `public` để nút overflow cạnh ⚡ và panel Hiển thị của
+  /// dock cùng mở một sheet. [controller] optional — khi gọi từ app bar
+  /// shell (không có ReadModeController) chỉ ẩn 2 switch phụ thuộc.
+  static void showDisplaySheet(
+    BuildContext context, {
+    ReadModeController? controller,
+  }) {
+    final tp = context.read<TextProvider>();
+    // Local `final` tránh phụ thuộc vào promotion của parameter bên trong
+    // closure (an toàn trên mọi phiên bản analyzer).
+    final readController = controller;
+    final listenables = <Listenable>[tp];
+    if (readController != null) listenables.add(readController);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      isScrollControlled: true,
+      builder: (sheetContext) => AnimatedBuilder(
+        animation: Listenable.merge(listenables),
+        builder: (context, _) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.uiText('Hiển thị'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  ActionChip(
+                    label: Text(context.uiText('Đọc song ngữ')),
+                    onPressed: () {
+                      tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+                      tp.setBlurTranslations(false);
+                      readController?.setSingleLineMode(false);
+                    },
+                  ),
+                  ActionChip(
+                    label: Text(context.uiText('Luyện nghe')),
+                    onPressed: () {
+                      tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+                      tp.setBlurTranslations(true);
+                      if (readController != null &&
+                          !readController.autoSyncEnabled) {
+                        readController.toggleAutoSync();
+                      }
+                    },
+                  ),
+                  ActionChip(
+                    label: Text(context.uiText('Khôi phục mặc định')),
+                    onPressed: () {
+                      tp.setTranslationDisplayMode(TranslationDisplayMode.stackedBelow);
+                      tp.setBlurTranslations(false);
+                      tp.setIpaDisplayMode(IpaDisplayMode.hidden);
+                      readController?.setSingleLineMode(false);
+                      if (readController != null &&
+                          !readController.autoSyncEnabled) {
+                        readController.toggleAutoSync();
+                      }
+                    },
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                Text(context.uiText('Bản dịch')),
+                Wrap(spacing: 8, children: [
+                  for (final entry in {
+                    TranslationDisplayMode.hidden: 'Ẩn',
+                    TranslationDisplayMode.stackedBelow: 'Dưới',
+                    TranslationDisplayMode.sideBySide: 'Cột',
+                  }.entries)
+                    ChoiceChip(
+                      label: Text(context.uiText(entry.value)),
+                      selected: tp.translationDisplayMode == entry.key,
+                      onSelected: (_) => tp.setTranslationDisplayMode(entry.key),
+                    ),
+                ]),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.uiText('Làm mờ bản dịch')),
+                  value: tp.blurTranslations,
+                  onChanged: tp.translationDisplayMode == TranslationDisplayMode.hidden
+                      ? null : tp.setBlurTranslations,
+                ),
+                const SizedBox(height: 8),
+                Text(context.uiText('Phiên âm / IPA')),
+                Wrap(spacing: 8, children: [
+                  for (final mode in IpaDisplayMode.values)
+                    ChoiceChip(
+                      label: Text(context.uiText(mode.label)),
+                      selected: tp.ipaDisplayMode == mode,
+                      onSelected: (_) => tp.setIpaDisplayMode(mode),
+                    ),
+                ]),
+                if (readController != null)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(context.uiText('Một dòng')),
+                    value: readController.singleLineMode,
+                    onChanged: (v) => readController.setSingleLineMode(v),
+                  ),
+                const SizedBox(height: 8),
+                // READ-UI-121: «Không màu / Bôi nhiều chữ / Đồng bộ tự động /
+                // ? / Focus» cũng có mặt trong sheet Hiển thị (app bar ⚡,
+                // ReadTopBar legacy, caller standalone). Cùng 1 widget với
+                // panel dock ⇒ không có 2 nguồn state, không có nút bị sót.
+                ReadDisplayControls(controller: readController),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
+
+/// READ-UI-120 — lối vào dùng chung cho app bar shell, ReadTopBar và dock.
+void showReadDisplaySheet(
+  BuildContext context, {
+  ReadModeController? controller,
+}) =>
+    ReadTopBar.showDisplaySheet(context, controller: controller);
 
 // ── Title Button ──────────────────────────────────────────────
 // Bấm → mở QuickLibrarySheet để đổi tài liệu nhanh
@@ -212,7 +360,7 @@ class _TitleButton extends StatelessWidget {
               fit: FlexFit.loose,
               child: GestureDetector(
                 onTap: () {
-                  HapticFeedback.selectionClick();
+                  SafeHaptics.selectionClick();
                   QuickLibrarySheet.show(context);
                 },
                 child: Container(
@@ -287,210 +435,35 @@ class _TitleButton extends StatelessWidget {
   }
 }
 
-// ── Color Mode Chip ───────────────────────────────────────────
-// Giữ nguyên từ file cũ
-class _ColorModeChip extends StatelessWidget {
-  final TextProvider textProvider;
-  final bool compact;
+// ── Focus title bar (READ-FOCUS-002 / IN4-30) ────────────────────────────
+// Chế độ Focus mặc định ẩn TRỌN thanh trên. Người dùng có thể chọn
+// chỉ giữ lại PHẦN TIÊU ĐỀ (tên tài liệu) — đặt TRÊN hoặc DƯỚI vùng
+// đọc — để vẫn biết đang đọc tài liệu nào mà không mất không gian đọc.
+//
+// Widget này CHỈ hiện tiêu đề (không kéo theo icon chức năng) — đúng nghĩa
+// "chỉ giữ phần tiêu đề".
+class ReadFocusTitleBar extends StatelessWidget {
+  final TextProvider tp;
+  final ReadModeController controller;
 
-  const _ColorModeChip({
-    required this.textProvider,
-    this.compact = false,
+  const ReadFocusTitleBar({
+    super.key,
+    required this.tp,
+    required this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isActive = textProvider.colorMode != ColorMode.none;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final showGrammarBadge =
-        !compact &&
-        screenWidth >= 520 &&
-        textProvider.colorMode == ColorMode.wordType &&
-        textProvider.grammarSettings.enabled;
-
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        textProvider.cycleColorMode();
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 9 : 10,
-          vertical: 6,
-        ),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF2196F3).withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: isActive
-              ? Border.all(
-                  color: const Color(0xFF2196F3).withValues(alpha: 0.3),
-                )
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              textProvider.colorMode.icon,
-              size: 14,
-              color: isActive ? const Color(0xFF2196F3) : Colors.grey,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              context.uiText(textProvider.colorMode.label),
-              style: TextStyle(
-                fontSize: 11,
-                color: isActive ? const Color(0xFF2196F3) : Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (showGrammarBadge) ...[
-              const SizedBox(width: 5),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF).withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  textProvider.activeGrammarPreset.name,
-                  style: const TextStyle(
-                    color: Color(0xFFB8B5FF),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WordTapChip extends StatelessWidget {
-  final TextProvider textProvider;
-
-  const _WordTapChip({required this.textProvider});
-
-  @override
-  Widget build(BuildContext context) {
-    final on = textProvider.wordTapBoxes;
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        textProvider.setWordTapBoxes(!on);
-      },
-      child: Tooltip(
-        message: on
-            ? 'Box từng từ — chạm để về bôi nhiều chữ'
-            : 'Bôi nhiều chữ — chạm để box từng từ',
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: on
-                ? const Color(0xFFFF9800).withValues(alpha: 0.22)
-                : Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: on
-                ? Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4))
-                : null,
-          ),
-          child: Icon(
-            on ? Icons.grid_view_rounded : Icons.grid_view_outlined,
-            size: 16,
-            color: on ? const Color(0xFFFF9800) : Colors.grey,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// I4U18-READ-IPA-001 (F1.3) — mở lại hướng dẫn chạm dòng/chạm từ bất cứ lúc
-/// nào; người bấm "Đừng nhắc lại" vẫn tìm được hướng dẫn ở đây.
-class _ReadHelpButton extends StatelessWidget {
-  const _ReadHelpButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: context.uiText('Hướng dẫn đọc theo dòng'),
-      child: GestureDetector(
-        onTap: () => ReadLineHint.showSheet(context),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(
-            Icons.help_outline,
-            size: 18,
-            color: Colors.white70,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _SettingsButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(
-          Icons.tune,
-          size: 18,
-          color: Colors.white70,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Auto Sync Chip ────────────────────────────────────────────
-// Giữ nguyên từ file cũ
-class _AutoSyncChip extends StatelessWidget {
-  final ReadModeController controller;
-  const _AutoSyncChip({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => controller.toggleAutoSync(),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: controller.autoSyncEnabled
-              ? Color(0xFF4CAF50).withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          controller.autoSyncEnabled ? Icons.sync : Icons.sync_disabled,
-          size: 16,
-          color: controller.autoSyncEnabled
-              ? const Color(0xFF4CAF50)
-              : Colors.grey,
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+      color: const Color(0xFF0D1520),
+      child: Row(
+        children: [
+          const Icon(Icons.article_outlined, size: 14, color: Colors.white38),
+          const SizedBox(width: 6),
+          Expanded(child: _TitleButton(tp: tp, controller: controller)),
+        ],
       ),
     );
   }

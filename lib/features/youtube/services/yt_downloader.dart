@@ -1,5 +1,10 @@
 // ignore_for_file: unintended_html_in_doc_comment
 //
+// YT-AUDIT-01 (IN4-97): tải audio bằng HTTP **có Range** — resume được khi
+//                       YouTube đóng kết nối giữa chừng (bug "chỉ tải một
+//                       xíu xong dừng": file CỤT vẫn bị báo thành công).
+//                       Ghi ra `.part` + watchdog kẹt tiến trình 20s + chỉ
+//                       emit Done khi nhận ĐỦ `totalBytes`.
 // FIX kẹt 5%: dùng await for trực tiếp trên stream (theo cách của yt_service_explode.dart)
 //             Bỏ StreamController trung gian gây race condition
 // THÊM: chọn chất lượng audio (cao/trung/thấp + chọn cụ thể)
@@ -8,10 +13,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../models/yt_video.dart';
+import 'yt_dlp_sidecar.dart';
+import 'yt_media_store.dart';
 
 // ─── Audio Quality ────────────────────────────────────────
 
@@ -85,6 +92,18 @@ class YtDownloader {
     return ctrl.stream;
   }
 
+  /// YT-AUDIT-01 (IN4-97) — Bản cũ **không kiểm tra `downloaded ==
+  /// totalBytes`**: YouTube thường đóng kết nối giữa chừng *mà không ném
+  /// lỗi* ⇒ vòng `await for` kết thúc sớm, file còn cụt nhưng vẫn `emit(
+  /// YtDownloadDone)` (vì `finalSize` vẫn > 1000 byte) → đúng triệu chứng
+  /// "chỉ tải một xíu xong dừng".
+  ///
+  /// Bản mới: tải bằng HTTP **có `Range`** (resume được), ghi ra file
+  /// `.part`, có **watchdog kẹt tiến trình**, và chỉ báo xong khi đã nhận
+  /// ĐỦ `totalBytes`.
+  static const int _maxAttempts = 8;
+  static const Duration _stallTimeout = Duration(seconds: 20);
+
   Future<void> _doDownload(
     StreamController<YtDownloadEvent> ctrl,
     YtVideo video, {
@@ -104,17 +123,9 @@ class YtDownloader {
     }
 
     try {
-      emit(YtDownloadProgress(0.03, 'Đang lấy thông tin video...'));
-
-      // ── Step 1: Video info ──────────────────────────────
-      final videoObj = await yt.videos.get(video.id);
-      if (_cancelled) {
-        yt.close();
-        fail('Đã hủy');
-        return;
-      }
-
-      emit(YtDownloadProgress(0.07, 'Đang phân tích stream...'));
+      // The manifest already contains everything needed for audio. Do not make
+      // the separate video-details endpoint a second point of failure.
+      emit(YtDownloadProgress(0.03, 'Đang phân tích stream...'));
 
       // ── Step 2: Manifest ───────────────────────────────
       final manifest =
@@ -141,61 +152,110 @@ class YtDownloader {
       final totalBytes = streamInfo.size.totalBytes;
       final ext = streamInfo.container.name;
       final kbps = streamInfo.bitrate.bitsPerSecond ~/ 1000;
+      final itag = streamInfo.tag;
 
       emit(YtDownloadProgress(
           0.10, 'Chuẩn bị · ${kbps}kbps · ${_sizeLabel(totalBytes)}'));
 
       // ── Step 4: Chuẩn bị file ─────────────────────────
-      final dir = await getApplicationDocumentsDirectory();
-      final folder = Directory('${dir.path}/youtube_downloads');
-      if (!await folder.exists()) await folder.create(recursive: true);
+      // YT-MEDIA-STORE-001: ghi vào CÙNG kho với phụ đề, tên theo video ID
+      // (`yt_<id>.<ext>`) để luôn ghép được cặp phụ đề ↔ âm thanh và để
+      // người dùng thấy/xoá được trong "Thư viện đã tải".
+      //
+      // `_sanitize` vẫn được giữ cho đường tải cũ/sidecar và cho an toàn,
+      // nhưng tên file KHÔNG còn dùng tựa đề ⇒ hết hẳn lớp lỗi
+      // RangeError khi tựa đề có ký tự bị loại bỏ.
+      final folder = await YtMediaStore.folder();
+      final fileBase = YtMediaStore.fileBaseFor(video.id);
+      final filePath = '${folder.path}/$fileBase.$ext';
+      final partPath = '$filePath.part';
+      debugPrint('⬇️ [in4up-yt] tải vào ${folder.path} · '
+          '${sanitizeFileName(video.title)}');
+      final part = File(partPath);
+      final partMeta = File('$partPath.stream');
+      final fingerprint = _partFingerprint(itag, totalBytes);
 
-      final safeTitle = _sanitize(videoObj.title);
-      final filePath = '${folder.path}/$safeTitle.$ext';
-      final file = File(filePath);
-      if (await file.exists()) await file.delete();
-
-      final output = file.openWrite();
-      int downloaded = 0;
-
-      // ── Step 5: Download với await for trực tiếp ──────
-      // QUAN TRỌNG: await for trực tiếp (không StreamController trung gian)
-      // Đây là fix chính cho bug kẹt 5% — theo đúng cách của yt_service_explode.dart
-      try {
-        await for (final chunk
-            in yt.videos.streamsClient.get(streamInfo)) {
-          if (_cancelled) break;
-
-          output.add(chunk);
-          downloaded += chunk.length;
-
-          final pct = totalBytes > 0
-              ? 0.10 + (downloaded / totalBytes) * 0.88
-              : 0.50;
-          final dlMb = (downloaded / 1048576).toStringAsFixed(1);
-          final totMb = (totalBytes / 1048576).toStringAsFixed(1);
-
-          emit(YtDownloadProgress(
-              pct.clamp(0.0, 0.98), '$dlMb / $totMb MB'));
+      // A .part file contains bytes of ONE exact stream. Reusing it after the
+      // user changes quality (or YouTube replaces the itag) creates a corrupt
+      // file that can look "successfully downloaded" but cannot be played.
+      if (await part.exists()) {
+        final previous = await _readPartFingerprint(partMeta);
+        if (previous != fingerprint) {
+          await _safeDelete(part);
+          await _safeDelete(partMeta);
         }
-      } finally {
-        await output.flush();
-        await output.close();
       }
+      await partMeta.writeAsString(fingerprint, flush: true);
+
+      // Xoá file đích cũ để `rename` không vấp (file .part là file tạm).
+      final target = File(filePath);
+      if (await target.exists()) await target.delete();
+
+      // URL của YouTube có HẠN (~6 giờ) ⇒ cần hàm xin URL MỚI khi gặp 403.
+      Future<Uri> refreshUrl() async {
+        final m = await yt.videos.streamsClient.getManifest(video.id);
+        final list = m.audioOnly.toList()
+          ..sort((a, b) =>
+              b.bitrate.bitsPerSecond.compareTo(a.bitrate.bitsPerSecond));
+        final same = list.where((s) => s.tag == itag).toList();
+        if (same.isEmpty) {
+          // A different itag can have different bytes/length. Never append it
+          // to the existing partial download merely because the preset matches.
+          throw StateError('Audio stream $itag is no longer available');
+        }
+        return same.first.url;
+      }
+
+      // ── Step 5: Tải CÓ RESUME ─────────────────────────
+      final ok = await _downloadResumable(
+        uri: streamInfo.url,
+        refreshUrl: refreshUrl,
+        part: part,
+        totalBytes: totalBytes,
+        emit: emit,
+      );
 
       yt.close();
 
       // ── Step 6: Kết quả ───────────────────────────────
       if (_cancelled) {
-        if (await file.exists()) await file.delete();
+        await _safeDelete(part);
+        await _safeDelete(partMeta);
         fail('Đã hủy');
         return;
       }
 
-      final finalSize = await file.length();
-      if (finalSize < 1000) {
-        if (await file.exists()) await file.delete();
-        fail('File tải về quá nhỏ, thử lại');
+      if (!ok) {
+        // Exhausting HTTP retries is also a failure of the primary layer, not
+        // just a thrown exception. Give the desktop sidecar the same fallback
+        // opportunity before reporting failure to the user.
+        if (await _trySidecarDownload(ctrl, video, quality)) return;
+        final got = await _lengthOrZero(part);
+        debugPrint(
+          '❌ [in4up-yt] tải chưa hoàn tất: $got / $totalBytes bytes '
+          'sau $_maxAttempts lần thử.',
+        );
+        // Biết trước kích thước ⇒ GIỮ file .part để lần tải sau nối tiếp
+        // đúng chỗ dở (đúng như dòng thông báo bên dưới). Không biết kích
+        // thước thì không có gì để nối ⇒ dọn đi.
+        if (totalBytes <= 0) await _safeDelete(part);
+        fail(
+          'Tải chưa xong (${_sizeLabel(got)} / ${_sizeLabel(totalBytes)}). '
+          'Mạng bị ngắt — bấm tải lại, sẽ nối tiếp từ chỗ dở.',
+        );
+        return;
+      }
+
+      // Đủ byte ⇒ mới chuyển .part thành file thật.
+      if (await target.exists()) await target.delete();
+      await part.rename(filePath);
+      await _safeDelete(partMeta);
+
+      final finalSize = await _lengthOrZero(File(filePath));
+      if (finalSize < 1000 ||
+          (totalBytes > 0 && finalSize != totalBytes)) {
+        await _safeDelete(File(filePath));
+        fail('File tải về không đầy đủ, thử lại');
         return;
       }
 
@@ -203,13 +263,289 @@ class YtDownloader {
       if (!ctrl.isClosed) ctrl.close();
     } catch (e) {
       yt.close();
-      fail(_friendlyError(e.toString()));
+      // WP-Z (PLAN-020): tầng 2 — yt-dlp sidecar (desktop, user tự cài)
+      // khi explode gãy (YouTube đổi client). Không có sidecar thì báo lỗi gốc.
+      final ok = await _trySidecarDownload(ctrl, video, quality);
+      if (!ok) fail(_friendlyError(e.toString()));
+    }
+  }
+
+  /// Tải một stream về [part] bằng HTTP `Range`, tự nối tiếp khi đứt.
+  ///
+  /// Trả `true` **chỉ khi** nhận đủ [totalBytes].
+  Future<bool> _downloadResumable({
+    required Uri uri,
+    required Future<Uri> Function() refreshUrl,
+    required File part,
+    required int totalBytes,
+    required void Function(YtDownloadEvent) emit,
+  }) async {
+    var currentUri = uri;
+
+    // Không biết trước kích thước ⇒ không thể verify, nhưng vẫn có thể
+    // resume nhờ `Range` (server sẽ trả 416 khi đã xong — xử lý bên dưới).
+    final knownSize = totalBytes > 0;
+
+    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
+      if (_cancelled) return false;
+
+      var offset = await _lengthOrZero(part);
+      if (knownSize && offset == totalBytes) {
+        debugPrint('✅ [in4up-yt] resume: đã đủ $offset / $totalBytes bytes');
+        return true;
+      }
+      // An oversized partial cannot be valid for this exact stream.
+      if (knownSize && offset > totalBytes) {
+        await _safeDelete(part);
+        offset = 0;
+      }
+
+      final client = http.Client();
+      IOSink? sink;
+      try {
+        final req = http.Request('GET', currentUri);
+        // Nối tiếp từ byte đã có. Server không hỗ trợ Range sẽ trả 200 —
+        // khi đó ghi lại từ đầu (`offset = 0`).
+        if (offset > 0) {
+          req.headers[HttpHeaders.rangeHeader] = 'bytes=$offset-';
+        }
+        final resp = await client.send(req);
+
+        if (resp.statusCode == 416) {
+          // Only accept 416 when the bytes on disk really cover the manifest
+          // size. A premature 416 must never turn a short .part into Done.
+          if (knownSize && offset >= totalBytes) return true;
+          client.close();  // http.Client.close() trả void — không await được.
+          if (knownSize) {
+            await _safeDelete(part);
+            offset = 0;
+          }
+          await Future<void>.delayed(_retryDelay(attempt));
+          continue;
+        }
+
+        if (resp.statusCode == 403) {
+          // URL stream hết hạn ⇒ xin URL MỚI rồi thử lại ngay.
+          debugPrint('↻ [in4up-yt] stream URL hết hạn (403) — xin URL mới');
+          try {
+            currentUri = await refreshUrl();
+          } catch (_) {}
+          client.close();  // http.Client.close() trả void — không await được.
+          await Future<void>.delayed(_retryDelay(attempt));
+          continue;
+        }
+
+        if (resp.statusCode != 206 && resp.statusCode != 200) {
+          debugPrint(
+              '❌ [in4up-yt] HTTP ${resp.statusCode} khi tải (thử $attempt)');
+          client.close();  // http.Client.close() trả void — không await được.
+          await Future<void>.delayed(_retryDelay(attempt));
+          continue;
+        }
+
+        if (resp.statusCode == 206) {
+          final rangeStart = parseContentRangeStart(
+            resp.headers[HttpHeaders.contentRangeHeader],
+          );
+          if (rangeStart != offset) {
+            throw HttpException(
+              'Invalid Content-Range: expected $offset, got $rangeStart',
+              uri: currentUri,
+            );
+          }
+        } else {
+          // KHÔNG hỗ trợ Range ⇒ ghi đè từ đầu.
+          offset = 0;
+          await _safeDelete(part);
+        }
+
+        if (!await part.exists()) await part.create(recursive: true);
+        sink = part.openWrite(mode: FileMode.writeOnlyAppend);
+
+        var received = offset;
+        var lastEmit = 0;
+
+        // `Stream.timeout` reset đồng hồ sau MỖI chunk ⇒ đúng nghĩa
+        // "watchdog kẹt tiến trình": 20 giây không có byte nào ⇒ đóng
+        // stream (không ném lỗi) ⇒ vòng lặp ngoài thử lại từ `received`.
+        await for (final chunk in resp.stream.timeout(
+          _stallTimeout,
+          onTimeout: (EventSink<List<int>> timedOut) {
+            debugPrint('⏱️ [in4up-yt] không nhận byte nào trong '
+                '${_stallTimeout.inSeconds}s ⇒ thử lại');
+            timedOut.close();
+          },
+        )) {
+          if (_cancelled) break;
+          sink.add(chunk);
+          received += chunk.length;
+
+          final pct = knownSize ? received / totalBytes : 0.5;
+          if (received - lastEmit > 65536) {
+            lastEmit = received;
+            emit(YtDownloadProgress(
+              (0.10 + pct * 0.88).clamp(0.0, 0.98),
+              '${_sizeLabel(received)} / ${_sizeLabel(totalBytes)}'
+              '${attempt > 0 ? ' · lần ${attempt + 1}' : ''}',
+            ));
+          }
+        }
+
+        await sink.flush();
+        await sink.close();
+        sink = null;
+        client.close();  // http.Client.close() trả void — không await được.
+
+        if (_cancelled) return false;
+
+        if (knownSize && received >= totalBytes) {
+          debugPrint(
+              '✅ [in4up-yt] tải xong $received / $totalBytes bytes '
+              '(số lần nối: $attempt)');
+          return true;
+        }
+
+        // Chưa đủ: stream kết thúc SỚM mà không báo lỗi (đúng bug cũ).
+        debugPrint(
+            '⚠️ [in4up-yt] stream kết thúc sớm ở $received / $totalBytes '
+            'bytes ⇒ nối tiếp (lần ${attempt + 1})');
+        await Future<void>.delayed(_retryDelay(attempt));
+      } catch (e) {
+        debugPrint('⚠️ [in4up-yt] lỗi tải (lần ${attempt + 1}): $e');
+        try {
+          await sink?.flush();
+          await sink?.close();
+        } catch (_) {}
+        try {
+          client.close();
+        } catch (_) {}
+        if (_cancelled) return false;
+        await Future<void>.delayed(_retryDelay(attempt));
+      }
+    }
+
+    // Hết số lần thử: chấp nhận nếu đã đủ (trường hợp không biết size thì
+    // coi là xong khi stream tự kết thúc).
+    if (!knownSize) return await _lengthOrZero(part) > 1000;
+    return await _lengthOrZero(part) >= totalBytes;
+  }
+
+  /// Backoff đơn giản 400ms → 4s. (Không dùng `Duration.clamp` — toán tử
+  /// đó không có trong `dart:core`.)
+  Duration _retryDelay(int attempt) {
+    final ms = 400 * (attempt + 1);
+    return Duration(milliseconds: ms > 4000 ? 4000 : ms);
+  }
+
+  Future<void> _safeDelete(File f) async {
+    try {
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
+
+  static String _partFingerprint(int itag, int totalBytes) =>
+      '$itag:$totalBytes';
+
+  static Future<String?> _readPartFingerprint(File file) async {
+    try {
+      if (!await file.exists()) return null;
+      return (await file.readAsString()).trim();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Start offset from `Content-Range: bytes <start>-<end>/<total>`.
+  /// Kept public for a no-network regression test of the resume guard.
+  @visibleForTesting
+  static int? parseContentRangeStart(String? header) {
+    if (header == null) return null;
+    final match = RegExp(r'^bytes\s+(\d+)-\d+/(?:\d+|\*)$')
+        .firstMatch(header.trim());
+    return match == null ? null : int.tryParse(match.group(1)!);
+  }
+
+  /// Độ dài file, **0 nếu file chưa tồn tại**.
+  ///
+  /// YT-DL-PATH-001 (bug owner báo 2026-10-25):
+  /// `PathNotFoundException: Cannot retrieve length of file, path =
+  /// '…/app_flutter/youtube_media/yt_xxx.m4a.part'`.
+  ///
+  /// `File.length()` **ném** `PathNotFoundException` khi file không có — nó
+  /// không trả 0. Lần tải ĐẦU TIÊN luôn chưa có `.part`, nên dòng
+  /// `var offset = await part.length();` ném ngay từ vòng lặp đầu ⇒ rơi vào
+  /// `catch` ngoài ⇒ thử yt-dlp ⇒ thất bại ⇒ hiện nguyên chuỗi lỗi cho người
+  /// dùng. Lỗi này bị che trước đây vì lỗi RangeError (dựng tên file) ném ra
+  /// SỚM HƠN; sửa xong lỗi đó thì lỗi này mới lộ ra.
+  static Future<int> _lengthOrZero(File f) async {
+    try {
+      if (!await f.exists()) return 0;
+      return await f.length();
+    } catch (_) {
+      return 0;
     }
   }
 
   /// Hủy download đang chạy
   void cancel() {
     _cancelled = true;
+  }
+
+  /// yt-dlp (thang 0–10, 0 = tốt nhất) tương ứng [YtAudioQuality]
+  int _sidecarAudioQuality(YtAudioQuality q) => switch (q) {
+        YtAudioQuality.highest => 0,
+        YtAudioQuality.medium => 5,
+        YtAudioQuality.low => 8,
+      };
+
+  /// Tầng 2: tải bằng yt-dlp sidecar. Trả về true nếu đã có kết quả
+  /// (thành công hoặc tự xử lý sự kiện hủy).
+  Future<bool> _trySidecarDownload(
+    StreamController<YtDownloadEvent> ctrl,
+    YtVideo video,
+    YtAudioQuality quality,
+  ) async {
+    final sidecar = YtDlpSidecar.instance;
+    if (!await YtDlpSidecar.isAvailable()) return false;
+    debugPrint('⬇️ explode gãy — thử yt-dlp sidecar cho ${video.id}');
+    try {
+      await for (final ev in sidecar.downloadAudio(
+        video.id,
+        audioQuality: _sidecarAudioQuality(quality),
+      )) {
+        if (_cancelled) {
+          sidecar.cancel();
+          break;
+        }
+        if (ctrl.isClosed) return false;
+        if (ev is YtDlpProgress) {
+          ctrl.add(YtDownloadProgress(ev.progress, ev.text));
+        } else if (ev is YtDlpDone) {
+          // yt-dlp ghi ra ngoài kho ⇒ đưa vào kho để cùng một danh sách.
+          final adopted = await YtMediaStore.adoptAudio(
+            sourcePath: ev.filePath,
+            videoId: video.id,
+          );
+          ctrl.add(YtDownloadDone(adopted ?? ev.filePath, quality: 'yt-dlp'));
+          if (!ctrl.isClosed) ctrl.close();
+          return true;
+        } else if (ev is YtDlpFailed) {
+          debugPrint('yt-dlp sidecar fail: ${ev.message}');
+          break;
+        }
+      }
+      if (_cancelled) {
+        if (!ctrl.isClosed) {
+          ctrl.add(YtDownloadFailed('Đã hủy'));
+          ctrl.close();
+        }
+        return true; // đã tự kết thúc bằng sự kiện hủy
+      }
+      return false;
+    } catch (e) {
+      debugPrint('yt-dlp sidecar error: $e');
+      return false;
+    }
   }
 
   // ─── Helpers ─────────────────────────────────────────
@@ -242,11 +578,25 @@ class YtDownloader {
     return '${(bytes / 1024).toStringAsFixed(0)} KB';
   }
 
-  String _sanitize(String name) => name
-      .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim()
-      .substring(0, name.length.clamp(0, 80));
+  /// Bỏ ký tự cấm trong tên file + cắt còn tối đa 80 ký tự.
+  ///
+  /// YT-DL-RANGE-001 (bug "RangeError (end): Invalid value: Not in inclusive
+  /// range 0..70: 74"): bản cũ `.substring(0, name.length.clamp(0, 80))` cắt
+  /// theo độ dài của tên **GỐC** trong khi chuỗi đã bị `replaceAll` làm NGẮN
+  /// đi ⇒ `end` vượt quá độ dài thật. Ví dụ tên 74 ký tự có 3 ký tự bị bỏ ⇒
+  /// chuỗi còn 71 ⇒ `substring(0, 74)` ném RangeError (0..70). Vì đây là
+  /// bước dựng TÊN FILE nên lỗi ném ra giữa luồng tải và người dùng chỉ thấy
+  /// "Tải thất bại" — không liên quan gì tới mạng.
+  ///
+  /// Cắt trên chuỗi ĐÃ chuẩn hoá, và tự bảo vệ khi chuỗi ngắn hơn giới hạn.
+  static String sanitizeFileName(String name) {
+    final cleaned = name
+        .replaceAll(RegExp(r'[<>:"/\\|?*]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.length <= 80) return cleaned;
+    return cleaned.substring(0, 80);
+  }
 
   String _friendlyError(String raw) {
     if (raw.contains('unplayable') || raw.contains('Unplayable')) {
@@ -257,6 +607,15 @@ class YtDownloader {
       return 'Lỗi mạng — kiểm tra kết nối';
     }
     if (raw.contains('403')) return 'Truy cập bị từ chối (403)';
+    // YT-DL-PATH-001: không bao giờ đẩy nguyên stack/path ra UI. Đường dẫn
+    // trong thông báo lỗi còn bị cắt giữa chừng nên vô nghĩa với người dùng.
+    if (raw.contains('PathNotFoundException') ||
+        raw.contains('Cannot retrieve length of file') ||
+        raw.contains('FileSystemException') ||
+        raw.contains('No space left')) {
+      return 'Không ghi được file trên máy — kiểm tra dung lượng và nơi lưu '
+          '(Thư viện → nơi lưu)';
+    }
     if (raw.contains('429')) return 'Rate limit, thử lại sau';
     return 'Lỗi: ${raw.substring(0, raw.length.clamp(0, 100))}';
   }

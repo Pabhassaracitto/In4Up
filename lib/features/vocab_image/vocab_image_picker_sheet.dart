@@ -14,10 +14,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/language/localized_material.dart';
 import '../background_removal/background_removal.dart';
 
+import 'vocab_animation_library.dart';
 import 'vocab_image_api_config.dart';
 import 'vocab_image_service.dart';
 import 'vocab_image_web_service.dart';
@@ -29,7 +32,11 @@ import 'vocab_media_type.dart';
 /// LOTTIE-001 — thêm nhánh `pasteUrl`: dán liên kết ảnh tĩnh (.png/.webp…)
 /// HOẶC animation Lottie (.json/.lottie); file vẫn được tải về app storage
 /// để học offline (giống 2 nguồn còn lại).
-enum VocabImageSourceKind { web, device, pasteUrl }
+///
+/// VOCAB-MEDIA-003 (ADR-0013) — thêm nhánh `animation`: duyệt THƯ VIỆN
+/// animation (Lottie) dạng lưới, mỗi ô xem trước chạy nhẹ (chỉ ô đang hiện
+/// trên màn hình mới chạy); bấm ô ⇒ xem trước lớn ⇒ "Lưu vào từ này".
+enum VocabImageSourceKind { web, device, pasteUrl, animation }
 
 /// Kết quả trả về cho caller ([VocabImagePicker] / word list / word actions).
 class VocabImagePickResult {
@@ -104,6 +111,12 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
 
   List<VocabWebImage> _results = const [];
   bool _loading = false;
+
+  /// PLAN-043 mục 4 — phân trang ("Tải thêm") + mật độ lưới (ô to/vừa).
+  int _page = 1;
+  bool _loadingMore = false;
+  bool _canLoadMore = false;
+  bool _cozy = false;
   bool _busy = false;
   bool _removingBackground = false;
   Uint8List? _originalDeviceBytes;
@@ -128,13 +141,38 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
   final TextEditingController _urlCtrl = TextEditingController();
   String? _urlError;
 
+  /// LOTTIE-IMPORT-002 — bytes vừa tải về để XEM TRƯỚC (chưa lưu).
+  Uint8List? _previewBytes;
+
+  /// URL ứng với [_previewBytes] (đổi link thì bỏ preview cũ).
+  String? _previewUrl;
+
+  /// VOCAB-MEDIA-003 — tab Animation (thư viện Lottie).
+  final VocabAnimationLibraryService _animService =
+      VocabAnimationLibraryService();
+  final TextEditingController _animQuery = TextEditingController();
+  final ScrollController _animScroll = ScrollController();
+  List<VocabWebImage> _animResults = const [];
+  bool _animLoading = false;
+  bool _animFailed = false;
+  String? _animError;
+  VocabAnimationLibraryConfig? _animCfg;
+
+  /// Đã tự tìm lần đầu khi mở tab Animation (mở tab là tìm, như tab web).
+  bool _animSearched = false;
+
   @override
   void initState() {
     super.initState();
     _query.text =
         VocabImageWebService.buildQuery(word: widget.word, meaning: widget.meaning);
+    // Tab Animation dùng chung từ khóa mặc định (từ + nghĩa).
+    _animQuery.text = _query.text;
     VocabImageApiConfig.instance.load().then((cfg) {
       if (mounted) setState(() => _cfg = cfg);
+    });
+    VocabAnimationApiConfig.instance.load().then((cfg) {
+      if (mounted) setState(() => _animCfg = cfg);
     });
     // Ưu tiên mạng → mở là tìm, người dùng chỉ việc chạm ảnh.
     if (_query.text.trim().isNotEmpty) {
@@ -147,32 +185,134 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     _query.dispose();
     _scroll.dispose();
     _urlCtrl.dispose();
+    _animQuery.dispose();
+    _animScroll.dispose();
     _web.dispose();
+    _animService.dispose();
     super.dispose();
   }
 
-  Future<void> _search() async {
+  /// PLAN-043 mục 4 — tìm GỘP mọi nguồn dùng được; [append] = tải trang
+  /// kế tiếp và nối vào lưới (khử trùng theo URL ảnh chính).
+  Future<void> _search({bool append = false}) async {
     final q = _query.text.trim();
     if (q.isEmpty) {
       setState(() {
         _results = const [];
         _failed = false;
+        _page = 1;
+        _canLoadMore = false;
       });
       return;
     }
+    if (append && (_loadingMore || !_canLoadMore)) return;
+    final targetPage = append ? _page + 1 : 1;
     setState(() {
-      _loading = true;
-      _failed = false;
+      if (append) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _failed = false;
+        _page = 1;
+        _canLoadMore = false;
+      }
     });
-    final results = await _web.search(q, settings: _cfg);
+    final part = await _web.search(
+      q,
+      settings: _cfg,
+      page: targetPage,
+      mergeAll: true,
+    );
     if (!mounted) return;
     setState(() {
-      _results = results;
-      _loading = false;
+      if (append) {
+        final seen = _results.map((e) => e.imageUrl).toSet();
+        _results = [
+          ..._results,
+          for (final img in part)
+            if (seen.add(img.imageUrl)) img,
+        ];
+        _page = targetPage;
+        _loadingMore = false;
+      } else {
+        _results = part;
+        _loading = false;
+        // Có lỗi mạng (mạng tắt, 429, JSON lạ) → nói rõ để người dùng thử lại.
+        _failed = part.isEmpty && _web.lastError != null;
+      }
       _missingKey = _web.missingKeyProvider;
-      // Có lỗi mạng (mạng tắt, 429, JSON lạ) → nói rõ để người dùng thử lại.
-      _failed = results.isEmpty && _web.lastError != null;
+      // Heuristic còn trang: trang vừa trả đủ dày thì chắc còn trang nữa.
+      _canLoadMore = part.length >= 10;
     });
+  }
+
+  /// PLAN-043 mục 4 — xem trước ảnh LỚN: bản đầy đủ + ghi nguồn + mở
+  /// trang nguồn khi cần kiểm giấy phép. Chỉ "Dùng ảnh này" mới tải về.
+  Future<void> _previewWebImage(VocabWebImage image, int index) async {
+    final useIt = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(context.uiText('Xem trước ảnh')),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    image.imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stack) => Icon(
+                        Icons.broken_image_outlined,
+                        size: 40,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                image.title.isEmpty
+                    ? image.credit
+                    : '${image.title} · ${image.credit}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(dialogCtx).colorScheme.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () async {
+              final uri = Uri.tryParse(image.pageUrl);
+              if (uri != null) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            icon: const Icon(Icons.open_in_new, size: 15),
+            label: Text(context.uiText('Xem nguồn')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(context.uiText('Đóng')),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            icon: const Icon(Icons.check, size: 17),
+            label: Text(context.uiText('Dùng ảnh này')),
+          ),
+        ],
+      ),
+    );
+    if (useIt != true || !mounted) return;
+    setState(() => _busyIndex = index);
+    await _useWebImage(image);
+    if (mounted) setState(() => _busyIndex = -1);
   }
 
   Future<void> _useWebImage(VocabWebImage image) async {
@@ -196,9 +336,12 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
       _busy = true;
       _backgroundRemovalMessage = null;
     });
+    // LOTTIE-IMPORT-002 (audit mục 2): nút Thư viện dùng bộ chọn CHẤP NHẬN
+    // CẢ `.json`/`.lottie`. Trước đây `FileType.image` làm mờ hai đuôi này
+    // nên "nhập Lottie từ máy" là bất khả thi, không phải do file hỏng.
     final bytes = camera
         ? await VocabImageService.instance.pickCameraBytes()
-        : await VocabImageService.instance.pickGalleryBytes();
+        : await VocabImageService.instance.pickMediaBytes();
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -255,6 +398,51 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     });
   }
 
+  /// LOTTIE-IMPORT-002 — XEM TRƯỚC link vừa dán: tải bytes về RAM, render
+  /// ảnh/animation ngay trong sheet, chưa ghi gì xuống máy. Người dùng nhìn
+  /// thấy đúng thứ mình muốn rồi mới bấm lưu (yêu cầu của chủ dự án).
+  Future<void> _previewPastedUrl() async {
+    final url = _urlCtrl.text.trim();
+    if (!isNetworkMediaUrl(url)) {
+      setState(() => _urlError = context.uiText(
+          'Liên kết chưa hợp lệ — cần bắt đầu bằng http:// hoặc https://'));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _urlError = null;
+      _previewBytes = null;
+      _previewUrl = null;
+    });
+    final bytes = await VocabImageService.instance.fetchPreviewBytes(url);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _previewBytes = bytes;
+      _previewUrl = bytes == null ? null : url;
+      _urlError = bytes == null
+          ? context.uiText(
+              'Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).')
+          : null;
+    });
+  }
+
+  /// Lưu đúng bytes đang xem trước — không tải lại lần hai.
+  Future<void> _savePreviewBytes() async {
+    final bytes = _previewBytes;
+    if (bytes == null) return;
+    setState(() => _busy = true);
+    final path = await VocabImageService.instance.saveFromBytes(bytes);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (path == null || path.isEmpty) {
+      setState(() => _urlError =
+          context.uiText('Không thể lưu ảnh. Vui lòng thử lại.'));
+      return;
+    }
+    Navigator.of(context).pop(VocabImagePickResult(imagePath: path));
+  }
+
   /// LOTTIE-001 — tải media từ URL dán (ảnh tĩnh hoặc Lottie .json) về
   /// app storage rồi trả kết quả như mọi nguồn khác → offline được ngay.
   Future<void> _downloadPastedUrl() async {
@@ -301,10 +489,16 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     var columns = (width / 150).floor();
     if (columns < 2) columns = 2;
     if (columns > 5) columns = 5;
+    // PLAN-043 mục 4 — mật độ lưới: ô to dễ so sánh (mặc định) / ô vừa.
+    final webColumns = _cozy ? columns : (columns - 1).clamp(2, 5);
+    // VOCAB-MEDIA-003 — hàng chuyển nguồn giờ có 4 mục; máy hẹp (<450dp)
+    // chỉ hiện ICON để không tràn ngang (nhãn vẫn đủ ở máy rộng).
+    final showSourceLabels = columns >= 3;
 
     return ConstrainedBox(
+      // PLAN-043 mục 4 — sheet cao gần trọn màn hình để xem/so sánh ảnh.
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.92,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -390,32 +584,56 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                 ButtonSegment(
                   value: VocabImageSourceKind.web,
                   icon: const Icon(Icons.public, size: 15),
-                  label: Text(context.uiText('Trên mạng')),
+                  label: showSourceLabels
+                      ? Text(context.uiText('Trên mạng'))
+                      : null,
                 ),
                 ButtonSegment(
                   value: VocabImageSourceKind.device,
                   icon: const Icon(Icons.smartphone, size: 15),
-                  label: Text(context.uiText('Trong máy')),
+                  label: showSourceLabels
+                      ? Text(context.uiText('Trong máy'))
+                      : null,
                 ),
                 // LOTTIE-001 — dán liên kết Lottie/ảnh (WordUp-style:
                 // user tự mang animation từ LottieFiles về).
                 ButtonSegment(
                   value: VocabImageSourceKind.pasteUrl,
                   icon: const Icon(Icons.link, size: 15),
-                  label: Text(context.uiText('Dán URL')),
+                  label: showSourceLabels
+                      ? Text(context.uiText('Dán URL'))
+                      : null,
+                ),
+                // VOCAB-MEDIA-003 — duyệt thư viện animation (Lottie).
+                ButtonSegment(
+                  value: VocabImageSourceKind.animation,
+                  icon: const Icon(Icons.animation_outlined, size: 15),
+                  label: showSourceLabels
+                      ? Text(context.uiText('Hoạt ảnh'))
+                      : null,
                 ),
               ],
               selected: {_source},
-              onSelectionChanged: (s) => setState(() => _source = s.first),
+              onSelectionChanged: (s) {
+                setState(() => _source = s.first);
+                // Mở tab Animation là tự tìm (giống tab web) — chỉ 1 lần.
+                if (s.first == VocabImageSourceKind.animation &&
+                    !_animSearched) {
+                  _animSearched = true;
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => _searchAnimations());
+                }
+              },
             ),
           ),
           const SizedBox(height: 8),
 
           Flexible(
             child: switch (_source) {
-              VocabImageSourceKind.web => _buildWeb(columns),
+              VocabImageSourceKind.web => _buildWeb(webColumns),
               VocabImageSourceKind.device => _buildDevice(),
               VocabImageSourceKind.pasteUrl => _buildUrlPaste(),
+              VocabImageSourceKind.animation => _buildAnimation(columns),
             },
           ),
 
@@ -495,9 +713,67 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                 onPressed: _loading ? null : _search,
                 child: Text(context.uiText('Tìm')),
               ),
+              // PLAN-043 mục 4 — đổi mật độ lưới (ô to ⇄ ô vừa).
+              IconButton(
+                tooltip: _cozy
+                    ? context.uiText('Ô ảnh lớn')
+                    : context.uiText('Ô ảnh vừa'),
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  _cozy ? Icons.grid_view_rounded : Icons.view_module_rounded,
+                  size: 19,
+                ),
+                onPressed: () => setState(() => _cozy = !_cozy),
+              ),
             ],
           ),
         ),
+        // PLAN-043 mục 4 — chip truy vấn sẵn: từ · nghĩa · cả hai.
+        if ((widget.word ?? '').trim().isNotEmpty ||
+            (widget.meaning ?? '').trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+            child: Wrap(
+              spacing: 6,
+              children: [
+                for (final chip in <(String, String?)>[
+                  if ((widget.word ?? '').trim().isNotEmpty)
+                    (
+                      'word',
+                      VocabImageWebService.buildQuery(word: widget.word)
+                    ),
+                  if ((widget.meaning ?? '').trim().isNotEmpty)
+                    (
+                      'meaning',
+                      VocabImageWebService.buildQuery(
+                          meaning: widget.meaning)
+                    ),
+                  if ((widget.word ?? '').trim().isNotEmpty &&
+                      (widget.meaning ?? '').trim().isNotEmpty)
+                    (
+                      'both',
+                      VocabImageWebService.buildQuery(
+                          word: widget.word, meaning: widget.meaning)
+                    ),
+                ])
+                  ActionChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      switch (chip.$1) {
+                        'word' => context.uiText('Chỉ từ'),
+                        'meaning' => context.uiText('Chỉ nghĩa'),
+                        _ => context.uiText('Từ + nghĩa'),
+                      },
+                      style: const TextStyle(fontSize: 10.5),
+                    ),
+                    onPressed: () {
+                      _query.text = chip.$2 ?? '';
+                      _search();
+                    },
+                  ),
+              ],
+            ),
+          ),
         const SizedBox(height: 8),
         if (_loading)
           Padding(
@@ -580,6 +856,29 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                     itemBuilder: (context, index) =>
                         _buildResultTile(_results[index], index),
                   ),
+                  // PLAN-043 mục 4 — tải thêm trang kết quả.
+                  if (_canLoadMore)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10, bottom: 6),
+                      child: Center(
+                        child: _loadingMore
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: scheme.primary,
+                                ),
+                              )
+                            : OutlinedButton.icon(
+                                onPressed: () => _search(append: true),
+                                icon: const Icon(
+                                    Icons.expand_more_rounded,
+                                    size: 18),
+                                label: Text(context.uiText('Tải thêm ảnh')),
+                              ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -593,14 +892,9 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
     final busy = _busyIndex == index;
     return InkWell(
       borderRadius: BorderRadius.circular(10),
-      onTap: _busy
-          ? null
-          : () {
-              setState(() => _busyIndex = index);
-              _useWebImage(image).whenComplete(() {
-                if (mounted) setState(() => _busyIndex = -1);
-              });
-            },
+      // PLAN-043 mục 4 — chạm = XEM LỚN trước (so sánh cho chắc), nút
+      // "Dùng ảnh này" trong xem trước mới lưu (thay cho lưu ngay).
+      onTap: _busy ? null : () => _previewWebImage(image, index),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
@@ -634,6 +928,28 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                     errorBuilder: (context, error, stack) => Center(
                       child: Icon(Icons.broken_image_outlined,
                           size: 22, color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                  // PLAN-043 mục 4 — nhãn NGUỒN trên ô (nhận biết nguồn
+                  // gộp + điều khoản ghi nguồn của Pixabay & Co.).
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        image.source,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   if (busy)
@@ -706,6 +1022,75 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               style: TextStyle(
                   color: scheme.onSurfaceVariant, fontSize: 11.5, height: 1.5),
             ),
+            // PLAN-043 mục 5 (LOTTIE-LIB-001 pha 1) — LottieFiles KHÔNG có
+            // API công khai cho animation miễn phí, nên đường chính là:
+            // mở trình duyệt tại trang tìm kiếm (điền sẵn từ khóa) → tải
+            // file .json/.lottie → nhập file từ máy. Không scrape.
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.uiText(
+                        'Không cần dán link: ① mở LottieFiles tìm animation cho từ này ② tải file .json/.lottie về máy ③ chọn file ở đây — ứng dụng xem trước rồi lưu.'),
+                    style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 11,
+                        height: 1.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.open_in_new, size: 14),
+                        label: Text(
+                          context.uiText('Mở LottieFiles tìm từ này'),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: () async {
+                          final kw = (widget.word ?? '').trim().isNotEmpty
+                              ? (widget.word ?? '').trim()
+                              : _query.text.trim();
+                          final uri = Uri.https(
+                            'lottiefiles.com',
+                            '/search',
+                            {if (kw.isNotEmpty) 'q': kw},
+                          );
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        },
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.folder_open, size: 14),
+                        label: Text(
+                          context.uiText('Chọn file animation từ máy'),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () {
+                                setState(() {
+                                  _source = VocabImageSourceKind.device;
+                                });
+                                _pickDeviceImage(camera: false);
+                              },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _urlCtrl,
@@ -742,15 +1127,461 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               ),
             ],
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _busy ? null : _downloadPastedUrl,
-              icon: const Icon(Icons.download_outlined, size: 18),
-              label: Text(context.uiText('Tải về & lưu')),
+            // LOTTIE-IMPORT-002 — xem trước TRƯỚC khi tải về máy.
+            if (_previewBytes != null) ...[
+              Container(
+                height: 170,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _buildPastedPreview(_previewBytes!),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _previewBytes = null;
+                                _previewUrl = null;
+                              }),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: Text(context.uiText('Bỏ')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _savePreviewBytes,
+                      icon: const Icon(Icons.save_alt, size: 18),
+                      label: Text(context.uiText('Lưu vào từ này')),
+                    ),
+                  ),
+                ],
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _previewPastedUrl,
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      label: Text(context.uiText('Xem trước')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: _busy ? null : _downloadPastedUrl,
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      label: Text(context.uiText('Tải về & lưu')),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Render bytes đang xem trước: Lottie nếu là animation, ảnh nếu là ảnh.
+  Widget _buildPastedPreview(Uint8List bytes) {
+    final isLottie = VocabImageWebService.looksLikeLottieContent(
+          bytes,
+          contentType: 'application/octet-stream',
+        ) ||
+        isLottieMediaUrl(_previewUrl);
+    if (isLottie) {
+      return Lottie.memory(
+        bytes,
+        fit: BoxFit.contain,
+        repeat: true,
+        errorBuilder: (_, __, ___) => Center(
+          child: Text(
+            context.uiText('Không đọc được animation này.'),
+            style: const TextStyle(fontSize: 11.5),
+          ),
+        ),
+      );
+    }
+    return Image.memory(bytes, fit: BoxFit.contain);
+  }
+
+  // ──────────────────────────────────────────────── ANIMATION (VOCAB-MEDIA-003)
+  /// Payload có thật là Lottie (JSON hoặc dotLottie zip).
+  static bool _isLottieBytes(Uint8List bytes) =>
+      VocabImageWebService.looksLikeLottieContent(bytes) ||
+      VocabImageWebService.looksLikeLottieContent(
+          bytes, contentType: 'application/octet-stream');
+
+  Future<void> _searchAnimations() async {
+    final q = _animQuery.text.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _animResults = const [];
+        _animFailed = false;
+        _animError = null;
+      });
+      return;
+    }
+    setState(() {
+      _animLoading = true;
+      _animFailed = false;
+      _animError = null;
+    });
+    final results = await _animService.search(q, config: _animCfg);
+    if (!mounted) return;
+    setState(() {
+      _animResults = results;
+      _animLoading = false;
+      // Có lỗi mạng (mạng tắt, 429, JSON lạ) → nói rõ để người dùng thử lại.
+      _animFailed = results.isEmpty && _animService.lastError != null;
+    });
+  }
+
+  /// Tab Animation: từ khóa + nguồn cấu hình được + lưới kết quả xem trước.
+  Widget _buildAnimation(int columns) {
+    final scheme = Theme.of(context).colorScheme;
+    final sourceLabel = _animCfg?.sourceLabel ?? 'Wikimedia Commons';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _animQuery,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _searchAnimations(),
+                  style: TextStyle(color: scheme.onSurface, fontSize: 14),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: context.uiText('Nhập từ khóa tìm animation…'),
+                    hintStyle: TextStyle(
+                        color: scheme.onSurfaceVariant, fontSize: 13),
+                    prefixIcon: const Icon(Icons.animation_outlined, size: 18),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _animLoading ? null : _searchAnimations,
+                child: Text(context.uiText('Tìm')),
+              ),
+            ],
+          ),
+        ),
+        // Nguồn dữ liệu + nút cấu hình endpoint (không hard-code key trong repo).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 8, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.uiText('Nguồn: $sourceLabel'),
+                  style: TextStyle(
+                      color: scheme.onSurfaceVariant, fontSize: 11),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () async {
+                  final saved = await showVocabAnimationSourceDialog(context);
+                  if (saved != true || !mounted) return;
+                  final cfg = await VocabAnimationApiConfig.instance.load();
+                  if (!mounted) return;
+                  setState(() => _animCfg = cfg);
+                  _searchAnimations();
+                },
+                icon: const Icon(Icons.tune, size: 15),
+                label: Text(context.uiText('Nguồn animation')),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              context.uiText(
+                  'Gói 100 khái niệm có sẵn offline · animation gốc In4Up CC0'),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 10.5),
+            ),
+          ),
+        ),
+        if (_animError != null) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              _animError!,
+              style: TextStyle(color: scheme.error, fontSize: 11),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        if (_animLoading)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.2, color: scheme.primary),
+                ),
+                const SizedBox(height: 8),
+                Text(context.uiText('Đang tìm animation…'),
+                    style: TextStyle(
+                        color: scheme.onSurfaceVariant, fontSize: 12)),
+              ],
+            ),
+          )
+        else if (_animResults.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+            child: Column(
+              children: [
+                Icon(
+                    _animFailed
+                        ? Icons.wifi_off_rounded
+                        : Icons.animation_outlined,
+                    size: 26,
+                    color: scheme.onSurfaceVariant),
+                const SizedBox(height: 6),
+                Text(
+                  _animFailed
+                      ? context.uiText(
+                          'Không lấy được animation — kiểm tra mạng rồi bấm Tìm lại.')
+                      : context.uiText(
+                          'Chưa có animation — bấm Tìm hoặc thử từ khóa khác.'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: scheme.onSurfaceVariant, fontSize: 12),
+                ),
+                if (_animFailed) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: _animLoading ? null : _searchAnimations,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: Text(context.uiText('Thử lại')),
+                  ),
+                ],
+              ],
+            ),
+          )
+        else
+          Flexible(
+            child: Scrollbar(
+              controller: _animScroll,
+              child: ListView(
+                controller: _animScroll,
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                children: [
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    gridDelegate:
+                        SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 0.78,
+                    ),
+                    itemCount: _animResults.length,
+                    itemBuilder: (context, index) =>
+                        _buildAnimationTile(_animResults[index]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAnimationTile(VocabWebImage item) {
+    final scheme = Theme.of(context).colorScheme;
+    // Nguồn có ảnh tĩnh xem trước (preview .png…) → hiện ảnh, nhẹ hơn hẳn
+    // so với decode Lottie; không có thì ô tự render Lottie (xem dưới).
+    final hasStaticPreview =
+        item.thumbUrl != item.imageUrl && !isLottieMediaUrl(item.thumbUrl);
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      // Bấm ô ⇒ XEM TRƯỚC LỚN rồi mới lưu (yêu cầu chủ dự án) — không lưu ngay.
+      onTap: _busy ? null : () => _previewAnimation(item),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: scheme.outlineVariant),
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (hasStaticPreview)
+                    Image.network(
+                      item.thumbUrl,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                              ? child
+                              : Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.8,
+                                      color: scheme.primary,
+                                    ),
+                                  ),
+                                ),
+                      errorBuilder: (context, error, stack) => Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            size: 22, color: scheme.onSurfaceVariant),
+                      ),
+                    )
+                  else
+                    // Không có preview tĩnh → Lottie xem trước, chỉ ô đang
+                    // trong khung nhìn mới chạy (xem [_AnimationTileBody]).
+                    _AnimationTileBody(item: item),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.animation_outlined,
+                              size: 10, color: Colors.white),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Lottie',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 34,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 2, 6, 4),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title.isEmpty ? item.source : item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: scheme.onSurface, fontSize: 10.5),
+                    ),
+                    Text(
+                      item.credit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: scheme.onSurfaceVariant, fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Bấm một ô ⇒ XEM TRƯỚC LỚN ⇒ "Lưu vào từ này" (yêu cầu chủ dự án).
+  ///
+  /// Tải bytes đúng 1 lần ([VocabImageService.fetchPreviewBytes]) — xem trước
+  /// và lưu dùng CHUNG bytes đó ([VocabImageService.saveFromBytes]), không
+  /// tải hai lần.
+  Future<void> _previewAnimation(VocabWebImage item) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    Uint8List? bytes;
+    if (item.source == 'In4Up CC0') {
+      try {
+        final data = await rootBundle.load(item.imageUrl);
+        bytes = Uint8List.fromList(data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        ));
+      } catch (e) {
+        debugPrint('Không đọc được animation gói offline: $e');
+        bytes = null;
+      }
+    } else {
+      bytes = await VocabImageService.instance
+          .fetchPreviewBytes(item.imageUrl, client: _web);
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    final validBytes = bytes;
+    if (validBytes == null) {
+      setState(() => _animError = context.uiText(
+          'Không tải được file (lỗi mạng, sai định dạng, hoặc animation quá 2MB).'));
+      return;
+    }
+    if (!_isLottieBytes(validBytes)) {
+      setState(() =>
+          _animError = context.uiText('Không đọc được animation này.'));
+      return;
+    }
+    final useIt = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) =>
+          _AnimationPreviewDialog(item: item, bytes: validBytes),
+    );
+    if (useIt != true || !mounted) return;
+    setState(() => _busy = true);
+    final path = await VocabImageService.instance.saveFromBytes(validBytes);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (path == null || path.isEmpty) {
+      setState(() =>
+          _animError = context.uiText('Không thể lưu ảnh. Vui lòng thử lại.'));
+      return;
+    }
+    Navigator.of(context).pop(VocabImagePickResult(imagePath: path));
   }
 
   // ───────────────────────────────────────────────────────────── MÁY ──────
@@ -770,7 +1601,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
                   size: 30, color: scheme.onSurfaceVariant),
               const SizedBox(height: 8),
               Text(
-                context.uiText('Chụp ảnh hoặc chọn ảnh trong máy.'),
+                context.uiText('Chụp ảnh, hoặc chọn ảnh/animation Lottie trong máy.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: scheme.onSurfaceVariant, fontSize: 11.5),
@@ -818,7 +1649,7 @@ class _VocabImagePickerSheetState extends State<VocabImagePickerSheet> {
               border: Border.all(color: scheme.outlineVariant),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Image.memory(preview, fit: BoxFit.contain),
+            child: _buildPastedPreview(preview),
           ),
           const SizedBox(height: 10),
           if (cutout != null)
@@ -992,7 +1823,9 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
                   DropdownMenuItem(
                     value: p,
                     child: Text(
-                      p.needsKey ? p.label : '${p.label} · không cần key',
+                      p.needsKey
+                          ? p.label
+                          : context.uiText('${p.label} · không cần key'),
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),
@@ -1064,6 +1897,311 @@ class _VocabImageKeyDialogState extends State<_VocabImageKeyDialog> {
                     'Tắt (mặc định): import CSV có link ảnh/Lottie thì tải về máy ngay — học offline trọn vẹn. Bật: giữ link, tự tải và lưu ở lần xem đầu tiên (tiết kiệm dữ liệu, nhưng từ chưa xem sẽ không có minh họa khi offline).'),
                 style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
               ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(context.uiText('Hủy')),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: Text(context.uiText('Lưu')),
+        ),
+      ],
+    );
+  }
+}
+
+/// Ô lưới thư viện animation: chỉ ô đang nằm trong khung nhìn mới chạy
+/// (`animate: true`); ô CHƯA TỪNG hiện trên màn hình chỉ hiện placeholder —
+/// không tải gì (cuộn 50 ô không giật, pin không nóng — nghiệm thu
+/// VOCAB-MEDIA-003). Ô đã từng hiện mà ra ngoài khung nhìn ⇒ đứng frame đầu
+/// (0 ticker).
+class _AnimationTileBody extends StatefulWidget {
+  final VocabWebImage item;
+  const _AnimationTileBody({required this.item});
+
+  @override
+  State<_AnimationTileBody> createState() => _AnimationTileBodyState();
+}
+
+class _AnimationTileBodyState extends State<_AnimationTileBody> {
+  final GlobalKey _key = GlobalKey();
+
+  /// Đã từng nằm trong khung nhìn → mới build Lottie.network (tải 1 lần).
+  bool _activated = false;
+
+  /// Đang nằm trong khung nhìn → animate.
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkVisibility());
+  }
+
+  /// Ô đang nằm trong vùng nhìn thấy của scrollable gần nhất, giao với màn
+  /// hình (sheet là bottom sheet ở đáy nên phải giao cả với viewport).
+  void _checkVisibility() {
+    if (!mounted) return;
+    final ctx = _key.currentContext;
+    if (ctx == null) return;
+    final box = ctx.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+    final screen = MediaQuery.sizeOf(ctx);
+    var visible = Rect.fromLTWH(0, 0, screen.width, screen.height);
+    final scrollable = Scrollable.maybeOf(ctx);
+    final viewportBox = scrollable?.context.findRenderObject();
+    if (viewportBox is RenderBox && viewportBox.hasSize) {
+      final vpTopLeft = viewportBox.localToGlobal(Offset.zero);
+      visible = visible.intersect(Rect.fromLTWH(
+        vpTopLeft.dx,
+        vpTopLeft.dy,
+        viewportBox.size.width,
+        viewportBox.size.height,
+      ));
+    }
+    final topLeft = box.localToGlobal(Offset.zero);
+    final rect = Rect.fromLTWH(
+        topLeft.dx, topLeft.dy, box.size.width, box.size.height);
+    // Đệm 64px: ô sắp lăn vào khung đã được tính là "hiện" (chuẩn bị chạy).
+    final isVisible = rect.overlaps(visible.inflate(64));
+    if (isVisible != _visible || (isVisible && !_activated)) {
+      setState(() {
+        _visible = isVisible;
+        if (isVisible) _activated = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n is ScrollUpdateNotification || n is ScrollEndNotification) {
+          _checkVisibility();
+        }
+        return false;
+      },
+      child: SizedBox.expand(
+        key: _key,
+        child: !_activated
+            // Chưa từng hiện trên màn hình → placeholder, KHÔNG tải gì.
+            ? Center(
+                child: Icon(Icons.animation_outlined,
+                    size: 26, color: scheme.outline),
+              )
+            // Đã hiện ít nhất 1 lần: Lottie.network — animate chỉ khi đang
+            // trong khung nhìn; ngoài khung nhìn đứng frame đầu (0 ticker).
+            : widget.item.source == 'In4Up CC0'
+                ? Lottie.asset(
+                    widget.item.imageUrl,
+                    key: ValueKey('anim-tile:${widget.item.imageUrl}'),
+                    fit: BoxFit.cover,
+                    animate: _visible,
+                    repeat: true,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 22, color: scheme.onSurfaceVariant),
+                    ),
+                  )
+                : Lottie.network(
+                    widget.item.imageUrl,
+                    key: ValueKey('anim-tile:${widget.item.imageUrl}'),
+                    fit: BoxFit.cover,
+                    animate: _visible,
+                    repeat: true,
+                    errorBuilder: (_, __, ___) => Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          size: 22, color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+      ),
+    );
+  }
+}
+
+/// Dialog xem trước animation lớn + nút "Lưu vào từ này" (VOCAB-MEDIA-003).
+class _AnimationPreviewDialog extends StatelessWidget {
+  final VocabWebImage item;
+  final Uint8List bytes;
+  const _AnimationPreviewDialog({required this.item, required this.bytes});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: Text(context.uiText('Xem trước animation')),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 220,
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Lottie.memory(
+                bytes,
+                fit: BoxFit.contain,
+                repeat: true,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(
+                    context.uiText('Không đọc được animation này.'),
+                    style: const TextStyle(fontSize: 11.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              item.title.isEmpty
+                  ? item.credit
+                  : '${item.title} · ${item.credit}',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(context.uiText('Đóng')),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).pop(true),
+          icon: const Icon(Icons.save_alt, size: 18),
+          label: Text(context.uiText('Lưu vào từ này')),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dialog cấu hình nguồn animation (endpoint tùy chỉnh + API key tùy chọn)
+/// — VOCAB-MEDIA-003. Key chỉ lưu trên MÁY người dùng (SharedPreferences),
+/// không bao giờ commit vào repo (giống chính sách API key tìm ảnh).
+Future<bool?> showVocabAnimationSourceDialog(BuildContext context) {
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => const _VocabAnimationSourceDialog(),
+  );
+}
+
+class _VocabAnimationSourceDialog extends StatefulWidget {
+  const _VocabAnimationSourceDialog();
+
+  @override
+  State<_VocabAnimationSourceDialog> createState() =>
+      _VocabAnimationSourceDialogState();
+}
+
+class _VocabAnimationSourceDialogState
+    extends State<_VocabAnimationSourceDialog> {
+  final TextEditingController _endpoint = TextEditingController();
+  final TextEditingController _key = TextEditingController();
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    VocabAnimationApiConfig.instance.load().then((cfg) {
+      if (!mounted) return;
+      setState(() {
+        _endpoint.text = cfg.endpoint;
+        _key.text = cfg.apiKey;
+        _loading = false;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _endpoint.dispose();
+    _key.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await VocabAnimationApiConfig.instance.save(
+      endpoint: _endpoint.text,
+      apiKey: _key.text,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (_loading) {
+      return AlertDialog(
+        content: SizedBox(
+          width: 40,
+          height: 40,
+          child: Center(
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: scheme.primary),
+          ),
+        ),
+      );
+    }
+    return AlertDialog(
+      title: Text(context.uiText('Nguồn animation')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText(
+                  'Tìm Lottie trên Wikimedia Commons (không cần key). Dán endpoint riêng để dùng thư viện của bạn.'),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Text(context.uiText('Endpoint thư viện animation'),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _endpoint,
+              autocorrect: false,
+              enableSuggestions: false,
+              keyboardType: TextInputType.url,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'https://…',
+                prefixIcon: Icon(Icons.link, size: 16),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(context.uiText('API key (tùy chọn, nếu endpoint cần)'),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _key,
+              obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: context.uiText('Bỏ trống nếu không dùng key'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(
+                  'Key chỉ lưu trên máy này (không đi vào Git, không gửi về server In4Up).'),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11),
             ),
           ],
         ),

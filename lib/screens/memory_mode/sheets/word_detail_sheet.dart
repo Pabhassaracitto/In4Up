@@ -157,7 +157,7 @@ class WordDetailSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        '📖 ${item.context!}',
+                        context.uiText('📖 ${item.context!}'),
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey[500],

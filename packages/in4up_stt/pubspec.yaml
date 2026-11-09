@@ -33,6 +33,9 @@ dependencies:
   # Storage & networking
   path_provider: ^2.1.4
   dio: ^5.4.0
+  # Kiểm tra dung lượng trống thật (statvfs qua FFI) trước khi tải model lớn
+  # như Parakeet (~487MB archive / ~670MB sau giải nén).
+  ffi: ^2.1.3
 
   # WP2 (API-003) — STT file qua API: dùng OpenAiCompatClient (multipart
   # /v1/audio/transcriptions) + provider store của in4up_ai. KHÔNG thêm

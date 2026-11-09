@@ -8,6 +8,7 @@ import 'package:in4up/features/translation/translation_service.dart';
 import 'package:in4up/features/tts/tts_service.dart';
 import 'package:in4up/features/cabin/models/cabin_caption.dart';
 import 'package:in4up/features/cabin/services/cabin_asr_plan.dart';
+import 'package:in4up/features/cabin/services/cabin_finalization_dedup.dart';
 import 'package:in4up/features/cabin/models/cabin_session.dart';
 import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
 import 'package:in4up/features/cabin/services/cabin_session_settings.dart';
@@ -70,6 +71,11 @@ class SttsCabinService extends ChangeNotifier {
   CabinCaption? _activeCaption;
   final List<CabinCaption> _history = [];
   String _lastFinalizedText = '';
+
+  /// AUDIT-1.21.0 #3: chống 2 dòng trùng khi đang dịch mà nói thêm — thay
+  /// cho cửa sổ 3s của `_lastFinalizedText` (xem cabin_finalization_dedup.dart).
+  final CabinFinalizationDeduper _deduper = CabinFinalizationDeduper();
+  final List<Future<void>> _pendingFinalizations = [];
 
   final _captionStreamController = StreamController<CabinCaption>.broadcast();
 
@@ -166,6 +172,11 @@ class SttsCabinService extends ChangeNotifier {
   bool get missingModelHasOfflineProfile =>
       hasModelBlocker && _modelPlan!.profile != null;
 
+  /// Profile đang thiếu là model ĐA NGỮ (Parakeet) — UI dùng để nói đúng tên
+  /// model cần tải thay vì luôn nói "Zipformer" (PARAKEET-002).
+  bool get missingModelIsMultilingual =>
+      hasModelBlocker && (_modelPlan!.profile?.isMultilingual ?? false);
+
   /// Ngôn ngữ đã cài model có thể dùng thay — chỉ GỢI Ý, user phải xác nhận
   /// qua [confirmFallbackToInstalledLanguage] (không tự đổi sau lưng user).
   String? get suggestedFallbackLanguage =>
@@ -250,6 +261,7 @@ class SttsCabinService extends ChangeNotifier {
 
     _lastError = null;
     _lastFinalizedText = '';
+    _deduper.reset(); // phiên mới: không mang vân tay câu của phiên cũ.
 
     // 1. Check microphone permission
     try {
@@ -309,10 +321,16 @@ class SttsCabinService extends ChangeNotifier {
         // Chuỗi này chỉ để log/chẩn đoán — UI hiện message đã bản địa hoá từ
         // `modelPlan` (xem `_errorBannerText` trong live_cabin_screen.dart).
         final fallbackTag = plan.fallbackLanguage?.toUpperCase();
+        // PARAKEET-002: nêu đúng họ model (Parakeet đa ngữ vs Zipformer) —
+        // chuỗi này chỉ để log/chẩn đoán, UI hiện message từ `modelPlan`.
+        final family = plan.profile?.family == SherpaAsrFamily.parakeet
+            ? 'Parakeet'
+            : 'Zipformer';
         _lastError = plan.issue == AsrModelIssue.noProfileForLanguage
-            ? 'Chưa có model Zipformer offline cho ${plan.requestedLanguage} '
-                '(app chỉ có VI offline + EN streaming).'
-            : 'Chưa cài model Zipformer cho ${plan.requestedLanguage.toUpperCase()}'
+            ? 'Chưa có model offline cho ${plan.requestedLanguage} '
+                '(app có VI offline, EN streaming và Parakeet 25 ngôn ngữ '
+                'châu Âu).'
+            : 'Chưa cài model $family cho ${plan.requestedLanguage.toUpperCase()}'
                 '${fallbackTag == null ? '' : ' — máy có $fallbackTag, cần user xác nhận'}.';
         notifyListeners();
         debugPrint('⛔ SttsCabinService: $plan');
@@ -333,15 +351,26 @@ class SttsCabinService extends ChangeNotifier {
         // CABIN-SAVE-001: tee PCM → WAV (cùng luồng mic, không mở mic lần 2).
         final pcmStream = _recorder?.tapPcm(rawPcm) ?? rawPcm;
 
+        // M4U-IMPORT-003: dùng ĐÚNG model đã plan (Parakeet đa ngữ khi
+        // profile chuyên ngôn ngữ chưa cài) — không để engine tự tra theo
+        // ngôn ngữ rồi rơi về "chưa có model".
+        //
+        // `plan.profile` là getter ⇒ không promote được ⇒ gán vào biến cục
+        // bộ trước (biến cục bộ final mới promote được).
+        final planProfile = plan.profile;
         final ok = await _sherpaStt.startLive(
           language: plan.requestedLanguage,
           pcmStream: pcmStream,
+          modelPaths: planProfile == null
+              ? null
+              : _modelManager.getAsrModelPaths(planProfile.id),
         );
 
         if (!ok) {
           _state = CabinState.error;
           _lastError = _sherpaStt.lastError ??
-              'Không khởi động được Zipformer ASR cho ${plan.requestedLanguage}.';
+              'Không khởi động được model offline cho '
+                  '${plan.requestedLanguage}.';
           try {
             await recorder.stop();
             await recorder.dispose();
@@ -367,8 +396,9 @@ class SttsCabinService extends ChangeNotifier {
         _recorder?.resumeClock();
         _startKeepAlive();
         notifyListeners();
-        debugPrint(
-            '🎙️ SttsCabinService started with Sherpa Zipformer ($sourceLanguage ➔ $_targetLanguage)');
+        debugPrint('🎙️ SttsCabinService started with Sherpa '
+            '${plan.profile?.family.name ?? 'zipformer'} '
+            '($sourceLanguage ➔ $_targetLanguage)');
         return true;
       } catch (e) {
         _state = CabinState.error;
@@ -534,9 +564,10 @@ class SttsCabinService extends ChangeNotifier {
     _stopKeepAlive();
     _consecutiveStartFails = 0;
     _lastFinalizedText = '';
-    await _sttSubscription?.cancel();
-    _sttSubscription = null;
-
+    _deduper.reset();
+    // Keep the STT listener alive until stopListening flushes the current
+    // Sherpa VAD / streaming endpoint. Cancelling it first silently discarded
+    // the last in-progress sentence whenever the user stopped Cabin mid-pause.
     if (_audioRecorder != null) {
       try {
         if (await _audioRecorder!.isRecording()) {
@@ -554,6 +585,16 @@ class SttsCabinService extends ChangeNotifier {
     try {
       await _stt.stopListening();
     } catch (_) {}
+
+    // CABIN-FLUSH-001: engine có thể KHÔNG kịp phát `isFinal` cho câu đang nói
+    // ⇒ chốt tay câu partial rồi mới đợi hàng đợi, nếu không sẽ mất câu cuối.
+    await _flushActivePartialBeforeClose();
+
+    // Stream callbacks are synchronous with the Sherpa flush; translation and
+    // journal persistence are async, so wait before closing the session.
+    await _drainPendingFinalizations();
+    await _sttSubscription?.cancel();
+    _sttSubscription = null;
 
     // CABIN-SAVE-001: đóng phiên ghi → UI hỏi lưu / tự lưu.
     await _endSession();
@@ -588,6 +629,10 @@ class SttsCabinService extends ChangeNotifier {
         } catch (_) {}
       }
 
+      // CABIN-FLUSH-001: tạm dừng cũng phải chốt câu đang nhận (nếu không,
+      // câu đó biến mất và người dùng thấy "nói xong mà không có chữ").
+      await _flushActivePartialBeforeClose();
+      await _drainPendingFinalizations();
       _recorder?.pauseClock();
       _state = CabinState.paused;
       notifyListeners();
@@ -666,6 +711,7 @@ class SttsCabinService extends ChangeNotifier {
     _history.clear();
     _activeCaption = null;
     _lastFinalizedText = '';
+    _deduper.reset();
     notifyListeners();
   }
 
@@ -698,9 +744,12 @@ class SttsCabinService extends ChangeNotifier {
     final rawText = sttResult.fullText.trim();
     if (rawText.isEmpty) return;
 
-    // Dedup: engine vừa callback lại đúng câu đã chốt (bản partial lặp lại
-    // sau final) — bỏ qua để không sinh caption/dòng LRC trùng.
-    if (rawText == _lastFinalizedText) {
+    // AUDIT-1.21.0 #3 — dedup: engine vừa callback lại đúng câu đã chốt
+    // (bản partial lặp sau final) HOẶC câu đó đang được dịch (in-flight) —
+    // bỏ qua để không sinh caption/dòng LRC/journal trùng. Trước đây chỉ có
+    // `_lastFinalizedText` bị xoá sau 3s, trong khi dịch LLM/offline có thể
+    // lâu hơn ⇒ đúng cửa sổ sinh "2 dòng trùng" khi user nói thêm.
+    if (!_deduper.shouldFinalize(rawText)) {
       return;
     }
 
@@ -727,21 +776,90 @@ class SttsCabinService extends ChangeNotifier {
 
     _silenceTimer?.cancel();
     if (sttResult.isFinal) {
-      _finalizeCurrentChunk(rawText);
+      _trackFinalization(rawText);
     } else {
-      // Reset silence timer for chunk finalization
+      // Reset silence timer for chunk finalization. Keep every async save in a
+      // queue so stop/pause waits for all pending translated captions.
       _silenceTimer = Timer(const Duration(milliseconds: 1400), () {
-        _finalizeCurrentChunk(rawText);
+        _trackFinalization(rawText);
       });
     }
   }
 
-  Future<void> _finalizeCurrentChunk(String text) async {
+  /// CABIN-FLUSH-001 (2026-10-29) — chốt nốt câu **ĐANG NHẬN** (partial)
+  /// trước khi đóng hoặc tạm dừng phiên.
+  ///
+  /// Vì sao cần: engine STT (nhất là Engine Hệ thống / speech_to_text) chỉ phát
+  /// `isFinal` khi nó TỰ kết thúc câu. Bấm Stop đúng lúc đang nói ⇒
+  /// `_silenceTimer` bị huỷ ở đầu `stopCabin()` và engine không kịp phát final
+  /// ⇒ câu cuối **mất hoàn toàn** (không caption, không dòng LRC, không bản
+  /// dịch). Đây đúng là hiện tượng "nhận diện thiếu" khi so hai bản.
+  ///
+  /// Chỉ chốt khi: có text, câu CHƯA final, và text khác câu vừa chốt (dedup).
+  Future<void> _flushActivePartialBeforeClose() async {
+    final active = _activeCaption;
+    if (active == null) return;
+    final text = active.sourceText.trim();
+    if (text.isEmpty) return;
+    if (active.isFinal) return; // đã đi qua đường final bình thường
+    if (!_deduper.shouldFinalize(text)) return;
+    debugPrint('🧹 Cabin: chốt nốt câu đang nhận trước khi đóng phiên '
+        '(${text.length} ký tự)');
+    _trackFinalization(text);
+  }
+
+  Future<void> _drainPendingFinalizations() async {
+    while (_pendingFinalizations.isNotEmpty) {
+      final pending = List<Future<void>>.of(_pendingFinalizations);
+      try {
+        // Future.wait waits for all futures by default, even if one fails.
+        await Future.wait(pending);
+      } catch (error) {
+        debugPrint('⚠️ Cabin final transcript flush failed: $error');
+      }
+      _pendingFinalizations.removeWhere(pending.contains);
+    }
+  }
+
+  void _trackFinalization(String text) {
+    // AUDIT-1.21.0 #3: chốt DUY NHẤT một lần cho mỗi câu, kể cả khi engine
+    // phát lại `isFinal` lúc bản dịch (async) vẫn đang chạy. `begin()` phải
+    // chạy TRƯỚC mọi await, `complete()` chạy ở mọi nhánh (kể cả lỗi dịch).
+    if (!_deduper.shouldFinalize(text)) {
+      debugPrint('⏭️ Cabin: bỏ qua finalization trùng "${text.trim()}"');
+      return;
+    }
+    _deduper.begin(text);
+    final outcome = CabinFinalizationOutcome();
+    final future = _finalizeCurrentChunk(text, outcome: outcome).whenComplete(
+      // AUDIT-1.21.0 #3 (recheck): nếu `_finalizeCurrentChunk` return sớm
+      // (vd đang `speaking`) thì KHÔNG có caption nào ⇒ chỉ cancel, không
+      // `complete()`, kẻo câu bị nhớ 8s rồi replay final bị nuốt ⇒ mất câu.
+      () => _deduper.finish(text, createdCaption: outcome.createdCaption),
+    );
+    _pendingFinalizations.add(future);
+    future.then<void>(
+      (_) {
+        _pendingFinalizations.remove(future);
+      },
+      onError: (Object error, StackTrace stack) {
+        _pendingFinalizations.remove(future);
+        debugPrint('⚠️ Cabin transcript finalization failed: $error');
+      },
+    );
+  }
+
+  Future<void> _finalizeCurrentChunk(
+    String text, {
+    CabinFinalizationOutcome? outcome,
+  }) async {
     _silenceTimer?.cancel();
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
     if (_state == CabinState.speaking) return;
-    if (trimmed == _lastFinalizedText) return;
+    // AUDIT-1.21.0 #3: KHÔNG dùng `_lastFinalizedText` để chặn ở đây nữa
+    // (nó không bao giờ được xoá trong phiên ⇒ nói lại cùng câu sau 8s sẽ bị
+    // nuốt). `_deduper` đã chốt ở `_trackFinalization` trước khi vào hàm.
     _lastFinalizedText = trimmed;
 
     final recorder = _recorder;
@@ -783,8 +901,24 @@ class SttsCabinService extends ChangeNotifier {
       isFinal: true,
     );
 
-    _activeCaption = finalizedCaption;
+    // CABIN-KEEP-PARTIAL-001 (2026-10-29): KHÔNG đè câu đang nhận mới hơn.
+    //
+    // Dịch là async (có thể mất vài giây). Trong lúc chờ, người dùng đã nói
+    // tiếp ⇒ `_activeCaption` đã là câu MỚI. Nếu gán đè bằng câu vừa dịch xong
+    // thì câu mới **biến mất** (không caption, không kịp chốt) — đúng kiểu
+    // "nhận diện thiếu". Chỉ gán khi chưa có gì mới hơn.
+    final current = _activeCaption;
+    final hasNewerPartial = current != null &&
+        !current.isFinal &&
+        current.sourceText.trim().isNotEmpty &&
+        current.sourceText.trim() != trimmed;
+    if (!hasNewerPartial) {
+      _activeCaption = finalizedCaption;
+    }
     _history.add(finalizedCaption);
+    // AUDIT-1.21.0 #3: điểm "không thể quay lại" — caption ĐÃ được tạo, nên
+    // `finish()` mới được phép `complete()` (nhớ 8s để chống replay final).
+    outcome?.createdCaption = true;
     _captionStreamController.add(finalizedCaption);
 
     // CABIN-SAVE-001: ghi câu đã chốt vào journal phiên (ghi đĩa ngay).
@@ -817,12 +951,11 @@ class SttsCabinService extends ChangeNotifier {
         await _tryStartSystemEngine();
       }
     }
-    // Keep _lastFinalizedText populated for deduplication against immediate duplicate callbacks
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_lastFinalizedText == trimmed) {
-        _lastFinalizedText = '';
-      }
-    });
+    // AUDIT-1.21.0 #3: KHÔNG còn `Future.delayed(3s)` xoá
+    // `_lastFinalizedText`. Chính delayed đó tắt cửa sổ chống trùng khi bản
+    // dịch chậm > 3s ⇒ engine replay final tạo dòng thứ 2. Cửa sổ giờ do
+    // `_deduper` quản lý (in-flight + 8s), `whenComplete` ở `_trackFinalization`
+    // bảo đảm luôn đóng đúng lúc, kể cả khi dịch lỗi.
     notifyListeners();
   }
 

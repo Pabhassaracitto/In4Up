@@ -272,7 +272,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${_formatDuration(player.loopStart!)} → ${_formatDuration(player.loopEnd!)}',
+                  context.uiText('${_formatDuration(player.loopStart!)} → ${_formatDuration(player.loopEnd!)}'),
                   style: const TextStyle(
                     color: Colors.green,
                     fontSize: 12,
@@ -867,7 +867,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                   ),
                   child: Center(
                     child: Text(
-                      '${shadowing.countdown}',
+                      context.uiText('${shadowing.countdown}'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 48,
@@ -1054,7 +1054,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           ),
           const SizedBox(height: 8),
           Text(
-            '${(result.overallScore * 100).round()}%',
+            context.uiText('${(result.overallScore * 100).round()}%'),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -1336,7 +1336,7 @@ class _ScoreItem extends StatelessWidget {
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
           Text(
-            '${(score * 100).round()}%',
+            context.uiText('${(score * 100).round()}%'),
             style: TextStyle(
               color: color,
               fontSize: 16,

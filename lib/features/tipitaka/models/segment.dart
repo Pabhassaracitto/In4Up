@@ -55,19 +55,36 @@ class TipitakaSegment extends Equatable {
         orderIndex: m['order_index'] ?? m['orderIndex'] ?? 0,
       );
 
-  String translationFor(String languageCode) {
-    switch (languageCode) {
-      case 'vi':
-        return translationVi ?? '';
-      case 'en':
-        return translationEn ?? '';
-      case 'my':
-        return translationMy ?? '';
-      case 'th':
-        return translationTh ?? '';
-      default:
-        return translations[languageCode] ?? '';
+  /// Canonical Pāli may be stored in the fixed column or in the generic
+  /// multilingual table of a normalized user database.
+  String get canonicalPaliText {
+    if (paliText.trim().isNotEmpty) return paliText;
+    for (final entry in translations.entries) {
+      final language = entry.key.trim().toLowerCase().replaceAll('_', '-');
+      if (language == 'pi' || language.startsWith('pi-')) return entry.value;
     }
+    return '';
+  }
+
+  String translationFor(String languageCode) {
+    final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
+    final fixedTranslation = switch (language) {
+      'vi' => translationVi,
+      'en' => translationEn,
+      'my' => translationMy,
+      'th' => translationTh,
+      _ => null,
+    };
+    if ((fixedTranslation ?? '').isNotEmpty) return fixedTranslation!;
+
+    for (final entry in translations.entries) {
+      final candidate = entry.key.trim().toLowerCase().replaceAll('_', '-');
+      if (candidate == language ||
+          (!language.contains('-') && candidate.startsWith('$language-'))) {
+        return entry.value;
+      }
+    }
+    return '';
   }
 
   MapEntry<String, String>? get firstTranslation {

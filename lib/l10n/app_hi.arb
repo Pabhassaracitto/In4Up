@@ -1,5 +1,17 @@
 {
   "@@locale": "hi",
+  "tipitakaCommentaries": "टीकाएँ",
+  "tipitakaSubcommentaries": "उपटीकाएँ",
+  "tipitakaExtraCanonical": "गैर-प्रामाणिक ग्रंथ",
+  "tipitakaSriLanka": "श्रीलंकाई संग्रह",
+  "tipitakaAbhidhammaBasket": "अभिधम्म पिटक",
+  "tipitakaBookGroup": "पुस्तक समूह",
+  "tipitakaEdition": "संस्करण",
+  "tipitakaDiscourse": "प्रवचन",
+  "tipitakaCatalogPath": "पिटक → संग्रह → ग्रंथ",
+  "tipitakaCanonicalBasket": "प्रामाणिक त्रिपिटक",
+  "tipitakaVinayaBasket": "विनय पिटक",
+  "tipitakaSuttaBasket": "सुत्त पिटक",
   "commandCenter": "कमांड सेंटर",
   "knowledgeOS": "नॉलेज ओएस",
   "manageAIModels": "एआई मॉडल प्रबंधित करें",
@@ -518,5 +530,90 @@
   "ocrEmptyResult": "छवि में कोई पाठ नहीं मिला। अधिक स्पष्ट और उज्ज्वल फ़ोटो आज़माएँ।",
   "ocrLoadedFromImage": "छवि से पाठ लोड हुआ",
   "ocrScanPageText": "इस पृष्ठ का पाठ स्कैन करें",
-  "ocrUnsupported": "OCR केवल Android/iOS पर चलता है"
+  "ocrUnsupported": "OCR केवल Android/iOS पर चलता है",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "वियतनामी न्यूरल TTS — ऑफ़लाइन, डिवाइस पर (GGUF + audio.cpp)",
+  "ttsLicenseSection": "ऑडियो लाइसेंस",
+  "@ttsCloneVoiceTitle": {
+    "description": "Header for VieNeu-TTS voice cloning section"
+  },
+  "ttsCloneVoiceTitle": "VieNeu-TTS आवाज़ क्लोन करें",
+  "@ttsCloneVoiceDesc": {
+    "description": "Description text for voice cloning feature"
+  },
+  "ttsCloneVoiceDesc": "आवाज़ के नमूने रिकॉर्ड करके अपनी व्यक्तिगत आवाज़ बनाएँ। नई आवाज़ VieNeu-TTS की आवाज़ सूची में दिखाई देगी।",
+  "@ttsCloneVoiceNewName": {
+    "description": "Label for new voice name input field"
+  },
+  "ttsCloneVoiceNewName": "नई आवाज़ का नाम",
+  "@ttsCloneVoiceNewHint": {
+    "description": "Placeholder text for new voice name input"
+  },
+  "ttsCloneVoiceNewHint": "उदाहरण: मेरी आवाज़, दादी की आवाज़",
+  "@ttsCloneVoiceSamples": {
+    "description": "Label for voice samples section"
+  },
+  "ttsCloneVoiceSamples": "ऑडियो नमूने",
+  "@ttsCloneVoiceRecord": {
+    "description": "Button label to record voice sample"
+  },
+  "ttsCloneVoiceRecord": "नमूना रिकॉर्ड करें",
+  "@ttsCloneVoiceStop": {
+    "description": "Button label to stop recording"
+  },
+  "ttsCloneVoiceStop": "रोकें",
+  "@ttsCloneVoiceCreate": {
+    "description": "Button label to create cloned voice"
+  },
+  "ttsCloneVoiceCreate": "नमूनों से आवाज़ बनाएँ",
+  "@ttsCloneVoiceCreating": {
+    "description": "Status text while creating voice"
+  },
+  "ttsCloneVoiceCreating": "आवाज़ बनाई जा रही है…",
+  "@ttsCloneVoiceVoices": {
+    "description": "Header for cloned voices list"
+  },
+  "ttsCloneVoiceVoices": "क्लोन की गई आवाज़ें",
+  "@ttsCloneVoiceNoVoices": {
+    "description": "Text when no cloned voices exist"
+  },
+  "ttsCloneVoiceNoVoices": "अभी कोई क्लोन आवाज़ नहीं है। एक नमूना रिकॉर्ड करें और नमूनों से आवाज़ बनाएँ चुनें।",
+  "@ttsCloneVoiceSamplesCount": {
+    "description": "Label showing sample count for a cloned voice"
+  },
+  "ttsCloneVoiceSamplesCount": "नमूने: {count}",
+  "@ttsCloneVoiceHasEmbedding": {
+    "description": "Status when voice has embedding file"
+  },
+  "ttsCloneVoiceHasEmbedding": "एम्बेडिंग उपलब्ध है",
+  "@ttsCloneVoiceNoEmbedding": {
+    "description": "Status when voice has no embedding file"
+  },
+  "ttsCloneVoiceNoEmbedding": "एम्बेडिंग उपलब्ध नहीं है",
+  "@ttsCloneVoiceDelete": {
+    "description": "Tooltip for delete voice button"
+  },
+  "ttsCloneVoiceDelete": "आवाज़ मिटाएँ",
+  "@ttsCloneVoiceSuccess": {
+    "description": "Success message after creating cloned voice"
+  },
+  "ttsCloneVoiceSuccess": "आवाज़ {name} बन गई!",
+  "@ttsCloneVoiceNeedSample": {
+    "description": "Error message when no voice samples recorded"
+  },
+  "ttsCloneVoiceNeedSample": "कोई रिकॉर्डिंग नहीं मिली। कम से कम एक नमूना रिकॉर्ड करें।",
+  "@ttsCloneVoiceNeedName": {
+    "description": "Error message when voice name is empty"
+  },
+  "ttsCloneVoiceNeedName": "आवाज़ का नाम दर्ज करें।",
+  "ttsCloneVoicePermissionRequired": "आवाज़ का नमूना रिकॉर्ड करने के लिए माइक्रोफ़ोन की अनुमति आवश्यक है।",
+  "ttsCloneVoicePermissionDenied": "माइक्रोफ़ोन की अनुमति नहीं दी गई है।",
+  "ttsCloneVoiceRecording": "रिकॉर्डिंग चल रही है…",
+  "ttsCloneVoiceNoSample": "अभी कोई नमूना नहीं",
+  "ttsCloneVoiceSampleReady": "नमूना रिकॉर्ड हो गया",
+  "ttsCloneVoiceStopRecording": "रिकॉर्डिंग रोकें",
+  "ttsCloneVoiceRecordingError": "नमूना रिकॉर्ड नहीं हो सका। माइक्रोफ़ोन की अनुमति जाँचकर फिर प्रयास करें।",
+  "ttsCloneVoiceCreateError": "आवाज़ नहीं बनाई जा सकी। TTS मॉडल और नमूने जाँचकर फिर प्रयास करें।",
+  "ttsModelVariantHeader": "मॉडल संस्करण",
+  "ttsModelVariantInfo": "Q8_0 (~170 MB) डिफ़ॉल्ट है — गुणवत्ता और आकार में संतुलित; bf16 (~292 MB) में गुणवत्ता अधिक है, फ़ाइल बड़ी है।"
 }

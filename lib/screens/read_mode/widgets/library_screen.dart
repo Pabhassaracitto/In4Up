@@ -5,12 +5,14 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
+import '../../../features/pdf_reader/services/pdf_open_preflight.dart';
+import '../../../features/pdf_reader/widgets/pdf_open_messages.dart';
 import '../../../models/text_device_entry.dart';
 import '../../../providers/text_device_provider.dart';
 import '../../../providers/text_provider.dart';
@@ -220,6 +222,17 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       // ── PDF ────────────────────────────────────────────────
       case RecentFileType.localPdf:
         if (file.localPath == null) return;
+        // AUDIT-1.21.0 #4: danh sách "Gần đây" lưu path cache của
+        // file_picker — Android dọn cache/user xoá file ⇒ pdfrx ném
+        // `PdfException ... FPDF_ER_FILE:2`. Kiểm tra TRƯỚC khi push viewer.
+        final check = inspectPdfForOpen(file.localPath!);
+        if (!check.canOpen) {
+          _showOpenError(pdfOpenIssueMessage(context, check.issue));
+          // Gỡ mục chết để user không bấm lại vào cùng lỗi mãi.
+          await _service.remove(file.id);
+          if (mounted) await _load();
+          return;
+        }
         await _service.addOrUpdate(
           file.copyWith(lastOpened: DateTime.now()),
         );
@@ -268,7 +281,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
   // content:// không đọc trực tiếp được → copy cache → persist vào app
   // docs (ổn định qua restart) → mở như file local thường.
   Future<void> _openDeviceEntry(TextDeviceEntry entry) async {
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     final tp = context.read<TextProvider>();
     final nav = Navigator.of(context);
 
@@ -406,7 +419,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
 
   // ── Delete file from recent ────────────────────────────────
   Future<void> _removeFile(RecentFile file) async {
-    HapticFeedback.heavyImpact();
+    SafeHaptics.heavyImpact();
     await _service.remove(file.id);
     if (mounted) await _load();
   }
@@ -1159,7 +1172,7 @@ class _ReadLibraryScreenState extends State<ReadLibraryScreen>
       debugPrint('❌ _loadCloudEntry error: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi mở Cloud: $e')),
+        SnackBar(content: Text(context.uiText('Lỗi mở Cloud: $e'))),
       );
     }
   }
@@ -1434,7 +1447,7 @@ class _DeviceTabState extends State<_DeviceTab> {
   }
 
   Future<void> _pickFolder() async {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
     await _provider.pickFolder();
   }
 
@@ -1469,7 +1482,8 @@ class _DeviceTabState extends State<_DeviceTab> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Thư mục đang quét: ${_provider.folderLabel}',
+                      context.uiText(
+                          'Thư mục đang quét: ${_provider.folderLabel}'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -1648,9 +1662,9 @@ class _DeviceTabState extends State<_DeviceTab> {
                     const SizedBox(height: 2),
                     Text(
                       provider.isScanning
-                          ? 'Đang quét…'
-                          : '${provider.count} tài liệu · '
-                              '.txt .md .docx .pdf .lrc .srt .json',
+                          ? context.uiText('Đang quét…')
+                          : context.uiText('${provider.count} tài liệu · '
+                              '.txt .md .docx .pdf .lrc .srt .json'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1691,7 +1705,7 @@ class _DeviceTabState extends State<_DeviceTab> {
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
-              '⚠️ Lỗi quét: ${provider.error}',
+              context.uiText('⚠️ Lỗi quét: ${provider.error}'),
               style: const TextStyle(color: Color(0xFFEF5350), fontSize: 12),
             ),
           ),
@@ -1719,9 +1733,10 @@ class _DeviceTabState extends State<_DeviceTab> {
                 const SizedBox(height: 12),
                 Text(
                   widget.searchQuery.isNotEmpty
-                      ? 'Không có tài liệu nào khớp '
-                          '"${widget.searchQuery}"'
-                      : 'Không tìm thấy file văn bản/PDF\ntrong thư mục này',
+                      ? context.uiText('Không có tài liệu nào khớp '
+                          '"${widget.searchQuery}"')
+                      : context.uiText(
+                          'Không tìm thấy file văn bản/PDF\ntrong thư mục này'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white38,
@@ -1832,7 +1847,7 @@ class _DeviceScanButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: loading ? null : () {
-        HapticFeedback.mediumImpact();
+        SafeHaptics.mediumImpact();
         onTap();
       },
       child: Container(
@@ -2071,7 +2086,7 @@ class _CloudEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Container(
@@ -2189,7 +2204,7 @@ class _DevicePickButton extends StatelessWidget {
       onTap: loading
           ? null
           : () {
-              HapticFeedback.mediumImpact();
+              SafeHaptics.mediumImpact();
               onTap();
             },
       child: Container(
@@ -2349,7 +2364,7 @@ class _SectionHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              '$count',
+              context.uiText('$count'),
               style: const TextStyle(
                 color: Colors.white60,
                 fontSize: 11,

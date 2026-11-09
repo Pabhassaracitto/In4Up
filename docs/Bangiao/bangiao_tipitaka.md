@@ -248,3 +248,11 @@ Agent mới: Đọc `TIPITAKA_HANDOFF.md` trước. Nếu chỉ có 1 bước �
 ---
 Tạo: 2026-09-03 — Agent Mode — Arena.ai
 Branch gốc: arena/019ff2f6-in4up
+## Attribution dữ liệu VRI/CSCD (rà soát 2026-10-05)
+
+Văn bản Pāli Chaṭṭha Saṅgāyana (CSCD) trong các gói tương ứng có nguồn từ
+**Vipassana Research Institute (VRI)** và được phân phối theo điều kiện
+**CC BY-NC**. Bản phát hành phải giữ dòng ghi công này trong màn **Quản lý dữ
+liệu** và tài liệu đi kèm; không dùng dữ liệu VRI cho mục đích thương mại nếu
+chưa có quyền phù hợp. Bản dịch/gói Pa-Auk có thể có điều khoản riêng và cũng
+phải được rà theo metadata của gói trước khi phát hành.

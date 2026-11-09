@@ -149,7 +149,7 @@ class _PdfTocPanelState extends State<PdfTocPanel> {
                   Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: Text(
-                      '${entry.pageNumber}',
+                      context.uiText('${entry.pageNumber}'),
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.4),
                         fontSize: 11,

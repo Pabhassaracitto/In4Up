@@ -27,12 +27,14 @@ import '../models/text_segment.dart';
 import '../models/vocab_context.dart';
 import '../models/vocabulary_type.dart';
 import '../models/word_analysis.dart';
+import '../models/word_color_style.dart';
 import '../screens/memory_mode/memory_provider.dart';
 import '../services/ipa_stress_annotator.dart';
 import '../services/ipa_styling.dart';
 import '../services/line_ipa_service.dart';
 import '../services/reader_display_settings.dart';
 import '../services/storage_service.dart'; // ★ THÊM
+import '../services/lrc_time_parser.dart';
 import '../services/syntax_highlighter_service.dart';
 import '../services/text_source_loader.dart';
 import '../services/text_splitter_service.dart';
@@ -113,6 +115,8 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         _currentLineIndex = -1;
       }
     }
+    // Đọc 1 dòng / 1 từ xong ⇒ bỏ highlight dòng đang đọc.
+    _ttsSpokenLineIndex = -1;
 
     if (owner == TtsPlaybackOwner.segment ||
         owner == TtsPlaybackOwner.vocabReview) {
@@ -135,6 +139,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     _isPlayingSegment = false;
     _currentPlayingSegment = null;
     _currentRepeatIndex = 0;
+    _ttsSpokenLineIndex = -1;
 
     if (clearReadingCursor) {
       _currentLineIndex = -1;
@@ -163,7 +168,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   // ==================== WORD ANALYSIS ====================
   List<List<AnalyzedWord>> _analyzedLines = [];
-  ColorMode _colorMode = ColorMode.none;
+  ColorMode _colorMode = ColorMode.difficulty;
   IpaDisplayMode _ipaDisplayMode = IpaDisplayMode.hidden;
   bool _ipaColorByType = false; // READ-IPA-004: tô màu phoneme (default OFF)
   bool _ipaFadeKnown = false; // READ-IPA-004: mờ IPA từ đã thuộc (OFF)
@@ -209,7 +214,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   bool _showLineNumbers = true;
   bool _useAutoSplit = true; // Mặc định bật tách dòng thông minh
   ReadSubMode _subMode = ReadSubMode.reading;
-  TextAlign _textAlign = TextAlign.left; // Mặc định căn lề trái
+  // READ-ALIGN-001 (owner 2026-10-25): mặc định CĂN GIỮA. Trước đây mặc định
+  // trái và lựa chọn còn KHÔNG được lưu (xem `_restoreFromStorage`), nên mở
+  // app lại là mất. Nay: mặc định giữa + lưu bền theo phiên bản đọc.
+  TextAlign _textAlign = TextAlign.center;
 
   // ==================== GETTERS ====================
   TextDocument? get currentDocument => _currentDocument;
@@ -264,7 +272,34 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   double get ttsSpeed => _ttsSpeed;
   double get ttsPitch => _ttsPitch;
   String get ttsLanguage => _ttsLanguage;
+  String? get ttsError => _ttsService.error;
   bool get isSpeaking => _isSpeaking;
+
+  /// Đang có phiên TTS nào chạy — **mọi loại**: đọc cả bài (allLines),
+  /// đọc 1 dòng / đọc 1 từ (preview), đọc đoạn (segment).
+  ///
+  /// AUDIT-2026-10-20 (mục 6): `isSpeaking` chỉ TRUE khi đọc **cả bài**
+  /// ⇒ nút "đọc dòng hiện tại" (owner = preview) **không bao giờ** báo
+  /// "đang phát" và chạm lần 2 lại **phát tiếp** thay vì dừng. Getter này
+  /// dùng cho TRẠNG THÁI HIỂN THỊ của nút.
+  bool get isTtsActive => _ttsOwner != TtsPlaybackOwner.none;
+
+  /// Dòng đang được **ĐỌC THỬ** (đọc 1 dòng / đọc 1 từ) — KHÁC với
+  /// [_currentLineIndex] (con trỏ đọc, cố ý KHÔNG đổi khi preview để tab
+  /// đếm câu / highlight không nhảy lung tung).
+  ///
+  /// AUDIT-2026-10-20 (mục 6): tầng dòng cần biết **dòng nào đang được đọc**
+  /// để highlight — trước đây đọc 1 dòng thì KHÔNG dòng nào đổi màu ⇒ user
+  /// thấy "có phát" mà không biết đang đọc ở đâu ("chưa thấy chỗ để cho dùng").
+  int _ttsSpokenLineIndex = -1;
+
+  /// Dòng đang được đọc (đọc cả bài hoặc đọc 1 dòng) — -1 = không có.
+  int get ttsSpokenLineIndex => _ttsSpokenLineIndex;
+
+  /// Dòng [index] có đang được đọc không (để tầng dòng highlight + icon).
+  bool isLineBeingSpoken(int index) =>
+      (isSpeaking && index == currentLineIndex) ||
+      (index >= 0 && index == _ttsSpokenLineIndex);
   bool get isPlayingSegment => _isPlayingSegment;
   TextSegment? get currentPlayingSegment => _currentPlayingSegment;
   int get currentRepeatIndex => _currentRepeatIndex;
@@ -278,6 +313,23 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   /// Bật/tắt "box từng từ" (tap để lưu) — persist qua ReaderDisplaySettings.
   Future<void> setWordTapBoxes(bool value) async {
     await ReaderDisplaySettings().setWordTapBoxes(value);
+    notifyListeners();
+  }
+
+  /// READ-WORDSTYLE-001 — kiểu hiển thị từ: nền màu / chỉ màu chữ / gạch chân.
+  /// Người dùng đọc lâu chọn "chỉ màu chữ" để không bị phân tâm bởi nền màu.
+  WordColorStyle get wordColorStyle => ReaderDisplaySettings().wordColorStyle;
+
+  Future<void> setWordColorStyle(WordColorStyle style) async {
+    await ReaderDisplaySettings().setWordColorStyle(style);
+    notifyListeners();
+  }
+
+  /// Hiện nhãn mức độ (POS / CEFR / độ khó) ngay dưới mỗi từ có màu.
+  bool get showColorModeDetails => ReaderDisplaySettings().showColorModeDetails;
+
+  Future<void> setShowColorModeDetails(bool value) async {
+    await ReaderDisplaySettings().setShowColorModeDetails(value);
     notifyListeners();
   }
   bool get useAutoSplit => _useAutoSplit;
@@ -298,6 +350,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
     try {
       _fontSize = _storage.getFontSize();
+      restoreBlurTranslations();
 
       // Đảm bảo tốc độ mặc định là 1.0 nếu chưa có cấu hình hoặc cấu hình cũ là 1.75
       final savedSpeed = _storage.getTtsSpeed();
@@ -322,7 +375,7 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
       final savedColorMode = _storage.getColorMode();
       _colorMode = ColorMode.values.firstWhere(
         (m) => m.name == savedColorMode,
-        orElse: () => ColorMode.none,
+        orElse: () => ColorMode.difficulty,
       );
 
       // Restore IPA display mode (READ-IPA-001) + options (READ-IPA-004)
@@ -341,9 +394,9 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         _ensurePhonemeEngine();
       }
 
-      // Restore alignment
-      // final savedAlign = _storage.getTextAlign(); // Tạm thời bỏ qua nếu StorageService chưa có
-      // _textAlign = savedAlign == 'center' ? TextAlign.center : TextAlign.left;
+      // Restore alignment (READ-ALIGN-001): lựa chọn căn lề phải sống qua lần
+      // mở app sau. Chưa có lựa chọn đã lưu ⇒ mặc định GIỮA.
+      _textAlign = _textAlignFromStored(_storage.getReadTextAlign());
 
       // Restore text segments
       final savedSegments = _storage.getAllTextSegments();
@@ -839,33 +892,17 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
   void _parseLrc(String content, {String? title}) {
     _fullText = content;
     _lines = [];
-    final regex = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)');
-    final rawLines = content.split('\n');
-
-    for (final raw in rawLines) {
-      final match = regex.firstMatch(raw);
-      if (match == null) continue;
-
-      final minutes = int.tryParse(match.group(1) ?? '') ?? 0;
-      final seconds = int.tryParse(match.group(2) ?? '') ?? 0;
-      final fraction = match.group(3) ?? '00';
-      // Bỏ inline word timestamps `<mm:ss.cs>` để không lộ ra chữ hiển thị.
-      var text = (match.group(4) ?? '').trim();
-      text = text.replaceAll(RegExp(r'<\d{2}:\d{2}\.\d{2,3}>'), '').trim();
-      if (text.isEmpty) continue;
-
-      final ms =
-          fraction.length == 2 ? int.parse(fraction) * 10 : int.parse(fraction);
-      final start = Duration(
-        minutes: minutes,
-        seconds: seconds,
-        milliseconds: ms,
-      );
-
+    // YT-LRC-LONG-001 (2026-10-28): việc đọc mốc thời gian đã tách sang hàm
+    // THUẦN `parseLrcLine()` (`lib/services/lrc_time_parser.dart`) để:
+    //   1. có máy bắt (test host VM) — trước đây lỗi nằm im trong provider;
+    //   2. mọi nơi đọc LRC dùng CÙNG một luật.
+    // Luật nới: phút 1–3 chữ số (`[125:03.45]` — video ≥ 60 phút), phần lẻ
+    // 1–3 số, dấu `.` hoặc `,`, và cả dạng `hh:mm:ss.xx`.
+    for (final parsed in parseLrcContent(content)) {
       _lines.add(TextItem(
         id: 'line_${_lines.length}',
-        content: text,
-        startTime: start,
+        content: parsed.text,
+        startTime: parsed.start,
       ));
     }
 
@@ -1445,10 +1482,15 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
         ? _currentLineIndex
         : 0;
 
-    await speak(_lines[index].content);
+    // truyền index ⇒ dòng đang đọc được HIGHLIGHT (mục 6)
+    await speak(_lines[index].content, lineIndex: index);
   }
 
-  Future<void> speak(String text) async {
+  /// Đọc một đoạn text bằng TTS.
+  ///
+  /// [lineIndex] (tuỳ chọn) = dòng đang đọc, để tầng dòng highlight — dùng
+  /// cho "đọc dòng hiện tại" và đọc 1 từ từ pop nhỏ.
+  Future<void> speak(String text, {int? lineIndex, String? language}) async {
     if (text.trim().isEmpty) return;
 
     final sessionId = await _startExclusiveTtsSession(TtsPlaybackOwner.preview);
@@ -1456,7 +1498,10 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
     // QUAN TRỌNG:
     // preview KHÔNG thay _currentLineIndex
     // để tab đếm câu / highlight không bị nhảy lung tung
-    await _ttsService.speak(text);
+    _ttsSpokenLineIndex = lineIndex ?? -1;
+    notifyListeners();
+
+    await _ttsService.speak(text, language: language);
 
     _finishTtsSession(sessionId, TtsPlaybackOwner.preview);
   }
@@ -1746,9 +1791,21 @@ class TextProvider extends ChangeNotifier with TranslationMixin {
 
   void setTextAlign(TextAlign align) {
     _textAlign = align;
-    // _storage.saveTextAlign(align == TextAlign.center ? 'center' : 'left'); // Tạm thời bỏ qua
+    // READ-ALIGN-001: lưu lựa chọn (trước đây bị "tạm thời bỏ qua" ⇒ mở lại
+    // app là về mặc định).
+    unawaited(_storage.saveReadTextAlign(
+      align == TextAlign.center
+          ? StorageService.readTextAlignCenter
+          : StorageService.readTextAlignLeft,
+    ));
     notifyListeners();
   }
+
+  /// Đổi chuỗi đã lưu → [TextAlign]; giá trị lạ/rỗng ⇒ mặc định GIỮA.
+  static TextAlign _textAlignFromStored(String value) =>
+      value == StorageService.readTextAlignLeft
+          ? TextAlign.left
+          : TextAlign.center;
 
   void toggleAutoSplit(bool value) {
     _useAutoSplit = value;

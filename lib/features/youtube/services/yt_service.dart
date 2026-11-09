@@ -6,14 +6,14 @@
 //  3. Fallback cuối: parse từ page HTML
 // Giữ nguyên fetchInfo và saveLrc từ bản cũ
 
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt_exp;
 import '../../translation/translation_service.dart';
 
 import '../models/yt_video.dart';
+import 'yt_dlp_sidecar.dart';
+import 'yt_media_store.dart';
 
 class YtService {
   YtService._();
@@ -102,6 +102,18 @@ class YtService {
       debugPrint('page HTML captions failed: $e');
     }
 
+    // Tầng 4: yt-dlp sidecar (desktop, user tự cài) — khi cả 3 tầng trên gãy
+    try {
+      final lines =
+          await YtDlpSidecar.instance.fetchCaptions(videoId, lang: lang);
+      if (lines.isNotEmpty) {
+        debugPrint('✅ Captions yt-dlp: ${lines.length} dòng (lang=$lang)');
+        return lines;
+      }
+    } catch (e) {
+      debugPrint('yt-dlp captions failed: $e');
+    }
+
     debugPrint('❌ Không tìm thấy captions cho lang=$lang');
     return [];
   }
@@ -146,6 +158,31 @@ class YtService {
     }
 
     return l1Lines;
+  }
+
+  /// IN4-81: bản CÔNG KHAI của ghép 2 nguồn phụ đề (để UI dựng dần:
+  /// lấy phụ đề gốc trước → hiện ngay, ghép bản dịch sau).
+  List<YtCaptionLine> mergeCaptions(
+    List<YtCaptionLine> base,
+    List<YtCaptionLine> target,
+  ) => _mergeCaptions(base, target);
+
+  /// IN4-81: dịch MỘT lô dòng sang ngôn ngữ đích (dùng TranslationService
+  /// đã cấu hình) — UI gọi theo lô để bản dịch hiện TĂNG DẦN thay vì
+  /// chờ dịch xong toàn bộ mới hiện (video không bị chặn).
+  Future<List<String>> translateLines(
+    List<String> texts, {
+    required String sourceLang,
+    required String targetLang,
+  }) async {
+    if (texts.isEmpty) return const [];
+    final ts = TranslationService();
+    ts.configure(sourceLang: sourceLang, targetLang: targetLang);
+    final results = await ts.translateBatch(texts);
+    return [
+      for (var i = 0; i < texts.length; i++)
+        i < results.length ? results[i].translatedText : '',
+    ];
   }
 
   List<YtCaptionLine> _mergeCaptions(
@@ -461,15 +498,15 @@ class YtService {
     return buf.toString();
   }
 
+  /// YT-MEDIA-STORE-001: phụ đề lưu vào CÙNG kho với âm thanh
+  /// (`youtube_media/yt_<videoId>.lrc`) thay vì thư mục riêng, để hai thứ
+  /// luôn ghép được cặp và người dùng tìm/xoá được từ "Thư viện đã tải".
   Future<String?> saveLrc(List<YtCaptionLine> captions, YtVideo video) async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final folder = Directory('${dir.path}/youtube_captions');
-      if (!await folder.exists()) await folder.create(recursive: true);
-      final id = video.id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
-      final path = '${folder.path}/yt_${id.isEmpty ? 'clip' : id}.lrc';
-      await File(path).writeAsString(captionsToLrc(captions, video));
-      return path;
+      return await YtMediaStore.saveLrc(
+        videoId: video.id,
+        content: captionsToLrc(captions, video),
+      );
     } catch (e) {
       debugPrint('YtService.saveLrc: $e');
       return null;

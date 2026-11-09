@@ -462,7 +462,7 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
                 const Icon(Icons.lock_outline, size: 14, color: Colors.white24),
                 const SizedBox(width: 4),
                 Text(
-                  'từ + ngữ cảnh giữ nguyên',
+                  context.uiText('từ + ngữ cảnh giữ nguyên'),
                   style: TextStyle(color: Colors.white24, fontSize: 10),
                 ),
               ],
@@ -637,7 +637,7 @@ class _VocabEntryEditSheetState extends State<_VocabEntryEditSheet> {
           for (final value in suggestions)
             ChoiceChip(
               label: Text(
-                '+ ${labelFor(value)}',
+                context.uiText('+ ${labelFor(value)}'),
                 style: TextStyle(color: Colors.white54, fontSize: 11),
               ),
               selected: false,

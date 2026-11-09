@@ -38,10 +38,10 @@ class PdfWordInfo {
       case ColorMode.wordType:
         return analyzed!.wordType.color.withAlpha((255 * 0.28).round());
       case ColorMode.cefrLevel:
-        return analyzed!.cefrLevel.color.withAlpha((255 * 0.28).round());
+        return analyzed!.cefrLevel.color.withValues(alpha: 0.24);
       case ColorMode.difficulty:
         return (analyzed!.userDifficulty?.color ?? Colors.transparent)
-            .withAlpha((255 * 0.28).round());
+            .withValues(alpha: 0.25);
     }
   }
 }

@@ -72,9 +72,9 @@ void main() {
       expect(paths, isNull);
     });
 
-    test('Predefined ASR profiles contain VI and EN configurations', () {
+    test('Predefined ASR profiles contain VI, EN and Parakeet configurations', () {
       final profiles = SherpaModelManager.predefinedAsrProfiles;
-      expect(profiles.length, 2);
+      expect(profiles.length, 3);
 
       final vi = profiles.firstWhere((p) => p.language == 'vi');
       expect(vi.id, 'asr-vi-30M-int8');
@@ -82,11 +82,22 @@ void main() {
       expect(vi.approxSizeMB, 32);
       expect(vi.downloadUrl, contains('zipformer-vi-30M-int8'));
 
+      // Profile chuyên EN (Zipformer streaming) đứng trước Parakeet.
       final en = profiles.firstWhere((p) => p.language == 'en');
       expect(en.id, 'asr-en-20M-streaming-int8');
       expect(en.isStreaming, isTrue);
       expect(en.approxSizeMB, 20);
       expect(en.downloadUrl, contains('streaming-zipformer-en-20M'));
+
+      // PARAKEET-001 — model offline đa ngữ, tải + import + xoá như Zipformer.
+      final parakeet = profiles.firstWhere((p) => p.id == kParakeetProfileId);
+      expect(parakeet.isStreaming, isFalse);
+      expect(parakeet.isMultilingual, isTrue);
+      expect(parakeet.approxSizeMB, 670);
+      expect(parakeet.downloadUrl, contains('nemo-parakeet-tdt-0.6b-v3-int8'));
+      expect(parakeet.archiveName,
+          'sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2');
+      expect(parakeet.languages, containsAll(['en', 'fr', 'de', 'es']));
     });
 
     test('SherpaAsrInfo state management', () {

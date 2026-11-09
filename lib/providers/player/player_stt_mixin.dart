@@ -7,8 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 import '../../features/vad/pipeline/vad_pipeline_integration.dart';
 import '../../screens/understand_mode/understand_mode.dart' hide LrcLine;
+import '../../services/offline_model_gate.dart';
 import '../../services/source_artifact_store.dart';
-import '../../utils/audio_source_identity.dart';
 
 mixin PlayerSttMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
@@ -26,6 +26,8 @@ mixin PlayerSttMixin on ChangeNotifier {
   // The in-memory STT fallback is valid only for the audio that produced it.
   // Without this binding, opening audio B could reuse audio A's last .lrc.
   String? _lastSttAudioPath;
+  int _sttSourceGeneration = 0;
+  bool _sttDisposed = false;
 
   bool _lrcJustGenerated = false;
   bool get lrcJustGenerated => _lrcJustGenerated;
@@ -40,6 +42,7 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// Late callbacks are additionally guarded by [_isCurrentAudio] before they
   /// are allowed to publish lyrics.
   void resetLrcStateForAudioChange() {
+    _sttSourceGeneration++;
     _lrcJustGenerated = false;
     _shouldOpenAiPanel = false;
     _lastSttError = null;
@@ -66,16 +69,14 @@ mixin PlayerSttMixin on ChangeNotifier {
   Stream<SttProgress> get sttProgressStream => _sttService.progressStream;
   SttProgress get sttProgress => _sttService.currentProgress;
 
-  bool _isCurrentAudio(String expectedPath) {
-    final current = currentSongPath;
-    return current != null && AudioSourceIdentity.matches(current, expectedPath);
+  bool _isCurrentAudio(String expectedPath, [int? generation]) {
+    return !_sttDisposed &&
+        currentSongPath == expectedPath &&
+        (generation == null || generation == _sttSourceGeneration);
   }
 
-  bool _isLastSttFor(String requestedPath) {
-    final source = _lastSttAudioPath;
-    return source != null &&
-        AudioSourceIdentity.matches(source, requestedPath);
-  }
+  bool _isLastSttFor(String requestedPath) =>
+      _lastSttAudioPath == requestedPath;
 
   Future<CachedLrcHit?> peekCachedLrc({String? path}) async {
     final audioPath = path ?? currentSongPath;
@@ -90,7 +91,10 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (_isLastSttFor(audioPath) && outputFromStt?.lrcFilePath != null) {
         final lrcFile = File(outputFromStt!.lrcFilePath!);
         if (await lrcFile.exists()) {
-          return CachedLrcHit(lrcPath: outputFromStt.lrcFilePath!);
+          return CachedLrcHit(
+            lrcPath: outputFromStt.lrcFilePath!,
+            audioPath: audioPath,
+          );
         }
       }
     } catch (e) {
@@ -136,6 +140,7 @@ mixin PlayerSttMixin on ChangeNotifier {
     bool skipSilence = true,
   }) async {
     final path = currentSongPath;
+    final generation = _sttSourceGeneration;
     if (path == null) {
       _lastSttError = 'Chưa có file audio đang phát';
       notifyListeners();
@@ -152,7 +157,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 1000));
     } catch (_) {}
 
-    if (!_isCurrentAudio(path)) return null;
+    if (!_isCurrentAudio(path, generation)) return null;
     understandProvider?.clear();
     notifyListeners();
 
@@ -180,7 +185,7 @@ mixin PlayerSttMixin on ChangeNotifier {
           // Có thể emit progress ra UI qua _sttService hoặc notifyListeners
         },
         onPartialResult: (partial) async {
-          if (!_isCurrentAudio(path) ||
+          if (!_isCurrentAudio(path, generation) ||
               partial.segments.isEmpty ||
               understandProvider == null) {
             return;
@@ -189,6 +194,13 @@ mixin PlayerSttMixin on ChangeNotifier {
               .map((s) => LrcLine(
                     timestamp: Duration(milliseconds: s.startMs),
                     text: s.text,
+                    words: s.words
+                        .where((word) => word.word.trim().isNotEmpty)
+                        .map((word) => LrcWord(
+                              word: word.word.trim(),
+                              start: word.startDuration,
+                            ))
+                        .toList(),
                   ))
               .where((l) => l.text.trim().isNotEmpty)
               .toList();
@@ -198,7 +210,7 @@ mixin PlayerSttMixin on ChangeNotifier {
         },
       );
 
-      if (!_isCurrentAudio(path)) {
+      if (!_isCurrentAudio(path, generation)) {
         debugPrint('⏭️ Discard VAD result from previous audio: $path');
         return null;
       }
@@ -217,6 +229,13 @@ mixin PlayerSttMixin on ChangeNotifier {
             .map((s) => LrcLine(
                   timestamp: Duration(milliseconds: s.startMs),
                   text: s.text,
+                  words: s.words
+                      .where((word) => word.word.trim().isNotEmpty)
+                      .map((word) => LrcWord(
+                            word: word.word.trim(),
+                            start: word.startDuration,
+                          ))
+                      .toList(),
                 ))
             .where((l) => l.text.trim().isNotEmpty)
             .toList();
@@ -241,12 +260,14 @@ mixin PlayerSttMixin on ChangeNotifier {
 
       return output;
     } catch (e) {
-      _lastSttError = e.toString();
+      if (_isCurrentAudio(path, generation)) _lastSttError = e.toString();
       debugPrint('❌ VAD Pipeline error: $e');
       return null;
     } finally {
-      _isGeneratingLrc = false;
-      notifyListeners();
+      if (generation == _sttSourceGeneration && !_sttDisposed) {
+        _isGeneratingLrc = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -254,13 +275,54 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// nhận diện ngôn ngữ (đa ngữ: vi/en/zh/ja/ko/pi...); hoặc gán cụ thể
   /// ('vi', 'en'...) khi muốn ép ngôn ngữ. Trước đây hardcode 'en' —
   /// file tiếng Việt bị transcribe sai ngôn ngữ.
+  /// AUDIT-1.21.0 #7 — preflight model sherpa TRƯỚC khi `transcribeFile`
+  /// xuống `OfflineRecognizer`. `isAsrProfileInstalled` chỉ cần file >1KB nên
+  /// bản import dở vẫn "sẵn sàng" ⇒ SIGSEGV C++ không catch được ở Dart.
+  Future<OfflineModelVerdict> _sherpaLrcPreflight(String language) async {
+    final manager = SherpaModelManager();
+    try {
+      await manager.ensureFresh();
+    } catch (_) {}
+    var lang = language.trim();
+    if (lang.isEmpty || lang.toLowerCase() == 'auto') {
+      lang = manager.defaultCabinSourceLanguageSync();
+    }
+    // `getAsrModelPaths` đã lo fallback sang model đa ngữ (Parakeet) và
+    // tự đọc `isStreaming` từ metadata ONNX — không tự nhận diện lại ở đây.
+    final paths = manager.getAsrModelPaths(lang);
+    var filesPlausible = false;
+    if (paths != null) {
+      try {
+        filesPlausible = asrFilesPlausible(
+          encoderBytes: File(paths.encoder).lengthSync(),
+          decoderBytes: File(paths.decoder).lengthSync(),
+          joinerBytes: File(paths.joiner).lengthSync(),
+          tokensBytes: File(paths.tokens).lengthSync(),
+        );
+      } catch (_) {
+        filesPlausible = false;
+      }
+    }
+    return assessOfflineModel(
+      installed: paths != null,
+      filesPlausible: filesPlausible,
+      isStreaming: paths?.isStreaming ?? false,
+      needsOffline: true,
+    );
+  }
+
+  /// [preferSherpa]: dùng model sherpa OFFLINE (Parakeet đa ngữ / Zipformer VI)
+  /// thay cho Whisper — PARAKEET-002. Trước đây tab Nghe chỉ biết Whisper nên
+  /// import Parakeet xong không có cách nào dùng để tạo lời thoại.
   Future<SttTranscribeOutput?> generateLrcForCurrentAudio({
     WhisperModelLevel? level,
     SttSegmentGrouping grouping = SttSegmentGrouping.sentence,
     bool forceRegenerate = false,
     String language = 'auto',
+    bool preferSherpa = false,
   }) async {
     final path = currentSongPath;
+    final generation = _sttSourceGeneration;
     if (path == null) {
       _lastSttError = 'Chưa có file audio đang phát';
       notifyListeners();
@@ -272,21 +334,51 @@ mixin PlayerSttMixin on ChangeNotifier {
     //   khi forceRegenerate: true (user bấm "Tạo lại" ở hộp thoại hỏi).
     if (!forceRegenerate) {
       final hit = await peekCachedLrc(path: path);
-      if (!_isCurrentAudio(path)) return null;
+      if (!_isCurrentAudio(path, generation)) return null;
       if (hit != null) {
         await applyCachedLrc(hit: hit);
         return null;
       }
     }
 
+    // AUDIT-1.21.0 #7: CHẶN sớm, trước cả `pause()` + delay 1s + tạo
+    // `SttServiceFacade`. Khi model chưa nạp/chưa nguyên vẹn, đường cũ vẫn
+    // gọi `OfflineRecognizer` ⇒ văng app ở tầng C++ (PR #128 chỉ chặn được
+    // MissingPluginException ở notification, không chặn được SIGSEGV này).
+    if (preferSherpa) {
+      final verdict = await _sherpaLrcPreflight(language);
+      if (!_isCurrentAudio(path, generation)) return null;
+      if (!verdict.canUse) {
+        final message = switch (verdict.issue) {
+          OfflineModelIssue.incompleteFiles => 'Chưa có engine nhận diện giọng '
+              'nói sẵn sàng. Import model Sherpa trong Quản lý Model AI, '
+              'hoặc kiểm tra dịch vụ nhận diện giọng nói của hệ thống.',
+          OfflineModelIssue.streamingOnly => 'Model không khớp profile đã '
+              'chọn: model streaming chỉ dùng cho EN, model offline chỉ dùng '
+              'cho VI.',
+          _ => 'Chưa có model nhận diện offline — hãy tải hoặc import '
+              'Parakeet / Zipformer VI trong Quản lý Model AI.',
+        };
+        _lastSttError = message;
+        _isGeneratingLrc = false;
+        notifyListeners();
+        debugPrint('⛔ [SttMixin] sherpa LRC blocked: '
+            '${verdict.issue.name} — ${verdict.technicalMessage}');
+        return SttTranscribeOutput.failure(message);
+      }
+    }
+
     // Handover tối ưu: file dài >60s dùng VAD pipeline để giảm 20p -> 8-10p
+    // (chỉ cho Whisper: VAD pipeline tự chọn model Whisper — chế độ sherpa đi
+    // thẳng đường sherpa bên dưới).
     try {
       final file = File(path);
-      if (await file.exists()) {
+      if (!preferSherpa && await file.exists()) {
         // Nếu file >60s, tự động dùng VAD pipeline tối ưu
         // Probe duration đơn giản qua file size hoặc dùng AudioConverter
         // Ở đây dùng ngưỡng 5MB ~ >60s ở 128kbps
         final size = await file.length();
+        if (!_isCurrentAudio(path, generation)) return null;
         if (size > 5 * 1024 * 1024) {
           debugPrint('[SttMixin] File lớn (${size}bytes) >5MB, chuyển sang VAD pipeline tối ưu');
           return await generateLrcWithVadPipeline(
@@ -299,6 +391,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       }
     } catch (_) {}
 
+    if (!_isCurrentAudio(path, generation)) return null;
     _isGeneratingLrc = true;
     _lastSttError = null;
     _lastSttScriptWarning = null;
@@ -311,7 +404,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 1000));
     } catch (_) {}
 
-    if (!_isCurrentAudio(path)) return null;
+    if (!_isCurrentAudio(path, generation)) return null;
     // ★ Xoá lời thoại bài cũ khi bắt đầu tạo cho audio mới — tránh giữ
     //   chữ bài cũ chạy lệch với âm thanh mới ("râu ông nọ cắm cằm bà kia").
     understandProvider?.clear();
@@ -323,7 +416,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       // ★ Stream kết quả từng phần: hiện dần lyrics mỗi khi xong 1 chunk,
       //   thay vì đợi hết cả file mới hiện.
       final partialSub = stt.partialResultStream.listen((partial) {
-        if (!_isCurrentAudio(path) ||
+        if (!_isCurrentAudio(path, generation) ||
             partial.segments.isEmpty ||
             understandProvider == null) {
           return;
@@ -333,6 +426,13 @@ mixin PlayerSttMixin on ChangeNotifier {
             .map((s) => LrcLine(
                   timestamp: Duration(milliseconds: s.startMs),
                   text: s.text,
+                  words: s.words
+                      .where((word) => word.word.trim().isNotEmpty)
+                      .map((word) => LrcWord(
+                            word: word.word.trim(),
+                            start: word.startDuration,
+                          ))
+                      .toList(),
                 ))
             .where((l) => l.text.trim().isNotEmpty)
             .toList();
@@ -343,7 +443,29 @@ mixin PlayerSttMixin on ChangeNotifier {
 
       try {
         final SttTranscribeOutput output;
-        if (level == null) {
+        if (preferSherpa) {
+          // Ngôn ngữ cụ thể cho sherpa: 'auto' → ngôn ngữ đã cài model
+          // (ưu tiên VI). Không có profile offline ⇒ engine báo lỗi rõ ràng.
+          var sherpaLanguage = language;
+          if (sherpaLanguage.trim().isEmpty ||
+              sherpaLanguage.trim().toLowerCase() == 'auto') {
+            final manager = SherpaModelManager();
+            try {
+              await manager.ensureFresh();
+            } catch (_) {}
+            sherpaLanguage = manager.defaultCabinSourceLanguageSync();
+          }
+          output = await stt.transcribeFile(
+            path,
+            config: SttConfig.deepLearning.copyWith(
+              preferredEngine: SttEngineType.sherpa,
+              language: sherpaLanguage,
+              generateLrc: true,
+              grouping: grouping,
+            ),
+            generateLrc: true,
+          );
+        } else if (level == null) {
           output = await stt.transcribeAuto(
             path,
             language: language,
@@ -366,7 +488,7 @@ mixin PlayerSttMixin on ChangeNotifier {
           );
         }
 
-        if (!_isCurrentAudio(path)) {
+        if (!_isCurrentAudio(path, generation)) {
           debugPrint('⏭️ Discard STT result from previous audio: $path');
           return null;
         }
@@ -388,7 +510,7 @@ mixin PlayerSttMixin on ChangeNotifier {
             output.lrcFilePath != null &&
             understandProvider != null) {
           final lrcLines = await parseLrcFile(output.lrcFilePath!);
-          if (!_isCurrentAudio(path)) {
+          if (!_isCurrentAudio(path, generation)) {
             debugPrint('⏭️ Discard parsed STT LRC from previous audio: $path');
             return null;
           }
@@ -407,11 +529,13 @@ mixin PlayerSttMixin on ChangeNotifier {
         partialSub.cancel();
       }
     } catch (e) {
-      _lastSttError = e.toString();
+      if (_isCurrentAudio(path, generation)) _lastSttError = e.toString();
       return null;
     } finally {
-      _isGeneratingLrc = false;
-      notifyListeners();
+      if (generation == _sttSourceGeneration && !_sttDisposed) {
+        _isGeneratingLrc = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -442,9 +566,10 @@ mixin PlayerSttMixin on ChangeNotifier {
       _sttService.getModelInfo(level);
 
   Future<void> autoLoadCachedLrc(String normalizedPath) async {
+    final generation = _sttSourceGeneration;
     try {
       final cachedLrcPath = await findCachedLrcPath(normalizedPath);
-      if (!_isCurrentAudio(normalizedPath)) {
+      if (!_isCurrentAudio(normalizedPath, generation)) {
         debugPrint('⏭️ Ignore stale LRC lookup for: $normalizedPath');
         return;
       }
@@ -452,7 +577,7 @@ mixin PlayerSttMixin on ChangeNotifier {
       if (cachedLrcPath != null) {
         final lrcLines = await parseLrcFile(cachedLrcPath);
         // The user may switch audio while the cache file is being parsed.
-        if (!_isCurrentAudio(normalizedPath)) {
+        if (!_isCurrentAudio(normalizedPath, generation)) {
           debugPrint('⏭️ Ignore stale parsed LRC for: $normalizedPath');
           return;
         }
@@ -465,10 +590,11 @@ mixin PlayerSttMixin on ChangeNotifier {
           notifyListeners();
         }
       } else {
-        _shouldOpenAiPanel = true;
-        notifyListeners();
+        // PSRC-157: importing/loading a song must NOT auto-open the "Tạo lời"
+        // AI sheet. Cached lyrics are still loaded silently when they exist;
+        // transcription is an explicit user action via the toolbar button.
         debugPrint(
-          'ℹ️ No cached LRC found for: $normalizedPath → open AI panel',
+          'ℹ️ No cached LRC found for: $normalizedPath — lyrics sheet stays closed (PSRC-157)',
         );
       }
     } catch (e) {
@@ -480,11 +606,12 @@ mixin PlayerSttMixin on ChangeNotifier {
   /// hoặc khi nút Tạo lời phát hiện cache sẵn (reopen fix).
   Future<void> applyCachedLrc({required CachedLrcHit hit}) async {
     final audioPath = currentSongPath;
-    if (audioPath == null) return;
+    if (audioPath == null || hit.audioPath != audioPath) return;
+    final generation = _sttSourceGeneration;
 
     try {
       final lrcLines = await parseLrcFile(hit.lrcPath);
-      if (!_isCurrentAudio(audioPath)) {
+      if (!_isCurrentAudio(audioPath, generation)) {
         debugPrint('⏭️ Ignore cached LRC selected for previous audio: $audioPath');
         return;
       }
@@ -530,6 +657,9 @@ mixin PlayerSttMixin on ChangeNotifier {
     }
   }
 
+  // PSRC-157: kept as a read-only false signal for callers compiled against
+  // older builds. Nothing raises it anymore — the lyrics sheet is opened only
+  // when the user taps "Tạo lời".
   bool _shouldOpenAiPanel = false;
   bool get shouldOpenAiPanel => _shouldOpenAiPanel;
 
@@ -540,6 +670,8 @@ mixin PlayerSttMixin on ChangeNotifier {
   }
 
   void disposeStt() {
+    _sttDisposed = true;
+    _sttSourceGeneration++;
     _sttService.dispose();
   }
 

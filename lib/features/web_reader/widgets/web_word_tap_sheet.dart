@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/word_analysis.dart';
+import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
+import '../../../screens/read_mode/sheets/read_selection_sheets.dart';
 import '../../../widgets/unified_knowledge_sheet.dart';
 import '../../../widgets/vocab_entry_meta.dart';
 import '../../../widgets/vocab_quick_save_sheet.dart';
@@ -227,6 +229,36 @@ class WebWordTapSheet extends StatelessWidget {
               ),
             ),
           ],
+
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                final textProvider = context.read<TextProvider>();
+                ReadSelectionTranslateSheet.show(
+                  context,
+                  text: word,
+                  titleText: 'Dịch từ',
+                  targetCode:
+                      textProvider.translationTargetLanguage.translationCode,
+                  sourceCode: textProvider.translationSourceIsPinned
+                      ? textProvider.translationSourceLanguage.translationCode
+                      : null,
+                );
+              },
+              icon: const Icon(Icons.translate_rounded, size: 17),
+              label: Text(context.uiText('Dịch từ')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF81C784),
+                side: BorderSide(
+                  color: const Color(0xFF81C784).withValues(alpha: 0.3),
+                ),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
 
           // ── CEFR level description ────────────────────────
           if (analyzed != null && analyzed!.cefrLevel != CEFRLevel.unknown) ...[

@@ -1,5 +1,17 @@
 {
   "@@locale": "zh",
+  "tipitakaCommentaries": "注释书",
+  "tipitakaSubcommentaries": "复注书",
+  "tipitakaExtraCanonical": "藏外典籍",
+  "tipitakaSriLanka": "斯里兰卡文集",
+  "tipitakaAbhidhammaBasket": "论藏",
+  "tipitakaBookGroup": "书籍分组",
+  "tipitakaEdition": "版本",
+  "tipitakaDiscourse": "经文",
+  "tipitakaCatalogPath": "藏 → 部集 → 经书",
+  "tipitakaCanonicalBasket": "正典三藏",
+  "tipitakaVinayaBasket": "律藏",
+  "tipitakaSuttaBasket": "经藏",
   "commandCenter": "控制中心",
   "knowledgeOS": "知识操作系统",
   "manageAIModels": "管理 AI 模型",
@@ -518,5 +530,90 @@
   "ocrEmptyResult": "未在图片中找到文字。请尝试更清晰、光线更好的照片。",
   "ocrLoadedFromImage": "已从图片载入文字",
   "ocrScanPageText": "扫描本页文字",
-  "ocrUnsupported": "OCR 仅在 Android/iOS 上运行"
+  "ocrUnsupported": "OCR 仅在 Android/iOS 上运行",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "越南语神经 TTS — 离线、设备端（GGUF + audio.cpp）",
+  "ttsLicenseSection": "音频许可",
+  "@ttsCloneVoiceTitle": {
+    "description": "Header for VieNeu-TTS voice cloning section"
+  },
+  "ttsCloneVoiceTitle": "克隆 VieNeu-TTS 声音",
+  "@ttsCloneVoiceDesc": {
+    "description": "Description text for voice cloning feature"
+  },
+  "ttsCloneVoiceDesc": "录制声音样本并创建个性化声音。新声音将出现在 VieNeu-TTS 声音列表中。",
+  "@ttsCloneVoiceNewName": {
+    "description": "Label for new voice name input field"
+  },
+  "ttsCloneVoiceNewName": "新声音名称",
+  "@ttsCloneVoiceNewHint": {
+    "description": "Placeholder text for new voice name input"
+  },
+  "ttsCloneVoiceNewHint": "例如：我的声音、奶奶的声音",
+  "@ttsCloneVoiceSamples": {
+    "description": "Label for voice samples section"
+  },
+  "ttsCloneVoiceSamples": "音频样本",
+  "@ttsCloneVoiceRecord": {
+    "description": "Button label to record voice sample"
+  },
+  "ttsCloneVoiceRecord": "录制样本",
+  "@ttsCloneVoiceStop": {
+    "description": "Button label to stop recording"
+  },
+  "ttsCloneVoiceStop": "停止",
+  "@ttsCloneVoiceCreate": {
+    "description": "Button label to create cloned voice"
+  },
+  "ttsCloneVoiceCreate": "根据样本创建声音",
+  "@ttsCloneVoiceCreating": {
+    "description": "Status text while creating voice"
+  },
+  "ttsCloneVoiceCreating": "正在创建声音…",
+  "@ttsCloneVoiceVoices": {
+    "description": "Header for cloned voices list"
+  },
+  "ttsCloneVoiceVoices": "已克隆的声音",
+  "@ttsCloneVoiceNoVoices": {
+    "description": "Text when no cloned voices exist"
+  },
+  "ttsCloneVoiceNoVoices": "还没有克隆的声音。请录制样本并选择根据样本创建声音。",
+  "@ttsCloneVoiceSamplesCount": {
+    "description": "Label showing sample count for a cloned voice"
+  },
+  "ttsCloneVoiceSamplesCount": "样本：{count}",
+  "@ttsCloneVoiceHasEmbedding": {
+    "description": "Status when voice has embedding file"
+  },
+  "ttsCloneVoiceHasEmbedding": "已有嵌入向量",
+  "@ttsCloneVoiceNoEmbedding": {
+    "description": "Status when voice has no embedding file"
+  },
+  "ttsCloneVoiceNoEmbedding": "没有嵌入向量",
+  "@ttsCloneVoiceDelete": {
+    "description": "Tooltip for delete voice button"
+  },
+  "ttsCloneVoiceDelete": "删除声音",
+  "@ttsCloneVoiceSuccess": {
+    "description": "Success message after creating cloned voice"
+  },
+  "ttsCloneVoiceSuccess": "声音 {name} 创建成功！",
+  "@ttsCloneVoiceNeedSample": {
+    "description": "Error message when no voice samples recorded"
+  },
+  "ttsCloneVoiceNeedSample": "未找到录音。请至少录制一个样本。",
+  "@ttsCloneVoiceNeedName": {
+    "description": "Error message when voice name is empty"
+  },
+  "ttsCloneVoiceNeedName": "请输入声音名称。",
+  "ttsCloneVoicePermissionRequired": "录制声音样本需要麦克风权限。",
+  "ttsCloneVoicePermissionDenied": "尚未授予麦克风权限。",
+  "ttsCloneVoiceRecording": "正在录音…",
+  "ttsCloneVoiceNoSample": "暂无样本",
+  "ttsCloneVoiceSampleReady": "样本已录制",
+  "ttsCloneVoiceStopRecording": "停止录音",
+  "ttsCloneVoiceRecordingError": "无法录制样本。请检查麦克风权限后重试。",
+  "ttsCloneVoiceCreateError": "无法创建声音。请检查 TTS 模型和样本后重试。",
+  "ttsModelVariantHeader": "模型版本",
+  "ttsModelVariantInfo": "Q8_0（约 170 MB）为默认，兼顾质量与体积；bf16（约 292 MB）质量更高，文件更大。"
 }

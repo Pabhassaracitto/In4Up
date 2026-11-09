@@ -118,9 +118,9 @@ android {
         //   (llama.cpp/sherpa/whisper chỉ compile 1 ABI thay vì 3).
         // Bỏ armv7 (legacy 32-bit, điện thoại cũ) + x86_64 (chủ yếu emulator).
         // Ảnh hưởng MỌI build (local + CI) — nếu muốn CI-only, bọc vào `if (in4upCiBuild)`.
-        // ⚠️ CI-BUILD-NDK/ABI-001: khối `ndk {}` BẮT BUỘC nằm TRONG defaultConfig —
-        // đặt ở top-level android{} thì Kotlin DSL AGP 8.9.1 báo "Unresolved
-        // reference: ndk" (build Android đỏ). (Re-apply từ arena/01a0251e-in4up eeace04.)
+        // ⚠️ CI-BUILD-NDK: khối `ndk {}` BẮT BUỘC nằm TRONG defaultConfig — đặt ở
+        // top-level android{} thì Kotlin DSL báo "Unresolved reference: ndk" (fix
+        // 24d0fa8 bị mất khi rebase, re-apply).
         ndk {
             abiFilters += "arm64-v8a"
         }

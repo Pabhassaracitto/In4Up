@@ -17,11 +17,15 @@
 
 import 'dart:typed_data' show Uint8List;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/text_provider.dart';
 import 'ocr_cancel_token.dart';
+import 'ocr_native_bridge.dart';
+import 'ocr_precheck.dart';
 import 'ocr_result_dialog.dart';
 import 'ocr_service.dart';
 import 'ocr_source_sheet.dart';
@@ -224,16 +228,14 @@ class OcrFlow {
     BuildContext context,
     OcrImageSource source,
   ) async {
+    if (source == OcrImageSource.documentScanner) {
+      return _scanDocumentPages(context);
+    }
+
     final messenger = ScaffoldMessenger.of(context);
     try {
-      if (source == OcrImageSource.documentScanner) {
-        final pages = await OcrService.instance.scanDocumentPages();
-        return pages ?? const <String>[];
-      }
       return await OcrService.instance.pickImagesFromDevice();
     } catch (e) {
-      // Scanner có thể fail khi thiết bị thiếu Google Play services bản mới —
-      // báo rõ thay vì im lặng, và KHÔNG crash.
       messenger.showSnackBar(
         SnackBar(
           content: Text(_tr(context, 'Lỗi: $e')),
@@ -241,6 +243,98 @@ class OcrFlow {
         ),
       );
       return const <String>[];
+    }
+  }
+
+  /// Mở máy quét tài liệu — CÓ kiểm tra trước (OCR-SCAN-CRASH-001).
+  ///
+  /// Không bao giờ đi vào đường native khi `OcrPrecheck` nói chắc chắn không
+  /// chạy được (thiếu/tắt Google Play services, RAM dưới 1,7 GB): đó đúng là
+  /// đường đã làm app biến mất không dấu vết ở bản 0.10.3 — lỗi ném ở luồng
+  /// platform, lớp try/catch của Dart không bắt được.
+  static Future<List<String>> _scanDocumentPages(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    OcrNativeBridge.instance.attachCrashListener();
+
+    final capabilities = await OcrService.instance.probeCapabilities();
+    final decision = OcrPrecheck.decide(capabilities);
+    if (!decision.canOpenScanner) {
+      debugPrint('🛑 OCR: không mở máy quét — ${decision.status}');
+      _showScanProblem(
+        context,
+        messenger,
+        decision.message,
+        suggestPlayServices: decision.suggestPlayServices,
+      );
+      return const <String>[];
+    }
+
+    final outcome = await OcrService.instance.scanDocumentPages();
+    switch (outcome.status) {
+      case OcrScanStatus.completed:
+        return outcome.pages;
+      case OcrScanStatus.cancelled:
+        // Người dùng bấm Back/huỷ: KHÔNG phải lỗi, không hiện gì (trước đây
+        // hiện snackbar đỏ "Lỗi: PlatformException(… Operation cancelled)").
+        return const <String>[];
+      case OcrScanStatus.interrupted:
+      case OcrScanStatus.nativeCrash:
+      case OcrScanStatus.failed:
+        _showScanProblem(
+          context,
+          messenger,
+          outcome.message,
+          suggestPlayServices: outcome.suggestPlayServices,
+        );
+        return const <String>[];
+    }
+  }
+
+  /// Thông báo "không quét được" + hành động sửa được nếu có.
+  static void _showScanProblem(
+    BuildContext context,
+    ScaffoldMessengerState messenger,
+    String message, {
+    bool suggestPlayServices = false,
+  }) {
+    if (message.isEmpty) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(_tr(context, message)),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        action: suggestPlayServices
+            ? SnackBarAction(
+                label: _tr(context, 'Mở Google Play services'),
+                onPressed: () => _openPlayServicesPage(),
+              )
+            : null,
+      ),
+    );
+  }
+
+  /// Mở trang Play Store của Google Play services — đường SỬA ĐƯỢC cho
+  /// giả thuyết 1 (máy thiếu/cũ Play services thì Document Scanner không có
+  /// model để chạy). Ưu tiên app Play Store, fallback sang web.
+  static Future<void> _openPlayServicesPage() async {
+    const packageId = 'com.google.android.gms';
+    try {
+      final opened = await launchUrl(
+        Uri.parse('market://details?id=$packageId'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (opened) return;
+    } catch (e) {
+      debugPrint('⚠️ OCR: không mở được Play Store ($e)');
+    }
+    try {
+      await launchUrl(
+        Uri.parse('https://play.google.com/store/apps/details?id=$packageId'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      debugPrint('⚠️ OCR: không mở được link Play Store ($e)');
     }
   }
 

@@ -73,6 +73,11 @@ class LlmMtPrompts {
           'no pronunciation, no quotes around the answer.')
       ..writeln('- Do not add, remove, or summarize content.')
       ..writeln(
+          '- Use standard natural capitalization in the target language; do not '
+          'mirror ALL-CAPS source formatting unless it is an acronym or name. '
+          'Do not expose analysis, planning, headings, numbered notes, or '
+          'Markdown formatting.')
+      ..writeln(
           '- Placeholders that look like __G1__ or __G23__ are protected '
           'terms. Copy them EXACTLY as they are, character for character, '
           'at the matching position in the translation. Never translate, '
@@ -145,6 +150,11 @@ class LlmMtPrompts {
       out = stripped;
     }
 
+    // Một số model bỏ qua system prompt và trả về phần phân tích dạng
+    // "1. **Analyze the Request** … Source Text … Translation: …".
+    // Chỉ giữ đoạn sau nhãn bản dịch; không để reasoning rò vào Read mode.
+    out = _stripAnalysisLeak(out);
+
     // 3) Model lặp lại đoạn nguồn rồi mới dịch → lấy phần sau nguồn
     //    (cùng pattern cleanOutput của Hy-MT).
     final src = sourceText?.trim();
@@ -154,7 +164,40 @@ class LlmMtPrompts {
         out = out.substring(index + src.length).trim();
       }
     }
+    // Read mode displays plain text rather than a Markdown renderer. Remove
+    // emphasis wrappers the model sometimes adds, unless Markdown is itself
+    // present in the source and should be translated/preserved as content.
+    if (sourceText == null ||
+        (!sourceText.contains('**') && !sourceText.contains('__'))) {
+      out = out
+          .replaceAll(RegExp(r'\*\*(.+?)\*\*', dotAll: true), r'$1')
+          .replaceAll(RegExp(r'__(.+?)__', dotAll: true), r'$1');
+    }
     return out.trim();
+  }
+
+  static String _stripAnalysisLeak(String out) {
+    final looksLikeAnalysis = RegExp(
+      r'^\s*(?:\d+[.)]\s*)?(?:\*{0,2})[^\n]{0,50}(?:analy[sz]e|ânlyze)\s+the\s+request',
+      caseSensitive: false,
+    ).hasMatch(out);
+    if (!looksLikeAnalysis) return out;
+
+    final marker = RegExp(
+      r'^\s*(?:(?:[-*]|\d+[.)])\s+)?(?:\*{0,2})\s*(?:final\s+)?(?:translation|translated\s+text|answer|bản\s+dịch|dịch)\s*:?[ \*]*',
+      caseSensitive: false,
+      multiLine: true,
+    ).allMatches(out).toList();
+    if (marker.isEmpty) return '';
+
+    var translated = out.substring(marker.last.end).trim();
+    // Strip only presentation tokens left by the leaked structured answer;
+    // never alter case, punctuation, or wording in the translation itself.
+    translated = translated
+        .replaceAll(RegExp(r'^\s*(?:[-*]\s+|\d+[.)]\s+)', multiLine: true), '')
+        .replaceAll(RegExp(r'\*{1,3}'), '')
+        .trim();
+    return translated;
   }
 
   static String _stripLeadIn(String out, {String? sourceText}) {

@@ -117,7 +117,7 @@ class _PdfJumpToPageDialogState extends State<PdfJumpToPageDialog> {
               onChanged: _syncFieldFromSlider,
             ),
             Text(
-              '1 – ${widget.totalPages}',
+              context.uiText('1 – ${widget.totalPages}'),
               style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
           ],

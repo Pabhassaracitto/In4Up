@@ -32,7 +32,7 @@
 library;
 
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show LearningState, SkillDimension;
+    show LearningState, SkillDimension, inputDimensions;
 
 /// Trọng số khởi điểm (mục 5).
 const double kAttentionW1 = 0.4;
@@ -144,6 +144,12 @@ String _skillLabel(SkillDimension skill) {
       return 'nghe';
     case SkillDimension.reading:
       return 'đọc';
+    case SkillDimension.use:
+      return 'dùng';
+    case SkillDimension.speak:
+      return 'nói';
+    case SkillDimension.write:
+      return 'viết';
   }
 }
 
@@ -182,7 +188,7 @@ class AttentionRanker {
     final state = input.state;
     if (state != null) {
       DateTime? nearest;
-      for (final dim in SkillDimension.values) {
+      for (final dim in inputDimensions) {
         final d = state.skill(dim).dueDate;
         if (nearest == null || d.isBefore(nearest)) {
           nearest = d;

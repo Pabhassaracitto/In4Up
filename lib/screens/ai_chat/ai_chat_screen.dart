@@ -208,7 +208,7 @@ Câu hỏi của người học: $question''';
                         onSubmitted: (_) => _send(facade),
                         decoration: InputDecoration(
                           hintText: context.uiText(
-                            'Hỏi I2U về từ vựng, ngữ pháp...',
+                            'Hỏi I4U về từ vựng, ngữ pháp...',
                           ),
                           filled: true,
                           fillColor: const Color(0xFF171D34),
@@ -284,7 +284,7 @@ class _ModelStatusBanner extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text('${ui('Đang copy model…')} $pct%',
+              child: Text(context.uiText('${ui('Đang copy model…')} $pct%'),
                   style: const TextStyle(fontSize: 12)),
             ),
             LinearProgressIndicator(
@@ -306,7 +306,7 @@ class _ModelStatusBanner extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text('${ui('Đang tải model…')} $pct%',
+              child: Text(context.uiText('${ui('Đang tải model…')} $pct%'),
                   style: const TextStyle(fontSize: 12)),
             ),
             LinearProgressIndicator(
@@ -335,7 +335,7 @@ class _ModelStatusBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${ui('Lỗi')}: ${facade.engineError ?? ''}',
+                  context.uiText('${ui('Lỗi')}: ${facade.engineError ?? ''}'),
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFFFFC2CE)),
                 ),
@@ -391,7 +391,7 @@ class _ModelStatusBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${ui('Lỗi')}: ${facade.importError ?? ''}',
+                  context.uiText('${ui('Lỗi')}: ${facade.importError ?? ''}'),
                   style: const TextStyle(
                       fontSize: 12, color: Color(0xFFFFC2CE)),
                 ),
@@ -540,7 +540,7 @@ class _EmptyChat extends StatelessWidget {
                   size: 48, color: Color(0xFFB388FF)),
               const SizedBox(height: 16),
               Text(
-                context.uiText('Trợ lý học tập I2U'),
+                context.uiText('Trợ lý học tập I4U'),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -705,7 +705,7 @@ class _RemoteRouteBanner extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 22),
               child: Text(
-                '${ui('Lỗi API')} (${apiError.code.name}): ${apiError.message}',
+                context.uiText('${ui('Lỗi API')} (${apiError.code.name}): ${apiError.message}'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 10, color: Color(0xFFFFC2CE)),

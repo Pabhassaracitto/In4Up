@@ -36,3 +36,9 @@ analyzer:
     # chúng ⇒ không analyze chung, tránh lỗi đỏ từ code không chạy.
     - "packages/vipsound_ai/**"
     - "packages/vipsound_core/**"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - linux/**

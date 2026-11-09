@@ -20,6 +20,10 @@ class UnderstandProvider extends ChangeNotifier {
   int _currentLineIndex = -1;
   int get currentLineIndex => _currentLineIndex;
 
+  // Keep the latest player clock even before LRC exists. Transcription can
+  // finish while paused, without a later playback tick to select the line.
+  Duration _lastPosition = Duration.zero;
+
   // Mode luyện tập hiện tại (Đồng bộ / Shadowing) — UnderstandModeScreen đồng
   // bộ theo TabController. AI Coach chỉ ĐỌC giá trị này để gắn vào context;
   // đóng sheet/chat không bao giờ reset nó.
@@ -49,9 +53,10 @@ class UnderstandProvider extends ChangeNotifier {
     Duration lineDuration = const Duration(seconds: 4);
     if (index + 1 < _lrcLines.length) {
       lineDuration = _lrcLines[index + 1].timestamp - line.timestamp;
-      // Clamp để tránh duration quá ngắn/dài
-      if (lineDuration.inMilliseconds < 800) {
-        lineDuration = const Duration(milliseconds: 800);
+      // Never estimate words beyond the next line's real start. Equal
+      // timestamps can occur in imported LRC; keep their duration at zero.
+      if (lineDuration.isNegative) {
+        lineDuration = Duration.zero;
       } else if (lineDuration.inMilliseconds > 8000) {
         lineDuration = const Duration(seconds: 8);
       }
@@ -74,6 +79,7 @@ class UnderstandProvider extends ChangeNotifier {
   void clear() {
     _lrcLines = [];
     _currentLineIndex = -1;
+    _currentWordIndex = -1;
     _understandLines = [];
     _currentUnderstandLineIndex = -1;
     _isUnderstanding = false;
@@ -89,23 +95,42 @@ class UnderstandProvider extends ChangeNotifier {
   }
 
   void loadLrcLines(List<LrcLine> lines) {
-    _lrcLines = lines.where((l) => l.text.isNotEmpty).toList();
-    _currentLineIndex = -1;
+    // Imported LRC and partial AI results are not guaranteed to be sorted.
+    // Preserve the input order for equal timestamps, without changing the file.
+    final indexed = lines.asMap().entries
+        .where((entry) => entry.value.text.trim().isNotEmpty)
+        .toList();
+    indexed.sort((a, b) {
+      final time = a.value.timestamp.compareTo(b.value.timestamp);
+      return time == 0 ? a.key.compareTo(b.key) : time;
+    });
+    _lrcLines = indexed.map((entry) => entry.value).toList();
+    _currentLineIndex = _lineIndexAt(_lastPosition);
+    _currentWordIndex = _computeWordIndex(_lastPosition);
     notifyListeners();
   }
 
-  void updatePosition(Duration position) {
-    if (_lrcLines.isEmpty) return;
-
-    int newIndex = -1;
-    for (int i = 0; i < _lrcLines.length; i++) {
-      if (_lrcLines[i].timestamp <= position) {
-        newIndex = i;
+  // Last line whose start is at or before the player clock. This also handles
+  // seeks backwards and long transcripts without scanning every line per tick.
+  int _lineIndexAt(Duration position) {
+    var low = 0;
+    var high = _lrcLines.length;
+    while (low < high) {
+      final mid = low + (high - low) ~/ 2;
+      if (_lrcLines[mid].timestamp <= position) {
+        low = mid + 1;
       } else {
-        break;
+        high = mid;
       }
     }
+    return low - 1;
+  }
 
+  void updatePosition(Duration position) {
+    _lastPosition = position;
+    if (_lrcLines.isEmpty) return;
+
+    final newIndex = _lineIndexAt(position);
     final lineChanged = newIndex != _currentLineIndex;
     if (lineChanged) {
       _currentLineIndex = newIndex;

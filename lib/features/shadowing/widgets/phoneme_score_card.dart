@@ -42,7 +42,7 @@ class PhonemeScoreCard extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '$score',
+                context.uiText('$score'),
                 style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
@@ -69,7 +69,7 @@ class PhonemeScoreCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Grade: $grade',
+              context.uiText('Grade: $grade'),
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,

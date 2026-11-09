@@ -21,12 +21,15 @@ import '../../memory_mode/controllers/memory_controller.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../features/vocab_image/vocab_image_quick_add.dart';
 import '../../../features/vocab_image/vocab_image_thumbnail.dart';
+import '../../../features/vocab_image/vocab_media_slots_editor.dart';
 import 'knowledge_graph_screen.dart';
+import 'concept_screens.dart';
 import 'single_word_review_screen.dart';
 import 'word_import_sheet.dart';
 import 'word_list_models.dart' hide WordEntry;
 import 'wordlist_playback_service.dart';
-import 'youglish_mini_sheet.dart';
+import 'wordlist_read_settings_sheet.dart';
+import '../youglish/youglish_mini_sheet.dart';
 
 // ══════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -273,6 +276,18 @@ class _WordListScreenState extends State<WordListScreen> {
                   ),
                 ),
                 tooltip: 'Knowledge Graph',
+              ),
+              // PLAN-043 Pha A (ADR-0023) — vào kho khái niệm đa ngữ.
+              IconButton(
+                icon: const Icon(Icons.psychology_alt_outlined,
+                    color: Color(0xFF9C8FFF), size: 20),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ConceptsScreen(),
+                  ),
+                ),
+                tooltip: context.uiText('Khái niệm đa ngữ'),
               ),
               _buildOverflowMenu(p),
             ],
@@ -769,6 +784,14 @@ class _WordListScreenState extends State<WordListScreen> {
             onTap: () => _showSortSheet(),
           ),
           const Spacer(),
+          // PLAN-043 mục 2 — cài đặt đọc từ + nghĩa (thứ tự/lần lặp/ngôn ngữ).
+          IconButton(
+            tooltip: context.uiText('Đọc từ + nghĩa'),
+            icon: const Icon(Icons.tune_rounded,
+                size: 18, color: Color(0xFF9C8FFF)),
+            visualDensity: VisualDensity.compact,
+            onPressed: _showReadSettings,
+          ),
           _ListRepeatButton(
             count: _playbackService.listRepeatCount,
             current: _playbackService.listRepeatCurrent,
@@ -802,7 +825,7 @@ class _WordListScreenState extends State<WordListScreen> {
             itemBuilder: (_, i) {
               final entry = items[i];
               final isPlaying = _playbackService.isPlaying &&
-                  _playbackService.playingIndex == i;
+                  _playbackService.currentWord?.id == entry.id;
               final isSelected = _selectedIds.contains(entry.id);
               final isExpanded =
                   _expandedId == entry.id || _settings.definitionsExpanded;
@@ -865,7 +888,7 @@ class _WordListScreenState extends State<WordListScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Text('${(p.progress * 100).toInt()}%',
+          Text(context.uiText('${(p.progress * 100).toInt()}%'),
               style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 10,
@@ -1271,6 +1294,18 @@ class _WordListScreenState extends State<WordListScreen> {
     await _playbackService.stopPlayback();
   }
 
+  Future<void> _showReadSettings() async {
+    await _playbackService.ensureReadSettingsLoaded();
+    if (!mounted) return;
+    final next = await WordlistReadSettingsSheet.show(
+      context,
+      _playbackService.readSettings,
+    );
+    if (next != null) {
+      await _playbackService.updateReadSettings(next);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════
   // SHEETS & DIALOGS
   // ═══════════════════════════════════════════════════════
@@ -1612,6 +1647,8 @@ class _WordListScreenState extends State<WordListScreen> {
     final Set<String> allTopicOptions = p.allTopics;
     VocabularyType selectedType = entry.vocabType;
     String? selectedImagePath = entry.imageUrl;
+    // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (slot 2) của màn sửa từ.
+    String? selectedImagePath2 = entry.imageUrl2;
 
     showModalBottomSheet(
       context: context,
@@ -1658,14 +1695,19 @@ class _WordListScreenState extends State<WordListScreen> {
                     const SizedBox(height: 10),
                     _editField(topicC, 'Chủ đề chính / Thư mục', Icons.folder_outlined),
                     const SizedBox(height: 12),
-                    // Image picker
+                    // VOCAB-MEDIA-003 (ADR-0013) — ô minh họa 2 khung (ảnh
+                    // chính + ảnh phụ), menu mỗi khung: Đổi/Xoá/Đặt làm chính.
                     Center(
-                      child: VocabImagePicker(
+                      child: VocabMediaSlotsEditor(
                         word: wordC.text,
                         meaning: meanC.text,
-                        currentImageUrl: selectedImagePath,
-                        onImageChanged: (path) => setS(() => selectedImagePath = path),
-                        size: 120,
+                        primaryUrl: selectedImagePath,
+                        secondaryUrl: selectedImagePath2,
+                        onChanged: (a, b) => setS(() {
+                          selectedImagePath = a;
+                          selectedImagePath2 = b;
+                        }),
+                        size: 110,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1694,7 +1736,7 @@ class _WordListScreenState extends State<WordListScreen> {
                             .toList()
                               ..sort())
                           ChoiceChip(
-                            label: Text('+ $t',
+                            label: Text(context.uiText('+ $t'),
                                 style: const TextStyle(
                                     color: Colors.white54, fontSize: 11)),
                             selected: false,
@@ -1743,7 +1785,7 @@ class _WordListScreenState extends State<WordListScreen> {
                         for (final lang in List<String>.of(allLangOptions)..sort())
                           ChoiceChip(
                             label: Text(
-                              '${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}',
+                              context.uiText('${lang == 'en' ? 'Tiếng Anh' : lang == 'vi' ? 'Tiếng Việt' : lang == 'pali' ? 'Pali' : lang == 'my' ? 'Burmese' : lang}${selectedLangs.contains(lang) ? ' ✓' : ''}'),
                               style: TextStyle(color: selectedLangs.contains(lang) ? Colors.white : Colors.grey, fontSize: 11),
                             ),
                             selected: selectedLangs.contains(lang),
@@ -1780,7 +1822,10 @@ class _WordListScreenState extends State<WordListScreen> {
                               languages: selectedLangs.toList(),
                               vocabType: selectedType,
                             );
-                            p.updateImageUrl(entry.id, selectedImagePath);
+                            // VOCAB-MEDIA-003: ghi cả 2 slot (updateMediaSlots
+                            // tự giữ quy tắc promote khi xoá ảnh chính).
+                            p.updateMediaSlots(
+                                entry.id, selectedImagePath, selectedImagePath2);
                             if (noteC.text.trim().isNotEmpty) {
                               p.updateNotes(entry.id, noteC.text.trim());
                             }
@@ -1996,7 +2041,7 @@ class _CompactListItem extends StatelessWidget {
                                           .zone.color
                                           .withValues(alpha: 0.7))))),
                           const SizedBox(width: 3),
-                          Text('${(entry.mastery * 100).toInt()}%',
+                          Text(context.uiText('${(entry.mastery * 100).toInt()}%'),
                               style: TextStyle(
                                   color: Colors.grey[600], fontSize: 9)),
                         ]),
@@ -2012,7 +2057,7 @@ class _CompactListItem extends StatelessWidget {
                     decoration: BoxDecoration(
                         color: Color(0xFFFFB300).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4)),
-                    child: Text('📌${entry.encounterCount}',
+                    child: Text(context.uiText('📌${entry.encounterCount}'),
                         style: const TextStyle(fontSize: 9))),
 
               // Per-word repeat
@@ -2167,18 +2212,6 @@ class _CompactListItem extends StatelessWidget {
         Divider(color: Colors.white.withValues(alpha: 0.06), height: 4),
         const SizedBox(height: 8),
 
-        // Vocab Image Thumbnail
-        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
-          Center(
-            child: VocabImageThumbnail(
-              imageUrl: entry.imageUrl,
-              size: 80,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-
         // Contexts
         if (entry.contexts.isNotEmpty) ...[
           _SectionHeader(
@@ -2276,38 +2309,22 @@ class _CompactListItem extends StatelessWidget {
           const SizedBox(height: 8),
         ],
 
-        // Image (if exists)
-        if (entry.imageUrl != null && entry.imageUrl!.isNotEmpty) ...[
-          const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),
-          const SizedBox(height: 6),
-          Center(
-            child: VocabImageThumbnail(
-              imageUrl: entry.imageUrl,
-              size: 120,
-              borderRadius: BorderRadius.circular(12),
-            ),
+        // VOCAB-MEDIA-003 (ADR-0013) — ô minh họa 2 khung (ảnh chính + ảnh
+        // phụ); khung trống có nút "+", mỗi khung có menu Đổi/Xoá/Đặt làm ảnh
+        // chính. Danh sách (thu nhỏ) vẫn chỉ hiện 1 thumbnail ảnh chính.
+        const _SectionHeader(icon: Icons.image_outlined, label: 'Hình ảnh ghi nhớ'),
+        const SizedBox(height: 6),
+        Center(
+          child: VocabMediaSlotsEditor(
+            wordId: entry.id,
+            word: entry.word,
+            meaning: entry.meaning,
+            primaryUrl: entry.imageUrl,
+            secondaryUrl: entry.imageUrl2,
+            size: 120,
           ),
-          const SizedBox(height: 8),
-        ],
-
-        // Image picker (always show in expanded for adding/editing)
-        if (entry.imageUrl == null || entry.imageUrl!.isEmpty) ...[
-          const _SectionHeader(icon: Icons.add_photo_alternate_outlined, label: 'Thêm hình ảnh'),
-          const SizedBox(height: 6),
-          Center(
-            child: VocabImagePicker(
-              wordId: entry.id,
-              word: entry.word,
-              meaning: entry.meaning,
-              currentImageUrl: entry.imageUrl,
-              onImageChanged: (path) {
-                // Image already saved by VocabImagePicker via provider
-              },
-              size: 100,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+        ),
+        const SizedBox(height: 8),
 
         // Notes
         if (entry.personalNotes != null && entry.personalNotes!.isNotEmpty) ...[

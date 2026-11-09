@@ -95,7 +95,7 @@ class _ChunkingFlowScreenState extends State<ChunkingFlowScreen> {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 Text(
-                  'Bước ${stepIndex + 1}/$totalSteps: ${step.title}',
+                  context.uiText('Bước ${stepIndex + 1}/$totalSteps: ${step.title}'),
                   style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                 ),
               ],

@@ -2,27 +2,37 @@ import 'package:in4up/core/language/localized_material.dart';
 
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/models/reader_appearance.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/reader_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
+import 'package:in4up/features/tipitaka/services/scroll_sync.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 
 class TipitakaWorkspaceTab {
   final TipitakaBook book;
   final String title;
   final int? initialSegmentId;
+  final String? instanceId;
 
   const TipitakaWorkspaceTab({
     required this.book,
     required this.title,
     this.initialSegmentId,
+    this.instanceId,
   });
 
-  String get id => '${book.id}:${initialSegmentId ?? 'all'}';
+  String get id => [
+        book.id,
+        initialSegmentId ?? 'all',
+        if (instanceId != null) instanceId,
+      ].join(':');
 }
 
-/// Obsidian-style reading workspace. Every tab remains mounted while hidden,
-/// so loaded pages, scroll offsets, selections, and TTS cursors survive tab
-/// changes. Split view simply reveals a second mounted tab.
+/// Obsidian-style reading workspace. A tab is mounted on first activation and
+/// then kept mounted while hidden, so loaded pages, scroll offsets, selections,
+/// and TTS cursors survive tab changes. Split view reveals a second mounted tab.
 typedef TipitakaWorkspaceReaderBuilder = Widget Function(
   BuildContext context,
   TipitakaWorkspaceTab tab,
@@ -54,6 +64,94 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
   int _primaryIndex = 0;
   int? _secondaryIndex;
   bool _split = false;
+  int _tabInstanceCounter = 0;
+  final Set<String> _visitedTabIds = <String>{};
+  final TipitakaScrollSyncController _scrollSync =
+      TipitakaScrollSyncController();
+
+  @override
+  void initState() {
+    super.initState();
+    _visitedTabIds.add(_tabs.first.id);
+  }
+
+  @override
+  void dispose() {
+    _scrollSync.dispose();
+    super.dispose();
+  }
+
+  /// PSRC-159: catalogue/outline titles must use an imported translation,
+  /// not the raw app UI locale (which commonly has no pack installed).
+  Future<String> _catalogLanguage() async {
+    final uiLanguage = Localizations.localeOf(context).languageCode;
+    final db = await TipitakaDb.openReady();
+    final info = await TipitakaDb.info(db);
+    return resolveTipitakaDisplayLanguage(
+      availableLanguages: info.availableLanguages,
+      preferredLanguage: TipitakaReaderAppearance.instance.primaryLanguage,
+      uiLanguage: uiLanguage,
+    );
+  }
+
+  bool get _canSyncEditions {
+    final secondary = _secondaryIndex;
+    if (!_split || secondary == null) return false;
+    final left = _tabs[_primaryIndex].book.catalogIndex;
+    final right = _tabs[secondary].book.catalogIndex;
+    return left.parallelFamilyCode == right.parallelFamilyCode &&
+        _tabs[_primaryIndex].book.id != _tabs[secondary].book.id;
+  }
+
+  Future<void> _openParallelEdition(TipitakaWorkspaceTab source) async {
+    try {
+      final language = await _catalogLanguage();
+      final db = await TipitakaDb.openReady();
+      final book = await TipitakaDb.getParallelBook(
+        db,
+        source.book,
+        languageCode: language,
+      );
+      if (!mounted) return;
+      if (book == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.uiText('Không tìm thấy bản đối chiếu cho sách này.'))),
+        );
+        return;
+      }
+      int? targetSegmentId;
+      if (source.initialSegmentId != null) {
+        final order = await TipitakaDb.getSegmentOrderIndex(
+          db,
+          source.initialSegmentId!,
+        );
+        if (order != null) {
+          targetSegmentId = (await TipitakaDb.getSegmentAtOrder(db, book.id, order))?.id;
+        }
+      }
+      final tab = TipitakaWorkspaceTab(
+        book: book,
+        title: book.displayTitle(language),
+        initialSegmentId: targetSegmentId,
+      );
+      final existing = _tabs.indexWhere((item) => item.id == tab.id);
+      setState(() {
+        final sourceIndex = _tabs.indexWhere((item) => item.id == source.id);
+        final targetIndex = existing >= 0 ? existing : _tabs.length;
+        if (existing < 0) _tabs.add(tab);
+        _visitedTabIds.add(_tabs[targetIndex].id);
+        _primaryIndex = sourceIndex < 0 ? _primaryIndex : sourceIndex;
+        _secondaryIndex = targetIndex;
+        _split = true;
+        _scrollSync.enabled = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Không thể mở bản đối chiếu: $error'))),
+      );
+    }
+  }
 
   void _openTab(TipitakaWorkspaceTab tab) {
     final existing = _tabs.indexWhere((item) => item.id == tab.id);
@@ -65,15 +163,32 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
         _tabs.add(tab);
         _primaryIndex = _tabs.length - 1;
       }
+      _visitedTabIds.add(_tabs[_primaryIndex].id);
       if (_tabs.length > 1 && previous != _primaryIndex) {
         _secondaryIndex = previous;
       }
     });
   }
 
+  /// Keeps a separate reading instance of the current book and starting point.
+  /// Repeated taps intentionally create independent tabs, while each reader is
+  /// still mounted only after first activation to avoid eagerly loading every
+  /// added book into memory.
+  void _duplicateTab(TipitakaWorkspaceTab source) {
+    _openTab(
+      TipitakaWorkspaceTab(
+        book: source.book,
+        title: source.title,
+        initialSegmentId: source.initialSegmentId,
+        instanceId: 'copy-${++_tabInstanceCounter}',
+      ),
+    );
+  }
+
   void _selectPrimary(int index) {
     if (index == _primaryIndex) return;
     setState(() {
+      _visitedTabIds.add(_tabs[index].id);
       if (_split && index == _secondaryIndex) {
         _secondaryIndex = _primaryIndex;
       }
@@ -92,8 +207,10 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     }
     setState(() {
       _split = !_split;
+      if (!_split) _scrollSync.enabled = false;
       if (_split && (_secondaryIndex == null || _secondaryIndex == _primaryIndex)) {
         _secondaryIndex = _primaryIndex == 0 ? 1 : 0;
+        _visitedTabIds.add(_tabs[_secondaryIndex!].id);
       }
     });
   }
@@ -106,6 +223,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     setState(() {
       final oldPrimary = _primaryIndex;
       final oldSecondary = _secondaryIndex;
+      _visitedTabIds.remove(_tabs[index].id);
       _tabs.removeAt(index);
 
       if (index < oldPrimary) {
@@ -123,17 +241,22 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
       }
       if (_tabs.length < 2) {
         _split = false;
+        _scrollSync.enabled = false;
         _secondaryIndex = null;
       } else if (_split &&
           (_secondaryIndex == null || _secondaryIndex == _primaryIndex)) {
         _secondaryIndex = _primaryIndex == 0 ? 1 : 0;
+      }
+      _visitedTabIds.add(_tabs[_primaryIndex].id);
+      if (_split && _secondaryIndex != null) {
+        _visitedTabIds.add(_tabs[_secondaryIndex!].id);
       }
     });
   }
 
   Future<void> _showBookPicker() async {
     try {
-      final language = Localizations.localeOf(context).languageCode;
+      final language = await _catalogLanguage();
       final db = await TipitakaDb.openReady();
       final collections = await TipitakaDb.getCollections(db);
       final groups = <TipitakaCollection, List<TipitakaBook>>{};
@@ -226,7 +349,7 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
               const Divider(),
               for (var index = 0; index < outline.length; index++)
                 ListTile(
-                  leading: Text('${index + 1}'),
+                  leading: Text(context.uiText('${index + 1}')),
                   title: Text(_outlineTitle(outline[index], language, index)),
                   onTap: () => Navigator.pop(context, outline[index].id),
                 ),
@@ -257,22 +380,14 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
     int index,
   ) {
     var text = segment.translationFor(language).trim();
-    if (text.isEmpty) text = segment.paliText.trim();
+    if (text.isEmpty) text = segment.canonicalPaliText.trim();
     if (text.isEmpty) text = segment.firstTranslation?.value.trim() ?? '';
-    text = text
-        .replaceAll(RegExp(r'<[^>]*>'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    text = cleanTipitakaText(text).replaceAll(RegExp(r'\s+'), ' ').trim();
     return text.isEmpty ? '${index + 1}. ${context.uiText('Mục chưa có tiêu đề')}' : text;
   }
 
-  String _collectionTitle(TipitakaCollection collection, String language) {
-    if (language == 'vi' && collection.nameVi.trim().isNotEmpty) {
-      return collection.nameVi;
-    }
-    if (collection.nameEn.trim().isNotEmpty) return collection.nameEn;
-    return collection.namePali;
-  }
+  String _collectionTitle(TipitakaCollection collection, String language) =>
+      collection.displayTitle(language);
 
   @override
   Widget build(BuildContext context) {
@@ -291,6 +406,17 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
             tooltip: context.uiText('Chia đôi màn hình'),
             icon: Icon(_split ? Icons.vertical_split : Icons.view_sidebar_outlined),
           ),
+          if (_canSyncEditions)
+            IconButton(
+              key: const ValueKey('tipitaka-toggle-scroll-sync'),
+              onPressed: () => setState(() {
+                _scrollSync.enabled = !_scrollSync.enabled;
+              }),
+              tooltip: context.uiText('Đồng bộ cuộn hai ấn bản'),
+              icon: Icon(
+                _scrollSync.enabled ? Icons.sync : Icons.sync_disabled,
+              ),
+            ),
         ],
       ),
       body: Column(
@@ -345,6 +471,13 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
                         ),
                       ),
                       IconButton(
+                        key: ValueKey('tipitaka-duplicate-tab-${_tabs[index].id}'),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: context.uiText('Nhân đôi tab'),
+                        onPressed: () => _duplicateTab(_tabs[index]),
+                        icon: const Icon(Icons.library_add_outlined, size: 16),
+                      ),
+                      IconButton(
                         visualDensity: VisualDensity.compact,
                         tooltip: context.uiText('Đóng tab'),
                         onPressed: () => _closeTab(index),
@@ -382,16 +515,23 @@ class _TipitakaWorkspaceScreenState extends State<TipitakaWorkspaceScreen> {
             bottom: 0,
             child: Offstage(
               offstage: index != _primaryIndex && index != secondary,
-              child: widget.readerBuilder?.call(context, _tabs[index]) ??
-                  TipitakaReaderScreen(
-                    key: ValueKey('tipitaka-workspace-${_tabs[index].id}'),
-                    bookId: _tabs[index].book.id,
-                    bookCode: _tabs[index].book.code,
-                    bookName: _tabs[index].title,
-                    book: _tabs[index].book,
-                    initialSegmentId: _tabs[index].initialSegmentId,
-                    embedded: true,
-                  ),
+              child: _visitedTabIds.contains(_tabs[index].id)
+                  ? widget.readerBuilder?.call(context, _tabs[index]) ??
+                      TipitakaReaderScreen(
+                        key: ValueKey(
+                          'tipitaka-workspace-${_tabs[index].id}',
+                        ),
+                        bookId: _tabs[index].book.id,
+                        bookCode: _tabs[index].book.code,
+                        bookName: _tabs[index].title,
+                        book: _tabs[index].book,
+                        initialSegmentId: _tabs[index].initialSegmentId,
+                        embedded: true,
+                        onOpenParallel: () =>
+                            _openParallelEdition(_tabs[index]),
+                        scrollSync: _canSyncEditions ? _scrollSync : null,
+                      )
+                  : const SizedBox.shrink(),
             ),
           ),
         if (_split)

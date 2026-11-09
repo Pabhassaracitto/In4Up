@@ -30,7 +30,7 @@ class SpeedChip extends StatelessWidget {
             const Icon(Icons.speed, size: 14, color: Colors.orange),
             const SizedBox(width: 4),
             Text(
-              '${speed}x',
+              context.uiText('${speed}x'),
               style: const TextStyle(
                 color: Colors.orange,
                 fontSize: 12,

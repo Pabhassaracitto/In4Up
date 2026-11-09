@@ -9,15 +9,24 @@
 //  ✅ Tab "Đánh giá nhanh" để tự test từng chiều
 // ═══════════════════════════════════════════════════════════════
 
+import 'dart:async';
+
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
+import '../../features/tts/tts_service.dart';
 import '../../models/word_entry.dart';
+import '../../services/ipa_resolver.dart';
+import 'vocabulary_map_clusters.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../widgets/skill_triangle.dart';
 import '../../widgets/word_detail_sheet.dart';
 
 class TriangleTab extends StatefulWidget {
-  const TriangleTab({super.key});
+  /// Optional pronunciation seam for tests or an alternative speech service.
+  const TriangleTab({super.key, this.pronounce});
+
+  final Future<void> Function(String text, String language)? pronounce;
 
   @override
   State<TriangleTab> createState() => _TriangleTabState();
@@ -62,9 +71,9 @@ class _TriangleTabState extends State<TriangleTab>
         Expanded(
           child: TabBarView(
             controller: _tabCtrl,
-            children: const [
-              _TriangleMapView(),
-              _AssessmentView(),
+            children: [
+              const _TriangleMapView(),
+              _AssessmentView(pronounce: widget.pronounce),
             ],
           ),
         ),
@@ -88,237 +97,157 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<VocabularyProvider>(
-      builder: (context, prov, _) {
-        if (prov.total == 0) {
-          return const Center(
-              child: Text('Chưa có từ vựng',
-                  style: TextStyle(color: Colors.grey)));
-        }
-
-        return Column(
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final size = constraints.maxWidth < constraints.maxHeight
-                          ? constraints.maxWidth
-                          : constraints.maxHeight;
-                      final cx = constraints.maxWidth / 2;
-                      final cy = size / 2 + 20;
-                      final r = size * 0.38;
-
-                      final vertices = [
-                        Offset(cx, cy - r),
-                        Offset(cx - r * 0.866, cy + r * 0.5),
-                        Offset(cx + r * 0.866, cy + r * 0.5),
-                      ];
-                      final center = Offset(cx, cy + r * 0.1);
-
-                      return Stack(
-                        children: [
-                          CustomPaint(
-                            size: Size(
-                                constraints.maxWidth, constraints.maxHeight),
-                            painter: _TriangleFramePainter(
-                                vertices: vertices, center: center),
-                          ),
-                          ..._buildLabels(vertices),
-                          ...prov.allWords.map((w) {
-                            final pos = _wordPosition(w, vertices, center);
-                            return Positioned(
-                              left: pos.dx - w.visualSize / 2,
-                              top: pos.dy - w.visualSize / 2,
-                              child: GestureDetector(
-                                onTap: () =>
-                                    setState(() => _selectedWordId = w.id),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  width: w.visualSize,
-                                  height: w.visualSize,
-                                  decoration: BoxDecoration(
-                                    color: w.visualColor.withAlpha(
-                                        (w.visualOpacity * 200).toInt()),
-                                    shape: BoxShape.circle,
-                                    border: _selectedWordId == w.id
-                                        ? Border.all(
-                                            color: Colors.black, width: 2)
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      w.word.length > 6
-                                          ? '${w.word.substring(0, 5)}…'
-                                          : w.word,
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        fontWeight: w.visualWeight,
-                                        color: Colors.white,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-                      );
-                    },
-                  ),
-
-                  // Legend
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(230),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withAlpha(20), blurRadius: 8),
-                        ],
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('📍 Vị trí:',
-                              style: TextStyle(
-                                  fontSize: 10, fontWeight: FontWeight.bold)),
-                          Text('• Gần đỉnh = mạnh skill đó',
-                              style: TextStyle(fontSize: 9)),
-                          Text('• Tâm = cân bằng',
-                              style: TextStyle(fontSize: 9)),
-                          SizedBox(height: 4),
-                          Text('📏 Khoảng cách:',
-                              style: TextStyle(
-                                  fontSize: 10, fontWeight: FontWeight.bold)),
-                          Text('• Xa tâm = mastery cao',
-                              style: TextStyle(fontSize: 9)),
-                          Text('• Gần tâm = mastery thấp',
-                              style: TextStyle(fontSize: 9)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    return Consumer<VocabularyProvider>(builder: (context, prov, _) {
+      if (prov.total == 0) {
+        return const Center(child: Text('Chưa có từ vựng', style: TextStyle(color: Colors.grey)));
+      }
+      final selected = prov.allWords.where((word) => word.id == _selectedWordId).toList();
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Text(
+              context.uiText('Gần đỉnh: kỹ năng tương đối mạnh · Tâm: các kỹ năng cân bằng'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
             ),
-
-            // Selected word panel
-            if (_selectedWordId != null &&
-                prov.allWords.any((w) => w.id == _selectedWordId))
-              _buildSelectedWordPanel(context, prov),
-          ],
-        );
-      },
-    );
-  }
-
-  Offset _wordPosition(WordEntry w, List<Offset> vertices, Offset center) {
-    final x = vertices[0].dx * w.understand +
-        vertices[1].dx * w.listen +
-        vertices[2].dx * w.read;
-    final y = vertices[0].dy * w.understand +
-        vertices[1].dy * w.listen +
-        vertices[2].dy * w.read;
-    final sum = w.understand + w.listen + w.read;
-    final rawX = sum > 0 ? x / sum : center.dx;
-    final rawY = sum > 0 ? y / sum : center.dy;
-
-    final scaleFactor = 0.3 + w.mastery * 0.7;
-    return Offset(
-      center.dx + (rawX - center.dx) * scaleFactor,
-      center.dy + (rawY - center.dy) * scaleFactor,
-    );
-  }
-
-  List<Widget> _buildLabels(List<Offset> vertices) {
-    final labels = [
-      ('🔵 HIỂU', const Color(0xFF42A5F5), const Offset(0, -30)),
-      ('🟢 NGHE', const Color(0xFF66BB6A), const Offset(-30, 15)),
-      ('🔴 ĐỌC', const Color(0xFFEF5350), const Offset(30, 15)),
-    ];
-    return List.generate(3, (i) {
-      return Positioned(
-        left: vertices[i].dx + labels[i].$3.dx - 30,
-        top: vertices[i].dy + labels[i].$3.dy - 10,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: labels[i].$2,
-            borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(context.uiText(labels[i].$1),
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11)),
-        ),
+          Expanded(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final size = constraints.biggest;
+              if (size.isEmpty) return const SizedBox.shrink();
+              final shortest = size.width < size.height ? size.width : size.height;
+              final radius = (shortest * 0.38).clamp(0.0, 240.0);
+              final center = Offset(size.width / 2, size.height / 2);
+              final vertices = [
+                Offset(center.dx, center.dy - radius),
+                Offset(center.dx - radius * 0.866, center.dy + radius * 0.5),
+                Offset(center.dx + radius * 0.866, center.dy + radius * 0.5),
+              ];
+              final clusters = clusterVocabularyMapPoints([
+                for (final word in prov.allWords)
+                  VocabularyMapPoint(word, _wordPosition(word, vertices, center)),
+              ]);
+              return Container(
+                color: const Color(0xFF0D1526),
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: CustomPaint(
+                      painter: _TriangleFramePainter(vertices: vertices, center: center),
+                    )),
+                    ..._buildLabels(vertices),
+                    for (final cluster in clusters)
+                      Positioned(
+                        left: cluster.center.dx - cluster.diameter / 2,
+                        top: cluster.center.dy - cluster.diameter / 2,
+                        child: VocabularyClusterMarker(
+                          key: ValueKey('triangle_cluster_${cluster.words.first.id}'),
+                          cluster: cluster,
+                          selectedWordId: _selectedWordId,
+                          onTap: () => _selectCluster(cluster),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            child: Text(context.uiText('Chạm cụm để chọn từng từ'),
+                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+          ),
+          if (selected.isNotEmpty) _buildSelectedWordPanel(selected.first),
+        ],
       );
     });
   }
 
-  Widget _buildSelectedWordPanel(
-      BuildContext context, VocabularyProvider prov) {
-    final word = prov.allWords.firstWhere((w) => w.id == _selectedWordId);
+  Future<void> _selectCluster(VocabularyMapCluster cluster) async {
+    final word = cluster.words.length == 1
+        ? cluster.words.first
+        : await showVocabularyClusterSheet(context, cluster.words);
+    if (mounted && word != null) setState(() => _selectedWordId = word.id);
+  }
 
+  Offset _wordPosition(WordEntry word, List<Offset> vertices, Offset center) {
+    final sum = word.understand + word.listen + word.read;
+    if (sum <= 0) return center;
+    final weighted = (vertices[0] * word.understand +
+        vertices[1] * word.listen + vertices[2] * word.read) / sum;
+    final scale = 0.3 + word.mastery * 0.7;
+    return center + (weighted - center) * scale;
+  }
+
+  List<Widget> _buildLabels(List<Offset> vertices) {
+    final labels = [
+      ('🔵 HIỂU', const Color(0xFF42A5F5), const Offset(0, -29)),
+      ('🟢 NGHE', const Color(0xFF66BB6A), const Offset(-20, 15)),
+      ('🔴 ĐỌC', const Color(0xFFEF5350), const Offset(20, 15)),
+    ];
+    return List.generate(3, (i) => Positioned(
+      left: vertices[i].dx + labels[i].$3.dx - 30,
+      top: vertices[i].dy + labels[i].$3.dy - 10,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: labels[i].$2, borderRadius: BorderRadius.circular(12)),
+        child: Text(context.uiText(labels[i].$1),
+            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 10)),
+      ),
+    ));
+  }
+
+  Widget _buildSelectedWordPanel(WordEntry word) {
     return Container(
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(16),
+      key: const Key('triangle_selected_panel'),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1A2235),
+        border: Border.all(color: Colors.white12),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(40), blurRadius: 12),
-        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                backgroundColor: word.zone.color,
-                radius: 20,
-                child: Icon(word.zone.icon, color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(word.word,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text(word.meaning,
-                        style: TextStyle(
-                            color: Colors.grey.shade600, fontSize: 13)),
-                  ],
-                ),
-              ),
+              CircleAvatar(backgroundColor: word.zone.color, radius: 18,
+                  child: Icon(word.zone.icon, color: Colors.black87, size: 18)),
+              const SizedBox(width: 10),
+              Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  material.Text(word.word, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  material.Text(word.meaning, maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                ],
+              )),
               IconButton(
-                icon: const Icon(Icons.close),
+                tooltip: context.uiText('Đóng'),
+                icon: const Icon(Icons.close, color: Colors.white70),
                 onPressed: () => setState(() => _selectedWordId = null),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _skillChip('Hiểu', word.understand, const Color(0xFF42A5F5)),
-              const SizedBox(width: 8),
-              _skillChip('Nghe', word.listen, const Color(0xFF66BB6A)),
-              const SizedBox(width: 8),
-              _skillChip('Đọc', word.read, const Color(0xFFEF5350)),
-              const Spacer(),
+              _skillChip(context.uiText('Hiểu'), word.understand, const Color(0xFF42A5F5)),
+              _skillChip(context.uiText('Nghe'), word.listen, const Color(0xFF66BB6A)),
+              _skillChip(context.uiText('Đọc'), word.read, const Color(0xFFEF5350)),
               TextButton.icon(
-                onPressed: () => _showDetail(context, word),
+                onPressed: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => WordDetailSheet(word: word),
+                ),
                 icon: const Icon(Icons.open_in_new, size: 16),
                 label: const Text('Chi tiết'),
               ),
@@ -329,35 +258,25 @@ class _TriangleMapViewState extends State<_TriangleMapView> {
     );
   }
 
-  Widget _skillChip(String label, double value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(100)),
-      ),
-      child: Text('$label: ${(value * 100).toInt()}%',
-          style: TextStyle(
-              fontSize: 11, color: color, fontWeight: FontWeight.w500)),
-    );
-  }
-
-  void _showDetail(BuildContext ctx, WordEntry w) {
-    showModalBottomSheet(
-      context: ctx,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => WordDetailSheet(word: w),
-    );
-  }
+  Widget _skillChip(String label, double value, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.13),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color.withValues(alpha: 0.5)),
+    ),
+    child: Text('$label: ${(value * 100).round()}%',
+        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+  );
 }
 
 // ══════════════════════════════════════════
 //  Assessment View (Đánh giá nhanh)
 // ══════════════════════════════════════════
 class _AssessmentView extends StatefulWidget {
-  const _AssessmentView();
+  const _AssessmentView({this.pronounce});
+
+  final Future<void> Function(String text, String language)? pronounce;
 
   @override
   State<_AssessmentView> createState() => _AssessmentViewState();
@@ -373,15 +292,21 @@ class _AssessmentViewState extends State<_AssessmentView>
   int _correct = 0;
   int _total = 0;
   List<WordEntry> _queue = [];
+  bool _playing = false;
+  bool _ipaPending = false;
+  String? _answerIpa;
+  String? _answerIpaSource;
+  int _ipaRequest = 0;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this)
       ..addListener(() {
-        if (!_tabCtrl.indexIsChanging) {
+        final skill = Skill.values[_tabCtrl.index];
+        if (!_tabCtrl.indexIsChanging && skill != _currentSkill) {
           setState(() {
-            _currentSkill = Skill.values[_tabCtrl.index];
+            _currentSkill = skill;
             _reset();
           });
         }
@@ -389,13 +314,16 @@ class _AssessmentViewState extends State<_AssessmentView>
   }
 
   void _reset() {
-    setState(() {
-      _currentIndex = 0;
-      _showAnswer = false;
-      _isComplete = false;
-      _correct = 0;
-      _total = 0;
-    });
+    _ipaRequest++;
+    _currentIndex = 0;
+    _showAnswer = false;
+    _isComplete = false;
+    _correct = 0;
+    _total = 0;
+    _queue = [];
+    _ipaPending = false;
+    _answerIpa = null;
+    _answerIpaSource = null;
   }
 
   @override
@@ -408,11 +336,24 @@ class _AssessmentViewState extends State<_AssessmentView>
   Widget build(BuildContext context) {
     return Consumer<VocabularyProvider>(
       builder: (context, prov, _) {
-        if (_queue.isEmpty || _currentIndex == 0 && !_isComplete) {
+        if (_queue.isEmpty && !_isComplete) {
           _queue = List<WordEntry>.from(prov.allWords)
-            ..sort((a, b) =>
-                a.scoreOf(_currentSkill).compareTo(b.scoreOf(_currentSkill)));
+            ..sort((a, b) => a.scoreOf(_currentSkill).compareTo(b.scoreOf(_currentSkill)));
           _queue = _queue.take(20).toList();
+        } else if (_queue.isNotEmpty && !_isComplete) {
+          // Provider entries are mutable; keep the current item stable while
+          // removing words deleted elsewhere and refreshing edited values.
+          final currentId = _queue[_currentIndex].id;
+          final byId = {for (final word in prov.allWords) word.id: word};
+          _queue = [for (final word in _queue) if (byId.containsKey(word.id)) byId[word.id]!];
+          final newIndex = _queue.indexWhere((word) => word.id == currentId);
+          if (newIndex >= 0) {
+            _currentIndex = newIndex;
+          } else {
+            _currentIndex = _queue.isEmpty ? 0 : _currentIndex.clamp(0, _queue.length - 1).toInt();
+            _showAnswer = false;
+            _ipaRequest++;
+          }
         }
 
         return Column(
@@ -443,7 +384,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    Text('${_currentIndex + 1} / ${_queue.length}',
+                    Text(context.uiText('${_currentIndex + 1} / ${_queue.length}'),
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(width: 12),
                     Expanded(
@@ -496,137 +437,205 @@ class _AssessmentViewState extends State<_AssessmentView>
 
   Widget _buildCard(VocabularyProvider prov) {
     final word = _queue[_currentIndex];
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _skillColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(_questionText,
-                style: TextStyle(color: _skillColor, fontSize: 14),
-                textAlign: TextAlign.center),
-          ),
-          const SizedBox(height: 32),
-
-          // Stimulus
-          _buildStimulus(word),
-          const SizedBox(height: 24),
-
-          // Answer reveal
-          if (_showAnswer) ...[
-            AnimatedOpacity(
-              opacity: 1.0,
-              duration: const Duration(milliseconds: 300),
-              child: Column(
-                children: [
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Text(word.meaning,
-                      style: const TextStyle(fontSize: 20, color: Colors.grey)),
-                  if (word.phonetic != null)
-                    Text(word.phonetic!,
-                        style: TextStyle(
-                            fontSize: 14, color: Colors.grey.shade500)),
-                  const SizedBox(height: 12),
-                  SkillTriangle(word: word, size: 80),
+    return LayoutBuilder(builder: (context, constraints) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: (constraints.maxHeight - 48).clamp(0.0, double.infinity)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: _skillColor.withAlpha(25), borderRadius: BorderRadius.circular(12)),
+                child: Text(_questionText,
+                    style: TextStyle(color: _skillColor, fontSize: 14), textAlign: TextAlign.center),
+              ),
+              const SizedBox(height: 24),
+              _buildStimulus(word),
+              const SizedBox(height: 20),
+              if (_showAnswer) ...[
+                const Divider(),
+                const SizedBox(height: 8),
+                if (_currentSkill == Skill.listen)
+                  material.Text(word.word, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                if (_currentSkill == Skill.read) ...[
+                  Text(_answerIpaSource == 'g2p' ? context.uiText('IPA (ước tính)') : 'IPA',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  if (_ipaPending)
+                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  else if ((_answerIpa ?? '').isNotEmpty)
+                    material.Text(_answerIpa!, key: const Key('assessment_ipa'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Color(0xFF80DEEA), fontSize: 24, fontWeight: FontWeight.w600))
+                  else
+                    Text(context.uiText('Chưa có IPA cho từ này'),
+                        style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  TextButton.icon(
+                    key: const Key('assessment_read_speak'),
+                    onPressed: _playing ? null : () => _playWord(word),
+                    icon: const Icon(Icons.volume_up, size: 18),
+                    label: Text(context.uiText('Nghe phát âm')),
+                  ),
+                ] else if ((word.phonetic ?? '').trim().isNotEmpty)
+                  material.Text(word.phonetic!, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                if (word.meaning.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  material.Text(word.meaning, textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 18, color: Colors.white70)),
                 ],
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          if (!_showAnswer)
-            ElevatedButton.icon(
-              onPressed: () => setState(() => _showAnswer = true),
-              icon: const Icon(Icons.visibility),
-              label: const Text('Xem đáp án'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _skillColor.withAlpha(25),
-                foregroundColor: _skillColor,
-                minimumSize: const Size(200, 48),
-              ),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _answer(prov, false),
-                    icon: const Icon(Icons.close, size: 20),
-                    label: const Text('Chưa biết'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade50,
-                      foregroundColor: Colors.red,
-                      minimumSize: const Size(0, 56),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _answer(prov, true),
-                    icon: const Icon(Icons.check, size: 20),
-                    label: const Text('Đã biết'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade50,
-                      foregroundColor: Colors.green,
-                      minimumSize: const Size(0, 56),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 10),
+                SkillTriangle(word: word, size: 70),
+                const SizedBox(height: 18),
               ],
-            ),
-        ],
-      ),
-    );
+              if (!_showAnswer)
+                ElevatedButton.icon(
+                  key: const Key('assessment_reveal'),
+                  onPressed: () => _revealAnswer(word),
+                  icon: const Icon(Icons.visibility),
+                  label: const Text('Xem đáp án'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _skillColor.withAlpha(25),
+                    foregroundColor: _skillColor,
+                    minimumSize: const Size(200, 48),
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(child: ElevatedButton.icon(
+                      onPressed: () => _answer(prov, false),
+                      icon: const Icon(Icons.close, size: 20),
+                      label: const Text('Chưa biết'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4A2029),
+                        foregroundColor: const Color(0xFFFFA3A3),
+                        minimumSize: const Size(0, 52),
+                      ),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: ElevatedButton.icon(
+                      onPressed: () => _answer(prov, true),
+                      icon: const Icon(Icons.check, size: 20),
+                      label: const Text('Đã biết'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF183C30),
+                        foregroundColor: const Color(0xFFA5D6A7),
+                        minimumSize: const Size(0, 52),
+                      ),
+                    )),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildStimulus(WordEntry word) {
     switch (_currentSkill) {
       case Skill.understand:
-        return Text(word.word,
-            style: TextStyle(
-                fontSize: 36, fontWeight: FontWeight.bold, color: _skillColor));
+        return material.Text(word.word,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _skillColor));
       case Skill.listen:
         return Column(
           children: [
-            Icon(Icons.volume_up, size: 64, color: _skillColor),
+            IconButton.filledTonal(
+              key: const Key('assessment_listen_speak'),
+              tooltip: context.uiText('Nghe phát âm'),
+              onPressed: _playing ? null : () => _playWord(word),
+              iconSize: 52,
+              padding: const EdgeInsets.all(16),
+              icon: Icon(Icons.volume_up, color: _skillColor),
+            ),
             const SizedBox(height: 8),
-            Text(word.phonetic ?? '/${word.word}/',
-                style: TextStyle(fontSize: 20, color: _skillColor)),
-            Text('(Hãy tưởng tượng bạn NGHE từ này)',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+            Text(context.uiText('Nhấn để nghe'),
+                style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         );
       case Skill.read:
         return Column(
           children: [
-            Text(word.word,
-                style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: _skillColor,
-                    letterSpacing: 2)),
-            Text('Bạn có đọc/phát âm được không?',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            material.Text(word.word, textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _skillColor, letterSpacing: 2)),
+            const Text('Bạn có đọc/phát âm được không?', style: TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         );
     }
   }
 
+  Future<void> _playWord(WordEntry word) async {
+    if (_playing) return;
+    setState(() => _playing = true);
+    try {
+      final pronounce = widget.pronounce;
+      if (pronounce != null) {
+        await pronounce(word.word, word.language);
+      } else {
+        final tts = TtsService();
+        await tts.speak(word.word, language: word.language);
+        if (tts.error != null) throw StateError('TTS unavailable');
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(context.uiText('Không phát được âm thanh. Hãy kiểm tra cài đặt giọng đọc.')),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _playing = false);
+    }
+  }
+
+  void _revealAnswer(WordEntry word) {
+    final storedIpa = (word.phonetic ?? '').trim();
+    final request = ++_ipaRequest;
+    setState(() {
+      _showAnswer = true;
+      _answerIpa = storedIpa.isEmpty ? null : storedIpa;
+      _answerIpaSource = word.phoneticSource;
+      _ipaPending = _currentSkill == Skill.read && storedIpa.isEmpty;
+    });
+    if (_ipaPending) unawaited(_loadIpa(word, request));
+  }
+
+  Future<void> _loadIpa(WordEntry word, int request) async {
+    IpaResolution? result;
+    try {
+      // English G2P is not an appropriate guess for other languages. In those
+      // cases only use an installed dictionary, never fabricate /the word/.
+      final english = RegExp(r'^en(?:[-_]|$)', caseSensitive: false).hasMatch(word.language.trim());
+      result = await IpaResolver.resolve(word.word, mode: english ? IpaSaveMode.auto : IpaSaveMode.dict);
+    } catch (_) {
+      // IPA is optional; keep the answer usable without a dictionary/model.
+    }
+    if (!mounted || request != _ipaRequest) return;
+    // A user or background resolver may have filled the entry while lookup
+    // was running; the saved value always wins over an estimated result.
+    final current = context.read<VocabularyProvider>().findById(word.id);
+    final saved = (current?.phonetic ?? '').trim();
+    setState(() {
+      _ipaPending = false;
+      _answerIpa = saved.isNotEmpty ? saved : result?.ipa;
+      _answerIpaSource = saved.isNotEmpty ? current?.phoneticSource : result?.source;
+    });
+  }
+
   void _answer(VocabularyProvider prov, bool correct) {
-    prov.quickAnswerWord(_queue[_currentIndex].id, _currentSkill, correct);
+    final id = _queue[_currentIndex].id;
+    _ipaRequest++;
+    prov.quickAnswerWord(id, _currentSkill, correct);
     setState(() {
       _total++;
       if (correct) _correct++;
       if (_currentIndex < _queue.length - 1) {
         _currentIndex++;
         _showAnswer = false;
+        _answerIpa = null;
+        _ipaPending = false;
       } else {
         _isComplete = true;
       }
@@ -647,7 +656,7 @@ class _AssessmentViewState extends State<_AssessmentView>
                       : '📚',
               style: const TextStyle(fontSize: 64)),
           const SizedBox(height: 16),
-          Text('$pct%',
+          Text(context.uiText('$pct%'),
               style: TextStyle(
                   fontSize: 48,
                   fontWeight: FontWeight.bold,
@@ -657,14 +666,7 @@ class _AssessmentViewState extends State<_AssessmentView>
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              setState(() {
-                _queue = [];
-                _currentIndex = 0;
-                _isComplete = false;
-                _correct = 0;
-                _total = 0;
-                _showAnswer = false;
-              });
+              setState(_reset);
             },
             icon: const Icon(Icons.refresh),
             label: const Text('Thử lại'),
@@ -741,5 +743,9 @@ class _TriangleFramePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TriangleFramePainter oldDelegate) =>
+      oldDelegate.center != center ||
+      oldDelegate.vertices.length != vertices.length ||
+      List.generate(vertices.length, (i) => oldDelegate.vertices[i] != vertices[i])
+          .any((changed) => changed);
 }

@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
+
 import '../models/dict_entry.dart';
+import 'dict_database_platform.dart';
 
 /// SQLite CRUD cho dictionary entries (DICT-001).
 ///
@@ -7,6 +9,7 @@ import '../models/dict_entry.dart';
 /// ghi nhanh hơn nhiều so với insert từng dòng.
 class DictDbService {
   static Future<String> createDb(String dbPath) async {
+    ensureDictionaryDatabaseFactory();
     final db = await openDatabase(
       dbPath,
       version: 1,
@@ -43,6 +46,7 @@ class DictDbService {
     List<Map<String, dynamic>> entries,
   ) async {
     if (entries.isEmpty) return 0;
+    ensureDictionaryDatabaseFactory();
     final db = await openDatabase(dbPath);
     try {
       final batch = db.batch();
@@ -57,6 +61,7 @@ class DictDbService {
   }
 
   static Future<List<DictEntry>> lookup(String dbPath, String word) async {
+    ensureDictionaryDatabaseFactory();
     final db = await openDatabase(dbPath, readOnly: true);
     try {
       final maps = await db.query(
@@ -76,6 +81,7 @@ class DictDbService {
     String prefix, {
     int limit = 10,
   }) async {
+    ensureDictionaryDatabaseFactory();
     final db = await openDatabase(dbPath, readOnly: true);
     try {
       final maps = await db.query(
@@ -91,6 +97,7 @@ class DictDbService {
   }
 
   static Future<void> deleteDb(String dbPath) async {
+    ensureDictionaryDatabaseFactory();
     await deleteDatabase(dbPath);
   }
 }

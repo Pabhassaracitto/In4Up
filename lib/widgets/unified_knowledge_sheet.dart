@@ -410,7 +410,7 @@ class _UnifiedKnowledgeSheetState extends State<UnifiedKnowledgeSheet> {
           ),
           const SizedBox(width: 10),
           Text(
-            '${(value * 100).round()}%',
+            context.uiText('${(value * 100).round()}%'),
             style: TextStyle(color: color, fontWeight: FontWeight.w700),
           ),
           const SizedBox(width: 8),

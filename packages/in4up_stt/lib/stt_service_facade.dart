@@ -39,6 +39,7 @@ import 'package:speech_to_text/speech_to_text.dart' show ListenMode;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'asr_model_routing.dart';
 import 'diarization/diarization_service.dart';
 import 'diarization/speaker_annotation.dart';
 import 'diarization/speaker_sidecar.dart';
@@ -49,6 +50,8 @@ import 'models/stt_result.dart';
 import 'stt_engine.dart';
 import 'stt_engine_native.dart';
 import 'stt_engine_registry.dart';
+import 'stt_engine_sherpa.dart';
+import 'sherpa_model_manager.dart';
 import 'stt_engine_whisper.dart';
 import 'stt_engine_remote.dart';
 import 'stt_lrc_converter.dart';
@@ -164,6 +167,8 @@ class SttServiceFacade extends ChangeNotifier {
   late final SttModelManager _modelManager;
   late final SttLrcConverter _lrcConverter;
   late final DiarizationService _diarizationService;
+  bool _nativeEngineCreated = false;
+  bool _modelManagerCreated = false;
 
   bool _initialized = false;
   bool _disposed = false;
@@ -240,7 +245,9 @@ class SttServiceFacade extends ChangeNotifier {
 
       _config = config ?? const SttConfig();
       _nativeEngine = SttEngineNative();
+      _nativeEngineCreated = true;
       _modelManager = SttModelManager();
+      _modelManagerCreated = true;
       _lrcConverter = SttLrcConverter();
       _diarizationService = const HeuristicDiarizationService();
 
@@ -250,6 +257,7 @@ class SttServiceFacade extends ChangeNotifier {
       );
 
       await _modelManager.initialize();
+      if (_disposed) return;
       // Cấu hình model dir cho WhisperSttEngine (registry).
       SttEngineRegistry.configureWhisperModelDir(
         _modelManager.modelDirectoryPath,
@@ -265,6 +273,7 @@ class SttServiceFacade extends ChangeNotifier {
         debugPrint('⚠️ Native STT init failed (non-fatal): $e');
       }
 
+      if (_disposed) return;
       _initialized = true;
       _emitProgress(SttFacadeStatus.ready, 1.0, 'Sẵn sàng');
       debugPrint('✅ SttServiceFacade initialized');
@@ -333,6 +342,16 @@ class SttServiceFacade extends ChangeNotifier {
           config: cfg,
           lrcOutputPath: lrcOutputPath,
           shouldGenerateLrc: shouldGenerateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      } else if (cfg.preferredEngine == SttEngineType.sherpa) {
+        // PARAKEET-002 — STT file/LRC bằng model sherpa offline (Parakeet đa
+        // ngữ, Zipformer VI). Trước đây `SttEngineType.sherpa` KHÔNG có nhánh
+        // nào trong `transcribeFile`: chọn sherpa thì rơi vào `native`, nên
+        // Parakeet không bao giờ được dùng cho tab Nghe/tạo lời thoại.
+        result = await _runSherpaEngine(
+          audioPath: audioPath,
+          config: cfg,
           audioFingerprint: audioFingerprint,
         );
       } else if (cfg.preferredEngine == SttEngineType.remote) {
@@ -465,6 +484,28 @@ class SttServiceFacade extends ChangeNotifier {
         _modelManager.getBestModelLevelForLanguage(language);
 
     if (localLevel == null) {
+      // PARAKEET-002 — chưa có model Whisper nhưng ĐÃ có model sherpa offline
+      // (Parakeet đa ngữ / Zipformer VI) ⇒ dùng nó thay vì báo "không có model".
+      // Trước đây Parakeet không bao giờ được dùng ở tab Nghe vì đường auto chỉ
+      // biết Whisper.
+      final sherpaLanguage = await _resolveSherpaFileLanguage(language);
+      if (sherpaLanguage != null) {
+        debugPrint('🎯 transcribeAuto: dùng model sherpa offline cho '
+            '$sherpaLanguage (không có Whisper phù hợp)');
+        return transcribeFile(
+          audioPath,
+          config: _config.copyWith(
+            preferredEngine: SttEngineType.sherpa,
+            language: sherpaLanguage,
+            generateLrc: generateLrc,
+            grouping: grouping,
+          ),
+          lrcOutputPath: lrcOutputPath,
+          generateLrc: generateLrc,
+          audioFingerprint: audioFingerprint,
+        );
+      }
+
       // WP2 (API-003): hết model local → thử API nếu routing cho phép.
       // Ngược lại (offlineOnly / chưa cấu hình) giữ ĐÚNG hành vi cũ.
       final store = AiProviderStore.instance;
@@ -663,6 +704,18 @@ class SttServiceFacade extends ChangeNotifier {
         'Chưa có model Whisper ${config.whisperModel.name}. '
         'Mở Home → Quản lý Model AI rồi bấm Tải về, hoặc Import file '
         '${config.whisperModel.fileName}.',
+      );
+    }
+
+    // WHISPER-VARIANT-001 — model English-only (.en) KHÔNG hiểu tiếng Việt
+    // hay ngôn ngữ khác. Chặn SỚM với thông điệp rõ thay vì để whisper.cpp
+    // ép tiếng Anh và trả về chữ Anh cho audio VI/ZH.
+    if (config.whisperModel.isEnglishOnly &&
+        WhisperLanguage.code(config.language) != 'en') {
+      throw StateError(
+        'Model ${config.whisperModel.displayLabel} chỉ nhận tiếng Anh — '
+        'hãy chọn ngôn ngữ English hoặc đổi sang model Whisper đa ngữ '
+        '(TINY/BASE/SMALL/MEDIUM/LARGE).',
       );
     }
 
@@ -901,6 +954,183 @@ class SttServiceFacade extends ChangeNotifier {
     }
   }
 
+  /// Ngôn ngữ có model sherpa OFFLINE đã cài dùng được cho file/LRC.
+  ///
+  /// `null` khi máy chưa cài model offline nào (hoặc chỉ có model streaming —
+  /// không dùng được cho file). 'auto'/rỗng ⇒ ngôn ngữ đã cài (ưu tiên VI).
+  Future<String?> _resolveSherpaFileLanguage(String language) async {
+    try {
+      final manager = SherpaModelManager();
+      await manager.ensureFresh();
+      final raw = AsrModelRouter.normalizeLanguage(language);
+      final candidates = (raw.isEmpty || raw == 'auto')
+          ? <String>[
+              manager.defaultCabinSourceLanguageSync(),
+              ...AsrModelRouter.installedLanguages(
+                isInstalled: manager.isAsrProfileInstalled,
+              ),
+            ]
+          : <String>[raw];
+      for (final candidate in candidates) {
+        final profile = AsrModelRouter.offlineFileProfile(
+          candidate,
+          isInstalled: manager.isAsrProfileInstalled,
+        );
+        if (profile != null) return candidate;
+      }
+    } catch (e) {
+      debugPrint('⚠️ _resolveSherpaFileLanguage error: $e');
+    }
+    return null;
+  }
+
+  // ── Sherpa Offline Engine Runner (PARAKEET-002) ───────────────────────────
+  //
+  // `SttEngineType.sherpa` trước đây KHÔNG có nhánh trong `transcribeFile`
+  // nên nó rơi vào `native` (speech_to_text — không transcribe file): import
+  // Parakeet xong vẫn không dùng được cho tab Nghe / tạo lời thoại. Đây là
+  // đường chạy THẬT cho Parakeet (và Zipformer VI offline) ở mọi call-site
+  // dùng `SttConfig(preferredEngine: SttEngineType.sherpa, language: ...)`.
+
+  /// Transcribe 1 file audio bằng model sherpa offline (Parakeet / Zipformer).
+  ///
+  /// Ném [StateError] với thông điệp đọc được khi: chưa cài model, model chỉ có
+  /// bản streaming (SHERPA-STREAM-001 — `OfflineRecognizer` + encoder streaming
+  /// = SIGABRT), hoặc không chuyển được audio sang WAV 16kHz.
+  Future<SttResult> _runSherpaEngine({
+    required String audioPath,
+    required SttConfig config,
+    required String audioFingerprint,
+  }) async {
+    _emitProgress(
+      SttFacadeStatus.processingNative,
+      0.05,
+      'Đang chuẩn bị model nhận diện offline...',
+      engine: SttEngineType.sherpa,
+    );
+
+    final manager = SherpaModelManager();
+    // Model có thể vừa được import/tải ⇒ không kết luận thiếu bằng state cũ.
+    await manager.ensureFresh();
+
+    // 'auto' (mặc định của Whisper) không phải mã ngôn ngữ của sherpa: sherpa
+    // cần đúng profile. Chưa chỉ định ⇒ dùng ngôn ngữ đã cài model (ưu tiên VI).
+    final raw = AsrModelRouter.normalizeLanguage(config.language);
+    final language = (raw.isEmpty || raw == 'auto')
+        ? manager.defaultCabinSourceLanguageSync()
+        : raw;
+
+    final profile = AsrModelRouter.profileForIdOrLanguage(language);
+    if (profile == null) {
+      throw StateError(
+        'App chưa có model nhận diện OFFLINE cho ngôn ngữ ${language.toUpperCase()}. '
+        'Offline hiện có: Tiếng Việt, English (streaming) và Parakeet '
+        '(25 ngôn ngữ châu Âu). Hãy chọn ngôn ngữ khác trong Quản lý Model AI.',
+      );
+    }
+    // Model streaming chỉ chạy được với OnlineRecognizer — đưa vào
+    // OfflineRecognizer là SIGABRT (native abort, không bắt được bằng catch).
+    //
+    // M4U-IMPORT-003: chọn profile OFFLINE **đã cài** cho ngôn ngữ — ưu tiên
+    // profile chuyên ngôn ngữ (Zipformer VI) rồi tới model đa ngữ (Parakeet
+    // 25 ngôn ngữ châu Âu). Trước đây chỉ tra profile CHUYÊN ngôn ngữ ⇒
+    // máy chỉ cài Parakeet thì file tiếng Anh bị báo "chưa cài model" dù
+    // Parakeet phục vụ được tiếng Anh.
+    final offlineProfile = AsrModelRouter.offlineFileProfile(
+      language,
+      isInstalled: manager.isAsrProfileInstalled,
+    );
+    if (offlineProfile == null) {
+      if (profile.isStreaming) {
+        throw StateError(
+          'Model ${profile.name} là bản STREAMING (live) — không dùng được để '
+          'nhận diện file/tạo lời thoại. Hãy chọn model OFFLINE (Parakeet đa ngữ '
+          'hoặc Zipformer VI) trong Quản lý Model AI.',
+        );
+      }
+      throw StateError(
+        'Chưa cài model ${profile.name}. Mở Quản lý Model AI để tải/import '
+        '(encoder/decoder/joiner + tokens.txt).',
+      );
+    }
+    // `offlineProfile` đã null-check ở trên ⇒ dùng trực tiếp biến đã được
+    // flow-analysis promote (không alias để khỏi mất promote).
+    if (manager.getAsrModelPaths(offlineProfile.id) == null) {
+      throw StateError(
+        'Chưa cài model ${offlineProfile.name}. Mở Quản lý Model AI để tải/import '
+        '(encoder/decoder/joiner + tokens.txt).',
+      );
+    }
+
+    // Sherpa đọc CẢ file thành Float32 trong RAM (`readWave`), cộng model
+    // Parakeet ~670MB. File 1 giờ ≈ 230MB float + 670MB model ⇒ lại là OOM
+    // (đúng lớp lỗi PARAKEET-002). Chặn sớm với thông điệp rõ thay vì để
+    // Android kill tiến trình giữa chừng.
+    const maxSherpaFileMs = 30 * 60 * 1000;
+    int? durationMs;
+    try {
+      durationMs = await AudioConverter.probeDurationMs(audioPath);
+    } catch (e) {
+      // Probe lỗi KHÔNG phải lý do chặn — file ngắn vẫn chạy bình thường.
+      debugPrint('⚠️ Không đọc được thời lượng audio: $e');
+    }
+    if (durationMs != null && durationMs > maxSherpaFileMs) {
+      throw StateError(
+        'File dài ${(durationMs / 60000).round()} phút — model offline '
+        '(Parakeet/Zipformer) nạp cả file vào RAM nên dễ bị hệ thống kill. '
+        'Hãy tách thành đoạn dưới 30 phút, hoặc dùng Whisper cho file dài.',
+      );
+    }
+
+    // sherpa đọc WAV 16kHz mono — chuyển đổi (FFmpeg) rồi xoá bản tạm.
+    final converted = await AudioConverter.convertToWhisperCompatible(audioPath);
+    if (converted == null) {
+      throw StateError('Không chuyển được audio sang WAV 16kHz: $audioPath');
+    }
+
+    final engine = SherpaSttEngine();
+    try {
+      _emitProgress(
+        SttFacadeStatus.processingNative,
+        0.25,
+        'Đang nhận diện bằng ${offlineProfile.name}...',
+        engine: SttEngineType.sherpa,
+      );
+
+      final result = await engine.transcribeFile(
+        converted == audioPath ? audioPath : converted,
+        options: <String, dynamic>{'language': offlineProfile.id},
+      );
+
+      if (result.fullText.trim().isEmpty) {
+        throw StateError(
+          'Model ${offlineProfile.name} không nhận được nội dung nào'
+          '${(engine.lastError ?? '').isEmpty ? '' : ' — ${engine.lastError}'}.',
+        );
+      }
+
+      _emitProgress(
+        SttFacadeStatus.processingNative,
+        0.85,
+        'Đã nhận diện xong...',
+        engine: SttEngineType.sherpa,
+      );
+
+      return audioFingerprint.isEmpty
+          ? result
+          : _withFingerprint(result, audioFingerprint);
+    } finally {
+      try {
+        await engine.dispose();
+      } catch (e) {
+        debugPrint('⚠️ Sherpa engine dispose error: $e');
+      }
+      if (converted != audioPath) {
+        await AudioConverter.cleanupConvertedFile(converted);
+      }
+    }
+  }
+
   // ── Native Engine Runner ──────────────────────────────────────────────────
 
   Future<SttResult> _runNativeEngine(
@@ -1094,7 +1324,12 @@ class SttServiceFacade extends ChangeNotifier {
     );
   }
 
-  Future<void> stopListening() async => _nativeEngine.stopListening();
+  Future<void> stopListening() async {
+    // Closing a Listen screen that never started voice commands must not
+    // touch a late native engine that has not been constructed yet.
+    if (!_nativeEngineCreated || _disposed) return;
+    await _nativeEngine.stopListening();
+  }
 
   Stream<SttResult> get liveResultStream => _nativeEngine.resultStream;
 
@@ -1127,8 +1362,8 @@ class SttServiceFacade extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _nativeEngine.dispose();
-    _modelManager.dispose();
+    if (_nativeEngineCreated) _nativeEngine.dispose();
+    if (_modelManagerCreated) _modelManager.dispose();
     _progressSubject.close();
     _partialSubject.close();
     _instance = null;

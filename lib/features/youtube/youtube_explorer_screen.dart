@@ -1,6 +1,7 @@
 // Language Reactor-style YouTube Explorer
 // Trang 1 PDF: sidebar rank slider + sort + kênh, main: info kênh + video list
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -9,7 +10,11 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/yt_video.dart';
+import 'widgets/yt_video_card.dart' show YtHistoryItem;
+import 'services/yt_initial_data_parser.dart';
+import 'services/yt_search_service.dart';
 import 'services/yt_service.dart';
+import 'widgets/yt_my_channels_sheet.dart';
 import 'yt_player_screen.dart';
 
 const _kYtApi = 'https://www.googleapis.com/youtube/v3';
@@ -116,18 +121,34 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   double _rankMin = 0;
   double _rankMax = 100000;
   final _scrollCtrl = ScrollController();
-  final _urlCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
   bool _openingUrl = false;
   String? _urlError;
+
+  // YT-LR-004 (IN4-94): tầng 2 thay tầng 1 cũ ⇒ phải giữ lại Lịch sử xem
+  // (tầng 1 cũ có tab Lịch sử) để không mất tính năng.
+  List<YtVideo> _history = const [];
+
+  // ── Tìm kiếm không cần API key (gợi ý từ khoá + submit) ──
+  final _searchFocus = FocusNode();
+  Timer? _suggestDebounce;
+  List<String> _suggestions = [];
+  bool _showSuggestions = false;
 
   bool get _hasApiKey => YtVideo.isUsableDataApiKey(widget.apiKey);
 
   @override
   void initState() {
     super.initState();
+    // IN4-77: mở YouTube → vào THẲNG tìm kiếm (ô tìm kiếm có focus,
+    // con trỏ nhảy vào ô) thay vì phải cuộn/tap mới tìm được.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _searchFocus.requestFocus();
+    });
     _init();
+    _loadHistory();
     _scrollCtrl.addListener(() {
       if (_scrollCtrl.position.pixels >=
               _scrollCtrl.position.maxScrollExtent - 300 &&
@@ -141,8 +162,9 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
-    _urlCtrl.dispose();
     _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _suggestDebounce?.cancel();
     super.dispose();
   }
 
@@ -153,7 +175,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ..addAll(
             _kDefaultChannels.map((e) => YtExChannel(id: e.$1, title: e.$2)));
     });
-    if (_hasApiKey) await _enrichChannels();
+    if (_hasApiKey) {
+      await _enrichChannels();
+    } else if (_channels.isNotEmpty) {
+      // Không có key: chọn sẵn kênh đầu tiên để có nội dung xem ngay —
+      // danh sách kênh và tìm kiếm đều chạy không cần key (YtSearchService).
+      _selChannelId ??= _channels.first.id;
+    }
     await _loadVideos();
   }
 
@@ -191,6 +219,22 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
 
   Future<void> _loadVideos({bool reset = true}) async {
     if (_loading) return;
+    final query = _searchQuery.trim();
+    // Chế độ không cần Data API key: search theo từ khoá hoặc xem kênh.
+    final keylessSearch = query.isNotEmpty && !_hasApiKey;
+    final keylessChannel =
+        query.isEmpty && !_hasApiKey && _selChannelId != null;
+    if (!_hasApiKey && !keylessSearch && !keylessChannel) {
+      // Không key, không từ khoá, không chọn kênh → không có gì để tải
+      if (reset && mounted) {
+        setState(() {
+          _videos.clear();
+          _nextPageToken = null;
+          _hasMore = false;
+        });
+      }
+      return;
+    }
     setState(() {
       _loading = true;
       if (reset) {
@@ -199,19 +243,43 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       }
     });
     try {
-      final (vids, next) = await _fetch(_nextPageToken);
-      if (!mounted) return;
-      setState(() {
-        _videos.addAll(vids);
-        _nextPageToken = next;
-        _hasMore = next != null;
-      });
+      if (keylessSearch || keylessChannel) {
+        // Keyless: một trang kết quả, không phân trang tiếp
+        final hits = keylessSearch
+            ? await YtSearchService.instance.searchVideos(query)
+            : await YtSearchService.instance
+                .fetchChannelVideos(_selChannelId!);
+        if (!mounted) return;
+        setState(() {
+          _videos.addAll(hits.map(_hitToEx));
+          _hasMore = false;
+        });
+      } else {
+        final (vids, next) = await _fetch(_nextPageToken);
+        if (!mounted) return;
+        setState(() {
+          _videos.addAll(vids);
+          _nextPageToken = next;
+          _hasMore = next != null;
+        });
+      }
     } catch (e) {
       debugPrint('loadVideos: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  YtExVideo _hitToEx(YtSearchHit h) => YtExVideo(
+        id: h.id,
+        title: h.title,
+        channelId: h.channelId,
+        channelTitle: h.channel,
+        thumb: h.thumb,
+        publishedAt: h.publishedAt,
+        viewCount: h.viewCount,
+        duration: h.duration,
+      );
 
   Future<(List<YtExVideo>, String?)> _fetch(String? pageToken) async {
     if (!_hasApiKey) return (<YtExVideo>[], null);
@@ -282,7 +350,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   }
 
   Future<void> _openFromUrl([String? raw]) async {
-    final input = (raw ?? _urlCtrl.text).trim();
+    // YT-ONE-BAR-001: chỉ còn MỘT ô cho cả URL và từ khoá.
+    final input = (raw ?? _searchCtrl.text).trim();
     if (input.isEmpty) return;
     final id = YtVideo.extractId(input);
     if (id == null) {
@@ -305,8 +374,291 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     ));
   }
 
-  void _openVideo(YtExVideo v) => Navigator.push(
-      context, MaterialPageRoute(builder: (_) => YtPlayerScreen(video: v)));
+  /// YT-AUDIT-07 (IN4-99): player ghi lịch sử khi mở (xem
+  /// `YtPlayerScreen._recordHistory`), nên sau khi quay lại đây chỉ cần
+  /// nạp lại danh sách — nếu không, danh sách Lịch sử vẫn là bản cũ đọc
+  /// lúc `initState`.
+  Future<void> _openVideo(YtExVideo v) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => YtPlayerScreen(video: v)),
+    );
+    if (!mounted) return;
+    await _loadHistory();
+  }
+
+  // ── Lịch sử xem (việc của tab Lịch sử ở tầng 1 cũ) ─────────
+
+  Future<void> _loadHistory() async {
+    await YtHistory.ensureOpen();
+    if (!mounted) return;
+    setState(() => _history = YtHistory.load());
+  }
+
+  void _showHistory() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF161B22),
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history, color: Colors.grey, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.uiText('Lịch sử'),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _history.isEmpty
+                    ? Center(
+                        child: Text(
+                          context.uiText('Chưa có lịch sử'),
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                        itemCount: _history.length,
+                        itemBuilder: (_, i) {
+                          final v = _history[i];
+                          return YtHistoryItem(
+                            video: v,
+                            onTap: () {
+                              Navigator.pop(context);
+                              _openVideo(
+                                YtExVideo(
+                                  id: v.id,
+                                  title: v.title,
+                                  channelId: '',
+                                  channelTitle: v.channel,
+                                  thumb: v.thumb,
+                                ),
+                              );
+                            },
+                            onDelete: () async {
+                              await YtHistory.remove(v.id);
+                              if (!mounted) return;
+                              setState(() => _history = YtHistory.load());
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bộ lọc dạng bottom sheet (màn hẹp thay cho sidebar) ─────
+
+  void _showFilters() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF161B22),
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Expanded(child: _sidebarContent()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Thanh tìm kiếm (luôn hiện, chạy không cần Data API key) ──
+
+  Widget _searchArea() => Column(
+        children: [
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: InputDecoration(
+                  // YT-ONE-BAR-001: nói rõ MỘT ô làm được HAI việc — nếu chỉ
+                  // ghi "Tìm kiếm" thì người dùng vẫn đi tìm ô dán URL như cũ.
+                  hintText: context.uiText(
+                      'Tìm bài, hoặc dán URL/ID YouTube vào đây...'),
+                  hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Colors.grey, size: 18),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: context.uiText('Dán từ bộ nhớ tạm'),
+                        icon: const Icon(Icons.content_paste,
+                            color: Colors.grey, size: 16),
+                        onPressed: _pasteAndSubmit,
+                      ),
+                      if (_searchCtrl.text.isNotEmpty)
+                        IconButton(
+                          tooltip: context.uiText('Xoá tìm kiếm'),
+                          icon: const Icon(Icons.close,
+                              color: Colors.grey, size: 16),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _submitSearch('');
+                          },
+                        ),
+                    ],
+                  ),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.07),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none),
+                  isDense: true,
+                ),
+                onChanged: _onSearchChanged,
+                onSubmitted: (_) => _submitSearch(),
+                onTapOutside: (_) => setState(() => _showSuggestions = false),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: context.uiText('Tìm kiếm'),
+              icon: const Icon(Icons.search, color: Colors.white),
+              onPressed: () => _submitSearch(),
+            ),
+          ]),
+          if (_showSuggestions && _suggestions.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161B22),
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _suggestions.length,
+                  itemBuilder: (_, i) {
+                    final s = _suggestions[i];
+                    return ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      leading:
+                          const Icon(Icons.history, color: Colors.grey, size: 14),
+                      title: Text(s,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12)),
+                      onTap: () {
+                        _searchCtrl.text = s;
+                        _submitSearch(s);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
+      );
+
+  void _onSearchChanged(String v) {
+    _suggestDebounce?.cancel();
+    final q = v.trim();
+    if (q.length < 2) {
+      setState(() {
+        _suggestions = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+    // Gợi ý từ khoá của YouTube (keyless) — debounce 350ms
+    _suggestDebounce = Timer(const Duration(milliseconds: 350), () async {
+      final s = await YtSearchService.instance.getSuggestions(q);
+      if (!mounted) return;
+      setState(() {
+        _suggestions = s.take(6).toList();
+        _showSuggestions = _suggestions.isNotEmpty && _searchFocus.hasFocus;
+      });
+    });
+    // Cập nhật nút xoá (X) khi nội dung ô thay đổi
+    setState(() {});
+  }
+
+  /// Dán clipboard vào ô duy nhất rồi chạy luôn — dùng cho cả URL và từ khoá
+  /// nên người dùng không phải dán rồi bấm thêm lần nữa.
+  Future<void> _pasteAndSubmit() async {
+    final d = await Clipboard.getData('text/plain');
+    final text = d?.text?.trim();
+    if (!mounted || text == null || text.isEmpty) return;
+    setState(() {
+      _searchCtrl.text = text;
+      _urlError = null;
+    });
+    _submitSearch(text);
+  }
+
+  /// YT-ONE-BAR-001 (#2 owner: "có 2 thanh, 1 tìm kiếm 1 dán URL — có cơ chế
+  /// thông minh nào để dán URL vẫn được mà gõ tìm kiếm vẫn được không?")
+  ///
+  /// Có — và nên gộp thành MỘT ô. Không cần người dùng chọn chế độ trước:
+  ///  • Nội dung nhận ra là URL / ID YouTube ⇒ mở thẳng video đó;
+  ///  • Còn lại ⇒ tìm theo từ khoá như cũ.
+  ///
+  /// Ưu điểm so với 2 thanh: người dùng không phải "nhìn xem mình đang gõ vào
+  /// ô nào"; dán từ clipboard xong Enter là chạy, dù dán URL hay tên bài.
+  void _submitSearch([String? query]) {
+    _suggestDebounce?.cancel();
+    FocusScope.of(context).unfocus();
+    final text = (query ?? _searchCtrl.text).trim();
+    setState(() => _showSuggestions = false);
+
+    // URL/ID YouTube ⇒ mở video. Kiểm trước để "youtube.com/..." không bị
+    // đem đi tìm kiếm (kết quả sẽ là rác).
+    final id = ytVideoIdFromSearchInput(text);
+    if (id != null) {
+      unawaited(_openFromUrl(text));
+      return;
+    }
+
+    setState(() => _searchQuery = text);
+    _loadVideos();
+  }
 
   // ════════════════════════════════════════════════════════
   @override
@@ -314,27 +666,38 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
       body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sidebar(),
-                  Container(
-                      width: 1, color: Colors.white.withValues(alpha: 0.07)),
-                  Expanded(child: _mainPanel()),
-                ],
-              ),
-            ),
-          ],
+        // YT-LR-004 (IN4-94): tầng 2 giờ là cửa vào YouTube DUY NHẤT từ icon
+        // YouTube ⇒ phải dùng được trên điệnthoại đứng. Sidebar cố định 195px
+        // sẽ ép vùng kết quả còn ~165px trên màn 360dp ⇒ khi hẹp, bỏ sidebar
+        // và đưa bộ lọc vào bottom sheet (nút "Bộ lọc" trên thanh trên cùng).
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final isWide = c.maxWidth >= 560;
+            return Column(
+              children: [
+                _topBar(isWide: isWide),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isWide) _sidebar(),
+                      if (isWide)
+                        Container(
+                            width: 1,
+                            color: Colors.white.withValues(alpha: 0.07)),
+                      Expanded(child: _mainPanel()),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _topBar() => Container(
+  Widget _topBar({required bool isWide}) => Container(
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
         color: const Color(0xFF161B22),
         child: Column(
@@ -358,119 +721,47 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         fontSize: 15,
                         fontWeight: FontWeight.bold)),
                 const Spacer(),
+                // YT-MY-CHANNELS-001 (#1 owner 2026-10-28): "Kênh của tôi" —
+                // theo dõi kênh bằng @handle/link hoặc import OPML, KHÔNG cần
+                // đăng nhập Google. Đặt cạnh Lịch sử vì cùng là "chỗ quay lại".
+                IconButton(
+                  tooltip: context.uiText('Kênh của tôi'),
+                  icon: const Icon(Icons.subscriptions_outlined,
+                      color: Colors.grey, size: 18),
+                  onPressed: () => showYtMyChannelsSheet(context),
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                // YT-LR-004: Lịch sử xem — việc của tab Lịch sử ở tầng 1 cũ.
+                IconButton(
+                  tooltip: context.uiText('Lịch sử'),
+                  icon: const Icon(Icons.history, color: Colors.grey, size: 18),
+                  onPressed: _showHistory,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                // Màn hẹp: bộ lọc (cấp độ từ vựng / sắp xếp / kênh) xuống
+                // bottom sheet thay vì chiếm ngang 195px.
+                if (!isWide)
+                  IconButton(
+                    tooltip: context.uiText('Bộ lọc'),
+                    icon: const Icon(Icons.tune, color: Colors.grey, size: 18),
+                    onPressed: _showFilters,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                const SizedBox(width: 4),
                 Text(
-                  _hasApiKey ? 'API' : 'Dán URL',
+                  context.uiText(_hasApiKey ? 'Data API' : 'Không cần key'),
                   style: TextStyle(color: Colors.grey[600], fontSize: 10),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            if (_hasApiKey)
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: context.uiText('Tìm kiếm trực tiếp trên YouTube'),
-                      hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 18),
-                      filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.07),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      isDense: true,
-                    ),
-                    onSubmitted: (_) {
-                      setState(() => _searchQuery = _searchCtrl.text);
-                      _loadVideos();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: context.uiText('Tìm kiếm'),
-                  icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: () { setState(() => _searchQuery = _searchCtrl.text); _loadVideos(); },
-                ),
-              ]),
-            if (_hasApiKey) const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _urlError != null
-                            ? Colors.red.withValues(alpha: 0.5)
-                            : Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 10),
-                        const Icon(Icons.link, color: Colors.grey, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: TextField(
-                            controller: _urlCtrl,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13),
-                            decoration: InputDecoration(
-                              hintText: context.uiText('Dán URL YouTube...'),
-                              hintStyle: const TextStyle(
-                                  color: Colors.grey, fontSize: 13),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 10),
-                            ),
-                            onSubmitted: (_) => _openFromUrl(),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.content_paste,
-                              color: Colors.grey, size: 16),
-                          onPressed: () async {
-                            final d = await Clipboard.getData('text/plain');
-                            if (d?.text != null) {
-                              _urlCtrl.text = d!.text!.trim();
-                              if (mounted) _openFromUrl();
-                            }
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                              minWidth: 32, minHeight: 32),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _openingUrl ? null : _openFromUrl,
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF9C27B0).withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: _openingUrl
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation(Colors.white)),
-                          )
-                        : const Icon(Icons.school,
-                            color: Colors.white, size: 18),
-                  ),
-                ),
-              ],
-            ),
+            _searchArea(),
             if (_urlError != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -485,8 +776,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ),
       );
 
-  Widget _sidebar() => Container(
+  /// Bộ lọc (dùng cả ở sidebar rộng 195px lẫn bottom sheet khi màn hẹp).
+  Widget _sidebar() => SizedBox(
         width: 195,
+        child: _sidebarContent(),
+      );
+
+  Widget _sidebarContent() => Container(
         color: const Color(0xFF161B22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +985,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     overflow: TextOverflow.ellipsis),
               ),
               if (videoCount != null)
-                Text('$videoCount',
+                Text(context.uiText('$videoCount'),
                     style: TextStyle(color: Colors.grey[600], fontSize: 10)),
               if (onPin != null) ...[
                 const SizedBox(width: 4),
@@ -893,7 +1189,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
           ),
         ),
         const SizedBox(width: 5),
-        Text('#$rank', style: TextStyle(color: Colors.grey[600], fontSize: 9)),
+        Text(context.uiText('#$rank'), style: TextStyle(color: Colors.grey[600], fontSize: 9)),
       ]);
 
   Widget _empty() => Center(
@@ -903,7 +1199,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Icon(Icons.school_outlined, size: 44, color: Colors.grey[700]),
             const SizedBox(height: 10),
             Text(
-              'Dán URL YouTube ở thanh trên',
+              context.uiText('Tìm video ở thanh trên hoặc dán URL YouTube'),
               style: TextStyle(color: Colors.grey[500], fontSize: 13),
             ),
             const SizedBox(height: 10),
@@ -917,9 +1213,9 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     color: const Color(0xFF9C27B0).withValues(alpha: 0.25)),
               ),
               child: Text(
-                _hasApiKey
+                context.uiText(_hasApiKey
                     ? 'Không có video cho bộ lọc này.'
-                    : 'Học video không cần Data API key. Khám phá kênh cần key thật — không dùng YOUR_KEY_HERE.',
+                    : 'Tìm kiếm và danh sách kênh chạy không cần Data API key — gõ từ khoá ở trên hoặc chọn kênh bên trái.'),
                 style: TextStyle(color: Colors.purple[100], fontSize: 11),
                 textAlign: TextAlign.center,
               ),

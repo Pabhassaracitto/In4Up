@@ -82,13 +82,13 @@ class VideoDeviceChannel {
           'extensions': videoScanExtensions,
         },
       );
-      if (raw == null) return const [];
+      if (raw == null) throw const VideoScanException('Không tải được thư viện video');
       return raw
           .whereType<Map>()
           .map((e) => VideoScanItem.fromMap(Map<String, dynamic>.from(e)))
           .toList();
     } on MissingPluginException {
-      return const [];
+      throw const VideoScanException('Không tải được thư viện video');
     } on PlatformException catch (e) {
       if (e.code == 'PERMISSION_LOST') {
         throw const VideoScanException(
@@ -102,10 +102,35 @@ class VideoDeviceChannel {
         );
       }
       debugPrint('[VideoDevice] scanTree error: ${e.code} ${e.message}');
-      return const [];
+      throw const VideoScanException('Không tải được thư viện video');
+    } on VideoScanException {
+      rethrow;
     } catch (e) {
       debugPrint('[VideoDevice] scanTree error: $e');
-      return const [];
+      throw const VideoScanException('Không tải được thư viện video');
+    }
+  }
+
+  /// Android SDK determines which media permission the UI must request.
+  static Future<int> androidSdkVersion() async {
+    if (!supported) throw const VideoScanException('Không tải được thư viện video');
+    try {
+      final version = await _channel.invokeMethod<int>('videoSdkVersion');
+      if (version == null) throw const VideoScanException('Không tải được thư viện video');
+      return version;
+    } catch (_) {
+      throw const VideoScanException('Không tải được thư viện video');
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> scanDeviceVideos() async {
+    if (!supported) throw const VideoScanException('Không tải được thư viện video');
+    try {
+      final result = await _channel.invokeMethod<List<dynamic>>('scanDeviceVideos');
+      if (result == null) throw const VideoScanException('Không tải được thư viện video');
+      return result.map((entry) => Map<String, dynamic>.from(entry as Map)).toList();
+    } catch (_) {
+      throw const VideoScanException('Không tải được thư viện video');
     }
   }
 

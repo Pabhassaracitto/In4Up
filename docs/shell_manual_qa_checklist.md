@@ -169,6 +169,49 @@ Thực hiện cho từng toggle:
 - [ ] Auto-hide switch mode
 - [ ] Long-press tab chính để vào mode phụ
 - [ ] Nhớ mode phụ gần nhất
+- [ ] Nguồn: Thu gọn / Mở rộng (KHÔNG có tuỳ chọn Ẩn)
+- [ ] Công cụ đọc: Thu gọn / Mở rộng / Ẩn
+- [ ] Thông tin & Hiển thị: Thu gọn / Mở rộng / Ẩn
+- [ ] Vị trí công cụ: Dưới / Trên
+- [ ] Tự động dịch khi phát song ngữ
+- [ ] Nhớ trạng thái bung
+
+## 4.3 READ-UI-120 — chrome tab Đọc theo nhóm (v1.20.0)
+- [ ] Mở tab Đọc lần đầu: chỉ thấy app bar (Nguồn + ⚡ + ⋯) và 1 hàng dock đáy
+- [ ] Mũi tên bung vẫn thấy rõ ở 360×640, không bị trôi ra ngoài vùng cuộn
+- [ ] Bung panel: đúng 1 panel/lần (Đọc / Công cụ đọc / Hiển thị), không overflow
+- [ ] Cuộn chữ lên/xuống: dock KHÔNG biến mất (nút «Đọc» luôn có)
+- [ ] Nút ⋯ cạnh ⚡ mở được «Hiển thị» và «Cài đặt»
+- [ ] Panel Công cụ đọc có dòng «Áp dụng cho …» đúng đoạn đang chọn / dòng đang đọc
+- [ ] Đổi «Vị trí công cụ: Trên» ⇒ header 5 nút + 2 thanh đáy cũ hiện lại đúng
+- [ ] Bung nhóm Nguồn ⇒ hiện đủ Tài liệu / Web / Tam tạng; gộp ⇒ chỉ 2 icon app bar
+- [ ] «Khôi phục mặc định» đưa về dock gộp ở đáy
+- [ ] Đổi trạng thái nhóm, kill app / mở lại: cả 3 nhóm giữ nguyên (key riêng từng nhóm)
+
+
+## 4.4 READ-UI-121 — khôi phục nút cũ, tự cuộn, nhãn IPA (v1.21.x)
+- [ ] Mở tab Đọc: hàng dock có nút chữ **IPA** (không còn chữ "ABC"), vẫn 1 hàng
+  ~44px, mũi tên bung và icon «Tùy biến chữ» đều thấy rõ ở 360×640
+- [ ] Bấm 1 lần icon «Tùy biến chữ» ⇒ panel «Hiển thị» mở ngay (không phải bung
+  rồi mới chọn tab); bấm lần 2 ⇒ thu gọn
+- [ ] Panel Hiển thị có đủ: «Không màu» (đổi Loại từ / CEFR / Độ khó), «Thông
+  tin màu», «Box từng từ ↔ Bôi nhiều chữ», «?», «Chế độ Focus», công tắc «Đồng
+  bộ tự động» kèm 1 dòng giải thích công dụng
+- [ ] Bật IPA ⇒ panel Hiển thị xuất hiện thêm «Màu IPA»; tắt IPA ⇒ chip biến mất
+- [ ] Nút ⋯ cạnh ⚡ → «Hiển thị» cũng mở đúng panel Hiển thị của dock; «Cài đặt»
+  vẫn mở sheet Cài đặt
+- [ ] Đổi «Vị trí công cụ: Trên» ⇒ `ReadTopBar` cũ hiện lại đúng chỗ quen tay
+- [ ] Phát CẢ BÀI: panel «Đọc» khi đang phát có công tắc «Đồng bộ tự động»;
+  màn hình tự cuộn bám dòng đang đọc và dòng đó được highlight
+- [ ] Kéo tay lúc đang phát ⇒ màn hình ĐỨNG YÊN ~5 giây (không bị kéo ngược),
+  sau đó tự nối lại dòng đọc
+- [ ] Tắt «Đồng bộ tự động» ⇒ phát cả bài KHÔNG tự cuộn; kill app / mở lại vẫn
+  giữ lựa chọn tắt
+- [ ] Chế độ «Một dòng» không bị cuộn chồng (vẫn đổi dòng đúng)
+- [ ] 360×640 text scale 1.0 / 1.3: vùng đọc ≥70%, ≤2 hàng chrome cố định,
+  không `RenderFlex overflow` / khối đen
+- [ ] Locale EN + JA: 2 chuỗi mới «Tùy biến chữ» và dòng giải thích auto-cuộn
+  không còn tiếng Việt
 
 ---
 
@@ -236,6 +279,12 @@ Thực hiện cho từng toggle:
 ## 8.1 Đọc
 - [ ] Read mode mở bình thường
 - [ ] Không overflow với text dài
+- [ ] Mở tài liệu CHƯA DỊCH → bấm «Đọc» phát ngay (< 1 s), không snackbar chặn
+- [ ] Chọn «Cả bài» rồi phát song ngữ khi đang dịch: bản dịch tự vào lượt đích
+- [ ] Đổi tốc độ trong panel → đọc dòng hiện tại và đọc cả bài cùng giá trị
+- [ ] Kill app / mở lại: tốc độ và trạng thái bung còn giữ
+- [ ] Đang phát mà bung panel: không khối đen, không vỡ layout
+- [ ] Focus mode: dock ẩn, thoát Focus hiện lại đúng
 
 ## 8.2 Viết
 - [ ] Mở được `Viết`
@@ -283,9 +332,11 @@ Thực hiện cho từng toggle:
 
 ## 11.1 Mobile nhỏ
 - [ ] Bottom nav không tràn
-- [ ] App bar không tràn
+- [ ] App bar không tràn (kể cả khi có thêm nút ⋯ cạnh ⚡)
 - [ ] Chip mode không tràn
 - [ ] Settings shell không tràn
+- [ ] 360×640: vùng đọc ≥ 70% chiều cao thân shell khi dock gộp; ≤ 2 hàng chrome
+- [ ] 320×568 + text scale 1.3: pill «Đọc» và mũi tên bung vẫn bấm được
 
 ## 11.2 Font lớn hệ thống
 - [ ] Label tab không vỡ nặng

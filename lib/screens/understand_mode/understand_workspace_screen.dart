@@ -1,15 +1,15 @@
 // lib/screens/understand_mode/understand_workspace_screen.dart
 
-import 'package:flutter/material.dart';
+import 'package:in4up/core/language/localized_material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/understand_ai/understand_ai_context.dart';
 
-import '../../widgets/auto_hide_banner.dart';
 import 'services/understand_ai_coach_launcher.dart';
 import 'understand_tab_connector.dart';
 import 'widgets/understand_workspace_header.dart';
 
-class UnderstandWorkspaceScreen extends StatelessWidget {
+class UnderstandWorkspaceScreen extends StatefulWidget {
   final VoidCallback onOpenSpeakMode;
   final VoidCallback onOpenYouGlish;
   final VoidCallback onOpenReview;
@@ -35,26 +35,48 @@ class UnderstandWorkspaceScreen extends StatelessWidget {
   });
 
   @override
+  State<UnderstandWorkspaceScreen> createState() =>
+      _UnderstandWorkspaceScreenState();
+}
+
+class _UnderstandWorkspaceScreenState extends State<UnderstandWorkspaceScreen> {
+  static const _toolsExpandedKey = 'understand_tools_expanded_v1';
+  bool _toolsExpanded = true;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      setState(() => _toolsExpanded = prefs.getBool(_toolsExpandedKey) ?? true);
+    });
+  }
+
+  Future<void> _toggleTools() async {
+    final next = !_toolsExpanded;
+    setState(() => _toolsExpanded = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_toolsExpandedKey, next);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        AutoHideInfoBanner(
-          storageKey: 'understand_workspace_header',
-          autoHideAfter: const Duration(seconds: 6),
-          child: UnderstandWorkspaceHeader(
-            onOpenSpeakMode: onOpenSpeakMode,
-            onOpenYouGlish: onOpenYouGlish,
-            onOpenReview: onOpenReview,
-            onOpenQuickActions: onOpenQuickActions,
-            onOpenAiCoach:
-                onOpenAiCoach ?? () => openUnderstandAiCoach(context),
-          ),
+        UnderstandWorkspaceHeader(
+          expanded: _toolsExpanded,
+          onToggleExpanded: _toggleTools,
+          onOpenSpeakMode: widget.onOpenSpeakMode,
+          onOpenYouGlish: widget.onOpenYouGlish,
+          onOpenReview: widget.onOpenReview,
+          onOpenQuickActions: widget.onOpenQuickActions,
+          onOpenAiCoach: widget.onOpenAiCoach ?? () => openUnderstandAiCoach(context),
         ),
         Expanded(
           child: UnderstandTabConnector(
-            initialMode: initialMode,
-            onModeChanged: onModeChanged,
-            showInternalModeTabs: showInternalModeTabs,
+            initialMode: widget.initialMode,
+            onModeChanged: widget.onModeChanged,
+            showInternalModeTabs: widget.showInternalModeTabs,
           ),
         ),
       ],

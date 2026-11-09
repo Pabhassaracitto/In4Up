@@ -2,6 +2,7 @@
 // Floating round bubble that shows wordlist TTS status across tabs
 // Features: draggable, auto-hide after seconds, tap to mute, hide when back to wordlist
 
+import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -225,7 +226,9 @@ class _WordlistBubbleState extends State<WordlistBubble>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  current?.word ?? '...',
+                  // PLAN-043 mục 2 — bubble hiện đúng nội dung đang nghe
+                  // (đang đọc phía nghĩa thì hiện nghĩa, không chỉ từ).
+                  _service.currentStepText ?? current?.word ?? '...',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -236,7 +239,7 @@ class _WordlistBubbleState extends State<WordlistBubble>
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  '$progressText$repeatText$listRepeat',
+                  context.uiText('$progressText$repeatText$listRepeat'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 10,

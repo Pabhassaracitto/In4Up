@@ -3,8 +3,8 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/grammar/models/grammar_category.dart';
 import '../../../features/grammar/models/grammar_highlight_settings.dart';
@@ -16,6 +16,7 @@ import '../../../models/color_mode.dart';
 import '../../../models/ipa_color_visibility.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_color_style.dart';
 import '../../../models/word_entry.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/text_provider.dart';
@@ -26,8 +27,8 @@ import '../../../services/ipa_stress_annotator.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../services/line_ipa_service.dart';
 import '../controllers/read_mode_controller.dart';
+import '../services/word_range_selection.dart';
 import '../sheets/line_actions_sheet.dart';
-import '../sheets/line_edit_sheet.dart';
 import '../sheets/word_actions_sheet.dart';
 import 'colored_text_widget.dart';
 import 'floating_text_actions.dart';
@@ -86,12 +87,19 @@ class TextLineWidget extends StatelessWidget {
                   isPlaying: _checkIsPlaying(tp, pp, index),
                   isFocusCue: index == tp.focusCueLineIndex,
                   colorMode: tp.colorMode,
+                  // READ-WORDSTYLE-001: kiểu hiển thị từ (nền / chỉ màu chữ /
+                  // gạch chân) — đổi ở Cài đặt là dòng vẽ lại ngay.
+                  wordColorStyle: tp.wordColorStyle,
                   wordTapBoxes: tp.wordTapBoxes,
                   showLineNumbers: tp.showLineNumbers,
                   textAlign: tp.textAlign,
                   fontSize: tp.fontSize,
                   displayMode: tp.translationDisplayMode,
-                  isSpeaking: tp.isSpeaking && index == tp.currentLineIndex,
+                  // AUDIT-2026-10-20 (mục 6): dùng isLineBeingSpoken ⇒
+                  // dòng đang đọc được highlight kể cả khi đọc THỬ 1 dòng
+                  // (trước chỉ đọc CẢ BÀI mới highlight ⇒ "có phát mà không
+                  // thấy chỗ để cho dùng").
+                  isSpeaking: tp.isLineBeingSpoken(index),
                   analyzedWords: index < tp.analyzedLines.length
                       ? tp.analyzedLines[index]
                       : const <AnalyzedWord>[],
@@ -135,12 +143,12 @@ class TextLineWidget extends StatelessWidget {
         if (index < 0 || index >= tp.lines.length) return false;
 
         if (direction == DismissDirection.endToStart) {
-          HapticFeedback.mediumImpact();
+          SafeHaptics.mediumImpact();
           controller.bookmarkLine(index);
           _showQuickBookmarkFeedback(context);
           return false;
         } else if (direction == DismissDirection.startToEnd) {
-          HapticFeedback.lightImpact();
+          SafeHaptics.lightImpact();
           tp.setCurrentLine(index);
           tp.speakAllLines(startIndex: index);
           return false;
@@ -177,44 +185,66 @@ class TextLineWidget extends StatelessWidget {
         final controller = context.read<ReadModeController>();
         final tp = context.read<TextProvider>();
         if (index < 0 || index >= tp.lines.length) return; // ★ FIX
+        // READ-SELECT-002: đang chọn nhiều từ ở ô chữ ⇒ "chạm ra ngoài" là
+        // BỎ CHỌN (không đọc dòng/seek như thường lệ). Widget ô chữ tự thoát
+        // khi thấy selection của provider đã bị xoá.
+        if (WordSelectionState.isActive) {
+          tp.clearSelection();
+          SafeHaptics.selectionClick();
+          return;
+        }
         controller.removeFloatingMenu();
         tp.setCurrentLine(index);
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
 
         if (data.startTime != null) {
           context.read<PlayerProvider>().seek(data.startTime!);
         }
       },
       onDoubleTap: () {
-        HapticFeedback.lightImpact();
+        SafeHaptics.lightImpact();
         LineActionsSheet.show(context, index);
       },
+      // IN4-36: chạm giữ KHÔNG còn mở thẳng bảng sửa dòng (chức năng ít
+      // dùng — "lãng phí" cử chỉ theo audit 1.10.4). Giờ chạm giữ mở
+      // LineActionsSheet (đọc TTS/luân lưu/lưu/sao chép) — hữu ích;
+      // "Sửa dòng…" vẫn vào được TỪ TRONG sheet đó (chủ động hơn).
       onLongPress: () {
-        HapticFeedback.mediumImpact();
-        LineEditSheet.show(context, index);
+        SafeHaptics.mediumImpact();
+        LineActionsSheet.show(context, index);
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
+          // AUDIT-2026-10-20 (mục 6): thêm trạng thái "ĐANG ĐỌC" (TTS) —
+          // tím ứng dụng, khác với dòng hiện tại (xanh dương) và dòng đang
+          // phát audio (xanh lá) ⇒ user NHÌN THẤY ngay dòng nào đang đọc
+          // (kể cả khi chỉ đọc 1 dòng).
           color: data.isFocusCue
               ? const Color(0xFFFFD54F).withValues(alpha: 0.12)
-              : data.isCurrentLine
-                  ? const Color(0xFF2196F3).withValues(alpha: 0.08)
-                  : data.isPlaying
-                      ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
-                      : Colors.transparent,
+              : data.isSpeaking
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.12)
+                  : data.isCurrentLine
+                      ? const Color(0xFF2196F3).withValues(alpha: 0.08)
+                      : data.isPlaying
+                          ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
+                          : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: data.isFocusCue
                 ? const Color(0xFFFFD54F).withValues(alpha: 0.7)
-                : data.isCurrentLine
-                    ? const Color(0xFF2196F3).withValues(alpha: 0.25)
-                    : data.isPlaying
-                        ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
-                        : Colors.transparent,
-            width: data.isFocusCue || data.isCurrentLine ? 1.5 : 1.0,
+                : data.isSpeaking
+                    ? const Color(0xFF6C63FF).withValues(alpha: 0.45)
+                    : data.isCurrentLine
+                        ? const Color(0xFF2196F3).withValues(alpha: 0.25)
+                        : data.isPlaying
+                            ? const Color(0xFF4CAF50).withValues(alpha: 0.25)
+                            : Colors.transparent,
+            width: data.isFocusCue || data.isSpeaking || data.isCurrentLine
+                ? 1.5
+                : 1.0,
           ),
           boxShadow: data.isFocusCue
               ? [
@@ -234,9 +264,11 @@ class TextLineWidget extends StatelessWidget {
             _LineHeader(index: index, data: data),
             const SizedBox(height: 6),
             TranslationLineDisplay(
+              key: ValueKey(context.watch<TextProvider>().translationDocumentRevision),
               originalText: data.content,
               translatedText: data.translation,
               displayMode: data.displayMode,
+              blurTranslation: context.watch<TextProvider>().blurTranslations,
               originalWidget: _buildOriginalWithIpa(context, data, index),
               textAlign: data.textAlign,
               // Ghost VI: khi đang phát ngôn ngữ nguồn, dòng bản dịch mờ đi nhưng vẫn đọc được
@@ -401,7 +433,7 @@ class TextLineWidget extends StatelessWidget {
           else
             GestureDetector(
               onTap: () {
-                HapticFeedback.selectionClick();
+                SafeHaptics.selectionClick();
                 if (tp.currentLineIndex != lineIndex) tp.setCurrentLine(lineIndex);
                 tp.speak(seg.wordCore);
               },
@@ -515,6 +547,14 @@ class TextLineWidget extends StatelessWidget {
           fontSize: data.fontSize,
           colorMode: data.colorMode,
           lineIndex: index,
+          // IN4: truyền căn lề để Wrap canh TỪNG hàng (hàng rớt khi dòng
+          // dài) — trước đó hàng rớt bị canh trái, hàng đầu canh giữa.
+          textAlign: data.textAlign,
+          // READ-SELECT-002: offset đầu dòng để vùng chọn nhiều từ ghi vào
+          // TextProvider như một selection thật (cùng công thức với
+          // SelectableText ở các chế độ khác).
+          lineStartOffset:
+              context.read<ReadModeController>().getLineStartOffset(index),
         ),
       );
     }
@@ -614,14 +654,30 @@ class TextLineWidget extends StatelessWidget {
             )
           : null;
 
+      // READ-WORDSTYLE-001 — cùng một luật với ColoredTextWidget:
+      //   fill      → nền màu + chữ màu
+      //   textOnly  → chỉ chữ màu (không nền)
+      //   underline → chữ màu + gạch chân màu
+      final fillBackground = data.wordColorStyle == WordColorStyle.fill;
+      final underlineColor = grammarResolved?.underline ??
+          (data.wordColorStyle == WordColorStyle.underline
+              ? (grammarResolved?.foreground ??
+                  word.getColor(data.colorMode))
+              : null);
       spans.add(
         TextSpan(
           text: word.word,
           style: TextStyle(
             color: grammarResolved?.foreground ?? word.getColor(data.colorMode),
-            backgroundColor: grammarResolved?.background ??
-                word.getBackgroundColor(data.colorMode),
+            backgroundColor: fillBackground
+                ? (grammarResolved?.background ??
+                    word.getBackgroundColor(data.colorMode))
+                : null,
             fontWeight: grammarResolved?.fontWeight,
+            decoration:
+                underlineColor != null ? TextDecoration.underline : null,
+            decorationColor: underlineColor,
+            decorationThickness: underlineColor != null ? 1.6 : null,
           ),
         ),
       );
@@ -680,7 +736,7 @@ class _LineHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              '${index + 1}',
+              context.uiText('${index + 1}'),
               style: TextStyle(
                 color: data.isCurrentLine
                     ? const Color(0xFF2196F3)
@@ -712,7 +768,7 @@ class _LineHeader extends StatelessWidget {
         ],
         const Spacer(),
         if (data.isSpeaking)
-          const Icon(Icons.graphic_eq, color: Color(0xFF2196F3), size: 14),
+          const Icon(Icons.graphic_eq, color: Color(0xFF6C63FF), size: 14),
         if (data.isPlaying)
           const Icon(Icons.volume_up, color: Color(0xFF4CAF50), size: 14),
       ],
@@ -735,6 +791,9 @@ class _LineData {
   final bool isPlaying;
   final bool isFocusCue;
   final ColorMode colorMode;
+
+  /// READ-WORDSTYLE-001 — nền màu / chỉ màu chữ / gạch chân.
+  final WordColorStyle wordColorStyle;
   final bool wordTapBoxes;
   final bool showLineNumbers;
   final TextAlign textAlign;
@@ -766,6 +825,7 @@ class _LineData {
     required this.isPlaying,
     required this.isFocusCue,
     required this.colorMode,
+    this.wordColorStyle = WordColorStyle.textOnly,
     this.wordTapBoxes = false,
     required this.showLineNumbers,
     required this.textAlign,
@@ -792,9 +852,11 @@ class _LineData {
         isPlaying = false,
         isFocusCue = false,
         colorMode = ColorMode.none,
+        wordColorStyle = WordColorStyle.textOnly,
         wordTapBoxes = false,
         showLineNumbers = true,
-        textAlign = TextAlign.left,
+        // READ-ALIGN-001: mặc định căn GIỮA (trước đây trái).
+        textAlign = TextAlign.center,
         fontSize = 18,
         displayMode = TranslationDisplayMode.hidden,
         isSpeaking = false,
@@ -823,6 +885,7 @@ class _LineData {
         isPlaying == other.isPlaying &&
         isFocusCue == other.isFocusCue &&
         colorMode == other.colorMode &&
+        wordColorStyle == other.wordColorStyle &&
         wordTapBoxes == other.wordTapBoxes &&
         showLineNumbers == other.showLineNumbers &&
         textAlign == other.textAlign &&
@@ -859,6 +922,7 @@ class _LineData {
           isPlaying,
           isFocusCue,
           colorMode,
+          wordColorStyle,
           showLineNumbers,
           textAlign,
           fontSize,

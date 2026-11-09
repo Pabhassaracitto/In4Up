@@ -115,7 +115,7 @@ class _MemoryListTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${(item.strength * 100).round()}%',
+                    context.uiText('${(item.strength * 100).round()}%'),
                     style: TextStyle(
                       fontSize: 12,
                       color: stage.primaryColor,

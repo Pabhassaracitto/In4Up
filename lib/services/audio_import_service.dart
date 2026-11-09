@@ -145,7 +145,10 @@ class AudioImportService {
 
   /// Path đã nằm bên trong thư mục import chưa (idempotent guard).
   Future<bool> isInsideImports(String path) async {
-    final dirPath = _norm((await importDirectory()).path).toLowerCase();
+    // Checking containment should not create an imports directory for a
+    // stable user-managed file. Create it only when importing is necessary.
+    final docs = await _appDocumentsDir();
+    final dirPath = _norm(p.join(docs.path, importDirName)).toLowerCase();
     final n = _norm(path).toLowerCase();
     return n.startsWith('$dirPath/');
   }

@@ -12,10 +12,12 @@
 //   <documents>/sherpa_asr_models/
 //     asr-vi-30M-int8/ (tokens.txt, encoder.int8.onnx, decoder.onnx, joiner.int8.onnx)
 //     asr-en-20M-streaming-int8/ (tokens.txt, encoder*.onnx, decoder*.onnx, joiner*.onnx)
+//     asr-parakeet-tdt-0.6b-v3-int8/ (tokens.txt + encoder/decoder/joiner.int8.onnx)
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -27,10 +29,12 @@ import 'package:rxdart/rxdart.dart';
 
 import 'asr_model_routing.dart';
 import 'import/model_bundle_scanner.dart';
+import 'import/tar_bz2_stream_extractor.dart';
 import 'stt_engine_sherpa.dart';
 import 'tts/piper_import_paths.dart';
 import 'tts/piper_voice_catalog.dart';
 import 'tts/sherpa_piper_tts_core.dart';
+import 'utils/free_space.dart';
 
 // Profile ASR + logic mapping ngôn ngữ ↔ profile nằm ở `asr_model_routing.dart`
 // (thuần, test được không cần thiết bị). Re-export để code cũ giữ nguyên.
@@ -40,9 +44,13 @@ export 'asr_model_routing.dart'
         AsrModelIssue,
         AsrModelRouter,
         AsrModelSelection,
+        SherpaAsrFamily,
         SherpaAsrProfile,
         kAsrLanguagePriority,
+        kAsrLanguageDisplayNames,
         kDefaultAsrLanguage,
+        kMultilingualAsrProfiles,
+        kParakeetProfileId,
         kSherpaAsrProfiles;
 
 enum SherpaModelStatus { notInstalled, downloading, ready, error }
@@ -66,6 +74,18 @@ class _EncoderKindCacheEntry {
   const _EncoderKindCacheEntry(this.kind, this.signature);
 }
 
+/// Cache riêng cho cờ "encoder là transducer NVIDIA NeMo (Parakeet TDT)".
+///
+/// Tách khỏi cache `kind` vì `kind` có thể là `unknown` (đoán theo profile)
+/// trong khi cờ NeMo vẫn đúng ⇒ nếu dùng chung cache thì lần đọc sau sẽ trả
+/// `unknown` và mất thông tin NeMo.
+class _NeMoEncoderCacheEntry {
+  final bool isNeMo;
+  final String? signature;
+
+  const _NeMoEncoderCacheEntry(this.isNeMo, this.signature);
+}
+
 /// Trạng thái import model Zipformer ASR.
 enum SherpaAsrImportStatus {
   /// Đã copy + nhận diện model vào đúng profile.
@@ -85,8 +105,24 @@ enum SherpaAsrImportStatus {
   sourceMissing,
   sourceEmpty,
 
+  /// Nguồn CÓ THẬT nhưng app không đọc được (Android SAF trả `content://`,
+  /// thẻ nhớ ngoài bị scoped storage chặn). KHÁC với [sourceEmpty]: user
+  /// KHÔNG cần bổ sung file, chỉ cần app đọc được nguồn.
+  sourceUnreadable,
+
+  /// Bộ model ĐÚNG layout của app nhưng KHÔNG phải layout sherpa-onnx
+  /// (vd export NVIDIA NeMo: `decoder_joint-model*.onnx` + `nemo128.onnx` +
+  /// `vocab.txt` — decoder gộp joint nên không nạp được). UI phải nói rõ
+  /// cần bộ nào, KHÔNG báo "thiếu file" oan.
+  unsupportedLayout,
+
   /// Lỗi khác (giải nén, copy…).
   failed,
+
+  /// File quá lớn để đọc qua đường BYTES (Android SAF) — nếu cứ nạp thì
+  /// Android kill tiến trình (Parakeet encoder ~624MB). UI phải hướng user
+  /// sang Import thư mục / chọn file có đường dẫn thật.
+  fileTooLarge,
 }
 
 /// Kết quả import model ASR — cho UI map sang chuỗi đã bản địa hoá.
@@ -117,6 +153,13 @@ class SherpaAsrImportResult {
   /// Chi tiết kỹ thuật (log/đường dẫn) — không phải chuỗi chrome.
   final String? detail;
 
+  /// Số file ĐỌC ĐƯỢC trong nguồn (0 = không đọc được gì — vd SAF
+  /// `content://` hoặc thẻ nhớ ngoài bị scoped storage chặn).
+  ///
+  /// IN4-16: UI dùng số này để biết có nên hướng dẫn user chọn FILE
+  /// (đường bytes) thay vì thư mục.
+  final int sourceFileCount;
+
   const SherpaAsrImportResult({
     required this.status,
     this.profile,
@@ -126,6 +169,7 @@ class SherpaAsrImportResult {
     this.missingRoles = const [],
     this.detectedKinds = const {},
     this.detail,
+    this.sourceFileCount = 0,
   });
 
   bool get isSuccess => status == SherpaAsrImportStatus.imported;
@@ -291,13 +335,18 @@ class SherpaModelManager {
         'espeak-ng-data.tar.bz2',
   ];
 
-  /// Danh sách các profile Zipformer ASR được hỗ trợ sẵn.
+  /// Danh sách các profile ASR được hỗ trợ sẵn (Zipformer + Parakeet).
   ///
   /// Nguồn sự thật nằm ở `asr_model_routing.dart` (`kSherpaAsrProfiles`) —
-  /// KHÔNG bịa thêm profile ngôn ngữ ngoài 2 profile đã verify.
+  /// KHÔNG bịa thêm profile ngoài 3 profile đã verify.
   static const List<SherpaAsrProfile> predefinedAsrProfiles = kSherpaAsrProfiles;
 
   static const String safEmptyPrefix = 'SAF_EMPTY:';
+
+  /// Trần kích thước cho đường import BYTES (Android SAF đọc bằng
+  /// `withData: true`). Lớn hơn ngưỡng này thì bắt buộc dùng đường PATH
+  /// (copy theo luồng) — tránh OOM khi import encoder Parakeet (~624MB).
+  static const int kMaxNamedBytesFileBytes = 32 * 1024 * 1024;
 
   final Dio _dio = Dio(
     BaseOptions(
@@ -327,6 +376,9 @@ class SherpaModelManager {
   Future<void>? _initializing;
   DateTime? _lastRescanAt;
   static final Map<String, _EncoderKindCacheEntry> _encoderKindCache = {};
+
+  /// Cache cờ NeMo (đọc metadata_props ở CUỐI file ONNX).
+  static final Map<String, _NeMoEncoderCacheEntry> _neMoEncoderCache = {};
 
   Future<String> _documents() async {
     if (_documentsDir != null) return _documentsDir!;
@@ -371,9 +423,82 @@ class SherpaModelManager {
   Future<void> _initializeInternal() async {
     if (!_initialized) {
       await _documents();
+      await _seedAsrFromDevModels();
       _initialized = true;
     }
     await rescan();
+  }
+
+  /// PARAKEET-001 — seeding cho build DEV (giống `dev_models/whisper` của
+  /// Whisper): copy sẵn model ASR từ `dev_models/sherpa_asr/<tên-thư-mục>/`
+  /// vào documents để test Parakeet (~670MB) mà không phải tải lại mỗi lần.
+  ///
+  /// Chỉ chạy ở debug, chỉ khi profile CHƯA có model, và nhận diện profile
+  /// bằng đúng [matchAsrProfile] như đường Import (không đoán bừa).
+  Future<void> _seedAsrFromDevModels() async {
+    if (!kDebugMode) return;
+    final docs = _documentsDir;
+    if (docs == null) return;
+    try {
+      String? root;
+      final env = Platform.environment['IN4UP_MODELS_DIR'];
+      if (env != null && env.isNotEmpty) {
+        final candidate = Directory(p.join(env, 'sherpa_asr'));
+        if (candidate.existsSync()) root = candidate.path;
+      }
+      if (root == null) {
+        var dir = Directory.current;
+        for (var i = 0; i < 6; i++) {
+          for (final name in const ['sherpa_asr', 'sherpa']) {
+            final candidate = Directory(p.join(dir.path, 'dev_models', name));
+            if (candidate.existsSync()) {
+              root = candidate.path;
+              break;
+            }
+          }
+          if (root != null) break;
+          final parent = dir.parent;
+          if (parent.path == dir.path) break;
+          dir = parent;
+        }
+      }
+      if (root == null) return;
+
+      for (final entity in Directory(root).listSync()) {
+        if (entity is! Directory) continue;
+        final name = p.basename(entity.path);
+        final paths = _findAsrModelInDirSync(entity.path);
+        if (paths == null) continue;
+        final profile = matchAsrProfile(
+          isStreaming: paths.isStreaming,
+          encoderPath: paths.encoder,
+          tokensPath: paths.tokens,
+          folderName: name,
+        );
+        if (profile == null) continue;
+        final destDir = Directory(p.join(docs, asrFolderName, profile.id));
+        if (_findAsrModelInDirSync(destDir.path) != null) continue;
+        await _copyDirContents(entity, destDir);
+        debugPrint('🌱 seed ASR ${profile.id} ← ${entity.path}');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Seed ASR từ dev_models lỗi: $e');
+    }
+  }
+
+  Future<void> _copyDirContents(Directory src, Directory dest) async {
+    await dest.create(recursive: true);
+    for (final entity in src.listSync(recursive: true)) {
+      if (entity is! File) continue;
+      final rel = p.relative(entity.path, from: src.path);
+      final target = File(p.join(dest.path, rel));
+      if (await target.exists() &&
+          await target.length() == await entity.length()) {
+        continue;
+      }
+      await target.parent.create(recursive: true);
+      await entity.copy(target.path);
+    }
   }
 
   /// Bảo đảm state model còn “tươi” trước khi quyết định start live STT
@@ -542,29 +667,38 @@ class SherpaModelManager {
 
     // 1. Metadata ONNX (nội dung file là bằng chứng mạnh nhất — kể cả khi
     //    file bị đặt trong thư mục/profile có tên "streaming").
+    //
+    // M4U-IMPORT-003: transducer NVIDIA NeMo (Parakeet TDT) được kiểm TRƯỚC
+    // (metadata `EncDecRNNTBPEModel` nằm ở CUỐI file) ⇒ OFFLINE-only. Nếu
+    // không, chuỗi "streaming" bất kỳ trong graph sẽ khiến model bị route
+    // sang OnlineRecognizer ⇒ SIGABRT native.
     var kind = SherpaAsrEncoderKind.unknown;
     try {
-      final length = stat?.size ?? file.lengthSync();
-      final readLen = length < 256 * 1024 ? length : 256 * 1024;
-      if (readLen > 0) {
-        final raf = file.openSync();
-        try {
-          final bytes = raf.readSync(readLen);
-          final text = String.fromCharCodes(
-            bytes.where((b) => b >= 32 && b < 127),
-          ).toLowerCase();
-          // CHỈ nhận bằng chứng MẠNH. `encoder_dims`/`query_head_dims`
-          // KHÔNG đủ tin (có thể xuất hiện ở cả model offline — bản int8 của
-          // model streaming còn không có chuỗi này, xem SHERPA-STREAM-001),
-          // nên khi chỉ có dims thì trả `unknown` để route theo profile
-          // (VI = offline+VAD, EN = streaming) thay vì đoán sai.
-          if (text.contains('non-streaming')) {
-            kind = SherpaAsrEncoderKind.nonStreaming;
-          } else if (text.contains('streaming')) {
-            kind = SherpaAsrEncoderKind.streaming;
+      if (isNeMoTransducerEncoder(encoderPath)) {
+        kind = SherpaAsrEncoderKind.nonStreaming;
+      } else {
+        final length = stat?.size ?? file.lengthSync();
+        final readLen = length < 256 * 1024 ? length : 256 * 1024;
+        if (readLen > 0) {
+          final raf = file.openSync();
+          try {
+            final bytes = raf.readSync(readLen);
+            final text = String.fromCharCodes(
+              bytes.where((b) => b >= 32 && b < 127),
+            ).toLowerCase();
+            // CHỈ nhận bằng chứng MẠNH. `encoder_dims`/`query_head_dims`
+            // KHÔNG đủ tin (có thể xuất hiện ở cả model offline — bản int8 của
+            // model streaming còn không có chuỗi này, xem SHERPA-STREAM-001),
+            // nên khi chỉ có dims thì trả `unknown` để route theo profile
+            // (VI = offline+VAD, EN = streaming) thay vì đoán sai.
+            if (text.contains('non-streaming')) {
+              kind = SherpaAsrEncoderKind.nonStreaming;
+            } else if (text.contains('streaming')) {
+              kind = SherpaAsrEncoderKind.streaming;
+            }
+          } finally {
+            raf.closeSync();
           }
-        } finally {
-          raf.closeSync();
         }
       }
     } catch (_) {
@@ -586,6 +720,81 @@ class SherpaModelManager {
     return kind;
   }
 
+  /// Encoder có phải transducer NVIDIA NeMo (Parakeet TDT) không?
+  ///
+  /// M4U-IMPORT-003 — bằng chứng MẠNH, đọc metadata_props ở **cuối** file
+  /// ONNX: ONNX protobuf serialize theo số field ⇒ `metadata_props` (field
+  /// 14) nằm SAU `graph` (field 7) ⇒ nằm ở cuối file (đầu file chỉ có
+  /// header + graph node ⇒ dò "streaming" ở 256KB đầu không thấy metadata).
+  ///
+  /// Script export chính thức của k2-fsa (`scripts/nemo/parakeet-tdt-0.6b-v3/
+  /// export_onnx.py`) ghi vào `encoder.int8.onnx`:
+  ///   `model_type=EncDecRNNTBPEModel`, `model_author=NeMo`,
+  ///   `comment=Only the transducer branch is exported`, `feat_dim=128`.
+  ///
+  /// ⇒ Nhận diện họ model KHÔNG phụ thuộc tên file/thư mục (đúng yêu cầu
+  /// "không dựa vào tên file cố định") và không bị heuristic "streaming" /
+  /// "có dấu tiếng Việt" đánh lừa.
+  static bool isNeMoTransducerEncoder(String encoderPath) {
+    final file = File(encoderPath);
+    if (!file.existsSync()) return false;
+
+    FileStat? stat;
+    try {
+      stat = file.statSync();
+    } catch (_) {}
+    final signature = stat == null
+        ? null
+        : '${stat.size}|${stat.modified.millisecondsSinceEpoch}';
+    final cached = _neMoEncoderCache[encoderPath];
+    if (cached != null &&
+        cached.signature != null &&
+        cached.signature == signature) {
+      return cached.isNeMo;
+    }
+
+    final tail = _readOnnxTailText(
+      encoderPath,
+      stat?.size ?? 0,
+    );
+    final isNeMo = tail.contains('encdecrnntbpemodel') ||
+        tail.contains('nemo_transducer') ||
+        // `model_author` + `NeMo` phải ĐỨNG GẦN NHAU (protobuf metadata_props
+        // ghi key rồi value) — tránh false-positive khi chuỗi "nemo" vô tình
+        // xuất hiện trong graph của model KHÔNG phải NeMo (vd Zipformer k2-fsa
+        // ghi `model_author=k2-fsa`).
+        RegExp(r'model_author[\s\S]{0,64}nemo').hasMatch(tail);
+    if (cached == null || cached.signature != signature) {
+      _neMoEncoderCache[encoderPath] = _NeMoEncoderCacheEntry(isNeMo, signature);
+    }
+    return isNeMo;
+  }
+
+  /// Đọc phần CUỐI file ONNX (text ASCII) — nơi chứa `metadata_props`.
+  ///
+  /// Chỉ đọc tối đa 64KB cuối: metadata_props luôn nằm sát cuối file nên
+  /// đọc nhiều hơn là lãng phí I/O trên file 650MB (encoder Parakeet).
+  static String _readOnnxTailText(String path, int fileLength) {
+    try {
+      const maxTailBytes = 64 * 1024;
+      final length = fileLength > 0 ? fileLength : File(path).lengthSync();
+      final readLen = length < maxTailBytes ? length : maxTailBytes;
+      if (readLen <= 0) return '';
+      final raf = File(path).openSync();
+      try {
+        raf.setPositionSync(length - readLen);
+        final bytes = raf.readSync(readLen);
+        return String.fromCharCodes(
+          bytes.where((b) => b >= 32 && b < 127),
+        ).toLowerCase();
+      } finally {
+        raf.closeSync();
+      }
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// Kiểm tra model có phải bản STREAMING hay không (2 lớp: metadata ONNX
   /// trước — nội dung file quyết định — rồi mới tới tên file/thư mục).
   ///
@@ -605,7 +814,10 @@ class SherpaModelManager {
     return lower.contains('streaming');
   }
 
-  SherpaModelPaths? _findAsrModelInDirSync(String dirPath) {
+  SherpaModelPaths? _findAsrModelInDirSync(
+    String dirPath, {
+    SherpaAsrFamily family = SherpaAsrFamily.zipformer,
+  }) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) return null;
 
@@ -652,6 +864,7 @@ class SherpaModelManager {
         joiner: joiner,
         tokens: tokens,
         isStreaming: isStreamingEncoderOnnx(encoder),
+        family: family,
       );
     }
     return null;
@@ -672,6 +885,7 @@ class SherpaModelManager {
     for (final profile in predefinedAsrProfiles) {
       final paths = _findAsrModelInDirSync(
         p.join(documentsDir, asrFolderName, profile.id),
+        family: profile.family,
       );
       if (paths != null) {
         result[profile.id] = paths;
@@ -699,7 +913,7 @@ class SherpaModelManager {
             folderName: p.basename(root.path),
           );
           if (profile != null && !result.containsKey(profile.id)) {
-            result[profile.id] = rootPaths;
+            result[profile.id] = rootPaths.withFamily(profile.family);
           }
         }
       }
@@ -713,7 +927,7 @@ class SherpaModelManager {
         if (paths == null) continue;
         final profile = _matchProfileForPaths(paths, folderName: name);
         if (profile != null && !result.containsKey(profile.id)) {
-          result[profile.id] = paths;
+          result[profile.id] = paths.withFamily(profile.family);
           debugPrint('ℹ️ ASR model ngoài folder chuẩn → profile '
               '${profile.id}: ${dir.path}');
         }
@@ -737,24 +951,61 @@ class SherpaModelManager {
     );
   }
 
-  /// Nhận diện profile Zipformer cho một bộ file model.
+  /// Nhận diện profile ASR (Zipformer / Parakeet) cho một bộ file model.
   ///
   /// Trả `null` khi không đủ căn cứ — KHÔNG map bừa sang profile ngôn ngữ
   /// khác (CABIN-ASR-002: model lạ từng bị nhét vào folder EN streaming, rồi
   /// chính tên folder “streaming” làm sai guard Online/Offline).
+  ///
+  /// PARAKEET-001: Parakeet TDT 0.6B v3 là model OFFLINE đa ngữ. Nhận diện
+  /// theo tên archive/thư mục (`parakeet`, `nemo`, `tdt`) hoặc token ngôn ngữ
+  /// châu Âu (de/fr/es…). Chỉ xét TÊN FILE/THƯ MỤC LÁ — không xét cả đường
+  /// dẫn (`/data/…` khớp token `da` của tiếng Đan Mạch → nhận nhầm).
   static SherpaAsrProfile? matchAsrProfile({
     required bool isStreaming,
     String? encoderPath,
     String? tokensPath,
     String? folderName,
+    String? bundleDir,
   }) {
     final nameHaystack = [
       if (encoderPath != null) encoderPath,
       if (folderName != null) folderName,
     ].join(' ');
+    final leafHaystack = [
+      if (encoderPath != null) p.basename(encoderPath),
+      if (folderName != null) _leafName(folderName),
+      // M4U-IMPORT-002: tên thư mục con chứa bộ model (đường import thư mục
+      // SAF/giải nén) — cũng là bằng chứng loại model (vd thư mục
+      // `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8`).
+      if (bundleDir != null) _leafName(bundleDir),
+    ].join(' ').toLowerCase();
     final looksVi = asrTokensLookVietnamese(tokensPath) ||
         _nameLooksLanguage(nameHaystack, 'vi');
     final looksEn = _nameLooksLanguage(nameHaystack, 'en');
+
+    final parakeet = AsrModelRouter.parakeetProfile;
+
+    // M4U-IMPORT-003 — NHẬN DIỆN HỌ MODEL TRƯỚC, heuristic ngôn ngữ SAU.
+    //
+    // Bộ NeMo/Parakeet là transducer OFFLINE đa ngữ (25 ngôn ngữ châu Âu):
+    // vocab `tokens.txt` của nó là bảng chữ Unicode rộng (Latin mở rộng +
+    // Cyrillic + Greek + ~180 tag ngôn ngữ `<|vi|>`) nên heuristic "tokens có
+    // dấu tiếng Việt" KHÔNG phải bằng chứng VI. Trước đây nhánh VI được
+    // kiểm TRƯỚC nhánh Parakeet ⇒ import đúng bộ Parakeet bị coi là
+    // "Zipformer VI" ⇒ báo lỗi "model không khớp profile đã chọn".
+    //
+    // Bằng chứng họ model theo thứ tự mạnh → yếu:
+    //  1. metadata ONNX ở cuối file (`EncDecRNNTBPEModel` / `model_author=NeMo`)
+    //     — không phụ thuộc tên file/thư mục;
+    //  2. tên lá bundle có `parakeet`/`nemo`/`tdt`.
+    final neMoFamily = encoderPath != null &&
+        !nameLooksStreamingModel(nameHaystack) &&
+        isNeMoTransducerEncoder(encoderPath);
+    if (parakeet != null &&
+        (neMoFamily || _leafHasStrongParakeetMarker(leafHaystack))) {
+      return parakeet;
+    }
 
     if (isStreaming) {
       // App chỉ có 1 profile streaming (EN) và KHÔNG có VI streaming — nếu
@@ -763,9 +1014,52 @@ class SherpaModelManager {
       return AsrModelRouter.profileForLanguage('en');
     }
 
-    // Nhánh offline: chỉ nhận VI (profile offline duy nhất của app).
-    if (!looksVi) return null;
-    return AsrModelRouter.profileForLanguage('vi');
+    if (looksVi) {
+      // Model VI 30M nhỏ hơn nhiều — nhận diện trước để import đúng thẻ VI.
+      return AsrModelRouter.profileForLanguage('vi');
+    }
+    if (parakeet != null && _leafLooksParakeet(leafHaystack, parakeet)) {
+      return parakeet;
+    }
+    return null;
+  }
+
+  /// Tên lá của thư mục nguồn (bỏ đường dẫn, chấp nhận cả `\` của Windows).
+  static String _leafName(String folder) {
+    final normalized = folder.replaceAll('\\', '/');
+    final trimmed = normalized.endsWith('/')
+        ? normalized.substring(0, normalized.length - 1)
+        : normalized;
+    final slash = trimmed.lastIndexOf('/');
+    return slash < 0 ? trimmed : trimmed.substring(slash + 1);
+  }
+
+  /// Tên file/thư mục có dấu hiệu bundle Parakeet (NeMo TDT) — hoặc token
+  /// ngôn ngữ châu Âu mà CHỈ Parakeet phục vụ (bỏ `en`/`vi` vì Zipformer đã
+  /// có profile riêng).
+  static bool _leafLooksParakeet(String leafHaystack, SherpaAsrProfile parakeet) {
+    if (leafHaystack.isEmpty) return false;
+    if (_leafHasStrongParakeetMarker(leafHaystack)) {
+      return true;
+    }
+    for (final language in parakeet.languages) {
+      if (language == 'en' || language == 'vi') continue;
+      if (_nameLooksLanguage(leafHaystack, language)) return true;
+    }
+    return false;
+  }
+
+  /// Dấu hiệu MẠNH về họ Parakeet/NeMo trong tên lá (tên thư mục con / tên
+  /// file bundle).
+  ///
+  /// Mạnh hơn `_leafLooksParakeet` (vốn còn xét token ngôn ngữ châu Âu như
+  /// `de`/`fr`/`ro`): chỉ nhận khi tên có `parakeet` / `nemo` / `tdt` — đây là
+  /// dấu hiệu đặc trưng HỌ MODEL, không phải ngôn ngữ.
+  static bool _leafHasStrongParakeetMarker(String leafHaystack) {
+    if (leafHaystack.isEmpty) return false;
+    return leafHaystack.contains('parakeet') ||
+        leafHaystack.contains('nemo') ||
+        leafHaystack.contains('tdt');
   }
 
   /// tokens.txt có ký tự đặc trưng tiếng Việt (BPE VI chứa âm tiết có dấu).
@@ -776,6 +1070,19 @@ class SherpaModelManager {
   /// tiếng Việt ⇒ import trả unknownProfile ("Không nhận diện được model").
   /// Giờ lower-case nội dung file trước khi so khớp (Dart toLowerCase()
   /// map đúng Unicode: Ồ→ồ, Đ→đ…).
+  ///
+  /// M4U-IMPORT-003 — bản sửa: "có 1 ký tự có dấu" là bằng chứng QUÁ YẾU.
+  /// Vocab của tokenizer ĐA NGÔN NGỮ (Parakeet/Canary của NVIDIA) chứa
+  /// bảng chữ Latin mở rộng + Cyrillic + Greek ⇒ có `â ê ô ă đ é ý ù ò ì á è à`
+  /// ⇒ bị nhận nhầm là model VI ⇒ import bộ Parakeet đúng bị chặn
+  /// ("model không khớp profile"). Nay:
+  ///  1. tokens chứa nhiều tag ngôn ngữ `<|vi|>`, `<|zh|>`, `<|hi|>`… ⇒ là
+  ///     vocab tokenizer đa ngôn ngữ ⇒ KHÔNG phải bằng chứng tiếng Việt;
+  ///  2. chỉ tính ký tự CHỈ TIẾNG VIỆT (Latin Extended Additional
+  ///     U+1EA0–U+1EF9: ạ ả ấ ầ ẩ ẫ ậ ắ ằ ẳ ẵ ặ ẹ ẻ ẽ ế ề ể ễ ệ ỉ ị ọ ỏ
+  ///     ố ồ ổ ỗ ộ ớ ờ ở ỡ ợ ụ ủ ứ ừ ử ữ ự ỳ ỷ ỹ ỵ) — các chữ có dấu
+  ///     dùng chung với ngôn ngữ khác (é ý đ â ê ô ă à á è ì ò ù) KHÔNG đủ
+  ///     bằng chứng.
   static bool asrTokensLookVietnamese(String? tokensPath) {
     if (tokensPath == null) return false;
     try {
@@ -788,16 +1095,40 @@ class SherpaModelManager {
       try {
         final bytes = raf.readSync(readLen);
         final text = utf8.decode(bytes, allowMalformed: true).toLowerCase();
-        return RegExp(
-          r'[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợ'
-          r'ùúủũụưừứửữựỳýỷỹỵđ]',
-        ).hasMatch(text);
+        // Tokenizer đa ngôn ngữ (NVIDIA dùng chung cho Parakeet/Canary):
+        // vocab có hàng trăm tag `<|xx|>` ⇒ không phải BPE tiếng Việt.
+        if (_countLanguageTags(text) >= 5) return false;
+        final hits = <String>{
+          for (final ch in kVietnameseOnlyChars.split(''))
+            if (text.contains(ch)) ch,
+        };
+        return hits.isNotEmpty;
       } finally {
         raf.closeSync();
       }
     } catch (_) {
       return false;
     }
+  }
+
+  /// Ký tự CHỈ tiếng Việt dùng (Latin Extended Additional U+1EA0–U+1EF9:
+  /// Ạ ạ Ả ả Ấ ấ … Ỵ ỵ) — KHÔNG ngôn ngữ Latin nào khác dùng (Romania có
+  /// `ă â î û`, Bồ Đào Nha có `ã õ`, Pháp có `é è`… ⇒ không tính).
+  ///
+  /// Đây là tín hiệu ĐỦ MẠNH cho "từ vựng tiếng Việt" mà KHÔNG trùng với
+  /// bảng chữ Latin mở rộng của vocab tokenizer đa ngôn ngữ.
+  static const String kVietnameseOnlyChars =
+      'ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỷỹỵ';
+
+  /// Đếm số tag ngôn ngữ `<|xx|>` trong vocab (dấu hiệu tokenizer đa ngôn
+  /// ngữ của NVIDIA — Parakeet/Canary có ~180 tag).
+  static int _countLanguageTags(String lowerText) {
+    var count = 0;
+    for (final match in RegExp(r'<\|[a-z]{2,3}\|>').allMatches(lowerText)) {
+      count++;
+      if (count >= 5) return count;
+    }
+    return count;
   }
 
   /// Tên file/thư mục có nhắc tới mã ngôn ngữ (vi/en) như một token riêng.
@@ -827,11 +1158,40 @@ class SherpaModelManager {
     // Thư mục chuẩn trước…
     final canonical = _findAsrModelInDirSync(
       p.join(docs, asrFolderName, profile.id),
+      family: profile.family,
     );
     if (canonical != null) return canonical;
 
     // …rồi tới model đã import với tên thư mục khác nhưng nhận diện được.
-    return detectAsrModels(docs)[profile.id];
+    final detected = detectAsrModels(docs);
+    final byProfile = detected[profile.id];
+    if (byProfile != null) return byProfile;
+
+    // M4U-IMPORT-003 — ngôn ngữ có thể được phục vụ bởi model ĐA NGỮ đã cài
+    // (Parakeet 25 ngôn ngữ châu Âu) khi profile CHUYÊN ngôn ngữ đó chưa
+    // cài. Trước đây chỉ tra đúng profile chuyên ngôn ngữ ⇒ Cabin live STT
+    // (và Quick capture) báo "chưa có model" dù máy ĐÃ cài Parakeet đúng
+    // ngôn ngữ. Ưu tiên profile chuyên ngôn ngữ (nếu có), rồi mới tới
+    // model đa ngữ — cùng thứ tự với `AsrModelRouter.profilesForLanguage`.
+    //
+    // `languageOrProfileId` có thể là MÃ NGÔN NGỮ ('en') hoặc PROFILE ID
+    // ('asr-parakeet-tdt-0.6b-v3-int8') ⇒ dùng `profile.languages` (đã phân
+    // giải ở trên) làm danh sách ngôn ngữ cần tra.
+    final languages = profile.languages.isNotEmpty
+        ? profile.languages
+        : <String>[languageOrProfileId];
+    for (final language in languages) {
+      for (final candidate in AsrModelRouter.profilesForLanguage(language)) {
+        if (candidate.id == profile.id) continue;
+        final paths = detected[candidate.id] ??
+            _findAsrModelInDirSync(
+              p.join(docs, asrFolderName, candidate.id),
+              family: candidate.family,
+            );
+        if (paths != null) return paths;
+      }
+    }
+    return null;
   }
 
   /// Kiểm tra xem đã có model Zipformer ASR cho ngôn ngữ/profile này chưa.
@@ -847,6 +1207,24 @@ class SherpaModelManager {
 
     final currentInfo = asrInfo.stateFor(profileId);
     if (currentInfo.isDownloading) return null;
+
+    // Kiểm tra dung lượng THẬT trước khi tải model lớn (Parakeet ~487MB
+    // archive + ~670MB sau giải nén). Không đo được ⇒ bỏ qua, để lỗi tải báo
+    // thật thay vì chặn oan.
+    final docsForSpace = _documentsDir;
+    final freeMB =
+        docsForSpace == null ? null : probeFreeSpaceMB(docsForSpace);
+    final needMB = (profile.approxSizeMB * 1.6).ceil();
+    if (freeMB != null && freeMB < needMB) {
+      final cur = Map<String, SherpaModelInfo>.from(_asrState.value.profileStates);
+      cur[profileId] = SherpaModelInfo(
+        status: SherpaModelStatus.error,
+        errorMessage: 'Cần ~${needMB}MB trống (archive + giải nén), '
+            'máy chỉ còn ${freeMB}MB. Hãy xoá bớt model khác rồi thử lại.',
+      );
+      _asrState.add(_asrState.value.copyWith(profileStates: cur));
+      return null;
+    }
 
     final token = CancelToken();
     _asrTokens[profileId] = token;
@@ -967,9 +1345,15 @@ class SherpaModelManager {
     }
     final listing = await _walkPaths(dir.path);
     if (listing.isEmpty) {
-      return const SherpaAsrImportResult(
-        status: SherpaAsrImportStatus.sourceEmpty,
-        detail: 'Thư mục rỗng',
+      // Phân biệt "thật sự rỗng" với "KHÔNG ĐỌC ĐƯỢC" (Android SAF trả
+      // `content://…` — `Directory.list()` ném lỗi ⇒ user có file thật
+      // nhưng app báo "thư mục rỗng" ⇒ sai, và không ai biết phải làm gì).
+      final readable = await _directoryReadable(dir.path);
+      return SherpaAsrImportResult(
+        status: readable
+            ? SherpaAsrImportStatus.sourceEmpty
+            : SherpaAsrImportStatus.sourceUnreadable,
+        detail: readable ? 'Thư mục rỗng' : 'Không đọc được thư mục (SAF)',
       );
     }
     return _importAsrListing(
@@ -979,6 +1363,39 @@ class SherpaModelManager {
     );
   }
 
+  /// Import từ DANH SÁCH file thuộc MỘT thư mục (thư mục SAF đã được stage
+  /// về cache với cấu trúc con được giữ nguyên).
+  ///
+  /// Khác với [importAsrFilesResult]: ở đây user chọn THƯ MỤC nên bộ model
+  /// có thể nằm trong thư mục con ⇒ vẫn group theo thư mục cha để chọn đúng
+  /// bộ "đủ nhất" khi thư mục có nhiều bundle.
+  Future<SherpaAsrImportResult> importAsrFolderListingResult(
+    List<String> filePaths, {
+    String? sourceLabel,
+    String? targetProfileId,
+  }) async {
+    if (filePaths.isEmpty) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceEmpty,
+        detail: 'Thư mục không có file model',
+      );
+    }
+    return _importAsrListing(
+      filePaths,
+      sourceLabel: sourceLabel ?? filePaths.first,
+      targetProfileId: targetProfileId,
+      groupByDirectory: true,
+    );
+  }
+
+  /// Import nhiều FILE do user CHỌN TAY (multi-select).
+  ///
+  /// M4U-IMPORT-002: các file này là MỘT bộ model ⇒ KHÔNG group theo thư
+  /// mục cha. Lý do: file_picker trên Android copy file đã chọn vào cache
+  /// (`cache/file_picker/<timestamp>/…`) và các file có thể nằm ở thư mục
+  /// KHÁC NHAU — nếu group theo thư mục cha thì mỗi file là 1 nhóm riêng,
+  /// chỉ 1 role được giữ lại ⇒ báo "thiếu encoder/joiner/tokens" oan dù
+  /// user đã chọn đủ file.
   Future<SherpaAsrImportResult> importAsrFilesResult(
     List<String> filePaths, {
     String? targetProfileId,
@@ -993,6 +1410,49 @@ class SherpaModelManager {
       filePaths,
       sourceLabel: filePaths.first,
       targetProfileId: targetProfileId,
+      groupByDirectory: false,
+    );
+  }
+
+  /// IN4-16 (MODELIMPORT-001) — Import ASR từ BYTES trong bộ nhớ
+  /// (Android SAF: picker trả URI `content://` — `dart:io` KHÔNG đọc được
+  /// path đó; UI đọc bytes bằng `withData: true` và truyền vào đây).
+  /// Logic nhận diện/validate GIỐNG hệt đường file — chỉ khác nguồn copy.
+  Future<SherpaAsrImportResult> importAsrNamedBytesResult(
+    Map<String, Uint8List> files, {
+    String? targetProfileId,
+  }) async {
+    if (files.isEmpty) {
+      return const SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.sourceEmpty,
+        detail: 'Chưa chọn file nào',
+      );
+    }
+    // PARAKEET-002: chặn TRƯỚC khi giữ/ghi bytes. Model Parakeet có
+    // `encoder.int8.onnx` ~624MB — nạp cả file vào RAM (và copy thêm 1 lần)
+    // là nguyên nhân app bị kill giữa lúc import.
+    for (final entry in files.entries) {
+      if (entry.value.length > kMaxNamedBytesFileBytes) {
+        return SherpaAsrImportResult(
+          status: SherpaAsrImportStatus.fileTooLarge,
+          detectedProfile: targetProfileId == null
+              ? null
+              : AsrModelRouter.profileForIdOrLanguage(targetProfileId),
+          sourceFileCount: files.length,
+          detail: '${entry.key}: '
+              '${(entry.value.length / (1024 * 1024)).toStringAsFixed(0)}MB '
+              '> ${kMaxNamedBytesFileBytes ~/ (1024 * 1024)}MB (đường bytes)',
+        );
+      }
+    }
+    final listing = [for (final key in files.keys) _toScanPath(key)];
+    return _importAsrListing(
+      listing,
+      sourceLabel: files.keys.join(', '),
+      targetProfileId: targetProfileId,
+      namedBytes: files,
+      // Bytes đến từ multi-select ⇒ MỘT bộ model (không group theo thư mục).
+      groupByDirectory: false,
     );
   }
 
@@ -1014,11 +1474,18 @@ class SherpaModelManager {
     final name = result.profile?.name ?? '';
     switch (result.status) {
       case SherpaAsrImportStatus.imported:
-        return '✅ Đã import model Zipformer ASR: $name';
+        return '✅ Đã import model ASR: $name';
       case SherpaAsrImportStatus.sourceMissing:
         return 'Thư mục không tồn tại';
       case SherpaAsrImportStatus.sourceEmpty:
         return 'Chưa chọn file/thư mục nào';
+      case SherpaAsrImportStatus.sourceUnreadable:
+        return 'App không đọc được thư mục đã chọn (SAF/thẻ nhớ ngoài). '
+            'Hãy dùng Import thư mục trên Android hoặc chọn nhiều file.';
+      case SherpaAsrImportStatus.unsupportedLayout:
+        return 'Import thất bại: bộ model này không đúng layout sherpa-onnx '
+            '(export NVIDIA NeMo gộp joint). Cần bộ '
+            'encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt.';
       case SherpaAsrImportStatus.incompleteFiles:
         if (result.missingRoles.isNotEmpty) {
           return 'Import thất bại — thiếu: ${result.missingRoles.join(', ')}. '
@@ -1027,11 +1494,15 @@ class SherpaModelManager {
         return 'Import thất bại: cần đủ 4 file (encoder, decoder, joiner .onnx + tokens.txt)';
       case SherpaAsrImportStatus.unknownProfile:
         return 'Import thất bại: không nhận diện được model này là '
-            'Tiếng Việt (offline) hay English (streaming) — '
-            'hãy bấm Import ở đúng thẻ model.';
+            'Tiếng Việt (offline), English (streaming) hay Parakeet (offline '
+            'đa ngữ) — hãy bấm Import ở đúng thẻ model.';
       case SherpaAsrImportStatus.profileMismatch:
         return 'Import thất bại: model không khớp profile đã chọn'
             '${result.detectedProfile == null ? '' : ' (nhận diện: ${result.detectedProfile!.name})'}.';
+      case SherpaAsrImportStatus.fileTooLarge:
+        return 'Import thất bại: file quá lớn để đọc trực tiếp '
+            '(giới hạn ${kMaxNamedBytesFileBytes ~/ (1024 * 1024)}MB mỗi file). '
+            'Hãy dùng Import thư mục hoặc chọn file có đường dẫn thật.';
       case SherpaAsrImportStatus.failed:
         return 'Import thất bại: ${result.detail ?? 'lỗi không xác định'}';
     }
@@ -1050,13 +1521,51 @@ class SherpaModelManager {
     List<String> listing, {
     required String sourceLabel,
     String? targetProfileId,
+    Map<String, Uint8List>? namedBytes,
+    bool groupByDirectory = true,
   }) async {
     // Quét thống nhất (I4U18-MODEL-IMPORT-001): group theo thư mục cha +
     // alias tên file — thay cho việc lấy encoder/tokens ĐẦU TIÊN trong walk
     // order (nguồn gốc lỗi "chọn đúng folder vẫn báo không nhận dạng").
-    final report = ModelBundleScanner.scan([
-      for (final path in listing) ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
-    ]);
+    //
+    // M4U-IMPORT-002: đường multi-select (user chọn N file) KHÔNG group theo
+    // thư mục cha — file_picker Android đặt mỗi file vào thư mục cache riêng
+    // nên grouping sẽ chỉ giữ 1 role ⇒ báo "thiếu file" oan.
+    final report = ModelBundleScanner.scan(
+      [
+        for (final path in listing)
+          ScannedFile(
+            _toScanPath(path),
+            sizeBytes: _safeLength(path, namedBytes: namedBytes),
+          ),
+      ],
+      groupByDirectory: groupByDirectory,
+    );
+
+    // IN4-16: log chi tiết từng file (tên + kích thước + nguồn) để chẩn đoán
+    // "không đọc được" vs "thiếu file" vs "sai định dạng".
+    debugPrint(
+      '📂 ASR import nguồn: ${listing.length} file — '
+      '${namedBytes != null ? "đường BYTES (SAF)" : "đường path"}',
+    );
+    for (final path in listing) {
+      final size = _safeLength(path, namedBytes: namedBytes);
+      final readable = namedBytes != null
+          ? (namedBytes[path] ?? namedBytes[p.basename(path)])?.isNotEmpty ??
+              false
+          : File(path).existsSync();
+      debugPrint(
+        '   • ${p.basename(path)} — ${size > 0 ? "$size bytes" : "rỗng/không đọc được"}'
+        '${readable ? "" : " (KHÔNG đọc được)"}',
+      );
+    }
+    if (listing.isEmpty) {
+      debugPrint(
+        '⚠️ ASR import: KHÔNG đọc được file nào từ nguồn '
+        '(${sourceLabel.isEmpty ? "(không rõ)" : sourceLabel}) — '
+        'thường là SAF content:// hoặc thẻ nhớ ngoài bị scoped storage chặn.',
+      );
+    }
     final zip = report.zipformer;
 
     String? tokensPath = zip?.tokens?.path;
@@ -1082,18 +1591,56 @@ class SherpaModelManager {
     // Bằng chứng streaming = metadata ONNX HOẶC tên file/thư mục nguồn.
     final haystack =
         '$sourceLabel ${encoderPath ?? ''} ${report.zipformerDir}';
-    final streamingEvidence = encoderKind == SherpaAsrEncoderKind.streaming ||
-        nameLooksStreamingModel(haystack);
+    // M4U-IMPORT-003: bộ NeMo/Parakeet là transducer OFFLINE (metadata
+    // `EncDecRNNTBPEModel` nằm ở CUỐI file ONNX) ⇒ KHÔNG được coi là
+    // streaming chỉ vì heuristic "streaming" trong nội dung/tên. Tên nói rõ
+    // "streaming" vẫn thắng (bản NeMo streaming của NVIDIA vẫn mang chữ
+    // "streaming" trong tên bundle).
+    final namedStreaming = nameLooksStreamingModel(haystack);
+    final neMoOffline = !namedStreaming &&
+        encoderPath != null &&
+        isNeMoTransducerEncoder(encoderPath);
+    final streamingEvidence = namedStreaming ||
+        (!neMoOffline &&
+            encoderKind == SherpaAsrEncoderKind.streaming);
     final detected = matchAsrProfile(
       isStreaming: streamingEvidence,
       encoderPath: encoderPath,
       tokensPath: tokensPath,
       folderName: sourceLabel,
+      bundleDir: report.zipformerDir,
     );
 
     final explicit = targetProfileId == null
         ? null
         : AsrModelRouter.profileForIdOrLanguage(targetProfileId);
+
+    // M4U-IMPORT-002 — bộ export NVIDIA NeMo (Parakeet TDT) có layout
+    // `encoder-model*.onnx` + `decoder_joint-model*.onnx` + `nemo128.onnx` +
+    // `vocab.txt`: decoder GỘP sẵn joint, mel-filter nằm riêng. sherpa-onnx
+    // cần decoder + joiner TÁCH RIÊNG ⇒ bộ này KHÔNG nạp được.
+    //
+    // KHÔNG báo "thiếu joiner/tokens" oan (file user có ĐỦ, chỉ là layout
+    // khác) — báo rõ cần bộ nào + đường tải. Check TRƯỚC mọi nhánh
+    // profile (kể cả "không nhận diện được") vì layout này không map được
+    // profile nào một cách chắc chắn.
+    if (zip?.isNeMoExport ?? false) {
+      debugPrint(
+        '⚠️ ASR import: bộ export NVIDIA NeMo (decoder_joint/nemo128) — '
+        'sherpa-onnx cần encoder+decoder+joiner+tokens tách riêng.',
+      );
+      return SherpaAsrImportResult(
+        status: SherpaAsrImportStatus.unsupportedLayout,
+        profile: explicit,
+        detectedProfile: detected,
+        encoderKind: encoderKind,
+        contentRecognized: true,
+        detectedKinds: report.kinds,
+        sourceFileCount: listing.length,
+        missingRoles: const [],
+        detail: 'nemo-export:${zip?.decoder?.name ?? ''}',
+      );
+    }
 
     // Sai lệch chặn cứng: kind ONNX nói ngược lại profile đích.
     SherpaAsrProfile? target = explicit ?? detected;
@@ -1103,6 +1650,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: false,
+        sourceFileCount: listing.length,
       );
     }
     if (streamingEvidence && !target.isStreaming) {
@@ -1112,6 +1660,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: detected != null,
+        sourceFileCount: listing.length,
       );
     }
     if (encoderKind == SherpaAsrEncoderKind.nonStreaming && target.isStreaming) {
@@ -1121,6 +1670,7 @@ class SherpaModelManager {
         detectedProfile: detected,
         encoderKind: encoderKind,
         contentRecognized: detected != null,
+        sourceFileCount: listing.length,
       );
     }
     if (detected != null && detected.id != target.id) {
@@ -1138,22 +1688,36 @@ class SherpaModelManager {
     // thì tôn trọng profile mà user đã chỉ định, không từ chối vì thiếu keyword tên/tokens.
     if (encoderKind == SherpaAsrEncoderKind.unknown) {
       final nameHaystack = '$sourceLabel ${encoderPath ?? ''}';
+      // M4U-IMPORT-003: bộ NeMo/Parakeet có bằng chứng HỌ MODEL riêng
+      // (metadata ONNX ở cuối file + tên bundle) ⇒ không cần heuristic
+      // "tokens có dấu tiếng Việt" để chứng minh bundle thuộc profile này.
+      final familyEvidence = (encoderPath != null &&
+              isNeMoTransducerEncoder(encoderPath)) ||
+          _leafHasStrongParakeetMarker([
+            if (report.zipformerDir != null) _leafName(report.zipformerDir!),
+            if (sourceLabel.isNotEmpty) _leafName(sourceLabel),
+          ].join(' ').toLowerCase());
       final evidenceForTarget = target.isStreaming
           ? nameLooksStreamingModel(nameHaystack)
           : (asrTokensLookVietnamese(tokensPath) ||
-              _nameLooksLanguage(nameHaystack, 'vi'));
+              _nameLooksLanguage(nameHaystack, 'vi') ||
+              familyEvidence);
       if (!evidenceForTarget && explicit == null) {
         return SherpaAsrImportResult(
           status: SherpaAsrImportStatus.unknownProfile,
           detectedProfile: detected,
           encoderKind: encoderKind,
           contentRecognized: false,
+          sourceFileCount: listing.length,
           detail: 'Không đọc được metadata ONNX và không có bằng chứng '
               'ngôn ngữ/loại model cho profile ${target.id}',
         );
       }
     }
 
+    // M4U-IMPORT-002 — bộ export NVIDIA NeMo (Parakeet TDT) đã được chặn ở
+    // trên (ngay sau khi resolve profile) — tới đây là layout chuẩn
+    // sherpa-onnx.
     final docs = await _documents();
     final destDir = p.join(docs, asrFolderName, target.id);
     await Directory(destDir).create(recursive: true);
@@ -1173,7 +1737,7 @@ class SherpaModelManager {
       ]) {
         if (f == null) continue;
         final dest = p.join(destDir, p.basename(f.path));
-        if (await _tryCopyFile(f.path, dest)) copied++;
+        if (await _copyListingFile(f.path, dest, namedBytes: namedBytes)) copied++;
       }
     } else {
       // Không group được — giữ vòng lặp cũ (tên rộng) cho file lẻ user chọn.
@@ -1189,7 +1753,7 @@ class SherpaModelManager {
             name == 'bpe.vocab' ||
             name.endsWith('.onnx')) {
           final dest = p.join(destDir, p.basename(path));
-          if (await _tryCopyFile(path, dest)) copied++;
+          if (await _copyListingFile(path, dest, namedBytes: namedBytes)) copied++;
         }
       }
     }
@@ -1200,12 +1764,38 @@ class SherpaModelManager {
       }
     }
 
-    if (copied == 0 && archivePath.isNotEmpty) {
+    // Giải nén khi KHÔNG có nhóm model đầy đủ từ file lẻ. Trước đây điều kiện
+    // là `copied == 0`, nên chọn kèm 1 file lẻ (vd `tokens.txt` cạnh archive)
+    // làm archive bị bỏ qua → báo thiếu file oan.
+    if (zip == null && archivePath.isNotEmpty) {
+      // IN4-16: đường bytes (SAF) — ghi archive ra file tạm rồi giải nén.
+      String archiveOnDisk = archivePath;
+      File? tmpArchive;
       try {
-        if (archivePath.toLowerCase().endsWith('.tar.bz2')) {
-          await _extractTarBz2(archivePath, destDir);
-        } else if (archivePath.toLowerCase().endsWith('.zip')) {
-          await _extractZip(archivePath, destDir);
+        if (namedBytes != null) {
+          final b = namedBytes[archivePath] ??
+              namedBytes[p.basename(archivePath)];
+          if (b == null || b.isEmpty) {
+            return SherpaAsrImportResult(
+              status: SherpaAsrImportStatus.failed,
+              profile: target,
+              detectedProfile: detected,
+              encoderKind: encoderKind,
+              contentRecognized: detected != null,
+              detectedKinds: report.kinds,
+              detail: 'Không đọc được bytes của archive',
+            );
+          }
+          tmpArchive = File(
+              p.join(await _documents(), 'downloads', 'asr_named_${p.basename(archivePath)}'));
+          await tmpArchive.parent.create(recursive: true);
+          await tmpArchive.writeAsBytes(b, flush: true);
+          archiveOnDisk = tmpArchive.path;
+        }
+        if (archiveOnDisk.toLowerCase().endsWith('.tar.bz2')) {
+          await _extractTarBz2(archiveOnDisk, destDir);
+        } else if (archiveOnDisk.toLowerCase().endsWith('.zip')) {
+          await _extractZip(archiveOnDisk, destDir);
         }
       } catch (e) {
         return SherpaAsrImportResult(
@@ -1215,8 +1805,13 @@ class SherpaModelManager {
           encoderKind: encoderKind,
           contentRecognized: detected != null,
           detectedKinds: report.kinds,
+          sourceFileCount: listing.length,
           detail: 'Giải nén archive thất bại: $e',
         );
+      } finally {
+        try {
+          if (tmpArchive != null) await tmpArchive!.delete();
+        } catch (_) {}
       }
     }
 
@@ -1225,10 +1820,17 @@ class SherpaModelManager {
     if (installed == null) {
       // Báo thiếu CHÍNH XÁC: quét lại thư mục đích — role nào chưa có thì
       // nêu tên role + tên file mẫu (I4U18-MODEL-IMPORT-001).
-      final destScan = ModelBundleScanner.scan([
-        for (final path in await _walkPaths(destDir))
-          ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
-      ]);
+      //
+      // M4U-IMPORT-002: mọi file trong thư mục đích là CÙNG một bộ model
+      // (do ta vừa copy) ⇒ KHÔNG group theo thư mục con, nếu không sẽ mất
+      // role và báo thiếu oan.
+      final destScan = ModelBundleScanner.scan(
+        [
+          for (final path in await _walkPaths(destDir))
+            ScannedFile(_toScanPath(path), sizeBytes: _safeLength(path)),
+        ],
+        groupByDirectory: false,
+      );
       final missing = destScan.zipformer?.missingRoles ??
           zip?.missingRoles ??
           const [
@@ -1246,6 +1848,7 @@ class SherpaModelManager {
         contentRecognized: detected != null || zip != null,
         missingRoles: List<String>.from(missing),
         detectedKinds: report.kinds,
+        sourceFileCount: listing.length,
         detail: sourceLabel,
       );
     }
@@ -1257,6 +1860,7 @@ class SherpaModelManager {
       detectedProfile: detected,
       encoderKind: detectedKindFor(installed),
       contentRecognized: detected != null || explicit != null,
+      sourceFileCount: listing.length,
       detail: destDir,
     );
   }
@@ -1441,7 +2045,12 @@ class SherpaModelManager {
   static String _toScanPath(String path) => ModelBundleScanner.normSep(path);
 
   /// Kích thước file an toàn (SAF/quyền có thể chặn stat — trả 0, không throw).
-  static int _safeLength(String path) {
+  /// Đường bytes (IN4-16): lấy kích thước từ map bytes thay vì đĩa.
+  static int _safeLength(String path, {Map<String, Uint8List>? namedBytes}) {
+    if (namedBytes != null) {
+      final b = namedBytes[path] ?? namedBytes[p.basename(path)];
+      return b == null ? 0 : b.length;
+    }
     try {
       return File(path).lengthSync();
     } catch (_) {
@@ -1449,9 +2058,42 @@ class SherpaModelManager {
     }
   }
 
+  /// Copy 1 file của listing vào destDir — từ đĩa (`_tryCopyFile`) hoặc từ
+  /// map bytes (Android SAF — IN4-16: content:// URI không đọc bằng dart:io).
+  Future<bool> _copyListingFile(
+    String src,
+    String dest, {
+    Map<String, Uint8List>? namedBytes,
+  }) async {
+    if (namedBytes != null) {
+      final b = namedBytes[src] ?? namedBytes[p.basename(src)];
+      if (b == null || b.isEmpty) return false;
+      try {
+        final f = File(dest);
+        await f.parent.create(recursive: true);
+        await f.writeAsBytes(b, flush: true);
+        return true;
+      } catch (e) {
+        debugPrint('⚠️ ASR bytes copy $src → $dest: $e');
+        return false;
+      }
+    }
+    return _tryCopyFile(src, dest);
+  }
+
   /// Giải nén .zip (archive package) — cửa vào cho model ZIP user nén tay
   /// (k2-fsa chính thức dùng tar.bz2; zip chỉ hỗ trợ import thủ công).
   Future<void> _extractZip(String zipPath, String destDir) async {
+    // ZipDecoder vẫn giải nén trong RAM: chặn archive lớn để không lặp lại
+    // đúng lỗi OOM của tar.bz2 (Parakeet/Whisper large dùng tar.bz2, zip chỉ
+    // là đường import thủ công của user).
+    final size = await File(zipPath).length();
+    if (size > kBigArchiveBytes) {
+      throw const TarBz2ExtractException(
+        'File zip quá lớn để giải nén trong bộ nhớ — hãy giải nén trên máy tính '
+        'rồi dùng Import thư mục.',
+      );
+    }
     final raw = await File(zipPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(raw);
     for (final file in archive) {
@@ -1468,6 +2110,30 @@ class SherpaModelManager {
       if (content is List<int>) {
         await out.writeAsBytes(content, flush: true);
       }
+    }
+  }
+
+  /// Thư mục có ĐỌC ĐƯỢC không (list được).
+  ///
+  /// M4U-IMPORT-002: phân biệt "thư mục rỗng thật" với "app không đọc được
+  /// thư mục" (Android SAF trả `content://…` ⇒ `Directory.list()` ném lỗi).
+  /// Trước đây cả hai đều thành "Thư mục rỗng" ⇒ user có file thật vẫn
+  /// bị báo sai, không biết phải làm gì.
+  static Future<bool> _directoryReadable(String path) async {
+    try {
+      // `Directory.list()` ném lỗi NGAY khi thư mục không đọc được
+      // (SAF `content://`, quyền, URI hỏng) — `Stream.first` dừng sau phần
+      // tử đầu tiên nên không quét hết thư mục.
+      await Directory(path)
+          .list(followLinks: true)
+          .first
+          .timeout(const Duration(seconds: 15));
+      return true; // có phần tử → đọc được
+    } on StateError {
+      // Stream hết mà KHÔNG lỗi ⇒ thư mục RỖNG (vẫn là "đọc được").
+      return true;
+    } catch (_) {
+      return false; // lỗi quyền/URI/timeout → không đọc được
     }
   }
 
@@ -1897,6 +2563,11 @@ class SherpaModelManager {
   String? _wrongBundleHint(ModelBundleReport report) {
     final kinds = report.kinds;
     if (kinds.contains(ModelBundleKind.zipformerAsr)) {
+      if (report.zipformer?.isNeMoExport ?? false) {
+        return 'Đây là bộ STT Parakeet/NeMo (encoder + decoder_joint + nemo128 + '
+            'vocab.txt) — không phải giọng Piper. Hãy bấm Import ở mục STT '
+            '(Parakeet).';
+      }
       return 'Đây là bộ STT Zipformer (encoder/decoder/joiner + tokens.txt) '
           '— không phải giọng Piper. Hãy bấm Import ở mục "5. STT Offline — '
           'Zipformer".';
@@ -1939,11 +2610,22 @@ class SherpaModelManager {
         final stem = name.substring(0, name.length - '.onnx'.length);
         final named = File(p.join(destDir, '${stem}_tokens.txt'));
         final shared = File(p.join(destDir, 'tokens.txt'));
-        final hasTokens = (named.existsSync() && named.lengthSync() >= 128) ||
-            (shared.existsSync() && shared.lengthSync() >= 128);
+        // M4U-IMPORT-002 — bộ Piper MỚI (piper 1.0.0) CHỈ có `<voice>.onnx`
+        // + `<voice>.onnx.json`, KHÔNG có tokens.txt: bảng phoneme nằm trong
+        // `phoneme_id_map` của config ⇒ sinh tokens.txt luôn (không cần tải
+        // file ngoài, không báo "thiếu tokens.txt" oan).
+        await _generatePiperTokensFromConfig(destDir, stem);
+        // Ngưỡng CHUNG với `discoverVoices` (kMinPiperTokensBytes): tokens rỗng
+        // / cắt ⇒ coi như THIẾU để lấy lại, đừng để app báo "import OK" rồi
+        // phát ra tiếng rỗng.
+        final hasTokens =
+            (named.existsSync() && named.lengthSync() >= kMinPiperTokensBytes) ||
+                (shared.existsSync() &&
+                    shared.lengthSync() >= kMinPiperTokensBytes);
         if (!hasTokens) {
           await _ensurePiperTokens(destDir, stem);
-          if (!(named.existsSync() && named.lengthSync() >= 128)) {
+          if (!(named.existsSync() &&
+              named.lengthSync() >= kMinPiperTokensBytes)) {
             missingTokens.add(stem);
           }
         }
@@ -2168,17 +2850,54 @@ class SherpaModelManager {
     return destDir;
   }
 
+  /// Sinh `<stem>_tokens.txt` từ `phoneme_id_map` trong config `<stem>.onnx.json`.
+  ///
+  /// M4U-IMPORT-002 — bộ Piper đời mới (piper 1.0.0, ví dụ
+  /// `rhasspy/piper-voices`) chỉ có `<voice>.onnx` + `<voice>.onnx.json`:
+  /// KHÔNG có `tokens.txt` (bảng phoneme nằm trong JSON). Format tokens.txt
+  /// của sherpa-onnx là `<symbol> <id>` mỗi dòng ⇒ sinh lại từ
+  /// `phoneme_id_map` (giá trị có thể là số hoặc mảng `[id]`) ⇒ giọng dùng
+  /// được ngay, KHÔNG cần tải tokens.txt từ mạng.
+  ///
+  /// Trả null nếu không có config / không có map ⇒ caller giữ đường tải
+  /// fallback như cũ.
+  Future<void> _generatePiperTokensFromConfig(
+    String destDir,
+    String stem,
+  ) async {
+    final named = File(p.join(destDir, '${stem}_tokens.txt'));
+    try {
+      // Đã có tokens hợp lệ → giữ nguyên (bundle có sẵn tokens.txt).
+      if (named.existsSync() && named.lengthSync() >= kMinPiperTokensBytes) {
+        return;
+      }
+      final config = File(p.join(destDir, '$stem.onnx.json'));
+      if (!config.existsSync()) return;
+      final body =
+          PiperImportPaths.tokensFromPiperConfigJson(config.readAsStringSync());
+      if (body == null) return;
+      await named.writeAsString(body);
+      debugPrint(
+        '✅ Sinh tokens.txt từ phoneme_id_map của $stem.onnx.json '
+        '(${body.trim().split('\n').length} ký hiệu)',
+      );
+    } catch (e) {
+      debugPrint('⚠️ Sinh tokens.txt từ config "$stem" lỗi: $e');
+    }
+  }
+
   Future<void> _ensurePiperTokens(String destDir, String voiceId) async {
     final named = File(p.join(destDir, '${voiceId}_tokens.txt'));
     final shared = File(p.join(destDir, 'tokens.txt'));
-    if (named.existsSync() && named.lengthSync() > 1024) return;
-    if (shared.existsSync() && shared.lengthSync() > 1024) {
+    if (named.existsSync() && named.lengthSync() > kMinPiperTokensBytes) return;
+    if (shared.existsSync() && shared.lengthSync() > kMinPiperTokensBytes) {
       await shared.copy(named.path);
       return;
     }
     for (final entity in Directory(destDir).listSync()) {
       final n = p.basename(entity.path);
-      if (n.endsWith('_tokens.txt') && File(entity.path).lengthSync() > 1024) {
+      if (n.endsWith('_tokens.txt') &&
+          File(entity.path).lengthSync() > kMinPiperTokensBytes) {
         await File(entity.path).copy(named.path);
         return;
       }
@@ -2187,36 +2906,74 @@ class SherpaModelManager {
       final tmp = p.join(destDir, 'tokens.txt.tmp');
       await _dio.download(piperTokensFallbackUrl, tmp, deleteOnError: true);
       final f = File(tmp);
-      if (await f.exists() && f.lengthSync() > 1024) {
+      if (await f.exists() && f.lengthSync() > kMinPiperTokensBytes) {
         await _replaceFile(tmp, named.path);
-        if (!shared.existsSync()) await named.copy(shared.path);
+        // Tokens dùng chung: ghi đè file hỏng, không giữ file rác.
+        if (!shared.existsSync() ||
+            shared.lengthSync() < kMinPiperTokensBytes) {
+          await named.copy(shared.path);
+        }
+      } else {
+        // File tải về quá nhỏ (vd trang lỗi HTML) — KHÔNG để lại file rác.
+        try {
+          if (await f.exists()) await f.delete();
+        } catch (_) {}
       }
     } catch (e) {
       debugPrint('⚠️ Piper tokens fallback: $e');
     }
+    // M4U-IMPORT-002 — bộ Piper chỉ có `.onnx` + `.onnx.json` (KHÔNG có
+    // tokens.txt) là bộ KHÔNG chạy được: tokens của Piper VITS là bảng
+    // phoneme espeak (~100KB, DÙNG CHUNG mọi giọng). File tokens quá nhỏ
+    // (<1KB) là file cắt/hỏng ⇒ xoá để app KHÔNG liệt kê giọng "chạy được"
+    // rồi phát ra tiếng rỗng (tokens=0KB trong log init native).
+    try {
+      if (named.existsSync() && named.lengthSync() < kMinPiperTokensBytes) {
+        await named.delete();
+        debugPrint(
+          '⚠️ Piper: xoá tokens.txt hỏng của "$voiceId" (<1KB) — cần '
+          'tokens.txt hợp lệ (bảng phoneme espeak, dùng chung mọi giọng).',
+        );
+      }
+      if (shared.existsSync() && shared.lengthSync() < kMinPiperTokensBytes) {
+        await shared.delete();
+        debugPrint('⚠️ Piper: xoá tokens.txt dùng chung hỏng (<1KB).');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Piper tokens cleanup: $e');
+    }
   }
 
+  /// Archive lớn hơn ngưỡng này giải nén trong ISOLATE, để UI không đứng
+  /// hình vài chục giây (Android ANR) khi bung Parakeet/Whisper large.
+  static const int kBigArchiveBytes = 48 * 1024 * 1024;
+
+  /// Giải nén `.tar.bz2` — PARAKEET-002.
+  ///
+  /// Bản cũ nạp CẢ archive vào RAM rồi giải nén ra thêm một buffer nữa
+  /// (`readAsBytes` + `decodeBytes` + `TarDecoder.decodeBytes`): với Parakeet
+  /// (~487MB nén / ~670MB sau giải nén) đỉnh >1.1GB ⇒ Android kill tiến trình
+  /// giữa lúc import — đúng hiện tượng "import một chặng thì app văng".
+  ///
+  /// Giờ dùng [extractTarBz2ToDirectorySync]: đọc file theo buffer, giải nén
+  /// từng khối bz2 rồi ghi thẳng từng entry ra đĩa (xem
+  /// `import/tar_bz2_stream_extractor.dart`), bộ nhớ ~ vài MB.
   Future<void> _extractTarBz2(String tarBz2Path, String destDir) async {
-    final raw = await File(tarBz2Path).readAsBytes();
-    final tarBytes = BZip2Decoder().decodeBytes(raw);
-    final archive = TarDecoder().decodeBytes(tarBytes);
-    for (final file in archive) {
-      final name = PiperImportPaths.posixRel(file.name);
-      if (name.isEmpty || name == '.' || name == './') continue;
-      final outPath = p.join(destDir, name);
-      if (file.isDirectory || name.endsWith('/')) {
-        await Directory(outPath).create(recursive: true);
-        continue;
-      }
-      final out = File(outPath);
-      await out.parent.create(recursive: true);
-      final content = file.content;
-      if (content is List<int>) {
-        await out.writeAsBytes(content, flush: true);
-      } else if (content is Uint8List) {
-        await out.writeAsBytes(content, flush: true);
-      }
+    final archive = File(tarBz2Path);
+    if (!await archive.exists()) {
+      throw const TarBz2ExtractException('Không tìm thấy archive để giải nén');
     }
+    final length = await archive.length();
+    if (length > kBigArchiveBytes) {
+      // Isolate riêng: chỉ truyền 2 chuỗi đường dẫn, không truyền bytes.
+      await Isolate.run(
+        () => extractTarBz2ToDirectorySync(tarBz2Path, destDir),
+      );
+      debugPrint('📦 Giải nén ${(length / (1024 * 1024)).toStringAsFixed(0)}MB '
+          'trong isolate → $destDir');
+      return;
+    }
+    extractTarBz2ToDirectorySync(tarBz2Path, destDir);
   }
 
   void cancelPiperDownload() {

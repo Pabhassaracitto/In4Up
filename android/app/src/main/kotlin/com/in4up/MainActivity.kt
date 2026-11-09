@@ -1,17 +1,39 @@
 package com.in4up
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.ContentResolver
+import android.content.ContentUris
+import android.content.Context
 import android.content.Intent
+import android.content.res.AssetFileDescriptor
+import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
+import android.util.Log
+import com.in4up.screentranslate.ScreenTranslatePlugin
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * MainActivity — đăng ký MethodChannel cho các thư viện thiết bị.
@@ -51,29 +73,202 @@ import java.io.FileOutputStream
  */
 class MainActivity : FlutterActivity() {
     private val channelName = "in4up/audiolib"
+    private val audioCacheExecutor = Executors.newSingleThreadExecutor()
+    private val audioCacheResolver by lazy { AudioContentCacheResolver(applicationContext) }
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val textChannelName = "in4up/textlib"
+    private val dictionaryChannelName = "in4up/dictionary"
+
+    // ADR-0018 P1 — deep link từ điển (`in4up://dict?w=…`, `in4up://open?path=…`).
+    // Native CHỈ chuyển tiếp URL thô; toàn bộ kiểm tra an toàn (độ dài từ, đuôi
+    // tệp, `..`) nằm ở Dart: features/dictionary/services/dict_deep_link.dart.
+    // Link lúc app chưa chạy được giữ ở `pendingDeepLink` cho tới khi Dart hỏi
+    // `getInitialLink` (Dart gọi ngay sau runApp).
+    private val deepLinkChannelName = "in4up/deeplink"
+    private var deepLinkChannel: MethodChannel? = null
+    private var pendingDeepLink: String? = null
+
+    // XLAT-SCR-002 — channel điều khiển "Dịch màn hình toàn hệ thống".
+    // Service + capture + overlay nằm ở package screentranslate; activity này
+    // chỉ là nơi đăng ký channel (createScreenCaptureIntent cần Activity nên
+    // có activity trong suốt riêng — xem ScreenCaptureRequestActivity).
+    private var screenTranslatePlugin: ScreenTranslatePlugin? = null
 
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
+    private val reqOpenDictionaryDocuments = 0x2A12
+    private val maxDictionaryReadBytes = 64 * 1024
 
-    // Result của MethodChannel đang chờ user chọn thư mục (1 picker tại 1
-    // thời điểm — SAF Picker là modal hệ thống).
+    // Result của MethodChannel đang chờ picker SAF (chỉ một picker modal tại
+    // một thời điểm).
     private var pendingFolderPicker: MethodChannel.Result? = null
+    private var pendingDictionaryDocumentsPicker: MethodChannel.Result? = null
+
+    private data class OpenDictionaryDocument(
+        val descriptor: AssetFileDescriptor,
+        val startOffset: Long,
+        val length: Long,
+    )
+
+    // PFD được giữ mở giữa các lệnh đọc offset; mỗi lệnh native seek/read có
+    // synchronized trên handle để không làm lệch vị trí giữa các request.
+    private val openDictionaryDocuments = ConcurrentHashMap<String, OpenDictionaryDocument>()
 
     // Định dạng đọc hỗ trợ bởi tab Thiết bị của Thư viện đọc.
     private val textExtensions = setOf(
         "txt", "lrc", "srt", "md", "markdown", "json", "docx", "pdf",
     )
 
+    // -------------------------------------------------------------------------
+    // OCR-SCAN-CRASH-001 — lớp an toàn cho lane "Quét ảnh ▸ Chụp & quét tài liệu".
+    //
+    // Vì sao phải ở native: plugin `google_mlkit_document_scanner` 0.5.0 (đọc
+    // tại đúng commit release `f29f844`) gọi GmsDocumentScanning.getClient() /
+    // getStartScanIntent() thẳng trên luồng platform mà KHÔNG bọc try/catch.
+    // Máy thiếu/tắt Google Play services, hoặc RAM dưới 1,7 GB (ngưỡng Google
+    // ghi trong tài liệu Document Scanner: trả MlKitException mã UNSUPPORTED)
+    // ⇒ lỗi ném thẳng ra luồng chính → tiến trình chết, không toast/dialog kịp
+    // hiện — đúng hiện tượng owner báo ở bản 0.10.3 ("app tắt ngay").
+    //
+    // Ba việc ở đây:
+    //   1. `probeCapabilities` — trả dữ liệu thô (GMS cài/bật/versionCode,
+    //      SDK_INT, tổng RAM) để `OcrPrecheck.decide()` quyết định TRƯỚC khi mở
+    //      máy quét (lib/features/ocr/ocr_precheck.dart).
+    //   2. `beginScanSession` / `endScanSession` + onSaveInstanceState — nhớ
+    //      "đang có phiên quét" để instance mới biết phiên đã bị hệ thống cắt
+    //      ngang (mất activity result — giả thuyết 2), thay vì treo im lặng.
+    //   3. Crash shield — CHỈ với exception có dấu vết ML Kit/GMS scanner: ghi
+    //      vết ra tệp chẩn đoán + báo Dart rồi GIỮ APP SỐNG để UI nói cho
+    //      người dùng. Mọi exception khác vẫn đi đường cũ (không che bug ngoài
+    //      lane này).
+    // -------------------------------------------------------------------------
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        appContext = applicationContext
+        if (savedInstanceState?.getBoolean(STATE_OCR_SCAN_IN_FLIGHT) == true) {
+            interruptedScanPending = true
+        }
+        installOcrCrashShield()
+    }
+
+    /**
+     * ADR-0018 P1 — app ĐANG CHẠY và người dùng bấm một link `in4up://…`
+     * (Activity là `singleTop` nên Android gọi `onNewIntent`, không tạo
+     * instance mới). Chuyển thẳng sang Dart qua `onLink`.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val link = intent.dataString
+        if (link.isNullOrEmpty()) return
+        val channel = deepLinkChannel
+        if (channel == null) {
+            // Engine chưa sẵn (rất hiếm) ⇒ để Dart lấy qua getInitialLink.
+            pendingDeepLink = link
+            return
+        }
+        channel.invokeMethod("onLink", link)
+    }
+
+    /**
+     * URL của intent khởi động, CHỈ khi đúng scheme/host của app.
+     *
+     * Kiểm tra ở đây để intent `VIEW audio/<mime>` (tính năng có sẵn) không bị
+     * hiểu nhầm thành link từ điển.
+     *
+     * ⚠ ĐỪNG viết liền "slash rồi dấu sao" trong BẤT KỲ comment nào của file
+     * này (ví dụ mime dạng audio + '/' + '*'): Kotlin cho phép block comment
+     * LỒNG NHAU, nên cặp "slash-sao" nằm trong comment sẽ MỞ thêm một tầng
+     * comment, còn comment doc chỉ đóng 1 tầng ⇒ toàn bộ code phía sau bị coi
+     * là comment cho tới cặp "sao-slash" kế tiếp (rơi vào mime SAF picker) ⇒
+     * CI đỏ với "Expecting member declaration" ở dòng KHÔNG liên quan (đã xảy
+     * ra: run 40628219927 / 40629835587 / 40631471443 / 40633324522).
+     */
+    private fun consumeInitialDeepLink(): String? {
+        val queued = pendingDeepLink
+        pendingDeepLink = null
+        if (queued != null) return queued
+        val data = intent?.data ?: return null
+        val scheme = data.scheme?.lowercase()
+        val host = data.host?.lowercase()
+        val isAppLink = (scheme == "in4up" || scheme == "i4u") &&
+            (host == "dict" || host == "open")
+        val isWebLink = (scheme == "https" || scheme == "http") &&
+            (host == "in4up.app" || host == "www.in4up.app")
+        if (!isAppLink && !isWebLink) return null
+        return data.toString()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // Chỉ lưu khi thật sự có phiên quét đang chờ: instance mới đọc cờ này
+        // để biết kết quả máy quét đã bị hệ thống nuốt mất.
+        if (scanSessionInFlight) {
+            outState.putBoolean(STATE_OCR_SCAN_IN_FLIGHT, true)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // ADR-0018 P1 — kênh nhận link. Đăng ký TRƯỚC mọi thứ khác để link
+        // khởi động không bị mất nếu một plugin phía sau ném lỗi.
+        deepLinkChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            deepLinkChannelName,
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // App vừa được mở bằng link ⇒ trả URL một lần rồi xoá.
+                    "getInitialLink" -> result.success(consumeInitialDeepLink())
+                    else -> result.notImplemented()
+                }
+            }
+        }
+        ScreenTranslatePlugin(this).also {
+            it.attach(flutterEngine.dartExecutor.binaryMessenger)
+            screenTranslatePlugin = it
+        }
+        ocrChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OCR_CHANNEL_NAME)
+        ocrChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "probeCapabilities" -> result.success(probeOcrCapabilities())
+                "beginScanSession" -> {
+                    scanSessionInFlight = true
+                    result.success(null)
+                }
+                "endScanSession" -> {
+                    scanSessionInFlight = false
+                    result.success(null)
+                }
+                "pollScanSignal" -> result.success(pollOcrScanSignal())
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "scanMediaStore" -> result.success(scanMediaStore())
-                    "copyContentToCache" -> {
+                    "copyContentToCache", "resolveContentToCache", "claimLegacyCache" -> {
                         val uri = call.argument<String>("uri")
-                        result.success(uri?.let { copyContentToCache(it) })
+                        if (uri == null) {
+                            result.success(null)
+                        } else {
+                            val method = call.method
+                            // Copy/hash large files off the Flutter platform thread.
+                            audioCacheExecutor.execute {
+                                val resolution = audioCacheResolver.resolve(
+                                    uri, claimLegacy = method == "claimLegacyCache"
+                                )
+                                mainHandler.post {
+                                    if (method == "copyContentToCache") {
+                                        result.success(resolution?.get("path") as? String)
+                                    } else {
+                                        result.success(resolution)
+                                    }
+                                }
+                            }
+                        }
                     }
                     "readAudioDurationMs" -> {
                         val uri = call.argument<String>("uri")
@@ -86,6 +281,17 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "pickFolder" -> launchFolderPicker(result)
+                    "videoSdkVersion" -> result.success(Build.VERSION.SDK_INT)
+                    "scanDeviceVideos" -> {
+                        audioCacheExecutor.execute {
+                            try {
+                                val videos = scanDeviceVideos()
+                                mainHandler.post { result.success(videos) }
+                            } catch (e: Exception) {
+                                mainHandler.post { result.error("SCAN_FAILED", e.message, null) }
+                            }
+                        }
+                    }
                     "normalizeTreeUri" -> {
                         val treeUri = call.argument<String>("treeUri")
                         result.success(treeUri?.let { normalizeTreeUri(it) })
@@ -125,9 +331,141 @@ class MainActivity : FlutterActivity() {
                         val treeUri = call.argument<String>("treeUri")
                         result.success(treeUri?.let { keepTreePermission(it) } ?: false)
                     }
+                    // M4U-IMPORT-002 — copy 1 file SAF (content://) ra đường dẫn
+                    // thật (model .onnx nặng hàng trăm MB ⇒ copy nền, KHÔNG
+                    // chạy trên luồng chính để tránh ANR).
+                    "copyDocumentToPath" -> {
+                        val uri = call.argument<String>("uri")
+                        val destination = call.argument<String>("destination")
+                        if (uri.isNullOrBlank() || destination.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            Thread {
+                                val copied = copyContentToPath(uri, destination)
+                                runOnUiThread { result.success(copied) }
+                            }.start()
+                        }
+                    }
                     "copyContentToCache" -> {
                         val uri = call.argument<String>("uri")
                         result.success(uri?.let { copyContentToCache(it) })
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, dictionaryChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "pickFolder" -> launchFolderPicker(result)
+                    "pickDocuments" -> launchDictionaryDocumentsPicker(result)
+                    "scanFolder" -> {
+                        val treeUri = call.argument<String>("treeUri")
+                        val exts = call.argument<List<String>>("extensions")
+                            ?.mapNotNull { it?.toString()?.lowercase() }
+                            ?.toSet()
+                        if (treeUri.isNullOrBlank()) {
+                            result.success(emptyList<Map<String, Any?>>())
+                        } else {
+                            try {
+                                result.success(scanTextTree(treeUri, exts))
+                            } catch (se: SecurityException) {
+                                result.error("PERMISSION_LOST", se.message, null)
+                            } catch (iae: IllegalArgumentException) {
+                                result.error("BAD_URI", iae.message, null)
+                            } catch (e: Exception) {
+                                result.error("SCAN_FAILED", e.message, null)
+                            }
+                        }
+                    }
+                    "isDocumentAccessible" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            Thread {
+                                val accessible = isDocumentAccessible(uri)
+                                runOnUiThread { result.success(accessible) }
+                            }.start()
+                        }
+                    }
+                    "openRandomAccess" -> {
+                        val uri = call.argument<String>("uri")
+                        if (uri.isNullOrBlank()) {
+                            result.error("BAD_URI", "Thiếu SAF document URI.", null)
+                        } else {
+                            Thread {
+                                try {
+                                    val opened = openDictionaryDocument(uri)
+                                    runOnUiThread { result.success(opened) }
+                                } catch (e: SecurityException) {
+                                    runOnUiThread {
+                                        result.error("PERMISSION_LOST", e.message, null)
+                                    }
+                                } catch (e: FileNotFoundException) {
+                                    runOnUiThread {
+                                        result.error("SOURCE_UNAVAILABLE", e.message, null)
+                                    }
+                                } catch (e: UnsupportedOperationException) {
+                                    runOnUiThread {
+                                        result.error("NOT_SEEKABLE", e.message, null)
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread {
+                                        result.error("SOURCE_UNAVAILABLE", e.message, null)
+                                    }
+                                }
+                            }.start()
+                        }
+                    }
+                    "readRandomAccess" -> {
+                        val id = call.argument<String>("id")
+                        val offset = call.argument<Number>("offset")?.toLong()
+                        val count = call.argument<Number>("count")?.toInt()
+                        if (id.isNullOrBlank() || offset == null || count == null) {
+                            result.error("BAD_RANGE", "Thiếu tham số đọc file.", null)
+                        } else {
+                            Thread {
+                                try {
+                                    val bytes = readDictionaryRange(id, offset, count)
+                                    runOnUiThread { result.success(bytes) }
+                                } catch (e: SecurityException) {
+                                    runOnUiThread {
+                                        result.error("PERMISSION_LOST", e.message, null)
+                                    }
+                                } catch (e: FileNotFoundException) {
+                                    runOnUiThread {
+                                        result.error("SOURCE_UNAVAILABLE", e.message, null)
+                                    }
+                                } catch (e: UnsupportedOperationException) {
+                                    runOnUiThread {
+                                        result.error("NOT_SEEKABLE", e.message, null)
+                                    }
+                                } catch (e: Exception) {
+                                    runOnUiThread {
+                                        result.error("READ_FAILED", e.message, null)
+                                    }
+                                }
+                            }.start()
+                        }
+                    }
+                    "closeRandomAccess" -> {
+                        val id = call.argument<String>("id")
+                        if (id != null) closeDictionaryDocument(id)
+                        result.success(null)
+                    }
+                    "copyDocumentToPath" -> {
+                        val uri = call.argument<String>("uri")
+                        val destination = call.argument<String>("destination")
+                        if (uri.isNullOrBlank() || destination.isNullOrBlank()) {
+                            result.success(false)
+                        } else {
+                            // MDD files can be hundreds of MB. Keep the existing
+                            // copy/import mode off Android's main thread.
+                            Thread {
+                                val copied = copyContentToPath(uri, destination)
+                                runOnUiThread { result.success(copied) }
+                            }.start()
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -139,8 +477,8 @@ class MainActivity : FlutterActivity() {
     // ═══════════════════════════════════════════════════════════
 
     private fun launchFolderPicker(result: MethodChannel.Result) {
-        if (pendingFolderPicker != null) {
-            result.error("PICKER_BUSY", "Folder picker đang mở.", null)
+        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+            result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
@@ -159,29 +497,138 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun launchDictionaryDocumentsPicker(result: MethodChannel.Result) {
+        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+            result.error("PICKER_BUSY", "SAF picker đang mở.", null)
+            return
+        }
+        // Viết tuần tự (không dùng apply) cho rõ ràng; mime SAF đặt ở dưới.
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "*/*"
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        pendingDictionaryDocumentsPicker = result
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, reqOpenDictionaryDocuments)
+        } catch (e: Exception) {
+            pendingDictionaryDocumentsPicker = null
+            result.error("PICKER_UNAVAILABLE", e.message, null)
+        }
+    }
+
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != reqOpenTextTree) return
+        when (requestCode) {
+            reqOpenTextTree -> handleFolderPickerResult(resultCode, data)
+            reqOpenDictionaryDocuments -> handleDictionaryDocumentsResult(resultCode, data)
+        }
+    }
+
+    private fun handleFolderPickerResult(resultCode: Int, data: Intent?) {
         val pending = pendingFolderPicker
         pendingFolderPicker = null
         if (pending == null) return
-        val uri = data?.data
-        if (resultCode == Activity.RESULT_OK && uri != null) {
-            // Persist quyền đọc NGAY TẠI ĐÂY (grant từ SAF Picker chỉ tồn
-            // tại trong phiên nếu không persist) → lần mở app sau vẫn quét
-            // được, không cần chọn lại thư mục.
-            try {
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(null)
+            return
+        }
+        val uri = data.data
+        if (uri == null) {
+            pending.success(null)
+            return
+        }
+        try {
+            val readFlag = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+            if (readFlag == 0) {
+                pending.error("PERMISSION_PERSIST_FAILED", "SAF không cấp quyền đọc.", null)
+                return
             }
+            contentResolver.takePersistableUriPermission(uri, readFlag)
             pending.success(uri.toString())
-        } else {
-            pending.success(null) // user hủy
+        } catch (e: Exception) {
+            pending.error("PERMISSION_PERSIST_FAILED", e.message, null)
+        }
+    }
+
+    private fun handleDictionaryDocumentsResult(resultCode: Int, data: Intent?) {
+        val pending = pendingDictionaryDocumentsPicker
+        pendingDictionaryDocumentsPicker = null
+        if (pending == null) return
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(null)
+            return
+        }
+
+        val uris = mutableListOf<Uri>()
+        data.clipData?.let { clip ->
+            for (index in 0 until clip.itemCount) {
+                clip.getItemAt(index).uri?.let(uris::add)
+            }
+        }
+        if (uris.isEmpty()) data.data?.let(uris::add)
+        if (uris.isEmpty()) {
+            pending.success(emptyList<Map<String, Any?>>())
+            return
+        }
+
+        try {
+            val readFlag = data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION
+            if (readFlag == 0) {
+                pending.error("PERMISSION_PERSIST_FAILED", "SAF không cấp quyền đọc.", null)
+                return
+            }
+            val documents = uris.distinct().map { uri ->
+                contentResolver.takePersistableUriPermission(uri, readFlag)
+                val metadata = queryDocumentMetadata(uri)
+                val name = metadata.first ?: uri.lastPathSegment ?: "dictionary.bin"
+                val dot = name.lastIndexOf('.')
+                val ext = if (dot >= 0 && dot < name.length - 1) {
+                    name.substring(dot + 1).lowercase()
+                } else {
+                    ""
+                }
+                mapOf(
+                    "uri" to uri.toString(),
+                    "name" to name,
+                    "relativePath" to name,
+                    "sizeBytes" to metadata.second,
+                    "ext" to ext,
+                )
+            }
+            pending.success(documents)
+        } catch (e: SecurityException) {
+            pending.error("PERMISSION_PERSIST_FAILED", e.message, null)
+        } catch (e: Exception) {
+            pending.error("PICK_FAILED", e.message, null)
+        }
+    }
+
+    private fun queryDocumentMetadata(uri: Uri): Pair<String?, Long> {
+        return try {
+            contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return null to 0L
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                val name = if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                    cursor.getLong(sizeIndex)
+                } else {
+                    0L
+                }
+                name to size
+            } ?: (null to 0L)
+        } catch (_: Exception) {
+            null to 0L
         }
     }
 
@@ -282,7 +729,7 @@ class MainActivity : FlutterActivity() {
         }
         if (rootDocId.isBlank()) return out
         try {
-            scanTextFolder(rootUri, rootDocId, out, 0, exts)
+            scanTextFolder(rootUri, rootDocId, out, 0, exts, "")
         } catch (e: SecurityException) {
             // Mất quyền từ gốc (chưa quét được file nào) → ném lên để báo
             // PERMISSION_LOST. Mất quyền giữa chừng (thư mục con) → trả
@@ -320,6 +767,7 @@ class MainActivity : FlutterActivity() {
         out: MutableList<Map<String, Any?>>,
         depth: Int,
         extensions: Set<String> = textExtensions,
+        relativeDir: String = "",
     ) {
         // Giới hạn: depth 12, 5000 file — đủ cho thư viện sách, tránh quét
         // hang trên tree khổng lồ.
@@ -358,7 +806,14 @@ class MainActivity : FlutterActivity() {
                     val mime = c.getString(mimeCol) ?: ""
 
                     if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
-                        scanTextFolder(treeUri, id, out, depth + 1, extensions)
+                        scanTextFolder(
+                            treeUri,
+                            id,
+                            out,
+                            depth + 1,
+                            extensions,
+                            "$relativeDir$name/",
+                        )
                         continue
                     }
 
@@ -375,6 +830,11 @@ class MainActivity : FlutterActivity() {
                         mapOf(
                             "uri" to docUri.toString(),
                             "name" to name,
+                            "relativePath" to "$relativeDir$name",
+                            // Thư mục chứa file (PLAN-042): Dart cần tên thư mục
+                            // để dựng lại series/vị Thầy khi quét THƯ MỤC GỐC.
+                            // Rỗng = file nằm ngay thư mục gốc.
+                            "relativeDir" to relativeDir,
                             "sizeBytes" to c.getLong(sizeCol),
                             "dateModifiedMs" to c.getLong(modCol),
                             "ext" to ext,
@@ -389,6 +849,121 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             // Thư mục con không truy cập được (lỗi khác) — bỏ qua, tiếp tục.
             e.printStackTrace()
+        }
+    }
+
+    private fun isDocumentAccessible(documentUri: String): Boolean {
+        return try {
+            val uri = Uri.parse(documentUri)
+            if (uri.scheme != "content") return false
+            contentResolver.openFileDescriptor(uri, "r")?.use { true } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Open and retain a seekable SAF PFD; Dart receives only an opaque id. */
+    private fun openDictionaryDocument(documentUri: String): Map<String, Any> {
+        val uri = Uri.parse(documentUri)
+        if (uri.scheme != "content") {
+            throw IllegalArgumentException("Không phải SAF document URI: $documentUri")
+        }
+        val descriptor = contentResolver.openAssetFileDescriptor(uri, "r")
+            ?: throw FileNotFoundException("SAF document không mở được: $documentUri")
+        val statSize = descriptor.parcelFileDescriptor.statSize
+        val length = if (descriptor.length >= 0) {
+            descriptor.length
+        } else if (statSize >= descriptor.startOffset) {
+            statSize - descriptor.startOffset
+        } else {
+            // Some document providers do not expose fstat size on the PFD but
+            // do provide OpenableColumns.SIZE in their metadata cursor.
+            queryDocumentMetadata(uri).second
+        }
+        if (length < 0) {
+            descriptor.close()
+            throw UnsupportedOperationException("Provider không cung cấp kích thước file.")
+        }
+        try {
+            Os.lseek(
+                descriptor.parcelFileDescriptor.fileDescriptor,
+                descriptor.startOffset,
+                OsConstants.SEEK_SET,
+            )
+        } catch (error: ErrnoException) {
+            descriptor.close()
+            if (error.errno == OsConstants.ESPIPE) {
+                throw UnsupportedOperationException(
+                    "Provider chỉ cấp stream, không hỗ trợ seek ngẫu nhiên.",
+                    error,
+                )
+            }
+            throw error
+        }
+
+        val id = UUID.randomUUID().toString()
+        openDictionaryDocuments[id] = OpenDictionaryDocument(
+            descriptor = descriptor,
+            startOffset = descriptor.startOffset,
+            length = length,
+        )
+        return mapOf("id" to id, "length" to length)
+    }
+
+    /** Read at most 64 KiB from a retained seekable document descriptor. */
+    private fun readDictionaryRange(id: String, offset: Long, count: Int): ByteArray {
+        val handle = openDictionaryDocuments[id]
+            ?: throw FileNotFoundException("SAF reader handle is closed.")
+        if (offset < 0 || offset > handle.length || count < 0 || count > maxDictionaryReadBytes) {
+            throw IllegalArgumentException("Offset/count ngoài phạm vi hoặc vượt 64 KiB.")
+        }
+        val amount = minOf(count.toLong(), handle.length - offset).toInt()
+        if (amount == 0) return byteArrayOf()
+
+        synchronized(handle) {
+            val fd = handle.descriptor.parcelFileDescriptor.fileDescriptor
+            try {
+                Os.lseek(fd, handle.startOffset + offset, OsConstants.SEEK_SET)
+            } catch (error: ErrnoException) {
+                if (error.errno == OsConstants.ESPIPE) {
+                    throw UnsupportedOperationException(
+                        "Provider không còn hỗ trợ seek ngẫu nhiên.",
+                        error,
+                    )
+                }
+                if (error.errno == OsConstants.EBADF || error.errno == OsConstants.ENOENT) {
+                    throw FileNotFoundException(
+                        error.message ?: "SAF source is no longer available.",
+                    )
+                }
+                throw error
+            }
+            val bytes = ByteArray(amount)
+            var read = 0
+            while (read < amount) {
+                val countRead = try {
+                    Os.read(fd, bytes, read, amount - read)
+                } catch (error: ErrnoException) {
+                    if (error.errno == OsConstants.EBADF || error.errno == OsConstants.ENOENT) {
+                        throw FileNotFoundException(
+                            error.message ?: "SAF source is no longer available.",
+                        )
+                    }
+                    throw error
+                }
+                if (countRead <= 0) break
+                read += countRead
+            }
+            return if (read == amount) bytes else bytes.copyOf(read)
+        }
+    }
+
+    private fun closeDictionaryDocument(id: String) {
+        val handle = openDictionaryDocuments.remove(id) ?: return
+        try {
+            handle.descriptor.close()
+        } catch (_: Exception) {
+            // Best-effort close after app-side cancellation/provider removal.
         }
     }
 
@@ -410,6 +985,34 @@ class MainActivity : FlutterActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    /**
+     * Materialize one SAF document at an app-owned path.  MDX parsing needs a
+     * seekable File and cannot operate on a content:// URI directly.  The
+     * destination is always supplied by Dart under the app documents/cache
+     * directory; a partial destination is removed on failure.
+     */
+    private fun copyContentToPath(contentUri: String, destination: String): Boolean {
+        val outputFile = File(destination)
+        return try {
+            val input = contentResolver.openInputStream(Uri.parse(contentUri))
+                ?: return false
+            outputFile.parentFile?.mkdirs()
+            FileOutputStream(outputFile).use { output ->
+                input.use { inputStream ->
+                    inputStream.copyTo(output)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            try {
+                outputFile.delete()
+            } catch (_: Exception) {
+            }
+            false
         }
     }
 
@@ -455,6 +1058,213 @@ class MainActivity : FlutterActivity() {
             } catch (_: Exception) {
             }
         }
+    }
+
+    override fun onDestroy() {
+        screenTranslatePlugin?.detach()
+        screenTranslatePlugin = null
+        openDictionaryDocuments.keys.toList().forEach(::closeDictionaryDocument)
+        ocrChannel = null
+        audioCacheExecutor.shutdown()
+        super.onDestroy()
+    }
+
+    /**
+     * Trạng thái + hạ tầng an toàn cho lane quét tài liệu (OCR-SCAN-CRASH-001).
+     *
+     * Đặt ở companion (static) vì crash shield sống lâu hơn một activity: nó
+     * bắt exception trên luồng chính và phải còn hiệu lực khi activity đã bị
+     * huỷ/tạo lại (đúng cảnh giả thuyết 2). Không giữ Activity trong handler —
+     * chỉ giữ applicationContext (không rò rỉ).
+     */
+    private companion object {
+        private const val OCR_TAG = "In4UpOcr"
+        private const val OCR_CHANNEL_NAME = "in4up/ocr"
+        private const val STATE_OCR_SCAN_IN_FLIGHT = "in4up.ocrScanInFlight"
+
+        /** Dấu vết nhận diện exception đến từ lane quét tài liệu (ML Kit/GMS). */
+        private val OCR_CRASH_MARKERS = listOf(
+            "com.google_mlkit_document_scanner",
+            "mlkit_vision_document_scanner",
+            "GmsDocumentScanning",
+            "com.google.mlkit.vision.documentscanner",
+        )
+
+        @Volatile private var crashShieldInstalled = false
+        @Volatile private var appContext: Context? = null
+
+        /** Vết crash đã bắt, chờ Dart đọc (pollScanSignal / onOcrNativeCrash). */
+        @Volatile private var capturedCrash: String? = null
+
+        /** Dart đang có phiên quét chờ kết quả (beginScanSession/endScanSession). */
+        @Volatile private var scanSessionInFlight = false
+
+        /** Instance mới phát hiện phiên quét bị cắt ngang lúc activity bị huỷ. */
+        @Volatile private var interruptedScanPending = false
+
+        /** Kênh để đẩy thông báo crash sang Dart (null khi engine chưa sẵn). */
+        @Volatile private var ocrChannel: MethodChannel? = null
+
+        /** Cài crash shield đúng một lần cho cả tiến trình. */
+        private fun installOcrCrashShield() {
+            if (crashShieldInstalled) return
+            crashShieldInstalled = true
+            val previous = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+                val trace = Log.getStackTraceString(error)
+                writeOcrDiagnostics(trace)
+
+                val isOcrLane = OCR_CRASH_MARKERS.any { trace.contains(it) }
+                if (!isOcrLane) {
+                    // Ngoài lane quét: giữ nguyên hành vi hệ thống (không che bug).
+                    previous?.uncaughtException(thread, error)
+                    return@setDefaultUncaughtExceptionHandler
+                }
+
+                capturedCrash = trace
+                Log.e(OCR_TAG, "Bắt crash lane quét tài liệu — giữ app sống, báo Dart")
+                // MethodChannel yêu cầu gọi trên luồng chính.
+                if (Looper.myLooper() == Looper.getMainLooper()) {
+                    try {
+                        ocrChannel?.invokeMethod("onOcrNativeCrash", trace)
+                    } catch (e: Exception) {
+                        Log.e(OCR_TAG, "Không báo được Dart: ${e.message}")
+                    }
+                }
+            }
+        }
+
+        /** Ghi vết crash ra tệp để owner dán vào KANBAN (thay cho adb logcat). */
+        private fun writeOcrDiagnostics(trace: String) {
+            val context = appContext ?: return
+            try {
+                val base = context.getExternalFilesDir(null) ?: context.filesDir
+                val dir = File(base, "in4up_diagnostics")
+                if (!dir.exists()) dir.mkdirs()
+                val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                val file = File(dir, "ocr-crash-$stamp.log")
+                file.writeText(trace)
+                Log.e(OCR_TAG, "Đã ghi vết crash: ${file.absolutePath}")
+            } catch (e: Exception) {
+                Log.e(OCR_TAG, "Không ghi được vết crash: ${e.message}")
+            }
+        }
+
+        /** Dữ liệu thô cho `OcrPrecheck.decide()` — không bao giờ ném. */
+        private fun probeOcrCapabilities(): Map<String, Any?> {
+            val context = appContext
+            var installed = false
+            var enabled = false
+            var versionCode: Long? = null
+
+            if (context != null) {
+                val pm = context.packageManager
+                try {
+                    val info = pm.getPackageInfo("com.google.android.gms", 0)
+                    installed = true
+                    enabled = pm.getApplicationInfo("com.google.android.gms", 0).enabled
+                    versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        info.longVersionCode
+                    } else {
+                        info.versionCode.toLong()
+                    }
+                } catch (e: PackageManager.NameNotFoundException) {
+                    // Không thấy gói = máy không có Play services (hoặc bị ẩn với
+                    // app này — manifest đã khai <queries> cho gói đó).
+                    installed = false
+                    enabled = false
+                } catch (e: Exception) {
+                    Log.e(OCR_TAG, "probe OCR thất bại: ${e.message}")
+                }
+            }
+
+            return mapOf(
+                "gmsInstalled" to installed,
+                "gmsEnabled" to enabled,
+                "gmsVersionCode" to versionCode,
+                "sdkInt" to Build.VERSION.SDK_INT,
+                "totalRamBytes" to totalRamBytes(context),
+            )
+        }
+
+        /** Tổng RAM (byte) — ngưỡng Document Scanner của Google là 1,7 GB. */
+        private fun totalRamBytes(context: Context?): Long? {
+            val ctx = context ?: return null
+            return try {
+                val manager = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                val memoryInfo = ActivityManager.MemoryInfo()
+                manager?.getMemoryInfo(memoryInfo)
+                memoryInfo.totalMem.takeIf { it > 0 }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        /** Nhịp hỏi của `watchOcrScan` (ocr_scan_guard.dart). */
+        private fun pollOcrScanSignal(): Map<String, Any?> {
+            val crash = capturedCrash
+            if (crash != null) {
+                capturedCrash = null
+                return mapOf("signal" to "nativeCrash", "trace" to crash)
+            }
+            if (interruptedScanPending) {
+                interruptedScanPending = false
+                return mapOf("signal" to "interrupted")
+            }
+            return mapOf("signal" to "none")
+        }
+    }
+
+    /** Query MediaStore off the platform thread. Fail the entire scan on any
+     * provider error, so Dart never mistakes a partial result for an empty library. */
+    private fun scanDeviceVideos(): List<Map<String, Any?>> {
+        val output = mutableListOf<Map<String, Any?>>()
+        val modern = Build.VERSION.SDK_INT >= 29
+        val volumes = if (modern) MediaStore.getExternalVolumeNames(this).toList()
+            else listOf("external")
+        for (volume in volumes) {
+            val collection = if (modern) MediaStore.Video.Media.getContentUri(volume)
+                else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            val columns = mutableListOf(
+                MediaStore.Video.Media._ID, MediaStore.Video.Media.DISPLAY_NAME,
+                MediaStore.Video.Media.SIZE, MediaStore.Video.Media.DATE_MODIFIED,
+                MediaStore.Video.Media.DURATION,
+            )
+            if (modern) columns.add(MediaStore.Video.Media.RELATIVE_PATH)
+            else columns.add(MediaStore.Video.Media.DATA)
+            val cursor = contentResolver.query(collection, columns.toTypedArray(), null, null, null)
+                ?: throw IllegalStateException("MediaStore returned no cursor")
+            cursor.use {
+                val idIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                val nameIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+                val sizeIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+                val modifiedIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+                val durationIndex = it.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+                val pathIndex = it.getColumnIndexOrThrow(
+                    if (modern) MediaStore.Video.Media.RELATIVE_PATH else MediaStore.Video.Media.DATA)
+                while (it.moveToNext()) {
+                    val id = it.getLong(idIndex)
+                    val name = it.getString(nameIndex) ?: ""
+                    val rawPath = it.getString(pathIndex) ?: ""
+                    val normalizedVolume = if (volume == "external_primary") "primary" else volume.lowercase(Locale.ROOT)
+                    val relative = rawPath.trim('/')
+                    val key = if (modern && name.isNotEmpty())
+                        "$normalizedVolume:${if (relative.isEmpty()) "" else "$relative/"}$name"
+                    else if (!modern && rawPath.startsWith("/storage/emulated/0/"))
+                        "primary:" + rawPath.removePrefix("/storage/emulated/0/")
+                    else null
+                    val folder = if (modern) relative else rawPath.substringBeforeLast('/', "")
+                    output.add(mapOf(
+                        "uri" to ContentUris.withAppendedId(collection, id).toString(),
+                        "name" to name, "sizeBytes" to it.getLong(sizeIndex),
+                        "dateModifiedMs" to it.getLong(modifiedIndex) * 1000L,
+                        "durationMs" to it.getLong(durationIndex),
+                        "physicalKey" to key, "folderPath" to folder,
+                    ))
+                }
+            }
+        }
+        return output
     }
 
     private fun scanMediaStore(): List<Map<String, Any?>> {

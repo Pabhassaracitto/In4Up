@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
-import 'package:flutter/foundation.dart' show FlutterError;
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart'
+    show FlutterError, ValueNotifier, debugPrint;
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +14,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
 
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 
 /// The normalized database contract used by the Tipiṭaka UI.
@@ -52,11 +57,95 @@ class TipitakaDatabaseInfo {
   bool get isReady => collectionCount > 0 && bookCount > 0 && segmentCount > 0;
 }
 
+/// What a destructive maintenance operation actually removed. The data
+/// manager reports this back to the user instead of silently deleting data.
+class TipitakaDataRemovalResult {
+  final int removedBooks;
+  final int removedSegments;
+  final int removedCollections;
+  final int removedTranslations;
+  final int removedImports;
+  final int removedFiles;
+  final int removedBytes;
+
+  const TipitakaDataRemovalResult({
+    this.removedBooks = 0,
+    this.removedSegments = 0,
+    this.removedCollections = 0,
+    this.removedTranslations = 0,
+    this.removedImports = 0,
+    this.removedFiles = 0,
+    this.removedBytes = 0,
+  });
+
+  bool get isEmpty =>
+      removedBooks == 0 &&
+      removedSegments == 0 &&
+      removedCollections == 0 &&
+      removedTranslations == 0 &&
+      removedImports == 0 &&
+      removedFiles == 0 &&
+      removedBytes == 0;
+}
+
+/// One imported source package, shown in the data manager so the user can
+/// remove a broken/obsolete pack without deleting the whole library.
+class TipitakaImportRecord {
+  final String sourceSha256;
+  final String sourceName;
+  final String languageCode;
+  final DateTime importedAt;
+  final int importedRows;
+
+  const TipitakaImportRecord({
+    required this.sourceSha256,
+    required this.sourceName,
+    required this.languageCode,
+    required this.importedAt,
+    required this.importedRows,
+  });
+}
+
 class TipitakaDb {
+  /// Notifies active readers after a language/Pāli pack is atomically installed.
+  static final ValueNotifier<int> importRevision = ValueNotifier<int>(0);
+
+  static void _notifyImportChanged() {
+    importRevision.value++;
+    _clearCatalogCaches();
+  }
+
+  static void _clearCatalogCaches() {
+    _catalogCacheToken = null;
+    _officialCatalogCacheToken = null;
+    _officialCatalogCacheValue = null;
+    _collectionsCache = null;
+    _catalogIndexCache = null;
+    _catalogBooksCache.clear();
+    _outlineCache.clear();
+  }
+
+  static String? _cacheToken(DatabaseExecutor db) {
+    if (_openPath == null || !identical(db, _db)) return null;
+    final token = '$_openPath:${importRevision.value}';
+    if (_catalogCacheToken != token) {
+      _clearCatalogCaches();
+      _catalogCacheToken = token;
+    }
+    return token;
+  }
+
   static Database? _db;
   static String? _openPath;
   static TipitakaDatabaseSource _openSource = TipitakaDatabaseSource.installed;
   static bool _databaseFactoryReady = false;
+  static String? _catalogCacheToken;
+  static String? _officialCatalogCacheToken;
+  static bool? _officialCatalogCacheValue;
+  static List<TipitakaCollection>? _collectionsCache;
+  static List<TipitakaBook>? _catalogIndexCache;
+  static final Map<String, List<TipitakaBook>> _catalogBooksCache = {};
+  static final Map<int, List<TipitakaSegment>> _outlineCache = {};
 
   static const String dbName = 'tipitaka.sqlite';
   static const String bundledAssetPath = 'assets/db/tipitaka.sqlite';
@@ -81,6 +170,18 @@ class TipitakaDb {
   static Future<Database> openReady() async {
     await _ensureDatabaseFactory();
     final installedPath = await installedDatabasePath();
+    await _recoverInterruptedInstall(installedPath);
+    await _cleanupStaleImportFiles(installedPath);
+    // PSRC-160: after an explicit deletion the bundled demo must not silently
+    // reappear on the next launch. The user can restore it from the data
+    // manager, or import a real database.
+    if (!await _isUsableDatabaseFile(installedPath) &&
+        await isBundledDemoDisabled()) {
+      throw const TipitakaDatabaseException(
+        'The Tipiṭaka database was deleted. Import a new database or restore '
+        'the bundled sample from the data manager.',
+      );
+    }
     if (!await _isUsableDatabaseFile(installedPath) &&
         await _isEmptyAppDatabase(installedPath)) {
       // Older builds of this module created a blank DB at a hard-coded path.
@@ -89,6 +190,8 @@ class TipitakaDb {
       await copyBundledDatabaseIfPresent(force: true);
     }
     if (await _isUsableDatabaseFile(installedPath)) {
+      // A real import supersedes an earlier explicit deletion.
+      await _clearBundledDemoMarker();
       return openAt(installedPath, source: TipitakaDatabaseSource.installed);
     }
 
@@ -117,7 +220,25 @@ class TipitakaDb {
     final file = File(path);
     if (!await file.exists()) return 'tipitaka:missing';
     final stat = await file.stat();
-    return 'tipitaka:${p.basename(path)}:${stat.size}:${stat.modified.toUtc().millisecondsSinceEpoch}';
+    var latestImportHash = '';
+    final database = _db;
+    if (database != null && _openPath == path) {
+      try {
+        final rows = await database.query(
+          'tipitaka_import_history',
+          columns: const ['source_sha256'],
+          orderBy: 'imported_at DESC',
+          limit: 1,
+        );
+        latestImportHash = rows.isEmpty
+            ? ''
+            : '${rows.first['source_sha256'] ?? ''}';
+      } catch (_) {
+        // Older installed DBs may not yet have import history.
+      }
+    }
+    return 'tipitaka:${p.normalize(path)}:${stat.size}:'
+        '${stat.modified.toUtc().millisecondsSinceEpoch}:$latestImportHash';
   }
 
   /// Files placed here can be discovered by the data manager without using a
@@ -151,6 +272,9 @@ class TipitakaDb {
   /// newer normalized DB in the asset and it will be used on a fresh install;
   /// user-imported data is never overwritten automatically.
   static Future<String?> copyBundledDatabaseIfPresent({bool force = false}) async {
+    // PSRC-160: an explicit deletion/restore decision is sticky. Only the
+    // opt-in `restoreBundledDemo()` may force the bundled sample back.
+    if (!force && await isBundledDemoDisabled()) return null;
     final target = await installedDatabasePath();
     final targetFile = File(target);
     if (await targetFile.exists() && !force) return target;
@@ -168,37 +292,719 @@ class TipitakaDb {
     final temporary = File('$target.part');
     final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
     await temporary.writeAsBytes(bytes, flush: true);
+    // IN4-80: đóng connection đang mở trên file đích TRƯỚC khi thay —
+    // xoá/rename file khi SQLite còn giữ handle ⇒ SQLITE_READONLY_DBMOVED.
+    await close();
     if (await targetFile.exists()) await targetFile.delete();
     await temporary.rename(target);
     return target;
   }
 
+  static const String _demoDisabledMarker = '.demo_disabled';
+
+  static Future<String> _demoDisabledMarkerPath() async {
+    final documents = await getApplicationDocumentsDirectory();
+    return p.join(documents.path, _appDirectoryName, _demoDisabledMarker);
+  }
+
+  /// PSRC-160: an explicit deletion is sticky. Without this marker,
+  /// [openReady] would immediately re-seed the bundled demo database and the
+  /// user would think "delete" did nothing.
+  static Future<bool> isBundledDemoDisabled() async {
+    try {
+      return await File(await _demoDisabledMarkerPath()).exists();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _disableBundledDemo() async {
+    try {
+      final marker = File(await _demoDisabledMarkerPath());
+      await marker.parent.create(recursive: true);
+      await marker.writeAsString('deleted', flush: true);
+    } catch (_) {
+      // Best effort; a platform without a documents directory still deletes
+      // the database file itself.
+    }
+  }
+
+  static Future<void> _clearBundledDemoMarker() async {
+    try {
+      final marker = File(await _demoDisabledMarkerPath());
+      if (await marker.exists()) await marker.delete();
+    } catch (_) {
+      // No documents directory on this platform; nothing to clear.
+    }
+  }
+
+  /// Opt-in restore of the bundled sample after [deleteDatabase].
+  static Future<void> restoreBundledDemo() async {
+    await _clearBundledDemoMarker();
+    await copyBundledDatabaseIfPresent(force: true);
+    _notifyImportChanged();
+  }
+
+  /// Imported packages recorded in the installed DB. Older databases without
+  /// a `language_code` column fall back to filename detection.
+  static Future<List<TipitakaImportRecord>> importHistory(Database db) async {
+    try {
+      final columns = await db.rawQuery(
+        'PRAGMA table_info(tipitaka_import_history)',
+      );
+      final hasLanguage =
+          columns.any((row) => row['name'] == 'language_code');
+      final rows = await db.query(
+        'tipitaka_import_history',
+        orderBy: 'imported_at DESC',
+      );
+      return [
+        for (final row in rows)
+          TipitakaImportRecord(
+            sourceSha256: '${row['source_sha256'] ?? ''}',
+            sourceName: '${row['source_name'] ?? ''}',
+            languageCode: hasLanguage
+                ? _normalizedLanguageCode('${row['language_code'] ?? ''}')
+                : _languageFromFilename('${row['source_name'] ?? ''}'),
+            importedAt: DateTime.fromMillisecondsSinceEpoch(
+              _asInt(row['imported_at'], 0),
+            ),
+            importedRows: _asInt(row['imported_rows'], 0),
+          ),
+      ];
+    } catch (_) {
+      return const <TipitakaImportRecord>[];
+    }
+  }
+
+  /// Removes one imported language pack (or the Pāli source) from the merged
+  /// installed DB, keeping every other language and all reader annotations.
+  /// Staged + atomic like an import, and serialized by [_withImportLock].
+  static Future<TipitakaDataRemovalResult> deleteLanguagePack(
+    String languageCode, {
+    String? destinationPath,
+  }) {
+    final language = _normalizedLanguageCode(languageCode);
+    return _withImportLock(
+      () => _deleteLanguagePackLocked(language, destinationPath),
+    );
+  }
+
+  static Future<TipitakaDataRemovalResult> _deleteLanguagePackLocked(
+    String language,
+    String? destinationPath,
+  ) async {
+    if (language.isEmpty) return const TipitakaDataRemovalResult();
+    await _ensureDatabaseFactory();
+    final targetPath = destinationPath ?? await installedDatabasePath();
+    if (!await _isUsableDatabaseFile(targetPath)) {
+      return const TipitakaDataRemovalResult();
+    }
+    await _recoverInterruptedInstall(targetPath);
+    await _cleanupStaleImportFiles(targetPath);
+    if (_openPath == targetPath) await close();
+    final temporaryPath = _importTemporaryPath(targetPath);
+    Database? staged;
+    try {
+      staged = await _openImportTarget(targetPath, temporaryPath);
+      final removed = await staged.transaction(
+        (transaction) => _deleteLanguageRows(transaction, language),
+      );
+      if (removed.isEmpty) {
+        await staged.close();
+        staged = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return removed;
+      }
+      await _installImportTarget(staged, targetPath, temporaryPath);
+      staged = null;
+      // Removing the last remaining language leaves a DB with no readable
+      // content. Do not silently resurrect the bundled demo in that case.
+      if (destinationPath == null &&
+          !await _isUsableDatabaseFile(targetPath)) {
+        await _disableBundledDemo();
+      }
+      _notifyImportChanged();
+      return removed;
+    } catch (_) {
+      await staged?.close();
+      final temporary = File(temporaryPath);
+      if (await temporary.exists()) await temporary.delete();
+      rethrow;
+    }
+  }
+
+  static Future<TipitakaDataRemovalResult> _deleteLanguageRows(
+    DatabaseExecutor db,
+    String language,
+  ) async {
+    const fixedColumns = <String, String>{
+      'pi': 'pali_text',
+      'vi': 'translation_vi',
+      'en': 'translation_en',
+      'my': 'translation_my',
+      'th': 'translation_th',
+    };
+    var removedTranslations = 0;
+    final fixedColumn = fixedColumns[language];
+    if (fixedColumn != null) {
+      final columns = await db.rawQuery(
+        'PRAGMA table_info(tipitaka_segments)',
+      );
+      if (columns.any((row) => row['name'] == fixedColumn)) {
+        removedTranslations += await db.rawUpdate(
+          "UPDATE tipitaka_segments SET \"$fixedColumn\" = '' "
+          "WHERE COALESCE(\"$fixedColumn\", '') <> ''",
+        );
+      }
+    }
+    removedTranslations += await db.rawDelete(
+      "DELETE FROM tipitaka_translations "
+      "WHERE LOWER(REPLACE(language_code, '_', '-')) = ? "
+      "OR LOWER(REPLACE(language_code, '_', '-')) LIKE ?",
+      [language, '$language-%'],
+    );
+
+    final historyColumns = await db.rawQuery(
+      'PRAGMA table_info(tipitaka_import_history)',
+    );
+    final hasLanguage = historyColumns
+        .any((row) => row['name'] == 'language_code');
+    final history = await db.query(
+      'tipitaka_import_history',
+      columns: hasLanguage
+          ? const ['source_sha256', 'source_name', 'language_code']
+          : const ['source_sha256', 'source_name'],
+    );
+    var removedImports = 0;
+    for (final row in history) {
+      final recorded = hasLanguage
+          ? _normalizedLanguageCode('${row['language_code'] ?? ''}')
+          : '';
+      // Older rows have no language column; attribute them from the source
+      // filename rather than dropping every legacy row (which would destroy
+      // the idempotency marker of unrelated Pāli/translation imports).
+      final inferred = recorded.isNotEmpty
+          ? recorded
+          : _normalizedLanguageCode(
+              _languageFromFilename('${row['source_name'] ?? ''}'),
+            );
+      final matches = inferred == language ||
+          (!language.contains('-') && inferred.startsWith('$language-'));
+      if (!matches) continue;
+      await db.delete(
+        'tipitaka_import_history',
+        where: 'source_sha256 = ?',
+        whereArgs: ['${row['source_sha256'] ?? ''}'],
+      );
+      removedImports++;
+    }
+    return TipitakaDataRemovalResult(
+      removedTranslations: removedTranslations,
+      removedImports: removedImports,
+    );
+  }
+
+  /// Deletes the installed DB, its backup/staging sidecars and (optionally)
+  /// downloaded language-pack archives. A sticky marker prevents the bundled
+  /// demo from reappearing until the user imports or restores it.
+  static Future<TipitakaDataRemovalResult> deleteDatabase({
+    String? destinationPath,
+    bool deleteDownloadedPacks = true,
+  }) {
+    return _withImportLock(
+      () => _deleteDatabaseLocked(destinationPath, deleteDownloadedPacks),
+    );
+  }
+
+  static Future<TipitakaDataRemovalResult> _deleteDatabaseLocked(
+    String? destinationPath,
+    bool deleteDownloadedPacks,
+  ) async {
+    await _ensureDatabaseFactory();
+    final targetPath = destinationPath ?? await installedDatabasePath();
+    // Never delete a file that SQLite still has open (SQLITE_READONLY_DBMOVED).
+    await close();
+
+    final paths = <String>{
+      targetPath,
+      '$targetPath.bak',
+      '$targetPath.swap',
+      '$targetPath.part',
+      '$targetPath-journal',
+      '$targetPath-wal',
+      '$targetPath-shm',
+    };
+    final folder = Directory(p.dirname(targetPath));
+    if (await folder.exists()) {
+      final prefix = '${p.basename(targetPath)}.importing-';
+      await for (final entity in folder.list(followLinks: false)) {
+        if (entity is! File || !p.basename(entity.path).startsWith(prefix)) {
+          continue;
+        }
+        paths.add(entity.path);
+        for (final suffix in const ['-journal', '-wal', '-shm']) {
+          paths.add('${entity.path}$suffix');
+        }
+      }
+    }
+
+    var removedFiles = 0;
+    var removedBytes = 0;
+    Future<void> remove(File file) async {
+      try {
+        if (!await file.exists()) return;
+        removedBytes += await file.length();
+        await file.delete();
+        removedFiles++;
+      } on FileSystemException {
+        // Best-effort cleanup; the DB itself must still be reported as gone.
+      }
+    }
+
+    for (final path in paths) {
+      await remove(File(path));
+    }
+
+    if (destinationPath == null) {
+      try {
+        await _disableBundledDemo();
+        if (deleteDownloadedPacks) {
+          final packs = Directory(
+            p.join(
+              (await getApplicationDocumentsDirectory()).path,
+              _appDirectoryName,
+              'packs',
+            ),
+          );
+          if (await packs.exists()) {
+            await for (final entity in packs.list(followLinks: false)) {
+              if (entity is! File) continue;
+              if (!const ['.zip', '.db', '.sqlite', '.sqlite3', '.part']
+                  .contains(p.extension(entity.path).toLowerCase())) {
+                continue;
+              }
+              await remove(entity);
+            }
+          }
+        }
+      } catch (_) {
+        // Marker/pack cleanup is best effort; deletion of installed DB stands.
+      }
+    }
+
+    _notifyImportChanged();
+    return TipitakaDataRemovalResult(
+      removedFiles: removedFiles,
+      removedBytes: removedBytes,
+    );
+  }
+
+  /// True when the installed DB still carries the checked-in demo catalogue.
+  /// The UI uses this to offer an explicit one-off cleanup for databases
+  /// created by older builds (PSRC-158).
+  static Future<bool> hasDemoData(Database db) async {
+    final rows = await db.rawQuery(
+      'SELECT 1 FROM tipitaka_books b '
+      'WHERE NOT (${_bookNotDemoSql('b')}) LIMIT 1',
+    );
+    if (rows.isNotEmpty) return true;
+    final collections = await db.query(
+      'tipitaka_collections',
+      columns: const ['name_pali', 'name_en', 'name_vi'],
+    );
+    for (final row in collections) {
+      final names = '${row['name_pali'] ?? ''} ${row['name_en'] ?? ''} '
+          '${row['name_vi'] ?? ''}';
+      if (_isDemoCatalogName(names)) return true;
+    }
+    return false;
+  }
+
+  /// Physically removes the bundled demo catalogue from an installed DB.
+  ///
+  /// Work happens in a staged copy and is installed atomically, so a failure
+  /// never damages the current library. Real books that older builds attached
+  /// to a demo-named collection are kept; the collection is renamed instead.
+  /// New imports call [_purgeDemoCatalog] directly, before any rows are copied.
+  static Future<TipitakaDataRemovalResult> purgeDemoData({
+    String? destinationPath,
+  }) {
+    return _withImportLock(() => _purgeDemoDataLocked(destinationPath));
+  }
+
+  static Future<TipitakaDataRemovalResult> _purgeDemoDataLocked(
+    String? destinationPath,
+  ) async {
+    await _ensureDatabaseFactory();
+    final targetPath = destinationPath ?? await installedDatabasePath();
+    if (!await _isUsableDatabaseFile(targetPath)) {
+      return const TipitakaDataRemovalResult();
+    }
+    await _recoverInterruptedInstall(targetPath);
+    await _cleanupStaleImportFiles(targetPath);
+    if (_openPath == targetPath) await close();
+    final temporaryPath = _importTemporaryPath(targetPath);
+    Database? staged;
+    try {
+      staged = await _openImportTarget(targetPath, temporaryPath);
+      final removed = await staged.transaction(
+        (transaction) => _purgeDemoCatalog(transaction),
+      );
+      if (removed.isEmpty) {
+        await staged.close();
+        staged = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return removed;
+      }
+      await _installImportTarget(staged, targetPath, temporaryPath);
+      staged = null;
+      _notifyImportChanged();
+      return removed;
+    } catch (_) {
+      await staged?.close();
+      final temporary = File(temporaryPath);
+      if (await temporary.exists()) await temporary.delete();
+      rethrow;
+    }
+  }
+
   /// Installs either a normalized DB or a Pa-Auk source DB selected by the
   /// user/developer. Source databases are normalized in-app, so the user does
   /// not need Python just to import a downloaded language package.
-  static Future<String> installDatabaseFile(String sourcePath) async {
+  static Future<String> installDatabaseFile(
+    String sourcePath, {
+    String? destinationPath,
+  }) {
+    // IN4-80: xếp hàng — cài file cũng thay DB đích, không được chạy song
+    // song với import đang chạy (cùng lý do DBMOVED).
+    return _withImportLock(() => _installDatabaseFileLocked(
+          sourcePath,
+          destinationPath: destinationPath,
+        ));
+  }
+
+  static Future<String> _installDatabaseFileLocked(
+    String sourcePath, {
+    String? destinationPath,
+  }) async {
     final source = File(sourcePath);
     if (!await source.exists()) {
       throw const TipitakaDatabaseException('Không tìm thấy file cơ sở dữ liệu.');
     }
 
     if (await _isZipFile(sourcePath)) {
-      return _installDatabaseArchive(sourcePath);
+      return _installDatabaseArchive(
+        sourcePath,
+        destinationPath: destinationPath,
+      );
     }
 
     if (await _isUsableDatabaseFile(sourcePath)) {
-      await close();
-      final targetPath = await installedDatabasePath();
-      final target = File(targetPath);
-      await target.parent.create(recursive: true);
-      final temporary = File('$targetPath.part');
-      await source.copy(temporary.path);
-      if (await target.exists()) await target.delete();
-      await temporary.rename(target.path);
-      return target.path;
+      final targetPath = destinationPath ?? await installedDatabasePath();
+      if (p.equals(p.normalize(p.absolute(sourcePath)),
+          p.normalize(p.absolute(targetPath)))) {
+        return targetPath;
+      }
+      return _mergeNormalizedDatabaseLocked(sourcePath, targetPath);
     }
 
-    return importSourceDatabase(sourcePath);
+    // Gọi bản KHÔNG khóa (đang giữ khoá rồi — gọi bản công khai sẽ tự
+    // chờ khoá ⇒ DEADLOCK).
+    return _importSourceDatabaseLocked(
+      sourcePath,
+      destinationPath: destinationPath,
+    );
+  }
+
+  /// A normalized database is merged row-by-row instead of replacing the
+  /// installed library. This supports user-created, single-book databases and
+  /// preserves previously imported languages and reader annotations.
+  static Future<String> _mergeNormalizedDatabaseLocked(
+    String sourcePath,
+    String targetPath,
+  ) async {
+    await _recoverInterruptedInstall(targetPath);
+    await _cleanupStaleImportFiles(targetPath);
+    if (_openPath == targetPath) await close();
+    final sourceHash = await _sha256File(File(sourcePath));
+    final temporaryPath = _importTemporaryPath(targetPath);
+    Database? source;
+    Database? target;
+    try {
+      source = await openDatabase(
+        sourcePath,
+        readOnly: true,
+        singleInstance: false,
+      );
+      target = await _openImportTarget(targetPath, temporaryPath);
+      final language = await _normalizedImportLanguage(source!, sourcePath);
+      if (await _wasImportCompleted(target, sourceHash)) {
+        await target.close();
+        target = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return targetPath;
+      }
+      await target.transaction((transaction) async {
+        // PSRC-158: the demo fallback must not survive beside imported data.
+        await _purgeDemoCatalog(transaction);
+        final count = await _mergeNormalizedRows(source!, transaction);
+        if (count == 0) {
+          throw const TipitakaDatabaseException(
+            'Cơ sở dữ liệu không chứa đoạn kinh để nhập.',
+          );
+        }
+        await _deduplicateCatalog(transaction);
+        await _recordImport(transaction, sourceHash, sourcePath, count,
+            languageCode: language);
+        return count;
+      });
+      final installed = await _installImportTarget(
+        target,
+        targetPath,
+        temporaryPath,
+      );
+      target = null;
+      _notifyImportChanged();
+      return installed;
+    } catch (_) {
+      await target?.close();
+      final temporary = File(temporaryPath);
+      if (await temporary.exists()) await temporary.delete();
+      rethrow;
+    } finally {
+      await source?.close();
+    }
+  }
+
+  static Set<String> _catalogEntityNames(Map<String, Object?> row) => {
+        for (final column in const ['name_pali', 'name_en', 'name_vi'])
+          if ('${row[column] ?? ''}'.trim().isNotEmpty)
+            '${row[column]}'.trim().toLowerCase(),
+      };
+
+
+  static Future<int> _mergeNormalizedRows(
+    Database source,
+    DatabaseExecutor target,
+  ) async {
+    final sourceCollections = await source.query('tipitaka_collections');
+    final targetCollections = await target.query('tipitaka_collections');
+    final collectionIdsByName = <String, int>{};
+    for (final row in targetCollections) {
+      final id = row['id'];
+      if (id is! int) continue;
+      for (final name in _catalogEntityNames(row)) {
+        collectionIdsByName.putIfAbsent(name, () => id);
+      }
+    }
+    final sourceCollectionIds = <int, int>{};
+    for (final row in sourceCollections) {
+      final sourceId = row['id'];
+      if (sourceId is! int) continue;
+      final names = _catalogEntityNames(row);
+      int? destinationId;
+      for (final name in names) {
+        destinationId ??= collectionIdsByName[name];
+      }
+      if (destinationId == null) {
+        destinationId = await target.insert('tipitaka_collections', {
+          'name_pali': row['name_pali'] ?? '',
+          'name_en': row['name_en'] ?? '',
+          'name_vi': row['name_vi'] ?? '',
+          'order_index': row['order_index'] ?? 0,
+        });
+      }
+      final resolvedDestinationId = destinationId;
+      if (resolvedDestinationId == null) continue;
+      for (final name in names) {
+        collectionIdsByName.putIfAbsent(name, () => resolvedDestinationId);
+      }
+      sourceCollectionIds[sourceId] = resolvedDestinationId;
+    }
+
+    final targetBooks = await target.query('tipitaka_books');
+    final booksByCode = <String, int>{};
+    for (final row in targetBooks) {
+      final id = row['id'];
+      final code = '${row['code'] ?? ''}'.trim().toUpperCase();
+      if (id is int && code.isNotEmpty) booksByCode.putIfAbsent(code, () => id);
+    }
+    final sourceBooks = await source.query('tipitaka_books', orderBy: 'order_index, id');
+    final sourceBookIds = <int, int>{};
+    final sourceBookCodes = <int, String>{};
+    final sourceBookRowsById = <int, Map<String, Object?>>{};
+    for (final row in sourceBooks) {
+      final sourceId = row['id'];
+      if (sourceId is! int) continue;
+      final code = '${row['code'] ?? ''}'.trim();
+      final codeKey = code.toUpperCase();
+      final mappedCollection = sourceCollectionIds[row['collection_id']] ??
+          (sourceCollectionIds.isEmpty ? 0 : sourceCollectionIds.values.first);
+      var destinationId = codeKey.isEmpty ? null : booksByCode[codeKey];
+      if (destinationId == null) {
+        destinationId = await target.insert('tipitaka_books', {
+          'collection_id': mappedCollection,
+          'code': code,
+          'name_pali': row['name_pali'] ?? '',
+          'name_en': row['name_en'] ?? '',
+          'name_vi': row['name_vi'] ?? '',
+          'order_index': row['order_index'] ?? 0,
+          'metadata_json': row['metadata_json'],
+        });
+        if (codeKey.isNotEmpty) booksByCode[codeKey] = destinationId;
+      } else {
+        final existing = await target.query(
+          'tipitaka_books',
+          where: 'id = ?',
+          whereArgs: [destinationId],
+          limit: 1,
+        );
+        if (existing.isNotEmpty) {
+          final updates = <String, Object?>{};
+          for (final column in const ['name_pali', 'name_en', 'name_vi', 'metadata_json']) {
+            final current = '${existing.single[column] ?? ''}'.trim();
+            final incoming = '${row[column] ?? ''}'.trim();
+            if (incoming.isNotEmpty &&
+                (current.isEmpty || current.toUpperCase() == codeKey)) {
+              updates[column] = row[column];
+            }
+          }
+          if (updates.isNotEmpty) {
+            await target.update('tipitaka_books', updates,
+                where: 'id = ?', whereArgs: [destinationId]);
+          }
+        }
+      }
+      sourceBookIds[sourceId] = destinationId;
+      sourceBookCodes[sourceId] = code;
+      sourceBookRowsById[sourceId] = row;
+    }
+
+    final sourceSegments = await source.query(
+      'tipitaka_segments',
+      orderBy: 'book_id, order_index, id',
+    );
+    final existingSegments = await target.query(
+      'tipitaka_segments',
+      columns: const ['id', 'book_id', 'reference', 'order_index', 'source_table', 'source_row_key'],
+    );
+    final segmentIds = <String, int>{};
+    for (final row in existingSegments) {
+      final id = row['id'];
+      final bookId = row['book_id'];
+      if (id is! int || bookId is! int) continue;
+      final table = '${row['source_table'] ?? ''}'.trim();
+      final key = '${row['source_row_key'] ?? ''}'.trim();
+      if (table.isNotEmpty && key.isNotEmpty) {
+        segmentIds['$bookId::${_sourceJoinKey(table, key)}'] = id;
+      }
+      final reference = '${row['reference'] ?? ''}'.trim();
+      if (reference.isNotEmpty) {
+        segmentIds['$bookId::ref:${_referenceJoinKey(reference)}::${row['order_index']}'] = id;
+      }
+    }
+    final sourceToTargetSegments = <int, int>{};
+    for (final row in sourceSegments) {
+      final sourceId = row['id'];
+      final sourceBookId = row['book_id'];
+      if (sourceId is! int || sourceBookId is! int) continue;
+      final bookId = sourceBookIds[sourceBookId];
+      if (bookId == null) continue;
+      final sourceBook = sourceBookRowsById[sourceBookId] ?? const <String, Object?>{};
+      final metadata = sourceBook['metadata_json'];
+      var metadataTable = '';
+      if (metadata is String && metadata.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(metadata);
+          if (decoded is Map && decoded['source_table'] is String) {
+            metadataTable = (decoded['source_table'] as String).trim();
+          }
+        } on FormatException {
+          // Fall back to the stable book code below.
+        }
+      }
+      final table = '${row['source_table'] ?? ''}'.trim().isNotEmpty
+          ? '${row['source_table']}'.trim()
+          : metadataTable.isNotEmpty
+              ? metadataTable
+              : (sourceBookCodes[sourceBookId] ?? 'BOOK$sourceBookId');
+      var sourceRowKey = '${row['source_row_key'] ?? ''}'.trim();
+      final reference = '${row['reference'] ?? ''}'.trim();
+      final orderIndex = row['order_index'] ?? 0;
+      if (sourceRowKey.isEmpty) {
+        sourceRowKey = reference.isNotEmpty ? reference : '$orderIndex';
+      }
+      sourceRowKey = _normalizedSourceRowKey(sourceRowKey);
+      final stableKey = '$bookId::${_sourceJoinKey(table, sourceRowKey)}';
+      final referenceKey = '$bookId::ref:${_referenceJoinKey(reference)}::$orderIndex';
+      final existingId = segmentIds[stableKey] ??
+          (reference.isEmpty ? null : segmentIds[referenceKey]);
+      final values = <String, Object?>{
+        'book_id': bookId,
+        'section_id': row['section_id'],
+        'reference': reference,
+        'paragraph_no': row['paragraph_no'],
+        'block_type': row['block_type'] ?? 'paragraph',
+        'order_index': orderIndex,
+        'source_table': table,
+        'source_row_key': sourceRowKey,
+      };
+      for (final column in const [
+        'pali_text', 'translation_en', 'translation_vi',
+        'translation_my', 'translation_th',
+      ]) {
+        final value = row[column];
+        if ('${value ?? ''}'.trim().isNotEmpty) values[column] = value;
+      }
+      int destinationSegmentId;
+      if (existingId == null) {
+        destinationSegmentId = await target.insert('tipitaka_segments', values);
+      } else {
+        await target.update(
+          'tipitaka_segments',
+          values,
+          where: 'id = ?',
+          whereArgs: [existingId],
+        );
+        destinationSegmentId = existingId;
+      }
+      segmentIds[stableKey] = destinationSegmentId;
+      sourceToTargetSegments[sourceId] = destinationSegmentId;
+    }
+
+    final sourceTables = await source.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tipitaka_translations'",
+    );
+    if (sourceTables.isNotEmpty) {
+      final translations = await source.query('tipitaka_translations');
+      for (final row in translations) {
+        final sourceSegmentId = row['segment_id'];
+        final language = '${row['language_code'] ?? ''}'
+            .trim().toLowerCase().replaceAll('_', '-');
+        final text = '${row['text'] ?? ''}';
+        final segmentId = sourceToTargetSegments[sourceSegmentId];
+        if (segmentId == null || language.isEmpty || text.trim().isEmpty) continue;
+        final current = await target.query(
+          'tipitaka_translations',
+          columns: const ['text'],
+          where: 'segment_id = ? AND language_code = ?',
+          whereArgs: [segmentId, language],
+          limit: 1,
+        );
+        if (current.isEmpty || '${current.first['text'] ?? ''}'.trim().isEmpty) {
+          await target.insert(
+            'tipitaka_translations',
+            {'segment_id': segmentId, 'language_code': language, 'text': text},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+    }
+    return sourceToTargetSegments.length;
   }
 
   static Future<bool> _isZipFile(String path) async {
@@ -217,7 +1023,10 @@ class TipitakaDb {
     }
   }
 
-  static Future<String> _installDatabaseArchive(String archivePath) async {
+  static Future<String> _installDatabaseArchive(
+    String archivePath, {
+    String? destinationPath,
+  }) async {
     final temporaryDirectory = await getTemporaryDirectory();
     final extractedPaths = <String>[];
     final input = InputFileStream(archivePath);
@@ -259,7 +1068,12 @@ class TipitakaDb {
       // deterministic choice and is also how the download service behaves.
       for (final extractedPath in extractedPaths) {
         try {
-          return await installDatabaseFile(extractedPath);
+          // Bản KHÔNG khóa: đang giữ khoá import (bản công khai sẽ chờ
+          // khoá ⇒ DEADLOCK).
+          return await _installDatabaseFileLocked(
+            extractedPath,
+            destinationPath: destinationPath,
+          );
         } on TipitakaDatabaseException {
           // Try the next DB entry before reporting a package failure.
         }
@@ -285,6 +1099,19 @@ class TipitakaDb {
     String sourcePath, {
     String? languageCode,
     String? destinationPath,
+  }) {
+    // IN4-80: xếp hàng — 2 import song song làm hỏng DB đích (DBMOVED).
+    return _withImportLock(() => _importSourceDatabaseLocked(
+          sourcePath,
+          languageCode: languageCode,
+          destinationPath: destinationPath,
+        ));
+  }
+
+  static Future<String> _importSourceDatabaseLocked(
+    String sourcePath, {
+    String? languageCode,
+    String? destinationPath,
   }) async {
     await _ensureDatabaseFactory();
     final sourceFile = File(sourcePath);
@@ -292,9 +1119,11 @@ class TipitakaDb {
       throw const TipitakaDatabaseException('Không tìm thấy file nguồn.');
     }
 
-    final language = languageCode ?? _languageFromFilename(sourcePath);
     final targetPath = destinationPath ?? await installedDatabasePath();
+    await _recoverInterruptedInstall(targetPath);
+    await _cleanupStaleImportFiles(targetPath);
     if (_openPath == targetPath) await close();
+    final sourceHash = await _sha256File(sourceFile);
     Database? source;
     try {
       source = await openDatabase(
@@ -302,9 +1131,29 @@ class TipitakaDb {
         readOnly: true,
         singleInstance: false,
       );
+      final language = (languageCode?.trim().isNotEmpty == true
+              ? languageCode!.trim()
+              : await _languageFromSourceSchema(source) ??
+                  _languageFromFilename(sourcePath))
+          .toLowerCase()
+          .replaceAll('_', '-')
+          .replaceAll('zh-cn', 'zh')
+          .replaceAll('zh-hant', 'zh-tw')
+          .replaceAll('zh-hk', 'zh-tw');
       return language == 'pi'
-          ? await _importPaliSource(source, targetPath)
-          : await _importTranslationSource(source, language, targetPath);
+          ? await _importPaliSource(
+              source,
+              targetPath,
+              sourceHash: sourceHash,
+              sourceName: sourcePath,
+            )
+          : await _importTranslationSource(
+              source,
+              language,
+              targetPath,
+              sourceHash: sourceHash,
+              sourceName: sourcePath,
+            );
     } on DatabaseException catch (error) {
       throw TipitakaDatabaseException(
         'File không phải SQLite hợp lệ hoặc không thể đọc: $error',
@@ -335,6 +1184,132 @@ class TipitakaDb {
     );
   }
 
+  /// IN4-80: đường dẫn tạm RIÊNG cho mỗi lần import.
+  ///
+  /// Trước đây MỌI import dùng chung `'$targetPath.importing'` và
+  /// `_openImportTarget` XOÁ file tạm nếu tồn tại ⇒ khi 2 import chạy song
+  /// song (Pāli + Việt), import thứ hai XOÁ file mà import thứ nhất đang
+  /// giữ connection SQLite ⇒ cây lệnh `UPDATE` của import thứ nhất trả
+  /// `SQLITE_READONLY_DBMOVED (1032)` ("attempt to write a readonly
+  /// database") dù file KHÔNG hỏng.
+  static String _importTemporaryPath(String targetPath) =>
+      '$targetPath.importing-${DateTime.now().microsecondsSinceEpoch}';
+
+  static Future<String> _sha256File(File file) async =>
+      (await sha256.bind(file.openRead()).first).toString();
+
+  static Future<bool> _wasImportCompleted(
+    DatabaseExecutor database,
+    String hash,
+  ) async {
+    final rows = await database.query(
+      'tipitaka_import_history',
+      columns: const ['source_sha256'],
+      where: 'source_sha256 = ?',
+      whereArgs: [hash],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  static Future<void> _recordImport(
+    DatabaseExecutor database,
+    String hash,
+    String sourceName,
+    int importedRows, {
+    String? languageCode,
+  }) async {
+    await _ensureColumn(
+      database,
+      'tipitaka_import_history',
+      'language_code',
+      "TEXT NOT NULL DEFAULT ''",
+    );
+    await database.insert(
+      'tipitaka_import_history',
+      {
+        'source_sha256': hash,
+        'source_name': p.basename(sourceName),
+        'language_code': _normalizedLanguageCode(languageCode ?? ''),
+        'imported_at': DateTime.now().millisecondsSinceEpoch,
+        'imported_rows': importedRows,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Recovers the brief rename window used for cross-platform atomic install.
+  static Future<void> _recoverInterruptedInstall(String targetPath) async {
+    final destination = File(targetPath);
+    final swapBackup = File('$targetPath.swap');
+    if (!await swapBackup.exists()) return;
+    if (!await destination.exists()) {
+      await swapBackup.rename(targetPath);
+    } else {
+      await swapBackup.delete();
+    }
+  }
+
+  /// A process killed during staging can leave a temporary SQLite copy. It is
+  /// never treated as installed data; remove only files older than a day so a
+  /// slow, active import is never touched.
+  static Future<void> _cleanupStaleImportFiles(String targetPath) async {
+    final folder = Directory(p.dirname(targetPath));
+    if (!await folder.exists()) return;
+    final prefix = '${p.basename(targetPath)}.importing-';
+    final cutoff = DateTime.now().subtract(const Duration(days: 1));
+    await for (final entity in folder.list(followLinks: false)) {
+      if (entity is! File || !p.basename(entity.path).startsWith(prefix)) continue;
+      try {
+        if ((await entity.stat()).modified.isBefore(cutoff)) {
+          await entity.delete();
+          for (final suffix in const ['-journal', '-wal', '-shm']) {
+            final sidecar = File('${entity.path}$suffix');
+            if (await sidecar.exists()) await sidecar.delete();
+          }
+        }
+      } on FileSystemException {
+        // A stale staging file is best-effort cleanup, not a read blocker.
+      }
+    }
+  }
+
+  /// Khoá tuần tự hoá import (IN4-80).
+  ///
+  /// Mọi thao tác import + cài đặt DB đi qua hàng đợi MỘT ⇒ không bao giờ
+  /// có 2 import cùng lúc (vừa tránh DBMOVED, vừa tránh 2 install tranh
+  /// nhau xoá/đổi file đích).
+  static Future<void> _importQueue = Future<void>.value();
+
+  static Future<T> _withImportLock<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    final previous = _importQueue;
+    _importQueue = previous.then((_) {}, onError: (_) {}).then((_) async {
+      try {
+        completer.complete(await action());
+      } catch (error, stack) {
+        completer.completeError(error, stack);
+      }
+    });
+    return completer.future;
+  }
+
+  /// Sao lưu DB đang cài trước khi thay thế (IN4-80: "bảo toàn dữ liệu
+  /// trước mọi thao tác phá hủy"). Giữ 1 bản `.bak` — nếu lần import sau hỏng,
+  /// người dùng vẫn có DB tốt gần nhất để khôi phục.
+  static Future<void> _backupInstalledDatabase(String targetPath) async {
+    final source = File(targetPath);
+    if (!await source.exists()) return;
+    final backup = File('$targetPath.bak');
+    try {
+      if (await backup.exists()) await backup.delete();
+      await source.copy(backup.path);
+      debugPrint('💾 Tipitaka: đã sao lưu DB cài đặt → ${backup.path}');
+    } catch (error) {
+      debugPrint('⚠️ Tipitaka: không sao lưu được DB cài đặt: $error');
+    }
+  }
+
   static Future<String> _installImportTarget(
     Database target,
     String targetPath,
@@ -342,32 +1317,63 @@ class TipitakaDb {
   ) async {
     await target.close();
     await close();
+    // IN4-80: sao lưu bản đang chạy TRƯỚC khi thay file đích.
+    await _backupInstalledDatabase(targetPath);
     final destination = File(targetPath);
-    if (await destination.exists()) await destination.delete();
-    await File(temporaryPath).rename(targetPath);
-    return targetPath;
+    final swapBackup = File('$targetPath.swap');
+    if (await swapBackup.exists()) await swapBackup.delete();
+    if (await destination.exists()) await destination.rename(swapBackup.path);
+    try {
+      await File(temporaryPath).rename(targetPath);
+      if (await swapBackup.exists()) await swapBackup.delete();
+      return targetPath;
+    } catch (_) {
+      if (await swapBackup.exists() && !await destination.exists()) {
+        await swapBackup.rename(targetPath);
+      }
+      rethrow;
+    }
   }
 
   static Future<String> _importPaliSource(
     Database source,
-    String targetPath,
-  ) async {
-    final temporaryPath = '$targetPath.importing';
+    String targetPath, {
+    required String sourceHash,
+    required String sourceName,
+  }) async {
+    // IN4-80: đường dẫn tạm RIÊNG (tránh đụng import khác đang chạy).
+    final temporaryPath = _importTemporaryPath(targetPath);
     Database? target;
     try {
       target = await _openImportTarget(targetPath, temporaryPath);
-      final imported = await _copyPaliTables(source, target);
-      if (imported == 0) {
-        throw const TipitakaDatabaseException(
-          'Không tìm thấy bảng văn bản Pāli trong file nguồn.',
-        );
+      if (await _wasImportCompleted(target, sourceHash)) {
+        await target.close();
+        target = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return targetPath;
       }
+      await target.transaction((transaction) async {
+        // PSRC-158: drop the bundled demo before real Pāli rows are copied.
+        await _purgeDemoCatalog(transaction);
+        final count = await _copyPaliTables(source, transaction);
+        if (count == 0) {
+          throw const TipitakaDatabaseException(
+            'Không tìm thấy bảng văn bản Pāli trong file nguồn.',
+          );
+        }
+        await _deduplicateCatalog(transaction);
+        await _recordImport(transaction, sourceHash, sourceName, count,
+            languageCode: 'pi');
+        return count;
+      });
       final installed = await _installImportTarget(
         target,
         targetPath,
         temporaryPath,
       );
       target = null;
+      _notifyImportChanged();
       return installed;
     } catch (_) {
       await target?.close();
@@ -380,29 +1386,49 @@ class TipitakaDb {
   static Future<String> _importTranslationSource(
     Database source,
     String language,
-    String targetPath,
-  ) async {
-    final temporaryPath = '$targetPath.importing';
+    String targetPath, {
+    required String sourceHash,
+    required String sourceName,
+  }) async {
+    // IN4-80: đường dẫn tạm RIÊNG (tránh đụng import khác đang chạy).
+    final temporaryPath = _importTemporaryPath(targetPath);
     Database? target;
     try {
       target = await _openImportTarget(targetPath, temporaryPath);
-      final imported = await _mergeTranslationSource(
-        target,
-        source,
-        language,
-        createMissing: true,
-      );
-      if (imported == 0) {
-        throw TipitakaDatabaseException(
-          'Không tìm thấy nội dung cho gói ngôn ngữ $language.',
-        );
+      if (await _wasImportCompleted(target, sourceHash)) {
+        await target.close();
+        target = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return targetPath;
       }
+      await target.transaction((transaction) async {
+        // PSRC-158: a translation pack replaces the demo fallback; purging
+        // first also stops it from landing in the demo-named collection.
+        await _purgeDemoCatalog(transaction);
+        final count = await _mergeTranslationSource(
+          transaction,
+          source,
+          language,
+          createMissing: true,
+        );
+        if (count == 0) {
+          throw TipitakaDatabaseException(
+            'Không tìm thấy nội dung cho gói ngôn ngữ $language.',
+          );
+        }
+        await _deduplicateCatalog(transaction);
+        await _recordImport(transaction, sourceHash, sourceName, count,
+            languageCode: language);
+        return count;
+      });
       final installed = await _installImportTarget(
         target,
         targetPath,
         temporaryPath,
       );
       target = null;
+      _notifyImportChanged();
       return installed;
     } catch (_) {
       await target?.close();
@@ -412,13 +1438,194 @@ class TipitakaDb {
     }
   }
 
-  static Future<Map<String, int>> _collectionIds(Database target) async {
+  /// Consolidates legacy duplicate catalogue rows before a staged import is
+  /// installed. All work happens inside the caller's SQLite transaction.
+  static Future<void> _deduplicateCatalog(DatabaseExecutor target) async {
+    // Remove the guard while duplicate book IDs are remapped below; SQLite
+    // would otherwise reject the FK remap before the duplicate segments can
+    // be coalesced. The transaction recreates it after cleanup.
+    await target.execute(
+      'DROP INDEX IF EXISTS idx_tipitaka_segment_source_unique',
+    );
+    final collections = await target.query(
+      'tipitaka_collections',
+      orderBy: 'id ASC',
+    );
+    final collectionKeepers = <String, int>{};
+    for (final collection in collections) {
+      final id = collection['id'];
+      if (id is! int) continue;
+      final names = _catalogEntityNames(collection);
+      int? keeper;
+      for (final name in names) {
+        keeper ??= collectionKeepers[name];
+      }
+      if (keeper == null) {
+        for (final name in names) {
+          collectionKeepers.putIfAbsent(name, () => id);
+        }
+        continue;
+      }
+      if (keeper != id) {
+        await target.update(
+          'tipitaka_books',
+          {'collection_id': keeper},
+          where: 'collection_id = ?',
+          whereArgs: [id],
+        );
+        await target.delete(
+          'tipitaka_collections',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    }
+
+    final books = await target.query('tipitaka_books', orderBy: 'id ASC');
+    final bookKeepers = <String, int>{};
+    for (final book in books) {
+      final id = book['id'];
+      if (id is! int) continue;
+      final code = '${book['code'] ?? ''}'.trim().toUpperCase();
+      if (code.isEmpty) continue;
+      final keeper = bookKeepers.putIfAbsent(code, () => id);
+      if (keeper == id) continue;
+      await target.update(
+        'tipitaka_segments',
+        {'book_id': keeper},
+        where: 'book_id = ?',
+        whereArgs: [id],
+      );
+      await target.delete('tipitaka_books', where: 'id = ?', whereArgs: [id]);
+    }
+
+    final sourceRows = await target.query(
+      'tipitaka_segments',
+      columns: const ['id', 'book_id', 'source_table', 'source_row_key'],
+      orderBy: 'id ASC',
+    );
+    final segmentKeepers = <String, int>{};
+    final duplicates = <int, int>{};
+    for (final row in sourceRows) {
+      final id = row['id'];
+      final table = '${row['source_table'] ?? ''}'.trim();
+      final sourceKey = '${row['source_row_key'] ?? ''}'.trim();
+      if (id is! int || table.isEmpty || sourceKey.isEmpty) continue;
+      final joinKey =
+          '${row['book_id']}::${_sourceJoinKey(table, sourceKey)}';
+      final keeper = segmentKeepers.putIfAbsent(joinKey, () => id);
+      if (keeper != id) duplicates[id] = keeper;
+    }
+
+    const textColumns = [
+      'pali_text', 'translation_en', 'translation_vi', 'translation_my',
+      'translation_th',
+    ];
+    for (final duplicate in duplicates.entries) {
+      final row = await target.query(
+        'tipitaka_segments',
+        where: 'id = ?',
+        whereArgs: [duplicate.key],
+        limit: 1,
+      );
+      final keeperRows = await target.query(
+        'tipitaka_segments',
+        where: 'id = ?',
+        whereArgs: [duplicate.value],
+        limit: 1,
+      );
+      if (row.isEmpty || keeperRows.isEmpty) continue;
+      final old = row.single;
+      final keeper = keeperRows.single;
+      final updates = <String, Object?>{};
+      for (final column in textColumns) {
+        final value = '${keeper[column] ?? ''}'.trim().isEmpty
+            ? old[column]
+            : keeper[column];
+        if (value != keeper[column]) updates[column] = value;
+      }
+      if (updates.isNotEmpty) {
+        await target.update(
+          'tipitaka_segments',
+          updates,
+          where: 'id = ?',
+          whereArgs: [duplicate.value],
+        );
+      }
+      final translations = await target.query(
+        'tipitaka_translations',
+        where: 'segment_id = ?',
+        whereArgs: [duplicate.key],
+      );
+      for (final translation in translations) {
+        final language = translation['language_code'];
+        final text = '${translation['text'] ?? ''}';
+        if (language is! String || text.trim().isEmpty) continue;
+        final existing = await target.query(
+          'tipitaka_translations',
+          columns: const ['text'],
+          where: 'segment_id = ? AND language_code = ?',
+          whereArgs: [duplicate.value, language],
+          limit: 1,
+        );
+        if (existing.isEmpty || '${existing.first['text'] ?? ''}'.trim().isEmpty) {
+          await target.insert(
+            'tipitaka_translations',
+            {'segment_id': duplicate.value, 'language_code': language, 'text': text},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+      await target.rawUpdate(
+        'UPDATE OR IGNORE tipitaka_highlights SET segment_id = ? WHERE segment_id = ?',
+        [duplicate.value, duplicate.key],
+      );
+      await target.rawUpdate(
+        'UPDATE tipitaka_user_notes SET segment_id = ? WHERE segment_id = ?',
+        [duplicate.value, duplicate.key],
+      );
+      await target.rawUpdate(
+        'UPDATE OR IGNORE tipitaka_learning_items SET segment_id = ? WHERE segment_id = ?',
+        [duplicate.value, duplicate.key],
+      );
+      await target.delete(
+        'tipitaka_translations',
+        where: 'segment_id = ?',
+        whereArgs: [duplicate.key],
+      );
+      await target.delete(
+        'tipitaka_highlights',
+        where: 'segment_id = ?',
+        whereArgs: [duplicate.key],
+      );
+      await target.delete(
+        'tipitaka_learning_items',
+        where: 'segment_id = ?',
+        whereArgs: [duplicate.key],
+      );
+      await target.delete(
+        'tipitaka_segments',
+        where: 'id = ?',
+        whereArgs: [duplicate.key],
+      );
+    }
+    await target.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_tipitaka_segment_source_unique '
+      'ON tipitaka_segments(book_id, lower(source_table), source_row_key) '
+      "WHERE source_table IS NOT NULL AND source_table <> '' "
+      "AND source_row_key IS NOT NULL AND source_row_key <> ''",
+    );
+  }
+
+  static Future<Map<String, int>> _collectionIds(DatabaseExecutor target) async {
     final result = <String, int>{};
     for (final row in await target.query('tipitaka_collections')) {
       final id = row['id'];
       if (id is! int) continue;
       final names = '${row['name_pali']} ${row['name_en']} ${row['name_vi']}'
           .toLowerCase();
+      // PSRC-158: never attach imported books to a demo-named collection.
+      if (_isDemoCatalogName(names)) continue;
       if (names.contains('vin') || names.contains('luật')) {
         result['vinaya'] = id;
       } else if (names.contains('abh') || names.contains('diệu')) {
@@ -431,7 +1638,7 @@ class TipitakaDb {
   }
 
   static Future<int> _ensureCollection(
-    Database target,
+    DatabaseExecutor target,
     Map<String, int> collectionIds,
     String sourceTable,
   ) async {
@@ -448,7 +1655,7 @@ class TipitakaDb {
     return id;
   }
 
-  static Future<Map<String, int>> _bookIds(Database target) async {
+  static Future<Map<String, int>> _bookIds(DatabaseExecutor target) async {
     return {
       for (final row in await target.query('tipitaka_books'))
         if (row['id'] is int) '${row['code'] ?? ''}'.toUpperCase(): row['id'] as int,
@@ -456,7 +1663,7 @@ class TipitakaDb {
   }
 
   static Future<int> _ensureBook(
-    Database target,
+    DatabaseExecutor target,
     Map<String, int> collectionIds,
     Map<String, int> bookIds,
     String sourceTable,
@@ -485,7 +1692,7 @@ class TipitakaDb {
 
   static Future<int> _copyPaliTables(
     Database source,
-    Database target,
+    DatabaseExecutor target,
   ) async {
     final tables = await _sourceTables(source, textLanguage: 'pi');
     final collectionIds = await _collectionIds(target);
@@ -502,10 +1709,10 @@ class TipitakaDb {
       final table = '${row['source_table'] ?? ''}';
       final key = '${row['source_row_key'] ?? ''}';
       if (table.isNotEmpty && key.isNotEmpty) {
-        targetBySource['$table::$key'] = id;
+        targetBySource[_sourceJoinKey(table, key)] = id;
       }
       final reference = '${row['reference'] ?? ''}';
-      if (reference.isNotEmpty) targetByReference.putIfAbsent(reference, () => id);
+      if (reference.isNotEmpty) targetByReference.putIfAbsent(_referenceJoinKey(reference), () => id);
     }
 
     var imported = 0;
@@ -568,8 +1775,8 @@ class TipitakaDb {
               text.isNotEmpty) {
             contentTitle = text;
           }
-          final segmentId = targetBySource['$table::$key'] ??
-              targetByReference[reference];
+          final segmentId = targetBySource[_sourceJoinKey(table, key)] ??
+              targetByReference[_referenceJoinKey(reference)];
           final values = {
             'book_id': bookId,
             'reference': reference,
@@ -578,7 +1785,7 @@ class TipitakaDb {
             'pali_text': text,
             'order_index': offset + index,
             'source_table': table,
-            'source_row_key': key,
+            'source_row_key': _normalizedSourceRowKey(key),
           };
           if (segmentId == null) {
             batch.insert('tipitaka_segments', values);
@@ -607,7 +1814,7 @@ class TipitakaDb {
   }
 
   static Future<int> _mergeTranslationSource(
-    Database target,
+    DatabaseExecutor target,
     Database source,
     String language, {
     bool createMissing = false,
@@ -633,10 +1840,10 @@ class TipitakaDb {
       final table = '${row['source_table'] ?? ''}';
       final key = '${row['source_row_key'] ?? ''}';
       if (table.isNotEmpty && key.isNotEmpty) {
-        targetBySource['$table::$key'] = id;
+        targetBySource[_sourceJoinKey(table, key)] = id;
       }
       final reference = '${row['reference'] ?? ''}';
-      if (reference.isNotEmpty) targetByReference.putIfAbsent(reference, () => id);
+      if (reference.isNotEmpty) targetByReference.putIfAbsent(_referenceJoinKey(reference), () => id);
     }
 
     var updated = 0;
@@ -695,8 +1902,8 @@ class TipitakaDb {
           final reference = _plainText(row['_reference']).trim().isEmpty
               ? '$effectiveTable:$key'
               : _plainText(row['_reference']).trim();
-          var segmentId = targetBySource['$effectiveTable::$key'] ??
-              targetByReference[reference];
+          var segmentId = targetBySource[_sourceJoinKey(effectiveTable, key)] ??
+              targetByReference[_referenceJoinKey(reference)];
           int? bookId;
           if (segmentId == null && createMissing) {
             bookId = await _ensureBook(
@@ -713,12 +1920,15 @@ class TipitakaDb {
               'pali_text': '',
               'order_index': offset + index,
               'source_table': effectiveTable,
-              'source_row_key': key,
+              'source_row_key': _normalizedSourceRowKey(key),
               if (fixedColumn != null) fixedColumn: text,
             };
             segmentId = await target.insert('tipitaka_segments', values);
-            targetBySource['$effectiveTable::$key'] = segmentId;
-            targetByReference.putIfAbsent(reference, () => segmentId!);
+            targetBySource[_sourceJoinKey(effectiveTable, key)] = segmentId;
+            targetByReference.putIfAbsent(
+              _referenceJoinKey(reference),
+              () => segmentId!,
+            );
           }
           if (segmentId == null) continue;
           if (fixedColumn != null) {
@@ -763,14 +1973,32 @@ class TipitakaDb {
 
   static List<String> _translationTextCandidates(String language) {
     const languageNames = <String, List<String>>{
-      'vi': ['vietnamese', 'vi'],
+      'ar': ['arabic', 'العربية'],
+      'bn': ['bengali', 'bangla'],
+      'bo': ['tibetan'],
+      'de': ['german', 'deutsch'],
       'en': ['english', 'en'],
+      'es': ['spanish', 'espanol'],
+      'fr': ['french', 'francais'],
+      'hi': ['hindi'],
+      'id': ['indonesian', 'bahasa'],
+      'it': ['italian', 'italiano'],
+      'ja': ['japanese'],
+      'km': ['khmer', 'cambodian'],
+      'ko': ['korean'],
+      'lo': ['lao'],
+      'mn': ['mongolian'],
+      'mr': ['marathi'],
       'my': ['myanmar', 'burmese', 'my'],
+      'pt': ['portuguese'],
+      'ru': ['russian'],
+      'si': ['sinhala'],
+      'ta': ['tamil'],
+      'te': ['telugu'],
       'th': ['thai', 'th'],
-      'si': ['sinhala', 'si'],
-      'zh': ['chinese', 'zh'],
-      'ja': ['japanese', 'ja'],
-      'ko': ['korean', 'ko'],
+      'vi': ['vietnamese', 'vietnam', 'vi'],
+      'zh': ['chinese', 'simplifiedchinese'],
+      'zh-tw': ['traditionalchinese', 'taiwanese', 'zh_tw'],
     };
     return [
       'translation',
@@ -866,6 +2094,38 @@ class TipitakaDb {
 
   static String _normalizeName(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  /// Canonical BCP-47-ish code used by import history and pack deletion.
+  static String _normalizedLanguageCode(String value) {
+    final normalized = value.trim().toLowerCase().replaceAll('_', '-');
+    return switch (normalized) {
+      'zh-cn' || 'zh-hans' => 'zh',
+      'zh-hant' || 'zh-hk' || 'zh-tw-hant' => 'zh-tw',
+      'pi-roman' || 'pali' => 'pi',
+      _ => normalized,
+    };
+  }
+
+  /// Stable join key for source packs whose table names differ only by case,
+  /// underscores, or spacing. Numeric row IDs also ignore zero-padding.
+  static String _sourceJoinKey(String table, String key) {
+    final trimmedKey = key.trim();
+    final numericKey = int.tryParse(trimmedKey);
+    final normalizedKey = numericKey?.toString() ??
+        trimmedKey.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    return '${_normalizeName(table)}::$normalizedKey';
+  }
+
+  static String _normalizedSourceRowKey(String key) {
+    final trimmed = key.trim();
+    return int.tryParse(trimmed)?.toString() ??
+        trimmed.replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  /// References are compared case-insensitively with whitespace collapsed;
+  /// punctuation remains significant to avoid joining different citations.
+  static String _referenceJoinKey(String reference) =>
+      _plainText(reference).trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
   static String _quote(String value) => '"${value.replaceAll('"', '""')}"';
 
@@ -969,35 +2229,144 @@ class TipitakaDb {
     return ('sutta', 'Sutta', 'Kinh tạng');
   }
 
-  static String _languageFromFilename(String path) {
-    final name = p.basename(path).toLowerCase();
+  /// Detects language packs even when a user renamed the downloaded `.db`.
+  /// Prefer explicit language names/codes in source tables or columns; use the
+  /// filename only when the schema contains generic text columns.
+  static Future<String?> _languageFromSourceSchema(Database source) async {
     const hints = <String, List<String>>{
-      'vi': ['vietnamese', 'vietnam', 'viet', '_vi', '-vi'],
-      'en': ['english', '_en', '-en'],
-      'my': ['myanmar', 'burmese', '_my', '-my'],
-      'th': ['thai', '_th', '-th'],
-      'si': ['sinhala', '_si', '-si'],
-      'zh': ['chinese', '_zh', '-zh'],
-      'ja': ['japanese', '_ja', '-ja'],
-      'ko': ['korean', '_ko', '-ko'],
-      'km': ['khmer', '_km', '-km'],
-      'lo': ['lao', '_lo', '-lo'],
-      'fr': ['french', '_fr', '-fr'],
-      'de': ['german', '_de', '-de'],
-      'es': ['spanish', '_es', '-es'],
-      'id': ['indonesian', '_id', '-id'],
-      'pt': ['portuguese', '_pt', '-pt'],
-      'hi': ['hindi', '_hi', '-hi'],
-      'bn': ['bengali', '_bn', '-bn'],
-      'mr': ['marathi', '_mr', '-mr'],
+      'ar': ['arabic', 'translationar'],
+      'bn': ['bengali', 'bangla', 'translationbn'],
+      'bo': ['tibetan', 'translationbo'],
+      'de': ['german', 'deutsch', 'translationde'],
+      'en': ['english', 'translationen'],
+      'es': ['spanish', 'espanol', 'translationes'],
+      'fr': ['french', 'francais', 'translationfr'],
+      'hi': ['hindi', 'translationhi'],
+      'id': ['indonesian', 'bahasa', 'translationid'],
+      'it': ['italian', 'italiano', 'translationit'],
+      'ja': ['japanese', 'translationja'],
+      'km': ['khmer', 'cambodian', 'translationkm'],
+      'ko': ['korean', 'translationko'],
+      'lo': ['lao', 'translationlo'],
+      'mn': ['mongolian', 'translationmn'],
+      'mr': ['marathi', 'translationmr'],
+      'my': ['myanmar', 'burmese', 'translationmy'],
+      'pt': ['portuguese', 'translationpt'],
+      'ru': ['russian', 'translationru'],
+      'si': ['sinhala', 'translation si'],
+      'ta': ['tamil', 'translationta'],
+      'te': ['telugu', 'translationte'],
+      'th': ['thai', 'translationth'],
+      'vi': ['vietnamese', 'vietnam', 'viet', 'translationvi'],
+      'zh': ['simplifiedchinese', 'chinese', 'translationzh'],
+      'zh-tw': ['traditionalchinese', 'taiwanese', 'translationzhtw'],
+      'pi': ['pali', 'roman'],
+    };
+    bool matches(String candidate, String hint) {
+      final normalizedCandidate = _normalizeName(candidate);
+      final normalizedHint = _normalizeName(hint);
+      // Two-letter language codes are accepted only as complete identifiers;
+      // matching `it` inside `citation` would misclassify a generic database.
+      if (normalizedHint.length <= 2) return normalizedCandidate == normalizedHint;
+      return normalizedCandidate.contains(normalizedHint);
+    }
+
+    final tables = await _sourceTables(source);
+    for (final table in tables) {
+      for (final entry in hints.entries) {
+        if (entry.value.any((hint) => matches(table, hint))) return entry.key;
+      }
+      for (final column in await _sourceColumns(source, table)) {
+        for (final entry in hints.entries) {
+          if (entry.value.any((hint) => matches(column, hint))) return entry.key;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// PSRC-160: attribute a normalized import to a removable language pack.
+  /// Translation columns take priority over Pāli so a bilingual file is not
+  /// mislabelled as a Pāli-only source; the filename is only a last resort.
+  static Future<String> _normalizedImportLanguage(
+    Database source,
+    String sourcePath,
+  ) async {
+    try {
+      final columns = await source.rawQuery(
+        'PRAGMA table_info(tipitaka_segments)',
+      );
+      final names = columns.map((row) => '${row['name'] ?? ''}').toSet();
+      const fixed = <String, String>{
+        'translation_vi': 'vi',
+        'translation_en': 'en',
+        'translation_my': 'my',
+        'translation_th': 'th',
+        'pali_text': 'pi',
+      };
+      for (final entry in fixed.entries) {
+        if (!names.contains(entry.key)) continue;
+        final rows = await source.rawQuery(
+          'SELECT 1 FROM tipitaka_segments WHERE '
+          "COALESCE(\"${entry.key}\", '') <> '' LIMIT 1",
+        );
+        if (rows.isNotEmpty) return entry.value;
+      }
+      final tables = await source.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table'",
+      );
+      if (tables.any((row) => row['name'] == 'tipitaka_translations')) {
+        final rows = await source.rawQuery(
+          'SELECT language_code FROM tipitaka_translations '
+          "WHERE COALESCE(text, '') <> '' ORDER BY language_code LIMIT 1",
+        );
+        if (rows.isNotEmpty) {
+          final code = _normalizedLanguageCode(
+            '${rows.first['language_code'] ?? ''}',
+          );
+          if (code.isNotEmpty) return code;
+        }
+      }
+    } catch (_) {
+      // A source DB with an unusual schema still imports; use its filename.
+    }
+    return _normalizedLanguageCode(_languageFromFilename(sourcePath));
+  }
+
+  static String _languageFromFilename(String path) {
+    final name = p.basename(path).toLowerCase().replaceAll(' ', '_');
+    const hints = <String, List<String>>{
+      'ar': ['arabic', '_ar', '-ar'],
+      'bn': ['bengali', 'bangla', '_bn', '-bn'],
       'bo': ['tibetan', '_bo', '-bo'],
+      'de': ['german', 'deutsch', '_de', '-de'],
+      'en': ['english', '_en', '-en'],
+      'es': ['spanish', '_es', '-es'],
+      'fr': ['french', '_fr', '-fr'],
+      'hi': ['hindi', '_hi', '-hi'],
+      'id': ['indonesian', '_id', '-id'],
+      'it': ['italian', '_it', '-it'],
+      'ja': ['japanese', '_ja', '-ja'],
+      'km': ['khmer', '_km', '-km'],
+      'ko': ['korean', '_ko', '-ko'],
+      'lo': ['lao', '_lo', '-lo'],
+      'mn': ['mongolian', '_mn', '-mn'],
+      'mr': ['marathi', '_mr', '-mr'],
+      'my': ['myanmar', 'burmese', '_my', '-my'],
+      'pt': ['portuguese', '_pt', '-pt'],
+      'ru': ['russian', '_ru', '-ru'],
+      'si': ['sinhala', '_si', '-si'],
+      'ta': ['tamil', '_ta', '-ta'],
+      'te': ['telugu', '_te', '-te'],
+      'th': ['thai', '_th', '-th'],
+      'vi': ['vietnamese', 'vietnam', 'viet', '_vi', '-vi'],
+      'zh-tw': ['traditional_chinese', 'zh_tw', 'zh-tw', '_tw'],
+      'zh': ['simplified_chinese', 'chinese', '_zh', '-zh'],
     };
     for (final entry in hints.entries) {
       if (entry.value.any((hint) => name.contains(hint))) return entry.key;
     }
     if (name.contains('pali') || name.contains('roman')) return 'pi';
-    // The first source selected by a user is normally Pāli. For ambiguous
-    // names, Pāli is the safest choice because translations require a base DB.
     return 'pi';
   }
 
@@ -1031,6 +2400,7 @@ class TipitakaDb {
     _db = null;
     _openPath = null;
     _openSource = TipitakaDatabaseSource.installed;
+    _clearCatalogCaches();
   }
 
   static Future<void> _ensureDatabaseFactory() async {
@@ -1130,7 +2500,7 @@ class TipitakaDb {
   }
 
   static Future<void> _ensureColumn(
-    Database db,
+    DatabaseExecutor db,
     String table,
     String column,
     String type,
@@ -1143,6 +2513,21 @@ class TipitakaDb {
   }
 
   static Future<void> _createSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS tipitaka_import_history (
+        source_sha256 TEXT PRIMARY KEY,
+        source_name TEXT NOT NULL DEFAULT '',
+        language_code TEXT NOT NULL DEFAULT '',
+        imported_at INTEGER NOT NULL,
+        imported_rows INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await _ensureColumn(
+      db,
+      'tipitaka_import_history',
+      'language_code',
+      "TEXT NOT NULL DEFAULT ''",
+    );
     await db.execute('''
       CREATE TABLE IF NOT EXISTS tipitaka_collections (
         id INTEGER PRIMARY KEY,
@@ -1183,6 +2568,18 @@ class TipitakaDb {
     // These columns let translation packs join rows from the same Pa-Auk
     // source DB without relying on fragile row ordering. ALTER is intentionally
     // best-effort for databases created by older app versions.
+    // Older app builds (and the checked-in demo DB) predate some catalog
+    // columns. Queries such as _bookNotDemoSql and locale titles assume them,
+    // so add them best-effort before any maintenance/import work.
+    await _ensureColumn(db, 'tipitaka_books', 'metadata_json', 'TEXT');
+    for (final column in const [
+      'translation_en',
+      'translation_vi',
+      'translation_my',
+      'translation_th',
+    ]) {
+      await _ensureColumn(db, 'tipitaka_segments', column, 'TEXT');
+    }
     await _ensureColumn(db, 'tipitaka_segments', 'source_table', 'TEXT');
     await _ensureColumn(db, 'tipitaka_segments', 'source_row_key', 'TEXT');
     await _ensureColumn(
@@ -1200,6 +2597,33 @@ class TipitakaDb {
         PRIMARY KEY(segment_id, language_code)
       )
     ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS tipitaka_highlights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id INTEGER NOT NULL,
+        segment_id INTEGER NOT NULL,
+        color TEXT NOT NULL DEFAULT 'yellow',
+        note TEXT NOT NULL DEFAULT '',
+        updated_at INTEGER NOT NULL,
+        UNIQUE(book_id, segment_id)
+      )
+    ''');
+    await _ensureColumn(db, 'tipitaka_highlights', 'book_id', 'INTEGER');
+    await _ensureColumn(db, 'tipitaka_highlights', 'segment_id', 'INTEGER');
+    await _ensureColumn(
+      db, 'tipitaka_highlights', 'color', "TEXT NOT NULL DEFAULT 'yellow'",
+    );
+    await _ensureColumn(
+      db, 'tipitaka_highlights', 'note', "TEXT NOT NULL DEFAULT ''",
+    );
+    await _ensureColumn(
+      db, 'tipitaka_highlights', 'updated_at', 'INTEGER NOT NULL DEFAULT 0',
+    );
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_tipitaka_highlight_segment '
+      'ON tipitaka_highlights(book_id, segment_id)',
+    );
+
     await db.execute('''
       CREATE TABLE IF NOT EXISTS tipitaka_user_notes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1286,8 +2710,16 @@ class TipitakaDb {
       'WHERE text <> \'\'',
     );
     languages.addAll(
-      extraLanguages.map((row) => row['language_code'] as String),
+      extraLanguages
+          .map((row) => '${row['language_code'] ?? ''}'
+              .trim()
+              .toLowerCase()
+              .replaceAll('_', '-'))
+          .where((code) => code.isNotEmpty),
     );
+    if (languages.any((code) => code == 'pi' || code.startsWith('pi-'))) {
+      languages.add('pi');
+    }
     var fileLength = 0;
     final path = _openPath;
     if (path != null && path.isNotEmpty && await File(path).exists()) {
@@ -1312,12 +2744,242 @@ class TipitakaDb {
     return rows.isNotEmpty;
   }
 
-  static Future<List<TipitakaCollection>> getCollections(Database db) async {
-    final rows = await db.query(
-      'tipitaka_collections',
-      orderBy: 'order_index ASC, id ASC',
+  static String _bookNotDemoSql(String alias) => '''
+    UPPER(TRIM(COALESCE($alias.code, ''))) NOT IN ('DEMO', 'DEMO_BOOK', 'SAMPLE', 'SAMPLE_BOOK')
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"demo":true%'
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"is_demo":true%'
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"sample":true%'
+    AND LOWER(REPLACE(COALESCE($alias.metadata_json, ''), ' ', '')) NOT LIKE '%"is_sample":true%'
+    AND LOWER(TRIM(COALESCE($alias.name_pali, ''))) NOT IN ('demo', 'demo book', 'sample', 'sample book')
+    AND LOWER(TRIM(COALESCE($alias.name_en, ''))) NOT IN ('demo', 'demo book', 'sample', 'sample book')
+    AND LOWER(TRIM(COALESCE($alias.name_vi, ''))) NOT IN ('demo', 'demo book', 'sample', 'sample book')
+    AND LOWER(TRIM(COALESCE($alias.name_pali, ''))) NOT LIKE 'demo %'
+    AND LOWER(TRIM(COALESCE($alias.name_en, ''))) NOT LIKE 'demo %'
+    AND LOWER(TRIM(COALESCE($alias.name_vi, ''))) NOT LIKE 'demo %'
+    AND LOWER(TRIM(COALESCE($alias.name_pali, ''))) NOT LIKE 'sample %'
+    AND LOWER(TRIM(COALESCE($alias.name_en, ''))) NOT LIKE 'sample %'
+    AND LOWER(TRIM(COALESCE($alias.name_vi, ''))) NOT LIKE 'sample %'
+  ''';
+
+  /// Once any real content has been imported, the checked-in sample is a
+  /// fallback only. Determine this from populated non-demo books rather than
+  /// from collection counts, which also include the bundled demo collection.
+  static Future<bool> _hasOfficialCatalog(DatabaseExecutor db) async {
+    final token = _cacheToken(db);
+    if (token != null &&
+        _officialCatalogCacheToken == token &&
+        _officialCatalogCacheValue != null) {
+      return _officialCatalogCacheValue!;
+    }
+    final rows = await db.rawQuery('''
+      SELECT 1 FROM tipitaka_books b
+       WHERE ${_bookNotDemoSql('b')}
+         AND EXISTS (
+           SELECT 1 FROM tipitaka_segments s
+            WHERE s.book_id = b.id
+              AND (COALESCE(s.pali_text, '') <> '' OR
+                   COALESCE(s.translation_en, '') <> '' OR
+                   COALESCE(s.translation_vi, '') <> '' OR
+                   COALESCE(s.translation_my, '') <> '' OR
+                   COALESCE(s.translation_th, '') <> '' OR
+                   EXISTS (SELECT 1 FROM tipitaka_translations t
+                            WHERE t.segment_id = s.id
+                              AND COALESCE(t.text, '') <> ''))
+         )
+       LIMIT 1
+    ''');
+    final found = rows.isNotEmpty;
+    if (token != null) {
+      _officialCatalogCacheToken = token;
+      _officialCatalogCacheValue = found;
+    }
+    return found;
+  }
+
+  /// Matches the demo wording used by the checked-in fallback DB and by older
+  /// import scripts (`Tipiṭaka — bản demo`, `Demo collection`, `sample import`).
+  static final RegExp _demoCatalogNamePattern = RegExp(
+    r'\bdemo\b|bản\s+demo|\bsample\s+import\b',
+    caseSensitive: false,
+  );
+
+  static bool _isDemoCatalogName(String value) =>
+      _demoCatalogNamePattern.hasMatch(value);
+
+  /// Removes demo wording from a collection that still holds real books
+  /// imported by an older build. We keep the collection id so reading
+  /// positions and book anchors remain valid.
+  static String _stripDemoMarkers(String value) {
+    final cleaned = value
+        .replaceAll(
+          RegExp(r'\b(?:demo|sample)\s+import\b', caseSensitive: false),
+          '',
+        )
+        .replaceAll(RegExp(r'\bbản\s+demo\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\bdemo\b|\bsample\b', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\s—–,:;|-]+'), ' ')
+        .trim();
+    return cleaned.isEmpty ? 'Tipiṭaka' : cleaned;
+  }
+
+  static String _sqlPlaceholders(int count) =>
+      List<String>.filled(count, '?').join(', ');
+
+  /// PSRC-158 — deletes the bundled demo catalogue (books, segments,
+  /// translations, annotations and now-empty collections) once real data is
+  /// present. Called inside every staged import transaction, *before* source
+  /// rows are copied, so newly imported books can never be attached to the
+  /// demo collection and demo paragraphs can never be joined by mistake.
+  static Future<TipitakaDataRemovalResult> _purgeDemoCatalog(
+    DatabaseExecutor db,
+  ) async {
+    final demoRows = await db.rawQuery(
+      'SELECT b.id FROM tipitaka_books b '
+      'WHERE NOT (${_bookNotDemoSql('b')})',
     );
-    return rows.map((r) => TipitakaCollection.fromMap(r)).toList();
+    final demoIds = demoRows.map((row) => row['id']).whereType<int>().toList();
+    var removedSegments = 0;
+    var removedTranslations = 0;
+    for (var offset = 0; offset < demoIds.length; offset += 400) {
+      final end = offset + 400 > demoIds.length ? demoIds.length : offset + 400;
+      final chunk = demoIds.sublist(offset, end);
+      final placeholders = _sqlPlaceholders(chunk.length);
+      final segmentIds =
+          'SELECT id FROM tipitaka_segments WHERE book_id IN ($placeholders)';
+      final segmentCounts = await db.rawQuery(
+        'SELECT COUNT(*) AS n FROM tipitaka_segments '
+        'WHERE book_id IN ($placeholders)',
+        chunk,
+      );
+      removedSegments += _asInt(segmentCounts.first['n'], 0);
+      final translationCounts = await db.rawQuery(
+        'SELECT COUNT(*) AS n FROM tipitaka_translations '
+        'WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      removedTranslations += _asInt(translationCounts.first['n'], 0);
+      await db.rawDelete(
+        'DELETE FROM tipitaka_translations WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      await db.rawDelete(
+        'DELETE FROM tipitaka_user_notes WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      await db.rawDelete(
+        'DELETE FROM tipitaka_learning_items WHERE segment_id IN ($segmentIds)',
+        chunk,
+      );
+      // FTS5 is optional on some builds; LIKE search remains canonical.
+      final ftsTables = await db.rawQuery(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' "
+        "AND name = 'tipitaka_fts' LIMIT 1",
+      );
+      if (ftsTables.isNotEmpty) {
+        await db.rawDelete(
+          'DELETE FROM tipitaka_fts WHERE segment_id IN ($segmentIds)',
+          chunk,
+        );
+      }
+      await db.delete(
+        'tipitaka_highlights',
+        where: 'book_id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      await db.rawDelete(
+        'DELETE FROM tipitaka_segments WHERE book_id IN ($placeholders)',
+        chunk,
+      );
+      await db.delete(
+        'tipitaka_books',
+        where: 'id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+    }
+
+    final collections = await db.rawQuery('''
+      SELECT c.*,
+        (SELECT COUNT(*) AS n FROM tipitaka_books b
+          WHERE b.collection_id = c.id) AS _book_count
+      FROM tipitaka_collections c
+    ''');
+    var removedCollections = 0;
+    for (final row in collections) {
+      final id = row['id'];
+      if (id is! int) continue;
+      if (_asInt(row['_book_count'], 0) == 0) {
+        await db.delete(
+          'tipitaka_collections',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        removedCollections++;
+        continue;
+      }
+      final names = <String, String>{
+        for (final column in const ['name_pali', 'name_en', 'name_vi'])
+          column: '${row[column] ?? ''}',
+      };
+      if (names.values.every((value) => !_isDemoCatalogName(value))) continue;
+      await db.update(
+        'tipitaka_collections',
+        {
+          for (final entry in names.entries)
+            entry.key: _stripDemoMarkers(entry.value),
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    return TipitakaDataRemovalResult(
+      removedBooks: demoIds.length,
+      removedSegments: removedSegments,
+      removedCollections: removedCollections,
+      removedTranslations: removedTranslations,
+    );
+  }
+
+  static Future<List<TipitakaCollection>> getCollections(Database db) async {
+    final token = _cacheToken(db);
+    final cached = _collectionsCache;
+    if (token != null && cached != null) return cached;
+    final hasOfficial = await _hasOfficialCatalog(db);
+    final rows = hasOfficial
+        ? await db.rawQuery('''
+            SELECT DISTINCT c.*
+              FROM tipitaka_collections c
+              JOIN tipitaka_books b ON b.collection_id = c.id
+             WHERE ${_bookNotDemoSql('b')}
+             ORDER BY c.order_index ASC, c.id ASC
+          ''')
+        : await db.query(
+            'tipitaka_collections',
+            orderBy: 'order_index ASC, id ASC',
+          );
+    final collections = rows.map((r) => TipitakaCollection.fromMap(r)).toList();
+    if (token != null) _collectionsCache = collections;
+    return collections;
+  }
+
+  /// Small, title-free index used to decide which catalogue branches exist.
+  /// Full content-derived titles stay lazy; demo-only rows disappear once real
+  /// imported books are available.
+  static Future<List<TipitakaBook>> getCatalogIndexBooks(Database db) async {
+    final token = _cacheToken(db);
+    final cached = _catalogIndexCache;
+    if (token != null && cached != null) return cached;
+    final hasOfficial = await _hasOfficialCatalog(db);
+    final rows = hasOfficial
+        ? await db.rawQuery('''
+            SELECT b.* FROM tipitaka_books b
+             WHERE ${_bookNotDemoSql('b')}
+             ORDER BY b.order_index, b.id
+          ''')
+        : await db.query('tipitaka_books', orderBy: 'order_index, id');
+    final books = rows.map(TipitakaBook.fromMap).toList();
+    if (token != null) _catalogIndexCache = books;
+    return books;
   }
 
   static Future<List<TipitakaBook>> getBooksByCollection(
@@ -1325,7 +2987,11 @@ class TipitakaDb {
     int collectionId, {
     String languageCode = 'en',
   }) async {
-    final language = languageCode.toLowerCase().replaceAll('-', '_');
+    final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
+    final token = _cacheToken(db);
+    final cacheKey = token == null ? null : '$token:$collectionId:$language';
+    final cachedBooks = cacheKey == null ? null : _catalogBooksCache[cacheKey];
+    if (cachedBooks != null) return cachedBooks;
     final localeColumn = const {
       'pi': 'pali_text',
       'en': 'translation_en',
@@ -1333,46 +2999,104 @@ class TipitakaDb {
       'my': 'translation_my',
       'th': 'translation_th',
     }[language];
-    final localeTitleSql = localeColumn == null
-        ? '''
-          (SELECT NULLIF(TRIM(lt.text), '')
-             FROM tipitaka_segments ls
-             JOIN tipitaka_translations lt ON lt.segment_id = ls.id
-            WHERE ls.book_id = b.id AND lt.language_code = ?
-              AND ${_outlineSql('ls')}
-            ORDER BY ls.order_index, ls.id LIMIT 1)
-        '''
-        : '''
-          (SELECT NULLIF(TRIM(ls.$localeColumn), '')
-             FROM tipitaka_segments ls
-            WHERE ls.book_id = b.id AND ${_outlineSql('ls')}
-            ORDER BY ls.order_index, ls.id LIMIT 1)
-        ''';
-    final arguments = <Object?>[
-      if (localeColumn == null) language,
-      collectionId,
-    ];
+    final localeTitleSql = _localeTitleSql(localeColumn);
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
+    final arguments = <Object?>[language, collectionId];
     final rows = await db.rawQuery('''
       SELECT b.*,
         (SELECT NULLIF(TRIM(s.pali_text), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_pali,
         (SELECT NULLIF(TRIM(s.translation_en), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_en,
         (SELECT NULLIF(TRIM(s.translation_vi), '')
            FROM tipitaka_segments s
-          WHERE s.book_id = b.id AND ${_outlineSql('s')}
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
           ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi,
         $localeTitleSql AS _content_title_locale
       FROM tipitaka_books b
-      WHERE b.collection_id = ?
+      WHERE b.collection_id = ? $bookFilter
       ORDER BY b.order_index ASC, b.id ASC
     ''', arguments);
-    return rows.map(TipitakaBook.fromMap).toList();
+    final books = rows.map(TipitakaBook.fromMap).toList();
+    if (cacheKey != null) _catalogBooksCache[cacheKey] = books;
+    return books;
   }
+
+  /// PSRC-159 — when the requested language has no title, show *any* imported
+  /// translation instead of falling all the way back to Pāli. Vietnamese and
+  /// English are preferred, then any other imported pack deterministically.
+  static String _anyTranslationTitleSql(String alias) => '''
+    COALESCE(
+      NULLIF(TRIM($alias.translation_vi), ''),
+      NULLIF(TRIM($alias.translation_en), ''),
+      NULLIF(TRIM($alias.translation_my), ''),
+      NULLIF(TRIM($alias.translation_th), ''),
+      (SELECT NULLIF(TRIM(lt.text), '')
+         FROM tipitaka_translations lt
+        WHERE lt.segment_id = $alias.id
+        ORDER BY CASE LOWER(REPLACE(lt.language_code, '_', '-'))
+                   WHEN 'vi' THEN 0 WHEN 'en' THEN 1 ELSE 2 END,
+                 lt.language_code
+        LIMIT 1)
+    )
+  ''';
+
+  /// Builds the `_content_title_locale` expression. Exactly one `?` is used
+  /// (the requested language for dynamic translation packs); the fallback to
+  /// any imported translation adds no bind parameter.
+  static String _localeTitleSql(String? localeColumn) {
+    final dynamicTitleSql = '''
+      (SELECT NULLIF(TRIM(lt.text), '')
+         FROM tipitaka_segments ls
+         JOIN tipitaka_translations lt ON lt.segment_id = ls.id
+        WHERE ls.book_id = b.id
+          AND LOWER(REPLACE(lt.language_code, '_', '-')) = ?
+          AND LOWER(lt.text) NOT LIKE '%namo tassa%'
+          AND ${_bookTitleSql('ls')}
+        ORDER BY ls.order_index, ls.id LIMIT 1)
+    ''';
+    final anyTitleSql = '''
+      (SELECT ${_anyTranslationTitleSql('ls')}
+         FROM tipitaka_segments ls
+        WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
+        ORDER BY ls.order_index, ls.id LIMIT 1)
+    ''';
+    if (localeColumn == null) {
+      return 'COALESCE($dynamicTitleSql, $anyTitleSql)';
+    }
+    return '''COALESCE(
+        (SELECT NULLIF(TRIM(ls.$localeColumn), '')
+           FROM tipitaka_segments ls
+          WHERE ls.book_id = b.id AND ${_bookTitleSql('ls')}
+          ORDER BY ls.order_index, ls.id LIMIT 1),
+        $dynamicTitleSql,
+        $anyTitleSql
+      )''';
+  }
+
+  /// Book catalogue titles must not be inferred from centered invocations such
+  /// as the repeated "Namo Tassa" opening. They remain readable in the text,
+  /// but are not book/chapter headings and must not become every book's title.
+  static String _notNamoTassaSql(String alias) =>
+      "LOWER(COALESCE($alias.pali_text, '') || ' ' || "
+      "COALESCE($alias.translation_en, '') || ' ' || "
+      "COALESCE($alias.translation_vi, '')) NOT LIKE '%namo tassa%' AND "
+      "NOT EXISTS (SELECT 1 FROM tipitaka_translations invocation_translation "
+      "WHERE invocation_translation.segment_id = $alias.id "
+      "AND LOWER(COALESCE(invocation_translation.text, '')) LIKE '%namo tassa%')";
+
+  static String _bookTitleSql(String alias) =>
+      "($alias.block_type IN ('book','chapter','heading') OR "
+      "$alias.pali_text LIKE '%rend=\"book\"%' OR "
+      "$alias.pali_text LIKE '%rend=\"chapter\"%' OR "
+      "$alias.pali_text LIKE '%rend=\"subhead\"%' OR "
+      "$alias.pali_text LIKE '%rend=\"heading\"%') AND "
+      "${_notNamoTassaSql(alias)}";
 
   static String _outlineSql(String alias) =>
       "($alias.block_type IN ('book','chapter','heading','center') OR "
@@ -1380,6 +3104,49 @@ class TipitakaDb {
       "$alias.pali_text LIKE '%rend=\"chapter\"%' OR "
       "$alias.pali_text LIKE '%rend=\"subhead\"%' OR "
       "$alias.pali_text LIKE '%rend=\"heading\"%')";
+
+  /// Looks up a single book by id. Search results use this to deep-link
+  /// straight into the reader workspace. Content titles are derived with the
+  /// same outline subqueries as the catalogue so
+  /// [TipitakaBook.displayTitle] stays consistent.
+  static Future<TipitakaBook?> getBookById(
+    Database db,
+    int bookId, {
+    String languageCode = 'en',
+  }) async {
+    final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
+    final fixedColumn = const {
+      'pi': 'pali_text',
+      'en': 'translation_en',
+      'vi': 'translation_vi',
+      'my': 'translation_my',
+      'th': 'translation_th',
+    }[language];
+    final localeTitle = _localeTitleSql(fixedColumn);
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
+    final rows = await db.rawQuery('''
+      SELECT b.*,
+        (SELECT NULLIF(TRIM(s.pali_text), '')
+           FROM tipitaka_segments s
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
+          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_pali,
+        (SELECT NULLIF(TRIM(s.translation_en), '')
+           FROM tipitaka_segments s
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
+          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_en,
+        (SELECT NULLIF(TRIM(s.translation_vi), '')
+           FROM tipitaka_segments s
+          WHERE s.book_id = b.id AND ${_bookTitleSql('s')}
+          ORDER BY s.order_index, s.id LIMIT 1) AS _content_title_vi,
+        $localeTitle AS _content_title_locale
+      FROM tipitaka_books b
+      WHERE b.id = ? $bookFilter
+      LIMIT 1
+    ''', [language, bookId]);
+    if (rows.isEmpty) return null;
+    return TipitakaBook.fromMap(rows.first);
+  }
 
   static Future<List<Map<String, dynamic>>> _withTranslations(
     Database db,
@@ -1435,9 +3202,13 @@ class TipitakaDb {
     Database db,
     int bookId,
   ) async {
+    final token = _cacheToken(db);
+    final cached = token == null ? null : _outlineCache[bookId];
+    if (cached != null) return cached;
     var rows = await db.query(
       'tipitaka_segments',
-      where: 'book_id = ? AND ${_outlineSql('tipitaka_segments')}',
+      where: 'book_id = ? AND ${_outlineSql('tipitaka_segments')} '
+          'AND ${_notNamoTassaSql('tipitaka_segments')}',
       whereArgs: [bookId],
       orderBy: 'order_index ASC, paragraph_no ASC, id ASC',
       limit: 600,
@@ -1448,7 +3219,8 @@ class TipitakaDb {
       final sample = await db.query(
         'tipitaka_segments',
         where: "book_id = ? AND (pali_text <> '' OR translation_vi <> '' "
-            "OR translation_en <> '')",
+            "OR translation_en <> '') "
+            "AND ${_notNamoTassaSql('tipitaka_segments')}",
         whereArgs: [bookId],
         orderBy: 'order_index ASC, id ASC',
         limit: 300,
@@ -1459,7 +3231,126 @@ class TipitakaDb {
       ];
     }
     final enriched = await _withTranslations(db, rows);
-    return enriched.map(TipitakaSegment.fromMap).toList();
+    final outline = enriched.map(TipitakaSegment.fromMap).toList();
+    if (token != null) _outlineCache[bookId] = outline;
+    return outline;
+  }
+
+  /// Returns annotations whose book and segment still exist and agree.
+  /// Orphan rows left by a replaced database are deliberately hidden.
+  static Future<List<TipitakaHighlight>> getHighlights(
+    Database db, {
+    int? bookId,
+  }) async {
+    final where = <String>[];
+    final arguments = <Object?>[];
+    if (bookId != null) {
+      where.add('h.book_id = ?');
+      arguments.add(bookId);
+    }
+    if (await _hasOfficialCatalog(db)) {
+      where.add(_bookNotDemoSql('b'));
+    }
+    final whereSql = where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}';
+    final rows = await db.rawQuery('''
+      SELECT h.*, s.reference,
+             COALESCE(NULLIF(s.pali_text, ''),
+               (SELECT NULLIF(t.text, '') FROM tipitaka_translations t
+                 WHERE t.segment_id = s.id
+                   AND LOWER(REPLACE(t.language_code, '_', '-')) = 'pi'
+                 LIMIT 1), '') AS pali_text,
+             COALESCE(NULLIF(s.translation_vi, ''),
+                      NULLIF(s.translation_en, ''),
+               (SELECT NULLIF(t.text, '') FROM tipitaka_translations t
+                 WHERE t.segment_id = s.id
+                   AND LOWER(REPLACE(t.language_code, '_', '-')) = 'vi'
+                 LIMIT 1),
+               (SELECT NULLIF(t.text, '') FROM tipitaka_translations t
+                 WHERE t.segment_id = s.id
+                   AND LOWER(REPLACE(t.language_code, '_', '-')) = 'en'
+                 LIMIT 1), '') AS translation,
+             COALESCE(NULLIF(b.name_vi, ''), NULLIF(b.name_en, ''),
+                      NULLIF(b.name_pali, ''), b.code) AS book_title
+        FROM tipitaka_highlights h
+        JOIN tipitaka_segments s
+          ON s.id = h.segment_id AND s.book_id = h.book_id
+        JOIN tipitaka_books b ON b.id = h.book_id
+       $whereSql
+       ORDER BY h.updated_at DESC, h.id DESC
+    ''', arguments);
+    return rows.map(TipitakaHighlight.fromMap).toList();
+  }
+
+  static Future<TipitakaHighlight?> getHighlight(
+    Database db,
+    int bookId,
+    int segmentId,
+  ) async {
+    final rows = await getHighlights(db, bookId: bookId);
+    for (final item in rows) {
+      if (item.segmentId == segmentId) return item;
+    }
+    return null;
+  }
+
+  static Future<void> saveHighlight(
+    Database db, {
+    required int bookId,
+    required int segmentId,
+    required String color,
+    String note = '',
+  }) async {
+    await db.insert(
+      'tipitaka_highlights',
+      {
+        'book_id': bookId,
+        'segment_id': segmentId,
+        'color': color,
+        'note': note.trim(),
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> deleteHighlight(
+    Database db,
+    int bookId,
+    int segmentId,
+  ) async {
+    await db.delete(
+      'tipitaka_highlights',
+      where: 'book_id = ? AND segment_id = ?',
+      whereArgs: [bookId, segmentId],
+    );
+  }
+
+  /// Finds another edition in the same canonical family (Mūla/ATT/Ṭīkā).
+  static Future<TipitakaBook?> getParallelBook(
+    Database db,
+    TipitakaBook source, {
+    String languageCode = 'en',
+  }) async {
+    final sourceIndex = source.catalogIndex;
+    final books = await getBooksByCollection(
+      db,
+      source.collectionId,
+      languageCode: languageCode,
+    );
+    final wanted = sourceIndex.editionCode == 'MUL'
+        ? const ['ATT', 'TIK']
+        : const ['MUL', 'ATT', 'TIK'];
+    for (final edition in wanted) {
+      for (final book in books) {
+        final index = book.catalogIndex;
+        if (book.id != source.id &&
+            index.parallelFamilyCode == sourceIndex.parallelFamilyCode &&
+            index.editionCode == edition) {
+          return book;
+        }
+      }
+    }
+    return null;
   }
 
   static Future<int> getBookSegmentCount(Database db, int bookId) async {
@@ -1468,6 +3359,24 @@ class TipitakaDb {
       [bookId],
     );
     return _asInt(rows.first['n'], 0);
+  }
+
+  static Future<TipitakaSegment?> getSegmentAtOrder(
+    Database db,
+    int bookId,
+    int orderIndex,
+  ) async {
+    final rows = await db.query(
+      'tipitaka_segments',
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+      orderBy: 'order_index ASC, paragraph_no ASC, id ASC',
+      limit: 1,
+      offset: orderIndex < 0 ? 0 : orderIndex,
+    );
+    if (rows.isEmpty) return null;
+    final enriched = await _withTranslations(db, rows);
+    return TipitakaSegment.fromMap(enriched.first);
   }
 
   static Future<int?> getSegmentOrderIndex(Database db, int segmentId) async {
@@ -1492,13 +3401,17 @@ class TipitakaDb {
     final q = query.trim();
     if (q.isEmpty) return const [];
     final like = '%$q%';
+    final hideDemo = await _hasOfficialCatalog(db);
+    final bookFilter = hideDemo ? ' AND ${_bookNotDemoSql('b')}' : '';
     final rows = await db.rawQuery('''
       SELECT DISTINCT s.*
       FROM tipitaka_segments s
+      JOIN tipitaka_books b ON b.id = s.book_id
       LEFT JOIN tipitaka_translations t ON t.segment_id = s.id
-      WHERE s.pali_text LIKE ? OR s.translation_en LIKE ? OR
-            s.translation_vi LIKE ? OR s.translation_my LIKE ? OR
-            s.translation_th LIKE ? OR s.reference LIKE ? OR t.text LIKE ?
+      WHERE (s.pali_text LIKE ? OR s.translation_en LIKE ? OR
+             s.translation_vi LIKE ? OR s.translation_my LIKE ? OR
+             s.translation_th LIKE ? OR s.reference LIKE ? OR t.text LIKE ?)
+            $bookFilter
       ORDER BY s.order_index ASC, s.id ASC
       LIMIT 50
     ''', [like, like, like, like, like, like, like]);

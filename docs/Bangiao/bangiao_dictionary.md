@@ -84,7 +84,7 @@ Khi user tap từ trong Read mode:
 
 ### 2.6 Tích hợp vào WordAnalysisSheet (YouTube)
 
-Tương tự: `DictionaryService.lookup(word)` → hiển thị trong analysis sheet
+Tương tự: `DictionaryService.lookup(word)` → hiển thị
 
 ## 3. MDX Format (tóm tắt cho parser)
 
@@ -94,9 +94,9 @@ MDX file structure:
 - Record blocks: definitions (HTML/text, compressed with zlib/ripemd160)
 
 Parser cần xử lý:
-- Đọc header (UTF-8/UTF-16, version 1.x/2.x)
+- Đọc header (UTF-8/UTF-16)
 - Giải nén index blocks (zlib)
-- Giải nén record blocks (zlib, key_type determines format)
+- Giải nén record blocks (zlib, ripemd160)
 - Extract headword + definition pairs
 
 ## 4. Quy tắc ngôn ngữ (i18n)
@@ -167,3 +167,22 @@ Lưu ý: `sqflite`, `archive`, `file_picker`, `path_provider` ĐÃ có trong pub
 5. Import nhiều từ điển → lookup trả kết quả từ tất cả
 6. File .mdx hỏng/lạ → báo lỗi rõ, không crash
 7. Locale ≠ vi → chrome UI hiện English
+
+## 10. Ghi chú triển khai đa nền tảng (2026-10-05)
+
+Đã chốt và triển khai phương án khắc phục lỗi import trên Windows/Android:
+
+- **Windows/Linux:** khởi tạo `sqflite_common_ffi` một cách lazy trước mọi thao tác
+  SQLite; `sqflite` mặc định chỉ phù hợp mobile và làm import thất bại trên desktop.
+- **Android:** không dùng `file_picker.getDirectoryPath()` + `dart:io` để walk thư
+  mục, vì Android scoped storage có thể chỉ cấp `content://` SAF URI. App dùng
+  SAF native để chọn/quét thư mục, copy file qua `ContentResolver` vào staging,
+  rồi chạy pipeline MDX → SQLite chung. File MDD lớn được copy trên background
+  thread; staging bị dọn sau khi bundle đã được copy vào app documents.
+- Android chỉ cung cấp chế độ **Sao chép vào app**: content URI/cache path không
+  đủ bền để ghi manifest dạng linked sau khi app khởi động lại. Multi-file picker
+  có thêm `readStream` fallback khi provider không trả path.
+- Native scan trả `relativePath`, vì vậy folder lồng nhau không làm trùng tên
+  `.mdd/.css` và vẫn ghép đúng set.
+
+ADR chi tiết: `docs/adr/0010-dictionary-cross-platform-import.md`.

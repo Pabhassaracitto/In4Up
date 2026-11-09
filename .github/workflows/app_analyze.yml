@@ -23,15 +23,33 @@ on:
     branches: ['arena/**', 'main']
     paths:
       - 'lib/**'
+      - 'packages/in4up_ai/**'
+      # PARAKEET-002: giải nén .tar.bz2 theo luồng nằm trong packages/in4up_stt.
+      - 'packages/in4up_stt/**'
+      - 'windows/**'
+      - 'scripts/import_tipitaka.py'
+      - '.gitmodules'
       - 'test/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
       - '.github/workflows/app_analyze.yml'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/build_final_complete.yml'
   pull_request:
     paths:
       - 'lib/**'
+      - 'packages/in4up_ai/**'
+      # PARAKEET-002: giải nén .tar.bz2 theo luồng nằm trong packages/in4up_stt.
+      - 'packages/in4up_stt/**'
+      - 'windows/**'
+      - 'scripts/import_tipitaka.py'
+      - '.gitmodules'
       - 'test/**'
       - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/app_analyze.yml'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/build_final_complete.yml'
   workflow_dispatch:
 
 jobs:
@@ -40,6 +58,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tipitaka importer join regression (Python)
+        run: python3 test/test_import_tipitaka.py
 
       - uses: subosito/flutter-action@v2
         with:
@@ -74,11 +95,65 @@ jobs:
           path: analyze.log
           if-no-files-found: ignore
 
+      # LINUX-AUTH-001 — Home phải render được khi logger/sync/UI cùng
+      # subscribe auth, và các primary tab phải đổi cả nội dung lẫn selected.
+      # Chạy sớm, có timeout để lỗi plugin/provider không treo toàn bộ oracle.
+      - name: "Linux shell tests — auth stream, Home và primary navigation"
+        id: linux-shell-tests
+        run: |
+          set +e
+          if [ ! -f test/linux_shell_regression_test.dart ]; then
+            echo "Không có test Linux shell trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart \
+            -r expanded > linux_shell_regression_test.log 2>&1
+          code=$?
+          cat linux_shell_regression_test.log
+          exit $code
+
+      - name: Wordlist playback and lazy tab regression tests
+        run: flutter test test/wordlist_read_sequence_test.dart test/wordlist_playback_service_test.dart test/lazy_indexed_stack_test.dart
+
+      - name: Upload Linux shell test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-shell-regression-test-log
+          path: linux_shell_regression_test.log
+          if-no-files-found: ignore
+
+      - name: "DHRM-001 tests — pháp thoại: parser tên thật + catalog + tiến độ"
+        id: dharma-tests
+        timeout-minutes: 5
+        run: |
+          set +e
+          if [ ! -f test/dharma/dharma_name_parser_test.dart ]; then
+            echo "Không có test pháp thoại trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 4m flutter test test/dharma/ -r expanded > dharma_test.log 2>&1
+          code=$?
+          cat dharma_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 dharma_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=DHRM-001 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload dharma test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dharma-test-log
+          path: dharma_test.log
+          if-no-files-found: ignore
+
       - name: "I4U18 tests — Video/Listen Library (logic thuần)"
         id: i4u18-lib-tests
         run: |
           set +e
-          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart"
+          files="test/video_library_logic_test.dart test/subtitle_parser_test.dart test/audio_library_filters_test.dart test/audio_playlist_test.dart test/youtube_search_parser_test.dart test/yt_dlp_sidecar_test.dart test/yt_player_embed_test.dart test/yt_progressive_loading_test.dart"
           flutter test $files > i4u18_lib_test.log 2>&1
           code=$?
           cat i4u18_lib_test.log
@@ -92,11 +167,91 @@ jobs:
           path: i4u18_lib_test.log
           if-no-files-found: ignore
 
+      - name: "PLAN-039 — listen queue, playback races, data and controls"
+        id: listen-queue-tests
+        if: always() && steps.analyze.outcome != 'cancelled' && steps.analyze.outcome != 'skipped'
+        timeout-minutes: 8
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/listen_playback_queue_test.dart \
+            test/listen_player_queue_integration_test.dart \
+            test/listen_queue_widget_test.dart test/listen_recent_queue_test.dart \
+            test/listen_queue_i18n_test.dart test/listen_source_artifact_test.dart \
+            test/audio_import_service_test.dart test/listen_lifecycle_guards_test.dart \
+            test/karaoke_timing_test.dart test/karaoke_view_test.dart \
+            test/karaoke_tabs_integration_test.dart test/lrc_editor_timing_test.dart \
+            -r expanded > listen_queue_test.log 2>&1
+          code=$?
+          cat listen_queue_test.log
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' listen_queue_test.log > listen_queue_clean.log || true
+          grep -n "\[E\]" listen_queue_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" listen_queue_clean.log | head -c 1000 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::PLAN-039 TEST FAILED: $msg"
+          done || true
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 listen_queue_clean.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=PLAN-039 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
+      - name: Upload listen queue test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: listen-queue-test-log
+          path: listen_queue_test.log
+          if-no-files-found: ignore
+
+      # AVTOOL-002/003 (PLAN-047) — máy bắt cho công cụ media. Toàn bộ logic
+      # nằm ở tầng THUẦN (argv builder, ước lượng dung lượng, đặt tên, dịch mốc
+      # LRC, phân loại lỗi) ⇒ chạy được trên host VM, không cần thiết bị.
+      - name: "AVTOOL tests — công cụ media (argv/cắt/tách/LRC/lỗi)"
+        id: media-tools-tests
+        run: |
+          set +e
+          if [ ! -d test/media_tools ]; then
+            echo "Không có test/media_tools trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/media_tools > media_tools_test.log 2>&1
+          code=$?
+          cat media_tools_test.log
+          # Dua ten test that bai len ANNOTATION: artifact log hay bi chan tai
+          # trong moi truong agent, con annotation thi luon doc duoc qua API.
+          if [ $code -ne 0 ]; then
+            # Artifact log KHONG tai duoc trong moi truong agent (blob host
+            # ngoai allowlist) ⇒ dua nguyen doan cuoi log len annotation.
+            # Message phai 1 dong va escape '%' theo cu phap workflow command.
+            # Log chi tiet: dong co ten file test ma KHONG phai dau ✅ (tuc la
+            # dong that bai / thong bao loi), kem ngu canh Expected/Actual.
+            detail=$(grep -E "test/media_tools/[a-z_/]+\.dart:" media_tools_test.log \
+              | grep -v "✅" | head -12 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools failing::$detail"
+            expect=$(grep -E "Expected:|Actual:|Which:" media_tools_test.log \
+              | head -12 | tr '\n' '~' | sed 's/%/%25/g')
+            echo "::error title=media_tools detail::$expect"
+          fi
+          exit $code
+
+      - name: Upload media tools test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-media-tools-test-log
+          path: media_tools_test.log
+          if-no-files-found: ignore
+
       - name: Rule 5 test — chrome UI không tiếng Việt (locale ≠ vi)
         id: locale-test
         run: |
           set +e
-          flutter test test/locale_chrome_no_vietnamese_test.dart > locale_test.log 2>&1
+          files="test/locale_chrome_no_vietnamese_test.dart test/voice_clone_localization_test.dart"
+          # SETTINGS-UI-COMPACT-001 / WHISPER-VARIANT-001 / PARAKEET-001:
+          # nhãn mới trong màn Quản lý Model AI phải có key dịch (rule #5).
+          if [ -f test/stt_model_settings_i18n_coverage_test.dart ]; then
+            files="$files test/stt_model_settings_i18n_coverage_test.dart"
+          fi
+          flutter test $files > locale_test.log 2>&1
           code=$?
           cat locale_test.log
           exit $code
@@ -107,6 +262,154 @@ jobs:
         with:
           name: app-locale-test-log
           path: locale_test.log
+          if-no-files-found: ignore
+
+      # PARAKEET-002 — bộ giải nén .tar.bz2 theo luồng (thay `decodeBytes` nạp
+      # cả archive vào RAM: import Parakeet ~487MB làm Android kill app).
+      # Bỏ qua nếu nhánh chưa có file test.
+      - name: "PARAKEET-002 tests — tar.bz2 stream extractor"
+        id: tarbz2-stream-tests
+        run: |
+          set +e
+          if [ ! -f test/tar_bz2_stream_extractor_test.dart ]; then
+            echo "Không có test PARAKEET-002 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/tar_bz2_stream_extractor_test.dart > tarbz2_stream_test.log 2>&1
+          code=$?
+          cat tarbz2_stream_test.log
+          exit $code
+
+      - name: Upload PARAKEET-002 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-tarbz2-stream-test-log
+          path: tarbz2_stream_test.log
+          if-no-files-found: ignore
+
+      # DICT-CLEAN-001 / WORD-INSIGHT-001: làm sạch nội dung từ điển (bỏ
+      # CSS/script/entity, khử nghĩa trùng) + waterfall tra nghĩa/IPA
+      # (mạng → MDX → offline). Bỏ qua nếu nhánh chưa có file.
+      - name: "DICT-CLEAN-001 / WORD-INSIGHT-001 tests"
+        id: dict-word-insight-tests
+        # ⚠ KHÔNG nối test WIDGET dùng plugin thật vào đây (run 40575300780:
+        # `flutter test` của một testWidgets + sqflite/SharedPreferences TREO
+        # tới hết ngân sách job 25 phút, giết cả run). Cùng lý do với
+        # `workspace_shell_integration_test.dart` ở cuối file này. Hành vi của
+        # màn Từ điển được phủ bằng test THUẦN (history) + test sqflite kiểu
+        # `test()` (suggest/lookup) — hai loại này chạy ổn trên CI.
+        timeout-minutes: 8
+        run: |
+          set +e
+          files=""
+          for f in test/dictionary/dict_text_cleaner_test.dart \
+                   test/dictionary/dict_result_sheet_test.dart \
+                   test/dictionary/dict_cleaner_noise_test.dart \
+                   test/dictionary/dict_multilang_pos_test.dart \
+                   test/dictionary/dict_state_and_title_test.dart \
+                   test/dictionary/dict_history_test.dart \
+                   test/dictionary/dict_suggest_test.dart \
+                   test/dictionary/dict_deep_link_test.dart \
+                   test/dictionary/dict_pack_test.dart \
+                   test/dictionary/dict_sqlite_import_test.dart \
+                   test/dict_bundle_scanner_test.dart \
+                   test/i18n/dict_pack_and_word_pop_i18n_test.dart \
+                   test/word_lookup/word_insight_service_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test DICT-CLEAN-001/WORD-INSIGHT-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files > dict_word_insight_test.log 2>&1
+          code=$?
+          cat dict_word_insight_test.log
+          exit $code
+
+      # Log của bước trên KHÔNG đọc được qua API (GitHub chỉ trả log qua blob
+      # storage) ⇒ khi đỏ, đẩy phần đuôi log lên thành *annotation* của check-run
+      # để còn đọc được bằng `gh api .../check-runs/<id>/annotations`.
+      - name: "DICT tests — đưa lỗi lên annotation khi đỏ"
+        if: always() && steps.dict-word-insight-tests.outcome != 'success'
+        run: |
+          python3 - <<'PYEOF'
+          import os, pathlib
+          log = pathlib.Path('dict_word_insight_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          text = log.read_text(encoding='utf-8', errors='replace')[-6000:]
+          escaped = (text.replace('%', '%25')
+                         .replace('\r', '')
+                         .replace('\n', '%0A'))
+          print('::error title=dict-tests::' + escaped)
+          PYEOF
+
+      # PRON-001 (ADR-0015 D5) — gom 2 bản `_buildUrl()` YouGlish về
+      # `YouGlishUrl.build` mà KHÔNG đổi hành vi: golden test sao chép nguyên văn
+      # 2 hàm cũ và bắt chuỗi mới giống hệt trên ma trận từ × ngôn ngữ × accent,
+      # + scan đảm bảo URL chỉ còn ở MỘT file. Thuần Dart (không plugin/mạng).
+      - name: "PRON-001 tests — YouGlish URL golden + một nguồn sự thật"
+        id: youglish-pron-tests
+        run: |
+          set +e
+          files=""
+          for f in test/youglish/youglish_url_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test PRON-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > youglish_pron_test.log 2>&1
+          code=$?
+          cat youglish_pron_test.log
+          exit $code
+
+      # PRON-002: cùng nguyên tắc — CHỈ logic thuần + scan nguồn, không widget
+      # test (plugin webview/Hive treo >8 phút trên runner, xem 4b4965f).
+      - name: "PRON-002 tests — chính sách nguồn phát âm + ràng buộc surface"
+        id: pron-002-tests
+        run: |
+          set +e
+          files=""
+          for f in test/youglish/pronunciation_source_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test PRON-002 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          timeout 10m flutter test $files -r expanded > pron_002_test.log 2>&1
+          code=$?
+          cat pron_002_test.log
+          exit $code
+
+      - name: Upload PRON-002 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-pron-002-test-log
+          path: pron_002_test.log
+          if-no-files-found: ignore
+
+      - name: Upload PRON-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-pron-youglish-test-log
+          path: youglish_pron_test.log
+          if-no-files-found: ignore
+
+      - name: Upload DICT-CLEAN-001 / WORD-INSIGHT-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dict-word-insight-test-log
+          path: dict_word_insight_test.log
           if-no-files-found: ignore
 
       - name: "READ-GRAM-001 tests — sentence structure"
@@ -144,11 +447,135 @@ jobs:
           test/tipitaka_independent_language_import_test.dart
           test/tipitaka_workspace_retention_test.dart
           test/tipitaka_dictionary_i18n_coverage_test.dart
+          test/tipitaka_display_phase2_test.dart
+          test/tipitaka_import_concurrency_test.dart
+          test/tipitaka_catalog_tts_test.dart
+
+      # IN4-15 (LOGIN-CRASH-002): đăng nhập release — guard cấu trúc cho
+      # CI gate SHA-1 ↔ google-services.json + log trạng thái auth.
+      - name: "Login release verification (IN4-15)"
+        run: >-
+          flutter test
+          test/login_release_verification_test.dart
+
+      # IN4-94 + IN4-83 (AI-PROV-BUILTIN-001): hết vạch vàng-đen overflow ở
+      # màn "Sửa nhà cung cấp" + provider CÓ SẴN OpenRouter (bật, model
+      # minimax/minimax-m3.1-flash:free) + routing Chat → ưu tiên online +
+      # OpenRouter + căn lề MỌI hàng của tab Đọc. Test thuần + source-scan
+      # (không plugin, không mạng) nên chạy được trên CI.
+      - name: "AI provider builtin + read alignment (2026-10-17)"
+        run: >-
+          flutter test
+          test/ai_provider_builtin_and_read_align_test.dart
+
+      # API-TRANS-MODEL-001 / MODEL-PICKER-001 / API-SYNC-001 / API-DIAG-001:
+      # model dịch riêng, hòa giải cấu hình cloud (LWW + bia mộ), báo cáo
+      # "AI đang chạy" theo loại mạng, và chạy thử THẬT qua transport giả.
+      # Thuần logic (không mạng, không plugin) nên chạy được trên CI.
+      - name: "API settings tests — model dịch + đồng bộ + AI đang chạy (2026-10-26)"
+        id: api-settings-tests
+        run: |
+          set +e
+          if [ ! -f test/ai_translation_model_and_sync_test.dart ]; then
+            echo "Không có test API settings trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/ai_translation_model_and_sync_test.dart \
+            > api_settings_test.log 2>&1
+          code=$?
+          cat api_settings_test.log
+          exit $code
+
+      - name: Upload API settings test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-api-settings-test-log
+          path: api_settings_test.log
+          if-no-files-found: ignore
+
+      # HYMT-003/004 (2026-11-06): Hy-MT trả rỗng / không load được đã lọt qua
+      # vì KHÔNG workflow nào chạy test Hy-MT. Bước này là máy bắt cho 3 lỗi
+      # đã sửa: khung lượt <｜hy_User｜>/<｜hy_Assistant｜> (prompt), chẩn đoán
+      # quant 2-bit bị chặn (probe), và phân hoạch chunk khi có khung lượt
+      # (runtime). Thuần logic — không cần native lib, không cần model.
+      - name: "Hy-MT tests — khung lượt + chẩn đoán model + chunk runtime"
+        id: hymt-tests
+        # Phải có gate như các bước test khác: thiếu `if:` ⇒ mặc định success()
+        # ⇒ step bị SKIP khi bước analyze đỏ (analyze đỏ vì lỗi CÓ SẴN trên
+        # base, không liên quan Hy-MT) và test Hy-MT không bao giờ chạy.
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/hymt_prompt_test.dart \
+                   test/hymt_model_probe_test.dart \
+                   test/hymt_engine_runtime_test.dart \
+                   test/hymt_chunking_test.dart \
+                   test/hymt_slot_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test Hy-MT trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > hymt_test.log 2>&1
+          code=$?
+          cat hymt_test.log
+          exit $code
+
+      # Đưa lỗi lên annotation: sandbox/agent không tải được artifact (blob
+      # storage bị chặn) nên nếu chỉ có "N tests failed" thì không biết test
+      # NÀO đỏ. In log vào annotation để đọc được ngay trên PR.
+      - name: "Hy-MT tests — đưa lỗi lên annotation khi đỏ"
+        if: always() && steps.hymt-tests.outcome != 'success'
+        run: |
+          python3 - <<'PYEOF'
+          import pathlib
+          log = pathlib.Path('hymt_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          text = log.read_text(encoding='utf-8', errors='replace')
+          # GitHub CẮT annotation ở ~4096 byte, nên ưu tiên dòng BÁO LỖI
+          # (`[E]` + Expected/Actual + dòng tóm tắt cuối) chứ không lấy mọi
+          # dòng tiến trình — lần trước lấy tất cả nên phần cuối (chứa test
+          # đỏ) bị cắt mất, phải suy luận thủ công.
+          lines = text.splitlines()
+          errs, progress = [], []
+          for idx, ln in enumerate(lines):
+              if '[E]' in ln:
+                  errs.append(ln)
+                  # kèm tối đa 3 dòng ngay sau để giữ Expected/Actual
+                  errs.extend(lines[idx + 1: idx + 4])
+              elif 'Some tests failed' in ln or 'failed.' in ln:
+                  errs.append(ln)
+              elif 'HYMT/' in ln:
+                  progress.append(ln)
+          body = '\n'.join(errs)
+          if not body:
+              body = '(không có dòng [E] — lỗi lúc NẠP test)\n' + '\n'.join(progress[-6:])
+          body = body[:3800]
+          escaped = (body.replace('%', '%25')
+                         .replace('\r', '')
+                         .replace('\n', '%0A'))
+          print('::error title=hymt-tests::' + escaped)
+          PYEOF
+
+      - name: Upload Hy-MT test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-hymt-test-log
+          path: hymt_test.log
+          if-no-files-found: ignore
 
       # I4U18-READ-IPA-001 + I4U18-PDF-OCR-TTS-001 (Agent F): chế độ dòng của
       # Word, trọng tài timeout/cancel của OCR, máy trạng thái TTS của PDF.
+      # PLAN-035 (PDF-OCR-002 + XLAT-SCR-001): thêm batch OCR PDF + dịch
+      # trang (cùng họ thuần logic — recognizer/translator tiêm vào).
       # Thuần logic (không plugin, không mạng) nên chạy được trên CI.
-      - name: "Agent F tests — line mode / OCR guard / PDF TTS state machine"
+      - name: "Agent F tests — line mode / OCR guard / PDF TTS + batch OCR + page translate"
         id: agent-f-tests
         run: |
           set +e
@@ -157,7 +584,9 @@ jobs:
                    test/read_mode/read_line_hint_test.dart \
                    test/ocr/ocr_cancel_token_test.dart \
                    test/pdf_reader/pdf_text_layer_probe_test.dart \
-                   test/pdf_reader/pdf_tts_machine_test.dart; do
+                   test/pdf_reader/pdf_tts_machine_test.dart \
+                   test/pdf_reader/pdf_batch_ocr_test.dart \
+                   test/pdf_reader/pdf_page_translate_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
@@ -178,6 +607,45 @@ jobs:
           path: agent_f_test.log
           if-no-files-found: ignore
 
+      # OCR-SCAN-CRASH-001 (audit 2026-10-07): "Quét ảnh ▸ Chụp & quét tài
+      # liệu" làm sập app. Máy bắt cho phần QUYẾT ĐỊNH của lớp an toàn —
+      # precheck Google Play services/RAM trước khi mở máy quét, và trọng tài
+      # phiên quét (activity bị huỷ / crash native ⇒ không treo im lặng).
+      # Thuần Dart (kênh native được thay bằng seam `OcrNativeBridge.invoke`),
+      # không cần thiết bị. Tự bỏ qua nếu nhánh chưa có file.
+      - name: "OCR scan safety tests — OCR-SCAN-CRASH-001 (logic thuần)"
+        id: ocr-scan-tests
+        run: |
+          set +e
+          files=""
+          for f in test/ocr/ocr_precheck_test.dart \
+                   test/ocr/ocr_scan_guard_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có test OCR-SCAN-CRASH-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > ocr_scan_test.log 2>&1
+          code=$?
+          cat ocr_scan_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' ocr_scan_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=OCR scan safety test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload OCR scan safety test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ocr-scan-test-log
+          path: ocr_scan_test.log
+          if-no-files-found: ignore
+
       # TTS-EDGE-001 (Edge Read Aloud — giao thức edge-tts) + WP4 (API-005
       # Server TTS): engine TTS thuần logic (http.Client giả, source-scan
       # pin đăng ký TtsService) — chạy được trên CI không cần mạng. Bỏ qua
@@ -188,7 +656,11 @@ jobs:
           set +e
           files=""
           for f in test/edge_tts_engine_test.dart \
-                   test/tts_api_wp4_test.dart; do
+                   test/edge_voice_prefs_test.dart \
+                   test/tts_candidate_router_test.dart \
+                   test/tts_cache_key_test.dart \
+                   test/tts_api_wp4_test.dart \
+                   test/tts_settings_edge_and_api_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
@@ -217,6 +689,167 @@ jobs:
           path: tts_edge_test.log
           if-no-files-found: ignore
 
+      # XLAT-SCR-002 / XLAT-SCR-003 — Dịch màn hình toàn hệ thống (ADR-0011):
+      # bbox OCR, quy đổi toạ độ capture→overlay, rowStride + hoán kênh R/B,
+      # debounce, pipeline OCR→dịch, giao thức MethodChannel, và MÁY TRẠNG THÁI
+      # QUYỀN (thiếu overlay / thiếu consent / sẵn sàng — XLAT-SCR-003: phần
+      # Kotlin chưa có CI biên dịch nên mọi quyết định quyền đẩy sang Dart).
+      # Thuần Dart (OCR/engine dịch được bơm giả) nên chạy được trên CI không
+      # cần thiết bị.
+      - name: "Screen translate tests — XLAT-SCR-002/003 (logic thuần)"
+        id: screen-translate-tests
+        run: |
+          set +e
+          if [ ! -d test/screen_translate ]; then
+            echo "Không có test/screen_translate trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test test/screen_translate/ -r expanded > screen_translate_test.log 2>&1
+          code=$?
+          cat screen_translate_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' screen_translate_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=Screen translate test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload screen translate test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screen-translate-test-log
+          path: screen_translate_test.log
+          if-no-files-found: ignore
+
+      # READ-ACT-001 + XLAT-MIX-001 (audit bản 0.10.3) + READ-UI-121 (source-pin
+      # khôi phục nút tab Đọc / tự cuộn): luật chọn đoạn cho 4 hành động của tab
+      # Đọc và bộ tách đoạn hỗn hợp ngôn ngữ. Thuần Dart,
+      # không plugin/mạng. Tự bỏ qua nếu nhánh chưa có file.
+      - name: "Read actions + mixed-language tests (logic thuần)"
+        id: read-act-tests
+        run: |
+          set +e
+          files=""
+          for f in test/read_mode/read_text_action_runner_test.dart \
+                   test/read_mode/word_range_selection_test.dart \
+                   test/read_mode/focus_title_and_scroll_test.dart \
+                   test/read_mode/line_edit_gesture_test.dart \
+                   test/read_mode/audit_2026_10_20_ui_compact_test.dart \
+                   test/read_mode/word_pop_layout_test.dart \
+                   test/read_mode/read_word_style_align_test.dart \
+                   test/read_mode/read_listen_understand_owner_requests_test.dart \
+                   test/safe_haptics_test.dart \
+                   test/read_ui_121_contract_test.dart \
+                   test/translation/mixed_language_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test READ-ACT-001 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > read_act_test.log 2>&1
+          code=$?
+          cat read_act_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' read_act_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=Read action test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload read actions test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-read-act-test-log
+          path: read_act_test.log
+          if-no-files-found: ignore
+
+      # VOCAB-MEDIA-003 (ADR-0013, audit 0.10.3 mục 2) — 1 hoặc 2 ảnh mỗi từ
+      # (imageUrl2 additive: dữ liệu cũ vẫn mở được, promote khi xoá ảnh chính,
+      # swap slot) + duyệt thư viện animation (parser endpoint tùy chỉnh +
+      # MediaWiki Commons). Thuần Dart — không plugin/mạng/SharedPreferences.
+      # Tự bỏ qua nếu nhánh chưa có file (workflow dùng chung nhiều nhánh).
+      - name: "VOCAB-MEDIA-003 tests — 2 ảnh mỗi từ + thư viện animation (logic thuần)"
+        id: vocab-media-tests
+        run: |
+          set +e
+          files=""
+          for f in test/vocab_two_images_test.dart \
+                   test/vocab_animation_library_test.dart \
+                   test/word_import_parser_image_url2_test.dart \
+                   test/word_import_parser_image_url_test.dart \
+                   test/memory_item_image_url_test.dart \
+                   test/vocab_media_type_test.dart \
+                   test/vocab_image_search_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test VOCAB-MEDIA-003 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          flutter test $files -r expanded > vocab_media_test.log 2>&1
+          code=$?
+          cat vocab_media_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:|Unhandled exception' vocab_media_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=VOCAB-MEDIA-003 test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload VOCAB-MEDIA-003 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-vocab-media-test-log
+          path: vocab_media_test.log
+          if-no-files-found: ignore
+
+
+      - name: "PLAN-043 tests — doc Tu+Nghia, nhap AI, anh nhe, khai niem (logic thuan)"
+        id: plan-043-tests
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/wordlist_read_sequence_test.dart \
+                   test/word_import_parser_test.dart \
+                   test/vocab_bulk_ai_test.dart \
+                   test/vocab_image_normalize_test.dart \
+                   test/concept_phase_a_test.dart \
+                   test/vocab_animation_library_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Khong co file test PLAN-043 tren nhanh nay — bo qua."
+            exit 0
+          fi
+          echo "Chay:$files"
+          flutter test $files -r expanded > plan_043_test.log 2>&1
+          code=$?
+          cat plan_043_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:|Unhandled exception' plan_043_test.log \
+              | head -120 | while IFS= read -r line; do
+              echo "::error title=PLAN-043 test fail::$line"
+            done
+          fi
+          exit $code
+
+      - name: Upload PLAN-043 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-plan-043-test-log
+          path: plan_043_test.log
+          if-no-files-found: ignore
       - name: "LHB tests — Thuộc Lòng: SRS/cloze/ngôn ngữ + đồng bộ (LHB-006)"
         id: lhb-tests
         run: |
@@ -273,7 +906,22 @@ jobs:
             echo "Không có file test ASR routing trên nhánh này — bỏ qua."
             exit 0
           fi
-          flutter test test/asr_model_routing_test.dart > asr_test.log 2>&1
+          files="test/asr_model_routing_test.dart"
+          # WHISPER-VARIANT-001: 2 dòng model Whisper (đa ngữ / English-only).
+          if [ -f test/whisper_model_variants_test.dart ]; then
+            files="$files test/whisper_model_variants_test.dart"
+          fi
+          # PARAKEET-002: Parakeet phải dùng được ở Cabin/tab Nghe/quick capture
+          # (dropdown đủ 25 ngôn ngữ, route file không rơi vào model streaming).
+          if [ -f test/parakeet_usage_surfaces_test.dart ]; then
+            files="$files test/parakeet_usage_surfaces_test.dart"
+          fi
+          # M4U-IMPORT-003: import bộ Parakeet đúng (heuristic vocab đa ngôn
+          # ngữ) + live offline ở tab Nghe/Cabin.
+          if [ -f test/m4u_import_003_parakeet_live_test.dart ]; then
+            files="$files test/m4u_import_003_parakeet_live_test.dart"
+          fi
+          flutter test $files > asr_test.log 2>&1
           code=$?
           cat asr_test.log
           exit $code
@@ -293,11 +941,14 @@ jobs:
           set +e
           files=""
           for f in test/model_bundle_scanner_test.dart \
+                   test/model_import_saf_bytes_test.dart \
+                   test/model_import_multi_bundle_test.dart \
                    test/dict_bundle_scanner_test.dart \
                    test/dictionary/dict_db_service_test.dart \
                    test/dictionary/dict_result_sheet_test.dart \
                    test/dictionary/mdx_parser_test.dart \
-                   test/dictionary/dict_import_lookup_test.dart; do
+                   test/dictionary/dict_import_lookup_test.dart \
+                   test/dictionary/dict_random_access_source_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
@@ -328,4 +979,287 @@ jobs:
         with:
           name: app-i4u18-scanner-test-log
           path: i4u18_scanner_test.log
+          if-no-files-found: ignore
+
+      # YT-AUDIT (IN4-97..104) — Chế độ YouTube: pin logic THUẦN để máy bắt
+      # các fix đã bàn giao không bị regress (không cần thiết bị / network).
+      - name: "YouTube audit tests — Đợt 1 + 2 + 3 + 4 + media/TTS (logic thuần)"
+        id: yt-audit-tests
+        # `always()` để bước này vẫn chạy khi một bước test KHÁC ở trên đỏ —
+        # cần biết kết quả độc lập, không bị "skipped" che mất.
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files=""
+          for f in test/yt_audit_2026_10_20_batch1_test.dart \
+                   test/yt_lrc_long_video_test.dart \
+                   test/yt_learning_settings_test.dart \
+                   test/yt_lr_002_fixes_test.dart \
+                   test/yt_explorer_entry_test.dart \
+                   test/yt_lang_resolution_test.dart \
+                   test/ai_connectivity_routing_test.dart \
+                   test/ai_provider_wp0_test.dart \
+                   test/yt_sentence_segment_test.dart \
+                   test/yt_sync_offset_test.dart \
+                   test/yt_word_analysis_fallback_test.dart \
+                   test/yt_ai_word_prompt_test.dart \
+                   test/yt_read_aloud_sequence_test.dart \
+                   test/yt_media_store_test.dart \
+                   test/yt_download_filename_test.dart \
+                   test/yt_tts_provider_collision_test.dart \
+                   test/yt_one_bar_and_loop_test.dart \
+                   test/yt_channels_and_prepare_test.dart \
+                   test/yt_audit_v1_23_paint_pause_sync_test.dart; do
+            [ -f "$f" ] && files="$files $f"
+          done
+          if [ -z "$files" ]; then
+            echo "Không có file test YouTube audit trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          echo "Chạy:$files"
+          # -r expanded: mỗi test 1 dòng (compact reporter dùng \b khi
+          # redirect, khó grep tên test fail).
+          flutter test $files -r expanded > yt_audit_test.log 2>&1
+          code=$?
+          cat yt_audit_test.log
+          # Đưa tên test fail + context lên annotation để tra cứu qua API
+          # (log blob không tải được từ một số môi trường). Strip ANSI + \r
+          # + \b trước vì dart test có thể in mã màu/ký tự tiến trình.
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+            yt_audit_test.log > yt_audit_clean.log || true
+          grep -n "\[E\]" yt_audit_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" yt_audit_clean.log \
+              | head -c 900 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::TEST FAILED: $msg"
+          done || true
+          exit $code
+
+      - name: Upload YouTube audit test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-yt-audit-test-log
+          path: yt_audit_test.log
+          if-no-files-found: ignore
+
+      # UI-ORDER-001 (owner 2026-10-25) — mặc định Đọc-trước-Nghe + migrate 1 lần.
+      # BƯỚC GATE: chỉ file test THUẦN DART (không Hive/widget) ⇒ an toàn làm cổng.
+      - name: "Shell order test — UI-ORDER-001 (Đọc trước Nghe, logic thuần)"
+        id: shell-order-test
+        timeout-minutes: 6
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          f=test/shell_content_order_test.dart
+          if [ ! -f "$f" ]; then
+            echo "Không có $f trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          flutter test "$f" -r expanded > shell_order_test.log 2>&1
+          code=$?
+          cat shell_order_test.log
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' shell_order_test.log > shell_order_clean.log || true
+          grep -n "\[E\]" shell_order_clean.log | cut -d: -f1 | while read -r ln; do
+            msg=$(sed -n "${ln},$((ln + 22))p" shell_order_clean.log \
+              | head -c 900 | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::TEST FAILED: $msg"
+          done || true
+          exit $code
+
+      - name: Upload shell order test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-shell-order-test-log
+          path: shell_order_test.log
+          if-no-files-found: ignore
+
+      # AUDIT-1.21.0-01 (owner 2026-11-06) — test THUẦN của đợt audit.
+      # 2 file nằm trong test/screen_translate/ + test/cabin/ đã được 2 step cũ
+      # chạy; 6 file còn lại nối riêng để link guard / endpoint / PDF preflight /
+      # offline gate / loop presets / source-scan pin thực sự được CI chạy.
+      - name: "AUDIT-1.21.0 — 6 file pure test + source-scan wiring pins"
+        id: audit-1210-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files="test/audit_1_21_0_wiring_test.dart \
+            test/translation/translation_link_guard_test.dart \
+            test/translation/deeplx_endpoint_audit_test.dart \
+            test/pdf_reader/pdf_open_preflight_test.dart \
+            test/services/offline_model_gate_test.dart \
+            test/models/loop_presets_audit_test.dart"
+          flutter test $files -r expanded > audit_1210_test.log 2>&1
+          code=$?
+          cat audit_1210_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              audit_1210_test.log > audit_1210_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              audit_1210_clean.log | head -200 | while IFS= read -r line; do
+              echo "::error title=AUDIT-1.21.0 test fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload AUDIT-1.21.0 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-audit-1-21-0-test-log
+          path: audit_1210_test.log
+          if-no-files-found: ignore
+
+      # SAFE-INSET-001 (owner 2026-11-08) — chống thanh nội dung / bottom bar
+      # chìm dưới thanh điều hướng hệ thống. Android 15 (targetSdk 35) ép
+      # edge-to-edge; Flutter chỉ tự chừa cho `Scaffold.bottomNavigationBar`,
+      # KHÔNG chừa cho thanh neo đáy tự dựng trong `Stack`/`Positioned`.
+      # Test gồm: helper đơn vị + widget `BottomSafeArea` + quét nguồn 4 surface.
+      - name: "SAFE-INSET-001 — bottom bar không chìm dưới thanh điều hướng"
+        id: safe-inset-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files="test/system/bottom_nav_inset_test.dart"
+          flutter test $files -r expanded > safe_inset_test.log 2>&1
+          code=$?
+          cat safe_inset_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              safe_inset_test.log > safe_inset_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              safe_inset_clean.log | head -200 | while IFS= read -r line; do
+              echo "::error title=SAFE-INSET-001 fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload SAFE-INSET-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-safe-inset-test-log
+          path: safe_inset_test.log
+          if-no-files-found: ignore
+
+      # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
+      # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
+      # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân
+      # sách job (25 phút) mà không cho tín hiệu dùng được. Bộ test này giữ để
+      # chạy TAY trên máy dev; cổng CI cho quy tắc thứ tự là file thuần Dart ở
+      # trên. Muốn nối lại: chạy `flutter test test/workspace_shell_integration_test.dart`
+      # ở máy trước, sửa chỗ treo, rồi thêm bước gate.
+
+  # Independent job: a failure or stalled gesture test must not skip the
+  # existing app/locale regression suites above.
+  vocabulary-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: "Vocabulary tools — graph, triangle and Venn regression tests"
+        timeout-minutes: 3
+        run: |
+          set +e
+          timeout -k 10s 150s flutter test \
+            test/tools/vocabulary_visualization_layout_test.dart \
+            test/tools/vocabulary_tools_interaction_test.dart \
+            --timeout 45s -r expanded > vocabulary_tools_test.log 2>&1
+          code=$?
+          cat vocabulary_tools_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B3 -A8 'Expected:|Actual:|\[E\]|Exception|Error:' vocabulary_tools_test.log \
+              | head -100 | while IFS= read -r line; do
+                echo "::error title=Vocabulary tools test::$line"
+              done
+            tailmsg=$(tail -n 20 vocabulary_tools_test.log | head -c 3000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Vocabulary tools tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+      - name: Upload vocabulary tools test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vocabulary-tools-test-log
+          path: vocabulary_tools_test.log
+          if-no-files-found: ignore
+
+  # Covers the six-axis knowledge engine separately from existing app tests.
+  knowledge-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: "Knowledge — independent skills, migration and six-axis tests"
+        timeout-minutes: 6
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/knowledge --timeout 45s -r expanded > knowledge_test.log 2>&1
+          code=$?
+          cat knowledge_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B3 -A10 'Expected:|Actual:|\[E\]|Exception|Error:' knowledge_test.log \
+              | head -120 | while IFS= read -r line; do
+                echo "::error title=Knowledge test::$line"
+              done
+            tailmsg=$(tail -n 20 knowledge_test.log | head -c 3000 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Knowledge tests failed (exit $code)::${tailmsg:-No test output}"
+          fi
+          exit $code
+      - name: Upload knowledge test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-test-log
+          path: knowledge_test.log
+          if-no-files-found: ignore
+
+  # Compilation only: never deploy or push gh-pages from this validation job.
+  web-build-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: 'stable'
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Compile web entrypoint without publishing
+        timeout-minutes: 10
+        run: |
+          set +e
+          flutter build web --release --base-href /In4Up/ -t lib/main_web.dart > web_build_test.log 2>&1
+          code=$?
+          tail -n 150 web_build_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -m 15 -E 'Error|error|not available|Unsupported' web_build_test.log | while IFS= read -r line; do
+              echo "::error title=Web build::$line"
+            done
+          fi
+          exit "$code"
+      - name: Upload web build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build-validation-log
+          path: web_build_test.log
           if-no-files-found: ignore

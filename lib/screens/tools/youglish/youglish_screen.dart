@@ -8,20 +8,45 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 
 import 'youglish_config.dart';
+import 'youglish_prefs.dart';
 import 'youglish_widget.dart';
 
 class YouGlishScreen extends StatefulWidget {
-  const YouGlishScreen({Key? key}) : super(key: key);
+  const YouGlishScreen({Key? key, this.initialWord}) : super(key: key);
+
+  /// PRON-001 (ADR-0015 D5): mở thẳng vào một từ — điểm vào "Mở YouGlish" từ
+  /// hàng "Phát âm" ở tab Đọc (PRON-002) truyền vào. `null` ⇒ giữ 'hello'
+  /// như hành vi cũ của tool.
+  final String? initialWord;
 
   @override
   State<YouGlishScreen> createState() => _YouGlishScreenState();
 }
 
 class _YouGlishScreenState extends State<YouGlishScreen> {
-  final TextEditingController _wordController = TextEditingController(text: 'hello');
+  late final TextEditingController _wordController;
   YouGlishLanguage _selectedLanguage = YouGlishLanguage.english;
   YouGlishAccent _selectedAccent = YouGlishAccent.us;
-  String _currentWord = 'hello';
+  late String _currentWord;
+
+  @override
+  void initState() {
+    super.initState();
+    final seeded = (widget.initialWord ?? '').trim();
+    _currentWord = seeded.isNotEmpty ? seeded : 'hello';
+    _wordController = TextEditingController(text: _currentWord);
+    _loadPrefs();
+  }
+
+  /// Ngôn ngữ/accent dùng chung toàn app (PRON-001) — mặc định vẫn EN/US.
+  Future<void> _loadPrefs() async {
+    final prefs = await YouGlishPrefs.load();
+    if (!mounted) return;
+    setState(() {
+      _selectedLanguage = prefs.language;
+      _selectedAccent = prefs.accent;
+    });
+  }
 
   void _search() {
     final word = _wordController.text.trim();
@@ -158,6 +183,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
               if (v == null) return;
               HapticFeedback.selectionClick();
               setState(() => _selectedLanguage = v);
+              YouGlishPrefs.load().then((p) => p.setLanguage(v));
             },
           ),
 
@@ -178,6 +204,7 @@ class _YouGlishScreenState extends State<YouGlishScreen> {
                       if (v == null) return;
                       HapticFeedback.selectionClick();
                       setState(() => _selectedAccent = v);
+                      YouGlishPrefs.load().then((p) => p.setAccent(v));
                     },
                   )
                 : const SizedBox(key: ValueKey('no-accent')),

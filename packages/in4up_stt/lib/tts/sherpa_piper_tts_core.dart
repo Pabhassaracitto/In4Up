@@ -32,6 +32,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../sherpa_bindings.dart';
+import 'piper_import_paths.dart';
 
 /// Một giọng Piper phát hiện được trong thư mục model.
 class PiperTtsVoice {
@@ -233,15 +234,17 @@ class SherpaPiperTtsCore {
 
   /// File model còn "nguyên vẹn" đủ để native load (bắt tải về CẮT GIỮA:
   /// onnx quá nhỏ = file hỏng — load ORT trên file hỏng cũng có thể crash).
-  /// Ngưỡng tokens THẤP (≥128B): file tokens Piper hợp lệ có thể rất nhỏ
-  /// (vài trăm byte với giọng single-speaker) — ngưỡng cao hơn sẽ loại
+  /// Ngưỡng tokens THẤP (≥128B, xem `kMinPiperTokensBytes`): file tokens
+  /// Piper hợp lệ có thể rất nhỏ (vài trăm byte) — ngưỡng cao hơn sẽ loại
   /// nhầm giọng tốt → Piper báo "chưa cài" dù model nguyên vẹn.
   static bool isVoiceFilesPlausible(PiperTtsVoice v) {
     try {
       final onnx = File(v.modelPath);
       if (!onnx.existsSync() || onnx.lengthSync() < 1024 * 1024) return false;
       final tokens = File(v.tokensPath);
-      if (!tokens.existsSync() || tokens.lengthSync() < 128) return false;
+      if (!tokens.existsSync() || tokens.lengthSync() < kMinPiperTokensBytes) {
+        return false;
+      }
       return true;
     } catch (_) {
       return false;
@@ -289,7 +292,11 @@ class SherpaPiperTtsCore {
       // tokens.txt dùng chung có thể áp dụng cho mọi file onnx chưa có tokens riêng
       // (hoặc tự nhân bản ra <name>_tokens.txt)
       final sharedTokens = File(p.join(dir.path, 'tokens.txt'));
-      final sharedTokensUsable = sharedTokens.existsSync();
+      // M4U-IMPORT-002: tokens rỗng/hỏng KHÔNG phải bảng token — để nó qua
+      // là giọng "chạy được" nhưng phát ra tiếng rỗng (log native
+      // "tokens=0KB"). Ngưỡng dùng CHUNG với manager (kMinPiperTokensBytes).
+      final sharedTokensUsable = sharedTokens.existsSync() &&
+          sharedTokens.lengthSync() >= kMinPiperTokensBytes;
 
       final voices = <PiperTtsVoice>[];
       for (final file in onnxFiles) {
@@ -299,7 +306,9 @@ class SherpaPiperTtsCore {
 
         String? tokensPath;
         final perNameTokens = p.join(dir.path, '${name}_tokens.txt');
-        if (File(perNameTokens).existsSync()) {
+        final perNameFile = File(perNameTokens);
+        if (perNameFile.existsSync() &&
+            perNameFile.lengthSync() >= kMinPiperTokensBytes) {
           tokensPath = perNameTokens;
         } else if (sharedTokensUsable) {
           tokensPath = sharedTokens.path;

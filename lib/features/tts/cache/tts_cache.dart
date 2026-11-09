@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 /// Cache audio TTS đã tải về
@@ -13,13 +14,30 @@ class TtsCache {
   factory TtsCache() => _instance;
   TtsCache._();
 
+  /// Phiên bản công thức khoá cache. TĂNG số này mỗi khi [makeKey] đổi.
+  ///
+  /// TTS-VOICE-CACHE-002 (audit 1.g): bản 1 ghi file theo khoá
+  /// `engine + ngôn ngữ + chữ` — KHÔNG có giọng, nên bản ghi giọng mặc định
+  /// (nữ) nằm lại trên máy người dùng cũ. Khi phiên bản khoá đổi, toàn bộ
+  /// thư mục phải bị xoá một lần; nếu không, người dùng đã cập nhật app vẫn
+  /// nghe lại giọng sai cho tới khi cache hết hạn theo dung lượng.
+  static const int keyVersion = 2;
+
+  /// Giới hạn kích thước cache TTS (MB). Khi vượt ngưỡng, xoá file cũ nhất
+  /// để tránh làm đầy ổ lưu trữ thiết bị.
+  static const int maxCacheSizeMB = 100;
+
+  /// Khoá SharedPreferences ghi phiên bản khoá đang dùng trên máy này.
+  static const String keyVersionPrefsKey = 'tts_cache_key_version';
+
   String? _cacheDir;
 
   Future<String> get _cachePath async {
-    if (_cacheDir != null) return _cacheDir!;
-
-    final dir = await getTemporaryDirectory();
-    _cacheDir = '${dir.path}/tts_cache';
+    if (_cacheDir == null) {
+      final dir = await getTemporaryDirectory();
+      _cacheDir = '${dir.path}/tts_cache';
+      await _ensureKeyVersion();
+    }
 
     final cacheFolder = Directory(_cacheDir!);
     if (!await cacheFolder.exists()) {
@@ -29,11 +47,70 @@ class TtsCache {
     return _cacheDir!;
   }
 
-  /// Tạo key từ text + language + engine
-  String _makeKey(String text, String language, String engineId) {
-    final input = '${engineId}_${language}_$text';
-    final hash = md5.convert(utf8.encode(input)).toString();
-    return hash;
+  /// Có phải xoá cache khi phiên bản khoá đã ghi trên máy là [storedVersion]?
+  ///
+  /// Tách riêng để test thuần (không cần path_provider/plugin): lần đầu chạy
+  /// (`null`) coi như khớp — máy mới thì chưa có gì để xoá.
+  @visibleForTesting
+  static bool shouldWipeForStoredVersion(int? storedVersion) {
+    if (storedVersion == null) return false;
+    return storedVersion != keyVersion;
+  }
+
+  /// Xoá cache một lần khi phiên bản công thức khoá đổi (chạy tối đa 1
+  /// lần/tiến trình nhờ [_cachePath] memo hoá).
+  Future<void> _ensureKeyVersion() async {
+    final dir = _cacheDir;
+    if (dir == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getInt(keyVersionPrefsKey);
+      if (shouldWipeForStoredVersion(stored)) {
+        final folder = Directory(dir);
+        if (await folder.exists()) {
+          await folder.delete(recursive: true);
+        }
+        debugPrint(
+            '🧹 TTS Cache: phiên bản khoá $stored → $keyVersion — đã xoá cache cũ.');
+      }
+      if (stored != keyVersion) {
+        await prefs.setInt(keyVersionPrefsKey, keyVersion);
+      }
+      final folder = Directory(dir);
+      if (!await folder.exists()) {
+        await folder.create(recursive: true);
+      }
+    } catch (e) {
+      // Không có SharedPreferences (test/đời nền) → KHÔNG xoá gì: thà giữ
+      // cache cũ còn hơn làm hỏng đường phát âm.
+      debugPrint('⚠️ TTS Cache: không kiểm được phiên bản khoá: $e');
+    }
+  }
+
+  /// Tạo key từ text + language + engine + GIỌNG + tốc độ + cao độ.
+  ///
+  /// TTS-VOICE-CACHE-001 (audit 1.g — "chọn giọng nam mà giọng nữ đọc"):
+  /// key cũ chỉ gồm engine+ngôn ngữ+chữ ⇒ một file audio đọc bằng giọng
+  /// mặc định (nữ) có thể được phát lại cho MỌI giọng của cùng ngôn ngữ.
+  /// Giọng/tốc độ/cao độ là một phần danh tính của bản ghi nên phải nằm
+  /// trong key.
+  @visibleForTesting
+  static String makeKey(
+    String text,
+    String language,
+    String engineId, {
+    String? voiceId,
+    String? modelVariant,
+    double speed = 1.0,
+    double pitch = 1.0,
+  }) {
+    final voice = (voiceId ?? '').trim().isEmpty ? 'default' : voiceId!.trim();
+    final variant = (modelVariant ?? '').trim().isEmpty
+        ? 'default'
+        : modelVariant!.trim();
+    final input = '${engineId}_${language}_${voice}_${variant}_'
+        '${speed.toStringAsFixed(2)}_${pitch.toStringAsFixed(2)}_$text';
+    return md5.convert(utf8.encode(input)).toString();
   }
 
   /// Lưu audio vào cache
@@ -42,8 +119,20 @@ class TtsCache {
     required String language,
     required String engineId,
     required Uint8List audioData,
+    String? voiceId,
+    String? modelVariant,
+    double speed = 1.0,
+    double pitch = 1.0,
   }) async {
-    final key = _makeKey(text, language, engineId);
+    final key = makeKey(
+      text,
+      language,
+      engineId,
+      voiceId: voiceId,
+      modelVariant: modelVariant,
+      speed: speed,
+      pitch: pitch,
+    );
     final path = '${await _cachePath}/$key.mp3';
 
     final file = File(path);
@@ -51,7 +140,51 @@ class TtsCache {
 
     debugPrint(
         '💾 TTS Cache saved: ${text.substring(0, text.length.clamp(0, 30))}...');
+
+    // Giữ cache trong ngưỡng cho phép để tránh làm đầy disk.
+    await enforceMaxSize();
+
     return path;
+  }
+
+  /// Xoá file cache cũ nhất cho đến khi tổng dung lượng <= [maxCacheSizeMB].
+  /// Chạy sau mỗi lần [put] để tránh disk văng khi người dùng đọc nhiều đoạn
+  /// dài liên tiếp (tiết kiệm ổ lưu trữ thiết bị).
+  Future<void> enforceMaxSize() async {
+    final dir = Directory(await _cachePath);
+    if (!await dir.exists()) return;
+
+    // Thu thập tất cả file kèm thời gian sửa đổi cuối cùng.
+    final files = <FileSystemEntity>[];
+    await for (final entity in dir.list()) {
+      if (entity is File) files.add(entity);
+    }
+    if (files.isEmpty) return;
+
+    // Tính tổng dung lượng.
+    int totalBytes = 0;
+    for (final f in files) {
+      totalBytes += await (f as File).length();
+    }
+
+    const maxBytes = maxCacheSizeMB * 1024 * 1024;
+    if (totalBytes <= maxBytes) return;
+
+    // Sắp xếp theo thời gian sửa đổi: cũ nhất trước (xoá cũ trước).
+    files.sort((a, b) {
+      final ma = a.statSync().modified;
+      final mb = b.statSync().modified;
+      return ma.compareTo(mb);
+    });
+
+    // Xoá từ file cũ nhất cho khi đủ ngưỡng.
+    for (final f in files) {
+      if (totalBytes <= maxBytes) break;
+      final file = f as File;
+      final size = await file.length();
+      await file.delete();
+      totalBytes -= size;
+    }
   }
 
   /// Lấy audio từ cache
@@ -59,8 +192,20 @@ class TtsCache {
     required String text,
     required String language,
     required String engineId,
+    String? voiceId,
+    String? modelVariant,
+    double speed = 1.0,
+    double pitch = 1.0,
   }) async {
-    final key = _makeKey(text, language, engineId);
+    final key = makeKey(
+      text,
+      language,
+      engineId,
+      voiceId: voiceId,
+      modelVariant: modelVariant,
+      speed: speed,
+      pitch: pitch,
+    );
     final path = '${await _cachePath}/$key.mp3';
 
     final file = File(path);

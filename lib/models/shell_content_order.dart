@@ -26,7 +26,8 @@ extension ShellContentOrderX on ShellContentOrder {
 }
 
 ShellContentOrder shellContentOrderFromStorage(Object? value) {
-  return value == ShellContentOrder.readListen.name
-      ? ShellContentOrder.readListen
-      : ShellContentOrder.listenRead;
+  // Mặc định mới: Đọc trước Nghe (yêu cầu 2026-10-25)
+  return value == ShellContentOrder.listenRead.name
+      ? ShellContentOrder.listenRead
+      : ShellContentOrder.readListen;
 }

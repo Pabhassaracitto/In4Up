@@ -2,10 +2,11 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/player_provider.dart';
 import '../../../services/syntax_highlighter_service.dart';
+import '../../../services/storage_service.dart';
 
 /// Controller quản lý business logic cho Read Mode
 /// Tách khỏi UI để dễ test và maintain
@@ -17,12 +18,27 @@ class ReadModeController extends ChangeNotifier {
     required this.textProvider,
     required this.playerProvider,
   }) {
+    final storage = StorageService();
+    if (storage.isInitialized) {
+      _singleLineMode = storage.getSetting<bool>('read_single_line', defaultValue: false) ?? false;
+      _autoSyncEnabled = storage.getSetting<bool>('read_auto_sync', defaultValue: true) ?? true;
+    }
     _init();
   }
 
   // ===== STATE =====
   bool _autoSyncEnabled = true;
   bool get autoSyncEnabled => _autoSyncEnabled;
+  bool _singleLineMode = false;
+  bool get singleLineMode => _singleLineMode;
+
+  void setSingleLineMode(bool value) {
+    if (_singleLineMode == value) return;
+    _singleLineMode = value;
+    final storage = StorageService();
+    if (storage.isInitialized) unawaited(storage.saveSetting('read_single_line', value));
+    notifyListeners();
+  }
 
   int _lastSyncedLine = -1;
   bool _isScrolling = false;
@@ -86,7 +102,9 @@ class ReadModeController extends ChangeNotifier {
   // ===== AUTO-SCROLL SYNC =====
   void toggleAutoSync() {
     _autoSyncEnabled = !_autoSyncEnabled;
-    HapticFeedback.selectionClick();
+    final storage = StorageService();
+    if (storage.isInitialized) unawaited(storage.saveSetting('read_auto_sync', _autoSyncEnabled));
+    SafeHaptics.selectionClick();
     notifyListeners();
   }
 
@@ -217,7 +235,7 @@ class ReadModeController extends ChangeNotifier {
 
   void toggleFocusMode() {
     _isFocusMode = !_isFocusMode;
-    HapticFeedback.selectionClick();
+    SafeHaptics.selectionClick();
     notifyListeners();
   }
 
@@ -226,6 +244,16 @@ class ReadModeController extends ChangeNotifier {
       _isFocusMode = value;
       notifyListeners();
     }
+  }
+
+  /// AUDIT-2026-10-20 (mục 1): báo cho UI biết "cấu hình đã đổi, hãy đọc
+  /// lại" — dùng khi sheet Cài đặt đóng lại (ví dụ vị trí phần TIÊU ĐỀ khi
+  /// ở chế độ Focus: Ẩn / Trên / Dưới) để thay đổi có hiệu lực NGAY mà
+  /// không phải mở lại app.
+  ///
+  /// Không đụng `isFocusMode` (nó đã có `toggleFocusMode`/`setFocusMode`).
+  void requestRefresh() {
+    notifyListeners();
   }
 
   // ===== CLEANUP =====

@@ -1,8 +1,11 @@
 import 'package:in4up/core/language/localized_material.dart';
 
 import '../models/dict_info.dart';
+import '../services/dict_device_channel.dart';
 import '../services/dict_import_service.dart';
+import '../services/dict_list_order.dart';
 import '../services/dictionary_service.dart';
+import 'dict_pack_screen.dart';
 
 /// Màn hình quản lý từ điển đã import (I4U18-DICT-001):
 /// - Import THƯ MỤC hoặc NHIỀU FILE (set .mdx + .mdd + .css/asset).
@@ -58,9 +61,9 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
                 icon: Icons.link,
                 title: ctx.uiText('Liên kết thư mục (khuyến nghị)'),
                 subtitle: ctx.uiText(
-                  'Dùng ngay — chỉ tạo index tra từ, không copy file lớn '
-                  '(mdx/mdd ở nguyên chỗ cũ). Xoá thư mục gốc sẽ mất hình/âm thanh '
-                  'kèm theo nhưng vẫn tra được từ.',
+                  'Ưu tiên — chỉ lưu chỉ mục tra từ nhỏ trong app; không sao '
+                  'chép bộ từ điển (mdx/mdd vẫn ở thư mục gốc). Nếu nguồn '
+                  'không còn truy cập được, chọn lại; chỉ mục vẫn được giữ.',
                 ),
                 onTap: () => Navigator.pop(ctx, DictStorageMode.linked),
               ),
@@ -69,8 +72,9 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
                 icon: Icons.save_alt,
                 title: ctx.uiText('Sao chép vào app'),
                 subtitle: ctx.uiText(
-                  'Copy mdx + mdd + css vào bộ nhớ app — ổn định lâu dài, '
-                  'không sợ đổi/xoá thư mục gốc (tốn dung lượng tương đương).',
+                  'Sao chép mdx + mdd + css vào bộ nhớ app để dùng ổn định '
+                  'khi di chuyển hoặc xoá nguồn. Bản gốc vẫn được giữ nguyên; '
+                  'app có thêm một bản sao nên tốn thêm dung lượng tương ứng.',
                 ),
                 onTap: () => Navigator.pop(ctx, DictStorageMode.imported),
               ),
@@ -161,6 +165,13 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
               ? const Color(0xFF4CAF50)
               : const Color(0xFFF9A825),
           duration: const Duration(seconds: 5),
+          action: outcome.needsReselect
+              ? SnackBarAction(
+                  label: context.uiText('Chọn lại nguồn'),
+                  textColor: Colors.white,
+                  onPressed: () => _import(folder: folder),
+                )
+              : null,
         ),
       );
     } else {
@@ -172,9 +183,34 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
           ),
           backgroundColor: const Color(0xFFEF5350),
           duration: const Duration(seconds: 5),
+          action: outcome.needsReselect
+              ? SnackBarAction(
+                  label: context.uiText('Chọn lại nguồn'),
+                  textColor: Colors.white,
+                  onPressed: () => _import(folder: folder),
+                )
+              : null,
         ),
       );
     }
+  }
+
+  Future<void> _reselectLinkedSource(DictInfo dict) async {
+    final restored = await DictImportService.reselectLinkedSource(dict);
+    await _loadDicts();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText(
+          restored
+              ? 'Đã kết nối lại nguồn từ điển.'
+              : 'Không tìm thấy bộ từ điển này trong nguồn đã chọn.',
+        )),
+        backgroundColor: restored
+            ? const Color(0xFF4CAF50)
+            : const Color(0xFFF9A825),
+      ),
+    );
   }
 
   Future<void> _deleteDict(DictInfo dict) async {
@@ -222,6 +258,21 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF2196F3)),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // DICT-PACK-001: tải bộ từ điển có sẵn (một chạm) thay vì bắt
+          // người dùng tự tìm file .mdx/.mdd trên mạng.
+          IconButton(
+            tooltip: context.uiText('Tải bộ từ điển'),
+            icon: const Icon(Icons.cloud_download_outlined,
+                color: Color(0xFF2196F3)),
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DictPackScreen()),
+              );
+              await _loadDicts();
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -285,7 +336,8 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
             child: Text(
               context.uiText(
                 'Bấm Import thư mục để thêm bộ từ điển '
-                '(.mdx + .mdd + .css) — dùng ngay không cần copy.',
+                '(.mdx + .mdd + .css), rồi chọn liên kết (không sao chép) '
+                'hoặc sao chép vào app.',
               ),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[700], fontSize: 13),
@@ -296,22 +348,89 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
     );
   }
 
+  /// DICT-ORDER-001 (owner 2026-10-27): kéo thả để đổi THỨ TỰ ƯU TIÊN.
+  ///
+  /// Thứ tự này là thứ tự app tra/gộp nghĩa: bộ đứng trên được đưa nghĩa lên
+  /// trước khi một từ có ở nhiều bộ. Trước đây chỉ có thể đổi bằng cách xoá và
+  /// cài lại theo đúng thứ tự mong muốn.
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    final next = applyReorder(_dicts, oldIndex, newIndex);
+    final before = _dicts.map((d) => d.id).join('|');
+    final after = next.map((d) => d.id).join('|');
+    setState(() => _dicts = next);
+    // Kéo rồi thả về chỗ cũ ⇒ không ghi manifest, không báo "đã lưu".
+    if (before == after) return;
+    await DictionaryService.instance
+        .reorderDicts(next.map((dict) => dict.id).toList());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(context.uiText('Đã lưu thứ tự ưu tiên từ điển.')),
+        ),
+      );
+  }
+
   Widget _buildDictList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _dicts.length,
-      itemBuilder: (context, index) {
-        final dict = _dicts[index];
-        return _DictCard(
-          dict: dict,
-          modeLabel: _modeLabel(context, dict.storageMode),
-          onToggle: (enabled) async {
-            await DictionaryService.instance.toggleDict(dict.id, enabled);
-            await _loadDicts();
-          },
-          onDelete: () => _deleteDict(dict),
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              const Icon(Icons.swap_vert,
+                  color: Color(0xFF64B5F6), size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText(
+                    'Kéo biểu tượng ≡ để đổi thứ tự ưu tiên — bộ ở trên được '
+                    'ưu tiên khi một từ có ở nhiều bộ.',
+                  ),
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 11.5,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ReorderableListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _dicts.length,
+            // Card có Switch + nút xoá; để Flutter tự đặt drag-handle phủ lên
+            // toàn card sẽ nuốt cử chỉ. Dùng tay nắm riêng (≡).
+            buildDefaultDragHandles: false,
+            onReorder: _onReorder,
+            itemBuilder: (context, index) {
+              final dict = _dicts[index];
+              return Padding(
+                key: ValueKey<String>(dict.id),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _DictCard(
+                  dict: dict,
+                  index: index,
+                  modeLabel: _modeLabel(context, dict.storageMode),
+                  onToggle: (enabled) async {
+                    await DictionaryService.instance.toggleDict(dict.id, enabled);
+                    await _loadDicts();
+                  },
+                  onDelete: () => _deleteDict(dict),
+                  onReselect: DictDeviceChannel.isSupported
+                      ? () => _reselectLinkedSource(dict)
+                      : null,
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -375,21 +494,27 @@ class _ModeOption extends StatelessWidget {
 
 class _DictCard extends StatelessWidget {
   final DictInfo dict;
+
+  /// Vị trí trong danh sách — cần cho tay nắm kéo thả của
+  /// `ReorderableListView` (DICT-ORDER-001).
+  final int index;
   final String modeLabel;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
+  final VoidCallback? onReselect;
 
   const _DictCard({
     required this.dict,
+    required this.index,
     required this.modeLabel,
     required this.onToggle,
     required this.onDelete,
+    required this.onReselect,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
@@ -401,6 +526,19 @@ class _DictCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              // Tay nắm kéo thả — chỉ vùng icon này bắt đầu kéo, nên Switch và
+              // nút xoá vẫn bấm bình thường.
+              ReorderableDragStartListener(
+                index: index,
+                child: Tooltip(
+                  message: context.uiText('Kéo để đổi thứ tự ưu tiên'),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Icon(Icons.drag_handle,
+                        color: Colors.grey[600], size: 22),
+                  ),
+                ),
+              ),
               Container(
                 width: 48,
                 height: 48,
@@ -430,7 +568,7 @@ class _DictCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${dict.entryCount} entries · ${dict.langPairLabel} · $modeLabel',
+                      context.uiText('${dict.entryCount} entries · ${dict.langPairLabel} · $modeLabel'),
                       style: TextStyle(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],
@@ -448,6 +586,45 @@ class _DictCard extends StatelessWidget {
               ),
             ],
           ),
+          if (dict.needsReselect) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Colors.amber, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.uiText(
+                        'Thư mục từ điển không còn truy cập được — chọn lại. '
+                        'Chỉ mục SQLite trong app vẫn được giữ.',
+                      ),
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  if (onReselect != null)
+                    TextButton(
+                      onPressed: onReselect,
+                      child: Text(context.uiText('Chọn lại nguồn')),
+                    ),
+                ],
+              ),
+            ),
+          ],
           // Badge thiếu file phụ — từ điển vẫn dùng được giảm cấp.
           if (dict.hasMissingResources) ...[
             const SizedBox(height: 8),

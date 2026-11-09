@@ -15,6 +15,13 @@ enum TtsPriority {
 
   /// Chỉ online (fallback offline nếu mất mạng)
   onlineOnly,
+
+  /// YT-TTS-READ-001: **tự chọn theo loại mạng** — WiFi thì ưu tiên online
+  /// (giọng tự nhiên, không tốn data di động), mạng di động thì ưu tiên
+  /// offline (phát ngay, không đốt data), không có mạng thì chỉ offline.
+  /// Cả ba nhánh đều **giữ đường lùi**: online lỗi → offline, offline lỗi →
+  /// online (nếu có mạng).
+  auto,
 }
 
 extension TtsPriorityExt on TtsPriority {
@@ -28,6 +35,8 @@ extension TtsPriorityExt on TtsPriority {
         return 'Chỉ Offline';
       case TtsPriority.onlineOnly:
         return 'Chỉ Online';
+      case TtsPriority.auto:
+        return 'Tự động theo mạng';
     }
   }
 
@@ -41,6 +50,8 @@ extension TtsPriorityExt on TtsPriority {
         return 'Không dùng mạng, phát ngay';
       case TtsPriority.onlineOnly:
         return 'Luôn dùng giọng online, cần mạng';
+      case TtsPriority.auto:
+        return 'WiFi: ưu tiên online · 4G: ưu tiên offline (vẫn có dự phòng)';
     }
   }
 
@@ -54,6 +65,8 @@ extension TtsPriorityExt on TtsPriority {
         return Icons.cloud_off;
       case TtsPriority.onlineOnly:
         return Icons.cloud_done;
+      case TtsPriority.auto:
+        return Icons.wifi_tethering;
     }
   }
 }

@@ -6,11 +6,15 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/language/app_language.dart';
 import '../../../features/vocab_image/vocab_media_import.dart';
 import '../../../features/vocab_image/vocab_media_type.dart';
 import '../../../providers/text_provider.dart';
 import '../../../providers/vocabulary_provider.dart';
 import '../../../utils/text_parser.dart';
+import '../../settings/ai_providers_screen.dart';
+import 'vocab_bulk_ai.dart';
+import 'vocab_bulk_ai_service.dart';
 
 class WordImportSheet extends StatefulWidget {
   const WordImportSheet({super.key});
@@ -57,18 +61,47 @@ class _WordImportSheetState extends State<WordImportSheet>
   List<_ImportCandidate> _fileWords = [];
   bool _isLoadingFile = false;
 
+  // PLAN-043 mục 3 — tab AI (copy-prompt cho AI ngoài + sinh bằng AI
+  // trong app qua Server API). Kết quả hai đường đều đổ vào _pasteCtrl
+  // rồi qua _parsePasted → cùng màn xem trước/smart-fill như dán tay.
+  final _aiInputCtrl = TextEditingController();
+  final _aiTopicCtrl = TextEditingController();
+  final _aiPromptCtrl = TextEditingController();
+  VocabBulkAiScenario _aiScenario = VocabBulkAiScenario.byTopic;
+  String _aiWordLanguage = 'en';
+  String _aiMeaningLanguage = 'vi';
+  String _aiLevel = 'B1';
+  int _aiCount = 20;
+  bool _aiBusy = false;
+  String _aiProgress = '';
+  bool _aiLocaleInitDone = false;
+
   VocabularyProvider get _provider => context.read<VocabularyProvider>();
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_aiLocaleInitDone) return;
+    _aiLocaleInitDone = true;
+    // Nghĩa mặc định viết bằng ngôn ngữ giao diện hiện tại (nếu catalog có).
+    final uiCode = Localizations.localeOf(context).languageCode;
+    final lang = AppLanguageCatalog.maybeFromCode(uiCode);
+    if (lang != null) _aiMeaningLanguage = lang.appLocaleCode;
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
     _pasteCtrl.dispose();
+    _aiInputCtrl.dispose();
+    _aiTopicCtrl.dispose();
+    _aiPromptCtrl.dispose();
     super.dispose();
   }
 
@@ -91,6 +124,18 @@ class _WordImportSheetState extends State<WordImportSheet>
             ))
         .toList()
       ..sort((a, b) => b.frequency.compareTo(a.frequency));
+  }
+
+  Future<void> _copyCanonicalCsvHeader() async {
+    await Clipboard.setData(
+      const ClipboardData(text: WordTableParser.canonicalHeader),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Đã sao chép header CSV chuẩn.')),
+      ),
+    );
   }
 
   void _parsePasted() {
@@ -123,20 +168,25 @@ class _WordImportSheetState extends State<WordImportSheet>
   }
 
   List<_ImportCandidate> _parseStructuredContent(String content) {
-    final lines = content
+    // PLAN-043 mục 3 — bóc fence/bảng Markdown + cho phép vài dòng lời dẫn
+    // trước header (AI bên ngoài/trong app trả về), thay vì đòi dòng đầu
+    // tiên phải là header như cũ.
+    final lines = WordTableParser.sanitizeStructuredText(content)
         .split(RegExp(r'\r?\n'))
         .map((l) => l.trim())
         .where((l) => l.isNotEmpty)
         .toList();
     if (lines.length < 2) return const [];
 
-    final mapped = WordTableParser.mapHeader(lines.first);
-    if (!mapped.contains('word')) return const [];
-    if (mapped.whereType<String>().toSet().length < 2) return const [];
-    final delimiter = WordTableParser.detectDelimiter(lines.first);
+    final headerIdx = WordTableParser.findHeaderLineIndex(lines);
+    if (headerIdx < 0) return const [];
+    final mapped = WordTableParser.mapHeader(lines[headerIdx]);
+    final delimiter = WordTableParser.detectDelimiter(lines[headerIdx]);
 
     final candidates = <_ImportCandidate>[];
-    for (final line in lines.skip(1)) {
+    for (final line in lines.skip(headerIdx + 1)) {
+      // Header lặp lại giữa khối (AI chia lô / dán hai bảng nối nhau).
+      if (WordTableParser.isHeaderLine(line)) continue;
       final parts = WordTableParser.splitCsvLine(line, delimiter);
       if (parts.isEmpty) continue;
       final data = WordTableParser.alignRow(parts, mapped);
@@ -165,6 +215,8 @@ class _WordImportSheetState extends State<WordImportSheet>
       // URL http(s), còn relative path (export→reimport cùng máy) dùng
       // trực tiếp được.
       final mediaUrl = (data['imageUrl'] ?? '').trim();
+      // VOCAB-MEDIA-003 (ADR-0013) — cột image_url_2: ảnh/animation thứ hai.
+      final mediaUrl2 = (data['imageUrl2'] ?? '').trim();
 
       candidates.add(
         _ImportCandidate(
@@ -175,6 +227,7 @@ class _WordImportSheetState extends State<WordImportSheet>
           language: _nullIfEmpty(data['language']) ?? 'en',
           example: exampleParts.isEmpty ? null : exampleParts.join('\n'),
           imageUrl: mediaUrl.isEmpty ? null : mediaUrl,
+          imageUrl2: mediaUrl2.isEmpty ? null : mediaUrl2,
           rawLine: line,
           existed: existed,
           selected: true,
@@ -286,6 +339,16 @@ class _WordImportSheetState extends State<WordImportSheet>
         provider.updateImageUrl(entry.id, media);
         if (isNetworkMediaUrl(media)) {
           pendingMedia.add(VocabMediaPending(wordId: entry.id, url: media));
+        }
+      }
+      // VOCAB-MEDIA-003 (ADR-0013) — ảnh thứ hai (image_url_2) cùng smart-fill
+      // như ảnh chính: chỉ điền khi slot 2 đang trống, có URL thì materialize.
+      final media2 = (c.imageUrl2 ?? '').trim();
+      if (media2.isNotEmpty && (entry.imageUrl2 ?? '').trim().isEmpty) {
+        provider.updateImageUrl2(entry.id, media2);
+        if (isNetworkMediaUrl(media2)) {
+          pendingMedia.add(
+              VocabMediaPending(wordId: entry.id, url: media2, slot: 2));
         }
       }
       if (existed) {
@@ -551,8 +614,8 @@ class _WordImportSheetState extends State<WordImportSheet>
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 maxLines: 5,
                 decoration: InputDecoration(
-                  hintText: context.uiText(
-                      'Dán bảng có header: word, meaning, ipa, topic, example, language, image_url (tùy chọn — link ảnh/Lottie .json)\n(tab hoặc dấu phẩy; meaning có dấu phẩy thì bọc "nét nháy")\nHoặc text thường / một từ mỗi dòng...'),
+                  hintText:
+                      '${context.uiText('Dán bảng CSV theo thứ tự cột chuẩn:')}\n${WordTableParser.canonicalHeader}',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.all(14),
@@ -560,6 +623,25 @@ class _WordImportSheetState extends State<WordImportSheet>
                 onChanged: (_) {
                   if (_pasteCtrl.text.length > 20) _parsePasted();
                 },
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    context.uiText(
+                        'Có thể thêm image_url ở cuối; ngăn cột bằng tab/phẩy/chấm phẩy/|. Giá trị có dấu phẩy đặt trong dấu nháy kép; cũng có thể dán văn bản thường, mỗi dòng một từ.'),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _copyCanonicalCsvHeader,
+                  icon: const Icon(Icons.copy_all_outlined, size: 15),
+                  label: Text(context.uiText('Sao chép header CSV')),
+                ),
               ),
               Row(
                 children: [
@@ -612,6 +694,335 @@ class _WordImportSheetState extends State<WordImportSheet>
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  // ── PLAN-043 mục 3: tab AI ──────────────────────────────────────────────
+  String _aiLanguageName(String code) =>
+      AppLanguageCatalog.fromCode(code).englishName;
+
+  String _buildAiPromptForCopy() => buildVocabBulkPrompt(
+        scenario: _aiScenario,
+        wordLanguageName: _aiLanguageName(_aiWordLanguage),
+        meaningLanguageName: _aiLanguageName(_aiMeaningLanguage),
+        wordLanguageCode: _aiWordLanguage,
+        inputText: _aiScenario == VocabBulkAiScenario.byTopic
+            ? _aiTopicCtrl.text
+            : _aiInputCtrl.text,
+        topic: _aiTopicCtrl.text,
+        level: _aiLevel,
+        count: _aiCount,
+      );
+
+  void _aiShowSnack(String message, {VoidCallback? onOpenAiSettings}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: onOpenAiSettings == null
+            ? null
+            : SnackBarAction(
+                label: context.uiText('Mở Server & API'),
+                onPressed: onOpenAiSettings,
+              ),
+      ),
+    );
+  }
+
+  Future<void> _runInAppAi() async {
+    if (_aiBusy) return;
+    final prompts = buildVocabBulkPromptsForRun(
+      scenario: _aiScenario,
+      wordLanguageName: _aiLanguageName(_aiWordLanguage),
+      meaningLanguageName: _aiLanguageName(_aiMeaningLanguage),
+      wordLanguageCode: _aiWordLanguage,
+      inputText: _aiScenario == VocabBulkAiScenario.byTopic
+          ? _aiTopicCtrl.text
+          : _aiInputCtrl.text,
+      topic: _aiTopicCtrl.text,
+      level: _aiLevel,
+      count: _aiCount,
+      editedPrompt: _aiPromptCtrl.text,
+    );
+    if (prompts.isEmpty) {
+      _aiShowSnack(context.uiText('Hãy nhập chủ đề / danh sách từ / đoạn văn trước.'));
+      return;
+    }
+    setState(() {
+      _aiBusy = true;
+      _aiProgress = '';
+    });
+    try {
+      final outputs = await VocabBulkAiService.instance.generateRawOutputs(
+        prompts,
+        onProgress: (done, total) {
+          if (!mounted) return;
+          setState(() => _aiProgress =
+              total > 1 ? '${context.uiText('Đã xong lô')} $done/$total…' : '');
+        },
+      );
+      if (!mounted) return;
+      final merged = WordTableParser.mergeCsvOutputs(outputs);
+      _pasteCtrl.text = merged;
+      _parsePasted();
+      setState(() => _aiBusy = false);
+      _tabCtrl.animateTo(0);
+      _aiShowSnack(_parsedWords.isNotEmpty
+          ? '${context.uiText('Số mục AI đã sinh:')} ${_parsedWords.length}'
+          : context.uiText('AI đã trả kết quả nhưng không đọc được dòng nào — xem lại ở tab Clipboard.'));
+    } on VocabBulkAiException catch (e) {
+      if (!mounted) return;
+      setState(() => _aiBusy = false);
+      switch (e.code) {
+        case VocabBulkAiErrorCode.noProvider:
+        case VocabBulkAiErrorCode.noModel:
+          _aiShowSnack(
+            context.uiText('Chưa cấu hình AI (Server & API). Hãy thêm nhà cung cấp + chọn model chat, hoặc dùng nút Copy prompt.'),
+            onOpenAiSettings: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AiProvidersScreen()),
+            ),
+          );
+          break;
+        case VocabBulkAiErrorCode.emptyInput:
+          _aiShowSnack(context.uiText('Hãy nhập chủ đề / danh sách từ / đoạn văn trước.'));
+          break;
+        case VocabBulkAiErrorCode.emptyOutput:
+          _aiShowSnack(context.uiText('AI trả về rỗng — thử lại hoặc đổi model.'));
+          break;
+        case VocabBulkAiErrorCode.requestFailed:
+          _aiShowSnack('${context.uiText('Gọi AI thất bại')} (${e.detail ?? 'requestFailed'})');
+          break;
+      }
+    }
+  }
+
+  Widget _aiLanguageDropdown({
+    required String label,
+    required String value,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+        DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF16202F),
+          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+          items: [
+            for (final lang in AppLanguageCatalog.languages)
+              DropdownMenuItem(
+                value: lang.appLocaleCode,
+                child: Text('${lang.flag} ${lang.nativeName}'),
+              ),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAiTab(ScrollController scroll) {
+    final scenarioLabel = <VocabBulkAiScenario, String>{
+      VocabBulkAiScenario.byTopic: context.uiText('Theo chủ đề'),
+      VocabBulkAiScenario.enrichList: context.uiText('Làm giàu danh sách từ'),
+      VocabBulkAiScenario.extractFromText:
+          context.uiText('Trích từ đoạn văn'),
+    };
+    final inputHint = switch (_aiScenario) {
+      VocabBulkAiScenario.byTopic => '',
+      VocabBulkAiScenario.enrichList => context.uiText(
+          'Mỗi dòng một từ/cụm từ cần bổ sung nghĩa, IPA, ví dụ…'),
+      VocabBulkAiScenario.extractFromText =>
+        context.uiText('Dán đoạn văn để AI trích từ đáng học…'),
+    };
+    return ListView(
+      controller: scroll,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      children: [
+        Text(
+          context.uiText(
+              'Sinh từ vựng hàng loạt bằng AI. Kết quả luôn qua màn xem trước ở tab Clipboard — tick chọn rồi mới Import, từ đã có chỉ được bổ sung chỗ trống.'),
+          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final s in VocabBulkAiScenario.values)
+              ChoiceChip(
+                label: Text(scenarioLabel[s]!),
+                selected: _aiScenario == s,
+                onSelected: _aiBusy
+                    ? null
+                    : (_) => setState(() {
+                          _aiScenario = s;
+                          _aiPromptCtrl.clear();
+                        }),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_aiScenario == VocabBulkAiScenario.byTopic)
+          TextField(
+            controller: _aiTopicCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              labelText: context.uiText('Chủ đề'),
+              hintText: context.uiText('vd: du lịch, nấu ăn, công nghệ…'),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          )
+        else
+          TextField(
+            controller: _aiInputCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: inputHint,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        if (_aiScenario != VocabBulkAiScenario.byTopic) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _aiTopicCtrl,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              labelText: context.uiText('Chủ đề (không bắt buộc)'),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _aiLanguageDropdown(
+                label: context.uiText('Ngôn ngữ của TỪ'),
+                value: _aiWordLanguage,
+                onChanged: (v) => setState(() => _aiWordLanguage = v),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _aiLanguageDropdown(
+                label: context.uiText('Nghĩa viết bằng'),
+                value: _aiMeaningLanguage,
+                onChanged: (v) => setState(() => _aiMeaningLanguage = v),
+              ),
+            ),
+          ],
+        ),
+        if (_aiScenario != VocabBulkAiScenario.enrichList) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(context.uiText('Trình độ'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              const SizedBox(width: 8),
+              for (final lv in const ['A2', 'B1', 'B2', 'C1'])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(lv),
+                    selected: _aiLevel == lv,
+                    onSelected:
+                        _aiBusy ? null : (_) => setState(() => _aiLevel = lv),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(context.uiText('Số từ'),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              const SizedBox(width: 8),
+              for (final n in const [10, 20, 30, 50])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text('$n'),
+                    selected: _aiCount == n,
+                    onSelected:
+                        _aiBusy ? null : (_) => setState(() => _aiCount = n),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _aiBusy
+                  ? null
+                  : () => setState(
+                      () => _aiPromptCtrl.text = _buildAiPromptForCopy()),
+              icon: const Icon(Icons.description_outlined, size: 16),
+              label: Text(context.uiText('Tạo prompt')),
+            ),
+            OutlinedButton.icon(
+              onPressed: _aiBusy
+                  ? null
+                  : () async {
+                      if (_aiPromptCtrl.text.trim().isEmpty) {
+                        _aiPromptCtrl.text = _buildAiPromptForCopy();
+                      }
+                      await Clipboard.setData(
+                          ClipboardData(text: _aiPromptCtrl.text));
+                      _aiShowSnack(context.uiText(
+                          'Đã copy prompt — dán vào ChatGPT/Claude/Gemini rồi dán kết quả vào tab Clipboard.'));
+                    },
+              icon: const Icon(Icons.copy_all_outlined, size: 16),
+              label: Text(context.uiText('Copy prompt cho AI ngoài')),
+            ),
+            FilledButton.icon(
+              onPressed: _aiBusy ? null : _runInAppAi,
+              icon: _aiBusy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 16),
+              label: Text(context.uiText('Sinh bằng AI trong app')),
+            ),
+          ],
+        ),
+        if (_aiBusy) ...[
+          const SizedBox(height: 10),
+          Text(
+            _aiProgress.isNotEmpty
+                ? _aiProgress
+                : context.uiText('Đang gọi AI…'),
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+          ),
+        ],
+        const SizedBox(height: 12),
+        TextField(
+          controller: _aiPromptCtrl,
+          style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+          maxLines: 8,
+          decoration: InputDecoration(
+            labelText: context.uiText('Prompt (sửa được trước khi copy/gửi)'),
+            hintText: context.uiText('Bấm "Tạo prompt" để xem…'),
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
       ],
     );
   }
@@ -718,7 +1129,7 @@ class _WordImportSheetState extends State<WordImportSheet>
               const SizedBox(height: 6),
               Text(
                 '.txt: Mỗi dòng 1 từ, hoặc văn bản thường\n'
-                '.csv/.txt bảng cột (cần dòng header): word, meaning, ipa, topic, example, example_simple, example_complex, language, image_url (tùy chọn — link ảnh .png/.webp hoặc animation Lottie .json; tải về máy để học offline)\n'
+                '.csv/.txt bảng cột (cần dòng header): $kVocabCsvHeader (có thể thêm image_url ở cuối — link ảnh .png/.webp hoặc animation Lottie .json; tải về máy để học offline)\n'
                 'Ngăn cột: tab, phẩy, chấm phẩy hoặc | — ý nghĩa có dấu phẩy thì bọc "nét nháy"\n'
                 'Từ/cụm ĐÃ CÓ trong WordList vẫn hiện (badge "đã có") — import chỉ bổ sung nghĩa/IPA/ví dụ/minh họa CHỖ TRỐNG + tag, không ghi đè',
                 style: TextStyle(color: Colors.grey[600], fontSize: 11),
@@ -891,7 +1302,7 @@ class _WordImportSheetState extends State<WordImportSheet>
                         if (w.frequency > 1) ...[
                           const SizedBox(width: 4),
                           Text(
-                            '×${w.frequency}',
+                            context.uiText('×${w.frequency}'),
                             style:
                                 TextStyle(color: Colors.grey[600], fontSize: 9),
                           ),
@@ -987,6 +1398,10 @@ class _ImportCandidate {
   /// LOTTIE-001 — link minh họa (ảnh tĩnh hoặc Lottie .json) từ cột
   /// `image_url`; chỉ smart-fill khi entry chưa có ảnh.
   final String? imageUrl;
+
+  /// VOCAB-MEDIA-003 (ADR-0013) — link minh họa THỨ HAI từ cột `image_url_2`;
+  /// smart-fill như ảnh chính (chỉ khi slot 2 đang trống).
+  final String? imageUrl2;
   final String? rawLine;
   final int frequency;
   /// true = từ/cụm này đã có trong WordList (import sẽ smart-fill,
@@ -1002,6 +1417,7 @@ class _ImportCandidate {
     this.example,
     this.language = 'en',
     this.imageUrl,
+    this.imageUrl2,
     this.rawLine,
     this.frequency = 1,
     this.existed = false,
@@ -1090,10 +1506,10 @@ class _OptionChip extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 // PURE PARSER — bảng có header (test được, không phụ thuộc widget)
 //
-// Định dạng chuẩn (như hướng dẫn trong UI):
-//   word, meaning, ipa, topic, example, example_simple, example_complex, language
-//   + image_url (LOTTIE-001, tùy chọn, đặt CUỐI — parser có nhánh căn riêng
-//   cho đuôi `language, image_url`, xem _mediaTail).
+// Định dạng chuẩn được dùng chung với prompt AI và UI:
+//   [canonicalHeader]
+// Biến thể media [canonicalHeaderWithImage] nối image_url CUỐI header;
+// parser có nhánh căn riêng cho đuôi `language, image_url`, xem _mediaTail.
 //
 // Robust 3 điểm:
 //  - Header alias được chuẩn hóa (bỏ gạch dưới/dấu) nên `example_simple`
@@ -1108,6 +1524,87 @@ class _OptionChip extends StatelessWidget {
 
 class WordTableParser {
   WordTableParser._();
+
+  /// Canonical order shared with AI prompts and the Clipboard copy action.
+  /// The optional media-column variant is accepted by this parser too.
+  static const String canonicalHeader = kVocabCsvHeader;
+  static const String canonicalHeaderWithImage = kVocabCsvHeaderWithImage;
+
+  /// PLAN-043 mục 3 — làm sạch đầu vào kiểu AI-trả-về trước khi parse:
+  /// AI (kể cả khi prompt cấm) vẫn hay bọc CSV trong code fence
+  /// (```csv … ```) hoặc trả BẢNG Markdown (`| word | meaning |` + hàng
+  /// `|---|---|`). Parser cũ đòi dòng đầu = header nên cả khối bị rơi
+  /// xuống đường "đếm tần suất từ" và ra danh sách rác. Hàm THUẦN này:
+  /// bỏ dòng fence, bỏ hàng phân cách Markdown, gỡ cặp `|` ở hai đầu mỗi
+  /// hàng bảng (giữ `|` ở giữa làm delimiter như cũ).
+  static String sanitizeStructuredText(String content) {
+    final out = <String>[];
+    for (final rawLine in content.split(RegExp(r'\r?\n'))) {
+      var line = rawLine.trim();
+      if (line.startsWith('```')) continue; // fence mở (```csv) lẫn đóng
+      // Hàng phân cách bảng Markdown: chỉ gồm | - : khoảng trắng.
+      if (line.contains('-') &&
+          line.replaceAll(RegExp(r'[|\s:\-]'), '').isEmpty) {
+        continue;
+      }
+      // Hàng bảng Markdown | a | b | → a | b (delimiter | ở giữa giữ nguyên).
+      if (line.length >= 2 && line.startsWith('|') && line.endsWith('|')) {
+        line = line.substring(1, line.length - 1).trim();
+      }
+      out.add(line);
+    }
+    return out.join('\n');
+  }
+
+  /// Dòng [line] có phải header dùng được không (map ra ≥2 trường khác
+  /// nhau và có cột 'word') — tiêu chí như `_parseStructuredContent` cũ.
+  static bool isHeaderLine(String line) {
+    final mapped = mapHeader(line);
+    return mapped.contains('word') &&
+        mapped.whereType<String>().toSet().length >= 2;
+  }
+
+  /// Tìm dòng header trong [lines] (quét tối đa [maxScan] dòng đầu để chịu
+  /// được lời dẫn ngắn của AI kiểu "Đây là danh sách:" trước bảng).
+  /// Trả -1 nếu không thấy.
+  static int findHeaderLineIndex(List<String> lines, {int maxScan = 12}) {
+    final limit = lines.length < maxScan ? lines.length : maxScan;
+    for (var i = 0; i < limit; i++) {
+      if (isHeaderLine(lines[i])) return i;
+    }
+    return -1;
+  }
+
+  /// Ghép nhiều khối CSV (AI trong app gọi theo lô) thành MỘT khối: giữ
+  /// header của khối đầu có header, bỏ header lặp + lời dẫn của các khối
+  /// sau. Khối nào không có header thì giữ nguyên dòng của nó ở cuối
+  /// (parser sẽ tự bỏ qua dòng không căn được) — thà thừa còn hơn mất từ.
+  static String mergeCsvOutputs(List<String> outputs) {
+    final merged = <String>[];
+    var headerWritten = false;
+    for (final output in outputs) {
+      final lines = sanitizeStructuredText(output)
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
+      if (lines.isEmpty) continue;
+      final headerIdx = findHeaderLineIndex(lines);
+      if (headerIdx < 0) {
+        merged.addAll(lines);
+        continue;
+      }
+      if (!headerWritten) {
+        merged.add(lines[headerIdx]);
+        headerWritten = true;
+      }
+      for (final line in lines.skip(headerIdx + 1)) {
+        if (isHeaderLine(line)) continue; // header lặp giữa khối
+        merged.add(line);
+      }
+    }
+    return merged.join('\n');
+  }
 
   static const Map<String, String> fieldAliases = {
     'word': 'word',
@@ -1153,6 +1650,29 @@ class WordTableParser {
     'ảnh minh họa': 'imageUrl',
     'minh họa': 'imageUrl',
   };
+
+  /// VOCAB-MEDIA-003 (ADR-0013) — nhận diện cột minh họa THỨ HAI (slot 2).
+  ///
+  /// KHÔNG nhét thẳng alias `…_2` vào [fieldAliases]: `normKey` bỏ MỌI ký tự
+  /// không phải chữ cái (kể cả chữ số) ⇒ `image_url_2` và `image_url` cùng
+  /// chuẩn hoá thành `imageurl`, bản ghi thêm sau sẽ ĐÈ bản ghi trước → header
+  /// 1 cột `image_url` bị map nhầm sang imageUrl2. Vì vậy nhận diện riêng
+  /// theo HẬU TỐ "2" của ô header.
+  static final RegExp _slot2Suffix = RegExp(r'[_\-\s]*2$');
+
+  /// Map một ô header → tên trường (null = cột không nhận ra).
+  ///
+  /// `…_2` / `… 2` / `…2` có gốc là cột minh họa (`image_url`, `ảnh`,
+  /// `animation`, …) ⇒ `imageUrl2`.
+  static String? resolveHeaderField(String rawCell) {
+    final cell = rawCell.trim();
+    final withoutSuffix = cell.replaceFirst(_slot2Suffix, '');
+    if (withoutSuffix != cell &&
+        _normAliases[normKey(withoutSuffix)] == 'imageUrl') {
+      return 'imageUrl2';
+    }
+    return _normAliases[normKey(cell)];
+  }
 
   /// Cột tự do — có thể chứa dấu phẩy nội bộ (hấp thụ ô dư khi hàng dài
   /// hơn header).
@@ -1200,7 +1720,7 @@ class WordTableParser {
   /// Map dòng header → danh sách tên trường (null = cột không nhận ra).
   static List<String?> mapHeader(String headerLine) {
     final parts = splitHeaderLine(headerLine);
-    return parts.map((e) => _normAliases[normKey(e)]).toList();
+    return parts.map(resolveHeaderField).toList();
   }
 
   /// Chọn delimiter từ dòng header: tab > | > ; > ,
@@ -1322,12 +1842,16 @@ class WordTableParser {
             final noIpa = <String?>[...fields]..removeAt(p);
             return _zip(parts, noIpa);
           } else if (_mediaTail(fields) &&
-              n >= 3 &&
-              // LOTTIE-001 — thiếu IPA nhưng CÓ URL cuối: language trượt
-              // về ô kề cuối, URL ở ô cuối → bỏ cột ipa rồi zip.
-              _looksLikeLangCode(parts[n - 2]) &&
+              // LOTTIE-001 + VOCAB-MEDIA-003 — thiếu IPA nhưng CÓ URL ở
+              // cuối: language trượt về ô kề cuối (theo số cột media), các
+              // URL ở ô cuối → bỏ cột ipa rồi zip.
+              n >= 2 + _mediaTailCount(fields) &&
+              _looksLikeLangCode(parts[n - 1 - _mediaTailCount(fields)]) &&
+              (_mediaTailCount(fields) < 2 ||
+                  _looksLikeMediaUrl(parts[n - 2])) &&
               _looksLikeMediaUrl(parts[n - 1]) &&
-              (parts[n - 3].contains(' ') || parts[n - 3].length >= 5)) {
+              (parts[n - 2 - _mediaTailCount(fields)].contains(' ') ||
+                  parts[n - 2 - _mediaTailCount(fields)].length >= 5)) {
             final noIpa = <String?>[...fields]..removeAt(p);
             return _zip(parts, noIpa);
           }
@@ -1344,14 +1868,22 @@ class WordTableParser {
         if (stolen != null) data[stolen] = '';
         data['language'] = parts.last.trim();
       }
-      // LOTTIE-001 — header …,language,image_url mà hàng THIẾU cột
-      // language (URL đứng cuối, zip đã đẩy nó vào ô language) → đẩy
-      // URL về imageUrl, language để trống.
+      // LOTTIE-001 + VOCAB-MEDIA-003 — header …,language,image_url[,image_url_2]
+      // mà hàng THIẾU cột language (URL đứng cuối, zip đã đẩy nó vào ô
+      // language) → đẩy URL về đúng cột media, language để trống.
+      //
+      // Điều kiện "ô language ĐANG bị URL chiếm" là bắt buộc khi có 2 cột
+      // media: hàng 7 ô của header 8 cột có HAI nghĩa (thiếu language ⇒ ô
+      // language là URL, hay thiếu URL 2 ⇒ ô language vẫn là mã ngôn ngữ).
+      // Chỉ nhánh đầu được sửa — nhánh sau giữ nguyên language.
+      final mediaCount = _mediaTailCount(fields);
       if (_mediaTail(fields) &&
           n == fields.length - 1 &&
+          _looksLikeMediaUrl(data['language'] ?? '') &&
           _looksLikeMediaUrl(parts.last)) {
         data['language'] = '';
-        data['imageUrl'] = parts.last.trim();
+        if (mediaCount >= 1) data['imageUrl'] = parts[n - mediaCount].trim();
+        if (mediaCount >= 2) data['imageUrl2'] = parts[n - 1].trim();
       }
       return data;
     }
@@ -1393,12 +1925,27 @@ class WordTableParser {
   static bool _looksLikeLangCode(String s) =>
       RegExp(r'^[a-z]{2,4}$').hasMatch(s.trim().toLowerCase());
 
-  /// LOTTIE-001 — true khi header kết thúc bằng `…, language, image_url`
-  /// (cột media sau language — vị trí canonical, không phá mỏ neo cũ).
-  static bool _mediaTail(List<String?> fields) =>
-      fields.length >= 2 &&
-      fields.last == 'imageUrl' &&
-      fields[fields.length - 2] == 'language';
+  /// LOTTIE-001 + VOCAB-MEDIA-003 — true khi header kết thúc bằng
+  /// `…, language, image_url [, image_url_2]` (cột media sau language — vị
+  /// trí canonical, không phá mỏ neo cũ).
+  static bool _mediaTail(List<String?> fields) {
+    final mediaCount = _mediaTailCount(fields);
+    if (mediaCount == 0) return false;
+    return fields[fields.length - 1 - mediaCount] == 'language';
+  }
+
+  /// VOCAB-MEDIA-003 (ADR-0013) — số cột media ở CUỐI header (0/1/2):
+  /// `image_url` hoặc `image_url, image_url_2`.
+  static int _mediaTailCount(List<String?> fields) {
+    if (fields.isEmpty) return 0;
+    if (fields.last == 'imageUrl2' &&
+        fields.length >= 2 &&
+        fields[fields.length - 2] == 'imageUrl') {
+      return 2;
+    }
+    if (fields.last == 'imageUrl') return 1;
+    return 0;
+  }
 
   /// Ô giống URL media (link ảnh/Lottie dán vào CSV) — LOTTIE-001.
   static bool _looksLikeMediaUrl(String s) {
@@ -1430,18 +1977,21 @@ class WordTableParser {
   ) {
     final data = <String, String>{};
     final n = parts.length;
-    // LOTTIE-001 — media có thể đứng SAU language: language/imageUrl được
-    // neo trực tiếp, vùng giữa dừng trước 2 ô cuối.
-    final mediaLast = fields.isNotEmpty && fields.last == 'imageUrl';
-    final hasLang = mediaLast ? _mediaTail(fields) : fields.last == 'language';
-    final rightReserved = (hasLang ? 1 : 0) + (mediaLast ? 1 : 0);
+    // LOTTIE-001 + VOCAB-MEDIA-003 — media có thể đứng SAU language (tối đa
+    // 2 cột: image_url, image_url_2): language/các cột media được neo trực
+    // tiếp ở cuối, vùng giữa dừng trước cụm đó.
+    final mediaCount = _mediaTailCount(fields);
+    final hasLang =
+        mediaCount > 0 ? _mediaTail(fields) : fields.last == 'language';
+    final rightReserved = (hasLang ? 1 : 0) + mediaCount;
     final lastIdx = n - 1 - rightReserved; // biên phải của vùng giữa
 
     data['word'] = parts[0].trim();
     if (hasLang) {
-      data['language'] = parts[n - 1 - (mediaLast ? 1 : 0)].trim();
+      data['language'] = parts[n - 1 - mediaCount].trim();
     }
-    if (mediaLast) data['imageUrl'] = parts[n - 1].trim();
+    if (mediaCount >= 1) data['imageUrl'] = parts[n - mediaCount].trim();
+    if (mediaCount >= 2) data['imageUrl2'] = parts[n - 1].trim();
 
     final ipaIdx = _firstIpaIndex(parts, 1, lastIdx);
 
@@ -1458,7 +2008,7 @@ class WordTableParser {
       final postFields = <String>[];
       for (final f in fields) {
         if (f == null) continue;
-        if (const {'word', 'language', 'phonetic', 'meaning', 'imageUrl'}
+        if (const {'word', 'language', 'phonetic', 'meaning', 'imageUrl', 'imageUrl2'}
             .contains(f)) {
           continue;
         }
@@ -1472,7 +2022,8 @@ class WordTableParser {
       final groupFields = <String>[];
       for (final f in fields) {
         if (f == null) continue;
-        if (const {'word', 'language', 'phonetic', 'imageUrl'}.contains(f)) {
+        if (const {'word', 'language', 'phonetic', 'imageUrl', 'imageUrl2'}
+            .contains(f)) {
           continue;
         }
         groupFields.add(f);
@@ -1493,15 +2044,18 @@ class WordTableParser {
     final data = <String, String>{};
     final n = parts.length;
     final p = fields.indexOf('phonetic');
-    // LOTTIE-001 — xử lý đuôi media giống _anchorAlign.
-    final mediaLast = fields.isNotEmpty && fields.last == 'imageUrl';
-    final hasLang = mediaLast ? _mediaTail(fields) : fields.last == 'language';
+    // LOTTIE-001 + VOCAB-MEDIA-003 — xử lý đuôi media (tối đa 2 cột) giống
+    // _anchorAlign.
+    final mediaCount = _mediaTailCount(fields);
+    final hasLang =
+        mediaCount > 0 ? _mediaTail(fields) : fields.last == 'language';
 
     data['word'] = parts[0].trim();
     if (hasLang) {
-      data['language'] = parts[n - 1 - (mediaLast ? 1 : 0)].trim();
+      data['language'] = parts[n - 1 - mediaCount].trim();
     }
-    if (mediaLast) data['imageUrl'] = parts[n - 1].trim();
+    if (mediaCount >= 1) data['imageUrl'] = parts[n - mediaCount].trim();
+    if (mediaCount >= 2) data['imageUrl2'] = parts[n - 1].trim();
     // Ô 1..p (kể cả ô "ipa rác") → meaning.
     data['meaning'] = parts
         .sublist(1, p + 1)
@@ -1511,7 +2065,12 @@ class WordTableParser {
     data['phonetic'] = '';
     for (int i = p + 1; i < n; i++) {
       final key = fields[i];
-      if (key == null || key == 'language' || key == 'imageUrl') continue;
+      if (key == null ||
+          key == 'language' ||
+          key == 'imageUrl' ||
+          key == 'imageUrl2') {
+        continue;
+      }
       data[key] = parts[i].trim();
     }
     return data;

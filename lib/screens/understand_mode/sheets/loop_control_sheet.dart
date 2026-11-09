@@ -35,12 +35,12 @@ void showLoopControlSheet(BuildContext context, PlayerProvider player) {
                 const Icon(Icons.timer, color: Color(0xFF4CAF50)),
                 const SizedBox(width: 8),
                 Text(
-                  'A: ${_formatDuration(player.loopStart!)}',
+                  context.uiText('A: ${_formatDuration(player.loopStart!)}'),
                   style: const TextStyle(color: Colors.white),
                 ),
                 const Text(' → ', style: TextStyle(color: Colors.grey)),
                 Text(
-                  'B: ${_formatDuration(player.loopEnd!)}',
+                  context.uiText('B: ${_formatDuration(player.loopEnd!)}'),
                   style: const TextStyle(color: Colors.white),
                 ),
                 const Spacer(),

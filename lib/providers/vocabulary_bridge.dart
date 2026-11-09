@@ -22,6 +22,7 @@ class VocabularyBridge {
     required String word,
     required String meaning,
     String? phonetic,
+    String? phoneticSource,
     String? example,
     String? source,
   }) {
@@ -41,6 +42,7 @@ class VocabularyBridge {
       word: normalized,
       meaning: meaning,
       phonetic: phonetic,
+      phoneticSource: phoneticSource,
       example: example,
     ));
     debugPrint(
@@ -52,6 +54,7 @@ class VocabularyBridge {
     required String word,
     String? meaning,
     String? phonetic,
+    String? phoneticSource,
     String? example,
     String? wordTypeName,
     String? cefrLevelName,
@@ -61,6 +64,7 @@ class VocabularyBridge {
       word: word,
       meaning: meaning ?? '',
       phonetic: phonetic,
+      phoneticSource: phoneticSource,
       example: example,
       source: sourceFile,
     );

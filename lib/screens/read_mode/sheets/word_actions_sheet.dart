@@ -3,11 +3,13 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up_core/vocab_level_difficulty.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/dictionary/models/dict_entry.dart';
 import '../../../features/dictionary/services/dictionary_service.dart';
 import '../../../features/grammar/services/grammar_analysis_service.dart';
 import '../../../features/grammar/widgets/structure_section.dart';
+import '../../../features/word_lookup/widgets/word_pronunciation_row.dart';
 import '../../../features/vocab_image/vocab_image_picker.dart';
 import '../../../models/vocab_context.dart';
 import '../../../models/word_analysis.dart';
@@ -52,7 +54,7 @@ class WordActionsSheet {
     int lineIndex,
     int wordIndex,
   ) {
-    HapticFeedback.mediumImpact();
+    SafeHaptics.mediumImpact();
 
     showModalBottomSheet(
       context: context,
@@ -186,7 +188,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
 
     String? bestMeaning = widget.word.meaning;
     if (_dictEntries.isNotEmpty) {
-      bestMeaning = _dictEntries.first.plainDefinition;
+      bestMeaning = _dictEntries.first.compactDefinition;
     }
     final ownIpa = _ownIpa;
     final dictIpa = ownIpa == null ? _dictIpa : null;
@@ -274,24 +276,14 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                   ],
                 ),
               ),
-              // Speak button
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  tp.speak(widget.word.word);
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2196F3).withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.volume_up,
-                    color: Color(0xFF2196F3),
-                    size: 24,
-                  ),
-                ),
+              // PRON-002: thay "ngôn" một nút loa TTS bằng MỘT affordance phát
+              // âm dùng chung — [▶ nguồn theo policy] + [🎧 YouGlish] (WebView
+              // chỉ được dựng khi bấm 🎧 / khi policy ra YouGlish). Hành vi TTS
+              // cũ giữ nguyên: `tp.speak(word)` không lineIndex.
+              WordPronunciationRow(
+                word: widget.word.word,
+                mode: WordPronunciationRowMode.compact,
+                buttonKey: const Key('word_actions_pronunciation_row'),
               ),
             ],
           ),
@@ -341,7 +333,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
                   ...(_dictEntries.take(3).map((e) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          e.plainDefinition,
+                          e.compactDefinition,
                           style: TextStyle(
                             color: Colors.grey[300],
                             fontSize: 13,
@@ -493,7 +485,7 @@ class _WordActionsContentState extends State<_WordActionsContent> {
               final isSelected = widget.word.userDifficulty == level;
               return GestureDetector(
                 onTap: () {
-                  HapticFeedback.selectionClick();
+                  SafeHaptics.selectionClick();
                   tp.markWordDifficulty(
                       widget.lineIndex, widget.wordIndex, level);
                   Navigator.pop(context);

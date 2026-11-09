@@ -29,11 +29,25 @@ class AiPromptsLibrary {
     }
   }
 
-  static String _wordLookupPrompt(String word, String? context) => '''
-You are a language learning assistant. Analyze: "$word"${context != null ? ' in context: "$context"' : ''}.
-Return ONLY valid JSON:
+  /// YT-AUDIT-05 (IN4-105) — tra từ phải trả ĐỦ 7 phần mà màn học video hiện:
+  /// tóm tắt · mẹo nhớ · ngữ pháp · ví dụ trong ngữ cảnh · hình ảnh gợi nhớ ·
+  /// câu chuyện ghi nhớ (+ phiên âm).
+  ///
+  /// Bản cũ **không hỏi `grammar`** trong prompt tra từ ⇒ `AiAnalysis.grammar`
+  /// luôn `null` ⇒ ô "Ngữ pháp" (cấu trúc/chủ ngữ/động từ/tân ngữ) **không bao
+  /// giờ hiện**, đúng triệu chứng owner báo. Parser (`AiAnalysis.fromJson`) vốn
+  /// đã đọc được khoá `grammar` — chỉ là prompt chưa xin.
+  static String _wordLookupPrompt(String word, String? context) {
+    // Ngữ pháp là của CÂU, không phải của TỪ. Không có câu ngữ cảnh ⇒ BỎ HẲN
+    // khoá này thay vì bắt model bịa subject/verb cho một từ đơn (vừa vô nghĩa
+    // vừa phình JSON, mà model nhỏ hay cắt ngang ở cuối).
+    final grammarBlock = context == null ? '' : _grammarBlock();
+    return '''
+You are a language learning assistant. Analyze the English word/phrase: "$word"${context != null ? ' as used in this sentence: "$context"' : ''}.
+Write meanings, explanations and memory tips in Vietnamese. Keep example sentences in English.
+Return ONLY one valid JSON object. No markdown fences, no text before or after it.
 {
-  "summary": "<Vietnamese meaning 2-5 words>",
+  "summary": "<2-3 short Vietnamese sentences explaining what \\"$word\\" means and how it is used${context != null ? ' in this sentence' : ''}>",
   "topics": ["Vocabulary"],
   "technical_terms": [],
   "action_items": [],
@@ -42,15 +56,30 @@ Return ONLY valid JSON:
     "word": "$word",
     "meaning": "<Vietnamese meaning>",
     "cefr_level": "<A1-C2>",
-    "word_type": "<noun/verb/adj/adv>",
+    "word_type": "<noun/verb/adj/adv/...>",
     "etymology_hint": "<1 sentence>",
-    "memory_hook": "<vivid image 1-2 sentences>"
+    "memory_hook": "<vivid memory tip for this word, 1-2 sentences>"
   },
-  "pao_suggestions": ["<PAO 1>","<PAO 2>","<PAO 3>"],
-  "context_examples": ["<example 1>","<example 2>"],
+$grammarBlock  "pao_suggestions": ["<Person + Action + Object story 1>", "<story 2>", "<story 3>"],
+  "context_examples": ["<example sentence using this same sense>", "<another example sentence>"],
   "ipa_fallback": "</.../>",
-  "visual_prompt": "<concrete scene>"
+  "visual_prompt": "<one concrete imageable scene that makes the word memorable>"
 }''';
+  }
+
+  /// Khối JSON `grammar` (5-finger grammar) cho CÂU NGỮ CẢNH.
+  ///
+  /// Kết thúc bằng dấu phẩy để ghép thẳng vào object JSON ở trên.
+  static String _grammarBlock() => '''  "grammar": {
+    "subject": "<subject of the sentence>",
+    "verb": "<main verb>",
+    "object": "<object, or empty string if none>",
+    "complement": "<complement, or null>",
+    "adverbial": "<adverbial, or null>",
+    "pattern": "<S + V + O, ...>",
+    "explanation_vi": "<Vietnamese explanation of this sentence structure>"
+  },
+''';
 
   static String _sentenceParsePrompt(String sentence) {
     if (_isWriteStudioReviewPrompt(sentence)) {

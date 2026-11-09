@@ -8,9 +8,21 @@ Lập trình viên muốn chạy desktop/debug mà không bấm Tải về mỗi
 ```
 dev_models/
   whisper/   ggml-tiny-q4_0.bin   (hoặc ggml-tiny.bin)
+  sherpa_asr/<tên-thư-mục>/       encoder*.onnx + decoder*.onnx + joiner*.onnx + tokens.txt
   vad/       silero_vad.onnx      (>1MB)
   piper/     *.onnx + tokens.txt + espeak-ng-data/
 ```
+
+`sherpa_asr/` (PARAKEET-001) nhận cả bundle Parakeet: đặt tên thư mục có chữ
+`parakeet`/`nemo`/`tdt` để app nhận đúng profile, ví dụ
+
+```
+dev_models/sherpa_asr/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/
+  encoder.int8.onnx  decoder.int8.onnx  joiner.int8.onnx  tokens.txt
+```
+
+Nguồn: https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2
+(~487MB; app chỉ copy khi profile **chưa** được cài và chỉ ở `kDebugMode`).
 
 Chỉ chạy khi `kDebugMode`. App tìm theo thứ tự:
 

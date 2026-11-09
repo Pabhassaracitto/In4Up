@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_core/firebase_core.dart';
@@ -9,7 +10,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:in4up/l10n/app_localizations.dart';
 import 'package:in4up/screens/memory_mode/controllers/memory_controller.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
+import 'package:in4up/features/media_tools/services/ffmpeg_runtime_bootstrap.dart';
 import 'package:in4up/services/storage_service.dart';
+import 'package:in4up/services/read_chrome_layout_store.dart';
 import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
@@ -37,11 +40,26 @@ import 'screens/read_mode/services/playback_controller.dart';
 import 'screens/read_mode/services/playback_engine.dart';
 import 'screens/read_mode/services/tts_notification_service.dart';
 import 'screens/read_mode/services/tts_service.dart';
+import 'services/ai_settings_cloud_sync.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_rest_auth.dart';
 import 'screens/read_mode/services/tts_service_impl.dart';
 import 'services/reader_display_settings.dart';
 import 'services/whisper_service.dart';
+
+// IN4-17 (XLAT-SCR-003): thư viện entrypoint của ENGINE NỀN
+// (ScreenTranslateService khởi engine phụ qua
+// `package:in4up/features/screen_translate/screen_translate_entrypoint.dart`).
+// MUST import ở đây để thư viện được biên dịch VÀO snapshot (AOT release/profile
+// và cả app.dill của debug): không có import này, engine phụ báo
+// "library ... not found → Could not create root isolate" dù file tồn tại.
+// (Flutter multiple-flutters: engine phụ resolve entrypoint từ CÙNG snapshot.)
+// ignore: unused_import
+import 'features/screen_translate/screen_translate_entrypoint.dart';
+
+// ADR-0018 (P1) — link/tệp từ ngoài app (in4up://dict?w=…, "Mở bằng In4Up").
+import 'features/dictionary/services/dict_deep_link_router.dart';
+import 'features/dharma/services/dharma_provider.dart';
 
 bool isFirebaseAvailable = false;
 
@@ -57,6 +75,12 @@ final Map<WhisperModelLevel, List<String>> _sttModelUrls = {
   WhisperModelLevel.small: [],
   WhisperModelLevel.medium: [],
   WhisperModelLevel.large: [],
+  // WHISPER-VARIANT-001 — dòng English-only (.en) dùng URL mặc định của
+  // từng level (HuggingFace ggerganov/whisper.cpp) nên để rỗng ở đây.
+  WhisperModelLevel.tinyEn: [],
+  WhisperModelLevel.baseEn: [],
+  WhisperModelLevel.smallEn: [],
+  WhisperModelLevel.mediumEn: [],
 };
 
 /// Tên file được chấp nhận khi:
@@ -78,9 +102,21 @@ final Map<WhisperModelLevel, List<String>> _acceptedModelNames = {
   WhisperModelLevel.large: [
     'ggml-large-v2.bin',
   ],
+  WhisperModelLevel.tinyEn: [
+    'ggml-tiny.en.bin',
+  ],
+  WhisperModelLevel.baseEn: [
+    'ggml-base.en.bin',
+  ],
+  WhisperModelLevel.smallEn: [
+    'ggml-small.en.bin',
+  ],
+  WhisperModelLevel.mediumEn: [
+    'ggml-medium.en.bin',
+  ],
 };
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ★ Chỉ Firebase là bắt buộc trước runApp
@@ -89,6 +125,10 @@ Future<void> main() async {
   // Khởi tạo StorageService quản lý Hive
   final storage = StorageService();
   await storage.initialize();
+
+  // AVTOOL-002 (PLAN-047 P1) — nối FFmpeg tải về (nếu có) vào đường tìm
+  // binary. Không await phần dò (chỉ stat file): khởi động không bị chậm.
+  unawaited(FfmpegRuntimeBootstrap.init());
 
   // Mở box chứa hàng đợi các tác vụ đồng bộ dở dang khi mất mạng
   if (!Hive.isBoxOpen('vocab_sync_pending')) {
@@ -104,6 +144,32 @@ Future<void> main() async {
 
   // ★ runApp ngay - không block
   runApp(const MyApp());
+
+  // ADR-0018 P1 — link/tệp từ ngoài app. KHÔNG await: link đến muộn (app đã
+  // chạy) đi qua `onLink` của MethodChannel, còn link khởi động chỉ xếp hàng
+  // tới khi `navigatorKey` có Navigator. `args` là `argv` trên Windows/Linux
+  // (`in4up.exe "C:\a.mdx"`); Android/iOS để trống.
+  unawaited(DictDeepLinkRouter.instance.start(args));
+
+  // IN4-15 (LOGIN-CRASH-002): chẩn đoán lúc khởi động — logcat trả lời
+  // ngay: bản nào đang chạy (flavor), phiên đã khôi phục được chưa, và
+  // auth có lỗi gì không (đăng nhập MỚI vs KHÔI PHỤC PHIÊN là 2 việc
+  // khác nhau — không được suy từ avatar debug sang release).
+  unawaited(AuthService().logAuthState('startup'));
+  // Theo dõi MỌI thay đổi trạng thái auth (khôi phục phiên / đăng nhập xong
+  // / sign-out) — phân biệt được "đăng nhập mới" với "khôi phục phiên".
+  final authService = AuthService();
+  authService.authStateChanges.listen(
+    (_) => authService.logAuthState('change'),
+    onError: (Object e) => authService.logAuthState('change-error', e),
+  );
+
+  // API-SYNC-001 (owner 2026-10-26): cấu hình "Server & API" (provider + key
+  // + routing) đồng bộ lên `users/{uid}/ai_settings/current`. Gắn ở đây để
+  // phiên đăng nhập nào cũng pull về trước khi user mở cài đặt — máy mới
+  // không phải nhập lại key. Không block startup (chạy nền).
+  unawaited(AiProviderStore.instance.ensureLoaded());
+  AiSettingsCloudSync.instance.attach(store: AiProviderStore.instance);
 
   // ★ STT init chạy background sau khi UI đã show
   _bootstrapSttInBackground();
@@ -169,6 +235,13 @@ Future<FirebaseApp?> _initializeFirebaseSafely() async {
     isFirebaseAvailable = true;
     debugPrint(
         '✅ Firebase initialized: ${app.options.projectId} flavor=${const String.fromEnvironment('FLAVOR', defaultValue: 'stable')}');
+    // IN4-79/LOGIN-CRASH-002: in context đăng nhập ra logcat (tag
+    // `in4up-auth`) để đối chiếu SHA-1:
+    //   apksigner verify --print-certs <apk>  →  SHA-1 của APK đã ký
+    //   google-services.json (client com.in4up → certificate_hash)
+    // Hai SHA-1 phải giống nhau; khác ⇒ báo owner cập nhật secret CI.
+    debugPrint(
+        '[in4up-auth] firebase appId=${app.options.appId} project=${app.options.projectId}');
     return app;
   } on FirebaseException catch (e) {
     if (e.code == 'duplicate-app') {
@@ -242,7 +315,30 @@ class _MyAppState extends State<MyApp> {
   Future<_AppLocalServices> _initializeLocalServices() async {
     final prefs = await SharedPreferences.getInstance();
 
+    // READ-UI-120 (audit v1.20.0):
+    //  * nạp cấu hình chrome tab Đọc TRƯỚC khi dựng widget tree;
+    //  * migrate tốc độ từ `playback_recipe` (SharedPreferences) sang
+    //    `tts_speed` (Hive) — từ nay chỉ còn MỘT nguồn sự thật về tốc độ TTS.
+    //    Chạy trước khi TextProvider._restoreFromStorage() đọc `tts_speed`.
+    ReadChromeLayoutStore.instance.load();
+    await _migrateLegacyPlaybackSpeed(prefs);
+
     return _AppLocalServices(prefs: prefs);
+  }
+
+  Future<void> _migrateLegacyPlaybackSpeed(SharedPreferences prefs) async {
+    final raw = prefs.getString('playback_recipe');
+    if (raw == null) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['speed'] is num) {
+        await StorageService().migrateLegacyPlaybackSpeed(
+          (decoded['speed'] as num).toDouble(),
+        );
+      }
+    } catch (_) {
+      // Preference hỏng ⇒ bỏ qua, giữ tốc độ hiện tại.
+    }
   }
 
   Widget _buildApp(_AppLocalServices localServices) {
@@ -251,9 +347,12 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(
             create: (_) => LocaleProvider(localServices.prefs)),
         ChangeNotifierProvider(create: (_) => UnderstandProvider()),
+        // The queue can mark each successfully loaded library item as played.
+        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
         ChangeNotifierProvider(
           create: (context) => PlayerProvider(
             understandProvider: context.read<UnderstandProvider>(),
+            audioLibraryProvider: context.read<AudioLibraryProvider>(),
           ),
         ),
         // Âm mục (Soundlist): điểm, mục lục, đoạn âm thanh + theo dõi thói quen lặp
@@ -262,8 +361,13 @@ class _MyAppState extends State<MyApp> {
             ..load()
             ..attachPlayer(ctx.read<PlayerProvider>()),
         ),
-        // Thư viện âm thanh (P1): quét MediaStore, chỉ mục Hive
-        ChangeNotifierProvider(create: (_) => AudioLibraryProvider()),
+        // Pháp thoại (PLAN-042 / DHRM-001): catalog + tiến độ nghe theo
+        // `episodeKey`. Attach SAU PlayerProvider để bắt được vị trí phát.
+        ChangeNotifierProvider(
+          create: (ctx) => DharmaProvider()
+            ..attachPlayer(ctx.read<PlayerProvider>())
+            ..load(),
+        ),
         // Thư viện đọc (tab Thiết bị): quét thư mục trên máy (SAF tree, Android)
         ChangeNotifierProvider(create: (_) => TextDeviceProvider()..init()),
         ChangeNotifierProvider(create: (_) => TextProvider()),
@@ -359,6 +463,8 @@ class _MyAppState extends State<MyApp> {
           return MaterialApp(
             title: 'In4Up',
             debugShowCheckedModeBanner: false,
+            // ADR-0018 P1: mở màn Từ điển từ ngoài widget tree (deep link).
+            navigatorKey: DictDeepLinkRouter.instance.navigatorKey,
             locale: localeProvider.locale,
             localizationsDelegates: const [
               AppLocalizations.delegate,
@@ -509,7 +615,7 @@ class _AppErrorScreen extends StatelessWidget {
                   const Icon(Icons.error, color: Colors.red, size: 64),
                   const SizedBox(height: 20),
                   Text(
-                    'Initialization Error:\n$error',
+                    context.uiText('Initialization Error:\n$error'),
                     style: const TextStyle(color: Colors.white),
                     textAlign: TextAlign.center,
                   ),

@@ -1,12 +1,19 @@
+import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
 
 import 'package:in4up/features/tipitaka/models/book.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
+import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
 import 'package:in4up/features/tipitaka/screens/download_screen.dart';
 import 'package:in4up/features/tipitaka/screens/search_screen.dart';
 import 'package:in4up/features/tipitaka/screens/workspace_screen.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/library_state_store.dart';
+import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 
 /// Canonical-content tree:
 /// Tam Tạng Chính Văn → Tạng → nhóm/bộ → bài kinh.
@@ -20,15 +27,104 @@ class TipitakaLibraryScreen extends StatefulWidget {
 class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   List<TipitakaCollection> _collections = const [];
   Map<int, List<TipitakaBook>> _booksByCollection = const {};
+  Map<TipitakaCatalogSection, Set<int>> _sectionCollections = const {};
   Set<String> _languages = const {};
+  List<({TipitakaReadingPosition position, TipitakaBook book})>
+      _recentPositions = const [];
   String _language = 'en';
+  String _catalogLanguage = 'en';
+  bool _catalogLanguageChosen = false;
   bool _loading = true;
   String? _error;
+  Set<String> _expandedNodeKeys = const {};
+  String? _databaseIdentity;
+  bool _hasPersistedExpansionState = false;
+  int _loadGeneration = 0;
+
+  String _sectionKey(TipitakaCatalogSection section) =>
+      'section:${section.name}';
+
+  bool _isNodeExpanded(String key) => _expandedNodeKeys.contains(key);
+
+  void _setNodeExpanded(String key, bool expanded) {
+    if (!mounted) return;
+    setState(() {
+      final next = Set<String>.from(_expandedNodeKeys);
+      if (!_hasPersistedExpansionState) {
+        // Canonical content is the first-open default. Preserve it when the
+        // user's first persisted action is on a nested collection/book node.
+        next.add(_sectionKey(TipitakaCatalogSection.canonical));
+      }
+      if (expanded) {
+        next.add(key);
+      } else {
+        next.remove(key);
+      }
+      _expandedNodeKeys = next;
+      _hasPersistedExpansionState = true;
+    });
+    final identity = _databaseIdentity;
+    if (identity != null) {
+      unawaited(
+        TipitakaLibraryStateStore.saveExpandedNodes(
+          identity,
+          _expandedNodeKeys,
+        ),
+      );
+    }
+  }
+
+  void _applyCatalogSnapshot(
+    TipitakaLibrarySnapshot snapshot,
+    Set<String>? expandedNodes,
+  ) {
+    final sectionCollections = <TipitakaCatalogSection, Set<int>>{};
+    for (final book in snapshot.books) {
+      sectionCollections
+          .putIfAbsent(book.catalogSection, () => <int>{})
+          .add(book.collectionId);
+    }
+    if (!mounted) return;
+    setState(() {
+      _databaseIdentity = snapshot.databaseIdentity;
+      _collections = snapshot.collections;
+      _sectionCollections = sectionCollections;
+      _booksByCollection = const {};
+      _languages = snapshot.languages;
+      _expandedNodeKeys = expandedNodes ?? const {};
+      _hasPersistedExpansionState = expandedNodes != null;
+      if (!_catalogLanguageChosen ||
+          !snapshot.languages.contains(_catalogLanguage)) {
+        // PSRC-159: the app UI locale is not necessarily an imported
+        // translation. Never default the catalogue to Pāli while a target
+        // language pack is installed.
+        _catalogLanguage = resolveTipitakaDisplayLanguage(
+          availableLanguages: snapshot.languages,
+          preferredLanguage: _catalogLanguageChosen ? _catalogLanguage : null,
+          uiLanguage: _language,
+        );
+        _catalogLanguageChosen = false;
+      }
+      _loading = false;
+      _error = null;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    TipitakaDb.importRevision.addListener(_onDatabaseImported);
     _load();
+  }
+
+  @override
+  void dispose() {
+    TipitakaDb.importRevision.removeListener(_onDatabaseImported);
+    super.dispose();
+  }
+
+  void _onDatabaseImported() {
+    if (mounted) _load();
   }
 
   @override
@@ -41,30 +137,47 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final db = await TipitakaDb.openReady();
+      final identity = await TipitakaDb.sourceIdentity();
+      final cached = await TipitakaLibraryStateStore.loadSnapshot(identity);
+      final expandedNodes =
+          await TipitakaLibraryStateStore.loadExpandedNodes(identity);
+      if (!mounted || generation != _loadGeneration) return;
+      if (cached != null) {
+        // Render the last verified index immediately. Its fingerprint includes
+        // the installed DB's size and modification time, so an imported pack
+        // cannot leave a stale tree on screen.
+        _applyCatalogSnapshot(cached, expandedNodes);
+        unawaited(_loadRecentPositions());
+        return;
+      }
+
       final collections = await TipitakaDb.getCollections(db);
-      // Chỉ tải catalogue cấp cao ở startup. Danh sách sách/tiêu đề được
-      // tải theo nhu cầu khi người dùng mở từng Tạng; database Tipitaka có
-      // thể rất lớn và không nên chặn màn hình khởi động.
+      final indexBooks = await TipitakaDb.getCatalogIndexBooks(db);
       final info = await TipitakaDb.info(db);
-      if (!mounted) return;
-      setState(() {
-        _collections = collections;
-        _booksByCollection = const {};
-        _languages = info.availableLanguages;
-        _loading = false;
-      });
+      if (!mounted || generation != _loadGeneration) return;
+      final snapshot = TipitakaLibrarySnapshot(
+        databaseIdentity: identity,
+        collections: collections,
+        books: indexBooks,
+        languages: info.availableLanguages,
+      );
+      await TipitakaLibraryStateStore.saveSnapshot(snapshot);
+      _applyCatalogSnapshot(snapshot, expandedNodes);
+      unawaited(_loadRecentPositions());
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _collections = const [];
         _booksByCollection = const {};
+        _sectionCollections = const {};
         _error = error.toString();
       });
     }
@@ -78,20 +191,76 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
     if (mounted) _load();
   }
 
+  /// Loads up to 3 resumable reading positions ("Đọc tiếp") and resolves
+  /// them to books still present in the current database.
+  Future<void> _loadRecentPositions() async {
+    try {
+      final positions = await TipitakaReadingPositions.loadAll();
+      if (positions.isEmpty) {
+        if (mounted && _recentPositions.isNotEmpty) {
+          setState(() => _recentPositions = const []);
+        }
+        return;
+      }
+      final db = await TipitakaDb.openReady();
+      final recent =
+          <({TipitakaReadingPosition position, TipitakaBook book})>[];
+      for (final position in positions) {
+        if (recent.length >= 3) break;
+        if (position.pixels <
+            TipitakaReadingPositions.minMeaningfulPixels) {
+          continue;
+        }
+        final book = await TipitakaDb.getBookById(
+          db,
+          position.bookId,
+          languageCode: _catalogLanguage,
+        );
+        if (book != null) {
+          recent.add((position: position, book: book));
+        }
+      }
+      if (mounted) setState(() => _recentPositions = recent);
+    } catch (_) {
+      // Vị trí đọc là tiện ích phụ — lỗi đọc không được ảnh hưởng thư viện.
+    }
+  }
+
   void _openReader(
     TipitakaBook book, {
     TipitakaSegment? segment,
     String? articleTitle,
   }) {
-    final language = Localizations.localeOf(context).languageCode;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => TipitakaWorkspaceScreen(
           initialTab: TipitakaWorkspaceTab(
             book: book,
-            title: articleTitle ?? book.displayTitle(language),
+            title: articleTitle ?? book.displayTitle(_catalogLanguage),
             initialSegmentId: segment?.id,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openHighlight(TipitakaHighlight highlight) async {
+    final db = await TipitakaDb.openReady();
+    final book = await TipitakaDb.getBookById(
+      db,
+      highlight.bookId,
+      languageCode: _catalogLanguage,
+    );
+    if (!mounted || book == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TipitakaWorkspaceScreen(
+          initialTab: TipitakaWorkspaceTab(
+            book: book,
+            title: book.displayTitle(_catalogLanguage),
+            initialSegmentId: highlight.segmentId,
           ),
         ),
       ),
@@ -100,7 +269,9 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
       appBar: AppBar(
         title: Text(context.uiText('Thư viện Tipiṭaka')),
         actions: [
@@ -122,8 +293,16 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
             icon: const Icon(Icons.storage_outlined),
           ),
         ],
+        bottom: TabBar(
+          tabs: [
+            Tab(text: context.uiText('Thư viện')),
+            Tab(text: context.uiText('Đánh dấu')),
+          ],
+        ),
       ),
-      body: _loading
+      body: TabBarView(
+        children: [
+          _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? _MissingDatabaseView(
@@ -135,40 +314,270 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
                     children: [
-                      _LibraryStatusCard(languages: _languages),
-                      const SizedBox(height: 10),
-                      Card(
-                        clipBehavior: Clip.antiAlias,
-                        child: ExpansionTile(
-                          initiallyExpanded: true,
-                          leading: const Icon(Icons.account_balance_outlined),
-                          title: Text(
-                            context.uiText('Tam Tạng Chính Văn'),
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          subtitle: Text(
-                            context.uiText('Tạng → nhóm/bộ → bài kinh'),
-                          ),
-                          children: [
-                            for (final collection in _collections)
-                              _CollectionTreeNode(
-                                collection: collection,
-                                books: _booksByCollection[collection.id] ?? const [],
-                                onLoadBooks: () async {
-                                  final db = await TipitakaDb.openReady();
-                                  final loaded = await TipitakaDb.getBooksByCollection(
-                                    db, collection.id, languageCode: _language);
-                                  if (mounted) setState(() => _booksByCollection = {
-                                    ..._booksByCollection, collection.id: loaded});
-                                },
-                                onOpen: _openReader,
-                              ),
-                          ],
+                      if (_recentPositions.isNotEmpty) ...[
+                        _RecentPositionsCard(
+                          entries: _recentPositions,
+                          catalogLanguage: _catalogLanguage,
+                          onOpen: (entry) => _openReader(entry.book),
+                          onRemove: (position) async {
+                            await TipitakaReadingPositions.remove(
+                              position.bookId,
+                            );
+                            await _loadRecentPositions();
+                          },
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                      ],
+                      _LibraryStatusCard(languages: _languages),
+                      if (_languages.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: DropdownButtonFormField<String>(
+                              value: _languages.contains(_catalogLanguage)
+                                  ? _catalogLanguage
+                                  : _languages.first,
+                              decoration: InputDecoration(
+                                labelText: context.uiText('Ngôn ngữ bản dịch'),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              items: (_languages.toList()..sort()).map((code) {
+                                return DropdownMenuItem<String>(
+                                  value: code,
+                                  child: Text(tipitakaLanguageLabel(code)),
+                                );
+                              }).toList(),
+                              onChanged: (code) {
+                                if (code == null) return;
+                                setState(() {
+                                  _catalogLanguage = code;
+                                  _catalogLanguageChosen = true;
+                                  _booksByCollection = const {};
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      for (final section in TipitakaCatalogSection.values)
+                        if (_sectionCollections.containsKey(section))
+                          Card(
+                            clipBehavior: Clip.antiAlias,
+                            child: ExpansionTile(
+                              key: ValueKey('$_catalogLanguage-${section.name}'),
+                              initiallyExpanded: _isNodeExpanded(_sectionKey(section)) ||
+                                  (!_hasPersistedExpansionState &&
+                                      section == TipitakaCatalogSection.canonical),
+                              onExpansionChanged: (expanded) =>
+                                  _setNodeExpanded(_sectionKey(section), expanded),
+                              leading: Icon(_catalogSectionIcon(section)),
+                              title: Text(
+                                context.uiText(section.labelKey),
+                                style: const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                              subtitle: Text(
+                                context.uiText('Tạng → nhóm/bộ → bài kinh'),
+                              ),
+                              children: [
+                                for (final collection in _collections)
+                                  if (_sectionCollections[section]
+                                          ?.contains(collection.id) ==
+                                      true)
+                                    _CollectionTreeNode(
+                                      key: ValueKey(
+                                        '$_catalogLanguage-${section.name}-${collection.id}',
+                                      ),
+                                      section: section,
+                                      catalogLanguage: _catalogLanguage,
+                                      collection: collection,
+                                      expandedKey:
+                                          'collection:${section.name}:${collection.id}',
+                                      initiallyExpanded: _isNodeExpanded(
+                                        'collection:${section.name}:${collection.id}',
+                                      ),
+                                      onExpanded: (expanded) => _setNodeExpanded(
+                                        'collection:${section.name}:${collection.id}',
+                                        expanded,
+                                      ),
+                                      expandedNodeKeys: _expandedNodeKeys,
+                                      onNodeExpanded: _setNodeExpanded,
+                                      books: (_booksByCollection[collection.id] ??
+                                              const <TipitakaBook>[])
+                                          .where((book) =>
+                                              book.catalogSection == section)
+                                          .toList(),
+                                      onLoadBooks: () async {
+                                        final db = await TipitakaDb.openReady();
+                                        final loaded =
+                                            await TipitakaDb.getBooksByCollection(
+                                          db,
+                                          collection.id,
+                                          languageCode: _catalogLanguage,
+                                        );
+                                        if (mounted) {
+                                          setState(() => _booksByCollection = {
+                                                ..._booksByCollection,
+                                                collection.id: loaded,
+                                              });
+                                        }
+                                      },
+                                      onOpen: _openReader,
+                                    ),
+                              ],
+                            ),
+                          ),
                     ],
                   ),
                 ),
+          _HighlightsView(onOpen: _openHighlight),
+        ],
+      ),
+    ));
+  }
+}
+
+class _HighlightsView extends StatefulWidget {
+  final Future<void> Function(TipitakaHighlight highlight) onOpen;
+
+  const _HighlightsView({required this.onOpen});
+
+  @override
+  State<_HighlightsView> createState() => _HighlightsViewState();
+}
+
+class _HighlightsViewState extends State<_HighlightsView> {
+  late Future<List<TipitakaHighlight>> _items = _load();
+
+  Future<List<TipitakaHighlight>> _load() async {
+    final db = await TipitakaDb.openReady();
+    return TipitakaDb.getHighlights(db);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<TipitakaHighlight>>(
+      future: _items,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final items = snapshot.data ?? const [];
+        if (items.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                context.uiText('Chưa có đoạn được đánh dấu. Nhấn giữ một đoạn khi đọc để bắt đầu.'),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() => _items = _load());
+            await _items;
+          },
+          child: ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final excerpt = cleanTipitakaText(item.paliText).trim();
+              return ListTile(
+                leading: const Icon(Icons.highlight_outlined),
+                title: Text(
+                  item.reference.trim().isEmpty ? context.uiText('Đoạn đã đánh dấu') : item.reference,
+                ),
+                subtitle: Text(
+                  [
+                    if (item.bookTitle.isNotEmpty) item.bookTitle,
+                    if (excerpt.isNotEmpty) excerpt,
+                    if (item.note.isNotEmpty) item.note,
+                  ].join('\n'),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => widget.onOpen(item),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// "Đọc tiếp" card — resumes books at their saved scroll positions.
+class _RecentPositionsCard extends StatelessWidget {
+  final List<({TipitakaReadingPosition position, TipitakaBook book})> entries;
+  final String catalogLanguage;
+  final void Function(({TipitakaReadingPosition position, TipitakaBook book})
+      entry) onOpen;
+  final void Function(TipitakaReadingPosition position) onRemove;
+
+  const _RecentPositionsCard({
+    required this.entries,
+    required this.catalogLanguage,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  static String _formatSavedAt(DateTime time) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${two(time.day)}/${two(time.month)}/${time.year} '
+        '${two(time.hour)}:${two(time.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+            child: Row(
+              children: [
+                Icon(Icons.history_edu_outlined,
+                    size: 19, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  context.uiText('Đọc tiếp'),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+          for (final entry in entries)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.menu_book_outlined),
+              title: Text(
+                entry.book.displayTitle(catalogLanguage),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(_formatSavedAt(entry.position.savedAt)),
+              trailing: IconButton(
+                tooltip: context.uiText('Xóa vị trí đã lưu'),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => onRemove(entry.position),
+                icon: const Icon(Icons.close, size: 18),
+              ),
+              onTap: () => onOpen(entry),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -201,8 +610,23 @@ class _LibraryStatusCard extends StatelessWidget {
   }
 }
 
+IconData _catalogSectionIcon(TipitakaCatalogSection section) => switch (section) {
+      TipitakaCatalogSection.canonical => Icons.account_balance_outlined,
+      TipitakaCatalogSection.commentary => Icons.menu_book_outlined,
+      TipitakaCatalogSection.subcommentary => Icons.notes_outlined,
+      TipitakaCatalogSection.extraCanonical => Icons.library_books_outlined,
+      TipitakaCatalogSection.sriLanka => Icons.history_edu_outlined,
+    };
+
 class _CollectionTreeNode extends StatefulWidget {
+  final TipitakaCatalogSection section;
+  final String catalogLanguage;
   final TipitakaCollection collection;
+  final String expandedKey;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpanded;
+  final Set<String> expandedNodeKeys;
+  final void Function(String key, bool expanded) onNodeExpanded;
   final List<TipitakaBook> books;
   final Future<void> Function() onLoadBooks;
   final void Function(
@@ -212,7 +636,15 @@ class _CollectionTreeNode extends StatefulWidget {
   }) onOpen;
 
   const _CollectionTreeNode({
+    super.key,
+    required this.section,
+    required this.catalogLanguage,
     required this.collection,
+    required this.expandedKey,
+    required this.initiallyExpanded,
+    required this.onExpanded,
+    required this.expandedNodeKeys,
+    required this.onNodeExpanded,
     required this.books,
     required this.onLoadBooks,
     required this.onOpen,
@@ -223,58 +655,210 @@ class _CollectionTreeNode extends StatefulWidget {
 }
 
 class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
-  bool _expanded = false;
+  late bool _expanded;
   bool _loading = false;
 
-  String _title(String language) {
-    final names = '${widget.collection.namePali} ${widget.collection.nameEn} ${widget.collection.nameVi}'
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+    if (_expanded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _handleExpansion(true, persist: false);
+      });
+    }
+  }
+
+  Future<void> _handleExpansion(bool value, {bool persist = true}) async {
+    if (_expanded != value && mounted) setState(() => _expanded = value);
+    if (persist) widget.onExpanded(value);
+    if (!value || widget.books.isNotEmpty || _loading) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onLoadBooks();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _divisionTitle(BuildContext context) {
+    final source = '${widget.collection.namePali} ${widget.collection.nameEn} '
+            '${widget.collection.nameVi}'
         .toLowerCase();
-    if (names.contains('vin') || names.contains('luật')) {
-      return language == 'vi' ? 'Tạng Luật' : 'Vinaya Piṭaka';
+    if (source.contains('vin') || source.contains('discipline') || source.contains('luật')) {
+      return context.uiText('Tạng Luật');
     }
-    if (names.contains('abh') || names.contains('diệu')) {
-      return language == 'vi' ? 'Tạng Luận' : 'Abhidhamma Piṭaka';
+    if (source.contains('abh') || source.contains('higher dhamma') || source.contains('diệu')) {
+      return context.uiText('Tạng Vi Diệu Pháp');
     }
-    return language == 'vi' ? 'Tạng Kinh' : 'Sutta Piṭaka';
+    if (source.contains('sutta') || source.contains('sutra') || source.contains('kinh')) {
+      return context.uiText('Tạng Kinh');
+    }
+    return widget.collection.displayTitle(widget.catalogLanguage);
+  }
+
+  Map<String, List<TipitakaBook>> _families() {
+    final grouped = <String, List<TipitakaBook>>{};
+    for (final book in widget.books) {
+      grouped.putIfAbsent(book.catalogIndex.parallelFamilyCode, () => []).add(book);
+    }
+    return grouped;
   }
 
   @override
   Widget build(BuildContext context) {
-    final language = Localizations.localeOf(context).languageCode;
+    final families = _families();
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: ExpansionTile(
+        key: PageStorageKey(widget.expandedKey),
         initiallyExpanded: _expanded,
-        onExpansionChanged: (value) async {
-          setState(() => _expanded = value);
-          if (value && widget.books.isEmpty && !_loading) {
-            setState(() => _loading = true);
-            try { await widget.onLoadBooks(); } finally { if (mounted) setState(() => _loading = false); }
-          }
-        },
-        leading: const Icon(Icons.folder_open_outlined),
-        title: Text(_title(language)),
+        onExpansionChanged: _handleExpansion,
+        leading: CircleAvatar(
+          radius: 17,
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(_catalogSectionIcon(widget.section), size: 18),
+        ),
+        title: Text(
+          _divisionTitle(context),
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
         subtitle: _loading
-            ? const Text('Đang tải mục lục…')
-            : Text('${widget.books.length} ${context.uiText('nhóm/bộ')}'),
+            ? Text(context.uiText('Đang tải mục lục…'))
+            : Text('${widget.books.length} ${context.uiText('sách')}'),
         children: _loading
             ? [const LinearProgressIndicator(minHeight: 2)]
-            : [for (final book in widget.books)
-                _BookTreeNode(book: book, onOpen: widget.onOpen)],
+            : [
+                for (final entry in families.entries)
+                  if (entry.value.length == 1)
+                    _BookTreeNode(
+                      key: ValueKey('${widget.catalogLanguage}-${entry.value.single.id}'),
+                      book: entry.value.single,
+                      catalogLanguage: widget.catalogLanguage,
+                      expandedKey: 'book:${entry.value.single.id}',
+                      initiallyExpanded: widget.expandedNodeKeys
+                          .contains('book:${entry.value.single.id}'),
+                      onExpanded: (expanded) => widget.onNodeExpanded(
+                        'book:${entry.value.single.id}',
+                        expanded,
+                      ),
+                      onOpen: widget.onOpen,
+                    )
+                  else
+                    _BookFamilyTreeNode(
+                      key: ValueKey('${widget.catalogLanguage}-${widget.section.name}-${widget.collection.id}-${entry.key}'),
+                      familyCode: entry.key,
+                      books: entry.value,
+                      catalogLanguage: widget.catalogLanguage,
+                      expandedKey:
+                          'family:${widget.section.name}:${widget.collection.id}:${entry.key}',
+                      initiallyExpanded: widget.expandedNodeKeys.contains(
+                        'family:${widget.section.name}:${widget.collection.id}:${entry.key}',
+                      ),
+                      onExpanded: (expanded) => widget.onNodeExpanded(
+                        'family:${widget.section.name}:${widget.collection.id}:${entry.key}',
+                        expanded,
+                      ),
+                      expandedNodeKeys: widget.expandedNodeKeys,
+                      onNodeExpanded: widget.onNodeExpanded,
+                      onOpen: widget.onOpen,
+                    ),
+              ],
       ),
     );
   }
 }
 
-class _BookTreeNode extends StatefulWidget {
-  final TipitakaBook book;
+class _BookFamilyTreeNode extends StatelessWidget {
+  final String familyCode;
+  final List<TipitakaBook> books;
+  final String catalogLanguage;
+  final String expandedKey;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpanded;
+  final Set<String> expandedNodeKeys;
+  final void Function(String key, bool expanded) onNodeExpanded;
   final void Function(
     TipitakaBook book, {
     TipitakaSegment? segment,
     String? articleTitle,
   }) onOpen;
 
-  const _BookTreeNode({required this.book, required this.onOpen});
+  const _BookFamilyTreeNode({
+    super.key,
+    required this.familyCode,
+    required this.books,
+    required this.catalogLanguage,
+    required this.expandedKey,
+    required this.initiallyExpanded,
+    required this.onExpanded,
+    required this.expandedNodeKeys,
+    required this.onNodeExpanded,
+    required this.onOpen,
+  });
+
+  String _title(BuildContext context) {
+    final first = books.first;
+    final contentTitle = first.displayTitle(catalogLanguage).trim();
+    final withoutEdition = contentTitle.replaceFirst(
+      RegExp(r'\s*[·–-]\s*(Mūla|Aṭṭhakathā|Ṭīkā|Mula|Tika)\s*$',
+          caseSensitive: false),
+      '',
+    );
+    if (withoutEdition != contentTitle) return withoutEdition;
+    if (books.length == 1) return contentTitle;
+    return '${context.uiText('Nhóm sách')} · $familyCode';
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 12),
+        child: ExpansionTile(
+          key: PageStorageKey(expandedKey),
+          initiallyExpanded: initiallyExpanded,
+          onExpansionChanged: onExpanded,
+          leading: const Icon(Icons.folder_open_outlined, size: 20),
+          title: Text(_title(context)),
+          subtitle: Text('${books.length} ${context.uiText('ấn bản')}'),
+          children: [
+            for (final book in books)
+              _BookTreeNode(
+                key: ValueKey('$catalogLanguage-${book.id}'),
+                book: book,
+                catalogLanguage: catalogLanguage,
+                expandedKey: 'book:${book.id}',
+                initiallyExpanded:
+                    expandedNodeKeys.contains('book:${book.id}'),
+                onExpanded: (expanded) =>
+                    onNodeExpanded('book:${book.id}', expanded),
+                onOpen: onOpen,
+              ),
+          ],
+        ),
+      );
+}
+
+class _BookTreeNode extends StatefulWidget {
+  final TipitakaBook book;
+  final String catalogLanguage;
+  final String expandedKey;
+  final bool initiallyExpanded;
+  final ValueChanged<bool> onExpanded;
+  final void Function(
+    TipitakaBook book, {
+    TipitakaSegment? segment,
+    String? articleTitle,
+  }) onOpen;
+
+  const _BookTreeNode({
+    super.key,
+    required this.book,
+    required this.catalogLanguage,
+    required this.expandedKey,
+    required this.initiallyExpanded,
+    required this.onExpanded,
+    required this.onOpen,
+  });
 
   @override
   State<_BookTreeNode> createState() => _BookTreeNodeState();
@@ -283,6 +867,16 @@ class _BookTreeNode extends StatefulWidget {
 class _BookTreeNodeState extends State<_BookTreeNode> {
   List<TipitakaSegment>? _outline;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initiallyExpanded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadOutline(true);
+      });
+    }
+  }
 
   Future<void> _loadOutline(bool expanded) async {
     if (!expanded || _outline != null || _loading) return;
@@ -296,16 +890,20 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
     }
   }
 
-  String _articleTitle(TipitakaSegment segment, String language) {
+  String _articleTitle(
+    BuildContext context,
+    TipitakaSegment segment,
+    String language,
+  ) {
     final selected = language == 'vi'
         ? segment.translationFor('vi')
         : segment.translationFor(language);
-    final fallback = segment.paliText.trim().isNotEmpty
-        ? segment.paliText
+    final fallback = segment.canonicalPaliText.trim().isNotEmpty
+        ? segment.canonicalPaliText
         : segment.firstTranslation?.value ?? '';
     final clean = _cleanText(selected.trim().isNotEmpty ? selected : fallback);
     if (clean.isEmpty) {
-      return language == 'vi' ? 'Bài kinh' : 'Discourse';
+      return context.uiText('Bài kinh');
     }
     return clean.length > 110 ? '${clean.substring(0, 110)}…' : clean;
   }
@@ -320,7 +918,7 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
           leading: const Icon(Icons.data_object),
           title: Text(context.uiText('Chi tiết kỹ thuật')),
           subtitle: Text(
-            '${index.normalizedCode}\n${index.sourceTable}\n${widget.book.metadataJson ?? ''}',
+            context.uiText('${index.normalizedCode}\n${index.sourceTable}\n${widget.book.metadataJson ?? ''}'),
           ),
         ),
       ),
@@ -329,14 +927,47 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
 
   @override
   Widget build(BuildContext context) {
-    final language = Localizations.localeOf(context).languageCode;
+    final language = widget.catalogLanguage;
     final outline = _outline;
+    final edition = widget.book.catalogIndex.editionLabel;
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 4),
       child: ExpansionTile(
-        onExpansionChanged: _loadOutline,
+        key: PageStorageKey(widget.expandedKey),
+        initiallyExpanded: widget.initiallyExpanded,
+        onExpansionChanged: (expanded) {
+          widget.onExpanded(expanded);
+          _loadOutline(expanded);
+        },
         leading: const Icon(Icons.library_books_outlined),
         title: Text(widget.book.displayTitle(language)),
+        subtitle: edition.isEmpty
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .secondaryContainer
+                          .withValues(alpha: .55),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      edition,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer,
+                          ),
+                    ),
+                  ),
+                ),
+              ),
         trailing: IconButton(
           onPressed: () => _showDetails(context),
           tooltip: context.uiText('Chi tiết kỹ thuật'),
@@ -359,11 +990,11 @@ class _BookTreeNodeState extends State<_BookTreeNode> {
               ListTile(
                 contentPadding: const EdgeInsets.only(left: 58, right: 12),
                 leading: const Icon(Icons.article_outlined, size: 19),
-                title: Text(_articleTitle(segment, language)),
+                title: Text(_articleTitle(context, segment, language)),
                 onTap: () => widget.onOpen(
                   widget.book,
                   segment: segment,
-                  articleTitle: _articleTitle(segment, language),
+                  articleTitle: _articleTitle(context, segment, language),
                 ),
               ),
         ],

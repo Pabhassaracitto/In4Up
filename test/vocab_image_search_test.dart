@@ -243,6 +243,7 @@ void main() {
       "alt": "A butterfly on a flower",
       "src": {
         "original": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg",
+        "large": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
         "large2x": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
         "medium": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&h=350",
         "thumbnail": "https://images.pexels.com/photos/123/pexels-photo-123.jpeg?auto=compress&cs=tinysrgb&dpr=1&fit=crop&h=200&w=280"
@@ -257,12 +258,14 @@ void main() {
   ]
 }''';
 
-    test('map src.large2x → ảnh đầy đủ, medium → thumbnail', () {
+    test('map src.large (≈940px, PLAN-043 nhẹ) → ảnh đầy đủ, medium → thumbnail', () {
       final items = VocabImageWebService.parsePexels(pexelsBody);
       expect(items.length, 1); // item không có src bị bỏ
       final image = items.single;
       expect(image.title, 'A butterfly on a flower');
-      expect(image.imageUrl, contains('dpr=2')); // src.large2x
+      // src.large được ưu tiên hơn large2x (nhẹ hơn, đủ nét cho thẻ học).
+      expect(image.imageUrl, contains('w=940'));
+      expect(image.imageUrl, isNot(contains('dpr=2')));
       expect(image.thumbUrl, contains('h=350'));
       expect(image.pageUrl, contains('/photo/a-butterfly-123/'));
       expect(image.creator, 'Jane Photographer');
@@ -310,7 +313,8 @@ void main() {
       final image = items.single;
       expect(image.title, 'Butterfly wings');
       expect(image.thumbUrl, contains('w=400'));
-      expect(image.imageUrl, contains('w=1980'));
+      // PLAN-043 mục 4: dùng regular 1080px, không tải full 1980px nữa.
+      expect(image.imageUrl, contains('w=1080'));
       expect(image.pageUrl, 'https://unsplash.com/photos/abc');
       expect(image.creator, 'John Shooter');
       expect(image.license, 'Unsplash License');
@@ -419,6 +423,94 @@ void main() {
           .toList();
       expect(names.toSet().length, names.length);
       expect(names, contains('vocab_image_key_pexels'));
+    });
+  });
+
+  // LOTTIE-IMPORT-002 (audit bản 0.10.3 mục 2) — "dán link Lottie thì báo
+  // ảnh hỏng". Nhận diện phải theo NỘI DUNG, không theo đuôi URL.
+  group('looksLikeLottieContent — nhận Lottie theo nội dung', () {
+    Uint8List bytes(List<int> v) => Uint8List.fromList(v);
+    Uint8List json(String v) => Uint8List.fromList(utf8.encode(v));
+
+    test('JSON Lottie thật (có "v" + "layers") → nhận', () {
+      final payload = json(
+        '{"v":"5.7.4","fr":30,"ip":0,"op":60,"w":512,"h":512,"layers":[]}',
+      );
+      expect(VocabImageWebService.looksLikeLottieContent(payload), isTrue);
+    });
+
+    test('JSON bất kỳ (không phải Lottie) → từ chối', () {
+      final payload = json('{"error":"not found","status":404}');
+      expect(VocabImageWebService.looksLikeLottieContent(payload), isFalse);
+    });
+
+    test('trang HTML lỗi trả về từ link .json → từ chối', () {
+      final payload = json('<!doctype html><html><body>404</body></html>');
+      expect(VocabImageWebService.looksLikeLottieContent(payload), isFalse);
+    });
+
+    test('dotLottie (zip) kèm content-type hợp lệ → nhận', () {
+      final payload = bytes([0x50, 0x4B, 0x03, 0x04, 0, 0, 0, 0]);
+      expect(
+        VocabImageWebService.looksLikeLottieContent(
+          payload,
+          contentType: 'application/zip',
+        ),
+        isTrue,
+      );
+      expect(
+        VocabImageWebService.looksLikeLottieContent(payload),
+        isFalse,
+        reason: 'zip không rõ loại thì không nuốt bừa',
+      );
+    });
+
+    test('rỗng → từ chối', () {
+      expect(VocabImageWebService.looksLikeLottieContent(bytes([])), isFalse);
+    });
+  });
+
+  group('parsePixabay — PLAN-043 mục 4', () {
+    const body = '''
+{
+  "totalHits": 2,
+  "hits": [
+    {
+      "pageURL": "https://pixabay.com/photos/1",
+      "largeImageURL": "https://cdn.pixabay.com/photo/1_1280.jpg",
+      "webformatURL": "https://cdn.pixabay.com/photo/1_640.jpg",
+      "previewURL": "https://cdn.pixabay.com/photo/1_150.jpg",
+      "user": "Jacek",
+      "tags": "dog, animal, pet",
+      "type": "photo"
+    },
+    {
+      "pageURL": "https://pixabay.com/illustrations/2",
+      "webformatURL": "https://cdn.pixabay.com/illustration/2_640.png",
+      "previewURL": "https://cdn.pixabay.com/illustration/2_150.png",
+      "user": "Anna",
+      "tags": "cat",
+      "type": "illustration"
+    },
+    {"pageURL": "https://pixabay.com/photos/3", "tags": "no file"}
+  ]
+}
+''';
+
+    test('ưu tiên largeImageURL, fallback webformat; nguồn là pixabay', () {
+      final out = VocabImageWebService.parsePixabay(body);
+      expect(out.length, 2, reason: 'hit không có URL file thì bỏ');
+      expect(out.first.imageUrl, contains('_1280'));
+      expect(out.first.thumbUrl, contains('_150'));
+      expect(out.first.source, 'pixabay');
+      expect(out.first.license, contains('Pixabay'));
+      expect(out[1].imageUrl, contains('_640'));
+    });
+
+    test('JSON rác → rỗng, không ném; limit được tôn trọng', () {
+      expect(VocabImageWebService.parsePixabay('{}'), isEmpty);
+      expect(VocabImageWebService.parsePixabay('<html>'), isEmpty);
+      expect(VocabImageWebService.parsePixabay(body, limit: 1).length, 1);
     });
   });
 }

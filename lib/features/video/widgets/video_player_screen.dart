@@ -12,6 +12,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../utils/system_insets.dart';
 import '../../media_tools/media_export_actions.dart';
+import '../models/video_ab_loop_state.dart';
 import '../models/video_info.dart';
 import '../services/subtitle_parser.dart';
 import '../services/video_device_channel.dart';
@@ -34,6 +35,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double _speed = 1.0;
   List<SubtitleCue> _cues = const [];
   SubtitleCue? _currentCue;
+  VideoAbLoopState _abLoop = VideoAbLoopState.empty;
+  bool _loopRewindPending = false;
   bool _resumed = false;
   Timer? _saveTimer;
 
@@ -115,14 +118,78 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void _onTick() {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
+    final position = c.value.position;
     if (_cues.isNotEmpty) {
-      final cue = SubtitleParser.cueAt(_cues, c.value.position);
-      if (cue != _currentCue) {
+      final cue = SubtitleParser.cueAt(_cues, position);
+      if (cue != _currentCue && mounted) {
         setState(() => _currentCue = cue);
       }
-    } else {
+    } else if (mounted) {
       setState(() {});
     }
+
+    // The native player position is the loop clock. Wait until its seek back
+    // to A is reflected before allowing another wrap (avoids seek storms).
+    final start = _abLoop.a;
+    if (_loopRewindPending && start != null &&
+        position <= start + const Duration(milliseconds: 250)) {
+      _loopRewindPending = false;
+    }
+    final target = _abLoop.wrapTarget(position);
+    if (target != null && !_loopRewindPending) {
+      _loopRewindPending = true;
+      unawaited(c.seekTo(target));
+    }
+  }
+
+  void _markLoopA() {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    setState(() {
+      _abLoop = _abLoop.markA(c.value.position, c.value.duration);
+      _loopRewindPending = false;
+    });
+  }
+
+  void _markLoopB() {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    final next = _abLoop.markB(c.value.position, c.value.duration);
+    if (next == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Đặt B cách A ít nhất 0,3 giây')),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _abLoop = next;
+      _loopRewindPending = true;
+    });
+    unawaited(c.seekTo(next.a!));
+  }
+
+  void _loopCurrentCue() {
+    final c = _controller;
+    final cue = _currentCue;
+    if (c == null || cue == null || !c.value.isInitialized) return;
+    final next = VideoAbLoopState.empty
+        .markA(cue.start, c.value.duration)
+        .markB(cue.end, c.value.duration);
+    if (next == null) return;
+    setState(() {
+      _abLoop = next;
+      _loopRewindPending = true;
+    });
+    unawaited(c.seekTo(next.a!));
+  }
+
+  void _clearLoop() {
+    setState(() {
+      _abLoop = VideoAbLoopState.empty;
+      _loopRewindPending = false;
+    });
   }
 
   Future<void> _persistPosition() async {
@@ -211,6 +278,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 switch (value) {
                   case 'extract_audio':
                     await exportAudioFromVideo(context, widget.video);
+                  case 'clip_ab_audio':
+                    final start = _abLoop.a;
+                    final end = _abLoop.b;
+                    if (start != null && end != null && end > start) {
+                      await exportAudioFromVideo(
+                        context,
+                        widget.video,
+                        clipStart: start,
+                        clipDuration: end - start,
+                      );
+                    }
                   case 'clip_audio':
                     final position = c.value.position;
                     final duration = c.value.duration - position;
@@ -225,6 +303,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 }
               },
               itemBuilder: (_) => [
+                if (_abLoop.isActive)
+                  PopupMenuItem(
+                    value: 'clip_ab_audio',
+                    child: Text(
+                      context.uiText('Xuất đoạn A-B'),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
+                  ),
                 PopupMenuItem(
                   value: 'extract_audio',
                   child: Text(
@@ -368,6 +454,68 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               ),
               Text(_fmt(dur),
                   style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+            ],
+          ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
+            runSpacing: 0,
+            children: [
+              Tooltip(
+                message: context.uiText('Đặt A tại vị trí phát'),
+                child: TextButton.icon(
+                  onPressed: _markLoopA,
+                  icon: const Icon(Icons.looks_one_rounded, size: 18),
+                  label: const Text('A'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _abLoop.hasA ? Colors.amber : Colors.white70,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+              Tooltip(
+                message: context.uiText('Đặt B tại vị trí phát'),
+                child: TextButton.icon(
+                  onPressed: _abLoop.hasA ? _markLoopB : null,
+                  icon: const Icon(Icons.looks_two_rounded, size: 18),
+                  label: const Text('B'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _abLoop.isActive ? Colors.amber : Colors.white70,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+              if (_abLoop.isActive)
+                Chip(
+                  avatar: const Icon(Icons.repeat_rounded, size: 16),
+                  label: Text(
+                    '${_fmt(_abLoop.a!)} → ${_fmt(_abLoop.b!)}',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: _accent.withValues(alpha: 0.22),
+                  side: BorderSide.none,
+                  labelStyle: const TextStyle(color: Colors.white),
+                ),
+              if (_abLoop.hasA)
+                IconButton(
+                  tooltip: context.uiText('Xóa A-B'),
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  color: Colors.white70,
+                  onPressed: _clearLoop,
+                ),
+              if (_currentCue != null && _cues.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _loopCurrentCue,
+                  icon: const Icon(Icons.subtitles_rounded, size: 18),
+                  label: Text(context.uiText('Lặp câu')),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
             ],
           ),
           Row(

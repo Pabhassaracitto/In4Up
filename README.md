@@ -10,7 +10,7 @@
 **UltraTimeStretch V2** native audio engine — playback from **0.05× to 10×** with a voice that still sounds human.
 
 [![Release](https://img.shields.io/github/v/release/Pabhassaracitto/In4Up?style=flat-square&color=F4C95D&labelColor=06121E&label=release)](https://github.com/Pabhassaracitto/In4Up/releases)
-[![App version](https://img.shields.io/badge/pubspec-1.4.1%2B3-53D6BD?style=flat-square&labelColor=06121E)](pubspec.yaml)
+[![App version](https://img.shields.io/badge/pubspec-1.25.0%2B25-53D6BD?style=flat-square&labelColor=06121E)](pubspec.yaml)
 [![Flutter](https://img.shields.io/badge/Flutter-3.44.1-53D6BD?style=flat-square&labelColor=06121E&logo=flutter&logoColor=white)](https://flutter.dev)
 [![Platforms](https://img.shields.io/badge/Android%20%C2%B7%20iOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20Web-06121E?style=flat-square&labelColor=091A2A)](#platform-support)
 [![Languages](https://img.shields.io/badge/UI%20locales-26-F4C95D?style=flat-square&labelColor=06121E)](#status-at-a-glance)
@@ -54,6 +54,7 @@ one to drill flashcards. Every switch costs attention, and attention is the scar
 - [Platform support](#platform-support)
 - [Quality gates](#quality-gates)
 - [Roadmap](#roadmap)
+- [How these numbers are produced](#how-these-numbers-are-produced)
 - [How this project is run](#how-this-project-is-run)
 - [License & credits](#license--credits)
 
@@ -62,19 +63,21 @@ one to drill flashcards. Every switch costs attention, and attention is the scar
 ## Status at a glance
 
 > Single source of truth for work status is [`docs/project/KANBAN.md`](docs/project/KANBAN.md).
-> The numbers below are a snapshot of that board on **2026-09-28**.
+> Every number below was **measured from the repository on 2026-11-09** (commands in
+> [How these numbers are produced](#how-these-numbers-are-produced)) — no estimates.
 
 | Signal | Value |
 |---|---|
-| Work items on the board | **88** — ✅ 60 done · 🔄 19 in flight · 📋 6 proposed · 🚫 3 blocked |
-| Delivery milestones | **M0 · M1 · M2 done** (knowledge schema → memory pipeline → suggestion intelligence); M3 is deliberately out of scope |
-| Architecture decisions | **ADR-0001 → ADR-0008** recorded in [`docs/adr/`](docs/adr) |
-| Accepted plans | **32** entries in [`docs/project/PLAN.md`](docs/project/PLAN.md) |
-| Code size | ~**600** Dart files · ~**255k** lines across `lib/` + `packages/` |
-| Automated tests | **81** test files (knowledge, PDF reader, IPA, translation, LHB, cabin, locale gate…) |
-| UI locales | **26** ARB catalogues · **492** keys each |
-| CI oracles | `app_analyze.yml` (analyze + rule #5 locale + LHB + cabin), `build.yml`, `build_final_complete.yml` |
-| Known blockers | Windows release zip packaging, Linux CI (`webkit2gtk-4.1`), both waiting on repo-owner actions |
+| Work cards on the board | **215** rows — ✅ **94** done · 🔨 **94** in flight · 📋 **21** proposed · 🚫 **4** blocked |
+| Latest release | **[1.25.0](https://github.com/Pabhassaracitto/In4Up/releases/tag/1.25.0)** — **4/4 platform jobs green** (Android · iOS · Windows · Linux) |
+| App version in `pubspec.yaml` | `1.25.0+25` (`versionCode 25` ⇒ in-place update over 1.24.0) |
+| Architecture decisions | **38** ADRs in [`docs/adr/`](docs/adr) — ADR-0001 → ADR-0026 in use, 0022–0026 from the current cycle |
+| Accepted plans | **48** PLAN entries in [`docs/project/PLAN.md`](docs/project/PLAN.md) |
+| Code size | **750** Dart files · **332,640** lines in `lib/` · **278** `*_test.dart` files |
+| Hand-written native code | **7,048** lines C/C++ (DSP + FFI glue) on top of the `llama.cpp` / `audio.cpp` submodules |
+| UI locales | **26** ARB catalogues · **555** message keys in `app_en.arb` |
+| CI oracles (5 workflows) | `app_analyze.yml` (analyze + rule #5 locale + ~40 targeted suites), `listen_queue_tests.yml`, `build.yml`, `build_final_complete.yml` (4 platforms), `deploy-web.yml` |
+| Known blockers | None for **building**; several cards wait on the owner's **on-device acceptance** (each Kanban card lists its own) |
 
 **Legend used throughout this document:** ✅ shipped & CI green · 🔄 in progress · 📋 planned · 🚫 blocked.
 "Shipped" means the code is on the development trunk with green CI; several items additionally await
@@ -85,18 +88,26 @@ on-device acceptance by the owner, which the Kanban card records per item.
 ## The Studio: seven modes
 
 The shell keeps **five destinations** in the bottom bar so navigation stays inside working memory
-(Home · Listen · Read · Understand · Remember). Inside Listen and Read, a secondary switch reveals the
-sibling modes, and Home surfaces all seven as the **Studio Room** grid.
+(Home · **Read · Listen** · Understand · Remember — Read sits **before** Listen by default, and the two
+can be swapped in Settings). Inside Listen and Read, a secondary switch reveals the sibling modes, and
+Home surfaces all seven as the **Studio Room** grid in the order
+**ĐỌC · VIẾT · NGHE · NÓI · XEM · HIỂU · NHỚ**.
+
+The content order is a single shared model ([`lib/models/shell_content_order.dart`](lib/models/shell_content_order.dart)):
+bottom navigation *and* both library drawers read it, so a reorder can never pair the Listen tab with the
+Read library. A pure-Dart CI gate (`test/shell_content_order_test.dart`) pins it.
+
+Rows are listed in the order the Studio grid shows them (**ĐỌC · VIẾT · NGHE · NÓI · XEM · HIỂU · NHỚ**).
 
 | Mode | Where | What you actually do |
 |---|---|---|
-| 🎧 **NGHE / Listen** | Listen tab | Rolling waveform with a fixed playhead, A–B loops with configurable silence gaps, LRC/subtitle curtain, Soundlist index, speed 0.05×–10×. |
-| 🎙️ **NÓI / Speak** | Listen ▸ sub-mode | Shadowing hub: record, align, phoneme-level pronunciation scoring, presets (built-in + personal), speaking history with exportable feedback. |
-| 📺 **XEM / Watch** | Listen ▸ sub-mode | Local video library and player with subtitles, word capture from what you watch. |
-| 📖 **ĐỌC / Read** | Read tab | Interactive reader: IPA layers, CEFR + part-of-speech colouring, tap-to-save vocabulary with context, batch selection save, PDF / Web / Tipiṭaka / dictionary integration. |
+| 📖 **ĐỌC / Read** | Read tab (left of Listen by default) | Interactive reader: IPA layers, CEFR + part-of-speech colouring, tap-to-save vocabulary with context, batch selection save, PDF / Web / Tipiṭaka / dictionary integration, auto-scroll to the spoken line. |
 | ✍️ **VIẾT / Write** | Read ▸ sub-mode | Write Studio: copy, cloze, multiple choice, "rewrite the idea", "short summary" — local heuristic scoring first, optional local-AI second tier. |
+| 🎧 **NGHE / Listen** | Listen tab | Rolling waveform with a fixed playhead, A–B loops with configurable silence gaps, LRC/subtitle curtain, Soundlist index, **cancellable media export**, speed 0.05×–10×. |
+| 🎙️ **NÓI / Speak** | Listen ▸ sub-mode | Shadowing hub: record, align, phoneme-level pronunciation scoring, presets (built-in + personal), speaking history with exportable feedback. |
+| 📺 **XEM / Watch** | Listen ▸ sub-mode | Local video library and player with subtitles, A–B loop clipping, audio extraction and word capture from what you watch. |
 | 💡 **HIỂU / Understand** | Understand tab | Audio↔text synchronisation, bilingual playback, comprehension checks, translation across tabs. |
-| 🌱 **NHỚ / Remember** | Remember tab | Memory Garden (Seed → Sprout → Tree → Branch → Bud → Bloom), SM-2 review queues, word lists, timeline, stats, knowledge map, Learn-by-Heart. |
+| 🌱 **NHỚ / Remember** | Remember tab | Memory Garden (Seed → Sprout → Tree → Branch → Bud → Bloom), six-axis skill view, SM-2 review queues, word lists, timeline, stats, knowledge map, Learn-by-Heart. |
 
 Tools are **not** a sixth tab. They live in a context-aware **quick-actions overlay** (⚡) whose ordering
 adapts to the current tab and recent usage — Cabin, YouTube, PDF, Web Reader, YouGlish, Soundlist,
@@ -132,6 +143,61 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
 [`docs/project/KANBAN.md`](docs/project/KANBAN.md).
 
 <details open>
+<summary><b>🎬 Media tools, Edge TTS & shell polish (releases 1.22 → 1.25)</b></summary>
+
+- ✅ **AVTOOL-001 — media tools on the FFmpeg you already have** ([ADR-0026](docs/adr/0026-cong-cu-media-tren-ffmpeg-co-san.md)).
+  Every command is built as an **argument vector**, never a shell string, so file names with spaces,
+  quotes or Vietnamese diacritics cannot inject anything. Long jobs are **cancellable** within seconds,
+  stream progress, and classify failures into actionable messages. 12 test files cover the command
+  builder, probe parser, progress parsing, naming, estimates, diagnostics and the cancel path.
+- ✅ **AVTOOL-002/003 — export the part you actually study**: cut an **A–B segment** out of a long
+  recording, and **extract the audio track from a video**, both with automatic naming + follow-up actions.
+- ✅ **TTS-EDGE-001 / PSRC-18 — Microsoft Edge neural voices**: Sec-MS-GEC **v2** tokens with clock-skew
+  correction, **8 Edge Neural locales**, per-language voice catalogue, and a routing guard so a weak
+  connectivity check can never silently disable the chosen voice. The Server-API settings screen and the
+  Home server form were unified in the same pass.
+- ✅ **SAFE-INSET-001 — nothing hides under the system navigation bar.** Android 15 (`targetSdk 35`) forces
+  edge-to-edge, and Flutter only pads `Scaffold.bottomNavigationBar`. A single helper
+  ([`lib/utils/system_insets.dart`](lib/utils/system_insets.dart)) now owns that maths, and every bottom
+  surface uses it: the PDF TTS bar, the web-reader legends, the video subtitles, the read dock.
+  `test/system/bottom_nav_inset_test.dart` pins the helper *and* source-scans the surfaces, so a regression
+  fails CI instead of hiding behind a gesture bar.
+- ✅ **UI-ORDER-001 — Read before Listen** everywhere (bottom bar, both library drawers, Studio grid), with a
+  one-shot migration flag for existing installs.
+- ✅ **1.19 → 1.25 releases** are cut from this trunk by `build_final_complete.yml` and ship **all four**
+  platform artefacts (APK · IPA · Linux tarball · Windows zip) — 4/4 green on 1.22.0, 1.23.0, 1.24.0 and 1.25.0.
+
+</details>
+
+<details open>
+<summary><b>🧠 Six-axis knowledge, voice cloning & new readers (releases 1.21 → 1.24)</b></summary>
+
+- ✅ **Knowledge 6-axis engine, P1 → P4** (ADR-0015/0017, ADR-0025): `SkillKind` schema with
+  `EvidenceMetadata`, an EMA patch-A′ scorer plus `MasteryVector`, archetype detection and a network
+  bundler, then the UI layer (hexagram + scatter views, calibration and rollback). The six skills are a
+  **read-only projection** — the three legacy SM-2 scores stay untouched (golden rule #2).
+- ✅ **VieNeu-TTS voice cloning**: record samples in-app, native `vieneu_tts_clone_voice` builds the voice,
+  and **model variants** (`q8_0` ≈170 MB / `bf16` ≈292 MB) are selectable and persisted, with the TTS cache
+  keyed by variant so two models can never collide. *(Known limit: without the optional
+  `libspeaker_encoder` the embedding is a placeholder — the card says so.)*
+- ✅ **Dictionary `.db` import (DICT-SQLITE-001)**: SQLite dictionaries are now picked up by the folder scan
+  and the file picker, with a pure `pickDefinitionMapping()` that scores tables/columns, skips
+  `sqlite_*`/`android_metadata`/`room_master_table`, never mistakes `id` for a headword, and infers the
+  language pair from the file name (`Pháp-Việt.db` → FR→VI).
+- ✅ **YouTube → Read pipeline hardened (YT-LRC-LONG-001)**: absolute-minute LRC timestamps (a 1 h 05 video no
+  longer wraps to `[05:00]`), a new pure parser that survives `[125:03.45]`, and a bridge that reports *why*
+  it failed instead of popping silently. 14 tests in CI.
+- ✅ **Cabin keeps every sentence (CABIN-FLUSH-001)**: the active partial is flushed before the recogniser
+  closes, on both **stop** and **pause**, with a `hasNewerPartial` guard so an async translation can never
+  overwrite newer text; the transcript card shows ĐANG NHẬN / ĐÃ CHỐT / ĐÃ DỊCH.
+- ✅ **Tipiṭaka data management**: the demo canon is purged as soon as real data is imported, the target
+  language is restored in the reader, and imported databases can be listed and deleted from Settings.
+- ✅ **Listen tab**: follow the spoken line without fighting manual drags (real drag vs indexed scroll are
+  distinguished), and typing a song title no longer auto-opens the lyric-creation sheet.
+
+</details>
+
+<details open>
 <summary><b>🔊 Sound, speech & the offline speech stack</b></summary>
 
 - ✅ **Soundlist / Âm mục** — turn any recording into a navigable talking book: sound marks, book-style
@@ -160,10 +226,14 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
 - ✅ **Save what you read, properly** — multi-line phrase/sentence capture with topic + language, an edit
   sheet that never loses fields, an optional "already saved" marker with a legend, and smart batch save
   shared by the PDF and Web readers.
-- 🔨 **PDF reader waves 0–2** — selection bridge, sentence TTS, stable file identity (`md5(size|mtime)`),
-  a documented coordinate system (ADR-0003/0004), outline, in-file search, thumbnails, page jump, keyboard
-  shortcuts, reading themes, annotation export/import (JSON / XFDF / stamped PDF). 134 tests written.
-- 🔄 **Dictionary MDX/MDD** (`DICT-001`) — import, look up and manage multilingual dictionaries on device.
+- ✅ **PDF reader waves 0–2 + audit hardening** — selection bridge, sentence TTS, stable file identity
+  (`md5(size|mtime)`), a documented coordinate system (ADR-0003/0004), outline, in-file search, thumbnails,
+  page jump, keyboard shortcuts, reading themes, annotation export/import (JSON / XFDF / stamped PDF), and an
+  **open preflight** that explains a missing/corrupt file instead of letting PDFium throw `FPDF_ER_FILE:2`.
+  21 test files guard it, including the translated-overlay layout rules.
+- ✅ **Dictionary MDX/MDD + SQLite** (`DICT-001`, `DICT-SQLITE-001`) — import, look up and manage multilingual
+  dictionaries on device; `.db` bundles are auto-detected with scored table/column mapping and a language pair
+  inferred from the file name.
 - ✅ **Tipiṭaka module** — normalised SQLite reader with bilingual view, search, 26 language packs and an
   import script; see [`docs/tipitaka_database.md`](docs/tipitaka_database.md).
 - 📋 **READ-GRAM-001** — phrase and sentence-structure analysis next to "part of speech / CEFR".
@@ -192,7 +262,9 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
   the app ships no keys, and with nothing configured **no request ever leaves the device**.
 - ✅ **Translation** — Buddhist/Pāli glossary with protected tokens applied before every engine,
   ML Kit offline pairs (EN↔VI, EN↔HI, HI↔VI pivoted through EN), plus an online-first smart default that
-  silently falls back offline. Engines: Google (free) · DeepLX · Libre · MyMemory · ML Kit · Hy-MT · offline.
+  silently falls back offline. Engines: Google (free) · DeepLX · Libre · MyMemory · ML Kit · **Hy-MT (local
+  llama.cpp, with 2-bit quants rejected pre-flight)** · **LLM-MT through your Server API** · offline.
+  A link guard keeps pasted URLs out of translation and remembers DeepLX endpoints without leaking tokens.
 
 </details>
 
@@ -211,7 +283,10 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
   locale still shows Vietnamese chrome.
 - ✅ **Linux sign-in** (ADR-0005) — Google login and vocabulary sync through Firebase REST where the native
   FlutterFire plugins do not exist, with zero new dependencies.
-- 🔄 **YouTube learning** in the style of Language Reactor, local-first with no yt-dlp server.
+- 🔄 **YouTube learning** in the style of Language Reactor, local-first with no yt-dlp server — captions →
+  sentence-level transcript → Read tab, with long-video LRC timing fixed and explicit failure reasons.
+- ✅ **Screen translation, OCR and YouGlish** — bubble overlay for on-screen text, ML Kit OCR with a crash
+  shield, and pronunciation examples sourced from one place of truth.
 
 </details>
 
@@ -246,6 +321,9 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
 | Tipiṭaka | Normalised SQLite canon, bilingual reader, search, downloadable language packs |
 | Dictionaries | MDX/MDD import, offline lookup, IPA source for saved words |
 | Text files | `.txt`, `.md`, `.json`, `.docx`, LRC/SRT — pure-Dart loaders, no extra dependencies |
+| Media tools | Cut an **A–B segment**, extract audio from video, shift LRC timings — driven by **argument vectors** through the FFmpeg already on the device, cancellable |
+| Screen | On-device **screen translation** bubble and **ML Kit OCR** with a crash shield |
+| Pronunciation examples | **YouGlish** lookups behind one source-of-truth resolver |
 
 </details>
 
@@ -256,8 +334,11 @@ Highlights from the current development cycle. Each line maps to a Kanban card I
   plugin on mobile) and **sherpa-onnx Zipformer** (offline Vietnamese, streaming English), with a model
   manager, audio conversion (FFmpegKit on mobile, `ffmpeg` process on desktop), LRC conversion, and
   speaker diarization sidecars.
-- **TTS** — Google, FPT, Zalo, the OS engine, and **Piper neural voices** offline, with caching, language
-  detection, per-voice preferences and a download catalogue sourced from `rhasspy/piper-voices`.
+- **TTS — nine engines, one cache.** `lib/features/tts/engines/` ships Google · **Microsoft Edge neural**
+  (edge-tts v2 tokens, 8 locales) · FPT · Zalo · **Piper** (offline) · **VieNeu-TTS** (native audio.cpp,
+  Vietnamese, voice cloning) · **OpenAI-compatible** (your own server) · the OS engine · an offline fallback.
+  The cache key is `engine + language + voice + model variant + speed + pitch`, so switching any of them
+  cannot serve you the previous voice, and a wrong-variant hit is impossible.
 - **Pronunciation** — CMUdict + rule-based G2P, phoneme analyser, waveform comparison, score cards.
 
 </details>
@@ -288,8 +369,10 @@ have or download on demand — the app never downloads a model on its own. The c
 | **Silero VAD** (onnx) | `sherpa_vad_models/` | 2–5 MB | silence splitting, fast long-file processing | recommended |
 | **Piper TTS** | `sherpa_piper_models/` | ~75 MB / voice | neural offline speech | for offline TTS |
 | **Zipformer ASR** | `sherpa_asr_models/` | 20–32 MB | live offline speech recognition | for the Cabin |
+| **Parakeet ASR** | model centre | per-export | alternative live STT engine, selectable in the Cabin / Listen routing | optional |
+| **VieNeu-TTS GGUF** | `vieneu_tts/` | **~170 MB** (`q8_0`) / **~292 MB** (`bf16`) | Vietnamese neural TTS on-device (audio.cpp), voice cloning from recorded samples | optional |
 | **Gemma / llama.cpp GGUF** | model centre | 0.6–2 GB | local chat, analysis, writing feedback | optional |
-| **Hy-MT GGUF** | model centre | ~600 MB | offline machine translation | optional |
+| **Hy-MT GGUF** | model centre | ~600 MB | offline machine translation (2-bit quants are rejected pre-flight) | optional |
 
 > The **Server API layer** exists precisely because heavy models cost RAM, heat and load time on phones:
 > point In4Up at Ollama or LM Studio on your PC over the LAN, or at a cloud endpoint with your own key,
@@ -344,20 +427,20 @@ flowchart TB
 
 | Path | What lives there |
 |---|---|
-| `lib/screens/` | Shell, five tabs, Studio modes, tools, settings (142 files) |
-| `lib/features/` | 19 self-contained domain modules (221 files) |
-| `lib/knowledge/` | Knowledge MVA models, review store, attention, grounding (18 files) |
-| `lib/services/` | Storage, sync, IPA resolution, audio library, auto-TOC, text loaders (28 files) |
-| `lib/providers/` | Player, text, vocabulary, waveform, focus state (15 files) |
-| `lib/core/` | Language catalogue (26 locales) and the responsive system |
-| `lib/l10n/` | 26 ARB catalogues × 492 keys + generated localisations |
-| `lib/ffi/`, `lib/native/`, `native/` | UltraTimeStretch bindings and C++ sources (**protected**) |
-| `packages/` | `in4up_core`, `in4up_stt`, `in4up_ai` |
+| `lib/screens/` | Shell, five tabs, Studio modes, tools, settings — **175 files** |
+| `lib/features/` | **25** self-contained domain modules — **387 files** (`pdf_reader`, `web_reader`, `tipitaka`, `dictionary`, `video`, `youtube`, `media_tools`, `tts`, `translation`, `cabin`, `shadowing`, `vad`, `ocr`, `screen_translate`, `learn_by_heart`, `writing`, `grammar`, `word_lookup`, `vocab_image`, `voice_command`, `understand_ai`, `dharma`, `canon`, `text`, `background_removal`) |
+| `lib/knowledge/` | Knowledge MVA + six-axis models, review store, attention, grounding — **35 files** |
+| `lib/services/` | Storage, sync, IPA resolution, audio library, auto-TOC, text loaders, system insets — **35 files** |
+| `lib/providers/` | Player, text, vocabulary, waveform, focus state — **16 files** |
+| `lib/core/` | Language catalogue (26 locales), responsive system, i18n runtime — **13 files** |
+| `lib/l10n/` | 26 ARB catalogues × **555** keys + generated localisations |
+| `lib/ffi/`, `lib/native/`, `native/` | UltraTimeStretch bindings and C++ sources (**protected**) · **7,048** lines hand-written C/C++ |
+| `packages/` | `in4up_core`, `in4up_stt`, `in4up_ai` — plus two legacy `vipsound_*` packages excluded from analysis |
+| `third_party/` | Submodules `llama.cpp` and `audio.cpp` (checked out by CI before native builds) |
 | `android/ ios/ windows/ linux/ web/` | Platform shells, native CMake, flavors |
 | `assets/` | Icons, CMUdict, glossary, Tipiṭaka demo DB, model drop-folders |
-| `brand/` | Logo concepts, chosen mark, colour tokens |
-| `docs/` | Governance, Kanban, plans, ADRs, agent skills, handovers |
-| `test/`, `tool/`, `scripts/` | 81 test files, i18n tooling, CI helpers, importers |
+| `docs/` | Governance, Kanban, **48** plans, **38** ADRs, agent skills, handovers, user guide |
+| `test/`, `tool/`, `scripts/` | **278** `*_test.dart` files, i18n tooling, CI helpers, importers |
 
 ---
 
@@ -407,10 +490,12 @@ non-colour partner (icon, label, or legend) so no information is lost to colour 
 
 ### Prerequisites
 
-- **Flutter 3.44.1** (the version pinned in CI) with Dart SDK `>=3.0.0 <4.0.0`
-- Android: JDK 17, Android SDK 35, NDK `28.2.13676358`, CMake toolchain
-- iOS: Xcode with deployment target **15.5+**
-- Windows: Visual Studio C++ toolchain + CMake (needed for the native engines)
+- **Flutter 3.44.1** — the exact version pinned in all 5 workflows (Dart `>=3.0.0 <4.0.0`)
+- **Android**: JDK 17 · compileSdk **36** · targetSdk **35** · minSdk 24 · NDK `28.2.13676358` · CMake
+- **iOS**: Xcode with deployment target **15.5+** · **Linux**: `webkit2gtk` + CMake · **Windows**: Visual
+  Studio C++ toolchain + CMake (all needed for the native engines)
+- **Git submodules** — the native AI/audio engines live in `third_party/`:
+  `git submodule update --init --depth 1 third_party/llama.cpp third_party/audio.cpp`
 - Optional: a Firebase project — without it the app still runs, sync is simply disabled
 
 ### Clone & run
@@ -478,11 +563,11 @@ flutter test                      # everything
 
 | Platform | Status | Notes |
 |---|---|---|
-| **Android** | ✅ primary | minSdk 24 · target 35 · flavors `stable`/`dev`/`beta` · native UltraTimeStretch, whisper.cpp, llama.cpp, sherpa-onnx |
-| **Windows** | ✅ supported | CMake-built native libraries, `just_audio_windows`, `webview_windows`, Whisper via FFI/CLI · 🚫 release-zip packaging fix pending (`CI-WINDOWS-01`) |
-| **iOS** | ✅ builds green in CI | deployment target 15.5, ATS allows local networking for LAN AI servers |
-| **Linux** | 🔄 partial | Google sign-in and sync run through the Firebase REST fallback (ADR-0005) · 🚫 CI job blocked on `webkit2gtk-4.1` |
-| **Web** | 🔄 limited | UI runs; native FFI engines (time-stretch, Whisper, llama.cpp, sherpa) are unavailable by design |
+| **Android** | ✅ primary, **shipping** | minSdk 24 · target 35 · compileSdk 36 · NDK 28.2.13676358 · Java 17 · flavors `stable`/`dev`/`beta` · native UltraTimeStretch, whisper.cpp, llama.cpp, sherpa-onnx, audio.cpp |
+| **Windows** | ✅ **builds green & ships** | CMake-built native libraries, `just_audio_windows`, `webview_windows`, Whisper via FFI/CLI; the old release-zip blocker (`CI-WINDOWS-01`) is closed — the 1.22 → 1.25 releases all carry `in4up-Windows-<tag>.zip` |
+| **iOS** | ✅ **builds green & ships** | deployment target 15.5, ATS allows local networking for LAN AI servers; sideload IPA published per release |
+| **Linux** | ✅ **builds green** | Google sign-in and sync run through the Firebase REST fallback (ADR-0005); the old `webkit2gtk-4.1` CI blocker is gone — `in4up-Linux-<tag>.tar.gz` is published per release |
+| **Web** | 🔄 limited on purpose | The web entrypoint (`lib/main_web.dart`) is deployed to GitHub Pages on every push; native FFI engines (time-stretch, Whisper, llama.cpp, sherpa, VieNeu) are unavailable by design, so the site is a light reader — not the full studio |
 
 Builds are produced by GitHub Actions and published to [Releases](https://github.com/Pabhassaracitto/In4Up/releases);
 In4Up is not distributed through app stores.
@@ -493,35 +578,71 @@ In4Up is not distributed through app stores.
 
 | Gate | What it protects |
 |---|---|
-| `app_analyze.yml` | Full-app analyze (errors fatal only) + rule #5 locale test + Learn-by-Heart suite + Cabin suite; logs uploaded as artifacts |
-| `build.yml` | Release builds for Android, iOS and Windows, including the native llama.cpp/whisper pipeline |
-| `build_final_complete.yml` | Extended matrix, including the Linux job |
-| Knowledge suite | `test/knowledge/` — schema, merge/split, SM-2 equivalence grid, compaction, lifecycle, grounding |
-| PDF suite | `test/pdf_reader/` — geometry, file identity, outline, search, shortcuts, i18n coverage |
-| i18n ratchet | ADR-0002 tier floors in `tool/lang_rollout_report.py`; coverage may only increase |
+| `app_analyze.yml` | Full-app analyze (**errors fatal only**) + rule #5 locale test + ~40 targeted suites (knowledge, PDF, Cabin, LHB, dictionary, YouTube, Hy-MT, media, SAFE-INSET…); each step uploads its log as an artifact |
+| `listen_queue_tests.yml` | 14 parallel jobs over the playback/queue matrix — the regression net for the Listen tab |
+| `build.yml` | Release builds for Android, iOS and Windows, including the native llama.cpp / whisper pipeline |
+| `build_final_complete.yml` | **The release gate**: Android · iOS · Linux · Windows, signed-APK verification, asset upload to the tag's release |
+| `deploy-web.yml` | Compiles the web entrypoint, then force-pushes `gh-pages` (verifies `.nojekyll` + the loader was replaced) |
+| Knowledge suite | `test/knowledge/` (**26** files) — schema, merge/split, SM-2 equivalence grid, compaction, lifecycle, six-axis scorers, grounding |
+| PDF suite | `test/pdf_reader/` (**21** files) — geometry, file identity, open preflight, outline, search, shortcuts, i18n coverage |
+| Media suite | `test/media_tools/` (**12** files) — command builder, probe, progress, naming, cancel, diagnostics |
+| i18n ratchet | ADR-0002 tier floors in `tool/lang_rollout_report.py`; **T2 (hi/zh/zh_TW/si) must stay at 100 %**, T3 floors may only rise |
 | Agent skill | [`docs/skills/ci-red-debugging/SKILL.md`](docs/skills/ci-red-debugging/SKILL.md) — how to diagnose a red run without log access |
+
+> ⚠️ `test/workspace_shell_integration_test.dart` is deliberately **not** in CI: it hangs > 8 minutes on a
+> runner. Run it by hand before touching shell navigation. The order contract itself is pinned by the pure
+> `test/shell_content_order_test.dart` gate instead.
 
 ---
 
 ## Roadmap
 
-**Now (in flight)**
+Tracked live on the Kanban board (**94** cards in flight, **21** proposed). The shape of the queue today:
 
-- PDF reader waves 0–2 device acceptance and the remaining export formats.
-- `READ-IPA-006` interactive IPA panel, liaison and stress marking.
-- Dictionary MDX (`DICT-001`) and local video (`VID-001`) polish.
-- Cabin Save round-trip into the Read tab; audio compression.
-- Server API WP1–WP4: plugging remote chat, STT and TTS engines behind the routing switch.
+**Now (in flight, code often already green — waiting on device acceptance or owner review)**
 
-**Next (accepted plans)**
+- `VOCAB-MASTERY-001` — merge the six-axis knowledge layer while keeping the Venn view safe (ADR-0025).
+- `READ-UI-121` — Read tab: restore the five legacy buttons, auto-scroll to the spoken line, ABC→IPA (ADR-0024).
+- `PLAN-039` / `KARAOKE-001` — Listen-tab session queue and the two karaoke modes.
+- `CONCEPT-001`, `WORDLIST-TTS-001`, `WORDLIST-AI-IMPORT-001`, `IMG-WEB-002`, `LOTTIE-LIB-001` — the PLAN-043
+  vocabulary cluster (multilingual concepts, word+nghĩa playback, bulk AI import, Pixabay search, offline
+  animation library).
+- `DHRM-001` — Dhamma talks from Drive: catalogue by teacher/course, resume by content identity.
+- `TTS-EDGE-ROUTE-001` — Edge voice selection must survive every connectivity state on Windows.
 
+**Next (accepted plans, not started)**
+
+- `DHRM-002 → 004` — durable Drive audio, then "golden quote" capture and per-segment transcription.
 - `READ-GRAM-001` / PLAN-031 — phrase and sentence structure beside part-of-speech and CEFR.
-- `INTEGRATE-1` — fold the remaining knowledge-work branch history into the trunk.
 - `I18N-001` — clear the backlog of unclassified UI literals and raise T3 locale coverage.
-- PLAN-026 vocabulary images, PLAN-027 VieNeu-TTS, PLAN-006 cross-modal mastery checks.
+- Real speaker-encoder support for VieNeu cloning (today the embedding is a placeholder).
 
 **Deliberately out of scope** (reopen only with a new ADR): embeddings, vector databases, automatic LLM
 summarisation pipelines, GGUF fine-tuning, and a full knowledge-graph UI.
+
+---
+
+## How these numbers are produced
+
+Every figure in this README is reproducible from a clean clone — no estimates, no marketing rounding:
+
+```bash
+grep '^version:' pubspec.yaml                                   # app version + build number
+ls lib/l10n/app_*.arb | wc -l                                   # UI locales
+python3 -c "import json;d=json.load(open('lib/l10n/app_en.arb'));print(len([k for k in d if not k.startswith('@')]))"
+find lib -name '*.dart' | wc -l                                 # Dart files in lib/
+find lib -name '*.dart' -exec cat {} + | wc -l                   # lines in lib/
+find test -name '*_test.dart' | wc -l                           # test files
+ls -d lib/features/*/ | wc -l                                   # domain modules
+ls docs/adr/ | grep -c '^[0-9]'                                 # ADRs
+grep -cE '^### PLAN-|^\| PLAN-' docs/project/PLAN.md             # accepted plans
+find native packages/*/native -name '*.cpp' -o -name '*.h' \
+  | grep -vE 'llama\.cpp|audio\.cpp' | xargs wc -l              # hand-written C/C++
+gh release view --json tagName,assets                           # what actually shipped
+```
+
+Release evidence (job-by-job results) is always the linked GitHub Actions run, not a claim in prose.
+The Kanban board remains the only source of truth for **status**; this file only mirrors **measurements**.
 
 ---
 

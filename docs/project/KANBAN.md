@@ -29,6 +29,7 @@
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| README-REFRESH-001 | README.md khảo sát lại theo nội dung **thực tế** (đóng băng từ 2026-09-28) | ✅ done (số liệu đo lại + mục tái lập; không đổi code/version) | badge `1.4.1+3` → `1.25.0+25`; 88→**215** card · ADR 8→**38** · PLAN 32→**48** · 600→**750** file/**332.640** dòng · test 81→**278** · 492→**555** key; bỏ blocker Windows/Linux đã hết; thêm khối media/Edge-TTS/SAFE-INSET + Knowledge 6 trục + VieNeu; commit `3df31e92`, `4dce38b3` |
 | REL-1.25.0 | Release **1.25.0** (đủ 4 nền tảng) từ tip 251e — 22 commit sau 1.24.0 (0 merge) | ✅ done (build 🟢 run 42560732429, 4/4 job; chờ nghiệm thu máy) | bump `1.24.0+24 → 1.25.0+25` (`1757037b`); tag lại trên tip mới `f999d4dd` sau khi owner báo có commit mới; APK arm64 199.0 MB `d60cf665…`, IPA 93.7 MB, Linux 50.5 MB, Windows 53.0 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.25.0 |
 | SAFE-INSET-001 | Bottom bar / thanh nội dung không chìm dưới thanh điều hướng hệ thống (route toàn màn hình) | ✅ done (code + test + **CI 42555164550 🟢**; chờ nghiệm thu máy) | `lib/utils/system_insets.dart` (mới) + PDF reader bar TTS `Positioned(bottom: 0)`, chú giải 88/84, web reader 16/48, phụ đề video 16; 5 surface pin bằng source-scan |
 | REL-1.24.0 | Release **1.24.0** (đủ 4 nền tảng) từ tip 251e — 39 commit + 1 merge PR #143 sau 1.23.0 | ✅ done (build 🟢 run 42428615806, 4/4 job; chờ nghiệm thu máy) | bump `1.23.0+23 → 1.24.0+24` (`b914d650`); sửa 5 lỗi CI/build (`6c6af40b`, `e4e61de5`, `8fab3800`, `9018fd67`); APK arm64 198.9 MB `16c4fbbb…`, IPA 93.6 MB, Linux 50.3 MB, Windows 52.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.24.0 |
@@ -9264,3 +9265,30 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** cài đè 1.24.0 → 1.25.0; **công cụ media** (xuất đoạn A–B, tách âm thanh, huỷ giữa chừng — cần FFmpeg có trên máy); Edge TTS 8 locale neural + lệch đồng hồ; Tipiṭaka xoá bản Demo + xoá DB; Tab Nghe follow dòng; SAFE-INSET (thanh TTS PDF, phụ đề video trên gesture bar/3-button nav).
 - **Lịch sử:**
   - 2026-11-09 | created→done | agent `arena/01a0251e-in4up` | bump `1.25.0+25` (`1757037b`) → tag `1.25.0` → build `42559039551` 🟢 4/4 → owner báo có 7 commit mới (`22458e24`..`f999d4dd`) → không cancel được (403) → chờ build xong → xoá release+tag → reset về `f999d4dd` → tag lại `1.25.0` → build **42560732429** 🟢 4/4
+
+### README-REFRESH-001 — (2026-11-09) Cập nhật README theo nội dung thực tế
+- **Trạng thái:** ✅ done — **không đổi code, không đổi version**
+- **Nguồn:** owner 2026-11-09 — *"Hãy khảo sát và update README.md với nội dung thực tế."*
+- **Vấn đề:** README đóng băng ở mốc **2026-09-28**: badge ghi `pubspec-1.4.1+3`, 88 card, ADR-0008, 81 test, 492 key, và còn ghi *"Windows release-zip + Linux `webkit2gtk-4.1` đang bị chặn"* — trong khi thực tế 1.22/1.23/1.24/1.25 đều phát hành **đủ 4 nền tảng**.
+- **Đã đo lại (lệnh ghi trong mục mới "How these numbers are produced"):**
+
+| Hạng mục | README cũ | Thực tế 2026-11-09 |
+|---|---|---|
+| version badge | `1.4.1+3` | **`1.25.0+25`** |
+| card KANBAN | 88 | **215** (✅94 · 🔨94 · 📋21 · 🚫4) |
+| ADR | 0001→0008 | **38** (0022–0026 chu kỳ này) |
+| PLAN | 32 | **48** |
+| code | ~600 file / ~255k dòng | **750 file / 332.640 dòng** (`lib/`) |
+| test | 81 | **278** `*_test.dart` |
+| C/C++ tự viết | (không nêu) | **7.048** dòng (ngoài submodule) |
+| i18n | 26 × 492 key | 26 × **555** key |
+| features | 19 module | **25** module |
+| CI | 3 workflow | **5** (thêm `listen_queue_tests.yml`, `deploy-web.yml`) |
+
+- **Đã thêm:** khối *Media tools, Edge TTS & shell polish* (AVTOOL-001 argument-vector + huỷ được/ADR-0026 · AVTOOL-002/003 xuất A–B + tách audio · Edge TTS Sec-MS-GEC v2 + 8 locale · **SAFE-INSET-001** · UI-ORDER-001) và khối *Six-axis knowledge, voice cloning & new readers* (Knowledge P1→P4/ADR-0025 · clone giọng VieNeu + biến thể q8_0/bf16 kèm ghi chú embedding placeholder · Dictionary **.db SQLite** · YouTube LRC ≥60 phút · Cabin flush · Tipiṭaka quản lý DB · Listen follow dòng).
+- **Đã sửa điều hết đúng:** Platform support (Windows/Linux không còn blocker), PDF waves 0–2 (🔨→✅ + preflight `FPDF_ER_FILE:2`), Dictionary MDX (🔄→✅), danh sách TTS (4 → **9 engine** thật, cache key theo biến thể), model centre (+ VieNeu ~170/~292 MB, + Parakeet), roadmap viết lại theo 94 card đang chạy thật, quality gates nêu rõ **T2 phải 100 %** + 3 suite mới + ghi chú `workspace_shell_integration_test.dart` bị loại khỏi CI vì treo >8 phút.
+- **Đã kiểm:** 20/20 link nội bộ tồn tại; code fence + `<details>`/`<summary>` cân bằng; mọi con số grep lại khớp; sửa 1 đoạn legend bị lặp và sắp lại bảng 7 mode đúng thứ tự Studio grid (ĐỌC · VIẾT · NGHE · NÓI · XEM · HIỂU · NHỚ).
+- **Commit:** `3df31e92` (nội dung) + `4dce38b3` (dedupe + thứ tự bảng).
+- **Chưa kiểm:** README không cần CI; không có thay đổi mã nguồn nào nên không cần build lại. Các con số **hiệu năng/RAM** vẫn chưa đo trên máy thật (xem `PERF-001`).
+- **Lịch sử:**
+  - 2026-11-09 | created→done | agent `arena/01a0251e-in4up` | khảo sát bằng grep/python → sửa 11 khối → verify link/fence/số liệu → push `3df31e92`, `4dce38b3`

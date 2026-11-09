@@ -194,4 +194,35 @@ void main() {
       );
     });
   });
+
+  // AVTOOL-003 (sửa lỗi huỷ) — test cũ của service luôn truyền
+  // `useProgress: false` nên nhánh có cờ này chưa từng được kiểm trên desktop.
+  test('trimAudio + useProgress ⇒ có -progress pipe:2 và -nostats', () {
+    final args = MediaCommandBuilder.trimAudio(
+      inputPath: 'in.mp3',
+      outputPath: 'out.mp3',
+      start: const Duration(seconds: 5),
+      duration: const Duration(seconds: 2),
+      preset: MediaExportPreset.mp3Standard,
+      useProgress: true,
+    );
+    expect(args, contains('-progress'));
+    expect(args[args.indexOf('-progress') + 1], 'pipe:2');
+    expect(args, contains('-nostats'));
+    // Cờ tiến trình phải đứng TRƯỚC đường dẫn ra (nếu không FFmpeg coi nó là
+    // tên file).
+    expect(args.last, 'out.mp3', reason: 'đường dẫn ra luôn là phần tử cuối');
+    expect(args.indexOf('-progress'), lessThan(args.length - 1));
+  });
+
+  test('useProgress = false ⇒ KHÔNG có cờ tiến trình (mobile)', () {
+    final args = MediaCommandBuilder.trimAudio(
+      inputPath: 'in.mp3',
+      outputPath: 'out.mp3',
+      start: Duration.zero,
+      preset: MediaExportPreset.mp3Standard,
+    );
+    expect(args, isNot(contains('-progress')));
+    expect(args, isNot(contains('-nostats')));
+  });
 }

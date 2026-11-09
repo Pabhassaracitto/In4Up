@@ -19,6 +19,8 @@
 // `runFFmpegKit(List<String>)` va `probeFFmpegKit(String)` giu NGUYEN chu ky
 // de moi caller cu (AudioConverter, VAD, Whisper) khong phai sua.
 
+import 'dart:async';
+
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_session.dart';
@@ -58,18 +60,30 @@ class FfmpegKitCancelToken {
   void attach(FFmpegSession session) {
     _session = session;
     if (_cancelRequested) {
-      try {
-        session.cancel();
-      } catch (e) {
-        debugPrint('[FfmpegKit] cancel error: $e');
-      }
+      // KHONG await: `cancel()` tren session chua kip chay co the treo
+      // (native chua co handle) ⇒ ban UI se dung o "Dang huy...". Loi huy la
+      // best-effort, `isCancelled` da duoc dat truoc khi goi.
+      unawaited(_safeCancelSession(session));
     }
   }
 
   Future<void> cancel() async {
     _cancelRequested = true;
+    final session = _session;
+    if (session == null) return;
+    await _safeCancelSession(session);
+  }
+
+  /// Huy co TRAN (timeout): dou be native khong bao gio tra loi (session dang
+  /// khoi tao, plugin bi treo), nguoi dung KHONG duoc thay dialog quay mai.
+  /// Sau 5 s ta bo cho va coi nhu da huy — `session.getReturnCode()` van la
+  /// tin hieu chinh de biet tac vu that su dung.
+  Future<void> _safeCancelSession(FFmpegSession session) async {
     try {
-      await _session?.cancel();
+      await Future.any<void>([
+        session.cancel(),
+        Future<void>.delayed(const Duration(seconds: 5)),
+      ]);
     } catch (e) {
       debugPrint('[FfmpegKit] cancel error: $e');
     }

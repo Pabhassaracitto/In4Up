@@ -8,6 +8,8 @@
 //      ⇒ người dùng tưởng đã huỷ, máy vẫn nóng, file vẫn ghi).
 //   3. Không giữ BuildContext sau await (dùng `if (!mounted) return`).
 
+import 'dart:async';
+
 import 'package:in4up/core/language/localized_material.dart';
 // `show Text` từ material sẽ che shim `Text` của `localized_material.dart`
 // (luật #5) ⇒ đã bỏ `Text` khỏi danh sách show.
@@ -83,10 +85,12 @@ class _MediaExportProgressDialogState
           setState(() => _progress = p);
         },
       );
+      _cancelFallback?.cancel();
       if (!mounted) return;
       setState(() => _phase = _Phase.done);
       Navigator.of(context).pop(result);
     } on MediaExportException catch (e) {
+      _cancelFallback?.cancel();
       if (!mounted) return;
       setState(() {
         _phase = e.kind == MediaExportErrorKind.cancelled
@@ -95,6 +99,7 @@ class _MediaExportProgressDialogState
         _error = e.toError();
       });
     } catch (e) {
+      _cancelFallback?.cancel();
       if (!mounted) return;
       setState(() {
         _phase = _Phase.failed;
@@ -104,8 +109,30 @@ class _MediaExportProgressDialogState
   }
 
   Future<void> _cancel() async {
+    if (_phase != _Phase.running) return;
+    // Đặt cờ TRƯỚC khi gọi native: service kiểm `token.isCancelled` ở mọi
+    // bước, nên nếu đang ở bước chuẩn bị/probe thì lần kiểm kế tiếp sẽ ném
+    // `cancelled` và dialog đóng — không phụ thuộc việc `cancel()` native có
+    // trả lời hay không.
     setState(() => _phase = _Phase.cancelRequested);
     await _token.cancel();
+    if (!mounted) return;
+    // Nếu `_run()` không còn gì để chờ (ví dụ session chưa kịp tạo và native
+    // không bao giờ trả lời) thì đóng sau 8 s để người dùng KHÔNG bị treo ở
+    // "Đang huỷ…". Đóng với `null` = "không có kết quả", đúng nghĩa huỷ.
+    _cancelFallback?.cancel();
+    _cancelFallback = Timer(const Duration(seconds: 8), () {
+      if (!mounted || _phase != _Phase.cancelRequested) return;
+      Navigator.of(context).pop(null);
+    });
+  }
+
+  Timer? _cancelFallback;
+
+  @override
+  void dispose() {
+    _cancelFallback?.cancel();
+    super.dispose();
   }
 
   String _title(BuildContext context) {

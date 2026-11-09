@@ -12,7 +12,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -146,7 +145,29 @@ Future<FfmpegRunResult> runFfmpegProcessWithProgress(
       .transform(const Utf8Decoder(allowMalformed: true))
       .listen(consume);
 
+  // WATCHDOG: `kill()` gui SIGTERM, FFmpeg thuong thoat ngay, NHUNG neu no dang
+  // ket trong syscall (doc dia mang cham, driver audio tren Windows) thi SIGTERM
+  // bi bo qua ⇒ nguoi dung bam Huy ma dialog quay mai. Vi vay sau 3 s chua
+  // thoat thi kill(SIGKILL) — khong the bi chan.
+  // `FfmpegCancelToken.onCancel` goi NGAY neu da huy truoc do ⇒ 1 duong duy
+  // nhat cho ca hai truong hop, khong phai lap lai nhanh `alreadyCancelled`.
+  Timer? escalate;
+  void armWatchdog() {
+    escalate = Timer(const Duration(seconds: 3), () {
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (_) {}
+    });
+  }
+
+  if (token.isCancelled) {
+    armWatchdog();
+  } else {
+    token.onCancel(armWatchdog);
+  }
+
   final exitCode = await process.exitCode;
+  escalate?.cancel();
   if (pending.isNotEmpty) handleLine(pending);
 
   final output = tail.join('\n');

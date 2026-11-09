@@ -45,8 +45,11 @@ class MediaCommandBuilder {
 
   /// Lệnh chuyển đổi / tách âm thanh CẢ FILE.
   ///
-  /// [useProgress] = true ⇒ thêm `-progress pipe:2 -nostats` (chỉ desktop dùng;
-  /// mobile dùng Statistics nên để false cho log sạch).
+  /// [useProgress] = true ⇒ thêm `-progress pipe:2 -nostats`.
+  ///
+  /// CHỈ desktop: trên mobile log đi qua FFmpegKit nên cờ này vô nghĩa (tiến
+  /// trình lấy từ Statistics). Service tự quyết định theo nền tảng — xem
+  /// `MediaExportService._supportsProgressPipe`.
   static List<String> extractAudio({
     required String inputPath,
     required String outputPath,

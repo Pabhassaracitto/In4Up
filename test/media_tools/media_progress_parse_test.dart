@@ -11,9 +11,12 @@
 // tưởng app treo và bấm Huỷ giữa đường.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up_stt/utils/src/ffmpeg_common.dart';
 import 'package:in4up_stt/utils/src/ffmpeg_process_impl.dart';
 
 void main() {
+  _regressionGroup();
+
   group('parseProgressElapsedMs', () {
     test('out_time_us là micro-giây', () {
       expect(parseProgressElapsedMs('out_time_us=1234567'), 1234567 ~/ 1000);
@@ -48,6 +51,41 @@ void main() {
       expect(parseProgressElapsedMs(''), isNull);
       expect(parseProgressElapsedMs('Press [q] to stop'), isNull);
       expect(parseProgressElapsedMs('progress=continue'), isNull);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// AVTOOL-003 (sửa lỗi "Huỷ vài giây sau không dứt điểm") — 3 chốt hồi quy.
+// ---------------------------------------------------------------------------
+void _regressionGroup() {
+  group('hồi quy huỷ / tiến trình', () {
+    test('token đã huỷ ⇒ listener chạy NGAY (watchdog desktop dựa vào đây)',
+        () async {
+      final token = FfmpegCancelToken();
+      await token.cancel();
+      var watchdogArmed = false;
+      token.onCancel(() => watchdogArmed = true);
+      expect(watchdogArmed, isTrue,
+          reason: 'huỷ trước khi tiến trình kịp tạo vẫn phải kill được');
+    });
+
+    test('huỷ 2 lần chỉ bắn listener 1 lần', () async {
+      final token = FfmpegCancelToken();
+      var calls = 0;
+      token.onCancel(() => calls++);
+      await token.cancel();
+      await token.cancel();
+      expect(calls, 1);
+    });
+
+    test('mỗi listener lỗi không chặn listener khác', () async {
+      final token = FfmpegCancelToken();
+      var ok = 0;
+      token.onCancel(() => throw StateError('boom'));
+      token.onCancel(() => ok++);
+      await token.cancel();
+      expect(ok, 1);
     });
   });
 }

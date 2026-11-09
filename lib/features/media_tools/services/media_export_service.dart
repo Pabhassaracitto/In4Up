@@ -137,6 +137,11 @@ class MediaExportService {
         _materializeUri = materializeUri ?? _defaultMaterialize,
         _freeSpaceProbe = freeSpaceProbe ?? probeFreeSpaceMB;
 
+  /// Desktop đọc tiến trình từ `-progress pipe:2`; mobile/Web lấy từ
+  /// Statistics của FFmpegKit nên thêm cờ chỉ làm bẩn log.
+  static bool get _supportsProgressPipe =>
+      kIsWeb ? false : (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
   final MediaFfmpegEngine _engine;
   final MediaExportHost _host;
   final Future<String?> Function(String uri) _materializeUri;
@@ -158,10 +163,22 @@ class MediaExportService {
   }) async {
     void emit(MediaExportProgress progress) => onProgress?.call(progress);
 
+    // Huy phai co hieu luc o MOI buoc, khong chi luc FFmpeg dang chay: probe
+    // mot file 2 gio tren may cham mat vai giay, `materialize` tu `content://`
+    // copy ca file. Truoc day chi `_runSingle` biet token ⇒ bam Huy som thi
+    // service van chay tiep toi luc goi FFmpeg (hoac toi het neu huy trong luc
+    // probe), UI dung o "Dang huy..." vo han.
+    void throwIfCancelled() {
+      if (token?.isCancelled ?? false) {
+        throw const MediaExportException(MediaExportErrorKind.cancelled);
+      }
+    }
+
     emit(const MediaExportProgress(phase: MediaExportPhase.preparing));
 
     // 1 — nguồn
     final materialized = await _materializeUri(request.inputPath);
+    throwIfCancelled();
     if (materialized == null || materialized.isEmpty) {
       throw const MediaExportException(MediaExportErrorKind.inputUnreadable);
     }
@@ -172,6 +189,7 @@ class MediaExportService {
 
     // 2 — probe
     final probeLog = await _engine.probe(materialized);
+    throwIfCancelled();
     final info = MediaProbeParser.parse(probeLog);
 
     var preset = request.preset;
@@ -218,6 +236,7 @@ class MediaExportService {
     }
 
     // 4 — chạy
+    throwIfCancelled();
     final title = request.title ?? p.basename(materialized);
     final produced = <String>[];
     try {
@@ -265,6 +284,9 @@ class MediaExportService {
               ? _evenSlices(totalDuration)
               : request.slices;
           for (var i = 0; i < slices.length; i++) {
+            // Giữa 2 chương người dùng vẫn phải huỷ được (tách 40 chương =
+            // 40 lần chạy FFmpeg liên tiếp).
+            throwIfCancelled();
             final slice = slices[i];
             final base = MediaExportNaming.chapterBaseName(
               sourceTitle: title,
@@ -291,17 +313,28 @@ class MediaExportService {
           }
       }
     } finally {
-      // Nếu huỷ/lỗi giữa đường: dọn file đã ghi (file dở nằm cùng `outDir`
-      // và luôn có đuôi `.part` → tầng dưới đã xoá; đây chỉ là lưới an toàn).
+      // Nếu huỷ/lỗi giữa đường: dọn file đã xuất xong của CHÍNH lần chạy này.
+      //
+      // `produced` chỉ chứa file service vừa tạo (đã adopt/temp), KHÔNG bao
+      // giờ là file nguồn ⇒ xoá an toàn. Trước đây khối này vô dụng vì
+      // `produced.add(...)` chạy SAU `await _runSingle` — khi lệnh ném lỗi thì
+      // `produced` vẫn rỗng, nên không xoá được gì và chương đã tách xong nằm
+      // lại trong thư viện của một lần xuất bị huỷ.
       if (token?.isCancelled ?? false) {
         for (final path in produced) {
           try {
-            await File(path).delete();
+            final file = File(path);
+            if (await file.exists()) await file.delete();
           } catch (_) {}
         }
         produced.clear();
       }
     }
+
+    // Huỷ thắng mọi lỗi khác: người dùng bấm Huỷ thì phải thấy "Đã huỷ",
+    // không phải "Có lỗi khi xuất file" (FFmpeg bị kill luôn trả exit != 0
+    // kèm log rác, dễ bị phân loại thành `failed`).
+    throwIfCancelled();
 
     if (produced.isEmpty) {
       throw const MediaExportException(MediaExportErrorKind.failed);
@@ -430,7 +463,10 @@ class MediaExportService {
       start: start,
       duration: duration,
       preset: preset,
-      useProgress: false,
+      // Trước đây luôn `false` ⇒ trên DESKTOP không có `-progress pipe:2` nên
+      // `onElapsed` không bao giờ được gọi: thanh tiến trình đứng ở 0% suốt
+      // 30 phút và người dùng tưởng app treo (rồi bấm Huỷ).
+      useProgress: _supportsProgressPipe,
     );
 
     emit(MediaExportProgress(
@@ -470,6 +506,16 @@ class MediaExportService {
         if (await part.exists()) await part.delete();
       } catch (_) {}
       rethrow;
+    }
+
+    // Huy ngay sau khi FFmpeg ghi xong: file `.part` da co tren dia nen phai
+    // xoa TRUOC khi nem, neu khong se nam lai vinh vien (khong ai adopt no).
+    if (token?.isCancelled ?? false) {
+      try {
+        final part = File(partPath);
+        if (await part.exists()) await part.delete();
+      } catch (_) {}
+      throw const MediaExportException(MediaExportErrorKind.cancelled);
     }
 
     final produced = File(partPath);

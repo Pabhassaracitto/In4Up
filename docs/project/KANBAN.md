@@ -7134,9 +7134,10 @@
 - **Nghiệm thu:** cài mới → chỉ 1 lần xin quyền pin.
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục BATTERY).
 - **Trạng thái:** 🔨 doing — startup và Settings dùng chung một service/gate;
-  bỏ dialog giải thích thứ hai, chỉ gọi Android permission UI; cần CI + nghiệm
-  thu trên Android.
+  bỏ dialog giải thích thứ hai, chỉ gọi Android permission UI; app_analyze xanh,
+  còn nghiệm thu trên Android.
 - **Lịch sử:**
+  - 2026-11-09 | 2026-11-09 07:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | App Analyze + Locale Test `42575935086` xanh (analyze + battery/OCR tests); còn nghiệm thu Android.
   - 2026-11-09 | 2026-11-09 00:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | `BatteryPromptGate` unit tests + app analyze khi chạy CI; UI gọi cùng request path.
 
 ### 3. NETAWARE-001 — (P1) Ưu tiên local/online theo mạng (Wi-Fi→online, 4G→offline)
@@ -7334,8 +7335,9 @@
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục OCR-AI).
 - **Trạng thái:** 🔨 doing — OCR preview có nút AI tuỳ chọn, giữ bản trước/sau
   để so sánh, loading + lỗi thân thiện; service dùng chat provider đã cấu hình.
-  Cần CI + nghiệm thu với provider thực tế.
+  App Analyze + Locale Test xanh; còn nghiệm thu với provider thực tế.
 - **Lịch sử:**
+  - 2026-11-09 | 2026-11-09 07:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | App Analyze + Locale Test `42575935086` xanh (analyze + OCR AI/i18n tests); còn nghiệm thu provider thực tế.
   - 2026-11-09 | 2026-11-09 00:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | `ocr_ai_refine_test.dart` + `app_analyze.yml` (chờ CI).
 
 ### 16. PDF-XLAT-MULTI-001 — (P1) Dịch PDF cố định EN→VN → đa ngôn ngữ (≥26)
@@ -7380,9 +7382,10 @@
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục PARAKEET).
 - **Trạng thái:** 🔨 doing — đã xác minh implementation Parakeet hiện diện trên
   nhánh này (tải, import folder/file, xoá, chọn và chạy); không nhân đôi code.
-  Existing ASR/import/live-usage tests được gọi trong `app_analyze.yml`; còn chờ CI
-  và nghiệm thu thiết bị. Local Flutter SDK không có trong sandbox.
+  Existing ASR/import/live-usage tests và app_analyze đều xanh; còn nghiệm thu
+  thiết bị. Local Flutter SDK không có trong sandbox.
 - **Lịch sử:**
+  - 2026-11-09 | 2026-11-09 07:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | App Analyze + Locale Test `42575935086` xanh; ASR routing/import/live-usage tests pass; còn nghiệm thu thiết bị.
   - 2026-11-09 | 2026-11-09 00:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | static check `stt_model_settings_screen.dart`, `SherpaModelManager`, Parakeet route + `app_analyze.yml` ASR tests; không thêm implementation trùng.
 - **Đã làm (nhánh `arena/bdf2b201-in4up`):**
   - Profile `asr-parakeet-tdt-0.6b-v3-int8` (`kParakeetProfileId`) trong

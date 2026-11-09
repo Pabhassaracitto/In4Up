@@ -4810,6 +4810,43 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
         'අක්‍රිය (පෙරනිමි): CSV ආමදනයේ රූප/Lottie සබැඳි වහා බාගැනේ — සම්පූර්ණයෙන් ඔෆ්ලයින්. ක්‍රිය: සබැඳිය තබා, පළමු නැරඹුමේ බාගෙන සුරකියි (දත්ත ඉතිරිය, නමුත් නොදුටු වචනවලට ඔෆ්ලයින් රූපය නැත).',
   },
 
+  // OCR-AI-REFINE-001 — tinh chỉnh OCR theo lựa chọn rõ ràng của người dùng.
+  'Tinh chỉnh bằng AI': {
+    'en': 'Refine with AI',
+    'hi': 'AI से सुधारें',
+    'zh': '使用 AI 优化',
+    'zh_TW': '使用 AI 精修',
+    'si': 'AI මඟින් සංස්කරණය කරන්න',
+  },
+  'Đang tinh chỉnh...': {
+    'en': 'Refining...',
+    'hi': 'सुधारा जा रहा है...',
+    'zh': '正在优化…',
+    'zh_TW': '正在精修…',
+    'si': 'සංස්කරණය කරමින්...',
+  },
+  'Không thể tinh chỉnh lúc này. Kiểm tra cấu hình AI và kết nối rồi thử lại.': {
+    'en': 'Could not refine right now. Check your AI setup and connection, then try again.',
+    'hi': 'अभी सुधार नहीं हो सका। AI सेटअप और कनेक्शन जाँचकर फिर कोशिश करें।',
+    'zh': '目前无法优化。请检查 AI 设置和网络连接后重试。',
+    'zh_TW': '目前無法精修。請檢查 AI 設定與網路連線後再試。',
+    'si': 'දැන් සංස්කරණය කළ නොහැක. AI සැකසුම සහ සම්බන්ධතාව පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
+  },
+  'Xem bản AI': {
+    'en': 'View AI version',
+    'hi': 'AI संस्करण देखें',
+    'zh': '查看 AI 版本',
+    'zh_TW': '查看 AI 版本',
+    'si': 'AI අනුවාදය බලන්න',
+  },
+  'Xem bản trước AI': {
+    'en': 'View pre-AI version',
+    'hi': 'AI से पहले का संस्करण देखें',
+    'zh': '查看 AI 处理前版本',
+    'zh_TW': '查看 AI 處理前版本',
+    'si': 'AI පෙර අනුවාදය බලන්න',
+  },
+
   // ── PLAN-035 · PDF-OCR-002 + XLAT-SCR-001 (Batch OCR + Dịch màn hình PDF) ──
   'Quét OCR': {
     'en': 'Scan with OCR',

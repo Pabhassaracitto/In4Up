@@ -10,7 +10,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
   group('resolveTipitakaDisplayLanguage', () {

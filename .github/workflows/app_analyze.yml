@@ -1069,6 +1069,39 @@ jobs:
           path: audit_1210_test.log
           if-no-files-found: ignore
 
+      # SAFE-INSET-001 (owner 2026-11-08) — chống thanh nội dung / bottom bar
+      # chìm dưới thanh điều hướng hệ thống. Android 15 (targetSdk 35) ép
+      # edge-to-edge; Flutter chỉ tự chừa cho `Scaffold.bottomNavigationBar`,
+      # KHÔNG chừa cho thanh neo đáy tự dựng trong `Stack`/`Positioned`.
+      # Test gồm: helper đơn vị + widget `BottomSafeArea` + quét nguồn 4 surface.
+      - name: "SAFE-INSET-001 — bottom bar không chìm dưới thanh điều hướng"
+        id: safe-inset-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          files="test/system/bottom_nav_inset_test.dart"
+          flutter test $files -r expanded > safe_inset_test.log 2>&1
+          code=$?
+          cat safe_inset_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              safe_inset_test.log > safe_inset_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              safe_inset_clean.log | head -200 | while IFS= read -r line; do
+              echo "::error title=SAFE-INSET-001 fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload SAFE-INSET-001 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-safe-inset-test-log
+          path: safe_inset_test.log
+          if-no-files-found: ignore
+
       # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
       # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
       # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân

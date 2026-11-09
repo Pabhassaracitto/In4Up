@@ -36,6 +36,7 @@ import 'services/pdf_reader_theme.dart';
 import 'services/pdf_search_query.dart';
 import 'services/pdf_shortcuts.dart';
 import 'services/pdf_word_hit_test.dart';
+import '../../utils/system_insets.dart';
 import 'widgets/pdf_annotation_layer.dart';
 import 'widgets/pdf_annotation_sheet.dart';
 import 'widgets/pdf_export_row.dart';
@@ -616,38 +617,46 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: IgnorePointer(
-                ignoring: !_showBottomChrome,
-                child: AnimatedSlide(
-                  duration: const Duration(milliseconds: 220),
-                  offset: _showBottomChrome ? Offset.zero : const Offset(0, 1.1),
-                  curve: Curves.easeOutCubic,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: _showBottomChrome ? 1 : 0,
-                    // Panel "Dịch màn hình" ghép TRÊN thanh TTS: cùng ẩn/hiện
-                    // với chrome để không che nội dung khi đọc toàn màn hình.
-                    // Chỉ ở chế độ xem trang — Text Mode có đường Read Mode
-                    // đầy đủ hơn (PLAN-035 · XLAT-SCR-001).
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_controller.pageTranslatePanelVisible &&
-                            _controller.viewMode == PdfViewMode.pdfView)
-                          PdfPageTranslatePanel(
+              // SAFE-INSET-001: PDF reader là route toàn màn hình (KHÔNG có
+              // bottomNavigationBar của shell) ⇒ phải tự chừa vùng thanh điều
+              // hướng hệ thống, nếu không thanh TTS bị chìm dưới gesture bar.
+              child: BottomSafeArea(
+                child: IgnorePointer(
+                  ignoring: !_showBottomChrome,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 220),
+                    offset:
+                        _showBottomChrome ? Offset.zero : const Offset(0, 1.1),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 180),
+                      opacity: _showBottomChrome ? 1 : 0,
+                      // Panel "Dịch màn hình" ghép TRÊN thanh TTS: cùng ẩn/hiện
+                      // với chrome để không che nội dung khi đọc toàn màn hình.
+                      // Chỉ ở chế độ xem trang — Text Mode có đường Read Mode
+                      // đầy đủ hơn (PLAN-035 · XLAT-SCR-001).
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_controller.pageTranslatePanelVisible &&
+                              _controller.viewMode == PdfViewMode.pdfView)
+                            PdfPageTranslatePanel(
+                              controller: _controller,
+                              onOpenInReadMode: _loadCurrentPageIntoReadMode,
+                            ),
+                          PdfTtsBar(
                             controller: _controller,
-                            onOpenInReadMode: _loadCurrentPageIntoReadMode,
+                            onUserInteraction: () => _showChrome(),
+                            showWordlistPanel: _showWordlistPanel,
+                            onToggleWordlist: () {
+                              _showChrome();
+                              setState(
+                                () => _showWordlistPanel = !_showWordlistPanel,
+                              );
+                            },
                           ),
-                        PdfTtsBar(
-                          controller: _controller,
-                          onUserInteraction: () => _showChrome(),
-                          showWordlistPanel: _showWordlistPanel,
-                          onToggleWordlist: () {
-                            _showChrome();
-                            setState(() => _showWordlistPanel = !_showWordlistPanel);
-                          },
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -674,7 +683,7 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
                 _controller.viewMode == PdfViewMode.pdfView)
               Positioned(
                 left: 12,
-                bottom: 88,
+                bottom: bottomInsetOffset(context, 88),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -953,7 +962,9 @@ class _PdfReaderScreenState extends State<PdfReaderScreen> {
         top: widget.writingMode
             ? MediaQuery.of(context).padding.top + 116
             : 64,
-        bottom: 84,
+        // SAFE-INSET-001: 84 là chiều cao dock; cộng thêm inset hệ thống để
+        // nội dung không bị thanh điều hướng che ở route toàn màn hình.
+        bottom: bottomInsetOffset(context, 84),
       ),
       child: Column(
         children: [

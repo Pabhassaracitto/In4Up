@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../utils/system_insets.dart';
 import '../models/video_info.dart';
 import '../services/subtitle_parser.dart';
 import '../services/video_device_channel.dart';
@@ -245,7 +246,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       Positioned(
                         left: 16,
                         right: 16,
-                        bottom: 16,
+                        // SAFE-INSET-001: phụ đề không được chìm dưới thanh
+                        // điều hướng hệ thống ở chế độ toàn màn hình.
+                        bottom: bottomInsetOffset(context, 16),
                         child: _SubtitleText(text: _currentCue!.text),
                       ),
 

@@ -26,6 +26,7 @@ import 'web_reader_controller.dart';
 import 'widgets/web_extraction_batch_sheet.dart';
 import 'widgets/web_page_translate_sheet.dart';
 import 'widgets/web_reader_home_view.dart';
+import '../../utils/system_insets.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
 
@@ -1311,7 +1312,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   Widget _buildColorLegend() {
     return Positioned(
-      bottom: 16,
+      // SAFE-INSET-001: route toàn màn hình ⇒ cộng inset thanh điều hướng.
+      bottom: bottomInsetOffset(context, 16),
       left: 16,
       child: Container(
         padding: const EdgeInsets.all(8),
@@ -1336,7 +1338,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   /// Legend marker "từ đã lưu" — chỉ hiện khi BẬT (READ-630-03).
   Widget _buildRecallLegend() {
     return Positioned(
-      bottom: _controller.isHighlightActive ? 48 : 16,
+      // SAFE-INSET-001: route toàn màn hình ⇒ cộng inset thanh điều hướng.
+      bottom: bottomInsetOffset(context, _controller.isHighlightActive ? 48 : 16),
       left: 16,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

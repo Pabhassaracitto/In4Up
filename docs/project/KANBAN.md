@@ -9298,7 +9298,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-09 | created→done | agent `arena/01a0251e-in4up` | khảo sát bằng grep/python → sửa 11 khối → verify link/fence/số liệu → push `3df31e92`, `4dce38b3`
 
 ### YT-EXPLORER-DOT-B-001 — (2026-11-09) Tầng 1 YouTube, Đợt B: lỗi vs rỗng, cache, phân trang, nhớ người dùng
-- **Trạng thái:** 🔨 code xong — chờ CI + owner nghiệm thu
+- **Trạng thái:** ✅ done — CI **5/5 xanh** (`analyze-and-locale-test` · `build` · `knowledge-regressions` · `vocabulary-tools` · `web-build-validation`); chờ owner nghiệm thu
 - **Nguồn:** owner 2026-11-09 — *"Bỏ danh sách kênh gợi ý cũ (kênh cá nhân, chưa public; owner sẽ đưa danh sách sau) và làm tiếp Đợt B."*
 - **Đã làm (YT1-05…12 + dung lượng + `langRank`):**
   - `YtExplorerCache` (Hive) — stale-while-revalidate, TTL tìm kiếm 24 h / kênh 3 ngày, `totalBytes()` đo thật.
@@ -9312,6 +9312,6 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - Player: bỏ `rank = 100; rank += 40` (số bịa); tab Từ vựng nhóm theo trạng thái đã tô (Đang học / Đã biết / Bỏ qua / Chưa tô màu), không đọc ngược độ khó từ hệ chung.
 - **Test:** `test/yt_explorer_dot_b_2026_11_09_test.dart` (20 case) + đã thêm vào CI `app_analyze.yml`.
 - **i18n:** +20 khoá × 5 ngôn ngữ ưu tiên.
-- **Chưa kiểm:** chưa có Flutter SDK trên máy agent ⇒ dựa vào CI (`analyze-and-locale-test`, `build`, `knowledge-regressions`, `vocabulary-tools`, `web-build-validation`); phân trang InnerTube cần **máy thật** xác nhận vì YouTube đổi layout theo vùng.
+- **Đã kiểm:** CI 5/5 xanh (PR #161). Lần chạy đầu đỏ 3 chỗ do test tự viết — sửa hết: `YtCacheEntry.fromJson` ném khi `t` là chuỗi; thiếu khoá i18n `Làm mới`; và **vi phạm đồng bộ một chiều** (player đọc `difficultyOf`) ⇒ đổi sang nhóm theo trạng thái đã tô. **Chưa kiểm:** phân trang InnerTube cần **máy thật** xác nhận vì YouTube đổi layout theo vùng.
 - **Lịch sử:**
   - 2026-11-09 | created→wip | agent `arena/e53f6189-in4up` | 3 file service mới + 6 file sửa + 1 test + i18n +20

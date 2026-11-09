@@ -50,6 +50,9 @@ Future<MediaExportResult?> showMediaExportSheet(
 
   /// Có LRC nguồn không (quyết định hiện tuỳ chọn "kèm lời").
   bool hasSourceLrc = false,
+
+  /// Optional context-specific action for opening the exported primary file.
+  Future<void> Function(String path)? openInListenTab,
 }) {
   return showModalBottomSheet<MediaExportResult>(
     context: context,
@@ -60,6 +63,7 @@ Future<MediaExportResult?> showMediaExportSheet(
       knownDuration: knownDuration,
       sourceBitrateKbps: sourceBitrateKbps,
       hasSourceLrc: hasSourceLrc,
+      openInListenTab: openInListenTab,
     ),
   );
 }
@@ -70,12 +74,14 @@ class _MediaExportSheet extends StatefulWidget {
     this.knownDuration,
     this.sourceBitrateKbps,
     this.hasSourceLrc = false,
+    this.openInListenTab,
   });
 
   final MediaExportRequest initialRequest;
   final Duration? knownDuration;
   final int? sourceBitrateKbps;
   final bool hasSourceLrc;
+  final Future<void> Function(String path)? openInListenTab;
 
   @override
   State<_MediaExportSheet> createState() => _MediaExportSheetState();
@@ -180,7 +186,11 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
 
     // Đóng sheet, trả kết quả cho lối vào.
     Navigator.of(context).pop(result);
-    await offerExportFollowUp(context, result);
+    await offerExportFollowUp(
+      context,
+      result,
+      openInListenTab: widget.openInListenTab,
+    );
   }
 
   @override

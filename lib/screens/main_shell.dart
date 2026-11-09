@@ -453,6 +453,17 @@ class _MainShellState extends State<MainShell> {
         .addPostFrameCallback((_) => _scheduleShellHintIfNeeded());
   }
 
+  Future<bool> _openVideoExportInListen(String path, String title) async {
+    final loaded = await context.read<PlayerProvider>().loadSong(
+          path: path,
+          title: title,
+          autoPlay: true,
+        );
+    if (!mounted || !loaded) return false;
+    _setListenMode(0);
+    return true;
+  }
+
   void _setListenMode(int index) {
     // SHELL-GEAR-001: log swap screen Nghe/Nói/Xem (IndexedStack index đổi).
     _shellGearLog('set-listen-mode: $_listenModeIndex→$index (surface swap)');
@@ -1162,7 +1173,11 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'video_player':
         nav.push(
-          MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+          MaterialPageRoute(
+            builder: (_) => VideoLibraryScreen(
+              onOpenAudioInListen: _openVideoExportInListen,
+            ),
+          ),
         );
         return;
       case 'media_tools':
@@ -1190,7 +1205,11 @@ class _MainShellState extends State<MainShell> {
         return;
       case 'video_library':
         nav.push(
-          MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
+          MaterialPageRoute(
+            builder: (_) => VideoLibraryScreen(
+              onOpenAudioInListen: _openVideoExportInListen,
+            ),
+          ),
         );
         return;
     }
@@ -1227,7 +1246,10 @@ class _MainShellState extends State<MainShell> {
             ),
             // LISTEN-VIEW-001: embedded → no back button (nothing to pop;
             // popping here would pop the root route = black screen).
-            (_) => const VideoLibraryScreen(showBackButton: false),
+            (_) => VideoLibraryScreen(
+              showBackButton: false,
+              onOpenAudioInListen: _openVideoExportInListen,
+            ),
           ],
         );
       case _PrimaryTab.read:

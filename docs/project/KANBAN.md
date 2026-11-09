@@ -29,6 +29,7 @@
 | TTS-EDGE-001 | Microsoft Edge Read Aloud TTS (giao thức edge-tts) — engine neural miễn phí không key, ưu tiên online đầu, fallback mượt | ✅ done (code + test thuần; chờ nghiệm thu thiết bị) | nhánh arena/01a10633-in4up — `edge_tts_engine.dart` (port edge-tts 7.2.8: WebSocket + Sec-MS-GEC) + TtsService đăng ký + 30 test thuần; sandbox không chạm được host speech.platform.bing.com (egress) ⇒ cần nghiệm thu thiết bị thật |
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
+| REL-1.25.0 | Release **1.25.0** (đủ 4 nền tảng) từ tip 251e — 22 commit sau 1.24.0 (0 merge) | ✅ done (build 🟢 run 42560732429, 4/4 job; chờ nghiệm thu máy) | bump `1.24.0+24 → 1.25.0+25` (`1757037b`); tag lại trên tip mới `f999d4dd` sau khi owner báo có commit mới; APK arm64 199.0 MB `d60cf665…`, IPA 93.7 MB, Linux 50.5 MB, Windows 53.0 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.25.0 |
 | SAFE-INSET-001 | Bottom bar / thanh nội dung không chìm dưới thanh điều hướng hệ thống (route toàn màn hình) | ✅ done (code + test + **CI 42555164550 🟢**; chờ nghiệm thu máy) | `lib/utils/system_insets.dart` (mới) + PDF reader bar TTS `Positioned(bottom: 0)`, chú giải 88/84, web reader 16/48, phụ đề video 16; 5 surface pin bằng source-scan |
 | REL-1.24.0 | Release **1.24.0** (đủ 4 nền tảng) từ tip 251e — 39 commit + 1 merge PR #143 sau 1.23.0 | ✅ done (build 🟢 run 42428615806, 4/4 job; chờ nghiệm thu máy) | bump `1.23.0+23 → 1.24.0+24` (`b914d650`); sửa 5 lỗi CI/build (`6c6af40b`, `e4e61de5`, `8fab3800`, `9018fd67`); APK arm64 198.9 MB `16c4fbbb…`, IPA 93.6 MB, Linux 50.3 MB, Windows 52.9 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.24.0 |
 | REL-1.23.0 | Release **1.23.0** (đủ 4 nền tảng) từ tip 251e — 13 commit + PR #140/#141 sau 1.22.0 | ✅ done (build 🟢 run 42159543022, 4/4 job; chờ nghiệm thu máy) | bump `1.22.0+22 → 1.23.0+23` (`1398a5c6`); APK arm64 198.9 MB `76a1bbae…`, IPA 93.5 MB, Linux 50.3 MB, Windows 52.8 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.23.0 |
@@ -9208,3 +9209,29 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-06 | created→done | agent `arena/c231303f-in4up` | 3 lỗi + 1 lỗi UI,
     rebase lên 251e `2111953` (CONFLICTING → MERGEABLE), CI 🟢 42558622491.
+
+### REL-1.25.0 — (2026-11-09) Release 1.25.0 đủ 4 nền tảng (công cụ media, Edge TTS v2, SAFE-INSET-001)
+- **Trạng thái:** ✅ done (build 4/4 🟢) — **chờ nghiệm thu máy thật**
+- **Nguồn:** owner 2026-11-09 — *"Ở thời điểm hiện tại hãy tạo tag release phù hợp tại nhánh 251e"*, sau đó *"Mới có commit mới nữa, hãy release với commit mới"*.
+- **Tag/commit:** `1.25.0` → **`f999d4dd`**; bump `1.24.0+24 → 1.25.0+25` tại `1757037b` (đã là tổ tiên của `f999d4dd` ⇒ **không bump lần 2**).
+- **Vì sao bump minor:** 22 commit không-merge (0 merge) sau `1.24.0`, **6 nhóm tính năng**:
+  - **AVTOOL media tools** (`205574fa`, `b37e4520`): FFmpeg chạy bằng **ARGUMENT** (không nối chuỗi lệnh), **huỷ được**, có tiến trình; lớp `media_tools` + xuất đoạn **A–B**; **tách âm thanh từ video**. Kèm 12 file test mới `test/media_tools/` (~2.200 dòng) + `ffmpeg_binary_locator` + `ffmpeg_common`/`kit_impl`/`process_impl`/`runner` viết lại.
+  - **AVTOOL-CANCEL-001** (`388b8365`, `1e132573`): huỷ phải **dứt điểm trong vài giây** (không treo dialog) — sửa 3 lỗi thật + watchdog dùng **token DÙNG CHUNG** (không phải token nội bộ; lỗi compile CI).
+  - **PSRC-18 Edge TTS** (`bf708cae`, `dac89e1d`): Sec-MS-GEC **v2** + đồng bộ lệch đồng hồ + **8 locale Edge Neural** + hợp nhất màn API Settings với Home Server & API.
+  - **SAFE-INSET-001** (`875c86ef`, `4c30cfd0`): bottom bar/thanh nội dung không chìm dưới thanh điều hướng hệ thống (edge-to-edge Android 15).
+  - **Tipiṭaka** (`890a6513`, `d07a53f4`, `2111953e`): xoá bản Demo khi import dữ liệu thật · khôi phục hiển thị ngôn ngữ đích · quản lý & xoá cơ sở dữ liệu.
+  - **Tab Nghe/YouTube** (`90e049dc`, `fc3d7365`, `aac36feb`, `47dd8770`, `017087d4`): follow dòng đang đọc · phân biệt kéo tay với cuộn theo index · không tự mở popup "Tạo lời" khi nhập bài hát · harden tải audio. **Wordlist** (`f7877bbf` — PR #152): sửa phát TTS + giảm độ trễ khởi tạo tab (lazy indexed stack).
+- **`versionCode 24 → 25`** ⇒ Android cài đè được bản 1.24.0, dữ liệu giữ nguyên.
+- **Sự cố giữa đường (ghi lại để lần sau xử đúng):**
+  1. Tag `1.25.0` đầu tiên trỏ `1757037b`; build `42559039551` chạy **4/4 🟢** nhưng owner báo có **7 commit mới** ⇒ release đó **thiếu** tính năng.
+  2. **Không thể `gh run cancel`** (GitHub App token 403 `Resource not accessible by integration`) ⇒ phải **chờ build cũ xong** rồi mới xoá release/tag. Nếu xoá giữa lúc job đang chạy, bước push asset có thể tạo lại release với **asset của sha cũ** trên tag mới ⇒ sai.
+  3. Xoá `gh release delete 1.25.0 --yes` + `git push origin :refs/tags/1.25.0`, `reset --hard` về tip `f999d4dd`, **tag lại cùng version 1.25.0** (tip đã có `version: 1.25.0+25` từ commit `1757037b`).
+- **CI trên `f999d4dd`:** `app_analyze` **42559736232** 🟢 (gồm step `SAFE-INSET-001`, `Analyze full app`, `Rule 5`) · `listen_queue_tests` **42559736235** 🟢 · `deploy-web` **42559736267** 🟢.
+- **Bằng chứng build:** `build_final_complete.yml` run **42560732429** — **4/4 job success** (Windows ✅ · Android ✅ · iOS ✅ · Linux ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.25.0
+  - `in4up-Android-arm64-v8a-1.25.0-f999d.apk` — 199.030.643 B — sha256 `d60cf665012f2824ca729e43d583bcba56db3e71f35ac44e108cc36a39079132`
+  - `in4up-iOS-1.25.0.ipa` — 93.699.249 B — sha256 `a047b7e3b255ec05bb7353da7676502fa967e5ee2c7621bf038f7383f76ea044`
+  - `in4up-Linux-1.25.0.tar.gz` — 50.450.675 B — sha256 `fd51437e9c2830bba2ef9053b827fb4df5f760ae35466e5e93ae68af2a32f65e`
+  - `in4up-Windows-1.25.0.zip` — 52.998.602 B — sha256 `28ee16c62b93c77c3401638cca86f9709cc06eaaeb57d7fdbc58cb206665f8a2`
+- **Chưa kiểm (máy thật):** cài đè 1.24.0 → 1.25.0; **công cụ media** (xuất đoạn A–B, tách âm thanh, huỷ giữa chừng — cần FFmpeg có trên máy); Edge TTS 8 locale neural + lệch đồng hồ; Tipiṭaka xoá bản Demo + xoá DB; Tab Nghe follow dòng; SAFE-INSET (thanh TTS PDF, phụ đề video trên gesture bar/3-button nav).
+- **Lịch sử:**
+  - 2026-11-09 | created→done | agent `arena/01a0251e-in4up` | bump `1.25.0+25` (`1757037b`) → tag `1.25.0` → build `42559039551` 🟢 4/4 → owner báo có 7 commit mới (`22458e24`..`f999d4dd`) → không cancel được (403) → chờ build xong → xoá release+tag → reset về `f999d4dd` → tag lại `1.25.0` → build **42560732429** 🟢 4/4

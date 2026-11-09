@@ -1487,3 +1487,12 @@ Package: `video_player: ^2.8.0` (Flutter official)
     251e (hai số đó đã bị nhánh khác dùng).
   - Còn lại: QA máy thật (clip A–B trên Android, "Tạo lời thoại" sau P0, tải
     FFmpeg trên Windows, huỷ giữa đường) + P3/P4 (card `AVTOOL-004/005`).
+
+### PLAN-048 — I4U Tab Video: A–B loop và luyện nghe bằng audio engine (VID-AB-001)
+- Nguồn: người sở hữu (2026-11-09, qua agent `arena/879a40d0-in4up`).
+- Trạng thái: doing — V1/V2 + A/B export action code; pure unit tests added; Flutter CI/device QA pending.
+- Milestone đề xuất: M2 — hoàn thiện học bằng video local.
+- Chi tiết: [`plans/PLAN-048-video-ab-audio-learning.md`](../plans/PLAN-048-video-ab-audio-learning.md).
+  A/B thủ công, lặp theo cue phụ đề, xuất đúng range qua Media Tools; chưa tuyên bố realtime UltraTimeStretch cho video vì chưa có audio PCM integration path. V4 chờ feasibility spike và ADR nếu cần.
+- Lịch sử:
+  - 2026-11-09 | 12:44 UTC | created→doing | agent `arena/879a40d0-in4up` | triển khai A/B, lặp cue, export A/B action + tests; sandbox chưa có Flutter SDK.

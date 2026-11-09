@@ -28286,6 +28286,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ส่งออกล้มเหลว',
     'ja': 'エクスポートに失敗',
   },
+  'Xuất đoạn A-B': {
+    'en': 'Export A-B segment',
+    'zh': '导出 A-B 片段',
+    'zh_TW': '匯出 A-B 片段',
+    'hi': 'A-B खंड निर्यात करें',
+    'si': 'A-B කොටස නිර්යාත කරන්න',
+    'my': 'A-B အပိုင်း တင်ပို့',
+    'th': 'ส่งออกช่วง A-B',
+    'ja': 'A-B区間を書き出す',
+  },
   'Xuất đoạn đang chọn': {
     'en': 'Export the selected clip',
     'zh': '匯出選取片段',
@@ -34285,6 +34295,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'my': 'ဖွင့်နေရာတွင် A သတ်မှတ်',
     'th': 'ตั้ง A ที่หัวเล่น',
     'ja': '再生位置にAを設定',
+  },
+  'Đặt B cách A ít nhất 0,3 giây': {
+    'en': 'Set B at least 0.3 seconds after A',
+    'zh': 'B 点至少要比 A 点晚 0.3 秒',
+    'zh_TW': 'B 點至少要比 A 點晚 0.3 秒',
+    'hi': 'B को A से कम से कम 0.3 सेकंड बाद रखें',
+    'si': 'B ලකුණ A ලකුණට පසු අවම වශයෙන් තත්පර 0.3කින් තබන්න',
+    'my': 'B ကို A ထက် အနည်းဆုံး 0.3 စက္ကန့်နောက်တွင်ထားပါ',
+    'th': 'ตั้งจุด B ให้ช้ากว่าจุด A อย่างน้อย 0.3 วินาที',
+    'ja': 'BはAより0.3秒以上後に設定してください',
   },
   'Đặt B tại vị trí phát': {
     'en': 'Set B at playhead',

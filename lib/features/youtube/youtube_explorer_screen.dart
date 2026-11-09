@@ -9,8 +9,11 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
+import 'models/yt_channel.dart';
 import 'models/yt_video.dart';
 import 'widgets/yt_video_card.dart' show YtHistoryItem;
+import 'services/yt_channel_store.dart';
+import 'services/yt_coverage_service.dart';
 import 'services/yt_initial_data_parser.dart';
 import 'services/yt_search_service.dart';
 import 'services/yt_service.dart';
@@ -64,20 +67,27 @@ class YtExVideo {
     this.langRank,
   });
 
-  String get viewLabel {
+  // YT1-04: KHÔNG dựng câu tiếng Việt ở đây rồi mới bọc `uiText` — chuỗi có
+  // nội suy không bao giờ khớp template nên locale ≠ vi vẫn ra tiếng Việt.
+  // Trả SỐ + ĐƠN VỊ, câu hoàn chỉnh do UI ghép qua template `{value0}…`.
+
+  /// `(số, hậu tố)` cho lượt xem — hậu tố `''`, `'K'`, `'M'`.
+  (String, String) get viewCountParts {
     final v = viewCount ?? 0;
-    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M lượt xem';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K lượt xem';
-    return '$v lượt xem';
+    if (v >= 1000000) return ((v / 1000000).toStringAsFixed(1), 'M');
+    if (v >= 1000) return ((v / 1000).toStringAsFixed(0), 'K');
+    return ('$v', '');
   }
 
-  String get dateLabel {
-    if (publishedAt == null) return '';
-    final d = DateTime.now().difference(publishedAt!);
-    if (d.inDays > 365) return '${d.inDays ~/ 365} năm trước';
-    if (d.inDays > 30) return '${d.inDays ~/ 30} tháng trước';
-    if (d.inDays > 0) return '${d.inDays} ngày trước';
-    return 'Hôm nay';
+  /// `(số, khoá đơn vị)` cho ngày đăng: `day` / `month` / `year` / `today`.
+  (String, String) get dateParts {
+    final p = publishedAt;
+    if (p == null) return ('', '');
+    final d = DateTime.now().difference(p);
+    if (d.inDays > 365) return ('${d.inDays ~/ 365}', 'year');
+    if (d.inDays > 30) return ('${d.inDays ~/ 30}', 'month');
+    if (d.inDays > 0) return ('${d.inDays}', 'day');
+    return ('', 'today');
   }
 
   String get durationLabel {
@@ -118,8 +128,25 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   String? _nextPageToken;
   bool _hasMore = false;
   YtSortMode _sortMode = YtSortMode.date;
-  double _rankMin = 0;
-  double _rankMax = 100000;
+
+  // YT-LEVEL-001 (#YT1-01): thanh trượt "Cấp độ từ vựng" CŨ là điều khiển giả
+  // (`_rankMin/_rankMax` không được `_loadVideos` đọc, `langRank` không bao giờ
+  // được gán). Nay lọc theo **độ phủ từ đã biết** đo từ phụ đề trên máy —
+  // xem `YtCoverageService`. `null` = không lọc.
+  YtCoverageBand? _bandFilter;
+
+  /// Đang chạy "Phân tích cả trang" (tải phụ đề còn thiếu để đo).
+  bool _analyzing = false;
+  int _analyzeDone = 0;
+  int _analyzeTotal = 0;
+
+  /// YT1-02: kênh người dùng theo dõi (`YtChannelStore`) — hiện THÀNH MỤC RIÊNG
+  /// **sau** danh sách gợi ý (quyết định của owner 2026-11-09).
+  List<YtChannel> _myChannels = const [];
+
+  /// YT1-03: chống "nuốt" truy vấn mới — mỗi lần tải tăng số này và bỏ kết quả
+  /// của lần cũ về muộn.
+  int _reqId = 0;
   final _scrollCtrl = ScrollController();
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
@@ -133,6 +160,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   // ── Tìm kiếm không cần API key (gợi ý từ khoá + submit) ──
   final _searchFocus = FocusNode();
   Timer? _suggestDebounce;
+
+  /// YT1-03 (phần gợi ý): cùng bệnh với `_loadVideos` — gõ nhanh thì phản hồi
+  /// của chuỗi CŨ có thể về sau và đè lên gợi ý mới.
+  int _suggestReq = 0;
   List<String> _suggestions = [];
   bool _showSuggestions = false;
 
@@ -149,6 +180,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     });
     _init();
     _loadHistory();
+    // YT1-02 / YT1-01: nạp kênh theo dõi + số đo cấp độ đã lưu (đều là đọc đĩa,
+    // không chạm mạng).
+    _loadMyChannels();
+    _loadCoverage();
     _scrollCtrl.addListener(() {
       if (_scrollCtrl.position.pixels >=
               _scrollCtrl.position.maxScrollExtent - 300 &&
@@ -218,7 +253,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   }
 
   Future<void> _loadVideos({bool reset = true}) async {
-    if (_loading) return;
+    // YT1-03: KHÔNG `return` khi đang tải nữa — đổi kênh/gõ tìm kiếm trong lúc
+    // tải trước đây bị nuốt im lặng. Nay lần gọi mới được chạy, và kết quả của
+    // lần cũ (về muộn) bị bỏ theo `_reqId`.
+    final req = ++_reqId;
     final query = _searchQuery.trim();
     // Chế độ không cần Data API key: search theo từ khoá hoặc xem kênh.
     final keylessSearch = query.isNotEmpty && !_hasApiKey;
@@ -249,25 +287,167 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             ? await YtSearchService.instance.searchVideos(query)
             : await YtSearchService.instance
                 .fetchChannelVideos(_selChannelId!);
-        if (!mounted) return;
+        // Bỏ kết quả của truy vấn đã bị thay thế.
+        if (!mounted || req != _reqId) return;
         setState(() {
           _videos.addAll(hits.map(_hitToEx));
           _hasMore = false;
         });
+        unawaited(_loadCoverage());
       } else {
         final (vids, next) = await _fetch(_nextPageToken);
-        if (!mounted) return;
+        if (!mounted || req != _reqId) return;
         setState(() {
           _videos.addAll(vids);
           _nextPageToken = next;
           _hasMore = next != null;
         });
+        unawaited(_loadCoverage());
       }
     } catch (e) {
       debugPrint('loadVideos: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && req == _reqId) setState(() => _loading = false);
     }
+  }
+
+  // ── YT1-02: kênh người dùng theo dõi ─────────────────────────────────
+
+  Future<void> _loadMyChannels() async {
+    try {
+      final list = await YtChannelStore.instance.load();
+      if (!mounted) return;
+      setState(() => _myChannels = list);
+    } catch (e) {
+      debugPrint('[in4up-yt] my channels load failed: $e');
+    }
+  }
+
+  /// Tìm kênh theo id ở CẢ danh sách gợi ý lẫn kênh theo dõi — trước đây
+  /// `_mainPanel` chỉ `firstWhere` trong `_channels` nên chọn kênh của tôi sẽ
+  /// hiện nhầm header của kênh đầu tiên.
+  YtExChannel? _channelById(String? id) {
+    if (id == null) return null;
+    for (final c in _channels) {
+      if (c.id == id) return c;
+    }
+    for (final c in _myChannels) {
+      if (c.id == id) {
+        return YtExChannel(id: c.id, title: c.title);
+      }
+    }
+    return null;
+  }
+
+  // ── YT1-01: cấp độ từ vựng = độ phủ từ đã biết ──────────────────────
+
+  Future<void> _loadCoverage() async {
+    await YtCoverageService.instance.ensureLoaded();
+    if (!mounted) return;
+    final missing = _videos
+        .where((v) => YtCoverageService.instance.of(v.id) == null)
+        .map((v) => v.id)
+        .toList();
+    if (missing.isEmpty) {
+      setState(() {});
+      return;
+    }
+    // Đo từ phụ đề ĐÃ CÓ trên máy — 0 byte mạng.
+    await YtCoverageService.instance.primeLocalIndex();
+    for (final id in missing) {
+      await YtCoverageService.instance.analyzeLocal(id);
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Danh sách đang hiện sau khi áp bộ lọc cấp độ.
+  List<YtExVideo> get _visibleVideos {
+    final band = _bandFilter;
+    if (band == null) return _videos;
+    return _videos
+        .where((v) =>
+            (YtCoverageService.instance.of(v.id)?.band ??
+                YtCoverageBand.unknown) ==
+            band)
+        .toList();
+  }
+
+  /// Tải phụ đề còn thiếu rồi đo — nút "Phân tích cả trang".
+  ///
+  /// Chi phí: ~20–60 KB mỗi video (chỉ phụ đề, KHÔNG tải audio). Hỏi trước để
+  /// người dùng quyết định; phụ đề tải về được lưu vào kho media nên hiện trong
+  /// "Thư viện đã tải" và xoá được (quyết định (c) của owner).
+  Future<void> _analyzePage() async {
+    if (_analyzing) return;
+    final targets = _videos
+        .where((v) => YtCoverageService.instance.of(v.id) == null)
+        .toList();
+    if (targets.isEmpty) {
+      _snack(context.uiText('Cả trang đã có số đo cấp độ'));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2235),
+        title: Text(
+          dctx.uiText('Phân tích cấp độ cả trang?'),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+        ),
+        content: Text(
+          dctx
+              .uiText('Sẽ tải phụ đề của {value0} video (chỉ chữ, không tải âm thanh) '
+                  '— khoảng {value1} KB, {value2} giây trên Wi-Fi.')
+              .replaceAll('{value0}', '${targets.length}')
+              .replaceAll('{value1}', '${(targets.length * 40).clamp(40, 4000)}')
+              .replaceAll('{value2}', '${(targets.length * 2).clamp(2, 240)}'),
+          style: TextStyle(color: Colors.grey[300], fontSize: 12, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dctx, false),
+            child: Text(dctx.uiText('Huỷ'),
+                style: TextStyle(color: Colors.grey[500])),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9C27B0)),
+            child: Text(dctx.uiText('Bắt đầu')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() {
+      _analyzing = true;
+      _analyzeDone = 0;
+      _analyzeTotal = targets.length;
+    });
+    for (final v in targets) {
+      if (!mounted) return;
+      await YtCoverageService.instance.analyzeByDownloading(v.id);
+      if (!mounted) return;
+      setState(() => _analyzeDone++);
+    }
+    if (!mounted) return;
+    setState(() => _analyzing = false);
+    final measured = targets
+        .where((v) => YtCoverageService.instance.of(v.id) != null)
+        .length;
+    _snack(context
+        .uiText('Đã đo cấp độ {value0}/{value1} video')
+        .replaceAll('{value0}', '$measured')
+        .replaceAll('{value1}', '${targets.length}'));
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   YtExVideo _hitToEx(YtSearchHit h) => YtExVideo(
@@ -608,9 +788,11 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       return;
     }
     // Gợi ý từ khoá của YouTube (keyless) — debounce 350ms
+    final req = ++_suggestReq;
     _suggestDebounce = Timer(const Duration(milliseconds: 350), () async {
       final s = await YtSearchService.instance.getSuggestions(q);
-      if (!mounted) return;
+      // Bỏ phản hồi của lần gõ trước (hoặc khi ô đã đổi nội dung).
+      if (!mounted || req != _suggestReq) return;
       setState(() {
         _suggestions = s.take(6).toList();
         _showSuggestions = _suggestions.isNotEmpty && _searchFocus.hasFocus;
@@ -792,41 +974,67 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Cấp độ từ vựng',
-                      style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500)),
-                  RangeSlider(
-                    values: RangeValues(_rankMin, _rankMax),
-                    min: 0,
-                    max: 100000,
-                    divisions: 20,
-                    activeColor: const Color(0xFF9C27B0),
-                    inactiveColor: Colors.white.withValues(alpha: 0.12),
-                    onChanged: (v) => setState(() {
-                      _rankMin = v.start;
-                      _rankMax = v.end;
-                    }),
-                    onChangeEnd: (_) => _loadVideos(),
+                  Text(
+                    context.uiText('Cấp độ từ vựng'),
+                    style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500),
                   ),
+                  const SizedBox(height: 4),
+                  // YT-LEVEL-001 (#YT1-01): bộ lọc THẬT theo độ phủ từ đã biết
+                  // đo từ phụ đề trên máy (0 byte mạng). Trước đây là
+                  // RangeSlider 0..100000 không nối với dữ liệu nào cả.
+                  _bandFilterRow(),
+                  const SizedBox(height: 6),
+                  // Chi phí nói trước; phụ đề tải về nằm trong kho media nên
+                  // hiện dung lượng và xoá được.
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: ['0', '400', '2500', '100000']
-                        .map((l) => Text(l,
-                            style: TextStyle(
-                                color: Colors.grey[700], fontSize: 8)))
-                        .toList(),
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _analyzing
+                              ? context
+                                  .uiText('Đang đo {value0}/{value1} video')
+                                  .replaceAll('{value0}', '$_analyzeDone')
+                                  .replaceAll('{value1}', '$_analyzeTotal')
+                              : context.uiText('Đo từ phụ đề trên máy (0 MB)'),
+                          style: TextStyle(
+                              color: Colors.grey[600], fontSize: 9),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 26,
+                        child: TextButton(
+                          onPressed: _analyzing ? null : _analyzePage,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            minimumSize: const Size(0, 26),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: const Color(0xFF53D6BD),
+                          ),
+                          child: Text(
+                            _analyzing
+                                ? context.uiText('Đang tải…')
+                                : context.uiText('Phân tích cả trang'),
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Sắp xếp theo',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                  Text(
+                    context.uiText('Sắp xếp theo'),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                  ),
                   const SizedBox(height: 4),
                   Row(children: [
-                    _sortBtn(YtSortMode.date, Icons.calendar_today, 'Ngày'),
+                    _sortBtn(YtSortMode.date, Icons.calendar_today,
+                        context.uiText('Ngày')),
                     const SizedBox(width: 6),
                     _sortBtn(YtSortMode.viewCount, Icons.visibility_outlined,
-                        'Lượt xem'),
+                        context.uiText('Lượt xem')),
                   ]),
                 ],
               ),
@@ -836,12 +1044,14 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Row(
                 children: [
-                  Text('Kênh',
-                      style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5)),
+                  Text(
+                    context.uiText('Kênh'),
+                    style: TextStyle(
+                        color: Colors.grey[400],
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5),
+                  ),
                   const Spacer(),
                   GestureDetector(
                     onTap: _showAddChannel,
@@ -852,7 +1062,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             ),
             _chanTile(
               null,
-              'Tất cả các kênh',
+              context.uiText('Tất cả các kênh'),
               null,
               null,
               _selChannelId == null,
@@ -863,38 +1073,130 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               },
               null,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 3, 12, 2),
-              child: Text(
-                context.uiText('ĐƯỢC KHUYẾN NGHỊ: 1 - ${_channels.length}'),
-                style: TextStyle(
-                    color: Colors.grey[700], fontSize: 8, letterSpacing: 0.4),
-              ),
-            ),
+            // Quyết định owner 2026-11-09: GỢI Ý trước, "Kênh của tôi" sau.
             Expanded(
-              child: ListView.builder(
-                itemCount: _channels.length,
-                itemBuilder: (_, i) {
-                  final c = _channels[i];
-                  return _chanTile(
-                    c.id,
-                    c.title,
-                    c.thumb,
-                    c.videoCount,
-                    _selChannelId == c.id,
-                    c.isPinned,
-                    () {
-                      setState(() => _selChannelId = c.id);
-                      _loadVideos();
-                    },
-                    () => setState(() => _channels[i].isPinned = !c.isPinned),
-                  );
-                },
+              child: ListView(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
+                    child: Text(
+                      context
+                          .uiText('GỢI Ý: 1 - {value0}')
+                          .replaceAll('{value0}', '${_channels.length}'),
+                      style: TextStyle(
+                          color: Colors.grey[700],
+                          fontSize: 8,
+                          letterSpacing: 0.4),
+                    ),
+                  ),
+                  for (var i = 0; i < _channels.length; i++)
+                    _chanTile(
+                      _channels[i].id,
+                      _channels[i].title,
+                      _channels[i].thumb,
+                      _channels[i].videoCount,
+                      _selChannelId == _channels[i].id,
+                      _channels[i].isPinned,
+                      () {
+                        setState(() => _selChannelId = _channels[i].id);
+                        _loadVideos();
+                      },
+                      () => setState(() =>
+                          _channels[i].isPinned = !_channels[i].isPinned),
+                    ),
+                  if (_myChannels.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                      child: Row(
+                        children: [
+                          Text(
+                            context.uiText('Kênh của tôi'),
+                            style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () async {
+                              await showYtMyChannelsSheet(context);
+                              if (!mounted) return;
+                              await _loadMyChannels();
+                              setState(() {});
+                            },
+                            child: Icon(Icons.tune,
+                                color: Colors.grey[600], size: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    for (final c in _myChannels)
+                      _chanTile(
+                        c.id,
+                        c.title,
+                        null,
+                        null,
+                        _selChannelId == c.id,
+                        false,
+                        () {
+                          setState(() => _selChannelId = c.id);
+                          _loadVideos();
+                        },
+                        null,
+                      ),
+                  ],
+                ],
               ),
             ),
           ],
         ),
       );
+
+  /// Hàng chip lọc theo nhóm cấp độ (đo từ phụ đề trên máy).
+  Widget _bandFilterRow() {
+    Widget chip(String label, YtCoverageBand? band) {
+      final sel = _bandFilter == band;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6, bottom: 6),
+        child: GestureDetector(
+          onTap: () => setState(() => _bandFilter = band),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: sel
+                  ? const Color(0xFF9C27B0).withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: sel
+                    ? const Color(0xFF9C27B0)
+                    : Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: sel ? Colors.white : Colors.grey[400],
+                fontSize: 10,
+                fontWeight: sel ? FontWeight.w700 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      children: [
+        chip(context.uiText('Tất cả'), null),
+        chip(context.uiText('Dễ ≥95%'), YtCoverageBand.easy),
+        chip(context.uiText('Vừa 85–95%'), YtCoverageBand.fair),
+        chip(context.uiText('Khó <85%'), YtCoverageBand.hard),
+        chip(context.uiText('Chưa rõ'), YtCoverageBand.unknown),
+      ],
+    );
+  }
 
   Widget _sortBtn(YtSortMode m, IconData icon, String label) {
     final sel = _sortMode == m;
@@ -1005,10 +1307,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       );
 
   Widget _mainPanel() {
-    final sel = _selChannelId != null
-        ? _channels.firstWhere((c) => c.id == _selChannelId,
-            orElse: () => _channels.first)
-        : null;
+    // YT1-02: kênh đang chọn có thể là kênh NGƯỜI DÙNG theo dõi (không nằm
+    // trong danh sách gợi ý) ⇒ tra ở cả hai danh sách.
+    final sel = _channelById(_selChannelId);
+    final videos = _visibleVideos;
     return Column(
       children: [
         if (sel != null) _chanHeader(sel),
@@ -1017,20 +1319,25 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               ? const Center(
                   child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation(Color(0xFF9C27B0))))
-              : _videos.isEmpty
-                  ? _empty()
+              : videos.isEmpty
+                  ? (_videos.isNotEmpty && _bandFilter != null
+                      // Có video nhưng bộ lọc cấp độ loại hết — phải nói rõ,
+                      // không được hiện "chưa có video" chung chung.
+                      ? _empty(msg: context.uiText(
+                          'Không video nào khớp bộ lọc cấp độ. Chọn "Tất cả" để xem lại.'))
+                      : _empty())
                   : ListView.builder(
                       controller: _scrollCtrl,
-                      itemCount: _videos.length + (_hasMore ? 1 : 0),
+                      itemCount: videos.length + (_hasMore ? 1 : 0),
                       itemBuilder: (_, i) {
-                        if (i == _videos.length) {
+                        if (i == videos.length) {
                           return const Center(
                               child: Padding(
                                   padding: EdgeInsets.all(16),
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2)));
                         }
-                        return _videoTile(_videos[i]);
+                        return _videoTile(videos[i]);
                       },
                     ),
         ),
@@ -1157,16 +1464,25 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 3),
-                    Text(context.uiText(v.viewLabel),
+                    Text(_viewLabel(v),
                         style:
                             TextStyle(color: Colors.grey[500], fontSize: 11)),
-                    Text(context.uiText(v.dateLabel),
+                    Text(_dateLabel(v),
                         style:
                             TextStyle(color: Colors.grey[500], fontSize: 10)),
-                    if (v.langRank != null) ...[
-                      const SizedBox(height: 4),
-                      _rankBar(v.langRank!),
-                    ],
+                    // YT1-08: nhãn trạng thái ngay trên thẻ (đã tải phụ đề /
+                    // đã đo cấp độ). Người dùng biết video dùng được offline
+                    // TRƯỚC khi bấm vào.
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 3,
+                      children: [
+                        if (v.channelTitle.isNotEmpty)
+                          _tag(v.channelTitle),
+                        _coverageBadge(v),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1175,32 +1491,73 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ),
       );
 
-  Widget _rankBar(int rank) => Row(children: [
-        SizedBox(
-          width: 55,
-          height: 3,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: (rank / 100000).clamp(0.01, 1.0),
-              backgroundColor: Colors.grey[800],
-              valueColor: AlwaysStoppedAnimation(Colors.grey[500]!),
-            ),
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(context.uiText('#$rank'), style: TextStyle(color: Colors.grey[600], fontSize: 9)),
-      ]);
+  /// Nhãn cấp độ của video: `Đã biết 87%` (màu theo nhóm) hoặc `Chưa rõ`.
+  Widget _coverageBadge(YtExVideo v) {
+    final c = YtCoverageService.instance.of(v.id);
+    if (c == null || c.tokens == 0) {
+      return GestureDetector(
+        onTap: () => _analyzeOne(v),
+        child: _tag(context.uiText('Chưa rõ cấp độ · đo'), color: Colors.grey),
+      );
+    }
+    final color = switch (c.band) {
+      YtCoverageBand.easy => const Color(0xFF4CAF50),
+      YtCoverageBand.fair => const Color(0xFFFF9800),
+      YtCoverageBand.hard => const Color(0xFFF44336),
+      YtCoverageBand.unknown => Colors.grey,
+    };
+    return _tag(
+      context
+          .uiText('Đã biết {value0}%')
+          .replaceAll('{value0}', '${c.percent}'),
+      color: color,
+    );
+  }
 
-  Widget _empty() => Center(
+  Future<void> _analyzeOne(YtExVideo v) async {
+    final c = await YtCoverageService.instance.analyzeByDownloading(v.id);
+    if (!mounted) return;
+    setState(() {});
+    if (c == null) {
+      _snack(context.uiText('Video này không có phụ đề để đo'));
+    }
+  }
+
+  /// `1.2M lượt xem` — ghép từ template để dịch được.
+  String _viewLabel(YtExVideo v) {
+    final (num, unit) = v.viewCountParts;
+    final key = switch (unit) {
+      'M' => '{value0}M lượt xem',
+      'K' => '{value0}K lượt xem',
+      _ => '{value0} lượt xem',
+    };
+    return context.uiText(key).replaceAll('{value0}', num);
+  }
+
+  /// `3 ngày trước` / `Hôm nay` — cùng lý do.
+  String _dateLabel(YtExVideo v) {
+    final (num, unit) = v.dateParts;
+    final key = switch (unit) {
+      'day' => '{value0} ngày trước',
+      'month' => '{value0} tháng trước',
+      'year' => '{value0} năm trước',
+      'today' => 'Hôm nay',
+      _ => '',
+    };
+    if (key.isEmpty) return '';
+    return context.uiText(key).replaceAll('{value0}', num);
+  }
+
+  Widget _empty({String? msg}) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.school_outlined, size: 44, color: Colors.grey[700]),
             const SizedBox(height: 10),
             Text(
-              context.uiText('Tìm video ở thanh trên hoặc dán URL YouTube'),
+              msg ?? context.uiText('Tìm video ở thanh trên hoặc dán URL YouTube'),
               style: TextStyle(color: Colors.grey[500], fontSize: 13),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Container(
@@ -1230,7 +1587,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF1A2235),
-        title: const Text('Thêm kênh',
+        title: Text(context.uiText('Thêm kênh'),
             style: TextStyle(color: Colors.white, fontSize: 14)),
         content: TextField(
           controller: ctrl,
@@ -1249,22 +1606,34 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Huỷ', style: TextStyle(color: Colors.grey[500]))),
+              child: Text(context.uiText('Huỷ'),
+                  style: TextStyle(color: Colors.grey[500]))),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final input = ctrl.text.trim();
-              if (input.isNotEmpty) {
-                final id = input.contains('/channel/')
-                    ? input.split('/channel/').last.split('/').first
-                    : input;
-                setState(() => _channels.add(YtExChannel(id: id, title: id)));
-                Navigator.pop(context);
-                if (_hasApiKey) _enrichChannels();
+              if (input.isEmpty) return;
+              final id = input.contains('/channel/')
+                  ? input.split('/channel/').last.split('/').first
+                  : input;
+              // YT1-02: kênh thêm tay cũng phải vào CÙNG một kho với "Kênh của
+              // tôi" — trước đây chỉ nằm trong RAM của Explorer nên thoát màn
+              // là mất, và không bao giờ thấy ở hộp "Kênh của tôi".
+              try {
+                await YtChannelStore.instance
+                    .add(YtChannel(id: id, title: id));
+              } catch (e) {
+                debugPrint('[in4up-yt] add channel failed: $e');
               }
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              await _loadMyChannels();
+              if (!mounted) return;
+              setState(() => _selChannelId = id);
+              await _loadVideos();
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF0000)),
-            child: const Text('Thêm'),
+            child: Text(context.uiText('Thêm')),
           ),
         ],
       ),
@@ -1305,15 +1674,23 @@ Color _col(String n) {
   return cs[n.hashCode.abs() % cs.length];
 }
 
-Widget _tag(String label, {VoidCallback? onTap}) => GestureDetector(
+Widget _tag(String label, {VoidCallback? onTap, Color? color}) =>
+    GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: (color ?? Colors.grey)
+              .withValues(alpha: color == null ? 0.07 : 0.18),
           borderRadius: BorderRadius.circular(4),
+          border: color == null
+              ? null
+              : Border.all(color: color.withValues(alpha: 0.55)),
         ),
         child: Text(label,
-            style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+            style: TextStyle(
+                color: color ?? Colors.grey[400],
+                fontSize: 10,
+                fontWeight: color == null ? FontWeight.normal : FontWeight.w600)),
       ),
     );

@@ -266,3 +266,30 @@ báo trước “~6 MB, ~20 giây” — người dùng tự quyết.
 Stale-while-revalidate: hiện cache **ngay**, làm mới ngầm, có nhãn nhỏ “cập nhật 2 giờ trước”.
 Nút “Làm mới” trong menu = bỏ qua TTL. Dung lượng cache đi vào màn dung lượng chung và có
 công tắc ẩn/hiện.
+
+---
+
+## 7. Đợt A — ĐÃ LÀM (2026-11-09)
+
+Owner chốt: (a) **cách 1 + nút “Phân tích cả trang”**, (b) Kênh của tôi **sau** gợi ý,
+(c) cache có dung lượng / ẩn được, (d) làm Đợt A ngay.
+
+| Mục | Đã làm | File |
+|---|---|---|
+| **YT1-01** | Bỏ thanh trượt giả. Cấp độ = **độ phủ từ đã biết** đo từ phụ đề trên máy (0 byte mạng), lọc 4 nhóm `Tất cả / Dễ ≥95% / Vừa 85–95% / Khó <85% / Chưa rõ`, huy hiệu “Đã biết 87%” trên thẻ, nút **Phân tích cả trang** (hỏi trước, nói rõ chỉ tải chữ, phụ đề lưu vào kho media) | `services/yt_coverage_service.dart` (mới), `youtube_explorer_screen.dart` |
+| **YT1-02** | Sidebar đọc `YtChannelStore`; mục **Kênh của tôi đứng sau gợi ý**; `_channelById` tra cả hai danh sách (trước đây chọn kênh của tôi sẽ hiện nhầm header kênh đầu tiên); nút “+” thêm kênh ghi vào cùng kho | `youtube_explorer_screen.dart` |
+| **YT1-03** | `_reqId` cho tải danh sách + `_suggestReq` cho gợi ý: kết quả về muộn bị bỏ, truy vấn mới **không còn bị nuốt** | `youtube_explorer_screen.dart` |
+| **YT1-04** | Nhãn đi qua `uiText`; ngày/lượt xem ghép từ template `{value0} ngày trước`, `{value0}M lượt xem`…; +15 khoá en/hi/zh/zh_TW/si | `youtube_explorer_screen.dart`, `priority_ui_overrides.dart` |
+
+Test mới: `test/yt_explorer_dot_a_2026_11_09_test.dart` (18 case, quét mã + test thuần
+cho bộ tách từ và ngưỡng nhóm). Đã thêm vào bước “YouTube audit tests” của CI.
+
+**Phát hiện thêm khi làm (ghi để đợt sau):** `LrWord.langRank` trong **player** cũng là số
+bịa (`var rank = 100; … rank += 40`), trong khi `YtLearningSettings.isEasy()` so nó với
+ngưỡng 300 ⇒ tô màu “từ dễ/đã quen” và thanh tần suất trong bảng tra từ đang dựa trên dữ
+liệu không có thật. Nên sửa ở đợt B (dùng chung `YtCoverageService`/từ điển thay vì số thứ tự).
+
+**Chưa làm (đợt B/C):** trạng thái lỗi vs rỗng (YT1-05), cache có TTL (YT1-06),
+phân trang keyless (YT1-07), ảnh decode đúng cỡ (YT1-09), nhớ bộ lọc/ghim (YT1-10),
+gợi ý theo ngôn ngữ đích (YT1-11), vùng chạm (YT1-13), kéo-để-làm-mới (YT1-14),
+test hành vi (YT1-15).

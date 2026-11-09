@@ -37,6 +37,35 @@ builds can be cleaned once with `TipitakaDb.purgeDemoData()`; real books that
 were attached to a demo-named collection are kept and the collection is
 renamed. Cleanup is staged and atomic, exactly like an import.
 
+## Database management (PSRC-160)
+
+The data manager exposes three explicit, confirmed operations; deletion is
+never inferred from a failed open or a partially downloaded file.
+
+- `TipitakaDb.importHistory(db)` lists imported packages with a normalized
+  `language_code` (older rows without the column are attributed from the source
+  filename). The manager shows one removable row per installed language.
+- `TipitakaDb.deleteLanguagePack(code)` clears the fixed translation column
+  (or `pali_text` for Pāli), removes matching `tipitaka_translations` rows and
+  their import-history entries, but keeps every other language and all reader
+  annotations. It is staged, transactional and serialized with imports.
+- `TipitakaDb.deleteDatabase()` closes the open handle, removes the installed
+  DB plus journal/WAL/SHM, `.bak`, `.swap`, `.part`, `.importing-*` sidecars and
+  (optionally) downloaded pack files. A sticky `.demo_disabled` marker prevents
+  `openReady()` from silently re-seeding the bundled demo on the next launch.
+- `TipitakaDb.restoreBundledDemo()` is the only opt-in way to remove that
+  marker and copy the sample back. A subsequent real import clears the marker
+  automatically when the library reopens the installed database.
+- `TipitakaDb.purgeDemoData()` remains available for databases created by
+  older builds that still contain demo rows (PSRC-158).
+
+Removing the last readable language also sets the sticky marker, so an empty
+merged DB is not mistaken for a fresh install. Every operation bumps
+`importRevision`, which invalidates cached catalogs and lets the library
+reload. All destructive paths accept an explicit `destinationPath` for
+hermetic tests; the marker and pack cleanup only apply to the real installed
+path.
+
 ## Developer workflow
 
 1. Download one or more Pa-Auk `.db.zip` packages and extract them, or leave

@@ -4120,6 +4120,26 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'en': 'Could not open the Tipiṭaka source: {value0}',
   },
 
+  // PSRC-160 — data manager: pack removal, demo cleanup, full DB deletion.
+  'Dọn bản Demo': {'en': 'Remove the demo data'},
+  'Gói dữ liệu đã import': {'en': 'Imported data packs'},
+  'Khôi phục bản mẫu': {'en': 'Restore the bundled sample'},
+  'Không thể dọn bản Demo.': {'en': 'Could not remove the demo data.'},
+  'Không thể khôi phục bản mẫu.': {'en': 'Could not restore the bundled sample.'},
+  'Không thể xóa cơ sở dữ liệu.': {'en': 'Could not delete the database.'},
+  'Không thể xóa gói ngôn ngữ.': {'en': 'Could not remove the language pack.'},
+  'Thao tác này xóa DB đã cài, bản sao lưu và các gói đã tải. Bạn có thể import lại bất kỳ lúc nào.': {'en': 'This removes the installed database, its backup and downloaded packs. You can import them again at any time.'},
+  'Toàn bộ nội dung của gói này sẽ bị xóa khỏi thư viện.': {'en': 'All content from this pack will be removed from the library.'},
+  'Xác nhận xóa gói': {'en': 'Confirm pack removal'},
+  'Xóa cơ sở dữ liệu Tipiṭaka?': {'en': 'Delete the Tipiṭaka database?'},
+  'Xóa gói ngôn ngữ': {'en': 'Remove language pack'},
+  'Xóa toàn bộ cơ sở dữ liệu': {'en': 'Delete the entire database'},
+  'Đã dọn bản Demo.': {'en': 'Demo data removed.'},
+  'Đã khôi phục bản mẫu.': {'en': 'Bundled sample restored.'},
+  'Đã xóa cơ sở dữ liệu Tipiṭaka.': {'en': 'Tipiṭaka database deleted.'},
+  'Đã xóa gói ngôn ngữ.': {'en': 'Language pack removed.'},
+
+  'Dữ liệu đi kèm ứng dụng': {'en': 'Bundled with the app'},
   // ── I4U18-READ-IPA-001 (Agent F · F1) — hướng dẫn chế độ dòng tab Đọc ──
   'Đã mở theo dòng: chạm một dòng để hiện IPA, chạm một từ để tra nghĩa.': {
     'en':

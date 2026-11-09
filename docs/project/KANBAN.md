@@ -7332,6 +7332,11 @@
 - **Nơi đọc:** lane OCR (`lib/features/ocr/`) + AI refine (dùng AI engine có).
 - **Nghiệm thu:** sau OCR → nút "Tinh chỉnh bằng AI" → văn bản sạch hơn.
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục OCR-AI).
+- **Trạng thái:** 🔨 doing — OCR preview có nút AI tuỳ chọn, giữ bản trước/sau
+  để so sánh, loading + lỗi thân thiện; service dùng chat provider đã cấu hình.
+  Cần CI + nghiệm thu với provider thực tế.
+- **Lịch sử:**
+  - 2026-11-09 | 2026-11-09 00:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | `ocr_ai_refine_test.dart` + `app_analyze.yml` (chờ CI).
 
 ### 16. PDF-XLAT-MULTI-001 — (P1) Dịch PDF cố định EN→VN → đa ngôn ngữ (≥26)
 - **Triệu chứng:** Chức năng dịch trong PDF cố định **EL→VN**.

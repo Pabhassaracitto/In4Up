@@ -14,6 +14,8 @@ import 'dart:io' show File;
 
 import 'package:in4up/core/language/localized_material.dart';
 
+import 'ocr_ai_refine_service.dart';
+
 /// Kết quả người dùng đã xác nhận từ [OcrResultDialog].
 class OcrDraft {
   /// Văn bản (user có thể đã sửa tay trước khi xác nhận).
@@ -69,6 +71,10 @@ class OcrResultDialog extends StatefulWidget {
 
 class _OcrResultDialogState extends State<OcrResultDialog> {
   late final TextEditingController _ctrl;
+  bool _isRefining = false;
+  bool _showingBeforeAi = false;
+  String? _beforeAiText;
+  String? _aiText;
 
   @override
   void initState() {
@@ -80,6 +86,52 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _refineWithAi() async {
+    if (_isRefining || !OcrAiRefinePolicy.shouldOffer(_ctrl.text)) return;
+    final input = _ctrl.text;
+    setState(() => _isRefining = true);
+    try {
+      final refined = await OcrAiRefineService.instance.refine(input);
+      if (!mounted) return;
+      setState(() {
+        _beforeAiText = input;
+        _aiText = refined;
+        _showingBeforeAi = false;
+        _ctrl.value = TextEditingValue(
+          text: refined,
+          selection: TextSelection.collapsed(offset: refined.length),
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Không thể tinh chỉnh lúc này. Kiểm tra cấu hình AI và kết nối rồi thử lại.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isRefining = false);
+    }
+  }
+
+  void _toggleAiComparison() {
+    final before = _beforeAiText;
+    final refined = _aiText;
+    if (before == null || refined == null) return;
+    final showOriginal = !_showingBeforeAi;
+    final text = showOriginal ? before : refined;
+    setState(() {
+      _showingBeforeAi = showOriginal;
+      _ctrl.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    });
   }
 
   void _submit() {
@@ -189,6 +241,12 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
                     const SizedBox(height: 6),
                     TextField(
                       controller: _ctrl,
+                      readOnly: _isRefining,
+                      onChanged: (value) {
+                        if (_aiText != null && !_showingBeforeAi) {
+                          _aiText = value;
+                        }
+                      },
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -209,14 +267,52 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
                             .split('\n')
                             .where((l) => l.trim().isNotEmpty)
                             .length;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            // Chuỗi mẫu đã có trong overrides ('{value0} từ ·
-                            // {value1} dòng') — dùng uiText để template bắt được.
-                            context.uiText('$words từ · $lines dòng'),
-                            style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                          ),
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                // Chuỗi mẫu đã có trong overrides ('{value0} từ ·
+                                // {value1} dòng') — dùng uiText để template bắt được.
+                                context.uiText('$words từ · $lines dòng'),
+                                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                              ),
+                            ),
+                            if (OcrAiRefinePolicy.shouldOffer(value.text)) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: _isRefining ? null : _refineWithAi,
+                                  icon: _isRefining
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.auto_fix_high_rounded),
+                                  label: Text(
+                                    _isRefining
+                                        ? 'Đang tinh chỉnh...'
+                                        : 'Tinh chỉnh bằng AI',
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (_aiText != null)
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton(
+                                  onPressed: _toggleAiComparison,
+                                  child: Text(
+                                    _showingBeforeAi
+                                        ? 'Xem bản AI'
+                                        : 'Xem bản trước AI',
+                                  ),
+                                ),
+                              ),
+                          ],
                         );
                       },
                     ),
@@ -247,7 +343,7 @@ class _OcrResultDialogState extends State<OcrResultDialog> {
                     child: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _ctrl,
                       builder: (_, value, __) {
-                        final canSave = value.text.trim().isNotEmpty;
+                        final canSave = value.text.trim().isNotEmpty && !_isRefining;
                         return ElevatedButton.icon(
                           onPressed: canSave ? _submit : null,
                           icon: const Icon(Icons.save_alt),

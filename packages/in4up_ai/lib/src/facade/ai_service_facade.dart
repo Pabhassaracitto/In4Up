@@ -21,6 +21,7 @@ import '../engine/ai_route_planner.dart';
 import '../error/ai_error_codes.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
+import '../loader/model_copy_cancel_token.dart';
 import '../models/ai_analysis.dart';
 import '../models/chat_message.dart';
 import '../provider/ai_provider_config.dart';
@@ -182,6 +183,37 @@ class AiServiceFacade extends ChangeNotifier {
   double _importProgress = 0;
   String? _importError;
   bool _modelLoaded = false;
+
+  /// PSRC-23 — Token huỷ copy/download model đang chạy (nút Huỷ).
+  /// Chỉ huỷ khi `copying`/`downloading`; `loading` (nạp vào RAM) không huỷ.
+  ModelCopyCancelToken? _activeImportToken;
+
+  /// True khi đang copy/tải và có thể bấm Huỷ (không gồm `loading`).
+  bool get canCancelImport =>
+      _importStage == AiImportStage.copying ||
+      _importStage == AiImportStage.downloading;
+
+  /// Huỷ copy/download model đang chạy (PSRC-23).
+  ///
+  /// * Dừng copy (token được kiểm tra giữa các chunk).
+  /// * File đích dở dang đã bị loader xoá (không để lại .gguf cụt).
+  /// * `importStage` về trạng thái model cũ đang dùng (ready nếu đã có model,
+  ///   idle nếu chưa) — KHÔNG về `failed`, KHÔNG về "chưa có model" khi
+  ///   thật ra model cũ vẫn còn.
+  /// * `importProgress` reset về 0.
+  /// * Gọi 2 lần / gọi khi chưa copy đều no-op, không ném exception.
+  /// * KHÔNG huỷ khi đang `loading` (nạp model vào RAM) — giai đoạn đó
+  ///   không huỷ an toàn được.
+  void cancelImport() {
+    if (!canCancelImport) return;
+    _activeImportToken?.cancel();
+    // Stage sẽ được importModelFromUser/downloadModel reset về ready/idle
+    // ngay khi loader trả về (kèm xoá file dở). Ở đây chỉ reset progress để
+    // UI dừng nhảy số ngay; stage giữ nguyên `copying`/`downloading` cho tới
+    // khi loader kết thúc (tránh banner chớp "chưa có model" giữa chừng).
+    _importProgress = 0;
+    if (!_disposed) notifyListeners();
+  }
 
   AiImportStage get importStage => _importStage;
   double get importProgress => _importProgress;
@@ -1490,14 +1522,31 @@ class AiServiceFacade extends ChangeNotifier {
   /// Báo tiến độ liên tục qua [importStage]/[importProgress]:
   /// copying (0–100%) → loading (native nạp model) → ready/failed.
   /// UI (chat screen / trung tâm model) chỉ cần lắng nghe ChangeNotifier.
+  /// PSRC-23: có thể huỷ khi `copying` qua [cancelImport] (không huỷ khi
+  /// `loading`).
   Future<bool> importModelFromUser() async {
+    final token = ModelCopyCancelToken();
+    _activeImportToken = token;
+    final wasLoaded = _modelLoaded;
     _modelLoaded = false;
     _setImportStage(AiImportStage.copying, progress: 0);
     try {
       final result = await _loader.importModelFromUser(
         onCopyProgress: (p) =>
             _setImportStage(AiImportStage.copying, progress: p, notify: false),
+        cancelToken: token,
       );
+      if (token.isCancelled) {
+        // PSRC-23: user bấm Huỷ — về trạng thái model cũ đang dùng.
+        _activeImportToken = null;
+        _modelLoaded = wasLoaded;
+        if (hasModelFile) _modelLoaded = true;
+        _setImportStage(
+          hasModelFile ? AiImportStage.ready : AiImportStage.idle,
+          progress: 0,
+        );
+        return false;
+      }
       _modelStatus = result;
       if (result.success && result.modelPath != null) {
         return await _adoptModel(result.modelPath!);
@@ -1505,16 +1554,31 @@ class AiServiceFacade extends ChangeNotifier {
       _setImportStage(AiImportStage.failed,
           error: result.errorMessage ?? 'Import thất bại');
       return false;
+    } on ModelCopyCancelledException {
+      _activeImportToken = null;
+      _modelLoaded = wasLoaded;
+      if (hasModelFile) _modelLoaded = true;
+      _setImportStage(
+        hasModelFile ? AiImportStage.ready : AiImportStage.idle,
+        progress: 0,
+      );
+      return false;
     } catch (e) {
       debugPrint('[AiServiceFacade] importModelFromUser error: $e');
       _setImportStage(AiImportStage.failed, error: 'Lỗi import: $e');
       return false;
+    } finally {
+      _activeImportToken = null;
     }
   }
 
   /// Tải model từ URL (nút "Tải về" trong trung tâm model).
   /// Tiến độ: downloading (0–100%) → loading → ready/failed.
+  /// PSRC-23: có thể huỷ khi `downloading` qua [cancelImport].
   Future<bool> downloadModel(String url) async {
+    final token = ModelCopyCancelToken();
+    _activeImportToken = token;
+    final wasLoaded = _modelLoaded;
     _modelLoaded = false;
     _setImportStage(AiImportStage.downloading, progress: 0);
     try {
@@ -1522,7 +1586,18 @@ class AiServiceFacade extends ChangeNotifier {
         url: url,
         onProgress: (p) =>
             _setImportStage(AiImportStage.downloading, progress: p, notify: false),
+        cancelToken: token,
       );
+      if (token.isCancelled) {
+        _activeImportToken = null;
+        _modelLoaded = wasLoaded;
+        if (hasModelFile) _modelLoaded = true;
+        _setImportStage(
+          hasModelFile ? AiImportStage.ready : AiImportStage.idle,
+          progress: 0,
+        );
+        return false;
+      }
       _modelStatus = result;
       if (result.success && result.modelPath != null) {
         return await _adoptModel(result.modelPath!);
@@ -1530,10 +1605,21 @@ class AiServiceFacade extends ChangeNotifier {
       _setImportStage(AiImportStage.failed,
           error: result.errorMessage ?? 'Download thất bại');
       return false;
+    } on ModelCopyCancelledException {
+      _activeImportToken = null;
+      _modelLoaded = wasLoaded;
+      if (hasModelFile) _modelLoaded = true;
+      _setImportStage(
+        hasModelFile ? AiImportStage.ready : AiImportStage.idle,
+        progress: 0,
+      );
+      return false;
     } catch (e) {
       debugPrint('[AiServiceFacade] downloadModel error: $e');
       _setImportStage(AiImportStage.failed, error: 'Download thất bại: $e');
       return false;
+    } finally {
+      _activeImportToken = null;
     }
   }
 
@@ -1641,6 +1727,8 @@ class AiServiceFacade extends ChangeNotifier {
       if (!item.done.isCompleted) item.done.complete();
     }
     _chatQueue.clear();
+    // PSRC-23: huỷ copy/download đang chạy khi facade dispose.
+    _activeImportToken?.cancel();
     // WP1: hủy request remote đang stream — token không được chảy tiếp sau
     // dispose (AT: đóng màn giữa lúc generate ⇒ dừng sạch).
     _activeChatToken?.cancel('facade disposed');

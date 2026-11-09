@@ -274,7 +274,8 @@ class _ModelStatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final ui = context.uiText;
 
-    // 1) Đang copy file đã chọn
+    // 1) Đang copy file đã chọn — PSRC-23: có nút Huỷ (bắt chước pattern
+    // nút Huỷ download ở stt_model_settings_screen.dart:674-681).
     if (facade.importStage == AiImportStage.copying) {
       final pct = (facade.importProgress * 100).toStringAsFixed(0);
       return _banner(
@@ -284,8 +285,23 @@ class _ModelStatusBanner extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text(context.uiText('${ui('Đang copy model…')} $pct%'),
-                  style: const TextStyle(fontSize: 12)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                        context.uiText('${ui('Đang copy model…')} $pct%'),
+                        style: const TextStyle(fontSize: 12)),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.cancel, size: 16),
+                    label: Text(ui('Huỷ')),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                    onPressed: facade.cancelImport,
+                  ),
+                ],
+              ),
             ),
             LinearProgressIndicator(
               value: facade.importProgress,
@@ -296,7 +312,8 @@ class _ModelStatusBanner extends StatelessWidget {
       );
     }
 
-    // 2) Đang tải từ URL
+    // 2) Đang tải từ URL — PSRC-23: có nút Huỷ (chỉ huỷ khi downloading,
+    // không huỷ khi loading/nạp vào RAM).
     if (facade.importStage == AiImportStage.downloading) {
       final pct = (facade.importProgress * 100).toStringAsFixed(0);
       return _banner(
@@ -306,8 +323,23 @@ class _ModelStatusBanner extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text(context.uiText('${ui('Đang tải model…')} $pct%'),
-                  style: const TextStyle(fontSize: 12)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                        context.uiText('${ui('Đang tải model…')} $pct%'),
+                        style: const TextStyle(fontSize: 12)),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.cancel, size: 16),
+                    label: Text(ui('Huỷ')),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                    onPressed: facade.cancelImport,
+                  ),
+                ],
+              ),
             ),
             LinearProgressIndicator(
               value: facade.importProgress,

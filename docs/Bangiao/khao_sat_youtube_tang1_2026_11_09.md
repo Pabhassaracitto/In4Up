@@ -223,6 +223,46 @@ Nguyên tắc xuyên suốt để “trông chuyên nghiệp” mà không cần
 4. **Player**: “nhớ vị trí đang xem” nên làm **sớm**, tách đợt riêng vì chạm vào player
    (đang có PR #142 chưa gộp ⇒ nên chờ gộp để tránh xung đột `yt_player_screen.dart`).
 
-> Câu cần chốt: (a) có làm lại “Cấp độ từ vựng” cho thật (cần phân tích phụ đề) hay **ẩn**?
-> (b) “Kênh của tôi” thay hay **đứng trước** danh sách gợi ý? (c) cache video có được phép
-> chiếm dung lượng (hiện app ưu tiên cho người dùng thấy dung lượng) — TTL hay không TTL?
+### 6.1 Chốt của owner (2026-11-09)
+
+- **(b) “Kênh của tôi” ĐỨNG SAU danh sách gợi ý.** Thứ tự sidebar: gợi ý (theo ngôn ngữ đích)
+  → **Kênh của tôi** → “Tất cả các kênh”. Nghĩa là YT1-02 vẫn là *nối dây*, không phải thay thế.
+- **(c) Cache CÓ tính dung lượng, mặc định hiện, được ẩn trong Cài đặt YouTube.** Nghĩa là:
+  cache phải đi qua `YtMediaStore`-style (thư mục hiện, cộng vào “dung lượng đã dùng”),
+  và có công tắc “Hiện dung lượng cache” trong `YtLearningSettings`/sheet cài đặt.
+  TTL: **có** (đề xuất dưới).
+- **(a) chưa chốt** — đang chờ trả lời chi phí (mục 6.2).
+
+### 6.2 Chi phí nếu làm “Cấp độ từ vựng” cho thật
+
+Ba mức, chọn theo chi phí:
+
+| Mức | Cách làm | Băng thông | Thời gian | Công code |
+|---|---|---|---|---|
+| **0 — Ẩn** | Bỏ slider khỏi sidebar | **0** | 0 | ~10 phút (xoá UI + test) |
+| **1 — Rẻ (đề xuất)** | Chỉ tính cho video **đã có phụ đề trên máy** (`YtMediaStore.list()` → `lrcPath != null`); video chưa có thì vào nhóm “chưa rõ cấp độ”, có nút “Tính cấp độ” từng video | **0** (đọc file cục bộ) | < 50 ms cho 30 video (tokenize ~30k từ) | ~0,5 ngày |
+| **2 — Đầy đủ** | Tải manifest/player response của **từng** video trong trang để lấy phụ đề rồi tính | **≈ 4–10 MB / 20 video** (mỗi video phải mở 1 trang ~0,5–1 MB mới biết có phụ đề gì) | 10–40 s trên Wi-Fi, lâu hơn nhiều trên 4G; 20 request ⇒ dễ bị YouTube chặn tạm | ~1,5–2 ngày + rủi ro |
+
+Ghi chú kỹ thuật cho mức 1/2: “cấp độ của video” = **rank trung bình của các từ nội dung**
+(bỏ stopword), tra trong bảng tần suất đã có sẵn trong app — phần tính toán không tốn gì;
+tốn là **lấy được chữ**. Bản thân file phụ đề rất nhẹ (~20–60 KB/video), nên *nếu phải tải*
+thì nên tải **cả phụ đề và giữ lại** (hợp với quyết định (c): cache có dung lượng, có thể ẩn) thay
+vì tải để tính rank rồi vứt.
+
+**Khuyến nghị:** mức **1** — thanh trượt có tác dụng thật với video đã tải (nhóm người dùng quan
+tâm nhất), không tốn 1 byte mạng, và khi chưa có dữ liệu thì **ẩn số, hiện nhãn “chưa rõ”** chứ
+không hiện thanh giả. Mức 2 chỉ nên làm sau, dưới dạng nút **“Phân tích cả trang”** có hộp thoại
+báo trước “~6 MB, ~20 giây” — người dùng tự quyết.
+
+### 6.3 TTL cache (theo quyết định (c))
+
+| Loại | TTL | Lý do |
+|---|---|---|
+| Kết quả tìm kiếm theo từ khoá | 24 giờ | Nội dung mới xuất hiện nhanh, nhưng lặp lại trong ngày rất nhiều |
+| Danh sách video của kênh | 3 ngày | Kênh học ít đăng; 3 ngày vẫn đủ tươi |
+| Thông tin kênh (tên/ảnh/mô tả) | 30 ngày | Gần như tĩnh |
+| Phụ đề đã tải | **không hết hạn** | Là dữ liệu người dùng chủ động tải, xoá tay như hiện nay |
+
+Stale-while-revalidate: hiện cache **ngay**, làm mới ngầm, có nhãn nhỏ “cập nhật 2 giờ trước”.
+Nút “Làm mới” trong menu = bỏ qua TTL. Dung lượng cache đi vào màn dung lượng chung và có
+công tắc ẩn/hiện.

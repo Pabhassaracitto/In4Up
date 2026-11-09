@@ -13,6 +13,7 @@
 // timestamp (những dữ liệu đó key bằng audioPath ở lớp khác).
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/audio_library_entry.dart';
@@ -61,7 +62,7 @@ class AudioLibraryProvider extends ChangeNotifier {
     var status = await Permission.audio.status;
     
     // PSRC-172: Linux fallback nếu Permission.audio không có hiệu lực (thường là Permission.storage)
-    if (Platform.isLinux && !status.isGranted) {
+    if (kIsWeb == false && defaultTargetPlatform == TargetPlatform.linux && !status.isGranted) {
       final storageStatus = await Permission.storage.status;
       if (!storageStatus.isGranted) {
         status = await Permission.storage.request();

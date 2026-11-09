@@ -308,6 +308,18 @@ class TtsService extends ChangeNotifier {
   // CONFIGURATION
   // ═══════════════════════════════════════
 
+  static final RegExp _bcp47RegionPattern =
+      RegExp(r'^[a-zA-Z]{2,3}[-_][a-zA-Z]{2}$');
+
+  String _normalizeRequestedLocale(String raw) {
+    final trimmed = raw.trim();
+    if (_bcp47RegionPattern.hasMatch(trimmed)) {
+      final parts = trimmed.replaceAll('_', '-').split('-');
+      return '${parts[0].toLowerCase()}-${parts[1].toUpperCase()}';
+    }
+    return AppLanguageCatalog.fromCode(trimmed).ttsLocale;
+  }
+
   void configure({
     String? language,
     double? speed,
@@ -320,9 +332,7 @@ class TtsService extends ChangeNotifier {
   }) {
     if (language != null) {
       final isAuto = language.toLowerCase() == 'auto';
-      final normalized = isAuto
-          ? 'auto'
-          : AppLanguageCatalog.fromCode(language).ttsLocale;
+      final normalized = isAuto ? 'auto' : _normalizeRequestedLocale(language);
       if (_language != normalized) _selectedVoiceId = null;
       _language = normalized;
     }
@@ -403,7 +413,7 @@ class TtsService extends ChangeNotifier {
         ? _resolveLanguage(text)
         : language.toLowerCase() == 'auto'
             ? LanguageDetector.detect(text)
-            : AppLanguageCatalog.fromCode(language).ttsLocale;
+            : _normalizeRequestedLocale(language);
     _detectedLanguage = lang;
 
     // 1. Cache: KHÔNG dò bằng engineId 'any' nữa.
@@ -511,7 +521,7 @@ class TtsService extends ChangeNotifier {
         // Nếu dùng offline và chế độ offlineFirst (kể cả `auto` đã resolve
         // thành offlineFirst vì đang dùng mạng di động), prefetch online nền.
         if (effectivePriority == TtsPriority.offlineFirst) {
-          _prefetchOnline(text, lang);
+          _prefetchOnline(text, lang, matchVoiceLanguage: matchVoiceLanguage);
         }
         return;
       }
@@ -552,8 +562,7 @@ class TtsService extends ChangeNotifier {
       if (cached != null) {
         _lastUsedEngine = '💾 Cache · Sherpa Piper';
         _safeNotify();
-        await _playFile(cached, epoch);
-        return true;
+        return await _playFile(cached, epoch);
       }
 
       _usingOfflineEngine = false;
@@ -592,8 +601,7 @@ class TtsService extends ChangeNotifier {
       if (isStaleEpoch(epoch)) return false;
       _lastUsedEngine = '🎙️ Sherpa Piper';
       _safeNotify();
-      await _playFile(filePath, epoch);
-      return true;
+      return await _playFile(filePath, epoch);
     } catch (e) {
       debugPrint('⚠️ Piper TTS error: $e, fallback tiếp');
       _isLoading = false;
@@ -628,8 +636,7 @@ class TtsService extends ChangeNotifier {
       if (cached != null) {
         _lastUsedEngine = '💾 Cache · VieNeu-TTS';
         _safeNotify();
-        await _playFile(cached, epoch);
-        return true;
+        return await _playFile(cached, epoch);
       }
 
       _usingOfflineEngine = false;
@@ -670,8 +677,7 @@ class TtsService extends ChangeNotifier {
       if (isStaleEpoch(epoch)) return false;
       _lastUsedEngine = '🇻🇳 VieNeu-TTS';
       _safeNotify();
-      await _playFile(filePath, epoch);
-      return true;
+      return await _playFile(filePath, epoch);
     } catch (e) {
       debugPrint('⚠️ VieNeu-TTS error: $e, fallback tiếp');
       _isLoading = false;
@@ -834,6 +840,29 @@ class TtsService extends ChangeNotifier {
     return voicePrefix == languagePrefix;
   }
 
+  /// Resolve the actual voice once for synthesis and its cache identity.
+  @visibleForTesting
+  static String? resolveOnlineVoice({
+    required String engineId,
+    required String language,
+    String? voiceOverride,
+    String? selectedVoiceId,
+    bool matchVoiceLanguage = false,
+  }) {
+    var candidate = voiceOverride ?? (matchVoiceLanguage ? null : selectedVoiceId);
+    if (matchVoiceLanguage && engineId == 'edge_tts' && candidate != null &&
+        !_voiceMatchesLanguage(candidate, language)) {
+      candidate = null;
+    }
+    return engineId == 'edge_tts'
+        ? EdgeTtsEngine.resolveVoice(voiceId: candidate, language: language)
+        : candidate;
+  }
+
+  @visibleForTesting
+  static double onlinePlaybackSpeed(String engineId, double speed) =>
+      engineId == 'edge_tts' ? 1.0 : speed;
+
   /// Thử phát bằng Online Engine (Google, Zalo, FPT, Edge)
   ///
   /// [voiceOverride] — giọng ưu tiên cho engine này (TTS-EDGE-VOICE-001: Edge
@@ -847,7 +876,15 @@ class TtsService extends ChangeNotifier {
     required int epoch,
     bool matchVoiceLanguage = false,
   }) async {
-    final voiceId = voiceOverride ?? (matchVoiceLanguage ? null : _selectedVoiceId);
+    final voiceId = resolveOnlineVoice(
+      engineId: engine.id,
+      language: lang,
+      voiceOverride: voiceOverride,
+      selectedVoiceId: _selectedVoiceId,
+      matchVoiceLanguage: matchVoiceLanguage,
+    );
+    // Edge synthesizes the requested speed into SSML; do not apply it twice.
+    final playbackSpeed = onlinePlaybackSpeed(engine.id, _speed);
 
     // Cache theo đúng danh tính giọng — bản ghi của giọng khác KHÔNG được
     // dùng lại (TTS-VOICE-CACHE-001).
@@ -861,10 +898,17 @@ class TtsService extends ChangeNotifier {
     );
     if (isStaleEpoch(epoch)) return false;
     if (cached != null) {
-      _lastUsedEngine = '💾 Cache · ${engine.name}';
+      _lastUsedEngine = voiceId == null || voiceId.trim().isEmpty
+          ? '💾 Cache · ${engine.name}'
+          : '💾 Cache · ${engine.name} · ${_shortVoiceLabel(voiceId)}';
       _safeNotify();
-      await _playFile(cached, epoch);
-      return true;
+      final ok = await _playFile(cached, epoch, playbackSpeed: playbackSpeed);
+      if (ok) return true;
+      // Cancellation is not a corrupt cache: never delete a valid file on Stop.
+      if (isStaleEpoch(epoch)) return false;
+      try {
+        await File(cached).delete();
+      } catch (_) {}
     }
 
     final hasNet = await _checkNetwork();
@@ -904,13 +948,11 @@ class TtsService extends ChangeNotifier {
               ? '🌐 ${result.engineName}'
               : '🌐 ${result.engineName} · ${_shortVoiceLabel(voiceId)}';
           _safeNotify();
-          await _playFile(filePath, epoch);
-          return true;
+          return await _playFile(filePath, epoch, playbackSpeed: playbackSpeed);
         } else if (result.audioUrl != null) {
           _lastUsedEngine = '🌐 ${result.engineName}';
           _safeNotify();
-          await _playUrl(result.audioUrl!, epoch);
-          return true;
+          return await _playUrl(result.audioUrl!, epoch);
         }
       }
       return false;
@@ -923,7 +965,7 @@ class TtsService extends ChangeNotifier {
   }
 
   /// Prefetch: tải online ở nền để cache cho lần sau
-  void _prefetchOnline(String text, String lang) {
+  void _prefetchOnline(String text, String lang, {bool matchVoiceLanguage = false}) {
     if (_isPrefetching) return;
     _isPrefetching = true;
 
@@ -940,9 +982,16 @@ class TtsService extends ChangeNotifier {
             // phát sẽ dùng, nếu không sẽ nạp sẵn một bản ghi giọng mặc
             // định (nữ) rồi không bao giờ khớp key — vừa phí mạng vừa là
             // nguồn gốc của "chọn giọng nam mà giọng nữ đọc".
-            final voiceId = engine.id == 'edge_tts'
-                ? await _resolveEdgeVoice(lang)
-                : _selectedVoiceId;
+            final voiceOverride = engine.id == 'edge_tts'
+                ? await _resolveEdgeVoice(lang, matchLanguage: matchVoiceLanguage)
+                : null;
+            final voiceId = resolveOnlineVoice(
+              engineId: engine.id,
+              language: lang,
+              voiceOverride: voiceOverride,
+              selectedVoiceId: _selectedVoiceId,
+              matchVoiceLanguage: matchVoiceLanguage,
+            );
 
             final existing = await _cache.get(
               text: text,
@@ -1043,7 +1092,7 @@ class TtsService extends ChangeNotifier {
 
   String _resolveLanguage(String text) {
     if (_language != 'auto') {
-      return AppLanguageCatalog.fromCode(_language).ttsLocale;
+      return _normalizeRequestedLocale(_language);
     }
     if (_autoDetectLanguage) return LanguageDetector.detect(text);
     return AppLanguageCatalog.english.ttsLocale;
@@ -1380,37 +1429,50 @@ class TtsService extends ChangeNotifier {
   // HELPERS
   // ═══════════════════════════════════════
 
-  Future<void> _playFile(String filePath, int epoch) async {
+  Future<bool> _playFile(String filePath, int epoch,
+      {double? playbackSpeed}) async {
     try {
       _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setFilePath(filePath);
-      if (isStaleEpoch(epoch)) return;
-      await _audioPlayer.setSpeed(_speed);
-      if (isStaleEpoch(epoch)) return;
+      if (isStaleEpoch(epoch)) return false;
+      await _audioPlayer.setSpeed(playbackSpeed ?? _speed);
+      if (isStaleEpoch(epoch)) return false;
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
+      return !isStaleEpoch(epoch);
     } catch (e) {
+      if (isStaleEpoch(epoch)) return false;
       _error = 'Lỗi phát: $e';
-      _isSpeaking = false;
-      _safeNotify();
+      return false;
+    } finally {
+      if (!isStaleEpoch(epoch)) {
+        _isSpeaking = false;
+        _safeNotify();
+      }
     }
   }
 
-  Future<void> _playUrl(String url, int epoch) async {
+  Future<bool> _playUrl(String url, int epoch) async {
     try {
       _usingOfflineEngine = false; // ★ Đang dùng AudioPlayer
       await _audioPlayer.setUrl(url);
-      if (isStaleEpoch(epoch)) return;
+      if (isStaleEpoch(epoch)) return false;
       await _audioPlayer.setSpeed(_speed);
-      if (isStaleEpoch(epoch)) return;
+      if (isStaleEpoch(epoch)) return false;
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
+      return !isStaleEpoch(epoch);
     } catch (e) {
+      if (isStaleEpoch(epoch)) return false;
       _error = 'Lỗi stream: $e';
-      _isSpeaking = false;
-      _safeNotify();
+      return false;
+    } finally {
+      if (!isStaleEpoch(epoch)) {
+        _isSpeaking = false;
+        _safeNotify();
+      }
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/tts/tts_service.dart';
+import 'package:in4up/features/tts/engines/edge_tts_engine.dart';
 import 'package:in4up/models/word_entry.dart';
 import 'package:in4up/screens/tools/word_list/wordlist_playback_service.dart';
 import 'package:in4up/screens/tools/word_list/wordlist_read_sequence.dart';
@@ -124,4 +125,34 @@ void main() {
     expect(TtsService.voiceMatchesLanguage('vi-VN-HoaiMyNeural', 'en-US'), isFalse);
     expect(TtsService.voiceMatchesLanguage('en-GB-RyanNeural', 'en-US'), isTrue);
   });
+
+  test('Wordlist voice resolution keeps Edge cache identity language matched', () {
+    const viVoice = 'vi-VN-HoaiMyNeural';
+    const enVoice = 'en-US-GuyNeural';
+    String? resolve({String? override, String? selected, bool strict = true}) =>
+        TtsService.resolveOnlineVoice(
+          engineId: 'edge_tts',
+          language: 'en-US',
+          voiceOverride: override,
+          selectedVoiceId: selected,
+          matchVoiceLanguage: strict,
+        );
+    expect(resolve(selected: viVoice), EdgeTtsEngine.defaultVoiceForLanguage('en-US'));
+    expect(resolve(override: viVoice), EdgeTtsEngine.defaultVoiceForLanguage('en-US'));
+    expect(resolve(override: enVoice, selected: viVoice), enVoice);
+    expect(resolve(selected: viVoice, strict: false), viVoice);
+    expect(TtsService.resolveOnlineVoice(
+      engineId: 'google_tts', language: 'en-US', selectedVoiceId: viVoice,
+      matchVoiceLanguage: true,
+    ), isNull);
+    expect(TtsService.resolveOnlineVoice(
+      engineId: 'google_tts', language: 'en-US', selectedVoiceId: viVoice,
+    ), viVoice);
+  });
+
+  test('Edge synthesis speed is not applied a second time by player', () {
+    expect(TtsService.onlinePlaybackSpeed('edge_tts', 0.82), 1.0);
+    expect(TtsService.onlinePlaybackSpeed('google_tts', 0.82), 0.82);
+  });
+
 }

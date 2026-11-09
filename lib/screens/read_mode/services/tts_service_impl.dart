@@ -28,13 +28,13 @@ class FlutterTtsServiceImpl implements TtsService {
     _onStart?.call();
 
     try {
-      _appTts.configure(
-        language: _activeLocale,
-        autoDetect: false,
-        speed: _activeSpeed,
-      );
+      // Truyền ngôn ngữ trực tiếp theo từng câu qua `speak(language: ...)` thay
+      // vì ghi đè `_language`/`autoDetect = false` toàn cục của TtsService —
+      // tránh làm các nơi khác (TextProvider, từ điển, PDF…) bị kẹt ở `en-US`
+      // rồi đọc câu tiếng Việt bằng giọng nữ tiếng Anh.
+      _appTts.configure(speed: _activeSpeed);
 
-      await _appTts.speak(text);
+      await _appTts.speak(text, language: _activeLocale);
 
       // Chờ cho đến khi phát xong hoặc bị dừng
       int waitLimit = 0;
@@ -68,11 +68,20 @@ class FlutterTtsServiceImpl implements TtsService {
     _appTts.configure(speed: _activeSpeed);
   }
 
+  static final RegExp _bcp47RegionPattern =
+      RegExp(r'^[a-zA-Z]{2,3}[-_][a-zA-Z]{2}$');
+
   @override
   Future<void> setLanguage(String locale) async {
-    final requested = AppLanguageCatalog.fromCode(locale).ttsLocale;
+    final trimmed = locale.trim();
+    final String requested;
+    if (_bcp47RegionPattern.hasMatch(trimmed)) {
+      final parts = trimmed.replaceAll('_', '-').split('-');
+      requested = '${parts[0].toLowerCase()}-${parts[1].toUpperCase()}';
+    } else {
+      requested = AppLanguageCatalog.fromCode(trimmed).ttsLocale;
+    }
     _activeLocale = requested;
-    _appTts.configure(language: requested, autoDetect: false);
     debugPrint('[ReadTTS] Language set to $requested');
   }
 

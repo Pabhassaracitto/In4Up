@@ -35538,5 +35538,205 @@
     "my": ".gguf ဖိုင် Import လုပ်ပါ သို့မဟုတ် ဒေါင်းလုဒ် နှိပ်ပါ (~1.1 GB)။",
     "th": "นำเข้าไฟล์ .gguf หรือกดดาวน์โหลด (~1.1 GB)",
     "ja": ".gguf をインポートするか、ダウンロードを押してください（約1.1GB）。"
+  },
+  "🇲🇲 Tiếng Myanmar (my-MM)": {
+    "en": "🇲🇲 Burmese / Myanmar (my-MM)",
+    "zh": "🇲🇲 缅甸语（my-MM）",
+    "zh_TW": "🇲🇲 緬甸語（my-MM）",
+    "hi": "🇲🇲 बर्मी / म्यांमार (my-MM)",
+    "si": "🇲🇲 බුරුම / මියන්මාර (my-MM)",
+    "my": "🇲🇲 မြန်မာဘာသာ (my-MM)",
+    "th": "🇲🇲 พม่า / เมียนมา (my-MM)",
+    "ja": "🇲🇲 ミャンマー語（my-MM）"
+  },
+  "🇱🇰 Tiếng Sri Lanka (si-LK)": {
+    "en": "🇱🇰 Sinhala / Sri Lanka (si-LK)",
+    "zh": "🇱🇰 僧伽罗语 / 斯里兰卡（si-LK）",
+    "zh_TW": "🇱🇰 僧伽羅語 / 斯里蘭卡（si-LK）",
+    "hi": "🇱🇰 सिंहली / श्रीलंका (si-LK)",
+    "si": "🇱🇰 සිංහල / ශ්‍රී ලංකා (si-LK)",
+    "my": "🇱🇰 ဆင်ဟာလာ / သီရိလင်္ကာ (si-LK)",
+    "th": "🇱🇰 สิงหล / ศรีลังกา (si-LK)",
+    "ja": "🇱🇰 シンハラ語・スリランカ（si-LK）"
+  },
+  "Xem thêm ngôn ngữ khác ({value0})": {
+    "en": "Show more languages ({value0})",
+    "zh": "显示更多其他语言（{value0}）",
+    "zh_TW": "顯示更多其他語言（{value0}）",
+    "hi": "अन्य भाषाएँ दिखाएँ ({value0})",
+    "si": "වෙනත් භාෂා තවත් පෙන්වන්න ({value0})",
+    "my": "အခြား ဘာသာစကားများ ပိုမိုပြသရန် ({value0})",
+    "th": "แสดงภาษาอื่นเพิ่มเติม ({value0})",
+    "ja": "その他の言語を表示（{value0}）"
+  },
+  "Thu gọn ngôn ngữ khác": {
+    "en": "Hide other languages",
+    "zh": "收起其他语言",
+    "zh_TW": "收合其他語言",
+    "hi": "अन्य भाषाएँ समेटें",
+    "si": "වෙනත් භාෂා හකුළන්න",
+    "my": "အခြား ဘာသာစကားများ ပြန်ခေါက်ရန်",
+    "th": "ย่อภาษาอื่น",
+    "ja": "その他の言語を折りたたむ"
+  },
+  "Đồng bộ chung với Server & API ở Home — quản lý tập trung tại một nơi": {
+    "en": "Synced with Home Server & API — manage all APIs in one place",
+    "zh": "与主页“服务器与 API”同步——在一处集中管理",
+    "zh_TW": "與首頁「伺服器與 API」同步——於單一位置集中管理",
+    "hi": "होम के सर्वर और API के साथ सिंक — एक ही जगह केंद्रीकृत प्रबंधन",
+    "si": "මුල් පිටුවේ Server & API සමඟ සමමුහුර්තයි — එක් තැනකින් කළමනාකරණය කරන්න",
+    "my": "Home ရှိ Server & API နှင့် ချိတ်ဆက်ထားသည် — တစ်နေရာတည်းတွင် စုစည်းစီမံပါ",
+    "th": "ซิงก์กับเซิร์ฟเวอร์และ API ในหน้าแรก — จัดการรวมไว้ในที่เดียว",
+    "ja": "ホームの「サーバーとAPI」と同期 — 1か所で一元管理"
+  },
+  "Đang đồng bộ TTS: {value0}": {
+    "en": "Synced TTS: {value0}",
+    "zh": "已同步 TTS：{value0}",
+    "zh_TW": "已同步 TTS：{value0}",
+    "hi": "सिंक किया गया TTS: {value0}",
+    "si": "සමමුහුර්ත TTS: {value0}",
+    "my": "ချိတ်ဆက်ထားသော TTS: {value0}",
+    "th": "ซิงก์ TTS แล้ว: {value0}",
+    "ja": "同期中のTTS: {value0}"
+  },
+  "Ryan (Nam, Anh)": {
+    "en": "Ryan (Male, British)",
+    "zh": "Ryan（男，英式英语）",
+    "zh_TW": "Ryan（男，英式英語）",
+    "hi": "Ryan (पुरुष, ब्रिटिश)",
+    "si": "Ryan (පිරිමි, බ්‍රිතාන්‍ය)",
+    "my": "Ryan (အမျိုးသား, ဗြိတိန်)",
+    "th": "Ryan (ชาย, อังกฤษบริเตน)",
+    "ja": "Ryan（男性・イギリス英語）"
+  },
+  "Madhur (Nam, Ấn)": {
+    "en": "Madhur (Male, Hindi)",
+    "zh": "Madhur（男，印地语）",
+    "zh_TW": "Madhur（男，印地語）",
+    "hi": "Madhur (पुरुष, हिन्दी)",
+    "si": "Madhur (පිරිමි, හින්දි)",
+    "my": "Madhur (အမျိုးသား, ဟိန္ဒီ)",
+    "th": "Madhur (ชาย, ฮินดี)",
+    "ja": "Madhur（男性・ヒンディー語）"
+  },
+  "Nilar (Nữ, Myanmar)": {
+    "en": "Nilar (Female, Myanmar)",
+    "zh": "Nilar（女，缅甸语）",
+    "zh_TW": "Nilar（女，緬甸語）",
+    "hi": "Nilar (महिला, म्यांमार)",
+    "si": "Nilar (ගැහැණු, මියන්මාර)",
+    "my": "Nilar (အမျိုးသမီး, မြန်မာ)",
+    "th": "Nilar (หญิง, เมียนมา)",
+    "ja": "Nilar（女性・ミャンマー語）"
+  },
+  "Thiha (Nam, Myanmar)": {
+    "en": "Thiha (Male, Myanmar)",
+    "zh": "Thiha（男，缅甸语）",
+    "zh_TW": "Thiha（男，緬甸語）",
+    "hi": "Thiha (पुरुष, म्यांमार)",
+    "si": "Thiha (පිරිමි, මියන්මාර)",
+    "my": "Thiha (အမျိုးသား, မြန်မာ)",
+    "th": "Thiha (ชาย, เมียนมา)",
+    "ja": "Thiha（男性・ミャンマー語）"
+  },
+  "Thilini (Nữ, Sri Lanka)": {
+    "en": "Thilini (Female, Sri Lanka)",
+    "zh": "Thilini（女，斯里兰卡）",
+    "zh_TW": "Thilini（女，斯里蘭卡）",
+    "hi": "Thilini (महिला, श्रीलंका)",
+    "si": "Thilini (ගැහැණු, ශ්‍රී ලංකා)",
+    "my": "Thilini (အမျိုးသမီး, သီရိလင်္ကာ)",
+    "th": "Thilini (หญิง, ศรีลังกา)",
+    "ja": "Thilini（女性・スリランカ）"
+  },
+  "Sameera (Nam, Sri Lanka)": {
+    "en": "Sameera (Male, Sri Lanka)",
+    "zh": "Sameera（男，斯里兰卡）",
+    "zh_TW": "Sameera（男，斯里蘭卡）",
+    "hi": "Sameera (पुरुष, श्रीलंका)",
+    "si": "Sameera (පිරිමි, ශ්‍රී ලංකා)",
+    "my": "Sameera (အမျိုးသား, သီရိလင်္ကာ)",
+    "th": "Sameera (ชาย, ศรีลังกา)",
+    "ja": "Sameera（男性・スリランカ）"
+  },
+  "YunJhe (Nam, Đài Loan)": {
+    "en": "YunJhe (Male, Taiwan)",
+    "zh": "YunJhe（男，台湾）",
+    "zh_TW": "YunJhe（男，台灣）",
+    "hi": "YunJhe (पुरुष, ताइवान)",
+    "si": "YunJhe (පිරිමි, තායිවානය)",
+    "my": "YunJhe (အမျိုးသား, ထိုင်ဝမ်)",
+    "th": "YunJhe (ชาย, ไต้หวัน)",
+    "ja": "YunJhe（男性・台湾）"
+  },
+  "InJoon (Nam, Hàn)": {
+    "en": "InJoon (Male, Korean)",
+    "zh": "InJoon（男，韩语）",
+    "zh_TW": "InJoon（男，韓語）",
+    "hi": "InJoon (पुरुष, कोरियाई)",
+    "si": "InJoon (පිරිමි, කොරියානු)",
+    "my": "InJoon (အမျိုးသား, ကိုရီးယား)",
+    "th": "InJoon (ชาย, เกาหลี)",
+    "ja": "InJoon（男性・韓国語）"
+  },
+  "Henri (Nam, Pháp)": {
+    "en": "Henri (Male, French)",
+    "zh": "Henri（男，法语）",
+    "zh_TW": "Henri（男，法語）",
+    "hi": "Henri (पुरुष, फ़्रेंच)",
+    "si": "Henri (පිරිමි, ප්‍රංශ)",
+    "my": "Henri (အမျိုးသား, ပြင်သစ်)",
+    "th": "Henri (ชาย, ฝรั่งเศส)",
+    "ja": "Henri（男性・フランス語）"
+  },
+  "Conrad (Nam, Đức)": {
+    "en": "Conrad (Male, German)",
+    "zh": "Conrad（男，德语）",
+    "zh_TW": "Conrad（男，德語）",
+    "hi": "Conrad (पुरुष, जर्मन)",
+    "si": "Conrad (පිරිමි, ජර්මන්)",
+    "my": "Conrad (အမျိုးသား, ဂျာမန်)",
+    "th": "Conrad (ชาย, เยอรมัน)",
+    "ja": "Conrad（男性・ドイツ語）"
+  },
+  "Alvaro (Nam, TBN)": {
+    "en": "Alvaro (Male, Spanish)",
+    "zh": "Alvaro（男，西班牙语）",
+    "zh_TW": "Alvaro（男，西班牙語）",
+    "hi": "Alvaro (पुरुष, स्पैनिश)",
+    "si": "Alvaro (පිරිමි, ස්පාඤ්ඤ)",
+    "my": "Alvaro (အမျိုးသား, စပိန်)",
+    "th": "Alvaro (ชาย, สเปน)",
+    "ja": "Alvaro（男性・スペイン語）"
+  },
+  "Dmitry (Nam, Nga)": {
+    "en": "Dmitry (Male, Russian)",
+    "zh": "Dmitry（男，俄语）",
+    "zh_TW": "Dmitry（男，俄語）",
+    "hi": "Dmitry (पुरुष, रूसी)",
+    "si": "Dmitry (පිරිමි, රුසියානු)",
+    "my": "Dmitry (အမျိုးသား, ရုရှား)",
+    "th": "Dmitry (ชาย, รัสเซีย)",
+    "ja": "Dmitry（男性・ロシア語）"
+  },
+  "Antonio (Nam, Bồ-BR)": {
+    "en": "Antonio (Male, Brazilian Portuguese)",
+    "zh": "Antonio（男，巴西葡萄牙语）",
+    "zh_TW": "Antonio（男，巴西葡萄牙語）",
+    "hi": "Antonio (पुरुष, ब्राज़ीलियाई पुर्तगाली)",
+    "si": "Antonio (පිරිමි, බ්‍රසීල පෘතුගීසි)",
+    "my": "Antonio (အမျိုးသား, ဘရာဇီး ပေါ်တူဂီ)",
+    "th": "Antonio (ชาย, โปรตุเกสบราซิล)",
+    "ja": "Antonio（男性・ブラジルポルトガル語）"
+  },
+  "Ardi (Nam, Indo)": {
+    "en": "Ardi (Male, Indonesian)",
+    "zh": "Ardi（男，印尼语）",
+    "zh_TW": "Ardi（男，印尼語）",
+    "hi": "Ardi (पुरुष, इंडोनेशियाई)",
+    "si": "Ardi (පිරිමි, ඉන්දුනීසියානු)",
+    "my": "Ardi (အမျိုးသား, အင်ဒိုနီးရှား)",
+    "th": "Ardi (ชาย, อินโดนีเซีย)",
+    "ja": "Ardi（男性・インドネシア語）"
   }
 }

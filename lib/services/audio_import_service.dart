@@ -96,6 +96,8 @@ class AudioImportService {
     final n = _norm(path).toLowerCase();
     if (n.isEmpty || n.startsWith('content://')) return false;
     // Linux/macOS/Windows temp + Android app cache + file_picker cache.
+    // PSRC-173: Windows temp path check (C:\Users\...\AppData\Local\Temp\)
+    // PSRC-167: content:// URI is NOT volatile (handled separately)
     return n.contains('/cache/') ||
         n.contains('/caches/') ||
         n.contains('/code_cache/') ||
@@ -104,7 +106,11 @@ class AudioImportService {
         n.contains('/.temp/') ||
         n.startsWith('/tmp/') ||
         n.startsWith('/var/tmp/') ||
-        n.contains('/appdata/local/temp/');
+        n.contains('/appdata/local/temp/') ||
+        // Windows specific temp check (lowercase normalized)
+        n.contains('\\temp\\') ||
+        n.contains('c:/users/') && n.contains('/appdata/local/temp/') ||
+        n.contains('c:\\users\\') && n.contains('\\appdata\\local\\temp\\');
   }
 
   /// Path có phải content:// URI (không đọc trực tiếp bằng dart:io được).
@@ -114,8 +120,8 @@ class AudioImportService {
   /// nguy hiểm cho FS (separator, control). Giữ nguyên unicode/dấu cách.
   static String sanitizeFileName(String name) {
     final cleaned = name
-        .replaceAll(RegExp(r'[\\\\/:*?\"<>|]'), ' ')
-        .replaceAll(RegExp(r'\\s+'), ' ')
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     if (cleaned.isEmpty || cleaned == '.' || cleaned == '..') {
       return 'audio';

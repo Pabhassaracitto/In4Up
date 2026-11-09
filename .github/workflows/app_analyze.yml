@@ -1019,7 +1019,8 @@ jobs:
                    test/yt_one_bar_and_loop_test.dart \
                    test/yt_channels_and_prepare_test.dart \
                    test/yt_audit_v1_23_paint_pause_sync_test.dart \
-                   test/yt_explorer_dot_a_2026_11_09_test.dart; do
+                   test/yt_explorer_dot_a_2026_11_09_test.dart \
+                   test/yt_explorer_dot_b_2026_11_09_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

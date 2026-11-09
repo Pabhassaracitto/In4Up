@@ -8,6 +8,8 @@
 // `tool/legacy_ui_english_overrides.json` (quy tắc vàng ADR-0002: locale ≠ vi
 // không được rớt về tiếng Việt).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:in4up/core/language/app_language.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
@@ -15,6 +17,7 @@ import 'package:in4up/core/language/localized_material.dart' hide Text;
 import 'package:in4up/features/translation/translation_service.dart';
 
 import '../models/yt_learning_settings.dart';
+import '../services/yt_explorer_cache.dart';
 
 /// Hiện menu cài đặt phụ đề. Trả về cài đặt mới (hoặc null nếu đóng).
 ///
@@ -112,6 +115,61 @@ class _YtSubtitleSettingsSheetState extends State<_YtSubtitleSettingsSheet> {
     return out;
   }
 
+  bool _hideMediaSize = false;
+  bool _showCacheSize = true;
+
+  /// Dung lượng cache + số mục: `null` = đang đo.
+  int? _cacheBytes;
+  int _cacheItems = 0;
+
+  Future<void> _loadCacheSize() async {
+    final bytes = await YtExplorerCache.instance.totalBytes();
+    final n = await YtExplorerCache.instance.length();
+    if (!mounted) return;
+    setState(() {
+      _cacheBytes = bytes;
+      _cacheItems = n;
+    });
+  }
+
+  Widget _buildCacheSizeRow(BuildContext context) {
+    final bytes = _cacheBytes;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 2, 0, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              bytes == null
+                  ? context.uiText('Đang đo…')
+                  : context
+                      .uiText('{value0} mục · {value1}')
+                      .replaceAll('{value0}', '$_cacheItems')
+                      .replaceAll('{value1}', _fmtBytes(bytes)),
+              style: const TextStyle(color: Colors.grey, fontSize: 11),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await YtExplorerCache.instance.clear();
+              await _loadCacheSize();
+            },
+            child: Text(context.uiText('Xoá bộ nhớ đệm'),
+                style: const TextStyle(fontSize: 11)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// `12 KB` / `1,4 MB` — không có số lẻ vô nghĩa ở KB.
+  static String _fmtBytes(int b) {
+    if (b < 1024) return '$b B';
+    if (b < 1024 * 1024) return '${(b / 1024).round()} KB';
+    final mb = b / (1024 * 1024);
+    return '${mb.toStringAsFixed(mb < 10 ? 1 : 0)} MB';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +180,9 @@ class _YtSubtitleSettingsSheetState extends State<_YtSubtitleSettingsSheet> {
     _subtitleLang = widget.initial.subtitleLang;
     _targetLang = widget.initial.targetLang;
     _audioLead = widget.initial.audioLeadMs;
+    _hideMediaSize = widget.initial.hideMediaSize;
+    _showCacheSize = widget.initial.showCacheSize;
+    unawaited(_loadCacheSize());
   }
 
   @override
@@ -289,6 +350,42 @@ class _YtSubtitleSettingsSheetState extends State<_YtSubtitleSettingsSheet> {
             // YT-AUDIT-11 (IN4-106): bù trễ âm thanh & chữ.
             _sectionLabel(context, 'Căn chỉnh âm thanh & chữ'),
             _buildAudioSyncSection(context),
+            const SizedBox(height: 6),
+            // YT1-09 / YT1-10: bộ nhớ & dữ liệu.
+            _sectionLabel(context, 'Bộ nhớ & dữ liệu'),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: !_hideMediaSize,
+              activeColor: const Color(0xFF9C27B0),
+              title: Text(
+                context.uiText('Hiện dung lượng file đã tải'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Mỗi phụ đề vài chục KB, mỗi file âm thanh vài MB. Tắt nếu không muốn thấy con số.',
+                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+              onChanged: (v) => setState(() => _hideMediaSize = !v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _showCacheSize,
+              activeColor: const Color(0xFF9C27B0),
+              title: Text(
+                context.uiText('Hiện dung lượng bộ nhớ đệm'),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              subtitle: Text(
+                context.uiText(
+                  'Tìm kiếm giữ 24 giờ, danh sách kênh 3 ngày. Xoá được bất cứ lúc nào.',
+                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
+              ),
+              onChanged: (v) => setState(() => _showCacheSize = v),
+            ),
+            if (_showCacheSize) _buildCacheSizeRow(context),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -297,7 +394,14 @@ class _YtSubtitleSettingsSheetState extends State<_YtSubtitleSettingsSheet> {
                 ),
                 onPressed: () => Navigator.pop(
                   context,
-                  YtLearningSettings(
+                  // YT1-10: `copyWith` trên bản GỐC, KHÔNG dựng mới.
+                  //
+                  // Bản cũ dựng `YtLearningSettings(...)` chỉ với 7 field ⇒
+                  // mọi field khác (đọc thành tiếng, nơi lưu, cờ dung lượng…)
+                  // bị **reset về mặc định** mỗi lần bấm Xong. Người dùng tắt
+                  // "tua video khi đọc", mở sheet này sửa ngôn ngữ, bấm Xong
+                  // là tuỳ chọn kia bật lại mà không ai báo.
+                  widget.initial.copyWith(
                     translationMode: _mode,
                     subtitleLayout: _layout,
                     frequencyRankThreshold: _threshold,
@@ -305,6 +409,8 @@ class _YtSubtitleSettingsSheetState extends State<_YtSubtitleSettingsSheet> {
                     subtitleLang: _subtitleLang,
                     targetLang: _targetLang,
                     audioLeadMs: _audioLead,
+                    hideMediaSize: _hideMediaSize,
+                    showCacheSize: _showCacheSize,
                   ),
                 ),
                 child: Text(context.uiText('Xong')),

@@ -31,6 +31,9 @@ class YtVideoCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: video.thumb != null
                 ? Image.network(video.thumb!,
+                    // YT1-09: 84 px × dpr 3 — không giải nén ảnh 1280 px.
+                    cacheWidth: 252,
+                    filterQuality: FilterQuality.low,
                     width: 84, height: 58,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _placeholder())
@@ -175,6 +178,8 @@ class YtHistoryItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: video.thumb != null
               ? Image.network(video.thumb!,
+                  cacheWidth: 168,
+                  filterQuality: FilterQuality.low,
                   width: 56, height: 40, fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _smallPlaceholder())
               : _smallPlaceholder(),

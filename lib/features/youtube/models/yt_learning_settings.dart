@@ -153,6 +153,20 @@ class YtLearningSettings {
   /// Nơi lưu phụ đề `.lrc` + file âm thanh đã tải.
   final YtSaveLocation saveLocation;
 
+  // ─── YT1-09 / YT1-10: dung lượng ──────────────────────────────────
+  /// Ẩn số MB trong thư viện media (`YtMediaLibrarySheet`).
+  ///
+  /// Mặc định **false = HIỆN**. Owner chốt: người dùng phải biết file chiếm
+  /// bao nhiêu dung lượng, không được im lặng lưu. Cờ này chỉ để ai không muốn
+  /// nhìn con số thì tắt đi — quyết định thuộc về họ, không phải app.
+  final bool hideMediaSize;
+
+  /// Hiện dung lượng của **bộ nhớ đệm tìm kiếm/kênh** trong Cài đặt YouTube.
+  ///
+  /// Mặc định **true = HIỆN** (owner chốt 2026-11-09: "cache có tính dung
+  /// lượng, mặc định hiện, ẩn/hiện được").
+  final bool showCacheSize;
+
   const YtLearningSettings({
     this.translationMode = YtTranslationMode.withTranslation,
     this.subtitleLayout = YtSubtitleLayout.stacked,
@@ -170,6 +184,8 @@ class YtLearningSettings {
     this.readAloudSyncVideo = false,
     this.readAloudPlayVideoAudio = false,
     this.saveLocation = YtSaveLocation.appPrivate,
+    this.hideMediaSize = false,
+    this.showCacheSize = true,
   });
 
   /// YT-AUDIT-04 (IN4-103) — ngôn ngữ dịch THỰC TẾ + có đang phải "rớt về
@@ -282,6 +298,8 @@ class YtLearningSettings {
     bool? readAloudSyncVideo,
     bool? readAloudPlayVideoAudio,
     YtSaveLocation? saveLocation,
+    bool? hideMediaSize,
+    bool? showCacheSize,
   }) {
     return YtLearningSettings(
       translationMode: translationMode ?? this.translationMode,
@@ -322,6 +340,8 @@ class YtLearningSettings {
       readAloudPlayVideoAudio:
           readAloudPlayVideoAudio ?? this.readAloudPlayVideoAudio,
       saveLocation: saveLocation ?? this.saveLocation,
+      hideMediaSize: hideMediaSize ?? this.hideMediaSize,
+      showCacheSize: showCacheSize ?? this.showCacheSize,
     );
   }
 
@@ -345,6 +365,8 @@ class YtLearningSettings {
         'readAloudSyncVideo': readAloudSyncVideo,
         'readAloudPlayVideoAudio': readAloudPlayVideoAudio,
         'saveLocation': saveLocation.name,
+        'hideMediaSize': hideMediaSize,
+        'showCacheSize': showCacheSize,
       };
 
   factory YtLearningSettings.fromJson(Map<String, dynamic> json) {
@@ -388,6 +410,9 @@ class YtLearningSettings {
         (e) => e.name == json['saveLocation'],
         orElse: () => YtSaveLocation.appPrivate,
       ),
+      // Dữ liệu cũ ⇒ giữ đúng hành vi mặc định: hiện dung lượng, hiện cache.
+      hideMediaSize: json['hideMediaSize'] as bool? ?? false,
+      showCacheSize: json['showCacheSize'] as bool? ?? true,
     );
   }
 }

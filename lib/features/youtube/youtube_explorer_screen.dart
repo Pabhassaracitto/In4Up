@@ -14,6 +14,9 @@ import 'models/yt_video.dart';
 import 'widgets/yt_video_card.dart' show YtHistoryItem;
 import 'services/yt_channel_store.dart';
 import 'services/yt_coverage_service.dart';
+import 'services/yt_explorer_cache.dart';
+import 'services/yt_explorer_prefs.dart';
+import 'services/yt_media_store.dart';
 import 'services/yt_initial_data_parser.dart';
 import 'services/yt_search_service.dart';
 import 'services/yt_service.dart';
@@ -102,15 +105,15 @@ class YtExVideo {
 
 enum YtSortMode { date, viewCount }
 
-const _kDefaultChannels = [
-  ('UCVd9ExaFGD8VEmWDKDCMa2Q', "Rachel's English"),
-  ('UCo6iNXKMZqCFbo4xJqRuarQ', 'Steve Kaufmann'),
-  ('UC7Gxz4kOFWNZcqQi7EFhPAA', 'Speak English With Vanessa'),
-  ('UCNbngWUqL2eqXRnEF4mU8MA', 'English with Lucy'),
-  ('UCHaHD477h-FeBbVh9Sh7syA', 'English Addict with Mr Steve'),
-  ('UCVHFbw7woebKtfvug_Nzpig', 'BBC Learning English'),
-  ('UCoHNRmS7dRNgkfY9m3R_GGQ', 'The Real Daytime'),
-];
+/// Kênh GỢI Ý sẵn trong app.
+///
+/// Owner (2026-11-09): **để TRỐNG** — danh sách 7 kênh tiếng Anh trước đây là
+/// kênh cá nhân, chưa phải danh sách đã duyệt để public cho người dùng. Owner
+/// sẽ đưa danh sách đề xuất sau; khi đó chỉ cần điền vào đây, phần UI/sidebar
+/// đã sẵn (`GỢI Ý` chỉ hiện khi danh sách KHÔNG rỗng).
+///
+/// Định dạng: `(channelId, tên hiển thị)` — `UC…` 24 ký tự.
+const List<(String, String)> kYtRecommendedChannels = <(String, String)>[];
 
 class YoutubeExplorerScreen extends StatefulWidget {
   final String apiKey;
@@ -147,6 +150,30 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
   /// YT1-03: chống "nuốt" truy vấn mới — mỗi lần tải tăng số này và bỏ kết quả
   /// của lần cũ về muộn.
   int _reqId = 0;
+
+  // ── YT1-05: vì sao danh sách trống ──────────────────────────────────
+  /// `none` khi ổn; khác `none` ⇒ hiện câu giải thích + nút Thử lại thay vì
+  /// để người dùng đoán "kênh trống hay mạng hỏng".
+  YtFetchFailure _failure = YtFetchFailure.none;
+
+  /// Đang hiện dữ liệu từ bộ nhớ đệm (có thể cũ) và thời điểm lưu.
+  bool _fromCache = false;
+  DateTime? _cachedAt;
+
+  /// Danh sách đang được làm mới ngầm trong lúc vẫn hiện bản cache.
+  bool _refreshing = false;
+
+  // ── YT1-07: phân trang ──────────────────────────────────────────────
+  /// Token trang kế (chỉ chế độ không cần Data API key mới có).
+  String? _nextContinuation;
+  bool _loadingMore = false;
+
+  // ── YT1-08: nhãn "đã tải" trên thẻ video ────────────────────────────
+  /// `videoId` → đã có phụ đề / âm thanh trên máy.
+  Map<String, YtMediaItem> _downloaded = const {};
+
+  // ── YT1-10: nhớ lựa chọn của người dùng ─────────────────────────────
+  Set<String> _pinnedIds = <String>{};
   final _scrollCtrl = ScrollController();
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
@@ -184,12 +211,21 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     // không chạm mạng).
     _loadMyChannels();
     _loadCoverage();
+    _loadPrefs();
+    _loadDownloaded();
     _scrollCtrl.addListener(() {
       if (_scrollCtrl.position.pixels >=
               _scrollCtrl.position.maxScrollExtent - 300 &&
           _hasMore &&
-          !_loading) {
-        _loadVideos(reset: false);
+          !_loading &&
+          !_loadingMore) {
+        // Keyless ⇒ phân trang bằng continuation token; có Data API key ⇒
+        // vẫn dùng `pageToken` như cũ. Một listener, hai đường.
+        if (_nextContinuation != null) {
+          _loadMore();
+        } else {
+          _loadVideos(reset: false);
+        }
       }
     });
   }
@@ -207,16 +243,15 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     setState(() {
       _channels
         ..clear()
-        ..addAll(
-            _kDefaultChannels.map((e) => YtExChannel(id: e.$1, title: e.$2)));
+        ..addAll(kYtRecommendedChannels
+            .map((e) => YtExChannel(id: e.$1, title: e.$2)));
     });
-    if (_hasApiKey) {
+    if (_hasApiKey && _channels.isNotEmpty) {
       await _enrichChannels();
-    } else if (_channels.isNotEmpty) {
-      // Không có key: chọn sẵn kênh đầu tiên để có nội dung xem ngay —
-      // danh sách kênh và tìm kiếm đều chạy không cần key (YtSearchService).
-      _selChannelId ??= _channels.first.id;
     }
+    // Không tự chọn kênh nào khi danh sách gợi ý rỗng: màn hình mở ra ở trạng
+    // thái "chưa có nội dung" với 2 lối đi (tìm kiếm ở trên / thêm kênh), thay
+    // vì tự mở một kênh mà owner chưa duyệt.
     await _loadVideos();
   }
 
@@ -252,7 +287,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     }
   }
 
-  Future<void> _loadVideos({bool reset = true}) async {
+  Future<void> _loadVideos({bool reset = true, bool forceRefresh = false}) async {
     // YT1-03: KHÔNG `return` khi đang tải nữa — đổi kênh/gõ tìm kiếm trong lúc
     // tải trước đây bị nuốt im lặng. Nay lần gọi mới được chạy, và kết quả của
     // lần cũ (về muộn) bị bỏ theo `_reqId`.
@@ -269,31 +304,89 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
           _videos.clear();
           _nextPageToken = null;
           _hasMore = false;
+          _failure = YtFetchFailure.none;
+          _fromCache = false;
+          _cachedAt = null;
         });
       }
       return;
     }
     setState(() {
       _loading = true;
+      _failure = YtFetchFailure.none;
       if (reset) {
         _videos.clear();
         _nextPageToken = null;
+        _nextContinuation = null;
+        _hasMore = false;
+        _fromCache = false;
+        _cachedAt = null;
       }
     });
     try {
       if (keylessSearch || keylessChannel) {
-        // Keyless: một trang kết quả, không phân trang tiếp
-        final hits = keylessSearch
-            ? await YtSearchService.instance.searchVideos(query)
+        final kind =
+            keylessSearch ? YtCacheKind.search : YtCacheKind.channel;
+        final key = keylessSearch ? query : _selChannelId!;
+
+        // ── 1) Bộ nhớ đệm trước (stale-while-revalidate) ────────────────
+        if (reset && !forceRefresh) {
+          final cached = await YtExplorerCache.instance.read(kind, key);
+          if (!mounted || req != _reqId) return;
+          if (cached != null && cached.hits.isNotEmpty) {
+            setState(() {
+              _videos.addAll(cached.hits.map(_hitToEx));
+              _hasMore = false;
+              _fromCache = true;
+              _cachedAt = cached.savedAt;
+              // Hiện NGAY, không bắt người dùng chờ mạng.
+              _loading = false;
+              _refreshing = true;
+            });
+            unawaited(_loadCoverage());
+          }
+        }
+
+        // ── 2) Mạng ────────────────────────────────────────────────────
+        final res = keylessSearch
+            ? await YtSearchService.instance.searchVideosResult(query)
             : await YtSearchService.instance
-                .fetchChannelVideos(_selChannelId!);
+                .fetchChannelVideosResult(_selChannelId!);
         // Bỏ kết quả của truy vấn đã bị thay thế.
         if (!mounted || req != _reqId) return;
-        setState(() {
-          _videos.addAll(hits.map(_hitToEx));
-          _hasMore = false;
-        });
-        unawaited(_loadCoverage());
+        if (res.ok) {
+          setState(() {
+            _videos
+              ..clear()
+              ..addAll(res.hits.map(_hitToEx));
+            // YT1-07: còn token ⇒ còn trang sau.
+            _nextContinuation = res.next;
+            _hasMore = res.next != null;
+            _failure = YtFetchFailure.none;
+            _fromCache = false;
+            _cachedAt = null;
+          });
+          unawaited(YtExplorerCache.instance.write(kind, key, res.hits));
+          unawaited(_loadCoverage());
+        } else if (res.failure == YtFetchFailure.empty) {
+          setState(() {
+            _videos.clear();
+            _hasMore = false;
+            _failure = YtFetchFailure.empty;
+            _fromCache = false;
+            _cachedAt = null;
+          });
+        } else {
+          // Lỗi thật. Giữ nguyên bản cache (nếu có) để người dùng vẫn dùng
+          // được, chỉ thêm dải cảnh báo "đang xem bản lưu".
+          setState(() {
+            _failure = res.failure;
+            if (_videos.isEmpty) {
+              _fromCache = false;
+              _cachedAt = null;
+            }
+          });
+        }
       } else {
         final (vids, next) = await _fetch(_nextPageToken);
         if (!mounted || req != _reqId) return;
@@ -306,9 +399,121 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       }
     } catch (e) {
       debugPrint('loadVideos: $e');
+      if (mounted && req == _reqId) {
+        setState(() => _failure = YtFetchFailure.network);
+      }
     } finally {
-      if (mounted && req == _reqId) setState(() => _loading = false);
+      if (mounted && req == _reqId) {
+        setState(() {
+          _loading = false;
+          _refreshing = false;
+        });
+      }
     }
+  }
+
+  /// YT1-07: lấy trang kế của danh sách đang xem.
+  ///
+  /// Trước đây cuộn xuống đáy là hết, video cũ hơn không xem được. Nay dùng
+  /// continuation token của chính YouTube (không cần API key).
+  Future<void> _loadMore() async {
+    final token = _nextContinuation;
+    if (_loadingMore || token == null) return;
+    setState(() => _loadingMore = true);
+    final res =
+        await YtSearchService.instance.fetchMoreResult(token, previousToken: token);
+    if (!mounted) return;
+    setState(() {
+      if (res.ok) {
+        final known = _videos.map((v) => v.id).toSet();
+        _videos.addAll(
+            res.hits.where((h) => !known.contains(h.id)).map(_hitToEx));
+      }
+      _nextContinuation = res.next;
+      _hasMore = res.next != null;
+      _loadingMore = false;
+    });
+    // Lỗi khi tải thêm KHÔNG được xoá danh sách đang có — chỉ báo.
+    if (!res.ok && res.failure != YtFetchFailure.empty) {
+      _snack(context.uiText('Không tải thêm được. Kiểm tra mạng rồi thử lại.'));
+    }
+    if (res.ok) unawaited(_loadCoverage());
+  }
+
+  // ── YT1-10: nhớ lựa chọn ─────────────────────────────────────────────
+
+  Future<void> _loadPrefs() async {
+    final p = await YtExplorerPrefs.instance.load();
+    final pinned = await YtExplorerPrefs.instance.loadPinned();
+    if (!mounted) return;
+    setState(() {
+      _sortMode =
+          p.sort == 'viewCount' ? YtSortMode.viewCount : YtSortMode.date;
+      _bandFilter = switch (p.band) {
+        'easy' => YtCoverageBand.easy,
+        'fair' => YtCoverageBand.fair,
+        'hard' => YtCoverageBand.hard,
+        'unknown' => YtCoverageBand.unknown,
+        _ => null,
+      };
+      if (p.channelId != null && p.channelId!.isNotEmpty) {
+        _selChannelId = p.channelId;
+      }
+      if (p.query.isNotEmpty && _searchCtrl.text.isEmpty) {
+        _searchCtrl.text = p.query;
+        _searchQuery = p.query;
+      }
+      _pinnedIds = pinned;
+      for (var i = 0; i < _channels.length; i++) {
+        if (_pinnedIds.contains(_channels[i].id)) {
+          _channels[i].isPinned = true;
+        }
+      }
+    });
+    // Có kênh được nhớ từ lần trước ⇒ nạp luôn nội dung.
+    if (_selChannelId != null) await _loadVideos();
+  }
+
+  Future<void> _loadDownloaded() async {
+    try {
+      final items = await YtMediaStore.list();
+      if (!mounted) return;
+      setState(() {
+        _downloaded = {for (final i in items) i.videoId: i};
+      });
+    } catch (e) {
+      debugPrint('[in4up-yt] media list failed: $e');
+    }
+  }
+
+  void _rememberChannel(String? id) {
+    unawaited(YtExplorerPrefs.instance.saveChannel(id));
+  }
+
+  void _rememberSort(YtSortMode m) {
+    unawaited(YtExplorerPrefs.instance
+        .saveSort(m == YtSortMode.viewCount ? 'viewCount' : 'date'));
+  }
+
+  void _rememberBand(YtCoverageBand? b) {
+    unawaited(YtExplorerPrefs.instance.saveBand(b?.name ?? ''));
+  }
+
+  void _rememberQuery(String q) {
+    unawaited(YtExplorerPrefs.instance.saveQuery(q));
+  }
+
+  void _togglePin(int index) {
+    setState(() {
+      _channels[index].isPinned = !_channels[index].isPinned;
+      final id = _channels[index].id;
+      if (_channels[index].isPinned) {
+        _pinnedIds.add(id);
+      } else {
+        _pinnedIds.remove(id);
+      }
+    });
+    unawaited(YtExplorerPrefs.instance.savePinned(_pinnedIds));
   }
 
   // ── YT1-02: kênh người dùng theo dõi ─────────────────────────────────
@@ -691,6 +896,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               child: TextField(
                 controller: _searchCtrl,
                 focusNode: _searchFocus,
+                // YT1-12: bàn phím phải hiện nút "Tìm" chứ không phải "Xong".
+                textInputAction: TextInputAction.search,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
                 decoration: InputDecoration(
                   // YT-ONE-BAR-001: nói rõ MỘT ô làm được HAI việc — nếu chỉ
@@ -839,7 +1046,9 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     }
 
     setState(() => _searchQuery = text);
-    _loadVideos();
+    _rememberQuery(text);
+    // Bấm tìm là ý định RÕ RÀNG ⇒ bỏ qua cache cũ (vẫn ghi cache mới).
+    _loadVideos(forceRefresh: true);
   }
 
   // ════════════════════════════════════════════════════════
@@ -1069,6 +1278,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               false,
               () {
                 setState(() => _selChannelId = null);
+                _rememberChannel(null);
                 _loadVideos();
               },
               null,
@@ -1077,18 +1287,22 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
             Expanded(
               child: ListView(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
-                    child: Text(
-                      context
-                          .uiText('GỢI Ý: 1 - {value0}')
-                          .replaceAll('{value0}', '${_channels.length}'),
-                      style: TextStyle(
-                          color: Colors.grey[700],
-                          fontSize: 8,
-                          letterSpacing: 0.4),
+                  // Kênh gợi ý chỉ hiện khi có danh sách đã duyệt
+                  // (`kYtRecommendedChannels`); hiện đang TRỐNG theo quyết định
+                  // của owner 2026-11-09 nên cả tiêu đề cũng không vẽ ra.
+                  if (_channels.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
+                      child: Text(
+                        context
+                            .uiText('GỢI Ý: 1 - {value0}')
+                            .replaceAll('{value0}', '${_channels.length}'),
+                        style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 8,
+                            letterSpacing: 0.4),
+                      ),
                     ),
-                  ),
                   for (var i = 0; i < _channels.length; i++)
                     _chanTile(
                       _channels[i].id,
@@ -1099,12 +1313,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                       _channels[i].isPinned,
                       () {
                         setState(() => _selChannelId = _channels[i].id);
+                        _rememberChannel(_channels[i].id);
                         _loadVideos();
                       },
-                      () => setState(() =>
-                          _channels[i].isPinned = !_channels[i].isPinned),
+                      // YT1-10: ghim phải SỐNG qua lần mở sau, không chỉ trong RAM.
+                      () => _togglePin(i),
                     ),
-                  if (_myChannels.isNotEmpty) ...[
+                  ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
                       child: Row(
@@ -1141,9 +1356,22 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         false,
                         () {
                           setState(() => _selChannelId = c.id);
+                          _rememberChannel(c.id);
                           _loadVideos();
                         },
                         null,
+                      ),
+                    if (_myChannels.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
+                        child: Text(
+                          context.uiText(
+                              'Chưa có kênh nào. Thêm @handle, dán link kênh hoặc import OPML.'),
+                          style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 10,
+                              height: 1.35),
+                        ),
                       ),
                   ],
                 ],
@@ -1160,7 +1388,10 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
       return Padding(
         padding: const EdgeInsets.only(right: 6, bottom: 6),
         child: GestureDetector(
-          onTap: () => setState(() => _bandFilter = band),
+          onTap: () {
+            setState(() => _bandFilter = band);
+            _rememberBand(band);
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -1203,8 +1434,11 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
+          // YT1-10: nhớ kiểu sắp xếp. Đổi thứ tự là việc phía máy (không chạm
+          // mạng) nên KHÔNG tải lại danh sách — trước đây gọi `_loadVideos()`
+          // làm mất cache đang hiện và nháy trắng màn hình.
           setState(() => _sortMode = m);
-          _loadVideos();
+          _rememberSort(m);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -1269,6 +1503,11 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                   borderRadius: BorderRadius.circular(13),
                   child: thumb != null
                       ? Image.network(thumb,
+                          // YT1-09: decode đúng cỡ hiển thị (26 px @ dpr 3).
+                          // Thiếu `cacheWidth` ⇒ Flutter giải nén ảnh gốc
+                          // 1280×720 cho một ô 26 px ⇒ tốn RAM vô ích.
+                          cacheWidth: 78,
+                          filterQuality: FilterQuality.low,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => _av(title, 26))
                       : _av(title, 26),
@@ -1314,28 +1553,46 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
     return Column(
       children: [
         if (sel != null) _chanHeader(sel),
+        // YT1-06: đang hiện bản lưu (có thể cũ) trong lúc làm mới ngầm.
+        if (_fromCache) _cacheStrip(),
+        // YT1-05: mạng hỏng nhưng vẫn có bản lưu ⇒ không được im lặng.
+        if (_failure != YtFetchFailure.none && _videos.isNotEmpty)
+          _failureStrip(_failure),
         Expanded(
           child: _loading && _videos.isEmpty
               ? const Center(
                   child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation(Color(0xFF9C27B0))))
               : videos.isEmpty
-                  ? (_videos.isNotEmpty && _bandFilter != null
-                      // Có video nhưng bộ lọc cấp độ loại hết — phải nói rõ,
-                      // không được hiện "chưa có video" chung chung.
-                      ? _empty(msg: context.uiText(
-                          'Không video nào khớp bộ lọc cấp độ. Chọn "Tất cả" để xem lại.'))
-                      : _empty())
+                  ? _emptyOrFailure()
                   : ListView.builder(
                       controller: _scrollCtrl,
                       itemCount: videos.length + (_hasMore ? 1 : 0),
                       itemBuilder: (_, i) {
                         if (i == videos.length) {
-                          return const Center(
-                              child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2)));
+                          // YT1-07: chân danh sách = "đang tải" hoặc nút
+                          // "Tải thêm". Bấm được thì người dùng không phải
+                          // đoán là đã hết hay còn.
+                          // Chế độ có Data API key phân trang bằng
+                          // `pageToken` ⇒ để danh sách tự tải khi cuộn (như
+                          // cũ). Chế độ keyless mới cần nút bấm.
+                          if (_loadingMore || _nextContinuation == null) {
+                            return const Center(
+                                child: Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2)));
+                          }
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: OutlinedButton.icon(
+                                onPressed: _loadMore,
+                                icon: const Icon(Icons.expand_more, size: 16),
+                                label: Text(context.uiText('Tải thêm')),
+                              ),
+                            ),
+                          );
                         }
                         return _videoTile(videos[i]);
                       },
@@ -1343,6 +1600,161 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
         ),
       ],
     );
+  }
+
+  /// YT1-05: chọn giữa "có lỗi", "lọc hết" và "chưa có gì".
+  ///
+  /// Mạng hỏng, YouTube chặn, parser hỏng hay kênh thật sự không có video là
+  /// bốn chuyện khác nhau — mỗi cái một lời khuyên, không gộp thành một câu
+  /// "Không tải được" chung chung như trước.
+  Widget _emptyOrFailure() {
+    // Bộ lọc cấp độ loại hết ⇒ nói đúng chuyện đó, kể cả khi mạng cũng đang
+    // lỗi: người dùng vẫn còn dữ liệu, chỉ là bộ lọc đang ẩn đi.
+    if (_videos.isNotEmpty && _bandFilter != null) {
+      return _empty(
+          msg: context.uiText(
+              'Không video nào khớp bộ lọc cấp độ. Chọn "Tất cả" để xem lại.'));
+    }
+    if (_failure != YtFetchFailure.none) return _failureState(_failure);
+    return _empty();
+  }
+
+  /// Dải "dữ liệu lưu lúc X" — chỉ hiện khi đang dùng cache.
+  Widget _cacheStrip() {
+    final at = _cachedAt;
+    final label = at == null
+        ? context.uiText('Đang hiện bản lưu trên máy')
+        : context
+            .uiText('Đang hiện bản lưu từ {value0}')
+            .replaceAll('{value0}', _relativeTime(at));
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+      color: const Color(0xFF2196F3).withValues(alpha: 0.10),
+      child: Row(
+        children: [
+          const Icon(Icons.history, size: 13, color: Color(0xFF64B5F6)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(label,
+                style: const TextStyle(color: Color(0xFF90CAF9), fontSize: 10)),
+          ),
+          if (_refreshing)
+            const SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(strokeWidth: 1.4),
+            )
+          else
+            GestureDetector(
+              onTap: () => _loadVideos(forceRefresh: true),
+              child: Text(context.uiText('Làm mới'),
+                  style: const TextStyle(
+                      color: Color(0xFF64B5F6), fontSize: 10)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Câu giải thích cho từng loại lỗi — KHÔNG dùng chung một câu
+  /// "Không tải được" vì mỗi nguyên nhân cần hành động khác nhau.
+  String _failureMessage(YtFetchFailure f) {
+    switch (f) {
+      case YtFetchFailure.network:
+        return context.uiText(
+            'Không kết nối được tới YouTube. Kiểm tra mạng rồi thử lại.');
+      case YtFetchFailure.blocked:
+        return context.uiText(
+            'YouTube đang chặn máy này (trang đồng ý/bot). Mở youtube.com trong trình duyệt, đồng ý cookie rồi quay lại.');
+      case YtFetchFailure.parseFailed:
+        return context.uiText(
+            'Nhận được dữ liệu nhưng không đọc được. YouTube vừa đổi trang — thử lại hoặc báo lỗi.');
+      case YtFetchFailure.empty:
+        return context.uiText(
+            'Không có video nào ở đây. Thử từ khoá khác hoặc kênh khác.');
+      case YtFetchFailure.none:
+        return '';
+    }
+  }
+
+  Widget _failureState(YtFetchFailure f) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                f == YtFetchFailure.empty
+                    ? Icons.inbox_outlined
+                    : f == YtFetchFailure.blocked
+                        ? Icons.gpp_maybe_outlined
+                        : Icons.wifi_off,
+                size: 44,
+                color: Colors.grey[700],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _failureMessage(f),
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+              if (f != YtFetchFailure.empty) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _loadVideos(forceRefresh: true),
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: Text(context.uiText('Thử lại')),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+
+  /// Dải cảnh báo nhỏ khi vẫn còn dữ liệu cũ để dùng.
+  Widget _failureStrip(YtFetchFailure f) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+        color: const Color(0xFFFF9800).withValues(alpha: 0.12),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                size: 13, color: Color(0xFFFFB74D)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${_failureMessage(f)} ${context.uiText('Đang hiện bản lưu trên máy.')}',
+                style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 10),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => _loadVideos(forceRefresh: true),
+              child: Text(context.uiText('Thử lại'),
+                  style: const TextStyle(
+                      color: Color(0xFFFFB74D), fontSize: 10)),
+            ),
+          ],
+        ),
+      );
+
+  /// "2 giờ trước" — dùng lại đúng bộ khoá thời gian đã có trong catalog.
+  String _relativeTime(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inMinutes < 1) return context.uiText('vừa xong');
+    if (d.inMinutes < 60) {
+      return context
+          .uiText('{value0} phút trước')
+          .replaceAll('{value0}', '${d.inMinutes}');
+    }
+    if (d.inHours < 24) {
+      return context
+          .uiText('{value0} giờ trước')
+          .replaceAll('{value0}', '${d.inHours}');
+    }
+    return context
+        .uiText('{value0} ngày trước')
+        .replaceAll('{value0}', '${d.inDays}');
   }
 
   Widget _chanHeader(YtExChannel c) => Container(
@@ -1366,6 +1778,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     height: 56,
                     child: c.thumb != null
                         ? Image.network(c.thumb!,
+                            cacheWidth: 168,
+                            filterQuality: FilterQuality.low,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _av(c.title, 56))
                         : _av(c.title, 56)),
@@ -1426,6 +1840,8 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                     height: 73,
                     child: v.thumb != null
                         ? Image.network(v.thumb!,
+                            cacheWidth: 390,
+                            filterQuality: FilterQuality.low,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _thumbHolder())
                         : _thumbHolder(),
@@ -1481,6 +1897,13 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
                         if (v.channelTitle.isNotEmpty)
                           _tag(v.channelTitle),
                         _coverageBadge(v),
+                        // YT1-08: đã có trên máy ⇒ dùng được offline.
+                        if (_downloaded[v.id]?.hasCaptions ?? false)
+                          _tag(context.uiText('Đã tải phụ đề'),
+                              color: const Color(0xFF26A69A)),
+                        if (_downloaded[v.id]?.hasAudio ?? false)
+                          _tag(context.uiText('Đã tải âm thanh'),
+                              color: const Color(0xFF00897B)),
                       ],
                     ),
                   ],
@@ -1629,6 +2052,7 @@ class _YoutubeExplorerScreenState extends State<YoutubeExplorerScreen> {
               await _loadMyChannels();
               if (!mounted) return;
               setState(() => _selChannelId = id);
+              _rememberChannel(id);
               await _loadVideos();
             },
             style: ElevatedButton.styleFrom(

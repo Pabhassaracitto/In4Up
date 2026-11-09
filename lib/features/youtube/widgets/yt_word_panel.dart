@@ -475,7 +475,12 @@ class _YtWordPanelState extends State<YtWordPanel>
           ),
           _chip(typeLabel, widget.word.typeColor.withValues(alpha: 0.22)),
           const SizedBox(width: 6),
-          _chip('rank ${widget.word.langRank}', Colors.white12),
+          // YT1-16: không hiện "rank N" bịa nữa — hiện TRẠNG THÁI thật của
+          // từ trong video này (nguồn duy nhất màn hình thật sự có).
+          _chip(
+            _stateLabel(context, widget.word.state),
+            _stateColor(widget.word.state),
+          ),
           if (detail?.cefrLevel != null) ...[
             const SizedBox(width: 6),
             _chip(detail!.cefrLevel!, const Color(0xFF4CAF50).withValues(alpha: 0.22)),
@@ -484,6 +489,22 @@ class _YtWordPanelState extends State<YtWordPanel>
       ),
     );
   }
+
+  static String _stateLabel(BuildContext context, WordState st) {
+    return switch (st) {
+      WordState.known => context.uiText('Đã biết'),
+      WordState.learning => context.uiText('Đang học'),
+      WordState.ignored => context.uiText('Bỏ qua'),
+      WordState.unknown => context.uiText('Chưa tô màu'),
+    };
+  }
+
+  static Color _stateColor(WordState st) => switch (st) {
+        WordState.known => const Color(0xFF4CAF50),
+        WordState.learning => const Color(0xFF9C27B0),
+        WordState.ignored => const Color(0xFF607D8B),
+        WordState.unknown => Colors.grey,
+      };
 
   /// Nhãn từ loại — literal nằm ngay tại `uiText()` call-site để gate i18n
   /// (`tool/generate_legacy_ui_fallbacks.py`) quét được và có English fallback.

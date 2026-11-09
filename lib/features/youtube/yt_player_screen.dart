@@ -1113,7 +1113,6 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   List<LrWord> _parseWords(String text) {
     final analyzed = SyntaxHighlighterService.analyzeLine(text);
     final words = <LrWord>[];
-    var rank = 100;
     for (final w in analyzed) {
       final token = w.originalWord.trim();
       if (token.isEmpty) continue;
@@ -1142,13 +1141,24 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       if (state == WordState.unknown && VocabularyBridge.hasWord(lower)) {
         state = WordState.learning;
       }
+      // YT1-16: KHÔNG bịa thứ hạng tần suất.
+      //
+      // Bản cũ chạy `var rank = 100; … rank += 40` cho mỗi từ ⇒ "rank" chỉ là
+      // VỊ TRÍ trong câu, không liên quan gì tới độ khó; tab Từ vựng lại chia
+      // nhóm theo các dải 1-100/101-200/201-300 dựa trên con số đó.
+      //
+      // KHÔNG đọc ngược độ khó từ hệ dùng chung ở đây: đồng bộ độ khó
+      // YouTube ↔ hệ chung là MỘT CHIỀU (owner chốt ở đợt 7), đọc lại sẽ phá
+      // vỡ quyết định đó. Thứ duy nhất YouTube thật sự biết về từ này là
+      // TRẠNG THÁI người dùng đã tô trong video (unknown/known/learning/
+      // ignored) ⇒ tab Từ vựng nhóm theo trạng thái, còn `langRank` để `0`
+      // (chưa có dữ liệu) thay vì bịa số.
       words.add(LrWord(
         text: token,
         type: type,
-        langRank: rank,
+        langRank: 0,
         state: state,
       ));
-      rank += 40;
     }
     return words;
   }
@@ -3473,21 +3483,29 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
           ),
           const SizedBox(height: 12),
 
-          // Word groups by rank
-          _buildWordGroup('1 - 100', allWords, countMap, 1, 100),
-          _buildWordGroup('101 - 200', allWords, countMap, 101, 200),
-          _buildWordGroup('201 - 300', allWords, countMap, 201, 300),
-          _buildWordGroup('301+', allWords, countMap, 301, 999999),
+          // YT1-16: nhóm theo TRẠNG THÁI đã tô (dữ liệu thật của màn này),
+          // không theo dải rank bịa.
+          _buildWordGroup(allWords, countMap, 'Đang học',
+              (w) => w.state == WordState.learning),
+          _buildWordGroup(
+              allWords, countMap, 'Đã biết', (w) => w.state == WordState.known),
+          _buildWordGroup(allWords, countMap, 'Bỏ qua',
+              (w) => w.state == WordState.ignored),
+          // Từ chưa tô vẫn phải thấy — đó thường là phần lớn video mới mở.
+          _buildWordGroup(allWords, countMap, 'Chưa tô màu',
+              (w) => w.state == WordState.unknown),
         ],
       ),
     );
   }
 
-  Widget _buildWordGroup(String label, Map<String, LrWord> allWords,
-      Map<String, int> countMap, int minRank, int maxRank) {
-    final words = allWords.values
-        .where((w) => w.langRank >= minRank && w.langRank <= maxRank)
-        .toList()
+  Widget _buildWordGroup(
+    Map<String, LrWord> allWords,
+    Map<String, int> countMap,
+    String label,
+    bool Function(LrWord) test,
+  ) {
+    final words = allWords.values.where(test).toList()
       ..sort((a, b) => countMap[b.text.toLowerCase()]!
           .compareTo(countMap[a.text.toLowerCase()]!));
 
@@ -3505,7 +3523,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(label,
+          child: Text(context.uiText(label),
               style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 12,

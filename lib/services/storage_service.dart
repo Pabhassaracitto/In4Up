@@ -1,4 +1,5 @@
 // lib/services/storage_service.dart
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,7 @@ import '../models/sound_loop_stat.dart';
 import '../models/sound_mark.dart';
 import '../models/shell_content_order.dart';
 import '../models/read_content_source.dart';
+import '../models/read_chrome_layout.dart';
 import '../models/sound_transcript.dart';
 import '../models/text_segment.dart';
 import '../models/vad_settings.dart';
@@ -51,6 +53,11 @@ class StorageService {
   static const String _soundLoopStatsBox = 'sound_loop_stats';
   static const String _audioLibraryBox = 'audio_library';
   static const String _audioPlaylistsBox = 'audio_playlists';
+  // PLAN-042 (ADR-0022) — pháp thoại: catalog (metadata) và progress (tiến độ
+  // nghe) TÁCH RIÊNG để quét lại Drive/thư mục không bao giờ xoá tiến độ.
+  static const String _dharmaCatalogBox = 'dharma_catalog';
+  static const String _dharmaProgressBox = 'dharma_progress';
+  static const String _dharmaOverridesBox = 'dharma_overrides';
 
   bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -81,6 +88,9 @@ class StorageService {
         Hive.openBox<String>(_soundLoopStatsBox),
         Hive.openBox<String>(_audioLibraryBox),
         Hive.openBox<String>(_audioPlaylistsBox),
+        Hive.openBox<String>(_dharmaCatalogBox),
+        Hive.openBox<String>(_dharmaProgressBox),
+        Hive.openBox<String>(_dharmaOverridesBox),
       ]);
 
       _initialized = true;
@@ -135,7 +145,7 @@ class StorageService {
   }
 
   String getColorMode() {
-    return getSetting<String>('color_mode', defaultValue: 'none') ?? 'none';
+    return getSetting<String>('color_mode', defaultValue: 'difficulty') ?? 'difficulty';
   }
 
   Future<void> saveIpaDisplayMode(String mode) async {
@@ -337,6 +347,15 @@ class StorageService {
         false;
   }
 
+  /// Feature flag hexagon_v1 — bật/tắt view mastery hexagram (P3, ADR-0020 §3).
+  Future<void> saveHexagonV1Flag(bool value) async {
+    await saveSetting('hexagon_v1', value);
+  }
+
+  bool getHexagonV1Flag() {
+    return getSetting<bool>('hexagon_v1', defaultValue: false) ?? false;
+  }
+
   Future<void> saveShellRememberLastSubMode(bool value) async {
     await saveSetting('shell_remember_last_sub_mode', value);
   }
@@ -346,6 +365,62 @@ class StorageService {
         true;
   }
 
+  // ── READ-UI-120: chrome tab Đọc theo NHÓM (audit v1.20.0) ───────────
+  // Một JSON string là nguồn sự thật duy nhất; 3 key riêng theo nhóm là bản
+  // chiếu để debug / migrate từng nhóm mà không phải giải mã cả blob. Mọi
+  // lần ghi đều đi qua [saveReadChromeLayout] nên hai bên không thể lệch.
+  static const String readChromeLayoutKey = 'read_chrome_layout_v1';
+
+  static String readChromeGroupKey(String groupId) =>
+      'read_chrome_group_${groupId}_v1';
+
+  Future<void> saveReadChromeLayout(ReadChromeLayout layout) async {
+    await saveSetting(readChromeLayoutKey, layout.encode());
+    for (final group in ReadChromeGroupId.values) {
+      await saveSetting(group.storageKey, group.stateOf(layout).name);
+    }
+  }
+
+  ReadChromeLayout getReadChromeLayout() {
+    if (!isInitialized) return ReadChromeLayout.defaults;
+    var layout = ReadChromeLayout.decode(
+      getSetting<Object?>(readChromeLayoutKey),
+    );
+    for (final group in ReadChromeGroupId.values) {
+      final raw = getSetting<Object?>(group.storageKey);
+      if (raw is! String || raw.isEmpty) continue;
+      final state = readEnumFromName(
+        ReadChromeGroupState.values,
+        raw,
+        group.stateOf(layout),
+        nameOf: (v) => v.name,
+      );
+      layout = group.withState(layout, state);
+    }
+    return layout;
+  }
+
+  /// READ-UI-120 P0: migrate tốc độ TTS cũ (lưu trong `playback_recipe` của
+  /// SharedPreferences) sang nguồn sự thật duy nhất `tts_speed` của Hive.
+  /// Chỉ chạy 1 lần; người dùng đã chỉnh tốc độ ở màn Cài đặt thì giữ nguyên.
+  Future<void> migrateLegacyPlaybackSpeed(double legacySpeed) async {
+    if (!isInitialized) return;
+    final migrated =
+        getSetting<bool>('read_legacy_playback_speed_migrated_v1',
+            defaultValue: false) ??
+            false;
+    if (migrated) return;
+    final current = getSetting<double>('tts_speed', defaultValue: 1.0) ?? 1.0;
+    if ((current - 1.0).abs() < 0.01 && (legacySpeed - 1.0).abs() >= 0.01) {
+      await saveSetting('tts_speed', legacySpeed.clamp(0.25, 2.0).toDouble());
+    }
+    await saveSetting('read_legacy_playback_speed_migrated_v1', true);
+  }
+
+  /// Cờ "đã migrate sang Đọc-trước-Nghe" (chỉ chạy 1 lần / thiết bị).
+  static const String _contentOrderReadFirstMigrationKey =
+      'shell_content_order_read_first_v1';
+
   /// Persist the order of the two primary content workspaces.
   ///
   /// The same value is consumed by bottom navigation and by the Scaffold
@@ -353,9 +428,24 @@ class StorageService {
   /// crossing the Listen and Read libraries.
   Future<void> saveShellContentOrder(ShellContentOrder order) async {
     await saveSetting('shell_content_order_v1', order.storageValue);
+    // Người dùng đã tự chọn ⇒ đánh dấu đã migrate để không bị ép lại.
+    await saveSetting(_contentOrderReadFirstMigrationKey, true);
   }
 
   ShellContentOrder getShellContentOrder() {
+    // MIGRATION 1 LẦN (owner 2026-10-25: "chuyển tab Đọc ra trước tab Nghe").
+    //
+    // Máy đã cài bản cũ ĐÃ LƯU 'listenRead' ⇒ chỉ đổi default trong
+    // `shellContentOrderFromStorage` là KHÔNG đủ: thiết bị đó vẫn Nghe-trước.
+    // Lần đầu chạy bản này, ép về `readListen` rồi ghi cờ; từ lần sau lựa chọn
+    // của người dùng (đổi trong Cài đặt → Giao diện shell) được tôn trọng
+    // tuyệt đối, không bị migrate đè nữa.
+    final migrated = _settings.get(_contentOrderReadFirstMigrationKey);
+    if (migrated != true) {
+      // Ghi bền (fire-and-forget) để lần mở app sau không migrate lại.
+      unawaited(saveShellContentOrder(ShellContentOrder.readListen));
+      return ShellContentOrder.readListen;
+    }
     final raw = _settings.get('shell_content_order_v1');
     return shellContentOrderFromStorage(raw);
   }
@@ -1039,6 +1129,38 @@ class StorageService {
   Future<void> close() async {
     await Hive.close();
     _initialized = false;
+  }
+
+  // ── READ-FOCUS-002 (IN4-30): vị trí phần TIÊU ĐỀ khi ở chế độ Focus ──
+  //
+  // 'hidden' = ẩn hẳn (hành vi cũ: Focus ẩn trọn thanh trên).
+  // 'top'    = chỉ giữ phần tiêu đề ở TRÊN vùng đọc.
+  // 'bottom' = chỉ giữ phần tiêu đề ở DƯỚI vùng đọc.
+  static const String readFocusTitleHidden = 'hidden';
+  static const String readFocusTitleTop = 'top';
+  static const String readFocusTitleBottom = 'bottom';
+
+  String getReadFocusTitlePosition() {
+    final v = getSetting<String>('read_focus_title_position',
+        defaultValue: readFocusTitleHidden);
+    if (v == readFocusTitleTop || v == readFocusTitleBottom) return v!;
+    return readFocusTitleHidden;
+  }
+
+  Future<void> saveReadFocusTitlePosition(String value) async {
+    await saveSetting('read_focus_title_position', value);
+  }
+
+  // ── READ-ALIGN-001: căn lề văn bản tab Đọc (mặc định GIỮA) ─────────────
+  static const String readTextAlignCenter = 'center';
+  static const String readTextAlignLeft = 'left';
+
+  /// Giá trị đã lưu; rỗng ⇒ '' để provider tự dùng mặc định (giữa).
+  String getReadTextAlign() =>
+      getSetting<String>('read_text_align', defaultValue: '') ?? '';
+
+  Future<void> saveReadTextAlign(String value) async {
+    await saveSetting('read_text_align', value);
   }
 
   /// Debug: in thông tin storage

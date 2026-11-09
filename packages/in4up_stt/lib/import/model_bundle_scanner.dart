@@ -77,12 +77,20 @@ class ZipformerRoleFiles {
   final ScannedFile? tokens;
   final ScannedFile? bpeVocab;
 
+  /// Bộ export NVIDIA NeMo (Parakeet TDT): decoder GỘP sẵn joint
+  /// (`decoder_joint-model*.onnx`) + mel graph (`nemo128.onnx`) + `vocab.txt`.
+  ///
+  /// Layout này KHÔNG nạp được bằng sherpa-onnx (cần encoder/decoder/joiner/
+  /// tokens tách riêng) ⇒ manager phải báo rõ thay vì báo "thiếu joiner".
+  final bool isNeMoExport;
+
   const ZipformerRoleFiles({
     this.encoder,
     this.decoder,
     this.joiner,
     this.tokens,
     this.bpeVocab,
+    this.isNeMoExport = false,
   });
 
   /// Các role BẮT BUỘC còn thiếu (nhãn kỹ thuật + gợi ý tên file — UI tự
@@ -264,6 +272,27 @@ class ModelBundleScanner {
         lower.endsWith('-tokens.txt');
   }
 
+  /// File tokens của bộ ASR — thêm `vocab.txt` (export NVIDIA NeMo: cùng
+  /// nội dung bảng token với `tokens.txt` của bản k2-fsa).
+  static bool isAsrTokensName(String name) {
+    if (isTokensName(name)) return true;
+    return name.toLowerCase() == 'vocab.txt';
+  }
+
+  /// Decoder GỘP joint của bộ export NVIDIA NeMo (Parakeet TDT):
+  /// `decoder_joint-model.int8.onnx` — sherpa-onnx cần decoder + joiner
+  /// TÁCH RIÊNG nên layout này không nạp được.
+  static bool isNeMoJointDecoderName(String name) {
+    final lower = name.toLowerCase();
+    return isOnnx(name) && lower.contains('decoder_joint');
+  }
+
+  /// Mel-feature graph của bộ export NVIDIA NeMo: `nemo128.onnx`.
+  static bool isNeMoMelGraphName(String name) {
+    final lower = name.toLowerCase();
+    return isOnnx(name) && lower.startsWith('nemo128');
+  }
+
   /// File espeak-ng-data "lẻ" (không extension) của bundle k2-fsa.
   static bool isEspeakLeafName(String name) {
     switch (name.toLowerCase()) {
@@ -309,6 +338,8 @@ class ModelBundleScanner {
     if (!isOnnx(name) || isOnnxJson(name)) return false;
     if (isSileroVadName(name)) return false;
     if (_isAsrRoleName(name)) return false;
+    // Mel-graph của bộ NeMo (nemo128.onnx) KHÔNG phải giọng Piper.
+    if (isNeMoMelGraphName(name)) return false;
     final lower = name.toLowerCase();
     if (lower.contains('whisper')) return false;
     if (RegExp(r'(^|[^a-z])vad([^a-z]|$)').hasMatch(lower)) return false;
@@ -346,7 +377,17 @@ class ModelBundleScanner {
   /// Quét danh sách file (tên + thư mục cha là đủ) → báo cáo phân loại +
   /// thiếu file. KHÔNG đọc nội dung / không quyết streaming vs offline (việc
   /// đó của `SherpaModelManager.detectEncoderKind` — bằng chứng nội dung).
-  static ModelBundleReport scan(List<ScannedFile> files) {
+  ///
+  /// [groupByDirectory] = false ⇒ coi TẤT CẢ file là MỘT bộ model (đường
+  /// user CHỌN NHIỀU FILE): file_picker trên Android copy file đã chọn vào
+  /// cache (`cache/file_picker/<timestamp>/…`) và các file có thể nằm ở thư
+  /// mục KHÁC NHAU ⇒ nếu group theo thư mục cha, mỗi file rơi vào 1 nhóm
+  /// riêng và chỉ 1 role được giữ lại ⇒ báo "thiếu encoder/joiner/tokens"
+  /// oan dù user đã chọn đủ file.
+  static ModelBundleReport scan(
+    List<ScannedFile> files, {
+    bool groupByDirectory = true,
+  }) {
     final normalized = <ScannedFile>[
       for (final f in files)
         ScannedFile(normSep(f.path), sizeBytes: f.sizeBytes),
@@ -407,7 +448,10 @@ class ModelBundleScanner {
     var bestDirSize = 1 << 30;
     final byDir = <String, List<ScannedFile>>{};
     for (final f in generic) {
-      byDir.putIfAbsent(f.dir, () => []).add(f);
+      // groupByDirectory = false ⇒ MỘT nhóm duy nhất (user chọn nhiều file
+      // = MỘT bộ model, không phân theo thư mục cache của picker).
+      final key = groupByDirectory ? f.dir : '';
+      byDir.putIfAbsent(key, () => []).add(f);
     }
     for (final entry in byDir.entries) {
       ScannedFile? enc;
@@ -415,7 +459,11 @@ class ModelBundleScanner {
       ScannedFile? joi;
       ScannedFile? tok;
       ScannedFile? bpe;
+      var nemoExport = false;
       for (final f in entry.value) {
+        if (isNeMoJointDecoderName(f.name) || isNeMoMelGraphName(f.name)) {
+          nemoExport = true;
+        }
         if (isAsrEncoderName(f.name)) {
           // Ưu tiên int8 (đúng profile app) khi có cả hai bản.
           if (enc == null ||
@@ -435,13 +483,19 @@ class ModelBundleScanner {
       }
       final hasRoleOnnx = enc != null || dec != null || joi != null;
       if (hasRoleOnnx) {
+        // `tokens.txt` (chuẩn k2-fsa) được ưu tiên; `vocab.txt` chỉ là
+        // BẢN SAO bảng token của export NVIDIA NeMo ⇒ dùng làm dự phòng.
+        ScannedFile? vocabAlt;
         for (final f in entry.value) {
           if (isTokensName(f.name)) {
             tok ??= f;
           } else if (isBpeVocabName(f.name)) {
             bpe ??= f;
+          } else if (f.lowerName == 'vocab.txt') {
+            vocabAlt ??= f;
           }
         }
+        tok ??= vocabAlt;
       }
       final roles = ZipformerRoleFiles(
         encoder: enc,
@@ -449,6 +503,7 @@ class ModelBundleScanner {
         joiner: joi,
         tokens: tok,
         bpeVocab: bpe,
+        isNeMoExport: nemoExport,
       );
       final score = roles.completeness;
       final dirSize = entry.value.length;

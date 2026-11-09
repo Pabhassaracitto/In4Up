@@ -10,15 +10,19 @@ import 'package:in4up/l10n/app_localizations.dart';
 import '../features/learn_by_heart/screens/learn_by_heart_hub_screen.dart';
 import '../features/cabin/screens/live_cabin_screen.dart';
 import '../features/dictionary/widgets/dict_manager_screen.dart';
+import '../features/dictionary/widgets/dictionary_screen.dart';
+import '../features/dictionary/widgets/dict_pack_screen.dart';
 import '../features/video/widgets/video_player_screen.dart';
 import '../features/video/widgets/video_library_screen.dart';
+import '../features/media_tools/screens/media_tools_screen.dart';
 import '../core/navigation/shell_navigation_request.dart';
 import '../features/cabin/widgets/live_caption_bubble.dart';
 import '../features/pdf_reader/pdf_reader_screen.dart';
 import '../features/web_reader/web_reader_screen.dart';
 import '../features/tipitaka/tipitaka.dart';
 import '../features/understand_ai/understand_ai_context.dart';
-import '../features/youtube/youtube_sheet.dart';
+import '../features/youtube/youtube_explorer_screen.dart';
+import '../models/read_chrome_layout.dart';
 import '../models/read_content_source.dart';
 import '../models/shell_content_order.dart';
 import '../providers/player_provider.dart';
@@ -26,6 +30,7 @@ import '../providers/text_provider.dart';
 import '../providers/vocabulary_bridge.dart';
 import '../providers/vocabulary_provider.dart';
 import '../services/battery_optimization_service.dart';
+import '../services/read_chrome_layout_store.dart';
 import '../services/storage_service.dart';
 import 'ai_chat/ai_chat_screen.dart';
 import 'home/home_screen.dart';
@@ -35,6 +40,9 @@ import 'listen_mode/widgets/audio_library_drawer.dart';
 import 'listen_mode/widgets/mini_player.dart';
 import 'memory_mode/remember_workspace_screen.dart';
 import 'read_mode/read_mode_screen.dart';
+import 'read_mode/sheets/read_settings_sheet.dart';
+import 'read_mode/services/read_text_action_runner.dart';
+import 'read_mode/widgets/read_top_bar.dart';
 import 'read_mode/widgets/read_source_picker.dart';
 import 'read_mode/widgets/read_text_action_hooks.dart';
 import 'read_mode/write_studio_screen.dart';
@@ -52,6 +60,8 @@ import 'tools/word_list/stats_dashboard.dart';
 import 'tools/word_list/timeline_view.dart';
 import 'tools/word_list/word_list_screen.dart';
 import 'tools/word_list/wordlist_bubble.dart';
+import '../widgets/collapsible_action_bar.dart';
+import '../widgets/lazy_indexed_stack.dart';
 import '../widgets/workspace_navigation/workspace_navigation.dart';
 import 'tools/youglish/youglish_screen.dart';
 import 'understand_mode/services/understand_ai_coach_launcher.dart';
@@ -85,7 +95,8 @@ class _MainShellState extends State<MainShell> {
   _PrimaryTab _currentTab = _PrimaryTab.home;
   int _listenModeIndex = 0;
   int _readModeIndex = 0;
-  ShellContentOrder _contentOrder = ShellContentOrder.listenRead;
+  // Mặc định: Đọc trước Nghe (yêu cầu 2026-10-25) — đồng bộ với shell_content_order.dart
+  ShellContentOrder _contentOrder = ShellContentOrder.readListen;
   ReadContentSource _readSource = ReadContentSource.document;
   ListenContentSource _listenSource = ListenContentSource.audioLibrary;
   UnderstandWorkspaceMode _understandMode = UnderstandWorkspaceMode.sync;
@@ -94,6 +105,7 @@ class _MainShellState extends State<MainShell> {
   bool _autoHideModeSwitch = false;
   bool _enableLongPressModeSwitch = false;
   bool _rememberLastSubMode = true;
+  bool _listenToolsExpanded = true;
   bool _modeSwitchExpanded = false;
   Timer? _modeSwitchHideTimer;
   Timer? _shellHintTimer;
@@ -102,6 +114,11 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _loadShellUiSettings();
+    // READ-UI-120: cùng một nguồn cấu hình cho app bar, workspace header và
+    // dock đáy. Đổi trong «Giao diện shell» ⇒ setState tức thì, không cần
+    // restart app.
+    ReadChromeLayoutStore.instance.load();
+    ReadChromeLayoutStore.instance.layout.addListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.addListener(_onShellNavigationRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final vocabProvider = context.read<VocabularyProvider>();
@@ -112,13 +129,23 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _onReadChromeLayoutChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    ReadChromeLayoutStore.instance.layout
+        .removeListener(_onReadChromeLayoutChanged);
     ShellNavigationRequest.pending.removeListener(_onShellNavigationRequest);
     _modeSwitchHideTimer?.cancel();
     _shellHintTimer?.cancel();
     super.dispose();
   }
+
+  /// READ-UI-120: đọc giá trị hiện tại của cấu hình chrome tab Đọc.
+  ReadChromeLayout get _readChromeLayout =>
+      ReadChromeLayoutStore.instance.layout.value;
 
   bool get _isHome => _currentTab == _PrimaryTab.home;
   bool get _listenFirst => _contentOrder.isListenFirst;
@@ -163,6 +190,8 @@ class _MainShellState extends State<MainShell> {
     _enableLongPressModeSwitch = _storage.getShellLongPressModeSwitch();
     _rememberLastSubMode = _storage.getShellRememberLastSubMode();
     _contentOrder = _storage.getShellContentOrder();
+    _listenToolsExpanded =
+        _storage.getSetting<bool>('listen_workspace_tools_expanded_v1', defaultValue: true) ?? true;
 
     if (!preserveWorkspaceState) {
       _listenModeIndex =
@@ -211,13 +240,33 @@ class _MainShellState extends State<MainShell> {
     _modeSwitchExpanded = true;
   }
 
+  /// IN4-31: KHÔNG tự ẩn thanh mode sau vài giây nữa.
+  ///
+  /// Trước đây thanh mode (Đọc/Viết…) tự ẩn sau 4s ⇒ người dùng chưa kịp
+  /// chọn là mất, mỗi lần tìm lại để mở thì không thấy đâu. Nay thanh **giữ
+  /// nguyên** (mặc định hiện); ai muốn ẩn thì bấm **dấu X** trên thanh →
+  /// tắt luôn chế độ tự ẩn (lưu vào setting).
   void _scheduleModeSwitchAutoHide() {
+    // Không còn timer ẩn tự động — giữ chỗ cho tương thích, không làm gì.
     _modeSwitchHideTimer?.cancel();
-    if (!_autoHideModeSwitch) return;
-    _modeSwitchHideTimer = Timer(const Duration(seconds: 4), () {
-      if (!mounted || !_hasSecondaryModes) return;
-      setState(() => _modeSwitchExpanded = false);
+  }
+
+  /// Tắt chế độ tự ẩn thanh mode (nút X trên thanh mode).
+  Future<void> _disableAutoHideModeSwitch() async {
+    _modeSwitchHideTimer?.cancel();
+    setState(() {
+      _autoHideModeSwitch = false;
+      _modeSwitchExpanded = true;
     });
+    await _storage.saveShellAutoHideModeSwitch(false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã tắt tự ẩn thanh chế độ'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _scheduleShellHintIfNeeded() {
@@ -425,6 +474,10 @@ class _MainShellState extends State<MainShell> {
     switch (target) {
       case ShellNavigationTarget.read:
         _setReadMode(0);
+      case ShellNavigationTarget.listen:
+        // YT-MEDIA-LIB-001: màn "Kho media YouTube" mở tab Nghe (chế độ Nghe
+        // = 0). File âm thanh đã được màn gọi nạp vào `PlayerProvider` trước.
+        _setListenMode(0);
     }
   }
 
@@ -593,6 +646,15 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.videocam,
         color: const Color(0xFFFFB300),
       ),
+      // AVTOOL-002 (PLAN-047 P1) — công cụ media: chuyển định dạng/cắt/tách,
+      // kèm màn tự chẩn đoán FFmpeg (desktop tải khi cần — không đóng gói sẵn).
+      'media_tools': tools.ToolItem(
+        id: 'media_tools',
+        title: context.uiText('Công cụ media'),
+        subtitle: context.uiText('Chuyển đổi, cắt, tách âm thanh khỏi video'),
+        icon: Icons.content_cut,
+        color: const Color(0xFF26C6DA),
+      ),
       'dict_manager': tools.ToolItem(
         id: 'dict_manager',
         title: context.uiText('Từ điển MDX'),
@@ -600,12 +662,24 @@ class _MainShellState extends State<MainShell> {
         icon: Icons.auto_stories,
         color: const Color(0xFF7E57C2),
       ),
+      // ADR-0018 (P1): `dictionary` = MÀN TRA TỪ (ô tìm + gợi ý + lịch sử);
+      // `dict_manager` = trang cài đặt/quản lý bộ. Trước đây cả hai cùng mở
+      // trang quản lý nên người dùng không có chỗ nào để tra từ.
       'dictionary': tools.ToolItem(
         id: 'dictionary',
         title: context.uiText('Từ điển'),
-        subtitle: context.uiText('Quản lý từ điển MDX đa ngữ'),
+        subtitle: context.uiText('Tra từ: ô tìm, gợi ý, lịch sử'),
         icon: Icons.auto_stories_rounded,
         color: const Color(0xFF2196F3),
+      ),
+      // DICT-PACK-001 (owner 2026-10-25): tải bộ từ điển có sẵn ngay từ
+      // "setting home" — không bắt người dùng tự tìm file .mdx/.mdd.
+      'dict_packs': tools.ToolItem(
+        id: 'dict_packs',
+        title: context.uiText('Tải bộ từ điển'),
+        subtitle: context.uiText('Cài từ điển có sẵn bằng một chạm (offline)'),
+        icon: Icons.cloud_download_outlined,
+        color: const Color(0xFF4DD0E1),
       ),
       'speak_mode': tools.ToolItem(
         id: 'speak_mode',
@@ -728,10 +802,13 @@ class _MainShellState extends State<MainShell> {
           'pdf_reader',
           'video_player',
           'video_library',
+          'media_tools',
           'dictionary',
           'dict_manager',
+          'dict_packs',
         ]),
       _PrimaryTab.listen => take([
+          'media_tools',
           'youtube_downloader',
           'video_library',
           'pdf_reader',
@@ -742,6 +819,7 @@ class _MainShellState extends State<MainShell> {
           'pdf_reader',
           'tipitaka',
           'dict_manager',
+          'dict_packs',
           'shell_ui_settings',
         ]),
       _PrimaryTab.understand => take([
@@ -893,6 +971,7 @@ class _MainShellState extends State<MainShell> {
       'youtube_downloader': 90,
       'web_reader': 88,
       'pdf_reader': 87,
+      'dict_packs': 87,
       'review': 86,
       'word_list': 85,
     };
@@ -912,6 +991,7 @@ class _MainShellState extends State<MainShell> {
       'pdf_reader': 97,
       'tipitaka': 96,
       'dict_manager': 94,
+      'dict_packs': 93,
       'understand_ai_coach': 92,
       'word_list': 90,
       'shell_ui_settings': 88,
@@ -1018,7 +1098,14 @@ class _MainShellState extends State<MainShell> {
         );
         return;
       case 'youtube_downloader':
-        await YoutubeSheet.show(context);
+        // YT-LR-004 (IN4-94): bỏ hẳn "tầng 1 cũ" (bottom sheet CHỈ dán URL,
+        // không search được) — vào THẲNG tầng 2 `YoutubeExplorerScreen`:
+        // có ô tìm kiếm (chạy keyless, không cần Data API key) và vẫn dán
+        // được URL. Các việc của tầng 1 cũ không bị mất: tải audio / tải
+        // phụ đề / lịch sử xem nằm ở tab TẢI của màn player (tầng 3).
+        nav.push(
+          MaterialPageRoute(builder: (_) => const YoutubeExplorerScreen()),
+        );
         return;
       case 'pdf_reader':
         final result = await FilePicker.pickFiles(
@@ -1078,9 +1165,14 @@ class _MainShellState extends State<MainShell> {
           MaterialPageRoute(builder: (_) => const VideoLibraryScreen()),
         );
         return;
+      case 'media_tools':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const MediaToolsScreen()),
+        );
+        return;
       case 'dictionary':
         nav.push(
-          MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+          MaterialPageRoute(builder: (_) => const DictionaryScreen()),
         );
         return;
       case 'shell_ui_settings':
@@ -1089,6 +1181,11 @@ class _MainShellState extends State<MainShell> {
       case 'dict_manager':
         nav.push(
           MaterialPageRoute(builder: (_) => const DictManagerScreen()),
+        );
+        return;
+      case 'dict_packs':
+        nav.push(
+          MaterialPageRoute(builder: (_) => const DictPackScreen()),
         );
         return;
       case 'video_library':
@@ -1115,27 +1212,30 @@ class _MainShellState extends State<MainShell> {
               MaterialPageRoute(builder: (_) => const AiChatScreen()),
             );
           },
+          onOpenTextLibrary: _openTextLibrary,
         );
       case _PrimaryTab.listen:
-        return IndexedStack(
+        return LazyIndexedStack(
+          key: const ValueKey('listen-modes'),
           index: _listenModeIndex,
           children: [
-            const ListenModeScreen(),
-            SpeakModeScreen(
+            (_) => const ListenModeScreen(),
+            (_) => SpeakModeScreen(
               onOpenYouGlish: () => _handleTool('youglish'),
               onOpenQuickActions: _openQuickActions,
               onOpenUnderstand: () => _setPrimaryTab(_PrimaryTab.understand),
             ),
             // LISTEN-VIEW-001: embedded → no back button (nothing to pop;
             // popping here would pop the root route = black screen).
-            const VideoLibraryScreen(showBackButton: false),
+            (_) => const VideoLibraryScreen(showBackButton: false),
           ],
         );
       case _PrimaryTab.read:
-        return IndexedStack(
+        return LazyIndexedStack(
+          key: const ValueKey('read-modes'),
           index: _readModeIndex,
           children: [
-            ReadModeScreen(
+            (_) => ReadModeScreen(
               initialSource: _readSource,
               onSourceChanged: (source) => _setReadSource(source),
               sourceCallbacks: ReadSourceCallbacks(
@@ -1144,9 +1244,17 @@ class _MainShellState extends State<MainShell> {
                 onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
               ),
               textActionCallbacks: _readTextActionCallbacks,
-              showSourcePicker: false,
+              // READ-UI-120: picker chỉ dựng khi nhóm Nguồn được bung trong
+              // «Giao diện shell». Mặc định gộp ⇒ vẫn chỉ 2 icon ở app bar.
+              showSourcePicker: true,
+              chromeLayout: _readChromeLayout,
+              // READ-UI-121: mặc định dock đáy vẫn KHÔNG vẽ ReadTopBar (đúng
+              // hợp đồng READ-UI-120, ≤2 hàng chrome). Người dùng chọn
+              // «Vị trí công cụ: Trên» thì khôi phục luôn thanh cũ để các
+              // nút tùy biến chữ trở về đúng chỗ quen tay.
+              showTopBar: !_readChromeLayout.useBottomDock,
             ),
-            WriteStudioScreen(
+            (_) => WriteStudioScreen(
               onOpenWebReader: () => _handleTool('web_reader'),
               onOpenPdfReader: () => _handleTool('pdf_reader'),
               onOpenQuickActions: _openQuickActions,
@@ -1223,11 +1331,11 @@ class _MainShellState extends State<MainShell> {
                 if (_shouldShowShellMiniPlayer)
                   Consumer<PlayerProvider>(
                     builder: (context, player, _) {
-                      if (player.currentSongPath == null) {
+                      if (player.currentSongPath == null && !player.isQueueLoading) {
                         return const SizedBox.shrink();
                       }
                       return Dismissible(
-                        key: ValueKey('mini_${player.currentSongPath}'),
+                        key: const ValueKey('session-mini-player'),
                         direction: DismissDirection.horizontal,
                         background: Container(
                           margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -1341,6 +1449,8 @@ class _MainShellState extends State<MainShell> {
         _currentTab != _PrimaryTab.remember;
     final rightLibraryIsAudio =
         hasMappedLibraryPair ? !_leftLibraryIsAudio : true;
+    final isWatch = _currentTab == _PrimaryTab.listen && _listenModeIndex == 2;
+    final isReader = _currentTab == _PrimaryTab.read && _readModeIndex == 0;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
@@ -1356,12 +1466,25 @@ class _MainShellState extends State<MainShell> {
       ),
       child: Row(
         children: [
+          // YT-WATCH-QUICK-001 (#5 owner 2026-11-06): tab **Xem** trước đây ẩn
+          // nút thư viện trái khi thư viện trái là âm thanh ⇒ góc trên bên
+          // trái TRỐNG, còn icon YouTube nằm lẻ loi bên phải (trong header
+          // "Video thiết bị"). Nay tab Xem mở đầu bằng 「Thư viện văn bản」
+          // đúng như tab Đọc, rồi tới các lối tắt YouTube / Thư viện video.
           _ShellActionButton(
-            icon: _leadingIcon,
-            color: _leadingColor,
-            tooltip: _leadingTooltip,
+            icon: (isReader || isWatch)
+                ? Icons.menu_book_rounded
+                : _leadingIcon,
+            color: (isReader || isWatch)
+                ? const Color(0xFF2196F3)
+                : _leadingColor,
+            tooltip: (isReader || isWatch)
+                ? context.uiText('Thư viện văn bản')
+                : _leadingTooltip,
             onTap: () {
-              if (_currentTab == _PrimaryTab.home) {
+              if (isReader || isWatch) {
+                _openTextLibrary();
+              } else if (_currentTab == _PrimaryTab.home) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1377,6 +1500,36 @@ class _MainShellState extends State<MainShell> {
               }
             },
           ),
+          if (isReader) ...[
+            _ShellActionButton(
+              icon: Icons.public,
+              color: const Color(0xFF2196F3),
+              tooltip: context.uiText('Web'),
+              onTap: () => _setReadSource(ReadContentSource.web, openSource: true),
+            ),
+            _ShellActionButton(
+              icon: Icons.temple_buddhist_outlined,
+              color: const Color(0xFFDAAD67),
+              tooltip: context.uiText('Tam tạng'),
+              onTap: () => _setReadSource(ReadContentSource.tipitaka, openSource: true),
+            ),
+          ],
+          // YT-WATCH-QUICK-001: hai lối tắt của tab Xem — đặt SÁT nút thư viện
+          // (góc trên trái) thay vì đẩy YouTube sang header bên dưới.
+          if (isWatch) ...[
+            _ShellActionButton(
+              icon: Icons.play_circle_filled,
+              color: const Color(0xFFFF0000),
+              tooltip: context.uiText('YouTube'),
+              onTap: () => _handleTool('youtube_downloader'),
+            ),
+            _ShellActionButton(
+              icon: Icons.video_library_outlined,
+              color: const Color(0xFF53D6BD),
+              tooltip: context.uiText('Thư viện video'),
+              onTap: () => _handleTool('video_library'),
+            ),
+          ],
           const SizedBox(width: 8),
           Expanded(child: _buildTitleSection()),
           const SizedBox(width: 8),
@@ -1386,23 +1539,66 @@ class _MainShellState extends State<MainShell> {
             tooltip: context.uiText('Công cụ nhanh'),
             onTap: _openQuickActions,
           ),
-          const SizedBox(width: 8),
-          _ShellActionButton(
-            icon: hasMappedLibraryPair
-                ? _rightLibraryIcon
-                : Icons.library_music_rounded,
-            color: rightLibraryIsAudio
-                ? const Color(0xFF6C63FF)
-                : const Color(0xFF2196F3),
-            tooltip: context.uiText(
-              hasMappedLibraryPair
-                  ? _rightLibraryTooltip
-                  : 'Thư viện âm thanh',
+          // READ-UI-120: MỘT nút overflow cạnh ⚡ chứa «Hiển thị» +
+          // «Cài đặt». Không thêm 2 icon rời rạc (app bar reader đã có 4
+          // icon + tiêu đề ⇒ 320px không đủ chỗ).
+          if (isReader &&
+              _readChromeLayout.useBottomDock &&
+              !_readChromeLayout.displayHidden)
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              icon: const Icon(Icons.tune_rounded,
+                  color: Color(0xFF26C6DA), size: 20),
+              tooltip: context.uiText('Hiển thị'),
+              onSelected: (value) {
+                if (value == 'display') {
+                  if (_readChromeLayout.useBottomDock) {
+                    // READ-UI-121: 1 chạm mở đúng panel «Hiển thị» của dock
+                    // (có ReadModeController ⇒ đủ auto-sync + Focus). Vẫn là
+                    // MỘT nguồn sự thật `ReadChromeLayoutStore`.
+                    final store = ReadChromeLayoutStore.instance;
+                    unawaited(store.update(store.layout.value.copyWith(
+                      toolsState: ReadChromeGroupState.expanded,
+                      lastPanel: ReadDockPanel.display,
+                    )));
+                  } else {
+                    // Đường «Công cụ ở trên» đã có ReadTopBar ⇒ dùng sheet.
+                    showReadDisplaySheet(context);
+                  }
+                }
+                if (value == 'settings') ReadSettingsSheet.show(context);
+              },
+              itemBuilder: (menuContext) => [
+                PopupMenuItem<String>(
+                  value: 'display',
+                  child: Text(menuContext.uiText('Hiển thị')),
+                ),
+                PopupMenuItem<String>(
+                  value: 'settings',
+                  child: Text(menuContext.uiText('Cài đặt')),
+                ),
+              ],
             ),
-            onTap: hasMappedLibraryPair
-                ? _openRightLibrary
-                : _openAudioLibrary,
-          ),
+          const SizedBox(width: 8),
+          // Tab Xem đã có 「Thư viện văn bản」 ở bên trái ⇒ bỏ nút phải để
+          // không có hai nút cùng mở một thư viện (và để tiết kiệm chỗ).
+          if (!isReader && !isWatch)
+            _ShellActionButton(
+              icon: hasMappedLibraryPair
+                  ? _rightLibraryIcon
+                  : Icons.library_music_rounded,
+              color: rightLibraryIsAudio
+                  ? const Color(0xFF6C63FF)
+                  : const Color(0xFF2196F3),
+              tooltip: context.uiText(
+                hasMappedLibraryPair
+                    ? _rightLibraryTooltip
+                    : 'Thư viện âm thanh',
+              ),
+              onTap: hasMappedLibraryPair
+                  ? _openRightLibrary
+                  : _openAudioLibrary,
+            ),
         ],
       ),
     );
@@ -1468,6 +1664,15 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildWorkspaceHeader(BuildContext context) {
     final children = <Widget>[];
+    // Full-screen library states need their vertical space for content. Keep
+    // the mode switch, but suppress the source/action chrome while no item is
+    // open in the Listen or Read workspace.
+    final listenLibraryFull = _currentTab == _PrimaryTab.listen &&
+        _listenModeIndex == 0 &&
+        context.watch<PlayerProvider>().currentSongPath == null;
+    final readLibraryFull = _currentTab == _PrimaryTab.read &&
+        _readModeIndex == 0 &&
+        context.watch<TextProvider>().lines.isEmpty;
 
     if (_hasSecondaryModes) {
       children.add(_buildAnimatedModeSwitch(context));
@@ -1475,10 +1680,19 @@ class _MainShellState extends State<MainShell> {
 
     switch (_currentTab) {
       case _PrimaryTab.listen:
-        children.add(_buildListenContextHeader(context));
+        if (!listenLibraryFull) children.add(_buildListenContextHeader(context));
         break;
       case _PrimaryTab.read:
-        children.add(_buildReadContextHeader(context));
+        // READ-UI-120: với bố cục dock đáy, 5 nút Công cụ nằm trong panel
+        // «Công cụ đọc» của dock (kèm dòng «Áp dụng cho»). Chỉ giữ header
+        // cũ khi người dùng chọn «Vị trí công cụ: Trên».
+        // Giữ nguyên biểu thức `if (!readLibraryFull && _readModeIndex == 0)`
+        // (pin của test owner); điều kiện bố cục dock được lồng bên trong.
+        if (!readLibraryFull && _readModeIndex == 0) {
+          if (!_readChromeLayout.useBottomDock) {
+            children.add(_buildReadContextHeader(context));
+          }
+        }
         break;
       case _PrimaryTab.understand:
         children.add(_buildUnderstandContextHeader(context));
@@ -1493,6 +1707,18 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildListenContextHeader(BuildContext context) {
+    if (_listenModeIndex == 2) {
+      // YT-WATCH-QUICK-001 (#5): icon YouTube ĐÃ chuyển lên app bar, sát nút
+      //「Thư viện văn bản」. Header này chỉ còn nhãn — không còn nút lẻ loi
+      // bên phải làm tốn một hàng chiều cao.
+      return _WorkspaceHeaderSurface(
+        accent: _currentAccent,
+        child: Row(children: [
+          Expanded(child: Text(context.uiText('Video thiết bị'),
+              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600))),
+        ]),
+      );
+    }
     final actions = switch (_listenModeIndex) {
       0 => <_WorkspaceHeaderAction>[
           _WorkspaceHeaderAction(
@@ -1518,18 +1744,11 @@ class _MainShellState extends State<MainShell> {
             onPressed: () => _setPrimaryTab(_PrimaryTab.understand),
           ),
         ],
-      _ => <_WorkspaceHeaderAction>[
-          _WorkspaceHeaderAction(
-            label: 'Thư viện video',
-            icon: Icons.video_library_outlined,
-            onPressed: () => _handleTool('video_library'),
-          ),
-          _WorkspaceHeaderAction(
-            label: 'YouTube',
-            icon: Icons.play_circle_filled,
-            onPressed: () => _handleTool('youtube_downloader'),
-          ),
-        ],
+      // Chế độ 2 (Xem) đã `return` ở trên ⇒ nhánh này không còn chạy được.
+      // Trước đây nó giữ bản sao hai nút YouTube / Thư viện video (đã chuyển
+      // lên app bar) — để trống hẳn, tránh có hai nguồn sự thật cho cùng lối
+      // tắt. `_ =>` vẫn cần vì switch trên int là exhaustive.
+      _ => <_WorkspaceHeaderAction>[],
     };
 
     return _WorkspaceHeaderSurface(
@@ -1537,20 +1756,50 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeaderLabel(
-            icon: Icons.source_outlined,
-            label: context.uiText('Nguồn'),
+          Row(
+            children: [
+              Expanded(
+                child: Text(context.uiText('Công cụ nghe'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: context.uiText(_listenToolsExpanded ? 'Thu gọn công cụ' : 'Mở công cụ'),
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  final next = !_listenToolsExpanded;
+                  setState(() => _listenToolsExpanded = next);
+                  unawaited(_storage.saveSetting('listen_workspace_tools_expanded_v1', next));
+                },
+                icon: Icon(_listenToolsExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.white70),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          WorkspaceSourcePicker<ListenContentSource>(
-            items: _listenSourceItems(context),
-            selectedValue: _listenSource,
-            onChanged: (source) => _setListenSource(source, openSource: true),
-            presentation: WorkspaceNavigationPresentation.chips,
-            menuTooltip: context.uiText('Chọn nguồn'),
+          if (_listenToolsExpanded) ...[
+          // AUDIT-2026-10-20 (mục 5): nhãn + nguồn CHUNG MỘT HÀNG (chips
+          // cuộn ngang) ⇒ header gọn hơn, vẫn đồng bộ 3 tab.
+          Row(
+            children: [
+              _WorkspaceHeaderLabel(
+                icon: Icons.source_outlined,
+                label: context.uiText('Nguồn'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: WorkspaceSourcePicker<ListenContentSource>(
+                  items: _listenSourceItems(context),
+                  selectedValue: _listenSource,
+                  onChanged: (source) =>
+                      _setListenSource(source, openSource: true),
+                  presentation: WorkspaceNavigationPresentation.chips,
+                  menuTooltip: context.uiText('Chọn nguồn'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           _WorkspaceHeaderActions(actions: actions),
+          ],
         ],
       ),
     );
@@ -1584,21 +1833,37 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeaderLabel(
-            icon: Icons.source_outlined,
-            label: context.uiText('Nguồn'),
-          ),
-          ReadSourcePicker(
-            selectedSource: _readSource,
-            onSourceChanged: (source) => _setReadSource(source),
-            callbacks: ReadSourceCallbacks(
-              onOpenDocumentLibrary: _openTextLibrary,
-              onOpenWebReader: () => _handleTool('web_reader'),
-              onOpenTipitakaLibrary: () => _handleTool('tipitaka'),
-            ),
-            presentation: WorkspaceNavigationPresentation.chips,
+          // READ-ACT-001: cho biết 4 nút dưới đây đang áp dụng lên đoạn nào,
+          // thay cho snackbar "Bạn cần bôi chọn một đoạn trước".
+          Consumer<TextProvider>(
+            builder: (context, textProvider, _) {
+              final target = ReadTextActionRunner.targetFor(textProvider);
+              if (target == null) return const SizedBox.shrink();
+              final scope = target.fromSelection
+                  ? context.uiText('đoạn đang chọn')
+                  : context.uiText('dòng đang đọc');
+              final preview = target.text.length > 42
+                  ? '${target.text.substring(0, 42)}…'
+                  : target.text;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  '${context.uiText('Áp dụng cho')}: $scope — $preview',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.85),
+                  ),
+                ),
+              );
+            },
           ),
           _WorkspaceHeaderActions(
+            dense: true,
             actions: [
               _WorkspaceHeaderAction(
                 label: 'Mở nguồn',
@@ -1638,19 +1903,26 @@ class _MainShellState extends State<MainShell> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _WorkspaceHeaderLabel(
-            icon: Icons.route_outlined,
-            label: context.uiText('Chế độ'),
+          // AUDIT-2026-10-20 (mục 5): nhãn + chế độ chung một hàng.
+          Row(
+            children: [
+              _WorkspaceHeaderLabel(
+                icon: Icons.route_outlined,
+                label: context.uiText('Chế độ'),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: WorkspaceModeBar<UnderstandWorkspaceMode>(
+                  items: _understandModeItems(context),
+                  selectedValue: _understandMode,
+                  onChanged: _setUnderstandMode,
+                  presentation: WorkspaceNavigationPresentation.chips,
+                  menuTooltip: context.uiText('Chọn chế độ'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          WorkspaceModeBar<UnderstandWorkspaceMode>(
-            items: _understandModeItems(context),
-            selectedValue: _understandMode,
-            onChanged: _setUnderstandMode,
-            presentation: WorkspaceNavigationPresentation.chips,
-            menuTooltip: context.uiText('Chọn chế độ'),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Consumer2<PlayerProvider, TextProvider>(
             builder: (context, player, textProvider, _) {
               return Wrap(
@@ -1702,28 +1974,19 @@ class _MainShellState extends State<MainShell> {
     ];
   }
 
+  // READ-ACT-001: mọi hành động văn bản của tab Đọc đi qua một bộ chạy duy
+  // nhất. Không còn chặn bằng "phải bôi chọn trước" — ReadTextActionRunner
+  // tự lùi về dòng đang đọc khi chưa có selection (các chế độ hiển thị theo
+  // ô/interlinear không tạo được selection, xem audit 0.10.3 mục 1.b).
   void _handleReadTextAction(ReadTextAction action, {String? selectedText}) {
-    final textProvider = context.read<TextProvider>();
-    final text = (selectedText ?? textProvider.selectedText ?? '').trim();
-    if (text.isEmpty && action != ReadTextAction.dictionary) {
-      _showWorkspaceSnack('Bạn cần bôi chọn một đoạn trước');
-      return;
-    }
-
-    switch (action) {
-      case ReadTextAction.translate:
-        _showWorkspaceSnack('Bản dịch sẽ dùng đoạn đang chọn trong tab Đọc.');
-        return;
-      case ReadTextAction.grammar:
-        _showWorkspaceSnack('Ngữ pháp sẽ dùng đoạn đang chọn trong tab Đọc.');
-        return;
-      case ReadTextAction.pronounce:
-        unawaited(textProvider.speak(text));
-        return;
-      case ReadTextAction.dictionary:
-        unawaited(_handleTool('dict_manager'));
-        return;
-    }
+    unawaited(
+      ReadTextActionRunner.run(
+        context,
+        action,
+        selectedText: selectedText,
+        onOpenDictionaryManager: () => unawaited(_handleTool('dict_manager')),
+      ),
+    );
   }
 
   ReadTextActionCallbacks get _readTextActionCallbacks {
@@ -1779,49 +2042,66 @@ class _MainShellState extends State<MainShell> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       color: const Color(0xFF111827),
       child: Row(
-        children: List.generate(labels.length, (index) {
-          final selected = index == selectedIndex;
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
-              child: InkWell(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  if (isListen) {
-                    _setListenMode(index);
-                  } else {
-                    _setReadMode(index);
-                  }
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? accent.withValues(alpha: 0.18)
-                        : Colors.white.withValues(alpha: 0.04),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: selected
-                          ? accent.withValues(alpha: 0.35)
-                          : Colors.white.withValues(alpha: 0.06),
+        children: [
+          Expanded(
+            child: Row(
+              children: List.generate(labels.length, (index) {
+                final selected = index == selectedIndex;
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        if (isListen) {
+                          _setListenMode(index);
+                        } else {
+                          _setReadMode(index);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? accent.withValues(alpha: 0.18)
+                              : Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected
+                                ? accent.withValues(alpha: 0.35)
+                                : Colors.white.withValues(alpha: 0.06),
+                          ),
+                        ),
+                        child: Text(
+                          context.uiText(labels[index]),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selected ? accent : Colors.grey[400],
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    context.uiText(labels[index]),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: selected ? accent : Colors.grey[400],
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
+                );
+              }),
             ),
-          );
-        }),
+          ),
+          // IN4-31: dấu X để TẮT chế độ tự ẩn — thanh mode giữ hiện.
+          if (_autoHideModeSwitch)
+            IconButton(
+              tooltip: context.uiText('Tắt tự ẩn thanh chế độ'),
+              onPressed: _disableAutoHideModeSwitch,
+              icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+        ],
       ),
     );
   }
@@ -1956,8 +2236,10 @@ class _MainShellState extends State<MainShell> {
               ),
             ],
           ),
-        ),
-      ),
+
+            ),
+          ),
+    
     );
   }
 }
@@ -1988,7 +2270,8 @@ class _WorkspaceHeaderSurface extends StatelessWidget {
     return Container(
       key: const Key('workspace-context-header'),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      // AUDIT-2026-10-20 (mục 5): padding gọn hơn để dành chỗ cho nội dung.
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       decoration: BoxDecoration(
         color: const Color(0xFF101827),
         border: Border(
@@ -2031,18 +2314,29 @@ class _WorkspaceHeaderLabel extends StatelessWidget {
 }
 
 class _WorkspaceHeaderActions extends StatelessWidget {
-  const _WorkspaceHeaderActions({required this.actions});
+  const _WorkspaceHeaderActions({required this.actions, this.dense = false});
 
   final List<_WorkspaceHeaderAction> actions;
 
+  /// READ-ACT-001 (audit 1.c): hàng nút thấp hơn và cuộn ngang trên điện
+  /// thoại thay vì `Wrap` thành hai hàng cao chiếm hết màn hình đọc.
+  final bool dense;
+
+  /// AUDIT-2026-10-20 (mục 5): dùng chung [CollapsibleActionBar] — hẹp thì
+  /// GỘP (chỉ icon + mũi tên), rộng/bung thì có nhãn. Nhờ vậy thanh chức
+  /// năng của 3 tab (Nghe / Đọc / Hiểu) gọn gàng, tiết kiệm không gian mà
+  /// vẫn đồng bộ và tiện dụng.
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final action in actions)
-          _WorkspaceHeaderActionButton(action: action),
+    if (actions.isEmpty) return const SizedBox.shrink();
+    return CollapsibleActionBar(
+      actions: [
+        for (final a in actions)
+          CollapsibleAction(
+            label: a.label,
+            icon: a.icon,
+            onPressed: a.onPressed,
+          ),
       ],
     );
   }
@@ -2052,10 +2346,12 @@ class _WorkspaceHeaderActionButton extends StatelessWidget {
   const _WorkspaceHeaderActionButton({
     required this.action,
     this.compact = false,
+    this.dense = false,
   });
 
   final _WorkspaceHeaderAction action;
   final bool compact;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -2064,6 +2360,7 @@ class _WorkspaceHeaderActionButton extends StatelessWidget {
       icon: action.icon,
       onPressed: action.onPressed,
       compact: compact,
+      dense: dense,
       tooltip: context.uiText(action.label),
     );
   }
@@ -2249,86 +2546,98 @@ class _BottomNavItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final activeColor = selected ? color : Colors.grey[500]!;
+Widget build(BuildContext context) {
+  final activeColor = selected ? color : Colors.grey[500]!;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-          decoration: BoxDecoration(
-            color:
-                selected ? color.withValues(alpha: 0.14) : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color:
-                  selected ? color.withValues(alpha: 0.24) : Colors.transparent,
+
+  return Semantics(
+    button: true,
+    selected: selected,
+    label: label,
+    hint: onLongPress != null ? 'Có thao tác nhấn giữ để đổi mode' : null,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        minWidth: 56,
+        minHeight: kMinInteractiveDimension,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+            decoration: BoxDecoration(
+              color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? color.withValues(alpha: 0.24) : Colors.transparent,
+              ),
+
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(selected ? selectedIcon : icon,
-                      color: activeColor, size: 22),
-                  if (badgeText != null)
-                    Positioned(
-                      top: -6,
-                      right: -14,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          badgeText!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(selected ? selectedIcon : icon,
+                        color: activeColor, size: 22),
+                    if (badgeText != null)
+                      Positioned(
+                        top: -6,
+                        right: -14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            badgeText!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  if (showLongPressHint)
-                    Positioned(
-                      bottom: -2,
-                      right: -8,
-                      child: Icon(
-                        Icons.subdirectory_arrow_left,
-                        size: 10,
-                        color: activeColor.withValues(alpha: 0.8),
+                    if (showLongPressHint)
+                      Positioned(
+                        bottom: -2,
+                        right: -8,
+                        child: Icon(
+                          Icons.subdirectory_arrow_left,
+                          size: 10,
+                          color: activeColor.withValues(alpha: 0.8),
+                        ),
                       ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: activeColor,
+                      fontSize: 10,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: activeColor,
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
+        ), // <-- Đóng InkWell
+      ), // <-- Đóng Padding
+    ), // <-- Đóng ConstrainedBox
+  ); // <-- Đóng Semantics và kết thúc hàm build
+}
 }

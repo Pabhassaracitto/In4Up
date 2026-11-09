@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/language/app_language.dart';
 import '../../providers/text_provider.dart';
 import '../../screens/read_mode/services/playback_controller.dart';
+import 'engines/deeplx_endpoint.dart';
 import 'engines/deeplx_engine.dart';
 import 'engines/hymt_engine.dart';
 import 'engines/mlkit_engine.dart';
@@ -113,6 +114,19 @@ class TranslationToolbar extends StatelessWidget {
                       padding: EdgeInsets.zero,
                     ),
                   );
+                  final blurButton = IconButton(
+                    tooltip: context.uiText('Làm mờ bản dịch'),
+                    isSelected: textProvider.blurTranslations,
+                    onPressed: displayMode == TranslationDisplayMode.hidden
+                        ? null
+                        : () => textProvider.setBlurTranslations(
+                            !textProvider.blurTranslations),
+                    icon: Icon(textProvider.blurTranslations
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined),
+                    color: textProvider.blurTranslations ? primaryColor : Colors.grey,
+                    visualDensity: VisualDensity.compact,
+                  );
                   final layoutSelector = _LayoutSelector(
                     displayMode: displayMode,
                     primaryColor: primaryColor,
@@ -135,7 +149,10 @@ class TranslationToolbar extends StatelessWidget {
                           const SizedBox(height: 7),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: layoutSelector,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [layoutSelector, blurButton],
+                            ),
                           ),
                         ],
                       ],
@@ -150,6 +167,7 @@ class TranslationToolbar extends StatelessWidget {
                       if (hasTranslations) ...[
                         const Spacer(),
                         layoutSelector,
+                        blurButton,
                       ] else
                         const Spacer(),
                       const SizedBox(width: 4),
@@ -347,6 +365,10 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   bool? _offlineOnly;
   HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
   bool _hymtHas = false;
+  /// Lý do cụ thể khi model hiện có KHÔNG dùng được (null = không có vấn đề).
+  String? _hymtIssue;
+  /// File 2-bit cũ còn chiếm chỗ (~601 MB) và KHÔNG load được — mời xoá.
+  bool _hymtLegacy = false;
   bool _hymtBusy = false;
   double _hymtProgress = 0;
 
@@ -360,6 +382,14 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   // MỘT lần trong initState (FutureBuilder trong build không tạo lại).
   Future<(AiProviderConfig?, AiRouteMode)>? _llmInfo;
 
+  // XLAT-SCR-005 (owner 24/10) — "engine nào đang THỰC SỰ chạy?".
+  // Trước đây màn này chỉ có nút tải model + công tắc; người dùng không có
+  // cách nào biết lượt dịch kế tiếp sẽ đi qua engine nào (online? Hy-MT? ML
+  // Kit?) nên tưởng tính năng hỏng khi bản dịch chậm/missing model.
+  bool _probing = false;
+  bool _probeOk = false;
+  String? _probeMessage;
+
   @override
   void initState() {
     super.initState();
@@ -367,6 +397,13 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     _enginePref = widget.service.offlineEnginePref;
     _llmInfo = _loadLlmInfo();
     _loadModels();
+    // AUDIT-1.21.0 #6: URL DeepLX đã lưu từ bản cũ là link bài hướng dẫn ⇒
+    // báo ngay khi mở sheet thay vì để user bấm "Thử kết nối" rồi kẹt.
+    final rejected = widget.service.deeplxConfigError;
+    if (rejected != null) {
+      _deeplxTestOk = false;
+      _deeplxTestMessage = '❌ $rejected';
+    }
   }
 
   Future<(AiProviderConfig?, AiRouteMode)> _loadLlmInfo() async {
@@ -393,6 +430,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final hymt = widget.service.hymt;
     if (hymt != null) {
       _hymtHas = await hymt.hasModel;
+      _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+      _hymtLegacy = (await hymt.legacyModelFile()) != null;
     }
     final mlkit = widget.service.mlkit;
     if (MlKitEngine.platformSupported) {
@@ -491,6 +530,8 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 12),
+            _buildLiveEngineStatus(),
             const SizedBox(height: 16),
             TextField(
               controller: _urlController,
@@ -567,7 +608,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             ],
             const SizedBox(height: 16),
             Text(
-              context.uiText('Hy-MT 1.5 (GGUF ~600MB, 33 ngôn ngữ)'),
+              context.uiText('Hy-MT 1.5 (GGUF ~1,1 GB, 33 ngôn ngữ)'),
               style: const TextStyle(
                 fontSize: 14,
                 color: Colors.white,
@@ -578,9 +619,49 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
             Text(
               _hymtHas
                   ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
-                  : context.uiText('Import file .gguf đã tải, hoặc bấm Tải về (~600MB, Wi-Fi). Không tự tải lúc mở app.'),
+                  : context.uiText('Tải bản HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1,1 GB) rồi Import, hoặc bấm Tải về. Không tự tải lúc mở app.'),
               style: TextStyle(color: Colors.grey[600], fontSize: 11),
             ),
+            // HYMT-003: nêu ĐÚNG lý do model hiện tại không dùng được (quant
+            // chưa có kernel / sai kiến trúc / file cắt) — bản 2-bit của
+            // AngelSlim cần llama.cpp PR #19357 nên không load được.
+            if (_hymtLegacy)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.uiText(
+                          'Còn file 2-bit cũ (~601 MB) không dùng được — xoá để lấy lại dung lượng.',
+                        ),
+                        style: const TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _hymtBusy ? null : _deleteLegacyHymt,
+                      child: Text(
+                        context.uiText('Xoá'),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (!_hymtHas && _hymtIssue != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _hymtIssue!,
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -683,7 +764,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                         // Label/model là dữ liệu user nhập — không dịch.
                         Expanded(
                           child: Text(
-                            '${provider.label} · ${provider.chatModel ?? ''}',
+                            context.uiText('${provider.label} · ${provider.chatModel ?? ''}'),
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 12),
                             overflow: TextOverflow.ellipsis,
@@ -754,9 +835,22 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               children: [
                 ElevatedButton(
                   onPressed: () {
-                    widget.service.configure(
-                      deeplxUrl: _urlController.text.trim(),
-                    );
+                    final raw = _urlController.text.trim();
+                    final verdict = assessDeepLXEndpoint(raw);
+                    // AUDIT-1.21.0 #6: đừng lưu link bài hướng dẫn/forum làm
+                    // endpoint. Nói rõ ngay trong sheet (không pop im lặng).
+                    if (!verdict.isValid &&
+                        verdict.issue !=
+                            DeepLXEndpointIssue.notConfigured) {
+                      setState(() {
+                        _deeplxTestOk = false;
+                        // verdict.message đã là English canonical (rule #5),
+                        // không cần uiText cho một template chỉ có 1 placeholder.
+                        _deeplxTestMessage = '❌ ${verdict.message}';
+                      });
+                      return;
+                    }
+                    widget.service.configure(deeplxUrl: raw);
                     Navigator.pop(context);
                   },
                   style:
@@ -787,12 +881,21 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       _testingDeeplx = true;
       _deeplxTestMessage = null;
     });
-    // Engine tự chuẩn hoá URL (host trần → /translate).
-    final engine = DeepLXEngine(serverUrl: raw);
-    final probe = await engine.probe(text: 'Hello', targetLang: 'VI');
+    // AUDIT-1.21.0 #6: link bài hướng dẫn/forum (vd linux.do/t/topic/…) bị
+    // từ chối NGAY ở tầng thuần ⇒ không POST lên HTML, không quay 20s.
+    // Mọi ngoại lệ được gom thành một `DeepLXProbeResult` thất bại, rồi cờ
+    // `_testingDeeplx` được hạ trong CÙNG setState cuối ⇒ nút "Thử kết nối"
+    // KHÔNG BAO GIỜ kẹt ở trạng thái đang thử dù probe ném lỗi bất ngờ.
+    DeepLXProbeResult probe;
+    try {
+      // Engine tự chuẩn hoá URL (host trần → /translate).
+      final engine = DeepLXEngine(serverUrl: raw);
+      probe = await engine.probe(text: 'Hello', targetLang: 'VI');
+    } catch (error) {
+      probe = DeepLXProbeResult(ok: false, error: error.toString());
+    }
     if (!mounted) return;
     setState(() {
-      _testingDeeplx = false;
       _deeplxTestOk = probe.ok;
       if (probe.ok) {
         _deeplxTestMessage = context.uiText(
@@ -807,6 +910,9 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
           '❌ Không kết nối được server: ${_shortError(probe.error)} — kiểm tra Space/serve đang chạy (HF Space ngủ sau ~48h không dùng).',
         );
       }
+      // Hạ cờ trong CÙNG setState với thông báo: không có nhánh nào (kể cả
+      // lỗi format ở trên) có thể bỏ qua và làm nút kẹt "đang thử" mãi.
+      _testingDeeplx = false;
     });
   }
 
@@ -816,6 +922,186 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     return value.length > 160 ? '${value.substring(0, 160)}…' : value;
   }
 
+  /// Dịch thử MỘT câu (bỏ cache) để trả lời chính xác "engine nào đang chạy".
+  ///
+  /// Vì sao không suy luận từ cấu hình: chuỗi engine có fallback (online lỗi →
+  /// Hy-MT → ML Kit → từ điển), nên chỉ có một lượt dịch thật mới biết engine
+  /// nào trả lời. Probe KHÔNG ghi "Nhịp điệu học tập" và KHÔNG lưu cache.
+  Future<void> _probeEngine() async {
+    if (_probing) return;
+    setState(() {
+      _probing = true;
+      _probeMessage = null;
+    });
+    final stopwatch = Stopwatch()..start();
+    try {
+      final result = await widget.service.translateText(
+        'Good morning, how are you today?',
+        sourceLang: 'EN',
+        targetLang: widget.service.targetLang,
+        skipCache: true,
+        recordActivity: false,
+      );
+      stopwatch.stop();
+      if (!mounted) return;
+      setState(() {
+        _probing = false;
+        _probeOk = result.isSuccess &&
+            result.translatedText.trim().isNotEmpty;
+        if (_probeOk) {
+          final engine = result.engineName.trim();
+          _probeMessage = engine.isEmpty
+              ? context.uiText('Đã dịch được — không rõ engine')
+              : '${context.uiText('Đã dịch bằng')} $engine · '
+                  '${stopwatch.elapsedMilliseconds} ms';
+        } else {
+          final reason = (result.error ?? '').trim();
+          _probeMessage = reason.isEmpty
+              ? context.uiText('Không engine nào trả được bản dịch')
+              : '${context.uiText('Không engine nào trả được bản dịch')}: $reason';
+        }
+      });
+    } catch (e) {
+      stopwatch.stop();
+      if (!mounted) return;
+      setState(() {
+        _probing = false;
+        _probeOk = false;
+        _probeMessage =
+            '${context.uiText('Không engine nào trả được bản dịch')}: $e';
+      });
+    }
+  }
+
+  /// Khối "engine đang hiện hành" — CHỈ đọc trạng thái thật của service.
+  Widget _buildLiveEngineStatus() {
+    final service = widget.service;
+    final online = !service.offlineOnly;
+    final routing = service.routingOrder;
+    final active = service.activeEngineName?.trim() ?? '';
+    final lastUsed = service.lastUsedEngineLabel.trim();
+    final mlkitReady = _modelDownloaded.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    final grey = TextStyle(color: Colors.grey[500], fontSize: 11);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.accentColor.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bolt, size: 16, color: widget.accentColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText('Engine đang hiện hành'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Chip(
+                label: Text(
+                  online ? context.uiText('Online') : context.uiText('Chỉ offline'),
+                  style: const TextStyle(fontSize: 10),
+                ),
+                visualDensity: VisualDensity.compact,
+                backgroundColor:
+                    (online ? Colors.green : Colors.orange).withValues(
+                  alpha: 0.18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.uiText('Thứ tự ưu tiên'),
+            style: grey,
+          ),
+          Text(
+            routing.join(' → '),
+            style: const TextStyle(color: Colors.white70, fontSize: 11.5),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (active.isNotEmpty)
+                _StatusPill(
+                  text: '${context.uiText('Đang dịch bằng')}: $active',
+                  color: Colors.lightBlueAccent,
+                ),
+              _StatusPill(
+                text: lastUsed.isEmpty
+                    ? context.uiText('Chưa dịch gì trong phiên này')
+                    : '${context.uiText('Lần trước')}: $lastUsed',
+                color: Colors.tealAccent,
+              ),
+              // Model offline: nói RÕ có hay chưa — "không dịch được" phần lớn
+              // là do thiếu gói, không phải app hỏng.
+              if (service.hymt != null)
+                _StatusPill(
+                  text: _hymtHas
+                      ? 'Hy-MT · ${context.uiText('Đã tải')}'
+                      : 'Hy-MT · ${context.uiText('Chưa tải')}',
+                  color: Colors.deepPurpleAccent,
+                ),
+              if (MlKitEngine.platformSupported)
+                _StatusPill(
+                  text: mlkitReady.isEmpty
+                      ? 'ML Kit · ${context.uiText('Chưa tải')}'
+                      : 'ML Kit · ${mlkitReady.join(', ')}',
+                  color: Colors.amberAccent,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: _probing ? null : _probeEngine,
+                icon: _probing
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.science_outlined, size: 16),
+                label: Text(context.uiText('Kiểm tra engine ngay')),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _probeMessage ??
+                      context.uiText(
+                        'Dịch thử một câu để biết engine nào thực sự trả lời.',
+                      ),
+                  style: TextStyle(
+                    color: _probeMessage == null
+                        ? Colors.grey[600]
+                        : (_probeOk ? Colors.greenAccent : Colors.redAccent),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _importHymt() async {
     final hymt = widget.service.hymt;
     if (hymt == null) return;
@@ -823,6 +1109,9 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final err = await hymt.importFromUser();
     if (!mounted) return;
     _hymtHas = await hymt.hasModel;
+    _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+    _hymtLegacy = (await hymt.legacyModelFile()) != null;
+    if (!mounted) return;
     setState(() => _hymtBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(context.uiText(err ?? 'Đã import Hy-MT')),
@@ -844,6 +1133,9 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     await timer.cancel();
     if (!mounted) return;
     _hymtHas = await hymt.hasModel;
+    _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
+    _hymtLegacy = (await hymt.legacyModelFile()) != null;
+    if (!mounted) return;
     setState(() => _hymtBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(context.uiText(err ?? 'Đã tải Hy-MT')),
@@ -851,12 +1143,24 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     ));
   }
 
+  Future<void> _deleteLegacyHymt() async {
+    final hymt = widget.service.hymt;
+    if (hymt == null) return;
+    await hymt.deleteLegacyModel();
+    if (!mounted) return;
+    setState(() => _hymtLegacy = false);
+  }
+
   Future<void> _deleteHymt() async {
     final hymt = widget.service.hymt;
     if (hymt == null) return;
     await hymt.deleteModel();
     if (!mounted) return;
-    setState(() => _hymtHas = false);
+    setState(() {
+      _hymtHas = false;
+      _hymtIssue = null;
+      _hymtLegacy = false;
+    });
   }
 
   Widget _modelRow(String code) {
@@ -889,7 +1193,7 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_modelLabel(code)} ($code)',
+                  context.uiText('${_modelLabel(code)} ($code)'),
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
                 Text(
@@ -1101,6 +1405,8 @@ class TranslationLineDisplay extends StatelessWidget {
   final Widget originalWidget;
   final TextStyle? translationStyle;
   final TextAlign? textAlign;
+  final bool blurTranslation;
+  final AppLanguage? targetLanguage;
 
   const TranslationLineDisplay({
     super.key,
@@ -1110,12 +1416,14 @@ class TranslationLineDisplay extends StatelessWidget {
     required this.originalWidget,
     this.translationStyle,
     this.textAlign,
+    this.blurTranslation = false,
+    this.targetLanguage,
   });
 
   @override
   Widget build(BuildContext context) {
     final hasTranslation = translatedText != null && translatedText!.isNotEmpty;
-    final targetLanguage = TranslationService().targetLanguage;
+    final targetLanguage = this.targetLanguage ?? TranslationService().targetLanguage;
 
     if (displayMode == TranslationDisplayMode.hidden) return originalWidget;
 
@@ -1128,6 +1436,7 @@ class TranslationLineDisplay extends StatelessWidget {
             const SizedBox(height: 6),
             _TranslationText(
               text: translatedText!,
+              blurred: blurTranslation,
               language: targetLanguage,
               style: translationStyle,
               textAlign: textAlign,
@@ -1151,6 +1460,7 @@ class TranslationLineDisplay extends StatelessWidget {
             child: hasTranslation
                 ? _TranslationText(
                     text: translatedText!,
+                    blurred: blurTranslation,
                     language: targetLanguage,
                     style: translationStyle,
                     textAlign: textAlign,
@@ -1163,23 +1473,41 @@ class TranslationLineDisplay extends StatelessWidget {
   }
 }
 
-class _TranslationText extends StatelessWidget {
+class _TranslationText extends StatefulWidget {
   final String text;
+  final bool blurred;
   final AppLanguage language;
   final TextStyle? style;
   final TextAlign? textAlign;
 
   const _TranslationText({
     required this.text,
+    this.blurred = false,
     required this.language,
     this.style,
     this.textAlign,
   });
 
   @override
+  State<_TranslationText> createState() => _TranslationTextState();
+}
+
+class _TranslationTextState extends State<_TranslationText> {
+  bool _revealed = false;
+
+  @override
+  void didUpdateWidget(covariant _TranslationText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text || oldWidget.blurred != widget.blurred) {
+      _revealed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isRtl = language.translationCode == 'AR';
-    return Container(
+    final isRtl = widget.language.translationCode == 'AR';
+    final hidden = widget.blurred && !_revealed;
+    final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.03),
@@ -1189,14 +1517,20 @@ class _TranslationText extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(language.flag, style: const TextStyle(fontSize: 13)),
+          Text(widget.language.flag, style: const TextStyle(fontSize: 13)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              text,
+              widget.text,
               textDirection: isRtl ? TextDirection.rtl : null,
-              textAlign: isRtl ? TextAlign.right : textAlign,
-              style: style ??
+              textAlign: isRtl ? TextAlign.right : widget.textAlign,
+              style: hidden
+                  ? (widget.style ?? const TextStyle(fontSize: 13)).copyWith(
+                      color: const Color(0x33FFFFFF),
+                      shadows: const [Shadow(color: Colors.white70, blurRadius: 7),
+                        Shadow(color: Colors.white70, blurRadius: 7)],
+                    )
+                  : widget.style ??
                   TextStyle(
                     fontSize: 13,
                     color: Colors.grey[400],
@@ -1206,6 +1540,51 @@ class _TranslationText extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (!widget.blurred) return content;
+    return Semantics(
+      button: true,
+      label: context.uiText(hidden
+          ? 'Bấm để hiện bản dịch.' : 'Bấm để làm mờ bản dịch.'),
+      child: InkWell(
+        onTap: () => setState(() => _revealed = !_revealed),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            hidden ? ExcludeSemantics(child: content) : content,
+            Text(context.uiText(hidden
+                ? 'Bấm để hiện bản dịch.' : 'Bấm để làm mờ bản dịch.'),
+                style: const TextStyle(color: Colors.white38, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Nhãn nhỏ trong khối "Engine đang hiện hành" (trạng thái thật, không phải
+/// nút bấm) — tách ra để ba dòng trạng thái không phải lặp code trang trí.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontSize: 10.5),
       ),
     );
   }

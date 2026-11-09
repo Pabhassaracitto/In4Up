@@ -11,9 +11,11 @@ import '../../../features/tts/widgets/tts_settings_section.dart';
 import '../../../models/color_mode.dart';
 import '../../../models/ipa_display_mode.dart';
 import '../../../models/word_analysis.dart';
+import '../../../models/word_color_style.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/ipa_styling.dart';
 import '../../../services/storage_service.dart';
+import '../controllers/read_mode_controller.dart';
 import '../services/playback_controller.dart';
 
 class ReadSettingsSheet {
@@ -29,7 +31,18 @@ class ReadSettingsSheet {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => const _SettingsContent(),
-    );
+    ).then((_) {
+      // AUDIT-2026-10-20 (mục 1): sheet đóng ⇒ cấu hình vừa đổi (ví dụ vị
+      // trí phần TIÊU ĐỀ khi ở chế độ Focus) phải có hiệu lực NGAY, không
+      // phải đợi mở lại app. Báo cho ReadModeController refresh ⇒ màn Đọc
+      // rebuild ⇒ đọc lại setting từ storage.
+      if (!context.mounted) return;
+      try {
+        context.read<ReadModeController>().requestRefresh();
+      } catch (_) {
+        // Màn Đọc đã bị đóng trong lúc mở sheet — không cần refresh.
+      }
+    });
   }
 }
 
@@ -95,6 +108,13 @@ class _SettingsContent extends StatelessWidget {
                   _SubModeSelector(tp: tp),
                   const SizedBox(height: 24),
 
+                  // ===== FOCUS: giữ phần tiêu đề (IN4-30) =====
+                  const _SectionTitle(
+                      title: 'Chế độ Focus: giữ tiêu đề', icon: Icons.fullscreen),
+                  const SizedBox(height: 12),
+                  const _FocusTitlePositionSelector(),
+                  const SizedBox(height: 24),
+
                   // ===== ALIGNMENT =====
                   const _SectionTitle(
                       title: 'Căn lề văn bản', icon: Icons.format_align_center),
@@ -129,7 +149,12 @@ class _SettingsContent extends StatelessWidget {
                   const SizedBox(height: 12),
                   _ColorModeSelector(tp: tp),
 
+                  // READ-WORDSTYLE-001: kiểu hiển thị từ (nền màu / chỉ màu
+                  // chữ / gạch chân) — tách khỏi "chọn màu gì" để người đọc
+                  // lâu chọn kiểu nhẹ mắt mà vẫn giữ tô màu.
                   if (tp.colorMode != ColorMode.none) ...[
+                    const SizedBox(height: 16),
+                    _WordColorStyleSelector(tp: tp),
                     const SizedBox(height: 16),
                     _LegendPanel(colorMode: tp.colorMode),
                   ],
@@ -306,7 +331,7 @@ class _FontSizeControl extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  '${tp.fontSize.toInt()}',
+                  context.uiText('${tp.fontSize.toInt()}'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -379,7 +404,7 @@ class _TtsControls extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '${tp.ttsSpeed.toStringAsFixed(2)}x',
+                  context.uiText('${tp.ttsSpeed.toStringAsFixed(2)}x'),
                   style: const TextStyle(
                     color: Color(0xFF2196F3),
                     fontWeight: FontWeight.bold,
@@ -399,7 +424,7 @@ class _TtsControls extends StatelessWidget {
                   icon: Icons.play_arrow,
                   label: 'Đọc dòng',
                   color: const Color(0xFF4CAF50),
-                  enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
+                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
                   onTap: () {
                     Navigator.pop(context);
                     tp.speakCurrentLine();
@@ -412,7 +437,7 @@ class _TtsControls extends StatelessWidget {
                   icon: Icons.playlist_play,
                   label: 'Đọc tất cả',
                   color: const Color(0xFF2196F3),
-                  enabled: tp.lines.isNotEmpty && !tp.isSpeaking,
+                  enabled: tp.lines.isNotEmpty && !tp.isTtsActive,
                   onTap: () {
                     Navigator.pop(context);
                     tp.speakAllLines();
@@ -425,7 +450,7 @@ class _TtsControls extends StatelessWidget {
                   icon: Icons.stop,
                   label: 'Dừng',
                   color: Colors.red,
-                  enabled: tp.isSpeaking,
+                  enabled: tp.isTtsActive,
                   onTap: () => tp.stopSpeaking(),
                 ),
               ),
@@ -599,6 +624,143 @@ class _ColorModeSelector extends StatelessWidget {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+/// READ-WORDSTYLE-001 — chọn kiểu hiển thị từ khi tô màu.
+///
+/// Owner 2026-10-25: "có người chỉ muốn đổi màu chữ thôi thay vì có màu nền…
+/// khi đọc hay xem không bị phân tâm bởi màu sắc quá". Ba lựa chọn áp cho cả
+/// chế độ ô chữ (`ColoredTextWidget`) lẫn chế độ bôi chữ (`SelectableText.rich`).
+class _WordColorStyleSelector extends StatelessWidget {
+  final TextProvider tp;
+  const _WordColorStyleSelector({required this.tp});
+
+  @override
+  Widget build(BuildContext context) {
+    final current = tp.wordColorStyle;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.format_paint, size: 14, color: Colors.white54),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText('Kiểu hiển thị từ'),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final style in WordColorStyle.values) ...[
+                Expanded(
+                  child: _WordColorStyleChip(
+                    style: style,
+                    selected: current == style,
+                    onTap: () => tp.setWordColorStyle(style),
+                  ),
+                ),
+                if (style != WordColorStyle.values.last)
+                  const SizedBox(width: 8),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.uiText(current.description),
+            style: TextStyle(color: Colors.grey[600], fontSize: 10.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WordColorStyleChip extends StatelessWidget {
+  final WordColorStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _WordColorStyleChip({
+    required this.style,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = const Color(0xFF2196F3);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? accent.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Xem trước ngay trong chip: nền / chữ màu / gạch chân.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: style == WordColorStyle.fill
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.22)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Aa',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF81C784),
+                  decoration: style == WordColorStyle.underline
+                      ? TextDecoration.underline
+                      : null,
+                  decorationColor: const Color(0xFF81C784),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.uiText(style.label),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: selected ? Colors.white : Colors.grey[500],
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2187,6 +2349,82 @@ class _SubModeItem extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       onTap: onTap,
       dense: true,
+    );
+  }
+}
+
+// ── Chọn vị trí phần TIÊU ĐỀ khi ở chế độ Focus (IN4-30) ────────────────
+// Ẩn hẳn (mặc định, hành vi cũ) | Trên | Dưới.
+class _FocusTitlePositionSelector extends StatefulWidget {
+  const _FocusTitlePositionSelector();
+
+  @override
+  State<_FocusTitlePositionSelector> createState() =>
+      _FocusTitlePositionSelectorState();
+}
+
+class _FocusTitlePositionSelectorState
+    extends State<_FocusTitlePositionSelector> {
+  String _value = StorageService.readFocusTitleHidden;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = StorageService().getReadFocusTitlePosition();
+  }
+
+  Future<void> _set(String value) async {
+    setState(() => _value = value);
+    await StorageService().saveReadFocusTitlePosition(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _btn(context, Icons.visibility_off, 'Ẩn', StorageService.readFocusTitleHidden),
+          const SizedBox(width: 8),
+          _btn(context, Icons.vertical_align_top, 'Trên', StorageService.readFocusTitleTop),
+          const SizedBox(width: 8),
+          _btn(context, Icons.vertical_align_bottom, 'Dưới', StorageService.readFocusTitleBottom),
+        ],
+      ),
+    );
+  }
+
+  Widget _btn(BuildContext context, IconData icon, String label, String value) {
+    final selected = _value == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _set(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF6C63FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: selected ? Colors.white : Colors.grey),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -60,12 +60,19 @@ class VideoLibraryService {
     final canonical = await VideoDeviceChannel.normalizeTreeUri(uri);
     if (canonical != null && canonical.isNotEmpty) uri = canonical;
     await VideoDeviceChannel.keepTreePermission(uri);
+    // Do not replace the current root or index if the new scan fails.
+    final items = await VideoDeviceChannel.scanTree(uri);
+    final merged = VideoLibraryLogic.mergeScanned(
+      VideoLibraryLogic.buildFromScan(items), _videos);
     _treeUri = uri;
+    _videos
+      ..clear()
+      ..addAll(merged);
+    await _saveManifest();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_treeUriKey, uri);
     } catch (_) {}
-    await scanFolder();
     return true;
   }
 
@@ -84,10 +91,28 @@ class VideoLibraryService {
     await _saveManifest();
   }
 
+  /// User-initiated MediaStore scan; callers must request permission first.
+  /// Never prune absent results: Android may grant only partial photo/video access.
+  Future<int> scanDeviceVideos() async {
+    await ensureInitialized();
+    final raw = await VideoDeviceChannel.scanDeviceVideos();
+    final scanned = raw.map(VideoLibraryLogic.mediaVideoFromMap).toList();
+    final merged = VideoLibraryLogic.mergeScanned(scanned, _videos,
+        scanSource: VideoSource.media, removeMissing: false);
+    _videos
+      ..clear()
+      ..addAll(merged);
+    await _saveManifest();
+    return scanned.length;
+  }
+
   /// Bỏ thư mục đã chọn (giữ các video import thủ công).
   Future<void> forgetFolder() async {
     _treeUri = null;
-    _videos.removeWhere((v) => v.source == VideoSource.folder);
+    final remaining = VideoLibraryLogic.mergeScanned(const [], _videos);
+    _videos
+      ..clear()
+      ..addAll(remaining);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_treeUriKey);
@@ -99,14 +124,21 @@ class VideoLibraryService {
   Future<void> addVideo(VideoInfo video) async {
     await ensureInitialized();
     final key = VideoLibraryLogic.normalizeUri(video.filePath);
-    final idx = _videos.indexWhere(
-        (v) => VideoLibraryLogic.normalizeUri(v.filePath) == key);
+    final physical = video.physicalKey ?? VideoLibraryLogic.physicalKeyFromUri(key);
+    final idx = _videos.indexWhere((v) =>
+        v.effectiveSourceUris.values.any((uri) => VideoLibraryLogic.normalizeUri(uri) == key) ||
+        (physical != null && physical ==
+            (v.physicalKey ?? VideoLibraryLogic.physicalKeyFromUri(v.filePath))));
     if (idx >= 0) {
-      // Đã có → cập nhật metadata, giữ favorite/vị trí.
-      _videos[idx] = _videos[idx].copyWith(
+      // Preserve the existing id, progress and playback URI while recording
+      // that this item can also be reached through the manual import.
+      final current = _videos[idx];
+      _videos[idx] = current.copyWith(
         title: video.title,
         duration: video.duration,
         subtitlePath: video.subtitlePath,
+        physicalKey: physical,
+        sourceUris: {...current.effectiveSourceUris, VideoSource.picked.name2: key},
       );
     } else {
       _videos.add(video);

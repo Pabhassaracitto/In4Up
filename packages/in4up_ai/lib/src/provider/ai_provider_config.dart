@@ -30,6 +30,13 @@ enum AiRouteCapability {
 
 /// Chính sách định tuyến cho 1 năng lực.
 enum AiRouteMode {
+  /// YT-AUDIT-06 (IN4-104): **theo loại mạng** — wifi ⇒ ưu tiên online,
+  /// mạng di động ⇒ ưu tiên cục bộ rồi mới online, không mạng ⇒ chỉ cục bộ.
+  ///
+  /// Đây là MẶC ĐỊNH mới (trước đây mặc định `offlineFirst`). Resolve ở
+  /// `resolveRouteMode()` / `AiConnectivityRouter.resolve()`.
+  auto,
+
   /// Thử engine offline trước; lỗi/thiếu model → thử API (nếu có provider).
   offlineFirst,
 
@@ -54,6 +61,11 @@ class AiProviderConfig {
 
   /// Tên model theo năng lực — user chọn từ /v1/models (KHÔNG hard-code).
   final String? chatModel;
+
+  /// API-TRANS-MODEL-001 — model DỊCH riêng (trước đây dịch dùng chung
+  /// `chatModel` và màn Server & API không có ô nào để chọn). Bỏ trống ⇒ dùng
+  /// `chatModel` (hành vi cũ, không phá cấu hình đã có).
+  final String? translationModel;
   final String? sttModel;
   final String? ttsModel;
   final bool enabled;
@@ -64,6 +76,7 @@ class AiProviderConfig {
     required this.baseUrl,
     this.apiKey,
     this.chatModel,
+    this.translationModel,
     this.sttModel,
     this.ttsModel,
     this.enabled = true,
@@ -76,6 +89,8 @@ class AiProviderConfig {
     bool clearApiKey = false,
     String? chatModel,
     bool clearChatModel = false,
+    String? translationModel,
+    bool clearTranslationModel = false,
     String? sttModel,
     bool clearSttModel = false,
     String? ttsModel,
@@ -88,6 +103,9 @@ class AiProviderConfig {
       baseUrl: baseUrl ?? this.baseUrl,
       apiKey: clearApiKey ? null : (apiKey ?? this.apiKey),
       chatModel: clearChatModel ? null : (chatModel ?? this.chatModel),
+      translationModel: clearTranslationModel
+          ? null
+          : (translationModel ?? this.translationModel),
       sttModel: clearSttModel ? null : (sttModel ?? this.sttModel),
       ttsModel: clearTtsModel ? null : (ttsModel ?? this.ttsModel),
       enabled: enabled ?? this.enabled,
@@ -100,6 +118,7 @@ class AiProviderConfig {
         'baseUrl': baseUrl,
         if (apiKey != null && apiKey!.isNotEmpty) 'apiKey': apiKey,
         if (chatModel != null) 'chatModel': chatModel,
+        if (translationModel != null) 'translationModel': translationModel,
         if (sttModel != null) 'sttModel': sttModel,
         if (ttsModel != null) 'ttsModel': ttsModel,
         'enabled': enabled,
@@ -112,28 +131,42 @@ class AiProviderConfig {
       baseUrl: json['baseUrl'] as String? ?? '',
       apiKey: json['apiKey'] as String?,
       chatModel: json['chatModel'] as String?,
+      translationModel: json['translationModel'] as String?,
       sttModel: json['sttModel'] as String?,
       ttsModel: json['ttsModel'] as String?,
       enabled: json['enabled'] as bool? ?? true,
     );
   }
 
-  /// Provider có model cho năng lực này không (dùng khi routing chọn đích).
-  bool supports(AiRouteCapability c) {
+  /// Model THẬT sẽ dùng khi dịch: `translationModel` nếu có, ngược lại
+  /// `chatModel` (giữ tương thích cấu hình cũ — chưa có ô dịch riêng).
+  String? get effectiveTranslationModel {
+    final t = translationModel;
+    if (t != null && t.isNotEmpty) return t;
+    final c = chatModel;
+    return (c != null && c.isNotEmpty) ? c : null;
+  }
+
+  /// Model theo từng năng lực (null ⇒ provider không phục vụ năng lực đó).
+  /// UI + báo cáo "AI đang chạy" đọc CHUNG hàm này để không lệch nhau.
+  String? modelFor(AiRouteCapability c) {
     switch (c) {
       case AiRouteCapability.chat:
-        return chatModel != null && chatModel!.isNotEmpty;
-      case AiRouteCapability.sttFile:
-        return sttModel != null && sttModel!.isNotEmpty;
+        return (chatModel != null && chatModel!.isNotEmpty) ? chatModel : null;
       case AiRouteCapability.translation:
-        return chatModel != null && chatModel!.isNotEmpty;
+        return effectiveTranslationModel;
+      case AiRouteCapability.sttFile:
+        return (sttModel != null && sttModel!.isNotEmpty) ? sttModel : null;
       case AiRouteCapability.tts:
-        return ttsModel != null && ttsModel!.isNotEmpty;
+        return (ttsModel != null && ttsModel!.isNotEmpty) ? ttsModel : null;
     }
   }
+
+  /// Provider có model cho năng lực này không (dùng khi routing chọn đích).
+  bool supports(AiRouteCapability c) => modelFor(c) != null;
 }
 
-/// Chính sách định tuyến toàn app — mặc định toàn bộ offlineFirst.
+/// Chính sách định tuyến toàn app — mặc định `auto` (theo loại mạng).
 class AiRoutingPrefs {
   final Map<AiRouteCapability, AiRouteMode> modes;
   final Map<AiRouteCapability, String> preferredProviderIds;
@@ -143,8 +176,10 @@ class AiRoutingPrefs {
     this.preferredProviderIds = const {},
   });
 
-  AiRouteMode modeOf(AiRouteCapability c) =>
-      modes[c] ?? AiRouteMode.offlineFirst;
+  /// YT-AUDIT-06 (IN4-104): mặc định `auto` (theo loại mạng) thay vì
+  /// `offlineFirst`. Lưu ý: đây là mode NGƯỜI DÙNG CHỌN (hoặc mặc định) —
+  /// mode THẬT phải đi qua `resolveRouteMode()` / `AiConnectivityRouter`.
+  AiRouteMode modeOf(AiRouteCapability c) => modes[c] ?? AiRouteMode.auto;
 
   String? preferredProviderOf(AiRouteCapability c) => preferredProviderIds[c];
 

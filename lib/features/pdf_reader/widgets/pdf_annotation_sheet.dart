@@ -150,7 +150,7 @@ class _AnnotationSheetState extends State<_AnnotationSheet> {
                   color: widget.annotation.color.withValues(alpha: 0.3)),
             ),
             child: Text(
-              '"${widget.annotation.selectedText}"',
+              context.uiText('"${widget.annotation.selectedText}"'),
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
@@ -333,7 +333,7 @@ class _AddAnnotationSheetState extends State<_AddAnnotationSheet> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              '"${widget.selectedText}"',
+              context.uiText('"${widget.selectedText}"'),
               style: const TextStyle(
                   color: Colors.white70,
                   fontStyle: FontStyle.italic,

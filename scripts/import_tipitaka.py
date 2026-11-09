@@ -77,6 +77,20 @@ def normalized(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
+def source_join_key(table: object, row_key: object) -> tuple[str, str]:
+    """Canonical key for source packs with case/format/zero-padding variance."""
+    key = str(row_key if row_key is not None else "").strip()
+    if re.fullmatch(r"[+-]?\d+", key):
+        key = str(int(key))
+    else:
+        key = re.sub(r"\s+", " ", key).casefold()
+    return normalized(str(table if table is not None else "")), key
+
+
+def reference_join_key(reference: object) -> str:
+    return re.sub(r"\s+", " ", clean_text(reference)).strip().casefold()
+
+
 def find_column(columns: Iterable[str], candidates: Iterable[str]) -> Optional[str]:
     columns = list(columns)
     by_normalized = {normalized(column): column for column in columns}
@@ -400,8 +414,8 @@ def import_pali(conn: sqlite3.Connection, source_path: Path) -> tuple[int, dict[
                     (book_ids[table], ref, paragraph_number, kind, readable_text, order_index, table, row_key),
                 )
                 segment_id = int(conn.execute("SELECT last_insert_rowid()").fetchone()[0])
-                target_key_to_id[(table, row_key)] = segment_id
-                reference_to_id.setdefault(ref, segment_id)
+                target_key_to_id[source_join_key(table, row_key)] = segment_id
+                reference_to_id.setdefault(reference_join_key(ref), segment_id)
                 inserted += 1
                 order_index += 1
         conn.commit()
@@ -442,8 +456,8 @@ def import_normalized(conn: sqlite3.Connection, path: Path) -> tuple[int, dict[t
             )
             segment_id = int(row[0])
             if row[12] is not None and row[13] is not None:
-                key_to_id[(str(row[12]), str(row[13]))] = segment_id
-            refs.setdefault(str(row[3]), segment_id)
+                key_to_id[source_join_key(row[12], row[13])] = segment_id
+            refs.setdefault(reference_join_key(row[3]), segment_id)
             count += 1
         conn.commit()
     finally:
@@ -487,11 +501,11 @@ def import_translation(
             for key, reference, source_table, text in source.execute(query):
                 target_id = None
                 if source_table is not None:
-                    target_id = target_key_to_id.get((str(source_table), str(key)))
+                    target_id = target_key_to_id.get(source_join_key(source_table, key))
                 if target_id is None:
-                    target_id = target_key_to_id.get((table, str(key)))
+                    target_id = target_key_to_id.get(source_join_key(table, key))
                 if target_id is None and reference is not None:
-                    target_id = reference_to_id.get(clean_text(reference))
+                    target_id = reference_to_id.get(reference_join_key(reference))
                 if target_id is None:
                     continue
                 value = clean_text(text)

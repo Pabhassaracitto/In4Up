@@ -32,16 +32,113 @@
 
   <title>In4Up</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Màn chờ trước khi Flutter khởi tạo — thay vì trắng hoàn toàn. */
+    #in4up-loader {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #080B1A; color: #fff;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center; z-index: 9999;
+    }
+    #in4up-loader .spin {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #6C63FF;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #in4up-loader p { margin: 4px 0; opacity: 0.9; font-size: 14px; }
+    #in4up-loader small { opacity: 0.6; font-size: 12px; max-width: 340px; display: block; line-height: 1.4; }
+    #in4up-loader button {
+      margin-top: 12px; padding: 8px 14px; border-radius: 8px; border: 1px solid #6C63FF;
+      background: #6C63FF; color: #fff; font-size: 13px; cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Loader hiện ngay khi mở trang — sẽ tự ẩn khi Flutter vẽ xong frame đầu. -->
+  <div id="in4up-loader" role="status" aria-live="polite">
+    <div class="spin"></div>
+    <p>In4Up đang khởi tạo…</p>
+    <small>Nếu màn này hiện quá 10 giây, hãy thử hard-reload (Ctrl+Shift+R)</small>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- Flutter bootstrap -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    (function() {
+      var loader = document.getElementById('in4up-loader');
+      var fallbackTimer = null;
+
+      function hideLoader() {
+        var el = document.getElementById('in4up-loader');
+        if (el) {
+          el.style.opacity = '0';
+          el.style.transition = 'opacity 0.3s';
+          setTimeout(function(){ if (el.parentNode) el.remove(); }, 300);
+        }
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+      }
+
+      // Flutter web bắn event này khi frame đầu tiên đã vẽ xong — lúc đó mới ẩn loader
+      window.addEventListener('flutter-first-frame', hideLoader);
+      // Fallback: nếu Flutter dùng engine cũ không bắn event, thử phát hiện flt-glass-pane
+      var checkGlass = setInterval(function(){
+        if (document.querySelector('flt-glass-pane') || document.querySelector('flutter-view')) {
+          clearInterval(checkGlass);
+          hideLoader();
+        }
+      }, 500);
+
+      window.addEventListener('error', function(e) {
+        var el = document.getElementById('in4up-loader');
+        if (!el) return;
+        el.innerHTML = '<p style="color:#ff6b6b">Không tải được ứng dụng</p>'
+          + '<small style=\"max-width:320px;display:block;margin:8px auto;opacity:0.8\">'
+          + (e.message || 'Lỗi JavaScript') + '<br>Thử hard-reload (Ctrl+Shift+R) hoặc mở DevTools xem Console.'
+          + '</small><button onclick=\"location.reload(true)\">Tải lại</button>';
+      });
+
+      // Sau 12s vẫn còn loader ⇒ có thể kẹt (SW cũ, mạng chậm)
+      fallbackTimer = setTimeout(function() {
+        var el = document.getElementById('in4up-loader');
+        if (!el || !el.parentNode) return;
+        var p = el.querySelector('p');
+        if (p) p.textContent = 'Đang tải chậm…';
+        var s = el.querySelector('small');
+        if (s) s.textContent = 'Mạng chậm hoặc cache cũ. Thử:';
+        if (!el.querySelector('button')) {
+          var btn = document.createElement('button');
+          btn.textContent = 'Tải lại (hard-reload)';
+          btn.onclick = function() { location.reload(); };
+          el.appendChild(btn);
+          var btn2 = document.createElement('button');
+          btn2.textContent = 'Xoá cache & tải lại';
+          btn2.style.background = 'transparent';
+          btn2.style.marginLeft = '8px';
+          btn2.onclick = function() {
+            if ('caches' in window) caches.keys().then(function(ks){ ks.forEach(function(k){ caches.delete(k); }); });
+            if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); });
+            setTimeout(function(){ location.reload(true); }, 500);
+          };
+          el.appendChild(btn2);
+        }
+      }, 12000);
+
+      // Sau 25s vẫn chưa ẩn ⇒ báo lỗi rõ
+      setTimeout(function(){
+        var el = document.getElementById('in4up-loader');
+        if (el && el.parentNode) {
+          el.querySelector('p').textContent = 'Không tải được — thử xoá cache';
+          el.querySelector('p').style.color = '#ff6b6b';
+        }
+      }, 25000);
+    })();
+  </script>
 </body>
 </html>

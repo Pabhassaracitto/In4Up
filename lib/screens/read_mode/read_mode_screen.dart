@@ -3,34 +3,42 @@
 import 'dart:async';
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/models/word_entry.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../features/grammar/grammar.dart';
 import '../../features/translation/translation_toolbar.dart';
 import '../../models/color_mode.dart';
 import '../../models/ipa_display_mode.dart';
 import '../../models/learning_activity.dart';
+import '../../models/read_chrome_layout.dart';
 import '../../models/read_content_source.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../providers/vocabulary_provider.dart';
 import '../../services/learning_activity_service.dart';
+import '../../services/read_chrome_layout_store.dart';
+import '../../services/storage_service.dart';
 import 'controllers/read_mode_controller.dart';
 import 'models/recent_file.dart';
 import 'services/read_line_hint_service.dart';
+import 'services/playback_controller.dart';
+import 'services/read_auto_scroll_policy.dart';
 import 'services/recent_files_service.dart';
+import 'services/word_range_selection.dart';
 import 'widgets/read_line_hint.dart';
 import 'widgets/collapsible_bottom_controls.dart';
 import 'widgets/empty_state_widget.dart';
 import 'widgets/ipa_legend_strip.dart';
 import 'widgets/read_bottom_bar.dart';
+import 'widgets/read_bottom_dock.dart';
 import 'widgets/read_source_picker.dart';
 import 'widgets/read_text_action_hooks.dart';
 import 'widgets/read_top_bar.dart';
 import 'widgets/smart_playback_bar.dart';
 import 'widgets/text_line_widget.dart';
+import 'widgets/word_mini_pop.dart';
 
 class ReadModeScreen extends StatefulWidget {
   final RecentFile? currentFile;
@@ -61,6 +69,18 @@ class ReadModeScreen extends StatefulWidget {
   /// để caller cũ giữ nguyên hành vi.
   final bool showSourcePicker;
 
+  /// READ-UI-120: cấu hình chrome theo NHÓM. Mặc định `defaults` (dock đáy,
+  /// gộp 1 hàng). `main_shell` truyền giá trị từ [ReadChromeLayoutStore] để
+  /// đổi trong «Giao diện shell» có hiệu lực ngay.
+  final ReadChromeLayout chromeLayout;
+
+  /// Seam test: nếu có, dock gọi callback này thay vì ghi thẳng vào store.
+  final ValueChanged<ReadChromeLayout>? onChromeLayoutChanged;
+
+  /// `false` trong luồng shell (Hiển thị / Cài đặt chuyển lên cạnh nút ⚡).
+  /// Caller standalone giữ `true` để không mất chức năng.
+  final bool showTopBar;
+
   const ReadModeScreen({
     super.key,
     this.currentFile,
@@ -69,6 +89,9 @@ class ReadModeScreen extends StatefulWidget {
     this.sourceCallbacks = const ReadSourceCallbacks(),
     this.textActionCallbacks = const ReadTextActionCallbacks(),
     this.showSourcePicker = true,
+    this.chromeLayout = ReadChromeLayout.defaults,
+    this.onChromeLayoutChanged,
+    this.showTopBar = true,
   });
 
   @override
@@ -81,6 +104,8 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   bool _controllerInitialized = false;
   int _lastHandledFocusCueVersion = 0;
   VoidCallback? _playerListener;
+  PlaybackController? _playbackRef;
+  VoidCallback? _playbackLineListener;
   Duration _lastPos = Duration.zero;
   bool _showWordlistPanel = false;
 
@@ -98,9 +123,18 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   Timer? _readingHeartbeat;
   String? _readingSessionFileId;
 
-  // Smart-hide bottom controls
-  bool _bottomControlsVisible = true;
+  // Smart-hide all reader chrome together; start compact and keep a reveal affordance.
+  bool _readerChromeVisible = false;
+
+  /// IN4-30 (READ-FOCUS-002): vị trí phần TIÊU ĐỀ khi ở chế độ Focus —
+  /// 'hidden' (mặc định) | 'top' | 'bottom'.
+  String _focusTitlePosition = StorageService.readFocusTitleHidden;
   double _lastScrollOffset = 0;
+
+  /// READ-UI-121: sau một cú kéo tay, nhường quyền cuộn cho người dùng trong
+  /// [readAutoScrollManualPause] rồi tự nối lại dòng đang đọc. `null` = không
+  /// có cú kéo tay nào đang hiệu lực.
+  DateTime? _manualScrollUntil;
 
   // I4U18-READ-IPA-001 (F1.2) — chống lên lịch gợi ý nhiều lần trong khi
   // đang chờ đọc cờ prefs (build có thể chạy lại vài lần liên tiếp).
@@ -110,12 +144,52 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   void initState() {
     super.initState();
     _source = widget.initialSource;
+    // IN4-30: đọc lựa chọn "chỉ giữ phần tiêu đề" khi ở chế độ Focus.
+    _focusTitlePosition = StorageService().getReadFocusTitlePosition();
   }
 
   void _handleSourceChanged(ReadContentSource source) {
     if (_source == source) return;
     setState(() => _source = source);
     widget.onSourceChanged?.call(source);
+  }
+
+  /// READ-UI-120: một điểm ghi cấu hình chrome. Có seam test riêng để test
+  /// không phải dựng Hive; production ghi qua [ReadChromeLayoutStore] ⇒
+  /// app bar shell và dock cùng rebuild tức thì.
+  void _updateChromeLayout(ReadChromeLayout next) {
+    final callback = widget.onChromeLayoutChanged;
+    if (callback != null) {
+      callback(next);
+      return;
+    }
+    unawaited(ReadChromeLayoutStore.instance.update(next));
+  }
+
+  void _toggleWordlist() {
+    setState(() => _showWordlistPanel = !_showWordlistPanel);
+    SafeHaptics.lightImpact();
+  }
+
+  /// «Mở nguồn» trong panel Công cụ dùng chung hợp đồng điều hướng đã có
+  /// của source picker — không tạo lối vào nguồn thứ hai.
+  VoidCallback? get _openSourceCallback {
+    final open = widget.sourceCallbacks.forSource(_source);
+    if (open == null) return null;
+    return () => open.call();
+  }
+
+  /// AUDIT-2026-10-20 (mục 1): controller đổi ⇒ màn rebuild + đọc lại cấu
+  /// hình "vị trí phần TIÊU ĐỀ khi ở chế độ Focus" (Ẩn / Trên / Dưới) từ
+  /// storage, để lựa chọn trong Cài đặt có hiệu lực ngay.
+  void _onControllerChanged() {
+    if (!mounted) return;
+    final next = StorageService().getReadFocusTitlePosition();
+    if (next == _focusTitlePosition) {
+      setState(() {});
+      return;
+    }
+    setState(() => _focusTitlePosition = next);
   }
 
   @override
@@ -128,13 +202,45 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
       _playerProviderRef = pp;
 
       _controller = ReadModeController(textProvider: tp, playerProvider: pp);
+      // AUDIT-2026-10-20 (mục 1): màn Đọc PHẢI rebuild khi controller đổi.
+      // Trước đây screen chỉ watch TextProvider ⇒ `toggleFocusMode()` gọi
+      // notifyListeners() nhưng KHÔNG ai nghe ⇒ bấm nút Focus (và chọn
+      // Ẩn/Trên/Dưới trong Cài đặt) không hề thay đổi gì trên màn.
+      _controller.addListener(_onControllerChanged);
+      final playback = context.read<PlaybackController>();
+      _playbackRef = playback;
+      _playbackLineListener = () {
+        if (!mounted) return;
+        final index = playback.activeLineNotifier.value;
+        if (index < 0 || index >= tp.lines.length) return;
+        if (!_controller.autoSyncEnabled || !playback.isRunning) return;
+        // 1) Highlight dòng đang đọc ở CẢ HAI chế độ (trước đây chỉ có ở
+        //    «Một dòng» ⇒ danh sách thường đọc mà không báo dòng nào).
+        if (index != tp.currentLineIndex) tp.setCurrentLine(index);
+        // 2) READ-UI-121: tự cuộn màn hình theo dòng TTS, có thể tắt bằng
+        //    «Đồng bộ tự động» và tự nhường 5s sau mỗi cú kéo tay.
+        final manualScrollActive = _manualScrollUntil != null &&
+            DateTime.now().isBefore(_manualScrollUntil!);
+        final follow = shouldAutoFollowPlayback(
+          autoSyncEnabled: _controller.autoSyncEnabled,
+          isRunning: playback.isRunning,
+          singleLineMode: _controller.singleLineMode,
+          manualScrollActive: manualScrollActive,
+          lineIndex: index,
+          lineCount: tp.lines.length,
+        );
+        if (follow && _scrollController.hasClients) {
+          _controller.scrollToLine(_scrollController, index);
+        }
+      };
+      playback.activeLineNotifier.addListener(_playbackLineListener!);
       _playerListener = () {
         if (!mounted) return;
         final pos = pp.state.position;
         if (pos == _lastPos) return;
         _lastPos = pos;
         final targetLine = _controller.checkAudioSync(pos);
-        if (targetLine >= 0) {
+        if (targetLine >= 0 && !_controller.singleLineMode) {
           _controller.scrollToLine(_scrollController, targetLine);
         }
       };
@@ -218,7 +324,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   }
 
   void _onScrollEnd(TextProvider tp) {
-    if (widget.currentFile == null) return;
+    if (widget.currentFile == null || _controller.singleLineMode) return;
     if (tp.lines.isEmpty) return;
 
     final offset = _scrollController.offset;
@@ -244,12 +350,20 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
 
   @override
   void dispose() {
+    // READ-POP-003: pop tra từ nhanh là OVERLAY (không tự đóng cùng màn hình)
+    // ⇒ phải dọn tay, nếu không nó sẽ nổi trên màn khác sau khi rời tab Đọc.
+    WordMiniPop.dismiss();
     if (_playerListener != null && _playerProviderRef != null) {
       _playerProviderRef!.removeListener(_playerListener!);
     }
     _readingHeartbeat?.cancel();
     _readingHeartbeat = null;
     _scrollController.dispose();
+    // AUDIT-2026-10-20 (mục 1): bỏ listener trước khi dispose controller.
+    _controller.removeListener(_onControllerChanged);
+    if (_playbackRef != null && _playbackLineListener != null) {
+      _playbackRef!.activeLineNotifier.removeListener(_playbackLineListener!);
+    }
     _controller.dispose();
     super.dispose();
   }
@@ -264,7 +378,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               textProvider.focusCueLineIndex != null) {
             _lastHandledFocusCueVersion = textProvider.focusCueVersion;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted || !_scrollController.hasClients) return;
+              if (!mounted || !_scrollController.hasClients || _controller.singleLineMode) return;
               _controller.scrollToLine(
                 _scrollController,
                 textProvider.focusCueLineIndex!,
@@ -286,6 +400,10 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
           final isFocusMode = _controller.isFocusMode;
           final isSmallScreen = MediaQuery.of(context).size.height < 700 ||
               MediaQuery.of(context).size.width < 380;
+          // READ-UI-120: bố cục mặc định = dock đáy 1 hàng. `top` giữ nguyên
+          // toàn bộ chrome cũ cho người dùng đã quen (opt-in trong Cài đặt).
+          final layout = widget.chromeLayout;
+          final useDock = layout.useBottomDock;
 
           // READ-IPA-006: panel màu IPA — dải thông tin tương tác ngay dưới
           // TopBar, ẩn được (yêu cầu mục 2). Chỉ có nghĩa khi có IPA + tô màu.
@@ -293,37 +411,58 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
               textProvider.ipaColorByType &&
               textProvider.ipaDisplayMode != IpaDisplayMode.hidden;
 
-          final selectedText = textProvider.selectedText?.trim() ?? '';
-          final showTextActionBar = !isFocusMode &&
-              selectedText.isNotEmpty &&
-              widget.textActionCallbacks.hasAnyHook;
+          // READ-ACT-001 (audit 1.a — phương án 1): KHÔNG dựng lại
+          // `ReadTextActionBar` ở đây nữa. Bốn hành động Dịch/Ngữ pháp/
+          // Phát âm/Từ điển chỉ còn MỘT chỗ duy nhất: hàng nút có nhãn ở
+          // header workspace (main_shell). Thanh nổi cũ lặp đúng 4 hành
+          // động đó nên vừa thừa vừa che mất chữ đang đọc.
+          // Widget `ReadTextActionBar` vẫn giữ nguyên (còn test + còn dùng
+          // được cho màn hình khác), chỉ bỏ chỗ dựng trùng này.
 
           return Stack(
             children: [
               Column(
                 children: [
-                  if (!isFocusMode) const ReadTopBar(),
+                  // Giữ nguyên biểu thức `if (!isFocusMode &&
+                  // _readerChromeVisible)` của AUDIT-2026-10-20 (mục 1) —
+                  // điều kiện showTopBar được lồng bên trong.
+                  if (!isFocusMode && _readerChromeVisible) ...[
+                    if (widget.showTopBar) const ReadTopBar(),
+                  ],
+                  // IN4-30 (READ-FOCUS-002): ở chế độ Focus, người dùng có
+                  // thể chọn "chỉ giữ phần tiêu đề" — TRÊN hoặc DƯỚI vùng
+                  // đọc (mặc định: ẩn hẳn, hành vi cũ).
+                  if (isFocusMode && _focusTitlePosition == 'top')
+                    ReadFocusTitleBar(
+                      tp: textProvider,
+                      controller: _controller,
+                    ),
                   // I4U-READ-UX-001 — Source picker riêng (Tài liệu / Web /
                   // Tam tạng), tách biệt khỏi Mode (Đọc/Viết) và Tool.
-                  if (!isFocusMode && widget.showSourcePicker)
+                  // READ-UI-120: nhóm Nguồn bung ⇒ hiện đủ 3 nguồn
+                  // (Tài liệu / Web / Tam tạng). Gộp ⇒ chỉ 2 icon web /
+                  // tipitaka ở app bar shell như owner đã chốt.
+                  if (!isFocusMode &&
+                      widget.showSourcePicker &&
+                      layout.sourceExpanded)
                     ReadSourcePicker(
                       selectedSource: _source,
                       onSourceChanged: _handleSourceChanged,
                       callbacks: widget.sourceCallbacks,
                     ),
-                  if (showTextActionBar)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                      child: ReadTextActionBar(
-                        selectedText: selectedText,
-                        callbacks: widget.textActionCallbacks,
-                      ),
-                    ),
-                  if (!isFocusMode && showIpaLegend)
-                    IpaLegendStrip(tp: textProvider),
-                  if (!isFocusMode && showGrammarLegend)
-                    _GrammarLegendStrip(textProvider: textProvider),
                   if (!isFocusMode &&
+                      _readerChromeVisible &&
+                      !layout.displayHidden &&
+                      showIpaLegend)
+                    IpaLegendStrip(tp: textProvider),
+                  if (!isFocusMode &&
+                      _readerChromeVisible &&
+                      !layout.displayHidden &&
+                      showGrammarLegend)
+                    _GrammarLegendStrip(textProvider: textProvider),
+                  if (!useDock &&
+                      !isFocusMode &&
+                      _readerChromeVisible &&
                       (textProvider.showTranslation || hasTranslation))
                     const TranslationToolbar(),
                   Expanded(
@@ -333,51 +472,73 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                             onTap: () {
                               if (isFocusMode) {
                                 _controller.setFocusMode(false);
-                                setState(() => _bottomControlsVisible = true);
+                                setState(() => _readerChromeVisible = true);
                               } else {
+                                // READ-SELECT-002: đang chọn nhiều từ ở ô chữ
+                                // ⇒ chạm ra vùng trống cũng là BỎ CHỌN.
+                                if (WordSelectionState.isActive) {
+                                  textProvider.clearSelection();
+                                  _controller.removeFloatingMenu();
+                                  return;
+                                }
                                 _controller.removeFloatingMenu();
+                                // Giống PDF Reader: chạm nền bật/tắt chrome;
+                                // khi ẩn, FAB nhỏ ở góc dưới luôn là lối gọi lại.
+                                setState(() => _readerChromeVisible =
+                                    !_readerChromeVisible);
                               }
                             },
                             onDoubleTap: () {
-                              if (isSmallScreen) {
-                                _controller.toggleFocusMode();
-                                setState(() => _bottomControlsVisible = !isFocusMode);
-                              } else {
-                                // On large screen double-tap also toggles focus
-                                _controller.toggleFocusMode();
-                              }
+                              // AUDIT-2026-10-20 (mục 1): đọc TRẠNG THÁI MỚI
+                              // sau khi toggle (trước đây dùng giá trị cũ
+                              // ⇒ thanh dưới bị hiện/ẩn ngược).
+                              _controller.toggleFocusMode();
+                              setState(
+                                () => _readerChromeVisible =
+                                    !_controller.isFocusMode,
+                              );
                             },
                             child: _buildTextList(textProvider, isFocusMode),
                           ),
                   ),
-                  // Bottom controls with smart hide (v2: bỏ toàn bộ animation widget).
-                  // FOCUS MODE: gập CHIỀU CAO về 0 (trả không gian cho
-                  // vùng đọc) — build điều kiện SizedBox(height: 0).
-                  // (Smart-hide khi cuộn GIỮ NGUYÊN hành vi: Opacity 0 +
-                  // IgnorePointer, không gập — tránh văn bản nhảy khi đọc.)
-                  // READ-TOOLBAR-001 (v2): wrapper không còn AnimatedSize,
-                  // AnimatedSlide, AnimatedOpacity, hay ClipRect để triệt tiêu
-                  // khối đen GPU Mali/Adreno.
-                  CollapsibleBottomControls(
-                    visible: _bottomControlsVisible,
-                    collapsed: isFocusMode,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SmartPlaybackBar(),
-                        ReadBottomBar(
-                          showWordlistPanel: _showWordlistPanel,
-                          onToggleWordlist: () {
-                            setState(() =>
-                                _showWordlistPanel = !_showWordlistPanel);
-                            HapticFeedback.lightImpact();
-                          },
-                        ),
-                      ],
+                  // READ-UI-120: dock đáy LUÔN có 1 hàng (kể cả lúc cuộn).
+                  // Đường cũ vẫn được giữ nguyên cho lựa chọn «Công cụ ở
+                  // trên», nên `visible: _readerChromeVisible` và
+                  // `CollapsibleBottomControls` không mất đi (test pin).
+                  if (useDock) ...[
+                    if (!isFocusMode)
+                      ReadBottomDock(
+                        layout: layout,
+                        onLayoutChanged: _updateChromeLayout,
+                        textActionCallbacks: widget.textActionCallbacks,
+                        showWordlistPanel: _showWordlistPanel,
+                        onToggleWordlist: _toggleWordlist,
+                        onOpenSource: _openSourceCallback,
+                      ),
+                  ] else
+                    CollapsibleBottomControls(
+                      visible: _readerChromeVisible,
+                      collapsed: isFocusMode,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SmartPlaybackBar(layout: layout),
+                          ReadBottomBar(
+                            showWordlistPanel: _showWordlistPanel,
+                            onToggleWordlist: _toggleWordlist,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (isSmallScreen && !isFocusMode && !_bottomControlsVisible)
-                    const SizedBox(height: 8),
+                  // IN4-30: thanh tiêu đề tối giản đặt DƯỚI vùng đọc.
+                  if (isFocusMode && _focusTitlePosition == 'bottom')
+                    ReadFocusTitleBar(
+                      tp: textProvider,
+                      controller: _controller,
+                    ),
+                  // IN4-31: cụm đáy đã gập hẳn khi ẩn (chiều cao 0) ⇒
+                  // không cần spacer 8px nữa (trước đó để chừa chỗ cho
+                  // nền đen vẫn còn).
                 ],
               ),
               // Focus mode exit FAB
@@ -388,7 +549,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                   child: GestureDetector(
                     onTap: () {
                       _controller.setFocusMode(false);
-                      setState(() => _bottomControlsVisible = true);
+                      setState(() => _readerChromeVisible = true);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -413,7 +574,7 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                               size: 16, color: Color(0xFF6C63FF)),
                           const SizedBox(width: 6),
                           Text(
-                            'Thoát Focus',
+                            context.uiText('Thoát Focus'),
                             style: TextStyle(
                                 color: const Color(0xFF6C63FF)
                                     .withValues(alpha: 0.9),
@@ -425,42 +586,80 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
                     ),
                   ),
                 ),
-              // Re-show bottom button when hidden
-              if (!_bottomControlsVisible && !isFocusMode)
+              // Smart chrome is collapsed by default; this compact affordance
+              // is the persistent, no-guesswork way to bring the controls back.
+              if (((!useDock && !_readerChromeVisible) || layout.toolsHidden) &&
+                  !isFocusMode)
                 Positioned(
-                  bottom: 12,
+                  bottom: MediaQuery.of(context).padding.bottom + 12,
                   right: 12,
-                  child: GestureDetector(
-                    onTap: () =>
-                        setState(() => _bottomControlsVisible = true),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1A2235),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 8,
-                          )
-                        ],
+                  child: Tooltip(
+                    message: context.uiText('Mở công cụ đọc'),
+                    child: Material(
+                      color: const Color(0xFF1A2235),
+                      borderRadius: BorderRadius.circular(22),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                      onTap: () {
+                        // Nhóm Công cụ đang ẨN ⇒ FAB phải mở lại chính nhóm
+                        // đó, không chỉ đổi cờ chrome phía trên.
+                        if (layout.toolsHidden) {
+                          _updateChromeLayout(layout.copyWith(
+                            toolsState: ReadChromeGroupState.collapsed,
+                          ));
+                        }
+                        setState(() => _readerChromeVisible = true);
+                      },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.tune_rounded,
+                                size: 17,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                context.uiText('Công cụ đọc'),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: const Icon(Icons.keyboard_arrow_up_rounded,
-                          size: 20, color: Colors.white70),
                     ),
                   ),
                 ),
               // Focus entry pill for small screens
-              if (isSmallScreen && !isFocusMode && _bottomControlsVisible)
+              if (isSmallScreen && !isFocusMode && _readerChromeVisible)
                 Positioned(
                   bottom: 98,
                   right: 16,
                   child: GestureDetector(
                     onTap: () {
                       _controller.setFocusMode(true);
-                      setState(() => _bottomControlsVisible = false);
+                      setState(() => _readerChromeVisible = false);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -516,22 +715,77 @@ class _ReadModeScreenState extends State<ReadModeScreen> {
   }
 
   Widget _buildTextList(TextProvider textProvider, bool isFocusMode) {
+    if (_controller.singleLineMode) {
+      final playback = context.read<PlaybackController>();
+      return ValueListenableBuilder<int>(
+        valueListenable: playback.activeLineNotifier,
+        builder: (context, activeLine, _) {
+          final followPlayback = _controller.autoSyncEnabled && playback.isRunning &&
+              activeLine >= 0 && activeLine < textProvider.lines.length;
+          final index = followPlayback ? activeLine :
+              textProvider.currentLineIndex.clamp(0, textProvider.lines.length - 1).toInt();
+          void move(int delta) {
+            if (followPlayback) {
+              unawaited(playback.skip(delta));
+            } else {
+              textProvider.setCurrentLine(index + delta);
+            }
+          }
+          return Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              IconButton(
+                tooltip: context.uiText('Trước'),
+                onPressed: index > 0 ? () => move(-1) : null,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Text('${index + 1} / ${textProvider.lines.length}'),
+              IconButton(
+                tooltip: context.uiText('Sau'),
+                onPressed: index + 1 < textProvider.lines.length ? () => move(1) : null,
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ]),
+            Expanded(child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: TextLineWidget(
+                key: ValueKey('single_line_$index'),
+                index: index,
+                scrollController: _scrollController,
+              ),
+            )),
+          ]);
+        },
+      );
+    }
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollStartNotification) {
           _controller.setScrolling(true);
+          // READ-UI-121: `dragDetails != null` = cú kéo TAY (cuộn chương
+          // trình do auto-follow không có dragDetails). Nhường quyền 5s để
+          // người dùng đọc lén các dòng khác mà không bị kéo ngược lại.
+          if (notification.dragDetails != null) {
+            _manualScrollUntil =
+                DateTime.now().add(readAutoScrollManualPause);
+          }
           _lastScrollOffset = notification.metrics.pixels;
         } else if (notification is ScrollUpdateNotification) {
-          // Smart hide: scroll down hides bottom, scroll up shows
-          if (!isFocusMode) {
-            final diff = notification.metrics.pixels - _lastScrollOffset;
-            if (diff > 12 && _bottomControlsVisible) {
-              setState(() => _bottomControlsVisible = false);
-            } else if (diff < -12 && !_bottomControlsVisible) {
-              setState(() => _bottomControlsVisible = true);
-            }
-            _lastScrollOffset = notification.metrics.pixels;
+          if (notification.dragDetails != null) {
+            _manualScrollUntil =
+                DateTime.now().add(readAutoScrollManualPause);
           }
+          // Smart hide: scroll down hides reader chrome, scroll up restores it.
+          // READ-UI-120: dock đáy KHÔNG chịu smart-hide. Khi dùng bố cục
+          // mới, bỏ qua hoàn toàn để không rebuild vô ích mỗi cú cuộn.
+          if (!isFocusMode && !widget.chromeLayout.useBottomDock) {
+            final diff = notification.metrics.pixels - _lastScrollOffset;
+            if (diff > 12 && _readerChromeVisible) {
+              setState(() => _readerChromeVisible = false);
+            } else if (diff < -12 && !_readerChromeVisible) {
+              setState(() => _readerChromeVisible = true);
+            }
+          }
+          _lastScrollOffset = notification.metrics.pixels;
         } else if (notification is ScrollEndNotification) {
           _controller.setScrolling(false);
           _onScrollEnd(textProvider);
@@ -583,176 +837,127 @@ class _GrammarLegendStrip extends StatelessWidget {
         : previousPreset.name;
     final grammarTitle = settings.isCustomPreset
         ? context.uiText('Grammar Highlight · Tùy chỉnh')
-        : 'Grammar Highlight · $activePresetName';
-    final canCollapse = visibleCategories.length > 2;
-    final isSmall = MediaQuery.of(context).size.height < 700;
-    final collapsedCount = isSmall ? 2 : 4;
-    final displaySettings = settings.legendCollapsed && canCollapse
-        ? settings.copyWith(
-            visibleCategories: visibleCategories.take(collapsedCount).toSet(),
-          )
-        : settings;
+        : settings.legendCollapsed
+            ? activePresetName
+            : 'Grammar Highlight · $activePresetName';
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
-        final actionButtons = Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: compact ? WrapAlignment.start : WrapAlignment.end,
-          children: [
-            if (settings.isCustomPreset)
-              OutlinedButton.icon(
-                onPressed: textProvider.restorePreviousGrammarPreset,
-                icon: const Icon(Icons.undo_rounded, size: 16),
-                label: Text(context.uiText('Khôi phục $previousPresetName')),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFB8B5FF),
-                  side: BorderSide(
-                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+    void handleMenuAction(String value) {
+      if (value == 'restore') {
+        textProvider.restorePreviousGrammarPreset();
+      } else if (value == 'showAll') {
+        textProvider.showAllGrammarCategories();
+      }
+    }
+
+    Widget overflowMenu() {
+      if (!settings.isCustomPreset && hiddenCount <= 0) {
+        return const SizedBox.shrink();
+      }
+      return PopupMenuButton<String>(
+        tooltip: context.uiText('Cài đặt từ loại chuyên sâu'),
+        color: const Color(0xFF151B26),
+        padding: EdgeInsets.zero,
+        child: const SizedBox(
+          width: 30,
+          height: 30,
+          child: Icon(Icons.more_horiz_rounded, color: Colors.white70, size: 19),
+        ),
+        onSelected: handleMenuAction,
+        itemBuilder: (context) => [
+          if (settings.isCustomPreset)
+            PopupMenuItem<String>(
+              value: 'restore',
+              child: Text(context.uiText('Khôi phục $previousPresetName')),
+            ),
+          if (hiddenCount > 0)
+            PopupMenuItem<String>(
+              value: 'showAll',
+              child: Text(context.uiText('Bật lại tất cả')),
+            ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome_motion,
+                size: 14,
+                color: Color(0xFF8E83FF),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  grammarTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
                   ),
-                  visualDensity: VisualDensity.compact,
                 ),
               ),
-            if (hiddenCount > 0)
-              OutlinedButton.icon(
-                onPressed: textProvider.showAllGrammarCategories,
-                icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                label: const Text('Bật lại tất cả'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFB8B5FF),
-                  side: BorderSide(
-                    color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
+              if (settings.legendCollapsed && visibleCategories.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                for (final category in visibleCategories.take(6))
+                  Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.only(left: 3),
+                    decoration: BoxDecoration(
+                      color: palette.styleFor(category).color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                  visualDensity: VisualDensity.compact,
+              ],
+              overflowMenu(),
+              IconButton(
+                tooltip: context.uiText(
+                  settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn',
                 ),
-              ),
-            if (canCollapse)
-              TextButton.icon(
                 onPressed: () => textProvider.setGrammarLegendCollapsed(
                   !settings.legendCollapsed,
                 ),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                 icon: Icon(
                   settings.legendCollapsed
-                      ? Icons.unfold_more_rounded
-                      : Icons.unfold_less_rounded,
-                  size: 16,
+                      ? Icons.expand_more_rounded
+                      : Icons.expand_less_rounded,
+                  size: 20,
+                  color: const Color(0xFFB8B5FF),
                 ),
-                label: Text(settings.legendCollapsed ? 'Mở rộng' : 'Thu gọn'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF9FA8DA),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-          ],
-        );
-
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (compact) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome_motion,
-                      size: 14,
-                      color: Color(0xFF6C63FF),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            grammarTitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (hiddenCount > 0) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              context.uiText(settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — có thể bật lại ngay hoặc quay về $previousPresetName.'
-                                  : 'Đang ẩn $hiddenCount nhóm — không bị mất, có thể bật lại ngay.'),
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                actionButtons,
-              ] else ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome_motion,
-                      size: 14,
-                      color: Color(0xFF6C63FF),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            grammarTitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (hiddenCount > 0) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              context.uiText(settings.isCustomPreset
-                                  ? 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại hoặc quay về $previousPresetName.'
-                                  : 'Đang ẩn $hiddenCount nhóm — bạn có thể bật lại bằng nút bên phải hoặc trong cài đặt.'),
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 11,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(child: actionButtons),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 6),
-              GrammarLegendBar(
-                settings: displaySettings,
-                palette: palette,
-                toolbarStyle: true,
-                compact: settings.legendCollapsed || compact,
-                horizontalScroll: settings.legendCollapsed || compact,
-                showHandle: true,
-                onToggleCategory: (category) =>
-                    textProvider.toggleGrammarCategory(category),
               ),
             ],
           ),
-        );
-      },
+          if (!settings.legendCollapsed) ...[
+            const SizedBox(height: 4),
+            GrammarLegendBar(
+              settings: settings,
+              palette: palette,
+              toolbarStyle: true,
+              compact: false,
+              horizontalScroll: false,
+              showHandle: false,
+              onToggleCategory: textProvider.toggleGrammarCategory,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

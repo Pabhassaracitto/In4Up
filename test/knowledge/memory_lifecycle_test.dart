@@ -37,6 +37,9 @@ LearningState _state({int u = 30, int l = 30, int r = 30}) => LearningState(
       understanding: _snap(u),
       listening: _snap(l),
       reading: _snap(r),
+      use: SM2Snapshot.initial(),
+      speak: SM2Snapshot.initial(),
+      write: SM2Snapshot.initial(),
     );
 
 void main() {

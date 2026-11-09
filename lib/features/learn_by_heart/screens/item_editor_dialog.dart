@@ -303,7 +303,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                         children: [
                           ChoiceChip(
                             label: Text(
-                              'Nguyên văn (${RecitationLanguage.fromCode(_sourceLang).displayName('vi')})',
+                              context.uiText('Nguyên văn (${RecitationLanguage.fromCode(_sourceLang).displayName('vi')})'),
                             ),
                             selected: _memorizeSide == MemorizeSide.source,
                             selectedColor:
@@ -324,7 +324,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
                           ),
                           ChoiceChip(
                             label: Text(
-                              'Bản dịch (${RecitationLanguage.fromCode(_targetLang).displayName('vi')})',
+                              context.uiText('Bản dịch (${RecitationLanguage.fromCode(_targetLang).displayName('vi')})'),
                             ),
                             selected: _memorizeSide == MemorizeSide.target,
                             selectedColor:
@@ -546,7 +546,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: ChoiceChip(
-                  label: Text('${lang.flag} ${lang.displayName('vi')}'),
+                  label: Text(context.uiText('${lang.flag} ${lang.displayName('vi')}')),
                   selected: isSelected,
                   selectedColor: const Color(0xFF6C63FF).withValues(alpha: 0.35),
                   backgroundColor: Colors.white.withValues(alpha: 0.05),
@@ -577,7 +577,7 @@ class _ItemEditorDialogState extends State<ItemEditorDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$label${required ? ' *' : ''}',
+          context.uiText('$label${required ? ' *' : ''}'),
           style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),

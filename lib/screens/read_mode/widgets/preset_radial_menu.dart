@@ -1,9 +1,9 @@
 import 'dart:math';
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:in4up/screens/read_mode/models/playback_recipe.dart';
 import 'package:in4up/screens/read_mode/services/playback_controller.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 class PresetRadialMenu extends StatelessWidget {
   final PlaybackController controller;
@@ -64,7 +64,7 @@ class PresetRadialMenu extends StatelessWidget {
                       onTap: () async {
                         await controller.updateRecipe(entry.value.recipe);
                         onDismiss();
-                        HapticFeedback.mediumImpact();
+                        SafeHaptics.mediumImpact();
                       },
                       isActive: controller.recipe == entry.value.recipe,
                     ),

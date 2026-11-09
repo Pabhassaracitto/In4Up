@@ -59,7 +59,7 @@ void showSpeedControlSheet(BuildContext context, PlayerProvider player) {
                           ),
                         ),
                         child: Text(
-                          '${speed}x',
+                          context.uiText('${speed}x'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.grey,

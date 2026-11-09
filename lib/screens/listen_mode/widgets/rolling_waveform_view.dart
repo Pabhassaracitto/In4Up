@@ -184,7 +184,7 @@ class _RollingWaveformViewState extends State<RollingWaveformView> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${widget.controller.zoom.toStringAsFixed(1)}x',
+                context.uiText('${widget.controller.zoom.toStringAsFixed(1)}x'),
                 style: const TextStyle(
                   color: Color(0xFF6C63FF),
                   fontSize: 12,

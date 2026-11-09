@@ -7,10 +7,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:in4up/core/language/localized_material.dart' hide Text;
-import 'package:flutter/material.dart' show Text;
+import 'package:in4up/core/language/localized_material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../utils/system_insets.dart';
+import '../../media_tools/media_export_actions.dart';
 import '../models/video_info.dart';
 import '../services/subtitle_parser.dart';
 import '../services/video_device_channel.dart';
@@ -47,11 +48,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initPlayer() async {
     try {
-      final path = widget.video.filePath;
-      final controller = path.startsWith('content://')
-          ? VideoPlayerController.contentUri(Uri.parse(path))
-          : VideoPlayerController.file(File(path));
-      await controller.initialize();
+      // A physical video can be indexed through both SAF and MediaStore.
+      // If one permission was revoked, try its other known URI without
+      // changing the stable library id or saved playback position.
+      VideoPlayerController? selected;
+      final candidates = <String>{
+        widget.video.filePath,
+        ...widget.video.effectiveSourceUris.values,
+      };
+      for (final path in candidates) {
+        final candidate = path.startsWith('content://')
+            ? VideoPlayerController.contentUri(Uri.parse(path))
+            : VideoPlayerController.file(File(path));
+        try {
+          await candidate.initialize();
+          selected = candidate;
+          break;
+        } catch (_) {
+          await candidate.dispose();
+        }
+      }
+      if (selected == null) throw StateError('No accessible video source');
+      final controller = selected;
       if (!mounted) {
         await controller.dispose();
         return;
@@ -184,6 +202,45 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // AVTOOL-003 (PLAN-047 P2) — video → âm thanh (nghe trên đường).
+          if (ready)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              color: const Color(0xFF1A1A2E),
+              onSelected: (value) async {
+                switch (value) {
+                  case 'extract_audio':
+                    await exportAudioFromVideo(context, widget.video);
+                  case 'clip_audio':
+                    final position = c.value.position;
+                    final duration = c.value.duration - position;
+                    await exportAudioFromVideo(
+                      context,
+                      widget.video,
+                      clipStart: position,
+                      clipDuration: duration > const Duration(seconds: 1)
+                          ? duration
+                          : const Duration(seconds: 30),
+                    );
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'extract_audio',
+                  child: Text(
+                    context.uiText('Tách âm thanh (toàn bộ video)'),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'clip_audio',
+                  child: Text(
+                    context.uiText('Tách âm thanh từ vị trí hiện tại'),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
           if (ready)
             PopupMenuButton<double>(
               icon: const Icon(Icons.speed, color: Colors.white),
@@ -194,7 +251,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   PopupMenuItem(
                     value: s,
                     child: Text(
-                      '${s}×${s == _speed ? '  ✓' : ''}',
+                      context.uiText('${s}×${s == _speed ? '  ✓' : ''}'),
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -229,7 +286,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       Positioned(
                         left: 16,
                         right: 16,
-                        bottom: 16,
+                        // SAFE-INSET-001: phụ đề không được chìm dưới thanh
+                        // điều hướng hệ thống ở chế độ toàn màn hình.
+                        bottom: bottomInsetOffset(context, 16),
                         child: _SubtitleText(text: _currentCue!.text),
                       ),
 

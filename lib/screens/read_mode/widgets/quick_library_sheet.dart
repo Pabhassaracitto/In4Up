@@ -5,10 +5,12 @@
 // Bấm "Xem tất cả" → TextProvider.clearText() → về ReadLibraryScreen
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../features/pdf_reader/pdf_reader_screen.dart';
+import '../../../features/pdf_reader/services/pdf_open_preflight.dart';
+import '../../../features/pdf_reader/widgets/pdf_open_messages.dart';
 import '../../../providers/text_provider.dart';
 import '../../../services/text_library_service.dart';
 import '../models/recent_file.dart';
@@ -79,6 +81,18 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
 
       case RecentFileType.localPdf:
         if (file.localPath == null) return;
+        // AUDIT-1.21.0 #4: cùng preflight với thư viện «Gần đây» — quick sheet
+        // cũng lưu path cache có thể đã bị dọn (FPDF_ER_FILE:2).
+        final check = inspectPdfForOpen(file.localPath!);
+        if (!check.canOpen) {
+          final messenger = ScaffoldMessenger.maybeOf(nav.context);
+          messenger?.showSnackBar(SnackBar(
+            content: Text(pdfOpenIssueMessage(nav.context, check.issue)),
+            behavior: SnackBarBehavior.floating,
+          ));
+          await _service.remove(file.id);
+          return;
+        }
         await _service.addOrUpdate(
           file.copyWith(lastOpened: DateTime.now()),
         );
@@ -133,7 +147,7 @@ class _QuickLibrarySheetState extends State<QuickLibrarySheet> {
           debugPrint('❌ QuickLibrarySheet cloud open error: $e\n$st');
           if (nav.mounted) {
             ScaffoldMessenger.maybeOf(nav.context)?.showSnackBar(
-              SnackBar(content: Text('Lỗi mở Cloud: $e')),
+              SnackBar(content: Text(context.uiText('Lỗi mở Cloud: $e'))),
             );
           }
         }
@@ -357,7 +371,7 @@ class _QuickFileRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         onTap();
       },
       child: Padding(
@@ -498,7 +512,7 @@ class _CircularProgress extends StatelessWidget {
             valueColor: AlwaysStoppedAnimation<Color>(_progressColor),
           ),
           Text(
-            '${(value * 100).round()}%',
+            context.uiText('${(value * 100).round()}%'),
             style: TextStyle(
               color: _progressColor,
               fontSize: 7,

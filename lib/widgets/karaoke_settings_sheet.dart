@@ -43,9 +43,12 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .88),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -55,6 +58,28 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
                     fontWeight: FontWeight.bold,
                     fontSize: 16)),
             const SizedBox(height: 16),
+            _label(context.uiText('Kiểu hiển thị lời')),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                ChoiceChip(
+                  label: Text(context.uiText('Chỉ dòng hiện hành')),
+                  selected: _draft.displayMode == KaraokeDisplayMode.currentLineOnly,
+                  onSelected: (_) => setState(() => _draft = _draft.copyWith(
+                    displayMode: KaraokeDisplayMode.currentLineOnly,
+                  )),
+                ),
+                ChoiceChip(
+                  label: Text(context.uiText('Dòng khác mờ và nhỏ')),
+                  selected: _draft.displayMode == KaraokeDisplayMode.context,
+                  onSelected: (_) => setState(() => _draft = _draft.copyWith(
+                    displayMode: KaraokeDisplayMode.context,
+                  )),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
 
             // Cỡ chữ dòng đang phát
             _label('Cỡ chữ (dòng đang phát)'),
@@ -117,7 +142,9 @@ class _KaraokeSettingsSheetState extends State<KaraokeSettingsSheet> {
                 foregroundColor: Colors.white,
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );

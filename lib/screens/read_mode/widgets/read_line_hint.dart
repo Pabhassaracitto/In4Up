@@ -31,11 +31,14 @@ class ReadLineHint {
         duration: const Duration(seconds: 7),
         backgroundColor: const Color(0xFF1A1A2E),
         content: Text(
+          // READ-HINT-001 (audit 1.e): chạm một từ chỉ PHÁT ÂM; bảng tra từ
+          // mở bằng cách GIỮ. Câu nhắc cũ hứa sai nên người dùng tưởng
+          // bảng tra từ bị hỏng.
           wordSource
               ? context.uiText(
-                  'Đã mở theo dòng: chạm một dòng để hiện IPA, chạm một từ để tra nghĩa.')
+                  'Đã mở theo dòng: chạm một dòng để hiện IPA, giữ một từ để tra nghĩa.')
               : context.uiText(
-                  'Chạm một dòng để hiện IPA, chạm một từ để tra nghĩa.'),
+                  'Chạm một dòng để hiện IPA, giữ một từ để tra nghĩa.'),
           style: const TextStyle(color: Colors.white, fontSize: 13),
         ),
         action: SnackBarAction(
@@ -57,7 +60,9 @@ class ReadLineHint {
       ),
       builder: (sheetContext) => SafeArea(
         top: false,
-        child: Padding(
+        // READ-SELECT-002: bảng có thêm dòng hướng dẫn mới ⇒ phải cuộn được,
+        // nếu không sẽ tràn (RenderFlex overflow) trên máy thấp.
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -83,13 +88,35 @@ class ReadLineHint {
                 ),
               ),
               const SizedBox(height: 12),
+              // READ-HINT-001 (audit 1.e): thứ tự theo đúng việc người dùng
+              // làm — dòng trước, từ sau; ghi chú IPA nằm NGAY DƯỚI dòng
+              // nói về IPA (trong ngoặc) thay vì rơi xuống cuối bảng.
               const _HintRow(
                 icon: Icons.touch_app_outlined,
                 label: 'Chạm một dòng: chọn dòng đó và hiện IPA ngay dưới chữ.',
               ),
               const _HintRow(
+                icon: Icons.spellcheck,
+                label:
+                    'Chưa thấy phiên âm? Bật IPA ở thanh công cụ phía trên.',
+                parenthetical: true,
+              ),
+              const _HintRow(
                 icon: Icons.record_voice_over_outlined,
-                label: 'Chạm một từ: nghe phát âm và mở bảng tra từ.',
+                label: 'Chạm một từ: nghe phát âm ngay.',
+              ),
+              const _HintRow(
+                icon: Icons.flash_on_outlined,
+                label: 'Chạm hai lần vào một từ: xem nghĩa nhanh.',
+              ),
+              // READ-SELECT-002 (audit 1.e): GIỮ một từ ở chế độ ô chữ nay vào
+              // chế độ CHỌN NHIỀU TỪ (kéo ngang để mở rộng) — bảng tra từ đầy
+              // đủ chuyển sang nút "Từ chi tiết" trên thanh hành động của vùng
+              // chọn. Bảng hướng dẫn phải nói đúng thao tác thật.
+              const _HintRow(
+                icon: Icons.menu_book_outlined,
+                label:
+                    'Giữ một từ ở chế độ ô chữ: vào chế độ chọn nhiều từ; nút Từ chi tiết mở bảng tra từ đầy đủ.',
               ),
               const _HintRow(
                 icon: Icons.touch_app,
@@ -100,9 +127,14 @@ class ReadLineHint {
                 label: 'Giữ một dòng: sửa nội dung dòng đó.',
               ),
               const _HintRow(
-                icon: Icons.spellcheck,
+                icon: Icons.select_all,
                 label:
-                    'Chưa thấy phiên âm? Bật IPA ở thanh công cụ phía trên.',
+                    'Muốn xử lý nhiều từ: giữ một từ rồi kéo ngang để chọn cả cụm (nút ✕ để thoát).',
+              ),
+              const _HintRow(
+                icon: Icons.touch_app_outlined,
+                label:
+                    'Chưa chọn từ nào: 4 nút ở trên chạy trên cả dòng đang đọc.',
               ),
               const SizedBox(height: 14),
               Row(
@@ -146,21 +178,43 @@ class _HintRow extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _HintRow({required this.icon, required this.label});
+  /// Ghi chú phụ của dòng ngay trên: thụt vào, chữ nhỏ hơn, đặt trong
+  /// ngoặc đơn (ngoặc do widget thêm nên KHÔNG đẻ thêm khoá i18n).
+  final bool parenthetical;
+
+  const _HintRow({
+    required this.icon,
+    required this.label,
+    this.parenthetical = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final text = parenthetical
+        ? '(${context.uiText(label)})'
+        : context.uiText(label);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: 10, left: parenthetical ? 28 : 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF64B5F6)),
+          Icon(
+            icon,
+            size: parenthetical ? 15 : 18,
+            color: parenthetical
+                ? const Color(0xFF64B5F6).withValues(alpha: 0.7)
+                : const Color(0xFF64B5F6),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              context.uiText(label),
-              style: TextStyle(color: Colors.grey[300], fontSize: 13, height: 1.35),
+              text,
+              style: TextStyle(
+                color: parenthetical ? Colors.grey[400] : Colors.grey[300],
+                fontSize: parenthetical ? 12 : 13,
+                height: 1.35,
+                fontStyle: parenthetical ? FontStyle.italic : FontStyle.normal,
+              ),
             ),
           ),
         ],

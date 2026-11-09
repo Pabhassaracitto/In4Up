@@ -15,7 +15,10 @@ import '../engine/ai_engine.dart';
 import '../engine/ai_engine_gemma.dart';
 import '../engine/ai_engine_mock.dart';
 import '../engine/ai_engine_remote.dart';
+// YT-AUDIT-06 (IN4-104)
+import '../engine/ai_connectivity_routing.dart';
 import '../engine/ai_route_planner.dart';
+import '../error/ai_error_codes.dart';
 import '../error/ai_error_handler.dart';
 import '../loader/ai_model_loader.dart';
 import '../models/ai_analysis.dart';
@@ -154,6 +157,11 @@ class AiServiceFacade extends ChangeNotifier {
   /// Remote có đứng ĐẦU route chat không (onlineFirst, hoặc offlineFirst mà
   /// chưa có model local) — UI hiện nhãn "đang dùng API" khi true.
   bool get isRemoteChatPreferred => _chatRoutePlan().remoteFirst;
+
+  /// Route hiện tại có CHO PHÉP dùng remote không (đã cấu hình provider và
+  /// không phải `offlineOnly`). UI dùng để biết nút "thử lại bằng API" có
+  /// thật sự có đường mạng để đi hay không.
+  bool get chatRouteAllowsRemote => _chatRoutePlan().usesRemote;
 
   /// Dừng sinh câu trả lời remote NGAY (đóng socket — token không chảy tiếp).
   /// Local Gemma generate bằng FFI blocking trong isolate nên không cancel
@@ -392,6 +400,8 @@ class AiServiceFacade extends ChangeNotifier {
   /// * Local lỗi (timeout/engine chết) ⇒ thử remote như stop cuối nếu route
   ///   có (fallback 2 chiều theo ADR-0007).
   Future<void> _processChat(_PendingChat item) async {
+    // YT-AUDIT-06 (IN4-104): cùng một nhịp đo mạng như `lookupWord`.
+    await _refreshRouteMode();
     final plan = _chatRoutePlan();
 
     if (plan.remoteFirst) {
@@ -838,6 +848,9 @@ class AiServiceFacade extends ChangeNotifier {
 
   Future<void> initializeAsync() async {
     if (_initialized) return;
+    // YT-AUDIT-06 (IN4-104): bắt đầu lắng nghe loại mạng — không chặn khởi
+    // động (router tự đo lần đầu bên trong).
+    unawaited(AiConnectivityRouter.instance.ensureStarted());
     await _restoreChatHistory();
     // WP1: nạp cấu hình provider/routing (WP0) để route chat/analysis biết
     // có tầng API nào không. Không chặn khi prefs hỏng — store tự dùng mặc định.
@@ -931,13 +944,28 @@ class AiServiceFacade extends ChangeNotifier {
 
   /// Hoạch định route LLM thuần (xem `planLlmRoute`). offlineOnly hoặc chưa
   /// cấu hình provider ⇒ KHÔNG có stop `remote` ⇒ không request nào đi ra.
+  ///
+  /// YT-AUDIT-06 (IN4-104): mode từ `AiRoutingPrefs` được resolve theo loại
+  /// mạng trước khi đưa vào planner (`auto` ⇒ wifi: onlineFirst · 4G:
+  /// offlineFirst · không mạng: offlineOnly). Planner vẫn thuần như cũ.
   AiLlmRoutePlan _chatRoutePlan() {
     final store = AiProviderStore.instance;
+    final configured = store.routing.modeOf(AiRouteCapability.chat);
+    final mode = AiConnectivityRouter.instance.resolve(configured);
     return planLlmRoute(
-      mode: store.routing.modeOf(AiRouteCapability.chat),
+      mode: mode,
       remoteAvailable: isRemoteChatConfigured,
       localModelReady: hasModel,
     );
+  }
+
+  /// YT-AUDIT-06 (IN4-104): đo lại loại mạng rồi trả mode THẬT. Gọi ở đầu
+  /// mỗi luồng AI bất đồng bộ để quyết định định tuyến luôn tươi (lắng nghe
+  /// `onConnectivityChanged` chỉ cập nhật khi có sự kiện).
+  Future<AiRouteMode> _refreshRouteMode() async {
+    await AiConnectivityRouter.instance.refresh();
+    return AiConnectivityRouter.instance
+        .resolve(AiProviderStore.instance.routing.modeOf(AiRouteCapability.chat));
   }
 
   /// Lấy (hoặc tái tạo) engine remote theo provider đang bật. Trả về null
@@ -1015,21 +1043,66 @@ class AiServiceFacade extends ChangeNotifier {
 
   // ── Word Lookup (final 9-error fix) ──
 
-  Future<AiAnalysis> lookupWord(String word, {String? sentenceContext, Map<String, dynamic>? localDictEntry}) async {
+  /// AI-WORD-RETRY-001 — nguồn của kết quả tra từ GẦN NHẤT.
+  ///
+  /// UI cần biết để nói thật "đã hỏi API" hay "chỉ có từ điển trên máy" thay
+  /// vì im lặng như nhau cho mọi trường hợp.
+  String? lastWordSource;
+
+  /// Tra một từ.
+  ///
+  /// AI-WORD-RETRY-001 (bug "bấm Cần AI cho phần còn lại mà không có phản
+  /// hồi"): có BA nguyên nhân, sửa cả ba ở đây:
+  ///
+  /// 1. **Cache giữ cả kết quả thất bại.** Bản cũ `_cache[key] = result` cho
+  ///    mọi kết quả, kể cả `success: false` và cả `buildFromLocalDict` (chỉ
+  ///    nghĩa từ điển). Lần mở bảng đầu tiên không có model ⇒ cache lại
+  ///    "không có gì"; mọi lần bấm nút sau đó trả về ĐÚNG kết quả cũ trong
+  ///    vài mili-giây ⇒ UI không đổi ⇒ người dùng thấy "nút không có tác
+  ///    dụng". Nay: **không cache** kết quả không thành công.
+  /// 2. **Không có đường "thử lại bằng API".** Người dùng đã cấu hình nhà
+  ///    cung cấp online nhưng route `auto`/`offlineFirst` vẫn chọn cục bộ
+  ///    trước, và không ai bảo được nó "lần này hỏi mạng đi". Nay có
+  ///    `preferRemote` cho thao tác NGƯỜI DÙNG chủ động.
+  /// 3. **Không bỏ qua cache.** `forceRefresh` xoá cache của từ đó trước khi
+  ///    chạy lại, nên bấm nút luôn là một lần thử MỚI thật sự.
+  Future<AiAnalysis> lookupWord(
+    String word, {
+    String? sentenceContext,
+    Map<String, dynamic>? localDictEntry,
+    bool forceRefresh = false,
+    bool preferRemote = false,
+  }) async {
     if (word.trim().isEmpty) {
       return AiAnalysis.fallback(word, errorReason: 'Empty word');
     }
 
+    // Mỗi lần tra đều bắt đầu lại từ "chưa biết nguồn" — nếu không, UI đọc
+    // `lastWordSource` sẽ thấy nguồn của lần tra TRƯỚC (nói sai sự thật).
+    lastWordSource = null;
     final cacheKey = 'word_${word.toLowerCase().trim()}';
-    if (_cache.containsKey(cacheKey)) {
+    if (forceRefresh) {
+      _cache.remove(cacheKey);
+    } else if (_cache.containsKey(cacheKey)) {
+      lastWordSource ??= 'cache';
       return _cache[cacheKey]!;
     }
 
+    // YT-AUDIT-06 (IN4-104): đo lại loại mạng TRƯỚC khi hoạch định — tra từ
+    // là luồng hay gọi nhất nên cần quyết định định tuyến luôn tươi.
+    await _refreshRouteMode();
     // WP1 (API-002): route theo AiRoutingPrefs — remote đứng đầu (onlineFirst,
     // hoặc offlineFirst mà chưa có model local) ⇒ hỏi API trước. Word Lookup
     // qua API vẫn trả ĐÚNG JSON schema như Gemma (Word Lookup AT).
     final plan = _chatRoutePlan();
+    // AI-WORD-RETRY-001: người dùng bấm nút ⇒ tôn trọng ý muốn "hỏi mạng",
+    // nhưng KHÔNG vượt mặt `offlineOnly` (họ đã chọn rõ ràng là không dùng
+    // mạng) và không thử khi chưa cấu hình provider.
+    final userWantsRemote =
+        preferRemote && isRemoteChatConfigured && plan.usesRemote;
+    final remoteFirst = plan.remoteFirst || userWantsRemote;
     var remoteTried = false;
+
     Future<AiAnalysis?> tryRemote() => _tryRemoteAnalysis(
           text: word,
           type: AiAnalysisType.wordLookup,
@@ -1037,16 +1110,23 @@ class AiServiceFacade extends ChangeNotifier {
           timeout: const Duration(seconds: 45),
         );
 
-    if (plan.remoteFirst) {
+    Future<AiAnalysis> accept(AiAnalysis remote, String source) async {
+      final enriched = localDictEntry != null
+          ? enrichWithLocalDict(remote, localDictEntry)
+          : remote;
+      _cache[cacheKey] = enriched;
+      lastWordSource = source;
+      return enriched;
+    }
+
+    if (remoteFirst) {
       remoteTried = true;
       final remote = await tryRemote();
       if (remote != null) {
-        final enriched = localDictEntry != null
-            ? enrichWithLocalDict(remote, localDictEntry)
-            : remote;
-        _cache[cacheKey] = enriched;
-        return enriched;
+        return accept(remote, 'remote');
       }
+      // Remote lỗi ⇒ rớt xuống cục bộ, nhưng vẫn ghi lại nguồn để UI nói thật.
+      lastWordSource = 'remote_failed';
     }
 
     try {
@@ -1060,33 +1140,38 @@ class AiServiceFacade extends ChangeNotifier {
           remoteTried = true;
           final remote = await tryRemote();
           if (remote != null) {
-            final enriched = localDictEntry != null
-                ? enrichWithLocalDict(remote, localDictEntry)
-                : remote;
-            _cache[cacheKey] = enriched;
-            return enriched;
+            return accept(remote, 'remote');
           }
         }
         result = buildFromLocalDict(word, localDictEntry);
+        lastWordSource ??= 'local_dict';
       } else {
-        result = await _engine!.analyze(text: word, type: AiAnalysisType.wordLookup, context: sentenceContext).first.timeout(const Duration(seconds: 30));
+        result = await _engine!
+            .analyze(
+                text: word,
+                type: AiAnalysisType.wordLookup,
+                context: sentenceContext)
+            .first
+            .timeout(const Duration(seconds: 30));
         if (!result.success && !remoteTried && plan.usesRemote) {
           // Gemma lỗi (JSON hỏng / output rỗng) ⇒ fallback remote theo route.
           remoteTried = true;
           final remote = await tryRemote();
           if (remote != null) {
-            final enriched = localDictEntry != null
-                ? enrichWithLocalDict(remote, localDictEntry)
-                : remote;
-            _cache[cacheKey] = enriched;
-            return enriched;
+            return accept(remote, 'remote');
           }
         }
         if (localDictEntry != null) {
           result = enrichWithLocalDict(result, localDictEntry);
         }
+        lastWordSource = result.success ? 'local_model' : 'local_model_failed';
       }
-      _cache[cacheKey] = result;
+      // AI-WORD-RETRY-001: CHỈ cache kết quả THÀNH CÔNG — kết quả rỗng/lỗi
+      // phải được thử lại ở lần bấm sau, nếu không nút "Phân tích bằng AI"
+      // biến thành nút không làm gì.
+      if (result.success) {
+        _cache[cacheKey] = result;
+      }
       return result;
     } catch (e) {
       debugPrint('[AiServiceFacade] lookupWord error: $e');
@@ -1094,24 +1179,37 @@ class AiServiceFacade extends ChangeNotifier {
         remoteTried = true;
         final remote = await tryRemote();
         if (remote != null) {
-          final enriched = localDictEntry != null
-              ? enrichWithLocalDict(remote, localDictEntry)
-              : remote;
-          _cache[cacheKey] = enriched;
-          return enriched;
+          return accept(remote, 'remote');
         }
       }
+      lastWordSource = 'error';
       return buildFromLocalDict(word, localDictEntry);
     }
   }
 
+  /// Rớt về nghĩa từ điển khi không có engine (chưa cài model / đang bận).
+  ///
+  /// YT-AUDIT-05 (IN4-105): hai chỗ bản cũ làm UI nói năng vô nghĩa với người
+  /// dùng:
+  ///   * `errorReason` là câu tiếng Anh thô của engine
+  ///     (`'No local dict entry and engine not ready'`) ⇒ hiện nguyên lên màn
+  ///     hình. Đổi sang **mã máy** (`local_dict_missing`) để UI dịch được —
+  ///     người gọi tự map sang ngôn ngữ của họ.
+  ///   * `example` bị nhét vào `memoryHook` ⇒ câu ví dụ hiện dưới nhãn “Mẹo
+  ///     nhớ”. Đưa `example` về đúng chỗ (`contextExamples`).
   AiAnalysis buildFromLocalDict(String word, Map<String, dynamic>? dictEntry) {
     if (dictEntry == null) {
-      return AiAnalysis.fallback(word, errorReason: 'No local dict entry and engine not ready');
+      return AiAnalysis.fallback(
+        word,
+        errorReason: kAiErrLocalDictMissing,
+        analysisType: AiAnalysisType.wordLookup,
+      );
     }
     final meaning = dictEntry['meaning'] as String? ?? '';
     final phonetic = dictEntry['phonetic'] as String?;
     final example = dictEntry['example'] as String?;
+    final wordType = dictEntry['word_type'] as String? ??
+        dictEntry['wordType'] as String?;
     return AiAnalysis(
       summary: meaning,
       topics: const ['Vocabulary'],
@@ -1120,7 +1218,14 @@ class AiServiceFacade extends ChangeNotifier {
       language: 'en',
       analysisType: AiAnalysisType.wordLookup,
       generatedAt: DateTime.now(),
-      wordDetail: WordDetail(word: word, meaning: meaning, phonetic: phonetic, memoryHook: example),
+      contextExamples:
+          example == null || example.isEmpty ? const [] : <String>[example],
+      wordDetail: WordDetail(
+        word: word,
+        meaning: meaning,
+        phonetic: phonetic,
+        wordType: wordType,
+      ),
     );
   }
 

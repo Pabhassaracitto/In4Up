@@ -83,6 +83,18 @@ void main() {
       expect(m.isCurrent(fresh), isTrue);
     });
 
+    test('Stop kết thúc phiên kể cả khi nút đang ở trạng thái paused', () {
+      final m = PdfTtsMachine();
+      final session = m.beginSession();
+      m.markPlaying(session);
+      m.markPaused(session);
+
+      m.markStopped();
+
+      expect(m.state, PdfTtsState.idle);
+      expect(m.isCurrent(session), isFalse);
+    });
+
     test('markFinished của phiên hiện tại mới hạ về idle', () {
       final m = PdfTtsMachine();
       final s = m.beginSession();

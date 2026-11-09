@@ -1,4 +1,3 @@
-import com.android.build.api.variant.AndroidComponentsExtension
 import com.android.build.gradle.BaseExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -19,13 +18,9 @@ subprojects {
 
     // Đồng bộ compileSdk, NDK và Java 17 cho tất cả Android modules
     val configureAndroid = {
-        val androidComponents = project.extensions.findByType(AndroidComponentsExtension::class.java)
-        androidComponents?.finalizeDsl { extension ->
-            extension.compileSdk = targetCompileSdk
-        }
-
         val android = project.extensions.findByType(BaseExtension::class.java)
         android?.apply {
+            compileSdkVersion(targetCompileSdk)
             ndkVersion = targetNdkVersion
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_17

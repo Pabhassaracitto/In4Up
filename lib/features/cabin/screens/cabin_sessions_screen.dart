@@ -231,9 +231,9 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
               ],
             ),
             Text(
-              '${_fmtDate(s.createdAt)} · ${s.sourceLang.toUpperCase()}→'
+              context.uiText('${_fmtDate(s.createdAt)} · ${s.sourceLang.toUpperCase()}→'
               '${s.targetLang.toUpperCase()} · ${cabinFmtDuration(s.duration)}'
-              ' · ${s.entryCount}',
+              ' · ${s.entryCount}'),
               style: const TextStyle(color: Colors.white54, fontSize: 12),
             ),
             const SizedBox(height: 4),

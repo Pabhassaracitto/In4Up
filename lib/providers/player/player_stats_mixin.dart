@@ -10,6 +10,7 @@ import '../../services/storage_service.dart';
 mixin PlayerStatsMixin on ChangeNotifier {
   // Dependencies required from PlayerProvider
   String? get currentSongPath;
+  String? get currentRecentSource;
   PlaybackState get state;
   StorageService get storage;
   List<Segment> get segments;
@@ -21,6 +22,7 @@ mixin PlayerStatsMixin on ChangeNotifier {
   Duration _totalListeningTime = Duration.zero;
   DateTime _lastRecentUpdate = DateTime.now();
   RecentAudio? _pendingRecentUpdate;
+  Future<void> _positionWriteTail = Future<void>.value();
 
   // Getters & Setters
   int get totalLoopsToday => _totalLoopsToday;
@@ -46,8 +48,9 @@ mixin PlayerStatsMixin on ChangeNotifier {
     if (now.difference(_lastRecentUpdate).inSeconds < 30) return;
     _lastRecentUpdate = now;
 
-    final normalizedPath = currentSongPath!;
-    final audioId = 'local_${normalizedPath.toLowerCase().hashCode}';
+    final source = currentRecentSource ?? currentSongPath!;
+    // RecentAudio uses the stable MD5 ID, not String.hashCode.
+    final audioId = RecentAudio.fromLocalFile(path: source).id;
     _recentAudio.updatePosition(
       audioId,
       position: position,
@@ -55,10 +58,28 @@ mixin PlayerStatsMixin on ChangeNotifier {
     );
   }
 
-  void saveCurrentPosition() {
-    if (currentSongPath != null && state.position.inSeconds > 5) {
-      storage.savePosition(currentSongPath!, state.position.inMilliseconds);
-    }
+  Future<void> saveCurrentPosition() {
+    final path = currentSongPath;
+    if (path == null || state.position.inSeconds <= 5) return _positionWriteTail;
+    final position = state.position;
+    final duration = state.duration;
+    final source = currentRecentSource ?? path;
+    final audioId = RecentAudio.fromLocalFile(path: source).id;
+    // Capture source and position immediately, then serialize writes so a
+    // slower old save cannot overwrite newer progress for the same source.
+    _positionWriteTail = _positionWriteTail.then((_) async {
+      try {
+        await storage.savePosition(path, position.inMilliseconds);
+        await _recentAudio.updatePosition(
+          audioId,
+          position: position,
+          totalDuration: duration,
+        );
+      } catch (error) {
+        debugPrint('Could not save playback progress: $error');
+      }
+    });
+    return _positionWriteTail;
   }
 
   Duration? getSavedPosition(String path) {

@@ -966,7 +966,7 @@ class _WebReaderHomeViewState extends State<WebReaderHomeView> {
                           .map(
                             (c) => DropdownMenuItem(
                               value: c.id,
-                              child: Text('${c.emoji} ${c.title}'),
+                              child: Text(context.uiText('${c.emoji} ${c.title}')),
                             ),
                           )
                           .toList(),
@@ -2350,7 +2350,7 @@ class _HistoryTile extends StatelessWidget {
             if (notePreview.trim().isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(
-                '📝 $notePreview',
+                context.uiText('📝 $notePreview'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(color: Colors.blue[100], fontSize: 11.8),
@@ -2392,7 +2392,7 @@ class _HistoryTile extends StatelessWidget {
                 ),
                 if (showProgress)
                   Text(
-                    '${entry.progressPercent}%',
+                    context.uiText('${entry.progressPercent}%'),
                     style: TextStyle(
                       color: Colors.blue[200],
                       fontSize: 11.5,

@@ -26,7 +26,7 @@ library;
 
 import 'package:in4up/knowledge/models/learning_action.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show LearningState, SkillDimension;
+    show LearningState, SkillDimension, inputDimensions;
 
 /// 5 trạng thái mục 6.
 enum MemoryStage { observed, captured, promoted, practicing, maintained }
@@ -366,7 +366,7 @@ class MemoryLifecycleEngine {
         unit.stage != MemoryStage.maintained) {
       return;
     }
-    final allLong = SkillDimension.values
+    final allLong = inputDimensions
         .every((d) => state.skill(d).interval > kMaintainedIntervalDays);
     if (allLong && unit.stage == MemoryStage.practicing) {
       _transition(unitId, MemoryStage.maintained,

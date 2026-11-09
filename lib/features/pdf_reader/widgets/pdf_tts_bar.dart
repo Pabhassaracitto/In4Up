@@ -9,22 +9,27 @@
 // localized_material EXPORT material (chỉ hide `Text` để thay bằng shim dịch
 // nhãn) — import thẳng material ở đây sẽ làm `Text` thành ambiguous và còn bỏ
 // qua catalog, nên chỉ import shim.
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
 
-import '../../ocr/ocr_flow.dart';
 import '../../ocr/ocr_service.dart';
 import '../pdf_reader_controller.dart';
-import '../services/pdf_page_ocr.dart';
+import 'pdf_ocr_sheet.dart';
 
 class PdfTtsBar extends StatelessWidget {
   final PdfReaderController controller;
   final VoidCallback? onUserInteraction;
+  final bool showWordlistPanel;
+  final VoidCallback? onToggleWordlist;
 
   const PdfTtsBar({
     super.key,
     required this.controller,
     this.onUserInteraction,
+    this.showWordlistPanel = false,
+    this.onToggleWordlist,
   });
 
   @override
@@ -49,6 +54,24 @@ class PdfTtsBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Nút mở/bấm bảng từ vựng — đặt ở đầu hàng để không chồng chéo
+          // với nút tốc độ đọc ở cuối thanh (issue UI Overlap).
+          if (showWordlistPanel && onToggleWordlist != null) ...[
+            _BarBtn(
+              icon: showWordlistPanel
+                  ? Icons.view_sidebar_rounded
+                  : Icons.view_sidebar_outlined,
+              tooltip: context.uiText(
+                showWordlistPanel ? 'Ẩn bảng từ vựng' : 'Hiện bảng từ vựng',
+              ),
+              onTap: () {
+                onUserInteraction?.call();
+                HapticFeedback.lightImpact();
+                onToggleWordlist!.call();
+              },
+            ),
+            const SizedBox(width: 10),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,22 +97,22 @@ class PdfTtsBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // OCR (ADR-0009 · KANBAN OCR-001): trang scan không có text layer
-          // thì extract-by-code chịu chết — hiện nút quét chữ ngay tại chỗ
-          // thông báo "Trang này là ảnh, không có chữ để đọc".
-          // Ẩn khi trang CÓ chữ (không bày nút thừa) và khi ML Kit không
-          // khả dụng (desktop/web — cùng nguyên tắc với nút ở text library).
-          // Hiện nút quét khi trang đọc dở không có chữ, HOẶC khi bản dò
-          // kết luận cả tài liệu là scan (F2) — PDF có lớp chữ thì không.
+          // OCR (ADR-0009 · KANBAN OCR-001 + PLAN-035 · PDF-OCR-002): trang
+          // scan không có text layer thì extract-by-code chịu chết — nút quét
+          // ngay tại chỗ thông báo "Trang này là ảnh, không có chữ để đọc".
+          // Bấm mở sheet chọn phạm vi: trang hiện tại (mặc định, nhanh như
+          // cũ) / khoảng trang / toàn bộ tài liệu.
+          // Ẩn khi trang CÓ chữ (không bày nút thừa — vào menu ⋮ nếu cần) và
+          // khi ML Kit không khả dụng (desktop/web).
           if ((controller.pageHasNoTextLayer || controller.isScannedDocument) &&
               OcrService.instance.isAvailable) ...[
             _BarBtn(
               icon: Icons.document_scanner_outlined,
-              tooltip: context.uiText('Quét chữ trang này'),
+              tooltip: context.uiText('Quét OCR (trang / toàn bộ)'),
               onTap: () {
                 onUserInteraction?.call();
                 HapticFeedback.mediumImpact();
-                _scanPageText(context);
+                _openOcrSheet(context);
               },
             ),
             const SizedBox(width: 4),
@@ -163,6 +186,19 @@ class PdfTtsBar extends StatelessWidget {
                     ),
             ),
           ),
+          if (paused) ...[
+            const SizedBox(width: 3),
+            _BarBtn(
+              key: const ValueKey('pdf-tts-stop'),
+              icon: Icons.stop_rounded,
+              tooltip: context.uiText('Dừng'),
+              onTap: () {
+                onUserInteraction?.call();
+                HapticFeedback.selectionClick();
+                unawaited(controller.stopReading());
+              },
+            ),
+          ],
           const SizedBox(width: 6),
           _BarBtn(
             icon: Icons.redo_rounded,
@@ -214,7 +250,7 @@ class PdfTtsBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '${controller.ttsSpeed.toStringAsFixed(1)}x',
+                context.uiText('${controller.ttsSpeed.toStringAsFixed(1)}x'),
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
@@ -231,60 +267,22 @@ class PdfTtsBar extends StatelessWidget {
   // Ghép từ các chuỗi NGUYÊN VĂN đã có trong catalog: `context.uiText` chỉ
   // khớp exact/template đã review, còn chuỗi nội suy tự do sẽ lọt tiếng Việt
   // sang locale khác (quy tắc vàng #5).
-  /// Render trang hiện tại ra pixels rồi OCR (ADR-0009 · KANBAN OCR-001).
+  /// Mở sheet chọn phạm vi quét OCR (PLAN-035 · PDF-OCR-002) rồi chạy batch.
   ///
-  /// Không ghi file ảnh tạm: `PdfPage.render()` trả BGRA8888 thô, khớp đúng
-  /// `InputImage.fromBitmap` của ML Kit → đưa thẳng sang native.
+  /// Trước đây nút này quét đúng MỘT trang hiện tại — sách scan phải bấm từng
+  /// trang. Sheet cho chọn trang hiện tại (mặc định) / khoảng trang / toàn bộ.
+  /// Kết quả vẫn đi qua preview/SỬA của OcrFlow trước khi nạp (ADR-0009).
   ///
-  /// Provenance: đường này KHÔNG có file ảnh nên `localPath` = null → vocab lưu
-  /// từ văn bản OCR của PDF sẽ không có nút reopen (degradation trung thực,
-  /// còn hơn trỏ ref vào file không tồn tại). Nguồn thật của trang vẫn là PDF
-  /// mà user đang mở.
-  Future<void> _scanPageText(BuildContext context) async {
-    final doc = controller.document;
-    if (doc == null) return;
-
-    // Capture trước khi await (use_build_context_synchronously).
-    final messenger = ScaffoldMessenger.of(context);
-    final pageIndex = controller.currentPage;
-    final title = controller.displayTitle;
-
-    // F2 — không bật OCR khi không cần: trang đã có lớp chữ thì quét lại chỉ
-    // tốn một vòng spinner để nhận về đúng thứ đang có.
-    if (await controller.pageHasExtractableText(pageIndex)) {
-      if (!context.mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-              context.uiText('Trang này đã có lớp chữ — không cần quét OCR')),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    if (!context.mounted) return;
-
-    final raster = await rasterizePdfPage(doc, pageIndex);
-    if (!context.mounted) return;
-
-    if (raster == null) {
-      // Chuỗi kỹ thuật ASCII đi sau mẫu 'Lỗi: {value0}' ĐÃ có trong catalog →
-      // uiText dịch được phần prefix, không cần thêm key ARB mới.
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(context.uiText('Lỗi: render failed (page $pageIndex)')),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    await OcrFlow.runOnBitmap(
-      context,
-      pixels: raster.pixels,
-      width: raster.width,
-      height: raster.height,
-      suggestedTitle: title,
+  /// Provenance: đường PDF-bitmap KHÔNG có file ảnh nên `localPath` = null →
+  /// vocab lưu từ văn bản OCR của PDF sẽ không có nút reopen (degradation
+  /// trung thực). Nguồn thật của trang vẫn là PDF mà user đang mở.
+  Future<void> _openOcrSheet(BuildContext context) async {
+    final request = await PdfOcrSheet.show(context, controller: controller);
+    if (request == null || !context.mounted) return;
+    await runPdfOcrBatchFlow(
+      context: context,
+      controller: controller,
+      request: request,
     );
   }
 
@@ -318,6 +316,7 @@ class _BarBtn extends StatelessWidget {
   final bool active;
 
   const _BarBtn({
+    super.key,
     required this.icon,
     required this.tooltip,
     this.onTap,
@@ -405,7 +404,7 @@ class TtsSpeedPickerSheet {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${speed}x',
+                        context.uiText('${speed}x'),
                         style: TextStyle(
                           color: selected ? Colors.white : Colors.grey,
                           fontWeight:

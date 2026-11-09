@@ -8,20 +8,25 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:in4up/core/language/localized_material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_win_floating/webview_win_floating.dart';
 
 import '../../features/grammar/grammar.dart';
 import '../../features/writing/models/writing_source_request.dart';
+import '../../screens/read_mode/sheets/read_selection_sheets.dart';
 import '../../models/color_mode.dart';
 import '../../models/vocab_context.dart';
+import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../widgets/selection_save_sheet.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
 import 'widgets/web_extraction_batch_sheet.dart';
+import 'widgets/web_page_translate_sheet.dart';
 import 'widgets/web_reader_home_view.dart';
+import '../../utils/system_insets.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
 
@@ -441,6 +446,58 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       debugPrint('WebReaderScreen: extract error: $e');
       return null;
     }
+  }
+
+  Future<String?> _extractPageText() async {
+    try {
+      final raw = await _runJSReturning(WebReaderJS.extractPageTextScript);
+      if (raw == null) return null;
+
+      var text = raw.toString();
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is String) text = decoded;
+      } catch (_) {
+        // Some WebView implementations return an already-unquoted string.
+      }
+      final paragraphs = text
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .split(RegExp(r'\n\s*\n+'))
+          .map((paragraph) => paragraph
+              .replaceAll(RegExp(r'\n+'), ' ')
+              .replaceAll(RegExp(r' +'), ' ')
+              .trim())
+          .where((paragraph) => paragraph.isNotEmpty)
+          .toList();
+      text = paragraphs.join('\n\n');
+      return text.isEmpty ? null : text;
+    } catch (e) {
+      debugPrint('WebReaderScreen: page text extract error: $e');
+      return null;
+    }
+  }
+
+  Future<void> _translatePage() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+
+    final text = await _extractPageText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack(context.uiText('Không tìm thấy văn bản trong trang.'));
+      return;
+    }
+
+    final textProvider = context.read<TextProvider>();
+    await WebPageTranslateSheet.show(
+      context,
+      text: text,
+      targetCode: textProvider.translationTargetLanguage.translationCode,
+      sourceCode: textProvider.translationSourceIsPinned
+          ? textProvider.translationSourceLanguage.translationCode
+          : null,
+      sourceTitle: _controller.pageTitle,
+    );
   }
 
   Future<void> _listenToArticle() async {
@@ -1007,6 +1064,76 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
+  /// Dịch cụm đang bôi chọn, dùng chung cặp ngôn ngữ và sheet dịch của tab Đọc.
+  Future<void> _translateSelection() async {
+    final selection = _selectionText.trim();
+    if (selection.isEmpty || _showDashboard) return;
+
+    final textProvider = context.read<TextProvider>();
+    await ReadSelectionTranslateSheet.show(
+      context,
+      text: selection,
+      targetCode: textProvider.translationTargetLanguage.translationCode,
+      sourceCode: textProvider.translationSourceIsPinned
+          ? textProvider.translationSourceLanguage.translationCode
+          : null,
+    );
+  }
+
+  /// Lưu cả bài đọc hiện tại thành file âm thanh (TTS → file, không phát),
+  /// rồi có thể mở trong tab Nghe để học với tốc độ chậm / A-B loop.
+  Future<void> _saveArticleAsAudio() async {
+    if (_controller.state != WebReaderState.ready || _showDashboard) return;
+    _showSnack(context.uiText('⏳ Đang tạo file âm thanh…'), duration: 1);
+    final text = await _extractMainArticleText();
+    if (!mounted) return;
+    if (text == null || text.isEmpty) {
+      _showSnack(context.uiText('❌ Không thể lấy nội dung bài để tạo âm thanh'));
+      return;
+    }
+    final dir = Directory(
+        '${(await getApplicationDocumentsDirectory()).path}/web_reader_audio');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    final title = _controller.pageTitle.trim().isEmpty
+        ? _controller.currentUrl
+        : _controller.pageTitle.trim();
+    // Piper/Edge có giới hạn độ dài — cắt ở 20.000 ký tự cho an toàn
+    final capped = text.length > 20000 ? text.substring(0, 20000) : text;
+    final path = await _controller.synthesizeTextToFile(
+      capped,
+      pathWithoutExtension: '${dir.path}/${_sanitizeFileName(title)}',
+    );
+    if (!mounted) return;
+    if (path == null) {
+      _showSnack(context.uiText('❌ Không lưu được file âm thanh'));
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('✅ Đã lưu âm thanh bài đọc')),
+        action: SnackBarAction(
+          label: context.uiText('Mở trong tab Nghe'),
+          onPressed: () {
+            context.read<PlayerProvider>().loadSong(
+                  path: path,
+                  title: title,
+                  autoPlay: true,
+                );
+          },
+        ),
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  static String _sanitizeFileName(String name) {
+    final cleaned = name
+        .replaceAll(RegExp(r'[<>:\"/\\|?*]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return cleaned.substring(0, cleaned.length.clamp(0, 80));
+  }
+
   void _openSelectionInTextStudio() {
     if (widget.writingMode) {
       _sendSelectionToWriting();
@@ -1048,6 +1175,9 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _extractTextToStudio();
         }
         break;
+      case 'saveAudio':
+        _saveArticleAsAudio();
+        break;
     }
   }
 
@@ -1082,103 +1212,24 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0D1117),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              color: Colors.white, size: 18),
-          onPressed: () => Navigator.pop(context),
-          tooltip: context.uiText('Quay lại'),
-        ),
-        titleSpacing: 0,
-        title: !_showDashboard && _controller.state == WebReaderState.loading
-            ? LinearProgressIndicator(
-                value: _controller.loadingProgress < 1.0
-                    ? _controller.loadingProgress
-                    : null,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF2196F3)),
-                minHeight: 2,
-              )
-            : widget.writingMode
-                ? const _WritingModeTitle()
-                : null,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),
-            onPressed: _showDashboard || _controller.currentUrl.isEmpty
-                ? null
-                : () {
-                    final url = _controller.currentUrl;
-                    if (url.isNotEmpty) {
-                      _navigate(url);
-                    }
-                  },
-          ),
-          if (!_showDashboard && _controller.currentUrl.isNotEmpty)
-            PopupMenuButton<String>(
-              color: const Color(0xFF151B26),
-              tooltip: context.uiText('Tác vụ bài đọc'),
-              onSelected: _handlePageAction,
-              itemBuilder: (context) {
-                final isPinned =
-                    _controller.isArticlePinned(_controller.currentUrl);
-                final isCompleted =
-                    _controller.isArticleCompleted(_controller.currentUrl);
-                return [
-                  PopupMenuItem(
-                    value: 'pinArticle',
-                    child: Text(isPinned ? 'Bỏ ghim bài này' : 'Ghim bài này'),
-                  ),
-                  PopupMenuItem(
-                    value: 'toggleCompleted',
-                    child: Text(
-                      isCompleted
-                          ? 'Đánh dấu chưa đọc xong'
-                          : 'Đánh dấu đọc xong',
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'editNote',
-                    child: Text(
-                      _controller.hasArticleNote(_controller.currentUrl)
-                          ? 'Sửa ghi chú bài này'
-                          : 'Thêm ghi chú bài này',
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'batchPage',
-                    child: Text('Tạo batch WordList từ bài này'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'saveToCollection',
-                    child: Text('Lưu vào nhóm'),
-                  ),
-                  PopupMenuItem(
-                    value: 'extractText',
-                    child: Text(
-                      widget.writingMode
-                          ? 'Dùng cả bài để luyện Viết'
-                          : 'Mở trong Text Studio',
-                    ),
-                  ),
-                ];
-              },
-            ),
-        ],
-      ),
       body: Column(
         children: [
           WebReaderToolbar(
             controller: _controller,
+            onExit: () => Navigator.pop(context),
             onNavigate: _navigate,
+            onRefresh: () {
+              final url = _controller.currentUrl;
+              if (url.isNotEmpty) _navigate(url);
+            },
+            onTranslatePage: _translatePage,
             onExtractText: widget.writingMode
                 ? _sendArticleToWriting
                 : _extractTextToStudio,
             onSavePageToCollection: _saveCurrentPageToCollection,
             onOpenGrammarSettings: _openGrammarSettings,
             onListenArticle: _listenToArticle,
+            onPageAction: _handlePageAction,
             showingDashboard: _showDashboard,
             writingMode: widget.writingMode,
           ),
@@ -1261,7 +1312,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
 
   Widget _buildColorLegend() {
     return Positioned(
-      bottom: 16,
+      // SAFE-INSET-001: route toàn màn hình ⇒ cộng inset thanh điều hướng.
+      bottom: bottomInsetOffset(context, 16),
       left: 16,
       child: Container(
         padding: const EdgeInsets.all(8),
@@ -1286,7 +1338,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
   /// Legend marker "từ đã lưu" — chỉ hiện khi BẬT (READ-630-03).
   Widget _buildRecallLegend() {
     return Positioned(
-      bottom: _controller.isHighlightActive ? 48 : 16,
+      // SAFE-INSET-001: route toàn màn hình ⇒ cộng inset thanh điều hướng.
+      bottom: bottomInsetOffset(context, _controller.isHighlightActive ? 48 : 16),
       left: 16,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1322,7 +1375,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text('${_controller.ttsSpeed.toStringAsFixed(1)}x', style: const TextStyle(color: Colors.white60, fontSize: 11)),
+          Text(context.uiText('${_controller.ttsSpeed.toStringAsFixed(1)}x'), style: const TextStyle(color: Colors.white60, fontSize: 11)),
           IconButton(
             tooltip: paused ? 'Tiếp tục' : 'Tạm dừng',
             icon: Icon(paused ? Icons.play_arrow : Icons.pause, color: Colors.white, size: 21),
@@ -1357,7 +1410,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
         children: [
           Expanded(
             child: Text(
-              '"$_selectionText"',
+              context.uiText('"$_selectionText"'),
               style: const TextStyle(color: Colors.white, fontSize: 13),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1386,6 +1439,12 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             onTap: () => _controller.speakText(_selectionText),
           ),
           const SizedBox(width: 6),
+          _SelectionActionButton(
+            icon: Icons.translate_rounded,
+            tooltip: context.uiText('Dịch đoạn đang chọn'),
+            onTap: _translateSelection,
+          ),
+          const SizedBox(width: 6),
           _SelectionMoreButton(
             onSaveToWordList: _saveSelectionToWordList,
             onSaveToMemory: _saveSelectionToMemory,
@@ -1404,44 +1463,6 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _WritingModeTitle extends StatelessWidget {
-  const _WritingModeTitle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: const Color(0xFF26C6DA).withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: const Color(0xFF26C6DA).withValues(alpha: 0.32),
-            ),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.edit_square, color: Color(0xFF80DEEA), size: 14),
-              SizedBox(width: 6),
-              Text(
-                'Nguồn cho Viết',
-                style: TextStyle(
-                  color: Color(0xFF80DEEA),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

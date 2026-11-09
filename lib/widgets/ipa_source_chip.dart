@@ -4,6 +4,8 @@ import 'package:in4up/core/language/localized_material.dart';
 /// Chip nhỏ chứng minh nguồn IPA của từ đã lưu — READ-IPA-002.
 ///
 /// mdx = xanh dương · cmu = xám · g2p = vàng · user = tím (ADR-0005).
+/// online = xanh lá (WORD-INSIGHT-001: IPA lấy từ từ điển trên mạng trước khi
+/// rơi xuống MDX/CMU/G2P).
 /// Nguồn lạ / rỗng → không render gì.
 class IpaSourceChip extends StatelessWidget {
   final String source;
@@ -23,6 +25,9 @@ class IpaSourceChip extends StatelessWidget {
     } else if (source == 'g2p') {
       color = const Color(0xFFFFB74D);
       label = 'G2P';
+    } else if (source == 'online') {
+      color = const Color(0xFF4CAF50);
+      label = 'WEB';
     } else if (source == 'user') {
       color = const Color(0xFFCE93D8);
       label = 'Bạn';

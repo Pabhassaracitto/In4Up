@@ -1,8 +1,8 @@
 // lib/screens/read_mode/sheets/line_edit_sheet.dart
 
 import 'package:in4up/core/language/localized_material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../providers/text_provider.dart';
 
@@ -122,7 +122,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
 
     Navigator.pop(context);
 
-    HapticFeedback.lightImpact();
+    SafeHaptics.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -130,7 +130,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
             const Icon(Icons.check_circle, color: Colors.green, size: 16),
             const SizedBox(width: 8),
             Text(context.uiText(contentLines.length > 1
-                ? 'Đã tách thành ${contentLines.length} dòng'
+                ? context.uiText('Đã tách thành ${contentLines.length} dòng')
                 : 'Đã lưu chỉnh sửa')),
           ],
         ),
@@ -195,20 +195,10 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                     ),
                   ],
                   const Spacer(),
-                  // Nút xóa dòng
-                  GestureDetector(
-                    onTap: _confirmDelete,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.delete_outline,
-                          size: 16, color: Colors.red),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
+                  // IN4-36: XÓA KHÔNG còn nằm cạnh nút đóng X ở header
+                  // (người dùng dễ bấm nhầm Xóa khi chỉ muốn đóng bảng).
+                  // Nút Xóa chuyển xuống hàng nút dưới, GÓC TRÁI, cách xa
+                  // mọi nút đóng/huỷ — và vẫn có dialog xác nhận.
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child:
@@ -279,8 +269,26 @@ class _LineEditSheetState extends State<_LineEditSheet> {
               const SizedBox(height: 14),
 
               // ── Buttons ──────────────────────────────────────
+              // IN4-36: Xóa dòng ở GÓC TRÁI (harmful action tách riêng),
+              // cách xa nút đóng X (header) và nút Huỷ/Lưu (bên phải).
               Row(
                 children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _confirmDelete,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: BorderSide(
+                            color: Colors.red.withValues(alpha: 0.45)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: const Text('Xoá dòng'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
@@ -323,29 +331,61 @@ class _LineEditSheetState extends State<_LineEditSheet> {
   // Confirm delete
   // ─────────────────────────────────────────────────────────
 
+  // IN4-36: nút Xóa đã tách xa nút đóng — đây là LỚP PHÒNG THỦ thứ hai:
+  // xác nhận hiển thị rõ nội dung dòng + cảnh báo không hoàn tác được.
   void _confirmDelete() {
+    final preview = _contentCtrl.text.trim();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: const Text('Xoá dòng?',
             style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: Text(
-          '"${_contentCtrl.text.substring(0, _contentCtrl.text.length.clamp(0, 60))}..."',
-          style: TextStyle(color: Colors.grey[400], fontSize: 13),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('"${preview.isEmpty ? '…' : preview.substring(0, preview.length.clamp(0, 80))}${preview.length > 80 ? '…' : ''}"'),
+              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    size: 16, color: Colors.orange),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.uiText('Hành động này không thể hoàn tác.'),
+                    style:
+                        const TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         actions: [
+          // Nút an toàn (Huỷ) ở bên PHẢI cuối = vị trí "mặc định" — giảm
+          // nguy cơ bấm nhầm xoá khi vội.
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Huỷ'),
+            child: const Text('Giữ lại'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () {
               Navigator.pop(context); // đóng dialog
               context.read<TextProvider>().deleteLine(widget.lineIndex);
               Navigator.pop(context); // đóng sheet
             },
-            child: const Text('Xoá', style: TextStyle(color: Colors.red)),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Xoá dòng'),
           ),
         ],
       ),

@@ -2,7 +2,6 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/vocabulary_provider.dart';
-import '../../widgets/auto_hide_banner.dart';
 import 'memory_tab_connector.dart';
 import 'widgets/remember_workspace_header.dart';
 
@@ -37,24 +36,24 @@ class RememberWorkspaceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        AutoHideInfoBanner(
-          storageKey: 'remember_workspace_header',
-          autoHideAfter: const Duration(seconds: 5),
-          child: Consumer<VocabularyProvider>(
-            builder: (context, vocab, _) {
-              return RememberWorkspaceHeader(
-                dueCount: vocab.dueCount,
-                totalWords: vocab.wordCount,
-                onOpenReview: onOpenReview,
-                onOpenLearnByHeart: onOpenLearnByHeart,
-                onOpenWordList: onOpenWordList,
-                onOpenTimeline: onOpenTimeline,
-                onOpenStats: onOpenStats,
-                onOpenMap: onOpenMap,
-                onOpenQuickActions: onOpenQuickActions,
-              );
-            },
-          ),
+        // AUDIT-2026-10-20 (mục 3): BỎ `AutoHideInfoBanner` (tự ẩn sau 5
+        // giây) — người dùng chưa kịp chọn thì cả thanh chức năng biến
+        // mất. Thay bằng cơ chế GỘP/BUNG bằng mũi tên (như thanh phát
+        // trong vùng đọc): mặc định gọn, bấm mũi tên để bung ra.
+        Consumer<VocabularyProvider>(
+          builder: (context, vocab, _) {
+            return RememberWorkspaceHeader(
+              dueCount: vocab.dueCount,
+              totalWords: vocab.wordCount,
+              onOpenReview: onOpenReview,
+              onOpenLearnByHeart: onOpenLearnByHeart,
+              onOpenWordList: onOpenWordList,
+              onOpenTimeline: onOpenTimeline,
+              onOpenStats: onOpenStats,
+              onOpenMap: onOpenMap,
+              onOpenQuickActions: onOpenQuickActions,
+            );
+          },
         ),
         const Expanded(
           child: MemoryTabConnector(),

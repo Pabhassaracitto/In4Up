@@ -2,6 +2,65 @@ import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
 
+enum TipitakaCatalogSection {
+  canonical('Tam Tạng Chính Văn'),
+  commentary('Chú Giải'),
+  subcommentary('Phụ Chú'),
+  extraCanonical('Tạng Ngoại'),
+  sriLanka('Tuyển Tập Sách Tích Lan');
+
+  const TipitakaCatalogSection(this.labelKey);
+  final String labelKey;
+
+  static TipitakaCatalogSection classify(TipitakaBook book) {
+    final fields = <String>[];
+    final rawMetadata = book.metadataJson?.trim();
+    if (rawMetadata != null && rawMetadata.isNotEmpty) {
+      try {
+        final metadata = jsonDecode(rawMetadata);
+        if (metadata is Map) {
+          for (final key in const [
+            'catalog_section', 'catalog_group', 'category', 'collection',
+            'edition', 'tradition', 'source',
+          ]) {
+            final value = metadata[key];
+            if (value is String) fields.add(value);
+          }
+        }
+      } on FormatException {
+        // Legacy metadata is not always JSON; code and title remain usable.
+      }
+    }
+    final index = book.catalogIndex;
+    fields.addAll([book.code, book.namePali, book.nameEn, book.nameVi,
+      index.sourceTable, index.editionCode]);
+    final text = fields.join(' ').toLowerCase().replaceAll('_', ' ');
+    if (RegExp(r'sri.?lanka|sinhala|mahavamsa|dipavamsa|chronicle')
+        .hasMatch(text)) {
+      return TipitakaCatalogSection.sriLanka;
+    }
+    if (RegExp(
+      r'extra.?canonical|non.?canonical|paritta|grammar|dictionary|history|'
+      r'visuddhimagga|vism\w*|\bvsm\w*|path.?of.?purification|thanh.?tinh.?dao|'
+      r'thanh.?tịnh.?đạo|'
+      r'ledi.?sayadaw|\bsayadaw\b|\bled\w*\b|buddhist.?council|council.?questions?|'
+      r'questions?.{0,30}answers?.{0,30}council|sa[ṅn]g[iī]ti|sangiti|'
+      r'kết.?tập.?kinh.?điển|vấn.?đáp|ket.?tap.?kinh.?dien',
+    ).hasMatch(text)) {
+      return TipitakaCatalogSection.extraCanonical;
+    }
+    if (index.editionCode == 'TIK' ||
+        RegExp(r'(sub.?commentary|ṭīkā|tīkā|tika)').hasMatch(text)) {
+      return TipitakaCatalogSection.subcommentary;
+    }
+    if (index.editionCode == 'ATT' ||
+        RegExp(r'(commentary|aṭṭhakathā|atthakatha)').hasMatch(text)) {
+      return TipitakaCatalogSection.commentary;
+    }
+    return TipitakaCatalogSection.canonical;
+  }
+}
+
 class TipitakaBook extends Equatable {
   final int id;
   final int collectionId;
@@ -51,37 +110,71 @@ class TipitakaBook extends Equatable {
       );
 
   TipitakaBookIndex get catalogIndex => TipitakaBookIndex.fromBook(this);
+  TipitakaCatalogSection get catalogSection =>
+      TipitakaCatalogSection.classify(this);
+
+  /// The bundled sample is retained as a fallback, but must not stay visible
+  /// beside a real imported catalogue.
+  bool get isDemo {
+    final text = [code, namePali, nameEn, nameVi, metadataJson ?? '']
+        .join(' ')
+        .toLowerCase();
+    return code.trim().toUpperCase() == 'DEMO' ||
+        RegExp(r'\bdemo\b|bản\s+demo|sample\s+import').hasMatch(text);
+  }
 
   /// Main catalogue titles must describe content, never expose a Pa-Auk table
   /// identifier such as `ABH01A_ATT`. Technical codes remain available through
   /// [catalogIndex] for the details/debug sheet and source anchors.
   String displayTitle(String languageCode) {
-    final candidates = languageCode == 'vi'
-        ? [
-            contentTitleLocale,
-            contentTitleVi,
-            contentTitlePali,
-            contentTitleEn,
-            nameVi,
-            namePali,
-            nameEn,
-          ]
-        : [
-            contentTitleLocale,
-            contentTitleEn,
-            contentTitlePali,
-            contentTitleVi,
-            nameEn,
-            namePali,
-            nameVi,
-          ];
+    final language = languageCode.trim().toLowerCase().replaceAll('_', '-');
+    final candidates = switch (language) {
+      'vi' => [
+          contentTitleLocale,
+          contentTitleVi,
+          contentTitlePali,
+          contentTitleEn,
+          nameVi,
+          namePali,
+          nameEn,
+        ],
+      'pi' => [
+          contentTitleLocale,
+          contentTitlePali,
+          contentTitleEn,
+          contentTitleVi,
+          namePali,
+          nameEn,
+          nameVi,
+        ],
+      'en' => [
+          contentTitleLocale,
+          contentTitleEn,
+          contentTitlePali,
+          contentTitleVi,
+          nameEn,
+          namePali,
+          nameVi,
+        ],
+      _ => [
+          contentTitleLocale,
+          contentTitlePali,
+          contentTitleEn,
+          contentTitleVi,
+          namePali,
+          nameEn,
+          nameVi,
+        ],
+    };
     for (final value in candidates) {
-      final title = value.trim();
+      final title = _cleanTipitakaTitle(value);
       if (title.isNotEmpty && !_looksTechnical(title)) return title;
     }
-    return languageCode == 'vi'
+    return language == 'vi'
         ? 'Tuyển tập chính văn ${orderIndex + 1}'
-        : 'Canonical collection ${orderIndex + 1}';
+        : language == 'pi'
+            ? 'Pāḷi saṅgaha ${orderIndex + 1}'
+            : 'Canonical collection ${orderIndex + 1}';
   }
 
   bool isTechnicalTitle(String value) => _looksTechnical(value);
@@ -194,7 +287,28 @@ class TipitakaBookIndex {
     }
   }
 
+  /// Edition-independent family (`VIN01M`/`VIN01A`/`VIN01T` → `VIN01`).
+  String get parallelFamilyCode {
+    final match = RegExp(r'^([A-Z]{2,6}\d{1,3})[MAT]$').firstMatch(canonicalCode);
+    return match?.group(1) ?? canonicalCode;
+  }
+
   String get compactLabel => editionCode.isEmpty
       ? canonicalCode
       : '$canonicalCode · $editionCode';
 }
+
+/// Database titles can come from raw CSCD HTML/XML (`<p rend="book">…`).
+/// Keep rendering safe and readable even when an older importer did not
+/// normalize the title column.
+String _cleanTipitakaTitle(String value) => value
+    .replaceAll('&amp;', '&')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&nbsp;', ' ')
+    .replaceAll('&quot;', '"')
+    .replaceAll(RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false), ' ')
+    .replaceAll(RegExp(r'<[^>]*>'), ' ')
+    .replaceAll('&#39;', "'")
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim();

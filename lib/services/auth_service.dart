@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
@@ -68,20 +69,20 @@ class AuthService {
   String? get email => currentUserInfo?.email;
   String? get photoUrl => currentUserInfo?.photoUrl;
 
-  Stream<AppUser?>? _unifiedAuthState;
-
   /// Stream đăng nhập thống nhất: plugin nếu có, REST nếu không (Linux).
   /// Mỗi subscriber nhận trạng thái hiện tại ngay khi đăng ký.
+  ///
+  /// Không cache stream trả về: REST fallback tạo một single-subscription
+  /// controller cho mỗi subscriber. Cache một instance rồi để Home, sync và
+  /// logger cùng listen sẽ ném `Stream has already been listened to`; ngay cả
+  /// khi Home được mount lại sau khi đổi tab cũng có thể gặp lỗi tương tự.
   Stream<AppUser?> get authStateChanges {
-    if (_unifiedAuthState != null) return _unifiedAuthState!;
     if (isPluginAuthAvailable) {
-      _unifiedAuthState = _auth
+      return _auth
           .authStateChanges()
           .map<AppUser?>((u) => u == null ? null : _appUserFromFirebase(u));
-    } else {
-      _unifiedAuthState = FirebaseRestAuth().authStateChanges;
     }
-    return _unifiedAuthState!;
+    return FirebaseRestAuth().authStateChanges;
   }
 
   /// ID token hiện hành (plugin hoặc REST backend) — dùng cho REST calls.
@@ -166,54 +167,152 @@ class AuthService {
 
   // ─── Google Sign In (cross-platform) ─────────────────────
   Future<AppUser?> signInWithGoogle() async {
+    // Firebase's redirect flow depends on sessionStorage state. In browsers
+    // that partition/clear storage (privacy mode, embedded webviews), the
+    // hosted /_auth/handler fails with "missing initial state". Use a popup
+    // flow on Flutter Web; it never relies on redirect session state.
+    if (kIsWeb) return _signInWithGoogleWeb();
     if (_isDesktop) {
       return _signInWithGoogleDesktop();
     }
     return _signInWithGoogleMobile();
   }
 
-  // ─── Mobile: dùng google_sign_in package ─────────────────
-  Future<AppUser?> _signInWithGoogleMobile() async {
+  // ─── Web: Firebase popup (không dùng signInWithRedirect) ─────────
+  Future<AppUser?> _signInWithGoogleWeb() async {
     try {
-      final serverId = _webClientId;
-      debugPrint('🔥 Auth Mobile: flavor=$_flavor, serverClientId=$serverId');
+      final auth = _auth;
+      // Start the popup directly from the user gesture. Firebase's default
+      // persistence is retained; unlike redirect auth, this flow does not
+      // need a sessionStorage redirect-state round trip.
+      final provider = GoogleAuthProvider()
+        ..addScope('email')
+        ..setCustomParameters({'prompt': 'select_account'});
+      final UserCredential result;
+      if (auth.currentUser?.isAnonymous == true) {
+        result = await auth.currentUser!.linkWithProvider(provider);
+      } else {
+        result = await auth.signInWithPopup(provider);
+      }
+      final user = result.user;
+      return user == null ? null : _appUserFromFirebase(user);
+    } on FirebaseAuthException catch (e, st) {
+      debugPrint('[in4up-auth] Web popup FirebaseAuthException ${e.code}: ${e.message}\n$st');
+      throw AuthException('Đăng nhập Google trên web thất bại (${e.code}): ${e.message}');
+    } catch (e, st) {
+      debugPrint('[in4up-auth] Web popup error: $e\n$st');
+      if (e is AuthException) rethrow;
+      throw AuthException('Không mở được cửa sổ đăng nhập Google: $e');
+    }
+  }
 
-      _googleSignIn ??= GoogleSignIn(
-        scopes: ['email', 'profile', 'openid'],
-        serverClientId: serverId,
+  // ─── Mobile: dùng google_sign_in package ─────────────────
+  /// Trạng thái đăng nhập + ngữ cảnh build — để logcat trả lời NGAY 3 câu
+  /// hỏi khi điều tra IN4-15:
+  ///  1. app đang chạy bản nào (applicationId = com.in4up | .dev | .beta)?
+  ///  2. phiên đăng nhập đã được KHÔI PHỤC chưa (avatar có hiện)?
+  ///  3. auth lỗi ở bước nào (đăng nhập mới vs khôi phục phiên)?
+  ///
+  /// Gọi 1 lần lúc app khởi động + mỗi lần trạng thái auth đổi.
+  Future<void> logAuthState(String phase, [Object? error]) async {
+    try {
+      final info = currentUserInfo;
+      debugPrint(
+        '[in4up-auth] STATE[$phase] '
+        'flavor=$_flavor signedIn=${info != null} '
+        'uid=${info?.uid ?? "-"} email=${info?.email ?? "-"} '
+        'plugin=${isPluginAuthAvailable}'
+        '${error == null ? '' : ' error=$error'}',
       );
+    } catch (e) {
+      debugPrint('[in4up-auth] STATE[$phase] lỗi khi đọc trạng thái: $e');
+    }
+  }
 
-      final GoogleSignInAccount? googleUser = await _googleSignIn!.signIn();
-      if (googleUser == null) {
-        debugPrint('⚠️ Auth: user cancelled Google sign-in');
-        return null;
+  /// IN4-79/LOGIN-CRASH-002: tách 4 bước rõ ràng, mỗi bước có log tag
+  /// `[in4up-auth]` để logcat (`adb logcat | grep in4up-auth`) chỉ đúng bước
+  /// chết — không còn "văng app" mà không biết lỗi ở đâu. Mọi lỗi Dart
+  /// được bọc thành AuthException kèm hành động, không để crash trần.
+  Future<AppUser?> _signInWithGoogleMobile() async {
+    final sw = Stopwatch()..start();
+    debugPrint(
+        '[in4up-auth] ===== BEGIN Google sign-in (mobile) flavor=$_flavor =====');
+    debugPrint(
+        '[in4up-auth] env: serverClientId=$_webClientId pluginAuth=${isPluginAuthAvailable}');
+    try {
+      // [1/4] Khởi tạo GoogleSignIn
+      GoogleSignIn gs;
+      try {
+        gs = GoogleSignIn(
+          scopes: ['email', 'profile', 'openid'],
+          serverClientId: _webClientId,
+        );
+        _googleSignIn = gs;
+        debugPrint('[in4up-auth] [1/4] GoogleSignIn tạo OK');
+      } catch (e, st) {
+        debugPrint('[in4up-auth] [1/4] TẠO GoogleSignIn LỖI: $e\n$st');
+        throw AuthException(
+          'Không khởi tạo được Google Sign-In ($e). '
+          'Khởi động lại app rồi thử lại.',
+        );
       }
 
-      debugPrint('🔥 Auth Mobile: googleUser=${googleUser.email}');
+      // [2/4] Màn chọn tài khoản Google
+      final GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await gs.signIn();
+        debugPrint('[in4up-auth] [2/4] signIn() trả về: '
+            '${googleUser == null ? "bỏ qua" : googleUser.email}');
+      } on PlatformException catch (e, st) {
+        debugPrint('[in4up-auth] [2/4] signIn() PlatformException '
+            'code=${e.code} message=${e.message} details=${e.details}\n$st');
+        if (e.code == 'canceled' || e.code == 'sign_in_canceled') {
+          return null; // người dùng tự đóng màn Google
+        }
+        throw AuthException(
+          'Google Sign-In lỗi trên thiết bị (code ${e.code}): ${e.message}\n'
+          '• Kiểm tra Google Play Services có đủ mới không (Cửa hàng → Play Services).\n'
+          '• Chi tiết: ${e.details ?? e}',
+        );
+      } catch (e, st) {
+        debugPrint('[in4up-auth] [2/4] signIn() LỖI: $e\n$st');
+        if (e is AuthException) rethrow;
+        throw AuthException('Không mở được đăng nhập Google: $e');
+      }
+      if (googleUser == null) return null;
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
+      // [3/4] Lấy ID token (chơi vơi bước này nếu SHA-1/OAuth client sai)
+      final GoogleSignInAuthentication googleAuth;
+      try {
+        googleAuth = await googleUser.authentication;
+      } catch (e, st) {
+        debugPrint('[in4up-auth] [3/4] authentication LỖI: $e\n$st');
+        if (e is AuthException) rethrow;
+        throw AuthException('Lấy credential từ Google thất bại: $e');
+      }
       debugPrint(
-          '🔥 Auth Mobile: idToken present=${googleAuth.idToken != null}, accessToken present=${googleAuth.accessToken != null}');
+          '[in4up-auth] [3/4] idToken present=${googleAuth.idToken != null}, accessToken present=${googleAuth.accessToken != null}');
 
       if (googleAuth.idToken == null) {
         debugPrint('❌ Auth Mobile: idToken is null! Check SHA1/SHA256 in Firebase Console and serverClientId');
         throw AuthException(
           'Không lấy được ID token từ Google. '
           'Kiểm tra:\n'
-          '1. SHA-1/SHA-256 đã thêm vào Firebase Console chưa? (Project Settings > Your apps)\n'
-          '2. Google Sign-In provider đã bật trong Firebase Console > Authentication > Sign-in method chưa?\n'
+          '1. SHA-1/SHA-256 của BẢN ĐANG CÀI có trong Firebase Console chưa? '
+          '(Project Settings > Your apps > SHA certificate fingerprints)\n'
+          '2. Google Sign-In provider đã bật trong Authentication > Sign-in method chưa?\n'
           '3. serverClientId=$_webClientId có đúng Web client không?',
         );
       }
 
+      // [4/4] Đăng nhập Firebase
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-
       final user = await _signInToFirebase(credential);
+      debugPrint(
+          '[in4up-auth] ===== DONE OK after ${sw.elapsedMilliseconds}ms =====');
       return user == null ? null : _appUserFromFirebase(user);
     } on FirebaseAuthException catch (e, st) {
       debugPrint('❌ Auth Mobile: FirebaseAuthException ${e.code} ${e.message}\n$st');
@@ -231,7 +330,8 @@ class AuthService {
       }
       throw AuthException('Lỗi Firebase Auth (${e.code}): ${e.message}');
     } catch (e, st) {
-      debugPrint('❌ Auth: mobile Google error: $e\n$st');
+      debugPrint(
+          '[in4up-auth] ===== FAILED after ${sw.elapsedMilliseconds}ms: $e\n$st');
       if (e is AuthException) rethrow;
       throw AuthException('Lỗi đăng nhập Google: $e');
     }

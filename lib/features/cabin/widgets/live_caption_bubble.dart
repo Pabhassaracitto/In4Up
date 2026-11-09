@@ -203,7 +203,7 @@ class _LiveCaptionBubbleState extends State<LiveCaptionBubble>
                 Row(
                   children: [
                     Text(
-                      '${_service.sourceLanguage.toUpperCase()} ➔ ${_service.targetLanguage.toUpperCase()}',
+                      context.uiText('${_service.sourceLanguage.toUpperCase()} ➔ ${_service.targetLanguage.toUpperCase()}'),
                       style: const TextStyle(
                         color: Color(0xFF00E676),
                         fontSize: 9,

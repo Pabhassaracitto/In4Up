@@ -8,8 +8,24 @@ import 'package:path/path.dart' as path;
 import '../ffi/ultra_engine_ffi_v2.dart';
 import '../models/playback_state.dart';
 
+/// Narrow playback boundary used by the queue coordinator and fake players.
+/// [play] starts playback; it does not wait for the track to finish.
+abstract class AudioPlaybackPort {
+  Stream<PlaybackState> get stateStream;
+  PlaybackState get currentState;
+  Future<bool> loadFile(String filePath);
+  Future<void> play();
+  Future<void> pause();
+  Future<void> stop();
+  Future<void> seek(Duration position);
+  Future<void> setSpeed(double speed);
+  Future<void> setPitch(double semitones);
+  Future<void> setVolume(double volume);
+  Future<void> dispose();
+}
+
 /// Audio Player Service with UltraTimeStretch V2 Engine
-class AudioPlayerService {
+class AudioPlayerService implements AudioPlaybackPort {
   static AudioPlayerService? _instance;
 
   late final UltraEngineFFIV2 _engineV2; // ← V2 Engine
@@ -20,6 +36,9 @@ class AudioPlayerService {
   );
 
   bool _engineInitialized = false;
+  bool _disposed = false;
+  int _sourceGeneration = 0;
+  int _transportGeneration = 0;
 
   // Speed range (V2 hỗ trợ extreme speeds)
   static const double minSpeed = 0.05; // V2: 0.05x minimum
@@ -155,9 +174,16 @@ class AudioPlayerService {
 
   /// Load audio file - có fallback cho đường dẫn chứa ký tự đặc biệt
   Future<bool> loadFile(String filePath) async {
+    _sourceGeneration++;
+    _transportGeneration++;
     String safePath = filePath;
     try {
-      _updateState(status: PlaybackStatus.loading);
+      // Never expose the previous track's duration/position while loading.
+      _updateState(
+        status: PlaybackStatus.loading,
+        position: Duration.zero,
+        duration: Duration.zero,
+      );
 
       // Thử sanitize nếu cần
       safePath = await _getSafeFilePath(filePath);
@@ -228,21 +254,44 @@ class AudioPlayerService {
     }
   }
 
-  /// Play audio
+  /// Start playback without awaiting the end of the track. just_audio's
+  /// play() future completes on interruption/completion, not on start; writing
+  /// `playing` after awaiting it would overwrite a newer paused/completed state.
   Future<void> play() async {
+    final generation = _sourceGeneration;
+    final transport = ++_transportGeneration;
     try {
-      await _audioPlayer.play();
-      _updateState(status: PlaybackStatus.playing);
-    } catch (e) {
-      debugPrint('Error playing: $e');
+      unawaited(_audioPlayer.play().catchError((Object error, StackTrace stack) {
+        debugPrint('Error playing: $error');
+        if (!_disposed && generation == _sourceGeneration &&
+            transport == _transportGeneration) {
+          _updateState(
+            status: PlaybackStatus.error,
+            errorMessage: error.toString(),
+          );
+        }
+      }));
+    } catch (error) {
+      debugPrint('Error starting playback: $error');
+      if (!_disposed && generation == _sourceGeneration &&
+          transport == _transportGeneration) {
+        _updateState(
+          status: PlaybackStatus.error,
+          errorMessage: error.toString(),
+        );
+      }
     }
   }
 
   /// Pause audio
   Future<void> pause() async {
+    final transport = ++_transportGeneration;
+    final source = _sourceGeneration;
     try {
       await _audioPlayer.pause();
-      _updateState(status: PlaybackStatus.paused);
+      if (transport == _transportGeneration && source == _sourceGeneration) {
+        _updateState(status: PlaybackStatus.paused);
+      }
     } catch (e) {
       debugPrint('Error pausing: $e');
     }
@@ -250,9 +299,13 @@ class AudioPlayerService {
 
   /// Stop audio
   Future<void> stop() async {
+    final transport = ++_transportGeneration;
+    final source = _sourceGeneration;
     try {
       await _audioPlayer.stop();
+      if (transport != _transportGeneration || source != _sourceGeneration) return;
       await _audioPlayer.seek(Duration.zero);
+      if (transport != _transportGeneration || source != _sourceGeneration) return;
       _updateState(
         status: PlaybackStatus.stopped,
         position: Duration.zero,
@@ -264,9 +317,10 @@ class AudioPlayerService {
 
   /// Seek to position
   Future<void> seek(Duration position) async {
+    final source = _sourceGeneration;
     try {
       await _audioPlayer.seek(position);
-      _updateState(position: position);
+      if (source == _sourceGeneration) _updateState(position: position);
     } catch (e) {
       debugPrint('Error seeking: $e');
     }
@@ -349,6 +403,7 @@ class AudioPlayerService {
     double? volume,
     String? errorMessage,
   }) {
+    if (_disposed || _stateController.isClosed) return;
     _stateController.add(
       _stateController.value.copyWith(
         status: status,
@@ -364,6 +419,9 @@ class AudioPlayerService {
 
   /// Dispose resources
   Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    _sourceGeneration++;
     await _audioPlayer.dispose();
     _engineV2.dispose();
     await _stateController.close();

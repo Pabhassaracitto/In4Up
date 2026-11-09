@@ -21,7 +21,7 @@ library;
 
 import 'package:in4up/knowledge/models/evidence.dart';
 import 'package:in4up/knowledge/models/learning_state.dart'
-    show LearningState, SkillDimension;
+    show LearningState, SkillDimension, inputDimensions;
 
 /// Số evidence liên quan tối đa đưa vào context (mục 7: "top-5").
 const int kRelatedEvidenceLimit = 5;
@@ -127,7 +127,7 @@ class GroundingContextBuilder {
   bool _isLowMastery(String unitId) {
     final state = learningStates[unitId];
     if (state == null) return true; // chưa promote ⇒ mastery thấp
-    return SkillDimension.values
+    return inputDimensions
         .any((d) => state.skill(d).interval < 7 || state.skill(d).repetitions < 2);
   }
 

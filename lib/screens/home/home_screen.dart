@@ -10,7 +10,6 @@ import 'package:in4up/l10n/app_localizations.dart';
 import '../../core/responsive/app_responsive.dart';
 import '../../providers/player_provider.dart';
 import '../../services/auth_service.dart';
-import '../settings/stt_model_settings_screen.dart';
 import 'quick_capture/quick_capture_sheet.dart';
 import 'quick_capture/quick_suggestion_sheet.dart';
 import 'widgets/continue_learning_card.dart';
@@ -37,6 +36,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onNavigateToUnderstand;
   final VoidCallback onNavigateToMemory;
   final VoidCallback onOpenAiChat;
+  final VoidCallback? onOpenTextLibrary;
 
   const HomeScreen({
     super.key,
@@ -48,6 +48,7 @@ class HomeScreen extends StatefulWidget {
     required this.onNavigateToUnderstand,
     required this.onNavigateToMemory,
     required this.onOpenAiChat,
+    this.onOpenTextLibrary,
   });
 
   @override
@@ -224,6 +225,25 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGlassHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    // Home trước có 2 icon robot "Quản lý Model AI" (1 ở AppBar của shell + 1 ở
+    // header này). Bỏ icon robot ở HEADER, trả chỗ đó lại cho **thư viện Đọc**
+    // (yêu cầu owner 2026-10-25) — robot vẫn còn ở AppBar nên không mất lối vào.
+    final headerActions = <Widget>[
+      // Thư viện Đọc (văn bản) — màu xanh Đọc #2196F3. Mở đúng drawer mà
+      // ShellContentOrder đang gán cho Đọc (trái/phải) nên luôn khớp hướng tab.
+      if (widget.onOpenTextLibrary != null)
+        IconButton(
+          icon: const Icon(
+            Icons.menu_book_rounded,
+            color: Color(0xFF2196F3),
+            size: 24,
+          ),
+          tooltip: l10n.readLibrary,
+          onPressed: widget.onOpenTextLibrary,
+        ),
+      _FirebaseAuthButton(),
+    ];
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = AppResponsive.isCompact(constraints.maxWidth);
@@ -240,25 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.smart_toy_outlined,
-                            color: Colors.blueAccent,
-                            size: 24,
-                          ),
-                          tooltip: l10n.manageAIModels,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SttModelSettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _FirebaseAuthButton(),
-                      ],
+                      children: headerActions,
                     ),
                   ],
                 )
@@ -270,25 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.smart_toy_outlined,
-                            color: Colors.blueAccent,
-                            size: 24,
-                          ),
-                          tooltip: l10n.manageAIModels,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SttModelSettingsScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        _FirebaseAuthButton(),
-                      ],
+                      children: headerActions,
                     ),
                   ],
                 ),
@@ -375,7 +359,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisSpacing: 12,
                 mainAxisExtent: _studioCardExtent,
               ),
+              // Thứ tự card = thứ tự tab dưới đáy (owner 2026-10-25: Đọc
+              // trước Nghe). Đổi tab mà không đổi Studio là hai nơi nói hai
+              // hướng khác nhau ⇒ người học phải nhớ 2 bản đồ.
               children: [
+                _BentoCard(
+                  icon: Icons.menu_book,
+                  title: l10n.read,
+                  subtitle: l10n.readLibrary,
+                  color: const Color(0xFF2196F3),
+                  onTap: widget.onNavigateToRead,
+                ),
+                _BentoCard(
+                  icon: Icons.edit_note,
+                  title: context.uiText('VIẾT'),
+                  subtitle: l10n.readTextStudio,
+                  color: const Color(0xFF26C6DA),
+                  onTap: widget.onNavigateToWrite,
+                ),
                 _BentoCard(
                   icon: Icons.headphones,
                   title: l10n.listen,
@@ -396,20 +397,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: context.uiText('Thư viện video'),
                   color: const Color(0xFFFFB300),
                   onTap: widget.onNavigateToWatch,
-                ),
-                _BentoCard(
-                  icon: Icons.menu_book,
-                  title: l10n.read,
-                  subtitle: l10n.readLibrary,
-                  color: const Color(0xFF2196F3),
-                  onTap: widget.onNavigateToRead,
-                ),
-                _BentoCard(
-                  icon: Icons.edit_note,
-                  title: context.uiText('VIẾT'),
-                  subtitle: l10n.readTextStudio,
-                  color: const Color(0xFF26C6DA),
-                  onTap: widget.onNavigateToWrite,
                 ),
                 _BentoCard(
                   icon: Icons.lightbulb,

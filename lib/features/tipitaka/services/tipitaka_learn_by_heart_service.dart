@@ -24,8 +24,8 @@ class TipitakaLearnByHeartService {
     final translationLanguage = segment.translationVi?.trim().isNotEmpty == true
         ? 'vi'
         : fallbackTranslation?.key ?? 'en';
-    final selectedText = segment.paliText.trim().isNotEmpty
-        ? segment.paliText
+    final selectedText = segment.canonicalPaliText.trim().isNotEmpty
+        ? segment.canonicalPaliText
         : fallbackTranslation?.value ?? '';
     final capture = await const TipitakaWorklistService().capture(
       book: book,
@@ -47,7 +47,7 @@ class TipitakaLearnByHeartService {
         : existing.copyWith(
             title: _title(book, segment, translationLanguage),
             subtitle: 'Tipiṭaka · $bookName',
-            paliText: segment.paliText,
+            paliText: segment.canonicalPaliText,
             vietnameseText: segment.translationVi ??
                 segment.translationEn ??
                 fallbackTranslation?.value ??
@@ -68,7 +68,7 @@ class TipitakaLearnByHeartService {
     TipitakaStudyCapture capture,
   ) {
     final now = DateTime.now();
-    final hasPali = segment.paliText.trim().isNotEmpty;
+    final hasPali = segment.canonicalPaliText.trim().isNotEmpty;
     final translation = segment.firstTranslation?.value ?? '';
     return LearnByHeartItem(
       id: 'tipitaka-${capture.anchor.bookId}-${capture.anchor.segmentId}',
@@ -79,7 +79,7 @@ class TipitakaLearnByHeartService {
       ),
       subtitle: 'Tipiṭaka · $bookName',
       category: RecitationCategory.sutta,
-      paliText: segment.paliText,
+      paliText: segment.canonicalPaliText,
       vietnameseText: segment.translationVi ??
           segment.translationEn ??
           translation,

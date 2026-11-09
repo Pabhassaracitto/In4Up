@@ -11,6 +11,8 @@
 			<array>
 
 	<string>com.googleusercontent.apps.342774597309-jluaq6rre869dipiq2jv62lap93nkihv</string>
+				<!-- ADR-0018 P1 — deep link từ điển: in4up://dict?w=… -->
+				<string>in4up</string>
 			</array>
 		</dict>
 	</array>

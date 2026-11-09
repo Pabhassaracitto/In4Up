@@ -37,8 +37,14 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import 'ocr_block.dart';
 import 'ocr_cancel_token.dart';
 import 'ocr_image_picker.dart';
+import 'ocr_native_bridge.dart';
+import 'ocr_precheck.dart';
+import 'ocr_scan_guard.dart';
+
+export 'ocr_block.dart' show OcrBlock, OcrBlockRect;
 
 /// Kết quả một lần nhận dạng chữ từ ảnh.
 ///
@@ -124,6 +130,53 @@ enum OcrFailureKind {
   timeout,
 }
 
+/// Kết quả OCR CÓ KHUNG BAO — dùng cho lane dịch màn hình (XLAT-SCR-002).
+///
+/// Tách khỏi [OcrResult] (chỉ có chuỗi phẳng) để KHÔNG đổi hợp đồng cũ mà
+/// PDF Reader đang phụ thuộc.
+class OcrBlocksResult {
+  /// Các khối chữ đã sắp theo thứ tự đọc (rỗng khi lỗi hoặc ảnh không chữ).
+  final List<OcrBlock> blocks;
+
+  /// Thời gian nhận dạng.
+  final Duration elapsed;
+
+  /// Thông báo lỗi (null = thành công).
+  final String? error;
+
+  /// Vì sao thất bại — cùng bộ phân loại với [OcrResult].
+  final OcrFailureKind failureKind;
+
+  const OcrBlocksResult({
+    this.blocks = const <OcrBlock>[],
+    this.elapsed = Duration.zero,
+    this.error,
+    this.failureKind = OcrFailureKind.none,
+  });
+
+  bool get isSuccess => error == null;
+  bool get isEmpty => isSuccess && blocks.isEmpty;
+  bool get isCancelled => failureKind == OcrFailureKind.cancelled;
+  bool get isTimeout => failureKind == OcrFailureKind.timeout;
+
+  factory OcrBlocksResult.failure({
+    required String error,
+    OcrFailureKind kind = OcrFailureKind.error,
+  }) {
+    return OcrBlocksResult(error: error, failureKind: kind);
+  }
+
+  factory OcrBlocksResult.cancelled() => OcrBlocksResult.failure(
+        error: 'OCR cancelled by user',
+        kind: OcrFailureKind.cancelled,
+      );
+
+  factory OcrBlocksResult.timedOut() => OcrBlocksResult.failure(
+        error: 'OCR timed out',
+        kind: OcrFailureKind.timeout,
+      );
+}
+
 /// Nguồn ảnh mà user chọn để OCR.
 enum OcrImageSource {
   /// Document Scanner (CHỈ Android): camera + tự dò mép + crop + lọc ảnh.
@@ -131,6 +184,91 @@ enum OcrImageSource {
 
   /// Chọn ảnh đã có trong máy / thư viện ảnh (mọi nền tảng được hỗ trợ).
   gallery,
+}
+
+/// Kết cục của một phiên máy quét tài liệu (OCR-SCAN-CRASH-001).
+///
+/// Trước đây hàm trả `List<String>?` (null = huỷ) rồi để mọi lỗi khác rơi vào
+/// snackbar "Lỗi: …" — không phân biệt được "người dùng bấm Back" với "Play
+/// services không mở nổi máy quét" và "phiên bị hệ thống cắt ngang". Ba chuyện
+/// đó cần ba câu khác nhau, nên kết cục được mô hình hoá rõ.
+enum OcrScanStatus {
+  /// Quét xong, có ảnh trang.
+  completed,
+
+  /// Người dùng bấm huỷ / Back trong máy quét — KHÔNG phải lỗi.
+  cancelled,
+
+  /// Activity bị hệ thống huỷ giữa lúc máy quét mở (giả thuyết 2).
+  interrupted,
+
+  /// Bắt được vết crash native ở lane quét (giả thuyết 1/3) — app vẫn sống.
+  nativeCrash,
+
+  /// Lỗi khác (plugin chết, Play services thiếu, cấu hình sai…).
+  failed,
+}
+
+/// Kết cục phiên quét + câu giải thích (chuỗi NGUỒN tiếng Việt đã đăng ký
+/// catalog; UI dịch qua `uiText`/ARB).
+class OcrScanOutcome {
+  final OcrScanStatus status;
+
+  /// Ảnh các trang đã quét (rỗng khi không `completed`).
+  final List<String> pages;
+
+  /// Câu giải thích cho người dùng (rỗng khi `completed`/`cancelled`).
+  final String message;
+
+  /// Có nên mời người dùng mở Google Play services (hành động sửa được).
+  final bool suggestPlayServices;
+
+  /// Vết crash native (chỉ có khi `nativeCrash`) — để ghi chẩn đoán.
+  final String? crashTrace;
+
+  const OcrScanOutcome._(
+    this.status,
+    this.pages,
+    this.message, {
+    this.suggestPlayServices = false,
+    this.crashTrace,
+  });
+
+  const OcrScanOutcome.completed(List<String> pages)
+      : this._(OcrScanStatus.completed, pages, '');
+
+  const OcrScanOutcome.cancelled()
+      : this._(OcrScanStatus.cancelled, const <String>[], '');
+
+  const OcrScanOutcome.interrupted()
+      : this._(
+          OcrScanStatus.interrupted,
+          const <String>[],
+          'Phiên quét bị hệ thống cắt ngang (máy thiếu bộ nhớ?) — hãy thử lại hoặc chọn ảnh có sẵn.',
+        );
+
+  const OcrScanOutcome.nativeCrash({String? trace})
+      : this._(
+          OcrScanStatus.nativeCrash,
+          const <String>[],
+          'Máy quét tài liệu bị dừng đột ngột — app đã giữ an toàn và ghi lại vết lỗi để chẩn đoán. Hãy thử lại hoặc chọn ảnh có sẵn.',
+          crashTrace: trace,
+        );
+
+  const OcrScanOutcome.failed({
+    required String message,
+    bool suggestPlayServices = false,
+  }) : this._(
+          OcrScanStatus.failed,
+          const <String>[],
+          message,
+          suggestPlayServices: suggestPlayServices,
+        );
+
+  bool get isSuccess => status == OcrScanStatus.completed;
+
+  @override
+  String toString() => 'OcrScanOutcome($status, pages: ${pages.length})';
 }
 
 /// OCR on-device bằng ML Kit Text Recognition v2 (script Latin).
@@ -355,15 +493,108 @@ class OcrService {
     }
   }
 
-  /// Mở Document Scanner (CHỈ Android) → trả về danh sách ảnh trang đã quét.
+  /// Như [recognizeBitmap] nhưng trả thêm KHUNG BAO từng khối chữ.
+  ///
+  /// XLAT-SCR-002: lane "dịch màn hình toàn hệ thống" cần bbox để vẽ bản dịch
+  /// đè đúng vị trí. KHÔNG đổi [recognizeBitmap] (PDF Reader đang dùng, chỉ
+  /// cần chuỗi phẳng) — thêm hàm mới bên cạnh, cùng guard/timeout/cancel.
+  ///
+  /// Toạ độ trả về là PIXEL của ảnh đưa vào (y-down). Việc quy đổi sang dp
+  /// của overlay là của `screen_translate_geometry.dart`, không phải ở đây.
+  Future<OcrBlocksResult> recognizeBitmapBlocks({
+    required Uint8List pixels,
+    required int width,
+    required int height,
+    Duration timeout = kOcrDefaultTimeout,
+    OcrCancelToken? cancelToken,
+  }) async {
+    if (cancelToken?.isCancelled ?? false) {
+      return OcrBlocksResult.cancelled();
+    }
+    if (!platformSupported) {
+      return OcrBlocksResult.failure(error: 'OCR chỉ chạy trên Android/iOS');
+    }
+    if (width <= 0 || height <= 0) {
+      return OcrBlocksResult.failure(error: 'Kích thước ảnh không hợp lệ');
+    }
+    if (pixels.length != width * height * 4) {
+      return OcrBlocksResult.failure(
+        error:
+            'Dữ liệu ảnh ${pixels.length} byte không khớp ${width}x$height BGRA',
+      );
+    }
+
+    final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    final stopwatch = Stopwatch()..start();
+    try {
+      final input = InputImage.fromBitmap(
+        bitmap: pixels,
+        width: width,
+        height: height,
+      );
+      final run = await runOcrGuarded(
+        () => recognizer.processImage(input),
+        timeout: timeout,
+        cancelToken: cancelToken,
+      );
+      stopwatch.stop();
+      if (run.isCancelled) return OcrBlocksResult.cancelled();
+      if (run.isTimedOut) {
+        debugPrint('⌛ OCR recognizeBitmapBlocks quá hạn ${timeout.inSeconds}s');
+        return OcrBlocksResult.timedOut();
+      }
+      final recognized = run.value!;
+      final blocks = <OcrBlock>[];
+      for (final block in recognized.blocks) {
+        final box = block.boundingBox;
+        final made = makeOcrBlock(
+          text: block.text,
+          left: box.left.round(),
+          top: box.top.round(),
+          right: box.right.round(),
+          bottom: box.bottom.round(),
+          imageWidth: width,
+          imageHeight: height,
+        );
+        if (made != null) blocks.add(made);
+      }
+      debugPrint(
+        '✅ OCR blocks ${width}x$height: ${blocks.length} khối trong '
+        '${stopwatch.elapsedMilliseconds}ms',
+      );
+      return OcrBlocksResult(
+        blocks: sortOcrBlocksForReading(blocks),
+        elapsed: stopwatch.elapsed,
+      );
+    } catch (e) {
+      stopwatch.stop();
+      debugPrint('❌ OCR recognizeBitmapBlocks: $e');
+      return OcrBlocksResult.failure(error: 'Lỗi nhận dạng chữ: $e');
+    } finally {
+      await recognizer.close().catchError((_) {});
+    }
+  }
+
+  /// Mở Document Scanner (CHỈ Android) → trả về kết cục phiên quét.
   ///
   /// Scanner tự lo camera + dò mép + crop + lọc bóng, và cho phép user nhập
   /// từ thư viện ảnh ngay trong flow của nó (`isGalleryImport: true`).
   /// KHÔNG cần quyền camera từ app (dùng camera của Play services).
   ///
-  /// Trả về null khi user hủy. Ném [UnsupportedError] nếu gọi trên nền tảng
-  /// không có scanner — UI phải check [documentScannerSupported] trước.
-  Future<List<String>?> scanDocumentPages({int pageLimit = 10}) async {
+  /// OCR-SCAN-CRASH-001: KHÔNG BAO GIỜ để phiên quét treo im lặng.
+  /// - Đánh dấu phiên với native (`beginScanSession`) để activity bị huỷ giữa
+  ///   chừng còn biết mà báo lại (giả thuyết 2).
+  /// - Chạy đua với `watchOcrScan` (ocr_scan_guard.dart): native cắt ngang hoặc
+  ///   bắt được crash → trả kết cục có câu giải thích thay vì chờ vô hạn.
+  /// - Lỗi thô của plugin được diễn giải (`classifyOcrScannerError`), không
+  ///   còn đổ hết vào một snackbar "Lỗi: …".
+  ///
+  /// Ném [UnsupportedError] nếu gọi trên nền tảng không có scanner — UI phải
+  /// check [documentScannerSupported] trước.
+  Future<OcrScanOutcome> scanDocumentPages({
+    int pageLimit = 10,
+    Duration pollInterval = kOcrScanPollInterval,
+  }) async {
     if (!documentScannerSupported) {
       throw UnsupportedError(
         'Document Scanner chỉ khả dụng trên Android (Google Beta)',
@@ -381,18 +612,83 @@ class OcrService {
       isGalleryImport: true,
     );
     final scanner = DocumentScanner(options: options);
+    OcrNativeBridge.instance.attachCrashListener();
+    await OcrNativeBridge.instance.beginScanSession();
     try {
-      final result = await scanner.scanDocument();
+      final watch = await watchOcrScan<DocumentScanningResult>(
+        scan: () => scanner.scanDocument(),
+        poll: () => OcrNativeBridge.instance.pollScanSignal(),
+        interval: pollInterval,
+      );
+
+      if (watch.isInterrupted) {
+        debugPrint('⚠️ OCR scanDocumentPages: phiên quét bị cắt ngang');
+        return const OcrScanOutcome.interrupted();
+      }
+      if (watch.isNativeCrash) {
+        debugPrint('💥 OCR scanDocumentPages: bắt được crash native lane quét');
+        return OcrScanOutcome.nativeCrash(trace: watch.crashTrace);
+      }
+
       // 0.5.x khai `images` là `List<String>?` (null khi không yêu cầu format
-      // jpeg); user bấm back/hủy → native trả về rỗng, không phải exception.
-      final images = result.images;
-      if (images == null || images.isEmpty) return null;
-      return images;
+      // jpeg, hoặc native trả "images": null); user bấm back/hủy → native trả
+      // về rỗng, không phải exception.
+      final images = watch.value?.images;
+      if (images == null || images.isEmpty) return const OcrScanOutcome.cancelled();
+      return OcrScanOutcome.completed(images);
     } catch (e) {
+      final info = classifyOcrScannerError(e);
+      if (info.isCancellation) return const OcrScanOutcome.cancelled();
       debugPrint('❌ OCR scanDocumentPages: $e');
-      rethrow;
+      return OcrScanOutcome.failed(
+        message: info.message,
+        suggestPlayServices: info.suggestPlayServices,
+      );
     } finally {
+      await OcrNativeBridge.instance.endScanSession();
       await scanner.close().catchError((_) {});
+    }
+  }
+
+  /// Khả năng thiết bị cho `OcrPrecheck.decide` — hỏi native, KHÔNG bao giờ ném.
+  ///
+  /// Kênh hỏng / bản cài chưa có kênh → trả bộ khả năng "coi như có Play
+  /// services": cố ý KHÔNG chặn oan người dùng vì một lỗi chẩn đoán. Lỗi thật
+  /// khi mở máy quét sẽ đi qua `classifyOcrScannerError` và hiện thông báo có
+  /// hành động.
+  Future<OcrDeviceCapabilities> probeCapabilities() async {
+    final platform = platformSupported;
+    final scanner = documentScannerSupported;
+    if (!platform || !scanner) {
+      return OcrDeviceCapabilities(
+        platformSupported: platform,
+        documentScannerSupported: scanner,
+      );
+    }
+
+    try {
+      final raw = await OcrNativeBridge.instance.probeCapabilities();
+      if (raw == null) {
+        return OcrDeviceCapabilities(
+          platformSupported: platform,
+          documentScannerSupported: scanner,
+          playServicesInstalled: true,
+          playServicesEnabled: true,
+        );
+      }
+      return OcrDeviceCapabilities.fromNativeMap(
+        raw,
+        platformSupported: platform,
+        documentScannerSupported: scanner,
+      );
+    } catch (e) {
+      debugPrint('⚠️ OCR probeCapabilities: $e');
+      return OcrDeviceCapabilities(
+        platformSupported: platform,
+        documentScannerSupported: scanner,
+        playServicesInstalled: true,
+        playServicesEnabled: true,
+      );
     }
   }
 

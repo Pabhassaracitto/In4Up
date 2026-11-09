@@ -4,8 +4,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:in4up/core/platform/safe_haptics.dart';
 
 import '../../../core/language/app_ui_translations.dart';
 import '../../../models/text_item.dart'; // ← THÊM
@@ -26,7 +26,10 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   final ValueNotifier<int> activeLineNotifier = ValueNotifier(-1);
   final ValueNotifier<bool> isSourceNotifier = ValueNotifier(true);
 
-  PlaybackRecipe _recipe = PlaybackRecipe.bilingual;
+  // READ-UI-120 P0: mặc định KHÔNG lệ thuộc bản dịch. Chế độ song ngữ là lựa
+  // chọn của người dùng (hoặc preset), không phải điều kiện để bấm Play.
+  // Máy đã lưu `playback_recipe` vẫn giữ nguyên lựa chọn cũ qua _loadRecipe.
+  PlaybackRecipe _recipe = PlaybackRecipe.enOnly;
   PlaybackSnapshot? snapshot;
   String? _lastError;
   PlaybackRunToken? _activeToken;
@@ -38,6 +41,9 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
   String _sourceLanguageCode = 'EN';
   String _targetLanguageCode = 'VI';
   bool _disposed = false;
+
+  /// Tốc độ của phiên phát hiện tại (nguồn: `TextProvider.ttsSpeed`).
+  double? _activeSpeed;
 
   bool get isRunning => _activeToken != null;
   PlaybackRecipe get recipe => _recipe;
@@ -80,6 +86,13 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     required String sourceLanguageCode,
     required String targetLanguageCode,
     PlaybackAnchor? anchor,
+    // READ-UI-120 P0: tốc độ do `TextProvider.ttsSpeed` (key `tts_speed`)
+    // sở hữu. Controller chỉ nhận giá trị này cho phiên phát, KHÔNG lưu riêng
+    // nữa ⇒ đọc 1 dòng và đọc cả bài luôn dùng cùng một tốc độ.
+    double? speed,
+    // Cho phép phát nguồn thay cho `viOnly` khi bản dịch chưa có, mà không
+    // ghi đè lựa chọn recipe bền vững của người dùng.
+    PlaybackRecipe? recipeOverride,
   }) async {
     if (_disposed) return;
 
@@ -88,6 +101,13 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     _sourceLanguageCode = sourceLanguageCode;
     _targetLanguageCode = targetLanguageCode;
     _lastError = null;
+    _activeSpeed = speed;
+    final runRecipe = recipeOverride ?? _recipe;
+    if (speed != null) {
+      // Giữ `recipe.speed` làm bản phản chiếu trong phiên để engine,
+      // pattern builder và LiveStatus không bị lệch số.
+      _recipe = _recipe.copyWith(speed: speed);
+    }
 
     _activeToken = null;
     _engine.stop();
@@ -110,7 +130,9 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
     await _engine.play(
       token: token,
       lines: lines,
-      recipe: _recipe,
+      recipe: speed == null
+          ? runRecipe
+          : runRecipe.copyWith(speed: speed),
       sourceLanguageCode: _sourceLanguageCode,
       targetLanguageCode: _targetLanguageCode,
       resumeFrom: anchor,
@@ -163,17 +185,29 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
       sourceLanguageCode: _sourceLanguageCode,
       targetLanguageCode: _targetLanguageCode,
       anchor: anchor,
+      speed: _activeSpeed,
     );
   }
 
-  Future<void> adjustSpeed(double delta) async {
-    final newSpeed = (_recipe.speed + delta).clamp(0.5, 2.0);
-    if ((newSpeed - _recipe.speed).abs() < 0.01) return;
-    _recipe = _recipe.copyWith(speed: newSpeed);
-    await _engine.updateSpeed(newSpeed);
+  /// READ-UI-120 P0: đồng bộ tốc độ từ nguồn sự thật duy nhất. Không còn
+  /// `recipe.speed` do UI tự tăng giảm (hai key `tts_speed` /
+  /// `playback_recipe` từng ghi đè nhau trong cùng phiên TTS).
+  Future<void> syncSpeed(double speed) async {
+    final clamped = speed.clamp(0.25, 2.0).toDouble();
+    if ((clamped - _recipe.speed).abs() < 0.01) return;
+    _activeSpeed = clamped;
+    _recipe = _recipe.copyWith(speed: clamped);
+    await _engine.updateSpeed(clamped);
     await _persistRecipe();
-    HapticFeedback.lightImpact();
     _safeNotify();
+  }
+
+  /// Giữ lại cho các caller cũ (swipe/knob), nay đi qua [syncSpeed].
+  Future<void> adjustSpeed(double delta) async {
+    final newSpeed = (_recipe.speed + delta).clamp(0.5, 2.0).toDouble();
+    if ((newSpeed - _recipe.speed).abs() < 0.01) return;
+    await syncSpeed(newSpeed);
+    SafeHaptics.lightImpact();
   }
 
   Future<void> updateRecipe(PlaybackRecipe r) async {
@@ -218,7 +252,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
 
     switch (event.type) {
       case PlaybackEventType.lineStart:
-        HapticFeedback.lightImpact();
+        SafeHaptics.lightImpact();
         activeLineNotifier.value = event.snapshot.line;
         isSourceNotifier.value = event.snapshot.isSource;
         unawaited(_notification.updateNotification(
@@ -230,7 +264,7 @@ class PlaybackController extends ChangeNotifier with WidgetsBindingObserver {
         break;
 
       case PlaybackEventType.languageSwitch:
-        HapticFeedback.selectionClick();
+        SafeHaptics.selectionClick();
         isSourceNotifier.value = event.snapshot.isSource;
         break;
 

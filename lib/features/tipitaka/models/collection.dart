@@ -23,6 +23,24 @@ class TipitakaCollection extends Equatable {
         orderIndex: m['order_index'] ?? m['orderIndex'] ?? 0,
       );
 
+  bool get isDemo =>
+      RegExp(r'\bdemo\b|bản\s+demo|sample\s+import')
+          .hasMatch('$namePali $nameEn $nameVi'.toLowerCase());
+
+  String displayTitle(String languageCode) {
+    final language = languageCode.toLowerCase().replaceAll('_', '-');
+    final preferred = switch (language) {
+      'pi' => [namePali, nameEn, nameVi],
+      'vi' => [nameVi, namePali, nameEn],
+      'en' => [nameEn, namePali, nameVi],
+      _ => [namePali, nameEn, nameVi],
+    };
+    return preferred.map((value) => value.trim()).firstWhere(
+          (value) => value.isNotEmpty,
+          orElse: () => 'Tipiṭaka',
+        );
+  }
+
   @override
   List<Object?> get props => [id, namePali, nameEn, nameVi, orderIndex];
 }

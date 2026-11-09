@@ -397,6 +397,26 @@ void main() {
       expect(LlmMtPrompts.cleanOutput(out), out);
     });
 
+    test('lọc phần Analyze the Request và chỉ giữ bản dịch có casing tự nhiên', () {
+      const leaked = '''
+1. **Ânlyze the Request:**
+* **Source Text:** HELLO THERE
+* **Translation:** Xin chào bạn.
+''';
+      expect(LlmMtPrompts.cleanOutput(leaked), 'Xin chào bạn.');
+      expect(
+        LlmMtPrompts.cleanOutput('**All caps sentence.**'),
+        'All caps sentence.',
+      );
+    });
+
+    test('bỏ toàn bộ khi model chỉ trả phân tích, không có bản dịch', () {
+      expect(
+        LlmMtPrompts.cleanOutput('1. **Analyze the Request:**\nSource Text: hello'),
+        isEmpty,
+      );
+    });
+
     test('guard: nguồn bắt đầu "Translation:" → đó là nội dung, không strip',
         () {
       // Câu nguồn có chữ "Translation:" ở đầu — bản dịch giữ nguyên chữ đó.

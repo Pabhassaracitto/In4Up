@@ -278,7 +278,7 @@ class _WeekChart extends StatelessWidget {
             for (final day in days)
               Expanded(
                 child: Text(
-                  '${day.dayOfMonth}',
+                  context.uiText('${day.dayOfMonth}'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 10,

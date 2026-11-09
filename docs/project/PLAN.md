@@ -1134,3 +1134,356 @@ Package: `video_player: ^2.8.0` (Flutter official)
   - 2026-09-27 | doing | agent arena/01a09c9a-in4up | CI xanh sau khi sửa 2 error
     (Document Scanner 0.5.0 dùng `documentFormats` dạng Set + `images` nullable —
     khác API master/0.6.x đã đối chiếu nhầm); merge tip `b90ba3e` (PR #57)
+
+### PLAN-035 — PDF Batch OCR + Dịch màn hình in-app (PDF-OCR-002 · XLAT-SCR-001/002)
+- Nguồn: người sở hữu (2026-10-05, qua agent arena/01a10b7e-in4up) — kèm tư vấn
+  Gemini về 2 hướng dịch màn hình (in-app ~95% khả thi thuần Flutter trước;
+  system-wide native sau).
+- Trạng thái: doing (phần in-app + batch OCR: code + test thuần xong, chờ CI +
+  nghiệm thu thiết bị; system-wide: proposed, prompt bàn giao
+  `PROMPT_AGENT_DICH_MAN_HINH.md` cho agent khác)
+- Milestone đề xuất: M2
+- Chi tiết: kế hoạch đầy đủ `docs/pdf_ocr_batch_va_dich_man_hinh_plan.md`; quyết
+  định kiến trúc `docs/adr/0010-dich-man-hinh-in-app-truoc.md`. Ba mảnh:
+  (1) **Batch OCR PDF** — sheet chọn phạm vi trang hiện tại / khoảng / toàn bộ,
+  runner bền lỗi + cancel + skip trang có lớp chữ, kết quả qua preview/SỬA của
+  OcrFlow rồi nạp TextProvider (mở rộng ADR-0009, 0 dependency mới);
+  (2) **Dịch màn hình in-app** — nút 🌐 trên PdfToolbar → dịch trang hiện tại
+  (câu từ `extractSentences`, trang scan tự OCR 1 trang) → panel song ngữ trên
+  thanh TTS, cache ~6 trang, tái dùng 100% TranslationService + TranslationCache
+  + glossary; (3) **System-wide** (XLAT-SCR-002) — lane native riêng:
+  MediaProjection + bubble overlay Android, Dart OCR + dịch, prompt bàn giao
+  có sẵn 8 task + 7 tiêu chí nghiệm thu.
+- Lịch sử:
+  - 2026-10-05 | created → doing | agent arena/01a10b7e-in4up | ADR-0010 +
+    plan + code in-app/batch (5 file lib + 2 file test + i18n 30 entry
+    priority overrides) + prompt XLAT-SCR-002; chờ CI + nghiệm thu thiết bị
+
+### PLAN-036 — Dịch màn hình TOÀN HỆ THỐNG trên Android: thi công P1 (XLAT-SCR-002)
+- Nguồn: người sở hữu (2026-10-05, prompt giao việc "XLAT-SCR-002 · System-wide
+  Screen Translator") — qua agent arena/01a10bdd-in4up. Đây là MẢNH (3) của
+  PLAN-035 được tách ra thi công; PLAN-035 giữ nguyên phần in-app + batch OCR.
+- Trạng thái: doing (code P1 xong; chờ CI + nghiệm thu thiết bị thật)
+- Milestone đề xuất: M2
+- Chi tiết: bong bóng nổi trên mọi ứng dụng → bấm → chụp màn hình
+  (MediaProjection) → OCR ML Kit có bbox → dịch bằng ĐÚNG engine user đang
+  chọn → overlay đè bản dịch lên từng khối chữ (kiểu Google Lens/NormCap).
+  Kiến trúc: `docs/adr/0011-dich-man-hinh-toan-he-thong-lane-native.md` —
+  chụp + vẽ ở native Kotlin, hiểu chữ + dịch ở Dart (engine Flutter nền qua
+  FlutterEngineGroup), tái dùng 100% OcrService + TranslationService + cache,
+  KHÔNG tải model tự động (thiếu gói offline thì báo rõ `missingModel`).
+  Phạm vi P1 = Android. iOS KHÔNG làm (hệ thống không cho overlay toàn cục).
+  P2 ghi nhận, chưa làm: desktop Linux/Windows (maim/scrot + Tesseract +
+  cửa sổ trong suốt), script OCR ngoài Latin (CJK — cần ADR riêng), capture
+  liên tục theo vòng lặp.
+- Lịch sử:
+  - 2026-10-05 | created | agent arena/01a10bdd-in4up | ADR-0011 + card
+    KANBAN XLAT-SCR-002 + lane Dart/native/UI/i18n/test thuần
+  - 2026-10-05 | rebase lên 251e | agent arena/01a10bdd-in4up | đổi số
+    PLAN-035→036 vì upstream (arena/01a10b7e-in4up) đã chiếm PLAN-035 cho
+    mảnh in-app + batch OCR; ADR giữ số 0011 (0010 là lane in-app)
+  - 2026-10-05 | CI xanh sau rebase | agent arena/01a10bdd-in4up | run
+    37337092117 xanh toàn bộ trên nền tip 251e (kèm fix `intl` 0.20.3→0.20.2
+    vì flutter_localizations của Flutter 3.44.1 ghim đúng 0.20.2); phần còn
+    lại bàn giao trong `PROMPT_AGENT_DICH_MAN_HINH_P2.md`
+
+### PLAN-037 — Dịch màn hình toàn hệ thống trên Windows (XLAT-SCR-WIN-001)
+- Nguồn: người sở hữu (2026-10-20) — Windows `.exe` hiện báo tính năng 7
+  chỉ có Android; yêu cầu chụp/dịch toàn màn hình và kéo chọn vùng.
+- Trạng thái: proposed — đã lập phạm vi/kiến trúc/AT; chưa có code Windows,
+  chưa build native, chưa nghiệm thu.
+- Milestone đề xuất: M2.
+- Chi tiết: `docs/plans/windows_screen_translate_plan.md`. Tách lane Windows
+  khỏi native Android; ưu tiên capture một frame theo thao tác người dùng, chọn
+  display, kéo khung vùng + Esc/Enter, OCR bounding boxes và overlay dịch.
+  Tái dùng models/controller/cache/`TranslationService`; ML Kit OCR hiện không
+  hỗ trợ desktop nên W0 phải chọn Windows OCR adapter (so sánh Windows OCR API
+  và Tesseract) cùng capture API/interop, minimum OS, DPI, packaging trong ADR
+  bổ sung trước khi code. Không capture nền, không lưu/upload ảnh, không lách
+  protected content. Phases W0–W4 và 7 tiêu chí nghiệm thu nằm trong plan.
+- Lịch sử:
+  - 2026-10-20 | proposed | agent Arena | chuyển yêu cầu “Chỉ Android” thành
+    kế hoạch Windows có WGC/Win32 spike, full-screen + drag-region flow,
+    multi-monitor/DPI, OCR seam, privacy, CI và nghiệm thu máy thật.
+
+### PLAN-038 — Nguồn phát âm thống nhất (TTS · từ điển · YouGlish) + nối vào mọi chỗ tra từ (PRON-001..005)
+- Nguồn: người sở hữu (2026-10-24) — "I4U · different voice video": nghe giọng
+  người thật cho **từ đang chọn** và **từ đã lưu**; đề bài ban đầu do Gemini gợi ý
+  (thêm tab YouGlish vào `word_detail_sheet` ở Tab Đọc) — đã phản biện và sửa
+  hiện trạng trong ADR-0015 (Tab Đọc không dùng file đó, sheet không có tab,
+  YouGlish đang có 3 bản copy chứ không phải 1 service).
+- Trạng thái: **PRON-001 ✅ done** (code + CI 🟢 run 40161591892 + **đã merge
+  PR #107** vào `arena/01a0251e-in4up`; còn owner nghiệm thu máy). **PRON-002 🟡
+  code xong 2026-10-26** trên `arena/508531fd-in4up` (hàng Phát âm dùng chung ở
+  tab Đọc: policy nguồn thuần Dart + `WordPronunciationRow` 3 mode +
+  pause/restore + watchdog 8 s + nợ iOS inline playback của PRON-001 đã trả —
+  chi tiết PLAN-038 §2.1) ⇒ **CI 🟢 run 40235361999**, còn owner QA máy, chờ merge
+  qua PR #112. PRON-003 / 004 / 005: proposed — khung + 4 quyết định đã chốt:
+  (1) giữ cách nạp trang youglish.com trong WebView như hiện tại, owner xin phép
+  YouGlish song song, có kill-switch `youglish.enabled`; (2) phạm vi = **mọi**
+  điểm vào tra từ (Đọc · Vườn nhớ · WordList · PDF · YouTube); (3) kích hoạt =
+  **một nút, lazy** (WebView chỉ dựng khi bấm), không tab, không preload;
+  (4) mở sheet phát âm thì **pause & restore** playback/TTS.
+- Kiến trúc: `docs/adr/0015-nguon-phat-am-va-ban-tin-youglish.md`.
+- Chi tiết thi công + tiêu chí nghiệm thu từng PR: `docs/plans/PLAN-038-nguon-phat-am-youglish.md`.
+- Milestone đề xuất: M2 (PRON-001/002) → M3 (PRON-003); PRON-004 blocked chờ
+  trả lời của YouGlish + sửa Điều khoản/Privacy (link YouTube ToS, Google Privacy
+  Policy, "powered by YouGlish.com" luôn thấy, player ≥200×200).
+- Lịch sử:
+  - 2026-10-24 | proposed | agent Arena | kiểm code (word_actions_sheet 1179 dòng
+    không có TabBar; youglish_mini_sheet tự copy _buildUrl và bị `.take(5)`;
+    YouGlishScreen không nhận initialWord; DictEntry.audioPath không UI nào dùng;
+    chưa có setMediaPlaybackRequiresUserGesture) → ra ADR-0015 + plan 4 PR,
+    chưa sửa dòng code nào.
+  - 2026-10-24 | proposed→doing | agent Arena `arena/06e5aef5-in4up` | PRON-001
+    thi công xong (gom `YouGlishView`/`YouGlishUrl`/`YouGlishPrefs`, 3 điểm vào
+    thành shell, golden test + bước CI); PRON-002..004 chờ duyệt PR này.
+  - 2026-10-24 | proposed | agent Arena `arena/06e5aef5-in4up` | owner duyệt
+    khung → rebase lên tip 251e `3986433` (12 commit: DICT-CLEAN-001/
+    WORD-INSIGHT-001, screen-translate, STT); đối chiếu lại từng nhận định, sửa
+    ADR thành số 0015 (0014 đã bị nhánh 251e dùng), thêm điểm vào #7
+    `dict_entry_detail_sheet.onSpeak` vào bảng phạm vi.
+  - 2026-10-26 | doing | agent Arena `arena/508531fd-in4up` | docs đối chiếu 12
+    commit mới (PR #112) rồi **thi công PRON-002**: 4 file mới trong
+    `features/word_lookup/` (policy · row · session · prefs), `git mv` mini sheet
+    về `screens/tools/youglish/`, cấy vào `word_actions_sheet` + `word_mini_pop`,
+    `YouGlishView.onLoaded` + `WKWebViewParams` (pubspec + lock), 7 chuỗi vào
+    `priority_ui_overrides`, test thuần Dart + bước CI "PRON-002 tests".
+
+### PLAN-039 — Tab Nghe: phát nhiều bài và chuyển bài
+- Nguồn: người sở hữu (2026-10-27, qua agent `arena/bf95d3ae-in4up`).
+- Trạng thái: doing — đã viết code và test; chờ CI, review độc lập và nghiệm thu thiết bị.
+- Milestone đề xuất: M2, mở rộng thư viện Nghe `I4U18-LISTEN-LIB-001`.
+- Chi tiết: [phương án Tab Nghe](../plans/PLAN-039-tab-nghe-danh-sach-phat.md).
+  Tái dùng playlist và bộ phát hiện có; bổ sung queue phiên phát, tự chuyển
+  bài và nút bài trước/bài sau, giữ tua ±10 giây. Phương án gồm chính sách
+  tiếp tục vị trí, lặp A–B, xử lý lỗi/định danh nguồn và nghiệm thu thiết bị;
+  chủ dự án đã duyệt các mặc định trong phương án.
+- Lịch sử:
+  - 2026-10-27 | created→proposed | agent `arena/bf95d3ae-in4up` | fetch/rebase
+    251e `0556f82`, khảo sát các điểm vào và lập phương án; chưa thay đổi code.
+  - 2026-10-28 | 2026-10-27 19:41 UTC | proposed→doing | agent
+    `arena/bf95d3ae-in4up` | owner duyệt mặc định; code, test dự thảo,
+    ADR-0019 và hồ sơ review; chưa chạy Flutter/CI hay nghiệm thu thiết bị.
+
+
+### PLAN-040 — Karaoke đồng bộ trên Nghe và Hiểu
+- Nguồn: người sở hữu (2026-10-28, qua agent `arena/bf95d3ae-in4up`).
+- Trạng thái: doing — CI code tích hợp xanh; rebase Kanban 251e `de52915`,
+  chờ CI PR, review độc lập, build Android và nghiệm thu thiết bị.
+- Milestone đề xuất: M2, card KARAOKE-001.
+- Chi tiết: theo thời gian phát/seek kể cả khi LRC vừa tạo xong lúc tạm dừng;
+  đưa dòng vào vùng nhìn dựa trên vị trí thật với dòng cao thấp khác nhau;
+  hai lựa chọn dùng chung và lưu lại (chỉ dòng hiện hành / dòng khác nhỏ mờ),
+  giữ tương tác seek và ưu tiên cuộn tay của người dùng; dịch UI, test,
+  review và nghiệm thu trên thiết bị. Không thay đổi/mất file LRC cũ.
+- Lịch sử:
+  - 2026-10-28 | created→doing | agent `arena/bf95d3ae-in4up` | owner yêu cầu
+    trực tiếp; đang sửa timing và xây widget dùng chung.
+
+
+### PLAN-041 — Tab Đọc: chrome theo nhóm và một cửa vào TTS (READ-UI-120)
+- Nguồn: người sở hữu (2026-11-02, qua agent `arena/bada56c3-in4up`) — duyệt
+  toàn bộ điều chỉnh sau biên bản audit `docs/read_tab_audio_ui_audit_1_20_0.md`.
+- Trạng thái: doing — code + ADR-0021 + test pin + QA checklist đã có; PR
+  #126 CI 16/16 xanh (`flutter analyze` + locale test + build + 13 job test),
+  `mergeable = CLEAN`; còn nghiệm thu thiết bị 360×640.
+- Card: `READ-UI-120` (KANBAN). Milestone đề xuất: M2.
+- Phạm vi: gộp UI/state TTS nhưng **KHÔNG gộp 2 engine**; bỏ lệ thuộc bản dịch
+  trước khi phát; dời toàn bộ chrome công cụ xuống một dock đáy như tab Nghe;
+  gom «Hiển thị»/«Cài đặt» vào overflow cạnh ⚡; 3 nhóm × 3 trạng thái với
+  mặc định gộp. Nguồn giữ nguyên ở trên cùng theo ý owner.
+- Không làm: drag-drop nhóm, ẩn từng icon, auto-hide theo thời gian, đưa action
+  cấp từ (`word_mini_pop` / `word_actions_sheet` / PRON-002) vào dock.
+- Nghiệm thu: `docs/shell_manual_qa_checklist.md` mục 4.3 / 8.1 / 11.1;
+  `test/read_chrome_layout_test.dart`, `test/read_ui_120_contract_test.dart`.
+- Lịch sử:
+  - 2026-11-02 | created→doing | agent | owner duyệt điều chỉnh, triển khai
+    P0 (TTS) → P1 (dock) → P2 (nhóm/state/i18n/docs/test); sandbox không có
+    Flutter SDK nên analyze/test chạy trên CI.
+  - 2026-11-02 | doing | agent | PR #126; giải quyết xung đột KANBAN.md với
+    base bằng merge giữ cả 2 card; CI 16/16 xanh sau khi sửa 1 pin nguồn;
+    rút gọn nhánh thành 1 commit tuyến tính để mở lại lựa chọn *Rebase and
+    merge* trên GitHub.
+
+### PLAN-042 — Pháp thoại từ Drive: nguồn nội dung + tiến độ nghe (DHRM-001..004)
+- Nguồn: người sở hữu (2026-11-03, qua agent `arena/c61e07dd-in4up`) — thư mục
+  Drive công khai "12. PHÁP THOẠI CÁC NGÀI THIỀN SƯ HỆ THỐNG PA AUK - TIẾNG VIỆT"
+  + bản nháp đặc tả `DharmaTalk`; kèm yêu cầu "lên kế hoạch tích hợp".
+- Trạng thái: doing — P1 (DHRM-001) có code + test + i18n, **CI xanh**
+  (`7e3be6b`); còn nghiệm thu thiết bị. P2–P5 proposed.
+- Milestone đề xuất: M2 (mở rộng tab Nghe), tiếp sau PLAN-039.
+- Chi tiết: [phương án](plans/PLAN-042-phap-thoai-drive-tich-hop.md), ADR-0022.
+  - Đính chính 3 điểm của bản nháp: (a) khoá phải là **danh tính nội dung**
+    (`episodeKey = drive:<fileId>`), không phải `driveFileId` gắn với path cache
+    tạm; (b) `lastPosition`/`isCompleted` phải ở **store tiến độ riêng** để sync
+    Drive không xoá trạng thái người dùng; (c) STT là hành động có chủ đích cho
+    đoạn đang nghe, không tự chạy cả file 60–90 phút (pin/nhiệt).
+  - Taxonomy thật (đọc công khai 2026-11-03): 7 collection A–G — không chỉ pháp
+    thoại mà còn kinh tụng, sách nói, ebook, biểu đồ. Trọng tâm: 39 series pháp
+    thoại ở C + 1 series đang giảng ở D.
+  - Metadata: vị Thầy ở **tên thư mục series**, chủ đề ở **tên file**; cùng vị
+    Thầy có nhiều cách viết (Revata/Reveta, Kumārābhivaṃsa/Kumurabhivamsa,
+    SU Kovida/Ngài U Kovida) ⇒ cần `speakerKey` chuẩn hoá + bảng alias + sửa tay.
+  - Bộ phân tích tên là **hàm thuần có test trên 44 tên thật**
+    (`test/fixtures/dharma_drive_names.csv`, probe `tool/dharma_name_probe.py`);
+    đã phát hiện 8 bẫy (B1..B13 không khớp `^\d+[.)]` và bị Drive sắp sai thứ tự
+    `B10 < B2`; ngày `ddMMyy` không phân cách; một file chứa 2 buổi `05-06`;
+    `(54 phút)`; `- end sound`; `En-Vi` bị nhận sai là `vi`…).
+  - Nguồn phát theo thứ tự **đã-tải → tải-bền-vững (`audio_imports/dharma/`) →
+    stream**; không lưu nội dung nghe dài ở `getTemporaryDirectory()/drive_cache`
+    (bị dọn ⇒ mất vị trí). Stream phải dùng **header** `Authorization`, không
+    nhét token vào query string.
+  - Tái dùng: `AudioQueueItem`/queue PLAN-039, `SoundMark(kind: quote)` +
+    `MemoryItem` cho "lời vàng" (P4), `AudioImportService`, i18n rule #5.
+  - Sóng: P1a model+parser → P1b danh mục trên audio đã import → P2 import bền
+    vững + sửa 13 chuỗi hard-code trong `google_drive_browser.dart` → P3 stream
+    bằng header → P4 lời vàng → P5 STT theo đoạn. 9 acceptance test + bước CI
+    mới `flutter test test/dharma/`.
+  - Chờ chủ dự án chốt 6 mặc định (Q1–Q6, mục 13 của phương án).
+- Không làm: ebook/PDF của Drive (thuộc tab Đọc), tóm tắt bằng LLM, đổi khoá dữ
+  liệu cũ sang `episodeKey`, Drive trên Windows/Linux (không có plugin
+  `google_sign_in` cho desktop).
+- Lịch sử:
+  - 2026-11-03 | created→proposed | agent `arena/c61e07dd-in4up` | đọc mã
+    (`google_drive_service.dart`, `google_drive_browser.dart`,
+    `player_provider.dart`, `player_stats_mixin.dart`), đọc taxonomy thật của
+    thư mục Drive (7 collection), viết probe + fixture 44 tên thật, ADR-0022;
+    chưa sửa code, chưa chạy Flutter (sandbox không có SDK).
+
+### PLAN-043 — Worklist đa ngữ theo khái niệm trung tâm + 4 nâng cấp
+- Nguồn: người sở hữu (2026-11-02); phạm vi được duyệt qua bản trực quan ngày 2026-11-03 và danh mục animation ngày 2026-11-05.
+- Trạng thái: doing — code các mục 1 Pha A, 2, 3, 4 và 5 Pha 1–2 đã có; Analyze + PLAN-043 tests 🟢 run `42092342813`; `listen_queue_tests` 🟢 `42092342832`; web build 🟢 `42092329815`; còn nghiệm thu trên thiết bị.
+- Milestone đề xuất: M2.
+- Chi tiết: [kế hoạch Worklist](../plans/PLAN-043-worklist-da-ngu-khai-niem-trung-tam.md), [bản trực quan](../plans/PLAN-043-visual.html), [gói 100 concept](../plans/PLAN-043-animation-core-concepts.md), [ADR-0023](../adr/0023-nut-khai-niem-da-ngu-additive.md).
+- Phạm vi: (1) ConceptNode additive, Pha A, nối chỉ khi user xác nhận; (2) đọc Từ + Nghĩa tuỳ chỉnh; (3) import hàng loạt qua prompt + AI trong app; (4) ảnh Pixabay/gộp nguồn/phân trang/normalize; (5) LottieFiles hướng dẫn + gói offline 100 pictogram CC0. Không bao gồm Concept phases B–E hay provider IconScout.
+- Định danh: bản thảo ở nhánh feature ban đầu mang số PLAN-041/ADR-0021; sau rebase, 251e đã dùng PLAN-041 cho READ-UI-120 và ADR-0021 cho Tab Đọc, nên đổi sang PLAN-043/ADR-0023 để tránh trùng, không đổi nội dung/phạm vi.
+- Lịch sử:
+  - 2026-11-06 | proposed→doing | agent `arena/d2aeb948-in4up` | đăng ký lại trên tip 251e `c9135d2` sau rebase; CI pending.
+  - 2026-11-05 | doing→doing (rebase CI xanh) | agent `arena/d2aeb948-in4up` | Analyze + PLAN-043 tests `42092342813`, listen_queue `42092342832`, web build `42092329815` đều xanh; chờ nghiệm thu máy.
+
+### PLAN-044 — Tab Đọc: khôi phục thanh công cụ, nhãn IPA, tự cuộn theo dòng đọc (READ-UI-121)
+- Nguồn: người sở hữu (2026-11-06, qua agent `arena/0f9bbb45-in4up`) — gửi 12
+  issue sau bản 1.21.0, yêu cầu «issue cũ thì xem xét và giải quyết, còn lại để
+  gửi AI khác»; kèm yêu cầu rebase newest từ 251e.
+- Trạng thái: doing — đã rebase lên tip 251e `95f9e2f` (251e nhận thêm 25 commit
+  trong lúc PR #135 mở); code + ADR-0024 + test pin + KANBAN `READ-UI-121` +
+  QA 4.4 có trên nhánh; chờ CI và nghiệm thu thiết bị 360×640.
+- Card: `READ-UI-121` (KANBAN). Milestone đề xuất: M2.
+- Định danh: bản thảo dùng PLAN-043 / ADR-0023; sau rebase tip 251e `95f9e2f` đã
+  có PLAN-043 (Worklist đa ngữ) và ADR-0023 (Nút Khái niệm đa ngữ) của agent
+  `arena/d2aeb948-in4up`, nên đổi thành **PLAN-044 / ADR-0024**. Chỉ đổi số,
+  không đụng entry của agent khác, không đổi nội dung/phạm vi (GOVERNANCE 3.3).
+- Phạm vi (3 issue cũ của PR #126 / ADR-0021):
+  1. Khôi phục «Không màu / Thông tin màu / Box từng từ ↔ Bôi nhiều chữ / Màu
+     IPA / Đồng bộ tự động / ? / Chế độ Focus» bằng MỘT `ReadDisplayControls`
+     dùng chung, 3 lối vào theo ngữ cảnh (icon dock 1 chạm, overflow ⚡, sheet
+     Hiển thị); «Vị trí công cụ: Trên» lấy lại `ReadTopBar`.
+  2. «Đồng bộ tự động» mở rộng: tự cuộn danh sách thường theo
+     `PlaybackController.activeLineNotifier`, nhường 5s sau cú kéo tay, vẫn tắt
+     được qua `read_auto_sync`. Giải thích công dụng cho owner trong ADR-0024.
+  3. Dock đổi `Icons.abc` → `textIcon: 'IPA'` như thanh cũ.
+- Không làm (để AI khác có ngữ cảnh tương ứng): bong bóng dịch, crash TTS ưu
+  tiên sherpa, dịch Cabin nhân đôi dòng, PDF «Gần đây», pop từ vựng 4 mức độ,
+  DeepLX/URL rác, offline Parakeet/sherpa chưa nạp model, vietnew/worlist,
+  thông báo import bản NeMo. Danh sách đầy đủ trong card `READ-UI-121`.
+- Không đụng: 2 engine TTS, `PlaybackEngine`/anchor/`TtsPlaybackOwner`, 4 cấm
+  animation trên dock, pin `if (!readLibraryFull && _readModeIndex == 0)`,
+  gate CI (chỉ nối thêm 1 file test thuần vào bước `read-act-tests`),
+  `generated_legacy_ui_fallbacks.dart` (generator lệch sẵn).
+- Nghiệm thu: `docs/shell_manual_qa_checklist.md` mục 4.4;
+  `test/read_ui_121_contract_test.dart`, `test/read_ui_120_contract_test.dart`.
+- Lịch sử:
+  - 2026-11-06 | created→doing | agent `arena/0f9bbb45-in4up` | rebase 251e
+    `c9135d2` (up-to-date), audit 12 issue, tách 3 issue cũ; triển khai
+    D1–D4 của ADR-0024, 2 chuỗi i18n (pack 3508 × 8), 1 file test pin mới,
+    cập nhật 1 pin cũ; nối test vào CI; sandbox không có Flutter SDK.
+  - 2026-11-06 | doing→doing (rebase + giải xung đột) | agent | 251e tiến tới
+    `95f9e2f` (M4U-IMPORT-003 + PLAN-043 Worklist) ⇒ hợp nhất `PLAN.md` theo
+    append-only; sửa `tool/legacy_ui_english_overrides.json` (một merge sai đã
+    chèn 4 entry SAU dấu `}` ⇒ `JSONDecodeError: Extra data` làm đỏ test
+    Rule #5) thành JSON hợp lệ gồm đủ 4 chuỗi Parakeet + 2 chuỗi READ-UI-121;
+    đổi ID như trên; lịch sử PR #135 rút gọn thành 1 commit tuyến tính.
+    Chờ CI xanh trên head mới.
+
+### PLAN-045 — I4U - Audit v1.21.0: 8 phản hồi nghiệm thu sau release 1.21.0
+- Nguồn: người sở hữu (2026-11-06, qua agent `arena/4e91ed51-in4up`).
+- Định danh: bản thảo trên nhánh `arena/4e91ed51-in4up` mang số **PLAN-043**;
+  khi mở PR, tip `arena/01a0251e-in4up` (`b2ee8a4`) ĐÃ có PLAN-043 (Worklist đa
+  ngữ) và PLAN-044 (READ-UI-121) ⇒ đổi thành **PLAN-045** để tránh trùng ID.
+  Chỉ đổi số, không đổi nội dung/phạm vi (theo đúng cách xử lý của PLAN-044).
+- Trạng thái: doing — code + 8 file test thuần + KANBAN/docs + **CI 42135090013 🟢** đã có; **chờ nghiệm thu máy/`adb logcat`**.
+- Milestone đề xuất: M2 (ổn định sau release 1.21.0), card `AUDIT-1.21.0-01`.
+- Chi tiết: [`AUDIT_1_21_0.md`](AUDIT_1_21_0.md).
+  - Cụm overlay/đọc: #1 khung dịch nhiều khối, #4 PDF «Gần đây» stale path, #5 pop từ vựng 4 mức độ khó.
+  - Cụm model/offline (giữ chung, KHÔNG tách): #2 TTS sherpa văng app + #7 Parakeet/sherpa chưa nạp model vẫn chọn được.
+  - Cụm dịch: #6 link-only output + endpoint DeepLX dán nhầm link bài hướng dẫn.
+  - Cụm live/nghe: #3 Cabin đang dịch mà nói thêm ⇒ 2 dòng trùng; #8 popup A-B thiếu chỉnh số lần lặp + trùng `∞`.
+  - Quyết định của owner giữ nguyên: #2/#7 cần `adb logcat`; #3 cần AI ngữ cảnh Cabin recheck; #5 chỉ `WordMiniPop` trong tab Đọc; #8 chỉ để 1 `∞`; #6 xử lý cả hai khả năng (link-only + bad endpoint), không đoán nguyên nhân duy nhất.
+- Không làm: mở rộng #5 sang `WordlistBubble`/review/knowledge graph; tự nhận "đã fix" crash native khi chưa có log thiết bị; regenerate toàn bộ catalog i18n (generator legacy đỏ sẵn — `I18N-001`).
+- Lịch sử:
+  - 2026-11-06 | created→doing | agent `arena/4e91ed51-in4up` | 8 mục code + test thuần + KANBAN `AUDIT-1.21.0-01` + `docs/project/AUDIT_1_21_0.md`.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | CI `app_analyze.yml` run **42133600485 🟢** (analyze 0 error, rule #5, 8 file test mới; 3 vòng đỏ đã sửa compile/test); vẫn chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | recheck 3 điểm treo (DeepLX query token, setter A-B, deduper Cabin): 1 lỗi mất câu sửa + 7 test/pin mới; CI **42135090013 🟢**. Chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | đổi ID PLAN-043→**PLAN-045**; hợp nhất tip 251e 1.22.0+22; mở PR [#140](https://github.com/Pabhassaracitto/In4Up/pull/140) (checks 🟢) → **MERGED** `8a76573`. Chờ logcat/QA máy.
+  - 2026-11-06 | doing | agent `arena/4e91ed51-in4up` | PR #140 merge thành công (`gh pr merge --merge`, merge commit `8a76573`); lỗi UI "không thể merge" là transient status-check, không phải conflict. CI post-merge 🟢. Vẫn chờ nghiệm thu thiết bị.
+
+
+### PLAN-046 — Hợp nhất Venn ba kỹ năng và view sáu kỹ năng an toàn
+- **Nguồn:** người dùng (2026-11-06), chấp thuận tích hợp nhánh 251e.
+- **Trạng thái:** doing — ADR-0025, card `VOCAB-MASTERY-001`; CI sau rebase
+  xanh trên `fde949a`, chờ review và nghiệm thu thiết bị. Output chưa nối.
+- **Milestone đề xuất:** M2 — công cụ từ vựng và nền Knowledge.
+- **Ranh giới:** giữ ba lịch SM-2, lấy điểm legacy trực tiếp, không giả lập
+  EMA hoặc output; feature flag có thể tắt, không tự deploy web khi thử.
+- **Lịch sử:**
+  - 2026-11-06 | created→proposed | agent `arena/075510c6-in4up` | người dùng chấp thuận hợp nhất an toàn.
+  - 2026-11-06 | proposed→doing | agent `arena/075510c6-in4up` | merge, sửa compile/test, thiết kế projection + view theo ADR-0025; chờ xác minh CI.
+  - 2026-11-06 | doing | agent `arena/075510c6-in4up` | baseline `0f0112e` [CI 42272699948](https://github.com/Pabhassaracitto/In4Up/actions/runs/42272699948) xanh; Knowledge 281 pass/2 skip, tools 21 pass, analyze/regression + web rút gọn pass không deploy. Review, nghiệm thu thiết bị, persistence output chưa xong; follow-up đang chờ CI.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | [CI 42299611378](https://github.com/Pabhassaracitto/In4Up/actions/runs/42299611378) phát hiện tràn layout ở 320×640/Hindi 1.25×; sửa cho nhãn xuống dòng, chờ CI xác nhận.
+  - 2026-11-07 | doing | agent `arena/075510c6-in4up` | `ec95a2c` [CI 42300212909](https://github.com/Pabhassaracitto/In4Up/actions/runs/42300212909) xanh 4/4, tools 24 pass, Knowledge 281 pass/2 skip, web rút gọn build không deploy. Chờ review độc lập, thiết bị thật và thiết kế lưu output.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | mở [PR #149](https://github.com/Pabhassaracitto/In4Up/pull/149); đồng bộ 251e `6578d88`, giữ bản dịch cả hai phía; ARB voice-clone ở 251e làm tụt sàn locale, CI sau đồng bộ đang chờ.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | sửa locale voice-clone và thêm test đổi ngôn ngữ; báo cáo coverage/parity/placeholder chạy local đạt, chờ CI Flutter sau rebase. Review độc lập, thiết bị và lưu output vẫn chưa hoàn tất.
+  - 2026-11-08 | doing | agent `arena/075510c6-in4up` | CI sau rebase [42413018969](https://github.com/Pabhassaracitto/In4Up/actions/runs/42413018969) xanh 4/4 trên `fde949a`, gồm Rule 5 và build web không deploy. Chỉ cập nhật tài liệu sau run; review, thiết bị và lưu output vẫn chờ.
+### PLAN-047 — Công cụ Âm thanh/Video: chuyển đổi · cắt · tách · nối (AVTOOL-001..005)
+- Nguồn: người sở hữu (2026-11-06, qua agent `arena/c231303f-in4up`) — gửi 2 phản
+  hồi của Gemini về `ffmpeg_kit_flutter` (MP4/M4A→MP3; cắt/tách/nối audio) + yêu
+  cầu «khảo sát dự án để lên kế hoạch tối ưu phù hợp nhất để tích hợp thông minh
+  các chức năng vào app».
+- Trạng thái: **P0+P1+P2 đã code** (owner chốt 2026-11-06); CI `app_analyze` 🟢
+  run 42273702318 — 128 test `test/media_tools`, Analyze 0 error, Rule 5 🟢.
+  Còn QA máy thật. Sandbox không có Flutter/Dart SDK ⇒ mọi kết luận là đọc mã.
+- Milestone đề xuất: M2 (sau khi nghiệm thu 1.23.0), card `AVTOOL-001..005`.
+- Chi tiết: [`plans/PLAN-047-cong-cu-am-thanh-video.md`](../plans/PLAN-047-cong-cu-am-thanh-video.md)
+  · **ADR-0026** `adr/0026-cong-cu-media-tren-ffmpeg-co-san.md`.
+- Kết luận khảo sát (ngắn):
+  - **Không thêm thư viện nào.** `ffmpeg_kit_flutter_new ^4.6.2` đã có trong
+    `packages/in4up_stt` (+ `libmp3lame` qua `ffmpeg-kit-full-gpl`) ⇒ 0 MB tăng
+    APK. Gói `ffmpeg_kit_flutter_full` của Gemini đã **archive**.
+  - **Không tái dùng** `AudioConverter` (ép 16 kHz mono PCM — dành cho STT).
+  - Cần lớp mới `lib/features/media_tools/` 4 tầng, tầng đáy THUẦN (bộ dựng lệnh
+    trả `List<String>`, parse progress, dịch mốc LRC, đặt tên) ⇒ test được trên CI.
+  - 5 pha: **P0** vá `runFFmpegKit` (argument + huỷ + clearSessions) · **P1** lớp
+    + màn tự chẩn đoán · **P2** xuất đoạn A–B + video→âm thanh · **P3** tách
+    chương/nối/YouTube/TTS · **P4** `HeavyTaskKind.mediaExport` + i18n 8 locale + QA.
+  - Điểm khác biệt so với app chuyển đổi thông thường: bản xuất đi qua
+    `AudioImportService` + `SourceArtifactStore` + `RecentAudioService` ⇒ **clip
+    xuất ra còn karaoke, mở lại đúng vị trí, lặp A–B được**.
+- Không làm: tab «Media» riêng / trang chủ «Converter»; burn phụ đề vào video;
+  tải YouTube (đã có luồng riêng); đổi `AudioSource` enum (tránh migration);
+  đụng `lib/ffi/` hay 3 skill SM-2.
+- Lịch sử:
+  - 2026-11-06 | created (proposed) | agent `arena/c231303f-in4up` | PLAN-047 +
+    ADR-0026 + 5 card `AVTOOL-*`; đính chính 6 điểm trong tư vấn Gemini (gói đã
+    archive; `-c copy` không luôn đúng; quên `content://`; thiếu huỷ/progress/
+    dung lượng; `WRITE_EXTERNAL_STORAGE` sai với targetSdk 35; thiếu vòng lặp học).
+  - 2026-11-06 | §5.6 + §12 | owner chốt 4 câu: phạm vi P0+P1+P2, **không** đóng
+    gói `ffmpeg.exe` (tải lazy), clip mặc định MP3 192 kbps, P2 chỉ âm thanh.
+  - 2026-11-06 | code P0+P1+P2 | agent `arena/c231303f-in4up` | 46 file
+    (`packages/in4up_stt` 5 · `lib/features/media_tools/` 20 · 11 file test ·
+    i18n 67 entry) — CI 🟢 run 42273702318, 128 test. Test bắt **bug thật**:
+    `m4aCopy` khai `lossless: true` ⇒ mọi lần xuất "copy" bị hạ xuống AAC 96 kbps.
+    Đánh số lại **PLAN-046 → PLAN-047** / **ADR-0025 → ADR-0026** sau rebase lên
+    251e (hai số đó đã bị nhánh khác dùng).
+  - Còn lại: QA máy thật (clip A–B trên Android, "Tạo lời thoại" sau P0, tải
+    FFmpeg trên Windows, huỷ giữa đường) + P3/P4 (card `AVTOOL-004/005`).

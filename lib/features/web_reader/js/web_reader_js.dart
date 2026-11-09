@@ -392,6 +392,60 @@ window.getSelection()?.toString() || '';
 })();
 ''';
 
+  /// Rendered text from the main page content, including content below the fold.
+  /// Semantic blocks are preferred; a text-node/Range fallback covers pages
+  /// that render their copy inside generic div/span elements.
+  static const String extractPageTextScript = '''
+(function() {
+  const root =
+    document.querySelector('article') ||
+    document.querySelector('[role="main"]') ||
+    document.querySelector('main') ||
+    document.querySelector('.content') ||
+    document.querySelector('.post-content') ||
+    document.body;
+  const blockSelector = 'h1,h2,h3,h4,p,li,blockquote,td,th,figcaption,pre';
+  const blocks = Array.from(root.querySelectorAll(blockSelector));
+  const visible = [];
+  const seen = new Set();
+
+  blocks.forEach(el => {
+    const ancestor = el.parentElement ? el.parentElement.closest(blockSelector) : null;
+    if (ancestor && root.contains(ancestor)) return;
+    if (el.closest('nav,aside,footer,[aria-hidden="true"]')) return;
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    visible.push(text);
+  });
+
+  if (visible.length) return visible.join('\\n\\n');
+
+  // Generic, non-semantic page layouts: use text-node ranges to exclude nodes
+  // that have no rendered area while still collecting content below the fold.
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const parts = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    const parent = node.parentElement;
+    if (!parent || parent.closest('script,style,noscript,nav,header,footer,aside,[aria-hidden="true"]')) continue;
+    const style = window.getComputedStyle(parent);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rect = range.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const text = (node.textContent || '').replace(/\\s+/g, ' ').trim();
+    if (text) parts.push(text);
+  }
+  return parts.join(' ').replace(/\\s+/g, ' ').trim();
+})();
+''';
+
   /// Script setup text selection listener
   static const String setupSelectionListenerScript = '''
 (function() {

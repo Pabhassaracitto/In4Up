@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -17,11 +18,16 @@ import 'package:in4up_stt/models/stt_config.dart';
 import 'package:in4up_stt/models/stt_model_info.dart';
 import 'package:in4up_stt/stt_service_facade.dart';
 import 'package:in4up_stt/diarization/speaker_sidecar.dart';
+// PARAKEET-002 — chip "Offline (sherpa)" cần danh sách model offline đã cài.
+import 'package:in4up_stt/sherpa_model_manager.dart';
+import 'package:in4up_stt/stt_engine_sherpa.dart' show SherpaModelPaths;
+// AUDIT-1.21.0 #7 — preflight model offline trước khi cho «Tạo lời thoại».
+import '../../services/offline_model_gate.dart';
 import 'package:in4up_stt/models/content_id.dart';
 import 'package:provider/provider.dart';
 import 'package:in4up/screens/understand_mode/understand_provider.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
-import 'package:in4up/widgets/karaoke_lyrics_line.dart';
+import 'package:in4up/widgets/karaoke_transcript_view.dart';
 import 'package:in4up/widgets/karaoke_settings_sheet.dart';
 import 'package:in4up/widgets/lrc_editor_panel.dart';
 
@@ -33,6 +39,7 @@ import '../../providers/text_provider.dart';
 import '../../providers/waveform_provider.dart';
 import '../../utils/safe_set_state.dart';
 import '../../widgets/ab_loop_controls.dart';
+import '../../widgets/loop_count_chips.dart';
 import '../../widgets/sound_mark_edit_sheet.dart';
 import '../../widgets/speed_control.dart';
 import '../listen_mode/controllers/rolling_waveform_controller.dart';
@@ -40,7 +47,10 @@ import '../listen_mode/widgets/rolling_waveform_view.dart';
 import '../listen_mode/widgets/rolling_waveform_painter.dart';
 import '../understand_mode/services/lrc_translation_resolver.dart';
 import 'widgets/generate_lrc_actions.dart';
+import 'widgets/legacy_audio_data_button.dart';
 import 'widgets/listen_library_screen.dart';
+import 'widgets/listen_live_offline_mic.dart';
+import 'widgets/playback_queue_sheet.dart';
 import 'widgets/quick_audio_sheet.dart';
 import 'widgets/soundlist_panel.dart';
 import '../../features/voice_command/voice_command_service.dart';
@@ -94,6 +104,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   // ★ LRC state - curtain style
   bool _showLrcOnMain = false;
+  bool _lrcHiddenByUser = false;
   Map<String, int> _speakerColorMap = const {};
   double _lrcHeight = 220.0; // current curtain height - responsive, smaller default for SE
   static const double _lrcMinHeight = 64.0; // when collapsed, show handle
@@ -103,13 +114,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
   // rèm LRC phải nhường chỗ để không bottom overflow che thanh điều hướng
   bool _inlinePanelOpen = false;
 
-  // LRC ScrollController for sophisticated LRC display
-  late ScrollController _lrcScrollController;
+  // The shared transcript view owns its item scrolling and user-drag grace.
   bool _autoScroll = true;
-
-  /// Khi người dùng đang tự kéo danh sách → tạm tắt auto-scroll để không
-  /// giật ngược vị trí (issue: kéo thủ công không được).
-  bool _userScrollingLrc = false;
 
   bool _sheetOpen = false;
   bool _aiSheetOpen = false;
@@ -122,8 +128,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     WidgetsBinding.instance.addObserver(this);
     _waveformController = RollingWaveformController();
     _voiceCommandService = VoiceCommandService();
-    _lrcScrollController =
-        ScrollController(); // Initialize LRC scroll controller
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _setupListeners();
@@ -162,22 +166,24 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       messenger.hideCurrentSnackBar();
       if (err != null) {
         messenger.showSnackBar(SnackBar(
-          content: Text('⚠️ Không tạo được mục lục: $err'),
+          content: Text(context.uiText('⚠️ Không tạo được mục lục: $err')),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFFEF5350),
         ));
       } else if (result != null && result.chapters.isNotEmpty) {
         messenger.showSnackBar(SnackBar(
-          content: Text('✅ Đã tạo ${result.chapters.length} mục lục'
-              '${result.usedWhisper ? ' (Whisper tự đặt tên)' : ''}'),
+          content: Text(context.uiText(
+              '✅ Đã tạo ${result.chapters.length} mục lục'
+              '${result.usedWhisper ? ' (Whisper tự đặt tên)' : ''}')),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFF26C6DA),
         ));
       } else {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('⚠️ Không tạo được mục lục (không rõ nguyên nhân)'),
+        messenger.showSnackBar(SnackBar(
+          content: Text(context.uiText(
+              '⚠️ Không tạo được mục lục (không rõ nguyên nhân)')),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Color(0xFFEF5350),
         ));
@@ -206,13 +212,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
     _listenersSetup = true;
 
-    // Load LRC nếu đã có
+    // Lyrics may already be in memory (including a partial AI result) even
+    // before an LRC path is persisted and while the player is paused.
+    if (understand.lrcLines.isNotEmpty) _showLrcOnMain = true;
     if (player.lastGeneratedLrcPath != null) {
       _loadLrcFile(player.lastGeneratedLrcPath!);
-      final understandProvider = context.read<UnderstandProvider>();
-      if (understandProvider.lrcLines.isNotEmpty) {
-        _showLrcOnMain = true;
-      }
     }
 
     _forceReloadWaveformIfNeeded();
@@ -296,46 +300,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     // AnimatedBuilder còn sống gọi setState during build → màn đỏ vài giây.
     _waveformController.dispose();
     _voiceCommandService.dispose();
-    _lrcScrollController.dispose(); // Cleanup LRC scroll controller
     _sheetController.dispose();
     _aiSheetController.dispose();
     _listenersSetup = false;
     super.dispose();
-  }
-
-  // Auto-scroll to active LRC line - improved, không trật màn hình
-  void _scrollToLine(int index) {
-    if (!_lrcScrollController.hasClients || index < 0) return;
-    if (_lrcHeight < _lrcMinHeight) return; // panel đang ẩn hoặc quá nhỏ
-
-    try {
-      final position = _lrcScrollController.position;
-      if (!position.hasContentDimensions) return;
-
-      final viewportHeight = position.viewportDimension;
-      if (viewportHeight <= 0) return;
-
-      const estimatedLineHeight = 52.0;
-      final targetOffset = index * estimatedLineHeight;
-      // Karaoke centered in middle for best visibility (was 0.35 top, hidden above)
-      final desiredCenter = viewportHeight * 0.5;
-      final centerOffset =
-          targetOffset - desiredCenter + (estimatedLineHeight / 2);
-
-      if (position.maxScrollExtent <= 0) return;
-      final clamped = centerOffset.clamp(0.0, position.maxScrollExtent);
-
-      // Luôn scroll để dòng karaoke ở giữa, không skip khi inView (fix ẩn trên nhiều)
-      if ((position.pixels - clamped).abs() > 8) {
-        _lrcScrollController.animateTo(
-          clamped,
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    } catch (e) {
-      debugPrint('[LRC] scrollToLine error: $e');
-    }
   }
 
   String _normalizePath(String path) {
@@ -366,6 +334,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       // LISTEN-LRC-001: deferred when this tick lands mid-build.
       safeSetState(() {
         _showLrcOnMain = false;
+        _lrcHiddenByUser = false;
         _lrcHeight = _lrcDefaultHeight;
         _inlinePanelOpen = false;
         _aiSheetOpen = false;
@@ -399,11 +368,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     }
     _syncLoopRegions(player);
 
-    // ★ Update UnderstandProvider position cho synced lyrics
-    if (_showLrcOnMain) {
-      // LISTEN-LRC-001: stored ref — no context.read inside a listener.
-      _understandProvider?.updatePosition(player.state.position);
-    }
   }
 
   void _syncLoopRegions(PlayerProvider player) {
@@ -453,8 +417,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       if (!mounted) return;
       final hasLrcLines = understand.lrcLines.isNotEmpty;
 
-      // Tự động hiển thị LRC panel khi có lyrics mới
-      if (hasLrcLines && !_showLrcOnMain) {
+      // A new transcript opens automatically, but ordinary word/position
+      // updates must not reopen a panel that the user deliberately hid.
+      if (!hasLrcLines) _lrcHiddenByUser = false;
+      if (hasLrcLines && !_showLrcOnMain && !_lrcHiddenByUser) {
         safeSetState(() {
           _showLrcOnMain = true;
         });
@@ -465,12 +431,6 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         });
       }
 
-      // Auto-scroll to current line (from UnderstandModeScreen logic)
-      final idx = understand.currentLineIndex;
-      // Chỉ auto-scroll khi user KHÔNG đang tự kéo danh sách.
-      if (idx >= 0 && _autoScroll && !_userScrollingLrc && hasLrcLines) {
-        _scrollToLine(idx);
-      }
     }
 
     if (listenShouldDeferSetState()) {
@@ -482,6 +442,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
   // ★ Load LRC file và parse thành danh sách dòng text
   Future<void> _loadLrcFile(String lrcPath) async {
+    final sourceAtStart = _playerProvider?.currentSongPath;
     try {
       final file = File(lrcPath);
       if (!await file.exists()) return;
@@ -496,9 +457,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
 
         // Parse LRC format: [mm:ss.xx] text
         final match =
-            RegExp(r'^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$').firstMatch(trimmed);
+            RegExp(r'^\[(\d+):(\d{2})\.(\d{2,3})\](.*)$').firstMatch(trimmed);
         if (match != null) {
-          final text = match.group(4)?.trim() ?? '';
+          final text = (match.group(4) ?? '')
+              .replaceAll(RegExp(r'<\d+:\d{2}\.\d{2,3}>'), '')
+              .trim();
           if (text.isNotEmpty) {
             lines.add(text);
             final min = int.parse(match.group(1)!);
@@ -520,10 +483,12 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       }
 
       final speakerMap = await SpeakerSidecar.loadSpeakerMap(lrcPath);
-      if (mounted && lines.isNotEmpty) {
+      if (mounted && lines.isNotEmpty &&
+          sourceAtStart == _playerProvider?.currentSongPath &&
+          lrcPath == _playerProvider?.lastGeneratedLrcPath) {
         setState(() {
           _speakerColorMap = speakerMap;
-          _showLrcOnMain = true;
+          if (!_lrcHiddenByUser) _showLrcOnMain = true;
         });
         final data = _waveformController.waveformData;
         if (data != null && segments.isNotEmpty) {
@@ -554,7 +519,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                 color: kSpeakerColors[id], shape: BoxShape.circle,
               )),
               const SizedBox(width: 4),
-              Text('Người $id', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              Text(context.uiText('Người $id'), style: const TextStyle(color: Colors.white, fontSize: 10)),
             ]),
           )).toList(),
         ),
@@ -580,7 +545,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
         if (_lastVoiceText.isNotEmpty) ...[
           const SizedBox(width: 6),
           Text(
-            '${voiceCommandLabel(locale, 'received')}: $_lastVoiceText',
+            context.uiText('${voiceCommandLabel(locale, 'received')}: $_lastVoiceText'),
             style: const TextStyle(color: Colors.white, fontSize: 10),
           ),
         ],
@@ -659,6 +624,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
     if (!mounted) return;
     setState(() {
       _showLrcOnMain = true;
+      _lrcHiddenByUser = false;
       // Builder clamps this sentinel to the exact local maximum, so the LRC
       // curtain touches the waveform regardless of device/shell height.
       _lrcHeight = double.maxFinite;
@@ -810,7 +776,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
           case VoiceCommandType.faster: await player.increaseSpeed(); break;
           case VoiceCommandType.slower: await player.decreaseSpeed(); break;
           case VoiceCommandType.toggleLyrics:
-            if (mounted) setState(() => _showLrcOnMain = !_showLrcOnMain); break;
+            if (mounted) setState(() {
+              _showLrcOnMain = !_showLrcOnMain;
+              _lrcHiddenByUser = !_showLrcOnMain;
+            });
+            break;
           case VoiceCommandType.translate: break;
         }
       },
@@ -829,8 +799,25 @@ class _ListenModeScreenState extends State<ListenModeScreen>
       selector: (_, p) => p.currentSongPath,
       builder: (context, currentPath, _) {
         final player = context.read<PlayerProvider>();
-        if (player.currentSongPath == null) {
-          return const ListenLibraryScreen();
+        if (currentPath == null) {
+          return Stack(
+            children: [
+              const ListenLibraryScreen(),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Consumer<PlayerProvider>(builder: (context, player, _) {
+                  if (!player.isQueueLoading) return const SizedBox.shrink();
+                  return Semantics(
+                    label: context.uiText('Đang tải bài'),
+                    liveRegion: true,
+                    child: const LinearProgressIndicator(),
+                  );
+                }),
+              ),
+            ],
+          );
         }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -903,6 +890,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                             }
                           });
                         }
+                        final compactCurtain = displayHeight < 150;
                         final dragAction = context.uiText(
                           displayHeight > maxH * 0.8 ? 'thu nhỏ' : 'mở rộng',
                         );
@@ -968,6 +956,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                   if (velocity > 700) {
                                     setState(() {
                                       _showLrcOnMain = false;
+                                      _lrcHiddenByUser = true;
                                       _lrcHeight = _lrcDefaultHeight;
                                     });
                                     HapticFeedback.mediumImpact();
@@ -975,6 +964,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     // Kéo thấp quá -> ẩn
                                     setState(() {
                                       _showLrcOnMain = false;
+                                      _lrcHiddenByUser = true;
                                       _lrcHeight = _lrcDefaultHeight;
                                     });
                                     HapticFeedback.lightImpact();
@@ -997,8 +987,9 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                   });
                                 },
                                 child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: compactCurtain ? 3 : 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white
                                         .withValues(alpha: 0.03),
@@ -1016,8 +1007,8 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                               BorderRadius.circular(3),
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      Row(
+                                      if (!compactCurtain) const SizedBox(height: 6),
+                                      if (!compactCurtain) Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
@@ -1027,12 +1018,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                             color: Colors.grey[600],
                                           ),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            context.uiText('Kéo để $dragAction • chạm để $tapAction'),
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w500,
+                                          Flexible(
+                                            child: Text(
+                                              context.uiText('Kéo để $dragAction • chạm để $tapAction'),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(width: 4),
@@ -1049,8 +1045,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                               ),
                               // Header với title + actions
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: compactCurtain ? 1 : 5,
+                                ),
                                 decoration: BoxDecoration(
                                   border: Border(
                                     bottom: BorderSide(
@@ -1077,7 +1075,11 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                     ),
                                     const Spacer(),
                                     // Auto-scroll toggle compact
-                                    GestureDetector(
+                                    Semantics(
+                                      button: true,
+                                      toggled: _autoScroll,
+                                      label: context.uiText('Tự cuộn lời'),
+                                      child: GestureDetector(
                                       onTap: () {
                                         setState(() {
                                           _autoScroll = !_autoScroll;
@@ -1124,6 +1126,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                         ),
                                       ),
                                     ),
+                                    ),
                                     const SizedBox(width: 4),
                                     _LrcIconBtn(
                                       icon: Icons.tune,
@@ -1140,6 +1143,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                             _lrcHeight = 140;
                                           } else {
                                             _showLrcOnMain = false;
+                                            _lrcHiddenByUser = true;
                                             _lrcHeight = _lrcDefaultHeight;
                                           }
                                         });
@@ -1150,122 +1154,48 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                       tooltip: context.uiText('Ẩn'),
                                       onTap: () => setState(() {
                                         _showLrcOnMain = false;
+                                        _lrcHiddenByUser = true;
                                         _lrcHeight = _lrcDefaultHeight;
                                       }),
                                     ),
                                   ],
                                 ),
                               ),
-                              // LRC List
+                              // Same measured, virtualized transcript as tab Hiểu.
                               Expanded(
-                                child: NotificationListener<ScrollNotification>(
-                                  onNotification: (n) {
-                                    if (n is ScrollStartNotification) {
-                                      _userScrollingLrc = true;
-                                    } else if (n is ScrollEndNotification) {
-                                      _userScrollingLrc = false;
-                                      // Sau 2.5s không kéo thì bật lại auto-scroll
-                                      Future.delayed(
-                                          const Duration(milliseconds: 2500),
-                                          () {
-                                        if (mounted &&
-                                            !_userScrollingLrc) {
-                                          // không làm gì, chỉ reset cờ cho lần sau
-                                        }
-                                      });
-                                    }
-                                    return false;
-                                  },
-                                  child: ListView.builder(
-                                    controller: _lrcScrollController,
-                                    physics:
-                                        const AlwaysScrollableScrollPhysics(),
-                                    padding:
-                                        const EdgeInsets.only(bottom: 72),
-                                    itemCount: understand.lrcLines.length,
-                                    itemBuilder: (context, index) {
-                                      final line =
-                                          understand.lrcLines[index];
-                                      final isActive = index ==
-                                          understand.currentLineIndex;
-
-                                      // Dùng cùng resolver với tab Hiểu để bản
-                                      // dịch đã tạo ở tab Đọc hiển thị nhất quán.
-                                      final lrcTranslation =
-                                          resolveLrcTranslation(
-                                        context.read<TextProvider>().lines,
-                                        line.text,
-                                      );
-
-                                      return GestureDetector(
-                                        onTap: () {
-                                          context
-                                              .read<PlayerProvider>()
-                                              .seek(line.timestamp);
-                                          HapticFeedback.selectionClick();
-                                        },
-                                        onLongPress: () {
-                                          // Copy text
-                                          Clipboard.setData(ClipboardData(
-                                              text: line.text));
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    "Đã copy lời thoại"),
-                                                duration:
-                                                    Duration(seconds: 1)),
-                                          );
-                                        },
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                              milliseconds: 220),
-                                          margin: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                            horizontal: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isActive
-                                                ? const Color(0xFF6C63FF)
-                                                    .withValues(alpha: 0.14)
-                                                : Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            border: isActive
-                                                ? Border.all(
-                                                    color:
-                                                        const Color(0xFF6C63FF)
-                                                            .withValues(
-                                                                alpha: 0.25),
-                                                    width: 1)
-                                                : null,
-                                          ),
-                                          child: Consumer<
-                                              KaraokeSettingsProvider>(
-                                            builder: (_, karaoke, __) =>
-                                                KaraokeLyricsLine(
-                                              line: line,
-                                              isActive: isActive,
-                                              words: understand
-                                                  .wordsForLine(index),
-                                              activeWordIndex: isActive
-                                                  ? understand
-                                                      .currentWordIndex
-                                                  : -1,
-                                              style: karaoke.style,
-                                              translation: lrcTranslation,
-                                            ),
-                                          ),
+                                child: Consumer<KaraokeSettingsProvider>(
+                                  builder: (context, karaoke, _) =>
+                                      KaraokeTranscriptView(
+                                    key: const ValueKey('listen-karaoke-view'),
+                                    lines: understand.lrcLines,
+                                    currentLineIndex: understand.currentLineIndex,
+                                    currentWordIndex: understand.currentWordIndex,
+                                    wordsForLine: understand.wordsForLine,
+                                    style: karaoke.style,
+                                    autoFollow: _autoScroll,
+                                    compact: true,
+                                    translationForLine: (line) => resolveLrcTranslation(
+                                      context.read<TextProvider>().lines,
+                                      line.text,
+                                    ),
+                                    onLineTap: (line) {
+                                      context.read<PlayerProvider>().seek(line.timestamp);
+                                      HapticFeedback.selectionClick();
+                                    },
+                                    onLineLongPress: (line) {
+                                      Clipboard.setData(ClipboardData(text: line.text));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Đã copy lời thoại'),
+                                          duration: Duration(seconds: 1),
                                         ),
                                       );
                                     },
                                   ),
                                 ),
                               ),
-                              // Bottom hint to drag down to close
-                              Container(
+                              // Leave the short panel's space to the lyric.
+                              if (!compactCurtain) Container(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 4),
                                 child: Text(
@@ -1294,6 +1224,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         child: GestureDetector(
                           onTap: () => setState(() {
                             _showLrcOnMain = true;
+                            _lrcHiddenByUser = false;
                             _lrcHeight = _lrcDefaultHeight;
                           }),
                           onVerticalDragUpdate: (d) {
@@ -1301,6 +1232,7 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                               // kéo lên
                               setState(() {
                                 _showLrcOnMain = true;
+                                _lrcHiddenByUser = false;
                               });
                             }
                           },
@@ -1321,12 +1253,17 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                                 const Icon(Icons.lyrics,
                                     size: 16, color: Color(0xFF8B83FF)),
                                 const SizedBox(width: 8),
-                                Text(
-                                  context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
-                                  style: const TextStyle(
-                                    color: Color(0xFF8B83FF),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                Flexible(
+                                  child: Text(
+                                    context.uiText("Hiện LRC • ${understand.lrcLines.length} dòng • Kéo lên để mở"),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8B83FF),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1435,7 +1372,10 @@ class _ListenModeScreenState extends State<ListenModeScreen>
                         player: player,
                         onClose: _closeSheet,
                         onLrcApplied: () {
-                          setState(() => _showLrcOnMain = true);
+                          setState(() {
+                            _showLrcOnMain = true;
+                            _lrcHiddenByUser = false;
+                          });
                           _closeSheet();
                         },
                       ),
@@ -1697,7 +1637,7 @@ class _AutoHideZoomControlsState extends State<_AutoHideZoomControls> {
                     child: GestureDetector(
                       onTap: () => _setZoom(1.0),
                       child: Text(
-                        '${_zoom.toStringAsFixed(1)}×',
+                        context.uiText('${_zoom.toStringAsFixed(1)}×'),
                         style: TextStyle(
                           color: _zoom == 1.0 ? Colors.grey[500] : Colors.white,
                           fontSize: 10,
@@ -1725,16 +1665,23 @@ class _LrcIconBtn extends StatelessWidget {
   const _LrcIconBtn({required this.icon, required this.tooltip, required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(left: 4),
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(6),
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 14, color: Colors.grey),
+          ),
         ),
-        child: Icon(icon, size: 14, color: Colors.grey),
       ),
     );
   }
@@ -1809,7 +1756,7 @@ class _SongInfoBar extends StatelessWidget {
                     children: [
                       Row(children: [
                         Flexible(
-                          child: Text(
+                          child: material.Text(
                             player.currentSongTitle ?? 'Unknown',
                             style: const TextStyle(
                                 fontSize: 14,
@@ -1824,8 +1771,8 @@ class _SongInfoBar extends StatelessWidget {
                             size: 16, color: Color(0xFF6C63FF)),
                       ]),
                       const SizedBox(height: 2),
-                      Text(
-                        player.currentSongArtist ?? 'Nhấn để đổi audio',
+                      material.Text(
+                        player.currentSongArtist ?? context.uiText('Nhấn để đổi audio'),
                         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1836,6 +1783,12 @@ class _SongInfoBar extends StatelessWidget {
               ]),
             ),
           ),
+          LegacyAudioDataButton(player: player),
+          IconButton(
+            tooltip: context.uiText('Danh sách đang phát'),
+            onPressed: () => showPlaybackQueueSheet(context),
+            icon: const Icon(Icons.queue_music, color: Colors.white70),
+          ),
           if (player.state.speed != 1.0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1844,7 +1797,7 @@ class _SongInfoBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
               ),
-              child: Text('${player.state.speed}×',
+              child: Text(context.uiText('${player.state.speed}×'),
                   style: const TextStyle(
                       color: Colors.orange,
                       fontSize: 11,
@@ -2102,6 +2055,17 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const ABLoopControls(compact: true),
+        const SizedBox(height: 8),
+        // AUDIT-1.21.0 #8: nút chỉnh số lần lặp NGAY trên popup A-B bên
+        // ngoài (không phải vào sheet "Thêm" mới thấy). `safeDropdownValue`
+        // gom -1 → 0 nên chỉ có ĐÚNG MỘT chip `∞`.
+        Consumer<PlayerProvider>(
+          builder: (context, player, _) => LoopCountChips(
+            maxLoopCount: player.maxLoopCount,
+            onChanged: player.setMaxLoopCount,
+            dense: true,
+          ),
+        ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: () {
@@ -2373,30 +2337,15 @@ class _SmartActionBarState extends State<_SmartActionBar>
   void _onPlayerStateChange() {
     if (!mounted) return;
 
-    // Flags are consumed synchronously (no notify involved); every UI effect
+    // Flags are consumed synchronously (no notify involved); the UI effect
     // below touches parent State, so it runs post-frame — never inside the
     // notify/build window (LISTEN-LRC-001).
-    var openAi = false;
-    if (widget.player.shouldOpenAiPanel) {
-      widget.player.consumeShouldOpenAiPanel();
-      openAi = true;
-    }
-
+    // PSRC-157: loading/importing a song without cached lyrics no longer
+    // raises an automatic "Tạo lời" sheet. The sheet opens only through the
+    // explicit toolbar action (`_toggleAiPanel`).
     if (widget.player.lrcJustGenerated) {
       widget.player.consumeLrcJustGenerated();
       runPostFrame(() => widget.onLrcGenerated());
-      openAi = true;
-    }
-
-    if (openAi) {
-      runPostFrame(() {
-        if (_openPanel != null) {
-          _openPanel = null;
-          widget.onPanelChanged?.call(false);
-          safeSetState(() {});
-        }
-        widget.onAiPanelChanged(true);
-      });
     }
   }
 
@@ -2503,8 +2452,8 @@ class _SmartActionBarState extends State<_SmartActionBar>
                   ),
                   const SizedBox(width: 6),
                   _ActionTile(
-                    icon: Icons.auto_awesome,
-                    label: 'AI',
+                    icon: Icons.subtitles_outlined,
+                    label: 'Tạo lời',
                     color: Colors.blue,
                     isActive: widget.aiPanelOpen,
                     onTap: _toggleAiPanel,
@@ -2624,7 +2573,8 @@ class _SmartActionBarState extends State<_SmartActionBar>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('📌 Đã đánh dấu ${_fmt(player.state.position)}'),
+          content: Text(
+              context.uiText('📌 Đã đánh dấu ${_fmt(player.state.position)}')),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 170),
           backgroundColor: const Color(0xFFFFB300),
@@ -2737,32 +2687,51 @@ class _SeekAndPlayRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _SeekBtn(icon: Icons.replay_10, onTap: () => _seek(-10)),
-        const SizedBox(width: 16),
+        _TransportButton(
+          icon: Icons.skip_previous,
+          label: context.uiText('Bài trước'),
+          onTap: player.canGoPreviousTrack ? () => player.previousTrack() : null,
+        ),
+        _TransportButton(
+          icon: Icons.replay_10,
+          label: context.uiText('Lùi 10 giây'),
+          onTap: () => player.replay10(),
+        ),
         _PlayButton(player: player),
-        const SizedBox(width: 16),
-        _SeekBtn(icon: Icons.forward_10, onTap: () => _seek(10)),
+        _TransportButton(
+          icon: Icons.forward_10,
+          label: context.uiText('Tiến 10 giây'),
+          onTap: () => player.forward10(),
+        ),
+        _TransportButton(
+          icon: Icons.skip_next,
+          label: context.uiText('Bài sau'),
+          onTap: player.canGoNextTrack ? () => player.nextTrack() : null,
+        ),
       ],
     );
   }
-
-  void _seek(int sec) {
-    HapticFeedback.lightImpact();
-    final target = player.state.position + Duration(seconds: sec);
-    player.seek(target.isNegative ? Duration.zero : target);
-  }
 }
 
-class _SeekBtn extends StatelessWidget {
+class _TransportButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
-  const _SeekBtn({required this.icon, required this.onTap});
+  final String label;
+  final VoidCallback? onTap;
+  const _TransportButton({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Icon(icon, color: Colors.white70, size: 26),
+    return IconButton(
+      tooltip: label,
+      onPressed: onTap == null
+          ? null
+          : () {
+              HapticFeedback.lightImpact();
+              onTap!();
+            },
+      icon: Icon(icon, size: 26),
+      color: Colors.white70,
+      disabledColor: Colors.white24,
     );
   }
 }
@@ -2773,30 +2742,38 @@ class _PlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        player.togglePlayPause();
-      },
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-              colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)]),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+    final label = context.uiText(player.wantsPlayback ? 'Tạm dừng' : 'Phát');
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            player.togglePlayPause();
+          },
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)]),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6C63FF).withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Icon(
-          player.isPlaying ? Icons.pause : Icons.play_arrow,
-          color: Colors.white,
-          size: 28,
+            child: Icon(
+              player.wantsPlayback ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
         ),
       ),
     );
@@ -2861,7 +2838,7 @@ class GenerateLrcButton extends StatelessWidget {
                           const SizedBox(width: 8),
                           if (hasChunkInfo)
                             Text(
-                              '${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%',
+                              context.uiText('${((progress.chunkIndex + 1) / progress.chunkCount * 100).toStringAsFixed(0)}%'),
                               style: TextStyle(
                                 color: Colors.blue.shade300,
                                 fontSize: 12,
@@ -2970,14 +2947,18 @@ class GenerateLrcButton extends StatelessWidget {
                   // Tạo lại, không auto chạy Whisper nữa.
                   // Ngôn ngữ: 'auto' (mặc định) = Whisper tự nhận diện
                   // đa ngữ; hoặc ép cụ thể (vi/en/zh/ja/ko/pi...).
-                  onGenerate: (level, grouping, language) =>
-                      confirmAndGenerateLrc(
-                        context,
-                        provider,
-                        level,
-                        grouping,
-                        language: language,
-                      ),
+                  onGenerate: (level, grouping, language, useSherpa) async {
+                    final output = await confirmAndGenerateLrc(
+                      context, provider, level, grouping,
+                      language: language, preferSherpa: useSherpa,
+                    );
+                    if (context.mounted && output != null && !output.success) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(context.uiText(output.errorMessage ?? 'Lỗi không xác định')),
+                      ));
+                    }
+                    return output;
+                  },
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -3015,6 +2996,10 @@ class GenerateLrcButton extends StatelessWidget {
                         );
                       },
                     ),
+                    // M4U-IMPORT-003 — mic OFFLINE (sherpa-onnx): Parakeet TDT
+                    // (25 ngôn ngữ châu Âu) hoặc Zipformer VI. Chỉ hiện khi máy
+                    // đã cài ít nhất 1 model offline.
+                    const ListenLiveOfflineMic(),
                   ],
                 ),
               ],
@@ -3028,9 +3013,11 @@ class GenerateLrcButton extends StatelessWidget {
 
 class _LrcModelSelector extends StatefulWidget {
   final bool isProcessing;
-  /// (level, grouping, language) — 'auto' = Whisper tự nhận diện ngôn ngữ.
+  /// (level, grouping, language, useSherpa) — 'auto' = Whisper tự nhận diện
+  /// ngôn ngữ; `useSherpa == true` = dùng model sherpa OFFLINE (Parakeet /
+  /// Zipformer VI) thay cho Whisper (PARAKEET-002).
   final Future<SttTranscribeOutput?> Function(
-      WhisperModelLevel?, SttSegmentGrouping, String) onGenerate;
+      WhisperModelLevel?, SttSegmentGrouping, String, bool) onGenerate;
 
   const _LrcModelSelector(
       {required this.isProcessing, required this.onGenerate});
@@ -3063,47 +3050,255 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
   SttSegmentGrouping _grouping = SttSegmentGrouping.sentence;
   String _language = 'auto';
 
+  /// PARAKEET-002 — dùng model sherpa OFFLINE (Parakeet đa ngữ / Zipformer VI)
+  /// thay cho Whisper. Chỉ bật được khi máy đã cài ít nhất 1 model offline
+  /// (model streaming không dùng cho file được — SHERPA-STREAM-001).
+  bool _useSherpa = false;
+  bool _advanced = false;
+
+  StreamSubscription<SherpaAsrInfo>? _asrSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // State model ASR có thể chưa được quét (màn Nghe vào trực tiếp) ⇒ quét
+    // một lần rồi nghe tiếp thay đổi (user vừa import/tải model xong).
+    final manager = SherpaModelManager();
+    manager.ensureFresh().catchError((Object e) {
+      debugPrint('⚠️ _LrcModelSelector: quét model ASR lỗi: $e');
+    });
+    _asrSub = manager.watchAsr().listen((_) {
+      if (!mounted) return;
+      setState(() {
+        // AUDIT-1.21.0 #7: model bị gỡ / import hỏng ⇒ tự tắt chip offline
+        // thay vì để chip sáng rồi crash lúc bấm «Tạo lời thoại».
+        if (_useSherpa && _sherpaLanguages().isEmpty) {
+          _useSherpa = false;
+          _language = 'auto';
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _asrSub?.cancel();
+    super.dispose();
+  }
+
+  /// AUDIT-1.21.0 #7 — preflight THẬT của một profile ASR: manager chỉ cần
+  /// file `.onnx` > 1000 byte, nên bản import dở vẫn được coi là "đã cài".
+  /// Đọc kích thước 4 file trước khi cho chip sáng / cho chạy native.
+  OfflineModelVerdict _sherpaVerdict(String profileId) {
+    final profile = AsrModelRouter.profileById(profileId);
+    if (profile == null) {
+      return const OfflineModelVerdict(OfflineModelIssue.unsupportedLanguage);
+    }
+    final manager = SherpaModelManager();
+    final installed = manager.isAsrProfileInstalled(profileId);
+    var filesPlausible = false;
+    if (installed) {
+      try {
+        final SherpaModelPaths? paths = manager.getAsrModelPaths(profileId);
+        if (paths != null) {
+          filesPlausible = asrFilesPlausible(
+            encoderBytes: File(paths.encoder).lengthSync(),
+            decoderBytes: File(paths.decoder).lengthSync(),
+            joinerBytes: File(paths.joiner).lengthSync(),
+            tokensBytes: File(paths.tokens).lengthSync(),
+          );
+        }
+      } catch (_) {
+        // Không đọc được file ⇒ coi là chưa sẵn sàng, TUYỆT ĐỐI không đẩy
+        // path hỏng xuống sherpa-onnx (SIGSEGV ở C++ không catch được).
+        filesPlausible = false;
+      }
+    }
+    return assessOfflineModel(
+      installed: installed,
+      filesPlausible: filesPlausible,
+      isStreaming: profile.isStreaming,
+      needsOffline: true, // transcribe FILE ⇒ OfflineRecognizer
+    );
+  }
+
+  /// Ngôn ngữ của các model sherpa offline **dùng được** — khác danh sách
+  /// Whisper ở `_lrcSttLanguages`. Model streaming và model import dở bị loại.
+  List<String> _sherpaLanguages() =>
+      AsrModelRouter.installedLanguages(
+        isInstalled: (profileId) => _sherpaVerdict(profileId).canUse,
+      );
+
+  /// Chặn «Tạo lời thoại» khi chip offline đang bật nhưng model đã biến mất
+  /// (user xoá file, đổi quyền, hoặc model vừa bị dọn giữa lúc mở sheet).
+  String? _sherpaBlockMessage(BuildContext context) {
+    if (!_useSherpa) return null;
+    final languages = _sherpaLanguages();
+    if (!languages.contains(_language)) {
+      return context.uiText(
+        'Chưa có model nhận diện offline — hãy tải hoặc import Parakeet / Zipformer VI trong Quản lý Model AI.',
+      );
+    }
+    final profile = AsrModelRouter.profileForLanguage(_language);
+    if (profile != null) {
+      final verdict = _sherpaVerdict(profile.id);
+      if (!verdict.canUse && verdict.issue == OfflineModelIssue.incompleteFiles) {
+        return context.uiText(
+          'Chưa có engine nhận diện giọng nói sẵn sàng. Import model Sherpa trong Quản lý Model AI, hoặc kiểm tra dịch vụ nhận diện giọng nói của hệ thống.',
+        );
+      }
+    }
+    return null;
+  }
+
+  void _generateLrc() {
+    final block = _sherpaBlockMessage(context);
+    if (block != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(block), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    widget.onGenerate(
+      _useSherpa ? null : _selectedLevel,
+      _grouping,
+      _language,
+      _useSherpa,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          ChoiceChip(
-            label: const Text('AUTO'),
-            selected: _selectedLevel == null,
-            onSelected: widget.isProcessing
-                ? null
-                : (_) => setState(() => _selectedLevel = null),
+        if (!widget.isProcessing && !_advanced)
+          ElevatedButton.icon(
+            onPressed: () => widget.onGenerate(
+                null, SttSegmentGrouping.sentence, 'auto', false),
+            icon: const Icon(Icons.subtitles_outlined),
+            label: Text(context.uiText('Tạo tự động')),
           ),
-          ...WhisperModelLevel.values.map((level) {
-            final info = context.read<PlayerProvider>().getSttModelInfo(level);
-            final isSelected = _selectedLevel == level;
-            return FilterChip(
-              label: Text(
-                '${level.name.toUpperCase()} (${level.sizeInMB}MB)'
-                '${info.isReady ? ' ✓' : ''}',
+        if (!widget.isProcessing)
+          TextButton.icon(
+            onPressed: () => setState(() => _advanced = !_advanced),
+            icon: Icon(_advanced ? Icons.expand_less : Icons.tune),
+            label: Text(context.uiText('Tùy chỉnh')),
+          ),
+        if (_advanced && !widget.isProcessing) ...[
+        // PARAKEET-002 — có model sherpa OFFLINE đã cài thì cho chọn nó thay
+        // Whisper (trước đây tab Nghe chỉ có chip Whisper: import Parakeet
+        // xong không có cách nào dùng).
+        Builder(builder: (context) {
+          final sherpaLanguages = _sherpaLanguages();
+          if (sherpaLanguages.isEmpty) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [
+              ChoiceChip(
+                avatar: const Icon(Icons.offline_bolt_rounded, size: 16),
+                label: Text(
+                  context.uiText('Offline (Parakeet/sherpa)'),
+                ),
+                selected: _useSherpa,
+                onSelected: widget.isProcessing
+                    ? null
+                    : (selected) => setState(() {
+                          _useSherpa = selected;
+                          if (selected) {
+                            // Sherpa không có chế độ 'auto': chọn ngôn ngữ
+                            // đang dùng nếu nó nằm trong model đã cài, ngược
+                            // lại lấy ngôn ngữ đầu tiên của model offline.
+                            final current = _language;
+                            if (!sherpaLanguages.contains(current)) {
+                              _language = sherpaLanguages.first;
+                            }
+                          } else {
+                            _language = 'auto';
+                          }
+                        }),
               ),
-              selected: isSelected,
-              onSelected: widget.isProcessing
-                  ? null
-                  : (_) => setState(
-                      () => _selectedLevel = isSelected ? null : level),
-            );
-          }),
-        ]),
+            ]),
+          );
+        }),
+        if (!_useSherpa)
+          PopupMenuButton<String>(
+            tooltip: context.uiText('Chọn model'),
+            onSelected: (value) => setState(() {
+              _selectedLevel = value == 'auto' ? null :
+                  [...kWhisperMultilingualLevels, ...kWhisperEnglishOnlyLevels]
+                      .firstWhere((level) => level.name == value);
+            }),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'auto', child: Text('AUTO')),
+              for (final level in [
+                ...kWhisperMultilingualLevels,
+                ...kWhisperEnglishOnlyLevels.where((level) =>
+                    context.read<PlayerProvider>().getSttModelInfo(level).isReady),
+              ])
+                PopupMenuItem(
+                  value: level.name,
+                  child: Text('${level.displayLabel} (${level.sizeInMB}MB)'
+                      '${context.read<PlayerProvider>().getSttModelInfo(level).isReady ? ' ✓' : ''}'),
+                ),
+            ],
+            child: ListTile(
+              dense: true,
+              title: Text(context.uiText('Model')),
+              subtitle: Text(_selectedLevel?.displayLabel ?? 'AUTO'),
+              trailing: const Icon(Icons.expand_more),
+            ),
+          ),
+        if (_selectedLevel?.isEnglishOnly == true &&
+            _language != 'auto' &&
+            _language != 'en') ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  size: 14, color: Colors.orangeAccent),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText(
+                    'Model English-only chỉ nhận tiếng Anh — hãy chọn English '
+                    'hoặc Tự động, hay đổi sang model đa ngữ.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.orangeAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 8),
         // Ngôn ngữ STT — mặc định 'Tự động' (Whisper tự nhận diện đa ngữ).
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final entry in _lrcSttLanguages.entries)
-            ChoiceChip(
-              label: Text(entry.value),
-              selected: _language == entry.key,
-              onSelected: widget.isProcessing
-                  ? null
-                  : (_) => setState(() => _language = entry.key),
-            ),
-        ]),
+        // Ở chế độ sherpa chỉ hiện ngôn ngữ model offline ĐÃ CÀI thật (chọn
+        // ngôn ngữ Parakeet không hỗ trợ sẽ báo lỗi ngay khi bấm tạo).
+        PopupMenuButton<String>(
+          tooltip: context.uiText('Ngôn ngữ'),
+          onSelected: (value) => setState(() => _language = value),
+          itemBuilder: (context) => [
+            if (_useSherpa)
+              for (final language in _sherpaLanguages())
+                PopupMenuItem(value: language,
+                    child: Text(AsrModelRouter.languageDisplayName(language)))
+            else
+              for (final entry in _lrcSttLanguages.entries)
+                PopupMenuItem(value: entry.key,
+                    child: Text(context.uiText(entry.value))),
+          ],
+          child: ListTile(
+            dense: true,
+            title: Text(context.uiText('Ngôn ngữ')),
+            subtitle: Text(_useSherpa
+                ? AsrModelRouter.languageDisplayName(_language)
+                : context.uiText(_lrcSttLanguages[_language] ?? 'Tự động')),
+            trailing: const Icon(Icons.expand_more),
+          ),
+        ),
         const SizedBox(height: 12),
         if (!widget.isProcessing)
           SegmentedButton<SttSegmentGrouping>(
@@ -3126,6 +3321,7 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
             onSelectionChanged: (s) =>
                 setState(() => _grouping = s.first),
           ),
+        ],
         const SizedBox(height: 12),
         if (widget.isProcessing)
           Row(
@@ -3150,15 +3346,18 @@ class _LrcModelSelectorState extends State<_LrcModelSelector> {
               ),
             ],
           )
-        else
+        else if (_advanced)
           ElevatedButton.icon(
-            onPressed: () =>
-                widget.onGenerate(_selectedLevel, _grouping, _language),
+            // AUDIT-1.21.0 #7: preflight model TRƯỚC khi xuống native.
+            onPressed: _generateLrc,
             icon: const Icon(Icons.subtitles_outlined),
             label: Text(
-              _language == 'auto'
-                  ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
-                  : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})',
+              context.uiText(_useSherpa
+                  ? 'Tạo lời thoại (LRC — offline, '
+                      '${AsrModelRouter.languageDisplayName(_language)})'
+                  : _language == 'auto'
+                      ? 'Tạo lời thoại (LRC — ngôn ngữ tự động)'
+                      : 'Tạo lời thoại (LRC — ${_lrcSttLanguages[_language]})'),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade700,
@@ -3392,7 +3591,7 @@ class _AutoTocBubble extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '⚡ $status',
+                      context.uiText('⚡ $status'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -3402,7 +3601,7 @@ class _AutoTocBubble extends StatelessWidget {
                     if (progress > 0) ...[
                       const SizedBox(width: 6),
                       Text(
-                        '${(progress * 100).round()}%',
+                        context.uiText('${(progress * 100).round()}%'),
                         style: const TextStyle(
                           color: Color(0xFF26C6DA),
                           fontSize: 12,

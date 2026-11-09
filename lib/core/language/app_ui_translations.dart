@@ -1,4 +1,5 @@
 import 'generated_legacy_ui_fallbacks.dart';
+import 'generated_priority_native_pack.dart';
 import 'generated_ui_translations.dart';
 import 'priority_ui_overrides.dart';
 
@@ -11,19 +12,52 @@ import 'priority_ui_overrides.dart';
 class AppUITranslations {
   AppUITranslations._();
 
-  static final List<_TranslationTemplate> _templates = ([
-    ...priorityUiOverrides.entries
-        .where((entry) => entry.key.contains('{'))
-        .map(_TranslationTemplate.fromEntry),
-    ...generatedUiTranslations.entries
-        .where((entry) => entry.key.contains('{'))
-        .map(_TranslationTemplate.fromEntry),
-    ...generatedLegacyUiEnglishFallbacks.entries
-        .where((entry) => entry.key.contains('{'))
-        .map(_TranslationTemplate.fromEnglishEntry),
-  ]..sort(
-      (left, right) => right.staticLength.compareTo(left.staticLength),
-    ));
+  /// Template catalogs in precedence order.
+  ///
+  /// Kept as *separate* lists (not one merged list) so a template that exists in
+  /// both the native pack and the English-only legacy catalog never resolves
+  /// through the English one just because `sort` is unstable for equal lengths.
+  /// Within a catalog, longer static text wins so a specific pattern
+  /// (`{value0} từ · {value1} dòng`) beats a generic one (`{value0} từ`).
+  static final List<List<_TranslationTemplate>> _templateCatalogs = [
+    _sortedTemplates(
+      generatedPriorityNativePack.entries
+          .where((entry) => entry.key.contains('{'))
+          .map(_TranslationTemplate.fromEntry),
+    ),
+    _sortedTemplates(
+      priorityUiOverrides.entries
+          .where((entry) => entry.key.contains('{'))
+          .map(_TranslationTemplate.fromEntry),
+    ),
+    _sortedTemplates(
+      generatedUiTranslations.entries
+          .where((entry) => entry.key.contains('{'))
+          .map(_TranslationTemplate.fromEntry),
+    ),
+    _sortedTemplates(
+      generatedLegacyUiEnglishFallbacks.entries
+          .where((entry) => entry.key.contains('{'))
+          .map(_TranslationTemplate.fromEnglishEntry),
+    ),
+  ];
+
+  static List<_TranslationTemplate> _sortedTemplates(
+    Iterable<_TranslationTemplate> templates,
+  ) =>
+      templates.toList()
+        ..sort((left, right) => right.staticLength.compareTo(left.staticLength));
+
+  /// Locales that have native values in [generatedPriorityNativePack].
+  static const Set<String> _nativePackLocales = {
+    'zh',
+    'zh_TW',
+    'hi',
+    'si',
+    'my',
+    'th',
+    'ja',
+  };
 
   /// Translates a known Vietnamese UI source message for [localeCode].
   ///
@@ -38,6 +72,15 @@ class AppUITranslations {
     final locale = canonicalLocaleCode(localeCode);
     if (locale == 'vi') return sourceText;
 
+    // Native priority-locale pack wins for the priority locales: it carries
+    // reviewed zh/zh_TW/hi/si/my/th/ja values for legacy chrome that the ARB
+    // catalog never captured. Other locales keep looking in the richer catalogs
+    // first so an existing de/fr translation is not downgraded to English.
+    final native = generatedPriorityNativePack[sourceText];
+    if (native != null && _nativePackLocales.contains(locale)) {
+      return _valueForLocale(native, locale, sourceText);
+    }
+
     final override = priorityUiOverrides[sourceText];
     if (override != null) {
       return _valueForLocale(override, locale, sourceText);
@@ -49,10 +92,14 @@ class AppUITranslations {
     final legacyEnglish = generatedLegacyUiEnglishFallbacks[sourceText];
     if (legacyEnglish != null) return legacyEnglish;
 
+    if (native != null) return _valueForLocale(native, locale, sourceText);
+
     if (allowTemplates) {
-      for (final template in _templates) {
-        final translated = template.translate(sourceText, locale);
-        if (translated != null) return translated;
+      for (final catalog in _templateCatalogs) {
+        for (final template in catalog) {
+          final translated = template.translate(sourceText, locale);
+          if (translated != null) return translated;
+        }
       }
     }
 
@@ -72,12 +119,15 @@ class AppUITranslations {
   }
 
   static bool containsSource(String sourceText) {
-    if (priorityUiOverrides.containsKey(sourceText) ||
+    if (generatedPriorityNativePack.containsKey(sourceText) ||
+        priorityUiOverrides.containsKey(sourceText) ||
         generatedUiTranslations.containsKey(sourceText) ||
         generatedLegacyUiEnglishFallbacks.containsKey(sourceText)) {
       return true;
     }
-    return _templates.any((template) => template.matches(sourceText));
+    return _templateCatalogs.any(
+      (catalog) => catalog.any((template) => template.matches(sourceText)),
+    );
   }
 
   static String canonicalLocaleCode(String localeCode) {

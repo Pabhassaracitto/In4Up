@@ -5,6 +5,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/video/models/video_info.dart';
 import 'package:in4up/features/video/services/video_library_logic.dart';
+import 'video_scan_failure_test.dart' as scan_failure;
 
 VideoScanItem _item(String uri, {int size = 100, int mtime = 0}) {
   final name = uri.contains('/document/')
@@ -20,6 +21,7 @@ VideoScanItem _item(String uri, {int size = 100, int mtime = 0}) {
 }
 
 void main() {
+  scan_failure.main();
   group('extension + folder helpers', () {
     test('extensionOf / stripExtension', () {
       expect(VideoLibraryLogic.extensionOf('movie.MP4'), 'mp4');
@@ -40,6 +42,15 @@ void main() {
           'content://com.android.externalstorage.documents/tree/primary%3AMovies/document/primary%3AMovies%2Fsub%2Fa.mp4';
       expect(VideoLibraryLogic.folderKey(uri), 'primary:Movies/sub');
       expect(VideoLibraryLogic.folderLabel(uri), 'sub');
+    });
+
+    test('folder identity distinguishes same names and SAF providers', () {
+      expect(VideoLibraryLogic.folderIdentity('/a/Movies/a.mp4'),
+          isNot(VideoLibraryLogic.folderIdentity('/b/Movies/b.mp4')));
+      const first = 'content://one/tree/root/document/root%2FMovies%2Fa.mp4';
+      const second = 'content://two/tree/root/document/root%2FMovies%2Fb.mp4';
+      expect(VideoLibraryLogic.folderIdentity(first),
+          isNot(VideoLibraryLogic.folderIdentity(second)));
     });
 
     test('stableId ổn định (không phụ thuộc mtime) + không phân biệt hoa/thường',
@@ -134,6 +145,44 @@ void main() {
       final merged =
           VideoLibraryLogic.mergeScanned([folder('/m/a.mp4')], existing);
       expect(merged.any((v) => v.title == 'gone'), isFalse);
+    });
+
+    test('MediaStore and SAF aliases retain one video and playback state', () {
+      const saf = 'content://com.android.externalstorage.documents/tree/primary%3AMovies/document/primary%3AMovies%2Fa.mp4';
+      final old = folder(saf, fav: true, pos: 42000, sub: 'file.srt');
+      final media = VideoLibraryLogic.mediaVideoFromMap({
+        'uri': 'content://media/external_primary/video/media/7',
+        'name': 'a.mp4', 'physicalKey': 'primary:Movies/a.mp4',
+        'folderPath': 'Movies', 'durationMs': 100000,
+      });
+      final combined = VideoLibraryLogic.mergeScanned([media], [old],
+          scanSource: VideoSource.media, removeMissing: false);
+      expect(combined, hasLength(1));
+      expect(combined.single.id, old.id);
+      expect(combined.single.favorite, isTrue);
+      expect(combined.single.lastPositionMs, 42000);
+      expect(combined.single.subtitlePath, 'file.srt');
+      expect(combined.single.effectiveSourceUris, containsPair('media', media.filePath));
+      expect(VideoLibraryLogic.folderGroupKey(combined.single), 'primary:Movies');
+      final restored = VideoInfo.fromJson(combined.single.toJson());
+      expect(restored.effectiveSourceUris, containsPair('folder', saf));
+      expect(restored.effectiveSourceUris, containsPair('media', media.filePath));
+
+      // Removing a folder must keep the MediaStore alias and original ID.
+      final withoutFolder = VideoLibraryLogic.mergeScanned(const [], [restored]);
+      expect(withoutFolder, hasLength(1));
+      expect(withoutFolder.single.filePath, media.filePath);
+      expect(withoutFolder.single.id, old.id);
+      expect(withoutFolder.single.lastPositionMs, 42000);
+    });
+
+    test('partial MediaStore scan never deletes previously indexed videos', () {
+      final media = VideoLibraryLogic.mediaVideoFromMap({
+        'uri': 'content://media/external/video/media/7', 'name': 'a.mp4',
+      });
+      final merged = VideoLibraryLogic.mergeScanned(const [], [media],
+          scanSource: VideoSource.media, removeMissing: false);
+      expect(merged.single.id, media.id);
     });
 
     test('video import thủ công (picked) luôn được giữ', () {

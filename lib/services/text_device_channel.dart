@@ -64,15 +64,26 @@ class TextDeviceChannel {
   }
 
   /// Quét ĐỆ QUY tree URI (SAF) → danh sách map thô của file đọc được.
-  /// Mỗi map: { uri, name, sizeBytes, dateModifiedMs, ext }.
+  /// Mỗi map: { uri, name, relativePath, sizeBytes, dateModifiedMs, ext }.
+  ///
+  /// [extensions] lọc theo đuôi file (chữ thường, KHÔNG kèm dấu chấm);
+  /// null/rỗng → native dùng bộ mặc định (text). Truyền `''` để lấy cả
+  /// file KHÔNG có đuôi (phontab/phonindex… của espeak-ng-data).
   ///
   /// NÉM [TextDeviceScanException] khi mất quyền (PERMISSION_LOST) hoặc
   /// đường dẫn hỏng (BAD_URI) — có hướng khắc phục, không nuốt lặng.
-  static Future<List<Map<String, dynamic>>> scanTree(String treeUri) async {
+  static Future<List<Map<String, dynamic>>> scanTree(
+    String treeUri, {
+    List<String>? extensions,
+  }) async {
     try {
       final raw = await _channel.invokeMethod<List<dynamic>>(
         'scanTree',
-        {'treeUri': treeUri},
+        {
+          'treeUri': treeUri,
+          if (extensions != null && extensions.isNotEmpty)
+            'extensions': extensions,
+        },
       );
       if (raw == null) return const [];
       return raw
@@ -137,6 +148,31 @@ class TextDeviceChannel {
     } catch (e) {
       debugPrint('[TextDevice] copyContentToCache error: $e');
       return null;
+    }
+  }
+
+  /// Copy 1 document SAF sang ĐƯỜNG DẪN thật do Dart chỉ định.
+  ///
+  /// M4U-IMPORT-002: import model (STT/Piper) cần đường dẫn file thật vì
+  /// `dart:io` không đọc được `content://`. Native copy nền (file model
+  /// nặng hàng trăm MB ⇒ không copy trên luồng chính).
+  ///
+  /// Trả true = copy thành công; false = lỗi (URI hỏng / mất quyền).
+  static Future<bool> copyDocumentToPath(
+    String uri,
+    String destination,
+  ) async {
+    try {
+      final ok = await _channel.invokeMethod<bool>(
+        'copyDocumentToPath',
+        {'uri': uri, 'destination': destination},
+      );
+      return ok ?? false;
+    } on MissingPluginException {
+      return false;
+    } catch (e) {
+      debugPrint('[TextDevice] copyDocumentToPath error: $e');
+      return false;
     }
   }
 }

@@ -17,13 +17,16 @@ enum VideoSource {
 
   /// Quét từ thư mục người dùng chọn (SAF tree, đệ quy).
   folder,
+
+  /// Video discovered through Android MediaStore.
+  media,
 }
 
 extension VideoSourceX on VideoSource {
-  String get name2 => this == VideoSource.folder ? 'folder' : 'picked';
+  String get name2 => name;
 
-  static VideoSource parse(String? v) =>
-      v == 'folder' ? VideoSource.folder : VideoSource.picked;
+  static VideoSource parse(String? v) => VideoSource.values.firstWhere(
+      (source) => source.name == v, orElse: () => VideoSource.picked);
 }
 
 class VideoInfo {
@@ -50,6 +53,15 @@ class VideoInfo {
   /// Nguồn video.
   final VideoSource source;
 
+  /// Canonical device path only when the provider exposes a trustworthy one.
+  /// Different URIs may refer to the same physical file (SAF / MediaStore).
+  final String? physicalKey;
+  final String? folderPath;
+  final Map<String, String> sourceUris;
+
+  Map<String, String> get effectiveSourceUris => sourceUris.isEmpty
+      ? {source.name2: filePath} : sourceUris;
+
   /// Đánh dấu yêu thích.
   final bool favorite;
 
@@ -73,6 +85,9 @@ class VideoInfo {
     this.dateModified,
     this.folder = '',
     this.source = VideoSource.picked,
+    this.physicalKey,
+    this.folderPath,
+    this.sourceUris = const {},
     this.favorite = false,
     this.lastPositionMs = 0,
     this.lastPlayed,
@@ -116,6 +131,10 @@ class VideoInfo {
 
   VideoInfo copyWith({
     String? title,
+    String? filePath,
+    String? physicalKey,
+    String? folderPath,
+    Map<String, String>? sourceUris,
     String? thumbnailPath,
     Duration? duration,
     int? sizeBytes,
@@ -131,7 +150,10 @@ class VideoInfo {
     return VideoInfo(
       id: id,
       title: title ?? this.title,
-      filePath: filePath,
+      filePath: filePath ?? this.filePath,
+      physicalKey: physicalKey ?? this.physicalKey,
+      folderPath: folderPath ?? this.folderPath,
+      sourceUris: sourceUris ?? this.sourceUris,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       duration: duration ?? this.duration,
       addedAt: addedAt,
@@ -158,6 +180,9 @@ class VideoInfo {
         'date_modified': dateModified?.toIso8601String(),
         'folder': folder,
         'source': source.name2,
+        'physical_key': physicalKey,
+        'folder_path': folderPath,
+        'source_uris': sourceUris,
         'favorite': favorite,
         'last_position_ms': lastPositionMs,
         'last_played': lastPlayed?.toIso8601String(),
@@ -178,6 +203,11 @@ class VideoInfo {
             : DateTime.tryParse(json['date_modified'] as String),
         folder: (json['folder'] as String?) ?? '',
         source: VideoSourceX.parse(json['source'] as String?),
+        physicalKey: json['physical_key'] as String?,
+        folderPath: json['folder_path'] as String?,
+        sourceUris: (json['source_uris'] is Map)
+            ? Map<String, String>.from(json['source_uris'] as Map)
+            : const {},
         favorite: (json['favorite'] as bool?) ?? false,
         lastPositionMs: (json['last_position_ms'] as num?)?.toInt() ?? 0,
         lastPlayed: json['last_played'] == null

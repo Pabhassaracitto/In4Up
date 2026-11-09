@@ -90,6 +90,43 @@ String defaultCabinSourceLanguage({
 String defaultCabinTargetLanguageFor(String sourceLanguage) =>
     AsrModelRouter.normalizeLanguage(sourceLanguage) == 'vi' ? 'en' : 'vi';
 
-/// Ngôn ngữ nguồn có model offline trong app không (VI/EN).
+/// Ngôn ngữ nguồn có model offline trong app không (VI/EN + Parakeet).
 bool cabinSupportsOfflineLanguage(String language) =>
     AsrModelRouter.supportsLanguage(language);
+
+/// Ngôn ngữ hiển thị mặc định ở dropdown Cabin — các ngôn ngữ app có UI dịch
+/// và/hoặc engine hệ thống hỗ trợ (giữ nguyên thứ tự cũ để user cũ không bị
+/// xáo danh sách).
+const Map<String, String> kCabinBaseLanguages = {
+  'en': 'English',
+  'vi': 'Tiếng Việt',
+  'zh': '中文 (Chinese)',
+  'fr': 'Français (French)',
+  'de': 'Deutsch (German)',
+  'ja': '日本語 (Japanese)',
+  'ko': '한국어 (Korean)',
+  'th': 'ไทย (Thai)',
+  'hi': 'हिन्दी (Hindi)',
+  'si': 'සිංහල (Sinhala)',
+  'my': 'မြန်မာ (Burmese)',
+  'pi': 'Pāli',
+};
+
+/// Danh sách ngôn ngữ cho dropdown nguồn/đích của Cabin.
+///
+/// PARAKEET-002: bản cũ hardcode 12 ngôn ngữ nên **22 trong 25 ngôn ngữ của
+/// Parakeet không chọn được** (es/it/pt/nl/pl/ru/uk/sv/…): import model xong
+/// cabin vẫn không có cách nào dùng. Giờ = danh sách nền + mọi ngôn ngữ có
+/// profile offline (`AsrModelRouter.supportedLanguages`), thêm vào cuối theo
+/// thứ tự chữ cái để vị trí các ngôn ngữ cũ không đổi.
+Map<String, String> cabinLanguageOptions() {
+  final options = Map<String, String>.from(kCabinBaseLanguages);
+  final extra = <String>[
+    for (final language in AsrModelRouter.supportedLanguages)
+      if (!options.containsKey(language)) language,
+  ]..sort();
+  for (final language in extra) {
+    options[language] = AsrModelRouter.languageDisplayName(language);
+  }
+  return options;
+}

@@ -1,5 +1,17 @@
 {
   "@@locale": "si",
+  "tipitakaCommentaries": "අටුවා",
+  "tipitakaSubcommentaries": "ටීකා",
+  "tipitakaExtraCanonical": "ත්‍රිපිටකයෙන් බැහැර ග්‍රන්ථ",
+  "tipitakaSriLanka": "ශ්‍රී ලාංකික ග්‍රන්ථ සංග්‍රහ",
+  "tipitakaAbhidhammaBasket": "අභිධර්ම පිටකය",
+  "tipitakaBookGroup": "ග්‍රන්ථ කාණ්ඩය",
+  "tipitakaEdition": "සංස්කරණය",
+  "tipitakaDiscourse": "දේශනය",
+  "tipitakaCatalogPath": "පිටකය → එකතුව → ග්‍රන්ථය",
+  "tipitakaCanonicalBasket": "පාලි ත්‍රිපිටකය",
+  "tipitakaVinayaBasket": "විනය පිටකය",
+  "tipitakaSuttaBasket": "සූත්‍ර පිටකය",
   "commandCenter": "විධාන මධ්යස්ථානය",
   "knowledgeOS": "දැනුම මෙහෙයුම් පද්ධතිය",
   "manageAIModels": "AI මාදිලි කළමනාකරණය",
@@ -518,5 +530,90 @@
   "ocrEmptyResult": "රූපයේ පෙළක් හමු නොවීය. පැහැදිලි, හොඳ ආලෝකය ඇති ඡායාරූපයක් උත්සාහ කරන්න.",
   "ocrLoadedFromImage": "රූපයෙන් පෙළ පූරණය විය",
   "ocrScanPageText": "මෙම පිටුවේ පෙළ ස්කෑන් කරන්න",
-  "ocrUnsupported": "OCR ක්‍රියාත්මක වන්නේ Android/iOS හි පමණි"
+  "ocrUnsupported": "OCR ක්‍රියාත්මක වන්නේ Android/iOS හි පමණි",
+  "ttsEngineVieneuName": "VieNeu-TTS (native)",
+  "ttsEngineVieneuDesc": "වියට්නාම ස්නායුක TTS — අන්තර්ජාලය නොමැතිව, උපාංගයේ (GGUF + audio.cpp)",
+  "ttsLicenseSection": "ශ්‍රව්‍ය බලපත්‍ර",
+  "@ttsCloneVoiceTitle": {
+    "description": "Header for VieNeu-TTS voice cloning section"
+  },
+  "ttsCloneVoiceTitle": "VieNeu-TTS හඬ ක්ලෝන කරන්න",
+  "@ttsCloneVoiceDesc": {
+    "description": "Description text for voice cloning feature"
+  },
+  "ttsCloneVoiceDesc": "හඬ සාම්පල පටිගත කර ඔබට ගැළපෙන හඬක් සාදන්න. නව හඬ VieNeu-TTS හඬ ලැයිස්තුවේ දිස් වේ.",
+  "@ttsCloneVoiceNewName": {
+    "description": "Label for new voice name input field"
+  },
+  "ttsCloneVoiceNewName": "නව හඬේ නම",
+  "@ttsCloneVoiceNewHint": {
+    "description": "Placeholder text for new voice name input"
+  },
+  "ttsCloneVoiceNewHint": "උදාහරණ: මගේ හඬ, ආච්චිගේ හඬ",
+  "@ttsCloneVoiceSamples": {
+    "description": "Label for voice samples section"
+  },
+  "ttsCloneVoiceSamples": "හඬ සාම්පල",
+  "@ttsCloneVoiceRecord": {
+    "description": "Button label to record voice sample"
+  },
+  "ttsCloneVoiceRecord": "සාම්පලයක් පටිගත කරන්න",
+  "@ttsCloneVoiceStop": {
+    "description": "Button label to stop recording"
+  },
+  "ttsCloneVoiceStop": "නවත්වන්න",
+  "@ttsCloneVoiceCreate": {
+    "description": "Button label to create cloned voice"
+  },
+  "ttsCloneVoiceCreate": "සාම්පලවලින් හඬ සාදන්න",
+  "@ttsCloneVoiceCreating": {
+    "description": "Status text while creating voice"
+  },
+  "ttsCloneVoiceCreating": "හඬ සාදමින්…",
+  "@ttsCloneVoiceVoices": {
+    "description": "Header for cloned voices list"
+  },
+  "ttsCloneVoiceVoices": "ක්ලෝන කළ හඬවල්",
+  "@ttsCloneVoiceNoVoices": {
+    "description": "Text when no cloned voices exist"
+  },
+  "ttsCloneVoiceNoVoices": "තවම ක්ලෝන කළ හඬක් නැත. සාම්පලයක් පටිගත කර සාම්පලවලින් හඬ සාදන්න තෝරන්න.",
+  "@ttsCloneVoiceSamplesCount": {
+    "description": "Label showing sample count for a cloned voice"
+  },
+  "ttsCloneVoiceSamplesCount": "සාම්පල: {count}",
+  "@ttsCloneVoiceHasEmbedding": {
+    "description": "Status when voice has embedding file"
+  },
+  "ttsCloneVoiceHasEmbedding": "එම්බෙඩිං ඇත",
+  "@ttsCloneVoiceNoEmbedding": {
+    "description": "Status when voice has no embedding file"
+  },
+  "ttsCloneVoiceNoEmbedding": "එම්බෙඩිං නැත",
+  "@ttsCloneVoiceDelete": {
+    "description": "Tooltip for delete voice button"
+  },
+  "ttsCloneVoiceDelete": "හඬ මකන්න",
+  "@ttsCloneVoiceSuccess": {
+    "description": "Success message after creating cloned voice"
+  },
+  "ttsCloneVoiceSuccess": "{name} හඬ සාර්ථකව සාදන ලදී!",
+  "@ttsCloneVoiceNeedSample": {
+    "description": "Error message when no voice samples recorded"
+  },
+  "ttsCloneVoiceNeedSample": "පටිගත කළ සාම්පල නැත. අවම වශයෙන් එක් සාම්පලයක් පටිගත කරන්න.",
+  "@ttsCloneVoiceNeedName": {
+    "description": "Error message when voice name is empty"
+  },
+  "ttsCloneVoiceNeedName": "හඬට නමක් ඇතුළත් කරන්න.",
+  "ttsCloneVoicePermissionRequired": "හඬ සාම්පල පටිගත කිරීමට මයික්‍රෆෝන අවසරය අවශ්‍යයි.",
+  "ttsCloneVoicePermissionDenied": "මයික්‍රෆෝන අවසරය ලබා දී නැත.",
+  "ttsCloneVoiceRecording": "පටිගත කරමින්…",
+  "ttsCloneVoiceNoSample": "තවම සාම්පලයක් නැත",
+  "ttsCloneVoiceSampleReady": "සාම්පලය පටිගත කර ඇත",
+  "ttsCloneVoiceStopRecording": "පටිගත කිරීම නවත්වන්න",
+  "ttsCloneVoiceRecordingError": "සාම්පලය පටිගත කළ නොහැක. මයික්‍රෆෝන අවසරය පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+  "ttsCloneVoiceCreateError": "හඬ සෑදිය නොහැක. TTS ආකෘතිය සහ සාම්පල පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+  "ttsModelVariantHeader": "ආකෘති ප්‍රභේදය",
+  "ttsModelVariantInfo": "Q8_0 (~170 MB) පෙරනිමියයි — ගුණාත්මකභාවය සහ ගොනු ප්‍රමාණය සමතුලිත කරයි; bf16 (~292 MB) ඉහළ ගුණාත්මකභාවයක් සහිත විශාල ගොනුවකි."
 }

@@ -7378,8 +7378,12 @@
   `SherpaModelManager`/model manager.
 - **Nghiệm thu:** tải/import Parakeet → chạy STT được → xóa được.
 - **Prompt:** `PROMPT_AGENT_STT_OCR_MISC.md` (mục PARAKEET).
-- **Trạng thái:** 🔨 doing — code đủ 3 đường (mạng / import Android / build),
-  **chưa có CI + chưa nghiệm thu máy** (sandbox không có Flutter).
+- **Trạng thái:** 🔨 doing — đã xác minh implementation Parakeet hiện diện trên
+  nhánh này (tải, import folder/file, xoá, chọn và chạy); không nhân đôi code.
+  Existing ASR/import/live-usage tests được gọi trong `app_analyze.yml`; còn chờ CI
+  và nghiệm thu thiết bị. Local Flutter SDK không có trong sandbox.
+- **Lịch sử:**
+  - 2026-11-09 | 2026-11-09 00:00 UTC | doing→doing | agent-session/arena/da540e84-in4up | static check `stt_model_settings_screen.dart`, `SherpaModelManager`, Parakeet route + `app_analyze.yml` ASR tests; không thêm implementation trùng.
 - **Đã làm (nhánh `arena/bdf2b201-in4up`):**
   - Profile `asr-parakeet-tdt-0.6b-v3-int8` (`kParakeetProfileId`) trong
     `packages/in4up_stt/lib/asr_model_routing.dart`: 25 ngôn ngữ châu Âu,

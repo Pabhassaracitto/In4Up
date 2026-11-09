@@ -646,6 +646,15 @@ jobs:
           path: ocr_scan_test.log
           if-no-files-found: ignore
 
+      # BATTERY-PROMPT-001 + OCR-AI-REFINE-001 — single-flight battery
+      # permission request and optional OCR AI action/locale coverage.
+      - name: "Misc regressions — battery prompt + OCR AI refinement"
+        run: >-
+          flutter test
+          test/services/battery_prompt_gate_test.dart
+          test/ocr/ocr_ai_refine_test.dart
+          -r expanded
+
       # TTS-EDGE-001 (Edge Read Aloud — giao thức edge-tts) + WP4 (API-005
       # Server TTS): engine TTS thuần logic (http.Client giả, source-scan
       # pin đăng ký TtsService) — chạy được trên CI không cần mạng. Bỏ qua

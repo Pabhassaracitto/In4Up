@@ -208,7 +208,7 @@
 | I4U18-HOME-AI-001 | Home/Chat/Tab Viết: phản hồi AI chậm, fallback sai nội dung, summary/topic/action rỗng; thêm lựa chọn Server & API/LLM routing | 🔄 doing (code xong, chờ CI/thiết bị) | agent arena/01a0f3d9-in4up — chat prompt trả lời trực tiếp, dừng remote không fallback local, parser local/remote chịu fence/JSON cắt; test bổ sung (sandbox thiếu Flutter SDK) |
 | I4U18-DICT-001 | Từ điển: import/link thư mục MDX/MDD/CSS và quản lý nguồn dùng ngay | 🔨 doing (WP2 parser+import xong, CI run 37175921579 xanh) | Dựa DICT-001; ưu tiên index/link folder hiện có, không bắt buộc copy dữ liệu lớn |
 | I4U18-VIDEO-LIB-001 | Tab Video: quét thư mục, thư viện trực quan, chọn/phát nhiều file thay vì chỉ thêm đơn lẻ | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | SAF recursive scan + filter/sort/search + recent/favorite + subtitle pairing + reopen; CI run 36771997803 |
-| VID-AB-001 | Tab Video: A–B loop, lặp theo câu phụ đề, xuất audio theo đoạn (PLAN-048) | 🔨 doing (V1/V2 + export A/B code; test/CI + QA thiết bị chờ xác minh) | `VideoAbLoopState` + A/B/Clear + cue loop + export range; chưa nối trực tiếp sang Tab Nghe hoặc realtime UltraTimeStretch; `docs/plans/PLAN-048-video-ab-audio-learning.md` |
+| VID-AB-001 | Tab Video: A–B loop, lặp theo câu phụ đề, xuất audio theo đoạn (PLAN-048) | 🔨 doing (V1–V3 code + wiring; Flutter CI và QA thiết bị chờ xác minh) | Export follow-up có thể mở clip vào Tab Nghe, pause/resume video đúng vị trí; title mang tên video + timestamp đầu clip; `processAudio()` realtime vẫn chưa nối; `docs/plans/PLAN-048-video-ab-audio-learning.md` |
 | I4U18-TIPITAKA-001 | Tipiṭaka: import pack độc lập/có gợi ý Pali, tiêu đề thật + cây Tam Tạng, mục lục bài, multi-tab, split view, TTS | ✅ done (code + CI 🟢; chờ nghiệm thu UX/TTS thiết bị) | run 36771566072: analyze 0 error + Rule 5 + Tipiṭaka import/source-link/workspace-retention + Agent F/LHB/Cabin/ASR tests xanh |
 | I4U18-LISTEN-LIB-001 | Tab Nghe: thư viện lọc theo album, tác giả, yêu thích và playlist thủ công/thông minh | 🔄 doing (code + test + CI xanh; chờ nghiệm thu thiết bị) | Album/artist/folder/favorite + manual/smart playlist; giữ LRC/transcript/reopen; CI run 36771997803 |
 | I4U18-READ-IPA-001 | Tab Đọc IPA: file Word ở chế độ dòng chưa hiện; thêm chỉ dẫn bottom-sheet/snackbar đủ thời gian đọc | 🔨 doing (code+CI 🟢 run 36771164011, chờ nghiệm thu thiết bị) | `docxXmlToPlainText` xuống dòng cứng + `ReadLineHint` + nút Trợ giúp; test `test/read_mode/` |
@@ -6034,7 +6034,7 @@
   - 2026-10-01 | proposed→doing | agent arena/01a0f3da-in4up | hoàn tất SAF scan đệ quy, thư viện filter/sort/search/recent/favorite, ghép phụ đề và lưu vị trí; test logic/subtitle + CI run 36771997803 xanh; chờ nghiệm thu Android thực.
 
 ### VID-AB-001 — Tab Video: A–B loop + luyện câu bằng audio engine (PLAN-048)
-- **Trạng thái:** 🔨 doing — V1/V2 + export A/B action đã code; tests thêm, chờ Flutter CI/QA máy.
+- **Trạng thái:** 🔨 doing — V1–V3 code + export-to-Listen wiring đã thêm; chờ Flutter CI/QA máy.
 - **Nguồn:** owner (2026-11-09) — khảo sát Tab Video và lên plan bổ sung A–B loop, tận dụng công nghệ audio hiện có.
 - **Kết luận khảo sát:** video local đã có thư viện/resume, `video_player` speed 0.5×–2×, parser cue SRT/VTT/ASS/LRC và export video→audio; chưa có A/B trong local player. UltraEngine/audio stack chưa nối với video; source scan không tìm thấy caller `UltraEngineFFIV2.processAudio()` ngoài khai báo, nên phải xác minh output path trước khi quảng bá time-stretch chất lượng cao.
 - **Lộ trình:** V1 A/B thủ công → V2 lặp cue phụ đề → V3 xuất A/B sang Tab Nghe → V4 spike realtime A/V sync và quyết định kiến trúc mới nếu đạt.
@@ -6043,6 +6043,7 @@
 - **Lịch sử:**
   - 2026-11-09 | 12:44 UTC | created→proposed | agent arena/879a40d0-in4up | khảo sát mã + nguồn ngoài; viết PLAN-048; chưa code.
   - 2026-11-09 | 12:44 UTC | proposed→doing | agent arena/879a40d0-in4up | `VideoAbLoopState`, A/B/Clear, lặp cue phụ đề, menu xuất A/B + pure tests; chờ Flutter CI và QA thiết bị.
+  - 2026-11-09 | 20:26 UTC | doing→doing | agent session arena/afaff427-in4up | nối export follow-up → Tab Nghe (`loadSong`), giữ video title + clip start timestamp; video pause/resume position; thêm wiring test, chưa chạy do sandbox thiếu Flutter SDK.
 
 ### I4U18-TIPITAKA-001 — Tipiṭaka: import pack, tiêu đề thật, cây Tam Tạng, tab/split/TTS
 - **Trạng thái:** done — code + CI 🟢 run `36771566072`; chờ nghiệm thu thiết bị cho TTS/UX split.

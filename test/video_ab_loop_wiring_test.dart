@@ -25,6 +25,40 @@ void main() {
       expect(player.contains('clipDuration: end - start'), isTrue);
     });
 
+    test(
+      'exported audio can open in Listen with source title and clip time',
+      () {
+        final library = File(
+          'lib/features/video/widgets/video_library_screen.dart',
+        ).readAsStringSync();
+        final shell = File('lib/screens/main_shell.dart').readAsStringSync();
+        final exportActions =
+            File('lib/features/media_tools/media_export_actions.dart')
+                .readAsStringSync();
+
+        expect(player.contains('openInListenTab:'), isTrue);
+        expect(player.contains('widget.onOpenAudioInListen == null'), isTrue);
+        expect(player.contains(r"'${widget.video.title}$timestamp'"), isTrue);
+        expect(library.contains('widget.onOpenAudioInListen!(path, title)'),
+            isTrue);
+        expect(
+          library.contains('if (opened && widget.showBackButton)'),
+          isTrue,
+        );
+        expect(library.contains('_popAfterListenOpen'), isTrue);
+        expect(
+          shell.contains('onOpenAudioInListen: _openVideoExportInListen'),
+          isTrue,
+        );
+        expect(shell.contains('loadSong('), isTrue);
+        expect(shell.contains('_setListenMode(0)'), isTrue);
+        expect(
+          exportActions.contains('openInListenTab: openInListenTab'),
+          isTrue,
+        );
+      },
+    );
+
     test('new chrome phrase is in every priority native locale', () {
       final pack = jsonDecode(
         File('tool/priority_native_pack.json').readAsStringSync(),

@@ -23,8 +23,13 @@ class VideoLibraryScreen extends StatefulWidget {
   /// không có route để pop — nút back sẽ pop nhầm route gốc gây đen màn hình
   /// (LISTEN-VIEW-001). True khi push như một route độc lập (quick actions).
   final bool showBackButton;
+  final Future<bool> Function(String path, String title)? onOpenAudioInListen;
 
-  const VideoLibraryScreen({super.key, this.showBackButton = true});
+  const VideoLibraryScreen({
+    super.key,
+    this.showBackButton = true,
+    this.onOpenAudioInListen,
+  });
 
   @override
   State<VideoLibraryScreen> createState() => _VideoLibraryScreenState();
@@ -44,6 +49,7 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   VideoFilter _filter = VideoFilter.all;
   VideoSort _sort = VideoSort.dateNewest;
   bool _showFolders = false;
+  bool _popAfterListenOpen = false;
   String? _selectedFolder;
 
   @override
@@ -244,11 +250,28 @@ class _VideoLibraryScreenState extends State<VideoLibraryScreen> {
   void _openVideo(VideoInfo v) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => VideoPlayerScreen(video: v)),
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(
+          video: v,
+          onOpenAudioInListen: widget.onOpenAudioInListen == null
+              ? null
+              : (path, title) async {
+                  final opened = await widget.onOpenAudioInListen!(path, title);
+                  if (opened && widget.showBackButton) {
+                    _popAfterListenOpen = true;
+                  }
+                  return opened;
+                },
+        ),
+      ),
     ).then((_) {
-      if (mounted) {
-        setState(() => _videos = VideoLibraryService.instance.videos);
+      if (!mounted) return;
+      if (_popAfterListenOpen) {
+        _popAfterListenOpen = false;
+        Navigator.of(context).pop();
+        return;
       }
+      setState(() => _videos = VideoLibraryService.instance.videos);
     });
   }
 

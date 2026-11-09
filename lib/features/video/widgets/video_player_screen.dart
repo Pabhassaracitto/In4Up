@@ -21,8 +21,13 @@ import '../services/video_library_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final VideoInfo video;
+  final Future<bool> Function(String path, String title)? onOpenAudioInListen;
 
-  const VideoPlayerScreen({super.key, required this.video});
+  const VideoPlayerScreen({
+    super.key,
+    required this.video,
+    this.onOpenAudioInListen,
+  });
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
@@ -192,6 +197,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
   }
 
+  Future<void> _openExportedAudioInListen(
+    String path, {
+    Duration? sourceStart,
+  }) async {
+    final openInListen = widget.onOpenAudioInListen;
+    if (openInListen == null) return;
+    final controller = _controller;
+    if (controller != null && controller.value.isPlaying) {
+      await controller.pause();
+      await _persistPosition();
+    }
+    final timestamp = sourceStart == null ? '' : ' · ${_fmt(sourceStart)}';
+    final opened = await openInListen(
+      path,
+      '${widget.video.title}$timestamp',
+    );
+    if (!mounted) return;
+    if (opened) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Không mở được trình phát'))),
+      );
+    }
+  }
+
   Future<void> _persistPosition() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized || !_resumed) return;
@@ -277,7 +308,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               onSelected: (value) async {
                 switch (value) {
                   case 'extract_audio':
-                    await exportAudioFromVideo(context, widget.video);
+                    await exportAudioFromVideo(
+                      context,
+                      widget.video,
+                      openInListenTab: widget.onOpenAudioInListen == null
+                          ? null
+                          : (path) => _openExportedAudioInListen(path),
+                    );
                   case 'clip_ab_audio':
                     final start = _abLoop.a;
                     final end = _abLoop.b;
@@ -287,6 +324,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                         widget.video,
                         clipStart: start,
                         clipDuration: end - start,
+                        openInListenTab:
+                            widget.onOpenAudioInListen == null
+                                ? null
+                                : (path) => _openExportedAudioInListen(
+                                      path,
+                                      sourceStart: start,
+                                    ),
                       );
                     }
                   case 'clip_audio':
@@ -299,6 +343,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       clipDuration: duration > const Duration(seconds: 1)
                           ? duration
                           : const Duration(seconds: 30),
+                      openInListenTab: widget.onOpenAudioInListen == null
+                          ? null
+                          : (path) => _openExportedAudioInListen(
+                                path,
+                                sourceStart: position,
+                              ),
                     );
                 }
               },

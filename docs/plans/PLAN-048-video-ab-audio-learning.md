@@ -175,7 +175,8 @@ Chỉ đầu tư khi có prototype Android+iOS chạy >10 phút, drift <100 ms (
 
 - **Đã code:** pure `VideoAbLoopState` (clamp/invariants/minimum 300 ms/wrap target); A/B/Clear controls; loop boundary dựa trên player position với one-shot rewind guard; repeat current subtitle cue; menu export audio đúng A/B range.
 - **Đã thêm:** unit tests cho model/range/boundary/clear; nguồn UI tái dùng các bản dịch có sẵn và thêm hai key vào priority pack (8 locale): `Xuất đoạn A-B`, thông báo B cần cách A tối thiểu 0,3 giây.
-- **Chưa xác minh:** Flutter test/analyze (SDK không có trong sandbox) và A/V seek accuracy trên Android/iOS thật. V3 export-follow-up tự mở Tab Nghe chưa nối; menu hiện xuất clip và hiện follow-up chuẩn của Media Tools. V4 realtime DSP vẫn cần spike/ADR.
+- **V3 đã nối code:** export success có follow-up “Mở trong tab Nghe”; chọn sẽ nạp file vào `PlayerProvider`, phát audio, chuyển sang chế độ Nghe, pause video và đóng player. Trong embedded “Xem” vẫn ở shell; từ màn VideoLibrary route độc lập sẽ đóng cả route thư viện để về shell. Title audio giữ tên video và timestamp bắt đầu clip; nếu không chọn hành động này, video vẫn tiếp tục như trước.
+- **Chưa xác minh:** Flutter test/analyze (SDK không có trong sandbox), export/playback thực tế và A/V seek accuracy trên Android/iOS. Liên kết nguồn hiện được giữ ở title (chưa có affordance mở ngược video trực tiếp). V4 realtime DSP vẫn cần spike/ADR; không gọi playback này là UltraTimeStretch.
 
 ## 10. Nguồn
 

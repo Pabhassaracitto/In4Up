@@ -93,6 +93,7 @@ Future<MediaExportResult?> exportAudioFromVideo(
   VideoInfo video, {
   Duration? clipStart,
   Duration? clipDuration,
+  Future<void> Function(String path)? openInListenTab,
 }) async {
   if (!await _ensureReady(context)) return null;
   if (!context.mounted) return null;
@@ -113,6 +114,7 @@ Future<MediaExportResult?> exportAudioFromVideo(
     ),
     knownDuration: isClip ? clipDuration : video.duration,
     hasSourceLrc: false,
+    openInListenTab: openInListenTab,
   );
 }
 

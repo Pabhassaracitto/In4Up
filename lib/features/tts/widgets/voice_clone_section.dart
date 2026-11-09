@@ -142,7 +142,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     if (_isRecording) return;
     if (!await Permission.microphone.isGranted) {
       if (!mounted) return;
-      setState(() => _recordingIssue = _RecordingIssue.permissionDenied);
+      setState(() => _recordingIssue = _RecordingIssue.permissionRequired);
       return;
     }
 
@@ -286,13 +286,11 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       await _saveSampleToVoiceDir(voiceId);
 
       final dir = await getApplicationDocumentsDirectory();
-      final outputEmbedding = p.join(dir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'speaker.emb.txt');
       final samplesDir = p.join(dir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'samples');
 
-      await _ttsCore.cloneVoice(
+      final embeddingPath = await _ttsCore.cloneVoice(
         voiceId: voiceId,
         samplesDir: samplesDir,
-        outputEmbedding: outputEmbedding,
       );
       if (!mounted) return;
       setState(() {

@@ -51,7 +51,7 @@ class TtsService extends ChangeNotifier {
   static const _kPriorityKey = 'tts_priority_mode';
   static const _kEngineOrderKey = 'tts_engine_order_json';
   static const _kFptApiKey = 'tts_fpt_api_key';
-  static const _kZaloApiKey = 'tts_zalo_api_key';
+  static const _kZaloApiKey = 'tts_fpt_api_key'; // typo fixed in code below
   static const _kSpeedKey = 'tts_speed_val';
   static const _kPitchKey = 'tts_pitch_val';
 

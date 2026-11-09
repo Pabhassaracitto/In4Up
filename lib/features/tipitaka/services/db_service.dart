@@ -64,6 +64,7 @@ class TipitakaDataRemovalResult {
   final int removedSegments;
   final int removedCollections;
   final int removedTranslations;
+  final int removedImports;
   final int removedFiles;
   final int removedBytes;
 
@@ -72,6 +73,7 @@ class TipitakaDataRemovalResult {
     this.removedSegments = 0,
     this.removedCollections = 0,
     this.removedTranslations = 0,
+    this.removedImports = 0,
     this.removedFiles = 0,
     this.removedBytes = 0,
   });
@@ -81,8 +83,27 @@ class TipitakaDataRemovalResult {
       removedSegments == 0 &&
       removedCollections == 0 &&
       removedTranslations == 0 &&
+      removedImports == 0 &&
       removedFiles == 0 &&
       removedBytes == 0;
+}
+
+/// One imported source package, shown in the data manager so the user can
+/// remove a broken/obsolete pack without deleting the whole library.
+class TipitakaImportRecord {
+  final String sourceSha256;
+  final String sourceName;
+  final String languageCode;
+  final DateTime importedAt;
+  final int importedRows;
+
+  const TipitakaImportRecord({
+    required this.sourceSha256,
+    required this.sourceName,
+    required this.languageCode,
+    required this.importedAt,
+    required this.importedRows,
+  });
 }
 
 class TipitakaDb {
@@ -151,6 +172,16 @@ class TipitakaDb {
     final installedPath = await installedDatabasePath();
     await _recoverInterruptedInstall(installedPath);
     await _cleanupStaleImportFiles(installedPath);
+    // PSRC-160: after an explicit deletion the bundled demo must not silently
+    // reappear on the next launch. The user can restore it from the data
+    // manager, or import a real database.
+    if (!await _isUsableDatabaseFile(installedPath) &&
+        await isBundledDemoDisabled()) {
+      throw const TipitakaDatabaseException(
+        'The Tipiṭaka database was deleted. Import a new database or restore '
+        'the bundled sample from the data manager.',
+      );
+    }
     if (!await _isUsableDatabaseFile(installedPath) &&
         await _isEmptyAppDatabase(installedPath)) {
       // Older builds of this module created a blank DB at a hard-coded path.
@@ -159,6 +190,8 @@ class TipitakaDb {
       await copyBundledDatabaseIfPresent(force: true);
     }
     if (await _isUsableDatabaseFile(installedPath)) {
+      // A real import supersedes an earlier explicit deletion.
+      await _clearBundledDemoMarker();
       return openAt(installedPath, source: TipitakaDatabaseSource.installed);
     }
 
@@ -239,6 +272,9 @@ class TipitakaDb {
   /// newer normalized DB in the asset and it will be used on a fresh install;
   /// user-imported data is never overwritten automatically.
   static Future<String?> copyBundledDatabaseIfPresent({bool force = false}) async {
+    // PSRC-160: an explicit deletion/restore decision is sticky. Only the
+    // opt-in `restoreBundledDemo()` may force the bundled sample back.
+    if (!force && await isBundledDemoDisabled()) return null;
     final target = await installedDatabasePath();
     final targetFile = File(target);
     if (await targetFile.exists() && !force) return target;
@@ -262,6 +298,307 @@ class TipitakaDb {
     if (await targetFile.exists()) await targetFile.delete();
     await temporary.rename(target);
     return target;
+  }
+
+  static const String _demoDisabledMarker = '.demo_disabled';
+
+  static Future<String> _demoDisabledMarkerPath() async {
+    final documents = await getApplicationDocumentsDirectory();
+    return p.join(documents.path, _appDirectoryName, _demoDisabledMarker);
+  }
+
+  /// PSRC-160: an explicit deletion is sticky. Without this marker,
+  /// [openReady] would immediately re-seed the bundled demo database and the
+  /// user would think "delete" did nothing.
+  static Future<bool> isBundledDemoDisabled() async {
+    try {
+      return await File(await _demoDisabledMarkerPath()).exists();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _disableBundledDemo() async {
+    try {
+      final marker = File(await _demoDisabledMarkerPath());
+      await marker.parent.create(recursive: true);
+      await marker.writeAsString('deleted', flush: true);
+    } catch (_) {
+      // Best effort; a platform without a documents directory still deletes
+      // the database file itself.
+    }
+  }
+
+  static Future<void> _clearBundledDemoMarker() async {
+    try {
+      final marker = File(await _demoDisabledMarkerPath());
+      if (await marker.exists()) await marker.delete();
+    } catch (_) {
+      // No documents directory on this platform; nothing to clear.
+    }
+  }
+
+  /// Opt-in restore of the bundled sample after [deleteDatabase].
+  static Future<void> restoreBundledDemo() async {
+    await _clearBundledDemoMarker();
+    await copyBundledDatabaseIfPresent(force: true);
+    _notifyImportChanged();
+  }
+
+  /// Imported packages recorded in the installed DB. Older databases without
+  /// a `language_code` column fall back to filename detection.
+  static Future<List<TipitakaImportRecord>> importHistory(Database db) async {
+    try {
+      final columns = await db.rawQuery(
+        'PRAGMA table_info(tipitaka_import_history)',
+      );
+      final hasLanguage =
+          columns.any((row) => row['name'] == 'language_code');
+      final rows = await db.query(
+        'tipitaka_import_history',
+        orderBy: 'imported_at DESC',
+      );
+      return [
+        for (final row in rows)
+          TipitakaImportRecord(
+            sourceSha256: '${row['source_sha256'] ?? ''}',
+            sourceName: '${row['source_name'] ?? ''}',
+            languageCode: hasLanguage
+                ? _normalizedLanguageCode('${row['language_code'] ?? ''}')
+                : _languageFromFilename('${row['source_name'] ?? ''}'),
+            importedAt: DateTime.fromMillisecondsSinceEpoch(
+              _asInt(row['imported_at'], 0),
+            ),
+            importedRows: _asInt(row['imported_rows'], 0),
+          ),
+      ];
+    } catch (_) {
+      return const <TipitakaImportRecord>[];
+    }
+  }
+
+  /// Removes one imported language pack (or the Pāli source) from the merged
+  /// installed DB, keeping every other language and all reader annotations.
+  /// Staged + atomic like an import, and serialized by [_withImportLock].
+  static Future<TipitakaDataRemovalResult> deleteLanguagePack(
+    String languageCode, {
+    String? destinationPath,
+  }) {
+    final language = _normalizedLanguageCode(languageCode);
+    return _withImportLock(
+      () => _deleteLanguagePackLocked(language, destinationPath),
+    );
+  }
+
+  static Future<TipitakaDataRemovalResult> _deleteLanguagePackLocked(
+    String language,
+    String? destinationPath,
+  ) async {
+    if (language.isEmpty) return const TipitakaDataRemovalResult();
+    await _ensureDatabaseFactory();
+    final targetPath = destinationPath ?? await installedDatabasePath();
+    if (!await _isUsableDatabaseFile(targetPath)) {
+      return const TipitakaDataRemovalResult();
+    }
+    await _recoverInterruptedInstall(targetPath);
+    await _cleanupStaleImportFiles(targetPath);
+    if (_openPath == targetPath) await close();
+    final temporaryPath = _importTemporaryPath(targetPath);
+    Database? staged;
+    try {
+      staged = await _openImportTarget(targetPath, temporaryPath);
+      final removed = await staged.transaction(
+        (transaction) => _deleteLanguageRows(transaction, language),
+      );
+      if (removed.isEmpty) {
+        await staged.close();
+        staged = null;
+        final temporary = File(temporaryPath);
+        if (await temporary.exists()) await temporary.delete();
+        return removed;
+      }
+      await _installImportTarget(staged, targetPath, temporaryPath);
+      staged = null;
+      // Removing the last remaining language leaves a DB with no readable
+      // content. Do not silently resurrect the bundled demo in that case.
+      if (destinationPath == null &&
+          !await _isUsableDatabaseFile(targetPath)) {
+        await _disableBundledDemo();
+      }
+      _notifyImportChanged();
+      return removed;
+    } catch (_) {
+      await staged?.close();
+      final temporary = File(temporaryPath);
+      if (await temporary.exists()) await temporary.delete();
+      rethrow;
+    }
+  }
+
+  static Future<TipitakaDataRemovalResult> _deleteLanguageRows(
+    DatabaseExecutor db,
+    String language,
+  ) async {
+    const fixedColumns = <String, String>{
+      'pi': 'pali_text',
+      'vi': 'translation_vi',
+      'en': 'translation_en',
+      'my': 'translation_my',
+      'th': 'translation_th',
+    };
+    var removedTranslations = 0;
+    final fixedColumn = fixedColumns[language];
+    if (fixedColumn != null) {
+      final columns = await db.rawQuery(
+        'PRAGMA table_info(tipitaka_segments)',
+      );
+      if (columns.any((row) => row['name'] == fixedColumn)) {
+        removedTranslations += await db.rawUpdate(
+          "UPDATE tipitaka_segments SET \"$fixedColumn\" = '' "
+          "WHERE COALESCE(\"$fixedColumn\", '') <> ''",
+        );
+      }
+    }
+    removedTranslations += await db.rawDelete(
+      "DELETE FROM tipitaka_translations "
+      "WHERE LOWER(REPLACE(language_code, '_', '-')) = ? "
+      "OR LOWER(REPLACE(language_code, '_', '-')) LIKE ?",
+      [language, '$language-%'],
+    );
+
+    final historyColumns = await db.rawQuery(
+      'PRAGMA table_info(tipitaka_import_history)',
+    );
+    final hasLanguage = historyColumns
+        .any((row) => row['name'] == 'language_code');
+    final history = await db.query(
+      'tipitaka_import_history',
+      columns: hasLanguage
+          ? const ['source_sha256', 'source_name', 'language_code']
+          : const ['source_sha256', 'source_name'],
+    );
+    var removedImports = 0;
+    for (final row in history) {
+      final recorded = hasLanguage
+          ? _normalizedLanguageCode('${row['language_code'] ?? ''}')
+          : '';
+      // Older rows have no language column; attribute them from the source
+      // filename rather than dropping every legacy row (which would destroy
+      // the idempotency marker of unrelated Pāli/translation imports).
+      final inferred = recorded.isNotEmpty
+          ? recorded
+          : _normalizedLanguageCode(
+              _languageFromFilename('${row['source_name'] ?? ''}'),
+            );
+      final matches = inferred == language ||
+          (!language.contains('-') && inferred.startsWith('$language-'));
+      if (!matches) continue;
+      await db.delete(
+        'tipitaka_import_history',
+        where: 'source_sha256 = ?',
+        whereArgs: ['${row['source_sha256'] ?? ''}'],
+      );
+      removedImports++;
+    }
+    return TipitakaDataRemovalResult(
+      removedTranslations: removedTranslations,
+      removedImports: removedImports,
+    );
+  }
+
+  /// Deletes the installed DB, its backup/staging sidecars and (optionally)
+  /// downloaded language-pack archives. A sticky marker prevents the bundled
+  /// demo from reappearing until the user imports or restores it.
+  static Future<TipitakaDataRemovalResult> deleteDatabase({
+    String? destinationPath,
+    bool deleteDownloadedPacks = true,
+  }) {
+    return _withImportLock(
+      () => _deleteDatabaseLocked(destinationPath, deleteDownloadedPacks),
+    );
+  }
+
+  static Future<TipitakaDataRemovalResult> _deleteDatabaseLocked(
+    String? destinationPath,
+    bool deleteDownloadedPacks,
+  ) async {
+    await _ensureDatabaseFactory();
+    final targetPath = destinationPath ?? await installedDatabasePath();
+    // Never delete a file that SQLite still has open (SQLITE_READONLY_DBMOVED).
+    await close();
+
+    final paths = <String>{
+      targetPath,
+      '$targetPath.bak',
+      '$targetPath.swap',
+      '$targetPath.part',
+      '$targetPath-journal',
+      '$targetPath-wal',
+      '$targetPath-shm',
+    };
+    final folder = Directory(p.dirname(targetPath));
+    if (await folder.exists()) {
+      final prefix = '${p.basename(targetPath)}.importing-';
+      await for (final entity in folder.list(followLinks: false)) {
+        if (entity is! File || !p.basename(entity.path).startsWith(prefix)) {
+          continue;
+        }
+        paths.add(entity.path);
+        for (final suffix in const ['-journal', '-wal', '-shm']) {
+          paths.add('${entity.path}$suffix');
+        }
+      }
+    }
+
+    var removedFiles = 0;
+    var removedBytes = 0;
+    Future<void> remove(File file) async {
+      try {
+        if (!await file.exists()) return;
+        removedBytes += await file.length();
+        await file.delete();
+        removedFiles++;
+      } on FileSystemException {
+        // Best-effort cleanup; the DB itself must still be reported as gone.
+      }
+    }
+
+    for (final path in paths) {
+      await remove(File(path));
+    }
+
+    if (destinationPath == null) {
+      try {
+        await _disableBundledDemo();
+        if (deleteDownloadedPacks) {
+          final packs = Directory(
+            p.join(
+              (await getApplicationDocumentsDirectory()).path,
+              _appDirectoryName,
+              'packs',
+            ),
+          );
+          if (await packs.exists()) {
+            await for (final entity in packs.list(followLinks: false)) {
+              if (entity is! File) continue;
+              if (!const ['.zip', '.db', '.sqlite', '.sqlite3', '.part']
+                  .contains(p.extension(entity.path).toLowerCase())) {
+                continue;
+              }
+              await remove(entity);
+            }
+          }
+        }
+      } catch (_) {
+        // Marker/pack cleanup is best effort; deletion of installed DB stands.
+      }
+    }
+
+    _notifyImportChanged();
+    return TipitakaDataRemovalResult(
+      removedFiles: removedFiles,
+      removedBytes: removedBytes,
+    );
   }
 
   /// True when the installed DB still carries the checked-in demo catalogue.
@@ -403,6 +740,7 @@ class TipitakaDb {
         singleInstance: false,
       );
       target = await _openImportTarget(targetPath, temporaryPath);
+      final language = await _normalizedImportLanguage(source!, sourcePath);
       if (await _wasImportCompleted(target, sourceHash)) {
         await target.close();
         target = null;
@@ -420,7 +758,8 @@ class TipitakaDb {
           );
         }
         await _deduplicateCatalog(transaction);
-        await _recordImport(transaction, sourceHash, sourcePath, count);
+        await _recordImport(transaction, sourceHash, sourcePath, count,
+            languageCode: language);
         return count;
       });
       final installed = await _installImportTarget(
@@ -877,13 +1216,21 @@ class TipitakaDb {
     DatabaseExecutor database,
     String hash,
     String sourceName,
-    int importedRows,
-  ) async {
+    int importedRows, {
+    String? languageCode,
+  }) async {
+    await _ensureColumn(
+      database,
+      'tipitaka_import_history',
+      'language_code',
+      "TEXT NOT NULL DEFAULT ''",
+    );
     await database.insert(
       'tipitaka_import_history',
       {
         'source_sha256': hash,
         'source_name': p.basename(sourceName),
+        'language_code': _normalizedLanguageCode(languageCode ?? ''),
         'imported_at': DateTime.now().millisecondsSinceEpoch,
         'imported_rows': importedRows,
       },
@@ -1016,7 +1363,8 @@ class TipitakaDb {
           );
         }
         await _deduplicateCatalog(transaction);
-        await _recordImport(transaction, sourceHash, sourceName, count);
+        await _recordImport(transaction, sourceHash, sourceName, count,
+            languageCode: 'pi');
         return count;
       });
       final installed = await _installImportTarget(
@@ -1070,7 +1418,8 @@ class TipitakaDb {
           );
         }
         await _deduplicateCatalog(transaction);
-        await _recordImport(transaction, sourceHash, sourceName, count);
+        await _recordImport(transaction, sourceHash, sourceName, count,
+            languageCode: language);
         return count;
       });
       final installed = await _installImportTarget(
@@ -1746,6 +2095,17 @@ class TipitakaDb {
   static String _normalizeName(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
+  /// Canonical BCP-47-ish code used by import history and pack deletion.
+  static String _normalizedLanguageCode(String value) {
+    final normalized = value.trim().toLowerCase().replaceAll('_', '-');
+    return switch (normalized) {
+      'zh-cn' || 'zh-hans' => 'zh',
+      'zh-hant' || 'zh-hk' || 'zh-tw-hant' => 'zh-tw',
+      'pi-roman' || 'pali' => 'pi',
+      _ => normalized,
+    };
+  }
+
   /// Stable join key for source packs whose table names differ only by case,
   /// underscores, or spacing. Numeric row IDs also ignore zero-padding.
   static String _sourceJoinKey(String table, String key) {
@@ -1925,6 +2285,54 @@ class TipitakaDb {
     return null;
   }
 
+  /// PSRC-160: attribute a normalized import to a removable language pack.
+  /// Translation columns take priority over Pāli so a bilingual file is not
+  /// mislabelled as a Pāli-only source; the filename is only a last resort.
+  static Future<String> _normalizedImportLanguage(
+    Database source,
+    String sourcePath,
+  ) async {
+    try {
+      final columns = await source.rawQuery(
+        'PRAGMA table_info(tipitaka_segments)',
+      );
+      final names = columns.map((row) => '${row['name'] ?? ''}').toSet();
+      const fixed = <String, String>{
+        'translation_vi': 'vi',
+        'translation_en': 'en',
+        'translation_my': 'my',
+        'translation_th': 'th',
+        'pali_text': 'pi',
+      };
+      for (final entry in fixed.entries) {
+        if (!names.contains(entry.key)) continue;
+        final rows = await source.rawQuery(
+          'SELECT 1 FROM tipitaka_segments WHERE '
+          "COALESCE(\"${entry.key}\", '') <> '' LIMIT 1",
+        );
+        if (rows.isNotEmpty) return entry.value;
+      }
+      final tables = await source.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table'",
+      );
+      if (tables.any((row) => row['name'] == 'tipitaka_translations')) {
+        final rows = await source.rawQuery(
+          'SELECT language_code FROM tipitaka_translations '
+          "WHERE COALESCE(text, '') <> '' ORDER BY language_code LIMIT 1",
+        );
+        if (rows.isNotEmpty) {
+          final code = _normalizedLanguageCode(
+            '${rows.first['language_code'] ?? ''}',
+          );
+          if (code.isNotEmpty) return code;
+        }
+      }
+    } catch (_) {
+      // A source DB with an unusual schema still imports; use its filename.
+    }
+    return _normalizedLanguageCode(_languageFromFilename(sourcePath));
+  }
+
   static String _languageFromFilename(String path) {
     final name = p.basename(path).toLowerCase().replaceAll(' ', '_');
     const hints = <String, List<String>>{
@@ -2092,7 +2500,7 @@ class TipitakaDb {
   }
 
   static Future<void> _ensureColumn(
-    Database db,
+    DatabaseExecutor db,
     String table,
     String column,
     String type,
@@ -2109,10 +2517,17 @@ class TipitakaDb {
       CREATE TABLE IF NOT EXISTS tipitaka_import_history (
         source_sha256 TEXT PRIMARY KEY,
         source_name TEXT NOT NULL DEFAULT '',
+        language_code TEXT NOT NULL DEFAULT '',
         imported_at INTEGER NOT NULL,
         imported_rows INTEGER NOT NULL DEFAULT 0
       )
     ''');
+    await _ensureColumn(
+      db,
+      'tipitaka_import_history',
+      'language_code',
+      "TEXT NOT NULL DEFAULT ''",
+    );
     await db.execute('''
       CREATE TABLE IF NOT EXISTS tipitaka_collections (
         id INTEGER PRIMARY KEY,

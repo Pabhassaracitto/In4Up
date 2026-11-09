@@ -7,6 +7,8 @@ import 'package:in4up/features/tipitaka/screens/language_pack_screen.dart';
 import 'package:in4up/features/tipitaka/screens/library_screen.dart';
 import 'package:in4up/features/tipitaka/screens/tipitaka_task_overlay.dart';
 import 'package:in4up/features/tipitaka/services/db_service.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
+import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_task_service.dart';
 
 class TipitakaDownloadScreen extends StatefulWidget {
@@ -18,9 +20,13 @@ class TipitakaDownloadScreen extends StatefulWidget {
 
 class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
   TipitakaDatabaseInfo? _info;
+  List<TipitakaImportRecord> _imports = const [];
+  bool _demoPresent = false;
+  bool _demoDisabled = false;
   bool _loading = true;
   bool _importing = false;
   bool _scanning = false;
+  bool _busy = false;
   String? _error;
 
   @override
@@ -38,16 +44,157 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
     try {
       final db = await TipitakaDb.openReady();
       final info = await TipitakaDb.info(db);
-      if (mounted) setState(() => _info = info);
+      final imports = await TipitakaDb.importHistory(db);
+      final demoPresent = await TipitakaDb.hasDemoData(db);
+      if (mounted) {
+        setState(() {
+          _info = info;
+          _imports = imports;
+          _demoPresent = demoPresent;
+          _demoDisabled = false;
+        });
+      }
     } catch (error) {
+      var demoDisabled = false;
+      try {
+        demoDisabled = await TipitakaDb.isBundledDemoDisabled();
+      } catch (_) {
+        // Platform without a documents directory: keep the generic message.
+      }
       if (mounted) {
         setState(() {
           _info = null;
+          _imports = const [];
+          _demoPresent = false;
+          _demoDisabled = demoDisabled;
           _error = error.toString();
         });
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<bool> _confirm(String title, String message) async {
+    final cancelLabel = context.uiText('Hủy');
+    final deleteLabel = context.uiText('Xoá');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(cancelLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(deleteLabel),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  List<String> get _installedLanguages {
+    final languages = <String>{
+      for (final record in _imports)
+        if (record.languageCode.isNotEmpty)
+          TipitakaLanguageResolver.normalize(record.languageCode),
+      for (final code in _info?.availableLanguages ?? const <String>{})
+        TipitakaLanguageResolver.normalize(code),
+    }..remove('');
+    final ordered = languages.toList()..sort();
+    return ordered;
+  }
+
+  Future<void> _deleteLanguage(String language) async {
+    if (_busy) return;
+    final successText = context.uiText('Đã xóa gói ngôn ngữ.');
+    final failureText = context.uiText('Không thể xóa gói ngôn ngữ.');
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await _confirm(
+      context.uiText('Xác nhận xóa gói'),
+      context.uiText('Toàn bộ nội dung của gói này sẽ bị xóa khỏi thư viện.'),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await TipitakaDb.deleteLanguagePack(language);
+      await _refresh();
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(successText)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(failureText)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteDatabase() async {
+    if (_busy) return;
+    final successText = context.uiText('Đã xóa cơ sở dữ liệu Tipiṭaka.');
+    final failureText = context.uiText('Không thể xóa cơ sở dữ liệu.');
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await _confirm(
+      context.uiText('Xóa cơ sở dữ liệu Tipiṭaka?'),
+      context.uiText(
+        'Thao tác này xóa DB đã cài, bản sao lưu và các gói đã tải. Bạn có thể import lại bất kỳ lúc nào.',
+      ),
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await TipitakaDb.deleteDatabase();
+      await _refresh();
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(successText)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(failureText)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _purgeDemo() async {
+    if (_busy) return;
+    final successText = context.uiText('Đã dọn bản Demo.');
+    final failureText = context.uiText('Không thể dọn bản Demo.');
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await TipitakaDb.purgeDemoData();
+      await _refresh();
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(successText)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(failureText)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreDemo() async {
+    if (_busy) return;
+    final successText = context.uiText('Đã khôi phục bản mẫu.');
+    final failureText = context.uiText('Không thể khôi phục bản mẫu.');
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await TipitakaDb.restoreBundledDemo();
+      await _refresh();
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(successText)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(failureText)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -212,6 +359,26 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
+          if (info?.isReady == true) ...[
+            const SizedBox(height: 12),
+            _DatabaseManagementCard(
+              info: info!,
+              imports: _imports,
+              languages: _installedLanguages,
+              demoPresent: _demoPresent,
+              busy: _busy,
+              onDeleteLanguage: _deleteLanguage,
+              onDeleteDatabase: _deleteDatabase,
+              onPurgeDemo: _purgeDemo,
+            ),
+          ] else if (!_loading && _demoDisabled) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _restoreDemo,
+              icon: const Icon(Icons.restore_outlined),
+              label: Text(context.uiText('Khôi phục bản mẫu')),
+            ),
+          ],
           ValueListenableBuilder<List<TipitakaTaskStatus>>(
             valueListenable: TipitakaTaskCoordinator.instance.tasks,
             builder: (context, tasks, child) {
@@ -328,6 +495,120 @@ class _TipitakaDownloadScreenState extends State<TipitakaDownloadScreen> {
             label: const Text('Mở thư viện'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// PSRC-160 — explicit, auditable management of the installed database:
+/// imported packs, demo cleanup and full deletion with confirmation.
+class _DatabaseManagementCard extends StatelessWidget {
+  final TipitakaDatabaseInfo info;
+  final List<TipitakaImportRecord> imports;
+  final List<String> languages;
+  final bool demoPresent;
+  final bool busy;
+  final ValueChanged<String> onDeleteLanguage;
+  final VoidCallback onDeleteDatabase;
+  final VoidCallback onPurgeDemo;
+
+  const _DatabaseManagementCard({
+    required this.info,
+    required this.imports,
+    required this.languages,
+    required this.demoPresent,
+    required this.busy,
+    required this.onDeleteLanguage,
+    required this.onDeleteDatabase,
+    required this.onPurgeDemo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.tune_outlined),
+              title: Text(context.uiText('Quản lý dữ liệu')),
+              subtitle: Text(
+                '${(info.bytes / (1024 * 1024)).toStringAsFixed(1)} MB · '
+                '${info.path}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (languages.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
+                child: Text(
+                  context.uiText('Gói dữ liệu đã import'),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              for (final language in languages)
+                Builder(builder: (context) {
+                  final sources = imports
+                      .where((record) => record.languageCode == language)
+                      .map((record) => record.sourceName)
+                      .where((name) => name.isNotEmpty)
+                      .join(', ');
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    leading: const Icon(Icons.language_outlined, size: 20),
+                    title: Text(tipitakaLanguageLabel(language)),
+                    subtitle: Text(
+                      sources.isEmpty
+                          ? context.uiText('Dữ liệu đi kèm ứng dụng')
+                          : sources,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: IconButton(
+                      tooltip: context.uiText('Xóa gói ngôn ngữ'),
+                      onPressed: busy ? null : () => onDeleteLanguage(language),
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: scheme.error,
+                        size: 20,
+                      ),
+                    ),
+                  );
+                }),
+            ],
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (demoPresent)
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : onPurgeDemo,
+                    icon: const Icon(Icons.cleaning_services_outlined),
+                    label: Text(context.uiText('Dọn bản Demo')),
+                  ),
+                OutlinedButton.icon(
+                  onPressed: busy ? null : onDeleteDatabase,
+                  icon: Icon(Icons.delete_forever_outlined, color: scheme.error),
+                  label: Text(context.uiText('Xóa toàn bộ cơ sở dữ liệu')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.uiText(
+                'Thao tác này xóa DB đã cài, bản sao lưu và các gói đã tải. Bạn có thể import lại bất kỳ lúc nào.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -142,7 +142,11 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     if (_isRecording) return;
     if (!await Permission.microphone.isGranted) {
       if (!mounted) return;
-      setState(() => _recordingIssue = _RecordingIssue.permissionRequired);
+      // Lúc MỞ màn đã báo `permissionRequired` ("cần quyền micro").
+      // Khi user CHỦ ĐỘNG bấm ghi mà quyền vẫn bị từ chối thì phải nói khác:
+      // "quyền chưa được cấp" — nếu lặp lại câu đầu, user bấm mà không thấy
+      // phản hồi gì (đúng lỗi voice_clone_localization_test bắt được).
+      setState(() => _recordingIssue = _RecordingIssue.permissionDenied);
       return;
     }
 

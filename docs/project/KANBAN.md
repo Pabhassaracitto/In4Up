@@ -235,6 +235,8 @@
 
 | PSRC-23 | Huỷ copy model | 🔨 CI xanh, chờ nghiệm thu máy | `d3c7667`, `c1d4df4`; [run 42863627460](https://github.com/Pabhassaracitto/In4Up/actions/runs/42863627460) |
 
+| PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
+
 
 ## Card chi tiết
 
@@ -9440,3 +9442,10 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Code:** `d3c7667` thêm nút Huỷ hai màn hình và token; `c1d4df4` sửa nguy cơ ghi đè model cũ bằng thư mục đích riêng và thêm kiểm thử trạng thái. Hai commit vì bản đầu đã được push trước khi phát hiện lỗi.
 - **CI:** `app_analyze` run [42863627460](https://github.com/Pabhassaracitto/In4Up/actions/runs/42863627460), step PSRC-23 thành công.
 - **Chưa kiểm:** huỷ model lớn trên thiết bị, thời gian dừng, khôi phục model sau khởi động lại; huỷ tải khi mạng chậm.
+
+
+### PSRC-21 — WordList xoá hàng loạt
+- **Trạng thái:** 🔨 CI xanh; chờ nghiệm thu máy.
+- **Code:** `bee0d4e` thêm xoá lựa chọn cho controller và dialog xác nhận trong màn hình dùng `VocabularyProvider.removeWord` như xoá từng từ; không thay đổi SRS.
+- **CI:** `app_analyze` [42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143), step PSRC-21 xanh.
+- **Chưa kiểm:** thao tác chọn/xác nhận trên thiết bị và bố cục màn hình nhỏ; widget test UI.

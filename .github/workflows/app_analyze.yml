@@ -459,14 +459,40 @@ jobs:
           test/login_release_verification_test.dart
 
       # IN4-94 + IN4-83 (AI-PROV-BUILTIN-001): hết vạch vàng-đen overflow ở
-      # màn "Sửa nhà cung cấp" + provider CÓ SẴN OpenRouter (bật, model
-      # minimax/minimax-m3.1-flash:free) + routing Chat → ưu tiên online +
+      # màn "Sửa nhà cung cấp" + provider CÓ SẴN OpenRouter (bật, model mặc
+      # định — PSRC-181: `openrouter/free`) + routing Chat → ưu tiên online +
       # OpenRouter + căn lề MỌI hàng của tab Đọc. Test thuần + source-scan
       # (không plugin, không mạng) nên chạy được trên CI.
       - name: "AI provider builtin + read alignment (2026-10-17)"
         run: >-
           flutter test
           test/ai_provider_builtin_and_read_align_test.dart
+
+      # PSRC-181 + PSRC-182 (owner 2026-11-10): model mặc định của provider
+      # có sẵn = `openrouter/free` (kèm migrate cấu hình cũ, KHÔNG ghi đè
+      # model user tự chọn) + gói dịch offline ML Kit ĐÃ TẢI không còn hiện
+      # nút "Tải về" (icon + chữ "Đã tải" xanh). Test thuần + source-scan
+      # (không plugin, không mạng) nên chạy được trên CI.
+      - name: "PSRC-181/182 — openrouter/free mặc định + gói ML Kit đã tải"
+        id: psrc-181-182-tests
+        timeout-minutes: 8
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |-
+          set +e
+          files="test/ai_openrouter_default_free_test.dart \
+            test/translation/mlkit_pack_download_ui_test.dart"
+          flutter test $files -r expanded > psrc_181_182_test.log 2>&1
+          code=$?
+          cat psrc_181_182_test.log
+          exit $code
+
+      - name: Upload PSRC-181/182 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-psrc-181-182-test-log
+          path: psrc_181_182_test.log
+          if-no-files-found: ignore
 
       # API-TRANS-MODEL-001 / MODEL-PICKER-001 / API-SYNC-001 / API-DIAG-001:
       # model dịch riêng, hòa giải cấu hình cloud (LWW + bia mộ), báo cáo

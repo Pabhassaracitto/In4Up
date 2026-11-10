@@ -195,9 +195,11 @@ class MediaExportService {
     var preset = request.preset;
     final warnings = <String>[];
 
-    if (!info.hasAudio && info.audioStreamCount == 0 && probeLog.isNotEmpty) {
-      throw const MediaExportException(MediaExportErrorKind.noAudioTrack);
-    }
+    // PSRC-177: KHÔNG tự chặn khi probe rỗng. Trước đây có thêm một điều kiện
+    // `!hasAudio && audioStreamCount == 0 && probeLog.isNotEmpty` ⇒ nguồn video
+    // câm bị chặn đúng, nhưng probe rỗng/lỗi lại rơi vào nhánh `adjustPreset`
+    // và cũng bị báo "không có âm thanh". Nay chỉ còn MỘT chỗ kết luận
+    // (`adjustPreset`), và nó phân biệt "biết chắc câm" với "không biết".
     final adjustment = MediaProbeParser.adjustPreset(
       info: info,
       wantsCopy: preset.isCopy,

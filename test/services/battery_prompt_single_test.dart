@@ -141,10 +141,21 @@ void main() {
         'android/app/src/main/kotlin/com/in4up/MainActivity.kt',
       );
       expect(kotlin.contains('import android.provider.Settings'), isTrue);
+      // ⚠ Tên CHÍNH XÁC có chữ REQUEST. Thiếu REQUEST ⇒ "Unresolved reference"
+      // và Kotlin báo cascade (đã làm Android build đỏ ở tag 1.27.0 đầu tiên).
       expect(
-        kotlin.contains('Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS'),
+        kotlin.contains('Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'),
         isTrue,
-        reason: 'Đây là action mở thẳng hộp thoại "Dừng tối ưu pin" cho app',
+        reason: 'Đây là action mở thẳng hộp thoại "Dừng tối ưu pin" cho app — '
+            'tên ĐÚNG là ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+      );
+      expect(
+        RegExp(r'Settings\.ACTION_IGNORE_BATTERY_OPTIMIZATIONS(?!_)')
+            .hasMatch(kotlin),
+        isFalse,
+        reason: 'Constant `ACTION_IGNORE_BATTERY_OPTIMIZATIONS` KHÔNG tồn tại '
+            'trong android.provider.Settings (phải có chữ REQUEST). Dùng tên '
+            'sai ⇒ Android build đỏ.',
       );
       expect(
         RegExp(r'package:\$packageName').hasMatch(kotlin),

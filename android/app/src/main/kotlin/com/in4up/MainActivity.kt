@@ -229,7 +229,7 @@ class MainActivity : FlutterActivity() {
      * được một màn nào đó của hệ thống.
      *
      * Thứ tự thử (dừng ở cái đầu tiên mở được):
-     *   1. `ACTION_IGNORE_BATTERY_OPTIMIZATIONS` + `package:<appId>` — mở
+     *   1. `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` + `package:<appId>` — mở
      *      THẲNG hộp thoại cho In4Up (1 bước, đúng yêu cầu "bấm là vào chỗ mở pin").
      *   2. `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` — danh sách app được
      *      miễn tối ưu pin (máy ẩn hộp thoại bước 1).
@@ -241,7 +241,10 @@ class MainActivity : FlutterActivity() {
      */
     private fun openBatteryOptimizationSettings(): Boolean {
         val candidates = listOf(
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            // ⚠ TÊN CHÍNH XÁC là ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+            // (có chữ REQUEST). Viết thiếu REQUEST ⇒ "Unresolved reference"
+            // và Kotlin báo cascade sang cả `listOf` / `addFlags` / `action`.
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = Uri.parse("package:$packageName")
             },
             Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),

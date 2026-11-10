@@ -17,7 +17,7 @@
 //  2. BẤM LÀ VÀO CHỖ MỞ PIN (1 bước, không qua dialog giải thích của app).
 //     * Đi qua channel native `in4up/platform` →
 //       `openBatteryOptimizationSettings()` trong `MainActivity.kt`, dùng
-//       `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS` với `package:` của app
+//       `Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` với `package:` của app
 //       ⇒ Android mở THẲNG hộp thoại cho In4Up.
 //     * `permission_handler` chỉ là ĐƯỜNG LÙI cho máy không có channel (ví dụ
 //       plugin chưa đăng ký) — vì có ROM trả `denied` ngay mà không mở màn nào.

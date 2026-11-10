@@ -23,6 +23,7 @@ class MediaProbeInfo {
     this.signature,
     this.hasVideo = false,
     this.audioStreamCount = 0,
+    this.videoStreamCount = 0,
   });
 
   final int? durationMs;
@@ -33,8 +34,21 @@ class MediaProbeInfo {
 
   final bool hasVideo;
   final int audioStreamCount;
+  final int videoStreamCount;
 
   bool get hasAudio => audioStreamCount > 0;
+
+  /// Probe CÓ đọc được danh sách luồng hay không.
+  ///
+  /// PSRC-177: trước đây `hasAudio == false` được dùng cho MỌI trường hợp —
+  /// kể cả khi probe không trả về log nào (plugin trả kết quả rỗng, log bị
+  /// xoá, `ffmpeg -i` chưa kịp in header). Hệ quả: mọi lần xuất đều báo
+  /// "File nguồn không có âm thanh" — sai, vì "không biết" không phải "không
+  /// có". Chỉ khi thấy ít nhất một dòng `Stream #...` mới được kết luận.
+  bool get streamsKnown => audioStreamCount > 0 || videoStreamCount > 0;
+
+  /// Nguồn CHẮC CHẮN không có tiếng (biết rõ luồng mà không có luồng audio).
+  bool get definitelySilent => streamsKnown && audioStreamCount == 0;
 }
 
 class MediaProbeParser {
@@ -91,6 +105,7 @@ class MediaProbeParser {
       signature: signature,
       hasVideo: _videoStreamRe.hasMatch(log),
       audioStreamCount: audioStreams.length,
+      videoStreamCount: _videoStreamRe.allMatches(log).length,
     );
   }
 
@@ -117,11 +132,28 @@ class MediaProbeParser {
   /// Kết luận tiền kiểm cho một yêu cầu xuất (thuần, dùng ở service + UI).
   ///
   /// Trả `null` nếu ổn; trả lý do (enum) nếu phải chặn/đổi preset.
+  ///
+  /// Ba nhánh, theo thứ tự "biết chắc → không biết":
+  ///   1. Biết rõ nguồn **không có luồng tiếng** ⇒ CHẶN (không có gì để xuất).
+  ///   2. **Không đọc được** thông tin nguồn (probe rỗng/lỗi) ⇒ KHÔNG chặn:
+  ///      chỉ hạ `copy` xuống mã hoá lại cho an toàn. Trước đây nhánh này bị
+  ///      gộp vào (1) ⇒ mọi lần xuất đều báo "File nguồn không có âm thanh"
+  ///      (PSRC-177).
+  ///   3. Biết rõ có tiếng ⇒ chỉ kiểm tương thích khi `wantsCopy`.
   static MediaPresetAdjustment? adjustPreset({
     required MediaProbeInfo info,
     required bool wantsCopy,
     required String outputExtension,
   }) {
+    if (!info.streamsKnown) {
+      // Không có bằng chứng KHÔNG phải bằng chứng không có. Copy mà không
+      // biết codec nguồn thì rất dễ ra file câm/không mở được ⇒ mã hoá lại.
+      return wantsCopy
+          ? const MediaPresetAdjustment.reencode(
+              MediaPresetAdjustmentReason.probeUnavailable,
+            )
+          : null;
+    }
     if (!info.hasAudio) {
       return const MediaPresetAdjustment.blocked(
         MediaPresetAdjustmentReason.noAudioTrack,
@@ -152,6 +184,10 @@ class MediaProbeParser {
 enum MediaPresetAdjustmentReason {
   noAudioTrack,
   containerMismatch,
+
+  /// PSRC-177: không đọc được thông tin nguồn (probe rỗng/lỗi) ⇒ hạ về mã
+  /// hoá lại thay vì chặn oan bằng "không có âm thanh".
+  probeUnavailable,
 }
 
 class MediaPresetAdjustment {
@@ -167,5 +203,8 @@ class MediaPresetAdjustment {
           'The source file has no audio track.',
         MediaPresetAdjustmentReason.containerMismatch =>
           'This format needs re-encoding instead of a direct copy.',
+        MediaPresetAdjustmentReason.probeUnavailable =>
+          'Source information could not be read — the file is re-encoded '
+              'instead of copied.',
       };
 }

@@ -421,6 +421,77 @@ void main() {
     });
   });
 
+  // ─────────────────────────────────────────────────────────────────────
+  // PSRC-177 — "File nguồn không có âm thanh" báo SAI ở MỌI lần xuất.
+  //
+  // Gốc thứ nhất nằm ở tầng FFmpegKit (probe trả log rỗng — xem
+  // `ffmpeg_kit_session_completion_test.dart`); gốc thứ hai nằm ĐÂY: service
+  // coi "probe không đọc được gì" là "nguồn không có audio" nên chặn oan.
+  // ─────────────────────────────────────────────────────────────────────
+  group('PSRC-177 — probe rỗng không được chặn xuất', () {
+    test('probe trả chuỗi rỗng vẫn xuất được (không báo "không có âm thanh")',
+        () async {
+      final out = Directory('${temp.path}/out');
+      final port = _FakeEnginePort(probeLog: '');
+      final host = _FakeHost(out);
+      final service = buildService(port, host);
+
+      final result = await service.export(MediaExportRequest(
+        inputPath: input.path,
+        preset: MediaExportPreset.mp3Standard,
+        title: 'Bài giảng',
+      ));
+
+      expect(result.outputPaths, hasLength(1),
+          reason: 'không có log probe không phải lỗi của người dùng');
+      expect(File(result.primaryPath).existsSync(), isTrue);
+      expect(result.warnings, isEmpty,
+          reason: 'mp3 yêu cầu mã hoá lại ⇒ không cần hạ preset');
+    });
+
+    test('probe rỗng + preset copy ⇒ hạ xuống mã hoá lại và CÓ cảnh báo',
+        () async {
+      final out = Directory('${temp.path}/out');
+      final port = _FakeEnginePort(probeLog: '');
+      final service = buildService(port, _FakeHost(out));
+
+      final result = await service.export(MediaExportRequest(
+        inputPath: input.path,
+        preset: MediaExportPreset.m4aCopy,
+      ));
+
+      expect(result.outputPaths, hasLength(1));
+      expect(result.warnings.single, contains('re-encoded'),
+          reason: 'copy mà không biết codec nguồn rất dễ ra file câm');
+      // Lệnh phải là mã hoá AAC chứ không phải `-c:a copy`.
+      expect(port.commands.single, contains('aac'));
+    });
+
+    test('video CÂM (biết rõ luồng) vẫn bị chặn đúng', () async {
+      const silentVideo = '''
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'silent.mp4':
+  Duration: 00:00:10.00, start: 0.000000, bitrate: 500 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High), yuv420p, 1280x720, 25 fps
+''';
+      final service = buildService(
+        _FakeEnginePort(probeLog: silentVideo),
+        _FakeHost(Directory('${temp.path}/out')),
+      );
+
+      await expectLater(
+        service.export(MediaExportRequest(
+          inputPath: input.path,
+          preset: MediaExportPreset.mp3Standard,
+        )),
+        throwsA(isA<MediaExportException>().having(
+          (e) => e.kind,
+          'kind',
+          MediaExportErrorKind.noAudioTrack,
+        )),
+      );
+    });
+  });
+
   group('convertOnly', () {
     test('không đăng ký thư viện (dùng cho tiện ích nội bộ)', () async {
       final port = _FakeEnginePort(probeLog: _probeOk);

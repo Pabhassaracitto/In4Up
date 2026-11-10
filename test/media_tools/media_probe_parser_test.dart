@@ -74,6 +74,20 @@ void main() {
       final info = MediaProbeParser.parse('');
       expect(info.durationMs, isNull);
       expect(info.hasAudio, isFalse);
+      // PSRC-177: "không đọc được" KHÁC "không có tiếng".
+      expect(info.streamsKnown, isFalse);
+      expect(info.definitelySilent, isFalse);
+    });
+
+    test('PSRC-177: log không có dòng Stream ⇒ không kết luận được', () {
+      final info = MediaProbeParser.parse(
+        'Input #0, mp3, from \'in.mp3\':\n'
+        '  Duration: 00:01:00.00, bitrate: 192 kb/s\n',
+      );
+      expect(info.durationMs, 60000);
+      expect(info.streamsKnown, isFalse);
+      expect(info.definitelySilent, isFalse,
+          reason: 'thiếu bằng chứng KHÔNG phải bằng chứng không có');
     });
   });
 
@@ -112,6 +126,33 @@ void main() {
       expect(adjustment, isNotNull);
       expect(adjustment!.blocked, isTrue);
       expect(adjustment.reason, MediaPresetAdjustmentReason.noAudioTrack);
+    });
+
+    test('PSRC-177: probe RỖNG không được chặn (không đọc được ≠ không có)',
+        () {
+      for (final ext in ['mp3', 'm4a', 'wav', 'opus']) {
+        expect(
+          MediaProbeParser.adjustPreset(
+            info: MediaProbeParser.parse(''),
+            wantsCopy: false,
+            outputExtension: ext,
+          ),
+          isNull,
+          reason: 'mã hoá lại $ext không cần biết codec nguồn',
+        );
+      }
+    });
+
+    test('PSRC-177: probe rỗng + copy ⇒ hạ xuống mã hoá lại (không chặn)', () {
+      final adjustment = MediaProbeParser.adjustPreset(
+        info: MediaProbeParser.parse(''),
+        wantsCopy: true,
+        outputExtension: 'm4a',
+      );
+      expect(adjustment, isNotNull);
+      expect(adjustment!.blocked, isFalse);
+      expect(adjustment.reason, MediaPresetAdjustmentReason.probeUnavailable);
+      expect(adjustment.technicalMessage, contains('re-encoded'));
     });
 
     test('mp3 → wav bằng copy phải mã hoá lại', () {

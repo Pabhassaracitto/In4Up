@@ -16,16 +16,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  late Directory temp;
-  setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
-    temp = await Directory.systemTemp.createTemp('garden_rating');
+  setUpAll(() => SharedPreferences.setMockInitialValues({}));
+
+  test('onboarding flag is persisted and defaults to unseen', () async {
+    final temp = await Directory.systemTemp.createTemp('garden_rating');
     Hive.init(temp.path);
     await Hive.openBox('settings');
-  });
-  tearDownAll(() async {
-    await Hive.close();
-    await temp.delete(recursive: true);
+    try {
+      expect(StorageService().getGardenOnboardingSeen(), isFalse);
+      await StorageService().markGardenOnboardingSeen();
+      expect(StorageService().getGardenOnboardingSeen(), isTrue);
+      await Hive.close();
+      await Hive.openBox('settings');
+      expect(StorageService().getGardenOnboardingSeen(), isTrue);
+    } finally {
+      await Hive.close();
+      await temp.delete(recursive: true);
+    }
   });
 
   test('four buttons use the existing failed and correct schedules', () {
@@ -66,8 +73,7 @@ void main() {
   });
 
   testWidgets('first visit hint and long press show four ratings', (tester) async {
-    await Hive.box('settings').delete('garden_onboarding_seen_v1');
-    expect(StorageService().getGardenOnboardingSeen(), isFalse);
+    var seen = false;
     final controller = MemoryController();
     while (!controller.isLoaded) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
@@ -83,13 +89,16 @@ void main() {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        home: const Scaffold(body: MemoryGardenView()),
+        home: Scaffold(body: MemoryGardenView.test(
+          readSeen: () => seen,
+          markSeen: () async { seen = true; },
+        )),
       ),
     );
     await tester.pumpWidget(garden());
     await tester.pump();
     expect(find.text('Nhấn giữ một từ để chấm điểm'), findsOneWidget);
-    expect(StorageService().getGardenOnboardingSeen(), isTrue);
+    expect(seen, isTrue);
     await tester.longPress(find.text('garden-test-word'));
     await tester.pumpAndSettle();
     expect(find.byType(ElevatedButton), findsNWidgets(4));

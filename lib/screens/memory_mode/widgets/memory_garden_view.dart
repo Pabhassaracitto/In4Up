@@ -2,6 +2,7 @@
 
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:provider/provider.dart';
 import '../../../services/storage_service.dart';
 
@@ -14,7 +15,20 @@ import 'memory_garden_background.dart';
 import 'stage_progress_bar.dart';
 
 class MemoryGardenView extends StatefulWidget {
-  const MemoryGardenView({super.key});
+  const MemoryGardenView({super.key})
+      : _readSeen = null,
+        _markSeen = null;
+
+  @visibleForTesting
+  const MemoryGardenView.test({
+    super.key,
+    required bool Function() readSeen,
+    required Future<void> Function() markSeen,
+  })  : _readSeen = readSeen,
+        _markSeen = markSeen;
+
+  final bool Function()? _readSeen;
+  final Future<void> Function()? _markSeen;
 
   @override
   State<MemoryGardenView> createState() => _MemoryGardenViewState();
@@ -26,10 +40,14 @@ class _MemoryGardenViewState extends State<MemoryGardenView> {
   @override
   void initState() {
     super.initState();
-    _showOnboarding = !StorageService().getGardenOnboardingSeen();
+    _showOnboarding = !(widget._readSeen?.call() ??
+        StorageService().getGardenOnboardingSeen());
     if (_showOnboarding) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) await StorageService().markGardenOnboardingSeen();
+        if (mounted) {
+          await (widget._markSeen?.call() ??
+              StorageService().markGardenOnboardingSeen());
+        }
       });
     }
   }

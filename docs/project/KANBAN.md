@@ -239,6 +239,8 @@
 
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
 
+| PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
+
 
 ## Card chi tiết
 
@@ -9458,3 +9460,11 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Code:** `751ba69`: banner tĩnh, ẩn khi có nội dung assistant; chặn gửi thêm từ composer trong khi chờ, giữ hàng đợi facade cho các caller khác. Không thay đổi chất lượng model.
 - **CI:** `app_analyze` [42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069), step PSRC-19 xanh.
 - **Chưa kiểm:** local/remote trên thiết bị, token đầu trong kết nối thật và tương tác composer; test hiện chỉ bao phủ widget chỉ báo, không thử gửi thực tế.
+
+
+### PSRC-22 — Vườn nhớ: chấm điểm và onboarding
+- **Trạng thái:** 🔨 CI xanh; chờ nghiệm thu thiết bị.
+- **Code:** `bfa8b4f` thêm nhấn giữ, bốn nút, lưu lịch ôn và gợi ý một lần; `0393149` sửa widget test Hive bị treo. Không thêm thao tác kéo bốn hướng trong Vườn (4c tuỳ chọn).
+- **Lịch:** Theo quyết định owner cho phép trùng lịch và ADR-0001 giữ nguyên Memory Mode: **Lại/Quên cùng markIncorrect; Ổn/Giỏi cùng markCorrect**. Vì vậy chỉ có hai kết quả lịch, không phải bốn khoảng khác nhau; nhãn Quên không tính là trả lời đúng. Flashcard cũ không đổi.
+- **CI:** `app_analyze` [42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) xanh, gồm PSRC-22 và Rule 5; ARB JSON hợp lệ. Run trước 42876583615 timeout do widget test đóng Hive; đã tách test ở `0393149`.
+- **Chưa kiểm:** thao tác, màu sắc, banner, lưu và khôi phục lịch trên thiết bị thật; hiệu quả học chưa đo thực nghiệm.

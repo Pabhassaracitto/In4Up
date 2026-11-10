@@ -235,6 +235,24 @@ class WordListController extends ChangeNotifier {
     _safeNotify();
   }
 
+  /// PSRC-21 — Xoá hàng loạt các từ đang chọn.
+  ///
+  /// Xoá các entry có `id` trong [_selectedIds] khỏi cùng danh sách mà
+  /// [moveSelectedToFolder] đang sửa ([_manualEntries]). Sau khi xoá:
+  /// `clearSelection()` + `_safeNotify()`.
+  ///
+  /// Nhất quán với xoá từng từ hiện tại ([removeManualEntry] chỉ xoá khỏi
+  /// danh sách, không đụng SRS/Learn-by-Heart): xoá hàng loạt cũng CHỈ xoá
+  /// khỏi danh sách, không tự nghĩ ra hành vi mới cho SRS.
+  /// Không chọn gì → no-op, không ném exception.
+  void deleteSelected() {
+    if (_selectedIds.isEmpty) return;
+    _manualEntries.removeWhere((e) => _selectedIds.contains(e.id));
+    _isSelecting = false;
+    clearSelection();
+    _safeNotify();
+  }
+
   // ★ MỚI: Export folder → CSV string
   String exportFolderAsCsv(String folderId) {
     final words = folderId == WordFolder.allWords.id

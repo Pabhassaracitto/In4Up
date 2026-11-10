@@ -454,8 +454,14 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final messenger = ScaffoldMessenger.of(context);
     try {
       final ok = await widget.service.mlkit.downloadModel(language.bcpCode);
-      _modelDownloaded[code] = ok;
-      if (!ok) {
+      // PSRC-182: đừng tin tuyệt đối giá trị trả về của plugin —
+      // `downloadModel()` có thể trả `false` khi gói ĐÃ có sẵn (hoặc khi
+      // native báo lỗi "đã tải"). Hỏi lại trạng thái THẬT để gói đã tải
+      // không bị hiện mãi nút "Tải về".
+      final downloadedNow =
+          ok || await widget.service.mlkit.isModelDownloaded(language.bcpCode);
+      _modelDownloaded[code] = downloadedNow;
+      if (!downloadedNow) {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
@@ -489,9 +495,14 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   Future<void> _deleteModel(String code) async {
     final language = MlKitEngine.languageForCode(code);
     if (language == null) return;
-    final ok = await widget.service.mlkit.deleteModel(language.bcpCode);
+    await widget.service.mlkit.deleteModel(language.bcpCode);
+    // PSRC-182: đọc lại trạng thái THẬT sau khi xoá (plugin trả `false`
+    // không có nghĩa là gói vẫn còn) — hàng UI luôn khớp với máy.
+    final stillThere = await widget.service.mlkit.isModelDownloaded(
+      language.bcpCode,
+    );
     if (!mounted) return;
-    setState(() => _modelDownloaded[code] = !ok);
+    setState(() => _modelDownloaded[code] = stillThere);
   }
 
   String _modelLabel(String code) {
@@ -1202,15 +1213,34 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                           ? context.uiText('Đã tải')
                           : context.uiText('Chưa tải'))
                       : context.uiText('Chưa hỗ trợ'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                  // PSRC-182: trạng thái đọc được bằng mắt — gói đã tải
+                  // hiện chữ xanh, không còn lẫn với nút "Tải về".
+                  style: TextStyle(
+                    color: supported && downloaded
+                        ? Colors.green
+                        : Colors.grey[600],
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
           ),
-          if (supported)
-            TextButton(
+          // PSRC-182 (owner 2026-11-10): gói ĐÃ TẢI không được hiện nút
+          // "Tải về" nữa — trước đây nút luôn hiện, user phân vân không biết
+          // gói đã tải xong chưa. Gói đã tải ⇒ chỉ còn dấu ✓ xanh + chữ
+          // "Đã tải" (icon + chữ) ở cột trạng thái, và nút xoá gói.
+          // Gói CHƯA tải ⇒ nút có BIỂU TƯỢNG tải xuống + chữ "Tải về".
+          if (supported && !downloaded)
+            TextButton.icon(
               onPressed: downloading ? null : () => _downloadModel(code),
-              child: Text(
+              icon: downloading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_rounded, size: 16),
+              label: Text(
                 downloading
                     ? context.uiText('Đang tải...')
                     : context.uiText('Tải về'),

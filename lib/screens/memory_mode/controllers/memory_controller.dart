@@ -9,6 +9,7 @@ import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
 import '../models/memory_stats.dart';
 import '../models/review_session.dart';
+import '../models/garden_rating.dart';
 import '../services/memory_storage_service.dart';
 
 class MemoryController extends ChangeNotifier {
@@ -349,6 +350,25 @@ class MemoryController extends ChangeNotifier {
 
     HapticFeedback.mediumImpact();
     notifyListeners();
+  }
+
+  /// Rate a garden item without starting or advancing a review session.
+  /// Uses the same MemoryItem operations and daily counters as flashcards.
+  Future<MemoryItem?> rateGardenWord(String id, GardenRating rating) async {
+    final index = _allItems.indexWhere((item) => item.id == id);
+    if (index < 0) return null;
+    final item = _allItems[index];
+    final grade = rating.grade;
+    final updated = rating.apply(item);
+    _allItems[index] = updated;
+    for (var i = 0; i < _reviewQueue.length; i++) {
+      if (_reviewQueue[i].id == id) _reviewQueue[i] = updated;
+    }
+    _reviewedTodayCount++;
+    if (grade != ReviewGrade.forgot) _correctTodayCount++;
+    notifyListeners();
+    await _persist();
+    return updated;
   }
 
   void flipCard() {

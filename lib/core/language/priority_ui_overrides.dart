@@ -2,6 +2,56 @@
 /// Merged first in [AppUITranslations.translate] so Home/settings labels
 /// do not stay Vietnamese when the catalog is incomplete.
 const Map<String, Map<String, String>> priorityUiOverrides = {
+  // PSRC-22: Memory Garden ratings and review feedback.
+  'Lại': {
+    'en': 'Again',
+    'hi': 'फिर से',
+    'zh': '重来',
+    'zh_TW': '重來',
+    'si': 'නැවත',
+  },
+  'Quên': {
+    'en': 'Forgot',
+    'hi': 'भूल गया',
+    'zh': '忘了',
+    'zh_TW': '忘了',
+    'si': 'අමතක විය',
+  },
+  'Ổn': {
+    'en': 'Good',
+    'hi': 'अच्छा',
+    'zh': '良好',
+    'zh_TW': '良好',
+    'si': 'හොඳයි',
+  },
+  'Giỏi': {
+    'en': 'Easy',
+    'hi': 'आसान',
+    'zh': '简单',
+    'zh_TW': '簡單',
+    'si': 'පහසුයි',
+  },
+  'Nhấn giữ một từ để chấm điểm': {
+    'en': 'Long-press a word to rate it',
+    'hi': 'मूल्यांकन के लिए किसी शब्द को दबाकर रखें',
+    'zh': '长按单词进行评分',
+    'zh_TW': '長按單字進行評分',
+    'si': 'ඇගයීමට වචනයක් දිගු වේලාවක් ඔබාගෙන සිටින්න',
+  },
+  'Ôn lại sau {value0} giờ': {
+    'en': 'Review again in {value0} hours',
+    'hi': '{value0} घंटे बाद फिर दोहराएँ',
+    'zh': '{value0} 小时后复习',
+    'zh_TW': '{value0} 小時後複習',
+    'si': 'පැය {value0} කින් නැවත පුහුණු වන්න',
+  },
+  'Ôn lại sau {value0} ngày': {
+    'en': 'Review again in {value0} days',
+    'hi': '{value0} दिन बाद फिर दोहराएँ',
+    'zh': '{value0} 天后复习',
+    'zh_TW': '{value0} 天後複習',
+    'si': 'දින {value0} කින් නැවත පුහුණු වන්න',
+  },
   'Công cụ hiểu': {
     'en': 'Understanding tools',
     'hi': 'समझने के टूल',

@@ -3,6 +3,13 @@
 // Exact presentation-source fallbacks only; unknown runtime text is untouched.
 
 const Map<String, String> generatedLegacyUiEnglishFallbacks = {
+  // PSRC-22: Memory Garden.
+  'Lại': 'Again',
+  'Ổn': 'Good',
+  'Giỏi': 'Easy',
+  'Nhấn giữ một từ để chấm điểm': 'Long-press a word to rate it',
+  'Ôn lại sau {value0} giờ': 'Review again in {value0} hours',
+  'Ôn lại sau {value0} ngày': 'Review again in {value0} days',
   '  Âm cần chú ý: {value0}': '  Sounds to focus on: {value0}',
   ' · lần {value0}': ' · repeat {value0}',
   '"{value0}" sẽ bị xoá khỏi thư viện cloud.': '"{value0}" will be deleted from the cloud library.',

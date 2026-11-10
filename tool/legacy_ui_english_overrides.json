@@ -1,4 +1,10 @@
 {
+  "Lại": "Again",
+  "Ổn": "Good",
+  "Giỏi": "Easy",
+  "Nhấn giữ một từ để chấm điểm": "Long-press a word to rate it",
+  "Ôn lại sau {value0} giờ": "Review again in {value0} hours",
+  "Ôn lại sau {value0} ngày": "Review again in {value0} days",
   "  Âm cần chú ý: {value0}": "  Sounds to focus on: {value0}",
   " (Whisper tự đặt tên)": " (Whisper named them)",
   " · lần {value0}": " · repeat {value0}",

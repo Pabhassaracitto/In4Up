@@ -95,7 +95,11 @@ class _TtsSettingsSectionState extends State<TtsSettingsSection> {
             const SizedBox(height: 16),
 
             // ── VIENEU MODEL IMPORT (TTS-VIENEU-IMPORT-001) ──
-            const _VieneuModelImportSection(),
+            // PSRC-183: không dùng const — cần rebuild khi TtsService notify sau import
+            _VieneuModelImportSection(
+              // Khi import xong, picker bên dưới phải reload danh sách giọng.
+              onVoicesChanged: () => _ttsService.notifyVoicesChanged(),
+            ),
             const SizedBox(height: 16),
 
             // ── VIENEU VOICE PICKER (TTS-VIENEU-VOICE-001) ──
@@ -1360,7 +1364,11 @@ class _EdgeVoiceLanguageTile extends StatelessWidget {
 // ════════════════════════════════════════════
 
 class _VieneuModelImportSection extends StatefulWidget {
-  const _VieneuModelImportSection();
+  /// Gọi khi danh sách giọng có thể đã đổi (import GGUF kèm voices, import
+  /// thư mục voices) — parent sẽ notify để picker reload (PSRC-183/186).
+  final VoidCallback? onVoicesChanged;
+
+  const _VieneuModelImportSection({this.onVoicesChanged});
 
   @override
   State<_VieneuModelImportSection> createState() =>
@@ -1424,6 +1432,7 @@ class _VieneuModelImportSectionState
       if (!mounted) return;
       await _checkAllModels();
       await TtsService().setSelectedVieneuModelVariant(variant);
+      widget.onVoicesChanged?.call();
       if (!mounted) return;
       setState(() {
         _importing = false;
@@ -1439,6 +1448,36 @@ class _VieneuModelImportSectionState
         _importing = false;
         _importingVariant = null;
         _statusMessage = 'Lỗi import ${variant.label}: $e';
+        _statusIsError = true;
+      });
+    }
+  }
+
+  /// PSRC-185/186 — import giọng từ thư mục có sẵn (chứa các subfolder voice).
+  Future<void> _pickVoicesFolder() async {
+    final dirPath = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Chọn thư mục chứa giọng VieNeu-TTS',
+    );
+    if (dirPath == null) return;
+    setState(() {
+      _importing = true;
+      _statusMessage = null;
+    });
+    try {
+      final count = await TtsService().importVieneuVoicesFromDirectory(dirPath);
+      if (!mounted) return;
+      await _checkAllModels();
+      widget.onVoicesChanged?.call();
+      setState(() {
+        _importing = false;
+        _statusMessage = 'Đã import $count giọng từ thư mục';
+        _statusIsError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _statusMessage = 'Lỗi import giọng: $e';
         _statusIsError = true;
       });
     }
@@ -1698,6 +1737,23 @@ class _VieneuModelImportSectionState
             overflow: TextOverflow.ellipsis,
           ),
         ],
+        // PSRC-185/186 — import giọng từ thư mục
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _importing ? null : _pickVoicesFolder,
+          icon: const Icon(Icons.folder_open, size: 16),
+          label: const Text('Import giọng từ thư mục', style: TextStyle(fontSize: 11)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white70,
+            side: BorderSide(color: Colors.grey[600]!),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Chọn thư mục chứa các giọng (mỗi giọng là một thư mục con có ref_codes.txt). '
+          'Thư mục voices cạnh file .gguf sẽ tự động import khi chọn GGUF.',
+          style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+        ),
       ],
     );
   }
@@ -1719,10 +1775,25 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
   String? _selectedVoiceId;
   bool _loading = true;
   String? _error;
+  VieneuModelVariant? _loadedVariant;
 
   @override
   void initState() {
     super.initState();
+    _loadVoices();
+    // PSRC-183: lắng nghe TtsService để refresh khi model/voices mới import
+    // (trước đây chỉ load 1 lần trong initState và là const widget → stale).
+    TtsService().addListener(_onTtsServiceChanged);
+  }
+
+  @override
+  void dispose() {
+    TtsService().removeListener(_onTtsServiceChanged);
+    super.dispose();
+  }
+
+  void _onTtsServiceChanged() {
+    // Reload khi variant đổi hoặc có voices mới được import.
     _loadVoices();
   }
 
@@ -1738,17 +1809,27 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         setState(() {
           _loading = false;
           _error = 'Chưa import model ${variant.label} — hãy import ở mục trên';
+          _loadedVariant = variant;
         });
         return;
       }
+      // Nếu đã load cùng variant và không có thay đổi voices, vẫn reload để
+      // bắt kịp import mới (PSRC-183). Không return sớm.
       await engine.init(modelVariant: variant);
       final voices = await engine.getAvailableVoices('vi-VN');
       if (!mounted) return;
       setState(() {
         _voices = voices;
         _loading = false;
+        _error = null;
+        _loadedVariant = variant;
         // Chọn giọng mặc định nếu có
         if (voices.isNotEmpty && _selectedVoiceId == null) {
+          _selectedVoiceId = voices.first.id;
+        } else if (voices.isNotEmpty &&
+            _selectedVoiceId != null &&
+            !voices.any((v) => v.id == _selectedVoiceId)) {
+          // Giọng cũ không còn → chọn lại
           _selectedVoiceId = voices.first.id;
         }
       });
@@ -1854,17 +1935,52 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       );
     }
 
+    // Hiển thị thông tin variant đang dùng + nút refresh (PSRC-183)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Giọng đọc VieNeu-TTS',
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[400],
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Text(
+              'Giọng đọc VieNeu-TTS',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[400],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            if (_loadedVariant != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _loadedVariant!.label,
+                  style: TextStyle(fontSize: 9, color: Colors.grey[400]),
+                ),
+              ),
+            IconButton(
+              icon: const Icon(Icons.refresh, size: 16, color: Colors.white54),
+              tooltip: 'Tải lại danh sách giọng',
+              onPressed: () {
+                setState(() {
+                  _loading = true;
+                  _error = null;
+                });
+                _loadVoices();
+              },
+            ),
+          ],
         ),
+        const SizedBox(height: 4),
+        if (_loadedVariant != null)
+          Text(
+            'Đang dùng model ${_loadedVariant!.label}',
+            style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+          ),
         const SizedBox(height: 8),
         DropdownButton<String>(
           isExpanded: true,

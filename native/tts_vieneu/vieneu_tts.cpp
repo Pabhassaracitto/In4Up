@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,39 @@ const char * find_g2p_library(const fs::path & folder) {
         if (file_exists((folder / *name).c_str())) return *name;
     }
     return nullptr;
+}
+
+/// Kiểm tra file ref_codes / embedding có nội dung hợp lệ (không phải
+/// placeholder comment). PSRC-187: file rỗng hoặc chỉ chứa `# ...` mà vẫn
+/// truyền vào audio.cpp qua `reference_codes_file` có thể gây parse lỗi /
+/// SIGSEGV — phải bỏ qua và để engine dùng giọng mặc định trong GGUF.
+bool is_valid_voice_file(const char * path) {
+    if (!path || !*path) return false;
+    if (!file_exists(path)) return false;
+    std::error_code ec;
+    auto sz = fs::file_size(fs::path(path), ec);
+    if (ec || sz < 8) return false; // placeholder `# ...` chỉ ~30 bytes; file thật vài KB
+    std::ifstream in(path);
+    if (!in.is_open()) return false;
+    std::string line;
+    int nonCommentLines = 0;
+    while (std::getline(in, line)) {
+        // trim
+        size_t s = line.find_first_not_of(" \t\r\n");
+        if (s == std::string::npos) continue;
+        if (line[s] == '#') continue;
+        nonCommentLines++;
+        // Cần ít nhất 1 dòng dữ liệu thực (> 4 ký tự) để coi là hợp lệ
+        if (line.size() - s > 4) {
+            // Với file embedding, dòng đầu là số chiều; dòng 2 là floats.
+            // Với ref_codes, dòng đầu thường là base64/codes > 10 chars.
+            // Chỉ cần 1 dòng hợp lệ là đủ.
+            in.close();
+            return nonCommentLines >= 1;
+        }
+    }
+    in.close();
+    return nonCommentLines >= 1;
 }
 
 }  // namespace
@@ -256,8 +290,11 @@ extern "C" VIENEU_TTS_API vieneu_tts_status vieneu_tts_synthesize(
     }
 
     // Giọng preset: các file bên cạnh model trong thư mục voices/<id>/.
+    // PSRC-187: chỉ set option khi file CÓ NỘI DUNG HỢP LỆ; placeholder
+    // `ref_codes.txt` chỉ chứa `# VieNeu-TTS default` sẽ crash native nếu
+    // truyền vào audio.cpp. Dùng is_valid_voice_file thay vì file_exists.
     if (!ctx->ref_codes_file.empty() &&
-        file_exists(ctx->ref_codes_file.c_str())) {
+        is_valid_voice_file(ctx->ref_codes_file.c_str())) {
         if (audiocpp_request_set_option(request, "reference_codes_file",
                                         ctx->ref_codes_file.c_str()) !=
             AUDIOCPP_OK) {
@@ -270,7 +307,7 @@ extern "C" VIENEU_TTS_API vieneu_tts_status vieneu_tts_synthesize(
         }
     }
     if (!ctx->speaker_embedding_file.empty() &&
-        file_exists(ctx->speaker_embedding_file.c_str())) {
+        is_valid_voice_file(ctx->speaker_embedding_file.c_str())) {
         if (audiocpp_request_set_option(request, "speaker_embedding_file",
                                         ctx->speaker_embedding_file.c_str()) !=
             AUDIOCPP_OK) {
@@ -385,10 +422,24 @@ extern "C" VIENEU_TTS_API int vieneu_tts_clone_voice(
         return VIENEU_TTS_ERR_INVALID_ARGUMENT;
     }
 
-    // Tạo thư mục giọng mới trong voices/ (bên cạnh output_embedding).
+    // Tạo file embedding + sao chép mẫu.
+    // PSRC-184: bản cũ tính `voices_dir = parent(output_embedding)` rồi
+    // `voice_dir = voices_dir / voice_id` ⇒ lồng `<voiceId>/<voiceId>` khi
+    // Dart đã truyền `.../<voiceId>/speaker.emb.txt` (không còn `..`). Sửa:
+    // coi parent của output chính là voice_dir; chỉ append voice_id nếu tên
+    // thư mục chưa khớp.
     auto output_path = fs::path(output_embedding);
-    auto voices_dir = output_path.parent_path();
-    auto voice_dir = voices_dir / voice_id;
+    auto voice_dir = output_path.parent_path();
+    if (voice_dir.empty()) {
+        g_last_error = "vieneu_tts_clone_voice: output_embedding không có thư mục cha";
+        return VIENEU_TTS_ERR_INVALID_ARGUMENT;
+    }
+    // Nếu voice_dir chưa mang tên voice_id (trường hợp caller truyền
+    // `.../cloned_voices/samples` hoặc path cũ với `..`), thì tạo subdir.
+    if (voice_dir.filename().string() != std::string(voice_id)) {
+        voice_dir = voice_dir / voice_id;
+    }
+    auto voices_dir = voice_dir.parent_path();
     std::error_code create_ec;
     fs::create_directories(voice_dir, create_ec);
     if (create_ec) {
@@ -397,16 +448,28 @@ extern "C" VIENEU_TTS_API int vieneu_tts_clone_voice(
         return VIENEU_TTS_ERR_RUNTIME;
     }
 
-    // Sao chép các file mẫu vào voice_dir/samples/.
+    // Đảm bảo thư mục cha của output_embedding tồn tại (khi voice_dir vừa tạo).
+    if (output_path.has_parent_path()) {
+        fs::create_directories(output_path.parent_path(), ec);
+        ec.clear();
+    }
+
+    // Sao chép các file mẫu vào voice_dir/samples/ — nhưng KHÔNG copy nếu
+    // nguồn đã chính là voice_dir/samples (tránh tự copy lên chính mình).
     auto samples_dest = voice_dir / "samples";
-    fs::create_directories(samples_dest, create_ec);
-    for (const auto & src : sample_files) {
-        fs::copy_file(src, samples_dest / src.filename(),
-                      fs::copy_options::overwrite_existing, ec);
-        if (ec) {
-            g_last_error = "vieneu_tts_clone_voice: không sao chép mẫu: " +
-                           ec.message();
-            return VIENEU_TTS_ERR_RUNTIME;
+    const bool sameDir = fs::equivalent(samples_path, samples_dest, ec) ||
+                         (samples_path == samples_dest);
+    if (ec) ec.clear();
+    if (!sameDir) {
+        fs::create_directories(samples_dest, create_ec);
+        for (const auto & src : sample_files) {
+            fs::copy_file(src, samples_dest / src.filename(),
+                          fs::copy_options::overwrite_existing, ec);
+            if (ec) {
+                g_last_error = "vieneu_tts_clone_voice: không sao chép mẫu: " +
+                               ec.message();
+                return VIENEU_TTS_ERR_RUNTIME;
+            }
         }
     }
 

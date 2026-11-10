@@ -51,7 +51,9 @@ class VieneuTtsEngine implements TtsEngine {
   /// Có thể dùng ngay bây giờ? (native lib + model file đã import)
   ///
   /// Nhanh, không block UI: chỉ kiểm tra file + load symbol. Việc nạp model
-  /// 170 MB GGUF diễn ra lazy tại [init].
+  /// 170 MB GGUF diễn ra lazy tại [init]. PSRC-187: không yêu cầu `_initialized`
+  /// ở đây — nếu model đã import thì engine được coi là *available* để UI
+  /// hiện trạng thái đúng; việc init thực tế xảy ra khi synthesize.
   @override
   Future<bool> isAvailable() async {
     if (!_modelResolved) {
@@ -61,9 +63,40 @@ class VieneuTtsEngine implements TtsEngine {
         _modelPath = model;
         _voicesDir = p.join(p.dirname(model), 'voices');
         _modelResolved = true;
+      } else if (model != null) {
+        // Model đã import nhưng lib native chưa có (ví dụ build CPU thiếu) —
+        // vẫn ghi nhận để UI báo đúng trạng thái, không crash.
+        _modelPath = model;
+        _voicesDir = p.join(p.dirname(model), 'voices');
+        _modelResolved = true;
+        return false;
       }
     }
-    return _modelResolved && _initialized;
+    return _modelResolved;
+  }
+
+  /// Engine đã nạp native worker và sẵn sàng synthesize ngay.
+  bool get isInitialized => _initialized;
+
+  /// Kiểm tra file giọng có nội dung thực sự (không phải placeholder comment).
+  /// PSRC-187: file `ref_codes.txt` chứa duy nhất dòng `# VieNeu-TTS default`
+  /// sẽ khiến native crash nếu truyền vào audio.cpp — phải coi như chưa có.
+  Future<bool> _isValidVoiceFile(File file) async {
+    try {
+      if (!await file.exists()) return false;
+      final len = await file.length();
+      if (len < 10) return false; // placeholder ~33 bytes, file thật vài KB
+      final content = await file.readAsString();
+      for (final line in content.split('\n')) {
+        final t = line.trim();
+        if (t.isEmpty) continue;
+        if (t.startsWith('#')) continue;
+        if (t.length > 4) return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Giọng preset đã import (đọc từ voices/ bên cạnh model file).
@@ -81,17 +114,45 @@ class VieneuTtsEngine implements TtsEngine {
         if (entry is! Directory) continue;
         final id = p.basename(entry.path);
         final refCodes = File(p.join(entry.path, 'ref_codes.txt'));
-        if (!await refCodes.exists()) continue;
+        final embFile = File(p.join(entry.path, 'speaker.emb.txt'));
+        final hasRefCodes = await _isValidVoiceFile(refCodes);
+        final hasEmb = await _isValidVoiceFile(embFile);
+        // Cần ít nhất một trong hai file có nội dung thực; nếu cả hai chỉ là
+        // placeholder/missing thì bỏ qua giọng này (PSRC-187).
+        if (!hasRefCodes && !hasEmb) continue;
         voices.add(VieneuTtsVoice(
           id: id,
           name: id.replaceAll('_', ' '),
           region: '', // TODO: đọc voices/manifest.json sau khi có file metadata
-          refCodesPath: refCodes.path,
-          speakerEmbeddingPath:
-              await File(p.join(entry.path, 'speaker.emb.txt')).exists()
-                  ? p.join(entry.path, 'speaker.emb.txt')
-                  : null,
+          refCodesPath: hasRefCodes ? refCodes.path : '',
+          speakerEmbeddingPath: hasEmb ? embFile.path : null,
         ));
+      }
+      // Đọc thêm giọng đã clone (vieneu_tts/cloned_voices/<id>/) — chung logic
+      // validation như trên (PSRC-184/185).
+      final clonedDir = Directory(p.join(p.dirname(_voicesDir!), 'cloned_voices'));
+      if (await clonedDir.exists()) {
+        final clonedEntries = await clonedDir.list().toList();
+        for (final entry in clonedEntries) {
+          if (entry is! Directory) continue;
+          final id = p.basename(entry.path);
+          if (id.startsWith('_')) continue; // _temp_samples
+          if (voices.any((v) => v.id == id)) continue; // trùng preset
+          final refCodes = File(p.join(entry.path, 'ref_codes.txt'));
+          final embFile = File(p.join(entry.path, 'speaker.emb.txt'));
+          final samplesDir = Directory(p.join(entry.path, 'samples'));
+          final hasRef = await _isValidVoiceFile(refCodes);
+          final hasEmb = await _isValidVoiceFile(embFile);
+          final hasSamples = await samplesDir.exists();
+          if (!hasRef && !hasEmb && !hasSamples) continue;
+          voices.add(VieneuTtsVoice(
+            id: id,
+            name: id.replaceAll('_', ' '),
+            region: '',
+            refCodesPath: hasRef ? refCodes.path : '',
+            speakerEmbeddingPath: hasEmb ? embFile.path : null,
+          ));
+        }
       }
     }
     // Nếu không tìm thấy voice preset nào (chỉ import .gguf), vẫn trả về

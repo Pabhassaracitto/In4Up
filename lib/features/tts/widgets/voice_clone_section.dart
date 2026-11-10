@@ -22,12 +22,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
+import '../tts_service.dart';
 
 /// Thời lượng tối đa thu âm mỗi mẫu (giây).
 const int _maxSampleSeconds = 60;
@@ -222,19 +224,116 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
     });
   }
 
-  // Lưu mẫu thu âm vào thư mục giọng mới (chưa tạo embedding).
-  Future<void> _saveSampleToVoiceDir(String voiceId) async {
-    if (_currentRecordingPath == null) return;
+  /// PSRC-185 — import mẫu từ thư mục có sẵn (người dùng đã có bộ sưu tập WAV).
+  Future<void> _importSamplesFromFolder() async {
+    // Ưu tiên chọn thư mục (giữ cấu trúc), fallback chọn nhiều file nếu platform không hỗ trợ.
+    String? dirPath;
+    try {
+      dirPath = await FilePicker.getDirectoryPath(
+        dialogTitle: 'Chọn thư mục chứa mẫu giọng',
+      );
+    } catch (_) {}
+    if (dirPath != null) {
+      try {
+        final count = await TtsService().importVieneuSamplesFromDirectory(dirPath);
+        if (!mounted) return;
+        setState(() {
+          _cloneNotice = _CloneNotice.success;
+          _cloneNoticeDetail = 'Đã import $count mẫu từ thư mục';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã import $count mẫu từ thư mục')),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _cloneNotice = _CloneNotice.failed;
+          _cloneNoticeDetail = e.toString();
+        });
+      }
+      return;
+    }
+    // Fallback: chọn nhiều file trực tiếp
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: const ['wav', 'mp3', 'm4a', 'flac', 'ogg'],
+        dialogTitle: 'Chọn file mẫu giọng',
+      );
+      if (result == null || result.files.isEmpty) return;
+      final docDir = await getApplicationDocumentsDirectory();
+      final tempDir = Directory(p.join(docDir.path, 'vieneu_tts', 'cloned_voices', '_temp_samples'));
+      if (!await tempDir.exists()) await tempDir.create(recursive: true);
+      var copied = 0;
+      for (final f in result.files) {
+        final srcPath = f.path;
+        if (srcPath == null) continue;
+        final dest = File(p.join(tempDir.path, p.basename(srcPath)));
+        final target = await dest.exists()
+            ? File(p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(srcPath)}'))
+            : dest;
+        await File(srcPath).copy(target.path);
+        copied++;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã import $copied mẫu')),
+      );
+    } catch (e) {
+      debugPrint('Import samples error: $e');
+    }
+  }
 
-    final dir = await getApplicationDocumentsDirectory();
-    final voiceDir = Directory(p.join(dir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'samples'));
+  // Lưu mẫu thu âm vào thư mục giọng mới (chưa tạo embedding).
+  // PSRC-184: bản cũ chỉ copy file cuối cùng (_currentRecordingPath), bỏ qua các mẫu
+  // đã thu trước đó trong _temp_samples. Sửa: copy TẤT CẢ file trong temp dir.
+  Future<void> _saveSampleToVoiceDir(String voiceId) async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final tempDir = Directory(p.join(docDir.path, 'vieneu_tts', 'cloned_voices', '_temp_samples'));
+    final voiceDir = Directory(p.join(docDir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'samples'));
     if (!await voiceDir.exists()) {
       await voiceDir.create(recursive: true);
     }
 
-    final dest = p.join(voiceDir.path, p.basename(_currentRecordingPath!));
-    await File(_currentRecordingPath!).copy(dest);
-    await File(_currentRecordingPath!).delete();
+    var copied = 0;
+    if (await tempDir.exists()) {
+      await for (final entity in tempDir.list()) {
+        if (entity is! File) continue;
+        final dest = File(p.join(voiceDir.path, p.basename(entity.path)));
+        try {
+          await entity.copy(dest.path);
+          copied++;
+        } catch (_) {}
+      }
+    }
+    // Ngoài temp dir, nếu còn file recording hiện tại chưa flush vào temp (khi user vừa dừng)
+    if (_currentRecordingPath != null) {
+      final cur = File(_currentRecordingPath!);
+      if (await cur.exists()) {
+        final dest = File(p.join(voiceDir.path, p.basename(cur.path)));
+        if (!await dest.exists()) {
+          try {
+            await cur.copy(dest.path);
+            copied++;
+          } catch (_) {}
+        }
+      }
+    }
+
+    // Dọn temp sau khi đã copy (giữ lại voiceDir/samples làm nguồn cho native)
+    if (await tempDir.exists() && copied > 0) {
+      await for (final entity in tempDir.list()) {
+        try {
+          await entity.delete();
+        } catch (_) {}
+      }
+    }
+    if (_currentRecordingPath != null) {
+      try {
+        await File(_currentRecordingPath!).delete();
+      } catch (_) {}
+    }
 
     if (!mounted) return;
     setState(() {
@@ -291,6 +390,17 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
 
       final dir = await getApplicationDocumentsDirectory();
       final samplesDir = p.join(dir.path, 'vieneu_tts', 'cloned_voices', voiceId, 'samples');
+
+      // PSRC-184: đảm bảo worker đã init trước khi clone (trước đây ném
+      // `VieNeu worker chưa khởi tạo` ngay lập tức).
+      if (!_ttsCore.isInitialized) {
+        final variant = await TtsService().getSelectedVieneuModelVariant();
+        final modelPath = await VieneuTtsCore.modelPathFor(variant);
+        if (modelPath == null) {
+          throw StateError('Chưa import model VieNeu-TTS — hãy import .gguf trước');
+        }
+        await _ttsCore.init(modelPath: modelPath, voiceId: VieneuTtsCore.defaultVoiceId);
+      }
 
       final embeddingPath = await _ttsCore.cloneVoice(
         voiceId: voiceId,
@@ -462,6 +572,23 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
               style: TextStyle(fontSize: 10, color: Colors.red[300]),
             ),
           ),
+        const SizedBox(height: 8),
+
+        // ── IMPORT MẪU TỪ THƯ MỤC (PSRC-185) ──
+        OutlinedButton.icon(
+          onPressed: _importSamplesFromFolder,
+          icon: const Icon(Icons.folder_open, size: 16),
+          label: const Text('Thêm mẫu từ thư mục', style: TextStyle(fontSize: 11)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white70,
+            side: BorderSide(color: Colors.grey[600]!),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Chọn thư mục chứa file WAV (hoặc nhiều file) để thêm vào danh sách mẫu.',
+          style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+        ),
         const SizedBox(height: 8),
 
         // ── NÚT TẠO GIỌNG ──

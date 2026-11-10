@@ -190,7 +190,7 @@ Branch này đụng vào các file dùng chung, nên cần lướt qua:
 | Vùng | Cần thấy |
 |---|---|
 | Tab **Đọc** | Căn lề các hàng vẫn đều; icon loa **đổi màu + nhấp nháy** khi đang đọc; bấm lần 2 thì **dừng**; dòng đang đọc có **highlight + badge số dòng** |
-| **Cài đặt → Nhà cung cấp AI** | Có provider **OpenRouter** (model `minimax/minimax-m3.1-flash:free`); không còn vạch vàng-đen khi tên model dài |
+| **Cài đặt → Nhà cung cấp AI** | Có provider **OpenRouter** (model mặc định `openrouter/free` — PSRC-181; bản cũ là `minimax/minimax-m3.1-flash:free`); không còn vạch vàng-đen khi tên model dài |
 | **Cài đặt Home → Ngôn ngữ đích** | Đổi được; YouTube đi theo (mục A4) |
 | Màn **Nhớ** | Thanh công cụ không tự ẩn |
 | Đổi ngôn ngữ ứng dụng sang **English** | Mọi chuỗi chrome (kể cả 12 chuỗi mới của bảng tra từ) hiện **tiếng Anh**, không rớt về tiếng Việt |

@@ -14396,6 +14396,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ทำซ้ำ {value0}×',
     'ja': '{value0} 回繰り返し',
   },
+  'Lặp đoạn tiếp': {
+    'en': 'Repeat next segment',
+    'zh': '重复下一段',
+    'zh_TW': '重複下一段',
+    'hi': 'अगला खंड दोहराएँ',
+    'si': 'ඊළඟ කොටස පුනරාවර්තනය',
+    'my': 'နောက်အပိုင်း ထပ်ကျော့',
+    'th': 'ทำซ้ำช่วงถัดไป',
+    'ja': '次の区間を繰り返す',
+  },
   'Lệch': {
     'en': 'Off',
     'zh': '偏差',

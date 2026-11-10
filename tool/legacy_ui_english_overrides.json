@@ -4088,5 +4088,6 @@
   "Nguồn: github.com/BtbN/FFmpeg-Builds (GPL)": "Source: github.com/BtbN/FFmpeg-Builds (GPL)",
   "Cắt một đoạn": "Cut a clip",
   "Từ tab Nghe: đặt A–B rồi bấm «Xuất đoạn»": "From the Listen tab: set A–B, then tap “Export clip”",
-  "Hãy đặt mốc A và B trước khi xuất đoạn.": "Set markers A and B before exporting a clip."
+  "Hãy đặt mốc A và B trước khi xuất đoạn.": "Set markers A and B before exporting a clip.",
+  "Lặp đoạn tiếp": "Repeat next segment"
 }

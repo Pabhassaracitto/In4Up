@@ -40,7 +40,6 @@ mixin PlayerLoopMixin on ChangeNotifier {
   bool _isWaitingGap = false;
   Timer? _gapTimer;
   bool _loopTransitioning = false;
-  Duration _silenceDuration = Duration.zero;
 
   // Getters
   Duration? get loopStart => _loopStart;
@@ -54,7 +53,17 @@ mixin PlayerLoopMixin on ChangeNotifier {
   double get gapDuration => _gapDuration;
   bool get isWaitingGap => _isWaitingGap;
   bool get hasLoop => _loopStart != null && _loopEnd != null;
-  Duration get silenceDuration => _silenceDuration;
+
+  /// PSRC-179 — "khoảng lặng" CHỈ có MỘT nguồn sự thật là [gapDuration].
+  ///
+  /// Trước đây tồn tại thêm một biến `_silenceDuration` riêng: popup A–B ở tab
+  /// Nghe ghi vào đó, còn sheet "Thêm" (`ABLoopControls` → `setGapDuration`)
+  /// ghi vào `gapDuration` — mà chỉ `gapDuration` được engine dùng để chờ giữa
+  /// hai vòng (`checkLoopPosition`). Nên bấm chips ở popup ngoài KHÔNG có tác
+  /// dụng gì, và hai chỗ hiển thị hai giá trị khác nhau. Nay đọc/ghi chung một
+  /// biến; getter/setter cũ giữ lại để caller cũ không phải sửa.
+  Duration get silenceDuration =>
+      Duration(milliseconds: (_gapDuration * 1000).round());
 
   Duration? get loopDuration {
     if (_loopStart == null || _loopEnd == null) return null;
@@ -245,9 +254,11 @@ mixin PlayerLoopMixin on ChangeNotifier {
   }
 
   void setSilenceDuration(Duration duration) {
-    if (_silenceDuration == duration) return;
-    _silenceDuration = duration;
-    notifyListeners();
+    // Đi qua `setGapDuration` (không set thẳng biến) để có đủ: clamp 0–30 s,
+    // lưu StorageService và notifyListeners — giống hệt sheet "Thêm".
+    final seconds = duration.inMilliseconds / 1000.0;
+    if (silenceDuration.inMilliseconds == duration.inMilliseconds) return;
+    setGapDuration(seconds);
   }
 
   void checkLoopPosition(Duration currentPosition, Duration previousPosition) {

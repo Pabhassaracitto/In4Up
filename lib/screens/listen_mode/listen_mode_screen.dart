@@ -2067,54 +2067,77 @@ class _ABLoopWithSilencePanelState extends State<_ABLoopWithSilencePanel> {
           ),
         ),
         const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            setState(() => _showSilenceOptions = !_showSilenceOptions);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _showSilenceOptions
-                  ? const Color(0xFFFF9800).withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(8),
-              border: _showSilenceOptions
-                  ? Border.all(
-                      color: const Color(0xFFFF9800).withValues(alpha: 0.3))
-                  : null,
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(
-                _showSilenceOptions
-                    ? Icons.volume_off
-                    : Icons.volume_off_outlined,
-                size: 14,
-                color: _showSilenceOptions
-                    ? const Color(0xFFFF9800)
-                    : Colors.grey[500],
-              ),
-              const SizedBox(width: 6),
-              Text('Khoảng lặng',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: _showSilenceOptions
+        // PSRC-179: nút mở panel khoảng lặng hiện LUÔN giá trị đang dùng —
+        // cùng nguồn `gapDuration` với slider trong sheet "Thêm", nên hai chỗ
+        // không thể lệch nhau nữa (trước đây popup ngoài ghi một biến chết).
+        Consumer<PlayerProvider>(
+          builder: (_, player, __) {
+            final gap = player.gapDuration;
+            final active = _showSilenceOptions || gap > 0;
+            return GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _showSilenceOptions = !_showSilenceOptions);
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _showSilenceOptions
+                      ? const Color(0xFFFF9800).withValues(alpha: 0.15)
+                      : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: _showSilenceOptions
+                      ? Border.all(
+                          color: const Color(0xFFFF9800).withValues(alpha: 0.3))
+                      : null,
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    _showSilenceOptions
+                        ? Icons.volume_off
+                        : Icons.volume_off_outlined,
+                    size: 14,
+                    color: active
                         ? const Color(0xFFFF9800)
                         : Colors.grey[500],
-                    fontWeight: _showSilenceOptions
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  )),
-              const SizedBox(width: 4),
-              Icon(
-                _showSilenceOptions
-                    ? Icons.keyboard_arrow_up
-                    : Icons.keyboard_arrow_down,
-                size: 14,
-                color: Colors.grey[600],
+                  ),
+                  const SizedBox(width: 6),
+                  Text('Khoảng lặng',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: active
+                            ? const Color(0xFFFF9800)
+                            : Colors.grey[500],
+                        fontWeight: _showSilenceOptions
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      )),
+                  const SizedBox(width: 4),
+                  // Số giây là chuỗi TRUNG TÍNH (không có chữ Việt) ⇒ không
+                  // phải thêm khoá dịch cho `1.0s`/`Tắt`.
+                  Text(
+                    gap > 0 ? '${gap.toStringAsFixed(1)}s' : 'Tắt',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: gap > 0
+                          ? const Color(0xFFFF9800)
+                          : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    _showSilenceOptions
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: Colors.grey[600],
+                  ),
+                ]),
               ),
-            ]),
-          ),
+            );
+          },
         ),
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
@@ -2133,7 +2156,9 @@ class _SilenceOptionsBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, __) {
-        final silenceSec = player.silenceDuration.inSeconds;
+        // MỘT nguồn sự thật: `gapDuration` (engine chờ đúng biến này giữa 2
+        // vòng). Bộ mốc khớp `_GapDurationSlider` trong sheet "Thêm".
+        final gap = player.gapDuration;
         return Container(
           margin: const EdgeInsets.only(top: 8),
           padding: const EdgeInsets.all(10),
@@ -2152,12 +2177,11 @@ class _SilenceOptionsBox extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 4,
                 children: [0, 1, 2, 3, 5, 10].map((sec) {
-                  final isSelected = silenceSec == sec;
+                  final isSelected = (gap - sec).abs() < 0.01;
                   return ChoiceChip(
                     label: Text(sec == 0 ? 'Tắt' : '${sec}s'),
                     selected: isSelected,
-                    onSelected: (_) =>
-                        player.setSilenceDuration(Duration(seconds: sec)),
+                    onSelected: (_) => player.setGapDuration(sec.toDouble()),
                     backgroundColor: Colors.white.withValues(alpha: 0.05),
                     selectedColor:
                         const Color(0xFFFF9800).withValues(alpha: 0.2),

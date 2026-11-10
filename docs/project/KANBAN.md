@@ -232,13 +232,9 @@
 | PRON-003 | Hàng "Phát âm" cho các mặt còn lại: Vườn nhớ · PDF Reader · **Web Reader** · YouTube panel · sheet từ điển · WordList (đối xứng hoá, tắt autoplay mặc định) | 📋 proposed | PLAN-038 §3; 8 điểm vào tra từ đã kiểm `file:line` trên tip 251e `0706d8f` (WordList `:2102` đã có YouGlish, Vườn nhớ `word_detail_sheet.dart` chưa, `web_word_tap_sheet.dart:189` `speakWord`, `dict_entry_detail_sheet.onSpeak :30`) |
 | PRON-004 | Widget YouGlish chính thức (`public/emb/widget.js` + wrapper HTML) + Điều khoản/Privacy theo Developer Policy | 🚫 blocked (chờ owner xin phép YouGlish) | youglish.com/api/doc/widget mục 2/3/5/6/7; tiền lệ wrapper: web/yt_embed.html; PLAN-038 §4 |
 | PRON-005 | Nguồn "audio từ điển offline" trong hàng Phát âm — nối `DictEntry.audioPath` đang bị bỏ quên (nay có dữ liệu thật nhờ DICT-PACK-001) | 📋 proposed | PLAN-038 §0 + ADR-0015 D1; `dict_entry.dart:40` chưa UI nào dùng; `dict_pack_service.dart:351` cho phép wav/mp3/ogg/m4a |
-
 | PSRC-23 | Huỷ copy model | 🔨 CI xanh, chờ nghiệm thu máy | `d3c7667`, `c1d4df4`; [run 42863627460](https://github.com/Pabhassaracitto/In4Up/actions/runs/42863627460) |
-
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
-
 | PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
-
 | PSRC-22 | Vườn nhớ: nhấn giữ chấm điểm và onboarding | 🔨 CI xanh, chờ nghiệm thu máy | `bfa8b4f`, `0393149`; [run 42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) |
 
 

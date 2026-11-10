@@ -24,6 +24,11 @@ on:
       - 'lib/services/source_artifact_store.dart'
       - 'android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt'
       - 'android/app/src/main/kotlin/com/in4up/MainActivity.kt'
+      # XLAT-SCR-006 — overlay dịch: job `android-resolver-compile` biên dịch
+      # `TranslationOverlayView.kt` bằng kotlinc (~30s). Thiếu path này thì sửa
+      # overlay KHÔNG kích hoạt kiểm tra, lỗi chỉ lộ lúc build APK.
+      - 'android/app/src/main/kotlin/com/in4up/screentranslate/**'
+      - 'lib/features/screen_translate/**'
       - 'packages/in4up_stt/**'
       - 'test/listen_*'
       - 'test/karaoke_*'
@@ -36,6 +41,8 @@ on:
   pull_request:
     paths:
       - 'lib/audio/**'
+      - 'android/app/src/main/kotlin/com/in4up/screentranslate/**'
+      - 'lib/features/screen_translate/**'
       - 'lib/models/audio_queue_item.dart'
       - 'lib/providers/player/**'
       - 'lib/providers/player_provider.dart'

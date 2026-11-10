@@ -234,14 +234,19 @@ class AiModelLoader {
   Future<ModelLoadResult> importModelFromUser({
     void Function(double progress)? onCopyProgress,
     ModelCopyCancelToken? cancelToken,
+    void Function()? onTransferComplete,
   }) async {
+    Directory? stagingDir;
+    var keepStaging = false;
     try {
+      cancelToken?.throwIfCancelled();
       final result = await FilePicker.pickFiles(
         type: FileType.any,
         allowMultiple: false,
         dialogTitle: 'Chọn file AI Model (.gguf)',
       );
 
+      cancelToken?.throwIfCancelled();
       if (result == null || result.files.isEmpty) {
         return const ModelLoadResult(
           success: false,
@@ -283,9 +288,12 @@ class AiModelLoader {
       // Copy vào Documents để an toàn (tránh permission issues trên iOS).
       // Copy theo chunk để UI báo tiến độ (file GGUF thường 1–2GB).
       final docsDir = await getApplicationDocumentsDirectory();
-      final destPath = '${docsDir.path}/ai_models/${file.name}';
+      final modelDir = Directory('${docsDir.path}/ai_models');
+      await modelDir.create(recursive: true);
+      cancelToken?.throwIfCancelled();
+      stagingDir = await modelDir.createTemp('import_');
+      final destPath = '${stagingDir.path}/${file.name}';
       final destFile = File(destPath);
-      await destFile.parent.create(recursive: true);
       await _copyFileWithProgress(
         src: File(filePath),
         dest: destFile,
@@ -293,9 +301,11 @@ class AiModelLoader {
         cancelToken: cancelToken,
       );
 
-      // Lưu path để dùng lần sau
       final prefs = await SharedPreferences.getInstance();
+      cancelToken?.throwIfCancelled();
+      onTransferComplete?.call(); // No cancellation once persistence begins.
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
+      keepStaging = true;
 
       // FIX 251e (bisect R5, CI 32789239752): bản 01a02a4a đặt tên
       // `final result` lần 2 trong cùng scope — đụng tên với
@@ -323,6 +333,10 @@ class AiModelLoader {
         source: ModelSource.none,
         errorMessage: 'Lỗi import: $e',
       );
+    } finally {
+      if (!keepStaging && stagingDir != null && await stagingDir.exists()) {
+        await stagingDir.delete(recursive: true);
+      }
     }
   }
 
@@ -338,8 +352,14 @@ class AiModelLoader {
     String? expectedMd5,
     void Function(double progress)? onProgress,
     ModelCopyCancelToken? cancelToken,
+    void Function()? onTransferComplete,
   }) async {
+    Directory? stagingDir;
+    var keepStaging = false;
+    final client = http.Client();
+    cancelToken?.whenCancelled.then((_) => client.close());
     try {
+      cancelToken?.throwIfCancelled();
       final uri = Uri.tryParse(url.trim());
       if (uri == null || !uri.isAbsolute || !url.trim().isNotEmpty) {
         return const ModelLoadResult(
@@ -375,43 +395,29 @@ class AiModelLoader {
               : AiModelConfig.defaultModelFileName);
 
       final docsDir = await getApplicationDocumentsDirectory();
-      final destPath = '${docsDir.path}/ai_models/$targetName';
+      final modelDir = Directory('${docsDir.path}/ai_models');
+      await modelDir.create(recursive: true);
+      cancelToken?.throwIfCancelled();
+      stagingDir = await modelDir.createTemp('download_');
+      final destPath = '${stagingDir.path}/$targetName';
       final destFile = File(destPath);
-      await destFile.parent.create(recursive: true);
 
-      // Download với progress
       final request = http.Request('GET', uri);
-      final response = await http.Client().send(request);
-
+      final response = await client.send(request);
+      cancelToken?.throwIfCancelled();
       final totalBytes = response.contentLength ?? 0;
       var downloadedBytes = 0;
-
-      final sink = destFile.openWrite();
-      var cancelled = false;
+      final output = await destFile.open(mode: FileMode.write);
       try {
-        await response.stream.forEach((chunk) {
-          if (cancelToken?.isCancelled == true) {
-            cancelled = true;
-            return;
-          }
-          sink.add(chunk);
+        await for (final chunk in response.stream) {
+          cancelToken?.throwIfCancelled();
+          await output.writeFrom(chunk);
           downloadedBytes += chunk.length;
-          if (totalBytes > 0) {
-            onProgress?.call(downloadedBytes / totalBytes);
-          }
-        });
+          if (totalBytes > 0) onProgress?.call(downloadedBytes / totalBytes);
+        }
+        cancelToken?.throwIfCancelled();
       } finally {
-        await sink.close();
-      }
-      if (cancelled || cancelToken?.isCancelled == true) {
-        try {
-          if (await destFile.exists()) await destFile.delete();
-        } catch (_) {}
-        return const ModelLoadResult(
-          success: false,
-          source: ModelSource.none,
-          errorMessage: 'Đã huỷ tải model',
-        );
+        await output.close();
       }
 
       // Verify MD5 nếu có
@@ -438,9 +444,11 @@ class AiModelLoader {
         );
       }
 
-      // Lưu path để dùng lần sau
       final prefs = await SharedPreferences.getInstance();
+      cancelToken?.throwIfCancelled();
+      onTransferComplete?.call();
       await prefs.setString(AiModelConfig._prefKeyModelPath, destPath);
+      keepStaging = true;
 
       final result = ModelLoadResult(
         success: true,
@@ -455,8 +463,15 @@ class AiModelLoader {
       return ModelLoadResult(
         success: false,
         source: ModelSource.none,
-        errorMessage: 'Download thất bại: $e',
+        errorMessage: cancelToken?.isCancelled == true
+            ? 'Đã huỷ tải model'
+            : 'Download thất bại: $e',
       );
+    } finally {
+      client.close();
+      if (!keepStaging && stagingDir != null && await stagingDir.exists()) {
+        await stagingDir.delete(recursive: true);
+      }
     }
   }
 

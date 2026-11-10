@@ -18,6 +18,19 @@ String _read(String path) {
   return file.readAsStringSync();
 }
 
+/// Bỏ comment TRƯỚC khi quét: nếu không, một chú thích nhắc tới tên biến cũ
+/// sẽ làm pin "đã xoá biến X" báo đỏ sai (bài học PSRC-179 lần đầu chạy CI).
+String _stripComments(String source) {
+  final withoutBlocks = source.replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '');
+  return withoutBlocks
+      .split('\n')
+      .map((line) {
+        final idx = line.indexOf('//');
+        return idx >= 0 ? line.substring(0, idx) : line;
+      })
+      .join('\n');
+}
+
 void main() {
   final overlay = _read(
     'android/app/src/main/kotlin/com/in4up/screentranslate/TranslationOverlayView.kt',
@@ -140,6 +153,10 @@ void main() {
   // Nhãn cũ "Lặp câu tiếp" cho cả hai trường hợp khiến người dùng tưởng app
   // nhảy sai khi file chưa có lời.
   // ───────────────────────────────────────────────────────────────────────
+  final abControlsCode = _stripComments(abControls);
+  final listenCode = _stripComments(listen);
+  final loopMixinCode = _stripComments(loopMixin);
+
   group('PSRC-178 — nhãn nút lặp phần tiếp theo', () {
     test('hàm nhãn thuần: có lời → "câu", không lời → "đoạn"', () {
       expect(LoopPresets.nextRepeatLabel(hasLyrics: true), 'Lặp câu tiếp');
@@ -147,10 +164,10 @@ void main() {
     });
 
     test('nút A–B dùng hàm nhãn + đọc trạng thái lời', () {
-      expect(abControls.contains('LoopPresets.nextRepeatLabel('), isTrue);
-      expect(abControls.contains('lrcLines.isNotEmpty'), isTrue);
+      expect(abControlsCode.contains('LoopPresets.nextRepeatLabel('), isTrue);
+      expect(abControlsCode.contains('lrcLines.isNotEmpty'), isTrue);
       // Hard-code nhãn cũ ⇒ file chưa có lời vẫn ghi "câu" (đúng lỗi PSRC-178).
-      expect(abControls.contains("label: 'Lặp câu tiếp'"), isFalse);
+      expect(abControlsCode.contains("label: 'Lặp câu tiếp'"), isFalse);
     });
 
     test('rule #5 — 2 nhãn có đủ 8 locale + English fallback', () {
@@ -193,37 +210,37 @@ void main() {
   // ───────────────────────────────────────────────────────────────────────
   group('PSRC-179 — khoảng lặng đồng bộ một nguồn', () {
     test('không còn biến khoảng lặng thứ hai', () {
-      expect(loopMixin.contains('_silenceDuration'), isFalse);
+      expect(loopMixinCode.contains('_silenceDuration'), isFalse);
     });
 
     test('silenceDuration đọc từ gapDuration, setter đi qua setGapDuration', () {
-      final iGetter = loopMixin.indexOf('Duration get silenceDuration');
+      final iGetter = loopMixinCode.indexOf('Duration get silenceDuration');
       expect(iGetter, greaterThan(-1));
       expect(
-        loopMixin.substring(iGetter, loopMixin.indexOf(';', iGetter)),
+        loopMixinCode.substring(iGetter, loopMixinCode.indexOf(';', iGetter)),
         contains('_gapDuration'),
       );
-      final iSetter = loopMixin.indexOf('void setSilenceDuration(');
+      final iSetter = loopMixinCode.indexOf('void setSilenceDuration(');
       expect(iSetter, greaterThan(-1));
       expect(
-        loopMixin.substring(iSetter, loopMixin.indexOf('\n  }', iSetter)),
+        loopMixinCode.substring(iSetter, loopMixinCode.indexOf('\n  }', iSetter)),
         contains('setGapDuration('),
       );
     });
 
     test('chip khoảng lặng ở popup A–B ghi vào gapDuration', () {
-      final iBox = listen.indexOf('class _SilenceOptionsBox');
+      final iBox = listenCode.indexOf('class _SilenceOptionsBox');
       expect(iBox, greaterThan(-1));
-      final box = listen.substring(iBox);
+      final box = listenCode.substring(iBox);
       expect(box.contains('player.setGapDuration('), isTrue);
       expect(box.contains('setSilenceDuration('), isFalse);
     });
 
     test('nút mở panel hiện giá trị đang dùng (không phải mở ra mới biết)', () {
-      final iPanel = listen.indexOf('class _ABLoopWithSilencePanel');
-      final iBox = listen.indexOf('class _SilenceOptionsBox');
+      final iPanel = listenCode.indexOf('class _ABLoopWithSilencePanel');
+      final iBox = listenCode.indexOf('class _SilenceOptionsBox');
       expect(iPanel, greaterThan(-1));
-      expect(listen.substring(iPanel, iBox).contains('player.gapDuration'),
+      expect(listenCode.substring(iPanel, iBox).contains('player.gapDuration'),
           isTrue);
     });
   });

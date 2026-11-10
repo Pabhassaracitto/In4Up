@@ -9,6 +9,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 
@@ -19,10 +20,17 @@ import android.view.View
  * qua `mapCaptureRectToOverlay`, xem `screen_translate_geometry.dart`) — view
  * này KHÔNG tự scale lại lần nữa. Một công thức, một chỗ.
  *
- * Chiến lược vẽ: nền tối mờ phủ đúng khung chữ gốc (để chữ bên dưới không
- * lẫn vào), rồi vẽ bản dịch bằng [StaticLayout] (tự xuống dòng). Chữ không
- * vừa khung thì GIẢM cỡ dần tới 9sp; vẫn không vừa thì rút gọn bằng dấu ba
- * chấm, KHÔNG BAO GIỜ phình khung xuống dưới.
+ * Chiến lược vẽ: nền tối mờ phủ đúng khung, rồi vẽ bản dịch bằng
+ * [StaticLayout] (tự xuống dòng).
+ *
+ * XLAT-SCR-006 (owner 2026-11-11): Dart (`layoutTranslatedBlocks`) đã **đo
+ * nhu cầu chữ và cấp đủ chiều cao** (nới rộng → nới cao → đẩy khối dưới
+ * xuống), nên ở đây việc thu nhỏ gần như không còn cần. Vì vậy:
+ *  • **KHÔNG BAO GIỜ vẽ nhỏ hơn [MIN_READABLE_SP] (10sp)** — nhỏ hơn thì chữ
+ *    thành vệt xám (đúng lỗi owner báo: "chữ bị bóp nhỏ, khó đọc").
+ *  • Chỉ ellipsize khi bất khả kháng, và **ghi log** để biết đường sửa (nếu
+ *    log xuất hiện nhiều nghĩa là bộ ước lượng ở Dart đang hụt).
+ *  • Vẫn KHÔNG phình khung xuống dưới ⇒ không bao giờ đè khối kế tiếp.
  *
  * AUDIT-1.21.0 #1 / XLAT-SCR-005: trước đây `boxHeight =
  * max(height, layout.height + padding)` cho ô của khối TRÊN phình xuống đè
@@ -31,6 +39,20 @@ import android.view.View
  * nhận được. Một công thức, một chỗ — không scale/phình ở đây nữa.
  */
 class TranslationOverlayView(context: Context) : View(context) {
+
+    private companion object {
+        /**
+         * Padding trong khung, PIXEL — PHẢI khớp `kOverlayTextPaddingPx` bên
+         * Dart (`screen_translate_overlay_layout.dart`). Lệch nhau ⇒ Dart cấp
+         * thiếu chỗ và native phải cắt chữ.
+         */
+        const val PADDING = 4f
+
+        /** Sàn cỡ chữ: dưới ngưỡng này chữ không còn đọc được. */
+        const val MIN_READABLE_SP = 10f
+
+        const val LOG_TAG = "in4up-xlat-overlay"
+    }
 
     data class TranslatedBlock(
         val left: Int,
@@ -80,7 +102,7 @@ class TranslationOverlayView(context: Context) : View(context) {
 
             val width = (block.right - block.left).coerceAtLeast(1)
             val height = (block.bottom - block.top).coerceAtLeast(1)
-            val padding = 4f
+            val padding = PADDING
 
             // AUDIT-1.21.0 #1: KHUNG CỐ ĐỊNH. Dart đã cắt khung trên đúng
             // mép khung dưới; nếu vẫn phình ở đây sẽ đè chữ khối kế tiếp.
@@ -91,9 +113,13 @@ class TranslationOverlayView(context: Context) : View(context) {
                 block.bottom.toFloat(),
             )
             val availableHeight = (height - padding * 2).toInt()
-            // Khung quá mỏng (bị cắt bởi layout Dart) ⇒ bỏ hẳn, để lộ chữ
-            // gốc bên dưới thay vì nghiền 9sp đè lên dòng khác.
-            if (availableHeight < 8) continue
+            // Khung quá mỏng ⇒ bỏ hẳn, để lộ chữ gốc bên dưới thay vì nghiền
+            // chữ nhỏ đè lên dòng khác. Dart đã có sàn `kOverlayMinBoxHeightDp`
+            // nên trường hợp này là bất thường ⇒ log để truy.
+            if (availableHeight < 8) {
+                Log.w(LOG_TAG, "bỏ khối vì khung quá mỏng: h=$availableHeight")
+                continue
+            }
 
             val layout = buildLayout(
                 text = text,
@@ -101,6 +127,15 @@ class TranslationOverlayView(context: Context) : View(context) {
                 maxHeight = availableHeight,
                 startSizeSp = block.textSizeSp,
             )
+            // Ghi log khi vẫn phải cắt: nghĩa là bộ ước lượng bên Dart hụt so
+            // với font thật của thiết bị ⇒ nới hệ số an toàn ở đó.
+            if (layout.height > availableHeight) {
+                Log.w(
+                    LOG_TAG,
+                    "chữ vẫn tràn khung: need=${layout.height} have=$availableHeight" +
+                        " size=${block.textSizeSp}",
+                )
+            }
 
             // Chữ vẫn dài hơn khung ⇒ cắt số dòng + ellipsize. Không vẽ ra
             // ngoài `rect` (canvas.clipRect là hàng rào cuối cùng).
@@ -126,13 +161,15 @@ class TranslationOverlayView(context: Context) : View(context) {
         maxHeight: Int,
         startSizeSp: Float,
     ): StaticLayout {
-        var sizeSp = startSizeSp.coerceIn(9f, 28f)
+        var sizeSp = startSizeSp.coerceIn(MIN_READABLE_SP, 28f)
         var layout = layoutAt(text, maxWidth, sizeSp)
-        // Tối đa 6 lần thu nhỏ: đủ đi từ 28sp xuống 9sp mà không vòng lặp dài
-        // trên onDraw (vẽ lại mỗi frame).
+        // Tối đa 6 lần thu nhỏ (1sp mỗi lần) và DỪNG ở MIN_READABLE_SP: chữ
+        // nhỏ hơn 10sp thì không đọc được nữa — thà để Dart cấp thêm chỗ.
         var attempts = 0
-        while (layout.height > maxHeight && sizeSp > 9f && attempts < 6) {
-            sizeSp = (sizeSp - 2f).coerceAtLeast(9f)
+        while (layout.height > maxHeight && sizeSp > MIN_READABLE_SP &&
+            attempts < 6
+        ) {
+            sizeSp = (sizeSp - 1f).coerceAtLeast(MIN_READABLE_SP)
             layout = layoutAt(text, maxWidth, sizeSp)
             attempts++
         }

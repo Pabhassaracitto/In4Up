@@ -129,19 +129,24 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Compile Android content-cache resolver
+      - name: Compile Android content-cache resolver + translation overlay
+        # XLAT-SCR-006: bổ sung `TranslationOverlayView.kt` — file này chỉ phụ
+        # thuộc `android.jar` nên compile được ở đây, KHÔNG cần build APK.
+        # Trước đây lỗi cú pháp/logic trong overlay chỉ lộ ra khi build APK
+        # (10 phút, và chỉ chạy lúc tag) ⇒ nay bắt trong ~30 giây.
         run: |
           set -e
           kotlinc -version
           test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+          files="android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt \
+            android/app/src/main/kotlin/com/in4up/screentranslate/TranslationOverlayView.kt"
           set +e
           kotlinc -classpath "$ANDROID_HOME/platforms/android-36/android.jar" \
-            android/app/src/main/kotlin/com/in4up/AudioContentCacheResolver.kt \
-            -d "$RUNNER_TEMP/in4up-audio-resolver.jar" > kotlin_compile.log 2>&1
+            $files -d "$RUNNER_TEMP/in4up-android-smoke.jar" > kotlin_compile.log 2>&1
           code=$?
           cat kotlin_compile.log
           if [ "$code" -ne 0 ]; then
             msg=$(head -c 5000 kotlin_compile.log | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
-            echo "::error title=Android resolver compile::$msg"
+            echo "::error title=Android resolver/overlay compile::$msg"
           fi
           exit $code

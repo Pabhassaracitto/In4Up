@@ -30,6 +30,7 @@
 | TTS-EDGE-ROUTE-001 | Windows Edge TTS không hoạt động dù đã chọn giọng Edge | 🔨 doing (routing/network guard + tests; chờ Flutter CI và Windows test) | Giọng Edge đã chọn nay ưu tiên engine `edge_tts` trong offline-first; connectivity trống/lỗi trên desktop không chặn request (timeout + fallback vẫn giữ); `test/tts_candidate_router_test.dart` |
 | TTS-EDGE-VOICE-001 | Edge TTS chọn giọng theo ngôn ngữ (trước đây Edge luôn dùng mặc định nữ vi-VN-HoaiMyNeural — app chỉ có picker cho Piper) | 🔄 doing (code + test + CI 🟢 xong, chờ nghiệm thu máy) | **Re-apply** `110141f` + follow-up `612843f` (CI 🟢 37664933897 + build `e22cd3a`); commit gốc `c307e0a` MẤT — đã xác minh 2026-10-09 không khôi phục được (hết hệ quả, xem card): `edge_voice_prefs.dart` (kho giọng Edge theo ngôn ngữ, mẫu PiperVoicePrefs) + `EdgeTtsEngine.catalogVoices`/`catalogVoicesFor` (catalog offline đồng bộ cho UI) + `TtsService._trySpeakOnline(voiceOverride:)` (Edge đọc EdgeVoicePrefs, KHÔNG set `_selectedVoiceId` chung → không bẩn Piper/Zalo/FPT) + UI `_EdgeVoicePicker` (nhóm theo ngôn ngữ, radio, vi-VN: Hoài My/Nam Minh) + 5 test pin |
 | README-REFRESH-001 | README.md **và README.vi.md** khảo sát lại theo nội dung **thực tế** (cả 2 bản đóng băng từ 2026-09-28) | ✅ done (số liệu đo lại + mục tái lập cho cả 2 ngôn ngữ; không đổi code/version) | badge `1.4.1+3` → `1.25.0+25`; 88→**215** card · ADR 8→**38** · PLAN 32→**48** · 600→**750** file/**332.640** dòng · test 81→**278** · 492→**555** key; bỏ blocker Windows/Linux đã hết; thêm khối media/Edge-TTS/SAFE-INSET + Knowledge 6 trục + VieNeu; commit `3df31e92`, `4dce38b3`, `b63e6f0c`, **`b20cbd25`** (bản VI) |
+| REL-1.27.0 | Release **1.27.0** (đủ 4 nền tảng) từ tip 251e — 31 commit sau 1.26.0 (0 merge) | ✅ done (build 🟢 run 42893022019, 4/4 job; chờ nghiệm thu máy) | bump `1.26.0+26 → 1.27.0+27` (`9358a6a5`); Android build đỏ lần 1 do sai tên constant → sửa `6fa1ddf2` → tag lại; APK arm64 199.1 MB `d8643b67…`, IPA 93.8 MB, Linux 50.5 MB, Windows 53.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.27.0 |
 | BATTERY-PROMPT-001 | Gộp thông báo xin quyền pin: **chỉ 1 thông báo/phiên** + **bấm là mở thẳng màn tối ưu pin** | ✅ done (code + 9 test + **CI 42701172029 🟢**; chờ nghiệm thu Android) | `_shownThisSession` cấp process; channel `in4up/platform` → `ACTION_IGNORE_BATTERY_OPTIMIZATIONS` + `package:` (4 bậc lùi); bỏ `_BatteryStatusAction` (icon pin thứ 2); thẻ pin nghe `AppLifecycleState.resumed` |
 | PSRC-181 | Model mặc định của provider có sẵn OpenRouter = `openrouter/free` (kèm migrate cấu hình cũ) | ✅ done (code + test + **CI 42785969719 🟢**; chờ nghiệm thu máy) | `kBuiltinOpenRouterChatModel` = `openrouter/free`; `migrateBuiltinProviderChatModel()` chỉ đổi model mặc định CŨ, không ghi đè model user chọn; test `test/ai_openrouter_default_free_test.dart` |
 | PSRC-182 | Dịch offline: gói ngôn ngữ ML Kit ĐÃ TẢI không còn hiện "Tải về" (icon + chữ "Đã tải") | ✅ done (code + test + **CI 42785969719 🟢**; chờ nghiệm thu máy Android/iOS) | `translation_toolbar.dart` `_modelRow`: nút tải chỉ render khi **chưa** tải, có icon; tải/xoá xong đọc lại `isModelDownloaded`; test `test/translation/mlkit_pack_download_ui_test.dart` |
@@ -9464,3 +9465,31 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch:** Theo quyết định owner cho phép trùng lịch và ADR-0001 giữ nguyên Memory Mode: **Lại/Quên cùng markIncorrect; Ổn/Giỏi cùng markCorrect**. Vì vậy chỉ có hai kết quả lịch, không phải bốn khoảng khác nhau; nhãn Quên không tính là trả lời đúng. Flashcard cũ không đổi.
 - **CI:** `app_analyze` [42878316995](https://github.com/Pabhassaracitto/In4Up/actions/runs/42878316995) xanh, gồm PSRC-22 và Rule 5; ARB JSON hợp lệ. Run trước 42876583615 timeout do widget test đóng Hive; đã tách test ở `0393149`.
 - **Chưa kiểm:** thao tác, màu sắc, banner, lưu và khôi phục lịch trên thiết bị thật; hiệu quả học chưa đo thực nghiệm.
+
+### REL-1.27.0 — (2026-11-09) Release 1.27.0 đủ 4 nền tảng (Web Core, SRS garden, lô P0, pin 1 thông báo)
+- **Trạng thái:** ✅ done (build 4/4 🟢) — **chờ nghiệm thu máy thật**
+- **Nguồn:** owner 2026-11-09 — *"Hãy tạo tag release ở hiện tại với version phù hợp ở branch 251e"*
+- **Tag/commit:** `1.27.0` → **`6fa1ddf2`**, trên tip `9358a6a5`.
+- **Vì sao bump minor:** 31 commit không-merge (**0 merge**) sau `1.26.0`, có **nhóm tính năng MỚI**:
+  - **Web Core trong trình duyệt** (`af021866`, `47f69003`): entrypoint web mới + **proxy có kiểm soát** (`tool/web/in4up_proxy_worker.js`, `wrangler.toml.example`, `tool/web/README.md`) + `test/web_core_contract_test.dart`.
+  - **PSRC-22 SRS garden** (`1f31349a`, `c28f1f8b`, `73f33c9d`): chấm điểm từ trong Vườn nhớ bằng engine spaced-review đã có + onboarding.
+  - **PSRC-181** (`3e0e76d2`): `openrouter/free` làm model mặc định cho provider có sẵn.
+  - **Video** (`332d139e`): mở clip đã xuất ngay trong tab Nghe.
+  - Kèm lô **P0**: PSRC-23 huỷ copy/tải model (`dad30c42`, `05d30fc7`) · PSRC-21 xoá từ hàng loạt có xác nhận (`2d52de2a`) · PSRC-19 chỉ báo *"Đang suy nghĩ…"* trước token đầu (`1277d1f1`) · **BATTERY-PROMPT-001** (`0d8843f6`) · PSRC-177/178/179/180 · PSRC-182 · PSRC-183..187.
+- **`versionCode 26 → 27`** ⇒ Android cài đè được bản 1.26.0, dữ liệu giữ nguyên.
+- **Sự cố phải sửa trước khi tag lại (bài học quan trọng):**
+  - Build đầu (`42889075518`, tag trên `9358a6a5`): iOS ✅ · Windows ✅ · Linux ✅ · **Android ❌** ở step 15 "Build APK".
+  - **Nguyên nhân:** `MainActivity.kt:244` dùng `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS` — **constant KHÔNG tồn tại**. Tên đúng là **`ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`** (có chữ `REQUEST`).
+  - **Vì sao khó đọc:** Kotlin báo **cascade** trông như lỗi `Intent`/`listOf`, không phải lỗi tên:
+    `Cannot infer type for type parameter 'T'` (243:26) · `Unresolved reference 'ACTION_IGNORE_BATTERY_OPTIMIZATIONS'` (244:29) · `Unresolved reference 'data'` (245:17) · `Unresolved reference 'addFlags'` (253:24) · `Unresolved reference 'action'` (255:57). `Intent`, `data`, `addFlags`, `action` đều ĐÚNG — chúng chỉ là error type kéo theo.
+  - **Sửa** (`6fa1ddf2`): 1 chữ `REQUEST` + comment cảnh báo; đồng bộ comment Dart; **thêm assert ÂM** trong test (`Settings.ACTION_IGNORE_BATTERY_OPTIMIZATIONS` không được xuất hiện) ⇒ lần sau sai tên sẽ đỏ ở bước test 2 phút thay vì đợi build APK 10 phút.
+  - Xoá release + tag lỗi, chờ CI xanh trên commit fix, rồi **tag lại cùng version 1.27.0**.
+- **CI trên `6fa1ddf2`:** `app_analyze` **42891928180** 🟢 (step 6 analyze 0 error · step 19 Rule 5 🟢 · **step 76 BATTERY-PROMPT+VOICE-CLONE-PERM 🟢**) · `listen_queue_tests` **42891928311** 🟢 · `deploy-web` **42891928270** 🟢.
+- **Bằng chứng build:** `build_final_complete.yml` run **42893022019** — **4/4 job success** (iOS ✅ · Android ✅ · Linux ✅ · Windows ✅). https://github.com/Pabhassaracitto/In4Up/releases/tag/1.27.0
+  - `in4up-Android-arm64-v8a-1.27.0-6fa1d.apk` — 199.089.855 B — sha256 `d8643b67131475558af4293cb680a6fe5a8c05430039a3373268c7c4488f3fcb`
+  - `in4up-iOS-1.27.0.ipa` — 93.769.453 B — sha256 `2a87a241caa8f99ca9f439a61f4702cb6acdfdbfd1e097b0dc0480ff6b28efd3`
+  - `in4up-Linux-1.27.0.tar.gz` — 50.512.424 B — sha256 `5a672c1d4d59cd68b22acd38f01efb06d752f086c2b469dfd5d1a2ecc275fbfd`
+  - `in4up-Windows-1.27.0.zip` — 53.060.509 B — sha256 `534ec75191ae98d98c3d8acedda92d21a8b9d64a3ed8c9c079d034343587a2bb`
+- **Chưa kiểm (máy thật):** cài đè 1.26.0 → 1.27.0; **pin**: đúng 1 thông báo + bấm mở đúng hộp thoại cho In4Up (MIUI/OneUI/EMUI dùng bậc 2); SRS garden long-press chấm điểm; huỷ copy model; xoá từ hàng loạt; "Đang suy nghĩ…"; Web Core trên trình duyệt; video mở clip đã xuất; PSRC-183..187 (VieNeu).
+- **Lịch sử:**
+  - 2026-11-09 | created→done | agent `arena/01a0251e-in4up` | bump `1.27.0+27` (`9358a6a5`) → tag → build `42889075518` **Android đỏ** (sai tên constant) → sửa `6fa1ddf2` → CI `42891928180` 🟢 → xoá release+tag → tag lại → build **42893022019** 🟢 4/4

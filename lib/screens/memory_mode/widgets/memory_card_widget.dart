@@ -8,11 +8,13 @@ import '../models/memory_stage.dart';
 class MemoryCardWidget extends StatelessWidget {
   final MemoryItem item;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const MemoryCardWidget({
     super.key,
     required this.item,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -23,6 +25,7 @@ class MemoryCardWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,

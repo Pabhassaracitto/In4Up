@@ -114,6 +114,17 @@ class StorageService {
     return _settings.get(key, defaultValue: defaultValue) as T?;
   }
 
+  /// First-visit hint for the Memory Garden (missing key means unseen).
+  bool getGardenOnboardingSeen() =>
+      Hive.isBoxOpen(_settingsBox) &&
+      (getSetting<bool>('garden_onboarding_seen_v1', defaultValue: false) ?? false);
+
+  Future<void> markGardenOnboardingSeen() async {
+    if (Hive.isBoxOpen(_settingsBox)) {
+      await saveSetting('garden_onboarding_seen_v1', true);
+    }
+  }
+
   // --- Các setting cụ thể ---
 
   Future<void> saveLastMode(String modeName) async {

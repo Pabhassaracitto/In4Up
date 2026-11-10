@@ -3,16 +3,36 @@
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../services/storage_service.dart';
 
 import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
+import '../models/garden_rating.dart';
 import '../models/memory_stage.dart';
 import 'memory_card_widget.dart';
 import 'memory_garden_background.dart';
 import 'stage_progress_bar.dart';
 
-class MemoryGardenView extends StatelessWidget {
+class MemoryGardenView extends StatefulWidget {
   const MemoryGardenView({super.key});
+
+  @override
+  State<MemoryGardenView> createState() => _MemoryGardenViewState();
+}
+
+class _MemoryGardenViewState extends State<MemoryGardenView> {
+  late final bool _showOnboarding;
+
+  @override
+  void initState() {
+    super.initState();
+    _showOnboarding = !StorageService().getGardenOnboardingSeen();
+    if (_showOnboarding) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) await StorageService().markGardenOnboardingSeen();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +45,11 @@ class MemoryGardenView extends StatelessWidget {
           distribution: stats.stageDistribution,
           child: Column(
             children: [
+              if (_showOnboarding)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(context.uiText('Nhấn giữ một từ để chấm điểm')),
+                ),
               _StageFilterBar(
                 selectedStage: controller.filterStage,
                 distribution: stats.stageDistribution,
@@ -125,6 +150,7 @@ class MemoryGardenView extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: MemoryCardWidget(
                 item: item,
+                onLongPress: () => _showRatingSheet(context, item),
                 onTap: () {
                   HapticFeedback.selectionClick();
                 },
@@ -134,6 +160,60 @@ class MemoryGardenView extends StatelessWidget {
         }).toList(),
       ),
     );
+  }
+
+  Future<void> _showRatingSheet(BuildContext context, MemoryItem item) async {
+    final controller = context.read<MemoryController>();
+    final rating = await showModalBottomSheet<GardenRating>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(item.word, style: Theme.of(sheetContext).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final rating in GardenRating.values)
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: switch (rating) {
+                          GardenRating.again => const Color(0xFFF44336),
+                          GardenRating.forgot => const Color(0xFFFF9800),
+                          GardenRating.good => const Color(0xFF81C784),
+                          GardenRating.easy => const Color(0xFF2E7D32),
+                        },
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.pop(sheetContext, rating),
+                      child: Text(sheetContext.uiText(rating.label)),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (rating == null || !context.mounted) return;
+    final updated = await controller.rateGardenWord(item.id, rating);
+    if (updated == null || !context.mounted) return;
+    final seconds = updated.nextReviewAt!
+        .difference(updated.lastReviewedAt!)
+        .inSeconds;
+    final hours = (seconds + 3599) ~/ 3600;
+    final description = hours >= 24 && hours % 24 == 0
+        ? context.uiText('Ôn lại sau ${hours ~/ 24} ngày')
+        : context.uiText('Ôn lại sau $hours giờ');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('${context.uiText(rating.label)} · $description'),
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   Widget _buildFilterEmpty(BuildContext context, MemoryStage? stage) {

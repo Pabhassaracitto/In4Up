@@ -439,6 +439,18 @@ jobs:
           fi
           exit $code
 
+      - name: "PSRC-22 tests — chấm điểm Vườn nhớ"
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/srs/garden_rating_test.dart -r expanded > psrc22_test.log 2>&1
+          code=$?
+          cat psrc22_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 psrc22_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=PSRC-22 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
       - name: Upload PSRC-23 test log
         if: always()
         uses: actions/upload-artifact@v4

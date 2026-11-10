@@ -151,6 +151,16 @@ class VieneuTtsCore {
   final _pending = <int, Completer<Map<String, dynamic>>>{};
   int _nextSeq = 0;
 
+  /// Future của lần [init] đang chạy (nếu có). PSRC-187: hai caller gọi
+  /// `init` đồng thời (Settings voice picker + Read tab phát) đều thấy
+  /// `_workerPort == null` và spawn HAI isolate cùng nạp model 170 MB ⇒
+  /// OOM/văng app. Khóa này đảm bảo chỉ một lần spawn tại một thời điểm;
+  /// caller thứ hai chờ cùng một future.
+  Future<void>? _initFuture;
+
+  /// Worker đã khởi tạo xong (sẵn sàng synthesize/clone).
+  bool get isInitialized => _workerPort != null;
+
   /// Có thư viện native load được trên platform này?
   ///
   /// Chỉ tra symbol — KHÔNG nạp model, nhanh, an toàn gọi từ UI thread
@@ -194,11 +204,30 @@ class VieneuTtsCore {
   ///
   /// [modelPath] — file .gguf. [voiceId] — mã giọng preset (mặc định
   /// [defaultVoiceId]; files phải nằm trong [modelDir]/voices/<voiceId>/).
+  ///
+  /// An toàn gọi đồng thời: các lần gọi trong lúc đang init sẽ chờ cùng một
+  /// future thay vì spawn thêm isolate (PSRC-187).
   Future<void> init({
     required String modelPath,
     String? voiceId,
+  }) {
+    if (_workerPort != null) return Future.value(); // đã khởi tạo
+    final inFlight = _initFuture;
+    if (inFlight != null) return inFlight; // đang init — chờ chung
+    final future = _initOnce(modelPath: modelPath, voiceId: voiceId);
+    _initFuture = future;
+    // Xóa khóa khi xong (thành công hay thất bại) để lần gọi sau được thử lại.
+    future.whenComplete(() {
+      if (identical(_initFuture, future)) _initFuture = null;
+    });
+    return future;
+  }
+
+  Future<void> _initOnce({
+    required String modelPath,
+    String? voiceId,
   }) async {
-    if (_workerPort != null) return; // đã khởi tạo
+    if (_workerPort != null) return; // đã khởi tạo trong lúc chờ khóa
 
     final commandPort = ReceivePort();
     _commandPort = commandPort;
@@ -284,14 +313,18 @@ class VieneuTtsCore {
       throw StateError('VieNeu worker chưa khởi tạo');
     }
 
+    // samplesDir = <cloned_voices>/<voiceId>/samples ⇒ embedding nằm cùng
+    // thư mục giọng: <cloned_voices>/<voiceId>/speaker.emb.txt. Bản cũ dùng
+    // `..` + voiceId khiến native tạo thư mục lồng <voiceId>/<voiceId> và
+    // embedding không khớp nơi UI tìm (PSRC-184).
+    final outputEmbedding =
+        p.join(p.dirname(samplesDir), 'speaker.emb.txt');
     final response = await _call(
       {
         'cmd': 'clone_voice',
         'voiceId': voiceId,
         'samplesDir': samplesDir,
-        'outputEmbedding': p.join(
-          p.dirname(samplesDir), '..', voiceId, 'speaker.emb.txt',
-        ),
+        'outputEmbedding': outputEmbedding,
       },
       timeout: const Duration(minutes: 2),
     );
@@ -301,8 +334,7 @@ class VieneuTtsCore {
           'VieNeu-TTS clone thất bại: ${response['error'] ?? 'lỗi không xác định'}');
     }
 
-    return response['embeddingPath'] as String? ??
-        p.join(samplesDir, '..', voiceId, 'speaker.emb.txt');
+    return response['embeddingPath'] as String? ?? outputEmbedding;
   }
 
   /// Giải phóng worker isolate + native handle.
@@ -316,6 +348,7 @@ class VieneuTtsCore {
       }
     } finally {
       _workerPort = null;
+      _initFuture = null;
       _commandPort?.close();
       _commandPort = null;
       _pending.clear();

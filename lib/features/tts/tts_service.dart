@@ -304,6 +304,11 @@ class TtsService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// PSRC-183/186: thông báo cho UI (voice picker) biết danh sách giọng đã
+  /// thay đổi sau khi import model/voices. Dùng _safeNotify để tránh crash
+  /// khi đã dispose.
+  void notifyVoicesChanged() => _safeNotify();
+
   // ═══════════════════════════════════════
   // CONFIGURATION
   // ═══════════════════════════════════════
@@ -610,6 +615,31 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  /// PSRC-187: kiểm tra _isSpeaking trước khi set true để tránh chồng phát khi
+  /// _playFile trước đó chưa được clear. Dùng kèm chunking để tránh OOM.
+  Future<List<bool>> _tryChunkedPlay(
+    String text,
+    String lang,
+    int epoch,
+    int maxChars,
+    Future<bool> Function(String chunk) playChunk,
+  ) async {
+    final chunks = _chunkTextForEngine(text, maxChars);
+    final results = <bool>[];
+    for (final chunk in chunks) {
+      if (_stopRequested || isStaleEpoch(epoch)) break;
+      // Chờ chunk trước phát xong trước khi phát chunk tiếp theo
+      if (results.isNotEmpty) {
+        await _awaitLineFinished(epoch);
+        if (_stopRequested || isStaleEpoch(epoch)) break;
+      }
+      final ok = await playChunk(chunk);
+      results.add(ok);
+      if (!ok) break;
+    }
+    return results;
+  }
+
   /// Thử phát bằng VieNeu-TTS native (audio.cpp GGUF, on-device, chỉ tiếng Việt).
   /// Trả về true nếu thành công, false nếu model chưa import / lỗi native
   /// để TtsService tự fallback qua engine kế tiếp (không crash app).
@@ -642,6 +672,74 @@ class TtsService extends ChangeNotifier {
       _usingOfflineEngine = false;
       _isLoading = true;
       _safeNotify();
+
+      // PSRC-187: chunk văn bản dài để tránh OOM qua isolate (float list + base64).
+      final maxChars = vieneu.maxCharsPerRequest;
+      if (text.length > maxChars) {
+        final chunks = _chunkTextForEngine(text, maxChars);
+        var allOk = true;
+        for (var idx = 0; idx < chunks.length; idx++) {
+          if (_stopRequested || isStaleEpoch(epoch)) return false;
+          if (idx > 0) {
+            await _awaitLineFinished(epoch);
+            if (_stopRequested || isStaleEpoch(epoch)) return false;
+          }
+          final chunk = chunks[idx];
+          // Thử cache chunk trước
+          final chunkCached = await _cache.get(
+            text: chunk,
+            language: lang,
+            engineId: vieneu.id,
+            voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+            speed: _speed,
+            pitch: _pitch,
+            modelVariant: selectedVariant.name,
+          );
+          if (isStaleEpoch(epoch)) return false;
+          if (chunkCached != null) {
+            _lastUsedEngine = '💾 Cache · VieNeu-TTS';
+            _safeNotify();
+            final ok = await _playFile(chunkCached, epoch);
+            if (!ok) { allOk = false; break; }
+            continue;
+          }
+          _usingOfflineEngine = false;
+          _isLoading = true;
+          _safeNotify();
+          final chunkResult = await vieneu.synthesize(
+            text: chunk,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+          );
+          if (isStaleEpoch(epoch)) return false;
+          _isLoading = false;
+          if (!chunkResult.isSuccess ||
+              chunkResult.audioData == null ||
+              chunkResult.audioData!.isEmpty) {
+            allOk = false;
+            break;
+          }
+          final chunkPath = await _cache.put(
+            text: chunk,
+            language: lang,
+            engineId: vieneu.id,
+            audioData: chunkResult.audioData!,
+            voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+            modelVariant: selectedVariant.name,
+            speed: _speed,
+            pitch: _pitch,
+          );
+          if (isStaleEpoch(epoch)) return false;
+          _lastUsedEngine = '🇻🇳 VieNeu-TTS';
+          _safeNotify();
+          final ok = await _playFile(chunkPath, epoch);
+          if (!ok) { allOk = false; break; }
+        }
+        _isLoading = false;
+        return allOk;
+      }
 
       final result = await vieneu.synthesize(
         text: text,
@@ -710,31 +808,158 @@ class TtsService extends ChangeNotifier {
       await vieneuDir.create(recursive: true);
     }
 
-    // ── Tạo thư mục voices/ với preset mặc định nếu chưa có ──
-    // VieNeu-TTS GGUF đã embed sẵn giọng mặc định. Thư mục voices/ chỉ cần
-    // để ghi đè/tùy chọn giọng khác. Nếu không có ref_codes.txt, engine sẽ
-    // dùng giọng mặc định trong model (không crash).
+    // ── Tạo thư mục voices/ — không tạo placeholder rỗng nữa (PSRC-187).
+    // VieNeu-TTS GGUF đã embed sẵn giọng mặc định; placeholder ref_codes.txt
+    // chỉ chứa `# VieNeu-TTS...` khiến getAvailableVoices đếm giọng ảo và
+    // native crash khi truyền vào audio.cpp. Chỉ tạo thư mục, không sinh file.
     final voicesDir = Directory(p.join(vieneuDir.path, 'voices'));
     if (!await voicesDir.exists()) {
       await voicesDir.create(recursive: true);
     }
 
-    final defaultVoiceDir = Directory(p.join(voicesDir.path, VieneuTtsCore.defaultVoiceId));
-    if (!await defaultVoiceDir.exists()) {
-      await defaultVoiceDir.create(recursive: true);
-      // Tạo file placeholder ref_codes.txt rỗng để engine biết đây là voice preset
-      // (audio.cpp chấp nhận nullptr nếu file không tồn tại, dùng giọng default).
-      final refCodes = File(p.join(defaultVoiceDir.path, 'ref_codes.txt'));
-      if (!await refCodes.exists()) {
-        await refCodes.writeAsString('# VieNeu-TTS default voice preset\n');
-      }
-    }
-
     final target = File(p.join(vieneuDir.path, variant.fileName));
     await file.copy(target.path);
 
+    // PSRC-186: nếu cùng thư mục với GGUF có thư mục voices/ chứa giọng mẫu
+    // (ví dụ user tải bộ `vieneu-v3-turbo-q8_0.gguf` + thư mục `voices/` đính
+    // kèm), tự động sao chép vào `documents/vieneu_tts/voices/`.
+    try {
+      await _importBundledVoicesFromSource(
+        sourceFileDir: p.dirname(file.path),
+        targetVoicesDir: voicesDir.path,
+      );
+    } catch (e) {
+      debugPrint('⚠️ VieNeu voices import kèm GGUF bỏ qua: $e');
+    }
+
     _safeNotify();
     return target.path;
+  }
+
+  /// PSRC-186 — sao chép thư mục giọng đi kèm GGUF vào voices/.
+  ///
+  /// Quy ước: nếu `sourceFileDir/voices/` tồn tại và chứa thư mục con có
+  /// `ref_codes.txt` / `speaker.emb.txt`, copy từng giọng chưa tồn tại ở đích.
+  /// Không ghi đè giọng đã có để tôn trọng lựa chọn của người dùng.
+  Future<void> _importBundledVoicesFromSource({
+    required String sourceFileDir,
+    required String targetVoicesDir,
+  }) async {
+    final sourceVoicesDir = Directory(p.join(sourceFileDir, 'voices'));
+    if (!await sourceVoicesDir.exists()) return;
+    final entries = await sourceVoicesDir.list().toList();
+    var importedCount = 0;
+    for (final entry in entries) {
+      if (entry is! Directory) continue;
+      final voiceId = p.basename(entry.path);
+      final targetVoiceDir = Directory(p.join(targetVoicesDir, voiceId));
+      if (await targetVoiceDir.exists()) continue; // đã có — không ghi đè
+      // Chỉ copy nếu thư mục giọng có file giọng thực
+      final hasVoiceFile = await File(p.join(entry.path, 'ref_codes.txt')).exists() ||
+          await File(p.join(entry.path, 'speaker.emb.txt')).exists() ||
+          await File(p.join(entry.path, 'ref_codes.bin')).exists();
+      if (!hasVoiceFile) continue;
+      await _copyDirectoryRecursively(entry, targetVoiceDir);
+      importedCount++;
+    }
+    if (importedCount > 0) {
+      debugPrint('✅ VieNeu đã import $importedCount giọng từ ${sourceVoicesDir.path}');
+    }
+  }
+
+  Future<void> _copyDirectoryRecursively(Directory source, Directory target) async {
+    await target.create(recursive: true);
+    await for (final entity in source.list(recursive: false)) {
+      final newPath = p.join(target.path, p.basename(entity.path));
+      if (entity is File) {
+        await entity.copy(newPath);
+      } else if (entity is Directory) {
+        await _copyDirectoryRecursively(entity, Directory(newPath));
+      }
+    }
+  }
+
+  /// PSRC-186/185 — import giọng VieNeu từ thư mục do người dùng chọn.
+  ///
+  /// Mỗi thư mục con trong [sourceVoicesDirPath] được coi là một giọng (cần có
+  /// `ref_codes.txt` hoặc `speaker.emb.txt`). Sao chép vào `vieneu_tts/voices/`.
+  /// Trả về số giọng đã import.
+  Future<int> importVieneuVoicesFromDirectory(String sourceVoicesDirPath) async {
+    final sourceDir = Directory(sourceVoicesDirPath);
+    if (!await sourceDir.exists()) {
+      throw FileSystemException('Thư mục không tồn tại', sourceVoicesDirPath);
+    }
+    final dir = await getApplicationDocumentsDirectory();
+    final targetVoicesDir = Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
+    if (!await targetVoicesDir.exists()) {
+      await targetVoicesDir.create(recursive: true);
+    }
+    final entries = await sourceDir.list().toList();
+    // Hỗ trợ cả hai cấu trúc: (a) thư mục chứa nhiều giọng con, (b) thư mục
+    // chính là một giọng duy nhất (có ref_codes.txt ngay gốc).
+    // Trường hợp (b): copy cả thư mục như một giọng với tên = basename.
+    final looksLikeSingleVoice = await File(p.join(sourceDir.path, 'ref_codes.txt')).exists() ||
+        await File(p.join(sourceDir.path, 'speaker.emb.txt')).exists();
+    if (looksLikeSingleVoice) {
+      final voiceId = p.basename(sourceDir.path);
+      final target = Directory(p.join(targetVoicesDir.path, voiceId));
+      if (await target.exists()) {
+        throw FileSystemException('Giọng \"$voiceId\" đã tồn tại');
+      }
+      await _copyDirectoryRecursively(sourceDir, target);
+      _safeNotify();
+      return 1;
+    }
+    var imported = 0;
+    for (final entry in entries) {
+      if (entry is! Directory) continue;
+      final voiceId = p.basename(entry.path);
+      final target = Directory(p.join(targetVoicesDir.path, voiceId));
+      if (await target.exists()) continue;
+      final hasVoiceFile = await File(p.join(entry.path, 'ref_codes.txt')).exists() ||
+          await File(p.join(entry.path, 'speaker.emb.txt')).exists();
+      if (!hasVoiceFile) continue;
+      await _copyDirectoryRecursively(entry, target);
+      imported++;
+    }
+    if (imported == 0) {
+      throw FileSystemException('Không tìm thấy giọng hợp lệ trong thư mục');
+    }
+    _safeNotify();
+    return imported;
+  }
+
+  /// PSRC-185 — import các file mẫu WAV từ thư mục có sẵn vào vùng tạm của
+  /// VoiceClone (để người dùng có thể tạo giọng từ bộ sưu tập mẫu đã thu trước).
+  /// Trả về số file đã copy.
+  Future<int> importVieneuSamplesFromDirectory(String sourceDirPath) async {
+    final sourceDir = Directory(sourceDirPath);
+    if (!await sourceDir.exists()) {
+      throw FileSystemException('Thư mục không tồn tại', sourceDirPath);
+    }
+    final dir = await getApplicationDocumentsDirectory();
+    final tempDir = Directory(p.join(dir.path, 'vieneu_tts', 'cloned_voices', '_temp_samples'));
+    if (!await tempDir.exists()) {
+      await tempDir.create(recursive: true);
+    }
+    final entries = await sourceDir.list().toList();
+    var copied = 0;
+    for (final entry in entries) {
+      if (entry is! File) continue;
+      final ext = p.extension(entry.path).toLowerCase();
+      if (ext != '.wav' && ext != '.mp3' && ext != '.m4a' && ext != '.flac') continue;
+      final dest = File(p.join(tempDir.path, p.basename(entry.path)));
+      // Tránh trùng tên: thêm timestamp nếu đã tồn tại
+      final target = await dest.exists()
+          ? File(p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(entry.path)}'))
+          : dest;
+      await (entry as File).copy(target.path);
+      copied++;
+    }
+    if (copied == 0) {
+      throw FileSystemException('Không tìm thấy file âm thanh trong thư mục');
+    }
+    return copied;
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -1374,6 +1599,11 @@ class TtsService extends ChangeNotifier {
         await PiperTtsEngine.instance.getAvailableVoices(effectiveLang),
       );
     } catch (_) {}
+    try {
+      voices.addAll(
+        await VieneuTtsEngine.instance.getAvailableVoices(effectiveLang),
+      );
+    } catch (_) {}
     return voices;
   }
 
@@ -1440,16 +1670,17 @@ class TtsService extends ChangeNotifier {
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
+      // PSRC-187: KHÔNG clear _isSpeaking ở đây — audio đang phát bất đồng bộ.
+      // Trạng thái sẽ được tắt khi AudioPlayer báo completed qua
+      // playerStateStream listener, hoặc khi stop() được gọi. Clear ngay sau
+      // play() khiến FlutterTtsServiceImpl poll thoát sớm và chồng phát.
       return !isStaleEpoch(epoch);
     } catch (e) {
       if (isStaleEpoch(epoch)) return false;
       _error = 'Lỗi phát: $e';
+      _isSpeaking = false;
+      _safeNotify();
       return false;
-    } finally {
-      if (!isStaleEpoch(epoch)) {
-        _isSpeaking = false;
-        _safeNotify();
-      }
     }
   }
 
@@ -1463,17 +1694,44 @@ class TtsService extends ChangeNotifier {
       _isSpeaking = true;
       _safeNotify();
       await _audioPlayer.play();
+      // PSRC-187: tương tự _playFile — không clear _isSpeaking ngay.
       return !isStaleEpoch(epoch);
     } catch (e) {
       if (isStaleEpoch(epoch)) return false;
       _error = 'Lỗi stream: $e';
+      _isSpeaking = false;
+      _safeNotify();
       return false;
-    } finally {
-      if (!isStaleEpoch(epoch)) {
-        _isSpeaking = false;
-        _safeNotify();
-      }
     }
+  }
+
+  /// Chia văn bản dài thành chunks theo giới hạn ký tự của engine, ưu tiên cắt
+  /// tại ranh giới câu / từ để không vỡ từ. PSRC-187: TtsService trước đây
+  /// truyền nguyên văn bản dài (PDF dòng dài / toàn trang) vào VieNeu isolate
+  /// (float list + base64) gây OOM / crash native.
+  List<String> _chunkTextForEngine(String text, int maxChars) {
+    if (text.length <= maxChars) return [text];
+    final chunks = <String>[];
+    var remaining = text;
+    final sentenceEnd = RegExp(r'[.!?;。！？\n]+');
+    while (remaining.length > maxChars) {
+      var cutAt = remaining.lastIndexOf(RegExp(r'\s'), maxChars);
+      // Ưu tiên cắt tại dấu kết thúc câu trong 80%–100% cửa sổ
+      final windowStart = (maxChars * 0.5).toInt();
+      final window = remaining.substring(windowStart, maxChars);
+      final match = sentenceEnd.allMatches(window);
+      if (match.isNotEmpty) {
+        final last = match.last;
+        cutAt = windowStart + last.end;
+      } else if (cutAt <= 0) {
+        cutAt = maxChars; // không có khoảng trắng — cắt cứng
+      }
+      chunks.add(remaining.substring(0, cutAt).trim());
+      remaining = remaining.substring(cutAt).trim();
+      if (remaining.isEmpty) break;
+    }
+    if (remaining.isNotEmpty) chunks.add(remaining);
+    return chunks;
   }
 
   Future<void> waitForCompletion() => _waitForCompletion();

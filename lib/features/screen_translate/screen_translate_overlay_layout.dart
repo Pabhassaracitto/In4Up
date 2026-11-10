@@ -383,7 +383,10 @@ List<ScreenBlock> _layoutSingle(
       rect: rect,
       original: block.original,
       translation: block.translation,
-      textSizeSp: suggestedTextSizeSp(rect, dpr),
+      // ⚠ GIỮ cỡ chữ đã dùng để TÍNH chiều cao. Nếu tính lại từ `rect` (đã
+      // nới cao) thì `suggestedTextSizeSp` cho số lớn hơn ⇒ cần thêm chỗ nữa
+      // ⇒ vòng lặp tự sinh (CI bắt được: "cần 538.5px, có 198.0px").
+      textSizeSp: sizeSp,
     ),
   ];
 }

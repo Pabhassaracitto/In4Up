@@ -104,9 +104,40 @@ class AiProviderStore extends ChangeNotifier {
     // nhưng provider có sẵn chưa được thêm ⇒ tưởng không có API.
     await _seedBuiltinProviders(prefs);
 
+    // PSRC-181 (owner 2026-11-10): model mặc định của provider có sẵn đổi
+    // sang `openrouter/free`. Máy đã cài trước bản này còn lưu model mặc định
+    // CŨ ⇒ chuẩn hoá ngay sau khi seed (idempotent, chạy mỗi lần nạp).
+    await _migrateBuiltinProviderDefaults();
+
     _loaded = true;
     notifyListeners();
   }
+
+  /// PSRC-181 — nâng model mặc định CŨ của provider có sẵn lên mặc định mới.
+  ///
+  /// Chỉ đổi khi giá trị đang lưu đúng bằng model mặc định cũ (xem
+  /// [kBuiltinOpenRouterLegacyChatModels]) — KHÔNG ghi đè model user tự chọn.
+  /// Giống seed: đây là thao tác của APP (không phải user) ⇒ không bump
+  /// `updatedAtMs`, không đánh thức cloud sync.
+  Future<void> _migrateBuiltinProviderDefaults() async {
+    var migrated = 0;
+    final next = <AiProviderConfig>[];
+    for (final p in _providers) {
+      final m = migrateBuiltinProviderChatModel(p);
+      if (m.chatModel != p.chatModel) migrated++;
+      next.add(m);
+    }
+    if (migrated == 0) return;
+    _providers = next;
+    try {
+      await _persist(touch: false, notifySync: false);
+      debugPrint('AiProviderStore: đã nâng model mặc định của '
+          '$migrated provider có sẵn lên mặc định mới');
+    } catch (e) {
+      debugPrint('AiProviderStore: migrate model mặc định lỗi ($e) — bỏ qua');
+    }
+  }
+
   /// Thêm provider có sẵn + routing mặc định (một lần duy nhất).
   Future<void> _seedBuiltinProviders(SharedPreferences prefs) async {
     try {
@@ -225,7 +256,11 @@ class AiProviderStore extends ChangeNotifier {
   Future<void> applySnapshot(AiSettingsSnapshot snapshot,
       {bool touch = false}) async {
     await ensureLoaded();
-    _providers = List<AiProviderConfig>.from(snapshot.providers);
+    // PSRC-181: bản cloud từ máy chưa cập nhật có thể còn model mặc định CŨ ⇒
+    // chuẩn hoá luôn để hai máy nhìn thấy cùng một mặc định.
+    _providers = [
+      for (final p in snapshot.providers) migrateBuiltinProviderChatModel(p),
+    ];
     _routing = snapshot.routing;
     _tombstones = Map<String, int>.from(snapshot.tombstones);
     _updatedAtMs =

@@ -233,6 +233,8 @@
 | PRON-004 | Widget YouGlish chính thức (`public/emb/widget.js` + wrapper HTML) + Điều khoản/Privacy theo Developer Policy | 🚫 blocked (chờ owner xin phép YouGlish) | youglish.com/api/doc/widget mục 2/3/5/6/7; tiền lệ wrapper: web/yt_embed.html; PLAN-038 §4 |
 | PRON-005 | Nguồn "audio từ điển offline" trong hàng Phát âm — nối `DictEntry.audioPath` đang bị bỏ quên (nay có dữ liệu thật nhờ DICT-PACK-001) | 📋 proposed | PLAN-038 §0 + ADR-0015 D1; `dict_entry.dart:40` chưa UI nào dùng; `dict_pack_service.dart:351` cho phép wav/mp3/ogg/m4a |
 
+| PSRC-23 | Huỷ copy model | 🔨 CI xanh, chờ nghiệm thu máy | `d3c7667`, `c1d4df4`; [run 42863627460](https://github.com/Pabhassaracitto/In4Up/actions/runs/42863627460) |
+
 
 ## Card chi tiết
 
@@ -9432,3 +9434,9 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Lịch sử:**
   - 2026-11-10 | created→done | agent `arena/18339505-in4up` | đọc 4 issue Linear → tìm gốc chung từ tài liệu plugin FFmpegKit (không đoán) → sửa 3 gốc + 4 pin test → CI `42864431377` đỏ 1 test do quét comment (`672fce9`… sửa) → **`42865543792` 🟢**
   - 2026-11-10 | rebase | agent `arena/18339505-in4up` | base nhận thêm PSRC-181/182 + web-core ⇒ PR #167 `CONFLICTING`; rebase 5 commit lên `arena/01a0251e-in4up` — xung đột **chỉ** ở KANBAN (giữ cả 3 card PSRC-181, PSRC-182, PSRC-177/178/179/180), 4 commit code rebase sạch ⇒ [CI `42875712327` 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/42875712327) · 19/19 check · `MERGEABLE/CLEAN`
+
+### PSRC-23 — Huỷ copy model
+- **Trạng thái:** 🔨 CI xanh; chờ nghiệm thu máy thật.
+- **Code:** `d3c7667` thêm nút Huỷ hai màn hình và token; `c1d4df4` sửa nguy cơ ghi đè model cũ bằng thư mục đích riêng và thêm kiểm thử trạng thái. Hai commit vì bản đầu đã được push trước khi phát hiện lỗi.
+- **CI:** `app_analyze` run [42863627460](https://github.com/Pabhassaracitto/In4Up/actions/runs/42863627460), step PSRC-23 thành công.
+- **Chưa kiểm:** huỷ model lớn trên thiết bị, thời gian dừng, khôi phục model sau khởi động lại; huỷ tải khi mạng chậm.

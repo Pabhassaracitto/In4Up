@@ -6,6 +6,10 @@ import 'package:http/http.dart' as http;
 import 'translation_engine.dart';
 
 class GoogleFreeEngine extends TranslationEngine {
+  GoogleFreeEngine({http.Client? client}) : _client = client ?? http.Client();
+
+  final http.Client _client;
+
   @override
   String get name => 'Google Translate';
 
@@ -61,7 +65,7 @@ class GoogleFreeEngine extends TranslationEngine {
   @override
   Future<bool> isAvailable() async {
     try {
-      final response = await http
+      final response = await _client
           .get(Uri.parse('https://translate.googleapis.com'))
           .timeout(const Duration(seconds: 5));
       return response.statusCode == 200 || response.statusCode == 404;
@@ -98,7 +102,7 @@ class GoogleFreeEngine extends TranslationEngine {
         'q': text,
       });
 
-      final response = await http.get(
+      final response = await _client.get(
         uri,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36',

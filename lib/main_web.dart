@@ -10,56 +10,89 @@
 //      "Error: Dart library 'dart:ffi' is not available on this platform."
 //   (63 file reachable từ `lib/main.dart` dùng 2 thư viện này.)
 //
-//   File này là entrypoint **RIÊNG cho web**: chỉ dùng những gì web-safe
-//   (http, clipboard, engine dịch Google-free, url_launcher) ⇒ build được và
-//   KHÔNG kéo theo bất kỳ phần native nào.
+//   File này là entrypoint **RIÊNG cho web**: chỉ dùng các adapter web-safe
+//   (browser audio, Firebase Web, local storage, clipboard, proxy HTTP và
+//   url_launcher) ⇒ build được mà không kéo theo phần FFI/native.
 //
 //   ⇒ Workflow `.github/workflows/deploy-web.yml`:
 //        flutter build web --release --base-href /In4Up/ -t lib/main_web.dart
 //     rồi push kết quả vào nhánh `gh-pages` (GIỮ NGUYÊN file khác — vd
 //     wrapper YouTube `yt_embed.html` đang chạy trên Pages).
 //
-// PHẠM VI (nói thẳng để không gây hiểu nhầm):
-//   Đây là **bản web rút gọn**: đọc văn bản (dán tay / dán URL), dịch Google
-//   free sang tiếng Việt, sao chép từ, mở trình phát YouTube nhúng.
-//   Toàn bộ tính năng native (TTS offline, STT whisper, kho từ vựng, thư viện,
-//   YouTube trình phát đầy đủ, tipitaka…) **vẫn nằm ở app mobile/desktop** —
-//   bản đó vẫn build & phát hành bình thường.
+// PHẠM VI WEB CORE:
+//   * đọc văn bản dán tay hoặc qua reader proxy;
+//   * phát audio URL thông thường bằng browser audio;
+//   * dịch qua proxy kiểm soát (direct CORS chỉ bật khi explicitly requested);
+//   * lưu draft/từ vựng ở local storage;
+//   * Firebase Auth/Firestore là lớp cloud tùy chọn;
+//   * sao chép, lưu từ và mở YouTube wrapper cùng origin.
 //
-// Lưu ý CORS: gọi `http.get(url)` từ trình duyệt bị CORS chặn với phần lớn
-// trang ⇒ hiển thị lỗi rõ ràng cho user (không nuốt lỗi).
+// Các tính năng native như FFI, STT offline, PDFium native, background audio,
+// filesystem đầy đủ và engine mô hình local vẫn không được kéo vào entrypoint
+// web này. Chúng phải có adapter Web riêng trước khi được bật trên browser.
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:http/http.dart' as http;
+import 'package:just_audio/just_audio.dart';
 import 'package:in4up/core/language/localized_material.dart' hide Text;
-import 'package:in4up/features/translation/engines/google_free_engine.dart';
+import 'package:in4up/features/web_core/web_audio_playback.dart';
+import 'package:in4up/features/web_core/web_cloud_service.dart';
+import 'package:in4up/features/web_core/web_content_fetcher.dart';
+import 'package:in4up/features/web_core/web_local_store.dart';
+import 'package:in4up/features/web_core/web_proxy_translation_engine.dart';
 import 'package:in4up/l10n/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Lỗi chạy lúc khởi động (nếu có) — hiện NGAY trên trang thay vì trang
 /// trắng, để owner thấy nguyên nhân mà không cần mở DevTools.
 final ValueNotifier<String?> _fatalError = ValueNotifier<String?>(null);
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   FlutterError.onError = (details) {
     _fatalError.value ??= details.exceptionAsString();
     FlutterError.presentError(details);
   };
+
+  final cloud = await WebCloudService.initialize();
+  final prefs = await _loadWebPreferences();
+
   runZonedGuarded(
-    () => runApp(const In4UpWebApp()),
+    () => runApp(In4UpWebApp(cloud: cloud, prefs: prefs)),
     (error, stack) {
       _fatalError.value ??= error.toString();
     },
   );
 }
 
+Future<SharedPreferences> _loadWebPreferences() async {
+  try {
+    return await SharedPreferences.getInstance();
+  } catch (error, stack) {
+    // Keep the reader usable if browser storage is blocked (for example in a
+    // private browsing context). The mock store is intentionally empty and
+    // does not pretend that persistence is available.
+    _fatalError.value ??= 'Local storage unavailable: $error';
+    FlutterError.presentError(
+      FlutterErrorDetails(exception: error, stack: stack),
+    );
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    return SharedPreferences.getInstance();
+  }
+}
+
 /// App web In4Up.
 class In4UpWebApp extends StatelessWidget {
-  const In4UpWebApp({super.key});
+  const In4UpWebApp({
+    super.key,
+    required this.cloud,
+    required this.prefs,
+  });
+
+  final WebCloudService cloud;
+  final SharedPreferences prefs;
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +119,7 @@ class In4UpWebApp extends StatelessWidget {
       theme: _theme(),
       // TRẮNG: MaterialApp KHÔNG có `home` ⇒ Navigator rỗng ⇒ trắng.
       // Đã fix: thêm `home` + builder hiển thị lỗi khởi động bằng Stack.
-      home: const WebHomeScreen(),
+      home: WebHomeScreen(cloud: cloud, prefs: prefs),
       builder: (context, child) {
         // Lắng nghe lỗi khởi động (ValueNotifier) ⇒ hiện banner đỏ bên trên.
         return ValueListenableBuilder<String?>(
@@ -141,7 +174,14 @@ class In4UpWebApp extends StatelessWidget {
 
 /// Màn chính: nhập nội dung → đọc (+ dịch).
 class WebHomeScreen extends StatefulWidget {
-  const WebHomeScreen({super.key});
+  const WebHomeScreen({
+    super.key,
+    required this.cloud,
+    required this.prefs,
+  });
+
+  final WebCloudService cloud;
+  final SharedPreferences prefs;
 
   @override
   State<WebHomeScreen> createState() => _WebHomeScreenState();
@@ -151,19 +191,45 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
   final TextEditingController _textCtrl = TextEditingController();
   final TextEditingController _urlCtrl = TextEditingController();
   final TextEditingController _videoCtrl = TextEditingController();
-  final GoogleFreeEngine _engine = GoogleFreeEngine();
+  final TextEditingController _audioUrlCtrl = TextEditingController();
+  final WebContentFetcher _contentFetcher = WebContentFetcher();
+  final WebProxyTranslationEngine _engine = WebProxyTranslationEngine();
+  final WebAudioPlaybackController _audio = WebAudioPlaybackController();
 
+  late final WebLocalStore _local;
   List<String> _lines = const [];
   Map<int, String> _translations = const {};
+  List<String> _savedWords = const [];
   bool _translating = false;
   bool _loading = false;
+  bool _audioLoading = false;
+  bool _cloudLoading = false;
   String? _error;
+  String? _translationError;
+  String? _audioError;
+
+  @override
+  void initState() {
+    super.initState();
+    _local = WebLocalStore(widget.prefs);
+    _savedWords = _local.savedWords;
+    _restoreLocalDraft();
+  }
+
+  void _restoreLocalDraft() {
+    final draft = _local.draft;
+    if (draft.isEmpty) return;
+    _textCtrl.text = draft;
+    _lines = _splitLines(draft);
+  }
 
   @override
   void dispose() {
     _textCtrl.dispose();
     _urlCtrl.dispose();
     _videoCtrl.dispose();
+    _audioUrlCtrl.dispose();
+    _audio.dispose();
     super.dispose();
   }
 
@@ -182,8 +248,11 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
     setState(() {
       _lines = _splitLines(text);
       _translations = const {};
+      _translationError = null;
       _error = null;
     });
+    unawaited(_local.saveDraft(text));
+    unawaited(_local.addRecentText(text));
   }
 
   /// Tách văn bản thành dòng (dòng dài vẫn để nguyên — UI tự xuống dòng).
@@ -218,17 +287,9 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
     });
 
     try {
-      final res = await http.get(
-        uri,
-        headers: const {'User-Agent': 'Mozilla/5.0 (In4Up web)'},
-      );
-      if (res.statusCode != 200) {
-        _setError(
-          '${context.uiText('Không tải được trang')} (HTTP ${res.statusCode})',
-        );
-        return;
-      }
-      final text = _htmlToText(res.body);
+      final html = await _contentFetcher.fetch(uri);
+      if (!mounted) return;
+      final text = _htmlToText(html);
       if (text.trim().isEmpty) {
         _setError(context.uiText('Chưa có nội dung'));
         return;
@@ -236,11 +297,16 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
       setState(() {
         _lines = _splitLines(text);
         _translations = const {};
+        _translationError = null;
       });
       _textCtrl.text = text;
+      unawaited(_local.saveDraft(text));
+      unawaited(_local.addRecentText(text));
     } catch (e) {
-      // CORS / mạng — nói rõ thay vì nuốt lỗi.
-      _setError('${context.uiText('Không tải được trang')} (HTTP 0)');
+      // CORS/proxy/mạng — nói rõ thay vì nuốt lỗi.
+      if (mounted) {
+        _setError('${context.uiText('Không tải được trang')}: $e');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -261,32 +327,117 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
     return s.trim();
   }
 
-  // ── Dịch Google-free sang tiếng Việt ──────────────────────────────────
+  // ── Dịch qua proxy kiểm soát sang tiếng Việt ─────────────────────────
   Future<void> _translateAll() async {
     if (_lines.isEmpty || _translating) return;
-    setState(() => _translating = true);
+    setState(() {
+      _translating = true;
+      _translationError = null;
+    });
     final out = <int, String>{};
+    String? firstError;
+
     for (var i = 0; i < _lines.length; i++) {
       try {
-        final res = await _engine.translate(
+        final result = await _engine.translate(
           text: _lines[i],
           targetLang: 'vi',
         );
-        final t = res.translatedText.trim();
-        if (t.isNotEmpty) out[i] = t;
-      } catch (_) {
-        // Bỏ qua dòng lỗi — vẫn hiện phần đã dịch.
+        final t = result.translatedText.trim();
+        if (result.isSuccess && t.isNotEmpty) {
+          out[i] = t;
+        } else {
+          firstError ??= result.error;
+        }
+      } catch (error) {
+        firstError ??= '$error';
       }
-      if (i % 5 == 0) {
-        if (mounted) setState(() => _translations = Map.of(out));
+
+      if (i % 5 == 0 && mounted) {
+        setState(() => _translations = Map.of(out));
         await Future<void>.delayed(const Duration(milliseconds: 250));
       }
     }
+
     if (mounted) {
       setState(() {
         _translations = out;
+        _translationError = firstError;
         _translating = false;
       });
+    }
+  }
+
+  // ── Phát audio thông thường trên browser ───────────────────────────────
+  Future<void> _loadAudio() async {
+    final raw = _audioUrlCtrl.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _audioError = context.uiText('URL audio không hợp lệ'));
+      return;
+    }
+
+    setState(() {
+      _audioLoading = true;
+      _audioError = null;
+    });
+    try {
+      await _audio.loadUrl(raw);
+      if (mounted) await _audio.player.play();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _audioError = '$error');
+      }
+    } finally {
+      if (mounted) setState(() => _audioLoading = false);
+    }
+  }
+
+  Future<void> _saveWord(String word) async {
+    final normalized = word.trim();
+    if (normalized.isEmpty) return;
+
+    final next = <String>[normalized, ..._savedWords.where((w) => w != normalized)];
+    setState(() => _savedWords = next);
+    await _local.saveWords(next);
+
+    if (widget.cloud.isSignedIn) {
+      try {
+        await widget.cloud.saveVocabularyWord(normalized);
+      } catch (error) {
+        if (mounted) {
+          setState(() => _error = 'Đã lưu local nhưng chưa đồng bộ cloud: $error');
+        }
+      }
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('${context.uiText('Đã lưu từ')}: $normalized'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _cloudLoading = true);
+    try {
+      await widget.cloud.signInWithGoogle();
+      final cloudWords = await widget.cloud.loadVocabularyWords();
+      if (cloudWords.isNotEmpty && mounted) {
+        final merged = <String>[
+          ...cloudWords,
+          ..._savedWords.where((word) => !cloudWords.contains(word)),
+        ];
+        setState(() => _savedWords = merged);
+        await _local.saveWords(merged);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _cloudLoading = false);
     }
   }
 
@@ -349,17 +500,244 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
+            _accountCard(context),
+            const SizedBox(height: 12),
             _sourceCard(context),
+            const SizedBox(height: 12),
+            _audioCard(context),
             if (_error != null) ...[
               const SizedBox(height: 12),
               _errorBox(context, _error!),
+            ],
+            if (_translationError != null) ...[
+              const SizedBox(height: 12),
+              _errorBox(context, _translationError!),
             ],
             if (hasContent) ...[
               const SizedBox(height: 16),
               _readerCard(context),
             ],
+            if (_savedWords.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _savedWordsCard(context),
+            ],
             const SizedBox(height: 24),
             _youtubeCard(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _accountCard(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.cloud,
+      builder: (context, _) {
+        final user = widget.cloud.user;
+        final cloudError = widget.cloud.initializationError;
+        return Card(
+          color: const Color(0xFF111827),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(
+                  user == null ? Icons.cloud_off_outlined : Icons.cloud_done,
+                  color: user == null
+                      ? Colors.white54
+                      : const Color(0xFF81C784),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        !widget.cloud.isConfigured
+                            ? context.uiText('Cloud sync chưa cấu hình')
+                            : user == null
+                                ? context.uiText(
+                                    'Đăng nhập để đồng bộ từ vựng',
+                                  )
+                                : (user.email ??
+                                    user.displayName ??
+                                    'Đã đăng nhập'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (cloudError != null)
+                        Text(
+                          cloudError,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFFFCC80),
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (widget.cloud.isConfigured && user == null)
+                  FilledButton.tonal(
+                    onPressed: _cloudLoading ? null : _signInWithGoogle,
+                    child: _cloudLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(context.uiText('Đăng nhập')),
+                  ),
+                if (user != null)
+                  IconButton(
+                    tooltip: context.uiText('Đăng xuất'),
+                    onPressed: widget.cloud.signOut,
+                    icon: const Icon(Icons.logout),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _audioCard(BuildContext context) {
+    return Card(
+      color: const Color(0xFF111827),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('Phát audio trên trình duyệt'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _audioUrlCtrl,
+                    keyboardType: TextInputType.url,
+                    decoration: InputDecoration(
+                      hintText: context.uiText('Dán URL audio trực tiếp'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _audioLoading ? null : _loadAudio,
+                  child: _audioLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(context.uiText('Mở')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            StreamBuilder<PlayerState>(
+              stream: _audio.player.playerStateStream,
+              builder: (context, snapshot) {
+                final playing = snapshot.data?.playing ?? false;
+                return Row(
+                  children: [
+                    IconButton(
+                      tooltip: playing
+                          ? context.uiText('Tạm dừng')
+                          : context.uiText('Phát'),
+                      onPressed: _audio.player.processingState ==
+                              ProcessingState.idle
+                          ? null
+                          : () => playing
+                              ? _audio.player.pause()
+                              : _audio.player.play(),
+                      icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                    ),
+                    Expanded(
+                      child: StreamBuilder<Duration>(
+                        stream: _audio.player.positionStream,
+                        builder: (context, positionSnapshot) {
+                          final position = positionSnapshot.data ?? Duration.zero;
+                          return StreamBuilder<Duration?>(
+                            stream: _audio.player.durationStream,
+                            builder: (context, durationSnapshot) {
+                              final duration = durationSnapshot.data ?? Duration.zero;
+                              final max = duration.inMilliseconds.toDouble();
+                              final value = max <= 0
+                                  ? 0.0
+                                  : position.inMilliseconds
+                                      .clamp(0, duration.inMilliseconds)
+                                      .toDouble();
+                              return Slider(
+                                min: 0,
+                                max: max <= 0 ? 1 : max,
+                                value: value,
+                                onChanged: max <= 0
+                                    ? null
+                                    : (next) => _audio.player.seek(
+                                          Duration(milliseconds: next.round()),
+                                        ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: context.uiText('Dừng'),
+                      onPressed: () => _audio.player.stop(),
+                      icon: const Icon(Icons.stop),
+                    ),
+                  ],
+                );
+              },
+            ),
+            if (_audioError != null)
+              Text(
+                _audioError!,
+                style: const TextStyle(color: Color(0xFFFF8A80), fontSize: 12),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _savedWordsCard(BuildContext context) {
+    return Card(
+      color: const Color(0xFF111827),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.uiText('Từ đã lưu trên Web'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final word in _savedWords)
+                  InputChip(
+                    label: Text(word),
+                    onDeleted: () {
+                      final next = _savedWords.where((w) => w != word).toList();
+                      setState(() => _savedWords = next);
+                      unawaited(_local.saveWords(next));
+                    },
+                  ),
+              ],
+            ),
           ],
         ),
       ),
@@ -428,6 +806,24 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
               decoration: InputDecoration(
                 hintText: context.uiText('Dán URL trang web'),
                 border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _contentFetcher.usesProxy
+                  ? context.uiText('Web Reader đang dùng proxy kiểm soát')
+                  : _contentFetcher.isConfigured
+                      ? context.uiText('Web Reader direct CORS chỉ dành cho dev')
+                      : context.uiText(
+                          'Web Reader cần cấu hình IN4UP_WEB_PROXY_BASE_URL',
+                        ),
+              style: TextStyle(
+                color: _contentFetcher.usesProxy
+                    ? const Color(0xFF81C784)
+                    : _contentFetcher.isConfigured
+                        ? const Color(0xFFFFCC80)
+                        : Colors.white54,
+                fontSize: 11,
               ),
             ),
           ],
@@ -570,6 +966,13 @@ class _WebHomeScreenState extends State<WebHomeScreen> {
           ],
         ),
         actions: [
+          FilledButton.tonal(
+            onPressed: () {
+              unawaited(_saveWord(word));
+              Navigator.of(dialogCtx).pop();
+            },
+            child: Text(context.uiText('Lưu từ')),
+          ),
           TextButton(
             onPressed: () {
               _copy(word);

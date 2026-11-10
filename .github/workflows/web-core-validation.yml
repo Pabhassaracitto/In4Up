@@ -1,0 +1,65 @@
+name: Web Core validation
+
+on:
+  pull_request:
+    paths:
+      - 'lib/main_web.dart'
+      - 'lib/features/web_core/**'
+      - 'lib/features/translation/engines/google_free_engine.dart'
+      - 'test/web_core_contract_test.dart'
+      - '.github/workflows/web-core-validation.yml'
+      - '.github/workflows/deploy-web.yml'
+      - 'tool/web/**'
+      - 'docs/web/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  push:
+    branches:
+      - 'arena/01a0a6b6-in4up'
+    paths:
+      - 'lib/main_web.dart'
+      - 'lib/features/web_core/**'
+      - 'lib/features/translation/engines/google_free_engine.dart'
+      - 'test/web_core_contract_test.dart'
+      - '.github/workflows/web-core-validation.yml'
+      - '.github/workflows/deploy-web.yml'
+      - 'tool/web/**'
+      - 'docs/web/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Web Core contract tests
+        run: flutter test test/web_core_contract_test.dart
+
+      - name: Compile Web Core entrypoint
+        run: |
+          flutter build web --release \
+            --base-href /In4Up/ \
+            -t lib/main_web.dart \
+            --dart-define="IN4UP_WEB_PROXY_BASE_URL=${{ vars.IN4UP_WEB_PROXY_BASE_URL }}" \
+            --dart-define=IN4UP_ALLOW_DIRECT_CORS=false

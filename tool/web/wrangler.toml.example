@@ -1,0 +1,14 @@
+name = "in4up-web-proxy"
+main = "in4up_proxy_worker.js"
+compatibility_date = "2026-09-15"
+
+[vars]
+# Replace with the real Pages origin before deployment.
+ALLOWED_ORIGINS = "https://<owner>.github.io"
+# Fail-closed host allowlist for /reader.
+READER_ALLOWED_HOSTS = "example.com"
+# Keep the real upstream URL here only if it is not sensitive.
+TRANSLATION_URL = "https://your-translation-backend.example/translate"
+
+# Set the provider credential with:
+# wrangler secret put TRANSLATION_API_KEY

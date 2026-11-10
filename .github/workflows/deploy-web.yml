@@ -73,7 +73,11 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          flutter build web --release --base-href /In4Up/ -t lib/main_web.dart > build_web.log 2>&1
+          flutter build web --release \
+            --base-href /In4Up/ \
+            -t lib/main_web.dart \
+            --dart-define="IN4UP_WEB_PROXY_BASE_URL=${{ vars.IN4UP_WEB_PROXY_BASE_URL }}" \
+            --dart-define=IN4UP_ALLOW_DIRECT_CORS=false > build_web.log 2>&1
           code=$?
           {
             echo "### flutter build web — exit code $code"

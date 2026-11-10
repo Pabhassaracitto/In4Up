@@ -910,6 +910,17 @@ class _WordListScreenState extends State<WordListScreen> {
                   fontWeight: FontWeight.bold,
                   fontSize: 13)),
           const Spacer(),
+          // PSRC-21 — Xoá hàng loạt (icon đỏ, dialog xác nhận).
+          TextButton.icon(
+            onPressed: _selectedIds.isEmpty
+                ? null
+                : () => _confirmBulkDelete(),
+            icon: const Icon(Icons.delete_outline,
+                color: Color(0xFFEF5350), size: 18),
+            label: Text(context.uiText('Xoá'),
+                style: const TextStyle(
+                    color: Color(0xFFEF5350), fontSize: 12)),
+          ),
           TextButton(
             onPressed: () => setState(() {
               _selectedIds.addAll(
@@ -930,6 +941,46 @@ class _WordListScreenState extends State<WordListScreen> {
         ],
       ),
     );
+  }
+
+  /// PSRC-21 — Dialog xác nhận xoá hàng loạt: tiêu đề "Xoá N từ?", nội dung
+  /// cảnh báo không hoàn tác, nút Huỷ / Xoá. Xoá bằng cùng hành vi xoá từng
+  /// từ hiện tại (`VocabularyProvider.removeWord` — chỉ xoá khỏi danh sách,
+  /// không đụng SRS/Learn-by-Heart).
+  Future<void> _confirmBulkDelete() async {
+    final count = _selectedIds.length;
+    if (count == 0) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${context.uiText('Xoá')} $count ${context.uiText('từ')}?'),
+        content: Text(context.uiText('Hành động này không thể hoàn tác.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.uiText('Huỷ')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFEF5350),
+            ),
+            child: Text(context.uiText('Xoá')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final provider = context.read<VocabularyProvider>();
+    // Copy ids trước khi xoá (removeWord notify mỗi lần — vẫn đúng hành vi).
+    final ids = _selectedIds.toList();
+    for (final id in ids) {
+      provider.removeWord(id);
+    }
+    setState(() {
+      _selectedIds.clear();
+      _isSelecting = false;
+    });
   }
 
   Widget _buildEmptyState(VocabularyProvider p) {

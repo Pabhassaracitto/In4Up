@@ -415,6 +415,18 @@ jobs:
           fi
           exit $code
 
+      - name: "PSRC-21 tests — xoá hàng loạt WordList"
+        run: |
+          set +e
+          timeout -k 10s 5m flutter test test/word_list_bulk_delete_test.dart -r expanded > psrc21_test.log 2>&1
+          code=$?
+          cat psrc21_test.log
+          if [ "$code" -ne 0 ]; then
+            tailmsg=$(tail -n 18 psrc21_test.log | head -c 1800 | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=PSRC-21 test exit $code::${tailmsg:-No test output}"
+          fi
+          exit $code
+
       - name: Upload PSRC-23 test log
         if: always()
         uses: actions/upload-artifact@v4

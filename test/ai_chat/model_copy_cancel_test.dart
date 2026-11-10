@@ -5,10 +5,12 @@
 // Facade.cancelImport() được phủ gián tiếp: token cancel 2 lần no-op,
 // cancel trước copy no-op, copy bị huỷ thì không còn file đích.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up_ai/in4up_ai.dart';
+import 'package:in4up_ai/src/loader/model_copy_cancel_token.dart';
 
 void main() {
   group('PSRC-23 — ModelCopyCancelToken', () {
@@ -62,15 +64,27 @@ void main() {
         src: src,
         dest: dest,
         cancelToken: token,
+        onProgress: (_) => token.cancel(),
       );
-      // Huỷ ngay sau khi copy bắt đầu (giữa các chunk).
-      token.cancel();
+      // Huỷ từ callback: đã ghi ít nhất một chunk.
       await expectLater(
         future,
         throwsA(isA<ModelCopyCancelledException>()),
       );
       expect(await dest.exists(), isFalse,
           reason: 'File đích dở dang phải bị xoá khi huỷ');
+    });
+
+    test('không ghi đè hoặc xoá file đích đã tồn tại', () async {
+      final src = File('${tmp.path}/src.gguf');
+      final oldModel = File('${tmp.path}/old.gguf');
+      await src.writeAsBytes([1, 2, 3]);
+      await oldModel.writeAsBytes([4, 5, 6]);
+      await expectLater(
+        copyFileWithProgress(src: src, dest: oldModel),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(await oldModel.readAsBytes(), [4, 5, 6]);
     });
 
     test('copy không huỷ → file đích đầy đủ', () async {
@@ -111,6 +125,56 @@ void main() {
       expect(() => facade.cancelImport(), returnsNormally);
       // importStage không phải copying sau khi huỷ lúc idle.
       expect(facade.importStage, isNot(AiImportStage.copying));
+    });
+
+    test('huỷ đang copy khôi phục stage và progress', () async {
+      final facade = AiServiceFacade();
+      final started = Completer<void>();
+      final previous = facade.importStage;
+      facade.debugImportModel = ({onCopyProgress, cancelToken, onTransferComplete}) async {
+        onCopyProgress?.call(0.5);
+        started.complete();
+        await cancelToken!.whenCancelled;
+        return const ModelLoadResult(success: false, source: ModelSource.none);
+      };
+      try {
+        final result = facade.importModelFromUser();
+        await started.future;
+        expect(facade.importStage, AiImportStage.copying);
+        expect(facade.importProgress, 0.5);
+        facade.cancelImport();
+        facade.cancelImport();
+        expect(await result, isFalse);
+        expect(facade.importStage, previous);
+        expect(facade.importProgress, 0);
+      } finally {
+        facade.debugImportModel = null;
+      }
+    });
+
+    test('không huỷ trong giai đoạn loading', () async {
+      final facade = AiServiceFacade();
+      final started = Completer<void>();
+      final finish = Completer<void>();
+      ModelCopyCancelToken? token;
+      facade.debugImportModel = ({onCopyProgress, cancelToken, onTransferComplete}) async {
+        token = cancelToken;
+        onTransferComplete?.call();
+        started.complete();
+        await finish.future;
+        return const ModelLoadResult(success: false, source: ModelSource.none);
+      };
+      try {
+        final result = facade.importModelFromUser();
+        await started.future;
+        expect(facade.importStage, AiImportStage.loading);
+        facade.cancelImport();
+        expect(token!.isCancelled, isFalse);
+        finish.complete();
+        expect(await result, isFalse);
+      } finally {
+        facade.debugImportModel = null;
+      }
     });
 
     test('canCancelImport chỉ true khi copying/downloading', () {

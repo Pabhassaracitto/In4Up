@@ -1,75 +1,59 @@
-// packages/in4up_ai/lib/src/loader/model_copy_cancel_token.dart
-//
-// PSRC-23 — Token huỷ copy/download model (logic thuần, không plugin).
-//
-// Tách riêng để test được mà không cần path_provider/FilePicker:
-// test chỉ import file này + dart:io (temp dir), không đụng plugin.
-
+import 'dart:async';
 import 'dart:io';
 
-/// Token huỷ copy/download model — `cancel()` từ UI (nút Huỷ) hoặc facade
-/// dispose. `cancel()` idempotent: gọi 2 lần không ném exception.
-/// Kiểm tra giữa các chunk copy/download (không đọc cả file 2GB vào RAM).
+/// Cooperative cancellation for model transfers.
 class ModelCopyCancelToken {
-  bool _cancelled = false;
+  final Completer<void> _cancelled = Completer<void>();
 
-  /// True sau khi [cancel] được gọi.
-  bool get isCancelled => _cancelled;
+  bool get isCancelled => _cancelled.isCompleted;
+  Future<void> get whenCancelled => _cancelled.future;
 
-  /// Huỷ copy/download đang chạy. Gọi 2 lần vẫn an toàn (no-op lần 2).
   void cancel() {
-    _cancelled = true;
+    if (!isCancelled) _cancelled.complete();
   }
 
-  /// Ném [ModelCopyCancelledException] nếu đã bị huỷ — gọi giữa các chunk.
   void throwIfCancelled() {
-    if (_cancelled) throw const ModelCopyCancelledException();
+    if (isCancelled) throw const ModelCopyCancelledException();
   }
 }
 
-/// Lỗi huỷ copy/download do người dùng bấm Huỷ (không phải lỗi kỹ thuật).
 class ModelCopyCancelledException implements Exception {
   const ModelCopyCancelledException();
-
-  @override
-  String toString() => 'Model copy cancelled by user';
 }
 
-/// Copy file theo chunk kèm tiến độ + kiểm tra huỷ giữa các chunk.
-///
-/// Dùng chung cho import model (.gguf 1–2GB): copy theo stream chunk
-/// (không đọc cả file vào RAM). Khi [cancelToken] bị huỷ giữa chừng:
-/// đóng sink, XOÁ file đích dở dang (không để lại .gguf cụt khiến engine
-/// báo "model hỏng"), rồi ném [ModelCopyCancelledException].
+/// Copies to a new staging file; callers must never pass an existing model.
 Future<void> copyFileWithProgress({
   required File src,
   required File dest,
   void Function(double progress)? onProgress,
   ModelCopyCancelToken? cancelToken,
 }) async {
+  cancelToken?.throwIfCancelled();
   final total = await src.length();
+  cancelToken?.throwIfCancelled();
+  RandomAccessFile? output;
   var copied = 0;
-  final sink = dest.openWrite();
-  var cancelled = false;
+  var complete = false;
+  var created = false;
   try {
+    // Exclusive creation prevents truncating a pre-existing model.
+    await dest.create(exclusive: true);
+    created = true;
+    output = await dest.open(mode: FileMode.write);
     await for (final chunk in src.openRead()) {
-      if (cancelToken?.isCancelled == true) {
-        cancelled = true;
-        break;
-      }
-      sink.add(chunk);
+      cancelToken?.throwIfCancelled();
+      await output.writeFrom(chunk);
       copied += chunk.length;
       if (total > 0) onProgress?.call(copied / total);
     }
-    if (!cancelled) cancelToken?.throwIfCancelled();
+    cancelToken?.throwIfCancelled();
+    await output.close();
+    output = null;
+    cancelToken?.throwIfCancelled();
+    complete = true;
+    onProgress?.call(1.0);
   } finally {
-    await sink.close();
+    await output?.close();
+    if (created && !complete && await dest.exists()) await dest.delete();
   }
-  if (cancelled) {
-    try {
-      if (await dest.exists()) await dest.delete();
-    } catch (_) {}
-    throw const ModelCopyCancelledException();
-  }
-  onProgress?.call(1.0);
 }

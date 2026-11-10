@@ -1518,33 +1518,37 @@ class AiServiceFacade extends ChangeNotifier {
     debugPrint('[AiFacade] Max retries reached, keeping Tier 1/2 result');
   }
 
-  /// Import model .gguf do người dùng chọn file.
-  /// Báo tiến độ liên tục qua [importStage]/[importProgress]:
-  /// copying (0–100%) → loading (native nạp model) → ready/failed.
-  /// UI (chat screen / trung tâm model) chỉ cần lắng nghe ChangeNotifier.
-  /// PSRC-23: có thể huỷ khi `copying` qua [cancelImport] (không huỷ khi
-  /// `loading`).
+  /// Plugin-free import seam for exercising cancellation in tests.
+  @visibleForTesting
+  Future<ModelLoadResult> Function({
+    void Function(double)? onCopyProgress,
+    ModelCopyCancelToken? cancelToken,
+    void Function()? onTransferComplete,
+  })? debugImportModel;
+
+  /// Import a GGUF model, keeping the current model until transfer succeeds.
   Future<bool> importModelFromUser() async {
+    if (isImportActive) return false;
     final token = ModelCopyCancelToken();
     _activeImportToken = token;
-    final wasLoaded = _modelLoaded;
-    _modelLoaded = false;
+    final previousStage = _importStage;
     _setImportStage(AiImportStage.copying, progress: 0);
     try {
-      final result = await _loader.importModelFromUser(
-        onCopyProgress: (p) =>
-            _setImportStage(AiImportStage.copying, progress: p, notify: false),
+      final import = debugImportModel ?? _loader.importModelFromUser;
+      final result = await import(
         cancelToken: token,
+        onCopyProgress: (p) {
+          if (!token.isCancelled) {
+            _setImportStage(AiImportStage.copying, progress: p);
+          }
+        },
+        onTransferComplete: () {
+          _modelLoaded = false;
+          _setImportStage(AiImportStage.loading);
+        },
       );
       if (token.isCancelled) {
-        // PSRC-23: user bấm Huỷ — về trạng thái model cũ đang dùng.
-        _activeImportToken = null;
-        _modelLoaded = wasLoaded;
-        if (hasModelFile) _modelLoaded = true;
-        _setImportStage(
-          hasModelFile ? AiImportStage.ready : AiImportStage.idle,
-          progress: 0,
-        );
+        _setImportStage(previousStage, progress: 0);
         return false;
       }
       _modelStatus = result;
@@ -1554,48 +1558,41 @@ class AiServiceFacade extends ChangeNotifier {
       _setImportStage(AiImportStage.failed,
           error: result.errorMessage ?? 'Import thất bại');
       return false;
-    } on ModelCopyCancelledException {
-      _activeImportToken = null;
-      _modelLoaded = wasLoaded;
-      if (hasModelFile) _modelLoaded = true;
-      _setImportStage(
-        hasModelFile ? AiImportStage.ready : AiImportStage.idle,
-        progress: 0,
-      );
-      return false;
     } catch (e) {
-      debugPrint('[AiServiceFacade] importModelFromUser error: $e');
-      _setImportStage(AiImportStage.failed, error: 'Lỗi import: $e');
+      if (token.isCancelled) {
+        _setImportStage(previousStage, progress: 0);
+      } else {
+        _setImportStage(AiImportStage.failed, error: 'Lỗi import: $e');
+      }
       return false;
     } finally {
-      _activeImportToken = null;
+      if (identical(_activeImportToken, token)) _activeImportToken = null;
     }
   }
 
-  /// Tải model từ URL (nút "Tải về" trong trung tâm model).
-  /// Tiến độ: downloading (0–100%) → loading → ready/failed.
-  /// PSRC-23: có thể huỷ khi `downloading` qua [cancelImport].
+  /// Download a model; stop cancellation before persisting the new path.
   Future<bool> downloadModel(String url) async {
+    if (isImportActive) return false;
     final token = ModelCopyCancelToken();
     _activeImportToken = token;
-    final wasLoaded = _modelLoaded;
-    _modelLoaded = false;
+    final previousStage = _importStage;
     _setImportStage(AiImportStage.downloading, progress: 0);
     try {
       final result = await _loader.downloadModel(
         url: url,
-        onProgress: (p) =>
-            _setImportStage(AiImportStage.downloading, progress: p, notify: false),
         cancelToken: token,
+        onProgress: (p) {
+          if (!token.isCancelled) {
+            _setImportStage(AiImportStage.downloading, progress: p);
+          }
+        },
+        onTransferComplete: () {
+          _modelLoaded = false;
+          _setImportStage(AiImportStage.loading);
+        },
       );
       if (token.isCancelled) {
-        _activeImportToken = null;
-        _modelLoaded = wasLoaded;
-        if (hasModelFile) _modelLoaded = true;
-        _setImportStage(
-          hasModelFile ? AiImportStage.ready : AiImportStage.idle,
-          progress: 0,
-        );
+        _setImportStage(previousStage, progress: 0);
         return false;
       }
       _modelStatus = result;
@@ -1605,21 +1602,15 @@ class AiServiceFacade extends ChangeNotifier {
       _setImportStage(AiImportStage.failed,
           error: result.errorMessage ?? 'Download thất bại');
       return false;
-    } on ModelCopyCancelledException {
-      _activeImportToken = null;
-      _modelLoaded = wasLoaded;
-      if (hasModelFile) _modelLoaded = true;
-      _setImportStage(
-        hasModelFile ? AiImportStage.ready : AiImportStage.idle,
-        progress: 0,
-      );
-      return false;
     } catch (e) {
-      debugPrint('[AiServiceFacade] downloadModel error: $e');
-      _setImportStage(AiImportStage.failed, error: 'Download thất bại: $e');
+      if (token.isCancelled) {
+        _setImportStage(previousStage, progress: 0);
+      } else {
+        _setImportStage(AiImportStage.failed, error: 'Download thất bại: $e');
+      }
       return false;
     } finally {
-      _activeImportToken = null;
+      if (identical(_activeImportToken, token)) _activeImportToken = null;
     }
   }
 
@@ -1728,7 +1719,7 @@ class AiServiceFacade extends ChangeNotifier {
     }
     _chatQueue.clear();
     // PSRC-23: huỷ copy/download đang chạy khi facade dispose.
-    _activeImportToken?.cancel();
+    if (canCancelImport) _activeImportToken?.cancel();
     // WP1: hủy request remote đang stream — token không được chảy tiếp sau
     // dispose (AT: đóng màn giữa lúc generate ⇒ dừng sạch).
     _activeChatToken?.cancel('facade disposed');

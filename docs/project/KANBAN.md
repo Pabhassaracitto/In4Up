@@ -237,6 +237,8 @@
 
 | PSRC-21 | WordList xoá hàng loạt | 🔨 CI xanh, chờ nghiệm thu máy | `bee0d4e`; [run 42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143) |
 
+| PSRC-19 | AI chat: chỉ báo đang suy nghĩ | 🔨 CI xanh, chờ nghiệm thu máy | `751ba69`; [run 42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069) |
+
 
 ## Card chi tiết
 
@@ -9449,3 +9451,10 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Code:** `bee0d4e` thêm xoá lựa chọn cho controller và dialog xác nhận trong màn hình dùng `VocabularyProvider.removeWord` như xoá từng từ; không thay đổi SRS.
 - **CI:** `app_analyze` [42864961143](https://github.com/Pabhassaracitto/In4Up/actions/runs/42864961143), step PSRC-21 xanh.
 - **Chưa kiểm:** thao tác chọn/xác nhận trên thiết bị và bố cục màn hình nhỏ; widget test UI.
+
+
+### PSRC-19 — Chỉ báo AI đang suy nghĩ
+- **Trạng thái:** 🔨 CI xanh; chờ nghiệm thu máy.
+- **Code:** `751ba69`: banner tĩnh, ẩn khi có nội dung assistant; chặn gửi thêm từ composer trong khi chờ, giữ hàng đợi facade cho các caller khác. Không thay đổi chất lượng model.
+- **CI:** `app_analyze` [42866211069](https://github.com/Pabhassaracitto/In4Up/actions/runs/42866211069), step PSRC-19 xanh.
+- **Chưa kiểm:** local/remote trên thiết bị, token đầu trong kết nối thật và tương tác composer; test hiện chỉ bao phủ widget chỉ báo, không thử gửi thực tế.

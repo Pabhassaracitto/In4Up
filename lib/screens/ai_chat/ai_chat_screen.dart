@@ -27,6 +27,7 @@ class AiChatScreen extends StatefulWidget {
 class _AiChatScreenState extends State<AiChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  bool _sending = false;
 
   @override
   void initState() {
@@ -52,7 +53,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Future<void> _send(AiServiceFacade facade) async {
     final question = _controller.text.trim();
-    if (question.isEmpty) return;
+    if (question.isEmpty || facade.isChatLoading || _sending) return;
     final coach = widget.context;
     // Trước đây context chỉ được hiển thị ở banner, nhưng không đi vào
     // request nên mở từ tab Hiểu rồi hỏi lại sẽ bị xử lý như chat Home.
@@ -68,10 +69,14 @@ Các câu xung quanh: ${coach.surroundingText ?? 'Không có'}
 
 Câu hỏi của người học: $question''';
     _controller.clear();
-    // KHÔNG bỏ tin khi AI đang trả lời (AI-CHAT-01 DoD #3): facade xếp hàng và
-    // isolate native xử lý tuần tự — bản cũ `return` sớm nên tin thứ hai bị
-    // nuốt mất, còn nút gửi bị khoá nên người dùng tưởng chat "đơ".
-    await facade.sendMessage(text);
+    // The composer blocks a second send without clearing its draft. The
+    // facade queue remains intact for callers outside this screen.
+    _sending = true;
+    try {
+      await facade.sendMessage(text);
+    } finally {
+      _sending = false;
+    }
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -171,6 +176,13 @@ Câu hỏi của người học: $question''';
             builder: (context, facade, _) =>
                 _RemoteRouteBanner(facade: facade),
           ),
+          // A static banner avoids rebuilding message bubbles and GPU fades.
+          Consumer<AiServiceFacade>(
+            builder: (context, facade, _) => ThinkingIndicator(
+              isLoading: facade.isChatLoading,
+              messages: facade.chatMessages,
+            ),
+          ),
           // Trợ lý hiểu bài: hiển thị rõ ngữ cảnh được gắn kèm (chỉ text).
           if (coachContext != null)
             _UnderstandCoachBanner(aiContext: coachContext),
@@ -220,9 +232,7 @@ Câu hỏi của người học: $question''';
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // WP1 (API-002): đang stream qua API ⇒ nút DỪNG (đóng
-                    // socket ngay, token không chảy tiếp); engine local thì
-                    // giữ hành vi cũ (gửi tiếp = vào hàng đợi).
+                    // Remote keeps its Stop action; local blocks a second send.
                     IconButton.filled(
                       tooltip: context.uiText(
                           facade.isChatLoading && facade.isRemoteChatActive
@@ -231,7 +241,9 @@ Câu hỏi của người học: $question''';
                       onPressed:
                           facade.isChatLoading && facade.isRemoteChatActive
                               ? facade.stopGenerating
-                              : () => _send(facade),
+                              : facade.isChatLoading
+                                  ? null
+                                  : () => _send(facade),
                       icon: facade.isChatLoading && facade.isRemoteChatActive
                           ? const Icon(Icons.stop_rounded)
                           : facade.isChatLoading
@@ -250,6 +262,40 @@ Câu hỏi của người học: $question''';
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Static pre-response indicator. The latest assistant text means the first
+/// token (or complete local response) is already visible.
+class ThinkingIndicator extends StatelessWidget {
+  final bool isLoading;
+  final List<ChatMessage> messages;
+
+  const ThinkingIndicator({
+    super.key,
+    required this.isLoading,
+    required this.messages,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final last = messages.isEmpty ? null : messages.last;
+    final hasAnswer = last?.role == ChatRole.assistant && last!.text.isNotEmpty;
+    if (!isLoading || hasAnswer) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: const Color(0xFF1A2440),
+      child: Row(children: [
+        const SizedBox(
+          width: 14,
+          height: 14,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 8),
+        Text(context.uiText('Đang suy nghĩ…'),
+            style: const TextStyle(fontSize: 12)),
+      ]),
     );
   }
 }

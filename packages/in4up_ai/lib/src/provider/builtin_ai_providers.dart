@@ -2,8 +2,8 @@
 //
 // Nhà cung cấp AI **CÓ SẴN** trong app (seed lần cài đặt đầu).
 //
-// Yêu cầu owner (2026-10-17): "Hãy bổ sung nhà cung cấp sẵn cho OpenRouter"
-// với model `minimax/minimax-m3.1-flash:free`, ở trạng thái **bật**, và
+// Yêu cầu owner (2026-10-17): "Hãy bổ sung nhà cung cấp sẵn cho OpenRouter",
+// ở trạng thái **bật**, và
 // routing "Khi nào dùng model online" cho **Chat & Phân tích AI** ở chế độ
 // **Ưu tiên online** với nhà cung cấp **OpenRouter**.
 //
@@ -40,7 +40,36 @@ const String kBuiltinOpenRouterApiKey =
 bool get hasBuiltinOpenRouterApiKey => kBuiltinOpenRouterApiKey.isNotEmpty;
 
 /// Model chat mặc định của provider có sẵn.
-const String kBuiltinOpenRouterChatModel = 'minimax/minimax-m3.1-flash:free';
+///
+/// PSRC-181 (owner 2026-11-10): *"Đặt openrouter/free làm model mặc định"*.
+/// `openrouter/free` = **Free Models Router** của OpenRouter: tự chọn một
+/// model free CÒN SỐNG cho từng request (lọc theo nhu cầu: ảnh, tool,
+/// structured output) ⇒ bền hơn việc ghim một model `:free` cụ thể, vì danh
+/// sách model free của OpenRouter đổi/xoá liên tục.
+const String kBuiltinOpenRouterChatModel = 'openrouter/free';
+
+/// Model mặc định CŨ của các bản build trước PSRC-181.
+///
+/// CHỈ dùng để **migrate** cấu hình đã seed trên máy người dùng — không dùng
+/// để gọi API. Không đụng vào model mà user tự chọn (khác các giá trị này).
+const List<String> kBuiltinOpenRouterLegacyChatModels = <String>[
+  'minimax/minimax-m3.1-flash:free',
+];
+
+/// Nâng model mặc định CŨ của provider có sẵn lên mặc định hiện tại.
+///
+/// PSRC-181: máy đã cài trước bản này vẫn lưu model mặc định cũ trong
+/// `SharedPreferences` ⇒ chỉ đổi khi giá trị đang lưu **đúng bằng** một
+/// [kBuiltinOpenRouterLegacyChatModels]. Provider khác / model user tự chọn
+/// / model để trống đều giữ nguyên (không ghi đè lựa chọn của người dùng).
+AiProviderConfig migrateBuiltinProviderChatModel(AiProviderConfig provider) {
+  if (provider.id != kBuiltinOpenRouterId) return provider;
+  final current = provider.chatModel?.trim();
+  if (current == null || current.isEmpty) return provider;
+  if (!kBuiltinOpenRouterLegacyChatModels.contains(current)) return provider;
+  if (current == kBuiltinOpenRouterChatModel) return provider;
+  return provider.copyWith(chatModel: kBuiltinOpenRouterChatModel);
+}
 
 /// Nhãn hiển thị.
 const String kBuiltinOpenRouterLabel = 'OpenRouter';

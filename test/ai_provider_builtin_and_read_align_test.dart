@@ -3,8 +3,8 @@
 // 1. SỌC VÀNG-ĐEN 64px ở "Cài đặt → Sửa nhà cung cấp" = Flutter **overflow
 //    warning** (vạch vàng-đen) — do DropdownButton (mặc định
 //    isExpanded: false) rộng hơn khung khi tên model dài.
-// 2. Provider CÓ SẴN cho OpenRouter (key + model minimax/minimax-m3.1-flash:free,
-//    bật) + routing "Khi nào dùng model online" (Chat & Phân tích AI) →
+// 2. Provider CÓ SẴN cho OpenRouter (key + model mặc định, bật) + routing
+//    "Khi nào dùng model online" (Chat & Phân tích AI) →
 //    Ưu tiên online, nhà cung cấp OpenRouter.
 // 3. Tab Đọc — khi canh giữa, đoạn dài RỚT DÒNG bị canh trái (hàng đầu
 //    canh giữa) ⇒ mọi hàng phải canh như nhau.
@@ -38,7 +38,7 @@ void main() {
       expect(body, contains('_SearchPickerDialog'),
           reason: 'Phải mở dialog có ô lọc, không bắt cuộn tay danh sách dài.');
       expect(body, contains('TextOverflow.ellipsis'),
-          reason: 'Tên model dài (vd minimax/minimax-m3.1-flash:free) không '
+          reason: 'Tên model dài (vd minimax/minimax-m3.1-flash:free dạng cũ) không '
               'được tràn ngang (vạch vàng-đen).');
       // Dialog lọc theo query (gõ tới đâu lọc tới đó) + đếm kết quả.
       final dialogIdx = providersScreen.indexOf('class _SearchPickerDialogState');
@@ -67,7 +67,8 @@ void main() {
       expect(p.label, 'OpenRouter');
       expect(p.baseUrl, 'https://openrouter.ai/api/v1');
       expect(p.enabled, isTrue, reason: 'Provider có sẵn phải BẬT.');
-      expect(p.chatModel, 'minimax/minimax-m3.1-flash:free');
+      // PSRC-181 (2026-11-10): mặc định đổi sang router miễn phí.
+      expect(p.chatModel, 'openrouter/free');
       // Provider có sẵn phải hỗ trợ năng lực chat (để routing chọn được).
       expect(p.supports(AiRouteCapability.chat), isTrue);
     });

@@ -33,4 +33,14 @@ class LoopPresets {
     if (maxLoopCount < 0) return 0;
     return dropdownValues.contains(maxLoopCount) ? maxLoopCount : 0;
   }
+
+  /// PSRC-178 — nhãn của nút "lặp phần tiếp theo" trong popup A–B.
+  ///
+  /// Nút này làm HAI việc khác nhau, tuỳ nguồn đã có lời hay chưa:
+  ///   • có lời (LRC) ⇒ nhảy sang **câu** kế tiếp theo mốc thời gian;
+  ///   • chưa có lời ⇒ dịch vùng lặp sang một **đoạn** cùng độ dài A–B, bắt
+  ///     đầu tại B (vd. A=5s, B=10s ⇒ đoạn mới 10s→15s).
+  /// Nhãn phải nói đúng việc sắp làm, nếu không người dùng tưởng app nhảy sai.
+  static String nextRepeatLabel({required bool hasLyrics}) =>
+      hasLyrics ? 'Lặp câu tiếp' : 'Lặp đoạn tiếp';
 }

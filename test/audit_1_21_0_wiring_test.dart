@@ -6,9 +6,11 @@
 // THUẦN logic nằm ở các file riêng cùng đợt (overlay_layout_audit_test.dart,
 // cabin_finalization_dedup_test.dart, pdf_open_preflight_test.dart, ...).
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in4up/models/loop_presets.dart';
 
 String _read(String path) {
   final file = File(path);
@@ -38,6 +40,7 @@ void main() {
   final listen = _read('lib/screens/listen_mode/listen_mode_screen.dart');
   final presets = _read('lib/models/loop_presets.dart');
   final abControls = _read('lib/widgets/ab_loop_controls.dart');
+  final loopMixin = _read('lib/providers/player/player_loop_mixin.dart');
 
   group('#1 — overlay nhiều khối', () {
     test('native KHÔNG còn phình khung xuống dưới', () {
@@ -127,6 +130,101 @@ void main() {
       expect(abControls.contains('player.setMaxLoopCount(value)'), isTrue);
       expect(listen.contains('onChanged: player.setMaxLoopCount'), isTrue);
       expect(abControls.contains('setLoopCount('), isFalse);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // PSRC-178 — nhãn "lặp phần tiếp theo" phải khớp VIỆC NÓ LÀM:
+  //   có lời (LRC)  ⇒ nhảy sang **câu** kế tiếp theo mốc thời gian;
+  //   chưa có lời    ⇒ dịch một **đoạn** cùng độ dài A–B, bắt đầu tại B.
+  // Nhãn cũ "Lặp câu tiếp" cho cả hai trường hợp khiến người dùng tưởng app
+  // nhảy sai khi file chưa có lời.
+  // ───────────────────────────────────────────────────────────────────────
+  group('PSRC-178 — nhãn nút lặp phần tiếp theo', () {
+    test('hàm nhãn thuần: có lời → "câu", không lời → "đoạn"', () {
+      expect(LoopPresets.nextRepeatLabel(hasLyrics: true), 'Lặp câu tiếp');
+      expect(LoopPresets.nextRepeatLabel(hasLyrics: false), 'Lặp đoạn tiếp');
+    });
+
+    test('nút A–B dùng hàm nhãn + đọc trạng thái lời', () {
+      expect(abControls.contains('LoopPresets.nextRepeatLabel('), isTrue);
+      expect(abControls.contains('lrcLines.isNotEmpty'), isTrue);
+      // Hard-code nhãn cũ ⇒ file chưa có lời vẫn ghi "câu" (đúng lỗi PSRC-178).
+      expect(abControls.contains("label: 'Lặp câu tiếp'"), isFalse);
+    });
+
+    test('rule #5 — 2 nhãn có đủ 8 locale + English fallback', () {
+      final pack = jsonDecode(_read('tool/priority_native_pack.json'))
+          as Map<String, dynamic>;
+      final overrides = jsonDecode(_read('tool/legacy_ui_english_overrides.json'))
+          as Map<String, dynamic>;
+      final vietnamese =
+          RegExp(r'[đĐơƠưƯảạằắẳẵặầấẩẫậẻẽẹềếểễệỉĩịỏọồốổỗộờớởỡợủũụừứửữựỳỷỹỵ]');
+      for (final key in ['Lặp câu tiếp', 'Lặp đoạn tiếp']) {
+        final entry = pack[key];
+        expect(entry, isNotNull, reason: 'thiếu "$key" trong pack ưu tiên');
+        final values = (entry as Map).cast<String, String>();
+        for (final locale in [
+          'en',
+          'zh',
+          'zh_TW',
+          'hi',
+          'si',
+          'my',
+          'th',
+          'ja',
+        ]) {
+          expect(values[locale], isNotNull,
+              reason: '"$key" thiếu locale $locale');
+          if (locale == 'en') continue;
+          expect(vietnamese.hasMatch(values[locale]!), isFalse,
+              reason: '"$key" [$locale] còn chữ Việt');
+        }
+        expect(overrides[key], isNotNull,
+            reason: '"$key" thiếu English fallback cho locale chưa dịch');
+      }
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // PSRC-179 — "khoảng lặng" của popup A–B ngoài và slider trong sheet "Thêm"
+  // phải là MỘT nguồn: `gapDuration`. Bản cũ có thêm `_silenceDuration` mà
+  // engine không đọc ⇒ chip ở ngoài vô tác dụng và hai chỗ hiển thị lệch nhau.
+  // ───────────────────────────────────────────────────────────────────────
+  group('PSRC-179 — khoảng lặng đồng bộ một nguồn', () {
+    test('không còn biến khoảng lặng thứ hai', () {
+      expect(loopMixin.contains('_silenceDuration'), isFalse);
+    });
+
+    test('silenceDuration đọc từ gapDuration, setter đi qua setGapDuration', () {
+      final iGetter = loopMixin.indexOf('Duration get silenceDuration');
+      expect(iGetter, greaterThan(-1));
+      expect(
+        loopMixin.substring(iGetter, loopMixin.indexOf(';', iGetter)),
+        contains('_gapDuration'),
+      );
+      final iSetter = loopMixin.indexOf('void setSilenceDuration(');
+      expect(iSetter, greaterThan(-1));
+      expect(
+        loopMixin.substring(iSetter, loopMixin.indexOf('\n  }', iSetter)),
+        contains('setGapDuration('),
+      );
+    });
+
+    test('chip khoảng lặng ở popup A–B ghi vào gapDuration', () {
+      final iBox = listen.indexOf('class _SilenceOptionsBox');
+      expect(iBox, greaterThan(-1));
+      final box = listen.substring(iBox);
+      expect(box.contains('player.setGapDuration('), isTrue);
+      expect(box.contains('setSilenceDuration('), isFalse);
+    });
+
+    test('nút mở panel hiện giá trị đang dùng (không phải mở ra mới biết)', () {
+      final iPanel = listen.indexOf('class _ABLoopWithSilencePanel');
+      final iBox = listen.indexOf('class _SilenceOptionsBox');
+      expect(iPanel, greaterThan(-1));
+      expect(listen.substring(iPanel, iBox).contains('player.gapDuration'),
+          isTrue);
     });
   });
 }

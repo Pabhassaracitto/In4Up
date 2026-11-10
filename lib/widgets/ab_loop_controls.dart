@@ -600,15 +600,29 @@ class _ExtendedControls extends StatelessWidget {
             onTap: () => player.skipToNextLoop(),
           ),
 
-        // LISTEN-630-01: lặp câu tiếp theo — dịch vùng A→B sang câu kế
-        // (theo dòng LRC nếu có, nếu không thì +10s) rồi lặp.
+        // LISTEN-630-01: lặp phần tiếp theo — dịch vùng A→B sang câu kế
+        // (theo dòng LRC nếu có, nếu không thì dịch đúng độ dài A–B bắt đầu
+        // tại B) rồi lặp.
         // Giúp "lười vận động thân mà nhận được tâm": dưỡng chất tự thấm,
         // không cần mò xa.
-        _ActionButton(
-          icon: Icons.subdirectory_arrow_right_rounded,
-          label: 'Lặp câu tiếp',
-          color: const Color(0xFF26C6DA),
-          onTap: () => _advanceToNextSentence(context, player),
+        //
+        // PSRC-178: nút này làm HAI việc khác nhau tuỳ nguồn có lời hay không,
+        // nên nhãn phải nói đúng việc nó sắp làm — "câu" khi có LRC (nhảy
+        // theo mốc câu), "đoạn" khi không có lời (cắt một đoạn cùng độ dài
+        // với A–B, bắt đầu tại B). Một nhãn "Lặp câu tiếp" duy nhất khiến
+        // người dùng tưởng app nhảy sai khi file chưa có lời.
+        Consumer<UnderstandProvider>(
+          builder: (_, understand, __) {
+            final hasLyrics = understand.lrcLines.isNotEmpty;
+            return _ActionButton(
+              icon: Icons.subdirectory_arrow_right_rounded,
+              // Nhãn do hàm THUẦN quyết định ⇒ test được, và chỉ có MỘT chỗ
+              // định nghĩa (PSRC-178).
+              label: LoopPresets.nextRepeatLabel(hasLyrics: hasLyrics),
+              color: const Color(0xFF26C6DA),
+              onTap: () => _advanceToNextSentence(context, player),
+            );
+          },
         ),
 
         // Save button
@@ -664,9 +678,10 @@ class _ExtendedControls extends StatelessWidget {
   }
 }
 
-/// LISTEN-630-01: di chuyển vùng lặp A→B sang câu tiếp theo rồi lặp.
-/// Ưu tiên dòng LRC (câu kế tiếp theo timestamp); không có LRC thì
-/// lùi điểm A sang điểm B và mở rộng 10s.
+/// LISTEN-630-01: di chuyển vùng lặp A→B sang phần tiếp theo rồi lặp.
+/// Ưu tiên dòng LRC (câu kế tiếp theo timestamp); không có LRC thì lấy B làm
+/// mốc A mới và giữ ĐÚNG độ dài A–B (PSRC-178: hành vi thật là "đoạn", nên
+/// nhãn nút đổi theo — xem `_ExtendedControls`).
 void _advanceToNextSentence(BuildContext context, PlayerProvider player) {
   final a = player.loopStart;
   final b = player.loopEnd;

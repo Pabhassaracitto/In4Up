@@ -9431,3 +9431,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   5. Huỷ giữa lúc xuất file dài ⇒ "Đã huỷ" (không treo "Đang huỷ...").
 - **Lịch sử:**
   - 2026-11-10 | created→done | agent `arena/18339505-in4up` | đọc 4 issue Linear → tìm gốc chung từ tài liệu plugin FFmpegKit (không đoán) → sửa 3 gốc + 4 pin test → CI `42864431377` đỏ 1 test do quét comment (`672fce9`… sửa) → **`42865543792` 🟢**
+  - 2026-11-10 | rebase | agent `arena/18339505-in4up` | base nhận thêm PSRC-181/182 + web-core ⇒ PR #167 `CONFLICTING`; rebase 5 commit lên `arena/01a0251e-in4up` — xung đột **chỉ** ở KANBAN (giữ cả 3 card PSRC-181, PSRC-182, PSRC-177/178/179/180), 4 commit code rebase sạch ⇒ [CI `42875712327` 🟢](https://github.com/Pabhassaracitto/In4Up/actions/runs/42875712327) · 19/19 check · `MERGEABLE/CLEAN`

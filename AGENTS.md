@@ -17,7 +17,8 @@
 - `docs/HANDOFF_MVA_v2.md` — hợp đồng bàn giao MATRIX KNOWLEDGE MVA (schema mục 2,
   isolate boundary mục 4, 8 task, 8 acceptance test).
 - `docs/adr/` — mọi quyết định kiến trúc sau bàn giao đi qua ADR tại đây
-  (xem 0001: chuẩn hóa SM-2 về một hàm duy nhất + postmortem).
+  (xem 0001: chuẩn hóa SM-2 về một hàm duy nhất + postmortem; 0027: chấm
+  điểm flashcard khi chưa lật thẻ — một cổng `RatingGate` cho nút + vuốt).
 
 ## Quản trị thông tin dự án (BẮT BUỘC đọc `docs/GOVERNANCE.md`)
 

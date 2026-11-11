@@ -472,7 +472,8 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
-        return AnimatedBuilder(
+        return StatefulBuilder(
+          builder: (context, setSheetState) => AnimatedBuilder(
           animation: _appearance,
           builder: (context, _) {
             final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -655,7 +656,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
                             divisions: 10,
                             label: '${_ttsSpeed.toStringAsFixed(2)}x',
                             onChanged: (value) {
-                              setState(() => _ttsSpeed = value);
+                              setSheetState(() => _ttsSpeed = value);
                               _tts.configure(speed: value);
                             },
                           ),
@@ -683,6 +684,7 @@ class _TipitakaReaderScreenState extends State<TipitakaReaderScreen> {
               ),
             );
           },
+          ),
         );
       },
     );

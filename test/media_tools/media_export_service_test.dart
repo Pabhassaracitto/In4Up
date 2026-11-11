@@ -81,6 +81,37 @@ class _FakeEnginePort implements MediaFfmpegPort {
   }
 }
 
+/// Optional integration port: exercises the actual FFmpeg muxer on a host.
+class _ProcessEnginePort implements MediaFfmpegPort {
+  _ProcessEnginePort(this.binaryPath);
+
+  @override
+  final String binaryPath;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<String> probe(String inputPath) async {
+    final result = await Process.run(binaryPath, ['-hide_banner', '-i', inputPath]);
+    return '${result.stdout}\n${result.stderr}';
+  }
+
+  @override
+  Future<MediaCommandOutcome> run(
+    List<String> args, {
+    void Function(int elapsedMs)? onElapsed,
+    dynamic token,
+  }) async {
+    final result = await Process.run(binaryPath, args);
+    return MediaCommandOutcome(
+      success: result.exitCode == 0,
+      cancelled: false,
+      output: '${result.stdout}\n${result.stderr}',
+    );
+  }
+}
+
 class _FakeHost implements MediaExportHost {
   _FakeHost(this.dir);
 
@@ -157,6 +188,102 @@ void main() {
         materializeUri: (uri) async => uri,
         freeSpaceProbe: (_) => freeSpaceMb,
       );
+
+  group('PSRC-195 — FFmpeg output format', () {
+    for (final preset in [
+      MediaExportPreset.mp3Standard,
+      MediaExportPreset.m4aAac,
+      MediaExportPreset.wavPcm,
+      MediaExportPreset.opus,
+    ]) {
+      for (final scope in MediaExportScope.values) {
+        test('${preset.name} / ${scope.name} keeps the muxer extension', () async {
+          final port = _FakeEnginePort(probeLog: _probeOk);
+          final service = buildService(port, _FakeHost(Directory('${temp.path}/out')));
+          final result = await service.export(MediaExportRequest(
+            inputPath: input.path,
+            inputKind: MediaExportInputKind.video,
+            preset: preset,
+            scope: scope,
+            title: "Thầy's talk.v1.mp4",
+            start: const Duration(seconds: 1),
+            duration: const Duration(seconds: 2),
+            slices: const [
+              MediaExportSlice(start: Duration.zero, duration: Duration(seconds: 2)),
+              MediaExportSlice(start: Duration(seconds: 2), duration: Duration(seconds: 2)),
+            ],
+          ));
+
+          expect(port.commands, hasLength(scope == MediaExportScope.chapters ? 2 : 1));
+          for (final command in port.commands) {
+            expect(command.last, endsWith('.part.${preset.extension}'));
+            expect(command.last, isNot(contains(r'$1')));
+          }
+          for (final path in result.outputPaths) {
+            expect(path, endsWith('.${preset.extension}'));
+            expect(File(path).existsSync(), isTrue);
+          }
+        });
+      }
+    }
+  });
+
+  test('real FFmpeg exports full audio, A–B audio/video and chapters', () async {
+    final binary = Platform.environment['IN4UP_TEST_FFMPEG']!;
+    final mp3 = '${temp.path}/Thầy\'s talk.mp3';
+    final video = '${temp.path}/video.mp4';
+    final audioFixture = await Process.run(binary, [
+      '-hide_banner', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3',
+      '-c:a', 'libmp3lame', '-write_xing', '0', mp3,
+    ]);
+    expect(audioFixture.exitCode, 0, reason: '${audioFixture.stderr}');
+    final videoFixture = await Process.run(binary, [
+      '-hide_banner', '-y', '-f', 'lavfi', '-i', 'color=size=64x64:rate=5:duration=3',
+      '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3',
+      '-c:v', 'mpeg4', '-c:a', 'aac', '-shortest', video,
+    ]);
+    expect(videoFixture.exitCode, 0, reason: '${videoFixture.stderr}');
+
+    final service = MediaExportService(
+      engine: MediaFfmpegEngine(port: _ProcessEnginePort(binary)),
+      host: _FakeHost(Directory('${temp.path}/real-output')),
+      materializeUri: (uri) async => uri,
+      freeSpaceProbe: (_) => 500,
+    );
+    for (final request in [
+      MediaExportRequest(inputPath: mp3, preset: MediaExportPreset.mp3Standard),
+      MediaExportRequest(
+        inputPath: mp3, preset: MediaExportPreset.mp3Standard,
+        scope: MediaExportScope.clip, start: const Duration(milliseconds: 500),
+        duration: const Duration(seconds: 1),
+      ),
+      MediaExportRequest(
+        inputPath: video, preset: MediaExportPreset.m4aAac,
+        inputKind: MediaExportInputKind.video, scope: MediaExportScope.clip,
+        duration: const Duration(seconds: 1),
+      ),
+      MediaExportRequest(
+        inputPath: mp3, preset: MediaExportPreset.wavPcm,
+        scope: MediaExportScope.chapters,
+        slices: const [
+          MediaExportSlice(start: Duration.zero, duration: Duration(seconds: 1)),
+          MediaExportSlice(start: Duration(seconds: 1), duration: Duration(seconds: 1)),
+        ],
+      ),
+    ]) {
+      final result = await service.export(request);
+      expect(result.outputPaths, hasLength(request.scope == MediaExportScope.chapters ? 2 : 1));
+      for (final path in result.outputPaths) {
+        expect(await File(path).length(), greaterThan(512));
+        final decode = await Process.run(binary, [
+          '-v', 'error', '-i', path, '-f', 'null', '-',
+        ]);
+        expect(decode.exitCode, 0, reason: '${decode.stderr}');
+      }
+    }
+  }, skip: Platform.environment['IN4UP_TEST_FFMPEG'] == null
+      ? 'Set IN4UP_TEST_FFMPEG to a FFmpeg binary with libmp3lame and AAC'
+      : false);
 
   group('export — xuất cả file', () {
     test('ghi ra file thật, trả size, đăng ký Gần đây', () async {

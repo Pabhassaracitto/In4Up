@@ -86,6 +86,17 @@ void main() {
       expect(ticks, [123]);
     });
 
+    test('bitrate duration warning does not turn a successful export into failure', () async {
+      final engine = MediaFfmpegEngine(port: _Port(
+        outcome: const MediaCommandOutcome(
+          success: true,
+          cancelled: false,
+          output: 'Estimating duration from bitrate, this may be inaccurate',
+        ),
+      ));
+      expect((await engine.run(['-i', 'a.mp3', 'b.mp3'])).success, isTrue);
+    });
+
     test('thiếu FFmpeg ⇒ MediaExportException.ffmpegMissing, không chạy lệnh', () async {
       final port = _Port(available: false);
       final engine = MediaFfmpegEngine(port: port);

@@ -454,9 +454,11 @@ class MediaExportService {
       directory: outDir,
       exists: (path) => File(path).existsSync(),
     );
-    final partPath = finalPath.replaceFirst(
-      RegExp(r'\.([A-Za-z0-9]+)$'),
-      r'.part.$1',
+    // replaceFirst does not expand capture references in Dart. Keep the
+    // real extension at the end so FFmpeg can infer its output muxer.
+    final partPath = p.join(
+      p.dirname(finalPath),
+      '${p.basenameWithoutExtension(finalPath)}.part${p.extension(finalPath)}',
     );
 
     final args = MediaCommandBuilder.trimAudio(
@@ -551,7 +553,12 @@ class MediaExportService {
     // Không import được (ví dụ ổ đầy) → vẫn trả file trong `media_exports/`.
     try {
       await produced.rename(finalPath);
-    } catch (_) {}
+    } catch (e) {
+      try {
+        if (await produced.exists()) await produced.delete();
+      } catch (_) {}
+      throw MediaExportException(MediaExportErrorKind.failed, detail: '$e');
+    }
     return finalPath;
   }
 

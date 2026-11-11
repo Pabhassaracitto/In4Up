@@ -264,6 +264,40 @@ void main() {
       expect(readCenter.dx, lessThan(listenCenter.dx));
     });
 
+    for (final order in ShellContentOrder.values) {
+      testWidgets('Cabin shortcut on Listen and Speaking with $order', (tester) async {
+        await storage.saveShellContentOrder(order);
+        await storage.saveShellListenSubMode(0);
+        await storage.saveShellCompactMode(false);
+        await storage.saveShellAutoHideModeSwitch(false);
+        await _pumpMainShell(tester);
+        await tester.tap(find.text('Nghe'));
+        await tester.pump(const Duration(milliseconds: 300));
+
+        void expectCabinBesideReading() {
+          final cabin = find.byTooltip('Dịch Live Cabin');
+          final reading = find.byTooltip('Thư viện văn bản');
+          final audio = find.byTooltip('Thư viện âm thanh');
+          expect(cabin, findsOneWidget);
+          expect(reading, findsOneWidget);
+          expect(audio, findsOneWidget);
+          expect(tester.getCenter(cabin).dx, greaterThan(tester.getCenter(reading).dx));
+          expect(tester.getCenter(cabin).dx - tester.getCenter(reading).dx, 42);
+        }
+
+        expectCabinBesideReading();
+        final modeBar = find.byKey(const ValueKey('mode-switch-listen-0'));
+        await tester.tap(find.descendant(of: modeBar, matching: find.text('Nói')));
+        await tester.pump(const Duration(milliseconds: 300));
+        expectCabinBesideReading();
+
+        final speakingBar = find.byKey(const ValueKey('mode-switch-listen-1'));
+        await tester.tap(find.descendant(of: speakingBar, matching: find.text('Xem')));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byTooltip('Dịch Live Cabin'), findsNothing);
+      });
+    }
+
     testWidgets('quick tools put recent context tools first', (tester) async {
       await storage.recordQuickActionUsage('review');
       await _pumpMainShell(tester);

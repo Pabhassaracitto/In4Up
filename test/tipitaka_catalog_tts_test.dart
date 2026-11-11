@@ -39,6 +39,33 @@ void main() {
       expect(book('MN01T_TIK').catalogSection, TipitakaCatalogSection.subcommentary);
     });
 
+    test('source edition takes precedence over words in a title', () {
+      TipitakaBook sourceBook(String code, String title) => TipitakaBook(
+        id: 90, collectionId: 1, code: code, namePali: '',
+        nameEn: title, nameVi: '', orderIndex: 0,
+        metadataJson: '{"source_table":"$code"}',
+      );
+      expect(sourceBook('vin01m_mul', 'Commentary on Sri Lanka').catalogSection,
+          TipitakaCatalogSection.canonical);
+      expect(sourceBook('vin01a_att', 'History of the council').catalogSection,
+          TipitakaCatalogSection.commentary);
+      expect(sourceBook('vin01t1_tik', 'Dictionary').catalogSection,
+          TipitakaCatalogSection.subcommentary);
+    });
+
+    test('CSCD source hierarchy overrides misleading importer collections', () {
+      expect(book('S0101M_MUL').catalogSection, TipitakaCatalogSection.canonical);
+      expect(book('S0101M_MUL').cscdLocation!.parents, ['Dīghanikāya']);
+      expect(book('S0201M_MUL').cscdLocation!.parents, ['Majjhimanikāya']);
+      expect(book('E0101N_MUL').catalogSection, TipitakaCatalogSection.extraCanonical);
+      expect(book('E0103N_ATT').catalogSection, TipitakaCatalogSection.extraCanonical);
+      expect(book('E1201N_NRF').catalogSection, TipitakaCatalogSection.sriLanka);
+      expect(book('VIN04T_NRF').catalogSection, TipitakaCatalogSection.subcommentary);
+      expect(book('S0402M1_MUL').cscdLocation!.order,
+          lessThan(book('S0402M2_MUL').cscdLocation!.order));
+      expect(book('UNRECOGNIZED').cscdLocation, isNull);
+    });
+
     test('metadata and known titles expose extra/Sri Lankan branches', () {
       expect(
         book('PARITTA', metadata: '{"catalog_section":"extra-canonical"}')

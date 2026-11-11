@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:in4up/core/language/localized_material.dart';
 
 import 'package:in4up/features/tipitaka/models/book.dart';
+import 'package:in4up/features/tipitaka/models/cscd_catalog.dart';
 import 'package:in4up/features/tipitaka/models/collection.dart';
 import 'package:in4up/features/tipitaka/models/highlight.dart';
 import 'package:in4up/features/tipitaka/models/segment.dart';
@@ -15,6 +16,27 @@ import 'package:in4up/features/tipitaka/services/reading_position_store.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_markup.dart';
 import 'package:in4up/features/tipitaka/services/tipitaka_language_resolver.dart';
 
+// Source divisions are independent of the collection_id assigned by older
+// importers (which put every unrecognised table under Sutta).
+String _catalogDivisionKey(TipitakaBook book) {
+  final source = book.cscdLocation;
+  return source == null
+      ? 'imported:${book.collectionId}'
+      : 'cscd:${source.section}:${source.division}';
+}
+
+class _CatalogDivision {
+  final String key;
+  final TipitakaCatalogSection section;
+  final TipitakaCollection collection;
+  final String? sourceTitle;
+  final int sortOrder;
+  final Set<int> collectionIds = {};
+
+  _CatalogDivision(this.key, this.section, this.collection,
+      this.sourceTitle, this.sortOrder);
+}
+
 /// Canonical-content tree:
 /// Tam Tạng Chính Văn → Tạng → nhóm/bộ → bài kinh.
 class TipitakaLibraryScreen extends StatefulWidget {
@@ -25,9 +47,8 @@ class TipitakaLibraryScreen extends StatefulWidget {
 }
 
 class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
-  List<TipitakaCollection> _collections = const [];
   Map<int, List<TipitakaBook>> _booksByCollection = const {};
-  Map<TipitakaCatalogSection, Set<int>> _sectionCollections = const {};
+  List<_CatalogDivision> _divisions = const [];
   Set<String> _languages = const {};
   List<({TipitakaReadingPosition position, TipitakaBook book})>
       _recentPositions = const [];
@@ -78,17 +99,26 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
     TipitakaLibrarySnapshot snapshot,
     Set<String>? expandedNodes,
   ) {
-    final sectionCollections = <TipitakaCatalogSection, Set<int>>{};
+    final collections = {for (final item in snapshot.collections) item.id: item};
+    final divisions = <String, _CatalogDivision>{};
     for (final book in snapshot.books) {
-      sectionCollections
-          .putIfAbsent(book.catalogSection, () => <int>{})
-          .add(book.collectionId);
+      final collection = collections[book.collectionId];
+      if (collection == null) continue;
+      final source = book.cscdLocation;
+      final key = '${book.catalogSection.name}:${_catalogDivisionKey(book)}';
+      final division = divisions.putIfAbsent(key, () => _CatalogDivision(
+        key, book.catalogSection, collection,
+        source == null ? null : cscdDivisionTitles[source.section][source.division],
+        source == null ? 100000 + collection.orderIndex : source.order,
+      ));
+      division.collectionIds.add(book.collectionId);
     }
+    final sortedDivisions = divisions.values.toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     if (!mounted) return;
     setState(() {
       _databaseIdentity = snapshot.databaseIdentity;
-      _collections = snapshot.collections;
-      _sectionCollections = sectionCollections;
+      _divisions = sortedDivisions;
       _booksByCollection = const {};
       _languages = snapshot.languages;
       _expandedNodeKeys = expandedNodes ?? const {};
@@ -175,9 +205,8 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
-        _collections = const [];
         _booksByCollection = const {};
-        _sectionCollections = const {};
+        _divisions = const [];
         _error = error.toString();
       });
     }
@@ -363,7 +392,7 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                       ],
                       const SizedBox(height: 10),
                       for (final section in TipitakaCatalogSection.values)
-                        if (_sectionCollections.containsKey(section))
+                        if (_divisions.any((division) => division.section == section))
                           Card(
                             clipBehavior: Clip.antiAlias,
                             child: ExpansionTile(
@@ -382,45 +411,38 @@ class _TipitakaLibraryScreenState extends State<TipitakaLibraryScreen> {
                                 context.uiText('Tạng → nhóm/bộ → bài kinh'),
                               ),
                               children: [
-                                for (final collection in _collections)
-                                  if (_sectionCollections[section]
-                                          ?.contains(collection.id) ==
-                                      true)
+                                for (final division in _divisions)
+                                  if (division.section == section)
                                     _CollectionTreeNode(
-                                      key: ValueKey(
-                                        '$_catalogLanguage-${section.name}-${collection.id}',
-                                      ),
+                                      key: ValueKey('$_catalogLanguage-${division.key}'),
                                       section: section,
                                       catalogLanguage: _catalogLanguage,
-                                      collection: collection,
-                                      expandedKey:
-                                          'collection:${section.name}:${collection.id}',
-                                      initiallyExpanded: _isNodeExpanded(
-                                        'collection:${section.name}:${collection.id}',
-                                      ),
+                                      collection: division.collection,
+                                      sourceTitle: division.sourceTitle,
+                                      expandedKey: 'division:${division.key}',
+                                      initiallyExpanded: _isNodeExpanded('division:${division.key}'),
                                       onExpanded: (expanded) => _setNodeExpanded(
-                                        'collection:${section.name}:${collection.id}',
-                                        expanded,
-                                      ),
+                                        'division:${division.key}', expanded),
                                       expandedNodeKeys: _expandedNodeKeys,
                                       onNodeExpanded: _setNodeExpanded,
-                                      books: (_booksByCollection[collection.id] ??
-                                              const <TipitakaBook>[])
-                                          .where((book) =>
-                                              book.catalogSection == section)
-                                          .toList(),
+                                      books: [
+                                        for (final id in division.collectionIds)
+                                          for (final book in _booksByCollection[id] ?? const <TipitakaBook>[])
+                                            if ('${book.catalogSection.name}:${_catalogDivisionKey(book)}' == division.key)
+                                              book,
+                                      ]..sort((a, b) =>
+                                          (a.cscdLocation?.order ?? a.orderIndex)
+                                              .compareTo(b.cscdLocation?.order ?? b.orderIndex)),
                                       onLoadBooks: () async {
                                         final db = await TipitakaDb.openReady();
-                                        final loaded =
-                                            await TipitakaDb.getBooksByCollection(
-                                          db,
-                                          collection.id,
-                                          languageCode: _catalogLanguage,
-                                        );
+                                        final loaded = <int, List<TipitakaBook>>{};
+                                        for (final id in division.collectionIds) {
+                                          loaded[id] = await TipitakaDb.getBooksByCollection(
+                                            db, id, languageCode: _catalogLanguage);
+                                        }
                                         if (mounted) {
                                           setState(() => _booksByCollection = {
-                                                ..._booksByCollection,
-                                                collection.id: loaded,
+                                                ..._booksByCollection, ...loaded,
                                               });
                                         }
                                       },
@@ -622,6 +644,7 @@ class _CollectionTreeNode extends StatefulWidget {
   final TipitakaCatalogSection section;
   final String catalogLanguage;
   final TipitakaCollection collection;
+  final String? sourceTitle;
   final String expandedKey;
   final bool initiallyExpanded;
   final ValueChanged<bool> onExpanded;
@@ -640,6 +663,7 @@ class _CollectionTreeNode extends StatefulWidget {
     required this.section,
     required this.catalogLanguage,
     required this.collection,
+    required this.sourceTitle,
     required this.expandedKey,
     required this.initiallyExpanded,
     required this.onExpanded,
@@ -682,6 +706,16 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
   }
 
   String _divisionTitle(BuildContext context) {
+    if (widget.sourceTitle != null) {
+      if (widget.section == TipitakaCatalogSection.extraCanonical ||
+          widget.section == TipitakaCatalogSection.sriLanka) {
+        return widget.sourceTitle!;
+      }
+      final title = widget.sourceTitle!.toLowerCase();
+      if (title.startsWith('vinaya')) return context.uiText('Tạng Luật');
+      if (title.startsWith('sutta')) return context.uiText('Tạng Kinh');
+      if (title.startsWith('abhidhamma')) return context.uiText('Tạng Vi Diệu Pháp');
+    }
     final source = '${widget.collection.namePali} ${widget.collection.nameEn} '
             '${widget.collection.nameVi}'
         .toLowerCase();
@@ -697,39 +731,21 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
     return widget.collection.displayTitle(widget.catalogLanguage);
   }
 
-  Map<String, List<TipitakaBook>> _families() {
+  Map<String, List<TipitakaBook>> _families(List<TipitakaBook> books) {
     final grouped = <String, List<TipitakaBook>>{};
-    for (final book in widget.books) {
-      grouped.putIfAbsent(book.catalogIndex.parallelFamilyCode, () => []).add(book);
+    for (final book in books) {
+      // Source books already have explicit positions; do not merge separate
+      // volumes merely because their identifiers resemble parallel editions.
+      final key = book.cscdLocation == null
+          ? book.catalogIndex.parallelFamilyCode
+          : 'source:${book.id}';
+      grouped.putIfAbsent(key, () => []).add(book);
     }
     return grouped;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final families = _families();
-    return Padding(
-      padding: const EdgeInsets.only(left: 8),
-      child: ExpansionTile(
-        key: PageStorageKey(widget.expandedKey),
-        initiallyExpanded: _expanded,
-        onExpansionChanged: _handleExpansion,
-        leading: CircleAvatar(
-          radius: 17,
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Icon(_catalogSectionIcon(widget.section), size: 18),
-        ),
-        title: Text(
-          _divisionTitle(context),
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: _loading
-            ? Text(context.uiText('Đang tải mục lục…'))
-            : Text('${widget.books.length} ${context.uiText('sách')}'),
-        children: _loading
-            ? [const LinearProgressIndicator(minHeight: 2)]
-            : [
-                for (final entry in families.entries)
+  List<Widget> _bookNodes(List<TipitakaBook> books) => [
+    for (final entry in _families(books).entries)
                   if (entry.value.length == 1)
                     _BookTreeNode(
                       key: ValueKey('${widget.catalogLanguage}-${entry.value.single.id}'),
@@ -762,6 +778,49 @@ class _CollectionTreeNodeState extends State<_CollectionTreeNode> {
                       expandedNodeKeys: widget.expandedNodeKeys,
                       onNodeExpanded: widget.onNodeExpanded,
                       onOpen: widget.onOpen,
+                    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String, List<TipitakaBook>>{};
+    for (final book in widget.books) {
+      final parents = book.cscdLocation?.parents ?? const <String>[];
+      groups.putIfAbsent(parents.isEmpty ? '' : parents.first, () => []).add(book);
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: ExpansionTile(
+        key: PageStorageKey(widget.expandedKey),
+        initiallyExpanded: _expanded,
+        onExpansionChanged: _handleExpansion,
+        leading: CircleAvatar(
+          radius: 17,
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(_catalogSectionIcon(widget.section), size: 18),
+        ),
+        title: Text(
+          _divisionTitle(context),
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: _loading
+            ? Text(context.uiText('Đang tải mục lục…'))
+            : Text('${widget.books.length} ${context.uiText('sách')}'),
+        children: _loading
+            ? [const LinearProgressIndicator(minHeight: 2)]
+            : [
+                for (final group in groups.entries)
+                  if (group.key.isEmpty)
+                    ..._bookNodes(group.value)
+                  else
+                    ExpansionTile(
+                      key: PageStorageKey('${widget.expandedKey}:group:${group.key}'),
+                      initiallyExpanded: widget.expandedNodeKeys.contains(
+                        '${widget.expandedKey}:group:${group.key}'),
+                      onExpansionChanged: (expanded) => widget.onNodeExpanded(
+                        '${widget.expandedKey}:group:${group.key}', expanded),
+                      title: Text(group.key),
+                      children: _bookNodes(group.value),
                     ),
               ],
       ),

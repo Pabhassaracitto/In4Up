@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
 
+import 'cscd_catalog.dart';
+
 enum TipitakaCatalogSection {
   canonical('Tam Tạng Chính Văn'),
   commentary('Chú Giải'),
@@ -32,6 +34,17 @@ enum TipitakaCatalogSection {
       }
     }
     final index = book.catalogIndex;
+    final sourceLocation = book.cscdLocation;
+    if (sourceLocation != null) {
+      return switch (sourceLocation.section) {
+        0 => TipitakaCatalogSection.canonical,
+        1 => TipitakaCatalogSection.commentary,
+        2 => TipitakaCatalogSection.subcommentary,
+        _ => sourceLocation.division == 8
+            ? TipitakaCatalogSection.sriLanka
+            : TipitakaCatalogSection.extraCanonical,
+      };
+    }
     fields.addAll([book.code, book.namePali, book.nameEn, book.nameVi,
       index.sourceTable, index.editionCode]);
     final text = fields.join(' ').toLowerCase().replaceAll('_', ' ');
@@ -108,6 +121,15 @@ class TipitakaBook extends Equatable {
         contentTitleVi: m['_content_title_vi'] ?? '',
         contentTitleLocale: m['_content_title_locale'] ?? '',
       );
+
+  /// Recognise only exact, documented CSCD source table identifiers.
+  CscdCatalogLocation? get cscdLocation {
+    String normalize(String value) => value.trim().toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return cscdCatalog[normalize(catalogIndex.sourceTable)] ??
+        cscdCatalog[normalize(code)];
+  }
 
   TipitakaBookIndex get catalogIndex => TipitakaBookIndex.fromBook(this);
   TipitakaCatalogSection get catalogSection =>

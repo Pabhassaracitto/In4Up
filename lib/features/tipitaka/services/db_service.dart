@@ -3154,19 +3154,25 @@ class TipitakaDb {
   ) async {
     if (rows.isEmpty) return const [];
     final ids = rows.map((row) => row['id']).whereType<int>().toList();
-    final placeholders = List.filled(ids.length, '?').join(',');
-    final translations = await db.rawQuery(
-      'SELECT segment_id, language_code, text FROM tipitaka_translations '
-      'WHERE segment_id IN ($placeholders)',
-      ids,
-    );
     final bySegment = <int, Map<String, String>>{};
-    for (final row in translations) {
-      final segmentId = row['segment_id'];
-      final language = row['language_code'];
-      final text = row['text'];
-      if (segmentId is int && language is String && text is String) {
-        bySegment.putIfAbsent(segmentId, () => {})[language] = text;
+    // Stay below SQLite's traditional 999 bind-variable limit even for a
+    // complete outline of a large source book.
+    for (var offset = 0; offset < ids.length; offset += 900) {
+      final end = (offset + 900).clamp(0, ids.length);
+      final batch = ids.sublist(offset, end);
+      final placeholders = List.filled(batch.length, '?').join(',');
+      final translations = await db.rawQuery(
+        'SELECT segment_id, language_code, text FROM tipitaka_translations '
+        'WHERE segment_id IN ($placeholders)',
+        batch,
+      );
+      for (final row in translations) {
+        final segmentId = row['segment_id'];
+        final language = row['language_code'];
+        final text = row['text'];
+        if (segmentId is int && language is String && text is String) {
+          bySegment.putIfAbsent(segmentId, () => {})[language] = text;
+        }
       }
     }
     return [
@@ -3211,7 +3217,6 @@ class TipitakaDb {
           'AND ${_notNamoTassaSql('tipitaka_segments')}',
       whereArgs: [bookId],
       orderBy: 'order_index ASC, paragraph_no ASC, id ASC',
-      limit: 600,
     );
     if (rows.isEmpty) {
       // Legacy/demo DBs may not have structural metadata. A sparse sample still

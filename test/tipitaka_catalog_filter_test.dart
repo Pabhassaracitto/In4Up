@@ -239,6 +239,23 @@ void main() {
     expect((await TipitakaDb.getHighlights(db)).single.bookId, 2);
   });
 
+  test('large outlines retain all source headings and translations', () async {
+    final batch = db.batch();
+    for (var i = 0; i < 1001; i++) {
+      batch.insert('tipitaka_segments', {
+        'id': 100 + i, 'book_id': 3, 'paragraph_no': i,
+        'block_type': 'heading', 'pali_text': 'Heading $i', 'order_index': i,
+      });
+      batch.insert('tipitaka_translations', {
+        'segment_id': 100 + i, 'language_code': 'fr', 'text': 'Titre $i',
+      });
+    }
+    await batch.commit(noResult: true);
+    final outline = await TipitakaDb.getBookOutline(db, 3);
+    expect(outline, hasLength(1001));
+    expect(outline.last.translationFor('fr'), 'Titre 1000');
+  });
+
   test('demo remains visible when it is the only available fallback', () async {
     await db.delete('tipitaka_books', where: 'id = ?', whereArgs: [2]);
     await db.delete('tipitaka_books', where: 'id IN (?, ?)', whereArgs: [3, 4]);

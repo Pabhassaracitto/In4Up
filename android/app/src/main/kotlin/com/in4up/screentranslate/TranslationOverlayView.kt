@@ -8,7 +8,6 @@ import android.graphics.RectF
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import android.text.TextUtils
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -28,8 +27,10 @@ import android.view.View
  * xuống), nên ở đây việc thu nhỏ gần như không còn cần. Vì vậy:
  *  • **KHÔNG BAO GIỜ vẽ nhỏ hơn [MIN_READABLE_SP] (10sp)** — nhỏ hơn thì chữ
  *    thành vệt xám (đúng lỗi owner báo: "chữ bị bóp nhỏ, khó đọc").
- *  • Chỉ ellipsize khi bất khả kháng, và **ghi log** để biết đường sửa (nếu
- *    log xuất hiện nhiều nghĩa là bộ ước lượng ở Dart đang hụt).
+ *  • **KHÔNG BAO GIỜ vẽ chữ cụt** (owner: "khung bị nhỏ hơn nội dung chữ nên
+ *    bị mất phần"). Nếu dù đã thu tới sàn mà chữ vẫn không vừa khung thì
+ *    **BỎ VẼ khối đó** (để lộ nguyên chữ gốc bên dưới) + ghi log
+ *    `[in4up-xlat-overlay]` — KHÔNG ellipsize, KHÔNG clip.
  *  • Vẫn KHÔNG phình khung xuống dưới ⇒ không bao giờ đè khối kế tiếp.
  *
  * AUDIT-1.21.0 #1 / XLAT-SCR-005: trước đây `boxHeight =
@@ -121,24 +122,26 @@ class TranslationOverlayView(context: Context) : View(context) {
                 continue
             }
 
+            val textWidth = (width - padding * 2).toInt().coerceAtLeast(8)
             val layout = buildLayout(
                 text = text,
-                maxWidth = (width - padding * 2).toInt().coerceAtLeast(8),
+                maxWidth = textWidth,
                 maxHeight = availableHeight,
                 startSizeSp = block.textSizeSp,
-            )
-            // Ghi log khi vẫn phải cắt: nghĩa là bộ ước lượng bên Dart hụt so
-            // với font thật của thiết bị ⇒ nới hệ số an toàn ở đó.
-            if (layout.height > availableHeight) {
+            ) ?: run {
+                // XLAT-SCR-006: KHÔNG vẽ chữ cụt. Bỏ khối để lộ nguyên chữ gốc
+                // — user đọc được nội dung (dù chưa dịch) thay vì đọc nửa câu.
+                // Log `need`/`have` để biết bộ ước lượng bên Dart đang hụt.
                 Log.w(
                     LOG_TAG,
-                    "chữ vẫn tràn khung: need=${layout.height} have=$availableHeight" +
-                        " size=${block.textSizeSp}",
+                    "bỏ khối vì chữ không vừa khung (không cắt chữ):" +
+                        " need=${neededHeightOf(text, textWidth, block.textSizeSp)}" +
+                        " have=$availableHeight size=${block.textSizeSp}" +
+                        " text=${text.take(24)}",
                 )
+                continue
             }
 
-            // Chữ vẫn dài hơn khung ⇒ cắt số dòng + ellipsize. Không vẽ ra
-            // ngoài `rect` (canvas.clipRect là hàng rào cuối cùng).
             canvas.drawRoundRect(rect, 6f, 6f, boxPaint)
             canvas.drawRoundRect(rect, 6f, 6f, edgePaint)
 
@@ -155,67 +158,59 @@ class TranslationOverlayView(context: Context) : View(context) {
         }
     }
 
+    /**
+     * Dựng layout vừa khung, hoặc `null` nếu KHÔNG THỂ vừa mà không cắt chữ.
+     *
+     * Nguyên tắc (owner 2026-11-11): "chữ hiện đầy đủ, không bị bóp nhỏ, ẩn do
+     * khung nhỏ". Vì vậy:
+     *  • 1 lần dựng ở cỡ chữ gốc.
+     *  • Nếu tràn: thu nhỏ 1sp mỗi bước tới sàn [MIN_READABLE_SP], MỖI bước hỏi
+     *    lại `height` (thu nhỏ làm giảm số dòng nên có bước giảm mạnh).
+     *  • Vẫn tràn ở sàn ⇒ trả `null` để caller BỎ VẼ khối (không ellipsize).
+     *    Bản cũ ellipsize ở đây ⇒ chữ bị cắt "…" mất nội dung, đúng lỗi owner.
+     */
     private fun buildLayout(
         text: String,
         maxWidth: Int,
         maxHeight: Int,
         startSizeSp: Float,
-    ): StaticLayout {
+    ): StaticLayout? {
         var sizeSp = startSizeSp.coerceIn(MIN_READABLE_SP, 28f)
         var layout = layoutAt(text, maxWidth, sizeSp)
-        // Tối đa 6 lần thu nhỏ (1sp mỗi lần) và DỪNG ở MIN_READABLE_SP: chữ
-        // nhỏ hơn 10sp thì không đọc được nữa — thà để Dart cấp thêm chỗ.
-        var attempts = 0
-        while (layout.height > maxHeight && sizeSp > MIN_READABLE_SP &&
-            attempts < 6
-        ) {
+        while (layout.height > maxHeight && sizeSp > MIN_READABLE_SP) {
             sizeSp = (sizeSp - 1f).coerceAtLeast(MIN_READABLE_SP)
             layout = layoutAt(text, maxWidth, sizeSp)
-            attempts++
         }
-        // AUDIT-1.21.0 #1: vẫn không vừa ⇒ giới hạn số dòng + "…" thay vì
-        // tràn xuống khung dưới (nguyên nhân chữ chồng nhau).
-        if (layout.height > maxHeight) {
-            val lineHeight = (layout.getLineBottom(0) - layout.getLineTop(0))
-                .coerceAtLeast(1)
-            val maxLines = (maxHeight / lineHeight).coerceAtLeast(1)
-            layout = layoutAt(
-                text,
-                maxWidth,
-                sizeSp,
-                maxLines = maxLines,
-                ellipsize = true,
-            )
-        }
-        return layout
+        return if (layout.height > maxHeight) null else layout
     }
+
+    /** Chiều cao (px) cần để vẽ [text] ở cỡ [startSizeSp] (chẩn đoán/log). */
+    private fun neededHeightOf(
+        text: String,
+        maxWidth: Int,
+        startSizeSp: Float,
+    ): Int = layoutAt(text, maxWidth, startSizeSp.coerceIn(MIN_READABLE_SP, 28f)).height
 
     private fun layoutAt(
         text: String,
         maxWidth: Int,
         sizeSp: Float,
-        maxLines: Int? = null,
-        ellipsize: Boolean = false,
     ): StaticLayout {
         // TypedValue thay cho displayMetrics.scaledDensity (deprecated API 34)
-        // và tôn trọng cỡ chữ hệ thống của người dùng.
+        // và tôn trọng cỡ chữ hệ thống của người dùng — Dart nhận cùng tỉ lệ
+        // qua `fontScale` nên hai bên vẫn khớp số đo.
         textPaint.textSize = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_SP,
             sizeSp,
             resources.displayMetrics,
         )
-        val builder = StaticLayout.Builder
+        // KHÔNG setMaxLines/ellipsize: owner 2026-11-11 bác "…" vì nó làm
+        // mất nội dung. Không vừa khung ⇒ caller bỏ vẽ khối (xem buildLayout).
+        return StaticLayout.Builder
             .obtain(text, 0, text.length, textPaint, maxWidth)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
             .setLineSpacing(0f, 1.0f)
             .setIncludePad(false)
-        if (maxLines != null) {
-            builder.setMaxLines(maxLines)
-            if (ellipsize) {
-                builder.setEllipsize(TextUtils.TruncateAt.END)
-                builder.setEllipsizedWidth(maxWidth)
-            }
-        }
-        return builder.build()
+            .build()
     }
 }

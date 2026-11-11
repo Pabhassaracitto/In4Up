@@ -1371,6 +1371,10 @@ class ScreenTranslateService : Service() {
             screenWidth = metrics.widthPixels,
             screenHeight = metrics.heightPixels,
             density = metrics.density,
+            // XLAT-SCR-006: cỡ chữ hệ thống — native vẽ bằng `TypedValue(SP)`
+            // nên Dart PHẢI biết tỉ lệ này để cấp đủ chỗ (máy bật cỡ chữ lớn
+            // 1.3–2.0× trước đây bị cắt chữ vì Dart ước theo 1.0×).
+            fontScale = resources.configuration.fontScale,
         )
     }
 
@@ -1436,6 +1440,7 @@ class ScreenTranslateService : Service() {
         screenWidth: Int,
         screenHeight: Int,
         density: Float,
+        fontScale: Float,
     ) {
         val channel = workerChannel
         if (channel == null) {
@@ -1457,6 +1462,9 @@ class ScreenTranslateService : Service() {
             "screenWidth" to screenWidth,
             "screenHeight" to screenHeight,
             "devicePixelRatio" to density,
+            // XLAT-SCR-006 — khoá PHẢI khớp `ScreenCaptureGeometry.fromMap`
+            // (`fontScale`). Lệch tên ⇒ Dart đo thiếu chỗ ⇒ cắt chữ.
+            "fontScale" to fontScale,
             "targetLanguage" to targetLanguage,
             // XLAT-SCR-005: ngôn ngữ NGUỒN + vùng kéo chọn (nếu có).
             "sourceLanguage" to sourceLanguage,

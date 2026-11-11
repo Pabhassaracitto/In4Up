@@ -4095,5 +4095,8 @@
   "Cắt một đoạn": "Cut a clip",
   "Từ tab Nghe: đặt A–B rồi bấm «Xuất đoạn»": "From the Listen tab: set A–B, then tap “Export clip”",
   "Hãy đặt mốc A và B trước khi xuất đoạn.": "Set markers A and B before exporting a clip.",
-  "Lặp đoạn tiếp": "Repeat next segment"
+  "Lặp đoạn tiếp": "Repeat next segment",
+  "Chấm điểm khi chưa lật thẻ": "Rate without flipping the card",
+  "Chấm được ngay khi chưa lật — hoặc tap thẻ để xem nghĩa": "Rate right away without flipping — or tap the card to see the meaning",
+  "Tap để lật · hoặc chấm luôn bên dưới": "Tap to flip · or rate it right below"
 }

@@ -8,6 +8,7 @@ import '../../../services/learning_activity_service.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
 import '../models/memory_stats.dart';
+import '../models/rating_gate.dart';
 import '../models/review_session.dart';
 import '../models/garden_rating.dart';
 import '../services/memory_storage_service.dart';
@@ -40,6 +41,20 @@ class MemoryController extends ChangeNotifier {
 
   bool _isReviewing = false;
   bool get isReviewing => _isReviewing;
+
+  /// PSRC-197 — cho phép chấm điểm khi thẻ CHƯA lật.
+  /// Mặc định bật: người đã nhớ nghĩa không phải lật thẻ rồi mới chấm
+  /// (nhịp học không bị đứt). Tắt được ở sheet Cài đặt ôn tập để quay lại
+  /// kỷ luật "lật trước khi chấm".
+  bool _allowRateBeforeFlip = true;
+  bool get allowRateBeforeFlip => _allowRateBeforeFlip;
+
+  /// Thẻ hiện tại có được chấm điểm ngay bây giờ không (nguồn sự thật duy
+  /// nhất cho cả nút bấm lẫn vuốt — xem `RatingGate`).
+  bool get canRateCurrentCard => RatingGate.allowsRating(
+        isFlipped: _isCardFlipped,
+        allowRateBeforeFlip: _allowRateBeforeFlip,
+      );
 
   // ==================== VIEW STATE ====================
   MemoryViewMode _viewMode = MemoryViewMode.garden;
@@ -371,6 +386,14 @@ class MemoryController extends ChangeNotifier {
     return updated;
   }
 
+  /// PSRC-197 — bật/tắt "chấm điểm khi chưa lật thẻ".
+  /// Đổi giữa phiên ôn KHÔNG reset thẻ hiện tại (chỉ ảnh hưởng nút/vuốt).
+  void setAllowRateBeforeFlip(bool value) {
+    if (_allowRateBeforeFlip == value) return;
+    _allowRateBeforeFlip = value;
+    notifyListeners();
+  }
+
   void flipCard() {
     _isCardFlipped = !_isCardFlipped;
     HapticFeedback.lightImpact();
@@ -378,6 +401,10 @@ class MemoryController extends ChangeNotifier {
   }
 
   Future<void> gradeCurrentCard(ReviewGrade grade) async {
+    // PSRC-197 — vẫn là cổng duy nhất: UI đã chặn trước, đây là chốt cuối
+    // (không chấm "mù" nếu một đường gọi mới quên kiểm tra).
+    if (!canRateCurrentCard) return;
+    if (currentCard == null) return;
     final item = currentCard!;
     MemoryItem updated;
 

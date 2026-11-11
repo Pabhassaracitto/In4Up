@@ -51,6 +51,9 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
   bool _shuffleOrder = false;
   bool _showMeaningFirst = false;
 
+  /// PSRC-197 — mặc định bật: chấm điểm được ngay khi thẻ chưa lật.
+  bool _allowRateBeforeFlip = true;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -188,6 +191,13 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                   value: _showMeaningFirst,
                   onChanged: (v) => setState(() => _showMeaningFirst = v),
                 ),
+                // PSRC-197 — chấm điểm không cần lật thẻ.
+                _OptionSwitch(
+                  label: 'Chấm điểm khi chưa lật thẻ',
+                  value: _allowRateBeforeFlip,
+                  onChanged: (v) =>
+                      setState(() => _allowRateBeforeFlip = v),
+                ),
 
                 const SizedBox(height: 24),
 
@@ -204,6 +214,7 @@ class _ReviewSettingsSheetState extends State<ReviewSettingsSheet> {
                         stageFilter: _stageFilter,
                         shuffle: _shuffleOrder,
                         showMeaningFirst: _showMeaningFirst,
+                        allowRateBeforeFlip: _allowRateBeforeFlip,
                       ));
                     },
                     icon: const Icon(Icons.play_arrow),
@@ -239,12 +250,16 @@ class ReviewSettings {
   final bool shuffle;
   final bool showMeaningFirst;
 
+  /// PSRC-197 — cho phép chấm điểm khi thẻ chưa lật (mặc định bật).
+  final bool allowRateBeforeFlip;
+
   const ReviewSettings({
     this.mode = ReviewMode.spaced,
     this.maxCards = 20,
     this.stageFilter,
     this.shuffle = false,
     this.showMeaningFirst = false,
+    this.allowRateBeforeFlip = true,
   });
 }
 

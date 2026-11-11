@@ -11,6 +11,9 @@ enum GardenRating {
   easy('Giỏi', ReviewGrade.easy);
 
   const GardenRating(this.label, this.grade);
+
+  /// Nhãn nguồn tiếng Việt; dịch ở chỗ hiển thị bằng `context.uiText(...)`
+  /// (PSRC-197 — trước đây không render nên pipeline Rule #5 chưa bắt).
   final String label;
   final ReviewGrade grade;
 

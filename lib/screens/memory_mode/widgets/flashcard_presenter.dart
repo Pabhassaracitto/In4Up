@@ -10,36 +10,28 @@ import '../../../providers/vocabulary_provider.dart';
 import '../controllers/memory_controller.dart';
 import '../models/memory_item.dart';
 import '../models/memory_stage.dart';
+import '../models/rating_gate.dart';
 import '../models/review_session.dart'; // ← SwipeDirection lấy từ đây
+import 'swipe_grade_resolver.dart';
 
 // ══════════════════════════════════════════════════════
 //  SWIPE CONTROLLER - Logic timer ngầm
 // ══════════════════════════════════════════════════════
+/// PSRC-197 — phần ngưỡng thời gian đã tách sang `SwipeGradeResolver`
+/// (test được bằng logic thuần); ở đây chỉ còn việc đo thời gian.
 class _SwipeTimerController {
   DateTime? _cardShownAt;
 
   void onCardShown() => _cardShownAt = DateTime.now();
 
-  int get _elapsedSeconds {
-    if (_cardShownAt == null) return 99;
-    return DateTime.now().difference(_cardShownAt!).inSeconds;
+  Duration get _elapsed {
+    if (_cardShownAt == null) return const Duration(seconds: 99);
+    return DateTime.now().difference(_cardShownAt!);
   }
 
   /// Vuốt → Grade (có timer ngầm)
-  ReviewGrade resolveGrade(SwipeDirection dir) {
-    switch (dir) {
-      case SwipeDirection.right:
-        // ≤3s → Easy, >3s → Good
-        return _elapsedSeconds <= 3 ? ReviewGrade.easy : ReviewGrade.good;
-      case SwipeDirection.left:
-        // ≤2s → Hard (nhớ mang máng), >2s → Forgot
-        return _elapsedSeconds <= 2 ? ReviewGrade.hard : ReviewGrade.forgot;
-      case SwipeDirection.up:
-        return ReviewGrade.retired;
-      case SwipeDirection.down:
-        return ReviewGrade.snoozed;
-    }
-  }
+  ReviewGrade resolveGrade(SwipeDirection dir) =>
+      SwipeGradeResolver.resolve(dir, _elapsed);
 }
 
 // ══════════════════════════════════════════════════════
@@ -84,18 +76,24 @@ class _FlashcardPresenterState extends State<FlashcardPresenter> {
               child: _SwipeCardArea(
                 item: card,
                 isFlipped: controller.isCardFlipped,
+                allowRateBeforeFlip: controller.allowRateBeforeFlip,
                 swipeTimer: _swipeTimer,
                 onTap: controller.flipCard,
                 onGrade: (grade) => _handleGrade(context, controller, grade),
               ),
             ),
             // ── Grade buttons: ẩn retired/snoozed (hiếm dùng) ──
-            if (controller.isCardFlipped)
+            // PSRC-197 — hiện ngay cả khi thẻ chưa lật (mặc định); chỉ ẩn khi
+            // người học tự tắt "chấm điểm khi chưa lật" trong Cài đặt ôn tập.
+            if (controller.canRateCurrentCard)
               _GradeButtons(
                 onGrade: (grade) => _handleGrade(context, controller, grade),
               )
             else
               _FlipHint(),
+            // Nhắc chỉ có nghĩa khi thẻ còn ở mặt trước — lật rồi thì thôi.
+            if (controller.allowRateBeforeFlip && !controller.isCardFlipped)
+              const _RateBeforeFlipHint(),
             const SizedBox(height: 24),
           ],
         );
@@ -232,6 +230,9 @@ class _FlashcardPresenterState extends State<FlashcardPresenter> {
 class _SwipeCardArea extends StatefulWidget {
   final MemoryItem item;
   final bool isFlipped;
+
+  /// PSRC-197 — cho phép chấm bằng vuốt khi thẻ chưa lật.
+  final bool allowRateBeforeFlip;
   final _SwipeTimerController swipeTimer;
   final VoidCallback onTap;
   final void Function(ReviewGrade) onGrade;
@@ -239,6 +240,7 @@ class _SwipeCardArea extends StatefulWidget {
   const _SwipeCardArea({
     required this.item,
     required this.isFlipped,
+    required this.allowRateBeforeFlip,
     required this.swipeTimer,
     required this.onTap,
     required this.onGrade,
@@ -313,8 +315,13 @@ class _SwipeCardAreaState extends State<_SwipeCardArea>
   }
 
   void _commitSwipe(SwipeDirection dir) {
-    // Chưa lật thẻ và không phải snoozed → không cho grade
-    if (!widget.isFlipped && dir != SwipeDirection.down) {
+    // PSRC-197 — cùng một cổng quyết định với nút chấm điểm (`RatingGate`):
+    // mặc định chấm được khi chưa lật; vuốt xuống (hoãn học) luôn được phép.
+    if (!RatingGate.allowsSwipe(
+      isFlipped: widget.isFlipped,
+      direction: dir,
+      allowRateBeforeFlip: widget.allowRateBeforeFlip,
+    )) {
       _snapBack();
       HapticFeedback.selectionClick();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -362,6 +369,7 @@ class _SwipeCardAreaState extends State<_SwipeCardArea>
               child: _FlipCard(
                 item: widget.item,
                 isFlipped: widget.isFlipped,
+                allowRateBeforeFlip: widget.allowRateBeforeFlip,
               ),
             ),
 
@@ -373,7 +381,11 @@ class _SwipeCardAreaState extends State<_SwipeCardArea>
               ),
 
             // ── Gợi ý 4 hướng (mờ, luôn hiển thị khi không kéo) ──
-            if (_activeDir == null && widget.isFlipped) const _DirectionHints(),
+            // PSRC-197 — hiện cả trước khi lật khi đã cho chấm bằng vuốt, để
+            // người học biết bốn hướng đều dùng được ngay.
+            if (_activeDir == null &&
+                (widget.isFlipped || widget.allowRateBeforeFlip))
+              const _DirectionHints(),
           ],
         ),
       ),
@@ -597,7 +609,14 @@ class _FlipCard extends StatelessWidget {
   final MemoryItem item;
   final bool isFlipped;
 
-  const _FlipCard({required this.item, required this.isFlipped});
+  /// PSRC-197 — mặt trước chỉ mời "chấm luôn" khi thật sự được chấm.
+  final bool allowRateBeforeFlip;
+
+  const _FlipCard({
+    required this.item,
+    required this.isFlipped,
+    required this.allowRateBeforeFlip,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -618,7 +637,10 @@ class _FlipCard extends StatelessWidget {
                   transform: Matrix4.identity()..rotateY(pi),
                   child: _BackFace(item: item),
                 )
-              : _FrontFace(item: item),
+              : _FrontFace(
+                  item: item,
+                  allowRateBeforeFlip: allowRateBeforeFlip,
+                ),
         );
       },
     );
@@ -630,7 +652,12 @@ class _FlipCard extends StatelessWidget {
 // ══════════════════════════════════════════════════════
 class _FrontFace extends StatelessWidget {
   final MemoryItem item;
-  const _FrontFace({required this.item});
+  final bool allowRateBeforeFlip;
+
+  const _FrontFace({
+    required this.item,
+    required this.allowRateBeforeFlip,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -683,7 +710,10 @@ class _FrontFace extends StatelessWidget {
           ],
           const SizedBox(height: 32),
           Text(
-            'Tap để lật',
+            // PSRC-197 — nói rõ hai lựa chọn: lật xem nghĩa, hay chấm luôn.
+            allowRateBeforeFlip
+                ? 'Tap để lật · hoặc chấm luôn bên dưới'
+                : 'Tap để lật',
             style: TextStyle(color: Colors.grey[700], fontSize: 12),
           ),
         ],
@@ -1002,7 +1032,10 @@ class _GradeButtons extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      grade.label,
+                      // Rule #5 — nhãn Việt của ReviewGrade phải đi qua
+                      // `uiText` thì mới được dịch (code cũ để shim `Text`
+                      // dịch nguyên văn, ở đây dùng chung một đường).
+                      context.uiText(grade.label),
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -1030,6 +1063,24 @@ class _FlipHint extends StatelessWidget {
       child: Text(
         '🤔 Cố nhớ nghĩa rồi tap để lật',
         style: TextStyle(color: Colors.grey[600], fontSize: 13),
+      ),
+    );
+  }
+}
+
+/// PSRC-197 — nhắc rằng đã chấm được ngay, không cần lật thẻ.
+/// Đặt dưới hàng nút, chữ nhỏ để không giành chỗ của thẻ.
+class _RateBeforeFlipHint extends StatelessWidget {
+  const _RateBeforeFlipHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 16, right: 16),
+      child: Text(
+        'Chấm được ngay khi chưa lật — hoặc tap thẻ để xem nghĩa',
+        style: TextStyle(color: Colors.grey[600], fontSize: 11),
+        textAlign: TextAlign.center,
       ),
     );
   }

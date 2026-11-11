@@ -109,7 +109,7 @@ class ReadChromeLayout {
     this.toolsPlacement = ReadToolsPlacement.bottom,
     this.rememberExpanded = true,
     this.autoTranslateOnBilingual = true,
-    this.playbackScope = ReadPlaybackScope.currentLine,
+    this.playbackScope = ReadPlaybackScope.wholeDocument,
     this.lastPanel = ReadDockPanel.audio,
   });
 
@@ -226,7 +226,7 @@ class ReadChromeLayout {
       playbackScope: readEnumFromName(
         ReadPlaybackScope.values,
         json['playbackScope'],
-        ReadPlaybackScope.currentLine,
+        ReadPlaybackScope.wholeDocument,
         nameOf: (v) => v.name,
       ),
       lastPanel: readEnumFromName(

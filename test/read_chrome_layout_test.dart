@@ -13,8 +13,8 @@ void main() {
       expect(layout.dockAlwaysVisible, isTrue);
       expect(layout.toolsExpanded, isFalse);
       expect(layout.toolsHidden, isFalse);
-      expect(layout.playbackScope, ReadPlaybackScope.currentLine);
-      expect(layout.readsWholeDocument, isFalse);
+      expect(layout.playbackScope, ReadPlaybackScope.wholeDocument);
+      expect(layout.readsWholeDocument, isTrue);
     });
 
     test('mặc định vẫn tự dịch nền nhưng KHÔNG chặn phát', () {
@@ -22,6 +22,11 @@ void main() {
       // không; startReadPlayback không await nó (pin ở contract test).
       expect(ReadChromeLayout.defaults.autoTranslateOnBilingual, isTrue);
     });
+  });
+
+  test('missing scope defaults to the whole document; explicit line is retained', () {
+    expect(ReadChromeLayout.fromJson({}).readsWholeDocument, isTrue);
+    expect(ReadChromeLayout.fromJson({'playbackScope': 'currentLine'}).readsWholeDocument, isFalse);
   });
 
   group('copyWith', () {

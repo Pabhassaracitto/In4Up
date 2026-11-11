@@ -567,6 +567,9 @@ class ScreenTranslateController {
       screenWidth: geometry.screenWidth,
       screenHeight: geometry.screenHeight,
       devicePixelRatio: geometry.devicePixelRatio,
+      // XLAT-SCR-006: cỡ chữ hệ thống. Native vẽ bằng `TypedValue(SP)` nên bỏ
+      // qua tham số này ⇒ máy bật cỡ chữ lớn vẫn cấp thiếu chỗ ⇒ chữ bị cắt.
+      fontScale: geometry.fontScale,
     );
 
     stopwatch.stop();

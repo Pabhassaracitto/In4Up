@@ -1,19 +1,22 @@
-// XLAT-SCR-006 — bong bóng dịch: KHUNG PHẢI ĐỦ CHỖ CHO CHỮ, và các khối vẫn
-// KHÔNG chồng lên nhau.
+// XLAT-SCR-006 (PSRC-190) — bong bóng dịch: KHUNG PHẢI ĐỦ CHỖ CHO CHỮ, và các
+// khối vẫn KHÔNG được chồng lên nhau.
 //
-// Vì sao có test này (đọc để không đảo lại lần thứ ba):
+// Vì sao có test này (đọc để không đảo lại lần thứ tư):
 //   • AUDIT-1.21.0 #1 sửa "chữ chồng nhau" bằng cách CẮT khung khối trên đúng
 //     mép khối dưới ⇒ hết chồng nhưng bản dịch (VI dài hơn EN ~1.3×) hết chỗ,
-//     native thu nhỏ tới 9sp rồi ellipsize ⇒ MẤT CHỮ, chữ bé không đọc được.
-//   • Owner báo 2026-11-11 (kèm ảnh chụp): "khung bị nhỏ hơn nội dung chữ nên
-//     bị mất phần… Đảm bảo chữ hiện đầy đủ không bị bóp nhỏ, ẩn do khung nhỏ
-//     nhưng cũng không để các lớp dịch bị chồng lên nhau."
+//     native thu nhỏ tới 9sp rồi ellipsize ⇒ MẤT CHỮ.
+//   • Bản sửa kế tiếp (nới rộng → nới cao → đẩy khối dưới) vẫn cấp thiếu chỗ
+//     trên MÁY THẬT vì native vẽ bằng `TypedValue(SP)` = sp × density ×
+//     **fontScale**, còn Dart chỉ nhân `density`. Máy bật cỡ chữ hệ thống lớn
+//     (1.3–2.0×) ⇒ thiếu đúng bằng tỉ lệ đó ⇒ chữ bị cắt.
 //
-// Hợp đồng mới được đo bằng 4 bất biến (không phụ thuộc số pixel cụ thể):
+// Hợp đồng hiện tại — 5 bất biến, đo bằng ĐÚNG bộ ước lượng của layout:
 //   1. KHÔNG hai khung nào giao nhau.
-//   2. Mỗi khung CAO ĐỦ cho chữ của nó (theo `estimateTranslationTextHeightPx`).
-//   3. Cỡ chữ không bao giờ dưới `kOverlayMinReadableSp`.
-//   4. Danh sách trả về GIỮ NGUYÊN số khối + thứ tự (khối bỏ vẽ ⇒ translation rỗng).
+//   2. Khối CÒN VẼ thì khung CAO ĐỦ cho chính chuỗi nó vẽ (đúng `textSizeSp`).
+//   3. Cỡ chữ không dưới `kOverlayMinReadableSp` (native kẹp cứng cùng sàn —
+//      layout không bao giờ cấp khung đo theo cỡ nhỏ hơn, vì native sẽ bỏ).
+//   4. Giữ NGUYÊN số khối + thứ tự (khối bỏ vẽ ⇒ `translation` rỗng).
+//   5. Cùng bộ dữ liệu, tăng `fontScale` ⇒ không bao giờ có thêm khối bị cắt.
 //
 // Test THUẦN trên host VM — không cần thiết bị / MediaProjection.
 
@@ -66,23 +69,59 @@ List<String> _overlaps(List<ScreenBlock> blocks, {int tolerancePx = 0}) {
   return bad;
 }
 
-/// Khung có ĐỦ cao cho chữ của nó không (theo cùng bộ ước lượng).
-List<String> _tooShort(List<ScreenBlock> blocks) {
+/// Khung có ĐỦ cao cho chính chuỗi nó vẽ không (theo cùng bộ ước lượng, CÙNG
+/// `fontScale` như native)?
+List<String> _tooShort(
+  List<ScreenBlock> blocks, {
+  double fontScale = 1.0,
+}) {
   final bad = <String>[];
+  final pxPerSp = _dpr * effectiveOverlayFontScale(fontScale);
   for (var i = 0; i < blocks.length; i++) {
     final block = blocks[i];
     if (!block.hasTranslation) continue;
     final need = estimateTranslationTextHeightPx(
           block.translation,
           math.max(1.0, block.rect.width - 2 * kOverlayTextPaddingPx),
-          block.textSizeSp * _dpr,
+          block.textSizeSp * pxPerSp,
         ) +
         2 * kOverlayTextPaddingPx;
     final have = block.rect.height.toDouble();
     if (have + 0.5 < need) {
-      bad.add('#$i cần ${need.toStringAsFixed(1)}px, có ${have}px '
-          '(${block.translation.length} ký tự)');
+      bad.add('#$i cần ${need.toStringAsFixed(1)}px, có $have px '
+          '(${block.translation.length} ký tự, ${block.textSizeSp} sp)');
     }
+  }
+  return bad;
+}
+
+/// Mọi khung còn vẽ phải nằm trong màn hình.
+List<String> _outside(List<ScreenBlock> blocks, {int screenH = _screenH}) {
+  final bad = <String>[];
+  for (var i = 0; i < blocks.length; i++) {
+    final block = blocks[i];
+    if (!block.hasTranslation) continue;
+    if (block.rect.top < 0 || block.rect.bottom > screenH) {
+      bad.add('#$i ${block.rect} ngoài màn hình cao $screenH');
+    }
+  }
+  return bad;
+}
+
+/// Layout KHÔNG được sửa/bóp chữ: khối còn vẽ phải mang ĐÚNG bản dịch đầu vào
+/// (không `…`, không cắt từ). Owner 2026-11-11: đọc nửa câu tệ hơn đọc chữ gốc.
+List<String> _alteredText(
+  List<ScreenBlock> input,
+  List<ScreenBlock> output,
+) {
+  final bad = <String>[];
+  for (var i = 0; i < output.length && i < input.length; i++) {
+    final shown = output[i].translation;
+    if (shown.isEmpty) continue; // khối bị bỏ vẽ
+    if (shown != input[i].translation) {
+      bad.add('#$i nội dung bị sửa: \'$shown\' ≠ \'${input[i].translation}\'');
+    }
+    if (shown.trim().endsWith('…')) bad.add('#$i vẫn còn bị ellipsize');
   }
   return bad;
 }
@@ -127,6 +166,74 @@ void main() {
       final h2 = estimateTranslationTextHeightPx(text, 200, 34);
       expect(h2, greaterThan(h1));
     });
+
+    test('estimateTranslationMaxLines: kẹp theo chỗ thật, không vượt nhu cầu',
+        () {
+      const text = 'Một hai ba bốn năm sáu bảy tám chín mười';
+      final needed =
+          estimateTranslationLineCount(text, 200, 34);
+      expect(estimateTranslationMaxLines(text, 200, 34, 10000), needed);
+      expect(estimateTranslationMaxLines(text, 200, 34, 0), 0);
+      expect(estimateTranslationMaxLines(text, 200, 34, 100), 2);
+    });
+  });
+
+  group('Font scale (PSRC-190 — nguyên nhân gốc trên máy thật)', () {
+    test('fontScale < 1 hoặc rác ⇒ coi là 1.0; > 2 ⇒ kẹp 2.0', () {
+      expect(effectiveOverlayFontScale(0.85), 1.0);
+      expect(effectiveOverlayFontScale(0), 1.0);
+      expect(effectiveOverlayFontScale(double.nan), 1.0);
+      expect(effectiveOverlayFontScale(1.3), closeTo(1.3, 1e-9));
+      expect(effectiveOverlayFontScale(5), kOverlayMaxFontScale);
+    });
+
+    test('pxPerSp = density × fontScale (khớp TypedValue.applyDimension)', () {
+      const metrics = OverlayFontMetrics(devicePixelRatio: 2.75, fontScale: 1.3);
+      expect(metrics.pxPerSp, closeTo(3.575, 1e-9));
+      expect(metrics.maxReadableLines(100), greaterThan(0));
+    });
+
+    test('máy bật cỡ chữ lớn ⇒ khung được cấp CAO HƠN (cùng một khối)', () {
+      final blocks = <ScreenBlock>[
+        _b(300, 356, 'Đây là bản dịch tiếng Việt dài hơn hẳn bản gốc.'),
+      ];
+      final normal = layoutTranslatedBlocks(
+        blocks,
+        screenWidth: _screenW,
+        screenHeight: _screenH,
+        devicePixelRatio: _dpr,
+      ).single;
+      final large = layoutTranslatedBlocks(
+        blocks,
+        screenWidth: _screenW,
+        screenHeight: _screenH,
+        devicePixelRatio: _dpr,
+        fontScale: 2.0,
+      ).single;
+      expect(large.rect.height, greaterThan(normal.rect.height),
+          reason: 'Quên fontScale ⇒ đây là lý do chữ bị cắt trên máy thật.');
+      expect(_tooShort([large], fontScale: 2.0), isEmpty);
+    });
+
+    test('payload native thiếu fontScale vẫn đọc được (mặc định 1.0)', () {
+      final geometry = ScreenCaptureGeometry.fromMap(<Object?, Object?>{
+        'width': 1080,
+        'height': 2400,
+        'devicePixelRatio': 2.75,
+      });
+      expect(geometry.fontScale, 1.0);
+      expect(geometry.toMap()['fontScale'], 1.0);
+    });
+
+    test('payload native có fontScale ⇒ đọc đúng', () {
+      final geometry = ScreenCaptureGeometry.fromMap(<Object?, Object?>{
+        'width': 1080,
+        'height': 2400,
+        'devicePixelRatio': 2.75,
+        'fontScale': 1.3,
+      });
+      expect(geometry.fontScale, closeTo(1.3, 1e-9));
+    });
   });
 
   group('layoutTranslatedBlocks — chữ đầy đủ VÀ không chồng', () {
@@ -153,6 +260,27 @@ void main() {
       expect(_tooShort(out), isEmpty);
       expect(out.single.textSizeSp,
           greaterThanOrEqualTo(kOverlayMinReadableSp));
+    });
+
+    test('khối đơn sát đáy: DỊCH khung lên, KHÔNG cắt chữ', () {
+      final out = layoutTranslatedBlocks(
+        [
+          _b(
+            _screenH - 90,
+            _screenH - 34,
+            'Bản dịch dài nằm sát đáy màn hình nên nếu không dịch khung lên '
+            'thì chữ sẽ bị cắt mất phần dưới.',
+          ),
+        ],
+        screenWidth: _screenW,
+        screenHeight: _screenH,
+        devicePixelRatio: _dpr,
+      );
+      expect(out, hasLength(1));
+      expect(out.single.hasTranslation, isTrue);
+      expect(out.single.rect.bottom, lessThanOrEqualTo(_screenH));
+      expect(_tooShort(out), isEmpty, reason: 'dịch khung lên, không cắt chữ');
+      expect(_outside(out), isEmpty);
     });
 
     test('khối TRÊN giữ đủ chữ, khối DƯỚI bị ĐẨY xuống (không cắt chữ)', () {
@@ -196,8 +324,42 @@ void main() {
       expect(_overlaps(out), isEmpty, reason: 'KHÔNG được chồng khung');
       expect(_tooShort(out), isEmpty, reason: 'KHÔNG được cắt chữ');
       for (final block in out) {
+        if (!block.hasTranslation) continue;
         expect(block.textSizeSp, greaterThanOrEqualTo(kOverlayMinReadableSp),
             reason: 'không được bóp chữ nhỏ hơn sàn đọc được');
+      }
+    });
+
+    test('CỠ CHỮ HỆ THỐNG LỚN (fontScale 1.3/2.0): vẫn đủ chỗ, không chồng',
+        () {
+      final blocks = <ScreenBlock>[];
+      var y = 200;
+      for (var i = 0; i < 10; i++) {
+        blocks.add(_b(
+          y,
+          y + 56,
+          'Bản dịch tiếng Việt dài hơn khoảng một phẩy ba lần so với câu gốc '
+          'số $i, nên cần thêm chỗ.',
+        ));
+        y += 64;
+      }
+      for (final fontScale in <double>[1.3, 1.6, 2.0]) {
+        final out = layoutTranslatedBlocks(
+          blocks,
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: fontScale,
+        );
+        expect(out, hasLength(10));
+        expect(_overlaps(out), isEmpty, reason: 'fontScale $fontScale');
+        expect(_tooShort(out, fontScale: fontScale), isEmpty,
+            reason: 'fontScale $fontScale — chữ không được vượt khung');
+        expect(_outside(out), isEmpty, reason: 'fontScale $fontScale');
+        // Không được "trắng trơn": phải còn khối đọc được (owner 2026-11-11).
+        expect(out.where((b) => b.hasTranslation), isNotEmpty,
+            reason: 'fontScale $fontScale — bỏ hết khối là mất bản dịch');
+        expect(_alteredText(blocks, out), isEmpty);
       }
     });
 
@@ -223,6 +385,7 @@ void main() {
       expect(out[0].rect.right, lessThanOrEqualTo(700),
           reason: 'không được lấn sang khối bên phải');
       expect(_overlaps(out), isEmpty);
+      expect(_tooShort(out), isEmpty);
     });
 
     test('hai bbox OCR trùng nội dung ⇒ chỉ vẽ MỘT ô', () {
@@ -236,9 +399,8 @@ void main() {
         devicePixelRatio: _dpr,
       );
       expect(out, hasLength(2), reason: 'giữ nguyên số khối');
-      expect(out[0].hasTranslation, isTrue);
-      expect(out[1].translation, isEmpty,
-          reason: 'khối trùng bị loại khỏi vẽ (native bỏ qua)');
+      final drawn = out.where((b) => b.hasTranslation).length;
+      expect(drawn, 1, reason: 'khối trùng bị loại, không vẽ hai lần');
     });
 
     test('hai CỘT chữ cạnh nhau không bị đẩy/cắt nhầm', () {
@@ -286,9 +448,10 @@ void main() {
       expect(out[1].rect.bottom, 40);
     });
 
-    test('tràn đáy màn hình ⇒ bỏ vẽ khối vượt đáy (KHÔNG vẽ chữ cụt)', () {
+    test('tràn đáy màn hình (30 khối) ⇒ KHÔNG chồng, KHÔNG chữ cụt', () {
       // 30 khối, mỗi khối cách 30px: bản dịch cần ~120px/khối ở cỡ chữ nhỏ
-      // nhất ⇒ tổng vượt xa 2400px ⇒ buộc phải bỏ bớt (không thể vẽ đủ).
+      // nhất ⇒ tổng vượt xa 2400px ⇒ buộc phải BỎ BỚT (không thể vẽ đủ) —
+      // nhưng khối nào còn lại vẫn NGUYÊN chữ, không cắt.
       final blocks = <ScreenBlock>[];
       var y = 100;
       for (var i = 0; i < 30; i++) {
@@ -310,16 +473,78 @@ void main() {
       expect(out, hasLength(30), reason: 'giữ nguyên số khối');
       expect(_overlaps(out), isEmpty);
       expect(_tooShort(out), isEmpty,
-          reason: 'khối nào còn vẽ thì phải hiện đủ chữ');
+          reason: 'khối nào còn vẽ thì phải hiện đủ chữ của chính nó');
+      expect(_alteredText(blocks, out), isEmpty,
+          reason: 'không được cắt/bóp nội dung — chỉ được bỏ khối');
+      expect(_outside(out), isEmpty);
       // Số khối bị bỏ phải > 0 (chứng minh nhánh tràn có tác dụng) nhưng
       // không bỏ hết.
       final drawn = out.where((b) => b.hasTranslation).length;
       expect(drawn, greaterThan(0));
       expect(drawn, lessThan(30), reason: 'phải bỏ bớt khi không thể vẽ đủ');
-      // Mọi khối còn vẽ phải nằm trong màn hình.
       for (final block in out) {
         if (!block.hasTranslation) continue;
-        expect(block.rect.bottom, lessThanOrEqualTo(_screenH));
+        expect(block.textSizeSp, greaterThanOrEqualTo(kOverlayMinReadableSp));
+      }
+    });
+
+    test('tràn đáy + cỡ chữ hệ thống rất lớn: vẫn còn khối đọc được', () {
+      final blocks = <ScreenBlock>[];
+      var y = 100;
+      for (var i = 0; i < 30; i++) {
+        blocks.add(_b(
+          y,
+          y + 36,
+          'Đây là bản dịch rất dài cho dòng số $i, dài gấp đôi bản gốc tiếng '
+          'Anh để buộc thuật toán phải thu nhỏ hoặc bỏ bớt.',
+        ));
+        y += 30;
+      }
+      final out = layoutTranslatedBlocks(
+        blocks,
+        screenWidth: _screenW,
+        screenHeight: _screenH,
+        devicePixelRatio: _dpr,
+        fontScale: 2.0,
+      );
+      expect(_overlaps(out), isEmpty);
+      expect(_tooShort(out, fontScale: 2.0), isEmpty);
+      final drawn = out.where((b) => b.hasTranslation).toList();
+      expect(drawn, isNotEmpty,
+          reason: 'chia ngân sách đều mà bỏ sạch thì phải lùi về "lấp từ trên"');
+      for (final block in drawn) {
+        // Native kẹp cứng `MIN_READABLE_SP = 10f` ⇒ Dart cũng không được cấp
+        // khung nào đo theo cỡ nhỏ hơn (khung đó sẽ bị native bỏ).
+        expect(block.textSizeSp,
+            greaterThanOrEqualTo(kOverlayMinReadableSp));
+      }
+    });
+
+    test('KHÔNG rút gọn chữ: khối không vừa thì bỏ vẽ, không thêm `…`', () {
+      // Owner 2026-11-11: "không vẽ chữ cụt". Trước đây (bản thử) nhánh tràn
+      // cắt bớt chữ theo từ rồi thêm `…` ⇒ vi phạm hợp đồng này.
+      final blocks = <ScreenBlock>[];
+      var y = 100;
+      for (var i = 0; i < 30; i++) {
+        blocks.add(_b(
+          y,
+          y + 36,
+          'Bản dịch rất dài cho dòng $i để chắc chắn tràn màn hình.',
+        ));
+        y += 30;
+      }
+      for (final fontScale in <double>[1.0, 2.0]) {
+        final out = layoutTranslatedBlocks(
+          blocks,
+          screenWidth: _screenW,
+          screenHeight: _screenH,
+          devicePixelRatio: _dpr,
+          fontScale: fontScale,
+        );
+        expect(out.where((b) => b.translation.contains('…')), isEmpty,
+            reason: 'fontScale $fontScale — layout không được chèn dấu cắt chữ');
+        expect(_alteredText(blocks, out), isEmpty,
+            reason: 'fontScale $fontScale');
       }
     });
 
@@ -338,6 +563,25 @@ void main() {
       expect(_overlaps(out), isEmpty);
       expect(_tooShort(out), isEmpty);
       expect(out, hasLength(3));
+      // Thứ tự danh sách = thứ tự đầu vào (native ghép theo index).
+      expect(out[0].original, 'original');
+      expect(out[1].rect.top, lessThan(out[2].rect.top));
+    });
+
+    test('countOverlappingPairs: công cụ đo dùng chung với native test', () {
+      expect(
+        countOverlappingPairs([
+          _b(100, 200, 'A'),
+          _b(150, 250, 'B'),
+        ]),
+        1,
+      );
+      expect(countOverlappingPairs([_b(100, 200, 'A'), _b(300, 400, 'B')]), 0);
+      expect(
+        countOverlappingPairs([_b(100, 200, 'A'), _b(150, 250, '')]),
+        0,
+        reason: 'khối không vẽ thì không tính là chồng',
+      );
     });
   });
 }

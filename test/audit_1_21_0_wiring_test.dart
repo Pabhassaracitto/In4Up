@@ -55,11 +55,26 @@ void main() {
   final abControls = _read('lib/widgets/ab_loop_controls.dart');
   final loopMixin = _read('lib/providers/player/player_loop_mixin.dart');
 
+  // Pin trên source ĐÃ BỎ COMMENT: chú thích "KHÔNG setMaxLines" không được
+  // làm pin "đã xoá setMaxLines" báo đỏ sai.
+  final overlayCode = _stripComments(overlay);
+
   group('#1 — overlay nhiều khối', () {
     test('native KHÔNG còn phình khung xuống dưới', () {
-      expect(overlay.contains('val boxHeight = maxOf('), isFalse);
-      expect(overlay.contains('canvas.clipRect('), isTrue);
-      expect(overlay.contains('TextUtils.TruncateAt.END'), isTrue);
+      expect(overlayCode.contains('val boxHeight = maxOf('), isFalse);
+      expect(overlayCode.contains('canvas.clipRect('), isTrue);
+      // XLAT-SCR-006 (owner 2026-11-11): ellipsize "…" bị BÁC — nó làm mất
+      // nội dung bản dịch. Không vừa khung ⇒ bỏ vẽ khối, để lộ chữ gốc.
+      expect(overlayCode.contains('TextUtils.TruncateAt.END'), isFalse,
+          reason: 'Cắt chữ bằng "…" = mất nội dung owner đã bác.');
+      expect(overlayCode.contains('setMaxLines'), isFalse,
+          reason: 'Giới hạn số dòng cũng là cắt chữ.');
+      // Hợp đồng mới: không vừa khung ⇒ BỎ VẼ + log, KHÔNG cắt.
+      expect(overlayCode.contains('buildLayout('), isTrue);
+      expect(overlayCode.contains('continue'), isTrue);
+      expect(overlayCode.contains('LOG_TAG'), isTrue);
+      // Cỡ chữ phải đi qua TypedValue(SP) — khớp `fontScale` bên Dart.
+      expect(overlayCode.contains('TypedValue.applyDimension'), isTrue);
     });
     test('controller gọi layout + bỏ khối OCR chỉ có link', () {
       expect(controller.contains('layoutTranslatedBlocks('), isTrue);

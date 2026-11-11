@@ -69,12 +69,21 @@ class OverlayRect {
 /// [screenWidth]/[screenHeight]: kích thước vùng overlay phủ (pixel màn hình).
 /// [devicePixelRatio]: `displayMetrics.density` — dùng để đổi pixel → dp cho
 /// cỡ chữ, KHÔNG dùng để đổi vị trí (vị trí đã là pixel màn hình).
+/// [fontScale]: `configuration.fontScale` — cỡ chữ hệ thống (Accessibility).
+///
+/// XLAT-SCR-006 (owner 2026-11-11): **bắt buộc** truyền [fontScale] từ native.
+/// Native vẽ chữ bằng `TypedValue.applyDimension(SP, …)` = `sp × density ×
+/// fontScale`; máy bật cỡ chữ lớn (1.3–2.0×) làm dòng cao hơn hẳn, trong khi
+/// Dart vẫn ước theo 1.0× ⇒ khung cấp thiếu chỗ ⇒ native cắt chữ ⇒ đúng lỗi
+/// "khung nhỏ hơn nội dung, mất phần chữ" mà owner báo. Giá trị mặc định 1.0
+/// chỉ đúng cho máy để cỡ chữ chuẩn / payload cũ.
 class ScreenCaptureGeometry {
   final int captureWidth;
   final int captureHeight;
   final int screenWidth;
   final int screenHeight;
   final double devicePixelRatio;
+  final double fontScale;
 
   const ScreenCaptureGeometry({
     required this.captureWidth,
@@ -82,6 +91,7 @@ class ScreenCaptureGeometry {
     required this.screenWidth,
     required this.screenHeight,
     this.devicePixelRatio = 1.0,
+    this.fontScale = 1.0,
   });
 
   bool get isValid =>
@@ -107,6 +117,7 @@ class ScreenCaptureGeometry {
         'screenWidth': screenWidth,
         'screenHeight': screenHeight,
         'devicePixelRatio': devicePixelRatio,
+        'fontScale': fontScale,
       };
 
   static ScreenCaptureGeometry fromMap(Map<Object?, Object?> map) {
@@ -135,6 +146,7 @@ class ScreenCaptureGeometry {
           ? toInt(map['screenHeight'])
           : captureHeight,
       devicePixelRatio: toDouble(map['devicePixelRatio'], 1.0),
+      fontScale: toDouble(map['fontScale'], 1.0),
     );
   }
 }

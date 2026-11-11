@@ -451,6 +451,55 @@ jobs:
           fi
           exit $code
 
+      # PSRC-197 — chấm điểm khi chưa lật thẻ: một cổng quyết định dùng chung
+      # cho nút bấm lẫn vuốt (`RatingGate`), controller chốt cuối, và widget
+      # test bảo đảm 4 nút vẫn hiện trước khi lật. Bỏ qua nếu nhánh chưa có.
+      - name: "PSRC-197 tests — chấm điểm không cần lật thẻ"
+        id: psrc197-tests
+        run: |-
+          set +e
+          if [ ! -f test/srs/rate_before_flip_test.dart ]; then
+            echo "Không có test PSRC-197 trên nhánh này — bỏ qua."
+            exit 0
+          fi
+          timeout -k 10s 5m flutter test test/srs/rate_before_flip_test.dart -r expanded > psrc197_test.log 2>&1
+          code=$?
+          cat psrc197_test.log
+          exit $code
+
+      # Blob log/artifact KHÔNG tải được trong môi trường agent ⇒ khi đỏ, đẩy
+      # NGUYÊN VĂN khối lỗi (tên test + Expected/Actual + stack) lên annotation.
+      - name: "PSRC-197 — đưa lỗi lên annotation khi đỏ"
+        if: always() && steps.psrc197-tests.outcome == 'failure'
+        run: |
+          python3 - <<'PYEOF'
+          import pathlib
+          log = pathlib.Path('psrc197_test.log')
+          if not log.exists():
+              raise SystemExit(0)
+          lines = log.read_text(encoding='utf-8', errors='replace').splitlines()
+          # Flutter in "EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK" NGAY TRƯỚC
+          # dòng [E] ⇒ lấy khối từ mốc đó để thấy Expected/Actual + finder.
+          markers = [i for i, l in enumerate(lines) if 'EXCEPTION CAUGHT' in l]
+          blocks = []
+          for start in markers[:4]:
+              blocks.append('~'.join(lines[start:start + 22]))
+          if not blocks:
+              blocks = ['~'.join(lines[max(0, i - 12):i + 4])
+                        for i, l in enumerate(lines) if '[E]' in l][:4]
+          for idx, block in enumerate(blocks):
+              print('::error title=PSRC-197 fail %d::' % (idx + 1)
+                    + block.replace('%', '%25')[:3000])
+          PYEOF
+
+      - name: Upload PSRC-197 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-psrc197-test-log
+          path: psrc197_test.log
+          if-no-files-found: ignore
+
       - name: Upload PSRC-23 test log
         if: always()
         uses: actions/upload-artifact@v4

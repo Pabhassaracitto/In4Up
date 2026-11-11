@@ -1472,6 +1472,8 @@ class _MainShellState extends State<MainShell> {
     final rightLibraryIsAudio =
         hasMappedLibraryPair ? !_leftLibraryIsAudio : true;
     final isWatch = _currentTab == _PrimaryTab.listen && _listenModeIndex == 2;
+    final showCabin = _currentTab == _PrimaryTab.listen &&
+        (_listenModeIndex == 0 || _listenModeIndex == 1);
     final isReader = _currentTab == _PrimaryTab.read && _readModeIndex == 0;
 
     return Container(
@@ -1494,17 +1496,19 @@ class _MainShellState extends State<MainShell> {
           // "Video thiết bị"). Nay tab Xem mở đầu bằng 「Thư viện văn bản」
           // đúng như tab Đọc, rồi tới các lối tắt YouTube / Thư viện video.
           _ShellActionButton(
-            icon: (isReader || isWatch)
+            icon: (isReader || isWatch || showCabin)
                 ? Icons.menu_book_rounded
                 : _leadingIcon,
-            color: (isReader || isWatch)
+            color: (isReader || isWatch || showCabin)
                 ? const Color(0xFF2196F3)
                 : _leadingColor,
-            tooltip: (isReader || isWatch)
+            tooltip: (isReader || isWatch || showCabin)
                 ? context.uiText('Thư viện văn bản')
                 : _leadingTooltip,
             onTap: () {
               if (isReader || isWatch) {
+                _openTextLibrary();
+              } else if (showCabin) {
                 _openTextLibrary();
               } else if (_currentTab == _PrimaryTab.home) {
                 Navigator.push(
@@ -1522,6 +1526,13 @@ class _MainShellState extends State<MainShell> {
               }
             },
           ),
+          if (showCabin)
+            _ShellActionButton(
+              icon: Icons.interpreter_mode_rounded,
+              color: const Color(0xFF00E676),
+              tooltip: context.uiText('Dịch Live Cabin'),
+              onTap: () => _handleTool('live_cabin'),
+            ),
           if (isReader) ...[
             _ShellActionButton(
               icon: Icons.public,
@@ -1606,18 +1617,18 @@ class _MainShellState extends State<MainShell> {
           // không có hai nút cùng mở một thư viện (và để tiết kiệm chỗ).
           if (!isReader && !isWatch)
             _ShellActionButton(
-              icon: hasMappedLibraryPair
+              icon: !showCabin && hasMappedLibraryPair
                   ? _rightLibraryIcon
                   : Icons.library_music_rounded,
-              color: rightLibraryIsAudio
+              color: (showCabin || rightLibraryIsAudio)
                   ? const Color(0xFF6C63FF)
                   : const Color(0xFF2196F3),
               tooltip: context.uiText(
-                hasMappedLibraryPair
+                !showCabin && hasMappedLibraryPair
                     ? _rightLibraryTooltip
                     : 'Thư viện âm thanh',
               ),
-              onTap: hasMappedLibraryPair
+              onTap: !showCabin && hasMappedLibraryPair
                   ? _openRightLibrary
                   : _openAudioLibrary,
             ),

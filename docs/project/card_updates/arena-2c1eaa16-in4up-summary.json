@@ -1,0 +1,56 @@
+{
+  "agent_branch": "arena/2c1eaa16-in4up",
+  "date": "2026-11-11",
+  "updated": "2026-11-11",
+  "lanes": [
+    "XLAT-SCR-006",
+    "PSRC-190",
+    "PSRC-188",
+    "PSRC-28",
+    "PSRC-191"
+  ],
+  "summary": [
+    "PSRC-190 (XLAT-SCR-006): nguyen nhan goc la native ve bang TypedValue(SP) = sp x density x configuration.fontScale con Dart chi nhan density -> may bat co chu lon cap thieu dung he so do. Nay ScreenCaptureGeometry.fontScale di theo payload (ScreenTranslateService.kt gui, controller truyen vao layoutTranslatedBlocks), OverlayFontMetrics.pxPerSp = density * effectiveOverlayFontScale (kep 1.0..2.0). Bo han cat chu: native khong con TextUtils.TruncateAt.END/setMaxLines, Dart khong chen '...'. Tran day: thu nho deu (san 10sp) -> chia deu chieu cao -> khoi khong noi nguyen ban dich thi bo ve. Buoc CHOT do lai tung khoi o co chu cuoi va bo khoi neu thieu cho => bat bien 'khong ve chu cut' khong phu thuoc cac nhanh tinh toan phia tren. Log chan doan [in4up-xlat-overlay] need=... have=...",
+    "PSRC-188: _downloading/_modelDownloaded nam trong State cua sheet => dong sheet la dispose, mo lai thay 'Chua tai' du native van dang tai. Nay MlKitPackDownloads (ChangeNotifier) do TranslationService.mlkitPacks giu - song suot app: start() mot luot tai/goi (bam lai dung chung future), refresh() khong ghi de goi dang tai va giu co failed kem ly do, giu PSRC-182 (downloadModel tra false ma co goi => ready). Sheet chi nghe registry, them trang thai 'Dang tai ngam...' / 'Loi tai goi' + badge tren tieu de. KHONG tu tai luc bootstrap/ensureModel/mo sheet.",
+    "PSRC-28: them mlkit_pack_catalog.dart lam nguon duy nhat: 3 goi hien san (en/vi/hi) + 16 goi an sau nut 'Them ngon ngu' (ar bn de es fr id it ja ko mr pt ru ta te th zh) = 19 = giao cua 26 ngon ngu app voi bo ML Kit; loai han bo/km/lo/mn/my/si/zh-TW vi ML Kit khong phat hanh goi. Moi dong co nhan ban ngu + ma ISO.",
+    "PSRC-191: them widgets/engine_sheet_section.dart (EngineSheetSection + EngineSheetHint), thu gon thi KHONG dung children; build() 370 dong tach thanh _buildLiveEngineStatus/_buildOfflinePacksSection/_buildOfflineOnlyCard/_buildHymtSection/_buildLlmSection/_buildDeeplxSection/_buildGlossaryCard/_saveAndClose. Goi offline mo san + badge 2/19, DeepLX/Hy-MT/LLM dong mac dinh, glossary la dong dieu huong, Luu dan day. Khong mat tinh nang nao, moi chuoi UI cu giu nguyen.",
+    "i18n: 11 key moi qua priorityUiOverrides (en/hi/zh/zh_TW/si): 'Goi dich offline', 'Khong ho tro', 'Da co model.', 'Tai hoac Import file .gguf de dich offline.', 'Engine offline uu tien', 'Cau hinh provider trong Cai dat -> Model AI.', 'De trong -> dung Google Free.', 'Dang tai ngam...', 'Loi tai goi', 'Them ngon ngu', 'An bot ngon ngu'. Khong chay generator legacy.",
+    "CI: step 'PSRC-181/182/188/28/191 - openrouter/free + goi ML Kit + sheet engine' trong app_analyze.yml chay 5 tep test (guard ton tai tung tep)."
+  ],
+  "risks_or_blockers": [
+    "Khong co SDK Flutter/Dart trong sandbox: khong compile/test local duoc. Da kiem bang ra API thu cong, can ngoac/quote bang python, grep cheo, va port thuat toan sang Python chay kich ban. CI la trong tai that: app_analyze 43102311942 + 43148105474 xanh, listen_queue_tests 43101673264 xanh (kotlinc bien dich TranslationOverlayView.kt).",
+    "PSRC-188 con phu thuoc hanh vi ML Kit tang native: neu he dieu hanh kill app thi luot tai khong con. Dong sheet thi chac chan van xong (registry khong phu thuoc widget). Neu owner thay goi quay ve 'Chua tai' sau khi thoat app => buoc tiep theo la ForegroundService.",
+    "PSRC-190: neu con cat tren may that thi thu pham la bo uoc luong font metrics cua hang may (khong phai layout) - log [in4up-xlat-overlay] need/have chi dung cho can chinh.",
+    "4 the deu chua nghiem thu tren may that."
+  ],
+  "evidence": [
+    "Commits da push tren arena/2c1eaa16-in4up: e501c32 (PSRC-190) + 0fecdbd (PSRC-188) + f48523c (PSRC-28) + 6942551 (PSRC-191) + 3051b4a/c29858b (KANBAN).",
+    "CI 43102311942 SUCCESS (e501c32..f48523c): analyze 0 error, step Screen translate, step AUDIT-1.21.0, step PSRC-181/182/188/28/191 deu xanh.",
+    "CI 43148105474 SUCCESS (6942551): ca 4 job - analyze-and-locale-test, web-build-validation, vocabulary-tools, knowledge-regressions.",
+    "CI 43101673264 SUCCESS (listen_queue_tests): job android-resolver-compile xanh = kotlinc bien dich TranslationOverlayView.kt + ScreenTranslateService.kt.",
+    "Test moi/sua: test/screen_translate/overlay_layout_audit_test.dart (30), test/translation/mlkit_pack_downloads_test.dart (11), test/translation/mlkit_pack_catalog_test.dart (9), test/translation/engine_sheet_layout_test.dart (8), test/translation/mlkit_pack_download_ui_test.dart, test/audit_1_21_0_wiring_test.dart.",
+    "Mo phong Python (1080x2400 @ dpr 2.75) voi fontScale 1.0/1.3/1.6/2.0: 10 dong day => 10/10/10/9 khoi ve, 0 giao nhau, 0 khung thieu cho; 30 khoi => 25 ve @1.0, 7 @2.0.",
+    "Bao cao day du: docs/project/BAO-CAO-PSRC-190-188-28-191.md"
+  ],
+  "files": [
+    ".github/workflows/app_analyze.yml",
+    "android/app/src/main/kotlin/com/in4up/screentranslate/ScreenTranslateService.kt",
+    "android/app/src/main/kotlin/com/in4up/screentranslate/TranslationOverlayView.kt",
+    "docs/project/KANBAN.md",
+    "lib/core/language/priority_ui_overrides.dart",
+    "lib/features/screen_translate/screen_translate_controller.dart",
+    "lib/features/screen_translate/screen_translate_geometry.dart",
+    "lib/features/screen_translate/screen_translate_overlay_layout.dart",
+    "lib/features/translation/mlkit_pack_catalog.dart",
+    "lib/features/translation/mlkit_pack_downloads.dart",
+    "lib/features/translation/translation_service.dart",
+    "lib/features/translation/translation_toolbar.dart",
+    "lib/features/translation/widgets/engine_sheet_section.dart",
+    "test/audit_1_21_0_wiring_test.dart",
+    "test/screen_translate/overlay_layout_audit_test.dart",
+    "test/translation/engine_sheet_layout_test.dart",
+    "test/translation/mlkit_pack_catalog_test.dart",
+    "test/translation/mlkit_pack_download_ui_test.dart",
+    "test/translation/mlkit_pack_downloads_test.dart"
+  ]
+}

@@ -254,6 +254,10 @@ jobs:
           flutter test $files > locale_test.log 2>&1
           code=$?
           cat locale_test.log
+          if [ "$code" -ne 0 ]; then
+            msg=$(head -c 60000 locale_test.log | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Rule 5 full log::$msg"
+          fi
           exit $code
 
       - name: Upload locale test log
@@ -1425,6 +1429,32 @@ jobs:
         with:
           name: knowledge-test-log
           path: knowledge_test.log
+          if-no-files-found: ignore
+
+      # PSRC-183..186 (2026-11-11): worker protocol (response phải đi qua
+      # replyPort), một nguồn sự thật model/engine, import voices + WAV, và
+      # Rule #5 cho chrome mới. Test thuần + source-scan, không cần native lib.
+      - name: "PSRC-183..186 — VieNeu TTS state/import contract"
+        id: psrc-183-186-tests
+        run: |
+          set +e
+          flutter test test/tts/vieneu_tts_paths_test.dart \
+            test/tts/vieneu_worker_protocol_test.dart \
+            test/tts/vieneu_state_contract_test.dart \
+            > vieneu_psrc_test.log 2>&1
+          code=$?
+          cat vieneu_psrc_test.log
+          if [ "$code" -ne 0 ]; then
+            msg=$(head -c 60000 vieneu_psrc_test.log | sed 's/%/%25/g; :a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=VieNeu PSRC-183..186 full log::$msg"
+          fi
+          exit $code
+      - name: Upload VieNeu PSRC-183..186 test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vieneu-psrc-183-186-test-log
+          path: vieneu_psrc_test.log
           if-no-files-found: ignore
 
   # Compilation only: never deploy or push gh-pages from this validation job.

@@ -30,7 +30,7 @@ cài nào có `libvieneu_tts.so`.** Ba lỗ hổng độc lập, mỗi cái đ�
 
 | Mảnh | Đóng gói | Pin |
 |---|---|---|
-| audio.cpp (ggml + C ABI + `vieneu_v3_turbo`) | **submodule** `third_party/audio.cpp`, CMake Android build CPU-only, target `vieneu_v3_turbo` | tag **v0.9.4** — `717efc34` (API C đã đối chiếu khớp wrapper) |
+| audio.cpp (ggml + C ABI + `vieneu_v3_turbo`) | **submodule** `third_party/audio.cpp`; **module Gradle riêng `:vieneu`** (`android/vieneu/`), CMake CPU-only, chỉ target `audiocpp` + `vieneu_tts` | tag **v0.9.4** — `717efc34` (API C đã đối chiếu khớp wrapper) |
 | wrapper C | `native/tts_vieneu/vieneu_tts.cpp` → `libvieneu_tts.so` | trong repo |
 | SEA-G2P (Rust, C ABI) | **submodule** `third_party/sea-g2p`; CI cross-compile `--no-default-features --features capi` cho `arm64-v8a`, chép vào `jniLibs` | tag **v0.10.0** — `dae5ca83` |
 | `sea_g2p.bin` (~30 MB, từ điển) | **không nhúng** — người dùng tải/import cạnh model (bước tải trong app là việc của lane L6) | bản phát hành sea-g2p v0.10.0 |
@@ -60,8 +60,10 @@ Wrapper ưu tiên đường dẫn tuyệt đối nếu người dùng vẫn đ�
 - Stereo→mono được sửa ⇒ đúng thời lượng, đúng cao độ.
 
 **Xấu / phải trả giá**
-- Build NDK lần đầu: audio.cpp + ggml cho arm64 — ước tính **+10–20 phút** cho job Android
-  và **+5–12 MB** cho APK (chưa đo trên runner — số thật lấy từ workflow).
+- Build NDK lần đầu: audio.cpp + ggml cho arm64 — **đo thật (run 43325244915): job
+  `vieneu_engine_build` 17 phút 05 giây** từ checkout tới APK, gồm cả `cargo ndk` build
+  SEA-G2P và compile ggml **hai lần** (một cho llama.cpp của `:app`, một cho `:vieneu`).
+  Dung lượng `.so` trong APK: xem §7 (bước "Report measurements" in ra annotation).
 - Thêm Rust toolchain + `cargo-ndk` vào đường build ⇒ một phụ thuộc mới; pin tag để
   không bị upstream đổi.
 - Repo nặng thêm khi `submodule update` (audio.cpp ~144 MB, sea-g2p ~84 MB).
@@ -84,3 +86,28 @@ Wrapper ưu tiên đường dẫn tuyệt đối nếu người dùng vẫn đ�
 3. `PSRC-214…218`: import model ở mọi mục, không báo "thành công" giả, khởi tạo/import
    giọng/tạo giọng có thông điệp đúng.
 4. Nghiệm thu máy như bảng trên.
+
+## 7. Điều chỉnh khi thi công (2026-11-12) — ba lỗi chỉ lộ khi build thật
+
+Quyết định ở §2 không đổi, nhưng đường thi công phải sửa ba lần; ghi lại để người sau
+không "sửa lại cho gọn" rồi tái hiện đúng ba lỗi này.
+
+| # | Triệu chứng (run) | Nguyên nhân thật | Cách sửa đã áp dụng |
+|---|---|---|---|
+| 1 | `Failed to load Cargo.toml in current directory` (43310174692) | `cargo ndk` đọc `cargo metadata` theo **cwd**, không theo `--manifest-path` | `cd third_party/sea-g2p` rồi mới gọi; `-o "$GITHUB_WORKSPACE/…/jniLibs"` tuyệt đối |
+| 2 | `configure CMake` đỏ: `add_library cannot create ALIAS target "ggml::ggml"` (43318161013) | llama.cpp của `:app` kéo ggml **0.21.0**, audio.cpp kéo ggml **0.12.0** của riêng nó (`external/ggml`, không có option dùng ggml ngoài) ⇒ hai bản trong **cùng** project CMake | Tách **module Gradle `:vieneu`** (`android/vieneu/`) với CMake project riêng; `:app` chỉ `implementation(project(":vieneu"))`. Bỏ hẳn `add_subdirectory(audio.cpp)` khỏi `ai/CMakeLists.txt` (có test chặn thêm lại) |
+| 3 | `workflow.cpp:392: use of undeclared identifier 'posix_spawnp'` (43323259962) | AGP mặc định build **mọi** target CMake ⇒ kéo `audiocpp_cli` / `audiocpp_server` / `model_perf`; CLI dùng `posix_spawnp` (API 28+) trong khi `minSdk = 24` | Khai báo `targets += listOf("audiocpp", "vieneu_tts")` trong `defaultConfig` của module |
+
+Hai bài học CI kèm theo (không thuộc engine nhưng chặn đường):
+- Runner **không có NDK 27** mà plugin `whisper_flutter_new` khai riêng ⇒
+  `LicenceNotAcceptedException: ndk;27.0.11902837`. Workflow engine nay cài NDK 27 + 28.2
+  và `sdkmanager --licenses` y như `build_final_complete.yml`.
+- Log workflow/artifact Actions bị chặn egress từ sandbox agent ⇒ thêm
+  `scripts/ci/emit_failure_annotation.py` biến lỗi build thành **annotation** (một message
+  bị GitHub cắt ~4096 ký tự nên script cắt thành nhiều phần, ưu tiên khối `FAILED:` và
+  dòng `error:`). Đây là công cụ chẩn đoán thường trực, không phải đồ nghề tạm.
+
+**Trạng thái đo được (run 43325244915):** `vieneu_engine_build` 🟢 — APK arm64 có đủ
+`libvieneu_tts.so`, `libaudiocpp.so`, `libsea_g2p_rs.so`; job 17m05s. Đường phát hành
+(`build_final_complete.yml`) nay init submodule **không nuốt lỗi** và tự `cargo ndk` build
+SEA-G2P ⇒ APK release cũng có engine, không còn cảnh "build xanh mà thiếu engine".

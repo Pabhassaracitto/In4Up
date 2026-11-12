@@ -63,7 +63,10 @@ Wrapper ưu tiên đường dẫn tuyệt đối nếu người dùng vẫn đ�
 - Build NDK lần đầu: audio.cpp + ggml cho arm64 — **đo thật (run 43325244915): job
   `vieneu_engine_build` 17 phút 05 giây** từ checkout tới APK, gồm cả `cargo ndk` build
   SEA-G2P và compile ggml **hai lần** (một cho llama.cpp của `:app`, một cho `:vieneu`).
-  Dung lượng `.so` trong APK: xem §7 (bước "Report measurements" in ra annotation).
+  **Dung lượng engine đo thật (APK debug arm64, run 43328297538):** `libaudiocpp.so`
+  4,9 MiB + `libsea_g2p_rs.so` 4,2 MiB + `libvieneu_tts.so` 0,9 MiB = **≈10 MiB chưa nén**
+  (APK debug tổng 261 MiB — số này KHÔNG dùng để ước lượng bản phát hành; chênh lệch
+  APK release đo ở G4).
 - Thêm Rust toolchain + `cargo-ndk` vào đường build ⇒ một phụ thuộc mới; pin tag để
   không bị upstream đổi.
 - Repo nặng thêm khi `submodule update` (audio.cpp ~144 MB, sea-g2p ~84 MB).
@@ -107,7 +110,8 @@ Hai bài học CI kèm theo (không thuộc engine nhưng chặn đường):
   bị GitHub cắt ~4096 ký tự nên script cắt thành nhiều phần, ưu tiên khối `FAILED:` và
   dòng `error:`). Đây là công cụ chẩn đoán thường trực, không phải đồ nghề tạm.
 
-**Trạng thái đo được (run 43325244915):** `vieneu_engine_build` 🟢 — APK arm64 có đủ
-`libvieneu_tts.so`, `libaudiocpp.so`, `libsea_g2p_rs.so`; job 17m05s. Đường phát hành
+**Trạng thái đo được:** `vieneu_engine_build` 🟢 hai lần liên tiếp — 43325244915 (17m05s)
+và 43328297538 (18m52s, có bước đo). APK arm64-debug 261 MiB chứa đủ `libvieneu_tts.so`
+0,9 MiB + `libaudiocpp.so` 4,9 MiB + `libsea_g2p_rs.so` 4,2 MiB (≈10 MiB engine, chưa nén). Đường phát hành
 (`build_final_complete.yml`) nay init submodule **không nuốt lỗi** và tự `cargo ndk` build
 SEA-G2P ⇒ APK release cũng có engine, không còn cảnh "build xanh mà thiếu engine".

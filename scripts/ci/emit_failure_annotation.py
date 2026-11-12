@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
-"""Đưa các dòng lỗi của một log build lên *annotation* GitHub Actions.
+"""Phát lỗi của một log build thành *annotation* GitHub Actions (nhiều phần).
 
 Vì sao cần script này: log workflow và artifact của Actions nằm ở blob storage
 (`results-receiver.actions.githubusercontent.com`, `productionresultssa*.blob...`)
 mà sandbox agent bị chặn egress ⇒ `gh run view --log` trả EOF. Annotation thì đọc
-được qua `repos/{owner}/{repo}/check-runs/{id}/annotations`, nên nó là kênh DUY
+được qua `repos/{owner}/{repo}/check-runs/{id}/annotations` ⇒ đây là kênh DUY
 NHẤT để chẩn đoán lỗi từ xa.
 
-Chiến lược chọn dòng (theo thứ tự, ghép lại, khử trùng lặp theo số dòng):
-  1. Cửa sổ ngữ cảnh từ "What went wrong" / "A problem occurred" / "FAILURE:".
-  2. Mọi "CMake Error" / "CMake Warning (dev)" / "ninja: build stopped" /
-     "FAILED:" kèm 8 dòng sau (lỗi CMake nằm ở CUỐI output configure).
-  3. `tail_lines` dòng cuối log (lỗi thật thường ở đó).
-  4. Nếu không có gì khớp: toàn bộ tail.
+Giới hạn thực tế đo được: MỘT message của `::error::` bị cắt quanh **4096 ký tự**
+(run 43320370093: annotation dừng giữa output ninja). Vì vậy script:
+  * ưu tiên nội dung quan trọng (dòng "What went wrong", khối `FAILED:` của
+    ninja kèm 10 dòng sau, mọi dòng `error:`), rồi tới đuôi log;
+  * cắt thành nhiều `::error title=... (i/n)::` để tổng dung lượng lớn hơn.
 
-Yêu cầu định dạng: message của workflow command phải là MỘT dòng; xuống dòng được
-mã hoá `%0A`, và `%` phải thành `%25` TRƯỚC khi ghép (nếu không sẽ mã hoá luôn
-các `%0A` vừa tạo).
+Định dạng: message workflow command phải là MỘT dòng; xuống dòng = `%0A`, và `%`
+phải thành `%25` TRƯỚC khi ghép (nếu không sẽ mã hoá luôn các `%0A` vừa tạo).
 
 Dùng:
-    python3 scripts/ci/emit_failure_annotation.py <log> [max_lines] [tail_lines]
-rồi trong workflow:
-    errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/build.log)"
-    echo "::error title=...::${errs:-exit=$code}"
+    python3 scripts/ci/emit_failure_annotation.py <log> [title] [max_chunks]
 """
 
 from __future__ import annotations
@@ -30,36 +25,29 @@ from __future__ import annotations
 import re
 import sys
 
-# Các mẫu lỗi của Gradle / CMake / NDK / clang / ninja / Java.
-PATTERNS = (
-    r"What went wrong"
-    r"|^e: "
-    r"|error:"
-    r"|fatal error"
-    r"|CMake Error"
-    r"|undefined reference"
-    r"|cannot find"
-    r"|No matching client"
-    r"|Execution failed"
-    r"|> Task .*FAILED"
-    r"|ninja: build stopped"
-    r"|Caused by"
-    r"|ld: "
-    r"|clang\+\+: error"
-    r"|Could not (resolve|find|determine)"
-    r"|A problem occurred"
-)
+CHUNK = 3800  # chừa biên so với ngưỡng cắt ~4096 ký tự của một annotation
 
-# Dòng mở đầu khối lỗi của Gradle.
+# Mở đầu khối lỗi của Gradle.
 CONTEXT_START = r"What went wrong|A problem occurred|FAILURE: Build failed"
 
-# Khối lỗi CMake/ninja — cần kèm vài dòng sau mới đủ ngữ cảnh.
-BLOCK_START = r"CMake Error|CMake Warning \(dev\)|ninja: build stopped|FAILED:"
+# Khối lỗi ninja/CMake — cần kèm vài dòng sau mới đủ ngữ cảnh.
+BLOCK_START = r"^FAILED:|CMake Error|ninja: build stopped"
 
-MAX_ANNOTATION = 60_000  # GitHub cắt message annotation quanh 64 KB
+# Dòng lỗi trình biên dịch / liên kết.
+ERROR_LINE = (
+    r"error:"
+    r"|undefined reference"
+    r"|fatal error"
+    r"|cannot find"
+    r"|ld: "
+    r"|Caused by"
+    r"|Execution failed"
+    r"|No matching client"
+)
 
 
-def _collect(lines: list[str], max_lines: int, tail_lines: int) -> list[str]:
+def _priority_lines(lines: list[str]) -> list[str]:
+    """Chọn dòng theo mức quan trọng (khử trùng theo chỉ số dòng gốc)."""
     picked: list[int] = []
     seen: set[int] = set()
 
@@ -69,50 +57,59 @@ def _collect(lines: list[str], max_lines: int, tail_lines: int) -> list[str]:
                 seen.add(index)
                 picked.append(index)
 
-    start = None
+    # 1. Dòng mở đầu khối lỗi Gradle + 3 dòng sau (tên task hỏng).
     for index, line in enumerate(lines):
         if re.search(CONTEXT_START, line):
-            start = index
+            add(index, 4)
             break
-    if start is not None:
-        add(start, max_lines)
 
+    # 2. Khối FAILED của ninja + 10 dòng sau: đây là chỗ nêu file/lỗi biên dịch.
     for index, line in enumerate(lines):
         if re.search(BLOCK_START, line):
-            add(index, 9)
+            add(index, 11)
 
-    add(max(0, len(lines) - tail_lines), tail_lines)
+    # 3. Mọi dòng lỗi biên dịch/liên kết rời.
+    for index, line in enumerate(lines):
+        if re.search(ERROR_LINE, line):
+            add(index, 2)
 
-    if not picked:
-        matcher = re.compile(PATTERNS)
-        for index, line in enumerate(lines):
-            if matcher.search(line):
-                add(index, 1)
-                if len(picked) >= max_lines:
-                    break
+    # 4. Đuôi log (thường có "BUILD FAILED in", thống kê).
+    add(max(0, len(lines) - 8), 8)
 
-    return [lines[index] for index in picked[: max_lines + 40]]
+    return [lines[index] for index in picked]
+
+
+def _chunks(text: str) -> list[str]:
+    return [text[start:start + CHUNK] for start in range(0, len(text), CHUNK)]
 
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
-        print("usage: emit_failure_annotation.py <log> [max_lines] [tail_lines]",
+        print("usage: emit_failure_annotation.py <log> [title] [max_chunks]",
               file=sys.stderr)
         return 2
 
     path = argv[1]
-    max_lines = int(argv[2]) if len(argv) > 2 else 60
-    tail_lines = int(argv[3]) if len(argv) > 3 else 25
+    title = argv[2] if len(argv) > 2 else "build failure"
+    max_chunks = int(argv[3]) if len(argv) > 3 else 4
 
-    with open(path, encoding="utf-8", errors="replace") as handle:
-        lines = [line.rstrip("\n") for line in handle]
+    try:
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            lines = [line.rstrip("\n") for line in handle]
+    except OSError as exc:
+        print(f"::error title={title}::không đọc được log {path}: {exc}")
+        return 0
 
-    escaped = [line[:300].replace("%", "%25") for line in _collect(lines, max_lines, tail_lines)]
-    message = "%0A".join(escaped)
-    if len(message) > MAX_ANNOTATION:
-        message = message[:MAX_ANNOTATION]
+    selected = _priority_lines(lines)
+    escaped = [line[:300].replace("%", "%25") for line in selected]
+    parts = _chunks("%0A".join(escaped))[:max_chunks]
 
-    print(message)
+    for ordinal, part in enumerate(parts, start=1):
+        suffix = f" ({ordinal}/{len(parts)})" if len(parts) > 1 else ""
+        print(f"::error title={title}{suffix}::{part}")
+
+    if not parts:
+        print(f"::error title={title}::log rỗng")
     return 0
 
 

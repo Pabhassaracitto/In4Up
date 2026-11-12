@@ -30,6 +30,13 @@ String _codeOnly(String src) => src
     .where((line) => !line.trimLeft().startsWith('//'))
     .join('\n');
 
+/// Như [_codeOnly] nhưng cho CMake/Gradle — bỏ cả comment `#`.
+String _codeOnlyHash(String src) => src
+    .split('\n')
+    .where((line) =>
+        !line.trimLeft().startsWith('//') && !line.trimLeft().startsWith('#'))
+    .join('\n');
+
 void main() {
   group('VieNeu native engine — hợp đồng build/âm thanh', () {
     final wrapper = _codeOnly(_read('native/tts_vieneu/vieneu_tts.cpp'));
@@ -87,12 +94,33 @@ void main() {
       expect(modules.contains('https://github.com/pnnbao97/sea-g2p'), isTrue);
     });
 
-    test('CMake Android build engine; workflow kiểm đủ 3 .so trong APK', () {
-      final cmake = _read('android/app/src/main/cpp/ai/CMakeLists.txt');
+    test('module :vieneu build engine; :app KHÔNG add audio.cpp (trùng ggml)', () {
+      final cmake = _read('android/vieneu/CMakeLists.txt');
       expect(cmake.contains('add_library(vieneu_tts SHARED'), isTrue);
       expect(cmake.contains('native/tts_vieneu/vieneu_tts.cpp'), isTrue);
       expect(cmake.contains('third_party/audio.cpp'), isTrue);
       expect(cmake.contains('AUDIOCPP_MODELS'), isTrue);
+
+      // Bất biến then chốt: audio.cpp kéo ggml riêng của nó; llama.cpp của :app
+      // cũng kéo ggml ⇒ hai bản trong CÙNG project CMake trùng target
+      // `ggml::ggml` (run 43318161013 configure đỏ). :app phải KHÔNG còn
+      // add_subdirectory(audio.cpp).
+      final appCmake =
+          _codeOnlyHash(_read('android/app/src/main/cpp/ai/CMakeLists.txt'));
+      expect(
+        // Raw string: `${...}` trong Dart sẽ bị nội suy nếu không escape.
+        appCmake.contains(r'add_subdirectory(${AUDIOCPP_ROOT}'),
+        isFalse,
+        reason: 'Thêm lại audio.cpp vào project CMake của :app sẽ tái hiện lỗi '
+            'add_library cannot create ALIAS target "ggml::ggml"',
+      );
+
+      final settings = _read('android/settings.gradle.kts');
+      expect(settings.contains('include(":vieneu")'), isTrue,
+          reason: 'Thiếu include ⇒ module không được build');
+      final appGradle = _read('android/app/build.gradle.kts');
+      expect(appGradle.contains('implementation(project(":vieneu"))'), isTrue,
+          reason: 'Thiếu dependency ⇒ .so của module không được đóng gói vào APK');
 
       final workflow = _read('.github/workflows/vieneu_engine_build.yml');
       for (final lib in <String>[

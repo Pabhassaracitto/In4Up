@@ -94,7 +94,7 @@ jobs:
           code=$?
           tail -30 /tmp/g2p_host.log
           if [ "$code" != "0" ]; then
-            errs=$(grep -nE "^error|error\[|cannot find|failed|panicked|Caused by" /tmp/g2p_host.log | head -25 | cut -c1-300 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/g2p_host.log 25 20)"
             echo "::error title=SEA-G2P host build::${errs:-exit=$code}"
             exit "$code"
           fi
@@ -119,7 +119,7 @@ jobs:
           code=$?
           tail -40 /tmp/g2p_build.log
           if [ "$code" != "0" ]; then
-            errs=$(grep -nE "^error|error\[|cannot find|failed|panicked|Caused by|error:" /tmp/g2p_build.log | head -25 | cut -c1-300 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/g2p_build.log 25 20)"
             echo "::error title=SEA-G2P build::${errs:-exit=$code}"
             exit "$code"
           fi
@@ -180,13 +180,10 @@ jobs:
             grep -nE "What went wrong|^e: |error:|fatal error|CMake Error|undefined reference|cannot find|No matching client|Execution failed|> Task .*FAILED|ninja: build stopped|Caused by" /tmp/vieneu_build.log | head -120 >> "$GITHUB_STEP_SUMMARY" || true
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             # Đưa dòng lỗi GỐC lên annotation (log workflow/artifact bị chặn egress
-            # từ sandbox ⇒ annotation là kênh DUY NHẤT đọc được lỗi).
-            errs=$(grep -nE "What went wrong|^e: |error:|fatal error|CMake Error|undefined reference|cannot find|No matching client|Execution failed|> Task .*FAILED|ninja: build stopped|Caused by" /tmp/vieneu_build.log \
-              | head -60 | cut -c1-280 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-            if [ -z "$errs" ]; then
-              # Không khớp mẫu ⇒ gửi 30 dòng cuối để không mù hoàn toàn.
-              errs=$(tail -30 /tmp/vieneu_build.log | cut -c1-280 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-            fi
+            # từ sandbox ⇒ annotation là kênh DUY NHẤT đọc được lỗi). Script mã
+            # hoá %0A đúng thứ tự — bản sed cũ để lọt newline thật nên GitHub chỉ
+            # hiện dòng đầu ("What went wrong:").
+            errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/vieneu_build.log 60 30)"
             echo "::error title=VieNeu engine build::${errs:-exit=$code}" || true
           fi
           exit "$code"

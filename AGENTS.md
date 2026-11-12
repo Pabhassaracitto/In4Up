@@ -26,6 +26,10 @@
   Luật: CHỈ đổi trạng thái + append lịch sử, KHÔNG xóa.
 - `docs/project/PLAN.md` — milestone + nơi tiếp nhận kế hoạch mới từ người sở hữu.
 - Đầu session: `git fetch` rồi đọc bản trên `origin/main` trước khi cập nhật.
+- **Beta 1.29.0 (đang mở):** `docs/project/BETA-1.29.0.md` — bàn tổng hợp 9 lane audit
+  v1.28.0. Nhánh con **PR vào `arena/60e35d65-in4up`**, KHÔNG vào `main`/251e; trên nhánh
+  con **cấm** sửa `KANBAN.md` / `PLAN.md` / `pubspec.yaml` version (hub giữ độc quyền để
+  tránh xung đột 9 phía). Luật land + cổng G0–G5 ở §3/§5 của file đó.
 
 ## Quy tắc vàng (vi phạm = dừng lại hỏi người, không tự quyết)
 

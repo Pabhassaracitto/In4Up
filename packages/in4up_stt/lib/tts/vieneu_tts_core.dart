@@ -18,7 +18,7 @@
 // báo chưa sẵn sàng → fallback.
 //
 // Tất cả lệnh native (nạp model, synthesize) chạy trong **worker isolate**
-// riêng (`_vieneuTtsWorkerEntry`) để native synthesize (có thể mất vài giây
+// riêng (`vieneuTtsWorkerEntry`) để native synthesize (có thể mất vài giây
 // cho đoạn dài) KHÔNG block UI thread — câu hỏi architecture của ticket:
 // ✅ cần isolate riêng, tương tự Gemma-IT generate (PR #23).
 
@@ -147,7 +147,15 @@ class VieneuTtsCore {
   /// =========================================================================
 
   SendPort? _workerPort;
+  /// Port nhận handshake (worker gửi SendPort của mình).
   ReceivePort? _commandPort;
+  /// Port nhận MỌI phản hồi có `seq`. PSRC-183/184: bản cũ worker gửi
+  /// response ngược lại vào chính `mainPort.sendPort` của nó ⇒ `_pending`
+  /// không bao giờ được complete ⇒ init/clone/synthesize timeout rồi báo
+  /// "worker chưa khởi tạo" dù model GGUF đã import xong. Phải tách riêng
+  /// port trả lời của main isolate.
+  ReceivePort? _responsePort;
+  Isolate? _workerIsolate;
   final _pending = <int, Completer<Map<String, dynamic>>>{};
   int _nextSeq = 0;
 
@@ -158,8 +166,33 @@ class VieneuTtsCore {
   /// caller thứ hai chờ cùng một future.
   Future<void>? _initFuture;
 
-  /// Worker đã khởi tạo xong (sẵn sàng synthesize/clone).
-  bool get isInitialized => _workerPort != null;
+  /// Native đã trả lời `init` THÀNH CÔNG (không phải chỉ handshake xong).
+  bool _ready = false;
+  String? _activeModelPath;
+  String? _activeVoiceId;
+
+  /// Worker đã nạp model xong, sẵn sàng synthesize/clone.
+  bool get isInitialized => _ready;
+
+  /// Đường dẫn model đang nạp trong worker (để phát hiện đổi biến thể).
+  String? get activeModelPath => _activeModelPath;
+
+  /// Giọng đang được worker dùng.
+  String? get activeVoiceId => _activeVoiceId;
+
+  /// Chờ lần init đang bay (nếu có) kết thúc trước khi gửi lệnh khác sang
+  /// worker. Không có bước này thì `clone_voice` có thể tới TRƯỚC khi native
+  /// `init` xong và bị từ chối với lỗi "Chưa init" (PSRC-184).
+  Future<void> _awaitReady() async {
+    final inFlight = _initFuture;
+    if (inFlight == null) return;
+    try {
+      await inFlight;
+    } catch (_) {
+      // Lỗi init được ném lại bởi caller của init; ở đây chỉ tránh gửi lệnh
+      // sang worker đang ở trạng thái hỏng.
+    }
+  }
 
   /// Có thư viện native load được trên platform này?
   ///
@@ -203,18 +236,40 @@ class VieneuTtsCore {
   /// Khởi tạo worker isolate + nạp model vào native. Gọi trước synthesize.
   ///
   /// [modelPath] — file .gguf. [voiceId] — mã giọng preset (mặc định
-  /// [defaultVoiceId]; files phải nằm trong [modelDir]/voices/<voiceId>/).
+  /// [defaultVoiceId]). [refCodesFile] / [speakerEmbeddingFile] cho phép
+  /// truyền ĐÚNG file giọng đã liệt kê (kể cả giọng clone nằm ở
+  /// `cloned_voices/`), thay vì chỉ dò `voices/<voiceId>/` (PSRC-184/186).
   ///
-  /// An toàn gọi đồng thời: các lần gọi trong lúc đang init sẽ chờ cùng một
-  /// future thay vì spawn thêm isolate (PSRC-187).
+  /// An toàn gọi đồng thời: các lần gọi trong lúc đang init chờ cùng một
+  /// future (PSRC-187). Nếu modelPath đổi (đổi Q8_0 ↔ bf16 hoặc import đè
+  /// file mới) worker cũ được dispose và nạp lại — bản cũ `return` ngay khi
+  /// `_workerPort != null` nên vẫn đọc model cũ dù UI báo đã import xong.
   Future<void> init({
     required String modelPath,
     String? voiceId,
+    String? refCodesFile,
+    String? speakerEmbeddingFile,
+    String? clonedVoicesDir,
   }) {
-    if (_workerPort != null) return Future.value(); // đã khởi tạo
     final inFlight = _initFuture;
-    if (inFlight != null) return inFlight; // đang init — chờ chung
-    final future = _initOnce(modelPath: modelPath, voiceId: voiceId);
+    if (inFlight != null) {
+      return inFlight.catchError((_) {}).then((_) => init(
+            modelPath: modelPath,
+            voiceId: voiceId,
+            refCodesFile: refCodesFile,
+            speakerEmbeddingFile: speakerEmbeddingFile,
+            clonedVoicesDir: clonedVoicesDir,
+          ));
+    }
+    if (_ready && _activeModelPath == modelPath) return Future.value();
+
+    final future = _initOnce(
+      modelPath: modelPath,
+      voiceId: voiceId,
+      refCodesFile: refCodesFile,
+      speakerEmbeddingFile: speakerEmbeddingFile,
+      clonedVoicesDir: clonedVoicesDir,
+    );
     _initFuture = future;
     // Xóa khóa khi xong (thành công hay thất bại) để lần gọi sau được thử lại.
     future.whenComplete(() {
@@ -226,44 +281,89 @@ class VieneuTtsCore {
   Future<void> _initOnce({
     required String modelPath,
     String? voiceId,
+    String? refCodesFile,
+    String? speakerEmbeddingFile,
+    String? clonedVoicesDir,
   }) async {
-    if (_workerPort != null) return; // đã khởi tạo trong lúc chờ khóa
+    // Dọn worker cũ TRƯỚC khi spawn worker mới: không bao giờ giữ 2 model
+    // 170–292 MB cùng lúc.
+    if (_workerPort != null || _workerIsolate != null || _ready) {
+      await dispose();
+    }
 
     final commandPort = ReceivePort();
+    final responsePort = ReceivePort();
     _commandPort = commandPort;
-    _commandPort!.listen(_onWorkerMessage);
+    _responsePort = responsePort;
+    responsePort.listen(_onWorkerMessage);
 
-    Isolate.spawn(_vieneuTtsWorkerEntry, commandPort.sendPort);
+    try {
+      final isolate = await Isolate.spawn(
+        vieneuTtsWorkerEntry,
+        <SendPort>[commandPort.sendPort, responsePort.sendPort],
+      );
+      _workerIsolate = isolate;
 
-    // Chờ worker gửi lại port của mình (handshake).
-    final workerPort = await commandPort.first
-        .timeout(const Duration(minutes: 1))
-        .catchError((_) => throw StateError('VieNeu worker không khởi tạo được'));
-    _workerPort = workerPort as SendPort;
+      // Chờ worker gửi lại port nhận lệnh (handshake).
+      final workerPort = await commandPort.first
+          .timeout(const Duration(seconds: 30));
+      _workerPort = workerPort as SendPort;
 
-    final response = await _call(
-      {
-        'cmd': 'init',
-        'modelPath': modelPath,
-        'voiceId': voiceId ?? defaultVoiceId,
-        'voicesDir': p.join(p.dirname(modelPath), _voicesDirName),
-      },
-      timeout: const Duration(minutes: 5), // nạp 170 MB GGUF có thể lâu
-    );
-    if (response['ok'] != true) {
+      final response = await _call(
+        {
+          'cmd': 'init',
+          'modelPath': modelPath,
+          'voiceId': voiceId ?? defaultVoiceId,
+          'voicesDir': p.join(p.dirname(modelPath), _voicesDirName),
+          'clonedVoicesDir': clonedVoicesDir ??
+              p.join(p.dirname(modelPath), 'cloned_voices'),
+          'refCodesFile': refCodesFile,
+          'speakerEmbeddingFile': speakerEmbeddingFile,
+        },
+        timeout: const Duration(minutes: 5), // nạp 170 MB GGUF có thể lâu
+      );
+      if (response['ok'] != true) {
+        throw StateError(
+            'VieNeu-TTS init thất bại: ${response['error'] ?? 'lỗi không xác định'}');
+      }
+      _ready = true;
+      _activeModelPath = modelPath;
+      _activeVoiceId = voiceId ?? defaultVoiceId;
+    } catch (e) {
       await dispose();
-      throw StateError(
-          'VieNeu-TTS init thất bại: ${response['error'] ?? 'lỗi không xác định'}');
+      if (e is TimeoutException) {
+        throw StateError('VieNeu worker không khởi tạo được: ${e.message ?? e}');
+      }
+      rethrow;
     }
   }
 
   /// Đổi giọng đọc (không cần nạp lại model — chỉ thay option của session).
-  Future<void> selectVoice(String voiceId, String voicesDir) async {
-    await _call({
+  ///
+  /// [refCodesFile] / [speakerEmbeddingFile] là đường dẫn TUYỆT ĐỐI đã được
+  /// engine kiểm tra; worker ưu tiên chúng, rồi mới dò `voices/<id>/` và
+  /// `cloned_voices/<id>/` (PSRC-184/186).
+  Future<void> selectVoice(
+    String voiceId,
+    String voicesDir, {
+    String? clonedVoicesDir,
+    String? refCodesFile,
+    String? speakerEmbeddingFile,
+  }) async {
+    await _awaitReady();
+    final response = await _call({
       'cmd': 'select_voice',
       'voiceId': voiceId,
       'voicesDir': voicesDir,
+      'clonedVoicesDir': clonedVoicesDir,
+      'refCodesFile': refCodesFile,
+      'speakerEmbeddingFile': speakerEmbeddingFile,
     }, timeout: const Duration(seconds: 10));
+    if (response['ok'] != true) {
+      throw StateError(
+          'VieNeu-TTS đổi giọng thất bại: ${response['error'] ?? 'lỗi không xác định'}');
+    }
+    _activeVoiceId = voiceId;
   }
 
   /// Tổng hợp [text] (tiếng Việt) thành WAV bytes.
@@ -277,7 +377,8 @@ class VieneuTtsCore {
     double speed = 1.0,
     double pitch = 1.0,
   }) async {
-    if (_workerPort == null) return null;
+    await _awaitReady();
+    if (_workerPort == null || !_ready) return null;
 
     final response = await _call({
       'cmd': 'synthesize',
@@ -309,7 +410,8 @@ class VieneuTtsCore {
     required String voiceId,
     required String samplesDir,
   }) async {
-    if (_workerPort == null) {
+    await _awaitReady();
+    if (_workerPort == null || !_ready) {
       throw StateError('VieNeu worker chưa khởi tạo');
     }
 
@@ -338,19 +440,35 @@ class VieneuTtsCore {
   }
 
   /// Giải phóng worker isolate + native handle.
+  ///
+  /// PSRC-183/184: phải reset `_ready` và kill isolate, nếu không lần
+  /// synthesize/clone sau khi import model mới vẫn hỏi worker cũ (đã mang
+  /// model cũ / đang hỏng) và UI báo trạng thái sai.
   Future<void> dispose() async {
     try {
       if (_workerPort != null) {
         await _call(
           {'cmd': 'dispose'},
           timeout: const Duration(seconds: 10),
-        ).catchError((_) {});
+        ).catchError((_) => <String, dynamic>{});
       }
     } finally {
       _workerPort = null;
+      _ready = false;
+      _activeModelPath = null;
+      _activeVoiceId = null;
       _initFuture = null;
+      _workerIsolate?.kill(priority: Isolate.immediate);
+      _workerIsolate = null;
       _commandPort?.close();
       _commandPort = null;
+      _responsePort?.close();
+      _responsePort = null;
+      for (final completer in _pending.values) {
+        if (!completer.isCompleted) {
+          completer.completeError(StateError('VieNeu worker đã giải phóng'));
+        }
+      }
       _pending.clear();
       _nextSeq = 0;
     }
@@ -389,16 +507,31 @@ class VieneuTtsCore {
 
 /// Entry point của worker isolate (chạy ở isolate riêng, KHÔNG async — async
 /// công việc nằm trong port.listen callback).
-void _vieneuTtsWorkerEntry(SendPort commandPort) {
+///
+/// Public để test máy bắt được lỗi
+/// "gửi response nhầm port" (PSRC-183/184) mà không cần native lib.
+///
+/// [ports][0]: port handshake của main isolate (worker gửi SendPort nhận lệnh).
+/// [ports][1]: port TRẢ LỜI của main isolate (mọi response có `seq` đi qua đây).
+@visibleForTesting
+void vieneuTtsWorkerEntry(List<SendPort> ports) {
+  if (ports.length < 2) {
+    throw ArgumentError('VieNeu worker cần handshakePort + replyPort');
+  }
+  final handshakePort = ports[0];
+  final replyPort = ports[1];
   final mainPort = ReceivePort();
-  commandPort.send(mainPort.sendPort); // handshake
+  handshakePort.send(mainPort.sendPort); // handshake
 
   _VieneuTtsNative? _native;
   Pointer<Void>? _handle;
   bool _initialized = false;
 
   void _reply(Map<String, dynamic> response) {
-    mainPort.sendPort.send(response);
+    // ⚠ KHÔNG dùng `mainPort.sendPort.send(...)`: đó là port của CHÍNH
+    // worker, response sẽ quay lại worker thay vì main isolate ⇒ mọi lệnh
+    // `_call` treo tới timeout (PSRC-183/184).
+    replyPort.send(response);
   }
 
   Map<String, dynamic> _respond({
@@ -424,19 +557,22 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
           final modelPath = msg?['modelPath'] as String?;
           final voiceId = msg?['voiceId'] as String?;
           final voicesDir = msg?['voicesDir'] as String?;
+          final clonedVoicesDir = msg?['clonedVoicesDir'] as String?;
+          final explicitRefCodes = msg?['refCodesFile'] as String?;
+          final explicitEmbedding = msg?['speakerEmbeddingFile'] as String?;
           if (modelPath == null || modelPath.isEmpty) {
-            mainPort.sendPort.send(_respond(ok: false, error: 'modelPath trống', seq: seq));
+            _reply(_respond(ok: false, error: 'modelPath trống', seq: seq));
             break;
           }
           final file = File(modelPath);
           if (!await file.exists()) {
-            mainPort.sendPort.send(
+            _reply(
                 _respond(ok: false, error: 'Không tìm thấy file model: $modelPath', seq: seq));
             break;
           }
           _native = _VieneuTtsNative.load();
           if (_native == null || !_native!.available) {
-            mainPort.sendPort.send(_respond(
+            _reply(_respond(
                 ok: false,
                 error: 'Không load được thư viện native libvieneu_tts',
                 seq: seq));
@@ -444,17 +580,19 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
           }
           _handle = _native!.create(
             modelPath,
-            _resolveVoiceFile(voicesDir, voiceId, 'ref_codes.txt'),
-            _resolveVoiceFile(voicesDir, voiceId, 'speaker.emb.txt'),
+            _voiceFileFor(explicitRefCodes, voicesDir, clonedVoicesDir,
+                voiceId, 'ref_codes.txt'),
+            _voiceFileFor(explicitEmbedding, voicesDir, clonedVoicesDir,
+                voiceId, 'speaker.emb.txt'),
             threads: 4,
           );
           if (_handle == nullptr) {
-            mainPort.sendPort.send(_respond(
+            _reply(_respond(
                 ok: false, error: _native!.lastError, seq: seq));
             break;
           }
           _initialized = true;
-          mainPort.sendPort.send(_respond(
+          _reply(_respond(
             ok: true,
             seq: seq,
             extra: {
@@ -466,17 +604,22 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
 
         case 'select_voice':
           if (!_initialized || _handle == null) {
-            mainPort.sendPort.send(_respond(ok: false, error: 'Chưa init', seq: seq));
+            _reply(_respond(ok: false, error: 'Chưa init', seq: seq));
             break;
           }
           final voiceId = msg?['voiceId'] as String?;
           final voicesDir = msg?['voicesDir'] as String?;
+          final clonedVoicesDir = msg?['clonedVoicesDir'] as String?;
+          final explicitRefCodes = msg?['refCodesFile'] as String?;
+          final explicitEmbedding = msg?['speakerEmbeddingFile'] as String?;
           _native!.selectVoice(
             _handle!,
-            _resolveVoiceFile(voicesDir, voiceId, 'ref_codes.txt'),
-            _resolveVoiceFile(voicesDir, voiceId, 'speaker.emb.txt'),
+            _voiceFileFor(explicitRefCodes, voicesDir, clonedVoicesDir,
+                voiceId, 'ref_codes.txt'),
+            _voiceFileFor(explicitEmbedding, voicesDir, clonedVoicesDir,
+                voiceId, 'speaker.emb.txt'),
           );
-          mainPort.sendPort.send(_respond(
+          _reply(_respond(
               ok: true,
               seq: seq,
               extra: {'voiceId': voiceId ?? VieneuTtsCore.defaultVoiceId}));
@@ -484,7 +627,7 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
 
         case 'synthesize':
           if (!_initialized || _handle == null) {
-            mainPort.sendPort.send(_respond(ok: false, error: 'Chưa init', seq: seq));
+            _reply(_respond(ok: false, error: 'Chưa init', seq: seq));
             break;
           }
           final text = msg?['text'] as String?;
@@ -492,7 +635,7 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
           final speed = (msg?['speed'] as num? ?? 1.0).toDouble();
           final pitch = (msg?['pitch'] as num? ?? 1.0).toDouble();
           if (text == null || text.isEmpty) {
-            mainPort.sendPort.send(_respond(ok: false, error: 'text trống', seq: seq));
+            _reply(_respond(ok: false, error: 'text trống', seq: seq));
             break;
           }
 
@@ -518,13 +661,13 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
             final rate = outRate.value;
 
             if (status != 0 || ptr == nullptr || frames == 0) {
-              mainPort.sendPort.send(_respond(
+              _reply(_respond(
                   ok: false, error: _native!.lastError, seq: seq));
             } else {
               final floatList = ptr.asTypedList(frames).toList();
               _native!.freeAudio(ptr);
               final wav = _encodeWav16MonoFloat(floatList, rate);
-              mainPort.sendPort.send(_respond(
+              _reply(_respond(
                 ok: true,
                 seq: seq,
                 extra: {'wav': base64Encode(wav), 'sampleRate': rate},
@@ -539,7 +682,7 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
 
         case 'clone_voice':
           if (!_initialized || _handle == null) {
-            mainPort.sendPort.send(_respond(ok: false, error: 'Chưa init', seq: seq));
+            _reply(_respond(ok: false, error: 'Chưa init', seq: seq));
             break;
           }
           final voiceId = msg?['voiceId'] as String?;
@@ -548,7 +691,7 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
           if (voiceId == null || voiceId.isEmpty ||
               samplesDir == null || samplesDir.isEmpty ||
               outputEmbedding == null || outputEmbedding.isEmpty) {
-            mainPort.sendPort.send(_respond(
+            _reply(_respond(
                 ok: false, error: 'Thiếu tham số clone giọng', seq: seq));
             break;
           }
@@ -558,10 +701,10 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
             outputEmbedding,
           );
           if (status != 0) {
-            mainPort.sendPort.send(_respond(
+            _reply(_respond(
                 ok: false, error: _native!.lastError, seq: seq));
           } else {
-            mainPort.sendPort.send(_respond(
+            _reply(_respond(
               ok: true,
               seq: seq,
               extra: {'embeddingPath': outputEmbedding, 'voiceId': voiceId},
@@ -575,16 +718,16 @@ void _vieneuTtsWorkerEntry(SendPort commandPort) {
             _handle = null;
             _initialized = false;
           }
-          mainPort.sendPort.send(_respond(ok: true, seq: seq));
+          _reply(_respond(ok: true, seq: seq));
           break;
 
         default:
-          mainPort.sendPort.send(
+          _reply(
               _respond(ok: false, error: 'Lệnh không nhận diện: $cmd', seq: seq));
       }
     } catch (e, st) {
       debugPrint('⚠️ VieNeu worker exception: $e\n$st');
-      mainPort.sendPort.send(_respond(ok: false, error: e.toString(), seq: seq));
+      _reply(_respond(ok: false, error: e.toString(), seq: seq));
     }
   });
 }
@@ -595,6 +738,26 @@ String? _resolveVoiceFile(String? voicesDir, String? voiceId, String fileName) {
       voiceId == null || voiceId.isEmpty) return null;
   final path = p.join(voicesDir, voiceId, fileName);
   return File(path).existsSync() ? path : null;
+}
+
+/// PSRC-184/186 — ưu tiên đường dẫn tuyệt đối do engine đã kiểm tra, rồi
+/// dò preset `voices/`, cuối cùng là giọng clone `cloned_voices/`.
+/// Bản cũ chỉ dò `voices/<id>/` nên giọng clone (nằm ở `cloned_voices/`)
+/// được liệt kê trong dropdown nhưng KHÔNG BAO GIỜ được nạp.
+String? _voiceFileFor(
+  String? explicitPath,
+  String? voicesDir,
+  String? clonedVoicesDir,
+  String? voiceId,
+  String fileName,
+) {
+  if (explicitPath != null && explicitPath.isNotEmpty &&
+      File(explicitPath).existsSync()) {
+    return explicitPath;
+  }
+  final preset = _resolveVoiceFile(voicesDir, voiceId, fileName);
+  if (preset != null) return preset;
+  return _resolveVoiceFile(clonedVoicesDir, voiceId, fileName);
 }
 
 /// Encode Float32 PCM mono [-1, 1] thành WAV 16-bit LE.

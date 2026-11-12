@@ -3,6 +3,7 @@
 #include "audiocpp.h"  // audio.cpp C ABI — third_party/audio.cpp/include
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -410,8 +411,13 @@ extern "C" VIENEU_TTS_API int vieneu_tts_clone_voice(
     std::vector<fs::path> sample_files;
     for (const auto & entry : fs::directory_iterator(samples_path)) {
         if (entry.is_regular_file()) {
-            auto ext = entry.path().extension().u8string();
-            if (ext == ".wav" || ext == ".WAV") {
+            // PSRC-185: dùng std::string + lowercase thay vì `u8string()` so
+            // sánh với `const char*` (C++20 trả std::u8string ⇒ không compile
+            // trên toolchain mới) và chấp nhận mọi biến thể hoa/thường.
+            std::string ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            if (ext == ".wav") {
                 sample_files.push_back(entry.path());
             }
         }

@@ -24,9 +24,28 @@ import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'engines/vieneu_tts_engine.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
+import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import 'language_detector.dart';
 import 'tts_candidate_router.dart';
 import 'tts_settings.dart';
+
+/// PSRC-183/186 — kết quả import model GGUF kèm giọng mẫu.
+class VieneuImportResult {
+  /// Đường dẫn file .gguf đã copy vào documents (rỗng nếu chỉ import giọng).
+  final String modelPath;
+
+  /// Số giọng mẫu mới được nạp kèm.
+  final int importedVoices;
+
+  /// Id các giọng mới (dùng để UI hiển thị / test máy).
+  final List<String> voiceIds;
+
+  const VieneuImportResult({
+    required this.modelPath,
+    required this.importedVoices,
+    this.voiceIds = const <String>[],
+  });
+}
 
 class TtsService extends ChangeNotifier {
   // ═══════════════════════════════════════
@@ -304,10 +323,16 @@ class TtsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// PSRC-183/186: thông báo cho UI (voice picker) biết danh sách giọng đã
-  /// thay đổi sau khi import model/voices. Dùng _safeNotify để tránh crash
-  /// khi đã dispose.
-  void notifyVoicesChanged() => _safeNotify();
+  /// PSRC-183/186: revision RIÊNG cho danh sách giọng. Picker lắng nghe
+  /// notifier này thay vì toàn bộ `TtsService` (vốn notify liên tục trong lúc
+  /// phát nhạc ⇒ reload giọng/ nạp lại UI không cần thiết).
+  final ValueNotifier<int> voicesRevision = ValueNotifier<int>(0);
+
+  /// Thông báo danh sách giọng/model vừa đổi (import, clone, xoá giọng).
+  void notifyVoicesChanged() {
+    if (!_disposed) voicesRevision.value++;
+    _safeNotify();
+  }
 
   // ═══════════════════════════════════════
   // CONFIGURATION
@@ -784,14 +809,10 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// TTS-VIENEU-IMPORT-001 — sao chép file .gguf người dùng chọn vào
-  /// `documents/vieneu_tts/<tên file của biến thể>` để engine có thể nạp.
-  /// [variant] quy định phiên bản mô hình (Q8_0 mặc định ~170 MB, bf16 ~292 MB).
-  /// Trả về đường dẫn file đã import, hoặc ném exception nếu thất bại.
-  ///
-  /// Sau khi import thành công, gọi [VieneuTtsEngine.instance.init] để
-  /// engine nạp model vào native worker isolate.
-  Future<String> importVieneuModel(File file,
+  /// Kết quả một lần import model GGUF (PSRC-183/186). UI cần biết cả số
+  /// giọng mẫu được nạp kèm để không báo "đã import" trong khi danh sách
+  /// giọng vẫn trống.
+  Future<VieneuImportResult> importVieneuModel(File file,
       {VieneuModelVariant variant = VieneuModelVariant.q8_0}) async {
     if (!await file.exists()) {
       throw FileSystemException('File không tồn tại', file.path);
@@ -808,10 +829,7 @@ class TtsService extends ChangeNotifier {
       await vieneuDir.create(recursive: true);
     }
 
-    // ── Tạo thư mục voices/ — không tạo placeholder rỗng nữa (PSRC-187).
-    // VieNeu-TTS GGUF đã embed sẵn giọng mặc định; placeholder ref_codes.txt
-    // chỉ chứa `# VieNeu-TTS...` khiến getAvailableVoices đếm giọng ảo và
-    // native crash khi truyền vào audio.cpp. Chỉ tạo thư mục, không sinh file.
+    // Chỉ tạo thư mục, KHÔNG sinh placeholder ref_codes.txt (PSRC-187).
     final voicesDir = Directory(p.join(vieneuDir.path, 'voices'));
     if (!await voicesDir.exists()) {
       await voicesDir.create(recursive: true);
@@ -820,51 +838,109 @@ class TtsService extends ChangeNotifier {
     final target = File(p.join(vieneuDir.path, variant.fileName));
     await file.copy(target.path);
 
-    // PSRC-186: nếu cùng thư mục với GGUF có thư mục voices/ chứa giọng mẫu
-    // (ví dụ user tải bộ `vieneu-v3-turbo-q8_0.gguf` + thư mục `voices/` đính
-    // kèm), tự động sao chép vào `documents/vieneu_tts/voices/`.
+    // PSRC-186: `file_picker` thường trả bản COPY trong cache của app, nên
+    // dò nhiều vị trí (cạnh GGUF, thư mục cha, chính thư mục bundle) thay vì
+    // chỉ `dirname(file)/voices`. Mỗi thư mục giọng phải có dữ liệu thật.
+    final voiceIds = <String>[];
     try {
-      await _importBundledVoicesFromSource(
-        sourceFileDir: p.dirname(file.path),
+      voiceIds.addAll(await _importBundledVoicesFromSource(
+        ggufPath: file.path,
         targetVoicesDir: voicesDir.path,
-      );
+      ));
     } catch (e) {
       debugPrint('⚠️ VieNeu voices import kèm GGUF bỏ qua: $e');
     }
 
-    _safeNotify();
-    return target.path;
+    // PSRC-183: worker có thể đang giữ model CŨ. Dọn để lần phát tới nạp
+    // đúng file vừa import; trạng thái UI (model/engine) được làm mới.
+    await VieneuTtsEngine.instance.invalidate();
+    notifyVoicesChanged();
+    return VieneuImportResult(
+      modelPath: target.path,
+      importedVoices: voiceIds.length,
+      voiceIds: List<String>.unmodifiable(voiceIds),
+    );
   }
 
-  /// PSRC-186 — sao chép thư mục giọng đi kèm GGUF vào voices/.
-  ///
-  /// Quy ước: nếu `sourceFileDir/voices/` tồn tại và chứa thư mục con có
-  /// `ref_codes.txt` / `speaker.emb.txt`, copy từng giọng chưa tồn tại ở đích.
-  /// Không ghi đè giọng đã có để tôn trọng lựa chọn của người dùng.
-  Future<void> _importBundledVoicesFromSource({
-    required String sourceFileDir,
+  /// PSRC-186 — dò các thư mục `voices/` đi kèm GGUF và copy giọng hợp lệ.
+  /// Trả về id các giọng mới (không ghi đè giọng đã có dữ liệu thật).
+  Future<List<String>> _importBundledVoicesFromSource({
+    required String ggufPath,
     required String targetVoicesDir,
   }) async {
-    final sourceVoicesDir = Directory(p.join(sourceFileDir, 'voices'));
-    if (!await sourceVoicesDir.exists()) return;
-    final entries = await sourceVoicesDir.list().toList();
-    var importedCount = 0;
-    for (final entry in entries) {
-      if (entry is! Directory) continue;
-      final voiceId = p.basename(entry.path);
-      final targetVoiceDir = Directory(p.join(targetVoicesDir, voiceId));
-      if (await targetVoiceDir.exists()) continue; // đã có — không ghi đè
-      // Chỉ copy nếu thư mục giọng có file giọng thực
-      final hasVoiceFile = await File(p.join(entry.path, 'ref_codes.txt')).exists() ||
-          await File(p.join(entry.path, 'speaker.emb.txt')).exists() ||
-          await File(p.join(entry.path, 'ref_codes.bin')).exists();
-      if (!hasVoiceFile) continue;
-      await _copyDirectoryRecursively(entry, targetVoiceDir);
-      importedCount++;
+    final imported = <String>[];
+    for (final candidate in bundledVoiceDirCandidates(ggufPath)) {
+      final source = Directory(candidate);
+      if (!await source.exists()) continue;
+      final ids = await _importVoiceFoldersFromDirectory(source, targetVoicesDir);
+      for (final id in ids) {
+        if (!imported.contains(id)) imported.add(id);
+      }
     }
-    if (importedCount > 0) {
-      debugPrint('✅ VieNeu đã import $importedCount giọng từ ${sourceVoicesDir.path}');
+    if (imported.isNotEmpty) {
+      debugPrint('✅ VieNeu đã import ${imported.length} giọng kèm GGUF');
     }
+    return imported;
+  }
+
+  /// Một thư mục giọng phải có ít nhất một file dữ liệu có NỘI DUNG THỰC —
+  /// placeholder comment `# VieNeu-TTS default` không được tính.
+  Future<bool> _folderHasValidVoiceData(Directory folder) async {
+    if (!await folder.exists()) return false;
+    for (final name in vieneuVoiceDataFileNames) {
+      final file = File(p.join(folder.path, name));
+      if (!await file.exists()) continue;
+      try {
+        if (p.extension(name) == '.bin') {
+          if (await file.length() > 32) return true;
+        } else if (hasVieneuVoiceData(await file.readAsString())) {
+          return true;
+        }
+      } catch (_) {
+        // File nhị phân: có kích thước hợp lệ vẫn chấp nhận.
+        try {
+          if (await file.length() > 32) return true;
+        } catch (_) {}
+      }
+    }
+    return false;
+  }
+
+  /// Copy các thư mục giọng con của [sourceDir] (hoặc chính [sourceDir] nếu
+  /// nó là một giọng đơn lẻ) vào [targetVoicesDir].
+  Future<List<String>> _importVoiceFoldersFromDirectory(
+    Directory sourceDir,
+    String targetVoicesDir,
+  ) async {
+    final imported = <String>[];
+    if (await _folderHasValidVoiceData(sourceDir)) {
+      final id = p.basename(sourceDir.path);
+      if (!id.startsWith('_')) {
+        final ok = await _copyVoiceFolder(sourceDir, Directory(p.join(targetVoicesDir, id)));
+        if (ok) imported.add(id);
+      }
+      return imported;
+    }
+    await for (final entity in sourceDir.list()) {
+      if (entity is! Directory) continue;
+      final id = p.basename(entity.path);
+      if (id.startsWith('_') || id == vieneuTempSamplesDirName) continue;
+      if (!await _folderHasValidVoiceData(entity)) continue;
+      final ok = await _copyVoiceFolder(entity, Directory(p.join(targetVoicesDir, id)));
+      if (ok) imported.add(id);
+    }
+    return imported;
+  }
+
+  /// Copy một giọng; bỏ qua nếu đích đã có dữ liệu thật, nhưng THAY THẾ nếu
+  /// đích chỉ là placeholder (lỗi import đời đầu — PSRC-186).
+  Future<bool> _copyVoiceFolder(Directory source, Directory target) async {
+    if (await _folderHasValidVoiceData(target)) return false;
+    if (await target.exists()) {
+      await target.delete(recursive: true);
+    }
+    await _copyDirectoryRecursively(source, target);
+    return true;
   }
 
   Future<void> _copyDirectoryRecursively(Directory source, Directory target) async {
@@ -879,11 +955,81 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// PSRC-186/185 — import giọng VieNeu từ thư mục do người dùng chọn.
-  ///
-  /// Mỗi thư mục con trong [sourceVoicesDirPath] được coi là một giọng (cần có
-  /// `ref_codes.txt` hoặc `speaker.emb.txt`). Sao chép vào `vieneu_tts/voices/`.
-  /// Trả về số giọng đã import.
+  /// PSRC-186 — import TRỌN BỘ từ thư mục người dùng chọn: mọi file .gguf
+  /// (Q8_0/bf16) + mọi thư mục `voices/`. Cần cho Android/SAF nếu file
+  /// GGUF bị copy vào cache và tự động dò cạnh file không đủ.
+  Future<VieneuImportResult> importVieneuBundleFromDirectory(
+      String sourceDirPath) async {
+    final sourceDir = Directory(sourceDirPath);
+    if (!await sourceDir.exists()) {
+      throw FileSystemException('Thư mục không tồn tại', sourceDirPath);
+    }
+    final ggufFiles = await _findFilesUnder(sourceDir, maxDepth: 3)
+        .where((f) => p.extension(f.path).toLowerCase() == '.gguf')
+        .toList();
+    String? modelPath;
+    final voiceIds = <String>[];
+    for (final gguf in ggufFiles) {
+      final name = detectVieneuVariantName(gguf.path) ??
+          VieneuModelVariant.q8_0.name;
+      final variant = VieneuModelVariant.values.firstWhere(
+        (v) => v.name == name,
+        orElse: () => VieneuModelVariant.q8_0,
+      );
+      final result = await importVieneuModel(gguf, variant: variant);
+      modelPath ??= result.modelPath;
+      for (final id in result.voiceIds) {
+        if (!voiceIds.contains(id)) voiceIds.add(id);
+      }
+    }
+
+    // Dò thêm mọi thư mục tên `voices` (kể cả lồng sâu) dù không có GGUF.
+    final dir = await getApplicationDocumentsDirectory();
+    final targetVoicesDir =
+        Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
+    if (!await targetVoicesDir.exists()) {
+      await targetVoicesDir.create(recursive: true);
+    }
+    await for (final entity in sourceDir.list(recursive: true)) {
+      if (entity is! Directory) continue;
+      if (p.basename(entity.path).toLowerCase() != 'voices') continue;
+      final ids = await _importVoiceFoldersFromDirectory(
+          entity, targetVoicesDir.path);
+      for (final id in ids) {
+        if (!voiceIds.contains(id)) voiceIds.add(id);
+      }
+    }
+    if (modelPath == null && voiceIds.isEmpty) {
+      throw FileSystemException(
+          'Không tìm thấy file .gguf hoặc giọng hợp lệ trong thư mục',
+          sourceDirPath);
+    }
+    await VieneuTtsEngine.instance.invalidate();
+    notifyVoicesChanged();
+    return VieneuImportResult(
+      modelPath: modelPath ?? '',
+      importedVoices: voiceIds.length,
+      voiceIds: List<String>.unmodifiable(voiceIds),
+    );
+  }
+
+  /// Duyệt file có giới hạn độ sâu (tránh `list(recursive: true)` đi vào
+  /// thư mục hệ thống khổng lồ khi người dùng chọn sai thư mục).
+  Stream<File> _findFilesUnder(Directory root, {required int maxDepth}) async* {
+    if (maxDepth < 0 || !await root.exists()) return;
+    await for (final entity in root.list(recursive: false)) {
+      if (entity is File) {
+        yield entity;
+      } else if (entity is Directory &&
+          !p.basename(entity.path).startsWith('.')) {
+        yield* _findFilesUnder(entity, maxDepth: maxDepth - 1);
+      }
+    }
+  }
+
+  /// PSRC-185/186 — import giọng VieNeu từ thư mục do người dùng chọn.
+  /// Hỗ trợ: thư mục chứa `voices/`, thư mục chứa nhiều giọng con, hoặc
+  /// chính là một giọng đơn lẻ. Trả về số giọng mới.
   Future<int> importVieneuVoicesFromDirectory(String sourceVoicesDirPath) async {
     final sourceDir = Directory(sourceVoicesDirPath);
     if (!await sourceDir.exists()) {
@@ -894,72 +1040,159 @@ class TtsService extends ChangeNotifier {
     if (!await targetVoicesDir.exists()) {
       await targetVoicesDir.create(recursive: true);
     }
-    final entries = await sourceDir.list().toList();
-    // Hỗ trợ cả hai cấu trúc: (a) thư mục chứa nhiều giọng con, (b) thư mục
-    // chính là một giọng duy nhất (có ref_codes.txt ngay gốc).
-    // Trường hợp (b): copy cả thư mục như một giọng với tên = basename.
-    final looksLikeSingleVoice = await File(p.join(sourceDir.path, 'ref_codes.txt')).exists() ||
-        await File(p.join(sourceDir.path, 'speaker.emb.txt')).exists();
-    if (looksLikeSingleVoice) {
-      final voiceId = p.basename(sourceDir.path);
-      final target = Directory(p.join(targetVoicesDir.path, voiceId));
-      if (await target.exists()) {
-        throw FileSystemException('Giọng \"$voiceId\" đã tồn tại');
-      }
-      await _copyDirectoryRecursively(sourceDir, target);
-      _safeNotify();
-      return 1;
-    }
-    var imported = 0;
-    for (final entry in entries) {
-      if (entry is! Directory) continue;
-      final voiceId = p.basename(entry.path);
-      final target = Directory(p.join(targetVoicesDir.path, voiceId));
-      if (await target.exists()) continue;
-      final hasVoiceFile = await File(p.join(entry.path, 'ref_codes.txt')).exists() ||
-          await File(p.join(entry.path, 'speaker.emb.txt')).exists();
-      if (!hasVoiceFile) continue;
-      await _copyDirectoryRecursively(entry, target);
-      imported++;
-    }
-    if (imported == 0) {
+    final nested = Directory(p.join(sourceDir.path, 'voices'));
+    final chosen = await nested.exists() ? nested : sourceDir;
+    final ids = await _importVoiceFoldersFromDirectory(
+        chosen, targetVoicesDir.path);
+    if (ids.isEmpty) {
       throw FileSystemException('Không tìm thấy giọng hợp lệ trong thư mục');
     }
-    _safeNotify();
+    await VieneuTtsEngine.instance.invalidate();
+    notifyVoicesChanged();
+    return ids.length;
+  }
+
+  /// PSRC-186 — fallback khi platform không hỗ trợ chọn thư mục
+  /// (`getDirectoryPath` trên Android/SAF): người dùng chọn nhiều file
+  /// `ref_codes.txt` / `speaker.emb.txt` / `ref_codes.bin` trực tiếp.
+  ///
+  /// Các file cùng thư mục nguồn được gom thành MỘT giọng; nếu nguồn là thư
+  /// mục cache của file_picker (không còn cấu trúc) thì gom tất cả vào một
+  /// giọng `imported_voice`.
+  Future<int> importVieneuVoiceFiles(List<String> sourcePaths) async {
+    const genericDirs = <String>{'cache', 'file_picker', 'tmp', 'temp', ''};
+    final groups = <String, List<String>>{};
+    for (final path in sourcePaths) {
+      if (!isVieneuVoiceDataFile(path)) continue;
+      if (!await File(path).exists()) continue;
+      var voiceId = sanitizeVieneuVoiceId(p.basename(p.dirname(path)));
+      if (genericDirs.contains(voiceId.toLowerCase())) voiceId = '';
+      final key = voiceId.isEmpty ? 'imported_voice' : voiceId;
+      groups.putIfAbsent(key, () => <String>[]).add(path);
+    }
+    if (groups.isEmpty) {
+      throw FileSystemException('Không tìm thấy file giọng hợp lệ');
+    }
+    final dir = await getApplicationDocumentsDirectory();
+    final targetRoot = Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
+    if (!await targetRoot.exists()) {
+      await targetRoot.create(recursive: true);
+    }
+    var imported = 0;
+    for (final entry in groups.entries) {
+      var voiceId = entry.key;
+      var suffix = 0;
+      var target = Directory(p.join(targetRoot.path, voiceId));
+      while (await target.exists() && await _folderHasValidVoiceData(target)) {
+        suffix++;
+        voiceId = '${entry.key}_$suffix';
+        target = Directory(p.join(targetRoot.path, voiceId));
+      }
+      await target.create(recursive: true);
+      for (final path in entry.value) {
+        final fileName = p.basename(path);
+        var sequence = 0;
+        var dest = File(uniqueVieneuCopyPath(target.path, fileName, sequence));
+        while (await dest.exists()) {
+          sequence++;
+          dest = File(uniqueVieneuCopyPath(target.path, fileName, sequence));
+        }
+        await File(path).copy(dest.path);
+      }
+      imported++;
+    }
+    await VieneuTtsEngine.instance.invalidate();
+    notifyVoicesChanged();
     return imported;
   }
 
   /// PSRC-185 — import các file mẫu WAV từ thư mục có sẵn vào vùng tạm của
-  /// VoiceClone (để người dùng có thể tạo giọng từ bộ sưu tập mẫu đã thu trước).
-  /// Trả về số file đã copy.
+  /// VoiceClone. Chỉ nhận `.wav` (đúng định dạng native đọc được), duyệt cả
+  /// thư mục con. Trả về số file đã copy.
   Future<int> importVieneuSamplesFromDirectory(String sourceDirPath) async {
     final sourceDir = Directory(sourceDirPath);
     if (!await sourceDir.exists()) {
       throw FileSystemException('Thư mục không tồn tại', sourceDirPath);
     }
+    final paths = <String>[];
+    await for (final entity in sourceDir.list(recursive: true)) {
+      if (entity is File && isVieneuVoiceSampleFile(entity.path)) {
+        paths.add(entity.path);
+      }
+    }
+    return importVieneuSampleFiles(paths);
+  }
+
+  /// Fallback cho platform không hỗ trợ `getDirectoryPath` (Android/SAF):
+  /// người dùng chọn NHIỀU file WAV trực tiếp.
+  Future<int> importVieneuSampleFiles(List<String> sourcePaths) async {
     final dir = await getApplicationDocumentsDirectory();
-    final tempDir = Directory(p.join(dir.path, 'vieneu_tts', 'cloned_voices', '_temp_samples'));
+    final tempDir = Directory(p.join(
+        dir.path, 'vieneu_tts', 'cloned_voices', vieneuTempSamplesDirName));
     if (!await tempDir.exists()) {
       await tempDir.create(recursive: true);
     }
-    final entries = await sourceDir.list().toList();
     var copied = 0;
-    for (final entry in entries) {
-      if (entry is! File) continue;
-      final ext = p.extension(entry.path).toLowerCase();
-      if (ext != '.wav' && ext != '.mp3' && ext != '.m4a' && ext != '.flac') continue;
-      final dest = File(p.join(tempDir.path, p.basename(entry.path)));
-      // Tránh trùng tên: thêm timestamp nếu đã tồn tại
-      final target = await dest.exists()
-          ? File(p.join(tempDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(entry.path)}'))
-          : dest;
-      await (entry as File).copy(target.path);
+    for (final sourcePath in sourcePaths) {
+      if (!isVieneuVoiceSampleFile(sourcePath)) continue;
+      final source = File(sourcePath);
+      if (!await source.exists()) continue;
+      final fileName = p.basename(sourcePath);
+      var sequence = 0;
+      var target = File(uniqueVieneuCopyPath(tempDir.path, fileName, sequence));
+      while (await target.exists()) {
+        sequence++;
+        target = File(uniqueVieneuCopyPath(tempDir.path, fileName, sequence));
+      }
+      await source.copy(target.path);
       copied++;
     }
     if (copied == 0) {
-      throw FileSystemException('Không tìm thấy file âm thanh trong thư mục');
+      throw FileSystemException('Không tìm thấy file WAV trong thư mục');
     }
+    _safeNotify();
     return copied;
+  }
+
+  /// Số mẫu WAV đang chờ tạo giọng (hiển thị trong VoiceCloneSection).
+  Future<int> getVieneuSampleCount() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final tempDir = Directory(p.join(
+        dir.path, 'vieneu_tts', 'cloned_voices', vieneuTempSamplesDirName));
+    if (!await tempDir.exists()) return 0;
+    var count = 0;
+    await for (final entity in tempDir.list()) {
+      if (entity is File && isVieneuVoiceSampleFile(entity.path)) count++;
+    }
+    return count;
+  }
+
+  /// Dọn mẫu tạm CHỈ SAU KHI clone thành công (PSRC-184: bản cũ xoá trước,
+  /// nên một lần clone lỗi là mất sạch mẫu đã thu âm).
+  Future<void> clearVieneuTempSamples() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final tempDir = Directory(p.join(
+        dir.path, 'vieneu_tts', 'cloned_voices', vieneuTempSamplesDirName));
+    if (!await tempDir.exists()) return;
+    await for (final entity in tempDir.list()) {
+      if (entity is File) {
+        try {
+          await entity.delete();
+        } catch (_) {}
+      }
+    }
+    _safeNotify();
+  }
+
+  /// PSRC-184 — bảo đảm worker đã nạp model TRƯỚC khi gọi clone giọng.
+  /// Đi qua engine (có lock + áp đúng biến thể) thay vì gọi `core.init`
+  /// trực tiếp từ UI rồi kiểm tra `isInitialized` trong lúc init còn đang bay.
+  Future<void> ensureVieneuWorkerReady() async {
+    final variant = await getSelectedVieneuModelVariant();
+    await VieneuTtsEngine.instance.init(modelVariant: variant);
+    if (!VieneuTtsEngine.instance.isInitialized) {
+      throw StateError('VieNeu worker chưa khởi tạo');
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -969,14 +1202,23 @@ class TtsService extends ChangeNotifier {
   static const String _vieneuVariantPrefsKey = 'vieneu_tts_model_variant';
 
   /// Biến thể mô hình người dùng đã chọn (mặc định Q8_0).
+  ///
+  /// PSRC-183: lựa chọn lưu trong prefs có thể trỏ tới biến thể KHÔNG còn
+  /// file (xoá file / cài đè / import chỉ một biến thể). Khi đó picker báo
+  /// "Chưa import model" dù Q8_0 đã sẵn sàng. Đồng bộ lại với file thật
+  /// trên đĩa và ghi đè prefs — một nguồn sự thật duy nhất.
   Future<VieneuModelVariant> getSelectedVieneuModelVariant() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_vieneuVariantPrefsKey);
-    if (raw == null) return VieneuModelVariant.q8_0;
-    return VieneuModelVariant.values.firstWhere(
+    final saved = VieneuModelVariant.values.firstWhere(
       (v) => v.name == raw,
       orElse: () => VieneuModelVariant.q8_0,
     );
+    final available = await VieneuTtsCore.getAvailableVariants();
+    if (available.isEmpty || available.contains(saved)) return saved;
+    final fallback = available.first;
+    await prefs.setString(_vieneuVariantPrefsKey, fallback.name);
+    return fallback;
   }
 
   /// Lưu biến thể mô hình người dùng chọn.
@@ -1826,6 +2068,7 @@ class TtsService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true; // ★ FIX: Đánh dấu đã dispose trước khi cleanup
+    voicesRevision.dispose();
     _audioPlayer.dispose();
     _offlineEngine.dispose();
     VieneuTtsEngine.instance.dispose();

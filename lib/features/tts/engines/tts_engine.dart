@@ -72,6 +72,9 @@ class TtsVoice {
   final String gender; // 'male', 'female'
   final String engine;
   final bool isNeural; // Giọng AI neural hay không
+  /// Nguồn giọng (`preset` / `cloned` / `default`) — tuỳ chọn, dùng để hiển
+  /// thị nhãn đúng trong picker VieNeu (PSRC-186). Các engine khác bỏ trống.
+  final String? origin;
 
   const TtsVoice({
     required this.id,
@@ -80,6 +83,7 @@ class TtsVoice {
     required this.gender,
     required this.engine,
     this.isNeural = false,
+    this.origin,
   });
 
   @override

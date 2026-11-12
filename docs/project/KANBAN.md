@@ -33,6 +33,10 @@
 | REL-1.27.0 | Release **1.27.0** (đủ 4 nền tảng) từ tip 251e — 31 commit sau 1.26.0 (0 merge) | ✅ done (build 🟢 run 42893022019, 4/4 job; chờ nghiệm thu máy) | bump `1.26.0+26 → 1.27.0+27` (`9358a6a5`); Android build đỏ lần 1 do sai tên constant → sửa `6fa1ddf2` → tag lại; APK arm64 199.1 MB `d8643b67…`, IPA 93.8 MB, Linux 50.5 MB, Windows 53.1 MB — https://github.com/Pabhassaracitto/In4Up/releases/tag/1.27.0 |
 | XLAT-SCR-006 | Bong bóng dịch: khung phải ĐỦ CHỖ cho chữ + không chồng lớp (owner 2026-11-11, có ảnh) | ✅ done (code + 14 test + **CI 42911172140 🟢**; chờ nghiệm thu máy) | đo chữ → nới rộng → nới cao → đẩy khối dưới xuống → thu nhỏ đều (sàn 10sp) → bỏ khối tràn; native sàn 10sp + log `[in4up-xlat-overlay]`; kotlinc compile overlay trong CI |
 | PSRC-197 | SRS Cram Hard: chấm điểm được khi **chưa lật thẻ** (audit 1.27.0) | ✅ done (code + 11 test + **CI 43102617406 🟢**; chờ nghiệm thu máy) | `RatingGate` dùng chung cho nút bấm lẫn vuốt · mặc định bật, tắt được ở Cài đặt ôn tập · `test/srs/rate_before_flip_test.dart` |
+| XLAT-SCR-006 (2) | Bong bóng dịch **vẫn** cắt chữ trên máy thật — nguyên nhân gốc `fontScale` | ✅ done (code + 30 test + **CI 43102311942 🟢** + kotlinc 43101673264 🟢; chờ nghiệm thu máy, nhất là máy bật cỡ chữ lớn) | native vẽ `TypedValue(SP)` = sp × density × **fontScale**, Dart chỉ nhân density ⇒ máy bật cỡ chữ lớn cấp thiếu chỗ; nay truyền `fontScale` native→Dart, bỏ hẳn `…`/`setMaxLines` ở native, bước CHỐT bỏ khối thay vì vẽ chữ cụt |
+| PSRC-188 | Tải gói dịch offline **tiếp tục khi đóng popup** | ✅ done (code + 11 test + **CI 43102311942 🟢**; chờ nghiệm thu máy) | `MlKitPackDownloads` (ChangeNotifier) sống trong `TranslationService` thay vì State của sheet; `start()` một lượt tải/gói, `refresh()` không ghi đè gói đang tải; sheet nghe registry + hiện "Đang tải ngầm..." |
+| PSRC-28 | Chỉ hiện 3 ngôn ngữ ML Kit — thêm các ngôn ngữ còn lại, danh sách vẫn gọn | ✅ done (code + 9 test + **CI 43102311942 🟢**; chờ nghiệm thu máy) | `MlKitPackCatalog`: EN/VI/HI hiện sẵn + 16 ngôn ngữ còn lại (∩ 26 ngôn ngữ app = 19) mở bằng "Thêm ngôn ngữ"; loại BO/KM/LO/MN/MY/SI/ZH-TW (ML Kit không có) |
+| PSRC-191 | Sắp xếp lại UI **Translation engines** (audit 1.27.0: rối) | ✅ done (code + 8 test + **CI 43148105474 🟢**; chờ nghiệm thu máy) | `EngineSheetSection` (thẻ nhóm thu gọn được, thu gọn KHÔNG dựng children); gói offline mở sẵn + badge `2/19`/"Đang tải ngầm...", DeepLX/Hy-MT/LLM đóng mặc định; `build()` 370 dòng tách thành `_build*Section()` |
 | BATTERY-PROMPT-001 | Gộp thông báo xin quyền pin: **chỉ 1 thông báo/phiên** + **bấm là mở thẳng màn tối ưu pin** | ✅ done (code + 9 test + **CI 42701172029 🟢**; chờ nghiệm thu Android) | `_shownThisSession` cấp process; channel `in4up/platform` → `ACTION_IGNORE_BATTERY_OPTIMIZATIONS` + `package:` (4 bậc lùi); bỏ `_BatteryStatusAction` (icon pin thứ 2); thẻ pin nghe `AppLifecycleState.resumed` |
 | PSRC-181 | Model mặc định của provider có sẵn OpenRouter = `openrouter/free` (kèm migrate cấu hình cũ) | ✅ done (code + test + **CI 42785969719 🟢**; chờ nghiệm thu máy) | `kBuiltinOpenRouterChatModel` = `openrouter/free`; `migrateBuiltinProviderChatModel()` chỉ đổi model mặc định CŨ, không ghi đè model user chọn; test `test/ai_openrouter_default_free_test.dart` |
 | PSRC-182 | Dịch offline: gói ngôn ngữ ML Kit ĐÃ TẢI không còn hiện "Tải về" (icon + chữ "Đã tải") | ✅ done (code + test + **CI 42785969719 🟢**; chờ nghiệm thu máy Android/iOS) | `translation_toolbar.dart` `_modelRow`: nút tải chỉ render khi **chưa** tải, có icon; tải/xoá xong đọc lại `isModelDownloaded`; test `test/translation/mlkit_pack_download_ui_test.dart` |
@@ -9541,3 +9545,62 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   - 2026-11-11 | created→doing | agent `arena/6d4b3a0f-in4up` | RatingGate + controller + presenter + sheet + i18n + test; xoá 2 file chết
   - 2026-11-11 | doing | ADR-0027 ghi quyết định (một cổng `RatingGate`, mặc định bật, tắt được, chấp nhận rủi ro "chấm lạc quan" + cách tắt)
   - 2026-11-11 | doing→done | CI **43102617406** 🟢 (analyze 0 error · Rule 5 · PSRC-197 11 test) sau 3 vòng sửa test/annotation
+### XLAT-SCR-006 (tiếp) — (2026-11-11) Cắt chữ trên máy thật: nguyên nhân gốc `fontScale`
+- **Trạng thái:** ✅ done — code + 30 test + **CI 🟢** (`app_analyze` 43102311942: analyze 0 error, step PSRC-181/182/188/28/191 🟢, step Screen translate 🟢, step AUDIT-1.21.0 🟢; `listen_queue_tests` 43101673264: `android-resolver-compile` 🟢 = kotlinc biên dịch `TranslationOverlayView.kt`). **Chờ nghiệm thu máy thật.**
+- **Nguồn:** owner 2026-11-11 — *"vẫn còn trường hợp bị cắt chữ"* sau bản `aeb85929`.
+- **Nguyên nhân gốc (bản trước bỏ sót):** native vẽ bằng `TypedValue.applyDimension(SP, …)` = **sp × density × `configuration.fontScale`**, còn Dart chỉ nhân `density`. Máy bật cỡ chữ hệ thống lớn (1.3–2.0×) ⇒ khung cấp thiếu đúng bằng tỉ lệ đó ⇒ chữ bị cắt dù bộ ước lượng đã ước dư 6%.
+- **Sửa:**
+  1. `ScreenCaptureGeometry.fontScale` + `toMap/fromMap`; `ScreenTranslateService.kt` gửi `fontScale` trong payload; controller truyền vào `layoutTranslatedBlocks(fontScale:)`.
+  2. `OverlayFontMetrics.pxPerSp = density × effectiveOverlayFontScale(fontScale)` (kẹp 1.0…2.0) — MỌI phép đo đều đi qua đây.
+  3. **Bỏ hẳn cắt chữ**: native không còn `TextUtils.TruncateAt.END`/`setMaxLines`; không vừa khung ⇒ **bỏ vẽ khối** + log `[in4up-xlat-overlay]` `need=… have=…`. Dart cũng không chèn `…` nữa.
+  4. Tràn đáy: thu nhỏ đều (sàn 10sp, khớp `MIN_READABLE_SP`) → **chia đều chiều cao** (fair share, khối ngắn nhường chỗ) → khối không nổi nguyên bản dịch thì bỏ vẽ. Nếu chia đều mà bỏ sạch ⇒ lùi về "lấp từ trên" để không trắng trơn.
+  5. **Bước CHỐT (f):** đo lại từng khối ở cỡ chữ CUỐI bằng đúng bộ ước lượng; thiếu chỗ ⇒ bỏ khối. Bất biến "không vẽ chữ cụt" không còn phụ thuộc việc các nhánh trên tính khớp nhau.
+- **Test:** 5 bất biến (không giao nhau · khung cao đủ · cỡ chữ ≥ 10sp · giữ nguyên số khối/thứ tự · tăng `fontScale` không làm thêm khối bị cắt) + nhóm fontScale + 12 test layout (khối đơn, sát đáy, 2 khối, 10 dòng dày, 30 khối tràn, 2 cột, trùng nội dung, frame giả…).
+- **Đã kiểm bằng mô phỏng:** port thuật toán sang Python, 1080×2400 @ dpr 2.75 — `fontScale` 1.0/1.3/1.6/2.0: 10 dòng dày → 10/10/10/9 khối vẽ, **0 giao nhau, 0 khung thiếu chỗ**; 30 khối → 25 vẽ @1.0, 7 @2.0; khối đơn sát đáy được **dịch lên** thay vì cắt.
+- **Chưa kiểm:** máy thật. Cần owner mở bong bóng trên trang nhiều chữ, **bật cỡ chữ hệ thống lớn nhất** → mọi dòng hiện đủ, không chồng. Nếu còn cắt: `adb logcat | grep in4up-xlat-overlay` (log `need`/`have` cho biết bộ ước lượng hụt bao nhiêu).
+- **Lịch sử:**
+  - 2026-11-11 | doing | agent `arena/2c1eaa16-in4up` | truyền `fontScale`, bỏ ellipsize ở native, bước chốt (f), viết lại test → `2391806`
+  - 2026-11-11 | done | CI 43102311942 🟢 + kotlinc 43101673264 🟢
+
+### PSRC-188 — (2026-11-11) Tải gói dịch offline tiếp tục khi đóng popup
+- **Trạng thái:** ✅ done — code + 11 test; **CI 43102311942 🟢**. Chờ nghiệm thu máy.
+- **Nguồn:** Linear PSRC-188 (owner) — *"cho tải gói dịch offline tiếp tục khi đóng popup"*; mở lại phải thấy đã xong hoặc vẫn đang tải, không bắt đầu lại.
+- **Nguyên nhân:** `_downloading`/`_modelDownloaded` nằm trong `_TranslationEngineSettingsSheetState` ⇒ đóng sheet là `dispose`, mất mọi cập nhật; mở lại `_loadModels()` thấy `isModelDownloaded() == false` ⇒ hiện "Chưa tải" + nút "Tải về" dù native vẫn đang tải dở.
+- **Sửa:** `MlKitPackDownloads` (ChangeNotifier) do **`TranslationService.mlkitPacks`** giữ (singleton sống suốt app):
+  - `start(code)` — một lượt tải/gói; bấm lại lúc đang chạy **dùng chung future**; gói đã có ⇒ `ready` ngay, không gọi native.
+  - `refresh(codes)` — gói ĐANG TẢI không bị ghi đè thành `missing`; cờ `failed` được giữ để UI báo lý do khi mở lại.
+  - Vẫn giữ PSRC-182: `downloadModel()` trả `false` mà máy báo có gói ⇒ `ready`.
+  - Sheet chỉ **nghe** registry (`addListener`/`removeListener`), bỏ 2 map trong State; thêm trạng thái "Đang tải ngầm..." + "Lỗi tải gói".
+- **Luật phiên không đổi:** KHÔNG tự tải lúc bootstrap/`ensureModel`/mở sheet — registry chỉ theo dõi lượt tải do user bấm.
+- **Test:** `test/translation/mlkit_pack_downloads_test.dart` (11 ca: đóng sheet giữa chừng, mở lại khi đang tải, bấm 2 lần, plugin trả false, thất bại giữ lý do, desktop, xoá gói…) + pin chống tái phát trong `mlkit_pack_download_ui_test.dart`.
+- **Lịch sử:**
+  - 2026-11-11 | created→doing | agent `arena/2c1eaa16-in4up` | registry ngoài sheet → `bf919c7`
+  - 2026-11-11 | done | CI 43102311942 🟢
+
+### PSRC-28 — (2026-11-11) Đủ ngôn ngữ gói dịch offline, danh sách vẫn gọn
+- **Trạng thái:** ✅ done — code + 9 test; **CI 43102311942 🟢**. Chờ nghiệm thu máy.
+- **Nguồn:** Linear PSRC-28 / XLAT-OFFLINE-LANG-001 — sheet chỉ hiện **3** ngôn ngữ (EN/VI/HI) dù ML Kit hỗ trợ ~59.
+- **Sửa:** `MlKitPackCatalog` (thuần Dart, `supported` inject được):
+  - **Nhóm chính** = EN/VI/HI (đúng thứ tự), mở sẵn.
+  - **Nhóm mở rộng** = 16 ngôn ngữ còn lại trong 26 ngôn ngữ của app (**tổng 19**): AR BN DE ES FR ID IT JA KO MR PT RU TA TE TH ZH. Nút "Thêm ngôn ngữ (16)" / "Ẩn bớt ngôn ngữ".
+  - **Loại** BO/KM/LO/MN/MY/SI/ZH-TW — ML Kit không có, tải gói vô ích (không hiện hàng "Chưa hỗ trợ" gây nhiễu).
+  - Nhãn hàng gói lấy **tên bản ngữ** từ `AppLanguageCatalog` (bỏ hard-code 3 nhãn).
+- **i18n:** "Thêm ngôn ngữ" + "Ẩn bớt ngôn ngữ" (en/hi/zh/zh_TW/si).
+- **Test:** `test/translation/mlkit_pack_catalog_test.dart` (9 ca) — 2 nhóm không trùng, gộp = 19, không có ngôn ngữ ngoài danh mục app, engine rỗng không crash.
+- **Lịch sử:**
+  - 2026-11-11 | created→doing | agent `arena/2c1eaa16-in4up` | catalog + nút mở rộng → `bf919c7`
+  - 2026-11-11 | done | CI 43102311942 🟢
+
+### PSRC-191 — (2026-11-11) Sắp xếp lại UI Translation engines
+- **Trạng thái:** ✅ done — code + 8 test; **CI 43148105474 🟢**. Chờ nghiệm thu máy.
+- **Nguồn:** Linear PSRC-191 (P0) — audit v1.27.0: UI engine dịch **rối**, chữ dày.
+- **Sửa:**
+  - `EngineSheetSection` (thẻ nhóm): tiêu đề + mô tả 1 dòng + badge trạng thái; **thu gọn KHÔNG dựng children** (bớt chữ thật, không chỉ ẩn).
+  - Nhóm **"Gói dịch offline"** mở sẵn (việc hay làm nhất) + badge `2/19` / "Đang tải ngầm..."; **DeepLX / Hy-MT / LLM API đóng mặc định**; công tắc "Chỉ dùng dịch offline" thành thẻ riêng đổi màu theo trạng thái; glossary = một dòng điều hướng; nút **Đóng** trên đầu sheet.
+  - `build()` (370 dòng) tách thành `_buildOfflinePackChildren/_buildOfflineOnlyCard/_buildHymtSection/_buildLlmSection/_buildDeeplxSection/_buildGlossaryCard/_saveAndClose`.
+- **Không mất chức năng:** tải/xoá gói (PSRC-182), "Thêm ngôn ngữ" (PSRC-28), Hy-MT import/tải/xoá, chọn engine offline, chỉ-offline, glossary, Lưu **vẫn chặn URL DeepLX rác** (AUDIT-1.21.0 #6).
+- **i18n:** 7 nhãn mới (en/hi/zh/zh_TW/si).
+- **Test:** `test/translation/engine_sheet_layout_test.dart` (4 widget test + 4 pin source-scan).
+- **Lịch sử:**
+  - 2026-11-11 | created→doing | agent `arena/2c1eaa16-in4up` | thẻ nhóm + tách build → `bb0811a`
+  - 2026-11-11 | done | CI 43148105474 🟢 (analyze 0 error + step PSRC-181/182/188/28/191 🟢)

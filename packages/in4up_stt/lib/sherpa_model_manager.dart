@@ -153,6 +153,12 @@ class SherpaAsrImportResult {
   /// Chi tiết kỹ thuật (log/đường dẫn) — không phải chuỗi chrome.
   final String? detail;
 
+  /// PSRC-34 — khi [status] == unsupportedLayout: tên các file của bộ export
+  /// NVIDIA NeMo / onnx-asr mà app ĐÃ nhận ra (encoder, decoder gộp joint,
+  /// mel graph, vocab.txt, config.json). UI hiện nguyên tên file để người
+  /// dùng thấy bộ bị từ chối vì DẠNG ĐÓNG GÓI, không phải vì thiếu file.
+  final List<String> layoutFiles;
+
   /// Số file ĐỌC ĐƯỢC trong nguồn (0 = không đọc được gì — vd SAF
   /// `content://` hoặc thẻ nhớ ngoài bị scoped storage chặn).
   ///
@@ -169,6 +175,7 @@ class SherpaAsrImportResult {
     this.missingRoles = const [],
     this.detectedKinds = const {},
     this.detail,
+    this.layoutFiles = const [],
     this.sourceFileCount = 0,
   });
 
@@ -1639,6 +1646,8 @@ class SherpaModelManager {
         sourceFileCount: listing.length,
         missingRoles: const [],
         detail: 'nemo-export:${zip?.decoder?.name ?? ''}',
+        // PSRC-34: nói cho người dùng biết app đã nhận ra những file nào.
+        layoutFiles: ModelBundleScanner.neMoExportLayoutFiles(listing),
       );
     }
 

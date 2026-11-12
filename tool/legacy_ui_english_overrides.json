@@ -4150,5 +4150,13 @@
   "🇱🇰 Tiếng Sri Lanka (si-LK)": "🇱🇰 Sinhala (si-LK)",
   "🇲🇲 Tiếng Myanmar (my-MM)": "🇲🇲 Burmese (my-MM)",
   "Import {value0}": "Import {value0}",
-  "Bản cài này chưa kèm engine VieNeu-TTS nên model đã import chưa đọc được. Khi VieNeu được ưu tiên, app sẽ đọc bằng nguồn phát kế tiếp.": "This build does not include the VieNeu-TTS engine, so the imported model cannot read yet. When VieNeu is prioritized, the app reads with the next voice source."
+  "Bản cài này chưa kèm engine VieNeu-TTS nên model đã import chưa đọc được. Khi VieNeu được ưu tiên, app sẽ đọc bằng nguồn phát kế tiếp.": "This build does not include the VieNeu-TTS engine, so the imported model cannot read yet. When VieNeu is prioritized, the app reads with the next voice source.",
+  "Bộ model này chưa dùng được trong app": "This model set can't be used in the app yet",
+  "Đây là bản export NVIDIA NeMo (kiểu onnx-asr): decoder và joiner gộp chung trong một file, phần tính đặc trưng âm thanh nằm ở một file riêng.": "This is an NVIDIA NeMo export (onnx-asr style): the decoder and joiner are merged into one file, and the audio feature computation is in a separate file.",
+  "Bộ máy nhận diện của app (sherpa-onnx) chỉ nạp được bộ có encoder, decoder, joiner tách riêng kèm tokens.txt. App đã nhận ra đúng loại model — chỉ là dạng đóng gói này chưa được hỗ trợ, nên import lại chính bộ này cũng cho kết quả như cũ.": "The app's recognition engine (sherpa-onnx) can only load a set with separate encoder, decoder and joiner files plus tokens.txt. The app identified the model type correctly — this packaging is simply not supported yet, so importing this same set again will give the same result.",
+  "File đã nhận ra:": "Files recognized:",
+  "Bộ Parakeet tương thích đã được cài trên máy — bạn không cần import bộ này nữa.": "The compatible Parakeet set is already installed on this device — you don't need to import this one.",
+  "Bộ Parakeet tương thích đang được tải về.": "The compatible Parakeet set is being downloaded.",
+  "Tải bộ tương thích": "Download compatible set",
+  "App có sẵn bộ Parakeet tương thích để tải (khoảng {value0}MB).": "A compatible Parakeet set is available to download in the app (about {value0}MB)."
 }

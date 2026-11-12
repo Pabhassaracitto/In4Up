@@ -1375,18 +1375,50 @@ class _VieneuModelImportSection extends StatefulWidget {
       _VieneuModelImportSectionState();
 }
 
+/// Trạng thái import được lưu dưới dạng KEY nguồn + tham số, KHÔNG lưu chuỗi
+/// đã dịch. `build()` dịch lại mỗi lần locale đổi (Rule #5) và điền giá trị
+/// runtime — tránh dịch hai lần và tránh giữ tiếng Việt khi đổi sang `en`.
+class _ImportStatus {
+  final String key;
+  final List<String> args;
+  final String? suffixKey;
+  final List<String> suffixArgs;
+
+  const _ImportStatus(
+    this.key, {
+    this.args = const <String>[],
+    this.suffixKey,
+    this.suffixArgs = const <String>[],
+  });
+
+  String localize(BuildContext context) {
+    String fill(String sourceKey, List<String> values) {
+      var text = context.uiText(sourceKey);
+      for (var i = 0; i < values.length; i++) {
+        text = text.replaceAll('{value$i}', values[i]);
+      }
+      return text;
+    }
+
+    final text = fill(key, args);
+    return suffixKey == null ? text : text + fill(suffixKey!, suffixArgs);
+  }
+}
+
 class _VieneuModelImportSectionState
     extends State<_VieneuModelImportSection> {
   VieneuModelVariant _selectedVariant = VieneuModelVariant.q8_0;
   bool _importing = false;
   VieneuModelVariant? _importingVariant;
-  String? _statusMessage;
+  _ImportStatus? _status;
   bool _statusIsError = false;
   final Map<VieneuModelVariant, String?> _variantModelPaths = {};
+  bool _engineReady = false;
 
   @override
   void initState() {
     super.initState();
+    _engineReady = VieneuTtsEngine.instance.isInitialized;
     _checkAllModels();
   }
 
@@ -1395,18 +1427,21 @@ class _VieneuModelImportSectionState
     for (final v in VieneuModelVariant.values) {
       paths[v] = await VieneuTtsCore.modelPathFor(v);
     }
+    // PSRC-183: radio phải phản ánh ĐÚNG biến thể đã lưu (đã đồng bộ với
+    // file thật ở TtsService), không được tự ý về Q8_0 mỗi lần mở Settings.
+    final persisted = await TtsService().getSelectedVieneuModelVariant();
     if (!mounted) return;
     setState(() {
       _variantModelPaths
         ..clear()
         ..addAll(paths);
-      // Mặc định chọn biến thể đã có model; nếu chưa có thì giữ Q8_0.
       final imported = paths.entries
           .where((e) => e.value != null)
           .map((e) => e.key)
           .toList();
-      if (imported.isNotEmpty &&
-          _variantModelPaths[_selectedVariant] == null) {
+      if (paths[persisted] != null) {
+        _selectedVariant = persisted;
+      } else if (imported.isNotEmpty) {
         _selectedVariant = imported.first;
       }
     });
@@ -1416,30 +1451,39 @@ class _VieneuModelImportSectionState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['gguf'],
-      dialogTitle: 'Chọn file model VieNeu-TTS ${variant.label}',
+      dialogTitle: context.uiText('Chọn file model VieNeu-TTS {value0}')
+          .replaceAll('{value0}', variant.label),
     );
     if (result == null || result.files.single.path == null) return;
 
     setState(() {
       _importing = true;
       _importingVariant = variant;
-      _statusMessage = null;
+      _status = null;
     });
 
     try {
       final imported = await TtsService()
           .importVieneuModel(File(result.files.single.path!), variant: variant);
       if (!mounted) return;
-      await _checkAllModels();
       await TtsService().setSelectedVieneuModelVariant(variant);
+      await _checkAllModels();
       widget.onVoicesChanged?.call();
       if (!mounted) return;
       setState(() {
         _importing = false;
         _importingVariant = null;
         _selectedVariant = variant;
-        _statusMessage =
-            'Đã import ${variant.label}: ${p.basename(imported)}';
+        _status = _ImportStatus(
+          'Đã import {value0}: {value1}',
+          args: <String>[variant.label, p.basename(imported.modelPath)],
+          suffixKey: imported.importedVoices > 0
+              ? ' · {value0} giọng mẫu'
+              : null,
+          suffixArgs: imported.importedVoices > 0
+              ? <String>['${imported.importedVoices}']
+              : const <String>[],
+        );
         _statusIsError = false;
       });
     } catch (e) {
@@ -1447,40 +1491,154 @@ class _VieneuModelImportSectionState
       setState(() {
         _importing = false;
         _importingVariant = null;
-        _statusMessage = 'Lỗi import ${variant.label}: $e';
+        _status = _ImportStatus(
+          'Lỗi import {value0}',
+          args: <String>[variant.label],
+        );
         _statusIsError = true;
       });
     }
   }
 
-  /// PSRC-185/186 — import giọng từ thư mục có sẵn (chứa các subfolder voice).
-  Future<void> _pickVoicesFolder() async {
-    final dirPath = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Chọn thư mục chứa giọng VieNeu-TTS',
-    );
-    if (dirPath == null) return;
+  /// PSRC-186 — import TRỌN BỘ (GGUF + voices/) từ thư mục gốc. Cần khi
+  /// file_picker trả bản copy trong cache (Android/SAF) và không thể tự dò
+  /// thư mục voices cạnh file GGUF.
+  Future<void> _pickBundleFolder() async {
+    String? dirPath;
+    try {
+      dirPath = await FilePicker.getDirectoryPath(
+        dialogTitle: context.uiText('Chọn thư mục chứa bộ model VieNeu-TTS'),
+      );
+    } catch (_) {}
     setState(() {
       _importing = true;
-      _statusMessage = null;
+      _status = null;
     });
     try {
-      final count = await TtsService().importVieneuVoicesFromDirectory(dirPath);
-      if (!mounted) return;
-      await _checkAllModels();
-      widget.onVoicesChanged?.call();
-      setState(() {
-        _importing = false;
-        _statusMessage = 'Đã import $count giọng từ thư mục';
-        _statusIsError = false;
-      });
+      if (dirPath != null) {
+        final result =
+            await TtsService().importVieneuBundleFromDirectory(dirPath);
+        await _afterBundleImport(result.modelPath, result.importedVoices);
+        return;
+      }
+      // Android/iOS: fallback chọn nhiều file .gguf; giọng mẫu import qua
+      // nút "Import giọng từ thư mục" (có fallback chọn nhiều file).
+      final picked = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: const ['gguf'],
+        dialogTitle: context.uiText('Chọn file model VieNeu-TTS (.gguf)'),
+      );
+      if (picked == null || picked.files.isEmpty) {
+        if (!mounted) return;
+        setState(() => _importing = false);
+        return;
+      }
+      var voices = 0;
+      String firstPath = '';
+      for (final file in picked.files) {
+        final path = file.path;
+        if (path == null) continue;
+        final name = file.name.toLowerCase();
+        final variant = name.contains('bf16') || name.contains('f16')
+            ? VieneuModelVariant.bf16
+            : VieneuModelVariant.q8_0;
+        final result =
+            await TtsService().importVieneuModel(File(path), variant: variant);
+        if (firstPath.isEmpty) firstPath = result.modelPath;
+        voices += result.importedVoices;
+      }
+      await _afterBundleImport(firstPath, voices);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _importing = false;
-        _statusMessage = 'Lỗi import giọng: $e';
+        _status = _ImportStatus('Lỗi import bộ model');
         _statusIsError = true;
       });
     }
+  }
+
+  Future<void> _afterBundleImport(String modelPath, int voices) async {
+    if (!mounted) return;
+    await _checkAllModels();
+    widget.onVoicesChanged?.call();
+    if (!mounted) return;
+    setState(() {
+      _importing = false;
+      _status = modelPath.isEmpty
+          ? _ImportStatus(
+              'Đã import {value0} giọng mẫu',
+              args: <String>['$voices'],
+            )
+          : _ImportStatus(
+              'Đã import {value0} · {value1} giọng mẫu',
+              args: <String>[p.basename(modelPath), '$voices'],
+            );
+      _statusIsError = false;
+    });
+  }
+
+  /// PSRC-185/186 — import giọng từ thư mục có sẵn (chứa các subfolder voice).
+  Future<void> _pickVoicesFolder() async {
+    String? dirPath;
+    try {
+      dirPath = await FilePicker.getDirectoryPath(
+        dialogTitle: context.uiText('Chọn thư mục chứa giọng VieNeu-TTS'),
+      );
+    } catch (_) {}
+    setState(() {
+      _importing = true;
+      _status = null;
+    });
+    try {
+      if (dirPath == null) {
+        // Fallback platform không có directory picker: chọn nhiều file dữ
+        // liệu giọng (ref_codes.txt / speaker.emb.txt / ref_codes.bin).
+        final picked = await FilePicker.pickFiles(
+          allowMultiple: true,
+          type: FileType.custom,
+          allowedExtensions: const ['txt', 'bin'],
+          dialogTitle: context.uiText('Chọn file dữ liệu giọng VieNeu-TTS'),
+        );
+        if (picked == null || picked.files.isEmpty) {
+          if (!mounted) return;
+          setState(() => _importing = false);
+          return;
+        }
+        final paths = picked.files
+            .map((f) => f.path)
+            .whereType<String>()
+            .toList();
+        final count = await TtsService().importVieneuVoiceFiles(paths);
+        await _afterVoicesImport(count);
+        return;
+      }
+      final count = await TtsService().importVieneuVoicesFromDirectory(dirPath);
+      await _afterVoicesImport(count);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _status = _ImportStatus('Lỗi import giọng');
+        _statusIsError = true;
+      });
+    }
+  }
+
+  Future<void> _afterVoicesImport(int count) async {
+    if (!mounted) return;
+    await _checkAllModels();
+    widget.onVoicesChanged?.call();
+    if (!mounted) return;
+    setState(() {
+      _importing = false;
+      _status = _ImportStatus(
+        'Đã import {value0} giọng từ thư mục',
+        args: <String>['$count'],
+      );
+      _statusIsError = false;
+    });
   }
 
   @override
@@ -1537,6 +1695,27 @@ class _VieneuModelImportSectionState
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        // PSRC-183 — hai trạng thái TÁCH BIỆT: model đã import vs worker đã
+        // nạp. Không còn badge "đã có model" đi kèm cảnh báo "chưa import".
+        Row(
+          children: [
+            Icon(
+              _engineReady ? Icons.check_circle : Icons.hourglass_top,
+              size: 12,
+              color: _engineReady ? Colors.green[300] : Colors.orange[300],
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                context.uiText(_engineReady
+                    ? 'Engine đã sẵn sàng'
+                    : 'Model đã có · engine nạp khi bắt đầu đọc'),
+                style: TextStyle(fontSize: 9.5, color: Colors.grey[500]),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         // ── CHỌN BIẾN THỂ MÔ HÌNH (GIAI ĐOẠN 3) ──
         Text(
@@ -1580,7 +1759,8 @@ class _VieneuModelImportSectionState
               ),
               subtitle: Text(
                 imported
-                    ? 'Đã import · ${_variantModelPaths[variant]!.split('/').last}'
+                    ? context.uiText(
+                        'Đã import · ${_variantModelPaths[variant]!.split('/').last}')
                     : 'Chưa import',
                 style: TextStyle(
                   fontSize: 9.5,
@@ -1660,9 +1840,11 @@ class _VieneuModelImportSectionState
                       )
                     : const Icon(Icons.file_upload, size: 16),
                 label: Text(
-                  _importing && _importingVariant == _selectedVariant
-                      ? 'Đang import ${_selectedVariant.label}...'
-                      : 'Import ${_selectedVariant.label}',
+                  context.uiText(
+                    _importing && _importingVariant == _selectedVariant
+                        ? 'Đang import ${_selectedVariant.label}...'
+                        : 'Import ${_selectedVariant.label}',
+                  ),
                   style: const TextStyle(fontSize: 11),
                 ),
                 style: OutlinedButton.styleFrom(
@@ -1679,9 +1861,15 @@ class _VieneuModelImportSectionState
                   await engine.init(modelVariant: _selectedVariant);
                   if (!mounted) return;
                   setState(() {
-                    _statusMessage =
-                        'Đã khởi tạo engine VieNeu-TTS (${_selectedVariant.label})';
-                    _statusIsError = false;
+                    _engineReady = engine.isInitialized;
+                    _status = _engineReady
+                        ? _ImportStatus(
+                            'Đã khởi tạo engine VieNeu-TTS ({value0})',
+                            args: <String>[_selectedVariant.label],
+                          )
+                        : _ImportStatus(
+                            'Chưa khởi tạo được engine — kiểm tra file .gguf và thư viện native');
+                    _statusIsError = !_engineReady;
                   });
                 },
                 icon: const Icon(Icons.play_circle, size: 16),
@@ -1695,7 +1883,7 @@ class _VieneuModelImportSectionState
             ],
           ],
         ),
-        if (_statusMessage != null) ...[
+        if (_status != null) ...[
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1718,7 +1906,7 @@ class _VieneuModelImportSectionState
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _statusMessage!,
+                    _status!.localize(context),
                     style: TextStyle(
                       fontSize: 10,
                       color: _statusIsError ? Colors.red[200] : Colors.green[200],
@@ -1732,26 +1920,53 @@ class _VieneuModelImportSectionState
         if (selectedImported && selectedPath != null) ...[
           const SizedBox(height: 8),
           Text(
-            'Đường dẫn: $selectedPath',
+            context.uiText('Đường dẫn: $selectedPath'),
             style: TextStyle(fontSize: 9, color: Colors.white38),
             overflow: TextOverflow.ellipsis,
           ),
         ],
-        // PSRC-185/186 — import giọng từ thư mục
+        // PSRC-185/186 — import trọn bộ + import giọng từ thư mục
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: _importing ? null : _pickVoicesFolder,
-          icon: const Icon(Icons.folder_open, size: 16),
-          label: const Text('Import giọng từ thư mục', style: TextStyle(fontSize: 11)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white70,
-            side: BorderSide(color: Colors.grey[600]!),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _importing ? null : _pickBundleFolder,
+                icon: const Icon(Icons.folder_special, size: 16),
+                label: Text(
+                  context.uiText('Import trọn bộ từ thư mục'),
+                  style: const TextStyle(fontSize: 11),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.green[200],
+                  side: BorderSide(color: Colors.green[700]!),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _importing ? null : _pickVoicesFolder,
+                icon: const Icon(Icons.folder_open, size: 16),
+                label: Text(
+                  context.uiText('Import giọng từ thư mục'),
+                  style: const TextStyle(fontSize: 11),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: BorderSide(color: Colors.grey[600]!),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 4),
         Text(
-          'Chọn thư mục chứa các giọng (mỗi giọng là một thư mục con có ref_codes.txt). '
-          'Thư mục voices cạnh file .gguf sẽ tự động import khi chọn GGUF.',
+          context.uiText(
+            'Chọn thư mục chứa các giọng (mỗi giọng là một thư mục con có ref_codes.txt). '
+            'voices/ cạnh file .gguf được tự động import; nếu thiết bị chỉ cho chọn file, '
+            'dùng "Import trọn bộ từ thư mục" hoặc chọn nhiều file dữ liệu giọng.',
+          ),
           style: TextStyle(fontSize: 9, color: Colors.grey[600]),
         ),
       ],
@@ -1774,56 +1989,52 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
   List<TtsVoice> _voices = [];
   String? _selectedVoiceId;
   bool _loading = true;
+  bool _modelMissing = false;
   String? _error;
   VieneuModelVariant? _loadedVariant;
+  int _loadSeq = 0;
 
   @override
   void initState() {
     super.initState();
     _loadVoices();
-    // PSRC-183: lắng nghe TtsService để refresh khi model/voices mới import
-    // (trước đây chỉ load 1 lần trong initState và là const widget → stale).
-    TtsService().addListener(_onTtsServiceChanged);
+    // PSRC-183: chỉ reload khi revision giọng đổi. Lắng nghe toàn bộ
+    // TtsService (notify mỗi nhịp phát nhạc) gây reload + nạp model liên tục.
+    TtsService().voicesRevision.addListener(_onVoicesRevision);
   }
 
   @override
   void dispose() {
-    TtsService().removeListener(_onTtsServiceChanged);
+    TtsService().voicesRevision.removeListener(_onVoicesRevision);
     super.dispose();
   }
 
-  void _onTtsServiceChanged() {
-    // Reload khi variant đổi hoặc có voices mới được import.
-    _loadVoices();
-  }
+  void _onVoicesRevision() => _loadVoices();
 
   Future<void> _loadVoices() async {
+    final seq = ++_loadSeq;
+    if (mounted && !_loading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final engine = VieneuTtsEngine.instance;
       final service = TtsService();
-      // Đảm bảo model đã được import trước khi liệt kê giọng
       final variant = await service.getSelectedVieneuModelVariant();
       final modelPath = await VieneuTtsCore.modelPathFor(variant);
-      if (modelPath == null) {
-        if (!mounted) return;
-        setState(() {
-          _loading = false;
-          _error = 'Chưa import model ${variant.label} — hãy import ở mục trên';
-          _loadedVariant = variant;
-        });
-        return;
-      }
-      // Nếu đã load cùng variant và không có thay đổi voices, vẫn reload để
-      // bắt kịp import mới (PSRC-183). Không return sớm.
-      await engine.init(modelVariant: variant);
+      // PSRC-183/186/187: liệt kê giọng CHỈ đọc đĩa. Không gọi
+      // `engine.init()` ở đây — nạp 170 MB GGUF chỉ để mở dropdown là nguyên
+      // nhân timeout/OOM và cảnh báo "chưa import" bị kẹt lại.
       final voices = await engine.getAvailableVoices('vi-VN');
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _voices = voices;
         _loading = false;
         _error = null;
+        _modelMissing = modelPath == null;
         _loadedVariant = variant;
-        // Chọn giọng mặc định nếu có
         if (voices.isNotEmpty && _selectedVoiceId == null) {
           _selectedVoiceId = voices.first.id;
         } else if (voices.isNotEmpty &&
@@ -1834,10 +2045,10 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         }
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _loading = false;
-        _error = 'Lỗi tải giọng: $e';
+        _error = 'Lỗi tải giọng';
       });
     }
   }
@@ -1850,7 +2061,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       TtsService().configure(voiceId: voiceId);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Lỗi chọn giọng: $e');
+      setState(() => _error = 'Lỗi chọn giọng');
     }
   }
 
@@ -1903,7 +2114,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _error!,
+                    context.uiText(_error!),
                     style: TextStyle(fontSize: 10, color: Colors.red[200]),
                   ),
                 ),
@@ -1964,7 +2175,7 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
               ),
             IconButton(
               icon: const Icon(Icons.refresh, size: 16, color: Colors.white54),
-              tooltip: 'Tải lại danh sách giọng',
+              tooltip: context.uiText('Tải lại danh sách giọng'),
               onPressed: () {
                 setState(() {
                   _loading = true;
@@ -1978,8 +2189,16 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         const SizedBox(height: 4),
         if (_loadedVariant != null)
           Text(
-            'Đang dùng model ${_loadedVariant!.label}',
+            context.uiText('Đang dùng model ${_loadedVariant!.label}'),
             style: TextStyle(fontSize: 9, color: Colors.grey[600]),
+          ),
+        if (_modelMissing)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              context.uiText('Chưa import model .gguf — giọng mẫu vẫn hiển thị, cần model để đọc'),
+              style: TextStyle(fontSize: 9, color: Colors.orange[200]),
+            ),
           ),
         const SizedBox(height: 8),
         DropdownButton<String>(
@@ -2007,12 +2226,24 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.15),
+                        color: (v.origin == 'cloned'
+                                ? Colors.purple
+                                : Colors.green)
+                            .withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text(
-                        'Mặc định',
-                        style: TextStyle(fontSize: 8, color: Colors.green),
+                      child: Text(
+                        context.uiText(v.origin == 'cloned'
+                            ? 'Đã clone'
+                            : v.id == VieneuTtsCore.defaultVoiceId
+                                ? 'Mặc định'
+                                : 'Giọng mẫu'),
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: v.origin == 'cloned'
+                              ? Colors.purple[200]
+                              : Colors.green,
+                        ),
                       ),
                     ),
                   ],
@@ -2083,7 +2314,7 @@ class _LicenseTile extends StatelessWidget {
       dense: true,
       title: Text(title, style: const TextStyle(fontSize: 12)),
       subtitle: Text(
-        '$subtitle · $license',
+        '${context.uiText(subtitle)} · $license',
         style: const TextStyle(fontSize: 10, color: Colors.white60),
       ),
     );

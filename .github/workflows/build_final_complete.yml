@@ -63,18 +63,44 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # TTS-VIENEU-001: native `tts_vieneu` cần submodule third_party/audio.cpp.
-      # CMakeLists có tự `git submodule update` khi thiếu, nhưng trong runner
-      # bước đó chạy trong lúc Gradle configure ⇒ dễ nhiễu/không rõ ràng. Init
-      # sớm ở đây; lỗi mạng thì `|| true` để CMake rơi về chế độ "chỉ WARNING,
-      # engine báo chưa sẵn sàng và fallback" (app vẫn build được).
-      - name: Init submodules (llama.cpp + audio.cpp cho VieNeu-TTS)
+      # ADR-0028: engine VieNeu-TTS (lane L6) là một phần của bản cài từ 1.29.0.
+      #   * third_party/audio.cpp  — runtime GGUF (module Gradle :vieneu)
+      #   * third_party/sea-g2p    — bộ chuyển chữ → phoneme (model chỉ nhận phoneme)
+      # KHÔNG còn `|| true`: thiếu mã nguồn thì APK phát hành sẽ không có engine mà
+      # vẫn "build xanh" — đúng kiểu hỏng im lặng mà 1.28 gặp phải.
+      - name: Init submodules (llama.cpp + audio.cpp + sea-g2p)
         shell: bash
         run: |
-          git submodule update --init --depth 1 -- third_party/llama.cpp || true
-          git submodule update --init --depth 1 -- third_party/audio.cpp || true
-          echo "llama.cpp: $(test -f third_party/llama.cpp/CMakeLists.txt && echo có || echo THIẾU)"
-          echo "audio.cpp: $(test -f third_party/audio.cpp/CMakeLists.txt && echo có || echo THIẾU)"
+          set -euo pipefail
+          git submodule update --init --depth 1 -- third_party/llama.cpp
+          git submodule update --init --depth 1 -- third_party/audio.cpp \
+            || git submodule update --init -- third_party/audio.cpp
+          git submodule update --init --depth 1 -- third_party/sea-g2p \
+            || git submodule update --init -- third_party/sea-g2p
+          test -f third_party/audio.cpp/CMakeLists.txt
+          test -f third_party/sea-g2p/Cargo.toml
+          git -C third_party/audio.cpp log -1 --format='audio.cpp %h'
+          git -C third_party/sea-g2p  log -1 --format='sea-g2p  %h'
+
+      # libsea_g2p_rs.so KHÔNG có bản Android dựng sẵn (PyPI/GitHub release chỉ
+      # có desktop) ⇒ cross-compile ngay trong job này, chép vào jniLibs để
+      # audio.cpp `dlopen` theo tên lúc chạy.
+      - name: Build SEA-G2P (C ABI) cho arm64-v8a
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --locked
+          export ANDROID_NDK_HOME="${ANDROID_SDK_ROOT}/ndk/28.2.13676358"
+          mkdir -p android/app/src/main/jniLibs
+          (
+            cd third_party/sea-g2p
+            cargo ndk -t arm64-v8a \
+              -o "$GITHUB_WORKSPACE/android/app/src/main/jniLibs" \
+              build --release --locked \
+              --no-default-features --features capi
+          )
+          ls -l android/app/src/main/jniLibs/arm64-v8a/
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

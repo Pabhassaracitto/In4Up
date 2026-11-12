@@ -228,6 +228,22 @@ jobs:
               || { echo "::error::Thiếu $lib trong APK"; exit 1; }
           done
 
+      # Số đo để trả lời "engine tốn bao nhiêu" (ADR-0028 để trống ước tính).
+      # Ghi bằng annotation vì log/artifact bị chặn egress từ sandbox agent.
+      - name: Report measurements (annotation)
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          apk=$(ls -S build/app/outputs/flutter-apk/*.apk 2>/dev/null | head -1)
+          if [ -z "$apk" ]; then
+            echo "::notice title=VieNeu engine measurements::chưa có APK (build đỏ trước bước này)"
+            exit 0
+          fi
+          apk_bytes=$(stat -c%s "$apk")
+          libs=$(unzip -l "$apk" | awk '/lib\/arm64-v8a\/.*\.so$/ {printf "%s=%.1fMiB ", $4, $1/1048576}')
+          echo "::notice title=VieNeu engine measurements::apk=$(basename "$apk") $((apk_bytes/1048576))MiB; $libs"
+
       - name: Upload APK + build log
         if: always()
         uses: actions/upload-artifact@v4

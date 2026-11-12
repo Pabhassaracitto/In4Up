@@ -151,15 +151,23 @@ extern "C" VIENEU_TTS_API vieneu_tts_handle vieneu_tts_create(
     // sea-g2p để nhận văn bản tiếng Việt thuần thay vì chuỗi phoneme.
     audiocpp_options * session_options = audiocpp_options_create();
     const fs::path folder = model_folder(model_path);
-    if (const char * g2p_lib = find_g2p_library(folder)) {
-        if (file_exists((folder / kG2pDictName).c_str())) {
+    const fs::path g2p_dict_path = folder / kG2pDictName;
+
+    // SEA-G2P (BETA-1.29.0 / PSRC-214..218): audio.cpp tự `dlopen` thư viện
+    // theo TÊN (`libsea_g2p_rs.so`, …) khi KHÔNG có option `g2p_library` —
+    // nhờ vậy lib có thể nằm trong jniLibs của APK (đúng đường tìm mặc định
+    // của linker động), không buộc người dùng chép .so cạnh model. Chỉ cần
+    // file từ điển `sea_g2p.bin` nằm cạnh model. Nếu người dùng vẫn đặt lib
+    // cạnh model (cách cũ) thì ưu tiên đường dẫn tuyệt đối đó.
+    if (file_exists(g2p_dict_path.u8string().c_str())) {
+        if (const char * g2p_lib = find_g2p_library(folder)) {
             audiocpp_options_set(session_options,
                                  "vieneu_v3_turbo.g2p_library",
                                  (folder / g2p_lib).u8string().c_str());
-            audiocpp_options_set(session_options,
-                                 "vieneu_v3_turbo.g2p_dict_file",
-                                 (folder / kG2pDictName).u8string().c_str());
         }
+        audiocpp_options_set(session_options,
+                             "vieneu_v3_turbo.g2p_dict_file",
+                             g2p_dict_path.u8string().c_str());
     }
 
     audiocpp_backend_config backend{};
@@ -357,7 +365,23 @@ extern "C" VIENEU_TTS_API vieneu_tts_status vieneu_tts_synthesize(
         audiocpp_request_free(request);
         return VIENEU_TTS_ERR_OUT_OF_MEMORY;
     }
-    std::memcpy(out, samples, frames * sizeof(float));
+
+    // VieNeu phát 48 kHz STEREO: audio.cpp trả mẫu XEN KẼ (L,R) và `frames` là
+    // số frame MỖI kênh. Hợp đồng FFI của in4up là mono float32 — copy thô
+    // `frames` mẫu sẽ vừa cắt cụt nửa dữ liệu vừa phát sai tốc độ (nhanh gấp
+    // đôi). Trộn trung bình các kênh để giữ đúng thời lượng.
+    if (channels > 1) {
+        for (size_t i = 0; i < frames; ++i) {
+            float acc = 0.0f;
+            for (int c = 0; c < channels; ++c) {
+                acc += samples[i * static_cast<size_t>(channels) +
+                               static_cast<size_t>(c)];
+            }
+            out[i] = acc / static_cast<float>(channels);
+        }
+    } else {
+        std::memcpy(out, samples, frames * sizeof(float));
+    }
 
     *out_samples = out;
     *out_frames = frames;

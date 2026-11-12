@@ -61,10 +61,25 @@ def main(argv: list[str]) -> int:
         lines = [line.rstrip("\n") for line in handle]
 
     matcher = re.compile(PATTERNS)
-    picked = [line for line in lines if matcher.search(line)][:max_lines]
-    if not picked:
-        # Không khớp mẫu nào ⇒ gửi phần đuôi để không mù hoàn toàn.
-        picked = lines[-tail_lines:]
+
+    # Ưu tiên CỬA SỔ NGỮ CẢNH: từ dòng "What went wrong" / "A problem occurred"
+    # trở đi, lấy `max_lines` dòng liền nhau — lỗi Gradle hay nằm ở các dòng
+    # KHÔNG khớp mẫu (vd. "> Failed to notify project evaluation listener",
+    # stack trace, "Caused by: ..."), nên chỉ grep rời sẽ mất nguyên nhân.
+    start = None
+    for index, line in enumerate(lines):
+        if re.search(r"What went wrong|A problem occurred|FAILURE: Build failed",
+                     line):
+            start = index
+            break
+
+    if start is not None:
+        picked = lines[start:start + max_lines]
+    else:
+        picked = [line for line in lines if matcher.search(line)][:max_lines]
+        if not picked:
+            # Không khớp mẫu nào ⇒ gửi phần đuôi để không mù hoàn toàn.
+            picked = lines[-tail_lines:]
 
     escaped = [line[:280].replace("%", "%25") for line in picked]
     message = "%0A".join(escaped)

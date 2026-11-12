@@ -36478,5 +36478,85 @@
     "my": "ဤထည့်သွင်းမှုတွင် VieNeu-TTS အင်ဂျင် မပါဝင်သေးသဖြင့် တင်သွင်းထားသော မော်ဒယ်ဖြင့် မဖတ်နိုင်သေးပါ။ VieNeu ကို ဦးစားပေးထားပါက အက်ပ်သည် နောက်ထပ် အသံရင်းမြစ်ဖြင့် ဖတ်ပါမည်။",
     "th": "รุ่นที่ติดตั้งนี้ยังไม่มีเอนจิน VieNeu-TTS โมเดลที่นำเข้าจึงยังอ่านไม่ได้ เมื่อตั้ง VieNeu เป็นลำดับแรก แอปจะอ่านด้วยแหล่งเสียงถัดไป",
     "ja": "このビルドには VieNeu-TTS エンジンが含まれていないため、インポートしたモデルではまだ読み上げできません。VieNeu を優先に設定している場合、アプリは次の音声ソースで読み上げます。"
+  },
+  "Bộ model này chưa dùng được trong app": {
+    "en": "This model set can't be used in the app yet",
+    "hi": "यह मॉडल सेट अभी ऐप में उपयोग नहीं किया जा सकता",
+    "zh": "此模型包暂时无法在应用中使用",
+    "zh_TW": "此模型包暫時無法在應用程式中使用",
+    "si": "මෙම මොඩල කට්ටලය තවම යෙදුමේ භාවිත කළ නොහැක",
+    "my": "ဤမော်ဒယ်အစုံကို အက်ပ်တွင် မသုံးနိုင်သေးပါ",
+    "th": "ชุดโมเดลนี้ยังใช้ในแอปไม่ได้",
+    "ja": "このモデルセットはまだアプリで使用できません"
+  },
+  "Đây là bản export NVIDIA NeMo (kiểu onnx-asr): decoder và joiner gộp chung trong một file, phần tính đặc trưng âm thanh nằm ở một file riêng.": {
+    "en": "This is an NVIDIA NeMo export (onnx-asr style): the decoder and joiner are merged into one file, and the audio feature computation is in a separate file.",
+    "hi": "यह NVIDIA NeMo एक्सपोर्ट (onnx-asr शैली) है: decoder और joiner एक ही फ़ाइल में मिले हुए हैं, और ऑडियो फ़ीचर की गणना एक अलग फ़ाइल में है।",
+    "zh": "这是 NVIDIA NeMo 导出包（onnx-asr 格式）：decoder 与 joiner 合并在同一个文件中，音频特征计算部分在另一个单独的文件里。",
+    "zh_TW": "這是 NVIDIA NeMo 匯出包（onnx-asr 格式）：decoder 與 joiner 合併在同一個檔案中，音訊特徵計算部分在另一個獨立的檔案裡。",
+    "si": "මෙය NVIDIA NeMo අපනයනයකි (onnx-asr ආකාරය): decoder සහ joiner එකම ගොනුවක ඒකාබද්ධ කර ඇති අතර, ශ්‍රව්‍ය ලක්ෂණ ගණනය කිරීම වෙනම ගොනුවක ඇත.",
+    "my": "၎င်းသည် NVIDIA NeMo export (onnx-asr ပုံစံ) ဖြစ်သည်။ decoder နှင့် joiner ကို ဖိုင်တစ်ခုတည်းတွင် ပေါင်းထားပြီး အသံလက္ခဏာတွက်ချက်မှုအပိုင်းကို သီးခြားဖိုင်တစ်ခုတွင် ထားရှိသည်။",
+    "th": "นี่คือชุดส่งออกของ NVIDIA NeMo (รูปแบบ onnx-asr): decoder และ joiner ถูกรวมไว้ในไฟล์เดียว ส่วนการคำนวณคุณลักษณะเสียงอยู่ในไฟล์แยกต่างหาก",
+    "ja": "これは NVIDIA NeMo のエクスポート（onnx-asr 形式）です。decoder と joiner が 1 つのファイルに統合され、音声特徴量の計算は別のファイルに分かれています。"
+  },
+  "Bộ máy nhận diện của app (sherpa-onnx) chỉ nạp được bộ có encoder, decoder, joiner tách riêng kèm tokens.txt. App đã nhận ra đúng loại model — chỉ là dạng đóng gói này chưa được hỗ trợ, nên import lại chính bộ này cũng cho kết quả như cũ.": {
+    "en": "The app's recognition engine (sherpa-onnx) can only load a set with separate encoder, decoder and joiner files plus tokens.txt. The app identified the model type correctly — this packaging is simply not supported yet, so importing this same set again will give the same result.",
+    "hi": "ऐप का पहचान इंजन (sherpa-onnx) केवल वही सेट लोड कर सकता है जिसमें encoder, decoder और joiner अलग-अलग फ़ाइलों में हों और साथ में tokens.txt हो। ऐप ने मॉडल का प्रकार सही पहचाना है — बस यह पैकेजिंग अभी समर्थित नहीं है, इसलिए इसी सेट को दोबारा इम्पोर्ट करने पर भी यही नतीजा मिलेगा।",
+    "zh": "应用的识别引擎（sherpa-onnx）只能加载 encoder、decoder、joiner 各自独立并附带 tokens.txt 的模型包。应用已正确识别模型类型——只是暂不支持这种打包方式，因此再次导入同一个包结果也一样。",
+    "zh_TW": "應用程式的辨識引擎（sherpa-onnx）只能載入 encoder、decoder、joiner 各自獨立並附帶 tokens.txt 的模型包。應用程式已正確辨識模型類型——只是暫不支援這種封裝方式，因此再次匯入同一個包結果也一樣。",
+    "si": "යෙදුමේ හඳුනාගැනීමේ එන්ජිමට (sherpa-onnx) පූරණය කළ හැක්කේ encoder, decoder, joiner වෙන වෙනම ගොනු ලෙස සහ tokens.txt සමඟ ඇති කට්ටලයක් පමණි. යෙදුම මොඩල වර්ගය නිවැරදිව හඳුනාගෙන ඇත — මෙම ඇසුරුම් ආකාරයට තවම සහාය නොදක්වයි, එබැවින් මෙම කට්ටලයම නැවත ආයාත කළත් ප්‍රතිඵලය එයම වේ.",
+    "my": "အက်ပ်၏ အသံမှတ်သားအင်ဂျင် (sherpa-onnx) သည် encoder၊ decoder၊ joiner ဖိုင်များ သီးခြားစီပါပြီး tokens.txt ပါသော အစုံကိုသာ တင်နိုင်သည်။ အက်ပ်က မော်ဒယ်အမျိုးအစားကို မှန်ကန်စွာ သိရှိထားပါသည် — ဤထုပ်ပိုးပုံစံကိုသာ မပံ့ပိုးသေးခြင်း ဖြစ်သောကြောင့် ဤအစုံကိုပင် ထပ်မံတင်သွင်းလျှင်လည်း ရလဒ်အတူတူပင် ဖြစ်မည်။",
+    "th": "เอนจินรู้จำเสียงของแอป (sherpa-onnx) โหลดได้เฉพาะชุดที่มีไฟล์ encoder, decoder และ joiner แยกกันพร้อม tokens.txt เท่านั้น แอประบุชนิดของโมเดลได้ถูกต้องแล้ว — เพียงแต่ยังไม่รองรับรูปแบบการจัดแพ็กนี้ การนำเข้าชุดเดิมอีกครั้งจึงได้ผลเหมือนเดิม",
+    "ja": "アプリの認識エンジン（sherpa-onnx）が読み込めるのは、encoder・decoder・joiner が個別のファイルで、tokens.txt が付いたセットだけです。アプリはモデルの種類を正しく認識しています。このパッケージ形式がまだサポートされていないだけなので、同じセットをもう一度インポートしても結果は変わりません。"
+  },
+  "File đã nhận ra:": {
+    "en": "Files recognized:",
+    "hi": "पहचानी गई फ़ाइलें:",
+    "zh": "已识别的文件：",
+    "zh_TW": "已辨識的檔案：",
+    "si": "හඳුනාගත් ගොනු:",
+    "my": "သိရှိထားသော ဖိုင်များ-",
+    "th": "ไฟล์ที่ระบุได้:",
+    "ja": "認識されたファイル："
+  },
+  "Bộ Parakeet tương thích đã được cài trên máy — bạn không cần import bộ này nữa.": {
+    "en": "The compatible Parakeet set is already installed on this device — you don't need to import this one.",
+    "hi": "संगत Parakeet सेट इस डिवाइस पर पहले से इंस्टॉल है — आपको इसे इम्पोर्ट करने की ज़रूरत नहीं है।",
+    "zh": "兼容的 Parakeet 模型包已安装在本机——无需再导入此包。",
+    "zh_TW": "相容的 Parakeet 模型包已安裝在本機——無需再匯入此包。",
+    "si": "ගැළපෙන Parakeet කට්ටලය දැනටමත් මෙම උපාංගයේ ස්ථාපනය කර ඇත — ඔබට මෙය ආයාත කිරීමට අවශ්‍ය නැත.",
+    "my": "တွဲဖက်သုံးနိုင်သော Parakeet အစုံကို ဤစက်တွင် ထည့်သွင်းပြီးဖြစ်သည် — ဤအစုံကို တင်သွင်းရန် မလိုတော့ပါ။",
+    "th": "ชุด Parakeet ที่เข้ากันได้ถูกติดตั้งในเครื่องนี้แล้ว — คุณไม่จำเป็นต้องนำเข้าชุดนี้อีก",
+    "ja": "互換性のある Parakeet セットはすでにこの端末にインストールされています。このセットをインポートする必要はありません。"
+  },
+  "Bộ Parakeet tương thích đang được tải về.": {
+    "en": "The compatible Parakeet set is being downloaded.",
+    "hi": "संगत Parakeet सेट डाउनलोड हो रहा है।",
+    "zh": "正在下载兼容的 Parakeet 模型包。",
+    "zh_TW": "正在下載相容的 Parakeet 模型包。",
+    "si": "ගැළපෙන Parakeet කට්ටලය බාගත වෙමින් පවතී.",
+    "my": "တွဲဖက်သုံးနိုင်သော Parakeet အစုံကို ဒေါင်းလုဒ်လုပ်နေသည်။",
+    "th": "กำลังดาวน์โหลดชุด Parakeet ที่เข้ากันได้",
+    "ja": "互換性のある Parakeet セットをダウンロード中です。"
+  },
+  "Tải bộ tương thích": {
+    "en": "Download compatible set",
+    "hi": "संगत सेट डाउनलोड करें",
+    "zh": "下载兼容包",
+    "zh_TW": "下載相容包",
+    "si": "ගැළපෙන කට්ටලය බාගන්න",
+    "my": "တွဲဖက်သုံးနိုင်သော အစုံကို ဒေါင်းလုဒ်လုပ်မည်",
+    "th": "ดาวน์โหลดชุดที่เข้ากันได้",
+    "ja": "互換セットをダウンロード"
+  },
+  "App có sẵn bộ Parakeet tương thích để tải (khoảng {value0}MB).": {
+    "en": "A compatible Parakeet set is available to download in the app (about {value0}MB).",
+    "hi": "ऐप में संगत Parakeet सेट डाउनलोड के लिए उपलब्ध है (लगभग {value0}MB)।",
+    "zh": "应用内可下载兼容的 Parakeet 模型包（约 {value0}MB）。",
+    "zh_TW": "應用程式內可下載相容的 Parakeet 模型包（約 {value0}MB）。",
+    "si": "ගැළපෙන Parakeet කට්ටලයක් යෙදුම තුළ බාගත කිරීමට තිබේ (දළ වශයෙන් {value0}MB).",
+    "my": "တွဲဖက်သုံးနိုင်သော Parakeet အစုံကို အက်ပ်အတွင်း ဒေါင်းလုဒ်လုပ်နိုင်သည် (ခန့်မှန်း {value0}MB)။",
+    "th": "มีชุด Parakeet ที่เข้ากันได้ให้ดาวน์โหลดในแอป (ประมาณ {value0}MB)",
+    "ja": "互換性のある Parakeet セットをアプリ内でダウンロードできます（約 {value0}MB）。"
   }
 }

@@ -33,6 +33,7 @@ import '../../services/battery_optimization_service.dart';
 import '../../services/saf_model_folder_service.dart';
 
 import 'ai_providers_screen.dart';
+import 'asr_unsupported_layout_text.dart';
 
 import '../../core/language/app_language.dart';
 
@@ -2464,6 +2465,18 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     SherpaAsrProfile profile,
     SherpaAsrImportResult result,
   ) {
+    // PSRC-34: bộ export NVIDIA NeMo / onnx-asr bị từ chối vì DẠNG ĐÓNG GÓI
+    // (không phải lỗi nhận diện, không phải thiếu file). Snackbar dài tự biến
+    // mất sau vài giây là ngõ cụt ⇒ dùng hộp thoại: nói rõ đã nhận ra file
+    // nào, vì sao không dùng được, và đưa luôn nút tải bộ app dùng được.
+    if (result.status == SherpaAsrImportStatus.unsupportedLayout) {
+      if (result.detail != null) {
+        debugPrint('⚠️ ASR import detail: ${result.detail}');
+      }
+      _showUnsupportedLayoutDialog(context, result);
+      return;
+    }
+
     final message = switch (result.status) {
       SherpaAsrImportStatus.imported =>
         context.uiText('✅ Đã import model ASR: ${profile.name}'),
@@ -2506,6 +2519,79 @@ class _SherpaAsrCardState extends State<_SherpaAsrCard> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+  }
+
+  /// PSRC-34 — hộp thoại cho bộ export NVIDIA NeMo / onnx-asr.
+  ///
+  /// Chuỗi + quyết định nằm ở `asr_unsupported_layout_text.dart` (thuần, có
+  /// test). Nút tải đi qua [_handleDownload] — vẫn có bước xác nhận dung
+  /// lượng/Wi-Fi như khi bấm "Tải về" trên thẻ (chỉ tải khi người dùng bấm).
+  Future<void> _showUnsupportedLayoutDialog(
+    BuildContext context,
+    SherpaAsrImportResult result,
+  ) async {
+    final parakeet = AsrModelRouter.parakeetProfile;
+    final nextStep = asrLayoutNextStep(
+      hasParakeetProfile: parakeet != null,
+      installed:
+          parakeet != null && _manager.isAsrProfileInstalled(parakeet.id),
+      downloading:
+          parakeet != null && _manager.asrInfo.stateFor(parakeet.id).isDownloading,
+    );
+    final small = Theme.of(context).textTheme.bodySmall;
+
+    final wantsDownload = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.uiText(kAsrLayoutDialogTitle)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(context.uiText(kAsrLayoutWhatItIs)),
+              const SizedBox(height: 8),
+              Text(context.uiText(kAsrLayoutWhyNot)),
+              if (result.layoutFiles.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(context.uiText(kAsrLayoutFilesHeader), style: small),
+                // Tên file là dữ liệu của người dùng — hiện nguyên văn.
+                for (final name in result.layoutFiles)
+                  Text('• $name', style: small),
+              ],
+              if (nextStep != AsrLayoutNextStep.explainOnly) ...[
+                const SizedBox(height: 12),
+                Text(
+                  context.uiText(
+                    switch (nextStep) {
+                      AsrLayoutNextStep.alreadyInstalled =>
+                        kAsrLayoutAlreadyInstalled,
+                      AsrLayoutNextStep.downloading => kAsrLayoutDownloading,
+                      _ => asrLayoutDownloadOffer(parakeet?.approxSizeMB ?? 0),
+                    },
+                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Đóng'),
+          ),
+          if (nextStep == AsrLayoutNextStep.offerDownload)
+            ElevatedButton.icon(
+              icon: const Icon(Icons.download, size: 16),
+              label: Text(context.uiText(kAsrLayoutDownloadButton)),
+              onPressed: () => Navigator.pop(dialogContext, true),
+            ),
+        ],
+      ),
+    );
+    if (wantsDownload != true || parakeet == null || !mounted) return;
+    await _handleDownload(context, parakeet);
   }
 
   /// Import nhiều FILE model — PARAKEET-002.

@@ -287,10 +287,53 @@ class ModelBundleScanner {
     return isOnnx(name) && lower.contains('decoder_joint');
   }
 
-  /// Mel-feature graph của bộ export NVIDIA NeMo: `nemo128.onnx`.
+  /// Mel-feature graph của bộ export NVIDIA NeMo kiểu onnx-asr:
+  /// `nemo128.onnx` (Parakeet TDT 0.6b — 128 mel) hoặc `nemo80.onnx` (các
+  /// model NeMo 80 mel).
+  ///
+  /// PSRC-34: trước đây chỉ nhận `nemo128` ⇒ `nemo80.onnx` bị coi là một
+  /// giọng Piper.
   static bool isNeMoMelGraphName(String name) {
-    final lower = name.toLowerCase();
-    return isOnnx(name) && lower.startsWith('nemo128');
+    return isOnnx(name) && _neMoMelGraph.hasMatch(name.toLowerCase());
+  }
+
+  static final RegExp _neMoMelGraph = RegExp(r'^nemo\d+([._-]|$)');
+
+  /// PSRC-34 — tên các file thuộc layout export NVIDIA NeMo / onnx-asr có
+  /// trong [names], theo thứ tự cố định: encoder → decoder gộp joint → mel
+  /// graph → `vocab.txt` → `config.json`.
+  ///
+  /// Dùng để nói CHO NGƯỜI DÙNG app đã nhận ra những file nào (bộ này bị từ
+  /// chối vì dạng đóng gói, không phải vì thiếu file hay nhận diện sai).
+  /// [names] nhận cả đường dẫn; kết quả chỉ là tên file.
+  static List<String> neMoExportLayoutFiles(Iterable<String> names) {
+    String? encoder;
+    String? fused;
+    String? mel;
+    String? vocab;
+    String? config;
+    for (final raw in names) {
+      final name = normSep(raw).split('/').last;
+      final lower = name.toLowerCase();
+      if (isNeMoJointDecoderName(name)) {
+        fused ??= name;
+      } else if (isNeMoMelGraphName(name)) {
+        mel ??= name;
+      } else if (isOnnx(name) && lower.contains('encoder')) {
+        encoder ??= name;
+      } else if (lower == 'vocab.txt') {
+        vocab ??= name;
+      } else if (lower == 'config.json') {
+        config ??= name;
+      }
+    }
+    return <String>[
+      if (encoder != null) encoder,
+      if (fused != null) fused,
+      if (mel != null) mel,
+      if (vocab != null) vocab,
+      if (config != null) config,
+    ];
   }
 
   /// File espeak-ng-data "lẻ" (không extension) của bundle k2-fsa.

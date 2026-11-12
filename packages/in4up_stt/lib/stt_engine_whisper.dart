@@ -36,6 +36,7 @@ import 'models/stt_config.dart';
 import 'models/stt_model_info.dart';
 import 'models/stt_result.dart';
 import 'utils/audio_converter.dart';
+import 'utils/src/whisper_chunk_guard.dart';
 import 'utils/whisper_language.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -857,8 +858,10 @@ class SttEngineWhisper {
 
     final allSegments = <SttSegment>[];
     final allWords = <SttWord>[];
-    var chunkMsOffset = 0;
     final chunkTimes = <int>[]; // luu thoi gian xu ly tung chunk de tinh ETA
+    // PSRC-198: sổ chunk của job này — một chunk hỏng không được giết cả job
+    // (xem utils/src/whisper_chunk_guard.dart).
+    final chunkBudget = WhisperChunkFailureBudget();
 
     try {
       for (var i = 0; i < effectiveTotal; i++) {
@@ -866,6 +869,11 @@ class SttEngineWhisper {
           debugPrint('⏹️ Whisper bi huy tai chunk $i/$effectiveTotal');
           break;
         }
+
+        // PSRC-198: mốc thời gian của chunk là HÀM của chỉ số chunk, không
+        // cộng dồn theo từng nhánh — chunk bị bỏ qua/lỗi ở bất kỳ nhánh nào
+        // cũng không làm lệch mốc của các chunk sau.
+        final chunkMsOffset = i * effectiveChunkDuration * 1000;
 
         chunkSw.reset();
         chunkSw.start();
@@ -881,22 +889,29 @@ class SttEngineWhisper {
 
         if (chunkPath == null) {
           debugPrint('[Whisper] Khong cat duoc chunk $i, bo qua');
-          chunkMsOffset += effectiveChunkDuration * 1000;
+          chunkBudget.recordSkipped();
           continue;
         }
 
         // ── Pre-flight TRƯỚC khi vào C++ (fix crash SIGSEGV) ──────────────
-        // (a) Chunk WAV hỏng/0 byte (FFmpeg "thành công" nhưng không ghi
-        //     đủ) → bỏ qua chunk thay vì ném file rác vào dr_wav.
-        final chunkFile = File(chunkPath);
-        int chunkBytes = 0;
-        try {
-          chunkBytes = await chunkFile.length();
-        } catch (_) {}
-        if (!await chunkFile.exists() || chunkBytes < 44) {
+        // (a) Chunk WAV hỏng / RỖNG / quá ngắn → bỏ qua chunk thay vì ném
+        //     xuống native.
+        //     PSRC-198: chốt cũ chỉ so `size < 44`. FFmpeg cắt chunk ĐUÔI nằm
+        //     tại/sau điểm hết file vẫn "thành công" và ghi WAV 78 byte chỉ
+        //     có header (0 mẫu) ⇒ lọt chốt ⇒ với ngôn ngữ `auto` whisper.cpp
+        //     trả "failed to process audio" và CẢ JOB hỏng ở chunk cuối.
+        //     Giờ đọc header để biết số mẫu thật.
+        final chunkVerdict = await inspectChunkFile(chunkPath);
+        if (!chunkVerdict.shouldTranscribe) {
           debugPrint(
-              '[Whisper] Chunk $i hong (size=$chunkBytes <44B) — bo qua');
-          chunkMsOffset += effectiveChunkDuration * 1000;
+            '[Whisper] Chunk $i/$effectiveTotal khong co gi de nhan dien '
+            '(${chunkVerdict.name}) — bo qua, KHONG dua xuong native',
+          );
+          chunkBudget.recordSkipped();
+          try {
+            final skipped = File(chunkPath);
+            if (await skipped.exists()) await skipped.delete();
+          } catch (_) {}
           continue;
         }
         // (b) Model file bi mat/hong GIUA job (Android thuong xoa file app
@@ -954,7 +969,7 @@ class SttEngineWhisper {
             allWords.addAll(shifted.words);
           }
 
-          chunkMsOffset += effectiveChunkDuration * 1000;
+          chunkBudget.recordTranscribed();
           chunkSw.stop();
           chunkTimes.add(chunkSw.elapsedMilliseconds);
 
@@ -974,6 +989,20 @@ class SttEngineWhisper {
             language: language,
           ));
 
+        } catch (e, st) {
+          // PSRC-198: trước đây KHÔNG có nhánh catch ⇒ một chunk native báo
+          // lỗi (điển hình: chunk đuôi → "failed to process audio") ném
+          // thẳng ra ngoài vòng lặp, vứt mọi chunk đã nhận diện xong. Giờ bỏ
+          // qua chunk đó và chạy tiếp; lỗi lặp lại quá ngưỡng thì dừng bằng
+          // lỗi đầu tiên (mỗi lần lỗi plugin rò một whisper_context).
+          final mayContinue = chunkBudget.recordNativeFailure(e, st);
+          final nextStep = mayContinue
+              ? 'bo qua chunk nay, chay tiep'
+              : 'qua nguong ${chunkBudget.maxNativeFailures} chunk loi, dung job';
+          debugPrint(
+            '[Whisper] ⚠️ Chunk $i/$effectiveTotal loi native: $e — $nextStep',
+          );
+          if (!mayContinue) chunkBudget.throwFirstError();
         } finally {
           // Giai phong file chunk ngay lap tuc - quan trong de tranh OOM
           try {
@@ -1013,8 +1042,16 @@ class SttEngineWhisper {
       } catch (_) {}
     }
 
+    // PSRC-198: không chunk nào ra chữ mà CÓ chunk native báo lỗi ⇒ đó là
+    // lỗi thật của job (không trả "thành công rỗng").
+    chunkBudget.throwIfNothingTranscribed();
+
     sw.stop();
-    debugPrint('[Whisper] Hoan thanh ${allSegments.length} segments trong ${sw.elapsed.inSeconds}s');
+    debugPrint(
+      '[Whisper] Hoan thanh ${allSegments.length} segments trong '
+      '${sw.elapsed.inSeconds}s (chunk: ${chunkBudget.transcribed} xong, '
+      '${chunkBudget.skipped} bo qua, ${chunkBudget.nativeFailures} loi)',
+    );
 
     return SttResult(
       fullText: allSegments.map((s) => s.text).join(' ').trim(),
@@ -1025,6 +1062,33 @@ class SttEngineWhisper {
       audioFingerprint: audioFingerprint,
       hasWordTimestamps: allWords.isNotEmpty,
     );
+  }
+
+  /// PSRC-198 — soi một chunk WAV TRƯỚC khi đưa xuống whisper.cpp.
+  ///
+  /// Chỉ đọc vài KB đầu file (header). Không soi được (lỗi I/O) ⇒ trả
+  /// [WhisperChunkVerdict.transcribe]: để native tự quyết, lỗi của nó đi qua
+  /// [WhisperChunkFailureBudget] chứ không giết cả job.
+  static Future<WhisperChunkVerdict> inspectChunkFile(String chunkPath) async {
+    try {
+      final file = File(chunkPath);
+      if (!await file.exists()) return WhisperChunkVerdict.skipCorrupt;
+      final length = await file.length();
+      if (length < 44) return WhisperChunkVerdict.skipCorrupt;
+      final raf = await file.open();
+      try {
+        final want = length < kWhisperChunkHeaderProbeBytes
+            ? length
+            : kWhisperChunkHeaderProbeBytes;
+        final head = await raf.read(want);
+        return assessWhisperChunk(head: head, fileLength: length);
+      } finally {
+        await raf.close();
+      }
+    } catch (e) {
+      debugPrint('[Whisper] Khong soi duoc chunk $chunkPath: $e');
+      return WhisperChunkVerdict.transcribe;
+    }
   }
 
   /// Gom các segment đã có thành một SttResult tạm (cho progress/stream).

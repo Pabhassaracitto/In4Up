@@ -19,6 +19,7 @@ import 'mlkit_pack_downloads.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
+import 'widgets/engine_sheet_section.dart';
 
 /// SHELL-GEAR-001: seam log điểm nhấn gear "Cài đặt engine dịch" (ứng viên
 /// gear #2 trong card — gear #1 là drawer "Giao diện shell" ở main_shell).
@@ -530,380 +531,70 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final mlkitSupported = MlKitEngine.platformSupported;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        MediaQuery.of(context).viewInsets.bottom + 20,
+        16,
+        16,
+        16,
+        MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              context.uiText('⚙️ Engine dịch thuật'),
-              style: const TextStyle(
-                fontSize: 18,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+            // ── Đầu sheet: tiêu đề + trạng thái engine ĐANG chạy ────────
+            // PSRC-191: trước đây tiêu đề + khối trạng thái + DeepLX + 3 nhóm
+            // model + công tắc + glossary + nút Lưu nằm cùng một cột, cùng cỡ
+            // chữ, cùng khoảng cách ⇒ user không biết đọc từ đâu. Nay mỗi nhóm
+            // là một thẻ có tiêu đề; nhóm nâng cao thu gọn.
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.uiText('⚙️ Engine dịch thuật'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(context.uiText('Đóng')),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             _buildLiveEngineStatus(),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _urlController,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: context.uiText('DeepLX Server URL (tùy chọn)'),
-                labelStyle: const TextStyle(color: Colors.grey),
-                hintText: context.uiText('Để trống → dùng Google Free'),
-                hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              context.uiText(
-                'Chỉ dán host cũng được — app tự nối /translate (vd: https://xxx.hf.space/translate).',
-              ),
-              style: TextStyle(color: Colors.grey[600], fontSize: 11),
-            ),
-            // XLAT-DEEPLX-001: thử kết nối + dịch câu mẫu ngay trong sheet.
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _testingDeeplx ? null : _testDeeplxConnection,
-                  icon: _testingDeeplx
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.network_check, size: 16),
-                  label: Text(context.uiText('Thử kết nối DeepLX')),
-                ),
-              ],
-            ),
-            if (_deeplxTestMessage != null)
-              Text(
-                _deeplxTestMessage!,
-                style: TextStyle(
-                  color: _deeplxTestOk ? Colors.greenAccent : Colors.redAccent,
-                  fontSize: 12,
-                ),
-              ),
-            const SizedBox(height: 10),
-            Text(
-              context.uiText(
-                'Ngôn ngữ đích được chọn bằng nút lá cờ trên thanh Dịch.',
-              ),
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-            ),
-            const SizedBox(height: 18),
-            // ── Gói dịch offline (ML Kit) ──────────────────────────────
-            Text(
-              context.uiText('Gói dịch offline (ML Kit — Android/iOS)'),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 6),
-            if (!mlkitSupported)
-              Text(
-                context.uiText('ML Kit chỉ chạy trên Android/iOS.'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-              )
-            else ...[
-              // PSRC-28: 3 ngôn ngữ phổ biến hiện sẵn; phần còn lại (tới 19
-              // ngôn ngữ ML Kit nằm trong danh mục app) chỉ hiện khi user bấm
-              // "Thêm ngôn ngữ" ⇒ danh sách vẫn gọn như bản 1.27.0 nhưng
-              // không còn giấu mất 16 ngôn ngữ.
-              for (final language in _catalog.primary)
-                _modelRow(language.translationCode),
-              if (_showAllLanguages)
-                for (final language in _catalog.extra)
-                  _modelRow(language.translationCode),
-              if (_catalog.hasExtra)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _showAllLanguages = !_showAllLanguages),
-                    icon: Icon(
-                      _showAllLanguages
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 18,
-                    ),
-                    label: Text(
-                      _showAllLanguages
-                          ? context.uiText('Ẩn bớt ngôn ngữ')
-                          : '${context.uiText('Thêm ngôn ngữ')} '
-                              '(${_catalog.extra.length})',
-                    ),
-                  ),
-                ),
-              Text(
-                context.uiText(
-                  'Chỉ tải khi bạn bấm — không tự tải lúc mở app.',
-                ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Text(
-              context.uiText('Hy-MT 1.5 (GGUF ~1,1 GB, 33 ngôn ngữ)'),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _hymtHas
-                  ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
-                  : context.uiText('Tải bản HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1,1 GB) rồi Import, hoặc bấm Tải về. Không tự tải lúc mở app.'),
-              style: TextStyle(color: Colors.grey[600], fontSize: 11),
-            ),
-            // HYMT-003: nêu ĐÚNG lý do model hiện tại không dùng được (quant
-            // chưa có kernel / sai kiến trúc / file cắt) — bản 2-bit của
-            // AngelSlim cần llama.cpp PR #19357 nên không load được.
-            if (_hymtLegacy)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.uiText(
-                          'Còn file 2-bit cũ (~601 MB) không dùng được — xoá để lấy lại dung lượng.',
-                        ),
-                        style: const TextStyle(
-                          color: Colors.orangeAccent,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _hymtBusy ? null : _deleteLegacyHymt,
-                      child: Text(
-                        context.uiText('Xoá'),
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (!_hymtHas && _hymtIssue != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _hymtIssue!,
-                  style: const TextStyle(
-                    color: Colors.orangeAccent,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('Tự chọn'),
-                  selected: _enginePref == HyMtOfflinePreference.auto,
-                  onSelected: (_) {
-                    setState(() => _enginePref = HyMtOfflinePreference.auto);
-                    widget.service.offlineEnginePref = HyMtOfflinePreference.auto;
-                  },
-                ),
-                ChoiceChip(
-                  label: const Text('Hy-MT'),
-                  selected: _enginePref == HyMtOfflinePreference.hymt,
-                  onSelected: (_) {
-                    setState(() => _enginePref = HyMtOfflinePreference.hymt);
-                    widget.service.offlineEnginePref = HyMtOfflinePreference.hymt;
-                  },
-                ),
-                ChoiceChip(
-                  label: const Text('ML Kit'),
-                  selected: _enginePref == HyMtOfflinePreference.mlkit,
-                  onSelected: (_) {
-                    setState(() => _enginePref = HyMtOfflinePreference.mlkit);
-                    widget.service.offlineEnginePref = HyMtOfflinePreference.mlkit;
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_hymtBusy)
-              LinearProgressIndicator(
-                value: _hymtProgress > 0 ? _hymtProgress : null,
-                minHeight: 4,
-              ),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _hymtBusy ? null : _importHymt,
-                  icon: const Icon(Icons.folder_open, size: 16),
-                  label: const Text('Import .gguf'),
-                ),
-                TextButton.icon(
-                  onPressed: _hymtBusy ? null : _downloadHymt,
-                  icon: const Icon(Icons.download, size: 16),
-                  label: const Text('Tải về'),
-                ),
-                if (_hymtHas)
-                  IconButton(
-                    onPressed: _hymtBusy ? null : _deleteHymt,
-                    icon: const Icon(Icons.delete_outline, size: 16),
-                    color: Colors.grey,
-                  ),
-              ],
-            ),
             const SizedBox(height: 12),
-            // ── LLM API (WP3/API-004) ────────────────────────────────
-            Text(
-              context.uiText('Dịch bằng LLM (Server & API)'),
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+
+            // ── Nhóm THƯỜNG DÙNG (mở sẵn) ────────────────────────────
+            EngineSheetSection(
+              title: context.uiText('Gói dịch offline'),
+              subtitle: context.uiText(
+                'Dịch không cần mạng — chỉ tải khi bạn bấm.',
               ),
+              icon: Icons.cloud_download_outlined,
+              accentColor: widget.accentColor,
+              initiallyExpanded: true,
+              trailing: _offlinePackBadge(),
+              children: _buildOfflinePackChildren(mlkitSupported),
             ),
+            _buildOfflineOnlyCard(),
+            _buildHymtSection(),
+            _buildLlmSection(),
+            _buildDeeplxSection(),
+            _buildGlossaryCard(),
+
             const SizedBox(height: 4),
-            FutureBuilder<(AiProviderConfig?, AiRouteMode)>(
-              future: _llmInfo,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
-                final info = snapshot.data;
-                final provider = info?.$1;
-                final mode = info?.$2 ?? AiRouteMode.offlineFirst;
-                if (provider == null) {
-                  return Text(
-                    context.uiText(
-                      'Chưa cấu hình — thêm provider trong Cài đặt → Quản lý Model AI → Server & API.',
-                    ),
-                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle,
-                            size: 14, color: widget.accentColor),
-                        const SizedBox(width: 4),
-                        // Label/model là dữ liệu user nhập — không dịch.
-                        Expanded(
-                          child: Text(
-                            context.uiText('${provider.label} · ${provider.chatModel ?? ''}'),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      mode == AiRouteMode.onlineFirst
-                          ? context.uiText(
-                              'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.',
-                            )
-                          : context.uiText(
-                              'Routing Dịch: Ưu tiên offline — LLM chạy sau Hy-MT/ML Kit, trước từ điển.',
-                            ),
-                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            // ── Chỉ offline ────────────────────────────────────────────
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                context.uiText('Chỉ dùng dịch offline'),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                onPressed: _saveAndClose,
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: widget.accentColor),
+                child: Text(context.uiText('Lưu')),
               ),
-              subtitle: Text(
-                context.uiText(
-                  'Bỏ qua engine online (Hy-MT / ML Kit + từ điển).',
-                ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
-              value: _offlineOnly ?? false,
-              activeColor: widget.accentColor,
-              onChanged: (v) {
-                setState(() => _offlineOnly = v);
-                widget.service.offlineOnly = v;
-              },
-            ),
-            Divider(color: Colors.grey.shade800),
-            // ── Glossary ───────────────────────────────────────────────
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.bookmark_border, color: widget.accentColor),
-              title: Text(
-                context.uiText('Thuật ngữ dịch (glossary)'),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-              subtitle: Text(
-                context.uiText(
-                  'Khóa thuật ngữ Phật học/Pali — engine không được đè.',
-                ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-              ),
-              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-              onTap: () async {
-                await showGlossarySheet(context, accentColor: widget.accentColor);
-                if (mounted) setState(() {});
-              },
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    final raw = _urlController.text.trim();
-                    final verdict = assessDeepLXEndpoint(raw);
-                    // AUDIT-1.21.0 #6: đừng lưu link bài hướng dẫn/forum làm
-                    // endpoint. Nói rõ ngay trong sheet (không pop im lặng).
-                    if (!verdict.isValid &&
-                        verdict.issue !=
-                            DeepLXEndpointIssue.notConfigured) {
-                      setState(() {
-                        _deeplxTestOk = false;
-                        // verdict.message đã là English canonical (rule #5),
-                        // không cần uiText cho một template chỉ có 1 placeholder.
-                        _deeplxTestMessage = '❌ ${verdict.message}';
-                      });
-                      return;
-                    }
-                    widget.service.configure(deeplxUrl: raw);
-                    Navigator.pop(context);
-                  },
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: widget.accentColor),
-                  child: const Text('Lưu'),
-                ),
-              ],
             ),
           ],
         ),
@@ -911,6 +602,405 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     );
   }
 
+  /// Badge trên tiêu đề nhóm gói offline: cho biết NGAY đã tải được mấy gói
+  /// mà không phải mở thẻ.
+  Widget? _offlinePackBadge() {
+    if (!MlKitEngine.platformSupported) {
+      return Text(
+        context.uiText('Không hỗ trợ'),
+        style: TextStyle(color: Colors.grey[600], fontSize: 11),
+      );
+    }
+    final ready = _catalog.all
+        .where((language) => _packs.statusOf(_bcpOf(language.translationCode)).isReady)
+        .length;
+    final downloading = _catalog.all.any(
+      (language) => _packs.statusOf(_bcpOf(language.translationCode)).isDownloading,
+    );
+    final label = downloading
+        ? context.uiText('Đang tải ngầm...')
+        : ready == 0
+            ? context.uiText('Chưa tải')
+            : '$ready/${_catalog.all.length}';
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: downloading
+              ? Colors.amberAccent
+              : ready == 0
+                  ? Colors.grey[600]
+                  : Colors.green,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  /// Nội dung thẻ "Gói dịch offline": danh sách gói + nút mở rộng ngôn ngữ.
+  List<Widget> _buildOfflinePackChildren(bool mlkitSupported) {
+    if (!mlkitSupported) {
+      return <Widget>[
+        EngineSheetHint(context.uiText('ML Kit chỉ chạy trên Android/iOS.')),
+      ];
+    }
+    return <Widget>[
+      // PSRC-28: 3 ngôn ngữ phổ biến hiện sẵn; phần còn lại (tới 19 ngôn ngữ
+      // ML Kit nằm trong danh mục app) chỉ hiện khi user bấm "Thêm ngôn ngữ"
+      // ⇒ danh sách vẫn gọn như bản 1.27.0 nhưng không còn giấu mất 16 ngôn ngữ.
+      for (final language in _catalog.primary)
+        _modelRow(language.translationCode),
+      if (_showAllLanguages)
+        for (final language in _catalog.extra)
+          _modelRow(language.translationCode),
+      if (_catalog.hasExtra)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _showAllLanguages = !_showAllLanguages),
+            icon: Icon(
+              _showAllLanguages
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
+              size: 18,
+            ),
+            label: Text(
+              _showAllLanguages
+                  ? context.uiText('Ẩn bớt ngôn ngữ')
+                  : '${context.uiText('Thêm ngôn ngữ')} (${_catalog.extra.length})',
+            ),
+          ),
+        ),
+      EngineSheetHint(
+        context.uiText('Chỉ tải khi bạn bấm — không tự tải lúc mở app.'),
+      ),
+    ];
+  }
+
+  /// Công tắc "chỉ dùng dịch offline" — nhóm riêng, mở sẵn vì ảnh hưởng ngay
+  /// tới mọi lượt dịch tiếp theo.
+  Widget _buildOfflineOnlyCard() {
+    return Container(
+      margin: const EdgeInsets.only(top: 2, bottom: 10),
+      decoration: BoxDecoration(
+        color: (_offlineOnly ?? false)
+            ? widget.accentColor.withValues(alpha: 0.10)
+            : Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: (_offlineOnly ?? false)
+              ? widget.accentColor.withValues(alpha: 0.55)
+              : Colors.grey.withValues(alpha: 0.25),
+        ),
+      ),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        dense: true,
+        title: Text(
+          context.uiText('Chỉ dùng dịch offline'),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+        subtitle: Text(
+          context.uiText('Bỏ qua engine online (Hy-MT / ML Kit + từ điển).'),
+          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+        ),
+        value: _offlineOnly ?? false,
+        activeColor: widget.accentColor,
+        onChanged: (v) {
+          setState(() => _offlineOnly = v);
+          widget.service.offlineOnly = v;
+        },
+      ),
+    );
+  }
+
+  /// Nhóm Hy-MT (GGUF): thông tin + import/tải/xoá + chọn engine offline.
+  Widget _buildHymtSection() {
+    return EngineSheetSection(
+      title: context.uiText('Hy-MT 1.5 (GGUF ~1,1 GB, 33 ngôn ngữ)'),
+      subtitle: _hymtHas
+          ? context.uiText('Đã có model.')
+          : context.uiText('Tải hoặc Import file .gguf để dịch offline.'),
+      icon: Icons.memory,
+      accentColor: widget.accentColor,
+      trailing: Text(
+        _hymtHas ? context.uiText('Đã tải') : context.uiText('Chưa tải'),
+        style: TextStyle(
+          color: _hymtHas ? Colors.green : Colors.grey[600],
+          fontSize: 11,
+        ),
+      ),
+      children: [
+        EngineSheetHint(
+          _hymtHas
+              ? context.uiText('Đã có model. Import lại nếu muốn đổi file.')
+              : context.uiText(
+                  'Tải bản HY-MT1.5-1.8B-GGUF (Q4_K_M, ~1,1 GB) rồi Import, hoặc bấm Tải về. Không tự tải lúc mở app.',
+                ),
+        ),
+        // HYMT-003: nêu ĐÚNG lý do model hiện tại không dùng được (quant chưa
+        // có kernel / sai kiến trúc / file cắt).
+        if (_hymtLegacy)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.uiText(
+                      'Còn file 2-bit cũ (~601 MB) không dùng được — xoá để lấy lại dung lượng.',
+                    ),
+                    style: const TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _hymtBusy ? null : _deleteLegacyHymt,
+                  child: Text(
+                    context.uiText('Xoá'),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (!_hymtHas && _hymtIssue != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _hymtIssue!,
+              style: const TextStyle(color: Colors.orangeAccent, fontSize: 11),
+            ),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          context.uiText('Engine offline ưu tiên'),
+          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final entry in <(HyMtOfflinePreference, String)>[
+              (HyMtOfflinePreference.auto, 'Tự chọn'),
+              (HyMtOfflinePreference.hymt, 'Hy-MT'),
+              (HyMtOfflinePreference.mlkit, 'ML Kit'),
+            ])
+              ChoiceChip(
+                label: Text(context.uiText(entry.$2)),
+                selected: _enginePref == entry.$1,
+                onSelected: (_) {
+                  setState(() => _enginePref = entry.$1);
+                  widget.service.offlineEnginePref = entry.$1;
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_hymtBusy)
+          LinearProgressIndicator(
+            value: _hymtProgress > 0 ? _hymtProgress : null,
+            minHeight: 4,
+          ),
+        Wrap(
+          spacing: 4,
+          children: [
+            TextButton.icon(
+              onPressed: _hymtBusy ? null : _importHymt,
+              icon: const Icon(Icons.folder_open, size: 16),
+              label: Text(context.uiText('Import .gguf')),
+            ),
+            TextButton.icon(
+              onPressed: _hymtBusy ? null : _downloadHymt,
+              icon: const Icon(Icons.download, size: 16),
+              label: Text(context.uiText('Tải về')),
+            ),
+            if (_hymtHas)
+              IconButton(
+                onPressed: _hymtBusy ? null : _deleteHymt,
+                icon: const Icon(Icons.delete_outline, size: 16),
+                color: Colors.grey,
+                tooltip: context.uiText('Xóa gói'),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Nhóm LLM API (WP3/API-004) — chỉ đọc cấu hình, mở khi cần xem routing.
+  Widget _buildLlmSection() {
+    return EngineSheetSection(
+      title: context.uiText('Dịch bằng LLM (Server & API)'),
+      subtitle: context.uiText('Cấu hình provider trong Cài đặt → Model AI.'),
+      icon: Icons.api,
+      accentColor: widget.accentColor,
+      children: [
+        FutureBuilder<(AiProviderConfig?, AiRouteMode)>(
+          future: _llmInfo,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+            final info = snapshot.data;
+            final provider = info?.$1;
+            final mode = info?.$2 ?? AiRouteMode.offlineFirst;
+            if (provider == null) {
+              return EngineSheetHint(
+                context.uiText(
+                  'Chưa cấu hình — thêm provider trong Cài đặt → Quản lý Model AI → Server & API.',
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.check_circle,
+                        size: 14, color: widget.accentColor),
+                    const SizedBox(width: 4),
+                    // Label/model là dữ liệu user nhập — không dịch.
+                    Expanded(
+                      child: Text(
+                        context
+                            .uiText('${provider.label} · ${provider.chatModel ?? ''}'),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                EngineSheetHint(
+                  mode == AiRouteMode.onlineFirst
+                      ? context.uiText(
+                          'Routing Dịch: Ưu tiên online — LLM chạy trước các engine miễn phí.',
+                        )
+                      : context.uiText(
+                          'Routing Dịch: Ưu tiên offline — LLM chạy sau Hy-MT/ML Kit, trước từ điển.',
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Nhóm DeepLX — trước đây chiếm nửa sheet dù phần lớn user để trống.
+  Widget _buildDeeplxSection() {
+    return EngineSheetSection(
+      title: context.uiText('DeepLX Server URL (tùy chọn)'),
+      subtitle: context.uiText('Để trống → dùng Google Free.'),
+      icon: Icons.dns_outlined,
+      accentColor: widget.accentColor,
+      children: [
+        TextField(
+          controller: _urlController,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: context.uiText('Để trống → dùng Google Free'),
+            hintStyle: TextStyle(color: Colors.grey[700], fontSize: 12),
+          ),
+        ),
+        const SizedBox(height: 4),
+        EngineSheetHint(
+          context.uiText(
+            'Chỉ dán host cũng được — app tự nối /translate (vd: https://xxx.hf.space/translate).',
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _testingDeeplx ? null : _testDeeplxConnection,
+            icon: _testingDeeplx
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.network_check, size: 16),
+            label: Text(context.uiText('Thử kết nối DeepLX')),
+          ),
+        ),
+        if (_deeplxTestMessage != null)
+          Text(
+            _deeplxTestMessage!,
+            style: TextStyle(
+              color: _deeplxTestOk ? Colors.greenAccent : Colors.redAccent,
+              fontSize: 12,
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Glossary — một dòng bấm được, đúng bản chất "điều hướng".
+  Widget _buildGlossaryCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
+      ),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        leading: Icon(Icons.bookmark_border, color: widget.accentColor),
+        title: Text(
+          context.uiText('Thuật ngữ dịch (glossary)'),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+        ),
+        subtitle: Text(
+          context.uiText('Khóa thuật ngữ Phật học/Pali — engine không được đè.'),
+          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: () async {
+          await showGlossarySheet(context, accentColor: widget.accentColor);
+          if (mounted) setState(() {});
+        },
+      ),
+    );
+  }
+
+  /// Lưu URL DeepLX (nếu hợp lệ) rồi đóng sheet.
+  ///
+  /// Tách khỏi `build` để PSRC-191 không phải nhúng một closure 20 dòng vào
+  /// cuối cây widget.
+  void _saveAndClose() {
+    final raw = _urlController.text.trim();
+    final verdict = assessDeepLXEndpoint(raw);
+    // AUDIT-1.21.0 #6: đừng lưu link bài hướng dẫn/forum làm endpoint. Nói rõ
+    // ngay trong sheet (không pop im lặng).
+    if (!verdict.isValid && verdict.issue != DeepLXEndpointIssue.notConfigured) {
+      setState(() {
+        _deeplxTestOk = false;
+        // verdict.message đã là English canonical (rule #5), không cần uiText
+        // cho một template chỉ có 1 placeholder.
+        _deeplxTestMessage = '❌ ${verdict.message}';
+      });
+      return;
+    }
+    widget.service.configure(deeplxUrl: raw);
+    Navigator.pop(context);
+  }
 
   /// XLAT-DEEPLX-001: thử kết nối DeepLX với URL đang nhập — dịch câu mẫu
   /// "Hello" → VI và hiện kết quả inline (xanh = OK, đỏ = lỗi kèm lý do).

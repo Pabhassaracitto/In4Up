@@ -8883,5 +8883,56 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'භාෂා අඩුවෙන් පෙන්වන්න',
   },
 
+  // PSRC-191 (owner 2026-11-11) — nhãn tiêu đề nhóm trong sheet engine dịch.
+  'Gói dịch offline': {
+    'en': 'Offline translation packs',
+    'hi': 'ऑफ़लाइन अनुवाद पैक',
+    'zh': '离线翻译包',
+    'zh_TW': '離線翻譯包',
+    'si': 'නොබැඳි පරිවර්තන පැකේජ',
+  },
+  'Không hỗ trợ': {
+    'en': 'Not supported',
+    'hi': 'समर्थित नहीं',
+    'zh': '不支持',
+    'zh_TW': '不支援',
+    'si': 'සහාය නොදක්වයි',
+  },
+  'Đã có model.': {
+    'en': 'Model installed.',
+    'hi': 'मॉडल मौजूद है।',
+    'zh': '已安装模型。',
+    'zh_TW': '已安裝模型。',
+    'si': 'මොඩලය ස්ථාපිතයි.',
+  },
+  'Tải hoặc Import file .gguf để dịch offline.': {
+    'en': 'Download or import a .gguf file to translate offline.',
+    'hi': 'ऑफ़लाइन अनुवाद के लिए .gguf फ़ाइल डाउनलोड या इंपोर्ट करें।',
+    'zh': '下载或导入 .gguf 文件即可离线翻译。',
+    'zh_TW': '下載或匯入 .gguf 檔案即可離線翻譯。',
+    'si': 'නොබැඳිව පරිවර්තනයට .gguf ගොනුවක් බාගන්න හෝ ආයාත කරන්න.',
+  },
+  'Engine offline ưu tiên': {
+    'en': 'Preferred offline engine',
+    'hi': 'पसंदीदा ऑफ़लाइन इंजन',
+    'zh': '首选的离线引擎',
+    'zh_TW': '偏好的離線引擎',
+    'si': 'මනාප නොබැඳි එන්ජිම',
+  },
+  'Cấu hình provider trong Cài đặt → Model AI.': {
+    'en': 'Configure the provider in Settings → AI models.',
+    'hi': 'सेटिंग्स → AI मॉडल में प्रोवाइडर कॉन्फ़िगर करें।',
+    'zh': '在“设置 → AI 模型”中配置服务商。',
+    'zh_TW': '在「設定 → AI 模型」中設定供應商。',
+    'si': 'සැකසීම් → AI මොඩල් තුළ සපයන්නා වින්‍යාස කරන්න.',
+  },
+  'Để trống → dùng Google Free.': {
+    'en': 'Leave blank → use Google Free.',
+    'hi': 'खाली छोड़ें → Google Free उपयोग होगा।',
+    'zh': '留空 → 使用 Google Free。',
+    'zh_TW': '留空 → 使用 Google Free。',
+    'si': 'හිස්ව තබන්න → Google Free භාවිත වේ.',
+  },
+
 
 };

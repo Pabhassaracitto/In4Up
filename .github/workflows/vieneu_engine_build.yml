@@ -23,6 +23,7 @@ on:
       - 'android/app/src/main/cpp/**'
       - 'android/app/build.gradle.kts'
       - '.github/workflows/vieneu_engine_build.yml'
+      - 'scripts/ci/**'
 
 permissions:
   contents: read

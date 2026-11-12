@@ -36,7 +36,7 @@ Link issue dùng dạng rút gọn `https://linear.app/in4up/issue/PSRC-<số>`.
 | L3 | Tab Đọc & PDF/OCR | [206](https://linear.app/in4up/issue/PSRC-206) quét thư mục nhiều tài liệu ⇒ treo/lag · [207](https://linear.app/in4up/issue/PSRC-207) `.docx` không mở · [208](https://linear.app/in4up/issue/PSRC-208) chế độ TT chỉ ra chữ trang 2 · [209](https://linear.app/in4up/issue/PSRC-209) tinh chỉnh AI sau OCR báo sai cấu hình · [210](https://linear.app/in4up/issue/PSRC-210) OCR từ TT quét vùng trống | `lib/screens/read_mode/**` · `lib/screens/text_library/**` · `lib/services/text_source_loader.dart` · `lib/features/pdf_reader/**` · `lib/features/ocr/**` | — | ⬜ chưa nhận |
 | L4 | Bong bóng dịch | [211](https://linear.app/in4up/issue/PSRC-211) bỏ sót khối, border dư dưới, bản dịch sai chỗ | `lib/features/screen_translate/**` · `android/app/src/main/kotlin/com/in4up/screentranslate/**` (`TranslationOverlayView`, `ScreenTranslateService`) | — | ⬜ chưa nhận |
 | L5 | Web & YouTube trên Linux | [212](https://linear.app/in4up/issue/PSRC-212) biểu tượng Web ⇒ màn hình đen · [213](https://linear.app/in4up/issue/PSRC-213) chọn kết quả YouTube ⇒ màn hình đen | `lib/features/web_reader/**` · `lib/features/youtube/**` · `linux/**` | — | ⬜ chưa nhận |
-| L6 | VieNeu / Vieu-TTS | [214](https://linear.app/in4up/issue/PSRC-214) import phía trên không nhận model · [215](https://linear.app/in4up/issue/PSRC-215) import Q8_0 "thành công" nhưng thiếu engine · [216](https://linear.app/in4up/issue/PSRC-216) không khởi tạo engine · [217](https://linear.app/in4up/issue/PSRC-217) import giọng lỗi · [218](https://linear.app/in4up/issue/PSRC-218) tạo giọng từ mẫu thu lỗi | `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` (+ worker isolate) · `lib/features/tts/engines/vieneu_tts_engine.dart` · `lib/screens/settings/**` (TTS) · `native/tts_vieneu/**` + CMake | — | ⬜ chưa nhận |
+| L6 | VieNeu / Vieu-TTS | [214](https://linear.app/in4up/issue/PSRC-214) import phía trên không nhận model · [215](https://linear.app/in4up/issue/PSRC-215) import Q8_0 "thành công" nhưng thiếu engine · [216](https://linear.app/in4up/issue/PSRC-216) không khởi tạo engine · [217](https://linear.app/in4up/issue/PSRC-217) import giọng lỗi · [218](https://linear.app/in4up/issue/PSRC-218) tạo giọng từ mẫu thu lỗi | `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` (+ worker isolate) · `lib/features/tts/engines/vieneu_tts_engine.dart` · `lib/screens/settings/**` (TTS) · `native/tts_vieneu/**` + CMake | — | 🔨 doing — **owner chốt ship engine** (ADR-0028); hub đã pin submodule + workflow build |
 | L7 | Tệp, nơi lưu & "Mở bằng" | [204](https://linear.app/in4up/issue/PSRC-204) **đánh giá** chọn/đổi nơi lưu (chưa chốt triển khai) · [222](https://linear.app/in4up/issue/PSRC-222) mở `.txt/.pdf/.docx/.md/.mp3/.m4a/.mp4` bằng In4Up | `android/app/src/main/AndroidManifest.xml` · `ios/Runner/Info.plist` · `lib/services/**` (nhận tệp) · `lib/features/media_tools/services/media_export_service.dart` (nơi lưu) · `lib/screens/text_library/**` · `linux/**` + `windows/**` (liên kết tệp) | — | ⬜ chưa nhận |
 | L8 | Giọng đọc hệ thống Android | [221](https://linear.app/in4up/issue/PSRC-221) In4Up thành TTS engine của hệ thống (như Sherpa APK), lấy Piper làm cơ sở | `android/app/src/main/kotlin/**` (service TTS mới + engine XML + manifest) · `lib/screens/settings/**` (công tắc/hướng dẫn) | — | ⬜ chưa nhận |
 | L9 | Shadowing & UI tab Nói/Hiểu | [224](https://linear.app/in4up/issue/PSRC-224) rà và bỏ mục Shadow ở "tạo lời" tab Nghe nếu vô dụng · [225](https://linear.app/in4up/issue/PSRC-225) thu gọn nội dung tab Nói, ưu tiên Shadowing · [226](https://linear.app/in4up/issue/PSRC-226) "Nghe mẫu" trôi quá dòng đã chọn · [227](https://linear.app/in4up/issue/PSRC-227) chấm điểm sai (tab Nói + tab Hiểu) · [228](https://linear.app/in4up/issue/PSRC-228) tab Hiểu thiếu gợi ý + đọc hết nội dung | `lib/features/shadowing/**` · `lib/screens/listen_mode/speak_mode_screen.dart` · `lib/screens/understand_mode/**` · `lib/screens/listen_mode/**` (mục Shadow) | — | ⬜ chưa nhận |
@@ -56,6 +56,27 @@ L6/L8 làm hỏng các đường đọc này thì đó là **regression của la
 | L6 ↔ L8 | màn Cài đặt TTS, `TtsService`/engine registry | L6 land trước L8 |
 | L7 ↔ L2 | nơi lưu tệp xuất media / nhận tệp | cùng đụng `media_export_service` ⇒ L7 land trước L2 nếu cả hai sửa hàm lưu |
 | tất cả | `KANBAN.md`, `tool/priority_native_pack.json`, ARB `lib/l10n/app_*.arb`, `.github/workflows/app_analyze.yml` | **hub độc quyền sửa** (xem §3.3) |
+
+### 2.2 L6 — quyết định "engine phải chạy thật" (owner 2026-11-12)
+
+Owner: *"Tôi muốn VieNeu thực sự hoạt động."* → [ADR-0028](../adr/0028-vieneu-engine-ship-audio-cpp-va-sea-g2p.md).
+Hub đã làm phần **hạ tầng** để lane L6 không còn bế tắc; phần còn lại thuộc lane.
+
+| Mảnh | Trước | Nay (hub đã làm) |
+|---|---|---|
+| `third_party/audio.cpp` | khai trong `.gitmodules` nhưng **không có gitlink** ⇒ CI `pathspec did not match` (nuốt bằng `|| true`) | gitlink pin **v0.9.4** `717efc34`; API C của header đúng tag khớp mọi hàm wrapper dùng |
+| SEA-G2P (bắt buộc: model nhận **phoneme**, không nhận chữ thô) | không có trong repo | gitlink `third_party/sea-g2p` pin **v0.10.0** `dae5ca83` + `cargo ndk` build `arm64-v8a` trong workflow |
+| Âm thanh | wrapper copy thô `frames` mẫu trong khi VieNeu phát **stereo 48 kHz** ⇒ cụt nửa dữ liệu, phát 2× | wrapper **trộn kênh** về mono đúng hợp đồng FFI |
+| Nạp SEA-G2P | chỉ tìm `.so` cạnh model (người dùng phải chép) | ưu tiên cạnh model nếu có, còn lại để audio.cpp `dlopen` **theo tên** từ `jniLibs`; truyền `g2p_dict_file` khi có `sea_g2p.bin` |
+| Bằng chứng build | chỉ lộ ở bước release | workflow riêng `vieneu_engine_build.yml` (dispatch) + test hợp đồng 4 ca trong `app_analyze` |
+
+**Còn lại cho lane L6** (đúng thứ tự):
+1. Chạy `vieneu_engine_build.yml` tới xanh; ghi **thời gian build** và **mức tăng APK** thật
+   (số ước tính trong ADR chưa phải số đo).
+2. Đường tải/import **`sea_g2p.bin`** (≈30 MB) trong app + checksum; hiện người dùng phải tự đặt.
+3. PSRC-214…218: import ở **mọi** mục (kể cả mục phía trên), không báo "thành công" giả,
+   khởi tạo engine / import giọng / tạo giọng có thông điệp đúng sự thật.
+4. Máy thật: đọc ≥ 3 đoạn tiếng Việt; đo nạp/tổng hợp/RAM; gỡ model ⇒ rơi về engine kế, không crash.
 
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
@@ -161,7 +182,7 @@ nhánh cùng lúc khi chưa biết CI của nhánh trước xanh.
 |---|---|---|---|
 | **G0** | agent | tự kiểm theo §3.2, PR vào beta | CI nhánh + PR xanh, không đổi file ngoài lane |
 | **G1** | hub | rà diff từng nhánh: phạm vi, version, KANBAN, i18n, test được wire | `git diff --check`; `python3 tool/generate_priority_native_pack.py --check`; test mới thật chạy; analyze 0 error |
-| **G2** | hub | chéo lane: CI trên beta tip sau mỗi đợt + build web (`deploy-web`) + rà xung đột ngữ nghĩa ở file dùng chung | `app_analyze` 🟢, `listen_queue_tests` 🟢, `deploy-web` 🟢 (build, không cần publish) |
+| **G2** | hub | chéo lane: CI trên beta tip sau mỗi đợt + build web (`deploy-web`) + rà xung đột ngữ nghĩa ở file dùng chung; **lane L6 thêm `vieneu_engine_build`** (native arm64) | `app_analyze` 🟢, `listen_queue_tests` 🟢, `deploy-web` 🟢 (build, không cần publish), `vieneu_engine_build` 🟢 khi có thay đổi native |
 | **G3** | owner | nghiệm thu máy thật theo cột "AT" từng lane (Android/iOS/Windows/Linux) | owner xác nhận trong chat/Linear |
 | **G4** | hub | bump `1.29.0+29` **một lần**, tag beta, build 4 nền tảng, web | build 4/4 🟢; tag là **prerelease** |
 | **G5** | hub + owner | đưa sang 251e bằng PR base 251e (merge thường); nếu 251e đã tiến hoá thì rebase beta lên tip mới trước | PR xanh, owner bấm merge |
@@ -206,6 +227,11 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
   (analyze · knowledge-regressions · vocabulary-tools · web-build-validation) — mã y hệt
   251e nên đỏ ở đây là do lane, không do nền. `deploy-web` **không chạy** khi push (đúng
   luật loại trừ ở §5/G2). `pubspec` vẫn `1.28.0+28`; chưa có nhánh con.
+- 2026-11-12 | L6 mở khoá kỹ thuật | agent `arena/60e35d65-in4up` | owner chốt *"VieNeu thực sự
+  hoạt động"* ⇒ ADR-0028 + gitlink `third_party/audio.cpp` v0.9.4 + `third_party/sea-g2p`
+  v0.10.0 + workflow `vieneu_engine_build.yml` + wrapper trộn stereo→mono / truyền SEA-G2P
+  + 4 test hợp đồng. **Chưa có build NDK xanh** — đó là cổng của lane L6, không phải việc
+  đã đóng.
 
 ## 9. Prompt riêng từng lane (dán **sau** khối §3)
 
@@ -346,3 +372,57 @@ Nhiệm vụ: PSRC-224, PSRC-225, PSRC-226, PSRC-227, PSRC-228.
   theo câu (giống 226).
 Ưu tiên: 227 (điểm sai) → 226/228 (đọc trôi) → 224 → 225 (UI).
 ```
+
+## 10. Đề xuất nơi lưu tệp (PSRC-204) — trả lời owner 2026-11-12
+
+Owner hỏi: *"chọn nơi lưu cố định hay lưu từng file do người dùng — đâu là chuyên nghiệp,
+phù hợp nhất?"* Trả lời ngắn: **cả hai, nhưng phân tầng** — một **nơi lưu mặc định** đặt
+một lần, và **quyền đổi cho từng lần xuất** khi người dùng muốn. Không chọn một trong hai.
+
+### 10.1 Mô hình đề xuất
+
+| Tầng | Nội dung | Vì sao |
+|---|---|---|
+| **Mặc định (không hỏi lại)** | Thư mục công khai mang tên app: Android `Download/In4Up/` · iOS `Files → On My iPhone/In4Up` · Windows/Linux `~/In4Up` | Người dùng mở Files/Downloads là thấy; không cần quyền rộng; không phải nhớ đường dẫn `Android/data/com.in4up/...` (đa số máy không vào được) |
+| **Đổi cho riêng lần xuất** | Hộp thoại xuất ghi rõ *"Lưu vào: Download/In4Up"* + nút **Đổi…** (SAF `ACTION_OPEN_DOCUMENT_TREE`) + tick *"Luôn lưu vào thư mục này"* | Xuất hàng loạt/lặp lại thì không bị hỏi liên tục; ai muốn đưa vào thư mục riêng (Drive, thẻ nhớ) vẫn làm được |
+| **Dữ liệu app tự quản** | Phiên cabin, model, DB, cache ⇒ **giữ trong thư mục riêng của app** | Không cho người dùng xoá nhầm; tránh app bị coi là "trình quản lý tệp" |
+
+Nguyên tắc: **dữ liệu do người dùng tạo ra và muốn mang đi** (file xuất A–B, bản ghi âm đã
+lưu, bản dịch) → thư mục công khai; **dữ liệu app cần để chạy** → thư mục riêng.
+
+### 10.2 Vì sao không chọn "chỉ cố định" hoặc "chỉ hỏi từng file"
+
+- **Chỉ cố định:** người dùng không tìm thấy tệp khi cần gửi đi; đổi ý phải vào Cài đặt.
+- **Hỏi từng file:** xuất 10 đoạn A–B liên tiếp = 10 hộp thoại; đó là kiểu UX bị bỏ dùng.
+- **Ghi thẳng vào bất kỳ đường dẫn nào** (kiểu desktop cũ) trên Android 11+ cần
+  `MANAGE_EXTERNAL_STORAGE` ⇒ Play policy, dễ bị từ chối — không đi đường này.
+
+### 10.3 Chi tiết theo nền tảng
+
+| Nền tảng | API | Ghi chú |
+|---|---|---|
+| Android 10+ | `MediaStore.Downloads` (tạo thư mục con `In4Up/`) hoặc SAF `ACTION_CREATE_DOCUMENT` | Không cần quyền bộ nhớ; `IS_PENDING` khi đang ghi rồi publish |
+| Android ≤ 9 | `WRITE_EXTERNAL_STORAGE` (đã khai trong manifest?) — chỉ đường dự phòng | Giữ tương thích, không mở rộng |
+| iOS | App container `Documents/In4Up` + `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` | Hiện trong Files; "Đổi…" = `UIDocumentPickerViewController` |
+| Windows / Linux | `path_provider` → `getDownloadsDirectory()` fallback `~/In4Up` | Desktop không cần hộp thoại xác nhận mỗi lần |
+
+### 10.4 Migration & an toàn
+
+1. **Không tự di chuyển** tệp cũ. Tệp đã xuất ở `Android/data/...` vẫn mở được (danh sách
+   "Đã xuất" đọc theo đường dẫn đã lưu).
+2. Cài đặt có nút **"Chuyển bản xuất cũ sang Download/In4Up"** (chỉ khi người dùng bấm,
+   có xác nhận + báo số tệp/ dung lượng).
+3. Tên tệp giữ theo `lib/features/media_tools/services/media_export_naming.dart` (đã có
+   timestamp + nhãn nguồn) — không đổi quy ước.
+4. Kiểm trùng tên: thêm ` (2)` thay vì ghi đè.
+5. Nếu thư mục người dùng chọn bị xoá/mất quyền (SAF URI chết) ⇒ quay về mặc định + báo
+   một lần, không lỗi im lặng.
+
+### 10.5 Việc cần owner chốt trước khi lane L7 code
+
+- Tên thư mục: **`In4Up`** (khớp tên app) hay `in4up` (chữ thường, tránh lệch trên Linux)?
+  Đề xuất: **`In4Up`** cho Android/iOS/Windows, giữ đúng một tên.
+- Có làm nút "Chuyển bản xuất cũ" ở bản 1.29 không, hay để 1.30?
+- Bản ghi âm cabin (`.wav`) có xuất ra thư mục công khai ngay khi lưu phiên, hay chỉ khi
+  người dùng bấm "Xuất"? Đề xuất: **chỉ khi bấm Xuất** — tránh thư mục công khai đầy tệp
+  tạm.

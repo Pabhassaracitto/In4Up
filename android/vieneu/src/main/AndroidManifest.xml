@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Module chỉ chứa native (libvieneu_tts.so + libaudiocpp.so) — không có
+     thành phần Android nào; manifest rỗng để AGP hợp nhất. -->
+<manifest />

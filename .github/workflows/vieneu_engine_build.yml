@@ -21,6 +21,8 @@ on:
       - 'third_party/sea-g2p'
       - '.gitmodules'
       - 'android/app/src/main/cpp/**'
+      - 'android/vieneu/**'
+      - 'android/settings.gradle.kts'
       - 'android/app/build.gradle.kts'
       - '.github/workflows/vieneu_engine_build.yml'
       - 'scripts/ci/**'

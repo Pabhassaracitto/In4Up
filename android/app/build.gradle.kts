@@ -237,3 +237,10 @@ flutter {
 
 // Sửa CI-only cho build.yml (google-services + rename) — xem in4up_ci_fixes.gradle.
 apply(from = "in4up_ci_fixes.gradle")
+
+dependencies {
+    // :vieneu dựng libvieneu_tts.so + libaudiocpp.so. Khai báo dependency để AGP
+    // đóng gói thư viện native của module vào APK (kiểm bằng
+    // .github/workflows/vieneu_engine_build.yml).
+    implementation(project(":vieneu"))
+}

@@ -56,6 +56,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Runner KHÔNG có sẵn NDK 27 mà plugin `whisper_flutter_new` khai riêng ⇒
+      # Gradle tự tải rồi chết vì chưa accept license:
+      #   "LicenceNotAcceptedException: ndk;27.0.11902837".
+      # build_final_complete.yml đã làm đúng bước này; ở đây chép lại.
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Accept licenses + NDK 27 (plugin) & 28.2 (app) + CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install "platforms;android-36" "ndk;27.0.11902837" \
+            "ndk;28.2.13676358" "cmake;3.22.1" > /tmp/sdkmanager.log 2>&1 || {
+              tail -30 /tmp/sdkmanager.log
+              exit 1
+            }
+          ls "${ANDROID_SDK_ROOT}/ndk/"
+
       - name: Setup Flutter 3.44.1
         uses: subosito/flutter-action@v2
         with:
@@ -72,8 +92,8 @@ jobs:
       - name: Resolve NDK path
         run: |
           set -euo pipefail
-          NDK_DIR="$(ls -d "${ANDROID_HOME}"/ndk/* 2>/dev/null | sort -V | tail -1)"
-          test -n "$NDK_DIR"
+          NDK_DIR="${ANDROID_SDK_ROOT}/ndk/28.2.13676358"
+          test -d "$NDK_DIR"
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
           echo "NDK: $NDK_DIR — $(grep Pkg.Revision "$NDK_DIR/source.properties")"
 
@@ -125,6 +145,11 @@ jobs:
             exit "$code"
           fi
           ls -l android/app/src/main/jniLibs/arm64-v8a/
+
+      # CMake của whisper plugin trỏ tới assets/whisper_models — thiếu thư mục
+      # thì configure đỏ (build_final_complete.yml cũng tạo bước này).
+      - name: Ensure asset dirs (whisper_models)
+        run: mkdir -p assets/whisper_models && touch assets/whisper_models/.gitkeep
 
       - name: Prepare google-services.json (secret; fallback mock để build)
         env:

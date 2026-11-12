@@ -200,6 +200,12 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
   v1.29.0: 9 lane / 30 issue Linear ([PSRC-199…228](https://linear.app/in4up/project/i4u)),
   land vào đây để kiểm thử trước khi sang 251e. Chưa có nhánh con, chưa có code mới trên
   nhánh này; `pubspec` giữ `1.28.0+28`.
+- 2026-11-12 | hub dựng xong | agent `arena/60e35d65-in4up` | 2 commit `74488d5` (tài liệu +
+  script) và `e4f67c2` (workflow). **Baseline CI trên `e4f67c2`: `app_analyze` run
+  [43296883675](https://github.com/Pabhassaracitto/In4Up/actions/runs/43296883675) 🟢 4/4 job**
+  (analyze · knowledge-regressions · vocabulary-tools · web-build-validation) — mã y hệt
+  251e nên đỏ ở đây là do lane, không do nền. `deploy-web` **không chạy** khi push (đúng
+  luật loại trừ ở §5/G2). `pubspec` vẫn `1.28.0+28`; chưa có nhánh con.
 
 ## 9. Prompt riêng từng lane (dán **sau** khối §3)
 

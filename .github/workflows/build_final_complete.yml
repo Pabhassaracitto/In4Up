@@ -336,6 +336,9 @@ jobs:
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
+          # BETA-1.29.0: tag beta (vd 1.29.0-beta.1) phải là PRERELEASE để
+          # không chiếm nhãn "Latest" của bản phát hành chính thức.
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(inputs.version_name, 'beta') }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # =============================================================================
@@ -425,6 +428,9 @@ jobs:
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
+          # BETA-1.29.0: tag beta (vd 1.29.0-beta.1) phải là PRERELEASE để
+          # không chiếm nhãn "Latest" của bản phát hành chính thức.
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(inputs.version_name, 'beta') }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # =============================================================================
@@ -563,6 +569,9 @@ jobs:
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
+          # BETA-1.29.0: tag beta (vd 1.29.0-beta.1) phải là PRERELEASE để
+          # không chiếm nhãn "Latest" của bản phát hành chính thức.
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(inputs.version_name, 'beta') }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # =============================================================================
@@ -692,4 +701,7 @@ jobs:
           tag: ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}
           name: "Release ${{ github.event_name == 'push' && github.ref_name || inputs.version_name }}"
           allowUpdates: true
+          # BETA-1.29.0: tag beta (vd 1.29.0-beta.1) phải là PRERELEASE để
+          # không chiếm nhãn "Latest" của bản phát hành chính thức.
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(inputs.version_name, 'beta') }}
           token: ${{ secrets.GITHUB_TOKEN }}

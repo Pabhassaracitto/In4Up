@@ -72,8 +72,9 @@ Hub đã làm phần **hạ tầng** để lane L6 không còn bế tắc; phầ
 | Nơi build CMake | engine nằm trong CMake của `:app` ⇒ **trùng target `ggml::ggml`** với llama.cpp (audio.cpp mang ggml 0.12.0 riêng) | **module Gradle `:vieneu`** (`android/vieneu/`) — CMake project riêng, chỉ build `audiocpp` + `vieneu_tts` (`posix_spawnp` của CLI cần API 28 > minSdk 24) |
 
 **Còn lại cho lane L6** (đúng thứ tự):
-1. ~~Chạy `vieneu_engine_build.yml` tới xanh; ghi thời gian build~~ ✅ 17m05s (43325244915);
-   **mức tăng APK** lấy từ annotation "VieNeu engine measurements" của run kế tiếp.
+1. ~~Chạy `vieneu_engine_build.yml` tới xanh; ghi thời gian build~~ ✅ 17m05s (43325244915,
+   18m52s ở 43328297538) — engine ≈10 MiB chưa nén; **chênh lệch APK release** vẫn phải đo
+   ở G4 (debug 261 MiB không đại diện).
 2. Đường tải/import **`sea_g2p.bin`** (≈30 MB) trong app + checksum; hiện người dùng phải tự đặt.
 3. PSRC-214…218: import ở **mọi** mục (kể cả mục phía trên), không báo "thành công" giả,
    khởi tạo engine / import giọng / tạo giọng có thông điệp đúng sự thật.
@@ -432,9 +433,10 @@ lưu, bản dịch) → thư mục công khai; **dữ liệu app cần để ch�
 
 | Chỉ số | Giá trị | Nguồn |
 |---|---|---|
-| Job `vieneu_engine_build` (checkout → APK, gồm cargo-ndk + compile ggml ×2) | **17m 05s** | run 43325244915 (23:01:46→23:18:51 UTC) |
+| Job `vieneu_engine_build` (checkout → APK, gồm cargo-ndk + compile ggml ×2) | **17m 05s** (18m 52s khi thêm bước đo) | run 43325244915 / 43328297538 |
 | Artifact `vieneu-engine-arm64` (APK debug + log) | 259,7 MiB | `actions/artifacts` id 13993467652, 272.305.723 byte |
-| `.so` trong APK | bước "Report measurements" in annotation | workflow (lần chạy sau) |
+| `libaudiocpp.so` / `libsea_g2p_rs.so` / `libvieneu_tts.so` | **4,9 / 4,2 / 0,9 MiB** (≈10 MiB engine, chưa nén) | annotation "VieNeu engine measurements", run 43328297538 |
+| Job lần đo (có thêm bước đo) | 18m 52s | run 43328297538 (23:22:26→23:41:18 UTC) |
 | APK debug | chỉ để chứng minh engine có mặt; **số phát hành** lấy từ build release ở G4 |
 
 Ghi chú: build **debug** phình to vì kèm symbol; đừng dùng số này để ước lượng APK phát

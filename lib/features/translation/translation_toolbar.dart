@@ -14,6 +14,8 @@ import 'engines/deeplx_engine.dart';
 import 'engines/hymt_engine.dart';
 import 'engines/mlkit_engine.dart';
 import 'glossary/glossary_sheet.dart';
+import 'mlkit_pack_catalog.dart';
+import 'mlkit_pack_downloads.dart';
 import 'translation_display_mode.dart';
 import 'translation_language_picker.dart';
 import 'translation_service.dart';
@@ -357,11 +359,15 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   late final TextEditingController _urlController =
       TextEditingController(text: widget.service.deeplxUrl ?? '');
 
-  // Ngôn ngữ có thể tải model ML Kit cho pipeline hiện tại:
-  // EN ↔ VI, EN ↔ HI; HI ↔ VI pivot qua EN.
-  static const _mlkitCodes = <String>['EN', 'VI', 'HI'];
-  final Map<String, bool> _modelDownloaded = <String, bool>{};
-  final Map<String, bool> _downloading = <String, bool>{};
+  /// PSRC-28: danh sách gói ML Kit = 3 ngôn ngữ phổ biến hiện sẵn + phần còn
+  /// lại trong 26 ngôn ngữ của app (mở bằng "Thêm ngôn ngữ").
+  late final MlKitPackCatalog _catalog = MlKitPackCatalog(
+    supported: MlKitEngine.supportsTranslationCode,
+  );
+
+  /// Đã bấm "Thêm ngôn ngữ" chưa. KHÔNG lưu bền: mở lại sheet về trạng thái
+  /// gọn (owner: "danh sách thu gọn, mở khi cần").
+  bool _showAllLanguages = false;
   bool? _offlineOnly;
   HyMtOfflinePreference _enginePref = HyMtOfflinePreference.auto;
   bool _hymtHas = false;
@@ -390,9 +396,15 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
   bool _probeOk = false;
   String? _probeMessage;
 
+  /// PSRC-188: nguồn sự thật của "gói nào đã tải / đang tải" là registry
+  /// trong [TranslationService] — KHÔNG phải State này. Nhờ vậy đóng sheet
+  /// giữa chừng thì lượt tải vẫn chạy và mở lại thấy đúng trạng thái.
+  MlKitPackDownloads get _packs => widget.service.mlkitPacks;
+
   @override
   void initState() {
     super.initState();
+    _packs.addListener(_onPacksChanged);
     _offlineOnly = widget.service.offlineOnly;
     _enginePref = widget.service.offlineEnginePref;
     _llmInfo = _loadLlmInfo();
@@ -422,8 +434,16 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
 
   @override
   void dispose() {
+    _packs.removeListener(_onPacksChanged);
     _urlController.dispose();
     super.dispose();
+  }
+
+  /// Registry đổi trạng thái (kể cả khi lượt tải chạy tiếp sau khi sheet đã
+  /// đóng rồi mở lại) ⇒ vẽ lại. Không `setState` khi đã unmount.
+  void _onPacksChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _loadModels() async {
@@ -433,89 +453,76 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
       _hymtIssue = _hymtHas ? null : await hymt.modelIssue();
       _hymtLegacy = (await hymt.legacyModelFile()) != null;
     }
-    final mlkit = widget.service.mlkit;
+    // PSRC-188: hỏi registry (sống ngoài sheet) thay vì tự đọc máy rồi lưu
+    // vào State. Gói ĐANG TẢI thì registry giữ nguyên `downloading` — mở lại
+    // sheet giữa chừng vẫn thấy "Đang tải…" chứ không quay về "Chưa tải".
     if (MlKitEngine.platformSupported) {
-      for (final code in _mlkitCodes) {
-        final language = MlKitEngine.languageForCode(code);
-        if (language == null) {
-          _modelDownloaded[code] = false;
-          continue;
-        }
-        _modelDownloaded[code] = await mlkit.isModelDownloaded(language.bcpCode);
-      }
+      await _packs.refresh(_mlkitBCPCodes());
     }
     if (mounted) setState(() {});
   }
 
+  /// Mã BCP-47 của MỌI ngôn ngữ có thể tải (cả nhóm đang ẩn) — refresh một
+  /// lần cho cả danh sách để mở "Thêm ngôn ngữ" là thấy trạng thái đúng ngay.
+  List<String> _mlkitBCPCodes() => <String>[
+        for (final language in _catalog.all)
+          if (MlKitEngine.languageForCode(language.translationCode) != null)
+            MlKitEngine.languageForCode(language.translationCode)!.bcpCode,
+      ];
+
+  /// PSRC-188 — tải gói KHÔNG còn gắn với vòng đời sheet.
+  ///
+  /// Toàn bộ việc tải nằm trong [MlKitPackDownloads] (do
+  /// [TranslationService] giữ): đóng sheet ⇒ future vẫn chạy, mở lại ⇒ thấy
+  /// `downloading` hoặc `ready`. Ở đây chỉ: gọi registry + báo bằng snackbar
+  /// NẾU sheet còn mở.
   Future<void> _downloadModel(String code) async {
     final language = MlKitEngine.languageForCode(code);
     if (language == null) return;
-    setState(() => _downloading[code] = true);
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      final ok = await widget.service.mlkit.downloadModel(language.bcpCode);
-      // PSRC-182: đừng tin tuyệt đối giá trị trả về của plugin —
-      // `downloadModel()` có thể trả `false` khi gói ĐÃ có sẵn (hoặc khi
-      // native báo lỗi "đã tải"). Hỏi lại trạng thái THẬT để gói đã tải
-      // không bị hiện mãi nút "Tải về".
-      final downloadedNow =
-          ok || await widget.service.mlkit.isModelDownloaded(language.bcpCode);
-      _modelDownloaded[code] = downloadedNow;
-      if (!downloadedNow) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context.uiText('Lỗi tải gói $code'),
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              context.uiText('Đã tải gói $code'),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
+    // Không `await` trong setState: hàng UI đổi màu ngay nhờ listener của
+    // registry (bấm xong thấy "Đang tải…" tức thì, kể cả khi chậm 1 nhịp).
+    final future = _packs.start(language.bcpCode);
+    final status = await future;
+    if (!mounted) {
+      // Sheet đã đóng: lượt tải vẫn xong (registry đã cập nhật). Không báo
+      // snackbar lên một cây widget đã tháo.
+      return;
+    }
+    if (status.isReady) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(context.uiText('Đã tải gói $code'))),
+      );
+    } else {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            context.uiText('Lỗi tải gói $code'),
-          ),
+          content: Text(context.uiText('Lỗi tải gói $code')),
           backgroundColor: Colors.redAccent,
         ),
       );
     }
-    if (mounted) setState(() => _downloading[code] = false);
   }
 
   Future<void> _deleteModel(String code) async {
     final language = MlKitEngine.languageForCode(code);
     if (language == null) return;
-    await widget.service.mlkit.deleteModel(language.bcpCode);
     // PSRC-182: đọc lại trạng thái THẬT sau khi xoá (plugin trả `false`
-    // không có nghĩa là gói vẫn còn) — hàng UI luôn khớp với máy.
-    final stillThere = await widget.service.mlkit.isModelDownloaded(
+    // không có nghĩa là gói vẫn còn) — hàng UI luôn khớp với máy. Registry
+    // làm việc đó và phát cho mọi nơi đang xem.
+    await _packs.removed(
       language.bcpCode,
+      (bcpCode) => widget.service.mlkit.deleteModel(bcpCode),
     );
-    if (!mounted) return;
-    setState(() => _modelDownloaded[code] = stillThere);
   }
 
+  /// Nhãn ngôn ngữ trong hàng gói: tên bản ngữ ("日本語") là thứ người dùng
+  /// nhận ra nhanh nhất, không phụ thuộc locale UI.
+  ///
+  /// PSRC-28: trước đây hard-code EN/VI/HI; nay lấy từ danh mục 26 ngôn ngữ để
+  /// 16 ngôn ngữ mới thêm cũng có nhãn đúng.
   String _modelLabel(String code) {
-    switch (code) {
-      case 'EN':
-        return 'English';
-      case 'VI':
-        return context.uiText('Tiếng Việt');
-      case 'HI':
-        return 'Hindi';
-      default:
-        return code;
-    }
+    final language = AppLanguageCatalog.maybeFromCode(code);
+    return language?.nativeName ?? code;
   }
 
   @override
@@ -609,7 +616,35 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
               )
             else ...[
-              for (final code in _mlkitCodes) _modelRow(code),
+              // PSRC-28: 3 ngôn ngữ phổ biến hiện sẵn; phần còn lại (tới 19
+              // ngôn ngữ ML Kit nằm trong danh mục app) chỉ hiện khi user bấm
+              // "Thêm ngôn ngữ" ⇒ danh sách vẫn gọn như bản 1.27.0 nhưng
+              // không còn giấu mất 16 ngôn ngữ.
+              for (final language in _catalog.primary)
+                _modelRow(language.translationCode),
+              if (_showAllLanguages)
+                for (final language in _catalog.extra)
+                  _modelRow(language.translationCode),
+              if (_catalog.hasExtra)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        setState(() => _showAllLanguages = !_showAllLanguages),
+                    icon: Icon(
+                      _showAllLanguages
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 18,
+                    ),
+                    label: Text(
+                      _showAllLanguages
+                          ? context.uiText('Ẩn bớt ngôn ngữ')
+                          : '${context.uiText('Thêm ngôn ngữ')} '
+                              '(${_catalog.extra.length})',
+                    ),
+                  ),
+                ),
               Text(
                 context.uiText(
                   'Chỉ tải khi bạn bấm — không tự tải lúc mở app.',
@@ -991,10 +1026,18 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     final routing = service.routingOrder;
     final active = service.activeEngineName?.trim() ?? '';
     final lastUsed = service.lastUsedEngineLabel.trim();
-    final mlkitReady = _modelDownloaded.entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList(growable: false);
+    // PSRC-188: trạng thái gói lấy từ registry ngoài sheet — đóng/mở sheet
+    // không làm mất dấu "đang tải".
+    // PSRC-28: chỉ đếm 3 ngôn ngữ PHỔ BIẾN trên pill trạng thái — liệt kê cả
+    // 19 mã sẽ tràn dòng và không đọc được.
+    final mlkitReady = <String>[
+      for (final language in _catalog.primary)
+        if (_packs.statusOf(_bcpOf(language.translationCode)).isReady)
+          language.translationCode,
+    ];
+    final mlkitDownloading = _catalog.all.any(
+      (language) => _packs.statusOf(_bcpOf(language.translationCode)).isDownloading,
+    );
     final grey = TextStyle(color: Colors.grey[500], fontSize: 11);
 
     return Container(
@@ -1070,9 +1113,11 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                 ),
               if (MlKitEngine.platformSupported)
                 _StatusPill(
-                  text: mlkitReady.isEmpty
-                      ? 'ML Kit · ${context.uiText('Chưa tải')}'
-                      : 'ML Kit · ${mlkitReady.join(', ')}',
+                  text: mlkitDownloading
+                      ? 'ML Kit · ${context.uiText('Đang tải ngầm...')}'
+                      : mlkitReady.isEmpty
+                          ? 'ML Kit · ${context.uiText('Chưa tải')}'
+                          : 'ML Kit · ${mlkitReady.join(', ')}',
                   color: Colors.amberAccent,
                 ),
             ],
@@ -1174,10 +1219,17 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
     });
   }
 
+  /// Mã BCP-47 của ML Kit cho mã ngôn ngữ app ("VI" → "vi").
+  String _bcpOf(String code) =>
+      MlKitEngine.languageForCode(code)?.bcpCode ?? code.toLowerCase();
+
   Widget _modelRow(String code) {
-    final downloaded = _modelDownloaded[code] ?? false;
-    final downloading = _downloading[code] ?? false;
     final supported = MlKitEngine.supportsTranslationCode(code);
+    // PSRC-188: trạng thái đọc từ registry sống ngoài sheet, không từ State.
+    final pack = _packs.statusOf(_bcpOf(code));
+    final downloaded = pack.isReady;
+    final downloading = pack.isDownloading;
+    final failed = pack.hasFailed;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1208,17 +1260,25 @@ class _TranslationEngineSettingsSheetState extends State<TranslationEngineSettin
                   style: const TextStyle(color: Colors.white, fontSize: 13),
                 ),
                 Text(
-                  supported
-                      ? (downloaded
+                  !supported
+                      ? context.uiText('Chưa hỗ trợ')
+                      : downloaded
                           ? context.uiText('Đã tải')
-                          : context.uiText('Chưa tải'))
-                      : context.uiText('Chưa hỗ trợ'),
+                          : downloading
+                              // PSRC-188: nói rõ "vẫn đang chạy" để user
+                              // đóng/mở sheet không tưởng là mất tiến trình.
+                              ? context.uiText('Đang tải ngầm...')
+                              : failed
+                                  ? context.uiText('Lỗi tải gói')
+                                  : context.uiText('Chưa tải'),
                   // PSRC-182: trạng thái đọc được bằng mắt — gói đã tải
                   // hiện chữ xanh, không còn lẫn với nút "Tải về".
                   style: TextStyle(
                     color: supported && downloaded
                         ? Colors.green
-                        : Colors.grey[600],
+                        : failed
+                            ? Colors.redAccent
+                            : Colors.grey[600],
                     fontSize: 11,
                   ),
                 ),

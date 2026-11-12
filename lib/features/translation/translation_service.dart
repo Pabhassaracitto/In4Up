@@ -26,6 +26,7 @@ import 'glossary/glossary_store.dart';
 import 'glossary/protect_tokens.dart';
 import 'glossary/translation_glossary.dart';
 import 'mixed_language_segmenter.dart';
+import 'mlkit_pack_downloads.dart';
 import 'translation_link_guard.dart';
 
 /// Translation orchestration with automatic source detection and engine
@@ -185,6 +186,19 @@ class TranslationService {
   /// Engine câu offline (ML Kit) — UI cài đặt dùng.
   /// (Instance forTest có thể inject engine giả — UI chỉ dùng singleton.)
   MlKitEngine get mlkit => _mlkit as MlKitEngine;
+
+  /// PSRC-188: sổ theo dõi TẢI GÓI ML Kit — cố ý đặt ở SERVICE (singleton
+  /// sống suốt app), KHÔNG đặt trong State của sheet: đóng sheet không được
+  /// làm dừng lượt tải hay mất dấu "đang tải ngầm".
+  ///
+  /// Tạo LƯỜI (lần đọc đầu tiên) và chỉ đọc, không tự tải gì ở đây — luật
+  /// phiên "không tải model lúc bootstrap" vẫn nguyên: mọi lượt tải đều do
+  /// user bấm trong sheet.
+  late final MlKitPackDownloads mlkitPacks = MlKitPackDownloads(
+    download: (bcpCode) => mlkit.downloadModel(bcpCode),
+    isDownloaded: (bcpCode) => mlkit.isModelDownloaded(bcpCode),
+    platformSupported: () => MlKitEngine.platformSupported,
+  );
 
   HyMtEngine? get hymt => _hymt;
 

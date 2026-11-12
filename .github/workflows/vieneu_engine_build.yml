@@ -134,9 +134,33 @@ jobs:
             printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" > android/app/google-services.json
             echo "dùng secret ANDROID_GOOGLE_SERVICES_JSON"
           else
-            printf '%s' '{"project_info":{"project_number":"123","project_id":"mock"},"client":[],"configuration_version":"1"}' \
-              > android/app/google-services.json
-            echo "::warning::thiếu secret ANDROID_GOOGLE_SERVICES_JSON — dùng mock (chỉ để build)"
+            # Plugin google-services ĐỎ nếu không có client khớp applicationId
+            # ("No matching client found for package name 'com.in4up'") ⇒ mock
+            # tối thiểu nhưng ĐÚNG hình dạng, chỉ để build được.
+            cat > android/app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "123456789012",
+              "project_id": "mock-in4up",
+              "storage_bucket": "mock-in4up.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:123456789012:android:0123456789abcdef",
+                  "android_client_info": { "package_name": "com.in4up" }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  { "current_key": "AIzaSyDUMMY0000000000000000000000000000" }
+                ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+            echo "::warning::thiếu secret ANDROID_GOOGLE_SERVICES_JSON — dùng mock đúng hình dạng (chỉ để build)"
           fi
 
       - name: flutter pub get
@@ -153,11 +177,16 @@ jobs:
           if [ "$code" != "0" ]; then
             echo "### VieNeu engine build — exit $code" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            grep -nE "error:|FAILED|Caused by:|CMake Error|fatal error" /tmp/vieneu_build.log | head -80 >> "$GITHUB_STEP_SUMMARY" || true
+            grep -nE "What went wrong|^e: |error:|fatal error|CMake Error|undefined reference|cannot find|No matching client|Execution failed|> Task .*FAILED|ninja: build stopped|Caused by" /tmp/vieneu_build.log | head -120 >> "$GITHUB_STEP_SUMMARY" || true
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            # Đưa dòng lỗi GỐC lên annotation (log workflow có thể không đọc được).
-            errs=$(grep -nE "error:|FAILED|CMake Error|fatal error|Caused by:" /tmp/vieneu_build.log \
-              | head -40 | cut -c1-300 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            # Đưa dòng lỗi GỐC lên annotation (log workflow/artifact bị chặn egress
+            # từ sandbox ⇒ annotation là kênh DUY NHẤT đọc được lỗi).
+            errs=$(grep -nE "What went wrong|^e: |error:|fatal error|CMake Error|undefined reference|cannot find|No matching client|Execution failed|> Task .*FAILED|ninja: build stopped|Caused by" /tmp/vieneu_build.log \
+              | head -60 | cut -c1-280 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            if [ -z "$errs" ]; then
+              # Không khớp mẫu ⇒ gửi 30 dòng cuối để không mù hoàn toàn.
+              errs=$(tail -30 /tmp/vieneu_build.log | cut -c1-280 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            fi
             echo "::error title=VieNeu engine build::${errs:-exit=$code}" || true
           fi
           exit "$code"

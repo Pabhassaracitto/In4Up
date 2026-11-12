@@ -68,11 +68,12 @@ Hub đã làm phần **hạ tầng** để lane L6 không còn bế tắc; phầ
 | SEA-G2P (bắt buộc: model nhận **phoneme**, không nhận chữ thô) | không có trong repo | gitlink `third_party/sea-g2p` pin **v0.10.0** `dae5ca83` + `cargo ndk` build `arm64-v8a` trong workflow |
 | Âm thanh | wrapper copy thô `frames` mẫu trong khi VieNeu phát **stereo 48 kHz** ⇒ cụt nửa dữ liệu, phát 2× | wrapper **trộn kênh** về mono đúng hợp đồng FFI |
 | Nạp SEA-G2P | chỉ tìm `.so` cạnh model (người dùng phải chép) | ưu tiên cạnh model nếu có, còn lại để audio.cpp `dlopen` **theo tên** từ `jniLibs`; truyền `g2p_dict_file` khi có `sea_g2p.bin` |
-| Bằng chứng build | chỉ lộ ở bước release | workflow riêng `vieneu_engine_build.yml` (dispatch) + test hợp đồng 4 ca trong `app_analyze` |
+| Bằng chứng build | chỉ lộ ở bước release | workflow riêng `vieneu_engine_build.yml` + test hợp đồng 4 ca trong `app_analyze`; **run 43325244915 🟢** — APK arm64 có đủ 3 `.so`, job 17m05s |
+| Nơi build CMake | engine nằm trong CMake của `:app` ⇒ **trùng target `ggml::ggml`** với llama.cpp (audio.cpp mang ggml 0.12.0 riêng) | **module Gradle `:vieneu`** (`android/vieneu/`) — CMake project riêng, chỉ build `audiocpp` + `vieneu_tts` (`posix_spawnp` của CLI cần API 28 > minSdk 24) |
 
 **Còn lại cho lane L6** (đúng thứ tự):
-1. Chạy `vieneu_engine_build.yml` tới xanh; ghi **thời gian build** và **mức tăng APK** thật
-   (số ước tính trong ADR chưa phải số đo).
+1. ~~Chạy `vieneu_engine_build.yml` tới xanh; ghi thời gian build~~ ✅ 17m05s (43325244915);
+   **mức tăng APK** lấy từ annotation "VieNeu engine measurements" của run kế tiếp.
 2. Đường tải/import **`sea_g2p.bin`** (≈30 MB) trong app + checksum; hiện người dùng phải tự đặt.
 3. PSRC-214…218: import ở **mọi** mục (kể cả mục phía trên), không báo "thành công" giả,
    khởi tạo engine / import giọng / tạo giọng có thông điệp đúng sự thật.
@@ -426,3 +427,16 @@ lưu, bản dịch) → thư mục công khai; **dữ liệu app cần để ch�
 - Bản ghi âm cabin (`.wav`) có xuất ra thư mục công khai ngay khi lưu phiên, hay chỉ khi
   người dùng bấm "Xuất"? Đề xuất: **chỉ khi bấm Xuất** — tránh thư mục công khai đầy tệp
   tạm.
+
+## 11. Số đo engine VieNeu (cập nhật 2026-11-12)
+
+| Chỉ số | Giá trị | Nguồn |
+|---|---|---|
+| Job `vieneu_engine_build` (checkout → APK, gồm cargo-ndk + compile ggml ×2) | **17m 05s** | run 43325244915 (23:01:46→23:18:51 UTC) |
+| Artifact `vieneu-engine-arm64` (APK debug + log) | 259,7 MiB | `actions/artifacts` id 13993467652, 272.305.723 byte |
+| `.so` trong APK | bước "Report measurements" in annotation | workflow (lần chạy sau) |
+| APK debug | chỉ để chứng minh engine có mặt; **số phát hành** lấy từ build release ở G4 |
+
+Ghi chú: build **debug** phình to vì kèm symbol; đừng dùng số này để ước lượng APK phát
+hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK release trước/sau khi có
+`:vieneu`, đo ở G4.

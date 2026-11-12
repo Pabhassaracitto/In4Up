@@ -21,7 +21,24 @@
 //
 //   Một "giọng" = 1 bộ (name.onnx + name_tokens.txt).
 //   <name>.onnx.json đọc để lấy sample_rate (fallback 22050 — chuẩn Piper).
+//
+// PSRC-187 (audit 1.27.0) — ba thay đổi, đều có số đo/đối chiếu thật trong
+// card PSRC-187 của KANBAN:
+//   1. KHÁM + CHỮA giọng trước khi xuống native (`piper_voice_doctor.dart`):
+//      sherpa-onnx `_Exit(-1)` khi model thiếu metadata / tokens sai / espeak
+//      thiếu file — Dart không bắt được. Giọng Piper gốc của rhasspy (bộ
+//      `.onnx` + `.onnx.json`) được thêm metadata còn thiếu để dùng được.
+//   2. `maxNumSenetences: 1` thay cho 100: với 100, cả dòng dài bị nhồi vào
+//      MỘT lượt chạy model — đo trên `vi_VN-vais1000-medium` (máy tính
+//      x86-64, KHÔNG phải trên thiết bị): 786 ký tự ⇒ 935 MB, 2751 ký tự ⇒
+//      3,4 GB RAM đỉnh. Mức đó nhiều khả năng đủ để Android giết app — đây là
+//      suy ra từ số đo, chưa đo trên máy thật. Với 1: ~378 MB ở cả hai độ
+//      dài đã đo, tổng hợp nhanh hơn 1,6–2,9 lần.
+//   3. `OfflineTts` + generate chạy trong WORKER ISOLATE (`isolate_rpc.dart`)
+//      như ví dụ Flutter chính thức của sherpa-onnx — trước đây là lời gọi
+//      FFI đồng bộ trên luồng UI (vài giây tới hàng chục giây đứng hình).
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -32,7 +49,134 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
 import '../sherpa_bindings.dart';
+import '../utils/src/isolate_rpc.dart';
 import 'piper_import_paths.dart';
+import 'piper_voice_doctor.dart';
+
+/// Số câu sherpa-onnx đưa vào MỘT lượt chạy model.
+///
+/// PHẢI là 1 (đúng như mọi ví dụ chính thức của sherpa-onnx). Giá trị lớn hơn
+/// nối mọi câu thành một chuỗi token duy nhất ⇒ bộ nhớ tăng theo BÌNH PHƯƠNG
+/// độ dài văn bản (attention) — xem số đo ở đầu file.
+const int kPiperMaxSentencesPerBatch = 1;
+
+/// Kết quả khám một giọng Piper trước khi đưa xuống native (PSRC-187).
+class PiperVoiceDiagnosis {
+  const PiperVoiceDiagnosis.usable({this.repaired = const <String>[]})
+      : problem = null;
+
+  const PiperVoiceDiagnosis.blocked(String this.problem)
+      : repaired = const <String>[];
+
+  /// `null` = dùng được. Khác null = mã lý do KHÔNG được đưa xuống native,
+  /// ví dụ `espeak:phonindex,phondata`, `model:missing:sample_rate`,
+  /// `model:unsupported-frontend`, `tokens:duplicate:12`.
+  final String? problem;
+
+  /// Những thứ đã được chữa trong lần khám này: `metadata`, `tokens`.
+  final List<String> repaired;
+
+  bool get isUsable => problem == null;
+
+  @override
+  String toString() {
+    if (problem != null) return 'blocked: $problem';
+    if (repaired.isEmpty) return 'usable';
+    return 'usable (repaired: ${repaired.join(', ')})';
+  }
+}
+
+/// Handler chạy TRONG worker isolate: giữ `OfflineTts` và gọi native ở đó.
+///
+/// sherpa-onnx phải được `initBindings()` trong MỖI isolate dùng API của nó
+/// (ghi chú trong ví dụ Flutter chính thức) — [ensureSherpaBindings] giữ cờ
+/// theo từng isolate nên gọi lại ở đây là đúng.
+IsolateRpcHandler _piperWorkerFactory() {
+  sherpa.OfflineTts? tts;
+  return (String command, Map<String, Object?> args) {
+    switch (command) {
+      case 'select':
+        ensureSherpaBindings();
+        try {
+          tts?.free();
+        } catch (_) {}
+        tts = null;
+        final created = sherpa.OfflineTts(
+          sherpa.OfflineTtsConfig(
+            model: sherpa.OfflineTtsModelConfig(
+              vits: sherpa.OfflineTtsVitsModelConfig(
+                model: args['model'] as String,
+                tokens: args['tokens'] as String,
+                dataDir: args['dataDir'] as String,
+              ),
+              numThreads: (args['numThreads'] as int?) ?? 2,
+              debug: args['debug'] == true,
+            ),
+            maxNumSenetences: kPiperMaxSentencesPerBatch,
+          ),
+        );
+        tts = created;
+        return <String, Object?>{
+          'sampleRate': created.sampleRate,
+          'numSpeakers': created.numSpeakers,
+        };
+      case 'generate':
+        final engine = tts;
+        if (engine == null) throw StateError('no Piper voice loaded');
+        final audio = engine.generateWithConfig(
+          text: args['text'] as String,
+          config: sherpa.OfflineTtsGenerationConfig(
+            sid: (args['sid'] as int?) ?? 0,
+            speed: (args['speed'] as num?)?.toDouble() ?? 1.0,
+            silenceScale: 0.2,
+          ),
+        );
+        return <String, Object?>{
+          'samples': audio.samples,
+          'sampleRate': audio.sampleRate,
+        };
+      case 'release':
+        try {
+          tts?.free();
+        } catch (_) {}
+        tts = null;
+        return null;
+    }
+    throw ArgumentError('unknown Piper worker command: $command');
+  };
+}
+
+/// Model tại [path] có mục metadata `sample_rate` ở BẤT KỲ đâu trong file
+/// không. Hàm top-level để chạy bằng `compute` (quét cả file 60 MB không được
+/// nằm trên luồng UI).
+bool _modelMentionsSampleRate(String path) =>
+    _fileContainsBytesSync(path, kOnnxSampleRateKeyNeedle);
+
+/// Dò [needle] trong toàn bộ file (đọc theo khối 1 MB). Dùng khi 64 KB cuối
+/// file ONNX không thấy metadata.
+bool _fileContainsBytesSync(String path, Uint8List needle) {
+  final raf = File(path).openSync();
+  try {
+    const chunkSize = 1 << 20;
+    final overlap = needle.length - 1;
+    var carry = Uint8List(0);
+    while (true) {
+      final chunk = raf.readSync(chunkSize);
+      if (chunk.isEmpty) return false;
+      final buffer = Uint8List(carry.length + chunk.length)
+        ..setAll(0, carry)
+        ..setAll(carry.length, chunk);
+      if (containsBytes(buffer, needle)) return true;
+      carry = buffer.length > overlap
+          ? Uint8List.fromList(
+              Uint8List.sublistView(buffer, buffer.length - overlap),
+            )
+          : buffer;
+    }
+  } finally {
+    raf.closeSync();
+  }
+}
 
 /// Một giọng Piper phát hiện được trong thư mục model.
 class PiperTtsVoice {
@@ -210,24 +354,278 @@ class SherpaPiperTtsCore {
     return '';
   }
 
-  sherpa.OfflineTts? _tts;
+  /// Worker isolate đang giữ `OfflineTts` (PSRC-187).
+  IsolateRpcClient? _worker;
+  Future<IsolateRpcClient>? _workerStarting;
   PiperTtsVoice? _activeVoice;
+  String? _lastProblem;
 
   PiperTtsVoice? get activeVoice => _activeVoice;
+
+  /// Lý do lần [selectVoice] gần nhất thất bại (mã của [PiperVoiceDiagnosis]
+  /// hoặc `native:<lỗi>`), `null` nếu thành công.
+  String? get lastProblem => _lastProblem;
 
   /// Phonemizer (espeak-ng-data) đã sẵn sàng.
   ///
   /// ★ BẮT BUỘC kiểm tra TRƯỚC khi tạo `OfflineTts`: sherpa-onnx (C++)
-  /// đọc espeak-ng-data lúc init — thiếu thư mục này thì init native có
-  /// thể SEGFAULT (crash luôn app, Dart try/catch không bắt được).
-  /// Trước đây app vẫn coi Piper "khả dụng" khi chỉ cần có file .onnx
-  /// → câu tiếng Việt đầu tiên chạm Piper là sập app.
+  /// khởi tạo espeak lúc init — thiếu dữ liệu thì espeak gọi `exit(1)`, cả
+  /// app biến mất (Dart try/catch không bắt được).
+  ///
+  /// PSRC-187: trước đây chỉ kiểm `phontab`. Đã đối chiếu với sherpa-onnx
+  /// 1.13.6 thật: thư mục CHỈ có `phontab` vẫn làm tiến trình thoát ở
+  /// `phonindex` ⇒ nay phải đủ cả 4 file trong [kEspeakRequiredDataFiles].
   static Future<bool> isEspeakReady() async {
     try {
       final dir = await _modelsDir();
-      final phontab = File(p.join(dir.path, espeakDataFolder, 'phontab'));
-      return phontab.existsSync() && phontab.lengthSync() > 64;
+      return missingEspeakFiles(p.join(dir.path, espeakDataFolder)).isEmpty;
     } catch (_) {
+      return false;
+    }
+  }
+
+  /// Các file bắt buộc của espeak-ng-data đang THIẾU (hoặc rỗng) trong
+  /// [dataDir].
+  static List<String> missingEspeakFiles(String dataDir) {
+    final missing = <String>[];
+    for (final name in kEspeakRequiredDataFiles) {
+      try {
+        final file = File(p.join(dataDir, name));
+        if (!file.existsSync() || file.lengthSync() <= 64) missing.add(name);
+      } catch (_) {
+        missing.add(name);
+      }
+    }
+    return missing;
+  }
+
+  static final Map<String, PiperVoiceDiagnosis> _diagnosisCache =
+      <String, PiperVoiceDiagnosis>{};
+
+  static String? _voiceIdentity(PiperTtsVoice voice) {
+    try {
+      final model = File(voice.modelPath).statSync();
+      final tokens = File(voice.tokensPath).statSync();
+      if (model.type == FileSystemEntityType.notFound ||
+          tokens.type == FileSystemEntityType.notFound) {
+        return null;
+      }
+      return '${voice.modelPath}|${model.size}|'
+          '${model.modified.millisecondsSinceEpoch}|${tokens.size}|'
+          '${tokens.modified.millisecondsSinceEpoch}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// KHÁM một giọng trước khi đưa xuống native, CHỮA những gì chữa được
+  /// (PSRC-187 — luật và bằng chứng: `piper_voice_doctor.dart`).
+  ///
+  /// Thứ tự: espeak-ng-data đủ file → kích thước file → metadata ONNX (thiếu
+  /// thì thêm từ `<voice>.onnx.json`) → tokens.txt (chuẩn hoá / sinh lại từ
+  /// config). Kết quả "dùng được" được nhớ theo kích thước + mtime của file
+  /// nên các câu sau không phải đọc lại.
+  static Future<PiperVoiceDiagnosis> examineVoice(PiperTtsVoice voice) async {
+    final missingEspeak = missingEspeakFiles(voice.dataDir);
+    if (missingEspeak.isNotEmpty) {
+      return PiperVoiceDiagnosis.blocked('espeak:${missingEspeak.join(',')}');
+    }
+    final before = _voiceIdentity(voice);
+    if (before == null) {
+      return const PiperVoiceDiagnosis.blocked('files:missing');
+    }
+    final cached = _diagnosisCache[before];
+    if (cached != null) return cached;
+
+    PiperVoiceDiagnosis result;
+    try {
+      result = await _examineVoiceUncached(voice);
+    } catch (e) {
+      result = PiperVoiceDiagnosis.blocked('exam-failed:$e');
+    }
+    // Chỉ nhớ kết quả TỐT: giọng bị chặn có thể được người dùng sửa (cài
+    // phonemizer, import lại) mà không đổi kích thước file model.
+    if (result.isUsable) {
+      final after = _voiceIdentity(voice);
+      if (after != null) {
+        _diagnosisCache[after] = const PiperVoiceDiagnosis.usable();
+      }
+    }
+    return result;
+  }
+
+  static Future<PiperVoiceDiagnosis> _examineVoiceUncached(
+    PiperTtsVoice voice,
+  ) async {
+    if (!isVoiceFilesPlausible(voice)) {
+      return const PiperVoiceDiagnosis.blocked('files:too-small');
+    }
+    final repaired = <String>[];
+
+    // Config Piper gốc (nếu có) — nguồn sự thật cho metadata + bảng token.
+    String? configJson;
+    try {
+      final config = File('${voice.modelPath}.json');
+      if (config.existsSync()) configJson = await config.readAsString();
+    } catch (_) {
+      configJson = null;
+    }
+
+    // ── Metadata ONNX ────────────────────────────────────────────────────
+    var meta = await _readModelMetadata(voice.modelPath);
+    var verdict = assessSherpaVitsMetadata(meta);
+    // Model đi qua bộ phát âm Piper ⇒ tokens phải có `_ ^ $`.
+    var needSymbols = verdict.usesPiperPhonemizer;
+    if (verdict.isMissingRequired) {
+      final derived =
+          configJson == null ? null : sherpaMetadataFromPiperConfig(configJson);
+      // `sample_rate` có nằm đâu đó trong file mà phần đuôi không đọc ra
+      // không? (phòng model được ghi theo thứ tự trường khác thường)
+      final hasSampleRate = meta.containsKey('sample_rate') ||
+          await compute(_modelMentionsSampleRate, voice.modelPath);
+      if (hasSampleRate && (meta.isEmpty || derived == null)) {
+        // Metadata CÓ nhưng không đọc đủ được từ đuôi file ⇒ không chặn oan
+        // một giọng đang dùng tốt, không ghi thêm gì: giữ hành vi cũ.
+        debugPrint(
+          'ℹ️ SherpaPiperTtsCore: ${voice.name} có metadata nhưng không đọc '
+          'đủ từ đuôi file (${verdict.problem}) — bỏ qua bước kiểm metadata',
+        );
+        needSymbols = false;
+      } else if (derived == null) {
+        // Không có `sample_rate` ở đâu trong file và không có config Piper để
+        // suy ra ⇒ native CHẮC CHẮN thoát. Chặn.
+        return PiperVoiceDiagnosis.blocked('model:${verdict.problem}');
+      } else {
+        final toAdd = <String, String>{
+          for (final entry in derived.entries)
+            if ((meta[entry.key] ?? '').isEmpty) entry.key: entry.value,
+        };
+        if (!await _appendModelMetadata(voice.modelPath, toAdd)) {
+          return const PiperVoiceDiagnosis.blocked('model:repair-failed');
+        }
+        meta = await _readModelMetadata(voice.modelPath);
+        verdict = assessSherpaVitsMetadata(meta);
+        if (!verdict.isSafe) {
+          return PiperVoiceDiagnosis.blocked('model:${verdict.problem}');
+        }
+        needSymbols = verdict.usesPiperPhonemizer;
+        repaired.add('metadata');
+        debugPrint(
+          '🩺 SherpaPiperTtsCore: ${voice.name} là giọng Piper GỐC (thiếu '
+          'metadata sherpa-onnx) — đã thêm ${toAdd.keys.join(', ')} từ '
+          '${p.basename(voice.modelPath)}.json',
+        );
+      }
+    } else if (!verdict.isSafe) {
+      return PiperVoiceDiagnosis.blocked('model:${verdict.problem}');
+    }
+
+    // ── tokens.txt ───────────────────────────────────────────────────────
+    final tokensFile = File(voice.tokensPath);
+    final rawTokens =
+        utf8.decode(await tokensFile.readAsBytes(), allowMalformed: true);
+    var tokensProblem =
+        validatePiperTokens(rawTokens, requirePiperSymbols: needSymbols);
+    if (tokensProblem != null) {
+      // 1) chuẩn hoá (BOM / CRLF / dòng trống / khoảng trắng cuối dòng)
+      var fixed = normalizePiperTokens(rawTokens);
+      tokensProblem =
+          validatePiperTokens(fixed, requirePiperSymbols: needSymbols);
+      // 2) vẫn hỏng ⇒ sinh lại từ `phoneme_id_map` của config Piper (chỉ khi
+      //    đây là file tokens RIÊNG của giọng — không ghi đè `tokens.txt`
+      //    dùng chung bằng bảng của một giọng).
+      final ownTokens =
+          p.basename(voice.tokensPath).toLowerCase() != 'tokens.txt';
+      if (tokensProblem != null && configJson != null && ownTokens) {
+        final regenerated =
+            PiperImportPaths.tokensFromPiperConfigJson(configJson);
+        if (regenerated != null &&
+            validatePiperTokens(
+                  regenerated,
+                  requirePiperSymbols: needSymbols,
+                ) ==
+                null) {
+          fixed = regenerated;
+          tokensProblem = null;
+        }
+      }
+      if (tokensProblem != null) {
+        return PiperVoiceDiagnosis.blocked('tokens:$tokensProblem');
+      }
+      if (!await _replaceFileAtomically(tokensFile.path, utf8.encode(fixed))) {
+        return const PiperVoiceDiagnosis.blocked('tokens:repair-failed');
+      }
+      repaired.add('tokens');
+      debugPrint(
+        '🩺 SherpaPiperTtsCore: đã chuẩn hoá tokens của ${voice.name}',
+      );
+    }
+
+    return PiperVoiceDiagnosis.usable(repaired: repaired);
+  }
+
+  /// Đọc `metadata_props` ở [kOnnxMetadataTailBytes] byte cuối file ONNX.
+  static Future<Map<String, String>> _readModelMetadata(String path) async {
+    final raf = await File(path).open();
+    try {
+      final length = await raf.length();
+      final start =
+          length > kOnnxMetadataTailBytes ? length - kOnnxMetadataTailBytes : 0;
+      await raf.setPosition(start);
+      final tail = await raf.read(length - start);
+      return readOnnxMetadataProps(tail);
+    } finally {
+      await raf.close();
+    }
+  }
+
+  /// Ghi [bytes] vào [path] theo kiểu ghi-tạm-rồi-đổi-tên (không bao giờ để
+  /// lại file dở dang nếu app bị tắt giữa chừng).
+  static Future<bool> _replaceFileAtomically(
+    String path,
+    List<int> bytes,
+  ) async {
+    final tmp = File('$path.fix.tmp');
+    try {
+      await tmp.writeAsBytes(bytes, flush: true);
+      await tmp.rename(path);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ SherpaPiperTtsCore: không ghi được $path: $e');
+      try {
+        if (tmp.existsSync()) tmp.deleteSync();
+      } catch (_) {}
+      return false;
+    }
+  }
+
+  /// Thêm [entries] vào `metadata_props` của model bằng cách NỐI vào cuối
+  /// file (xem `encodeOnnxMetadataProps`). Làm trên BẢN SAO rồi đổi tên ⇒
+  /// file gốc không bao giờ ở trạng thái ghi dở (file ONNX hỏng đuôi làm ORT
+  /// ném ngoại lệ C++ không ai bắt).
+  static Future<bool> _appendModelMetadata(
+    String modelPath,
+    Map<String, String> entries,
+  ) async {
+    if (entries.isEmpty) return true;
+    final tmp = File('$modelPath.meta.tmp');
+    try {
+      if (tmp.existsSync()) tmp.deleteSync();
+      await File(modelPath).copy(tmp.path);
+      final raf = await tmp.open(mode: FileMode.append);
+      try {
+        await raf.writeFrom(encodeOnnxMetadataProps(entries));
+        await raf.flush();
+      } finally {
+        await raf.close();
+      }
+      await tmp.rename(modelPath);
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ SherpaPiperTtsCore: không thêm được metadata: $e');
+      try {
+        if (tmp.existsSync()) tmp.deleteSync();
+      } catch (_) {}
       return false;
     }
   }
@@ -277,8 +675,7 @@ class SherpaPiperTtsCore {
     try {
       final dir = await _modelsDir();
       final dataDir = p.join(dir.path, espeakDataFolder);
-      final phontab = File(p.join(dataDir, 'phontab'));
-      final dataOk = phontab.existsSync() && phontab.lengthSync() > 64;
+      final dataOk = missingEspeakFiles(dataDir).isEmpty;
 
       final files = dir.listSync(followLinks: true);
       final onnxFiles = <File>[];
@@ -360,8 +757,40 @@ class SherpaPiperTtsCore {
     return null;
   }
 
-  /// Chọn giọng (tạo OfflineTts — pointer singleton, không re-init
-  /// liên tục; đổi giọng mới mới tạo lại).
+  Future<IsolateRpcClient> _ensureWorker() {
+    final existing = _worker;
+    if (existing != null && existing.isAlive) {
+      return Future<IsolateRpcClient>.value(existing);
+    }
+    final starting = _workerStarting;
+    if (starting != null) return starting;
+    final future = IsolateRpcClient.spawn(
+      _piperWorkerFactory,
+      debugName: 'piper-tts',
+    ).then((client) {
+      _worker = client;
+      return client;
+    }).whenComplete(() {
+      _workerStarting = null;
+    });
+    _workerStarting = future;
+    return future;
+  }
+
+  void _dropWorker() {
+    final worker = _worker;
+    _worker = null;
+    _activeVoice = null;
+    if (worker != null) {
+      unawaited(worker.close(grace: Duration.zero));
+    }
+  }
+
+  /// Chọn giọng (tạo `OfflineTts` trong worker isolate — giữ nguyên giữa các
+  /// câu; đổi giọng mới tạo lại).
+  ///
+  /// Trả `false` (kèm [lastProblem]) khi giọng không qua được bước khám hoặc
+  /// native không nạp được ⇒ `TtsService` tự chuyển sang engine kế tiếp.
   Future<bool> selectVoice(String voiceName) async {
     final voices = await discoverVoices();
     PiperTtsVoice? voice;
@@ -373,100 +802,101 @@ class SherpaPiperTtsCore {
     }
     if (voice == null) {
       debugPrint('⚠️ SherpaPiperTtsCore: giọng không tồn tại: $voiceName');
+      _lastProblem = 'voice:not-found';
       return false;
     }
-    if (_activeVoice?.name == voiceName && _tts != null) return true;
+    final current = _worker;
+    if (_activeVoice?.name == voiceName &&
+        current != null &&
+        current.isAlive) {
+      return true;
+    }
 
-    // ★ PRE-FLIGHT: chặn native crash TRƯỚC khi tạo OfflineTts.
-    // Thiếu espeak-ng-data hoặc file model bị cắt/già → C++ segfault,
-    // app chết hẳn (Dart không catch được). Trả false để TtsService
-    // fallback sang giọng máy hệ thống (vẫn phát được, không crash).
-    if (!await isEspeakReady()) {
+    // ★ KHÁM TRƯỚC khi xuống native (PSRC-187). Mọi điều kiện ở đây là điều
+    // kiện làm sherpa-onnx/espeak tự thoát tiến trình — Dart không bắt được.
+    final diagnosis = await examineVoice(voice);
+    if (!diagnosis.isUsable) {
+      _lastProblem = diagnosis.problem;
       debugPrint(
-        '⚠️ SherpaPiperTtsCore: THIẾU espeak-ng-data (phontab) — không init '
-        'Piper (tránh crash native). Cài "phonemizer" trong Cài đặt TTS '
-        '(tự tải ~2MB, dùng chung mọi giọng).',
+        '⛔ SherpaPiperTtsCore: KHÔNG nạp giọng $voiceName — '
+        '${diagnosis.problem} (tránh native tự thoát làm văng app)',
       );
       return false;
     }
-    if (!isVoiceFilesPlausible(voice)) {
-      debugPrint(
-        '⚠️ SherpaPiperTtsCore: file model $voiceName bất thường '
-        '(onnx <1MB hoặc tokens <1KB — nghi tải về bị cắt) — bỏ qua giọng '
-        'này (tránh crash native).',
-      );
-      return false;
-    }
-
-    // Đổi giọng → free bản cũ (pointer cũ không dùng nữa)
-    try {
-      _tts?.free();
-    } catch (_) {}
-    _tts = null;
 
     try {
-      // Log đủ để định vị nếu crash native vẫn xảy ra (logcat dòng cuối).
       debugPrint(
-        '🎙️ SherpaPiperTtsCore: init native "$voiceName" — '
+        '🎙️ SherpaPiperTtsCore: init native "$voiceName" trong worker — '
         'onnx=${File(voice.modelPath).lengthSync() ~/ 1024}KB, '
-        'tokens=${File(voice.tokensPath).lengthSync() ~/ 1024}KB, '
-        'espeak=OK, numThreads=2',
+        'tokens=${File(voice.tokensPath).lengthSync()}B, espeak=OK, '
+        'numThreads=2, maxNumSentences=$kPiperMaxSentencesPerBatch',
       );
-      ensureSherpaBindings();
-      final modelConfig = sherpa.OfflineTtsModelConfig(
-        vits: sherpa.OfflineTtsVitsModelConfig(
-          model: voice.modelPath,
-          tokens: voice.tokensPath,
-          dataDir: voice.dataDir,
-        ),
-        numThreads: 2,
-        debug: kDebugMode,
-      );
-      _tts = sherpa.OfflineTts(
-        sherpa.OfflineTtsConfig(
-          model: modelConfig,
-          maxNumSenetences: 100,
-        ),
+      final worker = await _ensureWorker();
+      await worker.call(
+        'select',
+        args: <String, Object?>{
+          'model': voice.modelPath,
+          'tokens': voice.tokensPath,
+          'dataDir': voice.dataDir,
+          'numThreads': 2,
+          'debug': kDebugMode,
+        },
+        timeout: const Duration(minutes: 2),
       );
       _activeVoice = voice;
+      _lastProblem = null;
       debugPrint('🎙️ SherpaPiperTtsCore: giọng "$voiceName" sẵn sàng '
           '(${voice.sampleRate}Hz)');
       return true;
     } catch (e) {
       debugPrint('⚠️ SherpaPiperTtsCore.selectVoice lỗi: $e');
-      _tts = null;
-      _activeVoice = null;
+      _lastProblem = 'native:$e';
+      _dropWorker();
       return false;
     }
   }
 
   /// Generate audio cho text (giọng hiện tại). Trả null nếu lỗi/
   /// chưa chọn giọng.
+  ///
+  /// Chạy trong worker isolate ⇒ không chặn luồng UI dù văn bản dài.
   Future<PiperTtsAudio?> generate({
     required String text,
     double speed = 1.0,
     int sid = 0,
   }) async {
-    final tts = _tts;
+    final worker = _worker;
     final voice = _activeVoice;
-    if (tts == null || voice == null) return null;
+    if (worker == null || !worker.isAlive || voice == null) return null;
     if (text.trim().isEmpty) return null;
 
     try {
-      final genConfig = sherpa.OfflineTtsGenerationConfig(
-        sid: sid,
-        speed: speed <= 0 ? 1.0 : speed,
-        silenceScale: 0.2,
+      final reply = await worker.call(
+        'generate',
+        args: <String, Object?>{
+          'text': text,
+          'speed': speed <= 0 ? 1.0 : speed,
+          'sid': sid,
+        },
+        timeout: const Duration(minutes: 5),
       );
-      final audio =
-          tts.generateWithConfig(text: text, config: genConfig);
-      if (audio.samples.isEmpty) return null;
+      if (reply is! Map) return null;
+      final samples = reply['samples'];
+      if (samples is! Float32List || samples.isEmpty) return null;
+      final rate = reply['sampleRate'];
       return PiperTtsAudio(
-        samples: audio.samples,
-        sampleRate: audio.sampleRate > 0
-            ? audio.sampleRate
-            : voice.sampleRate,
+        samples: samples,
+        sampleRate: rate is int && rate > 0 ? rate : voice.sampleRate,
       );
+    } on TimeoutException catch (e) {
+      // Worker kẹt trong native ⇒ bỏ worker này, lần sau tạo mới.
+      debugPrint('⚠️ SherpaPiperTtsCore.generate quá hạn: $e');
+      _dropWorker();
+      return null;
+    } on IsolateRpcClosedException catch (e) {
+      debugPrint('⚠️ SherpaPiperTtsCore.generate: worker đã đóng: $e');
+      _dropWorker();
+      return null;
     } catch (e) {
       debugPrint('⚠️ SherpaPiperTtsCore.generate lỗi: $e');
       return null;
@@ -520,12 +950,8 @@ class SherpaPiperTtsCore {
     return buf.toBytes();
   }
 
-  /// Giải phóng pointer — chỉ khi app dừng hẳn (pointer singleton).
+  /// Giải phóng worker + `OfflineTts` — chỉ khi app dừng hẳn.
   void dispose() {
-    try {
-      _tts?.free();
-    } catch (_) {}
-    _tts = null;
-    _activeVoice = null;
+    _dropWorker();
   }
 }

@@ -35,6 +35,10 @@ class PiperTtsEngine implements TtsEngine {
         'es-ES',
       ];
 
+  /// Lý do giọng Piper gần nhất bị từ chối (mã của bước khám giọng —
+  /// PSRC-187), `null` nếu lần nạp gần nhất thành công.
+  String? get lastVoiceProblem => _core.lastProblem;
+
   @override
   Future<bool> isAvailable() async {
     final voices = await SherpaPiperTtsCore.discoverVoices();
@@ -170,8 +174,12 @@ class PiperTtsEngine implements TtsEngine {
     } catch (_) {}
     final ok = await _core.selectVoice(name);
     if (!ok) {
+      // PSRC-187: lý do cụ thể từ bước khám giọng (thiếu file espeak, model
+      // thiếu metadata sherpa-onnx, tokens sai…) thay cho câu đoán chung.
+      final problem = _core.lastProblem ?? 'unknown';
+      debugPrint('⛔ [TTS-NATIVE] Piper voice "$name" rejected: $problem');
       return TtsResult.failure(
-        error: 'Không nạp được giọng Piper $name (thiếu espeak-ng-data?)',
+        error: 'Piper voice "$name" cannot be loaded ($problem)',
         engine: name,
       );
     }

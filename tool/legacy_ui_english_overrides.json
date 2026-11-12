@@ -4149,5 +4149,6 @@
   "Đồng bộ chung với Server & API ở Home — quản lý tập trung tại một nơi": "Shared sync with Server & API on Home — managed in one place",
   "🇱🇰 Tiếng Sri Lanka (si-LK)": "🇱🇰 Sinhala (si-LK)",
   "🇲🇲 Tiếng Myanmar (my-MM)": "🇲🇲 Burmese (my-MM)",
-  "Import {value0}": "Import {value0}"
+  "Import {value0}": "Import {value0}",
+  "Bản cài này chưa kèm engine VieNeu-TTS nên model đã import chưa đọc được. Khi VieNeu được ưu tiên, app sẽ đọc bằng nguồn phát kế tiếp.": "This build does not include the VieNeu-TTS engine, so the imported model cannot read yet. When VieNeu is prioritized, the app reads with the next voice source."
 }

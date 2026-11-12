@@ -1566,6 +1566,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'รุ่น English-only รับเฉพาะภาษาอังกฤษ — เสียงภาษาเวียดนาม/ภาษาอื่นจะออกมาผิด',
     'ja': 'English-only 版は英語のみ対応です。ベトナム語などの音声は正しく変換されません。',
   },
+  'Bản cài này chưa kèm engine VieNeu-TTS nên model đã import chưa đọc được. Khi VieNeu được ưu tiên, app sẽ đọc bằng nguồn phát kế tiếp.': {
+    'en': 'This build does not include the VieNeu-TTS engine, so the imported model cannot read yet. When VieNeu is prioritized, the app reads with the next voice source.',
+    'zh': '此安装版本未包含 VieNeu-TTS 引擎，已导入的模型暂时无法朗读。当 VieNeu 被设为优先时，应用会改用下一个语音来源朗读。',
+    'zh_TW': '此安裝版本未包含 VieNeu-TTS 引擎，已匯入的模型暫時無法朗讀。當 VieNeu 被設為優先時，應用程式會改用下一個語音來源朗讀。',
+    'hi': 'इस बिल्ड में VieNeu-TTS इंजन शामिल नहीं है, इसलिए आयात किया गया मॉडल अभी पढ़ नहीं सकता। VieNeu को प्राथमिकता देने पर ऐप अगले वॉइस स्रोत से पढ़ेगा।',
+    'si': 'මෙම ස්ථාපනයේ VieNeu-TTS එන්ජිම ඇතුළත් නැති නිසා ආයාත කළ මොඩලයට තවම කියවිය නොහැක. VieNeu ට ප්‍රමුඛතාව දුන් විට යෙදුම ඊළඟ හඬ මූලාශ්‍රයෙන් කියවයි.',
+    'my': 'ဤထည့်သွင်းမှုတွင် VieNeu-TTS အင်ဂျင် မပါဝင်သေးသဖြင့် တင်သွင်းထားသော မော်ဒယ်ဖြင့် မဖတ်နိုင်သေးပါ။ VieNeu ကို ဦးစားပေးထားပါက အက်ပ်သည် နောက်ထပ် အသံရင်းမြစ်ဖြင့် ဖတ်ပါမည်။',
+    'th': 'รุ่นที่ติดตั้งนี้ยังไม่มีเอนจิน VieNeu-TTS โมเดลที่นำเข้าจึงยังอ่านไม่ได้ เมื่อตั้ง VieNeu เป็นลำดับแรก แอปจะอ่านด้วยแหล่งเสียงถัดไป',
+    'ja': 'このビルドには VieNeu-TTS エンジンが含まれていないため、インポートしたモデルではまだ読み上げできません。VieNeu を優先に設定している場合、アプリは次の音声ソースで読み上げます。',
+  },
   'Bản cài này thiếu FFmpeg. Hãy cập nhật app hoặc dùng bản đầy đủ.': {
     'en': 'This build is missing FFmpeg. Update the app or install the full build.',
     'zh': '此版本缺少 FFmpeg。請更新應用程式或安裝完整版。',

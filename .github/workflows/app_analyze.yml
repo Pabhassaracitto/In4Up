@@ -580,22 +580,34 @@ jobs:
           flutter test
           test/ai_provider_builtin_and_read_align_test.dart
 
-      # PSRC-181 + PSRC-182 (owner 2026-11-10): model mặc định của provider
-      # có sẵn = `openrouter/free` (kèm migrate cấu hình cũ, KHÔNG ghi đè
-      # model user tự chọn) + gói dịch offline ML Kit ĐÃ TẢI không còn hiện
-      # nút "Tải về" (icon + chữ "Đã tải" xanh). Test thuần + source-scan
-      # (không plugin, không mạng) nên chạy được trên CI.
-      - name: "PSRC-181/182 — openrouter/free mặc định + gói ML Kit đã tải"
+      # PSRC-181 + PSRC-182 + PSRC-188 + PSRC-28 (owner 2026-11-10/11): model mặc định
+      # của provider có sẵn = `openrouter/free` (kèm migrate cấu hình cũ,
+      # KHÔNG ghi đè model user tự chọn) + gói dịch offline ML Kit ĐÃ TẢI
+      # không còn hiện nút "Tải về" (icon + chữ "Đã tải" xanh) + **tải gói
+      # tiếp tục khi đóng popup** (registry `MlKitPackDownloads` sống trong
+      # TranslationService, không trong State của sheet) + **danh sách gói
+      # offline gọn 3 ngôn ngữ phổ biến, mở ra đủ 19 ngôn ngữ ML Kit** nằm
+      # trong danh mục 26 ngôn ngữ của app. Test thuần + source-scan (không
+      # plugin, không mạng) nên chạy được trên CI.
+      - name: "PSRC-181/182/188/28 — openrouter/free + gói ML Kit + danh sách ngôn ngữ"
         id: psrc-181-182-tests
         timeout-minutes: 8
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |-
           set +e
           files="test/ai_openrouter_default_free_test.dart \
-            test/translation/mlkit_pack_download_ui_test.dart"
+            test/translation/mlkit_pack_download_ui_test.dart \
+            test/translation/mlkit_pack_downloads_test.dart \
+            test/translation/mlkit_pack_catalog_test.dart"
           flutter test $files -r expanded > psrc_181_182_test.log 2>&1
           code=$?
           cat psrc_181_182_test.log
+          if [ "$code" -ne 0 ]; then
+            grep -nE -B4 -A6 'Expected:' psrc_181_182_test.log \
+              | head -100 | while IFS= read -r line; do
+              echo "::error title=PSRC-181/182/188/28 test fail::$line"
+            done
+          fi
           exit $code
 
       - name: Upload PSRC-181/182 test log

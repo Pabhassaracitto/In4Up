@@ -8849,5 +8849,39 @@ const Map<String, Map<String, String>> priorityUiOverrides = {
     'si': 'තව පූරණය කළ නොහැක. ජාලය පරීක්ෂා කර නැවත උත්සාහ කරන්න.',
   },
 
+  // PSRC-188 (owner 2026-11-11) — tải gói dịch offline tiếp tục khi đóng
+  // popup: báo rõ "vẫn đang chạy ngầm" + lý do khi gói không tải được.
+  'Đang tải ngầm...': {
+    'en': 'Downloading in background...',
+    'hi': 'पृष्ठभूमि में डाउनलोड हो रहा है...',
+    'zh': '正在后台下载...',
+    'zh_TW': '正在背景下載...',
+    'si': 'පසුබිමින් බාගනිමින්...',
+  },
+  'Lỗi tải gói': {
+    'en': 'Pack download failed',
+    'hi': 'पैक डाउनलोड विफल',
+    'zh': '语言包下载失败',
+    'zh_TW': '語言包下載失敗',
+    'si': 'පැකේජය බාගැනීම අසාර්ථකයි',
+  },
+
+  // PSRC-28 (owner 2026-11-11) — danh sách gói offline gọn 3 ngôn ngữ, mở ra
+  // đủ 19 ngôn ngữ ML Kit nằm trong danh mục 26 ngôn ngữ của app.
+  'Thêm ngôn ngữ': {
+    'en': 'More languages',
+    'hi': 'और भाषाएँ',
+    'zh': '更多语言',
+    'zh_TW': '更多語言',
+    'si': 'තවත් භාෂා',
+  },
+  'Ẩn bớt ngôn ngữ': {
+    'en': 'Fewer languages',
+    'hi': 'कम भाषाएँ',
+    'zh': '收起语言',
+    'zh_TW': '收合語言',
+    'si': 'භාෂා අඩුවෙන් පෙන්වන්න',
+  },
+
 
 };

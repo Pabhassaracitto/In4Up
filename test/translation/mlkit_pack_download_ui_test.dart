@@ -66,18 +66,60 @@ void main() {
     test('đọc lại trạng thái THẬT sau khi tải/xoá (không tin plugin)', () {
       // `downloadModel()` có thể trả false khi gói đã có sẵn ⇒ nếu tin
       // tuyệt đối, hàng UI lại hiện "Tải về" cho gói đã tải.
+      //
+      // PSRC-188: việc hỏi lại `isModelDownloaded` đã CHUYỂN vào registry
+      // `MlKitPackDownloads` (sống ngoài sheet) — sheet chỉ uỷ quyền. Vì vậy
+      // pin hai chỗ: sheet gọi registry, registry hỏi lại trạng thái thật.
       final dlStart = toolbar.indexOf('Future<void> _downloadModel(String code)');
       final delStart = toolbar.indexOf('Future<void> _deleteModel(String code)');
       expect(dlStart, greaterThan(0));
       expect(delStart, greaterThan(dlStart));
       final download = toolbar.substring(dlStart, delStart);
-      expect(download, contains('isModelDownloaded('),
-          reason: 'Sau downloadModel phải hỏi lại isModelDownloaded.');
+      expect(download, contains('_packs.start('),
+          reason: 'Sheet phải uỷ quyền tải cho registry (sống ngoài sheet).');
       final delEnd = toolbar.indexOf('String _modelLabel(String code)');
       expect(delEnd, greaterThan(delStart));
       final delete = toolbar.substring(delStart, delEnd);
-      expect(delete, contains('isModelDownloaded('),
+      expect(delete, contains('_packs.removed('),
+          reason: 'Xoá gói cũng đi qua registry để mọi nơi thấy trạng thái mới.');
+
+      final registry = File(
+        'lib/features/translation/mlkit_pack_downloads.dart',
+      ).readAsStringSync();
+      expect(registry, contains('_isDownloaded(bcpCode)'),
+          reason: 'Sau downloadModel phải hỏi lại isModelDownloaded.');
+      expect(registry, contains('removed('),
           reason: 'Sau deleteModel phải hỏi lại isModelDownloaded.');
+    });
+
+    test('PSRC-28 — danh sách gói gọn 3 ngôn ngữ + nút "Thêm ngôn ngữ"', () {
+      // Sheet phải vẽ từ catalog (không hard-code 3 mã) và có nhánh mở rộng,
+      // nếu không 16 ngôn ngữ ML Kit còn lại lại bị giấu.
+      expect(toolbar, contains('MlKitPackCatalog('),
+          reason: 'Danh sách gói phải lấy từ catalog, không hard-code EN/VI/HI.');
+      expect(toolbar, contains('_catalog.primary'),
+          reason: 'Nhóm hiện sẵn = 3 ngôn ngữ phổ biến.');
+      expect(toolbar, contains('_catalog.extra'),
+          reason: 'Nhóm mở rộng = phần còn lại trong 26 ngôn ngữ của app.');
+      expect(toolbar, contains("context.uiText('Thêm ngôn ngữ')"));
+      expect(toolbar, contains("context.uiText('Ẩn bớt ngôn ngữ')"),
+          reason: 'Mở ra được thì phải thu gọn lại được.');
+      expect(toolbar.contains("static const _mlkitCodes"), isFalse,
+          reason: 'Hard-code 3 mã chính là lỗi PSRC-28.');
+    });
+
+    test('PSRC-188 — trạng thái gói KHÔNG nằm trong State của sheet', () {
+      // Nếu ai đó đưa map trạng thái trở lại State, đóng sheet là mất dấu
+      // "đang tải" ⇒ lỗi cũ quay lại. Pin bằng source-scan.
+      expect(toolbar.contains('_modelDownloaded'), isFalse,
+          reason: 'Map trạng thái trong State = lỗi PSRC-188 quay lại.');
+      expect(toolbar.contains('_downloading['), isFalse);
+      expect(toolbar, contains('_packs.addListener('),
+          reason: 'Sheet phải lắng nghe registry ngoài sheet.');
+      expect(toolbar, contains('_packs.removeListener('),
+          reason: 'Rời sheet phải gỡ listener (không setState trên State đã tháo).');
+      expect(toolbar, contains('Đang tải ngầm'),
+          reason: 'Mở lại khi đang tải phải thấy dấu hiệu vẫn đang chạy.');
     });
   });
 }

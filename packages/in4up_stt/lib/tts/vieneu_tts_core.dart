@@ -194,11 +194,32 @@ class VieneuTtsCore {
     }
   }
 
+  /// Kết quả dò thư viện native (không đổi trong suốt một lần chạy app).
+  static bool? _nativeLibraryProbe;
+
   /// Có thư viện native load được trên platform này?
   ///
   /// Chỉ tra symbol — KHÔNG nạp model, nhanh, an toàn gọi từ UI thread
   /// (dùng cho `isAvailable()` của engine).
+  ///
+  /// PSRC-187 (audit 1.27.0): kết quả được NHỚ — hàm này được hỏi ở mỗi câu
+  /// đọc; và khi thư viện không có trong bản cài thì [init] dừng ngay, không
+  /// spawn isolate nào.
   static Future<bool> isNativeLibraryAvailable() async {
+    final cached = _nativeLibraryProbe;
+    if (cached != null) return cached;
+    final found = _probeNativeLibrary();
+    _nativeLibraryProbe = found;
+    return found;
+  }
+
+  /// Chỉ dùng cho test: ép (hoặc xoá, với `null`) kết quả dò thư viện native.
+  @visibleForTesting
+  static void debugSetNativeLibraryProbe(bool? value) {
+    _nativeLibraryProbe = value;
+  }
+
+  static bool _probeNativeLibrary() {
     final candidates = <String>[];
     if (Platform.isAndroid) candidates.add('libvieneu_tts.so');
     if (Platform.isWindows) candidates.add('vieneu_tts.dll');
@@ -272,9 +293,12 @@ class VieneuTtsCore {
     );
     _initFuture = future;
     // Xóa khóa khi xong (thành công hay thất bại) để lần gọi sau được thử lại.
+    // PSRC-187: `whenComplete` trả về một future MỚI mang cùng lỗi với
+    // [future]; không ai nghe nó ⇒ mỗi lần init thất bại lại thành một lỗi
+    // async không ai nhận. Caller vẫn nhận lỗi qua chính [future].
     future.whenComplete(() {
       if (identical(_initFuture, future)) _initFuture = null;
-    });
+    }).ignore();
     return future;
   }
 
@@ -285,6 +309,16 @@ class VieneuTtsCore {
     String? speakerEmbeddingFile,
     String? clonedVoicesDir,
   }) async {
+    // PSRC-187 (audit 1.27.0): bản cài không có thư viện native ⇒ dừng TRƯỚC
+    // khi spawn. Thiếu chốt này, mỗi lần thử (mỗi câu đọc) spawn một isolate
+    // chỉ để nghe worker báo "Không load được thư viện native".
+    if (!await isNativeLibraryAvailable()) {
+      throw StateError(
+        'VieNeu-TTS native library (libvieneu_tts) is not bundled in this '
+        'build',
+      );
+    }
+
     // Dọn worker cũ TRƯỚC khi spawn worker mới: không bao giờ giữ 2 model
     // 170–292 MB cùng lúc.
     if (_workerPort != null || _workerIsolate != null || _ready) {
@@ -639,10 +673,13 @@ void vieneuTtsWorkerEntry(List<SendPort> ports) {
             break;
           }
 
-          final outSamples =
-              calloc.allocate<Pointer<Float>>(1);
-          final outFrames = calloc.allocate<Uint64>(1);
-          final outRate = calloc.allocate<Int32>(1);
+          // PSRC-187 (audit 1.27.0): `calloc<T>()` cấp ĐỦ sizeOf<T>. Bản cũ
+          // gọi `calloc.allocate<T>(1)` — tham số là SỐ BYTE — tức xin 1 byte
+          // cho một con trỏ 8 byte / một uint64 8 byte / một int32 4 byte, rồi
+          // để native ghi vào đó.
+          final outSamples = calloc<Pointer<Float>>();
+          final outFrames = calloc<Uint64>();
+          final outRate = calloc<Int32>();
 
           try {
             final status = _native!.synthesize(
@@ -664,9 +701,10 @@ void vieneuTtsWorkerEntry(List<SendPort> ports) {
               _reply(_respond(
                   ok: false, error: _native!.lastError, seq: seq));
             } else {
-              final floatList = ptr.asTypedList(frames).toList();
+              // Chép mẫu ra khỏi heap native TRƯỚC khi trả bộ đệm cho native.
+              final samples = Float32List.fromList(ptr.asTypedList(frames));
               _native!.freeAudio(ptr);
-              final wav = _encodeWav16MonoFloat(floatList, rate);
+              final wav = encodeWav16MonoFloat(samples, rate);
               _reply(_respond(
                 ok: true,
                 seq: seq,
@@ -761,43 +799,46 @@ String? _voiceFileFor(
 }
 
 /// Encode Float32 PCM mono [-1, 1] thành WAV 16-bit LE.
-Uint8List _encodeWav16MonoFloat(List<double> samples, int sampleRate) {
-  final pcm16 = <int>[];
-  pcm16.length = samples.length * 2;
-  for (var i = 0; i < samples.length; i++) {
-    final s = samples[i].clamp(-1.0, 1.0);
-    final v = (s * 32767.0).round().clamp(-32768, 32767);
-    pcm16[i * 2] = v & 0xFF;
-    pcm16[i * 2 + 1] = (v >> 8) & 0xFF;
+///
+/// PSRC-187 (audit 1.27.0): ghi thẳng vào một `Uint8List` (bản cũ dựng
+/// `List<int>` — mỗi BYTE âm thanh chiếm cả một ô 4–8 byte — rồi chép lại hai
+/// lần) và coi mẫu NaN là im lặng (bản cũ để `clamp` đổi NaN thành +1.0, tức
+/// ghi ra một mẫu ở biên độ cực đại: `clamp` xếp NaN là giá trị lớn nhất).
+@visibleForTesting
+Uint8List encodeWav16MonoFloat(Float32List samples, int sampleRate) {
+  final dataSize = samples.length * 2;
+  final bytes = Uint8List(44 + dataSize);
+  final view = ByteData.sublistView(bytes);
+
+  void ascii(int offset, String text) {
+    for (var i = 0; i < text.length; i++) {
+      bytes[offset + i] = text.codeUnitAt(i);
+    }
   }
 
-  final dataSize = pcm16.length;
-  final fileSize = 36 + dataSize;
-  final wav = <int>[];
-  wav.addAll(utf8.encode('RIFF'));
-  wav.addAll(_uint32Le(fileSize));
-  wav.addAll(utf8.encode('WAVE'));
-  wav.addAll(utf8.encode('fmt '));
-  wav.addAll(_uint32Le(16)); // fmt chunk size
-  wav.addAll(_uint16Le(1)); // format = PCM
-  wav.addAll(_uint16Le(1)); // channels = 1
-  wav.addAll(_uint32Le(sampleRate));
-  wav.addAll(_uint32Le(sampleRate * 2)); // byte rate
-  wav.addAll(_uint16Le(2)); // block align
-  wav.addAll(_uint16Le(16)); // bits per sample
-  wav.addAll(utf8.encode('data'));
-  wav.addAll(_uint32Le(dataSize));
-  wav.addAll(pcm16);
-  return Uint8List.fromList(wav);
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, Endian.little);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, Endian.little); // fmt chunk size
+  view.setUint16(20, 1, Endian.little); // format = PCM
+  view.setUint16(22, 1, Endian.little); // channels = 1
+  view.setUint32(24, sampleRate, Endian.little);
+  view.setUint32(28, sampleRate * 2, Endian.little); // byte rate
+  view.setUint16(32, 2, Endian.little); // block align
+  view.setUint16(34, 16, Endian.little); // bits per sample
+  ascii(36, 'data');
+  view.setUint32(40, dataSize, Endian.little);
+  for (var i = 0; i < samples.length; i++) {
+    final sample = samples[i];
+    // NaN ⇒ im lặng. Không tách riêng thì `clamp` đổi NaN thành cận trên
+    // (+1.0); còn `round()` thẳng trên NaN thì ném lỗi.
+    final clamped = sample.isNaN ? 0.0 : sample.clamp(-1.0, 1.0);
+    final value = (clamped * 32767.0).round();
+    view.setInt16(44 + i * 2, value, Endian.little);
+  }
+  return bytes;
 }
-
-List<int> _uint32Le(int v) => [
-      v & 0xFF,
-      (v >> 8) & 0xFF,
-      (v >> 16) & 0xFF,
-      (v >> 24) & 0xFF,
-    ];
-List<int> _uint16Le(int v) => [v & 0xFF, (v >> 8) & 0xFF];
 
 /// Bindings FFI vào libvieneu_tts.so — chỉ tồn tại bên trong worker isolate.
 class _VieneuTtsNative {

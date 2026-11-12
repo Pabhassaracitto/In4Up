@@ -2009,12 +2009,17 @@ class SherpaModelManager {
     return dir.path;
   }
 
-  bool _espeakPhontabReady(String piperDir) {
-    final phontab = File(
-      p.join(piperDir, SherpaPiperTtsCore.espeakDataFolder, 'phontab'),
-    );
-    return phontab.existsSync() && phontab.lengthSync() > 64;
-  }
+  /// espeak-ng-data đã ĐỦ để khởi tạo chưa.
+  ///
+  /// PSRC-187: cùng MỘT luật với `SherpaPiperTtsCore.isEspeakReady` — đủ cả
+  /// 4 file espeak nạp lúc khởi tạo. Trước đây chỉ kiểm `phontab`: import lẻ
+  /// vài file espeak (phontab + *_dict) được coi là "đã có phonemizer", nút
+  /// tải phonemizer biến mất, và espeak `exit(1)` ở `phonindex` khi đọc.
+  bool _espeakPhontabReady(String piperDir) => SherpaPiperTtsCore
+      .missingEspeakFiles(
+        p.join(piperDir, SherpaPiperTtsCore.espeakDataFolder),
+      )
+      .isEmpty;
 
   Future<bool> get hasEspeak async =>
       _espeakPhontabReady(await _piperDir());

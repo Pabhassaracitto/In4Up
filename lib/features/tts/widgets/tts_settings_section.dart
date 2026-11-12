@@ -24,6 +24,16 @@ import '../piper_voice_prefs.dart';
 import '../tts_service.dart';
 import '../tts_settings.dart';
 
+/// PSRC-187 (audit 1.27.0) — câu báo khi bản cài KHÔNG đóng gói thư viện
+/// native của VieNeu-TTS (`libvieneu_tts`): model đã import cũng chưa đọc được
+/// và `TtsService` sẽ chuyển sang engine kế tiếp. Trước đây màn này chỉ hiện
+/// "Đã có model" nên người dùng tưởng VieNeu đang được dùng.
+///
+/// Là hằng số để test khoá đúng chuỗi này vào bảng dịch (rule #5).
+const String kVieneuNativeMissingNotice =
+    'Bản cài này chưa kèm engine VieNeu-TTS nên model đã import chưa đọc '
+    'được. Khi VieNeu được ưu tiên, app sẽ đọc bằng nguồn phát kế tiếp.';
+
 /// Widget cài đặt TTS - nhúng vào Settings sheet hiện có
 class TtsSettingsSection extends StatefulWidget {
   final Color primaryColor;
@@ -1415,6 +1425,9 @@ class _VieneuModelImportSectionState
   final Map<VieneuModelVariant, String?> _variantModelPaths = {};
   bool _engineReady = false;
 
+  /// PSRC-187: bản cài có thư viện native của VieNeu không (`null` = chưa dò).
+  bool? _nativeBundled;
+
   @override
   void initState() {
     super.initState();
@@ -1427,11 +1440,13 @@ class _VieneuModelImportSectionState
     for (final v in VieneuModelVariant.values) {
       paths[v] = await VieneuTtsCore.modelPathFor(v);
     }
+    final nativeBundled = await VieneuTtsCore.isNativeLibraryAvailable();
     // PSRC-183: radio phải phản ánh ĐÚNG biến thể đã lưu (đã đồng bộ với
     // file thật ở TtsService), không được tự ý về Q8_0 mỗi lần mở Settings.
     final persisted = await TtsService().getSelectedVieneuModelVariant();
     if (!mounted) return;
     setState(() {
+      _nativeBundled = nativeBundled;
       _variantModelPaths
         ..clear()
         ..addAll(paths);
@@ -1698,24 +1713,54 @@ class _VieneuModelImportSectionState
         const SizedBox(height: 6),
         // PSRC-183 — hai trạng thái TÁCH BIỆT: model đã import vs worker đã
         // nạp. Không còn badge "đã có model" đi kèm cảnh báo "chưa import".
-        Row(
-          children: [
-            Icon(
-              _engineReady ? Icons.check_circle : Icons.hourglass_top,
-              size: 12,
-              color: _engineReady ? Colors.green[300] : Colors.orange[300],
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                context.uiText(_engineReady
-                    ? 'Engine đã sẵn sàng'
-                    : 'Model đã có · engine nạp khi bắt đầu đọc'),
-                style: TextStyle(fontSize: 9.5, color: Colors.grey[500]),
+        // PSRC-187: bản cài KHÔNG có engine native thì dòng "engine nạp khi bắt
+        // đầu đọc" bên dưới là nói sai (engine không bao giờ nạp được) ⇒ thay
+        // bằng câu báo thật. Nếu không, "Đã có model" khiến người dùng tưởng
+        // VieNeu đang đọc.
+        if (_nativeBundled == false)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.orange.withValues(alpha: 0.35),
               ),
             ),
-          ],
-        ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, size: 14, color: Colors.orange[200]),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.uiText(kVieneuNativeMissingNotice),
+                    style: TextStyle(fontSize: 11, color: Colors.orange[200]),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Row(
+            children: [
+              Icon(
+                _engineReady ? Icons.check_circle : Icons.hourglass_top,
+                size: 12,
+                color: _engineReady ? Colors.green[300] : Colors.orange[300],
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText(_engineReady
+                      ? 'Engine đã sẵn sàng'
+                      : 'Model đã có · engine nạp khi bắt đầu đọc'),
+                  style: TextStyle(fontSize: 9.5, color: Colors.grey[500]),
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 8),
         // ── CHỌN BIẾN THỂ MÔ HÌNH (GIAI ĐOẠN 3) ──
         Text(

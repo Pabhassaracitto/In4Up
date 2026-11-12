@@ -821,12 +821,17 @@ jobs:
         run: |
           set +e
           files=""
+          # PSRC-187: + kênh hỏi/đáp worker isolate, khám giọng Piper, chia
+          # đoạn TTS (đều thuần Dart / isolate thật trên host VM).
           for f in test/edge_tts_engine_test.dart \
                    test/edge_voice_prefs_test.dart \
                    test/tts_candidate_router_test.dart \
                    test/tts_cache_key_test.dart \
                    test/tts_api_wp4_test.dart \
-                   test/tts_settings_edge_and_api_test.dart; do
+                   test/tts_settings_edge_and_api_test.dart \
+                   test/psrc187_isolate_rpc_test.dart \
+                   test/psrc187_piper_voice_doctor_test.dart \
+                   test/psrc187_tts_chunking_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then
@@ -834,16 +839,25 @@ jobs:
             exit 0
           fi
           echo "Chạy:$files"
-          flutter test $files > tts_edge_test.log 2>&1
+          # -r expanded: mỗi test 1 dòng (compact reporter dùng \b khi
+          # redirect, khó grep tên test fail).
+          flutter test $files -r expanded > tts_edge_test.log 2>&1
           code=$?
           cat tts_edge_test.log
           # Đẩy test hỏng thành annotation check-runs (đọc được qua
           # api.github.com khi blob log bị chặn — tiền lệ bước analyze).
+          # GitHub chỉ giữ 10 annotation lỗi mỗi step ⇒ MỖI test hỏng là MỘT
+          # annotation nhiều dòng (tên test + Expected/Actual + stack đầu),
+          # cùng cách bước "I4U18 scanner tests" đang làm.
           if [ "$code" -ne 0 ]; then
-            grep -nE -B4 -A6 'Expected:' tts_edge_test.log \
-              | head -100 | while IFS= read -r line; do
-              echo "::error title=TTS engine test fail::$line"
-            done
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              tts_edge_test.log > tts_edge_clean.log || true
+            grep -nE '\[E\]|Failed to load|Compilation failed' tts_edge_clean.log \
+              | cut -d: -f1 | head -10 | while read -r ln; do
+              msg=$(sed -n "${ln},$((ln + 22))p" tts_edge_clean.log \
+                | head -c 900 | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=TTS engine test fail::$msg"
+            done || true
           fi
           exit $code
 

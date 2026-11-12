@@ -28,6 +28,7 @@ import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import 'language_detector.dart';
 import 'tts_candidate_router.dart';
 import 'tts_settings.dart';
+import 'tts_text_chunker.dart';
 
 /// PSRC-183/186 — kết quả import model GGUF kèm giọng mẫu.
 class VieneuImportResult {
@@ -571,98 +572,189 @@ class TtsService extends ChangeNotifier {
     }
   }
 
+  /// PSRC-187 — phát [text] theo TỪNG ĐOẠN bằng một engine tổng hợp ra file.
+  ///
+  /// Tab Đọc đưa nguyên một dòng (có khi cả trang) cho TTS. Trước đây engine
+  /// phải tổng hợp xong CẢ dòng mới có tiếng; với Piper cả dòng còn bị nhồi
+  /// vào một lượt chạy model — RAM đỉnh tăng mạnh theo độ dài dòng (đo trên
+  /// x86-64: 935 MB với 786 ký tự, 3,4 GB với 2751 ký tự), nhiều khả năng đủ
+  /// để Android giết app (suy ra, chưa đo trên máy); với engine online thì
+  /// dòng dài dễ quá hạn 15 s rồi rơi về engine khác.
+  ///
+  /// [prepare] biến một đoạn thành âm thanh sẵn sàng phát (file cache hoặc
+  /// URL); trả `null` nếu engine không làm được. Đoạn KẾ TIẾP được chuẩn bị
+  /// ngay trong lúc đoạn hiện tại đang phát ⇒ không hở tiếng giữa các đoạn.
+  ///
+  /// Trả `false` CHỈ KHI chưa phát được gì (để `speak()` thử engine kế tiếp
+  /// với nguyên dòng). Engine hỏng giữa chừng ⇒ đọc nốt phần còn lại bằng
+  /// giọng máy: không đọc lại từ đầu, không bỏ dở dòng.
+  Future<bool> _speakPreparedChunks({
+    required String text,
+    required String lang,
+    required int epoch,
+    required int maxChars,
+    required Future<_PreparedChunk?> Function(String chunk) prepare,
+    double? playbackSpeed,
+  }) async {
+    final chunks = chunkTextForTts(text, maxChars);
+    if (chunks.isEmpty) return false;
+
+    bool cancelled() => _stopRequested || isStaleEpoch(epoch);
+
+    // Không bao giờ ném: future "đoạn kế" có thể bị bỏ lại khi người dùng
+    // bấm Dừng — lỗi của nó không được thành lỗi không ai nhận.
+    Future<_PreparedChunk?> safePrepare(String chunk) async {
+      try {
+        return await prepare(chunk);
+      } catch (e) {
+        debugPrint('⚠️ TTS: không chuẩn bị được đoạn (${chunk.length} ký tự): $e');
+        return null;
+      }
+    }
+
+    Future<bool> play(_PreparedChunk chunk) {
+      final path = chunk.path;
+      if (path != null) {
+        return _playFile(path, epoch, playbackSpeed: playbackSpeed);
+      }
+      return _playUrl(chunk.url!, epoch);
+    }
+
+    Future<bool> finishWithSystemVoice(int from) async {
+      await _awaitLineFinished(epoch);
+      if (cancelled()) return true;
+      debugPrint(
+        '⚠️ TTS: engine hỏng ở đoạn ${from + 1}/${chunks.length} — đọc nốt '
+        'phần còn lại bằng giọng máy',
+      );
+      await _trySpeakOffline(chunks.sublist(from).join(' '), lang);
+      return true;
+    }
+
+    _usingOfflineEngine = false;
+    _isLoading = true;
+    _safeNotify();
+
+    var pending = safePrepare(chunks.first);
+    for (var i = 0; i < chunks.length; i++) {
+      var prepared = await pending;
+      if (cancelled()) {
+        _isLoading = false;
+        return i > 0;
+      }
+      // Chuẩn bị SẴN đoạn kế ngay bây giờ — nó chạy song song với lúc đoạn
+      // này phát (Piper/VieNeu tổng hợp trong worker isolate).
+      if (i + 1 < chunks.length) pending = safePrepare(chunks[i + 1]);
+
+      if (prepared == null) {
+        _isLoading = false;
+        _safeNotify();
+        if (i == 0) return false;
+        return finishWithSystemVoice(i);
+      }
+
+      if (i > 0) {
+        // Đoạn trước phải phát XONG (và không đang tạm dừng) mới tới đoạn này.
+        await _awaitLineFinished(epoch);
+        if (cancelled()) {
+          _isLoading = false;
+          return true;
+        }
+      }
+
+      _isLoading = false;
+      _lastUsedEngine = prepared.label;
+      _safeNotify();
+      var ok = await play(prepared);
+      if (!ok && prepared.fromCache && !cancelled()) {
+        // File cache hỏng ⇒ xoá và tổng hợp lại ĐÚNG MỘT lần. Bị Dừng thì
+        // không phải cache hỏng: không xoá file hợp lệ.
+        try {
+          await File(prepared.path!).delete();
+        } catch (_) {}
+        prepared = await safePrepare(chunks[i]);
+        if (cancelled()) return i > 0;
+        if (prepared != null && !prepared.fromCache) {
+          _lastUsedEngine = prepared.label;
+          _safeNotify();
+          ok = await play(prepared);
+        }
+      }
+      if (!ok) {
+        if (cancelled()) return i > 0;
+        if (i == 0) return false;
+        return finishWithSystemVoice(i);
+      }
+    }
+    return true;
+  }
+
   /// Thử phát bằng Sherpa Piper neural TTS.
   /// Trả về true nếu thành công, false nếu không có model / lỗi để tự động fallback.
+  ///
+  /// PSRC-187: đọc theo từng đoạn ≤ [kPiperTtsChunkChars] ([_speakPreparedChunks]).
   Future<bool> _trySpeakPiper(String text, String lang, int epoch, bool matchVoiceLanguage) async {
     try {
       final piper = PiperTtsEngine.instance;
       if (!await piper.isAvailable()) return false;
+      if (isStaleEpoch(epoch)) return false;
 
       // Cache theo đúng danh tính (engine + ngôn ngữ + giọng + tốc độ +
       // cao độ) — TTS-VOICE-CACHE-001.
-      final cached = await _cache.get(
+      final voiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      return await _speakPreparedChunks(
         text: text,
-        language: lang,
-        engineId: piper.id,
-        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
-        speed: _speed,
-        pitch: _pitch,
+        lang: lang,
+        epoch: epoch,
+        maxChars: kPiperTtsChunkChars,
+        prepare: (chunk) async {
+          final cached = await _cache.get(
+            text: chunk,
+            language: lang,
+            engineId: piper.id,
+            voiceId: voiceId,
+            speed: _speed,
+            pitch: _pitch,
+          );
+          if (cached != null) {
+            return _PreparedChunk.file(
+              cached,
+              '💾 Cache · Sherpa Piper',
+              fromCache: true,
+            );
+          }
+
+          final result = await piper.synthesize(
+            text: chunk,
+            language: lang,
+            speed: _speed,
+            pitch: _pitch,
+            voiceId: voiceId,
+          );
+          final audio = result.audioData;
+          if (!result.isSuccess || audio == null || audio.isEmpty) {
+            debugPrint('ℹ️ Sherpa Piper TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
+            return null;
+          }
+
+          final filePath = await _cache.put(
+            text: chunk,
+            language: lang,
+            engineId: piper.id,
+            audioData: audio,
+            voiceId: voiceId,
+            speed: _speed,
+            pitch: _pitch,
+          );
+          return _PreparedChunk.file(filePath, '🎙️ Sherpa Piper');
+        },
       );
-      if (isStaleEpoch(epoch)) return false;
-      if (cached != null) {
-        _lastUsedEngine = '💾 Cache · Sherpa Piper';
-        _safeNotify();
-        return await _playFile(cached, epoch);
-      }
-
-      _usingOfflineEngine = false;
-      _isLoading = true;
-      _safeNotify();
-
-      final result = await piper.synthesize(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
-      );
-
-      if (isStaleEpoch(epoch)) return false;
-      _isLoading = false;
-
-      if (!result.isSuccess ||
-          result.audioData == null ||
-          result.audioData!.isEmpty) {
-        debugPrint('ℹ️ Sherpa Piper TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
-        _safeNotify();
-        return false;
-      }
-
-      final filePath = await _cache.put(
-        text: text,
-        language: lang,
-        engineId: piper.id,
-        audioData: result.audioData!,
-        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
-        speed: _speed,
-        pitch: _pitch,
-      );
-
-      if (isStaleEpoch(epoch)) return false;
-      _lastUsedEngine = '🎙️ Sherpa Piper';
-      _safeNotify();
-      return await _playFile(filePath, epoch);
     } catch (e) {
       debugPrint('⚠️ Piper TTS error: $e, fallback tiếp');
       _isLoading = false;
       _safeNotify();
       return false;
     }
-  }
-
-  /// PSRC-187: kiểm tra _isSpeaking trước khi set true để tránh chồng phát khi
-  /// _playFile trước đó chưa được clear. Dùng kèm chunking để tránh OOM.
-  Future<List<bool>> _tryChunkedPlay(
-    String text,
-    String lang,
-    int epoch,
-    int maxChars,
-    Future<bool> Function(String chunk) playChunk,
-  ) async {
-    final chunks = _chunkTextForEngine(text, maxChars);
-    final results = <bool>[];
-    for (final chunk in chunks) {
-      if (_stopRequested || isStaleEpoch(epoch)) break;
-      // Chờ chunk trước phát xong trước khi phát chunk tiếp theo
-      if (results.isNotEmpty) {
-        await _awaitLineFinished(epoch);
-        if (_stopRequested || isStaleEpoch(epoch)) break;
-      }
-      final ok = await playChunk(chunk);
-      results.add(ok);
-      if (!ok) break;
-    }
-    return results;
   }
 
   /// Thử phát bằng VieNeu-TTS native (audio.cpp GGUF, on-device, chỉ tiếng Việt).
@@ -675,132 +767,62 @@ class TtsService extends ChangeNotifier {
       final selectedVariant = await getSelectedVieneuModelVariant();
       await vieneu.init(modelVariant: selectedVariant);
       if (!await vieneu.isAvailable()) return false;
+      if (isStaleEpoch(epoch)) return false;
 
       // Cache theo đúng danh tính (text + ngôn ngữ + engine + biến thể +
       // giọng + tốc độ/cao độ) — TTS-VOICE-CACHE-001.
-      final cached = await _cache.get(
+      final voiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      // PSRC-187: văn bản dài được chia đoạn (cùng một đường với Piper/online).
+      return await _speakPreparedChunks(
         text: text,
-        language: lang,
-        engineId: vieneu.id,
-        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
-        speed: _speed,
-        pitch: _pitch,
-        modelVariant: selectedVariant.name,
-      );
-      if (isStaleEpoch(epoch)) return false;
-      if (cached != null) {
-        _lastUsedEngine = '💾 Cache · VieNeu-TTS';
-        _safeNotify();
-        return await _playFile(cached, epoch);
-      }
-
-      _usingOfflineEngine = false;
-      _isLoading = true;
-      _safeNotify();
-
-      // PSRC-187: chunk văn bản dài để tránh OOM qua isolate (float list + base64).
-      final maxChars = vieneu.maxCharsPerRequest;
-      if (text.length > maxChars) {
-        final chunks = _chunkTextForEngine(text, maxChars);
-        var allOk = true;
-        for (var idx = 0; idx < chunks.length; idx++) {
-          if (_stopRequested || isStaleEpoch(epoch)) return false;
-          if (idx > 0) {
-            await _awaitLineFinished(epoch);
-            if (_stopRequested || isStaleEpoch(epoch)) return false;
-          }
-          final chunk = chunks[idx];
-          // Thử cache chunk trước
-          final chunkCached = await _cache.get(
+        lang: lang,
+        epoch: epoch,
+        maxChars: vieneu.maxCharsPerRequest,
+        prepare: (chunk) async {
+          final cached = await _cache.get(
             text: chunk,
             language: lang,
             engineId: vieneu.id,
-            voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+            voiceId: voiceId,
             speed: _speed,
             pitch: _pitch,
             modelVariant: selectedVariant.name,
           );
-          if (isStaleEpoch(epoch)) return false;
-          if (chunkCached != null) {
-            _lastUsedEngine = '💾 Cache · VieNeu-TTS';
-            _safeNotify();
-            final ok = await _playFile(chunkCached, epoch);
-            if (!ok) { allOk = false; break; }
-            continue;
+          if (cached != null) {
+            return _PreparedChunk.file(
+              cached,
+              '💾 Cache · VieNeu-TTS',
+              fromCache: true,
+            );
           }
-          _usingOfflineEngine = false;
-          _isLoading = true;
-          _safeNotify();
-          final chunkResult = await vieneu.synthesize(
+
+          final result = await vieneu.synthesize(
             text: chunk,
             language: lang,
             speed: _speed,
             pitch: _pitch,
-            voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+            voiceId: voiceId,
           );
-          if (isStaleEpoch(epoch)) return false;
-          _isLoading = false;
-          if (!chunkResult.isSuccess ||
-              chunkResult.audioData == null ||
-              chunkResult.audioData!.isEmpty) {
-            allOk = false;
-            break;
+          final audio = result.audioData;
+          if (!result.isSuccess || audio == null || audio.isEmpty) {
+            debugPrint(
+                'ℹ️ VieNeu-TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
+            return null;
           }
-          final chunkPath = await _cache.put(
+
+          final filePath = await _cache.put(
             text: chunk,
             language: lang,
             engineId: vieneu.id,
-            audioData: chunkResult.audioData!,
-            voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+            audioData: audio,
+            voiceId: voiceId,
             modelVariant: selectedVariant.name,
             speed: _speed,
             pitch: _pitch,
           );
-          if (isStaleEpoch(epoch)) return false;
-          _lastUsedEngine = '🇻🇳 VieNeu-TTS';
-          _safeNotify();
-          final ok = await _playFile(chunkPath, epoch);
-          if (!ok) { allOk = false; break; }
-        }
-        _isLoading = false;
-        return allOk;
-      }
-
-      final result = await vieneu.synthesize(
-        text: text,
-        language: lang,
-        speed: _speed,
-        pitch: _pitch,
-        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
+          return _PreparedChunk.file(filePath, '🇻🇳 VieNeu-TTS');
+        },
       );
-
-      if (isStaleEpoch(epoch)) return false;
-      _isLoading = false;
-
-      if (!result.isSuccess ||
-          result.audioData == null ||
-          result.audioData!.isEmpty) {
-        debugPrint(
-            'ℹ️ VieNeu-TTS không khả dụng cho $lang (${result.error}), fallback sang engine tiếp theo');
-        _safeNotify();
-        return false;
-      }
-
-      final filePath = await _cache.put(
-        text: text,
-        language: lang,
-        engineId: vieneu.id,
-        audioData: result.audioData!,
-        voiceId: matchVoiceLanguage ? null : _selectedVoiceId,
-        modelVariant: selectedVariant.name,
-        speed: _speed,
-        pitch: _pitch,
-      );
-
-      if (isStaleEpoch(epoch)) return false;
-      _lastUsedEngine = '🇻🇳 VieNeu-TTS';
-      _safeNotify();
-      return await _playFile(filePath, epoch);
     } catch (e) {
       debugPrint('⚠️ VieNeu-TTS error: $e, fallback tiếp');
       _isLoading = false;
@@ -1335,6 +1357,10 @@ class TtsService extends ChangeNotifier {
   /// [voiceOverride] — giọng ưu tiên cho engine này (TTS-EDGE-VOICE-001: Edge
   /// đọc giọng đã chọn theo ngôn ngữ từ [EdgeVoicePrefs]). `null` → dùng
   /// `_selectedVoiceId` chung (hành vi cũ cho Google/Zalo/FPT).
+  ///
+  /// PSRC-187: dòng dài được đọc theo từng đoạn ≤ [kOnlineTtsChunkChars]
+  /// ([_speakPreparedChunks]) — mỗi đoạn có hạn chờ 15 s riêng, nên một dòng
+  /// dài của tab Đọc không còn quá hạn rồi lặng lẽ rơi về engine khác.
   Future<bool> _trySpeakOnline(
     TtsEngine engine,
     String text,
@@ -1352,77 +1378,79 @@ class TtsService extends ChangeNotifier {
     );
     // Edge synthesizes the requested speed into SSML; do not apply it twice.
     final playbackSpeed = onlinePlaybackSpeed(engine.id, _speed);
-
-    // Cache theo đúng danh tính giọng — bản ghi của giọng khác KHÔNG được
-    // dùng lại (TTS-VOICE-CACHE-001).
-    final cached = await _cache.get(
-      text: text,
-      language: lang,
-      engineId: engine.id,
-      voiceId: voiceId,
-      speed: _speed,
-      pitch: _pitch,
-    );
-    if (isStaleEpoch(epoch)) return false;
-    if (cached != null) {
-      _lastUsedEngine = voiceId == null || voiceId.trim().isEmpty
-          ? '💾 Cache · ${engine.name}'
-          : '💾 Cache · ${engine.name} · ${_shortVoiceLabel(voiceId)}';
-      _safeNotify();
-      final ok = await _playFile(cached, epoch, playbackSpeed: playbackSpeed);
-      if (ok) return true;
-      // Cancellation is not a corrupt cache: never delete a valid file on Stop.
-      if (isStaleEpoch(epoch)) return false;
-      try {
-        await File(cached).delete();
-      } catch (_) {}
-    }
-
-    final hasNet = await _checkNetwork();
-    if (!hasNet || isStaleEpoch(epoch)) return false;
-
-    _isLoading = true;
-    _safeNotify();
+    final voiceLabel = voiceId == null || voiceId.trim().isEmpty
+        ? null
+        : _shortVoiceLabel(voiceId);
+    // Hỏi trạng thái mạng tối đa MỘT lần cho cả dòng (chỉ khi cache hụt).
+    bool? hasNetwork;
 
     try {
-      final result = await engine
-          .synthesize(
-            text: text,
-            language: lang,
-            speed: _speed,
-            pitch: _pitch,
-            voiceId: voiceId,
-          )
-          .timeout(const Duration(seconds: 15));
-
-      if (isStaleEpoch(epoch)) return false;
-      _isLoading = false;
-
-      if (result.isSuccess) {
-        if (result.audioData != null && result.audioData!.isNotEmpty) {
-          final filePath = await _cache.put(
-            text: text,
+      return await _speakPreparedChunks(
+        text: text,
+        lang: lang,
+        epoch: epoch,
+        maxChars: kOnlineTtsChunkChars,
+        playbackSpeed: playbackSpeed,
+        prepare: (chunk) async {
+          // Cache theo đúng danh tính giọng — bản ghi của giọng khác KHÔNG
+          // được dùng lại (TTS-VOICE-CACHE-001).
+          final cached = await _cache.get(
+            text: chunk,
             language: lang,
             engineId: engine.id,
-            audioData: result.audioData!,
             voiceId: voiceId,
             speed: _speed,
             pitch: _pitch,
           );
+          if (cached != null) {
+            return _PreparedChunk.file(
+              cached,
+              voiceLabel == null
+                  ? '💾 Cache · ${engine.name}'
+                  : '💾 Cache · ${engine.name} · $voiceLabel',
+              fromCache: true,
+            );
+          }
 
-          if (isStaleEpoch(epoch)) return false;
-          _lastUsedEngine = voiceId == null || voiceId.trim().isEmpty
-              ? '🌐 ${result.engineName}'
-              : '🌐 ${result.engineName} · ${_shortVoiceLabel(voiceId)}';
-          _safeNotify();
-          return await _playFile(filePath, epoch, playbackSpeed: playbackSpeed);
-        } else if (result.audioUrl != null) {
-          _lastUsedEngine = '🌐 ${result.engineName}';
-          _safeNotify();
-          return await _playUrl(result.audioUrl!, epoch);
-        }
-      }
-      return false;
+          hasNetwork ??= await _checkNetwork();
+          if (hasNetwork != true) return null;
+
+          final result = await engine
+              .synthesize(
+                text: chunk,
+                language: lang,
+                speed: _speed,
+                pitch: _pitch,
+                voiceId: voiceId,
+              )
+              .timeout(const Duration(seconds: 15));
+          if (!result.isSuccess) return null;
+
+          final audio = result.audioData;
+          if (audio != null && audio.isNotEmpty) {
+            final filePath = await _cache.put(
+              text: chunk,
+              language: lang,
+              engineId: engine.id,
+              audioData: audio,
+              voiceId: voiceId,
+              speed: _speed,
+              pitch: _pitch,
+            );
+            return _PreparedChunk.file(
+              filePath,
+              voiceLabel == null
+                  ? '🌐 ${result.engineName}'
+                  : '🌐 ${result.engineName} · $voiceLabel',
+            );
+          }
+          final url = result.audioUrl;
+          if (url != null) {
+            return _PreparedChunk.url(url, '🌐 ${result.engineName}');
+          }
+          return null;
+        },
+      );
     } catch (e) {
       debugPrint('❌ Online ${engine.name} error: $e');
       _isLoading = false;
@@ -1434,6 +1462,9 @@ class TtsService extends ChangeNotifier {
   /// Prefetch: tải online ở nền để cache cho lần sau
   void _prefetchOnline(String text, String lang, {bool matchVoiceLanguage = false}) {
     if (_isPrefetching) return;
+    // PSRC-187: dòng dài được phát (và cache) theo TỪNG ĐOẠN — bản ghi của
+    // cả dòng không bao giờ khớp khoá cache nữa ⇒ đừng tải cho phí mạng.
+    if (text.length > kOnlineTtsChunkChars) return;
     _isPrefetching = true;
 
     Future(() async {
@@ -1947,35 +1978,6 @@ class TtsService extends ChangeNotifier {
     }
   }
 
-  /// Chia văn bản dài thành chunks theo giới hạn ký tự của engine, ưu tiên cắt
-  /// tại ranh giới câu / từ để không vỡ từ. PSRC-187: TtsService trước đây
-  /// truyền nguyên văn bản dài (PDF dòng dài / toàn trang) vào VieNeu isolate
-  /// (float list + base64) gây OOM / crash native.
-  List<String> _chunkTextForEngine(String text, int maxChars) {
-    if (text.length <= maxChars) return [text];
-    final chunks = <String>[];
-    var remaining = text;
-    final sentenceEnd = RegExp(r'[.!?;。！？\n]+');
-    while (remaining.length > maxChars) {
-      var cutAt = remaining.lastIndexOf(RegExp(r'\s'), maxChars);
-      // Ưu tiên cắt tại dấu kết thúc câu trong 80%–100% cửa sổ
-      final windowStart = (maxChars * 0.5).toInt();
-      final window = remaining.substring(windowStart, maxChars);
-      final match = sentenceEnd.allMatches(window);
-      if (match.isNotEmpty) {
-        final last = match.last;
-        cutAt = windowStart + last.end;
-      } else if (cutAt <= 0) {
-        cutAt = maxChars; // không có khoảng trắng — cắt cứng
-      }
-      chunks.add(remaining.substring(0, cutAt).trim());
-      remaining = remaining.substring(cutAt).trim();
-      if (remaining.isEmpty) break;
-    }
-    if (remaining.isNotEmpty) chunks.add(remaining);
-    return chunks;
-  }
-
   Future<void> waitForCompletion() => _waitForCompletion();
 
   Future<void> _waitForCompletion() async {
@@ -2074,4 +2076,30 @@ class TtsService extends ChangeNotifier {
     VieneuTtsEngine.instance.dispose();
     super.dispose();
   }
+}
+
+/// Một đoạn văn bản đã có sẵn âm thanh — file trong cache hoặc URL stream —
+/// chờ tới lượt phát (PSRC-187, xem `TtsService._speakPreparedChunks`).
+class _PreparedChunk {
+  const _PreparedChunk.file(
+    String this.path,
+    this.label, {
+    this.fromCache = false,
+  }) : url = null;
+
+  const _PreparedChunk.url(String this.url, this.label)
+      : path = null,
+        fromCache = false;
+
+  /// File âm thanh (cache) — `null` khi là URL.
+  final String? path;
+
+  /// URL stream — `null` khi là file.
+  final String? url;
+
+  /// Nhãn engine hiện cho người dùng (`lastUsedEngine`).
+  final String label;
+
+  /// File lấy từ cache (phát hỏng thì được xoá + tổng hợp lại một lần).
+  final bool fromCache;
 }

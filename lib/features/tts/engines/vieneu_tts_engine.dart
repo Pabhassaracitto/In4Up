@@ -299,6 +299,17 @@ class VieneuTtsEngine implements TtsEngine {
     }
     await _rememberPaths(model);
 
+    // PSRC-187 (audit 1.27.0): bản cài KHÔNG có thư viện native thì dừng ở
+    // đây — không quét thư mục giọng và không gọi `_core.init` ở mỗi câu đọc;
+    // `TtsService` chuyển sang engine kế tiếp. (`VieneuTtsCore.init` cũng tự
+    // chặn trước khi spawn worker; kết quả dò thư viện được nhớ nên phép hỏi
+    // này không tốn gì.)
+    if (!await VieneuTtsCore.isNativeLibraryAvailable()) {
+      _initialized = false;
+      _workerVoiceId = null;
+      return;
+    }
+
     // Bản đồ giọng phải được quét TRƯỚC khi init để worker nhận đúng
     // ref_codes/speaker.emb của giọng mẫu hoặc giọng clone.
     await getAvailableVoices('vi-VN');

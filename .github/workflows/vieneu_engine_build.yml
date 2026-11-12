@@ -76,16 +76,47 @@ jobs:
           echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
           echo "NDK: $NDK_DIR — $(grep Pkg.Revision "$NDK_DIR/source.properties")"
 
+      - name: Toolchain versions (chẩn đoán)
+        run: |
+          rustc --version; cargo --version; cargo ndk --version || true
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/" || true
+
+      # Kiểm crate có biên dịch được với C ABI trên HOST trước (nhanh, tách lỗi
+      # crate khỏi lỗi cross-compile). Không dùng để đóng gói.
+      - name: Host check SEA-G2P (capi) — tách lỗi crate khỏi lỗi NDK
+        shell: bash
+        run: |
+          set +e
+          cargo build --release --locked \
+            --manifest-path third_party/sea-g2p/Cargo.toml \
+            --no-default-features --features capi > /tmp/g2p_host.log 2>&1
+          code=$?
+          tail -30 /tmp/g2p_host.log
+          if [ "$code" != "0" ]; then
+            errs=$(grep -nE "^error|error\[|cannot find|failed|panicked|Caused by" /tmp/g2p_host.log | head -25 | cut -c1-300 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=SEA-G2P host build::${errs:-exit=$code}"
+            exit "$code"
+          fi
+
       # SEA-G2P là thư viện Rust (C ABI) — không có bản Android dựng sẵn, phải
       # cross-compile. Chép vào jniLibs để audio.cpp `dlopen` theo tên.
       - name: Build SEA-G2P (C ABI) cho arm64-v8a
+        shell: bash
         run: |
-          set -euo pipefail
+          set +e
           mkdir -p android/app/src/main/jniLibs
           cargo ndk -t arm64-v8a -o android/app/src/main/jniLibs \
             build --release --locked \
             --manifest-path third_party/sea-g2p/Cargo.toml \
-            --no-default-features --features capi
+            --no-default-features --features capi > /tmp/g2p_build.log 2>&1
+          code=$?
+          tail -40 /tmp/g2p_build.log
+          if [ "$code" != "0" ]; then
+            errs=$(grep -nE "^error|error\[|cannot find|failed|panicked|Caused by|error:" /tmp/g2p_build.log | head -25 | cut -c1-300 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=SEA-G2P build::${errs:-exit=$code}"
+            exit "$code"
+          fi
           ls -l android/app/src/main/jniLibs/arm64-v8a/
 
       - name: Prepare google-services.json (secret; fallback mock để build)
@@ -144,5 +175,7 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/*.apk
             /tmp/vieneu_build.log
+            /tmp/g2p_host.log
+            /tmp/g2p_build.log
           retention-days: 7
           if-no-files-found: ignore

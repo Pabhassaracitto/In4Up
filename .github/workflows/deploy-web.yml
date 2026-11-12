@@ -25,6 +25,10 @@ on:
       # Private integration/validation: do not publish or cancel another
       # Pages deployment while testing the six-axis vocabulary changes.
       - '!arena/075510c6-in4up'
+      # BETA-1.29.0 (docs/project/BETA-1.29.0.md): nhánh tổng hợp 9 lane audit
+      # 1.28.0 — KHÔNG tự publish bản chưa kiểm lên Pages. Cần xem web của beta:
+      # chạy workflow_dispatch trên nhánh này (dispatch không bị luật này chặn).
+      - '!arena/60e35d65-in4up'
   workflow_dispatch:
 
 permissions:

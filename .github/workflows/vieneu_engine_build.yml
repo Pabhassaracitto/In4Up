@@ -106,10 +106,16 @@ jobs:
         run: |
           set +e
           mkdir -p android/app/src/main/jniLibs
-          cargo ndk -t arm64-v8a -o android/app/src/main/jniLibs \
-            build --release --locked \
-            --manifest-path third_party/sea-g2p/Cargo.toml \
-            --no-default-features --features capi > /tmp/g2p_build.log 2>&1
+          # cargo-ndk đọc `cargo metadata` từ THƯ MỤC HIỆN TẠI (không theo
+          # --manifest-path) ⇒ phải cd vào crate rồi mới gọi; -o dùng đường
+          # dẫn tuyệt đối để không phụ thuộc cwd.
+          (
+            cd third_party/sea-g2p
+            cargo ndk -t arm64-v8a \
+              -o "$GITHUB_WORKSPACE/android/app/src/main/jniLibs" \
+              build --release --locked \
+              --no-default-features --features capi
+          ) > /tmp/g2p_build.log 2>&1
           code=$?
           tail -40 /tmp/g2p_build.log
           if [ "$code" != "0" ]; then

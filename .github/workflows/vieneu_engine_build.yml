@@ -117,8 +117,8 @@ jobs:
           code=$?
           tail -30 /tmp/g2p_host.log
           if [ "$code" != "0" ]; then
-            errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/g2p_host.log 25 20)"
-            echo "::error title=SEA-G2P host build::${errs:-exit=$code}"
+            python3 scripts/ci/emit_failure_annotation.py \
+              /tmp/g2p_host.log "SEA-G2P host build" 2 || true
             exit "$code"
           fi
 
@@ -142,8 +142,8 @@ jobs:
           code=$?
           tail -40 /tmp/g2p_build.log
           if [ "$code" != "0" ]; then
-            errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/g2p_build.log 25 20)"
-            echo "::error title=SEA-G2P build::${errs:-exit=$code}"
+            python3 scripts/ci/emit_failure_annotation.py \
+              /tmp/g2p_build.log "SEA-G2P build" 2 || true
             exit "$code"
           fi
           ls -l android/app/src/main/jniLibs/arm64-v8a/
@@ -211,8 +211,9 @@ jobs:
             # từ sandbox ⇒ annotation là kênh DUY NHẤT đọc được lỗi). Script mã
             # hoá %0A đúng thứ tự — bản sed cũ để lọt newline thật nên GitHub chỉ
             # hiện dòng đầu ("What went wrong:").
-            errs="$(python3 scripts/ci/emit_failure_annotation.py /tmp/vieneu_build.log 60 30)"
-            echo "::error title=VieNeu engine build::${errs:-exit=$code}" || true
+            # 4 phần × ~3.8 KB: một annotation bị GitHub cắt quanh 4096 ký tự.
+            python3 scripts/ci/emit_failure_annotation.py \
+              /tmp/vieneu_build.log "VieNeu engine build" 4 || true
           fi
           exit "$code"
 

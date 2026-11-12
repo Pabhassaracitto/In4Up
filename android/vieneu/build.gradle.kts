@@ -30,6 +30,13 @@ android {
             cmake {
                 // c++_static giống :app — tránh phụ thuộc libc++_shared.so của Flutter.
                 arguments += listOf("-DANDROID_STL=c++_static")
+
+                // CHỈ hai target cần cho app. Mặc định AGP build MỌI target trong
+                // project ⇒ kéo cả audiocpp_cli / audiocpp_server / model_perf, và
+                // app/workflow/workflow.cpp dùng `posix_spawnp` (chỉ có từ API 28,
+                // minSdk của app là 24) ⇒ run 43323259962 đỏ:
+                //   workflow.cpp:392: error: use of undeclared identifier 'posix_spawnp'
+                targets += listOf("audiocpp", "vieneu_tts")
             }
         }
 

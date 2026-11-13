@@ -12,6 +12,7 @@ import '../../features/shadowing/models/shadowing_result.dart';
 import '../../features/shadowing/providers/shadowing_provider.dart';
 import '../../features/shadowing/services/lrc_ab_suggestions.dart';
 import '../../features/shadowing/widgets/shadowing_sentence_picker.dart';
+import '../../features/shadowing/widgets/shadowing_analysis_notice.dart';
 import 'package:in4up_stt/stt_lrc_converter.dart' show LrcLine;
 import '../../features/shadowing/widgets/pronunciation_result.dart';
 import '../../models/waveform_data.dart';
@@ -715,6 +716,10 @@ class _UnderstandModeScreenState extends State<UnderstandModeScreen>
           _buildLoopInfoCard(player, shadowing, loopText),
           const SizedBox(height: 24),
           _buildControlButtons(player, shadowing, loopText),
+          if (shadowing.analysisError != null) ...[
+            const SizedBox(height: 12),
+            ShadowingAnalysisNotice(code: shadowing.analysisError!),
+          ],
           if (shadowing.userRecordingPath != null &&
               (shadowing.state == ShadowingState.idle ||
                   shadowing.state == ShadowingState.showingResults)) ...[

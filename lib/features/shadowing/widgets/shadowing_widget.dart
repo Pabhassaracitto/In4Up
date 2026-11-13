@@ -10,6 +10,7 @@ import '../../../screens/understand_mode/understand_provider.dart';
 import '../../shadowing/models/shadowing_result.dart';
 import '../providers/shadowing_provider.dart';
 import '../services/lrc_ab_suggestions.dart';
+import 'shadowing_analysis_notice.dart';
 import 'shadowing_sentence_picker.dart';
 import 'waveform_comparison_painter.dart';
 
@@ -289,6 +290,10 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
           if (missingSource) ...[
             const SizedBox(height: 12),
             _buildMissingSourceBanner(context),
+          ],
+          if (shadowing.analysisError != null) ...[
+            const SizedBox(height: 12),
+            ShadowingAnalysisNotice(code: shadowing.analysisError!),
           ],
 
           // Vùng đang luyện: đoạn A-B hoặc toàn bài.

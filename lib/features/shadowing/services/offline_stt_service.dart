@@ -3,7 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:in4up_stt/in4up_stt.dart';
 
-/// Adapter tương thích ngược - dùng SttServiceFacade bên trong
+/// Adapter tương thích ngược - dùng SttServiceFacade bên trong.
 class OfflineSTTService {
   static final _facade = SttServiceFacade();
   static bool _initialized = false;
@@ -15,11 +15,9 @@ class OfflineSTTService {
     debugPrint('✅ OfflineSTTService (via SttFacade) initialized');
   }
 
-  /// Transcribe audio file - thay simulation bằng engine thật
-  static Future<String> transcribe(
-    String audioPath,
-    String originalText, // Giữ để tương thích - không dùng nữa
-  ) async {
+  /// PSRC-227: never substitute the reference sentence for a failed/empty STT
+  /// result. A null return means "not recognized", not "the user read perfectly".
+  static Future<String?> transcribe(String audioPath) async {
     if (!_initialized) await initialize();
 
     try {
@@ -28,14 +26,15 @@ class OfflineSTTService {
         config: SttConfig.quickNote,
       );
 
-      if (output.success && output.result.fullText.isNotEmpty) {
+      if (output.success && output.result.fullText.trim().isNotEmpty) {
         debugPrint('🎤 Real STT: "${output.result.fullText}"');
         return output.result.fullText;
       }
-      return originalText;
+      debugPrint('⚠️ Shadowing STT returned no usable transcript');
+      return null;
     } catch (e) {
       debugPrint('❌ OfflineSTTService.transcribe error: $e');
-      return originalText;
+      return null;
     }
   }
 

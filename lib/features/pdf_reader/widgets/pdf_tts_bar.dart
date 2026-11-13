@@ -224,6 +224,19 @@ class PdfTtsBar extends StatelessWidget {
                 : null,
           ),
           const SizedBox(width: 6),
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.tune, color: Colors.white70),
+            onSelected: (value) => value == 0
+                ? controller.toggleKaraoke() : controller.toggleFollow(),
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem(value: 0,
+                checked: controller.followPolicy.karaoke,
+                child: Text(context.uiText('Đánh dấu câu đang đọc'))),
+              CheckedPopupMenuItem(value: 1,
+                checked: controller.followPolicy.autoScroll,
+                child: Text(context.uiText('Tự cuộn theo câu đọc'))),
+            ],
+          ),
           // Auto-advance trang — đọc liên tục như audiobook.
           _BarBtn(
             icon: controller.ttsAutoAdvance

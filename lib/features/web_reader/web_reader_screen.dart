@@ -1,9 +1,11 @@
+import 'js/reader_follow_js.dart';
 // ignore_for_file: use_build_context_synchronously
 //
 // ★ FIX WINDOWS: dùng webview_win_floating (như YouGlishWidget)
 //   thay vì placeholder text "đang được phát triển"
 // Android: giữ nguyên webview_flutter
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -93,6 +95,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     final colorModeChanged = _controller.colorMode != _lastColorMode;
     final highlightChanged =
         _controller.highlightVersion != _lastHighlightVersion;
+    unawaited(_runJS(readerFollowScript(
+      _controller.articleCues.map((cue) => cue.text).toList(),
+      _controller.articleCueIndex,
+      karaoke: _controller.followPolicy.karaoke,
+      autoScroll: _controller.followPolicy.autoScroll,
+    )));
+    setState(() {});
     final audioChanged = _controller.isSpeaking != _lastSpeaking ||
         _controller.isPaused != _lastPaused;
     if (audioChanged) {
@@ -1367,6 +1376,16 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       color: const Color(0xFF172033),
       child: Row(
         children: [
+          IconButton(
+            tooltip: context.uiText('Đánh dấu câu đang đọc'),
+            icon: Icon(Icons.highlight, color: _controller.followPolicy.karaoke ? Colors.amber : Colors.grey),
+            onPressed: _controller.toggleKaraoke,
+          ),
+          IconButton(
+            tooltip: context.uiText('Tự cuộn theo câu đọc'),
+            icon: Icon(Icons.unfold_more, color: _controller.followPolicy.autoScroll ? Colors.amber : Colors.grey),
+            onPressed: _controller.toggleFollow,
+          ),
           const Icon(Icons.headphones, color: Color(0xFFFFB74D), size: 20),
           const SizedBox(width: 9),
           Expanded(

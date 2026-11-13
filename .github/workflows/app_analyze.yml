@@ -1401,6 +1401,36 @@ jobs:
           path: vieneu_contract_test.log
           if-no-files-found: ignore
 
+      # BETA-1.29.0 · lane L7 (PSRC-204, PSRC-222): khoá nơi lưu mặc định In4Up,
+      # nút "Đổi…" từng lần xuất, phục hồi khi mất quyền SAF, ghi nguyên tử .part
+      # và luồng "Mở bằng in4up" (copy URI vào bộ nhớ app + định tuyến theo loại tệp).
+      - name: "BETA-1.29.0 / L7 — file export destination & open-with contract"
+        id: l7-files-contract
+        timeout-minutes: 4
+        if: always() && steps.analyze.outcome != 'cancelled'
+        run: |
+          set +e
+          flutter test test/files -r expanded > l7_files_test.log 2>&1
+          code=$?
+          cat l7_files_test.log
+          if [ "$code" -ne 0 ]; then
+            sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\r//g; s/\x08//g' \
+              l7_files_test.log > l7_files_clean.log || true
+            grep -nE -B2 -A10 'Expected:|Actual:|\[E\]|Some tests failed|Exception|Error:' \
+              l7_files_clean.log | head -120 | while IFS= read -r line; do
+              echo "::error title=L7 files contract fail::$line"
+            done || true
+          fi
+          exit $code
+
+      - name: Upload L7 files contract test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-l7-files-test-log
+          path: l7_files_test.log
+          if-no-files-found: ignore
+
       # ⚠ KHÔNG nối `test/workspace_shell_integration_test.dart` vào CI (2026-10-25):
       # lần nối đầu (run 40229976121) nó TREO >8 phút ở `flutter test` (widget +
       # Hive) — dù đã bọc `timeout-minutes` + `--timeout` thì nó vẫn ăn hết ngân

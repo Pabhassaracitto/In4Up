@@ -7,6 +7,8 @@
 // phần "khó đúng": chọn tham số codec, ước lượng dung lượng, đặt tên file,
 // ánh xạ lỗi FFmpeg → thông báo cho người dùng.
 
+import '../../../core/files/export_destination.dart';
+
 /// Preset xuất file. Mỗi preset = (phần mở rộng, tham số codec, bitrate ước
 /// lượng). `bitrateKbps == null` nghĩa là bitrate lấy từ nguồn (chế độ copy).
 enum MediaExportPreset {
@@ -149,6 +151,7 @@ class MediaExportRequest {
     this.title,
     this.keepLrc = true,
     this.registerInRecent = true,
+    this.destination,
   });
 
   /// Đường dẫn FILE THẬT (đã "materialize" nếu nguồn là `content://`).
@@ -176,6 +179,11 @@ class MediaExportRequest {
   /// Thêm kết quả vào "Gần đây" của tab Nghe.
   final bool registerInRecent;
 
+  /// PSRC-204 / ADR-0029: Đích lưu công khai đã chọn cho lần xuất này
+  /// (`Download/In4Up`, `On My iPhone/In4Up`, `~/Downloads/In4Up` hoặc thư mục
+  /// SAF/custom từ nút "Đổi…"). `null` = dùng mặc định của hồ sơ.
+  final ExportDestination? destination;
+
   MediaExportRequest copyWith({
     String? inputPath,
     MediaExportPreset? preset,
@@ -187,6 +195,7 @@ class MediaExportRequest {
     String? title,
     bool? keepLrc,
     bool? registerInRecent,
+    ExportDestination? destination,
   }) {
     return MediaExportRequest(
       inputPath: inputPath ?? this.inputPath,
@@ -199,6 +208,7 @@ class MediaExportRequest {
       title: title ?? this.title,
       keepLrc: keepLrc ?? this.keepLrc,
       registerInRecent: registerInRecent ?? this.registerInRecent,
+      destination: destination ?? this.destination,
     );
   }
 }
@@ -296,6 +306,10 @@ class MediaExportResult {
     required this.sizeBytes,
     this.lrcPaths = const [],
     this.warnings = const [],
+    this.destination,
+    this.publicDisplayPaths = const [],
+    this.primaryFileUri,
+    this.primaryPublicLocalPath,
   });
 
   /// Một đường dẫn (xuất cả file / 1 clip) hoặc nhiều (tách chương).
@@ -308,7 +322,29 @@ class MediaExportResult {
   /// Cảnh báo không chặn (ví dụ: "phải mã hoá lại vì khác tần số lấy mẫu").
   final List<String> warnings;
 
+  /// PSRC-204 / ADR-0029: Đích lưu công khai đã nhận tệp xuất.
+  final ExportDestination? destination;
+
+  /// Đường dẫn hiển thị thân thiện của từng tệp đã xuất (ví dụ
+  /// `Download/In4Up/clip.mp3`).
+  final List<String> publicDisplayPaths;
+
+  /// URI của tệp xuất đầu tiên (`content://...` trên MediaStore/SAF hoặc `file://`).
+  final String? primaryFileUri;
+
+  /// Đường dẫn tệp cục bộ tại đích công khai (khi có thể mở thẳng trong Explorer/Finder).
+  final String? primaryPublicLocalPath;
+
   String get primaryPath => outputPaths.isEmpty ? '' : outputPaths.first;
+
+  String get primaryDisplayPath {
+    if (publicDisplayPaths.isNotEmpty) return publicDisplayPaths.first;
+    if (destination != null && outputPaths.isNotEmpty) {
+      final name = outputPaths.first.replaceAll(r'\', '/').split('/').last;
+      return '${destination!.displayPath}/$name';
+    }
+    return primaryPath;
+  }
 
   bool get isEmpty => outputPaths.isEmpty;
 }

@@ -41,6 +41,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- PSRC-204 / ADR-0029: hiển thị thư mục Documents/In4Up trong ứng dụng
+	     Tệp (Files → On My iPhone/In4Up) để người dùng thấy tệp xuất ngay. -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>In4Up dùng camera để chụp ảnh minh họa cho từ vựng.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

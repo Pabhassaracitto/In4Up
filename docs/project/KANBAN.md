@@ -9805,7 +9805,7 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 
 ### DICT-SOURCE-001 — Giữ mục từ khi mở rộng và xem riêng theo nguồn
 
-- **Trạng thái:** doing — code đợt đầu; chưa nghiệm thu CI/máy thật.
+- **Trạng thái:** doing — code đợt đầu + CI xanh; chưa nghiệm thu máy thật.
 - **Nguồn:** owner 2026-11-09: chất lượng hiển thị MDX/SQLite, tra nhanh có
   nghĩa nhưng mở chi tiết đôi khi mất hoặc thiếu nội dung; thống nhất làm giai
   đoạn trước mắt, chưa quyết định MDX trực tiếp.
@@ -9816,3 +9816,4 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
   kết, lỗi DB và mức dung lượng, kiểm tra các đường mở chi tiết còn lại. Xem ADR.
 - **Lịch sử:**
   - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | rebase 251e `d23341a`, code + test + ADR; chờ CI và thiết bị.
+  - 2026-11-09 | doing→doing | agent arena/9f88ef61-in4up | CI run 43482984172 xanh trên `5680958`; còn renderer CSS/MDD và QA bộ thật.

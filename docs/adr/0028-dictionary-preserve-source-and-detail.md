@@ -1,6 +1,6 @@
 # ADR-0028 — I4U Dictionary: giữ nguồn, tra nhanh và xem theo từng bộ
 
-- Ngày: 2026-11-09. Trạng thái: **triển khai từng phần; chưa nghiệm thu CI/thiết bị**.
+- Ngày: 2026-11-09. Trạng thái: **triển khai từng phần; CI xanh, chưa nghiệm thu thiết bị/bộ từ điển thật**.
 - Owner đồng ý làm khuyến nghị trước mắt; giai đoạn MDX trực tiếp + SQLite chỉ mục
   để xét sau khi bản hiện tại tốt, **không mặc nhiên triển khai**.
 
@@ -66,3 +66,16 @@ Các test `test/dictionary/mdx_parser_test.dart`, `dict_source_entries_test.dart
 `test/word_lookup/word_insight_service_test.dart` bao phủ fixture tổng hợp và
 trường hợp giữ entries. Phải chạy Flutter analyze/tests + CI và QA máy thật;
 không dùng test giả như bằng chứng đã hỗ trợ MDD/CSS hoặc mọi bộ MDX.
+
+## Cập nhật CI 2026-11-09
+
+- `5f3fe0c`: CI phát hiện test sheet cũ bị ảnh hưởng vì từ khóa lặp trong
+  tiêu đề nguồn. `5680958` bỏ phần lặp; không thay đổi dữ liệu mục từ.
+- Run [43482984172](https://github.com/Pabhassaracitto/In4Up/actions/runs/43482984172)
+  xanh trên `5680958`: analyze, Rule 5, DICT-CLEAN/WORD-INSIGHT, I4U18
+  scanner/MDX và các job trong run. Flutter SDK không có trong sandbox; kết quả
+  là CI, không phải máy thật.
+- `python3 tool/generate_legacy_ui_fallbacks.py` tại tip 251e gặp 853 override
+  không khớp nguồn đã review; không sửa catalog hàng loạt trong đợt này. Chuỗi
+  mới được đưa vào priority native pack và sinh bằng generator của pack; CI Rule
+  5 xanh. Không suy diễn generator legacy đã sạch.

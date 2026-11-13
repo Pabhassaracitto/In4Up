@@ -222,3 +222,208 @@ String formatVieneuDictionarySize(int bytes) {
   final mb = bytes / (1024 * 1024);
   return '${mb.toStringAsFixed(1).replaceAll('.', ',')} MB';
 }
+
+// ─── Nạp model: kiểm file + biến thể thật (PSRC-214/215, 1.29.0) ────────────
+//
+// Trước 1.29, mọi lối import model đều copy file người dùng chọn vào
+// `vieneu_tts/<tên biến thể UI đang chọn>.gguf` rồi báo THÀNH CÔNG ngay —
+// không kiểm đó có phải GGUF, không kiểm dung lượng, và không kiểm engine có
+// nạp được. Hệ quả đúng như audit v1.28.0:
+//
+//   * PSRC-214 — "mục import phía trên không nhận model": nút Import trên
+//     từng dòng biến thể ghi file theo biến thể của DÒNG đó, không theo file
+//     thật ⇒ (a) tệp chọn nhầm vẫn được nhận, (b) tệp đúng bị lưu dưới tên
+//     biến thể khác nên dòng tương ứng vẫn báo "Chưa import".
+//   * PSRC-215 — "import thành công nhưng thiếu engine": chỉ copy file là
+//     xong, dù engine còn thiếu `sea_g2p.bin` / thư viện native.
+//
+// Vì vậy quyết định biến thể + kiểm file nằm ở ĐÂY (thuần logic, test được),
+// dùng chung cho service (copy), engine (probe) và UI (thông điệp).
+
+/// 4 byte đầu của mọi file GGUF: ASCII `GGUF`.
+const List<int> vieneuGgufMagic = <int>[0x47, 0x47, 0x55, 0x46];
+
+/// Dung lượng tối thiểu của một model VieNeu thật: Q8_0 ≈ 188 MB,
+/// bf16 ≈ 292 MB ⇒ 32 MiB chỉ chặn file tải hụt / file rác, không chặn biến
+/// thể nào đang hỗ trợ.
+const int vieneuModelMinBytes = 32 * 1024 * 1024;
+
+/// Vì sao một tệp không dùng làm model được (`null` = dùng được).
+enum VieneuModelFileProblem {
+  /// Không phải đuôi `.gguf`.
+  missingExtension,
+
+  /// Tệp rỗng (0 byte) hoặc không đọc được.
+  empty,
+
+  /// Nhỏ hơn [vieneuModelMinBytes] — gần như chắc chắn là file tải hụt.
+  tooSmall,
+
+  /// Thiếu chữ ký `GGUF` ở 4 byte đầu — không phải model GGUF.
+  notGguf,
+}
+
+/// 4 byte đầu có đúng chữ ký `GGUF` không?
+bool hasVieneuGgufMagic(List<int> head) {
+  if (head.length < vieneuGgufMagic.length) return false;
+  for (var i = 0; i < vieneuGgufMagic.length; i++) {
+    if (head[i] != vieneuGgufMagic[i]) return false;
+  }
+  return true;
+}
+
+/// Soi một model từ dữ liệu ĐÃ đọc (đuôi, dung lượng, 4 byte đầu).
+///
+/// [head] rỗng ⇒ bỏ qua phép kiểm chữ ký (dùng khi nền tảng không đọc được
+/// byte đầu, ví dụ SAF chỉ trả luồng đã đóng). Trả `null` khi tệp dùng được.
+VieneuModelFileProblem? inspectVieneuModelHead({
+  required String path,
+  required int bytes,
+  List<int> head = const <int>[],
+}) {
+  if (p.extension(path).toLowerCase() != '.gguf') {
+    return VieneuModelFileProblem.missingExtension;
+  }
+  if (bytes <= 0) return VieneuModelFileProblem.empty;
+  if (bytes < vieneuModelMinBytes) return VieneuModelFileProblem.tooSmall;
+  if (head.isNotEmpty && !hasVieneuGgufMagic(head)) {
+    return VieneuModelFileProblem.notGguf;
+  }
+  return null;
+}
+
+/// Câu nguồn (tiếng Việt) cho từng lỗi tệp model — UI dịch qua `context.uiText`
+/// nên mọi key ở đây phải có trong `tool/priority_native_pack.json` (8 locale).
+String vieneuModelFileProblemMessage(VieneuModelFileProblem problem) {
+  switch (problem) {
+    case VieneuModelFileProblem.missingExtension:
+      return 'Tệp đã chọn không phải .gguf';
+    case VieneuModelFileProblem.empty:
+      return 'Tệp đã chọn rỗng — có thể quá trình tải/chép bị lỗi';
+    case VieneuModelFileProblem.tooSmall:
+      return 'Tệp .gguf quá nhỏ (dưới 32 MB) — có thể tải hụt, tải lại rồi import';
+    case VieneuModelFileProblem.notGguf:
+      return 'Tệp không phải model GGUF hợp lệ (thiếu chữ ký GGUF) — kiểm tra lại nguồn tải';
+  }
+}
+
+// ─── Engine chưa chạy được: vì sao (PSRC-216, 1.29.0) ──────────────────────
+//
+// Trước 1.29 engine `return` im lặng ở mọi nhánh thiếu (model / native /
+// `sea_g2p.bin`) và UI chỉ nói câu chung "kiểm tra file gguf và thư viện
+// native". Ba câu trả lời khác nhau hoàn toàn nhưng cùng một thông báo ⇒
+// người dùng không biết phải làm gì. Enum + câu nguồn dưới đây là MỘT nguồn
+// sự thật cho engine, service và UI.
+
+/// Mảnh còn thiếu để engine VieNeu đọc được — theo ĐÚNG thứ tự engine kiểm.
+enum VieneuEngineBlocker {
+  /// Chưa import model `.gguf` nào.
+  noModel,
+
+  /// Có file nhưng không dùng được (hỏng / không phải GGUF / quá nhỏ).
+  modelUnreadable,
+
+  /// Bản cài không đóng gói `libvieneu_tts.so` (ví dụ bản desktop).
+  noNativeLibrary,
+
+  /// Model chỉ nhận phoneme: thiếu `sea_g2p.bin` thì không đọc được câu nào.
+  noPhonemeDictionary,
+}
+
+/// Suy ra chặn ĐẦU TIÊN theo đúng thứ tự engine kiểm (rẻ → đắt).
+VieneuEngineBlocker? firstVieneuEngineBlocker({
+  required bool hasModel,
+  required bool nativeLibrary,
+  required bool phonemeDictionary,
+  VieneuModelFileProblem? modelProblem,
+}) {
+  if (!hasModel) return VieneuEngineBlocker.noModel;
+  if (modelProblem != null) return VieneuEngineBlocker.modelUnreadable;
+  if (!nativeLibrary) return VieneuEngineBlocker.noNativeLibrary;
+  if (!phonemeDictionary) return VieneuEngineBlocker.noPhonemeDictionary;
+  return null;
+}
+
+/// Câu nguồn cho từng chặn (key dịch 8 locale; không nội suy giá trị).
+String vieneuEngineBlockerMessage(VieneuEngineBlocker blocker) {
+  switch (blocker) {
+    case VieneuEngineBlocker.noModel:
+      return 'Chưa import model VieNeu-TTS (.gguf)';
+    case VieneuEngineBlocker.modelUnreadable:
+      return 'File model .gguf không dùng được (hỏng hoặc không phải GGUF) — import lại';
+    case VieneuEngineBlocker.noNativeLibrary:
+      return 'Bản cài này chưa kèm engine VieNeu-TTS (libvieneu_tts) nên model đã import chưa đọc được';
+    case VieneuEngineBlocker.noPhonemeDictionary:
+      return 'Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc';
+  }
+}
+
+// ─── Import giọng (PSRC-217, 1.29.0) ───────────────────────────────────────
+
+/// Vì sao một lần import giọng thất bại (UI dịch thành câu cụ thể).
+enum VieneuVoiceImportProblem {
+  /// Thư mục không có giọng hợp lệ (thiếu `ref_codes.txt` / `speaker.emb.txt`).
+  noVoiceData,
+
+  /// Không đọc được thư mục (SAF/scoped storage chặn `list()`).
+  unreadable,
+}
+
+/// Lỗi import giọng có LÝ DO — service không phụ thuộc `BuildContext`, UI
+/// dịch bằng [vieneuVoiceImportProblemMessage].
+class VieneuVoiceImportException implements Exception {
+  const VieneuVoiceImportException(this.problem, {this.detail});
+
+  final VieneuVoiceImportProblem problem;
+  final String? detail;
+
+  @override
+  String toString() => 'VieneuVoiceImportException(${problem.name}'
+      '${detail == null ? '' : ': $detail'})';
+}
+
+/// Câu nguồn cho từng lỗi import giọng (key dịch 8 locale).
+String vieneuVoiceImportProblemMessage(VieneuVoiceImportProblem problem) {
+  switch (problem) {
+    case VieneuVoiceImportProblem.noVoiceData:
+      return 'Thư mục không có dữ liệu giọng hợp lệ — cần ref_codes.txt hoặc speaker.emb.txt';
+    case VieneuVoiceImportProblem.unreadable:
+      return 'Không đọc được thư mục đã chọn — cấp quyền truy cập hoặc chọn tệp trực tiếp';
+  }
+}
+
+/// Engine chưa sẵn sàng nhưng caller cần nói LÝ DO (voice clone, "Khởi tạo").
+class VieneuEngineNotReadyException implements Exception {
+  const VieneuEngineNotReadyException({
+    required this.message,
+    this.blocker,
+    this.detail,
+  });
+
+  /// Câu nguồn (key dịch) — xem [vieneuEngineBlockerMessage].
+  final String message;
+  final VieneuEngineBlocker? blocker;
+
+  /// Lỗi native nguyên văn (nếu có) — giữ để log/issue, không để đoán.
+  final String? detail;
+
+  @override
+  String toString() =>
+      'VieneuEngineNotReadyException($message${detail == null ? '' : ': $detail'})';
+}
+
+/// Model người dùng chọn KHÔNG dùng được — mang đúng [problem] để UI nói được
+/// câu cụ thể (`vieneuModelFileProblemMessage`) thay vì "import thất bại".
+class VieneuModelImportException implements Exception {
+  const VieneuModelImportException(this.problem, {this.path});
+
+  final VieneuModelFileProblem problem;
+  final String? path;
+
+  /// Câu nguồn (key dịch) cho UI.
+  String get message => vieneuModelFileProblemMessage(problem);
+
+  @override
+  String toString() => 'VieneuModelImportException(${problem.name}'
+      '${path == null ? '' : ': $path'})';
+}

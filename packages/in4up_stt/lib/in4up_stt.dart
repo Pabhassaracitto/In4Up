@@ -24,5 +24,6 @@ export 'import/model_bundle_scanner.dart';
 export 'tts/sherpa_piper_tts_core.dart';
 export 'tts/piper_voice_catalog.dart';
 export 'tts/vieneu_tts_core.dart';
+export 'tts/vieneu_model_files.dart';
 export 'tts/vieneu_tts_paths.dart';
 export 'vad/sherpa_vad_core.dart';

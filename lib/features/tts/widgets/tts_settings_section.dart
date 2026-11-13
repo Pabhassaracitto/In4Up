@@ -1687,53 +1687,112 @@ class _VieneuModelImportSectionState
     );
   }
 
-  Future<void> _pickAndImport(VieneuModelVariant variant) async {
+  /// LỐI IMPORT MODEL DUY NHẤT — dùng cho cả nút trên từng dòng biến thể
+  /// (mục phía trên) và nút "Import Q8_0 (~170 MB)" (mục phía dưới).
+  ///
+  /// PSRC-214: trước 1.29 hai nút là hai hàm khác nhau và không nút nào kiểm
+  /// tệp; nút phía trên còn ghi tệp theo BIẾN THỂ CỦA DÒNG thay vì theo tệp
+  /// thật ⇒ người dùng chọn đúng model mà dòng tương ứng vẫn "Chưa import".
+  /// Nay mọi lối đi qua [_importModelPath] → `TtsService.importVieneuModel`
+  /// (kiểm GGUF + tự nhận biến thể) và luôn kết thúc bằng một trạng thái nói
+  /// thật, kể cả khi người dùng huỷ hộp chọn tệp.
+  Future<void> _pickModelAndImport(VieneuModelVariant variant) async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['gguf'],
       dialogTitle: context.uiText('Chọn file model VieNeu-TTS {value0}')
           .replaceAll('{value0}', variant.label),
     );
-    if (result == null || result.files.single.path == null) return;
+    final path = result?.files.isNotEmpty == true
+        ? result!.files.first.path
+        : null;
+    if (path == null) {
+      // Một số nền tảng (SAF/cloud) trả `path = null` và trước đây im lặng
+      // tuyệt đối — người dùng bấm Import mà không thấy gì xảy ra.
+      if (result != null && mounted) {
+        setState(() {
+          _status = const _ImportStatus(
+              'Không đọc được tệp đã chọn — thử chọn lại');
+          _statusIsError = true;
+        });
+      }
+      return;
+    }
+    await _importModelPath(path, requested: variant);
+  }
 
+  /// Nhập một đường dẫn model đã có (chọn tệp, hoặc fallback nhiều tệp).
+  Future<void> _importModelPath(
+    String path, {
+    required VieneuModelVariant requested,
+  }) async {
     setState(() {
       _importing = true;
-      _importingVariant = variant;
+      _importingVariant = requested;
       _status = null;
     });
 
     try {
       final imported = await TtsService()
-          .importVieneuModel(File(result.files.single.path!), variant: variant);
-      if (!mounted) return;
-      await TtsService().setSelectedVieneuModelVariant(variant);
+          .importVieneuModel(File(path), variant: requested);
       await _checkAllModels();
       widget.onVoicesChanged?.call();
       if (!mounted) return;
       setState(() {
         _importing = false;
         _importingVariant = null;
-        _selectedVariant = variant;
-        _status = _ImportStatus(
-          'Đã import {value0}: {value1}',
-          args: <String>[variant.label, p.basename(imported.modelPath)],
-          suffixKey: imported.importedVoices > 0
-              ? ' · {value0} giọng mẫu'
-              : null,
-          suffixArgs: imported.importedVoices > 0
-              ? <String>['${imported.importedVoices}']
-              : const <String>[],
-        );
-        _statusIsError = false;
+        _selectedVariant = imported.variant;
+        _engineReady = imported.engineReady;
+        // PSRC-215: KHÔNG báo "thành công" trơn khi engine còn thiếu mảnh.
+        _statusIsError = !imported.engineReady;
+        final name = p.basename(imported.modelPath);
+        final voices = imported.importedVoices;
+        // Bốn tổ hợp: có/không có giọng mẫu × engine nạp được/nạp không được.
+        // Mỗi tổ hợp một KEY riêng (không ghép câu) để 8 locale dịch được.
+        if (imported.engineReady) {
+          _status = voices > 0
+              ? _ImportStatus(
+                  'Đã import {value0} · {value1} giọng mẫu · engine sẵn sàng',
+                  args: <String>[name, '$voices'],
+                )
+              : _ImportStatus(
+                  'Đã import {value0} · engine sẵn sàng',
+                  args: <String>[name],
+                );
+        } else {
+          _status = voices > 0
+              ? _ImportStatus(
+                  'Đã import {value0} · {value1} giọng mẫu nhưng '
+                  'engine chưa sẵn sàng: {value2}',
+                  args: <String>[name, '$voices'],
+                  blockerKey: imported.blockerMessage,
+                )
+              : _ImportStatus(
+                  'Đã import {value0} nhưng engine chưa sẵn sàng: {value1}',
+                  args: <String>[name],
+                  blockerKey: imported.blockerMessage,
+                );
+        }
+      });
+    } on VieneuModelImportException catch (e) {
+      // Tệp không dùng được (không phải GGUF / tải hụt / rỗng): nói đúng lý do.
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _importingVariant = null;
+        // `message` là KEY dịch (không nội suy) — UI dịch theo locale.
+        _status = _ImportStatus(e.message);
+        _statusIsError = true;
       });
     } catch (e) {
+      debugPrint('⚠️ VieNeu import error: $e');
       if (!mounted) return;
       setState(() {
         _importing = false;
         _importingVariant = null;
         _status = _ImportStatus(
           'Lỗi import {value0}',
-          args: <String>[variant.label],
+          args: <String>[requested.label],
         );
         _statusIsError = true;
       });
@@ -2056,7 +2115,7 @@ class _VieneuModelImportSectionState
                     )
                   else
                     OutlinedButton.icon(
-                      onPressed: () => _pickAndImport(variant),
+                      onPressed: () => _pickModelAndImport(variant),
                       icon: const Icon(Icons.file_upload, size: 14),
                       label: const Text('Import',
                           style: TextStyle(fontSize: 9.5)),
@@ -2102,7 +2161,7 @@ class _VieneuModelImportSectionState
                 onPressed:
                     (_importing && _importingVariant == _selectedVariant)
                         ? null
-                        : () => _pickAndImport(_selectedVariant),
+                        : () => _pickModelAndImport(_selectedVariant),
                 icon: _importing && _importingVariant == _selectedVariant
                     ? const SizedBox(
                         width: 16, height: 16,

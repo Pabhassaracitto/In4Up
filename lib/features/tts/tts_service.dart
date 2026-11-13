@@ -23,6 +23,7 @@ import 'engines/offline_tts_engine.dart';
 import 'engines/piper_tts_engine.dart';
 import 'engines/zalo_tts_engine.dart';
 import 'engines/vieneu_tts_engine.dart';
+import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import 'language_detector.dart';
@@ -41,11 +42,33 @@ class VieneuImportResult {
   /// Id các giọng mới (dùng để UI hiển thị / test máy).
   final List<String> voiceIds;
 
+  /// Biến thể THẬT SỰ đã ghi (suy từ chính file người dùng chọn — PSRC-214),
+  /// không phải biến thể của dòng UI mà người dùng bấm.
+  final VieneuModelVariant variant;
+
+  /// Dung lượng file đã copy (byte).
+  final int bytes;
+
+  /// Engine có nạp được model này NGAY sau khi import không (PSRC-215).
+  ///
+  /// `readiness.blocker != null` ⇒ UI KHÔNG được báo "thành công" trơn: phải
+  /// nêu đúng mảnh còn thiếu (thường là `sea_g2p.bin`).
+  final VieneuEngineProbe readiness;
+
   const VieneuImportResult({
     required this.modelPath,
     required this.importedVoices,
     this.voiceIds = const <String>[],
+    this.variant = VieneuModelVariant.q8_0,
+    this.bytes = 0,
+    this.readiness = const VieneuEngineProbe(blocker: null),
   });
+
+  /// Engine sẵn sàng đọc ngay bằng model vừa import?
+  bool get engineReady => readiness.blocker == null;
+
+  /// Câu nguồn (key dịch) khi engine còn thiếu mảnh — rỗng nếu sẵn sàng.
+  String get blockerMessage => readiness.message;
 }
 
 class TtsService extends ChangeNotifier {
@@ -853,14 +876,31 @@ class TtsService extends ChangeNotifier {
   /// giọng vẫn trống.
   Future<VieneuImportResult> importVieneuModel(File file,
       {VieneuModelVariant variant = VieneuModelVariant.q8_0}) async {
+    // PSRC-214 — MỌI lối import (nút trên từng dòng biến thể, nút "Import
+    // Q8_0 (~170 MB)", import trọn bộ) đi qua ĐÚNG hàm này. Trước 1.29 nó chỉ
+    // kiểm đuôi file rồi copy vào `vieneu_tts/<biến thể của DÒNG>.gguf`:
+    //   * tệp không phải GGUF (tải hụt, HTML, .bin) vẫn được "nhận";
+    //   * tệp đúng nhưng khác dòng người dùng bấm ⇒ lưu dưới tên biến thể
+    //     khác ⇒ dòng đó vẫn "Chưa import" và người dùng thấy như KHÔNG nhận.
+    // Giờ: kiểm thật (đuôi + dung lượng + chữ ký GGUF) và lấy biến thể từ
+    // CHÍNH tên file.
     if (!await file.exists()) {
-      throw FileSystemException('File không tồn tại', file.path);
+      throw VieneuModelImportException(
+        VieneuModelFileProblem.empty,
+        path: file.path,
+      );
     }
 
-    final ext = p.extension(file.path).toLowerCase();
-    if (ext != '.gguf') {
-      throw FileSystemException('File phải có định dạng .gguf', file.path);
+    final report = await inspectVieneuModelOnDisk(file.path);
+    if (!report.ok) {
+      throw VieneuModelImportException(report.problem!, path: file.path);
     }
+
+    final detectedName = report.variantName ?? variant.name;
+    final effectiveVariant = VieneuModelVariant.values.firstWhere(
+      (v) => v.name == detectedName,
+      orElse: () => variant,
+    );
 
     final dir = await getApplicationDocumentsDirectory();
     final vieneuDir = Directory(p.join(dir.path, 'vieneu_tts'));
@@ -874,8 +914,11 @@ class TtsService extends ChangeNotifier {
       await voicesDir.create(recursive: true);
     }
 
-    final target = File(p.join(vieneuDir.path, variant.fileName));
+    final target = File(p.join(vieneuDir.path, effectiveVariant.fileName));
     await file.copy(target.path);
+    // Ghi biến thể THẬT vào prefs ⇒ lần mở app sau engine nạp đúng file vừa
+    // import, không phải biến thể người dùng bấm nhầm (PSRC-214/183).
+    await setSelectedVieneuModelVariant(effectiveVariant);
 
     // PSRC-186: `file_picker` thường trả bản COPY trong cache của app, nên
     // dò nhiều vị trí (cạnh GGUF, thư mục cha, chính thư mục bundle) thay vì

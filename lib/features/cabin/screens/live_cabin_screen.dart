@@ -1087,6 +1087,56 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
     );
   }
 
+  Future<void> _editCaption(CabinCaption caption) async {
+    final source = TextEditingController(text: caption.sourceText);
+    final target = TextEditingController(text: caption.translatedText);
+    final result = await showDialog<(String, String)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.uiText('Chỉnh sửa')),
+        content: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: source, maxLines: null,
+                decoration: InputDecoration(labelText: ctx.uiText('Câu gốc'))),
+            TextField(controller: target, maxLines: null,
+                decoration: InputDecoration(labelText: ctx.uiText('Bản dịch'))),
+          ],
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx),
+              child: Text(ctx.uiText('Huỷ'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, (source.text, target.text)),
+              child: Text(ctx.uiText('Lưu'))),
+        ],
+      ),
+    );
+    source.dispose();
+    target.dispose();
+    if (result == null || !mounted) return;
+    await _mutateCaption(caption.id,
+        sourceText: result.$1, translatedText: result.$2);
+  }
+
+  Future<void> _mutateCaption(String id, {
+    String? sourceText,
+    String? translatedText,
+    bool delete = false,
+  }) async {
+    var ok = false;
+    try {
+      ok = await _service.mutateCaption(id, sourceText: sourceText,
+          translatedText: translatedText, delete: delete);
+    } catch (error) {
+      debugPrint('Cabin caption update: $error');
+    }
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.uiText('Lỗi'))),
+      );
+    }
+  }
+
   Widget _buildTranscriptCard(CabinCaption caption, int index) {
     // CABIN-STAGE-001 (port từ nhánh c26 `fb3c1261`): badge giai đoạn xử lý.
     // Đây là "cơ chế xác nhận" owner thấy chuyên nghiệp hơn: nhìn 1 cái là biết
@@ -1151,6 +1201,24 @@ class _LiveCabinScreenState extends State<LiveCabinScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (caption.isFinal) ...[
+                    IconButton(
+                      tooltip: context.uiText('Chỉnh sửa'),
+                      icon: const Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _editCaption(caption),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: context.uiText('Xoá'),
+                      icon: const Icon(Icons.delete_outline, size: 16, color: Colors.grey),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _mutateCaption(caption.id, delete: true),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   if (caption.translatedText.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.volume_up_rounded, size: 16, color: Color(0xFF00E676)),

@@ -16,6 +16,10 @@ class CabinSessionStore {
   CabinSessionStore._();
   static final CabinSessionStore instance = CabinSessionStore._();
 
+  // Saved edits update journal, transcripts and metadata as one ordered unit.
+  // Serialize per session; edits to different sessions need not block.
+  final Map<String, Future<void>> _mutationTails = {};
+
   /// Ghi đè thư mục gốc (test).
   @visibleForTesting
   String? debugRootOverride;
@@ -77,12 +81,81 @@ class CabinSessionStore {
       if (line.trim().isEmpty) continue;
       try {
         final j = jsonDecode(line);
-        if (j is Map<String, dynamic>) out.add(CabinTranscriptEntry.fromJson(j));
+        if (j is! Map<String, dynamic>) continue;
+        final op = j['op'];
+        if (op == 'edit' || op == 'delete') {
+          final index = out.indexWhere((entry) => entry.id != null && entry.id == j['id']);
+          if (index < 0) continue;
+          if (op == 'delete') {
+            out.removeAt(index);
+          } else {
+            final old = out[index];
+            out[index] = CabinTranscriptEntry(
+              id: old.id,
+              offset: old.offset,
+              sourceText: (j['src'] as String?) ?? old.sourceText,
+              translatedText: (j['tgt'] as String?) ?? old.translatedText,
+            );
+          }
+        } else {
+          out.add(CabinTranscriptEntry.fromJson(j));
+        }
       } catch (_) {
         // Dòng cuối có thể cụt nếu app bị tắt ngang — bỏ qua.
       }
     }
     return out;
+  }
+
+
+  /// Append a mutation instead of rewriting a live journal. This also keeps
+  /// interrupted-session recovery consistent with edits already shown in UI.
+  Future<bool> mutateEntry(CabinSession session, String id, {
+    String? sourceText,
+    String? translatedText,
+    bool delete = false,
+  }) {
+    final key = session.dirPath;
+    final previous = _mutationTails[key] ?? Future<void>.value();
+    final result = previous.then((_) => _mutateEntry(
+      session, id, sourceText: sourceText,
+      translatedText: translatedText, delete: delete,
+    ));
+    // Keep a non-failing tail so a disk error does not block future attempts.
+    final tail = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    _mutationTails[key] = tail;
+    tail.whenComplete(() {
+      if (identical(_mutationTails[key], tail)) _mutationTails.remove(key);
+    });
+    return result;
+  }
+
+  Future<bool> _mutateEntry(CabinSession session, String id, {
+    String? sourceText,
+    String? translatedText,
+    bool delete = false,
+  }) async {
+    final journal = File(session.journalPath);
+    if (!await journal.exists()) return false;
+    final current = await readMeta(Directory(session.dirPath));
+    if (current == null || current.status == CabinSessionStatus.recording) {
+      return false;
+    }
+    final entries = await loadEntries(current);
+    if (!entries.any((entry) => entry.id == id)) return false;
+    await journal.writeAsString('\n${jsonEncode({
+      'op': delete ? 'delete' : 'edit',
+      'id': id,
+      if (!delete) 'src': sourceText,
+      if (!delete) 'tgt': translatedText,
+    })}\n', mode: FileMode.append, flush: true);
+    final updated = await loadEntries(current);
+    final next = current.copyWith(entryCount: updated.length);
+    if (await File(current.lrcPath).exists() || await File(current.txtPath).exists()) {
+      await writeTranscripts(next, updated, next.textMode);
+    }
+    await writeMeta(next);
+    return true;
   }
 
   /// Danh sách phiên (mới nhất trước). Bỏ phiên [excludeId] đang ghi.

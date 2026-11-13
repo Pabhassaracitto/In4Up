@@ -1068,9 +1068,12 @@ jobs:
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |
           set +e
-          flutter test test/cabin/ > cabin_test.log 2>&1
+          flutter test test/cabin/ -r expanded > cabin_test.log 2>&1
           code=$?
           cat cabin_test.log
+          if [ "$code" -ne 0 ]; then
+            python3 scripts/ci/emit_failure_annotation.py cabin_test.log "Cabin tests" 8
+          fi
           exit $code
 
       - name: Upload cabin test log

@@ -18,6 +18,32 @@ Dọn phần còn lại của project I4U: (a) **chốt 2 issue đang In Review*
 
 Không viết lại code nếu đã xanh — chỉ **xác minh + đóng**, hoặc mở lại nếu thấy hồi quy.
 
+**Đính chính của agent L11 (2026-11-13):** run `37529218138` trong bảng trên là của
+**PSRC-6** (`XLAT-MIX-001`, head `74af5d8`, nhánh `arena/78cea3c6-in4up`), không phải của
+PSRC-14. Hai run của PSRC-14 (`READ-SELECT-002`) là `37653001863` và `37654112487`
+(nhánh `arena/a106f0d6-in4up`) — lấy từ card KANBAN `READ-SELECT-002`.
+
+### A.1 PSRC-14 — `READ-SELECT-002`: kết quả xác minh (2026-11-13, agent L11)
+
+**Kết luận: ĐẠT ⇒ đã comment bằng chứng trên Linear và chuyển `Done`.**
+Xác minh trên nhánh `arena/d0e2d365-in4up`, nền `962e7e1` (= tip `arena/60e35d65-in4up`).
+
+| Mục | Bằng chứng đọc được trong mã |
+|---|---|
+| Luật chọn nhiều từ (thuần logic) | `lib/screens/read_mode/services/word_range_selection.dart` — `WordRange` (mỏ neo `anchorIndex` ↔ đầu kéo `focusIndex`), `resolveWordRange`, `buildWordSelectionText`, `wordIndexAtPoint`, `WordSelectionState`. Đầu file ghi đúng nguyên nhân gốc của audit 1.e: mỗi từ là một `GestureDetector`, không có `SelectableText` |
+| Widget ô chữ vào chế độ chọn | `lib/screens/read_mode/widgets/colored_text_widget.dart` — giữ một từ ⇒ `WordSelectionState.activate(lineIndex)` (dòng 339); kéo/chạm từ thứ hai ⇒ `resolveWordRange` (dòng 326, 347) + `wordIndexAtPoint` (dòng 371); 4 nút trên thanh hành động gọi **một đường duy nhất** `ReadTextActionRunner.run(...)` (dòng 225–240); ghi selection thật bằng `TextProvider.selectTextWithOffsets(...)` (dòng 413–418); thoát chọn khi chạm ra ngoài/đổi dòng (dòng 78–97, 378–379) |
+| Hướng dẫn thao tác cho người dùng | `lib/screens/read_mode/widgets/read_line_hint.dart:119` — "Giữ một từ ở chế độ ô chữ: vào chế độ chọn nhiều từ; nút Từ chi tiết mở bảng tra từ đầy đủ." |
+| Máy bắt (test tự động) | `test/read_mode/word_range_selection_test.dart` — **18 test / 5 nhóm**: mỏ neo ↔ đầu kéo, chuỗi ghép + offset trong dòng, `wordIndexAtPoint` khi kéo quá mép, chọn thông minh kề vùng chọn, chạm ra ngoài thì bỏ chọn |
+| Test đã nối CI | `.github/workflows/app_analyze.yml` bước **"Read actions + mixed-language tests (logic thuần)"** liệt kê `test/read_mode/word_range_selection_test.dart` (dòng ~916) |
+| CI xanh | Nhánh cha: run **`43360617301`** (head `0ad2f2f9`) — step "Read actions + mixed-language tests" = `success`, "Analyze full app (chỉ ERROR là fatal)" = `success`, "Rule 5 test" = `success`. Tip nhánh cha `962e7e1` chỉ **hơn** `0ad2f2f9` 3 commit tài liệu (`gh api …/compare/0ad2f2f9...962e7e1` ⇒ `ahead_by 3, behind_by 0`) ⇒ code không trôi từ lần xanh đó. Run gốc của issue: `37653001863`, `37654112487` (đều `success`, xác minh lại qua GitHub API ngày 2026-11-13) |
+
+**Chưa kiểm được trên máy thật:** sandbox của agent **không có Dart/Flutter SDK, không có
+thiết bị/`adb`** ⇒ không tự chạy `flutter test` hay chạm–giữ–kéo thật được; test được chạy
+lại bằng CI (xem run ở trên). Phần nghiệm thu chạm tay vẫn thuộc chủ dự án: giữ 1 từ → kéo
+qua 4–5 từ → bấm **Dịch**/**Ngữ pháp** đúng cụm đó; thoát chọn rồi chạm 1 từ vẫn phát âm như
+cũ; chế độ dòng (`SelectableText`) và interlinear không đổi hành vi. Nội dung này được ghi rõ
+trong comment Linear, không giấu.
+
 ## B. Backlog cũ — bảng phân loại
 
 Những issue dưới đây **đã biết** và được gán sẵn. Chúng **không** nằm trong đợt 1 của lane khu vực tương ứng; làm khi hub yêu cầu.

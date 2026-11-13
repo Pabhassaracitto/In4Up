@@ -24,8 +24,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/media_tools/media_export_actions.dart';
+import 'package:in4up/features/media_tools/widgets/media_export_follow_up.dart';
 import 'package:in4up/features/media_tools/models/media_export_models.dart';
 import 'package:in4up/services/external_open_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Tạo tệp mẫu bằng I/O ĐỒNG BỘ.
 ///
@@ -195,6 +197,87 @@ void main() {
         ),
         isNull,
       );
+    });
+  });
+
+  group('PSRC-203 — nút Chia sẻ phải phản hồi (không im lặng)', () {
+    testWidgets('chia sẻ thành công: chỉ đóng, không báo lỗi', (tester) async {
+      final file = await _tempAudio('ok.mp3');
+      final result = MediaExportResult(
+        outputPaths: [file.path],
+        sizeBytes: 2048,
+      );
+      var calls = 0;
+
+      await tester.pumpWidget(_host((context) async {
+        await completeExportWithFollowUp(
+          context,
+          () async => result,
+          share: (r) async {
+            calls++;
+            return ExportShareOutcome.shared;
+          },
+        );
+      }));
+      await tester.tap(find.text('run'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.share_rounded));
+      await tester.pumpAndSettle();
+
+      expect(calls, 1);
+      expect(find.byIcon(Icons.folder_open_rounded), findsNothing,
+          reason: 'Chia sẻ được thì không được làm phiền người dùng');
+    });
+
+    testWidgets('không chia sẻ được: báo lý do + đường thay thế',
+        (tester) async {
+      final file = await _tempAudio('moved.mp3');
+      final result = MediaExportResult(
+        outputPaths: [file.path],
+        sizeBytes: 2048,
+      );
+
+      await tester.pumpWidget(_host((context) async {
+        await completeExportWithFollowUp(
+          context,
+          () async => result,
+          share: (r) async => ExportShareOutcome.noFiles,
+        );
+      }));
+      await tester.tap(find.text('run'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.share_rounded));
+      await tester.pumpAndSettle();
+
+      // PSRC-203: nút Chia sẻ KHÔNG được im lặng — phải có lý do và
+      // đường thay thế (mở thư mục chứa tệp).
+      expect(find.byIcon(Icons.folder_open_rounded), findsOneWidget);
+    });
+
+    test('shareExportedFiles: tệp biến mất ⇒ noFiles (không phải void im lặng)',
+        () async {
+      final file = await _tempAudio('deleted.mp3');
+      await file.delete();
+      final outcome = await shareExportedFiles(MediaExportResult(
+        outputPaths: [file.path],
+        sizeBytes: 2048,
+      ));
+      expect(outcome, ExportShareOutcome.noFiles);
+    });
+
+    test('shareExportedFiles: chuyển ĐÚNG tệp cho share sheet', () async {
+      final file = await _tempAudio('clip.mp3');
+      List<XFile>? presented;
+      final outcome = await shareExportedFiles(
+        MediaExportResult(outputPaths: [file.path], sizeBytes: 2048),
+        presenter: (params) async {
+          presented = params.files;
+        },
+      );
+      expect(outcome, ExportShareOutcome.shared);
+      expect(presented, isNotNull);
+      expect(presented!.length, 1);
+      expect(presented!.first.path, file.path);
     });
   });
 }

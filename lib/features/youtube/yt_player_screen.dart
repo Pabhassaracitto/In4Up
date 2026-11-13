@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../web_core/linux_external_browser_screen.dart';
 import '../../features/translation/translation_service.dart';
 import '../../features/tts/tts_service.dart';
 import '../../models/vocab_context.dart';
@@ -131,16 +132,35 @@ bool ytLooksLikePlayerError(String bodyText) {
 // ══════════════════════════════════════════════════════════
 //  YT PLAYER SCREEN
 // ══════════════════════════════════════════════════════════
-class YtPlayerScreen extends StatefulWidget {
+class YtPlayerScreen extends StatelessWidget {
   final YtExVideo video;
   final String? audioPath;
   const YtPlayerScreen({super.key, required this.video, this.audioPath});
 
   @override
-  State<YtPlayerScreen> createState() => _YtPlayerScreenState();
+  Widget build(BuildContext context) {
+    if (Platform.isLinux) {
+      return LinuxExternalBrowserScreen(
+        initialInput: Uri.https('www.youtube.com', '/watch', {'v': video.id}).toString(),
+        normalizeInput: (input) => input,
+        editable: false,
+        message: 'Linux chưa hỗ trợ trình phát YouTube trong ứng dụng. Video sẽ mở trong trình duyệt hệ thống; phụ đề và công cụ học trong ứng dụng không khả dụng.',
+      );
+    }
+    return _EmbeddedYtPlayerScreen(video: video, audioPath: audioPath);
+  }
 }
 
-class _YtPlayerScreenState extends State<YtPlayerScreen>
+class _EmbeddedYtPlayerScreen extends StatefulWidget {
+  final YtExVideo video;
+  final String? audioPath;
+  const _EmbeddedYtPlayerScreen({required this.video, this.audioPath});
+
+  @override
+  State<_EmbeddedYtPlayerScreen> createState() => _YtPlayerScreenState();
+}
+
+class _YtPlayerScreenState extends State<_EmbeddedYtPlayerScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   late WebViewController _ytCtrl;
@@ -461,7 +481,7 @@ class _YtPlayerScreenState extends State<YtPlayerScreen>
   }
 
   @override
-  void didUpdateWidget(covariant YtPlayerScreen oldWidget) {
+  void didUpdateWidget(covariant _EmbeddedYtPlayerScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     // IN4-81: đổi video ⇒ huỷ kết quả của video cũ (token thế hệ tăng),
     // xoá lời cũ, nạp lại từ đầu cho video mới.

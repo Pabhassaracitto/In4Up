@@ -13496,6 +13496,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'ลิงก์นี้อยู่ในกลุ่มแล้ว',
     'ja': 'このリンクはすでにグループにあります',
   },
+  'Linux chưa hỗ trợ trình phát YouTube trong ứng dụng. Video sẽ mở trong trình duyệt hệ thống; phụ đề và công cụ học trong ứng dụng không khả dụng.': {
+    'en': 'The in-app YouTube player is not supported on Linux. The video opens in your system browser; in-app subtitles and learning tools are unavailable.',
+    'zh': 'Linux 暂不支持应用内 YouTube 播放器。视频将在系统浏览器中打开；应用内字幕和学习工具不可用。',
+    'zh_TW': 'Linux 尚不支援應用程式內 YouTube 播放器。影片將在系統瀏覽器中開啟；應用程式內字幕與學習工具無法使用。',
+    'hi': 'Linux पर ऐप का YouTube प्लेयर समर्थित नहीं है। वीडियो सिस्टम ब्राउज़र में खुलेगा; ऐप के उपशीर्षक और सीखने के उपकरण उपलब्ध नहीं हैं।',
+    'si': 'Linux හි යෙදුම තුළ YouTube වාදකයට සහාය නැත. වීඩියෝව පද්ධති බ්‍රවුසරයේ විවෘත වේ; යෙදුමේ උපසිරැසි හා ඉගෙනුම් මෙවලම් නොමැත.',
+    'my': 'Linux တွင် အက်ပ်တွင်း YouTube ဖွင့်စနစ်ကို မပံ့ပိုးပါ။ ဗီဒီယိုကို စနစ်ဘရောက်ဇာတွင် ဖွင့်မည်ဖြစ်ပြီး အက်ပ်တွင်း စာတန်းထိုးနှင့် သင်ယူရေးကိရိယာများ မရနိုင်ပါ။',
+    'th': 'Linux ไม่รองรับเครื่องเล่น YouTube ในแอป วิดีโอจะเปิดในเบราว์เซอร์ของระบบ และไม่สามารถใช้คำบรรยายและเครื่องมือเรียนรู้ในแอปได้',
+    'ja': 'Linuxではアプリ内YouTubeプレーヤーに対応していません。動画はシステムブラウザで開き、アプリ内の字幕や学習ツールは利用できません。',
+  },
   'Linux chưa hỗ trợ trình đọc web trong ứng dụng. Trang sẽ mở trong trình duyệt hệ thống; các công cụ đọc và viết trong ứng dụng không khả dụng.': {
     'en': 'The in-app web reader is not supported on Linux. The page opens in your system browser; in-app reading and writing tools are unavailable.',
     'zh': 'Linux 暂不支持应用内网页阅读器。页面将在系统浏览器中打开；应用内阅读和写作工具不可用。',

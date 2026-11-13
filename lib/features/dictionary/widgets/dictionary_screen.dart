@@ -34,6 +34,7 @@ import '../services/dict_history.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
+import 'dict_source_entries.dart';
 import 'dict_manager_screen.dart';
 import 'dict_pack_screen.dart';
 
@@ -513,7 +514,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     if (_searching && _merged == null) {
       return const Center(child: CircularProgressIndicator(color: _accent));
     }
-    if (_merged == null || _merged!.isEmpty) return _buildNotFound();
+    if (_merged == null || _entries.isEmpty) return _buildNotFound();
     return _buildResult();
   }
 
@@ -874,6 +875,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           groups: merged.groups,
           compact: false,
           accentColor: _accentLight,
+        ),
+        DictSourceEntries(
+          entries: _entries,
+          initiallyExpanded: merged.isEmpty,
         ),
         if (sources.isNotEmpty) ...[
           const SizedBox(height: 22),

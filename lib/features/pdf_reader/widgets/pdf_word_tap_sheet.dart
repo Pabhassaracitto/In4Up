@@ -99,8 +99,9 @@ class _WordSheetState extends State<_WordSheet> {
         (online.hasMeaning || online.hasIpa || online.hasDictionary);
     setState(() {
       if (onlineHasRealData) {
-        _insight = online;
-        _merged = online.hasDictionary ? online.mergedDictionary : _merged;
+        final combined = online.withDictionaryFallback(local);
+        _insight = combined;
+        _merged = combined.hasDictionary ? combined.mergedDictionary : _merged;
       }
       _loading = false;
     });

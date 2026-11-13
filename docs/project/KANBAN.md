@@ -9802,3 +9802,17 @@ VOCAB-MEDIA-003 tests" success. Lỗi bắt được nhờ CI (đã sửa): alia
 - **Chưa kiểm (máy thật):** cài đè 1.27.0 → 1.28.0 · SRS chấm điểm trước khi lật thẻ · ML Kit 19 ngôn ngữ + tải ngầm · bong bóng dịch (XLAT-SCR-006) · Piper/VieNeu không tự thoát · Parakeet onnx-asr · Tipiṭaka mục lục CSCD · **web trên trình duyệt thật** (và web dịch được chỉ khi có proxy).
 - **Lịch sử:**
   - 2026-11-12 | created→done | agent `arena/01a0251e-in4up` | bump `1.28.0+28` (`db51dd38`) → tag `1.28.0` → build **43209683845** 🟢 4/4 + web **43209670485** 🟢 (Pages `built`, `gh-pages` = `52114878`)
+
+### DICT-SOURCE-001 — Giữ mục từ khi mở rộng và xem riêng theo nguồn
+
+- **Trạng thái:** doing — code đợt đầu; chưa nghiệm thu CI/máy thật.
+- **Nguồn:** owner 2026-11-09: chất lượng hiển thị MDX/SQLite, tra nhanh có
+  nghĩa nhưng mở chi tiết đôi khi mất hoặc thiếu nội dung; thống nhất làm giai
+  đoạn trước mắt, chưa quyết định MDX trực tiếp.
+- **Bằng chứng & giới hạn:** ADR-0028; `dict_source_entries.dart` chỉ hiển thị
+  text HTML an toàn theo từng bộ, không phải renderer gốc CSS/MDD; parser sửa
+  record qua block và key cùng offset; PDF giữ entries cục bộ khi mạng nâng cấp.
+- **Còn lại:** chạy CI + máy thật, kiểm chứng bộ nguồn thật, CSS/MDD/media/liên
+  kết, lỗi DB và mức dung lượng, kiểm tra các đường mở chi tiết còn lại. Xem ADR.
+- **Lịch sử:**
+  - 2026-11-09 | created→doing | agent arena/9f88ef61-in4up | rebase 251e `d23341a`, code + test + ADR; chờ CI và thiết bị.

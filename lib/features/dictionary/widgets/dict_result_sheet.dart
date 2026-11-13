@@ -7,6 +7,7 @@ import '../models/dict_entry.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
+import 'dict_source_entries.dart';
 
 /// Bottom sheet hiển thị kết quả tra từ điển — "trang từ điển" đầy đủ.
 ///
@@ -243,7 +244,11 @@ class DictResultSheet extends StatelessWidget {
                       compact: false,
                       accentColor: const Color(0xFF64B5F6),
                     ),
-                    if (merged.isEmpty)
+                    DictSourceEntries(
+                      entries: entries,
+                      initiallyExpanded: merged.isEmpty,
+                    ),
+                    if (merged.isEmpty && entries.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 10),
                         child: Text(

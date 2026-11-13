@@ -42,6 +42,38 @@ void main() {
     OnlineDictionarySource.resetForTest();
   });
 
+  test('online upgrade keeps local entries when second dictionary lookup fails', () async {
+    var lookups = 0;
+    WordInsightService.dictionaryLookupOverride = (word) async {
+      lookups++;
+      if (lookups > 1) return <DictEntry>[];
+      return <DictEntry>[
+        DictEntry(headword: word, definition: 'local detailed meaning', dictId: 'a'),
+      ];
+    };
+    WordInsightService.onlineLookupOverride = (word) async => onlineHello();
+    WordInsightService.translateOverride = (text) async => 'online meaning';
+    final service = WordInsightService();
+    final local = await service.resolveLocal('hello');
+    final online = await service.resolve('hello');
+    expect(local.entries, hasLength(1));
+    expect(online.origin, WordInsightOrigin.network);
+    expect(online.meaning, 'online meaning');
+    expect(online.entries.single.definition, 'local detailed meaning');
+  });
+
+  test('dictionary fallback never mixes unrelated words or overwrites entries', () {
+    const local = WordInsight(word: 'cat', entries: <DictEntry>[
+      DictEntry(headword: 'cat', definition: 'cat', dictId: 'a'),
+    ]);
+    const other = WordInsight(word: 'dog');
+    expect(other.withDictionaryFallback(local).entries, isEmpty);
+    const fresh = WordInsight(word: 'cat', entries: <DictEntry>[
+      DictEntry(headword: 'cat', definition: 'new', dictId: 'b'),
+    ]);
+    expect(fresh.withDictionaryFallback(local).entries.single.definition, 'new');
+  });
+
   test('mạng thắng: IPA online + nghĩa đã dịch', () async {
     WordInsightService.onlineLookupOverride = (word) async => onlineHello();
     WordInsightService.translateOverride = (text) async => 'xin chào';

@@ -575,36 +575,64 @@ class _MdxCore {
       ..sort((a, b) => a.offset.compareTo(b.offset));
 
     final entries = <DictEntry>[];
-    var keyIndex = 0;
     final blocks = _readRecordBlocks(header);
-    for (var blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
-      final block = blocks[blockIndex];
-      while (keyIndex < sorted.length &&
-          sorted[keyIndex].offset - block.base < block.data.length) {
-        final start = sorted[keyIndex].offset - block.base;
-        final nextOffset = keyIndex + 1 < sorted.length
-            ? sorted[keyIndex + 1].offset
-            : block.base + block.data.length;
-        var end = nextOffset - block.base;
-        if (end > block.data.length) end = block.data.length;
-        if (end < start) end = start;
-        if (end > start) {
-          final definition = _decodeText(block.data, start, end, header).trim();
-          if (definition.isNotEmpty) {
+    if (blocks.isEmpty) throw const MdxParseException(_kMalformed);
+    final totalLength = blocks.last.base + blocks.last.data.length;
+    var blockIndex = 0;
+    var keyIndex = 0;
+    while (keyIndex < sorted.length) {
+      final start = sorted[keyIndex].offset;
+      var nextKey = keyIndex + 1;
+      // Multiple keys may point to the same record. They must all receive
+      // the same definition rather than silently dropping all but one.
+      while (nextKey < sorted.length && sorted[nextKey].offset == start) {
+        nextKey++;
+      }
+      final end = nextKey < sorted.length ? sorted[nextKey].offset : totalLength;
+      if (start < 0 || end < start || end > totalLength) {
+        throw const MdxParseException(_kMalformed);
+      }
+      while (blockIndex < blocks.length &&
+          blocks[blockIndex].base + blocks[blockIndex].data.length <= start) {
+        blockIndex++;
+      }
+      if (end > start) {
+        if (blockIndex >= blocks.length) {
+          throw const MdxParseException(_kMalformed);
+        }
+        // A record can span compressed blocks (even in the middle of a UTF-8
+        // character). Join bytes BEFORE decoding, not decoded fragments.
+        final data = BytesBuilder(copy: false);
+        var cursor = start;
+        var i = blockIndex;
+        while (cursor < end && i < blocks.length) {
+          final block = blocks[i++];
+          final from = cursor - block.base;
+          final remaining = end - block.base;
+          final to = remaining < block.data.length ? remaining : block.data.length;
+          if (from < 0 || from > to) {
+            throw const MdxParseException(_kMalformed);
+          }
+          data.add(Uint8List.sublistView(block.data, from, to));
+          cursor = block.base + to;
+        }
+        if (cursor != end) throw const MdxParseException(_kMalformed);
+        final raw = data.takeBytes();
+        final definition = _decodeText(raw, 0, raw.length, header).trim();
+        if (definition.isNotEmpty) {
+          for (var k = keyIndex; k < nextKey; k++) {
             entries.add(DictEntry(
-              headword: sorted[keyIndex].word,
+              headword: sorted[k].word,
               definition: definition,
               dictId: dictId,
             ));
           }
         }
-        keyIndex++;
       }
-      if (blockIndex % 4 == 3 || blockIndex == blocks.length - 1) {
-        progress(
-          ((blockIndex + 1) / blocks.length).clamp(0.0, 0.99),
-          'Index $keyIndex/${sorted.length}',
-        );
+      keyIndex = nextKey;
+      if (keyIndex % 1024 == 0 || keyIndex == sorted.length) {
+        progress((keyIndex / sorted.length).clamp(0.0, 0.99),
+            'Index $keyIndex/${sorted.length}');
       }
       if (entries.length >= _kBatchSize) {
         emit(List<DictEntry>.from(entries));

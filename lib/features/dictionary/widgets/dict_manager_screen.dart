@@ -61,9 +61,7 @@ class _DictManagerScreenState extends State<DictManagerScreen> {
                 icon: Icons.link,
                 title: ctx.uiText('Liên kết thư mục (khuyến nghị)'),
                 subtitle: ctx.uiText(
-                  'Ưu tiên — chỉ lưu chỉ mục tra từ nhỏ trong app; không sao '
-                  'chép bộ từ điển (mdx/mdd vẫn ở thư mục gốc). Nếu nguồn '
-                  'không còn truy cập được, chọn lại; chỉ mục vẫn được giữ.',
+                  'Không sao chép bộ nguồn. Ứng dụng vẫn tạo cơ sở dữ liệu chứa mục từ và nội dung, có thể tốn nhiều dung lượng.',
                 ),
                 onTap: () => Navigator.pop(ctx, DictStorageMode.linked),
               ),

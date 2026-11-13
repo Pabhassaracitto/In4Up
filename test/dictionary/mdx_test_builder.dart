@@ -32,6 +32,12 @@ class MdxTestBuilder {
   /// graceful fallback của parser.
   final bool forceCompressedKeyIndexV12;
 
+  /// Optional byte boundary inside the uncompressed record stream.
+  final int? recordSplitAt;
+
+  /// Alias key -> earlier target key, both point to the same record offset.
+  final Map<String, String> aliases;
+
   MdxTestBuilder({
     this.version = 2.0,
     this.utf16 = false,
@@ -39,6 +45,8 @@ class MdxTestBuilder {
     this.headerOverrides = const {},
     this.compressType = 2,
     this.forceCompressedKeyIndexV12 = false,
+    this.recordSplitAt,
+    this.aliases = const {},
   });
 
   bool get wide => version >= 2.0;
@@ -55,12 +63,22 @@ class MdxTestBuilder {
 
   Uint8List build() {
     final words = entries.keys.toList()..sort();
-    final defs = [for (final w in words) encodeText(entries[w]!)];
+    final defs = [for (final w in words)
+      if (aliases.containsKey(w)) Uint8List(0) else encodeText(entries[w]!)];
     final offsets = <int>[];
     var running = 0;
     for (final d in defs) {
       offsets.add(running);
       running += d.length;
+    }
+
+    for (final alias in aliases.entries) {
+      final index = words.indexOf(alias.key);
+      final target = words.indexOf(alias.value);
+      if (target < 0 || target >= index) {
+        throw ArgumentError('Alias must reference an earlier key');
+      }
+      offsets[index] = offsets[target];
     }
 
     // Chia key blocks: >= 6 entry → 2 block (test multi-block).
@@ -117,26 +135,26 @@ class MdxTestBuilder {
       keyBlocksBytes.add(b);
     }
 
-    // ── Record blocks: >= 6 entry → 2 block ──
-    final recGroups = <List<int>>[];
-    if (defs.length >= 6) {
-      final mid = defs.length ~/ 2;
-      recGroups.add([for (var i = 0; i < mid; i++) i]);
-      recGroups.add([for (var i = mid; i < defs.length; i++) i]);
-    } else {
-      recGroups.add([for (var i = 0; i < defs.length; i++) i]);
+    // Default split on entry boundary; tests can also split within a record.
+    final allRecords = BytesBuilder();
+    for (final d in defs) {
+      allRecords.add(d);
     }
-    final recCompressed = <Uint8List>[];
-    final recDecompLengths = <int>[];
-    for (final group in recGroups) {
-      final content = BytesBuilder();
-      for (final i in group) {
-        content.add(defs[i]);
-      }
-      final decomp = content.toBytes();
-      recCompressed.add(compressBlock(decomp));
-      recDecompLengths.add(decomp.length);
+    final recordBytes = allRecords.toBytes();
+    final split = recordSplitAt ??
+        (defs.length >= 6 ? offsets[defs.length ~/ 2] : recordBytes.length);
+    if (split <= 0 || split > recordBytes.length) {
+      throw ArgumentError('Invalid record split');
     }
+    final records = <Uint8List>[
+      Uint8List.sublistView(recordBytes, 0, split),
+      if (split < recordBytes.length)
+        Uint8List.sublistView(recordBytes, split),
+    ];
+    final recCompressed = <Uint8List>[
+      for (final record in records) compressBlock(record),
+    ];
+    final recDecompLengths = <int>[for (final record in records) record.length];
     final recInfo = BytesBuilder();
     for (var i = 0; i < recCompressed.length; i++) {
       recInfo.add(num_(recCompressed[i].length));

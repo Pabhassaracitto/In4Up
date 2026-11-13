@@ -1370,7 +1370,11 @@ jobs:
         if: always() && steps.analyze.outcome != 'cancelled'
         run: |
           set +e
-          flutter test test/tts/vieneu_native_engine_contract_test.dart -r expanded \
+          files="test/tts/vieneu_native_engine_contract_test.dart"
+          if [ -f test/tts/vieneu_g2p_dictionary_test.dart ]; then
+            files="$files test/tts/vieneu_g2p_dictionary_test.dart"
+          fi
+          flutter test $files -r expanded \
             > vieneu_contract_test.log 2>&1
           code=$?
           cat vieneu_contract_test.log

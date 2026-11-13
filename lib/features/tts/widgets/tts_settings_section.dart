@@ -14,9 +14,11 @@ import 'package:in4up_ai/in4up_ai.dart';
 import 'package:in4up_stt/sherpa_model_manager.dart';
 import 'package:in4up_stt/tts/sherpa_piper_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
+import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 
 import '../edge_voice_prefs.dart';
 import '../engines/vieneu_tts_engine.dart';
+import '../vieneu_g2p_dictionary.dart';
 import '../engines/edge_tts_engine.dart';
 import 'voice_clone_section.dart';
 import '../engines/tts_engine.dart';
@@ -1428,6 +1430,13 @@ class _VieneuModelImportSectionState
   /// PSRC-187: bản cài có thư viện native của VieNeu không (`null` = chưa dò).
   bool? _nativeBundled;
 
+  /// Lane L6 / ADR-0028 — trạng thái từ điển phát âm SEA-G2P. Model chỉ nhận
+  /// phoneme, nên thiếu `sea_g2p.bin` thì engine có mặt cũng chưa đọc được.
+  bool? _g2pInstalled;
+  int _g2pBytes = 0;
+  bool _g2pBusy = false;
+  double _g2pProgress = 0;
+
   @override
   void initState() {
     super.initState();
@@ -1441,12 +1450,15 @@ class _VieneuModelImportSectionState
       paths[v] = await VieneuTtsCore.modelPathFor(v);
     }
     final nativeBundled = await VieneuTtsCore.isNativeLibraryAvailable();
+    final g2p = await VieneuG2pDictionaryService.instance.status();
     // PSRC-183: radio phải phản ánh ĐÚNG biến thể đã lưu (đã đồng bộ với
     // file thật ở TtsService), không được tự ý về Q8_0 mỗi lần mở Settings.
     final persisted = await TtsService().getSelectedVieneuModelVariant();
     if (!mounted) return;
     setState(() {
       _nativeBundled = nativeBundled;
+      _g2pInstalled = g2p.installed;
+      _g2pBytes = g2p.bytes;
       _variantModelPaths
         ..clear()
         ..addAll(paths);
@@ -1460,6 +1472,210 @@ class _VieneuModelImportSectionState
         _selectedVariant = imported.first;
       }
     });
+  }
+
+  /// Lane L6 / ADR-0028 — tải `sea_g2p.bin` (≈60 MB) từ GitHub release đang
+  /// ghim (v0.10.0, khớp submodule native). Tải ra `.part`, kiểm sha256 rồi
+  /// mới thay file đang dùng.
+  Future<void> _downloadG2p() async {
+    if (_g2pBusy) return;
+    setState(() {
+      _g2pBusy = true;
+      _g2pProgress = 0;
+      _status = null;
+    });
+    try {
+      final status = await VieneuG2pDictionaryService.instance.download(
+        onProgress: (fraction) {
+          if (!mounted) return;
+          setState(() => _g2pProgress = fraction);
+        },
+      );
+      if (!mounted) return;
+      setState(() {
+        _g2pBusy = false;
+        _g2pInstalled = status.installed;
+        _g2pBytes = status.bytes;
+        _status = _ImportStatus(
+          'Đã cài từ điển phát âm ({value0})',
+          args: <String>[status.sizeLabel],
+        );
+        _statusIsError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _g2pBusy = false;
+        _status = _ImportStatus(_g2pFailureKey(e));
+        _statusIsError = true;
+      });
+    }
+  }
+
+  /// Chọn `sea_g2p.bin` từ máy (đã tải sẵn, thẻ nhớ, Drive…).
+  Future<void> _pickG2pFile() async {
+    if (_g2pBusy) return;
+    final picked = await FilePicker.pickFiles(
+      type: FileType.any,
+      dialogTitle: context.uiText('Chọn tệp sea_g2p.bin'),
+    );
+    final path = picked?.files.single.path;
+    if (path == null) return;
+
+    setState(() {
+      _g2pBusy = true;
+      _status = null;
+    });
+    try {
+      final status =
+          await VieneuG2pDictionaryService.instance.importFromFile(path);
+      if (!mounted) return;
+      setState(() {
+        _g2pBusy = false;
+        _g2pInstalled = status.installed;
+        _g2pBytes = status.bytes;
+        _status = _ImportStatus(
+          'Đã cài từ điển phát âm ({value0})',
+          args: <String>[status.sizeLabel],
+        );
+        _statusIsError = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _g2pBusy = false;
+        _status = _ImportStatus(_g2pFailureKey(e));
+        _statusIsError = true;
+      });
+    }
+  }
+
+  /// Dịch lỗi của service thành câu hiển thị (giữ service không phụ thuộc UI).
+  String _g2pFailureKey(Object error) {
+    if (error is VieneuG2pException) {
+      switch (error.reason) {
+        case VieneuG2pFailure.checksum:
+          return 'Tệp từ điển tải về không khớp kiểm tra — thử lại sau';
+        case VieneuG2pFailure.notDictionary:
+          return 'Tệp không phải sea_g2p.bin hợp lệ';
+        case VieneuG2pFailure.storage:
+          return 'Không ghi được từ điển vào bộ nhớ app';
+        case VieneuG2pFailure.network:
+          return 'Không tải được từ điển — kiểm tra mạng rồi thử lại';
+      }
+    }
+    return 'Không cài được từ điển phát âm';
+  }
+
+  Widget _buildG2pCard(BuildContext context) {
+    final installed = _g2pInstalled ?? false;
+    final sizeLabel = _g2pBytes > 0
+        ? formatVieneuDictionarySize(_g2pBytes)
+        : formatVieneuDictionarySize(vieneuG2pDictBytes);
+    final accent = installed ? Colors.green : Colors.orange;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                installed ? Icons.spellcheck : Icons.report_problem_outlined,
+                size: 14,
+                color: accent[300],
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  context.uiText('Từ điển phát âm (SEA-G2P)'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (_g2pInstalled != null)
+                Text(
+                  installed
+                      ? context
+                          .uiText('Đã có từ điển ({value0})')
+                          .replaceAll('{value0}', sizeLabel)
+                      : context.uiText('Chưa có từ điển phát âm'),
+                  style: TextStyle(fontSize: 9.5, color: accent[200]),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.uiText(
+              'Model chỉ nhận phiên âm, không nhận chữ thô — thiếu từ điển '
+              'này VieNeu chưa đọc được.',
+            ),
+            style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+          ),
+          const SizedBox(height: 8),
+          if (_g2pBusy) ...[
+            LinearProgressIndicator(
+              value: _g2pProgress > 0 ? _g2pProgress : null,
+              minHeight: 4,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context
+                  .uiText('Đang tải từ điển… {value0}%')
+                  .replaceAll(
+                    '{value0}',
+                    (_g2pProgress * 100).round().toString(),
+                  ),
+              style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: installed ? null : _downloadG2p,
+                    icon: const Icon(Icons.download, size: 14),
+                    label: Text(
+                      context.uiText('Tải từ điển (~60 MB)'),
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.grey[600]!),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _pickG2pFile,
+                    icon: const Icon(Icons.file_open, size: 14),
+                    label: Text(
+                      context.uiText('Chọn tệp sea_g2p.bin'),
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(color: Colors.grey[600]!),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pickAndImport(VieneuModelVariant variant) async {
@@ -1970,6 +2186,8 @@ class _VieneuModelImportSectionState
             overflow: TextOverflow.ellipsis,
           ),
         ],
+        // Lane L6 / ADR-0028 — từ điển phát âm SEA-G2P (model chỉ nhận phoneme)
+        _buildG2pCard(context),
         // PSRC-185/186 — import trọn bộ + import giọng từ thư mục
         const SizedBox(height: 8),
         Row(

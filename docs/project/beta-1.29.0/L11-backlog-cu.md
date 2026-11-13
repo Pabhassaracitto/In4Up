@@ -73,7 +73,7 @@ Những issue dưới đây **đã biết** và được gán sẵn. Chúng **kh
 
 | # | Nội dung ngắn | Lane khu vực |
 |---|---|---|
-| PSRC-196 | Live cabin: đồng bộ chọn tab | L1 — **trùng PSRC-199** ⇒ đóng as duplicate khi 199 xong |
+| PSRC-196 | ~~Live cabin: đồng bộ chọn tab~~ ⚠️ **nội dung ghi sai** — issue thật: "Tab Đọc: mặc định đọc toàn bài khi nhấn đọc" | ~~L1 — trùng PSRC-199~~ ⇒ **L3** (xem § D.1, **không** đóng duplicate) |
 | PSRC-195 | Xuất file media kẹt "Estimating duration…" | L2 (đã đưa vào đợt 1 vì chặn 202/203) |
 | PSRC-180 | Tạo lời lỗi FfmpegKit | L2 (đợt 1) |
 | PSRC-179 | Đồng bộ khoảng lặng nút AB | L2 (đợt 1) |
@@ -81,6 +81,9 @@ Những issue dưới đây **đã biết** và được gán sẵn. Chúng **kh
 | PSRC-193 | Tipitaka: chỉ mục con sai danh mục | L3 |
 | PSRC-178 | Tên gọi "Lặp câu tiếp theo" | L3 |
 | PSRC-174, PSRC-172 | Linux: quét thư viện không phản hồi | L5 |
+
+> ⚠️ **Hai dòng trong bảng này cần đính chính** — xem **§ D.1** (PSRC-196 sai nội dung,
+> PSRC-172 không còn ở state Backlog). Agent L11 không xoá dòng của hub, chỉ đánh dấu.
 
 ## C. Phần chưa đọc hết — việc của agent L11
 
@@ -93,18 +96,103 @@ Page JSON của Linear bị giới hạn kích thước nên ~15 issue còn lạ
 
 ## D. Bảng phân loại do agent điền
 
+**Agent L11 điền ngày 2026-11-13** (nhánh `arena/d0e2d365-in4up`, nền `962e7e1`).
+
+### D.0 Cách đọc danh sách (chống sót, chống trùng)
+
+Đọc Linear: team `PSRC` → project **I4U** → state **Backlog**, sắp `createdAt`,
+**phân trang 4–6 issue/trang** (trang 12 issue bị cắt giữa thật — lần đọc đầu tiên mất
+2 issue, phải đọc lại). Trang cuối trả `has_next_page: false` ⇒ danh sách dưới đây là
+**đủ**. Toàn bộ issue Backlog của I4U tại thời điểm đọc:
+
+| Nhóm | Issue | Đã ghi ở đâu |
+|---|---|---|
+| Cổng beta 1.29.0 (35 issue) | PSRC-199…233 | `README.md` § 7 + phiếu L1–L10 ⇒ **không lặp lại ở đây** (mỗi issue vẫn xuất hiện đúng một lần, trong bản đồ lane) |
+| Backlog cũ đã gán sẵn | 196, 195, 194, 193, 180, 179, 178, 174 | **§ B** (196 và 172 cần đính chính — § D.1) |
+| Backlog cũ chưa ai liệt kê | **166, 35, 29, 24, 20** | **§ D.2** (bảng dưới) |
+
+§ C dự đoán "~15 issue ID thấp hơn PSRC-172 còn ở Backlog" — **thực tế chỉ có 5**. Lý do:
+các issue con `PSRC-167…173` đã land trong bản **1.26.0** (card `REL-1.26.0` của
+`KANBAN.md`), `PSRC-172` đã chuyển **In Review**, và phần lớn issue ID thấp đã ở trạng
+thái khác (Done/Todo/Canceled) nên không lọt vào lọc `state = Backlog`.
+`PSRC-197`, `PSRC-198` **không** ở state Backlog (không có trong danh sách).
+
+### D.1 Đính chính hai dòng của § B
+
+| # | § B ghi | Sự thật đọc từ Linear ngày 2026-11-13 | Đề xuất |
+|---|---|---|---|
+| **PSRC-196** | "Live cabin: đồng bộ chọn tab" — L1, trùng PSRC-199 ⇒ đóng as duplicate | Tiêu đề thật: **"Tab Đọc: mặc định đọc toàn bài khi nhấn đọc"**; mô tả: "Audit v1.27.0: Đảm bảo khi chọn nút đọc trong tab Đọc, hành vi mặc định là đọc toàn bộ bài." Không dính gì tới Live cabin. PSRC-199 là "Cho phép sửa và xoá nội dung Live cabin"; việc "đồng bộ Live cabin qua các tab đọc/nghe/hiểu" là **PSRC-201** (đã ở L1) | **L3** (chạm `lib/screens/read_mode/**` — hành vi nút Đọc). **Không** đóng duplicate: đóng theo § B sẽ mất một yêu cầu thật của tab Đọc |
+| **PSRC-172** | Gộp với PSRC-174 thành "Linux: quét thư viện không phản hồi" — L5, đợt 2 | PSRC-172 hiện ở state **In Review**, không còn Backlog: "VieNeu-TTS: Nút Quét thư viện và Cấp quyền và quét không phản hồi (Linux)", started 2026-11-09. Fix đã land trong **1.26.0** (`REL-1.26.0` liệt kê "quyền quét thư viện" trong nhóm 7 fix PSRC-167…173) | Giữ lane **L5** cho **PSRC-174** (vẫn Backlog). PSRC-172 ⇒ **xác minh rồi chốt như PSRC-14/6**, đừng làm lại; L5 đọc phiếu L3 § 206 trước (cùng gốc "quét không phản hồi") |
+
+### D.2 Bảng phân loại backlog cũ (ID ≤ 196, chưa có trong § B)
+
 | # | Nội dung ngắn | Lane | Ghi chú |
 |---|---|---|---|
-| _(agent điền)_ | | | |
+| **PSRC-166** | VieNeu-TTS: cho nhập **tệp mẫu** để clone giọng + umbrella của 7 lỗi con 167…173 | **L6** (`lib/features/tts/**`, `packages/in4up_stt/lib/tts/**`) | **Đề xuất ĐÓNG (Done)** — không cần làm lại. Issue tự ghi "Đóng issue này sau khi các issue con đã được xử lý": (a) 7 issue con 167…173 đã land trong **1.26.0** (card `REL-1.26.0`, commit `8ae37adb`…`56c2d526`); (b) phần tính năng "nhập tệp mẫu" đã có trong mã: `lib/features/tts/widgets/voice_clone_section.dart`. Agent **không** tự đổi state (chỉ được comment phân loại) ⇒ hub/chủ dự án bấm đóng |
+| **PSRC-35** | `READ-SET-VOICE-COLLAPSE-001` (P2): setting tab Đọc — danh sách giọng Microsoft (Edge) quá dài ⇒ hiện vài ngôn ngữ phổ biến + sổ ra | **L3** (phiếu L3 ghi rõ `lib/features/tts/**` *(chọn giọng)* trong "File chạm") | **Đề xuất ĐÓNG (Done)** — đã làm xong dưới **PSRC-18**. Bằng chứng trong mã: `lib/features/tts/widgets/tts_settings_section.dart:1060-1072` — `featuredOrder` lấy từ `EdgeTtsEngine.featuredLanguages` (8 ngôn ngữ tiêu biểu), phần còn lại vào `remainingOrder` và gập sau nút **"Xem thêm ngôn ngữ khác (N)"** (dòng 1181-1235); mỗi ngôn ngữ là một `ExpansionTile` (`_EdgeVoiceLanguageTile`, TTS-EDGE-VOICE-002). Máy bắt: `test/edge_tts_engine_test.dart` nhóm `EdgeTtsEngine — metadata & featuredLanguages` (dòng 78-99), đã nối CI (`app_analyze.yml:826`). Đúng tiêu chí nghiệm thu "hiện ngôn ngữ phổ biến + 'thêm' sổ ra". *Lỗ hổng rule #5 còn lại (nhãn ngôn ngữ viết tiếng Việt ở mọi locale trong cùng file) là việc khác, KANBAN đã ghi — đừng gộp vào issue này* |
+| **PSRC-24** | `NETAWARE-001` (P1): ưu tiên local/online model theo mạng (Wi-Fi→online, 4G→offline) + user override | **— không lane khu vực nào** (cross-cutting `packages/in4up_ai/**`; L1–L10 không lane nào sở hữu routing AI) ⇒ **hub giữ** | **Đề xuất ĐÓNG (Done/xác minh)** — yêu cầu đã được triển khai dưới thẻ **YT-AUDIT-06 (IN4-104)**: `packages/in4up_ai/lib/src/engine/ai_connectivity_routing.dart` có `AiNetworkKind {wifi, mobile, none}`, `classifyConnectivity()`, `resolveRouteMode()` (chỉ `AiRouteMode.auto` bị đổi; 3 mode tĩnh đi qua **nguyên vẹn** = đúng "user vẫn được quyết định cuối"), `AiConnectivityRouter` bọc `connectivity_plus`. Máy bắt: `test/ai_connectivity_routing_test.dart` — 18 test, khớp đúng 2 tiêu chí nghiệm thu của issue (wifi ⇒ `onlineFirst`; mobile ⇒ `offlineFirst`; none ⇒ `offlineOnly` "tuyệt đối không sinh request remote"; override tôn trọng; `AiRoutingPrefs` mặc định `auto`). **Chưa kiểm máy thật:** đổi Wi-Fi↔4G trên thiết bị rồi xem engine đổi ưu tiên — cần chủ dự án |
+| **PSRC-29** | `XLAT-OFFLINE-SYNC-001` (P2): "Chỉ dùng dịch offline" có mâu thuẫn với "Server & API cho AI" không ⇒ 1 nguồn sự thật duy nhất | **— không lane khu vực nào** (`lib/features/translation/**` + `packages/in4up_ai/**`; L4 ghi rõ **"Không đổi engine dịch"** nên không thể nhét vào L4) ⇒ **hub giữ**, là việc **ADR/kiến trúc**, không phải việc của lane beta | **Không đề xuất đóng — còn việc thật, nhưng nhỏ hơn mô tả.** Đọc mã thấy hai nút đã **ăn khớp** chứ không mâu thuẫn kiểu "bật offline mà vẫn gọi mạng": `_offlineOnly` (`translation_service.dart:146, 224-234, 252-257, 507, 523`) ngắn mạch **cả** tầng LLM API (`801`, `963`) lẫn engine online (`809`); chiều ngược lại tầng API cũng tự tắt khi "routing offlineOnly / mất mạng" (comment dòng 786) và `AiRouteMode.offlineOnly` có bất biến "tuyệt đối không sinh request remote" (`ai_connectivity_routing.dart:20`). **Việc còn lại:** vẫn tồn tại **hai** pref riêng (`translation_offline_only` và `AiRoutingPrefs`) ⇒ cần một ADR ngắn chốt nguồn sự thật + test khoá "đổi 1 chỗ ⇒ hiệu lực nhất quán" (đúng tiêu chí nghiệm thu của issue). Giao hub hoặc đợt 2, **không** thuộc cổng 1.29.0 |
+| **PSRC-20** | `PDF-XLAT-MULTI-001` (P1): dịch PDF cố định EN→VN ⇒ chọn nguồn/đích, ≥26 ngôn ngữ | **L3** (PDF trong tab Đọc — cùng khu với PSRC-208/209/210 đã giao L3; L10 chỉ nhận phần phát/karaoke/cuộn/tốc độ và ghi rõ "không đổi bộ chọn engine/giọng (L3)") | **Còn việc, nhưng một nửa mô tả đã hết đúng.** Đọc mã: đường dịch trang PDF **không** hardcode EN→VN — `pdf_reader_controller.dart:1111-1119` gọi `service.translateText(text)` **không** truyền `sourceLang/targetLang` ⇒ dùng cặp ngôn ngữ đã cấu hình của `TranslationService` (`translateText` có tham số tuỳ chọn, `translation_service.dart:389-395`; đích mặc định lấy từ `targetLanguage`, dòng 179); `grep` toàn `lib/features/pdf_reader/` **không có** chuỗi `'en'`/`'vi'`/`sourceLang`/`targetLang` nào; danh sách `AppLanguage` hiện có **26** ngôn ngữ (`lib/core/language/app_language.dart`) ⇒ ngưỡng "≥26" của issue đã đạt ở tầng app. **Phần còn thiếu (đúng tiêu chí nghiệm thu):** trong UI PDF reader **chưa có** chỗ chọn nguồn/đích — `TranslationLanguagePickerButton` mới được gắn ở `read_settings_sheet.dart:485`, `translation_toolbar.dart:97`, `screen_translate_card.dart:525`, **không** có trong `lib/features/pdf_reader/widgets/`. Vậy việc của L3 đợt 2: đưa bộ chọn nguồn/đích vào PDF reader (tái dùng nút sẵn có) + test. ⚠️ `lib/features/pdf_reader/**` là **file chung của L3 và L10** ⇒ hub quyết thứ tự land |
+
+**Không có issue Backlog nào của I4U bị bỏ sót và không issue nào xuất hiện hai lần.**
+Agent L11 **không đổi state** của 5 issue ở § D.2 (phiếu § C chỉ cho phép *comment phân
+loại* + *đề xuất* đóng) — chỉ PSRC-14 và PSRC-6 ở § A được chuyển `Done`.
+
+### D.3 Đối chiếu § D.2 với code đã land ngày 2026-11-14 (bổ sung, không đổi phân loại)
+
+Sau khi hub land cả 10 lane vào tip `6d596c6d`, ba trong năm đề xuất của § D.2 đã có
+code liên quan nằm trên nhánh cha — hub có thể dùng làm bằng chứng bổ sung khi bấm `Done`
+(phân loại lane ở § D.2 **giữ nguyên**):
+
+| Issue § D.2 | Commit đã land trên nhánh cha | Ý nghĩa với đề xuất đóng |
+|---|---|---|
+| **PSRC-166** (→ L6) | `312ad17e` (PSRC-218 tạo giọng từ mẫu), `b6ef3853` (PSRC-217 import giọng) | Umbrella 166 gần như được phủ bởi 217/218 — đề xuất `Done` càng vững; vẫn nên kiểm máy thật một lần import + clone trước khi đóng |
+| **PSRC-35** (→ L3) | `5fb4bf66` (PSRC-230 chọn đúng giọng theo ngôn ngữ khi đọc song ngữ) | Cùng khu `lib/features/tts/**` + chọn giọng; phần "gập danh sách Edge" đã có từ PSRC-18 ⇒ đề xuất `Done` giữ nguyên |
+| **PSRC-20** (→ L3) | `2f26847f` (PSRC-207 mở .docx trong tab đọc), `180b7cd7` (PSRC-208 OCR đủ trang) | PDF/OCR trong tab Đọc đã được củng cố, nhưng **chưa** có commit nào thêm bộ chọn nguồn/đích vào UI PDF ⇒ nửa còn lại của PSRC-20 (picker) **vẫn mở**, đúng như § D.2 ghi |
+
+PSRC-24 và PSRC-29 không có lane khu vực nên không có commit nào trong đợt này — đúng dự
+kiến (§ D.2 đã nêu: cần hub/chủ dự án quyết, PSRC-29 nên giữ mở).
 
 ## Nghiệm thu
 
 - [x] PSRC-14 và PSRC-6: có comment bằng chứng + đóng, hoặc mở lại kèm lý do.
       → cả hai **ĐẠT**, đã chuyển `Done` ngày 2026-11-13; bằng chứng ở § A.1 và § A.2,
       phần chưa kiểm máy thật ghi rõ trong từng mục và trong comment Linear.
-- [ ] Mọi issue Backlog của I4U xuất hiện **đúng một lần** trong § B hoặc § D.
-- [ ] Không issue nào bị đóng mà không có lý do viết ra.
-- [ ] `app_analyze` xanh (nếu có sửa code).
+- [x] Mọi issue Backlog của I4U xuất hiện **đúng một lần** trong § B hoặc § D.
+      → đủ danh sách ở § D.0 (đọc phân trang tới `has_next_page: false`); PSRC-199…233
+      tính một lần trong bản đồ lane `README.md` § 7, không lặp lại ở § D.
+- [x] Không issue nào bị đóng mà không có lý do viết ra.
+      → L11 chỉ chuyển `Done` **PSRC-14** và **PSRC-6**, mỗi cái có comment bằng chứng
+      trên Linear + § A.1/§ A.2. Bốn đề xuất đóng ở § D.2 (166, 35, 24 và một nửa 20)
+      đều có lý do + đường dẫn file/dòng cụ thể, và **chưa** đổi state — để hub/chủ dự án bấm.
+- [x] `app_analyze` xanh (nếu có sửa code).
+      → lane này **không sửa một dòng code nào** (3 commit đều chỉ đụng file phiếu lane
+      này) nên điều kiện "nếu có sửa code" không áp dụng — nhưng vẫn có bằng chứng xanh.
+      **Cập nhật 2026-11-14** sau khi rebase lên tip mới của nhánh cha (`6d596c6d`, +43
+      commit của L1–L10) và `push --force-with-lease`: **cả 4 workflow đều ✅ `success`**
+      trên head `536254c9` (head cuối của nhánh chỉ khác head này đúng một file là chính
+      phiếu này — xem `git log`):
+      | Run | Workflow | Kết luận |
+      |---|---|---|
+      | **`43599189464`** | `app_analyze.yml` (App Analyze + Locale Test) | ✅ `success` |
+      | **`43599189382`** | Listen queue regression tests | ✅ `success` |
+      | **`43599189471`** | VieNeu engine build (Android arm64) | ✅ `success` |
+      | `43599189518` | `deploy-web.yml` | ✅ `success` (xem Phát hiện thêm mục 9) |
+      ⇒ `app_analyze` **có** chạy và xanh trên chính nhánh L11: lần push rebase làm GitHub
+      tính lại diff trước/sau (từ head cũ `81291ccf` trên base cũ sang head mới trên base
+      `6d596c6d`) nên bộ lọc `paths` không chặn được. Lần push sau đó (chỉ đổi `docs/**`)
+      chỉ kích hoạt `deploy-web` ⇒ bộ lọc `paths` của `app_analyze` vẫn đúng như README § 6. Trước đó
+      (head `4996c7e1`) `app_analyze` không được kích hoạt vì push chỉ đổi `docs/**`, và
+      agent không tự kích hoạt được (`gh workflow run` → `HTTP 403 Resource not accessible
+      by integration`); bằng chứng khi ấy lấy từ run **`43360617301`** trên nhánh cha
+      (`0ad2f2f9`, step "Read actions + mixed-language tests" = `success`) + `compare/
+      0ad2f2f9...962e7e1` = `ahead 3 / behind 0`, và `deploy-web.yml` run **`43490960771`**
+      = `success` (build web release được ⇒ không hồi quy biên dịch).
+      Trên tip nhánh cha `6d596c6d`: **3/3 workflow ✅** — `app_analyze` run
+      **`43597871035`**, Listen queue run **`43597871042`**, VieNeu engine build run
+      **`43597871013`** ⇒ L11 rebase lên nền đã xanh hoàn toàn.
+      Sandbox không có Dart/Flutter SDK nên **không** tự chạy `flutter analyze` /
+      `flutter test` tại máy được; mọi kết luận test đều đọc từ GitHub API.
 
 ## Commit
 
@@ -116,4 +204,83 @@ docs(backlog): phân loại issue cũ vào lane khu vực [L11]
 
 ## Phát hiện thêm
 
-_(trống)_
+Ghi ngày 2026-11-13 bởi agent lane **L11** (theo `README.md` § 5: phát hiện ngoài phạm vi
+lane thì ghi vào đây + báo hub, **không** tự sửa file của lane khác).
+
+1. **§ B của chính phiếu này ghi sai nội dung PSRC-196** (chi tiết + bằng chứng ở § D.1).
+   Nếu làm theo § B, agent L1 sẽ đóng nhầm PSRC-196 as duplicate của PSRC-199 và **mất**
+   yêu cầu thật "Tab Đọc: mặc định đọc toàn bài khi nhấn đọc". Đã comment đính chính ngay
+   trên issue PSRC-196 để không ai đóng nhầm. Đề xuất hub sửa lại card KANBAN tương ứng.
+2. **PSRC-172 không còn ở Backlog** (đang **In Review**, fix đã land trong 1.26.0) nhưng
+   § B và phiếu `L5-linux.md` § "Đợt 2" vẫn liệt kê nó như việc phải làm ⇒ **L5 có nguy cơ
+   làm lại việc đã xong**. Đã comment trên issue; đề xuất hub gạch PSRC-172 khỏi đợt 2 của
+   L5 hoặc giao L5 *xác minh + chốt* như L11 làm với PSRC-14/6.
+3. **Hai issue không có lane khu vực**: PSRC-24 (`NETAWARE-001`) và PSRC-29
+   (`XLAT-OFFLINE-SYNC-001`) chạm `packages/in4up_ai/**` + `lib/features/translation/**`.
+   Không lane L1–L10 nào sở hữu hai đường này (L4 ghi rõ "Không đổi engine dịch", L6 chỉ
+   là VieNeu/Vieu-TTS). Đề xuất hub tự giữ hoặc mở lane "AI/routing" sau beta — cả hai đều
+   **ngoài cổng 1.29.0**.
+4. **Chồng lấn file giữa L3 và L10**: `lib/features/pdf_reader/**` xuất hiện trong "File
+   chạm" của **cả hai** phiếu (L3: phần nạp/OCR; L10: toàn bộ). PSRC-20 (đề xuất L3) và
+   PSRC-229/231/232 (L10) có thể đụng cùng `pdf_reader_controller.dart` /
+   `widgets/pdf_toolbar.dart`. L11 không sửa code nên không gây xung đột, nhưng hub nên
+   chốt thứ tự land L3 trước hay L10 trước ở khu vực này.
+5. **PSRC-35 và PSRC-166 gần như chắc chắn đã xong** (bằng chứng file/dòng ở § D.2) ⇒ nếu
+   hub muốn dọn nhanh backlog cũ, đây là hai issue "rẻ" nhất: chỉ cần xác minh + đóng,
+   không cần code.
+6. **Hạn chế môi trường của lane này** (nói rõ để hub không hiểu nhầm "CI xanh" trong báo
+   cáo): sandbox **không có Dart/Flutter SDK, không có thiết bị/`adb`, không có mạng tới
+   engine dịch** ⇒ không thể chạy `flutter analyze` / `flutter test` tại máy, và không thể
+   nghiệm thu chạm tay/nghe thật. Mọi bằng chứng test trong § A.1, § A.2, § D.2 lấy từ
+   (a) đọc mã + đếm test, (b) GitHub API (`gh api …/actions/runs/<id>` và `…/jobs` để đọc
+   kết luận từng step — cách này **không** bị chặn như log/artifact), (c) run
+   `workflow_dispatch` trên chính nhánh này.
+7. **`KANBAN.md` là file của hub**: hai card `READ-SELECT-002` (dòng ~7726) và
+   `XLAT-MIX-001` (dòng ~140) vẫn ghi "🔄 doing / chờ nghiệm thu máy" dù Linear đã
+   `Done`. L11 không được sửa file đó ⇒ hub cập nhật sau khi land.
+8. **PSRC-197 và PSRC-198 không ở state Backlog** (không lọt vào lọc `state = Backlog`
+   của project I4U) — ghi lại để ai đối chiếu số hiệu khỏi tưởng danh sách § D.0 bị thiếu.
+9. ⚠️ **`deploy-web.yml` PUBLISH bản beta lên GitHub Pages từ nhánh lane — hub nên bịt ngay.**
+   `README.md` § 6 ghi "`deploy-web.yml` … build web (beta **không** publish)", nhưng cấu
+   hình thật không làm vậy:
+   - `on.push.branches` gồm `'arena/**'` và **không lọc `paths`** ⇒ push **chỉ tài liệu**
+     vẫn build + publish. Danh sách loại trừ chỉ có `!arena/075510c6-in4up` và
+     `!arena/60e35d65-in4up` (nhánh hub), cộng thêm `if:` ở job cho `arena/bf95d3ae-in4up`
+     ⇒ **11 nhánh lane beta 1.29.0 không nằm trong bất kỳ ngoại lệ nào**.
+   - Step cuối "Publish to gh-pages" `git push --force origin HEAD:gh-pages` ⇒ bản beta chưa
+     nghiệm thu **đè lên site Pages đang chạy của chủ dự án**.
+   - Bằng chứng hôm nay (2026-11-13): run **`43490659230`** (`arena/5b743370-in4up`) và run
+     **`43490960771`** (`arena/d0e2d365-in4up` — chính lane L11, push 3 commit **docs-only**)
+     đều `success` ⇒ đã publish; hàng loạt run lane khác `cancelled` vì
+     `concurrency: github-pages, cancel-in-progress: true` ⇒ các lane đang **đua nhau** publish.
+   - Agent L11 **không chặn được**: `gh run cancel` và `gh workflow run` đều trả
+     `HTTP 403 Resource not accessible by integration` (token sandbox chỉ đọc Actions).
+   - **Đề xuất hub:** thêm `'!arena/**-in4up'`-style guard cho đợt beta (hoặc một
+     `if: github.ref == 'refs/heads/main'` ở step Publish), và/hoặc thêm `paths:` để
+     docs-only không build web. Việc này **ngoài phạm vi L11** nên L11 không tự sửa
+     `.github/workflows/` — file đó thuộc § 3 "hỏi hub trước".
+   - Tái xác nhận 2026-11-14: run **`43599189518`** (head `536254c9`, chính L11 sau rebase)
+     = `success` ⇒ lại publish; run **`43491385167`** (head `81291ccf`) = `cancelled` vì
+     concurrency. Nguy cơ vẫn **chưa được bịt**.
+
+10. 🔎 **Đối chiếu nhánh cha ngày 2026-11-14 (theo yêu cầu chủ dự án, không sửa gì):**
+    tip `arena/60e35d65-in4up` = **`6d596c6d`**, hơn base cũ `962e7e1` **43 commit, 0 merge
+    commit** ⇒ hub đã land **cả 10 lane tuyến tính**, và tip này **xanh cả 3 workflow**
+    (`43597871035` app_analyze, `43597871042` Listen queue, `43597871013` VieNeu build). Rà theo số hiệu (`git log --grep
+    "PSRC-<n>)"` trên khoảng `962e7e1..6d596c6d`): **34/35** issue cổng PSRC-199…233 đã có
+    commit land. Còn lại **3 điểm hub cần lưu ý**:
+    - ❗ **PSRC-224 (L9) chưa land** — issue cổng duy nhất không có commit nào trong toàn
+      repo (`git log --all --grep PSRC-224` chỉ trúng commit tài liệu `962e7e12`). L9 đã
+      land 225 (`e7e1c7d5`), 226 (`0f8fbcc7`), 227 (`7bd01805`), 228 (`12e71c42`) nhưng bỏ
+      qua 224 ("bỏ mục Shadow ở phần tạo lời nếu không có chức năng") dù phiếu `L9-shadowing.md`
+      dòng 24 xếp 224 làm **đầu tiên**. Trên Linear PSRC-224 vẫn `Backlog`, chưa gán ai,
+      chưa có comment ⇒ nếu gate G4 đóng theo danh sách 199…233 thì sẽ **thiếu 1 issue**.
+    - ℹ️ **PSRC-211 (L4) có hai commit cùng tiêu đề**: `5ed57656` (11-13, bố cục overlay
+      Dart + Kotlin) và `6d596c6d` (11-14, patch khác hẳn: `ScreenTranslateService.kt`
+      +354, `TranslationOverlayView.kt` +184, `strings_screen_translate.xml` 8 locale) ⇒ là
+      **vòng sửa thứ hai**, không phải land trùng. Hai nhánh L4 (`defa5264`, `33cb5b7a`) còn
+      treo trên remote nhưng nội dung đã nằm trong tip.
+    - ⚠️ **Sổ sách chưa cập nhật theo code**: Linear PSRC-233/230/228/227/225 vẫn `Backlog`
+      dù code đã land; `docs/project/BETA-1.29.0.md` tại tip vẫn còn 8 dòng lane "⬜ chưa
+      nhận" và không có marker "đã land"; `KANBAN.md` chưa có card PSRC-224. Đối chiếu trạng
+      thái beta lúc này phải đọc **git**, đừng đọc Linear/doc.

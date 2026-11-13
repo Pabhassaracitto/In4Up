@@ -144,6 +144,70 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- PSRC-221 — in4up là engine "Chuyển văn bản thành giọng nói" của
+             Android (Cài đặt ▸ Ngôn ngữ & nhập ▸ Chuyển văn bản thành giọng nói).
+
+             - Android tìm engine bằng action `android.intent.action.TTS_SERVICE`
+               + metadata `android.speech.tts` ⇒ service PHẢI `exported=true`
+               (hệ thống và app khác bind vào). Không khai `permission`: engine
+               TTS chuẩn không yêu cầu quyền nào để được bind.
+             - Tên hiển thị trong danh sách engine = nhãn app (`app_name` theo
+               flavor) — không thêm chuỗi mới.
+             - Ba activity dưới là giao thức của màn Cài đặt TTS:
+               CHECK_TTS_DATA (bắt buộc — thiếu thì nút "Nghe thử" bị khoá),
+               GET_SAMPLE_TEXT (câu nghe thử), INSTALL_TTS_DATA (mở app để
+               import giọng). Không có giao diện.
+             - Không cần `<queries>`: đó là việc của app GỌI engine, không phải
+               của engine. targetSdk 35 không đòi thêm khai báo nào để hiện
+               trong danh sách.
+             - Âm thanh do engine Flutter NỀN tạo (Piper/VieNeu offline) —
+               xem com.in4up.systemtts.SystemTtsRuntime. -->
+        <service
+            android:name="com.in4up.systemtts.In4UpTtsService"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.TTS_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.speech.tts"
+                android:resource="@xml/tts_engine" />
+        </service>
+
+        <activity
+            android:name="com.in4up.systemtts.CheckVoiceDataActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.CHECK_TTS_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.in4up.systemtts.GetSampleTextActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.GET_SAMPLE_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.in4up.systemtts.InstallVoiceDataActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.speech.tts.engine.INSTALL_TTS_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

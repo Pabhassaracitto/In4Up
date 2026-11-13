@@ -54,3 +54,16 @@ fix(PSRC-213): YouTube phát được trên Linux [L5]
 ## Phát hiện thêm
 
 _(trống)_
+
+### Backend và phương án Linux (PSRC-212)
+
+`webview_flutter` trong pubspec chỉ có backend Android/iOS; plugin đăng ký
+Linux không có backend `webview_flutter`. Windows dùng `webview_win_floating`
+riêng. Do đó không thể giả định WebKitGTK, compositing hay codec là nguyên nhân;
+Linux tránh khởi tạo controller không được hỗ trợ và mở địa chỉ/tìm kiếm trong
+trình duyệt hệ thống qua `url_launcher_linux`. Công cụ đọc/viết trong app không
+hoạt động trong trình duyệt ngoài. Cần cài và đặt trình duyệt mặc định với
+handler desktop (xdg-open); không yêu cầu hay bundle WebKitGTK/GStreamer cho
+fallback này. WebKitGTK: không cài/không kiểm được phiên bản trong sandbox.
+Sandbox không có DISPLAY/WAYLAND_DISPLAY, chưa tái hiện hoặc kiểm X11/Wayland,
+GPU, trình duyệt thật. Chưa xác định biến môi trường cần thiết trên máy thật.

@@ -24,6 +24,7 @@ import '../../models/vocab_context.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/text_provider.dart';
 import '../../widgets/selection_save_sheet.dart';
+import '../web_core/linux_external_browser_screen.dart';
 import 'js/web_reader_js.dart';
 import 'web_reader_controller.dart';
 import 'widgets/web_extraction_batch_sheet.dart';
@@ -33,7 +34,7 @@ import '../../utils/system_insets.dart';
 import 'widgets/web_reader_toolbar.dart';
 import 'widgets/web_word_tap_sheet.dart';
 
-class WebReaderScreen extends StatefulWidget {
+class WebReaderScreen extends StatelessWidget {
   final String? initialUrl;
   final String? initialFocusTerm;
   final VocabContext? initialFocusContext;
@@ -51,10 +52,40 @@ class WebReaderScreen extends StatefulWidget {
   });
 
   @override
-  State<WebReaderScreen> createState() => _WebReaderScreenState();
+  Widget build(BuildContext context) {
+    if (Platform.isLinux) {
+      return LinuxExternalBrowserScreen(
+        initialInput: initialUrl ?? '',
+        normalizeInput: WebReaderController.normalizeUrl,
+      );
+    }
+    return _EmbeddedWebReaderScreen(
+      initialUrl: initialUrl,
+      initialFocusTerm: initialFocusTerm,
+      initialFocusContext: initialFocusContext,
+      writingMode: writingMode,
+    );
+  }
 }
 
-class _WebReaderScreenState extends State<WebReaderScreen> {
+class _EmbeddedWebReaderScreen extends StatefulWidget {
+  final String? initialUrl;
+  final String? initialFocusTerm;
+  final VocabContext? initialFocusContext;
+  final bool writingMode;
+
+  const _EmbeddedWebReaderScreen({
+    this.initialUrl,
+    this.initialFocusTerm,
+    this.initialFocusContext,
+    required this.writingMode,
+  });
+
+  @override
+  State<_EmbeddedWebReaderScreen> createState() => _WebReaderScreenState();
+}
+
+class _WebReaderScreenState extends State<_EmbeddedWebReaderScreen> {
   late final WebReaderController _controller;
 
   WebViewController? _mobileCtrl;

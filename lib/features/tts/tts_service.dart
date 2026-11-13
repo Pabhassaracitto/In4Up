@@ -936,11 +936,19 @@ class TtsService extends ChangeNotifier {
     // PSRC-183: worker có thể đang giữ model CŨ. Dọn để lần phát tới nạp
     // đúng file vừa import; trạng thái UI (model/engine) được làm mới.
     await VieneuTtsEngine.instance.invalidate();
+    // PSRC-215: hỏi engine NGAY sau khi copy — chỉ báo "thành công" khi đủ
+    // model + native + `sea_g2p.bin`. Trước 1.29 UI báo xanh trong khi engine
+    // còn thiếu từ điển phát âm (không đọc được câu nào).
+    final readiness =
+        await VieneuTtsEngine.instance.probe(modelVariant: effectiveVariant);
     notifyVoicesChanged();
     return VieneuImportResult(
       modelPath: target.path,
       importedVoices: voiceIds.length,
       voiceIds: List<String>.unmodifiable(voiceIds),
+      variant: effectiveVariant,
+      bytes: report.bytes,
+      readiness: readiness,
     );
   }
 
@@ -1050,6 +1058,7 @@ class TtsService extends ChangeNotifier {
         .where((f) => p.extension(f.path).toLowerCase() == '.gguf')
         .toList();
     String? modelPath;
+    VieneuImportResult? lastModelImport;
     final voiceIds = <String>[];
     for (final gguf in ggufFiles) {
       final name = detectVieneuVariantName(gguf.path) ??
@@ -1058,8 +1067,12 @@ class TtsService extends ChangeNotifier {
         (v) => v.name == name,
         orElse: () => VieneuModelVariant.q8_0,
       );
+      // PSRC-214: `importVieneuModel` tự kiểm file + tự chọn biến thể theo
+      // CHÍNH tên tệp, nên mọi đường (một tệp / nhiều tệp / cả thư mục) đều
+      // cho cùng một kết quả như nhau.
       final result = await importVieneuModel(gguf, variant: variant);
       modelPath ??= result.modelPath;
+      lastModelImport ??= result;
       for (final id in result.voiceIds) {
         if (!voiceIds.contains(id)) voiceIds.add(id);
       }
@@ -1087,11 +1100,18 @@ class TtsService extends ChangeNotifier {
           sourceDirPath);
     }
     await VieneuTtsEngine.instance.invalidate();
+    // PSRC-215: trạng thái engine sau khi import trọn bộ — cùng một câu trả
+    // lời như import một tệp, không có "đường tắt báo thành công".
+    final readiness = lastModelImport?.readiness ??
+        await VieneuTtsEngine.instance.probe();
     notifyVoicesChanged();
     return VieneuImportResult(
       modelPath: modelPath ?? '',
       importedVoices: voiceIds.length,
       voiceIds: List<String>.unmodifiable(voiceIds),
+      variant: lastModelImport?.variant ?? VieneuModelVariant.q8_0,
+      bytes: lastModelImport?.bytes ?? 0,
+      readiness: readiness,
     );
   }
 

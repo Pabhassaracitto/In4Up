@@ -1405,11 +1405,18 @@ class _ImportStatus {
   final String? suffixKey;
   final List<String> suffixArgs;
 
+  /// Key dịch của mảnh engine còn thiếu (`sea_g2p.bin`, lib native…).
+  ///
+  /// PSRC-215/216: thông điệp phải nêu ĐÚNG thứ còn thiếu; giữ dạng KEY (không
+  /// phải chuỗi đã dịch) để đổi locale vẫn dịch lại được.
+  final String? blockerKey;
+
   const _ImportStatus(
     this.key, {
     this.args = const <String>[],
     this.suffixKey,
     this.suffixArgs = const <String>[],
+    this.blockerKey,
   });
 
   String localize(BuildContext context) {
@@ -1421,7 +1428,9 @@ class _ImportStatus {
       return text;
     }
 
-    final text = fill(key, args);
+    final values = <String>[...args];
+    if (blockerKey != null) values.add(context.uiText(blockerKey!));
+    final text = fill(key, values);
     return suffixKey == null ? text : text + fill(suffixKey!, suffixArgs);
   }
 }
@@ -1817,7 +1826,11 @@ class _VieneuModelImportSectionState
       if (dirPath != null) {
         final result =
             await TtsService().importVieneuBundleFromDirectory(dirPath);
-        await _afterBundleImport(result.modelPath, result.importedVoices);
+        await _afterBundleImport(
+          result.modelPath,
+          result.importedVoices,
+          readiness: result.readiness,
+        );
         return;
       }
       // Android/iOS: fallback chọn nhiều file .gguf; giọng mẫu import qua
@@ -1835,6 +1848,7 @@ class _VieneuModelImportSectionState
       }
       var voices = 0;
       String firstPath = '';
+      VieneuEngineProbe? readiness;
       for (final file in picked.files) {
         final path = file.path;
         if (path == null) continue;
@@ -1842,12 +1856,14 @@ class _VieneuModelImportSectionState
         final variant = name.contains('bf16') || name.contains('f16')
             ? VieneuModelVariant.bf16
             : VieneuModelVariant.q8_0;
+        // PSRC-214: biến thể thật do service tự nhận từ tên tệp.
         final result =
             await TtsService().importVieneuModel(File(path), variant: variant);
         if (firstPath.isEmpty) firstPath = result.modelPath;
+        readiness ??= result.readiness;
         voices += result.importedVoices;
       }
-      await _afterBundleImport(firstPath, voices);
+      await _afterBundleImport(firstPath, voices, readiness: readiness);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1858,23 +1874,42 @@ class _VieneuModelImportSectionState
     }
   }
 
-  Future<void> _afterBundleImport(String modelPath, int voices) async {
+  Future<void> _afterBundleImport(
+    String modelPath,
+    int voices, {
+    VieneuEngineProbe? readiness,
+  }) async {
     if (!mounted) return;
     await _checkAllModels();
     widget.onVoicesChanged?.call();
     if (!mounted) return;
+    final blocker = readiness?.blocker;
     setState(() {
       _importing = false;
-      _status = modelPath.isEmpty
-          ? _ImportStatus(
-              'Đã import {value0} giọng mẫu',
-              args: <String>['$voices'],
-            )
-          : _ImportStatus(
-              'Đã import {value0} · {value1} giọng mẫu',
-              args: <String>[p.basename(modelPath), '$voices'],
-            );
-      _statusIsError = false;
+      _engineReady = readiness?.ready ?? _engineReady;
+      // PSRC-215: import xong vẫn phải nói engine có nạp được hay không.
+      _statusIsError = blocker != null;
+      if (blocker != null) {
+        _status = _ImportStatus(
+          modelPath.isEmpty
+              ? 'Đã import {value0} giọng mẫu nhưng engine chưa sẵn sàng: {value1}'
+              : 'Đã import {value0} nhưng engine chưa sẵn sàng: {value1}',
+          args: <String>[
+            modelPath.isEmpty ? '$voices' : p.basename(modelPath),
+          ],
+          blockerKey: vieneuEngineBlockerMessage(blocker),
+        );
+      } else {
+        _status = modelPath.isEmpty
+            ? _ImportStatus(
+                'Đã import {value0} giọng mẫu',
+                args: <String>['$voices'],
+              )
+            : _ImportStatus(
+                'Đã import {value0} · {value1} giọng mẫu',
+                args: <String>[p.basename(modelPath), '$voices'],
+              );
+      }
     });
   }
 

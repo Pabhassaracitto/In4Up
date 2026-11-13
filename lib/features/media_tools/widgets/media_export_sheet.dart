@@ -30,7 +30,6 @@ import '../services/media_estimates.dart';
 import '../services/media_export_diagnostics.dart';
 import '../services/media_ffmpeg_engine.dart';
 import 'media_export_progress_dialog.dart';
-import 'media_export_follow_up.dart';
 import 'ffmpeg_install_sheet.dart';
 
 const _bg = Color(0xFF141D2E);
@@ -50,9 +49,6 @@ Future<MediaExportResult?> showMediaExportSheet(
 
   /// Có LRC nguồn không (quyết định hiện tuỳ chọn "kèm lời").
   bool hasSourceLrc = false,
-
-  /// Optional context-specific action for opening the exported primary file.
-  Future<void> Function(String path)? openInListenTab,
 }) {
   return showModalBottomSheet<MediaExportResult>(
     context: context,
@@ -63,7 +59,6 @@ Future<MediaExportResult?> showMediaExportSheet(
       knownDuration: knownDuration,
       sourceBitrateKbps: sourceBitrateKbps,
       hasSourceLrc: hasSourceLrc,
-      openInListenTab: openInListenTab,
     ),
   );
 }
@@ -74,14 +69,12 @@ class _MediaExportSheet extends StatefulWidget {
     this.knownDuration,
     this.sourceBitrateKbps,
     this.hasSourceLrc = false,
-    this.openInListenTab,
   });
 
   final MediaExportRequest initialRequest;
   final Duration? knownDuration;
   final int? sourceBitrateKbps;
   final bool hasSourceLrc;
-  final Future<void> Function(String path)? openInListenTab;
 
   @override
   State<_MediaExportSheet> createState() => _MediaExportSheetState();
@@ -184,13 +177,16 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
     setState(() => _busy = false);
     if (result == null) return;
 
-    // Đóng sheet, trả kết quả cho lối vào.
+    // PSRC-202 — ĐÓNG sheet rồi trả kết quả cho lối vào. Bước "làm gì tiếp"
+    // KHÔNG được chạy ở đây: `context` này là của route vừa bị pop, mà
+    // `showDialog` cần một context còn sống để tìm Navigator. Trước đây
+    // bước follow-up chạy ngay sau `pop` ⇒ hộp thoại
+    // "Đã xuất xong" được đẩy lên từ một route đang bị gỡ ⇒ có lúc hiện rồi
+    // tự biến mất ("bị dish"), có lúc không hiện ⇒ người dùng không có chỗ
+    // bấm "Mở trong tab Nghe" / "Chia sẻ". Nay lối vào
+    // (`media_export_actions.dart`) mở follow-up bằng context CỦA NÓ, sau khi
+    // sheet đã đóng hẳn.
     Navigator.of(context).pop(result);
-    await offerExportFollowUp(
-      context,
-      result,
-      openInListenTab: widget.openInListenTab,
-    );
   }
 
   @override

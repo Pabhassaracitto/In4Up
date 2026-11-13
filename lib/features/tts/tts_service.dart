@@ -805,13 +805,17 @@ class TtsService extends ChangeNotifier {
       final vieneu = VieneuTtsEngine.instance;
       // GIAI ĐOẠN 3 — dùng biến thể mô hình người dùng đã chọn (mặc định Q8_0).
       final selectedVariant = await getSelectedVieneuModelVariant();
-      await vieneu.init(modelVariant: selectedVariant);
+      // PSRC-218 — giọng đã chọn (kể cả giọng vừa clone) phải sống qua lần
+      // mở app sau: `_selectedVoiceId` chỉ ở RAM, nên đọc thêm prefs.
+      final persistedVoiceId = await getSelectedVieneuVoiceId();
+      final activeVoiceId = _selectedVoiceId ?? persistedVoiceId;
+      await vieneu.init(modelVariant: selectedVariant, voiceId: activeVoiceId);
       if (!await vieneu.isAvailable()) return false;
       if (isStaleEpoch(epoch)) return false;
 
       // Cache theo đúng danh tính (text + ngôn ngữ + engine + biến thể +
       // giọng + tốc độ/cao độ) — TTS-VOICE-CACHE-001.
-      final voiceId = matchVoiceLanguage ? null : _selectedVoiceId;
+      final voiceId = matchVoiceLanguage ? null : activeVoiceId;
       // PSRC-187: văn bản dài được chia đoạn (cùng một đường với Piper/online).
       return await _speakPreparedChunks(
         text: text,
@@ -1303,11 +1307,34 @@ class TtsService extends ChangeNotifier {
   /// PSRC-184 — bảo đảm worker đã nạp model TRƯỚC khi gọi clone giọng.
   /// Đi qua engine (có lock + áp đúng biến thể) thay vì gọi `core.init`
   /// trực tiếp từ UI rồi kiểm tra `isInitialized` trong lúc init còn đang bay.
+  ///
+  /// PSRC-218 — trước 1.29 hàm này ném `StateError('VieNeu worker chưa khởi
+  /// tạo')` cho MỌI trường hợp thiếu (chưa import model / thiếu native / thiếu
+  /// `sea_g2p.bin` / file hỏng) ⇒ màn "tạo giọng từ mẫu" chỉ nói câu chung.
+  /// Nay [VieneuTtsEngine.probe] cho biết mảnh nào thiếu và ném
+  /// [VieneuEngineNotReadyException] mang theo đúng lý do đó.
   Future<void> ensureVieneuWorkerReady() async {
+    final engine = VieneuTtsEngine.instance;
     final variant = await getSelectedVieneuModelVariant();
-    await VieneuTtsEngine.instance.init(modelVariant: variant);
-    if (!VieneuTtsEngine.instance.isInitialized) {
-      throw StateError('VieNeu worker chưa khởi tạo');
+    final probe = await engine.probe(modelVariant: variant);
+    if (probe.blocker != null) {
+      throw VieneuEngineNotReadyException(
+        message: probe.message,
+        blocker: probe.blocker,
+      );
+    }
+    await engine.init(modelVariant: variant, voiceId: _selectedVoiceId);
+    if (!engine.isInitialized) {
+      final reasonKey = probe.message.isNotEmpty
+          ? probe.message
+          : (engine.blockingReason ??
+              vieneuEngineBlockerMessage(
+                  VieneuEngineBlocker.modelUnreadable));
+      throw VieneuEngineNotReadyException(
+        message: reasonKey,
+        blocker: probe.blocker,
+        detail: engine.lastInitError,
+      );
     }
   }
 
@@ -1342,6 +1369,30 @@ class TtsService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_vieneuVariantPrefsKey, v.name);
     _safeNotify();
+  }
+
+  static const String _vieneuVoicePrefsKey = 'vieneu_tts_voice_id';
+
+  /// Giọng VieNeu người dùng đã chọn (kể cả giọng clone) — LƯU BỀN.
+  ///
+  /// PSRC-218: giọng clone nằm trên đĩa (`cloned_voices/<id>/`) nên nó sống
+  /// qua lần mở app sau; nhưng *lựa chọn* giọng trước đây chỉ ở RAM nên app
+  /// mở lại là quay về giọng mặc định của model — người dùng thấy như "mất
+  /// giọng vừa tạo". Đọc prefs, trả null khi chưa từng chọn.
+  Future<String?> getSelectedVieneuVoiceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_vieneuVoicePrefsKey);
+    if (value == null || value.trim().isEmpty) return null;
+    return value;
+  }
+
+  /// Ghi nhớ giọng VieNeu đang dùng (gọi khi người dùng chọn trong picker hoặc
+  /// ngay sau khi tạo giọng thành công).
+  Future<void> setSelectedVieneuVoiceId(String voiceId) async {
+    final trimmed = voiceId.trim();
+    if (trimmed.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_vieneuVoicePrefsKey, trimmed);
   }
 
   /// Thử phát bằng Offline TTS (giọng máy thiết bị qua flutter_tts)

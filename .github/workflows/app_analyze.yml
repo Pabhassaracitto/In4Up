@@ -106,7 +106,7 @@ jobs:
             echo "Không có test Linux shell trên nhánh này — bỏ qua."
             exit 0
           fi
-          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart \
+          timeout -k 10s 3m flutter test test/linux_shell_regression_test.dart test/web_reader/linux_external_browser_test.dart \
             -r expanded > linux_shell_regression_test.log 2>&1
           code=$?
           cat linux_shell_regression_test.log

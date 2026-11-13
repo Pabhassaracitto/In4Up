@@ -18,6 +18,7 @@ import 'package:in4up/core/language/localized_material.dart';
 // thứ dịch chuỗi (luật #5). `show Text` ở đây sẽ che shim ⇒ chuỗi không dịch.
 import 'package:flutter/material.dart' hide Text;
 
+import '../media_export_actions.dart';
 import '../models/media_export_models.dart';
 import '../services/media_export_diagnostics.dart';
 import '../widgets/ffmpeg_install_sheet.dart';
@@ -65,19 +66,24 @@ class _MediaToolsScreenState extends State<MediaToolsScreen> {
     final path = picked?.files.single.path;
     if (path == null || !mounted) return;
     final name = picked!.files.single.name;
-    await showMediaExportSheet(
+    // PSRC-202: hộp thoại "Đã xuất xong" do LỐI VÀO mở (context còn sống),
+    // không phải do sheet vừa bị pop.
+    await completeExportWithFollowUp(
       context,
-      initialRequest: MediaExportRequest(
-        inputPath: path,
-        preset: MediaExportPreset.recommended(
-          inputExtension: name.contains('.')
-              ? name.substring(name.lastIndexOf('.'))
-              : '',
+      () => showMediaExportSheet(
+        context,
+        initialRequest: MediaExportRequest(
+          inputPath: path,
+          preset: MediaExportPreset.recommended(
+            inputExtension: name.contains('.')
+                ? name.substring(name.lastIndexOf('.'))
+                : '',
+          ),
+          inputKind: _looksLikeVideo(name)
+              ? MediaExportInputKind.video
+              : MediaExportInputKind.audio,
+          title: name,
         ),
-        inputKind: _looksLikeVideo(name)
-            ? MediaExportInputKind.video
-            : MediaExportInputKind.audio,
-        title: name,
       ),
     );
   }

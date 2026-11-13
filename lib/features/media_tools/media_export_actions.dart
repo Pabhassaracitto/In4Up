@@ -20,8 +20,36 @@ import '../video/models/video_info.dart';
 import 'models/media_export_models.dart';
 import 'services/media_export_service.dart';
 import 'services/media_ffmpeg_engine.dart';
+import 'widgets/media_export_follow_up.dart';
 import 'widgets/media_export_sheet.dart';
 import 'widgets/ffmpeg_install_sheet.dart';
+
+/// PSRC-202 — nhận kết quả từ sheet xuất rồi MỚI hỏi "làm gì tiếp".
+///
+/// Vì sao follow-up thuộc về lối vào chứ không thuộc sheet: `showDialog` cần
+/// một `BuildContext` còn sống để tìm `Navigator`. Sheet vừa gọi
+/// `Navigator.pop` là context của nó thuộc về một route đang bị gỡ ⇒ hộp
+/// thoại "Đã xuất xong" có lúc hiện rồi tự biến mất, có lúc không hiện ⇒
+/// audio tách từ video "không tự mở" và nút chia sẻ "không phản hồi"
+/// (PSRC-202/203). Context ở đây là của MÀN HÌNH gọi xuất nên vẫn sống.
+///
+/// [openSheet] là cổng thay được trong test (mặc định: mở sheet thật).
+Future<MediaExportResult?> completeExportWithFollowUp(
+  BuildContext context,
+  Future<MediaExportResult?> Function() openSheet, {
+  Future<void> Function(String path)? openInListenTab,
+  Future<void> Function(MediaExportResult result)? share,
+}) async {
+  final result = await openSheet();
+  if (result == null || !context.mounted) return result;
+  await offerExportFollowUp(
+    context,
+    result,
+    openInListenTab: openInListenTab,
+    share: share,
+  );
+  return result;
+}
 
 /// Xuất ĐOẠN A–B đang chọn (hoặc [fallbackDuration] nếu chưa đặt B).
 ///
@@ -46,19 +74,22 @@ Future<MediaExportResult?> exportClipFromPlayer(
 
   final hasLrc = await _hasSourceLrc(path);
 
-  return showMediaExportSheet(
+  return completeExportWithFollowUp(
     context,
-    initialRequest: MediaExportRequest(
-      inputPath: path,
-      preset: MediaExportPreset.mp3Standard,
-      scope: MediaExportScope.clip,
-      start: start,
-      duration: duration,
-      title: player.currentSongTitle ?? p.basename(path),
-      keepLrc: hasLrc,
+    () => showMediaExportSheet(
+      context,
+      initialRequest: MediaExportRequest(
+        inputPath: path,
+        preset: MediaExportPreset.mp3Standard,
+        scope: MediaExportScope.clip,
+        start: start,
+        duration: duration,
+        title: player.currentSongTitle ?? p.basename(path),
+        keepLrc: hasLrc,
+      ),
+      knownDuration: duration,
+      hasSourceLrc: hasLrc,
     ),
-    knownDuration: duration,
-    hasSourceLrc: hasLrc,
   );
 }
 
@@ -72,18 +103,21 @@ Future<MediaExportResult?> exportFullAudio(
   if (!await _ensureReady(context)) return null;
   if (!context.mounted) return null;
   final hasLrc = await _hasSourceLrc(audioPath);
-  return showMediaExportSheet(
+  return completeExportWithFollowUp(
     context,
-    initialRequest: MediaExportRequest(
-      inputPath: audioPath,
-      preset: MediaExportPreset.recommended(
-        inputExtension: p.extension(audioPath),
+    () => showMediaExportSheet(
+      context,
+      initialRequest: MediaExportRequest(
+        inputPath: audioPath,
+        preset: MediaExportPreset.recommended(
+          inputExtension: p.extension(audioPath),
+        ),
+        title: title ?? p.basename(audioPath),
+        keepLrc: hasLrc,
       ),
-      title: title ?? p.basename(audioPath),
-      keepLrc: hasLrc,
+      knownDuration: knownDuration,
+      hasSourceLrc: hasLrc,
     ),
-    knownDuration: knownDuration,
-    hasSourceLrc: hasLrc,
   );
 }
 
@@ -98,22 +132,25 @@ Future<MediaExportResult?> exportAudioFromVideo(
   if (!await _ensureReady(context)) return null;
   if (!context.mounted) return null;
   final isClip = clipStart != null;
-  return showMediaExportSheet(
+  return completeExportWithFollowUp(
     context,
-    initialRequest: MediaExportRequest(
-      inputPath: video.filePath,
-      preset: isClip
-          ? MediaExportPreset.mp3Standard
-          : MediaExportPreset.m4aCopy,
-      scope: isClip ? MediaExportScope.clip : MediaExportScope.full,
-      inputKind: MediaExportInputKind.video,
-      start: clipStart ?? Duration.zero,
-      duration: clipDuration,
-      title: video.title,
-      keepLrc: false,
+    () => showMediaExportSheet(
+      context,
+      initialRequest: MediaExportRequest(
+        inputPath: video.filePath,
+        preset: isClip
+            ? MediaExportPreset.mp3Standard
+            : MediaExportPreset.m4aCopy,
+        scope: isClip ? MediaExportScope.clip : MediaExportScope.full,
+        inputKind: MediaExportInputKind.video,
+        start: clipStart ?? Duration.zero,
+        duration: clipDuration,
+        title: video.title,
+        keepLrc: false,
+      ),
+      knownDuration: isClip ? clipDuration : video.duration,
+      hasSourceLrc: false,
     ),
-    knownDuration: isClip ? clipDuration : video.duration,
-    hasSourceLrc: false,
     openInListenTab: openInListenTab,
   );
 }
@@ -151,18 +188,21 @@ Future<MediaExportResult?> exportByChapters(
   if (slices.isEmpty) return null;
 
   final hasLrc = await _hasSourceLrc(audioPath);
-  return showMediaExportSheet(
+  return completeExportWithFollowUp(
     context,
-    initialRequest: MediaExportRequest(
-      inputPath: audioPath,
-      preset: MediaExportPreset.mp3Standard,
-      scope: MediaExportScope.chapters,
-      slices: slices,
-      title: title,
-      keepLrc: hasLrc,
+    () => showMediaExportSheet(
+      context,
+      initialRequest: MediaExportRequest(
+        inputPath: audioPath,
+        preset: MediaExportPreset.mp3Standard,
+        scope: MediaExportScope.chapters,
+        slices: slices,
+        title: title,
+        keepLrc: hasLrc,
+      ),
+      knownDuration: totalDuration,
+      hasSourceLrc: hasLrc,
     ),
-    knownDuration: totalDuration,
-    hasSourceLrc: hasLrc,
   );
 }
 

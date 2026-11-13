@@ -149,6 +149,76 @@
     "th": "นำเข้าตัวอย่างเสียง {value0} รายการแล้ว แต่เอนจินยังไม่พร้อม: {value1}",
     "ja": "サンプル音声 {value0} 件をインポートしましたが、エンジンはまだ準備できていません: {value1}"
   },
+  "Chưa import model VieNeu-TTS (.gguf)": {
+    "en": "No VieNeu-TTS model (.gguf) imported yet",
+    "hi": "अभी कोई VieNeu-TTS मॉडल (.gguf) आयात नहीं हुआ",
+    "zh": "尚未导入 VieNeu-TTS 模型（.gguf）",
+    "zh_TW": "尚未匯入 VieNeu-TTS 模型（.gguf）",
+    "si": "VieNeu-TTS මාදිලියක් (.gguf) තවම ආයාත කර නැත",
+    "my": "VieNeu-TTS မော်ဒယ် (.gguf) ကို မထည့်သွင်းရသေးပါ",
+    "th": "ยังไม่ได้นำเข้าโมเดล VieNeu-TTS (.gguf)",
+    "ja": "VieNeu-TTS モデル（.gguf）がまだインポートされていません"
+  },
+  "File model .gguf không dùng được (hỏng hoặc không phải GGUF) — import lại": {
+    "en": "The .gguf model cannot be used (corrupt or not GGUF) — import it again",
+    "hi": ".gguf मॉडल उपयोग नहीं हो सकता (क्षतिग्रस्त या GGUF नहीं) — फिर से आयात करें",
+    "zh": ".gguf 模型无法使用（损坏或不是 GGUF）——请重新导入",
+    "zh_TW": ".gguf 模型無法使用（損毀或不是 GGUF）——請重新匯入",
+    "si": ".gguf මාදිලිය භාවිත කළ නොහැක (හානි වූ හෝ GGUF නොවේ) — නැවත ආයාත කරන්න",
+    "my": ".gguf မော်ဒယ်ကို အသုံးမပြုနိုင်ပါ (ပျက်စီး သို့မဟုတ် GGUF မဟုတ်) — ပြန်ထည့်သွင်းပါ",
+    "th": "โมเดล .gguf ใช้งานไม่ได้ (เสียหายหรือไม่ใช่ GGUF) — นำเข้าอีกครั้ง",
+    "ja": ".gguf モデルを使用できません（破損、または GGUF ではありません）。再インポートしてください"
+  },
+  "Bản cài này chưa kèm engine VieNeu-TTS (libvieneu_tts) nên model đã import chưa đọc được": {
+    "en": "This build does not include the VieNeu-TTS engine (libvieneu_tts), so the imported model cannot speak yet",
+    "hi": "इस बिल्ड में VieNeu-TTS इंजन (libvieneu_tts) शामिल नहीं है, इसलिए आयातित मॉडल अभी नहीं पढ़ सकता",
+    "zh": "此版本未包含 VieNeu-TTS 引擎（libvieneu_tts），因此已导入的模型还无法朗读",
+    "zh_TW": "此版本未包含 VieNeu-TTS 引擎（libvieneu_tts），因此已匯入的模型還無法朗讀",
+    "si": "මෙම ගොනුවට VieNeu-TTS එන්ජිම (libvieneu_tts) ඇතුළත් නැත, එබැවින් ආයාත කළ මාදිලියට තවම කියවිය නොහැක",
+    "my": "ဤဗားရှင်းတွင် VieNeu-TTS အင်ဂျင် (libvieneu_tts) မပါဝင်ပါ၊ ထို့ကြောင့် ထည့်သွင်းထားသော မော်ဒယ်ကို ဖတ်နိုင်ခြင်း မရှိသေးပါ",
+    "th": "เวอร์ชันนี้ไม่ได้รวมเอนจิน VieNeu-TTS (libvieneu_tts) จึงยังอ่านด้วยโมเดลที่นำเข้าไม่ได้",
+    "ja": "このビルドには VieNeu-TTS エンジン（libvieneu_tts）が含まれていないため、インポート済みのモデルではまだ読み上げできません"
+  },
+  "Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc": {
+    "en": "Missing the sea_g2p.bin pronunciation dictionary — download it in Settings › Voice",
+    "hi": "उच्चारण शब्दकोश sea_g2p.bin नहीं है — सेटिंग्स › वाणी में डाउनलोड करें",
+    "zh": "缺少发音词典 sea_g2p.bin——请在“设置 › 语音”中下载",
+    "zh_TW": "缺少發音詞典 sea_g2p.bin——請在「設定 › 語音」中下載",
+    "si": "sea_g2p.bin උච්චාරණ ශබ්දකෝෂය නැත — සැකසීම් › හඬ තුළ බාගන්න",
+    "my": "sea_g2p.bin အသံထွက် အဘိဓာန် မရှိပါ — ဆက်တင် › အသံ ထဲတွင် ဒေါင်းလုဒ်လုပ်ပါ",
+    "th": "ไม่พบพจนานุกรมการออกเสียง sea_g2p.bin — ดาวน์โหลดได้ที่ การตั้งค่า › เสียง",
+    "ja": "発音辞書 sea_g2p.bin がありません。設定 › 音声 からダウンロードしてください"
+  },
+  "Chưa khởi tạo được engine: {value0}": {
+    "en": "Could not start the engine: {value0}",
+    "hi": "इंजन शुरू नहीं हो सका: {value0}",
+    "zh": "无法启动引擎：{value0}",
+    "zh_TW": "無法啟動引擎：{value0}",
+    "si": "එන්ජිම ආරම්භ කළ නොහැක: {value0}",
+    "my": "အင်ဂျင်ကို စတင်၍ မရပါ: {value0}",
+    "th": "เริ่มเอนจินไม่ได้: {value0}",
+    "ja": "エンジンを起動できません: {value0}"
+  },
+  "Khởi tạo engine thất bại: {value0}": {
+    "en": "Engine start failed: {value0}",
+    "hi": "इंजन शुरू करना विफल: {value0}",
+    "zh": "引擎启动失败：{value0}",
+    "zh_TW": "引擎啟動失敗：{value0}",
+    "si": "එන්ජිම ආරම්භ කිරීම අසාර්ථකයි: {value0}",
+    "my": "အင်ဂျင် စတင်မှု မအောင်မြင်ပါ: {value0}",
+    "th": "เริ่มเอนจินล้มเหลว: {value0}",
+    "ja": "エンジンの起動に失敗しました: {value0}"
+  },
+  "Đã khởi tạo engine VieNeu-TTS ({value0})": {
+    "en": "VieNeu-TTS engine ready ({value0})",
+    "hi": "VieNeu-TTS इंजन तैयार ({value0})",
+    "zh": "VieNeu-TTS 引擎已就绪（{value0}）",
+    "zh_TW": "VieNeu-TTS 引擎已就緒（{value0}）",
+    "si": "VieNeu-TTS එන්ජිම සූදානම් ({value0})",
+    "my": "VieNeu-TTS အင်ဂျင် အသင့်ဖြစ်သည် ({value0})",
+    "th": "เอนจิน VieNeu-TTS พร้อมใช้งาน ({value0})",
+    "ja": "VieNeu-TTS エンジン準備完了（{value0}）"
+  },
   "Chưa được cấp quyền đọc video.": {
     "en": "Video access has not been granted.",
     "hi": "वीडियो पढ़ने की अनुमति नहीं दी गई है।",

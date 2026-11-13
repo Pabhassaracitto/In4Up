@@ -16,6 +16,8 @@
 // Nguyên tắc: KHÔNG tự dựng UI. Mọi yêu cầu tra từ đi qua
 // `DictionaryScreen.open(...)` — đúng "một đích duy nhất" của ADR-0018.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in4up/core/language/localized_material.dart';
@@ -45,6 +47,20 @@ class DictDeepLinkRouter {
   /// Giữ lại thay vì nuốt lặng: khi P3 xong, chỗ này là hàng đợi sẵn dùng.
   List<DictDeepLinkRequest> get deferredFiles =>
       List<DictDeepLinkRequest>.unmodifiable(_deferredFiles);
+
+  Future<void> Function(String filePath)? _fileOpenHandler;
+
+  /// PSRC-222: kết nối bộ định tuyến mở tệp chung (`IncomingFileRouter`) để mọi
+  /// link `in4up://open?path=…` đến trước hoặc sau đều mở đúng màn hình.
+  void attachFileOpenHandler(Future<void> Function(String filePath) handler) {
+    _fileOpenHandler = handler;
+    if (_deferredFiles.isEmpty) return;
+    final queued = List<DictDeepLinkRequest>.from(_deferredFiles);
+    _deferredFiles.clear();
+    for (final req in queued) {
+      unawaited(handler(req.value));
+    }
+  }
 
   /// Số yêu cầu tra từ đang chờ mở màn (dùng cho test/chẩn đoán).
   int get pendingWordCount => _pendingWords.length;
@@ -94,8 +110,12 @@ class DictDeepLinkRouter {
   void enqueue(DictDeepLinkRequest? request) {
     if (request == null) return;
     if (!request.isWord) {
-      // Chưa hỗ trợ mở tệp (P3) — ghi lại, KHÔNG hiện lỗi cho người dùng.
-      _deferredFiles.add(request);
+      final handler = _fileOpenHandler;
+      if (handler != null) {
+        unawaited(handler(request.value));
+      } else {
+        _deferredFiles.add(request);
+      }
       return;
     }
     // Native có thể đưa cùng một link 2 lần (intent lúc khởi động + onNewIntent).

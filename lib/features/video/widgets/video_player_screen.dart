@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../services/external_open_service.dart';
 import '../../../utils/system_insets.dart';
 import '../../media_tools/media_export_actions.dart';
 import '../models/video_ab_loop_state.dart';
@@ -17,6 +18,7 @@ import '../models/video_info.dart';
 import '../services/subtitle_parser.dart';
 import '../services/video_device_channel.dart';
 import '../services/video_library_logic.dart';
+import '../services/video_playback_support.dart';
 import '../services/video_library_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -36,6 +38,9 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerController? _controller;
   bool _initFailed = false;
+  /// PSRC-220 — nền tảng này KHÔNG có plugin `video_player` (Linux/Windows):
+  /// không thử khởi tạo controller, phát bằng trình phát của hệ điều hành.
+  bool _externalOnly = false;
   bool _showControls = true;
   double _speed = 1.0;
   List<SubtitleCue> _cues = const [];
@@ -50,8 +55,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _initPlayer();
+    // PSRC-220 (audit 1.28.0): trên Linux/Windows `video_player` chưa có
+    // plugin ⇒ `VideoPlayerController.initialize()` ném `UnimplementedError`
+    // và màn hình chỉ hiện "Không phát được video này". Biết trước điều đó để
+    // KHÔNG đi vào nhánh lỗi và đưa ra đường xem được thật.
+    if (!VideoPlaybackSupport.supportsInAppPlayback) {
+      _externalOnly = true;
+    } else {
+      _initPlayer();
+    }
     _loadSubtitle();
+  }
+
+  /// Mở tệp bằng trình phát của hệ điều hành (`xdg-open` / `explorer` / `open`).
+  Future<void> _openExternally() async {
+    final opened = await openFileExternally(widget.video.filePath);
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.uiText('Không mở được trình phát hệ thống')),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _initPlayer() async {
@@ -301,7 +327,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
         actions: [
           // AVTOOL-003 (PLAN-047 P2) — video → âm thanh (nghe trên đường).
-          if (ready)
+          // PSRC-220: vẫn cho tách âm thanh khi không phát được trong app —
+          // đây chính là đường dùng được trên Linux.
+          if (ready || _externalOnly)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white),
               color: const Color(0xFF1A1A2E),
@@ -316,6 +344,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           : (path) => _openExportedAudioInListen(path),
                     );
                   case 'clip_ab_audio':
+                    if (c == null) return; // không có timeline trong app
                     final start = _abLoop.a;
                     final end = _abLoop.b;
                     if (start != null && end != null && end > start) {
@@ -334,6 +363,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       );
                     }
                   case 'clip_audio':
+                    if (c == null) return; // không có timeline trong app
                     final position = c.value.position;
                     final duration = c.value.duration - position;
                     await exportAudioFromVideo(
@@ -353,7 +383,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 }
               },
               itemBuilder: (_) => [
-                if (_abLoop.isActive)
+                if (ready && _abLoop.isActive)
                   PopupMenuItem(
                     value: 'clip_ab_audio',
                     child: Text(
@@ -368,13 +398,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     style: const TextStyle(color: Colors.white, fontSize: 13),
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'clip_audio',
-                  child: Text(
-                    context.uiText('Tách âm thanh từ vị trí hiện tại'),
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                if (ready)
+                  PopupMenuItem(
+                    value: 'clip_audio',
+                    child: Text(
+                      context.uiText('Tách âm thanh từ vị trí hiện tại'),
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                    ),
                   ),
-                ),
               ],
             ),
           if (ready)
@@ -412,6 +443,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           child: VideoPlayer(c),
                         ),
                       )
+                    else if (_externalOnly)
+                      _buildExternalOnly()
                     else if (_initFailed)
                       _buildError()
                     else
@@ -449,6 +482,43 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
           ),
           if (_showControls && ready) _buildControls(c),
+        ],
+      ),
+    );
+  }
+
+  /// PSRC-220 — màn hình thay thế khi nền tảng không có bộ phát trong app.
+  ///
+  /// Nói đúng nguyên nhân (thiếu backend, không phải file hỏng) và đưa ra
+  /// việc làm được ngay: mở bằng trình phát của hệ điều hành. Tách âm thanh
+  /// vẫn dùng được qua menu ⋮ vì việc đó do FFmpeg làm, không cần bộ phát.
+  Widget _buildExternalOnly() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.movie_outlined, size: 64, color: Colors.grey[700]),
+          const SizedBox(height: 12),
+          Text(
+            context.uiText(VideoPlaybackSupport.externalOnlyReasonKey),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[300], fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _openExternally,
+            icon: const Icon(Icons.open_in_new),
+            label: Text(context.uiText('Mở bằng trình phát của hệ thống')),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.uiText(
+              'Vẫn tách được âm thanh bằng menu ⋮ để nghe trong tab Nghe.',
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+          ),
         ],
       ),
     );

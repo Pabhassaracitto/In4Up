@@ -1,13 +1,14 @@
 // lib/services/linux_media_backends_io.dart
 //
-// PSRC-219 (beta 1.29.0, lane L2) — backend phát ÂM THANH cho Linux.
-// (PSRC-220 bổ sung phần video ở cùng file; xem `install()`.)
+// PSRC-219 + PSRC-220 (beta 1.29.0, lane L2) — backend phát ÂM THANH và
+// VIDEO cho Linux (media_kit / libmpv).
 
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 
 /// Cắm backend media_kit (libmpv) cho Linux và nhớ trạng thái.
 ///
@@ -70,6 +71,10 @@ class LinuxMediaBackends {
       // PSRC-219: đăng ký JustAudioPlatform cho Linux. `windows: false` —
       // Windows đã có plugin riêng (`just_audio_windows`).
       JustAudioMediaKit.ensureInitialized(linux: true, windows: false);
+
+      // PSRC-220: đăng ký VideoPlayerPlatform cho Linux. Chỉ `linux: true` —
+      // Android/iOS/macOS giữ backend gốc của video_player (không cần libmpv).
+      VideoPlayerMediaKit.ensureInitialized(linux: true);
 
       _libMpvPath = libmpv;
       _ready = true;

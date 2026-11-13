@@ -174,15 +174,34 @@ OverlayRect mapCaptureRectToOverlay(
   return OverlayRect(left: left, top: top, right: right, bottom: bottom);
 }
 
-/// Cỡ chữ (sp) gợi ý để bản dịch vừa chiều cao khung gốc.
+/// Cỡ chữ (sp) gợi ý để bản dịch có CÙNG cỡ với chữ gốc.
 ///
-/// Native có thể bỏ qua, nhưng tính ở Dart thì test được: chiều cao khối chia
-/// density = dp; chừa 18% cho padding/leading; kẹp trong [10, 28] sp để chữ
-/// không bé xíu cũng không tràn.
-double suggestedTextSizeSp(OverlayRect rect, double devicePixelRatio) {
+/// Native có thể bỏ qua, nhưng tính ở Dart thì test được: chiều cao MỘT DÒNG
+/// chia cho số pixel của 1sp; chừa 18% cho padding/leading; kẹp trong [10, 28]
+/// sp để chữ không bé xíu cũng không tràn.
+///
+/// PSRC-211 — hai tham số tuỳ chọn, thiếu cái nào là chữ dịch TO HƠN chữ gốc
+/// (⇒ cần nhiều chỗ hơn ⇒ đẩy/bỏ các khối bên dưới):
+///  • [lineCount]: số dòng chữ của khối. ML Kit trả khối theo ĐOẠN (nhiều
+///    dòng); lấy cả chiều cao đoạn làm "một dòng" thì đoạn 3 dòng 14sp bị tính
+///    thành 28sp (chạm trần). Mặc định 1 = hành vi cũ cho khối một dòng.
+///  • [fontScale]: cỡ chữ hệ thống. Native vẽ bằng `TypedValue(SP)` = sp ×
+///    density × fontScale, mà chữ gốc trên màn hình ĐÃ gồm fontScale ⇒ phải
+///    chia lại, nếu không máy bật cỡ chữ 1.3× vẽ bản dịch to gấp 1.3 lần gốc.
+///    Giá trị ≤ 1 / rác coi là 1.0, trần 2.0 (khớp `effectiveOverlayFontScale`).
+double suggestedTextSizeSp(
+  OverlayRect rect,
+  double devicePixelRatio, {
+  int lineCount = 1,
+  double fontScale = 1.0,
+}) {
   if (devicePixelRatio <= 0) return 14.0;
-  final heightDp = rect.height / devicePixelRatio;
-  final raw = heightDp * 0.82;
+  final lines = lineCount < 1 ? 1 : lineCount;
+  final scale = (!fontScale.isFinite || fontScale <= 1.0)
+      ? 1.0
+      : (fontScale > 2.0 ? 2.0 : fontScale);
+  final lineHeightSp = rect.height / lines / (devicePixelRatio * scale);
+  final raw = lineHeightSp * 0.82;
   return raw.clamp(10.0, 28.0).toDouble();
 }
 

@@ -48,4 +48,24 @@ fix(PSRC-211): bong bóng dịch không bỏ sót khối và đúng vị trí [L
 
 ## Phát hiện thêm
 
-_(trống)_
+### PSRC-211 — nguyên nhân thật (khác "Hướng điều tra" ở trên)
+
+Dịch màn hình **không** dùng node accessibility. Luồng thật: MediaProjection chụp màn hình → ML Kit OCR (Dart) → dịch → `layoutTranslatedBlocks` (Dart) → `TranslationOverlayView` (Kotlin) vẽ. Mục 1–2 của "Hướng điều tra" vì vậy không áp dụng. Nguyên nhân tìm được:
+
+1. **Cỡ chữ đo theo chiều cao CẢ KHỐI** — đoạn văn 4 dòng bị gán 28sp (trần) thay vì ~15sp, lại bỏ qua `fontScale`. Bản dịch cần gấp 3–4 lần chỗ ⇒ khối phình, đẩy mọi khối bên dưới lệch khỏi chữ gốc, khối cuối màn hình rơi khỏi màn hình ⇒ **bỏ vẽ**.
+2. **Bộ ước lượng coi `\n` là dấu cách** trong khi `StaticLayout` của native xuống dòng thật ⇒ Dart cấp thiếu chiều cao ⇒ native bỏ vẽ khối (đúng luật "không vẽ chữ cụt").
+3. **Xếp chỗ kiểu "đẩy trước"**: một khối cần thêm chỗ là đẩy cả cột bên dưới. Giờ: giữ đỉnh gốc → dùng khoảng trống tới khối kế → thu nhỏ RIÊNG khối đó (sàn 10sp) → cuối cùng mới đẩy.
+4. Phụ: chữ toàn ôm (Hán/Kana/Hangul) ước 0,56em thay vì 1em; ML Kit tách một đoạn văn thành nhiều khối 1 dòng (giờ gộp lại trước khi dịch); native tô nền kín cả khung ước dư (giờ ôm sát chữ thật qua `coverBottom`); overlay vẽ theo toạ độ view, không trừ vị trí cửa sổ.
+
+Bằng chứng tái hiện: bài test nghiệm thu `test/screen_translate/psrc_211_bubble_coverage_test.dart` chạy trên code CŨ ⇒ đỏ ở "đủ 10 bong bóng" (CI run `43492520476`).
+
+### Chưa kiểm được / còn lại
+
+- **Chưa chạy trên máy thật.** Sandbox không có Flutter/Android SDK — mọi thứ kiểm qua CI (analyze + test Dart + kotlinc + build APK). Cần owner thử trên máy và chụp **screenshot** cho mục nghiệm thu 1 (lane không tự chụp được).
+- **Bù vị trí cửa sổ overlay** (`getLocationOnScreen` trong `TranslationOverlayView.onDraw`): trên máy cửa sổ nằm đúng (0,0) thì không đổi gì; chỉ máy có tai thỏ khi xoay ngang / ROM chèn lề mới thấy khác. Chưa có máy để xác nhận.
+- **Cỡ chữ hệ thống 2.0× + màn hình dày chữ**: vẫn có khối bị lệch / bỏ vẽ (mô phỏng màn hình bài viết 10 khối: vẽ 8, hai nút cuối bị bỏ). Lý do: luật owner XLAT-SCR-006 cấm vẽ dưới 10sp và cấm cắt chữ, mà 10sp × 2.0 đã to hơn chữ gốc. Muốn hết phải đổi luật (cho phép < 10sp khi fontScale lớn) — cần owner quyết.
+- **Trần 32 khối/lượt** (`kScreenTranslateMaxBlocks`, quyết định cũ vì mốc 3 giây + quota engine): màn hình ra > 32 khối sau khi gộp đoạn thì các khối nhỏ nhất vẫn không được dịch. Không đổi trong lane này; logcat giờ in phễu `screen translate blocks: ocr= paragraphs= selected= translatable= translated= drawn=` để đo trên máy thật trước khi quyết.
+- **Tần suất ML Kit tách đoạn** chưa đo trên máy thật; điều kiện gộp đặt rất chặt (cùng cỡ chữ, cùng lề trái, sát nhau, câu đang dở) nên sai thì nghiêng về "không gộp" = hành vi cũ.
+- **Tiêu đề viết hoa từng từ / tiếng Đức** bị ngắt dòng sẽ không được nối (dòng dưới viết hoa) — chấp nhận, xem `isSoftWrap`.
+- `lib/features/ocr/**` (lane L3) không bị sửa.
+- **PSRC-194** (đợt 2) chưa làm.

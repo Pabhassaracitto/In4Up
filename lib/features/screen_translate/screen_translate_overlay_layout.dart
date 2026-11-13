@@ -13,23 +13,41 @@
 //    ~1.3×) không còn chỗ ⇒ native thu nhỏ tới 9sp rồi ellipsize ⇒ **mất chữ,
 //    chữ bé không đọc được**. Đây là lỗi owner báo 2026-11-11 (ảnh chụp).
 //
-// ⇒ Hợp đồng MỚI (owner 2026-11-11): "chữ hiện đầy đủ, không bị bóp nhỏ/ẩn do
+// ⇒ Hợp đồng (owner 2026-11-11): "chữ hiện đầy đủ, không bị bóp nhỏ/ẩn do
 //   khung nhỏ, nhưng cũng không để các lớp dịch chồng lên nhau".
 //
-// Thuật toán: đo nhu cầu chữ → nới rộng → nới cao → ĐẨY khối dưới xuống →
-// nếu vẫn tràn màn hình thì thu nhỏ ĐỀU nhưng không dưới [kOverlayMinReadableSp]
-// → vẫn tràn thì chia đều chỗ cho từng khối → cuối cùng bỏ vẽ khối không nổi
-// NGUYÊN bản dịch (để lộ chữ gốc, KHÔNG cắt chữ, KHÔNG thêm `…`).
+//  • XLAT-SCR-006 thực hiện hợp đồng đó bằng "nới cao rồi ĐẨY khối dưới xuống;
+//    tràn màn hình thì thu nhỏ đều, chia ngân sách, bỏ khối". Hệ quả owner báo
+//    ở PSRC-211 (audit v1.28.0): **bỏ sót nhiều khối, bản dịch sai vị trí,
+//    khung thừa khoảng trống bên dưới**. Bốn nguyên nhân gốc, đều ở file này:
+//      1. Cỡ chữ đo theo chiều cao CẢ KHỐI: đoạn văn 3 dòng 14sp bị tính
+//         thành 28sp ⇒ cần gấp ~4 lần diện tích.
+//      2. Cỡ chữ quên chia `fontScale`: máy bật cỡ chữ hệ thống 1.3× vẽ bản
+//         dịch to gấp 1.3 lần chữ gốc.
+//      3. Bộ ước lượng coi `\n` là khoảng trắng, native (`StaticLayout`) thì
+//         xuống dòng thật ⇒ Dart cấp thiếu chỗ ⇒ native bỏ vẽ khối.
+//      4. Chính sách "đẩy trước": MỘT khối cần thêm chỗ là MỌI khối bên dưới
+//         bị lệch khỏi chữ gốc của nó; dồn tới đáy màn hình thì bị bỏ.
+//
+// ⇒ PSRC-211 GIỮ nguyên hợp đồng trên (đủ chữ, ≥ 10sp, không chồng) và thêm:
+//   **mỗi bản dịch nằm ĐÚNG CHỖ chữ gốc của nó**. Thứ tự ưu tiên khi thiếu chỗ:
+//     nới rộng → dùng khoảng trống ngay bên dưới → THU NHỎ riêng khối đó (sàn
+//     [kOverlayMinReadableSp]) → mới đến đẩy khối dưới → hết màn hình thì bỏ
+//     vẽ khối không nổi NGUYÊN bản dịch (để lộ chữ gốc, KHÔNG cắt, KHÔNG `…`).
+//   Khối bị đẩy tự thu nhỏ để "nuốt" độ lệch ⇒ lệch không lan xuống dưới.
 //
 // Vẫn giữ nguyên tinh thần ADR-0011: Dart xếp chỗ (thuần, test được), native
-// chỉ vẽ đúng khung được cấp. Dart không đo được font thật nên dùng bộ ước
+// chỉ vẽ trong khung được cấp. Dart không đo được font thật nên dùng bộ ước
 // lượng bên dưới — cố tình ước DƯ (1.06×) để native không bao giờ thiếu chỗ.
+// Phần dư đó KHÔNG còn hiện ra thành khoảng trống: native vẽ nền ôm sát chữ
+// thật (xem `ScreenBlock.coverBottom` / `maxTextSizeSp`).
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'dart:math' as math;
 
 import 'screen_translate_geometry.dart';
 import 'screen_translate_models.dart';
+import 'screen_translate_text_flow.dart';
 
 /// Dưới ngưỡng này coi là frame giả / màn hình không phải thiết bị thật.
 const int kOverlayRealScreenMinPx = 200;
@@ -68,8 +86,8 @@ const double kOverlayLineHeightFactor = 1.30;
 /// Lề đáy (dp) — không vẽ sát vạch điều hướng.
 const double kOverlayBottomMarginDp = 8.0;
 
-/// Mức thu nhỏ nhỏ nhất khi phải nhồi cho vừa màn hình (so với cỡ gốc).
-const double kOverlayMinShrink = 0.78;
+/// Bước thu nhỏ (sp) khi dò cỡ chữ vừa chỗ trống của một khối.
+const double kOverlayShrinkStepSp = 0.5;
 
 /// Hệ số an toàn của bộ ước lượng chiều cao (ước dư 6%).
 const double kOverlayHeightSafety = 1.06;
@@ -136,25 +154,26 @@ class _Slot {
     this.top,
     this.right,
     this.bottom,
-    double dpr,
+    OverlayFontMetrics metrics,
   )   : origTop = top,
         origBottom = bottom,
-        baseSp = suggestedTextSizeSp(block.rect, dpr);
+        coverBottom = bottom,
+        baseSp = _baseTextSizeSp(block, metrics);
 
-  /// Cỡ chữ gốc (sp) của khối — chốt MỘT LẦN từ chiều cao khung OCR ban đầu.
+  /// Cỡ chữ gốc (sp) của khối — chốt MỘT LẦN từ khung OCR ban đầu, theo chiều
+  /// cao MỘT DÒNG và đã chia `fontScale` (xem [_baseTextSizeSp]).
   ///
-  /// KHÔNG lấy lại `suggestedTextSizeSp(height)` sau mỗi lượt đóng gói:
-  /// `_pack` nới khung cao hơn ⇒ hàm đó cho số LỚN hơn ⇒ cần thêm chỗ ⇒ vòng
-  /// lặp tự sinh (CI 42908858046 bắt đúng lỗi "khung đơn cần 538.5px, có
-  /// 198.0px"). Chốt một lần cũng làm mức thu nhỏ công bằng giữa các khối.
+  /// KHÔNG lấy lại `suggestedTextSizeSp(height)` sau khi xếp chỗ: khung được
+  /// nới cao hơn ⇒ hàm đó cho số LỚN hơn ⇒ cần thêm chỗ ⇒ vòng lặp tự sinh
+  /// (CI 42908858046 bắt đúng lỗi "khung đơn cần 538.5px, có 198.0px").
   final double baseSp;
 
   final int index;
   final ScreenBlock block;
   final int left;
 
-  /// Vị trí GỐC (từ OCR). `_pack` chạy nhiều lượt (thu nhỏ dần) nên mỗi lượt
-  /// PHẢI bắt đầu lại từ đây — nếu cộng dồn, khối sẽ trôi xuống mãi.
+  /// Vị trí GỐC (từ OCR) — mốc để `_pack` đặt khối đúng chỗ chữ gốc và để
+  /// tính "trần" của khối phía trên. Không bao giờ đổi.
   final int origTop;
   final int origBottom;
 
@@ -167,6 +186,9 @@ class _Slot {
 
   /// Cỡ chữ dùng để vẽ (sp) — sau khi nới/ thu nhỏ.
   double textSizeSp = 14.0;
+
+  /// Đáy của chữ gốc bên trong khung đã xếp — xem `ScreenBlock.coverBottom`.
+  int coverBottom;
 
   int get width => math.max(1, right - left);
   int get height => math.max(1, bottom - top);
@@ -190,6 +212,19 @@ class _Slot {
     if (smaller <= 0) return 0.0;
     return (w * h) / smaller;
   }
+}
+
+/// Cỡ chữ gốc của [block]: chiều cao MỘT dòng ÷ số pixel của 1sp trên máy.
+///
+/// Số dòng lấy từ chữ GỐC (`original`, OCR nối dòng bằng `\n`) — không phải
+/// từ bản dịch: ta đang đo chữ đang nằm trên màn hình.
+double _baseTextSizeSp(ScreenBlock block, OverlayFontMetrics metrics) {
+  return suggestedTextSizeSp(
+    block.rect,
+    metrics.dpr,
+    lineCount: countTextLines(block.original),
+    fontScale: metrics.fontScale,
+  );
 }
 
 String _normalized(String value) =>
@@ -218,10 +253,25 @@ double _charWidthEm(int c) {
   if (c >= 0x41 && c <= 0x5A) return 0.66;
   // Số
   if (c >= 0x30 && c <= 0x39) return 0.55;
+  // PSRC-211: chữ TOÀN ÔM (Hán, Kana, Hangul, dạng full-width) rộng đúng 1em.
+  // Trước đây rơi vào nhánh 0.56 bên dưới ⇒ ước thiếu gần nửa bề ngang ⇒ đích
+  // dịch là tiếng Trung/Nhật/Hàn thì native cần gấp đôi số dòng Dart cấp ⇒
+  // khối bị bỏ vẽ.
+  if (_isFullWidth(c)) return 1.0;
   // Latin-1 / Latin Extended (tiếng Việt có dấu nằm ở đây)
   if (c > 0x7F) return 0.56;
   // Chữ thường còn lại
   return 0.53;
+}
+
+bool _isFullWidth(int c) {
+  return (c >= 0x1100 && c <= 0x11FF) || // Hangul Jamo
+      (c >= 0x2E80 && c <= 0x9FFF) || // CJK bộ thủ, Kana, chữ Hán
+      (c >= 0xAC00 && c <= 0xD7AF) || // Hangul âm tiết
+      (c >= 0xF900 && c <= 0xFAFF) || // chữ Hán tương thích
+      (c >= 0xFE30 && c <= 0xFE4F) || // dấu câu CJK dọc
+      (c >= 0xFF00 && c <= 0xFF60) || // Latin/dấu câu full-width
+      (c >= 0xFFE0 && c <= 0xFFE6);
 }
 
 double _textWidthEm(String text) {
@@ -235,7 +285,12 @@ double _textWidthEm(String text) {
 /// Ước lượng SỐ DÒNG khi ngắt theo TỪ ở bề ngang [maxWidthPx].
 ///
 /// Ngắt theo từ (không theo ký tự) để khớp `StaticLayout`; một từ dài hơn cả
-/// dòng vẫn tính 1 dòng (native sẽ ellipsize chữ đó — hiếm).
+/// dòng thì tính số mảnh nó bị bẻ ra.
+///
+/// PSRC-211: `\n` là XUỐNG DÒNG THẬT. `StaticLayout` của native bắt đầu dòng
+/// mới ở mỗi `\n`; bản trước tách theo `\s+` nên coi `\n` như dấu cách ⇒ bản
+/// dịch 3 dòng ngắn được đếm là 1 dòng ⇒ khung cấp thiếu ⇒ native bỏ vẽ khối.
+/// Giờ đếm từng đoạn rồi cộng lại; dòng trống giữa hai `\n` vẫn chiếm 1 dòng.
 int estimateTranslationLineCount(
   String text,
   double maxWidthPx,
@@ -245,21 +300,29 @@ int estimateTranslationLineCount(
   if (trimmed.isEmpty) return 0;
   if (maxWidthPx <= 0 || fontPx <= 0) return 1;
 
-  final widthOf = (String s) => _textWidthEm(s) * fontPx;
+  var total = 0;
+  for (final paragraph in trimmed.replaceAll('\r', '').split('\n')) {
+    total += _wrappedLineCount(paragraph, maxWidthPx, fontPx);
+  }
+  return math.max(1, total);
+}
+
+/// Số dòng của MỘT đoạn không chứa `\n` (≥ 1 — đoạn rỗng vẫn là một dòng).
+int _wrappedLineCount(String paragraph, double maxWidthPx, double fontPx) {
   var lines = 1;
   var current = 0.0;
   const spaceEm = 0.30;
   final spacePx = spaceEm * fontPx;
 
-  for (final word in trimmed.split(RegExp(r'\s+'))) {
+  for (final word in paragraph.trim().split(RegExp(r'\s+'))) {
     if (word.isEmpty) continue;
-    final w = widthOf(word);
+    final w = _textWidthEm(word) * fontPx;
     if (current <= 0) {
       // Từ đầu dòng.
       if (w <= maxWidthPx) {
         current = w;
       } else {
-        // Từ dài hơn dòng: native sẽ xuống dòng trong từ (hoặc ellipsize).
+        // Từ dài hơn dòng: native sẽ xuống dòng trong từ.
         final pieces = (w / maxWidthPx).ceil().clamp(1, 64);
         lines += pieces - 1;
         current = w - (pieces - 1) * maxWidthPx;
@@ -313,7 +376,7 @@ int estimateTranslationMaxLines(
   return math.min(capacity, needed);
 }
 
-/// Xếp lại [blocks] để bản dịch hiện ĐỦ CHỮ và các ô KHÔNG chồng nhau.
+/// Xếp lại [blocks] để bản dịch hiện ĐỦ CHỮ, ĐÚNG CHỖ và các ô KHÔNG chồng nhau.
 ///
 /// [screenWidth]/[screenHeight] dùng để cắt biên + biết khi nào tràn màn hình;
 /// truyền `0` (hoặc giá trị nhỏ hơn khung, như frame giả trong test) để tắt.
@@ -322,19 +385,22 @@ int estimateTranslationMaxLines(
 ///  • Giữ NGUYÊN số khối + thứ tự (native/controller dựa vào danh sách này).
 ///    Khối không vẽ được ⇒ `translation = ''` (native bỏ qua, chữ gốc hiện).
 ///  • Hai khối cùng nội dung + bbox giao nhau ⇒ chỉ giữ khối đầu.
+///  • Cỡ chữ ưa thích = cỡ chữ GỐC (một dòng, đã chia `fontScale`).
 ///  • Khung được nới RỘNG (sang phải, vào khoảng trống) khi điều đó giảm số
 ///    dòng — đây là cách rẻ nhất để không phải thu nhỏ chữ.
-///  • Khung được nới CAO tới đúng nhu cầu chữ; khối phía dưới bị ĐẨY xuống
-///    (kèm khe hở [kOverlayBoxGapDp]) thay vì cắt chữ của khối trên.
-///  • Nếu tổng vượt đáy màn hình ⇒ thu nhỏ đều (tới [kOverlayMinShrink]) rồi
-///    xếp lại; vẫn tràn thì chia NGÂN SÁCH CHIỀU CAO cho từng khối để nhiều
-///    khối còn nguyên nội dung thay vì chỉ một khối chiếm hết chỗ — khối nào
-///    không nổi NGUYÊN bản dịch trong ngân sách của nó thì BỎ VẼ (không cắt).
+///  • Đỉnh khung = đỉnh chữ gốc. Khung được nới CAO xuống tới sát khối kế tiếp
+///    bên dưới; chưa đủ thì THU NHỎ riêng khối đó (không dưới
+///    [kOverlayMinReadableSp]); vẫn chưa đủ mới ĐẨY khối dưới xuống (kèm khe
+///    [kOverlayBoxGapDp]). Khối bị đẩy cũng tự thu nhỏ trước khi đẩy tiếp.
+///  • Chạm đáy màn hình ⇒ dịch khung LÊN nếu phía trên còn trống; không được
+///    thì BỎ VẼ khối đó (không cắt chữ). Các khối đã đặt phía trên giữ nguyên.
 ///  • Bước CHỐT: khối nào khung vẫn thấp hơn nhu cầu ⇒ bỏ vẽ (`translation`
 ///    rỗng, native hiện chữ gốc). KHÔNG BAO GIỜ vẽ chữ cụt.
 ///  • [fontScale] = `configuration.fontScale` của thiết bị. Máy bật cỡ chữ hệ
 ///    thống lớn thì native vẽ chữ CAO hơn ⇒ Dart phải ước theo đúng tỉ lệ,
 ///    nếu không khung cấp thiếu chỗ và chữ bị cắt (lỗi owner báo 2026-11-11).
+///  • Khung trả về là chỗ GIỮ cho khối (ước dư). `coverBottom`/`maxTextSizeSp`
+///    cho native biết phải phủ tới đâu và được vẽ chữ to tới mức nào.
 List<ScreenBlock> layoutTranslatedBlocks(
   List<ScreenBlock> blocks, {
   int screenWidth = 0,
@@ -360,9 +426,7 @@ List<ScreenBlock> layoutTranslatedBlocks(
   final dpr = metrics.dpr;
   final gap = math.max(1, (kOverlayBoxGapDp * dpr).round());
 
-  // Trần cứng của mọi khung: không vẽ đè lên vạch điều hướng. Dùng cho MỌI
-  // nhánh bên dưới để không nhánh nào tự đặt mép khác nhau (lệch 1 nhánh là
-  // chữ bị cắt — đúng lỗi owner báo).
+  // Trần cứng của mọi khung: không vẽ đè lên vạch điều hướng.
   final minHeight = math.max(6, (kOverlayMinBoxHeightDp * dpr).round());
   final bottomMargin = math.max(0, (kOverlayBottomMarginDp * dpr).round());
   final maxX = screenWidth > 0 ? screenWidth : null;
@@ -383,7 +447,7 @@ List<ScreenBlock> layoutTranslatedBlocks(
       maxY == null ? top : math.min(maxY, top),
       maxX == null ? right : math.min(maxX, right),
       maxY == null ? bottom : math.min(maxY, bottom),
-      dpr,
+      metrics,
     );
     slots.add(slot);
   }
@@ -422,91 +486,33 @@ List<ScreenBlock> layoutTranslatedBlocks(
   }
 
   if (visible.isEmpty) {
-    return _emit(blocks, slots, dropped, dpr);
+    return _emit(blocks, slots, dropped);
   }
 
-  // (b) Nới RỘNG trước — rẻ hơn nới cao vì không đẩy khối khác xuống.
+  // (b) Nới RỘNG trước — rẻ hơn nới cao vì không đụng tới khối nào khác.
   _expandHorizontally(visible, gap: gap, metrics: metrics, limitRight: maxX);
 
-  // (c) Ước nhu cầu chiều cao ở cỡ chữ ưa thích, rồi đóng gói có đẩy xuống.
-  final pack = _pack(visible, metrics: metrics, gap: gap, scale: 1.0);
+  // (c) Xếp chỗ TẠI CHỖ: mỗi khối giữ đỉnh gốc, thu nhỏ riêng nó khi chật, chỉ
+  // đẩy khối dưới khi đã ở cỡ chữ sàn mà vẫn thiếu chỗ. Khối không còn chỗ
+  // trên màn hình ⇒ bỏ vẽ. Một lượt duy nhất, không vòng lặp toàn cục.
+  dropped.addAll(_pack(visible, metrics: metrics, gap: gap, limitY: limitY));
 
-  // (d) Tràn đáy màn hình ⇒ thu nhỏ ĐỀU (không dưới cỡ đọc được) rồi xếp lại.
-  // Vòng lặp dừng ngay khi vừa màn hình; nếu chạy hết mà VẪN tràn thì lần lặp
-  // cuối (nhỏ nhất) để lại trạng thái "còn tràn" cho nhánh (e2) xử lý.
-  var shrunkFits = true;
-  if (limitY != null && pack.maxBottom > limitY) {
-    shrunkFits = false;
-    for (var shrink = 0.95;
-        shrink >= kOverlayMinShrink - 1e-9;
-        shrink -= 0.05) {
-      if (_pack(visible, metrics: metrics, gap: gap, scale: shrink).maxBottom <=
-          limitY) {
-        shrunkFits = true;
-        break;
-      }
-    }
-  }
-
-  // (e2) Tràn đáy màn hình ⇒ phân bổ lại chỗ TRỐNG: đóng gói kiểu "khối trên
-  // lấy hết chỗ" dễ "đói" — khối trên bị nới hết khiến gần như mọi khối dưới
-  // bị bỏ, dù nếu chia đều thì còn vẽ được nhiều khối hơn hẳn (rõ nhất khi máy
-  // bật CỠ CHỮ HỆ THỐNG lớn: mỗi dòng cao 2× ⇒ trước đây chỉ còn 1 khối).
-  // KHÔNG cắt chữ: khối không nổi nguyên bản dịch trong ngân sách ⇒ bỏ vẽ.
-  //
-  // ⚠ `dropped` còn giữ các khối bị loại vì TRÙNG nội dung ở nhánh (a) — nên
-  // nhánh này dùng tập RIÊNG rồi hợp lại, không được `clear()`.
-  //
-  // ⚠ CHỈ chạy khi (d) thất bại: nếu (d) đã vừa màn hình thì mọi khối hiện
-  // NGUYÊN chữ. Chạy ngân sách vô điều kiện (bản trước) làm 10 khối vừa vặn ở
-  // fontScale 1.6 bị cắt cụt oan dù còn thừa chỗ.
-  if (limitY != null && !shrunkFits) {
-    final overflow = <int>{};
-    _packWithFairShare(
-      visible,
-      metrics: metrics,
-      gap: gap,
-      limitY: limitY,
-      dropped: overflow,
-    );
-
-    // (e3) Ngân sách chia đều mà KHÔNG khối nào nổi một dòng (màn hình quá
-    // thấp so với số khối) ⇒ quay lại cách "lấp từ trên xuống": vẽ được bao
-    // nhiêu khối trọn vẹn thì vẽ, phần dư bỏ. Không bao giờ để trắng trơn chỉ
-    // vì chia đều quá chặt.
-    if (visible.every((slot) => overflow.contains(slot.index))) {
-      overflow.clear();
-      final emergencyScale = kOverlayMinReadableSp /
-          math.max(kOverlayMinReadableSp, visible.first.baseSp);
-      _pack(visible, metrics: metrics, gap: gap, scale: emergencyScale);
-      for (final slot in visible) {
-        if (slot.bottom > limitY) overflow.add(slot.index);
-      }
-    }
-    dropped.addAll(overflow);
-  }
-
-  // (f) CHỐT HỢP ĐỒNG "không vẽ chữ cụt": khối nào khung vẫn thấp hơn nhu cầu
+  // (d) CHỐT HỢP ĐỒNG "không vẽ chữ cụt": khối nào khung vẫn thấp hơn nhu cầu
   // của chính chuỗi sẽ vẽ (đo lại bằng ĐÚNG bộ ước lượng + đúng cỡ chữ đã
-  // chốt) ⇒ bỏ vẽ. Nhờ vậy bất biến "đủ chỗ" không phụ thuộc việc mọi nhánh
-  // trên có tính khớp nhau hay không — sai số ở đâu cũng thành "bỏ khối"
-  // (chữ gốc hiện) chứ không thành "chữ bị cắt".
+  // chốt) ⇒ bỏ vẽ. Nhờ vậy bất biến "đủ chỗ" không phụ thuộc việc `_pack` có
+  // tính khớp hay không — sai số ở đâu cũng thành "bỏ khối" (chữ gốc hiện)
+  // chứ không thành "chữ bị cắt".
   for (final slot in visible) {
+    if (dropped.contains(slot.index)) continue;
     if (slot.height < minHeight) {
       dropped.add(slot.index);
       continue;
     }
-    final text = slot.block.translation;
-    final needed = estimateTranslationTextHeightPx(
-          text,
-          math.max(1.0, slot.width - 2 * kOverlayTextPaddingPx),
-          slot.textSizeSp * metrics.pxPerSp,
-        ) +
-        2 * kOverlayTextPaddingPx;
+    final needed = _slotNeededHeight(slot, slot.textSizeSp, metrics);
     if (slot.height + 0.5 < needed) dropped.add(slot.index);
   }
 
-  return _emit(blocks, slots, dropped, dpr);
+  return _emit(blocks, slots, dropped);
 }
 
 /// Khối đơn lẻ: không cần chống chồng, nhưng VẪN phải đủ chỗ cho chữ.
@@ -540,7 +546,8 @@ List<ScreenBlock> _layoutSingle(
   if (screenWidth > 0) right = math.min(screenWidth, right);
   if (right <= left) right = left + 1;
 
-  final baseSp = suggestedTextSizeSp(block.rect, dpr);
+  // PSRC-211: cỡ chữ theo MỘT dòng + đã chia fontScale (xem `_baseTextSizeSp`).
+  final baseSp = _baseTextSizeSp(block, metrics);
 
   // (1) Nới rộng sang phải nếu bớt được dòng — miễn phí, không đẩy gì.
   final limitRight = screenWidth > 0 ? screenWidth : right + (1 << 20);
@@ -619,6 +626,9 @@ List<ScreenBlock> _layoutSingle(
     ];
   }
 
+  // Đáy chữ gốc, kẹp vào trong khung vừa xếp (khung có thể đã dịch lên).
+  final cover = math.min(rect.bottom, math.max(rect.top, block.rect.bottom));
+
   return <ScreenBlock>[
     ScreenBlock(
       rect: rect,
@@ -628,6 +638,8 @@ List<ScreenBlock> _layoutSingle(
       // nới cao) thì `suggestedTextSizeSp` cho số lớn hơn ⇒ cần thêm chỗ nữa
       // ⇒ vòng lặp tự sinh (CI bắt được: "cần 538.5px, có 198.0px").
       textSizeSp: sizeSp,
+      maxTextSizeSp: baseSp > sizeSp ? baseSp : null,
+      coverBottom: cover < rect.bottom ? cover : null,
     ),
   ];
 }
@@ -725,12 +737,6 @@ int _linesAtWidth(
   );
 }
 
-class _PackResult {
-  _PackResult(this.maxBottom);
-
-  final int maxBottom;
-}
-
 /// Thêm nhanh cho tập slot lớn: đếm số khung GIAO NHAU theo từng trục.
 ///
 /// Chỉ dùng cho test/telemetry (không ảnh hưởng layout) — nhưng rất cần để
@@ -751,138 +757,125 @@ int countOverlappingPairs(List<ScreenBlock> blocks) {
   return count;
 }
 
-/// Xếp các slot theo cột dọc, ĐẨY khối sau xuống khi khối trước cần thêm chỗ.
-_PackResult _pack(
-  List<_Slot> visible, {
-  required OverlayFontMetrics metrics,
-  required int gap,
-  required double scale,
-}) {
-  var maxBottom = 0;
-  // Đặt theo thứ tự đọc; mỗi khối chỉ bị đẩy bởi khối GIAO NGANG với nó.
-  final placed = <_Slot>[];
-  // Trần theo chiều cao slot: `_pack` chạy nhiều lượt với `scale` khác nhau,
-  // nên KHÔNG tự cắt ở đây — việc bỏ khối vượt đáy do nhánh (e) quyết định
-  // (một chỗ duy nhất, dễ kiểm).
-  for (final slot in visible) {
-    final sizeSp = (slot.baseSp * scale)
-        .clamp(kOverlayMinReadableSp, 28.0)
-        .toDouble();
-    slot.textSizeSp = sizeSp;
-    final fontPx = sizeSp * metrics.pxPerSp;
-    final needed = estimateTranslationTextHeightPx(
-          slot.block.translation,
-          math.max(1.0, slot.width - 2 * kOverlayTextPaddingPx),
-          fontPx,
-        ) +
-        2 * kOverlayTextPaddingPx;
-
-    // BẮT ĐẦU LẠI từ vị trí gốc mỗi lượt (xem `origTop`).
-    var top = slot.origTop;
-    for (final earlier in placed) {
-      if (!earlier.overlapsHorizontally(slot)) continue;
-      final candidate = earlier.bottom + gap;
-      if (candidate > top) top = candidate;
-    }
-    final origHeight = math.max(1, slot.origBottom - slot.origTop);
-    slot.top = top;
-    slot.bottom = top + math.max(origHeight, needed.ceil());
-    placed.add(slot);
-    if (slot.bottom > maxBottom) maxBottom = slot.bottom;
-  }
-  return _PackResult(maxBottom);
+/// Chiều cao (px, gồm padding) [slot] cần để vẽ đủ bản dịch ở cỡ [sizeSp].
+double _slotNeededHeight(
+  _Slot slot,
+  double sizeSp,
+  OverlayFontMetrics metrics,
+) {
+  return estimateTranslationTextHeightPx(
+        slot.block.translation,
+        math.max(1.0, slot.width - 2 * kOverlayTextPaddingPx),
+        sizeSp * metrics.pxPerSp,
+      ) +
+      2 * kOverlayTextPaddingPx;
 }
 
-/// Đóng gói CHIA ĐỀU (fair share): mỗi khối chỉ được dùng phần chiều cao công
-/// bằng của mình, phần dư của khối ngắn được nhường lại cho khối sau.
+/// Xếp từng khối ĐÚNG CHỖ chữ gốc của nó. Trả về `index` các khối phải bỏ vẽ.
 ///
-/// Vì sao cần: khi màn hình không đủ chỗ cho TẤT CẢ chữ (máy bật cỡ chữ hệ
-/// thống lớn, màn hình thấp, 30 khối dày), đóng gói kiểu "khối trên lấy hết
-/// chỗ" khiến gần như mọi khối dưới bị bỏ vẽ — user chỉ đọc được MỘT khối dù
-/// còn chỗ trống ở dưới.
+/// [visible] theo thứ tự đọc (trên → dưới). Với mỗi khối:
+///  1. **Đỉnh** = đỉnh gốc; chỉ lùi xuống khi một khối ĐÃ ĐẶT phía trên (giao
+///     ngang) còn chiếm chỗ đó.
+///  2. **Trần** = đỉnh GỐC của khối gần nhất bên dưới có giao ngang (trừ khe
+///     hở), hoặc lề đáy màn hình. Khoảng từ đỉnh tới trần là chỗ khối được
+///     dùng mà KHÔNG làm lệch ai.
+///  3. Bản dịch ở cỡ chữ gốc cao hơn chỗ đó ⇒ hạ cỡ chữ RIÊNG khối này từng
+///     [kOverlayShrinkStepSp], lấy cỡ LỚN NHẤT còn vừa. Tới sàn
+///     [kOverlayMinReadableSp] vẫn không vừa ⇒ giữ cỡ sàn (gọn nhất) và để
+///     khung dài quá trần: khối bên dưới sẽ bị đẩy ở bước 1 của chính nó — và
+///     nó lại thử thu nhỏ để không đẩy tiếp ⇒ độ lệch tắt dần thay vì dồn.
+///  4. Vượt lề đáy màn hình ⇒ dịch khung LÊN nếu phía trên còn trống; không
+///     thì bỏ vẽ khối này (khối đã đặt không bị động tới).
 ///
-/// KHÔNG cắt chữ, KHÔNG đánh dấu `…`: khối không nổi NGUYÊN bản dịch trong
-/// ngân sách của nó ⇒ bỏ vẽ (để lộ chữ gốc). Owner 2026-11-11 chốt "không vẽ
-/// chữ cụt" — đọc nửa câu còn tệ hơn đọc chữ gốc, và native cũng bỏ khối chứ
-/// không ellipsize (xem `TranslationOverlayView.buildLayout`).
-void _packWithFairShare(
+/// Khối bị bỏ KHÔNG chiếm chỗ: nó không được thêm vào danh sách đã đặt nên
+/// khối sau có thể dùng khoảng đó. Khác bản XLAT-SCR-006 (thu nhỏ ĐỀU cả màn
+/// hình, chia ngân sách): một khối dài không còn kéo cỡ chữ / vị trí của các
+/// khối không liên quan.
+Set<int> _pack(
   List<_Slot> visible, {
   required OverlayFontMetrics metrics,
   required int gap,
-  required int limitY,
-  required Set<int> dropped,
+  required int? limitY,
 }) {
-  if (visible.isEmpty) return;
-  final firstTop = visible.first.origTop;
-  final totalGap = gap * (visible.length - 1);
-  final available = limitY - firstTop - totalGap;
-  if (available <= 0) {
-    for (final slot in visible) {
-      dropped.add(slot.index);
-    }
-    return;
-  }
-  final budgetPerSlot = available / visible.length;
-  // Sàn chiều cao khung — khớp `minHeight` của [layoutTranslatedBlocks] để bước
-  // chốt (f) không bỏ oan khối vừa được cấp chỗ.
-  final minBox = math.max(6.0, kOverlayMinBoxHeightDp * metrics.dpr);
-
-  // KHÔNG hạ sàn cỡ chữ ở đây: native (`TranslationOverlayView.MIN_READABLE_SP`)
-  // kẹp cứng 10sp, nên khung đo theo 7sp sẽ bị native bỏ ⇒ vừa mất chỗ vừa
-  // mất chữ. Khối không nổi một dòng 10sp trong ngân sách ⇒ bỏ vẽ (nhánh (e3)
-  // lo trường hợp bỏ sạch).
+  final unfit = <int>{};
+  final placed = <_Slot>[];
 
   for (var i = 0; i < visible.length; i++) {
     final slot = visible[i];
-    // Cỡ chữ dùng để đo khung: không nhỏ hơn sàn đọc được (native cũng kẹp
-    // đúng sàn này).
-    slot.textSizeSp =
-        slot.textSizeSp.clamp(kOverlayMinReadableSp, 28.0).toDouble();
-    final widthPx = math.max(1.0, slot.width - 2 * kOverlayTextPaddingPx);
-    // ⚠ Dùng ĐÚNG công thức của bước chốt (f) — trước đây nhánh này tự nhân
-    // `fontPx × kOverlayLineHeightFactor` (thiếu 6% của `kOverlayHeightSafety`)
-    // ⇒ khung cấp hụt ⇒ bước chốt phải bỏ khối dù còn chỗ.
-    final needed = estimateTranslationTextHeightPx(
-          slot.block.translation,
-          widthPx,
-          slot.textSizeSp * metrics.pxPerSp,
-        ) +
-        2 * kOverlayTextPaddingPx;
 
-    // Ngân sách của khối này = chia đều, nhưng một khối ngắn thì KHÔNG giữ
-    // phần chỗ dư của mình: phần dư được chia lại cho các khối sau (nếu không,
-    // khối ngắn làm phí chỗ và các khối dài bị cắt oan).
-    final remainingSlots = visible.length - i;
-    final remainingSpace = limitY -
-        slot.top -
-        gap * (remainingSlots - 1);
-    if (remainingSpace <= 0) {
-      dropped.add(slot.index);
-      continue;
+    // (1) Đỉnh thấp nhất được phép: ngay dưới các khối đã đặt có giao ngang.
+    var floorTop = 0;
+    for (final earlier in placed) {
+      if (!earlier.overlapsHorizontally(slot)) continue;
+      final candidate = earlier.bottom + gap;
+      if (candidate > floorTop) floorTop = candidate;
     }
-    final share = math.max(
-      budgetPerSlot,
-      remainingSpace / remainingSlots,
-    );
+    var top = math.max(slot.origTop, floorTop);
 
-    // Đủ chỗ cho NGUYÊN khối ⇒ không cắt gì (chỉ nới cao tới nhu cầu).
-    if (needed <= share) {
-      slot.bottom = slot.top + math.max(minBox, needed).ceil();
-      continue;
+    // (2) Trần: không lấn vào chữ gốc của khối kế tiếp bên dưới.
+    int? ceiling = limitY;
+    for (var j = i + 1; j < visible.length; j++) {
+      final later = visible[j];
+      if (!later.overlapsHorizontally(slot)) continue;
+      final candidate = later.origTop - gap;
+      if (ceiling == null || candidate < ceiling) ceiling = candidate;
     }
 
-    // Không đủ chỗ cho NGUYÊN khối ⇒ BỎ VẼ (để lộ chữ gốc). Cố tình KHÔNG
-    // cắt chữ: owner 2026-11-11 chốt "không vẽ chữ cụt" — đọc nửa câu còn tệ
-    // hơn đọc chữ gốc; và native cũng đã bỏ khối thay vì ellipsize.
-    dropped.add(slot.index);
+    // (3) Cỡ chữ: ưa thích cỡ gốc; chật thì thu nhỏ riêng khối này.
+    var sizeSp = slot.baseSp;
+    var needed = _slotNeededHeight(slot, sizeSp, metrics);
+    if (ceiling != null && top + needed > ceiling) {
+      var fitted = false;
+      var trial = sizeSp;
+      while (trial > kOverlayMinReadableSp + 1e-9) {
+        trial = math.max(kOverlayMinReadableSp, trial - kOverlayShrinkStepSp);
+        final trialNeeded = _slotNeededHeight(slot, trial, metrics);
+        if (top + trialNeeded <= ceiling) {
+          sizeSp = trial;
+          needed = trialNeeded;
+          fitted = true;
+          break;
+        }
+      }
+      if (!fitted) {
+        sizeSp = kOverlayMinReadableSp;
+        needed = _slotNeededHeight(slot, sizeSp, metrics);
+      }
+    }
+    final boxHeight = needed.ceil();
+
+    // (4) Lề đáy màn hình.
+    if (limitY != null && top + boxHeight > limitY) {
+      final shifted = limitY - boxHeight;
+      if (shifted < floorTop) {
+        // Không còn chỗ cho NGUYÊN bản dịch ⇒ bỏ vẽ, trả khung về vị trí gốc.
+        unfit.add(slot.index);
+        slot.top = slot.origTop;
+        slot.bottom = slot.origBottom;
+        slot.coverBottom = slot.origBottom;
+        continue;
+      }
+      top = shifted;
+    }
+
+    // Khung = chỗ cho chữ dịch, và ít nhất phủ hết chữ gốc (tới trần).
+    var cover = slot.origBottom;
+    if (ceiling != null && cover > ceiling) cover = ceiling;
+    final bottom = math.max(top + boxHeight, cover);
+
+    slot.textSizeSp = sizeSp;
+    slot.top = top;
+    slot.bottom = bottom;
+    slot.coverBottom = math.min(bottom, math.max(top, cover));
+    placed.add(slot);
   }
+  return unfit;
 }
 
 List<ScreenBlock> _emit(
   List<ScreenBlock> blocks,
   List<_Slot> slots,
   Set<int> dropped,
-  double dpr,
 ) {
   final out = <ScreenBlock>[];
   for (var i = 0; i < blocks.length; i++) {
@@ -914,9 +907,12 @@ List<ScreenBlock> _emit(
       // đủ chỗ thì bị bỏ vẽ ở trên, `translation` rỗng). Nhờ vậy không có
       // đường nào để chữ bị cắt.
       translation: original.translation,
-      textSizeSp: slot.textSizeSp <= 0
-          ? suggestedTextSizeSp(rect, dpr)
-          : slot.textSizeSp,
+      // Cỡ chữ ĐÃ DÙNG để đo khung (đừng tính lại từ `rect` — xem `baseSp`).
+      textSizeSp: slot.textSizeSp,
+      // Native đo được font thật ⇒ cho phép thử lại từ cỡ chữ gốc.
+      maxTextSizeSp: slot.baseSp > slot.textSizeSp ? slot.baseSp : null,
+      // Chỉ gửi khi khung giữ chỗ dài hơn chữ gốc — phần dư đó native ôm sát.
+      coverBottom: slot.coverBottom < slot.bottom ? slot.coverBottom : null,
     ));
   }
   return out;

@@ -36,8 +36,21 @@ import android.view.View
  * AUDIT-1.21.0 #1 / XLAT-SCR-005: trước đây `boxHeight =
  * max(height, layout.height + padding)` cho ô của khối TRÊN phình xuống đè
  * lên khối DƯỚI ⇒ nhiều khối dịch bị chữ chồng lên nhau. Giờ Dart
- * (`layoutTranslatedBlocks`) đã xếp/cắt khung sẵn; native chỉ vẽ ĐÚNG khung
+ * (`layoutTranslatedBlocks`) đã xếp/cắt khung sẵn; native chỉ vẽ TRONG khung
  * nhận được. Một công thức, một chỗ — không scale/phình ở đây nữa.
+ *
+ * PSRC-211 (audit v1.28.0 — "khung bản dịch thừa khoảng trống bên dưới; cần
+ * thu gọn, ôm sát nội dung"): khung Dart gửi là chỗ GIỮ cho khối, tính bằng bộ
+ * ước lượng cố tình ước DƯ (Dart không đo được font thật). Tô kín cả khung
+ * (bản trước) làm phần dư đó hiện thành khoảng trống dưới chữ. Giờ:
+ *  • Nền vẽ ÔM SÁT chữ thật: `đáy nền = max(đáy chữ dịch, coverBottom)`,
+ *    không bao giờ vượt `bottom` (vẫn không đè khối kế tiếp). [coverBottom] =
+ *    đáy chữ GỐC ⇒ chữ gốc không lòi ra dưới nền.
+ *  • Cỡ chữ thử từ [TranslatedBlock.maxTextSizeSp] (cỡ chữ gốc) rồi mới thu
+ *    nhỏ: Dart hạ `textSizeSp` theo số ước dư, còn ở đây đo được thật.
+ *  • Toạ độ khối là toạ độ MÀN HÌNH; view này có thể không nằm ở (0,0) của màn
+ *    hình (tai thỏ khi xoay ngang, ROM chèn lề) ⇒ trừ `getLocationOnScreen`
+ *    trước khi vẽ, nếu không mọi khối lệch đúng bằng độ dời của cửa sổ.
  */
 class TranslationOverlayView(context: Context) : View(context) {
 
@@ -63,6 +76,16 @@ class TranslationOverlayView(context: Context) : View(context) {
         val original: String,
         val translation: String,
         val textSizeSp: Float,
+        /**
+         * PSRC-211 — cỡ chữ ưa thích (sp), ≥ [textSizeSp]. Mặc định bằng
+         * [textSizeSp] ⇒ payload cũ (không có khoá này) giữ hành vi cũ.
+         */
+        val maxTextSizeSp: Float = textSizeSp,
+        /**
+         * PSRC-211 — đáy chữ gốc (pixel màn hình). Mặc định bằng [bottom] ⇒
+         * payload cũ vẫn tô kín cả khung như trước.
+         */
+        val coverBottom: Int = bottom,
     )
 
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -82,6 +105,11 @@ class TranslationOverlayView(context: Context) : View(context) {
 
     private var blocks: List<TranslatedBlock> = emptyList()
 
+    /** Vị trí view trên màn hình — cấp phát một lần, không tạo rác trong onDraw. */
+    private val screenOrigin = IntArray(2)
+
+    private val boxRect = RectF()
+
     fun setBlocks(value: List<TranslatedBlock>) {
         blocks = value
         invalidate()
@@ -95,6 +123,20 @@ class TranslationOverlayView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (blocks.isEmpty()) return
+
+        // PSRC-211: khối mang toạ độ MÀN HÌNH, canvas là toạ độ VIEW. Hai hệ
+        // chỉ trùng nhau khi cửa sổ overlay nằm đúng (0,0) của màn hình.
+        getLocationOnScreen(screenOrigin)
+        canvas.save()
+        canvas.translate(-screenOrigin[0].toFloat(), -screenOrigin[1].toFloat())
+        try {
+            drawBlocks(canvas)
+        } finally {
+            canvas.restore()
+        }
+    }
+
+    private fun drawBlocks(canvas: Canvas) {
         for (block in blocks) {
             // Khối dịch hỏng (translation rỗng): KHÔNG vẽ ô trống — để
             // nguyên chữ gốc bên dưới cho user biết chỗ nào chưa dịch được.
@@ -105,14 +147,8 @@ class TranslationOverlayView(context: Context) : View(context) {
             val height = (block.bottom - block.top).coerceAtLeast(1)
             val padding = PADDING
 
-            // AUDIT-1.21.0 #1: KHUNG CỐ ĐỊNH. Dart đã cắt khung trên đúng
-            // mép khung dưới; nếu vẫn phình ở đây sẽ đè chữ khối kế tiếp.
-            val rect = RectF(
-                block.left.toFloat(),
-                block.top.toFloat(),
-                block.right.toFloat(),
-                block.bottom.toFloat(),
-            )
+            // AUDIT-1.21.0 #1: KHUNG CỐ ĐỊNH. `block.bottom` là TRẦN do Dart
+            // cấp (không đè khối kế tiếp) — chữ phải vừa trong đó.
             val availableHeight = (height - padding * 2).toInt()
             // Khung quá mỏng ⇒ bỏ hẳn, để lộ chữ gốc bên dưới thay vì nghiền
             // chữ nhỏ đè lên dòng khác. Dart đã có sàn `kOverlayMinBoxHeightDp`
@@ -123,11 +159,15 @@ class TranslationOverlayView(context: Context) : View(context) {
             }
 
             val textWidth = (width - padding * 2).toInt().coerceAtLeast(8)
+            // PSRC-211: thử từ cỡ chữ GỐC trước; `buildLayout` tự thu nhỏ tới
+            // khi chữ thật vừa khung (Dart đã bảo đảm vừa ở `textSizeSp`).
+            val startSizeSp = maxOf(block.textSizeSp, block.maxTextSizeSp)
             val layout = buildLayout(
                 text = text,
                 maxWidth = textWidth,
                 maxHeight = availableHeight,
-                startSizeSp = block.textSizeSp,
+                startSizeSp = startSizeSp,
+                fitSizeSp = block.textSizeSp,
             ) ?: run {
                 // XLAT-SCR-006: KHÔNG vẽ chữ cụt. Bỏ khối để lộ nguyên chữ gốc
                 // — user đọc được nội dung (dù chưa dịch) thay vì đọc nửa câu.
@@ -142,15 +182,29 @@ class TranslationOverlayView(context: Context) : View(context) {
                 continue
             }
 
-            canvas.drawRoundRect(rect, 6f, 6f, boxPaint)
-            canvas.drawRoundRect(rect, 6f, 6f, edgePaint)
+            // PSRC-211: nền ÔM SÁT chữ thật. Đáy = đáy chữ dịch, nhưng ít nhất
+            // phủ hết chữ gốc (`coverBottom`) và không bao giờ quá trần.
+            val textBottom = block.top + layout.height + padding * 2
+            val hugBottom = minOf(
+                block.bottom.toFloat(),
+                maxOf(textBottom, block.coverBottom.toFloat()),
+            )
+            boxRect.set(
+                block.left.toFloat(),
+                block.top.toFloat(),
+                block.right.toFloat(),
+                hugBottom,
+            )
+
+            canvas.drawRoundRect(boxRect, 6f, 6f, boxPaint)
+            canvas.drawRoundRect(boxRect, 6f, 6f, edgePaint)
 
             canvas.save()
             canvas.clipRect(
-                rect.left + padding,
-                rect.top + padding,
-                rect.right - padding,
-                rect.bottom - padding,
+                boxRect.left + padding,
+                boxRect.top + padding,
+                boxRect.right - padding,
+                boxRect.bottom - padding,
             )
             canvas.translate(block.left + padding, block.top + padding)
             layout.draw(canvas)
@@ -174,11 +228,17 @@ class TranslationOverlayView(context: Context) : View(context) {
         maxWidth: Int,
         maxHeight: Int,
         startSizeSp: Float,
+        fitSizeSp: Float = startSizeSp,
     ): StaticLayout? {
+        // PSRC-211: [fitSizeSp] là cỡ chữ Dart đã tính là VỪA. Khi bắt đầu từ
+        // cỡ lớn hơn, bước lùi 1sp không được nhảy qua nó (13.1 → 12.1 → 11.1
+        // sẽ bỏ lỡ 11.9 ⇒ chữ nhỏ hơn mức cần thiết).
+        val fit = fitSizeSp.coerceIn(MIN_READABLE_SP, 28f)
         var sizeSp = startSizeSp.coerceIn(MIN_READABLE_SP, 28f)
         var layout = layoutAt(text, maxWidth, sizeSp)
         while (layout.height > maxHeight && sizeSp > MIN_READABLE_SP) {
-            sizeSp = (sizeSp - 1f).coerceAtLeast(MIN_READABLE_SP)
+            val next = (sizeSp - 1f).coerceAtLeast(MIN_READABLE_SP)
+            sizeSp = if (sizeSp > fit && next < fit) fit else next
             layout = layoutAt(text, maxWidth, sizeSp)
         }
         return if (layout.height > maxHeight) null else layout

@@ -1536,14 +1536,20 @@ class ScreenTranslateService : Service() {
         val raw = result["blocks"] as? List<*> ?: emptyList<Any>()
         val blocks = raw.mapNotNull { item ->
             val map = item as? Map<*, *> ?: return@mapNotNull null
+            val bottom = (map["bottom"] as? Number)?.toInt() ?: return@mapNotNull null
+            val textSizeSp = (map["textSizeSp"] as? Number)?.toFloat() ?: 14f
             TranslationOverlayView.TranslatedBlock(
                 left = (map["left"] as? Number)?.toInt() ?: return@mapNotNull null,
                 top = (map["top"] as? Number)?.toInt() ?: return@mapNotNull null,
                 right = (map["right"] as? Number)?.toInt() ?: return@mapNotNull null,
-                bottom = (map["bottom"] as? Number)?.toInt() ?: return@mapNotNull null,
+                bottom = bottom,
                 original = map["original"] as? String ?: "",
                 translation = map["translation"] as? String ?: "",
-                textSizeSp = (map["textSizeSp"] as? Number)?.toFloat() ?: 14f,
+                textSizeSp = textSizeSp,
+                // PSRC-211 — hai khoá TUỲ CHỌN của `ScreenBlock.toMap()`. Thiếu
+                // ⇒ lấy đúng giá trị cũ (tô kín khung, cỡ chữ `textSizeSp`).
+                maxTextSizeSp = (map["maxTextSizeSp"] as? Number)?.toFloat() ?: textSizeSp,
+                coverBottom = (map["coverBottom"] as? Number)?.toInt() ?: bottom,
             )
         }
         showOverlay(blocks)

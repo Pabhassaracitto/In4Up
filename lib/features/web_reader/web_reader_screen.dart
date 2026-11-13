@@ -78,6 +78,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     }
   }
 
+  int? _selectionReadingOffset;
   ColorMode _lastColorMode = ColorMode.none;
   int _lastHighlightVersion = 0;
 
@@ -344,6 +345,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
             setState(() {
               _showSelectionBar = true;
               _selectionText = text;
+              _selectionReadingOffset = (data['readingOffset'] as num?)?.toInt();
             });
           }
           break;
@@ -432,15 +434,13 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       final raw = await _runJSReturning(WebReaderJS.extractMainTextScript);
       if (raw == null) return null;
       var text = raw.toString();
-      if (text.startsWith('"') && text.endsWith('"')) {
-        text = text.substring(1, text.length - 1);
+      try {
+        final decoded = jsonDecode(text);
+        if (decoded is String) text = decoded;
+      } catch (_) {
+        // Desktop adapters may already return an unquoted string.
       }
-      text = text
-          .replaceAll(r'\n', '\n')
-          .replaceAll(r'\t', ' ')
-          .replaceAll(r'\"', '"')
-          .replaceAll(r"\'", "'")
-          .trim();
+      text = text.trim();
       return text.isEmpty ? null : text;
     } catch (e) {
       debugPrint('WebReaderScreen: extract error: $e');
@@ -500,8 +500,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
     );
   }
 
-  Future<void> _listenToArticle() async {
-    if (_controller.isSpeaking || _controller.isPaused) {
+  Future<void> _listenToArticle({bool fromSelection = false}) async {
+    if (!fromSelection && (_controller.isSpeaking || _controller.isPaused)) {
       if (mounted) setState(() {});
       return;
     }
@@ -513,7 +513,8 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
       _showSnack('❌ Không tìm thấy nội dung bài để đọc');
       return;
     }
-    await _controller.speakArticle(text);
+    await _controller.speakArticle(text, startOffset: fromSelection
+        ? (_selectionReadingOffset ?? text.indexOf(_selectionText)).clamp(0, text.length) : 0);
   }
 
   Future<void> _extractTextToStudio() async {
@@ -1436,7 +1437,7 @@ class _WebReaderScreenState extends State<WebReaderScreen> {
           _SelectionActionButton(
             icon: Icons.volume_up,
             tooltip: context.uiText('Đọc đoạn chọn'),
-            onTap: () => _controller.speakText(_selectionText),
+            onTap: () => _listenToArticle(fromSelection: true),
           ),
           const SizedBox(width: 6),
           _SelectionActionButton(

@@ -33,6 +33,7 @@ import 'services/pdf_page_translate.dart';
 import 'services/pdf_text_extractor.dart';
 import 'services/pdf_text_layer_probe.dart';
 import 'services/pdf_tts_machine.dart';
+import 'services/pdf_reading_pages.dart';
 
 // `PdfTtsState` nay sống trong `services/pdf_tts_machine.dart` cùng máy trạng
 // thái đọc to (I4U18-PDF-OCR-TTS-001 F3). Re-export để mọi widget đang
@@ -850,21 +851,20 @@ class PdfReaderController extends ChangeNotifier {
 
       while (_ttsMachine.isCurrent(session) && pageIndex < doc.pages.length) {
         _pageHasNoTextLayer = false;
-        final cues =
-            await _extractor.extractSentences(doc.pages[pageIndex], pageIndex);
-        if (!_ttsMachine.isCurrent(session)) return;
+        final next = await nextPdfReadingPage<PdfSentenceCue>(
+          from: pageIndex,
+          pageCount: doc.pages.length,
+          load: (page) => _extractor.extractSentences(doc.pages[page], page),
+          isCurrent: () => _ttsMachine.isCurrent(session),
+          skipEmpty: _ttsAutoAdvance,
+          onEmpty: () => _pageHasNoTextLayer = true,
+        );
+        if (next == null || !_ttsMachine.isCurrent(session)) break;
+        if (next.page != pageIndex) cueIndex = 0;
+        pageIndex = next.page;
+        final cues = next.cues;
         _readingCues = cues;
         _readingPageIndex = pageIndex;
-
-        if (cues.isEmpty) {
-          // Trang không có lớp chữ (scan) → dừng ở đây thay vì im lặng đọc
-          // xuyên sang trang khác; UI sẽ hiện gợi ý OCR/Text Mode.
-          _pageHasNoTextLayer = true;
-          _ttsMachine.markFinished(session);
-          _currentSpeakingWord = null;
-          notifyListeners();
-          return;
-        }
 
         if (cueIndex >= cues.length) {
           cueIndex = 0;
@@ -895,6 +895,7 @@ class PdfReaderController extends ChangeNotifier {
             if (!_ttsMachine.isCurrent(session)) return;
             final index = cueOffset + i;
             if (index < 0 || index >= cues.length) return;
+            debugPrint('PdfReader: page ${pageIndex + 1}/${doc.pages.length}, cue ${index + 1}/${cues.length}');
             _readingCueIndex = index;
             _currentSpeakingWord = _firstWordOf(cues[index].speakText);
             if (i > 0 && cues[index].pageIndex != cues[index - 1].pageIndex) {
@@ -1010,7 +1011,32 @@ class PdfReaderController extends ChangeNotifier {
   Future<void> speakSelectedText() async {
     final text = _selectedText?.trim() ?? '';
     if (text.isEmpty) return;
-    await speakText(text);
+    final fragment = _selectionFragments.isNotEmpty ? _selectionFragments.first : null;
+    final doc = _document;
+    if (doc == null) return;
+    int page;
+    int offset;
+    if (_selectionSource == PdfSelectionSource.textMode && fragment != null) {
+      final position = await pdfTextModePosition(
+        offset: fragment.startOffset,
+        pageCount: doc.pages.length,
+        load: (page) => _extractor.extractPageText(doc.pages[page], page),
+      );
+      if (position == null) return;
+      page = position.page;
+      offset = position.offset;
+    } else if (fragment != null) {
+      page = fragment.pageIndex;
+      offset = fragment.startOffset;
+    } else {
+      final resolved = await resolveTextModeSelectionToPage(text);
+      page = resolved.pageIndex;
+      offset = resolved.startOffset ?? 0;
+    }
+    final cues = await _extractor.extractSentences(doc.pages[page], page);
+    final index = cues.indexWhere((cue) => cue.endOffset > offset);
+    await stopReading();
+    await startReading(fromPage: page, fromCue: index < 0 ? 0 : index);
   }
 
   /// Đọc một đoạn rời (chạm từ, đọc vùng chọn).

@@ -2441,6 +2441,9 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       // `engine.init()` ở đây — nạp 170 MB GGUF chỉ để mở dropdown là nguyên
       // nhân timeout/OOM và cảnh báo "chưa import" bị kẹt lại.
       final voices = await engine.getAvailableVoices('vi-VN');
+      // PSRC-218: giọng đã chọn (kể cả giọng clone) được LƯU trong prefs ⇒
+      // mở lại app vẫn dùng đúng giọng, không quay về giọng mặc định của model.
+      final persistedVoice = await service.getSelectedVieneuVoiceId();
       if (!mounted || seq != _loadSeq) return;
       setState(() {
         _voices = voices;
@@ -2448,7 +2451,12 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
         _error = null;
         _modelMissing = modelPath == null;
         _loadedVariant = variant;
-        if (voices.isNotEmpty && _selectedVoiceId == null) {
+        final preferred = _selectedVoiceId ?? persistedVoice;
+        if (voices.isNotEmpty &&
+            preferred != null &&
+            voices.any((v) => v.id == preferred)) {
+          _selectedVoiceId = preferred;
+        } else if (voices.isNotEmpty && _selectedVoiceId == null) {
           _selectedVoiceId = voices.first.id;
         } else if (voices.isNotEmpty &&
             _selectedVoiceId != null &&
@@ -2472,6 +2480,8 @@ class _VieneuVoicePickerState extends State<_VieneuVoicePicker> {
       if (!mounted) return;
       setState(() => _selectedVoiceId = voiceId);
       TtsService().configure(voiceId: voiceId);
+      // PSRC-218 — lựa chọn giọng phải sống qua lần mở app sau.
+      await TtsService().setSelectedVieneuVoiceId(voiceId);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Lỗi chọn giọng');

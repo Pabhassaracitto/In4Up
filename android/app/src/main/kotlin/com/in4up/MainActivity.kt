@@ -79,6 +79,8 @@ class MainActivity : FlutterActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val textChannelName = "in4up/textlib"
     private val dictionaryChannelName = "in4up/dictionary"
+    private val filesChannelName = "in4up/files"
+    private var filesChannel: MethodChannel? = null
 
     // ADR-0018 P1 — deep link từ điển (`in4up://dict?w=…`, `in4up://open?path=…`).
     // Native CHỈ chuyển tiếp URL thô; toàn bộ kiểm tra an toàn (độ dài từ, đuôi
@@ -112,12 +114,14 @@ class MainActivity : FlutterActivity() {
     // Request code riêng cho SAF folder picker (tránh đụng file_picker...).
     private val reqOpenTextTree = 0x2A11
     private val reqOpenDictionaryDocuments = 0x2A12
+    private val reqOpenExportTree = 0x2A13
     private val maxDictionaryReadBytes = 64 * 1024
 
     // Result của MethodChannel đang chờ picker SAF (chỉ một picker modal tại
     // một thời điểm).
     private var pendingFolderPicker: MethodChannel.Result? = null
     private var pendingDictionaryDocumentsPicker: MethodChannel.Result? = null
+    private var pendingExportFolderPicker: MethodChannel.Result? = null
 
     private data class OpenDictionaryDocument(
         val descriptor: AssetFileDescriptor,
@@ -536,6 +540,111 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        val exportChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            filesChannelName,
+        )
+        exportChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getAndroidSdkInt" -> result.success(Build.VERSION.SDK_INT)
+                "getLegacyDownloadsRoot" -> {
+                    result.success(ExportStorageHelper.legacyDownloadsRoot())
+                }
+                "pickExportTree" -> launchExportFolderPicker(result)
+                "isExportTreeWritable" -> {
+                    val treeUri = call.argument<String>("treeUri")
+                    if (treeUri.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        Thread {
+                            val ok = ExportStorageHelper.isTreeWritable(
+                                applicationContext,
+                                treeUri,
+                            )
+                            runOnUiThread { result.success(ok) }
+                        }.start()
+                    }
+                }
+                "saveFileToDownloads" -> {
+                    val sourcePath = call.argument<String>("sourcePath")
+                    val fileName = call.argument<String>("fileName")
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    val subFolder = call.argument<String>("subFolder") ?: "In4Up"
+                    if (sourcePath.isNullOrBlank() || fileName.isNullOrBlank()) {
+                        result.error("BAD_ARGS", "Thiếu sourcePath hoặc fileName.", null)
+                    } else {
+                        Thread {
+                            try {
+                                val saved = ExportStorageHelper.saveToDownloads(
+                                    context = applicationContext,
+                                    sourceFile = File(sourcePath),
+                                    desiredFileName = fileName,
+                                    mimeType = mimeType,
+                                    subFolder = subFolder,
+                                )
+                                runOnUiThread { result.success(saved) }
+                            } catch (e: SecurityException) {
+                                runOnUiThread {
+                                    result.error("PERMISSION_DENIED", e.message, null)
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("EXPORT_FAILED", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "saveFileToSafTree" -> {
+                    val sourcePath = call.argument<String>("sourcePath")
+                    val treeUri = call.argument<String>("treeUri")
+                    val fileName = call.argument<String>("fileName")
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    if (sourcePath.isNullOrBlank() ||
+                        treeUri.isNullOrBlank() ||
+                        fileName.isNullOrBlank()
+                    ) {
+                        result.error("BAD_ARGS", "Thiếu sourcePath, treeUri hoặc fileName.", null)
+                    } else {
+                        Thread {
+                            try {
+                                val saved = ExportStorageHelper.saveToSafTree(
+                                    context = applicationContext,
+                                    sourceFile = File(sourcePath),
+                                    treeUriString = treeUri,
+                                    desiredFileName = fileName,
+                                    mimeType = mimeType,
+                                )
+                                runOnUiThread { result.success(saved) }
+                            } catch (e: SecurityException) {
+                                runOnUiThread {
+                                    result.error("PERMISSION_LOST", e.message, null)
+                                }
+                            } catch (e: Exception) {
+                                runOnUiThread {
+                                    result.error("EXPORT_FAILED", e.message, null)
+                                }
+                            }
+                        }.start()
+                    }
+                }
+                "openExportLocation" -> {
+                    val kind = call.argument<String>("kind") ?: ""
+                    val location = call.argument<String>("location") ?: ""
+                    val fileUri = call.argument<String>("fileUri")
+                    result.success(
+                        ExportStorageHelper.openExportFolder(
+                            activity = this,
+                            kind = kind,
+                            location = location,
+                            fileUri = fileUri,
+                        ),
+                    )
+                }
+                else -> result.notImplemented()
+            }
+        }
+        filesChannel = exportChannel
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -543,7 +652,10 @@ class MainActivity : FlutterActivity() {
     // ═══════════════════════════════════════════════════════════
 
     private fun launchFolderPicker(result: MethodChannel.Result) {
-        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+        if (pendingFolderPicker != null ||
+            pendingDictionaryDocumentsPicker != null ||
+            pendingExportFolderPicker != null
+        ) {
             result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
@@ -563,8 +675,35 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun launchExportFolderPicker(result: MethodChannel.Result) {
+        if (pendingFolderPicker != null ||
+            pendingDictionaryDocumentsPicker != null ||
+            pendingExportFolderPicker != null
+        ) {
+            result.error("PICKER_BUSY", "SAF picker đang mở.", null)
+            return
+        }
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+        }
+        pendingExportFolderPicker = result
+        try {
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, reqOpenExportTree)
+        } catch (e: Exception) {
+            pendingExportFolderPicker = null
+            result.error("PICKER_UNAVAILABLE", e.message, null)
+        }
+    }
+
     private fun launchDictionaryDocumentsPicker(result: MethodChannel.Result) {
-        if (pendingFolderPicker != null || pendingDictionaryDocumentsPicker != null) {
+        if (pendingFolderPicker != null ||
+            pendingDictionaryDocumentsPicker != null ||
+            pendingExportFolderPicker != null
+        ) {
             result.error("PICKER_BUSY", "SAF picker đang mở.", null)
             return
         }
@@ -591,7 +730,43 @@ class MainActivity : FlutterActivity() {
         when (requestCode) {
             reqOpenTextTree -> handleFolderPickerResult(resultCode, data)
             reqOpenDictionaryDocuments -> handleDictionaryDocumentsResult(resultCode, data)
+            reqOpenExportTree -> handleExportFolderPickerResult(resultCode, data)
         }
+    }
+
+    private fun handleExportFolderPickerResult(resultCode: Int, data: Intent?) {
+        val pending = pendingExportFolderPicker
+        pendingExportFolderPicker = null
+        if (pending == null) return
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pending.success(null)
+            return
+        }
+        val uri = data.data
+        if (uri == null) {
+            pending.success(null)
+            return
+        }
+        val writeFlag = data.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        if (writeFlag == 0) {
+            pending.error("PERMISSION_DENIED", "Thư mục chọn không cấp quyền ghi.", null)
+            return
+        }
+        try {
+            val takeFlags = data.flags and (
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            contentResolver.takePersistableUriPermission(uri, takeFlags)
+        } catch (_: SecurityException) {
+            // Neu provider chi cho quyen tam thoi trong phien hien tai thi van dung duoc cho 1 lan xuat.
+        }
+        pending.success(
+            mapOf(
+                "uri" to uri.toString(),
+                "displayName" to ExportStorageHelper.queryTreeDisplayName(applicationContext, uri),
+            ),
+        )
     }
 
     private fun handleFolderPickerResult(resultCode: Int, data: Intent?) {

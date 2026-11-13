@@ -25,6 +25,9 @@ import 'package:flutter/material.dart' show Icons, BorderRadius, BoxDecoration,
     RoundedRectangleBorder, Material, InkWell, Alignment, Color;
 import 'package:flutter/services.dart' show HapticFeedback;
 
+import '../../../core/files/export_destination.dart';
+import '../../../core/files/export_destination_service.dart';
+import '../../../core/files/widgets/export_destination_tile.dart';
 import '../models/media_export_models.dart';
 import '../services/media_estimates.dart';
 import '../services/media_export_diagnostics.dart';
@@ -96,6 +99,7 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
   bool _checkingFfmpeg = true;
   String? _ffmpegProblem;
   bool _busy = false;
+  ExportDestinationSession? _destinationSession;
 
   @override
   void initState() {
@@ -105,6 +109,17 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
     _keepLrc = widget.hasSourceLrc && widget.initialRequest.keepLrc;
     _registerInRecent = widget.initialRequest.registerInRecent;
     _checkFfmpeg();
+    _loadDestinationSession();
+  }
+
+  Future<void> _loadDestinationSession() async {
+    try {
+      final session = await ExportDestinationService.instance.openSession();
+      if (!mounted) return;
+      setState(() => _destinationSession = session);
+    } catch (_) {
+      // Giữ null nếu môi trường test không đăng ký channel; khi xuất vẫn có mặc định.
+    }
   }
 
   Future<void> _checkFfmpeg() async {
@@ -168,10 +183,19 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
   Future<void> _start() async {
     HapticFeedback.mediumImpact();
     setState(() => _busy = true);
+    ExportDestination? chosenDestination = _request.destination;
+    if (_destinationSession != null) {
+      try {
+        chosenDestination = await ExportDestinationService.instance
+            .commitSession(_destinationSession!);
+      } catch (_) {}
+    }
+    if (!mounted) return;
     final request = _request.copyWith(
       preset: _preset,
       keepLrc: _keepLrc,
       registerInRecent: _registerInRecent,
+      destination: chosenDestination,
     );
 
     final result = await showMediaExportProgressDialog(
@@ -293,7 +317,17 @@ class _MediaExportSheetState extends State<_MediaExportSheet> {
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
-                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: ExportDestinationPickerCard(
+                    session: _destinationSession,
+                    onChanged: () {
+                      if (mounted) setState(() {});
+                    },
+                    accentColor: _accent2,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: SizedBox(

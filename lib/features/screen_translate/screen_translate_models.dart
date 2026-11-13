@@ -21,23 +21,45 @@ class ScreenBlock {
   /// vẽ ô trống (người dùng phải thấy có chuyện gì xảy ra).
   final String translation;
 
-  /// Cỡ chữ gợi ý (sp) — xem [suggestedTextSizeSp].
+  /// Cỡ chữ (sp) mà layout ĐẢM BẢO vừa [rect] — xem [suggestedTextSizeSp].
   final double textSizeSp;
+
+  /// PSRC-211 — cỡ chữ ƯA THÍCH (sp, = cỡ chữ gốc), luôn ≥ [textSizeSp].
+  ///
+  /// Dart không đo được font thật nên ước DƯ; khi khung chật nó hạ
+  /// [textSizeSp] theo số ước lượng đó. Native đo được font thật ⇒ được phép
+  /// thử từ cỡ này trước và chỉ thu nhỏ khi chữ THẬT SỰ không vừa [rect].
+  /// `null` = dùng [textSizeSp] (payload cũ / khối không qua layout).
+  final double? maxTextSizeSp;
+
+  /// PSRC-211 — đáy của CHỮ GỐC trong [rect] (pixel màn hình).
+  ///
+  /// [rect] là chỗ Dart GIỮ cho khối (theo ước lượng dư). Native vẽ nền ÔM SÁT
+  /// chữ thật: `đáy nền = max(đáy chữ dịch, coverBottom)`, không vượt
+  /// `rect.bottom` — vừa hết "khoảng trống thừa bên dưới", vừa không để chữ
+  /// gốc lòi ra dưới nền. `null` = phủ kín cả [rect] (hành vi cũ).
+  final int? coverBottom;
 
   const ScreenBlock({
     required this.rect,
     required this.original,
     required this.translation,
     this.textSizeSp = 14.0,
+    this.maxTextSizeSp,
+    this.coverBottom,
   });
 
   bool get hasTranslation => translation.trim().isNotEmpty;
 
+  /// Hai khoá PSRC-211 CHỈ có mặt khi layout đặt giá trị: payload của khối
+  /// không qua layout giữ nguyên 7 khoá cũ (native đọc thiếu ⇒ hành vi cũ).
   Map<String, Object?> toMap() => <String, Object?>{
         ...rect.toMap(),
         'original': original,
         'translation': translation,
         'textSizeSp': textSizeSp,
+        if (maxTextSizeSp != null) 'maxTextSizeSp': maxTextSizeSp,
+        if (coverBottom != null) 'coverBottom': coverBottom,
       };
 
   static ScreenBlock? fromMap(Map<Object?, Object?> map) {
@@ -56,11 +78,14 @@ class ScreenBlock {
       return null;
     }
     final size = map['textSizeSp'];
+    final maxSize = map['maxTextSizeSp'];
     return ScreenBlock(
       rect: OverlayRect(left: left, top: top, right: right, bottom: bottom),
       original: (map['original'] as String?) ?? '',
       translation: (map['translation'] as String?) ?? '',
       textSizeSp: size is num ? size.toDouble() : 14.0,
+      maxTextSizeSp: maxSize is num ? maxSize.toDouble() : null,
+      coverBottom: toInt(map['coverBottom']),
     );
   }
 }

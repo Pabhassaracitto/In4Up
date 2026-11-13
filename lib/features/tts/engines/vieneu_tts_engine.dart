@@ -54,6 +54,10 @@ class VieneuTtsEngine implements TtsEngine {
   /// Giọng thực sự đang được worker native dùng (khác với giọng UI chọn).
   String? _workerVoiceId;
   bool _initialized = false;
+  /// Vì sao engine CHƯA dùng được (null = không có trở ngại). UI/TtsService
+  /// cần câu đúng sự thật thay vì luôn nói "chưa import model .gguf" — từ
+  /// 1.29 thiếu `sea_g2p.bin` cũng là một lý do chặn.
+  String? _blockingReason;
   Future<void>? _initFuture;
   final Map<String, _VoiceFiles> _voiceIndex = <String, _VoiceFiles>{};
 
@@ -113,6 +117,31 @@ class VieneuTtsEngine implements TtsEngine {
     return root;
   }
 
+  /// Câu giải thích vì sao engine chưa sẵn sàng (null = không có trở ngại).
+  String? get blockingReason => _blockingReason;
+
+  /// Từ điển phát âm SEA-G2P đã có cạnh model chưa?
+  ///
+  /// Model chỉ nhận **phoneme**, không nhận chữ thô: thiếu `sea_g2p.bin` thì
+  /// audio.cpp ném lỗi ngay khi nạp — sau khi đã tốn ~170 MB RAM. Hàm này để
+  /// chặn TRƯỚC và để UI nói đúng lý do (lane L6, ADR-0028).
+  Future<bool> hasPhonemeDictionary() async {
+    final model = await _resolveModelPath();
+    final String dir;
+    if (model != null) {
+      dir = p.dirname(model);
+    } else {
+      final base = await getApplicationDocumentsDirectory();
+      dir = p.join(base.path, 'vieneu_tts');
+    }
+    try {
+      return await File(vieneuG2pDictionaryPath(dir)).exists();
+    } catch (e) {
+      debugPrint('⚠️ VieNeu-TTS: không kiểm được từ điển phát âm: $e');
+      return false;
+    }
+  }
+
   /// Có thể dùng ngay bây giờ? (lib native + ít nhất một file .gguf)
   ///
   /// Không yêu cầu worker đã init: model import xong là "available"; việc nạp
@@ -125,6 +154,7 @@ class VieneuTtsEngine implements TtsEngine {
       _voicesDir = null;
       _clonedVoicesDir = null;
       _initialized = false;
+      _blockingReason = 'Chưa import model VieNeu-TTS (.gguf)';
       return false;
     }
     await _rememberPaths(model);
@@ -310,6 +340,19 @@ class VieneuTtsEngine implements TtsEngine {
       return;
     }
 
+    // Lane L6 / ADR-0028: thiếu `sea_g2p.bin` thì model KHÔNG đọc được câu
+    // nào (audio.cpp ném lỗi ở bước nạp, sau khi đã cấp ~170 MB). Chặn trước
+    // và ghi lý do để UI/TtsService nói đúng sự thật.
+    if (!await hasPhonemeDictionary()) {
+      _initialized = false;
+      _workerVoiceId = null;
+      _blockingReason =
+          'Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc';
+      debugPrint('⚠️ VieNeu-TTS: thiếu ${vieneuG2pDictFileName} cạnh model');
+      if (_core.isInitialized) await _core.dispose();
+      return;
+    }
+
     // Bản đồ giọng phải được quét TRƯỚC khi init để worker nhận đúng
     // ref_codes/speaker.emb của giọng mẫu hoặc giọng clone.
     await getAvailableVoices('vi-VN');
@@ -327,6 +370,7 @@ class VieneuTtsEngine implements TtsEngine {
       );
       _initialized = _core.isInitialized;
       if (_initialized) {
+        _blockingReason = null;
         _selectedVoiceId = voiceId;
         // Worker có thể đã init từ trước với giọng khác ⇒ áp lại giọng đang
         // chọn, tránh "UI chọn giọng A nhưng native đọc giọng B".
@@ -388,7 +432,8 @@ class VieneuTtsEngine implements TtsEngine {
     await init(voiceId: voiceId ?? _selectedVoiceId, modelVariant: _modelVariant);
     if (!_initialized) {
       return TtsResult.failure(
-        error: 'VieNeu-TTS chưa sẵn sàng (chưa import model .gguf)',
+        error: _blockingReason ??
+            'VieNeu-TTS chưa sẵn sàng (chưa import model .gguf)',
         engine: name,
       );
     }
@@ -425,6 +470,7 @@ class VieneuTtsEngine implements TtsEngine {
   Future<void> invalidate() async {
     await _core.dispose();
     _initialized = false;
+    _blockingReason = null;
     _workerVoiceId = null;
     _modelPath = null;
     _voicesDir = null;

@@ -168,3 +168,57 @@ String? detectVieneuVariantName(String fileName) {
   if (lower.contains('q8')) return 'q8_0';
   return 'q8_0';
 }
+
+// ─── Từ điển phát âm SEA-G2P (ADR-0028, lane L6 — 1.29.0) ──────────────────
+//
+// VieNeu-TTS **không nhận chữ thô**: model ăn *phoneme* do SEA-G2P sinh ra.
+// `sea_g2p.bin` (≈60 MiB) là dữ liệu của SEA-G2P; nó phải nằm CẠNH file GGUF
+// (`documents/vieneu_tts/sea_g2p.bin`). Trước 1.29 app không có đường nào đưa
+// file này vào ⇒ engine thật sự chạy được nhưng mọi lần đọc đều lỗi
+// "missing sea_g2p.bin". Các hằng số dưới đây là một nguồn sự thật duy nhất
+// cho cả service tải/xuất-nhập lẫn UI.
+//
+// Bản ghim khớp tag submodule `third_party/sea-g2p` = v0.10.0 (ADR-0028);
+// digest lấy từ GitHub release API của chính tag đó (asset `sea_g2p.bin`).
+
+/// Tên file mà audio.cpp tìm cạnh model (không đổi được — nằm trong native).
+const String vieneuG2pDictFileName = 'sea_g2p.bin';
+
+/// Tag SEA-G2P đang ghim (native lib + từ điển phải cùng phiên bản).
+const String vieneuG2pReleaseTag = 'v0.10.0';
+
+/// URL tải chính thức (GitHub release của pnnbao97/sea-g2p).
+const String vieneuG2pDictDownloadUrl =
+    'https://github.com/pnnbao97/sea-g2p/releases/download/v0.10.0/sea_g2p.bin';
+
+/// Kích thước thật của asset v0.10.0 (62.829.820 byte) — dùng để hiện dung
+/// lượng và để phát hiện tải hụt.
+const int vieneuG2pDictBytes = 62829820;
+
+/// sha256 của asset v0.10.0 — bắt buộc khớp sau khi tải.
+const String vieneuG2pDictSha256 =
+    '4346e690d0711ebc5231e7a42c5c88aaf6e40377e894b4617c018fd81c6f4096';
+
+/// Ngưỡng "trông giống từ điển thật" cho file do người dùng tự chọn (không có
+/// digest để đối chiếu). Nhỏ hơn nhiều so với 60 MiB ⇒ chặn file rỗng, file
+/// `.bin` của model khác, và tệp `.txt` đổi tên.
+const int vieneuG2pDictMinBytes = 40 * 1024 * 1024;
+
+/// Tên file có phải `sea_g2p.bin` không (không phân biệt hoa/thường).
+bool isVieneuG2pDictionaryFile(String path) =>
+    p.basename(path).toLowerCase() == vieneuG2pDictFileName;
+
+/// Đường dẫn đích của từ điển trong một thư mục model.
+String vieneuG2pDictionaryPath(String modelDir) =>
+    p.join(modelDir, vieneuG2pDictFileName);
+
+/// Kích thước có đủ lớn để coi là từ điển SEA-G2P thật không?
+bool isPlausibleVieneuG2pDictionarySize(int bytes) =>
+    bytes >= vieneuG2pDictMinBytes;
+
+/// Dung lượng hiển thị cho UI, vd `60,0 MB` (dùng dấu phẩy như phần còn lại
+/// của app, làm tròn 1 chữ số).
+String formatVieneuDictionarySize(int bytes) {
+  final mb = bytes / (1024 * 1024);
+  return '${mb.toStringAsFixed(1).replaceAll('.', ',')} MB';
+}

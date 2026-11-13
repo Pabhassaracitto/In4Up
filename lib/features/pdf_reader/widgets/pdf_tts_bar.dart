@@ -16,6 +16,7 @@ import 'package:in4up/core/language/localized_material.dart';
 
 import '../../ocr/ocr_service.dart';
 import '../pdf_reader_controller.dart';
+import '../services/reader_speed.dart';
 import 'pdf_ocr_sheet.dart';
 
 class PdfTtsBar extends StatelessWidget {
@@ -263,7 +264,7 @@ class PdfTtsBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                context.uiText('${controller.ttsSpeed.toStringAsFixed(1)}x'),
+                context.uiText(readerSpeedLabel(controller.ttsSpeed)),
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,

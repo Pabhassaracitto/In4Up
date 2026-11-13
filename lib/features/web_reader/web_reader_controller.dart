@@ -25,6 +25,7 @@ import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
 import 'services/reader_cues.dart';
 import '../pdf_reader/services/reader_follow_policy.dart';
+import '../pdf_reader/services/reader_speed.dart';
 import '../../services/vocab_batch/vocab_batch_extractor.dart';
 import '../../services/vocab_batch/vocab_batch_models.dart';
 
@@ -293,6 +294,8 @@ class WebReaderController extends ChangeNotifier {
   }
 
   WebReaderController() {
+    _ttsSpeed = readerSpeed(_tts.speed);
+    _tts.addListener(_onTtsSettingsChanged);
     _loadHistory();
     _loadBookmarks();
     _loadUserCollections();
@@ -666,6 +669,7 @@ class WebReaderController extends ChangeNotifier {
   bool _disposed = false;
   List<ReaderCue> articleCues = const [];
   int articleCueIndex = -1;
+  String _articleText = '';
 
   Future<void> speakArticle(String text, {int startOffset = 0}) async {
     final cues = readerCues(text);
@@ -675,6 +679,7 @@ class WebReaderController extends ChangeNotifier {
     final session = ++_readingSession;
     await _tts.stop();
     if (_disposed || session != _readingSession) return;
+    _articleText = text;
     articleCues = cues;
     _tts.configure(speed: _ttsSpeed, language: 'auto');
     _isSpeaking = true;
@@ -707,6 +712,11 @@ class WebReaderController extends ChangeNotifier {
 
   Future<void> resumeTts() async {
     if (!_isPaused) return;
+    if (_rateChangedWhilePaused) {
+      _rateChangedWhilePaused = false;
+      await _restartAtCurrentRate();
+      return;
+    }
     _isPaused = false;
     await _tts.resume();
     notifyListeners();
@@ -721,10 +731,33 @@ class WebReaderController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setTtsSpeed(double speed) {
-    _ttsSpeed = speed.clamp(0.25, 2.0).toDouble();
-    _tts.configure(speed: _ttsSpeed);
+  Timer? _speedRestart;
+  bool _rateChangedWhilePaused = false;
+
+  void _onTtsSettingsChanged() {
+    final next = readerSpeed(_tts.speed);
+    if (_disposed || next == _ttsSpeed) return;
+    _ttsSpeed = next;
+    _rateChangedWhilePaused = _isPaused;
+    if (_isSpeaking && !_isPaused && articleCueIndex >= 0) {
+      _speedRestart?.cancel();
+      _speedRestart = Timer(const Duration(milliseconds: 100), () {
+        if (!_disposed && _isSpeaking && !_isPaused) {
+          unawaited(_restartAtCurrentRate());
+        }
+      });
+    }
     notifyListeners();
+  }
+
+  Future<void> _restartAtCurrentRate() async {
+    final index = articleCueIndex;
+    if (index < 0 || index >= articleCues.length) return;
+    await speakArticle(_articleText, startOffset: articleCues[index].start);
+  }
+
+  void setTtsSpeed(double speed) {
+    _tts.configure(speed: readerSpeed(speed));
   }
 
   /// Xuất văn bản thành file âm thanh (TTS → file, không phát) — dùng cho
@@ -1896,6 +1929,8 @@ class WebReaderController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _speedRestart?.cancel();
+    _tts.removeListener(_onTtsSettingsChanged);
     ++_readingSession;
     _stopLoadWatchdog();
     ReaderDisplaySettings().removeListener(_onReaderDisplaySettingsChanged);

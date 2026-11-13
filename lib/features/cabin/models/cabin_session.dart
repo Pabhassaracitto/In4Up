@@ -5,17 +5,21 @@ import 'package:flutter/foundation.dart';
 @immutable
 class CabinTranscriptEntry {
   /// Mốc bắt đầu câu, tính từ đầu phiên (không tính thời gian tạm dừng).
+  /// Stable identity for edits; absent in journals created by older versions.
+  final String? id;
   final Duration offset;
   final String sourceText;
   final String translatedText;
 
   const CabinTranscriptEntry({
+    this.id,
     required this.offset,
     required this.sourceText,
     this.translatedText = '',
   });
 
   Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
         'ms': offset.inMilliseconds,
         'src': sourceText,
         'tgt': translatedText,
@@ -23,6 +27,7 @@ class CabinTranscriptEntry {
 
   factory CabinTranscriptEntry.fromJson(Map<String, dynamic> json) =>
       CabinTranscriptEntry(
+        id: json['id'] as String?,
         offset: Duration(milliseconds: (json['ms'] as num?)?.toInt() ?? 0),
         sourceText: (json['src'] as String?) ?? '',
         translatedText: (json['tgt'] as String?) ?? '',

@@ -44,6 +44,29 @@ qua 4–5 từ → bấm **Dịch**/**Ngữ pháp** đúng cụm đó; thoát ch
 cũ; chế độ dòng (`SelectableText`) và interlinear không đổi hành vi. Nội dung này được ghi rõ
 trong comment Linear, không giấu.
 
+### A.2 PSRC-6 — `XLAT-MIX-001`: kết quả xác minh (2026-11-13, agent L11)
+
+**Kết luận: ĐẠT ⇒ đã comment bằng chứng trên Linear và chuyển `Done`.**
+
+| Mục | Bằng chứng đọc được trong mã |
+|---|---|
+| Bộ tách mẩu theo ngôn ngữ | `lib/features/translation/mixed_language_segmenter.dart` — `segmentByLanguage` + `containsForeignSegment` (dòng 160): chấm điểm từng mẩu theo dấu thanh tiếng Việt, từ chức năng tiếng Anh, chữ Hán/Kana |
+| Nhánh dịch hỗn hợp | `lib/features/translation/translation_service.dart` — import segmenter (dòng 28), gọi `_translateMixedLanguage` (dòng 473), định nghĩa tại dòng 516: chỉ gửi đi dịch các mẩu **khác** ngôn ngữ đích rồi ghép lại đúng thứ tự |
+| Nới guard "nguồn trùng đích" | `lib/features/translation/text_provider_translation.dart:251` dùng `containsForeignSegment` ⇒ hết cảnh cả ba tầng cùng từ chối im lặng |
+| Máy bắt (test tự động) | `test/translation/mixed_language_test.dart` — **9 test** trong nhóm `segmentByLanguage`: câu tiếng Anh xen tiếng Việt được nhận ra (đúng bug 1.h), ghép lại ra đúng nguyên văn từng ký tự, đích là tiếng Anh thì câu tiếng Việt mới là ngoại ngữ, mẩu quá ngắn được gộp (không tự nhận ngoại ngữ), đoạn rỗng/trắng, nhiều câu Anh liền nhau gộp thành một mẩu, **tiếng Việt CÓ DẤU không bao giờ bị coi là ngoại ngữ** |
+| Test đã nối CI | cùng bước **"Read actions + mixed-language tests (logic thuần)"** của `app_analyze.yml` (dòng ~925 liệt kê `test/translation/mixed_language_test.dart`) |
+| CI xanh | Run gốc của issue **`37529218138`** — xác minh lại qua GitHub API ngày 2026-11-13: `conclusion: success`, head `74af5d8`, nhánh `arena/78cea3c6-in4up`, 2026-10-06. Trên nhánh cha hiện tại: run **`43360617301`** (`0ad2f2f9`) step read-actions/mixed-language = `success`, analyze = `success`; tip `962e7e1` chỉ hơn 3 commit tài liệu ⇒ không hồi quy |
+
+**Giới hạn đã biết (giữ nguyên như mô tả issue, không "sửa" nhầm):** tiếng Việt viết
+**không dấu** là nhập nhằng thật (`di`, `toi`…) nên một dòng không dấu có thể bị coi là
+ngoại ngữ và dịch thừa; chấp nhận được vì **nguyên văn không bao giờ bị thay**. Test
+khoá lại đúng kỳ vọng này.
+
+**Chưa kiểm được trên máy thật:** mở một tài liệu Việt xen Anh trên thiết bị, đặt đích
+tiếng Việt rồi bấm Dịch (cần engine dịch thật — mạng hoặc model Hy-MT đã tải). Sandbox
+không có Dart/Flutter SDK lẫn mạng tới engine dịch ⇒ chỉ chứng minh được ở tầng logic
+thuần + CI, đã ghi rõ trong comment Linear.
+
 ## B. Backlog cũ — bảng phân loại
 
 Những issue dưới đây **đã biết** và được gán sẵn. Chúng **không** nằm trong đợt 1 của lane khu vực tương ứng; làm khi hub yêu cầu.
@@ -76,7 +99,9 @@ Page JSON của Linear bị giới hạn kích thước nên ~15 issue còn lạ
 
 ## Nghiệm thu
 
-- [ ] PSRC-14 và PSRC-6: có comment bằng chứng + đóng, hoặc mở lại kèm lý do.
+- [x] PSRC-14 và PSRC-6: có comment bằng chứng + đóng, hoặc mở lại kèm lý do.
+      → cả hai **ĐẠT**, đã chuyển `Done` ngày 2026-11-13; bằng chứng ở § A.1 và § A.2,
+      phần chưa kiểm máy thật ghi rõ trong từng mục và trong comment Linear.
 - [ ] Mọi issue Backlog của I4U xuất hiện **đúng một lần** trong § B hoặc § D.
 - [ ] Không issue nào bị đóng mà không có lý do viết ra.
 - [ ] `app_analyze` xanh (nếu có sửa code).

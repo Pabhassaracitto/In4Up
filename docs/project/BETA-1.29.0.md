@@ -80,6 +80,25 @@ Hub đã làm phần **hạ tầng** để lane L6 không còn bế tắc; phầ
    khởi tạo engine / import giọng / tạo giọng có thông điệp đúng sự thật.
 4. Máy thật: đọc ≥ 3 đoạn tiếng Việt; đo nạp/tổng hợp/RAM; gỡ model ⇒ rơi về engine kế, không crash.
 
+### 2.3 Phiếu việc chi tiết trong `beta-1.29.0/` (2026-11-13)
+
+Toàn bộ nội dung kỹ thuật của từng lane đã tách ra thư mục
+[`docs/project/beta-1.29.0/`](beta-1.29.0/README.md), để chủ dự án chỉ cần **nhắn một câu**
+cho mỗi agent thay vì dán lại ngữ cảnh:
+
+| File | Nội dung |
+|---|---|
+| [`README.md`](beta-1.29.0/README.md) | luật chung: nhánh, **luật commit để rebase tuyến tính**, phạm vi file, DoD 6 điểm, CI |
+| [`PROMPTS.md`](beta-1.29.0/PROMPTS.md) | câu nhắn mẫu cho từng lane (một câu/lane) + thứ tự land |
+| `L1-…` … `L11-…` | phiếu từng lane: issue, hướng điều tra, file chạm, nghiệm thu, mẫu tiêu đề commit |
+
+Thay đổi so với bảng §2 (bảng §2 vẫn là bản đồ gốc, **số hiệu L1–L9 không đổi**):
+
+- **L10 mới** — PDF/Web reader (karaoke, tự cuộn, tốc độ): PSRC-229, 231, 232. Tách khỏi L3 vì L3 đã có 7 issue.
+- **L11 mới** — chốt In Review (PSRC-6, PSRC-14) + phân loại backlog cũ ≤ PSRC-196. **Ngoài cổng beta.**
+- Issue audit đợt 2 **PSRC-224…233** đã được gán: 224/225/226/227/228 → **L9**, 229 → **L10**, 230 → **L3**, 231/232 → **L10**, 233 → **L3**.
+- Tổng trong cổng: **35 issue** (PSRC-199…233), mỗi issue đúng một lane; đợt 2 cũ (172, 174, 178, 179, 180, 193, 194, 195, 196) đã gán lane nhưng **không** thuộc cổng.
+
 ## 3. Hợp đồng cho agent con (copy nguyên khối này vào prompt)
 
 ```text
@@ -234,6 +253,12 @@ version 1.28.0 trong khi tag là 1.29.0 — sai lệch không sửa được sau
   v0.10.0 + workflow `vieneu_engine_build.yml` + wrapper trộn stereo→mono / truyền SEA-G2P
   + 4 test hợp đồng. **Chưa có build NDK xanh** — đó là cổng của lane L6, không phải việc
   đã đóng.
+- 2026-11-13 | phiếu việc tách rời | agent `arena/60e35d65-in4up` | toàn bộ nội dung kỹ thuật
+  của lane chuyển vào `docs/project/beta-1.29.0/` (`README.md` + `PROMPTS.md` + 11 phiếu) để
+  owner chỉ nhắn **một câu**/agent, không dán ngữ cảnh; thêm **L10** (PDF/Web reader 229/231/232)
+  và **L11** (chốt PSRC-6/PSRC-14 + phân loại backlog cũ ≤ PSRC-196, ngoài cổng); gán
+  PSRC-224…233; chốt luật một-issue-một-commit + chỉ rebase để land tuyến tính vào 251e.
+  **Không đổi code.**
 
 ## 9. Prompt riêng từng lane (dán **sau** khối §3)
 

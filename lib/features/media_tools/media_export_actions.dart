@@ -38,7 +38,7 @@ Future<MediaExportResult?> completeExportWithFollowUp(
   BuildContext context,
   Future<MediaExportResult?> Function() openSheet, {
   Future<void> Function(String path)? openInListenTab,
-  Future<void> Function(MediaExportResult result)? share,
+  Future<ExportShareOutcome> Function(MediaExportResult result)? share,
 }) async {
   final result = await openSheet();
   if (result == null || !context.mounted) return result;

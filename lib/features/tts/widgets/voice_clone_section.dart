@@ -28,6 +28,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
+import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
 import '../tts_service.dart';
@@ -41,7 +42,20 @@ const int _maxSamplesPerVoice = 5;
 // Keep message kinds instead of translated strings so a locale change also
 // updates any error or status that is already visible.
 enum _RecordingIssue { permissionRequired, permissionDenied, failed }
-enum _CloneNotice { needName, needSample, importedSamples, success, failed }
+enum _CloneNotice {
+  needName,
+  needSample,
+  importedSamples,
+  success,
+
+  /// Tạo xong nhưng embedding là PLACEHOLDER (native chưa có speaker encoder)
+  /// — phải nói thật thay vì "Đã tạo giọng" rồi giọng đọc ra giọng mặc định.
+  successPlaceholder,
+
+  /// Engine chưa nạp được (thiếu model / native / sea_g2p.bin) — PSRC-218.
+  notReady,
+  failed,
+}
 
 /// Widget clone giọng VieNeu-TTS.
 class VoiceCloneSection extends StatefulWidget {
@@ -76,6 +90,9 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
   bool _isCloning = false;
   _CloneNotice? _cloneNotice;
   String? _cloneNoticeDetail;
+
+  /// Lỗi native NGUYÊN VĂN của lần tạo giọng gần nhất (để log/issue).
+  String? _cloneErrorDetail;
   int _sampleCount = 0;
 
   @override
@@ -418,25 +435,64 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       // XONG rồi mới clone. Bản cũ kiểm tra `_ttsCore.isInitialized` (true
       // ngay sau handshake) rồi gửi `clone_voice` trong lúc worker còn đang
       // nạp 170 MB ⇒ trả "Chưa init" ⇒ "Không thể tạo giọng".
+      //
+      // PSRC-218: `ensureVieneuWorkerReady` ném VieneuEngineNotReadyException
+      // mang ĐÚNG lý do (chưa có model / thiếu lib native / thiếu sea_g2p.bin)
+      // thay vì StateError chung chung như trước.
       await TtsService().ensureVieneuWorkerReady();
-      await _ttsCore.cloneVoice(
+      final embeddingPath = await _ttsCore.cloneVoice(
         voiceId: voiceId,
         samplesDir: samplesDir,
       );
 
+      // PSRC-218: native vẫn trả THÀNH CÔNG khi chưa có speaker encoder, và
+      // khi đó embedding là 256 số 0 ⇒ giọng đọc ra gần giọng mặc định. Đọc
+      // file để biết có phải placeholder rồi nói đúng sự thật.
+      final placeholder = await isPlaceholderVieneuEmbedding(embeddingPath);
+
       // Chỉ dọn vùng tạm SAU KHI đã có embedding; thất bại ở trên giữ nguyên
       // mẫu để người dùng bấm lại mà không phải thu âm lại.
       await _clearTempSamples();
+      // Giọng mới dùng được NGAY và sống qua lần mở app sau: ghi lựa chọn vào
+      // prefs + áp ngay cho engine (nếu worker đã sẵn sàng).
+      try {
+        await TtsService().setSelectedVieneuVoiceId(voiceId);
+        TtsService().configure(voiceId: voiceId);
+      } catch (e) {
+        debugPrint('Voice clone: không lưu được lựa chọn giọng: $e');
+      }
+      try {
+        await _ttsCore.selectVoice(
+          voiceId,
+          p.join(p.dirname(_clonedVoicesDir), 'voices'),
+          clonedVoicesDir: _clonedVoicesDir,
+          speakerEmbeddingFile: embeddingPath,
+        );
+      } catch (e) {
+        debugPrint('Voice clone: engine chưa áp giọng mới ngay: $e');
+      }
       TtsService().notifyVoicesChanged();
       await _refreshSampleCount();
       if (!mounted) return;
       setState(() {
         _isCloning = false;
-        _cloneNotice = _CloneNotice.success;
+        _cloneNotice = placeholder
+            ? _CloneNotice.successPlaceholder
+            : _CloneNotice.success;
         _cloneNoticeDetail = voiceId;
+        _cloneErrorDetail = null;
         _newVoiceId = '';
       });
       await _loadClonedVoices();
+    } on VieneuEngineNotReadyException catch (e) {
+      debugPrint('Voice creation not ready: ${e.message} ${e.detail ?? ''}');
+      if (!mounted) return;
+      setState(() {
+        _isCloning = false;
+        _cloneNotice = _CloneNotice.notReady;
+        _cloneNoticeDetail = e.message;
+        _cloneErrorDetail = e.detail;
+      });
     } catch (e, stack) {
       // Native errors may be Vietnamese even when the app locale is not.
       debugPrint('Voice creation failed: $e\n$stack');
@@ -445,6 +501,7 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
         _isCloning = false;
         _cloneNotice = _CloneNotice.failed;
         _cloneNoticeDetail = null;
+        _cloneErrorDetail = e.toString();
       });
     }
   }
@@ -482,10 +539,26 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
       _CloneNotice.importedSamples => context.uiText(
           'Đã import ${_cloneNoticeDetail ?? '0'} mẫu WAV'),
       _CloneNotice.success => l10n.ttsCloneVoiceSuccess(_cloneNoticeDetail ?? ''),
-      _CloneNotice.failed => l10n.ttsCloneVoiceCreateError,
+      // PSRC-218: native chưa có speaker encoder ⇒ embedding là placeholder.
+      // Nói thật để người dùng không tưởng đã clone được giọng của mình.
+      _CloneNotice.successPlaceholder => context
+          .uiText('Đã tạo giọng {value0} nhưng bằng embedding tạm '
+              '(chưa có bộ mã hoá giọng) — giọng đọc gần giọng mặc định')
+          .replaceAll('{value0}', _cloneNoticeDetail ?? ''),
+      // PSRC-218: engine chưa nạp được — nêu đúng mảnh còn thiếu.
+      _CloneNotice.notReady => context
+          .uiText('Không thể tạo giọng: {value0}')
+          .replaceAll('{value0}', context.uiText(_cloneNoticeDetail ?? '')),
+      _CloneNotice.failed => _cloneErrorDetail == null
+          ? l10n.ttsCloneVoiceCreateError
+          : context
+              .uiText('Không thể tạo giọng: {value0}')
+              .replaceAll('{value0}', _cloneErrorDetail!),
     };
     final cloneIsError = _cloneNotice != _CloneNotice.success &&
+        _cloneNotice != _CloneNotice.successPlaceholder &&
         _cloneNotice != _CloneNotice.importedSamples;
+    final cloneIsWarning = _cloneNotice == _CloneNotice.successPlaceholder;
     final sampleStatus = _isRecording
         ? l10n.ttsCloneVoiceRecording
         : _currentRecordingPath != null
@@ -669,18 +742,32 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: (cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.1),
+                color: (cloneIsError
+                        ? Colors.red
+                        : (cloneIsWarning ? Colors.amber : Colors.green))
+                    .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: (cloneIsError ? Colors.red : Colors.green).withValues(alpha: 0.35),
+                  color: (cloneIsError
+                          ? Colors.red
+                          : (cloneIsWarning ? Colors.amber : Colors.green))
+                      .withValues(alpha: 0.35),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    cloneIsError ? Icons.error : Icons.check_circle,
+                    cloneIsError
+                        ? Icons.error
+                        : (cloneIsWarning
+                            ? Icons.info_outline
+                            : Icons.check_circle),
                     size: 14,
-                    color: cloneIsError ? Colors.red[300] : Colors.green[300],
+                    color: cloneIsError
+                        ? Colors.red[300]
+                        : (cloneIsWarning
+                            ? Colors.amber[300]
+                            : Colors.green[300]),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -689,7 +776,11 @@ class _VoiceCloneSectionState extends State<VoiceCloneSection> {
                       cloneStatus,
                       style: TextStyle(
                         fontSize: 10,
-                        color: cloneIsError ? Colors.red[200] : Colors.green[200],
+                        color: cloneIsError
+                            ? Colors.red[200]
+                            : (cloneIsWarning
+                                ? Colors.amber[200]
+                                : Colors.green[200]),
                       ),
                     ),
                   ),

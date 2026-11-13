@@ -31,6 +31,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
   // (đã nạp ở tab Nghe/Hiểu) hoặc lazy-load từ cache LRC theo file đang phát.
   List<LrcLine> _cachedLrcLines = const [];
   String? _lrcFetchedForPath;
+  bool _sentenceSyncScheduled = false;
 
   @override
   void initState() {
@@ -62,6 +63,7 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     final path = player.currentSongPath;
     if (path == null || path == _lrcFetchedForPath) return;
     _lrcFetchedForPath = path;
+    setState(() => _cachedLrcLines = const []);
     () async {
       try {
         final hit = await player.peekCachedLrc(path: path);
@@ -75,6 +77,34 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
         // Không có LRC cache → không gợi ý, không lỗi.
       }
     }();
+  }
+
+  void _scheduleSentenceSync(
+    PlayerProvider player,
+    UnderstandProvider understand,
+    ShadowingProvider shadowing,
+    List<AbSuggestion> suggestions,
+    Duration? trackDuration,
+  ) {
+    if (_sentenceSyncScheduled) return;
+    _sentenceSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sentenceSyncScheduled = false;
+      if (!mounted) return;
+      if (understand.lrcLines.isEmpty) _maybeLoadCachedSuggestions(player);
+      shadowing.setSentenceSuggestions(
+        audioPath: player.currentSongPath,
+        suggestions: suggestions,
+      );
+      final start = player.loopStart;
+      final end = player.loopEnd;
+      final index = suggestions.indexWhere((s) => s.start == start && s.end == end);
+      if (index >= 0 && index != shadowing.selectedSentenceIndex) {
+        shadowing.selectSentence(index);
+      } else if (index < 0 && shadowing.selectedSentenceIndex >= 0) {
+        shadowing.setLoopRegion(start ?? Duration.zero, end ?? Duration.zero);
+      }
+    });
   }
 
   @override
@@ -219,15 +249,15 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     final lrcLines = understand.lrcLines.isNotEmpty
         ? understand.lrcLines
         : _cachedLrcLines;
-    if (hasAudio && lrcLines.isEmpty) {
-      _maybeLoadCachedSuggestions(player);
-    }
     final suggestions = lrcLines.isEmpty
         ? const <AbSuggestion>[]
         : LrcAbSuggestions.buildSentenceSuggestions(
             lines: lrcLines,
             trackDuration: trackDuration,
           );
+    _scheduleSentenceSync(
+      player, understand, shadowing, suggestions, trackDuration,
+    );
 
     final missingSource =
         player.lastLoadError == AudioLoadErrorKind.missingFile ||
@@ -512,13 +542,14 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
     HapticFeedback.selectionClick();
     // Đặt A-B trên chính PlayerProvider — tab Nghe cũng thấy đoạn này
     // (một nguồn sự thật thay vì 2 bản A-B riêng lẻ).
-    player.setLoop(suggestion.start, suggestion.end);
-    shadowing.setSegment(
-      start: suggestion.start,
-      end: suggestion.end,
-      audioPath: player.currentSongPath ?? '',
+    player.setLoop(
+      suggestion.start,
+      suggestion.end,
+      repeatCount: player.maxLoopCount,
+      gapSeconds: player.gapDuration,
+      startImmediately: false,
     );
-    shadowing.setPracticeText(suggestion.text);
+    shadowing.selectSentence(suggestion.index);
   }
 
   // ── Chỉnh tay A-B ────────────────────────────────────────────
@@ -1118,8 +1149,13 @@ class _ShadowingWidgetState extends State<ShadowingWidget>
                 onPressed: canPractice
                     ? () {
                         HapticFeedback.lightImpact();
-                        _syncPracticeSource(player, shadowing);
-                        shadowing.playOriginal();
+                        final index = shadowing.selectedSentenceIndex;
+                        if (index >= 0) {
+                          shadowing.speakSentence(index);
+                        } else {
+                          _syncPracticeSource(player, shadowing);
+                          shadowing.playOriginal();
+                        }
                       }
                     : null,
                 icon: const Icon(Icons.headphones, size: 18),

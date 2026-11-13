@@ -33,7 +33,7 @@ cài nào có `libvieneu_tts.so`.** Ba lỗ hổng độc lập, mỗi cái đ�
 | audio.cpp (ggml + C ABI + `vieneu_v3_turbo`) | **submodule** `third_party/audio.cpp`; **module Gradle riêng `:vieneu`** (`android/vieneu/`), CMake CPU-only, chỉ target `audiocpp` + `vieneu_tts` | tag **v0.9.4** — `717efc34` (API C đã đối chiếu khớp wrapper) |
 | wrapper C | `native/tts_vieneu/vieneu_tts.cpp` → `libvieneu_tts.so` | trong repo |
 | SEA-G2P (Rust, C ABI) | **submodule** `third_party/sea-g2p`; CI cross-compile `--no-default-features --features capi` cho `arm64-v8a`, chép vào `jniLibs` | tag **v0.10.0** — `dae5ca83` |
-| `sea_g2p.bin` (~30 MB, từ điển) | **không nhúng** — người dùng tải/import cạnh model (bước tải trong app là việc của lane L6) | bản phát hành sea-g2p v0.10.0 |
+| `sea_g2p.bin` (**62.829.820 byte ≈ 60 MiB**, từ điển) | **không nhúng** — app **tải/import** vào `documents/vieneu_tts/` (lane L6, xem §8) | bản phát hành sea-g2p v0.10.0, sha256 `4346e690…` |
 | `vieneu-v3-turbo-q8_0.gguf` (188 MB) + `voices/minh_quan_pro/*` | người dùng import như Hy-MT `.gguf` | model author (Apache-2.0) |
 
 Cách nạp SEA-G2P: audio.cpp **`dlopen` theo tên** (`libsea_g2p_rs.so`) khi option
@@ -84,8 +84,7 @@ Wrapper ưu tiên đường dẫn tuyệt đối nếu người dùng vẫn đ�
 ## 6. Việc còn lại (lane L6)
 
 1. Chạy `vieneu_engine_build.yml` tới xanh, ghi thời gian build + dung lượng APK thật.
-2. Đường **tải `sea_g2p.bin` trong app** (kèm checksum) hoặc hướng dẫn import rõ ràng —
-   hiện người dùng phải tự đặt file.
+2. ~~Đường tải/import `sea_g2p.bin` trong app~~ ✅ **đã làm** — xem §8.
 3. `PSRC-214…218`: import model ở mọi mục, không báo "thành công" giả, khởi tạo/import
    giọng/tạo giọng có thông điệp đúng.
 4. Nghiệm thu máy như bảng trên.
@@ -115,3 +114,28 @@ và 43328297538 (18m52s, có bước đo). APK arm64-debug 261 MiB chứa đủ 
 0,9 MiB + `libaudiocpp.so` 4,9 MiB + `libsea_g2p_rs.so` 4,2 MiB (≈10 MiB engine, chưa nén). Đường phát hành
 (`build_final_complete.yml`) nay init submodule **không nuốt lỗi** và tự `cargo ndk` build
 SEA-G2P ⇒ APK release cũng có engine, không còn cảnh "build xanh mà thiếu engine".
+
+## 8. Từ điển phát âm: đường tải/import trong app (2026-11-12)
+
+Engine nằm trong APK chưa đủ: model chỉ nhận **phoneme**, nên thiếu `sea_g2p.bin`
+thì mọi câu đọc đều thất bại. Trước đây người dùng phải tự chép file bằng trình
+quản lý tệp — không ai làm được điều đó một cách tử tế.
+
+**Đã làm (lane L6):**
+
+| Mảnh | Chi tiết |
+|---|---|
+| Hằng số ghim | `packages/in4up_stt/lib/tts/vieneu_tts_paths.dart`: tên `sea_g2p.bin`, tag `v0.10.0`, URL GitHub release, **62.829.820 byte**, **sha256 `4346e690…4096`**, ngưỡng tối thiểu 40 MiB cho file tự chọn |
+| Service | `lib/features/tts/vieneu_g2p_dictionary.dart` — `status()` (đọc đĩa), `download(onProgress)` (HTTP + `.part` + kiểm sha256 + rename), `importFromFile()` (người dùng chọn tệp), `remove()`; mọi lỗi quy về `VieneuG2pFailure` để UI dịch |
+| Chặn sớm | `VieneuTtsEngine._initOnce` kiểm `hasPhonemeDictionary()` **trước** `_core.init` ⇒ không tốn ~170 MB RAM rồi mới báo lỗi; `blockingReason` cho câu đúng sự thật |
+| UI | Card "Từ điển phát âm (SEA-G2P)" trong mục import model VieNeu: trạng thái + dung lượng, nút **Tải từ điển (~60 MB)** và **Chọn tệp sea_g2p.bin**, thanh tiến trình, thông báo lỗi cụ thể |
+| i18n | 13 chuỗi × 8 locale trong `tool/priority_native_pack.json` (en + hi/zh/zh_TW/si/my/th/ja) |
+| Máy bắt | `test/tts/vieneu_g2p_dictionary_test.dart` — hằng số ghim, thứ tự kiểm-digest-trước-rename, chốt chặn trong engine, UI + bản dịch |
+
+**Vì sao kiểm sha256 chứ không chỉ kiểm dung lượng:** native lib trong APK là
+SEA-G2P v0.10.0; một `sea_g2p.bin` của bản khác có thể vẫn "đủ lớn" nhưng làm
+audio.cpp lỗi khó hiểu. File người dùng **tự chọn** chỉ kiểm tên + kích thước
+(không có digest tin cậy để đối chiếu) — chấp nhận đánh đổi này và ghi rõ trong code.
+
+**Chưa làm:** tải nền/khoanh vùng (hiện tải trong lúc mở Cài đặt, có tiến trình);
+hẹn giờ thử lại khi mạng đứt.

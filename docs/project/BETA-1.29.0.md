@@ -37,7 +37,7 @@ Link issue dùng dạng rút gọn `https://linear.app/in4up/issue/PSRC-<số>`.
 | L4 | Bong bóng dịch | [211](https://linear.app/in4up/issue/PSRC-211) bỏ sót khối, border dư dưới, bản dịch sai chỗ | `lib/features/screen_translate/**` · `android/app/src/main/kotlin/com/in4up/screentranslate/**` (`TranslationOverlayView`, `ScreenTranslateService`) | — | ⬜ chưa nhận |
 | L5 | Web & YouTube trên Linux | [212](https://linear.app/in4up/issue/PSRC-212) biểu tượng Web ⇒ màn hình đen · [213](https://linear.app/in4up/issue/PSRC-213) chọn kết quả YouTube ⇒ màn hình đen | `lib/features/web_reader/**` · `lib/features/youtube/**` · `linux/**` | — | ⬜ chưa nhận |
 | L6 | VieNeu / Vieu-TTS | [214](https://linear.app/in4up/issue/PSRC-214) import phía trên không nhận model · [215](https://linear.app/in4up/issue/PSRC-215) import Q8_0 "thành công" nhưng thiếu engine · [216](https://linear.app/in4up/issue/PSRC-216) không khởi tạo engine · [217](https://linear.app/in4up/issue/PSRC-217) import giọng lỗi · [218](https://linear.app/in4up/issue/PSRC-218) tạo giọng từ mẫu thu lỗi | `packages/in4up_stt/lib/tts/vieneu_tts_core.dart` (+ worker isolate) · `lib/features/tts/engines/vieneu_tts_engine.dart` · `lib/screens/settings/**` (TTS) · `native/tts_vieneu/**` + CMake | — | 🔨 doing — **owner chốt ship engine** (ADR-0028); hub đã pin submodule + workflow build |
-| L7 | Tệp, nơi lưu & "Mở bằng" | [204](https://linear.app/in4up/issue/PSRC-204) **đánh giá** chọn/đổi nơi lưu (chưa chốt triển khai) · [222](https://linear.app/in4up/issue/PSRC-222) mở `.txt/.pdf/.docx/.md/.mp3/.m4a/.mp4` bằng In4Up | `android/app/src/main/AndroidManifest.xml` · `ios/Runner/Info.plist` · `lib/services/**` (nhận tệp) · `lib/features/media_tools/services/media_export_service.dart` (nơi lưu) · `lib/screens/text_library/**` · `linux/**` + `windows/**` (liên kết tệp) | — | ⬜ chưa nhận |
+| L7 | Tệp, nơi lưu & "Mở bằng" | [204](https://linear.app/in4up/issue/PSRC-204) **đã chốt mô hình** (ADR-0029): mặc định `Download/In4Up` + đổi từng lần xuất · [222](https://linear.app/in4up/issue/PSRC-222) mở `.txt/.pdf/.docx/.md/.mp3/.m4a/.mp4` bằng In4Up | `android/app/src/main/AndroidManifest.xml` · `ios/Runner/Info.plist` · `lib/services/**` (nhận tệp) · `lib/features/media_tools/services/media_export_service.dart` (nơi lưu) · `lib/screens/text_library/**` · `linux/**` + `windows/**` (liên kết tệp) | — | ⬜ chưa nhận — **hợp đồng đã có: ADR-0029** |
 | L8 | Giọng đọc hệ thống Android | [221](https://linear.app/in4up/issue/PSRC-221) In4Up thành TTS engine của hệ thống (như Sherpa APK), lấy Piper làm cơ sở | `android/app/src/main/kotlin/**` (service TTS mới + engine XML + manifest) · `lib/screens/settings/**` (công tắc/hướng dẫn) | — | ⬜ chưa nhận |
 | L9 | Shadowing & UI tab Nói/Hiểu | [224](https://linear.app/in4up/issue/PSRC-224) rà và bỏ mục Shadow ở "tạo lời" tab Nghe nếu vô dụng · [225](https://linear.app/in4up/issue/PSRC-225) thu gọn nội dung tab Nói, ưu tiên Shadowing · [226](https://linear.app/in4up/issue/PSRC-226) "Nghe mẫu" trôi quá dòng đã chọn · [227](https://linear.app/in4up/issue/PSRC-227) chấm điểm sai (tab Nói + tab Hiểu) · [228](https://linear.app/in4up/issue/PSRC-228) tab Hiểu thiếu gợi ý + đọc hết nội dung | `lib/features/shadowing/**` · `lib/screens/listen_mode/speak_mode_screen.dart` · `lib/screens/understand_mode/**` · `lib/screens/listen_mode/**` (mục Shadow) | — | ⬜ chưa nhận |
 
@@ -75,7 +75,7 @@ Hub đã làm phần **hạ tầng** để lane L6 không còn bế tắc; phầ
 1. ~~Chạy `vieneu_engine_build.yml` tới xanh; ghi thời gian build~~ ✅ 17m05s (43325244915,
    18m52s ở 43328297538) — engine ≈10 MiB chưa nén; **chênh lệch APK release** vẫn phải đo
    ở G4 (debug 261 MiB không đại diện).
-2. Đường tải/import **`sea_g2p.bin`** (≈30 MB) trong app + checksum; hiện người dùng phải tự đặt.
+2. ~~Đường tải/import **`sea_g2p.bin`** (≈60 MiB) trong app + checksum~~ ✅ đã có service + card UI + 13 chuỗi 8 locale + test (ADR-0028 §8).
 3. PSRC-214…218: import ở **mọi** mục (kể cả mục phía trên), không báo "thành công" giả,
    khởi tạo engine / import giọng / tạo giọng có thông điệp đúng sự thật.
 4. Máy thật: đọc ≥ 3 đoạn tiếng Việt; đo nạp/tổng hợp/RAM; gỡ model ⇒ rơi về engine kế, không crash.
@@ -334,7 +334,11 @@ không crash, và nêu rõ engine nào đang thiếu.
 ### L7 — Tệp, nơi lưu & "Mở bằng" (`[BETA-1.29.0 · L7]`)
 
 ```text
-Nhiệm vụ: PSRC-204 (ĐÁNH GIÁ), PSRC-222 (triển khai).
+Nhiệm vụ: PSRC-204 (**đã có quyết định — ADR-0029**, KHÔNG đánh giá lại), PSRC-222 (triển khai).
+Làm đúng ADR-0029: mặc định `Download/In4Up` (+ iOS `Files → On My iPhone/In4Up`,
+desktop `~/In4Up`), đổi cho từng lần xuất qua SAF, dữ liệu app (phiên cabin, model,
+DB) **không** đưa ra thư mục công khai. Ba điểm còn treo ở ADR-0029 §6 hỏi hub
+trước khi code phần tương ứng.
 - 204: đánh giá cho người dùng chọn/đổi nơi lưu âm thanh–ghi âm (thư mục mang tên ứng
   dụng ở bộ nhớ trong). KHÔNG tự coi là đã chốt: trả lời được 3 câu — nền tảng nào làm
   được (Android SAF/scoped storage, iOS, desktop), quyền/hệ quả khi đổi nơi lưu sau khi
@@ -375,10 +379,12 @@ Nhiệm vụ: PSRC-224, PSRC-225, PSRC-226, PSRC-227, PSRC-228.
 Ưu tiên: 227 (điểm sai) → 226/228 (đọc trôi) → 224 → 225 (UI).
 ```
 
-## 10. Đề xuất nơi lưu tệp (PSRC-204) — trả lời owner 2026-11-12
+## 10. Đề xuất nơi lưu tệp (PSRC-204) — owner ĐÃ CHỐT 2026-11-12 → [ADR-0029](../adr/0029-noi-luu-tep-mac-dinh-va-doi-tung-lan.md)
 
-Owner hỏi: *"chọn nơi lưu cố định hay lưu từng file do người dùng — đâu là chuyên nghiệp,
-phù hợp nhất?"* Trả lời ngắn: **cả hai, nhưng phân tầng** — một **nơi lưu mặc định** đặt
+> **Chốt:** owner chọn đúng mô hình dưới đây (2026-11-12). Quyết định chính thức +
+> chi tiết kỹ thuật + 3 điểm còn phải chốt khi lane L7 bắt đầu: [ADR-0029](../adr/0029-noi-luu-tep-mac-dinh-va-doi-tung-lan.md).
+
+Trả lời ngắn: **cả hai, nhưng phân tầng** — một **nơi lưu mặc định** đặt
 một lần, và **quyền đổi cho từng lần xuất** khi người dùng muốn. Không chọn một trong hai.
 
 ### 10.1 Mô hình đề xuất
@@ -442,3 +448,11 @@ lưu, bản dịch) → thư mục công khai; **dữ liệu app cần để ch�
 Ghi chú: build **debug** phình to vì kèm symbol; đừng dùng số này để ước lượng APK phát
 hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK release trước/sau khi có
 `:vieneu`, đo ở G4.
+
+- 2026-11-12 | L6 (tiếp) | agent `arena/60e35d65-in4up` | **đường tải/import `sea_g2p.bin`
+  trong app** (owner chọn việc này): service tải + `.part` + sha256 + rename, nhập từ tệp,
+  engine chặn trước khi nạp 170 MB, card UI + 13 chuỗi × 8 locale, test riêng. Sửa con số
+  sai trước đó: từ điển **62.829.820 byte (~60 MiB)**, không phải 30 MB.
+- 2026-11-12 | PSRC-204 chốt | agent `arena/60e35d65-in4up` | owner duyệt mô hình nơi lưu
+  ⇒ **ADR-0029** (mặc định công khai + đổi từng lần; dữ liệu app giữ riêng); lane L7 không
+  phải đánh giá lại, chỉ thi công.

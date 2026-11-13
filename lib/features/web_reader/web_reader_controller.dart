@@ -24,6 +24,7 @@ import '../../services/reader_display_settings.dart';
 import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
 import 'services/reader_cues.dart';
+import '../pdf_reader/services/reader_follow_policy.dart';
 import '../../services/vocab_batch/vocab_batch_extractor.dart';
 import '../../services/vocab_batch/vocab_batch_models.dart';
 
@@ -652,6 +653,15 @@ class WebReaderController extends ChangeNotifier {
 
   /// Đọc bài web theo từng đoạn, giống một trình đọc sách nói: không gửi
   /// toàn bộ trang vào một request TTS và cho phép dừng giữa các đoạn.
+  final ReaderFollowPolicy followPolicy = ReaderFollowPolicy();
+  void toggleKaraoke() {
+    followPolicy.karaoke = !followPolicy.karaoke;
+    notifyListeners();
+  }
+  void toggleFollow() {
+    followPolicy.autoScroll = !followPolicy.autoScroll;
+    notifyListeners();
+  }
   int _readingSession = 0;
   bool _disposed = false;
   List<ReaderCue> articleCues = const [];

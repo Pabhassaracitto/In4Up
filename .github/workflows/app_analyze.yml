@@ -735,6 +735,9 @@ jobs:
       - name: "Agent F tests — line mode / OCR guard / PDF TTS + batch OCR + page translate"
         id: agent-f-tests
         run: |
+          npm install --prefix "$RUNNER_TEMP/l10-dom" --no-audit --no-fund jsdom@26
+          NODE_PATH="$RUNNER_TEMP/l10-dom/node_modules" node test/web_reader/reader_selection_dom_test.cjs
+          NODE_PATH="$RUNNER_TEMP/l10-dom/node_modules" node test/web_reader/reader_follow_dom_test.cjs
           set +e
           files=""
           for f in test/read_mode/docx_line_mode_test.dart \
@@ -744,6 +747,7 @@ jobs:
                    test/pdf_reader/pdf_tts_machine_test.dart \
                    test/pdf_reader/pdf_reading_pages_test.dart \
                    test/web_reader/reader_cues_test.dart \
+                   test/pdf_reader/reader_follow_policy_test.dart \
                    test/pdf_reader/pdf_batch_ocr_test.dart \
                    test/pdf_reader/pdf_page_translate_test.dart; do
             [ -f "$f" ] && files="$files $f"

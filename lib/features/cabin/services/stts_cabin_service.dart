@@ -11,6 +11,7 @@ import 'package:in4up/features/cabin/services/cabin_asr_plan.dart';
 import 'package:in4up/features/cabin/services/cabin_finalization_dedup.dart';
 import 'package:in4up/features/cabin/models/cabin_session.dart';
 import 'package:in4up/features/cabin/services/cabin_session_recorder.dart';
+import 'package:in4up/features/cabin/services/cabin_session_store.dart';
 import 'package:in4up/features/cabin/services/cabin_session_settings.dart';
 
 // Engine type + kế hoạch chọn model nằm ở cabin_asr_plan.dart (logic thuần,
@@ -70,6 +71,11 @@ class SttsCabinService extends ChangeNotifier {
 
   CabinCaption? _activeCaption;
   final List<CabinCaption> _history = [];
+  final Map<String, CabinSessionRecorder> _captionRecorders = {};
+  int _captionSequence = 0;
+
+  String _newCaptionId() =>
+      'cap_${DateTime.now().microsecondsSinceEpoch}_${_captionSequence++}';
   String _lastFinalizedText = '';
 
   /// AUDIT-1.21.0 #3: chống 2 dòng trùng khi đang dịch mà nói thêm — thay
@@ -707,8 +713,45 @@ class SttsCabinService extends ChangeNotifier {
     }
   }
 
+  /// Modify the same journal entry that produced the visible final caption.
+  Future<bool> mutateCaption(String id, {
+    String? sourceText,
+    String? translatedText,
+    bool delete = false,
+  }) async {
+    final index = _history.indexWhere((caption) => caption.id == id);
+    if (index < 0) return false;
+    final recorder = _captionRecorders[id];
+    if (recorder != null) {
+      var ok = recorder.mutateEntry(id, sourceText: sourceText,
+          translatedText: translatedText, delete: delete);
+      if (!ok) {
+        ok = await CabinSessionStore.instance.mutateEntry(recorder.session, id,
+            sourceText: sourceText, translatedText: translatedText, delete: delete);
+      }
+      if (!ok) return false;
+    }
+    // The list may have changed while a saved session was being updated.
+    final currentIndex = _history.indexWhere((caption) => caption.id == id);
+    if (currentIndex < 0) return false;
+    final old = _history[currentIndex];
+    if (delete) {
+      _history.removeAt(currentIndex);
+      _captionRecorders.remove(id);
+      if (_activeCaption?.id == id) _activeCaption = null;
+    } else {
+      final updated = old.copyWith(sourceText: sourceText,
+          translatedText: translatedText);
+      _history[currentIndex] = updated;
+      if (_activeCaption?.id == id) _activeCaption = updated;
+    }
+    notifyListeners();
+    return true;
+  }
+
   void clearHistory() {
     _history.clear();
+    _captionRecorders.clear();
     _activeCaption = null;
     _lastFinalizedText = '';
     _deduper.reset();
@@ -760,7 +803,7 @@ class SttsCabinService extends ChangeNotifier {
       _chunkStartOffset = now.isNegative ? Duration.zero : now;
     }
 
-    final captionId = 'cap_${DateTime.now().millisecondsSinceEpoch}';
+    final captionId = _newCaptionId();
 
     // Update active partial caption
     _activeCaption = CabinCaption(
@@ -869,7 +912,7 @@ class SttsCabinService extends ChangeNotifier {
     _state = CabinState.translating;
     notifyListeners();
 
-    final captionId = 'cap_${DateTime.now().millisecondsSinceEpoch}';
+    final captionId = _newCaptionId();
     String translated = '';
     String engine = 'Auto';
 
@@ -922,7 +965,9 @@ class SttsCabinService extends ChangeNotifier {
     _captionStreamController.add(finalizedCaption);
 
     // CABIN-SAVE-001: ghi câu đã chốt vào journal phiên (ghi đĩa ngay).
+    if (recorder != null) _captionRecorders[captionId] = recorder;
     recorder?.addEntry(CabinTranscriptEntry(
+      id: captionId,
       offset: startOffset,
       sourceText: trimmed,
       translatedText: translated,

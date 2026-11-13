@@ -219,6 +219,46 @@
     "th": "เอนจิน VieNeu-TTS พร้อมใช้งาน ({value0})",
     "ja": "VieNeu-TTS エンジン準備完了（{value0}）"
   },
+  "Thư mục không có dữ liệu giọng hợp lệ — cần ref_codes.txt hoặc speaker.emb.txt": {
+    "en": "The folder has no valid voice data — it needs ref_codes.txt or speaker.emb.txt",
+    "hi": "फ़ोल्डर में मान्य वाणी डेटा नहीं है — ref_codes.txt या speaker.emb.txt चाहिए",
+    "zh": "该文件夹没有有效的音色数据——需要 ref_codes.txt 或 speaker.emb.txt",
+    "zh_TW": "該資料夾沒有有效的音色資料——需要 ref_codes.txt 或 speaker.emb.txt",
+    "si": "ෆෝල්ඩරයේ වලංගු හඬ දත්ත නැත — ref_codes.txt හෝ speaker.emb.txt අවශ්‍යයි",
+    "my": "ဖိုလ်ဒါတွင် တရားဝင် အသံဒေတာ မရှိပါ — ref_codes.txt သို့မဟုတ် speaker.emb.txt လိုအပ်သည်",
+    "th": "โฟลเดอร์ไม่มีข้อมูลเสียงที่ถูกต้อง — ต้องมี ref_codes.txt หรือ speaker.emb.txt",
+    "ja": "このフォルダーには有効な音声データがありません。ref_codes.txt または speaker.emb.txt が必要です"
+  },
+  "Không đọc được thư mục đã chọn — cấp quyền truy cập hoặc chọn tệp trực tiếp": {
+    "en": "Cannot read the selected folder — grant access or pick the files directly",
+    "hi": "चुना गया फ़ोल्डर पढ़ा नहीं जा सका — पहुँच दें या सीधे फ़ाइलें चुनें",
+    "zh": "无法读取所选文件夹——请授予访问权限或直接选择文件",
+    "zh_TW": "無法讀取所選資料夾——請授予存取權限或直接選擇檔案",
+    "si": "තෝරාගත් ෆෝල්ඩරය කියවිය නොහැක — ප්‍රවේශය දෙන්න හෝ ගොනු කෙලින්ම තෝරන්න",
+    "my": "ရွေးထားသော ဖိုလ်ဒါကို ဖတ်၍မရပါ — ခွင့်ပြုချက်ပေးပါ သို့မဟုတ် ဖိုင်များကို တိုက်ရိုက်ရွေးပါ",
+    "th": "อ่านโฟลเดอร์ที่เลือกไม่ได้ — ให้สิทธิ์เข้าถึงหรือเลือกไฟล์โดยตรง",
+    "ja": "選択したフォルダーを読み取れません。アクセスを許可するか、ファイルを直接選んでください"
+  },
+  "Các giọng này đã có trong ứng dụng": {
+    "en": "These voices are already in the app",
+    "hi": "ये वाणी पहले से ऐप में हैं",
+    "zh": "这些音色已存在于应用中",
+    "zh_TW": "這些音色已存在於應用程式中",
+    "si": "මෙම හඬ දැනටමත් යෙදුමේ ඇත",
+    "my": "ဤအသံများ အက်ပ်ထဲတွင် ရှိပြီးဖြစ်သည်",
+    "th": "เสียงเหล่านี้มีอยู่ในแอปแล้ว",
+    "ja": "これらの音声はすでにアプリに入っています"
+  },
+  "Đã import {value0} giọng từ thư mục": {
+    "en": "Imported {value0} voices from the folder",
+    "hi": "फ़ोल्डर से {value0} वाणी आयात हुईं",
+    "zh": "已从文件夹导入 {value0} 个音色",
+    "zh_TW": "已從資料夾匯入 {value0} 個音色",
+    "si": "ෆෝල්ඩරයෙන් හඬ {value0}ක් ආයාත විය",
+    "my": "ဖိုလ်ဒါမှ အသံ {value0} ခု ထည့်သွင်းပြီးပါပြီ",
+    "th": "นำเข้าเสียง {value0} รายการจากโฟลเดอร์",
+    "ja": "フォルダーから音声 {value0} 件をインポートしました"
+  },
   "Chưa được cấp quyền đọc video.": {
     "en": "Video access has not been granted.",
     "hi": "वीडियो पढ़ने की अनुमति नहीं दी गई है।",

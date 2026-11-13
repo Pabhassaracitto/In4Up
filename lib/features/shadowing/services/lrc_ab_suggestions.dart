@@ -3,7 +3,7 @@
 //
 // Logic THUẦN (pure, không Flutter) để unit test được:
 //  - buildSentenceSuggestions: mỗi câu LRC = 1 gợi ý A-B
-//    (A = timestamp câu; B = timestamp câu kế − pad; câu cuối = duration).
+//    (A = timestamp câu; B = timestamp câu kế; câu cuối = duration).
 //  - nudgeLoop: chỉnh tay A/B ±delta có clamp (không vỡ 0..duration,
 //    B > A + minLength).
 //  - suggestionAtPosition: câu chứa vị trí đang phát (nút "Dùng câu đang phát").
@@ -34,9 +34,6 @@ class LrcAbSuggestions {
   /// Đoạn tối thiểu hợp lệ cho shadowing.
   static const Duration minSegmentLength = Duration(milliseconds: 800);
 
-  /// Khoảng đệm cuối câu (để không cắt mất đuôi âm cuối câu).
-  static const Duration trailingPad = Duration(milliseconds: 150);
-
   /// Câu cuối (không có câu kế) kéo dài ít nhất mức này nếu chưa biết duration.
   static const Duration lastLineFallbackSpan = Duration(seconds: 4);
 
@@ -58,13 +55,9 @@ class LrcAbSuggestions {
 
     Duration end;
     if (index + 1 < sorted.length) {
-      // B = đầu câu kế (trừ pad nhẹ để không sướt sang câu sau).
-      final next = sorted[index + 1].timestamp;
-      end = next - const Duration(milliseconds: 50);
-      if (end < start + minSegmentLength) {
-        // Câu kế quá sát → dùng mốc tối thiểu để đoạn luyện được.
-        end = start + minSegmentLength;
-      }
+      // PSRC-226: never extend a sample into the next sentence. The 800 ms
+      // minimum belongs to manual A-B nudging, not to lyric boundaries.
+      end = sorted[index + 1].timestamp;
     } else if (trackDuration != null && trackDuration > start) {
       end = trackDuration;
     } else {
@@ -72,7 +65,8 @@ class LrcAbSuggestions {
     }
 
     if (trackDuration != null && end > trackDuration) end = trackDuration;
-    if (end <= start) end = start + minSegmentLength;
+    // Keep equal timestamps as a zero-length (invalid for playback) interval;
+    // never manufacture 800 ms of the following sentence.
 
     return AbSuggestion(
       index: index,

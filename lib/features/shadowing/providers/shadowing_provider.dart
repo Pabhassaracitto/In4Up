@@ -120,6 +120,9 @@ class ShadowingProvider extends ChangeNotifier {
   String? _sourceError;
   String? get sourceError => _sourceError;
 
+  String? _analysisError;
+  String? get analysisError => _analysisError;
+
   // Segment (for compatibility)
   Duration? get segmentStart => _loopStart;
   Duration? get segmentEnd => _loopEnd;
@@ -409,6 +412,7 @@ class ShadowingProvider extends ChangeNotifier {
       _currentResult = null;
       _userRecordingPath = null;
       _similarityScore = 0;
+      _analysisError = null;
     }
   }
 
@@ -447,6 +451,7 @@ class ShadowingProvider extends ChangeNotifier {
 
   void _onSampleStarted() {
     _sourceError = null;
+    _analysisError = null;
     _completedRepetitions = 0;
     _setState(ShadowingState.playingOriginal);
   }
@@ -474,6 +479,7 @@ class ShadowingProvider extends ChangeNotifier {
 
   Future<void> startShadowing(String text) async {
     stopPlayback();
+    _analysisError = null;
     if (text.trim().isNotEmpty) {
       setPracticeText(text);
     }
@@ -579,32 +585,38 @@ class ShadowingProvider extends ChangeNotifier {
   // ==================== ANALYSIS (SỬA LỖI ĐIỂM) ====================
 
   Future<void> _analyzeRecording() async {
+    final textToAnalyze = _practiceText.trim();
+    final recordingPath = _userRecordingPath;
+    _analysisError = null;
+    if (textToAnalyze.isEmpty) {
+      _currentResult = null;
+      _similarityScore = 0;
+      _analysisError = 'no_reference';
+      _setState(ShadowingState.idle);
+      return;
+    }
+    if (recordingPath == null || recordingPath.isEmpty) {
+      _currentResult = null;
+      _similarityScore = 0;
+      _analysisError = 'no_speech';
+      _setState(ShadowingState.idle);
+      return;
+    }
     _setState(ShadowingState.analyzing);
 
-    debugPrint('🔍 === ANALYZING ===');
-    debugPrint('🔍 Practice text: "$_practiceText"');
-    debugPrint('🔍 Recording path: $_userRecordingPath');
-
     try {
-      // ✅ Nếu text rỗng, dùng fallback
-      String textToAnalyze = _practiceText;
-      if (textToAnalyze.trim().isEmpty) {
-        textToAnalyze = 'hello world'; // Fallback text
-        debugPrint('⚠️ Practice text empty, using fallback: "$textToAnalyze"');
+      final recognizedText = await OfflineSTTService.transcribe(recordingPath);
+      if (recognizedText == null || recognizedText.trim().isEmpty) {
+        _currentResult = null;
+        _similarityScore = 0;
+        _analysisError = 'no_speech';
+        _setState(ShadowingState.idle);
+        return;
       }
 
-      String recognizedText = await OfflineSTTService.transcribe(
-        _userRecordingPath!,
-        textToAnalyze,
-      );
-
-      debugPrint('📝 Original:   "$textToAnalyze"');
-      debugPrint('🎤 Recognized: "$recognizedText"');
-
       final originalWaveform = await _extractWaveform(_originalAudioPath);
-      final userWaveform = await _extractWaveform(_userRecordingPath);
-
-      _currentResult = PronunciationService.analyze(
+      final userWaveform = await _extractWaveform(recordingPath);
+      final result = PronunciationService.analyze(
         originalText: textToAnalyze,
         recognizedText: recognizedText,
         originalWaveform: originalWaveform,
@@ -614,41 +626,25 @@ class ShadowingProvider extends ChangeNotifier {
             : Duration.zero,
         userDuration: _recordingDuration,
       );
-
-      _similarityScore = _currentResult!.overallScore;
-      _history.add(_currentResult!);
-      await _storage.saveShadowingResult(_currentResult!);
-      final savedEntry = ShadowingHistoryEntry.fromJson(_currentResult!.toJson());
+      _currentResult = result;
+      _similarityScore = result.overallScore;
+      _history.add(result);
+      await _storage.saveShadowingResult(result);
+      final savedEntry = ShadowingHistoryEntry.fromJson(result.toJson());
       _savedHistory.removeWhere((e) => e.id == savedEntry.id);
       _savedHistory.insert(0, savedEntry);
 
-      // HOME-STREAK-001: một lượt shadowing đã phân tích xong = hoạt động thật.
-      // Khoá theo id kết quả ⇒ phân tích lại cùng bản ghi không đếm lặp.
       unawaited(LearningActivityService.instance.record(
         LearningActivityKind.shadowing,
         sourceKey: savedEntry.id,
       ));
-
-      debugPrint('📊 === RESULTS ===');
-      debugPrint(
-          '📊 Overall Score: ${(_currentResult!.overallScore * 100).toStringAsFixed(1)}%');
-      debugPrint('📊 Grade: ${_currentResult!.overallGrade}');
-
-      for (final wr in _currentResult!.wordResults) {
-        debugPrint(
-            '   📖 "${wr.expectedWord}" → "${wr.recognizedWord}" = ${wr.scorePercent}%');
-        for (final ps in wr.phonemeScores) {
-          debugPrint(
-              '      /${ps.phoneme}/ = ${ps.scorePercent}% [${ps.grade}]');
-        }
-      }
+      _setState(ShadowingState.showingResults);
     } catch (e) {
-      debugPrint('❌ Error analyzing: $e');
+      debugPrint('❌ Error analyzing shadowing recording: $e');
+      _currentResult = null;
+      _similarityScore = 0;
+      _analysisError = 'analysis_failed';
       _setState(ShadowingState.idle);
-    } finally {
-      if (_state == ShadowingState.analyzing) {
-        _setState(ShadowingState.showingResults);
-      }
     }
   }
 

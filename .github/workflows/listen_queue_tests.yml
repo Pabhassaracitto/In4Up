@@ -107,6 +107,7 @@ jobs:
           - test/read_mode/read_listen_understand_owner_requests_test.dart
           - test/yt_lrc_long_video_test.dart
           - test/shadowing/shadowing_sample_playback_test.dart
+          - test/shadowing/shadowing_sentence_picker_test.dart
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

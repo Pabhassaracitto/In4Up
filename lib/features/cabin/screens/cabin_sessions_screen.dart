@@ -213,6 +213,8 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
                     switch (v) {
                       case 'rename':
                         _rename(s);
+                      case 'export':
+                        showCabinExportSheet(context, s);
                       case 'share':
                         shareCabinSession(s);
                       case 'delete':
@@ -222,6 +224,8 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
                   itemBuilder: (ctx) => [
                     PopupMenuItem(
                         value: 'rename', child: Text(ctx.uiText('Đổi tên'))),
+                    PopupMenuItem(
+                        value: 'export', child: Text(ctx.uiText('Xuất tệp'))),
                     PopupMenuItem(
                         value: 'share', child: Text(ctx.uiText('Chia sẻ'))),
                     PopupMenuItem(
@@ -253,6 +257,12 @@ class _CabinSessionsScreenState extends State<CabinSessionsScreen> {
                     onPressed: () => _openRead(s),
                     icon: const Icon(Icons.chrome_reader_mode_outlined),
                     label: Text(context.uiText('Mở trong Tab Đọc')),
+                  ),
+                if (hasAudio || hasText)
+                  TextButton.icon(
+                    onPressed: () => showCabinExportSheet(context, s),
+                    icon: const Icon(Icons.file_download_outlined),
+                    label: Text(context.uiText('Xuất tệp')),
                   ),
                 if (unsaved)
                   TextButton.icon(

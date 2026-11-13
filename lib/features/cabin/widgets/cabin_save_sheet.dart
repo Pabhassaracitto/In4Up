@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:in4up/core/language/localized_material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/files/export_destination.dart';
+import '../../../core/files/export_destination_service.dart';
+import '../../../core/files/widgets/export_destination_tile.dart';
 import '../models/cabin_session.dart';
 import '../services/cabin_read_bridge.dart';
 import '../services/cabin_session_settings.dart';
@@ -287,6 +290,22 @@ class _CabinSaveSheetState extends State<CabinSaveSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.file_download_outlined),
+              label: Text(context.uiText('Xuất tệp')),
+              onPressed: _busy || !canSave
+                  ? null
+                  : () => _run(() async {
+                        final saved = await _save();
+                        if (!mounted) return;
+                        Navigator.of(context).pop();
+                        final host = widget.hostContext;
+                        if (saved != null && host.mounted) {
+                          await showCabinExportSheet(host, saved);
+                        }
+                      }),
+            ),
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
               icon: const Icon(Icons.delete_outline_rounded),
@@ -402,4 +421,356 @@ Future<void> showCabinSaveSettingsSheet(BuildContext context) async {
       ),
     ),
   );
+}
+
+/// PSRC-204 / ADR-0029 § 6.3 — Phiên Cabin vẫn lưu nội bộ mặc định; chỉ khi
+/// người dùng chủ động bấm "Xuất tệp" mới chép WAV / LRC / TXT ra nơi lưu công
+/// khai (`Download/In4Up`, `On My iPhone/In4Up`, `~/Downloads/In4Up` hoặc thư
+/// mục chọn qua "Đổi…").
+Future<List<ExportSavedFile>> exportCabinSessionFiles({
+  required CabinSession session,
+  ExportDestination? destination,
+  ExportDestinationService? destinationService,
+  bool includeAudio = true,
+  bool includeLrc = true,
+  bool includeTxt = true,
+}) async {
+  final service = destinationService ?? ExportDestinationService.instance;
+  final target =
+      destination ?? (await service.resolveDefaultDestination()).destination;
+  final stem = ExportDestinationPolicy.sanitizeFileName(
+    session.title,
+    fallbackStem: 'cabin_session',
+  );
+  final exported = <ExportSavedFile>[];
+
+  if (includeAudio && session.hasAudio) {
+    final wav = File(session.audioPath);
+    if (await wav.exists()) {
+      exported.add(
+        await service.exportLocalFile(
+          sourceFile: wav,
+          desiredFileName: '$stem.wav',
+          destination: target,
+          mimeType: 'audio/wav',
+        ),
+      );
+    }
+  }
+  if (includeLrc) {
+    final lrc = File(session.lrcPath);
+    if (await lrc.exists()) {
+      exported.add(
+        await service.exportLocalFile(
+          sourceFile: lrc,
+          desiredFileName: '$stem.lrc',
+          destination: target,
+          mimeType: 'text/plain',
+        ),
+      );
+    }
+  }
+  if (includeTxt) {
+    final txt = File(session.txtPath);
+    if (await txt.exists()) {
+      exported.add(
+        await service.exportLocalFile(
+          sourceFile: txt,
+          desiredFileName: '$stem.txt',
+          destination: target,
+          mimeType: 'text/plain',
+        ),
+      );
+    }
+  }
+  return exported;
+}
+
+/// Hộp thoại xuất phiên Cabin ra thư mục công khai (có "Đổi…" từng lần xuất +
+/// thông báo sau khi lưu kèm đường dẫn hiển thị, "Mở thư mục" và "Chia sẻ").
+Future<void> showCabinExportSheet(
+  BuildContext context,
+  CabinSession session,
+) async {
+  final hasWav = session.hasAudio && File(session.audioPath).existsSync();
+  final hasLrc = File(session.lrcPath).existsSync();
+  final hasTxt = File(session.txtPath).existsSync();
+  if (!hasWav && !hasLrc && !hasTxt) return;
+
+  final exported = await showModalBottomSheet<List<ExportSavedFile>>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: _bg,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _CabinExportSheet(
+      session: session,
+      hasWav: hasWav,
+      hasLrc: hasLrc,
+      hasTxt: hasTxt,
+    ),
+  );
+
+  if (exported == null || exported.isEmpty || !context.mounted) return;
+  await _offerCabinExportFollowUp(context, session, exported);
+}
+
+class _CabinExportSheet extends StatefulWidget {
+  const _CabinExportSheet({
+    required this.session,
+    required this.hasWav,
+    required this.hasLrc,
+    required this.hasTxt,
+  });
+
+  final CabinSession session;
+  final bool hasWav;
+  final bool hasLrc;
+  final bool hasTxt;
+
+  @override
+  State<_CabinExportSheet> createState() => _CabinExportSheetState();
+}
+
+class _CabinExportSheetState extends State<_CabinExportSheet> {
+  late bool _includeWav;
+  late bool _includeLrc;
+  late bool _includeTxt;
+  bool _busy = false;
+  ExportDestinationSession? _destinationSession;
+
+  @override
+  void initState() {
+    super.initState();
+    _includeWav = widget.hasWav;
+    _includeLrc = widget.hasLrc;
+    _includeTxt = widget.hasTxt;
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    try {
+      final opened = await ExportDestinationService.instance.openSession();
+      if (!mounted) return;
+      setState(() => _destinationSession = opened);
+    } catch (_) {}
+  }
+
+  bool get _canExport =>
+      (_includeWav && widget.hasWav) ||
+      (_includeLrc && widget.hasLrc) ||
+      (_includeTxt && widget.hasTxt);
+
+  Future<void> _exportNow() async {
+    if (_busy || !_canExport) return;
+    setState(() => _busy = true);
+    try {
+      ExportDestination? target;
+      if (_destinationSession != null) {
+        target = await ExportDestinationService.instance.commitSession(
+          _destinationSession!,
+        );
+      }
+      final saved = await exportCabinSessionFiles(
+        session: widget.session,
+        destination: target,
+        includeAudio: _includeWav,
+        includeLrc: _includeLrc,
+        includeTxt: _includeTxt,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(saved);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Xuất thất bại')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.file_download_outlined, color: _accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.uiText('Xuất phiên Cabin'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.session.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            if (widget.hasWav)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                activeColor: _accent,
+                value: _includeWav,
+                onChanged: (v) => setState(() => _includeWav = v ?? false),
+                title: Text(
+                  context.uiText('Bản ghi âm (.wav)'),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            if (widget.hasLrc)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                activeColor: _accent,
+                value: _includeLrc,
+                onChanged: (v) => setState(() => _includeLrc = v ?? false),
+                title: Text(
+                  context.uiText('Phụ đề khớp giờ (.lrc)'),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            if (widget.hasTxt)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                activeColor: _accent,
+                value: _includeTxt,
+                onChanged: (v) => setState(() => _includeTxt = v ?? false),
+                title: Text(
+                  context.uiText('Văn bản / bản dịch (.txt)'),
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            const SizedBox(height: 8),
+            ExportDestinationPickerCard(
+              session: _destinationSession,
+              onChanged: () {
+                if (mounted) setState(() {});
+              },
+              accentColor: _accent,
+            ),
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: _accent,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+              icon: const Icon(Icons.file_download_rounded),
+              label: Text(context.uiText('Bắt đầu xuất')),
+              onPressed: _busy || !_canExport ? null : _exportNow,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _offerCabinExportFollowUp(
+  BuildContext context,
+  CabinSession session,
+  List<ExportSavedFile> exported,
+) async {
+  final first = exported.first;
+  final displaySummary = exported.length == 1
+      ? first.displayPath
+      : '${first.destination.displayPath} (${exported.length} ${context.uiText('file')})';
+
+  final choice = await showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: const Color(0xFF1A2235),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          const Icon(Icons.check_circle_rounded, color: _accent, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              dialogContext.uiText('Đã xuất xong'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final item in exported)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                item.displayPath,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+      actionsAlignment: MainAxisAlignment.start,
+      actions: [
+        TextButton.icon(
+          onPressed: () => Navigator.of(dialogContext).pop('folder'),
+          icon: const Icon(Icons.folder_open_rounded, size: 18),
+          label: Text(dialogContext.uiText('Mở thư mục')),
+        ),
+        TextButton.icon(
+          onPressed: () => Navigator.of(dialogContext).pop('share'),
+          icon: const Icon(Icons.share_rounded, size: 18),
+          label: Text(dialogContext.uiText('Chia sẻ')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop('close'),
+          child: Text(dialogContext.uiText('Xong')),
+        ),
+      ],
+    ),
+  );
+
+  if (!context.mounted) return;
+  if (choice == 'folder') {
+    final opened = await ExportDestinationService.instance.openContainingFolder(
+      destination: first.destination,
+      localFilePath: first.localPath,
+      fileUri: first.uri,
+    );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.uiText('Đã lưu tại: $displaySummary')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  } else if (choice == 'share') {
+    await shareCabinSession(session);
+  }
 }

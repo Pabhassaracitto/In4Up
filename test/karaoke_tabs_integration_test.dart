@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in4up/features/shadowing/providers/shadowing_provider.dart';
+import 'package:in4up/features/shadowing/services/lrc_ab_suggestions.dart';
 import 'package:in4up/models/audio_queue_item.dart';
 import 'package:in4up/models/text_item.dart';
 import 'package:in4up/providers/karaoke_settings_provider.dart';
@@ -76,6 +77,29 @@ class _SoundlistStub extends ChangeNotifier implements SoundlistProvider {
 }
 
 class _ShadowingStub extends ChangeNotifier implements ShadowingProvider {
+  @override
+  List<AbSuggestion> get sentenceSuggestions => const [];
+  @override
+  int get selectedSentenceIndex => -1;
+  @override
+  AbSuggestion? get selectedSentence => null;
+  @override
+  void setSentenceSuggestions({
+    required String? audioPath,
+    required List<AbSuggestion> suggestions,
+  }) {}
+  @override
+  bool selectSentence(int index) => false;
+  @override
+  void setLoopRegion(Duration start, Duration end) {}
+  @override
+  int get repeatCount => 1;
+  @override
+  void setRepeatCount(int count, {bool markCustom = true}) {}
+  @override
+  double get playbackSpeed => 1.0;
+  @override
+  void setPlaybackSpeed(double speed, {bool markCustom = true}) {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

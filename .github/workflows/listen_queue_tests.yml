@@ -6,6 +6,10 @@ on:
   push:
     branches: ['arena/**', 'main']
     paths:
+      - 'lib/features/pdf_reader/**'
+      - 'lib/features/web_reader/**'
+      - 'test/pdf_reader/**'
+      - 'test/web_reader/**'
       - 'lib/audio/**'
       - 'lib/models/audio_queue_item.dart'
       - 'lib/providers/player/**'
@@ -40,6 +44,10 @@ on:
       - '.github/workflows/listen_queue_tests.yml'
   pull_request:
     paths:
+      - 'lib/features/pdf_reader/**'
+      - 'lib/features/web_reader/**'
+      - 'test/pdf_reader/**'
+      - 'test/web_reader/**'
       - 'lib/audio/**'
       - 'android/app/src/main/kotlin/com/in4up/screentranslate/**'
       - 'lib/features/screen_translate/**'

@@ -17,6 +17,8 @@ import '../models/shadowing_result.dart';
 import '../services/offline_stt_service.dart';
 import '../services/phoneme_analyzer.dart';
 import '../services/pronunciation_service.dart';
+import '../services/lrc_ab_suggestions.dart';
+import '../services/shadowing_sample_player.dart';
 import '../../../services/storage_service.dart';
 
 class ShadowingSettings {
@@ -141,12 +143,16 @@ class ShadowingProvider extends ChangeNotifier {
 
   // Audio services
   final AudioPlayer _player = AudioPlayer();
+  late final ShadowingSamplePlayer _samplePlayer;
   final AudioRecorder _recorder = AudioRecorder();
   final StorageService _storage = StorageService();
   Timer? _recordingTimer;
   Timer? _autoStopTimer; // Thêm biến quản lý auto-stop
   Timer? _countdownTimer;
-  Timer? _positionTimer;
+
+  List<AbSuggestion> get sentenceSuggestions => _samplePlayer.sentences;
+  int get selectedSentenceIndex => _samplePlayer.selectedIndex;
+  AbSuggestion? get selectedSentence => _samplePlayer.selectedSentence;
 
   // Compatibility getters
   double get currentAmplitude => 0.0;
@@ -185,6 +191,10 @@ class ShadowingProvider extends ChangeNotifier {
   int get countdownValue => _countdown;
   // ==================== INIT ====================
   ShadowingProvider() {
+    _samplePlayer = ShadowingSamplePlayer(
+      audio: _JustAudioSampleAdapter(_player),
+      sourceExists: (path) => File(path).existsSync(),
+    );
     _initServices();
   }
 
@@ -240,12 +250,12 @@ class ShadowingProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _samplePlayer.dispose();
     _player.dispose();
     _recorder.dispose();
     _recordingTimer?.cancel();
     _autoStopTimer?.cancel();
     _countdownTimer?.cancel();
-    _positionTimer?.cancel();
     super.dispose();
   }
 
@@ -308,35 +318,38 @@ class ShadowingProvider extends ChangeNotifier {
   }
 
   void setLoopRegion(Duration start, Duration end) {
-    if (_loopStart == start && _loopEnd == end) return; // ← THÊM
+    if (_loopStart == start && _loopEnd == end) return;
     _loopStart = start;
     _loopEnd = end;
     _sourceError = null;
-    debugPrint('🔁 Loop region set: $start → $end');
+    final selected = selectedSentence;
+    if (selected == null || selected.start != start || selected.end != end) {
+      _samplePlayer.clearSelection();
+      _practiceText = '';
+    }
     notifyListeners();
   }
 
-  /// SHADOW-FILE-001: bỏ đoạn A-B → luyện TOÀN TRACK (không bắt buộc AB).
+  /// Bỏ A-B là luyện cả nguồn, không giữ nhầm câu chấm điểm cũ.
   void clearLoopRegion() {
+    _samplePlayer.clearSelection();
+    _practiceText = '';
     if (_loopStart == null && _loopEnd == null) return;
     _loopStart = null;
     _loopEnd = null;
-    debugPrint('🔁 Loop region cleared → whole-track shadowing');
     notifyListeners();
   }
 
   void setPracticeText(String text) {
-    if (_practiceText == text) return; // ← THÊM
+    if (_practiceText == text) return;
     _practiceText = text;
-    debugPrint('📝 Practice text: $text');
     notifyListeners();
   }
 
   void setOriginalAudioPath(String path) {
-    if (_originalAudioPath == path) return; // ← THÊM
+    if (_originalAudioPath == path) return;
     _originalAudioPath = path;
     _sourceError = null;
-    debugPrint('🎵 Audio path: $path');
     notifyListeners();
   }
 
@@ -346,153 +359,121 @@ class ShadowingProvider extends ChangeNotifier {
     required String audioPath,
     List<double> waveform = const [],
   }) {
-    if (_loopStart == start &&
-        _loopEnd == end &&
-        _originalAudioPath == audioPath) {
-      return; // ← THÊM
-    }
+    if (_loopStart == start && _loopEnd == end &&
+        _originalAudioPath == audioPath) return;
     _loopStart = start;
     _loopEnd = end;
     _originalAudioPath = audioPath;
     _sourceError = null;
+    final selected = selectedSentence;
+    if (selected == null || selected.start != start || selected.end != end) {
+      _samplePlayer.clearSelection();
+      _practiceText = '';
+    }
     notifyListeners();
   }
 
-  // ==================== PLAY ORIGINAL (SỬA LỖI) ====================
-
-  Future<void> playOriginal() async {
-    if (_originalAudioPath == null || _originalAudioPath!.isEmpty) {
-      debugPrint('❌ ERROR: _originalAudioPath is null or empty');
-      _sourceError = 'no_source';
-      notifyListeners();
-      return;
+  /// Dùng lại LRC đã có; không tạo lời/AI và không đổi nguồn audio ngầm.
+  void setSentenceSuggestions({
+    required String? audioPath,
+    required List<AbSuggestion> suggestions,
+  }) {
+    final changed = _samplePlayer.configure(
+      audioPath: audioPath,
+      sentences: suggestions,
+    );
+    if (!changed) return;
+    if (audioPath != null && audioPath.isNotEmpty) {
+      _originalAudioPath = audioPath;
     }
-
-    // SHADOW-FILE-001: file cache có thể đã bị hệ thống dọn — báo lỗi rõ để
-    // UI hướng dẫn chọn lại, KHÔNG để ExoPlayer ném ENOENT ngầm.
-    if (!_originalAudioPath!.startsWith('content://') &&
-        !File(_originalAudioPath!).existsSync()) {
-      debugPrint('❌ Original audio missing: $_originalAudioPath');
-      _sourceError = 'file_missing';
-      notifyListeners();
-      return;
+    final selected = selectedSentence;
+    if (selected != null) {
+      _applySentence(selected);
+    } else {
+      _practiceText = '';
+      _currentResult = null;
+      _userRecordingPath = null;
+      _similarityScore = 0;
     }
+    notifyListeners();
+  }
+
+  void _applySentence(AbSuggestion sentence) {
+    final changed = _practiceText != sentence.text ||
+        _loopStart != sentence.start || _loopEnd != sentence.end;
+    _loopStart = sentence.start;
+    _loopEnd = sentence.end;
+    _practiceText = sentence.text;
     _sourceError = null;
-
-    debugPrint('🎵 === PLAY ORIGINAL ===');
-    debugPrint('🎵 Path: $_originalAudioPath');
-    debugPrint('🎵 Loop: $_loopStart → $_loopEnd');
-    debugPrint('🎵 Repeats: $_repeatCount, Speed: $_playbackSpeed');
-
-    _positionTimer?.cancel();
-    _setState(ShadowingState.playingOriginal);
-    _completedRepetitions = 0;
-
-    try {
-      // setFilePath trả duration — dùng ngay để whole-track (không AB) chạy
-      // hết bài thay vì fallback 10s khi duration chưa sẵn sàng.
-      final loadedDuration = await _player.setFilePath(_originalAudioPath!);
-      await _player.setSpeed(_playbackSpeed);
-
-      final startPos = _loopStart ?? Duration.zero;
-      final endPos = _loopEnd ??
-          loadedDuration ??
-          _player.duration ??
-          const Duration(seconds: 10);
-      if (endPos <= startPos) {
-        debugPrint('⚠️ Invalid loop range: $startPos → $endPos');
-        await _player.pause();
-        _setState(ShadowingState.idle);
-        return;
-      }
-
-      debugPrint('🎵 Will play from $startPos to $endPos');
-      final loopSpan = endPos - startPos;
-
-      for (int i = 0; i < _repeatCount; i++) {
-        if (_state != ShadowingState.playingOriginal) {
-          debugPrint('🎵 Playback interrupted at repeat ${i + 1}');
-          break;
-        }
-
-        _completedRepetitions = i + 1;
-        notifyListeners();
-
-        debugPrint('🎵 Playing repeat ${i + 1}/$_repeatCount');
-
-        await _player.seek(startPos);
-        await _player.play();
-
-        await _waitUntilPosition(
-          endPos,
-          maxWait: Duration(
-            milliseconds: (loopSpan.inMilliseconds / _playbackSpeed).ceil() + 600,
-          ),
-        );
-
-        await _player.pause();
-        await _player.seek(endPos);
-
-        debugPrint('🎵 Repeat ${i + 1} complete');
-
-        if (_state != ShadowingState.playingOriginal) break;
-
-        if (i < _repeatCount - 1) {
-          await Future.delayed(const Duration(milliseconds: 350));
-        }
-      }
-
-      debugPrint('🎵 All repeats complete, returning to idle');
-      if (_state == ShadowingState.playingOriginal) {
-        _setState(ShadowingState.idle);
-      }
-    } catch (e) {
-      debugPrint('❌ Error playing audio: $e');
-      // File có thể vừa bị dọn cache giữa chừng — báo lỗi rõ, không crash.
-      _sourceError = e is FileSystemException ? 'file_missing' : 'play_failed';
-      await _player.pause();
-      _setState(ShadowingState.idle);
+    if (changed) {
+      _currentResult = null;
+      _userRecordingPath = null;
+      _similarityScore = 0;
     }
   }
 
-  /// Đợi cho đến khi player đến vị trí target hoặc hard timeout theo độ dài loop
-  Future<void> _waitUntilPosition(
-    Duration targetPosition, {
-    required Duration maxWait,
-  }) async {
-    final completer = Completer<void>();
+  bool selectSentence(int index) {
+    final sentence = _samplePlayer.sentenceAt(index);
+    if (sentence == null || !_samplePlayer.selectSentence(index)) return false;
+    _applySentence(sentence);
+    notifyListeners();
+    return true;
+  }
 
-    _positionTimer?.cancel();
-    _positionTimer = Timer.periodic(const Duration(milliseconds: 60), (timer) {
-      final currentPos = _player.position;
-
-      if (_state != ShadowingState.playingOriginal) {
-        timer.cancel();
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-
-      if (currentPos >= targetPosition) {
-        timer.cancel();
-        unawaited(_player.pause());
-        if (!completer.isCompleted) completer.complete();
-        return;
-      }
-    });
-
-    await completer.future.timeout(
-      maxWait,
-      onTimeout: () async {
-        _positionTimer?.cancel();
-        debugPrint('⚠️ Loop playback hard-stop at $targetPosition');
-        await _player.pause();
-      },
+  /// Every sentence-sample button uses this entry point. Selecting a sentence
+  /// and pressing play cannot pick up a different line from the other tab.
+  Future<void> speakSentence(int index) {
+    if (!selectSentence(index)) return Future.value();
+    return _samplePlayer.speakSentence(
+      index,
+      speed: _playbackSpeed,
+      onStarted: _onSampleStarted,
+      onRepeat: _onSampleRepeat,
+      onFinished: _onSampleFinished,
+      onError: _onSampleError,
     );
+  }
+
+  Future<void> playOriginal() => _samplePlayer.playOriginal(
+        start: _loopStart,
+        end: _loopEnd,
+        speed: _playbackSpeed,
+        repeatCount: _repeatCount,
+        onStarted: _onSampleStarted,
+        onRepeat: _onSampleRepeat,
+        onFinished: _onSampleFinished,
+        onError: _onSampleError,
+      );
+
+  void _onSampleStarted() {
+    _sourceError = null;
+    _completedRepetitions = 0;
+    _setState(ShadowingState.playingOriginal);
+  }
+
+  void _onSampleRepeat(int repeat) {
+    _completedRepetitions = repeat;
+    notifyListeners();
+  }
+
+  void _onSampleFinished() {
+    _setState(ShadowingState.idle);
+  }
+
+  void _onSampleError(String error) {
+    _sourceError = error;
+    _setState(ShadowingState.idle);
+  }
+
+  void stopPlayback() {
+    unawaited(_samplePlayer.stop());
+    _setState(ShadowingState.idle);
   }
 
   // ==================== RECORDING ====================
 
   Future<void> startShadowing(String text) async {
+    stopPlayback();
     if (text.trim().isNotEmpty) {
       setPracticeText(text);
     }
@@ -726,6 +707,8 @@ class ShadowingProvider extends ChangeNotifier {
 
   Future<void> playUserRecording() async {
     if (_userRecordingPath == null) return;
+    stopPlayback();
+    await _samplePlayer.stop();
 
     try {
       await _player.setFilePath(_userRecordingPath!);
@@ -738,10 +721,10 @@ class ShadowingProvider extends ChangeNotifier {
   // ==================== RESET ====================
 
   void reset() {
-    _player.stop();
+    unawaited(_samplePlayer.stop());
     _recordingTimer?.cancel();
+    _autoStopTimer?.cancel();
     _countdownTimer?.cancel();
-    _positionTimer?.cancel();
 
     _state = ShadowingState.idle;
     _completedRepetitions = 0;
@@ -764,15 +747,33 @@ class ShadowingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void stopPlayback() {
-    _player.stop();
-    _positionTimer?.cancel();
-    _setState(ShadowingState.idle);
-  }
-
   void _setState(ShadowingState newState) {
     debugPrint('🔄 State: $_state → $newState');
     _state = newState;
     notifyListeners();
   }
+}
+
+/// Dart interfaces are nominal: just_audio has the operations we need but does
+/// not declare `implements ShadowingSampleAudio`. Adapt explicitly at the edge.
+class _JustAudioSampleAdapter implements ShadowingSampleAudio {
+  _JustAudioSampleAdapter(this._player);
+  final AudioPlayer _player;
+
+  @override
+  Duration get position => _player.position;
+  @override
+  Duration? get duration => _player.duration;
+  @override
+  Future<Duration?> setFilePath(String path) => _player.setFilePath(path);
+  @override
+  Future<void> setSpeed(double speed) => _player.setSpeed(speed);
+  @override
+  Future<void> seek(Duration position) => _player.seek(position);
+  @override
+  Future<void> play() => _player.play();
+  @override
+  Future<void> pause() => _player.pause();
+  @override
+  Future<void> stop() => _player.stop();
 }

@@ -36,6 +36,10 @@ class VadPipelineIntegration {
   }) async {
     SttResult? finalResult;
     VadResult? vadResult;
+    // PSRC-205: giữ câu giải thích của pipeline để trả về dưới dạng
+    // `errorMessage`. Trước đây nhánh "0 dòng" trả `success: false` mà KHÔNG
+    // có errorMessage ⇒ màn Tạo lời hiện "Lỗi không xác định".
+    String? failureMessage;
 
     await for (final prog in _pipeline.run(
       audioPath: audioPath,
@@ -58,23 +62,32 @@ class VadPipelineIntegration {
       }
 
       if (prog.status == VadPipelineStatus.error) {
-        throw StateError(prog.message);
+        failureMessage = prog.message;
+        break;
       }
 
       if (prog.status == VadPipelineStatus.cancelled) {
-        throw StateError('Transcription cancelled');
+        failureMessage = 'Đã huỷ tạo lời.';
+        break;
       }
     }
 
     if (finalResult == null) {
-      throw StateError('VAD pipeline không trả về kết quả');
+      return SttTranscribeOutput.failure(
+        failureMessage ?? 'VAD pipeline không trả về kết quả',
+      );
     }
 
     // Tạo LRC file từ finalResult (dùng SttLrcConverter trong facade)
     // Để đơn giản, ta không tạo LRC ở đây mà trả về result để facade tạo sau
+    if (finalResult.segments.isEmpty) {
+      return SttTranscribeOutput.failure(
+        failureMessage ?? 'Pipeline không nhận diện được dòng lời nào.',
+      );
+    }
     return SttTranscribeOutput(
       result: finalResult,
-      success: finalResult.segments.isNotEmpty,
+      success: true,
     );
   }
 

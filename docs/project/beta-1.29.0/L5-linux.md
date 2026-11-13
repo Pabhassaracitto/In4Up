@@ -53,7 +53,12 @@ fix(PSRC-213): YouTube phát được trên Linux [L5]
 
 ## Phát hiện thêm
 
-_(trống)_
+- `deploy-web.yml` từng tự publish mọi nhánh `arena/**`, bao gồm L5,
+  trái ghi chú beta không publish. Run 43488848477 đã publish; push cuối
+  trước đó cũng tạo commit `6c1c2d4b2a` trên `gh-pages`, rồi có deploy khác.
+  Theo quyết định của chủ dự án, loại riêng nhánh L5 khỏi trigger push để
+  không publish hoặc huỷ deploy Pages khi rebase; nhánh cha đã có ngoại lệ.
+  Workflow dispatch vẫn chủ động chạy được.
 
 ### Backend và phương án Linux (PSRC-212)
 
@@ -67,3 +72,12 @@ handler desktop (xdg-open); không yêu cầu hay bundle WebKitGTK/GStreamer cho
 fallback này. WebKitGTK: không cài/không kiểm được phiên bản trong sandbox.
 Sandbox không có DISPLAY/WAYLAND_DISPLAY, chưa tái hiện hoặc kiểm X11/Wayland,
 GPU, trình duyệt thật. Chưa xác định biến môi trường cần thiết trên máy thật.
+
+### YouTube (PSRC-213)
+
+Player YouTube cũng tạo `WebViewController` không có backend Linux. Linux mở
+URL watch của đúng video qua trình duyệt ngoài thay vì tạo player iframe;
+phụ đề đồng bộ/công cụ học trong app không khả dụng trong fallback. Không đổi
+player Android/Windows. Codec H.264/MSE và thông điệp console WebView không thể
+kiểm ở đây: không có backend WebView Linux hay phiên desktop; phát thật phụ
+thuộc trình duyệt và codec hệ thống, phải kiểm trên X11 và Wayland.

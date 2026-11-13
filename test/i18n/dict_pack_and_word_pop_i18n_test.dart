@@ -49,6 +49,12 @@ const List<String> _sources = <String>[
   'lib/features/dictionary/widgets/dict_definition_view.dart',
   'lib/screens/read_mode/widgets/word_mini_pop.dart',
   'lib/models/word_color_style.dart',
+  // PSRC-219/220 (beta 1.29.0): câu báo thiếu bộ phát âm thanh/video và nhãn
+  // menu ⋮ của màn phát video.
+  'lib/screens/listen_mode/widgets/playback_problem_snack.dart',
+  'lib/audio/audio_backend_support.dart',
+  'lib/features/video/services/video_playback_support.dart',
+  'lib/features/video/widgets/video_player_screen.dart',
 ];
 
 void main() {

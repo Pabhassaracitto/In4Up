@@ -21,6 +21,12 @@ on:
       - 'third_party/sea-g2p'
       - '.gitmodules'
       - 'android/app/src/main/cpp/**'
+      # PSRC-221 (L8): mã Kotlin / manifest / res của app chỉ được BIÊN DỊCH ở
+      # workflow này (app_analyze chỉ chạy Dart). Thiếu ba dòng dưới thì một
+      # service Kotlin mới không hề được build trước bước phát hành.
+      - 'android/app/src/main/kotlin/**'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/main/res/**'
       - 'android/vieneu/**'
       - 'android/settings.gradle.kts'
       - 'android/app/build.gradle.kts'

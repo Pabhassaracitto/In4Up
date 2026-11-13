@@ -823,6 +823,9 @@ jobs:
           files=""
           # PSRC-187: + kênh hỏi/đáp worker isolate, khám giọng Piper, chia
           # đoạn TTS (đều thuần Dart / isolate thật trên host VM).
+          # PSRC-221 (L8): + worker "in4up làm giọng đọc hệ thống Android"
+          # (WAV→PCM, danh mục giọng, chia đoạn, huỷ) và hợp đồng với phần
+          # native (manifest + chuỗi giao thức Kotlin, đọc từ file nguồn).
           for f in test/edge_tts_engine_test.dart \
                    test/edge_voice_prefs_test.dart \
                    test/tts_candidate_router_test.dart \
@@ -831,7 +834,9 @@ jobs:
                    test/tts_settings_edge_and_api_test.dart \
                    test/psrc187_isolate_rpc_test.dart \
                    test/psrc187_piper_voice_doctor_test.dart \
-                   test/psrc187_tts_chunking_test.dart; do
+                   test/psrc187_tts_chunking_test.dart \
+                   test/system_tts/system_tts_worker_test.dart \
+                   test/system_tts/system_tts_contract_test.dart; do
             [ -f "$f" ] && files="$files $f"
           done
           if [ -z "$files" ]; then

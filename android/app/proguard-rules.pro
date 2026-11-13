@@ -21,3 +21,8 @@
 -keepclassmembers class com.in4up.screentranslate.ScreenTranslateService {
     public *;
 }
+
+# ── PSRC-221 — in4up là giọng đọc hệ thống Android ────────────────────
+# Service/Activity được Android gọi qua tên lớp trong AndroidManifest; engine
+# nền tra entrypoint Dart `in4upSystemTtsMain` bằng chuỗi. Giữ nguyên tên.
+-keep class com.in4up.systemtts.** { *; }

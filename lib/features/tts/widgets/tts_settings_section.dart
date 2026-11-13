@@ -1950,7 +1950,20 @@ class _VieneuModelImportSectionState
       }
       final count = await TtsService().importVieneuVoicesFromDirectory(dirPath);
       await _afterVoicesImport(count);
+    } on VieneuVoiceImportException catch (e) {
+      // PSRC-217: nói đúng lý do (không có dữ liệu giọng / không đọc được thư
+      // mục) thay vì câu chung "Lỗi import giọng" mà người dùng không hiểu.
+      debugPrint('⚠️ VieNeu import giọng lỗi: $e');
+      if (!mounted) return;
+      setState(() {
+        _importing = false;
+        _status = _ImportStatus(
+          vieneuVoiceImportProblemMessage(e.problem),
+        );
+        _statusIsError = true;
+      });
     } catch (e) {
+      debugPrint('⚠️ VieNeu import giọng lỗi: $e');
       if (!mounted) return;
       setState(() {
         _importing = false;

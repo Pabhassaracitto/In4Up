@@ -975,26 +975,12 @@ class TtsService extends ChangeNotifier {
 
   /// Một thư mục giọng phải có ít nhất một file dữ liệu có NỘI DUNG THỰC —
   /// placeholder comment `# VieNeu-TTS default` không được tính.
-  Future<bool> _folderHasValidVoiceData(Directory folder) async {
-    if (!await folder.exists()) return false;
-    for (final name in vieneuVoiceDataFileNames) {
-      final file = File(p.join(folder.path, name));
-      if (!await file.exists()) continue;
-      try {
-        if (p.extension(name) == '.bin') {
-          if (await file.length() > 32) return true;
-        } else if (hasVieneuVoiceData(await file.readAsString())) {
-          return true;
-        }
-      } catch (_) {
-        // File nhị phân: có kích thước hợp lệ vẫn chấp nhận.
-        try {
-          if (await file.length() > 32) return true;
-        } catch (_) {}
-      }
-    }
-    return false;
-  }
+  ///
+  /// PSRC-217: logic này nằm ở `vieneu_model_files.dart` để đường import
+  /// giọng (thư mục / nhiều tệp) và engine dùng CÙNG một định nghĩa "giọng
+  /// hợp lệ" — trước 1.29 mỗi nơi tự viết một bản, lệch nhau.
+  Future<bool> _folderHasValidVoiceData(Directory folder) =>
+      folderHasVieneuVoiceData(folder);
 
   /// Copy các thư mục giọng con của [sourceDir] (hoặc chính [sourceDir] nếu
   /// nó là một giọng đơn lẻ) vào [targetVoicesDir].
@@ -1131,27 +1117,51 @@ class TtsService extends ChangeNotifier {
 
   /// PSRC-185/186 — import giọng VieNeu từ thư mục do người dùng chọn.
   /// Hỗ trợ: thư mục chứa `voices/`, thư mục chứa nhiều giọng con, hoặc
-  /// chính là một giọng đơn lẻ. Trả về số giọng mới.
+  /// chính là một giọng đơn lẻ. Trả về số giọng MỚI.
+  ///
+  /// PSRC-217 — vì sao báo "lỗi import giọng" trước 1.29 và cách sửa:
+  ///   * `Directory.list()` trên Android/SAF ném `FileSystemException` khi
+  ///     người dùng chọn một thư mục ngoài vùng app được đọc ⇒ trước đây lỗi
+  ///     này nổi lên UI thành câu chung "Lỗi import giọng". Nay
+  ///     [findVieneuVoiceFolders] gói lại thành
+  ///     [VieneuVoiceImportProblem.unreadable] để UI nói đúng việc cần làm
+  ///     (cấp quyền / chọn tệp trực tiếp).
+  ///   * Thư mục chỉ có giọng ĐÃ import ⇒ trước đây `ids.isEmpty` bị coi là
+  ///     lỗi ("Không tìm thấy giọng hợp lệ") dù không có gì sai. Nay trả 0
+  ///     (UI báo "đã có, không có giọng mới") và chỉ ném khi thư mục THẬT SỰ
+  ///     không có dữ liệu giọng.
   Future<int> importVieneuVoicesFromDirectory(String sourceVoicesDirPath) async {
     final sourceDir = Directory(sourceVoicesDirPath);
-    if (!await sourceDir.exists()) {
-      throw FileSystemException('Thư mục không tồn tại', sourceVoicesDirPath);
+    final nested = Directory(p.join(sourceDir.path, 'voices'));
+    final chosen = await nested.exists() ? nested : sourceDir;
+
+    final folders = await findVieneuVoiceFolders(chosen);
+    if (folders.isEmpty) {
+      throw const VieneuVoiceImportException(
+        VieneuVoiceImportProblem.noVoiceData,
+      );
     }
+
     final dir = await getApplicationDocumentsDirectory();
     final targetVoicesDir = Directory(p.join(dir.path, 'vieneu_tts', 'voices'));
     if (!await targetVoicesDir.exists()) {
       await targetVoicesDir.create(recursive: true);
     }
-    final nested = Directory(p.join(sourceDir.path, 'voices'));
-    final chosen = await nested.exists() ? nested : sourceDir;
-    final ids = await _importVoiceFoldersFromDirectory(
-        chosen, targetVoicesDir.path);
-    if (ids.isEmpty) {
-      throw FileSystemException('Không tìm thấy giọng hợp lệ trong thư mục');
+
+    var imported = 0;
+    for (final folder in folders) {
+      final id = sanitizeVieneuVoiceId(p.basename(folder.path));
+      if (id.isEmpty) continue;
+      final ok = await _copyVoiceFolder(
+        folder,
+        Directory(p.join(targetVoicesDir.path, id)),
+      );
+      if (ok) imported++;
     }
+
     await VieneuTtsEngine.instance.invalidate();
     notifyVoicesChanged();
-    return ids.length;
+    return imported;
   }
 
   /// PSRC-186 — fallback khi platform không hỗ trợ chọn thư mục
@@ -1173,7 +1183,11 @@ class TtsService extends ChangeNotifier {
       groups.putIfAbsent(key, () => <String>[]).add(path);
     }
     if (groups.isEmpty) {
-      throw FileSystemException('Không tìm thấy file giọng hợp lệ');
+      // PSRC-217: lý do có kiểu để UI dịch được (xem
+      // `vieneuVoiceImportProblemMessage`), thay vì FileSystemException chung.
+      throw const VieneuVoiceImportException(
+        VieneuVoiceImportProblem.noVoiceData,
+      );
     }
     final dir = await getApplicationDocumentsDirectory();
     final targetRoot = Directory(p.join(dir.path, 'vieneu_tts', 'voices'));

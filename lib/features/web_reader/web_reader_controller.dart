@@ -23,6 +23,7 @@ import '../../screens/memory_mode/memory_provider.dart';
 import '../../services/reader_display_settings.dart';
 import '../../services/syntax_highlighter_service.dart';
 import 'models/web_collection.dart';
+import 'services/reader_cues.dart';
 import '../../services/vocab_batch/vocab_batch_extractor.dart';
 import '../../services/vocab_batch/vocab_batch_models.dart';
 
@@ -651,20 +652,36 @@ class WebReaderController extends ChangeNotifier {
 
   /// Đọc bài web theo từng đoạn, giống một trình đọc sách nói: không gửi
   /// toàn bộ trang vào một request TTS và cho phép dừng giữa các đoạn.
-  Future<void> speakArticle(String text) async {
-    final chunks = text
-        .split(RegExp(r'\n+'))
-        .map((line) => line.replaceAll(RegExp(r'\s+'), ' ').trim())
-        .where((line) => line.length > 1)
-        .toList();
+  int _readingSession = 0;
+  bool _disposed = false;
+  List<ReaderCue> articleCues = const [];
+  int articleCueIndex = -1;
+
+  Future<void> speakArticle(String text, {int startOffset = 0}) async {
+    final cues = readerCues(text);
+    final start = readerCueAt(cues, startOffset);
+    final chunks = cues.skip(start).map((cue) => cue.text).toList();
     if (chunks.isEmpty) return;
+    final session = ++_readingSession;
+    await _tts.stop();
+    if (_disposed || session != _readingSession) return;
+    articleCues = cues;
     _tts.configure(speed: _ttsSpeed, language: 'auto');
     _isSpeaking = true;
     _isPaused = false;
     notifyListeners();
     try {
-      await _tts.speakLines(chunks, pauseBetween: const Duration(milliseconds: 350));
+      await _tts.speakLines(chunks,
+        pauseBetween: const Duration(milliseconds: 140),
+        onLineChanged: (i) {
+          if (_disposed || session != _readingSession) return;
+          articleCueIndex = start + i;
+          debugPrint('WebReader: cue ${articleCueIndex + 1}/${cues.length}');
+          notifyListeners();
+        });
     } finally {
+      if (_disposed || session != _readingSession) return;
+      articleCueIndex = -1;
       _isSpeaking = false;
       _isPaused = false;
       notifyListeners();
@@ -686,6 +703,8 @@ class WebReaderController extends ChangeNotifier {
   }
 
   Future<void> stopTts() async {
+    ++_readingSession;
+    articleCueIndex = -1;
     await _tts.stop();
     _isSpeaking = false;
     _isPaused = false;
@@ -1866,6 +1885,8 @@ class WebReaderController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    ++_readingSession;
     _stopLoadWatchdog();
     ReaderDisplaySettings().removeListener(_onReaderDisplaySettingsChanged);
     _tts.stop();

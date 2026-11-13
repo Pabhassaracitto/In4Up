@@ -388,7 +388,7 @@ window.getSelection()?.toString() || '';
   });
 
   // Lấy innerText (giữ line breaks tự nhiên)
-  return clone.innerText || clone.textContent || '';
+  return clone.textContent || '';
 })();
 ''';
 
@@ -490,6 +490,26 @@ window.getSelection()?.toString() || '';
     return text.slice(start, end).trim();
   }
 
+  function readingOffset(selection) {
+    const root = document.querySelector('article') || document.querySelector('[role="main"]') ||
+      document.querySelector('main') || document.querySelector('.content') ||
+      document.querySelector('.post-content') || document.body;
+    const range = selection.getRangeAt(0);
+    if (!root.contains(range.startContainer)) return null;
+    const prefix = document.createRange();
+    prefix.selectNodeContents(root);
+    prefix.setEnd(range.startContainer, range.startOffset);
+    const clean = fragment => {
+      ['script','style','nav','aside','footer','header','.ad','#ad',
+       '[class*="sidebar"]','[class*="related"]','[class*="recommend"]','[class*="social"]']
+        .forEach(selector => fragment.querySelectorAll(selector).forEach(e => e.remove()));
+      return fragment.textContent || '';
+    };
+    const full = clean(root.cloneNode(true));
+    const before = clean(prefix.cloneContents());
+    return Math.max(0, before.length - (full.length - full.trimStart().length));
+  }
+
   function sendSelection() {
     const sel = window.getSelection();
     if (!sel || sel.toString().trim().length === 0) return;
@@ -498,6 +518,7 @@ window.getSelection()?.toString() || '';
       type: 'textSelected',
       text: text,
       contextText: buildContextText(sel),
+      readingOffset: readingOffset(sel),
       scrollProgress: getScrollProgress(),
     }));
   }

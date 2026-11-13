@@ -742,6 +742,8 @@ jobs:
                    test/ocr/ocr_cancel_token_test.dart \
                    test/pdf_reader/pdf_text_layer_probe_test.dart \
                    test/pdf_reader/pdf_tts_machine_test.dart \
+                   test/pdf_reader/pdf_reading_pages_test.dart \
+                   test/web_reader/reader_cues_test.dart \
                    test/pdf_reader/pdf_batch_ocr_test.dart \
                    test/pdf_reader/pdf_page_translate_test.dart; do
             [ -f "$f" ] && files="$files $f"

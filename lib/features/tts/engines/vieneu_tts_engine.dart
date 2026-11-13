@@ -18,8 +18,42 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import './tts_engine.dart';
+import 'package:in4up_stt/tts/vieneu_model_files.dart';
 import 'package:in4up_stt/tts/vieneu_tts_core.dart';
 import 'package:in4up_stt/tts/vieneu_tts_paths.dart';
+
+/// Câu nguồn khi thiếu `sea_g2p.bin` (key dịch 8 locale). Giữ thành hằng số
+/// để test `vieneu_g2p_dictionary_test.dart` khoá được câu này, và để engine/
+/// UI dùng CÙNG một câu thay vì mỗi nơi một kiểu (PSRC-216).
+const String kVieneuMissingG2pNotice =
+    'Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc';
+
+/// Ảnh chụp "engine có chạy được không, thiếu gì" — KHÔNG nạp model.
+///
+/// PSRC-216: thay cho chuỗi try/catch rải rác, mọi nơi (UI, TtsService, voice
+/// clone) hỏi CÙNG một hàm [VieneuTtsEngine.probe] và nhận đúng một lý do.
+class VieneuEngineProbe {
+  const VieneuEngineProbe({
+    required this.blocker,
+    this.modelPath,
+    this.variant,
+    this.modelProblem,
+    this.modelBytes = 0,
+  });
+
+  /// `null` = đủ 3 mảnh, engine nạp được.
+  final VieneuEngineBlocker? blocker;
+  final String? modelPath;
+  final VieneuModelVariant? variant;
+  final VieneuModelFileProblem? modelProblem;
+  final int modelBytes;
+
+  bool get ready => blocker == null;
+
+  /// Câu nguồn cho UI (rỗng khi sẵn sàng).
+  String get message =>
+      blocker == null ? '' : vieneuEngineBlockerMessage(blocker!);
+}
 
 /// Đường dẫn dữ liệu của một giọng đã quét được từ đĩa.
 class _VoiceFiles {
@@ -134,6 +168,14 @@ class VieneuTtsEngine implements TtsEngine {
       final base = await getApplicationDocumentsDirectory();
       dir = p.join(base.path, 'vieneu_tts');
     }
+    return _dictionaryExistsIn(dir);
+  }
+
+  /// Từ điển phát âm có nằm cạnh MỘT model cụ thể không (dùng cho [probe]).
+  Future<bool> hasPhonemeDictionaryNextTo(String modelPath) =>
+      _dictionaryExistsIn(p.dirname(modelPath));
+
+  Future<bool> _dictionaryExistsIn(String dir) async {
     try {
       return await File(vieneuG2pDictionaryPath(dir)).exists();
     } catch (e) {
@@ -141,6 +183,56 @@ class VieneuTtsEngine implements TtsEngine {
       return false;
     }
   }
+
+  /// Vì sao engine CHƯA chạy được, hoặc `ready` khi đủ 3 mảnh.
+  ///
+  /// PSRC-216: một chỗ duy nhất trả lời câu "thiếu gì?" cho UI ("Khởi tạo
+  /// engine"), cho `TtsService` (import ⇒ engine sẵn sàng chưa — PSRC-215) và
+  /// cho voice clone (PSRC-218). Không nạp model, không spawn worker.
+  ///
+  /// Thứ tự kiểm khớp [firstVieneuEngineBlocker] và [_initOnce]:
+  /// model → file model dùng được → thư viện native → `sea_g2p.bin`.
+  Future<VieneuEngineProbe> probe({VieneuModelVariant? modelVariant}) async {
+    final requested = modelVariant ?? _modelVariant;
+    var variant = requested;
+    var model = await VieneuTtsCore.modelPathFor(requested);
+    if (model == null) {
+      for (final candidate in VieneuModelVariant.values) {
+        final path = await VieneuTtsCore.modelPathFor(candidate);
+        if (path != null) {
+          model = path;
+          variant = candidate;
+          break;
+        }
+      }
+    }
+    if (model == null) {
+      return const VieneuEngineProbe(blocker: VieneuEngineBlocker.noModel);
+    }
+
+    final report = await inspectVieneuModelOnDisk(model);
+    final nativeBundled = await VieneuTtsCore.isNativeLibraryAvailable();
+    final dictionary = await hasPhonemeDictionaryNextTo(model);
+    final blocker = firstVieneuEngineBlocker(
+      hasModel: true,
+      nativeLibrary: nativeBundled,
+      phonemeDictionary: dictionary,
+      modelProblem: report.problem,
+    );
+    return VieneuEngineProbe(
+      blocker: blocker,
+      modelPath: model,
+      variant: variant,
+      modelProblem: report.problem,
+      modelBytes: report.bytes,
+    );
+  }
+
+  /// Lỗi native NGUYÊN VĂN của lần init gần nhất (null nếu không có). UI hiện
+  /// câu này thay vì câu chung "kiểm tra file gguf và thư viện native" —
+  /// PSRC-216 yêu cầu "báo rõ file thiếu".
+  String? get lastInitError => _lastInitError;
+  String? _lastInitError;
 
   /// Có thể dùng ngay bây giờ? (lib native + ít nhất một file .gguf)
   ///
@@ -320,10 +412,15 @@ class VieneuTtsEngine implements TtsEngine {
       _initialized = false;
       _workerVoiceId = null;
     }
+    _lastInitError = null;
     final model = await VieneuTtsCore.modelPathFor(modelVariant);
     if (model == null) {
       _initialized = false;
       _workerVoiceId = null;
+      // PSRC-216: MỌI nhánh thoát phải để lại lý do. Trước 1.29 nhánh này
+      // `return` im lặng ⇒ UI hiện lý do CŨ (hoặc câu chung vô nghĩa).
+      _blockingReason =
+          vieneuEngineBlockerMessage(VieneuEngineBlocker.noModel);
       if (_core.isInitialized) await _core.dispose();
       return;
     }
@@ -337,6 +434,24 @@ class VieneuTtsEngine implements TtsEngine {
     if (!await VieneuTtsCore.isNativeLibraryAvailable()) {
       _initialized = false;
       _workerVoiceId = null;
+      _blockingReason = vieneuEngineBlockerMessage(
+          VieneuEngineBlocker.noNativeLibrary);
+      return;
+    }
+
+    // PSRC-216: file model có THẬT SỰ dùng được không (đuôi, dung lượng, chữ
+    // ký GGUF)? Trước 1.29 bước này không tồn tại ⇒ người dùng import một file
+    // hỏng/tải hụt, engine trả về lỗi native khó hiểu ở tận audio.cpp. Kiểm ở
+    // đây rẻ (đọc 4 byte) và nói được đúng việc cần làm.
+    final modelReport = await inspectVieneuModelOnDisk(model);
+    if (!modelReport.ok) {
+      _initialized = false;
+      _workerVoiceId = null;
+      _blockingReason =
+          vieneuModelFileProblemMessage(modelReport.problem!);
+      debugPrint('⚠️ VieNeu-TTS: model không dùng được '
+          '(${modelReport.problem!.name}, ${modelReport.bytes} byte): $model');
+      if (_core.isInitialized) await _core.dispose();
       return;
     }
 
@@ -347,7 +462,7 @@ class VieneuTtsEngine implements TtsEngine {
       _initialized = false;
       _workerVoiceId = null;
       _blockingReason =
-          'Thiếu từ điển phát âm sea_g2p.bin — tải trong Cài đặt › Giọng đọc';
+          vieneuEngineBlockerMessage(VieneuEngineBlocker.noPhonemeDictionary);
       debugPrint('⚠️ VieNeu-TTS: thiếu ${vieneuG2pDictFileName} cạnh model');
       if (_core.isInitialized) await _core.dispose();
       return;
@@ -371,15 +486,25 @@ class VieneuTtsEngine implements TtsEngine {
       _initialized = _core.isInitialized;
       if (_initialized) {
         _blockingReason = null;
+        _lastInitError = null;
         _selectedVoiceId = voiceId;
         // Worker có thể đã init từ trước với giọng khác ⇒ áp lại giọng đang
         // chọn, tránh "UI chọn giọng A nhưng native đọc giọng B".
         await selectVoice(voiceId);
+      } else {
+        // Native trả "ok" nhưng worker vẫn chưa sẵn sàng — hiếm, nhưng im
+        // lặng ở đây là đúng kiểu "khởi tạo không được mà không nói vì sao".
+        _blockingReason = vieneuEngineBlockerMessage(
+            VieneuEngineBlocker.modelUnreadable);
       }
     } catch (e) {
+      // PSRC-216: giữ NGUYÊN VĂN lỗi native để UI/log nói đúng việc cần làm
+      // thay vì câu chung "kiểm tra file gguf và thư viện native".
       debugPrint('⚠️ VieNeu-TTS init error: $e');
       _initialized = false;
       _workerVoiceId = null;
+      _lastInitError = e.toString();
+      _blockingReason = e is VieneuEngineNotReadyException ? e.message : null;
     }
   }
 
@@ -471,6 +596,7 @@ class VieneuTtsEngine implements TtsEngine {
     await _core.dispose();
     _initialized = false;
     _blockingReason = null;
+    _lastInitError = null;
     _workerVoiceId = null;
     _modelPath = null;
     _voicesDir = null;

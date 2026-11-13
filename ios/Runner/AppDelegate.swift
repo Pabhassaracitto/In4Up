@@ -13,6 +13,7 @@ import UIKit
   /// Link đến khi app còn chưa dựng xong Flutter engine (app bị giết → người
   /// dùng bấm link). Dart hỏi `getInitialLink` ngay sau `runApp`.
   private var pendingDeepLink: String?
+  private var filesChannel: FlutterMethodChannel?
 
   override func application(
     _ application: UIApplication,
@@ -37,6 +38,31 @@ import UIKit
         result(link)
       }
       deepLinkChannel = channel
+
+      let exportChannel = FlutterMethodChannel(
+        name: "in4up/files",
+        binaryMessenger: controller.binaryMessenger
+      )
+      exportChannel.setMethodCallHandler { call, result in
+        switch call.method {
+        case "openExportLocation":
+          let args = call.arguments as? [String: Any]
+          let location = (args?["location"] as? String) ?? ""
+          if !location.isEmpty,
+             let encoded = location.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+             let filesUrl = URL(string: "shareddocuments://\(encoded)"),
+             UIApplication.shared.canOpenURL(filesUrl) {
+            UIApplication.shared.open(filesUrl, options: [:]) { ok in
+              result(ok)
+            }
+          } else {
+            result(false)
+          }
+        default:
+          result(FlutterMethodNotImplemented)
+        }
+      }
+      filesChannel = exportChannel
     }
 
     if let url = launchOptions?[.url] as? URL {

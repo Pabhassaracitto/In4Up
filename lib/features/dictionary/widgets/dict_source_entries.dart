@@ -53,10 +53,6 @@ class DictSourceEntries extends StatelessWidget {
               names[entry.dictId] ?? entry.dictId,
               style: const TextStyle(color: Colors.white, fontSize: 14),
             ),
-            subtitle: Text(
-              entry.headword,
-              style: TextStyle(color: Colors.grey[400], fontSize: 12),
-            ),
             children: <Widget>[
               Align(
                 alignment: Alignment.centerLeft,

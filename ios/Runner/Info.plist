@@ -47,6 +47,49 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- PSRC-222: cho phép "Mở bằng In4Up" từ ứng dụng Tệp / Chia sẻ trên iOS
+	     cho tài liệu (.txt, .md, .pdf, .docx), âm thanh (.mp3, .m4a...) và video (.mp4...).
+	     KHÔNG nhận public.item hay public.data chung chung. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>In4Up Document</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.adobe.pdf</string>
+				<string>org.openxmlformats.wordprocessingml.document</string>
+				<string>public.plain-text</string>
+				<string>net.daringfireball.markdown</string>
+				<string>public.text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>In4Up Audio</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.audio</string>
+				<string>public.mp3</string>
+				<string>public.mpeg-4-audio</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>In4Up Video</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.movie</string>
+				<string>public.mpeg-4</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>In4Up dùng camera để chụp ảnh minh họa cho từ vựng.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

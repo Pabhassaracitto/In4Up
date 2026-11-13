@@ -36818,5 +36818,35 @@
     "my": "စာသား / ဘာသာပြန် (.txt)",
     "th": "ข้อความ / คำแปล (.txt)",
     "ja": "テキスト / 翻訳 (.txt)"
+  },
+  "Định dạng .doc (Word 97–2003) chưa hỗ trợ — hãy lưu lại thành .docx hoặc .txt.": {
+    "en": "Legacy .doc (Word 97–2003) is not supported — please re-save as .docx or .txt.",
+    "zh": "暂不支持旧版 .doc（Word 97–2003）格式 — 请另存为 .docx 或 .txt。",
+    "zh_TW": "暫不支援舊版 .doc（Word 97–2003）格式 — 請另存為 .docx 或 .txt。",
+    "hi": "पुराना .doc (Word 97–2003) प्रारूप समर्थित नहीं है — कृपया .docx या .txt के रूप में सहेजें।",
+    "si": "පැරණි .doc (Word 97–2003) ආකෘතියට සහාය නොදක්වයි — කරුණාකර .docx හෝ .txt ලෙස සුරකින්න.",
+    "my": ".doc အဟောင်း (Word 97–2003) ကို မပံ့ပိုးပါ — .docx သို့မဟုတ် .txt အဖြစ် ပြန်သိမ်းပေးပါ။",
+    "th": "ไม่รองรับไฟล์ .doc รุ่นเก่า (Word 97–2003) — กรุณาบันทึกใหม่เป็น .docx หรือ .txt",
+    "ja": "旧形式の .doc（Word 97–2003）には対応していません。.docx または .txt で保存し直してください。"
+  },
+  "Định dạng tệp này chưa được In4Up hỗ trợ ({value0}).": {
+    "en": "This file format is not supported by In4Up ({value0}).",
+    "zh": "In4Up 暂不支持此文件格式（{value0}）。",
+    "zh_TW": "In4Up 暫不支援此檔案格式（{value0}）。",
+    "hi": "यह फ़ाइल प्रारूप In4Up द्वारा समर्थित नहीं है ({value0})।",
+    "si": "මෙම ගොනු ආකෘතියට In4Up සහාය නොදක්වයි ({value0}).",
+    "my": "ဤဖိုင်အမျိုးအစားကို In4Up က မပံ့ပိုးပါ ({value0})။",
+    "th": "In4Up ยังไม่รองรับรูปแบบไฟล์นี้ ({value0})",
+    "ja": "このファイル形式は In4Up でサポートされていません（{value0}）。"
+  },
+  "Không mở được tệp: {value0}": {
+    "en": "Could not open file: {value0}",
+    "zh": "无法打开文件：{value0}",
+    "zh_TW": "無法開啟檔案：{value0}",
+    "hi": "फ़ाइल नहीं खुल सकी: {value0}",
+    "si": "ගොනුව විවෘත කළ නොහැක: {value0}",
+    "my": "ဖိုင်ဖွင့်မရပါ: {value0}",
+    "th": "ไม่สามารถเปิดไฟล์: {value0}",
+    "ja": "ファイルを開けません: {value0}"
   }
 }

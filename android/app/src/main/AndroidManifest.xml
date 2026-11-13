@@ -83,11 +83,37 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Handle audio files -->
+            <!-- PSRC-222 (lane L7) — "Mở bằng In4Up" & "Chia sẻ tới In4Up" cho
+                 tài liệu (.txt, .pdf, .docx, .md, .lrc, .srt), âm thanh (.mp3,
+                 .m4a, .wav, .ogg, .opus, .flac) và video (.mp4, .mkv, .webm...).
+                 KHÔNG khai đại diện tất cả định dạng: chỉ nhận nhóm MIME mà
+                 app thực sự mở được. Tách riêng VIEW (có scheme content/file)
+                 và SEND (không ép scheme vì EXTRA_STREAM để intent.data = null). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="application/x-subrip" />
                 <data android:mimeType="audio/*" />
+                <data android:mimeType="application/ogg" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="application/x-subrip" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="application/ogg" />
+                <data android:mimeType="video/*" />
             </intent-filter>
 
             <!-- ADR-0018 P1 — deep link từ điển: in4up://dict?w=… và

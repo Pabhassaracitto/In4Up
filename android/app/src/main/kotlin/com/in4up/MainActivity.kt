@@ -81,6 +81,11 @@ class MainActivity : FlutterActivity() {
     private val dictionaryChannelName = "in4up/dictionary"
     private val filesChannelName = "in4up/files"
     private var filesChannel: MethodChannel? = null
+    private val incomingFileExecutor = Executors.newSingleThreadExecutor()
+    private var pendingIncomingFile: Map<String, Any?>? = null
+    private var incomingFileListenerReady = false
+    private var initialIncomingInFlight = false
+    private val waitingInitialIncomingResults = ArrayList<MethodChannel.Result>()
 
     // ADR-0018 P1 — deep link từ điển (`in4up://dict?w=…`, `in4up://open?path=…`).
     // Native CHỈ chuyển tiếp URL thô; toàn bộ kiểm tra an toàn (độ dài từ, đuôi
@@ -169,16 +174,22 @@ class MainActivity : FlutterActivity() {
             interruptedScanPending = true
         }
         installOcrCrashShield()
+        if (savedInstanceState == null && IncomingFileResolver.isIncomingFileIntent(intent)) {
+            captureIncomingFileIntent(intent, isInitialLaunch = true)
+        }
     }
 
     /**
-     * ADR-0018 P1 — app ĐANG CHẠY và người dùng bấm một link `in4up://…`
-     * (Activity là `singleTop` nên Android gọi `onNewIntent`, không tạo
-     * instance mới). Chuyển thẳng sang Dart qua `onLink`.
+     * ADR-0018 P1 & PSRC-222 — app ĐANG CHẠY (`singleTop`) và người dùng chọn
+     * "Mở bằng In4Up" / "Chia sẻ tới In4Up" hoặc bấm một link `in4up://…`.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (IncomingFileResolver.isIncomingFileIntent(intent)) {
+            captureIncomingFileIntent(intent, isInitialLaunch = false)
+            return
+        }
         val link = intent.dataString
         if (link.isNullOrEmpty()) return
         val channel = deepLinkChannel
@@ -188,6 +199,48 @@ class MainActivity : FlutterActivity() {
             return
         }
         channel.invokeMethod("onLink", link)
+    }
+
+    private fun captureIncomingFileIntent(
+        incoming: Intent,
+        isInitialLaunch: Boolean,
+    ) {
+        val snapshot = Intent(incoming)
+        // Xoa intent da nhan de xoay man hinh khong mo lai tep cu.
+        setIntent(Intent(Intent.ACTION_MAIN))
+        if (isInitialLaunch) {
+            initialIncomingInFlight = true
+        }
+        val ctx = applicationContext
+        incomingFileExecutor.execute {
+            val payload = try {
+                IncomingFileResolver.materializeIncomingIntent(ctx, snapshot)
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                null
+            }
+            mainHandler.post {
+                if (isInitialLaunch) {
+                    initialIncomingInFlight = false
+                    if (waitingInitialIncomingResults.isNotEmpty()) {
+                        val waiters = ArrayList(waitingInitialIncomingResults)
+                        waitingInitialIncomingResults.clear()
+                        waiters.first().success(payload)
+                        for (i in 1 until waiters.size) {
+                            waiters[i].success(null)
+                        }
+                        return@post
+                    }
+                }
+                if (payload == null) return@post
+                val ch = filesChannel
+                if (ch != null && incomingFileListenerReady) {
+                    ch.invokeMethod("onIncomingFile", payload)
+                } else {
+                    pendingIncomingFile = payload
+                }
+            }
+        }
     }
 
     /**
@@ -546,6 +599,16 @@ class MainActivity : FlutterActivity() {
         )
         exportChannel.setMethodCallHandler { call, result ->
             when (call.method) {
+                "getInitialIncomingFile" -> {
+                    incomingFileListenerReady = true
+                    if (initialIncomingInFlight && pendingIncomingFile == null) {
+                        waitingInitialIncomingResults.add(result)
+                    } else {
+                        val payload = pendingIncomingFile
+                        pendingIncomingFile = null
+                        result.success(payload)
+                    }
+                }
                 "getAndroidSdkInt" -> result.success(Build.VERSION.SDK_INT)
                 "getLegacyDownloadsRoot" -> {
                     result.success(ExportStorageHelper.legacyDownloadsRoot())

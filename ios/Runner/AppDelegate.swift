@@ -14,6 +14,8 @@ import UIKit
   /// dùng bấm link). Dart hỏi `getInitialLink` ngay sau `runApp`.
   private var pendingDeepLink: String?
   private var filesChannel: FlutterMethodChannel?
+  private var pendingIncomingFile: [String: Any?]?
+  private var incomingFileListenerReady = false
 
   override func application(
     _ application: UIApplication,
@@ -43,8 +45,13 @@ import UIKit
         name: "in4up/files",
         binaryMessenger: controller.binaryMessenger
       )
-      exportChannel.setMethodCallHandler { call, result in
+      exportChannel.setMethodCallHandler { [weak self] call, result in
         switch call.method {
+        case "getInitialIncomingFile":
+          self?.incomingFileListenerReady = true
+          let payload = self?.pendingIncomingFile
+          self?.pendingIncomingFile = nil
+          result(payload)
         case "openExportLocation":
           let args = call.arguments as? [String: Any]
           let location = (args?["location"] as? String) ?? ""
@@ -66,20 +73,36 @@ import UIKit
     }
 
     if let url = launchOptions?[.url] as? URL {
-      pendingDeepLink = url.absoluteString
+      if url.isFileURL {
+        if let payload = copyIncomingFileToAppStorage(url: url) {
+          pendingIncomingFile = payload
+        }
+      } else {
+        pendingDeepLink = url.absoluteString
+      }
     }
     return launched
   }
 
-  /// App ĐANG CHẠY và người dùng bấm link (scheme `in4up`) hoặc một app khác
-  /// mở URL của In4Up. Vẫn phải gọi `super` để plugin khác (OAuth, url_launcher)
-  /// nhận được URL của chúng — chỉ nhận link của mình khi scheme khớp.
+  /// App ĐANG CHẠY và người dùng bấm link (scheme `in4up`) hoặc chọn "Mở bằng In4Up"
+  /// cho một tệp `file://` từ ứng dụng Tệp / Chia sẻ.
   override func application(
     _ app: UIApplication,
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     let handledByPlugins = super.application(app, open: url, options: options)
+    if url.isFileURL {
+      guard let payload = copyIncomingFileToAppStorage(url: url) else {
+        return handledByPlugins
+      }
+      if let channel = filesChannel, incomingFileListenerReady {
+        channel.invokeMethod("onIncomingFile", arguments: payload)
+      } else {
+        pendingIncomingFile = payload
+      }
+      return true
+    }
     let scheme = url.scheme?.lowercased()
     guard scheme == "in4up" || scheme == "i4u" else {
       return handledByPlugins
@@ -90,5 +113,50 @@ import UIKit
       pendingDeepLink = url.absoluteString
     }
     return true
+  }
+
+  /// Chép tệp `file://` từ ngoài vào Application Support của app trước khi quyền
+  /// security-scoped hết hạn.
+  private func copyIncomingFileToAppStorage(url: URL) -> [String: Any?]? {
+    let accessed = url.startAccessingSecurityScopedResource()
+    defer {
+      if accessed {
+        url.stopAccessingSecurityScopedResource()
+      }
+    }
+    let fm = FileManager.default
+    guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+      return nil
+    }
+    let incomingDir = appSupport.appendingPathComponent("in4up_incoming", isDirectory: true)
+    do {
+      try fm.createDirectory(at: incomingDir, withIntermediateDirectories: true)
+      let rawName = url.lastPathComponent.isEmpty ? "incoming_file" : url.lastPathComponent
+      var target = incomingDir.appendingPathComponent(rawName)
+      if fm.fileExists(atPath: target.path) {
+        let ext = target.pathExtension
+        let stem = target.deletingPathExtension().lastPathComponent
+        var idx = 2
+        while idx < 10000 {
+          let candidateName = ext.isEmpty ? "\(stem) (\(idx))" : "\(stem) (\(idx)).\(ext)"
+          let candidate = incomingDir.appendingPathComponent(candidateName)
+          if !fm.fileExists(atPath: candidate.path) {
+            target = candidate
+            break
+          }
+          idx += 1
+        }
+      }
+      try fm.copyItem(at: url, to: target)
+      return [
+        "localPath": target.path,
+        "displayName": target.lastPathComponent,
+        "mimeType": nil,
+        "originalUri": url.absoluteString,
+        "source": "ios_open",
+      ]
+    } catch {
+      return nil
+    }
   }
 }

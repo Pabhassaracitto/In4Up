@@ -17,6 +17,8 @@ import 'package:in4up/core/language/localized_material.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/files/export_destination.dart';
+import '../../../core/files/export_destination_service.dart';
 import '../models/media_export_models.dart';
 import '../services/media_estimates.dart';
 
@@ -79,12 +81,36 @@ Future<void> offerExportFollowUp(
                 ),
               ),
           ],
-          const SizedBox(height: 6),
-          Text(
-            result.primaryPath,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white30, fontSize: 10),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.folder_outlined,
+                  color: Color(0xFF26C6DA),
+                  size: 15,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    result.primaryDisplayPath,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -97,6 +123,12 @@ Future<void> offerExportFollowUp(
             icon: const Icon(Icons.headphones_rounded, size: 18),
             label: Text(dialogContext.uiText('Mở trong tab Nghe')),
           ),
+        TextButton.icon(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(_FollowUp.openFolder),
+          icon: const Icon(Icons.folder_open_rounded, size: 18),
+          label: Text(dialogContext.uiText('Mở thư mục')),
+        ),
         TextButton.icon(
           onPressed: () =>
               Navigator.of(dialogContext).pop(_FollowUp.share),
@@ -116,6 +148,26 @@ Future<void> offerExportFollowUp(
 
   if (!context.mounted) return;
   switch (action) {
+    case _FollowUp.openFolder:
+      final dest = result.destination ??
+          (await ExportDestinationService.instance.resolveDefaultDestination())
+              .destination;
+      final opened =
+          await ExportDestinationService.instance.openContainingFolder(
+        destination: dest,
+        localFilePath: result.primaryPublicLocalPath ?? result.primaryPath,
+        fileUri: result.primaryFileUri,
+      );
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.uiText('Đã lưu tại: ${result.primaryDisplayPath}'),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     case _FollowUp.share:
       await shareExportedFiles(result);
     case _FollowUp.open:
@@ -128,7 +180,7 @@ Future<void> offerExportFollowUp(
   }
 }
 
-enum _FollowUp { open, share, close }
+enum _FollowUp { open, openFolder, share, close }
 
 String _summary(BuildContext context, MediaExportResult result) {
   final parts = <String>[];

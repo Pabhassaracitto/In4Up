@@ -24,6 +24,8 @@ import 'package:in4up_stt/utils/src/ffmpeg_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/files/export_destination.dart';
+import '../../../core/files/export_destination_service.dart';
 import '../../../screens/listen_mode/models/recent_audio.dart';
 import '../../../screens/listen_mode/services/recent_audio_service.dart';
 import '../../../services/audio_library_channel.dart';
@@ -130,10 +132,14 @@ class MediaExportService {
   MediaExportService({
     MediaFfmpegEngine? engine,
     MediaExportHost? host,
+    ExportDestinationService? destinationService,
     Future<String?> Function(String uri)? materializeUri,
     int? Function(String dirPath)? freeSpaceProbe,
   })  : _engine = engine ?? MediaFfmpegEngine(),
         _host = host ?? const DefaultMediaExportHost(),
+        _destinationService =
+            destinationService ?? ExportDestinationService.instance,
+        _publishPublicByDefault = host == null,
         _materializeUri = materializeUri ?? _defaultMaterialize,
         _freeSpaceProbe = freeSpaceProbe ?? probeFreeSpaceMB;
 
@@ -144,6 +150,8 @@ class MediaExportService {
 
   final MediaFfmpegEngine _engine;
   final MediaExportHost _host;
+  final ExportDestinationService _destinationService;
+  final bool _publishPublicByDefault;
   final Future<String?> Function(String uri) _materializeUri;
   final int? Function(String dirPath) _freeSpaceProbe;
 
@@ -241,15 +249,18 @@ class MediaExportService {
     throwIfCancelled();
     final title = request.title ?? p.basename(materialized);
     final produced = <String>[];
+    final desiredFileNames = <String>[];
     try {
       switch (request.scope) {
         case MediaExportScope.full:
+          final fullBase = MediaExportNaming.sanitize(
+            MediaExportNaming.sanitize(p.basenameWithoutExtension(title)),
+          );
+          desiredFileNames.add('$fullBase.${preset.extension}');
           produced.add(await _runSingle(
             input: materialized,
             outDir: outDir.path,
-            baseName: MediaExportNaming.sanitize(
-              MediaExportNaming.sanitize(p.basenameWithoutExtension(title)),
-            ),
+            baseName: fullBase,
             preset: preset,
             start: Duration.zero,
             duration: null,
@@ -265,6 +276,7 @@ class MediaExportService {
             start: request.start,
             duration: request.duration,
           );
+          desiredFileNames.add('$clipBase.${preset.extension}');
           produced.add(await _runSingle(
             input: materialized,
             outDir: outDir.path,
@@ -296,6 +308,7 @@ class MediaExportService {
               chapterTitle: slice.title,
               start: slice.start,
             );
+            desiredFileNames.add('$base.${preset.extension}');
             produced.add(await _runSingle(
               input: materialized,
               outDir: outDir.path,
@@ -407,6 +420,57 @@ class MediaExportService {
       } catch (_) {}
     }
 
+    // PSRC-204 / ADR-0029 — chép kết quả sang nơi lưu công khai đã chọn
+    // (`Download/In4Up`, `On My iPhone/In4Up`, `~/Downloads/In4Up` hoặc thư mục
+    // SAF/custom từ nút "Đổi…") qua cơ chế ghi nguyên tử `.part` / `IS_PENDING`
+    // và không đè tệp trùng tên (` (2)`).
+    ExportDestination? resolvedDestination;
+    final publicDisplayPaths = <String>[];
+    String? primaryFileUri;
+    String? primaryPublicLocalPath;
+    if (request.destination != null || _publishPublicByDefault) {
+      try {
+        resolvedDestination = request.destination ??
+            (await _destinationService.resolveDefaultDestination()).destination;
+        for (var i = 0; i < produced.length; i++) {
+          final desiredName = i < desiredFileNames.length
+              ? desiredFileNames[i]
+              : p.basename(produced[i]);
+          final savedAudio = await _destinationService.exportLocalFile(
+            sourceFile: File(produced[i]),
+            desiredFileName: desiredName,
+            destination: resolvedDestination,
+          );
+          publicDisplayPaths.add(savedAudio.displayPath);
+          if (i == 0) {
+            primaryFileUri = savedAudio.uri;
+            primaryPublicLocalPath = savedAudio.localPath;
+          }
+
+          if (i < lrcPaths.length && lrcPaths[i].isNotEmpty) {
+            final lrcFile = File(lrcPaths[i]);
+            if (await lrcFile.exists()) {
+              final audioStem = p.basenameWithoutExtension(savedAudio.fileName);
+              await _destinationService.exportLocalFile(
+                sourceFile: lrcFile,
+                desiredFileName: '$audioStem.lrc',
+                destination: resolvedDestination,
+                mimeType: 'text/plain',
+              );
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('[MediaTools] public export failed: $e');
+        if (request.destination != null) {
+          throw MediaExportException(
+            MediaExportErrorKind.failed,
+            detail: '$e',
+          );
+        }
+      }
+    }
+
     if (request.registerInRecent) {
       for (final path in produced) {
         try {
@@ -430,6 +494,10 @@ class MediaExportService {
       sizeBytes: totalBytes,
       lrcPaths: lrcPaths,
       warnings: warnings,
+      destination: resolvedDestination,
+      publicDisplayPaths: publicDisplayPaths,
+      primaryFileUri: primaryFileUri,
+      primaryPublicLocalPath: primaryPublicLocalPath,
     );
   }
 

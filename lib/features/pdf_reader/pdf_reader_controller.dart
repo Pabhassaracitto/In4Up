@@ -34,6 +34,7 @@ import 'services/pdf_text_extractor.dart';
 import 'services/pdf_text_layer_probe.dart';
 import 'services/pdf_tts_machine.dart';
 import 'services/pdf_reading_pages.dart';
+import 'services/reader_follow_policy.dart';
 
 // `PdfTtsState` nay sống trong `services/pdf_tts_machine.dart` cùng máy trạng
 // thái đọc to (I4U18-PDF-OCR-TTS-001 F3). Re-export để mọi widget đang
@@ -178,6 +179,16 @@ class PdfReaderController extends ChangeNotifier {
   // ─── TTS ────────────────────────────────────────────────
   /// Trọng tài Play/Pause/Stop/Next: số phiên + guard double-tap
   /// (xem `services/pdf_tts_machine.dart` — F3).
+  final ReaderFollowPolicy followPolicy = ReaderFollowPolicy();
+  void toggleKaraoke() {
+    followPolicy.karaoke = !followPolicy.karaoke;
+    notifyListeners();
+  }
+  void toggleFollow() {
+    followPolicy.autoScroll = !followPolicy.autoScroll;
+    notifyListeners();
+  }
+
   final PdfTtsMachine _ttsMachine = PdfTtsMachine();
   PdfTtsState get ttsState => _ttsMachine.state;
   String? _currentSpeakingWord;
@@ -219,7 +230,8 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   /// Rect đang được đọc cho overlay (null khi không đọc).
-  List<Rect> get ttsCueRects => currentCue?.lineRects ?? const [];
+  List<Rect> get ttsCueRects => followPolicy.karaoke && isReadingActive
+      ? currentCue?.lineRects ?? const [] : const [];
   int? get ttsCuePageIndex => _ttsMachine.isActive ? _readingPageIndex : null;
 
   /// "câu 3/12 · trang 5" cho thanh TTS.
@@ -898,9 +910,7 @@ class PdfReaderController extends ChangeNotifier {
             debugPrint('PdfReader: page ${pageIndex + 1}/${doc.pages.length}, cue ${index + 1}/${cues.length}');
             _readingCueIndex = index;
             _currentSpeakingWord = _firstWordOf(cues[index].speakText);
-            if (i > 0 && cues[index].pageIndex != cues[index - 1].pageIndex) {
-              _maybeJumpToCue(cues[index]);
-            }
+            _maybeJumpToCue(cues[index]);
             notifyListeners();
           },
         );
@@ -912,7 +922,6 @@ class PdfReaderController extends ChangeNotifier {
         if (_ttsAutoAdvance && pageIndex + 1 < doc.pages.length) {
           pageIndex += 1;
           cueIndex = 0;
-          goToPage(pageIndex);
           continue;
         }
         break;
@@ -999,8 +1008,8 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   void _maybeJumpToCue(PdfSentenceCue cue) {
-    if (cue.pageIndex == _currentPage) return;
-    goToPage(cue.pageIndex);
+    if (!followPolicy.shouldReveal(now: DateTime.now(), visible: false)) return;
+    viewerCommands.revealRect?.call(cue.pageIndex, cue.bounds);
   }
 
   static String? _firstWordOf(String text) {

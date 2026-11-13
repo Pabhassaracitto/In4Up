@@ -26716,6 +26716,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'th': 'เลื่อนตามเนื้อเพลง',
     'ja': '歌詞に自動追従',
   },
+  'Tự cuộn theo câu đọc': {
+    'en': 'Follow reading automatically',
+    'zh': '跟随朗读自动滚动',
+    'zh_TW': '跟隨朗讀自動捲動',
+    'hi': 'पठन के साथ अपने आप स्क्रॉल करें',
+    'si': 'කියවීම අනුව ස්වයංක්‍රීයව අනුචලනය කරන්න',
+    'my': 'ဖတ်သည့်အတိုင်း အလိုအလျောက်ရွှေ့ပါ',
+    'th': 'เลื่อนตามการอ่านอัตโนมัติ',
+    'ja': '読み上げに合わせて自動スクロール',
+  },
   'Tự cuộn theo dòng đang đọc; tắt để cuộn tay.': {
     'en': 'Auto-scroll to the line being read; turn off to scroll manually.',
     'zh': '自动滚动到正在朗读的行；关闭后可手动滚动。',
@@ -32845,6 +32855,16 @@ const Map<String, Map<String, String>> generatedPriorityNativePack = {
     'my': 'မဖတ်ရသေးဟု မှတ်',
     'th': 'ทำเครื่องหมายว่ายังไม่อ่าน',
     'ja': '未読にする',
+  },
+  'Đánh dấu câu đang đọc': {
+    'en': 'Highlight current sentence',
+    'zh': '标记当前朗读句子',
+    'zh_TW': '標記目前朗讀句子',
+    'hi': 'वर्तमान वाक्य हाइलाइट करें',
+    'si': 'කියවන වාක්‍යය ඉස්මතු කරන්න',
+    'my': 'ဖတ်နေသောဝါကျကို အသားပေးပါ',
+    'th': 'เน้นประโยคที่กำลังอ่าน',
+    'ja': '読み上げ中の文を強調',
   },
   'Đánh dấu trang': {
     'en': 'Bookmarked page',

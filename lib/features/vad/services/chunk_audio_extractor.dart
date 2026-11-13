@@ -49,6 +49,20 @@ class AudioChunk {
       '${sourceSegment.endTime.toStringAsFixed(2)}s file: $chunkFilePath';
 }
 
+/// Phần mở rộng của file chunk do bộ cắt sinh ra.
+///
+/// PSRC-205 — GỐC của lỗi "tạo lời cho file dài/m4a báo lỗi không xác định":
+/// `_cutWithFFmpeg` đặt tên chunk theo phần mở rộng của TỆP NGUỒN
+/// (`.m4a`, `.mp3`, `.opus`…) nhưng `AudioConverter.cutSegment` LUÔN mã hoá
+/// `-c:a pcm_s16le`. FFmpeg từ chối ghi PCM vào container AAC/MP3
+/// ("Could not find tag for codec pcm_s16le in stream #0"), chunk nào cũng
+/// hỏng ⇒ fallback `chunkFilePath = file gốc` ⇒ pipeline bỏ TOÀN BỘ đoạn ⇒
+/// job "xong" với 0 dòng và không có thông điệp lỗi. File `.wav` (nguồn duy
+/// nhất trước đây) không lộ lỗi nên test cũ vẫn xanh.
+///
+/// Đầu ra luôn là WAV ⇒ tên chunk phải là `.wav`, bất kể nguồn là gì.
+const String kVadChunkExtension = '.wav';
+
 /// Cắt file audio gốc thành các chunk nhỏ theo SpeechSegment
 /// Đảm bảo không nạp nguyên file 1h vào RAM
 class ChunkAudioExtractor {
@@ -78,7 +92,10 @@ class ChunkAudioExtractor {
   }) async {
     try {
       final tempDir = await _resolveTempDirectory();
-      final ext = p.extension(originalPath).isEmpty ? '.wav' : p.extension(originalPath);
+      // PSRC-205: LUÔN `.wav` — `cutSegment` mã hoá PCM, KHÔNG phải codec của
+      // nguồn. Đặt tên theo nguồn (`.m4a`, `.mp3`…) làm FFmpeg từ chối ghi
+      // PCM vào container đó ⇒ mọi chunk hỏng. Xem [kVadChunkExtension].
+      final ext = kVadChunkExtension;
       final chunkFileName =
           'chunk_${chunkIndex}_${segment.startTime.toStringAsFixed(2)}_${segment.endTime.toStringAsFixed(2)}_${Random().nextInt(9999)}$ext';
       final chunkPath = p.join(tempDir.path, chunkFileName);

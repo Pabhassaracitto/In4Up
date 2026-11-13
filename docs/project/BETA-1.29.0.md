@@ -452,7 +452,8 @@ hành. Con số cần cho quyết định sản phẩm là *chênh lệch* APK r
 - 2026-11-12 | L6 (tiếp) | agent `arena/60e35d65-in4up` | **đường tải/import `sea_g2p.bin`
   trong app** (owner chọn việc này): service tải + `.part` + sha256 + rename, nhập từ tệp,
   engine chặn trước khi nạp 170 MB, card UI + 13 chuỗi × 8 locale, test riêng. Sửa con số
-  sai trước đó: từ điển **62.829.820 byte (~60 MiB)**, không phải 30 MB.
+  sai trước đó: từ điển **62.829.820 byte (~60 MiB)**, không phải 30 MB. CI: `app_analyze`
+  **43360617301** 🟢 4/4 + `listen_queue_tests` **43360617254** 🟢 — **chưa chạy máy thật**.
 - 2026-11-12 | PSRC-204 chốt | agent `arena/60e35d65-in4up` | owner duyệt mô hình nơi lưu
   ⇒ **ADR-0029** (mặc định công khai + đổi từng lần; dữ liệu app giữ riêng); lane L7 không
   phải đánh giá lại, chỉ thi công.

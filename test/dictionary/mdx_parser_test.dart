@@ -51,6 +51,32 @@ void main() {
     return (entries, error);
   }
 
+  test('record spanning blocks preserves UTF-8 characters and full definition', () async {
+    final path = MdxTestBuilder(
+      entries: {'first': 'AậBC complete definition', 'second': 'second entry'},
+      // Split in the middle of the three bytes of ậ.
+      recordSplitAt: 2,
+    ).writeToFile('${tempDir.path}/split-record.mdx');
+    final (entries, error) = await parseFile(path);
+    expect(error, isNull);
+    expect(entries.singleWhere((e) => e.headword == 'first').definition,
+        'AậBC complete definition');
+    expect(entries.singleWhere((e) => e.headword == 'second').definition,
+        'second entry');
+  });
+
+  test('multiple keys sharing an offset all retain the same definition', () async {
+    final path = MdxTestBuilder(
+      entries: {'alpha': 'full record', 'alias': 'ignored', 'zeta': 'last'},
+      aliases: {'alpha': 'alias'},
+    ).writeToFile('${tempDir.path}/aliases.mdx');
+    final (entries, error) = await parseFile(path);
+    expect(error, isNull);
+    expect(entries.singleWhere((e) => e.headword == 'alias').definition, 'ignored');
+    expect(entries.singleWhere((e) => e.headword == 'alpha').definition, 'ignored');
+    expect(entries.singleWhere((e) => e.headword == 'zeta').definition, 'last');
+  });
+
   group('MdxParser — engine 2.0', () {
     test('UTF-8: parse headword + definition HTML', () async {
       final path = MdxTestBuilder(entries: {

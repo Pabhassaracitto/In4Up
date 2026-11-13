@@ -45,6 +45,7 @@ dependencies:
   image_picker: ^1.2.1 # Camera capture; gallery still uses file_picker on desktop
   image: ^4.8.0 # Decode/re-encode ML Kit's transparent PNG output
   path: ^1.9.0
+  html: ^0.15.6 # Parse dictionary HTML without executing it
   path_provider: ^2.1.4
   permission_handler: ^12.0.1
 

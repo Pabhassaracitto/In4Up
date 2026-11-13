@@ -5,6 +5,7 @@ import '../models/dict_entry.dart';
 import '../services/dict_text_cleaner.dart';
 import '../services/dictionary_service.dart';
 import 'dict_definition_view.dart';
+import 'dict_source_entries.dart';
 
 /// "Trang từ điển" đầy đủ (DICT-CLEAN-001).
 ///
@@ -228,7 +229,7 @@ class DictEntryDetailSheet extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
             children: <Widget>[
-              if (merged.isEmpty && meaning.isEmpty)
+              if (merged.isEmpty && meaning.isEmpty && entries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Center(
@@ -253,6 +254,10 @@ class DictEntryDetailSheet extends StatelessWidget {
                     height: 1.55,
                   ),
                 ),
+              DictSourceEntries(
+                entries: entries,
+                initiallyExpanded: merged.isEmpty,
+              ),
               if (sources.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 18),

@@ -97,6 +97,28 @@ class WordInsight {
         ],
       );
 
+  /// Keep the dictionary entries already shown locally if a later network
+  /// result cannot retrieve them. Never combine results for different words.
+  WordInsight withDictionaryFallback(WordInsight fallback) {
+    if (hasDictionary || !fallback.hasDictionary || word != fallback.word) {
+      return this;
+    }
+    return WordInsight(
+      word: word,
+      ipa: ipa,
+      ipaSource: ipaSource,
+      meaning: meaning,
+      englishMeaning: englishMeaning,
+      partOfSpeech: partOfSpeech,
+      example: example,
+      entries: fallback.entries,
+      definitions: fallback.definitions,
+      dictionaryNames: fallback.dictionaryNames,
+      origin: origin,
+      fromCache: fromCache,
+    );
+  }
+
   WordInsight copyWith({bool? fromCache}) => WordInsight(
         word: word,
         ipa: ipa,
@@ -215,6 +237,8 @@ class WordInsightService {
       insight = WordInsight(word: word);
     }
 
+    final local = _localCache[word];
+    if (local != null) insight = insight.withDictionaryFallback(local);
     if (_cache.length >= _cacheMax) _cache.clear();
     _cache[word] = insight;
     _localCache[word] = insight;

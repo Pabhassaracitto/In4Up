@@ -307,7 +307,9 @@ jobs:
         run: |
           set +e
           files=""
-          for f in test/dictionary/dict_text_cleaner_test.dart \
+          for f in test/dictionary/dict_source_entries_test.dart \
+                   test/dictionary/mdx_parser_test.dart \
+                   test/dictionary/dict_text_cleaner_test.dart \
                    test/dictionary/dict_result_sheet_test.dart \
                    test/dictionary/dict_cleaner_noise_test.dart \
                    test/dictionary/dict_multilang_pos_test.dart \

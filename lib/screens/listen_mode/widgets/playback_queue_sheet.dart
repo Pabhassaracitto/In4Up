@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../providers/player_provider.dart';
 import 'legacy_audio_data_button.dart';
+import 'playback_problem_snack.dart';
 
 /// The queue belongs to the player session; this sheet is only a view of it.
 Future<void> showPlaybackQueueSheet(BuildContext context) {
@@ -81,10 +82,14 @@ class PlaybackQueueSheet extends StatelessWidget {
                         final loading = player.isQueueLoading &&
                             index == player.queueCursor;
                         final unavailable = failed.contains(index) || item.isMissing;
+                        // PSRC-219: nêu đúng nguyên nhân khi máy không có
+                        // bộ phát trong app, thay vì "Không phát được bài này".
                         final subtitle = unavailable
                             ? context.uiText(item.isMissing
                                 ? 'Bài không còn trong thư viện'
-                                : 'Không phát được bài này')
+                                : (playbackFailureMessageKey(
+                                        player.lastLoadError) ??
+                                    'Không phát được bài này'))
                             : item.artist;
                         return ListTile(
                           key: ValueKey('queue-item-$index'),
